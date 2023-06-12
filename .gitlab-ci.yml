@@ -47,7 +47,7 @@ lint-flake8:
     - !reference [.install-pip3, script]
     - !reference [.pipenv-install, script]
 
-.test-pytest:
+test-pytest:
   extends: .test-pytest
   allow_failure: true
   needs: ["lint-flake8"]
@@ -56,7 +56,7 @@ lint-flake8:
     DEFAULT_PIPENV_ARGS: "--system --dev --ignore-pipfile" # --dev  --verbose --index=https://package_read:${CI_PIP_GITLABJUSMUNDI_TOKEN}@gitlab.com/api/v4/groups/7364654/-/packages/pypi/simple
   # BELOW is needed as we do not use jm-ubuntu but python:3.9
   before_script:
-    - export PIPENV_INSTALL_TIMEOUT=1800 # 900 is 15 minutes
+    # - export PIPENV_INSTALL_TIMEOUT=1800 # 900 is 15 minutes
     - !reference [.install-pip3, script]
     - !reference [.pipenv-install, script]
 
