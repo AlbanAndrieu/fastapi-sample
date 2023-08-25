@@ -2,7 +2,7 @@
 
 variable "env" {
   type    = string
-  default = "[[ .ENV ]]"
+  default = "dev"
 
   validation {
     condition     = var.env == "dev" || var.env == "uat" || var.env == "prod"
@@ -15,7 +15,7 @@ variable "team" {
   default = "uat"
 
   validation {
-    condition     = var.team == "uat" || var.team == "prod" || var.team == "dev"
+    condition     = var.team == "ateam" || var.team == "bteam" || var.team == "uat" || var.team == "prod" || var.team == "dev"
     error_message = "The env value must be valid team ateam or bteam."
   }
 }
@@ -26,12 +26,12 @@ variable "datacenters" {
   default     = ["gra"]
 }
 
-job "nabla-hook" {
+job "fastapi-sample" {
   datacenters = var.datacenters
   namespace   = "datascience"
   type        = "service"
 
-  group "nabla-hook" {
+  group "fastapi-sample" {
     count = 1
 
     # Canary disable, because service is too big 10 G minimum and cluster is not sized for it, so auto_promote set to false
@@ -69,7 +69,7 @@ job "nabla-hook" {
     //   access_mode     = "multi-node-multi-writer"
     // }
 
-    task "nabla-hook" {
+    task "fastapi-sample" {
       driver = "docker"
       config {
         image = "[[ .CONTAINER_IMAGE ]]"
@@ -77,6 +77,7 @@ job "nabla-hook" {
 
         # force_pull = true
         shm_size = 536870912 # 512MB
+        auth_soft_fail = true
         image_pull_timeout = "25m"
       }
 
@@ -86,10 +87,6 @@ job "nabla-hook" {
 
       template {
         data        = <<EOF
-# {{ with secret "datascience/nabla-hook/${var.env}" }}
-# {{.Data.data.ENV}}
-# {{ end }}
-TEMPORALIO_HOST="temporal-app.service.gra.dev.consul"
 UVICORN_LOG_LEVEL=debug
 EOF
         destination = "${NOMAD_SECRETS_DIR}/.env.local"
@@ -98,13 +95,13 @@ EOF
       }
 
       service {
-        name = "nabla-hook"
+        name = "fastapi-sample"
         port = "server"
 
         tags = [
           "traefik.enable=true",
-          "traefik.http.routers.nabla-hook-${var.env}.entrypoints=http",
-          "traefik.http.routers.nabla-hook-${var.env}.rule=Host(`nabla-hook.service.gra.${var.env}.consul`)",
+          "traefik.http.routers.fastapi-sample-${var.env}.entrypoints=http",
+          "traefik.http.routers.fastapi-sample-${var.env}.rule=Host(`fastapi-sample.service.gra.${var.env}.consul`)",
         ]
 
         # Meta keys are also interpretable.
@@ -112,7 +109,7 @@ EOF
           version  = "v0.0.1"
           region   = "${node.region}"
           dc       = "${node.datacenter}"
-          service  = "nabla-hook-${var.env}"
+          service  = "fastapi-sample-${var.env}"
           team     = "${var.team}"
         }
 
@@ -120,87 +117,84 @@ EOF
           name     = "server-alive"
           port     = "server"
           type     = "http"
-          path     = "heatlh" # v1/ping /docs /metrics
+          path     = "/heatlh" # v1/ping /docs /metrics
           # 2m because can be heavy to lead, better to put it at this interval
           interval = "2m"
           timeout  = "20m"
         }
 
-      } # service nabla-hook
+      } # service fastapi-sample
 
       resources {
         cpu    = 200 # MHz
         memory = 100 # MB
       }
-    } # task nabla-hook
+    } # task fastapi-sample
 
-    task "nabla-hook-worker" {
-      driver = "docker"
-      config {
-        image = "[[ .CONTAINER_IMAGE ]]"
-        image_pull_timeout = "25m"
-        ports = ["worker"]
-        # force_pull = true
+#    task "fastapi-sample-worker" {
+#      driver = "docker"
+#      config {
+#        image = "[[ .CONTAINER_IMAGE ]]"
+#        image_pull_timeout = "25m"
+#        ports = ["worker"]
+#        # force_pull = true
+#
+#        command = "python"
+#        args = [
+#            "-m",
+#            "serve_worker",
+#        ]
+#        shm_size = 536870912 # 512MB
+#      }
+#
+#      // volume_mount {
+#      //   volume      = "nabla"
+#      //   destination = "/usr/share/data/"
+#      //   read_only   = false
+#      // }
+#
+#      vault {
+#        policies  = ["cicd"]
+#      }
+#
+#      template {
+#        data        = <<EOF
+#TEMPORALIO_HOST="temporal-app.service.gra.dev.consul"
+#UVICORN_LOG_LEVEL=debug
+#EOF
+#        destination = "${NOMAD_SECRETS_DIR}/.env.local"
+#
+#        env         = true
+#      }
+#
+#      service {
+#        name = "fastapi-sample-worker"
+#        port = "worker"
+#
+#        tags = [
+#          "traefik.enable=true",
+#          "traefik.http.routers.fastapi-sample-worker-${var.env}.entrypoints=http",
+#          "traefik.http.routers.fastapi-sample-worker-${var.env}.rule=Host(`fastapi-sample-worker.service.gra.${var.env}.consul`) || Host(`fastapi-sample-worker.${var.env}.service.gra.${var.env}.consul`)",
+#        ]
+#
+#        check {
+#          name     = "server-prometheus"
+#          port     = "worker"
+#          type     = "http"
+#          path     = "/metrics"
+#          interval = "5m"
+#          timeout  = "20m"
+#        }
+#
+#      } # service worker
+#
+#      resources {
+#        cpu    = var.env == "dev" ? "1000" : "2000" # MHz
+#        memory = var.env == "dev" ? "4000" : "5000" # MB 5Gb minimum
+#      }
+#    } # task fastapi-sample-worker
 
-        command = "python"
-        args = [
-            "-m",
-            "serve_worker",
-        ]
-        shm_size = 536870912 # 512MB
-      }
-
-      // volume_mount {
-      //   volume      = "nabla"
-      //   destination = "/usr/share/data/"
-      //   read_only   = false
-      // }
-
-      vault {
-        policies  = ["cicd"]
-      }
-
-      template {
-        data        = <<EOF
-#{{ with secret "datascience/nabla-hook/${var.env}" }}
-#{{.Data.data.ENV}}
-#{{ end }}
-TEMPORALIO_HOST="temporal-app.service.gra.dev.consul"
-UVICORN_LOG_LEVEL=debug
-EOF
-        destination = "${NOMAD_SECRETS_DIR}/.env.local"
-
-        env         = true
-      }
-
-      service {
-        name = "nabla-hook-worker"
-        port = "worker"
-
-        tags = [
-          "traefik.enable=true",
-          "traefik.http.routers.nabla-hook-worker-${var.env}.entrypoints=http",
-          "traefik.http.routers.nabla-hook-worker-${var.env}.rule=Host(`nabla-hook-worker.service.gra.${var.env}.consul`) || Host(`nabla-hook-worker.${var.env}.service.gra.${var.env}.consul`)",
-        ]
-
-        check {
-          name     = "server-prometheus"
-          port     = "worker"
-          type     = "http"
-          path     = "/metrics"
-          interval = "5m"
-          timeout  = "20m"
-        }
-
-      } # service worker
-
-      resources {
-        cpu    = var.env == "dev" ? "1000" : "2000" # MHz
-        memory = var.env == "dev" ? "4000" : "5000" # MB 5Gb minimum
-      }
-    } # task nabla-hook-worker
-
-    task "nabla-hook-kong-registration" {
+    task "fastapi-sample-kong-registration" {
 
       driver = "docker"
 
@@ -224,7 +218,7 @@ EOF
           "--state",
           "/kong.yml",
           "--select-tag",
-          "nabla-hook"
+          "fastapi-sample"
         ]
       }
 
@@ -235,11 +229,11 @@ EOF
 _format_version: "3.0"
 _info:
   select_tags:
-  - nabla-hook
+  - fastapi-sample
 services:
 - connect_timeout: 60000
-  host: nabla-hook.service.gra.${var.env}.consul
-  name: nabla-hook
+  host: fastapi-sample.service.gra.${var.env}.consul
+  name: fastapi-sample
   path: /
   port: 80
   protocol: http
@@ -248,16 +242,16 @@ services:
   routes:
   - hosts:
     %{ if var.env == "uat" }
-    - nabla-hook.staging.int.jusmundi.com
+    - fastapi-sample.staging.int.jusmundi.com
     %{ endif }
-    - nabla-hook.${var.env}.int.jusmundi.com
+    - fastapi-sample.${var.env}.int.jusmundi.com
     https_redirect_status_code: 426
     methods:
     - GET
     - PUT
     - POST
     - DELETE
-    name: nabla-hook
+    name: fastapi-sample
     path_handling: v0
     preserve_host: false
     protocols:
@@ -268,7 +262,7 @@ services:
     response_buffering: true
     strip_path: true
   tags:
-  - nabla-hook
+  - fastapi-sample
   write_timeout: 60000
 EOF
       }
@@ -280,56 +274,56 @@ EOF
 
     } # task kong-registration
 
-     task "nabla-hook-kong-disable" {
+#    task "fastapi-sample-kong-disable" {
+#
+#      driver = "docker"
+#
+#      lifecycle {
+#        hook = "poststop"
+#      }
+#
+#      config {
+#        image = "docker.io/kong/deck:v1.19.1"
+#
+#        volumes = [
+#          "local/kong.yml:/kong.yml"
+#        ]
+#
+#        image_pull_timeout = "10m"
+#
+#        args = [
+#          "--kong-addr",
+#          "http://kong-admin.service.gra.${var.env}.consul",
+#          "sync",
+#          "--state",
+#          "/kong.yml",
+#          "--select-tag",
+#          "fastapi-sample"
+#        ]
+#      }
+#
+#      template {
+#        destination = "local/kong.yml"
+#
+#        data = <<EOF
+#_format_version: "3.0"
+#_info:
+#  select_tags:
+#  - fastapi-sample
+#services:
+#- name: fastapi-sample
+#  enabled: false
+#  host: fastapi-sample.service.gra.${var.env}.consul
+#EOF
+#      }
+#
+#      resources {
+#        cpu    = 300 # Mhz
+#        memory = 300 # MB
+#      }
+#
+#    } # task kong-disable
 
-       driver = "docker"
-
-       lifecycle {
-         hook = "poststop"
-       }
-
-       config {
-         image = "docker.io/kong/deck:v1.19.1"
-
-         volumes = [
-           "local/kong.yml:/kong.yml"
-         ]
-
-         image_pull_timeout = "10m"
-
-         args = [
-           "--kong-addr",
-           "http://kong-admin.service.gra.${var.env}.consul",
-           "sync",
-           "--state",
-           "/kong.yml",
-           "--select-tag",
-           "nabla-hook"
-         ]
-       }
-
-       template {
-         destination = "local/kong.yml"
-
-         data = <<EOF
-_format_version: "3.0"
-_info:
-  select_tags:
-  - nabla-hook
-services:
-- name: nabla-hook
-  enabled: false
-  host: nabla-hook.service.gra.${var.env}.consul
-EOF
-       }
-
-       resources {
-         cpu    = 300 # Mhz
-         memory = 300 # MB
-       }
-
-     } # task kong-disable
-
-  } # group nabla-hook
+  } # group fastapi-sample
 
 }

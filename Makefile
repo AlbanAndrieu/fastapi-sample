@@ -27,7 +27,7 @@ CS_SEVERITY_REPORT_THRESHOLD = "HIGH,CRITICAL"
 # from the environment for the first two.
 SPHINXOPTS    ?=
 SPHINXBUILD   ?= sphinx-build
-SOURCEDIR     = source
+SOURCEDIR     = docs/source
 BUILDDIR      = build
 
 # Executables: local only
@@ -128,7 +128,7 @@ run: down up
 .PHONY: doc
 doc: ## Documentation
 	@echo "=> Doc..."
-	sphinx-build ./docs _build --color -W -bhtml
+	sphinx-build ./docs/source _build --color -W -bhtml
 
 ## —— Lint 🧪 —————————————————————————————————————————————————————————————————
 .PHONY: flake8
