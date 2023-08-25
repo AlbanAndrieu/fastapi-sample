@@ -2,10 +2,10 @@
 
 # dockerfile_lint - ignore
 # hadolint ignore=DL3007
-FROM pytorch/pytorch:1.13.1-cuda11.6-cudnn8-runtime as prebuild
+# FROM pytorch/pytorch:1.13.1-cuda11.6-cudnn8-runtime as prebuild
 # FROM pytorch/pytorch:1.13.0-cuda11.6-cudnn8-runtime as prebuild
 # FROM pytorch/pytorch:1.7.1-cuda11.0-cudnn8-runtime as prebuild
-# FROM python:3.10
+FROM python:3.10
 
 LABEL name="fastapi-sample" version="1.0.0" \
  description="Image used by our products to build python\
@@ -59,7 +59,7 @@ COPY --chown=jm-python:jm-python Pipfile* /code/
 # RUN --mount=type=secret,id=pip.conf,dst=/code/.config/pip/pip.conf,uid=999,gid=999 \
 RUN --mount=type=secret,id=Pipfile,dst=/code/Pipfile,uid=999,gid=999 \
 python -m pip install --upgrade pip && \
-python -m pip install --no-cache-dir --user --upgrade pipenv && \
+python -m pip install --no-cache-dir --user --upgrade pipenv==2023.7.23 && \
 python -m pip install --no-cache-dir --user --upgrade virtualenv && \
 python -m pipenv install --site-packages --system
 # python -m pip install --no-cache-dir -r /code/requirements.txt

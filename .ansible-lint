@@ -5,6 +5,8 @@ exclude_paths:
   - .direnv/
   - .github/
   - .gitlab/
+  - .gitlab-ci.yml
+  - megalinter-reports/
 # parseable: true
 # quiet: true
 # rulesdir:

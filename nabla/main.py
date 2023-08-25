@@ -1,25 +1,38 @@
-from typing import Dict
-import os
 import logging
+import os
 import time
+from typing import Dict
+
+from fastapi import FastAPI
 
 # from nabla import logger
 from nabla.api import ping, v1
+from nabla.utils import PrometheusMiddleware, metrics, setting_otlp
+
+# from prometheus_fastapi_instrumentator import Instrumentator
+from starlette.middleware.cors import CORSMiddleware
 
 # from citation.infrastructure.crud_exceptions import CrudError, NotFoundInJM
 
-from fastapi import FastAPI
-from starlette.middleware.cors import CORSMiddleware
-
-# from prometheus_fastapi_instrumentator import Instrumentator
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-
-from nabla.utils import PrometheusMiddleware, metrics, setting_otlp
 
 APP_NAME = os.environ.get("APP_NAME", "nabla-hooks")
 OTLP_GRPC_ENDPOINT = os.environ.get(
     "OTLP_GRPC_ENDPOINT", "http://grpc.jaeger-collector-grpc.service.gra.dev.consul"
 )
+
+OTEL_EXPORTER_JAEGER_AGENT_HOST = os.environ.get(
+    "OTEL_EXPORTER_JAEGER_AGENT_HOST", "jaeger-collector-grpc.service.gra.dev.consul"
+)
+
+OTEL_EXPORTER_JAEGER_AGENT_PORT = os.environ.get(
+    "OTEL_EXPORTER_JAEGER_AGENT_PORT", "80"
+)
+
+OTEL_EXPORTER_JAEGER_ENDPOINT = os.environ.get(
+    "OTEL_EXPORTER_JAEGER_ENDPOINT",
+    "http://jaeger-collector-grpc.service.gra.dev.consul:14250",
+)
+
 # http://grpc.jaeger-collector-grpc.service.gra.dev.consul
 # http://jaeger-collector-grpc.service.gra.dev.consul:14250
 # http://otel-collector.service.gra.dev.consul:4317
@@ -95,7 +108,7 @@ async def io_task():
 @app.get("/cpu_task")
 async def cpu_task():
     for i in range(1000):
-        n = i * i * i
+        i * i * i
     logging.error("cpu task")
     return "CPU bound task finish!"
 

@@ -1,17 +1,16 @@
-from fastapi import APIRouter
-from fastapi import HTTPException, status
+import asyncio
+import logging
+import random
+
+import requests
+from fastapi import APIRouter, HTTPException, status
+from opentelemetry import trace
+from opentelemetry.trace.status import Status, StatusCode
+from prometheus_client import Counter, Histogram
 from starlette.responses import JSONResponse
 
 # from datetime import date, timedelta
 
-from opentelemetry import trace
-from opentelemetry.trace.status import Status, StatusCode
-from prometheus_client import Counter, Histogram
-
-import asyncio
-import requests
-import logging
-import random
 
 random.seed(54321)
 
@@ -45,8 +44,10 @@ api_request_counter = Counter(
 
 @router.get("/items/{item_id}")
 async def read_item(item_id: int, q: str = None):
-    api_request_counter.labels(method="GET", endpoint="/items", http_status=200).inc()
-    api_request_summary.labels(method="GET", endpoint="/items").observe(0.1)
+    api_request_counter.labels(
+        method="GET", endpoint="/items/{item_id}", http_status=200
+    ).inc()
+    api_request_summary.labels(method="GET", endpoint="/items/{item_id}").observe(0.1)
     if item_id % 2 == 0:
         # mock io - wait for x seconds
         seconds = random.uniform(0, 3)
@@ -77,7 +78,7 @@ async def exception():
         # Update the span status to failed.
         span.set_status(Status(StatusCode.ERROR, "internal error"))
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Got sadness"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Got sadness"
         ) from ex
 
 

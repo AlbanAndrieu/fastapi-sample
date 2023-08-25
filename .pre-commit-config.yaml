@@ -114,8 +114,8 @@ repos:
         files: \.(yaml|yml)$
         exclude: >
           (?x)^(
-              .travis.yml|
-              .gitlab-ci.yml|
+            .travis.yml|
+            .gitlab-ci.yml|
           )$
   - repo: https://github.com/doublify/pre-commit-hindent.git
     rev: b3680b6ebf9f7cf29b19307f246adef66756feef
