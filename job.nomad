@@ -50,9 +50,9 @@ job "fastapi-sample" {
         to     = 8080
       }
 
-      port "worker" {
-        to     = 9000
-      }
+      # port "worker" {
+      #   to     = 9000
+      # }
     }
 
     restart {
@@ -78,7 +78,7 @@ job "fastapi-sample" {
         # force_pull = true
         shm_size = 536870912 # 512MB
         auth_soft_fail = true
-        image_pull_timeout = "25m"
+        # image_pull_timeout = "25m"
       }
 
       vault {
@@ -88,6 +88,9 @@ job "fastapi-sample" {
       template {
         data        = <<EOF
 UVICORN_LOG_LEVEL=debug
+OTEL_RESOURCE_ATTRIBUTES=service.name=fastapi-sample
+OTEL_SERVICE_NAME=fastapi-sample
+OTEL_EXPORTER_OTLP_ENDPOINT="http://otel-collector.service.gra.${var.env}.consul:4317"
 EOF
         destination = "${NOMAD_SECRETS_DIR}/.env.local"
 
@@ -118,9 +121,9 @@ EOF
           port     = "server"
           type     = "http"
           path     = "/heatlh" # v1/ping /docs /metrics
-          # 2m because can be heavy to lead, better to put it at this interval
-          interval = "2m"
-          timeout  = "20m"
+          # 30s because can be heavy to lead, better to put it at this interval
+          interval = "30s"
+          timeout  = "5s"
         }
 
       } # service fastapi-sample
