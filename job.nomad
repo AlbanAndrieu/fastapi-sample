@@ -120,7 +120,7 @@ EOF
           name     = "server-alive"
           port     = "server"
           type     = "http"
-          path     = "/heatlh" # v1/ping /docs /metrics
+          path     = "/health" # v1/ping /docs /metrics
           # 30s because can be heavy to lead, better to put it at this interval
           interval = "30s"
           timeout  = "5s"
