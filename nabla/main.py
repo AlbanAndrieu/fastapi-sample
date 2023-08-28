@@ -3,6 +3,7 @@ import os
 import time
 from typing import Dict
 
+import sentry_sdk
 from fastapi import FastAPI
 
 # from nabla import logger
@@ -39,6 +40,14 @@ OTEL_EXPORTER_JAEGER_ENDPOINT = os.environ.get(
 # http://jaeger-collector-grpc.service.gra.dev.consul:14250
 # http://otel-collector.service.gra.dev.consul:4317
 # http://otel-collector.service.gra.dev.consul:9411/api/v2/spans
+
+sentry_sdk.init(
+    dsn="https://11c5d815632831d3274c830441885207@o4505783360356352.ingest.sentry.io/4505783364681728",
+    # Set traces_sample_rate to 1.0 to capture 100%
+    # of transactions for performance monitoring.
+    # We recommend adjusting this value in production,
+    traces_sample_rate=1.0,
+)
 
 # logger.info("Creating API")
 logging.info("Creating API")
@@ -133,6 +142,11 @@ async def startup():
 def get_status() -> Dict[str, str]:
     """Healthcheck endpoint."""
     return {"status": "pass"}
+
+
+@app.get("/sentry-debug")
+async def trigger_error():
+    pass
 
 
 app.include_router(ping.router)

@@ -98,9 +98,13 @@ pipenv-poetry-migrate -f Pipfile -t pyproject.toml --no-use-group-notation
 
 ## [Quality check](#table-of-contents)
 
+
 ```bash
 python -m flake8  nabla --max-line-length=88 --max-complexity=30
 ```
+
+[trigger error in sentry-debug](http://0.0.0.0:8080/sentry-debug)
+[sentry](https://nabla-4f3768f61.sentry.io/profiling/)
 
 
 ## [Add your files](#table-of-contents)
