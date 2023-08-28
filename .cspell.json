@@ -38,7 +38,8 @@
     "pre-commit",
     ".pre-commit-config.yaml",
     "LICENSE",
-    "report"
+    "report",
+    "uvicorn"
   ],
   "words": [
     "Andrieu",
