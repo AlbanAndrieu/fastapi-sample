@@ -16,7 +16,7 @@ framework:
   - all
 # skip-download: true
 # quiet: true
-repo-id: AlbanAndrieu/nabla-hooks/
+repo-id: albanandrieu/fastapi-sample /
 # skip-check:
 # - CKV_DOCKER_3
 # - CKV_DOCKER_2

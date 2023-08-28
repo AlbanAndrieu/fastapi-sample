@@ -17,7 +17,9 @@ from starlette.middleware.cors import CORSMiddleware
 
 APP_NAME = os.environ.get("APP_NAME", "nabla-hooks")
 OTLP_GRPC_ENDPOINT = os.environ.get(
-    "OTLP_GRPC_ENDPOINT", "http://grpc.jaeger-collector-grpc.service.gra.dev.consul"
+    # "OTLP_GRPC_ENDPOINT", "http://grpc.jaeger-collector-grpc.service.gra.dev.consul"
+    "OTLP_GRPC_ENDPOINT",
+    "http://otel-collector.service.gra.dev.consul:4317",
 )
 
 OTEL_EXPORTER_JAEGER_AGENT_HOST = os.environ.get(
@@ -41,7 +43,8 @@ OTEL_EXPORTER_JAEGER_ENDPOINT = os.environ.get(
 # logger.info("Creating API")
 logging.info("Creating API")
 app = FastAPI(
-    title="Nabla V1",
+    title="FastAPI Sample V1",
+    description="FastAPI Sample V1",
     version="0.0.1",
 )
 

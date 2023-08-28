@@ -18,6 +18,7 @@ Fastapi sample
   * [Install fastapi-sample as a developer](#install-fastapi-sample-as-a-developer)
     + [Using virtualenv](#using-virtualenv)
   * [Getting started](#getting-started)
+  * [Quality check](#quality-check)
   * [Add your files](#add-your-files)
 
 <!-- tocstop -->
@@ -95,6 +96,7 @@ pip install -U poetry pipenv-poetry-migrate
 pipenv-poetry-migrate -f Pipfile -t pyproject.toml --no-use-group-notation
 ```
 
+## [Quality check](#table-of-contents)
 
 ```bash
 python -m flake8  nabla --max-line-length=88 --max-complexity=30
