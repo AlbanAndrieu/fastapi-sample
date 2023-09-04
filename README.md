@@ -103,6 +103,10 @@ pip install -U poetry pipenv-poetry-migrate
 pipenv-poetry-migrate -f Pipfile -t pyproject.toml --no-use-group-notation
 ```
 
+[io_task][http://0.0.0.0:8080/io_task)
+
+Result available on [pyroscope](http://localhost:4040/?query=process_cpu%3Acpu%3Ananoseconds%3Acpu%3Ananoseconds%7Bservice_name%3D%22fastapi-sample%22%7D&rightQuery=block%3Acontentions%3Acount%3A%3A%7Bservice_name%3D%22pyroscope%22%7D&leftQuery=block%3Acontentions%3Acount%3A%3A%7Bservice_name%3D%22pyroscope%22%7D&from=now-30m)
+
 ## [Quality check](#table-of-contents)
 
 

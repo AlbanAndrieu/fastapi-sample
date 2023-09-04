@@ -3,6 +3,7 @@ import os
 import time
 from typing import Dict
 
+import pyroscope
 import sentry_sdk
 from fastapi import FastAPI
 
@@ -117,10 +118,15 @@ async def io_task():
     return "IO bound task finish!"
 
 
+def work(n):
+    for i in range(n):
+        i * i * i
+
+
 @app.get("/cpu_task")
 async def cpu_task():
-    for i in range(1000):
-        i * i * i
+    with pyroscope.tag_wrapper({"function": "fast"}):
+        work(1000)
     logging.error("cpu task")
     return "CPU bound task finish!"
 
@@ -141,7 +147,8 @@ async def startup():
 @app.get("/health")
 def get_status() -> Dict[str, str]:
     """Healthcheck endpoint."""
-    return {"status": "pass"}
+    with pyroscope.tag_wrapper({"function": "fast"}):
+        return {"status": "pass"}
 
 
 @app.get("/sentry-debug")
