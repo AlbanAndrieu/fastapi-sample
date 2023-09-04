@@ -1,6 +1,7 @@
 import logging
 import os
 
+import pyroscope
 import uvicorn
 from nabla.main import app
 
@@ -18,6 +19,11 @@ class EndpointFilter(logging.Filter):
 logging.getLogger("uvicorn.access").addFilter(EndpointFilter())
 
 if __name__ == "__main__":
+    pyroscope.configure(
+        application_name="fastapi-sample",
+        server_address="http://pyroscope-server:4040",  # replace this with the address of your Pyroscope server
+    )
+
     # update uvicorn access logger format
     log_config = uvicorn.config.LOGGING_CONFIG
     log_config["formatters"]["access"][
