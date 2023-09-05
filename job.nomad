@@ -91,6 +91,7 @@ UVICORN_LOG_LEVEL=debug
 OTEL_RESOURCE_ATTRIBUTES=service.name=fastapi-sample
 OTEL_SERVICE_NAME=fastapi-sample
 OTEL_EXPORTER_OTLP_ENDPOINT="http://otel-collector.service.gra.${var.env}.consul:4317"
+PYROSCOPE_ENDPOINT="http://pyroscope.service.gra.${var.env}.consul"
 EOF
         destination = "${NOMAD_SECRETS_DIR}/.env.local"
 
