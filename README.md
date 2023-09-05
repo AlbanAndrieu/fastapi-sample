@@ -89,7 +89,14 @@ python -m pipenv install --dev --ignore-pipfile
 ```bash
 make up-uvicorn
 ```
+
 [health](http://localhost:8080/health)
+
+```bash
+sudo lsof -ni:8080 -sTCP:ESTABLISHED
+netstat -tlnp | grep 8080
+sudo lsof -i :8080
+```
 
 ```bash
 pip install -U poetry pipenv-poetry-migrate
