@@ -7,6 +7,7 @@ from nabla.main import app
 
 EXPOSE_HOST = os.environ.get("EXPOSE_HOST", "0.0.0.0")
 EXPOSE_PORT = os.environ.get("EXPOSE_PORT", 8080)
+PYROSCOPE_ENDPOINT = os.environ.get("PYROSCOPE_ENDPOINT", "http://localhost:4040")
 
 
 class EndpointFilter(logging.Filter):
@@ -21,7 +22,7 @@ logging.getLogger("uvicorn.access").addFilter(EndpointFilter())
 if __name__ == "__main__":
     pyroscope.configure(
         application_name="fastapi-sample",
-        server_address="http://pyroscope-server:4040",  # replace this with the address of your Pyroscope server
+        server_address=PYROSCOPE_ENDPOINT,  # replace this with the address of your Pyroscope server
     )
 
     # update uvicorn access logger format
