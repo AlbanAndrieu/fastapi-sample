@@ -6,7 +6,7 @@ import uvicorn
 from nabla.main import app
 
 EXPOSE_HOST = os.environ.get("EXPOSE_HOST", "0.0.0.0")
-EXPOSE_PORT = os.environ.get("EXPOSE_PORT", 8080)
+EXPOSE_PORT = int(os.environ.get("EXPOSE_PORT", 8080))
 
 
 class EndpointFilter(logging.Filter):
