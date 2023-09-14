@@ -20,6 +20,7 @@ Fastapi sample
   * [Getting started](#getting-started)
   * [Quality check](#quality-check)
   * [Add your files](#add-your-files)
+  * [Update README.md](#update-readmemd)
 
 <!-- tocstop -->
 
@@ -123,9 +124,21 @@ python -m flake8  nabla --max-line-length=88 --max-complexity=30
 - [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
 - [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
 
-```
+```bash
 cd existing_repo
 git remote add origin https://gitlab.com/AlbanAndrieu/fastapi-sample.git
 git branch -M main
 git push -uf origin main
+```
+
+## [Update README.md](#table-of-contents)
+
+
+  * [github-markdown-toc](https://github.com/jonschlinkert/markdown-toc)
+  * With [github-markdown-toc](https://github.com/Lucas-C/pre-commit-hooks-nodejs)
+
+```bash
+npm install -g markdown-toc
+markdown-toc README.md -i
+markdown-toc CHANGELOG.md -i
 ```
