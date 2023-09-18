@@ -1,12 +1,13 @@
 """ Settings for nabla project """
 from functools import lru_cache
 from pathlib import Path
+from typing import Optional, Type
 
 from pydantic import BaseSettings
 
 
 # Basic db & ovh settings
-class Settings(BaseSettings):
+class _Settings(BaseSettings):
     # db settings
     db_host: str = "localhost"
     db_name: str = "back"
@@ -25,16 +26,20 @@ class Settings(BaseSettings):
     mlflow_tracking_uri: str = "https://mlflow.jusmundi.com/"
 
     class Config:
-        env_file = Path(__file__).parent.parent.absolute() / ".env"
+        base_path = Path(__file__).parent.parent.absolute()
+        env_file = [base_path / ".env", base_path / ".env.local"]
 
 
 @lru_cache()
-def get_settings():
+def get_settings(env_file: Optional[Path] = None) -> Type[BaseSettings]:
     """
     Return Settings object as a dependency and use @lru_cache
     decorator to create object and load .env file only once
     """
-    return Settings()
+    if env_file is None:
+        return _Settings()
+    else:
+        return _Settings(_env_file=env_file)
 
 
 # Logging
