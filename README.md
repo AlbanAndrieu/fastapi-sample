@@ -19,8 +19,12 @@ Fastapi sample
     + [Using virtualenv](#using-virtualenv)
   * [Getting started](#getting-started)
   * [Quality check](#quality-check)
+<<<<<<< HEAD
   * [Add your files](#add-your-files)
   * [Update README.md](#update-readmemd)
+=======
+  * [Utility scripts](#utility-scripts)
+>>>>>>> d8a7f76 (Add import_csv_sql.py)
 
 <!-- tocstop -->
 
@@ -119,16 +123,15 @@ python -m flake8  nabla --max-line-length=88 --max-complexity=30
 [sentry](https://nabla-4f3768f61.sentry.io/profiling/)
 
 
-## [Add your files](#table-of-contents)
+## [Utility scripts](#table-of-contents)
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
 
-```bash
-cd existing_repo
-git remote add origin https://gitlab.com/AlbanAndrieu/fastapi-sample.git
-git branch -M main
-git push -uf origin main
+```
+python3 nabla/loki/influxdb.py
+
+# Add header in file
+# user_id,email text,last_login,cgu_read_and_accepted,roles
+python3 nabla/scripts.py ~/Downloads/Product_activity_1.csv
 ```
 
 ## [Update README.md](#table-of-contents)
