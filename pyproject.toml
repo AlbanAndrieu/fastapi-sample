@@ -44,14 +44,30 @@ spacy = "~=3.5.4"
 python-keystoneclient = "~=5.1.0"
 python-swiftclient = "~=4.2.0"
 prometheus-client = "~=0.16.0"
+
+reretry = ">=0.11.8"
+
+# See https://github.com/temporalio/samples-python/blob/main/pyproject.toml
+[tool.poetry.group.encryption]
+optional = true
+dependencies = { cryptography = "^38.0.1", aiohttp = "^3.8.1" }
+
+[tool.poetry.group.open_telemetry]
+optional = true
+[tool.poetry.group.open_telemetry.dependencies]
+temporalio = { version = "*", extras = ["opentelemetry"] }
 opentelemetry-distro = "~=0.39b0"
 opentelemetry-exporter-otlp = "~=1.19.0"
+opentelemetry-exporter-otlp-proto-grpc = "1.19.0"
 opentelemetry-instrumentation-fastapi = "~=0.39b0"
 opentelemetry-instrumentation-logging = "~=0.39b0"
 opentelemetry-exporter-jaeger-thrift = "~=1.13.0"
 opentelemetry-api = "~=1.19.0"
 opentelemetry-sdk = "~=1.19.0"
-reretry = ">=0.11.8"
+
+[tool.poetry.group.influxdb]
+optional = true
+influxdb-client = ">=1.29.1"
 
 [tool.poetry.dev-dependencies]
 httpx = "~=0.23.3"

@@ -22,7 +22,12 @@ logging.getLogger("uvicorn.access").addFilter(EndpointFilter())
 if __name__ == "__main__":
     pyroscope.configure(
         application_name="fastapi-sample",
-        server_address=PYROSCOPE_ENDPOINT,  # replace this with the address of your Pyroscope server
+        server_address=PYROSCOPE_ENDPOINT,  # See https://grafana.com/docs/pyroscope/next/configure-client/language-sdks/python/
+        server_port=EXPOSE_PORT,
+        service_name="fastapi-sample",
+        trace_id_key="otelTraceID",
+        span_id_key="otelSpanID",
+        sample_rate=100,  # default is 100
     )
 
     # update uvicorn access logger format

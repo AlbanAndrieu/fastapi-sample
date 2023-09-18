@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+#
 # Configuration file for the Sphinx documentation builder.
 #
 # This file only contains a selection of the most common options. For a full
@@ -12,17 +14,19 @@
 #
 # import os
 # import sys
-# sys.path.insert(0, os.path.abspath('.'))
+# sys.path.insert(0, os.path.abspath('../../nabla'))
 
 
 # -- Project information -----------------------------------------------------
 
 project = "fastapi-sample"
-copyright = "2022, Alban Andrieu"
+copyright = "2023, Alban Andrieu"
 author = "Alban Andrieu"
 
+# The short X.Y version
+version = "1.0"
 # The full version, including alpha/beta/rc tags
-release = "1.0.0"
+release = "1.0.3"
 
 
 # -- General configuration ---------------------------------------------------
