@@ -6,28 +6,40 @@ from sqlalchemy import create_engine
 
 # Database connection parameters
 db_params = {
-    "database": "analyticsprocessordev",
+    "database": "analyticsprocessoruat",
     "user": "analyticsprocessor",
     "password": "analyticsprocessorpass",
     "host": "10.30.10.70",  # Change this to your PostgreSQL server host
     "port": "5432",  # Change this to your PostgreSQL server port
 }
 
+# db_params = {
+#     "database": "analyticsprocessor",
+#     "user": "analyticsprocessor",
+#     "password": "XXX",
+#     "host": "gralbdb01.int.jusmundi.com",  # postgresql-29ee48ba-o412bbed9.database.cloud.ovh.net
+#     "port": "20184",  # Change this to your PostgreSQL server port
+# }
+
+
 # PostgreSQL table name
 table_name = "connected_users"
 
 
-# async def create_db_connection_pool() -> psycopg2.pool.ThreadedConnectionPool:
-#     """Create a session as a dependency"""
-#     settings = get_settings()
+async def create_db_connection_pool(**settings):
+    return await psycopg2.connect(
+        host=settings.db_host,
+        port=settings.db_port,
+        database=settings.db_name,
+        user=settings.db_user,
+        password=settings.db_password,
+    )
 
-#     return await psycopg2.connect(
-#         host=settings.db_host,
-#         port=settings.db_port,
-#         database=settings.db_name,
-#         user=settings.db_user,
-#         password=settings.db_password,
-#     )
+
+def create_db_connection_pool2():
+    conn = psycopg2.connect(**db_params)
+    return conn
+
 
 # def raw_copy_statement(csv_file_path: str, cur: psycopg2.cursor):
 #     with open(csv_file_path, "r", encoding="utf-8") as csv_file:
@@ -49,14 +61,15 @@ table_name = "connected_users"
 
 def import_logs_from_csv(csv_file_path: str):
     try:
+        # get_settings()
+
         """Connect to the PostgreSQL database"""
-        # conn = create_db_connection_pool()
+        # conn = create_db_connection_pool(**settings)
         conn = psycopg2.connect(**db_params)
 
         # Create a cursor object
         cur = conn.cursor()
 
-        # raw_copy_statement(csv_file_path, cur)
         # Create an SQLAlchemy engine
         engine = create_engine(
             f'postgresql://{db_params["user"]}:{db_params["password"]}@{db_params["host"]}:{db_params["port"]}/{db_params["database"]}'
@@ -65,7 +78,6 @@ def import_logs_from_csv(csv_file_path: str):
         print(f"Connected to PostgreSQL database {db_params['database']}")
 
         # Read the CSV file into a Pandas DataFrame
-        # col_names = ["user_id", "email", "last_login", "cgu_read_and_accepted", "roles", ...]
         col_names = ["user_id", "email", "last_login", "cgu_read_and_accepted", "roles"]
         df = pd.read_csv(
             csv_file_path,

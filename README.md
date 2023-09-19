@@ -19,12 +19,8 @@ Fastapi sample
     + [Using virtualenv](#using-virtualenv)
   * [Getting started](#getting-started)
   * [Quality check](#quality-check)
-<<<<<<< HEAD
-  * [Add your files](#add-your-files)
-  * [Update README.md](#update-readmemd)
-=======
   * [Utility scripts](#utility-scripts)
->>>>>>> d8a7f76 (Add import_csv_sql.py)
+  * [Update README.md](#update-readmemd)
 
 <!-- tocstop -->
 
