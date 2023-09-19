@@ -6,7 +6,7 @@ from sqlalchemy import create_engine
 
 # Database connection parameters
 db_params = {
-    "database": "analyticsprocessoruat",
+    "database": "analyticsprocessordev",
     "user": "analyticsprocessor",
     "password": "analyticsprocessorpass",
     "host": "10.30.10.70",  # Change this to your PostgreSQL server host
@@ -79,25 +79,57 @@ def import_logs_from_csv(csv_file_path: str):
 
         # Read the CSV file into a Pandas DataFrame
         col_names = ["user_id", "email", "last_login", "cgu_read_and_accepted", "roles"]
+
+        col_dtype = {
+            "user_id": "int64",  # Use Int64 instead of int64 to handle missing values
+            "email": "string",
+            # 'last_login': 'datetime64[ns]', # datetime64[ns]
+            # 'cgu_read_and_accepted': 'bool',
+            "cgu_read_and_accepted": "string",
+            "roles": "string",
+        }
+
+        DATE_FORMAT = "mixed"  # %Y-%d-%m %H:%M:%S
+
         df = pd.read_csv(
             csv_file_path,
             names=col_names,
+            dtype=col_dtype,
             sep=",",
             encoding="utf-8",
             skiprows=0,
             low_memory=False,
-            lineterminator="\n",
+            # lineterminator="\n",
             on_bad_lines="skip",
+            parse_dates=["last_login"],
+            date_format=DATE_FORMAT,
+            header="infer",
         )
         # quoting=csv.QUOTE_NONE, quotechar='"', delimiter=',', header=None
+        # skipfooter=4,
+        # skiprows=10,
+
+        # df.set_index('id')
+        # df.rename_axis('id')
+
+        df.drop("cgu_read_and_accepted", axis=1, inplace=True)
 
         # Add a new column with the current datetime
         df["process_date"] = datetime.datetime.now()
 
+        # df['last_login'] = pd.to_datetime(df['last_login'], format='mixed', utc=True)
+        df["last_login"] = pd.to_datetime(
+            df["last_login"], format=DATE_FORMAT, utc=False
+        )
+
+        print(df.info())
+
         print(df)
 
+        print(df.dtypes)
+
         # Insert the data into the PostgreSQL table
-        df.to_sql(table_name, engine, if_exists="replace", index=True)
+        df.to_sql(table_name, engine, if_exists="replace", index=True, index_label="id")
 
         # Commit the transaction
         conn.commit()
