@@ -7,6 +7,8 @@
 SHELL         = bash
 ME            = $(shell whoami)
 
+PORT          = 8091
+
 # Image
 APP_NAME     = fastapi-sample
 # 783876277037.dkr.ecr.eu-west-3.amazonaws.com
@@ -104,15 +106,15 @@ up-docker:
 ## —— Up Python ✅🐍 —————————————————————————————————————————————————————————————————
 .PHONY: up-python
 up-python:
-	@echo "up python http://0.0.0.0:8080/health"
+	@echo "up python http://0.0.0.0:$(PORT)/health"
 	python -m serve
 
 ## —— Up Python ✅🦄 —————————————————————————————————————————————————————————————————
 .PHONY: up-uvicorn
 up-uvicorn:
-	@echo "up uvicorn http://0.0.0.0:8080/v1/ping"
-	@echo ".venv/bin/uvicorn nabla.main:app --reload --workers 1 --host 0.0.0.0 --port 8080"
-	.venv/bin/uvicorn serve:app --reload --workers 1 --host 0.0.0.0 --port 8080
+	@echo "up uvicorn http://0.0.0.0:$(PORT)/v1/ping"
+	@echo ".venv/bin/uvicorn nabla.main:app --reload --workers 1 --host 0.0.0.0 --port $(PORT)"
+	.venv/bin/uvicorn serve:app --reload --workers 1 --host 0.0.0.0 --port $(PORT)
 
 ## —— Up ✅ —————————————————————————————————————————————————————————————————
 .PHONY: up
