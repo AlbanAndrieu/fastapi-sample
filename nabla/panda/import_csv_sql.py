@@ -6,7 +6,7 @@ from sqlalchemy import create_engine
 
 # Database connection parameters
 db_params = {
-    "database": "analyticsprocessordev",
+    "database": "analyticsprocessoruat",
     "user": "analyticsprocessor",
     "password": "analyticsprocessorpass",
     "host": "10.30.10.70",  # Change this to your PostgreSQL server host
@@ -77,6 +77,15 @@ def import_logs_from_csv(csv_file_path: str):
 
         print(f"Connected to PostgreSQL database {db_params['database']}")
 
+        # CREATE TABLE connected_users (
+        # id serial NOT NULL PRIMARY KEY,
+        # user_id integer,
+        # email text NOT NULL,
+        # last_login  timestamp without time zone NOT NULL,
+        # roles text DEFAULT '',
+        # process_date timestamp without time zone NOT NULL
+        # )
+
         # Read the CSV file into a Pandas DataFrame
         col_names = ["user_id", "email", "last_login", "cgu_read_and_accepted", "roles"]
 
@@ -129,7 +138,7 @@ def import_logs_from_csv(csv_file_path: str):
         print(df.dtypes)
 
         # Insert the data into the PostgreSQL table
-        df.to_sql(table_name, engine, if_exists="replace", index=True, index_label="id")
+        df.to_sql(table_name, engine, if_exists="append", index=True, index_label="id")
 
         # Commit the transaction
         conn.commit()
