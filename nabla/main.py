@@ -50,22 +50,9 @@ SENTRY_DSN = os.environ.get(
 # http://otel-collector.service.gra.dev.consul:4317
 # http://otel-collector.service.gra.dev.consul:9411/api/v2/spans
 
-sentry_sdk.init(
-    dsn=SENTRY_DSN,
-    # Set traces_sample_rate to 1.0 to capture 100%
-    # of transactions for performance monitoring.
-    # We recommend adjusting this value in production,
-    traces_sample_rate=1.0,
-    integrations=[
-        LoggingIntegration(
-            level=logging.INFO,  # Capture info and above as breadcrumbs
-            event_level=logging.ERROR,  # Send errors as events
-        ),
-    ],
-)
 
-# logger.info("Creating API")
-logging.info("Creating API")
+logger.info("Creating API")
+# logging.info("Creating API")
 app = FastAPI(
     title="FastAPI Sample V1",
     description="FastAPI Sample V1",
@@ -94,6 +81,20 @@ app.add_route("/metrics", metrics)
 
 # Setting OpenTelemetry exporter
 setting_otlp(app, APP_NAME, OTLP_GRPC_ENDPOINT)
+
+sentry_sdk.init(
+    dsn=SENTRY_DSN,
+    # Set traces_sample_rate to 1.0 to capture 100%
+    # of transactions for performance monitoring.
+    # We recommend adjusting this value in production,
+    traces_sample_rate=1.0,
+    integrations=[
+        LoggingIntegration(
+            level=logging.INFO,  # Capture info and above as breadcrumbs
+            event_level=logging.ERROR,  # Send errors as events
+        ),
+    ],
+)
 
 
 @app.get("/")
@@ -131,7 +132,7 @@ async def read_root():
 @app.get("/io_task")
 async def io_task():
     time.sleep(1)
-    logging.error("io task")
+    logger.error("io task")
     return "IO bound task finish!"
 
 
@@ -144,7 +145,7 @@ def work(n):
 async def cpu_task():
     with pyroscope.tag_wrapper({"function": "fast"}):
         work(1000)
-    logging.error("cpu task")
+    logger.error("cpu task")
     return "CPU bound task finish!"
 
 
@@ -153,7 +154,7 @@ async def startup():
     # await database.connect()
     # # Instrumentator().instrument(app).expose(app)
     # FastAPIInstrumentor.instrument_app(app)
-    logging.info("API is ready")
+    logger.info("API is ready")
 
 
 # @app.on_event("shutdown")
