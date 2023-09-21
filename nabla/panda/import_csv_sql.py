@@ -1,12 +1,16 @@
 import datetime
 
+# from typing import Sets
 import pandas as pd
 import psycopg2
+from nabla.config_settings import get_settings
+from nabla.logger import logger
 from sqlalchemy import create_engine
 
 # Database connection parameters
+# Dictionaries
 db_params = {
-    "database": "analyticsprocessoruat",
+    "database": "analyticsprocessordev",
     "user": "analyticsprocessor",
     "password": "analyticsprocessorpass",
     "host": "10.30.10.70",  # Change this to your PostgreSQL server host
@@ -59,14 +63,42 @@ def create_db_connection_pool2():
 #         cur.copy_expert(copy_statement, csv_file)
 
 
-def import_logs_from_csv(csv_file_path: str):
+def get_database_params() -> dict:
+    settings = get_settings()
+
+    # for k, v in db_params.items():
+    #     print(k, v)
+
     try:
-        # get_settings()
+        # db_params['host']=getattr(settings, "db_host"),
+        db_params["host"] = settings.db_host
+        db_params["port"] = settings.db_port
+        db_params["database"] = settings.db_name
+        db_params["user"] = settings.db_user
+        db_params["password"] = settings.db_password
+    except AttributeError as e:
+        logger.error("Elements from the configuration settings are missing")
+        raise AttributeError(f"ENV information is missing from the settings: {e}")
 
-        """Connect to the PostgreSQL database"""
-        # conn = create_db_connection_pool(**settings)
-        conn = psycopg2.connect(**db_params)
+    # for k, v in db_params.items():
+    #     print(k, v)
+    return db_params
 
+
+def import_logs_from_csv(csv_file_path: str):
+    get_database_params()
+
+    print(db_params)
+
+    logger.info(
+        f"Connected to PostgreSQL database {db_params['database']} on port {db_params['port']} with user {db_params['user']}"
+    )
+
+    """Connect to the PostgreSQL database"""
+    # conn = create_db_connection_pool(**settings)
+    conn = psycopg2.connect(**db_params)
+
+    try:
         # Create a cursor object
         cur = conn.cursor()
 
@@ -85,6 +117,15 @@ def import_logs_from_csv(csv_file_path: str):
         # roles text DEFAULT '',
         # process_date timestamp without time zone NOT NULL
         # )
+
+        # CREATE SEQUENCE IF NOT EXISTS connected_users_id_seq;
+        # CREATE SEQUENCE connected_users_id_seq INCREMENT BY 1 MINVALUE 1 START 1
+
+        # SELECT pg_catalog.setval(
+        # 'connected_users_id_seq',
+        # (SELECT max(id) FROM connected_users),
+        # true
+        # );
 
         # Read the CSV file into a Pandas DataFrame
         col_names = ["user_id", "email", "last_login", "cgu_read_and_accepted", "roles"]
@@ -124,7 +165,11 @@ def import_logs_from_csv(csv_file_path: str):
         df.drop("cgu_read_and_accepted", axis=1, inplace=True)
 
         # Add a new column with the current datetime
-        df["process_date"] = datetime.datetime.now()
+        process_date = datetime.date(2029, 9, 19)
+        print(process_date)
+        # df["process_date"] = datetime.datetime.now()
+        df["process_date"] = pd.to_datetime(process_date, format=DATE_FORMAT, utc=False)
+        # Convert the last_login column to a datetime object
 
         # df['last_login'] = pd.to_datetime(df['last_login'], format='mixed', utc=True)
         df["last_login"] = pd.to_datetime(

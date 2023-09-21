@@ -106,6 +106,7 @@ up-docker:
 ## —— Up Python ✅🐍 —————————————————————————————————————————————————————————————————
 .PHONY: up-python
 up-python:
+	@echo "python -m scripts toto.csv"
 	@echo "up python http://0.0.0.0:$(PORT)/health"
 	python -m serve
 
