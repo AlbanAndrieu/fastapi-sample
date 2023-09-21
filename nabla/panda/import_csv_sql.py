@@ -3,11 +3,9 @@ import datetime
 # from typing import Sets
 import pandas as pd
 import psycopg2
-from sqlalchemy import create_engine
-
-from nabla.logger import logger
-
 from nabla.config_settings import get_settings
+from nabla.logger import logger
+from sqlalchemy import create_engine
 
 # Database connection parameters
 # Dictionaries
@@ -68,8 +66,8 @@ def create_db_connection_pool2():
 def get_database_params() -> dict:
     settings = get_settings()
 
-    for k, v in db_params.items():
-        print(k, v)
+    # for k, v in db_params.items():
+    #     print(k, v)
 
     try:
         # db_params['host']=getattr(settings, "db_host"),
@@ -82,8 +80,8 @@ def get_database_params() -> dict:
         logger.error("Elements from the configuration settings are missing")
         raise AttributeError(f"ENV information is missing from the settings: {e}")
 
-    for k, v in db_params.items():
-        print(k, v)
+    # for k, v in db_params.items():
+    #     print(k, v)
     return db_params
 
 
@@ -119,6 +117,15 @@ def import_logs_from_csv(csv_file_path: str):
         # roles text DEFAULT '',
         # process_date timestamp without time zone NOT NULL
         # )
+
+        # CREATE SEQUENCE IF NOT EXISTS connected_users_id_seq;
+        # CREATE SEQUENCE connected_users_id_seq INCREMENT BY 1 MINVALUE 1 START 1
+
+        # SELECT pg_catalog.setval(
+        # 'connected_users_id_seq',
+        # (SELECT max(id) FROM connected_users),
+        # true
+        # );
 
         # Read the CSV file into a Pandas DataFrame
         col_names = ["user_id", "email", "last_login", "cgu_read_and_accepted", "roles"]
