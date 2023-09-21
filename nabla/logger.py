@@ -9,7 +9,8 @@ class JsonFormatter(Formatter):
 
     def format(self, record):
         json_record = {}
-        json_record["data"] = record.getMessage()
+        # json_record["data"] = record.getMessage()
+        json_record["message"] = record.getMessage()
         if "req" in record.__dict__:
             json_record["req"] = record.__dict__["req"]
         if "res" in record.__dict__:
