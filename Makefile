@@ -66,6 +66,14 @@ clean-docker:
 .PHONY: clean
 clean: clean-docker
 
+## —— Formating 🧪🔗 ———————————————————————————————————————————————————————————————
+.PHONY: fmt
+fmt: ## Run formating
+	@echo "=> Executing formating..."
+	shfmt -i 2 -ci -w *.sh || true
+	# ansible-lint --write ./
+	# ./hclfmt-all.sh
+
 ## —— Docker Train 🐳🚂 ————————————————————————————————————————————————————————————————
 .PHONY: build-docker-train
 build-docker-train:  ## Build train container with docker
