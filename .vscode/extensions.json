@@ -1,5 +1,4 @@
 {
-  // Extension completed by MegaLinter
   "recommendations": [
     "mhutchie.git-graph",
     "ms-python.python",
@@ -11,6 +10,8 @@
     "exiasr.hadolint",
     "timonwong.shellcheck",
     "hbenl.vscode-test-explorer",
-    "LittleFoxTeam.vscode-python-test-adapter"
+    "LittleFoxTeam.vscode-python-test-adapter",
+    "charliermarsh.ruff",
+    "ms-python.black-formatter"
   ]
 }

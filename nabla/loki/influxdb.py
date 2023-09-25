@@ -7,7 +7,6 @@ from requests import get
 
 # See https://dganais.medium.com/getting-started-with-python-and-influxdb-v2-0-f22e5175aba5
 
-
 # Define Loki and InfluxDB configuration
 loki_url = "http://loki.service.gra.dev.consul:3100"
 # loki_url = "http://loki.service.gra.uat.consul:3100"
@@ -20,6 +19,13 @@ influxdb_bucket = "my-loki"  # Replace with your InfluxDB bucket
 
 # Initialize the InfluxDB client
 client = InfluxDBClient(url=influxdb_url, token=influxdb_token, org=influxdb_org)
+
+# from(bucket: "my-loki")
+#   |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+#   |> filter(fn: (r) => r["_measurement"] == "log_data")
+#   |> filter(fn: (r) => r["_field"] == "duration")
+#   |> derivative(unit: 1s, nonNegative: false)
+#   |> yield(name: "derivative")
 
 
 # Function to query Loki for logs and import into InfluxDB
