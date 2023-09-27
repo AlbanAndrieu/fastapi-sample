@@ -5,7 +5,7 @@ import pandas as pd
 import psycopg2
 from nabla.config_settings import get_settings
 from nabla.logger import logger
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 
 # Database connection parameters
 # Dictionaries
@@ -96,11 +96,11 @@ def import_logs_from_csv(csv_file_path: str):
 
     """Connect to the PostgreSQL database"""
     # conn = create_db_connection_pool(**settings)
-    conn = psycopg2.connect(**db_params)
+    # conn = psycopg2.connect(**db_params)
 
     try:
         # Create a cursor object
-        cur = conn.cursor()
+        # cur = conn.cursor()
 
         # Create an SQLAlchemy engine
         engine = create_engine(
@@ -108,6 +108,11 @@ def import_logs_from_csv(csv_file_path: str):
         )
 
         print(f"Connected to PostgreSQL database {db_params['database']}")
+
+        with engine.connect() as connection:
+            result = connection.execute(text("select email from connected_users"))
+            for row in result:
+                print("email:", row.email)
 
         # CREATE TABLE connected_users (
         # id serial NOT NULL PRIMARY KEY,
@@ -186,11 +191,11 @@ def import_logs_from_csv(csv_file_path: str):
         df.to_sql(table_name, engine, if_exists="append", index=True, index_label="id")
 
         # Commit the transaction
-        conn.commit()
+        # conn.commit()
         print(f"Data from {csv_file_path} inserted into {table_name} successfully.")
 
         # Close the cursor and connection objects
-        cur.close()
+        # cur.close()
 
     except psycopg2.Error as error:
         print(f"psycopg2 Error: {error}")
@@ -199,7 +204,7 @@ def import_logs_from_csv(csv_file_path: str):
         print(e)
         print("Failed to import data from csv")
 
-    finally:
-        # Close the database connection
-        if conn:
-            conn.close()
+    # finally:
+    #     # Close the database connection
+    #     if conn:
+    #         conn.close()
