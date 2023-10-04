@@ -1,4 +1,7 @@
 import datetime
+import os
+import traceback
+import urllib.request
 
 # from typing import Sets
 import pandas as pd
@@ -17,17 +20,13 @@ db_params = {
     "port": "5432",  # Change this to your PostgreSQL server port
 }
 
-# db_params = {
-#     "database": "analyticsprocessor",
-#     "user": "analyticsprocessor",
-#     "password": "XXX",
-#     "host": "gralbdb01.int.jusmundi.com",  # postgresql-29ee48ba-o412bbed9.database.cloud.ovh.net
-#     "port": "20184",  # Change this to your PostgreSQL server port
-# }
-
-
 # PostgreSQL table name
 table_name = "connected_users"
+
+dest_folder = os.environ.get("dest_folder")
+
+url = "https://raw.githubusercontent.com/aalbanandrieu/datasets/master/test.csv"
+destination_path = f"{dest_folder}/test.csv"
 
 
 async def create_db_connection_pool(**settings):
@@ -85,6 +84,51 @@ def get_database_params() -> dict:
     return db_params
 
 
+def showEmail(engine):
+    with engine.connect() as connection:
+        result = connection.execute(text("select email from connected_users"))
+        for row in result:
+            print("email:", row.email)
+
+
+def download_file_from_url(url: str, dest_folder: str):
+    """
+    Download a file from a specific URL and download to the local directory
+    """
+    if not os.path.exists(str(dest_folder)):
+        os.makedirs(str(dest_folder))  # create folder if it does not exist
+
+    try:
+        urllib.request.urlretrieve(url, destination_path)
+        logger.info("csv file downloaded successfully to the working directory")
+    except Exception as e:
+        logger.error(f"Error while downloading the csv file due to: {e}")
+        traceback.print_exc()
+
+
+def create_postgres_table(cur: psycopg2.cursor):
+    """
+    Create the Postgres table with a desired schema
+    """
+    try:
+        cur.execute(
+            """CREATE TABLE IF NOT EXISTS connected_users (
+        id serial NOT NULL PRIMARY KEY,
+        user_id integer,
+        email text NOT NULL,
+        last_login  timestamp without time zone NOT NULL,
+        roles text DEFAULT '',
+        process_date timestamp without time zone NOT NULL)"""
+        )
+
+        logger.info(
+            " New table connected_users created successfully to postgres server"
+        )
+    except Exception as e:
+        logger.error(f"Check if the table connected_users exists: {e}")
+        traceback.print_exc()
+
+
 def import_logs_from_csv(csv_file_path: str):
     get_database_params()
 
@@ -109,10 +153,10 @@ def import_logs_from_csv(csv_file_path: str):
 
         print(f"Connected to PostgreSQL database {db_params['database']}")
 
-        with engine.connect() as connection:
-            result = connection.execute(text("select email from connected_users"))
-            for row in result:
-                print("email:", row.email)
+        # showEmail(engine)
+
+        # See https://medium.com/@dogukannulu/data-engineering-end-to-end-project-postgresql-airflow-docker-pandas-91c6aa529030
+        # for more automation
 
         # CREATE TABLE connected_users (
         # id serial NOT NULL PRIMARY KEY,

@@ -127,7 +127,7 @@ python3 nabla/loki/influxdb.py
 
 # Add header in file
 # user_id,email text,last_login,cgu_read_and_accepted,roles
-python3 scripts.py ~/Downloads/product-activity-2023-09-25.csv
+python3 scripts.py ~/Downloads/product-activity-2023-10-02.csv
 ```
 
 ## [Update README.md](#table-of-contents)
