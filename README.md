@@ -1,5 +1,5 @@
 <!-- markdown-link-check-disable-next-line -->
-# [![Nabla](http://bababou.albandrieu.com/nabla/index/assets/nabla/nabla-4.png)](https://gitlab.com/AlbanAndrieu)  fastapi-sample
+# [![Nabla](http://bababou.albandrieu.com/nabla/index/assets/nabla/nabla-4.png)](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample) fastapi-sample
 
 Fastapi sample
 

@@ -225,7 +225,6 @@ cython_debug/
 # Overall ignored files
 local/
 ./*.ipynb
-.python-version
 
 # Rope project settings
 .ropeproject
