@@ -7,27 +7,27 @@ stages:
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-upgrade
+    ref: main
     file: "/templates/default.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-upgrade
+    ref: main
     file: "/templates/docker-build.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-upgrade
+    ref: main
     file: "/templates/deploy-nomad.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-upgrade
+    ref: main
     file: "/templates/test-python.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-upgrade
+    ref: main
     file: "/templates/_apk.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-upgrade
+    ref: main
     file: "/templates/data.gitlab-ci.yml"
 
 variables:
@@ -37,6 +37,15 @@ variables:
   DOCKER_BUILD_OPT: "--build-arg CI_PIP_GITLABJUSMUNDI_TOKEN=${CI_PIP_GITLABJUSMUNDI_TOKEN} " # --squash
   NOMAD_SERVICE_DEPLOY_URL_SUFFIX: docs
   # REGISTRY: 783876277037.dkr.ecr.eu-west-3.amazonaws.com
+
+code_navigation:
+  image: sourcegraph/lsif-go:v1
+  allow_failure: true # recommended
+  script:
+    - lsif-go
+  artifacts:
+    reports:
+      lsif: dump.lsif
 
 lint-flake8:
   extends: .lint-flake8

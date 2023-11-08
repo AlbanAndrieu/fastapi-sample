@@ -54,6 +54,7 @@ psycopg2 = ">=2.9.7"  # WARNING need sudo apt-get install libpq-dev
 sqlalchemy = ">=2.0.20"
 urllib3 = "*"
 traceback2 = "*"
+bcrypt = "*"
 
 [dev-packages]
 httpx = "~=0.23.3" # For testing fastAPI only

@@ -31,8 +31,47 @@ job "fastapi-sample" {
   namespace   = "datascience"
   type        = "service"
 
+  # Meta keys are also interpretable.
+  meta {
+    version  = "v0.0.1"
+    region   = "${node.region}"
+    dc       = "${node.datacenter}"
+    scope   = "test"
+    service  = "fastapi-sample-${var.env}"
+    team     = "${var.team}"
+    env     = "${var.env}"
+  }
+
   group "fastapi-sample" {
     count = 1
+
+    scaling {
+      min     = 1
+      max     = 4
+      enabled = true
+
+      policy {
+        evaluation_interval = "2s"
+        cooldown            = "2s"
+
+        // check "active_connections" {
+        //   source = "prometheus"
+        //   query  = "nomad_client_allocs_cpu_total_percent{task='loki-${var.team}'}"
+
+        //   strategy "target-value" {
+        //     target = 70
+        //   }
+        // }
+      }
+    } # scaling
+
+    ephemeral_disk {
+      # Used to store index, cache, WAL
+      # Nomad will try to preserve the disk between job updates
+       size   = 500
+       sticky  = true
+       # migrate = true
+    }
 
     # Canary disable, because service is too big 10 G minimum and cluster is not sized for it, so auto_promote set to false
     update {
@@ -107,15 +146,6 @@ EOF
           "traefik.http.routers.fastapi-sample-${var.env}.entrypoints=http",
           "traefik.http.routers.fastapi-sample-${var.env}.rule=Host(`fastapi-sample.service.gra.${var.env}.consul`)",
         ]
-
-        # Meta keys are also interpretable.
-        meta {
-          version  = "v0.0.1"
-          region   = "${node.region}"
-          dc       = "${node.datacenter}"
-          service  = "fastapi-sample-${var.env}"
-          team     = "${var.team}"
-        }
 
         check {
           name     = "server-alive"
