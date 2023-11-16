@@ -1,7 +1,7 @@
 #!/bin/bash
 set -xv
 
-WORKING_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}"  )" && pwd  )"
+WORKING_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # https://github.com/locustio/locust/wiki/Installation#increasing-maximum-number-of-open-files-limit
 # https://www.tecmint.com/increase-set-open-file-limits-in-linux/
@@ -16,5 +16,9 @@ cat /proc/sys/fs/file-max
 locust -f ${WORKING_DIR}/../nabla/perf/locustfile.py
 
 echo "Open http://localhost:8089/ on your browser"
+
+echo "Input : 5 - 2 - https://jm-frontnuxt.dev.int.jusmundi.com"
+
+${WORKING_DIR}/run-banned.sh
 
 exit 1
