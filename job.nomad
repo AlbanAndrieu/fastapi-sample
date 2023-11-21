@@ -143,8 +143,8 @@ EOF
 
         tags = [
           "traefik.enable=true",
-          "traefik.http.routers.fastapi-sample-${var.env}.entrypoints=http",
-          "traefik.http.routers.fastapi-sample-${var.env}.rule=Host(`fastapi-sample.service.gra.${var.env}.consul`)",
+          "traefik.http.routers.fastapi-sample.entrypoints=http",
+          "traefik.http.routers.fastapi-sample.rule=Host(`fastapi-sample.service.gra.${var.env}.consul`)",
         ]
 
         check {
