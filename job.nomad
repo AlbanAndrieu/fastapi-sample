@@ -89,9 +89,9 @@ job "fastapi-sample" {
         to     = 8080
       }
 
-      # port "worker" {
-      #   to     = 9000
-      # }
+      port "locus" {
+        to     = 8089
+      }
     }
 
     restart {
@@ -165,68 +165,69 @@ EOF
       }
     } # task fastapi-sample
 
-#    task "fastapi-sample-worker" {
-#      driver = "docker"
-#      config {
-#        image = "[[ .CONTAINER_IMAGE ]]"
-#        image_pull_timeout = "25m"
-#        ports = ["worker"]
-#        # force_pull = true
-#
-#        command = "python"
-#        args = [
-#            "-m",
-#            "serve_worker",
-#        ]
-#        shm_size = 536870912 # 512MB
-#      }
-#
-#      // volume_mount {
-#      //   volume      = "nabla"
-#      //   destination = "/usr/share/data/"
-#      //   read_only   = false
-#      // }
-#
-#      vault {
-#        policies  = ["cicd"]
-#      }
-#
-#      template {
-#        data        = <<EOF
-#TEMPORALIO_HOST="temporal-app.service.gra.dev.consul"
-#UVICORN_LOG_LEVEL=debug
-#EOF
-#        destination = "${NOMAD_SECRETS_DIR}/.env.local"
-#
-#        env         = true
-#      }
-#
-#      service {
-#        name = "fastapi-sample-worker"
-#        port = "worker"
-#
-#        tags = [
-#          "traefik.enable=true",
-#          "traefik.http.routers.fastapi-sample-worker-${var.env}.entrypoints=http",
-#          "traefik.http.routers.fastapi-sample-worker-${var.env}.rule=Host(`fastapi-sample-worker.service.gra.${var.env}.consul`) || Host(`fastapi-sample-worker.${var.env}.service.gra.${var.env}.consul`)",
-#        ]
-#
-#        check {
-#          name     = "server-prometheus"
-#          port     = "worker"
-#          type     = "http"
-#          path     = "/metrics"
-#          interval = "5m"
-#          timeout  = "20m"
-#        }
-#
-#      } # service worker
-#
-#      resources {
-#        cpu    = var.env == "dev" ? "1000" : "2000" # MHz
-#        memory = var.env == "dev" ? "4000" : "5000" # MB 5Gb minimum
-#      }
-#    } # task fastapi-sample-worker
+    task "fastapi-sample-locus" {
+      driver = "docker"
+      config {
+        image = "[[ .CONTAINER_IMAGE ]]"
+        image_pull_timeout = "25m"
+        ports = ["locus"]
+        # force_pull = true
+
+        command = "python"
+        args = [
+            "nabla/perf/locustfile_jm.py",
+            # "serve_locus",
+        ]
+
+        # shm_size = 536870912 # 512MB
+      }
+
+      // volume_mount {
+      //   volume      = "nabla"
+      //   destination = "/usr/share/data/"
+      //   read_only   = false
+      // }
+
+      vault {
+        policies  = ["cicd"]
+      }
+
+      template {
+        data        = <<EOF
+TEMPORALIO_HOST="temporal-app.service.gra.dev.consul"
+UVICORN_LOG_LEVEL=debug
+EOF
+        destination = "${NOMAD_SECRETS_DIR}/.env.local"
+
+        env         = true
+      }
+
+      service {
+        # name = "fastapi-sample-locus"
+        port = "locus"
+
+        tags = [
+          "traefik.enable=true",
+          "traefik.http.routers.fastapi-sample-locus-${var.env}.entrypoints=http",
+          "traefik.http.routers.fastapi-sample-locus-${var.env}.rule=Host(`fastapi-sample-locus.service.gra.${var.env}.consul`) || Host(`fastapi-sample-locus.${var.env}.service.gra.${var.env}.consul`)",
+        ]
+
+        # check {
+        #   name     = "server-prometheus"
+        #   port     = "locus"
+        #   type     = "http"
+        #   path     = "/metrics"
+        #   interval = "5m"
+        #   timeout  = "20m"
+        # }
+
+      } # service locus
+
+      resources {
+        cpu    = var.env == "dev" ? "100" : "200" # MHz
+        memory = var.env == "dev" ? "400" : "500" # MB 5Gb minimum
+      }
+    } # task fastapi-sample-locus
 
     task "fastapi-sample-kong-registration" {
 

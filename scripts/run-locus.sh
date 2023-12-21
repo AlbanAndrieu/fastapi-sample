@@ -18,6 +18,7 @@ locust -f "${WORKING_DIR}/../nabla/perf/locustfile_jm.py"
 echo "Open http://localhost:8089/ on your browser"
 
 echo "Input : 5 - 2 - https://jm-frontnuxt.dev.int.jusmundi.com"
+echo "Input : 5 - 2 - https://jm-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech"
 echo "Input : 5 - 2 - http://fastapi-sample.service.gra.dev.consul/"
 
 "${WORKING_DIR}/run-banned.sh"
