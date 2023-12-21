@@ -10,7 +10,8 @@ echo "10.10.0.7 168427527"
 # select *
 # from security.access_log
 # where ip=2130706433
-# order by timestamp desc;
+# order by timestamp desc
+# LIMIT 100;
 
 #-- Insert it into the white listed table, replace stuff surrounded by "<>"
 # INSERT INTO security.ip_granted_bypass(id, ip, "granted_at", comment)
@@ -27,7 +28,7 @@ echo "10.10.0.7 168427527"
 # 	'now',
 # 	'["albandrieu / User ID: null / IP: 10.10.0.7 (ip2long: 168427527)"]'
 # );
-
+#
 # TRUNCATE security.access_log;
 # TRUNCATE security.ip_banned;
 # TRUNCATE security.ip_warned;

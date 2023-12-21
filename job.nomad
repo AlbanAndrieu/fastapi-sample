@@ -175,8 +175,9 @@ EOF
 
         command = "python"
         args = [
+            "locust",
+            "-f",
             "nabla/perf/locustfile_jm.py",
-            # "serve_locus",
         ]
 
         # shm_size = 536870912 # 512MB
