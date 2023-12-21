@@ -13,12 +13,13 @@ cat /proc/sys/fs/file-max
 
 # https://unix.stackexchange.com/questions/366352/etc-security-limits-conf-not-applied/443467#443467
 
-locust -f ${WORKING_DIR}/../nabla/perf/locustfile.py
+locust -f "${WORKING_DIR}/../nabla/perf/locustfile_jm.py"
 
 echo "Open http://localhost:8089/ on your browser"
 
 echo "Input : 5 - 2 - https://jm-frontnuxt.dev.int.jusmundi.com"
+echo "Input : 5 - 2 - http://fastapi-sample.service.gra.dev.consul/"
 
-${WORKING_DIR}/run-banned.sh
+"${WORKING_DIR}/run-banned.sh"
 
 exit 1
