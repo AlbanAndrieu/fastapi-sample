@@ -79,6 +79,7 @@ USER jm-python
 
 COPY --chown=jm-python:jm-python nabla/ /code/jm-python/nabla/
 COPY --chown=jm-python:jm-python serve.py /code/jm-python/
+
 RUN mkdir -p /code/jm-python/var/
 
 ENV PATH=/code/.local/bin/:${PATH}
