@@ -91,6 +91,7 @@ job "fastapi-sample" {
 
       port "locus" {
         to     = 8089
+        static = 8089
       }
     }
 
