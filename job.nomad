@@ -93,6 +93,11 @@ job "fastapi-sample" {
         to     = 8089
         static = 8089
       }
+
+      port "locus-exporter" {
+        to     = 9646
+        # static = 9646
+      }
     }
 
     restart {
@@ -170,6 +175,7 @@ EOF
       driver = "docker"
       config {
         image = "[[ .CONTAINER_IMAGE ]]"
+        # image = "locustio/locust"
         image_pull_timeout = "25m"
         ports = ["locus"]
         # force_pull = true
@@ -183,12 +189,6 @@ EOF
 
         # shm_size = 536870912 # 512MB
       }
-
-      // volume_mount {
-      //   volume      = "nabla"
-      //   destination = "/usr/share/data/"
-      //   read_only   = false
-      // }
 
       vault {
         policies  = ["cicd"]
@@ -206,7 +206,6 @@ EOF
       }
 */
       service {
-        # name = "fastapi-sample-locus"
         port = "locus"
 
         tags = [
@@ -231,6 +230,61 @@ EOF
         memory = var.env == "dev" ? "400" : "500" # MB 5Gb minimum
       }
     } # task fastapi-sample-locus
+
+    task "fastapi-sample-locus-exporter" {
+      driver = "docker"
+      config {
+        image = "containersol/locust_exporter"
+        image_pull_timeout = "25m"
+        ports = ["locus-exporter"]
+        # force_pull = true
+
+        # shm_size = 536870912 # 512MB
+      }
+
+      vault {
+        policies  = ["cicd"]
+      }
+
+      env {
+        LOCUST_EXPORTER_URI=http://fastapi-sample-locus.service.gra.${var.env}.consul:8089
+      }
+/*
+      template {
+        data        = <<EOF
+TEMPORALIO_HOST="temporal-app.service.gra.dev.consul"
+UVICORN_LOG_LEVEL=debug
+EOF
+        destination = "${NOMAD_SECRETS_DIR}/.env.local"
+
+        env         = true
+      }
+*/
+      service {
+        port = "locus-exporter"
+
+        tags = [
+          "traefik.enable=true",
+          "traefik.http.routers.fastapi-sample-locus-exporter.entrypoints=http",
+          "traefik.http.routers.fastapi-sample-locus-exporter.rule=Host(`fastapi-sample-locus-exporter.service.gra.${var.env}.consul`)",
+        ]
+
+        # check {
+        #   name     = "server-prometheus"
+        #   port     = "locus-exporter"
+        #   type     = "http"
+        #   path     = "/metrics"
+        #   interval = "5m"
+        #   timeout  = "20m"
+        # }
+
+      } # service locus-exporter
+
+      resources {
+        cpu    = var.env == "dev" ? "100" : "200" # MHz
+        memory = var.env == "dev" ? "400" : "500" # MB 5Gb minimum
+      }
+    } # task fastapi-sample-locus-exporter
 
     task "fastapi-sample-kong-registration" {
 
