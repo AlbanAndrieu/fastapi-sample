@@ -193,6 +193,7 @@ EOF
         policies  = ["cicd"]
       }
 
+/*
       template {
         data        = <<EOF
 TEMPORALIO_HOST="temporal-app.service.gra.dev.consul"
@@ -202,15 +203,15 @@ EOF
 
         env         = true
       }
-
+*/
       service {
         # name = "fastapi-sample-locus"
         port = "locus"
 
         tags = [
           "traefik.enable=true",
-          "traefik.http.routers.fastapi-sample-locus-${var.env}.entrypoints=http",
-          "traefik.http.routers.fastapi-sample-locus-${var.env}.rule=Host(`fastapi-sample-locus.service.gra.${var.env}.consul`) || Host(`fastapi-sample-locus.${var.env}.service.gra.${var.env}.consul`)",
+          "traefik.http.routers.fastapi-sample-locus.entrypoints=http",
+          "traefik.http.routers.fastapi-sample-locus.rule=Host(`fastapi-sample-locus.service.gra.${var.env}.consul`)",
         ]
 
         # check {
