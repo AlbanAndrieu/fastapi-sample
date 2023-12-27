@@ -180,6 +180,8 @@ EOF
         ports = ["locus"]
         # force_pull = true
 
+        network_mode = "host"
+
         command = "python"
         args = [
             "/code/.local/bin/locust",
