@@ -91,7 +91,7 @@ job "fastapi-sample" {
 
       port "locus" {
         to     = 8089
-        static = 8089
+        //static = 8089
       }
 
       port "locus-exporter" {
@@ -187,9 +187,17 @@ EOF
             "/code/.local/bin/locust",
             "-f",
             "nabla/perf/locustfile_jm.py",
+            //"--master",
+            //"-H",
+            //"http://fastapi-sample-locus.service.gra.${var.env}.consul:8089",
+            //"--env targetHost="https://jm-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/en",
         ]
 
         # shm_size = 536870912 # 512MB
+      }
+
+      env {
+        targetHost = "https://jm-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/en
       }
 
       vault {
@@ -208,6 +216,7 @@ EOF
       }
 */
       service {
+        name = "locus"
         port = "locus"
 
         tags = [
@@ -263,6 +272,7 @@ EOF
       }
 */
       service {
+        name = "locus-exporter"
         port = "locus-exporter"
 
         tags = [
