@@ -180,7 +180,7 @@ EOF
         ports = ["locust"]
         # force_pull = true
 
-        network_mode = "host"
+        # network_mode = "host"
 
         command = "python"
         args = [
@@ -251,7 +251,7 @@ EOF
         ports = ["locust-exporter"]
         # force_pull = true
         
-        network_mode = "host"
+        # network_mode = "host"
 
         # command = "python"
         #args = [
