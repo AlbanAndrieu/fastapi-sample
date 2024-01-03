@@ -197,7 +197,7 @@ EOF
       }
 
       env {
-        targetHost = "https://jm-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/en
+        targetHost = "https://jm-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/en"
       }
 
       vault {
