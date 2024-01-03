@@ -134,12 +134,10 @@ deploy:uat:
   extends: .deploy:uat
   needs: ["docker-build"]
   tags:
-    # - jusmundi-shared-runner
     - jusmundi-nomad-runner
 
 deploy:prod:
   extends: .deploy:prod
   needs: ["docker-build"]
   tags:
-    # - jusmundi-shared-runner
     - jusmundi-nomad-runner

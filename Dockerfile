@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.4
+# syntax=docker/dockerfile:1.5
 
 # dockerfile_lint - ignore
 # hadolint ignore=DL3007
@@ -55,10 +55,12 @@ USER jm-python
 # RUN --mount=type=secret,id=Pipfile,dst=/code/Pipfile,uid=999,gid=999
 COPY --chown=jm-python:jm-python Pipfile* /code/
 
-# hadolint ignore=DL3013
+# hadolint ignore=DL3013, DL3042
 # RUN --mount=type=secret,id=pip.conf,dst=/code/.config/pip/pip.conf,uid=999,gid=999 \
+# hadolint ignore=DL3013, DL3042
 RUN --mount=type=secret,id=Pipfile,dst=/code/Pipfile,uid=999,gid=999 \
-python -m pip install --upgrade pip && \
+--mount=type=cache,target=/root/.cache \
+python -m pip install --no-cache-dir --upgrade pip && \
 python -m pip install --no-cache-dir --user --upgrade pipenv==2023.7.23 && \
 python -m pip install --no-cache-dir --user --upgrade virtualenv && \
 python -m pipenv install --site-packages --system
@@ -77,6 +79,7 @@ USER jm-python
 
 COPY --chown=jm-python:jm-python nabla/ /code/jm-python/nabla/
 COPY --chown=jm-python:jm-python serve.py /code/jm-python/
+
 RUN mkdir -p /code/jm-python/var/
 
 ENV PATH=/code/.local/bin/:${PATH}

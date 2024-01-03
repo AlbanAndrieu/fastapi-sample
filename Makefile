@@ -152,7 +152,8 @@ flake8: ## Linter flake8
 .PHONY: debug
 debug: ## Enter container
 	@echo "=> Debuging image..."
-	docker run -it -u 0 --entrypoint /bin/bash --env CI_PIP_GITLABNABLA_TOKEN=$${CI_PIP_GITLABNABLA_TOKEN} $(IMAGE)
+	@echo "docker run -it -u 0 --entrypoint /bin/bash --env CI_PIP_GITLABNABLA_TOKEN=$${CI_PIP_GITLABNABLA_TOKEN} $(IMAGE)"
+	docker run -it --entrypoint /bin/bash --env CI_PIP_GITLABNABLA_TOKEN=$${CI_PIP_GITLABNABLA_TOKEN} $(IMAGE)
 
 ## —— Project 🐝🐳 ———————————————————————————————————————————————————————————————
 .PHONY: start

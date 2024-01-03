@@ -12,25 +12,14 @@ class QuickstartUser(HttpUser):
     # def login_page(self):
     #     self.client.post("/api/login", "verify=False", json={"Password":"xxxxx","ReturnUrl":"","UserName":"xxxx@gmail.com"})
 
+    # http://fastapi-sample.service.gra.dev.consul/
+
     @task
     def hello_world(self):
-        # self.client.get("/en", verify=False)
-
-        # self.client.get("/en/conflict-checker?type=p2lf&ref=13&to=1205")
-
-        # self.client.get(
-        #    "/en/search?page=1&lang=en&document-types%5B0%5D=treaty", verify=False
-        # )
-
-        # self.client.get("/en/coverage/investment-arbitration", verify=False)
-
-        self.client.get("/en/partnership/icc", verify=False)
-
-        self.client.post("/en/test?query=locus", verify=False)
-
-        # self.client.get(
-        #     "/en/document/publication/en-arbitrator-disclosure", verify=False
-        # )
+        self.client.get("/v1/items/1?q=test", verify=False)
+        self.client.get("io_task", verify=False)
+        self.client.get("cpu_task", verify=False)
+        self.client.get("/v1/external-api", verify=False)
 
         # self.client.get("/hello")
         # self.client.get("/world")

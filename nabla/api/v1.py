@@ -28,6 +28,9 @@ router = APIRouter(prefix="/v1")
 REQUESTS_COUNT = Counter(
     "requests_total", "Total number of requests", ["method", "endpoint", "status_code"]
 )
+
+ERROR_COUNT = Counter("errors_total", "The total number of errors.", ["error"])
+
 # Define a histogram metric
 REQUESTS_TIME = Histogram(
     "requests_time", "Request processing time", ["method", "endpoint"]
@@ -66,6 +69,7 @@ async def exception():
         raise ValueError("sadness")
     except Exception as ex:
         logger.error(ex, exc_info=True)
+        ERROR_COUNT.labels(ex).inc()
         span = trace.get_current_span()
 
         # generate random number
