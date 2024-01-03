@@ -216,7 +216,7 @@ EOF
       }
 */
       service {
-        name = "locust"
+        name = "fastapi-sample-locust"
         port = "locust"
 
         tags = [
@@ -282,7 +282,7 @@ EOF
       }
 */
       service {
-        name = "locust-exporter"
+        name = "fastapi-sample-locust-exporter"
         port = "locust-exporter"
 
         tags = [
