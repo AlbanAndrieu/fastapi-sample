@@ -91,7 +91,7 @@ job "fastapi-sample" {
 
       port "locust" {
         to     = 8089
-        static = 8089
+        //static = 8089
       }
 
       port "locust-exporter" {
