@@ -249,7 +249,7 @@ EOF
       }
 
       env {
-        LOCUST_EXPORTER_URI=http://fastapi-sample-locus.service.gra.${var.env}.consul:8089
+        LOCUST_EXPORTER_URI = "http://fastapi-sample-locus.service.gra.${var.env}.consul:8089"
       }
 /*
       template {
