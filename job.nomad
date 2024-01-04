@@ -36,10 +36,10 @@ job "fastapi-sample" {
     version  = "v0.0.1"
     region   = "${node.region}"
     dc       = "${node.datacenter}"
-    scope   = "test"
+    scope    = "test"
     service  = "fastapi-sample-${var.env}"
     team     = "${var.team}"
-    env     = "${var.env}"
+    env      = "${var.env}"
   }
 
   group "fastapi-sample" {
@@ -91,7 +91,7 @@ job "fastapi-sample" {
 
       port "locust" {
         to     = 8089
-        //static = 8089
+        static = 8089
       }
 
       port "locust-exporter" {
@@ -221,8 +221,8 @@ EOF
 
         tags = [
           "traefik.enable=true",
-          //"traefik.http.routers.fastapi-sample-locust.entrypoints=http",
-          "traefik.http.routers.fastapi-sample-locust.entrypoints=locust",
+          "traefik.http.routers.fastapi-sample-locust.entrypoints=http",
+          //"traefik.http.routers.fastapi-sample-locust.entrypoints=locust",
           "traefik.http.routers.fastapi-sample-locust.rule=Host(`fastapi-sample-locust.service.gra.${var.env}.consul`)",
         ]
 
@@ -250,7 +250,7 @@ EOF
         image_pull_timeout = "25m"
         ports = ["locust-exporter"]
         # force_pull = true
-        
+
         # network_mode = "host"
 
         # command = "python"
