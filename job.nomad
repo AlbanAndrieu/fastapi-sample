@@ -150,7 +150,8 @@ EOF
         tags = [
           "traefik.enable=true",
           "traefik.http.routers.fastapi-sample.entrypoints=http",
-          "traefik.http.routers.fastapi-sample.rule=Host(`fastapi-sample.service.gra.${var.env}.consul`)",
+          // "traefik.http.routers.fastapi-sample.rule=Host(`fastapi-sample.service.gra.${var.env}.consul`)",
+          var.env == "uat" ? "traefik.http.routers.fastapi-sample.rule=Host(`fastapi-sample.staging.int.jusmundi.com`) || Host(`fastapi-sample.service.gra.${var.env}.consul`)" : "traefik.http.routers.fastapi-sample.rule=Host(`fastapi-sample.${var.env}.int.jusmundi.com`) || Host(`fastapi-sample.service.gra.${var.env}.consul`)",
         ]
 
         check {
@@ -222,8 +223,8 @@ EOF
         tags = [
           "traefik.enable=true",
           "traefik.http.routers.fastapi-sample-locust.entrypoints=http",
-          //"traefik.http.routers.fastapi-sample-locust.entrypoints=locust",
-          "traefik.http.routers.fastapi-sample-locust.rule=Host(`fastapi-sample-locust.service.gra.${var.env}.consul`)",
+          // "traefik.http.routers.fastapi-sample-locust.rule=Host(`fastapi-sample-locust.service.gra.${var.env}.consul`)",
+          var.env == "uat" ? "traefik.http.routers.fastapi-sample-locust.rule=Host(`fastapi-sample-locust.staging.int.jusmundi.com`) || Host(`fastapi-sample-locust.service.gra.${var.env}.consul`)" : "traefik.http.routers.fastapi-sample-locust.rule=Host(`fastapi-sample-locust.${var.env}.int.jusmundi.com`) || Host(`fastapi-sample-locust.service.gra.${var.env}.consul`)",
         ]
 
         # check {
