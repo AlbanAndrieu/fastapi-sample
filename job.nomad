@@ -124,6 +124,8 @@ job "fastapi-sample" {
         shm_size = 536870912 # 512MB
         auth_soft_fail = true
         # image_pull_timeout = "25m"
+        
+        memory_hard_limit = 2048  # at ???G we will have OOM and the container will be killed
       }
 
       vault {
@@ -177,11 +179,9 @@ EOF
       config {
         image = "[[ .CONTAINER_IMAGE ]]"
         # image = "locustio/locust"
+        
         image_pull_timeout = "25m"
         ports = ["locust"]
-        # force_pull = true
-
-        # network_mode = "host"
 
         command = "python"
         args = [

@@ -51,7 +51,7 @@ code_navigation:
 # Python Code Checks
 # ======
 
-.python_check: &python_check
+.python-check: &python-check
   stage: test
   image: registry.gitlab.com/gitlab-data/data-image/ci-python-image:v1.0.0
   only:
@@ -61,8 +61,8 @@ code_navigation:
       - merge_requests
   allow_failure: true
 
-⚫python_black:
-  <<: *python_check
+.python-black:
+  <<: *python-check
   script:
     - black --check .
 
