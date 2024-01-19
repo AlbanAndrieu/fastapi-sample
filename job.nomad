@@ -36,10 +36,10 @@ job "fastapi-sample" {
     version  = "v0.0.1"
     region   = "${node.region}"
     dc       = "${node.datacenter}"
-    scope   = "test"
+    scope    = "test"
     service  = "fastapi-sample-${var.env}"
     team     = "${var.team}"
-    env     = "${var.env}"
+    env      = "${var.env}"
   }
 
   group "fastapi-sample" {
@@ -91,7 +91,7 @@ job "fastapi-sample" {
 
       port "locust" {
         to     = 8089
-        //static = 8089
+        static = 8089
       }
 
       port "locust-exporter" {
@@ -124,6 +124,8 @@ job "fastapi-sample" {
         shm_size = 536870912 # 512MB
         auth_soft_fail = true
         # image_pull_timeout = "25m"
+        
+        memory_hard_limit = 2048  # at ???G we will have OOM and the container will be killed
       }
 
       vault {
@@ -150,7 +152,8 @@ EOF
         tags = [
           "traefik.enable=true",
           "traefik.http.routers.fastapi-sample.entrypoints=http",
-          "traefik.http.routers.fastapi-sample.rule=Host(`fastapi-sample.service.gra.${var.env}.consul`)",
+          // "traefik.http.routers.fastapi-sample.rule=Host(`fastapi-sample.service.gra.${var.env}.consul`)",
+          var.env == "uat" ? "traefik.http.routers.fastapi-sample.rule=Host(`fastapi-sample.staging.int.jusmundi.com`) || Host(`fastapi-sample.service.gra.${var.env}.consul`)" : "traefik.http.routers.fastapi-sample.rule=Host(`fastapi-sample.${var.env}.int.jusmundi.com`) || Host(`fastapi-sample.service.gra.${var.env}.consul`)",
         ]
 
         check {
@@ -176,11 +179,9 @@ EOF
       config {
         image = "[[ .CONTAINER_IMAGE ]]"
         # image = "locustio/locust"
+        
         image_pull_timeout = "25m"
         ports = ["locust"]
-        # force_pull = true
-
-        # network_mode = "host"
 
         command = "python"
         args = [
@@ -221,9 +222,9 @@ EOF
 
         tags = [
           "traefik.enable=true",
-          //"traefik.http.routers.fastapi-sample-locust.entrypoints=http",
-          "traefik.http.routers.fastapi-sample-locust.entrypoints=locust",
-          "traefik.http.routers.fastapi-sample-locust.rule=Host(`fastapi-sample-locust.service.gra.${var.env}.consul`)",
+          "traefik.http.routers.fastapi-sample-locust.entrypoints=http",
+          // "traefik.http.routers.fastapi-sample-locust.rule=Host(`fastapi-sample-locust.service.gra.${var.env}.consul`)",
+          var.env == "uat" ? "traefik.http.routers.fastapi-sample-locust.rule=Host(`fastapi-sample-locust.staging.int.jusmundi.com`) || Host(`fastapi-sample-locust.service.gra.${var.env}.consul`)" : "traefik.http.routers.fastapi-sample-locust.rule=Host(`fastapi-sample-locust.${var.env}.int.jusmundi.com`) || Host(`fastapi-sample-locust.service.gra.${var.env}.consul`)",
         ]
 
         # check {
@@ -250,7 +251,7 @@ EOF
         image_pull_timeout = "25m"
         ports = ["locust-exporter"]
         # force_pull = true
-        
+
         # network_mode = "host"
 
         # command = "python"

@@ -48,12 +48,6 @@
     "./**"
   ],
   "python.analysis.logLevel": "Trace",
-  "python.linting.pylintEnabled": false,
-  "python.linting.flake8Enabled": true,
-  "python.linting.flake8Args": [
-    // Match what black does.
-    "--max-line-length=88"
-  ],
   "latex-workshop.latex.tools": [
     {
       "name": "pdflatex",
