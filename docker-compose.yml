@@ -1,0 +1,20 @@
+---
+version: '3.7'
+services:
+  datascience-notebook:
+    image: registry.gitlab.com/gitlab-data/data-image/analyst-image:v0.0.19
+    volumes:
+      - type: bind
+        source: ${HOME}/
+        target: /files
+      - type: bind
+        source: ${HOME}/.dbt
+        target: /usr/local/snowflake_profile/
+      - type: bind
+        source: ${HOME}/.ssh
+        target: /home/albanandrieu/.ssh/
+    ports:
+      - "8888:8888"
+    environment:
+      - JUPYTER_ENABLE_LAB=1
+    command: start-notebook.sh --NotebookApp.notebook_dir=/files
