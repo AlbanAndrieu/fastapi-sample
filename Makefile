@@ -33,7 +33,12 @@ SOURCEDIR     = docs/source
 BUILDDIR      = build
 
 # Executables: local only
-DOCKER        = docker
+# DOCKER        = docker
+
+GIT_BRANCH = $$(git symbolic-ref --short HEAD)
+DOCKER_COMPOSE_UP = "export GIT_BRANCH=$(GIT_BRANCH) && docker-compose up"
+DOCKER_COMPOSE_DOWN = "export GIT_BRANCH=$(GIT_BRANCH) && docker-compose down"
+DOCKER_RUN = "export GIT_BRANCH=$(GIT_BRANCH) && docker-compose run"
 
 # Misc
 .DEFAULT_GOAL = build
@@ -52,6 +57,32 @@ help: ## Outputs this help screen
 %: Makefile
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
+# jupyter: Spins up a jupyter instance hosted at http://127.0.0.1:8888/
+jupyter:
+	@"$(DOCKER_COMPOSE_DOWN)"
+	@"$(DOCKER_COMPOSE_UP)"
+
+prepare-pipenv:
+	@echo "Setting up pipenv and installing packages"
+	@which pipenv || python3 -m pip install pipenv
+	@python -m pipenv install --dev --site-packages
+
+setup-jupyter-local: prepare-pipenv
+	@echo "Setting up local Jupyter"
+	@curl -L -O "https://github.com/conda-forge/miniforge/releases/download/4.12.0-2/Mambaforge-Darwin-x86_64.sh"
+	@bash Mambaforge-Darwin-x86_64.sh -u -b -f
+	@rm Mambaforge-Darwin-x86_64.sh
+	@pipenv --python=${HOME}/mambaforge/bin/python install
+	@echo "Data Science environment successfully created"
+
+jupyter-local:
+	@echo "Running local Jupyter"
+	@pipenv run jupyter-lab
+
+setup-jupyter-local-no-mamba: prepare-pipenv
+	@echo "Setting up local Jupyter without mamba"
+	@pipenv install
+
 ## —— All 🎵 ———————————————————————————————————————————————————————————————
 .PHONY: all
 all: down clean build up test
@@ -60,11 +91,18 @@ all: down clean build up test
 .PHONY: clean-docker
 clean-docker:
 	@echo "=> Cleaning image..."
-	docker rmi $(IMAGE)
+	@docker rmi $(IMAGE)
+
+## —— Clean Docker Docker 🧹🐳💩 ———————————————————————————————————————————————————————————————
+.PHONY: clean-docker-compose
+clean-docker-compose:
+	@echo "Cleaning things up..."
+	@"$(DOCKER_COMPOSE_DOWN)" -v
+	@docker system prune -f
 
 ## —— Clean 🧹 ———————————————————————————————————————————————————————————————
 .PHONY: clean
-clean: clean-docker
+clean: clean-docker-compose clean-docker
 
 ## —— Formating 🧪🔗 ———————————————————————————————————————————————————————————————
 .PHONY: fmt
@@ -140,13 +178,15 @@ run: down up
 .PHONY: doc
 doc: ## Documentation
 	@echo "=> Doc..."
-	sphinx-build ./docs/source _build --color -W -bhtml
+	@sphinx-build ./docs/source _build --color -W -bhtml
 
 ## —— Lint 🧪 —————————————————————————————————————————————————————————————————
 .PHONY: flake8
 flake8: ## Linter flake8
 	@echo "=> Linter flake8..."
 	flake8 ./hooks/ tests  --config .flake8 --count --exit-zero --max-line-length=88 --max-complexity=12 --statistics
+	@echo "=> Linter black..."
+	@pipenv run black .
 
 ## —— Debug 📜🐳 —————————————————————————————————————————————————————————————————
 .PHONY: debug

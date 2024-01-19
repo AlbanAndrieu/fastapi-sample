@@ -47,6 +47,25 @@ code_navigation:
     reports:
       lsif: dump.lsif
 
+# ======
+# Python Code Checks
+# ======
+
+.python_check: &python_check
+  stage: test
+  image: registry.gitlab.com/gitlab-data/data-image/ci-python-image:v1.0.0
+  only:
+    changes:
+      - "**/*.ipynb"
+    refs:
+      - merge_requests
+  allow_failure: true
+
+⚫python_black:
+  <<: *python_check
+  script:
+    - black --check .
+
 lint-flake8:
   extends: .lint-flake8
   tags:
