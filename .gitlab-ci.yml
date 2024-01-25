@@ -5,6 +5,7 @@ stages:
   - build
   - train
   - deploy
+  - notify
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
