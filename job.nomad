@@ -124,7 +124,7 @@ job "fastapi-sample" {
         shm_size = 536870912 # 512MB
         auth_soft_fail = true
         # image_pull_timeout = "25m"
-        
+
         memory_hard_limit = 2048  # at ???G we will have OOM and the container will be killed
       }
 
@@ -154,6 +154,7 @@ EOF
           "traefik.http.routers.fastapi-sample.entrypoints=http",
           // "traefik.http.routers.fastapi-sample.rule=Host(`fastapi-sample.service.gra.${var.env}.consul`)",
           var.env == "uat" ? "traefik.http.routers.fastapi-sample.rule=Host(`fastapi-sample.staging.int.jusmundi.com`) || Host(`fastapi-sample.service.gra.${var.env}.consul`)" : "traefik.http.routers.fastapi-sample.rule=Host(`fastapi-sample.${var.env}.int.jusmundi.com`) || Host(`fastapi-sample.service.gra.${var.env}.consul`)",
+          "traefik.http.routers.fastapi-sample.middlewares=my-plugindemo,my-traefik-real-ip",
         ]
 
         check {
@@ -179,7 +180,7 @@ EOF
       config {
         image = "[[ .CONTAINER_IMAGE ]]"
         # image = "locustio/locust"
-        
+
         image_pull_timeout = "25m"
         ports = ["locust"]
 

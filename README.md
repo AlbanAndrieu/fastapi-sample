@@ -18,6 +18,7 @@ Fastapi sample
   * [Install fastapi-sample as a developer](#install-fastapi-sample-as-a-developer)
     + [Using virtualenv](#using-virtualenv)
   * [Getting started](#getting-started)
+  * [Jupiter](#jupiter)
   * [Quality check](#quality-check)
   * [Utility scripts](#utility-scripts)
   * [Update README.md](#update-readmemd)
@@ -107,6 +108,10 @@ pipenv-poetry-migrate -f Pipfile -t pyproject.toml --no-use-group-notation
 [io_task][http://0.0.0.0:8080/io_task)
 
 Result available on [pyroscope](http://localhost:4040/?query=process_cpu%3Acpu%3Ananoseconds%3Acpu%3Ananoseconds%7Bservice_name%3D%22fastapi-sample%22%7D&rightQuery=block%3Acontentions%3Acount%3A%3A%7Bservice_name%3D%22pyroscope%22%7D&leftQuery=block%3Acontentions%3Acount%3A%3A%7Bservice_name%3D%22pyroscope%22%7D&from=now-30m)
+
+## [Jupiter](#table-of-contents)
+
+[gitlab-data/data-science](https://gitlab.com/gitlab-data/data-science/-/tree/main?ref_type=heads)
 
 ## [Quality check](#table-of-contents)
 

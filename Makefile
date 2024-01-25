@@ -69,10 +69,15 @@ prepare-pipenv:
 
 setup-jupyter-local: prepare-pipenv
 	@echo "Setting up local Jupyter"
-	@curl -L -O "https://github.com/conda-forge/miniforge/releases/download/4.12.0-2/Mambaforge-Darwin-x86_64.sh"
-	@bash Mambaforge-Darwin-x86_64.sh -u -b -f
-	@rm Mambaforge-Darwin-x86_64.sh
-	@pipenv --python=${HOME}/mambaforge/bin/python install
+#	@curl -L -O "https://github.com/conda-forge/miniforge/releases/download/4.12.0-2/Miniforge3-Linux-x86_64"
+#	@bash Miniforge3-Linux-x86_64 -u -b -f
+#	@rm Miniforge3-Linux-x86_64
+#	@pipenv --python=${HOME}/mambaforge/bin/python install
+	@curl -L -O "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh"
+	@chmod +x Miniconda3-latest-Linux-x86_64.sh
+	@bash Miniconda3-latest-Linux-x86_64.sh -u -b -f
+	@rm Miniconda3-latest-Linux-x86_64.sh
+	@pipenv --python=${HOME}/miniconda3/bin/python install
 	@echo "Data Science environment successfully created"
 
 jupyter-local:
