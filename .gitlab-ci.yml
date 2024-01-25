@@ -3,6 +3,7 @@ stages:
   - static
   - test
   - build
+  - train
   - deploy
 
 include:
