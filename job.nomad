@@ -151,10 +151,11 @@ EOF
 
         tags = [
           "traefik.enable=true",
-          "traefik.http.routers.fastapi-sample.entrypoints=http",
+          "traefik.http.routers.fastapi-sample.entrypoints=https",
           // "traefik.http.routers.fastapi-sample.rule=Host(`fastapi-sample.service.gra.${var.env}.consul`)",
           var.env == "uat" ? "traefik.http.routers.fastapi-sample.rule=Host(`fastapi-sample.staging.int.jusmundi.com`) || Host(`fastapi-sample.service.gra.${var.env}.consul`)" : "traefik.http.routers.fastapi-sample.rule=Host(`fastapi-sample.${var.env}.int.jusmundi.com`) || Host(`fastapi-sample.service.gra.${var.env}.consul`)",
-          "traefik.http.routers.fastapi-sample.middlewares=plugindemo,traefik-real-ip,crowdsec-bouncer-traefik-plugin",
+          "traefik.http.routers.fastapi-sample.tls=true",
+          "traefik.http.routers.fastapi-sample.middlewares=my-plugindemo@file,my-traefik-real-ip@file,my-crowdsec-bouncer-traefik-plugin@file,traefik-jwt-plugin@file",
           "traefik.http.middlewares.crowdsec.plugin.bouncer.forwardedheaderstrustedips=10.30.10.254", # LAN
           "traefik.http.middlewares.crowdsec.plugin.bouncer.clientTrustedips=10.30.0.115/32",
         ]
