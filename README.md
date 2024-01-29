@@ -18,6 +18,7 @@ Fastapi sample
   * [Install fastapi-sample as a developer](#install-fastapi-sample-as-a-developer)
     + [Using virtualenv](#using-virtualenv)
   * [Getting started](#getting-started)
+  * [Test JWT](#test-jwt)
   * [Test](#test)
   * [Jupiter](#jupiter)
   * [Quality check](#quality-check)
@@ -81,10 +82,14 @@ pyenv install 3.8.10
 and [integrate](https://stackabuse.com/managing-python-environments-with-direnv-and-pyenv/) it with direnv
 
 ```bash
-#pip3.8 install -r hooks/requirements.txt -r requirements.testing.txt
+# pip3.8 install -r hooks/requirements.txt -r requirements.testing.txt
 pipenv check
 python -m pipenv install --dev
 python -m pipenv install --dev --ignore-pipfile
+```
+```bash
+poetry install --no-dev # --dev-only
+poetry install --with dev
 ```
 
 ## [Getting started](#table-of-contents)
@@ -127,7 +132,7 @@ Validate JWT [validate-jwt](https://jwt.io/)
 # Go on back https://back.service.gra.dev.consul:8089/welcome
 # Get from cookie access_token
 #JWT_TOKEN=$(curl "https://jm-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/en/api/valid-jwt")
-JWT_TOKEN="eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJ4ZkxVNmJ4VTVDdjdjdnZpdXR4MXZEU2plSkhXRnVFbDNFaGRoVUFCbXFvIn0.eyJleHAiOjE3MDYxOTg3NDksImlhdCI6MTcwNjE5Njk0OSwiYXV0aF90aW1lIjoxNzA2MTk2OTQ4LCJqdGkiOiIyNTRlM2U5Ny02MWUxLTQ1MzgtYWQyYy04ZjRmZjBiZTJhZWIiLCJpc3MiOiJodHRwOi8va2V5Y2xvYWsuc2VydmljZS5ncmEuZGV2LmNvbnN1bC9yZWFsbXMvanVzX211bmRpIiwiYXVkIjoiYWNjb3VudCIsInN1YiI6IjJmNThhYzE2LWI3ZTItNDFjNy04ZjhkLTZiMTE5MzNlZWI2ZiIsInR5cCI6IkJlYXJlciIsImF6cCI6Imp1c211bmRpX2Rldl9iYWNrIiwic2Vzc2lvbl9zdGF0ZSI6Ijc0N2ZlMGMyLTg4NDAtNDkxMS05YmEzLTc3Y2E3YjJiNWI4YiIsImFjciI6IjEiLCJyZWFsbV9hY2Nlc3MiOnsicm9sZXMiOlsiZGVmYXVsdC1yb2xlcy1qdXNfbXVuZGkiLCJvZmZsaW5lX2FjY2VzcyIsInVtYV9hdXRob3JpemF0aW9uIl19LCJyZXNvdXJjZV9hY2Nlc3MiOnsiYWNjb3VudCI6eyJyb2xlcyI6WyJtYW5hZ2UtYWNjb3VudCIsIm1hbmFnZS1hY2NvdW50LWxpbmtzIiwidmlldy1wcm9maWxlIl19fSwic2NvcGUiOiJvcGVuaWQgZW1haWwgaWRfdG9rZW4gcHJvZmlsZSIsInNpZCI6Ijc0N2ZlMGMyLTg4NDAtNDkxMS05YmEzLTc3Y2E3YjJiNWI4YiIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJuYW1lIjoiQWxiYW4gQW5kcmlldSIsInByZWZlcnJlZF91c2VybmFtZSI6ImEuYW5kcmlldUBqdXNtdW5kaS5jb20iLCJnaXZlbl9uYW1lIjoiQWxiYW4iLCJmYW1pbHlfbmFtZSI6IkFuZHJpZXUiLCJlbWFpbCI6ImEuYW5kcmlldUBqdXNtdW5kaS5jb20ifQ.ZSWFSUAPybgoXvTpM6PFejxmcggtUfmDMeROip8JlAeAynGWxMFc-MNHq6rEYzlfsj-hVtV1mVNUzW39WxpsFVwicH_OskmCHY_TGnVqJptuGgOLgqDUkfaKqbyz3lx32r_NaavkcZxjxwLzLZk3OUH-it7obmjw_nqj9u6lMeBH9hlNOVOen_nUvJzNfxS9Vgs4ZEYkRIaxmIYBwYAHesTVomKfABGbHH3OsVvhujyL2yd1qD-ToPXr89vzyfQRw1LxhVtx1gP_b2MszVSRDCbkEOQaBflyssoRcF0lgTniacaRrfKdk3obiwJ0rDdcF9XQionPmEBrkUxk7Uo5wA"
+JWT_TOKEN="eyJhbGciOiJXXXX"
 curl --head -H "Authorization: Bearer $JWT_TOKEN" -X GET http://fastapi-sample.service.gra.dev.consul/
 ```
 

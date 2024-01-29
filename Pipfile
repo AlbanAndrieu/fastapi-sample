@@ -104,7 +104,6 @@ sphinx = "~=5.0.2" # 4.2.0 is ok with awscli, 7.2.6 docutils conflicting with aw
 tox = ">=3.27.1"
 twine = ">=4.0.2"
 wheel = ">=0.41.1"
-
 jupyterlab = "==3.4.3"
 jupyterlab-code-formatter = "==1.5.3"
 jupyterlab-execute-time = "==2.1.0"

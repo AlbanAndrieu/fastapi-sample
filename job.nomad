@@ -156,8 +156,10 @@ EOF
           var.env == "uat" ? "traefik.http.routers.fastapi-sample.rule=Host(`fastapi-sample.staging.int.jusmundi.com`) || Host(`fastapi-sample.service.gra.${var.env}.consul`)" : "traefik.http.routers.fastapi-sample.rule=Host(`fastapi-sample.${var.env}.int.jusmundi.com`) || Host(`fastapi-sample.service.gra.${var.env}.consul`)",
           "traefik.http.routers.fastapi-sample.tls=true",
           "traefik.http.routers.fastapi-sample.middlewares=my-plugindemo@file,my-traefik-real-ip@file,my-crowdsec-bouncer-traefik-plugin@file",
-          "traefik.http.middlewares.crowdsec.plugin.bouncer.forwardedheaderstrustedips=10.30.10.254", # LAN
-          "traefik.http.middlewares.crowdsec.plugin.bouncer.clientTrustedips=10.30.0.115/32",
+          "traefik.http.middlewares.crowdsec.plugin.bouncer.forwardedheaderstrustedips=10.30.10.254,145.239.211.190,82.66.4.247", # LAN
+          "traefik.http.middlewares.crowdsec.plugin.bouncer.clientTrustedips=10.30.0.115/32,10.20.0.115/32,10.10.0.126/32",
+          "traefik.http.middlewares.test-ratelimit.ratelimit.average=100",
+          "traefik.http.middlewares.test-ratelimit.ratelimit.burst=50",
         ]
 
         check {
