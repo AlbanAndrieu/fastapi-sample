@@ -7,7 +7,7 @@
 # FROM pytorch/pytorch:1.7.1-cuda11.0-cudnn8-runtime as prebuild
 FROM python:3.10
 
-LABEL name="fastapi-sample" vendor="sample" version="1.0.1" \
+LABEL name="fastapi-sample" vendor="sample" version="1.0.0" \
  description="Image used by our products to build python\
  this image is running on Ubuntu 22.10."
 
@@ -21,9 +21,6 @@ ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US:en
 ENV LC_ALL en_US.UTF-8
 ENV TERM="xterm-256color"
-
-ARG CI_PIP_GITLABJUSMUNDI_TOKEN
-ENV CI_PIP_GITLABJUSMUNDI_TOKEN=${CI_PIP_GITLABJUSMUNDI_TOKEN:-""}
 
 # Enable retry logic for apt up to 10 times
 # Configure apt to always assume Y
@@ -53,33 +50,26 @@ RUN chown -R jm-python:jm-python /code
 
 WORKDIR /code
 
-ENV POETRY_HOME="/root/.local" \
-    POETRY_NO_INTERACTION=1 \
-    POETRY_VERSION=1.7.1 \
-    VIRTUAL_ENV="/code/.venv"
-# ENV POETRY_VERSION=${POETRY_VERSION:-"1.1.14+dfsg-1ubuntu1"}
-ENV PATH="$PATH:$VIRTUAL_ENV:$POETRY_HOME/bin"
-
-# hadolint ignore=DL3008
-RUN apt-get update && \
-    apt-get -y install --no-install-recommends python3-poetry && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
-
 USER jm-python
 
-COPY --chown=jm-python:jm-python pyproject.toml /code/
-COPY --chown=jm-python:jm-python poetry.lock /code/
-
-RUN python -m venv /code/.venv
+# RUN --mount=type=secret,id=Pipfile,dst=/code/Pipfile,uid=999,gid=999
+COPY --chown=jm-python:jm-python Pipfile* /code/
 
 # hadolint ignore=DL3013, DL3042
-#RUN python -m pip install --no-cache-dir --upgrade pip &&\
-#    python -m pip install --no-cache-dir --user --upgrade poetry==$POETRY_VERSION
+# RUN --mount=type=secret,id=pip.conf,dst=/code/.config/pip/pip.conf,uid=999,gid=999 \
+# hadolint ignore=DL3013, DL3042
+RUN --mount=type=secret,id=Pipfile,dst=/code/Pipfile,uid=999,gid=999 \
+--mount=type=cache,target=/root/.cache \
+python -m pip install --no-cache-dir --upgrade pip && \
+python -m pip install --no-cache-dir --user --upgrade pipenv==2023.7.23 && \
+python -m pip install --no-cache-dir --user --upgrade virtualenv && \
+python -m pipenv install --site-packages --system
+# python -m pip install --no-cache-dir -r /code/requirements.txt
 
-RUN which poetry
-
-RUN poetry config http-basic.gitlab package_read $CI_PIP_GITLABJUSMUNDI_TOKEN &&\
-    poetry install --with deployment,temporal --no-root
+# hadolint ignore=DL3013
+# RUN conda install -c conda-forge pipenv
+# RUN pipenv install --python /opt/conda/bin/python --site-packages --system
+# RUN rm -f Pipfile*
 
 # dockerfile_lint - ignore
 # hadolint ignore=DL3007

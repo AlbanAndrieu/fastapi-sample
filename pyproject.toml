@@ -4,7 +4,8 @@ version = "1.0.4"
 description = "Custom hooks to improve code quality before pushing to git"
 authors = ["Andrieu, Alban <alban.andrieu@free.fr>"]
 license = "MIT"
-homepage = "https://github.com/AlbanAndrieu/fastapi-sample"
+homepage = "https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample"
+readme = "README.md"
 
 packages = [
   { include = "nabla" }
@@ -19,10 +20,16 @@ packages = [
 name = "gitlab"
 # poetry config http-basic.gitlab __token__ ${CI_PIP_GITLABJUSMUNDI_TOKEN}
 # export POETRY_GITLAB_TOKEN_GITLAB=${CI_PIP_GITLABJUSMUNDI_TOKEN}
-url = "https://gitlab.com/api/v4/projects/7364654/packages/pypi/simple"
+url = "https://gitlab.com/api/v4/groups/7364654/-/packages/pypi/simple"
+# priority = "explicit"
+
+[[tool.poetry.source]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cpu"
+# priority = "explicit"
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = ">=3.10, <3.11"
 ansible-core = "~=2.15.2"
 ansicolors = "~=1.1.8"
 cfgv = "~=3.3.0"
@@ -37,24 +44,41 @@ podmena = "~=0.6.1"
 pyyaml = "~=6.0"
 # six = ">=1.16.0"
 termcolor = "~=2.1.1"
-fastapi = "~=0.95.0"
+
+[tool.poetry.group.api]
+optional =false
+[tool.poetry.group.api.dependencies]
+fastapi = "^0.100.0"
 uvicorn = {version = ">=0.20.0", extras = ["standard"]}
+python-multipart = "^0.0.6"
+
+[tool.poetry.group.deployment]
+optional = true
+[tool.poetry.group.deployment.dependencies]
+python-keystoneclient = "~5.1.0"
+python-swiftclient = "~4.2.0"
 asyncpg = ">=0.27.0"
-spacy = "~=3.5.4"
-python-keystoneclient = "~=5.1.0"
-python-swiftclient = "~=4.2.0"
-prometheus-client = "~=0.16.0"
+dateparser = "~1.1.8"
+spacy = "~3.5.4"
+dacite = "^1.8.0"
 reretry = ">=0.11.8"
+citation-dataclasses = {version = ">=0.0.4", source="gitlab"}
+prometheus-client = "~=0.16.0"
 
 # See https://github.com/temporalio/samples-python/blob/main/pyproject.toml
 [tool.poetry.group.encryption]
 optional = true
 dependencies = { cryptography = "~=41.0.2", aiohttp = "^3.8.1" }
 
+[tool.poetry.group.temporal]
+optional = true
+[tool.poetry.group.temporal.dependencies]
+temporalio = {version = "~=1.2.0", extras = ["opentelemetry"] }
+
 [tool.poetry.group.open_telemetry]
 optional = true
 [tool.poetry.group.open_telemetry.dependencies]
-temporalio = { version = "*", extras = ["opentelemetry"] }
+# temporalio = { version = "*", extras = ["opentelemetry"] }
 opentelemetry-distro = "~=0.39b0"
 opentelemetry-exporter-otlp = "~=1.19.0"
 opentelemetry-exporter-otlp-proto-grpc = "1.19.0"
@@ -63,6 +87,7 @@ opentelemetry-instrumentation-logging = "~=0.39b0"
 opentelemetry-exporter-jaeger-thrift = "~=1.13.0"
 opentelemetry-api = "~=1.19.0"
 opentelemetry-sdk = "~=1.19.0"
+
 
 [tool.poetry.group.influxdb]
 optional = true
@@ -74,6 +99,19 @@ optional = true
 [tool.poetry.group.csv.dependencies]
 asyncpg = ">=0.27.0"
 
+[tool.poetry.group.pytorch]
+optional = false
+[tool.poetry.group.pytorch.dependencies]
+python = ">=3.10, <3.11"
+pydantic = {version = "^1.8.0", extras = ["dotenv"]}
+jm-ner-processor = {version = "~0.0.4", source="gitlab"}
+torch = { version = "~2.0.0", source = "pytorch"}
+jm-ner = {version= "3.1.14rc0", source = "gitlab"}
+# setuptools = "*"
+# Despite not being outside training, we need them for jm-ner
+jm-multilabel-evaluator = {version = "*", source = "gitlab"}
+jmwandb = {version = "*", source = "gitlab"}
+
 [tool.poetry.group.notebook]
 optional = true
 [tool.poetry.group.notebook.dependencies]
@@ -81,6 +119,38 @@ notebook = "^6.4.12"
 # poetry run nbdev_install_quarto
 # poetry run nbdev_install_hooks
 nbdev = "^2.3.7"
+
+[tool.poetry.group.test.dependencies]
+coverage = ">= 7.2.7"
+# molecule = "~=5.1.0"
+pytest = "^7.2.0"
+pytest-cov = "^4.0.0"
+pytest-dependency = "^0.5.1"
+pytest-asyncio = "^0.21.0"
+pytest-order = "^1.0.1"
+pytest-testinfra = "~=6.4.0"
+nox = "~=2023.4.22"
+tox = "~=3.27.1"
+
+[tool.poetry.group.format.dependencies]
+black = {version = "~=23.9.1", extras = ["d"]}
+flake8 = "~=6.1.0"
+flake8-formatter-junit-xml = "~=0.0.6"
+pep8 = "~=1.7.1"
+pep8-naming = "~=0.13.2"
+pylint = "~=2.15.6"
+pylint-junit = "~=0.3.2"
+
+[tool.poetry.group.ci]
+optional = true
+[tool.poetry.group.ci.dependencies]
+autopep8 = "~=2.0.0"
+bandit = "~=1.7.5"
+checkov = ">=2.3.115"
+selenium = "~=4.6.0"
+semgrep = ">=1.15.0"
+sphinx = "~=7.1.2"
+twine = "~=4.0.2"
 
 [tool.poetry.dev-dependencies]
 httpx = "~=0.23.3"
@@ -90,38 +160,16 @@ httpx = "~=0.23.3"
 # ansible-runner = ">=2.2.1"
 # ansible-builder = ">=1.1.0"
 # ansible-playbook-grapher = ">=1.1.0"
-autopep8 = "~=2.0.0"
-bandit = "~=1.7.5"
-black = {version = "~=23.7.0", extras = ["d"]}
-checkov = ">=2.3.115"
-conan = ">=1.31.0"
-coverage = ">= 7.2.7"
-flake8 = "~=6.1.0"
-flake8-formatter-junit-xml = "~=0.0.6"
-molecule = "~=5.1.0"
-nox = "~=2023.4.22"
-pep8 = "~=1.7.1"
-pep8-naming = "~=0.13.2"
-pip-upgrader = "~=1.4.15"
+# conan = ">=1.31.0"
 pre-commit = ">=3.6.0"
 pre-commit-hooks = "~=4.4.0"
-pylint = "~=2.15.6"
-pylint-junit = "~=0.3.2"
-pytest = "~=7.2.0"
-pytest-cov = "~=4.0.0"
-pytest-dependency = "~=0.5.1"
-pytest-asyncio = "~=0.20.2"
-pytest-order = "~=1.0.1"
-pytest-testinfra = "~=6.4.0"
+pip-upgrader = "~=1.4.15"
 readme-renderer = {version = "~=37.3", extras = ["md"]}
-selenium = "~=4.6.0"
-semgrep = ">=1.15.0"
 setup-cfg-fmt = "~=2.2.0"
 setuptools = ">=69.0.3"
-sphinx = "~=7.1.2"
-tox = "~=3.27.1"
-twine = "~=4.0.2"
 wheel = ">=0.42.0"
+# wheel = "~0.38.4"
+
 [tool.setuptools-pipfile]
 
 #[tool]
@@ -132,6 +180,8 @@ testpaths = "tests/"
 
 [tool.black]
 line-length = 88
+target-version = ["py310", "py311"]
+include = "/(tests|nabla)"
 
 [tool.ruff]
 # Enable the pycodestyle (`E`) and Pyflakes (`F`) rules by default.
@@ -200,9 +250,12 @@ omit = [
 name = "pypi"
 url = "https://pypi.org/simple"
 verify_ssl = true
+
 [build-system]
 requires = ["pdm-pep517"]
 build-backend = "pdm.pep517.api"
+# requires = ["poetry-core"]
+# build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "fastapi-sample"

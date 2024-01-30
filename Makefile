@@ -122,7 +122,7 @@ fmt: ## Run formating
 build-docker-train:  ## Build train container with docker
 	@echo "=> Building train image..."
 	envsubst '$${CI_PIP_GITLABNABLA_TOKEN}' < etc/pip.conf > pip.conf
-	docker build -t $(IMAGE) --build-arg CI_PIP_GITLABNABLA_TOKEN=$${CI_PIP_GITLABNABLA_TOKEN} --squash -f Dockerfile.train .
+	docker build -t $(IMAGE) --build-arg CI_PIP_GITLABJUSMUNDI_TOKEN=$${CI_PIP_GITLABJUSMUNDI_TOKEN} --squash -f Dockerfile.train .
 
 ## —— Docker 🐳 ————————————————————————————————————————————————————————————————
 .PHONY: build-docker
@@ -130,7 +130,7 @@ build-docker:  ## Build container with docker
 	@echo "=> Building image..."
 	# envsubst '$${CI_PIP_GITLABNABLA_TOKEN}' < etc/pip.conf > pip.conf
 	# --secret id=pip.conf,src=pip.conf
-	docker build -t $(IMAGE) --squash .
+	docker build -t $(IMAGE) --build-arg CI_PIP_GITLABJUSMUNDI_TOKEN=$${CI_PIP_GITLABJUSMUNDI_TOKEN} --squash .
 
 ## —— Buildah Docker 🐶🐳 ————————————————————————————————————————————————————————————————
 .PHONY: build-buildah-docker
