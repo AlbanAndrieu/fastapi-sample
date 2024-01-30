@@ -119,31 +119,31 @@ pipenv-poetry-migrate -f Pipfile -t pyproject.toml --no-use-group-notation
 
 ## [Test JWT](#table-of-contents)
 
-On dev
-
-Go on [back](https://back.service.gra.dev.consul:8089/welcome)
-
-Get from cookie, access_token
-
-On uat
-
 Get the public key from [keycloak-lex](https://account-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/realms/jus_mundi) [keycloak-uat]((http://account.staging.int.jusmundi.com/realms/jus_mundi)
-or [keycloak-dev](http://account.dev.int.jusmundi.com/realms/jus_mundi)
+
+or [keycloak-dev](http://account.dev.int.jusmundi.com/realms/jus_mundi) [keycloak-admin](http://keycloak-admin.service.gra.dev.consul/realms/jus_mundi/)
+
 and put it to key.pem
 
-Get the bearer [valid-jwt](https://jm-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/en/api/valid-jwt)
+Get the bearer token [valid-jwt-uat](https://jm-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/en/api/valid-jwt)
+
+Go on [back-dev](https://back.service.gra.dev.consul:8089/welcome)
+
+Get from cookie, access_token
 
 Validate JWT [validate-jwt](https://jwt.io/)
 
 ```bash
 # Go on back https://back.service.gra.dev.consul:8089/welcome
 # Get from cookie access_token
-#export JWT_TOKEN=$(curl -k "http://jm-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/en/api/valid-jwt")
-#export JWT_TOKEN=$(curl -k "http://account.dev.int.jusmundi.com/en/api/valid-jwt")
-# http://account.service.gra.dev.consul/en/api/valid-jwt
-# http://keycloak-admin.service.gra.dev.consul/en/api/valid-jwt
-JWT_TOKEN="eyJhbGciOiJXXXX"
-curl -k --head -H "Authorization: Bearer $JWT_TOKEN" -X GET https://fastapi-sample.service.gra.dev.consul/
+# export JWT_TOKEN=$(curl -k "http://jm-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/en/api/valid-jwt")
+
+# http://keycloak-admin.service.gra.dev.consul/realms/jus_mundi/
+
+export JWT_TOKEN="eyJhbGcXXX"
+curl -k -H "Authorization: Bearer $JWT_TOKEN" -X GET https://fastapi-sample.service.gra.dev.consul/
+# token is expired
+#  {"Hello":"World"}
 ```
 
 ## [Test](#table-of-contents)
