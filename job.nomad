@@ -155,11 +155,13 @@ EOF
           // "traefik.http.routers.fastapi-sample.rule=Host(`fastapi-sample.service.gra.${var.env}.consul`)",
           var.env == "uat" ? "traefik.http.routers.fastapi-sample.rule=Host(`fastapi-sample.staging.int.jusmundi.com`) || Host(`fastapi-sample.service.gra.${var.env}.consul`)" : "traefik.http.routers.fastapi-sample.rule=Host(`fastapi-sample.${var.env}.int.jusmundi.com`) || Host(`fastapi-sample.service.gra.${var.env}.consul`)",
           "traefik.http.routers.fastapi-sample.tls=true",
-          "traefik.http.routers.fastapi-sample.middlewares=my-plugindemo@file,my-traefik-real-ip@file,my-crowdsec-bouncer-traefik-plugin@file,test-ratelimits@file,test-inflightreq@file",
+          "traefik.http.routers.fastapi-sample.middlewares=my-plugindemo@file,my-traefik-real-ip@file,my-crowdsec-bouncer-traefik-plugin@file,my-traefik-jwt-plugin@file",
+          # ,test-ratelimit@consulcatalog,test-inflightreq@consulcatalog
           "traefik.http.middlewares.crowdsec.plugin.bouncer.forwardedheaderstrustedips=10.30.10.254,145.239.211.190,82.66.4.247", # LAN
           "traefik.http.middlewares.crowdsec.plugin.bouncer.clientTrustedips=10.30.0.115/32,10.20.0.115/32,10.10.0.126/32",
-          #  ,my-traefik-jwt-plugin@file,
+          #
           "traefik.http.middlewares.test-ratelimit.ratelimit.average=100",
+          # "traefik.http.middlewares.test-ratelimit.ratelimit.period=1s"
           "traefik.http.middlewares.test-ratelimit.ratelimit.burst=50",
           "traefik.http.middlewares.test-inflightreq.inflightreq.amount=10",
           "traefik.http.middlewares.test-inflightreq.inflightreq.sourcecriterion.ipstrategy.excludedips=127.0.0.1/32,192.168.1.7,10.30.0.115/32,10.20.0.115/32,10.10.0.126/32"

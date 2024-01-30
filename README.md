@@ -138,7 +138,10 @@ Validate JWT [validate-jwt](https://jwt.io/)
 ```bash
 # Go on back https://back.service.gra.dev.consul:8089/welcome
 # Get from cookie access_token
-#JWT_TOKEN=$(curl "https://jm-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/en/api/valid-jwt")
+#export JWT_TOKEN=$(curl -k "http://jm-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/en/api/valid-jwt")
+#export JWT_TOKEN=$(curl -k "http://account.dev.int.jusmundi.com/en/api/valid-jwt")
+# http://account.service.gra.dev.consul/en/api/valid-jwt
+# http://keycloak-admin.service.gra.dev.consul/en/api/valid-jwt
 JWT_TOKEN="eyJhbGciOiJXXXX"
 curl -k --head -H "Authorization: Bearer $JWT_TOKEN" -X GET https://fastapi-sample.service.gra.dev.consul/
 ```
