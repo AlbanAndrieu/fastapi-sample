@@ -110,10 +110,10 @@ jupyterlab-execute-time = "==2.1.0"
 jupyterlab-git = "==0.37.1"
 jupyterlab-system-monitor = "==0.8.0"
 jupyterlab-templates = "==0.3.1"
-scikit-learn = "==1.1.1"
-snowflake-connector-python = {extras = ["pandas"], version = "==2.7.8"}
-snowflake-sqlalchemy = "==1.4.4"
-tensorflow = "==2.9.1"
+# scikit-learn = "==1.1.1"
+# snowflake-connector-python = {extras = ["pandas"], version = ">=2.7.8"}
+# snowflake-sqlalchemy = ">=1.4.4"
+# tensorflow = "==2.9.1"
 
 [requires]
 python_version = "3.10"
