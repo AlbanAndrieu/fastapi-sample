@@ -35,11 +35,11 @@ git-url-parse = "~=1.2.2"
 gitpython = "~=3.1.29"
 podmena = "~=0.6.1"
 pyyaml = "~=6.0"
-six = "~=1.16.0"
+# six = ">=1.16.0"
 termcolor = "~=2.1.1"
 fastapi = "~=0.95.0"
 uvicorn = {version = ">=0.20.0", extras = ["standard"]}
-asyncpg = "~=0.27.0"
+asyncpg = ">=0.27.0"
 spacy = "~=3.5.4"
 python-keystoneclient = "~=5.1.0"
 python-swiftclient = "~=4.2.0"
@@ -66,12 +66,21 @@ opentelemetry-sdk = "~=1.19.0"
 
 [tool.poetry.group.influxdb]
 optional = true
+[tool.poetry.group.influxdb.dependencies]
 influxdb-client = ">=1.29.1"
 
 [tool.poetry.group.csv]
 optional = true
-asyncpg = ">=1.29.1"
+[tool.poetry.group.csv.dependencies]
+asyncpg = ">=0.27.0"
 
+[tool.poetry.group.notebook]
+optional = true
+[tool.poetry.group.notebook.dependencies]
+notebook = "^6.4.12"
+# poetry run nbdev_install_quarto
+# poetry run nbdev_install_hooks
+nbdev = "^2.3.7"
 
 [tool.poetry.dev-dependencies]
 httpx = "~=0.23.3"
@@ -94,7 +103,7 @@ nox = "~=2023.4.22"
 pep8 = "~=1.7.1"
 pep8-naming = "~=0.13.2"
 pip-upgrader = "~=1.4.15"
-pre-commit = "~=2.20.0"
+pre-commit = ">=3.6.0"
 pre-commit-hooks = "~=4.4.0"
 pylint = "~=2.15.6"
 pylint-junit = "~=0.3.2"
@@ -108,11 +117,11 @@ readme-renderer = {version = "~=37.3", extras = ["md"]}
 selenium = "~=4.6.0"
 semgrep = ">=1.15.0"
 setup-cfg-fmt = "~=2.2.0"
-setuptools = "~=68.0.0"
+setuptools = ">=69.0.3"
 sphinx = "~=7.1.2"
 tox = "~=3.27.1"
 twine = "~=4.0.2"
-wheel = "~=0.41.1"
+wheel = ">=0.42.0"
 [tool.setuptools-pipfile]
 
 #[tool]
