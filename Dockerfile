@@ -92,7 +92,7 @@ COPY --chown=jm-python:jm-python serve.py /code/jm-python/
 
 RUN mkdir -p /code/jm-python/var/
 
-ENV PATH=/code/.local/bin/:${PATH}
+ENV PATH=/code/.venv/bin/:${PATH}
 
 WORKDIR /code/jm-python
 
@@ -101,4 +101,4 @@ HEALTHCHECK CMD curl --fail http://localhost:8080/v1/ping || exit 1
 
 EXPOSE 8080
 
-CMD ["/code/.local/bin/uvicorn", "serve:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["/code/.venv/bin/uvicorn", "serve:app", "--host", "0.0.0.0", "--port", "8080"]

@@ -13,12 +13,12 @@ name = "gitlab"
 ansible-core = ">=2.15.2"
 ansible-lint = {extras = ["yamllint"], version = ">=6.18.0"}
 # awscli = ">=1.27.165" # python 3.8
-awscli = "~=1.32.11" # python 3.10 awscli 1.32.22 requires docutils<0.17,>=0.10
+awscli = ">=1.32.11" # python 3.10 awscli 1.32.22 requires docutils<0.17,>=0.10
 ansicolors = ">=1.1.8"
 bcrypt = ">=4.0.1"
 # certifi = "2023.7.22" # CVE-2023-37920
 cfgv = ">=3.1.0"
-chardet = ">=3.0.4"
+# chardet = ">=3.0.4"
 click = ">=8.1.3"
 click-completion = ">=0.5.2"
 # colorama = ">=0.4.6" # awscli needed
@@ -30,7 +30,7 @@ podmena = ">=0.6.1"
 # six = ">=1.16.0" # awscli needed
 termcolor = ">=2.1.1"
 # API
-fastapi = "~=0.95.0" # A version greater than 0.90.0 breaks the code
+fastapi = ">=0.95.0" # A version greater than 0.90.0 breaks the code
 locust = ">=2.18.3"
 # starlette = "~=0.23.0"
 uvicorn = {version = ">=0.20.0", extras = ["standard"]}
@@ -58,8 +58,7 @@ psycopg2 = ">=2.9.7"  # WARNING need sudo apt-get install libpq-dev
 sqlalchemy = ">=2.0.20"
 # urllib3 = ">=2.0.7" # awscli needed
 traceback2 = ">=1.4.0"
-grafana-openai-monitoring = "0.0.8"
-jupyter-client = "*"
+grafana-openai-monitoring = ">=0.0.8"
 
 [dev-packages]
 httpx = ">=0.23.3" # For testing fastAPI only
@@ -97,13 +96,14 @@ selenium = ">=4.6.0"
 # NOK
 semgrep = ">=1.15.0"
 # setup-cfg-fmt = ">=2.2.0"
-# setuptools = ">=68.0.0"
+# setuptools = ">=68.1.2"
 # docutils = ">=0.16" # pip install docutils==0.20.1 fix for sphinx https://github.com/sphinx-doc/sphinx/pull/10597 docutils needed by sphinx
 sphinx = "~=5.0.2" # 4.2.0 is ok with awscli, 7.2.6 docutils conflicting with awscli 1.32.22 requires docutils<0.17,>=0.10 https://github.com/aws/aws-cli/blob/develop/setup.cfg#L7C9-L7C17
 # testinfra = ">=6.0.0" pip uninstall testinfra
 tox = ">=3.27.1"
 twine = ">=4.0.2"
-wheel = ">=0.41.1"
+wheel = ">=0.41.2"
+jupyter-client = ">=8.6.0"
 jupyterlab = "==3.4.3"
 jupyterlab-code-formatter = "==1.5.3"
 jupyterlab-execute-time = "==2.1.0"
