@@ -137,6 +137,7 @@ Validate JWT [validate-jwt](https://jwt.io/)
 # Go on back https://back.service.gra.dev.consul:8089/welcome
 # Get from cookie access_token
 # export JWT_TOKEN=$(curl -k "http://jm-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/en/api/valid-jwt")
+# export JWT_TOKEN=$(curl -k "https://jc-frontnuxt.dev.int.jusmundi.com/en/api/valid-jwt")
 
 # http://keycloak-admin.service.gra.dev.consul/realms/jus_mundi/
 
