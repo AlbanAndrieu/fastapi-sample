@@ -105,7 +105,7 @@ RUN python -m pip install --no-cache-dir --upgrade pip==23.3.2 &&\
 # RUN pip install poetry -U
 
 RUN poetry config http-basic.gitlab package_read $CI_PIP_GITLABJUSMUNDI_TOKEN &&\
-    poetry install --with deployment,temporal --no-root
+    poetry install --with deployment,open_telemetry,temporal --no-root
 
 # dockerfile_lint - ignore
 # hadolint ignore=DL3007
