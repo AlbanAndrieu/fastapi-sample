@@ -21,12 +21,13 @@ name = "gitlab"
 # poetry config http-basic.gitlab __token__ ${CI_PIP_GITLABJUSMUNDI_TOKEN}
 # export POETRY_GITLAB_TOKEN_GITLAB=${CI_PIP_GITLABJUSMUNDI_TOKEN}
 url = "https://gitlab.com/api/v4/groups/7364654/-/packages/pypi/simple"
-# priority = "explicit"
+priority = "explicit"
 
 [[tool.poetry.source]]
 name = "pytorch"
 url = "https://download.pytorch.org/whl/cpu"
-# priority = "explicit"
+priority = "explicit"
+# secondary = true
 
 [tool.poetry.dependencies]
 python = ">=3.10, <3.11"
@@ -40,6 +41,7 @@ colorama = "~=0.4.6"
 git-url-parse = "~=1.2.2"
 gitpython = "~=3.1.29"
 podmena = "~=0.6.1"
+pyroscope-io = ">=0.8.5"
 pyyaml = "~=6.0"
 # six = ">=1.16.0"
 termcolor = "~=2.1.1"
@@ -254,10 +256,10 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [build-system]
-requires = ["pdm-pep517"]
-build-backend = "pdm.pep517.api"
-# requires = ["poetry-core"]
-# build-backend = "poetry.core.masonry.api"
+# requires = ["pdm-pep517"]
+# build-backend = "pdm.pep517.api"
+requires = ["poetry-core>=1.2.0"]
+build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "fastapi-sample"

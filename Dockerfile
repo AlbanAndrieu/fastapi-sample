@@ -43,8 +43,29 @@ RUN ln -fs /usr/share/zoneinfo/${TZ} /etc/localtime && locale-gen en_US.UTF-8 \
     && dpkg-reconfigure --frontend noninteractive tzdata
 
 # Turns off buffering for easier container logging
-ENV PYTHONUNBUFFERED=1
-ENV PIP_NO_CACHE_DIR=off
+    # python
+ENV PYTHONUNBUFFERED=1 \
+    # prevents python creating .pyc files
+    PYTHONDONTWRITEBYTECODE=1 \
+    # pip
+    PIP_NO_CACHE_DIR=off \
+    PIP_DISABLE_PIP_VERSION_CHECK=on \
+    PIP_DEFAULT_TIMEOUT=100 \
+    # poetry
+    # https://python-poetry.org/docs/configuration/#using-environment-variables
+    POETRY_VERSION=1.7.1 \
+    # make poetry install to this location
+    POETRY_HOME="/opt/poetry" \
+    POETRY_NO_INTERACTION=1 \
+    # make poetry create the virtual environment in the project's root
+    # it gets named `.venv`
+    POETRY_VIRTUALENVS_IN_PROJECT=true \
+    # do not ask any interactive question
+    POETRY_NO_INTERACTION=1 \
+    # paths
+    # this is where our requirements + virtual environment will live
+    PYSETUP_PATH="/opt/pysetup" \
+    VENV_PATH="/code/.venv"
 
 # Explicitly set user/group IDs
 RUN groupadd -r jm-python --gid=999 && useradd -m -d /code -r -g jm-python --uid=999 jm-python
@@ -53,17 +74,17 @@ RUN chown -R jm-python:jm-python /code
 
 WORKDIR /code
 
-ENV POETRY_HOME="/root/.local" \
-    POETRY_NO_INTERACTION=1 \
-    POETRY_VERSION=1.7.1 \
-    VIRTUAL_ENV="/code/.venv"
 # ENV POETRY_VERSION=${POETRY_VERSION:-"1.1.14+dfsg-1ubuntu1"}
-ENV PATH="$PATH:$VIRTUAL_ENV:$POETRY_HOME/bin"
+ENV PATH="$PATH:$VENV_PATH:$POETRY_HOME/bin"
 
+# poetry 1.3.2
 # hadolint ignore=DL3008
-RUN apt-get update && \
-    apt-get -y install --no-install-recommends python3-poetry && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+#RUN apt-get update && \
+#    apt-get -y install --no-install-recommends python3-poetry && \
+#    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# install poetry - respects $POETRY_VERSION & $POETRY_HOME
+# RUN curl -sSL https://raw.githubusercontent.com/sdispater/poetry/master/get-poetry.py | python
 
 USER jm-python
 
@@ -72,11 +93,16 @@ COPY --chown=jm-python:jm-python poetry.lock /code/
 
 RUN python -m venv /code/.venv
 
-# hadolint ignore=DL3013, DL3042
-#RUN python -m pip install --no-cache-dir --upgrade pip &&\
-#    python -m pip install --no-cache-dir --user --upgrade poetry==$POETRY_VERSION
+ENV PATH=/code/.local/bin/:${PATH}
 
-RUN which poetry
+# upgrade poetry version 1.7.1
+# /code/.local/bin/poetry
+
+# hadolint ignore=DL3013, DL3042
+RUN python -m pip install --no-cache-dir --upgrade pip==23.3.2 &&\
+    python -m pip install --no-cache-dir --user --upgrade poetry==$POETRY_VERSION
+
+# RUN pip install poetry -U
 
 RUN poetry config http-basic.gitlab package_read $CI_PIP_GITLABJUSMUNDI_TOKEN &&\
     poetry install --with deployment,temporal --no-root
@@ -93,8 +119,6 @@ COPY --chown=jm-python:jm-python serve.py /code/jm-python/
 RUN mkdir -p /code/jm-python/var/
 
 ENV PATH=/code/.venv/bin/:${PATH}
-
-WORKDIR /code/jm-python
 
 # HEALTHCHECK NONE
 HEALTHCHECK CMD curl --fail http://localhost:8080/v1/ping || exit 1
