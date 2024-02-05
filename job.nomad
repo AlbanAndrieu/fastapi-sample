@@ -213,7 +213,7 @@ EOF
 
         command = "python"
         args = [
-            "/code/.local/bin/locust",
+            "/code/.venv/bin/locust",
             "-f",
             "nabla/perf/locustfile_jm.py",
             //"--master",
