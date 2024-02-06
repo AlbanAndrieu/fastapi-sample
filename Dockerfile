@@ -112,14 +112,20 @@ RUN python -m pip install --no-cache-dir --upgrade pip==23.3.2 &&\
 # RUN pip install poetry -U
 
 RUN poetry config http-basic.gitlab package_read "$CI_PIP_GITLABJUSMUNDI_TOKEN" &&\
-    poetry install --with deployment,open_telemetry,temporal --no-root --no-dev
+    poetry install --no-root --with deployment,open_telemetry,temporal # --no-dev --remove-untracked
 
 # dockerfile_lint - ignore
 # hadolint ignore=DL3007
 # `development` image is used during development / testing
 FROM python-base as development
 ENV FASTAPI_ENV=development
+
 WORKDIR $PYSETUP_PATH
+
+# Explicitly set user/group IDs
+RUN groupadd -r jm-python --gid=999 && useradd -m -d /code -r -g jm-python --uid=999 jm-python
+
+RUN chown -R jm-python:jm-python /code
 
 # copy in our built poetry + venv
 COPY --from=builder-base $POETRY_HOME $POETRY_HOME
@@ -128,35 +134,46 @@ COPY --from=builder-base $PYSETUP_PATH $PYSETUP_PATH
 USER jm-python
 
 # quicker install as runtime deps are already installed
-RUN poetry --with deployment,open_telemetry,temporal --no-root install
+RUN poetry --no-root install --with deployment,open_telemetry,temporal,test
 
-COPY --chown=jm-python:jm-python nabla/ /code/jm-python/nabla/
-COPY --chown=jm-python:jm-python serve.py /code/jm-python/
+COPY --chown=jm-python:jm-python nabla/ $PYSETUP_PATH/jm-python/nabla/
+COPY --chown=jm-python:jm-python serve.py $PYSETUP_PATH/jm-python/
 
-RUN mkdir -p /code/jm-python/var/
+RUN mkdir -p $PYSETUP_PATH/jm-python/var/
 
-ENV PATH=/code/.venv/bin/:${PATH}
+# ENV PATH=$PYSETUP_PATH/.venv/bin/:${PATH}
 
-WORKDIR /code/jm-python/
+WORKDIR $PYSETUP_PATH/jm-python/
 
 HEALTHCHECK CMD curl --fail http://localhost:8080/v1/ping || exit 1
 
 EXPOSE 8080
 
-CMD ["/code/.venv/bin/uvicorn", "--reload", "serve:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["$PYSETUP_PATH/.venv/bin/uvicorn", "--reload", "serve:app", "--host", "0.0.0.0", "--port", "8080"]
 
 # `production` image used for runtime
 FROM python-base as production
 ENV FASTAPI_ENV=production
+
+# Explicitly set user/group IDs
+RUN groupadd -r jm-python --gid=999 && useradd -m -d /code -r -g jm-python --uid=999 jm-python
+
+RUN chown -R jm-python:jm-python /code
+
+USER jm-python
+
 COPY --from=builder-base $PYSETUP_PATH $PYSETUP_PATH
 
-COPY --chown=jm-python:jm-python nabla/ /code/jm-python/nabla/
-COPY --chown=jm-python:jm-python serve.py /code/jm-python/
+COPY --chown=jm-python:jm-python nabla/ $PYSETUP_PATH/jm-python/nabla/
+COPY --chown=jm-python:jm-python serve.py $PYSETUP_PATH/jm-python/
 
-WORKDIR /code/jm-python/
+# ENV PATH=$PYSETUP_PATH/.venv/bin/:${PATH}
+
+WORKDIR $PYSETUP_PATH/jm-python/
 
 HEALTHCHECK CMD curl --fail http://localhost:8080/v1/ping || exit 1
 
 EXPOSE 8080
 
-CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "serve:app", "--host", "0.0.0.0", "--port", "8080"]
+# CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "serve:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["$PYSETUP_PATH/.venv/bin/uvicorn", "--reload", "serve:app", "--host", "0.0.0.0", "--port", "8080"]
