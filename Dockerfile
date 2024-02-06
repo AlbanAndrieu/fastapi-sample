@@ -139,7 +139,7 @@ RUN poetry --no-root install --with deployment,open_telemetry,temporal,test
 COPY --chown=jm-python:jm-python nabla/ $PYSETUP_PATH/jm-python/nabla/
 COPY --chown=jm-python:jm-python serve.py $PYSETUP_PATH/jm-python/
 
-RUN mkdir -p $PYSETUP_PATH/jm-python/var/
+RUN mkdir -p "$PYSETUP_PATH/jm-python/var/"
 
 # ENV PATH=$PYSETUP_PATH/.venv/bin/:${PATH}
 
@@ -149,7 +149,7 @@ HEALTHCHECK CMD curl --fail http://localhost:8080/v1/ping || exit 1
 
 EXPOSE 8080
 
-CMD ["$PYSETUP_PATH/.venv/bin/uvicorn", "--reload", "serve:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["/code/.venv/bin/uvicorn", "--reload", "serve:app", "--host", "0.0.0.0", "--port", "8080"]
 
 # `production` image used for runtime
 FROM python-base as production
@@ -176,4 +176,4 @@ HEALTHCHECK CMD curl --fail http://localhost:8080/v1/ping || exit 1
 EXPOSE 8080
 
 # CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "serve:app", "--host", "0.0.0.0", "--port", "8080"]
-CMD ["$PYSETUP_PATH/.venv/bin/uvicorn", "--reload", "serve:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["/code/.venv/bin/uvicorn", "--reload", "serve:app", "--host", "0.0.0.0", "--port", "8080"]
