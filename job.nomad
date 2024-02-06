@@ -116,6 +116,7 @@ job "fastapi-sample" {
 
     task "fastapi-sample" {
       driver = "docker"
+
       config {
         image = "[[ .CONTAINER_IMAGE ]]"
         ports = ["server"]
@@ -126,6 +127,10 @@ job "fastapi-sample" {
         # image_pull_timeout = "25m"
 
         memory_hard_limit = 2048  # at ???G we will have OOM and the container will be killed
+      }
+
+      env {
+        FASTAPI_ENV = "development"
       }
 
       vault {
@@ -227,6 +232,7 @@ EOF
 
       env {
         targetHost = "https://jm-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/en"
+        FASTAPI_ENV = "production"
       }
 
       vault {

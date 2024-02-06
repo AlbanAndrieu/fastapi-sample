@@ -18,6 +18,7 @@ paths = [
     '''(.*?)(jpg|gif|doc|pdf|bin|svg|socket)$''',
     '''(go.mod|go.sum)$''',
     '''megalinter-reports/''',
+    '''environment.yml''',
 ]
 
 [[rules]]
