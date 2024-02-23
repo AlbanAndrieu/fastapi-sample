@@ -34,6 +34,7 @@ echo "10.10.0.7 168427527"
 # TRUNCATE security.ip_warned;
 # TRUNCATE security.user_warned;
 # TRUNCATE security.user_banned;
+# TRUNCATE back_action_log;
 
 # podman run --rm -ti redis:7.0 redis-cli -h redis.service.gra.dev.consul FLUSHALL
 
