@@ -16,7 +16,7 @@ class QuickstartUser(HttpUser):
     def jm_test(self):
         # self.client.get("/en", verify=False)
 
-        # self.client.get("/en/conflict-checker?type=p2lf&ref=13&to=1205")
+        self.client.get("/en/conflict-checker?type=p2lf&ref=13&to=1205")
 
         # self.client.get(
         #    "/en/search?page=1&lang=en&document-types%5B0%5D=treaty", verify=False
@@ -27,7 +27,7 @@ class QuickstartUser(HttpUser):
         )
 
         self.client.get(
-            '/en/search?query="hilton%20worldwide"&page=1&sort=desc&lang=en',
+            '/en/api/search?query="hilton%20worldwide"&page=1&sort=desc&lang=en',
             verify=False,
         )
 

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:base"],
+  "gitlabci": {
+    "fileMatch": ["^*.yml$"]
+  },
+  "schedule": ["before 10am on monday", "after 3pm on friday"],
+  "rangeStrategy": "bump",
+  "major": {
+    "automerge": false
+  },
+  "minor": {
+    "automerge": true
+  },
+  "patch": {
+    "automerge": true
+  },
+  "ignoreDeps": ["lodash", "express"]
+}

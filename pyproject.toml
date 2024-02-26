@@ -156,6 +156,12 @@ semgrep = ">=1.15.0"
 sphinx = "~=7.1.2"
 twine = "~=4.0.2"
 
+# [tool.poetry.group.aws]
+# optional = true
+# [tool.poetry.group.aws.dependencies]
+# awscli = ">=1.32.11"
+# awscli-plugin-endpoint = ">=0.4"
+
 # [tool.poetry.dev-dependencies]
 [tool.poetry.group.extras]
 optional = true
@@ -168,7 +174,7 @@ ansible-core = "~=2.15.2"
 # ansible-builder = ">=1.1.0"
 # ansible-playbook-grapher = ">=1.1.0"
 click-completion = "~=0.5.2"
-colorama = "~=0.4.6"
+colorama = ">=0.4.6"
 # conan = ">=1.31.0"
 httpx = {version = "~=0.23.3"}
 git-url-parse = "~=1.2.2"
