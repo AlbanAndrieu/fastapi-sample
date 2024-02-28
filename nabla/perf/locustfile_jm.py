@@ -41,6 +41,30 @@ class QuickstartUser(HttpUser):
             verify=False,
         )
 
+        self.client.get(
+            "/en/document/publication/en-arbitrator-disclosure", verify=False
+        )
+
+        # Documents
+        # Big
+
+        self.client.get(
+            "/en/document/decision/fr-victor-pey-casado-and-president-allende-foundation-v-republic-of-chile-award-thursday-8th-may-2008#decision_849",
+            verify=False,
+        )
+
+        # Mid
+        self.client.get(
+            "/en/document/decision/fr-association-oxfam-france-association-n[…]du-tribunal-administratif-de-paris-wednesday-3rd-february-2021",
+            verify=False,
+        )
+
+        # Small
+        self.client.get(
+            "/en/document/treaty/en-libya-slovakia-bit-2009-libya-slovakia-bit-2009-friday-20th-february-2009",
+            verify=False,
+        )
+
         # self.client.get("/en/coverage/investment-arbitration", verify=False)
 
         self.client.get("/en/partnership/icc", verify=False)
@@ -49,16 +73,32 @@ class QuickstartUser(HttpUser):
 
         # self.client.post("/en/test?query=locus", verify=False)
 
-        self.client.get(
-            "/en/document/publication/en-arbitrator-disclosure", verify=False
-        )
-
         self.client.get("/en/directory/arbitrators/all", verify=False)
 
         # self.client.get("/hello")
         # self.client.get("/world")
 
     @task(3)
+    def jc_front(self):
+
+        # JC Profiles
+
+        # Big
+
+        self.client.get(
+            "/en/d/profile/institution/en-icc-international-chamber-of-commerce",
+            verify=False,
+        )
+
+        # Mid
+
+        self.client.get("/en/p/alexis-mourre", verify=False)
+
+        # Small
+
+        self.client.get("/en/p/daniel-jackson", verify=False)
+
+    @task(4)
     def jm_back(self):
 
         self.client.get("/wiki/index", verify=False)
