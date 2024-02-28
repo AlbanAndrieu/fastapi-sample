@@ -55,7 +55,7 @@ class QuickstartUser(HttpUser):
 
         # Mid
         self.client.get(
-            "/en/document/decision/fr-association-oxfam-france-association-n[…]du-tribunal-administratif-de-paris-wednesday-3rd-february-2021",
+            "/en/document/decision/fr-association-oxfam-france-association-notre-affaire-a-tous-fondation-pour-la-nature-et-lhomme-association-greenpeace-france-v-france-jugement-du-tribunal-administratif-de-paris-wednesday-3rd-february-2021",
             verify=False,
         )
 
@@ -98,10 +98,12 @@ class QuickstartUser(HttpUser):
 
         self.client.get("/en/p/daniel-jackson", verify=False)
 
-    @task(4)
-    def jm_back(self):
+    # @task(4)
+    # def jm_back(self):
 
-        self.client.get("/wiki/index", verify=False)
+    #     self.client.get("/welcome", verify=False)
+
+    #     self.client.get("/wiki/index", verify=False)
 
     # @task(4)
     # def view_item(self):
