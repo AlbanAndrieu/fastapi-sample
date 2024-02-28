@@ -26,6 +26,7 @@ class QuickstartUser(HttpUser):
             "/en/api/search?page=1&lang=en&document-types[0]=treaty", verify=False
         )
 
+        # TODO check why it is not working on Nomad dev but ok on uat
         self.client.get(
             '/en/search?query="hilton%20worldwide"&page=1&sort=desc&lang=en',
             verify=False,
