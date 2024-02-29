@@ -26,7 +26,7 @@ variable "datacenters" {
   default     = ["gra"]
 }
 
-job "fastapi-sample" {
+job "fastapi-sample-jc" {
   datacenters = var.datacenters
   namespace   = "datascience"
   type        = "service"
@@ -37,12 +37,12 @@ job "fastapi-sample" {
     region   = "${node.region}"
     dc       = "${node.datacenter}"
     scope    = "test"
-    service  = "fastapi-sample-${var.env}"
+    service  = "fastapi-sample-jc-${var.env}"
     team     = "${var.team}"
     env      = "${var.env}"
   }
 
-  group "fastapi-sample" {
+  group "fastapi-sample-jc" {
     count = 1
 
     scaling {
@@ -114,7 +114,7 @@ job "fastapi-sample" {
     //   access_mode     = "multi-node-multi-writer"
     // }
 
-    task "fastapi-sample" {
+    task "fastapi-sample-jc" {
       driver = "docker"
 
       config {
@@ -140,8 +140,8 @@ job "fastapi-sample" {
       template {
         data        = <<EOF
 UVICORN_LOG_LEVEL=debug
-OTEL_RESOURCE_ATTRIBUTES=service.name=fastapi-sample
-OTEL_SERVICE_NAME=fastapi-sample
+OTEL_RESOURCE_ATTRIBUTES=service.name=fastapi-sample-jc
+OTEL_SERVICE_NAME=fastapi-sample-jc
 OTEL_EXPORTER_OTLP_ENDPOINT="http://otel-collector.service.gra.${var.env}.consul:4317"
 PYROSCOPE_ENDPOINT="http://pyroscope.service.gra.${var.env}.consul"
 EOF
@@ -163,17 +163,17 @@ EOF
       }
 
       service {
-        name = "fastapi-sample"
+        name = "fastapi-sample-jc"
         port = "server"
 
         tags = [
           "traefik.enable=true",
-          "traefik.http.routers.fastapi-sample.entrypoints=https",
-          // "traefik.http.routers.fastapi-sample.rule=Host(`fastapi-sample.service.gra.${var.env}.consul`)",
-          var.env == "uat" ? "traefik.http.routers.fastapi-sample.rule=Host(`fastapi-sample.staging.int.jusmundi.com`) || Host(`fastapi-sample.service.gra.${var.env}.consul`)" : "traefik.http.routers.fastapi-sample.rule=Host(`fastapi-sample.${var.env}.int.jusmundi.com`) || Host(`fastapi-sample.service.gra.${var.env}.consul`)",
-          "traefik.http.routers.fastapi-sample.tls=true",
-          "traefik.http.routers.fastapi-sample.middlewares=my-traefik-real-ip@file,my-crowdsec-bouncer-traefik-plugin@file,my-traefik-jwt-plugin@file",
-          # "traefik.http.routers.fastapi-sample.middlewares=my-plugindemo@file,my-traefik-real-ip@file,my-crowdsec-bouncer-traefik-plugin@file,my-traefik-jwt-plugin@file",
+          "traefik.http.routers.fastapi-sample-jc.entrypoints=https",
+          // "traefik.http.routers.fastapi-sample-jc.rule=Host(`fastapi-sample-jc.service.gra.${var.env}.consul`)",
+          var.env == "uat" ? "traefik.http.routers.fastapi-sample-jc.rule=Host(`fastapi-sample-jc.staging.int.jusmundi.com`) || Host(`fastapi-sample-jc.service.gra.${var.env}.consul`)" : "traefik.http.routers.fastapi-sample-jc.rule=Host(`fastapi-sample-jc.${var.env}.int.jusmundi.com`) || Host(`fastapi-sample-jc.service.gra.${var.env}.consul`)",
+          "traefik.http.routers.fastapi-sample-jc.tls=true",
+          "traefik.http.routers.fastapi-sample-jc.middlewares=my-traefik-real-ip@file,my-crowdsec-bouncer-traefik-plugin@file,my-traefik-jwt-plugin@file",
+          # "traefik.http.routers.fastapi-sample-jc.middlewares=my-plugindemo@file,my-traefik-real-ip@file,my-crowdsec-bouncer-traefik-plugin@file,my-traefik-jwt-plugin@file",
           # ,test-ratelimit@consulcatalog,test-inflightreq@consulcatalog
           "traefik.http.middlewares.crowdsec.plugin.bouncer.forwardedheaderstrustedips=10.30.10.254,145.239.211.190,82.66.4.247", # LAN
           "traefik.http.middlewares.crowdsec.plugin.bouncer.clientTrustedips=10.30.0.115/32,10.20.0.115/32,10.10.0.126/32",
@@ -199,15 +199,15 @@ EOF
           # }
         }
 
-      } # service fastapi-sample
+      } # service fastapi-sample-jc
 
       resources {
         cpu    = 200 # MHz
         memory = 100 # MB
       }
-    } # task fastapi-sample
+    } # task fastapi-sample-jc
 
-    task "fastapi-sample-locust" {
+    task "fastapi-sample-jc-locust" {
       driver = "docker"
       config {
         image = "[[ .CONTAINER_IMAGE ]]"
@@ -223,7 +223,7 @@ EOF
             "nabla/perf/locustfile_jm.py",
             //"--master",
             //"-H",
-            //"http://fastapi-sample-locust.service.gra.${var.env}.consul:8089",
+            //"http://fastapi-sample-jc-locust.service.gra.${var.env}.consul:8089",
             //"--env targetHost="https://jm-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/en",
         ]
 
@@ -251,14 +251,14 @@ EOF
       }
 */
       service {
-        name = "fastapi-sample-locust"
+        name = "fastapi-sample-jc-locust"
         port = "locust"
 
         tags = [
           "traefik.enable=true",
-          "traefik.http.routers.fastapi-sample-locust.entrypoints=http",
-          // "traefik.http.routers.fastapi-sample-locust.rule=Host(`fastapi-sample-locust.service.gra.${var.env}.consul`)",
-          var.env == "uat" ? "traefik.http.routers.fastapi-sample-locust.rule=Host(`fastapi-sample-locust.staging.int.jusmundi.com`) || Host(`fastapi-sample-locust.service.gra.${var.env}.consul`)" : "traefik.http.routers.fastapi-sample-locust.rule=Host(`fastapi-sample-locust.${var.env}.int.jusmundi.com`) || Host(`fastapi-sample-locust.service.gra.${var.env}.consul`)",
+          "traefik.http.routers.fastapi-sample-jc-locust.entrypoints=http",
+          // "traefik.http.routers.fastapi-sample-jc-locust.rule=Host(`fastapi-sample-jc-locust.service.gra.${var.env}.consul`)",
+          var.env == "uat" ? "traefik.http.routers.fastapi-sample-jc-locust.rule=Host(`fastapi-sample-jc-locust.staging.int.jusmundi.com`) || Host(`fastapi-sample-jc-locust.service.gra.${var.env}.consul`)" : "traefik.http.routers.fastapi-sample-jc-locust.rule=Host(`fastapi-sample-jc-locust.${var.env}.int.jusmundi.com`) || Host(`fastapi-sample-jc-locust.service.gra.${var.env}.consul`)",
         ]
 
         # check {
@@ -276,9 +276,9 @@ EOF
         cpu    = var.env == "dev" ? "100" : "200" # MHz
         memory = var.env == "dev" ? "400" : "500" # MB 5Gb minimum
       }
-    } # task fastapi-sample-locust
+    } # task fastapi-sample-jc-locust
 
-    task "fastapi-sample-locust-exporter" {
+    task "fastapi-sample-jc-locust-exporter" {
       driver = "docker"
       config {
         image = "containersol/locust_exporter"
@@ -291,7 +291,7 @@ EOF
         # command = "python"
         #args = [
         #     "--locust.uri",
-        #    "http://fastapi-sample-locust.service.gra.${var.env}.consul:8089",
+        #    "http://fastapi-sample-jc-locust.service.gra.${var.env}.consul:8089",
         #]
 
 
@@ -303,7 +303,7 @@ EOF
       }
 
       env {
-        LOCUST_EXPORTER_URI = "http://fastapi-sample-locust.service.gra.${var.env}.consul:8089"
+        LOCUST_EXPORTER_URI = "http://fastapi-sample-jc-locust.service.gra.${var.env}.consul:8089"
       }
 /*
       template {
@@ -317,13 +317,13 @@ EOF
       }
 */
       service {
-        name = "fastapi-sample-locust-exporter"
+        name = "fastapi-sample-jc-locust-exporter"
         port = "locust-exporter"
 
         tags = [
           "traefik.enable=true",
-          "traefik.http.routers.fastapi-sample-locust-exporter.entrypoints=http",
-          "traefik.http.routers.fastapi-sample-locust-exporter.rule=Host(`fastapi-sample-locust-exporter.service.gra.${var.env}.consul`)",
+          "traefik.http.routers.fastapi-sample-jc-locust-exporter.entrypoints=http",
+          "traefik.http.routers.fastapi-sample-jc-locust-exporter.rule=Host(`fastapi-sample-jc-locust-exporter.service.gra.${var.env}.consul`)",
         ]
 
         # check {
@@ -341,9 +341,9 @@ EOF
         cpu    = var.env == "dev" ? "100" : "200" # MHz
         memory = var.env == "dev" ? "400" : "500" # MB 5Gb minimum
       }
-    } # task fastapi-sample-locust-exporter
+    } # task fastapi-sample-jc-locust-exporter
 
-    task "fastapi-sample-kong-registration" {
+    task "fastapi-sample-jc-kong-registration" {
 
       driver = "docker"
 
@@ -367,7 +367,7 @@ EOF
           "--state",
           "/kong.yml",
           "--select-tag",
-          "fastapi-sample"
+          "fastapi-sample-jc"
         ]
       }
 
@@ -378,11 +378,11 @@ EOF
 _format_version: "3.0"
 _info:
   select_tags:
-  - fastapi-sample
+  - fastapi-sample-jc
 services:
 - connect_timeout: 60000
-  host: fastapi-sample.service.gra.${var.env}.consul
-  name: fastapi-sample
+  host: fastapi-sample-jc.service.gra.${var.env}.consul
+  name: fastapi-sample-jc
   path: /
   port: 80
   protocol: http
@@ -391,16 +391,16 @@ services:
   routes:
   - hosts:
     %{ if var.env == "uat" }
-    - fastapi-sample.staging.int.jusmundi.com
+    - fastapi-sample-jc.staging.int.jusmundi.com
     %{ endif }
-    - fastapi-sample.${var.env}.int.jusmundi.com
+    - fastapi-sample-jc.${var.env}.int.jusmundi.com
     https_redirect_status_code: 426
     methods:
     - GET
     - PUT
     - POST
     - DELETE
-    name: fastapi-sample
+    name: fastapi-sample-jc
     path_handling: v0
     preserve_host: false
     protocols:
@@ -411,7 +411,7 @@ services:
     response_buffering: true
     strip_path: true
   tags:
-  - fastapi-sample
+  - fastapi-sample-jc
   write_timeout: 60000
 EOF
       }
@@ -423,7 +423,7 @@ EOF
 
     } # task kong-registration
 
-#    task "fastapi-sample-kong-disable" {
+#    task "fastapi-sample-jc-kong-disable" {
 #
 #      driver = "docker"
 #
@@ -447,7 +447,7 @@ EOF
 #          "--state",
 #          "/kong.yml",
 #          "--select-tag",
-#          "fastapi-sample"
+#          "fastapi-sample-jc"
 #        ]
 #      }
 #
@@ -458,11 +458,11 @@ EOF
 #_format_version: "3.0"
 #_info:
 #  select_tags:
-#  - fastapi-sample
+#  - fastapi-sample-jc
 #services:
-#- name: fastapi-sample
+#- name: fastapi-sample-jc
 #  enabled: false
-#  host: fastapi-sample.service.gra.${var.env}.consul
+#  host: fastapi-sample-jc.service.gra.${var.env}.consul
 #EOF
 #      }
 #
@@ -473,6 +473,6 @@ EOF
 #
 #    } # task kong-disable
 
-  } # group fastapi-sample
+  } # group fastapi-sample-jc
 
 }
