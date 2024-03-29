@@ -16,7 +16,7 @@ db_params = {
     "database": "analyticsprocessordev",
     "user": "analyticsprocessor",
     "password": "analyticsprocessorpass",
-    "host": "10.30.10.70",  # Change this to your PostgreSQL server host
+    "host": "10.30.0.193",  # Change this to your PostgreSQL server host
     "port": "5432",  # Change this to your PostgreSQL server port
 }
 
@@ -106,7 +106,7 @@ def download_file_from_url(url: str, dest_folder: str):
         traceback.print_exc()
 
 
-def create_postgres_table(cur: psycopg2.cursor):
+def create_postgres_table(cur):
     """
     Create the Postgres table with a desired schema
     """
@@ -176,14 +176,14 @@ def import_logs_from_csv(csv_file_path: str):
         # );
 
         # Read the CSV file into a Pandas DataFrame
-        col_names = ["user_id", "email", "last_login", "cgu_read_and_accepted", "roles"]
+        # col_names = ["user_id", "email", "last_login", "cgu_read_and_accepted", "roles"]
+        col_names = ["user_id", "email", "last_login", "roles"]
 
         col_dtype = {
             "user_id": "Int64",  # Use Int64 instead of int64 to handle missing values
             "email": "string",
             # 'last_login': 'datetime64[ns]', # datetime64[ns]
-            # 'cgu_read_and_accepted': 'bool',
-            "cgu_read_and_accepted": "string",
+            # "cgu_read_and_accepted": "string",
             "roles": "string",
         }
 
@@ -201,8 +201,8 @@ def import_logs_from_csv(csv_file_path: str):
             on_bad_lines="skip",
             parse_dates=["last_login"],
             date_format=DATE_FORMAT,
-            header=None,
-            # header="infer",
+            # header=None,
+            header=0,
         )
         # quoting=csv.QUOTE_NONE, quotechar='"', delimiter=',', header=None
         # skipfooter=4,
@@ -211,10 +211,10 @@ def import_logs_from_csv(csv_file_path: str):
         # df.set_index('id')
         # df.rename_axis('id')
 
-        df.drop("cgu_read_and_accepted", axis=1, inplace=True)
+        # df.drop("cgu_read_and_accepted", axis=1, inplace=True)
 
         # Add a new column with the current datetime
-        process_date = datetime.date(2023, 9, 19)
+        process_date = datetime.date(2024, 3, 29)
         print(process_date)
         # df["process_date"] = datetime.datetime.now()
         df["process_date"] = pd.to_datetime(process_date, format=DATE_FORMAT, utc=False)

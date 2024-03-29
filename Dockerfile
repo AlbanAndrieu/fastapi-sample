@@ -134,7 +134,7 @@ COPY --from=builder-base $PYSETUP_PATH $PYSETUP_PATH
 USER jm-python
 
 # quicker install as runtime deps are already installed
-RUN poetry --no-root install --with deployment,open_telemetry,temporal,test
+RUN poetry --no-root install --with deployment,open_telemetry,temporal,test,api
 
 COPY --chown=jm-python:jm-python nabla/ $PYSETUP_PATH/jm-python/nabla/
 COPY --chown=jm-python:jm-python serve.py $PYSETUP_PATH/jm-python/
