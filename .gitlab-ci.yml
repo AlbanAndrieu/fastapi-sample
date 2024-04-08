@@ -145,50 +145,50 @@ code_quality:
   #   - docker-build
 
 train-commit-activated:
-    stage: train
-    image: $CONTAINER_IMAGE
-    tags:
-        - saas-linux-medium-amd64-gpu-standard
-    script:
-        - echo "GPU training activated by commit message"
-        - echo "message passed is $CI_COMMIT_MESSAGE"
-        - notebookName=$(echo ${CI_COMMIT_MESSAGE/train})
-        - echo "Notebook name $notebookName"
-        - papermill -p is_local_development False -p tree_method 'gpu_hist' $notebookName -
-    rules:
-        - if: '$CI_COMMIT_BRANCH == "staging"'
-          when: never
-        - if: $CI_COMMIT_MESSAGE =~ /\w+\.ipynb/
-          when: always
-          allow_failure: true
-    artifacts:
-      paths:
-        - ./model_metrics.md
+  stage: train
+  image: $CONTAINER_IMAGE
+  tags:
+    - saas-linux-medium-amd64-gpu-standard
+  script:
+    - echo "GPU training activated by commit message"
+    - echo "message passed is $CI_COMMIT_MESSAGE"
+    - notebookName=$(echo ${CI_COMMIT_MESSAGE/train})
+    - echo "Notebook name $notebookName"
+    - papermill -p is_local_development False -p tree_method 'gpu_hist' $notebookName -
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "staging"'
+      when: never
+    - if: $CI_COMMIT_MESSAGE =~ /\w+\.ipynb/
+      when: always
+      allow_failure: true
+  artifacts:
+    paths:
+      - ./model_metrics.md
 
 cml:
-    stage: notify
-    image: dvcorg/cml-py3:latest
-    script:
-        - cml-send-comment model_metrics.md
-    rules:
-        - if: $CI_COMMIT_MESSAGE =~ /\w+\.ipynb/
-          when: always
-          allow_failure: true
+  stage: notify
+  image: dvcorg/cml-py3:latest
+  script:
+    - cml-send-comment model_metrics.md
+  rules:
+    - if: $CI_COMMIT_MESSAGE =~ /\w+\.ipynb/
+      when: always
+      allow_failure: true
 
 deploy:dev:
   extends: .deploy:dev
-  needs: ["docker-build"]
+  #needs: ["docker-build"]
   tags:
     - jusmundi-nomad-runner
 
 deploy:uat:
   extends: .deploy:uat
-  needs: ["docker-build"]
+  #needs: ["docker-build"]
   tags:
     - jusmundi-nomad-runner
 
 deploy:prod:
   extends: .deploy:prod
-  needs: ["docker-build"]
+  #needs: ["docker-build"]
   tags:
     - jusmundi-nomad-runner
