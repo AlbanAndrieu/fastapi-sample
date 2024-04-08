@@ -142,7 +142,7 @@ docker-build:
 code_quality:
   extends: .code_quality
   stage: build
-  needs: ["docker-build"]
+  # needs: ["docker-build"]
   dependencies:
     - docker-build
 
