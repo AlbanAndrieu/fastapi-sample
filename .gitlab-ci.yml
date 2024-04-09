@@ -9,27 +9,27 @@ stages:
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-nuxt
     file: "/templates/default.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-nuxt
     file: "/templates/docker-build.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-nuxt
     file: "/templates/deploy-nomad.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-nuxt
     file: "/templates/test-python.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-nuxt
     file: "/templates/_apk.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-nuxt
     file: "/templates/data.gitlab-ci.yml"
 
   - template: 'Workflows/MergeRequest-Pipelines.gitlab-ci.yml'
@@ -94,6 +94,7 @@ lint-flake8:
     - !reference [.install-pip3, script]
     - !reference [.install-pipenv, script]
     - !reference [.pipenv-install, script]
+    - !reference [.install-flake8, script]
 
 test-pytest:
   extends: .test-pytest
