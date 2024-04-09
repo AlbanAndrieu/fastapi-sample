@@ -343,85 +343,85 @@ EOF
       }
     } # task fastapi-sample-locust-exporter
 
-    task "fastapi-sample-kong-registration" {
-
-      driver = "docker"
-
-      lifecycle {
-        hook = "poststart"
-      }
-
-      config {
-        image = "docker.io/kong/deck:v1.19.1"
-
-        volumes = [
-          "local/kong.yml:/kong.yml"
-        ]
-
-        image_pull_timeout = "10m"
-
-        args = [
-          "--kong-addr",
-          "http://kong-admin.service.gra.${var.env}.consul",
-          "sync",
-          "--state",
-          "/kong.yml",
-          "--select-tag",
-          "fastapi-sample"
-        ]
-      }
-
-      template {
-        destination = "local/kong.yml"
-
-        data = <<EOF
-_format_version: "3.0"
-_info:
-  select_tags:
-  - fastapi-sample
-services:
-- connect_timeout: 60000
-  host: fastapi-sample.service.gra.${var.env}.consul
-  name: fastapi-sample
-  path: /
-  port: 80
-  protocol: http
-  read_timeout: 60000
-  retries: 5
-  routes:
-  - hosts:
-    %{ if var.env == "uat" }
-    - fastapi-sample.staging.int.jusmundi.com
-    %{ endif }
-    - fastapi-sample.${var.env}.int.jusmundi.com
-    https_redirect_status_code: 426
-    methods:
-    - GET
-    - PUT
-    - POST
-    - DELETE
-    name: fastapi-sample
-    path_handling: v0
-    preserve_host: false
-    protocols:
-    - http
-    - https
-    regex_priority: 0
-    request_buffering: true
-    response_buffering: true
-    strip_path: true
-  tags:
-  - fastapi-sample
-  write_timeout: 60000
-EOF
-      }
-
-      resources {
-        cpu    = 300 # Mhz
-        memory = 300 # MB
-      }
-
-    } # task kong-registration
+#    task "fastapi-sample-kong-registration" {
+#
+#      driver = "docker"
+#
+#      lifecycle {
+#        hook = "poststart"
+#      }
+#
+#      config {
+#        image = "docker.io/kong/deck:v1.19.1"
+#
+#        volumes = [
+#          "local/kong.yml:/kong.yml"
+#        ]
+#
+#        image_pull_timeout = "10m"
+#
+#        args = [
+#          "--kong-addr",
+#          "http://kong-admin.service.gra.${var.env}.consul",
+#          "sync",
+#          "--state",
+#          "/kong.yml",
+#          "--select-tag",
+#          "fastapi-sample"
+#        ]
+#      }
+#
+#      template {
+#        destination = "local/kong.yml"
+#
+#        data = <<EOF
+#_format_version: "3.0"
+#_info:
+#  select_tags:
+#  - fastapi-sample
+#services:
+#- connect_timeout: 60000
+#  host: fastapi-sample.service.gra.${var.env}.consul
+#  name: fastapi-sample
+#  path: /
+#  port: 80
+#  protocol: http
+#  read_timeout: 60000
+#  retries: 5
+#  routes:
+#  - hosts:
+#    %{ if var.env == "uat" }
+#    - fastapi-sample.staging.int.jusmundi.com
+#    %{ endif }
+#    - fastapi-sample.${var.env}.int.jusmundi.com
+#    https_redirect_status_code: 426
+#    methods:
+#    - GET
+#    - PUT
+#    - POST
+#    - DELETE
+#    name: fastapi-sample
+#    path_handling: v0
+#    preserve_host: false
+#    protocols:
+#    - http
+#    - https
+#    regex_priority: 0
+#    request_buffering: true
+#    response_buffering: true
+#    strip_path: true
+#  tags:
+#  - fastapi-sample
+#  write_timeout: 60000
+#EOF
+#      }
+#
+#      resources {
+#        cpu    = 300 # Mhz
+#        memory = 300 # MB
+#      }
+#
+#    } # task kong-registration
 
 #    task "fastapi-sample-kong-disable" {
 #

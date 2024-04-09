@@ -169,12 +169,6 @@ def import_logs_from_csv(csv_file_path: str):
 
         # DELETE FROM connected_users
 
-        # SELECT pg_catalog.setval(
-        # 'connected_users_id_seq',
-        # (SELECT max(id) FROM connected_users),
-        # true
-        # );
-
         # Read the CSV file into a Pandas DataFrame
         # col_names = ["user_id", "email", "last_login", "cgu_read_and_accepted", "roles"]
         col_names = ["user_id", "email", "last_login", "roles"]
@@ -204,11 +198,34 @@ def import_logs_from_csv(csv_file_path: str):
             # header=None,
             header=0,
         )
+
+        # SELECT pg_catalog.setval(
+        # 'connected_users_id_seq',
+        # (SELECT max(id) FROM connected_users),
+        # true
+        # );
+
+        get_seq_id_sql = """
+            SELECT pg_catalog.setval(
+            'connected_users_id_seq',
+            (SELECT max(id) FROM connected_users),
+            true
+            ) as id;
+        """
+
+        s_id = pd.read_sql(get_seq_id_sql, engine)
+
+        print(s_id)
+
+        # df.index = s_id["id"].values
+        # df.index.name = "id"
+
         # quoting=csv.QUOTE_NONE, quotechar='"', delimiter=',', header=None
         # skipfooter=4,
         # skiprows=10,
 
         # df.set_index('id')
+        # df.set_index("id", inplace=True)
         # df.rename_axis('id')
 
         # df.drop("cgu_read_and_accepted", axis=1, inplace=True)
@@ -232,7 +249,9 @@ def import_logs_from_csv(csv_file_path: str):
         print(df.dtypes)
 
         # Insert the data into the PostgreSQL table
-        df.to_sql(table_name, engine, if_exists="append", index=True, index_label="id")
+        # df.to_sql(table_name, engine, if_exists="append", index=True, index_label="id")
+        # Remove index when appending data to table with already existing data
+        df.to_sql(table_name, engine, if_exists="append", index=False)
 
         # Commit the transaction
         # conn.commit()

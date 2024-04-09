@@ -9,27 +9,27 @@ stages:
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-nuxt
     file: "/templates/default.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-nuxt
     file: "/templates/docker-build.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-nuxt
     file: "/templates/deploy-nomad.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-nuxt
     file: "/templates/test-python.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-nuxt
     file: "/templates/_apk.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-nuxt
     file: "/templates/data.gitlab-ci.yml"
 
   - template: 'Workflows/MergeRequest-Pipelines.gitlab-ci.yml'
@@ -85,7 +85,6 @@ code_navigation:
 lint-flake8:
   extends: .lint-flake8
   tags:
-    # - jusmundi-shared-runner
     - jusmundi-nomad-runner
   variables:
     DEFAULT_FLAKE8_TARGET: "nabla"
@@ -93,12 +92,13 @@ lint-flake8:
   # BELOW is needed as we do not use jm-ubuntu but python:3.9
   before_script:
     - !reference [.install-pip3, script]
+    - !reference [.install-pipenv, script]
     - !reference [.pipenv-install, script]
+    - !reference [.install-flake8, script]
 
 test-pytest:
   extends: .test-pytest
   tags:
-    # - jusmundi-shared-runner
     - jusmundi-nomad-runner
   allow_failure: true
   needs: ["lint-flake8"]
@@ -142,68 +142,55 @@ docker-build:
 code_quality:
   extends: .code_quality
   stage: build
-  needs: ["docker-build"]
-  dependencies:
-    - docker-build
+  # needs: ["docker-build"]
+  # dependencies:
+  #   - docker-build
 
 train-commit-activated:
-    stage: train
-    image: $CONTAINER_IMAGE
-    tags:
-        - saas-linux-medium-amd64-gpu-standard
-    script:
-        - echo "GPU training activated by commit message"
-        - echo "message passed is $CI_COMMIT_MESSAGE"
-        - notebookName=$(echo ${CI_COMMIT_MESSAGE/train})
-        - echo "Notebook name $notebookName"
-        - papermill -p is_local_development False -p tree_method 'gpu_hist' $notebookName -
-    rules:
-        - if: '$CI_COMMIT_BRANCH == "staging"'
-          when: never
-        - if: $CI_COMMIT_MESSAGE =~ /\w+\.ipynb/
-          when: always
-          allow_failure: true
-    artifacts:
-      paths:
-        - ./model_metrics.md
+  stage: train
+  image: $CONTAINER_IMAGE
+  tags:
+    - saas-linux-medium-amd64-gpu-standard
+  script:
+    - echo "GPU training activated by commit message"
+    - echo "message passed is $CI_COMMIT_MESSAGE"
+    - notebookName=$(echo ${CI_COMMIT_MESSAGE/train})
+    - echo "Notebook name $notebookName"
+    - papermill -p is_local_development False -p tree_method 'gpu_hist' $notebookName -
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "staging"'
+      when: never
+    - if: $CI_COMMIT_MESSAGE =~ /\w+\.ipynb/
+      when: always
+      allow_failure: true
+  artifacts:
+    paths:
+      - ./model_metrics.md
 
 cml:
-    stage: notify
-    image: dvcorg/cml-py3:latest
-    script:
-        - cml-send-comment model_metrics.md
-    rules:
-        - if: $CI_COMMIT_MESSAGE =~ /\w+\.ipynb/
-          when: always
-          allow_failure: true
+  stage: notify
+  image: dvcorg/cml-py3:latest
+  script:
+    - cml-send-comment model_metrics.md
+  rules:
+    - if: $CI_COMMIT_MESSAGE =~ /\w+\.ipynb/
+      when: always
+      allow_failure: true
 
 deploy:dev:
   extends: .deploy:dev
   needs: ["docker-build"]
   tags:
-    # - jusmundi-shared-runner
     - jusmundi-nomad-runner
-  rules:
-    - if: $CI_MERGE_REQUEST_ID
-      when: manual
-    - if: $CI_MERGE_REQUEST_TITLE =~ /\b(?i)(draft|wip)\b/
-      when: never
-    - if: '$CI_COMMIT_MESSAGE =~ /^.*(#dev|#team).*$/s'
-    - !reference [.oci-image, rules]  # Make CI pipeline run after merge
-    - !reference [.dev-build-rules, rules]
-    - if: '$CI_COMMIT_MESSAGE =~ /^.*(#uat|#prod).*$/s'
-      when: never
-    - if: $CI_COMMIT_TAG =~ /^(prod)-/ # For prod do not deploy to dev
-      when: never
 
 deploy:uat:
   extends: .deploy:uat
-  needs: ["docker-build"]
+  #needs: ["docker-build"]
   tags:
     - jusmundi-nomad-runner
 
 deploy:prod:
   extends: .deploy:prod
-  needs: ["docker-build"]
+  #needs: ["docker-build"]
   tags:
     - jusmundi-nomad-runner
