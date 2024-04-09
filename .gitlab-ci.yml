@@ -179,7 +179,7 @@ cml:
 
 deploy:dev:
   extends: .deploy:dev
-  #needs: ["docker-build"]
+  needs: ["docker-build"]
   tags:
     - jusmundi-nomad-runner
 
