@@ -92,6 +92,7 @@ lint-flake8:
   # BELOW is needed as we do not use jm-ubuntu but python:3.9
   before_script:
     - !reference [.install-pip3, script]
+    - !reference [.install-pipenv, script]
     - !reference [.pipenv-install, script]
 
 test-pytest:
