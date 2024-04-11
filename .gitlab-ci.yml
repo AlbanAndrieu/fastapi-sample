@@ -185,7 +185,7 @@ deploy:dev:
 
 deploy:uat:
   extends: .deploy:uat
-  #needs: ["docker-build"]
+  needs: ["docker-build"]
   tags:
     - jusmundi-nomad-runner
 

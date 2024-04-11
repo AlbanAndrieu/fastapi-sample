@@ -27,10 +27,12 @@ ENV CI_PIP_GITLABJUSMUNDI_TOKEN=${CI_PIP_GITLABJUSMUNDI_TOKEN:-""}
 
 # Enable retry logic for apt up to 10 times
 # Configure apt to always assume Y
+# kics-scan ignore-line
 RUN echo "APT::Acquire::Retries \"10\";" > /etc/apt/apt.conf.d/80-retries \
 && echo "APT::Get::Assume-Yes \"true\";" > /etc/apt/apt.conf.d/90assumeyes
 
 # build-essential has gcc
+# kics-scan ignore-line
 # hadolint ignore=DL3008
 RUN apt-get update && \
     apt-get -y install --no-install-recommends build-essential \

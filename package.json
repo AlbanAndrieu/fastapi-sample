@@ -1,4 +1,25 @@
 {
+  "name": "fastapi-sample",
+  "description": "FastAPI sample",
+  "branchVersion": "^1.0.5",
+  "branchPattern": "1.0.*",
+  "version": "1.0.5",
+  "author": "Alban Andrieu <alban.andrieu@free.fr> (http://albandrieu.com)",
+  "main": "scripts.js",
+  "license": "MIT",
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "http://www.opensource.org/licenses/MIT"
+    }
+  ],
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.5.5",
+    "yarn": " >=1.22.0",
+    "node-gyp": ">=3.0.3",
+    "grunt": ">=1.5.3"
+  },
   "devDependencies": {
     "@semantic-release/gitlab": "13.0.2",
     "conventional-changelog-conventionalcommits": "7.0.2",
