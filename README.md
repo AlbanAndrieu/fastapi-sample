@@ -35,11 +35,13 @@ Fastapi sample
 
 ```bash
 direnv allow
-pyenv install 3.8.10
-pyenv local 3.8.10
+pyenv install 3.10.9
+pyenv local 3.10.9
 python -m pipenv install --dev --ignore-pipfile
 direnv allow
 pre-commit install
+
+nvm install lts/iron
 ```
 
 ## [Requirements](#table-of-contents)
@@ -76,7 +78,7 @@ echo 'eval "$(pyenv init -)"' >> ~/.bashrc
 echo 'eval "$(pyenv virtualenv-init -)"' >> ~/.bashrc
 source ~/.bashrc
 
-pyenv install 3.8.10
+pyenv install 3.10.9
 ```
 
 and [integrate](https://stackabuse.com/managing-python-environments-with-direnv-and-pyenv/) it with direnv
@@ -92,7 +94,7 @@ use [poetry](https://python-poetry.org/docs/cli/)
 
 ```bash
 poetry install --no-dev # --dev-only
-poetry install --with dev
+poetry install --with format,test,extras
 poetry install --extras "mysql pgsql"
 #poetry install -E mysql -E pgsql
 poetry install --all-extras
@@ -169,6 +171,11 @@ Result available on [pyroscope](http://localhost:4040/?query=process_cpu%3Acpu%3
 
 ```bash
 python -m flake8  nabla --max-line-length=88 --max-complexity=30
+
+ruff check --output-format gitlab > report_ruff.json && ruff format --check
+
+pyright --outputjson > report_raw.json
+pyright-to-gitlab-ci --src report_raw.json --output report_pyright.json --base_path .
 ```
 
 [trigger error in sentry-debug](http://0.0.0.0:8080/sentry-debug)

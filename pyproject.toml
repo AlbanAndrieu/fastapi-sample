@@ -144,6 +144,7 @@ pep8 = "~=1.7.1"
 pep8-naming = "~=0.13.2"
 pylint = "~=2.15.6"
 pylint-junit = "~=0.3.2"
+ruff = "~0.3.4"
 
 [tool.poetry.group.ci]
 optional = true

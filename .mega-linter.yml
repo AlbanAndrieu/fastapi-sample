@@ -17,6 +17,7 @@ DISABLE:
   - YAML
   - TEKTON
   - SPELL_LYCHEE
+  - PYTHON
 DISABLE_LINTERS:
   # - JSON_PRETTIER
   # - JSON_JSONLINT
@@ -31,9 +32,6 @@ DISABLE_LINTERS:
   - TERRAFORM_TERRAGRUNT
   - TERRAFORM_TERRASCAN
   - TERRAFORM_KICS
-  - PYTHON_MYPY
-  - PYTHON_PYRIGHT
-  - PYTHON_PYLINT
 IGNORE_GITIGNORED_FILES: true
 FILTER_REGEX_EXCLUDE: (megalinter-reports/|\.automation/test|\.automation/generated|\.github/workflows|\.venv/|\.direnv/|\.mypy_cache/|docs/javascripts|docs/overrides|docs/json-schemas|flavors|clj-kondo|TEMPLATES|tests)
 JSON_JSONLINT_FILTER_REGEX_EXCLUDE: (\.vscode/)
@@ -55,11 +53,7 @@ REPOSITORY_SECRETLINT_DISABLE_ERRORS: false
 RST_RST_LINT_FILTER_REGEX_EXCLUDE: (test\|examples|docs/source/index\.rst)
 RST_RSTCHECK_FILTER_REGEX_EXCLUDE: (test\|examples|docs/source/index\.rst)
 BASH_SHELLCHECK_DISABLE_ERRORS: true
-PYTHON_BANDIT_DISABLE_ERRORS: true
 # REPOSITORY_TRIVY_DISABLE_ERRORS: true
-PYTHON_MYPY_DISABLE_ERRORS: true
-PYTHON_PYLINT_DISABLE_ERRORS: true
-PYTHON_PYRIGHT_DISABLE_ERRORS: true
 YAML_V8R_FILE_NAMES_REGEX:
   [
     ".codeclimate.yml",
@@ -80,8 +74,6 @@ PLUGINS:
   - https://raw.githubusercontent.com/nvuillam/mega-linter/master/.automation/test/mega-linter-plugin-test/test.megalinter-descriptor.yml
 #  - https://raw.githubusercontent.com/oxsecurity/megalinter/master/.automation/test/mega-linter-plugin-test/test.megalinter-descriptor.yml
 PRE_COMMANDS:
-  - command: pip install flake8-cognitive-complexity
-    venv: flake8  # Will be run within flake8 python virtualenv. There is one virtualenv per python-based linter, with the same name
   - command: echo "This is Mega-Linter PRE_COMMAND on own Mega-Linter ! :)"
     cwd: root
   - command: |-

@@ -9,30 +9,34 @@ stages:
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-nuxt
+    ref: main
     file: "/templates/default.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-nuxt
+    ref: main
     file: "/templates/docker-build.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-nuxt
+    ref: main
     file: "/templates/deploy-nomad.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-nuxt
+    ref: main
     file: "/templates/test-python.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-nuxt
+    ref: main
     file: "/templates/_apk.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-nuxt
+    ref: main
     file: "/templates/data.gitlab-ci.yml"
 
   - template: 'Workflows/MergeRequest-Pipelines.gitlab-ci.yml'
+
+  - template: Jobs/Dependency-Scanning.gitlab-ci.yml
+  - template: Jobs/SAST.gitlab-ci.yml
+  - template: Jobs/Secret-Detection.gitlab-ci.yml
 
   # - project: 'renovate-bot/renovate-runner'
   #   file: '/templates/renovate.gitlab-ci.yml'
@@ -47,7 +51,14 @@ variables:
   NOMAD_SERVICE_DEPLOY_URL_SUFFIX: docs
   MOUNT_POINT: "/builds/$CI_PROJECT_PATH/mnt"
   CONTAINER_IMAGE: "$CI_REGISTRY_IMAGE/main-image:latest"
+  DEFAULT_POETRY_OPT_GROUPS: "test,open_telemetry,api"
   # REGISTRY: 783876277037.dkr.ecr.eu-west-3.amazonaws.com
+  DAST_WEBSITE: https://fastapi-sample.service.gra.dev.consul
+
+gemnasium-dependency_scanning:
+  variables:
+    DS_REMEDIATE: "false"
+  # dependencies: ["build"]
 
 # renovate:
 #   rules:
@@ -55,7 +66,7 @@ variables:
 #     - if: '$CI_PIPELINE_SOURCE == "push"'
 
 code_navigation:
-  image: sourcegraph/lsif-go:v1
+  image: sourcegraph/lsif-go:latest
   allow_failure: true # recommended
   script:
     - lsif-go
@@ -95,6 +106,18 @@ lint-flake8:
     - !reference [.install-pipenv, script]
     - !reference [.pipenv-install, script]
     - !reference [.install-flake8, script]
+    
+lint-ruff:
+  extends: .lint-ruff
+
+type-checker-pyright:
+  extends: .type-checker-pyright
+
+test-pytest-poetry:
+  extends: .test-pytest-poetry
+  needs: ["lint-ruff", "type-checker-pyright"]
+  variables:
+    DEFAULT_COV_ARGS: "--cov-fail-under=70"
 
 test-pytest:
   extends: .test-pytest
