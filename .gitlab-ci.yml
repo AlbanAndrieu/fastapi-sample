@@ -9,31 +9,31 @@ stages:
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-gitlab-17
+    ref: feature-add-gra1uat-deploy
     file: "/templates/default.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-gitlab-17
+    ref: feature-add-gra1uat-deploy
     file: "/templates/docker-build.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-gitlab-17
+    ref: feature-add-gra1uat-deploy
     file: "/templates/deploy-nomad.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-gitlab-17
+    ref: feature-add-gra1uat-deploy
     file: "/templates/test-python.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-gitlab-17
+    ref: feature-add-gra1uat-deploy
     file: "/templates/_apk.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-gitlab-17
+    ref: feature-add-gra1uat-deploy
     file: "/templates/data.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-gitlab-17
+    ref: feature-add-gra1uat-deploy
     file: "/templates/mega-linter.gitlab-ci.yml"
 
   - template: 'Workflows/MergeRequest-Pipelines.gitlab-ci.yml'
@@ -142,29 +142,6 @@ mega_linter:
   extends: .mega_linter_common
   needs: ["test-pytest"]
   allow_failure: true
-
-docker-build:
-  extends: .docker-build
-  tags:
-    # - jusmundi-shared-runner
-    # - jusmundi-grabackprod-test
-    - jusmundi-nomad-runner
-    # - docker # no space left on device
-  timeout: 2 hours 10 minutes
-  variables:
-    CS_SEVERITY_THRESHOLD: "CRITICAL"
-    CS_SEVERITY_FILESYTEM_THRESHOLD: "CRITICAL"
-    # CUSTOM_CONTAINER_SCANNING_DISABLED: "true"
-    # CONTAINER_SCANNING_GITLAB_CODEQUALITY_TEMPLATE_DISABLE: "true"
-    TRIVY_TIMEOUT: "20m0s"
-    TRIVY_SCANNERS: "vuln"
-    TRIVY_ARGS: "--skip-dirs .direnv --skip-dirs .venv --skip-files /code/fastapi-sample/pyproject.toml --skip-files /code/fastapi-sample/Pipfile --skip-files /code/fastapi-sample/pip.conf --skip-files code/fastapi-sample/Dockerfile.train_neuralcoref"
-    TRIVY_EXIT_ON_FAILURE: 0
-    TRIVY_FILESYTEM_EXIT_ON_FAILURE: 0
-  after_script:
-    - !reference [.oci-image, script]
-    - !reference [.login-gitlab-docker, script]
-    - !reference [.common-docker-release, script]
 
 code_quality:
   extends: .code_quality
