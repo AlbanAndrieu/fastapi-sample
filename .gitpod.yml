@@ -5,4 +5,5 @@ tasks:
 vscode:
   extensions:
     - esbenp.prettier-vscode
+    # - dbaeumer.vscode-eslint
     - GitLab.gitlab-workflow

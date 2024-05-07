@@ -10,6 +10,7 @@ class QuickstartUser(HttpUser):
         # self.login_page()
 
     # def login_page(self):
+    # pylint: disable=line-too-long
     #     self.client.post("/api/login", "verify=False", json={"Password":"xxxxx","ReturnUrl":"","UserName":"xxxx@gmail.com"})
 
     @task(2)
@@ -32,11 +33,13 @@ class QuickstartUser(HttpUser):
             verify=False,
         )
 
+        # pylint: disable=line-too-long
         self.client.get(
             "/en/document/treaty/en-qatar-turkey-bit-2001-qatar-turkey-bit-2001-tuesday-25th-december-2001",
             verify=False,
         )
 
+        # pylint: disable=line-too-long
         self.client.get(
             "/en/api/documents/publications/juris?page=1&items=12&show_volumes=false&group_journals=false",
             verify=False,
@@ -48,19 +51,21 @@ class QuickstartUser(HttpUser):
 
         # Documents
         # Big
-
+        # pylint: disable=line-too-long
         self.client.get(
             "/en/document/decision/fr-victor-pey-casado-and-president-allende-foundation-v-republic-of-chile-award-thursday-8th-may-2008#decision_849",
             verify=False,
         )
 
         # Mid
+        # pylint: disable=line-too-long
         self.client.get(
             "/en/document/decision/fr-association-oxfam-france-association-notre-affaire-a-tous-fondation-pour-la-nature-et-lhomme-association-greenpeace-france-v-france-jugement-du-tribunal-administratif-de-paris-wednesday-3rd-february-2021",
             verify=False,
         )
 
         # Small
+        # pylint: disable=line-too-long
         self.client.get(
             "/en/document/treaty/en-libya-slovakia-bit-2009-libya-slovakia-bit-2009-friday-20th-february-2009",
             verify=False,
@@ -85,7 +90,7 @@ class QuickstartUser(HttpUser):
         # JC Profiles
 
         # Big
-
+        # pylint: disable=line-too-long
         self.client.get(
             "/en/d/profile/institution/en-icc-international-chamber-of-commerce",
             verify=False,

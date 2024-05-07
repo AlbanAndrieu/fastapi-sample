@@ -38,4 +38,9 @@ echo "10.10.0.7 168427527"
 
 # podman run --rm -ti redis:7.0 redis-cli -h redis.service.gra.dev.consul FLUSHALL
 
+# select * from users.key_customer where type='LAWFIRM' and status='CLIENT' and enabled is true limit 1;
+
+# update users.key_customer set ip_addresses = '[{"ip":2130706433,"office":""},{"ip":2886991877,"office":""},{"ip": 2886991873,"office":""},{"ip": 168427527, "office": ""},{"ip": 168427707, "office": ""},{"ip": 1343161577, "office": ""}]'
+# where id in (56, 247);
+
 exit 0

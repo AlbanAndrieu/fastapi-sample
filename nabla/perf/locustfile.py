@@ -10,6 +10,7 @@ class QuickstartUser(HttpUser):
         # self.login_page()
 
     # def login_page(self):
+    # pylint: disable=line-too-long
     #     self.client.post("/api/login", "verify=False", json={"Password":"xxxxx","ReturnUrl":"","UserName":"xxxx@gmail.com"})
 
     # http://fastapi-sample.service.gra.dev.consul/

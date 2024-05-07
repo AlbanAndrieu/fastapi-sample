@@ -94,7 +94,7 @@ use [poetry](https://python-poetry.org/docs/cli/)
 
 ```bash
 poetry install --no-dev # --dev-only
-poetry install --with format,test,extras
+poetry install --with format,test,extras,open_telemetry,deployment
 poetry install --extras "mysql pgsql"
 #poetry install -E mysql -E pgsql
 poetry install --all-extras

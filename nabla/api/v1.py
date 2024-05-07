@@ -46,14 +46,14 @@ api_request_counter = Counter(
 
 
 @router.get("/items/{item_id}")
-async def read_item(item_id: int, q: str = None):
+async def read_item(item_id: int, q: str = None):  # type: ignore
     api_request_counter.labels(
         method="GET", endpoint="/items/{item_id}", http_status=200
     ).inc()
     api_request_summary.labels(method="GET", endpoint="/items/{item_id}").observe(0.1)
     if item_id % 2 == 0:
         # mock io - wait for x seconds
-        seconds = random.uniform(0, 3)  # ruff: noqa: S311
+        seconds = random.uniform(0, 3)  # nosec # noqa: S311
         await asyncio.sleep(seconds)
     return {"item_id": item_id, "q": q}
 
@@ -73,7 +73,7 @@ async def exception():
         span = trace.get_current_span()
 
         # generate random number
-        seconds = random.uniform(0, 30)  # ruff: noqa: S311
+        seconds = random.uniform(0, 30)  # nosec  # noqa: S311
 
         # record_exception converts the exception into a span event.
         exception = IOError("Failed at " + str(seconds))
@@ -88,8 +88,8 @@ async def exception():
 
 @router.get("/external-api")
 def external_api():
-    seconds = random.uniform(0, 3)  # ruff: noqa: S311
-    response = requests.get(f"https://httpbin.org/delay/{seconds}")
+    seconds = random.uniform(0, 3)  # nosec  # noqa: S311
+    response = requests.get(f"https://httpbin.org/delay/{seconds}", timeout=5)
     response.close()
     return "ok"
 

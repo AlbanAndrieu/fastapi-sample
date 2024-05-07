@@ -1,5 +1,6 @@
 import os
 
+# pylint: disable=all
 from influxdb_client import InfluxDBClient, Point, WriteOptions
 
 # from influxdb_client import InfluxDBClient, Point, WritePrecision

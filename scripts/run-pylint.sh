@@ -14,9 +14,9 @@ mkdir "${WORKING_DIR}/../output" || true
 
 # shellcheck source=/dev/null
 #source /opt/ansible/env38/bin/activate
-echo -e "${magenta} pylint ${WORKING_DIR}/../hooks/ --output-format=parseable > ${WORKING_DIR}/../output/pylint.txt ${NC}"
-pylint "${WORKING_DIR}/../hooks/*" --output-format=parseable >"${WORKING_DIR}/../output/pylint.txt"
+echo -e "${magenta} pylint ${WORKING_DIR}/../nabla/ --output-format=parseable > ${WORKING_DIR}/../output/pylint.txt ${NC}"
+pylint "${WORKING_DIR}/../nabla/*" --output-format=parseable >"${WORKING_DIR}/../output/pylint.txt"
 
-echo -e "${magenta} pylint $(find ./hooks -name "*.py" -type f -print0 | xargs) ${NC}"
+echo -e "${magenta} pylint $(find ./nabla -name "*.py" -type f -print0 | xargs) ${NC}"
 
 exit 0
