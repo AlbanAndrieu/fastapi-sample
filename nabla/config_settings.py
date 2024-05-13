@@ -1,4 +1,5 @@
 """ Settings for nabla project """
+
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional, Type
@@ -25,7 +26,7 @@ class _Settings(BaseSettings):
     mlflow_s3_endpoint_url = "https://s3.gra.cloud.ovh.net"
     mlflow_tracking_uri: str = "https://mlflow.jusmundi.com/"
 
-    class Config:
+    class Config:  # type: ignore
         base_path = Path(__file__).parent.parent.absolute()
         env_file = [base_path / ".env", base_path / ".env.local"]
 
@@ -46,7 +47,6 @@ def get_settings(env_file: Optional[Path] = None) -> Type[BaseSettings]:
 LOG_FORMAT = "[%(asctime)s] [%(process)d] [%(name)s] [%(levelname)s] %(message)s"
 LOGGING_CONFIG = {
     "version": 1,
-    ""
     "formatters": {
         "standard": {
             "format": LOG_FORMAT,

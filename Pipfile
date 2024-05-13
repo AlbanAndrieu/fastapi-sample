@@ -94,6 +94,7 @@ pytest-order = ">=1.0.1"
 # pip install --upgrade pytest-testinfra
 pytest-testinfra = ">=6.4.0"
 readme-renderer = {version = ">=37.3", extras = ["md"]}
+ruff = "~=0.4.4"
 selenium = ">=4.6.0"
 # NOK
 semgrep = ">=1.15.0"

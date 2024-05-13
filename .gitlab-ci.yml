@@ -9,31 +9,31 @@ stages:
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-nuxt
+    ref: feature-ruff
     file: "/templates/default.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-nuxt
+    ref: feature-ruff
     file: "/templates/docker-build.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-nuxt
+    ref: feature-ruff
     file: "/templates/deploy-nomad.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-nuxt
+    ref: feature-ruff
     file: "/templates/test-python.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-nuxt
+    ref: feature-ruff
     file: "/templates/_apk.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-nuxt
+    ref: feature-ruff
     file: "/templates/data.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-nuxt
+    ref: feature-ruff
     file: "/templates/mega-linter.gitlab-ci.yml"
 
   - template: 'Workflows/MergeRequest-Pipelines.gitlab-ci.yml'
@@ -58,6 +58,9 @@ variables:
   DEFAULT_POETRY_OPT_GROUPS: "test,open_telemetry,api"
   # REGISTRY: 783876277037.dkr.ecr.eu-west-3.amazonaws.com
   DAST_WEBSITE: https://fastapi-sample.service.gra.dev.consul
+  CI_IMAGE_NAME: ${CI_REGISTRY}/jusmundi-group/web/templates/jm-oci/jm-ubuntu
+  CI_IMAGE_TAG: latest # 0.0.11
+  GIT_CLONE_PATH: '$CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_PIPELINE_ID'
 
 gemnasium-dependency_scanning:
   variables:
@@ -69,7 +72,7 @@ gemnasium-dependency_scanning:
 #     - if: '$CI_PIPELINE_SOURCE == "schedule"'
 #     - if: '$CI_PIPELINE_SOURCE == "push"'
 
-code_navigation:
+.code_navigation:
   image: sourcegraph/lsif-go:latest
   allow_failure: true # recommended
   script:
@@ -113,6 +116,11 @@ lint-flake8:
 
 lint-ruff:
   extends: .lint-ruff
+  needs: ["lint-flake8"]
+#  before_script:
+#    - !reference [.install-pip3, script]
+#    - !reference [.install-pipenv, script]
+#    - !reference [.pipenv-install, script]
 
 type-checker-pyright:
   extends: .type-checker-pyright
@@ -169,9 +177,18 @@ docker-build:
 code_quality:
   extends: .code_quality
   stage: build
-  # needs: ["docker-build"]
-  # dependencies:
-  #   - docker-build
+  needs: ["docker-build", "lint-ruff", "type-checker-pyright"]
+  dependencies:
+    - docker-build
+    - lint-ruff
+    - type-checker-pyright
+  script:
+    - |-
+      if [[ $CONTAINER_SCANNING_GITLAB_CODEQUALITY_TEMPLATE_DISABLE != "true" ]]; then
+        jq -s 'add' report_ruff.json report_pyright.json > gl-codeclimate.json || true;
+      else
+        echo "Disable report_ruff.json report_pyright.json report combine";
+      fi
 
 train-commit-activated:
   stage: train

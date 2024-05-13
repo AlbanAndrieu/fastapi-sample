@@ -2,10 +2,11 @@ import logging
 import os
 
 import pyroscope
-import uvicorn
+import uvicorn.config
+
 from nabla.main import app
 
-EXPOSE_HOST = os.environ.get("EXPOSE_HOST", "0.0.0.0")
+EXPOSE_HOST = os.environ.get("EXPOSE_HOST", "0.0.0.0")  # noqa: S104
 EXPOSE_PORT = int(os.environ.get("EXPOSE_PORT", 8080))
 PYROSCOPE_ENDPOINT = os.environ.get("PYROSCOPE_ENDPOINT", "http://localhost:4040")
 
@@ -25,10 +26,10 @@ if __name__ == "__main__":
         pyroscope.configure(
             application_name="fastapi-sample",
             server_address=PYROSCOPE_ENDPOINT,  # See https://grafana.com/docs/pyroscope/next/configure-client/language-sdks/python/
-            server_port=EXPOSE_PORT,
-            service_name="fastapi-sample",
-            trace_id_key="otelTraceID",
-            span_id_key="otelSpanID",
+            # server_port=EXPOSE_PORT,
+            # service_name="fastapi-sample",
+            # trace_id_key="otelTraceID",
+            # span_id_key="otelSpanID",
             sample_rate=100,  # default is 100
         )
 
