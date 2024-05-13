@@ -10,6 +10,7 @@
     ".gitignore",
     "**/.pnpm-lock.json",
     ".vscode",
+    ".cspell.json",
     "megalinter",
     "package-lock.json",
     "Pipfile",
@@ -39,7 +40,8 @@
     ".pre-commit-config.yaml",
     "LICENSE",
     "report",
-    "uvicorn"
+    "uvicorn",
+    "nabla/**"
   ],
   "words": [
     "aandrieu",

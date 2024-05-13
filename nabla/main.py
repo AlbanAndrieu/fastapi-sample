@@ -6,16 +6,16 @@ from typing import Dict
 import pyroscope
 import sentry_sdk
 from fastapi import FastAPI
+from sentry_sdk.integrations.logging import LoggingIntegration
+
+# from prometheus_fastapi_instrumentator import Instrumentator
+from starlette.middleware.cors import CORSMiddleware
 
 # from nabla import logger
 from nabla.api import ping, v1
 from nabla.log_middleware import LogMiddleware
 from nabla.logger import logger
 from nabla.utils import PrometheusMiddleware, metrics, setting_otlp
-from sentry_sdk.integrations.logging import LoggingIntegration
-
-# from prometheus_fastapi_instrumentator import Instrumentator
-from starlette.middleware.cors import CORSMiddleware
 
 # from citation.infrastructure.crud_exceptions import CrudError, NotFoundInJM
 
@@ -138,7 +138,7 @@ async def io_task():
 
 def work(n):
     for i in range(n):
-        i * i * i
+        i * i * i  # pyright: ignore # [pointless-statement]
 
 
 @app.get("/cpu_task")

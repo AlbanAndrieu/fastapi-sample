@@ -96,7 +96,7 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
             RESPONSES.labels(
                 method=method,
                 path=path,
-                status_code=status_code,
+                status_code=status_code,  # type: ignore
                 app_name=self.app_name,
             ).inc()
             REQUESTS_IN_PROGRESS.labels(
@@ -108,14 +108,14 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
     @staticmethod
     def get_path(request: Request) -> Tuple[str, bool]:
         for route in request.app.routes:
-            match, child_scope = route.matches(request.scope)
+            match = route.matches(request.scope)
             if match == Match.FULL:
                 return route.path, True
 
         return request.url.path, False
 
 
-def metrics(request: Request) -> Response:
+def metrics(request: Request) -> Response:  # [unused-argument]
     return Response(
         generate_latest(REGISTRY), headers={"Content-Type": CONTENT_TYPE_LATEST}
     )
@@ -142,4 +142,4 @@ def setting_otlp(
     if log_correlation:
         LoggingInstrumentor().instrument(set_logging_format=True)
 
-    FastAPIInstrumentor.instrument_app(app, tracer_provider=tracer)
+    FastAPIInstrumentor.instrument_app(app, tracer_provider=tracer)  # type: ignore
