@@ -61,6 +61,7 @@ sqlalchemy = ">=2.0.20"
 traceback2 = ">=1.4.0"
 grafana-openai-monitoring = ">=0.0.8"
 pyarrow = "*"
+jira = "*"
 
 [dev-packages]
 httpx = ">=0.23.3" # For testing fastAPI only
