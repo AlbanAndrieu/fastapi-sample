@@ -4,7 +4,6 @@
 Fastapi sample
 
 
-
 # Table of contents
 
 <!-- markdown-link-check-disable -->
@@ -62,14 +61,14 @@ See requirements.txt for mandatory packages.
 
 ### Using virtualenv
 
-Install python 3.8 and virtualenv
+Install python 3.10 and virtualenv
 
 ```bash
-virtualenv --no-site-packages /opt/ansible/env38 -p python3.8
+virtualenv --no-site-packages /opt/ansible/env38 -p python3.10
 source /opt/ansible/env38/bin/activate
 ```
 
-Install python 3.8 and pyenv
+Install python 3.10 and pyenv
 
 ```bash
 curl -L https://pyenv.run | bash
@@ -84,7 +83,7 @@ pyenv install 3.10.9
 and [integrate](https://stackabuse.com/managing-python-environments-with-direnv-and-pyenv/) it with direnv
 
 ```bash
-# pip3.8 install -r hooks/requirements.txt -r requirements.testing.txt
+# pip3.10 install -r hooks/requirements.txt -r requirements.testing.txt
 pipenv check
 python -m pipenv install --dev
 python -m pipenv install --dev --ignore-pipfile

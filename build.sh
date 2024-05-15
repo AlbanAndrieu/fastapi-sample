@@ -6,7 +6,7 @@ WORKING_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 source "${WORKING_DIR}/scripts/step-1-os.sh"
 
-export REPO_TAG=${REPO_TAG:-"1.0.0"}
+export REPO_TAG=${REPO_TAG:-"1.0.1"}
 
 # shellcheck source=./docs/build.sh
 #echo "${WORKING_DIR}/docs/build.sh"
@@ -17,7 +17,7 @@ export REPO_TAG=${REPO_TAG:-"1.0.0"}
 # shellcheck source=./clean.sh
 #${WORKING_DIR}/clean.sh"
 
-./run-install.sh
+echo "${cyan} ${WORKING_DIR}/scripts/run-install.sh ${NC}"
 
 #pipenv install
 
@@ -29,9 +29,6 @@ echo -e "${cyan} PATH : ${PATH} ${NC}"
 echo -e "${cyan} PYTHONPATH : ${PYTHONPATH} ${NC}"
 
 python -V || true
-
-#pip install coverage==4.5.3
-#coverage --version || true
 
 #setup-py-upgrade ./
 # setup-cfg-fmt setup.cfg

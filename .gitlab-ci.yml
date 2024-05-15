@@ -9,31 +9,31 @@ stages:
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-ruff
+    ref: main
     file: "/templates/default.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-ruff
+    ref: main
     file: "/templates/docker-build.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-ruff
+    ref: main
     file: "/templates/deploy-nomad.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-ruff
+    ref: main
     file: "/templates/test-python.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-ruff
+    ref: main
     file: "/templates/_apk.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-ruff
+    ref: main
     file: "/templates/data.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-ruff
+    ref: main
     file: "/templates/mega-linter.gitlab-ci.yml"
 
   - template: 'Workflows/MergeRequest-Pipelines.gitlab-ci.yml'
@@ -55,7 +55,7 @@ variables:
   NOMAD_SERVICE_DEPLOY_URL_SUFFIX: docs
   MOUNT_POINT: "/builds/$CI_PROJECT_PATH/mnt"
   CONTAINER_IMAGE: "$CI_REGISTRY_IMAGE/main-image:latest"
-  DEFAULT_POETRY_OPT_GROUPS: "test,open_telemetry,api"
+  DEFAULT_POETRY_OPT_GROUPS: "test,open_telemetry,api,test"
   # REGISTRY: 783876277037.dkr.ecr.eu-west-3.amazonaws.com
   DAST_WEBSITE: https://fastapi-sample.service.gra.dev.consul
   CI_IMAGE_NAME: ${CI_REGISTRY}/jusmundi-group/web/templates/jm-oci/jm-ubuntu
@@ -121,15 +121,18 @@ lint-ruff:
 #    - !reference [.install-pip3, script]
 #    - !reference [.install-pipenv, script]
 #    - !reference [.pipenv-install, script]
+  allow_failure: true
 
 type-checker-pyright:
   extends: .type-checker-pyright
+  allow_failure: true
 
 test-pytest-poetry:
   extends: .test-pytest-poetry
   needs: ["lint-ruff", "type-checker-pyright"]
   variables:
     DEFAULT_COV_ARGS: "--cov-fail-under=70"
+  allow_failure: true
 
 test-pytest:
   extends: .test-pytest

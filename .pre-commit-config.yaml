@@ -90,7 +90,7 @@ repos:
         #   - flake8-debugger==4.1.2
         #   - flake8-string-format==0.3.0
   - repo: https://github.com/pre-commit/pre-commit.git
-    rev: v3.7.0
+    rev: v3.7.1
     hooks:
       - id: validate_manifest
 #  - repo: https://github.com/asottile/reorder_python_imports.git
