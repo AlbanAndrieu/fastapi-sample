@@ -181,6 +181,18 @@ cml:
       when: always
       allow_failure: true
 
+docker-build:
+  extends: .docker-build
+  interruptible: true
+  variables:
+    CS_SEVERITY_THRESHOLD: "HIGH"
+    CS_SEVERITY_FILESYTEM_THRESHOLD: "HIGH"
+    TRIVY_SCANNERS: "vuln"
+    TRIVY_EXIT_ON_FAILURE: 0
+    TRIVY_FILESYTEM_EXIT_ON_FAILURE: 0
+
+
+
 deploy:dev:
   extends: .deploy:dev
   needs: ["docker-build"]
