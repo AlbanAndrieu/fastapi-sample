@@ -190,7 +190,12 @@ docker-build:
     TRIVY_SCANNERS: "vuln"
     TRIVY_EXIT_ON_FAILURE: 0
     TRIVY_FILESYTEM_EXIT_ON_FAILURE: 0
-
+  before_script:
+  - echo "test"  
+  script:
+  - echo "test"  
+  after_script:
+  - echo "test"
 
 
 deploy:dev:
