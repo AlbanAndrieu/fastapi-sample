@@ -193,17 +193,7 @@ docker-build:
   before_script:
   - echo "test"  
   script:
-  - |
-      which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )
-      mkdir -p ~/.ssh
-      eval $(ssh-agent -s)
-      echo "$SSH_KEY_GRA1UAT_BASE64" | base64 -d > private_key.pem
-      cat private_key.pem
-      chmod 400 private_key.pem
-      ssh -o "StrictHostKeyChecking=no" -i "private_key.pem" ubuntu@gra1uat1 ' 
-      whoami
-      echo "ceci_est_un_test" > jm-docker-compose/test.txt
-      '  
+  - echo "test"
   after_script:
   - echo "test"
 
@@ -217,6 +207,18 @@ deploy:dev:
 deploy:gra1uat:
   extends: .deploy:gra1uat
   needs: ["docker-build"]
+  script: 
+    - |
+      which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )
+      mkdir -p ~/.ssh
+      eval $(ssh-agent -s)
+      echo "$SSH_KEY_GRA1UAT_BASE64" | base64 -d > private_key.pem
+      cat private_key.pem
+      chmod 400 private_key.pem
+      ssh -o "StrictHostKeyChecking=no" -i "private_key.pem" ubuntu@gra1uat1 ' 
+      whoami
+      echo "ceci_est_un_test" > jm-docker-compose/test.txt
+      '  
 
 deploy:uat:
   extends: .deploy:uat
