@@ -213,7 +213,6 @@ deploy:gra1uat:
       mkdir -p ~/.ssh
       eval $(ssh-agent -s)
       echo "$SSH_KEY_GRA1UAT_BASE64" | base64 -d > private_key.pem
-      cat private_key.pem
       chmod 400 private_key.pem
       ssh -o "StrictHostKeyChecking=no" -i "private_key.pem" ubuntu@gra1uat1 ' 
       whoami
