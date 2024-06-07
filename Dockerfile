@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.5
+# syntax=docker/dockerfile:1.7
 
 # dockerfile_lint - ignore
 # hadolint ignore=DL3007
