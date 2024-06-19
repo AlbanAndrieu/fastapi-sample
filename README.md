@@ -101,6 +101,40 @@ poetry install --all-extras
 
 ## [Getting started](#table-of-contents)
 
+
+```mermaid
+sequenceDiagram
+    actor User as User Client
+    participant HAProxy as HAProxy
+    participant Traefik as Traefik
+    participant KrakenD as KrakenD
+    participant API as sample API Service
+
+    autonumber
+    User ->> HAProxy: HTTP Request ( https://krakend.jusmundi.com/sample/threads)
+    HAProxy ->> Traefik: Forward Request (Add jm-client-ip)
+    Traefik ->> Traefik: Resolve (krakend.jusmundi.com -> kraken.service.gra.uat.consul -> IP and PORT)
+    Traefik ->>+ KrakenD: Forward Request (resolve kraken.service.gra.uat.consul)
+    alt is jwt
+    KrakenD ->> KrakenD: Check its Config (Get JWT public key URL)
+    KrakenD ->> Traefik: New Request : Get JWT public key (resolve keycloak.service.gra.uat.consul)
+    Traefik ->> Traefik: Resolve (keycloak.service.gra.uat.consul -> IP and PORT)
+    Traefik ->>+ Keycloak: Get JWT public key
+    Keycloak -->>- KrakenD: Forward Response (JWT public key)
+    KrakenD ->> KrakenD: Valid Token (using JWT public key)
+    end
+    KrakenD ->> KrakenD: Check its config  (sample/threads -> sample.service.gra.uat.consul/threads)
+    KrakenD ->>- Traefik: New Request (https://sample.service.gra.uat.consul/threads)
+    Traefik ->> Traefik: Resolve (sample.service.gra.uat.consul -> IP and PORT)
+    Traefik ->>+ API: Forward Request (https://sample.service.gra.uat.consul/threads)
+    API -->>- KrakenD: Response (A json)
+    KrakenD -->> Traefik: Forward Response
+    Traefik -->> HAProxy: Forward Response
+    HAProxy -->> User: HTTP Response
+
+```
+
+
 ```bash
 make up-uvicorn
 ```
@@ -128,14 +162,14 @@ and put it to key.pem
 
 Get the bearer token [valid-jwt-uat](https://jm-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/en/api/valid-jwt)
 
-Go on [back-dev](https://back.service.gra.dev.consul:8089/welcome)
+Go on [back-dev](https://back.service.gra.dev.consul/welcome)
 
 Get from cookie, access_token
 
 Validate JWT [validate-jwt](https://jwt.io/)
 
 ```bash
-# Go on back https://back.service.gra.dev.consul:8089/welcome
+# Go on back https://back.service.gra.dev.consul/welcome
 # Get from cookie access_token
 # export JWT_TOKEN=$(curl -k "http://jm-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/en/api/valid-jwt")
 # export JWT_TOKEN=$(curl -k "https://jc-frontnuxt.dev.int.jusmundi.com/en/api/valid-jwt")

@@ -94,6 +94,7 @@ WORKDIR $PYSETUP_PATH
 #    apt-get -y install --no-install-recommends python3-poetry && \
 #    apt-get clean && rm -rf /var/lib/apt/lists/*
 # install poetry - respects $POETRY_VERSION & $POETRY_HOME
+# hadolint ignore=DL3008,DL4006
 RUN curl -sSL https://install.python-poetry.org | python3 -
 
 USER jm-python

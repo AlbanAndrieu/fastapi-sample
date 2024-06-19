@@ -60,7 +60,7 @@ variables:
   DAST_WEBSITE: https://fastapi-sample.service.gra.dev.consul
   CI_IMAGE_NAME: ${CI_REGISTRY}/jusmundi-group/web/templates/jm-oci/jm-ubuntu
   CI_IMAGE_TAG: latest # 0.0.11
-  GIT_CLONE_PATH: '$CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_PIPELINE_ID'
+  # GIT_CLONE_PATH: '$CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_PIPELINE_ID'
 
 gemnasium-dependency_scanning:
   variables:
@@ -157,8 +157,6 @@ mega_linter:
 docker-build:
   extends: .docker-build
   tags:
-    # - jusmundi-shared-runner
-    # - jusmundi-grabackprod-test
     - jusmundi-nomad-runner
     # - docker # no space left on device
   timeout: 2 hours 10 minutes
@@ -169,12 +167,15 @@ docker-build:
     # CONTAINER_SCANNING_GITLAB_CODEQUALITY_TEMPLATE_DISABLE: "true"
     TRIVY_TIMEOUT: "20m0s"
     TRIVY_SCANNERS: "vuln"
-    TRIVY_ARGS: "--skip-dirs .direnv --skip-dirs .venv --skip-files /code/fastapi-sample/pyproject.toml --skip-files /code/fastapi-sample/Pipfile --skip-files /code/fastapi-sample/pip.conf --skip-files code/fastapi-sample/Dockerfile.train_neuralcoref"
-    TRIVY_EXIT_ON_FAILURE: 0
-    TRIVY_FILESYTEM_EXIT_ON_FAILURE: 0
+    TRIVY_ARGS: "--debug --skip-dirs .direnv --skip-dirs .venv --skip-dirs code/.venv/lib/python3.10/site-packages/ --skip-files /code/fastapi-sample/pyproject.toml --skip-files /code/fastapi-sample/Pipfile --skip-files /code/fastapi-sample/pip.conf --skip-files code/fastapi-sample/Dockerfile.train_neuralcoref"
+    # TRIVY_EXIT_ON_FAILURE: 0
+    # TRIVY_FILESYTEM_EXIT_ON_FAILURE: 0
   after_script:
+    - !reference [.combine-reports, script]
+    - echo -e "\e[35mImage generated\e[0m."
     - !reference [.oci-image, script]
     - !reference [.login-gitlab-docker, script]
+    # - !reference [.login-ecr, script]
     - !reference [.common-docker-release, script]
 
 code_quality:
