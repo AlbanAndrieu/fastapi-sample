@@ -1,0 +1,12 @@
+vulnerabilities:
+  - id: CVE-2022-40897
+    paths:
+      - "usr/local/lib/python3.9/site-packages/setuptools-58.1.0.dist-info/METADATA"
+    statement: Accept the risk
+  - id: CVE-2023-6730
+    statement: Testing ignoring CVE in Pipeline
+
+misconfigurations:
+  - id: AVD-DS-0002
+    statement: The image needs root privileges
+  - id: AVD-DS-0026
