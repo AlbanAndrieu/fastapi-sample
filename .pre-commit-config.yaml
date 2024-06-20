@@ -1,5 +1,8 @@
 # vi: ft=yaml.ansible.jinja2
 ---
+fail_fast: true
+minimum_pre_commit_version: 3.7.1
+exclude: "docs/_build/"
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks.git
     rev: v4.6.0

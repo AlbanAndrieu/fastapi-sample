@@ -10,7 +10,7 @@ name = "gitlab"
 
 [packages]
 # HOOK
-ansible-core = ">=2.16.0"
+ansible-core = ">=2.16.8"
 ansible-lint = {extras = ["yamllint"], version = ">=6.18.0"}
 # awscli = ">=1.27.165" # python 3.8
 awscli = ">=1.32.11" # python 3.10 awscli 1.32.22 requires docutils<0.17,>=0.10
@@ -44,8 +44,8 @@ prometheus-client = "~=0.16.0"
 # prometheus-fastapi-instrumentator = "~=5.10.0"
 opentelemetry-distro = "~=0.39b0"
 opentelemetry-exporter-otlp = "~=1.19.0"
-opentelemetry-instrumentation-fastapi = "~=0.39b0"
-opentelemetry-instrumentation-logging = "~=0.39b0"
+opentelemetry-instrumentation-fastapi = "~=0.41b0"
+opentelemetry-instrumentation-logging = "~=0.41b0"
 opentelemetry-exporter-jaeger-thrift = "~=1.13.0"
 opentelemetry-api = "~=1.19.0"
 opentelemetry-sdk = "~=1.19.0"
@@ -57,7 +57,7 @@ requests = ">=2.31.0"
 pandas = ">=2.2.1"
 psycopg2 = ">=2.9.7"  # WARNING need sudo apt-get install libpq-dev
 sqlalchemy = ">=2.0.20"
-# urllib3 = ">=2.0.7" # awscli needed
+# urllib3 = ">=2.2.2" # awscli needed
 traceback2 = ">=1.4.0"
 grafana-openai-monitoring = ">=0.0.8"
 pyarrow = ">=16.0.0"
