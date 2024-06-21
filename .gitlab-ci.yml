@@ -123,10 +123,12 @@ lint-ruff:
 #    - !reference [.install-pip3, script]
 #    - !reference [.install-pipenv, script]
 #    - !reference [.pipenv-install, script]
+  interruptible: true
   allow_failure: true
 
 type-checker-pyright:
   extends: .type-checker-pyright
+  interruptible: true
   allow_failure: true
 
 test-pytest-poetry:
@@ -140,6 +142,7 @@ test-pytest:
   extends: .test-pytest
   tags:
     - jusmundi-nomad-runner
+  interruptible: true
   allow_failure: true
   needs: ["lint-flake8"]
   variables:
