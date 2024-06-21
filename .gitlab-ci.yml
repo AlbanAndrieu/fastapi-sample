@@ -60,6 +60,8 @@ variables:
   DAST_WEBSITE: https://fastapi-sample.service.gra.dev.consul
   CI_IMAGE_NAME: ${CI_REGISTRY}/jusmundi-group/web/templates/jm-oci/jm-ubuntu
   CI_IMAGE_TAG: latest # 0.0.11
+  FLAVOR: "-python"
+  TRIVY_SCANNERS: "vuln,misconfig,secret"
   # GIT_CLONE_PATH: '$CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_PIPELINE_ID'
 
 gemnasium-dependency_scanning:
