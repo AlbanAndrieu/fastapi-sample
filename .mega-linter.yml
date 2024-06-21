@@ -70,7 +70,7 @@ DOCKERFILE_HADOLINT_ARGUMENTS: --ignore DL3003 --ignore DL3007 --ignore DL3013 -
 REPOSITORY_DEVSKIM_DISABLE_ERRORS: true
 REPOSITORY_DEVSKIM_DISABLE_ERRORS_IF_LESS_THAN: 10
 REPOSITORY_DEVSKIM_ARGUMENTS: --severity critical,important --ignore-globs **/.git/**,**/bin/**,.mypy_cache/**,**/tests/**,**/README.md
-REPOSITORY_TRIVY_ARGUMENTS: --security-checks vuln,config,secret --vuln-type os,library --ignore-unfixed --ignorefile .trivyignore.yaml --skip-dirs .direnv --skip-dirs .venv --skip-files pip.conf --skip-files Pipfile
+REPOSITORY_TRIVY_ARGUMENTS: --security-checks vuln,misconfig,secret --vuln-type os,library --ignore-unfixed --ignorefile .trivyignore.yaml --skip-dirs .direnv --skip-dirs .venv --skip-dirs code/.venv --skip-files pip.conf --skip-files Pipfile
 REPOSITORY_TRIVY_DISABLE_ERRORS: true
 REPOSITORY_TRIVY_DISABLE_ERRORS_IF_LESS_THAN: 20
 REPOSITORY_CHECKOV_DISABLE_ERRORS_IF_LESS_THAN: 1

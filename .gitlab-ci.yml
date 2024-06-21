@@ -148,7 +148,8 @@ test-pytest:
   # BELOW is needed as we do not use jm-ubuntu but python:3.10
   before_script:
     # - export PIPENV_INSTALL_TIMEOUT=1800 # 900 is 15 minutes
-    - !reference [.install-pip3, script]
+    # - !reference [.install-pip3, script]
+    - !reference [.install-pipenv, script]
     - !reference [.pipenv-install, script]
 
 mega_linter:
@@ -169,7 +170,7 @@ docker-build:
     # CONTAINER_SCANNING_GITLAB_CODEQUALITY_TEMPLATE_DISABLE: "true"
     TRIVY_TIMEOUT: "20m0s"
     TRIVY_SCANNERS: "vuln"
-    TRIVY_ARGS: "--debug --skip-dirs .direnv --skip-dirs .venv --skip-dirs code/.venv/lib/python3.10/site-packages/ --skip-files /code/fastapi-sample/pyproject.toml --skip-files /code/fastapi-sample/Pipfile --skip-files /code/fastapi-sample/pip.conf --skip-files code/fastapi-sample/Dockerfile.train_neuralcoref"
+    TRIVY_ARGS: "--debug --skip-dirs .direnv --skip-dirs .venv --skip-dirs code/.venv --skip-dirs code/.venv/lib/python3.10/site-packages/ --skip-files /code/fastapi-sample/pyproject.toml --skip-files /code/fastapi-sample/Pipfile --skip-files /code/fastapi-sample/pip.conf --skip-files code/fastapi-sample/Dockerfile.train_neuralcoref"
     # TRIVY_EXIT_ON_FAILURE: 0
     # TRIVY_FILESYTEM_EXIT_ON_FAILURE: 0
   after_script:
