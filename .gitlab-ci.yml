@@ -9,31 +9,31 @@ stages:
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-trivy-next
     file: "/templates/default.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-trivy-next
     file: "/templates/docker-build.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-trivy-next
     file: "/templates/deploy-nomad.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-trivy-next
     file: "/templates/test-python.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-trivy-next
     file: "/templates/_apk.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-trivy-next
     file: "/templates/data.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-trivy-next
     file: "/templates/mega-linter.gitlab-ci.yml"
 
   - template: 'Workflows/MergeRequest-Pipelines.gitlab-ci.yml'
@@ -60,6 +60,8 @@ variables:
   DAST_WEBSITE: https://fastapi-sample.service.gra.dev.consul
   CI_IMAGE_NAME: ${CI_REGISTRY}/jusmundi-group/web/templates/jm-oci/jm-ubuntu
   CI_IMAGE_TAG: latest # 0.0.11
+  FLAVOR: "-python" # -ci_light
+  TRIVY_SCANNERS: "vuln,config,secret"
   # GIT_CLONE_PATH: '$CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_PIPELINE_ID'
 
 gemnasium-dependency_scanning:
@@ -121,10 +123,12 @@ lint-ruff:
 #    - !reference [.install-pip3, script]
 #    - !reference [.install-pipenv, script]
 #    - !reference [.pipenv-install, script]
+  interruptible: true
   allow_failure: true
 
 type-checker-pyright:
   extends: .type-checker-pyright
+  interruptible: true
   allow_failure: true
 
 test-pytest-poetry:
@@ -138,6 +142,7 @@ test-pytest:
   extends: .test-pytest
   tags:
     - jusmundi-nomad-runner
+  interruptible: true
   allow_failure: true
   needs: ["lint-flake8"]
   variables:
@@ -146,7 +151,8 @@ test-pytest:
   # BELOW is needed as we do not use jm-ubuntu but python:3.10
   before_script:
     # - export PIPENV_INSTALL_TIMEOUT=1800 # 900 is 15 minutes
-    - !reference [.install-pip3, script]
+    # - !reference [.install-pip3, script]
+    - !reference [.install-pipenv, script]
     - !reference [.pipenv-install, script]
 
 mega_linter:
@@ -167,7 +173,7 @@ docker-build:
     # CONTAINER_SCANNING_GITLAB_CODEQUALITY_TEMPLATE_DISABLE: "true"
     TRIVY_TIMEOUT: "20m0s"
     TRIVY_SCANNERS: "vuln"
-    TRIVY_ARGS: "--debug --skip-dirs .direnv --skip-dirs .venv --skip-dirs code/.venv/lib/python3.10/site-packages/ --skip-files /code/fastapi-sample/pyproject.toml --skip-files /code/fastapi-sample/Pipfile --skip-files /code/fastapi-sample/pip.conf --skip-files code/fastapi-sample/Dockerfile.train_neuralcoref"
+    TRIVY_ARGS: "--debug --skip-dirs .direnv --skip-dirs .venv --skip-dirs code/.venv --skip-dirs code/.venv/lib/python3.10/site-packages/ --skip-files /code/fastapi-sample/pyproject.toml --skip-files /code/fastapi-sample/Pipfile --skip-files /code/fastapi-sample/pip.conf --skip-files code/fastapi-sample/Dockerfile.train_neuralcoref"
     # TRIVY_EXIT_ON_FAILURE: 0
     # TRIVY_FILESYTEM_EXIT_ON_FAILURE: 0
   after_script:

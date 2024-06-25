@@ -1,4 +1,8 @@
 # Home made custom exception
+
+env/scripts/jenkins/*.nse
+env/scripts/jenkins/tls.lua
+
 *.csv
 *.ipynb_checkpoints
 data/*
@@ -14,6 +18,18 @@ results.sarif
 # reports/
 megalinter-reports/
 output/
+
+# Folder view configuration files
+.DS_Store
+Desktop.ini
+
+# Thumbnail cache files
+._*
+Thumbs.db
+
+# Files that might appear on external disks
+.Spotlight-V100
+.Trashes
 
 # Generate files as they might contains credentials
 /pip.conf
@@ -43,7 +59,6 @@ _minted-*/
 # To avoid adding encrypted files with git add -u or -a
 
 .checkstyle
-.DS_Store
 
 *~
 *.swp
