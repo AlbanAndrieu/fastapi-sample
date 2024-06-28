@@ -40,6 +40,8 @@ pyroscope-io = ">=0.8.5"
 pyyaml = ">=6.0"
 sentry-sdk = {version = "*", extras = ["fastapi"]}
 # six = ">=1.16.0"
+requests = ">=2.32.0"
+urllib3 = ">=2.2.2"
 
 [tool.poetry.group.api]
 optional = false
@@ -106,8 +108,9 @@ python = ">=3.10, <3.11"
 pydantic = {version = "^1.8.0", extras = ["dotenv"]}
 jm-ner-processor = {version = ">=0.0.4", source="gitlab"}
 torch = { version = "~2.0.0", source = "pytorch"}
-jm-ner = {version= ">=3.1.14rc0", source = "gitlab"}
+#jm-ner = {version= ">=3.1.14rc0", source = "gitlab"}
 # setuptools = "*"
+transformers = ">=4.38.0"
 # Despite not being outside training, we need them for jm-ner
 jm-multilabel-evaluator = {version = "*", source = "gitlab"}
 jmwandb = {version = "*", source = "gitlab"}
