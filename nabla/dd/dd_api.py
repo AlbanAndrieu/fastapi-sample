@@ -7,13 +7,13 @@ DD_API_TOKEN = os.environ.get("DD_API_TOKEN", "xxx")
 HEADERS = {
     "accept": "application/json",
     "Content-Type": "application/json",
-    "Authorization": "Token {DD_API_TOKEN}",
+    'Authorization': "Token {}".format(DD_API_TOKEN)
 }
 
 
 def get_products():
     response = requests.get(
-        f"{DD_BASE_URL}/api/v2/products/", headers=HEADERS, timeout=5
+        f"{DD_BASE_URL}/api/v2/products/", headers=HEADERS, timeout=30
     )
     response.raise_for_status()
     return {product["name"]: product["id"] for product in response.json()["results"]}
@@ -31,7 +31,7 @@ def counts_by_product_id(id):
         f"{DD_BASE_URL}/api/v2/products/{id}/generate_report/",
         headers=HEADERS,
         json=data,
-        timeout=5,
+        timeout=30,
     )
 
     counts = {"Critical": 0, "High": 0, "Medium": 0, "Low": 0}
