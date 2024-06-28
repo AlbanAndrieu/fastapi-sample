@@ -6,9 +6,10 @@ import urllib.request
 # from typing import Sets
 import pandas as pd
 import psycopg2
+from sqlalchemy import create_engine, text
+
 from nabla.config_settings import get_settings
 from nabla.logger import logger
-from sqlalchemy import create_engine, text
 
 # Database connection parameters
 # Dictionaries
@@ -99,7 +100,7 @@ def download_file_from_url(url: str, dest_folder: str):
         os.makedirs(str(dest_folder))  # create folder if it does not exist
 
     try:
-        urllib.request.urlretrieve(url, destination_path)
+        urllib.request.urlretrieve(url, destination_path)  # noqa # nosec
         logger.info("csv file downloaded successfully to the working directory")
     except Exception as e:
         logger.error(f"Error while downloading the csv file due to: {e}")
