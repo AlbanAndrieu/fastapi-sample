@@ -21,7 +21,7 @@ include:
     file: "/templates/deploy-nomad.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-poetry-package
+    ref: feature-trivy-next
     file: "/templates/test-python.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
@@ -161,8 +161,19 @@ mega_linter:
   needs: ["test-pytest"]
   allow_failure: true
 
-package:
-  extends: .poetry-package
+cloc:
+  extends: .cloc
+
+# upload_trivy:
+#   extends: .upload_trivy
+#   script:
+#     - dd-reimport-findings.sh
+# 
+# upload-cloc:
+#   extends: .upload_cloc
+  
+# package:
+#   extends: .poetry-package
 
 docker-build:
   extends: .docker-build
