@@ -62,6 +62,7 @@ traceback2 = ">=1.4.0"
 grafana-openai-monitoring = ">=0.0.8"
 pyarrow = ">=16.0.0"
 jira = ">=3.8.0"
+dd-import = ">=1.0.12"
 
 [dev-packages]
 httpx = ">=0.23.3" # For testing fastAPI only

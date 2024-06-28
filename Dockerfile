@@ -109,7 +109,7 @@ ENV PATH=$PYSETUP_PATH/.local/bin/:${PATH}
 # /code/.local/bin/poetry
 
 # hadolint ignore=DL3013, DL3042
-RUN python -m pip install --no-cache-dir --upgrade pip==23.3.2 &&\
+RUN python -m pip install --no-cache-dir --upgrade pip==24.1.1 &&\
     python -m pip install --no-cache-dir --upgrade poetry=="$POETRY_VERSION"
 
 # RUN pip install poetry -U

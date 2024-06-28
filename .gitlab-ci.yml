@@ -21,7 +21,7 @@ include:
     file: "/templates/deploy-nomad.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-trivy-next
+    ref: feature-poetry-package
     file: "/templates/test-python.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
@@ -63,6 +63,7 @@ variables:
   FLAVOR: "-python" # -ci_light
   TRIVY_SCANNERS: "vuln,config,secret"
   # GIT_CLONE_PATH: '$CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_PIPELINE_ID'
+  DD_SERVICE: "test"  # fastapi-sample
 
 gemnasium-dependency_scanning:
   variables:
@@ -159,6 +160,9 @@ mega_linter:
   extends: .mega_linter_common
   needs: ["test-pytest"]
   allow_failure: true
+
+package:
+  extends: .poetry-package
 
 docker-build:
   extends: .docker-build

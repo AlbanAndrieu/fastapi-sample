@@ -42,6 +42,7 @@ sentry-sdk = {version = "*", extras = ["fastapi"]}
 # six = ">=1.16.0"
 requests = ">=2.32.0"
 urllib3 = ">=2.2.2"
+dd-import = ">=1.0.12"
 
 [tool.poetry.group.api]
 optional = false
@@ -66,7 +67,7 @@ spacy = ">=3.5.4"
 dacite = "^1.8.0"
 reretry = ">=0.11.8"
 citation-dataclasses = {version = ">=0.0.4", source="gitlab"}
-prometheus-client = ">=0.16.0"
+prometheus-client = ">=0.20.0"
 
 # See https://github.com/temporalio/samples-python/blob/main/pyproject.toml
 [tool.poetry.group.encryption]

@@ -10,6 +10,8 @@ from opentelemetry.trace.status import Status, StatusCode
 from prometheus_client import Counter, Histogram
 from starlette.responses import JSONResponse
 
+from nabla.dd.dd_api_exporter import get_products
+
 # from datetime import date, timedelta
 
 
@@ -93,6 +95,12 @@ def external_api():
     response = requests.get(f"https://httpbin.org/delay/{seconds}", timeout=5)
     response.close()
     return "ok"
+
+
+@router.get("/internal-api")
+def internal_api():
+
+    return get_products()
 
 
 @router.get("/ping")

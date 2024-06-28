@@ -4,8 +4,7 @@ import sys
 
 import click
 from colorama import init
-
-from dd.dd_api import counts_by_product_id, get_products
+from dd.dd_api_exporter import counts_by_product_id, get_products
 
 # use Colorama to make Termcolor work on Windows too
 init()
