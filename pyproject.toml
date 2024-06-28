@@ -92,6 +92,13 @@ opentelemetry-exporter-jaeger-thrift = ">=1.13.0"
 opentelemetry-api = ">=1.19.0"
 opentelemetry-sdk = ">=1.19.0"
 
+[tool.poetry.group.panda]
+optional = true
+[tool.poetry.group.panda.dependencies]
+sqlalchemy = ">=2.0.20"
+pandas = ">=2.2.1"
+psycopg2 = ">=2.9.7"  # WARNING need sudo apt-get install libpq-dev
+
 [tool.poetry.group.influxdb]
 optional = true
 [tool.poetry.group.influxdb.dependencies]

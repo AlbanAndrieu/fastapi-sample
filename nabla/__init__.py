@@ -5,6 +5,6 @@
 """
 
 
-from dd.dd_api import counts_by_product_id, get_products  # noqa: F401
+# from dd.dd_api_exporter import counts_by_product_id, get_products
 
 name = "nabla"

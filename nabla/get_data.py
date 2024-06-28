@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-import logging
-import sys
 
 import click
 from colorama import init
 from dd.dd_api_exporter import counts_by_product_id, get_products
+
+from nabla.logger import logger
 
 # use Colorama to make Termcolor work on Windows too
 init()
@@ -18,7 +18,7 @@ init()
     prompt=True,
     hide_input=True,
     confirmation_prompt=True,
-    envvar="DD_API_TOKEN",
+    envvar="DD_API_KEY",
     help="DD API token",
 )
 @click.option(
@@ -43,10 +43,10 @@ def cli(token=None, verbose=False):
     print(results)
 
 
-logger = logging.getLogger("nabla.get_data")
-logger.setLevel(logging.INFO)
-stdoutlog = logging.StreamHandler(sys.stdout)
-logger.addHandler(stdoutlog)
+# logger = logging.getLogger("nabla.get_data")
+# logger.setLevel(logging.INFO)
+# stdoutlog = logging.StreamHandler(sys.stdout)
+# logger.addHandler(stdoutlog)
 
 if __name__ == "__main__":
     cli(None)

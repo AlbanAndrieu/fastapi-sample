@@ -1,5 +1,7 @@
 from locust import HttpUser, between, task
 
+from nabla.logger import logger
+
 
 class QuickstartUser(HttpUser):
     wait_time = between(1, 2)
@@ -8,7 +10,9 @@ class QuickstartUser(HttpUser):
         """on_start is called when a Locust start before any task is scheduled"""
         self.client.verify = False
         # self.login_page()
-
+        logger.info(
+            "QuickstartUser done"
+        )
     # def login_page(self):
     # pylint: disable=line-too-long
     #     self.client.post("/api/login", "verify=False", json={"Password":"xxxxx","ReturnUrl":"","UserName":"xxxx@gmail.com"})

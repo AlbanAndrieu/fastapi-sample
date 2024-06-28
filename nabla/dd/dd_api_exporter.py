@@ -1,38 +1,61 @@
 import os
+import random
 
 import requests
 from dd_import.environment import Environment
-from urllib3 import disable_warnings
-from urllib3.exceptions import InsecureRequestWarning
+from fastapi import HTTPException, status
+from opentelemetry import trace
+from opentelemetry.trace.status import Status, StatusCode
+from utils.misc import timed_operation
 
 from nabla.logger import logger
 
+random.seed(54321)  # nosec
 
 DD_URL = os.environ.get("DD_URL", "http://graansible01:8080")
-DD_API_TOKEN = os.environ.get("DD_API_TOKEN", "xxx")
+DD_API_KEY = os.environ.get("DD_API_KEY", "xxx")
+
 HEADERS = {
     "accept": "application/json",
     "Content-Type": "application/json",
-    'Authorization': "Token {}".format(DD_API_TOKEN)
+    'Authorization': "Token {}".format(DD_API_KEY)
 }
 
 
 def get_products():
-    try:
-        environment = Environment()
-        environment.check_environment_languages()
-        logger.info(
-            f"Get DD environment {environment.url}"
-        )
-        response = requests.get(
-            f"{DD_URL}/api/v2/products/", headers=HEADERS, timeout=30
-        )
-        response.raise_for_status()
-        return {product["name"]: product["id"] for product in response.json()["results"]}
+    with timed_operation('Product retrieval'):
+        try:
+            environment = Environment()
+            environment.check_environment_languages()
+            logger.info(
+                f"Get DD environment {environment.url}"
+            )
+            response = requests.get(
+                f"{DD_URL}/api/v2/products/", headers=HEADERS, timeout=30
+            )
+            response.raise_for_status()
+            return {product["name"]: product["id"] for product in response.json()["results"]}
 
-    except Exception as e:
-        logger.error(f"Error while retreibing product due to: {e}")
-        exit(1)
+        except Exception as ex:
+            logger.error(f"Error while retreiving product due to: {ex}")
+            span = trace.get_current_span()
+
+            # generate random number
+            seconds = random.uniform(0, 30)  # nosec
+
+            # record_exception converts the exception into a span event.
+            exception = IOError("Failed at " + str(seconds))
+            span.record_exception(exception)
+            span.set_attributes({'est': True})
+            # Update the span status to failed.
+            span.set_status(Status(StatusCode.ERROR, "internal error"))
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Got sadness")
+            exit(1)
+        finally:
+            logger.info('Product retrieval done')
+
 
 def counts_by_product_id(id):
     data = {
