@@ -75,14 +75,9 @@ gemnasium-dependency_scanning:
 #     - if: '$CI_PIPELINE_SOURCE == "schedule"'
 #     - if: '$CI_PIPELINE_SOURCE == "push"'
 
-.code_navigation:
-  image: sourcegraph/lsif-go:latest
-  allow_failure: true # recommended
-  script:
-    - lsif-go
-  artifacts:
-    reports:
-      lsif: dump.lsif
+spotbugs-sast:
+  variables:
+    FAIL_NEVER: 1
 
 # ======
 # Python Code Checks
@@ -168,10 +163,10 @@ cloc:
 #   extends: .upload_trivy
 #   script:
 #     - dd-reimport-findings.sh
-# 
+#
 # upload-cloc:
 #   extends: .upload_cloc
-  
+
 # package:
 #   extends: .poetry-package
 
