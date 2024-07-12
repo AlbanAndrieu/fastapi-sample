@@ -24,10 +24,7 @@ router = APIRouter(prefix="/v1")
 
 @router.get("/items/{item_id}")
 async def read_item(item_id: int, q: Optional[str] = None):
-
-    logger.info(
-        f"Get items : {item_id}"
-    )
+    logger.info(f"Get items : {item_id}")
 
     API_REQUEST_COUNTER.labels(
         method="GET", endpoint="/items/{item_id}", http_status=200
@@ -78,9 +75,7 @@ def external_api():
 
 @router.get("/internal-api")
 def internal_api():
-    logger.info(
-        "Get dd products"
-    )
+    logger.info("Get dd products")
 
     return get_products()
 

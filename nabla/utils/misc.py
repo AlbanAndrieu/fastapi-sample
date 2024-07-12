@@ -14,5 +14,5 @@ def timed_operation(name: str):
         yield
     finally:
         duration = time.time() - start_time
-        logger.info(f'{name} time taken: {duration:.2f} seconds')
-        DD_API_LATENCY.labels({'step': name}).observe(duration)
+        logger.info(f"{name} time taken: {duration:.2f} seconds")
+        DD_API_LATENCY.labels({"step": name}).observe(duration)

@@ -1,9 +1,9 @@
 from prometheus_client import Counter, Histogram
 
 DD_API_LATENCY = Histogram(
-    name='dd_api_latency',
-    documentation='The time taken for a call on the defact dojo api',
-    labelnames=['api'],
+    name="dd_api_latency",
+    documentation="The time taken for a call on the defact dojo api",
+    labelnames=["api"],
     buckets=(1, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 25, 30, 40, 50),
 )
 

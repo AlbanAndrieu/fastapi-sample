@@ -10,9 +10,8 @@ class QuickstartUser(HttpUser):
         """on_start is called when a Locust start before any task is scheduled"""
         self.client.verify = False
         # self.login_page()
-        logger.info(
-            "QuickstartUser done"
-        )
+        logger.info("QuickstartUser done")
+
     # def login_page(self):
     # pylint: disable=line-too-long
     #     self.client.post("/api/login", "verify=False", json={"Password":"xxxxx","ReturnUrl":"","UserName":"xxxx@gmail.com"})

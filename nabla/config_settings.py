@@ -1,8 +1,8 @@
-""" Settings for nabla project """
+"""Settings for nabla project"""
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional, Type
+from typing import Optional
 
 from pydantic import BaseSettings
 
@@ -32,7 +32,7 @@ class _Settings(BaseSettings):
 
 
 @lru_cache()
-def get_settings(env_file: Optional[Path] = None) -> Type[BaseSettings]:
+def get_settings(env_file: Optional[Path] = None) -> _Settings:
     """
     Return Settings object as a dependency and use @lru_cache
     decorator to create object and load .env file only once
@@ -42,9 +42,10 @@ def get_settings(env_file: Optional[Path] = None) -> Type[BaseSettings]:
     else:
         return _Settings(_env_file=env_file)
 
-
 # Logging
 LOG_FORMAT = "[%(asctime)s] [%(process)d] [%(name)s] [%(levelname)s] %(message)s"
+
+
 LOGGING_CONFIG = {
     "version": 1,
     "formatters": {

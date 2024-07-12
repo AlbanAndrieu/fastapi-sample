@@ -18,23 +18,23 @@ DD_API_KEY = os.environ.get("DD_API_KEY", "xxx")
 HEADERS = {
     "accept": "application/json",
     "Content-Type": "application/json",
-    'Authorization': "Token {}".format(DD_API_KEY)
+    "Authorization": "Token {}".format(DD_API_KEY),
 }
 
 
 def get_products():
-    with timed_operation('Product retrieval'):
+    with timed_operation("Product retrieval"):
         try:
             environment = Environment()
             environment.check_environment_languages()
-            logger.info(
-                f"Get DD environment {environment.url}"
-            )
+            logger.info(f"Get DD environment {environment.url}")
             response = requests.get(
                 f"{DD_URL}/api/v2/products/", headers=HEADERS, timeout=30
             )
             response.raise_for_status()
-            return {product["name"]: product["id"] for product in response.json()["results"]}
+            return {
+                product["name"]: product["id"] for product in response.json()["results"]
+            }
 
         except Exception as ex:
             logger.error(f"Error while retreiving product due to: {ex}")
@@ -46,15 +46,15 @@ def get_products():
             # record_exception converts the exception into a span event.
             exception = IOError("Failed at " + str(seconds))
             span.record_exception(exception)
-            span.set_attributes({'est': True})
+            span.set_attributes({"est": True})
             # Update the span status to failed.
             span.set_status(Status(StatusCode.ERROR, "internal error"))
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Got sadness")
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Got sadness"
+            )
             exit(1)
         finally:
-            logger.info('Product retrieval done')
+            logger.info("Product retrieval done")
 
 
 def counts_by_product_id(id):
