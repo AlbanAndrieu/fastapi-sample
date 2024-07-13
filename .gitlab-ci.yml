@@ -203,7 +203,7 @@ docker-build:
     # CUSTOM_CONTAINER_SCANNING_DISABLED: "true"
     # CONTAINER_SCANNING_GITLAB_CODEQUALITY_TEMPLATE_DISABLE: "true"
     TRIVY_TIMEOUT: "20m0s"
-    TRIVY_SCANNERS: "vuln"
+    # TRIVY_SCANNERS: "vuln"
     TRIVY_ARGS: "--debug --skip-dirs .direnv --skip-dirs .venv --skip-dirs code/.venv --skip-dirs code/.venv/lib/python3.10/site-packages/ --skip-files /code/fastapi-sample/pyproject.toml --skip-files /code/fastapi-sample/Pipfile --skip-files /code/fastapi-sample/pip.conf --skip-files code/fastapi-sample/Dockerfile.train_neuralcoref"
     # TRIVY_EXIT_ON_FAILURE: 0
     # TRIVY_FILESYTEM_EXIT_ON_FAILURE: 0

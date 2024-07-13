@@ -32,6 +32,7 @@ repos:
             poetry.lock|
             Pipfile.lock|
             yarn.lock|
+            sbom.json|
           )$
       - id: check-builtin-literals
       - id: check-case-conflict
