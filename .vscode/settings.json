@@ -78,5 +78,6 @@
     },
     "editor.defaultFormatter": "charliermarsh.ruff",
     "editor.formatOnSave": false
-  }
+  },
+  "ruff.nativeServer": true
 }

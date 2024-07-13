@@ -167,6 +167,7 @@ checkov = ">=2.3.115"
 semgrep = ">=1.15.0"
 sphinx = ">=7.1.2"
 twine = ">=4.0.2"
+cyclonedx-bom = ">=4.5.0"
 
 # [tool.poetry.group.aws]
 # optional = true
