@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "fastapi-sample"
-version = "1.0.4"
+version = "1.0.5"
 description = "Custom hooks to improve code quality before pushing to git"
 authors = ["Andrieu, Alban <alban.andrieu@free.fr>"]
 license = "MIT"

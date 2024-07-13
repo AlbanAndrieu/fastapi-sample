@@ -7,7 +7,7 @@ stages:
   - deploy
   - notify
   - dast
- 
+
 include:
   - project: jusmundi-group/infrastructure/ci-templates
     ref: feature-trivy-next
@@ -44,7 +44,7 @@ include:
   - template: Jobs/Secret-Detection.gitlab-ci.yml
 
   - template: DAST.gitlab-ci.yml
-  
+
   # - project: 'renovate-bot/renovate-runner'
   #   file: '/templates/renovate.gitlab-ci.yml'
 
@@ -75,8 +75,13 @@ variables:
   DAST_BROWSER_SCAN: "true" # use the browser-based GitLab DAST crawler
   NOMAD_SERVICE_DEPLOY_URL_SUFFIX: docs# # citemap/ping
   NOMAD_SERVICE_DEPLOY_URL: http://${APP_NAME}.service.gra.${ENV}.consul/${NOMAD_SERVICE_DEPLOY_URL_SUFFIX}
-  
+
+# override the dependency scanning job
 gemnasium-dependency_scanning:
+  tags: [ saas-linux-large-amd64 ]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_MERGE_REQUEST_IID
   variables:
     DS_REMEDIATE: "false"
   # dependencies: ["build"]
@@ -88,7 +93,7 @@ dast:
       alias: mongo
     - name: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
       alias: fastapi-sample
-      
+
 # renovate:
 #   rules:
 #     - if: '$CI_PIPELINE_SOURCE == "schedule"'
