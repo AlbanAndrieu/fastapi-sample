@@ -107,11 +107,11 @@ api_security:
       APISEC_TARGET_URL: http://fastapi-sample:8080
   allow_failure: true
 
-renovate:
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
-    - if: '$CI_PIPELINE_SOURCE == "push"'
-  allow_failure: true
+#renovate:
+#  rules:
+#    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+#    - if: '$CI_PIPELINE_SOURCE == "push"'
+#  allow_failure: true
 
 spotbugs-sast:
   variables:
