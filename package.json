@@ -32,6 +32,7 @@
   },
   "dependencies": {
     "@secretlint/secretlint-rule-preset-recommend": "^8.2.4",
+    "cloc": "^2.0.0-cloc",
     "secretlint": "^8.2.4"
   }
 }

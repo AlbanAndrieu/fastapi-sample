@@ -55,7 +55,7 @@ variables:
   CI_REGISTRY: registry.gitlab.com
   OCI_REGISTRY: ${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}
   DOCKER_BUILD_OPT: "--build-arg CI_PIP_GITLABJUSMUNDI_TOKEN=${CI_PIP_GITLABJUSMUNDI_TOKEN} "
-  MOUNT_POINT: "/builds/$CI_PROJECT_PATH/mnt"
+  # MOUNT_POINT: "/builds/$CI_PROJECT_PATH/mnt"
   CONTAINER_IMAGE: "$CI_REGISTRY_IMAGE/main-image:latest"
   DEFAULT_POETRY_OPT_GROUPS: "test,open_telemetry,api,test"
   # REGISTRY: 783876277037.dkr.ecr.eu-west-3.amazonaws.com

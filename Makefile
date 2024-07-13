@@ -15,8 +15,8 @@ APP_NAME     = fastapi-sample
 OCI_REGISTRY = registry.gitlab.com/albanandrieu
 AWS_REGION   = eu-west-3
 OCI_IMAGE := $(OCI_REGISTRY)/$(APP_NAME)
-OCI_TAG := $${OCI_TAG:-"1.0.0"}
-IMAGE_NEXT_TAG := $${OCI_IMAGE_TAG:-"1.0.0"}
+OCI_TAG := $${OCI_TAG:-"1.0.5"}
+IMAGE_NEXT_TAG := $${OCI_IMAGE_TAG:-"1.0.5"}
 IMAGE := $(OCI_IMAGE):$(OCI_TAG)
 
 TRIVY_VULN_TYPE = "os,library"
