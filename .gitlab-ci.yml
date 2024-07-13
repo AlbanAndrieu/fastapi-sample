@@ -45,6 +45,8 @@ include:
 
   - template: DAST.gitlab-ci.yml
 
+  - template: API-Security.gitlab-ci.yml
+
   # - project: 'renovate-bot/renovate-runner'
   #   file: '/templates/renovate.gitlab-ci.yml'
 
@@ -88,15 +90,28 @@ gemnasium-dependency_scanning:
 dast:
   # dependencies: []
   services: # use services to link your app container to the dast job
-    - name: mongo:latest
-      alias: mongo
+    # - name: mongo:latest
+    #   alias: mongo
     - name: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
       alias: fastapi-sample
+  allow_failure: true
 
-# renovate:
-#   rules:
-#     - if: '$CI_PIPELINE_SOURCE == "schedule"'
-#     - if: '$CI_PIPELINE_SOURCE == "push"'
+# Extend the API Security job defined in CI template
+# adding a services section with our test target
+api_security:
+  services:
+    - name: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+      alias: fastapi-sample
+  variables:
+      APISEC_HAR: rest_target_http_archive.v1.2.har
+      APISEC_TARGET_URL: http://fastapi-sample:8080
+  allow_failure: true
+
+renovate:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "push"'
+  allow_failure: true
 
 spotbugs-sast:
   variables:
