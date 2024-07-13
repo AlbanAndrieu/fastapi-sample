@@ -54,8 +54,7 @@ variables:
   CI_IMAGE_PYTHON: python:3.10
   CI_REGISTRY: registry.gitlab.com
   OCI_REGISTRY: ${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}
-  DOCKER_BUILD_OPT: "--build-arg CI_PIP_GITLABJUSMUNDI_TOKEN=${CI_PIP_GITLABJUSMUNDI_TOKEN} " # --squash
-  NOMAD_SERVICE_DEPLOY_URL_SUFFIX: docs
+  DOCKER_BUILD_OPT: "--build-arg CI_PIP_GITLABJUSMUNDI_TOKEN=${CI_PIP_GITLABJUSMUNDI_TOKEN} "
   MOUNT_POINT: "/builds/$CI_PROJECT_PATH/mnt"
   CONTAINER_IMAGE: "$CI_REGISTRY_IMAGE/main-image:latest"
   DEFAULT_POETRY_OPT_GROUPS: "test,open_telemetry,api,test"
@@ -67,13 +66,13 @@ variables:
   # GIT_CLONE_PATH: '$CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_PIPELINE_ID'
   DD_SERVICE: "test"  # fastapi-sample
   RUNNER_GENERATE_ARTIFACTS_METADATA: true
-  FF_NETWORK_PER_BUILD: "true" # enable network per build so all services can communicate on the same network
+  # FF_NETWORK_PER_BUILD: "true" # enable network per build so all services can communicate on the same network
   APP_NAME: fastapi-sample
   # DAST_WEBSITE: https://yourapp
   DAST_WEBSITE: https://fastapi-sample.service.gra.${ENV}.consul
   DAST_FULL_SCAN_ENABLED: "true" # do a full scan
   DAST_BROWSER_SCAN: "true" # use the browser-based GitLab DAST crawler
-  NOMAD_SERVICE_DEPLOY_URL_SUFFIX: docs# # citemap/ping
+  NOMAD_SERVICE_DEPLOY_URL_SUFFIX: docs # citemap/ping
   NOMAD_SERVICE_DEPLOY_URL: http://${APP_NAME}.service.gra.${ENV}.consul/${NOMAD_SERVICE_DEPLOY_URL_SUFFIX}
 
 # override the dependency scanning job
