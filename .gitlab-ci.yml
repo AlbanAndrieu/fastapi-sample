@@ -137,7 +137,6 @@ spotbugs-sast:
 
 lint-ruff:
   extends: .lint-ruff
-  needs: ["lint-flake8"]
 #  before_script:
 #    - !reference [.install-pip3, script]
 #    - !reference [.install-pipenv, script]
@@ -163,7 +162,7 @@ test-pytest:
     - jusmundi-nomad-runner
   interruptible: true
   allow_failure: true
-  needs: ["lint-flake8"]
+  # needs: ["lint-flake8"]
   variables:
     DEFAULT_COV_ARGS: "--cov-fail-under=70"
     DEFAULT_PIPENV_ARGS: "--system --dev --ignore-pipfile" # --dev  --verbose --index=https://package_read:${CI_PIP_GITLABJUSMUNDI_TOKEN}@gitlab.com/api/v4/groups/7364654/-/packages/pypi/simple
