@@ -222,9 +222,14 @@ docker-build:
     TRIVY_ARGS: "--debug --skip-dirs .direnv --skip-dirs .venv --skip-dirs code/.venv --skip-dirs code/.venv/lib/python3.10/site-packages/ --skip-files /code/fastapi-sample/pyproject.toml --skip-files /code/fastapi-sample/Pipfile --skip-files /code/fastapi-sample/pip.conf --skip-files code/fastapi-sample/Dockerfile.train_neuralcoref"
     # TRIVY_EXIT_ON_FAILURE: 0
     # TRIVY_FILESYTEM_EXIT_ON_FAILURE: 0
+  before_script:
+    - !reference [.env-definition, script]
+    - !reference [.oci-image, script]
+    - !reference [.login-gitlab-docker, script]
+    - !reference [.build-image-dockefile, script]
+    - echo -e "\e[35mImage generated\e[0m."
   after_script:
     - !reference [.combine-reports, script]
-    - echo -e "\e[35mImage generated\e[0m."
     - !reference [.oci-image, script]
     - !reference [.login-gitlab-docker, script]
     # - !reference [.login-ecr, script]
