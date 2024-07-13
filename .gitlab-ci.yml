@@ -226,6 +226,8 @@ docker-build:
     - !reference [.env-definition, script]
     - !reference [.oci-image, script]
     - !reference [.login-gitlab-docker, script]
+    - echo -e "\e[35mWe are in directory\e[0m."
+    - pwd
     - !reference [.build-image-dockefile, script]
     - echo -e "\e[35mImage generated\e[0m."
   after_script:

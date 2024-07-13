@@ -63,7 +63,6 @@ grafana-openai-monitoring = ">=0.0.8"
 pyarrow = ">=16.0.0"
 jira = ">=3.8.0"
 dd-import = ">=1.0.12"
-cyclonedx-bom = ">=4.5.0"
 
 [dev-packages]
 httpx = ">=0.23.3" # For testing fastAPI only
@@ -77,6 +76,7 @@ bandit = ">=1.7.5"
 black = {version = ">=23.7.0", extras = ["d"]}
 checkov = ">=2.3.115"
 coverage = ">= 7.2.7"
+cyclonedx-bom = ">=4.5.0"
 flake8 = ">=6.1.0"
 flake8-formatter-junit-xml = ">=0.0.6"
 molecule = ">=5.1.0"
@@ -97,7 +97,7 @@ pytest-order = ">=1.0.1"
 # pip install --upgrade pytest-testinfra
 pytest-testinfra = ">=6.4.0"
 readme-renderer = {version = ">=37.3", extras = ["md"]}
-ruff = "~=0.4.4"
+ruff = ">=0.4.4"
 selenium = ">=4.6.0"
 # NOK
 semgrep = ">=1.15.0"
