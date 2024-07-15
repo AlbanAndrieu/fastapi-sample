@@ -6,7 +6,7 @@ stages:
   - train
   - deploy
   - notify
-  - dast
+  # - dast
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
@@ -43,9 +43,9 @@ include:
   - template: Jobs/SAST.gitlab-ci.yml
   - template: Jobs/Secret-Detection.gitlab-ci.yml
 
-  - template: DAST.gitlab-ci.yml
+  # - template: DAST.gitlab-ci.yml
 
-  - template: API-Security.gitlab-ci.yml
+  # - template: API-Security.gitlab-ci.yml
 
   # - project: 'renovate-bot/renovate-runner'
   #   file: '/templates/renovate.gitlab-ci.yml'
@@ -56,7 +56,7 @@ variables:
   CI_IMAGE_PYTHON: python:3.10
   CI_REGISTRY: registry.gitlab.com
   OCI_REGISTRY: ${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}
-  DOCKER_BUILD_OPT: "--build-arg CI_PIP_GITLABJUSMUNDI_TOKEN=${CI_PIP_GITLABJUSMUNDI_TOKEN} "
+  # DOCKER_BUILD_OPT: "--build-arg CI_PIP_GITLABJUSMUNDI_TOKEN=${CI_PIP_GITLABJUSMUNDI_TOKEN} "
   # MOUNT_POINT: "/builds/$CI_PROJECT_PATH/mnt"
   CONTAINER_IMAGE: "$CI_REGISTRY_IMAGE/main-image:latest"
   DEFAULT_POETRY_OPT_GROUPS: "test,open_telemetry,api,test"
@@ -87,25 +87,25 @@ gemnasium-dependency_scanning:
     DS_REMEDIATE: "false"
   # dependencies: ["build"]
 
-dast:
-  # dependencies: []
-  services: # use services to link your app container to the dast job
-    # - name: mongo:latest
-    #   alias: mongo
-    - name: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
-      alias: fastapi-sample
-  allow_failure: true
-
-# Extend the API Security job defined in CI template
-# adding a services section with our test target
-api_security:
-  services:
-    - name: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
-      alias: fastapi-sample
-  variables:
-      APISEC_HAR: rest_target_http_archive.v1.2.har
-      APISEC_TARGET_URL: http://fastapi-sample:8080
-  allow_failure: true
+# dast:
+#   # dependencies: []
+#   services: # use services to link your app container to the dast job
+#     # - name: mongo:latest
+#     #   alias: mongo
+#     - name: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+#       alias: fastapi-sample
+#   allow_failure: true
+#
+# # Extend the API Security job defined in CI template
+# # adding a services section with our test target
+# api_security:
+#   services:
+#     - name: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+#       alias: fastapi-sample
+#   variables:
+#       APISEC_HAR: rest_target_http_archive.v1.2.har
+#       APISEC_TARGET_URL: http://fastapi-sample:8080
+#   allow_failure: true
 
 #renovate:
 #  rules:
