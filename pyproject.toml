@@ -6,6 +6,9 @@ authors = ["Andrieu, Alban <alban.andrieu@free.fr>"]
 license = "MIT"
 homepage = "https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample"
 readme = "README.md"
+classifiers = [
+    "Private :: Do not Upload"
+]
 
 packages = [
   { include = "nabla" }
@@ -287,8 +290,6 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [build-system]
-# requires = ["pdm-pep517"]
-# build-backend = "pdm.pep517.api"
 requires = ["poetry-core>=1.2.0"]
 build-backend = "poetry.core.masonry.api"
 
