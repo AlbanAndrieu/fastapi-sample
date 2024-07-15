@@ -56,6 +56,7 @@ variables:
   CI_IMAGE_PYTHON: python:3.10
   CI_REGISTRY: registry.gitlab.com
   OCI_REGISTRY: ${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}
+  TYPE_TRAINING: ""
   # DOCKER_BUILD_OPT: "--build-arg CI_PIP_GITLABJUSMUNDI_TOKEN=${CI_PIP_GITLABJUSMUNDI_TOKEN} "
   # MOUNT_POINT: "/builds/$CI_PROJECT_PATH/mnt"
   CONTAINER_IMAGE: "$CI_REGISTRY_IMAGE/main-image:latest"
@@ -65,9 +66,10 @@ variables:
   CI_IMAGE_TAG: 0.1.2 # latest
   GIT_STRATEGY: clone
   GIT_DEPTH: "3"
+  # GIT_CLONE_PATH: '$CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_PIPELINE_ID'
+  # GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_PROJECT_PATH
   FLAVOR: "-python" # -ci_light
   TRIVY_SCANNERS: "vuln,config,secret"
-  # GIT_CLONE_PATH: '$CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_PIPELINE_ID'
   DD_SERVICE: "test"  # fastapi-sample
   RUNNER_GENERATE_ARTIFACTS_METADATA: true
   # FF_NETWORK_PER_BUILD: "true" # enable network per build so all services can communicate on the same network
