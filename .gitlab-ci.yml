@@ -117,6 +117,15 @@ spotbugs-sast:
   variables:
     FAIL_NEVER: 1
 
+upload_trivy:
+  extends: .upload_trivy
+#  before_script:
+#    - !reference [.install-pip3, script]
+#    - !reference [.install-pipenv, script]
+#    - !reference [.pipenv-install, script]
+  interruptible: true
+  allow_failure: true
+
 # ======
 # Python Code Checks
 # ======
