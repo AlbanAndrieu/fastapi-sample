@@ -73,6 +73,7 @@ variables:
   DD_SERVICE: "test"  # fastapi-sample
   DD_PRODUCT_TYPE_NAME: "test"
   DD_URL_UAT: "http://defectdojo.service.gra.uat.consul" # 10.30.0.141
+  CLOC_SOURCE: "nabla"
   RUNNER_GENERATE_ARTIFACTS_METADATA: true
   # FF_NETWORK_PER_BUILD: "true" # enable network per build so all services can communicate on the same network
   APP_NAME: fastapi-sample
