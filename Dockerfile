@@ -37,7 +37,11 @@ RUN echo "APT::Acquire::Retries \"10\";" > /etc/apt/apt.conf.d/80-retries \
 RUN apt-get update && \
     apt-get -y install --no-install-recommends build-essential \
     locales tzdata curl && \
+    libpq-dev && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
+
+#     libffi-dev libgit2-dev zlib1g-dev && \
+# python3-venv
 
 # because of tzdata and the need of noninteractive
 ENV TZ "Europe/Paris"
@@ -56,7 +60,7 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DEFAULT_TIMEOUT=100 \
     # poetry
     # https://python-poetry.org/docs/configuration/#using-environment-variables
-    POETRY_VERSION=1.7.1 \
+    POETRY_VERSION=1.8.3 \
     # make poetry install to this location
     POETRY_HOME="/opt/poetry" \
     POETRY_NO_INTERACTION=1 \
@@ -88,14 +92,23 @@ ENV PATH="$PATH:$VENV_PATH:$POETRY_HOME/bin"
 WORKDIR $PYSETUP_PATH
 # WORKDIR /code
 
-# poetry 1.3.2
 # hadolint ignore=DL3008
 #RUN apt-get update && \
 #    apt-get -y install --no-install-recommends python3-poetry && \
 #    apt-get clean && rm -rf /var/lib/apt/lists/*
 # install poetry - respects $POETRY_VERSION & $POETRY_HOME
 # hadolint ignore=DL3008,DL4006
-RUN curl -sSL https://install.python-poetry.org | python3 -
+# RUN curl -sSL https://install.python-poetry.org | python3 -
+
+# Installs Poetry in its own environment to avoid problems with Ubuntu's Python
+# hadolint ignore=SC2086
+RUN python3 -m venv "$POETRY_HOME" \
+    && $POETRY_HOME/bin/pip install --no-cache-dir --upgrade pip==24.1.2 \
+    && $POETRY_HOME/bin/pip install poetry=="$POETRY_VERSION" \
+    && $POETRY_HOME/bin/poetry --version
+
+# hadolint ignore=DL3013, DL3042
+# RUN python -m pip install --no-cache-dir --upgrade pip==24.1.2
 
 USER jm-python
 
@@ -105,17 +118,8 @@ COPY --chown=jm-python:jm-python pyproject.toml poetry.lock $PYSETUP_PATH/
 
 ENV PATH=$PYSETUP_PATH/.local/bin/:${PATH}
 
-# upgrade poetry version 1.7.1
-# /code/.local/bin/poetry
-
-# hadolint ignore=DL3013, DL3042
-RUN python -m pip install --no-cache-dir --upgrade pip==24.1.1 &&\
-    python -m pip install --no-cache-dir --upgrade poetry=="$POETRY_VERSION"
-
-# RUN pip install poetry -U
-
 RUN poetry config http-basic.gitlab package_read "$CI_PIP_GITLABJUSMUNDI_TOKEN" &&\
-    poetry install --no-root --with deployment,open_telemetry,temporal # --no-dev --remove-untracked
+    poetry install --no-root --with format,test,api,extras,open_telemetry,deployment,influxdb,panda,temporal # --no-dev --remove-untracked
 
 # dockerfile_lint - ignore
 # hadolint ignore=DL3007
@@ -137,7 +141,7 @@ COPY --from=builder-base $PYSETUP_PATH $PYSETUP_PATH
 USER jm-python
 
 # quicker install as runtime deps are already installed
-RUN poetry --no-root install --with deployment,open_telemetry,temporal,test,api
+RUN poetry --no-root install --with api,extras,open_telemetry,deployment,temporal
 
 COPY --chown=jm-python:jm-python nabla/ $PYSETUP_PATH/jm-python/nabla/
 COPY --chown=jm-python:jm-python serve.py $PYSETUP_PATH/jm-python/

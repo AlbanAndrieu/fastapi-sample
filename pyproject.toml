@@ -195,7 +195,7 @@ colorama = ">=0.4.6"
 httpx = {version = ">=0.23.3"}
 git-url-parse = ">=1.2.2"
 gitpython = ">=3.1.29"
-numpy = ">=2.0.0" # conflcit with jm-multilabel-evaluator
+numpy = ">=2.0.0" # conficit with jm-multilabel-evaluator
 pre-commit = ">=3.7.1"
 pre-commit-hooks = ">=4.4.0"
 pip-upgrader = ">=1.4.15"

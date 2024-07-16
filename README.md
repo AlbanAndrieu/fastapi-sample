@@ -236,6 +236,11 @@ poetry run python starter.py
 
 ### Defect Dojo Parameters
 
+
+[dd_product](http://defectdojo.service.gra.uat.consul/api/v2/products/)
+
+[dd_product_types](http://defectdojo.service.gra.uat.consul/api/v2/product_types/)
+
 All parameters need to be provided as environment variables:
 
 | Parameter                           | Re-import findings | Import languages | Remark                                                                                            |

@@ -74,7 +74,8 @@ def external_api():
             f"Get external api https://httpbin.org/ : {seconds}"
         )  # [logging-fstring-interpolation]
 
-        url = "https://httpbin.org/delay/1"
+        # url = "https://httpbin.org/delay/1"
+        url = f"https://httpbin.org/delay/{seconds}"
 
         response = requests.request("PUT", url, timeout=5)
 
@@ -82,7 +83,9 @@ def external_api():
 
         # response = requests.put(f"https://httpbin.org/delay/{seconds}", timeout=5)
         response.close()
-        return "ok"
+
+        return response.text
+        # return "ok"
     except Exception as ex:
         logger.error(ex, exc_info=True)
     finally:

@@ -20,10 +20,14 @@ class QuickstartUser(HttpUser):
 
     @task
     def hello_world(self):
-        self.client.get("/v1/items/1?q=test", verify=False)
+        self.client.get("/", verify=False)  # give hello
         self.client.get("io_task", verify=False)
         self.client.get("cpu_task", verify=False)
+        self.client.get("/v1/ping", verify=False)
         self.client.get("/v1/external-api", verify=False)
+        self.client.get("/v1/internal-api", verify=False)
+        self.client.get("/v1/items/1?q=test", verify=False)
+        # self.client.get("/v1", verify=False)
 
         # self.client.get("/hello")
         # self.client.get("/world")

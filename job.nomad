@@ -223,11 +223,15 @@ EOF
         args = [
             "/code/.venv/bin/locust",
             "-f",
-            "nabla/perf/locustfile_jm.py",
+            "nabla/perf/locustfile.py",
+            // "nabla/perf/locustfile_jm.py",
+
             //"--master",
             //"-H",
             //"http://fastapi-sample-locust.service.gra.${var.env}.consul:8089",
             //"--env targetHost="https://jm-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/en",
+            "--host==http://0.0.0.0:8091/v1/internal-api",
+            " -c 1000 -r 100 --run-time 1h30m ",
         ]
 
         # shm_size = 536870912 # 512MB
