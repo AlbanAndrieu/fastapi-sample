@@ -3,16 +3,17 @@ import random
 
 import requests
 from dd_import.environment import Environment
+from deprecated import deprecated
 from fastapi import HTTPException, status
 from opentelemetry import trace
 from opentelemetry.trace.status import Status, StatusCode
-from utils.misc import timed_operation
 
 from nabla.logger import logger
+from nabla.utils.misc import timed_operation
 
 random.seed(54321)  # nosec
 
-DD_URL = os.environ.get("DD_URL", "http://graansible01:8080")
+DD_URL = os.environ.get("DD_URL", "http://defectdojo.service.gra.uat.consul")
 DD_API_KEY = os.environ.get("DD_API_KEY", "xxx")
 
 HEADERS = {
@@ -22,6 +23,7 @@ HEADERS = {
 }
 
 
+@deprecated(version="1.0.0", reason="You should use get_products")  # type: ignore
 def get_products():
     with timed_operation("Product retrieval"):
         try:
@@ -41,7 +43,7 @@ def get_products():
             span = trace.get_current_span()
 
             # generate random number
-            seconds = random.uniform(0, 30)  # nosec
+            seconds = random.uniform(0, 30)  # nosec  # noqa: S311
 
             # record_exception converts the exception into a span event.
             exception = IOError("Failed at " + str(seconds))
@@ -51,13 +53,12 @@ def get_products():
             span.set_status(Status(StatusCode.ERROR, "internal error"))
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Got sadness"
-            )
-            exit(1)
+            ) from ex
         finally:
             logger.info("Product retrieval done")
 
 
-def counts_by_product_id(id):
+def counts_by_product_id(product_id):
     data = {
         "include_finding_notes": False,
         "include_finding_images": False,
@@ -66,7 +67,7 @@ def counts_by_product_id(id):
     }
 
     response = requests.post(
-        f"{DD_URL}/api/v2/products/{id}/generate_report/",
+        f"{DD_URL}/api/v2/products/{product_id}/generate_report/",
         headers=HEADERS,
         json=data,
         timeout=30,

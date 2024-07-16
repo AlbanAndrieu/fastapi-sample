@@ -22,7 +22,8 @@ Fastapi sample
   * [Jupiter](#jupiter)
   * [User guide](#user-guide)
     + [Installation and commands](#installation-and-commands)
-    + [Parameters](#parameters)
+    + [Temporal demo](#temporal-demo)
+    + [Defect Dojo Parameters](#defect-dojo-parameters)
   * [Quality check](#quality-check)
   * [Utility scripts](#utility-scripts)
   * [Update README.md](#update-readmemd)
@@ -96,7 +97,7 @@ use [poetry](https://python-poetry.org/docs/cli/)
 
 ```bash
 poetry install --no-dev # --dev-only
-poetry install --with format,test,extras,open_telemetry,deployment,influxdb,panda
+poetry install --with format,test,extras,open_telemetry,deployment,influxdb,panda,temporal
 poetry install --extras "mysql pgsql"
 #poetry install -E mysql -E pgsql
 poetry install --all-extras
@@ -140,7 +141,15 @@ sequenceDiagram
 
 ```bash
 make up-uvicorn
+
+curl --request GET http://0.0.0.0:8091/ping
+curl --request GET http://0.0.0.0:8091/metrics
+
+curl --request GET http://0.0.0.0:8091/v1/external-api
 ```
+
+[docs](http://0.0.0.0:8091/docs)
+[metrics](http://0.0.0.0:8091/metrics)
 
 [health](http://localhost:8080/health)
 
@@ -212,7 +221,20 @@ Result available on [pyroscope](http://localhost:4040/?query=process_cpu%3Acpu%3
 ./nabla/get_data.py
 ```
 
-### Parameters
+### Temporal demo
+
+[Temporal](https://github.com/temporalio/samples-python/tree/main)
+
+```
+poetry install --with format,test,extras,open_telemetry,deployment,influxdb,panda,temporal
+poetry run python nabla/temporalio/activities.py
+
+poetry run python worker.py
+poetry run python starter.py
+
+```
+
+### Defect Dojo Parameters
 
 All parameters need to be provided as environment variables:
 

@@ -6,6 +6,7 @@ from typing import Dict
 import pyroscope
 import sentry_sdk
 from fastapi import FastAPI
+from prometheus_client import make_asgi_app
 from sentry_sdk.integrations.logging import LoggingIntegration
 
 # from prometheus_fastapi_instrumentator import Instrumentator
@@ -15,7 +16,7 @@ from starlette.middleware.cors import CORSMiddleware
 from nabla.api import ping, v1
 from nabla.log_middleware import LogMiddleware
 from nabla.logger import logger
-from nabla.utils import PrometheusMiddleware, metrics, setting_otlp
+from nabla.utils.prometheus import PrometheusMiddleware, setting_otlp
 
 # from citation.infrastructure.crud_exceptions import CrudError, NotFoundInJM
 
@@ -57,6 +58,7 @@ app = FastAPI(
     title="FastAPI Sample V1",
     description="FastAPI Sample V1",
     version="0.0.1",
+    debug=False,
 )
 
 app.add_middleware(LogMiddleware)
@@ -77,7 +79,10 @@ app.add_middleware(
     app_name=APP_NAME,
 )
 
-app.add_route("/metrics", metrics)
+# Add prometheus asgi middleware to route /metrics requests
+metrics_app = make_asgi_app()
+app.mount("/metrics", metrics_app)
+# app.mount("/metrics", metrics)
 
 # Setting OpenTelemetry exporter
 setting_otlp(app, APP_NAME, OTLP_GRPC_ENDPOINT)

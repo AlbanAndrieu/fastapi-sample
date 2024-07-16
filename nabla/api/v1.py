@@ -24,7 +24,7 @@ router = APIRouter(prefix="/v1")
 
 @router.get("/items/{item_id}")
 async def read_item(item_id: int, q: Optional[str] = None):
-    logger.info(f"Get items : {item_id}")
+    logger.info(f"Get items : {item_id}")  # [logging-fstring-interpolation]
 
     API_REQUEST_COUNTER.labels(
         method="GET", endpoint="/items/{item_id}", http_status=200
@@ -67,10 +67,26 @@ async def exception():
 
 @router.get("/external-api")
 def external_api():
-    seconds = random.uniform(0, 3)  # nosec  # noqa: S311
-    response = requests.get(f"https://httpbin.org/delay/{seconds}", timeout=5)
-    response.close()
-    return "ok"
+    try:
+        seconds = random.uniform(0, 3)  # nosec  # noqa: S311
+
+        logger.info(
+            f"Get external api https://httpbin.org/ : {seconds}"
+        )  # [logging-fstring-interpolation]
+
+        url = "https://httpbin.org/delay/1"
+
+        response = requests.request("PUT", url, timeout=5)
+
+        print(response.text)
+
+        # response = requests.put(f"https://httpbin.org/delay/{seconds}", timeout=5)
+        response.close()
+        return "ok"
+    except Exception as ex:
+        logger.error(ex, exc_info=True)
+    finally:
+        logger.info("DONE")
 
 
 @router.get("/internal-api")
