@@ -6,7 +6,7 @@ stages:
   - train
   - deploy
   - notify
-  # - dast
+  - dast
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
