@@ -34,10 +34,15 @@ RUN echo "APT::Acquire::Retries \"10\";" > /etc/apt/apt.conf.d/80-retries \
 # build-essential has gcc
 # kics-scan ignore-line
 # hadolint ignore=DL3008
-RUN apt-get update && \
-    apt-get -y install --no-install-recommends build-essential \
+RUN apt-get update --fix-missing \
+    && apt-get full-upgrade -y \
+    && apt-get -y install --no-install-recommends build-essential \
     locales tzdata curl && \
-    libpq-dev && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# hadolint ignore=DL3008
+RUN apt-get update --fix-missing \
+    && apt-get -y install --no-install-recommends libpq-dev && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 #     libffi-dev libgit2-dev zlib1g-dev && \
