@@ -71,6 +71,7 @@ variables:
   FLAVOR: "-python" # -ci_light
   TRIVY_SCANNERS: "vuln,config,secret"
   DD_SERVICE: "test"  # fastapi-sample
+  DD_URL_UAT: "http://10.30.0.141"
   RUNNER_GENERATE_ARTIFACTS_METADATA: true
   # FF_NETWORK_PER_BUILD: "true" # enable network per build so all services can communicate on the same network
   APP_NAME: fastapi-sample
