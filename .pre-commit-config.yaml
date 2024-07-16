@@ -164,6 +164,7 @@ repos:
             mvnw|
             hooks|
             tests/.*|
+            docs/Makefile|
           )$
   # - repo: https://github.com/asottile/pyupgrade
   #   rev: v3.2.2
