@@ -125,8 +125,8 @@ spotbugs-sast:
   variables:
     FAIL_NEVER: 1
 
-upload_trivy:
-  extends: .upload_trivy
+upload_trivy:uat:
+  extends: .upload_trivy:uat
 #  before_script:
 #    - !reference [.install-pip3, script]
 #    - !reference [.install-pipenv, script]
@@ -134,8 +134,8 @@ upload_trivy:
   interruptible: true
   allow_failure: true
 
-upload-cloc:
-  extends: .upload-cloc
+upload-cloc:uat:
+  extends: .upload-cloc:uat
   interruptible: true
   allow_failure: true
 
