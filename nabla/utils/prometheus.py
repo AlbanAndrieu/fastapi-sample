@@ -9,14 +9,7 @@ from opentelemetry.instrumentation.logging import LoggingInstrumentor
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from prometheus_client import (
-    CollectorRegistry,
-    Counter,
-    Gauge,
-    Histogram,
-    make_asgi_app,
-    multiprocess,
-)
+from prometheus_client import Counter, Gauge, Histogram
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response
@@ -119,27 +112,6 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
                 return route.path, True
 
         return request.url.path, False
-
-
-# def metrics(request: Request) -> Response:  # [unused-argument]
-#     return Response(
-#         generate_latest(REGISTRY), headers={"Content-Type": CONTENT_TYPE_LATEST}
-#     )
-
-
-# Using multiprocess collector for registry
-def make_metrics_app():
-    registry = CollectorRegistry()
-    # registry = generate_latest(REGISTRY)
-    multiprocess.MultiProcessCollector(registry)
-    return make_asgi_app(registry=registry)
-
-
-# Add prometheus asgi middleware to route /metrics requests
-def metrics():
-    # metrics_app = make_metrics_app()
-    metrics_app = make_asgi_app()
-    return metrics_app
 
 
 def setting_otlp(
