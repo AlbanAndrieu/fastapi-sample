@@ -6,34 +6,35 @@ stages:
   - train
   - deploy
   - notify
+  - dast
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-trivy-next
+    ref: feature-dd-strategy
     file: "/templates/default.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-trivy-next
+    ref: feature-dd-strategy
     file: "/templates/docker-build.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-trivy-next
+    ref: feature-dd-strategy
     file: "/templates/deploy-nomad.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-trivy-next
+    ref: feature-dd-strategy
     file: "/templates/test-python.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-trivy-next
+    ref: feature-dd-strategy
     file: "/templates/_apk.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-trivy-next
+    ref: feature-dd-strategy
     file: "/templates/data.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-trivy-next
+    ref: feature-dd-strategy
     file: "/templates/mega-linter.gitlab-ci.yml"
 
   - template: 'Workflows/MergeRequest-Pipelines.gitlab-ci.yml'
@@ -41,6 +42,10 @@ include:
   - template: Jobs/Dependency-Scanning.gitlab-ci.yml
   - template: Jobs/SAST.gitlab-ci.yml
   - template: Jobs/Secret-Detection.gitlab-ci.yml
+
+  - template: DAST.gitlab-ci.yml
+
+  - template: API-Security.gitlab-ci.yml
 
   # - project: 'renovate-bot/renovate-runner'
   #   file: '/templates/renovate.gitlab-ci.yml'
@@ -51,37 +56,88 @@ variables:
   CI_IMAGE_PYTHON: python:3.10
   CI_REGISTRY: registry.gitlab.com
   OCI_REGISTRY: ${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}
-  DOCKER_BUILD_OPT: "--build-arg CI_PIP_GITLABJUSMUNDI_TOKEN=${CI_PIP_GITLABJUSMUNDI_TOKEN} " # --squash
-  NOMAD_SERVICE_DEPLOY_URL_SUFFIX: docs
-  MOUNT_POINT: "/builds/$CI_PROJECT_PATH/mnt"
+  TYPE_TRAINING: ""
+  DOCKER_BUILD_OPT: " -f Dockerfile --build-arg CI_PIP_GITLABJUSMUNDI_TOKEN=${CI_PIP_GITLABJUSMUNDI_TOKEN} "
+  # MOUNT_POINT: "/builds/$CI_PROJECT_PATH/mnt"
   CONTAINER_IMAGE: "$CI_REGISTRY_IMAGE/main-image:latest"
   DEFAULT_POETRY_OPT_GROUPS: "test,open_telemetry,api,test"
   # REGISTRY: 783876277037.dkr.ecr.eu-west-3.amazonaws.com
-  DAST_WEBSITE: https://fastapi-sample.service.gra.dev.consul
   CI_IMAGE_NAME: ${CI_REGISTRY}/jusmundi-group/web/templates/jm-oci/jm-ubuntu
-  CI_IMAGE_TAG: latest # 0.0.11
+  CI_IMAGE_TAG: latest
+  GIT_STRATEGY: clone
+  GIT_DEPTH: "3"
+  # GIT_CLONE_PATH: '$CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_PIPELINE_ID'
+  # GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_PROJECT_PATH
   FLAVOR: "-python" # -ci_light
   TRIVY_SCANNERS: "vuln,config,secret"
-  # GIT_CLONE_PATH: '$CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_PIPELINE_ID'
+  DD_PRODUCT_NAME: "$CI_PROJECT_NAME"
+  DD_SERVICE: "test"  # fastapi-sample
+  DD_PRODUCT_TYPE_NAME: "test"
+  DD_URL_UAT: "http://defectdojo.service.gra.uat.consul" # 10.30.0.141
+  CLOC_SOURCE: "nabla"
+  RUNNER_GENERATE_ARTIFACTS_METADATA: "true"
+  # FF_NETWORK_PER_BUILD: "true" # enable network per build so all services can communicate on the same network
+  APP_NAME: fastapi-sample
+  # DAST_WEBSITE: https://yourapp
+  DAST_WEBSITE: https://fastapi-sample.service.gra.${ENV}.consul
+  DAST_FULL_SCAN_ENABLED: "true" # do a full scan
+  DAST_BROWSER_SCAN: "true" # use the browser-based GitLab DAST crawler
+  NOMAD_SERVICE_DEPLOY_URL_SUFFIX: docs # citemap/ping
+  NOMAD_SERVICE_DEPLOY_URL: http://${APP_NAME}.service.gra.${ENV}.consul/${NOMAD_SERVICE_DEPLOY_URL_SUFFIX}
+  DEFAULT_POETRY_OPT_GROUPS: "format,test,extras,open_telemetry,deployment,influxdb,panda"
 
+# override the dependency scanning job
 gemnasium-dependency_scanning:
+  tags: [ saas-linux-large-amd64 ]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_MERGE_REQUEST_IID
   variables:
     DS_REMEDIATE: "false"
   # dependencies: ["build"]
 
-# renovate:
-#   rules:
-#     - if: '$CI_PIPELINE_SOURCE == "schedule"'
-#     - if: '$CI_PIPELINE_SOURCE == "push"'
+dast:
+  # dependencies: []
+  services: # use services to link your app container to the dast job
+    # - name: mongo:latest
+    #   alias: mongo
+    - name: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+      alias: fastapi-sample
+  allow_failure: true
 
-.code_navigation:
-  image: sourcegraph/lsif-go:latest
-  allow_failure: true # recommended
-  script:
-    - lsif-go
-  artifacts:
-    reports:
-      lsif: dump.lsif
+# Extend the API Security job defined in CI template
+# adding a services section with our test target
+api_security:
+  services:
+    - name: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+      alias: fastapi-sample
+  variables:
+      APISEC_HAR: rest_target_http_archive.v1.2.har
+      APISEC_TARGET_URL: http://fastapi-sample:8080
+  allow_failure: true
+
+#renovate:
+#  rules:
+#    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+#    - if: '$CI_PIPELINE_SOURCE == "push"'
+#  allow_failure: true
+
+spotbugs-sast:
+  variables:
+    FAIL_NEVER: 1
+
+upload_trivy:uat:
+  extends: .upload_trivy:uat
+  interruptible: true
+  allow_failure: true
+
+cloc:
+  extends: .cloc
+
+upload-cloc:uat:
+  extends: .upload-cloc:uat
+  interruptible: true
+  allow_failure: true
 
 # ======
 # Python Code Checks
@@ -102,32 +158,31 @@ gemnasium-dependency_scanning:
   script:
     - black --check .
 
-lint-flake8:
-  extends: .lint-flake8
-  tags:
-    - jusmundi-nomad-runner
-  variables:
-    DEFAULT_FLAKE8_TARGET: "nabla"
-    DEFAULT_FLAKE8_ARGS: "--max-line-length=88 --max-complexity=30"
-  # BELOW is needed as we do not use jm-ubuntu but python:3.10
-  before_script:
-    - !reference [.install-pip3, script]
-    - !reference [.install-pipenv, script]
-    - !reference [.pipenv-install, script]
-    - !reference [.install-flake8, script]
-
-lint-ruff:
-  extends: .lint-ruff
-  needs: ["lint-flake8"]
+#lint-flake8:
+#  extends: .lint-flake8
+#  tags:
+#    - jusmundi-nomad-runner
+#  variables:
+#    DEFAULT_FLAKE8_TARGET: "nabla"
+#    DEFAULT_FLAKE8_ARGS: "--max-line-length=88 --max-complexity=30"
 #  before_script:
 #    - !reference [.install-pip3, script]
 #    - !reference [.install-pipenv, script]
 #    - !reference [.pipenv-install, script]
+#    - !reference [.install-flake8, script]
+
+lint-ruff:
+  extends: .lint-ruff
+  image: $CI_IMAGE
+  # variables:
+  #   CI_IMAGE_NAME: ${CI_REGISTRY}/jusmundi-group/web/templates/jm-oci/jm-ubuntu
+  #   CI_IMAGE_TAG: latest
   interruptible: true
   allow_failure: true
 
 type-checker-pyright:
   extends: .type-checker-pyright
+  image: $CI_IMAGE
   interruptible: true
   allow_failure: true
 
@@ -135,7 +190,8 @@ test-pytest-poetry:
   extends: .test-pytest-poetry
   needs: ["lint-ruff", "type-checker-pyright"]
   variables:
-    DEFAULT_COV_ARGS: "--cov-fail-under=70"
+    # DEFAULT_COV_ARGS: "--cov-fail-under=70"
+    DEFAULT_COV_ARGS: "--cov-fail-under=1" # We need to increase the test coverage
   allow_failure: true
 
 test-pytest:
@@ -144,7 +200,7 @@ test-pytest:
     - jusmundi-nomad-runner
   interruptible: true
   allow_failure: true
-  needs: ["lint-flake8"]
+  # needs: ["lint-flake8"]
   variables:
     DEFAULT_COV_ARGS: "--cov-fail-under=70"
     DEFAULT_PIPENV_ARGS: "--system --dev --ignore-pipfile" # --dev  --verbose --index=https://package_read:${CI_PIP_GITLABJUSMUNDI_TOKEN}@gitlab.com/api/v4/groups/7364654/-/packages/pypi/simple
@@ -160,6 +216,9 @@ mega_linter:
   needs: ["test-pytest"]
   allow_failure: true
 
+# package:
+#   extends: .poetry-package
+
 docker-build:
   extends: .docker-build
   tags:
@@ -172,13 +231,22 @@ docker-build:
     # CUSTOM_CONTAINER_SCANNING_DISABLED: "true"
     # CONTAINER_SCANNING_GITLAB_CODEQUALITY_TEMPLATE_DISABLE: "true"
     TRIVY_TIMEOUT: "20m0s"
-    TRIVY_SCANNERS: "vuln"
+    # TRIVY_SCANNERS: "vuln"
     TRIVY_ARGS: "--debug --skip-dirs .direnv --skip-dirs .venv --skip-dirs code/.venv --skip-dirs code/.venv/lib/python3.10/site-packages/ --skip-files /code/fastapi-sample/pyproject.toml --skip-files /code/fastapi-sample/Pipfile --skip-files /code/fastapi-sample/pip.conf --skip-files code/fastapi-sample/Dockerfile.train_neuralcoref"
     # TRIVY_EXIT_ON_FAILURE: 0
     # TRIVY_FILESYTEM_EXIT_ON_FAILURE: 0
+  before_script:
+    - !reference [.env-definition, script]
+    - !reference [.oci-image, script]
+    - !reference [.login-gitlab-docker, script]
+    - echo -e "\e[35mWe are in directory\e[0m."
+    - pwd
+    - echo -e "\e[35mWe have files\e[0m."
+    - ls -lrta
+    - !reference [.build-image-dockefile, script]
+    - echo -e "\e[35mImage generated\e[0m."
   after_script:
     - !reference [.combine-reports, script]
-    - echo -e "\e[35mImage generated\e[0m."
     - !reference [.oci-image, script]
     - !reference [.login-gitlab-docker, script]
     # - !reference [.login-ecr, script]

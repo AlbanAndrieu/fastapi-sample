@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import random
 from typing import Optional
 
@@ -7,51 +6,30 @@ import requests
 from fastapi import APIRouter, HTTPException, status
 from opentelemetry import trace
 from opentelemetry.trace.status import Status, StatusCode
-from prometheus_client import Counter, Histogram
 from starlette.responses import JSONResponse
 
-# from datetime import date, timedelta
+from nabla.dd.dd_api_exporter import get_products
+from nabla.logger import logger
+from nabla.metrics.prometheus import (
+    API_REQUEST_COUNTER,
+    API_REQUEST_SUMMARY,
+    ERROR_COUNT,
+)
 
-
-random.seed(54321)
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+# logger = logging.getLogger(__name__)
+# logger.setLevel(logging.INFO)
 
 router = APIRouter(prefix="/v1")
-
-# See https://signoz.io/blog/opentelemetry-fastapi/
-# https://github.com/SigNoz/sample-fastAPI-app/blob/main/app/main.py
-
-
-# See https://github.com/KenMwaura1/Fast-Api-Grafana-Starter/blob/main/src/app/main.py
-# Define a counter metric
-REQUESTS_COUNT = Counter(
-    "requests_total", "Total number of requests", ["method", "endpoint", "status_code"]
-)
-
-ERROR_COUNT = Counter("errors_total", "The total number of errors.", ["error"])
-
-# Define a histogram metric
-REQUESTS_TIME = Histogram(
-    "requests_time", "Request processing time", ["method", "endpoint"]
-)
-api_request_summary = Histogram(
-    "api_request_summary", "Request processing time", ["method", "endpoint"]
-)
-api_request_counter = Counter(
-    "api_request_counter",
-    "Request processing time",
-    ["method", "endpoint", "http_status"],
-)
 
 
 @router.get("/items/{item_id}")
 async def read_item(item_id: int, q: Optional[str] = None):
-    api_request_counter.labels(
+    logger.info(f"Get items : {item_id}")  # [logging-fstring-interpolation]
+
+    API_REQUEST_COUNTER.labels(
         method="GET", endpoint="/items/{item_id}", http_status=200
     ).inc()
-    api_request_summary.labels(method="GET", endpoint="/items/{item_id}").observe(0.1)
+    API_REQUEST_SUMMARY.labels(method="GET", endpoint="/items/{item_id}").observe(0.1)
     if item_id % 2 == 0:
         # mock io - wait for x seconds
         seconds = random.uniform(0, 3)  # nosec # noqa: S311
@@ -89,10 +67,36 @@ async def exception():
 
 @router.get("/external-api")
 def external_api():
-    seconds = random.uniform(0, 3)  # nosec  # noqa: S311
-    response = requests.get(f"https://httpbin.org/delay/{seconds}", timeout=5)
-    response.close()
-    return "ok"
+    try:
+        seconds = random.uniform(0, 3)  # nosec  # noqa: S311
+
+        logger.info(
+            f"Get external api https://httpbin.org/ : {seconds}"
+        )  # [logging-fstring-interpolation]
+
+        # url = "https://httpbin.org/delay/1"
+        url = f"https://httpbin.org/delay/{seconds}"
+
+        response = requests.request("PUT", url, timeout=5)
+
+        print(response.text)
+
+        # response = requests.put(f"https://httpbin.org/delay/{seconds}", timeout=5)
+        response.close()
+
+        return response.text
+        # return "ok"
+    except Exception as ex:
+        logger.error(ex, exc_info=True)
+    finally:
+        logger.info("DONE")
+
+
+@router.get("/internal-api")
+def internal_api():
+    logger.info("Get dd products")
+
+    return get_products()
 
 
 @router.get("/ping")

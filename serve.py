@@ -35,9 +35,9 @@ if __name__ == "__main__":
 
         # update uvicorn access logger format
         log_config = uvicorn.config.LOGGING_CONFIG
-        log_config["formatters"]["access"][
-            "fmt"
-        ] = "%(asctime)s %(levelname)s [%(name)s] [%(filename)s:%(lineno)d] [trace_id=%(otelTraceID)s span_id=%(otelSpanID)s resource.service.name=%(otelServiceName)s] - %(message)s"
+        log_config["formatters"]["access"]["fmt"] = (
+            "%(asctime)s %(levelname)s [%(name)s] [%(filename)s:%(lineno)d] [trace_id=%(otelTraceID)s span_id=%(otelSpanID)s resource.service.name=%(otelServiceName)s] - %(message)s"
+        )
 
         # log_config = None
         config = uvicorn.Config(

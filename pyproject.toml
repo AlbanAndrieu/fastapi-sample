@@ -1,11 +1,14 @@
 [tool.poetry]
 name = "fastapi-sample"
-version = "1.0.4"
+version = "1.0.5"
 description = "Custom hooks to improve code quality before pushing to git"
 authors = ["Andrieu, Alban <alban.andrieu@free.fr>"]
 license = "MIT"
 homepage = "https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample"
 readme = "README.md"
+classifiers = [
+    "Private :: Do not Upload"
+]
 
 packages = [
   { include = "nabla" }
@@ -40,13 +43,16 @@ pyroscope-io = ">=0.8.5"
 pyyaml = ">=6.0"
 sentry-sdk = {version = "*", extras = ["fastapi"]}
 # six = ">=1.16.0"
+requests = ">=2.32.0"
+urllib3 = ">=2.2.2"
+dd-import = ">=1.0.12"
 
 [tool.poetry.group.api]
 optional = false
 [tool.poetry.group.api.dependencies]
-fastapi = "^0.109.1"
+fastapi = ">=0.110.3"
 uvicorn = {version = ">=0.20.0", extras = ["standard"]}
-python-multipart = "^0.0.6"
+python-multipart = ">=0.0.6"
 
 [tool.poetry.group.locust]
 optional = false
@@ -56,15 +62,15 @@ locust = ">=2.18.3"
 [tool.poetry.group.deployment]
 optional = true
 [tool.poetry.group.deployment.dependencies]
-python-keystoneclient = "~5.1.0"
-python-swiftclient = "~4.2.0"
+python-keystoneclient = ">=5.1.0"
+python-swiftclient = ">=4.2.0"
 asyncpg = ">=0.27.0"
-dateparser = "~1.1.8"
+dateparser = ">=1.1.8"
 spacy = ">=3.5.4"
-dacite = "^1.8.0"
+dacite = ">=1.8.0"
 reretry = ">=0.11.8"
-citation-dataclasses = {version = ">=0.0.4", source="gitlab"}
-prometheus-client = ">=0.16.0"
+# citation-dataclasses = {version = ">=0.0.4", source="gitlab"}
+prometheus-client = ">=0.20.0"
 
 # See https://github.com/temporalio/samples-python/blob/main/pyproject.toml
 [tool.poetry.group.encryption]
@@ -74,7 +80,7 @@ dependencies = { cryptography = ">=41.0.2", aiohttp = "^3.8.1" }
 [tool.poetry.group.temporal]
 optional = true
 [tool.poetry.group.temporal.dependencies]
-temporalio = {version = "~=1.2.0", extras = ["opentelemetry"] }
+temporalio = {version = "~=1.6.0", extras = ["opentelemetry"] }
 
 [tool.poetry.group.open_telemetry]
 optional = true
@@ -88,6 +94,13 @@ opentelemetry-instrumentation-logging = ">=0.41b0"
 opentelemetry-exporter-jaeger-thrift = ">=1.13.0"
 opentelemetry-api = ">=1.19.0"
 opentelemetry-sdk = ">=1.19.0"
+
+[tool.poetry.group.panda]
+optional = true
+[tool.poetry.group.panda.dependencies]
+sqlalchemy = ">=2.0.20"
+pandas = ">=2.2.1"
+psycopg2 = ">=2.9.7"  # WARNING need sudo apt-get install libpq-dev
 
 [tool.poetry.group.influxdb]
 optional = true
@@ -104,13 +117,14 @@ optional = true
 [tool.poetry.group.pytorch.dependencies]
 python = ">=3.10, <3.11"
 pydantic = {version = "^1.8.0", extras = ["dotenv"]}
-jm-ner-processor = {version = ">=0.0.4", source="gitlab"}
+# jm-ner-processor = {version = ">=0.0.4", source="gitlab"}
 torch = { version = "~2.0.0", source = "pytorch"}
-jm-ner = {version= ">=3.1.14rc0", source = "gitlab"}
+# jm-ner = {version= ">=3.1.14rc0", source = "gitlab"}
 # setuptools = "*"
+transformers = ">=4.38.0"
 # Despite not being outside training, we need them for jm-ner
-jm-multilabel-evaluator = {version = "*", source = "gitlab"}
-jmwandb = {version = "*", source = "gitlab"}
+# jm-multilabel-evaluator = {version = "*", source = "gitlab"}
+# jmwandb = {version = "*", source = "gitlab"}
 
 [tool.poetry.group.notebook]
 optional = true
@@ -126,11 +140,11 @@ optional = true
 coverage = ">= 7.2.7"
 # molecule = "~=5.1.0"
 pytest = "^7.2.0"
-pytest-cov = "^4.0.0"
+pytest-cov = "^4.1.0"
 pytest-dependency = "^0.5.1"
 pytest-asyncio = "^0.21.0"
 pytest-order = "^1.0.1"
-pytest-testinfra = "~=6.4.0"
+pytest-testinfra = ">=10.1.1"
 nox = ">=2023.4.22"
 tox = ">=3.27.1"
 
@@ -144,7 +158,7 @@ flake8-formatter-junit-xml = ">=0.0.6"
 #pep8-naming = "~=0.13.2"
 pylint = ">=2.15.6"
 pylint-junit = ">=0.3.2"
-ruff = ">=0.3.4"
+ruff = ">=0.5.1"
 
 [tool.poetry.group.ci]
 optional = true
@@ -156,6 +170,7 @@ checkov = ">=2.3.115"
 semgrep = ">=1.15.0"
 sphinx = ">=7.1.2"
 twine = ">=4.0.2"
+cyclonedx-bom = ">=4.5.0"
 
 # [tool.poetry.group.aws]
 # optional = true
@@ -167,7 +182,7 @@ twine = ">=4.0.2"
 [tool.poetry.group.extras]
 optional = true
 [tool.poetry.group.extras.dependencies]
-ansible-core = "~=2.15.2"
+ansible-core = ">=2.16.8"
 # ansible-cmdb = "~=1.31"
 # ansible-lint = {extras = ["yamllint"], version = "~=6.17.2"}
 # ansible-navigator = ">=1.1.0"
@@ -177,18 +192,18 @@ ansible-core = "~=2.15.2"
 click-completion = "~=0.5.2"
 colorama = ">=0.4.6"
 # conan = ">=1.31.0"
-httpx = {version = "~=0.23.3"}
-git-url-parse = "~=1.2.2"
-gitpython = "~=3.1.29"
-pre-commit = ">=3.6.0"
-pre-commit-hooks = "~=4.4.0"
-pip-upgrader = "~=1.4.15"
-readme-renderer = {version = "~=37.3", extras = ["md"]}
-setup-cfg-fmt = "~=2.2.0"
+httpx = {version = ">=0.23.3"}
+git-url-parse = ">=1.2.2"
+gitpython = ">=3.1.29"
+numpy = ">=2.0.0" # conficit with jm-multilabel-evaluator
+pre-commit = ">=3.7.1"
+pre-commit-hooks = ">=4.4.0"
+pip-upgrader = ">=1.4.15"
+readme-renderer = {version = ">=43.0", extras = ["md"]}
+setup-cfg-fmt = ">=2.2.0"
 setuptools = ">=69.0.3"
-termcolor = "~=2.1.1"
+termcolor = ">=2.4.0"
 wheel = ">=0.42.0"
-# wheel = "~0.38.4"
 
 [tool.setuptools-pipfile]
 
@@ -275,8 +290,6 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [build-system]
-# requires = ["pdm-pep517"]
-# build-backend = "pdm.pep517.api"
 requires = ["poetry-core>=1.2.0"]
 build-backend = "poetry.core.masonry.api"
 

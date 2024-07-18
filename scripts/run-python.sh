@@ -46,7 +46,7 @@ if [ -n "${VIRTUALENV_PATH}" ]; then
 	echo -e "${green} VIRTUALENV_PATH is defined ${happy_smiley} : ${VIRTUALENV_PATH} ${NC}"
 else
 	echo -e "${red} ${double_arrow} Undefined build parameter ${head_skull} : VIRTUALENV_PATH, use the default one ${NC}"
-	# shellcheck disable=SC2001
+	# shellcheck disable=SC2001,SC2086
 	VIRTUALENV_PATH=/opt/ansible/env$(echo ${PYTHON_MAJOR_VERSION} | sed 's/\.//g')
 	export VIRTUALENV_PATH
 	echo -e "${magenta} VIRTUALENV_PATH : ${VIRTUALENV_PATH} ${NC}"
@@ -107,7 +107,7 @@ echo -e "${green} brew install cairo libxml2 libffi ${NC}"
 #pip3 install CairoSVG==2.0.3
 
 echo -e "${green} Fix permission rights ${NC}"
-# shellcheck disable=SC2001
+# shellcheck disable=SC2001,SC2086
 echo -e "${green} chown -R jenkins:docker /opt/ansible/env$(echo ${PYTHON_MAJOR_VERSION} | sed 's/\.//g') ${NC}"
 
 if [ -f "${WORKING_DIR}/../playbooks/files/python/requirements-current-${PYTHON_MAJOR_VERSION}.txt" ]; then

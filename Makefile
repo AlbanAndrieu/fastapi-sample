@@ -15,8 +15,8 @@ APP_NAME     = fastapi-sample
 OCI_REGISTRY = registry.gitlab.com/albanandrieu
 AWS_REGION   = eu-west-3
 OCI_IMAGE := $(OCI_REGISTRY)/$(APP_NAME)
-OCI_TAG := $${OCI_TAG:-"1.0.0"}
-IMAGE_NEXT_TAG := $${OCI_IMAGE_TAG:-"1.0.0"}
+OCI_TAG := $${OCI_TAG:-"1.0.5"}
+IMAGE_NEXT_TAG := $${OCI_IMAGE_TAG:-"1.0.5"}
 IMAGE := $(OCI_IMAGE):$(OCI_TAG)
 
 TRIVY_VULN_TYPE = "os,library"
@@ -122,7 +122,7 @@ fmt: ## Run formating
 build-docker-train:  ## Build train container with docker
 	@echo "=> Building train image..."
 	envsubst '$${CI_PIP_GITLABNABLA_TOKEN}' < etc/pip.conf > pip.conf
-	docker build -t $(IMAGE) --build-arg CI_PIP_GITLABJUSMUNDI_TOKEN=$${CI_PIP_GITLABJUSMUNDI_TOKEN} --squash -f Dockerfile.train .
+	docker build -t $(IMAGE) --build-arg CI_PIP_GITLABJUSMUNDI_TOKEN=$${CI_PIP_GITLABJUSMUNDI_TOKEN} -f Dockerfile.train .
 
 ## —— Docker 🐳 ————————————————————————————————————————————————————————————————
 .PHONY: build-docker
@@ -130,7 +130,7 @@ build-docker:  ## Build container with docker
 	@echo "=> Building image..."
 	# envsubst '$${CI_PIP_GITLABNABLA_TOKEN}' < etc/pip.conf > pip.conf
 	# --secret id=pip.conf,src=pip.conf
-	docker build -t $(IMAGE) --build-arg CI_PIP_GITLABJUSMUNDI_TOKEN=$${CI_PIP_GITLABJUSMUNDI_TOKEN} --squash .
+	docker build -t $(IMAGE) --build-arg CI_PIP_GITLABJUSMUNDI_TOKEN=$${CI_PIP_GITLABJUSMUNDI_TOKEN} .
 
 ## —— Buildah Docker 🐶🐳 ————————————————————————————————————————————————————————————————
 .PHONY: build-buildah-docker

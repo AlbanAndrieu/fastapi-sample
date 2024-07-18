@@ -9,6 +9,6 @@ DEFAULT_COV_ARGS="--cov-fail-under=70"
 
 export DEFAULT_COV=${CI_PROJECT_NAME:-"nabla"}
 
-COVERAGE_FILE=.coverage coverage run --rcfile=.coveragerc -m pytest --cov=$DEFAULT_COV $DEFAULT_COV_TARGET $DEFAULT_COV_ARGS ${DEFAULT_FORMAT_TARGET} ${DEFAULT_COV_TARGET}
+COVERAGE_FILE=.coverage coverage run --rcfile=.coveragerc -m pytest --cov="${DEFAULT_COV}" "${DEFAULT_COV_TARGET} ${DEFAULT_COV_ARGS} ${DEFAULT_FORMAT_TARGET} ${DEFAULT_COV_TARGET}"
 
 exit 0

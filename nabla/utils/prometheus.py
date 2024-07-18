@@ -9,11 +9,7 @@ from opentelemetry.instrumentation.logging import LoggingInstrumentor
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from prometheus_client import REGISTRY, Counter, Gauge, Histogram
-from prometheus_client.openmetrics.exposition import (
-    CONTENT_TYPE_LATEST,
-    generate_latest,
-)
+from prometheus_client import Counter, Gauge, Histogram
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response
@@ -55,6 +51,9 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
     def __init__(self, app: ASGIApp, app_name: str = "fastapi-app") -> None:
         super().__init__(app)
         self.app_name = app_name
+        self.prefix = "nabla"
+        self.skip_paths = ["/health", "/ping", "io_task", "cpu_task"]
+        # self.exemplars=lambda: {"trace_id": get_trace_id}  # function that returns a trace id
         INFO.labels(app_name=self.app_name).inc()
 
     async def dispatch(
@@ -113,12 +112,6 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
                 return route.path, True
 
         return request.url.path, False
-
-
-def metrics(request: Request) -> Response:  # [unused-argument]
-    return Response(
-        generate_latest(REGISTRY), headers={"Content-Type": CONTENT_TYPE_LATEST}
-    )
 
 
 def setting_otlp(
