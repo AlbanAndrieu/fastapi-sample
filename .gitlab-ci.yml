@@ -173,11 +173,16 @@ upload-cloc:uat:
 
 lint-ruff:
   extends: .lint-ruff
+  image: $CI_IMAGE
+  # variables:
+  #   CI_IMAGE_NAME: ${CI_REGISTRY}/jusmundi-group/web/templates/jm-oci/jm-ubuntu
+  #   CI_IMAGE_TAG: latest
   interruptible: true
   allow_failure: true
 
 type-checker-pyright:
   extends: .type-checker-pyright
+  image: $CI_IMAGE
   interruptible: true
   allow_failure: true
 
