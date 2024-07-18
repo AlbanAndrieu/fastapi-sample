@@ -99,7 +99,7 @@ opentelemetry-sdk = ">=1.19.0"
 optional = true
 [tool.poetry.group.panda.dependencies]
 sqlalchemy = ">=2.0.20"
-pandas = ">=2.2.1"
+# pandas = ">=2.2.1"
 psycopg2 = ">=2.9.7"  # WARNING need sudo apt-get install libpq-dev
 
 [tool.poetry.group.influxdb]
@@ -118,10 +118,10 @@ optional = true
 python = ">=3.10, <3.11"
 pydantic = {version = "^1.8.0", extras = ["dotenv"]}
 torch = { version = "~2.0.0", source = "pytorch"}
-jm-ner = {version= ">=3.1.14", source = "gitlab"}
+jm-ner = {version= ">=3.1.14rc0", source = "gitlab"}
 # jm-ner-processor = {version = ">=0.0.4", source="gitlab"}
 # setuptools = "*"
-transformers = ">=4.38.0"
+# transformers = ">=4.38.0"
 # Despite not being outside training, we need them for jm-ner
 jm-multilabel-evaluator = {version = "*", source = "gitlab"}
 jmwandb = {version = "*", source = "gitlab"}
@@ -193,7 +193,7 @@ colorama = ">=0.4.6"
 httpx = {version = ">=0.23.3"}
 git-url-parse = ">=1.2.2"
 gitpython = ">=3.1.29"
-numpy = ">=2.0.0" # conficit possible with jm-multilabel-evaluator
+# numpy = ">=2.0.0" # conficit possible with jm-multilabel-evaluator
 pre-commit = ">=3.7.1"
 pre-commit-hooks = ">=4.4.0"
 pip-upgrader = ">=1.4.15"
