@@ -128,16 +128,12 @@ spotbugs-sast:
 
 upload_trivy:uat:
   extends: .upload_trivy:uat
-  interruptible: true
-  allow_failure: true
 
 cloc:
   extends: .cloc
 
 upload-cloc:uat:
   extends: .upload-cloc:uat
-  interruptible: true
-  allow_failure: true
 
 # ======
 # Python Code Checks
