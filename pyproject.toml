@@ -117,14 +117,14 @@ optional = true
 [tool.poetry.group.pytorch.dependencies]
 python = ">=3.10, <3.11"
 pydantic = {version = "^1.8.0", extras = ["dotenv"]}
-# jm-ner-processor = {version = ">=0.0.4", source="gitlab"}
 torch = { version = "~2.0.0", source = "pytorch"}
-# jm-ner = {version= ">=3.1.14rc0", source = "gitlab"}
+jm-ner = {version= ">=3.1.14", source = "gitlab"}
+# jm-ner-processor = {version = ">=0.0.4", source="gitlab"}
 # setuptools = "*"
 transformers = ">=4.38.0"
 # Despite not being outside training, we need them for jm-ner
-# jm-multilabel-evaluator = {version = "*", source = "gitlab"}
-# jmwandb = {version = "*", source = "gitlab"}
+jm-multilabel-evaluator = {version = "*", source = "gitlab"}
+jmwandb = {version = "*", source = "gitlab"}
 
 [tool.poetry.group.notebook]
 optional = true
@@ -154,8 +154,6 @@ optional = true
 black = {version = ">=23.9.1", extras = ["d"]}
 flake8 = ">=6.1.0"
 flake8-formatter-junit-xml = ">=0.0.6"
-#pep8 = "~=1.7.1"
-#pep8-naming = "~=0.13.2"
 pylint = ">=2.15.6"
 pylint-junit = ">=0.3.2"
 ruff = ">=0.5.1"
@@ -163,7 +161,7 @@ ruff = ">=0.5.1"
 [tool.poetry.group.ci]
 optional = true
 [tool.poetry.group.ci.dependencies]
-#autopep8 = "~=2.0.0"
+# autopep8 = "~=2.0.0"
 bandit = ">=1.7.5"
 checkov = ">=2.3.115"
 #selenium = "~=4.6.0"
@@ -195,7 +193,7 @@ colorama = ">=0.4.6"
 httpx = {version = ">=0.23.3"}
 git-url-parse = ">=1.2.2"
 gitpython = ">=3.1.29"
-numpy = ">=2.0.0" # conficit with jm-multilabel-evaluator
+numpy = ">=2.0.0" # conficit possible with jm-multilabel-evaluator
 pre-commit = ">=3.7.1"
 pre-commit-hooks = ">=4.4.0"
 pip-upgrader = ">=1.4.15"
