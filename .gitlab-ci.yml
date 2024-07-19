@@ -52,6 +52,13 @@ include:
 
   # - remote: https://gitlab.com/renovate-bot/renovate-runner/-/raw/v17.69.3/templates/renovate.gitlab-ci.yml
 
+
+# See https://docs.gitlab.com/ee/ci/yaml/#workflowauto_cancelon_new_commit
+workflow:
+  auto_cancel:
+    on_new_commit: interruptible
+    on_job_failure: all
+
 variables:
   CI_IMAGE_PYTHON: python:3.10
   CI_REGISTRY: registry.gitlab.com
