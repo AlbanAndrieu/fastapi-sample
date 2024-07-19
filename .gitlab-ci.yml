@@ -81,7 +81,7 @@ variables:
   DD_CLOSE_OLD_FINDINGS: "True"
   DD_CLOSE_OLD_FINDINGS_PRODUCT_SCOPE: "True"
   DD_DO_NOT_REACTIVATE: "False"
-  DD_BRANCH_TAG: "${CI_COMMIT_TAG} # CI_COMMIT_BRANCH CI_IMAGE_TAG
+  DD_BRANCH_TAG: "${CI_COMMIT_TAG}" # CI_COMMIT_BRANCH CI_IMAGE_TAG
   CLOC_SOURCE: "nabla"
   # RUNNER_GENERATE_ARTIFACTS_METADATA: "true"
   # FF_NETWORK_PER_BUILD: "true" # enable network per build so all services can communicate on the same network
