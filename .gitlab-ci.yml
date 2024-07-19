@@ -74,8 +74,16 @@ variables:
   DD_SERVICE: "test"  # fastapi-sample
   DD_PRODUCT_TYPE_NAME: "Research and Development"
   DD_URL_UAT: "http://defectdojo.service.gra.uat.consul" # 10.30.0.141
+  DD_TEST_NAME: "JM Trivy"
+  # DD_FILE_NAME: "trivy.json"
+  DD_MINIMUM_SEVERITY: "MEDIUM"
+  # DD_GROUP_BY: ""
+  DD_CLOSE_OLD_FINDINGS: "True"
+  DD_CLOSE_OLD_FINDINGS_PRODUCT_SCOPE: "True"
+  DD_DO_NOT_REACTIVATE: "False"
+  DD_BRANCH_TAG: "${CI_COMMIT_TAG} # CI_COMMIT_BRANCH CI_IMAGE_TAG
   CLOC_SOURCE: "nabla"
-  RUNNER_GENERATE_ARTIFACTS_METADATA: "true"
+  # RUNNER_GENERATE_ARTIFACTS_METADATA: "true"
   # FF_NETWORK_PER_BUILD: "true" # enable network per build so all services can communicate on the same network
   APP_NAME: fastapi-sample
   # DAST_WEBSITE: https://yourapp
