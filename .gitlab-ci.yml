@@ -10,31 +10,31 @@ stages:
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-dd-strategy
+    ref: feature-dd-onerr
     file: "/templates/default.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-dd-strategy
+    ref: feature-dd-onerr
     file: "/templates/docker-build.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-dd-strategy
+    ref: feature-dd-onerr
     file: "/templates/deploy-nomad.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-dd-strategy
+    ref: feature-dd-onerr
     file: "/templates/test-python.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-dd-strategy
+    ref: feature-dd-onerr
     file: "/templates/_apk.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-dd-strategy
+    ref: feature-dd-onerr
     file: "/templates/data.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-dd-strategy
+    ref: feature-dd-onerr
     file: "/templates/mega-linter.gitlab-ci.yml"
 
   - template: 'Workflows/MergeRequest-Pipelines.gitlab-ci.yml'
@@ -51,6 +51,13 @@ include:
   #   file: '/templates/renovate.gitlab-ci.yml'
 
   # - remote: https://gitlab.com/renovate-bot/renovate-runner/-/raw/v17.69.3/templates/renovate.gitlab-ci.yml
+
+
+# See https://docs.gitlab.com/ee/ci/yaml/#workflowauto_cancelon_new_commit
+workflow:
+  auto_cancel:
+    on_new_commit: interruptible
+    on_job_failure: all
 
 variables:
   CI_IMAGE_PYTHON: python:3.10
@@ -72,10 +79,18 @@ variables:
   TRIVY_SCANNERS: "vuln,config,secret"
   DD_PRODUCT_NAME: "$CI_PROJECT_NAME"
   DD_SERVICE: "test"  # fastapi-sample
-  DD_PRODUCT_TYPE_NAME: "test"
+  DD_PRODUCT_TYPE_NAME: "Showcase Alban" # "Research and Development"
   DD_URL_UAT: "http://defectdojo.service.gra.uat.consul" # 10.30.0.141
+  DD_TEST_NAME: "JM Trivy"
+  # DD_FILE_NAME: "trivy.json"
+  DD_MINIMUM_SEVERITY: "MEDIUM"
+  # DD_GROUP_BY: ""
+  DD_CLOSE_OLD_FINDINGS: "True"
+  DD_CLOSE_OLD_FINDINGS_PRODUCT_SCOPE: "True"
+  DD_DO_NOT_REACTIVATE: "False"
+  DD_BRANCH_TAG: "${CI_COMMIT_TAG}" # CI_COMMIT_BRANCH CI_IMAGE_TAG
   CLOC_SOURCE: "nabla"
-  RUNNER_GENERATE_ARTIFACTS_METADATA: "true"
+  # RUNNER_GENERATE_ARTIFACTS_METADATA: "true"
   # FF_NETWORK_PER_BUILD: "true" # enable network per build so all services can communicate on the same network
   APP_NAME: fastapi-sample
   # DAST_WEBSITE: https://yourapp
@@ -128,16 +143,12 @@ spotbugs-sast:
 
 upload_trivy:uat:
   extends: .upload_trivy:uat
-  interruptible: true
-  allow_failure: true
 
 cloc:
   extends: .cloc
 
 upload-cloc:uat:
   extends: .upload-cloc:uat
-  interruptible: true
-  allow_failure: true
 
 # ======
 # Python Code Checks
