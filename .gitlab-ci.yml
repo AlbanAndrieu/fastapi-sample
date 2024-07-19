@@ -10,31 +10,31 @@ stages:
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-dd-check
+    ref: feature-moredataindd
     file: "/templates/default.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-dd-check
+    ref: feature-moredataindd
     file: "/templates/docker-build.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-dd-check
+    ref: feature-moredataindd
     file: "/templates/deploy-nomad.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-dd-check
+    ref: feature-moredataindd
     file: "/templates/test-python.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-dd-check
+    ref: feature-moredataindd
     file: "/templates/_apk.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-dd-check
+    ref: feature-moredataindd
     file: "/templates/data.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-dd-check
+    ref: feature-moredataindd
     file: "/templates/mega-linter.gitlab-ci.yml"
 
   - template: 'Workflows/MergeRequest-Pipelines.gitlab-ci.yml'
@@ -72,7 +72,7 @@ variables:
   TRIVY_SCANNERS: "vuln,config,secret"
   DD_PRODUCT_NAME: "$CI_PROJECT_NAME"
   DD_SERVICE: "test"  # fastapi-sample
-  DD_PRODUCT_TYPE_NAME: "test"
+  DD_PRODUCT_TYPE_NAME: "Research and Development"
   DD_URL_UAT: "http://defectdojo.service.gra.uat.consul" # 10.30.0.141
   CLOC_SOURCE: "nabla"
   RUNNER_GENERATE_ARTIFACTS_METADATA: "true"
