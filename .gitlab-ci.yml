@@ -72,7 +72,7 @@ variables:
   TRIVY_SCANNERS: "vuln,config,secret"
   DD_PRODUCT_NAME: "$CI_PROJECT_NAME"
   DD_SERVICE: "test"  # fastapi-sample
-  DD_PRODUCT_TYPE_NAME: "Research and Development"
+  DD_PRODUCT_TYPE_NAME: "Showcase Alban" # "Research and Development"
   DD_URL_UAT: "http://defectdojo.service.gra.uat.consul" # 10.30.0.141
   DD_TEST_NAME: "JM Trivy"
   # DD_FILE_NAME: "trivy.json"
