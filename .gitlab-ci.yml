@@ -257,6 +257,7 @@ docker-build:
     - !reference [.build-image-dockefile, script]
     - echo -e "\e[35mImage generated\e[0m."
   after_script:
+    - !reference [.scan-reports, script]
     - !reference [.combine-reports, script]
     - !reference [.oci-image, script]
     - !reference [.login-gitlab-docker, script]
