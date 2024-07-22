@@ -9,6 +9,12 @@ from opentelemetry import trace
 from opentelemetry.trace.status import Status, StatusCode
 
 from nabla.logger import logger
+from nabla.metrics.prometheus import (
+    DD_CRITICAL_FINDINGS_COUNT,
+    DD_HIGH_FINDINGS_COUNT,
+    DD_LOW_FINDINGS_COUNT,
+    DD_MEDIUM_FINDINGS_COUNT,
+)
 from nabla.utils.misc import timed_operation
 
 random.seed(54321)  # nosec
@@ -23,6 +29,15 @@ HEADERS = {
 }
 
 
+METRIC_MAP = {
+    "Critical": DD_CRITICAL_FINDINGS_COUNT,
+    "High": DD_HIGH_FINDINGS_COUNT,
+    "Medium": DD_MEDIUM_FINDINGS_COUNT,
+    "Low": DD_LOW_FINDINGS_COUNT,
+}
+
+
+@staticmethod
 @deprecated(version="1.0.0", reason="You should use get_products")  # type: ignore
 def get_products():
     with timed_operation("dd_product"):
@@ -58,6 +73,7 @@ def get_products():
             logger.info("Product retrieval done")
 
 
+@staticmethod
 def get_product_types():
     with timed_operation("dd_product_types"):
         try:
@@ -92,7 +108,8 @@ def get_product_types():
             logger.info("Product retrieval done")
 
 
-def counts_by_product_id(product_id):
+@staticmethod
+def get_findings_counts_by_product_id(product_id):
     data = {
         "include_finding_notes": False,
         "include_finding_images": False,
@@ -107,10 +124,21 @@ def counts_by_product_id(product_id):
         timeout=30,
     )
 
-    counts = {"Critical": 0, "High": 0, "Medium": 0, "Low": 0}
+    counts = {"Critical": 0, "High": 0, "Medium": 0, "Low": 0, "Info": 0}
 
     for finding in response.json()["findings"]:
         if finding["active"]:
             counts[finding["severity"]] += 1
 
     return counts
+
+
+def refresh_metrics():
+    products = get_products()
+    results = {
+        name: get_findings_counts_by_product_id(product_id)
+        for name, product_id in products.items()
+    }
+    for product, counts in results.items():
+        for severity, count in counts.items():
+            METRIC_MAP[severity].labels(product=product).set(count)

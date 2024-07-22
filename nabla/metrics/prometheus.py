@@ -1,11 +1,4 @@
-from prometheus_client import Counter, Histogram
-
-DD_API_LATENCY = Histogram(
-    name="dd_api_latency",
-    documentation="The time taken for a call on the defact dojo api",
-    labelnames=["api"],
-    buckets=(1, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 25, 30, 40, 50),
-)
+from prometheus_client import Counter, Gauge, Histogram
 
 API_REQUEST_COUNTER = Counter(
     "api_request_counter",
@@ -28,4 +21,29 @@ ERROR_COUNT = Counter("errors_total", "The total number of errors.", ["error"])
 # Define a counter metric
 REQUESTS_COUNT = Counter(
     "requests_total", "Total number of requests", ["method", "endpoint", "status_code"]
+)
+
+DD_API_LATENCY = Histogram(
+    name="dd_api_latency",
+    documentation="The time taken for a call on the defact dojo api",
+    labelnames=["api"],
+    buckets=(1, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 25, 30, 40, 50),
+)
+
+DD_CRITICAL_FINDINGS_COUNT = Gauge(
+    "dd_critical_findings_count",
+    "The number of critical findings",
+    labelnames=["product"],
+)
+DD_HIGH_FINDINGS_COUNT = Gauge(
+    "dd_high_findings_count", "The number of high findings", labelnames=["product"]
+)
+DD_MEDIUM_FINDINGS_COUNT = Gauge(
+    "dd_medium_findings_count", "The number of medium findings", labelnames=["product"]
+)
+DD_LOW_FINDINGS_COUNT = Gauge(
+    "dd_low_findings_count", "The number of low findings", labelnames=["product"]
+)
+DD_INFO_FINDINGS_COUNT = Gauge(
+    "dd_info_findings_count", "The number of info findings", labelnames=["product"]
 )
