@@ -5,6 +5,9 @@ vulnerabilities:
     statement: Accept the risk
   - id: CVE-2023-6730
     statement: Testing ignoring CVE in Pipeline
+# Below for transformers
+  - id: CVE-2023-7018
+  - id: CVE-2024-3568
 
 misconfigurations:
   - id: AVD-DS-0002

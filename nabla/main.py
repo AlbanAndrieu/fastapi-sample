@@ -3,9 +3,11 @@ import os
 import time
 from typing import Dict
 
+import logfire
 import pyroscope
 import sentry_sdk
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI, Request
+from fastapi.openapi.utils import get_openapi
 from prometheus_client import make_asgi_app
 from sentry_sdk.integrations.logging import LoggingIntegration
 
@@ -21,7 +23,10 @@ from nabla.utils.prometheus import PrometheusMiddleware, setting_otlp
 # from citation.infrastructure.crud_exceptions import CrudError, NotFoundInJM
 
 
-APP_NAME = os.environ.get("APP_NAME", "nabla-hooks")
+APP_NAME = os.environ.get("APP_NAME", "fastapi-sample")
+APP_PREFIX_VERSION = os.environ.get("APP_PREFIX_VERSION", "v0")
+APP_VERSION = os.environ.get("APP_VERSION", "1.0.6")
+
 OTLP_GRPC_ENDPOINT = os.environ.get(
     # "OTLP_GRPC_ENDPOINT", "http://grpc.jaeger-collector-grpc.service.gra.dev.consul"
     "OTLP_GRPC_ENDPOINT",
@@ -52,12 +57,31 @@ SENTRY_DSN = os.environ.get(
 # http://otel-collector.service.gra.dev.consul:9411/api/v2/spans
 
 
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    openapi_schema = get_openapi(
+        title="Custom title",
+        version=APP_VERSION,
+        summary="This is a very custom OpenAPI schema",
+        description="Here's a longer description of the custom **OpenAPI** schema",
+        routes=app.routes,
+    )
+    openapi_schema["info"]["x-logo"] = {
+        "url": "https://fastapi.tiangolo.com/img/logo-margin/logo-teal.png"
+    }
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+
+logfire.info("Hello, {name}!", name="World")
+
 logger.info("Creating API")
-# logging.info("Creating API")
+
 app = FastAPI(
-    title="FastAPI Sample V1",
-    description="FastAPI Sample V1",
-    version="0.0.1",
+    title=APP_NAME + " " + APP_PREFIX_VERSION,
+    description="FastAPI Sample for demo",
+    version="v0." + APP_VERSION,
     debug=False,
 )
 
@@ -179,6 +203,25 @@ async def trigger_error():
     pass
 
 
+async def _version(request: Request):
+    return {"version": request.app.version}
+
+
+class VersionedAPIRouter(APIRouter):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args)
+        self.add_api_route(
+            "/version",
+            _version,
+            methods=["GET"],
+        )
+
+
+v0_router = VersionedAPIRouter(
+    prefix="/" + APP_PREFIX_VERSION,
+)
+
+app.include_router(v0_router)
 app.include_router(ping.router)
 app.include_router(v1.router)
 # app.include_router(notes.router, prefix="/notes", tags=["notes"])

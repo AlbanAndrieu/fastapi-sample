@@ -150,8 +150,11 @@ curl --request GET http://0.0.0.0:8091/v1/external-api
 
 [docs](http://0.0.0.0:8091/docs)
 [metrics](http://0.0.0.0:8091/metrics)
+[openapi](http://0.0.0.0:8091/openapi.json)
+
 
 [health](http://localhost:8080/health)
+
 
 ```bash
 sudo lsof -ni:8080 -sTCP:ESTABLISHED

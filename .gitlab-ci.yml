@@ -10,31 +10,31 @@ stages:
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-dd-onerr
+    ref: feature-trivyignore
     file: "/templates/default.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-dd-onerr
+    ref: feature-trivyignore
     file: "/templates/docker-build.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-dd-onerr
+    ref: feature-trivyignore
     file: "/templates/deploy-nomad.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-dd-onerr
+    ref: feature-trivyignore
     file: "/templates/test-python.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-dd-onerr
+    ref: feature-trivyignore
     file: "/templates/_apk.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-dd-onerr
+    ref: feature-trivyignore
     file: "/templates/data.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-dd-onerr
+    ref: feature-trivyignore
     file: "/templates/mega-linter.gitlab-ci.yml"
 
   - template: 'Workflows/MergeRequest-Pipelines.gitlab-ci.yml'
@@ -252,13 +252,14 @@ docker-build:
     - !reference [.login-gitlab-docker, script]
     - echo -e "\e[35mWe are in directory\e[0m."
     - pwd
-    - echo -e "\e[35mWe have files\e[0m."
-    - ls -lrta
+    # - echo -e "\e[35mWe have files\e[0m."
+    # - ls -lrta
     - !reference [.build-image-dockefile, script]
     - echo -e "\e[35mImage generated\e[0m."
   after_script:
-    - !reference [.combine-reports, script]
     - !reference [.oci-image, script]
+    - !reference [.scan-reports, script]
+    - !reference [.combine-reports, script]
     - !reference [.login-gitlab-docker, script]
     # - !reference [.login-ecr, script]
     - !reference [.common-docker-release, script]
