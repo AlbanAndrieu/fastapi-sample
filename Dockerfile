@@ -11,6 +11,7 @@ LABEL name="fastapi-sample" vendor="sample" version="1.0.1" \
  description="Image used by our products to build python\
  this image is running on Ubuntu 22.10."
 
+# dockerfile_lint - ignore
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # No interactive frontend during docker build
