@@ -10,31 +10,31 @@ stages:
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-trivyignore
+    ref: feature-deploykc
     file: "/templates/default.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-trivyignore
+    ref: feature-deploykc
     file: "/templates/docker-build.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-trivyignore
+    ref: feature-deploykc
     file: "/templates/deploy-nomad.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-trivyignore
+    ref: feature-deploykc
     file: "/templates/test-python.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-trivyignore
+    ref: feature-deploykc
     file: "/templates/_apk.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-trivyignore
+    ref: feature-deploykc
     file: "/templates/data.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-trivyignore
+    ref: feature-deploykc
     file: "/templates/mega-linter.gitlab-ci.yml"
 
   - template: 'Workflows/MergeRequest-Pipelines.gitlab-ci.yml'
