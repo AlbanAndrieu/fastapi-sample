@@ -187,14 +187,22 @@ Validate JWT [validate-jwt](https://jwt.io/)
 # Go on back https://back.service.gra.dev.consul/welcome
 # Get from cookie access_token
 # export JWT_TOKEN=$(curl -k "http://jm-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/en/api/valid-jwt")
-# export JWT_TOKEN=$(curl -k "https://jc-frontnuxt.dev.int.jusmundi.com/en/api/valid-jwt")
+# export JWT_TOKEN=$(curl -k "https://jm.frontnuxt.service.gra.dev.consul/en/api/valid-jwt")
 
 # http://keycloak-admin.service.gra.dev.consul/realms/jus_mundi/
 
 export JWT_TOKEN="eyJhbGcXXX"
+
 curl -k -H "Authorization: Bearer $JWT_TOKEN" -X GET https://fastapi-sample.service.gra.dev.consul/
+
 # token is expired
 #  {"Hello":"World"}
+
+curl -k -i -X POST -H "Origin: https://jm.frontnuxt.service.gra.dev.consul" \
+    -H 'Content-Type: text/plain' \
+    -H "Authorization: Bearer $JWT_TOKEN" \
+    --data "{}" \
+    "https://authorization.service.gra.dev.consul/v1/token/upgrade"
 ```
 
 ## [Test](#table-of-contents)
@@ -229,7 +237,8 @@ Result available on [pyroscope](http://localhost:4040/?query=process_cpu%3Acpu%3
 [Temporal](https://github.com/temporalio/samples-python/tree/main)
 
 ```
-poetry install --with format,test,extras,open_telemetry,deployment,influxdb,panda,temporal
+# poetry install --with format,test,extras,open_telemetry,deployment,influxdb,panda,temporal
+poetry install --all-extras
 poetry run python nabla/temporalio/activities.py
 
 poetry run python worker.py

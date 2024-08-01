@@ -255,7 +255,7 @@ test-nox:
 test-tox:
 	@echo "=> Testing python..."
 	@echo "=> tox --notest"
-	tox py38
+	tox py310
 
 ## —— Tests CST 🧪🕳️ —————————————————————————————————————————————————————————————————
 .PHONY: test-cst

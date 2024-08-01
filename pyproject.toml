@@ -21,8 +21,8 @@ packages = [
 
 [[tool.poetry.source]]
 name = "gitlab"
-# poetry config http-basic.gitlab __token__ ${CI_PIP_GITLABJUSMUNDI_TOKEN}
-# export POETRY_GITLAB_TOKEN_GITLAB=${CI_PIP_GITLABJUSMUNDI_TOKEN}
+# poetry config http-basic.gitlab __token__ ${GITLAB_FULL_PRIVATE_TOKEN}
+# export POETRY_GITLAB_TOKEN_GITLAB=${GITLAB_FULL_PRIVATE_TOKEN}
 url = "https://gitlab.com/api/v4/groups/7364654/-/packages/pypi/simple"
 priority = "explicit"
 
@@ -51,7 +51,7 @@ dd-import = ">=1.0.12"
 [tool.poetry.group.api]
 optional = false
 [tool.poetry.group.api.dependencies]
-fastapi = ">=0.110.3"
+fastapi = ">=0.111.1"
 uvicorn = {version = ">=0.20.0", extras = ["standard"]}
 python-multipart = ">=0.0.6"
 
@@ -66,6 +66,7 @@ optional = true
 python-keystoneclient = ">=5.1.0"
 python-swiftclient = ">=4.2.0"
 asyncpg = ">=0.27.0"
+databases = ">=0.5.3"
 dateparser = ">=1.1.8"
 spacy = ">=3.5.4"
 dacite = ">=1.8.0"
@@ -87,14 +88,14 @@ temporalio = {version = "~=1.6.0", extras = ["opentelemetry"] }
 optional = true
 [tool.poetry.group.open_telemetry.dependencies]
 # temporalio = { version = "*", extras = ["opentelemetry"] }
-opentelemetry-distro = ">=0.41b0"
-opentelemetry-exporter-otlp = ">=1.19.0"
-opentelemetry-exporter-otlp-proto-grpc = ">=1.19.0"
-opentelemetry-instrumentation-fastapi = ">=0.41b0"
-opentelemetry-instrumentation-logging = ">=0.41b0"
+opentelemetry-distro = ">=0.47b0"
+opentelemetry-exporter-otlp = ">=1.26.0"
+opentelemetry-exporter-otlp-proto-grpc = ">=1.26.0"
+opentelemetry-instrumentation-fastapi = ">=0.47b0"
+opentelemetry-instrumentation-logging = ">=0.47b0"
 opentelemetry-exporter-jaeger-thrift = ">=1.13.0"
-opentelemetry-api = ">=1.19.0"
-opentelemetry-sdk = ">=1.19.0"
+opentelemetry-api = ">=1.26.0"
+opentelemetry-sdk = ">=1.26.0"
 
 [tool.poetry.group.panda]
 optional = true
@@ -199,6 +200,7 @@ pre-commit = ">=3.7.1"
 pre-commit-hooks = ">=4.4.0"
 pip-upgrader = ">=1.4.15"
 readme-renderer = {version = ">=43.0", extras = ["md"]}
+sqlfluff = ">=3.1.0"
 setup-cfg-fmt = ">=2.2.0"
 setuptools = ">=69.0.3"
 termcolor = ">=2.4.0"
@@ -211,6 +213,27 @@ wheel = ">=0.42.0"
 
 [tool.pytest.ini_options]
 testpaths = "tests/"
+
+[tool.sqlfluff.core]
+templater = "jinja"
+sql_file_exts = ".sql,.sql.j2,.dml,.ddl"
+
+[tool.sqlfluff.indentation]
+indented_joins = false
+indented_using_on = true
+template_blocks_indent = false
+
+[tool.sqlfluff.templater]
+unwrap_wrapped_queries = true
+
+[tool.sqlfluff.templater.jinja]
+apply_dbt_builtins = true
+
+# For rule specific configuration, use dots between the names exactly
+# as you would in .sqlfluff. In the background, SQLFluff will unpack the
+# configuration paths accordingly.
+[tool.sqlfluff.rules.capitalisation.keywords]
+capitalisation_policy = "upper"
 
 [tool.bandit]
 skips = ["B101", "B311"]
@@ -264,7 +287,7 @@ line-length = 88
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 # Assume Python 3.8
-target-version = "py38"
+target-version = "py310"
 
 [tool.isort]
 multi_line_output = 3
@@ -299,7 +322,7 @@ description = "Fastapi sample"
 authors = [
     {name = "Andrieu, Alban", email = "alban.andrieu@free.fr"},
 ]
-#dependencies = ["ansible-cmdb==1.31", "ansible-core>=2.11.6", "ansible-lint==5.0.8", "ansicolors==1.1.8", "cfgv==3.3.0", "chardet>=3.0.4", "click>=7.1.1", "click-completion>=0.5.2", "colorama>=0.4.3", "filemagic==1.6", "git-url-parse>=1.2.2", "gitpython>=3.1.1", "jira==3.0.1", "podmena>=0.4.2", "pyyaml>=5.1", "six>=1.14.0", "termcolor>=1.1.0"]
+#dependencies = ["ansible-cmdb==1.31", "ansible-core>=2.11.6", "ansible-lint==5.0.8", "ansicolors==1.1.8", "cfgv==3.3.0", "chardet>=3.0.4", "click>=7.1.1", "click-completion>=0.5.2", "colorama>=0.4.3", "filemagic==1.6", "git-url-parse>=1.2.2", "gitpython>=3.1.1", "jira>=3.8.0", "podmena>=0.4.2", "pyyaml>=5.1", "six>=1.14.0", "termcolor>=1.1.0"]
 dependencies = ["dynamic"]
 requires-python = ">=3.8"
 readme = "README.md"

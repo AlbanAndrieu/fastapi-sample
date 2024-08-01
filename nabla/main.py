@@ -20,6 +20,8 @@ from nabla.log_middleware import LogMiddleware
 from nabla.logger import logger
 from nabla.utils.prometheus import PrometheusMiddleware, setting_otlp
 
+from nabla.db import database
+
 # from citation.infrastructure.crud_exceptions import CrudError, NotFoundInJM
 
 
@@ -180,15 +182,15 @@ async def cpu_task():
 
 @app.on_event("startup")
 async def startup():
-    # await database.connect()
+    await database.connect()
     # # Instrumentator().instrument(app).expose(app)
     # FastAPIInstrumentor.instrument_app(app)
     logger.info("API is ready")
 
 
-# @app.on_event("shutdown")
-# async def shutdown():
-#     await database.disconnect()
+@app.on_event("shutdown")
+async def shutdown():
+    await database.disconnect()
 
 
 @app.get("/health")

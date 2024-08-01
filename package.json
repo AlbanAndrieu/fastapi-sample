@@ -14,11 +14,9 @@
     }
   ],
   "engines": {
-    "node": ">=16.0.0",
-    "npm": ">=8.5.5",
-    "yarn": " >=1.22.0",
-    "node-gyp": ">=3.0.3",
-    "grunt": ">=1.5.3"
+    "node": ">=20.14.0",
+    "npm": ">=10.8.2",
+    "node-gyp": ">=3.0.3"
   },
   "devDependencies": {
     "@semantic-release/gitlab": "^13.0.2",

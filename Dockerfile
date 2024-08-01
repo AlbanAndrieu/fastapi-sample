@@ -7,7 +7,7 @@
 # FROM pytorch/pytorch:1.7.1-cuda11.0-cudnn8-runtime as prebuild
 FROM python:3.10-slim AS python-base
 
-LABEL name="fastapi-sample" vendor="sample" version="1.0.1" \
+LABEL name="fastapi-sample" vendor="sample" version="1.0.6" \
  description="Image used by our products to build python\
  this image is running on Ubuntu 22.10."
 

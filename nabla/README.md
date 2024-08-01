@@ -34,3 +34,4 @@ This project intend to be uses by all Nabla products
 
 [prometheus fastAPI guide](https://dev.to/ken_mwaura1/getting-started-monitoring-a-fastapi-app-with-grafana-and-prometheus-a-step-by-step-guide-3fbn)
 [prometheus fastAPI sample](https://github.com/SigNoz/sample-fastAPI-app/blob/main/app/main.py)
+[grafana fastAPI sample](https://github.com/KenMwaura1/Fast-Api-Grafana-Starter/tree/main)
