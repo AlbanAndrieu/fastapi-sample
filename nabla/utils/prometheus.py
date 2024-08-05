@@ -9,7 +9,6 @@ from opentelemetry.instrumentation.logging import LoggingInstrumentor
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from prometheus_client import Counter, Gauge, Histogram
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response
@@ -17,35 +16,15 @@ from starlette.routing import Match
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 from starlette.types import ASGIApp
 
+from nabla.metrics.prometheus import (
+    EXCEPTIONS,
+    REQUESTS,
+    REQUESTS_IN_PROGRESS,
+    REQUESTS_PROCESSING_TIME,
+    RESPONSES,
+)
+
 # See https://github.com/blueswen/fastapi-observability/blob/main/fastapi_app/utils.py
-
-INFO = Gauge("fastapi_app_info", "FastAPI application information.", ["app_name"])
-REQUESTS = Counter(
-    "fastapi_requests_total",
-    "Total count of requests by method and path.",
-    ["method", "path", "app_name"],
-)
-RESPONSES = Counter(
-    "fastapi_responses_total",
-    "Total count of responses by method, path and status codes.",
-    ["method", "path", "status_code", "app_name"],
-)
-REQUESTS_PROCESSING_TIME = Histogram(
-    "fastapi_requests_duration_seconds",
-    "Histogram of requests processing time by path (in seconds)",
-    ["method", "path", "app_name"],
-)
-EXCEPTIONS = Counter(
-    "fastapi_exceptions_total",
-    "Total count of exceptions raised by path and exception type",
-    ["method", "path", "exception_type", "app_name"],
-)
-REQUESTS_IN_PROGRESS = Gauge(
-    "fastapi_requests_in_progress",
-    "Gauge of requests by method and path currently being processed",
-    ["method", "path", "app_name"],
-)
-
 
 class PrometheusMiddleware(BaseHTTPMiddleware):
     def __init__(self, app: ASGIApp, app_name: str = "fastapi-app") -> None:

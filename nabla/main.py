@@ -15,12 +15,12 @@ from sentry_sdk.integrations.logging import LoggingIntegration
 from starlette.middleware.cors import CORSMiddleware
 
 # from nabla import logger
-from nabla.api import ping, v1
+from nabla.api import notes, ping, v1, v2
+from nabla.db import database, engine, metadata
 from nabla.log_middleware import LogMiddleware
 from nabla.logger import logger
+from nabla.metrics.prometheus import API_REQUEST_COUNTER, API_REQUEST_SUMMARY
 from nabla.utils.prometheus import PrometheusMiddleware, setting_otlp
-
-from nabla.db import database
 
 # from citation.infrastructure.crud_exceptions import CrudError, NotFoundInJM
 
@@ -52,6 +52,8 @@ SENTRY_DSN = os.environ.get(
     "SENTRY_DSN",
     "https://11c5d815632831d3274c830441885207@o4505783360356352.ingest.sentry.io/4505783364681728",
 )
+
+metadata.create_all(engine)
 
 # http://grpc.jaeger-collector-grpc.service.gra.dev.consul
 # http://jaeger-collector-grpc.service.gra.dev.consul:14250
@@ -132,6 +134,25 @@ sentry_sdk.init(
 async def read_root():
     logger.info("Hello")
     return {"Hello": "World"}
+
+@app.get("/notes")
+async def get_notes():
+    API_REQUEST_COUNTER.labels(method="GET", endpoint="/notes", http_status=200).inc()
+    API_REQUEST_SUMMARY.labels(method="GET", endpoint="/notes").observe(0.1)
+    return await notes.read_all_notes()
+
+
+@app.get("/notes/{id}")
+async def get_note_by_id(id: int):
+    api_request_counter.labels(method="GET", endpoint="/notes/{id}", http_status=200).inc()
+    API_REQUEST_SUMMARY.labels(method="GET", endpoint="/notes/{id}").observe(0.1)
+    return await notes.read_note(id)
+
+@app.post("/notes")
+async def create_note():
+    api_request_counter.labels(method="POST", endpoint="/notes", http_status=200).inc()
+    API_REQUEST_SUMMARY.labels(method="POST", endpoint="/notes").observe(0.1)
+    return await notes.create_note()
 
 
 # @app.exception_handler(NotFoundInJM)
@@ -224,6 +245,7 @@ v0_router = VersionedAPIRouter(
 )
 
 app.include_router(v0_router)
-app.include_router(ping.router)
+app.include_router(ping.router, tags=["ping"],  responses={404: {"description": "Not found"}})
 app.include_router(v1.router)
-# app.include_router(notes.router, prefix="/notes", tags=["notes"])
+app.include_router(v2.router)
+app.include_router(notes.router, prefix="/notes", tags=["notes"])
