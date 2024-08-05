@@ -54,15 +54,15 @@ include:
 
 
 # See https://docs.gitlab.com/ee/ci/yaml/#workflowauto_cancelon_new_commit
-workflow:
-  auto_cancel:
-    on_new_commit: interruptible
-    on_job_failure: all
-  rules:
-    - if: $CI_COMMIT_REF_PROTECTED == 'true'
-      auto_cancel:
-        on_new_commit: none
-        on_job_failure: none
+# workflow:
+#   auto_cancel:
+#     on_new_commit: interruptible
+#     on_job_failure: all
+#   rules:
+#     - if: $CI_COMMIT_REF_PROTECTED == 'true'
+#       auto_cancel:
+#         on_new_commit: none
+#         on_job_failure: none
 
 variables:
   CI_IMAGE_PYTHON: python:3.10
