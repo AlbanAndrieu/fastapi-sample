@@ -15,7 +15,8 @@ from sentry_sdk.integrations.logging import LoggingIntegration
 from starlette.middleware.cors import CORSMiddleware
 
 # from nabla import logger
-from nabla.api import notes, ping, v1, v2
+from nabla.api import ping, v1, v2
+from nabla.api.notes import notes
 from nabla.db import database, engine, metadata
 from nabla.log_middleware import LogMiddleware
 from nabla.logger import logger
@@ -28,6 +29,13 @@ from nabla.utils.prometheus import PrometheusMiddleware, setting_otlp
 APP_NAME = os.environ.get("APP_NAME", "fastapi-sample")
 APP_PREFIX_VERSION = os.environ.get("APP_PREFIX_VERSION", "v0")
 APP_VERSION = os.environ.get("APP_VERSION", "1.0.6")
+
+
+# http://grpc.jaeger-collector-grpc.service.gra.dev.consul
+# http://jaeger-collector-grpc.service.gra.dev.consul:14250
+# http://otel-collector.service.gra.dev.consul:4317
+# http://otel-collector.service.gra.dev.consul:9411/api/v2/spans
+
 
 OTLP_GRPC_ENDPOINT = os.environ.get(
     # "OTLP_GRPC_ENDPOINT", "http://grpc.jaeger-collector-grpc.service.gra.dev.consul"
@@ -54,12 +62,6 @@ SENTRY_DSN = os.environ.get(
 )
 
 metadata.create_all(engine)
-
-# http://grpc.jaeger-collector-grpc.service.gra.dev.consul
-# http://jaeger-collector-grpc.service.gra.dev.consul:14250
-# http://otel-collector.service.gra.dev.consul:4317
-# http://otel-collector.service.gra.dev.consul:9411/api/v2/spans
-
 
 def custom_openapi():
     if app.openapi_schema:
@@ -181,25 +183,6 @@ async def create_note():
 #        status_code=500,
 #        content={"message": f"Unexpected error: {exc}"},
 #    )
-@app.get("/io_task")
-async def io_task():
-    time.sleep(1)
-    logger.error("io task")
-    return "IO bound task finish!"
-
-
-def work(n):
-    for i in range(n):
-        i * i * i  # pyright: ignore # [pointless-statement]
-
-
-@app.get("/cpu_task")
-async def cpu_task():
-    with pyroscope.tag_wrapper({"function": "fast"}):
-        work(1000)
-    logger.error("cpu task")
-    return "CPU bound task finish!"
-
 
 @app.on_event("startup")
 async def startup():

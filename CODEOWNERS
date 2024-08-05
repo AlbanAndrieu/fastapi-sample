@@ -1,4 +1,4 @@
-[Infrasctruture]
+[Infrastructure]
 *.gemspec @2453982
 
 Dockerfile @2453982
@@ -18,5 +18,5 @@ README.md
 # All group members as Code Owners for a file
 .gitlab-ci.yml @cloud-team
 
-[Python]
-*.py @dev-team
+#[Python]
+#*.py @dev-team
