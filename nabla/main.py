@@ -15,12 +15,13 @@ from sentry_sdk.integrations.logging import LoggingIntegration
 from starlette.middleware.cors import CORSMiddleware
 
 # from nabla import logger
-from nabla.api import ping, v1
+from nabla.api import ping, v1, v2
+from nabla.api.notes import notes
+from nabla.db import database, engine, metadata
 from nabla.log_middleware import LogMiddleware
 from nabla.logger import logger
+from nabla.metrics.prometheus import API_REQUEST_COUNTER, API_REQUEST_SUMMARY
 from nabla.utils.prometheus import PrometheusMiddleware, setting_otlp
-
-from nabla.db import database
 
 # from citation.infrastructure.crud_exceptions import CrudError, NotFoundInJM
 
@@ -28,6 +29,13 @@ from nabla.db import database
 APP_NAME = os.environ.get("APP_NAME", "fastapi-sample")
 APP_PREFIX_VERSION = os.environ.get("APP_PREFIX_VERSION", "v0")
 APP_VERSION = os.environ.get("APP_VERSION", "1.0.6")
+
+
+# http://grpc.jaeger-collector-grpc.service.gra.dev.consul
+# http://jaeger-collector-grpc.service.gra.dev.consul:14250
+# http://otel-collector.service.gra.dev.consul:4317
+# http://otel-collector.service.gra.dev.consul:9411/api/v2/spans
+
 
 OTLP_GRPC_ENDPOINT = os.environ.get(
     # "OTLP_GRPC_ENDPOINT", "http://grpc.jaeger-collector-grpc.service.gra.dev.consul"
@@ -53,11 +61,7 @@ SENTRY_DSN = os.environ.get(
     "https://11c5d815632831d3274c830441885207@o4505783360356352.ingest.sentry.io/4505783364681728",
 )
 
-# http://grpc.jaeger-collector-grpc.service.gra.dev.consul
-# http://jaeger-collector-grpc.service.gra.dev.consul:14250
-# http://otel-collector.service.gra.dev.consul:4317
-# http://otel-collector.service.gra.dev.consul:9411/api/v2/spans
-
+metadata.create_all(engine)
 
 def custom_openapi():
     if app.openapi_schema:
@@ -133,6 +137,25 @@ async def read_root():
     logger.info("Hello")
     return {"Hello": "World"}
 
+@app.get("/notes")
+async def get_notes():
+    API_REQUEST_COUNTER.labels(method="GET", endpoint="/notes", http_status=200).inc()
+    API_REQUEST_SUMMARY.labels(method="GET", endpoint="/notes").observe(0.1)
+    return await notes.read_all_notes()
+
+
+@app.get("/notes/{id}")
+async def get_note_by_id(id: int):
+    api_request_counter.labels(method="GET", endpoint="/notes/{id}", http_status=200).inc()
+    API_REQUEST_SUMMARY.labels(method="GET", endpoint="/notes/{id}").observe(0.1)
+    return await notes.read_note(id)
+
+@app.post("/notes")
+async def create_note():
+    api_request_counter.labels(method="POST", endpoint="/notes", http_status=200).inc()
+    API_REQUEST_SUMMARY.labels(method="POST", endpoint="/notes").observe(0.1)
+    return await notes.create_note()
+
 
 # @app.exception_handler(NotFoundInJM)
 # async def not_found_jm_handler(request: Request, exc: NotFoundInJM):
@@ -160,25 +183,6 @@ async def read_root():
 #        status_code=500,
 #        content={"message": f"Unexpected error: {exc}"},
 #    )
-@app.get("/io_task")
-async def io_task():
-    time.sleep(1)
-    logger.error("io task")
-    return "IO bound task finish!"
-
-
-def work(n):
-    for i in range(n):
-        i * i * i  # pyright: ignore # [pointless-statement]
-
-
-@app.get("/cpu_task")
-async def cpu_task():
-    with pyroscope.tag_wrapper({"function": "fast"}):
-        work(1000)
-    logger.error("cpu task")
-    return "CPU bound task finish!"
-
 
 @app.on_event("startup")
 async def startup():
@@ -224,6 +228,7 @@ v0_router = VersionedAPIRouter(
 )
 
 app.include_router(v0_router)
-app.include_router(ping.router)
+app.include_router(ping.router, tags=["ping"],  responses={404: {"description": "Not found"}})
 app.include_router(v1.router)
-# app.include_router(notes.router, prefix="/notes", tags=["notes"])
+app.include_router(v2.router)
+app.include_router(notes.router, prefix="/notes", tags=["notes"])

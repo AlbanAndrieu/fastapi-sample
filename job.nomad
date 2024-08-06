@@ -157,7 +157,7 @@ EOF
 {{ with secret "infrastructure/elasticsearch-vars" }}
 AuthHeader = {{ printf "%s:%s" .Data.data.ELASTICSEARCH_USER .Data.data.ELASTICSEARCH_PASSWORD | base64URLEncode }}
 {{ end }}
-{{ with secret "infrastructure/test/fastapi-sample" }}
+{{ with secret "datascience/test/fastapi-sample" }}
 {{.Data.data.ENV}}
 {{ end }}
 EOF

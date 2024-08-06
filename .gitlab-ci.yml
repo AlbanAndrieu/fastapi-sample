@@ -58,11 +58,11 @@ workflow:
   auto_cancel:
     on_new_commit: interruptible
     on_job_failure: all
-  rules:
-    - if: $CI_COMMIT_REF_PROTECTED == 'true'
-      auto_cancel:
-        on_new_commit: none
-        on_job_failure: none
+#   rules:
+#     - if: $CI_COMMIT_REF_PROTECTED == 'true'
+#       auto_cancel:
+#         on_new_commit: none
+#         on_job_failure: none
 
 variables:
   CI_IMAGE_PYTHON: python:3.10
@@ -81,7 +81,7 @@ variables:
   # GIT_CLONE_PATH: '$CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_PIPELINE_ID'
   # GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_PROJECT_PATH
   FLAVOR: "-python" # -ci_light
-  TRIVY_SCANNERS: "vuln,config,secret"
+  TRIVY_SCANNERS: "vuln,misconfig,secret,license"
   DD_PRODUCT_NAME: "$CI_PROJECT_NAME"
   DD_SERVICE: "test"  # fastapi-sample
   DD_PRODUCT_TYPE_NAME: "Showcase Alban" # "Research and Development"

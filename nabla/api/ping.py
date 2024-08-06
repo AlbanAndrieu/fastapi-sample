@@ -1,4 +1,9 @@
+import time
+
+import pyroscope
 from fastapi import APIRouter
+
+from nabla.logger import logger
 
 router = APIRouter()
 
@@ -8,3 +13,23 @@ async def pong():
     # some async operation could happen here
     # example: `notes = await get_all_notes()`
     return {"ping": "pong!"}
+
+@router.get("/io_task")
+async def io_task():
+    time.sleep(1)
+    logger.error("io task")
+    return "IO bound task finish!"
+
+
+def work(n):
+    for i in range(n):
+        i * i * i  # pyright: ignore # [pointless-statement]
+
+
+@router.get("/cpu_task")
+async def cpu_task():
+    with pyroscope.tag_wrapper({"function": "fast"}):
+        work(1000)
+    logger.error("cpu task")
+    return "CPU bound task finish!"
+
