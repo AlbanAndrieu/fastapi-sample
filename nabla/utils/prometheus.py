@@ -18,6 +18,7 @@ from starlette.types import ASGIApp
 
 from nabla.metrics.prometheus import (
     EXCEPTIONS,
+    INFO,
     REQUESTS,
     REQUESTS_IN_PROGRESS,
     REQUESTS_PROCESSING_TIME,
@@ -25,6 +26,7 @@ from nabla.metrics.prometheus import (
 )
 
 # See https://github.com/blueswen/fastapi-observability/blob/main/fastapi_app/utils.py
+
 
 class PrometheusMiddleware(BaseHTTPMiddleware):
     def __init__(self, app: ASGIApp, app_name: str = "fastapi-app") -> None:
