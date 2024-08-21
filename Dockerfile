@@ -23,9 +23,6 @@ ENV LANGUAGE en_US:en
 ENV LC_ALL en_US.UTF-8
 ENV TERM="xterm-256color"
 
-ARG CI_PIP_GITLABJUSMUNDI_TOKEN
-ENV CI_PIP_GITLABJUSMUNDI_TOKEN=${CI_PIP_GITLABJUSMUNDI_TOKEN:-""}
-
 # Enable retry logic for apt up to 10 times
 # Configure apt to always assume Y
 # kics-scan ignore-line
@@ -82,7 +79,7 @@ ENV PYTHONUNBUFFERED=1 \
     VENV_PATH="/code/.venv"
 
 # prepend poetry and venv to path
-ENV PATH="$POETRY_HOME/bin:$VENV_PATH/bin:$PATH"
+ENV PATH="${POETRY_HOME}/bin:$VENV_PATH/bin:$PATH"
 
 # `builder-base` stage is used to build deps + create our virtual environment
 FROM python-base as builder-base
@@ -92,7 +89,7 @@ RUN groupadd -r jm-python --gid=999 && useradd -m -d /code -r -g jm-python --uid
 
 RUN chown -R jm-python:jm-python /code
 
-ENV PATH="$PATH:$VENV_PATH:$POETRY_HOME/bin"
+ENV PATH="$PATH:$VENV_PATH:${POETRY_HOME}/bin"
 
 # copy project requirement files here to ensure they will be cached.
 WORKDIR $PYSETUP_PATH
@@ -102,16 +99,16 @@ WORKDIR $PYSETUP_PATH
 #RUN apt-get update && \
 #    apt-get -y install --no-install-recommends python3-poetry && \
 #    apt-get clean && rm -rf /var/lib/apt/lists/*
-# install poetry - respects $POETRY_VERSION & $POETRY_HOME
+# install poetry - respects ${POETRY_VERSION} & ${POETRY_HOME}
 # hadolint ignore=DL3008,DL4006
 # RUN curl -sSL https://install.python-poetry.org | python3 -
 
 # Installs Poetry in its own environment to avoid problems with Ubuntu's Python
 # hadolint ignore=SC2086
-RUN python3 -m venv "$POETRY_HOME" \
-    && $POETRY_HOME/bin/pip install --no-cache-dir --upgrade pip==24.1.2 \
-    && $POETRY_HOME/bin/pip install poetry=="$POETRY_VERSION" \
-    && $POETRY_HOME/bin/poetry --version
+RUN python3 -m venv "${POETRY_HOME}" \
+    && ${POETRY_HOME}/bin/pip install --no-cache-dir --upgrade pip==24.1.2 \
+    && ${POETRY_HOME}/bin/pip install poetry=="${POETRY_VERSION}" \
+    && ${POETRY_HOME}/bin/poetry --version
 
 # hadolint ignore=DL3013, DL3042
 # RUN python -m pip install --no-cache-dir --upgrade pip==24.1.2
@@ -124,8 +121,14 @@ COPY --chown=jm-python:jm-python pyproject.toml poetry.lock $PYSETUP_PATH/
 
 ENV PATH=$PYSETUP_PATH/.local/bin/:${PATH}
 
-RUN poetry config http-basic.gitlab package_read "$CI_PIP_GITLABJUSMUNDI_TOKEN" &&\
-    poetry install --no-root --with format,test,api,extras,open_telemetry,deployment,influxdb,panda,temporal # --no-dev --remove-untracked
+USER root
+
+# hadolint ignore=SC2086,SC2046
+RUN --mount=type=secret,id=read-package-token \
+  "${POETRY_HOME}/bin/poetry" config http-basic.gitlab package_read $(cat /run/secrets/read-package-token) &&\
+  "${POETRY_HOME}/bin/poetry" install --no-root --with format,test,api,extras,open_telemetry,deployment,influxdb,panda,temporal # --no-dev --remove-untracked
+
+USER jm-python
 
 # dockerfile_lint - ignore
 # hadolint ignore=DL3007
@@ -141,8 +144,8 @@ RUN groupadd -r jm-python --gid=999 && useradd -m -d /code -r -g jm-python --uid
 RUN chown -R jm-python:jm-python /code
 
 # copy in our built poetry + venv
-COPY --from=builder-base $POETRY_HOME $POETRY_HOME
-COPY --from=builder-base $PYSETUP_PATH $PYSETUP_PATH
+COPY --from=builder-base ${POETRY_HOME} ${POETRY_HOME}
+COPY --from=builder-base ${PYSETUP_PATH} ${PYSETUP_PATH}
 
 USER jm-python
 
