@@ -202,7 +202,7 @@ pip-upgrader = ">=1.4.15"
 readme-renderer = {version = ">=43.0", extras = ["md"]}
 sqlfluff = ">=3.1.0"
 setup-cfg-fmt = ">=2.2.0"
-setuptools = ">=69.0.3"
+setuptools = ">=70.0.0"
 termcolor = ">=2.4.0"
 wheel = ">=0.42.0"
 

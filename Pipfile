@@ -105,7 +105,7 @@ selenium = ">=4.6.0"
 # NOK
 semgrep = ">=1.15.0"
 # setup-cfg-fmt = ">=2.2.0"
-# setuptools = ">=68.1.2"
+setuptools = ">=70.0.0"
 # docutils = ">=0.16" # pip install docutils==0.20.1 fix for sphinx https://github.com/sphinx-doc/sphinx/pull/10597 docutils needed by sphinx
 sphinx = "~=5.0.2" # 4.2.0 is ok with awscli, 7.2.6 docutils conflicting with awscli 1.32.22 requires docutils<0.17,>=0.10 https://github.com/aws/aws-cli/blob/develop/setup.cfg#L7C9-L7C17
 # testinfra = ">=6.0.0" pip uninstall testinfra

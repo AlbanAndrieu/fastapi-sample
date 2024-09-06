@@ -96,6 +96,9 @@ python -m pipenv install --dev --ignore-pipfile
 use [poetry](https://python-poetry.org/docs/cli/)
 
 ```bash
+poetry config http-basic.gitlab package_read ${CI_PIP_GITLABJUSMUNDI_TOKEN}
+# export POETRY_GITLAB_TOKEN_GITLAB=${GITLAB_FULL_PRIVATE_TOKEN}
+
 poetry install --no-dev # --dev-only
 poetry install --with format,test,extras,open_telemetry,deployment,influxdb,panda,temporal
 poetry install --extras "mysql pgsql"

@@ -92,7 +92,7 @@ RUN chown -R jm-python:jm-python /code
 ENV PATH="$PATH:$VENV_PATH:${POETRY_HOME}/bin"
 
 # copy project requirement files here to ensure they will be cached.
-WORKDIR $PYSETUP_PATH
+WORKDIR ${PYSETUP_PATH}
 # WORKDIR /code
 
 # hadolint ignore=DL3008
@@ -106,29 +106,31 @@ WORKDIR $PYSETUP_PATH
 # Installs Poetry in its own environment to avoid problems with Ubuntu's Python
 # hadolint ignore=SC2086
 RUN python3 -m venv "${POETRY_HOME}" \
-    && ${POETRY_HOME}/bin/pip install --no-cache-dir --upgrade pip==24.1.2 \
-    && ${POETRY_HOME}/bin/pip install poetry=="${POETRY_VERSION}" \
-    && ${POETRY_HOME}/bin/poetry --version
+    && "${POETRY_HOME}/bin/pip" install --no-cache-dir --upgrade pip==24.1.2 \
+    && "${POETRY_HOME}/bin/pip" install poetry=="${POETRY_VERSION}" \
+    && "${POETRY_HOME}/bin/poetry" --version
 
 # hadolint ignore=DL3013, DL3042
 # RUN python -m pip install --no-cache-dir --upgrade pip==24.1.2
 
 USER jm-python
 
-COPY --chown=jm-python:jm-python pyproject.toml poetry.lock $PYSETUP_PATH/
+COPY --chown=jm-python:jm-python pyproject.toml poetry.lock ${PYSETUP_PATH}/
 
 # RUN python -m venv $PYSETUP_PATH/.venv
 
 ENV PATH=$PYSETUP_PATH/.local/bin/:${PATH}
 
-USER root
+USER jm-python
 
 # hadolint ignore=SC2086,SC2046
-RUN --mount=type=secret,id=read-package-token \
-  "${POETRY_HOME}/bin/poetry" config http-basic.gitlab package_read $(cat /run/secrets/read-package-token) &&\
-  "${POETRY_HOME}/bin/poetry" install --no-root --with format,test,api,extras,open_telemetry,deployment,influxdb,panda,temporal # --no-dev --remove-untracked
+RUN --mount=type=secret,id=read-package-token,uid=999,target=/code/jm-python/.config/pypoetry/read-package-token \
+  "${POETRY_HOME}/bin/poetry" config http-basic.gitlab package_read "$(cat /code/jm-python/.config/pypoetry/read-package-token)" &&\
+  "${POETRY_HOME}/bin/poetry" install --no-root --with format,test,api,extras,open_telemetry,deployment,influxdb,panda,temporal  &&\
+  rm -rf /code/.config/pypoetry/
 
-USER jm-python
+# rm -rf "${POETRY_HOME}"
+#"${POETRY_HOME}/bin/poetry" install --no-dev --remove-untracked
 
 # dockerfile_lint - ignore
 # hadolint ignore=DL3007
@@ -144,16 +146,16 @@ RUN groupadd -r jm-python --gid=999 && useradd -m -d /code -r -g jm-python --uid
 RUN chown -R jm-python:jm-python /code
 
 # copy in our built poetry + venv
-COPY --from=builder-base ${POETRY_HOME} ${POETRY_HOME}
-COPY --from=builder-base ${PYSETUP_PATH} ${PYSETUP_PATH}
+COPY --from=builder-base "${POETRY_HOME}" "${POETRY_HOME}"
+COPY --from=builder-base "${PYSETUP_PATH}" "${PYSETUP_PATH}"
 
 USER jm-python
 
 # quicker install as runtime deps are already installed
 RUN poetry --no-root install --with api,extras,open_telemetry,deployment,temporal
 
-COPY --chown=jm-python:jm-python nabla/ $PYSETUP_PATH/jm-python/nabla/
-COPY --chown=jm-python:jm-python serve.py $PYSETUP_PATH/jm-python/
+COPY --chown=jm-python:jm-python nabla/ "$PYSETUP_PATH/jm-python/nabla/"
+COPY --chown=jm-python:jm-python serve.py ""$PYSETUP_PATH/jm-python/"
 
 RUN mkdir -p "$PYSETUP_PATH/jm-python/var/"
 
@@ -178,14 +180,14 @@ RUN chown -R jm-python:jm-python /code
 
 USER jm-python
 
-COPY --from=builder-base $PYSETUP_PATH $PYSETUP_PATH
+COPY --from=builder-base "$PYSETUP_PATH" "$PYSETUP_PATH"
 
-COPY --chown=jm-python:jm-python nabla/ $PYSETUP_PATH/jm-python/nabla/
-COPY --chown=jm-python:jm-python serve.py $PYSETUP_PATH/jm-python/
+COPY --chown=jm-python:jm-python nabla/ "$PYSETUP_PATH/jm-python/nabla/"
+COPY --chown=jm-python:jm-python serve.py "$PYSETUP_PATH/jm-python/"
 
 # ENV PATH=$PYSETUP_PATH/.venv/bin/:${PATH}
 
-WORKDIR $PYSETUP_PATH/jm-python/
+WORKDIR "$PYSETUP_PATH/jm-python/"
 
 HEALTHCHECK CMD curl --fail http://localhost:8080/v1/ping || exit 1
 

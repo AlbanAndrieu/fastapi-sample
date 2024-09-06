@@ -10,31 +10,31 @@ stages:
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-dd
     file: "/templates/default.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-dd
     file: "/templates/docker-build.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-dd
     file: "/templates/deploy-nomad.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-dd
     file: "/templates/test-python.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-dd
     file: "/templates/_apk.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-dd
     file: "/templates/data.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-dd
     file: "/templates/mega-linter.gitlab-ci.yml"
 
   - template: 'Workflows/MergeRequest-Pipelines.gitlab-ci.yml'
@@ -81,7 +81,15 @@ variables:
   # GIT_CLONE_PATH: '$CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_PIPELINE_ID'
   # GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_PROJECT_PATH
   FLAVOR: "-python" # -ci_light
+  TRIVY_VERSION: "0.53.0"
   TRIVY_SCANNERS: "vuln,misconfig,secret,license"
+  CS_SEVERITY_THRESHOLD: "CRITICAL"
+  CS_SEVERITY_FILESYTEM_THRESHOLD: "CRITICAL" # CRITICAL,HIGH
+  TRIVY_GLOBAL_SECURITY_CHECKS_EXTRA: "--ignore-unfixed --ignorefile .trivyignore.yaml --ignored-licenses LGPL-2.0,LGPL-2.1,LGPL-3.0"
+  DD_GLOBAL_SECURITY_CHECKS_EXTRA: "--ignore-unfixed --ignorefile .trivyignore.yaml --ignored-licenses LGPL-2.0,LGPL-2.1,LGPL-3.0"
+  TRIVY_ARGS: "--skip-dirs .direnv --skip-dirs .venv --skip-dirs .node_cache --skip-dirs go/go/pkg/mod/github.com/ --skip-dirs /usr/bin/go/pkg/mod/github.com/ --skip-dirs code/.venv/lib/python3.10/site-packages/ --skip-files pip.conf --skip-files Pipfile" #  --insecure  --debug
+  DD_ARGS: "${TRIVY_ARGS}"
+  TRIVY_FS_ARGS: "${TRIVY_ARGS}  --skip-files package-lock.json --skip-files yarn.lock"
   DD_PRODUCT_NAME: "$CI_PROJECT_NAME"
   DD_SERVICE: "test"  # fastapi-sample
   DD_PRODUCT_TYPE_NAME: "Showcase Alban" # "Research and Development"
@@ -243,8 +251,6 @@ docker-build:
     # - docker # no space left on device
   timeout: 2 hours 10 minutes
   variables:
-    CS_SEVERITY_THRESHOLD: "CRITICAL"
-    CS_SEVERITY_FILESYTEM_THRESHOLD: "CRITICAL"
     # CUSTOM_CONTAINER_SCANNING_DISABLED: "true"
     # CONTAINER_SCANNING_GITLAB_CODEQUALITY_TEMPLATE_DISABLE: "true"
     TRIVY_TIMEOUT: "20m0s"
