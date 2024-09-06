@@ -6,7 +6,7 @@ stages:
   - train
   - deploy
   - notify
-  - dast
+  # - dast
   # - release
   - publish
 
@@ -148,16 +148,17 @@ gemnasium-dependency_scanning:
 #       alias: fastapi-sample
 #   allow_failure: true
 
+# TODO Insufficient permissions for dast_configuration keyword
 # Extend the API Security job defined in CI template
 # adding a services section with our test target
-api_security:
-  services:
-    - name: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
-      alias: fastapi-sample
-  variables:
-      APISEC_HAR: rest_target_http_archive.v1.2.har
-      APISEC_TARGET_URL: http://fastapi-sample:8080
-  allow_failure: true
+# api_security:
+#   services:
+#     - name: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+#       alias: fastapi-sample
+#   variables:
+#       APISEC_HAR: rest_target_http_archive.v1.2.har
+#       APISEC_TARGET_URL: http://fastapi-sample:8080
+#   allow_failure: true
 
 #renovate:
 #  rules:
