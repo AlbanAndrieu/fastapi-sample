@@ -57,7 +57,7 @@ include:
 
   # - template: DAST.gitlab-ci.yml
 
-  - template: API-Security.gitlab-ci.yml
+  # - template: API-Security.gitlab-ci.yml
 
   # - project: 'renovate-bot/renovate-runner'
   #   file: '/templates/renovate.gitlab-ci.yml'
