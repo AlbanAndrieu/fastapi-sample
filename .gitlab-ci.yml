@@ -7,35 +7,48 @@ stages:
   - deploy
   - notify
   - dast
+  - release
+  - publish
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-dd
+    ref: main
     file: "/templates/default.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-dd
+    ref: main
     file: "/templates/docker-build.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-dd
+    ref: main
     file: "/templates/deploy-nomad.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-dd
+    ref: main
     file: "/templates/test-python.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-dd
+    ref: main
     file: "/templates/_apk.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-dd
+    ref: main
     file: "/templates/data.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-dd
+    ref: main
     file: "/templates/mega-linter.gitlab-ci.yml"
+
+  # - component: $CI_SERVER_FQDN/to-be-continuous/semantic-release/gitlab-ci-semrel@3.11.2
+  - component: gitlab.com/to-be-continuous/semantic-release/gitlab-ci-semrel@3.11.2
+    inputs:
+      dry-run: false
+      changelog-enabled: true
+      changelog-title: "My changelog"
+      auto-release-enabled: true
+      info-on: all
+
+  # - component: $CI_SERVER_FQDN/dependabot-gitlab/dependabot-standalone/template@3.23.0
 
   - template: 'Workflows/MergeRequest-Pipelines.gitlab-ci.yml'
 
@@ -125,14 +138,15 @@ gemnasium-dependency_scanning:
     DS_REMEDIATE: "false"
   # dependencies: ["build"]
 
-dast:
-  # dependencies: []
-  services: # use services to link your app container to the dast job
-    # - name: mongo:latest
-    #   alias: mongo
-    - name: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
-      alias: fastapi-sample
-  allow_failure: true
+# TODO Insufficient permissions for dast_configuration keyword
+# dast:
+#   # dependencies: []
+#   services: # use services to link your app container to the dast job
+#     # - name: mongo:latest
+#     #   alias: mongo
+#     - name: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+#       alias: fastapi-sample
+#   allow_failure: true
 
 # Extend the API Security job defined in CI template
 # adding a services section with our test target
@@ -340,3 +354,24 @@ deploy:prod:
   #needs: ["docker-build"]
   tags:
     - jusmundi-nomad-runner
+
+deploy:
+  dependencies:
+    - semantic-release-info
+  image: node
+  stage: deploy
+  script:
+    echo $SEMREL_INFO_LAST_VERSION
+    echo $SEMREL_INFO_NEXT_VERSION
+    echo $SEMREL_INFO_NEXT_VERSION_TYPE
+
+# release:
+#   image: node:12-buster-slim
+#   stage: release
+#   before_script:
+#     - apt-get update && apt-get install -y --no-install-recommends git-core ca-certificates
+#     - npm install -g semantic-release @semantic-release/gitlab
+#   script:
+#     - semantic-release
+#   rules:
+#     - if: $CI_COMMIT_BRANCH == "master" # or main
