@@ -1,6 +1,6 @@
 import logging
 import os
-import time
+import re
 from typing import Dict
 
 import logfire
@@ -13,6 +13,7 @@ from sentry_sdk.integrations.logging import LoggingIntegration
 
 # from prometheus_fastapi_instrumentator import Instrumentator
 from starlette.middleware.cors import CORSMiddleware
+from starlette.routing import Mount
 
 # from nabla import logger
 from nabla.api import ping, v1, v2
@@ -63,6 +64,7 @@ SENTRY_DSN = os.environ.get(
 
 metadata.create_all(engine)
 
+
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
@@ -110,9 +112,14 @@ app.add_middleware(
 )
 
 # Add prometheus asgi middleware to route /metrics requests
-metrics_app = make_asgi_app()
-app.mount("/metrics", metrics_app)
-# app.mount("/metrics", metrics)
+# metrics_app = make_asgi_app()
+# app.mount("/metrics", metrics_app)
+
+# Add prometheus asgi middleware to route /metrics requests
+# https://github.com/prometheus/client_python/issues/1016
+route = Mount("/metrics", make_asgi_app())
+route.path_regex = re.compile("^/metrics(?P<path>.*)$")
+app.routes.append(route)
 
 # Setting OpenTelemetry exporter
 setting_otlp(app, APP_NAME, OTLP_GRPC_ENDPOINT)
@@ -123,6 +130,10 @@ sentry_sdk.init(
     # of transactions for performance monitoring.
     # We recommend adjusting this value in production,
     traces_sample_rate=1.0,
+    # Set profiles_sample_rate to 1.0 to profile 100%
+    # of sampled transactions.
+    # We recommend adjusting this value in production.
+    profiles_sample_rate=1.0,
     integrations=[
         LoggingIntegration(
             level=logging.INFO,  # Capture info and above as breadcrumbs
@@ -137,6 +148,7 @@ async def read_root():
     logger.info("Hello")
     return {"Hello": "World"}
 
+
 @app.get("/notes")
 async def get_notes():
     API_REQUEST_COUNTER.labels(method="GET", endpoint="/notes", http_status=200).inc()
@@ -145,14 +157,17 @@ async def get_notes():
 
 
 @app.get("/notes/{id}")
-async def get_note_by_id(id: int):
-    api_request_counter.labels(method="GET", endpoint="/notes/{id}", http_status=200).inc()
+async def get_note_by_id(idNote: int):
+    API_REQUEST_COUNTER.labels(
+        method="GET", endpoint="/notes/{id}", http_status=200
+    ).inc()
     API_REQUEST_SUMMARY.labels(method="GET", endpoint="/notes/{id}").observe(0.1)
-    return await notes.read_note(id)
+    return await notes.read_note(idNote)
+
 
 @app.post("/notes")
 async def create_note():
-    api_request_counter.labels(method="POST", endpoint="/notes", http_status=200).inc()
+    API_REQUEST_COUNTER.labels(method="POST", endpoint="/notes", http_status=200).inc()
     API_REQUEST_SUMMARY.labels(method="POST", endpoint="/notes").observe(0.1)
     return await notes.create_note()
 
@@ -183,6 +198,7 @@ async def create_note():
 #        status_code=500,
 #        content={"message": f"Unexpected error: {exc}"},
 #    )
+
 
 @app.on_event("startup")
 async def startup():
@@ -228,7 +244,9 @@ v0_router = VersionedAPIRouter(
 )
 
 app.include_router(v0_router)
-app.include_router(ping.router, tags=["ping"],  responses={404: {"description": "Not found"}})
+app.include_router(
+    ping.router, tags=["ping"], responses={404: {"description": "Not found"}}
+)
 app.include_router(v1.router)
 app.include_router(v2.router)
 app.include_router(notes.router, prefix="/notes", tags=["notes"])

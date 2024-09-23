@@ -20,10 +20,18 @@ class JsonFormatter(Formatter):
         return json.dumps(json_record)
 
 
+class HealthCheckFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return record.getMessage().find("/health") == -1
+
+
 logger = logging.root
 handler = logging.StreamHandler()
 handler.setFormatter(JsonFormatter())
 logger.handlers = [handler]
 logger.setLevel(logging.DEBUG)
+
+# Remove /credentials/health from application server logs
+logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
 
 logging.getLogger("uvicorn.access").disabled = True

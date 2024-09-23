@@ -33,7 +33,18 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.app_name = app_name
         self.prefix = "nabla"
-        self.skip_paths = ["/health", "/ping", "io_task", "cpu_task"]
+        self.skip_paths = [
+            "/health",
+            "/ping",
+            "/v1/ping",
+            "/v2/ping",
+            "/docs",
+            "/version",
+            "io_task",
+            "cpu_task",
+            "server-status",
+            "openapi.json",
+        ]
         # self.exemplars=lambda: {"trace_id": get_trace_id}  # function that returns a trace id
         INFO.labels(app_name=self.app_name).inc()
 
