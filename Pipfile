@@ -125,4 +125,4 @@ jupyterlab-templates = ">=0.3.1"
 # tensorflow = "==2.9.1"
 
 [requires]
-python_version = "3.10"
+python_version = "3.11"
