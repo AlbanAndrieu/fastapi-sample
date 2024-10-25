@@ -48,12 +48,16 @@ requests = ">=2.32.0"
 urllib3 = ">=2.2.2"
 dd-import = ">=1.0.12"
 
+
 [tool.poetry.group.api]
 optional = false
 [tool.poetry.group.api.dependencies]
 fastapi = ">=0.111.1"
-uvicorn = {version = ">=0.20.0", extras = ["standard"]}
+# uvicorn = {version = ">=0.20.0", extras = ["standard"]}
 python-multipart = ">=0.0.6"
+gunicorn = "^23.0.0"
+uvicorn-worker = "^0.2.0"
+python-json-logger = "^2.0.7"
 
 [tool.poetry.group.locust]
 optional = false

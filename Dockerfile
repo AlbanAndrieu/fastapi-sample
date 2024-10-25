@@ -194,4 +194,16 @@ HEALTHCHECK CMD curl --fail http://localhost:8080/v1/ping || exit 1
 EXPOSE 8080
 
 # CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "serve:app", "--host", "0.0.0.0", "--port", "8080"]
-CMD ["/code/.venv/bin/uvicorn", "--reload", "serve:app", "--host", "0.0.0.0", "--port", "8080"]
+# CMD ["/code/.venv/bin/uvicorn", "--reload", "serve:app", "--host", "0.0.0.0", "--port", "8080"]
+
+CMD [ \
+    "gunicorn", "serve:app", \
+    "-k", "uvicorn_worker.UvicornWorker", \
+    "--workers", "1", \
+    "--max-requests", "1000", \
+    "--max-requests-jitter", "100", \
+    "--bind", "0.0.0.0:8080", \
+    "--graceful-timeout", "120", \
+    "--timeout", "120", \
+    "--logger-class=chains.utils.log_config.JMGunicornLogger" \
+]

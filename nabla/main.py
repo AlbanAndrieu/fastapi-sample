@@ -15,13 +15,15 @@ from sentry_sdk.integrations.logging import LoggingIntegration
 from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Mount
 
-# from nabla import logger
 from nabla.api import ping, v1, v2
 from nabla.api.notes import notes
 from nabla.db import database, engine, metadata
-from nabla.log_middleware import LogMiddleware
-from nabla.logger import logger
+from nabla.utils.log_middleware import LogMiddleware
 from nabla.metrics.prometheus import API_REQUEST_COUNTER, API_REQUEST_SUMMARY
+
+# We need to load as soon as possible the setup_loggers
+# from nabla.logger import logger
+from nabla.utils.log_config import setup_logging
 from nabla.utils.prometheus import PrometheusMiddleware, setting_otlp
 
 # from citation.infrastructure.crud_exceptions import CrudError, NotFoundInJM
@@ -62,6 +64,14 @@ SENTRY_DSN = os.environ.get(
     "https://11c5d815632831d3274c830441885207@o4505783360356352.ingest.sentry.io/4505783364681728",
 )
 
+setup_logging()
+
+from dotenv import load_dotenv  # noqa: E402
+
+# load_dotenv must be called here to setup the environment variables required for the
+# following imports
+load_dotenv(override=True)
+
 metadata.create_all(engine)
 
 
@@ -84,6 +94,7 @@ def custom_openapi():
 
 logfire.info("Hello, {name}!", name="World")
 
+logger = logging.getLogger(__name__)
 logger.info("Creating API")
 
 app = FastAPI(
@@ -249,4 +260,5 @@ app.include_router(
 )
 app.include_router(v1.router)
 app.include_router(v2.router)
+app.include_router(notes.router, prefix="/notes", tags=["notes"])
 app.include_router(notes.router, prefix="/notes", tags=["notes"])

@@ -8,7 +8,7 @@ from fastapi import HTTPException, status
 from opentelemetry import trace
 from opentelemetry.trace.status import Status, StatusCode
 
-from nabla.logger import logger
+from nabla.utils.logger import logger
 from nabla.metrics.prometheus import (
     DD_CRITICAL_FINDINGS_COUNT,
     DD_HIGH_FINDINGS_COUNT,

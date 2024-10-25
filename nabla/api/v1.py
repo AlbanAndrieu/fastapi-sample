@@ -10,7 +10,7 @@ from opentelemetry.trace.status import Status, StatusCode
 from starlette.responses import JSONResponse
 
 from nabla.dd.dd_api_exporter import get_products
-from nabla.logger import logger
+from nabla.utils.logger import logger
 from nabla.metrics.prometheus import (
     API_REQUEST_COUNTER,
     API_REQUEST_SUMMARY,

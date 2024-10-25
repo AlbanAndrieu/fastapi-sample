@@ -1,7 +1,7 @@
 import time
 from contextlib import contextmanager
 
-from nabla.logger import logger
+from nabla.utils.logger import logger
 from nabla.metrics.prometheus import DD_API_LATENCY
 
 

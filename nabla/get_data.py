@@ -4,7 +4,7 @@ import click
 from colorama import init
 from dd.dd_api_exporter import counts_by_product_id, get_products
 
-from nabla.logger import logger
+from nabla.utils.logger import logger
 
 # use Colorama to make Termcolor work on Windows too
 init()
@@ -39,7 +39,7 @@ def cli(token=None, verbose=False):
         click.echo(verbose)
 
     products = get_products()
-    results = {name: counts_by_product_id(id) for name, id in products.items()}
+    results = {name: counts_by_product_id(id) for name, id in products.items()}  # noqa A001
     print(results)
 
 

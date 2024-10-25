@@ -1,5 +1,4 @@
 {
-  "python.analysis.extraPaths": ["__pypackages__/<major.minor>/lib"],
   "files.exclude": {
     "out": true,
     "**/*.pyc": true,
@@ -81,5 +80,6 @@
   },
   "ruff.nativeServer": true,
   "sqlfluff.dialect": "postgres",
-  "sqlfluff.excludeRules": ["AL06"]
+  "sqlfluff.excludeRules": ["AL06"],
+  "npm.packageManager": "npm"
 }

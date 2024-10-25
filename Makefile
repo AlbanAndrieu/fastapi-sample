@@ -169,9 +169,16 @@ up-uvicorn:
 	@echo ".venv/bin/uvicorn nabla.main:app --reload --workers 1 --host 0.0.0.0 --port $(PORT)"
 	.venv/bin/uvicorn serve:app --reload --workers 1 --host 0.0.0.0 --port $(PORT)
 
+## —— Up Python ✅g🦄 —————————————————————————————————————————————————————————————————
+.PHONY: up-guvicorn
+up-guvicorn:
+	@echo "up gunicorn http://0.0.0.0:$(PORT)/v1/ping"
+	@echo ".venv/bin/gunicorn nabla.main:app --reload --workers 1 -k uvicorn_worker.UvicornWorker --bind 0.0.0.0:$(PORT) --logger-class=nabla.utils.log_config.JMGunicornLogger"
+	.venv/bin/gunicorn serve:app --reload --workers 1 -k uvicorn_worker.UvicornWorker --bind 0.0.0.0:$(PORT) --logger-class=nabla.utils.log_config.JMGunicornLogger
+
 ## —— Up ✅ —————————————————————————————————————————————————————————————————
 .PHONY: up
-up: up-uvicorn # Serve up (uvicorn)
+up: up-guvicorn # Serve up (guvicorn)
 
 .PHONY: down
 down:

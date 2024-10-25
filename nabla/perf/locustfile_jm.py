@@ -1,6 +1,6 @@
 from locust import HttpUser, between, task
 
-from nabla.logger import logger
+from nabla.utils.logger import logger
 
 
 class QuickstartUser(HttpUser):

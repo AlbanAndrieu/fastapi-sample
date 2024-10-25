@@ -9,7 +9,7 @@ import psycopg2
 from sqlalchemy import create_engine, text
 
 from nabla.config_settings import get_settings
-from nabla.logger import logger
+from nabla.utils.logger import logger
 
 # Database connection parameters
 # Dictionaries

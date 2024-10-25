@@ -1,6 +1,6 @@
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from nabla.logger import logger
+from nabla.utils.logger import logger
 
 
 class LogMiddleware(BaseHTTPMiddleware):
