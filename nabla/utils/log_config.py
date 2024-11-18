@@ -32,7 +32,7 @@ class _JMJsonFormatter(JsonFormatter):
 
 
 class _JMLoggerFormatter(JsonFormatter):
-    """Format the JSON logs."""
+    """Format the JSON logs into the style of Jus Mundi."""
 
     def __init__(
         self,
@@ -139,36 +139,19 @@ def setup_logging() -> None:
         # to be used throughout the project.
         gunicorn_error_logger: logging.Logger = logging.getLogger("gunicorn.error")
         formatted_handlers = gunicorn_error_logger.handlers
-        seen_logger: set[str] = set()
-        for logger_name in [
-            *logging.root.manager.loggerDict.keys(),
-            "gunicorn",
-            "gunicorn.access",
-            "uvicorn",
-            "uvicorn.access",
-            "uvicorn.error",
-        ]:
-            if logger_name in seen_logger:
-                continue
-            seen_logger.add(logger_name)
-            local_logger = logging.getLogger(logger_name)
-            local_logger.handlers = formatted_handlers
-            local_logger.setLevel(log_level)
         logger.handlers = formatted_handlers
+        logger.setLevel(gunicorn_error_logger.level)
         fastapi_logger.handlers = formatted_handlers
-        fastapi_logger.setLevel(log_level)
-
+        fastapi_logger.setLevel(gunicorn_error_logger.level)
     else:
         # Running locally through uvicorn
 
+        log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
         # Stream Handler for console output
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setLevel(log_level)
-        # console_handler.setFormatter(JsonFormatter())
         console_handler.setFormatter(_JMLoggerFormatter())
 
-        # Add the handlers to the root logger
-        logger.addHandler(console_handler)
-
-    # Pass on logging levels for root
-    logger.setLevel(log_level)
+        # Set console handler as the only handler for root logger
+        logger.handlers = [console_handler]
+        logger.setLevel(log_level)

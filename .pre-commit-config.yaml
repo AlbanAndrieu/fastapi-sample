@@ -104,7 +104,7 @@ repos:
   #       # https://pre-commit.com/#top_level-default_language_version
   #       language_version: python3.10
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.7.0
+    rev: v0.7.4
     hooks:
       # Run the linter.
       - id: ruff
@@ -212,11 +212,11 @@ repos:
   #     - id: gitleaks-docker
   #       entry: zricethezav/gitleaks protect --verbose --redact --staged
   - repo: https://github.com/oxsecurity/megalinter
-    rev: v8.1.0
+    rev: v8.2.0
     hooks:
       - id: megalinter-incremental  # Faster, less thorough
         stages:
-          - commit
+          - pre-commit
         args:
           - mega-linter-runner
           - --containername
