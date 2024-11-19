@@ -172,10 +172,9 @@ EOF
         tags = [
           "traefik.enable=true",
           "traefik.http.routers.fastapi-sample.entrypoints=https",
-          // "traefik.http.routers.fastapi-sample.rule=Host(`fastapi-sample.service.gra.${var.env}.consul`)",
-          var.env == "uat" ? "traefik.http.routers.fastapi-sample.rule=Host(`fastapi-sample.staging.int.jusmundi.com`) || Host(`fastapi-sample.service.gra.${var.env}.consul`)" : "traefik.http.routers.fastapi-sample.rule=Host(`fastapi-sample.${var.env}.int.jusmundi.com`) || Host(`fastapi-sample.service.gra.${var.env}.consul`)",
+          "traefik.http.routers.fastapi-sample.rule=Host(`fastapi-sample.service.gra.${var.env}.consul`)",
           "traefik.http.routers.fastapi-sample.tls=true",
-          "traefik.http.routers.fastapi-sample.middlewares=my-traefik-real-ip@file,my-crowdsec-bouncer-traefik-plugin@file,my-traefik-jwt-plugin@file",
+          "traefik.http.routers.fastapi-sample.middlewares=my-traefik-real-ip@file,my-crowdsec-bouncer-traefik-plugin@file",
           # "traefik.http.routers.fastapi-sample.middlewares=my-plugindemo@file,my-traefik-real-ip@file,my-crowdsec-bouncer-traefik-plugin@file,my-traefik-jwt-plugin@file",
           # ,test-ratelimit@consulcatalog,test-inflightreq@consulcatalog
           "traefik.http.middlewares.crowdsec.plugin.bouncer.forwardedheaderstrustedips=10.30.10.254,145.239.211.190,82.66.4.247", # LAN
