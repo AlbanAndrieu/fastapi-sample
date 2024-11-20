@@ -18,12 +18,12 @@ from starlette.routing import Mount
 from nabla.api import ping, v1, v2
 from nabla.api.notes import notes
 from nabla.db import database, engine, metadata
-from nabla.utils.log_middleware import LogMiddleware
 from nabla.metrics.prometheus import API_REQUEST_COUNTER, API_REQUEST_SUMMARY
 
 # We need to load as soon as possible the setup_loggers
 # from nabla.logger import logger
 from nabla.utils.log_config import setup_logging
+from nabla.utils.log_middleware import LogMiddleware
 from nabla.utils.prometheus import PrometheusMiddleware, setting_otlp
 
 # from citation.infrastructure.crud_exceptions import CrudError, NotFoundInJM
@@ -65,12 +65,6 @@ SENTRY_DSN = os.environ.get(
 )
 
 setup_logging()
-
-from dotenv import load_dotenv  # noqa: E402
-
-# load_dotenv must be called here to setup the environment variables required for the
-# following imports
-load_dotenv(override=True)
 
 metadata.create_all(engine)
 

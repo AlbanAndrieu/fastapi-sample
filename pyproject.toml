@@ -33,7 +33,7 @@ priority = "explicit"
 # secondary = true
 
 [tool.poetry.dependencies]
-python = ">=3.10, <3.11"
+python = ">=3.10,<4.0"
 ansicolors = "~=1.1.8"
 # cfgv = "~=3.3.0"
 # chardet = "~=5.0.0"
@@ -53,8 +53,8 @@ dd-import = ">=1.0.12"
 optional = false
 [tool.poetry.group.api.dependencies]
 fastapi = ">=0.111.1"
-# uvicorn = {version = ">=0.20.0", extras = ["standard"]}
 python-multipart = ">=0.0.6"
+pydantic = {version = "~2.6.1", extras = ["dotenv"]}
 gunicorn = "^23.0.0"
 uvicorn-worker = "^0.2.0"
 python-json-logger = "^2.0.7"
@@ -92,14 +92,14 @@ temporalio = {version = "~=1.6.0", extras = ["opentelemetry"] }
 optional = true
 [tool.poetry.group.open_telemetry.dependencies]
 # temporalio = { version = "*", extras = ["opentelemetry"] }
-opentelemetry-distro = ">=0.47b0"
-opentelemetry-exporter-otlp = ">=1.26.0"
-opentelemetry-exporter-otlp-proto-grpc = ">=1.26.0"
-opentelemetry-instrumentation-fastapi = ">=0.47b0"
-opentelemetry-instrumentation-logging = ">=0.47b0"
+opentelemetry-distro = ">=0.49b1"
+opentelemetry-exporter-otlp = ">=1.28.1"
+opentelemetry-exporter-otlp-proto-grpc = ">=1.28.1"
+opentelemetry-instrumentation-fastapi = ">=0.49b1"
+opentelemetry-instrumentation-logging = ">=0.49b1"
 opentelemetry-exporter-jaeger-thrift = ">=1.13.0"
-opentelemetry-api = ">=1.26.0"
-opentelemetry-sdk = ">=1.26.0"
+opentelemetry-api = ">=1.28.1"
+opentelemetry-sdk = ">=1.28.1"
 
 [tool.poetry.group.panda]
 optional = true
@@ -121,16 +121,15 @@ asyncpg = ">=0.27.0"
 [tool.poetry.group.pytorch]
 optional = true
 [tool.poetry.group.pytorch.dependencies]
-python = ">=3.10, <3.11"
-pydantic = {version = "^1.8.0", extras = ["dotenv"]}
-torch = { version = "~2.0.0", source = "pytorch"}
+python = ">=3.10,<4.0"
+torch = {version = "~2.2.1", source = "pytorch"}
 #jm-ner = {version= ">=3.1.14rc0", source = "gitlab"}
 # jm-ner-processor = {version = ">=0.0.4", source="gitlab"}
 # setuptools = "*"
 # transformers = ">=4.38.0"
 # Despite not being outside training, we need them for jm-ner
 jm-multilabel-evaluator = {version = "*", source = "gitlab"}
-jmwandb = {version = "*", source = "gitlab"}
+# jmwandb = {version = "*", source = "gitlab"}
 
 [tool.poetry.group.notebook]
 optional = true
@@ -195,7 +194,6 @@ ansible-core = ">=2.16.8"
 # ansible-playbook-grapher = ">=1.1.0"
 click-completion = "~=0.5.2"
 colorama = ">=0.4.6"
-# conan = ">=1.31.0"
 httpx = {version = ">=0.23.3"}
 git-url-parse = ">=1.2.2"
 gitpython = ">=3.1.29"

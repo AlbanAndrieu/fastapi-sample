@@ -1,16 +1,16 @@
-import os
 from datetime import datetime as dt
 
 from databases import Database
-from dotenv import load_dotenv
 from pytz import timezone as tz
 from sqlalchemy import Column, Integer, MetaData, String, Table, create_engine
 
+from nabla.config_settings import get_settings
+
 # See https://github.com/KenMwaura1/Fast-Api-Grafana-Starter/tree/main
 
-load_dotenv()
+
 # Database url if none is passed the default one is used
-DATABASE_URL = os.getenv(
+DATABASE_URL = get_settings(
     "DATABASE_URL",
     "postgresql://fastapi_sample:fastapi_sample@localhost/fastapi_sample_dev",
 )

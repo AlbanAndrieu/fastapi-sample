@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.10
+# syntax=docker/dockerfile:1.11
 
 # dockerfile_lint - ignore
 # hadolint ignore=DL3007
@@ -205,5 +205,7 @@ CMD [ \
     "--bind", "0.0.0.0:8080", \
     "--graceful-timeout", "120", \
     "--timeout", "120", \
-    "--logger-class=chains.utils.log_config.JMGunicornLogger" \
+    "--logger-class=nabla.utils.log_config.JMGunicornLogger", \
+    "--log-level", "info", \
+    "--access-logfile", "-" \
 ]

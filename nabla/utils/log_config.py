@@ -14,23 +14,6 @@ from gunicorn import glogging
 from pythonjsonlogger.jsonlogger import JsonFormatter
 
 
-class _JMJsonFormatter(JsonFormatter):
-    def __init__(self):
-        super(JsonFormatter, self).__init__()
-
-    def format(self, record):
-        json_record = {}
-        # json_record["data"] = record.getMessage()
-        json_record["message"] = record.getMessage()
-        if "req" in record.__dict__:
-            json_record["req"] = record.__dict__["req"]
-        if "res" in record.__dict__:
-            json_record["res"] = record.__dict__["res"]
-        if record.levelno == logging.ERROR and record.exc_info:
-            json_record["err"] = self.formatException(record.exc_info)
-        return json.dumps(json_record)
-
-
 class _JMLoggerFormatter(JsonFormatter):
     """Format the JSON logs into the style of Jus Mundi."""
 
@@ -99,6 +82,23 @@ class _JMLoggerFormatter(JsonFormatter):
             log_record.pop("color_message")
 
 
+class _JMJsonFormatter(_JMLoggerFormatter):
+    def __init__(self):
+        super(JsonFormatter, self).__init__()
+
+    def format(self, record):
+        json_record = {}
+        # json_record["data"] = record.getMessage()
+        json_record["message"] = record.getMessage()
+        if "req" in record.__dict__:
+            json_record["req"] = record.__dict__["req"]
+        if "res" in record.__dict__:
+            json_record["res"] = record.__dict__["res"]
+        if record.levelno == logging.ERROR and record.exc_info:
+            json_record["err"] = self.formatException(record.exc_info)
+        return json.dumps(json_record)
+
+
 class JMGunicornLogger(glogging.Logger):
     def _set_handler(
         self,
@@ -118,7 +118,7 @@ class JMGunicornLogger(glogging.Logger):
         """
 
         super()._set_handler(
-            log=log, output=output, fmt=_JMLoggerFormatter(), stream=stream
+            log=log, output=output, fmt=_JMJsonFormatter(), stream=stream
         )
 
 
@@ -150,7 +150,7 @@ def setup_logging() -> None:
         # Stream Handler for console output
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setLevel(log_level)
-        console_handler.setFormatter(_JMLoggerFormatter())
+        console_handler.setFormatter(_JMJsonFormatter())
 
         # Set console handler as the only handler for root logger
         logger.handlers = [console_handler]
