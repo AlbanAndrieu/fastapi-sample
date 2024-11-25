@@ -55,6 +55,7 @@ optional = false
 fastapi = ">=0.111.1"
 python-multipart = ">=0.0.6"
 pydantic = {version = "~2.6.1", extras = ["dotenv"]}
+pydantic-settings = "*" # Defined by pydantic
 gunicorn = "^23.0.0"
 uvicorn-worker = "^0.2.0"
 python-json-logger = "^2.0.7"
