@@ -6,7 +6,6 @@ import json
 import logging
 import logging.handlers
 import os
-import sys
 from typing import Any, Optional
 
 from fastapi.logger import logger as fastapi_logger
@@ -122,6 +121,11 @@ class JMGunicornLogger(glogging.Logger):
         )
 
 
+class HealthCheckFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return record.getMessage().find("/health") == -1
+
+
 def setup_logging() -> None:
     """
     Configure the loggers of the project.
@@ -131,6 +135,9 @@ def setup_logging() -> None:
 
     # Get root logger
     logger: logging.Logger = logging.getLogger()
+
+    # Remove /credentials/health from application server logs
+    logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
 
     # XXX: Taken from https://github.com/tiangolo/uvicorn-gunicorn-fastapi-docker/issues/19
     if "gunicorn" in os.environ.get("SERVER_SOFTWARE", ""):
@@ -148,7 +155,7 @@ def setup_logging() -> None:
 
         log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
         # Stream Handler for console output
-        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler = logging.StreamHandler()
         console_handler.setLevel(log_level)
         console_handler.setFormatter(_JMJsonFormatter())
 
