@@ -6,11 +6,14 @@ import json
 import logging
 import logging.handlers
 import os
+import sys
 from typing import Any, Optional
 
 from fastapi.logger import logger as fastapi_logger
 from gunicorn import glogging
 from pythonjsonlogger.jsonlogger import JsonFormatter
+
+from nabla.config_settings import get_settings
 
 
 class _JMLoggerFormatter(JsonFormatter):
@@ -156,14 +159,14 @@ def setup_logging() -> None:
     else:
         # Running locally through uvicorn
 
-        log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
+        log_level = get_settings().log_level.upper()
 
         # Remove /credentials/health from application server logs
         logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
         logging.getLogger("uvicorn.access").addFilter(EndpointFilter())
 
         # Stream Handler for console output
-        console_handler = logging.StreamHandler()
+        console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setLevel(log_level)
         console_handler.setFormatter(_JMJsonFormatter())
 
