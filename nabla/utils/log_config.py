@@ -126,6 +126,12 @@ class HealthCheckFilter(logging.Filter):
         return record.getMessage().find("/health") == -1
 
 
+class EndpointFilter(logging.Filter):
+    # Uvicorn endpoint access log filter
+    def filter(self, record: logging.LogRecord) -> bool:
+        return record.getMessage().find("GET /metrics") == -1
+
+
 def setup_logging() -> None:
     """
     Configure the loggers of the project.
@@ -135,9 +141,6 @@ def setup_logging() -> None:
 
     # Get root logger
     logger: logging.Logger = logging.getLogger()
-
-    # Remove /credentials/health from application server logs
-    logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
 
     # XXX: Taken from https://github.com/tiangolo/uvicorn-gunicorn-fastapi-docker/issues/19
     if "gunicorn" in os.environ.get("SERVER_SOFTWARE", ""):
@@ -154,6 +157,11 @@ def setup_logging() -> None:
         # Running locally through uvicorn
 
         log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
+
+        # Remove /credentials/health from application server logs
+        logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
+        logging.getLogger("uvicorn.access").addFilter(EndpointFilter())
+
         # Stream Handler for console output
         console_handler = logging.StreamHandler()
         console_handler.setLevel(log_level)

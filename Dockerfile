@@ -197,7 +197,7 @@ EXPOSE 8080
 # CMD ["/code/.venv/bin/uvicorn", "--reload", "serve:app", "--host", "0.0.0.0", "--port", "8080"]
 
 CMD [ \
-    "gunicorn", "serve:app", \
+    "gunicorn", "main:app", \
     "-k", "uvicorn_worker.UvicornWorker", \
     "--workers", "1", \
     "--max-requests", "1000", \
