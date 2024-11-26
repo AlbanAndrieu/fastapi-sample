@@ -60,10 +60,6 @@ class _Settings(BaseSettings):
     mlflow_s3_endpoint_url = "https://s3.gra.cloud.ovh.net"
     mlflow_tracking_uri: str = "https://mlflow.jusmundi.com/"
 
-    class Config:  # type: ignore
-        base_path = Path(__file__).parent.parent.absolute()
-        env_file = [base_path / ".env", base_path / ".env.local"]
-
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
 
 
