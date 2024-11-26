@@ -56,10 +56,6 @@ class _Settings(BaseSettings):
     ovh_project_name: str = "123456789"
     ovh_container: str = "nabla_models"
 
-    # mlflow settings
-    mlflow_s3_endpoint_url = "https://s3.gra.cloud.ovh.net"
-    mlflow_tracking_uri: str = "https://mlflow.jusmundi.com/"
-
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
 
 
