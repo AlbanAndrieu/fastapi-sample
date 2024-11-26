@@ -2,7 +2,7 @@
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Annotated, ClassVar, Literal
+from typing import Annotated, ClassVar, Literal, Optional
 
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -49,6 +49,12 @@ class _Settings(BaseSettings):
     db_user: str = "back"
     db_password: str = "back"
     db_port: int = 5432
+
+    db_url: Optional[str] = (
+        "postgresql://fastapi_sample:fastapi_sample@localhost/fastapi_sample_dev"
+    )
+
+    azure_openai_instance: dict[str, AzureOpenAiInstance] = {}
 
     # s3 settings
     ovh_username: str = "username"
