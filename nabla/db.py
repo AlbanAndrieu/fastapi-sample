@@ -1,5 +1,6 @@
 from datetime import datetime as dt
 
+from typing import Final
 from databases import Database
 from pytz import timezone as tz
 from sqlalchemy import Column, Integer, MetaData, String, Table, create_engine
@@ -10,10 +11,7 @@ from nabla.config_settings import get_settings
 
 
 # Database url if none is passed the default one is used
-DATABASE_URL = get_settings(
-    "DATABASE_URL",
-    "postgresql://fastapi_sample:fastapi_sample@localhost/fastapi_sample_dev",
-)
+DATABASE_URL: Final[str] = str(get_settings().db_url)
 
 # SQLAlchemy
 engine = create_engine(DATABASE_URL)

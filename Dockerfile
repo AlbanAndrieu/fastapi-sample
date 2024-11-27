@@ -183,7 +183,7 @@ USER jm-python
 COPY --from=builder-base "$PYSETUP_PATH" "$PYSETUP_PATH"
 
 COPY --chown=jm-python:jm-python nabla/ "$PYSETUP_PATH/jm-python/nabla/"
-COPY --chown=jm-python:jm-python serve.py "$PYSETUP_PATH/jm-python/"
+COPY --chown=jm-python:jm-python main.py "$PYSETUP_PATH/jm-python/"
 
 # ENV PATH=$PYSETUP_PATH/.venv/bin/:${PATH}
 
@@ -197,7 +197,7 @@ EXPOSE 8080
 # CMD ["/code/.venv/bin/uvicorn", "--reload", "serve:app", "--host", "0.0.0.0", "--port", "8080"]
 
 CMD [ \
-    "gunicorn", "serve:app", \
+    "gunicorn", "main:app", \
     "-k", "uvicorn_worker.UvicornWorker", \
     "--workers", "1", \
     "--max-requests", "1000", \

@@ -13,6 +13,8 @@ from fastapi.logger import logger as fastapi_logger
 from gunicorn import glogging
 from pythonjsonlogger.jsonlogger import JsonFormatter
 
+from nabla.config_settings import get_settings
+
 
 class _JMLoggerFormatter(JsonFormatter):
     """Format the JSON logs into the style of Jus Mundi."""
@@ -122,6 +124,17 @@ class JMGunicornLogger(glogging.Logger):
         )
 
 
+class HealthCheckFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return record.getMessage().find("/health") == -1
+
+
+class EndpointFilter(logging.Filter):
+    # Uvicorn endpoint access log filter
+    def filter(self, record: logging.LogRecord) -> bool:
+        return record.getMessage().find("GET /metrics") == -1
+
+
 def setup_logging() -> None:
     """
     Configure the loggers of the project.
@@ -146,7 +159,12 @@ def setup_logging() -> None:
     else:
         # Running locally through uvicorn
 
-        log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
+        log_level = get_settings().log_level.upper()
+
+        # Remove /credentials/health from application server logs
+        logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
+        logging.getLogger("uvicorn.access").addFilter(EndpointFilter())
+
         # Stream Handler for console output
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setLevel(log_level)

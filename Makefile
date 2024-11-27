@@ -174,7 +174,7 @@ up-uvicorn:
 up-guvicorn:
 	@echo "up gunicorn http://0.0.0.0:$(PORT)/v1/ping"
 	@echo ".venv/bin/gunicorn nabla.main:app --reload --workers 1 -k uvicorn_worker.UvicornWorker --bind 0.0.0.0:$(PORT) --logger-class=nabla.utils.log_config.JMGunicornLogger"
-	.venv/bin/gunicorn serve:app --reload --workers 1 -k uvicorn_worker.UvicornWorker --bind 0.0.0.0:$(PORT) --logger-class=nabla.utils.log_config.JMGunicornLogger
+	.venv/bin/gunicorn main:app --reload --workers 1 -k uvicorn_worker.UvicornWorker --bind 0.0.0.0:$(PORT) --logger-class=nabla.utils.log_config.JMGunicornLogger --log-level info --access-logfile -
 
 ## —— Up ✅ —————————————————————————————————————————————————————————————————
 .PHONY: up

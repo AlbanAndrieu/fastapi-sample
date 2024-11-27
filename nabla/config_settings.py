@@ -2,7 +2,7 @@
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Annotated, ClassVar, Literal
+from typing import Annotated, ClassVar, Literal, Optional
 
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -50,19 +50,17 @@ class _Settings(BaseSettings):
     db_password: str = "back"
     db_port: int = 5432
 
+    db_url: Optional[str] = (
+        "postgresql://fastapi_sample:fastapi_sample@localhost/fastapi_sample_dev"
+    )
+
+    azure_openai_instance: dict[str, AzureOpenAiInstance] = {}
+
     # s3 settings
     ovh_username: str = "username"
     ovh_password: str = "password"
     ovh_project_name: str = "123456789"
     ovh_container: str = "nabla_models"
-
-    # mlflow settings
-    mlflow_s3_endpoint_url = "https://s3.gra.cloud.ovh.net"
-    mlflow_tracking_uri: str = "https://mlflow.jusmundi.com/"
-
-    class Config:  # type: ignore
-        base_path = Path(__file__).parent.parent.absolute()
-        env_file = [base_path / ".env", base_path / ".env.local"]
 
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
 
