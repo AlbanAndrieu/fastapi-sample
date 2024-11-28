@@ -93,20 +93,21 @@ variables:
   DEFAULT_POETRY_OPT_GROUPS: "test,open_telemetry,api,test"
   # REGISTRY: 783876277037.dkr.ecr.eu-west-3.amazonaws.com
   CI_IMAGE_NAME: ${CI_REGISTRY}/jusmundi-group/web/templates/jm-oci/jm-ubuntu
-  # CI_IMAGE_TAG: latest
-  CI_IMAGE_TAG: 0.1.5
+  CI_IMAGE_TAG: latest
+  # CI_IMAGE_TAG: 0.1.7
   GIT_STRATEGY: clone
   GIT_DEPTH: "3"
   # GITLAB_TOKEN: ${CI_JOB_TOKEN}
   # GIT_CLONE_PATH: '$CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_PIPELINE_ID'
   # GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_PROJECT_PATH
   FLAVOR: "-python" # -ci_light
-  TRIVY_VERSION: "0.53.0"
+  # TRIVY_VERSION: "0.57.1"
   TRIVY_SCANNERS: "vuln,misconfig,secret,license"
   CS_SEVERITY_THRESHOLD: "CRITICAL"
   CS_SEVERITY_FILESYTEM_THRESHOLD: "CRITICAL" # CRITICAL,HIGH
-  TRIVY_GLOBAL_SECURITY_CHECKS_EXTRA: "--ignore-unfixed --ignorefile .trivyignore.yaml --ignored-licenses LGPL-2.0,LGPL-2.1,LGPL-3.0"
-  DD_GLOBAL_SECURITY_CHECKS_EXTRA: "--ignore-unfixed --ignorefile .trivyignore.yaml --ignored-licenses LGPL-2.0,LGPL-2.1,LGPL-3.0"
+  TRIVY_GLOBAL_IGNORE_FILE: "--ignorefile .trivyignore.yaml"
+  # TRIVY_GLOBAL_SECURITY_CHECKS_EXTRA: "--ignore-unfixed --ignorefile .trivyignore.yaml --ignored-licenses LGPL-2.0,LGPL-2.1,LGPL-3.0"
+  # DD_GLOBAL_SECURITY_CHECKS_EXTRA: "--ignore-unfixed --ignorefile .trivyignore.yaml --ignored-licenses LGPL-2.0,LGPL-2.1,LGPL-3.0"
   TRIVY_ARGS: "--skip-dirs .direnv --skip-dirs .venv --skip-dirs .node_cache --skip-dirs go/go/pkg/mod/github.com/ --skip-dirs /usr/bin/go/pkg/mod/github.com/ --skip-dirs code/.venv/lib/python3.10/site-packages/ --skip-files pip.conf --skip-files Pipfile" #  --insecure  --debug
   DD_ARGS: "${TRIVY_ARGS}"
   TRIVY_FS_ARGS: "${TRIVY_ARGS}  --skip-files package-lock.json --skip-files yarn.lock"
