@@ -101,7 +101,7 @@ variables:
   # GIT_CLONE_PATH: '$CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_PIPELINE_ID'
   # GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_PROJECT_PATH
   FLAVOR: "-python" # -ci_light
-  # TRIVY_VERSION: "0.57.1"
+  TRIVY_VERSION: "0.57.1"
   TRIVY_SCANNERS: "vuln,misconfig,secret,license"
   CS_SEVERITY_THRESHOLD: "CRITICAL"
   CS_SEVERITY_FILESYTEM_THRESHOLD: "CRITICAL" # CRITICAL,HIGH
@@ -138,6 +138,7 @@ variables:
   DEPENDENCY_UPDATES_DISABLED: false
   # GIT_CLONE_PATH: '$CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_PIPELINE_ID'
   MEGALINTER_EXIT_ON_FAILURE: 1
+  LINTER_RULES_PATH: .
 
 .dependabot-gitlab:
   stage: dependabot
@@ -246,7 +247,6 @@ test-pytest-poetry:
   extends: .test-pytest-poetry
   needs: ["lint-ruff", "type-checker-pyright"]
   variables:
-    # DEFAULT_COV_ARGS: "--cov-fail-under=70"
     DEFAULT_COV_ARGS: "--cov-fail-under=1" # We need to increase the test coverage
   allow_failure: true
 
@@ -256,7 +256,6 @@ test-pytest:
     - jusmundi-nomad-runner
   interruptible: true
   allow_failure: true
-  # needs: ["lint-flake8"]
   variables:
     DEFAULT_COV_ARGS: "--cov-fail-under=70"
     DEFAULT_PIPENV_ARGS: "--system --dev --ignore-pipfile" # --dev  --verbose --index=https://package_read:${CI_PIP_GITLABJUSMUNDI_TOKEN}@gitlab.com/api/v4/groups/7364654/-/packages/pypi/simple
@@ -270,10 +269,7 @@ test-pytest:
 mega_linter:
   extends: .mega_linter_common
   needs: ["test-pytest"]
-  allow_failure: true
-
-# package:
-#   extends: .poetry-package
+  allow_failure: false
 
 docker-build:
   extends: .docker-build
@@ -285,7 +281,6 @@ docker-build:
     # CUSTOM_CONTAINER_SCANNING_DISABLED: "true"
     # CONTAINER_SCANNING_GITLAB_CODEQUALITY_TEMPLATE_DISABLE: "true"
     TRIVY_TIMEOUT: "20m0s"
-    # TRIVY_SCANNERS: "vuln"
     TRIVY_ARGS: "--debug --skip-dirs .direnv --skip-dirs .venv --skip-dirs code/.venv --skip-dirs code/.venv/lib/python3.10/site-packages/ --skip-files /code/fastapi-sample/pyproject.toml --skip-files /code/fastapi-sample/Pipfile --skip-files /code/fastapi-sample/pip.conf --skip-files code/fastapi-sample/Dockerfile.train_neuralcoref"
     # TRIVY_EXIT_ON_FAILURE: 0
     # TRIVY_FILESYTEM_EXIT_ON_FAILURE: 0
@@ -381,14 +376,3 @@ deploy:
     echo $SEMREL_INFO_LAST_VERSION
     echo $SEMREL_INFO_NEXT_VERSION
     echo $SEMREL_INFO_NEXT_VERSION_TYPE
-
-# release:
-#   image: node:12-buster-slim
-#   stage: release
-#   before_script:
-#     - apt-get update && apt-get install -y --no-install-recommends git-core ca-certificates
-#     - npm install -g semantic-release @semantic-release/gitlab
-#   script:
-#     - semantic-release
-#   rules:
-#     - if: $CI_COMMIT_BRANCH == "master" # or main
