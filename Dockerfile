@@ -2,9 +2,9 @@
 
 # dockerfile_lint - ignore
 # hadolint ignore=DL3007
-# FROM pytorch/pytorch:1.13.1-cuda11.6-cudnn8-runtime as prebuild
-# FROM pytorch/pytorch:1.13.0-cuda11.6-cudnn8-runtime as prebuild
-# FROM pytorch/pytorch:1.7.1-cuda11.0-cudnn8-runtime as prebuild
+# FROM pytorch/pytorch:1.13.1-cuda11.6-cudnn8-runtime AS prebuild
+# FROM pytorch/pytorch:1.13.0-cuda11.6-cudnn8-runtime AS prebuild
+# FROM pytorch/pytorch:1.7.1-cuda11.0-cudnn8-runtime AS prebuild
 FROM python:3.10-slim AS python-base
 
 LABEL name="fastapi-sample" vendor="sample" version="1.0.6" \
@@ -82,7 +82,7 @@ ENV PYTHONUNBUFFERED=1 \
 ENV PATH="${POETRY_HOME}/bin:$VENV_PATH/bin:$PATH"
 
 # `builder-base` stage is used to build deps + create our virtual environment
-FROM python-base as builder-base
+FROM python-base AS builder-base
 
 # Explicitly set user/group IDs
 RUN groupadd -r jm-python --gid=999 && useradd -m -d /code -r -g jm-python --uid=999 jm-python
@@ -170,7 +170,7 @@ EXPOSE 8080
 CMD ["/code/.venv/bin/uvicorn", "--reload", "serve:app", "--host", "0.0.0.0", "--port", "8080"]
 
 # `production` image used for runtime
-FROM python-base as production
+FROM python-base AS production
 ENV FASTAPI_ENV=production
 
 # Explicitly set user/group IDs
