@@ -4,6 +4,7 @@
 
 import json
 import logging
+import logging.config
 import logging.handlers
 import os
 import sys
@@ -141,6 +142,11 @@ def setup_logging() -> None:
     """
     # Define the logging format
     log_level = logging.INFO
+
+    # Need to setup loggers before importing other modules that may use loggers
+    # Use whatever path you need to grab the log_config.json file
+    with open(os.path.join(os.path.dirname(__file__), "log_config.json")) as f:
+        logging.config.dictConfig(json.load(f))
 
     # Get root logger
     logger: logging.Logger = logging.getLogger()
