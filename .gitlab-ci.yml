@@ -6,8 +6,6 @@ stages:
   - train
   - deploy
   - notify
-  # - dast
-  # - release
   - dependabot
   - publish
 
@@ -90,7 +88,6 @@ variables:
   # REGISTRY: 783876277037.dkr.ecr.eu-west-3.amazonaws.com
   CI_IMAGE_NAME: ${CI_REGISTRY}/jusmundi-group/web/templates/jm-oci/jm-ubuntu
   CI_IMAGE_TAG: latest
-  # CI_IMAGE_TAG: 0.1.7
   GIT_STRATEGY: clone
   GIT_DEPTH: "3"
   # GITLAB_TOKEN: ${CI_JOB_TOKEN}
@@ -208,26 +205,10 @@ upload-cloc:uat:
   script:
     - black --check .
 
-#lint-flake8:
-#  extends: .lint-flake8
-#  tags:
-#    - jusmundi-nomad-runner
-#  variables:
-#    DEFAULT_FLAKE8_TARGET: "nabla"
-#    DEFAULT_FLAKE8_ARGS: "--max-line-length=88 --max-complexity=30"
-#  before_script:
-#    - !reference [.install-pip3, script]
-#    - !reference [.install-pipenv, script]
-#    - !reference [.pipenv-install, script]
-#    - !reference [.install-flake8, script]
-
 lint-ruff:
   extends: .lint-ruff
   stage: static
   image: $CI_IMAGE
-  # variables:
-  #   CI_IMAGE_NAME: ${CI_REGISTRY}/jusmundi-group/web/templates/jm-oci/jm-ubuntu
-  #   CI_IMAGE_TAG: latest
   interruptible: true
   allow_failure: true
 
