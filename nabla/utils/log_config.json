@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "disable_existing_loggers": false,
+  "formatters": {
+    "standard": {
+      "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    },
+    "minimal": {
+      "format": "%(message)s"
+    }
+  },
+  "handlers": {
+    "console": {
+      "level": "INFO",
+      "class": "logging.StreamHandler",
+      "formatter": "standard",
+      "stream": "ext://sys.stdout"
+    },
+    "hypercorn": {
+      "level": "INFO",
+      "class": "logging.StreamHandler",
+      "formatter": "minimal",
+      "stream": "ext://sys.stdout"
+    }
+  },
+  "root": {
+    "handlers": [
+      "console"
+    ],
+    "level": "INFO"
+  },
+  "loggers": {
+    "": {
+      "handlers": [
+        "console"
+      ],
+      "level": "INFO",
+      "propagate": false
+    },
+    "hypercorn.error": {
+      "handlers": [
+        "hypercorn"
+      ],
+      "level": "INFO",
+      "propagate": false
+    },
+    "hypercorn.access": {
+      "handlers": [
+        "hypercorn"
+      ],
+      "level": "INFO",
+      "propagate": false
+    }
+  }
+}
