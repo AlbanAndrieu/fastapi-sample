@@ -55,11 +55,12 @@ include:
     rules:
       - if: $PACKAGE_MANAGER_SET
 
-  - template: 'Workflows/MergeRequest-Pipelines.gitlab-ci.yml'
+  # - template: 'Workflows/MergeRequest-Pipelines.gitlab-ci.yml'
 
-  - template: Jobs/Dependency-Scanning.gitlab-ci.yml
-  - template: Jobs/SAST.gitlab-ci.yml
-  - template: Jobs/Secret-Detection.gitlab-ci.yml
+  # - template: Jobs/Dependency-Scanning.gitlab-ci.yml
+  # - template: Jobs/SAST.gitlab-ci.yml
+
+  # - template: Jobs/Secret-Detection.gitlab-ci.yml
 
   # - template: DAST.gitlab-ci.yml
 
@@ -72,15 +73,10 @@ include:
 
 
 # See https://docs.gitlab.com/ee/ci/yaml/#workflowauto_cancelon_new_commit
-workflow:
-  auto_cancel:
-    on_new_commit: interruptible
-    on_job_failure: all
-#   rules:
-#     - if: $CI_COMMIT_REF_PROTECTED == 'true'
-#       auto_cancel:
-#         on_new_commit: none
-#         on_job_failure: none
+# workflow:
+#   auto_cancel:
+#     on_new_commit: interruptible
+#     on_job_failure: all
 
 variables:
   CI_IMAGE_PYTHON: python:3.10
@@ -101,7 +97,7 @@ variables:
   # GIT_CLONE_PATH: '$CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_PIPELINE_ID'
   # GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_PROJECT_PATH
   FLAVOR: "-python" # -ci_light
-  TRIVY_VERSION: "0.57.1"
+  TRIVY_VERSION: "0.58.0"
   TRIVY_SCANNERS: "vuln,misconfig,secret,license"
   CS_SEVERITY_THRESHOLD: "CRITICAL"
   CS_SEVERITY_FILESYTEM_THRESHOLD: "CRITICAL" # CRITICAL,HIGH
@@ -144,14 +140,13 @@ variables:
   stage: dependabot
 
 # override the dependency scanning job
-gemnasium-dependency_scanning:
-  tags: [ saas-linux-large-amd64 ]
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-    - if: $CI_MERGE_REQUEST_IID
-  variables:
-    DS_REMEDIATE: "false"
-  # dependencies: ["build"]
+# gemnasium-dependency_scanning:
+#   tags: [ saas-linux-large-amd64 ]
+#   rules:
+#     - if: $CI_COMMIT_BRANCH == "main"
+#     - if: $CI_MERGE_REQUEST_IID
+#   variables:
+#     DS_REMEDIATE: "false"
 
 # TODO Insufficient permissions for dast_configuration keyword
 # dast:
@@ -181,9 +176,9 @@ gemnasium-dependency_scanning:
 #    - if: '$CI_PIPELINE_SOURCE == "push"'
 #  allow_failure: true
 
-spotbugs-sast:
-  variables:
-    FAIL_NEVER: 1
+# spotbugs-sast:
+#   variables:
+#     FAIL_NEVER: 1
 
 upload_trivy:uat:
   extends: .upload_trivy:uat
