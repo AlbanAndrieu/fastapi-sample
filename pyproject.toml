@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "fastapi-sample"
-version = "1.0.5"
+version = "1.1.0"
 description = "Custom hooks to improve code quality before pushing to git"
 authors = ["Andrieu, Alban <alban.andrieu@free.fr>"]
 license = "MIT"
@@ -320,7 +320,7 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "fastapi-sample"
-version = "0.1.0"
+version = "1.1.0"
 description = "Fastapi sample"
 authors = [
     {name = "Andrieu, Alban", email = "alban.andrieu@free.fr"},
