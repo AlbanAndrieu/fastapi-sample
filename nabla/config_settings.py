@@ -19,7 +19,7 @@ class AzureOpenAiInstance(BaseModel):
         # UrlConstraints(
         #    allowed_schemes=["https"], host_required=True, default_port=None
         # ),
-        str, Field(pattern=r"^https://[a-z\-]+\.openai\.azure\.com$")
+        str, Field(pattern=r"^https://[a-z0-9\-]+\.openai\.azure\.com$")
     ]
     api_key: Annotated[str, Field(min_length=1)]
     api_alias: Annotated[str, Field(min_length=1)]

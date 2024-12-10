@@ -357,6 +357,21 @@ python3 nabla/loki/influxdb.py
 python3 scripts.py ~/Downloads/product-activity-2023-10-02.csv
 ```
 
+## Installation and commands
+
+**GO**
+
+```bash
+go version
+go mod init example.com/m/v2
+go mod tidy
+go run hello-world.go
+go build hello-world.go
+ls
+./hello-world
+```
+
+
 ## [Update README.md](#table-of-contents)
 
 
