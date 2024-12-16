@@ -131,6 +131,7 @@ job "fastapi-sample" {
 
       env {
         FASTAPI_ENV = "development"
+        DD_VERSION = "[[ .CI_COMMIT_TAG ]]"
       }
 
       vault {
@@ -247,11 +248,6 @@ EOF
         ]
 
         # shm_size = 536870912 # 512MB
-      }
-
-      env {
-        targetHost = "https://jm-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/en"
-        FASTAPI_ENV = "production"
       }
 
       vault {

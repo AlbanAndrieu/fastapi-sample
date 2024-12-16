@@ -202,6 +202,7 @@ gitpython = ">=3.1.29"
 pre-commit = ">=3.7.1"
 pre-commit-hooks = ">=4.4.0"
 pip-upgrader = ">=1.4.15"
+python-keystoneclient = ">=0.0.18"
 readme-renderer = {version = ">=43.0", extras = ["md"]}
 sqlfluff = ">=3.1.0"
 setup-cfg-fmt = ">=2.2.0"
