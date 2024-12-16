@@ -209,7 +209,7 @@ CMD [ \
     "--max-requests-jitter", "100", \
     "--bind", "0.0.0.0:8080", \
     "--graceful-timeout", "120", \
-    "--statsd-host", "10.30.0.115:8125", \
+    "--statsd-host", "10.30.0.115:8126", \
     "--timeout", "120", \
     "--logger-class=nabla.utils.log_config.JMGunicornLogger", \
     "--log-level", "info", \
