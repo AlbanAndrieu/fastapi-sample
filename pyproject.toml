@@ -47,7 +47,7 @@ sentry-sdk = {version = "*", extras = ["fastapi"]}
 requests = ">=2.32.0"
 urllib3 = ">=2.2.2"
 dd-import = ">=1.0.12"
-
+ddtrace = ">=2.17.3"
 
 [tool.poetry.group.api]
 optional = false

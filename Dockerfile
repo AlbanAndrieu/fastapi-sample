@@ -11,6 +11,10 @@ LABEL name="fastapi-sample" vendor="sample" version="1.0.6" \
  description="Image used by our products to build python\
  this image is running on Ubuntu 22.10."
 
+LABEL com.datadoghq.tags.service="fastapi-sample"
+# LABEL com.datadoghq.tags.env="uat"
+LABEL com.datadoghq.tags.version="1.0.6"
+
 # dockerfile_lint - ignore
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -197,6 +201,7 @@ EXPOSE 8080
 # CMD ["/code/.venv/bin/uvicorn", "--reload", "serve:app", "--host", "0.0.0.0", "--port", "8080"]
 
 CMD [ \
+    "ddtrace-run", \
     "gunicorn", "main:app", \
     "-k", "uvicorn_worker.UvicornWorker", \
     "--workers", "1", \
