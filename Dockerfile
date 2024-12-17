@@ -200,9 +200,8 @@ EXPOSE 8080
 # CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "serve:app", "--host", "0.0.0.0", "--port", "8080"]
 # CMD ["/code/.venv/bin/uvicorn", "--reload", "serve:app", "--host", "0.0.0.0", "--port", "8080"]
 
-#     "ddtrace-run", \
-
 CMD [ \
+    "ddtrace-run", \
     "gunicorn", "main:app", \
     "-k", "uvicorn_worker.UvicornWorker", \
     "--workers", "1", \
@@ -210,7 +209,7 @@ CMD [ \
     "--max-requests-jitter", "100", \
     "--bind", "0.0.0.0:8080", \
     "--graceful-timeout", "120", \
-    "--statsd-host", "10.30.0.115:8125", \
+    # "--statsd-host", "10.30.0.115:8125", \
     "--timeout", "120", \
     "--logger-class=nabla.utils.log_config.JMGunicornLogger", \
     "--log-level", "info", \
