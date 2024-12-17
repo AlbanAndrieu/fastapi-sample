@@ -132,6 +132,7 @@ job "fastapi-sample" {
       env {
         FASTAPI_ENV = "development"
         DD_VERSION = "[[ .CI_COMMIT_TAG ]]"
+        SENTRY_RELEASE = "[[ .CI_COMMIT_TAG ]]"
       }
 
       vault {

@@ -9,6 +9,7 @@ import sentry_sdk
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.openapi.utils import get_openapi
 from prometheus_client import make_asgi_app
+from sentry_sdk import set_user
 from sentry_sdk.integrations.logging import LoggingIntegration
 
 # from prometheus_fastapi_instrumentator import Instrumentator
@@ -128,6 +129,8 @@ app.routes.append(route)
 
 # Setting OpenTelemetry exporter
 setting_otlp(app, APP_NAME, OTLP_GRPC_ENDPOINT)
+
+set_user({"email": "alban.andrieu@free.com"})
 
 sentry_sdk.init(
     dsn=SENTRY_DSN,
