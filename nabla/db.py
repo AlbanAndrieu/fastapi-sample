@@ -1,7 +1,8 @@
 from datetime import datetime as dt
-
 from typing import Final
+
 from databases import Database
+from ddtrace import Pin, patch
 from pytz import timezone as tz
 from sqlalchemy import Column, Integer, MetaData, String, Table, create_engine
 
@@ -13,8 +14,14 @@ from nabla.config_settings import get_settings
 # Database url if none is passed the default one is used
 DATABASE_URL: Final[str] = str(get_settings().db_url)
 
+patch(sqlalchemy=True)
+
 # SQLAlchemy
 engine = create_engine(DATABASE_URL)
+
+# Use a PIN to specify metadata related to this engine
+Pin.override(engine, service="replica-db")
+
 metadata = MetaData()
 notes = Table(
     "notes",

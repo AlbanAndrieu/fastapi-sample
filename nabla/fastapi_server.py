@@ -6,6 +6,7 @@ from typing import Dict
 import logfire
 import pyroscope
 import sentry_sdk
+from ddtrace import config, patch
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.openapi.utils import get_openapi
 from prometheus_client import make_asgi_app
@@ -91,6 +92,14 @@ logfire.info("Hello, {name}!", name="World")
 
 logger = logging.getLogger(__name__)
 logger.info("Creating API")
+
+patch(fastapi=True)
+
+# Override service name
+config.fastapi["service_name"] = APP_NAME + "service-name"
+
+# Override request span name
+config.fastapi["request_span_name"] = APP_NAME + "request-span-name"
 
 app = FastAPI(
     title=APP_NAME + " " + APP_PREFIX_VERSION,
