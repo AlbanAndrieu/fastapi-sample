@@ -69,7 +69,6 @@ include:
 
   # - remote: https://gitlab.com/renovate-bot/renovate-runner/-/raw/v17.69.3/templates/renovate.gitlab-ci.yml
 
-
 # See https://docs.gitlab.com/ee/ci/yaml/#workflowauto_cancelon_new_commit
 # workflow:
 #   auto_cancel:
