@@ -96,10 +96,10 @@ logger.info("Creating API")
 patch(fastapi=True)
 
 # Override service name
-config.fastapi["service_name"] = APP_NAME + "-service-name"
+config.fastapi["service_name"] = APP_NAME
 
 # Override request span name
-config.fastapi["request_span_name"] = APP_NAME + "-request-span-name"
+# config.fastapi["request_span_name"] = APP_NAME + "-request-span-name"
 
 # Network sockets
 tracer.configure(
