@@ -274,9 +274,10 @@ docker-build:
     - !reference [.env-definition, script]  
     - echo -e "\e[35mOCI_IMAGE_TAG = ${OCI_IMAGE_TAG}\e[0m."
     - echo -e "\e[35mCI_COMMIT_TAG = ${CI_COMMIT_TAG}\e[0m."
+    - echo -e "\e[35mTRIVY_OCI=${TRIVY_OCI}\e[0m."    
     - !reference [.oci-image, script]  
     - echo -e "\e[35mOCI_IMAGE = ${APP_IMAGE}:${OCI_IMAGE_TAG}\e[0m."
-    - echo -e "\e[35mTRIVY_OCI=${TRIVY_OCI}\e[0m."
+    - export TRIVY_OCI="${OCI_REGISTRY}/${OCI_IMAGE}"
     - echo -e "\e[35mOCI_IMAGE=${OCI_IMAGE}\e[0m."
     - echo -e "\e[35mTRIVY_OCI=${TRIVY_OCI}\e[0m."
     - !reference [.scan-reports, script]
