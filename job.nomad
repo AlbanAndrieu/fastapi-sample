@@ -133,7 +133,7 @@ job "fastapi-sample" {
         FASTAPI_ENV = "development"
         SENTRY_RELEASE = "[[ .CI_COMMIT_TAG ]]"
         DD_VERSION = "[[ .CI_COMMIT_TAG ]]"
-        DD_GIT_COMMIT_SHA = "${CI_COMMIT_SHA}"
+        DD_GIT_COMMIT_SHA = "[[ .CI_COMMIT_SHA} ]]"
         DD_GIT_REPOSITORY_URL = "git@gitlab.com:jusmundi-group/proof-of-concept/fastapi-sample.git"
       }
 
