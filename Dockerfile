@@ -11,6 +11,10 @@ LABEL name="fastapi-sample" vendor="sample" version="1.0.6" \
  description="Image used by our products to build python\
  this image is running on Ubuntu 22.10."
 
+LABEL com.datadoghq.tags.service="fastapi-sample"
+# LABEL com.datadoghq.tags.env="uat"
+LABEL com.datadoghq.tags.version="1.0.6"
+
 # dockerfile_lint - ignore
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -196,6 +200,8 @@ EXPOSE 8080
 # CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "serve:app", "--host", "0.0.0.0", "--port", "8080"]
 # CMD ["/code/.venv/bin/uvicorn", "--reload", "serve:app", "--host", "0.0.0.0", "--port", "8080"]
 
+# "ddtrace-run", \
+
 CMD [ \
     "gunicorn", "main:app", \
     "-k", "uvicorn_worker.UvicornWorker", \
@@ -204,6 +210,7 @@ CMD [ \
     "--max-requests-jitter", "100", \
     "--bind", "0.0.0.0:8080", \
     "--graceful-timeout", "120", \
+    # "--statsd-host", "10.30.0.115:8125", \
     "--timeout", "120", \
     "--logger-class=nabla.utils.log_config.JMGunicornLogger", \
     "--log-level", "info", \

@@ -6,9 +6,11 @@ from typing import Dict
 import logfire
 import pyroscope
 import sentry_sdk
+from ddtrace import config, patch, tracer
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.openapi.utils import get_openapi
 from prometheus_client import make_asgi_app
+from sentry_sdk import set_user
 from sentry_sdk.integrations.logging import LoggingIntegration
 
 # from prometheus_fastapi_instrumentator import Instrumentator
@@ -91,6 +93,36 @@ logfire.info("Hello, {name}!", name="World")
 logger = logging.getLogger(__name__)
 logger.info("Creating API")
 
+patch(fastapi=True)
+
+# Override service name
+config.fastapi["service_name"] = APP_NAME
+
+# Override request span name
+# config.fastapi["request_span_name"] = APP_NAME + "-request-span-name"
+
+# Network sockets
+tracer.configure(
+    https=False,
+    hostname="10.30.0.115",
+    port="8126",
+)
+
+# Unix domain socket configuration
+# tracer.configure(
+#    uds_path="/var/run/datadog/apm.socket",
+# )
+
+# Network socket
+tracer.configure(
+    dogstatsd_url="udp://10.30.0.115:8125",
+)
+
+# Unix domain socket configuration
+# tracer.configure(
+#   dogstatsd_url="unix:///var/run/datadog/dsd.socket",
+# )
+
 app = FastAPI(
     title=APP_NAME + " " + APP_PREFIX_VERSION,
     description="FastAPI Sample for demo",
@@ -99,6 +131,7 @@ app = FastAPI(
 )
 
 app.add_middleware(LogMiddleware)
+
 
 origins = ["http://localhost", "http://localhost:8080", "http://localhost:5173", "*"]
 
@@ -128,6 +161,8 @@ app.routes.append(route)
 
 # Setting OpenTelemetry exporter
 setting_otlp(app, APP_NAME, OTLP_GRPC_ENDPOINT)
+
+set_user({"email": "alban.andrieu@free.com"})
 
 sentry_sdk.init(
     dsn=SENTRY_DSN,
