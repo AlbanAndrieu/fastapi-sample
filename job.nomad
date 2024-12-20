@@ -179,7 +179,7 @@ EOF
           "traefik.http.routers.fastapi-sample.entrypoints=https",
           "traefik.http.routers.fastapi-sample.rule=Host(`fastapi-sample.service.gra.${var.env}.consul`)",
           "traefik.http.routers.fastapi-sample.tls=true",
-          "traefik.http.routers.fastapi-sample.tls.options=myTLSOptions@file"
+          "traefik.http.routers.fastapi-sample.tls.options=myTLSOptions@file",
           "traefik.http.middlewares.redirect-https.redirectScheme.scheme=https",
           "traefik.http.middlewares.redirect-https.redirectScheme.permanent=true",
           # redirect-https
