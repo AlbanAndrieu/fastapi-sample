@@ -182,8 +182,8 @@ EOF
           "traefik.http.routers.fastapi-sample.tls.options=myTLSOptions@file",
           "traefik.http.middlewares.redirect-https.redirectScheme.scheme=https",
           "traefik.http.middlewares.redirect-https.redirectScheme.permanent=true",
-          # redirect-https
-          "traefik.http.routers.fastapi-sample.middlewares=my-plugindemo@file,my-traefik-real-ip@file,test-ratelimit@consulcatalog,test-inflightreq@consulcatalog",
+          # my-traefik-real-ip@file redirect-https
+          "traefik.http.routers.fastapi-sample.middlewares=my-plugindemo@file,test-ratelimit@consulcatalog,test-inflightreq@consulcatalog",
           # 403 "traefik.http.routers.fastapi-sample.middlewares=my-crowdsec-bouncer-traefik-plugin@file",
           # "traefik.http.routers.fastapi-sample.middlewares=my-plugindemo@file,my-traefik-real-ip@file,my-crowdsec-bouncer-traefik-plugin@file,my-traefik-jwt-plugin@file",
           # test-ratelimit@consulcatalog,test-inflightreq@consulcatalog
