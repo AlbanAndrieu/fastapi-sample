@@ -35,6 +35,8 @@ APP_NAME = os.environ.get("APP_NAME", "fastapi-sample")
 APP_PREFIX_VERSION = os.environ.get("APP_PREFIX_VERSION", "v0")
 APP_VERSION = os.environ.get("APP_VERSION", "1.0.6")
 
+DD_AGENT_HOST = os.environ.get("DD_AGENT_HOST", "127.0.0.1")
+DD_TRACE_AGENT_PORT = os.environ.get("DD_TRACE_AGENT_PORT", "8126")
 
 # http://grpc.jaeger-collector-grpc.service.gra.dev.consul
 # http://jaeger-collector-grpc.service.gra.dev.consul:14250
@@ -102,26 +104,26 @@ config.fastapi["service_name"] = APP_NAME
 # config.fastapi["request_span_name"] = APP_NAME + "-request-span-name"
 
 # Network sockets
-tracer.configure(
-    https=False,
-    hostname="10.30.0.115",
-    port="8126",
-)
+# tracer.configure(
+#    https=False,
+#    hostname=DD_AGENT_HOST,
+#    port=DD_TRACE_AGENT_PORT,
+# )
 
 # Unix domain socket configuration
-# tracer.configure(
-#    uds_path="/var/run/datadog/apm.socket",
-# )
+tracer.configure(
+    uds_path="/var/run/datadog/apm.socket",
+)
 
 # Network socket
-tracer.configure(
-    dogstatsd_url="udp://10.30.0.115:8125",
-)
+# tracer.configure(
+#    dogstatsd_url="udp://127.0.0.1:8125",
+# )
 
 # Unix domain socket configuration
-# tracer.configure(
-#   dogstatsd_url="unix:///var/run/datadog/dsd.socket",
-# )
+tracer.configure(
+    dogstatsd_url="unix:///var/run/datadog/dsd.socket",
+)
 
 app = FastAPI(
     title=APP_NAME + " " + APP_PREFIX_VERSION,
