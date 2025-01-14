@@ -9,7 +9,7 @@ vulnerabilities:
 # Below for transformers
   - id: CVE-2023-7018
   - id: CVE-2024-3568
-  - id: CVE-2024-6345 # TODO remove me
+  # - id: CVE-2024-6345 # TODO remove me
 
 misconfigurations:
   - id: AVD-DS-0002
