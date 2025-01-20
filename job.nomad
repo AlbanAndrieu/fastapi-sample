@@ -330,17 +330,7 @@ EOF
       env {
         LOCUST_EXPORTER_URI = "http://fastapi-sample-locust.service.gra.${var.env}.consul:8089"
       }
-/*
-      template {
-        data        = <<EOF
-TEMPORALIO_HOST="temporal-app.service.gra.dev.consul"
-UVICORN_LOG_LEVEL=debug
-EOF
-        destination = "${NOMAD_SECRETS_DIR}/.env.local"
 
-        env         = true
-      }
-*/
       service {
         name = "fastapi-sample-locust-exporter"
         port = "locust-exporter"
