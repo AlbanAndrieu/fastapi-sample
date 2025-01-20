@@ -1,3 +1,4 @@
+# nomad job stop --namespace=* -purge fastapi-sample
 # nomad job run -var env=uat -var team=uat job.nomad
 
 variable "env" {
@@ -24,6 +25,16 @@ variable "datacenters" {
   type        = list(string)
   description = "List of datacenters to deploy to."
   default     = ["gra"]
+}
+
+variable "tls_domain" {
+type = string
+default = "fastapi-sample.service.gra.dev.consul" # service.gra.dev.consul
+}
+
+variable "alt_names" {
+type = string
+default = ""
 }
 
 job "fastapi-sample" {
@@ -139,22 +150,92 @@ job "fastapi-sample" {
       }
 
       vault {
-        policies  = ["cicd"]
+        policies  = ["cicd", "default"]
       }
 
       template {
         data        = <<EOF
-{{ with pkiCert "pki/issue/test-example-dot-com" "common_name=fastapi-sample.service.gra.dev.consul" }}
+{{ with pkiCert "pki_int/issue/example-dot-com" "common_name=fastapi-sample.service.gra.dev.consul" }}
+{{ .Cert }}{{ .CA }}{{ .Key }}
+{{ end }}
+EOF
+        destination = "local/test.pem"
+
+        # destination   = "${NOMAD_SECRETS_DIR}/bundle.pem"
+        change_mode   = "restart"
+      }
+
+#  error calling writeToFile: function is disabled
+/*
+      template {
+        data        = <<EOF
+{{ with pkiCert "pki_int/issue/example-dot-com" "common_name=fastapi-sample.service.gra.dev.consul" }}
 {{ .Cert }}{{ .CA }}{{ .Key }}
 {{ .Key | writeToFile "examples/my-app.key" "root" "root" "0400" }}
 {{ .CA | writeToFile "examples/ca.crt" "root" "root" "0644" }}
 {{ .Cert | writeToFile "examples/my-app.crt" "root" "root" "0644" "append" }}
 {{ end }}
 EOF
-        destination = "${NOMAD_SECRETS_DIR}/.cert"
+        destination = "local/test.pem"
 
-        env         = false
+        # destination   = "${NOMAD_SECRETS_DIR}/bundle.pem"
+        change_mode   = "restart"
       }
+*/
+
+# https://support.hashicorp.com/hc/en-us/articles/15712419079315-Templates-Using-nomad-attributes-when-creating-PKI-certificates-with-Vault
+# {{ with secret "pki/issuer/d4d8fe33-4446-ea83-ff48-47832a7e6784/issue/test-example-dot-com" "common_name=fastapi-sample.service.gra.dev.consul" "ip_sans=127.0.0.1" "format=pem" }}
+# write pki_int/issue/example-dot-com common_name=fastapi-sample.service.gra.dev.consul
+# See https://github.com/hashicorp/nomad/issues/19380
+
+/*
+      template {
+data = <<EOF
+{{ with secret "pki_int/issue/example-dot-com" "common_name=fastapi-sample.service.gra.dev.consul" }}
+{{ .Data.certificate }}
+{{ .Data.issuing_ca }}
+{{ .Data.private_key }}{{ end }}
+EOF
+       # destination   = "${NOMAD_SECRETS_DIR}/bundle.pem"
+       destination   = "local/bundle.pem"
+       change_mode   = "restart"
+     }
+*/
+
+/*
+template {
+data = <<EOH
+{{- $VAR1 := (printf "ip_sans=%s" (env "attr.unique.network.ip-address")) -}}
+{{- with secret "pki_int/issue/test-example-dot-com" "common_name=${var.tls_domain}" "alt_names=${var.alt_names}" $VAR1 -}}
+{{- .Data.certificate -}}
+{{- printf "\n" -}}
+{{- .Data.issuing_ca -}}
+{{ end }}
+
+EOH
+destination = "local/bundle.pem"
+change_mode = "restart"
+}
+*/
+
+# vault write pki_int/issue/example-dot-com common_name="fastapi-sample.service.gra.dev.consul" ttl="24h"
+/*
+template {
+  error_on_missing_key = true
+
+  data = <<EOH
+  {{- $VAR1 := (printf "ip_sans=%s" (env "attr.unique.network.ip-address")) -}}
+  {{- with pkiCert "pki_int/issue/example-dot-com" "common_name=${var.tls_domain}" "alt_names=${var.alt_names}" $VAR1 -}}
+  {{- .Cert -}}
+  {{- printf "\n" -}}
+  {{- .CA -}}
+  {{ end }}
+
+  EOH
+  destination = "local/bundle2.pem"
+  change_mode = "restart"
+}
+*/
 
       template {
         data        = <<EOF
