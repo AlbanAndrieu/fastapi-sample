@@ -144,6 +144,20 @@ job "fastapi-sample" {
 
       template {
         data        = <<EOF
+{{ with pkiCert "pki/issue/test-example-dot-com" "common_name=fastapi-sample.service.gra.dev.consul" }}
+{{ .Cert }}{{ .CA }}{{ .Key }}
+{{ .Key | writeToFile "examples/my-app.key" "root" "root" "0400" }}
+{{ .CA | writeToFile "examples/ca.crt" "root" "root" "0644" }}
+{{ .Cert | writeToFile "examples/my-app.crt" "root" "root" "0644" "append" }}
+{{ end }}
+EOF
+        destination = "${NOMAD_SECRETS_DIR}/.cert"
+
+        env         = false
+      }
+
+      template {
+        data        = <<EOF
 UVICORN_LOG_LEVEL=debug
 OTEL_RESOURCE_ATTRIBUTES=service.name=fastapi-sample
 OTEL_SERVICE_NAME=fastapi-sample
