@@ -153,6 +153,8 @@ job "fastapi-sample" {
         policies  = ["cicd", "default"]
       }
 
+# below was working
+/*
       template {
         data        = <<EOF
 {{ with pkiCert "pki_int/issue/example-dot-com" "common_name=fastapi-sample.service.gra.dev.consul" }}
@@ -164,6 +166,7 @@ EOF
         # destination   = "${NOMAD_SECRETS_DIR}/bundle.pem"
         change_mode   = "restart"
       }
+*/
 
 #  error calling writeToFile: function is disabled
 /*
