@@ -1,19 +1,19 @@
-# syntax=docker/dockerfile:1.11
+# syntax=docker/dockerfile:1.13
 
 # dockerfile_lint - ignore
 # hadolint ignore=DL3007
 # FROM pytorch/pytorch:1.13.1-cuda11.6-cudnn8-runtime AS prebuild
 # FROM pytorch/pytorch:1.13.0-cuda11.6-cudnn8-runtime AS prebuild
 # FROM pytorch/pytorch:1.7.1-cuda11.0-cudnn8-runtime AS prebuild
-FROM python:3.10-slim AS python-base
+FROM python:3.12-slim AS python-base
 
-LABEL name="fastapi-sample" vendor="sample" version="1.0.6" \
+LABEL name="fastapi-sample" vendor="sample" version="1.1.0" \
  description="Image used by our products to build python\
- this image is running on Ubuntu 22.10."
+ this image is running on Python 3.12."
 
 LABEL com.datadoghq.tags.service="fastapi-sample"
 # LABEL com.datadoghq.tags.env="uat"
-LABEL com.datadoghq.tags.version="1.0.6"
+LABEL com.datadoghq.tags.version="1.1.0"
 
 # dockerfile_lint - ignore
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -26,6 +26,11 @@ ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US:en
 ENV LC_ALL en_US.UTF-8
 ENV TERM="xterm-256color"
+
+ARG DD_GIT_REPOSITORY_URL
+ARG DD_GIT_COMMIT_SHA
+ENV DD_GIT_REPOSITORY_URL=${DD_GIT_REPOSITORY_URL}
+ENV DD_GIT_COMMIT_SHA=${DD_GIT_COMMIT_SHA}
 
 # Enable retry logic for apt up to 10 times
 # Configure apt to always assume Y
@@ -110,12 +115,12 @@ WORKDIR ${PYSETUP_PATH}
 # Installs Poetry in its own environment to avoid problems with Ubuntu's Python
 # hadolint ignore=SC2086
 RUN python3 -m venv "${POETRY_HOME}" \
-    && "${POETRY_HOME}/bin/pip" install --no-cache-dir --upgrade pip==24.1.2 \
+    && "${POETRY_HOME}/bin/pip" install --no-cache-dir --upgrade pip==25.0.1 \
     && "${POETRY_HOME}/bin/pip" install poetry=="${POETRY_VERSION}" \
     && "${POETRY_HOME}/bin/poetry" --version
 
 # hadolint ignore=DL3013, DL3042
-# RUN python -m pip install --no-cache-dir --upgrade pip==24.1.2
+# RUN python -m pip install --no-cache-dir --upgrade pip==25.0.1
 
 USER jm-python
 
@@ -130,7 +135,7 @@ USER jm-python
 # hadolint ignore=SC2086,SC2046
 RUN --mount=type=secret,id=read-package-token,uid=999,target=/code/jm-python/.config/pypoetry/read-package-token \
   "${POETRY_HOME}/bin/poetry" config http-basic.gitlab package_read "$(cat /code/jm-python/.config/pypoetry/read-package-token)" &&\
-  "${POETRY_HOME}/bin/poetry" install --no-root --with format,test,api,extras,open_telemetry,deployment,influxdb,panda,temporal  &&\
+  "${POETRY_HOME}/bin/poetry" install --no-root --with format,test,api,extra,open_telemetry,deployment,influxdb,panda,temporal  &&\
   rm -rf /code/.config/pypoetry/
 
 # rm -rf "${POETRY_HOME}"
@@ -203,6 +208,7 @@ EXPOSE 8080
 # "ddtrace-run", \
 
 CMD [ \
+    "ddtrace-run", \
     "gunicorn", "main:app", \
     "-k", "uvicorn_worker.UvicornWorker", \
     "--workers", "1", \

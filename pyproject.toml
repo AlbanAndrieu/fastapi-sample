@@ -1,3 +1,20 @@
+
+[project]
+name = "fastapi-sample"
+version = "1.1.0"
+description = "Fastapi sample"
+authors = [
+    {name = "Andrieu, Alban", email = "alban.andrieu@free.fr"},
+]
+dependencies = ["dynamic"]
+requires-python = ">=3.10"
+readme = "README.md"
+license = {text = "MIT"}
+
+#[virtualenvs]
+#in-project = true
+
+
 [tool.poetry]
 name = "fastapi-sample"
 version = "1.1.0"
@@ -14,11 +31,6 @@ packages = [
   { include = "nabla" }
 ]
 
-#[repositories]
-
-#[repositories.my-gitlab]
-#url = "https://gitlab.com/api/v4/projects/<your project id>/packages/pypi"
-
 [[tool.poetry.source]]
 name = "gitlab"
 # poetry config http-basic.gitlab __token__ ${GITLAB_FULL_PRIVATE_TOKEN}
@@ -33,6 +45,7 @@ priority = "explicit"
 # secondary = true
 
 [tool.poetry.dependencies]
+# python = ">=3.12,<4.0"
 python = ">=3.10,<4.0"
 ansicolors = "~=1.1.8"
 # cfgv = "~=3.3.0"
@@ -47,13 +60,13 @@ sentry-sdk = {version = "*", extras = ["fastapi"]}
 requests = ">=2.32.0"
 urllib3 = ">=2.2.2"
 dd-import = ">=1.0.12"
-ddtrace = ">=2.17.3"
+ddtrace = ">=2.20.0"
 # psycopg2-binary = ">=2.9.5"
 
 [tool.poetry.group.api]
 optional = false
 [tool.poetry.group.api.dependencies]
-fastapi = ">=0.111.1"
+fastapi = {version = ">=0.115.3", extras = ["standard"]}
 python-multipart = ">=0.0.6"
 pydantic = {version = "~2.6.1", extras = ["dotenv"]}
 pydantic-settings = "*" # Defined by pydantic
@@ -125,12 +138,13 @@ optional = true
 [tool.poetry.group.pytorch.dependencies]
 python = ">=3.10,<4.0"
 torch = {version = "~2.2.1", source = "pytorch"}
-#jm-ner = {version= ">=3.1.14rc0", source = "gitlab"}
+# jm-ner = {version= ">=3.1.14rc0", source = "gitlab"}
 # jm-ner-processor = {version = ">=0.0.4", source="gitlab"}
 # setuptools = "*"
 # transformers = ">=4.38.0"
 # Despite not being outside training, we need them for jm-ner
-jm-multilabel-evaluator = {version = "*", source = "gitlab"}
+# jm-multilabel-evaluator requires Python >=3.10,<3.1
+# jm-multilabel-evaluator = {version = "*", source = "gitlab"}
 # jmwandb = {version = "*", source = "gitlab"}
 
 [tool.poetry.group.notebook]
@@ -146,11 +160,13 @@ optional = true
 [tool.poetry.group.test.dependencies]
 coverage = ">= 7.2.7"
 # molecule = "~=5.1.0"
-pytest = "^7.2.0"
-pytest-cov = "^4.1.0"
-pytest-dependency = "^0.5.1"
-pytest-asyncio = "^0.21.0"
-pytest-order = "^1.0.1"
+pytest = ">=7.2.0" # ">=8.3.3,<9.0.0"
+pytest-cov = ">=6.0.0"
+# pytest-env = ">=1.1.5"
+# pytest-mock = ">=3.14.0"
+pytest-dependency = ">=0.5.1"
+pytest-asyncio = ">=0.21.0"
+pytest-order = ">=1.0.1"
 pytest-testinfra = ">=10.1.1"
 nox = ">=2023.4.22"
 tox = ">=3.27.1"
@@ -184,9 +200,9 @@ cyclonedx-bom = ">=4.5.0"
 # awscli-plugin-endpoint = ">=0.4"
 
 # [tool.poetry.dev-dependencies]
-[tool.poetry.group.extras]
+[tool.poetry.group.extra]
 optional = true
-[tool.poetry.group.extras.dependencies]
+[tool.poetry.group.extra.dependencies]
 ansible-core = ">=2.16.8"
 # ansible-cmdb = "~=1.31"
 # ansible-lint = {extras = ["yamllint"], version = "~=6.17.2"}
@@ -199,8 +215,8 @@ colorama = ">=0.4.6"
 httpx = {version = ">=0.23.3"}
 git-url-parse = ">=1.2.2"
 gitpython = ">=3.1.29"
-# numpy = ">=2.0.0" # conficit possible with jm-multilabel-evaluator
-pre-commit = ">=3.7.1"
+numpy = ">=1.19.3,<2" # conflict possible with jm-multilabel-evaluator, TODO >=2.2.3
+pre-commit = ">=3.7.1" # 4.0.1
 pre-commit-hooks = ">=4.4.0"
 pip-upgrader = ">=1.4.15"
 python-keystoneclient = ">=0.0.18"
@@ -291,8 +307,8 @@ line-length = 88
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
-# Assume Python 3.8
-target-version = "py310"
+# Assume Python 3.12.3
+target-version = "py312"
 
 [tool.isort]
 multi_line_output = 3
@@ -319,19 +335,3 @@ verify_ssl = true
 [build-system]
 requires = ["poetry-core>=1.2.0"]
 build-backend = "poetry.core.masonry.api"
-
-[project]
-name = "fastapi-sample"
-version = "1.1.0"
-description = "Fastapi sample"
-authors = [
-    {name = "Andrieu, Alban", email = "alban.andrieu@free.fr"},
-]
-#dependencies = ["ansible-cmdb==1.31", "ansible-core>=2.11.6", "ansible-lint==5.0.8", "ansicolors==1.1.8", "cfgv==3.3.0", "chardet>=3.0.4", "click>=7.1.1", "click-completion>=0.5.2", "colorama>=0.4.3", "filemagic==1.6", "git-url-parse>=1.2.2", "gitpython>=3.1.1", "jira>=3.8.0", "podmena>=0.4.2", "pyyaml>=5.1", "six>=1.14.0", "termcolor>=1.1.0"]
-dependencies = ["dynamic"]
-requires-python = ">=3.8"
-readme = "README.md"
-license = {text = "MIT"}
-
-#[virtualenvs]
-#in-project = true

@@ -33,7 +33,7 @@ from nabla.utils.prometheus import PrometheusMiddleware, setting_otlp
 
 APP_NAME = os.environ.get("APP_NAME", "fastapi-sample")
 APP_PREFIX_VERSION = os.environ.get("APP_PREFIX_VERSION", "v0")
-APP_VERSION = os.environ.get("APP_VERSION", "1.0.6")
+APP_VERSION = os.environ.get("APP_VERSION", "1.1.0")
 
 DD_AGENT_HOST = os.environ.get("DD_AGENT_HOST", "127.0.0.1")
 DD_TRACE_AGENT_PORT = os.environ.get("DD_TRACE_AGENT_PORT", "8126")

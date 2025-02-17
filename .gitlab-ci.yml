@@ -11,31 +11,31 @@ stages:
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-next
+    ref: main
     file: "/templates/default.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-next
+    ref: main
     file: "/templates/docker-build.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-next
+    ref: main
     file: "/templates/deploy-nomad.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-next
+    ref: main
     file: "/templates/test-python.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-next
+    ref: main
     file: "/templates/_apk.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-next
+    ref: main
     file: "/templates/data.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-next
+    ref: main
     file: "/templates/mega-linter.gitlab-ci.yml"
 
   - component: $CI_SERVER_FQDN/to-be-continuous/semantic-release/gitlab-ci-semrel@3.11.2
@@ -76,11 +76,10 @@ include:
 #     on_job_failure: all
 
 variables:
-  CI_IMAGE_PYTHON: python:3.10
+  CI_IMAGE_PYTHON: python:3.12
   CI_REGISTRY: registry.gitlab.com
   OCI_REGISTRY: ${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}
   TYPE_TRAINING: ""
-  DOCKER_BUILD_OPT: " -f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN "
   # MOUNT_POINT: "/builds/$CI_PROJECT_PATH/mnt"
   CONTAINER_IMAGE: "$CI_REGISTRY_IMAGE/main-image:latest"
   DEFAULT_POETRY_OPT_GROUPS: "test,open_telemetry,api,test"
@@ -91,7 +90,7 @@ variables:
   GIT_DEPTH: "3"
   # GITLAB_TOKEN: ${CI_JOB_TOKEN}
   FLAVOR: "-python" # -ci_light
-  TRIVY_VERSION: "0.58.1"
+  # TRIVY_VERSION: "0.59.1"
   TRIVY_SCANNERS: "vuln,misconfig,secret,license"
   CS_SEVERITY_THRESHOLD: "CRITICAL"
   CS_SEVERITY_FILESYTEM_THRESHOLD: "CRITICAL" # CRITICAL,HIGH
@@ -106,6 +105,8 @@ variables:
   DD_PRODUCT_TYPE_NAME: "Showcase Alban" # "Research and Development"
   DD_URL_UAT: "http://defectdojo.service.gra.uat.consul" # 10.30.0.141
   DD_TEST_NAME: "JM Trivy"
+  DD_GIT_REPOSITORY_URL: "$(git config --get remote.origin.url)" # NOK
+  DD_GIT_COMMIT_SHA: "$(git rev-parse HEAD)" # NOK
   # DD_FILE_NAME: "trivy.json"
   DD_MINIMUM_SEVERITY: "MEDIUM"
   # DD_GROUP_BY: ""
@@ -113,6 +114,8 @@ variables:
   DD_CLOSE_OLD_FINDINGS_PRODUCT_SCOPE: "True"
   DD_DO_NOT_REACTIVATE: "False"
   DD_BRANCH_TAG: "${CI_COMMIT_TAG}" # CI_COMMIT_BRANCH CI_IMAGE_TAG
+  # DOCKER_BUILD_OPT: " -f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN --build-arg DD_GIT_REPOSITORY_URL=${DD_GIT_REPOSITORY_URL} --build-arg DD_GIT_COMMIT_SHA=${DD_GIT_COMMIT_SHA}"
+  DOCKER_BUILD_OPT: " -f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN"
   CLOC_SOURCE: "nabla"
   # RUNNER_GENERATE_ARTIFACTS_METADATA: "true"
   # FF_NETWORK_PER_BUILD: "true" # enable network per build so all services can communicate on the same network
@@ -127,8 +130,7 @@ variables:
   DEFAULT_POETRY_OPT_GROUPS: "format,test,extras,open_telemetry,deployment,influxdb,panda"
   DEPENDENCY_UPDATES_DISABLED: false
   # GIT_CLONE_PATH: '$CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_PIPELINE_ID'
-  GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_PROJECT_PATH
-  # GIT_CLONE_PATH: '$CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_PIPELINE_ID'
+  # GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_PROJECT_PATH
   MEGALINTER_EXIT_ON_FAILURE: 1
   # LINTER_RULES_PATH: .
 
@@ -257,6 +259,7 @@ docker-build:
     # CONTAINER_SCANNING_GITLAB_CODEQUALITY_TEMPLATE_DISABLE: "true"
     TRIVY_TIMEOUT: "20m0s"
     TRIVY_ARGS: "--debug --skip-dirs .direnv --skip-dirs .venv --skip-dirs code/.venv --skip-dirs code/.venv/lib/python3.10/site-packages/ --skip-files /code/fastapi-sample/pyproject.toml --skip-files /code/fastapi-sample/Pipfile --skip-files /code/fastapi-sample/pip.conf --skip-files code/fastapi-sample/Dockerfile.train_neuralcoref"
+    # TRIVY_GLOBAL_SETTINGS: --no-progress --cache-dir=${TRIVY_CACHE_DIR} --skip-db-update --skip-java-db-update --skip-check-update
     # TRIVY_EXIT_ON_FAILURE: 0
   before_script:
     - !reference [.env-definition, script]
@@ -269,20 +272,6 @@ docker-build:
     - !reference [.build-image-dockefile, script]
     - echo -e "\e[35mImage generated\e[0m."
     - echo -e "\e[35mOCI_IMAGE=${OCI_IMAGE}\e[0m."
-  # after_script:
-  #   - !reference [.env-definition, script]
-  #   - echo -e "\e[35mOCI_IMAGE_TAG = ${OCI_IMAGE_TAG}\e[0m."
-  #   - echo -e "\e[35mCI_COMMIT_TAG = ${CI_COMMIT_TAG}\e[0m."
-  #   - echo -e "\e[35mTRIVY_OCI=${TRIVY_OCI}\e[0m."
-  #   - !reference [.oci-image, script]
-  #   - echo -e "\e[35mOCI_IMAGE = ${APP_IMAGE}:${OCI_IMAGE_TAG}\e[0m."
-  #   - export TRIVY_OCI="${OCI_REGISTRY}/${OCI_IMAGE}"
-  #   - echo -e "\e[35mOCI_IMAGE=${OCI_IMAGE}\e[0m."
-  #   - echo -e "\e[35mTRIVY_OCI=${TRIVY_OCI}\e[0m."
-  #   - !reference [.scan-reports, script]
-  #   - !reference [.combine-reports, script]
-  #   - !reference [.login-gitlab-docker, script]
-  #   - !reference [.common-docker-release, script]
 
 code_quality:
   extends: .code_quality
