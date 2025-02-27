@@ -1,6 +1,7 @@
 import time
 
 import pyroscope
+from ddtrace import tracer
 from fastapi import APIRouter
 
 from nabla.utils.logger import logger
@@ -16,6 +17,7 @@ async def pong():
 
 
 @router.get("/io_task")
+@tracer.wrap(service="ping_io_task_helper")
 async def io_task():
     time.sleep(1)
     logger.error("io task")
