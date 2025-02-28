@@ -4,18 +4,19 @@ import random
 from typing import Optional
 
 import requests
+from ddtrace import tracer
 from fastapi import APIRouter, HTTPException, status
 from opentelemetry import trace
 from opentelemetry.trace.status import Status, StatusCode
 from starlette.responses import JSONResponse
 
 from nabla.dd.dd_api_exporter import get_products
-from nabla.utils.logger import logger
 from nabla.metrics.prometheus import (
     API_REQUEST_COUNTER,
     API_REQUEST_SUMMARY,
     ERROR_COUNT,
 )
+from nabla.utils.logger import logger
 from nabla.utils.misc import timed_operation
 
 # logger = logging.getLogger(__name__)
@@ -32,6 +33,12 @@ HTTPBIN_URL = os.environ.get("HTTPBIN_URL", "https://httpbin.org")
 API_GATEWAY_URL = os.environ.get(
     "API_GATEWAY_URL", "https://krakend.service.gra.dev.consul"
 )
+
+QUOTES = [
+    "Strive not to be a success, but rather to be of value. - Albert Einstein",
+    "Believe you can and you're halfway there. - Theodore Roosevelt",
+    "The future belongs to those who believe in the beauty of their dreams. - Eleanor Roosevelt",
+]
 
 router = APIRouter(prefix="/v1")
 
@@ -224,6 +231,13 @@ async def gateway_assistant():
                 "Test gateway service assistant"
             )  # [logging-fstring-interpolation]
 
+            with tracer.trace(
+                name="assistant_helper",
+                service="assistant_helper",
+                resource="another_process",
+            ) as span:
+                print(pong())
+
             url = f"{API_GATEWAY_URL}/threads"
             response = requests.request("GET", url, verify=False, timeout=1)
 
@@ -252,6 +266,14 @@ async def gateway_assistant():
 
 
 @router.get("/ping")
+async def ping():
+    with tracer.trace("get_quote") as span:
+        quote = random.choice(QUOTES) + "\n"  # noqa: S311
+        span.set_tag("quote", quote)
+        return quote
+
+
+@router.get("/pong")
 async def pong():
     """
     Healthcheck endpoint.

@@ -185,8 +185,8 @@ ruff = ">=0.5.1"
 optional = true
 [tool.poetry.group.ci.dependencies]
 # autopep8 = "~=2.0.0"
-bandit = ">=1.7.5"
-checkov = ">=2.3.115"
+bandit = ">=1.8.3"
+checkov = ">=3.2.372"
 #selenium = "~=4.6.0"
 semgrep = ">=1.15.0"
 sphinx = ">=7.1.2"
@@ -224,7 +224,7 @@ readme-renderer = {version = ">=43.0", extras = ["md"]}
 sqlfluff = ">=3.1.0"
 setup-cfg-fmt = ">=2.2.0"
 setuptools = ">=70.0.0"
-termcolor = ">=2.4.0"
+termcolor = ">=1.1.0" # >=2.4.0
 wheel = ">=0.42.0"
 
 [tool.setuptools-pipfile]
