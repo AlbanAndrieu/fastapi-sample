@@ -106,16 +106,6 @@ job "fastapi-sample" {
       port "server" {
         to     = 8080
       }
-
-      port "locust" {
-        to     = 8089
-        static = 8089
-      }
-
-      port "locust-exporter" {
-        to     = 9646
-        # static = 9646
-      }
     }
 
     // volume "nabla" {
@@ -159,6 +149,8 @@ job "fastapi-sample" {
         DD_GIT_COMMIT_SHA = "[[ .CI_COMMIT_SHA ]]"
         DD_GIT_REPOSITORY_URL = "git@gitlab.com:jusmundi-group/proof-of-concept/fastapi-sample.git"
         DD_TRACE_SAMPLING_RULES = "[{\"service\":\"fastapi-sample\",\"resource\":\"GET /metrics\",\"sample_rate\":0.01},{\"service\":\"fastapi-sample\",\"resource\":\"GET /health\",\"sample_rate\":0.01},{\"service\":\"fastapi-sample\",\"resource\":\"GET /v1/ping\",\"sample_rate\":0.01},{\"service\":\"fastapi-sample\",\"resource\":\"GET /v2/ping\",\"sample_rate\":0.01},{\"service\":\"fastapi-sample\",\"resource\":\"GET /ping\",\"sample_rate\":0.01},{\"service\":\"fastapi-sample\",\"resource\":\"GET /cpu_task\",\"sample_rate\":1},{\"service\":\"fastapi-sample\",\"resource\":\"POST /io_task\",\"sample_rate\":1}]"
+        DD_AGENT_HOST=datadog-agent.service.gra.uat.consul
+        DD_TRACE_AGENT_PORT=8126
       }
 
       vault {
@@ -333,126 +325,6 @@ EOF
         memory = 100 # MB
       }
     } # task fastapi-sample
-
-    task "fastapi-sample-locust" {
-      driver = "docker"
-      config {
-        image = "[[ .CONTAINER_IMAGE ]]"
-        # image = "locustio/locust"
-
-        image_pull_timeout = "25m"
-        ports = ["locust"]
-
-        command = "python"
-        args = [
-            "/code/.venv/bin/locust",
-            "-f",
-            // "nabla/perf/locustfile.py",
-            "nabla/perf/locustfile_jm.py",
-            //"--master",
-            //"-H",
-            //"http://fastapi-sample-locust.service.gra.${var.env}.consul:8089",
-            //"--env targetHost="https://jm-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/en",
-            //"--headless",
-            "--autostart",
-            "--host",
-            "http://0.0.0.0:8091/v1/internal-api",
-            "--users",
-            "5",
-            // "-c","1000",
-            // "-r","100",
-            "--processes","4",
-            "--run-time","1h30m",
-        ]
-
-        # shm_size = 536870912 # 512MB
-      }
-
-      vault {
-        policies  = ["cicd"]
-      }
-
-      service {
-        name = "fastapi-sample-locust"
-        port = "locust"
-
-        tags = [
-          "traefik.enable=true",
-          "traefik.http.routers.fastapi-sample-locust.entrypoints=http",
-          "traefik.http.routers.fastapi-sample-locust.rule=Host(`fastapi-sample-locust.service.gra.${var.env}.consul`)",
-        ]
-
-        # check {
-        #   name     = "server-prometheus"
-        #   port     = "locust"
-        #   type     = "http"
-        #   path     = "/metrics"
-        #   interval = "5m"
-        #   timeout  = "20m"
-        # }
-
-      } # service locust
-
-      resources {
-        cpu    = var.env == "dev" ? "100" : "200" # MHz
-        memory = var.env == "dev" ? "400" : "500" # MB 5Gb minimum
-      }
-    } # task fastapi-sample-locust
-
-    task "fastapi-sample-locust-exporter" {
-      driver = "docker"
-      config {
-        image = "containersol/locust_exporter"
-        image_pull_timeout = "25m"
-        ports = ["locust-exporter"]
-        # force_pull = true
-
-        # network_mode = "host"
-
-        # command = "python"
-        #args = [
-        #     "--locust.uri",
-        #    "http://fastapi-sample-locust.service.gra.${var.env}.consul:8089",
-        #]
-
-
-        # shm_size = 536870912 # 512MB
-      }
-
-      vault {
-        policies  = ["cicd"]
-      }
-
-      env {
-        LOCUST_EXPORTER_URI = "http://fastapi-sample-locust.service.gra.${var.env}.consul:8089"
-      }
-
-      service {
-        name = "fastapi-sample-locust-exporter"
-        port = "locust-exporter"
-
-        tags = [
-          "traefik.enable=true",
-          "traefik.http.routers.fastapi-sample-locust-exporter.entrypoints=http",
-          "traefik.http.routers.fastapi-sample-locust-exporter.rule=Host(`fastapi-sample-locust-exporter.service.gra.${var.env}.consul`)",
-        ]
-
-        # check {
-        #   name     = "server-prometheus"
-        #   port     = "locust-exporter"
-        #   type     = "http"
-        #   path     = "/metrics"
-        #   interval = "5m"
-        #   timeout  = "20m"
-        # }
-
-      } # service locust-exporter
-
-      resources {
-        cpu    = var.env == "dev" ? "100" : "200" # MHz
-        memory = var.env == "dev" ? "400" : "500" # MB 5Gb minimum
-      }
-    } # task fastapi-sample-locust-exporter
 
   } # group fastapi-sample
 

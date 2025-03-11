@@ -144,7 +144,7 @@ RUN --mount=type=secret,id=read-package-token,uid=999,target=/code/jm-python/.co
 # dockerfile_lint - ignore
 # hadolint ignore=DL3007
 # `development` image is used during development / testing
-FROM python-base as development
+FROM python-base AS development
 ENV FASTAPI_ENV=development
 
 WORKDIR $PYSETUP_PATH

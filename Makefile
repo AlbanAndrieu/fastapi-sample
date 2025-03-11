@@ -22,7 +22,7 @@ IMAGE := $(OCI_IMAGE):$(OCI_TAG)
 TRIVY_VULN_TYPE = "os,library"
 TRIVY_SECURITY_CHECKS = "vuln,config,secret"
 TRIVY_GLOBAL_SECURITY_CHECKS = --security-checks ${TRIVY_SECURITY_CHECKS} --vuln-type ${TRIVY_VULN_TYPE}
-TRIVY_ARGS = --skip-dirs .direnv --skip-dirs .venv --skip-dirs ./node_modules --skip-dirs /usr/local/lib/python3.8/dist-packages/ansible/galaxy/ --skip-dirs /home/ubuntu/.local/lib/python3.8/site-packages/awscli/ --skip-dirs /home/ubuntu/.local/share/virtualenvs/ --skip-dirs /home/ubuntu/.local/lib/python3.8/site-packages/rsa/ --skip-dirs /home/ubuntu/.local/lib/python3.8/site-packages/botocore/data/ --skip-dirs /usr/lib/node_modules/ --skip-files /usr/local/bin/container-structure-test
+TRIVY_ARGS = --skip-dirs .direnv --skip-dirs .venv --skip-dirs ./node_modules --skip-dirs /usr/local/lib/python3.12/dist-packages/ansible/galaxy/ --skip-dirs /home/ubuntu/.local/lib/python3.12/site-packages/awscli/ --skip-dirs /home/ubuntu/.local/share/virtualenvs/ --skip-dirs /home/ubuntu/.local/lib/python3.12/site-packages/rsa/ --skip-dirs /home/ubuntu/.local/lib/python3.12/site-packages/botocore/data/ --skip-dirs /usr/lib/node_modules/ --skip-files /usr/local/bin/container-structure-test
 CS_SEVERITY_REPORT_THRESHOLD = "HIGH,CRITICAL"
 
 # You can set these variables from the command line, and also
@@ -170,15 +170,15 @@ up-uvicorn:
 	.venv/bin/uvicorn serve:app --reload --workers 1 --host 0.0.0.0 --port $(PORT)
 
 ## —— Up Python ✅g🦄 —————————————————————————————————————————————————————————————————
-.PHONY: up-guvicorn
-up-guvicorn:
+.PHONY: up-gunicorn
+up-gunicorn:
 	@echo "up gunicorn http://0.0.0.0:$(PORT)/v1/ping"
 	@echo ".venv/bin/gunicorn nabla.main:app --reload --workers 1 -k uvicorn_worker.UvicornWorker --bind 0.0.0.0:$(PORT) --logger-class=nabla.utils.log_config.JMGunicornLogger"
 	.venv/bin/gunicorn main:app --reload --workers 1 -k uvicorn_worker.UvicornWorker --bind 0.0.0.0:$(PORT) --logger-class=nabla.utils.log_config.JMGunicornLogger --log-level info --access-logfile -
 
 ## —— Up ✅ —————————————————————————————————————————————————————————————————
 .PHONY: up
-up: up-guvicorn # Serve up (guvicorn)
+up: up-gunicorn # Serve up (gunicorn)
 
 .PHONY: down
 down:
@@ -194,12 +194,14 @@ doc: ## Documentation
 	@sphinx-build ./docs/source _build --color -W -bhtml
 
 ## —— Lint 🧪 —————————————————————————————————————————————————————————————————
-.PHONY: flake8
-flake8: ## Linter flake8
+.PHONY: ruff
+ruff: ## Linter ruff
 	@echo "=> Linter flake8..."
-	flake8 ./hooks/ tests  --config .flake8 --count --exit-zero --max-line-length=88 --max-complexity=12 --statistics
-	@echo "=> Linter black..."
-	@pipenv run black .
+	flake8 ./nabla/ tests  --config .flake8 --count --exit-zero --max-line-length=88 --max-complexity=12 --statistics
+	# @echo "=> Linter black..."
+	# @pipenv run black .
+	@echo "=> Linter ruff..."
+	@ruff format
 
 ## —— Debug 📜🐳 —————————————————————————————————————————————————————————————————
 .PHONY: debug
@@ -255,7 +257,7 @@ test-semgrep:
 .PHONY: test-nox
 test-nox:
 	@echo "=> Testing python..."
-	@echo "=> python -m pytest --cov=hooks --cov-fail-under=70"
+	@echo "=> python -m pytest --cov=nabla --cov-fail-under=70"
 	nox
 
 ## —— Tests Tox 🧪 —————————————————————————————————————————————————————————————————
