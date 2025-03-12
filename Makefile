@@ -129,9 +129,8 @@ build-docker-train:  ## Build train container with docker
 build-docker:  ## Build container with docker
 	@echo "=> Building image..."
 	# envsubst '$${CI_PIP_GITLABNABLA_TOKEN}' < etc/pip.conf > pip.conf
-	# --secret id=pip.conf,src=pip.conf
 	# @echo "docker build --build-arg CI_PIP_GITLABJUSMUNDI_TOKEN=$${CI_PIP_GITLABJUSMUNDI_TOKEN} -t $(IMAGE) ."
-	docker build --secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN -t $(IMAGE) .
+	docker build --secret id=CI_JOB_TOKEN,env=CI_PIP_GITLABJUSMUNDI_TOKEN -t $(IMAGE) .
 
 ## —— Buildah Docker 🐶🐳 ————————————————————————————————————————————————————————————————
 .PHONY: build-buildah-docker

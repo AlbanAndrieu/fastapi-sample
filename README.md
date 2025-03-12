@@ -26,6 +26,7 @@ Fastapi sample
     + [Defect Dojo Parameters](#defect-dojo-parameters)
   * [Quality check](#quality-check)
   * [Utility scripts](#utility-scripts)
+  * [Installation and commands](#installation-and-commands-1)
   * [Update README.md](#update-readmemd)
 
 <!-- tocstop -->
@@ -96,7 +97,7 @@ python -m pipenv install --dev --ignore-pipfile
 use [poetry](https://python-poetry.org/docs/cli/)
 
 ```bash
-poetry config http-basic.gitlab package_read ${CI_PIP_GITLABJUSMUNDI_TOKEN}
+poetry config http-basic.gitlab-ds package_read ${CI_PIP_GITLABJUSMUNDI_TOKEN}
 # export POETRY_GITLAB_TOKEN_GITLAB=${GITLAB_FULL_PRIVATE_TOKEN}
 
 poetry install --no-dev # --dev-only
