@@ -149,8 +149,6 @@ job "fastapi-sample" {
         DD_GIT_COMMIT_SHA = "[[ .CI_COMMIT_SHA ]]"
         DD_GIT_REPOSITORY_URL = "git@gitlab.com:jusmundi-group/proof-of-concept/fastapi-sample.git"
         DD_TRACE_SAMPLING_RULES = "[{\"service\":\"fastapi-sample\",\"resource\":\"GET /metrics\",\"sample_rate\":0.01},{\"service\":\"fastapi-sample\",\"resource\":\"GET /health\",\"sample_rate\":0.01},{\"service\":\"fastapi-sample\",\"resource\":\"GET /v1/ping\",\"sample_rate\":0.01},{\"service\":\"fastapi-sample\",\"resource\":\"GET /v2/ping\",\"sample_rate\":0.01},{\"service\":\"fastapi-sample\",\"resource\":\"GET /ping\",\"sample_rate\":0.01},{\"service\":\"fastapi-sample\",\"resource\":\"GET /cpu_task\",\"sample_rate\":1},{\"service\":\"fastapi-sample\",\"resource\":\"POST /io_task\",\"sample_rate\":1}]"
-        DD_AGENT_HOST=datadog-agent.service.gra.uat.consul
-        DD_TRACE_AGENT_PORT=8126
       }
 
       vault {
@@ -161,9 +159,12 @@ job "fastapi-sample" {
 /*
       template {
         data        = <<EOF
-{{ with pkiCert "pki_int/issue/example-dot-com" "common_name=fastapi-sample.service.gra.dev.consul" }}
+{{ with pkiCert "pki_int/issue/example-dot-com" "common_name=fastapi-sample.service.gra.${var.env}.consul" }}
 {{ .Cert }}{{ .CA }}{{ .Key }}
 {{ end }}
+DD_AGENT_HOST=datadog-agent.service.gra.${var.env}.consul
+DD_TRACE_AGENT_PORT=8126
+# DD_TRACE_ENABLED=true
 EOF
         destination = "local/test.pem"
 
@@ -176,7 +177,7 @@ EOF
 /*
       template {
         data        = <<EOF
-{{ with pkiCert "pki_int/issue/example-dot-com" "common_name=fastapi-sample.service.gra.dev.consul" }}
+{{ with pkiCert "pki_int/issue/example-dot-com" "common_name=fastapi-sample.service.gra.${var.env}.consul" }}
 {{ .Cert }}{{ .CA }}{{ .Key }}
 {{ .Key | writeToFile "examples/my-app.key" "root" "root" "0400" }}
 {{ .CA | writeToFile "examples/ca.crt" "root" "root" "0644" }}
@@ -191,14 +192,14 @@ EOF
 */
 
 # https://support.hashicorp.com/hc/en-us/articles/15712419079315-Templates-Using-nomad-attributes-when-creating-PKI-certificates-with-Vault
-# {{ with secret "pki/issuer/d4d8fe33-4446-ea83-ff48-47832a7e6784/issue/test-example-dot-com" "common_name=fastapi-sample.service.gra.dev.consul" "ip_sans=127.0.0.1" "format=pem" }}
+# {{ with secret "pki/issuer/d4d8fe33-4446-ea83-ff48-47832a7e6784/issue/test-example-dot-com" "common_name=fastapi-sample.service.gra.${var.env}.consul" "ip_sans=127.0.0.1" "format=pem" }}
 # write pki_int/issue/example-dot-com common_name=fastapi-sample.service.gra.dev.consul
 # See https://github.com/hashicorp/nomad/issues/19380
 
 /*
       template {
 data = <<EOF
-{{ with secret "pki_int/issue/example-dot-com" "common_name=fastapi-sample.service.gra.dev.consul" }}
+{{ with secret "pki_int/issue/example-dot-com" "common_name=fastapi-sample.service.gra.${var.env}.consul" }}
 {{ .Data.certificate }}
 {{ .Data.issuing_ca }}
 {{ .Data.private_key }}{{ end }}
