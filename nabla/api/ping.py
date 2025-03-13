@@ -1,7 +1,7 @@
 import time
 
 import pyroscope
-from ddtrace import tracer
+from ddtrace.trace import tracer
 from fastapi import APIRouter
 
 from nabla.utils.logger import logger

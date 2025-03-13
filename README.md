@@ -50,11 +50,6 @@ nvm install lts/iron
 
 ## [Requirements](#table-of-contents)
 
-  This hooks requires the following to run:
-
-<!-- markdown-link-check-disable-next-line -->
-  * [jira](https://pypi.org/project/jira/)
-
 See requirements.txt for mandatory packages.
 
   This pre-commit hooks requires the following to run:
@@ -66,12 +61,6 @@ See requirements.txt for mandatory packages.
 
 ### Using virtualenv
 
-Install python 3.10 and virtualenv
-
-```bash
-virtualenv --no-site-packages /opt/ansible/env38 -p python3.10
-source /opt/ansible/env38/bin/activate
-```
 
 Install python 3.10 and pyenv
 
