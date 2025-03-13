@@ -111,21 +111,6 @@ config.fastapi["service_name"] = APP_NAME
 #    port=DD_TRACE_AGENT_PORT,
 # )
 
-# Unix domain socket configuration
-# tracer.configure(
-#    uds_path="/var/run/datadog/apm.socket",
-# )
-
-# Network socket
-# tracer.configure(
-#    dogstatsd_url="udp://127.0.0.1:8125",
-# )
-
-# Unix domain socket configuration
-tracer.configure(
-    dogstatsd_url="unix:///var/run/datadog/dsd.socket",
-)
-
 app = FastAPI(
     title=APP_NAME + " " + APP_PREFIX_VERSION,
     description="FastAPI Sample for demo",
