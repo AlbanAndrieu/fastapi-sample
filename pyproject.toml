@@ -32,8 +32,8 @@ packages = [
 ]
 
 [[tool.poetry.source]]
-name = "gitlab"
-# poetry config http-basic.gitlab __token__ ${GITLAB_FULL_PRIVATE_TOKEN}
+name = "gitlab-ds"
+# poetry config http-basic.gitlab-ds __token__ ${GITLAB_FULL_PRIVATE_TOKEN}
 # export POETRY_GITLAB_TOKEN_GITLAB=${GITLAB_FULL_PRIVATE_TOKEN}
 url = "https://gitlab.com/api/v4/groups/7364654/-/packages/pypi/simple"
 priority = "explicit"

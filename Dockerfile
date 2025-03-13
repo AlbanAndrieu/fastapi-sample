@@ -32,6 +32,8 @@ ARG DD_GIT_COMMIT_SHA
 ENV DD_GIT_REPOSITORY_URL=${DD_GIT_REPOSITORY_URL}
 ENV DD_GIT_COMMIT_SHA=${DD_GIT_COMMIT_SHA}
 
+ARG GITLAB_PIP_USER="gitlab-ci-token"
+
 # Enable retry logic for apt up to 10 times
 # Configure apt to always assume Y
 # kics-scan ignore-line
@@ -102,7 +104,6 @@ ENV PATH="$PATH:$VENV_PATH:${POETRY_HOME}/bin"
 
 # copy project requirement files here to ensure they will be cached.
 WORKDIR ${PYSETUP_PATH}
-# WORKDIR /code
 
 # hadolint ignore=DL3008
 #RUN apt-get update && \
@@ -119,9 +120,6 @@ RUN python3 -m venv "${POETRY_HOME}" \
     && "${POETRY_HOME}/bin/pip" install poetry=="${POETRY_VERSION}" \
     && "${POETRY_HOME}/bin/poetry" --version
 
-# hadolint ignore=DL3013, DL3042
-# RUN python -m pip install --no-cache-dir --upgrade pip==25.0.1
-
 USER jm-python
 
 COPY --chown=jm-python:jm-python pyproject.toml poetry.lock ${PYSETUP_PATH}/
@@ -132,9 +130,8 @@ ENV PATH=$PYSETUP_PATH/.local/bin/:${PATH}
 
 USER jm-python
 
-# hadolint ignore=SC2086,SC2046
-RUN --mount=type=secret,id=read-package-token,uid=999,target=/code/jm-python/.config/pypoetry/read-package-token \
-  "${POETRY_HOME}/bin/poetry" config http-basic.gitlab package_read "$(cat /code/jm-python/.config/pypoetry/read-package-token)" &&\
+RUN --mount=type=secret,id=CI_JOB_TOKEN,uid=999,target=/code/jm-python/.config/pypoetry/CI_JOB_TOKEN \
+  "${POETRY_HOME}/bin/poetry" config http-basic.gitlab-ds package_read "$(cat /code/jm-python/.config/pypoetry/CI_JOB_TOKEN)" &&\
   "${POETRY_HOME}/bin/poetry" install --no-root --with format,test,api,extra,open_telemetry,deployment,influxdb,panda,temporal  &&\
   rm -rf /code/.config/pypoetry/
 

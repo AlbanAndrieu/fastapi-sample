@@ -26,6 +26,7 @@ Fastapi sample
     + [Defect Dojo Parameters](#defect-dojo-parameters)
   * [Quality check](#quality-check)
   * [Utility scripts](#utility-scripts)
+  * [Installation and commands](#installation-and-commands-1)
   * [Update README.md](#update-readmemd)
 
 <!-- tocstop -->
@@ -49,11 +50,6 @@ nvm install lts/iron
 
 ## [Requirements](#table-of-contents)
 
-  This hooks requires the following to run:
-
-<!-- markdown-link-check-disable-next-line -->
-  * [jira](https://pypi.org/project/jira/)
-
 See requirements.txt for mandatory packages.
 
   This pre-commit hooks requires the following to run:
@@ -65,12 +61,6 @@ See requirements.txt for mandatory packages.
 
 ### Using virtualenv
 
-Install python 3.10 and virtualenv
-
-```bash
-virtualenv --no-site-packages /opt/ansible/env38 -p python3.10
-source /opt/ansible/env38/bin/activate
-```
 
 Install python 3.10 and pyenv
 
@@ -96,7 +86,7 @@ python -m pipenv install --dev --ignore-pipfile
 use [poetry](https://python-poetry.org/docs/cli/)
 
 ```bash
-poetry config http-basic.gitlab package_read ${CI_PIP_GITLABJUSMUNDI_TOKEN}
+poetry config http-basic.gitlab-ds package_read ${CI_PIP_GITLABJUSMUNDI_TOKEN}
 # export POETRY_GITLAB_TOKEN_GITLAB=${GITLAB_FULL_PRIVATE_TOKEN}
 
 poetry install --no-dev # --dev-only
