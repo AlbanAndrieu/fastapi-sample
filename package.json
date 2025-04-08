@@ -30,6 +30,7 @@
     "prettier-fix": "prettier --write --ignore-unknown \"**/*.*\""
   },
   "dependencies": {
+    "@jusmundi-group/jus-shared-module": "^1.1.0",
     "@secretlint/secretlint-rule-preset-recommend": "^8.2.4",
     "cloc": "^2.0.0-cloc",
     "dd-trace": "^5.28.0",

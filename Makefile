@@ -117,26 +117,23 @@ fmt: ## Run formating
 	# ansible-lint --write ./
 	# ./hclfmt-all.sh
 
-## —— Docker Train 🐳🚂 ————————————————————————————————————————————————————————————————
-.PHONY: build-docker-train
-build-docker-train:  ## Build train container with docker
-	@echo "=> Building train image..."
-	envsubst '$${CI_PIP_GITLABNABLA_TOKEN}' < etc/pip.conf > pip.conf
-	docker build -t $(IMAGE) --build-arg CI_PIP_GITLABJUSMUNDI_TOKEN=$${CI_PIP_GITLABJUSMUNDI_TOKEN} -f Dockerfile.train .
+## —— Docker Builder 🐳🚂 ————————————————————————————————————————————————————————————————
+.PHONY: build-docker-builder
+build-docker-builder:  ## Build builder container with docker
+	@echo "=> Building builder image..."
+	docker build -t $(IMAGE) --target builder --secret id=CI_JOB_TOKEN,env=CI_PIP_GITLABJUSMUNDI_TOKEN --secret id=read-package-token,env=NPM_TOKEN --secret id=npmrc,src=$${HOME}/.npmrc --build-arg ENV=dev --build-arg NPM_TOKEN=$${NPM_TOKEN} --build-arg CI_PIP_GITLABJUSMUNDI_TOKEN=$${CI_PIP_GITLABJUSMUNDI_TOKEN} -f Dockerfile .
 
 ## —— Docker 🐳 ————————————————————————————————————————————————————————————————
 .PHONY: build-docker
 build-docker:  ## Build container with docker
 	@echo "=> Building image..."
-	# envsubst '$${CI_PIP_GITLABNABLA_TOKEN}' < etc/pip.conf > pip.conf
-	# @echo "docker build --build-arg CI_PIP_GITLABJUSMUNDI_TOKEN=$${CI_PIP_GITLABJUSMUNDI_TOKEN} -t $(IMAGE) ."
-	docker build --secret id=CI_JOB_TOKEN,env=CI_PIP_GITLABJUSMUNDI_TOKEN -t $(IMAGE) .
+	docker build --secret id=CI_JOB_TOKEN,env=CI_PIP_GITLABJUSMUNDI_TOKEN --secret id=read-package-token,env=NPM_TOKEN --build-arg ENV=dev -t $(IMAGE) .
 
 ## —— Buildah Docker 🐶🐳 ————————————————————————————————————————————————————————————————
 .PHONY: build-buildah-docker
 build-buildah-docker: ## Build container with buildah
 	@echo "=> Building image..."
-	buildah bud -t $(IMAGE) --build-arg CI_PIP_GITLABNABLA_TOKEN=$${CI_PIP_GITLABNABLA_TOKEN} .
+	buildah bud -t $(IMAGE) --build-arg CI_PIP_GITLABJUSMUNDI_TOKEN=$${CI_PIP_GITLABJUSMUNDI_TOKEN} .
 
 ## —— Buildah 🐶 ————————————————————————————————————————————————————————————————
 .PHONY: build-buildah
@@ -206,8 +203,8 @@ ruff: ## Linter ruff
 .PHONY: debug
 debug: ## Enter container
 	@echo "=> Debuging image..."
-	@echo "docker run -it -u 0 --entrypoint /bin/bash --env CI_PIP_GITLABNABLA_TOKEN=$${CI_PIP_GITLABNABLA_TOKEN} $(IMAGE)"
-	docker run -it --entrypoint /bin/bash --env CI_PIP_GITLABNABLA_TOKEN=$${CI_PIP_GITLABNABLA_TOKEN} $(IMAGE)
+	@echo "docker run -it -u 0 --entrypoint /bin/bash --env CI_PIP_GITLABJUSMUNDI_TOKEN=$${CI_PIP_GITLABJUSMUNDI_TOKEN} --env NPM_TOKEN=$${NPM_TOKEN} $(IMAGE)"
+	docker run -it --entrypoint /bin/bash --env CI_PIP_GITLABJUSMUNDI_TOKEN=$${CI_PIP_GITLABJUSMUNDI_TOKEN} --env NPM_TOKEN=$${NPM_TOKEN} $(IMAGE)
 
 ## —— Project 🐝🐳 ———————————————————————————————————————————————————————————————
 .PHONY: start

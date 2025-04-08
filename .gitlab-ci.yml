@@ -11,31 +11,31 @@ stages:
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-megalinter2
     file: "/templates/default.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-megalinter2
     file: "/templates/docker-build.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-megalinter2
     file: "/templates/deploy-nomad.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-megalinter2
     file: "/templates/test-python.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-megalinter2
     file: "/templates/_apk.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-megalinter2
     file: "/templates/data.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-megalinter2
     file: "/templates/mega-linter.gitlab-ci.yml"
 
   - component: $CI_SERVER_FQDN/to-be-continuous/semantic-release/gitlab-ci-semrel@3.11.2
@@ -113,8 +113,7 @@ variables:
   DD_CLOSE_OLD_FINDINGS_PRODUCT_SCOPE: "True"
   DD_DO_NOT_REACTIVATE: "False"
   DD_BRANCH_TAG: "${CI_COMMIT_TAG}" # CI_COMMIT_BRANCH CI_IMAGE_TAG
-  # DOCKER_BUILD_OPT: " -f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN --build-arg DD_GIT_REPOSITORY_URL=${DD_GIT_REPOSITORY_URL} --build-arg DD_GIT_COMMIT_SHA=${DD_GIT_COMMIT_SHA}"
-  DOCKER_BUILD_OPT: " -f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN"
+  # DOCKER_BUILD_OPT: " -f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN"
   CLOC_SOURCE: "nabla"
   # RUNNER_GENERATE_ARTIFACTS_METADATA: "true"
   # FF_NETWORK_PER_BUILD: "true" # enable network per build so all services can communicate on the same network
@@ -243,10 +242,39 @@ test-pytest:
     - !reference [.install-pipenv, script]
     - !reference [.pipenv-install, script]
 
+test-npm:
+  stage: test
+  tags:
+    - jusmundi-nomad-runner
+  script:
+    # - npm config set @scope:registry=https://gitlab.com/api/v4/groups/2454528/-/packages/npm/
+    - export NPM_TOKEN=$CI_JOB_TOKEN
+    - npm ci
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'main'
+      when: never
+    - if: $CI_COMMIT_BRANCH  =~ /^feature|fix|hotfix.*/
+    - if: $CI_PIPELINE_SOURCE =~ /trigger|pipeline/
+  coverage: '/All files[^|]*\|[^|]*\s+([\d\.]+)/'
+  artifacts:
+    when: always
+    paths:
+      - coverage/
+    reports:
+      junit:
+        - junit.xml
+
+
 mega_linter:
   extends: .mega_linter_common
   needs: ["test-pytest"]
   allow_failure: false
+
+.build-image-dockefile-pre: &build-image-dockefile-pre
+  script:
+    # --build-arg NPM_TOKEN=${CI_JOB_TOKEN}
+    - export DOCKER_BUILD_OPT="-f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --build-arg NPM_TOKEN=${CI_JOB_TOKEN} --build-arg ENV=${ENV}"
+    - echo -e "\e[35mOverriden on purpose as Sample docker build need explicit \e[0m FOR \e[43m${ENV} - ${DOCKER_BUILD_OPT}.\e[0m"
 
 docker-build:
   extends: .docker-build
@@ -269,6 +297,7 @@ docker-build:
     - pwd
     # - echo -e "\e[35mWe have files\e[0m."
     # - ls -lrta
+    - !reference [.build-image-dockefile-pre, script]
     - !reference [.build-image-dockefile, script]
     - echo -e "\e[35mImage generated\e[0m."
     - echo -e "\e[35mOCI_IMAGE=${OCI_IMAGE}\e[0m."

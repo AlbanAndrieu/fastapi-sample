@@ -29,3 +29,5 @@ licenses:
   - id: LGPL-2.1
   - id: LGPL-3.0
   - id: Sleepycat
+  - id: WTFPL
+    package: azu/style-format
