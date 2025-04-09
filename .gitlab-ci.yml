@@ -242,28 +242,35 @@ test-pytest:
     - !reference [.install-pipenv, script]
     - !reference [.pipenv-install, script]
 
+# See https://docs.gitlab.com/user/packages/npm_registry/?tab=%60npm+config%60#publish-a-package-with-a-cicd-pipeline
 test-npm:
   stage: test
+  needs: []
+  interruptible: true
+  allow_failure: false
   tags:
     - jusmundi-nomad-runner
   script:
     # - npm config set @scope:registry=https://gitlab.com/api/v4/groups/2454528/-/packages/npm/
-    - export NPM_TOKEN=$CI_JOB_TOKEN
+    # - export CI_JOB_TOKEN=$CI_JOB_TOKEN
+    # - npm config set '@jusmundi-group:registry=https://gitlab.com/api/v4/projects/60435718/packages/npm/'
+    # - npm config set '@jusmundi-group:registry=https://gitlab.com/api/v4/packages/npm/:_authToken='"${CI_JOB_TOKEN}"
+    - echo "@scope:registry=https://${CI_SERVER_HOST}/api/v4/projects/${CI_PROJECT_ID}/packages/npm/" > ~/.npmrc
+    - echo "@jusmundi-group:registry=https://gitlab.com/api/v4/packages/npm/" > ~/.npmrc
+    - echo "//${CI_SERVER_HOST}/api/v4/projects/${CI_PROJECT_ID}/packages/npm/:_authToken=${CI_JOB_TOKEN}" >> ~/.npmrc
+    - echo "//${CI_SERVER_HOST}/api/v4/packages/npm/:_authToken=${CI_JOB_TOKEN}" >> ~/.npmrc
+    - cat ~/.npmrc
     - npm ci
   rules:
-    - if: $CI_COMMIT_BRANCH == 'main'
+    - if: $CI_COMMIT_TAG =~ /^(prod|uat|dev)-/
       when: never
-    - if: $CI_COMMIT_BRANCH  =~ /^feature|fix|hotfix.*/
-    - if: $CI_PIPELINE_SOURCE =~ /trigger|pipeline/
-  coverage: '/All files[^|]*\|[^|]*\s+([\d\.]+)/'
-  artifacts:
-    when: always
-    paths:
-      - coverage/
-    reports:
-      junit:
-        - junit.xml
-
+    - if: $CI_COMMIT_TAG == null  # Ensure that the scanning is not executed on tags
+    - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH # Ensure that the scanning is not executed on main branch (too late)
+      when: never
+    - !reference [.dev-build-rules, rules]
+    - !reference [.uat-build-rules, rules]
+    - !reference [.gra1uat-build-rules, rules]
+    - !reference [.default_rules, rules]
 
 mega_linter:
   extends: .mega_linter_common
@@ -272,8 +279,7 @@ mega_linter:
 
 .build-image-dockefile-pre: &build-image-dockefile-pre
   script:
-    # --build-arg NPM_TOKEN=${CI_JOB_TOKEN}
-    - export DOCKER_BUILD_OPT="-f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --build-arg NPM_TOKEN=${CI_JOB_TOKEN} --build-arg ENV=${ENV}"
+    - export DOCKER_BUILD_OPT="-f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --build-arg ENV=${ENV}"
     - echo -e "\e[35mOverriden on purpose as Sample docker build need explicit \e[0m FOR \e[43m${ENV} - ${DOCKER_BUILD_OPT}.\e[0m"
 
 docker-build:
@@ -348,6 +354,20 @@ cml:
     - if: $CI_COMMIT_MESSAGE =~ /\w+\.ipynb/
       when: always
       allow_failure: true
+
+publish-npm:
+  stage: deploy
+  script:
+    - echo "@scope:registry=https://${CI_SERVER_HOST}/api/v4/projects/${CI_PROJECT_ID}/packages/npm/" > .npmrc
+    - echo "//${CI_SERVER_HOST}/api/v4/projects/${CI_PROJECT_ID}/packages/npm/:_authToken=${CI_JOB_TOKEN}" >> .npmrc
+    - npm publish
+  rules:
+    - !reference [.prod-build-rules, rules]
+    - if: '$CI_COMMIT_MESSAGE =~ /^.*(#dev|#uat|#team|#prod).*$/s'
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH  # Make CI NOT run on main branch
+      when: never
+  allow_failure: false
 
 deploy:dev:
   extends: .deploy:dev

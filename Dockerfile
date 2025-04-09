@@ -30,7 +30,6 @@ ENV DD_GIT_REPOSITORY_URL=${DD_GIT_REPOSITORY_URL}
 ENV DD_GIT_COMMIT_SHA=${DD_GIT_COMMIT_SHA}
 
 ARG GITLAB_PIP_USER="gitlab-ci-token"
-ARG NPM_TOKEN
 
 # Enable retry logic for apt up to 10 times
 # Configure apt to always assume Y
@@ -44,12 +43,9 @@ RUN echo "APT::Acquire::Retries \"10\";" > /etc/apt/apt.conf.d/80-retries \
 RUN apt-get update --fix-missing \
     && apt-get full-upgrade -y \
     && apt-get -y install --no-install-recommends build-essential \
-    locales tzdata curl && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# hadolint ignore=DL3008
-RUN apt-get update --fix-missing \
-    && apt-get -y install --no-install-recommends libpq-dev && \
+    libpq-dev \
+    locales tzdata curl \
+    nano vim && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # because of tzdata and the need of noninteractive
@@ -110,16 +106,22 @@ RUN curl -sL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - && \
     npm set progress=false && \
     npm config set depth 0 && \
     npm install -g npm@11.2.0 && apt-get purge -y npm
-RUN npm -v && command -v npm
+# RUN npm -v && command -v npm
 
 COPY --chown=jm-python:jm-python package.json package-lock.json .npmrc ${PYSETUP_PATH}/
 
 USER jm-python
 
-# npm config set '//gitlab.com/api/v4/packages/npm//:_authToken='"${NPM_TOKEN}" && \
-RUN --mount=type=secret,id=read-npm-token \
-  npm config set '//gitlab.com/api/v4/packages/npm//:_authToken='"$(cat /run/secrets/read-npm-token)" && \
-  npm install --legacy-peer-deps && npm cache clean --force
+# npm config set '//gitlab.com/api/v4/packages/npm/:_authToken='"${CI_JOB_TOKEN}" && \
+# echo -e "//gitlab.com/api/v4/packages/npm/:_authToken=${CI_JOB_TOKEN}" >> ~/.npmrc  && \
+# npm config set '//gitlab.com/api/v4/packages/npm/:_authToken='"$(cat /run/secrets/read-npm-token)" && \
+# RUN --mount=type=secret,id=read-npm-token \
+#   echo -e "//gitlab.com/api/v4/packages/npm/:_authToken=$(cat /code/CI_JOB_TOKEN)" >> ~/.npmrc  && \
+# hadolint ignore=SC3037
+RUN --mount=type=secret,id=read-npm-token,uid=999,target=/code/CI_JOB_TOKEN \
+  echo -e "'//gitlab.com/api/v4/packages/npm/:_authToken'=\"$(cat /code/CI_JOB_TOKEN)\"" >> ~/.npmrc && \
+  npm install && npm cache clean --force && \
+  rm -f ~/.npmrc # /code/CI_JOB_TOKEN
 
 USER root
 

@@ -118,16 +118,16 @@ fmt: ## Run formating
 	# ./hclfmt-all.sh
 
 ## —— Docker Builder 🐳🚂 ————————————————————————————————————————————————————————————————
-.PHONY: build-docker-builder
-build-docker-builder:  ## Build builder container with docker
+.PHONY: build-docker-base
+build-docker-base:  ## Build base container with docker
 	@echo "=> Building builder image..."
-	docker build -t $(IMAGE) --target builder --secret id=CI_JOB_TOKEN,env=CI_PIP_GITLABJUSMUNDI_TOKEN --secret id=read-package-token,env=NPM_TOKEN --secret id=npmrc,src=$${HOME}/.npmrc --build-arg ENV=dev --build-arg NPM_TOKEN=$${NPM_TOKEN} --build-arg CI_PIP_GITLABJUSMUNDI_TOKEN=$${CI_PIP_GITLABJUSMUNDI_TOKEN} -f Dockerfile .
+	docker build -t $(IMAGE) --target builder-base --secret id=CI_JOB_TOKEN,env=CI_PIP_GITLABJUSMUNDI_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --secret id=npmrc,src=$${HOME}/.npmrc --build-arg ENV=dev --build-arg CI_JOB_TOKEN=$${CI_JOB_TOKEN} --build-arg CI_PIP_GITLABJUSMUNDI_TOKEN=$${CI_PIP_GITLABJUSMUNDI_TOKEN} -f Dockerfile .
 
 ## —— Docker 🐳 ————————————————————————————————————————————————————————————————
 .PHONY: build-docker
 build-docker:  ## Build container with docker
 	@echo "=> Building image..."
-	docker build --secret id=CI_JOB_TOKEN,env=CI_PIP_GITLABJUSMUNDI_TOKEN --secret id=read-package-token,env=NPM_TOKEN --build-arg ENV=dev -t $(IMAGE) .
+	docker build --secret id=CI_JOB_TOKEN,env=CI_PIP_GITLABJUSMUNDI_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --build-arg ENV=dev -t $(IMAGE) .
 
 ## —— Buildah Docker 🐶🐳 ————————————————————————————————————————————————————————————————
 .PHONY: build-buildah-docker
@@ -203,8 +203,8 @@ ruff: ## Linter ruff
 .PHONY: debug
 debug: ## Enter container
 	@echo "=> Debuging image..."
-	@echo "docker run -it -u 0 --entrypoint /bin/bash --env CI_PIP_GITLABJUSMUNDI_TOKEN=$${CI_PIP_GITLABJUSMUNDI_TOKEN} --env NPM_TOKEN=$${NPM_TOKEN} $(IMAGE)"
-	docker run -it --entrypoint /bin/bash --env CI_PIP_GITLABJUSMUNDI_TOKEN=$${CI_PIP_GITLABJUSMUNDI_TOKEN} --env NPM_TOKEN=$${NPM_TOKEN} $(IMAGE)
+	@echo "docker run -it -u 0 --entrypoint /bin/bash --env CI_PIP_GITLABJUSMUNDI_TOKEN=$${CI_PIP_GITLABJUSMUNDI_TOKEN} --env CI_JOB_TOKEN=$${CI_JOB_TOKEN} $(IMAGE)"
+	docker run -it --entrypoint /bin/bash --env CI_PIP_GITLABJUSMUNDI_TOKEN=$${CI_PIP_GITLABJUSMUNDI_TOKEN} --env CI_JOB_TOKEN=$${CI_JOB_TOKEN} $(IMAGE)
 
 ## —— Project 🐝🐳 ———————————————————————————————————————————————————————————————
 .PHONY: start
