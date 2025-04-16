@@ -55,7 +55,7 @@ RUN ln -fs /usr/share/zoneinfo/${TZ} /etc/localtime && locale-gen en_US.UTF-8 \
     && dpkg-reconfigure --frontend noninteractive tzdata
 
 # Turns off buffering for easier container logging
-    # python
+# python
 ENV PYTHONUNBUFFERED=1 \
     # prevents python creating .pyc files
     PYTHONDONTWRITEBYTECODE=1 \
@@ -119,9 +119,9 @@ USER jm-python
 #   echo -e "//gitlab.com/api/v4/packages/npm/:_authToken=$(cat /code/CI_JOB_TOKEN)" >> ~/.npmrc  && \
 # hadolint ignore=SC3037
 RUN --mount=type=secret,id=read-npm-token,uid=999,target=/code/CI_JOB_TOKEN \
-  echo -e "'//gitlab.com/api/v4/packages/npm/:_authToken'=\"$(cat /code/CI_JOB_TOKEN)\"" >> ~/.npmrc && \
+  echo -e "'//gitlab.com/api/v4/packages/npm/:_authToken'=\"$(cat /code/CI_JOB_TOKEN)\"" >> ${PYSETUP_PATH}/.npmrc && \
   npm install && npm cache clean --force && \
-  rm -f ~/.npmrc # /code/CI_JOB_TOKEN
+  rm -f ~/.npmrc ${PYSETUP_PATH}/.npmrc
 
 USER root
 
@@ -179,14 +179,12 @@ USER jm-python
 # quicker install as runtime deps are already installed
 RUN poetry --no-root install --with api,extras,open_telemetry,deployment,temporal
 
-COPY --chown=jm-python:jm-python nabla/ "$PYSETUP_PATH/jm-python/nabla/"
-COPY --chown=jm-python:jm-python serve.py ""$PYSETUP_PATH/jm-python/"
+COPY --chown=jm-python:jm-python nabla/ "${PYSETUP_PATH}/jm-python/nabla/"
+COPY --chown=jm-python:jm-python serve.py ""${PYSETUP_PATH}/jm-python/"
 
-RUN mkdir -p "$PYSETUP_PATH/jm-python/var/"
+RUN mkdir -p "${PYSETUP_PATH}/jm-python/var/"
 
-# ENV PATH=$PYSETUP_PATH/.venv/bin/:${PATH}
-
-WORKDIR $PYSETUP_PATH/jm-python/
+WORKDIR ${PYSETUP_PATH}/jm-python/
 
 HEALTHCHECK CMD curl --fail http://localhost:8080/v1/ping || exit 1
 
@@ -217,14 +215,14 @@ RUN chown -R jm-python:jm-python /code
 
 USER jm-python
 
-COPY --from=builder-base "$PYSETUP_PATH" "$PYSETUP_PATH"
+COPY --from=builder-base "${PYSETUP_PATH}" "${PYSETUP_PATH}"
 
-COPY --chown=jm-python:jm-python nabla/ "$PYSETUP_PATH/jm-python/nabla/"
-COPY --chown=jm-python:jm-python main.py "$PYSETUP_PATH/jm-python/"
+COPY --chown=jm-python:jm-python nabla/ "${PYSETUP_PATH}/jm-python/nabla/"
+COPY --chown=jm-python:jm-python main.py "${PYSETUP_PATH}/jm-python/"
 
-# ENV PATH=$PYSETUP_PATH/.venv/bin/:${PATH}
+# ENV PATH=${PYSETUP_PATH}/.venv/bin/:${PATH}
 
-WORKDIR "$PYSETUP_PATH/jm-python/"
+WORKDIR "${PYSETUP_PATH}/jm-python/"
 
 HEALTHCHECK CMD curl --fail http://localhost:8080/v1/ping || exit 1
 
@@ -232,8 +230,6 @@ EXPOSE 8080
 
 # CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "serve:app", "--host", "0.0.0.0", "--port", "8080"]
 # CMD ["/code/.venv/bin/uvicorn", "--reload", "serve:app", "--host", "0.0.0.0", "--port", "8080"]
-
-# "ddtrace-run", \
 
 CMD [ \
     "ddtrace-run", \
