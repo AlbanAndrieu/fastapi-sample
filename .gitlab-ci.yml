@@ -214,6 +214,11 @@ lint-ruff:
   image: $CI_IMAGE
   interruptible: true
   allow_failure: true
+  rules:
+    - if: '$CI_COMMIT_MESSAGE =~ /^.*(#dev|#uat|#team|#prod).*$/s'
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH  # Make CI NOT run on main branch
+      when: never
 
 type-checker-pyright:
   extends: .type-checker-pyright
@@ -221,6 +226,11 @@ type-checker-pyright:
   image: $CI_IMAGE
   interruptible: true
   allow_failure: true
+  rules:
+    - if: '$CI_COMMIT_MESSAGE =~ /^.*(#dev|#uat|#team|#prod).*$/s'
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH  # Make CI NOT run on main branch
+      when: never
 
 test-pytest-poetry:
   extends: .test-pytest-poetry
@@ -228,6 +238,11 @@ test-pytest-poetry:
   variables:
     DEFAULT_COV_ARGS: "--cov-fail-under=1" # We need to increase the test coverage
   allow_failure: true
+  rules:
+    - if: '$CI_COMMIT_MESSAGE =~ /^.*(#dev|#uat|#team|#prod).*$/s'
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH  # Make CI NOT run on main branch
+      when: never
 
 test-pytest:
   extends: .test-pytest
@@ -245,8 +260,8 @@ test-pytest:
     - !reference [.pipenv-install, script]
 
 # See https://docs.gitlab.com/user/packages/npm_registry/?tab=%60npm+config%60#publish-a-package-with-a-cicd-pipeline
-test-install-npm:
-  extends: install-npm
+install-npm:
+  extends: .install-npm
   script:
     # - npm config set @scope:registry=https://gitlab.com/api/v4/groups/2454528/-/packages/npm/
     # - npm config set '@jusmundi-group:registry=https://gitlab.com/api/v4/projects/60435718/packages/npm/'
@@ -259,9 +274,9 @@ test-install-npm:
 
 unit-tests-npm:
   extends: .unit-tests
-  needs: ["test-install-npm"]
+  needs: ["install-npm"]
   dependencies:
-    - test-install-npm
+    - install-npm
   allow_failure: true
 
 mega_linter:
@@ -348,18 +363,11 @@ cml:
       allow_failure: true
 
 publish-npm:
-  stage: deploy
+  extends: .publish-npm
   script:
     - echo "@scope:registry=https://${CI_SERVER_HOST}/api/v4/projects/${CI_PROJECT_ID}/packages/npm/" > .npmrc
     - echo "//${CI_SERVER_HOST}/api/v4/projects/${CI_PROJECT_ID}/packages/npm/:_authToken=${CI_JOB_TOKEN}" >> .npmrc
     - npm publish
-  rules:
-    - !reference [.prod-build-rules, rules]
-    - if: '$CI_COMMIT_MESSAGE =~ /^.*(#dev|#uat|#team|#prod).*$/s'
-      when: never
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH  # Make CI NOT run on main branch
-      when: never
-  allow_failure: false
 
 deploy:dev:
   extends: .deploy:dev
@@ -379,12 +387,12 @@ deploy:prod:
   tags:
     - jusmundi-nomad-runner
 
-deploy:
-  dependencies:
-    - semantic-release-info
-  image: node
-  stage: deploy
-  script:
-    echo $SEMREL_INFO_LAST_VERSION
-    echo $SEMREL_INFO_NEXT_VERSION
-    echo $SEMREL_INFO_NEXT_VERSION_TYPE
+# deploy:
+#   dependencies:
+#     - semantic-release-info
+#   image: node
+#   stage: deploy
+#   script:
+#     echo $SEMREL_INFO_LAST_VERSION
+#     echo $SEMREL_INFO_NEXT_VERSION
+#     echo $SEMREL_INFO_NEXT_VERSION_TYPE
