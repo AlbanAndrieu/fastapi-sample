@@ -28,6 +28,10 @@ include:
 
   - project: jusmundi-group/infrastructure/ci-templates
     ref: feature-npm
+    file: "/templates/javascript.gitlab-ci.yml"
+
+  - project: jusmundi-group/infrastructure/ci-templates
+    ref: feature-npm
     file: "/templates/_apk.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
@@ -227,8 +231,6 @@ test-pytest-poetry:
 
 test-pytest:
   extends: .test-pytest
-  # tags:
-  #   - jusmundi-nomad-runner
   needs: []
   interruptible: true
   allow_failure: true
@@ -243,34 +245,24 @@ test-pytest:
     - !reference [.pipenv-install, script]
 
 # See https://docs.gitlab.com/user/packages/npm_registry/?tab=%60npm+config%60#publish-a-package-with-a-cicd-pipeline
-test-npm:
-  stage: test
-  needs: []
-  interruptible: true
-  allow_failure: false
-  tags:
-    - jusmundi-nomad-runner
+test-install-npm:
+  extends: install-npm
   script:
     # - npm config set @scope:registry=https://gitlab.com/api/v4/groups/2454528/-/packages/npm/
-    # - export CI_JOB_TOKEN=$CI_JOB_TOKEN
     # - npm config set '@jusmundi-group:registry=https://gitlab.com/api/v4/projects/60435718/packages/npm/'
     # - npm config set '@jusmundi-group:registry=https://gitlab.com/api/v4/packages/npm/:_authToken='"${CI_JOB_TOKEN}"
-    - echo "@scope:registry=https://${CI_SERVER_HOST}/api/v4/projects/${CI_PROJECT_ID}/packages/npm/" > ~/.npmrc
-    - echo "@jusmundi-group:registry=https://gitlab.com/api/v4/packages/npm/" >> ~/.npmrc
-    - echo "//${CI_SERVER_HOST}/api/v4/projects/${CI_PROJECT_ID}/packages/npm/:_authToken=${CI_JOB_TOKEN}" >> ~/.npmrc
+    #- echo "@scope:registry=https://${CI_SERVER_HOST}/api/v4/projects/${CI_PROJECT_ID}/packages/npm/" > ~/.npmrc
+    - echo "@jusmundi-group:registry=https://gitlab.com/api/v4/packages/npm/" > ~/.npmrc
+    #- echo "//${CI_SERVER_HOST}/api/v4/projects/${CI_PROJECT_ID}/packages/npm/:_authToken=${CI_JOB_TOKEN}" >> ~/.npmrc
     - echo "//${CI_SERVER_HOST}/api/v4/packages/npm/:_authToken=${CI_JOB_TOKEN}" >> ~/.npmrc
-    - cat ~/.npmrc
     - npm ci
-  rules:
-    - if: $CI_COMMIT_TAG =~ /^(prod|uat|dev)-/
-      when: never
-    - if: $CI_COMMIT_TAG == null  # Ensure that the scanning is not executed on tags
-    - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH # Ensure that the scanning is not executed on main branch (too late)
-      when: never
-    - !reference [.dev-build-rules, rules]
-    - !reference [.uat-build-rules, rules]
-    - !reference [.gra1uat-build-rules, rules]
-    - !reference [.default_rules, rules]
+
+unit-tests-npm:
+  extends: .unit-tests
+  needs: ["test-install-npm"]
+  dependencies:
+    - test-install-npm
+  allow_failure: true
 
 mega_linter:
   extends: .mega_linter_common
