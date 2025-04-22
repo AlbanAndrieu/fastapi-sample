@@ -75,11 +75,11 @@ include:
 
 default:
   cache: &global_cache
-    key: $CI_COMMIT_REF_SLUG
+    # key: $CI_COMMIT_REF_SLUG
     # Cache modules using lock file
-    # key:
-    #   files:
-    #     - package-lock.json
+    key:
+      files:
+        - package-lock.json
     paths:
       # This folder is cached between builds
       # https://docs.gitlab.com/ee/ci/yaml/#cache
@@ -296,6 +296,7 @@ lint-eslint:
   extends: .lint-eslint
   script:
     - npm test --cache .npm
+  allow_failure: false    
   cache:
     # inherit all global cache settings
     <<: *global_cache
@@ -307,7 +308,7 @@ unit-tests-npm:
   needs: ["install-npm"]
   dependencies:
     - install-npm
-  allow_failure: true
+  allow_failure: false
   cache:
     # inherit all global cache settings
     <<: *global_cache
