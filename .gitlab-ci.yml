@@ -75,19 +75,19 @@ include:
 
 default:
   cache: &global_cache
-    # key: $CI_COMMIT_REF_SLUG
+    key: $CI_COMMIT_REF_SLUG
     # Cache modules using lock file
-    key:
-      files:
-        - package-lock.json
+    # key:
+    #   files:
+    #     - package-lock.json
     paths:
       # This folder is cached between builds
       # https://docs.gitlab.com/ee/ci/yaml/#cache
       - node_modules/
       # # Cache modules in between jobs
       - .npm/
-      - public/
-      - vendor/
+      # - public/
+      # - vendor/
     policy: pull-push
 
 # See https://docs.gitlab.com/ee/ci/yaml/#workflowauto_cancelon_new_commit
