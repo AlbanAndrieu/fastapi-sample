@@ -294,6 +294,8 @@ install-npm:
 
 lint-eslint:
   extends: .lint-eslint
+  script:
+    - npm test --cache .npm
   cache:
     # inherit all global cache settings
     <<: *global_cache
