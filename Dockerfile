@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.13
+# syntax=docker/dockerfile:1.14
 
 # dockerfile_lint - ignore
 # hadolint ignore=DL3007
@@ -105,7 +105,7 @@ RUN curl -sL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - && \
     apt-get update && apt-get install --no-install-recommends -y nodejs=${NODE_VERSION}* && apt-get clean && rm -rf /var/lib/apt/lists/* && \
     npm set progress=false && \
     npm config set depth 0 && \
-    npm install -g npm@11.2.0 && apt-get purge -y npm
+    npm install -g npm@11.3.0 && apt-get purge -y npm
 # RUN npm -v && command -v npm
 
 COPY --chown=jm-python:jm-python package.json package-lock.json .npmrc ${PYSETUP_PATH}/
@@ -138,7 +138,8 @@ USER root
 RUN python3 -m venv "${POETRY_HOME}" \
     && "${POETRY_HOME}/bin/pip" install --no-cache-dir --upgrade pip==25.0.1 \
     && "${POETRY_HOME}/bin/pip" install poetry=="${POETRY_VERSION}" \
-    && "${POETRY_HOME}/bin/poetry" --version
+    && "${POETRY_HOME}/bin/poetry" --version \
+    && rm -rf .cache/pypoetry/artifacts/
 
 USER jm-python
 
