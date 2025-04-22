@@ -291,6 +291,11 @@ install-npm:
   cache:
     # inherit all global cache settings
     <<: *global_cache
+  artifacts:
+    paths:
+      - node_modules
+    expire_in: 6 hours # your GitLab instance will have a default, you can override it like this
+    when: on_success # don't attempt to upload the docs if generating them failed
 
 lint-eslint:
   extends: .lint-eslint
