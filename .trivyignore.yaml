@@ -32,6 +32,12 @@ licenses:
   - id: WTFPL
     package: azu/style-format
   - id: MIT
+  - id: MIT OR Apache-2.0
   - id: License (Apache-2.0 OR BSD-3-Clause)
   - id: Apache-2.0
+  - id: (Apache-2.0 OR BSD-3-Clause)
   - id: BSD-3-Clause
+  - id: BSD-2-Clause
+  - id: ISC
+  - id: CC0-1.0
+  - id: CC-BY-4.0

@@ -147,7 +147,7 @@ USER jm-python
 
 RUN --mount=type=secret,id=CI_JOB_TOKEN,uid=999,target=/code/jm-python/.config/pypoetry/CI_JOB_TOKEN \
   "${POETRY_HOME}/bin/poetry" config http-basic.gitlab-ds package_read "$(cat /code/jm-python/.config/pypoetry/CI_JOB_TOKEN)" &&\
-  "${POETRY_HOME}/bin/poetry" install --without dev --no-root --with format,test,api,extra,open_telemetry,deployment,influxdb,panda,temporal  &&\
+  "${POETRY_HOME}/bin/poetry" install --no-root --with format,test,api,extra,open_telemetry,deployment,influxdb,panda,temporal  &&\
   rm -rf "${POETRY_CACHE_DIR}" && rm -rf /code/.config/pypoetry/
 
 #"${POETRY_HOME}/bin/poetry" install --no-dev --remove-untracked
