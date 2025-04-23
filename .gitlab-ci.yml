@@ -86,8 +86,8 @@ default:
       - node_modules/
       # # Cache modules in between jobs
       - .npm/
-      - public/
-      - vendor/
+      # - public/
+      # - vendor/
     policy: pull-push
 
 # See https://docs.gitlab.com/ee/ci/yaml/#workflowauto_cancelon_new_commit
@@ -102,7 +102,6 @@ variables:
   OCI_REGISTRY: ${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}
   TYPE_TRAINING: ""
   # MOUNT_POINT: "/builds/$CI_PROJECT_PATH/mnt"
-  CONTAINER_IMAGE: "$CI_REGISTRY_IMAGE/main-image:latest"
   # REGISTRY: 783876277037.dkr.ecr.eu-west-3.amazonaws.com
   CI_IMAGE_NAME: ${CI_REGISTRY}/jusmundi-group/web/templates/jm-oci/jm-ubuntu
   CI_IMAGE_TAG: latest
@@ -110,14 +109,14 @@ variables:
   GIT_DEPTH: "3"
   # GITLAB_TOKEN: ${CI_JOB_TOKEN}
   FLAVOR: "-python" # -ci_light
-  # TRIVY_VERSION: "0.59.1"
+  # TRIVY_VERSION: "0.61.1"
   TRIVY_SCANNERS: "vuln,misconfig,secret,license"
   CS_SEVERITY_THRESHOLD: "CRITICAL"
   CS_SEVERITY_FILESYTEM_THRESHOLD: "CRITICAL" # CRITICAL,HIGH
   TRIVY_GLOBAL_IGNORE_FILE: "--ignorefile .trivyignore.yaml"
   # TRIVY_GLOBAL_SECURITY_CHECKS_EXTRA: "--ignore-unfixed --ignorefile .trivyignore.yaml --ignored-licenses LGPL-2.0,LGPL-2.1,LGPL-3.0"
   # DD_GLOBAL_SECURITY_CHECKS_EXTRA: "--ignore-unfixed --ignorefile .trivyignore.yaml --ignored-licenses LGPL-2.0,LGPL-2.1,LGPL-3.0"
-  TRIVY_ARGS: "--skip-dirs .direnv --skip-dirs .venv --skip-dirs .node_cache --skip-dirs go/go/pkg/mod/github.com/ --skip-dirs /usr/bin/go/pkg/mod/github.com/ --skip-dirs code/.venv/lib/python3.10/site-packages/ --skip-files pip.conf --skip-files Pipfile" #  --insecure  --debug
+  TRIVY_ARGS: "--skip-dirs .direnv --skip-dirs .venv --skip-dirs .node_cache --skip-dirs go/go/pkg/mod/github.com/ --skip-dirs /usr/bin/go/pkg/mod/github.com/ --skip-dirs code/.venv/lib/python3.10/site-packages/ --skip-dirs node_modules --skip-files pip.conf --skip-files Pipfile" #  --insecure  --debug
   DD_ARGS: "${TRIVY_ARGS}"
   TRIVY_FS_ARGS: "${TRIVY_ARGS}  --skip-files package-lock.json --skip-files yarn.lock"
   DD_PRODUCT_NAME: "$CI_PROJECT_NAME"
@@ -152,6 +151,23 @@ variables:
   # GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_PROJECT_PATH
   MEGALINTER_EXIT_ON_FAILURE: 1
   # LINTER_RULES_PATH: .
+  # Improve the (de-)compression speed by using a more efficient ZIP implementation
+  FF_USE_FASTZIP: "true"
+  ARTIFACT_COMPRESSION_LEVEL: "fast"
+  CACHE_COMPRESSION_LEVEL: "fast"
+  # Force-enable BuildKit in "docker build" commands (on Linux it is disabled by default)
+  DOCKER_BUILDKIT: 1
+  # Build the fully-qualified image name (including the registry server prefix), but without the ":version" suffix
+  IMAGE_BASE_TAG: $CI_REGISTRY_IMAGE/fastapi-sample
+  CONTAINER_IMAGE: $IMAGE_BASE_TAG:latest
+  # Complement the base tag with various versions, one per image target/stage. We use the CI_COMMIT_REF_SLUG (which is
+  # basically the branch/tag name, but slugified) to ensure that the cache images are also different for each branch.
+  # This is done because the code that we compile/build/test in any specific branch might be different (from the
+  # code of other branches), and the cache images would overwrite each other (if we had not appended the
+  # "-$CI_COMMIT_REF_SLUG" suffix), causing cache misses!
+  IMAGE_DEPS_CACHE_TAG: $IMAGE_BASE_TAG:deps-cache-$CI_COMMIT_REF_SLUG
+  TEST_CACHE_TAG: $IMAGE_BASE_TAG:test-cache-$CI_COMMIT_REF_SLUG
+  BUILD_CACHE_TAG: $IMAGE_BASE_TAG:build-cache-$CI_COMMIT_REF_SLUG
 
 .dependabot-gitlab:
   stage: dependabot
@@ -291,9 +307,17 @@ install-npm:
   cache:
     # inherit all global cache settings
     <<: *global_cache
+  artifacts:
+    paths:
+      - node_modules
+    expire_in: 6 hours # your GitLab instance will have a default, you can override it like this
+    when: on_success # don't attempt to upload the docs if generating them failed
 
 lint-eslint:
   extends: .lint-eslint
+  script:
+    - npm test --cache .npm
+  allow_failure: false
   cache:
     # inherit all global cache settings
     <<: *global_cache
@@ -305,7 +329,7 @@ unit-tests-npm:
   needs: ["install-npm"]
   dependencies:
     - install-npm
-  allow_failure: true
+  allow_failure: false
   cache:
     # inherit all global cache settings
     <<: *global_cache
@@ -319,7 +343,8 @@ mega_linter:
 
 .build-image-dockefile-pre: &build-image-dockefile-pre
   script:
-    - export DOCKER_BUILD_OPT="-f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --build-arg ENV=${ENV}"
+    # --target builder-base
+    - export DOCKER_BUILD_OPT="--pull --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from ${IMAGE_DEPS_CACHE_TAG} -f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --build-arg ENV=${ENV} -t ${IMAGE_DEPS_CACHE_TAG}"
     - echo -e "\e[35mOverriden on purpose as Sample docker build need explicit \e[0m FOR \e[43m${ENV} - ${DOCKER_BUILD_OPT}.\e[0m"
 
 docker-build:

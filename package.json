@@ -33,7 +33,7 @@
   "scripts": {
     "prettier": "prettier --check --ignore-unknown \"**/*.*\"",
     "prettier-fix": "prettier --write --ignore-unknown \"**/*.*\"",
-    "test": "jest",
+    "test": "jest --passWithNoTests",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },

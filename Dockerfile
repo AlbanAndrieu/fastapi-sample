@@ -40,13 +40,15 @@ RUN echo "APT::Acquire::Retries \"10\";" > /etc/apt/apt.conf.d/80-retries \
 # build-essential has gcc
 # kics-scan ignore-line
 # hadolint ignore=DL3008
-RUN apt-get update --fix-missing \
-    && apt-get full-upgrade -y \
-    && apt-get -y install --no-install-recommends build-essential \
-    libpq-dev \
-    locales tzdata curl \
-    nano vim && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+  --mount=type=cache,target=/var/lib/apt,sharing=locked \
+  apt-get update --fix-missing \
+  && apt-get full-upgrade -y \
+  && apt-get -y install --no-install-recommends build-essential \
+  libpq-dev \
+  locales tzdata curl \
+  nano vim && \
+  apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # because of tzdata and the need of noninteractive
 ENV TZ "Europe/Paris"
@@ -74,6 +76,8 @@ ENV PYTHONUNBUFFERED=1 \
     POETRY_VIRTUALENVS_IN_PROJECT=true \
     # do not ask any interactive question
     POETRY_NO_INTERACTION=1 \
+    POETRY_VIRTUALENVS_CREATE=1 \
+    POETRY_CACHE_DIR=/tmp/poetry_cache \
     # paths
     # this is where our requirements + virtual environment will live
     # PYSETUP_PATH="/opt/pysetup" \
@@ -101,45 +105,35 @@ ENV NODE_OPTIONS="--openssl-legacy-provider"
 ENV NODE_VERSION=${NODE_VERSION:-"20"}
 
 # hadolint ignore=DL3008,DL3015,DL3006,DL4006
-RUN curl -sL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - && \
-    apt-get update && apt-get install --no-install-recommends -y nodejs=${NODE_VERSION}* && apt-get clean && rm -rf /var/lib/apt/lists/* && \
-    npm set progress=false && \
-    npm config set depth 0 && \
-    npm install -g npm@11.3.0 && apt-get purge -y npm
-# RUN npm -v && command -v npm
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+  --mount=type=cache,target=/var/lib/apt,sharing=locked \
+  curl -sL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - && \
+  apt-get update && apt-get install --no-install-recommends -y nodejs=${NODE_VERSION}* && apt-get clean && rm -rf /var/lib/apt/lists/* && \
+  npm set progress=false && \
+  npm config set depth 0 && \
+  npm install -g npm@11.3.0 && apt-get purge -y npm
 
 COPY --chown=jm-python:jm-python package.json package-lock.json .npmrc ${PYSETUP_PATH}/
 
-USER jm-python
+# USER jm-python
 
-# npm config set '//gitlab.com/api/v4/packages/npm/:_authToken='"${CI_JOB_TOKEN}" && \
-# echo -e "//gitlab.com/api/v4/packages/npm/:_authToken=${CI_JOB_TOKEN}" >> ~/.npmrc  && \
-# npm config set '//gitlab.com/api/v4/packages/npm/:_authToken='"$(cat /run/secrets/read-npm-token)" && \
-# RUN --mount=type=secret,id=read-npm-token \
-#   echo -e "//gitlab.com/api/v4/packages/npm/:_authToken=$(cat /code/CI_JOB_TOKEN)" >> ~/.npmrc  && \
 # hadolint ignore=SC3037
 RUN --mount=type=secret,id=read-npm-token,uid=999,target=/code/CI_JOB_TOKEN \
+  --mount=type=cache,target=/root/.npm,id=npm_cache \
   echo -e "'//gitlab.com/api/v4/packages/npm/:_authToken'=\"$(cat /code/CI_JOB_TOKEN)\"" >> ${PYSETUP_PATH}/.npmrc && \
-  npm install && npm cache clean --force && \
-  rm -f ~/.npmrc ${PYSETUP_PATH}/.npmrc
+  npm install --cache /root/.npm && npm cache clean --force && \
+  rm -f ~/.npmrc ${PYSETUP_PATH}/.npmrc /code/.npm
 
 USER root
 
-# hadolint ignore=DL3008
-#RUN apt-get update && \
-#    apt-get -y install --no-install-recommends python3-poetry && \
-#    apt-get clean && rm -rf /var/lib/apt/lists/*
-# install poetry - respects ${POETRY_VERSION} & ${POETRY_HOME}
-# hadolint ignore=DL3008,DL4006
-# RUN curl -sSL https://install.python-poetry.org | python3 -
-
 # Installs Poetry in its own environment to avoid problems with Ubuntu's Python
 # hadolint ignore=SC2086
-RUN python3 -m venv "${POETRY_HOME}" \
-    && "${POETRY_HOME}/bin/pip" install --no-cache-dir --upgrade pip==25.0.1 \
-    && "${POETRY_HOME}/bin/pip" install poetry=="${POETRY_VERSION}" \
-    && "${POETRY_HOME}/bin/poetry" --version \
-    && rm -rf .cache/pypoetry/artifacts/
+RUN --mount=type=cache,target=/root/.cache \
+  python3 -m venv "${POETRY_HOME}" \
+  && "${POETRY_HOME}/bin/pip" install --no-cache-dir --upgrade pip==25.0.1 \
+  && "${POETRY_HOME}/bin/pip" install poetry=="${POETRY_VERSION}" \
+  && "${POETRY_HOME}/bin/poetry" --version \
+  && rm -rf .cache/pypoetry/artifacts/
 
 USER jm-python
 
@@ -149,14 +143,17 @@ COPY --chown=jm-python:jm-python pyproject.toml poetry.lock ${PYSETUP_PATH}/
 
 ENV PATH=$PYSETUP_PATH/.local/bin/:${PATH}
 
-USER jm-python
+USER root
 
 RUN --mount=type=secret,id=CI_JOB_TOKEN,uid=999,target=/code/jm-python/.config/pypoetry/CI_JOB_TOKEN \
+  --mount=type=cache,target=$POETRY_CACHE_DIR \
   "${POETRY_HOME}/bin/poetry" config http-basic.gitlab-ds package_read "$(cat /code/jm-python/.config/pypoetry/CI_JOB_TOKEN)" &&\
   "${POETRY_HOME}/bin/poetry" install --no-root --with format,test,api,extra,open_telemetry,deployment,influxdb,panda,temporal  &&\
   rm -rf /code/.config/pypoetry/
 
 #"${POETRY_HOME}/bin/poetry" install --no-dev --remove-untracked
+
+USER jm-python
 
 # dockerfile_lint - ignore
 # hadolint ignore=DL3007
@@ -202,12 +199,13 @@ ENV NODE_OPTIONS="--openssl-legacy-provider"
 ENV NODE_VERSION=${NODE_VERSION:-"20"}
 
 # hadolint ignore=DL3008,DL3015,DL3006,DL4006
-RUN curl -sL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - && \
-    apt-get update && apt-get install --no-install-recommends -y nodejs=${NODE_VERSION}* && apt-get clean && rm -rf /var/lib/apt/lists/* && \
-    npm set progress=false && \
-    npm config set depth 0 && \
-    npm install -g npm@11.2.0 && apt-get purge -y npm
-RUN npm -v && command -v npm
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+  --mount=type=cache,target=/var/lib/apt,sharing=locked \
+  curl -sL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - && \
+  apt-get update && apt-get install --no-install-recommends -y nodejs=${NODE_VERSION}* && apt-get clean && rm -rf /var/lib/apt/lists/* && \
+  npm set progress=false && \
+  npm config set depth 0 && \
+  npm install -g npm@11.3.0  && apt-get purge -y npm
 
 # Explicitly set user/group IDs
 RUN groupadd -r jm-python --gid=999 && useradd -m -d /code -r -g jm-python --uid=999 jm-python
