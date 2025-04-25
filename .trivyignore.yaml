@@ -19,7 +19,7 @@ misconfigurations:
 licenses:
   - id: GPL-1.0  # License name is used as ID
     package: perl-base
-  - id: GPL-2.0 # License name is used as ID
+  - id: GPL-2.0  # License name is used as ID
     package: adduser
   - id: GPL-2.0-with-bison-exception
   - id: GPL-2.0-with-autoconf-exception
@@ -29,3 +29,21 @@ licenses:
   - id: LGPL-2.1
   - id: LGPL-3.0
   - id: Sleepycat
+  - id: WTFPL
+    package: azu/style-format
+  - id: MIT
+  - id: MIT OR Apache-2.0
+  - id: (MIT OR CC0-1.0)
+  - id: License (Apache-2.0 OR BSD-3-Clause)
+  - id: Apache-2.0
+  - id: (Apache-2.0 OR BSD-3-Clause)
+  - id: BSD-3-Clause
+  - id: (BSD-3-Clause OR GPL-2.0)
+  - id: BSD-2-Clause
+  - id: ISC
+  - id: CC0-1.0
+  - id: CC-BY-3.0
+  - id: CC-BY-4.0
+  - id: BlueOak-1.0.0
+  - id: Artistic-2.0
+  - id: Python-2.0

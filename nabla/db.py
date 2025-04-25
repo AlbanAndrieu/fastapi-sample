@@ -2,7 +2,8 @@ from datetime import datetime as dt
 from typing import Final
 
 from databases import Database
-from ddtrace import Pin, patch
+from ddtrace import patch
+from ddtrace.trace import Pin
 from pytz import timezone as tz
 from sqlalchemy import Column, Integer, MetaData, String, Table, create_engine
 

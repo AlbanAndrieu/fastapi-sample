@@ -11,31 +11,35 @@ stages:
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-npm
     file: "/templates/default.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-npm
     file: "/templates/docker-build.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-npm
     file: "/templates/deploy-nomad.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-npm
     file: "/templates/test-python.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-npm
+    file: "/templates/javascript.gitlab-ci.yml"
+
+  - project: jusmundi-group/infrastructure/ci-templates
+    ref: feature-npm
     file: "/templates/_apk.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-npm
     file: "/templates/data.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-npm
     file: "/templates/mega-linter.gitlab-ci.yml"
 
   - component: $CI_SERVER_FQDN/to-be-continuous/semantic-release/gitlab-ci-semrel@3.11.2
@@ -69,6 +73,23 @@ include:
 
   # - remote: https://gitlab.com/renovate-bot/renovate-runner/-/raw/v17.69.3/templates/renovate.gitlab-ci.yml
 
+default:
+  cache: &global_cache
+    # key: $CI_COMMIT_REF_SLUG
+    # Cache modules using lock file
+    key:
+      files:
+        - package-lock.json
+    paths:
+      # This folder is cached between builds
+      # https://docs.gitlab.com/ee/ci/yaml/#cache
+      - node_modules/
+      # # Cache modules in between jobs
+      - .npm/
+      # - public/
+      # - vendor/
+    policy: pull-push
+
 # See https://docs.gitlab.com/ee/ci/yaml/#workflowauto_cancelon_new_commit
 # workflow:
 #   auto_cancel:
@@ -81,7 +102,6 @@ variables:
   OCI_REGISTRY: ${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}
   TYPE_TRAINING: ""
   # MOUNT_POINT: "/builds/$CI_PROJECT_PATH/mnt"
-  CONTAINER_IMAGE: "$CI_REGISTRY_IMAGE/main-image:latest"
   # REGISTRY: 783876277037.dkr.ecr.eu-west-3.amazonaws.com
   CI_IMAGE_NAME: ${CI_REGISTRY}/jusmundi-group/web/templates/jm-oci/jm-ubuntu
   CI_IMAGE_TAG: latest
@@ -89,14 +109,14 @@ variables:
   GIT_DEPTH: "3"
   # GITLAB_TOKEN: ${CI_JOB_TOKEN}
   FLAVOR: "-python" # -ci_light
-  # TRIVY_VERSION: "0.59.1"
+  # TRIVY_VERSION: "0.61.1"
   TRIVY_SCANNERS: "vuln,misconfig,secret,license"
   CS_SEVERITY_THRESHOLD: "CRITICAL"
   CS_SEVERITY_FILESYTEM_THRESHOLD: "CRITICAL" # CRITICAL,HIGH
   TRIVY_GLOBAL_IGNORE_FILE: "--ignorefile .trivyignore.yaml"
   # TRIVY_GLOBAL_SECURITY_CHECKS_EXTRA: "--ignore-unfixed --ignorefile .trivyignore.yaml --ignored-licenses LGPL-2.0,LGPL-2.1,LGPL-3.0"
   # DD_GLOBAL_SECURITY_CHECKS_EXTRA: "--ignore-unfixed --ignorefile .trivyignore.yaml --ignored-licenses LGPL-2.0,LGPL-2.1,LGPL-3.0"
-  TRIVY_ARGS: "--skip-dirs .direnv --skip-dirs .venv --skip-dirs .node_cache --skip-dirs go/go/pkg/mod/github.com/ --skip-dirs /usr/bin/go/pkg/mod/github.com/ --skip-dirs code/.venv/lib/python3.10/site-packages/ --skip-files pip.conf --skip-files Pipfile" #  --insecure  --debug
+  TRIVY_ARGS: "--skip-dirs .direnv --skip-dirs .venv --skip-dirs .node_cache --skip-dirs go/go/pkg/mod/github.com/ --skip-dirs /usr/bin/go/pkg/mod/github.com/ --skip-dirs code/.venv/lib/python3.10/site-packages/ --skip-dirs node_modules --skip-files pip.conf --skip-files Pipfile" #  --insecure  --debug
   DD_ARGS: "${TRIVY_ARGS}"
   TRIVY_FS_ARGS: "${TRIVY_ARGS}  --skip-files package-lock.json --skip-files yarn.lock"
   DD_PRODUCT_NAME: "$CI_PROJECT_NAME"
@@ -113,8 +133,7 @@ variables:
   DD_CLOSE_OLD_FINDINGS_PRODUCT_SCOPE: "True"
   DD_DO_NOT_REACTIVATE: "False"
   DD_BRANCH_TAG: "${CI_COMMIT_TAG}" # CI_COMMIT_BRANCH CI_IMAGE_TAG
-  # DOCKER_BUILD_OPT: " -f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN --build-arg DD_GIT_REPOSITORY_URL=${DD_GIT_REPOSITORY_URL} --build-arg DD_GIT_COMMIT_SHA=${DD_GIT_COMMIT_SHA}"
-  DOCKER_BUILD_OPT: " -f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN"
+  # DOCKER_BUILD_OPT: " -f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN"
   CLOC_SOURCE: "nabla"
   # RUNNER_GENERATE_ARTIFACTS_METADATA: "true"
   # FF_NETWORK_PER_BUILD: "true" # enable network per build so all services can communicate on the same network
@@ -132,6 +151,23 @@ variables:
   # GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_PROJECT_PATH
   MEGALINTER_EXIT_ON_FAILURE: 1
   # LINTER_RULES_PATH: .
+  # Improve the (de-)compression speed by using a more efficient ZIP implementation
+  FF_USE_FASTZIP: "true"
+  ARTIFACT_COMPRESSION_LEVEL: "fast"
+  CACHE_COMPRESSION_LEVEL: "fast"
+  # Force-enable BuildKit in "docker build" commands (on Linux it is disabled by default)
+  DOCKER_BUILDKIT: 1
+  # Build the fully-qualified image name (including the registry server prefix), but without the ":version" suffix
+  IMAGE_BASE_TAG: $CI_REGISTRY_IMAGE/fastapi-sample
+  CONTAINER_IMAGE: $IMAGE_BASE_TAG:latest
+  # Complement the base tag with various versions, one per image target/stage. We use the CI_COMMIT_REF_SLUG (which is
+  # basically the branch/tag name, but slugified) to ensure that the cache images are also different for each branch.
+  # This is done because the code that we compile/build/test in any specific branch might be different (from the
+  # code of other branches), and the cache images would overwrite each other (if we had not appended the
+  # "-$CI_COMMIT_REF_SLUG" suffix), causing cache misses!
+  IMAGE_DEPS_CACHE_TAG: $IMAGE_BASE_TAG:deps-cache-$CI_COMMIT_REF_SLUG
+  TEST_CACHE_TAG: $IMAGE_BASE_TAG:test-cache-$CI_COMMIT_REF_SLUG
+  BUILD_CACHE_TAG: $IMAGE_BASE_TAG:build-cache-$CI_COMMIT_REF_SLUG
 
 .dependabot-gitlab:
   stage: dependabot
@@ -211,6 +247,11 @@ lint-ruff:
   image: $CI_IMAGE
   interruptible: true
   allow_failure: true
+  rules:
+    - if: '$CI_COMMIT_MESSAGE =~ /^.*(#dev|#uat|#team|#prod).*$/s'
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH  # Make CI NOT run on main branch
+      when: never
 
 type-checker-pyright:
   extends: .type-checker-pyright
@@ -218,6 +259,11 @@ type-checker-pyright:
   image: $CI_IMAGE
   interruptible: true
   allow_failure: true
+  rules:
+    - if: '$CI_COMMIT_MESSAGE =~ /^.*(#dev|#uat|#team|#prod).*$/s'
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH  # Make CI NOT run on main branch
+      when: never
 
 test-pytest-poetry:
   extends: .test-pytest-poetry
@@ -225,11 +271,14 @@ test-pytest-poetry:
   variables:
     DEFAULT_COV_ARGS: "--cov-fail-under=1" # We need to increase the test coverage
   allow_failure: true
+  rules:
+    - if: '$CI_COMMIT_MESSAGE =~ /^.*(#dev|#uat|#team|#prod).*$/s'
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH  # Make CI NOT run on main branch
+      when: never
 
 test-pytest:
   extends: .test-pytest
-  # tags:
-  #   - jusmundi-nomad-runner
   needs: []
   interruptible: true
   allow_failure: true
@@ -243,10 +292,60 @@ test-pytest:
     - !reference [.install-pipenv, script]
     - !reference [.pipenv-install, script]
 
+# See https://docs.gitlab.com/user/packages/npm_registry/?tab=%60npm+config%60#publish-a-package-with-a-cicd-pipeline
+install-npm:
+  extends: .install-npm
+  script:
+    # - npm config set @scope:registry=https://gitlab.com/api/v4/groups/2454528/-/packages/npm/
+    # - npm config set '@jusmundi-group:registry=https://gitlab.com/api/v4/projects/60435718/packages/npm/'
+    # - npm config set '@jusmundi-group:registry=https://gitlab.com/api/v4/packages/npm/:_authToken='"${CI_JOB_TOKEN}"
+    #- echo "@scope:registry=https://${CI_SERVER_HOST}/api/v4/projects/${CI_PROJECT_ID}/packages/npm/" > ~/.npmrc
+    - echo "@jusmundi-group:registry=https://gitlab.com/api/v4/packages/npm/" > ~/.npmrc
+    #- echo "//${CI_SERVER_HOST}/api/v4/projects/${CI_PROJECT_ID}/packages/npm/:_authToken=${CI_JOB_TOKEN}" >> ~/.npmrc
+    - echo "//${CI_SERVER_HOST}/api/v4/packages/npm/:_authToken=${CI_JOB_TOKEN}" >> ~/.npmrc
+    - npm ci --cache .npm --prefer-offline
+  cache:
+    # inherit all global cache settings
+    <<: *global_cache
+  artifacts:
+    paths:
+      - node_modules
+    expire_in: 6 hours # your GitLab instance will have a default, you can override it like this
+    when: on_success # don't attempt to upload the docs if generating them failed
+
+lint-eslint:
+  extends: .lint-eslint
+  script:
+    - npm test --cache .npm
+  allow_failure: false
+  cache:
+    # inherit all global cache settings
+    <<: *global_cache
+    # override the policy
+    policy: pull
+
+unit-tests-npm:
+  extends: .unit-tests
+  needs: ["install-npm"]
+  dependencies:
+    - install-npm
+  allow_failure: false
+  cache:
+    # inherit all global cache settings
+    <<: *global_cache
+    # override the policy
+    policy: pull
+
 mega_linter:
   extends: .mega_linter_common
   needs: ["test-pytest"]
   allow_failure: false
+
+.build-image-dockefile-pre: &build-image-dockefile-pre
+  script:
+    # --target builder-base
+    - export DOCKER_BUILD_OPT="--pull --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from ${IMAGE_DEPS_CACHE_TAG} -f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --build-arg ENV=${ENV} -t ${IMAGE_DEPS_CACHE_TAG}"
+    - echo -e "\e[35mOverriden on purpose as Sample docker build need explicit \e[0m FOR \e[43m${ENV} - ${DOCKER_BUILD_OPT}.\e[0m"
 
 docker-build:
   extends: .docker-build
@@ -269,6 +368,7 @@ docker-build:
     - pwd
     # - echo -e "\e[35mWe have files\e[0m."
     # - ls -lrta
+    - !reference [.build-image-dockefile-pre, script]
     - !reference [.build-image-dockefile, script]
     - echo -e "\e[35mImage generated\e[0m."
     - echo -e "\e[35mOCI_IMAGE=${OCI_IMAGE}\e[0m."
@@ -320,6 +420,49 @@ cml:
       when: always
       allow_failure: true
 
+publish-npm:
+  extends: .publish-npm
+  script:
+    # If no .npmrc is included in the repo, generate a temporary one that is configured to publish to GitLab's NPM registry
+    - |
+      if [[ ! -f .npmrc ]]; then
+        echo 'No .npmrc found! Creating one now. Please review the following link for more information: https://docs.gitlab.com/ee/user/packages/npm_registry/#with-the-npmrc-file'
+        {
+          echo "@${CI_PROJECT_ROOT_NAMESPACE}:registry=${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/npm/"
+          echo "${CI_API_V4_URL#http*:}/projects/${CI_PROJECT_ID}/packages/npm/:_authToken=\${CI_JOB_TOKEN}"
+        } >> .npmrc
+      fi
+    - echo "Created the following .npmrc:"; cat .npmrc
+
+    # Extract a few values from package.json
+    - NPM_PACKAGE_NAME=$(node -p "require('./package.json').name")
+    - NPM_PACKAGE_VERSION=$(node -p "require('./package.json').version")
+
+    # Validate that the package name is properly scoped to the project's root namespace.
+    # For more information, see https://docs.gitlab.com/ee/user/packages/npm_registry/#package-naming-convention
+    - |
+      if [[ ! $NPM_PACKAGE_NAME =~ ^@$CI_PROJECT_ROOT_NAMESPACE/ ]]; then
+        echo "Invalid package scope! Packages must be scoped in the root namespace of the project, e.g. \"@${CI_PROJECT_ROOT_NAMESPACE}/${CI_PROJECT_NAME}\""
+        echo 'For more information, see https://docs.gitlab.com/ee/user/packages/npm_registry/#package-naming-convention'
+        exit 1
+      fi
+
+    # Compare the version in package.json to all published versions.
+    # If the package.json version has not yet been published, run `npm publish`.
+    # If $SIGSTORE_ID_TOKEN is set this template will generate a provenance
+    # document. For more information refer to the documentation: https://docs.gitlab.com/ee/ci/yaml/signing_examples/
+    - |
+      if [[ "$(npm view ${NPM_PACKAGE_NAME} versions)" != *"'${NPM_PACKAGE_VERSION}'"* ]]; then
+        if [[ -n "${SIGSTORE_ID_TOKEN}" ]]; then
+          npm publish --provenance
+        else
+          npm publish
+        fi
+        echo "Successfully published version ${NPM_PACKAGE_VERSION} of ${NPM_PACKAGE_NAME} to GitLab's NPM registry: ${CI_PROJECT_URL}/-/packages"
+      else
+        echo "Version ${NPM_PACKAGE_VERSION} of ${NPM_PACKAGE_NAME} has already been published, so no new version has been published."
+      fi
+
 deploy:dev:
   extends: .deploy:dev
   needs: ["docker-build"]
@@ -338,12 +481,12 @@ deploy:prod:
   tags:
     - jusmundi-nomad-runner
 
-deploy:
-  dependencies:
-    - semantic-release-info
-  image: node
-  stage: deploy
-  script:
-    echo $SEMREL_INFO_LAST_VERSION
-    echo $SEMREL_INFO_NEXT_VERSION
-    echo $SEMREL_INFO_NEXT_VERSION_TYPE
+# deploy:
+#   dependencies:
+#     - semantic-release-info
+#   image: node
+#   stage: deploy
+#   script:
+#     echo $SEMREL_INFO_LAST_VERSION
+#     echo $SEMREL_INFO_NEXT_VERSION
+#     echo $SEMREL_INFO_NEXT_VERSION_TYPE
