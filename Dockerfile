@@ -169,8 +169,8 @@ RUN groupadd -r jm-python --gid=999 && useradd -m -d /code -r -g jm-python --uid
 RUN chown -R jm-python:jm-python /code
 
 # copy in our built poetry + venv
-COPY --from=builder-base "${POETRY_HOME}" "${POETRY_HOME}"
-COPY --from=builder-base "${PYSETUP_PATH}" "${PYSETUP_PATH}"
+COPY --from=builder-base "${POETRY_HOME}" "${POETRY_HOME}/"
+COPY --from=builder-base "${PYSETUP_PATH}" "${PYSETUP_PATH}/"
 
 USER jm-python
 
@@ -214,7 +214,7 @@ RUN chown -R jm-python:jm-python /code
 
 USER jm-python
 
-COPY --from=builder-base "${PYSETUP_PATH}" "${PYSETUP_PATH}"
+COPY --from=builder-base "${PYSETUP_PATH}" "${PYSETUP_PATH}/"
 
 COPY --chown=jm-python:jm-python nabla/ "${PYSETUP_PATH}/jm-python/nabla/"
 COPY --chown=jm-python:jm-python main.py "${PYSETUP_PATH}/jm-python/"
