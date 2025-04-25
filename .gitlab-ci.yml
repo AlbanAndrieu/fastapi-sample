@@ -11,35 +11,35 @@ stages:
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-npm1
+    ref: main
     file: "/templates/default.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-npm1
+    ref: main
     file: "/templates/docker-build.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-npm1
+    ref: main
     file: "/templates/deploy-nomad.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-npm1
+    ref: main
     file: "/templates/test-python.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-npm1
+    ref: main
     file: "/templates/javascript.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-npm1
+    ref: main
     file: "/templates/_apk.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-npm1
+    ref: main
     file: "/templates/data.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-npm1
+    ref: main
     file: "/templates/mega-linter.gitlab-ci.yml"
 
   - component: $CI_SERVER_FQDN/to-be-continuous/semantic-release/gitlab-ci-semrel@3.11.2
@@ -165,9 +165,8 @@ variables:
   # This is done because the code that we compile/build/test in any specific branch might be different (from the
   # code of other branches), and the cache images would overwrite each other (if we had not appended the
   # "-$CI_COMMIT_REF_SLUG" suffix), causing cache misses!
-  IMAGE_DEPS_CACHE_TAG: $IMAGE_BASE_TAG:deps-cache-$CI_COMMIT_REF_SLUG
-  TEST_CACHE_TAG: $IMAGE_BASE_TAG:test-cache-$CI_COMMIT_REF_SLUG
-  BUILD_CACHE_TAG: $IMAGE_BASE_TAG:build-cache-$CI_COMMIT_REF_SLUG
+  # TEST_CACHE_TAG: $IMAGE_BASE_TAG:test-cache-$CI_COMMIT_REF_SLUG
+  TEST_CACHE_TAG: python:3.12-slim
 
 .dependabot-gitlab:
   stage: dependabot
@@ -344,7 +343,7 @@ mega_linter:
 .build-image-dockefile-pre: &build-image-dockefile-pre
   script:
     # --target builder-base
-    - export DOCKER_BUILD_OPT="--pull --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from ${IMAGE_DEPS_CACHE_TAG} -f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --build-arg ENV=${ENV} -t ${IMAGE_DEPS_CACHE_TAG}"
+    - export DOCKER_BUILD_OPT="--pull --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from ${TEST_CACHE_TAG} -f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --build-arg ENV=${ENV} -t ${TEST_CACHE_TAG}"
     - echo -e "\e[35mOverriden on purpose as Sample docker build need explicit \e[0m FOR \e[43m${ENV} - ${DOCKER_BUILD_OPT}.\e[0m"
 
 docker-build:
