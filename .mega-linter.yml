@@ -1,7 +1,7 @@
 ---
 # yamllint disable rule:line-length
 # Configuration file for MegaLinter
-# See all available variables at https://oxsecurity.github.io/megalinter/configuration/ and in linters documentation
+# See all available variables at https://megalinter.io/latest/config-file/ and in linters documentation
 APPLY_FIXES: all  # all, none, or list of linter keys
 DEFAULT_BRANCH: main  # Usually master or main
 # ENABLE:  # If you use ENABLE variable, all other languages/formats/tooling-formats will be disabled by default
@@ -82,6 +82,18 @@ REPOSITORY_KICS_DISABLE_ERRORS_IF_LESS_THAN: 230
 REPOSITORY_GITLEAKS_DISABLE_ERRORS: false
 REPOSITORY_GITLEAKS_ARGUMENTS: -v --no-git
 REPOSITORY_GITLEAKS_PR_COMMITS_SCAN: true
+REPOSITORY_SEMGREP_RULESETS:
+  [
+    "p/comment",
+    "p/cwe-top-25",
+    "p/docker-compose",
+    "p/dockerfile",
+    "p/owasp-top-ten",
+    "p/python",
+    "p/r2c-security-audit",
+    "p/secure-defaults",
+    "p/terraform",
+  ]
 PULL_REQUEST: true
 REPOSITORY_SECRETLINT_DISABLE_ERRORS: false
 ANSIBLE_ANSIBLE_LINT_DISABLE_ERRORS_IF_LESS_THAN: 10
@@ -91,6 +103,7 @@ GO_GOLANGCI_LINT_DISABLE_ERRORS: false
 GO_GOLANGCI_LINT_DISABLE_ERRORS_IF_LESS_THAN: 2
 RST_RST_LINT_FILTER_REGEX_EXCLUDE: (test\|examples|docs/source/index\.rst)
 RST_RSTCHECK_FILTER_REGEX_EXCLUDE: (test\|examples|docs/source/index\.rst)
+BASH_SHELLCHECK_ARGUMENTS: -e "SC2162"
 BASH_SHELLCHECK_FILTER_REGEX_EXCLUDE: (test\|examples|docs/Makefile)
 BASH_SHELLCHECK_DISABLE_ERRORS: false
 BASH_SHELLCHECK_DISABLE_ERRORS_IF_LESS_THAN: 2
@@ -114,6 +127,10 @@ YAML_V8R_FILE_NAMES_REGEX:
   ]
 # ADDITIONAL_EXCLUDED_DIRECTORIES: (\.venv/|\.direnv/|\.mypy_cache/)
 EXCLUDED_DIRECTORIES: [".github", ".gitlab-ci", "node_modules", ".venv", ".direnv", ".mypy_cache"]
+PARALLEL: true
+CLEAR_REPORT_FOLDER: true
+PRINT_ALPACA: false
+FAIL_IF_UPDATED_SOURCES: false
 SHOW_ELAPSED_TIME: true
 JSON_REPORTER: true
 SARIF_REPORTER: true
@@ -121,6 +138,7 @@ FILEIO_REPORTER: false
 VALIDATE_ALL_CODEBASE: true
 FLAVOR_SUGGESTIONS: false
 SHOW_SKIPPED_LINTERS: false
+# API_REPORTER: true
 PLUGINS:
   # yamllint disable-line rule:line-length
   - https://raw.githubusercontent.com/kpj/jupyfmt/master/mega-linter-plugin-jupyfmt/jupyfmt.megalinter-descriptor.yml

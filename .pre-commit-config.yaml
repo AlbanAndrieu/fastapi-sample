@@ -215,7 +215,7 @@ repos:
         entry: zricethezav/gitleaks protect --verbose --redact --staged
         #entry: zricethezav/gitleaks detect --verbose
   - repo: https://github.com/oxsecurity/megalinter
-    rev: v8.5.0
+    rev: v8.6.0
     hooks:
       - id: megalinter-incremental  # Faster, less thorough
         stages:

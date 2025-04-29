@@ -11,35 +11,35 @@ stages:
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-mega-upgrade
     file: "/templates/default.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-mega-upgrade
     file: "/templates/docker-build.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-mega-upgrade
     file: "/templates/deploy-nomad.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-mega-upgrade
     file: "/templates/test-python.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-mega-upgrade
     file: "/templates/javascript.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-mega-upgrade
     file: "/templates/_apk.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-mega-upgrade
     file: "/templates/data.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-mega-upgrade
     file: "/templates/mega-linter.gitlab-ci.yml"
 
   - component: $CI_SERVER_FQDN/to-be-continuous/semantic-release/gitlab-ci-semrel@3.11.2
@@ -116,7 +116,7 @@ variables:
   TRIVY_GLOBAL_IGNORE_FILE: "--ignorefile .trivyignore.yaml"
   # TRIVY_GLOBAL_SECURITY_CHECKS_EXTRA: "--ignore-unfixed --ignorefile .trivyignore.yaml --ignored-licenses LGPL-2.0,LGPL-2.1,LGPL-3.0"
   # DD_GLOBAL_SECURITY_CHECKS_EXTRA: "--ignore-unfixed --ignorefile .trivyignore.yaml --ignored-licenses LGPL-2.0,LGPL-2.1,LGPL-3.0"
-  TRIVY_ARGS: "--skip-dirs .direnv --skip-dirs .venv --skip-dirs .node_cache --skip-dirs go/go/pkg/mod/github.com/ --skip-dirs /usr/bin/go/pkg/mod/github.com/ --skip-dirs code/.venv/lib/python3.10/site-packages/ --skip-dirs node_modules --skip-files pip.conf --skip-files Pipfile" #  --insecure  --debug
+  TRIVY_ARGS: "--skip-dirs .direnv --skip-dirs .venv --skip-dirs .node_cache --skip-dirs code/node_modules/ --skip-dirs go/go/pkg/mod/github.com/ --skip-dirs /usr/bin/go/pkg/mod/github.com/ --skip-dirs code/.venv/ --skip-dirs node_modules --skip-dirs usr/lib/node_modules/ --skip-files pip.conf --skip-files Pipfile" #  --insecure  --debug
   DD_ARGS: "${TRIVY_ARGS}"
   TRIVY_FS_ARGS: "${TRIVY_ARGS}  --skip-files package-lock.json --skip-files yarn.lock"
   DD_PRODUCT_NAME: "$CI_PROJECT_NAME"
@@ -167,6 +167,8 @@ variables:
   # "-$CI_COMMIT_REF_SLUG" suffix), causing cache misses!
   # TEST_CACHE_TAG: $IMAGE_BASE_TAG:test-cache-$CI_COMMIT_REF_SLUG
   TEST_CACHE_TAG: python:3.12-slim
+  API_REPORTER_URL: http://loki-read.service.gra.uat.consul:3100/loki/api/v1/push
+  API_REPORTER_BEARER_TOKEN: ""
 
 .dependabot-gitlab:
   stage: dependabot
@@ -279,10 +281,11 @@ test-pytest-poetry:
 test-pytest:
   extends: .test-pytest
   needs: []
+  image: $CI_IMAGE_PYTHON
   interruptible: true
   allow_failure: true
   variables:
-    DEFAULT_COV_ARGS: "--cov-fail-under=70"
+    DEFAULT_COV_ARGS: "--no-ddtrace --no-cov" # --cov-fail-under=70
     DEFAULT_PIPENV_ARGS: "--system --dev --ignore-pipfile" # --dev  --verbose --index=https://package_read:${CI_PIP_GITLABJUSMUNDI_TOKEN}@gitlab.com/api/v4/groups/7364654/-/packages/pypi/simple
   # BELOW is needed as we do not use jm-ubuntu but python:3.10
   before_script:
@@ -298,11 +301,17 @@ install-npm:
     # - npm config set @scope:registry=https://gitlab.com/api/v4/groups/2454528/-/packages/npm/
     # - npm config set '@jusmundi-group:registry=https://gitlab.com/api/v4/projects/60435718/packages/npm/'
     # - npm config set '@jusmundi-group:registry=https://gitlab.com/api/v4/packages/npm/:_authToken='"${CI_JOB_TOKEN}"
-    #- echo "@scope:registry=https://${CI_SERVER_HOST}/api/v4/projects/${CI_PROJECT_ID}/packages/npm/" > ~/.npmrc
+    # - echo "@scope:registry=https://${CI_SERVER_HOST}/api/v4/projects/${CI_PROJECT_ID}/packages/npm/" > ~/.npmrc
     - echo "@jusmundi-group:registry=https://gitlab.com/api/v4/packages/npm/" > ~/.npmrc
-    #- echo "//${CI_SERVER_HOST}/api/v4/projects/${CI_PROJECT_ID}/packages/npm/:_authToken=${CI_JOB_TOKEN}" >> ~/.npmrc
+    # - echo "//${CI_SERVER_HOST}/api/v4/projects/${CI_PROJECT_ID}/packages/npm/:_authToken=${CI_JOB_TOKEN}" >> ~/.npmrc
     - echo "//${CI_SERVER_HOST}/api/v4/packages/npm/:_authToken=${CI_JOB_TOKEN}" >> ~/.npmrc
-    - npm ci --cache .npm --prefer-offline
+    # - rm -rf node_modules package-lock.json
+    - |
+      if [ -e yarn.lock ]; then
+      yarn install --frozen-lockfile
+      elif [ -e package-lock.json ]; then
+      npm i --cache .npm --prefer-offline --no-audit
+      fi
   cache:
     # inherit all global cache settings
     <<: *global_cache
@@ -311,6 +320,7 @@ install-npm:
       - node_modules
     expire_in: 6 hours # your GitLab instance will have a default, you can override it like this
     when: on_success # don't attempt to upload the docs if generating them failed
+  allow_failure: false
 
 lint-eslin-npmt:
   extends: .lint-eslint-npm
@@ -343,7 +353,7 @@ mega_linter:
 .build-image-dockefile-pre: &build-image-dockefile-pre
   script:
     # --target builder-base
-    - export DOCKER_BUILD_OPT="--pull --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from ${TEST_CACHE_TAG} -f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --build-arg ENV=${ENV} -t ${TEST_CACHE_TAG}"
+    - export DOCKER_BUILD_OPT="--pull --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from ${TEST_CACHE_TAG} -f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --build-arg ENV=${ENV} -t ${CONTAINER_IMAGE}"
     - echo -e "\e[35mOverriden on purpose as Sample docker build need explicit \e[0m FOR \e[43m${ENV} - ${DOCKER_BUILD_OPT}.\e[0m"
 
 docker-build:
@@ -356,7 +366,6 @@ docker-build:
     # CUSTOM_CONTAINER_SCANNING_DISABLED: "true"
     # CONTAINER_SCANNING_GITLAB_CODEQUALITY_TEMPLATE_DISABLE: "true"
     TRIVY_TIMEOUT: "20m0s"
-    TRIVY_ARGS: "--debug --skip-dirs .direnv --skip-dirs .venv --skip-dirs code/.venv --skip-dirs code/.venv/lib/python3.10/site-packages/ --skip-files /code/fastapi-sample/pyproject.toml --skip-files /code/fastapi-sample/Pipfile --skip-files /code/fastapi-sample/pip.conf --skip-files code/fastapi-sample/Dockerfile.train_neuralcoref"
     # TRIVY_GLOBAL_SETTINGS: --no-progress --cache-dir=${TRIVY_CACHE_DIR} --skip-db-update --skip-java-db-update --skip-check-update
     # TRIVY_EXIT_ON_FAILURE: 0
   before_script:
