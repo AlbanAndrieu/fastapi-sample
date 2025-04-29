@@ -348,6 +348,8 @@ unit-tests-npm:
 mega_linter:
   extends: .mega_linter_common
   needs: ["test-pytest"]
+  tags:
+    - jusmundi-nomad-runner
   allow_failure: false
 
 .build-image-dockefile-pre: &build-image-dockefile-pre
