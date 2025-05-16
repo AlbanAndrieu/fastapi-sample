@@ -46,6 +46,8 @@ echo -e "${magenta} git push origin --tags ${NC}"
 
 #echo -e "${cyan} PACKAGE ${NC}"
 
+python setup.py version
+
 pytest --cache-clear --setup-show tests/test_nabla_version.py
 
 #echo -e "${cyan} python setup.py sdist bdist_wheel ${NC}"

@@ -17,6 +17,7 @@ from sentry_sdk.integrations.logging import LoggingIntegration
 from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Mount
 
+from nabla._version import get_versions
 from nabla.api import ping, v1, v2
 from nabla.api.notes import notes
 from nabla.db import database, engine, metadata
@@ -27,14 +28,12 @@ from nabla.metrics.prometheus import API_REQUEST_COUNTER, API_REQUEST_SUMMARY
 from nabla.utils.log_config import setup_logging
 from nabla.utils.log_middleware import LogMiddleware
 from nabla.utils.prometheus import PrometheusMiddleware, setting_otlp
-from nabla._version import get_versions
 
 # from citation.infrastructure.crud_exceptions import CrudError, NotFoundInJM
 
 
 APP_NAME = os.environ.get("APP_NAME", "fastapi-sample")
-APP_PREFIX_VERSION = os.environ.get("APP_PREFIX_VERSION", "v0")
-# APP_VERSION = os.environ.get("APP_VERSION", "1.1.0")
+APP_PREFIX_VERSION = os.environ.get("APP_PREFIX_VERSION", "v")
 APP_VERSION = get_versions()["version"]
 
 DD_AGENT_HOST = os.environ.get("DD_AGENT_HOST", "127.0.0.1")
@@ -117,7 +116,7 @@ config.fastapi["service_name"] = APP_NAME
 app = FastAPI(
     title=APP_NAME + " " + APP_PREFIX_VERSION,
     description="FastAPI Sample for demo",
-    version="v0." + APP_VERSION,
+    version=f"{APP_PREFIX_VERSION}{APP_VERSION}",
     debug=False,
 )
 

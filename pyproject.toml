@@ -40,8 +40,8 @@ toml = ["tomli; python_version < '3.11'"]
 [tool.poetry]
 name = "fastapi-sample"
 version = "1.1.0"
-# description = "Custom hooks to improve code quality before pushing to git"
-# authors = ["Andrieu, Alban <alban.andrieu@free.fr>"]
+description = "Custom hooks to improve code quality before pushing to git"
+authors = ["Andrieu, Alban <alban.andrieu@free.fr>"]
 # license = "MIT"
 # homepage = "https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample"
 # readme = ["README.md", "LICENSE"]
