@@ -27,4 +27,6 @@ echo -e "${cyan} poetry update ${NC}"
 #echo -e "${cyan} poetry install ${NC}"
 poetry install
 
+sudo apt-get install mypy
+
 exit 0

@@ -19,7 +19,8 @@ class AzureOpenAiInstance(BaseModel):
         # UrlConstraints(
         #    allowed_schemes=["https"], host_required=True, default_port=None
         # ),
-        str, Field(pattern=r"^https://[a-z0-9\-]+\.openai\.azure\.com$")
+        str,
+        Field(pattern=r"^https://[a-z0-9\-]+\.openai\.azure\.com$"),
     ]
     api_key: Annotated[str, Field(min_length=1)]
     api_alias: Annotated[str, Field(min_length=1)]
@@ -47,18 +48,18 @@ class _Settings(BaseSettings):
     db_host: str = "localhost"
     db_name: str = "back"
     db_user: str = "back"
-    db_password: str = "back"
+    db_password: str = "back"  # noqa: S105
     db_port: int = 5432
 
     db_url: Optional[str] = (
-        "postgresql://fastapi_sample:fastapi_sample@localhost/fastapi_sample_dev"
+        "postgresql://back:password-reset-XXX@127.0.0.1/fastapi_sample_dev"
     )
 
     azure_openai_instance: dict[str, AzureOpenAiInstance] = {}
 
     # s3 settings
     ovh_username: str = "username"
-    ovh_password: str = "password"
+    ovh_password: str = "password"  # noqa: S105
     ovh_project_name: str = "123456789"
     ovh_container: str = "nabla_models"
 
