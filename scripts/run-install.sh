@@ -11,18 +11,20 @@
 
 #pip uninstall pylint pytest tox setup-cfg-fmt molecule yamllint pip-upgrade ansible
 
-#source /opt/ansible/env38/bin/activate
+# source /opt/ansible/env38/bin/activate
 
 echo -e "${magenta} python -m pipenv install --dev --site-packages --ignore-pipfile ${NC}"
 python -m pipenv install --dev --site-packages --ignore-pipfile 2>/dev/null
 
-#pip install --upgrade pip
+echo -e "${magenta} pip install --upgrade pip ${NC}"
 
 #pip install setup-py-upgrade
 #pip install setup-cfg-fmt
 
+echo -e "${magenta} pip install setuptools wheel twine ${NC}"
+
 echo -e "${cyan} poetry update ${NC}"
 #echo -e "${cyan} poetry install ${NC}"
-#poetry install
+poetry install
 
 exit 0

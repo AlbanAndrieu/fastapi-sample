@@ -1,10 +1,10 @@
-# syntax=docker/dockerfile:1.14
+# syntax=docker/dockerfile:1.15
 
 # dockerfile_lint - ignore
 # hadolint ignore=DL3007
 FROM python:3.12-slim AS python-base
 
-LABEL name="fastapi-sample" vendor="sample" version="1.1.0" \
+LABEL name="fastapi-sample" vendor="sample" version="1.1.1" \
  description="Image used by our products to build python\
  this image is running on Python 3.12."
 

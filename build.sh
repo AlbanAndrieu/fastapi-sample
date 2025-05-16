@@ -4,20 +4,24 @@
 WORKING_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # shellcheck source=/dev/null
+source "${WORKING_DIR}/scripts/step-0-color.sh"
+
+# shellcheck source=/dev/null
 source "${WORKING_DIR}/scripts/step-1-os.sh"
 
 export REPO_TAG=${REPO_TAG:-"1.1.0"}
 
 # shellcheck source=./docs/build.sh
-#echo "${WORKING_DIR}/docs/build.sh"
+# echo "${WORKING_DIR}/docs/build.sh"
 
 # shellcheck source=./scripts/run-python.sh
 # echo "${WORKING_DIR}/scripts/run-python.sh"
 
 # shellcheck source=./clean.sh
-#${WORKING_DIR}/clean.sh"
+# ${WORKING_DIR}/clean.sh"
 
-echo "${cyan} ${WORKING_DIR}/scripts/run-install.sh ${NC}"
+echo -e "${cyan} ${WORKING_DIR}/scripts/run-install.sh ${NC}"
+"${WORKING_DIR}/scripts/run-install.sh"
 
 #pipenv install
 

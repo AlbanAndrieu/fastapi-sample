@@ -90,10 +90,14 @@ poetry config http-basic.gitlab-ds package_read ${CI_PIP_GITLABJUSMUNDI_TOKEN}
 # export POETRY_GITLAB_TOKEN_GITLAB=${GITLAB_FULL_PRIVATE_TOKEN}
 
 poetry install --no-dev # --dev-only
-poetry install --with format,test,extras,open_telemetry,deployment,influxdb,panda,temporal
+poetry install --with format,test,extra,open_telemetry,deployment,influxdb,panda,temporal
 poetry install --extras "mysql pgsql"
 #poetry install -E mysql -E pgsql
 poetry install --all-extras
+```
+
+```bash
+pytest --cov=nabla --cov-report term --cov-report xml:coverage.xml --junitxml pytest-junit.xml --no-ddtrace  --no-cov
 ```
 
 ## [Getting started](#table-of-contents)

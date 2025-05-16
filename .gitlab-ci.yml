@@ -169,6 +169,7 @@ variables:
   TEST_CACHE_TAG: python:3.12-slim
   API_REPORTER_URL: http://loki-read.service.gra.uat.consul:3100/loki/api/v1/push
   API_REPORTER_BEARER_TOKEN: ""
+  DEFAULT_COV_ARGS: "--no-ddtrace --no-cov" # --cov-fail-under=1
 
 .dependabot-gitlab:
   stage: dependabot
@@ -285,14 +286,18 @@ test-pytest:
   interruptible: true
   allow_failure: true
   variables:
-    DEFAULT_COV_ARGS: "--no-ddtrace --no-cov" # --cov-fail-under=70
+    DEFAULT_COV_ARGS: "--no-ddtrace --no-cov"
     DEFAULT_PIPENV_ARGS: "--system --dev --ignore-pipfile" # --dev  --verbose --index=https://package_read:${CI_PIP_GITLABJUSMUNDI_TOKEN}@gitlab.com/api/v4/groups/7364654/-/packages/pypi/simple
+    DEFAULT_PYTEST_PACKAGES: "pytest pytest-cov pytest-env"
   # BELOW is needed as we do not use jm-ubuntu but python:3.10
   before_script:
     # - export PIPENV_INSTALL_TIMEOUT=1800 # 900 is 15 minutes
     # - !reference [.install-pip3, script]
     - !reference [.install-pipenv, script]
     - !reference [.pipenv-install, script]
+  script:
+    - python3 -m pip install --user ${DEFAULT_PYTEST_PACKAGES}
+    - pytest --cov=${DEFAULT_COV} --cov-report term --cov-report xml:coverage.xml --junitxml pytest-junit.xml ${DEFAULT_COV_ARGS}
 
 # See https://docs.gitlab.com/user/packages/npm_registry/?tab=%60npm+config%60#publish-a-package-with-a-cicd-pipeline
 install-npm:
@@ -322,16 +327,20 @@ install-npm:
     when: on_success # don't attempt to upload the docs if generating them failed
   allow_failure: false
 
-lint-eslin-npmt:
+lint-eslint-npm:
   extends: .lint-eslint-npm
   script:
     - npm test --cache .npm
+    - npx eslint --format gitlab .
   allow_failure: false
   cache:
     # inherit all global cache settings
     <<: *global_cache
     # override the policy
     policy: pull
+  artifacts:
+    reports:
+      codequality: gl-codequality.json
 
 unit-tests-npm:
   extends: .unit-tests-npm
@@ -432,6 +441,11 @@ cml:
 
 publish-npm:
   extends: .publish-npm
+  needs: ["install-npm"]
+  dependencies:
+    - install-npm
+  tags:
+    - jusmundi-nomad-runner
   script:
     # If no .npmrc is included in the repo, generate a temporary one that is configured to publish to GitLab's NPM registry
     - |
