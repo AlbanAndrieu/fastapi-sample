@@ -1,14 +1,38 @@
+[build-system]
+requires = ["poetry-core>=1.2.0", "setuptools>=68.0.0", "versioneer[toml]>=0.29", "wheel"]
+# build-backend = "setuptools.build_meta"
+build-backend = "poetry.core.masonry.api"
+
 [project]
 name = "fastapi-sample"
 version = "1.1.0"
+# dynamic = [ "version" ]
 description = "Fastapi sample"
 authors = [
     {name = "Andrieu, Alban", email = "alban.andrieu@free.fr"},
 ]
+maintainers = [
+  { name = "Andrieu, Alban", email = "alban.andrieu@free.fr" }
+]
 dependencies = ["dynamic"]
 requires-python = ">=3.10"
 readme = "README.md"
-license = {text = "MIT"}
+# license = {text = "MIT"}
+license = "MIT"
+license-files = ["LICENSE"]
+
+# Keywords (translated to tags on the package index)
+keywords = ["packaging", "poetry" ,"fastapi-samples"]
+
+classifiers = [
+  "Private :: Do not Upload"
+]
+
+[project.urls]
+"Homepage" = "https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample"
+
+[project.optional-dependencies]
+toml = ["tomli; python_version < '3.11'"]
 
 #[virtualenvs]
 #in-project = true
@@ -16,15 +40,15 @@ license = {text = "MIT"}
 [tool.poetry]
 name = "fastapi-sample"
 version = "1.1.0"
-description = "Custom hooks to improve code quality before pushing to git"
-authors = ["Andrieu, Alban <alban.andrieu@free.fr>"]
-license = "MIT"
-homepage = "https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample"
-readme = ["README.md", "LICENSE"]
+# description = "Custom hooks to improve code quality before pushing to git"
+# authors = ["Andrieu, Alban <alban.andrieu@free.fr>"]
+# license = "MIT"
+# homepage = "https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample"
+# readme = ["README.md", "LICENSE"]
 
-classifiers = [
-    "Private :: Do not Upload"
-]
+# classifiers = [
+#     "Private :: Do not Upload"
+# ]
 
 packages = [
   { include = "nabla" }
@@ -224,6 +248,7 @@ sqlfluff = ">=3.1.0"
 setup-cfg-fmt = ">=2.2.0"
 setuptools = ">=70.0.0"
 termcolor = ">=1.1.0" # >=2.4.0
+versioneer = {version = ">=0.29", extras = ["toml"]}
 wheel = ">=0.45.1"
 srsly = ">=2.4.8" # Downgrading srsly (2.5.1 -> 2.4.8) with python  3.13.3
 
@@ -332,6 +357,10 @@ name = "pypi"
 url = "https://pypi.org/simple"
 verify_ssl = true
 
-[build-system]
-requires = ["poetry-core>=1.2.0"]
-build-backend = "poetry.core.masonry.api"
+[tool.versioneer]
+VCS = "git"
+style = "pep440"
+versionfile_source = "nabla/_version.py"
+versionfile_build = "nabla/_version.py"
+tag_prefix = "prod-"
+parentdir_prefix = ""

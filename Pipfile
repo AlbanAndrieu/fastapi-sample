@@ -87,6 +87,8 @@ flake8-formatter-junit-xml = ">=0.0.6"
 jira = ">=3.8.0"
 molecule = ">=5.1.0"
 nox = ">=2023.4.22"
+packaging = ">=24.2"
+poetry = ">=1.8.2" # 2.1.3 working
 pep8 = ">=1.7.1"
 pep8-naming = ">=0.13.2"
 # pip-upgrader = ">=1.4.15"
@@ -114,6 +116,7 @@ sphinx = ">=7.1.2" # 4.2.0 is ok with awscli, 7.2.6 docutils conflicting with aw
 # testinfra = ">=6.0.0" pip uninstall testinfra
 tox = ">=3.27.1"
 twine = ">=4.0.2"
+versioneer = {version = ">=0.29", extras = ["toml"]}
 wheel = ">=0.45.1"
 jupyter-client = ">=8.6.0"
 jupyterlab = ">=3.4.3"
