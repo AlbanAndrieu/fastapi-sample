@@ -130,8 +130,8 @@ USER root
 # hadolint ignore=SC2086
 RUN --mount=type=cache,target=/root/.cache \
   python3 -m venv "${POETRY_HOME}" \
-  && "${POETRY_HOME}/bin/pip" install --no-cache-dir --upgrade pip==25.0.1 \
-  && "${POETRY_HOME}/bin/pip" install poetry=="${POETRY_VERSION}" \
+  && "${POETRY_HOME}/bin/pip" install --no-cache-dir --upgrade pip==25.1.1 \
+  && "${POETRY_HOME}/bin/pip" install --no-cache-dir poetry=="${POETRY_VERSION}" ansible==2.10.7 \
   && "${POETRY_HOME}/bin/poetry" --version \
   && rm -rf .cache/pypoetry/artifacts/
 

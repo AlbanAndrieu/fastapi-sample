@@ -46,6 +46,8 @@ echo -e "${magenta} git push origin --tags ${NC}"
 
 #echo -e "${cyan} PACKAGE ${NC}"
 
+pytest --cache-clear --setup-show tests/test_nabla_version.py
+
 #echo -e "${cyan} python setup.py sdist bdist_wheel ${NC}"
 #python setup.py sdist bdist_wheel
 #echo -e "${magenta} twine upload dist/* ${NC}"

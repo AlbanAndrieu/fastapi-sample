@@ -62,7 +62,9 @@ spacy = ">=3.5.4"
 sentry-sdk = {version = "*", extras = ["fastapi"]}
 # starlette = "~=0.36.2"
 termcolor = ">=2.1.1"
-uvicorn = {version = ">=0.20.0", extras = ["standard"]}
+gunicorn = ">=23.0.0"
+# uvicorn = {version = ">=0.20.0", extras = ["standard"]}
+# uvicorn-worker = ">=0.2.0"
 # urllib3 = ">=2.2.2" # awscli needed
 traceback2 = ">=1.4.0"
 
