@@ -67,7 +67,7 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DEFAULT_TIMEOUT=100 \
     # poetry
     # https://python-poetry.org/docs/configuration/#using-environment-variables
-    POETRY_VERSION=1.8.3 \
+    POETRY_VERSION=2.1.3 \
     # make poetry install to this location
     POETRY_HOME="/opt/poetry" \
     POETRY_NO_INTERACTION=1 \
@@ -130,8 +130,8 @@ USER root
 # hadolint ignore=SC2086
 RUN --mount=type=cache,target=/root/.cache \
   python3 -m venv "${POETRY_HOME}" \
-  && "${POETRY_HOME}/bin/pip" install --no-cache-dir --upgrade pip==25.0.1 \
-  && "${POETRY_HOME}/bin/pip" install poetry=="${POETRY_VERSION}" \
+  && "${POETRY_HOME}/bin/pip" install --no-cache-dir --upgrade pip==25.1.1 \
+  && "${POETRY_HOME}/bin/pip" install --no-cache-dir poetry=="${POETRY_VERSION}" ansible==11.5.0 \
   && "${POETRY_HOME}/bin/poetry" --version \
   && rm -rf .cache/pypoetry/artifacts/
 

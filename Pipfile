@@ -9,9 +9,6 @@ verify_ssl = false
 name = "gitlab"
 
 [packages]
-# HOOK
-ansible-core = ">=2.16.8"
-ansible-lint = ">=6.18.0"
 asyncpg = ">=0.28.0"
 # awscli = ">=1.27.165" # python 3.8
 awscli = ">=1.32.11" # python 3.10 awscli 1.32.22 requires docutils<0.17,>=0.10
@@ -19,103 +16,108 @@ awscli-plugin-endpoint = ">=0.4"
 ansicolors = ">=1.1.8"
 bcrypt = ">=4.0.1"
 # certifi = "2023.7.22" # CVE-2023-37920
-cfgv = ">=3.1.0"
+# cfgv = ">=3.3.0"
 # chardet = ">=3.0.4"
 click = ">=8.1.3"
 click-completion = ">=0.5.2"
 # colorama = ">=0.4.6" # awscli needed
 cryptography = ">=41.0.3"
+databases = ">=0.5.3"
 ddtrace = ">=2.17.3"
 dd-import = ">=1.0.12"
-# API
-fastapi = ">=0.95.0" # A version greater than 0.90.0 breaks the code
+fastapi = {version = ">=0.115.3", extras = ["standard"]}
 git-url-parse = ">=1.2.2"
 gitpython = ">=3.1.33"
+grafana-openai-monitoring = ">=0.0.8"
+influxdb-client = ">=1.37.0"
 locust = ">=2.18.3"
 logfire = "*"
-prometheus-client = "~=0.16.0"
-# prometheus-fastapi-instrumentator = "~=5.10.0"
 opentelemetry-distro = ">=0.47b0"
-opentelemetry-exporter-otlp = ">=1.26.0"
+opentelemetry-exporter-otlp = ">=1.30.0"
 opentelemetry-instrumentation-fastapi = ">=0.47b0"
 opentelemetry-instrumentation-logging = ">=0.47b0"
 opentelemetry-exporter-jaeger-thrift = ">=1.13.0"
-opentelemetry-api = ">=1.26.0"
-opentelemetry-sdk = ">=1.26.0"
-python-keystoneclient = ">=0.0.18"
-python-swiftclient = ">=4.2.0"
-# python-multipart = ">=1.26.0"
+opentelemetry-api = ">=1.30.0"
+opentelemetry-sdk = ">=1.30.0"
 pandas = ">=2.2.1"
+# prometheus-fastapi-instrumentator = "~=5.10.0"
+python-keystoneclient = ">=5.1.0"
+python-swiftclient = ">=4.2.0"
+prometheus-client = ">=0.16.0"
+# python-multipart = ">=1.26.0"
 psycopg2 = ">=2.9.7"  # WARNING need sudo apt-get install libpq-dev
 podmena = ">=0.6.1"
+pyarrow = ">=16.0.0"
 # pydantic = "*" # ">=1.8.0,<2.0.0"
 pydantic = {version = ">=2.6.1", extras = ["dotenv"]}
 pydantic-settings = "*" # Defined by pydantic
 pyroscope-io = ">=0.8.5"
 # pyyaml = ">=6.0" # awscli needed
 # six = ">=1.16.0" # awscli needed
-termcolor = ">=2.1.1"
-# starlette = "~=0.36.2"
-uvicorn = {version = ">=0.20.0", extras = ["standard"]}
-sqlalchemy = ">=2.0.20"
-spacy = ">=3.5.4"
-reretry = ">=0.11.8"
-sentry-sdk = {version = "*", extras = ["fastapi"]}
-influxdb-client = ">=1.37.0"
 requests = ">=2.31.0"
+reretry = ">=0.11.8"
+sqlalchemy = ">=2.0.20"
+sqlfluff = ">=3.1.0"
+spacy = ">=3.5.4"
+sentry-sdk = {version = "*", extras = ["fastapi"]}
+# starlette = "~=0.36.2"
+termcolor = ">=2.1.1"
+gunicorn = ">=23.0.0"
+# uvicorn = {version = ">=0.20.0", extras = ["standard"]}
+# uvicorn-worker = ">=0.2.0"
 # urllib3 = ">=2.2.2" # awscli needed
 traceback2 = ">=1.4.0"
-grafana-openai-monitoring = ">=0.0.8"
-pyarrow = ">=16.0.0"
-jira = ">=3.8.0"
-sqlfluff = ">=3.1.0"
-databases = ">=0.5.3"
 
 [dev-packages]
-httpx = ">=0.23.3" # For testing fastAPI only
-# ansible-cmdb = "~=1.31"
+# ansible-cmdb = ">=1.31"
+ansible-core = ">=2.14.14"
+ansible-lint = {extras = ["yamllint"], version = ">=6.0.2"} # 6.17.2
 ansible-navigator = ">=1.1.0"
 ansible-runner = ">=2.2.1"
 ansible-builder = ">=1.1.0"
-ansible-playbook-grapher = ">=1.1.0"
+ansible-playbook-grapher = ">=1.2.0"
 autopep8 = ">=2.0.1"
-bandit = ">=1.7.5"
+bandit = ">=1.8.3"
 black = {version = ">=23.7.0", extras = ["d"]}
 checkov = ">=2.3.115"
 coverage = ">= 7.2.7"
 cyclonedx-bom = ">=4.5.0"
 flake8 = ">=7.1.1"
 flake8-formatter-junit-xml = ">=0.0.6"
+jira = ">=3.8.0"
 molecule = ">=5.1.0"
 nox = ">=2023.4.22"
+packaging = ">=24.2"
+poetry = ">=1.8.2" # 2.1.3 working
 pep8 = ">=1.7.1"
 pep8-naming = ">=0.13.2"
 # pip-upgrader = ">=1.4.15"
 # pipenv>=2023.12.0
-pre-commit = ">=3.8.0"
+pre-commit = ">=4.0.1"
 # pre-commit-hooks = ">=4.4.0"
 pylint = ">=2.15.6"
 pylint-junit = ">=0.3.2"
-pytest = "~=7.2.0"
-pytest-asyncio = "~=0.20.2"
-pytest-cov = "~=4.0.0"
-pytest-dependency = "~=0.5.1"
+pytest = ">=7.2.0"
+pytest-asyncio = ">=0.20.2"
+pytest-cov = ">=4.0.0"
+pytest-env = ">=1.1.5"
+pytest-dependency = ">=0.5.1"
 pytest-order = ">=1.0.1"
 # pip install --upgrade pytest-testinfra
 pytest-testinfra = ">=6.4.0"
 readme-renderer = {version = ">=37.3", extras = ["md"]}
 ruff = ">=0.4.4"
 selenium = ">=4.6.0"
-# NOK
 semgrep = ">=1.15.0"
 # setup-cfg-fmt = ">=2.2.0"
-setuptools = ">=70.0.0"
+setuptools = ">=80.7.1"
 # docutils = ">=0.16" # pip install docutils==0.20.1 fix for sphinx https://github.com/sphinx-doc/sphinx/pull/10597 docutils needed by sphinx
-sphinx = "~=5.0.2" # 4.2.0 is ok with awscli, 7.2.6 docutils conflicting with awscli 1.32.22 requires docutils<0.17,>=0.10 https://github.com/aws/aws-cli/blob/develop/setup.cfg#L7C9-L7C17
+sphinx = ">=7.1.2" # 4.2.0 is ok with awscli, 7.2.6 docutils conflicting with awscli 1.32.22 requires docutils<0.17,>=0.10 https://github.com/aws/aws-cli/blob/develop/setup.cfg#L7C9-L7C17
 # testinfra = ">=6.0.0" pip uninstall testinfra
 tox = ">=3.27.1"
 twine = ">=4.0.2"
-wheel = ">=0.41.2"
+versioneer = {version = ">=0.29", extras = ["toml"]}
+wheel = ">=0.45.1"
 jupyter-client = ">=8.6.0"
 jupyterlab = ">=3.4.3"
 jupyterlab-code-formatter = ">=1.5.3"
@@ -129,4 +131,4 @@ jupyterlab-templates = ">=0.3.1"
 # tensorflow = "==2.9.1"
 
 [requires]
-python_version = "3.12"
+python_version = ">=3.12"

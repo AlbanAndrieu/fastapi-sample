@@ -13,12 +13,12 @@ from nabla.config_settings import get_settings
 
 
 # Database url if none is passed the default one is used
-DATABASE_URL: Final[str] = str(get_settings().db_url)
+DB_URL: Final[str] = str(get_settings().db_url)
 
 patch(sqlalchemy=True)
 
 # SQLAlchemy
-engine = create_engine(DATABASE_URL)
+engine = create_engine(DB_URL)
 
 # Use a PIN to specify metadata related to this engine
 Pin.override(engine, service="replica-db")
@@ -39,4 +39,4 @@ notes = Table(
 )
 # Databases query builder
 
-database = Database(DATABASE_URL)
+database = Database(DB_URL)

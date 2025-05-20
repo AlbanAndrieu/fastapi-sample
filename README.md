@@ -266,6 +266,27 @@ Result available on [pyroscope](http://localhost:4040/?query=process_cpu%3Acpu%3
 ./nabla/get_data.py
 ```
 
+### Database demo
+
+## Create PostgreSQL fastapi_sample_gitlab on pg-gra.service.gra.dev.consul
+
+```bash
+psql -h pg-gra.service.gra.dev.consul -U postgres
+# BW : GRADBINTEGR01 - fastapisample - dev
+CREATE USER fastapisample WITH PASSWORD 'XXX';
+ALTER ROLE fastapisample WITH LOGIN;
+create database fastapi_sample_gitlab with owner fastapisample encoding 'UTF8';
+create database fastapi_sample_dev with owner fastapisample encoding 'UTF8';
+# ALTER USER fastapisample PASSWORD 'XXX';
+-- GRANT SELECT ON TABLE public.connected_users TO dev;
+```
+
+```
+export POSTGRES_FASTAPI_SAMPLE_DB="fastapi_sample_dev";
+export POSTGRES_FASTAPI_SAMPLE_USER="fastapisample";
+export POSTGRES_FASTAPI_SAMPLE_PASSWORD="password-reset-XXX";
+```
+
 ### Temporal demo
 
 [Temporal](https://github.com/temporalio/samples-python/tree/main)

@@ -11,6 +11,7 @@ exclude = [
     "noxfile.py",
     "nabla/panda/",
     "nabla/loki/influxdb.py",
+    "nabla/_version.py",
 ]
 
 line-length = 88

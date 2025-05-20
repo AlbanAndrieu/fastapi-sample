@@ -7,7 +7,6 @@ import logfire
 import pyroscope
 import sentry_sdk
 from ddtrace import config, patch
-from ddtrace.trace import tracer
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.openapi.utils import get_openapi
 from prometheus_client import make_asgi_app
@@ -18,6 +17,7 @@ from sentry_sdk.integrations.logging import LoggingIntegration
 from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Mount
 
+from nabla._version import get_versions
 from nabla.api import ping, v1, v2
 from nabla.api.notes import notes
 from nabla.db import database, engine, metadata
@@ -33,8 +33,8 @@ from nabla.utils.prometheus import PrometheusMiddleware, setting_otlp
 
 
 APP_NAME = os.environ.get("APP_NAME", "fastapi-sample")
-APP_PREFIX_VERSION = os.environ.get("APP_PREFIX_VERSION", "v0")
-APP_VERSION = os.environ.get("APP_VERSION", "1.1.0")
+APP_PREFIX_VERSION = os.environ.get("APP_PREFIX_VERSION", "v")
+APP_VERSION = get_versions()["version"]
 
 DD_AGENT_HOST = os.environ.get("DD_AGENT_HOST", "127.0.0.1")
 DD_TRACE_AGENT_PORT = os.environ.get("DD_TRACE_AGENT_PORT", "8126")
@@ -52,11 +52,13 @@ OTLP_GRPC_ENDPOINT = os.environ.get(
 )
 
 OTEL_EXPORTER_JAEGER_AGENT_HOST = os.environ.get(
-    "OTEL_EXPORTER_JAEGER_AGENT_HOST", "jaeger-collector-grpc.service.gra.dev.consul"
+    "OTEL_EXPORTER_JAEGER_AGENT_HOST",
+    "jaeger-collector-grpc.service.gra.dev.consul",
 )
 
 OTEL_EXPORTER_JAEGER_AGENT_PORT = os.environ.get(
-    "OTEL_EXPORTER_JAEGER_AGENT_PORT", "80"
+    "OTEL_EXPORTER_JAEGER_AGENT_PORT",
+    "80",
 )
 
 OTEL_EXPORTER_JAEGER_ENDPOINT = os.environ.get(
@@ -85,7 +87,7 @@ def custom_openapi():
         routes=app.routes,
     )
     openapi_schema["info"]["x-logo"] = {
-        "url": "https://fastapi.tiangolo.com/img/logo-margin/logo-teal.png"
+        "url": "https://fastapi.tiangolo.com/img/logo-margin/logo-teal.png",
     }
     app.openapi_schema = openapi_schema
     return app.openapi_schema
@@ -114,7 +116,7 @@ config.fastapi["service_name"] = APP_NAME
 app = FastAPI(
     title=APP_NAME + " " + APP_PREFIX_VERSION,
     description="FastAPI Sample for demo",
-    version="v0." + APP_VERSION,
+    version=f"{APP_PREFIX_VERSION}{APP_VERSION}",
     debug=False,
 )
 
@@ -187,7 +189,9 @@ async def get_notes():
 @app.get("/notes/{id}")
 async def get_note_by_id(idNote: int):
     API_REQUEST_COUNTER.labels(
-        method="GET", endpoint="/notes/{id}", http_status=200
+        method="GET",
+        endpoint="/notes/{id}",
+        http_status=200,
     ).inc()
     API_REQUEST_SUMMARY.labels(method="GET", endpoint="/notes/{id}").observe(0.1)
     return await notes.read_note(idNote)
@@ -273,7 +277,9 @@ v0_router = VersionedAPIRouter(
 
 app.include_router(v0_router)
 app.include_router(
-    ping.router, tags=["ping"], responses={404: {"description": "Not found"}}
+    ping.router,
+    tags=["ping"],
+    responses={404: {"description": "Not found"}},
 )
 app.include_router(v1.router)
 app.include_router(v2.router)

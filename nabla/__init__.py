@@ -3,6 +3,7 @@
 """
 This module allow to do things.
 """
+
 import uuid
 
 from nabla._version import get_versions
@@ -16,6 +17,5 @@ __version__ = get_versions()["version"]
 del get_versions
 
 # __version__ = 'v1.1.0'
-# __version__ = _version.get_versions()['version']
 
 __all__ = ("__version__", "signing_uuid")
