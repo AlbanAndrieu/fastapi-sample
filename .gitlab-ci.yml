@@ -516,3 +516,10 @@ deploy:prod:
 #     echo $SEMREL_INFO_LAST_VERSION
 #     echo $SEMREL_INFO_NEXT_VERSION
 #     echo $SEMREL_INFO_NEXT_VERSION_TYPE
+
+netlify:
+  image: node:22-alpine
+  state: .pre
+  script:
+    - npm install netlify-cli -g
+    - netlify --version
