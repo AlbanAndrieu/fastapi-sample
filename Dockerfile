@@ -19,9 +19,9 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ENV DEBIAN_FRONTEND=noninteractive \
     DEBCONF_NONINTERACTIVE_SEEN=true
 
-ENV LANG en_US.UTF-8
-ENV LANGUAGE en_US:en
-ENV LC_ALL en_US.UTF-8
+ENV LANG=en_US.UTF-8
+ENV LANGUAGE=en_US:en
+ENV LC_ALL=en_US.UTF-8
 ENV TERM="xterm-256color"
 
 ARG DD_GIT_REPOSITORY_URL
@@ -51,7 +51,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # because of tzdata and the need of noninteractive
-ENV TZ "Europe/Paris"
+ENV TZ="Europe/Paris"
 RUN echo "${TZ}" > /etc/timezone
 RUN ln -fs /usr/share/zoneinfo/${TZ} /etc/localtime && locale-gen en_US.UTF-8 \
     && dpkg-reconfigure --frontend noninteractive tzdata
@@ -118,9 +118,10 @@ COPY --chown=jm-python:jm-python package.json package-lock.json .npmrc ${PYSETUP
 # USER jm-python
 
 # hadolint ignore=SC3037
-RUN --mount=type=secret,id=read-npm-token,uid=999,target=/code/CI_JOB_TOKEN \
+RUN --mount=type=secret,id=read-npm-token,uid=999,target=/run/secrets/CI_JOB_TOKEN \
   --mount=type=cache,target=/root/.npm,id=npm_cache \
-  echo -e "'//gitlab.com/api/v4/packages/npm/:_authToken'=\"$(cat /code/CI_JOB_TOKEN)\"" >> ${PYSETUP_PATH}/.npmrc && \
+  echo "@jusmundi-group:registry=https://gitlab.com/api/v4/packages/npm/" > ${PYSETUP_PATH}/.npmrc && \
+  echo -e "'//gitlab.com/api/v4/packages/npm/:_authToken'=\"$(cat /run/secrets/CI_JOB_TOKEN)\"" >> ${PYSETUP_PATH}/.npmrc && \
   npm install --cache /root/.npm && npm cache clean --force && \
   rm -rf ~/.npmrc ${PYSETUP_PATH}/.npmrc /code/.npm
 
