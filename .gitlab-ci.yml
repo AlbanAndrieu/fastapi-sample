@@ -57,17 +57,6 @@ include:
     rules:
       - if: $PACKAGE_MANAGER_SET
 
-  # - template: 'Workflows/MergeRequest-Pipelines.gitlab-ci.yml'
-
-  # - template: Jobs/Dependency-Scanning.gitlab-ci.yml
-  # - template: Jobs/SAST.gitlab-ci.yml
-
-  # - template: Jobs/Secret-Detection.gitlab-ci.yml
-
-  # - template: DAST.gitlab-ci.yml
-
-  # - template: API-Security.gitlab-ci.yml
-
   # - project: 'renovate-bot/renovate-runner'
   #   file: '/templates/renovate.gitlab-ci.yml'
 
@@ -107,15 +96,12 @@ variables:
   CI_IMAGE_TAG: latest
   GIT_STRATEGY: clone
   GIT_DEPTH: "3"
-  # GITLAB_TOKEN: ${CI_JOB_TOKEN}
   FLAVOR: "-python" # -ci_light
   # TRIVY_VERSION: "0.61.1"
   TRIVY_SCANNERS: "vuln,misconfig,secret,license"
   CS_SEVERITY_THRESHOLD: "CRITICAL"
   CS_SEVERITY_FILESYTEM_THRESHOLD: "CRITICAL" # CRITICAL,HIGH
   TRIVY_GLOBAL_IGNORE_FILE: "--ignorefile .trivyignore.yaml"
-  # TRIVY_GLOBAL_SECURITY_CHECKS_EXTRA: "--ignore-unfixed --ignorefile .trivyignore.yaml --ignored-licenses LGPL-2.0,LGPL-2.1,LGPL-3.0"
-  # DD_GLOBAL_SECURITY_CHECKS_EXTRA: "--ignore-unfixed --ignorefile .trivyignore.yaml --ignored-licenses LGPL-2.0,LGPL-2.1,LGPL-3.0"
   TRIVY_ARGS: "--skip-dirs .direnv --skip-dirs .venv --skip-dirs .node_cache --skip-dirs code/node_modules/ --skip-dirs go/go/pkg/mod/github.com/ --skip-dirs /usr/bin/go/pkg/mod/github.com/ --skip-dirs code/.venv/ --skip-dirs node_modules --skip-dirs usr/lib/node_modules/ --skip-files pip.conf --skip-files Pipfile" #  --insecure  --debug
   DD_ARGS: "${TRIVY_ARGS}"
   TRIVY_FS_ARGS: "${TRIVY_ARGS}  --skip-files package-lock.json --skip-files yarn.lock"
@@ -126,9 +112,7 @@ variables:
   DD_TEST_NAME: "JM Trivy"
   DD_GIT_REPOSITORY_URL: "$(git config --get remote.origin.url)" # NOK
   DD_GIT_COMMIT_SHA: "$(git rev-parse HEAD)" # NOK
-  # DD_FILE_NAME: "trivy.json"
   DD_MINIMUM_SEVERITY: "MEDIUM"
-  # DD_GROUP_BY: ""
   DD_CLOSE_OLD_FINDINGS: "True"
   DD_CLOSE_OLD_FINDINGS_PRODUCT_SCOPE: "True"
   DD_DO_NOT_REACTIVATE: "False"
@@ -150,8 +134,6 @@ variables:
   # GIT_CLONE_PATH: '$CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_PIPELINE_ID'
   # GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_PROJECT_PATH
   MEGALINTER_EXIT_ON_FAILURE: 1
-  # LINTER_RULES_PATH: .
-  # Improve the (de-)compression speed by using a more efficient ZIP implementation
   FF_USE_FASTZIP: "true"
   ARTIFACT_COMPRESSION_LEVEL: "fast"
   CACHE_COMPRESSION_LEVEL: "fast"
@@ -173,47 +155,6 @@ variables:
 
 .dependabot-gitlab:
   stage: dependabot
-
-# override the dependency scanning job
-# gemnasium-dependency_scanning:
-#   tags: [ saas-linux-large-amd64 ]
-#   rules:
-#     - if: $CI_COMMIT_BRANCH == "main"
-#     - if: $CI_MERGE_REQUEST_IID
-#   variables:
-#     DS_REMEDIATE: "false"
-
-# TODO Insufficient permissions for dast_configuration keyword
-# dast:
-#   # dependencies: []
-#   services: # use services to link your app container to the dast job
-#     # - name: mongo:latest
-#     #   alias: mongo
-#     - name: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
-#       alias: fastapi-sample
-#   allow_failure: true
-
-# TODO Insufficient permissions for dast_configuration keyword
-# Extend the API Security job defined in CI template
-# adding a services section with our test target
-# api_security:
-#   services:
-#     - name: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
-#       alias: fastapi-sample
-#   variables:
-#       APISEC_HAR: rest_target_http_archive.v1.2.har
-#       APISEC_TARGET_URL: http://fastapi-sample:8080
-#   allow_failure: true
-
-#renovate:
-#  rules:
-#    - if: '$CI_PIPELINE_SOURCE == "schedule"'
-#    - if: '$CI_PIPELINE_SOURCE == "push"'
-#  allow_failure: true
-
-# spotbugs-sast:
-#   variables:
-#     FAIL_NEVER: 1
 
 upload_trivy:uat:
   extends: .upload_trivy:uat
@@ -503,7 +444,6 @@ deploy:uat:
 
 deploy:prod:
   extends: .deploy:prod
-  #needs: ["docker-build"]
   tags:
     - jusmundi-nomad-runner
 
@@ -519,7 +459,7 @@ deploy:prod:
 
 netlify:
   image: node:22-alpine
-  state: .pre
+  stage: static
   script:
     - npm install netlify-cli -g
     - netlify --version
