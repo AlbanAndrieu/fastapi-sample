@@ -23,6 +23,7 @@ click-completion = ">=0.5.2"
 # colorama = ">=0.4.6" # awscli needed
 cryptography = ">=41.0.3"
 databases = ">=0.5.3"
+deprecated = ">=1.2.18" # For opentelemetry https://github.com/open-telemetry/opentelemetry-python/issues/4020
 ddtrace = ">=2.17.3"
 dd-import = ">=1.0.12"
 fastapi = {version = ">=0.115.3", extras = ["standard"]}
