@@ -122,7 +122,7 @@ RUN --mount=type=secret,id=read-npm-token,uid=999,target=/code/CI_JOB_TOKEN \
   --mount=type=cache,target=/root/.npm,id=npm_cache \
   echo -e "'//gitlab.com/api/v4/packages/npm/:_authToken'=\"$(cat /code/CI_JOB_TOKEN)\"" >> ${PYSETUP_PATH}/.npmrc && \
   npm install --cache /root/.npm && npm cache clean --force && \
-  rm -f ~/.npmrc ${PYSETUP_PATH}/.npmrc /code/.npm
+  rm -rf ~/.npmrc ${PYSETUP_PATH}/.npmrc /code/.npm
 
 USER root
 
