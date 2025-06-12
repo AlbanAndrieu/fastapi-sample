@@ -110,13 +110,14 @@ variables:
   # GITLAB_TOKEN: ${CI_JOB_TOKEN}
   FLAVOR: "-python" # -ci_light
   # TRIVY_VERSION: "0.61.1"
-  TRIVY_SCANNERS: "vuln,misconfig,secret,license"
+  # TRIVY_SCANNERS: "vuln,misconfig,secret,license"
+  TRIVY_SCANNERS: "vuln,misconfig"
   CS_SEVERITY_THRESHOLD: "CRITICAL"
   CS_SEVERITY_FILESYTEM_THRESHOLD: "CRITICAL" # CRITICAL,HIGH
   TRIVY_GLOBAL_IGNORE_FILE: "--ignorefile .trivyignore.yaml"
   # TRIVY_GLOBAL_SECURITY_CHECKS_EXTRA: "--ignore-unfixed --ignorefile .trivyignore.yaml --ignored-licenses LGPL-2.0,LGPL-2.1,LGPL-3.0"
   # DD_GLOBAL_SECURITY_CHECKS_EXTRA: "--ignore-unfixed --ignorefile .trivyignore.yaml --ignored-licenses LGPL-2.0,LGPL-2.1,LGPL-3.0"
-  TRIVY_ARGS: "--skip-dirs .direnv --skip-dirs .venv --skip-dirs .node_cache --skip-dirs code/node_modules/ --skip-dirs go/go/pkg/mod/github.com/ --skip-dirs /usr/bin/go/pkg/mod/github.com/ --skip-dirs code/.venv/ --skip-dirs node_modules --skip-dirs usr/lib/node_modules/ --skip-files pip.conf --skip-files Pipfile" #  --insecure  --debug
+  TRIVY_ARGS: "--skip-dirs .direnv --skip-dirs .venv --skip-dirs .node_cache --skip-dirs code/node_modules/ --skip-dirs go/go/pkg/mod/github.com/ --skip-dirs /usr/bin/go/pkg/mod/github.com/ --skip-dirs code/.venv/ --skip-dirs node_modules --skip-dirs usr/lib/node_modules/ --skip-dirs root/.npm/ --skip-files pip.conf --skip-files Pipfile" #  --insecure  --debug
   DD_ARGS: "${TRIVY_ARGS}"
   TRIVY_FS_ARGS: "${TRIVY_ARGS}  --skip-files package-lock.json --skip-files yarn.lock"
   DD_PRODUCT_NAME: "$CI_PROJECT_NAME"

@@ -3,7 +3,6 @@ import os
 import re
 from typing import Dict
 
-import logfire
 import pyroscope
 import sentry_sdk
 from ddtrace import config, patch
@@ -92,8 +91,6 @@ def custom_openapi():
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 
-
-logfire.info("Hello, {name}!", name="World")
 
 logger = logging.getLogger(__name__)
 logger.info("Creating API")
