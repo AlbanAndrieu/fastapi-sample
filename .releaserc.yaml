@@ -26,5 +26,5 @@ plugins:
       message: 'chore(release): ${nextRelease.version} [skip ci on prod]'
 branches:
   - main
-  - master
+  # - master
 tagFormat: '${version}'

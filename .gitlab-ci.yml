@@ -8,6 +8,7 @@ stages:
   - notify
   - dependabot
   - publish
+  - release
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
@@ -459,6 +460,13 @@ deploy:prod:
 #     echo $SEMREL_INFO_NEXT_VERSION
 #     echo $SEMREL_INFO_NEXT_VERSION_TYPE
 #     - npm run semantic-release
+
+publish:
+  stage: release
+  script:
+    - npm run semantic-release
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
 netlify:
   image: node:22-alpine
