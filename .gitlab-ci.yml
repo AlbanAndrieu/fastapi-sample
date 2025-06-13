@@ -458,6 +458,7 @@ deploy:prod:
 #     echo $SEMREL_INFO_LAST_VERSION
 #     echo $SEMREL_INFO_NEXT_VERSION
 #     echo $SEMREL_INFO_NEXT_VERSION_TYPE
+#     - npm run semantic-release
 
 netlify:
   image: node:22-alpine
