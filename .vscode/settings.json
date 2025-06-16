@@ -81,5 +81,8 @@
   "ruff.nativeServer": true,
   "sqlfluff.dialect": "postgres",
   "sqlfluff.excludeRules": ["AL06"],
-  "npm.packageManager": "npm"
+  "npm.packageManager": "npm",
+	"files.associations": {
+		"wrangler.json": "jsonc"
+	}
 }

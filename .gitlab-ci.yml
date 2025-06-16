@@ -4,6 +4,7 @@ stages:
   - build
   - test
   - train
+  - review
   - deploy
   - notify
   - dependabot
@@ -58,8 +59,8 @@ include:
     rules:
       - if: $PACKAGE_MANAGER_SET
 
-  # - project: 'renovate-bot/renovate-runner'
-  #   file: '/templates/renovate.gitlab-ci.yml'
+  - project: 'renovate-bot/renovate-runner'
+    file: '/templates/renovate.gitlab-ci.yml'
 
   # - remote: https://gitlab.com/renovate-bot/renovate-runner/-/raw/v17.69.3/templates/renovate.gitlab-ci.yml
 
@@ -155,6 +156,7 @@ variables:
   API_REPORTER_URL: http://loki-read.service.gra.uat.consul:3100/loki/api/v1/push
   API_REPORTER_BEARER_TOKEN: ""
   DEFAULT_COV_ARGS: "--no-ddtrace --no-cov" # --cov-fail-under=1
+  NETLIFY_SITE_ID: '8dc3759f-f33d-424d-9300-d21f859ca183'
 
 .dependabot-gitlab:
   stage: dependabot
@@ -450,27 +452,85 @@ deploy:prod:
   tags:
     - jusmundi-nomad-runner
 
-# deploy:
+publish:
+   image: node
+   stage: release
 #   dependencies:
 #     - semantic-release-info
-#   image: node
-#   stage: deploy
-#   script:
-#     echo $SEMREL_INFO_LAST_VERSION
-#     echo $SEMREL_INFO_NEXT_VERSION
-#     echo $SEMREL_INFO_NEXT_VERSION_TYPE
-#     - npm run semantic-release
-
-publish:
-  stage: release
-  script:
-    - npm run semantic-release
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+   script:
+     echo $SEMREL_INFO_LAST_VERSION
+     echo $SEMREL_INFO_NEXT_VERSION
+     echo $SEMREL_INFO_NEXT_VERSION_TYPE
+     npm run semantic-release
+   rules:
+     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
 netlify:
   image: node:22-alpine
   stage: static
   script:
-    - npm install netlify-cli -g
+    - npm install -g netlify-cli
     - netlify --version
+
+netlify:review:
+  image: node:22-alpine
+  stage: review
+  environment:
+    name: preview/$CI_COMMIT_REF_SLUG
+    url: $REVIEW_URL
+  before_script:
+    - npm install -g netlify-cli
+    - apk add curl jq
+  script:
+    - netlify --version
+    - netlify status
+    - echo "Deploying to site $NETLIFY_SITE_ID"
+    - netlify deploy -dir my-app/public --json | tee deploy-result.json
+    - REVIEW_URL=$(jq -r '.deploy_url' deploy-result.json)
+    - echo ${REVIEW_URL}
+    - curl ${REVIEW_URL} | grep 'World'
+    - echo "REVIEW_URL=$REVIEW_URL" > deploy.env
+  artifacts:
+    reports:
+      dotenv: deploy.env
+    expire_in: "10 days"
+  rules:
+    - if: $CI_COMMIT_REF_NAME != $CI_DEFAULT_BRANCH
+  allow_failure: true
+
+netlify:uat:
+  image: node:22-alpine
+  stage: deploy
+  environment:
+    name: staging
+    url: 'https://fastapi-sample.service.gra.uat.consul/'
+  before_script:
+    - npm install -g netlify-cli
+    - apk add curl
+  script:
+    - netlify --version
+    - netlify status
+    - echo "Deploying to site $NETLIFY_SITE_ID"
+    - netlify deploy --alias staging -dir my-app/public
+    - curl $CI_ENVIRONMENT_URL | grep 'World'
+  rules:
+    - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
+
+netlify:prod:
+  image: node:22-alpine
+  stage: deploy
+  when: manual
+  environment:
+    name: production
+    url: https://my-app.bababou.workers.dev/'
+  before_script:
+    - npm install -g netlify-cli
+    - apk add curl
+  script:
+    - netlify --version
+    - netlify status
+    - echo "Deploying to site $NETLIFY_SITE_ID"
+    - netlify deploy --prod -dir my-app/public
+    - curl 'https://my-app.bababou.workers.dev/' | grep 'World'
+  rules:
+    - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH

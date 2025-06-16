@@ -20,35 +20,39 @@
   },
   "devDependencies": {
     "@datadog/datadog-ci": "^2.46.0",
+    "@eslint/js": "^9.28.0",
     "@nuxt/eslint-config": "^0.3.13",
+    "@secretlint/secretlint-rule-preset-recommend": "^9.3.2",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/git": "^10.0.1",
     "@semantic-release/gitlab": "^13.2.5",
     "@semantic-release/npm": "^12.0.1",
+    "@typescript-eslint/parser": "^8.34.0",
     "conventional-changelog-conventionalcommits": "7.0.2",
-    "eslint": "^9.26.0",
+    "eslint": "^9.28.0",
+    "eslint-formatter-gitlab": "^6.0.1",
     "jest": "^27.3.1",
     "jest-junit": "^16.0.0",
     "prettier": "^3.2.4",
+    "secretlint": "^9.3.1",
     "semantic-release": "^24.2.5",
     "semantic-release-replace-plugin": "^1.2.7",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.34.0",
     "wrangler": "^4.9.1"
   },
   "scripts": {
     "prettier": "prettier --check --ignore-unknown \"**/*.*\"",
     "prettier-fix": "prettier --write --ignore-unknown \"**/*.*\"",
     "test": "jest --passWithNoTests",
-    "lint": "eslint --format gitlab .",
+    "lint": "eslint --format gitlab my-app/",
     "lint:fix": "eslint . --fix",
     "semantic-release": "semantic-release"
   },
   "dependencies": {
     "@jusmundi-group/jus-shared-module": "^1.1.0",
-    "@secretlint/secretlint-rule-preset-recommend": "^9.3.2",
     "cloc": "^2.0.0-cloc",
-    "dd-trace": "^5.28.0",
-    "eslint-formatter-gitlab": "^6.0.0",
-    "secretlint": "^9.3.1"
+    "dd-trace": "^5.28.0"
   },
   "publishConfig": {
     "access": "restricted",
