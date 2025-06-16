@@ -10226,6 +10226,21 @@ files = [
 ]
 
 [[package]]
+name = "webtypy"
+version = "0.1.7"
+description = "This module contains the DOM types for the majority of the web APIs used in a web browser. These can be used by an IDE to give type hinting and completion during the development using DOM apis."
+optional = false
+python-versions = "*"
+groups = ["extra"]
+files = [
+    {file = "webtypy-0.1.7-py3-none-any.whl", hash = "sha256:f35e6d73a4e08783e23adfac271a11cda3a2bd1105499db70e4819244efed0ae"},
+    {file = "webtypy-0.1.7.tar.gz", hash = "sha256:1b7212719a949c802f3d60fac5f0d952eb503a92121409cf1ad9847d7c76a336"},
+]
+
+[package.extras]
+dev = ["build (==0.6.0.post1)", "twine (==3.4.2)", "wheel (==0.37.0)"]
+
+[[package]]
 name = "werkzeug"
 version = "3.1.3"
 description = "The comprehensive WSGI web application library."
@@ -10612,4 +10627,4 @@ toml = ["tomli"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4.0"
-content-hash = "513be2e4816db07edadda912eb718e732bdc63d48726687cd35cd8648e5c2ec7"
+content-hash = "e5776b2aefed2ed5b7986a590b4622dabafaa0a97fd62570f709f5ac97806fe9"

@@ -252,6 +252,7 @@ setup-cfg-fmt = ">=2.2.0"
 setuptools = ">=70.0.0"
 termcolor = ">=1.1.0" # >=2.4.0
 versioneer = {version = ">=0.29", extras = ["toml"]}
+webtypy = ">=0.1.7"
 wheel = ">=0.45.1"
 srsly = ">=2.4.8" # Downgrading srsly (2.5.1 -> 2.4.8) with python  3.13.3
 
