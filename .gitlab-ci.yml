@@ -163,7 +163,7 @@ variables:
   API_REPORTER_URL: http://loki-read.service.gra.uat.consul:3100/loki/api/v1/push
   API_REPORTER_BEARER_TOKEN: ""
   DEFAULT_COV_ARGS: "--no-ddtrace --no-cov" # --cov-fail-under=1
-  NETLIFY_SITE_ID: '8dc3759f-f33d-424d-9300-d21f859ca183'
+  # NETLIFY_SITE_ID: '8dc3759f-f33d-424d-9300-d21f859ca183'
   DAST_TARGET_URL: https://fastapi-sample.service.gra.${ENV}.consul
   DAST_FULL_SCAN: "true" # do a full scan
   DAST_BROWSER_SCAN: "true" # use the browser-based GitLab DAST crawler
@@ -525,6 +525,7 @@ netlify:uat:
     - curl $CI_ENVIRONMENT_URL | grep 'World'
   rules:
     - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
+  allow_failure: true
 
 netlify:prod:
   image: node:22-alpine
