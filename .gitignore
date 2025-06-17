@@ -18,6 +18,8 @@ results.sarif
 megalinter-reports/
 output/
 
+.netlify/
+
 # dotenv environment variable files
 
 .env

@@ -1,6 +1,7 @@
 ---
 stages:
   - static
+  - secret-detection
   - build
   - test
   - train
@@ -68,7 +69,11 @@ include:
   # - template: Jobs/SAST.gitlab-ci.yml
   - component: gitlab.com/components/sast/sast@main
 
-  - template: DAST.gitlab-ci.yml
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Security/Dependency-Scanning.gitlab-ci.yml
+  - template: Security/Secret-Detection.gitlab-ci.yml
+  - template: Security/SAST-IaC.latest.gitlab-ci.yml
+  # - template: Jobs/Container-Scanning.gitlab-ci.yml
 
 default:
   cache: &global_cache
@@ -87,16 +92,11 @@ default:
       # - vendor/
     policy: pull-push
 
-# See https://docs.gitlab.com/ee/ci/yaml/#workflowauto_cancelon_new_commit
-# workflow:
-#   auto_cancel:
-#     on_new_commit: interruptible
-#     on_job_failure: all
-
-dast:
-  services: # use services to link your app container to the dast job
-    - name: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
-      alias: yourapp
+#dast:
+#  services: # use services to link your app container to the dast job
+#    # - name: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+#    - name: $CI_REGISTRY_IMAGE:1.1.1-db93557e
+#      alias: fastapi-sample.service.gra.${ENV}.consul
 
 variables:
   CI_IMAGE_PYTHON: python:3.12
@@ -167,9 +167,14 @@ variables:
   DAST_TARGET_URL: https://fastapi-sample.service.gra.${ENV}.consul
   DAST_FULL_SCAN: "true" # do a full scan
   DAST_BROWSER_SCAN: "true" # use the browser-based GitLab DAST crawler
+  GITLAB_ADVANCED_SAST_ENABLED: true
+
 
 .dependabot-gitlab:
   stage: dependabot
+
+secret_detection:
+  stage: secret-detection
 
 upload_trivy:uat:
   extends: .upload_trivy:uat

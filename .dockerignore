@@ -43,6 +43,7 @@ __pycache__/
 .node_cache/
 .npm/
 .ruff_cache/
+.netlify/
 
 .github/
 .gitlab/
