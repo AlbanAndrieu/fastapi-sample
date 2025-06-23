@@ -12,11 +12,11 @@ PORT          = 8091
 # Image
 APP_NAME     = fastapi-sample
 # 783876277037.dkr.ecr.eu-west-3.amazonaws.com
-OCI_REGISTRY = registry.gitlab.com/albanandrieu
+OCI_REGISTRY = registry.gitlab.com/jusmundi-group/proof-of-concept
 AWS_REGION   = eu-west-3
 OCI_IMAGE := $(OCI_REGISTRY)/$(APP_NAME)
 OCI_TAG := $${OCI_TAG:-"1.1.2"}
-IMAGE_NEXT_TAG := $${OCI_IMAGE_TAG:-"1.1.2"}
+IMAGE_NEXT_TAG := $${OCI_IMAGE_TAG:-"latest"}
 IMAGE := $(OCI_IMAGE):$(OCI_TAG)
 
 TRIVY_VULN_TYPE = "os,library"

@@ -168,7 +168,7 @@ variables:
   DAST_FULL_SCAN: "true" # do a full scan
   DAST_BROWSER_SCAN: "true" # use the browser-based GitLab DAST crawler
   GITLAB_ADVANCED_SAST_ENABLED: true
-
+  DS_ENFORCE_NEW_ANALYZER: 'true'
 
 .dependabot-gitlab:
   stage: dependabot
