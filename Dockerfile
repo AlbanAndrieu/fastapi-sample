@@ -111,7 +111,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   apt-get update && apt-get install --no-install-recommends -y nodejs=${NODE_VERSION}* && apt-get clean && rm -rf /var/lib/apt/lists/* && \
   npm set progress=false && \
   npm config set depth 0 && \
-  npm install -g npm@11.3.0 && apt-get purge -y npm
+  npm install -g npm@11.4.2 && apt-get purge -y npm
 
 COPY --chown=jm-python:jm-python package.json package-lock.json .npmrc ${PYSETUP_PATH}/
 
@@ -219,6 +219,7 @@ COPY --from=builder-base "${PYSETUP_PATH}" "${PYSETUP_PATH}/"
 
 COPY --chown=jm-python:jm-python nabla/ "${PYSETUP_PATH}/jm-python/nabla/"
 COPY --chown=jm-python:jm-python main.py "${PYSETUP_PATH}/jm-python/"
+COPY --chown=jm-python:jm-python my-app/ "${PYSETUP_PATH}/jm-python/my-app/"
 
 # ENV PATH=${PYSETUP_PATH}/.venv/bin/:${PATH}
 
@@ -235,6 +236,7 @@ EXPOSE 8080
 CMD [ \
     "gunicorn", "main:app", \
     "-k", "uvicorn_worker.UvicornWorker", \
+    "--name", "fastapi-sample", \
     "--workers", "1", \
     "--max-requests", "1000", \
     "--max-requests-jitter", "100", \
