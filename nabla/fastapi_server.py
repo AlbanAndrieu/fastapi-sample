@@ -171,9 +171,18 @@ sentry_sdk.init(
 
 
 @app.get("/")
-async def read_root():
+async def root():
     logger.info("Hello")
-    return {"Hello": "World"}
+    return {"message": "Hello, World!"}
+
+
+@app.get("/env")
+async def env(req: Request):
+    env = req.scope["env"]
+    return {
+        "message": "Here is an example of getting an environment variable: "
+        + env.MESSAGE,
+    }
 
 
 @app.get("/notes")

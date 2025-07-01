@@ -111,7 +111,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   apt-get update && apt-get install --no-install-recommends -y nodejs=${NODE_VERSION}* && apt-get clean && rm -rf /var/lib/apt/lists/* && \
   npm set progress=false && \
   npm config set depth 0 && \
-  npm install -g npm@11.3.0 && apt-get purge -y npm
+  npm install -g npm@11.4.2 && apt-get purge -y npm
 
 COPY --chown=jm-python:jm-python package.json package-lock.json .npmrc ${PYSETUP_PATH}/
 
