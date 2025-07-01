@@ -173,7 +173,10 @@ sentry_sdk.init(
 @app.get("/")
 async def read_root():
     logger.info("Hello")
-    return {"Hello": "World"}
+    data = b"Hello, World!\n"
+    return iter([data])
+
+    # return {"Hello": "World"}
 
 
 @app.get("/notes")

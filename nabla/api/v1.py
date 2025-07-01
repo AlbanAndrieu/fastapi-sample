@@ -2,9 +2,10 @@ import asyncio
 import os
 import random
 from typing import Optional
+from uuid import uuid4
 
 import requests
-from ddtrace import tracer
+from ddtrace.trace import tracer
 from fastapi import APIRouter, HTTPException, status
 from opentelemetry import trace
 from opentelemetry.trace.status import Status, StatusCode
@@ -24,14 +25,16 @@ from nabla.utils.misc import timed_operation
 
 # The demo sample project to test the tracing
 DEMO_SAMPLE_URL = os.environ.get(
-    "DEMO_SAMPLE_URL", "http://test-haproxy-demo-ateam.service.gra.dev.consul"
+    "DEMO_SAMPLE_URL",
+    "http://test-haproxy-demo-ateam.service.gra.dev.consul",
 )
 
 # Base URL of https://httpbin.org/
 HTTPBIN_URL = os.environ.get("HTTPBIN_URL", "https://httpbin.org")
 
 API_GATEWAY_URL = os.environ.get(
-    "API_GATEWAY_URL", "https://krakend.service.gra.dev.consul"
+    "API_GATEWAY_URL",
+    "https://krakend.service.gra.dev.consul",
 )
 
 QUOTES = [
@@ -48,7 +51,9 @@ async def read_item(item_id: int, q: Optional[str] = None):
     logger.info(f"Get items : {item_id}")  # [logging-fstring-interpolation]
 
     API_REQUEST_COUNTER.labels(
-        method="GET", endpoint="/items/{item_id}", http_status=200
+        method="GET",
+        endpoint="/items/{item_id}",
+        http_status=200,
     ).inc()
     API_REQUEST_SUMMARY.labels(method="GET", endpoint="/items/{item_id}").observe(0.1)
     if item_id % 2 == 0:
@@ -59,13 +64,12 @@ async def read_item(item_id: int, q: Optional[str] = None):
 
 
 # We are targetting direct demo hotrod service to test tracing
-@staticmethod
 @router.get("/demo/dispatch/customer/{customer_id}")
 async def dispatch_customer(customer_id: int, q: Optional[str] = None):
     with timed_operation("demo_dispatch_customer"):
         try:
             logger.info(
-                f"Dispatch customer : {customer_id}"
+                f"Dispatch customer : {customer_id}",
             )  # [logging-fstring-interpolation]
 
             # API_REQUEST_COUNTER.labels(
@@ -98,7 +102,8 @@ async def dispatch_customer(customer_id: int, q: Optional[str] = None):
             # Update the span status to failed.
             span.set_status(Status(StatusCode.ERROR, "internal error"))
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Got sadness"
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Got sadness",
             ) from ex
         finally:
             logger.info("Dispatch customer done")
@@ -112,7 +117,6 @@ async def dispatch_customer(customer_id: int, q: Optional[str] = None):
 
 
 # We are targetting demo hotrod service
-@staticmethod
 @router.get("/demo/heatlh")
 async def demo_health():
     with timed_operation("demo_health"):
@@ -120,11 +124,13 @@ async def demo_health():
             logger.info("Test demo service health")  # [logging-fstring-interpolation]
 
             response = requests.request(
-                "GET", "http://frontnuxt-stats.service.gra.uat.consul/health", timeout=1
+                "GET",
+                "http://frontnuxt-stats.service.gra.uat.consul/health",
+                timeout=1,
             )
 
             response.raise_for_status()
-            logger.info(f"Demo response is : {response.json()}")
+            logger.info("Demo response is : %s", response.json())
 
             return {response.json()}
         except Exception as ex:
@@ -141,10 +147,21 @@ async def demo_health():
             # Update the span status to failed.
             span.set_status(Status(StatusCode.ERROR, "internal error"))
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Got sadness"
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Got sadness",
             ) from ex
         finally:
             logger.info("Test demo service health done")
+
+
+@router.get("/message")
+async def demo_message():
+    return {"Hello": "World"}
+
+
+@router.get("/random")
+async def demo_random():
+    return str(uuid4())
 
 
 @router.get("/invalid")
@@ -171,7 +188,8 @@ async def exception():
         # Update the span status to failed.
         span.set_status(Status(StatusCode.ERROR, "internal error"))
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Got sadness"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Got sadness",
         ) from ex
 
 
@@ -181,7 +199,7 @@ def external_api():
         seconds = random.uniform(0, 3)  # nosec  # noqa: S311
 
         logger.info(
-            f"Get external api {HTTPBIN_URL} : {seconds}"
+            f"Get external api {HTTPBIN_URL} : {seconds}",
         )  # [logging-fstring-interpolation]
 
         # url = "https://httpbin.org/delay/1"
@@ -222,13 +240,12 @@ def dd_internal_api():
 
 
 # We are targeting krakend services
-@staticmethod
 @router.get("/gateway/assistant")
 async def gateway_assistant():
     with timed_operation("gateway_assistant"):
         try:
             logger.info(
-                "Test gateway service assistant"
+                "Test gateway service assistant",
             )  # [logging-fstring-interpolation]
 
             with tracer.trace(
@@ -259,7 +276,8 @@ async def gateway_assistant():
             # Update the span status to failed.
             span.set_status(Status(StatusCode.ERROR, "internal error"))
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Got sadness"
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Got sadness",
             ) from ex
         finally:
             logger.info("Test gateway service assistant done")
