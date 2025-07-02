@@ -186,6 +186,24 @@ curl --request GET http://0.0.0.0:8091/v1/external-api
 [metrics](http://0.0.0.0:8091/metrics)
 [openapi](http://0.0.0.0:8091/openapi.json)
 
+```bash
+export OTEL_SDK_DISABLED=true
+
+export DD_SERVICE="fastapi-sample"
+export DD_ENV="nabla"
+export DD_LOGS_INJECTION=true
+export DD_TRACE_SAMPLE_RATE="1"
+export DD_PROFILING_ENABLED=true
+export DD_APPSEC_ENABLED=true
+export DD_IAST_ENABLED=true
+export DD_APPSEC_SCA_ENABLED=true
+export DD_GIT_COMMIT_SHA="$(git rev-parse HEAD)"
+# git config --get remote.origin.url
+export DD_GIT_REPOSITORY_URL="$(git config --get remote.origin.url)"
+
+make up-gunicorn
+
+```
 
 [health](http://localhost:8080/health)
 

@@ -5,9 +5,8 @@ description = "Sample UI"
 readme = "README.md"
 requires-python = ">=3.12"
 
+dependencies = ["dynamic"]
+
 [tool.poetry.dependencies]
 python = ">=3.12,<4.0"
-
-dependencies = [
-    "webtypy>=0.1.7",
-]
+webtypy = ">=0.1.7"
