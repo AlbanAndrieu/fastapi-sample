@@ -164,9 +164,9 @@ job "fastapi-sample" {
 {{ with pkiCert "pki_int/issue/example-dot-com" "common_name=fastapi-sample.service.gra.${var.env}.consul" }}
 {{ .Cert }}{{ .CA }}{{ .Key }}
 {{ end }}
-DD_AGENT_HOST=datadog-agent.service.gra.${var.env}.consul
-DD_TRACE_AGENT_PORT=8126
-# DD_TRACE_ENABLED=true
+# DD_AGENT_HOST=datadog-agent.service.gra.${var.env}.consul
+DD_AGENT_HOST={{ env "NOMAD_IP_http" }}
+#DD_TRACE_AGENT_PORT=8126
 EOF
         destination = "local/test.pem"
 
