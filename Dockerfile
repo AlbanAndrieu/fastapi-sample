@@ -219,6 +219,7 @@ COPY --from=builder-base "${PYSETUP_PATH}" "${PYSETUP_PATH}/"
 
 COPY --chown=jm-python:jm-python nabla/ "${PYSETUP_PATH}/jm-python/nabla/"
 COPY --chown=jm-python:jm-python main.py "${PYSETUP_PATH}/jm-python/"
+COPY --chown=jm-python:jm-python my-app/ "${PYSETUP_PATH}/jm-python/my-app/"
 
 # ENV PATH=${PYSETUP_PATH}/.venv/bin/:${PATH}
 
@@ -235,6 +236,7 @@ EXPOSE 8080
 CMD [ \
     "gunicorn", "main:app", \
     "-k", "uvicorn_worker.UvicornWorker", \
+    "--name", "fastapi-sample", \
     "--workers", "1", \
     "--max-requests", "1000", \
     "--max-requests-jitter", "100", \

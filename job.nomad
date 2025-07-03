@@ -103,7 +103,7 @@ job "fastapi-sample" {
     }
 
     network {
-      port "server" {
+      port "http" {
         to     = 8080
       }
     }
@@ -120,7 +120,7 @@ job "fastapi-sample" {
 
       config {
         image = "[[ .CONTAINER_IMAGE ]]"
-        ports = ["server"]
+        ports = ["http"]
 
         labels = [
           {
@@ -149,6 +149,8 @@ job "fastapi-sample" {
         DD_GIT_COMMIT_SHA = "[[ .CI_COMMIT_SHA ]]"
         DD_GIT_REPOSITORY_URL = "git@gitlab.com:jusmundi-group/proof-of-concept/fastapi-sample.git"
         DD_TRACE_SAMPLING_RULES = "[{\"service\":\"fastapi-sample\",\"resource\":\"GET /metrics\",\"sample_rate\":0.01},{\"service\":\"fastapi-sample\",\"resource\":\"GET /health\",\"sample_rate\":0.01},{\"service\":\"fastapi-sample\",\"resource\":\"GET /v1/ping\",\"sample_rate\":0.01},{\"service\":\"fastapi-sample\",\"resource\":\"GET /v2/ping\",\"sample_rate\":0.01},{\"service\":\"fastapi-sample\",\"resource\":\"GET /ping\",\"sample_rate\":0.01},{\"service\":\"fastapi-sample\",\"resource\":\"GET /cpu_task\",\"sample_rate\":1},{\"service\":\"fastapi-sample\",\"resource\":\"POST /io_task\",\"sample_rate\":1}]"
+        # DD_PROFILING_PYTORCH_ENABLED=true
+        DD_PROFILING_ENABLED=true
       }
 
       vault {
@@ -162,9 +164,6 @@ job "fastapi-sample" {
 {{ with pkiCert "pki_int/issue/example-dot-com" "common_name=fastapi-sample.service.gra.${var.env}.consul" }}
 {{ .Cert }}{{ .CA }}{{ .Key }}
 {{ end }}
-DD_AGENT_HOST=datadog-agent.service.gra.${var.env}.consul
-DD_TRACE_AGENT_PORT=8126
-# DD_TRACE_ENABLED=true
 EOF
         destination = "local/test.pem"
 
@@ -252,6 +251,9 @@ OTEL_RESOURCE_ATTRIBUTES=service.name=fastapi-sample
 OTEL_SERVICE_NAME=fastapi-sample
 OTEL_EXPORTER_OTLP_ENDPOINT="http://otel-collector.service.gra.${var.env}.consul:4317"
 PYROSCOPE_ENDPOINT="http://pyroscope.service.gra.${var.env}.consul"
+# DD_AGENT_HOST=datadog-agent.service.gra.${var.env}.consul
+DD_AGENT_HOST={{ env "NOMAD_IP_http" }}
+# DD_TRACE_AGENT_PORT=8126
 EOF
         destination = "${NOMAD_SECRETS_DIR}/.env.local"
 
@@ -275,7 +277,7 @@ EOF
 
       service {
         name = "fastapi-sample"
-        port = "server"
+        port = "http"
 
         tags = [
           "api",
@@ -307,7 +309,7 @@ EOF
 
         check {
           name     = "server-alive"
-          port     = "server"
+          port     = "http"
           type     = "http"
           path     = "/health" # v1/ping /docs /metrics
           # 30s because can be heavy to lead, better to put it at this interval

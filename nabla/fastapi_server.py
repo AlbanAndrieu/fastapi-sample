@@ -5,7 +5,8 @@ from typing import Dict
 
 import pyroscope
 import sentry_sdk
-from ddtrace import config, patch
+from ddtrace import config, patch, tracer
+from ddtrace.profiling import Profiler
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.openapi.utils import get_openapi
 from prometheus_client import make_asgi_app
@@ -24,7 +25,6 @@ from nabla.metrics.prometheus import API_REQUEST_COUNTER, API_REQUEST_SUMMARY
 
 # We need to load as soon as possible the setup_loggers
 # from nabla.logger import logger
-from nabla.utils.log_config import setup_logging
 from nabla.utils.log_middleware import LogMiddleware
 from nabla.utils.prometheus import PrometheusMiddleware, setting_otlp
 
@@ -70,7 +70,13 @@ SENTRY_DSN = os.environ.get(
     "https://11c5d815632831d3274c830441885207@o4505783360356352.ingest.sentry.io/4505783364681728",
 )
 
-setup_logging()
+prof = Profiler(
+    env="prod",  # if not specified, falls back to environment variable DD_ENV
+    service=APP_NAME,  # if not specified, falls back to environment variable DD_SERVICE
+    # version="1.0.0",   # if not specified, falls back to environment variable DD_VERSION
+)
+prof.start()  # Should be as early as possible, eg before other imports, to ensure everything is profiled
+
 
 metadata.create_all(engine)
 
@@ -92,7 +98,13 @@ def custom_openapi():
     return app.openapi_schema
 
 
+from nabla.utils.log_config import setup_logging
+
+setup_logging()
+
 logger = logging.getLogger(__name__)
+logger.level = logging.INFO
+
 logger.info("Creating API")
 
 patch(fastapi=True)
@@ -263,6 +275,7 @@ async def trigger_error():
     pass
 
 
+@tracer.wrap()
 async def _version(request: Request):
     return {"version": request.app.version}
 
