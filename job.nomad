@@ -130,7 +130,7 @@ job "fastapi-sample" {
             # "com.datadoghq.ad.check_names" = "[\"apache\"]"
             # "com.datadoghq.ad.init_configs" = "[{}]"
             # "com.datadoghq.ad.instances": "[{\"apache_status_url\": \"http://fastapi-sample-status.service.gra.${var.env}.consul/server-status?auto\"}]"
-            # "com.datadoghq.ad.logs"="[{\"source\":\"apache\",\"service\":\"fastapi-sample\"}]"
+            "com.datadoghq.ad.logs"="[{\"source\":\"python\",\"service\":\"fastapi-sample\"}]"
           }
         ]
 
