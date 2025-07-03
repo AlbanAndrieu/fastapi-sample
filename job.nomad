@@ -164,9 +164,6 @@ job "fastapi-sample" {
 {{ with pkiCert "pki_int/issue/example-dot-com" "common_name=fastapi-sample.service.gra.${var.env}.consul" }}
 {{ .Cert }}{{ .CA }}{{ .Key }}
 {{ end }}
-# DD_AGENT_HOST=datadog-agent.service.gra.${var.env}.consul
-DD_AGENT_HOST={{ env "NOMAD_IP_http" }}
-#DD_TRACE_AGENT_PORT=8126
 EOF
         destination = "local/test.pem"
 
@@ -254,6 +251,9 @@ OTEL_RESOURCE_ATTRIBUTES=service.name=fastapi-sample
 OTEL_SERVICE_NAME=fastapi-sample
 OTEL_EXPORTER_OTLP_ENDPOINT="http://otel-collector.service.gra.${var.env}.consul:4317"
 PYROSCOPE_ENDPOINT="http://pyroscope.service.gra.${var.env}.consul"
+# DD_AGENT_HOST=datadog-agent.service.gra.${var.env}.consul
+DD_AGENT_HOST={{ env "NOMAD_IP_http" }}
+# DD_TRACE_AGENT_PORT=8126
 EOF
         destination = "${NOMAD_SECRETS_DIR}/.env.local"
 
