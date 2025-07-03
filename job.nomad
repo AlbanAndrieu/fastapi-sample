@@ -103,7 +103,7 @@ job "fastapi-sample" {
     }
 
     network {
-      port "server" {
+      port "http" {
         to     = 8080
       }
     }
@@ -120,7 +120,7 @@ job "fastapi-sample" {
 
       config {
         image = "[[ .CONTAINER_IMAGE ]]"
-        ports = ["server"]
+        ports = ["http"]
 
         labels = [
           {
@@ -277,7 +277,7 @@ EOF
 
       service {
         name = "fastapi-sample"
-        port = "server"
+        port = "http"
 
         tags = [
           "api",
@@ -309,7 +309,7 @@ EOF
 
         check {
           name     = "server-alive"
-          port     = "server"
+          port     = "http"
           type     = "http"
           path     = "/health" # v1/ping /docs /metrics
           # 30s because can be heavy to lead, better to put it at this interval
