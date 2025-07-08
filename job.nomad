@@ -28,13 +28,13 @@ variable "datacenters" {
 }
 
 variable "tls_domain" {
-type = string
-default = "fastapi-sample.service.gra.dev.consul" # service.gra.dev.consul
+  type = string
+  default = "fastapi-sample.service.gra.dev.consul" # service.gra.dev.consul
 }
 
 variable "alt_names" {
-type = string
-default = ""
+  type = string
+  default = ""
 }
 
 job "fastapi-sample" {
@@ -75,6 +75,17 @@ job "fastapi-sample" {
         // }
       }
     } # scaling
+
+    # Spread allocations over each rack based on desired percentage
+    spread {
+      attribute = "${attr.unique.hostname}"  # meta.rack
+      target "gra1nomadworker$${var.env}4" {
+        percent = 60
+      }
+      target "gra1nomadworker$${var.env}2" {
+        percent = 40
+      }
+    }
 
     ephemeral_disk {
       # Used to store index, cache, WAL
@@ -127,10 +138,12 @@ job "fastapi-sample" {
             "com.datadoghq.tags.env" = "${var.env}"
             "com.datadoghq.tags.service" = "fastapi-sample"
             "com.datadoghq.tags.version" = "${var.env}-0.0.1"
-            # "com.datadoghq.ad.check_names" = "[\"apache\"]"
-            # "com.datadoghq.ad.init_configs" = "[{}]"
+            # https://docs.datadoghq.com/fr/containers/docker/integrations/?tab=dockeradv2
+            "com.datadoghq.ad.check_names" = "[\"guvicorn\"]"
+            "com.datadoghq.ad.init_configs" = "[{}]"
             # "com.datadoghq.ad.instances": "[{\"apache_status_url\": \"http://fastapi-sample-status.service.gra.${var.env}.consul/server-status?auto\"}]"
-            "com.datadoghq.ad.logs"="[{\"source\":\"python\",\"service\":\"fastapi-sample\"}]"
+            "com.datadoghq.ad.logs"="[{\"source\":\"guvicorn\",\"service\":\"fastapi-sample\"}]"
+            # sourcecategory: http_web_access
           }
         ]
 
