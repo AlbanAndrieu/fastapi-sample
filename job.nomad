@@ -28,13 +28,13 @@ variable "datacenters" {
 }
 
 variable "tls_domain" {
-type = string
-default = "fastapi-sample.service.gra.dev.consul" # service.gra.dev.consul
+  type = string
+  default = "fastapi-sample.service.gra.dev.consul" # service.gra.dev.consul
 }
 
 variable "alt_names" {
-type = string
-default = ""
+  type = string
+  default = ""
 }
 
 job "fastapi-sample" {
@@ -45,8 +45,8 @@ job "fastapi-sample" {
   # Meta keys are also interpretable.
   meta {
     version  = "v0.0.1"
-    region   = "${node.region}"
-    dc       = "${node.datacenter}"
+    region   = "gra"
+    dc       = "gra1"
     scope    = "test"
     service  = "fastapi-sample-${var.env}"
     team     = "${var.team}"
@@ -75,6 +75,17 @@ job "fastapi-sample" {
         // }
       }
     } # scaling
+
+    # Spread allocations over each rack based on desired percentage
+    spread {
+      attribute = "${attr.unique.hostname}"  # meta.rack
+      target "gra1nomadworker$${var.env}4" {
+        percent = 60
+      }
+      target "gra1nomadworker$${var.env}2" {
+        percent = 40
+      }
+    }
 
     ephemeral_disk {
       # Used to store index, cache, WAL
@@ -124,13 +135,16 @@ job "fastapi-sample" {
 
         labels = [
           {
-            "com.datadoghq.tags.env" = "${var.env}"
-            "com.datadoghq.tags.service" = "fastapi-sample"
-            "com.datadoghq.tags.version" = "${var.env}-0.0.1"
-            # "com.datadoghq.ad.check_names" = "[\"apache\"]"
-            # "com.datadoghq.ad.init_configs" = "[{}]"
-            # "com.datadoghq.ad.instances": "[{\"apache_status_url\": \"http://fastapi-sample-status.service.gra.${var.env}.consul/server-status?auto\"}]"
-            # "com.datadoghq.ad.logs"="[{\"source\":\"apache\",\"service\":\"fastapi-sample\"}]"
+            # "com.datadoghq.tags.env" = "${var.env}"
+            # "com.datadoghq.tags.service" = "fastapi-sample"
+            # "com.datadoghq.tags.version" = "${var.env}-0.0.1"
+            # https://docs.datadoghq.com/fr/containers/docker/integrations/?tab=dockeradv2
+            "com.datadoghq.ad.check_names" = "[\"openmetrics\",\"guvicorn\"]"
+            "com.datadoghq.ad.init_configs" = "[{},{}]"
+            # "com.datadoghq.ad.instances": "[{\"apache_status_url\": \"http://fastapi-sample.service.gra.${var.env}.consul/server-status?auto\"}]"
+            "com.datadoghq.ad.instances": "[{\"openmetrics_endpoint\": \"http://fastapi-sample.service.gra.${var.env}.consul/metrics\"}]"
+            "com.datadoghq.ad.logs"="[{\"source\":\"guvicorn\",\"service\":\"fastapi-sample\",\"sourcecategory\":\"http_web_access\"}]"
+            #"com.datadoghq.ad.logs"="[{\"source\":\"alternatives\",\"type\": \"file\",\"service\":\"alternatives",\"path\": \"/var/log/alternatives.log\"}]"
           }
         ]
 
@@ -151,6 +165,8 @@ job "fastapi-sample" {
         DD_TRACE_SAMPLING_RULES = "[{\"service\":\"fastapi-sample\",\"resource\":\"GET /metrics\",\"sample_rate\":0.01},{\"service\":\"fastapi-sample\",\"resource\":\"GET /health\",\"sample_rate\":0.01},{\"service\":\"fastapi-sample\",\"resource\":\"GET /v1/ping\",\"sample_rate\":0.01},{\"service\":\"fastapi-sample\",\"resource\":\"GET /v2/ping\",\"sample_rate\":0.01},{\"service\":\"fastapi-sample\",\"resource\":\"GET /ping\",\"sample_rate\":0.01},{\"service\":\"fastapi-sample\",\"resource\":\"GET /cpu_task\",\"sample_rate\":1},{\"service\":\"fastapi-sample\",\"resource\":\"POST /io_task\",\"sample_rate\":1}]"
         # DD_PROFILING_PYTORCH_ENABLED=true
         DD_PROFILING_ENABLED=true
+        DD_DYNAMIC_INSTRUMENTATION_ENABLED=true
+        DD_API_SECURITY_ENABLED=true
       }
 
       vault {
@@ -251,9 +267,7 @@ OTEL_RESOURCE_ATTRIBUTES=service.name=fastapi-sample
 OTEL_SERVICE_NAME=fastapi-sample
 OTEL_EXPORTER_OTLP_ENDPOINT="http://otel-collector.service.gra.${var.env}.consul:4317"
 PYROSCOPE_ENDPOINT="http://pyroscope.service.gra.${var.env}.consul"
-# DD_AGENT_HOST=datadog-agent.service.gra.${var.env}.consul
-DD_AGENT_HOST={{ env "NOMAD_IP_http" }}
-# DD_TRACE_AGENT_PORT=8126
+{{ if ne "${var.env}" "dev" }}DD_AGENT_HOST={{ if eq "${var.env}" "prod" }}{{ env "NOMAD_IP_http" }}{{ else }}datadog-agent.service.gra.${var.env}.consul{{ end }}{{ else }}{{ end }}
 EOF
         destination = "${NOMAD_SECRETS_DIR}/.env.local"
 
