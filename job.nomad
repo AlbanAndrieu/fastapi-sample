@@ -167,6 +167,8 @@ job "fastapi-sample" {
         DD_PROFILING_ENABLED=true
         DD_DYNAMIC_INSTRUMENTATION_ENABLED=true
         DD_API_SECURITY_ENABLED=true
+        DD_APPSEC_ENABLED=false
+        DD_APM_TRACING_ENABLED=false
       }
 
       vault {
