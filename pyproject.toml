@@ -75,7 +75,6 @@ priority = "explicit"
 # python = ">=3.12,<4.0"
 python = ">=3.10,<4.0"
 
-
 [tool.poetry.group.api]
 optional = false
 [tool.poetry.group.api.dependencies]
@@ -90,6 +89,7 @@ fastapi = {version = ">=0.115.3", extras = ["standard"]}
 podmena = ">=0.6.1"
 gunicorn = ">=23.0.0"
 # psycopg2-binary = ">=2.9.5"
+openai = ">=1.95.0"
 pyyaml = ">=6.0"
 python-multipart = ">=0.0.6"
 pydantic = {version = ">=2.6.1", extras = ["dotenv"]}
@@ -120,7 +120,9 @@ dacite = ">=1.8.0"
 # citation-dataclasses = {version = ">=0.0.4", source="gitlab"}
 prometheus-fastapi-instrumentator = "^7.1.0"
 prometheus-client = ">=0.21.1"
+redis = ">=6.2.0"
 reretry = ">=0.11.8"
+"web.py" = ">=0.62"
 
 # See https://github.com/temporalio/samples-python/blob/main/pyproject.toml
 [tool.poetry.group.encryption]

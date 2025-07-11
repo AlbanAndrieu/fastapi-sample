@@ -139,10 +139,10 @@ job "fastapi-sample" {
             # "com.datadoghq.tags.service" = "fastapi-sample"
             # "com.datadoghq.tags.version" = "${var.env}-0.0.1"
             # https://docs.datadoghq.com/fr/containers/docker/integrations/?tab=dockeradv2
-            "com.datadoghq.ad.check_names" = "[\"openmetrics\",\"guvicorn\"]"
-            "com.datadoghq.ad.init_configs" = "[{},{}]"
+            "com.datadoghq.ad.check_names" = "[\"openmetrics\",\"http_check\",\"guvicorn\"]"
+            "com.datadoghq.ad.init_configs" = "[{},{},{}]"
             # "com.datadoghq.ad.instances": "[{\"apache_status_url\": \"http://fastapi-sample.service.gra.${var.env}.consul/server-status?auto\"}]"
-            "com.datadoghq.ad.instances": "[{\"openmetrics_endpoint\": \"http://fastapi-sample.service.gra.${var.env}.consul/metrics\"}]"
+            "com.datadoghq.ad.instances": "[{\"openmetrics_endpoint\": \"http://fastapi-sample.service.gra.${var.env}.consul/metrics\"},[{\"name\":\"fastapi-sample-v1\",\"url\":\"http://%%host%%/v1/ping\",\"timeout\":1},{\"name\":\"fastapi-sample-v2\",\"url\":\"http://%%host%%/v2/ping\",\"timeout\":1}]]"
             "com.datadoghq.ad.logs"="[{\"source\":\"guvicorn\",\"service\":\"fastapi-sample\",\"sourcecategory\":\"http_web_access\"}]"
             #"com.datadoghq.ad.logs"="[{\"source\":\"alternatives\",\"type\": \"file\",\"service\":\"alternatives",\"path\": \"/var/log/alternatives.log\"}]"
           }
@@ -168,7 +168,11 @@ job "fastapi-sample" {
         DD_DYNAMIC_INSTRUMENTATION_ENABLED=true
         DD_API_SECURITY_ENABLED=true
         DD_APPSEC_ENABLED=false
-        DD_APM_TRACING_ENABLED=false
+        DD_APM_TRACING_ENABLED=true
+        DD_LOGS_INJECTION=true
+        DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_GRPC_ENDPOINT="0.0.0.0:4317"
+        # DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_HTTP_ENDPOINT="0.0.0.0:4318"
+        DD_APPSEC_AUTOMATED_USER_EVENTS_TRACKING=extended
       }
 
       vault {
@@ -267,7 +271,7 @@ template {
 UVICORN_LOG_LEVEL=debug
 OTEL_RESOURCE_ATTRIBUTES=service.name=fastapi-sample
 OTEL_SERVICE_NAME=fastapi-sample
-OTEL_EXPORTER_OTLP_ENDPOINT="http://otel-collector.service.gra.${var.env}.consul:4317"
+OTEL_EXPORTER_OTLP_ENDPOINT=http://datadog-agent.service.gra.${var.env}.consul:4317
 PYROSCOPE_ENDPOINT="http://pyroscope.service.gra.${var.env}.consul"
 {{ if ne "${var.env}" "dev" }}DD_AGENT_HOST={{ if eq "${var.env}" "prod" }}{{ env "NOMAD_IP_http" }}{{ else }}datadog-agent.service.gra.${var.env}.consul{{ end }}{{ else }}{{ end }}
 EOF

@@ -6,14 +6,12 @@ from typing import Dict
 import pyroscope
 import sentry_sdk
 from ddtrace import config, patch, tracer
+from ddtrace.contrib.trace_utils import set_user
 from ddtrace.profiling import Profiler
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.openapi.utils import get_openapi
 from prometheus_client import make_asgi_app
-from sentry_sdk import set_user
 from sentry_sdk.integrations.logging import LoggingIntegration
-
-# from prometheus_fastapi_instrumentator import Instrumentator
 from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Mount
 
@@ -22,14 +20,12 @@ from nabla.api import ping, v1, v2
 from nabla.api.notes import notes
 from nabla.db import database, engine, metadata
 from nabla.metrics.prometheus import API_REQUEST_COUNTER, API_REQUEST_SUMMARY
+from nabla.utils.log_config import setup_logging
 
 # We need to load as soon as possible the setup_loggers
 # from nabla.logger import logger
 from nabla.utils.log_middleware import LogMiddleware
 from nabla.utils.prometheus import PrometheusMiddleware, setting_otlp
-
-# from citation.infrastructure.crud_exceptions import CrudError, NotFoundInJM
-
 
 APP_NAME = os.environ.get("APP_NAME", "fastapi-sample")
 APP_PREFIX_VERSION = os.environ.get("APP_PREFIX_VERSION", "v")
@@ -40,14 +36,14 @@ DD_TRACE_AGENT_PORT = os.environ.get("DD_TRACE_AGENT_PORT", "8126")
 
 # http://grpc.jaeger-collector-grpc.service.gra.dev.consul
 # http://jaeger-collector-grpc.service.gra.dev.consul:14250
-# http://otel-collector.service.gra.dev.consul:4317
+# http://datadog-agent.service.gra.dev.consul:4317
 # http://otel-collector.service.gra.dev.consul:9411/api/v2/spans
 
 
 OTLP_GRPC_ENDPOINT = os.environ.get(
     # "OTLP_GRPC_ENDPOINT", "http://grpc.jaeger-collector-grpc.service.gra.dev.consul"
     "OTLP_GRPC_ENDPOINT",
-    "http://otel-collector.service.gra.dev.consul:4317",
+    "http://datadog-agent.service.gra.dev.consul:4317",
 )
 
 OTEL_EXPORTER_JAEGER_AGENT_HOST = os.environ.get(
@@ -97,8 +93,6 @@ def custom_openapi():
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 
-
-from nabla.utils.log_config import setup_logging
 
 setup_logging()
 
@@ -161,7 +155,18 @@ app.routes.append(route)
 # Setting OpenTelemetry exporter
 setting_otlp(app, APP_NAME, OTLP_GRPC_ENDPOINT)
 
-set_user({"email": "alban.andrieu@free.com"})
+# See https://docs.datadoghq.com/fr/security/application_security/threats/add-user-info/?tab=python
+user_id = "usr.id"
+set_user(
+    tracer,
+    user_id,
+    name="AlbanAndrieu",
+    email="alban.andrieu@free.com",
+    scope="sample_scope",
+    role="manager",
+    session_id="id_session",
+    propagate=True,
+)
 
 sentry_sdk.init(
     dsn=SENTRY_DSN,

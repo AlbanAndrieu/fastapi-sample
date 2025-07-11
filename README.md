@@ -12,22 +12,26 @@ Fastapi sample
 
 <!-- toc -->
 
+- [ fastapi-sample](#-fastapi-sample)
+- [Table of contents](#table-of-contents)
 - [Initialize](#initialize)
-  * [Requirements](#requirements)
-  * [Install fastapi-sample as a developer](#install-fastapi-sample-as-a-developer)
-    + [Using virtualenv](#using-virtualenv)
-  * [Getting started](#getting-started)
-  * [Test JWT](#test-jwt)
-  * [Test](#test)
-  * [Jupiter](#jupiter)
-  * [User guide](#user-guide)
-    + [Installation and commands](#installation-and-commands)
-    + [Temporal demo](#temporal-demo)
-    + [Defect Dojo Parameters](#defect-dojo-parameters)
-  * [Quality check](#quality-check)
-  * [Utility scripts](#utility-scripts)
-  * [Installation and commands](#installation-and-commands-1)
-  * [Update README.md](#update-readmemd)
+  - [Requirements](#requirements)
+  - [Install fastapi-sample as a developer](#install-fastapi-sample-as-a-developer)
+    - [Using virtualenv](#using-virtualenv)
+  - [Getting started](#getting-started)
+  - [Test JWT](#test-jwt)
+  - [Test](#test)
+  - [Jupiter](#jupiter)
+  - [User guide](#user-guide)
+    - [Installation and commands](#installation-and-commands)
+    - [Database demo](#database-demo)
+  - [Create PostgreSQL fastapi\_sample\_gitlab on pg-gra.service.gra.dev.consul](#create-postgresql-fastapi_sample_gitlab-on-pg-graservicegradevconsul)
+    - [Temporal demo](#temporal-demo)
+    - [Defect Dojo Parameters](#defect-dojo-parameters)
+  - [Quality check](#quality-check)
+  - [Utility scripts](#utility-scripts)
+  - [Installation and commands](#installation-and-commands-1)
+  - [Update README.md](#update-readmemd)
 
 <!-- tocstop -->
 
@@ -140,7 +144,7 @@ flowchart TD
 
 %% Nodes
     A("fab:fa-youtube Jus AI")
-    B("fa:fa-comment-dots Assistant")  
+    B("fa:fa-comment-dots Assistant")
     D{"fa:fa-shapes Use LRA"}
     C(fa:fa-book-open Assistant OCR)@{ shape: delay}
     H(fa:fa-code Assistant BO)@{ shape: delay}
@@ -163,10 +167,10 @@ flowchart TD
 %% Individual node styling. Try the visual editor toolbar for easier styling!
     style I color:#FFFFFF, fill:#AA00FF, stroke:#AA00FF
     style B olor:#FFFFFF, stroke:#2962FF, fill:#2962FF
-    style D color:#FFFFFF, stroke:#00C853, fill:#00C853  
+    style D color:#FFFFFF, stroke:#00C853, fill:#00C853
     style E color:#FFFFFF, fill:#AA00FF, stroke:#AA00FF
-    style F color:#FFFFFF, fill:#AA00FF, stroke:#AA00FF  
-    style G color:#FFFFFF, stroke:#00C853, fill:#00C853  
+    style F color:#FFFFFF, fill:#AA00FF, stroke:#AA00FF
+    style G color:#FFFFFF, stroke:#00C853, fill:#00C853
     style C color:#FFFFFF, stroke:#2962FF, fill:#2962FF
     style H color:#FFFFFF, stroke:#00C853, fill:#00C853
 
@@ -281,7 +285,9 @@ Result available on [pyroscope](http://localhost:4040/?query=process_cpu%3Acpu%3
 **Python**
 
 ```bash
-./nabla/get_data.py
+python3 ./nabla/tools/get_data.py
+
+python3 ./nabla/tools/get_redis.py
 ```
 
 ### Database demo
