@@ -92,7 +92,7 @@ job "fastapi-sample" {
       # Nomad will try to preserve the disk between job updates
        size   = 500
        sticky  = true
-       # migrate = true
+       migrate = true
     }
 
     # Canary disable, because service is too big 10 G minimum and cluster is not sized for it, so auto_promote set to false
@@ -125,12 +125,6 @@ job "fastapi-sample" {
       interval = "5m"
       delay = "25s"
       mode     = var.env == "dev" ? "fail" : "delay"
-    }
-
-    ephemeral_disk {
-      sticky = true
-      migrate = true
-      size = 300
     }
 
     volume "fastapi-sample-redis" {
