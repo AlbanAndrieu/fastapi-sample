@@ -369,19 +369,19 @@ EOF
           "traefik.http.services.fastapi-sample.loadbalancer.healthCheck.timeout=3s",
         ]
 
-        check {
-          name     = "server-alive"
-          port     = "http"
-          type     = "http"
-          path     = "/health" # v1/ping /docs /metrics
-          # 30s because can be heavy to lead, better to put it at this interval
-          interval = "30s"
-          timeout  = "5s"
-
-          # header {
-          #   Authorization = ["Basic ${AuthHeader}"]
-          # }
-        }
+        # check {
+        #   name     = "server-alive"
+        #   port     = "http"
+        #   type     = "http"
+        #   path     = "/health" # v1/ping /docs /metrics
+        #   # 30s because can be heavy to lead, better to put it at this interval
+        #   interval = "30s"
+        #   timeout  = "5s"
+		#
+        #   # header {
+        #   #   Authorization = ["Basic ${AuthHeader}"]
+        #   # }
+        # }
 
       } # service fastapi-sample
 
