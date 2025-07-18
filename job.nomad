@@ -414,7 +414,7 @@ EOF
 
       service {
         name = "fastapi-sample-redis"
-        port = "db"
+        port = "redis"
 
         tags = [
           "traefik.enable=true",
