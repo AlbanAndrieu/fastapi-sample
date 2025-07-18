@@ -469,12 +469,12 @@ EOF
           "traefik.http.routers.redis-exporter.rule=Host(`redis-exporter.service.gra.${var.env}.consul`)",
         ]
 
-        check {
-          type = "http"
-          path = "/metrics"
-          timeout = "30s"
-          interval = "15s"
-        }
+        # check {
+        #   type = "http"
+        #   path = "/metrics"
+        #   timeout = "30s"
+        #   interval = "15s"
+        # }
       }
 
       resources {
