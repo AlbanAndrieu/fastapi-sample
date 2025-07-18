@@ -2,8 +2,8 @@ import asyncio
 import os
 import random
 from typing import Optional
-from uuid import uuid4
 
+import redis
 import requests
 from ddtrace.trace import tracer
 from fastapi import APIRouter, HTTPException, status
@@ -161,7 +161,14 @@ async def demo_message():
 
 @router.get("/random")
 async def demo_random():
-    return str(uuid4())
+    try:
+        redis_client = redis.StrictRedis(host="127.0.0.1", port=6379)
+        result = redis_client.get("randomnumber")
+        if result is None:
+            return str(uuid4())  # Fallback to uuid if key doesn't exist
+        return str(result)
+    except redis.RedisError:
+        return str(uuid4())  # Fallback to uuid on connection error
 
 
 @router.get("/invalid")

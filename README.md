@@ -287,7 +287,7 @@ Result available on [pyroscope](http://localhost:4040/?query=process_cpu%3Acpu%3
 ```bash
 python3 ./nabla/tools/get_data.py
 
-python3 ./nabla/tools/get_redis.py
+python3 ./my-app/src/get_redis.py
 ```
 
 ### Database demo

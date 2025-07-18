@@ -106,6 +106,20 @@ job "fastapi-sample" {
       auto_promote      = var.env == "prod" ? true : false
     }
 
+    network {
+      port "http" {
+        to  = 8080
+      }
+
+      port "redis" {
+        to = 6379
+      }
+
+      port "redis-exporter" {
+        to = 9121
+      }
+    }
+
     restart {
       attempts = 3
       interval = "5m"
@@ -113,15 +127,21 @@ job "fastapi-sample" {
       mode     = var.env == "dev" ? "fail" : "delay"
     }
 
-    network {
-      port "http" {
-        to     = 8080
-      }
+    ephemeral_disk {
+      sticky = true
+      migrate = true
+      size = 300
+    }
+
+    volume "fastapi-sample-redis" {
+      type      = "host"
+      read_only = false
+      source    = "fastapi-sample-redis"
     }
 
     // volume "nabla" {
     //   type            = "csi"
-    //   source          = "juicefs-gra-nabla-${var.env}"
+    //   source          = "fastapi-sample-gra-nabla-${var.env}"
     //   attachment_mode = "file-system"
     //   access_mode     = "multi-node-multi-writer"
     // }
@@ -349,6 +369,124 @@ EOF
       }
     } # task fastapi-sample
 
+    task "fastapi-sample-redis" {
+      driver = "docker"
+
+      config {
+        image = "redis:8.0.3"
+        memory_hard_limit = 2048  # at 2G we will have OOM and the container will be killed
+
+        args = [
+          "--appendonly", "yes",
+          "--appendfilename", "appendonly.aof",
+          "--appendfsync", "always", # everysec
+          "--databases", "50",
+        ]
+
+        # args = [
+        #   "--requirepass",
+        #   "mystery",
+        # ]
+
+        ulimit {
+           memlock = "-1"
+           nofile = "65536"
+           nproc = "65536"
+        }
+
+        ports = ["redis"]
+
+        labels = [
+          {
+            "com.datadoghq.tags.env" = "${var.env}"
+            "com.datadoghq.tags.service" = "fastapi-sample-redis"
+            "com.datadoghq.tags.version" = "${var.env}-0.0.1"
+            "com.datadoghq.ad.check_names" = "[\"redisdb\"]"
+            "com.datadoghq.ad.init_configs" = "[{}]"
+            "com.datadoghq.ad.instances": "[{\"host\": \"%%host%%\",\"port\":\"6379\"}]"
+          }
+        ]
+      }
+
+      env {
+        AWS_REGION = "gra"
+      }
+
+      volume_mount {
+        volume      = "fastapi-sample-redis"
+        destination = "/data"
+        read_only   = false
+      }
+
+      service {
+        name = "fastapi-sample-redis"
+        port = "db"
+
+        tags = [
+          "traefik.enable=true",
+          "traefik.tcp.routers.fastapi-sample-redis.service=fastapi-sample-redis",
+          "traefik.tcp.routers.fastapi-sample-redis.entrypoints=tcp-redis-juicefs",
+          "traefik.tcp.routers.fastapi-sample-redis.rule=HostSNI(`*`)",
+          "traefik.tcp.routers.fastapi-sample-redis.tls=false"
+        ]
+
+        check {
+          name     = "alive"
+          type     = "tcp"
+          interval = "10s"
+          timeout  = "2s"
+        }
+
+      }
+      resources {
+        cpu    = 300 # MHz
+        memory = 300 # Mb
+      }
+
+    } # task fastapi-sample-redis
+
+    task "redis-exporter" {
+      driver = "docker"
+
+      config {
+        # See https://github.com/oliver006/redis_exporter
+        image = "oliver006/redis_exporter:v1.74.0"
+        ports = ["redis-exporter"]
+
+        args = [
+          "-redis.addr=redis://fastapi-sample-redis.service.gra.${var.env}.consul:6379",
+          "-log-format=json"
+        ]
+
+      }
+
+      env {
+        REDIS_ADDR = "redis://fastapi-sample-redis.service.gra.${var.env}.consul:6379"
+      }
+
+      service {
+        name = "redis-exporter"
+        port = "redis-exporter"
+
+        tags = [
+          "traefik.enable=true",
+          "traefik.http.routers.redis-exporter.entrypoints=http",
+          "traefik.http.routers.redis-exporter.rule=Host(`redis-exporter.service.gra.${var.env}.consul`)",
+        ]
+
+        check {
+          type = "http"
+          path = "/metrics"
+          timeout = "30s"
+          interval = "15s"
+        }
+      }
+
+      resources {
+        cpu    = 100 # Mhz
+        memory = 64  # MB
+      }
+    } # task redis-exporter
   } # group fastapi-sample
 
 }

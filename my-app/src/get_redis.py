@@ -5,6 +5,7 @@ import redis
 import web
 
 urls = ("/", "index")
+app = web.application(urls, globals())
 
 
 class index:
@@ -14,6 +15,6 @@ class index:
         return str(client.get("randomnumber"))
 
 
+# web.wsgi.runwsgi = lambda func, addr=None: web.wsgi.runfcgi(func, addr)
 if __name__ == "__main__":
-    app = web.application(urls, globals())
     app.run()

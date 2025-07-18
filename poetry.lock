@@ -1458,25 +1458,6 @@ yarl = ">=1.9.1,<2.0.0"
 dev = ["GitPython (==3.1.41)", "bandit", "coverage (==7.6.1)", "coverage-badge", "jsonschema", "pytest (<8.0.0)"]
 
 [[package]]
-name = "cheroot"
-version = "10.0.1"
-description = "Highly-optimized, pure-python HTTP server"
-optional = false
-python-versions = ">=3.6"
-groups = ["deployment"]
-files = [
-    {file = "cheroot-10.0.1-py3-none-any.whl", hash = "sha256:6ea332f20bfcede14e66174d112b30e9807492320d737ca628badc924d997595"},
-    {file = "cheroot-10.0.1.tar.gz", hash = "sha256:e0b82f797658d26b8613ec8eb563c3b08e6bd6a7921e9d5089bd1175ad1b1740"},
-]
-
-[package.dependencies]
-"jaraco.functools" = "*"
-more-itertools = ">=2.6"
-
-[package.extras]
-docs = ["furo", "jaraco.packaging (>=3.2)", "python-dateutil", "sphinx (>=1.8.2)", "sphinx-tabs (>=1.1.0)", "sphinxcontrib-apidoc (>=0.3.0)"]
-
-[[package]]
 name = "click"
 version = "8.2.1"
 description = "Composable command line interface toolkit"
@@ -3785,12 +3766,12 @@ version = "4.2.1"
 description = "Functools like those found in stdlib"
 optional = false
 python-versions = ">=3.9"
-groups = ["ci", "deployment"]
+groups = ["ci"]
+markers = "platform_machine != \"ppc64le\" and platform_machine != \"s390x\""
 files = [
     {file = "jaraco_functools-4.2.1-py3-none-any.whl", hash = "sha256:590486285803805f4b1f99c60ca9e94ed348d4added84b74c7a12885561e524e"},
     {file = "jaraco_functools-4.2.1.tar.gz", hash = "sha256:be634abfccabce56fa3053f8c7ebe37b682683a4ee7793670ced17bab0087353"},
 ]
-markers = {ci = "platform_machine != \"ppc64le\" and platform_machine != \"s390x\""}
 
 [package.dependencies]
 more_itertools = "*"
@@ -4816,12 +4797,12 @@ version = "10.7.0"
 description = "More routines for operating on iterables, beyond itertools"
 optional = false
 python-versions = ">=3.9"
-groups = ["ci", "deployment"]
+groups = ["ci"]
+markers = "platform_machine != \"ppc64le\" and platform_machine != \"s390x\""
 files = [
     {file = "more_itertools-10.7.0-py3-none-any.whl", hash = "sha256:d43980384673cb07d2f7d2d918c616b30c659c089ee23953f601d6609c67510e"},
     {file = "more_itertools-10.7.0.tar.gz", hash = "sha256:9fddd5403be01a94b204faadcff459ec3568cf110265d3c54323e1e866ad29d3"},
 ]
-markers = {ci = "platform_machine != \"ppc64le\" and platform_machine != \"s390x\""}
 
 [[package]]
 name = "mpmath"
@@ -10560,20 +10541,6 @@ typer = ">=0.3.0,<1.0.0"
 wasabi = ">=0.9.1,<1.2.0"
 
 [[package]]
-name = "web-py"
-version = "0.62"
-description = "web.py: makes web apps"
-optional = false
-python-versions = ">=3.5"
-groups = ["deployment"]
-files = [
-    {file = "web.py-0.62.tar.gz", hash = "sha256:5ce684caa240654cae5950da8b4b7bc178812031e08f990518d072bd44ab525e"},
-]
-
-[package.dependencies]
-cheroot = "*"
-
-[[package]]
 name = "webcolors"
 version = "24.11.1"
 description = "A library for working with the color formats defined by HTML and CSS."
@@ -11096,4 +11063,4 @@ toml = ["tomli"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4.0"
-content-hash = "cce1ba2c3987b9475c601189ec389a28a760dce7d23554353df81b925bcd7b43"
+content-hash = "7ef856ef616d81eb7b629016f29c59b08cf7fd2fb988046f610f1433b5c76734"

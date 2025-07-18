@@ -9,6 +9,7 @@ verify_ssl = false
 name = "gitlab"
 
 [packages]
+arel = ">=0.3.0"
 asyncpg = ">=0.28.0"
 # awscli = ">=1.27.165" # python 3.8
 awscli = ">=1.32.11" # python 3.10 awscli 1.32.22 requires docutils<0.17,>=0.10
@@ -31,6 +32,7 @@ git-url-parse = ">=1.2.2"
 gitpython = ">=3.1.33"
 grafana-openai-monitoring = ">=0.0.8"
 influxdb-client = ">=1.37.0"
+jinja2 = ">=3.1.6"
 locust = ">=2.18.3"
 logfire = "*"
 mypy = ">=1.16.0"
@@ -44,6 +46,7 @@ opentelemetry-sdk = ">=1.30.0"
 pandas = ">=2.2.1"
 # prometheus-fastapi-instrumentator = "~=5.10.0"
 python-keystoneclient = ">=5.1.0"
+python-multipart = ">=0.0.20"
 python-swiftclient = ">=4.2.0"
 prometheus-client = ">=0.16.0"
 # python-multipart = ">=1.26.0"
@@ -133,5 +136,5 @@ jupyterlab-templates = ">=0.3.1"
 # tensorflow = "==2.9.1"
 webtypy = ">=0.1.7"
 
-[requires]
-python_version = ">=3.12"
+# [requires]
+# python_version = ">=3.12"

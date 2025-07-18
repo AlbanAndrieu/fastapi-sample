@@ -3,6 +3,7 @@ import os
 import re
 from typing import Dict
 
+import arel
 import pyroscope
 import sentry_sdk
 from ddtrace import config, patch, tracer
@@ -10,6 +11,7 @@ from ddtrace.contrib.trace_utils import set_user
 from ddtrace.profiling import Profiler
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.openapi.utils import get_openapi
+from fastapi.templating import Jinja2Templates
 from prometheus_client import make_asgi_app
 from sentry_sdk.integrations.logging import LoggingIntegration
 from starlette.middleware.cors import CORSMiddleware
@@ -120,7 +122,7 @@ app = FastAPI(
     title=APP_NAME + " " + APP_PREFIX_VERSION,
     description="FastAPI Sample for demo",
     version=f"{APP_PREFIX_VERSION}{APP_VERSION}",
-    debug=False,
+    debug=os.getenv("DEBUG", "False").lower() == "true",
 )
 
 app.add_middleware(LogMiddleware)
@@ -185,6 +187,17 @@ sentry_sdk.init(
         ),
     ],
 )
+
+templates = Jinja2Templates(directory="templates")
+
+# Hot reload magic for development (because restarting servers is for losers)
+if os.getenv("DEBUG"):
+    hot_reload = arel.HotReload(paths=["."])
+    app.add_websocket_route("/hot-reload", route=hot_reload)
+    app.add_event_handler("startup", hot_reload.startup)
+    app.add_event_handler("shutdown", hot_reload.shutdown)
+    templates.env.globals["DEBUG"] = True
+    templates.env.globals["hot_reload"] = hot_reload
 
 
 @app.get("/")

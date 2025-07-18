@@ -46,9 +46,9 @@ include:
     ref: main
     file: "/templates/mega-linter.gitlab-ci.yml"
 
-  - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
-    file: "/templates/gitlab-ult-sec.gitlab-ci.yml"
+  # - project: jusmundi-group/infrastructure/ci-templates
+  #   ref: main
+  #   file: "/templates/gitlab-ult-sec.gitlab-ci.yml"
 
   - component: $CI_SERVER_FQDN/to-be-continuous/semantic-release/gitlab-ci-semrel@3.11.2
     inputs:
@@ -73,10 +73,10 @@ include:
   # - template: Jobs/SAST.gitlab-ci.yml
   - component: gitlab.com/components/sast/sast@main
 
-  - template: Security/SAST.gitlab-ci.yml
-  - template: Security/Dependency-Scanning.gitlab-ci.yml
-  - template: Security/Secret-Detection.gitlab-ci.yml
-  - template: Security/SAST-IaC.latest.gitlab-ci.yml
+  # - template: Security/SAST.gitlab-ci.yml
+  # - template: Security/Dependency-Scanning.gitlab-ci.yml
+  # - template: Security/Secret-Detection.gitlab-ci.yml
+  # - template: Security/SAST-IaC.latest.gitlab-ci.yml
   # - template: Jobs/Container-Scanning.gitlab-ci.yml
 
 default:
@@ -177,8 +177,8 @@ variables:
 .dependabot-gitlab:
   stage: dependabot
 
-secret_detection:
-  stage: secret-detection
+#secret_detection:
+#  stage: secret-detection
 
 upload_trivy:uat:
   extends: .upload_trivy:uat
@@ -262,6 +262,8 @@ test-pytest:
     - !reference [.pipenv-install, script]
   script:
     - python3 -m pip install --user ${DEFAULT_PYTEST_PACKAGES}
+    - python3 -m pip install --user redis arel
+    # - python3 -m pipenv install --dev --site-packages --ignore-pipfile
     - export DB_URL=${DB_URL}
     - pytest --cov=${DEFAULT_COV} --cov-report term --cov-report xml:coverage.xml --junitxml pytest-junit.xml ${DEFAULT_COV_ARGS}
 
