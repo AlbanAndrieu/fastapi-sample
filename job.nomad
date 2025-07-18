@@ -127,18 +127,18 @@ job "fastapi-sample" {
       mode     = var.env == "dev" ? "fail" : "delay"
     }
 
-    volume "fastapi-sample-redis" {
-      type      = "host"
-      read_only = false
-      source    = "fastapi-sample-redis"
-    }
+    # volume "fastapi-sample-redis" {
+    #   type      = "host"
+    #   read_only = false
+    #   source    = "fastapi-sample-redis"
+    # }
 
-    // volume "nabla" {
-    //   type            = "csi"
-    //   source          = "fastapi-sample-gra-nabla-${var.env}"
-    //   attachment_mode = "file-system"
-    //   access_mode     = "multi-node-multi-writer"
-    // }
+    volume "fastapi-sample-test" {
+      type            = "csi"
+      source          = "cinder-gra-test-${var.env}"
+      attachment_mode = "file-system"
+      access_mode     = "multi-node-multi-writer"
+    }
 
     task "fastapi-sample" {
       driver = "docker"
@@ -373,8 +373,9 @@ EOF
         args = [
           "--appendonly", "yes",
           "--appendfilename", "appendonly.aof",
-          "--appendfsync", "always", # everysec
+          "--appendfsync", "everysec", #  always
           "--databases", "50",
+          "--save", "900 1", "--save", "300 10", "--save", "60 10000",
         ]
 
         # args = [
@@ -407,7 +408,7 @@ EOF
       }
 
       volume_mount {
-        volume      = "fastapi-sample-redis"
+        volume      = "fastapi-sample-test"
         destination = "/data"
         read_only   = false
       }
