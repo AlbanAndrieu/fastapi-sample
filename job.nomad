@@ -140,6 +140,33 @@ job "fastapi-sample" {
       access_mode     = "multi-node-multi-writer"
     }
 
+    task "prep-disk" {
+      driver = "docker"
+
+      volume_mount {
+        volume      = "fastapi-sample-test"
+        destination = "/data/" #<-- in the container
+        read_only   = false
+      }
+
+      config {
+        image        = "busybox:latest"
+        command      = "sh"
+        args    = ["-c", "chown -R 999:999 /data/ "]
+      }
+
+      resources {
+        cpu    = 200
+        memory = 128
+      }
+
+      lifecycle {
+        hook    = "prestart"
+        sidecar = false
+      }
+
+    }
+
     task "fastapi-sample" {
       driver = "docker"
 
@@ -187,6 +214,7 @@ job "fastapi-sample" {
         DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_GRPC_ENDPOINT="0.0.0.0:4317"
         # DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_HTTP_ENDPOINT="0.0.0.0:4318"
         DD_APPSEC_AUTOMATED_USER_EVENTS_TRACKING=extended
+        DD_DBM_PROPAGATION_MODE=full
       }
 
       vault {
