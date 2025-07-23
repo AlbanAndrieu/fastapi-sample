@@ -103,7 +103,8 @@ default:
 #      alias: fastapi-sample.service.gra.${ENV}.consul
 
 variables:
-  CI_IMAGE_PYTHON: python:3.12
+  CI_IMAGE_PYTHON: python:3.12.10
+  PROJECT_PYTHON_VERSION: "3.12"
   CI_REGISTRY: registry.gitlab.com
   OCI_REGISTRY: ${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}
   TYPE_TRAINING: ""
