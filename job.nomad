@@ -218,7 +218,7 @@ job "fastapi-sample" {
       }
 
       vault {
-        policies  = ["cicd", "default"]
+        role = "nomad-cluster"
       }
 
 # below was working
