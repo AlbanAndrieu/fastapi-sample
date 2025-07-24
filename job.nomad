@@ -127,18 +127,45 @@ job "fastapi-sample" {
       mode     = var.env == "dev" ? "fail" : "delay"
     }
 
-    volume "fastapi-sample-redis" {
-      type      = "host"
-      read_only = false
-      source    = "fastapi-sample-redis"
+    # volume "fastapi-sample-redis" {
+    #   type      = "host"
+    #   read_only = false
+    #   source    = "fastapi-sample-redis"
+    # }
+
+    volume "fastapi-sample-test" {
+      type            = "csi"
+      source          = "cinder-gra-test-${var.env}"
+      attachment_mode = "file-system"
+      access_mode     = "multi-node-multi-writer"
     }
 
-    // volume "nabla" {
-    //   type            = "csi"
-    //   source          = "fastapi-sample-gra-nabla-${var.env}"
-    //   attachment_mode = "file-system"
-    //   access_mode     = "multi-node-multi-writer"
-    // }
+    task "prep-disk" {
+      driver = "docker"
+
+      volume_mount {
+        volume      = "fastapi-sample-test"
+        destination = "/data/" #<-- in the container
+        read_only   = false
+      }
+
+      config {
+        image        = "busybox:latest"
+        command      = "sh"
+        args    = ["-c", "chown -R 999:999 /data/ "]
+      }
+
+      resources {
+        cpu    = 200
+        memory = 128
+      }
+
+      lifecycle {
+        hook    = "prestart"
+        sidecar = false
+      }
+
+    }
 
     task "fastapi-sample" {
       driver = "docker"
@@ -187,10 +214,11 @@ job "fastapi-sample" {
         DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_GRPC_ENDPOINT="0.0.0.0:4317"
         # DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_HTTP_ENDPOINT="0.0.0.0:4318"
         DD_APPSEC_AUTOMATED_USER_EVENTS_TRACKING=extended
+        DD_DBM_PROPAGATION_MODE=full
       }
 
       vault {
-        policies  = ["cicd", "default"]
+        role = "nomad-cluster"
       }
 
 # below was working
@@ -341,19 +369,19 @@ EOF
           "traefik.http.services.fastapi-sample.loadbalancer.healthCheck.timeout=3s",
         ]
 
-        check {
-          name     = "server-alive"
-          port     = "http"
-          type     = "http"
-          path     = "/health" # v1/ping /docs /metrics
-          # 30s because can be heavy to lead, better to put it at this interval
-          interval = "30s"
-          timeout  = "5s"
-
-          # header {
-          #   Authorization = ["Basic ${AuthHeader}"]
-          # }
-        }
+        # check {
+        #   name     = "server-alive"
+        #   port     = "http"
+        #   type     = "http"
+        #   path     = "/health" # v1/ping /docs /metrics
+        #   # 30s because can be heavy to lead, better to put it at this interval
+        #   interval = "30s"
+        #   timeout  = "5s"
+		#
+        #   # header {
+        #   #   Authorization = ["Basic ${AuthHeader}"]
+        #   # }
+        # }
 
       } # service fastapi-sample
 
@@ -373,8 +401,9 @@ EOF
         args = [
           "--appendonly", "yes",
           "--appendfilename", "appendonly.aof",
-          "--appendfsync", "always", # everysec
+          "--appendfsync", "everysec", # Options: always, everysec, no
           "--databases", "50",
+          "--save", "900 1", "--save", "300 10", "--save", "60 10000",
         ]
 
         # args = [
@@ -407,7 +436,7 @@ EOF
       }
 
       volume_mount {
-        volume      = "fastapi-sample-redis"
+        volume      = "fastapi-sample-test"
         destination = "/data"
         read_only   = false
       }
@@ -468,12 +497,12 @@ EOF
           "traefik.http.routers.redis-exporter.rule=Host(`redis-exporter.service.gra.${var.env}.consul`)",
         ]
 
-        check {
-          type = "http"
-          path = "/metrics"
-          timeout = "30s"
-          interval = "15s"
-        }
+        # check {
+        #   type = "http"
+        #   path = "/metrics"
+        #   timeout = "30s"
+        #   interval = "15s"
+        # }
       }
 
       resources {
