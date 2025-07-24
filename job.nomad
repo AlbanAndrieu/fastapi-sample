@@ -127,12 +127,6 @@ job "fastapi-sample" {
       mode     = var.env == "dev" ? "fail" : "delay"
     }
 
-    # volume "fastapi-sample-redis" {
-    #   type      = "host"
-    #   read_only = false
-    #   source    = "fastapi-sample-redis"
-    # }
-
     volume "fastapi-sample-test" {
       type            = "csi"
       source          = "cinder-gra-test-${var.env}"
@@ -369,19 +363,19 @@ EOF
           "traefik.http.services.fastapi-sample.loadbalancer.healthCheck.timeout=3s",
         ]
 
-        # check {
-        #   name     = "server-alive"
-        #   port     = "http"
-        #   type     = "http"
-        #   path     = "/health" # v1/ping /docs /metrics
-        #   # 30s because can be heavy to lead, better to put it at this interval
-        #   interval = "30s"
-        #   timeout  = "5s"
-		#
-        #   # header {
-        #   #   Authorization = ["Basic ${AuthHeader}"]
-        #   # }
-        # }
+        check {
+          name     = "server-alive"
+          port     = "http"
+          type     = "http"
+          path     = "/health" # v1/ping /docs /metrics
+          # 30s because can be heavy to lead, better to put it at this interval
+          interval = "30s"
+          timeout  = "5s"
+
+          # header {
+          #   Authorization = ["Basic ${AuthHeader}"]
+          # }
+        }
 
       } # service fastapi-sample
 
@@ -497,12 +491,12 @@ EOF
           "traefik.http.routers.redis-exporter.rule=Host(`redis-exporter.service.gra.${var.env}.consul`)",
         ]
 
-        # check {
-        #   type = "http"
-        #   path = "/metrics"
-        #   timeout = "30s"
-        #   interval = "15s"
-        # }
+        check {
+          type = "http"
+          path = "/metrics"
+          timeout = "30s"
+          interval = "15s"
+        }
       }
 
       resources {
