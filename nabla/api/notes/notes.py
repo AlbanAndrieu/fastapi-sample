@@ -26,9 +26,9 @@ async def create_note(payload: NoteSchema):
 
 @router.get("/{id}/", response_model=NoteDB)
 async def read_note(
-    id: int = Path(..., gt=0),
+    note_id: int = Path(..., gt=0),
 ):
-    note = await crud.get(id)
+    note = await crud.get(note_id)
     if not note:
         raise HTTPException(status_code=404, detail="Note not found")
     return note
@@ -41,12 +41,13 @@ async def read_all_notes():
 
 @router.put("/{id}/", response_model=NoteDB)
 async def update_note(
-    payload: NoteSchema, id: int = Path(..., gt=0)
+    payload: NoteSchema,
+    note_id: int = Path(..., gt=0),
 ):  # Ensures the input is greater than 0
-    note = await crud.get(id)
+    note = await crud.get(note_id)
     if not note:
         raise HTTPException(status_code=404, detail="Note not found")
-    note_id = await crud.put(id, payload)
+    note_id = await crud.put(id, payload)  # type: ignore
     response_object = {
         "id": note_id,
         "title": payload.title,
@@ -58,10 +59,10 @@ async def update_note(
 
 # DELETE route
 @router.delete("/{id}/", response_model=NoteDB)
-async def delete_note(id: int = Path(..., gt=0)):
-    note = await crud.get(id)
+async def delete_note(note_id: int = Path(..., gt=0)):
+    note = await crud.get(note_id)
     if not note:
         raise HTTPException(status_code=404, detail="Note not found")
-    await crud.delete(id)
+    await crud.delete(note_id)
 
     return note

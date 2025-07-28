@@ -20,6 +20,8 @@ from starlette.routing import Mount
 from nabla._version import get_versions
 from nabla.api import ping, v1, v2
 from nabla.api.notes import notes
+from nabla.api.test import info
+from nabla.api.auth import keycloak
 from nabla.db import database, engine, metadata
 from nabla.metrics.prometheus import API_REQUEST_COUNTER, API_REQUEST_SUMMARY
 from nabla.utils.log_config import setup_logging
@@ -210,15 +212,6 @@ async def root():
     return AuthController.read_root()
 
 
-@app.get("/env")
-async def env(req: Request):
-    env = req.scope["env"]
-    return {
-        "message": "Here is an example of getting an environment variable: "
-        + env.MESSAGE,
-    }
-
-
 @app.get("/notes")
 async def get_notes():
     API_REQUEST_COUNTER.labels(method="GET", endpoint="/notes", http_status=200).inc()
@@ -322,7 +315,9 @@ app.include_router(
     tags=["ping"],
     responses={404: {"description": "Not found"}},
 )
-app.include_router(v1.router)
-app.include_router(v2.router)
+app.include_router(v1.router, tags=["api"])
+app.include_router(v2.router, tags=["api"])
 app.include_router(notes.router, prefix="/notes", tags=["notes"])
 app.include_router(notes.router, prefix="/notes", tags=["notes"])
+app.include_router(info.router, tags=["test"])
+app.include_router(keycloak.router, tags=["auth"])
