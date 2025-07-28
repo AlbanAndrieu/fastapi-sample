@@ -23,6 +23,7 @@ from nabla.api.notes import notes
 from nabla.db import database, engine, metadata
 from nabla.metrics.prometheus import API_REQUEST_COUNTER, API_REQUEST_SUMMARY
 from nabla.utils.log_config import setup_logging
+from nabla.auth.controller import AuthController
 
 # We need to load as soon as possible the setup_loggers
 # from nabla.logger import logger
@@ -203,7 +204,10 @@ if os.getenv("DEBUG"):
 @app.get("/")
 async def root():
     logger.info("Hello")
-    return {"message": "Hello, World!"}
+    """
+    Root endpoint that provides a welcome message and documentation link.
+    """
+    return AuthController.read_root()
 
 
 @app.get("/env")

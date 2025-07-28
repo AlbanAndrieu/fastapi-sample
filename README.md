@@ -12,26 +12,24 @@ Fastapi sample
 
 <!-- toc -->
 
-- [ fastapi-sample](#-fastapi-sample)
-- [Table of contents](#table-of-contents)
 - [Initialize](#initialize)
-  - [Requirements](#requirements)
-  - [Install fastapi-sample as a developer](#install-fastapi-sample-as-a-developer)
-    - [Using virtualenv](#using-virtualenv)
-  - [Getting started](#getting-started)
-  - [Test JWT](#test-jwt)
-  - [Test](#test)
-  - [Jupiter](#jupiter)
-  - [User guide](#user-guide)
-    - [Installation and commands](#installation-and-commands)
-    - [Database demo](#database-demo)
-  - [Create PostgreSQL fastapi\_sample\_gitlab on pg-gra.service.gra.dev.consul](#create-postgresql-fastapi_sample_gitlab-on-pg-graservicegradevconsul)
-    - [Temporal demo](#temporal-demo)
-    - [Defect Dojo Parameters](#defect-dojo-parameters)
-  - [Quality check](#quality-check)
-  - [Utility scripts](#utility-scripts)
-  - [Installation and commands](#installation-and-commands-1)
-  - [Update README.md](#update-readmemd)
+  * [Requirements](#requirements)
+  * [Install fastapi-sample as a developer](#install-fastapi-sample-as-a-developer)
+    + [Using virtualenv](#using-virtualenv)
+  * [Getting started](#getting-started)
+  * [Test JWT](#test-jwt)
+  * [Test](#test)
+  * [Jupiter](#jupiter)
+  * [User guide](#user-guide)
+    + [Installation and commands](#installation-and-commands)
+    + [Database demo](#database-demo)
+  * [Create PostgreSQL fastapi_sample_gitlab on pg-gra.service.gra.dev.consul](#create-postgresql-fastapi_sample_gitlab-on-pg-graservicegradevconsul)
+    + [Temporal demo](#temporal-demo)
+    + [Defect Dojo Parameters](#defect-dojo-parameters)
+  * [Quality check](#quality-check)
+  * [Utility scripts](#utility-scripts)
+  * [Installation and commands](#installation-and-commands-1)
+  * [Update README.md](#update-readmemd)
 
 <!-- tocstop -->
 
@@ -206,10 +204,9 @@ export DD_GIT_COMMIT_SHA="$(git rev-parse HEAD)"
 export DD_GIT_REPOSITORY_URL="$(git config --get remote.origin.url)"
 
 make up-gunicorn
-
 ```
 
-[health](http://localhost:8080/health)
+[health](http://localhost:8091/health)
 
 
 ```bash

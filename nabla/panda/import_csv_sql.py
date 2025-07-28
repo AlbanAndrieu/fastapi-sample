@@ -14,35 +14,20 @@ from nabla.utils.logger import logger
 # Database connection parameters
 # Dictionaries
 db_params = {
-    "database": "analyticsprocessordev",
-    "user": "analyticsprocessor",
-    "password": "analyticsprocessorpass",
-    "host": "10.30.0.193",  # Change this to your PostgreSQL server host
+    "database": "notes",
+    "user": "fastapisample",
+    "password": "password-reset-XXX",
+    "host": "127.0.0.1",  # Change this to your PostgreSQL server host
     "port": "5432",  # Change this to your PostgreSQL server port
 }
 
 # PostgreSQL table name
-table_name = "connected_users"
+table_name = "notes"
 
 dest_folder = os.environ.get("dest_folder")
 
 url = "https://raw.githubusercontent.com/aalbanandrieu/datasets/master/test.csv"
 destination_path = f"{dest_folder}/test.csv"
-
-
-async def create_db_connection_pool(**settings):
-    return await psycopg2.connect(
-        host=settings.db_host,
-        port=settings.db_port,
-        database=settings.db_name,
-        user=settings.db_user,
-        password=settings.db_password,
-    )
-
-
-def create_db_connection_pool2():
-    conn = psycopg2.connect(**db_params)
-    return conn
 
 
 # def raw_copy_statement(csv_file_path: str, cur: psycopg2.cursor):
@@ -72,7 +57,7 @@ def get_database_params() -> dict:
     try:
         # db_params['host']=getattr(settings, "db_host"),
         db_params["host"] = settings.db_host
-        db_params["port"] = settings.db_port
+        db_params["port"] = str(settings.db_port)
         db_params["database"] = settings.db_name
         db_params["user"] = settings.db_user
         db_params["password"] = settings.db_password
@@ -85,11 +70,11 @@ def get_database_params() -> dict:
     return db_params
 
 
-def showEmail(engine):
+def showTitle(engine):
     with engine.connect() as connection:
-        result = connection.execute(text("select email from connected_users"))
+        result = connection.execute(text("select title from notes"))
         for row in result:
-            print("email:", row.email)
+            print("title:", row.title)
 
 
 def download_file_from_url(url: str, dest_folder: str):
@@ -113,20 +98,19 @@ def create_postgres_table(cur):
     """
     try:
         cur.execute(
-            """CREATE TABLE IF NOT EXISTS connected_users (
+            """CREATE TABLE IF NOT EXISTS notes (
         id serial NOT NULL PRIMARY KEY,
-        user_id integer,
-        email text NOT NULL,
-        last_login  timestamp without time zone NOT NULL,
-        roles text DEFAULT '',
-        process_date timestamp without time zone NOT NULL)"""
+        title text NOT NULL,
+        description text DEFAULT '',
+        completed text DEFAULT 'False',
+        process_date timestamp without time zone NOT NULL)""",
         )
 
         logger.info(
-            " New table connected_users created successfully to postgres server"
+            " New table notes created successfully to postgres server",
         )
     except Exception as e:
-        logger.error(f"Check if the table connected_users exists: {e}")
+        logger.error(f"Check if the table notes exists: {e}")
         traceback.print_exc()
 
 
@@ -136,12 +120,8 @@ def import_logs_from_csv(csv_file_path: str):
     # print(db_params)
 
     logger.info(
-        f"Connected to PostgreSQL database {db_params['database']} on port {db_params['port']} with user {db_params['user']}"
+        f"Connected to PostgreSQL database {db_params['database']} on port {db_params['port']} with user {db_params['user']}",
     )
-
-    """Connect to the PostgreSQL database"""
-    # conn = create_db_connection_pool(**settings)
-    # conn = psycopg2.connect(**db_params)
 
     try:
         # Create a cursor object
@@ -149,37 +129,35 @@ def import_logs_from_csv(csv_file_path: str):
 
         # Create an SQLAlchemy engine
         engine = create_engine(
-            f'postgresql://{db_params["user"]}:{db_params["password"]}@{db_params["host"]}:{db_params["port"]}/{db_params["database"]}'
+            f'postgresql://{db_params["user"]}:{db_params["password"]}@{db_params["host"]}:{db_params["port"]}/{db_params["database"]}',
         )
 
         print(f"Connected to PostgreSQL database {db_params['database']}")
 
-        # showEmail(engine)
+        # showTitle(engine)
 
         # See https://medium.com/@dogukannulu/data-engineering-end-to-end-project-postgresql-airflow-docker-pandas-91c6aa529030
         # for more automation
 
-        # CREATE TABLE connected_users (
+        # CREATE TABLE notes (
         # id serial NOT NULL PRIMARY KEY,
-        # user_id integer,
-        # email text NOT NULL,
-        # last_login  timestamp without time zone NOT NULL,
-        # roles text DEFAULT '',
+        # title text NOT NULL,
+        # description text DEFAULT '',
+        # completed text DEFAULT 'False',
         # process_date timestamp without time zone NOT NULL
         # )
 
-        # DELETE FROM connected_users
+        # DELETE FROM notes
 
         # Read the CSV file into a Pandas DataFrame
-        # col_names = ["user_id", "email", "last_login", "cgu_read_and_accepted", "roles"]
-        col_names = ["user_id", "email", "last_login", "roles"]
+        col_names = ["title", "description", "completed", "created_date"]
 
         col_dtype = {
-            "user_id": "Int64",  # Use Int64 instead of int64 to handle missing values
-            "email": "string",
-            # 'last_login': 'datetime64[ns]', # datetime64[ns]
-            # "cgu_read_and_accepted": "string",
-            "roles": "string",
+            # "user_id": "Int64",  # Use Int64 instead of int64 to handle missing values
+            "title": "string",
+            "description": "string",
+            "completed": "string",
+            "created_date": "datetime64[ns]", # datetime64[ns]
         }
 
         DATE_FORMAT = "mixed"  # %Y-%d-%m %H:%M:%S
@@ -194,22 +172,22 @@ def import_logs_from_csv(csv_file_path: str):
             low_memory=False,
             # lineterminator="\n",
             on_bad_lines="skip",
-            parse_dates=["last_login"],
+            parse_dates=["created_date"],
             date_format=DATE_FORMAT,
             # header=None,
             header=0,
         )
 
         # SELECT pg_catalog.setval(
-        # 'connected_users_id_seq',
-        # (SELECT max(id) FROM connected_users),
+        # 'notes_id_seq',
+        # (SELECT max(id) FROM notes),
         # true
         # );
 
         get_seq_id_sql = """
             SELECT pg_catalog.setval(
-            'connected_users_id_seq',
-            (SELECT max(id) FROM connected_users),
+            'notes_id_seq',
+            (SELECT max(id) FROM notes),
             true
             ) as id;
         """
@@ -235,12 +213,11 @@ def import_logs_from_csv(csv_file_path: str):
         process_date = datetime.date(2024, 3, 29)
         print(process_date)
         # df["process_date"] = datetime.datetime.now()
-        df["process_date"] = pd.to_datetime(process_date, format=DATE_FORMAT, utc=False)
-        # Convert the last_login column to a datetime object
+        # Convert the created_date column to a datetime object
 
-        # df['last_login'] = pd.to_datetime(df['last_login'], format='mixed', utc=True)
-        df["last_login"] = pd.to_datetime(
-            df["last_login"], format=DATE_FORMAT, utc=False
+        # df['created_date'] = pd.to_datetime(df['created_date'], format='mixed', utc=True)
+        df["created_date"] = pd.to_datetime(
+            df["created_date"], format=DATE_FORMAT, utc=False,
         )
 
         print(df.info())

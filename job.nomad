@@ -159,7 +159,7 @@ job "fastapi-sample" {
         sidecar = false
       }
 
-    }
+    } # task prep-disk
 
     task "fastapi-sample" {
       driver = "docker"

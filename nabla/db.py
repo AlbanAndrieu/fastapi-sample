@@ -34,7 +34,7 @@ notes = Table(
     Column(
         "created_date",
         String(50),
-        default=dt.now(tz("Africa/Nairobi")).strftime("%Y-%m-%d %H:%M"),
+        default=dt.now(tz("Europe/Paris")).strftime("%Y-%m-%d %H:%M"),
     ),
 )
 # Databases query builder

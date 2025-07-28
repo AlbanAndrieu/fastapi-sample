@@ -3,10 +3,12 @@ import os
 import random
 from typing import Optional
 
+from uuid import uuid4
 import redis
 import requests
 from ddtrace.trace import tracer
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends, Form
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from opentelemetry import trace
 from opentelemetry.trace.status import Status, StatusCode
 from starlette.responses import JSONResponse
@@ -19,6 +21,8 @@ from nabla.metrics.prometheus import (
 )
 from nabla.utils.logger import logger
 from nabla.utils.misc import timed_operation
+from nabla.auth.models import TokenResponse, UserInfo
+from nabla.auth.controller import AuthController
 
 # logger = logging.getLogger(__name__)
 # logger.setLevel(logging.INFO)
@@ -43,7 +47,43 @@ QUOTES = [
     "The future belongs to those who believe in the beauty of their dreams. - Eleanor Roosevelt",
 ]
 
+# Initialize the HTTPBearer scheme for authentication
+bearer_scheme = HTTPBearer()
+
 router = APIRouter(prefix="/v1")
+
+
+# Define the login endpoint
+@router.post("/login", response_model=TokenResponse)
+async def login(username: str = Form(...), password: str = Form(...)):
+    """
+    Login endpoint to authenticate the user and return an access token.
+
+    Args:
+        username (str): The username of the user attempting to log in.
+        password (str): The password of the user.
+
+    Returns:
+        TokenResponse: Contains the access token upon successful authentication.
+    """
+    return AuthController.login(username, password)
+
+
+# Define the protected endpoint
+@router.get("/protected", response_model=UserInfo)
+async def protected_endpoint(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),  # noqa: B008
+):
+    """
+    Protected endpoint that requires a valid token for access.
+
+    Args:
+        credentials (HTTPAuthorizationCredentials): Bearer token provided via HTTP Authorization header.
+
+    Returns:
+        UserInfo: Information about the authenticated user.
+    """
+    return AuthController.protected_endpoint(credentials)
 
 
 @router.get("/items/{item_id}")
@@ -116,16 +156,16 @@ async def dispatch_customer(customer_id: int, q: Optional[str] = None):
 # http://test-haproxy-webapp-prometheus-ateam.service.gra.dev.consul/metrics
 
 
-# We are targetting demo hotrod service
-@router.get("/demo/heatlh")
-async def demo_health():
-    with timed_operation("demo_health"):
+# We are targetting dev service
+@router.get("/demo/dev/heatlh")
+async def demo_dev_health():
+    with timed_operation("demo_dev_health"):
         try:
             logger.info("Test demo service health")  # [logging-fstring-interpolation]
 
             response = requests.request(
                 "GET",
-                "http://frontnuxt-stats.service.gra.uat.consul/health",
+                "http://frontnuxt-stats.service.gra.dev.consul/health",
                 timeout=1,
             )
 
@@ -293,7 +333,7 @@ async def gateway_assistant():
 @router.get("/ping")
 async def ping():
     with tracer.trace("get_quote") as span:
-        quote = random.choice(QUOTES) + "\n"  # noqa: S311
+        quote = random.choice(QUOTES) + "\n"  # noqa: S311 # nosec
         span.set_tag("quote", quote)
         return quote
 
