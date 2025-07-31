@@ -22,6 +22,7 @@ from nabla.api import ping, v1, v2
 from nabla.api.notes import notes
 from nabla.api.test import info
 from nabla.api.auth import keycloak
+from nabla.api.demo import integration, dd, demo
 from nabla.db import database, engine, metadata
 from nabla.metrics.prometheus import API_REQUEST_COUNTER, API_REQUEST_SUMMARY
 from nabla.utils.log_config import setup_logging
@@ -317,6 +318,9 @@ app.include_router(
 )
 app.include_router(v1.router, tags=["api"])
 app.include_router(v2.router, tags=["api"])
+app.include_router(integration.router, tags=["integration"])
+app.include_router(dd.router, tags=["integration"])
+app.include_router(demo.router, tags=["integration"])
 app.include_router(notes.router, prefix="/notes", tags=["notes"])
 app.include_router(notes.router, prefix="/notes", tags=["notes"])
 app.include_router(info.router, tags=["test"])
