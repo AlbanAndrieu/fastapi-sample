@@ -20,12 +20,18 @@ router = APIRouter()
 
 API_GATEWAY_URL = os.environ.get(
     "API_GATEWAY_URL",
-    "https://krakend.service.gra.dev.consul",
+    "https://api.service.gra.uat.consul",
 )
 
 
 # Base URL of https://httpbin.org/
-HTTPBIN_URL = os.environ.get("HTTPBIN_URL", "https://httpbin.org")
+HTTP_BIN_URL = os.environ.get("HTTPBIN_URL", "https://httpbin.org")
+
+# curl "http://metadata.google.internal/computeMetadata/v1/instance/?" -H "Metadata-Flavor: Google"
+HTTP_CLOUD_API_URL = os.environ.get(
+    "HTTP_CLOUD_API_URL",
+    "http://169.254.169.254o/penstack/latest/meta_data.json",
+)
 
 
 @router.get("/external-api")
@@ -34,17 +40,41 @@ def external_api():
         seconds = random.uniform(0, 3)  # nosec  # noqa: S311
 
         logger.info(
-            f"Get external api {HTTPBIN_URL} : {seconds}",
+            f"Get external api {HTTP_BIN_URL} : {seconds}",
         )  # [logging-fstring-interpolation]
 
         # url = "https://httpbin.org/delay/1"
-        url = f"{HTTPBIN_URL}/delay/{seconds}"
+        url = f"{HTTP_BIN_URL}/delay/{seconds}"
 
-        response = requests.request("PUT", url, timeout=5)
+        response = requests.request("PUT", url, timeout=5, verify=False)
 
         print(response.text)
 
         # response = requests.put(f"https://httpbin.org/delay/{seconds}", timeout=5)
+        response.close()
+
+        return response.text
+        # return "ok"
+    except Exception as ex:
+        logger.error(ex, exc_info=True)
+    finally:
+        logger.info("DONE")
+
+
+# See https://tonylixu.medium.com/linux-networking-what-is-ip-address-169-254-169-254-f9e23b7332fe
+@router.get("/internal-cloud-api")
+def internal_cloud_api():
+    try:
+        logger.info(
+            f"Get internal cloud api {HTTP_BIN_URL}",
+        )  # [logging-fstring-interpolation]
+
+        url = f"{HTTP_BIN_URL}"
+
+        response = requests.request("GET", url, timeout=5)
+
+        print(response.text)
+
         response.close()
 
         return response.text

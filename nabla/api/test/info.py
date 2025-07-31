@@ -49,8 +49,17 @@ async def exception():
 
 @router.get("/env")
 async def env(req: Request):
-    env = req.scope["env"]
-    return {
-        "message": "Here is an example of getting an environment variable: "
-        + env.MESSAGE,
-    }
+    try:
+        env = req.scope["env"]
+        return {
+            "message": "Here is an example of getting an environment variable: "
+            + env.MESSAGE,
+        }
+    except Exception as ex:
+        logger.error(ex, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Env not available outside of Cloudflare worker",
+        ) from ex
+    finally:
+        logger.info("DONE")
