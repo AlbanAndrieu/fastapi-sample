@@ -207,6 +207,8 @@ pytest-dependency = ">=0.5.1"
 pytest-asyncio = ">=0.21.0"
 pytest-order = ">=1.0.1"
 pytest-testinfra = ">=10.1.1"
+pyright = ">=1.1.0"
+pyright-to-gitlab-ci = ">=1.1.0"
 nox = ">=2023.4.22"
 tox = ">=3.27.1"
 

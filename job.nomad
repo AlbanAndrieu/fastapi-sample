@@ -129,7 +129,14 @@ job "fastapi-sample" {
 
     volume "fastapi-sample-test" {
       type            = "csi"
-      source          = "cinder-gra-test-${var.env}"
+      source          = "cinder-gra-sample-${var.env}"
+      attachment_mode = "file-system"
+      access_mode     = "multi-node-multi-writer"
+    }
+
+    volume "fastapi-sample-juicefs-test" {
+      type            = "csi"
+      source          = "juicefs-gra-sample-${var.env}"
       attachment_mode = "file-system"
       access_mode     = "multi-node-multi-writer"
     }
@@ -317,9 +324,9 @@ EOF
       }
 
       template {
-          change_mode = "noop"
+        change_mode = "noop"
 
-          data = <<EOF
+        data = <<EOF
 {{ with secret "infrastructure/elasticsearch-vars" }}
 AuthHeader = {{ printf "%s:%s" .Data.data.ELASTICSEARCH_USER .Data.data.ELASTICSEARCH_PASSWORD | base64URLEncode }}
 {{ end }}
@@ -327,8 +334,8 @@ AuthHeader = {{ printf "%s:%s" .Data.data.ELASTICSEARCH_USER .Data.data.ELASTICS
 {{.Data.data.ENV}}
 {{ end }}
 EOF
-          destination = "secrets/env.authheader"
-          env = true
+        destination = "secrets/env.authheader"
+        env = true
       }
 
       service {
@@ -362,6 +369,12 @@ EOF
           "traefik.http.services.fastapi-sample.loadbalancer.healthCheck.interval=10s",
           "traefik.http.services.fastapi-sample.loadbalancer.healthCheck.timeout=3s",
         ]
+
+        volume_mount {
+          volume      = "fastapi-sample-juicefs-test"
+          destination = "/usr/share/data/"
+          read_only   = false
+        }
 
         check {
           name     = "server-alive"
