@@ -171,6 +171,12 @@ job "fastapi-sample" {
     task "fastapi-sample" {
       driver = "docker"
 
+      volume_mount {
+        volume      = "fastapi-sample-juicefs-test"
+        destination = "/usr/share/data/"
+        read_only   = false
+      }
+
       config {
         image = "[[ .CONTAINER_IMAGE ]]"
         ports = ["http"]
@@ -196,7 +202,7 @@ job "fastapi-sample" {
         # image_pull_timeout = "25m"
 
         memory_hard_limit = 2048  # at ???G we will have OOM and the container will be killed
-      }
+      } # config
 
       env {
         FASTAPI_ENV = "development"
@@ -321,7 +327,7 @@ EOF
         destination = "${NOMAD_SECRETS_DIR}/.env.local"
 
         env         = true
-      }
+      } # template
 
       template {
         change_mode = "noop"
@@ -369,12 +375,6 @@ EOF
           "traefik.http.services.fastapi-sample.loadbalancer.healthCheck.interval=10s",
           "traefik.http.services.fastapi-sample.loadbalancer.healthCheck.timeout=3s",
         ]
-
-        volume_mount {
-          volume      = "fastapi-sample-juicefs-test"
-          destination = "/usr/share/data/"
-          read_only   = false
-        }
 
         check {
           name     = "server-alive"
@@ -437,7 +437,7 @@ EOF
             "com.datadoghq.ad.instances": "[{\"host\": \"%%host%%\",\"port\":\"6379\"}]"
           }
         ]
-      }
+      } # config
 
       env {
         AWS_REGION = "gra"
@@ -468,7 +468,8 @@ EOF
           timeout  = "2s"
         }
 
-      }
+      } # service fastapi-sample-redis
+
       resources {
         cpu    = 300 # MHz
         memory = 300 # Mb
@@ -511,7 +512,7 @@ EOF
           timeout = "30s"
           interval = "15s"
         }
-      }
+      } # service
 
       resources {
         cpu    = 100 # Mhz
