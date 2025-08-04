@@ -409,6 +409,7 @@ EOF
           "--appendonly", "yes",
           "--appendfilename", "appendonly.aof",
           "--appendfsync", "everysec", # Options: always, everysec, no
+          "--maxmemory-policy", "volatile-lru",
           "--databases", "50",
           "--save", "900 1", "--save", "300 10", "--save", "60 10000",
         ]
