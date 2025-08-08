@@ -66,3 +66,31 @@ async def delete_note(note_id: int = Path(..., gt=0)):
     await crud.delete(note_id)
 
     return note
+
+
+# @app.exception_handler(NotFoundInJM)
+# async def not_found_jm_handler(request: Request, exc: NotFoundInJM):
+#    return JSONResponse(
+#        status_code=404,
+#        content={"message": str(exc)},
+#    )
+#
+#
+# @app.exception_handler(CrudError)
+# async def crud_error_handler(request: Request, exc: CrudError):
+#    logger.error("Error while querying the DB")
+#    logger.exception(exc)
+#    return JSONResponse(
+#        status_code=500,
+#        content={"message": f"Error while querying the DB: {exc}"},
+#    )
+#
+#
+# @app.exception_handler(Exception)
+# async def exception_handler(request: Request, exc: Exception):
+#    logger.error("Unexpected error")
+#    logger.exception(exc)
+#    return JSONResponse(
+#        status_code=500,
+#        content={"message": f"Unexpected error: {exc}"},
+#    )

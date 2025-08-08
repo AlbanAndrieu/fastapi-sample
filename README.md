@@ -41,8 +41,8 @@ Fastapi sample
 
 ```bash
 direnv allow
-pyenv install 3.10.9
-pyenv local 3.10.9
+pyenv install 3.12.3
+pyenv local 3.12.3
 python -m pipenv install --dev --ignore-pipfile
 direnv allow
 pre-commit install
@@ -73,7 +73,7 @@ echo 'eval "$(pyenv init -)"' >> ~/.bashrc
 echo 'eval "$(pyenv virtualenv-init -)"' >> ~/.bashrc
 source ~/.bashrc
 
-pyenv install 3.10.9
+pyenv install 3.12.3
 ```
 
 and [integrate](https://stackabuse.com/managing-python-environments-with-direnv-and-pyenv/) it with direnv
@@ -92,7 +92,7 @@ poetry config http-basic.gitlab-ds package_read ${CI_PIP_GITLABJUSMUNDI_TOKEN}
 # export POETRY_GITLAB_TOKEN_GITLAB=${GITLAB_FULL_PRIVATE_TOKEN}
 
 poetry install --no-dev # --dev-only
-poetry install --with format,test,extra,open_telemetry,deployment,influxdb,panda,temporal
+poetry install --with format,test,extra,open_telemetry,api,deployment,influxdb,panda,temporal,utils,webui
 poetry install --extras "mysql pgsql"
 #poetry install -E mysql -E pgsql
 poetry install --all-extras
@@ -204,6 +204,8 @@ export DD_GIT_COMMIT_SHA="$(git rev-parse HEAD)"
 export DD_GIT_REPOSITORY_URL="$(git config --get remote.origin.url)"
 
 make up-gunicorn
+
+DEBUG=1 uv run uvicorn serve:app --reload --workers 1 --host 0.0.0.0 --port 8091
 ```
 
 [health](http://localhost:8091/health)

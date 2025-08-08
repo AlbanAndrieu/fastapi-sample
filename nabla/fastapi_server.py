@@ -1,15 +1,18 @@
 import logging
 import os
 import re
+import datetime
 from typing import Dict
 
 import arel
+from fastapi.concurrency import asynccontextmanager
 import pyroscope
 import sentry_sdk
 from ddtrace import config, patch, tracer
 from ddtrace.contrib.trace_utils import set_user
 from ddtrace.profiling import Profiler
 from fastapi import APIRouter, FastAPI, Request
+from fastapi.responses import HTMLResponse
 from fastapi.openapi.utils import get_openapi
 from fastapi.templating import Jinja2Templates
 from prometheus_client import make_asgi_app
@@ -17,8 +20,11 @@ from sentry_sdk.integrations.logging import LoggingIntegration
 from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Mount
 
+from redis.cluster import RedisCluster as Redis
+
 from nabla._version import get_versions
 from nabla.api import ping, v1, v2
+from nabla.api.demo import sensor
 from nabla.api.notes import notes
 from nabla.api.test import info
 from nabla.api.auth import keycloak
@@ -39,6 +45,9 @@ APP_VERSION = get_versions()["version"]
 
 DD_AGENT_HOST = os.environ.get("DD_AGENT_HOST", "127.0.0.1")
 DD_TRACE_AGENT_PORT = os.environ.get("DD_TRACE_AGENT_PORT", "8126")
+
+REDIS_HOST = os.environ.get("REDIS_HOST", "127.0.0.1")
+REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))
 
 # http://grpc.jaeger-collector-grpc.service.gra.dev.consul
 # http://jaeger-collector-grpc.service.gra.dev.consul:14250
@@ -194,9 +203,20 @@ sentry_sdk.init(
 
 templates = Jinja2Templates(directory="templates")
 
+
+async def reload_data():
+    print("Reloading server data...")
+
+
 # Hot reload magic for development (because restarting servers is for losers)
 if os.getenv("DEBUG"):
-    hot_reload = arel.HotReload(paths=["."])
+    # hot_reload = arel.HotReload(paths=["."])
+    hot_reload = arel.HotReload(
+        paths=[
+            arel.Path("./nabla/data", on_reload=[reload_data]),
+            arel.Path("./nabla/static"),
+        ],
+    )
     app.add_websocket_route("/hot-reload", route=hot_reload)
     app.add_event_handler("startup", hot_reload.startup)
     app.add_event_handler("shutdown", hot_reload.shutdown)
@@ -204,7 +224,32 @@ if os.getenv("DEBUG"):
     templates.env.globals["hot_reload"] = hot_reload
 
 
-@app.get("/")
+# @app.on_event('startup')
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """background task starts at statrup"""
+
+    global redis_conn  # noqa: PLW0603
+    redis_conn = Redis(
+        host=REDIS_HOST,
+        port=REDIS_PORT,
+        decode_responses=True,
+        max_connections=96,
+    )
+    print(redis_conn.get_nodes())
+
+    yield
+
+    redis_conn.close()
+
+
+# See https://boadziedaniel.medium.com/building-real-time-dashboards-with-fastapi-and-htmx-01ea458673cb
+@app.get("/", response_class=HTMLResponse)
+def dashboard(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.get("/auth")
 async def root():
     logger.info("Hello")
     """
@@ -238,42 +283,6 @@ async def create_note():
     return await notes.create_note()
 
 
-# @app.exception_handler(NotFoundInJM)
-# async def not_found_jm_handler(request: Request, exc: NotFoundInJM):
-#    return JSONResponse(
-#        status_code=404,
-#        content={"message": str(exc)},
-#    )
-#
-#
-# @app.exception_handler(CrudError)
-# async def crud_error_handler(request: Request, exc: CrudError):
-#    logger.error("Error while querying the DB")
-#    logger.exception(exc)
-#    return JSONResponse(
-#        status_code=500,
-#        content={"message": f"Error while querying the DB: {exc}"},
-#    )
-#
-#
-# @app.exception_handler(Exception)
-# async def exception_handler(request: Request, exc: Exception):
-#    logger.error("Unexpected error")
-#    logger.exception(exc)
-#    return JSONResponse(
-#        status_code=500,
-#        content={"message": f"Unexpected error: {exc}"},
-#    )
-
-
-@app.on_event("startup")
-async def startup():
-    await database.connect()
-    # # Instrumentator().instrument(app).expose(app)
-    # FastAPIInstrumentor.instrument_app(app)
-    logger.info("API is ready")
-
-
 @app.on_event("shutdown")
 async def shutdown():
     await database.disconnect()
@@ -283,7 +292,7 @@ async def shutdown():
 def get_status() -> Dict[str, str]:
     """Healthcheck endpoint."""
     with pyroscope.tag_wrapper({"function": "fast"}):
-        return {"status": "pass"}
+        return {"status": "alive_and_kicking", "timestamp": datetime.now().isoformat()}
 
 
 @app.get("/sentry-debug")
@@ -325,3 +334,4 @@ app.include_router(notes.router, prefix="/notes", tags=["notes"])
 app.include_router(notes.router, prefix="/notes", tags=["notes"])
 app.include_router(info.router, tags=["test"])
 app.include_router(keycloak.router, tags=["auth"])
+app.include_router(sensor.router, tags=["sensore"])

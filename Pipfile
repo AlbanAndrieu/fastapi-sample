@@ -25,8 +25,8 @@ click-completion = ">=0.5.2"
 cryptography = ">=41.0.3"
 databases = ">=0.5.3"
 deprecated = ">=1.2.18" # For opentelemetry https://github.com/open-telemetry/opentelemetry-python/issues/4020
-ddtrace = ">=2.17.3"
-dd-import = ">=1.0.12"
+# dd-import = ">=1.0.12"
+ddtrace = "=3.10.2" # 3.11.2
 fastapi = {version = ">=0.115.3", extras = ["standard"]}
 git-url-parse = ">=1.2.2"
 gitpython = ">=3.1.33"
@@ -36,6 +36,7 @@ jinja2 = ">=3.1.6"
 locust = ">=2.18.3"
 logfire = "*"
 mypy = ">=1.16.0"
+openai = ">=1.95.0"
 opentelemetry-distro = ">=0.47b0"
 opentelemetry-exporter-otlp = ">=1.30.0"
 opentelemetry-instrumentation-fastapi = ">=0.47b0"
@@ -44,34 +45,37 @@ opentelemetry-exporter-jaeger-thrift = ">=1.13.0"
 opentelemetry-api = ">=1.30.0"
 opentelemetry-sdk = ">=1.30.0"
 pandas = ">=2.2.1"
-# prometheus-fastapi-instrumentator = "~=5.10.0"
+podmena = ">=0.6.1"
+psycopg2 = ">=2.9.7"  # WARNING need sudo apt-get install libpq-dev
+pyarrow = ">=16.0.0"
+# pydantic = {version = ">=2.6.1", extras = ["dotenv"]}
+pydantic = ">=2.6.1"
+pydantic-settings = "*" # Defined by pydantic
+pyroscope-io = ">=0.8.5"
+python-json-logger = ">=2.0.7"
+python-keycloak = ">=4.4.0"
 python-keystoneclient = ">=5.1.0"
 python-multipart = ">=0.0.20"
 python-swiftclient = ">=4.2.0"
 prometheus-client = ">=0.16.0"
-# python-multipart = ">=1.26.0"
-psycopg2 = ">=2.9.7"  # WARNING need sudo apt-get install libpq-dev
-podmena = ">=0.6.1"
-pyarrow = ">=16.0.0"
-# pydantic = "*" # ">=1.8.0,<2.0.0"
-pydantic = {version = ">=2.6.1", extras = ["dotenv"]}
-pydantic-settings = "*" # Defined by pydantic
-pyroscope-io = ">=0.8.5"
-# pyyaml = ">=6.0" # awscli needed
+# prometheus-fastapi-instrumentator = ">=7.1.0"
+pyyaml = ">=6.0" # awscli needed
 # six = ">=1.16.0" # awscli needed
+redis = ">=6.2.0"
 requests = ">=2.31.0"
 reretry = ">=0.11.8"
 sqlalchemy = ">=2.0.20"
 sqlfluff = ">=3.1.0"
 spacy = ">=3.5.4"
 sentry-sdk = {version = "*", extras = ["fastapi"]}
-# starlette = "~=0.36.2"
+sse-starlette = ">=2.3.6"
 termcolor = ">=2.1.1"
 gunicorn = ">=23.0.0"
-# uvicorn = {version = ">=0.20.0", extras = ["standard"]}
-# uvicorn-worker = ">=0.2.0"
-# urllib3 = ">=2.2.2" # awscli needed
+urllib3 = ">=2.2.2" # awscli needed
+uvicorn-worker = ">=0.2.0"
 traceback2 = ">=1.4.0"
+webtypy = ">=0.1.7"
+"web.py" = ">=0.62"
 
 [dev-packages]
 # ansible-cmdb = ">=1.31"

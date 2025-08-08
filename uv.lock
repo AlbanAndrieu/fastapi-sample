@@ -10,7 +10,7 @@ sdist = { url = "https://files.pythonhosted.org/packages/cb/73/23ee6a1b99c1a3dfc
 
 [[package]]
 name = "fastapi-sample"
-version = "1.1.0"
+version = "1.1.2"
 source = { editable = "." }
 dependencies = [
     { name = "dynamic" },

@@ -19,10 +19,10 @@ QUOTES = [
 
 router = APIRouter(prefix="/v1")
 
-
 @router.get("/message")
 async def demo_message():
     return {"Hello": "World"}
+
 
 
 @router.get("/random")

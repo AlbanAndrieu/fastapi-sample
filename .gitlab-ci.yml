@@ -510,14 +510,14 @@ publish:
    rules:
      - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
-netlify:
+.netlify:
   image: node:22-alpine
   stage: static
   script:
     - npm install -g netlify-cli
     - netlify --version
 
-netlify:review:
+.netlify:review:
   image: node:22-alpine
   stage: review
   environment:
@@ -543,7 +543,7 @@ netlify:review:
     - if: $CI_COMMIT_REF_NAME != $CI_DEFAULT_BRANCH
   allow_failure: true
 
-netlify:uat:
+.netlify:uat:
   image: node:22-alpine
   stage: deploy
   environment:
@@ -562,7 +562,7 @@ netlify:uat:
     - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
   allow_failure: true
 
-netlify:prod:
+.netlify:prod:
   image: node:22-alpine
   stage: deploy
   when: manual

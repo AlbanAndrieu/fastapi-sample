@@ -1,12 +1,16 @@
 import getpass
+import os
 
 import requests
 
 # Your GitLab personal access token
 ACCESS_TOKEN = getpass.getpass("ACCESS_TOKEN: ")
 
+USER_EMAIL = os.environ.get("USER_EMAIL", "alban.andrieu@gmail.com")
 # Base URL of your GitLab instance (use 'https://gitlab.com' for GitLab.com)
-GITLAB_URL = "https://gitlab.com"
+GITLAB_URL = os.environ.get("GITLAB_URL", "https://gitlab.com")
+GITLAB_ACCESS_TOKEN = os.environ.get("GITLAB_ACCESS_TOKEN", "your_app_password")
+GITLAB_USER = os.environ.get("GITLAB_USER", USER_EMAIL)
 
 # List of repository (project) IDs
 project_ids = [46788175]  # Replace with your project IDs
@@ -16,7 +20,7 @@ user_ids = [4827782, 10886450]  # Replace with your user IDs
 
 # List of email addresses to invite
 email_addresses = [
-    "alban.andrieu@gmail.com",
+    GITLAB_USER,
     # "katja@philipps-byrne.com",
     # "bastian@philipps-byrne.com",
     # "chris@philipps-byrne.com",

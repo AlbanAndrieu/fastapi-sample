@@ -222,6 +222,7 @@ job "fastapi-sample" {
         # DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_HTTP_ENDPOINT="0.0.0.0:4318"
         DD_APPSEC_AUTOMATED_USER_EVENTS_TRACKING=extended
         DD_DBM_PROPAGATION_MODE=full
+        DD_PROFILING_TIMELINE_ENABLED=true
       }
 
       vault {
@@ -441,6 +442,7 @@ EOF
 
       env {
         AWS_REGION = "gra"
+        REDIS_EXPORTER_INCL_SYSTEM_METRICS=true
       }
 
       volume_mount {
