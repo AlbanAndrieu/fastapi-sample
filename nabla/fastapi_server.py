@@ -1,7 +1,7 @@
 import logging
 import os
 import re
-import datetime
+from datetime import datetime
 from typing import Dict
 
 import arel
@@ -215,6 +215,7 @@ if os.getenv("DEBUG"):
         paths=[
             arel.Path("./nabla/data", on_reload=[reload_data]),
             arel.Path("./nabla/static"),
+            arel.Path("./templates"),
         ],
     )
     app.add_websocket_route("/hot-reload", route=hot_reload)
