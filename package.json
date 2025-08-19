@@ -19,7 +19,7 @@
     "node-gyp": ">=3.0.3"
   },
   "devDependencies": {
-    "@datadog/datadog-ci": "^2.46.0",
+    "@datadog/datadog-ci": "^3.18.0",
     "@eslint/js": "^9.28.0",
     "@nuxt/eslint-config": "^0.3.13",
     "@secretlint/secretlint-rule-preset-recommend": "^9.3.2",

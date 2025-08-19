@@ -24,7 +24,7 @@
                         <div class="badge badge-primary">Real-time</div>
                         <h2 class="card-title">Live Sensors</h2>
                     </div>
-                    <div hx-ext="sse" sse-connect="/stream">
+                    <div hx-ext="sse" sse-connect="/stream/2">
                         <div id="sensor-display" sse-swap="sensor_update" hx-swap="innerHTML">
                             <div class="flex items-center justify-center py-8">
                                 <div class="loading loading-spinner loading-lg text-primary"></div>
@@ -56,6 +56,15 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="card bg-base-100 shadow-xl">
+                    <div class="card-body">
+                        <h3 class="card-title text-lg">Pressure</h3>
+                        <div class="h-48">
+                            <canvas id="pressureChart"></canvas>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -68,14 +77,15 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    let tempChart, humidityChart;
+    let tempChart, humidityChart, pressureChart;
 
     // Initialize charts
-    function initCharts(tempData, humidityData, labels) {
+    function initCharts(tempData, humidityData, pressureData, labels) {
         const tempCanvas = document.getElementById('tempChart');
         const humidityCanvas = document.getElementById('humidityChart');
+        const pressureCanvas = document.getElementById('pressureChart');
 
-        if (!tempCanvas || !humidityCanvas) {
+        if (!tempCanvas || !humidityCanvas || !pressureCanvas || !pressureCanvas) {
             console.error('Chart canvases not found');
             return;
         }
@@ -129,6 +139,31 @@
                 }
             }
         });
+
+        const pressureCtx = pressureCanvas.getContext('2d');
+        pressureChart = new Chart(pressureCtx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: pressureData,
+                    borderColor: 'rgb(239, 68, 68)',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: false },
+                    x: { display: false }
+                }
+            }
+        });
     }
 
     // Single SSE event handler for sensor data
@@ -151,6 +186,11 @@
           <div class="stat-title">Humidity</div>
           <div class="stat-value text-secondary">${data.humidity}%</div>
           <div class="stat-desc">Relative</div>
+        </div>
+        <div class="stat bg-accent/10 rounded-lg p-4">
+          <div class="stat-title">Pressure</div>
+          <div class="stat-value text-accent">${data.pressure} hPa</div>
+          <div class="stat-desc">Real-time</div>
         </div>
       </div>
       <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
@@ -215,9 +255,10 @@
             try {
                 const tempData = JSON.parse(dataElement.dataset.temp);
                 const humidityData = JSON.parse(dataElement.dataset.humidity);
+                const pressureData = JSON.parse(dataElement.dataset.pressure);
                 const labels = JSON.parse(dataElement.dataset.labels);
 
-                if (tempChart && humidityChart) {
+                if (tempChart && humidityChart && pressureChart) {
                     tempChart.data.datasets[0].data = tempData;
                     tempChart.data.labels = labels;
                     tempChart.update('none');
@@ -225,8 +266,12 @@
                     humidityChart.data.datasets[0].data = humidityData;
                     humidityChart.data.labels = labels;
                     humidityChart.update('none');
+
+                    pressureChart.data.datasets[0].data = pressureData;
+                    pressureChart.data.labels = labels;
+                    pressureChart.update('none');
                 } else {
-                    initCharts(tempData, humidityData, labels);
+                    initCharts(tempData, humidityData, pressureData, labels);
                 }
             } catch (error) {
                 console.error('JSON parse error:', error);
