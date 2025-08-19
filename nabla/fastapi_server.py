@@ -5,34 +5,32 @@ from datetime import datetime
 from typing import Dict
 
 import arel
-from fastapi.concurrency import asynccontextmanager
 import pyroscope
 import sentry_sdk
 from ddtrace import config, patch, tracer
 from ddtrace.contrib.trace_utils import set_user
 from ddtrace.profiling import Profiler
 from fastapi import APIRouter, FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.concurrency import asynccontextmanager
 from fastapi.openapi.utils import get_openapi
+from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from prometheus_client import make_asgi_app
+from redis.cluster import RedisCluster as Redis
 from sentry_sdk.integrations.logging import LoggingIntegration
 from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Mount
 
-from redis.cluster import RedisCluster as Redis
-
 from nabla._version import get_versions
 from nabla.api import ping, v1, v2
-from nabla.api.demo import sensor
+from nabla.api.auth import keycloak
+from nabla.api.demo import dd, demo, integration, sensor
 from nabla.api.notes import notes
 from nabla.api.test import info
-from nabla.api.auth import keycloak
-from nabla.api.demo import integration, dd, demo
+from nabla.auth.controller import AuthController
 from nabla.db import database, engine, metadata
 from nabla.metrics.prometheus import API_REQUEST_COUNTER, API_REQUEST_SUMMARY
 from nabla.utils.log_config import setup_logging
-from nabla.auth.controller import AuthController
 
 # We need to load as soon as possible the setup_loggers
 # from nabla.logger import logger
@@ -131,7 +129,39 @@ config.fastapi["service_name"] = APP_NAME
 #    port=DD_TRACE_AGENT_PORT,
 # )
 
+
+metadata.create_all(engine)
+
+
+# Global variable declaration
+redis_conn: Redis | None = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """background task starts at statrup"""
+
+    global redis_conn  # noqa: PLW0603
+    redis_conn = Redis(
+        host=REDIS_HOST,
+        port=REDIS_PORT,
+        decode_responses=True,
+        max_connections=96,
+    )
+    print(redis_conn.get_nodes())
+
+    await database.connect()
+
+    yield
+
+    await database.disconnect()
+
+    if redis_conn:
+        redis_conn.close()
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title=APP_NAME + " " + APP_PREFIX_VERSION,
     description="FastAPI Sample for demo",
     version=f"{APP_PREFIX_VERSION}{APP_VERSION}",
@@ -141,7 +171,7 @@ app = FastAPI(
 app.add_middleware(LogMiddleware)
 
 
-origins = ["http://localhost", "http://localhost:8080", "http://localhost:5173", "*"]
+origins = ["http://localhost", "http://localhost:8080", "http://localhost:8091", "*"]
 
 app.add_middleware(
     CORSMiddleware,
@@ -223,25 +253,6 @@ if os.getenv("DEBUG"):
     app.add_event_handler("shutdown", hot_reload.shutdown)
     templates.env.globals["DEBUG"] = True
     templates.env.globals["hot_reload"] = hot_reload
-
-
-# @app.on_event('startup')
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """background task starts at statrup"""
-
-    global redis_conn  # noqa: PLW0603
-    redis_conn = Redis(
-        host=REDIS_HOST,
-        port=REDIS_PORT,
-        decode_responses=True,
-        max_connections=96,
-    )
-    print(redis_conn.get_nodes())
-
-    yield
-
-    redis_conn.close()
 
 
 # See https://boadziedaniel.medium.com/building-real-time-dashboards-with-fastapi-and-htmx-01ea458673cb
