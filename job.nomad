@@ -458,7 +458,7 @@ EOF
         tags = [
           "traefik.enable=true",
           "traefik.tcp.routers.fastapi-sample-redis.service=fastapi-sample-redis",
-          "traefik.tcp.routers.fastapi-sample-redis.entrypoints=tcp-redis-juicefs",
+          "traefik.tcp.routers.fastapi-sample-redis.entrypoints=tcp-redis",
           "traefik.tcp.routers.fastapi-sample-redis.rule=HostSNI(`*`)",
           "traefik.tcp.routers.fastapi-sample-redis.tls=false"
         ]
