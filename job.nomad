@@ -223,6 +223,7 @@ job "fastapi-sample" {
         DD_APPSEC_AUTOMATED_USER_EVENTS_TRACKING=extended
         DD_DBM_PROPAGATION_MODE=full
         DD_PROFILING_TIMELINE_ENABLED=true
+        REDIS_HOST=fastapi-sample-redis.service.gra.${var.env}.consul
       }
 
       vault {
