@@ -1,3 +1,7 @@
+
+public/
+data/
+
 # comment
 
 .direnv/
@@ -72,3 +76,7 @@ __pycache__/
 .editorconfig
 .gitlab-ci.yml
 .codeclimate.yml
+.pre-commit-config.yaml
+.python-version
+.ruff.toml
+.trivyignore.yaml

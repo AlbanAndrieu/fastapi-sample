@@ -123,7 +123,7 @@ job "fastapi-sample" {
     restart {
       attempts = 3
       interval = "5m"
-      delay = "25s"
+      delay    = "25s"
       mode     = var.env == "dev" ? "fail" : "delay"
     }
 
@@ -403,7 +403,7 @@ EOF
       driver = "docker"
 
       config {
-        image = "redis:8.0.3"
+        image = "redis:8.2.1"
         memory_hard_limit = 2048  # at 2G we will have OOM and the container will be killed
 
         args = [
