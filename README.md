@@ -178,12 +178,16 @@ flowchart TD
 Fix redis cluster : All slots are not covered after query all startup_nodes
 
 ```bash
+sudo service redis-server start
+
 redis-cli -c -h localhost -p 6379
 localhost:6379> PING
 PONG
 
 # cluster-enabled yes
 redis-cli --cluster fix 127.0.0.1:6379
+
+# export REDIS_HOST=localhost
 ```
 
 ```bash
