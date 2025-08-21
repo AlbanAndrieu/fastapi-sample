@@ -411,6 +411,13 @@ EOF
       }
     }
 
+    restart {
+      attempts = 3
+      interval = "5m"
+      delay    = "25s"
+      var.env == "dev" ? "fail" : "delay"
+    }
+
     volume "fastapi-sample-test" {
       type            = "csi"
       source          = "cinder-gra-sample-${var.env}"
@@ -461,7 +468,6 @@ EOF
 
       env {
         AWS_REGION = "gra"
-        REDIS_EXPORTER_INCL_SYSTEM_METRICS=true
       }
 
       volume_mount {
@@ -515,6 +521,7 @@ EOF
 
       env {
         REDIS_ADDR = "redis://fastapi-sample-redis.service.gra.${var.env}.consul:6379"
+        REDIS_EXPORTER_INCL_SYSTEM_METRICS=true
       }
 
       service {
