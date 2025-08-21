@@ -4,7 +4,7 @@
 # hadolint ignore=DL3007
 FROM python:3.12-slim AS python-base
 
-LABEL name="fastapi-sample" vendor="sample" version="1.1.1" \
+LABEL name="fastapi-sample" vendor="sample" version="1.1.3" \
  description="Image used by our products to build python\
  this image is running on Python 3.12."
 
@@ -220,6 +220,7 @@ COPY --from=builder-base "${PYSETUP_PATH}" "${PYSETUP_PATH}/"
 COPY --chown=jm-python:jm-python nabla/ "${PYSETUP_PATH}/jm-python/nabla/"
 COPY --chown=jm-python:jm-python main.py "${PYSETUP_PATH}/jm-python/"
 COPY --chown=jm-python:jm-python my-app/ "${PYSETUP_PATH}/jm-python/my-app/"
+COPY --chown=jm-python:jm-python templates/ "${PYSETUP_PATH}/jm-python/my-app/"
 
 # ENV PATH=${PYSETUP_PATH}/.venv/bin/:${PATH}
 
