@@ -51,6 +51,7 @@ job "fastapi-sample" {
     service  = "fastapi-sample-${var.env}"
     team     = "${var.team}"
     env      = "${var.env}"
+    run_uuid = "${uuidv4()}" # Always Deploy a New Job Version
   }
 
   group "fastapi-sample" {
@@ -127,13 +128,6 @@ job "fastapi-sample" {
       mode     = var.env == "dev" ? "fail" : "delay"
     }
 
-    volume "fastapi-sample-test" {
-      type            = "csi"
-      source          = "cinder-gra-sample-${var.env}"
-      attachment_mode = "file-system"
-      access_mode     = "multi-node-multi-writer"
-    }
-
     volume "fastapi-sample-juicefs-test" {
       type            = "csi"
       source          = "juicefs-gra-sample-${var.env}"
@@ -145,7 +139,7 @@ job "fastapi-sample" {
       driver = "docker"
 
       volume_mount {
-        volume      = "fastapi-sample-test"
+        volume      = "fastapi-sample-juicefs-test"
         destination = "/data/" #<-- in the container
         read_only   = false
       }
@@ -224,6 +218,7 @@ job "fastapi-sample" {
         DD_DBM_PROPAGATION_MODE=full
         DD_PROFILING_TIMELINE_ENABLED=true
         REDIS_HOST="fastapi-sample-redis.service.gra.${var.env}.consul"
+        REDIS_PORT="6379"
         ALLOWED_HOSTS="[\"${NOMAD_HOST_IP_server}\"]"
       }
 
@@ -401,6 +396,28 @@ EOF
       }
     } # task fastapi-sample
 
+  } # group fastapi-sample
+
+  group "fastapi-sample-redis" {
+    count = 1
+
+    network {
+      port "redis" {
+        to = 6379
+      }
+
+      port "redis-exporter" {
+        to = 9121
+      }
+    }
+
+    volume "fastapi-sample-test" {
+      type            = "csi"
+      source          = "cinder-gra-sample-${var.env}"
+      attachment_mode = "file-system"
+      access_mode     = "multi-node-multi-writer"
+    }
+
     task "fastapi-sample-redis" {
       driver = "docker"
 
@@ -523,6 +540,6 @@ EOF
         memory = 64  # MB
       }
     } # task fastapi-sample-redis-exporter
-  } # group fastapi-sample
+  } # group fastapi-sample-redis
 
 }

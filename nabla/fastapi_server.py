@@ -7,6 +7,7 @@ from typing import Dict
 import arel
 import pyroscope
 import sentry_sdk
+import redis
 from ddtrace import config, patch, tracer
 from ddtrace.contrib.trace_utils import set_user
 from ddtrace.profiling import Profiler
@@ -16,7 +17,9 @@ from fastapi.openapi.utils import get_openapi
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from prometheus_client import make_asgi_app
-from redis.cluster import RedisCluster as Redis
+from redis.cluster import Redis
+
+# from redis.cluter import RedisCluster as Redis
 from sentry_sdk.integrations.logging import LoggingIntegration
 from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Mount
@@ -142,13 +145,15 @@ async def lifespan(app: FastAPI):
     """background task starts at statrup"""
 
     global redis_conn  # noqa: PLW0603
-    redis_conn = Redis(
-        host=REDIS_HOST,
-        port=REDIS_PORT,
-        decode_responses=True,
-        max_connections=96,
-    )
-    print(redis_conn.get_nodes())
+    redis_conn = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT)
+
+    # redis_conn = Redis(
+    #     host=REDIS_HOST,
+    #     port=REDIS_PORT,
+    #     decode_responses=True,
+    #     max_connections=96,
+    # )
+    # print(redis_conn.get_nodes())
 
     await database.connect()
 

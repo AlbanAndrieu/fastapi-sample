@@ -4,6 +4,7 @@ import os
 from uuid import uuid4
 import redis
 
+from redis.cluster import Redis
 from ddtrace.trace import tracer
 from fastapi import APIRouter
 from starlette.responses import JSONResponse
@@ -29,11 +30,16 @@ async def demo_message():
     return {"Hello": "World"}
 
 
+# Global variable declaration
+redis_conn: Redis | None
+
+
 @router.get("/random")
 async def demo_random():
     try:
-        redis_client = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT)
-        result = redis_client.get("randomnumber")
+        global redis_conn  # noqa: PLW0603
+        redis_conn = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT)
+        result = redis_conn.get("randomnumber")
         if result is None:
             return str(uuid4())  # Fallback to uuid if key doesn't exist
         return str(result)
