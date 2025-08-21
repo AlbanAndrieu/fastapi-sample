@@ -415,7 +415,7 @@ EOF
       attempts = 3
       interval = "5m"
       delay    = "25s"
-      var.env == "dev" ? "fail" : "delay"
+      mode     = var.env == "dev" ? "fail" : "delay"
     }
 
     volume "fastapi-sample-test" {
