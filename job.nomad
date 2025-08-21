@@ -481,7 +481,7 @@ EOF
 
     } # task fastapi-sample-redis
 
-    task "redis-exporter" {
+    task "fastapi-sample-redis-exporter" {
       driver = "docker"
 
       config {
@@ -501,13 +501,13 @@ EOF
       }
 
       service {
-        name = "redis-exporter"
+        name = "fastapi-sample-redis-exporter"
         port = "redis-exporter"
 
         tags = [
           "traefik.enable=true",
-          "traefik.http.routers.redis-exporter.entrypoints=http",
-          "traefik.http.routers.redis-exporter.rule=Host(`redis-exporter.service.gra.${var.env}.consul`)",
+          "traefik.http.routers.fastapi-sample-redis-exporter.entrypoints=http",
+          "traefik.http.routers.fastapi-sample-redis-exporter.rule=Host(`fastapi-sample-redis-exporter.service.gra.${var.env}.consul`)",
         ]
 
         check {
@@ -522,7 +522,7 @@ EOF
         cpu    = 100 # Mhz
         memory = 64  # MB
       }
-    } # task redis-exporter
+    } # task fastapi-sample-redis-exporter
   } # group fastapi-sample
 
 }
