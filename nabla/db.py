@@ -21,7 +21,7 @@ patch(sqlalchemy=True)
 engine = create_engine(DB_URL)
 
 # Use a PIN to specify metadata related to this engine
-Pin.override(engine, service="replica-db")
+Pin.override(engine, service="fastapisample")
 
 metadata = MetaData()
 notes = Table(

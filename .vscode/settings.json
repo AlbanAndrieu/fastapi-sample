@@ -84,5 +84,6 @@
   "npm.packageManager": "npm",
 	"files.associations": {
 		"wrangler.json": "jsonc"
-	}
+  },
+  "cursorpyright.analysis.logLevel": "Trace"
 }

@@ -51,6 +51,7 @@ job "fastapi-sample" {
     service  = "fastapi-sample-${var.env}"
     team     = "${var.team}"
     env      = "${var.env}"
+    run_uuid = "${uuidv4()}" # Always Deploy a New Job Version
   }
 
   group "fastapi-sample" {
@@ -123,15 +124,8 @@ job "fastapi-sample" {
     restart {
       attempts = 3
       interval = "5m"
-      delay = "25s"
+      delay    = "25s"
       mode     = var.env == "dev" ? "fail" : "delay"
-    }
-
-    volume "fastapi-sample-test" {
-      type            = "csi"
-      source          = "cinder-gra-sample-${var.env}"
-      attachment_mode = "file-system"
-      access_mode     = "multi-node-multi-writer"
     }
 
     volume "fastapi-sample-juicefs-test" {
@@ -145,7 +139,7 @@ job "fastapi-sample" {
       driver = "docker"
 
       volume_mount {
-        volume      = "fastapi-sample-test"
+        volume      = "fastapi-sample-juicefs-test"
         destination = "/data/" #<-- in the container
         read_only   = false
       }
@@ -223,6 +217,9 @@ job "fastapi-sample" {
         DD_APPSEC_AUTOMATED_USER_EVENTS_TRACKING=extended
         DD_DBM_PROPAGATION_MODE=full
         DD_PROFILING_TIMELINE_ENABLED=true
+        REDIS_HOST="fastapi-sample-redis.service.gra.${var.env}.consul"
+        REDIS_PORT="6379"
+        ALLOWED_HOSTS="[\"${NOMAD_HOST_IP_server}\"]"
       }
 
       vault {
@@ -399,11 +396,40 @@ EOF
       }
     } # task fastapi-sample
 
+  } # group fastapi-sample
+
+  group "fastapi-sample-redis" {
+    count = 1
+
+    network {
+      port "redis" {
+        to = 6379
+      }
+
+      port "redis-exporter" {
+        to = 9121
+      }
+    }
+
+    restart {
+      attempts = 3
+      interval = "5m"
+      delay    = "25s"
+      mode     = var.env == "dev" ? "fail" : "delay"
+    }
+
+    volume "fastapi-sample-test" {
+      type            = "csi"
+      source          = "cinder-gra-sample-${var.env}"
+      attachment_mode = "file-system"
+      access_mode     = "multi-node-multi-writer"
+    }
+
     task "fastapi-sample-redis" {
       driver = "docker"
 
       config {
-        image = "redis:8.0.3"
+        image = "redis:8.2.1"
         memory_hard_limit = 2048  # at 2G we will have OOM and the container will be killed
 
         args = [
@@ -442,7 +468,6 @@ EOF
 
       env {
         AWS_REGION = "gra"
-        REDIS_EXPORTER_INCL_SYSTEM_METRICS=true
       }
 
       volume_mount {
@@ -458,7 +483,7 @@ EOF
         tags = [
           "traefik.enable=true",
           "traefik.tcp.routers.fastapi-sample-redis.service=fastapi-sample-redis",
-          "traefik.tcp.routers.fastapi-sample-redis.entrypoints=tcp-redis-juicefs",
+          "traefik.tcp.routers.fastapi-sample-redis.entrypoints=tcp-redis",
           "traefik.tcp.routers.fastapi-sample-redis.rule=HostSNI(`*`)",
           "traefik.tcp.routers.fastapi-sample-redis.tls=false"
         ]
@@ -479,7 +504,7 @@ EOF
 
     } # task fastapi-sample-redis
 
-    task "redis-exporter" {
+    task "fastapi-sample-redis-exporter" {
       driver = "docker"
 
       config {
@@ -496,16 +521,17 @@ EOF
 
       env {
         REDIS_ADDR = "redis://fastapi-sample-redis.service.gra.${var.env}.consul:6379"
+        REDIS_EXPORTER_INCL_SYSTEM_METRICS=true
       }
 
       service {
-        name = "redis-exporter"
+        name = "fastapi-sample-redis-exporter"
         port = "redis-exporter"
 
         tags = [
           "traefik.enable=true",
-          "traefik.http.routers.redis-exporter.entrypoints=http",
-          "traefik.http.routers.redis-exporter.rule=Host(`redis-exporter.service.gra.${var.env}.consul`)",
+          "traefik.http.routers.fastapi-sample-redis-exporter.entrypoints=http",
+          "traefik.http.routers.fastapi-sample-redis-exporter.rule=Host(`fastapi-sample-redis-exporter.service.gra.${var.env}.consul`)",
         ]
 
         check {
@@ -520,7 +546,7 @@ EOF
         cpu    = 100 # Mhz
         memory = 64  # MB
       }
-    } # task redis-exporter
-  } # group fastapi-sample
+    } # task fastapi-sample-redis-exporter
+  } # group fastapi-sample-redis
 
 }

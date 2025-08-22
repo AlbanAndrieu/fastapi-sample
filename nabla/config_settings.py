@@ -4,9 +4,9 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, ClassVar, Literal, Optional
 
+from keycloak import KeycloakOpenID
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from keycloak import KeycloakOpenID
 
 
 class AzureOpenAiInstance(BaseModel):
@@ -66,7 +66,7 @@ class _Settings(BaseSettings):
     db_port: int = 5432
 
     db_url: Optional[str] = (
-        "postgresql://fastapisample:password-reset-XXX@127.0.0.1/fastapi_sample_dev"  # nosec
+        "postgresql://fastapisample:password-reset-XXX@127.0.0.1:5432/fastapi_sample_dev"  # nosec
     )
 
     azure_openai_instance: dict[str, AzureOpenAiInstance] = {}

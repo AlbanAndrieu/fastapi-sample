@@ -3,7 +3,6 @@ import os
 import traceback
 import urllib.request
 
-# from typing import Sets
 import pandas as pd
 import psycopg2
 from sqlalchemy import create_engine, text
@@ -150,22 +149,17 @@ def import_logs_from_csv(csv_file_path: str):
         # DELETE FROM notes
 
         # Read the CSV file into a Pandas DataFrame
-        col_names = ["title", "description", "completed", "created_date"]
-
-        col_dtype = {
-            # "user_id": "Int64",  # Use Int64 instead of int64 to handle missing values
-            "title": "string",
-            "description": "string",
-            "completed": "string",
-            "created_date": "datetime64[ns]", # datetime64[ns]
-        }
-
         DATE_FORMAT = "mixed"  # %Y-%d-%m %H:%M:%S
 
         df = pd.read_csv(
             csv_file_path,
-            names=col_names,
-            dtype=col_dtype,
+            names=["title", "description", "completed", "created_date"],
+            dtype={
+                "title": pd.StringDtype(),
+                "description": pd.StringDtype(),
+                "completed": pd.StringDtype(),
+                "created_date": "datetime64[ns]",
+            },
             sep=",",
             encoding="utf-8",
             skiprows=0,
