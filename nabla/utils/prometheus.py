@@ -5,7 +5,6 @@ from typing import Tuple
 import psutil
 from fastapi import Request
 from opentelemetry import trace
-from opentelemetry.exporter.jaeger.thrift import JaegerExporter
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.logging import LoggingInstrumentor
@@ -243,7 +242,7 @@ def setting_otlp(
     trace.set_tracer_provider(tracer)
 
     # exporter = OTLPSpanExporter(endpoint=endpoint, insecure=True)
-    JaegerExporter()
+    # JaegerExporter()
 
     tracer.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint)))
 

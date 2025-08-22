@@ -7,8 +7,7 @@ from ddtrace import patch
 
 # With PostgreSQL
 from sqlalchemy import Column, DateTime, Float, Integer, String, create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 from nabla.config_settings import get_settings
 
@@ -34,6 +33,9 @@ class SensorReading(Base):
     humidity = Column(Float, nullable=False)
     pressure = Column(Float, nullable=False)
     status = Column(String, nullable=False)
+
+    def __str__(self):
+        return f"Sendor ID : {self.id}\tTemperature : {self.temperature}\tHumidity : {self.humidity}\tPressure : {self.pressure}\tStatus : {self.status}\tCreated Date : {self.timestamp}"
 
 
 class SensorData:

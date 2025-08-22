@@ -106,6 +106,7 @@ requests = ">=2.32.0"
 sentry-sdk = {version = "*", extras = ["fastapi"]}
 # six = ">=1.16.0"
 sse-starlette = ">=2.3.6"
+types-pytz = ">=2025.2.0.20250809"
 urllib3 = ">=2.2.2"
 uvicorn-worker = ">=0.2.0"
 webtypy = ">=0.1.7"
@@ -164,7 +165,8 @@ opentelemetry-exporter-otlp = ">=1.33.1"
 opentelemetry-exporter-otlp-proto-grpc = ">=1.33.1"
 opentelemetry-instrumentation-fastapi = ">=0.49b1"
 opentelemetry-instrumentation-logging = ">=0.49b1"
-opentelemetry-exporter-jaeger-thrift = ">=1.13.0"
+# opentelemetry-exporter-jaeger-thrift = ">=1.13.0"
+# opentelemetry-exporter-otlp-proto-http
 opentelemetry-api = ">=1.33.1"
 opentelemetry-sdk = ">=1.33.1"
 

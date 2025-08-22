@@ -19,9 +19,7 @@ from fastapi.openapi.utils import get_openapi
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from prometheus_client import make_asgi_app
-from redis.cluster import Redis
-
-# from redis.cluter import RedisCluster as Redis
+from redis.client import Redis
 from sentry_sdk.integrations.logging import LoggingIntegration
 from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Mount
@@ -33,7 +31,9 @@ from nabla.api.demo import dd, demo, integration, sensor
 from nabla.api.notes import notes
 from nabla.api.test import info
 from nabla.auth.controller import AuthController
-from nabla.db import database, engine, metadata
+
+# from nabla.db import database, engine, metadata
+from nabla.db import database
 from nabla.utils.log_config import setup_logging
 
 # We need to load as soon as possible the setup_loggers
@@ -64,7 +64,6 @@ REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))
 # http://jaeger-collector-grpc.service.gra.dev.consul:14250
 # http://datadog-agent.service.gra.dev.consul:4317
 # http://otel-collector.service.gra.dev.consul:9411/api/v2/spans
-
 
 OTLP_GRPC_ENDPOINT = os.environ.get(
     # "OTLP_GRPC_ENDPOINT", "http://grpc.jaeger-collector-grpc.service.gra.dev.consul"
@@ -98,9 +97,6 @@ prof = Profiler(
     # version="1.0.0",   # if not specified, falls back to environment variable DD_VERSION
 )
 prof.start()  # Should be as early as possible, eg before other imports, to ensure everything is profiled
-
-
-metadata.create_all(engine)
 
 
 def custom_openapi():
@@ -142,12 +138,12 @@ config.fastapi["service_name"] = APP_NAME
 #    port=DD_TRACE_AGENT_PORT,
 # )
 
-
-metadata.create_all(engine)
-
-
 # Global variable declaration
 redis_conn: Redis | None = None
+
+
+# Create tables
+# metadata.create_all(engine)
 
 
 @asynccontextmanager
@@ -361,9 +357,9 @@ async def create_note():
     return await notes.create_note()
 
 
-@app.on_event("shutdown")
-async def shutdown():
-    await database.disconnect()
+# @app.on_event("shutdown")
+# async def shutdown():
+#     await database.disconnect()
 
 
 @app.get("/health")
