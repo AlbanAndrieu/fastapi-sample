@@ -15,11 +15,13 @@ EXPOSE_ENV = os.environ.get("EXPOSE_ENV", "DEV")
 
 TARGET_ONE_HOST = os.environ.get(
     "TARGET_ONE_HOST",
-    "fastapi-sample.service.gra" + EXPOSE_ENV + "consul",
+    EXPOSE_HOST,
+    # "fastapi-sample.service.gra" + EXPOSE_ENV + "consul",
 )
 TARGET_TWO_HOST = os.environ.get(
     "TARGET_TWO_HOST",
-    "fastapi-sample.service.gra" + EXPOSE_ENV + "consul",
+    EXPOSE_HOST,
+    # "fastapi-sample.service.gra" + EXPOSE_ENV + "consul",
 )
 
 router = APIRouter()

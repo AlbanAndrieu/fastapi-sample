@@ -20,7 +20,7 @@ redis_conn: Redis | None
 class index:
     def GET(self):
         redis_conn = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT)
-        redis_conn.set("randomnumber", random.randint(1, 9999))  # noqa: S311
+        redis_conn.set("randomnumber", random.randint(1, 27))  # noqa: S311
         return str(redis_conn.get("randomnumber"))
 
 

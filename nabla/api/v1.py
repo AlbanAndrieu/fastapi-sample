@@ -7,7 +7,6 @@ from ddtrace.trace import tracer
 from fastapi import APIRouter
 
 # from redis.cluster import Redis
-from redis.asyncio import Redis
 from starlette.responses import JSONResponse
 
 from nabla.utils.logger import logger
@@ -31,15 +30,30 @@ async def demo_message():
 
 
 # Global variable declaration
-redis_conn: Redis | None
+# redis_conn: Redis | None
+redis_conn = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT)
+
+POOL = list(range(1, 7))
+SIZE = 4
+
+
+def string_secret():
+    return random.sample(POOL, SIZE)  # nosec
+
+
+def uniform_secret():
+    return random.uniform(0, 3)  # nosec # noqa: S311
 
 
 @router.get("/random")
 async def demo_random():
     try:
-        global redis_conn  # noqa: PLW0603
-        redis_conn = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT)
-        logger.info("get random number from redis")
+        # global redis_conn
+        # redis_conn = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT)
+        secret = uniform_secret()
+        logger.info(f"set random number {secret} to redis")
+        redis_conn.set("randomnumber", secret)
+        logger.info(f"get random number {secret} from redis")
         result = redis_conn.get("randomnumber")
         if result is None:
             return str(uuid4())  # Fallback to uuid if key doesn't exist

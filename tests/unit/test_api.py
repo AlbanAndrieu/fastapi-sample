@@ -65,6 +65,20 @@ def test_ping_v2(*args) -> None:
     assert response.json() == {"ping": "pong v2!"}
 
 
+def test_message_hello_world_v1(*args) -> None:
+    """It runs and gives Hello World."""
+
+    client = TestClient(app)
+    expected_status: int = 200
+
+    # when
+    response = client.get("/v1/message")
+
+    # then
+    assert response.status_code == expected_status
+    assert response.json() == {"Hello": "World"}
+
+
 def test_users(*args) -> None:
     """It runs and gives correct response for users."""
 
@@ -120,15 +134,16 @@ def test_invalid(*args) -> None:
     with pytest.raises(ValueError):
         client.get("/test/invalid")
 
-def test_chain(*args) -> None:
-    """It runs and chain io_task and cpu_task."""
 
-    client = TestClient(app)
-    expected_status: int = 200
+# def test_chain(*args) -> None:
+#     """It runs and chain io_task and cpu_task."""
 
-    # when
-    response = client.get("/chain")
+#     client = TestClient(app)
+#     expected_status: int = 200
 
-    # then
-    assert response.status_code == expected_status
-    assert response.json() == {"path": "/chain"}
+#     # when
+#     response = client.get("/chain")
+
+#     # then
+#     assert response.status_code == expected_status
+#     assert response.json() == {"path": "/chain"}

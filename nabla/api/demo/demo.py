@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, status
 from opentelemetry import trace
 from opentelemetry.trace.status import Status, StatusCode
 
+from nabla.api.v1 import redis_conn
 from nabla.utils.logger import logger
 from nabla.utils.misc import timed_operation
 from nabla.utils.prometheus import API_REQUEST_COUNTER, API_REQUEST_SUMMARY
@@ -32,11 +33,22 @@ async def read_item(item_id: int, q: Optional[str] = None):
         http_status=200,
     ).inc()
     API_REQUEST_SUMMARY.labels(method="GET", endpoint="/items/{item_id}").observe(0.1)
+
+    # Example of storing data in Redis
+    redis_conn.set(f"item_{item_id}", q or "No Query")
+
+    # TODO redis_conn.get("randomnumber")
+
+    cached_value = redis_conn.get(f"item_{item_id}")
+
     if item_id % 2 == 0:
         # mock io - wait for x seconds
-        seconds = random.uniform(0, 3)  # nosec # noqa: S311
+        # seconds = random.uniform(0, 3)  # nosec
+        seconds = item_id
+        logger.info(f"Sleeping for {seconds} seconds")
         await asyncio.sleep(seconds)
-    return {"item_id": item_id, "q": q}
+
+    return {"item_id": item_id, "q": cached_value}
 
 
 # We are targetting direct demo hotrod service to test tracing
