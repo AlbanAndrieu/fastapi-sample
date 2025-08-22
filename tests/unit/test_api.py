@@ -127,8 +127,8 @@ def test_chain(*args) -> None:
     expected_status: int = 200
 
     # when
-    response = client.get("/V1/chain")
+    response = client.get("/chain")
 
     # then
     assert response.status_code == expected_status
-    assert response.json() == {"detail": "Got sadness"}
+    assert response.json() == {"path": "/chain"}
