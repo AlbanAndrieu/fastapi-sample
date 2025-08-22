@@ -220,6 +220,11 @@ job "fastapi-sample" {
         REDIS_HOST="fastapi-sample-redis.service.gra.${var.env}.consul"
         REDIS_PORT="6379"
         ALLOWED_HOSTS="[\"${NOMAD_HOST_IP_server}\"]"
+        EXPOSE_ENV = "${var.env}"
+        EXPOSE_HOST = "localhost"
+        EXPOSE_PORT = "8080"
+        TARGET_ONE_HOST = "fastapi-sample.service.gra.${var.env}.consul"
+        TARGET_TWO_HOST = "fastapi-sample.service.gra.${var.env}.consul"
       }
 
       vault {

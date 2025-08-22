@@ -9,17 +9,21 @@ from opentelemetry import trace
 from opentelemetry.trace.status import Status, StatusCode
 
 from nabla.utils.logger import logger
-from nabla.metrics.prometheus import (
+from nabla.utils.misc import timed_operation
+from nabla.utils.prometheus import (
     DD_CRITICAL_FINDINGS_COUNT,
     DD_HIGH_FINDINGS_COUNT,
     DD_LOW_FINDINGS_COUNT,
     DD_MEDIUM_FINDINGS_COUNT,
 )
-from nabla.utils.misc import timed_operation
 
 random.seed(54321)  # nosec
 
-DD_URL = os.environ.get("DD_URL", "http://defectdojo.service.gra.uat.consul")
+EXPOSE_ENV = os.environ.get("EXPOSE_ENV", "DEV")
+DD_URL = os.environ.get(
+    "DD_URL",
+    "http://defectdojo.service.gra." + EXPOSE_ENV + ".consul",
+)
 DD_API_KEY = os.environ.get("DD_API_KEY", "xxx")
 
 HEADERS = {
@@ -46,7 +50,9 @@ def get_products():
             environment.check_environment_languages()
             logger.info(f"Get DD environment {environment.url}")
             response = requests.get(
-                f"{DD_URL}/api/v2/products/", headers=HEADERS, timeout=30
+                f"{DD_URL}/api/v2/products/",
+                headers=HEADERS,
+                timeout=30,
             )
             response.raise_for_status()
             return {
@@ -67,7 +73,8 @@ def get_products():
             # Update the span status to failed.
             span.set_status(Status(StatusCode.ERROR, "internal error"))
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Got sadness"
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Got sadness",
             ) from ex
         finally:
             logger.info("Product retrieval done")
@@ -81,7 +88,9 @@ def get_product_types():
             environment.check_environment_languages()
             logger.info(f"Get DD environment {environment.url}")
             response = requests.get(
-                f"{DD_URL}/api/v2/product_types/", headers=HEADERS, timeout=30
+                f"{DD_URL}/api/v2/product_types/",
+                headers=HEADERS,
+                timeout=30,
             )
             response.raise_for_status()
             return {
@@ -102,7 +111,8 @@ def get_product_types():
             # Update the span status to failed.
             span.set_status(Status(StatusCode.ERROR, "internal error"))
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Got sadness"
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Got sadness",
             ) from ex
         finally:
             logger.info("Product retrieval done")

@@ -1,10 +1,26 @@
+import os
 import time
 
+import httpx
 import pyroscope
 from ddtrace.trace import tracer
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
+from opentelemetry.propagate import inject
 
 from nabla.utils.logger import logger
+
+EXPOSE_HOST = os.environ.get("EXPOSE_HOST", "localhost")
+EXPOSE_PORT = int(os.environ.get("EXPOSE_PORT", "8080"))
+EXPOSE_ENV = os.environ.get("EXPOSE_ENV", "DEV")
+
+TARGET_ONE_HOST = os.environ.get(
+    "TARGET_ONE_HOST",
+    "fastapi-sample.service.gra" + EXPOSE_ENV + "consul",
+)
+TARGET_TWO_HOST = os.environ.get(
+    "TARGET_TWO_HOST",
+    "fastapi-sample.service.gra" + EXPOSE_ENV + "consul",
+)
 
 router = APIRouter()
 
@@ -34,4 +50,36 @@ async def cpu_task():
     with pyroscope.tag_wrapper({"function": "fast"}):
         work(1000)
     logger.error("cpu task")
+
     return "CPU bound task finish!"
+
+
+@router.get("/error_test")
+async def error_test(response: Response):
+    logger.error("got error!!!!")
+    raise ValueError("value error")
+
+
+@router.get("/chain")
+async def chain(response: Response):
+    headers = {}
+    inject(headers)  # inject trace info to header
+    logger.critical(headers)
+
+    async with httpx.AsyncClient() as client:
+        await client.get(
+            f"http://localhost:{EXPOSE_PORT}/",
+            headers=headers,
+        )
+    async with httpx.AsyncClient() as client:
+        await client.get(
+            f"http://{TARGET_ONE_HOST}:{EXPOSE_PORT}/io_task",
+            headers=headers,
+        )
+    async with httpx.AsyncClient() as client:
+        await client.get(
+            f"http://{TARGET_TWO_HOST}:{EXPOSE_PORT}/cpu_task",
+            headers=headers,
+        )
+    logger.info("Chain Finished")
+    return {"path": "/chain"}
