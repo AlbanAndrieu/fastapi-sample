@@ -47,17 +47,17 @@ def test_read_note_incorrect_id(test_app, monkeypatch):
     monkeypatch.setattr(crud, "get", mock_get)
 
     response = test_app.get("/notes/999/")
-    assert response.status_code == 422  # TODO: 404
+    assert response.status_code == 404
 
-    # assert response.json()["detail"] == "Note not found"
-    assert response.json()["detail"] == [
-        {
-            "input": None,
-            "loc": ["path", "note_id"],
-            "msg": "Field required",
-            "type": "missing",
-        },
-    ]
+    assert response.json()["detail"] == "Note not found"
+    # assert response.json()["detail"] == [
+    #     {
+    #         "input": None,
+    #         "loc": ["path", "note_id"],
+    #         "msg": "Field required",
+    #         "type": "missing",
+    #     },
+    # ]
 
 
 def test_read_note_invalid_id(test_app):

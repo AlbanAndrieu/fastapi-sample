@@ -126,6 +126,7 @@ def test_update_note(test_app, monkeypatch):
     test_changes = {
         "title": "something",
         "description": "something else",
+        # "id": 1,
         "completed": "True",
         "created_date": dt.now().strftime("%Y-%m-%d %H:%M"),
     }
@@ -137,10 +138,10 @@ def test_update_note(test_app, monkeypatch):
         "created_date": dt.now().strftime("%Y-%m-%d %H:%M"),
     }
 
-    async def mock_get(note_id):
+    async def mock_get(id):
         return test_update_data
 
-    async def mock_put(note_id, payload):
+    async def mock_put(id, payload):
         return test_response
 
     monkeypatch.setattr(crud, "get", mock_get)
@@ -152,7 +153,7 @@ def test_update_note(test_app, monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "id, payload, status_code",
+    "note_id, payload, status_code",
     [
         [1, {}, 422],
         [1, {"description": "bar"}, 422],

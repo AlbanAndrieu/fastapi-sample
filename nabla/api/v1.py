@@ -51,6 +51,10 @@ async def demo_random():
         # global redis_conn
         # redis_conn = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT)
         secret = uniform_secret()
+
+        # Validate interval (don't let users sleep for too long)
+        secret = max(1, min(secret, 10))  # Between 1-10 seconds
+
         logger.info(f"set random number {secret} to redis")
         redis_conn.set("randomnumber", secret)
         logger.info(f"get random number {secret} from redis")

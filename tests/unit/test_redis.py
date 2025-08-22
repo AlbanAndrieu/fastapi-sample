@@ -28,6 +28,7 @@ def test_uniform_secret():
     # print(secret)
     # assert set(secret).issubset(range(0, 3))
     assert isinstance(secret, float)
+    assert secret == max(1, min(secret, 10))  # Between 1-10 seconds
 
 
 def test_redis_random_v1(*args) -> None:

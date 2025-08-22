@@ -65,7 +65,6 @@ class NoteReading(Base):
 
 
 class NoteSchema(BaseModel):
-    # id = Column(Integer, primary_key=True, index=True)
     title: str = Field(
         ...,
         min_length=3,

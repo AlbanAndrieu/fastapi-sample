@@ -27,6 +27,9 @@ DEMO_SAMPLE_URL = os.environ.get(
 async def read_item(item_id: int, q: Optional[str] = None):
     logger.info(f"Get items : {item_id}")  # [logging-fstring-interpolation]
 
+    # Validate interval (don't let users sleep for too long)
+    item_id = max(1, min(item_id, 10))  # Between 1-10 seconds
+
     API_REQUEST_COUNTER.labels(
         method="GET",
         endpoint="/items/{item_id}",
