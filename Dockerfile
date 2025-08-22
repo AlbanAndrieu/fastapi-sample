@@ -220,7 +220,7 @@ COPY --from=builder-base "${PYSETUP_PATH}" "${PYSETUP_PATH}/"
 COPY --chown=jm-python:jm-python nabla/ "${PYSETUP_PATH}/jm-python/nabla/"
 COPY --chown=jm-python:jm-python main.py "${PYSETUP_PATH}/jm-python/"
 COPY --chown=jm-python:jm-python my-app/ "${PYSETUP_PATH}/jm-python/my-app/"
-COPY --chown=jm-python:jm-python templates/ "${PYSETUP_PATH}/jm-python/my-app/"
+COPY --chown=jm-python:jm-python templates/ "${PYSETUP_PATH}/jm-python/templates/"
 
 # ENV PATH=${PYSETUP_PATH}/.venv/bin/:${PATH}
 
