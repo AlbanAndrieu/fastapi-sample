@@ -11,9 +11,12 @@ services:
     ports:
       - "8002:8000"
     environment:
-      - DATABASE_URL=postgresql://fastapi-sample:password-reset-XXX@db:5432/fastapi_sample_dev
+      - DATABASE_URL=postgresql://fastapi-sample:password-reset-XXX@db:5432/postgres
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     depends_on:
       - db
+      - redis
   db:
     image: postgres:16.2-alpine
     volumes:
@@ -25,6 +28,11 @@ services:
 
     ports:
       - "5432:5432"
+
+  redis:
+    image: "redis:alpine"
+    ports:
+      - "6379:6379"
 
   prometheus:
     image: prom/prometheus
