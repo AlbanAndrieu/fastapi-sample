@@ -2,15 +2,22 @@
 
 from typing import Dict
 
+import pytest
 from fastapi.testclient import TestClient
+
+from serve import app
 
 # from unittest.mock import patch
 
 
+@pytest.fixture(scope="module")
+def test_app():
+    client = TestClient(app)
+    yield client  # testing happens here
+
+
 def test_pong(*args) -> None:
     """It runs and gives correct response from pong."""
-    # given
-    from serve import app
 
     client = TestClient(app)
     expected_status: int = 200
@@ -26,8 +33,6 @@ def test_pong(*args) -> None:
 
 def test_ping(*args) -> None:
     """It runs and gives correct response from ping."""
-    # given
-    from serve import app
 
     client = TestClient(app)
     expected_status: int = 200

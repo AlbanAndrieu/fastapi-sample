@@ -1,26 +1,16 @@
 import asyncio
 import os
 import random
-import requests
-
 from typing import Optional
 
+import requests
 from fastapi import APIRouter, HTTPException, status
-
-
 from opentelemetry import trace
 from opentelemetry.trace.status import Status, StatusCode
 
 from nabla.utils.logger import logger
-
 from nabla.utils.misc import timed_operation
-
-
-from nabla.metrics.prometheus import (
-    API_REQUEST_COUNTER,
-    API_REQUEST_SUMMARY,
-)
-
+from nabla.utils.prometheus import API_REQUEST_COUNTER, API_REQUEST_SUMMARY
 
 router = APIRouter()
 

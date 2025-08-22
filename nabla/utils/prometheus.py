@@ -1,6 +1,9 @@
+import asyncio
 import time
 from typing import Tuple
 
+import psutil
+from fastapi import Request
 from opentelemetry import trace
 from opentelemetry.exporter.jaeger.thrift import JaegerExporter
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
@@ -9,21 +12,123 @@ from opentelemetry.instrumentation.logging import LoggingInstrumentor
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from prometheus_client import REGISTRY, Counter, Gauge, Histogram
+from prometheus_client.openmetrics.exposition import (
+    CONTENT_TYPE_LATEST,
+    generate_latest,
+)
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
-from starlette.requests import Request
 from starlette.responses import Response
 from starlette.routing import Match
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 from starlette.types import ASGIApp
 
-from nabla.metrics.prometheus import (
-    EXCEPTIONS,
-    INFO,
-    REQUESTS,
-    REQUESTS_IN_PROGRESS,
-    REQUESTS_PROCESSING_TIME,
-    RESPONSES,
+# See https://github.com/KenMwaura1/Fast-Api-Grafana-Starter/blob/main/src/app/main.py
+# Or https://medium.com/@diwasb54/building-a-production-ready-monitoring-stack-for-fastapi-applications-a-complete-guide-with-bce2af74d258
+#
+# See https://github.com/blueswen/fastapi-observability/blob/main/fastapi_app/utils.py
+
+INFO = Gauge("fastapi_app_info", "FastAPI application information.", ["app_name"])
+REQUESTS = Counter(
+    "fastapi_requests_total",
+    "Total count of requests by method and path.",
+    ["method", "path", "app_name"],
 )
+RESPONSES = Counter(
+    "fastapi_responses_total",
+    "Total count of responses by method, path and status codes.",
+    ["method", "path", "status_code", "app_name"],
+)
+REQUESTS_PROCESSING_TIME = Histogram(
+    "fastapi_requests_duration_seconds",
+    "Histogram of requests processing time by path (in seconds)",
+    ["method", "path", "app_name"],
+)
+EXCEPTIONS = Counter(
+    "fastapi_exceptions_total",
+    "Total count of exceptions raised by path and exception type",
+    ["method", "path", "exception_type", "app_name"],
+)
+REQUESTS_IN_PROGRESS = Gauge(
+    "fastapi_requests_in_progress",
+    "Gauge of requests by method and path currently being processed",
+    ["method", "path", "app_name"],
+)
+
+# Define a counter metric
+
+CPU_USAGE = Gauge("system_cpu_usage_percent", "System CPU usage percentage")
+MEMORY_USAGE = Gauge("system_memory_usage_percent", "System memory usage percentage")
+
+
+API_REQUEST_COUNTER = Counter(
+    "api_request_counter",
+    "Request processing time",
+    ["method", "endpoint", "http_status"],
+)
+API_REQUEST_SUMMARY = Histogram(
+    "api_request_summary",
+    "Request processing time",
+    ["method", "endpoint"],
+)
+# # Define a histogram metric
+# REQUESTS_TIME = Histogram(
+#     "requests_time", "Request processing time", ["method", "endpoint"]
+# )
+
+
+ERROR_COUNT = Counter(
+    "errors_total",
+    "The total number of errors.",
+    ["error"],
+)  # Triggered by exception, TODO replace by EXCEPTIONS
+# See https://signoz.io/blog/opentelemetry-fastapi/
+# https://github.com/SigNoz/sample-fastAPI-app/blob/main/app/main.py
+
+DD_API_LATENCY = Histogram(
+    name="dd_api_latency",
+    documentation="The time taken for a call on the defact dojo api",
+    labelnames=["api"],
+    buckets=(1, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 25, 30, 40, 50),
+)
+
+DD_CRITICAL_FINDINGS_COUNT = Gauge(
+    "dd_critical_findings_count",
+    "The number of critical findings",
+    labelnames=["product"],
+)
+DD_HIGH_FINDINGS_COUNT = Gauge(
+    "dd_high_findings_count",
+    "The number of high findings",
+    labelnames=["product"],
+)
+DD_MEDIUM_FINDINGS_COUNT = Gauge(
+    "dd_medium_findings_count",
+    "The number of medium findings",
+    labelnames=["product"],
+)
+DD_LOW_FINDINGS_COUNT = Gauge(
+    "dd_low_findings_count",
+    "The number of low findings",
+    labelnames=["product"],
+)
+DD_INFO_FINDINGS_COUNT = Gauge(
+    "dd_info_findings_count",
+    "The number of info findings",
+    labelnames=["product"],
+)
+
+
+async def update_system_metrics():
+    """
+    📊 Continuous system metrics collection
+    Updates every 5 seconds with current system state
+    """
+    while True:
+        CPU_USAGE.set(psutil.cpu_percent())
+        MEMORY_USAGE.set(psutil.virtual_memory().percent)
+        await asyncio.sleep(5)
+
 
 # See https://github.com/blueswen/fastapi-observability/blob/main/fastapi_app/utils.py
 
@@ -49,7 +154,9 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
         INFO.labels(app_name=self.app_name).inc()
 
     async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
+        self,
+        request: Request,
+        call_next: RequestResponseEndpoint,
     ) -> Response:
         method = request.method
         path, is_handled_path = self.get_path(request)
@@ -58,7 +165,9 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         REQUESTS_IN_PROGRESS.labels(
-            method=method, path=path, app_name=self.app_name
+            method=method,
+            path=path,
+            app_name=self.app_name,
         ).inc()
         REQUESTS.labels(method=method, path=path, app_name=self.app_name).inc()
         before_time = time.perf_counter()
@@ -81,7 +190,9 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
             trace_id = trace.format_trace_id(span.get_span_context().trace_id)
 
             REQUESTS_PROCESSING_TIME.labels(
-                method=method, path=path, app_name=self.app_name
+                method=method,
+                path=path,
+                app_name=self.app_name,
             ).observe(after_time - before_time, exemplar={"TraceID": trace_id})
         finally:
             RESPONSES.labels(
@@ -91,7 +202,9 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
                 app_name=self.app_name,
             ).inc()
             REQUESTS_IN_PROGRESS.labels(
-                method=method, path=path, app_name=self.app_name
+                method=method,
+                path=path,
+                app_name=self.app_name,
             ).dec()
 
         return response
@@ -106,13 +219,23 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
         return request.url.path, False
 
 
+def metrics(request: Request) -> Response:
+    return Response(
+        generate_latest(REGISTRY),
+        headers={"Content-Type": CONTENT_TYPE_LATEST},
+    )
+
+
 def setting_otlp(
-    app: ASGIApp, app_name: str, endpoint: str, log_correlation: bool = True
+    app: ASGIApp,
+    app_name: str,
+    endpoint: str,
+    log_correlation: bool = True,
 ) -> None:
     # Setting OpenTelemetry
     # set the service name to show in traces
     resource = Resource.create(
-        attributes={"service.name": app_name, "compose_service": app_name}
+        attributes={"service.name": app_name, "compose_service": app_name},
     )
 
     # set the tracer provider
