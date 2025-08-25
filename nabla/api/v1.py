@@ -12,7 +12,7 @@ from starlette.responses import JSONResponse
 from nabla.utils.logger import logger
 
 REDIS_HOST = os.environ.get("REDIS_HOST", "127.0.0.1")
-REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379)) # [invalid-envvar-default]
+REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))
 
 QUOTES = [
     "Strive not to be a success, but rather to be of value. - Albert Einstein",
