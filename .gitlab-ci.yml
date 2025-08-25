@@ -13,6 +13,10 @@ stages:
   - publish
   - release
 
+services: &global_services
+  - name: redis:latest
+    alias: redis
+
 include:
   - project: jusmundi-group/infrastructure/ci-templates
     ref: main

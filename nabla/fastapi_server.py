@@ -42,6 +42,7 @@ from nabla.utils.log_middleware import LogMiddleware
 from nabla.utils.prometheus import (
     API_REQUEST_COUNTER,
     API_REQUEST_SUMMARY,
+    REQUESTS,
     REQUESTS_IN_PROGRESS,
     REQUESTS_PROCESSING_TIME,
     RESPONSES,
@@ -219,6 +220,12 @@ async def metrics_middleware(request, call_next):
     start_time = time.time()
 
     REQUESTS_IN_PROGRESS.labels(
+        method=request.method,
+        path=request.url.path,
+        app_name=APP_NAME,
+    ).inc()
+
+    REQUESTS.labels(
         method=request.method,
         path=request.url.path,
         app_name=APP_NAME,
