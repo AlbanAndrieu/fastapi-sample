@@ -237,6 +237,13 @@ pip install -U poetry pipenv-poetry-migrate
 pipenv-poetry-migrate -f Pipfile -t pyproject.toml --no-use-group-notation
 ```
 
+## [Vite UI](#table-of-contents)
+
+```bash
+cd vue-client/
+npm run dev
+```
+
 ## [Test JWT](#table-of-contents)
 
 Get the public key from [keycloak-lex](https://account-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/realms/jus_mundi) [keycloak-uat]((http://account.staging.int.jusmundi.com/realms/jus_mundi)
@@ -412,7 +419,7 @@ python3 scripts.py ~/Downloads/product-activity-2023-10-02.csv
 
 ## Installation and commands
 
-**GO**
+**GO**npm run dev
 
 ```bash
 go version

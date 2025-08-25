@@ -24,7 +24,7 @@ async def create_note(payload: NoteSchema):
     return response_object
 
 
-@router.get("/{id}/", response_model=NoteDB)
+@router.get("/{note_id}/", response_model=NoteDB)
 async def read_note(
     note_id: int = Path(..., gt=0),
 ):
@@ -39,7 +39,7 @@ async def read_all_notes():
     return await crud.get_all()
 
 
-@router.put("/{id}/", response_model=NoteDB)
+@router.put("/{note_id}/", response_model=NoteDB)
 async def update_note(
     payload: NoteSchema,
     note_id: int = Path(..., gt=0),
@@ -58,7 +58,7 @@ async def update_note(
 
 
 # DELETE route
-@router.delete("/{id}/", response_model=NoteDB)
+@router.delete("/{note_id}/", response_model=NoteDB)
 async def delete_note(note_id: int = Path(..., gt=0)):
     note = await crud.get(note_id)
     if not note:

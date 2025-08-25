@@ -135,14 +135,6 @@ job "fastapi-sample" {
       access_mode     = "multi-node-multi-writer"
     }
 
-    volume "dev-dump" {
-      type            = "csi"
-      source          = "cinder-gra-dev-dump-${var.env}"
-      attachment_mode = "file-system"
-      access_mode     = "single-node-writer"
-      read_only       = false
-    }
-
     task "prep-disk" {
       driver = "docker"
 
@@ -200,16 +192,9 @@ job "fastapi-sample" {
         memory_hard_limit = 2048  # at ???G we will have OOM and the container will be killed
       } # config
 
-
       volume_mount {
         volume      = "fastapi-sample-juicefs-test"
         destination = "/usr/share/data/"
-        read_only   = false
-      }
-
-      volume_mount {
-        volume      = "dev-dump"
-        destination = "/tmp"
         read_only   = false
       }
 
@@ -235,6 +220,11 @@ job "fastapi-sample" {
         REDIS_HOST="fastapi-sample-redis.service.gra.${var.env}.consul"
         REDIS_PORT="6379"
         ALLOWED_HOSTS="[\"${NOMAD_HOST_IP_server}\"]"
+        EXPOSE_ENV = "${var.env}"
+        EXPOSE_HOST = "localhost"
+        EXPOSE_PORT = "8080"
+        TARGET_ONE_HOST = "fastapi-sample.service.gra.${var.env}.consul"
+        TARGET_TWO_HOST = "fastapi-sample.service.gra.${var.env}.consul"
       }
 
       vault {

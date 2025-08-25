@@ -1,13 +1,15 @@
+import asyncio
 import logging
 import os
 import re
+import time
 from datetime import datetime
 from typing import Dict
 
 import arel
 import pyroscope
-import sentry_sdk
 import redis
+import sentry_sdk
 from ddtrace import config, patch, tracer
 from ddtrace.contrib.trace_utils import set_user
 from ddtrace.profiling import Profiler
@@ -17,9 +19,7 @@ from fastapi.openapi.utils import get_openapi
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from prometheus_client import make_asgi_app
-from redis.cluster import Redis
-
-# from redis.cluter import RedisCluster as Redis
+from redis.client import Redis
 from sentry_sdk.integrations.logging import LoggingIntegration
 from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Mount
@@ -31,14 +31,25 @@ from nabla.api.demo import dd, demo, integration, sensor
 from nabla.api.notes import notes
 from nabla.api.test import info
 from nabla.auth.controller import AuthController
-from nabla.db import database, engine, metadata
-from nabla.metrics.prometheus import API_REQUEST_COUNTER, API_REQUEST_SUMMARY
+
+# from nabla.db import database, engine, metadata
+from nabla.db import database
 from nabla.utils.log_config import setup_logging
 
 # We need to load as soon as possible the setup_loggers
 # from nabla.logger import logger
 from nabla.utils.log_middleware import LogMiddleware
-from nabla.utils.prometheus import PrometheusMiddleware, setting_otlp
+from nabla.utils.prometheus import (
+    API_REQUEST_COUNTER,
+    API_REQUEST_SUMMARY,
+    REQUESTS,
+    REQUESTS_IN_PROGRESS,
+    REQUESTS_PROCESSING_TIME,
+    RESPONSES,
+    PrometheusMiddleware,
+    setting_otlp,
+    update_system_metrics,
+)
 
 APP_NAME = os.environ.get("APP_NAME", "fastapi-sample")
 APP_PREFIX_VERSION = os.environ.get("APP_PREFIX_VERSION", "v")
@@ -48,13 +59,12 @@ DD_AGENT_HOST = os.environ.get("DD_AGENT_HOST", "127.0.0.1")
 DD_TRACE_AGENT_PORT = os.environ.get("DD_TRACE_AGENT_PORT", "8126")
 
 REDIS_HOST = os.environ.get("REDIS_HOST", "127.0.0.1")
-REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))
+REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))  # noqa: PLW1508 # [invalid-envvar-default]
 
 # http://grpc.jaeger-collector-grpc.service.gra.dev.consul
 # http://jaeger-collector-grpc.service.gra.dev.consul:14250
 # http://datadog-agent.service.gra.dev.consul:4317
 # http://otel-collector.service.gra.dev.consul:9411/api/v2/spans
-
 
 OTLP_GRPC_ENDPOINT = os.environ.get(
     # "OTLP_GRPC_ENDPOINT", "http://grpc.jaeger-collector-grpc.service.gra.dev.consul"
@@ -88,9 +98,6 @@ prof = Profiler(
     # version="1.0.0",   # if not specified, falls back to environment variable DD_VERSION
 )
 prof.start()  # Should be as early as possible, eg before other imports, to ensure everything is profiled
-
-
-metadata.create_all(engine)
 
 
 def custom_openapi():
@@ -132,17 +139,17 @@ config.fastapi["service_name"] = APP_NAME
 #    port=DD_TRACE_AGENT_PORT,
 # )
 
-
-metadata.create_all(engine)
-
-
 # Global variable declaration
 redis_conn: Redis | None = None
 
 
+# Create tables
+# metadata.create_all(engine)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """background task starts at statrup"""
+    """background task starts at startup"""
 
     global redis_conn  # noqa: PLW0603
     redis_conn = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT)
@@ -157,7 +164,13 @@ async def lifespan(app: FastAPI):
 
     await database.connect()
 
+    """Start background system monitoring"""
+    system_metrics_task = asyncio.create_task(update_system_metrics())
+
     yield
+
+    # Cancel the background task on shutdown
+    system_metrics_task.cancel()
 
     await database.disconnect()
 
@@ -187,10 +200,64 @@ app.add_middleware(
 )
 
 # Setting metrics middleware
+# PrometheusMiddleware seems not working BUT below metrics_middleware works
 app.add_middleware(
     PrometheusMiddleware,
     app_name=APP_NAME,
 )
+
+# app.add_middleware(
+#     metrics_middleware,
+#     app_name=APP_NAME,
+# )
+
+
+@app.middleware("http")
+async def metrics_middleware(request, call_next):
+    """
+    🔧 Automatic metrics collection middleware
+    This captures every request without modifying your business logic
+    """
+    start_time = time.time()
+
+    REQUESTS_IN_PROGRESS.labels(
+        method=request.method,
+        path=request.url.path,
+        app_name=APP_NAME,
+    ).inc()
+
+    REQUESTS.labels(
+        method=request.method,
+        path=request.url.path,
+        app_name=APP_NAME,
+    ).inc()
+
+    response = await call_next(request)
+
+    # Record comprehensive metrics
+    RESPONSES.labels(
+        method=request.method,
+        path=request.url.path,
+        status_code=response.status_code,
+        app_name=APP_NAME,
+    ).inc()
+
+    REQUESTS_PROCESSING_TIME.labels(
+        method=request.method,
+        path=request.url.path,
+        app_name=APP_NAME,
+    ).observe(time.time() - start_time)
+
+    REQUESTS_IN_PROGRESS.labels(
+        method=request.method,
+        path=request.url.path,
+        app_name=APP_NAME,
+    ).dec()
+    return response
+
+
+# Setting OpenTelemetry exporter
+setting_otlp(app, APP_NAME, OTLP_GRPC_ENDPOINT)
 
 # Add prometheus asgi middleware to route /metrics requests
 # metrics_app = make_asgi_app()
@@ -202,8 +269,6 @@ route = Mount("/metrics", make_asgi_app())
 route.path_regex = re.compile("^/metrics(?P<path>.*)$")
 app.routes.append(route)
 
-# Setting OpenTelemetry exporter
-setting_otlp(app, APP_NAME, OTLP_GRPC_ENDPOINT)
 
 # See https://docs.datadoghq.com/fr/security/application_security/threats/add-user-info/?tab=python
 user_id = "usr.id"
@@ -300,9 +365,9 @@ async def create_note():
     return await notes.create_note()
 
 
-@app.on_event("shutdown")
-async def shutdown():
-    await database.disconnect()
+# @app.on_event("shutdown")
+# async def shutdown():
+#     await database.disconnect()
 
 
 @app.get("/health")
@@ -351,4 +416,4 @@ app.include_router(notes.router, prefix="/notes", tags=["notes"])
 app.include_router(notes.router, prefix="/notes", tags=["notes"])
 app.include_router(info.router, tags=["test"])
 app.include_router(keycloak.router, tags=["auth"])
-app.include_router(sensor.router, tags=["sensore"])
+app.include_router(sensor.router, tags=["sensor"])

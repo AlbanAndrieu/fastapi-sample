@@ -254,7 +254,7 @@ description = "Radically simple IT automation"
 optional = false
 python-versions = ">=3.11"
 groups = ["extra"]
-markers = "python_version >= \"3.11.0\""
+markers = "python_version >= \"3.11\""
 files = [
     {file = "ansible_core-2.19.0-py3-none-any.whl", hash = "sha256:5914f1539f5da190bd9591112e20e339d699bda0c546992fc77c1e3ccc3928f2"},
     {file = "ansible_core-2.19.0.tar.gz", hash = "sha256:ca4730837fdd50c8f8ab2fa17c04c448d74c5a27f3d5be7e602d9e3feb9430bc"},
@@ -293,8 +293,8 @@ referencing = ">=0.36.2"
 "ruamel.yaml" = ">=0.18.11"
 subprocess-tee = ">=0.4.1"
 wcmatch = [
-    {version = ">=8.5.0", markers = "python_version >= \"3.12\""},
     {version = ">=8.1.2", markers = "python_version < \"3.12\""},
+    {version = ">=8.5.0", markers = "python_version >= \"3.12\""},
 ]
 yamllint = ">=1.34.0"
 
@@ -696,7 +696,7 @@ description = "LTS Port of Python audioop"
 optional = false
 python-versions = ">=3.13"
 groups = ["webui"]
-markers = "python_version >= \"3.13.0\""
+markers = "python_version >= \"3.13\""
 files = [
     {file = "audioop_lts-0.2.2-cp313-abi3-macosx_10_13_universal2.whl", hash = "sha256:fd3d4602dc64914d462924a08c1a9816435a2155d74f325853c1f1ac3b2d9800"},
     {file = "audioop_lts-0.2.2-cp313-abi3-macosx_10_13_x86_64.whl", hash = "sha256:550c114a8df0aafe9a05442a1162dfc8fec37e9af1d625ae6060fed6e756f303"},
@@ -784,7 +784,7 @@ description = "Backport of CPython tarfile module"
 optional = false
 python-versions = ">=3.8"
 groups = ["ci"]
-markers = "platform_machine != \"ppc64le\" and platform_machine != \"s390x\" and python_version < \"3.12.0\""
+markers = "platform_machine != \"ppc64le\" and platform_machine != \"s390x\" and python_version < \"3.12\""
 files = [
     {file = "backports.tarfile-1.2.0-py3-none-any.whl", hash = "sha256:77e284d754527b01fb1e6fa8a1afe577858ebe4e9dad8919e34c862cb399bc34"},
     {file = "backports_tarfile-1.2.0.tar.gz", hash = "sha256:d75e02c268746e1b8144c278978b6e98e85de6ad16f8e4b0844a154557eca991"},
@@ -1011,7 +1011,7 @@ description = "The Blis BLAS-like linear algebra library, as a self-contained C-
 optional = false
 python-versions = "*"
 groups = ["deployment"]
-markers = "python_version >= \"3.13.0\""
+markers = "python_version >= \"3.13\""
 files = [
     {file = "blis-0.7.11-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:cd5fba34c5775e4c440d80e4dea8acb40e2d3855b546e07c4e21fad8f972404c"},
     {file = "blis-0.7.11-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:31273d9086cab9c56986d478e3ed6da6752fa4cdd0f7b5e8e5db30827912d90d"},
@@ -1059,7 +1059,7 @@ description = "The Blis BLAS-like linear algebra library, as a self-contained C-
 optional = false
 python-versions = "<3.13,>=3.6"
 groups = ["deployment"]
-markers = "python_version < \"3.13.0\""
+markers = "python_version <= \"3.12\""
 files = [
     {file = "blis-1.2.1-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:112443b90698158ada38f71e74c079c3561e802554a51e9850d487c39db25de0"},
     {file = "blis-1.2.1-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:b9f8c4fbc303f47778d1fd47916cae785b6f3beaa2031502112a8c0aa5eb29f6"},
@@ -2296,10 +2296,10 @@ files = [
 
 [package.dependencies]
 bytecode = [
-    {version = ">=0.16.0", markers = "python_version >= \"3.13.0\""},
+    {version = ">=0.13.0", markers = "python_version < \"3.11\""},
     {version = ">=0.15.1", markers = "python_version ~= \"3.12.0\""},
     {version = ">=0.14.0", markers = "python_version ~= \"3.11.0\""},
-    {version = ">=0.13.0", markers = "python_version < \"3.11.0\""},
+    {version = ">=0.16.0", markers = "python_version >= \"3.13.0\""},
 ]
 envier = ">=0.6.1,<0.7.0"
 legacy-cgi = {version = ">=2.0.0", markers = "python_version >= \"3.13.0\""}
@@ -3940,7 +3940,7 @@ description = "IPython: Productive Interactive Computing"
 optional = false
 python-versions = ">=3.11"
 groups = ["notebook"]
-markers = "python_version >= \"3.11.0\""
+markers = "python_version >= \"3.11\""
 files = [
     {file = "ipython-9.4.0-py3-none-any.whl", hash = "sha256:25850f025a446d9b359e8d296ba175a36aedd32e83ca9b5060430fe16801f066"},
     {file = "ipython-9.4.0.tar.gz", hash = "sha256:c033c6d4e7914c3d9768aabe76bbe87ba1dc66a92a05db6bfa1125d81f2ee270"},
@@ -3986,7 +3986,7 @@ description = "Defines a variety of Pygments lexers for highlighting IPython cod
 optional = false
 python-versions = ">=3.8"
 groups = ["notebook"]
-markers = "python_version >= \"3.11.0\""
+markers = "python_version >= \"3.11\""
 files = [
     {file = "ipython_pygments_lexers-1.1.1-py3-none-any.whl", hash = "sha256:a9462224a505ade19a605f71f8fa63c2048833ce50abc86768a0d81d876dc81c"},
     {file = "ipython_pygments_lexers-1.1.1.tar.gz", hash = "sha256:09c0138009e56b6854f9535736f4171d855c8c08a563a0dcd8022f78355c7e81"},
@@ -4154,7 +4154,7 @@ description = "Low-level, pure Python DBus protocol wrapper."
 optional = false
 python-versions = ">=3.7"
 groups = ["ci"]
-markers = "platform_machine != \"ppc64le\" and platform_machine != \"s390x\" and sys_platform == \"linux\""
+markers = "sys_platform == \"linux\" and platform_machine != \"ppc64le\" and platform_machine != \"s390x\""
 files = [
     {file = "jeepney-0.9.0-py3-none-any.whl", hash = "sha256:97e5714520c16fc0a45695e5365a2e11b81ea79bba796e26f9f1d178cb182683"},
     {file = "jeepney-0.9.0.tar.gz", hash = "sha256:cf0e9e845622b81e4a28df94c40345400256ec608d0e55bb8a3feaa9163f5732"},
@@ -4670,7 +4670,7 @@ description = "Fork of the standard library cgi and cgitb modules removed in Pyt
 optional = false
 python-versions = ">=3.8"
 groups = ["api"]
-markers = "python_version >= \"3.13.0\""
+markers = "python_version >= \"3.13\""
 files = [
     {file = "legacy_cgi-2.6.3-py3-none-any.whl", hash = "sha256:6df2ea5ae14c71ef6f097f8b6372b44f6685283dc018535a75c924564183cdab"},
     {file = "legacy_cgi-2.6.3.tar.gz", hash = "sha256:4c119d6cb8e9d8b6ad7cc0ddad880552c62df4029622835d06dfd18f438a8154"},
@@ -4719,8 +4719,8 @@ psutil = ">=5.9.1"
 pywin32 = {version = "*", markers = "sys_platform == \"win32\""}
 pyzmq = ">=25.0.0"
 requests = [
-    {version = ">=2.32.2", markers = "python_version > \"3.11\""},
     {version = ">=2.26.0", markers = "python_version <= \"3.11\""},
+    {version = ">=2.32.2", markers = "python_version > \"3.11\""},
 ]
 setuptools = ">=70.0.0"
 tomli = {version = ">=1.1.0", markers = "python_version < \"3.11\""}
@@ -5941,10 +5941,10 @@ files = [
 
 [package.dependencies]
 numpy = [
-    {version = ">=1.26.0", markers = "python_version >= \"3.12\""},
-    {version = ">=1.23.5", markers = "python_version >= \"3.11\""},
     {version = ">=1.21.4", markers = "python_version >= \"3.10\" and platform_system == \"Darwin\""},
     {version = ">=1.21.2", markers = "platform_system != \"Darwin\" and python_version >= \"3.10\""},
+    {version = ">=1.26.0", markers = "python_version >= \"3.12\""},
+    {version = ">=1.23.5", markers = "python_version >= \"3.11\""},
 ]
 
 [[package]]
@@ -5982,23 +5982,6 @@ opentelemetry-sdk = ">=1.13,<2.0"
 
 [package.extras]
 otlp = ["opentelemetry-exporter-otlp (==1.36.0)"]
-
-[[package]]
-name = "opentelemetry-exporter-jaeger-thrift"
-version = "1.21.0"
-description = "Jaeger Thrift Exporter for OpenTelemetry"
-optional = false
-python-versions = ">=3.7"
-groups = ["open_telemetry"]
-files = [
-    {file = "opentelemetry_exporter_jaeger_thrift-1.21.0-py3-none-any.whl", hash = "sha256:4364b8dfa6965707c72c43d85942b1491982b7d44f0123d593513e8bedafa9e2"},
-    {file = "opentelemetry_exporter_jaeger_thrift-1.21.0.tar.gz", hash = "sha256:41119bc7e5602cec83dd7d7060f061ecbc91de231272e8f515b07ef9a4b6e41c"},
-]
-
-[package.dependencies]
-opentelemetry-api = ">=1.3,<2.0"
-opentelemetry-sdk = ">=1.11,<2.0"
-thrift = ">=0.10.0"
 
 [[package]]
 name = "opentelemetry-exporter-otlp"
@@ -6046,8 +6029,8 @@ files = [
 [package.dependencies]
 googleapis-common-protos = ">=1.57,<2.0"
 grpcio = [
-    {version = ">=1.66.2,<2.0.0", markers = "python_version >= \"3.13\""},
     {version = ">=1.63.2,<2.0.0", markers = "python_version < \"3.13\""},
+    {version = ">=1.66.2,<2.0.0", markers = "python_version >= \"3.13\""},
 ]
 opentelemetry-api = ">=1.15,<2.0"
 opentelemetry-exporter-otlp-proto-common = "1.36.0"
@@ -6498,9 +6481,9 @@ files = [
 
 [package.dependencies]
 numpy = [
+    {version = ">=1.22.4", markers = "python_version < \"3.11\""},
     {version = ">=1.26.0", markers = "python_version >= \"3.12\""},
     {version = ">=1.23.2", markers = "python_version == \"3.11\""},
-    {version = ">=1.22.4", markers = "python_version < \"3.11\""},
 ]
 python-dateutil = ">=2.8.2"
 pytz = ">=2020.1"
@@ -7616,9 +7599,9 @@ files = [
 astroid = ">=3.3.8,<=3.4.0.dev0"
 colorama = {version = ">=0.4.5", markers = "sys_platform == \"win32\""}
 dill = [
-    {version = ">=0.3.7", markers = "python_version >= \"3.12\""},
-    {version = ">=0.3.6", markers = "python_version >= \"3.11\""},
     {version = ">=0.2", markers = "python_version < \"3.11\""},
+    {version = ">=0.3.7", markers = "python_version >= \"3.12\""},
+    {version = ">=0.3.6", markers = "python_version == \"3.11\""},
 ]
 isort = ">=4.2.5,<5.13 || >5.13,<7"
 mccabe = ">=0.6,<0.8"
@@ -8159,7 +8142,7 @@ files = [
     {file = "pywin32-311-cp39-cp39-win_amd64.whl", hash = "sha256:e0c4cfb0621281fe40387df582097fd796e80430597cb9944f0ae70447bacd91"},
     {file = "pywin32-311-cp39-cp39-win_arm64.whl", hash = "sha256:62ea666235135fee79bb154e695f3ff67370afefd71bd7fea7512fc70ef31e3d"},
 ]
-markers = {ci = "sys_platform == \"win32\"", locust = "sys_platform == \"win32\"", notebook = "sys_platform == \"win32\" and platform_python_implementation != \"PyPy\""}
+markers = {ci = "sys_platform == \"win32\"", locust = "sys_platform == \"win32\"", notebook = "platform_python_implementation != \"PyPy\" and sys_platform == \"win32\""}
 
 [[package]]
 name = "pywin32-ctypes"
@@ -8168,7 +8151,7 @@ description = "A (partial) reimplementation of pywin32 using ctypes/cffi"
 optional = false
 python-versions = ">=3.6"
 groups = ["ci"]
-markers = "platform_machine != \"ppc64le\" and platform_machine != \"s390x\" and sys_platform == \"win32\""
+markers = "sys_platform == \"win32\" and platform_machine != \"ppc64le\" and platform_machine != \"s390x\""
 files = [
     {file = "pywin32-ctypes-0.2.3.tar.gz", hash = "sha256:d162dc04946d704503b2edc4d55f3dba5c1d539ead017afa00142c38b9885755"},
     {file = "pywin32_ctypes-0.2.3-py3-none-any.whl", hash = "sha256:8a1513379d709975552d202d942d9837758905c8d01eb82b8bcc30918929e7b8"},
@@ -8628,7 +8611,7 @@ description = "Resolve abstract dependencies into concrete ones"
 optional = false
 python-versions = ">=3.9"
 groups = ["extra"]
-markers = "python_version >= \"3.11.0\""
+markers = "python_version >= \"3.11\""
 files = [
     {file = "resolvelib-1.2.0-py3-none-any.whl", hash = "sha256:8e3e2000beaf53fdfd8772fda1a7b1df97e803ab7c8925621bbb87c4d187a94d"},
     {file = "resolvelib-1.2.0.tar.gz", hash = "sha256:c27fbb5098acd7dfc01fb2be3724bd0881168edc2bd3b4dc876ca3f46b8e4a3d"},
@@ -8888,7 +8871,7 @@ description = "Manipulate well-formed Roman numerals"
 optional = false
 python-versions = ">=3.9"
 groups = ["ci"]
-markers = "python_version >= \"3.11.0\""
+markers = "python_version >= \"3.11\""
 files = [
     {file = "roman_numerals_py-3.1.0-py3-none-any.whl", hash = "sha256:9da2ad2fb670bcf24e81070ceb3be72f6c11c440d73bd579fbeca1e9f330954c"},
     {file = "roman_numerals_py-3.1.0.tar.gz", hash = "sha256:be4bf804f083a4ce001b5eb7e3c0862479d10f94c936f6c4e5f250aa5ff5bd2d"},
@@ -9089,7 +9072,7 @@ description = "C version of reader, parser and emitter for ruamel.yaml derived f
 optional = false
 python-versions = ">=3.9"
 groups = ["extra"]
-markers = "python_version < \"3.14\" and platform_python_implementation == \"CPython\""
+markers = "platform_python_implementation == \"CPython\" and python_version < \"3.14\""
 files = [
     {file = "ruamel.yaml.clib-0.2.12-cp310-cp310-macosx_13_0_arm64.whl", hash = "sha256:11f891336688faf5156a36293a9c362bdc7c88f03a8a027c2c1d8e0bcde998e5"},
     {file = "ruamel.yaml.clib-0.2.12-cp310-cp310-manylinux2014_aarch64.whl", hash = "sha256:a606ef75a60ecf3d924613892cc603b154178ee25abb3055db5062da811fd969"},
@@ -9250,7 +9233,7 @@ description = "Python bindings to FreeDesktop.org Secret Service API"
 optional = false
 python-versions = ">=3.6"
 groups = ["ci"]
-markers = "platform_machine != \"ppc64le\" and platform_machine != \"s390x\" and sys_platform == \"linux\""
+markers = "sys_platform == \"linux\" and platform_machine != \"ppc64le\" and platform_machine != \"s390x\""
 files = [
     {file = "SecretStorage-3.3.3-py3-none-any.whl", hash = "sha256:f356e6628222568e3af06f2eba8df495efa13b3b63081dafd4f7d9a7b7bc9f99"},
     {file = "SecretStorage-3.3.3.tar.gz", hash = "sha256:2403533ef369eca6d2ba81718576c5e0f564d5cca1b58f73a8b23e7d4eeebd77"},
@@ -9525,7 +9508,7 @@ description = "Industrial-strength Natural Language Processing (NLP) in Python"
 optional = false
 python-versions = ">=3.7"
 groups = ["deployment"]
-markers = "python_version >= \"3.13.0\""
+markers = "python_version >= \"3.13\""
 files = [
     {file = "spacy-3.7.5-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:8002897701429ee2ab5ff6921ae43560f4cd17184cb1e10dad761901c12dcb85"},
     {file = "spacy-3.7.5-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:43acd19efc845e9126b61a05ed7508a0aff509e96e15563f30f810c19e636b7c"},
@@ -9614,7 +9597,7 @@ description = "Industrial-strength Natural Language Processing (NLP) in Python"
 optional = false
 python-versions = "<3.14,>=3.9"
 groups = ["deployment"]
-markers = "python_version < \"3.13.0\""
+markers = "python_version <= \"3.12\""
 files = [
     {file = "spacy-3.8.7-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:6ec0368ce96cd775fb14906f04b771c912ea8393ba30f8b35f9c4dc47a420b8e"},
     {file = "spacy-3.8.7-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:5672f8a0fe7a3847e925544890be60015fbf48a60a838803425f82e849dd4f18"},
@@ -9799,7 +9782,7 @@ description = "Python documentation generator"
 optional = false
 python-versions = ">=3.11"
 groups = ["ci"]
-markers = "python_version >= \"3.11.0\""
+markers = "python_version >= \"3.11\""
 files = [
     {file = "sphinx-8.2.3-py3-none-any.whl", hash = "sha256:4405915165f13521d875a8c29c8970800a0141c14cc5416a38feca4ea5d9b9c3"},
     {file = "sphinx-8.2.3.tar.gz", hash = "sha256:398ad29dee7f63a75888314e9424d40f52ce5a6a87ae88e7071e80af296ec348"},
@@ -10373,7 +10356,7 @@ description = "A refreshing functional take on deep learning, compatible with yo
 optional = false
 python-versions = ">=3.6"
 groups = ["deployment"]
-markers = "python_version >= \"3.13.0\""
+markers = "python_version >= \"3.13\""
 files = [
     {file = "thinc-8.2.5-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:dc267f6aad80a681a85f50383afe91da9e2bec56fefdda86bfa2e4f529bef191"},
     {file = "thinc-8.2.5-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:d80f1e497971c9fa0938f5cc8fe607bbe87356b405fb7bbc3ff9f32fb4eed3bb"},
@@ -10444,7 +10427,7 @@ description = "A refreshing functional take on deep learning, compatible with yo
 optional = false
 python-versions = "<3.13,>=3.9"
 groups = ["deployment"]
-markers = "python_version < \"3.13.0\""
+markers = "python_version <= \"3.12\""
 files = [
     {file = "thinc-8.3.4-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:916ea79a7c7462664be9435679b7769b4fc1ecea3886db6da6118e4eb5cc8c8b"},
     {file = "thinc-8.3.4-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:6c985ce9cf82a611f4f348c721372d073537ca0e8b7bbb8bd865c1598ddd79d1"},
@@ -10508,22 +10491,6 @@ datasets = ["ml_datasets (>=0.2.0,<0.3.0)"]
 mxnet = ["mxnet (>=1.5.1,<1.6.0)"]
 tensorflow = ["tensorflow (>=2.0.0,<2.6.0)"]
 torch = ["torch (>=1.6.0)"]
-
-[[package]]
-name = "thrift"
-version = "0.22.0"
-description = "Python bindings for the Apache Thrift RPC system"
-optional = false
-python-versions = "*"
-groups = ["open_telemetry"]
-files = [
-    {file = "thrift-0.22.0.tar.gz", hash = "sha256:42e8276afbd5f54fe1d364858b6877bc5e5a4a5ed69f6a005b94ca4918fe1466"},
-]
-
-[package.extras]
-all = ["tornado (>=4.0)", "twisted"]
-tornado = ["tornado (>=4.0)"]
-twisted = ["twisted"]
 
 [[package]]
 name = "tinycss2"
@@ -10807,6 +10774,18 @@ files = [
 ]
 
 [[package]]
+name = "types-pytz"
+version = "2025.2.0.20250809"
+description = "Typing stubs for pytz"
+optional = false
+python-versions = ">=3.9"
+groups = ["api"]
+files = [
+    {file = "types_pytz-2025.2.0.20250809-py3-none-any.whl", hash = "sha256:4f55ed1b43e925cf851a756fe1707e0f5deeb1976e15bf844bcaa025e8fbd0db"},
+    {file = "types_pytz-2025.2.0.20250809.tar.gz", hash = "sha256:222e32e6a29bb28871f8834e8785e3801f2dc4441c715cd2082b271eecbe21e5"},
+]
+
+[[package]]
 name = "types-requests"
 version = "2.32.4.20250809"
 description = "Typing stubs for requests"
@@ -10832,7 +10811,7 @@ files = [
     {file = "typing_extensions-4.14.1-py3-none-any.whl", hash = "sha256:d1e1e3b58374dc93031d6eda2420a48ea44a36c2b4766a4fdeb3710755731d76"},
     {file = "typing_extensions-4.14.1.tar.gz", hash = "sha256:38b39f4aeeab64884ce9f74c94263ef78f3c22467c8724005483154c26648d36"},
 ]
-markers = {encryption = "python_version < \"3.13.0\"", format = "python_version < \"3.13.0\"", locust = "python_version == \"3.10\""}
+markers = {encryption = "python_version <= \"3.12\"", format = "python_version <= \"3.12\"", locust = "python_version == \"3.10\""}
 
 [[package]]
 name = "typing-inspection"
@@ -11006,7 +10985,7 @@ description = "Fast implementation of asyncio event loop on top of libuv"
 optional = false
 python-versions = ">=3.8.0"
 groups = ["api"]
-markers = "sys_platform != \"win32\" and sys_platform != \"cygwin\" and platform_python_implementation != \"PyPy\""
+markers = "platform_python_implementation != \"PyPy\" and sys_platform != \"win32\" and sys_platform != \"cygwin\""
 files = [
     {file = "uvloop-0.21.0-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:ec7e6b09a6fdded42403182ab6b832b71f4edaf7f37a9a0e371a01db5f0cb45f"},
     {file = "uvloop-0.21.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:196274f2adb9689a289ad7d65700d37df0c0930fd8e4e743fa4834e850d7719d"},
@@ -11835,4 +11814,4 @@ toml = ["tomli"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4.0"
-content-hash = "7cbf32d308f80c4c1d182b3a4c4e5bcaf1474d34e72e7dc7a187b62e371d3932"
+content-hash = "ed978d365eca4960c506aca4d4ce0994f68d29dd5750d104ec0f0307e1eea688"

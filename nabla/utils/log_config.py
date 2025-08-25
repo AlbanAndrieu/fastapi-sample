@@ -72,10 +72,12 @@ class _JMLoggerFormatter(JsonFormatter):
         :return: None
         """
         super().add_fields(
-            log_record=log_record, record=record, message_dict=message_dict
+            log_record=log_record,
+            record=record,
+            message_dict=message_dict,
         )
         log_record["timestamp"] = log_record["timestamp"].strftime(
-            "%Y-%m-%dT%H:%M:%S.%fZ"
+            "%Y-%m-%dT%H:%M:%S.%fZ",
         )
         if "exc_info" in log_record:
             log_record["error_detail"] = log_record.pop("exc_info")
@@ -121,7 +123,10 @@ class JMGunicornLogger(glogging.Logger):
         """
 
         super()._set_handler(
-            log=log, output=output, fmt=_JMJsonFormatter(), stream=stream
+            log=log,
+            output=output,
+            fmt=_JMJsonFormatter(),
+            stream=stream,
         )
 
 
@@ -165,7 +170,7 @@ def setup_logging() -> None:
     else:
         # Running locally through uvicorn
 
-        log_level = get_settings().log_level.upper()
+        log_level = logging.getLevelName(get_settings().log_level.upper())
 
         # Remove /credentials/health from application server logs
         logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())

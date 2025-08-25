@@ -1,22 +1,38 @@
 from datetime import datetime as dt
 
-from nabla.api.notes.models import NoteSchema
-from nabla.db import database, notes
+from nabla.api.demo.models import SessionLocal
+from nabla.api.notes.models import NoteReading, NoteSchema, notes
+from nabla.db import database
+
+# from nabla.db import database, notes
+db = SessionLocal()
 
 
 async def post(payload: NoteSchema):
     created_date = dt.now().strftime("%Y-%m-%d %H:%M")
-    query = notes.insert().values(
-        title=payload.title,
-        description=payload.description,
-        completed=payload.completed,
-        created_date=created_date,
+    db.add(
+        NoteReading(
+            title=payload.title,
+            description=payload.description,
+            completed=payload.completed,
+            created_date=created_date,
+        ),
     )
-    return await database.execute(query=query)
+    db.commit()
+    db.close()
+    return payload
+
+    # query = notes.insert().values(
+    #     title=payload.title,
+    #     description=payload.description,
+    #     completed=payload.completed,
+    #     created_date=created_date,
+    # )
+    # return await database.execute(query=query)
 
 
-async def get(id: int):
-    query = notes.select().where(id == notes.c.id)
+async def get(note_id: int):
+    query = notes.select().where(notes.c.id == note_id)
     return await database.fetch_one(query=query)
 
 
@@ -25,11 +41,11 @@ async def get_all():
     return await database.fetch_all(query=query)
 
 
-async def put(id: int, payload=NoteSchema):
+async def put(note_id: int, payload=NoteSchema):
     created_date = dt.now().strftime("%Y-%m-%d %H:%M")
     query = (
         notes.update()
-        .where(id == notes.c.id)
+        .where(notes.c.id == note_id)
         .values(
             title=payload.title,
             description=payload.description,
@@ -41,6 +57,6 @@ async def put(id: int, payload=NoteSchema):
     return await database.execute(query=query)
 
 
-async def delete(id: int):
-    query = notes.delete().where(id == notes.c.id)
+async def delete(note_id: int):
+    query = notes.delete().where(notes.c.id == note_id)
     return await database.execute(query=query)
