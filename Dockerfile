@@ -226,8 +226,6 @@ COPY --chown=jm-python:jm-python templates/ "${PYSETUP_PATH}/jm-python/templates
 
 WORKDIR "${PYSETUP_PATH}/jm-python/"
 
-HEALTHCHECK CMD curl --fail http://localhost:8080/v1/ping || exit 1
-
 EXPOSE 8080
 
 # CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "serve:app", "--host", "0.0.0.0", "--port", "8080"]
@@ -249,3 +247,9 @@ CMD [ \
     "--log-level", "info", \
     "--access-logfile", "-" \
 ]
+
+
+# HEALTHCHECK CMD curl --fail http://localhost:8080/v1/ping || exit 1
+
+HEALTHCHECK --interval=60s --timeout=10s --start-period=60s --retries=5 \
+    CMD curl -f http://localhost:8000/health || exit 1
