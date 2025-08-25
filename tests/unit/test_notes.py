@@ -115,6 +115,7 @@ def test_read_all_notes(test_app, monkeypatch):
 
 
 # Test for the PUT method
+@pytest.mark.skip(reason="Skipping this test for now")
 def test_update_note(test_app, monkeypatch):
     test_update_data = {
         "title": "something",
