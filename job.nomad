@@ -408,6 +408,60 @@ EOF
 
   } # group fastapi-sample
 
+  group "fastapi-sample-redis-exporter" {
+    count = 1
+
+    network {
+      port "redis-exporter" {
+        to = 9121
+      }
+    }
+
+    task "fastapi-sample-redis-exporter" {
+      driver = "docker"
+
+      config {
+        # See https://github.com/oliver006/redis_exporter
+        image = "oliver006/redis_exporter:v1.74.0"
+        ports = ["redis-exporter"]
+
+        args = [
+          "-redis.addr=redis://fastapi-sample-redis.service.gra.${var.env}.consul:6379",
+          "-log-format=json"
+        ]
+
+      }
+
+      env {
+        REDIS_ADDR = "redis://fastapi-sample-redis.service.gra.${var.env}.consul:6379"
+        REDIS_EXPORTER_INCL_SYSTEM_METRICS=true
+      }
+
+      service {
+        name = "fastapi-sample-redis-exporter"
+        port = "redis-exporter"
+
+        tags = [
+          "traefik.enable=true",
+          "traefik.http.routers.fastapi-sample-redis-exporter.entrypoints=http",
+          "traefik.http.routers.fastapi-sample-redis-exporter.rule=Host(`fastapi-sample-redis-exporter.service.gra.${var.env}.consul`)",
+        ]
+
+        check {
+          type = "http"
+          path = "/metrics"
+          timeout = "30s"
+          interval = "15s"
+        }
+      } # service
+
+      resources {
+        cpu    = 100 # Mhz
+        memory = 64  # MB
+      }
+    } # task fastapi-sample-redis-exporter
+  } # group fastapi-sample-redis-exporter
+    
   group "fastapi-sample-redis" {
     count = 3
 
@@ -415,12 +469,24 @@ EOF
       port "redis" {
         to = 6379
       }
-
-      port "redis-exporter" {
-        to = 9121
-      }
     }
 
+    constraint {
+      operator = "distinct_hosts"
+      value = "true"
+    }
+
+    constraint {
+      attribute = "${attr.kernel.name}"
+      value = "linux"
+    }
+
+    spread {
+      # Spread allocations equally over all nodes
+      attribute = "${node.unique.id}"
+      weight = 50
+    }
+    
     restart {
       attempts = 3
       interval = "5m"
@@ -463,6 +529,8 @@ EOF
         }
 
         ports = ["redis"]
+        
+        # network_mode = "host"
 
         labels = [
           {
@@ -514,49 +582,6 @@ EOF
 
     } # task fastapi-sample-redis
 
-    task "fastapi-sample-redis-exporter" {
-      driver = "docker"
-
-      config {
-        # See https://github.com/oliver006/redis_exporter
-        image = "oliver006/redis_exporter:v1.74.0"
-        ports = ["redis-exporter"]
-
-        args = [
-          "-redis.addr=redis://fastapi-sample-redis.service.gra.${var.env}.consul:6379",
-          "-log-format=json"
-        ]
-
-      }
-
-      env {
-        REDIS_ADDR = "redis://fastapi-sample-redis.service.gra.${var.env}.consul:6379"
-        REDIS_EXPORTER_INCL_SYSTEM_METRICS=true
-      }
-
-      service {
-        name = "fastapi-sample-redis-exporter"
-        port = "redis-exporter"
-
-        tags = [
-          "traefik.enable=true",
-          "traefik.http.routers.fastapi-sample-redis-exporter.entrypoints=http",
-          "traefik.http.routers.fastapi-sample-redis-exporter.rule=Host(`fastapi-sample-redis-exporter.service.gra.${var.env}.consul`)",
-        ]
-
-        check {
-          type = "http"
-          path = "/metrics"
-          timeout = "30s"
-          interval = "15s"
-        }
-      } # service
-
-      resources {
-        cpu    = 100 # Mhz
-        memory = 64  # MB
-      }
-    } # task fastapi-sample-redis-exporter
   } # group fastapi-sample-redis
 
 }
