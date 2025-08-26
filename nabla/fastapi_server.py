@@ -13,32 +13,43 @@ import sentry_sdk
 from ddtrace import config, patch, tracer
 from ddtrace.contrib.trace_utils import set_user
 from ddtrace.profiling import Profiler
+from ddtrace.trace import TraceFilter
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.concurrency import asynccontextmanager
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from prometheus_client import make_asgi_app
+from prometheus_fastapi_instrumentator import Instrumentator
 from redis.client import Redis
 from sentry_sdk.integrations.logging import LoggingIntegration
 from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Mount
 
-from nabla._version import get_versions
 from nabla.api import ping, v1, v2
 from nabla.api.auth import keycloak
 from nabla.api.demo import dd, demo, integration, sensor
 from nabla.api.notes import notes
 from nabla.api.test import info
 from nabla.auth.controller import AuthController
+from nabla.config_settings import (
+    APP_NAME,
+    APP_PREFIX_VERSION,
+    APP_VERSION,
+    OTLP_GRPC_ENDPOINT,
+    REDIS_HOST,
+    REDIS_PORT,
+    SENTRY_DSN,
+    get_settings,
+)
 
 # from nabla.db import database, engine, metadata
 from nabla.db import database
-from nabla.utils.log_config import setup_logging
+from nabla.utils.log_config import LogMiddleware, setup_logging
 
 # We need to load as soon as possible the setup_loggers
 # from nabla.logger import logger
-from nabla.utils.log_middleware import LogMiddleware
+from nabla.utils.logger import logger
 from nabla.utils.prometheus import (
     API_REQUEST_COUNTER,
     API_REQUEST_SUMMARY,
@@ -49,47 +60,6 @@ from nabla.utils.prometheus import (
     PrometheusMiddleware,
     setting_otlp,
     update_system_metrics,
-)
-
-APP_NAME = os.environ.get("APP_NAME", "fastapi-sample")
-APP_PREFIX_VERSION = os.environ.get("APP_PREFIX_VERSION", "v")
-APP_VERSION = get_versions()["version"]
-
-DD_AGENT_HOST = os.environ.get("DD_AGENT_HOST", "127.0.0.1")
-DD_TRACE_AGENT_PORT = os.environ.get("DD_TRACE_AGENT_PORT", "8126")
-
-REDIS_HOST = os.environ.get("REDIS_HOST", "127.0.0.1")
-REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))  # noqa: PLW1508 # [invalid-envvar-default]
-
-# http://grpc.jaeger-collector-grpc.service.gra.dev.consul
-# http://jaeger-collector-grpc.service.gra.dev.consul:14250
-# http://datadog-agent.service.gra.dev.consul:4317
-# http://otel-collector.service.gra.dev.consul:9411/api/v2/spans
-
-OTLP_GRPC_ENDPOINT = os.environ.get(
-    # "OTLP_GRPC_ENDPOINT", "http://grpc.jaeger-collector-grpc.service.gra.dev.consul"
-    "OTLP_GRPC_ENDPOINT",
-    "http://datadog-agent.service.gra.dev.consul:4317",
-)
-
-OTEL_EXPORTER_JAEGER_AGENT_HOST = os.environ.get(
-    "OTEL_EXPORTER_JAEGER_AGENT_HOST",
-    "jaeger-collector-grpc.service.gra.dev.consul",
-)
-
-OTEL_EXPORTER_JAEGER_AGENT_PORT = os.environ.get(
-    "OTEL_EXPORTER_JAEGER_AGENT_PORT",
-    "80",
-)
-
-OTEL_EXPORTER_JAEGER_ENDPOINT = os.environ.get(
-    "OTEL_EXPORTER_JAEGER_ENDPOINT",
-    "http://jaeger-collector-grpc.service.gra.dev.consul:14250",
-)
-
-SENTRY_DSN = os.environ.get(
-    "SENTRY_DSN",
-    "https://11c5d815632831d3274c830441885207@o4505783360356352.ingest.sentry.io/4505783364681728",
 )
 
 prof = Profiler(
@@ -119,8 +89,8 @@ def custom_openapi():
 
 setup_logging()
 
-logger = logging.getLogger(__name__)
-logger.level = logging.INFO
+# logger = logging.getLogger(__name__)
+# logger.level = logging.INFO
 
 logger.info("Creating API")
 
@@ -138,6 +108,18 @@ config.fastapi["service_name"] = APP_NAME
 #    hostname=DD_AGENT_HOST,
 #    port=DD_TRACE_AGENT_PORT,
 # )
+
+
+class FilterbyName(TraceFilter):
+    def process_trace(self, trace):
+        for span in trace:
+            if span.name == "get_quote":  # or assistant_helper
+                # drop the full trace chunk
+                return None
+        return trace
+
+
+tracer.configure(trace_processors=[FilterbyName()])
 
 # Global variable declaration
 redis_conn: Redis | None = None
@@ -178,38 +160,116 @@ async def lifespan(app: FastAPI):
         redis_conn.close()
 
 
-app = FastAPI(
-    lifespan=lifespan,
-    title=APP_NAME + " " + APP_PREFIX_VERSION,
-    description="FastAPI Sample for demo",
-    version=f"{APP_PREFIX_VERSION}{APP_VERSION}",
-    debug=os.getenv("DEBUG", "False").lower() == "true",
-)
-
-app.add_middleware(LogMiddleware)
+@tracer.wrap()
+async def _version(request: Request):
+    return {"version": request.app.version}
 
 
-origins = ["http://localhost", "http://localhost:8080", "http://localhost:8091", "*"]
+class VersionedAPIRouter(APIRouter):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args)
+        self.add_api_route(
+            "/version",
+            _version,
+            methods=["GET"],
+        )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["DELETE", "GET", "POST", "PUT"],
-    allow_headers=["*"],
-)
 
-# Setting metrics middleware
-# PrometheusMiddleware seems not working BUT below metrics_middleware works
-app.add_middleware(
-    PrometheusMiddleware,
-    app_name=APP_NAME,
-)
+def initialize_api() -> FastAPI:
+    """
+    Initialize the API.
 
-# app.add_middleware(
-#     metrics_middleware,
-#     app_name=APP_NAME,
-# )
+    :return: FastAPI
+    :raise ValidationError: If there was an issue with the Settings
+    """
+
+    app = FastAPI(
+        lifespan=lifespan,
+        title=APP_NAME + " " + APP_PREFIX_VERSION,
+        description="FastAPI Sample for demo",
+        version=f"{APP_PREFIX_VERSION}{APP_VERSION}",
+        debug=os.getenv("DEBUG", "False").lower() == "true",
+    )
+
+    app.add_middleware(LogMiddleware)
+
+    # origins = ["http://localhost", "http://localhost:8080", "http://localhost:8091", "*"]
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["DELETE", "GET", "POST", "PUT"],
+        allow_headers=["*"],
+    )
+
+    # Setting metrics middleware
+    # PrometheusMiddleware seems not working BUT below metrics_middleware works
+    app.add_middleware(
+        PrometheusMiddleware,
+        app_name=APP_NAME,
+    )
+
+    # app.add_middleware(
+    #     metrics_middleware,
+    #     app_name=APP_NAME,
+    # )
+
+    api_settings = get_settings()
+
+    if api_settings.enable_metrics:
+        instrumentator = Instrumentator(
+            should_group_status_codes=False,
+            should_ignore_untemplated=True,
+            should_respect_env_var=True,
+            should_instrument_requests_inprogress=True,
+            excluded_handlers=["/metrics", "/health", "openapi.json", "docs"],
+            env_var_name="ENABLE_METRICS",
+            inprogress_name="http_requests_in_progress",
+            inprogress_labels=True,
+        ).instrument(app)
+
+        # instrumentator.add(http_requested_languages_total())
+        instrumentator.expose(app=app, include_in_schema=False)
+
+    # Setting OpenTelemetry exporter
+    setting_otlp(app, APP_NAME, OTLP_GRPC_ENDPOINT)
+
+    # Add prometheus asgi middleware to route /metrics requests
+    # metrics_app = make_asgi_app()
+    # app.mount("/metrics", metrics_app)
+
+    # Add prometheus asgi middleware to route /metrics requests
+    # https://github.com/prometheus/client_python/issues/1016
+    route = Mount("/metrics", make_asgi_app())
+    route.path_regex = re.compile("^/metrics(?P<path>.*)$")
+    app.routes.append(route)
+
+    v0_router = VersionedAPIRouter(
+        prefix="/" + APP_PREFIX_VERSION,
+    )
+
+    app.include_router(v0_router)
+    app.include_router(
+        ping.router,
+        tags=["ping"],
+        responses={404: {"description": "Not found"}},
+    )
+    app.include_router(v1.router, tags=["api"])
+    app.include_router(v2.router, tags=["api"])
+    app.include_router(integration.router, tags=["integration"])
+    app.include_router(dd.router, tags=["integration"])
+    app.include_router(demo.router, tags=["integration"])
+    app.include_router(notes.router, prefix="/notes", tags=["notes"])
+    app.include_router(notes.router, prefix="/notes", tags=["notes"])
+    app.include_router(info.router, tags=["test"])
+    app.include_router(keycloak.router, tags=["auth"])
+    app.include_router(sensor.router, tags=["sensor"])
+
+    return app
+
+
+app = initialize_api()
 
 
 @app.middleware("http")
@@ -256,18 +316,19 @@ async def metrics_middleware(request, call_next):
     return response
 
 
-# Setting OpenTelemetry exporter
-setting_otlp(app, APP_NAME, OTLP_GRPC_ENDPOINT)
+@app.middleware("http")
+async def logging_middleware(request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
 
-# Add prometheus asgi middleware to route /metrics requests
-# metrics_app = make_asgi_app()
-# app.mount("/metrics", metrics_app)
-
-# Add prometheus asgi middleware to route /metrics requests
-# https://github.com/prometheus/client_python/issues/1016
-route = Mount("/metrics", make_asgi_app())
-route.path_regex = re.compile("^/metrics(?P<path>.*)$")
-app.routes.append(route)
+    logger.info(
+        "request_completed",
+        method=request.method,
+        url=str(request.url),
+        status_code=response.status_code,
+        duration=time.time() - start_time,
+    )
+    return response
 
 
 # See https://docs.datadoghq.com/fr/security/application_security/threats/add-user-info/?tab=python
@@ -380,40 +441,3 @@ def get_status() -> Dict[str, str]:
 @app.get("/sentry-debug")
 async def trigger_error():
     pass
-
-
-@tracer.wrap()
-async def _version(request: Request):
-    return {"version": request.app.version}
-
-
-class VersionedAPIRouter(APIRouter):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args)
-        self.add_api_route(
-            "/version",
-            _version,
-            methods=["GET"],
-        )
-
-
-v0_router = VersionedAPIRouter(
-    prefix="/" + APP_PREFIX_VERSION,
-)
-
-app.include_router(v0_router)
-app.include_router(
-    ping.router,
-    tags=["ping"],
-    responses={404: {"description": "Not found"}},
-)
-app.include_router(v1.router, tags=["api"])
-app.include_router(v2.router, tags=["api"])
-app.include_router(integration.router, tags=["integration"])
-app.include_router(dd.router, tags=["integration"])
-app.include_router(demo.router, tags=["integration"])
-app.include_router(notes.router, prefix="/notes", tags=["notes"])
-app.include_router(notes.router, prefix="/notes", tags=["notes"])
-app.include_router(info.router, tags=["test"])
-app.include_router(keycloak.router, tags=["auth"])
-app.include_router(sensor.router, tags=["sensor"])

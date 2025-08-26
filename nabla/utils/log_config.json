@@ -6,7 +6,13 @@
       "format": "%(asctime)s %(levelname)s [%(name)s] [%(filename)s:%(lineno)d] [trace_id=%(otelTraceID)s span_id=%(otelSpanID)s resource.service.name=%(otelServiceName)s] - %(message)s"
     },
     "minimal": {
-      "format": "%(message)s"
+      "format": "%(levelname)s %(message)s"
+    },
+    "json_request": {
+      "": "nabla.utils.log_config.JsonRequestFormatter"
+    },
+    "json_error": {
+     "()": "nabla.utils.log_config.JsonErrorFormatter"
     }
   },
   "handlers": {
@@ -16,11 +22,23 @@
       "formatter": "standard",
       "stream": "ext://sys.stdout"
     },
-    "hypercorn": {
+    "uvicorn": {
       "level": "INFO",
       "class": "logging.StreamHandler",
       "formatter": "minimal",
       "stream": "ext://sys.stdout"
+    },
+    "json_request": {
+      "level": "INFO",
+      "class": "logging.StreamHandler",
+      "formatter": "json_request",
+      "stream": "ext://sys.stdout"
+    },
+    "json_error": {
+        "level": "INFO",
+        "class": "logging.StreamHandler",
+        "formatter": "json_error",
+        "stream": "ext://sys.stderr"
     }
   },
   "root": {
@@ -37,19 +55,29 @@
       "level": "INFO",
       "propagate": false
     },
-    "hypercorn.error": {
+    "uvicorn.error": {
       "handlers": [
-        "hypercorn"
+        "uvicorn"
       ],
       "level": "INFO",
       "propagate": false
     },
-    "hypercorn.access": {
+    "uvicorn.access": {
       "handlers": [
-        "hypercorn"
+        "uvicorn"
       ],
       "level": "INFO",
       "propagate": false
+    },
+    "gunicorn.access": {
+      "level": "INFO",
+      "handlers": ["json_request"],
+      "propagate": false
+  },
+    "gunicorn.error": {
+        "level": "INFO",
+        "handlers": ["json_error"],
+        "propagate": false
     }
   }
 }

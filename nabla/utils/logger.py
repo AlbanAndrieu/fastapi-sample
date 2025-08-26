@@ -1,37 +1,65 @@
-import json
 import logging
-from logging import Formatter
+import os
+import sys
+
+import structlog
+
+logger = structlog.get_logger()
 
 
-class JsonFormatter(Formatter):
-    def __init__(self):
-        super(JsonFormatter, self).__init__()
+# Custom processor to add user_id to log entries
+def add_user_id(_, __, event_dict):
+    event_dict["user_id"] = "12345"
+    return event_dict
 
-    def format(self, record):
-        json_record = {}
-        # json_record["data"] = record.getMessage()
-        json_record["message"] = record.getMessage()
-        if "req" in record.__dict__:
-            json_record["req"] = record.__dict__["req"]
-        if "res" in record.__dict__:
-            json_record["res"] = record.__dict__["res"]
-        if record.levelno == logging.ERROR and record.exc_info:
-            json_record["err"] = self.formatException(record.exc_info)
-        return json.dumps(json_record)
+def set_process_id(_, __, event_dict):
+    event_dict["process_id"] = os.getpid()
+    return event_dict
+
+def drop_metrics(_, __, event_dict):
+    if event_dict.get("route") == "metrics":
+        raise structlog.DropEvent
+    return event_dict
+
+def drop_health(_, __, event_dict):
+    if event_dict.get("route") == "health":
+        raise structlog.DropEvent
+    return event_dict
+
+level = os.environ.get("LOG_LEVEL", "INFO").upper()
+LOG_LEVEL = getattr(logging, level)
 
 
-class HealthCheckFilter(logging.Filter):
-    def filter(self, record: logging.LogRecord) -> bool:
-        return record.getMessage().find("/health") == -1
+shared_processors = [
+    # Processors that have nothing to do with output,
+    # e.g., add timestamps or log level names.
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.add_log_level,
+        set_process_id,
+        add_user_id,
+        drop_metrics,
+        drop_health,
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+        structlog.processors.UnicodeDecoder(),
+]
+if sys.stderr.isatty():
+    # Pretty printing when we run in a terminal session.
+    # Automatically prints pretty tracebacks when "rich" is installed
+    processors = shared_processors + [
+        structlog.dev.ConsoleRenderer(),
+    ]
+else:
+    # Print JSON when we run, e.g., in a Docker container.
+    # Also print structured tracebacks.
+    processors = shared_processors + [
+        structlog.processors.dict_tracebacks,
+        structlog.processors.JSONRenderer(),
+    ]
 
-
-logger = logging.root
-handler = logging.StreamHandler()
-handler.setFormatter(JsonFormatter())
-logger.handlers = [handler]
-logger.setLevel(logging.DEBUG)
-
-# Remove /credentials/health from application server logs
-logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
-
-logging.getLogger("uvicorn.access").disabled = True
+# Configure structlog to output in JSON format
+# See https://betterstack.com/community/guides/logging/structlog/
+structlog.configure(
+    wrapper_class=structlog.make_filtering_bound_logger(LOG_LEVEL),
+    processors=processors,
+)

@@ -1,6 +1,7 @@
 import asyncio
 import time
-from typing import Tuple
+from abc import ABC
+from typing import Callable, Tuple
 
 import psutil
 from fastapi import Request
@@ -16,6 +17,8 @@ from prometheus_client.openmetrics.exposition import (
     CONTENT_TYPE_LATEST,
     generate_latest,
 )
+from prometheus_fastapi_instrumentator.metrics import Info
+from pydantic_settings import BaseSettings
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import Response
 from starlette.routing import Match
@@ -29,27 +32,27 @@ from starlette.types import ASGIApp
 
 INFO = Gauge("fastapi_app_info", "FastAPI application information.", ["app_name"])
 REQUESTS = Counter(
-    "fastapi_requests_total",
+    "fastapi_requests_total",  # http_requests_total"
     "Total count of requests by method and path.",
     ["method", "path", "app_name"],
 )
 RESPONSES = Counter(
-    "fastapi_responses_total",
+    "fastapi_responses_total",  # to be kept
     "Total count of responses by method, path and status codes.",
     ["method", "path", "status_code", "app_name"],
 )
 REQUESTS_PROCESSING_TIME = Histogram(
-    "fastapi_requests_duration_seconds",
+    "fastapi_requests_duration_seconds",  # renamed http_request_duration_seconds_bucket
     "Histogram of requests processing time by path (in seconds)",
     ["method", "path", "app_name"],
 )
 EXCEPTIONS = Counter(
-    "fastapi_exceptions_total",
+    "fastapi_exceptions_total",  # to be kept
     "Total count of exceptions raised by path and exception type",
     ["method", "path", "exception_type", "app_name"],
 )
 REQUESTS_IN_PROGRESS = Gauge(
-    "fastapi_requests_in_progress",
+    "fastapi_requests_in_progress",  # renamed http_requests_in_progress
     "Gauge of requests by method and path currently being processed",
     ["method", "path", "app_name"],
 )
@@ -116,6 +119,11 @@ DD_INFO_FINDINGS_COUNT = Gauge(
     "The number of info findings",
     labelnames=["product"],
 )
+
+# Add to your FastAPI app
+USER_REGISTRATIONS = Counter("user_registrations_total", "Total user registrations")
+ORDER_VALUE = Histogram("order_value_dollars", "Order value distribution")
+ACTIVE_USERS = Gauge("active_users_current", "Currently active users")
 
 
 async def update_system_metrics():
@@ -219,6 +227,25 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
         return request.url.path, False
 
 
+def http_requested_languages_total() -> Callable[[Info], None]:
+    METRIC = Counter(
+        "http_requested_languages_total",
+        "Number of times a certain language has been requested.",
+        labelnames=("langs",),
+    )
+
+    def instrumentation(info: Info) -> None:
+        langs = set()
+        lang_str = info.request.headers["Accept-Language"]
+        for element in lang_str.split(","):
+            element = element.split(";")[0].strip().lower()  # noqa: PLW2901
+            langs.add(element)
+        for language in langs:
+            METRIC.labels(language).inc()
+
+    return instrumentation
+
+
 def metrics(request: Request) -> Response:
     return Response(
         generate_latest(REGISTRY),
@@ -251,3 +278,7 @@ def setting_otlp(
         LoggingInstrumentor().instrument(set_logging_format=True)
 
     FastAPIInstrumentor.instrument_app(app, tracer_provider=tracer)  # type: ignore
+
+
+class PrometheusSettings(BaseSettings, ABC):
+    enable_metrics: bool

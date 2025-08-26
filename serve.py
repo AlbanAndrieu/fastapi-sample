@@ -1,15 +1,21 @@
 import logging
-import os
 
 import pyroscope
 import uvicorn.config
+from pydantic import ValidationError
 
+from nabla.config_settings import (
+    APP_NAME,
+    EXPOSE_HOST,
+    EXPOSE_PORT,
+    PYROSCOPE_ENDPOINT,
+    get_settings,
+)
 from nabla.fastapi_server import app
 from nabla.utils.log_config import setup_logging
 
-EXPOSE_HOST = os.environ.get("EXPOSE_HOST", "0.0.0.0")  # noqa: S104 noqa:B104
-EXPOSE_PORT = int(os.environ.get("EXPOSE_PORT", 8080))
-PYROSCOPE_ENDPOINT = os.environ.get("PYROSCOPE_ENDPOINT", "http://localhost:4040")
+logger = logging.getLogger(__name__)
+logger.level = logging.INFO
 
 
 def uvicorn_run() -> None:
@@ -18,7 +24,7 @@ def uvicorn_run() -> None:
     exit_code = 0
     try:
         pyroscope.configure(
-            application_name="fastapi-sample",
+            application_name=APP_NAME,
             server_address=PYROSCOPE_ENDPOINT,  # See https://grafana.com/docs/pyroscope/next/configure-client/language-sdks/python/
             # server_port=EXPOSE_PORT,
             # service_name="fastapi-sample",
@@ -28,23 +34,30 @@ def uvicorn_run() -> None:
         )
 
         setup_logging()
-        # update uvicorn access logger format
-        # log_config = uvicorn.config.LOGGING_CONFIG
-        # log_config["formatters"]["access"]["fmt"] = (
-        #    "%(asctime)s %(levelname)s [%(name)s] [%(filename)s:%(lineno)d] [trace_id=%(otelTraceID)s span_id=%(otelSpanID)s resource.service.name=%(otelServiceName)s] - %(message)s"
-        # )
 
-        # log_config = None
-        config = uvicorn.Config(
-            app,
-            host=EXPOSE_HOST,
-            port=EXPOSE_PORT,
-            # log_config=log_config,
-        )
-        server = uvicorn.Server(config)
-        server.run()
+        try:
+            logger.info("Initializing API")
+
+            api_settings = get_settings()
+
+            config = uvicorn.Config(
+                app,
+                host=EXPOSE_HOST,
+                port=EXPOSE_PORT,
+                log_config=None,
+                log_level=api_settings.api_log_level,
+            )
+            server = uvicorn.Server(config)
+            server.run()
+        except ValidationError:
+            logger.exception("There was a problem with the environment settings")
+            exit(1)
+        except Exception:
+            logger.exception("Unknown Error")
+            exit(2)
+
     except AttributeError as e:
-        logging.error(f"API port is missing from the settings: {e}")
+        logger.error(f"API port is missing from the settings: {e}")
         exit_code = 1
     finally:
         exit(exit_code)
