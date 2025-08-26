@@ -6,7 +6,7 @@ from opentelemetry import trace
 from opentelemetry.trace.status import Status, StatusCode
 
 from nabla.utils.logger import logger
-from nabla.utils.prometheus import ERROR_COUNT
+from nabla.utils.prometheus import ERROR_COUNT, USER_REGISTRATIONS
 
 router = APIRouter(prefix="/test")
 
@@ -76,9 +76,24 @@ async def get_user(user_id: int):
     if user_id == 404:
         raise HTTPException(status_code=404, detail="User not found")
 
+    logger.info(
+        "User login attempt",
+        user="Sushant",
+        success=True,
+        ip_address="192.168.1.1",
+    )
+
     return {
         "user_id": user_id,
         "name": f"User {user_id}",
         "active": True,
         "created_at": "2024-01-01T00:00:00Z",
     }
+
+
+@router.post("/users/register")
+async def register_user():
+    logger.info("user_action", action="register")
+    # Your registration logic
+    USER_REGISTRATIONS.inc()
+    return {"status": "registered"}

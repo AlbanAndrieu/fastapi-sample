@@ -2,6 +2,21 @@ import json
 import logging
 from logging import Formatter
 
+import structlog
+
+logger = structlog.get_logger()
+# logger = logging.root
+
+
+# Custom processor to add user_id to log entries
+def add_user_id(_, __, event_dict):
+    event_dict["user_id"] = "12345"
+    return event_dict
+
+
+# Configure structlog to output in JSON format
+structlog.configure(processors=[add_user_id, structlog.processors.JSONRenderer()])
+
 
 class JsonFormatter(Formatter):
     def __init__(self):
@@ -25,11 +40,10 @@ class HealthCheckFilter(logging.Filter):
         return record.getMessage().find("/health") == -1
 
 
-logger = logging.root
 handler = logging.StreamHandler()
 handler.setFormatter(JsonFormatter())
 logger.handlers = [handler]
-logger.setLevel(logging.DEBUG)
+# logger.setLevel(logging.DEBUG)
 
 # Remove /credentials/health from application server logs
 logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())

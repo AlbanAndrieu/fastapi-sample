@@ -50,6 +50,7 @@ from nabla.utils.log_config import setup_logging
 # We need to load as soon as possible the setup_loggers
 # from nabla.logger import logger
 from nabla.utils.log_middleware import LogMiddleware
+from nabla.utils.logger import logger
 from nabla.utils.prometheus import (
     API_REQUEST_COUNTER,
     API_REQUEST_SUMMARY,
@@ -89,8 +90,8 @@ def custom_openapi():
 
 setup_logging()
 
-logger = logging.getLogger(__name__)
-logger.level = logging.INFO
+# logger = logging.getLogger(__name__)
+# logger.level = logging.INFO
 
 logger.info("Creating API")
 
@@ -313,6 +314,21 @@ async def metrics_middleware(request, call_next):
         path=request.url.path,
         app_name=APP_NAME,
     ).dec()
+    return response
+
+
+@app.middleware("http")
+async def logging_middleware(request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+
+    logger.info(
+        "request_completed",
+        method=request.method,
+        url=str(request.url),
+        status_code=response.status_code,
+        duration=time.time() - start_time,
+    )
     return response
 
 

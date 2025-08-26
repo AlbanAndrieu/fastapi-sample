@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, Form
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from nabla.auth.models import TokenResponse, UserInfo
 from nabla.auth.controller import AuthController
+from nabla.auth.models import TokenResponse, UserInfo
+from nabla.utils.logger import logger
 
 router = APIRouter()
 
@@ -24,6 +25,7 @@ async def login(username: str = Form(...), password: str = Form(...)):
     Returns:
         TokenResponse: Contains the access token upon successful authentication.
     """
+    logger.info("user_action", action="login")
     return AuthController.login(username, password)
 
 

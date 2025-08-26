@@ -120,6 +120,11 @@ DD_INFO_FINDINGS_COUNT = Gauge(
     labelnames=["product"],
 )
 
+# Add to your FastAPI app
+USER_REGISTRATIONS = Counter("user_registrations_total", "Total user registrations")
+ORDER_VALUE = Histogram("order_value_dollars", "Order value distribution")
+ACTIVE_USERS = Gauge("active_users_current", "Currently active users")
+
 
 async def update_system_metrics():
     """

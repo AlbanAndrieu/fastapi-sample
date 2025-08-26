@@ -1,26 +1,45 @@
+import random
+
 from locust import HttpUser, between, task
 
 from nabla.utils.logger import logger
 
 
-class QuickstartUser(HttpUser):
+class FastAPIUser(HttpUser):
+    wait_time = between(1, 3)
+
+    # def login_page(self):
+    # pylint: disable=line-too-long
+    #     self.client.post("/api/login", "verify=False", json={"Password":"xxxxx","ReturnUrl":"","UserName":"xxxx@gmail.com"})
+
+    @task(3)
+    def get_user(self):
+        user_id = random.randint(1, 1000)  # noqa: S311 # nosec
+        self.client.get(f"/test/users/{user_id}")
+
+    @task(1)
+    def slow_endpoint(self):
+        self.client.post("/test/users/register")
+
+    @task(1)
+    def error_endpoint(self):
+        self.client.get("/test/exception")
+
+
+class QuickStart(HttpUser):
     wait_time = between(1, 2)
 
     def on_start(self):
         """on_start is called when a Locust start before any task is scheduled"""
         self.client.verify = False
         # self.login_page()
-        logger.info("QuickstartUser done")
-
-    # def login_page(self):
-    # pylint: disable=line-too-long
-    #     self.client.post("/api/login", "verify=False", json={"Password":"xxxxx","ReturnUrl":"","UserName":"xxxx@gmail.com"})
+        logger.info("QuickStart done")
 
     # http://fastapi-sample.service.gra.dev.consul/
 
     @task
     def hello_world(self):
-        self.client.get("/", verify=False)  # give UI        
+        self.client.get("/", verify=False)  # give UI
         # self.client.get("io_task", verify=False)
         # self.client.get("cpu_task", verify=False)
         self.client.get("chain", verify=False)
@@ -40,6 +59,6 @@ class QuickstartUser(HttpUser):
         # self.client.get("/world")
 
     # @task(3)
-    # def view_item(self):
-    #     for item_id in range(10):
-    #         self.client.get(f"/item?id={item_id}", name="/item")
+    def view_item(self):
+        for item_id in range(10):
+            self.client.get(f"/demo/item?id={item_id}", name="/item")
