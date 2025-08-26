@@ -49,7 +49,6 @@ from nabla.utils.log_config import setup_logging
 
 # We need to load as soon as possible the setup_loggers
 # from nabla.logger import logger
-from nabla.utils.log_middleware import LogMiddleware
 from nabla.utils.logger import logger
 from nabla.utils.prometheus import (
     API_REQUEST_COUNTER,
@@ -192,7 +191,7 @@ def initialize_api() -> FastAPI:
         debug=os.getenv("DEBUG", "False").lower() == "true",
     )
 
-    app.add_middleware(LogMiddleware)
+    # app.add_middleware(LogMiddleware)
 
     # origins = ["http://localhost", "http://localhost:8080", "http://localhost:8091", "*"]
 

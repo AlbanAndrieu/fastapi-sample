@@ -1,11 +1,9 @@
-import json
 import logging
-from logging import Formatter
+import os
 
 import structlog
 
 logger = structlog.get_logger()
-# logger = logging.root
 
 
 # Custom processor to add user_id to log entries
@@ -14,38 +12,23 @@ def add_user_id(_, __, event_dict):
     return event_dict
 
 
+def set_process_id(_, __, event_dict):
+    event_dict["process_id"] = os.getpid()
+    return event_dict
+
+
+level = os.environ.get("LOG_LEVEL", "INFO").upper()
+LOG_LEVEL = getattr(logging, level)
+
 # Configure structlog to output in JSON format
-structlog.configure(processors=[add_user_id, structlog.processors.JSONRenderer()])
-
-
-class JsonFormatter(Formatter):
-    def __init__(self):
-        super(JsonFormatter, self).__init__()
-
-    def format(self, record):
-        json_record = {}
-        # json_record["data"] = record.getMessage()
-        json_record["message"] = record.getMessage()
-        if "req" in record.__dict__:
-            json_record["req"] = record.__dict__["req"]
-        if "res" in record.__dict__:
-            json_record["res"] = record.__dict__["res"]
-        if record.levelno == logging.ERROR and record.exc_info:
-            json_record["err"] = self.formatException(record.exc_info)
-        return json.dumps(json_record)
-
-
-class HealthCheckFilter(logging.Filter):
-    def filter(self, record: logging.LogRecord) -> bool:
-        return record.getMessage().find("/health") == -1
-
-
-handler = logging.StreamHandler()
-handler.setFormatter(JsonFormatter())
-logger.handlers = [handler]
-# logger.setLevel(logging.DEBUG)
-
-# Remove /credentials/health from application server logs
-logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
-
-logging.getLogger("uvicorn.access").disabled = True
+structlog.configure(
+    wrapper_class=structlog.make_filtering_bound_logger(LOG_LEVEL),
+    processors=[
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.add_log_level,
+        set_process_id,
+        add_user_id,
+        structlog.processors.JSONRenderer(),
+        # structlog.dev.ConsoleRenderer(),
+    ],
+)

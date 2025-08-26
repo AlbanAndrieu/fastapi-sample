@@ -17,8 +17,8 @@ from pythonjsonlogger.jsonlogger import JsonFormatter
 from nabla.config_settings import get_settings
 
 
-class _JMLoggerFormatter(JsonFormatter):
-    """Format the JSON logs into the style of Jus Mundi."""
+class JsonBaseFormatter(JsonFormatter):
+    """Format the JSON logs into my style."""
 
     def __init__(
         self,
@@ -35,6 +35,8 @@ class _JMLoggerFormatter(JsonFormatter):
          and "exc_info" -> "error_detail"
           you can add other fields to rename
         """
+        super(JsonFormatter, self).__init__()
+
         base_fields = {"message", "levelname", "name"}
         base_rename_fields = {
             "name": "service_name",
@@ -87,9 +89,9 @@ class _JMLoggerFormatter(JsonFormatter):
             log_record.pop("color_message")
 
 
-class _JMJsonFormatter(_JMLoggerFormatter):
+class JsonRequestFormatter(JsonBaseFormatter):
     def __init__(self):
-        super(JsonFormatter, self).__init__()
+        super(JsonBaseFormatter, self).__init__()
 
     def format(self, record):
         json_record = {}
@@ -101,6 +103,22 @@ class _JMJsonFormatter(_JMLoggerFormatter):
             json_record["res"] = record.__dict__["res"]
         if record.levelno == logging.ERROR and record.exc_info:
             json_record["err"] = self.formatException(record.exc_info)
+        if "levelname" in record.__dict__:
+            json_record["level"] = record.__dict__["levelname"]
+        return json.dumps(json_record)
+
+
+class JsonErrorFormatter(JsonBaseFormatter):
+    def __init__(self):
+        super(JsonBaseFormatter, self).__init__()
+
+    def format(self, record):
+        json_record = {}
+        # json_record["data"] = record.getMessage()
+        if record.levelno == logging.ERROR and record.exc_info:
+            json_record["err"] = self.formatException(record.exc_info)
+        if "levelname" in record.__dict__:
+            json_record["level"] = record.__dict__["levelname"]
         return json.dumps(json_record)
 
 
@@ -125,7 +143,7 @@ class JMGunicornLogger(glogging.Logger):
         super()._set_handler(
             log=log,
             output=output,
-            fmt=_JMJsonFormatter(),
+            fmt=JsonRequestFormatter(),
             stream=stream,
         )
 
@@ -135,10 +153,11 @@ class HealthCheckFilter(logging.Filter):
         return record.getMessage().find("/health") == -1
 
 
-class EndpointFilter(logging.Filter):
+class MetricsFilter(logging.Filter):
     # Uvicorn endpoint access log filter
     def filter(self, record: logging.LogRecord) -> bool:
-        return record.getMessage().find("GET /metrics") == -1
+        # return record.getMessage().find("GET /metrics") == -1
+        return record.getMessage().find("metrics") != -1
 
 
 def setup_logging() -> None:
@@ -155,6 +174,10 @@ def setup_logging() -> None:
 
     # Get root logger
     logger: logging.Logger = logging.getLogger()
+
+    # Remove /credentials/health from application server logs
+    logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
+    logging.getLogger("uvicorn.access").addFilter(MetricsFilter())
 
     # XXX: Taken from https://github.com/tiangolo/uvicorn-gunicorn-fastapi-docker/issues/19
     if "gunicorn" in os.environ.get("SERVER_SOFTWARE", ""):
@@ -178,14 +201,12 @@ def setup_logging() -> None:
         #    "%(asctime)s %(levelname)s [%(name)s] [%(filename)s:%(lineno)d] [trace_id=%(otelTraceID)s span_id=%(otelSpanID)s resource.service.name=%(otelServiceName)s] - %(message)s"
         # )
 
-        # Remove /credentials/health from application server logs
-        logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
-        logging.getLogger("uvicorn.access").addFilter(EndpointFilter())
+        # ogging.getLogger("uvicorn.access").disabled = True
 
         # Stream Handler for console output
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setLevel(log_level)
-        console_handler.setFormatter(_JMJsonFormatter())
+        console_handler.setFormatter(JsonRequestFormatter())
 
         # Set console handler as the only handler for root logger
         logger.handlers = [console_handler]
