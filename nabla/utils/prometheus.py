@@ -1,5 +1,6 @@
 import asyncio
 import time
+from abc import ABC
 from typing import Tuple
 
 import psutil
@@ -16,6 +17,7 @@ from prometheus_client.openmetrics.exposition import (
     CONTENT_TYPE_LATEST,
     generate_latest,
 )
+from pydantic_settings import BaseSettings
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import Response
 from starlette.routing import Match
@@ -251,3 +253,7 @@ def setting_otlp(
         LoggingInstrumentor().instrument(set_logging_format=True)
 
     FastAPIInstrumentor.instrument_app(app, tracer_provider=tracer)  # type: ignore
+
+
+class PrometheusSettings(BaseSettings, ABC):
+    prometheus_metrics: bool

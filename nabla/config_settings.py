@@ -1,5 +1,6 @@
 """Settings for nabla project"""
 
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, ClassVar, Literal, Optional
@@ -7,6 +8,54 @@ from typing import Annotated, ClassVar, Literal, Optional
 from keycloak import KeycloakOpenID
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from nabla._version import get_versions
+from nabla.utils.prometheus import PrometheusSettings
+
+APP_NAME = os.environ.get("APP_NAME", "fastapi-sample")
+APP_PREFIX_VERSION = os.environ.get("APP_PREFIX_VERSION", "v")
+APP_VERSION = get_versions()["version"]
+
+EXPOSE_HOST = os.environ.get("EXPOSE_HOST", "0.0.0.0")  # noqa: S104 noqa:B104
+EXPOSE_PORT = int(os.environ.get("EXPOSE_PORT", "8080"))
+PYROSCOPE_ENDPOINT = os.environ.get("PYROSCOPE_ENDPOINT", "http://localhost:4040")
+
+DD_AGENT_HOST = os.environ.get("DD_AGENT_HOST", "127.0.0.1")
+DD_TRACE_AGENT_PORT = os.environ.get("DD_TRACE_AGENT_PORT", "8126")
+
+REDIS_HOST = os.environ.get("REDIS_HOST", "127.0.0.1")
+REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))  # [invalid-envvar-default]
+
+# http://grpc.jaeger-collector-grpc.service.gra.dev.consul
+# http://jaeger-collector-grpc.service.gra.dev.consul:14250
+# http://datadog-agent.service.gra.dev.consul:4317
+# http://otel-collector.service.gra.dev.consul:9411/api/v2/spans
+
+OTLP_GRPC_ENDPOINT = os.environ.get(
+    # "OTLP_GRPC_ENDPOINT", "http://grpc.jaeger-collector-grpc.service.gra.dev.consul"
+    "OTLP_GRPC_ENDPOINT",
+    "http://datadog-agent.service.gra.dev.consul:4317",
+)
+
+OTEL_EXPORTER_JAEGER_AGENT_HOST = os.environ.get(
+    "OTEL_EXPORTER_JAEGER_AGENT_HOST",
+    "jaeger-collector-grpc.service.gra.dev.consul",
+)
+
+OTEL_EXPORTER_JAEGER_AGENT_PORT = os.environ.get(
+    "OTEL_EXPORTER_JAEGER_AGENT_PORT",
+    "80",
+)
+
+OTEL_EXPORTER_JAEGER_ENDPOINT = os.environ.get(
+    "OTEL_EXPORTER_JAEGER_ENDPOINT",
+    "http://jaeger-collector-grpc.service.gra.dev.consul:14250",
+)
+
+SENTRY_DSN = os.environ.get(
+    "SENTRY_DSN",
+    "https://11c5d815632831d3274c830441885207@o4505783360356352.ingest.sentry.io/4505783364681728",
+)
 
 
 class AzureOpenAiInstance(BaseModel):
@@ -101,21 +150,30 @@ class _Settings(BaseSettings):
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
 
 
+class APIDeploymentSettings(PrometheusSettings, _Settings):
+    # API related
+    # api_port: int
+    api_log_level: str = "info"
+
+    # Scope
+    scope: Literal["sample-V1", "sample-V2"] = "sample-V2"
+
+
 @lru_cache()
-def get_settings() -> _Settings:
+def get_settings() -> APIDeploymentSettings:
     """
     Return Settings object as a dependency and use @lru_cache
     decorator to create object and load .env file only once
 
     :raises: ValidationError
-    :return: An instance of _Settings
+    :return: An instance of APIDeploymentSettings or_Settings
     """
 
     # Right now we ignore the fact that pyright complains about not
     #  setting default values in the configuration.
     # Thus, we can either set some by default (even dummies) or just
     #  silence pyright
-    return _Settings()  # pyright: ignore
+    return APIDeploymentSettings()  # pyright: ignore
 
 
 keycloak_openid = KeycloakOpenID(
