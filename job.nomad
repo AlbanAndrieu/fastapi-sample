@@ -229,7 +229,7 @@ job "fastapi-sample" {
         EXPOSE_PORT = "8080"
         TARGET_ONE_HOST = "fastapi-sample.service.gra.${var.env}.consul"
         TARGET_TWO_HOST = "fastapi-sample.service.gra.${var.env}.consul"
-        ENABLE_METRICS=True
+        ENABLE_METRICS=true
       }
 
       vault {
