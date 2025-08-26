@@ -55,7 +55,7 @@ job "fastapi-sample" {
   }
 
   group "fastapi-sample" {
-    count = 1
+    count = 2
 
     scaling {
       min     = 1
@@ -191,6 +191,10 @@ job "fastapi-sample" {
 
         memory_hard_limit = 2048  # at ???G we will have OOM and the container will be killed
       } # config
+
+      kill_timeout = "30s"
+      # See https://moonape1226.medium.com/achieve-zero-downtime-when-upgrading-nomad-cluster-9c97d25606ad
+      shutdown_delay = "10s"
 
       volume_mount {
         volume      = "fastapi-sample-juicefs-test"
@@ -404,7 +408,7 @@ EOF
   } # group fastapi-sample
 
   group "fastapi-sample-redis" {
-    count = 1
+    count = 3
 
     network {
       port "redis" {
