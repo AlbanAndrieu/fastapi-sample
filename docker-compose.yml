@@ -1,15 +1,19 @@
 ---
 # kics-scan ignore
 services:
-  web:
-    build: ./src
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fastapi-sample
     command: uvicorn app.main:app --reload --workers 1 --host 0.0.0.0 --port 8091
-    # install requirements.txt
-
-    volumes:
-      - ./src/:/usr/src/app/
     ports:
-      - "8002:8000"
+      - "8080:8080"
+    volumes:
+      - .:/app
+    env_file:
+      - ./.env.local
+      - ./.env.secrets
     environment:
       - DATABASE_URL=postgresql://fastapi-sample:password-reset-XXX@db:5432/postgres
       - REDIS_HOST=redis
@@ -17,6 +21,21 @@ services:
     depends_on:
       - db
       - redis
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8091/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  # web:
+  #   build: ./vue-client/
+  #   command: npm run dev
+  #
+  #   volumes:
+  #     - ./src/:/usr/src/app/
+  #   ports:
+  #     - "5173:5173"
+  #   depends_on:
+  #     - api
   db:
     image: postgres:16.2-alpine
     volumes:
@@ -33,6 +52,11 @@ services:
     image: "redis:alpine"
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   prometheus:
     image: prom/prometheus
