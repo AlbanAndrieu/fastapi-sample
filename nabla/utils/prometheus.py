@@ -52,7 +52,7 @@ EXCEPTIONS = Counter(
     ["method", "path", "exception_type", "app_name"],
 )
 REQUESTS_IN_PROGRESS = Gauge(
-    "fastapi_requests_in_progress",
+    "fastapi_requests_in_progress",  # renamed http_requests_in_progress
     "Gauge of requests by method and path currently being processed",
     ["method", "path", "app_name"],
 )

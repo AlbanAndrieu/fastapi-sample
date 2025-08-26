@@ -58,7 +58,6 @@ from nabla.utils.prometheus import (
     REQUESTS_PROCESSING_TIME,
     RESPONSES,
     PrometheusMiddleware,
-    http_requested_languages_total,
     setting_otlp,
     update_system_metrics,
 )
@@ -226,11 +225,11 @@ def initialize_api() -> FastAPI:
             should_instrument_requests_inprogress=True,
             excluded_handlers=["/metrics", "/health", "openapi.json", "docs"],
             env_var_name="ENABLE_METRICS",
-            inprogress_name="inprogress",
+            inprogress_name="http_requests_in_progress",
             inprogress_labels=True,
         ).instrument(app)
 
-        instrumentator.add(http_requested_languages_total())
+        # instrumentator.add(http_requested_languages_total())
         instrumentator.expose(app=app, include_in_schema=False)
 
     # Setting OpenTelemetry exporter
