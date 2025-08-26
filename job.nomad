@@ -428,12 +428,12 @@ EOF
       mode     = var.env == "dev" ? "fail" : "delay"
     }
 
-    volume "fastapi-sample-test" {
-      type            = "csi"
-      source          = "cinder-gra-sample-${var.env}"
-      attachment_mode = "file-system"
-      access_mode     = "multi-node-multi-writer"
-    }
+    # volume "fastapi-sample-test" {
+    #   type            = "csi"
+    #   source          = "cinder-gra-sample-${var.env}"
+    #   attachment_mode = "file-system"
+    #   access_mode     = "multi-node-multi-writer"
+    # }
 
     task "fastapi-sample-redis" {
       driver = "docker"
@@ -480,11 +480,11 @@ EOF
         AWS_REGION = "gra"
       }
 
-      volume_mount {
-        volume      = "fastapi-sample-test"
-        destination = "/data"
-        read_only   = false
-      }
+      # volume_mount {
+      #   volume      = "fastapi-sample-test"
+      #   destination = "/data"
+      #   read_only   = false
+      # }
 
       service {
         name = "fastapi-sample-redis"
