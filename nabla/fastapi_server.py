@@ -12,8 +12,8 @@ import redis
 import sentry_sdk
 from ddtrace import config, patch, tracer
 from ddtrace.contrib.trace_utils import set_user
-from ddtrace.filters import FilterRequestsOnUrl
 from ddtrace.profiling import Profiler
+from ddtrace.trace import TraceFilter
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.concurrency import asynccontextmanager
 from fastapi.openapi.utils import get_openapi
@@ -109,15 +109,18 @@ config.fastapi["service_name"] = APP_NAME
 #    hostname=DD_AGENT_HOST,
 #    port=DD_TRACE_AGENT_PORT,
 # )
-tracer.configure(
-    settings={
-        "FILTERS": [
-            FilterRequestsOnUrl(r"http://.*/health$"),
-            FilterRequestsOnUrl(r"http://.*/metrics$"),
-            # GET /favicon.ico
-        ],
-    },
-)
+
+
+class FilterbyName(TraceFilter):
+    def process_trace(self, trace):
+        for span in trace:
+            if span.name == "get_quote":  # or assistant_helper
+                # drop the full trace chunk
+                return None
+        return trace
+
+
+tracer.configure(trace_processors=[FilterbyName()])
 
 # Global variable declaration
 redis_conn: Redis | None = None
