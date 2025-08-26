@@ -265,7 +265,7 @@ test-pytest-poetry:
     KEYCLOAK_REALM: "jus_mundi"
     KEYCLOAK_CLIENT_ID: "jusmundi_uat"
     # KEYCLOAK_CLIENT_SECRET: ""
-  # BELOW is needed as we do not use jm-ubuntu but python:3.10
+    # BELOW is needed as we do not use jm-ubuntu but python:3.10
   before_script:
     - !reference [.install-pip3, script]
     - !reference [.install-pipenv, script]
@@ -294,6 +294,7 @@ test-pytest:
     REDIS_PORT: 6379
     REDIS_HOST: redis
     REDIS_URL: redis://redis:6379
+    ENABLE_METRICS: false
   script:
     - if [ -n "$DEFAULT_POETRY_OPT_GROUPS" ]; then $POETRY_HOME/bin/poetry install --no-root --with ${DEFAULT_POETRY_OPT_GROUPS}; else $POETRY_HOME/bin/poetry install --no-root; fi
     - export DB_URL=${DB_URL}
