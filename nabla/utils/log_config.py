@@ -13,8 +13,10 @@ from typing import Any, Optional
 from fastapi.logger import logger as fastapi_logger
 from gunicorn import glogging
 from pythonjsonlogger.jsonlogger import JsonFormatter
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from nabla.config_settings import get_settings
+from nabla.utils.logger import logger
 
 
 class JsonBaseFormatter(JsonFormatter):
@@ -106,6 +108,21 @@ class JsonRequestFormatter(JsonBaseFormatter):
         if "levelname" in record.__dict__:
             json_record["level"] = record.__dict__["levelname"]
         return json.dumps(json_record)
+
+
+class LogMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        logger.info(
+            "request_extra",
+            extra={
+                "req": {"method": request.method, "url": str(request.url)},
+                "res": {
+                    "status_code": response.status_code,
+                },
+            },
+        )
+        return response
 
 
 class JsonErrorFormatter(JsonBaseFormatter):

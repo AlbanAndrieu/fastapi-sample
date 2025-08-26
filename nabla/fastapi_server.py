@@ -45,7 +45,7 @@ from nabla.config_settings import (
 
 # from nabla.db import database, engine, metadata
 from nabla.db import database
-from nabla.utils.log_config import setup_logging
+from nabla.utils.log_config import LogMiddleware, setup_logging
 
 # We need to load as soon as possible the setup_loggers
 # from nabla.logger import logger
@@ -191,7 +191,7 @@ def initialize_api() -> FastAPI:
         debug=os.getenv("DEBUG", "False").lower() == "true",
     )
 
-    # app.add_middleware(LogMiddleware)
+    app.add_middleware(LogMiddleware)
 
     # origins = ["http://localhost", "http://localhost:8080", "http://localhost:8091", "*"]
 
