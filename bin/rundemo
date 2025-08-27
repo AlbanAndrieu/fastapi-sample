@@ -2,8 +2,9 @@
 
 import nabla
 from nabla import _version
+
 print("__version__:%s" % nabla.__version__)
 print("_version:%s" % str(_version))
 versions = _version.get_versions()
 for k in sorted(versions.keys()):
-    print("%s:%s" % (k,versions[k]))
+    print("{}:{}".format(k, versions[k]))

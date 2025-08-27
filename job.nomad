@@ -223,7 +223,7 @@ job "fastapi-sample" {
         DD_PROFILING_TIMELINE_ENABLED=true
         REDIS_HOST="fastapi-sample-redis.service.gra.${var.env}.consul"
         REDIS_PORT="6379"
-        ALLOWED_HOSTS="[\"${NOMAD_HOST_IP_server}\"]"
+        # ALLOWED_HOSTS="[\"${NOMAD_HOST_IP_server}\",\"fastapi-sample.service.gra.${var.env}.consul\"]"
         EXPOSE_ENV = "${var.env}"
         EXPOSE_HOST = "localhost"
         EXPOSE_PORT = "8080"
@@ -461,7 +461,7 @@ EOF
       }
     } # task fastapi-sample-redis-exporter
   } # group fastapi-sample-redis-exporter
-    
+
   group "fastapi-sample-redis" {
     count = 3
 
@@ -486,7 +486,7 @@ EOF
       attribute = "${node.unique.id}"
       weight = 50
     }
-    
+
     restart {
       attempts = 3
       interval = "5m"
@@ -529,7 +529,7 @@ EOF
         }
 
         ports = ["redis"]
-        
+
         # network_mode = "host"
 
         labels = [

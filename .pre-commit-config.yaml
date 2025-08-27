@@ -90,17 +90,15 @@ repos:
 #        args: [--branch, main, --branch, master, --branch, release/*]
       - id: end-of-file-fixer
       - id: fix-byte-order-marker
-      # - id: fix-encoding-pragma
-      #   args: [--remove]
       - id: requirements-txt-fixer
       - id: sort-simple-yaml
       - id: file-contents-sorter
       - id: mixed-line-ending
         args: [--fix=lf]
-  # - repo: https://github.com/pre-commit/mirrors-autopep8
-  #   rev: v2.0.4
-  #   hooks:
-  #     - id: autopep8
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v3.20.0
+    hooks:
+    -   id: pyupgrade
   # - repo: https://github.com/psf/black
   #   rev: 25.1.0
   #   hooks:
@@ -114,7 +112,7 @@ repos:
     rev: v0.12.9
     hooks:
       # Run the linter.
-      - id: ruff
+      - id: ruff-check
         args: [ --fix ]
       # Run the formatter.
       - id: ruff-format
@@ -180,11 +178,8 @@ repos:
             hooks|
             tests/.*|
             docs/Makefile|
+            .envrc|
           )$
-  # - repo: https://github.com/asottile/pyupgrade
-  #   rev: v3.2.2
-  #   hooks:
-  #     - id: pyupgrade
   - repo: https://github.com/PyCQA/bandit
     rev: 1.8.6
     hooks:

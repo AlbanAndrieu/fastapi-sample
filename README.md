@@ -17,6 +17,7 @@ Fastapi sample
   * [Install fastapi-sample as a developer](#install-fastapi-sample-as-a-developer)
     + [Using virtualenv](#using-virtualenv)
   * [Getting started](#getting-started)
+  * [Vite UI](#vite-ui)
   * [Test JWT](#test-jwt)
   * [Test](#test)
   * [Jupiter](#jupiter)

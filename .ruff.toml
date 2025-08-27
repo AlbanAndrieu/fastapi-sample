@@ -39,6 +39,7 @@ max-complexity = 10
 
 [lint.per-file-ignores]
 "tests/*" = ["S101"]
+"nabla/tools/*" = ["S602", "S607"]
 
 [format]
 line-ending = "lf"

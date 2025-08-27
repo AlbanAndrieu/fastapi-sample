@@ -139,10 +139,10 @@ def test_update_note(test_app, monkeypatch):
         "created_date": dt.now().strftime("%Y-%m-%d %H:%M"),
     }
 
-    async def mock_get(id):
+    async def mock_get(id):  # noqa: A002
         return test_update_data
 
-    async def mock_put(id, payload):
+    async def mock_put(id, payload):  # noqa: A002
         return test_response
 
     monkeypatch.setattr(crud, "get", mock_get)

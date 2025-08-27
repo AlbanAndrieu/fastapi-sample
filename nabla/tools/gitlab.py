@@ -50,7 +50,7 @@ def get_project_id(project_path):
         return project_info["id"]
     else:
         print(
-            f"Failed to retrieve project ID for {project_path}: {response.status_code} - {response.json()}"
+            f"Failed to retrieve project ID for {project_path}: {response.status_code} - {response.json()}",
         )
         return None
 
@@ -79,7 +79,7 @@ def add_user_as_guest_to_project(project_id, user_id):
         print(f"Successfully added user {user_id} as a guest to project {project_id}")
     else:
         print(
-            f"Failed to add user {user_id} to project {project_id}: {response.status_code} - {response.json()}"
+            f"Failed to add user {user_id} to project {project_id}: {response.status_code} - {response.json()}",
         )
 
 
@@ -97,7 +97,7 @@ def invite_user_by_email_to_project(project_id, email):
         print(f"Successfully invited {email} as a guest to project {project_id}")
     else:
         print(
-            f"Failed to invite {email} to project {project_id}: {response.status_code} - {response.json()}"
+            f"Failed to invite {email} to project {project_id}: {response.status_code} - {response.json()}",
         )
 
 
@@ -112,7 +112,7 @@ def get_project_members(project_id):
         return members
     else:
         print(
-            f"Failed to retrieve members for project {project_id}: {response.status_code} - {response.json()}"
+            f"Failed to retrieve members for project {project_id}: {response.status_code} - {response.json()}",
         )
         return []
 
@@ -122,7 +122,7 @@ def display_project_members(project_id):
     print(f"\nMembers of project {project_id}:")
     for member in members:
         print(
-            f" - {member['name']} ({member['username']}), Access Level: {member['access_level']}"
+            f" - {member['name']} ({member['username']}), Access Level: {member['access_level']}",
         )
 
 

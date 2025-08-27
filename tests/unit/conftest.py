@@ -1,4 +1,4 @@
-import pytest, _pytest
+import pytest
 from starlette.testclient import TestClient
 
 from serve import app
@@ -10,8 +10,8 @@ def test_app():
     yield client  # testing happens here
 
 
-
 ACCEPTABLE_FAILURE_RATE = 50
+
 
 @pytest.hookimpl()
 def pytest_sessionfinish(session, exitstatus):

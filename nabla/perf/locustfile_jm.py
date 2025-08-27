@@ -29,7 +29,8 @@ class QuickstartUser(HttpUser):
         # )
 
         self.client.get(
-            "/en/api/search?page=1&lang=en&document-types[0]=treaty", verify=False
+            "/en/api/search?page=1&lang=en&document-types[0]=treaty",
+            verify=False,
         )
 
         # TODO check why it is not working on Nomad dev but ok on uat
@@ -51,7 +52,8 @@ class QuickstartUser(HttpUser):
         )
 
         self.client.get(
-            "/en/document/publication/en-arbitrator-disclosure", verify=False
+            "/en/document/publication/en-arbitrator-disclosure",
+            verify=False,
         )
 
         # Documents

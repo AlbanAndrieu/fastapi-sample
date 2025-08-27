@@ -16,7 +16,7 @@ APP_NAME = os.environ.get("APP_NAME", "fastapi-sample")
 APP_PREFIX_VERSION = os.environ.get("APP_PREFIX_VERSION", "v")
 APP_VERSION = get_versions()["version"]
 
-EXPOSE_HOST = os.environ.get("EXPOSE_HOST", "0.0.0.0")  # noqa: S104 noqa:B104
+EXPOSE_HOST = os.environ.get("EXPOSE_HOST", "0.0.0.0")  # noqa: S104 noqa:B104 # nosec B104
 EXPOSE_PORT = int(os.environ.get("EXPOSE_PORT", "8080"))
 PYROSCOPE_ENDPOINT = os.environ.get("PYROSCOPE_ENDPOINT", "http://localhost:4040")
 

@@ -12,6 +12,6 @@ mail.login(IMAP_USER, IMAP_PASSWORD)
 mail.select(IMAP_FOLDER)
 status, messages = mail.search(None, '(UNSEEN SUBJECT "newsletter")')
 for num in messages[0].split():
-    mail.store(num, '+FLAGS', '\\Deleted')
+    mail.store(num, "+FLAGS", "\\Deleted")
 mail.expunge()
 mail.logout()
