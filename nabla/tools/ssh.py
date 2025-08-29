@@ -3,16 +3,14 @@ import subprocess
 import datetime
 from subprocess import call
 
-# See https://medium.com/@eren.c.uysal/optimizing-ssh-key-management-on-linux-servers-6a60949486fb
-# os.system('ls -lrta')
+
+from nabla.utils.logger import logger
 
 cutoff = datetime.datetime.now() - datetime.timedelta(days=90)
 print(f"Remove keys older than: {cutoff.isoformat()}")
 
-call(
-    'echo "Scans for public keys older than 90 days to flag for rotation."',
-    shell=True,  # nosec B602
-)
+logger.info("Scans for public keys older than 90 days to flag for rotation.")
+
 call(
     "find /home -name 'id_rsa.pub' -mtime +90 -exec echo \"Rotate key:\" {} \\;",  # nosec B602
     shell=True,
@@ -37,3 +35,6 @@ call(
     "find /home/*/.ssh/authorized_keys -type f -exec grep -H '2023-' {} \\;",
     shell=True,  # nosec B602
 )
+
+
+logger.info("Done")

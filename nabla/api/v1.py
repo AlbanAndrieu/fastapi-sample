@@ -31,7 +31,9 @@ async def demo_message():
 
 # Global variable declaration
 # redis_conn: Redis | None
-redis_conn = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT)
+pool = redis.ConnectionPool(host=REDIS_HOST, port=REDIS_PORT, db=0)
+redis_conn = redis.Redis(connection_pool=pool)
+# redis_conn = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT)
 
 POOL = list(range(1, 7))
 SIZE = 4

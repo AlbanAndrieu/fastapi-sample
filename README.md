@@ -338,8 +338,7 @@ export POSTGRES_FASTAPI_SAMPLE_PASSWORD="password-reset-XXX";
 [Temporal](https://github.com/temporalio/samples-python/tree/main)
 
 ```
-# poetry install --with format,test,extras,open_telemetry,deployment,influxdb,panda,temporal,api
-poetry install --all-extras
+poetry install --with format,test,extra,open_telemetry,api,deployment,influxdb,panda,temporal,utils,webui
 poetry run python nabla/temporalio/activities.py
 
 poetry run python worker.py

@@ -140,8 +140,6 @@ USER jm-python
 
 COPY --chown=jm-python:jm-python pyproject.toml poetry.lock ${PYSETUP_PATH}/
 
-# RUN python -m venv $PYSETUP_PATH/.venv
-
 ENV PATH=$PYSETUP_PATH/.local/bin/:${PATH}
 
 USER root

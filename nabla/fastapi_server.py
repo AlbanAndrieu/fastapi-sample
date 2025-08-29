@@ -48,7 +48,6 @@ from nabla.db import database
 from nabla.utils.log_config import LogMiddleware, setup_logging
 
 # We need to load as soon as possible the setup_loggers
-# from nabla.logger import logger
 from nabla.utils.logger import logger
 from nabla.utils.prometheus import (
     API_REQUEST_COUNTER,
