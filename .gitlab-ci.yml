@@ -87,7 +87,6 @@ include:
 default:
   cache: &global_cache
     # key: $CI_COMMIT_REF_SLUG
-    # key: ${CI_COMMIT_REF_SLUG}-renovate
     # Cache modules using lock file
     key:
       files:
@@ -101,7 +100,6 @@ default:
       # - public/
       # - vendor/
     policy: pull-push
-
 
 #dast:
 #  services: # use services to link your app container to the dast job
@@ -202,7 +200,7 @@ variables:
 
 renovate:
   extends: .renovate
-  stage: deploy
+  stage: renovate
   resource_group: production
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
@@ -213,6 +211,7 @@ renovate:
       - '$RENOVATE_LOG_FILE'
 
 run_renovate:
+  image: ${CI_RENOVATE_IMAGE}
   stage: renovate
   resource_group: production
   only:
