@@ -19,6 +19,7 @@ from fastapi.concurrency import asynccontextmanager
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from fastapi_mcp import FastApiMCP
 from prometheus_client import make_asgi_app
 from prometheus_fastapi_instrumentator import Instrumentator
 from redis.client import Redis
@@ -29,13 +30,17 @@ from starlette.routing import Mount
 from nabla.api import ping, v1, v2
 from nabla.api.auth import keycloak
 from nabla.api.demo import dd, demo, integration, sensor
+from nabla.api.demo.models import recent_readings
+from nabla.api.demo.sensor import metrics
 from nabla.api.notes import notes
 from nabla.api.test import info
+from nabla.api.users import users
 from nabla.auth.controller import AuthController
 from nabla.config_settings import (
     APP_NAME,
     APP_PREFIX_VERSION,
     APP_VERSION,
+    EXPOSE_MCP_PORT,
     OTLP_GRPC_ENDPOINT,
     REDIS_HOST,
     REDIS_PORT,
@@ -148,6 +153,10 @@ async def lifespan(app: FastAPI):
     """Start background system monitoring"""
     system_metrics_task = asyncio.create_task(update_system_metrics())
 
+    logger.info("🚀 Sensor Dashboard application started successfully")
+    logger.info(f"Debug mode: {bool(os.getenv('DEBUG'))}")
+    logger.info(f"Initial sensor readings: {len(recent_readings)}")
+
     yield
 
     # Cancel the background task on shutdown
@@ -158,6 +167,8 @@ async def lifespan(app: FastAPI):
     if redis_conn:
         redis_conn.close()
 
+    logger.info("📊 Sensor Dashboard application shutting down")
+    logger.info(f"Final metrics - Connections: {metrics.connection_count}, Requests: {metrics.total_requests}")
 
 @tracer.wrap()
 async def _version(request: Request):
@@ -172,6 +183,39 @@ class VersionedAPIRouter(APIRouter):
             _version,
             methods=["GET"],
         )
+
+def initialize_api_mcp() -> FastAPI:
+    """
+    Initialize the MCP API.
+
+    :return: FastAPI
+    :raise ValidationError: If there was an issue with the Settings
+    """
+
+    app_mcp = FastAPI(
+        title=APP_NAME + " MCP  " + APP_PREFIX_VERSION,
+        description="FastAPI MCP Sample for demo",
+        version=f"{APP_PREFIX_VERSION}{APP_VERSION}",
+        debug=os.getenv("DEBUG", "False").lower() == "true",
+        base_url="http://localhost:" + str(EXPOSE_MCP_PORT),
+    )
+
+    mcp = FastApiMCP(
+        app_mcp,
+        name="FastAPI MCP Sample for demo",
+        description="MCP server for my API",
+        describe_all_responses=True,  # Include all possible response schemas
+        describe_full_response_schema=True,  # Include full JSON schemas in descriptions
+        # include_operations=["get_user", "create_user"],
+        exclude_operations=["delete_user"],
+        # include_tags=["users", "public"],
+        exclude_tags=["admin", "internal"],
+    )
+
+    # Mount the MCP server to your app
+    mcp.mount(app_mcp)
+
+    return app_mcp
 
 
 def initialize_api() -> FastAPI:
@@ -192,11 +236,11 @@ def initialize_api() -> FastAPI:
 
     app.add_middleware(LogMiddleware)
 
-    # origins = ["http://localhost", "http://localhost:8080", "http://localhost:8091", "*"]
+    origins = ["http://localhost", "http://localhost:8080", "http://localhost:8091", "http://localhost:8001", "*"]
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=origins,
         allow_credentials=True,
         allow_methods=["DELETE", "GET", "POST", "PUT"],
         allow_headers=["*"],
@@ -264,12 +308,13 @@ def initialize_api() -> FastAPI:
     app.include_router(info.router, tags=["test"])
     app.include_router(keycloak.router, tags=["auth"])
     app.include_router(sensor.router, tags=["sensor"])
+    app.include_router(users.router, tags=["users"])
 
     return app
 
 
 app = initialize_api()
-
+app_mcp = initialize_api_mcp()
 
 @app.middleware("http")
 async def metrics_middleware(request, call_next):
@@ -425,11 +470,6 @@ async def create_note():
     return await notes.create_note()
 
 
-# @app.on_event("shutdown")
-# async def shutdown():
-#     await database.disconnect()
-
-
 @app.get("/health")
 def get_status() -> Dict[str, str]:
     """Healthcheck endpoint."""
@@ -440,3 +480,9 @@ def get_status() -> Dict[str, str]:
 @app.get("/sentry-debug")
 async def trigger_error():
     pass
+
+# Error handling
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled exception on {request.url}: {exc}")
+    return {"error": "Internal server error", "timestamp": datetime.now().isoformat()}

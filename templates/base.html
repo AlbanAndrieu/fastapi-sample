@@ -4,9 +4,9 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Sensor Dashboard</title>
-    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Sensor Dashboard{% endblock %}</title>
+
     <!-- HTMX Core -->
     <script src="https://unpkg.com/htmx.org@1.9.10/dist/htmx.min.js"></script>
 
@@ -16,69 +16,30 @@
     <!-- DaisyUI + Tailwind -->
     <link href="https://cdn.jsdelivr.net/npm/daisyui@4.6.0/dist/full.min.css" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Inter font for that professional look -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
     <style>
-        @keyframes slideInFromTop {
-            from {
-                opacity: 0;
-                transform: translateY(-100%);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        body {
+            font-family: 'Inter', sans-serif;
         }
 
-        @keyframes slideOutToTop {
-            from {
-                opacity: 1;
-                transform: translateY(0);
-            }
-
-            to {
-                opacity: 0;
-                transform: translateY(-100%);
-            }
-        }
-
-        .animate-slide-in {
-            animation: slideInFromTop 0.4s ease-out;
-        }
-
-        .animate-slide-out {
-            animation: slideOutToTop 0.3s ease-in;
-        }
-
-        @keyframes slideInFromTop {
-            from {
-                opacity: 0;
-                transform: translateY(-100%);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        @keyframes slideOutToTop {
-            from {
-                opacity: 1;
-                transform: translateY(0);
-            }
-
-            to {
-                opacity: 0;
-                transform: translateY(-100%);
-            }
+        .plotly-chart {
+            background: transparent !important;
         }
     </style>
+
+    {% if DEBUG %}
+    <!-- Hot reload for development -->
+    <script>
+        new EventSource('/hot-reload').onmessage = () => location.reload()
+    </script>
+    {% endif %}
 </head>
 
-<body>
-    {% block content %}
-
-    {% endblock %}
+<body class="bg-base-200 overflow-y-auto">
+    {% block content %}{% endblock %}
 </body>
 
 </html>

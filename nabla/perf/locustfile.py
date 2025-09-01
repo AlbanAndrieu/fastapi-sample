@@ -53,10 +53,14 @@ class QuickStart(HttpUser):
         self.client.get("test/exception", verify=False)
         self.client.get("/test/env", verify=False)
         self.client.get("/test/invalid", verify=False)
-        # self.client.get("/v1", verify=False)
-
-        # self.client.get("/hello")
-        # self.client.get("/world")
+        self.client.get("/mcp", verify=False)
+        self.client.get("/demo/items/0", verify=False)
+        self.client.get("/sensor-data", verify=False)
+        self.client.get("/charts", verify=False)
+        self.client.get("/stats", verify=False)
+        self.client.get("/stream/2", verify=False)
+        self.client.get("/health", verify=False)
+        self.client.get("/docs", verify=False)
 
     # @task(3)
     def view_item(self):

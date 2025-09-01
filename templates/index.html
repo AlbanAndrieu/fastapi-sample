@@ -1,181 +1,257 @@
-{% extends 'base.html' %}
-
-{% block content %}
+{% extends 'base.html' %} {% block content %}
 <div class="container mx-auto px-4 py-4 max-w-7xl">
-    <!-- Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
-        <h1
-            class="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-            Real-time Environmental Dashboard
-        </h1>
-        <div class="flex items-center gap-2">
-            <div class="loading loading-ring loading-sm text-success" id="connection-indicator"></div>
-            <span class="text-sm text-base-content/70" id="connection-status">Connecting...</span>
-        </div>
+  <!-- Header with gradient goodness -->
+  <div
+    class="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6 gap-4"
+  >
+    <div>
+      <h1
+        class="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent mb-2"
+      >
+        Sensor Dashboard
+      </h1>
+      <p class="text-base-content/70 text-lg">
+        Real-time environmental monitoring with Plotly Python
+      </p>
     </div>
 
-    <!-- Main Grid -->
-    <div class="flex flex-col gap-4 mb-6">
-        <!-- Live Data -->
-        <div>
-            <div class="card bg-base-100 shadow-xl">
-                <div class="card-body">
-                    <div class="flex items-center gap-2 mb-4">
-                        <div class="badge badge-primary">Real-time</div>
-                        <h2 class="card-title">Live Sensors</h2>
-                    </div>
-                    <div hx-ext="sse" sse-connect="/stream/2">
-                        <div id="sensor-display" sse-swap="sensor_update" hx-swap="innerHTML">
-                            <div class="flex items-center justify-center py-8">
-                                <div class="loading loading-spinner loading-lg text-primary"></div>
-                                <span class="ml-4">Connecting to sensors...</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    <div class="flex items-center gap-4">
+      <div class="stats bg-base-100 shadow-lg">
+        <div class="stat">
+          <div class="stat-title text-xs">Status</div>
+          <div class="stat-value text-lg" id="connection-status">
+            Connecting...
+          </div>
+          <div class="stat-desc">
+            <div
+              class="loading loading-ring loading-sm"
+              id="connection-indicator"
+            ></div>
+          </div>
         </div>
+      </div>
+    </div>
+  </div>
 
-        <!-- Charts Side by Side -->
-        <div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div class="card bg-base-100 shadow-xl">
-                    <div class="card-body">
-                        <h3 class="card-title text-lg">Temperature</h3>
-                        <div class="h-48">
-                            <canvas id="tempChart"></canvas>
-                        </div>
-                    </div>
-                </div>
+  <!-- Live sensor data -->
+  <div class="card bg-base-100 shadow-xl mb-6">
+    <div class="card-body py-4">
+      <div class="flex items-center gap-2 mb-4">
+        <div class="badge badge-primary">Live</div>
+        <h2 class="card-title">Current Readings</h2>
+      </div>
 
-                <div class="card bg-base-100 shadow-xl">
-                    <div class="card-body">
-                        <h3 class="card-title text-lg">Humidity</h3>
-                        <div class="h-48">
-                            <canvas id="humidityChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="card bg-base-100 shadow-xl">
-                    <div class="card-body">
-                        <h3 class="card-title text-lg">Pressure</h3>
-                        <div class="h-48">
-                            <canvas id="pressureChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
+      <!-- HTMX SSE connection for live data -->
+      <div hx-ext="sse" sse-connect="/stream/2">
+        <div
+          id="sensor-display"
+          sse-swap="sensor_update"
+          hx-get="/sensor-data"
+          hx-trigger="sse:sensor_update"
+        >
+          <div class="flex items-center justify-center py-6">
+            <div class="loading loading-spinner loading-lg text-primary"></div>
+            <span class="ml-4">Connecting to sensors...</span>
+          </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts grid -->
+  <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-6">
+    <!-- Main time series chart -->
+    <div class="xl:col-span-2">
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body py-2 pb-0">
+          <h3 class="card-title mb-2">Multi-Metric Time Series</h3>
+          <div id="timeseries-chart"></div>
+        </div>
+      </div>
+    </div>
+    <!-- Detailed time series chart -->
+    <div class="xl:col-span-2">
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body py-2 pb-0">
+          <h3 class="card-title text-lg">Temperature</h3>
+          <div class="h-48">
+            <canvas id="tempChart"></canvas>
+          </div>
+        </div>
+        <div class="card bg-base-100 shadow-xl">
+         <div class="card-body">
+            <h3 class="card-title text-lg">Humidity</h3>
+            <div class="h-48">
+                <canvas id="humidityChart"></canvas>
+            </div>
+          </div>
+        </div>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h3 class="card-title text-lg">Pressure</h3>
+            <div class="h-48">
+                <canvas id="pressureChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- HTMX chart data fetcher -->
     <div hx-get="/chart-data" hx-trigger="sse:sensor_update" hx-target="#chart-data" hx-swap="outerHTML">
         <div id="chart-data"></div>
     </div>
+
+  </div>
+  <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-6">
+
+    <!-- Status distribution -->
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body py-2">
+        <h3 class="card-title mb-2">Status Distribution</h3>
+        <div id="status-chart"></div>
+      </div>
+    </div>
+
+    <!-- Correlation matrix -->
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body py-4">
+        <h3 class="card-title mb-2">Sensor Correlations</h3>
+        <div id="correlation-chart"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Anomaly detection -->
+  <div class="card bg-base-100 shadow-xl mb-4">
+    <div class="card-body py-2">
+      <h3 class="card-title mb-2">Anomaly Detection</h3>
+      <div id="anomaly-chart"></div>
+    </div>
+  </div>
+
+  <!-- Charts updater -->
+  <div
+    hx-get="/charts"
+    hx-trigger="load, every 1s"
+    hx-target="#chart-updates"
+    hx-swap="innerHTML"
+  >
+    <div id="chart-updates"></div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    let tempChart, humidityChart, pressureChart;
+  let tempChart, humidityChart, pressureChart;
 
-    // Initialize charts
-    function initCharts(tempData, humidityData, pressureData, labels) {
-        const tempCanvas = document.getElementById('tempChart');
-        const humidityCanvas = document.getElementById('humidityChart');
-        const pressureCanvas = document.getElementById('pressureChart');
+  // Initialize charts
+  function initCharts(tempData, humidityData, pressureData, labels) {
+    const tempCanvas = document.getElementById("tempChart");
+    const humidityCanvas = document.getElementById("humidityChart");
+    const pressureCanvas = document.getElementById("pressureChart");
 
-        if (!tempCanvas || !humidityCanvas || !pressureCanvas || !pressureCanvas) {
-            console.error('Chart canvases not found');
-            return;
-        }
-
-        const tempCtx = tempCanvas.getContext('2d');
-        tempChart = new Chart(tempCtx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [{
-                    data: tempData,
-                    borderColor: 'rgb(99, 102, 241)',
-                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: { beginAtZero: false },
-                    x: { display: false }
-                }
-            }
-        });
-
-        const humidityCtx = humidityCanvas.getContext('2d');
-        humidityChart = new Chart(humidityCtx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [{
-                    data: humidityData,
-                    borderColor: 'rgb(16, 185, 129)',
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: { beginAtZero: false },
-                    x: { display: false }
-                }
-            }
-        });
-
-        const pressureCtx = pressureCanvas.getContext('2d');
-        pressureChart = new Chart(pressureCtx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [{
-                    data: pressureData,
-                    borderColor: 'rgb(239, 68, 68)',
-                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: { beginAtZero: false },
-                    x: { display: false }
-                }
-            }
-        });
+    if (!tempCanvas || !humidityCanvas || !pressureCanvas || !pressureCanvas) {
+      console.error("Chart canvases not found");
+      return;
     }
 
-    // Single SSE event handler for sensor data
-    document.body.addEventListener('htmx:sseMessage', function (e) {
-        if (e.detail.type === 'sensor_update') {
-            const data = JSON.parse(e.detail.data);
+    const tempCtx = tempCanvas.getContext("2d");
+    tempChart = new Chart(tempCtx, {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            data: tempData,
+            borderColor: "rgb(99, 102, 241)",
+            backgroundColor: "rgba(99, 102, 241, 0.1)",
+            borderWidth: 2,
+            fill: true,
+            tension: 0.4,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: false },
+          x: { display: false },
+        },
+      },
+    });
 
-            // Update sensor display
-            const statusClass = data.status === 'normal' ? 'badge-success' :
-                data.status === 'warning' ? 'badge-warning' : 'badge-error';
+    const humidityCtx = humidityCanvas.getContext("2d");
+    humidityChart = new Chart(humidityCtx, {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            data: humidityData,
+            borderColor: "rgb(16, 185, 129)",
+            backgroundColor: "rgba(16, 185, 129, 0.1)",
+            borderWidth: 2,
+            fill: true,
+            tension: 0.4,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: false },
+          x: { display: false },
+        },
+      },
+    });
 
-            const html = `
+    const pressureCtx = pressureCanvas.getContext("2d");
+    pressureChart = new Chart(pressureCtx, {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            data: pressureData,
+            borderColor: "rgb(239, 68, 68)",
+            backgroundColor: "rgba(239, 68, 68, 0.1)",
+            borderWidth: 2,
+            fill: true,
+            tension: 0.4,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: false },
+          x: { display: false },
+        },
+      },
+    });
+  }
+
+  // Single SSE event handler for sensor data
+  document.body.addEventListener("htmx:sseMessage", function (e) {
+    if (e.detail.type === "sensor_update") {
+      const data = JSON.parse(e.detail.data);
+
+      // Update sensor display
+      const statusClass =
+        data.status === "normal"
+          ? "badge-success"
+          : data.status === "warning"
+            ? "badge-warning"
+            : "badge-error";
+
+      const html = `
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
         <div class="stat bg-primary/10 rounded-lg p-4">
           <div class="stat-title">Temperature</div>
@@ -196,105 +272,72 @@
       <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
         <div class="text-white font-bold badge ${statusClass}">
           ${data.status.toUpperCase()}
-        </div>
-        <div class="text-sm text-base-content/60">
-          ${new Date(data.timestamp).toLocaleTimeString()}
-        </div>
-      </div>
+
+          </div>
+          <div class="text-sm text-base-content/60">
+            ${new Date(data.timestamp).toLocaleTimeString()}
+          </div>
+    </div>
       `;
 
-            document.getElementById('sensor-display').innerHTML = html;
+      document.getElementById("sensor-display").innerHTML = html;
 
-            // Critical status alert
-            // Critical status alert
-            if (data.status === 'critical') {
-                const alertHtml = `
-    <div role="alert" class="my-4 alert alert-error text-white rounded-md transform transition-all duration-400 ease-out animate-[slideInFromTop_0.4s_ease-out] " id="critical-alert">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-6 w-6 shrink-0 stroke-current">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-      </svg>
-      <span><strong>Critical Alert:</strong> Temperature ${data.temperature}°C, Humidity ${data.humidity}%</span>
-    </div>
-  `;
+      // Trigger chart update
+      htmx.ajax("GET", "/chart-data", "#chart-data");
+    }
+  });
 
-                if (!document.getElementById('critical-alert')) {
-                    document.querySelector('.container').insertAdjacentHTML('afterbegin', alertHtml);
+  // Update charts when HTMX swaps chart data
+  document.body.addEventListener("htmx:afterSwap", function (e) {
+    if (e.target.id === "chart-data") {
+      const dataElement = e.target.querySelector("[data-temp]") || e.target;
 
-                    setTimeout(() => {
-                        const alert = document.getElementById('critical-alert');
-                        if (alert) {
-                            alert.classList.add('animate-[slideOutToTop_0.3s_ease-in]');
-                            setTimeout(() => alert.remove(), 300);
-                        }
-                    }, 10000);
-                }
-            } else {
-                // Remove alert if status is not critical
-                const existingAlert = document.getElementById('critical-alert');
-                if (existingAlert) {
-                    existingAlert.classList.add('animate-[slideOutToTop_0.3s_ease-in]');
-                    setTimeout(() => existingAlert.remove(), 300);
-                }
-            }
+      if (!dataElement.dataset.temp) {
+        console.error("No temp data found");
+        return;
+      }
 
-            // Trigger chart update
-            htmx.ajax('GET', '/chart-data', '#chart-data');
+      try {
+        const tempData = JSON.parse(dataElement.dataset.temp);
+        const humidityData = JSON.parse(dataElement.dataset.humidity);
+        const pressureData = JSON.parse(dataElement.dataset.pressure);
+        const labels = JSON.parse(dataElement.dataset.labels);
+
+        if (tempChart && humidityChart && pressureChart) {
+          tempChart.data.datasets[0].data = tempData;
+          tempChart.data.labels = labels;
+          tempChart.update("none");
+
+          humidityChart.data.datasets[0].data = humidityData;
+          humidityChart.data.labels = labels;
+          humidityChart.update("none");
+
+          pressureChart.data.datasets[0].data = pressureData;
+          pressureChart.data.labels = labels;
+          pressureChart.update("none");
+        } else {
+          initCharts(tempData, humidityData, pressureData, labels);
         }
-    });
+      } catch (error) {
+        console.error("JSON parse error:", error);
+      }
+    }
+  });
+</script>
 
-    // Update charts when HTMX swaps chart data
-    document.body.addEventListener('htmx:afterSwap', function (e) {
-        if (e.target.id === 'chart-data') {
-            const dataElement = e.target.querySelector('[data-temp]') || e.target;
+// Connection state handling
+<script>
+  // Handle SSE connection status
+  document.body.addEventListener("htmx:sseOpen", function (e) {
+    document.getElementById("connection-indicator").className =
+      "loading loading-ring loading-sm text-success";
+    document.getElementById("connection-status").textContent = "Connected";
+  });
 
-            if (!dataElement.dataset.temp) {
-                console.error('No temp data found');
-                return;
-            }
-
-            try {
-                const tempData = JSON.parse(dataElement.dataset.temp);
-                const humidityData = JSON.parse(dataElement.dataset.humidity);
-                const pressureData = JSON.parse(dataElement.dataset.pressure);
-                const labels = JSON.parse(dataElement.dataset.labels);
-
-                if (tempChart && humidityChart && pressureChart) {
-                    tempChart.data.datasets[0].data = tempData;
-                    tempChart.data.labels = labels;
-                    tempChart.update('none');
-
-                    humidityChart.data.datasets[0].data = humidityData;
-                    humidityChart.data.labels = labels;
-                    humidityChart.update('none');
-
-                    pressureChart.data.datasets[0].data = pressureData;
-                    pressureChart.data.labels = labels;
-                    pressureChart.update('none');
-                } else {
-                    initCharts(tempData, humidityData, pressureData, labels);
-                }
-            } catch (error) {
-                console.error('JSON parse error:', error);
-            }
-        }
-    });
-
-    // Connection state handling
-    document.body.addEventListener('htmx:sseOpen', function (e) {
-        document.getElementById('connection-indicator').className = 'loading loading-ring loading-sm text-success';
-        document.getElementById('connection-status').textContent = 'Connected';
-    });
-
-    document.body.addEventListener('htmx:sseError', function (e) {
-        document.getElementById('connection-indicator').className = 'loading loading-ring loading-sm text-error';
-        document.getElementById('connection-status').textContent = 'Error';
-    });
-
-    // Initialize charts on page load
-    document.addEventListener('DOMContentLoaded', function () {
-        setTimeout(() => {
-            htmx.ajax('GET', '/chart-data', '#chart-data');
-        }, 1000);
-    });
+  document.body.addEventListener("htmx:sseError", function (e) {
+    document.getElementById("connection-indicator").className =
+      "loading loading-ring loading-sm text-error";
+    document.getElementById("connection-status").textContent = "Disconnected";
+  });
 </script>
 {% endblock %}

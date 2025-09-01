@@ -73,7 +73,7 @@ include:
   - project: 'renovate-bot/renovate-runner'
     file: '/templates/renovate.gitlab-ci.yml'
 
-  # - remote: https://gitlab.com/renovate-bot/renovate-runner/-/raw/v17.69.3/templates/renovate.gitlab-ci.yml
+  # - remote: git@gitlab.com:renovate-bot/renovate-runner/-/raw/v17.69.3/templates/renovate.gitlab-ci.yml
 
   # - template: Jobs/SAST.gitlab-ci.yml
   - component: gitlab.com/components/sast/sast@main
@@ -343,11 +343,11 @@ test-pytest:
 install-npm:
   extends: .install-npm
   script:
-    # - npm config set @scope:registry=https://gitlab.com/api/v4/groups/2454528/-/packages/npm/
-    # - npm config set '@jusmundi-group:registry=https://gitlab.com/api/v4/projects/60435718/packages/npm/'
-    # - npm config set '@jusmundi-group:registry=https://gitlab.com/api/v4/packages/npm/:_authToken='"${CI_JOB_TOKEN}"
+    # - npm config set @scope:registry=git@gitlab.com:api/v4/groups/2454528/-/packages/npm/
+    # - npm config set '@jusmundi-group:registry=git@gitlab.com:api/v4/projects/60435718/packages/npm/'
+    # - npm config set '@jusmundi-group:registry=git@gitlab.com:api/v4/packages/npm/:_authToken='"${CI_JOB_TOKEN}"
     # - echo "@scope:registry=https://${CI_SERVER_HOST}/api/v4/projects/${CI_PROJECT_ID}/packages/npm/" > ~/.npmrc
-    - echo "@jusmundi-group:registry=https://gitlab.com/api/v4/packages/npm/" > ~/.npmrc
+    - echo "@jusmundi-group:registry=git@gitlab.com:api/v4/packages/npm/" > ~/.npmrc
     # - echo "//${CI_SERVER_HOST}/api/v4/projects/${CI_PROJECT_ID}/packages/npm/:_authToken=${CI_JOB_TOKEN}" >> ~/.npmrc
     - echo "//${CI_SERVER_HOST}/api/v4/packages/npm/:_authToken=${CI_JOB_TOKEN}" >> ~/.npmrc
     # - rm -rf node_modules package-lock.json
