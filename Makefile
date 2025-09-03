@@ -170,7 +170,7 @@ up-uvicorn:
 up-gunicorn:
 	@echo "up gunicorn http://0.0.0.0:$(PORT)/v1/ping"
 	# @echo ".venv/bin/ddtrace-run .venv/bin/gunicorn main:app --reload --name fastapi-sample --workers 1 -k uvicorn_worker.UvicornWorker --bind 0.0.0.0:$(PORT) --logger-class=nabla.utils.log_config.JMGunicornLogger --log-level info --access-logfile - --statsd-host localhost:8125"
-	.venv/bin/ddtrace-run .venv/bin/gunicorn main:app --reload --name fastapi-sample --workers 1 -k uvicorn_worker.UvicornWorker --bind 0.0.0.0:$(PORT) --log-level info --access-logfile -
+	.venv/bin/ddtrace-run .venv/bin/gunicorn main:app --reload --name fastapi-sample --workers 1 --threads 1 --worker-connections 1000 -k uvicorn_worker.UvicornWorker --bind 0.0.0.0:$(PORT) --log-level info --access-logfile -
 
 
 ## —— Up Python App MCP ✅g🦄 —————————————————————————————————————————————————————————————————

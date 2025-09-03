@@ -234,7 +234,9 @@ CMD [ \
     "gunicorn", "main:app", \
     "-k", "uvicorn_worker.UvicornWorker", \
     "--name", "fastapi-sample", \
-    "--workers", "1", \
+    "--workers", "4", \
+    "--threads", "1", \
+    "--worker-connections", "1000", \
     "--max-requests", "1000", \
     "--max-requests-jitter", "100", \
     "--bind", "0.0.0.0:8080", \

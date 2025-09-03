@@ -5,6 +5,8 @@ from uuid import uuid4
 import redis
 from ddtrace.trace import tracer
 from fastapi import APIRouter
+# import aioredis
+
 
 # from redis.cluster import Redis
 from starlette.responses import JSONResponse
@@ -24,7 +26,7 @@ router = APIRouter(prefix="/v1")
 
 
 @router.get("/message")
-async def demo_message():
+def demo_message():
     logger.info("demo_message")
     return {"Hello": "World"}
 
@@ -48,7 +50,7 @@ def uniform_secret():
 
 
 @router.get("/random")
-async def demo_random():
+def demo_random():
     try:
         # global redis_conn
         # redis_conn = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT)
@@ -69,7 +71,7 @@ async def demo_random():
 
 
 @router.get("/ping")
-async def ping():
+def ping():
     with tracer.trace("get_quote") as span:
         logger.info("get random quotes")
         quote = random.choice(QUOTES) + "\n"  # noqa: S311 # nosec
@@ -78,7 +80,7 @@ async def ping():
 
 
 @router.get("/pong")
-async def pong():
+def pong():
     """
     Healthcheck endpoint.
     """

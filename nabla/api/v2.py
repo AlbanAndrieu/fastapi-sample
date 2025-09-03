@@ -8,7 +8,7 @@ router = APIRouter(prefix="/v2")
 
 
 @router.get("/ping")
-async def ping():
+def ping():
     """
     Healthcheck endpoint.
     """

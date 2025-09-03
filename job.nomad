@@ -222,7 +222,7 @@ job "fastapi-sample" {
         DD_DBM_PROPAGATION_MODE=full
         DD_PROFILING_TIMELINE_ENABLED=true
         REDIS_HOST="fastapi-sample-redis.service.gra.${var.env}.consul"
-        REDIS_PORT="6379"
+        REDIS_PORT="6380"
         # ALLOWED_HOSTS="[\"${NOMAD_HOST_IP_server}\",\"fastapi-sample.service.gra.${var.env}.consul\"]"
         EXPOSE_ENV = "${var.env}"
         EXPOSE_HOST = "localhost"
@@ -427,14 +427,14 @@ EOF
         ports = ["redis-exporter"]
 
         args = [
-          "-redis.addr=redis://fastapi-sample-redis.service.gra.${var.env}.consul:6379",
+          "-redis.addr=redis://fastapi-sample-redis.service.gra.${var.env}.consul:6380",
           "-log-format=json"
         ]
 
       }
 
       env {
-        REDIS_ADDR = "redis://fastapi-sample-redis.service.gra.${var.env}.consul:6379"
+        REDIS_ADDR = "redis://fastapi-sample-redis.service.gra.${var.env}.consul:6380"
         REDIS_EXPORTER_INCL_SYSTEM_METRICS=true
       }
 
@@ -540,7 +540,7 @@ EOF
             "com.datadoghq.tags.version" = "${var.env}-0.0.1"
             "com.datadoghq.ad.check_names" = "[\"redisdb\"]"
             "com.datadoghq.ad.init_configs" = "[{}]"
-            "com.datadoghq.ad.instances": "[{\"host\": \"%%host%%\",\"port\":\"6379\"}]"
+            "com.datadoghq.ad.instances": "[{\"host\": \"%%host%%\",\"port\":\"6380\"}]"
           }
         ]
       } # config
@@ -562,7 +562,7 @@ EOF
         tags = [
           "traefik.enable=true",
           "traefik.tcp.routers.fastapi-sample-redis.service=fastapi-sample-redis",
-          "traefik.tcp.routers.fastapi-sample-redis.entrypoints=tcp-redis",
+          "traefik.tcp.routers.fastapi-sample-redis.entrypoints=tcp-redis-juicefs",
           "traefik.tcp.routers.fastapi-sample-redis.rule=HostSNI(`*`)",
           "traefik.tcp.routers.fastapi-sample-redis.tls=false"
         ]

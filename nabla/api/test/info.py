@@ -11,17 +11,17 @@ router = APIRouter(prefix="/test")
 
 
 @router.get("/sentry-debug")
-async def trigger_error():
+def trigger_error():
     pass
 
 
 @router.get("/invalid")
-async def invalid():
+def invalid():
     raise ValueError("Invalid ")
 
 
 @router.get("/exception")
-async def exception():
+def exception():
     try:
         raise ValueError("sadness")
     except Exception as ex:
@@ -45,7 +45,7 @@ async def exception():
 
 
 @router.get("/env")
-async def env(req: Request):
+def env(req: Request):
     try:
         env = req.scope["env"]
         return {

@@ -17,7 +17,6 @@ patch(sqlalchemy=True)
 # SQLAlchemy
 engine = create_engine(DB_URL)
 
-
 # Use a PIN to specify metadata related to this engine
 # Pin.override(engine, service="fastapisample")
 
@@ -38,4 +37,4 @@ engine = create_engine(DB_URL)
 
 # Databases query builder
 
-database = Database(DB_URL)
+database = Database(DB_URL, max_inactive_connection_lifetime=300)

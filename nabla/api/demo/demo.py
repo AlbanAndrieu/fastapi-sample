@@ -73,7 +73,7 @@ async def dispatch_customer(customer_id: int, q: Optional[str] = None):
             # ).observe(0.1)
 
             url = f"{DEMO_SAMPLE_URL}/dispatch?customer={customer_id}"
-            response = requests.request("GET", url, timeout=1)
+            response = requests.request("GET", url, timeout=1, verify=False)
 
             response.raise_for_status()
             logger.info(f"Dispatch customer response is : {response.json()}")

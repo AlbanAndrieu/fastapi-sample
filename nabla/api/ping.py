@@ -68,17 +68,26 @@ async def chain(response: Response):
     inject(headers)  # inject trace info to header
     logger.critical(headers)
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(
+        timeout=5.0,
+        limits=httpx.Limits(max_connections=100),
+    ) as client:
         await client.get(
             f"http://localhost:{EXPOSE_PORT}/",
             headers=headers,
         )
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(
+        timeout=5.0,
+        limits=httpx.Limits(max_connections=100),
+    ) as client:
         await client.get(
             f"http://{TARGET_ONE_HOST}:{EXPOSE_PORT}/io_task",
             headers=headers,
         )
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(
+        timeout=5.0,
+        limits=httpx.Limits(max_connections=100),
+    ) as client:
         await client.get(
             f"http://{TARGET_TWO_HOST}:{EXPOSE_PORT}/cpu_task",
             headers=headers,

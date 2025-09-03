@@ -26,6 +26,7 @@ from redis.client import Redis
 from sentry_sdk.integrations.logging import LoggingIntegration
 from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Mount
+from fastapi.responses import ORJSONResponse
 
 from nabla.api import ping, v1, v2
 from nabla.api.auth import keycloak
@@ -168,10 +169,13 @@ async def lifespan(app: FastAPI):
         redis_conn.close()
 
     logger.info("📊 Sensor Dashboard application shutting down")
-    logger.info(f"Final metrics - Connections: {metrics.connection_count}, Requests: {metrics.total_requests}")
+    logger.info(
+        f"Final metrics - Connections: {metrics.connection_count}, Requests: {metrics.total_requests}",
+    )
+
 
 @tracer.wrap()
-async def _version(request: Request):
+def _version(request: Request):
     return {"version": request.app.version}
 
 
@@ -183,6 +187,7 @@ class VersionedAPIRouter(APIRouter):
             _version,
             methods=["GET"],
         )
+
 
 def initialize_api_mcp() -> FastAPI:
     """
@@ -198,6 +203,7 @@ def initialize_api_mcp() -> FastAPI:
         version=f"{APP_PREFIX_VERSION}{APP_VERSION}",
         debug=os.getenv("DEBUG", "False").lower() == "true",
         base_url="http://localhost:" + str(EXPOSE_MCP_PORT),
+        default_response_class=ORJSONResponse,
     )
 
     mcp = FastApiMCP(
@@ -236,7 +242,13 @@ def initialize_api() -> FastAPI:
 
     app.add_middleware(LogMiddleware)
 
-    origins = ["http://localhost", "http://localhost:8080", "http://localhost:8091", "http://localhost:8001", "*"]
+    origins = [
+        "http://localhost",
+        "http://localhost:8080",
+        "http://localhost:8091",
+        "http://localhost:8001",
+        "*",
+    ]
 
     app.add_middleware(
         CORSMiddleware,
@@ -315,6 +327,7 @@ def initialize_api() -> FastAPI:
 
 app = initialize_api()
 app_mcp = initialize_api_mcp()
+
 
 @app.middleware("http")
 async def metrics_middleware(request, call_next):
@@ -437,7 +450,7 @@ def dashboard(request: Request):
 
 
 @app.get("/auth")
-async def root():
+def root():
     logger.info("Hello")
     """
     Root endpoint that provides a welcome message and documentation link.
@@ -478,11 +491,12 @@ def get_status() -> Dict[str, str]:
 
 
 @app.get("/sentry-debug")
-async def trigger_error():
+def trigger_error():
     pass
+
 
 # Error handling
 @app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
+def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled exception on {request.url}: {exc}")
     return {"error": "Internal server error", "timestamp": datetime.now().isoformat()}
