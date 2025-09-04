@@ -1,0 +1,25 @@
+#!/bin/bash
+set -eo pipefail
+
+# shellcheck disable=SC2155
+export PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+
+run-colors() {
+  color() {
+    for c; do
+      # shellcheck disable=SC2086,SC2250
+      printf '\e[48;5;%dm %03d ' $c $c
+    done
+    printf '\e[0m \n'
+  }
+
+  IFS=$' \t\n'
+  color {0..15}
+  for ((i = 0; i < 6; i++)); do
+    color $(seq $((i * 36 + 16)) $((i * 36 + 51)))
+  done
+  color {232..255}
+}
+
+# -------- this is the magic ------- #
+source "${PROJECT_ROOT}/scripts/_cli.sh"

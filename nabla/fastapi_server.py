@@ -335,6 +335,7 @@ async def metrics_middleware(request, call_next):
     🔧 Automatic metrics collection middleware
     This captures every request without modifying your business logic
     """
+
     start_time = time.time()
 
     REQUESTS_IN_PROGRESS.labels(

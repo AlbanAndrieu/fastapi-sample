@@ -72,19 +72,9 @@ priority = "explicit"
 
 [tool.poetry.dependencies]
 python = ">=3.10,<4.0"
-ansicolors = ">=1.1.8"
-# cfgv = ">=3.3.0"
-# chardet = ">=5.0.0"
-click = ">=8.1.3"
-logfire = ">=4.2.0"
-podmena = ">=0.6.1"
-pyroscope-io = ">=0.8.5"
+
 pyyaml = ">=6.0"
 sentry-sdk = {version = "*", extras = ["fastapi"]}
-# six = ">=1.16.0"
-requests = ">=2.32.0"
-urllib3 = ">=2.2.2"
-dd-import = ">=1.0.12"
 
 [tool.poetry.group.api]
 optional = false
@@ -95,8 +85,8 @@ arel = ">=0.3.0"
 # cfgv = ">=3.3.0"
 # chardet = ">=5.0.0"
 click = ">=8.1.3"
-dd-import = ">=1.0.12"
 ddtrace = ">=3.12.2"
+dd-import = ">=1.0.12"
 # ddtrace = "=3.10.2" # 3.11.2
 fastapi = {version = ">=0.115.3", extras = ["standard"]}
 fastapi-mcp = "0.4.0"
@@ -104,6 +94,7 @@ httpx = ">=0.27.2"
 jinja2 = ">=3.1.6"
 langgraph = ">=0.6.6"
 langchain-openai = ">=0.3.32"
+logfire = ">=4.2.0"
 podmena = ">=0.6.1"
 gunicorn = ">=23.0.0"
 # psycopg2-binary = ">=2.9.5"
