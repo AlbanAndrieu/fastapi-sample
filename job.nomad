@@ -1,4 +1,5 @@
 # nomad job stop --namespace=* -purge fastapi-sample
+# aws --endpoint-url https://s3.gra.perf.cloud.ovh.net --profile s3-dev s3 rm s3://juicefs-gra-sample-${NOMAD_VAR_env} --recursive --exclude "*juicefs_uuid"
 # nomad job run -var env=uat -var team=uat job.nomad
 
 variable "env" {

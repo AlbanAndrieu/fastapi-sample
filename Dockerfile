@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.15
+# syntax=docker/dockerfile:1
 
 # dockerfile_lint - ignore
 # hadolint ignore=DL3007
@@ -80,22 +80,16 @@ ENV PYTHONUNBUFFERED=1 \
     POETRY_CACHE_DIR=/tmp/poetry_cache \
     # paths
     # this is where our requirements + virtual environment will live
-    # PYSETUP_PATH="/opt/pysetup" \
     PYSETUP_PATH="/code" \
     VENV_PATH="/code/.venv"
-
-# prepend poetry and venv to path
-ENV PATH="${POETRY_HOME}/bin:$VENV_PATH/bin:$PATH"
 
 # `builder-base` stage is used to build deps + create our virtual environment
 FROM python-base AS builder-base
 
 # Explicitly set user/group IDs
-RUN groupadd -r jm-python --gid=999 && useradd -m -d /code -r -g jm-python --uid=999 jm-python
+RUN groupadd -r jm-python --gid=999 && useradd -m -d ${PYSETUP_PATH} -r -g jm-python --uid=999 jm-python
 
-RUN chown -R jm-python:jm-python /code
-
-ENV PATH="$PATH:$VENV_PATH:${POETRY_HOME}/bin"
+RUN chown -R jm-python:jm-python ${PYSETUP_PATH}
 
 # copy project requirement files here to ensure they will be cached.
 WORKDIR ${PYSETUP_PATH}
@@ -123,7 +117,7 @@ RUN --mount=type=secret,id=read-npm-token,uid=999,target=/run/secrets/CI_JOB_TOK
   echo "@jusmundi-group:registry=https://gitlab.com/api/v4/packages/npm/" > ${PYSETUP_PATH}/.npmrc && \
   echo -e "'//gitlab.com/api/v4/packages/npm/:_authToken'=\"$(cat /run/secrets/CI_JOB_TOKEN)\"" >> ${PYSETUP_PATH}/.npmrc && \
   npm install --cache /root/.npm && npm cache clean --force && \
-  rm -rf ~/.npmrc ${PYSETUP_PATH}/.npmrc /code/.npm
+  rm -rf ~/.npmrc ${PYSETUP_PATH}/.npmrc ${PYSETUP_PATH}/.npm
 
 USER root
 
@@ -140,15 +134,16 @@ USER jm-python
 
 COPY --chown=jm-python:jm-python pyproject.toml poetry.lock ${PYSETUP_PATH}/
 
-ENV PATH=$PYSETUP_PATH/.local/bin/:${PATH}
+# prepend poetry and venv to path
+ENV PATH="${PYSETUP_PATH}/.local/bin/:${POETRY_HOME}/bin:${VENV_PATH}/bin:${PATH}"
 
 USER root
 
-RUN --mount=type=secret,id=CI_JOB_TOKEN,uid=999,target=/code/jm-python/.config/pypoetry/CI_JOB_TOKEN \
+RUN --mount=type=secret,id=CI_JOB_TOKEN,uid=999,target=${PYSETUP_PATH}/jm-python/.config/pypoetry/CI_JOB_TOKEN \
   --mount=type=cache,target=$POETRY_CACHE_DIR \
-  "${POETRY_HOME}/bin/poetry" config http-basic.gitlab-ds package_read "$(cat /code/jm-python/.config/pypoetry/CI_JOB_TOKEN)" &&\
+  "${POETRY_HOME}/bin/poetry" config http-basic.gitlab-ds package_read "$(cat ${PYSETUP_PATH}/jm-python/.config/pypoetry/CI_JOB_TOKEN)" &&\
   "${POETRY_HOME}/bin/poetry" install --no-root --with format,test,api,extra,open_telemetry,deployment,influxdb,panda,temporal,utils,webui  &&\
-  rm -rf /code/.config/pypoetry/
+  rm -rf ${PYSETUP_PATH}/.config/pypoetry/
 
 #"${POETRY_HOME}/bin/poetry" install --no-dev --remove-untracked
 
@@ -160,10 +155,10 @@ USER jm-python
 FROM python-base AS development
 ENV FASTAPI_ENV=development
 
-WORKDIR $PYSETUP_PATH
+WORKDIR ${PYSETUP_PATH}
 
 # Explicitly set user/group IDs
-RUN groupadd -r jm-python --gid=999 && useradd -m -d /code -r -g jm-python --uid=999 jm-python
+RUN groupadd -r jm-python --gid=999 && useradd -m -d ${PYSETUP_PATH} -r -g jm-python --uid=999 jm-python
 
 RUN chown -R jm-python:jm-python /code
 
@@ -207,9 +202,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   npm install -g npm@11.3.0  && apt-get purge -y npm
 
 # Explicitly set user/group IDs
-RUN groupadd -r jm-python --gid=999 && useradd -m -d /code -r -g jm-python --uid=999 jm-python
+RUN groupadd -r jm-python --gid=999 && useradd -m -d ${PYSETUP_PATH} -r -g jm-python --uid=999 jm-python
 
-RUN chown -R jm-python:jm-python /code
+RUN chown -R jm-python:jm-python ${PYSETUP_PATH}
 
 USER jm-python
 
