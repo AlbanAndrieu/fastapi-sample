@@ -81,6 +81,7 @@ optional = false
 [tool.poetry.group.api.dependencies]
 ansicolors = ">=1.1.8"
 arel = ">=0.3.0"
+asyevent = ">=0.2.10"
 # aioredis = ">=2.0.1"
 # cfgv = ">=3.3.0"
 # chardet = ">=5.0.0"
@@ -95,6 +96,7 @@ jinja2 = ">=3.1.6"
 langgraph = ">=0.6.6"
 langchain-openai = ">=0.3.32"
 logfire = ">=4.2.0"
+# notion-client = ">=2.5.0"
 podmena = ">=0.6.1"
 gunicorn = ">=23.0.0"
 # psycopg2-binary = ">=2.9.5"
@@ -112,6 +114,7 @@ pyyaml = ">=6.0"
 redis = ">=6.2.0"
 requests = ">=2.32.0"
 sentry-sdk = {version = "*", extras = ["fastapi"]}
+slowapi = ">=0.1.9"
 # six = ">=1.16.0"
 sse-starlette = ">=2.3.6"
 structlog = ">=25.4.0"
@@ -183,7 +186,7 @@ opentelemetry-sdk = ">=1.33.1"
 [tool.poetry.group.panda]
 optional = false
 [tool.poetry.group.panda.dependencies]
-sqlalchemy = ">=2.0.20"
+sqlalchemy =  {extras = ["asyncio"], version = ">=2.0.20"}
 # pandas = ">=2.2.1"
 psycopg2 = ">=2.9.7"  # WARNING need sudo apt-get install libpq-dev
 

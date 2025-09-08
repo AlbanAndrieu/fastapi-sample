@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, status
 from opentelemetry import trace
 from opentelemetry.trace.status import Status, StatusCode
 
-from nabla.api.v1 import redis_conn
+from nabla.api.demo.ws.event_bus import redis
 from nabla.utils.logger import logger
 from nabla.utils.misc import timed_operation
 from nabla.utils.prometheus import API_REQUEST_COUNTER, API_REQUEST_SUMMARY
@@ -38,11 +38,11 @@ async def read_item(item_id: int, q: Optional[str] = None):
     API_REQUEST_SUMMARY.labels(method="GET", endpoint="/items/{item_id}").observe(0.1)
 
     # Example of storing data in Redis
-    redis_conn.set(f"item_{item_id}", q or "No Query")
+    redis.set(f"item_{item_id}", q or "No Query")
 
-    # TODO redis_conn.get("randomnumber")
+    # TODO redis.get("randomnumber")
 
-    cached_value = redis_conn.get(f"item_{item_id}")
+    cached_value = redis.get(f"item_{item_id}")
 
     if item_id % 2 == 0:
         # mock io - wait for x seconds

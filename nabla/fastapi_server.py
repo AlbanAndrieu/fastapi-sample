@@ -8,7 +8,6 @@ from typing import Dict
 
 import arel
 import pyroscope
-import redis
 import sentry_sdk
 from ddtrace import config, patch, tracer
 from ddtrace.contrib.trace_utils import set_user
@@ -27,6 +26,13 @@ from sentry_sdk.integrations.logging import LoggingIntegration
 from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Mount
 from fastapi.responses import ORJSONResponse
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from fastapi.responses import JSONResponse
+from nabla.api.demo.ws.event_bus import redis
+from nabla.api.demo.ws.websocket import websocket_endpoint
+from nabla.api.demo.ws.event_bus import start_event_listener
 
 from nabla.api import ping, v1, v2
 from nabla.api.auth import keycloak
@@ -43,13 +49,10 @@ from nabla.config_settings import (
     APP_VERSION,
     EXPOSE_MCP_PORT,
     OTLP_GRPC_ENDPOINT,
-    REDIS_HOST,
-    REDIS_PORT,
     SENTRY_DSN,
     get_settings,
 )
 
-# from nabla.db import database, engine, metadata
 from nabla.db import database
 from nabla.utils.log_config import LogMiddleware, setup_logging
 
@@ -99,6 +102,8 @@ setup_logging()
 
 logger.info("Creating API")
 
+limiter = Limiter(key_func=get_remote_address)
+
 patch(fastapi=True)
 
 # Override service name
@@ -127,32 +132,30 @@ class FilterbyName(TraceFilter):
 tracer.configure(trace_processors=[FilterbyName()])
 
 # Global variable declaration
-redis_conn: Redis | None = None
-
-
-# Create tables
-# metadata.create_all(engine)
+redis: Redis | None = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """background task starts at startup"""
 
-    global redis_conn  # noqa: PLW0603
-    redis_conn = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT)
+    # global redis
+    # redis = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT)
 
-    # redis_conn = Redis(
+    # redis = Redis(
     #     host=REDIS_HOST,
     #     port=REDIS_PORT,
     #     decode_responses=True,
     #     max_connections=96,
     # )
-    # print(redis_conn.get_nodes())
+    # print(redis.get_nodes())
 
     await database.connect()
 
     """Start background system monitoring"""
     system_metrics_task = asyncio.create_task(update_system_metrics())
+
+    asyncio.create_task(start_event_listener())
 
     logger.info("🚀 Sensor Dashboard application started successfully")
     logger.info(f"Debug mode: {bool(os.getenv('DEBUG'))}")
@@ -165,8 +168,8 @@ async def lifespan(app: FastAPI):
 
     await database.disconnect()
 
-    if redis_conn:
-        redis_conn.close()
+    if redis:
+        redis.close()
 
     logger.info("📊 Sensor Dashboard application shutting down")
     logger.info(
@@ -240,6 +243,12 @@ def initialize_api() -> FastAPI:
         debug=os.getenv("DEBUG", "False").lower() == "true",
     )
 
+    app.state.limiter = limiter
+    app.add_exception_handler(
+        RateLimitExceeded,
+        lambda r, e: JSONResponse(status_code=429, content={"error": "Too Many Requests"}),
+    )
+
     app.add_middleware(LogMiddleware)
 
     origins = [
@@ -247,14 +256,17 @@ def initialize_api() -> FastAPI:
         "http://localhost:8080",
         "http://localhost:8091",
         "http://localhost:8001",
-        "*",
+        "https://fastapi-sample.service.gra.dev.consul/",
+        "https://fastapi-sample.service.gra.uat.consul/",
+        # "*",
     ]
 
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,
         allow_credentials=True,
-        allow_methods=["DELETE", "GET", "POST", "PUT"],
+        # allow_methods=["DELETE", "GET", "POST", "PUT"],
+        allow_methods=["GET", "POST", "PUT"],
         allow_headers=["*"],
     )
 
@@ -265,10 +277,6 @@ def initialize_api() -> FastAPI:
         app_name=APP_NAME,
     )
 
-    # app.add_middleware(
-    #     metrics_middleware,
-    #     app_name=APP_NAME,
-    # )
 
     api_settings = get_settings()
 
@@ -319,8 +327,10 @@ def initialize_api() -> FastAPI:
     app.include_router(notes.router, prefix="/notes", tags=["notes"])
     app.include_router(info.router, tags=["test"])
     app.include_router(keycloak.router, tags=["auth"])
-    app.include_router(sensor.router, tags=["sensor"])
     app.include_router(users.router, tags=["users"])
+    app.include_router(sensor.router, tags=["sensor"])
+
+    app.add_api_websocket_route("/ws/sensor", websocket_endpoint)
 
     return app
 
@@ -446,6 +456,7 @@ if os.getenv("DEBUG"):
 
 # See https://boadziedaniel.medium.com/building-real-time-dashboards-with-fastapi-and-htmx-01ea458673cb
 @app.get("/", response_class=HTMLResponse)
+@limiter.limit("100/second")
 def dashboard(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 

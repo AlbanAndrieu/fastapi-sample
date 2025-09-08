@@ -9,10 +9,14 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sse_starlette import EventSourceResponse
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from nabla.api.demo.ws.event_bus import publish_event
 
 from nabla.api.demo.charts import ChartFactory
 from nabla.api.demo.models import (
     SensorData,
+    SensorEvent,
     detect_anomalies,
     get_sensor_dataframe,
     get_statistical_summary,
@@ -21,6 +25,8 @@ from nabla.api.demo.models import (
 from nabla.utils.logger import logger
 
 router = APIRouter()
+
+limiter = Limiter(key_func=get_remote_address)
 
 templates = Jinja2Templates(directory="templates")
 sensor = SensorData()
@@ -65,6 +71,7 @@ metrics = DashboardMetrics()
 
 
 @router.get("/", response_class=HTMLResponse)
+@limiter.limit("100/second")
 def dashboard(request: Request):
     """Main dashboard with real-time Plotly charts"""
     metrics.track_request()
@@ -72,7 +79,17 @@ def dashboard(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 
+@router.post("/events")
+@limiter.limit("100/second")
+async def post_sensor_event(event: SensorEvent, request: Request):
+    start_time = time.perf_counter()
+    await handle_sensor_event(event)
+    duration = time.perf_counter() - start_time
+    return {"status": "received", "duration_ms": round(duration * 1000, 2)}
+
+
 @router.get("/stream/{interval}")
+# @limiter.limit("100/second")
 async def stream_sensor_data(interval: int = 2):
     """Stream live sensor data via SSE"""
     metrics.track_connection()
@@ -86,6 +103,7 @@ async def stream_sensor_data(interval: int = 2):
     """The magic streaming endpoint that makes everything work"""
 
     async def event_generator():
+        # generate_sensor_data(interval)
         try:
             while True:
                 # Generate new sensor reading
@@ -115,6 +133,7 @@ async def stream_sensor_data(interval: int = 2):
 
 
 @router.get("/chart-data")
+@limiter.limit("100/second")
 async def get_chart_data(request: Request):
     """Get chart data for the dashboard"""
 
@@ -122,12 +141,7 @@ async def get_chart_data(request: Request):
     logger.debug("Starting old chart generation")
 
     try:
-        # df = get_sensor_dataframe()
-
-        # Ensure we have enough data for charts
-        if len(recent_readings) < 100:
-            for _ in range(100):
-                recent_readings.append(sensor.generate_reading())
+        # generate_sensor_data(2)
 
         temp_data = [r["temperature"] for r in recent_readings]
         humidity_data = [r["humidity"] for r in recent_readings]
@@ -152,6 +166,7 @@ async def get_chart_data(request: Request):
 
 
 @router.get("/charts")
+@limiter.limit("100/second")
 async def get_charts(request: Request):
     """Prepare data for Chart.js visualization"""
     """Generate all Plotly charts as HTML"""
@@ -197,6 +212,7 @@ async def get_charts(request: Request):
 
 
 @router.get("/sensor-data")
+@limiter.limit("100/second")
 async def get_sensor_data(request: Request):
     """Get current sensor reading for display"""
     metrics.track_request()
@@ -272,3 +288,7 @@ async def get_metrics():
 
     logger.info("Detailed metrics requested")
     return detailed_metrics
+
+
+async def handle_sensor_event(event):
+    await publish_event(event)

@@ -5,15 +5,15 @@ from typing import Any, Deque, Dict, Final, List
 
 import plotly.graph_objects as go
 import polars as pl
-import redis
+from nabla.api.demo.ws.event_bus import redis, REDIS_CHANNEL
 from ddtrace import patch
-from redis.client import Redis
+from pydantic import BaseModel
 
 # With PostgreSQL
 from sqlalchemy import Column, DateTime, Float, Integer, String, create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-from nabla.config_settings import REDIS_HOST, REDIS_PORT, get_settings
+from nabla.config_settings import get_settings
 from nabla.utils.logger import logger
 
 Base = declarative_base()
@@ -28,8 +28,12 @@ engine = create_engine(DB_URL)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Global variable declaration
-redis_conn: Redis | None = None
+class SensorEvent(BaseModel):
+    timestamp: str
+    temperature: float
+    humidity: float
+    pressure: float
+    status: str
 
 
 class SensorReading(Base):
@@ -101,9 +105,6 @@ class SensorData:
         """Save sensor reading to PostgreSQL database"""
         db = SessionLocal()
 
-        global redis_conn  # noqa: PLW0603
-        redis_conn = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT)
-
         try:
             # Convert ISO string back to datetime object
             timestamp = datetime.fromisoformat(data["timestamp"])
@@ -116,7 +117,7 @@ class SensorData:
                 status=data["status"],
             )
 
-            redis_conn.lpush("sensor_readings", str(db_reading))
+            redis.lpush(REDIS_CHANNEL, str(db_reading))
 
             db.add(db_reading)
             db.commit()
@@ -150,7 +151,7 @@ class SensorData:
         ])
 
         fig.update_layout(
-            **self.layout_defaults,
+            **self.layout_defaults, # pyright: ignore[reportAttributeAccessIssue]
             title="Sensor Status Distribution",
             # height=300
         )
@@ -198,7 +199,7 @@ class SensorData:
         ))
 
         fig.update_layout(
-            **self.layout_defaults,
+            **self.layout_defaults,  # pyright: ignore[reportAttributeAccessIssue]
             title="Sensor Correlation Matrix",
             # height=300
         )
@@ -251,7 +252,7 @@ class SensorData:
             ))
 
         fig.update_layout(
-            **self.layout_defaults,
+            **self.layout_defaults, # pyright: ignore[reportAttributeAccessIssue]
             title="Temperature with Anomaly Detection",
             # height=300,
             xaxis_title="Time",
@@ -275,7 +276,7 @@ class SensorData:
             font=dict(size=16, color="gray")
         )
         fig.update_layout(
-            **self.layout_defaults,
+            **self.layout_defaults, # pyright: ignore[reportAttributeAccessIssue]
             # height=300,
             xaxis=dict(visible=False),
             yaxis=dict(visible=False)
@@ -364,3 +365,4 @@ recent_readings: Deque[Dict[str, Any]] = deque(maxlen=100)
 
 # Create tables
 Base.metadata.create_all(bind=engine)
+# Base.metadata.create_all(bind=get_engine())

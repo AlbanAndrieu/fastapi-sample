@@ -231,6 +231,7 @@ job "fastapi-sample" {
         TARGET_ONE_HOST = "fastapi-sample.service.gra.${var.env}.consul"
         TARGET_TWO_HOST = "fastapi-sample.service.gra.${var.env}.consul"
         ENABLE_METRICS=true
+        SENTRY_DSN = ""
       }
 
       vault {

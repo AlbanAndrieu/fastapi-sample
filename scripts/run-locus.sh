@@ -23,8 +23,8 @@ echo "Input : 5 - 2 - http://fastapi-sample.service.gra.dev.consul/"
 echo "Open http://localhost:8089/ on your browser"
 
 # https://medium.com/@mithun.kadyada/python-locust-for-load-testing-website-or-endpoint-url-b402eb3dbdf7
-echo "locust -f \"${WORKING_DIR}/../nabla/perf/locustfile_jm.py\" --host==https://jm-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech -c 1000 -r 100 --run-time 1h30m" # --no-web
-locust -f "${WORKING_DIR}/../nabla/perf/locustfile_jm.py"
+echo "locust -f \"${WORKING_DIR}/../nabla/perf/locustfile.py\" --host==https://jm-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech -c 1000 -r 100 --run-time 1h30m" # --no-web
+locust -f "${WORKING_DIR}/../nabla/perf/locustfile.py --host==http://localhost:8091 -c 1000 -r 100 --run-time 30m"
 
 # locust -f "${WORKING_DIR}/../nabla/perf/locustfile_lra.py"
 

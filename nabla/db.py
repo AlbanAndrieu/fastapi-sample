@@ -2,7 +2,9 @@ from typing import Final
 
 from databases import Database
 from ddtrace import patch
-from sqlalchemy import create_engine
+from fastapi import Depends
+from functools import lru_cache
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from nabla.config_settings import get_settings
 
@@ -15,7 +17,17 @@ DB_URL: Final[str] = str(get_settings().db_url)
 patch(sqlalchemy=True)
 
 # SQLAlchemy
-engine = create_engine(DB_URL)
+# engine = create_engine(DB_URL)
+
+
+@lru_cache(maxsize=1)  # Create only 1 engine instance for global reuse
+def get_engine():
+    return create_async_engine(DB_URL)
+
+async def get_db(engine=Depends(get_engine)):
+    async with AsyncSession(engine) as session:
+        yield session
+
 
 # Use a PIN to specify metadata related to this engine
 # Pin.override(engine, service="fastapisample")

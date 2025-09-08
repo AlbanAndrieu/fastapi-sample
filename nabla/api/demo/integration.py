@@ -1,7 +1,7 @@
 import requests
 import random
 import os
-
+import aiohttp
 
 from fastapi import APIRouter, HTTPException, status
 
@@ -33,9 +33,15 @@ HTTP_CLOUD_API_URL = os.environ.get(
     "http://169.254.169.254o/penstack/latest/meta_data.json",
 )
 
+@router.get("/async-data")
+async def get_async_data():
+    async with aiohttp.ClientSession() as session:
+        async with session.get("{HTTP_BIN_URL}/delay/1") as resp:
+            return await resp.json()  # Asynchronous suspension without blocking the event loop
+
 
 @router.get("/external-api")
-def external_api():
+async def get_external_api():
     try:
         seconds = random.uniform(0, 3)  # nosec  # noqa: S311
 
@@ -63,7 +69,7 @@ def external_api():
 
 # See https://tonylixu.medium.com/linux-networking-what-is-ip-address-169-254-169-254-f9e23b7332fe
 @router.get("/internal-cloud-api")
-def internal_cloud_api():
+async def get_internal_cloud_api():
     try:
         logger.info(
             f"Get internal cloud api {HTTP_BIN_URL}",
@@ -87,7 +93,7 @@ def internal_cloud_api():
 
 # We are targeting krakend services
 @router.get("/gateway/assistant")
-async def gateway_assistant():
+async def get_gateway_assistant():
     with timed_operation("gateway_assistant"):
         try:
             logger.info(

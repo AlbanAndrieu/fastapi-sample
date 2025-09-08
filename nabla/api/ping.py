@@ -3,9 +3,12 @@ import time
 
 import httpx
 import pyroscope
+import cProfile
 from ddtrace.trace import tracer
 from fastapi import APIRouter, Response
 from opentelemetry.propagate import inject
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from nabla.utils.logger import logger
 
@@ -25,7 +28,7 @@ TARGET_TWO_HOST = os.environ.get(
 )
 
 router = APIRouter()
-
+limiter = Limiter(key_func=get_remote_address)
 
 @router.get("/ping")
 async def ping():
@@ -56,6 +59,16 @@ async def cpu_task():
     return "CPU bound task finish!"
 
 
+
+@router.get("/profile-me")
+async def profile_me():
+    pr = cProfile.Profile()
+    pr.enable()
+    result = await chain()  # Business logic to be analyzed
+    pr.disable()
+    pr.print_stats(sort="cumulative")  # Sort by cumulative time to identify bottlenecks
+    return result
+
 @router.get("/error_test")
 async def error_test(response: Response):
     logger.error("got error!!!!")
@@ -63,7 +76,8 @@ async def error_test(response: Response):
 
 
 @router.get("/chain")
-async def chain(response: Response):
+# @limiter.limit("100/second")
+async def chain():
     headers = {}
     inject(headers)  # inject trace info to header
     logger.critical(headers)
