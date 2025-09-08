@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from sqlalchemy.orm import declarative_base
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi_cache.decorator import cache
 
 from nabla.utils.logger import logger
 from nabla.utils.prometheus import USER_REGISTRATIONS
@@ -57,7 +58,9 @@ class User(Base):
     def __str__(self):
         return f"User ID : {self.id}\tName : {self.name}\tEmail : {self.email}\tPassword : {self.password}\tActive : {self.active}\tRole : {self.role}\tPermissions : {self.permissions}\tGroups : {self.groups}\tCreated Date : {self.timestamp}"
 
+
 @router.get("/users/{user_id}", response_model=UserEvent, operation_id="get_user_info")
+@cache(expire=300)  # Cache for 5 minutes to avoid repeated execution of complex SQL
 async def get_user(user_id: int, db=Depends(get_db)):
     """
     👤 User endpoint with variable response time

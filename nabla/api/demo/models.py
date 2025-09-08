@@ -5,7 +5,8 @@ from typing import Any, Deque, Dict, Final, List
 
 import plotly.graph_objects as go
 import polars as pl
-from nabla.api.demo.ws.event_bus import redis, REDIS_CHANNEL
+from nabla.api.demo.ws.event_bus import ORJsonCoder
+from fastapi_cache.decorator import cache
 from ddtrace import patch
 from pydantic import BaseModel
 
@@ -101,6 +102,7 @@ class SensorData:
 
         return reading
 
+    @cache(expire=60, coder=ORJsonCoder)
     def save_reading(self, data: Dict[str, Any]) -> None:
         """Save sensor reading to PostgreSQL database"""
         db = SessionLocal()
@@ -117,7 +119,7 @@ class SensorData:
                 status=data["status"],
             )
 
-            redis.lpush(REDIS_CHANNEL, str(db_reading))
+            # redis.lpush(REDIS_CHANNEL, str(db_reading))
 
             db.add(db_reading)
             db.commit()

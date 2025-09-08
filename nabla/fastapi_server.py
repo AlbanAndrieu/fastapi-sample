@@ -21,19 +21,24 @@ from fastapi.templating import Jinja2Templates
 from fastapi_mcp import FastApiMCP
 from prometheus_client import make_asgi_app
 from prometheus_fastapi_instrumentator import Instrumentator
-from redis.client import Redis
 from sentry_sdk.integrations.logging import LoggingIntegration
 from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Mount
 from fastapi.responses import ORJSONResponse
+from fastapi_cache import FastAPICache
+
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from fastapi.responses import JSONResponse
 from nabla.api.demo.ws.event_bus import redis
+from fastapi_cache.backends.redis import RedisBackend
+from redis.client import Redis
+from redis import asyncio as aioredis
 from nabla.api.demo.ws.websocket import websocket_endpoint
 from nabla.api.demo.ws.event_bus import start_event_listener
 
+from nabla.config_settings import REDIS_HOST, REDIS_PORT
 from nabla.api import ping, v1, v2
 from nabla.api.auth import keycloak
 from nabla.api.demo import dd, demo, integration, sensor
@@ -149,6 +154,9 @@ async def lifespan(app: FastAPI):
     #     max_connections=96,
     # )
     # print(redis.get_nodes())
+
+    redis = aioredis.from_url(f"redis://{REDIS_HOST}:{REDIS_PORT}")
+    FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
 
     await database.connect()
 

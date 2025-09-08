@@ -7,6 +7,7 @@ from ddtrace.trace import tracer
 from fastapi import APIRouter
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from fastapi_cache.decorator import cache
 
 from nabla.api.demo.ws.event_bus import redis
 
@@ -51,6 +52,7 @@ def uniform_secret():
     return random.uniform(0, 3)  # nosec # noqa: S311
 
 
+@cache()
 @router.get("/random")
 def demo_random():
     try:
