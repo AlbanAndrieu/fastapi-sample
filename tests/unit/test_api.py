@@ -3,6 +3,7 @@
 from typing import Dict
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from serve import app
@@ -85,17 +86,16 @@ def test_users(*args) -> None:
     client = TestClient(app)
     expected_status: int = 200
 
-    with pytest.raises(AssertionError):
-        response = client.get("/test/users/0")
+    # with pytest.raises(AssertionError):
+    response = client.get("/test/users/0")
 
-        # then
-        assert response.status_code == expected_status
-        assert response.json() == {
-            "user_id": "0",
-            "name": "User 0",
-            "active": "true",
-            "created_at": "2024-01-01T00:00:00Z",
-        }
+    # then
+    assert response.status_code == expected_status
+    assert response.json() == {
+        "name": "User 0",
+        "email": "alban.andrieu@free.fr",
+        "password": "XXX",
+    }
 
 
 def test_exception(*args) -> None:
@@ -131,9 +131,15 @@ def test_invalid(*args) -> None:
 
     client = TestClient(app)
 
-    with pytest.raises(ValueError):
+    # with pytest.raises(ValueError) as exc_info:
+    # with pytest.raises(TypeError("Invalid")):
+    with pytest.raises(HTTPException):
         client.get("/test/invalid")
-
+        # response = client.get("/test/invalid")
+        # assert response.json() == {
+        #     "detail": "Invalid",
+        # }
+        # assert exc_info.type is AssertionError
 
 # def test_chain(*args) -> None:
 #     """It runs and chain io_task and cpu_task."""

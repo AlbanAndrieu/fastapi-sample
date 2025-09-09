@@ -42,7 +42,7 @@ async def read_item(item_id: int, q: Optional[str] = None):
 
     # TODO redis.get("randomnumber")
 
-    cached_value = redis.get(f"item_{item_id}")
+    cached_value = await redis.get(f"item_{item_id}")
 
     if item_id % 2 == 0:
         # mock io - wait for x seconds

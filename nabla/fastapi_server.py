@@ -159,7 +159,7 @@ async def lifespan(app: FastAPI):
     # redis = redis.Redis(host='localhost', port=6379, decode_responses=True, credential_provider=creds_provider)
     redis = Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
     app.state.redis = redis
-    await redis.ping()
+    # await redis.ping()
 
     # FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
 

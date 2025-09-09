@@ -17,7 +17,14 @@ def trigger_error():
 
 @router.get("/invalid")
 def invalid():
-    raise ValueError("Invalid ")
+    try:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Invalid")# ValueError("Invalid")
+    except Exception as ex:
+        logger.error(ex, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Invalid",
+        ) from ex
 
 
 @router.get("/exception")
