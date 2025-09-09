@@ -12,7 +12,7 @@ from typing import Any, Optional
 
 from fastapi.logger import logger as fastapi_logger
 from gunicorn import glogging
-from pythonjsonlogger.jsonlogger import JsonFormatter
+from pythonjsonlogger.json import JsonFormatter
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from nabla.config_settings import get_settings

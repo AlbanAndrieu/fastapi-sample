@@ -16,34 +16,31 @@ from ddtrace.trace import TraceFilter
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.concurrency import asynccontextmanager
 from fastapi.openapi.utils import get_openapi
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse, ORJSONResponse
 from fastapi.templating import Jinja2Templates
+
+# from fastapi_cache import FastAPICache
+# from fastapi_cache.backends.redis import RedisBackend
 from fastapi_mcp import FastApiMCP
 from prometheus_client import make_asgi_app
 from prometheus_fastapi_instrumentator import Instrumentator
+
+# from redis import asyncio as aioredis
+from redis import Redis
 from sentry_sdk.integrations.logging import LoggingIntegration
+from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Mount
-from fastapi.responses import ORJSONResponse
-from fastapi_cache import FastAPICache
 
-from slowapi import Limiter
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
-from fastapi.responses import JSONResponse
-from nabla.api.demo.ws.event_bus import redis
-from fastapi_cache.backends.redis import RedisBackend
-from redis.client import Redis
-from redis import asyncio as aioredis
-from nabla.api.demo.ws.websocket import websocket_endpoint
-from nabla.api.demo.ws.event_bus import start_event_listener
-
-from nabla.config_settings import REDIS_HOST, REDIS_PORT
 from nabla.api import ping, v1, v2
 from nabla.api.auth import keycloak
 from nabla.api.demo import dd, demo, integration, sensor
 from nabla.api.demo.models import recent_readings
 from nabla.api.demo.sensor import metrics
+from nabla.api.demo.ws.event_bus import start_event_listener
+from nabla.api.demo.ws.websocket import websocket_endpoint
 from nabla.api.notes import notes
 from nabla.api.test import info
 from nabla.api.users import users
@@ -54,10 +51,11 @@ from nabla.config_settings import (
     APP_VERSION,
     EXPOSE_MCP_PORT,
     OTLP_GRPC_ENDPOINT,
+    REDIS_HOST,
+    REDIS_PORT,
     SENTRY_DSN,
     get_settings,
 )
-
 from nabla.db import database
 from nabla.utils.log_config import LogMiddleware, setup_logging
 
@@ -155,8 +153,15 @@ async def lifespan(app: FastAPI):
     # )
     # print(redis.get_nodes())
 
-    redis = aioredis.from_url(f"redis://{REDIS_HOST}:{REDIS_PORT}")
-    FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
+    # creds_provider = redis.UsernamePasswordCredentialProvider("default", "redis_password")
+
+    # redis = aioredis.from_url(f"redis://{REDIS_HOST}:{REDIS_PORT}")
+    # redis = redis.Redis(host='localhost', port=6379, decode_responses=True, credential_provider=creds_provider)
+    redis = Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+    app.state.redis = redis
+    await redis.ping()
+
+    # FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
 
     await database.connect()
 
@@ -178,6 +183,7 @@ async def lifespan(app: FastAPI):
 
     if redis:
         redis.close()
+    app.state.redis.close()
 
     logger.info("📊 Sensor Dashboard application shutting down")
     logger.info(

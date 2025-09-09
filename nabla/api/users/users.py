@@ -1,17 +1,16 @@
 import asyncio
 import random
 
-from sqlalchemy import Column, Integer, String, Boolean
+from fastapi import APIRouter, Depends, HTTPException
+
+# from fastapi_cache.decorator import cache
 from pydantic import BaseModel
-
+from sqlalchemy import Boolean, Column, Integer, String
 from sqlalchemy.orm import declarative_base
-from fastapi import APIRouter, HTTPException, Depends
-from fastapi_cache.decorator import cache
 
+from nabla.db import get_db
 from nabla.utils.logger import logger
 from nabla.utils.prometheus import USER_REGISTRATIONS
-from nabla.db import get_db
-
 
 router = APIRouter(prefix="/test")
 
@@ -19,7 +18,7 @@ Base = declarative_base()
 
 
 class UserEvent(BaseModel):
-    def __init__(self, name = "Alban Andrieu", email = "alban.andrieu@nabla.io", password = "password"):
+    def __init__(self, name = "Alban Andrieu", email = "alban.andrieu@nabla.io", password = "XXX"):
         self.name = name
         self.email = email
         self.password = password
@@ -56,11 +55,11 @@ class User(Base):
 
 
     def __str__(self):
-        return f"User ID : {self.id}\tName : {self.name}\tEmail : {self.email}\tPassword : {self.password}\tActive : {self.active}\tRole : {self.role}\tPermissions : {self.permissions}\tGroups : {self.groups}\tCreated Date : {self.timestamp}"
+        return f"User ID : {self.id}\tName : {self.name}\tEmail : {self.email}\tPassword : {self.password}\tActive : {self.active}\tRole : {self.role}\tPermissions : {self.permissions}\tGroups : {self.groups}"
 
 
 @router.get("/users/{user_id}", response_model=UserEvent, operation_id="get_user_info")
-@cache(expire=300)  # Cache for 5 minutes to avoid repeated execution of complex SQL
+# @cache(expire=300)  # Cache for 5 minutes to avoid repeated execution of complex SQL
 async def get_user(user_id: int, db=Depends(get_db)):
     """
     👤 User endpoint with variable response time

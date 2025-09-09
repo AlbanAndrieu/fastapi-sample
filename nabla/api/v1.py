@@ -7,13 +7,12 @@ from ddtrace.trace import tracer
 from fastapi import APIRouter
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from fastapi_cache.decorator import cache
-
-from nabla.api.demo.ws.event_bus import redis
 
 # from redis.cluster import Redis
 from starlette.responses import JSONResponse
 
+# from fastapi_cache.decorator import cache
+from nabla.api.demo.ws.event_bus import redis
 from nabla.utils.logger import logger
 
 REDIS_HOST = os.environ.get("REDIS_HOST", "127.0.0.1")
@@ -52,7 +51,7 @@ def uniform_secret():
     return random.uniform(0, 3)  # nosec # noqa: S311
 
 
-@cache()
+#@cache()
 @router.get("/random")
 def demo_random():
     try:
