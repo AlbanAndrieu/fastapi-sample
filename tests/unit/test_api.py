@@ -85,17 +85,16 @@ def test_users(*args) -> None:
     client = TestClient(app)
     expected_status: int = 200
 
-    with pytest.raises(AssertionError):
-        response = client.get("/test/users/0")
+    # with pytest.raises(AssertionError):
+    response = client.get("/test/users/0")
 
-        # then
-        assert response.status_code == expected_status
-        assert response.json() == {
-            "user_id": "0",
-            "name": "User 0",
-            "active": "true",
-            "created_at": "2024-01-01T00:00:00Z",
-        }
+    # then
+    assert response.status_code == expected_status
+    assert response.json() == {
+        "name": "User 0",
+        "email": "alban.andrieu@free.fr",
+        "password": "XXX",
+    }
 
 
 def test_exception(*args) -> None:
@@ -130,9 +129,14 @@ def test_invalid(*args) -> None:
     """It runs and gives error"""
 
     client = TestClient(app)
+    expected_status: int = 500
 
-    with pytest.raises(ValueError):
-        client.get("/test/invalid")
+    # with pytest.raises(TypeError("Invalid")):
+    response = client.get("/test/invalid")
+    assert response.status_code == expected_status
+    assert response.json() == {
+        "detail": "Invalid request",
+    }
 
 
 # def test_chain(*args) -> None:

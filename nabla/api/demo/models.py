@@ -5,7 +5,6 @@ from typing import Any, Deque, Dict, Final, List
 
 import plotly.graph_objects as go
 import polars as pl
-from nabla.api.demo.ws.event_bus import redis, REDIS_CHANNEL
 from ddtrace import patch
 from pydantic import BaseModel
 
@@ -13,6 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy import Column, DateTime, Float, Integer, String, create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
+from nabla.api.demo.ws.event_bus import REDIS_CHANNEL, redis
 from nabla.config_settings import get_settings
 from nabla.utils.logger import logger
 
@@ -101,6 +101,7 @@ class SensorData:
 
         return reading
 
+    # TODO @cache(expire=60, coder=ORJsonCoder)
     def save_reading(self, data: Dict[str, Any]) -> None:
         """Save sensor reading to PostgreSQL database"""
         db = SessionLocal()

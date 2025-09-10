@@ -3,6 +3,7 @@ from typing import List
 
 from fastapi import APIRouter, HTTPException, Path
 
+# from fastapi_cache.decorator import cache
 from nabla.api.notes import crud
 from nabla.api.notes.models import NoteDB, NoteSchema
 
@@ -23,7 +24,7 @@ async def create_note(payload: NoteSchema):
     }
     return response_object
 
-
+# @cache(expire=300)  # Cache for 5 minutes to avoid repeated execution of complex SQL
 @router.get("/{note_id}/", response_model=NoteDB)
 async def read_note(
     note_id: int = Path(..., gt=0),

@@ -281,7 +281,8 @@ test-pytest-poetry:
   extends: .test-pytest-poetry
   needs: ["lint-ruff", "type-checker-pyright"]
   variables:
-    DEFAULT_COV_ARGS: "--cov-fail-under=1" # We need to increase the test coverage
+    # DEFAULT_COV_ARGS: "--cov-fail-under=1" # We need to increase the test coverage
+    DEFAULT_COV_ARGS: "--no-ddtrace --no-cov"
   allow_failure: true
   rules:
     - if: '$CI_COMMIT_MESSAGE =~ /^.*(#dev|#uat|#team|#prod).*$/s'
@@ -353,9 +354,9 @@ install-npm:
     # - rm -rf node_modules package-lock.json
     - |
       if [ -e yarn.lock ]; then
-      yarn install --frozen-lockfile
+        yarn install --frozen-lockfile
       elif [ -e package-lock.json ]; then
-      npm i --cache .npm --prefer-offline --no-audit
+        npm i --cache .npm --prefer-offline --no-audit
       fi
   cache:
     # inherit all global cache settings

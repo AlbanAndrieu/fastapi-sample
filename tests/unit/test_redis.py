@@ -42,7 +42,6 @@ def test_redis_random_v1(*args) -> None:
 
     print(response.json())
     assert response.status_code == expected_status
-    # assert response.json() ==
 
 
 def test_redis_demo_items_one_second(*args) -> None:
@@ -57,3 +56,4 @@ def test_redis_demo_items_one_second(*args) -> None:
     print(response.json())
     assert response.status_code == expected_status
     assert response.json() == {"item_id": 1, "q": "No Query"}
+    # assert response.json() == {"item_id": 1, "q": None}
