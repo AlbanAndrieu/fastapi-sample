@@ -1,6 +1,4 @@
-import os
 import random
-from uuid import uuid4
 
 # import redis
 from ddtrace.trace import tracer
@@ -11,12 +9,10 @@ from slowapi.util import get_remote_address
 # from redis.cluster import Redis
 from starlette.responses import JSONResponse
 
-# from fastapi_cache.decorator import cache
-from nabla.api.demo.ws.event_bus import redis
 from nabla.utils.logger import logger
 
-REDIS_HOST = os.environ.get("REDIS_HOST", "127.0.0.1")
-REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))
+# from fastapi_cache.decorator import cache
+
 
 QUOTES = [
     "Strive not to be a success, but rather to be of value. - Albert Einstein",
@@ -27,50 +23,11 @@ QUOTES = [
 router = APIRouter(prefix="/v1")
 limiter = Limiter(key_func=get_remote_address)
 
+
 @router.get("/message")
 def demo_message():
     logger.info("demo_message")
     return {"Hello": "World"}
-
-
-# Global variable declaration
-# redis: Redis | None
-#pool = redis.ConnectionPool(host=REDIS_HOST, port=REDIS_PORT, db=0)
-# redis = redis.Redis(connection_pool=pool)
-# redis = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT)
-
-POOL = list(range(1, 7))
-SIZE = 4
-
-
-def string_secret():
-    return random.sample(POOL, SIZE)  # nosec
-
-
-def uniform_secret():
-    return random.uniform(0, 3)  # nosec # noqa: S311
-
-
-#@cache()
-@router.get("/random")
-def demo_random():
-    try:
-        # global redis
-        # redis = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT)
-        secret = uniform_secret()
-
-        # Validate interval (don't let users sleep for too long)
-        secret = max(1, min(secret, 10))  # Between 1-10 seconds
-
-        logger.info(f"set random number {secret} to redis")
-        redis.set("randomnumber", secret)
-        logger.info(f"get random number {secret} from redis")
-        result = redis.get("randomnumber")
-        if result is None:
-            return str(uuid4())  # Fallback to uuid if key doesn't exist
-        return str(result)
-    except redis.RedisError:
-        return str(uuid4())  # Fallback to uuid on connection error
 
 
 @router.get("/ping")

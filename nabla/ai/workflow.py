@@ -1,3 +1,4 @@
+import pybreaker
 from dotenv import load_dotenv
 from fastapi import APIRouter
 from langchain_core.messages import HumanMessage
@@ -9,6 +10,11 @@ from nabla.utils.logger import logger
 router = APIRouter()
 
 load_dotenv()
+
+# Configure separate circuit breakers for the two external services:
+# Both fail after 2 consecutive errors and open the circuit for 10 seconds.
+circuit_breaker_llm = pybreaker.CircuitBreaker(fail_max=2, reset_timeout=10)
+
 llm = ChatOpenAI(model="gpt-4o")  # You can switch to gpt-4o-mini for cheaper calls
 
 # Define state
@@ -53,6 +59,7 @@ from workflow import RequestData, graph
 
 
 @router.post("/run")
+# TODO @circuit_breaker_llm
 async def run_workflow(data: RequestData):
     result = graph.invoke({"user_input": data.user_input})
     return {"result": result["answer"]}

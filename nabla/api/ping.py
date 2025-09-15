@@ -1,9 +1,9 @@
+import cProfile
 import os
 import time
 
 import httpx
 import pyroscope
-import cProfile
 from ddtrace.trace import tracer
 from fastapi import APIRouter, Response
 from opentelemetry.propagate import inject
@@ -73,7 +73,6 @@ async def profile_me():
 async def error_test(response: Response):
     logger.error("got error!!!!")
     raise ValueError("value error")
-
 
 @router.get("/chain")
 # @limiter.limit("100/second")

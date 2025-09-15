@@ -1,7 +1,9 @@
 import asyncio
 import random
 
+import pybreaker
 from fastapi import APIRouter, HTTPException
+from fastmcp import FastMCP
 
 # from fastapi_cache.decorator import cache
 from pydantic import BaseModel
@@ -12,9 +14,11 @@ from nabla.utils.logger import logger
 from nabla.utils.prometheus import USER_REGISTRATIONS
 
 router = APIRouter(prefix="/test")
+mcp = FastMCP(name="UserServer")
 
 Base = declarative_base()
 
+circuit_breaker_user = pybreaker.CircuitBreaker(fail_max=2, reset_timeout=10)
 
 class UserEvent(BaseModel):
     name: str
@@ -23,7 +27,7 @@ class UserEvent(BaseModel):
     # active: bool
     # role: str
     # permissions: list[str]
-    # groups: list[str]
+    # groups: list[str]mcp
     # phone: str
     # address: str
     # city: str
@@ -39,7 +43,7 @@ class UserEvent(BaseModel):
         # self.permissions = ["read", "write"]
         # self.groups = ["admin"]
         # self.phone = "0695435353"
-        # self.address = "11 terrasse de l'université"
+        # self.address = "11 terrasse de l'université"mcp
         # self.city = "Paris"
         # self.state = "FR"
         # self.zip = "92000"
@@ -52,8 +56,6 @@ class UserEvent(BaseModel):
         # last_login_location: str
         # last_login_browser: str
         # last_login_os: str
-
-
 
 
 class User(Base):
@@ -73,28 +75,43 @@ class User(Base):
         return f"User ID : {self.id}\tName : {self.name}\tEmail : {self.email}\tPassword : {self.password}\tActive : {self.active}\tRole : {self.role}\tPermissions : {self.permissions}\tGroups : {self.groups}"
 
 
+@mcp.tool(
+    name="get_user_details",
+    exclude_args=["user_id"]
+)
+def get_user_details(user_id: str = None) -> str:
+    # user_id will be injected by the server, not provided by the LLM
+    if user_id is None:
+        return {
+            "name": "Alban Andrieu",
+            "email": "alban.andrieu@free.fr",
+            "phone": "0695435353",
+            "address": "11 terrasse de l'université",
+            "city": "Paris",
+            "state": "FR",
+            "zip": "92000",
+            "country": "France",
+            "job": "DevSecOps",
+            "company": "JusMundi",
+            "linkedin": "https://www.linkedin.com/in/nabla/",
+            "github": "https://github.com/albanandrieu",
+            "twitter": "https://twitter.com/nabla",
+            "facebook": "https://www.facebook.com/aandrieu",
+            "instagram": "https://www.instagram.com/aandrieu/",
+        }
+    return {}
+
 # This endpoint will not be registered as a tool, since it was added after the MCP instance was created
+# Dynamic resource template
+@mcp.resource("users://whoami/profile")
 @router.get("/whoami/", operation_id="whoami", response_model=dict[str, str])
 async def whoami():
-    return {
-        "name": "Alban Andrieu",
-        "email": "alban.andrieu@free.fr",
-        "phone": "0695435353",
-        "address": "11 terrasse de l'université",
-        "city": "Paris",
-        "state": "FR",
-        "zip": "92000",
-        "country": "France",
-        "job": "DevSecOps",
-        "company": "JusMundi",
-        "linkedin": "https://www.linkedin.com/in/nabla/",
-        "github": "https://github.com/albanandrieu",
-        "twitter": "https://twitter.com/nabla",
-        "facebook": "https://www.facebook.com/aandrieu",
-        "instagram": "https://www.instagram.com/aandrieu/",
-    }
+    return get_user_details(None)
 
+# Dynamic resource template
+@mcp.resource("users://{user_id}/profile")
 @router.get("/users/{user_id}", response_model=UserEvent, operation_id="get_user_info")
+# @circuit_breaker_user
 # @cache(expire=300)  # Cache for 5 minutes to avoid repeated execution of complex SQL
 # async def get_user(user_id: int, db=Depends(get_db)):
 async def get_user(user_id: int):

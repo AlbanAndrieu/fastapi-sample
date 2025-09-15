@@ -2,25 +2,62 @@ import asyncio
 import os
 import random
 from typing import Optional
+from uuid import uuid4
 
 import requests
 from fastapi import APIRouter, HTTPException, status
+from fastmcp import FastMCP
 from opentelemetry import trace
 from opentelemetry.trace.status import Status, StatusCode
 
-from nabla.api.demo.ws.event_bus import redis
+from nabla.api.demo.ws.event_bus import REDIS_CHANNEL, redis
 from nabla.utils.logger import logger
 from nabla.utils.misc import timed_operation
 from nabla.utils.prometheus import API_REQUEST_COUNTER, API_REQUEST_SUMMARY
 
 router = APIRouter()
-
+# mcp = FastMCP.from_fastapi(app=app)
+mcp = FastMCP(name="DemoServer")
 
 # The demo sample project to test the tracing
 DEMO_SAMPLE_URL = os.environ.get(
     "DEMO_SAMPLE_URL",
     "http://test-haproxy-demo-ateam.service.gra.dev.consul",
 )
+
+
+POOL = list(range(1, 7))
+SIZE = 4
+
+
+def string_secret():
+    return random.sample(POOL, SIZE)  # nosec
+
+
+def uniform_secret():
+    return random.uniform(0, 3)  # nosec # noqa: S311
+
+
+# @cache()
+@router.get("/demo/random")
+async def demo_random():
+    try:
+        # global redis
+        # redis = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT)
+        secret = uniform_secret()
+
+        # Validate interval (don't let users sleep for too long)
+        secret = max(1, min(secret, 10))  # Between 1-10 seconds
+
+        logger.info(f"set random number {secret} to redis")
+        await redis.set(REDIS_CHANNEL + ".randomnumber", secret)
+        logger.info(f"get random number {secret} from redis")
+        result = await redis.get(REDIS_CHANNEL + ".randomnumber")
+        if result is None:
+            return str(uuid4())  # Fallback to uuid if key doesn't exist
+        return str(result)
+    except redis.RedisError:
+        return str(uuid4())  # Fallback to uuid on connection error
 
 
 @router.get("/demo/items/{item_id}")
@@ -38,11 +75,9 @@ async def read_item(item_id: int, q: Optional[str] = None):
     API_REQUEST_SUMMARY.labels(method="GET", endpoint="/items/{item_id}").observe(0.1)
 
     # Example of storing data in Redis
-    redis.set(f"item_{item_id}", q or "No Query")
+    await redis.set(f"{REDIS_CHANNEL}.item_{item_id}", q or "No Query")
 
-    # TODO redis.get("randomnumber")
-
-    cached_value = await redis.get(f"item_{item_id}")
+    # yield cached_value
 
     if item_id % 2 == 0:
         # mock io - wait for x seconds
@@ -50,6 +85,8 @@ async def read_item(item_id: int, q: Optional[str] = None):
         seconds = item_id
         logger.info(f"Sleeping for {seconds} seconds")
         await asyncio.sleep(seconds)
+
+    cached_value = await redis.get(f"{REDIS_CHANNEL}.item_{item_id}")
 
     return {"item_id": item_id, "q": cached_value}
 

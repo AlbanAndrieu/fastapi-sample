@@ -67,7 +67,7 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DEFAULT_TIMEOUT=100 \
     # poetry
     # https://python-poetry.org/docs/configuration/#using-environment-variables
-    POETRY_VERSION=2.1.3 \
+    POETRY_VERSION=2.1.4 \
     # make poetry install to this location
     POETRY_HOME="/code/.poetry_venv" \
     POETRY_NO_INTERACTION=1 \
@@ -172,7 +172,8 @@ USER jm-python
 RUN poetry --no-root install --with api,extras,open_telemetry,deployment,temporal
 
 COPY --chown=jm-python:jm-python nabla/ "${PYSETUP_PATH}/jm-python/nabla/"
-COPY --chown=jm-python:jm-python serve.py ""${PYSETUP_PATH}/jm-python/"
+COPY --chown=jm-python:jm-python server.py ""${PYSETUP_PATH}/jm-python/"
+COPY --chown=jm-python:jm-python main.py ""${PYSETUP_PATH}/jm-python/"
 
 RUN mkdir -p "${PYSETUP_PATH}/jm-python/var/"
 
@@ -182,7 +183,7 @@ HEALTHCHECK CMD curl --fail http://localhost:8080/v1/ping || exit 1
 
 EXPOSE 8080
 
-CMD ["/code/.venv/bin/uvicorn", "--reload", "serve:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["/code/.venv/bin/uvicorn", "--reload", "main:app", "--host", "0.0.0.0", "--port", "8080"]
 
 # `production` image used for runtime
 FROM python-base AS production
@@ -221,8 +222,7 @@ WORKDIR "${PYSETUP_PATH}/jm-python/"
 
 EXPOSE 8080
 
-# CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "serve:app", "--host", "0.0.0.0", "--port", "8080"]
-# CMD ["/code/.venv/bin/uvicorn", "--reload", "serve:app", "--host", "0.0.0.0", "--port", "8080"]
+# CMD ["/code/.venv/bin/uvicorn", "--reload", "server:app", "--host", "0.0.0.0", "--port", "8080"]
 
 CMD [ \
     "ddtrace-run", \
@@ -236,15 +236,11 @@ CMD [ \
     "--max-requests-jitter", "100", \
     "--bind", "0.0.0.0:8080", \
     "--graceful-timeout", "120", \
-    # "--statsd-host", "10.30.0.115:8125", \
     "--timeout", "120", \
     "--logger-class=nabla.utils.log_config.JMGunicornLogger", \
     "--log-level", "info", \
     "--access-logfile", "-" \
 ]
-
-
-# HEALTHCHECK CMD curl --fail http://localhost:8080/v1/ping || exit 1
 
 HEALTHCHECK --interval=60s --timeout=10s --start-period=60s --retries=5 \
     CMD curl -f http://localhost:8000/health || exit 1

@@ -20,39 +20,39 @@ services:
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-npm-smaller
     file: "/templates/default.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-npm-smaller
     file: "/templates/docker-build.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-npm-smaller
     file: "/templates/deploy-nomad.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-npm-smaller
     file: "/templates/test-python.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-npm-smaller
     file: "/templates/javascript.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-npm-smaller
     file: "/templates/_apk.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-npm-smaller
     file: "/templates/data.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-npm-smaller
     file: "/templates/mega-linter.gitlab-ci.yml"
 
   # - project: jusmundi-group/infrastructure/ci-templates
-  #   ref: main
+  #   ref: feature-npm-smaller
   #   file: "/templates/gitlab-ult-sec.gitlab-ci.yml"
 
   - component: $CI_SERVER_FQDN/to-be-continuous/semantic-release/gitlab-ci-semrel@3.11.2
@@ -151,7 +151,7 @@ variables:
   NOMAD_ENV_DEPLOY: "-var env=${ENV} -var team=${ENV}"
   NOMAD_SERVICE_DEPLOY_URL_SUFFIX: docs # citemap/ping
   NOMAD_SERVICE_DEPLOY_URL: http://${APP_NAME}.service.gra.${ENV}.consul/${NOMAD_SERVICE_DEPLOY_URL_SUFFIX}
-  DEFAULT_POETRY_OPT_GROUPS: "format,test,extra,open_telemetry,deployment,influxdb,panda"
+  DEFAULT_POETRY_OPT_GROUPS: "format,test,extra,open_telemetry,api,deployment,influxdb,panda,temporal,utils,webui"
   DEPENDENCY_UPDATES_DISABLED: false
   # GIT_CLONE_PATH: '$CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_PIPELINE_ID'
   # GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_PROJECT_PATH
@@ -283,7 +283,7 @@ test-pytest-poetry:
   variables:
     # DEFAULT_COV_ARGS: "--cov-fail-under=1" # We need to increase the test coverage
     DEFAULT_COV_ARGS: "--no-ddtrace --no-cov"
-  allow_failure: true
+  allow_failure: false
   rules:
     - if: '$CI_COMMIT_MESSAGE =~ /^.*(#dev|#uat|#team|#prod).*$/s'
       when: never
@@ -320,7 +320,7 @@ test-pytest-poetry:
 test-pytest:
   extends: .test-pytest-poetry
   needs: []
-  image: $CI_IMAGE_PYTHON
+  image: ${CI_IMAGE_PYTHON}
   interruptible: true
   allow_failure: false
   variables:
@@ -336,8 +336,10 @@ test-pytest:
     REDIS_URL: redis://redis:6379
     ENABLE_METRICS: false
   script:
-    - if [ -n "$DEFAULT_POETRY_OPT_GROUPS" ]; then $POETRY_HOME/bin/poetry install --no-root --with ${DEFAULT_POETRY_OPT_GROUPS}; else $POETRY_HOME/bin/poetry install --no-root; fi
+    - if [ -n "${DEFAULT_POETRY_OPT_GROUPS}" ]; then ${POETRY_HOME}/bin/poetry install --no-root --with ${DEFAULT_POETRY_OPT_GROUPS}; else ${POETRY_HOME}/bin/poetry install --no-root; fi
     - export DB_URL=${DB_URL}
+    - echo "PATH = $PATH"
+    - pip install --upgrade pip
     - pytest --cov=${DEFAULT_COV} --cov-report term --cov-report xml:coverage.xml --junitxml pytest-junit.xml ${DEFAULT_COV_ARGS}
 
 # See https://docs.gitlab.com/user/packages/npm_registry/?tab=%60npm+config%60#publish-a-package-with-a-cicd-pipeline

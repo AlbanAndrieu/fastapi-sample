@@ -18,4 +18,6 @@ export DEFAULT_COV=${CI_PROJECT_NAME:-"nabla"}
 
 COVERAGE_FILE=.coverage coverage run --rcfile=.coveragerc -m pytest --cov="${DEFAULT_COV}" "${DEFAULT_COV_TARGET} ${DEFAULT_COV_ARGS} ${DEFAULT_FORMAT_TARGET} ${DEFAULT_COV_TARGET}"
 
+echo "pytest -k test_redis_demo_items_one_second"
+
 exit 0

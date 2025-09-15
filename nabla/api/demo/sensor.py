@@ -8,10 +8,9 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from sse_starlette import EventSourceResponse
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from nabla.api.demo.ws.event_bus import publish_event
+from sse_starlette import EventSourceResponse
 
 from nabla.api.demo.charts import ChartFactory
 from nabla.api.demo.models import (
@@ -22,6 +21,7 @@ from nabla.api.demo.models import (
     get_statistical_summary,
     recent_readings,
 )
+from nabla.api.demo.ws.event_bus import publish_event
 from nabla.utils.logger import logger
 
 router = APIRouter()
@@ -33,7 +33,6 @@ sensor = SensorData()
 chart_factory = ChartFactory()
 
 active_connections: weakref.WeakSet[Any] = weakref.WeakSet()
-
 
 # Performance monitoring
 class DashboardMetrics:

@@ -1,3 +1,4 @@
+import dataclasses
 import random
 from collections import deque
 from datetime import datetime, timedelta
@@ -28,14 +29,8 @@ engine = create_engine(DB_URL)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-class SensorEvent(BaseModel):
-    timestamp: str
-    temperature: float
-    humidity: float
-    pressure: float
-    status: str
-
-
+# Sensor reading model with sqlalchemy
+@dataclasses.dataclass
 class SensorReading(Base):
     __tablename__ = "sensor_readings"
 
@@ -48,6 +43,24 @@ class SensorReading(Base):
 
     def __str__(self):
         return f"Sendor ID : {self.id}\tTemperature : {self.temperature}\tHumidity : {self.humidity}\tPressure : {self.pressure}\tStatus : {self.status}\tCreated Date : {self.timestamp}"
+
+    # def to_json(self):
+    #     return json.dumps(
+    #         self,
+    #         default=lambda o: o.__dict__,
+    #         sort_keys=True,
+    #         indent=4)
+
+
+
+# Sensor event model with pydantic validation
+@dataclasses.dataclass
+class SensorEvent(BaseModel):
+    timestamp: str
+    temperature: float
+    humidity: float
+    pressure: float
+    status: str
 
 
 class SensorData:
@@ -77,7 +90,6 @@ class SensorData:
         recent_readings.extend(history)
         logger.info(f"Initialized sensor history with {len(history)} readings")
 
-
     def generate_reading(self, timestamp: datetime = None) -> Dict:
         """Generate a sensor reading with optional timestamp"""
         if timestamp is None:
@@ -85,10 +97,10 @@ class SensorData:
 
         reading = {
             "timestamp": timestamp.isoformat(),
-            "temperature": round(random.uniform(self.min_temp, self.max_temp), 1),  #noqa: S311 # nosec
-            "humidity": round(random.uniform(self.min_humidity, self.max_humidity), 1),  #noqa: S311 # nosec
-            "pressure": round(random.uniform(1000, 1030), 1),  #noqa: S311 # nosec
-            "status": random.choice(["normal", "warning", "critical"]),  #noqa: S311 # nosec
+            "temperature": round(random.uniform(self.min_temp, self.max_temp), 1),  # noqa: S311 # nosec
+            "humidity": round(random.uniform(self.min_humidity, self.max_humidity), 1),  # noqa: S311 # nosec
+            "pressure": round(random.uniform(1000, 1030), 1),  # noqa: S311 # nosec
+            "status": random.choice(["normal", "warning", "critical"]),  # noqa: S311 # nosec
         }
 
         logger.info("Sensor reading created successfully")
@@ -119,6 +131,8 @@ class SensorData:
             )
 
             redis.lpush(REDIS_CHANNEL, str(db_reading))
+            # redis.lpush(REDIS_CHANNEL, db_reading.to_json())
+            # redis.lpush(REDIS_CHANNEL, orjson.dumps(db_reading, option=orjson.OPT_SORT_KEYS))
 
             db.add(db_reading)
             db.commit()
@@ -128,7 +142,6 @@ class SensorData:
         finally:
             db.close()
 
-
     def create_status_distribution(self, df: pl.DataFrame) -> str:
         """Create status distribution pie chart"""
         if df.is_empty():
@@ -136,29 +149,35 @@ class SensorData:
             return self._create_empty_chart("No status data")
 
         # Get status counts using Polars
-        status_counts = df['status'].value_counts().sort('status')
+        status_counts = df["status"].value_counts().sort("status")
 
-        logger.debug(f"Status distribution: {dict(zip(status_counts['status'].to_list(), status_counts['count'].to_list(), strict=False))}")
+        logger.debug(
+            f"Status distribution: {dict(zip(status_counts['status'].to_list(), status_counts['count'].to_list(), strict=False))}"
+        )
 
-        fig = go.Figure(data=[
-            go.Pie(
-                labels=status_counts['status'].to_list(),
-                values=status_counts['count'].to_list(),
-                marker_colors=[self.colors.get(status, '#6B7280')
-                             for status in status_counts['status'].to_list()],
-                hovertemplate='<b>%{label}</b><br>Count: %{value}<br>Percentage: %{percent}<extra></extra>',
-                textinfo='label+percent'
-            )
-        ])
+        fig = go.Figure(
+            data=[
+                go.Pie(
+                    labels=status_counts["status"].to_list(),
+                    values=status_counts["count"].to_list(),
+                    marker_colors=[
+                        self.colors.get(status, "#6B7280")
+                        for status in status_counts["status"].to_list()
+                    ],
+                    hovertemplate="<b>%{label}</b><br>Count: %{value}<br>Percentage: %{percent}<extra></extra>",
+                    textinfo="label+percent",
+                )
+            ]
+        )
 
         fig.update_layout(
-            **self.layout_defaults, # pyright: ignore[reportAttributeAccessIssue]
+            **self.layout_defaults,  # pyright: ignore[reportAttributeAccessIssue]
             title="Sensor Status Distribution",
             # height=300
         )
 
         logger.info("Status distribution chart created successfully")
-        return fig.to_html(include_plotlyjs='cdn', div_id='status-chart')
+        return fig.to_html(include_plotlyjs="cdn", div_id="status-chart")
 
     def create_correlation_heatmap(self, df: pl.DataFrame) -> str:
         """Create correlation heatmap between metrics"""
@@ -169,7 +188,7 @@ class SensorData:
         logger.debug("Calculating correlation matrix")
 
         # Calculate correlation matrix using Polars
-        numeric_cols = ['temperature', 'humidity', 'pressure']
+        numeric_cols = ["temperature", "humidity", "pressure"]
         corr_data = []
 
         for col1 in numeric_cols:
@@ -187,17 +206,19 @@ class SensorData:
 
         logger.debug(f"Correlation matrix calculated: {corr_data}")
 
-        fig = go.Figure(data=go.Heatmap(
-            z=corr_data,
-            x=numeric_cols,
-            y=numeric_cols,
-            colorscale='RdBu',
-            zmid=0,
-            text=[[f'{val:.2f}' for val in row] for row in corr_data],
-            texttemplate='%{text}',
-            textfont={'size': 12},
-            hovertemplate='<b>%{y} vs %{x}</b><br>Correlation: %{z:.3f}<extra></extra>'
-        ))
+        fig = go.Figure(
+            data=go.Heatmap(
+                z=corr_data,
+                x=numeric_cols,
+                y=numeric_cols,
+                colorscale="RdBu",
+                zmid=0,
+                text=[[f"{val:.2f}" for val in row] for row in corr_data],
+                texttemplate="%{text}",
+                textfont={"size": 12},
+                hovertemplate="<b>%{y} vs %{x}</b><br>Correlation: %{z:.3f}<extra></extra>",
+            )
+        )
 
         fig.update_layout(
             **self.layout_defaults,  # pyright: ignore[reportAttributeAccessIssue]
@@ -206,8 +227,7 @@ class SensorData:
         )
 
         logger.info("Correlation heatmap created successfully")
-        return fig.to_html(include_plotlyjs='cdn', div_id='correlation-chart')
-
+        return fig.to_html(include_plotlyjs="cdn", div_id="correlation-chart")
 
     def create_anomaly_highlights(self, df: pl.DataFrame, anomalies: List[Dict]) -> str:
         """Create chart highlighting anomalous readings"""
@@ -217,52 +237,53 @@ class SensorData:
 
         logger.debug(f"Creating anomaly chart with {len(anomalies)} anomalies")
 
-        timestamps = df['timestamp'].to_list()
-        temperatures = df['temperature'].to_list()
+        timestamps = df["timestamp"].to_list()
+        temperatures = df["temperature"].to_list()
 
         fig = go.Figure()
 
         # Normal temperature line
-        fig.add_trace(go.Scatter(
-            x=timestamps,
-            y=temperatures,
-            mode='lines+markers',
-            name='Temperature',
-            line=dict(color=self.colors['temperature']),
-            marker=dict(size=4)
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=timestamps,
+                y=temperatures,
+                mode="lines+markers",
+                name="Temperature",
+                line={"color": self.colors["temperature"]},
+                marker={"size": 4},
+            )
+        )
 
         # Highlight anomalies
         if anomalies:
-            anomaly_times = [datetime.fromisoformat(a['timestamp']) for a in anomalies]
-            anomaly_temps = [a['temperature'] for a in anomalies]
+            anomaly_times = [datetime.fromisoformat(a["timestamp"]) for a in anomalies]
+            anomaly_temps = [a["temperature"] for a in anomalies]
 
             logger.info(f"Highlighting {len(anomalies)} anomalies on chart")
 
-            fig.add_trace(go.Scatter(
-                x=anomaly_times,
-                y=anomaly_temps,
-                mode='markers',
-                name='Anomalies',
-                marker=dict(
-                    color=self.colors['critical'],
-                    size=10,
-                    symbol='diamond'
-                ),
-                hovertemplate='<b>Anomaly Detected</b><br>Temperature: %{y:.1f}°C<br>%{x}<extra></extra>'
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=anomaly_times,
+                    y=anomaly_temps,
+                    mode="markers",
+                    name="Anomalies",
+                    marker={
+                        "color": self.colors["critical"], "size": 10, "symbol": "diamond"
+                    },
+                    hovertemplate="<b>Anomaly Detected</b><br>Temperature: %{y:.1f}°C<br>%{x}<extra></extra>",
+                )
+            )
 
         fig.update_layout(
-            **self.layout_defaults, # pyright: ignore[reportAttributeAccessIssue]
+            **self.layout_defaults,  # pyright: ignore[reportAttributeAccessIssue]
             title="Temperature with Anomaly Detection",
             # height=300,
             xaxis_title="Time",
-            yaxis_title="Temperature (°C)"
+            yaxis_title="Temperature (°C)",
         )
 
         logger.info("Anomaly detection chart created successfully")
-        return fig.to_html(include_plotlyjs='cdn', div_id='anomaly-chart')
-
+        return fig.to_html(include_plotlyjs="cdn", div_id="anomaly-chart")
 
     def _create_empty_chart(self, message: str) -> str:
         """Create placeholder chart for empty data"""
@@ -271,18 +292,21 @@ class SensorData:
         fig = go.Figure()
         fig.add_annotation(
             text=message,
-            xref="paper", yref="paper",
-            x=0.5, y=0.5,
-            xanchor='center', yanchor='middle',
-            font=dict(size=16, color="gray")
+            xref="paper",
+            yref="paper",
+            x=0.5,
+            y=0.5,
+            xanchor="center",
+            yanchor="middle",
+            font={"size": 16, "color": "gray"},
         )
         fig.update_layout(
-            **self.layout_defaults, # pyright: ignore[reportAttributeAccessIssue]
+            **self.layout_defaults,  # pyright: ignore[reportAttributeAccessIssue]
             # height=300,
-            xaxis=dict(visible=False),
-            yaxis=dict(visible=False)
+            xaxis={"visible": False},
+            yaxis={"visible": False},
         )
-        return fig.to_html(include_plotlyjs='cdn')
+        return fig.to_html(include_plotlyjs="cdn")
 
 
 def get_sensor_dataframe() -> pl.DataFrame:
@@ -297,12 +321,13 @@ def get_sensor_dataframe() -> pl.DataFrame:
     df = pl.DataFrame(list(recent_readings))
 
     # Parse timestamps (Polars handles this beautifully)
-    df = df.with_columns([
-        pl.col("timestamp").str.strptime(pl.Datetime, format="%Y-%m-%dT%H:%M:%S.%f")
-    ])
+    df = df.with_columns(
+        [pl.col("timestamp").str.strptime(pl.Datetime, format="%Y-%m-%dT%H:%M:%S.%f")]
+    )
 
     logger.debug(f"Created DataFrame with {len(df)} rows and {len(df.columns)} columns")
     return df
+
 
 def get_statistical_summary() -> Dict:
     """Calculate statistics using Polars (because it's blazing fast)"""
@@ -315,39 +340,50 @@ def get_statistical_summary() -> Dict:
     logger.debug("Calculating statistical summary")
 
     # Polars makes complex aggregations simple
-    stats = df.select([
-        pl.col("temperature").mean().alias("temp_mean"),
-        pl.col("temperature").std().alias("temp_std"),
-        pl.col("humidity").mean().alias("humidity_mean"),
-        pl.col("humidity").std().alias("humidity_std"),
-        pl.col("pressure").mean().alias("pressure_mean"),
-        pl.col("pressure").std().alias("pressure_std"),
-        pl.col("status").value_counts().alias("status_counts")
-    ]).to_dict(as_series=False)
+    stats = df.select(
+        [
+            pl.col("temperature").mean().alias("temp_mean"),
+            pl.col("temperature").std().alias("temp_std"),
+            pl.col("humidity").mean().alias("humidity_mean"),
+            pl.col("humidity").std().alias("humidity_std"),
+            pl.col("pressure").mean().alias("pressure_mean"),
+            pl.col("pressure").std().alias("pressure_std"),
+            pl.col("status").value_counts().alias("status_counts"),
+        ]
+    ).to_dict(as_series=False)
 
     logger.info("Statistical summary calculated successfully")
     return stats
+
 
 def detect_anomalies() -> List[Dict]:
     """Detect outliers using statistical methods (Polars style)"""
     df = get_sensor_dataframe()
 
     if len(df) < 10:  # Need enough data for meaningful stats
-        logger.debug("Insufficient data for anomaly detection (need at least 10 readings)")
+        logger.debug(
+            "Insufficient data for anomaly detection (need at least 10 readings)"
+        )
         return []
 
     logger.debug("Running anomaly detection using z-score method")
 
     # Calculate z-scores for temperature (Polars vectorized operations)
-    df_with_zscore = df.with_columns([
-        ((pl.col("temperature") - pl.col("temperature").mean()) /
-         pl.col("temperature").std()).alias("temp_zscore")
-    ])
+    df_with_zscore = df.with_columns(
+        [
+            (
+                (pl.col("temperature") - pl.col("temperature").mean())
+                / pl.col("temperature").std()
+            ).alias("temp_zscore")
+        ]
+    )
 
     # Find outliers (|z-score| > 2)
-    anomalies = df_with_zscore.filter(
-        pl.col("temp_zscore").abs() > 2
-    ).select(["timestamp", "temperature", "temp_zscore"]).to_dicts()
+    anomalies = (
+        df_with_zscore.filter(pl.col("temp_zscore").abs() > 2)
+        .select(["timestamp", "temperature", "temp_zscore"])
+        .to_dicts()
+    )
 
     if anomalies:
         logger.warning(f"Detected {len(anomalies)} temperature anomalies")
@@ -360,6 +396,7 @@ def detect_anomalies() -> List[Dict]:
         logger.debug("No temperature anomalies detected")
 
     return anomalies
+
 
 # Store the last 100 readings (more data = better Plotly charts)
 recent_readings: Deque[Dict[str, Any]] = deque(maxlen=100)

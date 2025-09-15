@@ -1,22 +1,21 @@
-import requests
-import random
 import os
+import random
+
 import aiohttp
-
-from fastapi import APIRouter, HTTPException, status
-
+import pybreaker
+import requests
 from ddtrace.trace import tracer
+from fastapi import APIRouter, HTTPException, status
 from opentelemetry import trace
 from opentelemetry.trace.status import Status, StatusCode
 
-from nabla.utils.logger import logger
-
-from nabla.utils.misc import timed_operation
-
 from nabla.api.v1 import pong
+from nabla.utils.logger import logger
+from nabla.utils.misc import timed_operation
 
 router = APIRouter()
 
+circuit_breaker_default = pybreaker.CircuitBreaker(fail_max=2, reset_timeout=10)
 
 API_GATEWAY_URL = os.environ.get(
     "API_GATEWAY_URL",
@@ -34,6 +33,7 @@ HTTP_CLOUD_API_URL = os.environ.get(
 )
 
 @router.get("/async-data")
+@circuit_breaker_default
 async def get_async_data():
     async with aiohttp.ClientSession() as session:
         async with session.get("{HTTP_BIN_URL}/delay/1") as resp:
@@ -41,6 +41,7 @@ async def get_async_data():
 
 
 @router.get("/external-api")
+@circuit_breaker_default
 async def get_external_api():
     try:
         seconds = random.uniform(0, 3)  # nosec  # noqa: S311
@@ -69,6 +70,7 @@ async def get_external_api():
 
 # See https://tonylixu.medium.com/linux-networking-what-is-ip-address-169-254-169-254-f9e23b7332fe
 @router.get("/internal-cloud-api")
+@circuit_breaker_default
 async def get_internal_cloud_api():
     try:
         logger.info(
@@ -93,6 +95,7 @@ async def get_internal_cloud_api():
 
 # We are targeting krakend services
 @router.get("/gateway/assistant")
+@circuit_breaker_default
 async def get_gateway_assistant():
     with timed_operation("gateway_assistant"):
         try:

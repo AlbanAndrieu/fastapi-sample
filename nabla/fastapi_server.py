@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Dict
 
 import arel
-import httpx
+import pybreaker
 import pyroscope
 import sentry_sdk
 from ddtrace import config, patch, tracer
@@ -17,12 +17,12 @@ from ddtrace.trace import TraceFilter
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.concurrency import asynccontextmanager
 from fastapi.openapi.utils import get_openapi
-from fastapi.responses import HTMLResponse, JSONResponse, ORJSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
+from fastmcp import FastMCP
 
 # from fastapi_cache import FastAPICache
 # from fastapi_cache.backends.redis import RedisBackend
-from fastapi_mcp import FastApiMCP
 from prometheus_client import make_asgi_app
 from prometheus_fastapi_instrumentator import Instrumentator
 
@@ -50,7 +50,6 @@ from nabla.config_settings import (
     APP_NAME,
     APP_PREFIX_VERSION,
     APP_VERSION,
-    EXPOSE_MCP_PORT,
     OTLP_GRPC_ENDPOINT,
     REDIS_HOST,
     REDIS_PORT,
@@ -106,7 +105,12 @@ setup_logging()
 
 logger.info("Creating API")
 
-limiter = Limiter(key_func=get_remote_address)
+# Setup rate limiter: 100 requests per minute per IP.
+limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
+
+# Configure separate circuit breakers for the two external services:
+# Both fail after 2 consecutive errors and open the circuit for 10 seconds.
+circuit_breaker_web = pybreaker.CircuitBreaker(fail_max=2, reset_timeout=10)
 
 patch(fastapi=True)
 
@@ -169,7 +173,7 @@ async def lifespan(app: FastAPI):
     """Start background system monitoring"""
     system_metrics_task = asyncio.create_task(update_system_metrics())
 
-    asyncio.create_task(start_event_listener())
+    event_listener = asyncio.create_task(start_event_listener())
 
     logger.info("🚀 Sensor Dashboard application started successfully")
     logger.info(f"Debug mode: {bool(os.getenv('DEBUG'))}")
@@ -179,6 +183,7 @@ async def lifespan(app: FastAPI):
 
     # Cancel the background task on shutdown
     system_metrics_task.cancel()
+    event_listener.cancel()
 
     await database.disconnect()
 
@@ -191,57 +196,14 @@ async def lifespan(app: FastAPI):
         f"Final metrics - Connections: {metrics.connection_count}, Requests: {metrics.total_requests}",
     )
 
+# Combine both lifespans
+@asynccontextmanager
+async def combined_lifespan(app: FastAPI):
+    # Run both lifespans
+    async with lifespan(app):
+        async with mcp_app.lifespan(app):
+            yield
 
-@tracer.wrap()
-def _version(request: Request):
-    return {"version": request.app.version}
-
-
-class VersionedAPIRouter(APIRouter):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args)
-        self.add_api_route(
-            "/version",
-            _version,
-            methods=["GET"],
-        )
-
-
-def initialize_api_mcp() -> FastAPI:
-    """
-    Initialize the MCP API.
-
-    :return: FastAPI
-    :raise ValidationError: If there was an issue with the Settings
-    """
-
-    app_mcp = FastAPI(
-        title=APP_NAME + " MCP  " + APP_PREFIX_VERSION,
-        description="FastAPI MCP Sample for demo",
-        version=f"{APP_PREFIX_VERSION}{APP_VERSION}",
-        debug=os.getenv("DEBUG", "False").lower() == "true",
-        base_url="http://localhost:" + str(EXPOSE_MCP_PORT),
-        default_response_class=ORJSONResponse,
-    )
-
-    mcp = FastApiMCP(
-        app_mcp,
-        name="FastAPI MCP Sample for demo",
-        description="MCP server for my API",
-        describe_all_responses=True,  # Include all possible response schemas
-        describe_full_response_schema=True,  # Include full JSON schemas in descriptions
-        http_client=httpx.AsyncClient(timeout=20),
-        include_operations=["get_user", "get_user_info", "whoami"], # register_user
-        # exclude_operations=["delete_user"],
-        # include_tags=["users", "public"],
-        exclude_tags=["admin", "internal"],
-    )
-
-    # Mount the MCP server to your app
-    mcp.mount(app_mcp)
-    mcp.mount_http(users.router)
-
-    return app_mcp
 
 
 def initialize_api() -> FastAPI:
@@ -253,7 +215,7 @@ def initialize_api() -> FastAPI:
     """
 
     app = FastAPI(
-        lifespan=lifespan,
+        lifespan=combined_lifespan,
         title=APP_NAME + " " + APP_PREFIX_VERSION,
         description="FastAPI Sample for demo",
         version=f"{APP_PREFIX_VERSION}{APP_VERSION}",
@@ -263,6 +225,7 @@ def initialize_api() -> FastAPI:
     app.state.limiter = limiter
     app.add_exception_handler(
         RateLimitExceeded,
+        # _rate_limit_exceeded_handler,
         lambda r, e: JSONResponse(status_code=429, content={"error": "Too Many Requests"}),
     )
 
@@ -315,6 +278,26 @@ def initialize_api() -> FastAPI:
     # Setting OpenTelemetry exporter
     setting_otlp(app, APP_NAME, OTLP_GRPC_ENDPOINT)
 
+
+    @tracer.wrap()
+    def _version(request: Request):
+        return {"version": request.app.version}
+
+    class VersionedAPIRouter(APIRouter):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args)
+            self.add_api_route(
+                "/version",
+                _version,
+                methods=["GET"],
+            )
+
+    v0_router = VersionedAPIRouter(
+        prefix="/" + APP_PREFIX_VERSION,
+    )
+
+    app.include_router(v0_router)
+
     # Add prometheus asgi middleware to route /metrics requests
     # metrics_app = make_asgi_app()
     # app.mount("/metrics", metrics_app)
@@ -325,11 +308,6 @@ def initialize_api() -> FastAPI:
     route.path_regex = re.compile("^/metrics(?P<path>.*)$")
     app.routes.append(route)
 
-    v0_router = VersionedAPIRouter(
-        prefix="/" + APP_PREFIX_VERSION,
-    )
-
-    app.include_router(v0_router)
     app.include_router(
         ping.router,
         tags=["ping"],
@@ -353,7 +331,23 @@ def initialize_api() -> FastAPI:
 
 
 app = initialize_api()
-app_mcp = initialize_api_mcp()
+ # Convert to MCP server, see https://gofastmcp.com/integrations/fastapi
+mcp = FastMCP.from_fastapi(app=app, name="Sample MCP")
+
+# 2. Create the MCP's ASGI app
+mcp_app = mcp.http_app(path='/mcp')
+
+app.mount("/llm", mcp_app)
+# Now you have:
+# - Regular API: http://localhost:8091/version
+# - LLM-friendly MCP: http://localhost:8091/llm/mcp/
+# Both served from the same FastAPI application!
+
+
+# Static resource
+@mcp.resource("config://version")
+def get_version():
+    return APP_VERSION
 
 
 @app.middleware("http")
@@ -473,6 +467,7 @@ if os.getenv("DEBUG"):
 
 # See https://boadziedaniel.medium.com/building-real-time-dashboards-with-fastapi-and-htmx-01ea458673cb
 @app.get("/", response_class=HTMLResponse)
+# TODO @circuit_breaker_web
 @limiter.limit("100/second")
 def dashboard(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
@@ -488,6 +483,7 @@ def root():
 
 
 @app.get("/notes")
+#TODO @circuit_breaker_web
 async def get_notes():
     API_REQUEST_COUNTER.labels(method="GET", endpoint="/notes", http_status=200).inc()
     API_REQUEST_SUMMARY.labels(method="GET", endpoint="/notes").observe(0.1)
@@ -495,6 +491,7 @@ async def get_notes():
 
 
 @app.get("/notes/{id}")
+#TODO @circuit_breaker_web
 async def get_note_by_id(idNote: int):
     API_REQUEST_COUNTER.labels(
         method="GET",
@@ -506,6 +503,7 @@ async def get_note_by_id(idNote: int):
 
 
 @app.post("/notes")
+@circuit_breaker_web
 async def create_note():
     API_REQUEST_COUNTER.labels(method="POST", endpoint="/notes", http_status=200).inc()
     API_REQUEST_SUMMARY.labels(method="POST", endpoint="/notes").observe(0.1)

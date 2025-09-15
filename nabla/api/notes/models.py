@@ -51,7 +51,9 @@ Base.metadata.create_all(bind=engine)
 
 
 # notes = Table("notes", Base.metadata, autoload_with=engine)
-class NoteReading(Base):
+
+# Reading note model with sqlalchemy
+class Note(Base):
     __tablename__ = "notes"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -63,8 +65,8 @@ class NoteReading(Base):
     def __str__(self):
         return f"Note ID : {self.id}\tTitle : {self.title}\tDescription : {self.description}\tCompleted : {self.completed}\tCreated Date : {self.created_date}"
 
-
-class NoteSchema(BaseModel):
+# Response note model with pydantic validation
+class NoteResponse(BaseModel):
     title: str = Field(
         ...,
         min_length=3,
@@ -75,7 +77,7 @@ class NoteSchema(BaseModel):
     created_date: str = datetime.now(tz("Europe/Paris")).strftime("%Y-%m-%d %H:%M")
 
 
-class NoteDB(NoteSchema):
+class NoteDB(NoteResponse):
     id: int
 
     def save_reading(self, data: Dict[str, Any]) -> None:
@@ -88,7 +90,7 @@ class NoteDB(NoteSchema):
                 "%Y-%m-%d %H:%M",
             )
 
-            db_reading = NoteReading(
+            db_reading = Note(
                 title=data["title"],
                 description=data["description"],
                 completed=data["completed"],
@@ -103,4 +105,4 @@ class NoteDB(NoteSchema):
             db.close()
 
 
-notes = NoteReading.__table__
+notes = Note.__table__

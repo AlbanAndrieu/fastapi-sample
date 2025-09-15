@@ -1,3 +1,12 @@
+
+# [1.1.3]
+
+Docker images 6.02GB
+
+### Features
+
+* Add labchain with GPU and CUDA
+
 # [1.1.0](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/compare/1.0.5...1.1.0) (2024-12-10)
 
 

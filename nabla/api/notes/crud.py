@@ -1,17 +1,17 @@
 from datetime import datetime as dt
 
 from nabla.api.demo.models import SessionLocal
-from nabla.api.notes.models import NoteReading, NoteSchema, notes
+from nabla.api.notes.models import Note, NoteResponse, notes
 from nabla.db import database
 
 # from nabla.db import database, notes
 db = SessionLocal()
 
 
-async def post(payload: NoteSchema):
+async def post(payload: NoteResponse):
     created_date = dt.now().strftime("%Y-%m-%d %H:%M")
     db.add(
-        NoteReading(
+        Note(
             title=payload.title,
             description=payload.description,
             completed=payload.completed,
@@ -41,7 +41,7 @@ async def get_all():
     return await database.fetch_all(query=query)
 
 
-async def put(note_id: int, payload=NoteSchema):
+async def put(note_id: int, payload=NoteResponse):
     created_date = dt.now().strftime("%Y-%m-%d %H:%M")
     query = (
         notes.update()

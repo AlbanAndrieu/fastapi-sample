@@ -156,16 +156,16 @@ up-docker:
 up-python:
 	@echo "python -m scripts toto.csv"
 	@echo "up python http://0.0.0.0:$(PORT)/health"
-	python -m serve
+	python -m server
 
 ## —— Up Python ✅🦄 —————————————————————————————————————————————————————————————————
 .PHONY: up-uvicorn
 up-uvicorn:
 	@echo "up uvicorn http://0.0.0.0:$(PORT)/v1/ping"
-	@echo ".venv/bin/uvicorn nabla.main:app --reload --workers 1 --host 0.0.0.0 --port $(PORT)"
-	.venv/bin/uvicorn serve:app --reload --workers 1 --host 0.0.0.0 --port $(PORT)
+	@echo ".venv/bin/uvicorn server:app --reload --workers 1 --host 0.0.0.0 --port $(PORT)"
+	.venv/bin/uvicorn server:app --reload --workers 1 --host 0.0.0.0 --port $(PORT)
 
-## —— Up Python App ✅g🦄 —————————————————————————————————————————————————————————————————
+## —— Up Python App ✅🦄 —————————————————————————————————————————————————————————————————
 .PHONY: up-gunicorn
 up-gunicorn:
 	@echo "up gunicorn http://0.0.0.0:$(PORT)/v1/ping"
@@ -173,11 +173,11 @@ up-gunicorn:
 	.venv/bin/ddtrace-run .venv/bin/gunicorn main:app --reload --name fastapi-sample --workers 1 --threads 1 --worker-connections 1000 -k uvicorn_worker.UvicornWorker --bind 0.0.0.0:$(PORT) --log-level info --access-logfile -
 
 
-## —— Up Python App MCP ✅g🦄 —————————————————————————————————————————————————————————————————
-.PHONY: up-gunicorn-mcp
-up-gunicorn-mcp:
-	@echo "up mcp http://0.0.0.0:8001/mcp"
-	.venv/bin/uvicorn main:app_mcp --reload --workers 1 --host 0.0.0.0 --port 8001
+## —— Up Python App MCP ✅ —————————————————————————————————————————————————————————————————
+.PHONY: up-mcp
+up-mcp:
+	@echo "up mcp http://0.0.0.0:8000/mcp"
+	fastmcp run server-mcp.py
 
 ## —— Up ✅ —————————————————————————————————————————————————————————————————
 .PHONY: up

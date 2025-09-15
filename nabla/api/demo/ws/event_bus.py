@@ -8,15 +8,15 @@ from nabla.config_settings import REDIS_HOST, REDIS_PORT
 # from fastapi.encoders import jsonable_encoder
 # from fastapi_cache import Coder
 
-REDIS_CHANNEL = "sensor_readings"
-REDIS_EVENT_CHANNEL = "sensor_events"
+REDIS_CHANNEL = "fastapi.sample"
+REDIS_EVENT_CHANNEL = REDIS_CHANNEL + ".sensor_events"
 
 # Global variable declaration
 # redis: Redis | None = None
 # pool = redis.ConnectionPool(host=REDIS_HOST, port=REDIS_PORT, db=0)
 # redis = redis.Redis(connection_pool=pool, decode_responses=True)
-redis = Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
-
+#redis = Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+redis = Redis(host=REDIS_HOST, port=REDIS_PORT)
 
 # class ORJsonCoder(Coder):
 #     @classmethod
