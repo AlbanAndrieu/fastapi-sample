@@ -396,6 +396,41 @@ unit-tests-npm:
     <<: *global_cache
     # override the policy
     policy: pull
+  script:
+    - cd vue-client/
+    # - npm config set @scope:registry=https://gitlab.com/api/v4/groups/2454528/-/packages/npm/
+    - export NPM_TOKEN=$CI_JOB_TOKEN
+    - npm ci
+    - npx nuxi prepare
+    - npm run build
+
+pages-deploy:
+  stage: publish
+  script:
+    # - npm config set @scope:registry=https://gitlab.com/api/v4/groups/2454528/-/packages/npm/
+    # - export NPM_TOKEN=$CI_JOB_TOKEN
+    # - npm ci
+    # - npm run dev:prepare
+    # - npm run prepack
+    - cd vue-client/
+    - npm ci
+    - npx nuxi prepare
+    - npm run build
+    - mv ./dist ../public
+  pages:
+    publish: public
+    path_prefix: "$PAGES_PREFIX"
+  environment:
+    name: "Pages ${PAGES_PREFIX}"
+    url: "${CI_PAGES_URL}"
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: never
+
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      variables:
+        PAGES_PREFIX: "mr-$CI_MERGE_REQUEST_IID"
+      when: always
 
 mega_linter:
   extends: .mega_linter_common
