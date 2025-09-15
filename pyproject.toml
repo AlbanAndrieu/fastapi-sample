@@ -76,6 +76,7 @@ python = ">=3.10,<4.0"
 [tool.poetry.group.api]
 optional = false
 [tool.poetry.group.api.dependencies]
+alembic = ">=1.16.5"
 ansicolors = ">=1.1.8"
 arel = ">=0.3.0"
 asyevent = ">=0.2.10"

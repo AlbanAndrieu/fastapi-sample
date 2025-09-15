@@ -9,6 +9,7 @@ verify_ssl = false
 name = "gitlab"
 
 [packages]
+alembic = ">=1.16.5"
 arel = ">=0.3.0"
 asyevent = ">=0.2.10"
 asyncpg = ">=0.28.0"
