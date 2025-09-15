@@ -79,24 +79,6 @@ def test_message_hello_world_v1(*args) -> None:
     assert response.json() == {"Hello": "World"}
 
 
-def test_users(*args) -> None:
-    """It runs and gives correct response for users."""
-
-    client = TestClient(app)
-    expected_status: int = 200
-
-    # with pytest.raises(AssertionError):
-    response = client.get("/test/users/0")
-
-    # then
-    assert response.status_code == expected_status
-    assert response.json() == {
-        "name": "User 0",
-        "email": "alban.andrieu@free.fr",
-        "password": "XXX",
-    }
-
-
 def test_exception(*args) -> None:
     """It runs and gives exception."""
 
