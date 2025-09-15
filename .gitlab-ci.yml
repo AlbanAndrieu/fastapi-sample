@@ -111,6 +111,7 @@ variables:
   CI_IMAGE_PYTHON: python:3.12.10
   PROJECT_PYTHON_VERSION: "3.12"
   POETRY_VERSION: "2.1.3"
+  CI_IMAGE_NPM: node:22-alpine3.22
   CI_REGISTRY: registry.gitlab.com
   OCI_REGISTRY: ${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}
   TYPE_TRAINING: ""
@@ -386,6 +387,7 @@ lint-eslint-npm:
       codequality: gl-codequality.json
 
 unit-tests-npm:
+  image: ${CI_IMAGE_NPM}
   extends: .unit-tests-npm
   needs: ["install-npm"]
   dependencies:
@@ -405,6 +407,7 @@ unit-tests-npm:
     - npm run build
 
 pages-deploy:
+  image: ${CI_IMAGE_NPM}
   stage: publish
   script:
     # - npm config set @scope:registry=https://gitlab.com/api/v4/groups/2454528/-/packages/npm/
@@ -518,6 +521,7 @@ cml:
       allow_failure: true
 
 publish-npm:
+  image: ${CI_IMAGE_NPM}
   extends: .publish-npm
   needs: ["install-npm"]
   dependencies:
@@ -583,7 +587,7 @@ deploy:prod:
     - jusmundi-nomad-runner
 
 publish:
-   image: node
+   image: ${CI_IMAGE_NPM}
    stage: release
 #   dependencies:
 #     - semantic-release-info
@@ -595,15 +599,15 @@ publish:
    rules:
      - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
-.netlify:
-  image: node:22-alpine
+netlify:
+  image: ${CI_IMAGE_NPM}
   stage: static
   script:
     - npm install -g netlify-cli
     - netlify --version
 
 .netlify:review:
-  image: node:22-alpine
+  image: ${CI_IMAGE_NPM}
   stage: review
   environment:
     name: preview/$CI_COMMIT_REF_SLUG
@@ -629,7 +633,7 @@ publish:
   allow_failure: true
 
 .netlify:uat:
-  image: node:22-alpine
+  image: ${CI_IMAGE_NPM}
   stage: deploy
   environment:
     name: staging
@@ -648,7 +652,7 @@ publish:
   allow_failure: true
 
 .netlify:prod:
-  image: node:22-alpine
+  image: ${CI_IMAGE_NPM}
   stage: deploy
   when: manual
   environment:
