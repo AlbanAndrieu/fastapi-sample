@@ -10,7 +10,6 @@ import plotly.graph_objects as go
 import polars as pl
 from ddtrace import patch
 from pydantic import BaseModel
-from rq import Queue
 
 # With PostgreSQL
 from sqlalchemy import Column, DateTime, Float, Integer, String, create_engine
@@ -19,6 +18,10 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 from nabla.api.demo.ws.event_bus import REDIS_CHANNEL, redis
 from nabla.config_settings import get_settings
 from nabla.utils.logger import logger
+
+# from rq import Queue
+
+
 
 Base = declarative_base()
 
@@ -210,9 +213,6 @@ class SensorData:
             # redis.lpush(REDIS_CHANNEL, str(db_reading))
             # redis.lpush(REDIS_CHANNEL, db_reading.to_json())
             redis.lpush(REDIS_CHANNEL + ".task_queue_lpush", orjson.dumps(data, option=orjson.OPT_SORT_KEYS))
-            # Enqueue the job
-            job_instance = task_queue.enqueue(REDIS_CHANNEL + ".task_queue_test", data)
-            logger.info(f"Enqueued job: {job_instance.id}")
 
             # res = await set_cache("temperature", db_reading.temperature)
             # print(res)
@@ -489,7 +489,7 @@ def detect_anomalies() -> List[Dict]:
 recent_readings: Deque[Dict[str, Any]] = deque(maxlen=100)
 
 # Create a queue object with the connection
-task_queue = Queue('low', connection=redis)
+# task_queue = Queue('low', connection=redis)
 
 # Create tables
 Base.metadata.create_all(bind=engine)

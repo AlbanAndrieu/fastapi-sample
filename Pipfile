@@ -80,7 +80,7 @@ pyjwt = ">=2.7.0"
 redis = ">=6.2.0"
 requests = ">=2.31.0"
 reretry = ">=0.11.8"
-rq = ">=2.6.0"
+# rq = ">=2.6.0"
 slowapi = ">=0.1.9"
 # six = ">=1.16.0" # awscli needed
 sqlalchemy = ">=2.0.20"
