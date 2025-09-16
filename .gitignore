@@ -109,6 +109,7 @@ bower_components/
 npm/
 .node_cache/
 .node_tmp/
+.nuxt/
 
 # sonar
 .scannerwork/

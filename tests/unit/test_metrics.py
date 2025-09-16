@@ -6,18 +6,15 @@ import pytest
 from fastapi.testclient import TestClient
 
 from nabla.api.notes import crud
-from nabla.db import database
 from nabla.fastapi_server import app
-
-client = TestClient(app)
 
 
 @pytest.fixture(scope="module")
 def test_app():
-    # setup
-    yield client
+    client = TestClient(app)
+    yield client  # testing happens here
     # teardown
-    database.disconnect()
+    # database.disconnect()
 
 
 def test_create_note_invalid_json(test_app):

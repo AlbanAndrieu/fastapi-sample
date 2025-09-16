@@ -142,7 +142,8 @@ class _Settings(BaseSettings):
     ]
     ovh_container: str = "nabla_models"
 
-    keycloak_server_url: Annotated[str, Field(min_length=1)]
+    oauth_token_secret: str = "my_dev_secret"
+
     keycloak_server_url: Annotated[str, Field(min_length=1)]
     keycloak_realm: Annotated[str, Field(min_length=1)]
     keycloak_client_id: Annotated[str, Field(min_length=1)]

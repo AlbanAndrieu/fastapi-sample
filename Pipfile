@@ -9,6 +9,7 @@ verify_ssl = false
 name = "gitlab"
 
 [packages]
+alembic = ">=1.16.5"
 arel = ">=0.3.0"
 asyevent = ">=0.2.10"
 asyncpg = ">=0.28.0"
@@ -54,6 +55,7 @@ opentelemetry-instrumentation-logging = ">=0.47b0"
 opentelemetry-exporter-jaeger-thrift = ">=1.13.0"
 opentelemetry-api = ">=1.30.0"
 opentelemetry-sdk = ">=1.30.0"
+passlib = ">=1.7.4"
 pandas = ">=2.2.1"
 plotly = ">=6.3.0"
 polars = ">=1.32.3"
@@ -74,6 +76,7 @@ python-swiftclient = ">=4.2.0"
 prometheus-client = ">=0.16.0"
 # prometheus-fastapi-instrumentator = ">=7.1.0"
 pyyaml = ">=6.0" # awscli needed
+pyjwt = ">=2.7.0"
 redis = ">=6.2.0"
 requests = ">=2.31.0"
 reretry = ">=0.11.8"
