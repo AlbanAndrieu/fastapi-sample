@@ -1,3 +1,4 @@
+import os
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
@@ -24,6 +25,11 @@ target_metadata = None
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
+# here we allow ourselves to pass interpolation vars to alembic.ini
+# fron the host env
+section = config.config_ini_section
+config.set_section_option(section, "DB_USER", os.environ.get("DB_USER"))
+config.set_section_option(section, "DB_PASS", os.environ.get("DB_PASS"))
 
 
 def run_migrations_offline() -> None:
