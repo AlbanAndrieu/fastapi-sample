@@ -558,7 +558,7 @@ deploy:prod:
 
 pages-deploy:
   image: ${CI_IMAGE_NPM}
-  stage: deploy
+  stage: publish
   script:
     - cd vue-client/
     - npm ci
