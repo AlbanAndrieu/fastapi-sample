@@ -7,6 +7,9 @@ from fastapi.testclient import TestClient
 import nabla.api.demo.demo as demo
 from server import app
 
+# from async_asgi_testclient import TestClient
+
+
 
 @pytest.fixture(scope="module")
 def test_app():
@@ -15,9 +18,10 @@ def test_app():
 
 @pytest.fixture(scope="session")
 def event_loop(request):
-    loop = asyncio.get_event_loop_policy().new_event_loop()
+    # loop = asyncio.get_event_loop_policy().new_event_loop()
+    loop = asyncio.get_event_loop()
     yield loop
-    loop.close()
+    # loop.close()
 
 def test_new_string_secret():
     secret = demo.string_secret()
@@ -52,22 +56,28 @@ def test_redis_demo_random(test_app) -> None:
     # when
     response = test_app.get("/demo/random")
 
-    print(response.json())
+    # print(response.json())
     assert response.status_code == expected_status
 
     assert response.json() != "b'1'"
     assert response.json() is not None
 
 
+@pytest.mark.asyncio
 async def test_redis_demo_items_one_second(test_app) -> None:
     """It runs and gives the number 1."""
 
     expected_status: int = 200
 
-    # when
-    response = test_app.get("/demo/items/1")
+    # async with TestClient(app) as async_client:
+    #     response = await async_client.get(
+    #         "/demo/items/1",
+    #         query_string={"example": "param"},
+    #     )
 
-    print(response.json())
+    # when
+    response = await test_app.get("/demo/items/1")
+    # print(response.json())
     assert response.status_code == expected_status
     assert response.json() == {"item_id": 1, "q": "No Query"}
 
@@ -80,6 +90,6 @@ def test_redis_demo_items_two_second(test_app) -> None:
     # when
     response = test_app.get("/demo/items/2")
 
-    print(response.json())
+    # print(response.json())
     assert response.status_code == expected_status
     assert response.json() == {"item_id": 2, "q": "No Query"}

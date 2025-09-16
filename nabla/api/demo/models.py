@@ -82,17 +82,16 @@ class SensorReading(Base):
     status = Column(String, nullable=False)
 
     def __str__(self):
-       return f"Sensor ID : {self.id}\tTemperature : {self.temperature}\tHumidity : {self.humidity}\tPressure : {self.pressure}\tStatus : {self.status}\tCreated Date : {self.timestamp}"
+       return f"SensorReading ID : {self.id}\tTemperature : {self.temperature}\tHumidity : {self.humidity}\tPressure : {self.pressure}\tStatus : {self.status}\tCreated Date : {self.timestamp}"
 
     def toJSON(self):
-        logger.info(f"toJSON: {self}")
-        return json.dumps(
-            self,
-            #default=lambda o: o.__dict__,
-            # cls=DateTimeEncoder,
-            default=serialize_dates,
-            sort_keys=True,
-            indent=4)
+        logger.info(f"SensorReading toJSON: {self}")
+        return orjson.dumps(self, option=orjson.OPT_SORT_KEYS).decode()
+        # return json.dumps(
+        #     self,
+        #     default=serialize_dates,
+        #     sort_keys=True,
+        #     indent=4)
 
 
 
@@ -108,7 +107,13 @@ class SensorEvent(BaseModel):
     def __init__(self, timestamp: str = "2021-01-01T00:00:00", temperature: float = 20.0, humidity: float = 50.0, pressure: float = 1013.0, status: str = "normal") -> None:
         super().__init__(timestamp=timestamp, temperature=temperature, humidity=humidity, pressure=pressure, status=status)
 
-
+    def toJSON(self):
+            logger.info(f"SensorEvent toJSON: {self}")
+            return json.dumps(
+                self,
+                default=lambda o: o.__dict__,
+                sort_keys=True,
+                indent=4)
 
 async def set_cache(suffix, data: Any):
     res = None
@@ -210,16 +215,20 @@ class SensorData:
                 status=data["status"],
             )
 
-            # redis.lpush(REDIS_CHANNEL, str(db_reading))
+            logger.debug(f"db_reading: {db_reading.toJSON()}")
+            # TODO push list of readings to redis
             # redis.lpush(REDIS_CHANNEL, db_reading.to_json())
-            redis.lpush(REDIS_CHANNEL + ".task_queue_lpush", orjson.dumps(data, option=orjson.OPT_SORT_KEYS))
+            # redis.lpush(REDIS_CHANNEL + ".task_queue_lpush", orjson.dumps(data, option=orjson.OPT_SORT_KEYS))
 
             # res = await set_cache("temperature", db_reading.temperature)
             # print(res)
             # OK res = await set_cache("data", str(db_reading))
             # NOK res = await set_cache("data", db_reading)
-            res = await set_cache("data", data)
-            logger.debug(f"queued data: {res}")
+
+            # TODO : Below is working, BUT it is not a good idea to push the whole reading to the cache
+            # because it is too big and it is slowing down the system
+            # res = await set_cache("data", data)
+            # logger.debug(f"queued data: {res}")
 
             db.add(db_reading)
             db.commit()

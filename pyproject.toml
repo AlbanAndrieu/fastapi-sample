@@ -241,6 +241,7 @@ nbdev = ">=2.3.7"
 [tool.poetry.group.test]
 optional = true
 [tool.poetry.group.test.dependencies]
+async-asgi-testclient = ">= 1.4.11"
 coverage = ">= 7.2.7"
 # molecule = ">=5.1.0"
 mypy = ">=1.16.0"

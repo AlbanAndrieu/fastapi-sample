@@ -3,7 +3,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 
 USER_NAME = os.environ.get("USER_NAME", "alban.andrieu@gmail.com")
-LOGIN_URL = os.environ.get("LOGIN_URL", "https://example.com/login")
+LOGIN_URL = os.environ.get("LOGIN_URL", "http://0.0.0.0:8091/auth/login")
 USER_EMAIL = os.environ.get("USER_EMAIL", "your_app_password")
 
 driver = webdriver.Chrome()
