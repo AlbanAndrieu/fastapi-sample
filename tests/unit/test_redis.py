@@ -1,10 +1,16 @@
 import random
 
+import pytest
 from fastapi.testclient import TestClient
 
 import nabla.api.demo.demo as demo
 from server import app
 
+
+@pytest.fixture(scope="module")
+def test_app():
+    client = TestClient(app)
+    yield client  # testing happens here
 
 def test_new_string_secret():
     secret = demo.string_secret()
@@ -31,14 +37,13 @@ def test_uniform_secret():
     assert secret == max(1, min(secret, 10))  # Between 1-10 seconds
 
 
-def test_redis_demo_random(*args) -> None:
+def test_redis_demo_random(test_app) -> None:
     """It runs and gives random number."""
 
-    client = TestClient(app)
     expected_status: int = 200
 
     # when
-    response = client.get("/demo/random")
+    response = test_app.get("/demo/random")
 
     print(response.json())
     assert response.status_code == expected_status
@@ -47,28 +52,26 @@ def test_redis_demo_random(*args) -> None:
     assert response.json() is not None
 
 
-def test_redis_demo_items_one_second(*args) -> None:
+def test_redis_demo_items_one_second(test_app) -> None:
     """It runs and gives the number 1."""
 
-    client = TestClient(app)
     expected_status: int = 200
 
     # when
-    response = client.get("/demo/items/1")
+    response = test_app.get("/demo/items/1")
 
     print(response.json())
     assert response.status_code == expected_status
     assert response.json() == {"item_id": 1, "q": "No Query"}
 
 
-def test_redis_demo_items_two_second(*args) -> None:
+def test_redis_demo_items_two_second(test_app) -> None:
     """It runs and gives the number 1."""
 
-    client = TestClient(app)
     expected_status: int = 200
 
     # when
-    response = client.get("/demo/items/2")
+    response = test_app.get("/demo/items/2")
 
     print(response.json())
     assert response.status_code == expected_status

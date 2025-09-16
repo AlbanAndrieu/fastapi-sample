@@ -564,6 +564,7 @@ pages-deploy:
     - npm ci
     - npx nuxi prepare
     - npm run build
+    - mkdir ../public || true
     - cp -R ./dist/* ../public
   pages:
     publish: public

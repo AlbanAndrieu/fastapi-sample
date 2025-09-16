@@ -16,25 +16,23 @@ def test_app():
     yield client  # testing happens here
 
 
-def test_pong_v1(*args) -> None:
+def test_pong_v1(test_app) -> None:
     """It runs and gives correct response from pong."""
 
-    client = TestClient(app)
     expected_status: int = 200
     expected_response: Dict[str, str] = {"ping": "pong v1!"}
 
     # when
-    response = client.get("/v1/pong")
+    response = test_app.get("/v1/pong")
 
     # then
     assert response.status_code == expected_status
     assert response.json() == expected_response
 
 
-def test_ping_v1(*args) -> None:
+def test_ping_v1(test_app) -> None:
     """It runs and gives correct response from ping."""
 
-    client = TestClient(app)
     expected_status: int = 200
 
     # QUOTES = [
@@ -44,62 +42,58 @@ def test_ping_v1(*args) -> None:
     # ]
 
     # when
-    response = client.get("/v1/ping")
+    response = test_app.get("/v1/ping")
 
     # then
     assert response.status_code == expected_status
     assert response.json() is not None
 
 
-def test_ping_v2(*args) -> None:
+def test_ping_v2(test_app) -> None:
     """It runs and gives correct response from ping."""
 
-    client = TestClient(app)
     expected_status: int = 200
 
     # when
-    response = client.get("/v2/ping")
+    response = test_app.get("/v2/ping")
 
     # then
     assert response.status_code == expected_status
     assert response.json() == {"ping": "pong v2!"}
 
 
-def test_message_hello_world_v1(*args) -> None:
+def test_message_hello_world_v1(test_app) -> None:
     """It runs and gives Hello World."""
 
-    client = TestClient(app)
     expected_status: int = 200
 
     # when
-    response = client.get("/v1/message")
+    response = test_app.get("/v1/message")
 
     # then
     assert response.status_code == expected_status
     assert response.json() == {"Hello": "World"}
 
 
-def test_exception(*args) -> None:
+def test_exception(test_app) -> None:
     """It runs and gives exception."""
 
-    client = TestClient(app)
     expected_status: int = 500
 
     # when
-    response = client.get("/test/exception")
+    response = test_app.get("/test/exception")
 
     # then
     assert response.status_code == expected_status
     assert response.json() == {"detail": "Got sadness"}
 
 
-def test_env(*args) -> None:
+def test_env(test_app) -> None:
     """It runs and gives env"""
 
-    client = TestClient(app)
     expected_status: int = 500
 
-    response = client.get("/test/env")
+    response = test_app.get("/test/env")
 
     assert response.status_code == expected_status
     assert response.json() == {
@@ -107,28 +101,26 @@ def test_env(*args) -> None:
     }
 
 
-def test_invalid(*args) -> None:
+def test_invalid(test_app) -> None:
     """It runs and gives error"""
 
-    client = TestClient(app)
     expected_status: int = 500
 
     # with pytest.raises(TypeError("Invalid")):
-    response = client.get("/test/invalid")
+    response = test_app.get("/test/invalid")
     assert response.status_code == expected_status
     assert response.json() == {
         "detail": "Invalid request",
     }
 
 
-# def test_chain(*args) -> None:
+# def test_chain(test_app) -> None:
 #     """It runs and chain io_task and cpu_task."""
 
-#     client = TestClient(app)
 #     expected_status: int = 200
 
 #     # when
-#     response = client.get("/chain")
+#     response = test_app.get("/chain")
 
 #     # then
 #     assert response.status_code == expected_status
