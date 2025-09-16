@@ -7,13 +7,11 @@ from pydantic import BaseModel, Field
 from pytz import timezone as tz
 
 # With PostgreSQL
-from sqlalchemy import Column, DateTime, Integer, String, create_engine
+from sqlalchemy import Column, DateTime, Integer, String
 from sqlalchemy.orm import declarative_base, sessionmaker
 
+from nabla.api.demo.models import engine
 from nabla.config_settings import get_settings
-
-# rom databases import Database
-
 
 Base = declarative_base()
 
@@ -23,7 +21,7 @@ DB_URL: Final[str] = str(get_settings().db_url)
 patch(sqlalchemy=True)
 
 # SQLAlchemy
-engine = create_engine(DB_URL)
+# engine = create_engine(DB_URL)
 
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

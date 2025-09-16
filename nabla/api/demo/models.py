@@ -1,13 +1,16 @@
 import dataclasses
+import json
 import random
 from collections import deque
 from datetime import datetime, timedelta
 from typing import Any, Deque, Dict, Final, List
 
+import orjson
 import plotly.graph_objects as go
 import polars as pl
 from ddtrace import patch
 from pydantic import BaseModel
+from rq import Queue
 
 # With PostgreSQL
 from sqlalchemy import Column, DateTime, Float, Integer, String, create_engine
@@ -24,10 +27,39 @@ DB_URL: Final[str] = str(get_settings().db_url)
 
 patch(sqlalchemy=True)
 
+def orjson_serializer(obj):
+    """
+        Note that `orjson.dumps()` return byte array, while sqlalchemy expects string, thus `decode()` call.
+    """
+    return orjson.dumps(obj, option=orjson.OPT_SERIALIZE_NUMPY | orjson.OPT_NAIVE_UTC).decode()
+
+
 # SQLAlchemy
-engine = create_engine(DB_URL)
+engine = create_engine(DB_URL, json_serializer=orjson_serializer,
+    json_deserializer=orjson.loads)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+class DateTimeEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return super().default(obj)
+
+
+
+def serialize_dates(v):
+    if hasattr(v, 'isoformat'):
+        return v.isoformat()
+    elif isinstance(v, datetime):
+        return v.isoformat()
+    elif isinstance(v, SensorReading):
+      logger.debug(f"SensorReading: {v}")
+      return str(v)
+    else:
+        raise TypeError(
+            "Unserializable object {} of type {}".format(v, type(v))
+        )
 
 # Sensor reading model with sqlalchemy
 @dataclasses.dataclass
@@ -36,20 +68,28 @@ class SensorReading(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     timestamp = Column(DateTime, nullable=False)
+    # timestamp = Column(
+    #     "created_date",
+    #     String(50),
+    #     default=datetime.now(tz("Europe/Paris")).strftime("%Y-%m-%d %H:%M"),
+    # )
     temperature = Column(Float, nullable=False)
     humidity = Column(Float, nullable=False)
     pressure = Column(Float, nullable=False)
     status = Column(String, nullable=False)
 
     def __str__(self):
-        return f"Sendor ID : {self.id}\tTemperature : {self.temperature}\tHumidity : {self.humidity}\tPressure : {self.pressure}\tStatus : {self.status}\tCreated Date : {self.timestamp}"
+       return f"Sensor ID : {self.id}\tTemperature : {self.temperature}\tHumidity : {self.humidity}\tPressure : {self.pressure}\tStatus : {self.status}\tCreated Date : {self.timestamp}"
 
-    # def to_json(self):
-    #     return json.dumps(
-    #         self,
-    #         default=lambda o: o.__dict__,
-    #         sort_keys=True,
-    #         indent=4)
+    def toJSON(self):
+        logger.info(f"toJSON: {self}")
+        return json.dumps(
+            self,
+            #default=lambda o: o.__dict__,
+            # cls=DateTimeEncoder,
+            default=serialize_dates,
+            sort_keys=True,
+            indent=4)
 
 
 
@@ -61,6 +101,41 @@ class SensorEvent(BaseModel):
     humidity: float
     pressure: float
     status: str
+
+    def __init__(self, timestamp: str = "2021-01-01T00:00:00", temperature: float = 20.0, humidity: float = 50.0, pressure: float = 1013.0, status: str = "normal") -> None:
+        super().__init__(timestamp=timestamp, temperature=temperature, humidity=humidity, pressure=pressure, status=status)
+
+
+
+async def set_cache(suffix, data: Any):
+    res = None
+
+    logger.debug(f"Data type: {type(data)}")
+
+    if isinstance(data, str):
+        res =await redis.set(
+            REDIS_CHANNEL + ".task_queue." + suffix,
+            data,
+            ex=120,
+        )
+    elif isinstance(data, dict):
+       res = await redis.set(
+            REDIS_CHANNEL + ".task_queue." + suffix,
+            json.dumps(data, default=serialize_dates),
+            ex=120,
+        )
+    # elif isinstance(data, SensorReading):
+    #     # TODO : This is not working
+    #     res = redis.json().set(
+    #         REDIS_CHANNEL + ".task_queue." + suffix,
+    #         "$",
+    #         data.toJSON(),
+    #     )
+    else:
+        raise ValueError(f"Invalid data type: {type(data)}")
+
+    return res
+
 
 
 class SensorData:
@@ -93,6 +168,7 @@ class SensorData:
     def generate_reading(self, timestamp: datetime = None) -> Dict:
         """Generate a sensor reading with optional timestamp"""
         if timestamp is None:
+            # timestamp = datetime.now(tz("Europe/Paris"))
             timestamp = datetime.now()
 
         reading = {
@@ -113,8 +189,9 @@ class SensorData:
 
         return reading
 
+
     # TODO @cache(expire=60, coder=ORJsonCoder)
-    def save_reading(self, data: Dict[str, Any]) -> None:
+    async def save_reading(self, data: Dict[str, Any]) -> None:
         """Save sensor reading to PostgreSQL database"""
         db = SessionLocal()
 
@@ -130,9 +207,19 @@ class SensorData:
                 status=data["status"],
             )
 
-            redis.lpush(REDIS_CHANNEL, str(db_reading))
+            # redis.lpush(REDIS_CHANNEL, str(db_reading))
             # redis.lpush(REDIS_CHANNEL, db_reading.to_json())
-            # redis.lpush(REDIS_CHANNEL, orjson.dumps(db_reading, option=orjson.OPT_SORT_KEYS))
+            redis.lpush(REDIS_CHANNEL + ".task_queue_lpush", orjson.dumps(data, option=orjson.OPT_SORT_KEYS))
+            # Enqueue the job
+            job_instance = task_queue.enqueue(REDIS_CHANNEL + ".task_queue_test", data)
+            logger.info(f"Enqueued job: {job_instance.id}")
+
+            # res = await set_cache("temperature", db_reading.temperature)
+            # print(res)
+            # OK res = await set_cache("data", str(db_reading))
+            # NOK res = await set_cache("data", db_reading)
+            res = await set_cache("data", data)
+            logger.debug(f"queued data: {res}")
 
             db.add(db_reading)
             db.commit()
@@ -400,6 +487,9 @@ def detect_anomalies() -> List[Dict]:
 
 # Store the last 100 readings (more data = better Plotly charts)
 recent_readings: Deque[Dict[str, Any]] = deque(maxlen=100)
+
+# Create a queue object with the connection
+task_queue = Queue('low', connection=redis)
 
 # Create tables
 Base.metadata.create_all(bind=engine)

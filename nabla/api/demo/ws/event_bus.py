@@ -1,9 +1,9 @@
 from redis.asyncio import Redis
 
+# from nabla.api.demo.models import SensorReading
 from nabla.api.demo.ws.ws_manager import manager
 from nabla.config_settings import REDIS_HOST, REDIS_PORT
 
-#from typing import Any
 # import orjson
 # from fastapi.encoders import jsonable_encoder
 # from fastapi_cache import Coder

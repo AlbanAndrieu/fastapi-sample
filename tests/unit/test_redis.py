@@ -1,3 +1,4 @@
+import asyncio
 import random
 
 import pytest
@@ -11,6 +12,12 @@ from server import app
 def test_app():
     client = TestClient(app)
     yield client  # testing happens here
+
+@pytest.fixture(scope="session")
+def event_loop(request):
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()
 
 def test_new_string_secret():
     secret = demo.string_secret()
@@ -52,7 +59,7 @@ def test_redis_demo_random(test_app) -> None:
     assert response.json() is not None
 
 
-def test_redis_demo_items_one_second(test_app) -> None:
+async def test_redis_demo_items_one_second(test_app) -> None:
     """It runs and gives the number 1."""
 
     expected_status: int = 200

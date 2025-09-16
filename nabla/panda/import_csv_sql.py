@@ -7,6 +7,7 @@ import pandas as pd
 import psycopg2
 from sqlalchemy import create_engine, text
 
+from nabla.api.demo.models import engine
 from nabla.config_settings import get_settings
 from nabla.utils.logger import logger
 
@@ -127,9 +128,9 @@ def import_logs_from_csv(csv_file_path: str):
         # cur = conn.cursor()
 
         # Create an SQLAlchemy engine
-        engine = create_engine(
-            f'postgresql://{db_params["user"]}:{db_params["password"]}@{db_params["host"]}:{db_params["port"]}/{db_params["database"]}',
-        )
+        # engine = create_engine(
+        #     f'postgresql://{db_params["user"]}:{db_params["password"]}@{db_params["host"]}:{db_params["port"]}/{db_params["database"]}',
+        # )
 
         print(f"Connected to PostgreSQL database {db_params['database']}")
 

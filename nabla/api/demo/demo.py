@@ -88,6 +88,10 @@ async def read_item(item_id: int, q: Optional[str] = None):
 
     cached_value = await redis.get(f"{REDIS_CHANNEL}.item_{item_id}")
 
+    if cached_value is None:
+        logger.info(f"Cached value is None for item_id: {item_id}")
+        cached_value = "None"
+
     return {"item_id": item_id, "q": cached_value}
 
 

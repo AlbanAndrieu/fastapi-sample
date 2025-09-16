@@ -20,6 +20,7 @@ from nabla.api.demo.models import (
     get_sensor_dataframe,
     get_statistical_summary,
     recent_readings,
+    serialize_dates,
 )
 from nabla.api.demo.ws.event_bus import publish_event
 from nabla.utils.logger import logger
@@ -114,10 +115,10 @@ async def stream_sensor_data(interval: int = 2):
                 )
 
                 # Save to PostgreSQL
-                sensor.save_reading(data)
+                await sensor.save_reading(data)
 
                 # Send to all connected browsers
-                yield {"event": "sensor_update", "data": json.dumps(data)}
+                yield {"event": "sensor_update", "data": json.dumps(data, default=serialize_dates, sort_keys=True, indent=4)}
                 await asyncio.sleep(interval)  # Update every X seconds
         except asyncio.CancelledError:
             logger.info("SSE connection cancelled by client")
