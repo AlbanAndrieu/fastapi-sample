@@ -510,8 +510,8 @@ def dashboard(request: Request):
     session = SessionLocal()
     notes = session.exec(select(Note)).all()
     return templates.TemplateResponse(
-        {"request": request, "notes": notes},
         "index.html",
+        {"request": request, "notes": notes},
     )
 
 

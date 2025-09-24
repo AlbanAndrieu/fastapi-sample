@@ -46,8 +46,8 @@ def add_note(request: Request, title: str):
     session.refresh(note)
     notes = session.exec(select(NoteResponse)).all()
     return templates.TemplateResponse(
-        {"request": request, "notes": notes},
         "notes.html",
+        {"request": request, "notes": notes},
     )
 
 

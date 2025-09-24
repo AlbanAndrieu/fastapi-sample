@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 from nabla.config_settings import get_settings
 
@@ -64,15 +64,6 @@ Base = declarative_base()
 def return_to_pool(dbapi_connection, connection_record):
     mypool.putconn(dbapi_connection)
 
-# TODO replace get_session with get_async_session
-async def get_session() -> AsyncSession:
-    async with AsyncSession(engine) as session:
-       yield session
-
-async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
-    async with SessionLocal() as session:
-        yield session
-
 async def create_db_and_tables():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -86,7 +77,16 @@ async def init_db():
     #     await conn.run_sync(Base.metadata.create_all)
 
 SessionLocal = async_sessionmaker(autocommit=False, autoflush=False, bind=engine)
+SyncSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+# TODO replace get_session with get_async_session
+async def get_session() -> AsyncGenerator[AsyncSession, None]:
+    async with AsyncSession(engine) as session:
+       yield session
+
+async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
+    async with SessionLocal() as session:
+        yield session
 
 # Databases query builder
 

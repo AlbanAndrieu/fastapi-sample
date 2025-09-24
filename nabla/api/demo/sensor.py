@@ -83,7 +83,7 @@ def dashboard(request: Request):
     """Main dashboard with real-time Plotly charts"""
     metrics.track_request()
     logger.info(f"Dashboard accessed from {request.client.host}")
-    return templates.TemplateResponse({"request": request}, "index.html")
+    return templates.TemplateResponse("index.html", {"request": request},)
 
 
 @router.post("/events")
@@ -164,6 +164,7 @@ async def get_chart_data(request: Request):
         labels = [str(i) for i in range(len(recent_readings))]
 
         return templates.TemplateResponse(
+            "chart_data.html",
             {
                 "request": request,
                 "temp_data": json.dumps(temp_data),
@@ -171,7 +172,6 @@ async def get_chart_data(request: Request):
                 "pressure_data": json.dumps(pressure_data),
                 "labels": json.dumps(labels),
             },
-            "chart_data.html",
         )
 
     except Exception as e:
@@ -211,13 +211,13 @@ async def get_charts(request: Request):
         logger.info(f"Charts generated successfully in {duration:.3f}s")
 
         return templates.TemplateResponse(
+            "charts.html",
             {
                 "request": request,
                 "charts": charts_html,
                 "stats": stats,
                 "anomaly_count": len(anomalies),
             },
-            "charts.html",
         )
 
     except Exception as e:
@@ -236,14 +236,14 @@ async def get_sensor_data(request: Request):
         latest = recent_readings[-1]
         logger.debug(f"Serving latest sensor data: {latest['status']} status")
         return templates.TemplateResponse(
-            {"request": request, "sensor_data": latest},
             "sensor_data.html",
+            {"request": request, "sensor_data": latest},
         )
 
     logger.warning("No sensor data available")
     return templates.TemplateResponse(
-        {"request": request, "sensor_data": None},
         "sensor_data.html",
+        {"request": request, "sensor_data": None},
     )
 
 
