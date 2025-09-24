@@ -1,9 +1,14 @@
 {% extends 'base.html' %} {% block content %}
 <div class="container mx-auto px-4 py-4 max-w-7xl">
-  <!-- Header with gradient goodness -->
+  <!-- Header with task manager -->
   <div
     class="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6 gap-4"
   >
+    TODO
+  </div>
+  <!-- Header with gradient goodness -->
+  <div
+    class="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6 gap-4">
     <div>
       <h1
         class="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent mb-2"
@@ -32,6 +37,28 @@
       </div>
     </div>
   </div>
+  <!-- Live notes -->
+  <div class="card bg-base-100 shadow-xl mb-6">
+    <div class="card-body py-4">
+      <div class="flex items-center gap-2 mb-4">
+        <div class="badge badge-secondary">Current</div>
+        <h2 class="card-title">Current Notes</h2>
+      </div>
+
+      <div>
+        <h1class="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent mb-2"
+        >Note Manager</h1>
+        <form hx-post="/notes/add" hx-target="#notes" hx-swap="outerHTML">
+          <input type="text" name="title" placeholder="New note" required>
+          <button type="submit">Add</button>
+        </form>
+
+        <div id="notes">
+          {% include "notes.html" %}
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Live sensor data -->
   <div class="card bg-base-100 shadow-xl mb-6">
@@ -41,19 +68,17 @@
         <h2 class="card-title">Current Readings</h2>
       </div>
 
-      <!-- HTMX SSE connection for live data -->
-      <div hx-ext="sse" sse-connect="/stream/2">
-        <div
-          id="sensor-display"
-          sse-swap="sensor_update"
-          hx-get="/sensor-data"
+		  <div hx-ext="sse" sse-connect="/stream/2">
+		    <!-- Sensor data updater
+         hx-trigger="load once" -->
+		    <div
+		      id="sensor-display"
+		      hx-get="/sensor-data"
+		      hx-target="#sensor-display"
           hx-trigger="sse:sensor_update"
-        >
-          <div class="flex items-center justify-center py-6">
-            <div class="loading loading-spinner loading-lg text-primary"></div>
-            <span class="ml-4">Connecting to sensors...</span>
-          </div>
-        </div>
+		      hx-swap="innerHTML"
+		    >
+				</div>
       </div>
     </div>
   </div>
@@ -70,6 +95,22 @@
       </div>
     </div>
     <!-- Detailed time series chart -->
+    <!-- HTMX chart data fetcher -->
+    <!-- sse-swap="sensor_update"-->
+    <div hx-ext="sse" sse-connect="/stream/2">
+      <div
+        id="chart-data"
+        hx-get="/chart-data"
+        hx-target="#chart-data"
+        hx-trigger="sse:sensor_update"
+      >
+        <div class="flex items-center justify-center py-6">
+          <div class="loading loading-spinner loading-lg text-primary"></div>
+          <span class="ml-4">Connecting to sensors...</span>
+        </div>
+      </div>
+    </div>
+
     <div class="xl:col-span-2">
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body py-2 pb-0">
@@ -95,11 +136,6 @@
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- HTMX chart data fetcher -->
-    <div hx-get="/chart-data" hx-trigger="sse:sensor_update" hx-target="#chart-data" hx-swap="outerHTML">
-        <div id="chart-data"></div>
     </div>
 
   </div>
@@ -151,7 +187,7 @@
     const humidityCanvas = document.getElementById("humidityChart");
     const pressureCanvas = document.getElementById("pressureChart");
 
-    if (!tempCanvas || !humidityCanvas || !pressureCanvas || !pressureCanvas) {
+    if (!tempCanvas || !humidityCanvas || !pressureCanvas) {
       console.error("Chart canvases not found");
       return;
     }
@@ -242,7 +278,7 @@
   document.body.addEventListener("htmx:sseMessage", function (e) {
     if (e.detail.type === "sensor_update") {
       const data = JSON.parse(e.detail.data);
-
+      console.log(data);
       // Update sensor display
       const statusClass =
         data.status === "normal"
@@ -277,13 +313,13 @@
           <div class="text-sm text-base-content/60">
             ${new Date(data.timestamp).toLocaleTimeString()}
           </div>
-    </div>
+      </div>
       `;
 
-      document.getElementById("sensor-display").innerHTML = html;
+      // document.getElementById("sensor-display").innerHTML = html;
 
       // Trigger chart update
-      htmx.ajax("GET", "/chart-data", "#chart-data");
+      // htmx.ajax("GET", "/chart-data", "#chart-data");
     }
   });
 
@@ -303,7 +339,7 @@
         const pressureData = JSON.parse(dataElement.dataset.pressure);
         const labels = JSON.parse(dataElement.dataset.labels);
 
-        if (tempChart && humidityChart && pressureChart) {
+        if (tempChart && humidityChart && pressureChart && labels) {
           tempChart.data.datasets[0].data = tempData;
           tempChart.data.labels = labels;
           tempChart.update("none");

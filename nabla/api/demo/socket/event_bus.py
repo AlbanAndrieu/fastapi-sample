@@ -1,7 +1,7 @@
 from redis.asyncio import Redis
 
 # from nabla.api.demo.models import SensorReading
-from nabla.api.demo.ws.ws_manager import manager
+from nabla.api.demo.socket.ws_manager import manager
 from nabla.config_settings import REDIS_HOST, REDIS_PORT
 
 # import orjson
@@ -10,6 +10,10 @@ from nabla.config_settings import REDIS_HOST, REDIS_PORT
 
 REDIS_CHANNEL = "fastapi.sample"
 REDIS_EVENT_CHANNEL = REDIS_CHANNEL + ".sensor_events"
+
+REDIS_TASK_QUEUE = ".task_queue."
+REDIS_SENSOR_CHANNEL = "sensor"
+REDIS_NOTES_CHANNEL = "notes"
 
 # Global variable declaration
 # redis: Redis | None = None

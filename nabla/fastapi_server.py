@@ -17,7 +17,7 @@ from ddtrace.trace import TraceFilter
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.concurrency import asynccontextmanager
 from fastapi.openapi.utils import get_openapi
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, ORJSONResponse
 from fastapi.templating import Jinja2Templates
 from fastmcp import FastMCP
 
@@ -25,6 +25,7 @@ from fastmcp import FastMCP
 # from fastapi_cache.backends.redis import RedisBackend
 from prometheus_client import make_asgi_app
 from prometheus_fastapi_instrumentator import Instrumentator
+from psycopg_pool import AsyncConnectionPool
 
 # from redis import asyncio as aioredis
 from redis import Redis
@@ -32,17 +33,20 @@ from sentry_sdk.integrations.logging import LoggingIntegration
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
+from sqlmodel import select
 from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Mount
 
 from nabla.api import ping, v1, v2
 from nabla.api.auth import keycloak
+from nabla.api.db.database import DB_URL, SessionLocal, database
 from nabla.api.demo import dd, demo, integration, sensor
 from nabla.api.demo.models import recent_readings
 from nabla.api.demo.sensor import metrics
-from nabla.api.demo.ws.event_bus import start_event_listener
-from nabla.api.demo.ws.websocket import websocket_endpoint
+from nabla.api.demo.socket.event_bus import start_event_listener
+from nabla.api.demo.socket.websocket import websocket_endpoint
 from nabla.api.notes import notes
+from nabla.api.notes.models import Note
 from nabla.api.test import info
 from nabla.api.users import users
 from nabla.auth.controller import AuthController
@@ -56,14 +60,11 @@ from nabla.config_settings import (
     SENTRY_DSN,
     get_settings,
 )
-from nabla.db import database
 from nabla.utils.log_config import LogMiddleware, setup_logging
 
 # We need to load as soon as possible the setup_loggers
 from nabla.utils.logger import logger
 from nabla.utils.prometheus import (
-    API_REQUEST_COUNTER,
-    API_REQUEST_SUMMARY,
     REQUESTS,
     REQUESTS_IN_PROGRESS,
     REQUESTS_PROCESSING_TIME,
@@ -147,6 +148,12 @@ redis: Redis | None = None
 async def lifespan(app: FastAPI):
     """background task starts at startup"""
 
+    app.async_pool = AsyncConnectionPool(
+        conninfo=DB_URL.replace("+psycopg", ""),
+    )
+
+    # await init_db()
+
     # global redis
     # redis = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT)
 
@@ -187,6 +194,9 @@ async def lifespan(app: FastAPI):
 
     await database.disconnect()
 
+    if app.async_pool:
+        await app.async_pool.close()
+
     if redis:
         redis.close()
     app.state.redis.close()
@@ -196,6 +206,7 @@ async def lifespan(app: FastAPI):
         f"Final metrics - Connections: {metrics.connection_count}, Requests: {metrics.total_requests}",
     )
 
+
 # Combine both lifespans
 @asynccontextmanager
 async def combined_lifespan(app: FastAPI):
@@ -203,7 +214,6 @@ async def combined_lifespan(app: FastAPI):
     async with lifespan(app):
         async with mcp_app.lifespan(app):
             yield
-
 
 
 def initialize_api() -> FastAPI:
@@ -220,13 +230,17 @@ def initialize_api() -> FastAPI:
         description="FastAPI Sample for demo",
         version=f"{APP_PREFIX_VERSION}{APP_VERSION}",
         debug=os.getenv("DEBUG", "False").lower() == "true",
+        default_response_class=ORJSONResponse,
     )
 
     app.state.limiter = limiter
     app.add_exception_handler(
         RateLimitExceeded,
         # _rate_limit_exceeded_handler,
-        lambda r, e: JSONResponse(status_code=429, content={"error": "Too Many Requests"}),
+        lambda r, e: JSONResponse(
+            status_code=429,
+            content={"error": "Too Many Requests"},
+        ),
     )
 
     app.add_middleware(LogMiddleware)
@@ -257,7 +271,6 @@ def initialize_api() -> FastAPI:
         app_name=APP_NAME,
     )
 
-
     api_settings = get_settings()
 
     if api_settings.enable_metrics:
@@ -277,7 +290,6 @@ def initialize_api() -> FastAPI:
 
     # Setting OpenTelemetry exporter
     setting_otlp(app, APP_NAME, OTLP_GRPC_ENDPOINT)
-
 
     @tracer.wrap()
     def _version(request: Request):
@@ -318,8 +330,7 @@ def initialize_api() -> FastAPI:
     app.include_router(integration.router, tags=["integration"])
     app.include_router(dd.router, tags=["integration"])
     app.include_router(demo.router, tags=["integration"])
-    app.include_router(notes.router, prefix="/notes", tags=["notes"])
-    app.include_router(notes.router, prefix="/notes", tags=["notes"])
+    app.include_router(notes.router, tags=["notes"])
     app.include_router(info.router, tags=["test"])
     app.include_router(keycloak.router, tags=["auth"])
     app.include_router(users.router, tags=["users"])
@@ -331,11 +342,11 @@ def initialize_api() -> FastAPI:
 
 
 app = initialize_api()
- # Convert to MCP server, see https://gofastmcp.com/integrations/fastapi
+# Convert to MCP server, see https://gofastmcp.com/integrations/fastapi
 mcp = FastMCP.from_fastapi(app=app, name="Sample MCP")
 
 # 2. Create the MCP's ASGI app
-mcp_app = mcp.http_app(path='/mcp')
+mcp_app = mcp.http_app(path="/mcp")
 
 app.mount("/llm", mcp_app)
 # Now you have:
@@ -470,9 +481,15 @@ if os.getenv("DEBUG"):
 # TODO @circuit_breaker_web
 @limiter.limit("100/second")
 def dashboard(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    session = SessionLocal()
+    notes = session.exec(select(Note)).all()
+    return templates.TemplateResponse(
+        {"request": request, "notes": notes},
+        "index.html",
+    )
 
 
+@circuit_breaker_web
 @app.get("/auth")
 def root():
     logger.info("Hello")
@@ -480,34 +497,6 @@ def root():
     Root endpoint that provides a welcome message and documentation link.
     """
     return AuthController.read_root()
-
-
-@app.get("/notes")
-#TODO @circuit_breaker_web
-async def get_notes():
-    API_REQUEST_COUNTER.labels(method="GET", endpoint="/notes", http_status=200).inc()
-    API_REQUEST_SUMMARY.labels(method="GET", endpoint="/notes").observe(0.1)
-    return await notes.read_all_notes()
-
-
-@app.get("/notes/{id}")
-#TODO @circuit_breaker_web
-async def get_note_by_id(idNote: int):
-    API_REQUEST_COUNTER.labels(
-        method="GET",
-        endpoint="/notes/{id}",
-        http_status=200,
-    ).inc()
-    API_REQUEST_SUMMARY.labels(method="GET", endpoint="/notes/{id}").observe(0.1)
-    return await notes.read_note(idNote)
-
-
-@app.post("/notes")
-@circuit_breaker_web
-async def create_note():
-    API_REQUEST_COUNTER.labels(method="POST", endpoint="/notes", http_status=200).inc()
-    API_REQUEST_SUMMARY.labels(method="POST", endpoint="/notes").observe(0.1)
-    return await notes.create_note()
 
 
 @app.get("/health")

@@ -8,6 +8,9 @@ SHELL         = bash
 ME            = $(shell whoami)
 
 PORT          = 8091
+NUMPROC := $(shell grep -c ^processor /proc/cpuinfo)
+# Only take half as many processors as available
+NPROC := $(shell echo "$(NUMPROC)/2"|bc)
 
 # Image
 APP_NAME     = fastapi-sample
@@ -163,14 +166,28 @@ up-python:
 up-uvicorn:
 	@echo "up uvicorn http://0.0.0.0:$(PORT)/v1/ping"
 	@echo ".venv/bin/uvicorn server:app --reload --workers 1 --host 0.0.0.0 --port $(PORT)"
-	.venv/bin/uvicorn server:app --reload --workers 1 --host 0.0.0.0 --port $(PORT)
+	.venv/bin/uvicorn server:app --reload --workers $(NPROC) --host 0.0.0.0 --port $(PORT) \
+	--loop uvloop --http httptools \
+	--timeout-keep-alive 5 \
+  --limit-concurrency 1000 \
+  --backlog 2048
+
+#--loop uvloop and --http httptools cut per-request overhead.
+#--workers 2*CPU+1 gives you true parallelism despite the GIL.
+#--timeout-keep-alive 5 frees idle connections quickly under load.
+#--limit-concurrency and --backlog prevent thundering herds from drowning your box.
 
 ## —— Up Python App ✅🦄 —————————————————————————————————————————————————————————————————
 .PHONY: up-gunicorn
 up-gunicorn:
 	@echo "up gunicorn http://0.0.0.0:$(PORT)/v1/ping"
 	# @echo ".venv/bin/ddtrace-run .venv/bin/gunicorn main:app --reload --name fastapi-sample --workers 1 -k uvicorn_worker.UvicornWorker --bind 0.0.0.0:$(PORT) --logger-class=nabla.utils.log_config.JMGunicornLogger --log-level info --access-logfile - --statsd-host localhost:8125"
-	.venv/bin/ddtrace-run .venv/bin/gunicorn main:app --reload --name fastapi-sample --workers 1 --threads 1 --worker-connections 1000 -k uvicorn_worker.UvicornWorker --bind 0.0.0.0:$(PORT) --log-level info --access-logfile -
+	.venv/bin/ddtrace-run .venv/bin/gunicorn main:app --reload --name fastapi-sample -k uvicorn_worker.UvicornWorker \
+	--workers $(NPROC) \
+	--max-requests 5000 --max-requests-jitter 500 \
+  --graceful-timeout 30 --timeout 60 --keep-alive 5 \
+  --threads 1 --worker-connections 1000 \
+	--bind 0.0.0.0:$(PORT) --log-level info --access-logfile -
 
 
 ## —— Up Python App MCP ✅ —————————————————————————————————————————————————————————————————

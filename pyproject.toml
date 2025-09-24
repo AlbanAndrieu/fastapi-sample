@@ -21,7 +21,6 @@ maintainers = [
 dependencies = ["dynamic"]
 requires-python = ">=3.10"
 readme = "README.md"
-# license = {text = "MIT"}
 license = "MIT"
 license-files = ["LICENSE"]
 
@@ -110,7 +109,8 @@ pandas = ">=2.2.1"
 plotly = ">=6.3.0"
 polars = ">=1.32.3"
 pybreaker = ">=1.4.0"
-psycopg2 = ">=2.9.7"  # WARNING need sudo apt-get install libpq-dev
+# psycopg2 = ">=2.9.7"  # WARNING need sudo apt-get install libpq-dev
+psycopg = {version = ">=3.2.10", extras = ["binary","pool"]}
 pyarrow = ">=16.0.0"
 pydantic = ">=2.6.1"
 pydantic-settings = "*" # Defined by pydantic
@@ -136,6 +136,7 @@ urllib3 = ">=2.2.2"
 uvicorn-worker = ">=0.2.0"
 webtypy = ">=0.1.7"
 "web.py" = ">=0.62"
+# htmx = "*"
 
 [tool.poetry.group.locust]
 optional = true
@@ -167,7 +168,7 @@ types-requests = ">=2.32.4.20250611"
 [tool.poetry.group.webui]
 optional = true
 [tool.poetry.group.webui.dependencies]
-gradio = ">=3.0.10"
+gradio = ">=5.44.1"
 # tensorflow = ">=2.9.1"
 opencv-python-headless = ">=4.6.0.66"
 
@@ -199,8 +200,9 @@ opentelemetry-sdk = ">=1.33.1"
 [tool.poetry.group.panda]
 optional = false
 [tool.poetry.group.panda.dependencies]
-sqlalchemy =  {extras = ["asyncio"], version = ">=2.0.20"}
 # pandas = ">=2.2.1"
+sqlalchemy =  {extras = ["asyncio"], version = ">=2.0.20"}
+sqlmodel = ">=0.0.25"
 psycopg2 = ">=2.9.7"  # WARNING need sudo apt-get install libpq-dev
 
 [tool.poetry.group.influxdb]

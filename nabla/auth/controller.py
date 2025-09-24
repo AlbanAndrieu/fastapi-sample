@@ -1,5 +1,6 @@
-from fastapi import Depends, HTTPException, status, Form
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Depends, Form, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
 from nabla.auth.models import TokenResponse, UserInfo
 from nabla.auth.service import AuthService
 
@@ -22,8 +23,9 @@ class AuthController:
         """
         return {
             "message": (
-                "Welcome to the Keycloak authentication system. "
-                "Use the /login endpoint to authenticate and /protected to access the protected resource."
+                "Welcome to the Generic authentication system. "
+                "Use the login endpoint to authenticate with the generic system and protected to access the protected resource."
+                "Use the auth/login endpoint to authenticate with Keycloak and auth/protected to access the protected resource."
             ),
             "documentation": "/docs",
         }

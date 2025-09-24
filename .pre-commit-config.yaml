@@ -109,7 +109,7 @@ repos:
   #       # https://pre-commit.com/#top_level-default_language_version
   #       # language_version: python3.12
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.12.9
+    rev: v0.13.1
     hooks:
       # Run the linter.
       - id: ruff-check
@@ -139,8 +139,9 @@ repos:
     rev: v3.2.0
     hooks:
       - id: add-trailing-comma
-  - repo: https://github.com/willthames/ansible-lint.git
-    rev: v25.8.1
+  # - repo: https://github.com/willthames/ansible-lint.git
+  - repo: https://github.com/ansible-community/ansible-lint.git
+    rev: v25.9.0
     hooks:
       - id: ansible-lint
         files: \.(yaml|yml)$
@@ -205,7 +206,7 @@ repos:
       #   args: [--permissive, --verbose, --dockerfile, ./Dockerfile]
       #   always_run: false
   - repo: https://github.com/hadolint/hadolint
-    rev: v2.13.1-beta
+    rev: v2.14.0
     hooks:
       - id: hadolint-docker
   - repo: https://github.com/jorisroovers/gitlint
@@ -221,7 +222,7 @@ repos:
         entry: zricethezav/gitleaks protect --verbose --redact --staged
         #entry: zricethezav/gitleaks detect --verbose
   - repo: https://github.com/oxsecurity/megalinter
-    rev: v8.8.0
+    rev: v9.0.1
     hooks:
       - id: megalinter-incremental  # Faster, less thorough
         stages:

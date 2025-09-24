@@ -1,5 +1,6 @@
 from fastapi import WebSocket
-from nabla.api.demo.ws.ws_manager import manager
+
+from nabla.api.demo.socket.ws_manager import manager
 
 
 async def websocket_endpoint(websocket: WebSocket):

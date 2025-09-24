@@ -67,7 +67,7 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DEFAULT_TIMEOUT=100 \
     # poetry
     # https://python-poetry.org/docs/configuration/#using-environment-variables
-    POETRY_VERSION=2.1.4 \
+    POETRY_VERSION=2.2.0 \
     # make poetry install to this location
     POETRY_HOME="/code/.poetry_venv" \
     POETRY_NO_INTERACTION=1 \
@@ -237,6 +237,7 @@ CMD [ \
     "--bind", "0.0.0.0:8080", \
     "--graceful-timeout", "120", \
     "--timeout", "120", \
+    "--keep-alive", "5", \
     "--logger-class=nabla.utils.log_config.JMGunicornLogger", \
     "--log-level", "info", \
     "--access-logfile", "-" \

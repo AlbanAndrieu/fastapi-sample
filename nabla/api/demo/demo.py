@@ -10,7 +10,7 @@ from fastmcp import FastMCP
 from opentelemetry import trace
 from opentelemetry.trace.status import Status, StatusCode
 
-from nabla.api.demo.ws.event_bus import REDIS_CHANNEL, redis
+from nabla.api.demo.socket.event_bus import REDIS_CHANNEL, redis
 from nabla.utils.logger import logger
 from nabla.utils.misc import timed_operation
 from nabla.utils.prometheus import API_REQUEST_COUNTER, API_REQUEST_SUMMARY

@@ -6,17 +6,27 @@ import pytest
 from nabla.api.notes import crud
 
 
+def test_homepage(test_app):
+    response = test_app.get("/")
+    assert response.status_code == 200
+    assert "Note Manager" in response.text
+
+
 def test_create_note(test_app, monkeypatch):
     test_request_payload = {
         "title": "something",
         "description": "something else",
-        "completed": "False",
+        "type": "note",
+        "prompt": "test prompt",
+        "completed": False,
     }
     test_response_payload = {
         "id": 1,
         "title": "something",
         "description": "something else",
-        "completed": "False",
+        "type": "note",
+        "prompt": "test prompt",
+        "completed": False,
         "created_date": dt.now().strftime("%Y-%m-%d %H:%M"),
     }
 
@@ -46,8 +56,10 @@ def test_read_note(test_app, monkeypatch):
     test_data = {
         "id": 1,
         "title": "something",
+        "type": "note",
+        "prompt": "test prompt",
         "description": "something else",
-        "completed": "False",
+        "completed": False,
         "created_date": dt.now().strftime("%Y-%m-%d %H:%M"),
     }
 
@@ -83,7 +95,7 @@ def test_read_note_incorrect_id_twice(test_app, monkeypatch):
     assert response.json()["detail"] == "Note not found"
 
     response = test_app.get("/notes/0/")
-    assert response.status_code == 422
+    assert response.status_code == 404
 
 
 # test for reading all notes:
@@ -93,14 +105,18 @@ def test_read_all_notes(test_app, monkeypatch):
             "title": "something",
             "description": "something else",
             "id": 1,
-            "completed": "True",
+            "type": "note",
+            "prompt": "test prompt",
+            "completed": True,
             "created_date": dt.now().strftime("%Y-%m-%d %H:%M"),
         },
         {
             "title": "someone",
             "description": "someone else",
             "id": 2,
-            "completed": "False",
+            "type": "note",
+            "prompt": "test prompt",
+            "completed": False,
             "created_date": dt.now().strftime("%Y-%m-%d %H:%M"),
         },
     ]
@@ -121,21 +137,27 @@ def test_update_note(test_app, monkeypatch):
         "title": "something",
         "description": "something else",
         "id": 1,
-        "completed": "False",
+        "type": "note",
+        "prompt": "test prompt",
+        "completed": False,
         "created_date": dt.now().strftime("%Y-%m-%d %H:%M"),
     }
     test_changes = {
         "title": "something",
         "description": "something else",
         # "id": 1,
-        "completed": "True",
+        "type": "note",
+        "prompt": "test prompt",
+        "completed": True,
         "created_date": dt.now().strftime("%Y-%m-%d %H:%M"),
     }
     test_response = {
         "title": "something",
         "description": "something else",
         "id": 1,
-        "completed": "True",
+        "type": "note",
+        "prompt": "test prompt",
+        "completed": True,
         "created_date": dt.now().strftime("%Y-%m-%d %H:%M"),
     }
 
@@ -163,8 +185,10 @@ def test_update_note(test_app, monkeypatch):
             {
                 "title": "foo",
                 "description": "bar",
+                "type": "note",
+                "prompt": "test prompt",
                 "created_date": dt.now().strftime("%Y-%m-%d %H:%M"),
-                "completed": "True",
+                "completed": True,
             },
             404,
         ],
@@ -192,7 +216,9 @@ def test_remove_note(test_app, monkeypatch):
         "title": "something",
         "description": "something else",
         "id": 1,
-        "completed": "False",
+        "type": "note",
+        "prompt": "test prompt",
+        "completed": False,
         "created_date": dt.now().strftime("%Y-%m-%d %H:%M"),
     }
 

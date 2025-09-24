@@ -114,14 +114,32 @@ def test_invalid(test_app) -> None:
     }
 
 
-# def test_chain(test_app) -> None:
-#     """It runs and chain io_task and cpu_task."""
+def test_health(test_app) -> None:
+    """It runs and gives health status."""
 
-#     expected_status: int = 200
+    expected_status: int = 200
 
-#     # when
-#     response = test_app.get("/chain")
+    # when
+    response = test_app.get("/health")
 
-#     # then
-#     assert response.status_code == expected_status
-#     assert response.json() == {"path": "/chain"}
+    # then
+    assert response.status_code == expected_status
+    status = response.json()
+    assert status["status"] == "healthy"
+    assert status["readings_count"] == 50
+    assert status["active_connections"] == 0
+    assert status["total_requests"] == 1
+
+
+@pytest.mark.skip(reason="Skipping this test for now")
+def test_chain(test_app) -> None:
+    """It runs and chain io_task and cpu_task."""
+
+    expected_status: int = 200
+
+    # when
+    response = test_app.get("/chain")
+
+    # then
+    assert response.status_code == expected_status
+    assert response.json() == {"path": "/chain"}

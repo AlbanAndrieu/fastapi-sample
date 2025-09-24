@@ -1,3 +1,5 @@
+import os
+
 import pytest
 from starlette.testclient import TestClient
 
@@ -20,3 +22,15 @@ def pytest_sessionfinish(session, exitstatus):
     failure_rate = (100.0 * session.testsfailed) / session.testscollected
     if failure_rate <= ACCEPTABLE_FAILURE_RATE:
         session.exitstatus = 0
+
+
+# Because some tests are only suitable for certain environments, like having access to keycloak for test_login.py
+def requires_env(*envs):
+    env = os.environ.get(
+        'ENV', 'local'
+    )
+
+    return pytest.mark.skipif(
+        env not in list(envs),
+        reason=f"Not suitable environment {env} for current test"
+    )

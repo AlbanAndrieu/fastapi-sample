@@ -24,7 +24,8 @@ Fastapi sample
   * [User guide](#user-guide)
     + [Installation and commands](#installation-and-commands)
     + [Database demo](#database-demo)
-  * [Create PostgreSQL fastapi_sample_gitlab on pg-gra.service.gra.dev.consul](#create-postgresql-fastapi_sample_gitlab-on-pg-graservicegradevconsul)
+- [Create PostgreSQL postgres on pg-gra.service.gra.dev.consul with Alembic](#create-postgresql-postgres-on-pg-graservicegradevconsul-with-alembic)
+  * [Create PostgreSQL fastapi_sample_gitlab on pg-gra.service.gra.dev.consul by hand](#create-postgresql-fastapi_sample_gitlab-on-pg-graservicegradevconsul-by-hand)
     + [Temporal demo](#temporal-demo)
     + [Defect Dojo Parameters](#defect-dojo-parameters)
   * [Quality check](#quality-check)
@@ -314,7 +315,14 @@ python3 ./my-app/src/get_redis.py
 
 ### Database demo
 
-## Create PostgreSQL fastapi_sample_gitlab on pg-gra.service.gra.dev.consul
+# Create PostgreSQL postgres on pg-gra.service.gra.dev.consul with Alembic
+
+```bash
+# Create/Upgrade schema
+alembic upgrade head
+```
+
+## Create PostgreSQL fastapi_sample_gitlab on pg-gra.service.gra.dev.consul by hand
 
 ```bash
 psql -h pg-gra.service.gra.dev.consul -U postgres
@@ -324,13 +332,15 @@ ALTER ROLE fastapisample WITH LOGIN;
 create database fastapi_sample_gitlab with owner fastapisample encoding 'UTF8';
 create database fastapi_sample_dev with owner fastapisample encoding 'UTF8';
 # ALTER USER fastapisample PASSWORD 'XXX';
--- GRANT SELECT ON TABLE public.connected_users TO dev;
+-- GRANT SELECT ON TABLE public.fastapi_sample_gitlab TO fastapi_sample_dev;
 ```
 
 ```
-export POSTGRES_FASTAPI_SAMPLE_DB="fastapi_sample_dev";
-export POSTGRES_FASTAPI_SAMPLE_USER="fastapisample";
-export POSTGRES_FASTAPI_SAMPLE_PASSWORD="password-reset-XXX";
+# for alembic
+DB_USER="postgres"
+DB_PASS="password-reset-XXX"
+# otherwise classic connection
+DB_URL="postgresql+psycopg://postgres:password-reset-@127.0.0.1:5432/fastapi_sample_gitlab" # nosec
 ```
 
 ### Temporal demo
@@ -411,6 +421,9 @@ pyright-to-gitlab-ci --src report_raw.json --output report_pyright.json --base_p
 
 ```
 python3 nabla/loki/influxdb.py
+
+# Create/Upgrade schema
+alembic upgrade head
 
 # Add header in file
 # user_id,email text,last_login,cgu_read_and_accepted,roles

@@ -22,7 +22,13 @@ from nabla.api.demo.models import (
     recent_readings,
     serialize_dates,
 )
-from nabla.api.demo.ws.event_bus import publish_event
+from nabla.api.demo.socket.event_bus import (
+    REDIS_CHANNEL,
+    REDIS_SENSOR_CHANNEL,
+    REDIS_TASK_QUEUE,
+    publish_event,
+    redis,
+)
 from nabla.utils.logger import logger
 
 router = APIRouter()
@@ -34,6 +40,7 @@ sensor = SensorData()
 chart_factory = ChartFactory()
 
 active_connections: weakref.WeakSet[Any] = weakref.WeakSet()
+
 
 # Performance monitoring
 class DashboardMetrics:
@@ -76,7 +83,7 @@ def dashboard(request: Request):
     """Main dashboard with real-time Plotly charts"""
     metrics.track_request()
     logger.info(f"Dashboard accessed from {request.client.host}")
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse({"request": request}, "index.html")
 
 
 @router.post("/events")
@@ -114,11 +121,19 @@ async def stream_sensor_data(interval: int = 2):
                     f"Generated sensor reading: temp={data['temperature']}°C, status={data['status']}",
                 )
 
-                # Save to PostgreSQL
+                # Save to PostgreSQL and Redis
                 await sensor.save_reading(data)
 
                 # Send to all connected browsers
-                yield {"event": "sensor_update", "data": json.dumps(data, default=serialize_dates, sort_keys=True, indent=4)}
+                yield {
+                    "event": "sensor_update",
+                    "data": json.dumps(
+                        data,
+                        default=serialize_dates,
+                        sort_keys=True,
+                        indent=4,
+                    ),
+                }
                 await asyncio.sleep(interval)  # Update every X seconds
         except asyncio.CancelledError:
             logger.info("SSE connection cancelled by client")
@@ -149,7 +164,6 @@ async def get_chart_data(request: Request):
         labels = [str(i) for i in range(len(recent_readings))]
 
         return templates.TemplateResponse(
-            "chart_data.html",
             {
                 "request": request,
                 "temp_data": json.dumps(temp_data),
@@ -157,6 +171,7 @@ async def get_chart_data(request: Request):
                 "pressure_data": json.dumps(pressure_data),
                 "labels": json.dumps(labels),
             },
+            "chart_data.html",
         )
 
     except Exception as e:
@@ -196,13 +211,13 @@ async def get_charts(request: Request):
         logger.info(f"Charts generated successfully in {duration:.3f}s")
 
         return templates.TemplateResponse(
-            "charts.html",
             {
                 "request": request,
                 "charts": charts_html,
                 "stats": stats,
                 "anomaly_count": len(anomalies),
             },
+            "charts.html",
         )
 
     except Exception as e:
@@ -221,14 +236,14 @@ async def get_sensor_data(request: Request):
         latest = recent_readings[-1]
         logger.debug(f"Serving latest sensor data: {latest['status']} status")
         return templates.TemplateResponse(
+            {"request": request, "sensor_data": latest},
             "sensor_data.html",
-            {"request": request, "data": latest},
         )
 
     logger.warning("No sensor data available")
     return templates.TemplateResponse(
+        {"request": request, "sensor_data": None},
         "sensor_data.html",
-        {"request": request, "data": None},
     )
 
 
@@ -288,6 +303,12 @@ async def get_metrics():
 
     logger.info("Detailed metrics requested")
     return detailed_metrics
+
+
+@router.get("/queue-status")
+def queue_status():
+    length = redis.llen(REDIS_CHANNEL + REDIS_TASK_QUEUE + REDIS_SENSOR_CHANNEL)
+    return {"queue_length": length}
 
 
 async def handle_sensor_event(event):

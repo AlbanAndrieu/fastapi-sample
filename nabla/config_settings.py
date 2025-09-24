@@ -58,6 +58,10 @@ SENTRY_DSN = os.environ.get(
     "https://11c5d815632831d3274c830441885207@o4505783360356352.ingest.sentry.io/4505783364681728",
 )
 
+APP_DOMAIN = os.environ.get(
+    "APP_DOMAIN",
+    "jusmundi.com",
+)
 
 class AzureOpenAiInstance(BaseModel):
     """

@@ -11,9 +11,17 @@ from jwt import PyJWTError
 from pydantic import BaseModel
 from sqlalchemy import Boolean, Column, Integer, String, select
 from sqlalchemy.orm import declarative_base
+from sqlmodel import Session
 
-from nabla.api.auth.token import TokenData, decode_jwt, oauth2_scheme
-from nabla.db import get_db
+from nabla.api.auth.token import (
+    TokenData,
+    create_access_token,
+    decode_jwt,
+    get_password_hash,
+    oauth2_scheme,
+    verify_password,
+)
+from nabla.api.db.database import get_db, get_session
 from nabla.utils.logger import logger
 from nabla.utils.prometheus import USER_REGISTRATIONS
 
@@ -25,6 +33,13 @@ Base = declarative_base()
 circuit_breaker_user = pybreaker.CircuitBreaker(fail_max=2, reset_timeout=10)
 
 class UserEvent(BaseModel):
+    # model_config = ConfigDict(
+    #     str_max_length=120,      # hard caps avoid pathological inputs
+    #     extra="ignore",          # drop unknown fields instead of raising
+    #     revalidate_instances="never",  # don't re-check already-validated data
+    #     ser_json_inf_nan=False   # stricter but faster JSON
+    # )
+
     name: str
     email: str
     password: str
@@ -57,7 +72,7 @@ class UserEvent(BaseModel):
 
 
 class User(Base):
-    __tablename__ = "user"
+    __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
@@ -102,7 +117,7 @@ def get_me() -> UserEvent:
 # This endpoint will not be registered as a tool, since it was added after the MCP instance was created
 # Dynamic resource template
 @mcp.resource("users://whoami/profile")
-@router.get("/whoami/", operation_id="whoami", response_model=dict[str, str])
+@router.get("/whoami/", operation_id="whoami", response_model=UserEvent)
 async def whoami():
     return get_me()
 
@@ -118,23 +133,6 @@ async def current_user():
     # user = get_user_details(None)
     # return UserEvent(**user)
     return get_me()
-    # return {
-    #     "name": "Alban Andrieu",
-    #     "email": "alban.andrieu@free.fr",
-    #     "phone": "0695435353",
-    #     "address": "11 terrasse de l'université",
-    #     "city": "Paris",
-    #     "state": "FR",
-    #     "zip": "92000",
-    #     "country": "France",
-    #     "job": "DevSecOps",
-    #     "company": "JusMundi",
-    #     "linkedin": "https://www.linkedin.com/in/nabla/",
-    #     "github": "https://github.com/albanandrieu",
-    #     "twitter": "https://twitter.com/nabla",
-    #     "facebook": "https://www.facebook.com/aandrieu",
-    #     "instagram": "https://www.instagram.com/aandrieu/",
-    # }
 
 async def get_user_by_email(email: str):
     return (await get_db().scalars(select(User).where(User.email == email))).first()
@@ -207,31 +205,30 @@ async def get_user(user_id: int):
         raise HTTPException(status_code=404, detail="User not found")
     return user
 
-    # return {
-    #     "name": f"User {user_id}",
-    #     "email": "alban.andrieu@free.fr",
-    #     "password": "XXX",
-    #     # "active": True,
-    #     # "role": "admin",
-    #     # "permissions": ["read", "write"],
-    #     # "groups": ["admin"],
-    #     # "phone": "0695435353",
-    #     # "address": "11 terrasse de l'université",
-    #     # "city": "Paris",
-    #     # "state": "FR",
-    #     # "zip": "92000",
-    #     # "country": "France",
-    #     # "created_at": "2024-01-01T00:00:00Z",
-    # }
 
 
 @router.post("/users/register")
-async def register_user():
+async def register(user: UserEvent, session: Session = Depends(get_session)):
+    result = await session.execute(select(User).where(User.name == user.name))
+    if result.scalar():
+        raise HTTPException(status_code=400, detail="User already exists")
+    new_user = User(name=user.name, hashed_password=get_password_hash(user.password))
+    session.add(new_user)
+    await session.commit()
+
     logger.info("user_action", action="register")
     # Your registration logic
     USER_REGISTRATIONS.inc()
-    return {"status": "registered"}
+    return {"status": "User created"}
 
+@router.post("/login")
+async def login(user: UserEvent,  session: Session = Depends(get_session)):
+    result = await session.execute(select(User).where(User.name == user.name))
+    db_user = result.scalar()
+    if not db_user or not verify_password(user.password, db_user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    access_token = create_access_token(data={"sub": db_user.name})
+    return {"access_token": access_token, "token_type": "bearer"}
 
 # Query a user and their associated orders in one go, avoiding the N+1 problem of "query 10 users + query 10 roles"
 # async def get_user_with_roles(user_id: int, db: AsyncSession = Depends(get_db)):

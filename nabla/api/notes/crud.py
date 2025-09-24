@@ -1,25 +1,25 @@
 from datetime import datetime as dt
 
-from nabla.api.demo.models import SessionLocal
+from nabla.api.db.database import SessionLocal, database
 from nabla.api.notes.models import Note, NoteResponse, notes
-from nabla.db import database
-
-# from nabla.db import database, notes
-db = SessionLocal()
 
 
+# TODO session: Session = Depends(get_session)
 async def post(payload: NoteResponse):
     created_date = dt.now().strftime("%Y-%m-%d %H:%M")
-    db.add(
+    session = SessionLocal()
+    session.add(
         Note(
             title=payload.title,
             description=payload.description,
+            type=payload.type,
+            prompt=payload.prompt,
             completed=payload.completed,
             created_date=created_date,
         ),
     )
-    db.commit()
-    db.close()
+    session.commit()
+    session.close()
     return payload
 
     # query = notes.insert().values(
@@ -49,6 +49,8 @@ async def put(note_id: int, payload=NoteResponse):
         .values(
             title=payload.title,
             description=payload.description,
+            type=payload.type,
+            prompt=payload.prompt,
             completed=payload.completed,
             created_date=created_date,
         )

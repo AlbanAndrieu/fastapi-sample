@@ -3,45 +3,26 @@ import json
 import random
 from collections import deque
 from datetime import datetime, timedelta
-from typing import Any, Deque, Dict, Final, List
+from typing import Any, Deque, Dict, List
 
 import orjson
-import plotly.graph_objects as go
 import polars as pl
-from ddtrace import patch
 from pydantic import BaseModel
 
 # With PostgreSQL
-from sqlalchemy import Column, DateTime, Float, Integer, String, create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy import Column, DateTime, Float, Integer, String
+from sqlalchemy.orm import declarative_base
 
-from nabla.api.demo.ws.event_bus import REDIS_CHANNEL, redis
-from nabla.config_settings import get_settings
+from nabla.api.db.database import SessionLocal
+from nabla.api.demo.socket.event_bus import (
+    REDIS_CHANNEL,
+    REDIS_SENSOR_CHANNEL,
+    REDIS_TASK_QUEUE,
+    redis,
+)
 from nabla.utils.logger import logger
 
-# from rq import Queue
-
-
-
 Base = declarative_base()
-
-# Database url if none is passed the default one is used
-DB_URL: Final[str] = str(get_settings().db_url)
-
-patch(sqlalchemy=True)
-
-def orjson_serializer(obj):
-    """
-        Note that `orjson.dumps()` return byte array, while sqlalchemy expects string, thus `decode()` call.
-    """
-    return orjson.dumps(obj, option=orjson.OPT_SERIALIZE_NUMPY | orjson.OPT_NAIVE_UTC).decode()
-
-
-# SQLAlchemy
-engine = create_engine(DB_URL, json_serializer=orjson_serializer,
-    json_deserializer=orjson.loads)
-
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 class DateTimeEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -98,6 +79,13 @@ class SensorReading(Base):
 # Sensor event model with pydantic validation
 @dataclasses.dataclass
 class SensorEvent(BaseModel):
+    # model_config = ConfigDict(
+    #     str_max_length=120,      # hard caps avoid pathological inputs
+    #     extra="ignore",          # drop unknown fields instead of raising
+    #     revalidate_instances="never",  # don't re-check already-validated data
+    #     ser_json_inf_nan=False   # stricter but faster JSON
+    # )
+
     timestamp: str
     temperature: float
     humidity: float
@@ -115,20 +103,22 @@ class SensorEvent(BaseModel):
                 sort_keys=True,
                 indent=4)
 
-async def set_cache(suffix, data: Any):
+
+
+async def save_redis(suffix, data: Any):
     res = None
 
     logger.debug(f"Data type: {type(data)}")
 
     if isinstance(data, str):
         res =await redis.set(
-            REDIS_CHANNEL + ".task_queue." + suffix,
+            REDIS_CHANNEL + REDIS_TASK_QUEUE + suffix,
             data,
             ex=120,
         )
     elif isinstance(data, dict):
        res = await redis.set(
-            REDIS_CHANNEL + ".task_queue." + suffix,
+            REDIS_CHANNEL + REDIS_TASK_QUEUE + suffix,
             json.dumps(data, default=serialize_dates),
             ex=120,
         )
@@ -197,12 +187,36 @@ class SensorData:
 
         return reading
 
+    async def save_reading_to_redis(self, data: Dict[str, Any]) -> None:
+        logger.info(f"SensorData toJSON: {self}")
 
-    # TODO @cache(expire=60, coder=ORJsonCoder)
+        # TODO push list of readings to redis
+        # redis.lpush(REDIS_CHANNEL, db_reading.to_json())
+        # redis.lpush(REDIS_CHANNEL + ".task_queue_lpush", orjson.dumps(data, option=orjson.OPT_SORT_KEYS))
+
+        # res = await set_cache("temperature", db_reading.temperature)
+        # print(res)
+        # OK res = await set_cache("data", str(db_reading))
+        # NOK res = await set_cache("data", db_reading)
+
+        # TODO : Below is working, BUT it is not a good idea to push the whole reading to the cache
+        # because it is too big and it is slowing down the system
+        res = await save_redis(REDIS_SENSOR_CHANNEL, data)
+        logger.debug(f"queued data: {res}")
+        return res
+
+
     async def save_reading(self, data: Dict[str, Any]) -> None:
         """Save sensor reading to PostgreSQL database"""
-        db = SessionLocal()
+        await self.save_reading_to_db(data)
+        """Save sensor reading to Redis"""
+        await self.save_reading_to_redis(data)
 
+    # session: Session = Depends(get_session)
+    async def save_reading_to_db(self, data: Dict[str, Any]) -> None:
+        """Save sensor reading to PostgreSQL database"""
+
+        session = SessionLocal()
         try:
             # Convert ISO string back to datetime object
             timestamp = datetime.fromisoformat(data["timestamp"])
@@ -216,193 +230,15 @@ class SensorData:
             )
 
             logger.debug(f"db_reading: {db_reading.toJSON()}")
-            # TODO push list of readings to redis
-            # redis.lpush(REDIS_CHANNEL, db_reading.to_json())
-            # redis.lpush(REDIS_CHANNEL + ".task_queue_lpush", orjson.dumps(data, option=orjson.OPT_SORT_KEYS))
 
-            # res = await set_cache("temperature", db_reading.temperature)
-            # print(res)
-            # OK res = await set_cache("data", str(db_reading))
-            # NOK res = await set_cache("data", db_reading)
-
-            # TODO : Below is working, BUT it is not a good idea to push the whole reading to the cache
-            # because it is too big and it is slowing down the system
-            # res = await set_cache("data", data)
-            # logger.debug(f"queued data: {res}")
-
-            db.add(db_reading)
-            db.commit()
+            session.add(db_reading)
+            session.commit()
         except Exception as e:
-            db.rollback()
-            raise e
+             session.rollback()
+             raise e
         finally:
-            db.close()
-
-    def create_status_distribution(self, df: pl.DataFrame) -> str:
-        """Create status distribution pie chart"""
-        if df.is_empty():
-            logger.warning("Cannot create status chart: empty DataFrame")
-            return self._create_empty_chart("No status data")
-
-        # Get status counts using Polars
-        status_counts = df["status"].value_counts().sort("status")
-
-        logger.debug(
-            f"Status distribution: {dict(zip(status_counts['status'].to_list(), status_counts['count'].to_list(), strict=False))}"
-        )
-
-        fig = go.Figure(
-            data=[
-                go.Pie(
-                    labels=status_counts["status"].to_list(),
-                    values=status_counts["count"].to_list(),
-                    marker_colors=[
-                        self.colors.get(status, "#6B7280")
-                        for status in status_counts["status"].to_list()
-                    ],
-                    hovertemplate="<b>%{label}</b><br>Count: %{value}<br>Percentage: %{percent}<extra></extra>",
-                    textinfo="label+percent",
-                )
-            ]
-        )
-
-        fig.update_layout(
-            **self.layout_defaults,  # pyright: ignore[reportAttributeAccessIssue]
-            title="Sensor Status Distribution",
-            # height=300
-        )
-
-        logger.info("Status distribution chart created successfully")
-        return fig.to_html(include_plotlyjs="cdn", div_id="status-chart")
-
-    def create_correlation_heatmap(self, df: pl.DataFrame) -> str:
-        """Create correlation heatmap between metrics"""
-        if df.is_empty() or len(df) < 2:
-            logger.warning("Cannot create correlation heatmap: insufficient data")
-            return self._create_empty_chart("Insufficient data for correlation")
-
-        logger.debug("Calculating correlation matrix")
-
-        # Calculate correlation matrix using Polars
-        numeric_cols = ["temperature", "humidity", "pressure"]
-        corr_data = []
-
-        for col1 in numeric_cols:
-            row = []
-            for col2 in numeric_cols:
-                if col1 == col2:
-                    correlation = 1.0
-                else:
-                    # Calculate Pearson correlation
-                    correlation = df.select(pl.corr(col1, col2)).item()
-                    if correlation is None:  # Handle NaN correlations
-                        correlation = 0.0
-                row.append(correlation)
-            corr_data.append(row)
-
-        logger.debug(f"Correlation matrix calculated: {corr_data}")
-
-        fig = go.Figure(
-            data=go.Heatmap(
-                z=corr_data,
-                x=numeric_cols,
-                y=numeric_cols,
-                colorscale="RdBu",
-                zmid=0,
-                text=[[f"{val:.2f}" for val in row] for row in corr_data],
-                texttemplate="%{text}",
-                textfont={"size": 12},
-                hovertemplate="<b>%{y} vs %{x}</b><br>Correlation: %{z:.3f}<extra></extra>",
-            )
-        )
-
-        fig.update_layout(
-            **self.layout_defaults,  # pyright: ignore[reportAttributeAccessIssue]
-            title="Sensor Correlation Matrix",
-            # height=300
-        )
-
-        logger.info("Correlation heatmap created successfully")
-        return fig.to_html(include_plotlyjs="cdn", div_id="correlation-chart")
-
-    def create_anomaly_highlights(self, df: pl.DataFrame, anomalies: List[Dict]) -> str:
-        """Create chart highlighting anomalous readings"""
-        if df.is_empty():
-            logger.warning("Cannot create anomaly chart: empty DataFrame")
-            return self._create_empty_chart("No data for anomaly detection")
-
-        logger.debug(f"Creating anomaly chart with {len(anomalies)} anomalies")
-
-        timestamps = df["timestamp"].to_list()
-        temperatures = df["temperature"].to_list()
-
-        fig = go.Figure()
-
-        # Normal temperature line
-        fig.add_trace(
-            go.Scatter(
-                x=timestamps,
-                y=temperatures,
-                mode="lines+markers",
-                name="Temperature",
-                line={"color": self.colors["temperature"]},
-                marker={"size": 4},
-            )
-        )
-
-        # Highlight anomalies
-        if anomalies:
-            anomaly_times = [datetime.fromisoformat(a["timestamp"]) for a in anomalies]
-            anomaly_temps = [a["temperature"] for a in anomalies]
-
-            logger.info(f"Highlighting {len(anomalies)} anomalies on chart")
-
-            fig.add_trace(
-                go.Scatter(
-                    x=anomaly_times,
-                    y=anomaly_temps,
-                    mode="markers",
-                    name="Anomalies",
-                    marker={
-                        "color": self.colors["critical"], "size": 10, "symbol": "diamond"
-                    },
-                    hovertemplate="<b>Anomaly Detected</b><br>Temperature: %{y:.1f}°C<br>%{x}<extra></extra>",
-                )
-            )
-
-        fig.update_layout(
-            **self.layout_defaults,  # pyright: ignore[reportAttributeAccessIssue]
-            title="Temperature with Anomaly Detection",
-            # height=300,
-            xaxis_title="Time",
-            yaxis_title="Temperature (°C)",
-        )
-
-        logger.info("Anomaly detection chart created successfully")
-        return fig.to_html(include_plotlyjs="cdn", div_id="anomaly-chart")
-
-    def _create_empty_chart(self, message: str) -> str:
-        """Create placeholder chart for empty data"""
-        logger.debug(f"Creating empty chart placeholder: {message}")
-
-        fig = go.Figure()
-        fig.add_annotation(
-            text=message,
-            xref="paper",
-            yref="paper",
-            x=0.5,
-            y=0.5,
-            xanchor="center",
-            yanchor="middle",
-            font={"size": 16, "color": "gray"},
-        )
-        fig.update_layout(
-            **self.layout_defaults,  # pyright: ignore[reportAttributeAccessIssue]
-            # height=300,
-            xaxis={"visible": False},
-            yaxis={"visible": False},
-        )
-        return fig.to_html(include_plotlyjs="cdn")
+            #session.aclose()
+            session.close()
 
 
 def get_sensor_dataframe() -> pl.DataFrame:
@@ -496,10 +332,3 @@ def detect_anomalies() -> List[Dict]:
 
 # Store the last 100 readings (more data = better Plotly charts)
 recent_readings: Deque[Dict[str, Any]] = deque(maxlen=100)
-
-# Create a queue object with the connection
-# task_queue = Queue('low', connection=redis)
-
-# Create tables
-Base.metadata.create_all(bind=engine)
-# Base.metadata.create_all(bind=get_engine())
