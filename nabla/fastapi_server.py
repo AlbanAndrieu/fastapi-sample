@@ -49,7 +49,8 @@ from nabla.api.notes import notes
 from nabla.api.notes.models import Note
 from nabla.api.test import info
 from nabla.api.users import users
-from nabla.auth.controller import AuthController
+from nabla.api.users.models import UserCreate, UserRead, UserUpdate
+from nabla.api.users.users import fastapi_users, jwt_backend
 from nabla.config_settings import (
     APP_NAME,
     APP_PREFIX_VERSION,
@@ -325,6 +326,31 @@ def initialize_api() -> FastAPI:
         tags=["ping"],
         responses={404: {"description": "Not found"}},
     )
+
+    app.include_router(
+        fastapi_users.get_auth_router(jwt_backend), prefix="/auth/jwt", tags=["auth"]
+    )
+    app.include_router(
+        fastapi_users.get_register_router(UserRead, UserCreate),
+        prefix="/auth",
+        tags=["auth"],
+    )
+    app.include_router(
+        fastapi_users.get_reset_password_router(),
+        prefix="/auth",
+        tags=["auth"],
+    )
+    app.include_router(
+        fastapi_users.get_verify_router(UserRead),
+        prefix="/auth",
+        tags=["auth"],
+    )
+    app.include_router(
+        fastapi_users.get_users_router(UserRead, UserUpdate),
+        prefix="/users",
+        tags=["users"],
+    )
+
     app.include_router(v1.router, tags=["api"])
     app.include_router(v2.router, tags=["api"])
     app.include_router(integration.router, tags=["integration"])
@@ -332,7 +358,7 @@ def initialize_api() -> FastAPI:
     app.include_router(demo.router, tags=["integration"])
     app.include_router(notes.router, tags=["notes"])
     app.include_router(info.router, tags=["test"])
-    app.include_router(keycloak.router, tags=["auth"])
+    app.include_router(keycloak.router, tags=["keycloak"])
     app.include_router(users.router, tags=["users"])
     app.include_router(sensor.router, tags=["sensor"])
 
@@ -490,15 +516,6 @@ def dashboard(request: Request):
 
 
 @circuit_breaker_web
-@app.get("/auth")
-def root():
-    logger.info("Hello")
-    """
-    Root endpoint that provides a welcome message and documentation link.
-    """
-    return AuthController.read_root()
-
-
 @app.get("/health")
 def get_status() -> Dict[str, str]:
     """Healthcheck endpoint."""

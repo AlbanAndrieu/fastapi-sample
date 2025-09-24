@@ -11,6 +11,7 @@ from opentelemetry import trace
 from opentelemetry.trace.status import Status, StatusCode
 
 from nabla.api.demo.socket.event_bus import REDIS_CHANNEL, redis
+from nabla.auth.controller import AuthController
 from nabla.utils.logger import logger
 from nabla.utils.misc import timed_operation
 from nabla.utils.prometheus import API_REQUEST_COUNTER, API_REQUEST_SUMMARY
@@ -146,6 +147,15 @@ async def dispatch_customer(customer_id: int, q: Optional[str] = None):
 # http://frontnuxt-stats.service.gra.uat.consul/?stats;csv
 # http://test-haproxy-stats-ateam.service.gra.dev.consul/dev?stats;csv
 # http://test-haproxy-webapp-prometheus-ateam.service.gra.dev.consul/metrics
+
+
+@router.get("/demo/auth")
+def root():
+    logger.info("Hello")
+    """
+    Root endpoint that provides a welcome message and documentation link.
+    """
+    return AuthController.read_root()
 
 
 # We are targetting dev service

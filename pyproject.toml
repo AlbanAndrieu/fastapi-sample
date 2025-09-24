@@ -89,6 +89,7 @@ ddtrace = ">=3.12.2"
 dd-import = ">=1.0.12"
 faiss-cpu = ">=1.10.0" # 1.12.0
 fastapi = {version = ">=0.115.3", extras = ["standard"]}
+fastapi-users = {version = ">=14.0.1", extras = ["sqlalchemy"]}
 # fastapi-cache2 = {version = ">=0.0.1", extras = ["redis"]} # NOK aioredis deprecated
 # fastapi-mcp = ">=0.4.0"
 fastmcp = ">=2.12.2"
@@ -303,6 +304,7 @@ ansible-lint = {extras = ["yamllint"], version = ">=6.17.2"}
 click-completion = ">=0.5.2"
 colorama = ">=0.4.6"
 httpx = {version = ">=0.23.3"}
+jupyterlab = ">=3.4.3"
 git-url-parse = ">=1.2.2"
 gitpython = ">=3.1.29"
 numpy = ">=1.19.3,<2" # conflict possible with jm-multilabel-evaluator, TODO >=2.2.3

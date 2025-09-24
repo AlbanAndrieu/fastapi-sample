@@ -5,7 +5,7 @@ from nabla.auth.controller import AuthController
 from nabla.auth.models import TokenResponse, UserInfo
 from nabla.utils.logger import logger
 
-router = APIRouter(prefix="/auth")
+router = APIRouter(prefix="/keycloak")
 
 
 # Initialize the HTTPBearer scheme for authentication

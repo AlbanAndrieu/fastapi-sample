@@ -1,19 +1,27 @@
 import asyncio
 import random
-from typing import Annotated
+import uuid
+from typing import Annotated, Optional
 
 import pybreaker
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi_users import BaseUserManager, FastAPIUsers, UUIDIDMixin
+from fastapi_users.authentication import (
+    AuthenticationBackend,
+    BearerTransport,
+    CookieTransport,
+    JWTStrategy,
+)
+from fastapi_users.db import SQLAlchemyUserDatabase
 from fastmcp import FastMCP
 from jwt import PyJWTError
 
 # from fastapi_cache.decorator import cache
-from pydantic import BaseModel
-from sqlalchemy import Boolean, Column, Integer, String, select
-from sqlalchemy.orm import declarative_base
+from sqlalchemy import select
 from sqlmodel import Session
 
 from nabla.api.auth.token import (
+    ACCESS_TOKEN_SECRET_KEY,
     TokenData,
     create_access_token,
     decode_jwt,
@@ -22,70 +30,66 @@ from nabla.api.auth.token import (
     verify_password,
 )
 from nabla.api.db.database import get_db, get_session
+from nabla.api.users.models import User, UserEvent, get_user_db
 from nabla.utils.logger import logger
 from nabla.utils.prometheus import USER_REGISTRATIONS
 
 router = APIRouter(prefix="/test")
 mcp = FastMCP(name="UserServer")
 
-Base = declarative_base()
-
 circuit_breaker_user = pybreaker.CircuitBreaker(fail_max=2, reset_timeout=10)
 
-class UserEvent(BaseModel):
-    # model_config = ConfigDict(
-    #     str_max_length=120,      # hard caps avoid pathological inputs
-    #     extra="ignore",          # drop unknown fields instead of raising
-    #     revalidate_instances="never",  # don't re-check already-validated data
-    #     ser_json_inf_nan=False   # stricter but faster JSON
-    # )
+bearer_transport = BearerTransport(tokenUrl="auth/jwt/login")
+cookie_transport = CookieTransport(cookie_max_age=3600)
+class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
+    reset_password_token_secret = ACCESS_TOKEN_SECRET_KEY
+    verification_token_secret = ACCESS_TOKEN_SECRET_KEY
 
-    name: str
-    email: str
-    password: str
-    # active: bool
-    # role: str
-    # permissions: list[str]
-    # groups: list[str]mcp
-    phone: str
-    address: str
-    city: str
-    state: str
-    zipcode: str
-    country: str
+    async def on_after_register(self, user: User, request: Optional[Request] = None):
+        print(f"User {user.id} has registered.")
 
-    def __init__(self, name  = "Alban Andrieu", email = "alban.andrieu@free.fr", password = "XXX", phone = "0695435353", address = "11 terrasse de l'université", city = "Paris", state = "FR", zipcode = "92000", country = "France") -> None:  # noqa: S107
-        super().__init__(name=name, email=email, password=password, phone=phone, address=address, city=city, state=state, zipcode=zipcode, country=country)
+    async def on_after_forgot_password(
+        self, user: User, token: str, request: Optional[Request] = None
+    ):
+        print(f"User {user.id} has forgot their password. Reset token: {token}")
 
-        # self.active = True
-        # self.role = "admin"
-        # self.permissions = ["read", "write"]
-        # self.groups = ["admin"]
-        # created_at: str # Remove unused fields like "created_at_timestamp" for the frontend
-        # updated_at: str
-        # last_login: str
-        # last_login_ip: str
-        # last_login_device: str
-        # last_login_location: str
-        # last_login_browser: str
-        # last_login_os: str
+    async def on_after_request_verify(
+        self, user: User, token: str, request: Optional[Request] = None
+    ):
+        print(f"Verification requested for user {user.id}. Verification token: {token}")
 
 
-class User(Base):
-    __tablename__ = "users"
+async def get_user_manager(user_db: SQLAlchemyUserDatabase = Depends(get_user_db)):
+    yield UserManager(user_db)
 
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
-    email = Column(String, nullable=False)
-    password = Column(String, nullable=True)
-    active = Column(Boolean, nullable=True)
-    role = Column(String, nullable=True)
-    permissions = Column(String, nullable=True)
-    groups = Column(String, nullable=True)
+def get_jwt_strategy() -> JWTStrategy:
+    return JWTStrategy(secret=ACCESS_TOKEN_SECRET_KEY, lifetime_seconds=3600)
 
+jwt_backend = AuthenticationBackend(
+    name="jwt",
+    transport=bearer_transport,
+    get_strategy=get_jwt_strategy,
+)
 
-    def __str__(self):
-        return f"User ID : {self.id}\tName : {self.name}\tEmail : {self.email}\tPassword : {self.password}\tActive : {self.active}\tRole : {self.role}\tPermissions : {self.permissions}\tGroups : {self.groups}"
+cookie_backend = AuthenticationBackend(
+    name="jwt",
+    transport=cookie_transport,
+    get_strategy=get_jwt_strategy,
+)
+
+# Just define your user model, plug it into FastAPI Users
+# fastapi_users = FastAPIUsers(get_user_db, [jwt_backend], User, UserCreate, UserUpdate)
+fastapi_users = FastAPIUsers[User, uuid.UUID](get_user_manager, [jwt_backend])
+
+async def get_enabled_backends(request: Request):
+    """Return the enabled dependencies following custom logic."""
+    if request.url.path == "/protected-route-only-jwt":
+        return [jwt_backend]
+    else:
+        return [cookie_backend, jwt_backend]
+
+# current_active_user = Annotated[User, Depends(get_current_user)]
+current_active_user = fastapi_users.current_user(active=True, get_enabled_backends=get_enabled_backends)
 
 
 @mcp.tool(
@@ -161,11 +165,17 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> Use
     return user
 
 
-currentUserDep = Annotated[User, Depends(get_current_user)]
+@router.get("/protected-route")
+def protected_route(user: User = Depends(current_active_user)):
+    return f"Hello, {user.email}. You are authenticated with a cookie or a JWT."
 
+
+@router.get("/protected-route-only-jwt")
+def protected_route_only_jwt(user: User = Depends(current_active_user)):
+    return f"Hello, {user.email}. You are authenticated with a JWT."
 
 async def validate_is_authenticated(
-    current_user: currentUserDep,
+    current_user: current_active_user,
 ) -> User:
     """
     This just returns as the CurrentUserDep dependency already throws if there is an issue with the auth token.
