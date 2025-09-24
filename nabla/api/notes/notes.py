@@ -85,7 +85,7 @@ async def update_note(
     if not note:
         raise HTTPException(status_code=404, detail="Note not found")
     note_id = await crud.put(id, payload)  # type: ignore
-    # TODO note_id = enqueue_note(note_id, payload.type, payload.prompt)
+    note_id = enqueue_note(note_id, payload.type, payload.prompt)
     response_object = {
         "id": note_id,
         "title": payload.title,
