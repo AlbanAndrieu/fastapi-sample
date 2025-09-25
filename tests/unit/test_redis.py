@@ -78,12 +78,13 @@ async def test_redis_demo_items_one_second(test_app) -> None:
     #     )
 
     # when
-    response = await test_app.get("/demo/items/1")
+    response = test_app.get("/demo/items/1")
     # print(response.json())
     assert response.status_code == expected_status
     assert response.json() == {"item_id": 1, "q": "No Query"}
 
 
+@pytest.mark.asyncio
 def test_redis_demo_items_two_second(test_app) -> None:
     """It runs and gives the number 1."""
 
