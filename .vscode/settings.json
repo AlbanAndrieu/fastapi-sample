@@ -85,5 +85,6 @@
 	"files.associations": {
 		"wrangler.json": "jsonc"
   },
-  "cursorpyright.analysis.logLevel": "Trace"
+  "cursorpyright.analysis.logLevel": "Trace",
+  "git.ignoreLimitWarning": true
 }

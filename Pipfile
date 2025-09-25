@@ -31,6 +31,7 @@ ddtrace = ">=3.12.2"
 dd-import = ">=1.0.12"
 # faiss-cpu = ">=1.10.0" # 1.12.0
 fastapi = {version = ">=0.115.3", extras = ["standard"]}
+fastapi-users = {version = ">=14.0.1", extras = ["sqlalchemy"]}
 # fastapi-cache2 = {version = ">=0.0.1", extras = ["redis"]} # NOK aioredis deprecated
 # fastmcp = ">=2.12.2"
 httpx = ">=0.27.2"
@@ -155,6 +156,7 @@ jupyterlab = ">=3.4.3"
 jupyterlab-code-formatter = ">=1.5.3"
 jupyterlab-execute-time = ">=2.1.0"
 jupyterlab-git = ">=0.37.1"
+jupyter-resource-usage = ">=0.7.2"
 jupyterlab-system-monitor = ">=0.8.0"
 jupyterlab-templates = ">=0.3.1"
 # scikit-learn = "==1.1.1"

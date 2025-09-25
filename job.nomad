@@ -223,7 +223,7 @@ job "fastapi-sample" {
         DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_GRPC_ENDPOINT="0.0.0.0:4317"
         # DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_HTTP_ENDPOINT="0.0.0.0:4318"
         DD_APPSEC_AUTOMATED_USER_EVENTS_TRACKING=extended
-        DD_DBM_PROPAGATION_MODE=full
+        DD_DBM_PROPAGATION_MODE="full"
         DD_PROFILING_TIMELINE_ENABLED=true
         REDIS_HOST="fastapi-sample-redis.service.gra.${var.env}.consul"
         REDIS_PORT="6380"

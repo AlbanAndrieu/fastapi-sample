@@ -256,6 +256,7 @@ def get_sensor_dataframe() -> pl.DataFrame:
     df = df.with_columns(
         [pl.col("timestamp").str.strptime(pl.Datetime, format="%Y-%m-%dT%H:%M:%S.%f")]
     )
+    #  [pl.col("timestamp").str.strptime(pl.Datetime, format="%d/%B/%Y %H:%M:%S")]
 
     logger.debug(f"Created DataFrame with {len(df)} rows and {len(df.columns)} columns")
     return df
