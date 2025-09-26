@@ -101,11 +101,11 @@ default:
       # - vendor/
     policy: pull-push
 
-dast:
-  services: # use services to link your app container to the dast job
-    # - name: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
-    - name: $CI_REGISTRY_IMAGE:1.1.1-db93557e
-      alias: fastapi-sample.service.gra.${ENV}.consul
+# dast:
+#   services: # use services to link your app container to the dast job
+#     # - name: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+#     - name: $CI_REGISTRY_IMAGE:1.1.1-db93557e
+#       alias: fastapi-sample.service.gra.${ENV}.consul
 
 variables:
   CI_IMAGE_PYTHON: python:3.12.10
