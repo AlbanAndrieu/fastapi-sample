@@ -51,9 +51,9 @@ include:
     ref: main
     file: "/templates/mega-linter.gitlab-ci.yml"
 
-  # - project: jusmundi-group/infrastructure/ci-templates
-  #   ref: main
-  #   file: "/templates/gitlab-ult-sec.gitlab-ci.yml"
+  - project: jusmundi-group/infrastructure/ci-templates
+    ref: main
+    file: "/templates/gitlab-ult-sec.gitlab-ci.yml"
 
   - component: $CI_SERVER_FQDN/to-be-continuous/semantic-release/gitlab-ci-semrel@3.11.2
     inputs:
@@ -101,11 +101,11 @@ default:
       # - vendor/
     policy: pull-push
 
-#dast:
-#  services: # use services to link your app container to the dast job
-#    # - name: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
-#    - name: $CI_REGISTRY_IMAGE:1.1.1-db93557e
-#      alias: fastapi-sample.service.gra.${ENV}.consul
+# dast:
+#   services: # use services to link your app container to the dast job
+#     # - name: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+#     - name: $CI_REGISTRY_IMAGE:1.1.1-db93557e
+#       alias: fastapi-sample.service.gra.${ENV}.consul
 
 variables:
   CI_IMAGE_PYTHON: python:3.12.10
@@ -116,7 +116,6 @@ variables:
   OCI_REGISTRY: ${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}
   TYPE_TRAINING: ""
   # MOUNT_POINT: "/builds/$CI_PROJECT_PATH/mnt"
-  # REGISTRY: 783876277037.dkr.ecr.eu-west-3.amazonaws.com
   CI_IMAGE_NAME: ${CI_REGISTRY}/jusmundi-group/web/templates/jm-oci/jm-ubuntu
   CI_IMAGE_TAG: latest
   GIT_STRATEGY: clone
@@ -135,10 +134,8 @@ variables:
   DD_PRODUCT_NAME: "$CI_PROJECT_NAME"
   DD_SERVICE: "test"  # fastapi-sample
   DD_PRODUCT_TYPE_NAME: "Showcase Alban" # "Research and Development"
-  DD_URL_UAT: "http://defectdojo.service.gra.uat.consul" # 10.30.0.141
+  DD_URL_UAT: "http://defectdojo.service.gra.uat.consul"
   DD_TEST_NAME: "JM Trivy"
-  DD_GIT_REPOSITORY_URL: "$(git config --get remote.origin.url)" # NOK
-  DD_GIT_COMMIT_SHA: "$(git rev-parse HEAD)" # NOK
   DD_MINIMUM_SEVERITY: "MEDIUM"
   DD_CLOSE_OLD_FINDINGS: "True"
   DD_CLOSE_OLD_FINDINGS_PRODUCT_SCOPE: "True"
@@ -223,8 +220,8 @@ run_renovate:
 .dependabot-gitlab:
   stage: dependabot
 
-#secret_detection:
-#  stage: secret-detection
+secret_detection:
+  stage: secret-detection
 
 upload_trivy:uat:
   extends: .upload_trivy:uat
