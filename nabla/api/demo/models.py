@@ -14,7 +14,7 @@ from sqlalchemy import Column, DateTime, Float, Integer, String
 from sqlalchemy.orm import declarative_base
 
 from nabla.api.db.database import SessionLocal
-from nabla.api.demo.socket.event_bus import (
+from nabla.api.demo.socket.redis import (
     REDIS_CHANNEL,
     REDIS_SENSOR_CHANNEL,
     REDIS_TASK_QUEUE,

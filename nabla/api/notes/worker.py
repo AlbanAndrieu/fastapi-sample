@@ -4,7 +4,7 @@ import json
 
 from notes_handler import handle_note
 
-from nabla.api.demo.socket.event_bus import (
+from nabla.api.demo.socket.redis import (
     REDIS_CHANNEL,
     REDIS_NOTES_CHANNEL,
     REDIS_TASK_QUEUE,

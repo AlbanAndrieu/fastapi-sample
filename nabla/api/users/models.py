@@ -5,10 +5,12 @@ from fastapi_users import schemas
 from fastapi_users.db import SQLAlchemyBaseUserTableUUID
 from fastapi_users_db_sqlalchemy import SQLAlchemyUserDatabase
 from pydantic import BaseModel
+from sqladmin import ModelView
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import declarative_base
 
 from nabla.api.db.database import get_async_session
+from nabla.utils.email import conf
 
 Base = declarative_base()
 
@@ -30,7 +32,7 @@ class UserEvent(BaseModel):
     zipcode: str
     country: str
 
-    def __init__(self, name  = "Alban Andrieu", email = "alban.andrieu@free.fr", password = "XXX", phone = "0695435353", address = "11 terrasse de l'université", city = "Paris", state = "FR", zipcode = "92000", country = "France") -> None:  # noqa: S107
+    def __init__(self, name  = "Alban Andrieu", email = conf.MAIL_FROM, password = "XXX", phone = "0695435353", address = "11 terrasse de l'université", city = "Paris", state = "FR", zipcode = "92000", country = "France") -> None:  # noqa: S107
         super().__init__(name=name, email=email, password=password, phone=phone, address=address, city=city, state=state, zipcode=zipcode, country=country)
 
 
@@ -63,3 +65,7 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
 
 async def get_user_db(session: AsyncSession = Depends(get_async_session)):
     yield SQLAlchemyUserDatabase(session, User)
+
+
+class UserAdmin(ModelView, model=User):
+    column_list = [User.id, User.email]
