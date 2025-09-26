@@ -7,6 +7,7 @@ import sqlalchemy
 from databases import Database
 from ddtrace import patch
 from fastapi import Depends
+from sqlalchemy import Engine, create_engine
 
 # With PostgreSQL
 from sqlalchemy.ext.asyncio import (
@@ -31,20 +32,38 @@ def orjson_serializer(obj):
     return orjson.dumps(obj, option=orjson.OPT_SERIALIZE_NUMPY | orjson.OPT_NAIVE_UTC).decode()
 
 # Create a psycopg_pool connection pool
-mypool = psycopg_pool.ConnectionPool(
+db_pool = psycopg_pool.ConnectionPool(
     conninfo=DB_URL.replace("+psycopg", ""),
     min_size=0,
     max_size=1,
     max_idle=5,
 )
 
+db_async_pool = psycopg_pool.AsyncConnectionPool(
+    conninfo=DB_URL,
+    min_size=0,
+    max_size=1,
+    max_idle=5,
+)
+
 @lru_cache(maxsize=1)  # Create only 1 engine instance for global reuse
-def get_engine() -> AsyncEngine:
+def get_async_engine() -> AsyncEngine:
     # Create a SQLAlchemy engine that uses the psycopg_pool connection pool
     return create_async_engine(
         url=DB_URL,
         poolclass=sqlalchemy.pool.NullPool,  # disable SQLAlchemy's default connection pool
-        creator=mypool.getconn,              # Use Psycopg 3 psycopg_pool to create connections
+        creator=db_async_pool.getconn,              # Use Psycopg 3 psycopg_pool to create connections
+        json_serializer=orjson_serializer,
+        json_deserializer=orjson.loads,
+    )
+
+def get_engine() -> Engine:
+    # Create a SQLAlchemy engine that uses the psycopg_pool connection pool
+    return create_engine(
+        url=DB_URL,
+        # connect_args={"check_same_thread": False},
+        # poolclass=sqlalchemy.pool.NullPool,  # disable SQLAlchemy's default connection pool
+        # creator=db_pool.getconn,              # Use Psycopg 3 psycopg_pool to create connections
         json_serializer=orjson_serializer,
         json_deserializer=orjson.loads,
     )
@@ -61,22 +80,24 @@ Base = declarative_base()
 
 # Register a 'checkin' event listener to return connections to psycopg_pool
 # (https://docs.sqlalchemy.org/en/20/core/events.html#sqlalchemy.events.PoolEvents.checkin)
-def return_to_pool(dbapi_connection, connection_record):
-    mypool.putconn(dbapi_connection)
+async def return_to_pool(dbapi_connection, connection_record):
+    await db_pool.putconn(dbapi_connection)
 
 async def create_db_and_tables():
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+       await conn.run_sync(Base.metadata.create_all)
+
 
 async def init_db():
-    await create_db_and_tables()
+    # await create_db_and_tables()
     # SQLModel.metadata.create_all(engine)
-    # Base.metadata.create_all(engine)
+    Base.metadata.create_all(engine)
     # with engine.begin() as conn:
     #     await conn.run_sync(Base.metadata.drop_all)
     #     await conn.run_sync(Base.metadata.create_all)
 
-SessionLocal = async_sessionmaker(autocommit=False, autoflush=False, bind=engine)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+AsyncSessionLocal = async_sessionmaker(autocommit=False, autoflush=False, bind=engine)
 SyncSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # TODO replace get_session with get_async_session
@@ -85,9 +106,9 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
        yield session
 
 async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
-    async with SessionLocal() as session:
+    async with AsyncSessionLocal() as session:
         yield session
 
 # Databases query builder
 
-database = Database(DB_URL, max_inactive_connection_lifetime=300)
+database = Database(DB_URL.replace("+psycopg", ""), max_inactive_connection_lifetime=300)

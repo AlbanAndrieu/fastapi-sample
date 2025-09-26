@@ -6,6 +6,7 @@ from fastapi_users.db import SQLAlchemyBaseUserTableUUID
 from fastapi_users_db_sqlalchemy import SQLAlchemyUserDatabase
 from pydantic import BaseModel
 from sqladmin import ModelView
+from sqlalchemy import Column, String
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import declarative_base
 
@@ -51,7 +52,7 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     # __tablename__ = "users"
 
     # id = Column(Integer, primary_key=True, index=True)
-    # name = Column(String, nullable=False)
+    name = Column(String, nullable=False)
     # email = Column(String, nullable=False)
     # password = Column(String, nullable=True)
     # active = Column(Boolean, nullable=True)
@@ -68,4 +69,4 @@ async def get_user_db(session: AsyncSession = Depends(get_async_session)):
 
 
 class UserAdmin(ModelView, model=User):
-    column_list = [User.id, User.email]
+    column_list = [User.id, User.email, User.name]

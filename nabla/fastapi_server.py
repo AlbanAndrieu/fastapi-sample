@@ -24,7 +24,6 @@ from fastapi_cache.backends.inmemory import InMemoryBackend
 from fastmcp import FastMCP
 from prometheus_client import make_asgi_app
 from prometheus_fastapi_instrumentator import Instrumentator
-from psycopg_pool import AsyncConnectionPool
 from sentry_sdk.integrations.logging import LoggingIntegration
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
@@ -36,7 +35,7 @@ from starlette.routing import Mount
 
 from nabla.api import ping, v1, v2
 from nabla.api.auth import keycloak
-from nabla.api.db.database import DB_URL, SessionLocal, database, engine, init_db
+from nabla.api.db.database import SessionLocal, database, engine
 from nabla.api.demo import dd, demo, integration, sensor
 from nabla.api.demo.models import recent_readings
 from nabla.api.demo.sensor import metrics
@@ -142,18 +141,13 @@ tracer.configure(trace_processors=[FilterbyName()])
 async def lifespan(app: FastAPI):
     """background task starts at startup"""
 
-    app.async_pool = AsyncConnectionPool(
-        conninfo=DB_URL.replace("+psycopg", ""),
-    )
-
-    init_db()
-
     FastAPICache.init(InMemoryBackend())
-
 
     app.state.redis = redis
 
     await database.connect()
+    # await init_db()
+
 
     """Start background system monitoring"""
     system_metrics_task = asyncio.create_task(update_system_metrics())
@@ -170,14 +164,11 @@ async def lifespan(app: FastAPI):
     system_metrics_task.cancel()
     event_listener.cancel()
 
-    await database.disconnect()
+    if database:
+        await database.disconnect()
 
-    if app.async_pool:
-        await app.async_pool.close()
-
-    if redis:
-        redis.close()
-    app.state.redis.close()
+    if app.state.redis:
+        app.state.redis.close()
 
     logger.info("📊 Sensor Dashboard application shutting down")
     logger.info(
