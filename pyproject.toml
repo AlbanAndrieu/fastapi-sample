@@ -89,6 +89,7 @@ ddtrace = ">=3.12.2"
 dd-import = ">=1.0.12"
 faiss-cpu = ">=1.10.0" # 1.12.0
 fastapi = {version = ">=0.115.3", extras = ["standard"]}
+fastapi-mail = ">=1.5.0"
 fastapi-users = {version = ">=14.0.1", extras = ["sqlalchemy"]}
 fastapi-cache2 = {version = ">=0.0.1", extras = ["redis"]} # NOK aioredis deprecated
 # fastapi-plugins = {version = ">=0.14.0", extras = ["all"]}
