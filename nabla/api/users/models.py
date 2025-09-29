@@ -7,10 +7,11 @@ from fastapi_users_db_sqlalchemy import SQLAlchemyUserDatabase
 from pydantic import BaseModel
 from sqladmin import ModelView
 from sqlalchemy import Column, String
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import declarative_base
 
-from nabla.api.db.database import get_async_session
+# from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session, declarative_base
+
+from nabla.api.db.database import get_session
 from nabla.utils.email import conf
 
 Base = declarative_base()
@@ -64,9 +65,10 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     #     return f"User ID : {self.id}\tName : {self.name}\tEmail : {self.email}\tPassword : {self.password}\tActive : {self.active}\tRole : {self.role}\tPermissions : {self.permissions}\tGroups : {self.groups}"
     pass
 
-async def get_user_db(session: AsyncSession = Depends(get_async_session)):
+# async def get_user_db(session: AsyncSession = Depends(get_async_session)):
+#     yield SQLAlchemyUserDatabase(session, User)
+async def get_user_db(session: Session = Depends(get_session)):
     yield SQLAlchemyUserDatabase(session, User)
-
 
 class UserAdmin(ModelView, model=User):
     column_list = [User.id, User.email, User.name]

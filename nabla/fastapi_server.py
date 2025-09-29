@@ -167,8 +167,8 @@ async def lifespan(app: FastAPI):
     if database:
         await database.disconnect()
 
-    if app.state.redis:
-        app.state.redis.close()
+    # if app.state.redis:
+    #     app.state.redis.close()
 
     logger.info("📊 Sensor Dashboard application shutting down")
     logger.info(

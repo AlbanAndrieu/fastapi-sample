@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
 )
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 from nabla.config_settings import get_settings
 
@@ -30,7 +30,7 @@ def orjson_serializer(obj):
 
 # Create a psycopg_pool connection pool
 db_pool = psycopg_pool.ConnectionPool(
-    conninfo=DB_URL.replace("+psycopg", ""),
+    conninfo=DB_URL.replace("+psycopg", "").replace("+asyncpg", ""),
     min_size=0,
     max_size=1,
     max_idle=5,
@@ -96,8 +96,8 @@ AsyncSessionLocal = async_sessionmaker(autocommit=False, autoflush=False, bind=e
 SyncSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # TODO replace get_session with get_async_session
-async def get_session() -> AsyncGenerator[AsyncSession, None]:
-    async with AsyncSession(engine) as session:
+async def get_session() -> None:
+    async with Session(engine, expire_on_commit=False) as session:
        yield session
 
 async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
@@ -106,4 +106,4 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
 
 # Databases query builder
 
-database = Database(DB_URL.replace("+psycopg", ""), max_inactive_connection_lifetime=300)
+database = Database(DB_URL.replace("+psycopg", "").replace("+asyncpg", ""), max_inactive_connection_lifetime=300)
