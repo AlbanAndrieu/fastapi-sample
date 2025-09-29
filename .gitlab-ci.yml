@@ -222,6 +222,11 @@ run_renovate:
 secret_detection:
   stage: secret-detection
 
+container_scanning:
+  extends: .container_scanning
+  stage: test
+  needs: ["docker-build"]
+  
 # upload_trivy:uat:
 #   extends: .upload_trivy:uat
 
