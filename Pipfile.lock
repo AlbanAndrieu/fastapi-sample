@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "45bbfd30ede57856dccb6e93c567fb529eef47f8f98c957aaf5f36c4e503d8ab"
+            "sha256": "ef4b38349ad76f83ae5f4255fe61fd2a0ca560c7b651982b533e291f39f92d7f"
         },
         "pipfile-spec": 6,
         "requires": {},
@@ -1069,23 +1069,19 @@
             "version": "==0.2.1"
         },
         "fastapi-mail": {
-            "extras": [
-                "aioredis"
-            ],
             "hashes": [
                 "sha256:c7c811a2a06e5aa3e444f8ae15052479a7726ca52e82c31b9e7bbac51a491204",
                 "sha256:d2e59cde8ef27e5c9e196639c9506b895000350e19a13b3e0a60cd4e33813f09"
             ],
+            "index": "pypi",
             "markers": "python_full_version >= '3.8.1' and python_version < '4.0'",
             "version": "==1.5.0"
         },
         "fastapi-plugins": {
-            "extras": [
-                "all"
-            ],
             "hashes": [
                 "sha256:efcfe2f152183f51a3dd8f6fe9cefa4f598b05bc0347f2e94f4de5d4a2619efe"
             ],
+            "index": "pypi",
             "markers": "python_version >= '3.6' and python_version < '4'",
             "version": "==0.14.0"
         },
