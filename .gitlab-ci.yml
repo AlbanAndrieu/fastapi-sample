@@ -223,7 +223,6 @@ secret_detection:
   stage: secret-detection
 
 container_scanning:
-  extends: .container_scanning
   stage: test
   needs: ["docker-build"]
   
