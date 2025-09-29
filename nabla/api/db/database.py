@@ -3,7 +3,6 @@ from typing import AsyncGenerator, Final
 
 import orjson
 import psycopg_pool
-import sqlalchemy
 from databases import Database
 from ddtrace import patch
 from fastapi import Depends
@@ -11,10 +10,8 @@ from sqlalchemy import Engine, create_engine
 
 # With PostgreSQL
 from sqlalchemy.ext.asyncio import (
-    AsyncEngine,
     AsyncSession,
     async_sessionmaker,
-    create_async_engine,
 )
 from sqlalchemy.orm import declarative_base, sessionmaker
 
@@ -39,31 +36,29 @@ db_pool = psycopg_pool.ConnectionPool(
     max_idle=5,
 )
 
-db_async_pool = psycopg_pool.AsyncConnectionPool(
-    conninfo=DB_URL,
-    min_size=0,
-    max_size=1,
-    max_idle=5,
-)
+# db_async_pool = psycopg_pool.AsyncConnectionPool(
+#     conninfo=DB_URL,
+#     min_size=0,
+#     max_size=1,
+#     max_idle=5,
+# )
 
-@lru_cache(maxsize=1)  # Create only 1 engine instance for global reuse
-def get_async_engine() -> AsyncEngine:
-    # Create a SQLAlchemy engine that uses the psycopg_pool connection pool
-    return create_async_engine(
-        url=DB_URL,
-        poolclass=sqlalchemy.pool.NullPool,  # disable SQLAlchemy's default connection pool
-        creator=db_async_pool.getconn,              # Use Psycopg 3 psycopg_pool to create connections
-        json_serializer=orjson_serializer,
-        json_deserializer=orjson.loads,
-    )
+# @lru_cache(maxsize=1)  # Create only 1 engine instance for global reuse
+# def get_async_engine() -> AsyncEngine:
+#     # Create a SQLAlchemy engine that uses the psycopg_pool connection pool
+#     return create_async_engine(
+#         url=DB_URL,
+#         poolclass=sqlalchemy.pool.NullPool,  # disable SQLAlchemy's default connection pool
+#         creator=db_async_pool.getconn,              # Use Psycopg 3 psycopg_pool to create connections
+#         json_serializer=orjson_serializer,
+#         json_deserializer=orjson.loads,
+#     )
 
+@lru_cache(maxsize=1)
 def get_engine() -> Engine:
-    # Create a SQLAlchemy engine that uses the psycopg_pool connection pool
+    # Create a SQLAlchemy engine without connection pool
     return create_engine(
         url=DB_URL,
-        # connect_args={"check_same_thread": False},
-        # poolclass=sqlalchemy.pool.NullPool,  # disable SQLAlchemy's default connection pool
-        # creator=db_pool.getconn,              # Use Psycopg 3 psycopg_pool to create connections
         json_serializer=orjson_serializer,
         json_deserializer=orjson.loads,
     )
