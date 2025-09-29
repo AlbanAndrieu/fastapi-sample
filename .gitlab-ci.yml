@@ -118,7 +118,7 @@ variables:
   # MOUNT_POINT: "/builds/$CI_PROJECT_PATH/mnt"
   CI_IMAGE_NAME: ${CI_REGISTRY}/jusmundi-group/web/templates/jm-oci/jm-ubuntu
   CI_IMAGE_TAG: latest
-  GIT_STRATEGY: clone
+  GIT_STRATEGY: fetch
   GIT_DEPTH: "3"
   FLAVOR: "-python" # -ci_light
   TRIVY_VERSION: "0.66.0"
