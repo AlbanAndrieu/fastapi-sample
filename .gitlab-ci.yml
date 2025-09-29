@@ -51,6 +51,10 @@ include:
     ref: feature-gitlab-settings
     file: "/templates/mega-linter.gitlab-ci.yml"
 
+  - project: jusmundi-group/infrastructure/ci-templates
+    ref: feature-gitlab-settings
+    file: "/templates/gitlab-ult-sec.gitlab-ci.yml"
+    
   - component: $CI_SERVER_FQDN/to-be-continuous/semantic-release/gitlab-ci-semrel@3.11.2
     inputs:
       dry-run: false
@@ -71,13 +75,12 @@ include:
 
   # - remote: git@gitlab.com:renovate-bot/renovate-runner/-/raw/v17.69.3/templates/renovate.gitlab-ci.yml
 
-  # - template: Jobs/SAST.gitlab-ci.yml
   - component: gitlab.com/components/sast/sast@main
 
+  # - template: Security/SAST-IaC.latest.gitlab-ci.yml
   # - template: Security/SAST.gitlab-ci.yml
   # - template: Security/Dependency-Scanning.gitlab-ci.yml
   # - template: Security/Secret-Detection.gitlab-ci.yml
-  # - template: Security/SAST-IaC.latest.gitlab-ci.yml
   # - template: Jobs/Container-Scanning.gitlab-ci.yml
 
 default:
