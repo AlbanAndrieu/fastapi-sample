@@ -6,9 +6,11 @@ from uuid import uuid4
 
 import requests
 from fastapi import APIRouter, HTTPException, status
+from fastapi_cache.decorator import cache
 from fastmcp import FastMCP
 from opentelemetry import trace
 from opentelemetry.trace.status import Status, StatusCode
+
 
 from nabla.api.demo.socket.event_bus import REDIS_CHANNEL, redis
 from nabla.auth.controller import AuthController
@@ -39,7 +41,7 @@ def uniform_secret():
     return random.uniform(0, 3)  # nosec # noqa: S311
 
 
-# @cache()
+@cache()
 @router.get("/demo/random")
 async def demo_random():
     try:

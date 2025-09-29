@@ -90,7 +90,7 @@ dd-import = ">=1.0.12"
 faiss-cpu = ">=1.10.0" # 1.12.0
 fastapi = {version = ">=0.115.3", extras = ["standard"]}
 fastapi-users = {version = ">=14.0.1", extras = ["sqlalchemy"]}
-# fastapi-cache2 = {version = ">=0.0.1", extras = ["redis"]} # NOK aioredis deprecated
+fastapi-cache2 = {version = ">=0.0.1", extras = ["redis"]} # NOK aioredis deprecated
 # fastapi-mcp = ">=0.4.0"
 fastmcp = ">=2.12.2"
 httpx = ">=0.27.2"
