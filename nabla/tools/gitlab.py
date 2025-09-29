@@ -3,14 +3,15 @@ import os
 
 import requests
 
+from nabla.utils.email import conf
+
 # Your GitLab personal access token
 ACCESS_TOKEN = getpass.getpass("ACCESS_TOKEN: ")
 
-USER_EMAIL = os.environ.get("USER_EMAIL", "alban.andrieu@gmail.com")
 # Base URL of your GitLab instance (use 'https://gitlab.com' for GitLab.com)
 GITLAB_URL = os.environ.get("GITLAB_URL", "https://gitlab.com")
 GITLAB_ACCESS_TOKEN = os.environ.get("GITLAB_ACCESS_TOKEN", "your_app_password")
-GITLAB_USER = os.environ.get("GITLAB_USER", USER_EMAIL)
+GITLAB_USER = os.environ.get("GITLAB_USER", conf.MAIL_FROM)
 
 # List of repository (project) IDs
 project_ids = [46788175]  # Replace with your project IDs

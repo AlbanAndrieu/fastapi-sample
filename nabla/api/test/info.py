@@ -1,6 +1,7 @@
 import random
 
 from fastapi import APIRouter, HTTPException, Request, status
+from fastapi_cache.decorator import cache
 from opentelemetry import trace
 from opentelemetry.trace.status import Status, StatusCode
 
@@ -70,3 +71,9 @@ def env(req: Request):
         ) from ex
     finally:
         logger.info("DONE")
+
+
+@router.get("/cached")
+@cache(expire=60)
+async def get_cached_data():
+    return {"msg": "This response is cached!"}

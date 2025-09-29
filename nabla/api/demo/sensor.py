@@ -22,7 +22,7 @@ from nabla.api.demo.models import (
     recent_readings,
     serialize_dates,
 )
-from nabla.api.demo.socket.event_bus import (
+from nabla.api.demo.socket.redis import (
     REDIS_CHANNEL,
     REDIS_SENSOR_CHANNEL,
     REDIS_TASK_QUEUE,

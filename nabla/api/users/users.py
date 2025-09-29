@@ -31,6 +31,7 @@ from nabla.api.auth.token import (
 )
 from nabla.api.db.database import get_db, get_session
 from nabla.api.users.models import User, UserEvent, get_user_db
+from nabla.utils.email import conf
 from nabla.utils.logger import logger
 from nabla.utils.prometheus import USER_REGISTRATIONS
 
@@ -107,7 +108,7 @@ def get_user_details(user_id: str = None) -> UserEvent:
 def get_me() -> UserEvent:
     user = UserEvent(
         name="Alban Andrieu",
-        email="alban.andrieu@free.fr",
+        email=conf.MAIL_FROM,
         phone="0695435353",
         address="11 terrasse de l'université",
         city="Paris",

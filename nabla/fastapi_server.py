@@ -19,48 +19,43 @@ from fastapi.concurrency import asynccontextmanager
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import HTMLResponse, JSONResponse, ORJSONResponse
 from fastapi.templating import Jinja2Templates
+from fastapi_cache import FastAPICache
+from fastapi_cache.backends.inmemory import InMemoryBackend
 from fastmcp import FastMCP
-
-# from fastapi_cache import FastAPICache
-# from fastapi_cache.backends.redis import RedisBackend
 from prometheus_client import make_asgi_app
 from prometheus_fastapi_instrumentator import Instrumentator
-from psycopg_pool import AsyncConnectionPool
-
-# from redis import asyncio as aioredis
-from redis import Redis
 from sentry_sdk.integrations.logging import LoggingIntegration
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
+from sqladmin import Admin
 from sqlmodel import select
 from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Mount
 
 from nabla.api import ping, v1, v2
 from nabla.api.auth import keycloak
-from nabla.api.db.database import DB_URL, SessionLocal, database
+from nabla.api.db.database import SessionLocal, database, engine
 from nabla.api.demo import dd, demo, integration, sensor
 from nabla.api.demo.models import recent_readings
 from nabla.api.demo.sensor import metrics
-from nabla.api.demo.socket.event_bus import start_event_listener
+from nabla.api.demo.socket.redis import redis, start_event_listener
 from nabla.api.demo.socket.websocket import websocket_endpoint
 from nabla.api.notes import notes
 from nabla.api.notes.models import Note
 from nabla.api.test import info
 from nabla.api.users import users
-from nabla.api.users.models import UserCreate, UserRead, UserUpdate
+from nabla.api.users.models import UserAdmin, UserCreate, UserRead, UserUpdate
 from nabla.api.users.users import fastapi_users, jwt_backend
 from nabla.config_settings import (
     APP_NAME,
     APP_PREFIX_VERSION,
     APP_VERSION,
     OTLP_GRPC_ENDPOINT,
-    REDIS_HOST,
-    REDIS_PORT,
     SENTRY_DSN,
     get_settings,
 )
+from nabla.utils.email import conf
 from nabla.utils.log_config import LogMiddleware, setup_logging
 
 # We need to load as soon as possible the setup_loggers
@@ -141,42 +136,18 @@ class FilterbyName(TraceFilter):
 
 tracer.configure(trace_processors=[FilterbyName()])
 
-# Global variable declaration
-redis: Redis | None = None
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """background task starts at startup"""
 
-    app.async_pool = AsyncConnectionPool(
-        conninfo=DB_URL.replace("+psycopg", ""),
-    )
+    FastAPICache.init(InMemoryBackend())
 
-    # await init_db()
-
-    # global redis
-    # redis = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT)
-
-    # redis = Redis(
-    #     host=REDIS_HOST,
-    #     port=REDIS_PORT,
-    #     decode_responses=True,
-    #     max_connections=96,
-    # )
-    # print(redis.get_nodes())
-
-    # creds_provider = redis.UsernamePasswordCredentialProvider("default", "redis_password")
-
-    # redis = aioredis.from_url(f"redis://{REDIS_HOST}:{REDIS_PORT}")
-    # redis = redis.Redis(host='localhost', port=6379, decode_responses=True, credential_provider=creds_provider)
-    redis = Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
     app.state.redis = redis
-    # await redis.ping()
-
-    # FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
 
     await database.connect()
+    # await init_db()
+
 
     """Start background system monitoring"""
     system_metrics_task = asyncio.create_task(update_system_metrics())
@@ -193,14 +164,11 @@ async def lifespan(app: FastAPI):
     system_metrics_task.cancel()
     event_listener.cancel()
 
-    await database.disconnect()
+    if database:
+        await database.disconnect()
 
-    if app.async_pool:
-        await app.async_pool.close()
-
-    if redis:
-        redis.close()
-    app.state.redis.close()
+    # if app.state.redis:
+    #     app.state.redis.close()
 
     logger.info("📊 Sensor Dashboard application shutting down")
     logger.info(
@@ -364,6 +332,13 @@ def initialize_api() -> FastAPI:
 
     app.add_api_websocket_route("/ws/sensor", websocket_endpoint)
 
+    # Create admin
+    admin = Admin(app, engine, title="Example: SQLAlchemy")
+
+    # Add view
+    # admin.add_view(ModelView(User))
+    admin.add_view(UserAdmin)
+
     return app
 
 
@@ -453,7 +428,7 @@ set_user(
     tracer,
     user_id,
     name="AlbanAndrieu",
-    email="alban.andrieu@free.com",
+    email=conf.MAIL_FROM,
     scope="sample_scope",
     role="manager",
     session_id="id_session",
