@@ -249,6 +249,7 @@ secret_detection:
   <<: *python-check
   script:
     - black --check .
+    
 
 lint-ruff:
   extends: .lint-ruff
