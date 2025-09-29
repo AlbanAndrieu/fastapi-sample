@@ -31,9 +31,10 @@ ddtrace = ">=3.12.2"
 dd-import = ">=1.0.12"
 # faiss-cpu = ">=1.10.0" # 1.12.0
 fastapi = {version = ">=0.115.3", extras = ["standard"]}
+fastapi-mail = ">=1.5.0"
 fastapi-users = {version = ">=14.0.1", extras = ["sqlalchemy"]}
-# fastapi-cache2 = {version = ">=0.0.1", extras = ["redis"]} # NOK aioredis deprecated
-# fastmcp = ">=2.12.2"
+fastapi-cache2 = {version = ">=0.2.2", extras = ["redis"]} # NOK aioredis deprecated
+fastapi-plugins = ">=0.14.0"
 httpx = ">=0.27.2"
 git-url-parse = ">=1.2.2"
 gitpython = ">=3.1.33"
@@ -75,20 +76,20 @@ python-keystoneclient = ">=5.1.0"
 python-multipart = ">=0.0.20"
 python-swiftclient = ">=4.2.0"
 prometheus-client = ">=0.16.0"
-# prometheus-fastapi-instrumentator = ">=7.1.0"
 pyyaml = ">=6.0" # awscli needed
 pyjwt = ">=2.7.0"
-redis = ">=6.2.0"
+redis = ">=4.6.0"
 requests = ">=2.31.0"
 reretry = ">=0.11.8"
-# rq = ">=2.6.0"
 slowapi = ">=0.1.9"
 # six = ">=1.16.0" # awscli needed
+sentence-transformers = ">=5.1.0"
+# sentry-sdk = {version = "*", extras = ["fastapi"]}
+spacy = ">=3.5.4"
+sqladmin = {version = ">=0.21.0", extras = ["full"]}
 sqlalchemy = ">=2.0.20"
 sqlmodel = ">=0.0.25"
 sqlfluff = ">=3.1.0"
-spacy = ">=3.5.4"
-# sentry-sdk = {version = "*", extras = ["fastapi"]}
 sse-starlette = ">=2.3.6"
 structlog = ">=25.4.0"
 types-pytz = ">=2025.2.0.20250809"

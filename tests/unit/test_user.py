@@ -26,7 +26,7 @@ def test_user_current(test_app) -> None:
 	assert response.json() == {
 		"name": "Alban Andrieu",
 		"password": "XXX",
-		"email": "alban.andrieu@free.fr",
+		"email": "alban.andrieu@gmail.com",
 		"phone": "0695435353",
 		"address": "11 terrasse de l'université",
 		"city": "Paris",
@@ -58,5 +58,5 @@ def test_user_me(test_app) -> None:
 	assert response.status_code == expected_status
 	# assert response.json() == {
 	#     "name": "User 0",
-	#     "email": "alban.andrieu@free.fr",
+	#     "email": "alban.andrieu@gmail.com",
 	# }

@@ -6,18 +6,21 @@ from uuid import uuid4
 
 import requests
 from fastapi import APIRouter, HTTPException, status
+from fastapi_mail import FastMail, MessageSchema, MessageType
 from fastmcp import FastMCP
 from opentelemetry import trace
 from opentelemetry.trace.status import Status, StatusCode
+from starlette.responses import JSONResponse
 
-from nabla.api.demo.socket.event_bus import REDIS_CHANNEL, redis
+from nabla.api.demo.socket.redis import REDIS_CHANNEL, redis
 from nabla.auth.controller import AuthController
+from nabla.utils.email import EmailSchema, conf
 from nabla.utils.logger import logger
 from nabla.utils.misc import timed_operation
 from nabla.utils.prometheus import API_REQUEST_COUNTER, API_REQUEST_SUMMARY
 
 router = APIRouter()
-# mcp = FastMCP.from_fastapi(app=app)
+
 mcp = FastMCP(name="DemoServer")
 
 # The demo sample project to test the tracing
@@ -206,3 +209,19 @@ def demo_internal_api():
         logger.info(f"Dispatched customer : {dp_customer_id}")
 
     return status.HTTP_200_OK
+
+
+@router.post("/demo/email")
+async def simple_send(email: EmailSchema) -> JSONResponse:
+    html = """<p>Hi this test mail, thanks for using Fastapi-mail</p> """
+
+    message = MessageSchema(
+        subject="Fastapi-Mail module",
+        recipients=email.dict().get("email"),
+        body=html,
+        subtype=MessageType.html,
+    )
+
+    fm = FastMail(conf)
+    await fm.send_message(message)
+    return JSONResponse(status_code=200, content={"message": "email has been sent"})

@@ -20,40 +20,36 @@ services:
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-gitlab-settings
     file: "/templates/default.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-gitlab-settings
     file: "/templates/docker-build.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-gitlab-settings
     file: "/templates/deploy-nomad.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-gitlab-settings
     file: "/templates/test-python.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-gitlab-settings
     file: "/templates/javascript.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-gitlab-settings
     file: "/templates/_apk.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-gitlab-settings
     file: "/templates/data.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-gitlab-settings
     file: "/templates/mega-linter.gitlab-ci.yml"
-
-  - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
-    file: "/templates/gitlab-ult-sec.gitlab-ci.yml"
 
   - component: $CI_SERVER_FQDN/to-be-continuous/semantic-release/gitlab-ci-semrel@3.11.2
     inputs:
@@ -120,7 +116,7 @@ variables:
   CI_IMAGE_TAG: latest
   GIT_STRATEGY: clone
   GIT_DEPTH: "3"
-  FLAVOR: "-python" # -ci_light
+  FLAVOR: "-python"
   TRIVY_VERSION: "0.66.0"
   TRIVY_SCANNERS: "vuln,misconfig,secret,license"
   CS_SEVERITY_THRESHOLD: "CRITICAL"
@@ -223,14 +219,14 @@ run_renovate:
 secret_detection:
   stage: secret-detection
 
-upload_trivy:uat:
-  extends: .upload_trivy:uat
+# upload_trivy:uat:
+#   extends: .upload_trivy:uat
 
-cloc:
-  extends: .cloc
+# cloc:
+#   extends: .cloc
 
-upload-cloc:uat:
-  extends: .upload-cloc:uat
+# upload-cloc:uat:
+#   extends: .upload-cloc:uat
 
 # ======
 # Python Code Checks

@@ -1,3 +1,4 @@
+from nabla.utils.email import EmailSchema, send_in_background
 from nabla.utils.logger import logger
 
 
@@ -17,6 +18,11 @@ async def handle_note(note):
 
 async def send_email(prompt):
     logger.info(f"Sending email to {prompt['to']} with subject {prompt['subject']}")
+
+    email = EmailSchema(email=prompt['to'])
+
+    send_in_background(email)
+    #await router.post("/email", email=EmailSchema(email=prompt['to']))
 
 async def transform_data(prompt):
     logger.info("Running data transformation note...")
