@@ -20,7 +20,7 @@ from nabla.utils.misc import timed_operation
 from nabla.utils.prometheus import API_REQUEST_COUNTER, API_REQUEST_SUMMARY
 
 router = APIRouter()
-# mcp = FastMCP.from_fastapi(app=app)
+
 mcp = FastMCP(name="DemoServer")
 
 # The demo sample project to test the tracing
@@ -210,6 +210,7 @@ def demo_internal_api():
 
     return status.HTTP_200_OK
 
+
 @router.post("/demo/email")
 async def simple_send(email: EmailSchema) -> JSONResponse:
     html = """<p>Hi this test mail, thanks for using Fastapi-mail</p> """
@@ -218,7 +219,8 @@ async def simple_send(email: EmailSchema) -> JSONResponse:
         subject="Fastapi-Mail module",
         recipients=email.dict().get("email"),
         body=html,
-        subtype=MessageType.html)
+        subtype=MessageType.html,
+    )
 
     fm = FastMail(conf)
     await fm.send_message(message)
