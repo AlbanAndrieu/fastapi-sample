@@ -176,6 +176,7 @@ variables:
   DAST_FULL_SCAN: "true" # do a full scan
   DAST_BROWSER_SCAN: "true" # use the browser-based GitLab DAST crawler
   CONTAINER_SCANNING_DISABLED: false
+  CUSTOM_CONTAINER_SCANNING_DISABLED: 'true'
   GITLAB_ADVANCED_SAST_ENABLED: true
   DS_ENFORCE_NEW_ANALYZER: 'true'
   RENOVATE_BASE_DIR: $CI_PROJECT_DIR/renovate
