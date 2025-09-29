@@ -482,7 +482,7 @@ docker-build:
 
 code_quality:
   extends: .code_quality
-  stage: build
+  stage: test
   needs: ["docker-build", "lint-ruff", "type-checker-pyright"]
   dependencies:
     - docker-build
