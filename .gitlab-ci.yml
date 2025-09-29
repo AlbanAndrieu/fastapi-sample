@@ -116,7 +116,7 @@ variables:
   CI_IMAGE_TAG: latest
   GIT_STRATEGY: clone
   GIT_DEPTH: "3"
-  FLAVOR: "-python" # -ci_light
+  FLAVOR: "-python"
   TRIVY_VERSION: "0.66.0"
   TRIVY_SCANNERS: "vuln,misconfig,secret,license"
   CS_SEVERITY_THRESHOLD: "CRITICAL"
@@ -219,14 +219,14 @@ run_renovate:
 secret_detection:
   stage: secret-detection
 
-upload_trivy:uat:
-  extends: .upload_trivy:uat
+# upload_trivy:uat:
+#   extends: .upload_trivy:uat
 
-cloc:
-  extends: .cloc
+# cloc:
+#   extends: .cloc
 
-upload-cloc:uat:
-  extends: .upload-cloc:uat
+# upload-cloc:uat:
+#   extends: .upload-cloc:uat
 
 # ======
 # Python Code Checks
