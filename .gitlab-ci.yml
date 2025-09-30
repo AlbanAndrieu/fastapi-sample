@@ -458,16 +458,13 @@ mega_linter:
 
 docker-build:
   extends: .docker-build
+  stage: test
   needs: ["install-npm"]
   tags:
     - jusmundi-nomad-runner
-  timeout: 2 hours 10 minutes
-  variables:
-    # CUSTOM_CONTAINER_SCANNING_DISABLED: "true"
-    # CONTAINER_SCANNING_GITLAB_CODEQUALITY_TEMPLATE_DISABLE: "true"
-    TRIVY_TIMEOUT: "20m0s"
-    # TRIVY_GLOBAL_SETTINGS: --no-progress --cache-dir=${TRIVY_CACHE_DIR} --skip-db-update --skip-java-db-update --skip-check-update
-    # TRIVY_EXIT_ON_FAILURE: 0
+  # timeout: 2 hours 10 minutes
+  # variables:
+  #  TRIVY_TIMEOUT: "20m0s"
   before_script:
     - !reference [.env-definition, script]
     - !reference [.oci-image, script]
