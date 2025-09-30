@@ -456,7 +456,7 @@ mega_linter:
     - export DOCKER_BUILD_OPT="--pull --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from ${TEST_CACHE_TAG} -f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --build-arg ENV=${ENV} -t ${CONTAINER_IMAGE}"
     - echo -e "\e[35mOverriden on purpose as Sample docker build need explicit \e[0m FOR \e[43m${ENV} - ${DOCKER_BUILD_OPT}.\e[0m"
 
-.docker-build:
+docker-build:
   extends: .docker-build
   stage: test
   needs: ["install-npm"]
