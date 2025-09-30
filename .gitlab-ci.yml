@@ -474,6 +474,7 @@ mega_linter:
 #     - echo -e "\e[35mImage generated\e[0m."
 #     - echo -e "\e[35mOCI_IMAGE=${OCI_IMAGE}\e[0m."
 
+
 code_quality:
   extends: .code_quality
   stage: test
