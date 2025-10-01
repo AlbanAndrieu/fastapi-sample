@@ -5,6 +5,7 @@ from typing import Annotated, Optional
 
 import pybreaker
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi_cache.decorator import cache
 from fastapi_users import BaseUserManager, FastAPIUsers, UUIDIDMixin
 from fastapi_users.authentication import (
     AuthenticationBackend,
@@ -121,6 +122,7 @@ def get_me() -> UserEvent:
 
 # This endpoint will not be registered as a tool, since it was added after the MCP instance was created
 # Dynamic resource template
+@cache(expire=300)
 @mcp.resource("users://whoami/profile")
 @router.get("/whoami/", operation_id="whoami", response_model=UserEvent)
 async def whoami():
