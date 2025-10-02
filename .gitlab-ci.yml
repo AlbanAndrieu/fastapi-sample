@@ -51,10 +51,6 @@ include:
     ref: feature-gitlab-settings
     file: "/templates/mega-linter.gitlab-ci.yml"
 
-  - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-gitlab-settings
-    file: "/templates/gitlab-ult-sec.gitlab-ci.yml"
-    
   - component: $CI_SERVER_FQDN/to-be-continuous/semantic-release/gitlab-ci-semrel@3.11.2
     inputs:
       dry-run: false
@@ -188,7 +184,6 @@ variables:
   RENOVATE_LOG_FILE: renovate-log.ndjson
   CI_RENOVATE_IMAGE: ghcr.io/renovatebot/renovate:37.174.7@sha256:da387ec816e93c404380dc2607df76d8b91f3ac6e1f00d9e4424fe4afa669c76
 
-
 .renovate:
   cache:
     key: ${CI_COMMIT_REF_SLUG}-renovate
@@ -224,44 +219,6 @@ run_renovate:
 
 secret_detection:
   stage: secret-detection
-
-# container_scanning:
-#   stage: test
-#   needs: ["docker-build"]
-#   rules:
-#     - if: $CONTAINER_SCANNING_DISABLED == 'true' || $CONTAINER_SCANNING_DISABLED == '1'
-#       when: never
-# 
-#     # The following 3 blocks of rules define whether the job runs in a an *MR pipeline* or a *branch pipeline*
-#     # when an MR exists. If the job has additional rules to observe they should be added in the blocks 1 and 3
-#     # to cover both the *MR pipeline* and the *branch pipeline* workflows.
-# 
-#     # 1. Run the job in an *MR pipeline* if MR pipelines for AST are enabled and there's an open merge request.
-#     ## When FIPS mode is enabled, use the FIPS compatible image
-#     - if: $AST_ENABLE_MR_PIPELINES == "true" &&
-#           $CI_PIPELINE_SOURCE == "merge_request_event" &&
-#           $CI_GITLAB_FIPS_MODE == "true" &&
-#           $CS_ANALYZER_IMAGE !~ /-(fips|ubi)\z/
-#       variables:
-#         CS_IMAGE_SUFFIX: -fips
-#     ## When FIPS mode is not enabled, use the regular image
-#     - if: $AST_ENABLE_MR_PIPELINES == "true" &&
-#           $CI_PIPELINE_SOURCE == "merge_request_event"
-# 
-#     # 2. Don't run the job in a *branch pipeline* if *MR pipelines* for AST are enabled and there's an open merge request.
-#     - if: $AST_ENABLE_MR_PIPELINES == "true" &&
-#           $CI_OPEN_MERGE_REQUESTS
-#       when: never
-# 
-#     # 3. Finally, run the job in a *branch pipeline* (When MR pipelines are disabled for AST, or it is enabled but no open MRs exist for the branch).
-#     ## When FIPS mode is enabled, use the FIPS compatible image
-#     - if: $CI_COMMIT_BRANCH &&
-#           $CI_GITLAB_FIPS_MODE == "true" &&
-#           $CS_ANALYZER_IMAGE !~ /-(fips|ubi)\z/
-#       variables:
-#         CS_IMAGE_SUFFIX: -fips
-#     ## When FIPS mode is not enabled, use the regular image
-#     - if: $CI_COMMIT_BRANCH
 
 # upload_trivy:uat:
 #   extends: .upload_trivy:uat
@@ -455,25 +412,6 @@ mega_linter:
     # --target builder-base
     - export DOCKER_BUILD_OPT="--pull --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from ${TEST_CACHE_TAG} -f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --build-arg ENV=${ENV} -t ${CONTAINER_IMAGE}"
     - echo -e "\e[35mOverriden on purpose as Sample docker build need explicit \e[0m FOR \e[43m${ENV} - ${DOCKER_BUILD_OPT}.\e[0m"
-
-# docker-build:
-#   extends: .docker-build
-#   stage: test
-#   needs: ["install-npm"]
-#   tags:
-#     - jusmundi-nomad-runner
-#   # timeout: 2 hours 10 minutes
-#   # variables:
-#   #  TRIVY_TIMEOUT: "20m0s"
-#   before_script:
-#     - !reference [.env-definition, script]
-#     - !reference [.oci-image, script]
-#     - !reference [.login-gitlab-docker, script]
-#     - !reference [.build-image-dockefile-pre, script]
-#     - !reference [.build-image-dockefile, script]
-#     - echo -e "\e[35mImage generated\e[0m."
-#     - echo -e "\e[35mOCI_IMAGE=${OCI_IMAGE}\e[0m."
-
 
 code_quality:
   extends: .code_quality

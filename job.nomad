@@ -208,7 +208,7 @@ job "fastapi-sample" {
         FASTMCP_EXPERIMENTAL_ENABLE_NEW_OPENAPI_PARSER=true
         SENTRY_ENVIRONMENT = "development"
         SENTRY_RELEASE = "[[ .CI_COMMIT_TAG ]]"
-        SENTRY_DSN = "" # Disabled        
+        SENTRY_DSN = "" # Disabled
         DD_VERSION = "[[ .CI_COMMIT_TAG ]]"
         DD_GIT_COMMIT_SHA = "[[ .CI_COMMIT_SHA ]]"
         DD_GIT_REPOSITORY_URL = "git@gitlab.com:jusmundi-group/proof-of-concept/fastapi-sample.git"
@@ -233,7 +233,7 @@ job "fastapi-sample" {
         EXPOSE_PORT = "8080"
         TARGET_ONE_HOST = "fastapi-sample.service.gra.${var.env}.consul"
         TARGET_TWO_HOST = "fastapi-sample.service.gra.${var.env}.consul"
-        ENABLE_METRICS=true       
+        ENABLE_METRICS=true
       }
 
       vault {
@@ -353,7 +353,7 @@ AuthHeader = {{ printf "%s:%s" .Data.data.ELASTICSEARCH_USER .Data.data.ELASTICS
 {{.Data.data.ENV}}
 {{ end }}
 EOF
-        destination = "secrets/env.authheader"
+        destination = "${NOMAD_SECRETS_DIR}/env.authheader"
         env = true
       }
 
@@ -427,7 +427,7 @@ EOF
 
       config {
         # See https://github.com/oliver006/redis_exporter
-        image = "oliver006/redis_exporter:v1.74.0"
+        image = "oliver006/redis_exporter:v1.77.0"
         ports = ["redis-exporter"]
 
         args = [
