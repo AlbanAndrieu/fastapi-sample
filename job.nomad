@@ -353,7 +353,7 @@ AuthHeader = {{ printf "%s:%s" .Data.data.ELASTICSEARCH_USER .Data.data.ELASTICS
 {{.Data.data.ENV}}
 {{ end }}
 EOF
-        destination = "secrets/env.authheader"
+        destination = "${NOMAD_SECRETS_DIR}/env.authheader"
         env = true
       }
 
@@ -427,7 +427,7 @@ EOF
 
       config {
         # See https://github.com/oliver006/redis_exporter
-        image = "oliver006/redis_exporter:v1.74.0"
+        image = "oliver006/redis_exporter:v1.77.0"
         ports = ["redis-exporter"]
 
         args = [
@@ -468,7 +468,7 @@ EOF
   } # group fastapi-sample-redis-exporter
 
   group "fastapi-sample-redis" {
-    count = 3
+    count = 1
 
     network {
       port "redis" {

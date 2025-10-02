@@ -5,6 +5,7 @@ from typing import Annotated, Optional
 
 import pybreaker
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi_cache.decorator import cache
 from fastapi_users import BaseUserManager, FastAPIUsers, UUIDIDMixin
 from fastapi_users.authentication import (
     AuthenticationBackend,
@@ -129,6 +130,7 @@ async def whoami():
 
 #def me()-> dict[str, str]:
 # @router.get("/users/current", response_model=UserEvent)
+@cache(expire=300)
 @router.get("/users/current")
 async def current_user():
     # return {"status": "registered"}

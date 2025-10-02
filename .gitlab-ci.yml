@@ -74,8 +74,8 @@ include:
   # - template: Jobs/SAST.gitlab-ci.yml
   - component: gitlab.com/components/sast/sast@main
 
-  # - template: Security/SAST.gitlab-ci.yml
-  # - template: Security/Dependency-Scanning.gitlab-ci.yml
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Security/Dependency-Scanning.gitlab-ci.yml
   # - template: Security/Secret-Detection.gitlab-ci.yml
   # - template: Security/SAST-IaC.latest.gitlab-ci.yml
   # - template: Jobs/Container-Scanning.gitlab-ci.yml
@@ -439,7 +439,7 @@ docker-build:
 
 code_quality:
   extends: .code_quality
-  stage: build
+  stage: test
   needs: ["docker-build", "lint-ruff", "type-checker-pyright"]
   dependencies:
     - docker-build

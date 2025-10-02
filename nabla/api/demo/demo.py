@@ -6,6 +6,7 @@ from uuid import uuid4
 
 import requests
 from fastapi import APIRouter, HTTPException, status
+from fastapi_cache.decorator import cache
 from fastapi_mail import FastMail, MessageSchema, MessageType
 from fastmcp import FastMCP
 from opentelemetry import trace
@@ -42,7 +43,7 @@ def uniform_secret():
     return random.uniform(0, 3)  # nosec # noqa: S311
 
 
-# @cache()
+@cache()
 @router.get("/demo/random")
 async def demo_random():
     try:
