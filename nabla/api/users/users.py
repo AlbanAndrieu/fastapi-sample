@@ -122,7 +122,6 @@ def get_me() -> UserEvent:
 
 # This endpoint will not be registered as a tool, since it was added after the MCP instance was created
 # Dynamic resource template
-@cache(expire=300)
 @mcp.resource("users://whoami/profile")
 @router.get("/whoami/", operation_id="whoami", response_model=UserEvent)
 async def whoami():
@@ -131,6 +130,7 @@ async def whoami():
 
 #def me()-> dict[str, str]:
 # @router.get("/users/current", response_model=UserEvent)
+@cache(expire=300)
 @router.get("/users/current")
 async def current_user():
     # return {"status": "registered"}
