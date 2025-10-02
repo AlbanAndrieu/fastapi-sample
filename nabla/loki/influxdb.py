@@ -42,7 +42,7 @@ def import_logs_from_loki():
     print(f"Loki query URL: {loki_query_url}")
 
     # Retrieve logs from Loki
-    response = get(loki_query_url)
+    response = get(loki_query_url, timeout=30)
     print(f"Response status code: {response.status_code}")
     if response.status_code == 200:
         data = response.json()["data"]["result"]

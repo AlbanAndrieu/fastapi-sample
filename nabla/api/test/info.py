@@ -1,10 +1,9 @@
-import random
-
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi_cache.decorator import cache
 from opentelemetry import trace
 from opentelemetry.trace.status import Status, StatusCode
 
+from nabla.api.demo.demo import uniform_secret
 from nabla.utils.logger import logger
 from nabla.utils.prometheus import ERROR_COUNT
 
@@ -41,7 +40,7 @@ def exception():
         span = trace.get_current_span()
 
         # generate random number
-        seconds = random.uniform(0, 30)  # nosec  # noqa: S311
+        seconds = uniform_secret()
 
         # record_exception converts the exception into a span event.
         ioexception = IOError("Failed at " + str(seconds))

@@ -1,6 +1,7 @@
 import asyncio
 import os
 import random
+import secrets
 from typing import Optional
 from uuid import uuid4
 
@@ -40,7 +41,8 @@ def string_secret():
 
 
 def uniform_secret():
-    return random.uniform(0, 3)  # nosec # noqa: S311
+    return secrets.randbelow(30)
+    # return random.uniform(0, 3)  # nosec
 
 
 @cache()
@@ -86,7 +88,7 @@ async def read_item(item_id: int, q: Optional[str] = None):
 
     if item_id % 2 == 0:
         # mock io - wait for x seconds
-        # seconds = random.uniform(0, 3)  # nosec
+        # seconds = uniform_secret()
         seconds = item_id
         logger.info(f"Sleeping for {seconds} seconds")
         await asyncio.sleep(seconds)
@@ -130,7 +132,7 @@ async def dispatch_customer(customer_id: int, q: Optional[str] = None):
             span = trace.get_current_span()
 
             # generate random number
-            seconds = random.uniform(0, 30)  # nosec  # noqa: S311
+            seconds = uniform_secret()
 
             # record_exception converts the exception into a span event.
             exception = IOError("Failed at " + str(seconds))
@@ -184,7 +186,7 @@ async def demo_dev_health():
             span = trace.get_current_span()
 
             # generate random number
-            seconds = random.uniform(0, 30)  # nosec  # noqa: S311
+            seconds = uniform_secret()
 
             # record_exception converts the exception into a span event.
             exception = IOError("Failed at " + str(seconds))

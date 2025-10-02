@@ -11,11 +11,11 @@ from tests.unit.conftest import requires_env
 # from async_asgi_testclient import TestClient
 
 
-
 @pytest.fixture(scope="module")
 def test_app():
     client = TestClient(app)
     yield client  # testing happens here
+
 
 @pytest.fixture(scope="session")
 def event_loop(request):
@@ -23,6 +23,7 @@ def event_loop(request):
     loop = asyncio.get_event_loop()
     yield loop
     # loop.close()
+
 
 def test_new_string_secret():
     secret = demo.string_secret()
@@ -45,8 +46,8 @@ def test_uniform_secret():
     print(type(secret))
     # print(secret)
     # assert set(secret).issubset(range(0, 3))
-    assert isinstance(secret, float)
-    assert secret == max(1, min(secret, 10))  # Between 1-10 seconds
+    assert isinstance(secret, int)
+    assert secret == max(1, min(secret, 30))  # Between 1-30 seconds
 
 
 @requires_env("DEV", "UAT")

@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException, status
 from opentelemetry import trace
 from opentelemetry.trace.status import Status, StatusCode
 
+from nabla.api.demo.demo import uniform_secret
 from nabla.api.v1 import pong
 from nabla.utils.logger import logger
 from nabla.utils.misc import timed_operation
@@ -32,12 +33,15 @@ HTTP_CLOUD_API_URL = os.environ.get(
     "http://169.254.169.254o/penstack/latest/meta_data.json",
 )
 
+
 @router.get("/async-data")
 @circuit_breaker_default
 async def get_async_data():
     async with aiohttp.ClientSession() as session:
         async with session.get("{HTTP_BIN_URL}/delay/1") as resp:
-            return await resp.json()  # Asynchronous suspension without blocking the event loop
+            return (
+                await resp.json()
+            )  # Asynchronous suspension without blocking the event loop
 
 
 @router.get("/external-api")
@@ -122,7 +126,7 @@ async def get_gateway_assistant():
             span = trace.get_current_span()
 
             # generate random number
-            seconds = random.uniform(0, 30)  # nosec  # noqa: S311
+            seconds = uniform_secret()
 
             # record_exception converts the exception into a span event.
             exception = IOError("Failed at " + str(seconds))
