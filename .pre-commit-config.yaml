@@ -1,7 +1,7 @@
 # vi: ft=yaml.ansible.jinja2
 ---
 fail_fast: true
-minimum_pre_commit_version: 3.7.1
+minimum_pre_commit_version: 4.2.0
 exclude: |
   (?x)^(
       .*\{\{.*\}\}.*|     # Exclude any files with cookiecutter variables
@@ -27,7 +27,7 @@ ci:
     - schemas
 default_install_hook_types:
   - pre-commit
-  # - commit-msg
+  - commit-msg
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks.git
     rev: v6.0.0
@@ -272,12 +272,12 @@ repos:
       - id: gitleaks-docker
         name: "🔒 security · Detect hardcoded secrets"
         entry: zricethezav/gitleaks protect --verbose --redact --staged
-  # - repo: https://github.com/commitizen-tools/commitizen
-  #   rev: v4.9.1  # Replace with latest tag
-  #   hooks:
-  #     - id: commitizen
-  #     - id: commitizen-branch
-  #       stages: [pre-push]
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v4.9.1  # Replace with latest tag
+    hooks:
+      - id: commitizen
+      - id: commitizen-branch
+        stages: [pre-push]
   # - repo: https://github.com/oxsecurity/megalinter
   #   rev: v9.0.1
   #   hooks:
@@ -316,3 +316,20 @@ repos:
   #       entry: python3 -m nox -rs test
   #       language: system
   #       pass_filenames: false
+  - repo: local
+    hooks:
+      - id: pytest-collect
+        name: 🧪 test · Validate test formatting
+        entry: ./.venv/bin/pytest tests
+        language: system
+        types: [python]
+        args: ["--collect-only"]
+        pass_filenames: false
+      # STRICT
+      - id: pytest-fast
+        name: 🧪 test · Run fast tests
+        entry: ./.venv/bin/pytest tests
+        language: system
+        types: [python]
+        args: ["--max-timeout=3"]
+        pass_filenames: false
