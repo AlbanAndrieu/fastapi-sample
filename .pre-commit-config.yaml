@@ -2,7 +2,18 @@
 ---
 fail_fast: true
 minimum_pre_commit_version: 3.7.1
-exclude: "docs/_build/"
+exclude: |
+  (?x)^(
+      .*\{\{.*\}\}.*|     # Exclude any files with cookiecutter variables
+      docs/site/.*|       # Exclude mkdocs compiled files
+      docs/_build/.*|
+      \.history/.*|       # Exclude history files
+      .*cache.*/.*|       # Exclude cache directories
+      .*venv.*/.*|        # Exclude virtual environment directories
+      .direnv/.*|
+      .yarn/.*|
+      .ansible/.*|
+  )$
 ci:
   # format compatible with commitlint
   autoupdate_commit_msg: 'chore: pre-commit autoupdate'
@@ -14,6 +25,9 @@ ci:
     # https://github.com/pre-commit-ci/issues/issues/55
     - pip-compile
     - schemas
+default_install_hook_types:
+  - pre-commit
+  # - commit-msg
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks.git
     rev: v6.0.0
@@ -38,6 +52,7 @@ repos:
       - id: check-case-conflict
       - id: check-docstring-first
       - id: check-executables-have-shebangs
+        name: "📁 filesystem/⚙️ exec · Verify shebang preset"
         exclude: >
           (?x)^(
               clean.bat|
@@ -107,13 +122,30 @@ repos:
   #       # https://pre-commit.com/#top_level-default_language_version
   #       # language_version: python3.12
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.13.1
+    rev: v0.13.3
     hooks:
       # Run the linter.
       - id: ruff-check
+        name: "🐍 python · Check with Ruff"
         args: [ --fix ]
       # Run the formatter.
       - id: ruff-format
+        name: "🐍 python · Format with Ruff"
+      # STRICT
+      - id: ruff
+        args: [ --fix ]
+  # STRICT
+  - repo: https://github.com/RobertCraigie/pyright-python
+    rev: v1.1.406
+    hooks:
+      - id: pyright
+        name: "🐍 python · Check types"
+  - repo: https://github.com/abravalheri/validate-pyproject
+    rev: v0.24.1
+    hooks:
+      - id: validate-pyproject
+        name: "🐍 python · Validate pyproject.toml"
+        additional_dependencies: ["validate-pyproject-schema-store[all]"]
   # - repo: https://github.com/PyCQA/flake8
   #   rev: 7.1.0
   #   hooks:
@@ -138,7 +170,7 @@ repos:
     hooks:
       - id: add-trailing-comma
   - repo: https://github.com/ansible-community/ansible-lint.git
-    rev: v25.9.0
+    rev: v25.9.1
     hooks:
       - id: ansible-lint
         files: \.(yaml|yml)$
@@ -169,6 +201,7 @@ repos:
     rev: 1.0.5
     hooks:
       - id: shell-lint
+        name: "🐚 shell · Lint shell scripts"
         args: [-x]
         exclude: >
           (?x)^(
@@ -178,6 +211,17 @@ repos:
             docs/Makefile|
             .envrc|
           )$
+  # STRICT
+  - repo: https://github.com/openstack/bashate
+    rev: 2.1.1
+    hooks:
+      - id: bashate
+        name: "🐚 shell · Check shell script code style"
+  - repo: https://github.com/mrtazz/checkmake.git
+    rev: 0.2.2
+    hooks:
+      - id: checkmake
+        name: "🐮 Makefile · Lint Makefile"
   - repo: https://github.com/PyCQA/bandit
     rev: 1.8.6
     hooks:
@@ -194,14 +238,26 @@ repos:
     rev: v1.0.1
     hooks:
       - id: encryption-check
+  - repo: https://github.com/hukkin/mdformat
+    rev: 0.7.22
+    hooks:
+      - id: mdformat
+        name: "📝 markdown · Format markdown"
+        additional_dependencies:
+          - mdformat-gfm          # GitHub-Flavored Markdown support
+          - mdformat-ruff         # Python code formatting
+          - mdformat-frontmatter  # YAML frontmatter support
+          - ruff                  # Required for mdformat-ruff
+  - repo: https://github.com/markdownlint/markdownlint
+    rev: v0.12.0
+    hooks:
+      - id: markdownlint
+        name: "📝 markdown · Lint markdown"
   - repo: https://github.com/Lucas-C/pre-commit-hooks-nodejs
     rev: v1.1.2
     hooks:
       - id: markdown-toc
         args: [--maxdepth, "3", -i]
-      # - id: dockerfile_lint
-      #   args: [--permissive, --verbose, --dockerfile, ./Dockerfile]
-      #   always_run: false
   - repo: https://github.com/hadolint/hadolint
     rev: v2.14.0
     hooks:
@@ -213,32 +269,36 @@ repos:
   - repo: https://github.com/zricethezav/gitleaks
     rev: v8.28.0
     hooks:
-#      - id: gitleaks
-#        args: [--config, gitleaks.toml]
       - id: gitleaks-docker
+        name: "🔒 security · Detect hardcoded secrets"
         entry: zricethezav/gitleaks protect --verbose --redact --staged
-        #entry: zricethezav/gitleaks detect --verbose
-  - repo: https://github.com/oxsecurity/megalinter
-    rev: v9.0.1
-    hooks:
-      - id: megalinter-incremental  # Faster, less thorough
-        stages:
-          - pre-commit
-        args:
-          - mega-linter-runner
-          - --containername
-          - "megalinter-incremental"
-          - --remove-container
-          # - --fix
-          # - --env
-          # - "'APPLY_FIXES=all'"
-          - --env
-          - "'CLEAR_REPORT_FOLDER=true'"
-          - --env
-          - "'LOG_LEVEL=warning'"
-          - --filesonly
-          - --flavor
-          - "python"
+  # - repo: https://github.com/commitizen-tools/commitizen
+  #   rev: v4.9.1  # Replace with latest tag
+  #   hooks:
+  #     - id: commitizen
+  #     - id: commitizen-branch
+  #       stages: [pre-push]
+  # - repo: https://github.com/oxsecurity/megalinter
+  #   rev: v9.0.1
+  #   hooks:
+  #     - id: megalinter-incremental  # Faster, less thorough
+  #       stages:
+  #         - pre-commit
+  #       args:
+  #         - mega-linter-runner
+  #         - --containername
+  #         - "megalinter-incremental"
+  #         - --remove-container
+  #         # - --fix
+  #         # - --env
+  #         # - "'APPLY_FIXES=all'"
+  #         - --env
+  #         - "'CLEAR_REPORT_FOLDER=true'"
+  #         - --env
+  #         - "'LOG_LEVEL=warning'"
+  #         - --filesonly
+  #         - --flavor
+  #         - "python"
   # - repo: local
   #   hooks:
   #     - id: lint

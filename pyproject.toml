@@ -305,6 +305,7 @@ ansible-lint = {extras = ["yamllint"], version = ">=6.17.2"}
 # ansible-playbook-grapher = ">=1.1.0"
 click-completion = ">=0.5.2"
 colorama = ">=0.4.6"
+commitizen = ">=4.9.1"
 httpx = {version = ">=0.23.3"}
 jupyterlab = ">=3.4.3"
 git-url-parse = ">=1.2.2"
