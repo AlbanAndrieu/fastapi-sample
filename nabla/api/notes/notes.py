@@ -11,11 +11,16 @@ from nabla.api.db.database import SessionLocal
 
 # from fastapi_cache.decorator import cache
 from nabla.api.notes import crud
-from nabla.api.notes.models import NoteData, NoteResponse
+from nabla.api.notes.models import NoteData, NoteResponse, enqueue_note
 from nabla.utils.prometheus import API_REQUEST_COUNTER, API_REQUEST_SUMMARY
 
 router = APIRouter()
 mcp = FastMCP(name="NotesServer")
+
+# TODO from fastapi_crudrouter import SQLAlchemyCRUDRouter
+
+# router = SQLAlchemyCRUDRouter(schema=ItemSchema, db_model=ItemModel, db=session)
+# app.include_router(router)
 
 templates = Jinja2Templates(directory="templates")
 
@@ -39,7 +44,13 @@ async def read_all_notes():
 
 @router.post("/notes/add", response_class=HTMLResponse)
 def add_note(request: Request, title: str):
-    note = NoteResponse(title=title, description="test description", type="note", prompt="test prompt", completed=False)
+    note = NoteResponse(
+        title=title,
+        description="test description",
+        type="note",
+        prompt="test prompt",
+        completed=False,
+    )
     session = SessionLocal()
     session.add(note)
     session.commit()
@@ -49,7 +60,6 @@ def add_note(request: Request, title: str):
         "notes.html",
         {"request": request, "notes": notes},
     )
-
 
 
 # @mcp.resource("notes://create")
@@ -96,6 +106,7 @@ async def update_note(
     }
     return response_object
 
+
 # @cache(expire=300)  # Cache for 5 minutes to avoid repeated execution of complex SQL
 # @mcp.resource("notes://{note_id}/read")
 # TODO  response_model=NoteData
@@ -110,7 +121,6 @@ async def get_note_by_id(note_id: int):
     return await read_note(note_id)
 
 
-
 async def read_note(
     note_id: int = Path(..., gt=0),
 ):
@@ -118,7 +128,6 @@ async def read_note(
     if not note:
         raise HTTPException(status_code=404, detail="Note not found")
     return note
-
 
 
 # TODO  response_model=NoteData

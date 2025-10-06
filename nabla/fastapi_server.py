@@ -21,6 +21,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, ORJSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi_cache import FastAPICache
 from fastapi_cache.backends.inmemory import InMemoryBackend
+from fastapi_featureflags import router as ff_router
 from fastmcp import FastMCP
 from prometheus_client import make_asgi_app
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -148,7 +149,6 @@ async def lifespan(app: FastAPI):
     await database.connect()
     # await init_db()
 
-
     """Start background system monitoring"""
     system_metrics_task = asyncio.create_task(update_system_metrics())
 
@@ -248,7 +248,15 @@ def initialize_api() -> FastAPI:
             should_ignore_untemplated=True,
             should_respect_env_var=True,
             should_instrument_requests_inprogress=True,
-            excluded_handlers=["/metrics", "/health", "/version", "/v1/version", "/v2/version", "openapi.json", "docs"],
+            excluded_handlers=[
+                "/metrics",
+                "/health",
+                "/version",
+                "/v1/version",
+                "/v2/version",
+                "openapi.json",
+                "docs",
+            ],
             env_var_name="ENABLE_METRICS",
             inprogress_name="http_requests_in_progress",
             inprogress_labels=True,
@@ -329,6 +337,9 @@ def initialize_api() -> FastAPI:
     app.include_router(keycloak.router, tags=["keycloak"])
     app.include_router(users.router, tags=["users"])
     app.include_router(sensor.router, tags=["sensor"])
+
+    if os.getenv("DEBUG"):
+        app.include_router(ff_router, prefix="/ff", tags=["FeatureFlags"])
 
     app.add_api_websocket_route("/ws/sensor", websocket_endpoint)
 
