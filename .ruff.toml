@@ -1,3 +1,7 @@
+
+# Extend the `pyproject.toml` file in the parent directory.
+extend = "./pyproject.toml"
+
 exclude = [
     ".git",
     "__pycache__",
@@ -14,10 +18,10 @@ exclude = [
     "nabla/_version.py",
 ]
 
-line-length = 88
+line-length = 120
 
 [lint]
-ignore = ["E501", "E203", "RUF012"]
+lint.ignore = ["E501", "E203", "RUF012"]
 select = [
     "B",
     "C",
