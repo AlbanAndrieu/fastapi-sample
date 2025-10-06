@@ -408,7 +408,7 @@ version = "3.6.2"
 description = "Bash tab completion for argparse"
 optional = false
 python-versions = ">=3.8"
-groups = ["ci", "test"]
+groups = ["ci", "extra", "test"]
 files = [
     {file = "argcomplete-3.6.2-py3-none-any.whl", hash = "sha256:65b3133a29ad53fb42c48cf5114752c7ab66c1c38544fdf6460f450c09b42591"},
     {file = "argcomplete-3.6.2.tar.gz", hash = "sha256:d0519b1bc867f5f4f4713c41ad0aba73a4a5f007449716b16f385f2166dc6adf"},
@@ -2054,6 +2054,33 @@ files = [
 test = ["pytest"]
 
 [[package]]
+name = "commitizen"
+version = "4.9.1"
+description = "Python commitizen client tool"
+optional = false
+python-versions = "<4.0,>=3.9"
+groups = ["extra"]
+files = [
+    {file = "commitizen-4.9.1-py3-none-any.whl", hash = "sha256:4241b2ecae97b8109af8e587c36bc3b805a09b9a311084d159098e12d6ead497"},
+    {file = "commitizen-4.9.1.tar.gz", hash = "sha256:b076b24657718f7a35b1068f2083bd39b4065d250164a1398d1dac235c51753b"},
+]
+
+[package.dependencies]
+argcomplete = ">=1.12.1,<3.7"
+charset-normalizer = ">=2.1.0,<4"
+colorama = ">=0.4.1,<1.0"
+decli = ">=0.6.0,<1.0"
+deprecated = ">=1.2.13,<2"
+jinja2 = ">=2.10.3"
+packaging = ">=19"
+prompt_toolkit = "!=3.0.52"
+pyyaml = ">=3.08"
+questionary = ">=2.0,<3.0"
+termcolor = ">=1.1.0,<4.0.0"
+tomlkit = ">=0.5.3,<1.0.0"
+typing-extensions = {version = ">=4.0.1,<5.0.0", markers = "python_version < \"3.11\""}
+
+[[package]]
 name = "confection"
 version = "0.1.5"
 description = "The sweetest config system for Python"
@@ -2638,6 +2665,18 @@ files = [
 ]
 
 [[package]]
+name = "decli"
+version = "0.6.3"
+description = "Minimal, easy-to-use, declarative cli tool"
+optional = false
+python-versions = ">=3.9"
+groups = ["extra"]
+files = [
+    {file = "decli-0.6.3-py3-none-any.whl", hash = "sha256:5152347c7bb8e3114ad65db719e5709b28d7f7f45bdb709f70167925e55640f3"},
+    {file = "decli-0.6.3.tar.gz", hash = "sha256:87f9d39361adf7f16b9ca6e3b614badf7519da13092f2db3c80ca223c53c7656"},
+]
+
+[[package]]
 name = "decorator"
 version = "5.2.1"
 description = "Decorators for Humans"
@@ -2686,7 +2725,7 @@ version = "1.2.18"
 description = "Python @deprecated decorator to deprecate old python classes, functions or methods."
 optional = false
 python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,>=2.7"
-groups = ["api", "open-telemetry"]
+groups = ["api", "extra", "open-telemetry"]
 files = [
     {file = "Deprecated-1.2.18-py2.py3-none-any.whl", hash = "sha256:bd5011788200372a32418f888e326a09ff80d0214bd961147cfed01b5c018eec"},
     {file = "deprecated-1.2.18.tar.gz", hash = "sha256:422b6f6d859da6f2ef57857761bfb392480502a64c3028ca9bbe86085d72115d"},
@@ -3198,6 +3237,22 @@ uvicorn = {version = ">=0.15.0", extras = ["standard"]}
 
 [package.extras]
 standard = ["uvicorn[standard] (>=0.15.0)"]
+
+[[package]]
+name = "fastapi-featureflags"
+version = "0.4.7"
+description = "Feature Flags for FastAPI"
+optional = false
+python-versions = ">=3.6"
+groups = ["api"]
+files = [
+    {file = "fastapi_featureflags-0.4.7-py3-none-any.whl", hash = "sha256:2e6a2d2cee8ffdd7582f05cd47f66e8ee823f43c8aa5fce7a24953b347eb4be5"},
+    {file = "fastapi_featureflags-0.4.7.tar.gz", hash = "sha256:81ebc71ca0dfef967ce3a0ebbc83e02469b36d2ef9d045b9182b5a5be2cba152"},
+]
+
+[package.dependencies]
+fastapi = "*"
+requests = "*"
 
 [[package]]
 name = "fastapi-mail"
@@ -9022,14 +9077,14 @@ starlette = ">=0.30.0,<1.0.0"
 
 [[package]]
 name = "prompt-toolkit"
-version = "3.0.52"
+version = "3.0.51"
 description = "Library for building powerful interactive command lines in Python"
 optional = false
 python-versions = ">=3.8"
 groups = ["extra", "notebook"]
 files = [
-    {file = "prompt_toolkit-3.0.52-py3-none-any.whl", hash = "sha256:9aac639a3bbd33284347de5ad8d68ecc044b91a762dc39b7c21095fcd6a19955"},
-    {file = "prompt_toolkit-3.0.52.tar.gz", hash = "sha256:28cde192929c8e7321de85de1ddbe736f1375148b02f2e17edd840042b1be855"},
+    {file = "prompt_toolkit-3.0.51-py3-none-any.whl", hash = "sha256:52742911fde84e2d423e2f9a4cf1de7d7ac4e51958f648d9540e0fb8db077b07"},
+    {file = "prompt_toolkit-3.0.51.tar.gz", hash = "sha256:931a162e3b27fc90c86f1b48bb1fb2c528c2761475e57c9c06de13311c7b54ed"},
 ]
 
 [package.dependencies]
@@ -10676,6 +10731,21 @@ files = [
 
 [package.dependencies]
 cffi = {version = "*", markers = "implementation_name == \"pypy\""}
+
+[[package]]
+name = "questionary"
+version = "2.1.1"
+description = "Python library to build pretty command line user prompts ⭐️"
+optional = false
+python-versions = ">=3.9"
+groups = ["extra"]
+files = [
+    {file = "questionary-2.1.1-py3-none-any.whl", hash = "sha256:a51af13f345f1cdea62347589fbb6df3b290306ab8930713bfae4d475a7d4a59"},
+    {file = "questionary-2.1.1.tar.gz", hash = "sha256:3d7e980292bb0107abaa79c68dd3eee3c561b83a0f89ae482860b181c8bd412d"},
+]
+
+[package.dependencies]
+prompt_toolkit = ">=2.0,<4.0"
 
 [[package]]
 name = "rdflib"
@@ -13433,7 +13503,7 @@ version = "0.13.3"
 description = "Style preserving TOML library"
 optional = false
 python-versions = ">=3.8"
-groups = ["format", "webui"]
+groups = ["extra", "format", "webui"]
 files = [
     {file = "tomlkit-0.13.3-py3-none-any.whl", hash = "sha256:c89c649d79ee40629a9fda55f8ace8c6a1b42deb912b2a8fd8d942ddadb606b0"},
     {file = "tomlkit-0.13.3.tar.gz", hash = "sha256:430cf247ee57df2b94ee3fbe588e71d362a941ebb545dec29b53961d61add2a1"},
@@ -15266,4 +15336,4 @@ toml = ["tomli"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4.0"
-content-hash = "c7e93b7006777d4bde9516b5f0e61dd10999d059db66b922a91ff8d9c2cce24d"
+content-hash = "bc63380e4691bf5ea030224df3a8b511ad723faa1957d752e03d0fabde1a177d"
