@@ -6,8 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "fastapi-sample"
-version = "1.1.3"
-# dynamic = [ "version" ]
+# version = "1.1.3"
 # dynamic = [
 #   "urls",
 # ]
@@ -92,8 +91,8 @@ fastapi = {version = ">=0.115.3", extras = ["standard"]}
 fastapi-mail = ">=1.5.0"
 fastapi-users = {version = ">=14.0.1", extras = ["sqlalchemy"]}
 fastapi-cache2 = {version = ">=0.0.1", extras = ["redis"]} # NOK aioredis deprecated
-fastapi-plugins = ">=0.14.0"
-fastapi-featureflags = ">=0.4.7"
+# fastapi-plugins = ">=0.14.0"
+# fastapi-featureflags = ">=0.4.7"
 fastmcp = ">=2.12.2"
 httpx = ">=0.27.2"
 jinja2 = ">=3.1.6"
@@ -305,7 +304,7 @@ ansible-lint = {extras = ["yamllint"], version = ">=6.17.2"}
 # ansible-playbook-grapher = ">=1.1.0"
 click-completion = ">=0.5.2"
 colorama = ">=0.4.6"
-commitizen = ">=4.9.1"
+# commitizen = ">=4.9.1"
 httpx = {version = ">=0.23.3"}
 jupyterlab = ">=3.4.3"
 git-url-parse = ">=1.2.2"
@@ -464,3 +463,5 @@ source_archive = "{remote_http_url}/archive/{commit_hash}.tar.gz"
 packages = ["nabla"]
 
 [tool.hatch.version]
+path = "nabla/_version.py"
+# pattern = "BUILD = 'b(?P<version>[^']+)'"
