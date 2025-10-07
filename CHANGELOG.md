@@ -1,3 +1,9 @@
+## [1.1.4](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/compare/1.1.3...1.1.4) (2025-10-07)
+
+
+### Bug Fixes
+
+* gitlab pages ([3215ffd](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/commit/3215ffd3a65c1be4141d421184dead04ca4ec138))
 
 # [1.1.3]
 
