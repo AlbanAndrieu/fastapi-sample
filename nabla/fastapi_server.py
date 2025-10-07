@@ -248,7 +248,7 @@ def initialize_api() -> FastAPI:
             should_ignore_untemplated=True,
             should_respect_env_var=True,
             should_instrument_requests_inprogress=True,
-            excluded_handlers=["/metrics", "/health", "openapi.json", "docs"],
+            excluded_handlers=["/metrics", "/health", "/version", "/v1/version", "/v2/version", "openapi.json", "docs"],
             env_var_name="ENABLE_METRICS",
             inprogress_name="http_requests_in_progress",
             inprogress_labels=True,

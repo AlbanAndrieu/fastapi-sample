@@ -468,7 +468,7 @@ EOF
   } # group fastapi-sample-redis-exporter
 
   group "fastapi-sample-redis" {
-    count = 3
+    count = 1
 
     network {
       port "redis" {

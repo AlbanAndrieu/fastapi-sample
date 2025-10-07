@@ -50,7 +50,7 @@ class UserUpdate(schemas.BaseUserUpdate):
     pass
 
 class User(SQLAlchemyBaseUserTableUUID, Base):
-    # __tablename__ = "users"
+    # __tablename__ = "user"
 
     # id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
