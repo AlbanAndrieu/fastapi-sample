@@ -20,35 +20,35 @@ services:
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-gitlab-settings
+    ref: main
     file: "/templates/default.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-gitlab-settings
+    ref: main
     file: "/templates/docker-build.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-gitlab-settings
+    ref: main
     file: "/templates/deploy-nomad.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-gitlab-settings
+    ref: main
     file: "/templates/test-python.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-gitlab-settings
+    ref: main
     file: "/templates/javascript.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-gitlab-settings
+    ref: main
     file: "/templates/_apk.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-gitlab-settings
+    ref: main
     file: "/templates/data.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-gitlab-settings
+    ref: main
     file: "/templates/mega-linter.gitlab-ci.yml"
 
   - component: $CI_SERVER_FQDN/to-be-continuous/semantic-release/gitlab-ci-semrel@3.11.2
@@ -71,13 +71,12 @@ include:
 
   # - remote: git@gitlab.com:renovate-bot/renovate-runner/-/raw/v17.69.3/templates/renovate.gitlab-ci.yml
 
-  # - template: Jobs/SAST.gitlab-ci.yml
   - component: gitlab.com/components/sast/sast@main
 
   - template: Security/SAST.gitlab-ci.yml
   - template: Security/Dependency-Scanning.gitlab-ci.yml
+
   # - template: Security/Secret-Detection.gitlab-ci.yml
-  # - template: Security/SAST-IaC.latest.gitlab-ci.yml
   # - template: Jobs/Container-Scanning.gitlab-ci.yml
 
 default:
@@ -114,7 +113,7 @@ variables:
   # MOUNT_POINT: "/builds/$CI_PROJECT_PATH/mnt"
   CI_IMAGE_NAME: ${CI_REGISTRY}/jusmundi-group/web/templates/jm-oci/jm-ubuntu
   CI_IMAGE_TAG: latest
-  GIT_STRATEGY: clone
+  GIT_STRATEGY: fetch
   GIT_DEPTH: "3"
   FLAVOR: "-python"
   TRIVY_VERSION: "0.66.0"
@@ -172,6 +171,8 @@ variables:
   DAST_TARGET_URL: https://fastapi-sample.service.gra.${ENV}.consul
   DAST_FULL_SCAN: "true" # do a full scan
   DAST_BROWSER_SCAN: "true" # use the browser-based GitLab DAST crawler
+  CONTAINER_SCANNING_DISABLED: false
+  CUSTOM_CONTAINER_SCANNING_DISABLED: 'true'
   GITLAB_ADVANCED_SAST_ENABLED: true
   DS_ENFORCE_NEW_ANALYZER: 'true'
   RENOVATE_BASE_DIR: $CI_PROJECT_DIR/renovate
@@ -411,31 +412,6 @@ mega_linter:
     # --target builder-base
     - export DOCKER_BUILD_OPT="--pull --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from ${TEST_CACHE_TAG} -f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --build-arg ENV=${ENV} -t ${CONTAINER_IMAGE}"
     - echo -e "\e[35mOverriden on purpose as Sample docker build need explicit \e[0m FOR \e[43m${ENV} - ${DOCKER_BUILD_OPT}.\e[0m"
-
-docker-build:
-  extends: .docker-build
-  needs: ["install-npm"]
-  tags:
-    - jusmundi-nomad-runner
-  timeout: 2 hours 10 minutes
-  variables:
-    # CUSTOM_CONTAINER_SCANNING_DISABLED: "true"
-    # CONTAINER_SCANNING_GITLAB_CODEQUALITY_TEMPLATE_DISABLE: "true"
-    TRIVY_TIMEOUT: "20m0s"
-    # TRIVY_GLOBAL_SETTINGS: --no-progress --cache-dir=${TRIVY_CACHE_DIR} --skip-db-update --skip-java-db-update --skip-check-update
-    # TRIVY_EXIT_ON_FAILURE: 0
-  before_script:
-    - !reference [.env-definition, script]
-    - !reference [.oci-image, script]
-    - !reference [.login-gitlab-docker, script]
-    - echo -e "\e[35mWe are in directory\e[0m."
-    - pwd
-    # - echo -e "\e[35mWe have files\e[0m."
-    # - ls -lrta
-    - !reference [.build-image-dockefile-pre, script]
-    - !reference [.build-image-dockefile, script]
-    - echo -e "\e[35mImage generated\e[0m."
-    - echo -e "\e[35mOCI_IMAGE=${OCI_IMAGE}\e[0m."
 
 code_quality:
   extends: .code_quality
