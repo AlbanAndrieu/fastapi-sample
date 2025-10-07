@@ -10,7 +10,7 @@ dynamic = ["version"]
 description = "Fastapi sample"
 readme = "README.md"
 license = "MIT"
-license-files = ["LICENSE"]
+# license-files = ["LICENSE"]
 requires-python = ">=3.10"
 authors = [
     { name = "Alban Andrieu", email = "alban.andrieu@free.fr" },
