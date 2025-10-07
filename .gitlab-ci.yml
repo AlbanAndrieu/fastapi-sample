@@ -576,7 +576,7 @@ pages-deploy:
       - .output/public
   pages:
     # publish: public
-    publish: .output/public
+    publish: vue-client/.output/public
     path_prefix: "$PAGES_PREFIX"
   environment:
     name: "Pages ${PAGES_PREFIX}"
