@@ -328,6 +328,8 @@ template {
 */
 
       template {
+        change_mode = "noop"
+
         data        = <<EOF
 UVICORN_LOG_LEVEL=debug
 OTEL_RESOURCE_ATTRIBUTES=service.name=fastapi-sample

@@ -75,9 +75,8 @@ include:
 
   - template: Security/SAST.gitlab-ci.yml
   - template: Security/Dependency-Scanning.gitlab-ci.yml
-
-  # - template: Security/Secret-Detection.gitlab-ci.yml
-  # - template: Jobs/Container-Scanning.gitlab-ci.yml
+  - template: Security/Secret-Detection.gitlab-ci.yml
+ # - template: Jobs/Container-Scanning.gitlab-ci.yml
 
 default:
   cache: &global_cache
@@ -332,10 +331,10 @@ test-pytest:
     REDIS_URL: redis://redis:6379
     ENABLE_METRICS: false
   script:
+    - pip install --upgrade pip
     - if [ -n "${DEFAULT_POETRY_OPT_GROUPS}" ]; then ${POETRY_HOME}/bin/poetry install --no-root --with ${DEFAULT_POETRY_OPT_GROUPS}; else ${POETRY_HOME}/bin/poetry install --no-root; fi
     - export DB_URL=${DB_URL}
     - echo "PATH = $PATH"
-    - pip install --upgrade pip
     - pytest --cov=${DEFAULT_COV} --cov-report term --cov-report xml:coverage.xml --junitxml pytest-junit.xml ${DEFAULT_COV_ARGS}
 
 # See https://docs.gitlab.com/user/packages/npm_registry/?tab=%60npm+config%60#publish-a-package-with-a-cicd-pipeline
@@ -529,15 +528,29 @@ deploy:prod:
 pages-deploy:
   image: ${CI_IMAGE_NPM}
   stage: publish
+  before_script:
+     - cd vue-client/
+     - npm ci --cache .npm --prefer-offline
   script:
-    - cd vue-client/
-    - npm ci
     - npx nuxi prepare
-    - npm run build
+    - npm run generate
+    # - npm run build
+    - echo "npx serve .output/public"
     - mkdir ../public || true
     - cp -R ./dist/* ../public
+  cache: # https://docs.gitlab.com/ee/ci/caching/#cache-nodejs-dependencies
+     key:
+        files:
+        - package-lock.json
+     paths:
+        - .npm/
+  artifacts:
+    paths:
+      # The directory that contains the built files to be published
+      - .output/public
   pages:
-    publish: public
+    # publish: public
+    publish: vue-client/.output/public
     path_prefix: "$PAGES_PREFIX"
   environment:
     name: "Pages ${PAGES_PREFIX}"
