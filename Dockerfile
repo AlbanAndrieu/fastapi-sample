@@ -105,7 +105,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   apt-get update && apt-get install --no-install-recommends -y nodejs=${NODE_VERSION}* && apt-get clean && rm -rf /var/lib/apt/lists/* && \
   npm set progress=false && \
   npm config set depth 0 && \
-  npm install -g npm@11.4.2 && apt-get purge -y npm
+  npm install -g npm@11.6.1 && apt-get purge -y npm
 
 COPY --chown=jm-python:jm-python package.json package-lock.json .npmrc ${PYSETUP_PATH}/
 
@@ -132,7 +132,8 @@ RUN --mount=type=cache,target=/root/.cache \
 
 USER jm-python
 
-COPY --chown=jm-python:jm-python pyproject.toml poetry.lock ${PYSETUP_PATH}/
+COPY --chown=jm-python:jm-python pyproject.toml ${PYSETUP_PATH}/
+# poetry.lock
 
 # prepend poetry and venv to path
 ENV PATH="${PYSETUP_PATH}/.local/bin/:${POETRY_HOME}/bin:${VENV_PATH}/bin:${PATH}"
