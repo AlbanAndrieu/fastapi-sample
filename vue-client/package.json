@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "generate": "nuxt generate",
     "build": "vite build",
     "preview": "vite preview"
   },
