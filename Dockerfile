@@ -67,7 +67,7 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DEFAULT_TIMEOUT=100 \
     # poetry
     # https://python-poetry.org/docs/configuration/#using-environment-variables
-    POETRY_VERSION=2.2.1 \
+    POETRY_VERSION=1.8.5 \
     # make poetry install to this location
     POETRY_HOME="/code/.poetry_venv" \
     POETRY_NO_INTERACTION=1 \
