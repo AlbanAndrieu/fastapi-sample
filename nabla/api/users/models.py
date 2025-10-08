@@ -16,6 +16,7 @@ from nabla.utils.email import conf
 
 Base = declarative_base()
 
+
 class UserEvent(BaseModel):
     # model_config = ConfigDict(
     #     str_max_length=120,      # hard caps avoid pathological inputs
@@ -34,8 +35,29 @@ class UserEvent(BaseModel):
     zipcode: str
     country: str
 
-    def __init__(self, name  = "Alban Andrieu", email = conf.MAIL_FROM, password = "XXX", phone = "0695435353", address = "11 terrasse de l'université", city = "Paris", state = "FR", zipcode = "92000", country = "France") -> None:  # noqa: S107
-        super().__init__(name=name, email=email, password=password, phone=phone, address=address, city=city, state=state, zipcode=zipcode, country=country)
+    def __init__(
+        self,
+        name="Alban Andrieu",
+        email=conf.MAIL_FROM,
+        password="XXX",  # noqa: S107
+        phone="0695435353",
+        address="11 terrasse de l'université",
+        city="Paris",
+        state="FR",
+        zipcode="92000",
+        country="France",
+    ) -> None:
+        super().__init__(
+            name=name,
+            email=email,
+            password=password,
+            phone=phone,
+            address=address,
+            city=city,
+            state=state,
+            zipcode=zipcode,
+            country=country,
+        )
 
 
 class UserRead(schemas.BaseUser[uuid.UUID]):
@@ -48,6 +70,7 @@ class UserCreate(schemas.BaseUserCreate):
 
 class UserUpdate(schemas.BaseUserUpdate):
     pass
+
 
 class User(SQLAlchemyBaseUserTableUUID, Base):
     # __tablename__ = "user"
@@ -65,10 +88,13 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     #     return f"User ID : {self.id}\tName : {self.name}\tEmail : {self.email}\tPassword : {self.password}\tActive : {self.active}\tRole : {self.role}\tPermissions : {self.permissions}\tGroups : {self.groups}"
     pass
 
+
 # async def get_user_db(session: AsyncSession = Depends(get_async_session)):
 #     yield SQLAlchemyUserDatabase(session, User)
-async def get_user_db(session: Session = Depends(get_session)):
+async def get_user_db(session: Session = Depends(get_session)):  # noqa: B008
     yield SQLAlchemyUserDatabase(session, User)
 
+
 class UserAdmin(ModelView, model=User):
-    column_list = [User.id, User.email, User.name]
+    column_list = [User.id, User.name]
+    # column_list = [User.id, User.email, User.name]
