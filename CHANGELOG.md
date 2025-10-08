@@ -1,3 +1,10 @@
+# [1.2.0](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/compare/1.1.4...1.2.0) (2025-10-08)
+
+
+### Features
+
+* Add feature flags ([6ef3c40](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/commit/6ef3c40ab4bb64cdc3c5ca11d1e5b04f52cd6551))
+
 ## [1.1.4](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/compare/1.1.3...1.1.4) (2025-10-07)
 
 
