@@ -13885,7 +13885,7 @@ version = "0.45.1"
 description = "A built-package format for Python"
 optional = false
 python-versions = ">=3.8"
-groups = ["extra", "notebook"]
+groups = ["notebook"]
 markers = "python_version <= \"3.11\" or python_version >= \"3.12\""
 files = [
     {file = "wheel-0.45.1-py3-none-any.whl", hash = "sha256:708e7481cc80179af0e556bbf0cc00b8444c7321e2700b8d8580231d13017248"},
@@ -14522,4 +14522,4 @@ toml = ["tomli"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4.0"
-content-hash = "74f77bce11c04ff6b4537afc88290a199c933b99ebad6ddf4bbb77f57260c1f5"
+content-hash = "5468648aa768e42bc714e5c890d09668f1162b7969c998b27840bf1cecfdb4e6"

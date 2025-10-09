@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "fastapi-sample"
-version = "1.2.0"
+version = "1.1.4"
 # dynamic = ["version"]
 # dynamic = [
 #   "urls",
@@ -42,7 +42,7 @@ toml = ["tomli; python_version < '3.11'"]
 
 [tool.poetry]
 name = "fastapi-sample"
-version = "1.2.0"
+version = "1.1.4"
 description = "Custom hooks to improve code quality before pushing to git"
 authors = ["Andrieu, Alban <alban.andrieu@free.fr>"]
 # license = "MIT"
@@ -321,7 +321,7 @@ setuptools = ">=70.0.0"
 termcolor = ">=1.1.0" # >=2.4.0
 versioneer = {version = ">=0.29", extras = ["toml"]}
 webtypy = ">=0.1.7"
-wheel = ">=0.45.1"
+# wheel = ">=0.45.1"
 srsly = ">=2.4.8" # Downgrading srsly (2.5.1 -> 2.4.8) with python  3.13.3
 
 [tool.setuptools-pipfile]
@@ -365,12 +365,12 @@ include = "/(tests|nabla)"
 # Enable the pycodestyle (`E`) and Pyflakes (`F`) rules by default.
 # Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
 # McCabe complexity (`C901`) by default.
-select = ["E", "F"]
+lint.select = ["E", "F"]
 ignore = []
 
 # Allow autofix for all enabled rules (when `--fix`) is provided.
-fixable = ["ALL"]
-unfixable = []
+lint.fixable = ["ALL"]
+lint.unfixable = []
 
 # Exclude a variety of commonly ignored directories.
 exclude = [
@@ -396,13 +396,13 @@ exclude = [
     "node_modules",
     "venv",
 ]
-per-file-ignores = {}
+lint.per-file-ignores = {}
 
 # Same as Black.
 line-length = 88
 
 # Allow unused variables when underscore-prefixed.
-dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+lint.dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 # Assume Python 3.12.3
 target-version = "py312"
