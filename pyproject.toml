@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "fastapi-sample"
-version = "1.2.0"
+version = "1.2.1"
 # dynamic = ["version"]
 # dynamic = [
 #   "urls",

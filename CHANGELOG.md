@@ -1,3 +1,10 @@
+## [1.2.1](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/compare/1.2.0...1.2.1) (2025-10-10)
+
+
+### Bug Fixes
+
+* upgrade to version 1.2.0 ([f58d847](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/commit/f58d84728d3c75db839ac1add2aa6d63f074ce5d))
+
 # [1.2.0](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/compare/1.1.4...1.2.0) (2025-10-09)
 
 
