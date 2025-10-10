@@ -1,7 +1,7 @@
 [build-system]
 # build-backend = "setuptools.build_meta"
 # build-backend = "poetry.core.masonry.api"
-requires = ["hatchling"]
+requires = ["hatchling", "versioningit"]
 build-backend = "hatchling.build"
 
 [project]
@@ -42,16 +42,11 @@ toml = ["tomli; python_version < '3.11'"]
 
 [tool.poetry]
 name = "fastapi-sample"
-version = "1.2.0"
 description = "Custom hooks to improve code quality before pushing to git"
 authors = ["Andrieu, Alban <alban.andrieu@free.fr>"]
 # license = "MIT"
 # homepage = "https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample"
 # readme = ["README.md", "LICENSE"]
-
-# classifiers = [
-#     "Private :: Do not Upload"
-# ]
 
 packages = [
   { include = "nabla" }
@@ -297,8 +292,7 @@ cyclonedx-bom = ">=4.5.0"
 optional = true
 [tool.poetry.group.extra.dependencies]
 ansible-core = ">=2.16.8"
-# ansible-cmdb = ">=1.31"
-ansible-lint = {extras = ["yamllint"], version = ">=6.17.2"}
+ansible-lint = ">=25.8.2"
 # ansible-navigator = ">=1.1.0"
 # ansible-runner = ">=2.2.1"
 # ansible-builder = ">=1.1.0"
@@ -324,10 +318,10 @@ webtypy = ">=0.1.7"
 # wheel = ">=0.45.1"
 srsly = ">=2.4.8" # Downgrading srsly (2.5.1 -> 2.4.8) with python  3.13.3
 
-[tool.setuptools-pipfile]
+#[tool.setuptools-pipfile]
 
 #[tool]
-#setuptools-pipfile = "src/Pipfile"
+#setuptools-pipfile = "Pipfile"
 
 [tool.pytest.ini_options]
 testpaths = "tests/"
@@ -366,7 +360,7 @@ include = "/(tests|nabla)"
 # Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
 # McCabe complexity (`C901`) by default.
 lint.select = ["E", "F"]
-ignore = []
+lint.ignore = []
 
 # Allow autofix for all enabled rules (when `--fix`) is provided.
 lint.fixable = ["ALL"]

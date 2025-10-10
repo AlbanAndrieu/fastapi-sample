@@ -4,7 +4,7 @@
 # hadolint ignore=DL3007
 FROM python:3.12-slim AS python-base
 
-LABEL name="fastapi-sample" vendor="sample" version="1.1.3" \
+LABEL name="fastapi-sample" vendor="sample" version="1.2.0" \
  description="Image used by our products to build python\
  this image is running on Python 3.12."
 

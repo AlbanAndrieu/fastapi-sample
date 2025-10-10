@@ -17,6 +17,7 @@ results.sarif
 # reports/
 megalinter-reports/
 output/
+vue-client/.output/
 
 .netlify/
 
