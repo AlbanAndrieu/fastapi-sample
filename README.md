@@ -320,6 +320,7 @@ python3 ./my-app/src/get_redis.py
 ```bash
 # Create/Upgrade schema
 alembic upgrade head
+alembic downgrade -1
 ```
 
 ## Create PostgreSQL fastapi_sample_gitlab on pg-gra.service.gra.dev.consul by hand

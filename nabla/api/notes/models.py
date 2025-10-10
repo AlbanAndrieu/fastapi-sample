@@ -42,7 +42,7 @@ Base = declarative_base()
 
 # Reading note model with sqlalchemy
 class Note(Base):
-    __tablename__ = "notes"
+    __tablename__ = "note"
 
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(50), nullable=False)

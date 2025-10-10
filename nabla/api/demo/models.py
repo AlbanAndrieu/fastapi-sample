@@ -48,7 +48,7 @@ def serialize_dates(v):
 # Sensor reading model with sqlalchemy
 @dataclasses.dataclass
 class SensorReading(Base):
-    __tablename__ = "sensor_readings"
+    __tablename__ = "sensor_reading"
 
     id = Column(Integer, primary_key=True, index=True)
     timestamp = Column(DateTime, nullable=False)
