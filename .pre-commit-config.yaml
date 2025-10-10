@@ -130,18 +130,35 @@ repos:
       - id: ruff-check
         name: "🐍 python · Check with Ruff"
         args: [ --fix ]
+        exclude: >
+          (?x)^(
+              ccds/hook_utils/dependencies.py|
+          )$
       # Run the formatter.
       - id: ruff-format
         name: "🐍 python · Format with Ruff"
+        exclude: >
+          (?x)^(
+              ccds/hook_utils/dependencies.py|
+          )$
       # STRICT
       - id: ruff
+        name: "🐍 python · Fix with Ruff"
         args: [ --fix ]
+        exclude: >
+          (?x)^(
+              ccds/hook_utils/dependencies.py|
+          )$
   # STRICT
   - repo: https://github.com/RobertCraigie/pyright-python
     rev: v1.1.406
     hooks:
       - id: pyright
         name: "🐍 python · Check types"
+        exclude: >
+          (?x)^(
+              ccds/hook_utils/.*|
+          )$
   - repo: https://github.com/abravalheri/validate-pyproject
     rev: v0.24.1
     hooks:
@@ -236,6 +253,10 @@ repos:
             versioneer.py|
             hooks/_version.py|
             hooks/tests/|
+            ccds/hook_utils/configure_vcs.py|
+            ccds/hook_utils/configure_gh.py|
+            ccds/hook_utils/configure_ssh.py|
+            ccds/hook_utils/custom_config.py|
           )$
   - repo: https://github.com/IamTheFij/ansible-pre-commit
     rev: v1.0.1
