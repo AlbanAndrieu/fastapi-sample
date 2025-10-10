@@ -9,7 +9,7 @@ source "${WORKING_DIR}/scripts/step-0-color.sh"
 # shellcheck source=/dev/null
 source "${WORKING_DIR}/scripts/step-1-os.sh"
 
-export REPO_TAG=${REPO_TAG:-"1.1.0"}
+export REPO_TAG=${REPO_TAG:-"1.2.0"}
 
 # shellcheck source=./docs/build.sh
 # echo "${WORKING_DIR}/docs/build.sh"
@@ -17,8 +17,8 @@ export REPO_TAG=${REPO_TAG:-"1.1.0"}
 # shellcheck source=./scripts/run-python.sh
 # echo "${WORKING_DIR}/scripts/run-python.sh"
 
-# shellcheck source=./clean.sh
-# ${WORKING_DIR}/clean.sh"
+# shellcheck source=./scripts/run-clean.sh
+# ${WORKING_DIR}/scripts/run-clean.sh"
 
 echo -e "${cyan} ${WORKING_DIR}/scripts/run-install.sh ${NC}"
 "${WORKING_DIR}/scripts/run-install.sh"

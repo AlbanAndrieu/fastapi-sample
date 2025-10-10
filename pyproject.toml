@@ -1,12 +1,12 @@
 [build-system]
 # build-backend = "setuptools.build_meta"
 # build-backend = "poetry.core.masonry.api"
-requires = ["hatchling"]
+requires = ["hatchling", "versioningit"]
 build-backend = "hatchling.build"
 
 [project]
 name = "fastapi-sample"
-version = "1.1.4"
+version = "1.2.0"
 # dynamic = ["version"]
 # dynamic = [
 #   "urls",
@@ -42,16 +42,11 @@ toml = ["tomli; python_version < '3.11'"]
 
 [tool.poetry]
 name = "fastapi-sample"
-version = "1.1.4"
 description = "Custom hooks to improve code quality before pushing to git"
 authors = ["Andrieu, Alban <alban.andrieu@free.fr>"]
 # license = "MIT"
 # homepage = "https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample"
 # readme = ["README.md", "LICENSE"]
-
-# classifiers = [
-#     "Private :: Do not Upload"
-# ]
 
 packages = [
   { include = "nabla" }
@@ -324,10 +319,10 @@ webtypy = ">=0.1.7"
 # wheel = ">=0.45.1"
 srsly = ">=2.4.8" # Downgrading srsly (2.5.1 -> 2.4.8) with python  3.13.3
 
-[tool.setuptools-pipfile]
+#[tool.setuptools-pipfile]
 
 #[tool]
-#setuptools-pipfile = "src/Pipfile"
+#setuptools-pipfile = "Pipfile"
 
 [tool.pytest.ini_options]
 testpaths = "tests/"

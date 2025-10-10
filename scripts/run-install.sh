@@ -1,7 +1,8 @@
 #!/bin/bash
 #set -xv
 
-#WORKING_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}"  )" && pwd  )"
+# shellcheck disable=SC2034
+WORKING_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # shellcheck source=./docs/build.sh
 #echo "${WORKING_DIR}/docs/build.sh"
@@ -23,9 +24,12 @@ echo -e "${magenta} pip install --upgrade pip ${NC}"
 
 echo -e "${magenta} pip install setuptools wheel twine ${NC}"
 
-echo -e "${cyan} poetry update ${NC}"
-#echo -e "${cyan} poetry install ${NC}"
-poetry install
+export POETRY_VERSION=${POETRY_VERSION:-"2.2.1"}
+
+# echo -e "${cyan} poetry update ${NC}"
+echo -e "${cyan} pip install poetry==${POETRY_VERSION} ${NC}"
+pip install "poetry==${POETRY_VERSION}"
+poetry install --with format,test,extra,open_telemetry,api,deployment,influxdb,panda,temporal,utils,webui
 
 sudo apt-get install mypy
 
