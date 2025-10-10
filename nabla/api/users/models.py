@@ -11,12 +11,14 @@ from sqlalchemy import Column, String
 # from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session, declarative_base
 
-from nabla.api.db.database import get_session
+from nabla.api.db.database import engine, get_session
 from nabla.utils.email import conf
 
 Base = declarative_base()
 
-
+async def init_db():
+    # SQLModel.metadata.create_all(engine)
+    Base.metadata.create_all(engine)
 class UserEvent(BaseModel):
     # model_config = ConfigDict(
     #     str_max_length=120,      # hard caps avoid pathological inputs

@@ -9,11 +9,9 @@ from fastapi import Depends
 from sqlalchemy import Engine, create_engine
 
 # With PostgreSQL
-from sqlalchemy.ext.asyncio import (
-    AsyncSession,
-    async_sessionmaker,
-)
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
+from sqlmodel import SQLModel
 
 from nabla.config_settings import get_settings
 
@@ -78,6 +76,7 @@ Base = declarative_base()
 async def return_to_pool(dbapi_connection, connection_record):
     await db_pool.putconn(dbapi_connection)
 
+
 async def create_db_and_tables():
     async with engine.begin() as conn:
        await conn.run_sync(Base.metadata.create_all)
@@ -87,6 +86,14 @@ async def init_db():
     # await create_db_and_tables()
     # SQLModel.metadata.create_all(engine)
     Base.metadata.create_all(engine)
+
+    # from nabla.api.demo.models import Base as DemoBase
+    # from nabla.api.notes.models import Base as NoteBase
+    # from nabla.api.users.models import Base as UserBase
+    # UserBase.metadata.create_all(engine)
+    # NoteBase.metadata.create_all(engine)
+    # DemoBase.metadata.create_all(engine)
+
     # with engine.begin() as conn:
     #     await conn.run_sync(Base.metadata.drop_all)
     #     await conn.run_sync(Base.metadata.create_all)

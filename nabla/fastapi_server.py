@@ -36,17 +36,20 @@ from starlette.routing import Mount
 
 from nabla.api import ping, v1, v2
 from nabla.api.auth import keycloak
-from nabla.api.db.database import SessionLocal, database, engine
+from nabla.api.db.database import SessionLocal, database, engine, init_db
 from nabla.api.demo import dd, demo, integration, sensor
+from nabla.api.demo.models import init_db as init_db_sensor_reading
 from nabla.api.demo.models import recent_readings
 from nabla.api.demo.sensor import metrics
 from nabla.api.demo.socket.redis import redis, start_event_listener
 from nabla.api.demo.socket.websocket import websocket_endpoint
 from nabla.api.notes import notes
 from nabla.api.notes.models import Note
+from nabla.api.notes.models import init_db as init_db_note
 from nabla.api.test import info
 from nabla.api.users import users
 from nabla.api.users.models import UserAdmin, UserCreate, UserRead, UserUpdate
+from nabla.api.users.models import init_db as init_db_user
 from nabla.api.users.users import fastapi_users, jwt_backend
 from nabla.config_settings import (
     APP_NAME,
@@ -147,7 +150,11 @@ async def lifespan(app: FastAPI):
     app.state.redis = redis
 
     await database.connect()
-    # await init_db()
+
+    await init_db() # create_db_and_tables()
+    await init_db_note()
+    await init_db_user()
+    await init_db_sensor_reading()
 
     """Start background system monitoring"""
     system_metrics_task = asyncio.create_task(update_system_metrics())
