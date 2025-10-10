@@ -291,9 +291,8 @@ cyclonedx-bom = ">=4.5.0"
 [tool.poetry.group.extra]
 optional = true
 [tool.poetry.group.extra.dependencies]
-ansible-core = ">=2.16.8"
-# ansible-cmdb = ">=1.31"
-ansible-lint = {extras = ["yamllint"], version = ">=6.17.2"}
+ansible-core = ">=2.18.2"
+ansible-lint = ">=25.9.2"
 # ansible-navigator = ">=1.1.0"
 # ansible-runner = ">=2.2.1"
 # ansible-builder = ">=1.1.0"
