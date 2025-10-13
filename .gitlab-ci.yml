@@ -185,7 +185,9 @@ variables:
   RENOVATE_LOG_FILE: renovate-log.ndjson
   CI_RENOVATE_IMAGE: ghcr.io/renovatebot/renovate:37.174.7@sha256:da387ec816e93c404380dc2607df76d8b91f3ac6e1f00d9e4424fe4afa669c76
   RUNNER_GENERATE_ARTIFACTS_METADATA: "true"
-
+  MEND_SCA_ORCHESTRATOR_ENABLED: "true"
+  MEND_AI_ENABLE_CODE_CAPABILITIES: "true"
+  
 .renovate:
   cache:
     key: ${CI_COMMIT_REF_SLUG}-renovate
