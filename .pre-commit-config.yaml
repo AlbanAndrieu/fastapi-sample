@@ -248,7 +248,7 @@ repos:
       - id: sqlfluff-fix
         name: "📊 SQL · Attempts to fix rule violations."
         # STRICT
-     - id: sqlfluff-lint
+      - id: sqlfluff-lint
         name: "📊 SQL · Lint SQL code files"
   - repo: https://github.com/PyCQA/bandit
     rev: 1.8.6
@@ -270,6 +270,24 @@ repos:
     rev: v1.0.1
     hooks:
       - id: encryption-check
+  - repo: <https://github.com/nbQA-dev/nbQA>
+    rev: 1.9.1
+    hooks:
+      - id: nbqa
+        entry: nbqa mdformat
+        name: "📓 notebook · Format markdown cells"
+        args: ["--nbqa-md"]
+        types: [jupyter]
+        additional_dependencies:
+          - mdformat
+          - mdformat-gfm
+          - mdformat-ruff
+          - mdformat-frontmatter
+          - ruff
+      # STRICT
+      # TODO: Convert to pyright
+      - id: nbqa-mypy
+        name: "📓 notebook · Type-check cells"   
   - repo: https://github.com/hukkin/mdformat
     rev: 0.7.22
     hooks:
@@ -308,6 +326,14 @@ repos:
         files: ^src/
       - id: markdown-toc
         args: [--maxdepth, "3", -i]
+  - repo: <https://github.com/pre-commit/mirrors-prettier>
+    rev: v4.0.0-alpha.8
+    hooks:
+      - id: prettier
+        name: "✨ misc-files · Format misc web files"
+        types_or: [yaml, html, scss]
+        additional_dependencies:
+          - prettier@3.4.2
   - repo: https://github.com/hadolint/hadolint
     rev: v2.14.0
     hooks:
@@ -326,6 +352,9 @@ repos:
     rev: v4.9.1  # Replace with latest tag
     hooks:
       - id: commitizen
+        name: "🌳 git · Validate commit message"
+        stages: [commit-msg]
+        additional_dependencies: [cz-conventional-gitmoji]
       - id: commitizen-branch
         stages: [pre-push]
   # - repo: https://github.com/oxsecurity/megalinter
