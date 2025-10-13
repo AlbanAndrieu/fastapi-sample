@@ -1,3 +1,10 @@
+## [1.2.4](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/compare/1.2.3...1.2.4) (2025-10-13)
+
+
+### Bug Fixes
+
+* Add vscode files ([43f71e4](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/commit/43f71e4c7e9aaf1e80a5dd7e80d9abb60ea9d687))
+
 ## [1.2.3](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/compare/1.2.2...1.2.3) (2025-10-13)
 
 
