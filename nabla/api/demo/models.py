@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from sqlalchemy import Column, DateTime, Float, Integer, String
 from sqlalchemy.orm import declarative_base
 
-from nabla.api.db.database import SessionLocal
+from nabla.api.db.database import SessionLocal, engine
 from nabla.api.demo.socket.redis import (
     REDIS_CHANNEL,
     REDIS_SENSOR_CHANNEL,
@@ -23,6 +23,9 @@ from nabla.api.demo.socket.redis import (
 from nabla.utils.logger import logger
 
 Base = declarative_base()
+
+async def init_db():
+    Base.metadata.create_all(engine)
 
 class DateTimeEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -48,7 +51,7 @@ def serialize_dates(v):
 # Sensor reading model with sqlalchemy
 @dataclasses.dataclass
 class SensorReading(Base):
-    __tablename__ = "sensor_readings"
+    __tablename__ = "sensor_reading"
 
     id = Column(Integer, primary_key=True, index=True)
     timestamp = Column(DateTime, nullable=False)

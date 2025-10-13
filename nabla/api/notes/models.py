@@ -11,7 +11,7 @@ from pytz import timezone as tz
 from sqlalchemy import Column, DateTime, Integer, String
 from sqlalchemy.orm import declarative_base
 
-from nabla.api.db.database import SessionLocal
+from nabla.api.db.database import SessionLocal, engine
 from nabla.api.demo.socket.redis import (
     REDIS_CHANNEL,
     REDIS_NOTES_CHANNEL,
@@ -39,10 +39,13 @@ Base = declarative_base()
 #     ),
 # )
 
+async def init_db():
+    # SQLModel.metadata.create_all(engine)
+    Base.metadata.create_all(engine)
 
 # Reading note model with sqlalchemy
 class Note(Base):
-    __tablename__ = "notes"
+    __tablename__ = "note"
 
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(50), nullable=False)
