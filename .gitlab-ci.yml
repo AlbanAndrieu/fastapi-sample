@@ -3,8 +3,8 @@ stages:
   - static
   - secret-detection
   - renovate
+  - buil
   - test
-  - build
   - train
   - review
   - deploy
@@ -116,7 +116,7 @@ variables:
   # MOUNT_POINT: "/builds/$CI_PROJECT_PATH/mnt"
   CI_IMAGE_NAME: ${CI_REGISTRY}/jusmundi-group/web/templates/jm-oci/jm-ubuntu
   CI_IMAGE_TAG: latest
-  GIT_STRATEGY: fetch
+  # GIT_STRATEGY: fetch
   GIT_DEPTH: "3"
   FLAVOR: "-python"
   TRIVY_VERSION: "0.66.0"
@@ -421,10 +421,10 @@ mega_linter:
 
 code_quality:
   extends: .code_quality
-  stage: test
-  # needs: ["docker-build", "lint-ruff", "type-checker-pyright"]
+  # stage: test
+  needs: ["docker-build", "lint-ruff", "type-checker-pyright"]
   dependencies:
-    # - docker-build
+    - docker-build
     - lint-ruff
     - type-checker-pyright
   script:
