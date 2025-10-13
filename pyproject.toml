@@ -19,7 +19,7 @@ maintainers = [
   { name = "Alban Andrieu", email = "alban.andrieu@free.fr" }
 ]
 dependencies = ["dynamic"]
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -65,7 +65,7 @@ url = "https://download.pytorch.org/whl/cpu"
 priority = "explicit"
 
 [tool.poetry.dependencies]
-python = ">=3.10,<4.0"
+python = ">=3.12,<4.0"
 
 [tool.poetry.group.api]
 optional = false
@@ -87,8 +87,6 @@ fastapi-featureflags = ">=0.4.7"
 fastapi-mail = ">=1.5.0"
 fastapi-users = {version = ">=14.0.1", extras = ["sqlalchemy"]}
 fastapi-cache2 = {version = ">=0.0.1", extras = ["redis"]} # NOK aioredis deprecated
-# fastapi-plugins = {version = ">=0.14.0", extras = ["all"]}
-# fastapi-mcp = ">=0.4.0"
 fastmcp = ">=2.12.2"
 httpx = ">=0.27.2"
 jinja2 = ">=3.1.6"
@@ -217,7 +215,7 @@ asyncpg = ">=0.27.0"
 [tool.poetry.group.pytorch]
 optional = true
 [tool.poetry.group.pytorch.dependencies]
-python = ">=3.10,<4.0"
+python = ">=3.12,<4.0"
 torch = [
     { version = ">=2.7.1", source = "pytorch-cpu", markers = "sys_platform != 'darwin'" }, # For non-macOS users
     { version = ">=2.7.1", source = "pypi", markers = "sys_platform == 'darwin'" },        # For macOS users
@@ -246,7 +244,7 @@ async-asgi-testclient = ">= 1.4.11"
 coverage = ">= 7.2.7"
 # molecule = ">=5.1.0"
 mypy = ">=1.16.0"
-pytest = ">=8.3.4" # Testing framework
+pytest = ">=8.3.4"              # Testing framework
 pytest-asyncio = ">=0.21.0"
 pytest-env = ">=1.1.5"
 pytest-cases = ">=3.8.6"        # Parametrized testing
@@ -323,6 +321,7 @@ setup-cfg-fmt = ">=2.2.0"
 setuptools = ">=70.0.0"
 termcolor = ">=1.1.0" # >=2.4.0
 versioneer = {version = ">=0.29", extras = ["toml"]}
+versioningit = ">=3.3.0"
 webtypy = ">=0.1.7"
 # wheel = ">=0.45.1"
 srsly = ">=2.4.8" # Downgrading srsly (2.5.1 -> 2.4.8) with python  3.13.3
@@ -364,12 +363,28 @@ line-length = 88
 target-version = ["py310", "py311"]
 include = "/(tests|nabla)"
 
+[tool.pyright]
+include = ["nabla"]
+exclude = ["**/node_modules",
+    "**/__pycache__",
+    "nabla/experimental",
+    "nabla/typestubs"
+]
+venvPath = "."
+venv = ".venv"
+
+reportMissingImports = "error"
+reportMissingTypeStubs = false
+
+pythonVersion = "3.12"
+pythonPlatform = "Linux"
+
 [tool.ruff]
 # Enable the pycodestyle (`E`) and Pyflakes (`F`) rules by default.
 # Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
 # McCabe complexity (`C901`) by default.
 lint.select = ["E", "F"]
-lint.ignore = []
+lint.ignore = ["E501", "E203", "RUF012"]
 
 # Allow autofix for all enabled rules (when `--fix`) is provided.
 lint.fixable = ["ALL"]
