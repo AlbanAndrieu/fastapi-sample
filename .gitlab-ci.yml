@@ -68,8 +68,10 @@ include:
     rules:
       - if: $PACKAGE_MANAGER_SET
 
-  - project: 'renovate-bot/renovate-runner'
-    file: '/templates/renovate.gitlab-ci.yml'
+  #- project: 'renovate-bot/renovate-runner'
+  #  file: '/templates/renovate.gitlab-ci.yml'
+
+  - remote: https://gitlab.com/renovate-bot/renovate-runner/-/raw/v24.0.0/templates/renovate.gitlab-ci.yml
 
   # - remote: git@gitlab.com:renovate-bot/renovate-runner/-/raw/v17.69.3/templates/renovate.gitlab-ci.yml
 
@@ -187,7 +189,7 @@ variables:
   RUNNER_GENERATE_ARTIFACTS_METADATA: "true"
   MEND_SCA_ORCHESTRATOR_ENABLED: "true"
   MEND_AI_ENABLE_CODE_CAPABILITIES: "true"
-  
+
 .renovate:
   cache:
     key: ${CI_COMMIT_REF_SLUG}-renovate
