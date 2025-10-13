@@ -1,3 +1,10 @@
+## [1.2.2](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/compare/1.2.1...1.2.2) (2025-10-13)
+
+
+### Bug Fixes
+
+* pipfile lock ([63a1c9b](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/commit/63a1c9b14c95bd8cfb764c9a63d2460b3e082287))
+
 ## [1.2.1](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/compare/1.2.0...1.2.1) (2025-10-10)
 
 
