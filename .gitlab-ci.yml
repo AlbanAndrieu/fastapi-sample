@@ -422,9 +422,9 @@ mega_linter:
 code_quality:
   extends: .code_quality
   stage: test
-  needs: ["docker-build", "lint-ruff", "type-checker-pyright"]
+  # needs: ["docker-build", "lint-ruff", "type-checker-pyright"]
   dependencies:
-    - docker-build
+    # - docker-build
     - lint-ruff
     - type-checker-pyright
   script:
