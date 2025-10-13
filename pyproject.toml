@@ -13,10 +13,10 @@ version = "1.2.1"
 # ]
 description = "Fastapi sample"
 authors = [
-    {name = "Andrieu, Alban", email = "alban.andrieu@free.fr"},
+    {name = "Alban Andrieu", email = "alban.andrieu@free.fr"},
 ]
 maintainers = [
-  { name = "Andrieu, Alban", email = "alban.andrieu@free.fr" }
+  { name = "Alban Andrieu", email = "alban.andrieu@free.fr" }
 ]
 dependencies = ["dynamic"]
 requires-python = ">=3.10"
@@ -43,7 +43,7 @@ toml = ["tomli; python_version < '3.11'"]
 [tool.poetry]
 name = "fastapi-sample"
 description = "Custom hooks to improve code quality before pushing to git"
-authors = ["Andrieu, Alban <alban.andrieu@free.fr>"]
+authors = ["Alban Andrieu <alban.andrieu@free.fr>"]
 # license = "MIT"
 # homepage = "https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample"
 # readme = ["README.md", "LICENSE"]
@@ -246,14 +246,23 @@ async-asgi-testclient = ">= 1.4.11"
 coverage = ">= 7.2.7"
 # molecule = ">=5.1.0"
 mypy = ">=1.16.0"
-pytest = ">=7.2.0" # ">=8.3.3,<9.0.0"
+pytest = ">=8.3.4" # Testing framework
 pytest-asyncio = ">=0.21.0"
-pytest-cov = ">=6.0.0"
 pytest-env = ">=1.1.5"
-# pytest-mock = ">=3.14.0"
+pytest-cases = ">=3.8.6"        # Parametrized testing
+pytest-cov = ">=6.0.0"          # Coverage reporting
 pytest-dependency = ">=0.5.1"
+pytest-icdiff = ">=0.9"         # Improved diffs
+pytest-mock = ">=3.14.0"        # Mocking
 pytest-order = ">=1.0.1"
+pytest-playwright = ">=0.6.2"   # Browser testing
+pytest-profiling = ">=1.8.1"    # Test profiling
+pytest-random-order = ">=1.1.1" # Randomized test order
+pytest-shutil = ">=1.8.1"       # File system testing
+pytest-split = ">=0.10.0"       # Parallel testing
+pytest-sugar = ">=1.0.0"        # Test progress visualization
 pytest-testinfra = ">=10.1.1"
+pytest-timeout = ">=2.3.1"      # Test timeouts
 pyright = ">=1.1.0"
 pyright-to-gitlab-ci = ">=1.1.0"
 nox = ">=2023.4.22"

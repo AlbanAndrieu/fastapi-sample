@@ -151,7 +151,8 @@ sphinx = ">=7.1.2" # 4.2.0 is ok with awscli, 7.2.6 docutils conflicting with aw
 tox = ">=3.27.1"
 twine = ">=4.0.2"
 versioneer = {version = ">=0.29", extras = ["toml"]}
-wheel = ">=0.45.1"
+versioningit = ">=3.3.0"
+# wheel = ">=0.45.1"
 # jupyter-client = ">=8.6.0"
 jupyterlab = ">=3.4.3"
 jupyterlab-code-formatter = ">=1.5.3"
@@ -159,7 +160,7 @@ jupyterlab-execute-time = ">=2.1.0"
 jupyterlab-git = ">=0.37.1"
 # jupyter-resource-usage = ">=0.7.2"
 jupyterlab-system-monitor = ">=0.8.0"
-jupyterlab-templates = ">=0.3.1"
+# jupyterlab-templates = ">=0.3.1"
 # scikit-learn = "==1.1.1"
 # snowflake-connector-python = {extras = ["pandas"], version = ">=2.7.8"}
 # snowflake-sqlalchemy = ">=1.4.4"
