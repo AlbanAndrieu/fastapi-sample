@@ -408,8 +408,8 @@ EOF
       } # service fastapi-sample
 
       resources {
-        cpu    = 200 # MHz
-        memory = 100 # MB
+        cpu    = 300 # MHz
+        memory = 2048 # MB
       }
     } # task fastapi-sample
 
