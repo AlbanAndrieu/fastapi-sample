@@ -51,7 +51,6 @@
   },
   "dependencies": {
     "@dotenvx/dotenvx": "^1.44.2",
-    "@jusmundi-group/jus-shared-module": "^1.1.0",
     "cloc": "^2.0.0-cloc",
     "dd-trace": "^5.28.0"
   },
