@@ -3,8 +3,8 @@ stages:
   - static
   - secret-detection
   - renovate
-  - build
   - test
+  - build
   - train
   - review
   - deploy
