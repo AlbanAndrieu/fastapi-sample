@@ -344,6 +344,11 @@ test-pytest:
     - echo "PATH = $PATH"
     - pytest --cov=${DEFAULT_COV} --cov-report term --cov-report xml:coverage.xml --junitxml pytest-junit.xml ${DEFAULT_COV_ARGS}
 
+docker-build:
+  extends: .docker-build
+  variables:
+    APP_IMAGE: $APP
+
 # See https://docs.gitlab.com/user/packages/npm_registry/?tab=%60npm+config%60#publish-a-package-with-a-cicd-pipeline
 install-npm:
   extends: .install-npm
