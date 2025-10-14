@@ -536,6 +536,6 @@ repos:
         entry: ./.venv/bin/pytest tests
         language: system
         types: [python]
-        args: ["--max-timeout=3"]
+        args: ["--timeout=3"]
         pass_filenames: false
         always_run: true
