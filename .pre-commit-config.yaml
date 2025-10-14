@@ -392,7 +392,7 @@ repos:
     rev: 0.34.1
     hooks:
       - id: check-github-workflows
-        name: "🐙 github-actions · Validate gh workflow files"
+        name: "🧩 github-actions · Validate gh workflow files"
         args: ["--verbose"]
       - id: check-taskfile
         name: "✅ taskfile · Validate Task configuration"
@@ -480,6 +480,8 @@ repos:
     hooks:
       - id: gitlint
         name: "🌳 git · Lint"
+        additional_dependencies:
+          - gitlint-core[trusted-deps]==0.19.1
 
   # ---------------------------------------------------------------------------- #
   #                            👑 Mega linter                                    #
