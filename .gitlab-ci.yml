@@ -20,35 +20,35 @@ services:
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-clean
+    ref: main
     file: "/templates/default.gitlab-ci.yml"
 
   # - project: jusmundi-group/infrastructure/ci-templates
-  #   ref: feature-clean
+  #   ref: main
   #   file: "/templates/docker-build.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-clean
+    ref: main
     file: "/templates/deploy-nomad.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-clean
+    ref: main
     file: "/templates/test-python.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-clean
+    ref: main
     file: "/templates/javascript.gitlab-ci.yml"
 
-  - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-clean
-    file: "/templates/_apk.gitlab-ci.yml"
+  # - project: jusmundi-group/infrastructure/ci-templates
+  #   ref: main
+  #   file: "/templates/_apk.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-clean
+    ref: main
     file: "/templates/data.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-clean
+    ref: main
     file: "/templates/mega-linter.gitlab-ci.yml"
 
   - component: $CI_SERVER_FQDN/to-be-continuous/semantic-release/gitlab-ci-semrel@3.11.2
@@ -70,12 +70,11 @@ include:
   #  file: '/templates/renovate.gitlab-ci.yml'
 
   - remote: https://gitlab.com/renovate-bot/renovate-runner/-/raw/v24.0.0/templates/renovate.gitlab-ci.yml
-
   # - remote: git@gitlab.com:renovate-bot/renovate-runner/-/raw/v17.69.3/templates/renovate.gitlab-ci.yml
 
   - component: gitlab.com/components/sast/sast@main
 
-  # - template: Cosign.gitlab-ci.yml
+  - template: Cosign.gitlab-ci.yml
 
   - template: Security/SAST.gitlab-ci.yml
   - template: Security/Dependency-Scanning.gitlab-ci.yml
