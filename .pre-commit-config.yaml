@@ -16,7 +16,7 @@ exclude: |
   )$
 ci:
   # format compatible with commitlint
-  autoupdate_commit_msg: 'chore: pre-commit autoupdate'
+  autoupdate_commit_msg: "chore: pre-commit autoupdate"
   autoupdate_schedule: monthly
   autofix_commit_msg: |
     chore: auto fixes from pre-commit.com hooks
@@ -101,8 +101,8 @@ repos:
           (?x)^(
               tests/.*|
           )$
-#      - id: no-commit-to-branch
-#        args: [--branch, main, --branch, master, --branch, release/*]
+      #      - id: no-commit-to-branch
+      #        args: [--branch, main, --branch, master, --branch, release/*]
       - id: end-of-file-fixer
       - id: fix-byte-order-marker
       - id: requirements-txt-fixer
@@ -113,7 +113,7 @@ repos:
   - repo: https://github.com/asottile/pyupgrade
     rev: v3.20.0
     hooks:
-    -   id: pyupgrade
+      - id: pyupgrade
   # - repo: https://github.com/psf/black
   #   rev: 25.1.0
   #   hooks:
@@ -129,7 +129,7 @@ repos:
       # Run the linter.
       - id: ruff-check
         name: "🐍 python · Check with Ruff"
-        args: [ --fix ]
+        args: [--fix]
         exclude: >
           (?x)^(
               ccds/hook_utils/dependencies.py|
@@ -144,7 +144,7 @@ repos:
       # STRICT
       - id: ruff
         name: "🐍 python · Fix with Ruff"
-        args: [ --fix ]
+        args: [--fix]
         exclude: >
           (?x)^(
               ccds/hook_utils/dependencies.py|
@@ -205,8 +205,8 @@ repos:
   - repo: https://github.com/adrienverge/yamllint.git
     rev: v1.37.1 # or higher tag
     hooks:
-     - id: yamllint
-       args: [--format, parsable, --strict]
+      - id: yamllint
+        args: [--format, parsable, --strict]
   - repo: https://github.com/doublify/pre-commit-hindent.git
     rev: b3680b6ebf9f7cf29b19307f246adef66756feef
     hooks:
@@ -216,7 +216,7 @@ repos:
     hooks:
       # Choose one of:
       # - id: shfmt         # native (requires Go to build)
-      - id: shfmt-docker  # Docker image (requires Docker to run)
+      - id: shfmt-docker # Docker image (requires Docker to run)
   - repo: https://github.com/detailyang/pre-commit-shell
     rev: 1.0.5
     hooks:
@@ -242,7 +242,7 @@ repos:
     hooks:
       - id: checkmake
         name: "🐮 Makefile · Lint Makefile"
-  - repo: <https://github.com/sqlfluff/sqlfluff>
+  - repo: https://github.com/sqlfluff/sqlfluff
     rev: 3.3.0
     hooks:
       - id: sqlfluff-fix
@@ -270,7 +270,7 @@ repos:
     rev: v1.0.1
     hooks:
       - id: encryption-check
-  - repo: <https://github.com/nbQA-dev/nbQA>
+  - repo: https://github.com/nbQA-dev/nbQA
     rev: 1.9.1
     hooks:
       - id: nbqa
@@ -287,29 +287,29 @@ repos:
       # STRICT
       # TODO: Convert to pyright
       - id: nbqa-mypy
-        name: "📓 notebook · Type-check cells"   
+        name: "📓 notebook · Type-check cells"
   - repo: https://github.com/hukkin/mdformat
     rev: 0.7.22
     hooks:
       - id: mdformat
         name: "📝 markdown · Format markdown"
         additional_dependencies:
-          - mdformat-gfm          # GitHub-Flavored Markdown support
-          - mdformat-ruff         # Python code formatting
-          - mdformat-frontmatter  # YAML frontmatter support
-          - ruff                  # Required for mdformat-ruff
+          - mdformat-gfm # GitHub-Flavored Markdown support
+          - mdformat-ruff # Python code formatting
+          - mdformat-frontmatter # YAML frontmatter support
+          - ruff # Required for mdformat-ruff
   - repo: https://github.com/markdownlint/markdownlint
     rev: v0.12.0
     hooks:
       - id: markdownlint
         name: "📝 markdown · Lint markdown"
-  - repo: <https://github.com/biomejs/pre-commit>
+  - repo: https://github.com/biomejs/pre-commit
     rev: "v0.6.1"
     hooks:
       - id: biome-check
         name: "🟨 javascript · Lint, format, and safe fixes with Biome"
-        additional_dependencies: ["@biomejs/biome@1.9.4"]     
-  - repo: <https://github.com/python-jsonschema/check-jsonschema>
+        additional_dependencies: ["@biomejs/biome@1.9.4"]
+  - repo: https://github.com/python-jsonschema/check-jsonschema
     rev: 0.31.0
     hooks:
       - id: check-github-workflows
@@ -326,7 +326,7 @@ repos:
         files: ^src/
       - id: markdown-toc
         args: [--maxdepth, "3", -i]
-  - repo: <https://github.com/pre-commit/mirrors-prettier>
+  - repo: https://github.com/pre-commit/mirrors-prettier
     rev: v4.0.0-alpha.8
     hooks:
       - id: prettier
@@ -349,7 +349,7 @@ repos:
         name: "🔒 security · Detect hardcoded secrets"
         entry: zricethezav/gitleaks protect --verbose --redact --staged
   - repo: https://github.com/commitizen-tools/commitizen
-    rev: v4.9.1  # Replace with latest tag
+    rev: v4.9.1 # Replace with latest tag
     hooks:
       - id: commitizen
         name: "🌳 git · Validate commit message"
