@@ -13,6 +13,10 @@ exclude: |
       .direnv/.*|
       .yarn/.*|
       .ansible/.*|
+      node_modules/.*|
+      .npm/.*|
+      .nuxt/.*|
+      .netlify.*|
   )$
 ci:
   # format compatible with commitlint
@@ -176,20 +180,20 @@ repos:
           (?x)^(
               ccds/hook_utils/dependencies.py|
           )$
-      # - id: ruff
-      #   name: "🐍 python · Lint and perform unsafe auto-fixes with Ruff"
-      #   args: [--unsafe-fixes]
-      #   exclude: >
-      #     (?x)^(
-      #         ccds/hook_utils/dependencies.py|
-      #     )$
-      # - id: ruff-check
-      #   name: "🐍 python · Check with Ruff"
-      #   args: [--fix]
-      #   exclude: >
-      #     (?x)^(
-      #         ccds/hook_utils/dependencies.py|
-      #     )$
+      - id: ruff
+        name: "🐍 python · Lint and perform unsafe auto-fixes with Ruff"
+        args: [--unsafe-fixes]
+        exclude: >
+          (?x)^(
+              ccds/hook_utils/dependencies.py|
+          )$
+      - id: ruff-check
+        name: "🐍 python · Check with Ruff"
+        args: [--fix]
+        exclude: >
+          (?x)^(
+              ccds/hook_utils/dependencies.py|
+          )$
 
   # - repo: https://github.com/RobertCraigie/pyright-python
   #   rev: v1.1.406
@@ -199,7 +203,7 @@ repos:
   #       exclude: >
   #         (?x)^(
   #             ccds/hook_utils/.*|
-  #          )$
+  #         )$
   - repo: https://github.com/abravalheri/validate-pyproject
     rev: v0.24.1
     hooks:
@@ -249,20 +253,21 @@ repos:
       # - id: shfmt         # native (requires Go to build)
       - id: shfmt-docker # Docker image (requires Docker to run)
         name: "🐚 🐳 shell · Format shell scripts"
-  # - repo: https://github.com/detailyang/pre-commit-shell
-  #   rev: 1.0.5
-  #   hooks:
-  #     - id: shell-lint
-  #       name: "🐚 shell · Lint shell scripts"
-  #       args: [-x]
-  #       exclude: >
-  #         (?x)^(
-  #           mvnw|
-  #           hooks|
-  #           tests/.*|
-  #           docs/Makefile|
-  #           .envrc|
-  #         )$
+  - repo: https://github.com/detailyang/pre-commit-shell
+    rev: 1.0.5
+    hooks:
+      - id: shell-lint
+        name: "🐚 shell · Lint shell scripts"
+        args: [-x]
+        exclude: >
+          (?x)^(
+            mvnw|
+            biscuitcutter.sh|
+            hooks|
+            tests/.*|
+            docs/Makefile|
+            .envrc|
+          )$
 
   - repo: https://github.com/openstack/bashate
     rev: 2.1.1
@@ -277,11 +282,11 @@ repos:
           )$
 
   ### Makefile ###
-  # - repo: https://github.com/mrtazz/checkmake.git
-  #   rev: 0.2.2
-  #   hooks:
-  #     - id: checkmake
-  #       name: "🐮 Makefile · Lint Makefile"
+  - repo: https://github.com/mrtazz/checkmake.git
+    rev: 0.2.2
+    hooks:
+      - id: checkmake
+        name: "🐮 Makefile · Lint Makefile"
 
   ### SQL ###
   - repo: https://github.com/sqlfluff/sqlfluff
@@ -321,16 +326,16 @@ repos:
           - mdformat-ruff # Python code formatting
           - mdformat-frontmatter # YAML frontmatter support
           - ruff # Required for mdformat-ruff
-  # - repo: https://github.com/markdownlint/markdownlint
-  #   rev: v0.12.0
-  #   hooks:
-  #     - id: markdownlint
-  #       name: "📝 markdown · Lint markdown"
-  #       exclude: >
-  #         (?x)^(
-  #             CHANGELOG.md|
-  #             README.md|
-  #         )$
+  - repo: https://github.com/markdownlint/markdownlint
+    rev: v0.12.0
+    hooks:
+      - id: markdownlint
+        name: "📝 markdown · Lint markdown"
+        exclude: >
+          (?x)^(
+              CHANGELOG.md|
+              README.md|
+          )$
 
   ### Javascript & Web Tools ###
   - repo: https://github.com/biomejs/pre-commit
@@ -352,12 +357,12 @@ repos:
         name: "📝 html · Lint html"
         args: [--config, .eslintrc.json]
         files: ^src/
-      # - id: htmlhint
-      #   name: "📝 html · Hint html"
-      #   args: [--config, .htmlhintrc]
-      # - id: markdown-toc
-      #   name: "📝 markdown · Toc markdown"
-      #   args: [--maxdepth, "3", -i]
+      - id: htmlhint
+        name: "📝 html · Hint html"
+        args: [--config, .htmlhintrc]
+      - id: markdown-toc
+        name: "📝 markdown · Toc markdown"
+        args: [--maxdepth, "3", -i]
 
   ### PNG Images ###
   # - repo: https://github.com/shssoichiro/oxipng
@@ -368,19 +373,19 @@ repos:
   #       args: ["-o", "4", "--strip", "safe", "--alpha"]
 
   ### Additional File Types ###
-  # - repo: https://github.com/pre-commit/mirrors-prettier
-  #   rev: v4.0.0-alpha.8
-  #   hooks:
-  #     - id: prettier
-  #       name: "✨ misc-files · Format misc web files"
-  #       types_or: [yaml, html, scss]
-  #       additional_dependencies:
-  #         - prettier@3.4.2
-  #       exclude: >
-  #         (?x)^(
-  #             trivy-sbom.json|
-  #             my-app/public/.*|
-  #         )$
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v4.0.0-alpha.8
+    hooks:
+      - id: prettier
+        name: "✨ misc-files · Format misc web files"
+        types_or: [yaml, html, scss]
+        additional_dependencies:
+          - prettier@3.4.2
+        exclude: >
+          (?x)^(
+              trivy-sbom.json|
+              my-app/public/.*|
+          )$
 
   ### Data & Config Validation ###
   - repo: https://github.com/python-jsonschema/check-jsonschema

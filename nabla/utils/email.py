@@ -22,7 +22,7 @@ MAIL_TO = "alban.andrieu@free.fr"
 
 conf = ConnectionConfig(
     MAIL_USERNAME="username",
-    MAIL_PASSWORD="XXX",  # noqa: S106 B106
+    MAIL_PASSWORD="XXX",  # noqa: S106 noqa:B106 # nosec B106
     MAIL_FROM="alban.andrieu@gmail.com",
     MAIL_PORT=587,
     MAIL_SERVER="imap.gmail.com",
