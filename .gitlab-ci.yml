@@ -73,7 +73,7 @@ include:
 
   # - remote: git@gitlab.com:renovate-bot/renovate-runner/-/raw/v17.69.3/templates/renovate.gitlab-ci.yml
 
-  - component: gitlab.com/components/sast/sast@main
+  # - component: gitlab.com/components/sast/sast@main
 
   - template: Cosign.gitlab-ci.yml
 
