@@ -63,6 +63,7 @@ APP_DOMAIN = os.environ.get(
     "jusmundi.com",
 )
 
+
 class AzureOpenAiInstance(BaseModel):
     """
     Store the elements needed for creating an instance of OpenAI in Azure.
@@ -119,9 +120,7 @@ class _Settings(BaseSettings):
     ]
     db_port: int = 5432
 
-    db_url: Optional[str] = (
-        "postgresql://fastapisample:password-reset-XXX@127.0.0.1:5432/fastapi_sample_dev"  # nosec
-    )
+    db_url: Optional[str] = "postgresql://fastapisample:password-reset-XXX@127.0.0.1:5432/fastapi_sample_dev"  # nosec
 
     azure_openai_instance: dict[str, AzureOpenAiInstance] = {}
 

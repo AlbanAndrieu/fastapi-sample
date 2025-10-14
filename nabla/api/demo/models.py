@@ -24,8 +24,10 @@ from nabla.utils.logger import logger
 
 Base = declarative_base()
 
+
 async def init_db():
     Base.metadata.create_all(engine)
+
 
 class DateTimeEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -34,19 +36,19 @@ class DateTimeEncoder(json.JSONEncoder):
         return super().default(obj)
 
 
-
 def serialize_dates(v):
-    if hasattr(v, 'isoformat'):
+    if hasattr(v, "isoformat"):
         return v.isoformat()
     elif isinstance(v, datetime):
         return v.isoformat()
     elif isinstance(v, SensorReading):
-      logger.debug(f"SensorReading: {v}")
-      return str(v)
+        logger.debug(f"SensorReading: {v}")
+        return str(v)
     else:
         raise TypeError(
-            "Unserializable object {} of type {}".format(v, type(v))
+            "Unserializable object {} of type {}".format(v, type(v)),
         )
+
 
 # Sensor reading model with sqlalchemy
 @dataclasses.dataclass
@@ -66,7 +68,7 @@ class SensorReading(Base):
     status = Column(String, nullable=False)
 
     def __str__(self):
-       return f"SensorReading ID : {self.id}\tTemperature : {self.temperature}\tHumidity : {self.humidity}\tPressure : {self.pressure}\tStatus : {self.status}\tCreated Date : {self.timestamp}"
+        return f"SensorReading ID : {self.id}\tTemperature : {self.temperature}\tHumidity : {self.humidity}\tPressure : {self.pressure}\tStatus : {self.status}\tCreated Date : {self.timestamp}"
 
     def toJSON(self):
         logger.info(f"SensorReading toJSON: {self}")
@@ -76,7 +78,6 @@ class SensorReading(Base):
         #     default=serialize_dates,
         #     sort_keys=True,
         #     indent=4)
-
 
 
 # Sensor event model with pydantic validation
@@ -99,13 +100,13 @@ class SensorEvent(BaseModel):
         super().__init__(timestamp=timestamp, temperature=temperature, humidity=humidity, pressure=pressure, status=status)
 
     def toJSON(self):
-            logger.info(f"SensorEvent toJSON: {self}")
-            return json.dumps(
-                self,
-                default=lambda o: o.__dict__,
-                sort_keys=True,
-                indent=4)
-
+        logger.info(f"SensorEvent toJSON: {self}")
+        return json.dumps(
+            self,
+            default=lambda o: o.__dict__,
+            sort_keys=True,
+            indent=4,
+        )
 
 
 async def save_redis(suffix, data: Any):
@@ -114,13 +115,13 @@ async def save_redis(suffix, data: Any):
     logger.debug(f"Data type: {type(data)}")
 
     if isinstance(data, str):
-        res =await redis.set(
+        res = await redis.set(
             REDIS_CHANNEL + REDIS_TASK_QUEUE + suffix,
             data,
             ex=120,
         )
     elif isinstance(data, dict):
-       res = await redis.set(
+        res = await redis.set(
             REDIS_CHANNEL + REDIS_TASK_QUEUE + suffix,
             json.dumps(data, default=serialize_dates),
             ex=120,
@@ -136,7 +137,6 @@ async def save_redis(suffix, data: Any):
         raise ValueError(f"Invalid data type: {type(data)}")
 
     return res
-
 
 
 class SensorData:
@@ -184,8 +184,7 @@ class SensorData:
         # Log critical readings for monitoring
         if reading["status"] == "critical":
             logger.warning(
-                f"Critical sensor reading: temp={reading['temperature']}°C, "
-                f"humidity={reading['humidity']}%, pressure={reading['pressure']}hPa"
+                f"Critical sensor reading: temp={reading['temperature']}°C, humidity={reading['humidity']}%, pressure={reading['pressure']}hPa",
             )
 
         return reading
@@ -207,7 +206,6 @@ class SensorData:
         res = await save_redis(REDIS_SENSOR_CHANNEL, data)
         logger.debug(f"queued data: {res}")
         return res
-
 
     async def save_reading(self, data: Dict[str, Any]) -> None:
         """Save sensor reading to PostgreSQL database"""
@@ -237,10 +235,10 @@ class SensorData:
             session.add(db_reading)
             session.commit()
         except Exception as e:
-             session.rollback()
-             raise e
+            session.rollback()
+            raise e
         finally:
-            #session.aclose()
+            # session.aclose()
             session.close()
 
 
@@ -257,7 +255,7 @@ def get_sensor_dataframe() -> pl.DataFrame:
 
     # Parse timestamps (Polars handles this beautifully)
     df = df.with_columns(
-        [pl.col("timestamp").str.strptime(pl.Datetime, format="%Y-%m-%dT%H:%M:%S.%f")]
+        [pl.col("timestamp").str.strptime(pl.Datetime, format="%Y-%m-%dT%H:%M:%S.%f")],
     )
     #  [pl.col("timestamp").str.strptime(pl.Datetime, format="%d/%B/%Y %H:%M:%S")]
 
@@ -285,7 +283,7 @@ def get_statistical_summary() -> Dict:
             pl.col("pressure").mean().alias("pressure_mean"),
             pl.col("pressure").std().alias("pressure_std"),
             pl.col("status").value_counts().alias("status_counts"),
-        ]
+        ],
     ).to_dict(as_series=False)
 
     logger.info("Statistical summary calculated successfully")
@@ -298,7 +296,7 @@ def detect_anomalies() -> List[Dict]:
 
     if len(df) < 10:  # Need enough data for meaningful stats
         logger.debug(
-            "Insufficient data for anomaly detection (need at least 10 readings)"
+            "Insufficient data for anomaly detection (need at least 10 readings)",
         )
         return []
 
@@ -307,26 +305,18 @@ def detect_anomalies() -> List[Dict]:
     # Calculate z-scores for temperature (Polars vectorized operations)
     df_with_zscore = df.with_columns(
         [
-            (
-                (pl.col("temperature") - pl.col("temperature").mean())
-                / pl.col("temperature").std()
-            ).alias("temp_zscore")
-        ]
+            ((pl.col("temperature") - pl.col("temperature").mean()) / pl.col("temperature").std()).alias("temp_zscore"),
+        ],
     )
 
     # Find outliers (|z-score| > 2)
-    anomalies = (
-        df_with_zscore.filter(pl.col("temp_zscore").abs() > 2)
-        .select(["timestamp", "temperature", "temp_zscore"])
-        .to_dicts()
-    )
+    anomalies = df_with_zscore.filter(pl.col("temp_zscore").abs() > 2).select(["timestamp", "temperature", "temp_zscore"]).to_dicts()
 
     if anomalies:
         logger.warning(f"Detected {len(anomalies)} temperature anomalies")
         for anomaly in anomalies:
             logger.warning(
-                f"Anomaly: {anomaly['temperature']}°C at {anomaly['timestamp']} "
-                f"(z-score: {anomaly['temp_zscore']:.2f})"
+                f"Anomaly: {anomaly['temperature']}°C at {anomaly['timestamp']} (z-score: {anomaly['temp_zscore']:.2f})",
             )
     else:
         logger.debug("No temperature anomalies detected")

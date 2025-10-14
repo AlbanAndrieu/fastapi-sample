@@ -1,42 +1,35 @@
 {
-  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:base",
-    ":preserveSemverRanges",
-    ":dependencyDashboard",
-    ":rebaseStalePrs",
-    ":enableVulnerabilityAlertsWithLabel('security')",
-    "group:recommended"
-  ],
-  "endpoint": "gitlab.com",
-  "platform": "gitlab",
-  "persistRepoData": true,
-  "logFileLevel": "error",
-  "onboardingConfig": {
-    "extends": [
-      "renovate/renovate-config"
-    ]
-  },
-  "repositories": [
-    "jusmundi-group/proof-of-concept/fastapi-sample"
-  ],
-  "autodiscover": true,
-  "schedule": [
-    "before 10am on monday",
-    "after 3pm on friday"
-  ],
-  "rangeStrategy": "bump",
-  "major": {
-    "automerge": false
-  },
-  "minor": {
-    "automerge": true
-  },
-  "patch": {
-    "automerge": true
-  },
-  "ignoreDeps": [
-    "lodash",
-    "express"
-  ]
+	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
+	"extends": [
+		"config:base",
+		"helpers:pinGitHubActionDigests",
+		":preserveSemverRanges",
+		":dependencyDashboard",
+		":rebaseStalePrs",
+		":enableVulnerabilityAlertsWithLabel('security')",
+		"group:recommended"
+	],
+	"timezone": "Europe/Paris",
+	"endpoint": "gitlab.com",
+	"platform": "gitlab",
+	"persistRepoData": true,
+	"logFileLevel": "error",
+	"onboardingConfig": {
+		"extends": ["renovate/renovate-config"]
+	},
+	"repositories": ["jusmundi-group/proof-of-concept/fastapi-sample"],
+	"autodiscover": true,
+	"schedule": ["before 10am on monday", "after 3pm on friday"],
+	"rangeStrategy": "bump",
+	"major": {
+		"automerge": false
+	},
+	"minor": {
+		"automerge": true
+	},
+	"patch": {
+		"automerge": true
+	},
+	"ignoreDeps": ["lodash", "express"],
+	"ignorePaths": ["tests/**"]
 }

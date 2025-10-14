@@ -68,8 +68,7 @@ services:
     volumes:
       - ./prometheus_data/prometheus.yml:/etc/prometheus/prometheus.yml
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-
+      - "--config.file=/etc/prometheus/prometheus.yml"
 
   grafana:
     image: grafana/grafana
@@ -78,7 +77,6 @@ services:
       - "3000:3000"
     volumes:
       - grafana_data:/var/lib/grafana
-
 
   datascience-notebook:
     image: registry.gitlab.com/gitlab-data/data-image/analyst-image:v0.0.19
@@ -97,7 +95,6 @@ services:
     environment:
       - JUPYTER_ENABLE_LAB=1
     command: start-notebook.sh --NotebookApp.notebook_dir=/files
-
 
 volumes:
   prometheus_data:

@@ -7,11 +7,10 @@
 </template>
 
 <script>
-
 export default {
-	name: 'Note',
+	name: "Note",
 	props: {
 		note: Object,
 	},
-}
+};
 </script>

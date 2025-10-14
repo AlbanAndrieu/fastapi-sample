@@ -6,6 +6,7 @@ to run this program:
 1. activate virtual environment, see README.md for instructions
 2. run: `uvicorn main:app --host 0.0.0.0 --port 8000 --reload`
 """
+
 from nabla.fastapi_server import app, mcp  # noqa: F401
 
 # We need to load as soon as possible the setup_loggers

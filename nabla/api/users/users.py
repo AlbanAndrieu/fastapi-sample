@@ -43,6 +43,8 @@ circuit_breaker_user = pybreaker.CircuitBreaker(fail_max=2, reset_timeout=10)
 
 bearer_transport = BearerTransport(tokenUrl="auth/jwt/login")
 cookie_transport = CookieTransport(cookie_max_age=3600)
+
+
 class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
     reset_password_token_secret = ACCESS_TOKEN_SECRET_KEY
     verification_token_secret = ACCESS_TOKEN_SECRET_KEY
@@ -51,12 +53,18 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         print(f"User {user.id} has registered.")
 
     async def on_after_forgot_password(
-        self, user: User, token: str, request: Optional[Request] = None
+        self,
+        user: User,
+        token: str,
+        request: Optional[Request] = None,
     ):
         print(f"User {user.id} has forgot their password. Reset token: {token}")
 
     async def on_after_request_verify(
-        self, user: User, token: str, request: Optional[Request] = None
+        self,
+        user: User,
+        token: str,
+        request: Optional[Request] = None,
     ):
         print(f"Verification requested for user {user.id}. Verification token: {token}")
 
@@ -64,8 +72,10 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
 async def get_user_manager(user_db: SQLAlchemyUserDatabase = Depends(get_user_db)):
     yield UserManager(user_db)
 
+
 def get_jwt_strategy() -> JWTStrategy:
     return JWTStrategy(secret=ACCESS_TOKEN_SECRET_KEY, lifetime_seconds=3600)
+
 
 jwt_backend = AuthenticationBackend(
     name="jwt",
@@ -83,6 +93,7 @@ cookie_backend = AuthenticationBackend(
 # fastapi_users = FastAPIUsers(get_user_db, [jwt_backend], User, UserCreate, UserUpdate)
 fastapi_users = FastAPIUsers[User, uuid.UUID](get_user_manager, [jwt_backend])
 
+
 async def get_enabled_backends(request: Request):
     """Return the enabled dependencies following custom logic."""
     if request.url.path == "/protected-route-only-jwt":
@@ -90,21 +101,23 @@ async def get_enabled_backends(request: Request):
     else:
         return [cookie_backend, jwt_backend]
 
+
 # current_active_user = Annotated[User, Depends(get_current_user)]
 current_active_user = fastapi_users.current_user(active=True, get_enabled_backends=get_enabled_backends)
 
 
 @mcp.tool(
     name="get_user_details",
-    exclude_args=["user_id"]
+    exclude_args=["user_id"],
 )
 def get_user_details(user_id: str = None) -> UserEvent:
-# def get_user_details(user_id: str = None) -> dict[str, str]:
+    # def get_user_details(user_id: str = None) -> dict[str, str]:
     # user_id will be injected by the server, not provided by the LLM
     if user_id is None:
         logger.info("get_user_details", user_id=user_id)
 
     return get_me()
+
 
 def get_me() -> UserEvent:
     user = UserEvent(
@@ -120,6 +133,7 @@ def get_me() -> UserEvent:
 
     return user
 
+
 # This endpoint will not be registered as a tool, since it was added after the MCP instance was created
 # Dynamic resource template
 @mcp.resource("users://whoami/profile")
@@ -128,7 +142,7 @@ async def whoami():
     return get_me()
 
 
-#def me()-> dict[str, str]:
+# def me()-> dict[str, str]:
 # @router.get("/users/current", response_model=UserEvent)
 @cache(expire=300)
 @router.get("/users/current")
@@ -140,6 +154,7 @@ async def current_user():
     # user = get_user_details(None)
     # return UserEvent(**user)
     return get_me()
+
 
 async def get_user_by_email(email: str):
     return (await get_db().scalars(select(User).where(User.email == email))).first()
@@ -177,6 +192,7 @@ def protected_route(user: User = Depends(current_active_user)):
 def protected_route_only_jwt(user: User = Depends(current_active_user)):
     return f"Hello, {user.email}. You are authenticated with a JWT."
 
+
 async def validate_is_authenticated(
     current_user: current_active_user,
 ) -> User:
@@ -188,7 +204,7 @@ async def validate_is_authenticated(
 
 # Dynamic resource template
 @mcp.resource("users://{user_id}/profile")
-@router.get("/users/{user_id}", response_model=UserEvent, operation_id="get_user_info",  dependencies=[Depends(validate_is_authenticated)])
+@router.get("/users/{user_id}", response_model=UserEvent, operation_id="get_user_info", dependencies=[Depends(validate_is_authenticated)])
 # @circuit_breaker_user
 # @cache(expire=300)  # Cache for 5 minutes to avoid repeated execution of complex SQL
 # async def get_user(user_id: int, db=Depends(get_db)):
@@ -219,7 +235,6 @@ async def get_user(user_id: int):
     return user
 
 
-
 @router.post("/users/register")
 async def register(user: UserEvent, session: Session = Depends(get_session)):
     result = await session.execute(select(User).where(User.name == user.name))
@@ -234,14 +249,16 @@ async def register(user: UserEvent, session: Session = Depends(get_session)):
     USER_REGISTRATIONS.inc()
     return {"status": "User created"}
 
+
 @router.post("/login")
-async def login(user: UserEvent,  session: Session = Depends(get_session)):
+async def login(user: UserEvent, session: Session = Depends(get_session)):
     result = await session.execute(select(User).where(User.name == user.name))
     db_user = result.scalar()
     if not db_user or not verify_password(user.password, db_user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     access_token = create_access_token(data={"sub": db_user.name})
     return {"access_token": access_token, "token_type": "bearer"}
+
 
 # Query a user and their associated orders in one go, avoiding the N+1 problem of "query 10 users + query 10 roles"
 # async def get_user_with_roles(user_id: int, db: AsyncSession = Depends(get_db)):

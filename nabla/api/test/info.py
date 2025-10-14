@@ -59,8 +59,7 @@ def env(req: Request):
     try:
         env = req.scope["env"]
         return {
-            "message": "Here is an example of getting an environment variable: "
-            + env.MESSAGE,
+            "message": "Here is an example of getting an environment variable: " + env.MESSAGE,
         }
     except Exception as ex:
         logger.error(ex, exc_info=True)

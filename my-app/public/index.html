@@ -35,17 +35,18 @@
     <p>Current version: <span id="version">Loading...</span></p>
     <script>
       fetch("/version")
-      .then(response => {
-        if (!response.ok) throw new Error("Network response was not ok");
-        return response.text(); // or `.json()` if JSON response
-      })
-      .then(data => {
-        document.getElementById("version").textContent = data;
-      })
-      .catch(error => {
-        document.getElementById("version").textContent = "Error loading version";
-        console.error("Fetch error:", error);
-      });
+        .then((response) => {
+          if (!response.ok) throw new Error("Network response was not ok");
+          return response.text(); // or `.json()` if JSON response
+        })
+        .then((data) => {
+          document.getElementById("version").textContent = data;
+        })
+        .catch((error) => {
+          document.getElementById("version").textContent =
+            "Error loading version";
+          console.error("Fetch error:", error);
+        });
     </script>
     <p class="mt-5 mb-3 text-muted">
       Go to the <a href="/implicit">implicit render demo</a>

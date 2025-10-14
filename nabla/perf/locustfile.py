@@ -67,13 +67,13 @@ class QuickStart(HttpUser):
         for item_id in range(10):
             self.client.get(f"/demo/item?id={item_id}", name="/item")
 
+
 class SensorEventUser(HttpUser):
     wait_time = between(0.01, 0.2)
     host = "http://localhost:8091"
+
     @task
     def post_event(self):
-
-
         timestamp = datetime.now()
 
         # Room temperature range (adjust if you live in Antarctica)
@@ -84,9 +84,9 @@ class SensorEventUser(HttpUser):
 
         payload = {
             "timestamp": timestamp.isoformat(),
-            "temperature": round(random.uniform(self.min_temp, self.max_temp), 1),  #noqa: S311 # nosec
-            "humidity": round(random.uniform(self.min_humidity, self.max_humidity), 1),  #noqa: S311 # nosec
-            "pressure": round(random.uniform(1000, 1030), 1),  #noqa: S311 # nosec
-            "status": random.choice(["normal", "warning", "critical"]),  #noqa: S311 # nosec
+            "temperature": round(random.uniform(self.min_temp, self.max_temp), 1),  # noqa: S311 # nosec
+            "humidity": round(random.uniform(self.min_humidity, self.max_humidity), 1),  # noqa: S311 # nosec
+            "pressure": round(random.uniform(1000, 1030), 1),  # noqa: S311 # nosec
+            "status": random.choice(["normal", "warning", "critical"]),  # noqa: S311 # nosec
         }
         self.client.post("/events", json=payload)

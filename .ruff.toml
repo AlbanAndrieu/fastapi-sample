@@ -18,7 +18,8 @@ exclude = [
     "nabla/_version.py",
 ]
 
-line-length = 120
+# But use a different line length.
+line-length = 180
 
 [lint]
 ignore = ["E501", "E203", "RUF012"]

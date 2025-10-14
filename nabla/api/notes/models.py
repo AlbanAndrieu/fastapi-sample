@@ -39,9 +39,11 @@ Base = declarative_base()
 #     ),
 # )
 
+
 async def init_db():
     # SQLModel.metadata.create_all(engine)
     Base.metadata.create_all(engine)
+
 
 # Reading note model with sqlalchemy
 class Note(Base):
@@ -73,9 +75,9 @@ class Note(Base):
 #     completed: bool = False
 #     created_date: str = datetime.now(tz("Europe/Paris")).strftime("%Y-%m-%d %H:%M")
 
+
 # Response note model with pydantic validation
 class NoteResponse(BaseModel):
-
     title: str = Field(
         ...,
         min_length=3,
@@ -87,6 +89,7 @@ class NoteResponse(BaseModel):
     prompt: str = Field(..., min_length=3, max_length=100)
     completed: bool = False
     created_date: str = datetime.now(tz("Europe/Paris")).strftime("%Y-%m-%d %H:%M")
+
 
 class NoteData(NoteResponse):
     id: int

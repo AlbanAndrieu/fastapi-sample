@@ -21,16 +21,16 @@ MAIL_INBOX_FOLDER = "inbox"
 MAIL_TO = "alban.andrieu@free.fr"
 
 conf = ConnectionConfig(
-    MAIL_USERNAME = "username",
-    MAIL_PASSWORD = "XXX", # noqa: S106
-    MAIL_FROM = "alban.andrieu@gmail.com",
-    MAIL_PORT = 587,
-    MAIL_SERVER = "imap.gmail.com",
+    MAIL_USERNAME="username",
+    MAIL_PASSWORD="XXX",  # noqa: S106 B106
+    MAIL_FROM="alban.andrieu@gmail.com",
+    MAIL_PORT=587,
+    MAIL_SERVER="imap.gmail.com",
     MAIL_FROM_NAME="Alban Andrieu",
-    MAIL_STARTTLS = True,
-    MAIL_SSL_TLS = False,
-    USE_CREDENTIALS = True,
-    VALIDATE_CERTS = True
+    MAIL_STARTTLS=True,
+    MAIL_SSL_TLS=False,
+    USE_CREDENTIALS=True,
+    VALIDATE_CERTS=True,
 )
 
 
@@ -50,6 +50,7 @@ router = APIRouter()
 # mail.expunge()
 # mail.logout()
 
+
 @router.post("/email")
 async def simple_send(email: EmailSchema) -> JSONResponse:
     html = """<p>Hi this test mail, thanks for using Fastapi-mail</p> """
@@ -58,18 +59,19 @@ async def simple_send(email: EmailSchema) -> JSONResponse:
         subject="Fastapi-Mail module",
         recipients=email.dict().get("email"),
         body=html,
-        subtype=MessageType.html)
+        subtype=MessageType.html,
+    )
 
     fm = FastMail(conf)
     await fm.send_message(message)
     return JSONResponse(status_code=200, content={"message": "email has been sent"})
 
+
 @router.post("/emailbackground")
 async def send_in_background(
     background_tasks: BackgroundTasks,
-    email: EmailSchema
-    ) -> JSONResponse:
-
+    email: EmailSchema,
+) -> JSONResponse:
     message = MessageSchema(
         subject="Fastapi mail module",
         recipients=email.dict().get("email"),
@@ -82,6 +84,6 @@ async def send_in_background(
 
     fm = FastMail(conf)
 
-    background_tasks.add_task(fm.send_message,message)
+    background_tasks.add_task(fm.send_message, message)
 
     return JSONResponse(status_code=200, content={"message": "email has been sent"})

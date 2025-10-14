@@ -83,7 +83,7 @@ def dashboard(request: Request):
     """Main dashboard with real-time Plotly charts"""
     metrics.track_request()
     logger.info(f"Dashboard accessed from {request.client.host}")
-    return templates.TemplateResponse("index.html", {"request": request},)
+    return templates.TemplateResponse("index.html", {"request": request})
 
 
 @router.post("/events")
@@ -284,16 +284,11 @@ async def get_metrics():
         },
         "data": {
             "readings_stored": len(recent_readings),
-            "latest_reading_time": recent_readings[-1]["timestamp"]
-            if recent_readings
-            else None,
+            "latest_reading_time": recent_readings[-1]["timestamp"] if recent_readings else None,
         },
         "performance": {
             "chart_generations": len(metrics.chart_generation_times),
-            "avg_chart_time": sum(metrics.chart_generation_times)
-            / len(metrics.chart_generation_times)
-            if metrics.chart_generation_times
-            else 0,
+            "avg_chart_time": sum(metrics.chart_generation_times) / len(metrics.chart_generation_times) if metrics.chart_generation_times else 0,
             "slow_chart_count": len(
                 [t for t in metrics.chart_generation_times if t > 1.0],
             ),

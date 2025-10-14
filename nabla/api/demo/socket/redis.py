@@ -37,6 +37,7 @@ redis = Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
 # Redis acts as a message broker. When a POST request is received, the event is pushed to a Redis channel.
 # A background listener consumes events and broadcasts them to WebSocket clients in ws/redis.py
 
+
 async def publish_event(event):
     await redis.publish(REDIS_EVENT_CHANNEL, event.json())
 

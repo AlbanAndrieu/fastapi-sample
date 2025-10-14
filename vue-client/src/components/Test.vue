@@ -7,12 +7,12 @@
 </template>
 
 <script>
-    export default {
-        name: "Test",
-        props: {
-            notes: [],
-  },
-    }
+export default {
+	name: "Test",
+	props: {
+		notes: [],
+	},
+};
 </script>
 
 <style scoped>
