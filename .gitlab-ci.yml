@@ -23,9 +23,9 @@ include:
     ref: main
     file: "/templates/default.gitlab-ci.yml"
 
-  - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
-    file: "/templates/docker-build.gitlab-ci.yml"
+  # - project: jusmundi-group/infrastructure/ci-templates
+  #   ref: main
+  #   file: "/templates/docker-build.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
     ref: main
@@ -51,8 +51,6 @@ include:
     ref: main
     file: "/templates/mega-linter.gitlab-ci.yml"
 
-  - template: Cosign.gitlab-ci.yml
-
   - component: $CI_SERVER_FQDN/to-be-continuous/semantic-release/gitlab-ci-semrel@3.11.2
     inputs:
       dry-run: false
@@ -76,6 +74,8 @@ include:
   # - remote: git@gitlab.com:renovate-bot/renovate-runner/-/raw/v17.69.3/templates/renovate.gitlab-ci.yml
 
   - component: gitlab.com/components/sast/sast@main
+
+  - template: Cosign.gitlab-ci.yml
 
   - template: Security/SAST.gitlab-ci.yml
   - template: Security/Dependency-Scanning.gitlab-ci.yml
