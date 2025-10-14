@@ -75,7 +75,7 @@ include:
 
   - component: gitlab.com/components/sast/sast@main
 
-  - template: Cosign.gitlab-ci.yml
+  # - template: Cosign.gitlab-ci.yml
 
   - template: Security/SAST.gitlab-ci.yml
   - template: Security/Dependency-Scanning.gitlab-ci.yml
