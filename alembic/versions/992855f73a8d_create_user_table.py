@@ -32,8 +32,8 @@ def upgrade() -> None:
 
     op.add_column("user", sa.Column("created_at", sa.DateTime))
 
-    op.add_column('note', sa.Column('type', sa.String(10), nullable=False))
-    op.add_column('note', sa.Column('prompt', sa.String(100), nullable=False))
+    op.add_column("note", sa.Column("type", sa.String(10), nullable=False))
+    op.add_column("note", sa.Column("prompt", sa.String(100), nullable=False))
 
 
 def downgrade() -> None:

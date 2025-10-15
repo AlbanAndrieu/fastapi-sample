@@ -13,3 +13,7 @@ line-length=80
 # You can also reference rules by their id (B1 = body-max-line-length)
 [B1]
 line-length=123
+
+[ignore-by-author-name]
+regex=(.*)dependabot(.*) #
+ignore=T1,body-min-length

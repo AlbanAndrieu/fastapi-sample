@@ -39,9 +39,7 @@ HTTP_CLOUD_API_URL = os.environ.get(
 async def get_async_data():
     async with aiohttp.ClientSession() as session:
         async with session.get("{HTTP_BIN_URL}/delay/1") as resp:
-            return (
-                await resp.json()
-            )  # Asynchronous suspension without blocking the event loop
+            return await resp.json()  # Asynchronous suspension without blocking the event loop
 
 
 @router.get("/external-api")

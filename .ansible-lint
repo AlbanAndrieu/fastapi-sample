@@ -7,7 +7,12 @@ exclude_paths:
   - .gitlab/
   - megalinter-reports/*
   - .node_cache/
+  - node_modules/
   - .gitlab-ci.yml
+  - .ansible/
+  - .cache/
+  - .netlify/
+  - my-app/
 # parseable: true
 quiet: false
 # rulesdir:

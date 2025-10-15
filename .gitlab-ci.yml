@@ -20,35 +20,35 @@ services:
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-clean
+    ref: main
     file: "/templates/default.gitlab-ci.yml"
 
   # - project: jusmundi-group/infrastructure/ci-templates
-  #   ref: feature-clean
+  #   ref: main
   #   file: "/templates/docker-build.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-clean
+    ref: main
     file: "/templates/deploy-nomad.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-clean
+    ref: main
     file: "/templates/test-python.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-clean
+    ref: main
     file: "/templates/javascript.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-clean
+    ref: main
     file: "/templates/_apk.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-clean
+    ref: main
     file: "/templates/data.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feature-clean
+    ref: main
     file: "/templates/mega-linter.gitlab-ci.yml"
 
   - component: $CI_SERVER_FQDN/to-be-continuous/semantic-release/gitlab-ci-semrel@3.11.2
@@ -108,7 +108,7 @@ default:
 variables:
   CI_IMAGE_PYTHON: python:3.12.10
   PROJECT_PYTHON_VERSION: "3.12"
-  POETRY_VERSION: "2.2.0"
+  POETRY_VERSION: "2.2.1"
   CI_IMAGE_NPM: node:22-alpine3.22
   CI_REGISTRY: registry.gitlab.com
   OCI_REGISTRY: ${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}

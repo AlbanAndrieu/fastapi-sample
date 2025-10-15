@@ -16,9 +16,12 @@ from nabla.utils.email import conf
 
 Base = declarative_base()
 
+
 async def init_db():
     # SQLModel.metadata.create_all(engine)
     Base.metadata.create_all(engine)
+
+
 class UserEvent(BaseModel):
     # model_config = ConfigDict(
     #     str_max_length=120,      # hard caps avoid pathological inputs
@@ -41,7 +44,7 @@ class UserEvent(BaseModel):
         self,
         name="Alban Andrieu",
         email=conf.MAIL_FROM,
-        password="XXX",  # noqa: S107
+        password="XXX",  # noqa: S107 noqa:B107 # nosec B107
         phone="0695435353",
         address="11 terrasse de l'université",
         city="Paris",

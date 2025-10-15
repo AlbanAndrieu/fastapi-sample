@@ -30,6 +30,7 @@ TARGET_TWO_HOST = os.environ.get(
 router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
 
+
 @router.get("/ping")
 async def ping():
     # some async operation could happen here
@@ -59,7 +60,6 @@ async def cpu_task():
     return "CPU bound task finish!"
 
 
-
 @router.get("/profile-me")
 async def profile_me():
     pr = cProfile.Profile()
@@ -69,10 +69,12 @@ async def profile_me():
     pr.print_stats(sort="cumulative")  # Sort by cumulative time to identify bottlenecks
     return result
 
+
 @router.get("/error_test")
 async def error_test(response: Response):
     logger.error("got error!!!!")
     raise ValueError("value error")
+
 
 @router.get("/chain")
 # @limiter.limit("100/second")

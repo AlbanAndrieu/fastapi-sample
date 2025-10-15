@@ -151,7 +151,7 @@ async def lifespan(app: FastAPI):
 
     await database.connect()
 
-    await init_db() # create_db_and_tables()
+    await init_db()  # create_db_and_tables()
     await init_db_note()
     await init_db_user()
     await init_db_sensor_reading()

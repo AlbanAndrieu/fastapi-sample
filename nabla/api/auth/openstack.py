@@ -14,7 +14,7 @@ consumer_key = os.getenv("OVH_CONSUMER_KEY")
 # or https://www.ovh.com/auth/api/createToken
 # to get your credentials https://www.ovh.com/manager/#/iam/api-keys
 client = ovh.Client(
-    endpoint='ovh-eu',
+    endpoint="ovh-eu",
     application_key=application_key,
     application_secret=application_secret,
     consumer_key=consumer_key,
@@ -22,7 +22,7 @@ client = ovh.Client(
 
 
 # Print nice welcome message
-print("Welcome", client.get('/me')['firstname'])
+print("Welcome", client.get("/me")["firstname"])
 
 
 # Request RO, /me API access
@@ -31,4 +31,4 @@ ck.add_rules(ovh.API_READ_ONLY, "/me")
 
 # Request token
 validation = ck.request()
-print("Btw, your 'consumerKey' is '%s'" % validation['consumerKey'])
+print("Btw, your 'consumerKey' is '%s'" % validation["consumerKey"])

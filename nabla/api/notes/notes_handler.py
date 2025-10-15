@@ -16,13 +16,15 @@ async def handle_note(note):
     else:
         logger.warning(f"Unknown note type: {note_type}")
 
+
 async def send_email(prompt):
     logger.info(f"Sending email to {prompt['to']} with subject {prompt['subject']}")
 
-    email = EmailSchema(email=prompt['to'])
+    email = EmailSchema(email=prompt["to"])
 
     send_in_background(email)
-    #await router.post("/email", email=EmailSchema(email=prompt['to']))
+    # await router.post("/email", email=EmailSchema(email=prompt['to']))
+
 
 async def transform_data(prompt):
     logger.info("Running data transformation note...")

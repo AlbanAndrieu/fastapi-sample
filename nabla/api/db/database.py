@@ -11,7 +11,6 @@ from sqlalchemy import Engine, create_engine
 # With PostgreSQL
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
-from sqlmodel import SQLModel
 
 from nabla.config_settings import get_settings
 
@@ -20,11 +19,13 @@ DB_URL: Final[str] = str(get_settings().db_url)
 
 patch(sqlalchemy=True)
 
+
 def orjson_serializer(obj):
     """
-        Note that `orjson.dumps()` return byte array, while sqlalchemy expects string, thus `decode()` call.
+    Note that `orjson.dumps()` return byte array, while sqlalchemy expects string, thus `decode()` call.
     """
     return orjson.dumps(obj, option=orjson.OPT_SERIALIZE_NUMPY | orjson.OPT_NAIVE_UTC).decode()
+
 
 # Create a psycopg_pool connection pool
 db_pool = psycopg_pool.ConnectionPool(
@@ -52,6 +53,7 @@ db_pool = psycopg_pool.ConnectionPool(
 #         json_deserializer=orjson.loads,
 #     )
 
+
 @lru_cache(maxsize=1)
 def get_engine() -> Engine:
     # Create a SQLAlchemy engine without connection pool
@@ -60,6 +62,7 @@ def get_engine() -> Engine:
         json_serializer=orjson_serializer,
         json_deserializer=orjson.loads,
     )
+
 
 async def get_db(engine=Depends(get_engine)):
     async with AsyncSession(engine) as session:
@@ -71,6 +74,7 @@ engine = get_engine()
 
 Base = declarative_base()
 
+
 # Register a 'checkin' event listener to return connections to psycopg_pool
 # (https://docs.sqlalchemy.org/en/20/core/events.html#sqlalchemy.events.PoolEvents.checkin)
 async def return_to_pool(dbapi_connection, connection_record):
@@ -79,7 +83,7 @@ async def return_to_pool(dbapi_connection, connection_record):
 
 async def create_db_and_tables():
     async with engine.begin() as conn:
-       await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(Base.metadata.create_all)
 
 
 async def init_db():
@@ -98,18 +102,22 @@ async def init_db():
     #     await conn.run_sync(Base.metadata.drop_all)
     #     await conn.run_sync(Base.metadata.create_all)
 
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 AsyncSessionLocal = async_sessionmaker(autocommit=False, autoflush=False, bind=engine)
 SyncSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+
 # TODO replace get_session with get_async_session
 async def get_session() -> None:
     async with Session(engine, expire_on_commit=False) as session:
-       yield session
+        yield session
+
 
 async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSessionLocal() as session:
         yield session
+
 
 # Databases query builder
 
