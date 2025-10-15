@@ -55,9 +55,7 @@ def get_products():
                 timeout=30,
             )
             response.raise_for_status()
-            return {
-                product["name"]: product["id"] for product in response.json()["results"]
-            }
+            return {product["name"]: product["id"] for product in response.json()["results"]}
 
         except Exception as ex:
             logger.error(f"Error while retreiving product due to: {ex}")
@@ -93,9 +91,7 @@ def get_product_types():
                 timeout=30,
             )
             response.raise_for_status()
-            return {
-                product["name"]: product["id"] for product in response.json()["results"]
-            }
+            return {product["name"]: product["id"] for product in response.json()["results"]}
 
         except Exception as ex:
             logger.error(f"Error while retreiving product due to: {ex}")
@@ -145,10 +141,7 @@ def get_findings_counts_by_product_id(product_id):
 
 def refresh_metrics():
     products = get_products()
-    results = {
-        name: get_findings_counts_by_product_id(product_id)
-        for name, product_id in products.items()
-    }
+    results = {name: get_findings_counts_by_product_id(product_id) for name, product_id in products.items()}
     for product, counts in results.items():
         for severity, count in counts.items():
             METRIC_MAP[severity].labels(product=product).set(count)

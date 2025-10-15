@@ -132,10 +132,7 @@ class ChartFactory:
                 go.Pie(
                     labels=status_counts["status"].to_list(),
                     values=status_counts["count"].to_list(),
-                    marker_colors=[
-                        self.colors.get(status, "#6B7280")
-                        for status in status_counts["status"].to_list()
-                    ],
+                    marker_colors=[self.colors.get(status, "#6B7280") for status in status_counts["status"].to_list()],
                     hovertemplate="<b>%{label}</b><br>Count: %{value}<br>Percentage: %{percent}<extra></extra>",
                     textinfo="label+percent",
                 ),

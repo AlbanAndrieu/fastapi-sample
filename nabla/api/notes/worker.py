@@ -21,11 +21,12 @@ async def worker_loop():
             note = json.loads(note_json)
             logger.info(f"Processing note {note['id']}")
             try:
-              await handle_note(note)
+                await handle_note(note)
             except Exception as e:
-              logger.error(f"Note {note['id']} failed: {e}")
-              redis.rpush(REDIS_CHANNEL + REDIS_TASK_QUEUE + "retry_queue", json.dumps(note))
+                logger.error(f"Note {note['id']} failed: {e}")
+                redis.rpush(REDIS_CHANNEL + REDIS_TASK_QUEUE + "retry_queue", json.dumps(note))
         await asyncio.sleep(0.1)
+
 
 if __name__ == "__main__":
     asyncio.run(worker_loop())

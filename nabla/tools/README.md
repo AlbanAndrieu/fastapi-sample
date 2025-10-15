@@ -1,8 +1,8 @@
 <!-- markdown-link-check-disable-next-line -->
+
 # [![Nabla](http://bababou.albandrieu.com/nabla/index/assets/nabla/nabla-4.png)](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample) fastapi-sample
 
 Fastapi sample
-
 
 # Table of contents
 
@@ -34,10 +34,9 @@ pre-commit install
 nvm install lts/iron
 ```
 
-#  Add user to gitlab
+# Add user to gitlab
 
 [members-api](https://docs.gitlab.com/ee/api/members.html)
-
 
 [group-tech-8793233](https://gitlab.com/jusmundi-group/web)
 

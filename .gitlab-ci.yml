@@ -107,7 +107,7 @@ default:
 variables:
   CI_IMAGE_PYTHON: python:3.12.10
   PROJECT_PYTHON_VERSION: "3.12"
-  POETRY_VERSION: "2.2.0"
+  POETRY_VERSION: "2.2.1"
   CI_IMAGE_NPM: node:22-alpine3.22
   CI_REGISTRY: registry.gitlab.com
   OCI_REGISTRY: ${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}

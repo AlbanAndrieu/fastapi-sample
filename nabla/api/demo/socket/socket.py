@@ -10,11 +10,13 @@ def check_internet():
     except OSError:
         print("No Internet connection.")
 
+
 def get_dns_info():
     socket.setdefaulttimeout(5)  # Set a timeout for DNS queries
     dns_info = socket.getaddrinfo(APP_DOMAIN, None)
     for info in dns_info:
         print(info)
+
 
 try:
     check_internet()

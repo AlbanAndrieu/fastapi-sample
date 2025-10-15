@@ -1,8 +1,8 @@
 <!-- markdown-link-check-disable-next-line -->
+
 # [![Nabla](http://bababou.albandrieu.com/nabla/index/assets/nabla/nabla-4.png)](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample) fastapi-sample
 
 Fastapi sample
-
 
 # Table of contents
 
@@ -13,25 +13,25 @@ Fastapi sample
 <!-- toc -->
 
 - [Initialize](#initialize)
-  * [Requirements](#requirements)
-  * [Install fastapi-sample as a developer](#install-fastapi-sample-as-a-developer)
-    + [Using virtualenv](#using-virtualenv)
-  * [Getting started](#getting-started)
-  * [Vite UI](#vite-ui)
-  * [Test JWT](#test-jwt)
-  * [Test](#test)
-  * [Jupiter](#jupiter)
-  * [User guide](#user-guide)
-    + [Installation and commands](#installation-and-commands)
-    + [Database demo](#database-demo)
+  - [Requirements](#requirements)
+  - [Install fastapi-sample as a developer](#install-fastapi-sample-as-a-developer)
+    - [Using virtualenv](#using-virtualenv)
+  - [Getting started](#getting-started)
+  - [Vite UI](#vite-ui)
+  - [Test JWT](#test-jwt)
+  - [Test](#test)
+  - [Jupiter](#jupiter)
+  - [User guide](#user-guide)
+    - [Installation and commands](#installation-and-commands)
+    - [Database demo](#database-demo)
 - [Create PostgreSQL postgres on pg-gra.service.gra.dev.consul with Alembic](#create-postgresql-postgres-on-pg-graservicegradevconsul-with-alembic)
-  * [Create PostgreSQL fastapi_sample_gitlab on pg-gra.service.gra.dev.consul by hand](#create-postgresql-fastapi_sample_gitlab-on-pg-graservicegradevconsul-by-hand)
-    + [Temporal demo](#temporal-demo)
-    + [Defect Dojo Parameters](#defect-dojo-parameters)
-  * [Quality check](#quality-check)
-  * [Utility scripts](#utility-scripts)
-  * [Installation and commands](#installation-and-commands-1)
-  * [Update README.md](#update-readmemd)
+  - [Create PostgreSQL fastapi_sample_gitlab on pg-gra.service.gra.dev.consul by hand](#create-postgresql-fastapi_sample_gitlab-on-pg-graservicegradevconsul-by-hand)
+    - [Temporal demo](#temporal-demo)
+    - [Defect Dojo Parameters](#defect-dojo-parameters)
+  - [Quality check](#quality-check)
+  - [Utility scripts](#utility-scripts)
+  - [Installation and commands](#installation-and-commands-1)
+  - [Update README.md](#update-readmemd)
 
 <!-- tocstop -->
 
@@ -56,15 +56,15 @@ nvm install lts/iron
 
 See requirements.txt for mandatory packages.
 
-  This pre-commit hooks requires the following to run:
+This pre-commit hooks requires the following to run:
 
 <!-- markdown-link-check-disable-next-line -->
-  * [pre-commit](http://pre-commit.com)
+
+- [pre-commit](http://pre-commit.com)
 
 ## [Install fastapi-sample as a developer](#table-of-contents)
 
 ### Using virtualenv
-
 
 Install python 3.10 and pyenv
 
@@ -105,7 +105,6 @@ pytest --cov=nabla --cov-report term --cov-report xml:coverage.xml --junitxml py
 ```
 
 ## [Getting started](#table-of-contents)
-
 
 ```mermaid
 sequenceDiagram
@@ -227,7 +226,6 @@ DEBUG=1 uv run uvicorn serve:app --reload --workers 1 --host 0.0.0.0 --port 8091
 
 [health](http://localhost:8091/health)
 
-
 ```bash
 sudo lsof -ni:8080 -sTCP:ESTABLISHED
 netstat -tlnp | grep 8080
@@ -248,7 +246,7 @@ npm run dev
 
 ## [Test JWT](#table-of-contents)
 
-Get the public key from [keycloak-lex](https://account-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/realms/jus_mundi) [keycloak-uat]((http://account.staging.int.jusmundi.com/realms/jus_mundi)
+Get the public key from [keycloak-lex](https://account-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/realms/jus_mundi) \[keycloak-uat\]((http://account.staging.int.jusmundi.com/realms/jus_mundi)
 
 or [keycloak-dev](http://account.dev.int.jusmundi.com/realms/jus_mundi) [keycloak-admin](http://keycloak-admin.service.gra.dev.consul/realms/jus_mundi/)
 
@@ -293,7 +291,7 @@ curl -k -H "X-Demo: test" -X GET https://fastapi-sample.service.gra.dev.consul/ 
 curl -k -verbose -I -H "X-Forwarded-For: 1.1.1.1" -H 'Content-Type: application/json' -X GET  http://fastapi-sample.service.gra.dev.consul/
 ```
 
-[io_task][http://0.0.0.0:8080/io_task)
+[io_task]\[http://0.0.0.0:8080/io_task)
 
 Result available on [pyroscope](http://localhost:4040/?query=process_cpu%3Acpu%3Ananoseconds%3Acpu%3Ananoseconds%7Bservice_name%3D%22fastapi-sample%22%7D&rightQuery=block%3Acontentions%3Acount%3A%3A%7Bservice_name%3D%22pyroscope%22%7D&leftQuery=block%3Acontentions%3Acount%3A%3A%7Bservice_name%3D%22pyroscope%22%7D&from=now-30m)
 
@@ -359,7 +357,6 @@ poetry run python starter.py
 
 ### Defect Dojo Parameters
 
-
 [dd_product](http://defectdojo.service.gra.uat.consul/api/v2/products/)
 
 [dd_product_types](http://defectdojo.service.gra.uat.consul/api/v2/product_types/)
@@ -367,42 +364,40 @@ poetry run python starter.py
 All parameters need to be provided as environment variables:
 
 | Parameter                           | Re-import findings | Import languages | Remark                                                                                            |
-|-------------------------------------|:------------------:|:----------------:|---------------------------------------------------------------------------------------------------|
-| DD_URL                              | Mandatory          | Mandatory        | Base URL of the DefectDojo instance                                                               |
-| DD_API_KEY                          | Mandatory          | Mandatory        | Shall be defined as a secret, eg. a protected variable in GitLab or an encrypted secret in GitHub |
-| DD_PRODUCT_TYPE_NAME                | Mandatory          | Mandatory        | If a product type with this name does not exist, it will be created                               |
-| DD_PRODUCT_NAME                     | Mandatory          | Mandatory        | If a product with this name does not exist, it will be created                                    |
-| DD_ENGAGEMENT_NAME                  | Mandatory          | -                | If an engagement with this name does not exist for the given product, it will be created          |
-| DD_ENGAGEMENT_TARGET_START          | Optional           | -                | Format: YYYY-MM-DD, default: `today`. The target start date for a newly created engagement.       |
-| DD_ENGAGEMENT_TARGET_END            | Optional           | -                | Format: YYYY-MM-DD, default: `2999-12-31`. The target start date for a newly created engagement.  |
-| DD_TEST_NAME                        | Mandatory          | -                | If a test with this name does not exist for the given engagement, it will be created              |
-| DD_TEST_TYPE_NAME                   | Mandatory          | -                | From DefectDojo's list of test types, eg. `Trivy Scan`                                            |
-| DD_FILE_NAME                        | Optional           | Mandatory        |                                                                                                   |
-| DD_ACTIVE                           | Optional           | -                | Default: `true`                                                                                   |
-| DD_VERIFIED                         | Optional           | -                | Default: `true`                                                                                   |
-| DD_MINIMUM_SEVERITY                 | Optional           | -                |                                                                                                   |
-| DD_GROUP_BY                         | Optional           | -                | Group by file path, component name, component name + version                                      |
-| DD_PUSH_TO_JIRA                     | Optional           | -                | Default: `false`                                                                                  |
-| DD_CLOSE_OLD_FINDINGS               | Optional           | -                | Default: `true`                                                                                   |
-| DD_CLOSE_OLD_FINDINGS_PRODUCT_SCOPE | Optional           | -                | Default: `false`                                                                                  |
-| DD_DO_NOT_REACTIVATE                | Optional           | -                | Default: `false`                                                                                  |
-| DD_VERSION                          | Optional           | -                |                                                                                                   |
-| DD_ENDPOINT_ID                      | Optional           | -                |                                                                                                   |
-| DD_SERVICE                          | Optional           | -                |                                                                                                   |
-| DD_BUILD_ID                         | Optional           | -                |                                                                                                   |
-| DD_COMMIT_HASH                      | Optional           | -                |                                                                                                   |
-| DD_BRANCH_TAG                       | Optional           | -                |                                                                                                   |
-| DD_API_SCAN_CONFIGURATION_ID        | Optional           | -                | Id of the API scan configuration for API based parsers, e.g. SonarQube                            |
-| DD_SOURCE_CODE_MANAGEMENT_URI       | Optional           | -                |                                                                                                   |
-| DD_SSL_VERIFY                       | Optional           | Optional         | Disable SSL verification by setting to `false` or `0`. Default: `true`                            |
-| DD_EXTRA_HEADER_1         | Optional           | Optional         | If extra header key is needed for auth in wafs or similar |
-| DD_EXTRA_HEADER_1_VALUE   | Optional           | Optional         | The corresponding value for extra header key |
-| DD_EXTRA_HEADER_2         | Optional           | Optional         | If extra header key is needed for auth in wafs or similar |
-| DD_EXTRA_HEADER_2_VALUE   | Optional           | Optional         | The corresponding value for extra header key |
-
+| ----------------------------------- | :----------------: | :--------------: | ------------------------------------------------------------------------------------------------- |
+| DD_URL                              |     Mandatory      |    Mandatory     | Base URL of the DefectDojo instance                                                               |
+| DD_API_KEY                          |     Mandatory      |    Mandatory     | Shall be defined as a secret, eg. a protected variable in GitLab or an encrypted secret in GitHub |
+| DD_PRODUCT_TYPE_NAME                |     Mandatory      |    Mandatory     | If a product type with this name does not exist, it will be created                               |
+| DD_PRODUCT_NAME                     |     Mandatory      |    Mandatory     | If a product with this name does not exist, it will be created                                    |
+| DD_ENGAGEMENT_NAME                  |     Mandatory      |        -         | If an engagement with this name does not exist for the given product, it will be created          |
+| DD_ENGAGEMENT_TARGET_START          |      Optional      |        -         | Format: YYYY-MM-DD, default: `today`. The target start date for a newly created engagement.       |
+| DD_ENGAGEMENT_TARGET_END            |      Optional      |        -         | Format: YYYY-MM-DD, default: `2999-12-31`. The target start date for a newly created engagement.  |
+| DD_TEST_NAME                        |     Mandatory      |        -         | If a test with this name does not exist for the given engagement, it will be created              |
+| DD_TEST_TYPE_NAME                   |     Mandatory      |        -         | From DefectDojo's list of test types, eg. `Trivy Scan`                                            |
+| DD_FILE_NAME                        |      Optional      |    Mandatory     |                                                                                                   |
+| DD_ACTIVE                           |      Optional      |        -         | Default: `true`                                                                                   |
+| DD_VERIFIED                         |      Optional      |        -         | Default: `true`                                                                                   |
+| DD_MINIMUM_SEVERITY                 |      Optional      |        -         |                                                                                                   |
+| DD_GROUP_BY                         |      Optional      |        -         | Group by file path, component name, component name + version                                      |
+| DD_PUSH_TO_JIRA                     |      Optional      |        -         | Default: `false`                                                                                  |
+| DD_CLOSE_OLD_FINDINGS               |      Optional      |        -         | Default: `true`                                                                                   |
+| DD_CLOSE_OLD_FINDINGS_PRODUCT_SCOPE |      Optional      |        -         | Default: `false`                                                                                  |
+| DD_DO_NOT_REACTIVATE                |      Optional      |        -         | Default: `false`                                                                                  |
+| DD_VERSION                          |      Optional      |        -         |                                                                                                   |
+| DD_ENDPOINT_ID                      |      Optional      |        -         |                                                                                                   |
+| DD_SERVICE                          |      Optional      |        -         |                                                                                                   |
+| DD_BUILD_ID                         |      Optional      |        -         |                                                                                                   |
+| DD_COMMIT_HASH                      |      Optional      |        -         |                                                                                                   |
+| DD_BRANCH_TAG                       |      Optional      |        -         |                                                                                                   |
+| DD_API_SCAN_CONFIGURATION_ID        |      Optional      |        -         | Id of the API scan configuration for API based parsers, e.g. SonarQube                            |
+| DD_SOURCE_CODE_MANAGEMENT_URI       |      Optional      |        -         |                                                                                                   |
+| DD_SSL_VERIFY                       |      Optional      |     Optional     | Disable SSL verification by setting to `false` or `0`. Default: `true`                            |
+| DD_EXTRA_HEADER_1                   |      Optional      |     Optional     | If extra header key is needed for auth in wafs or similar                                         |
+| DD_EXTRA_HEADER_1_VALUE             |      Optional      |     Optional     | The corresponding value for extra header key                                                      |
+| DD_EXTRA_HEADER_2                   |      Optional      |     Optional     | If extra header key is needed for auth in wafs or similar                                         |
+| DD_EXTRA_HEADER_2_VALUE             |      Optional      |     Optional     | The corresponding value for extra header key                                                      |
 
 ## [Quality check](#table-of-contents)
-
 
 ```bash
 python -m flake8  nabla --max-line-length=88 --max-complexity=30
@@ -416,9 +411,7 @@ pyright-to-gitlab-ci --src report_raw.json --output report_pyright.json --base_p
 [trigger error in sentry-debug](http://0.0.0.0:8080/sentry-debug)
 [sentry](https://nabla-4f3768f61.sentry.io/profiling/)
 
-
 ## [Utility scripts](#table-of-contents)
-
 
 ```
 python3 nabla/loki/influxdb.py
@@ -445,12 +438,10 @@ ls
 ./hello-world
 ```
 
-
 ## [Update README.md](#table-of-contents)
 
-
-  * [github-markdown-toc](https://github.com/jonschlinkert/markdown-toc)
-  * With [github-markdown-toc](https://github.com/Lucas-C/pre-commit-hooks-nodejs)
+- [github-markdown-toc](https://github.com/jonschlinkert/markdown-toc)
+- With [github-markdown-toc](https://github.com/Lucas-C/pre-commit-hooks-nodejs)
 
 ```bash
 npm install -g markdown-toc
