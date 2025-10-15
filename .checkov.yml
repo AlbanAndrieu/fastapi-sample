@@ -16,7 +16,7 @@ framework:
   - all
 # skip-download: true
 # quiet: true
-repo-id: albanandrieu/fastapi-sample /
+repo-id: https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/
 # skip-check:
 # - CKV_DOCKER_3
 # - CKV_DOCKER_2

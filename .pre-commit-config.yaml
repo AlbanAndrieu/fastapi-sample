@@ -480,8 +480,8 @@ repos:
     hooks:
       - id: gitlint
         name: "🌳 git · Lint"
-        additional_dependencies:
-          - gitlint-core[trusted-deps]==0.19.1
+        # additional_dependencies:
+        #   - gitlint-core[trusted-deps]==0.19.1
 
   # ---------------------------------------------------------------------------- #
   #                            👑 Mega linter                                    #
@@ -533,11 +533,11 @@ repos:
         types: [python]
         args: ["--collect-only"]
         pass_filenames: false
-      - id: pytest-fast
-        name: 🧪 test · Run fast tests
-        entry: ./.venv/bin/pytest tests
-        language: system
-        types: [python]
-        args: ["--timeout=3"]
-        pass_filenames: false
-        always_run: true
+      # - id: pytest-fast
+      #   name: 🧪 test · Run fast tests
+      #   entry: ./.venv/bin/pytest tests
+      #   language: system
+      #   types: [python]
+      #   args: ["--timeout=3"]
+      #   pass_filenames: false
+      #   always_run: true

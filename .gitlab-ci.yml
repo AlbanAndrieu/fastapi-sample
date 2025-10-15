@@ -39,9 +39,9 @@ include:
     ref: main
     file: "/templates/javascript.gitlab-ci.yml"
 
-  - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
-    file: "/templates/_apk.gitlab-ci.yml"
+  # - project: jusmundi-group/infrastructure/ci-templates
+  #   ref: main
+  #   file: "/templates/_apk.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
     ref: main
@@ -70,12 +70,11 @@ include:
   #  file: '/templates/renovate.gitlab-ci.yml'
 
   - remote: https://gitlab.com/renovate-bot/renovate-runner/-/raw/v24.0.0/templates/renovate.gitlab-ci.yml
-
   # - remote: git@gitlab.com:renovate-bot/renovate-runner/-/raw/v17.69.3/templates/renovate.gitlab-ci.yml
 
   - component: gitlab.com/components/sast/sast@main
 
-  # - template: Cosign.gitlab-ci.yml
+  # NOK - template: Cosign.gitlab-ci.yml
 
   - template: Security/SAST.gitlab-ci.yml
   - template: Security/Dependency-Scanning.gitlab-ci.yml
