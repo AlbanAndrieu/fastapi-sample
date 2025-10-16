@@ -190,7 +190,7 @@ job "fastapi-sample" {
         auth_soft_fail = true
         # image_pull_timeout = "25m"
 
-        memory_hard_limit = 2048  # at ???G we will have OOM and the container will be killed
+        memory_hard_limit = 4096  # at 2G we will have OOM and the container will be killed
       } # config
 
       kill_timeout = "30s"
@@ -409,7 +409,7 @@ EOF
 
       resources {
         cpu    = 300 # MHz
-        memory = 2048 # MB
+        memory = 2512 # MB
       }
     } # task fastapi-sample
 
