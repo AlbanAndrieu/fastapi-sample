@@ -112,6 +112,7 @@ black = {version = ">=23.7.0", extras = ["d"]}
 checkov = ">=2.3.115"
 coverage = ">= 7.2.7"
 cyclonedx-bom = ">=4.5.0"
+cz-conventional-gitmoji = ">=0.7.0"
 flake8 = ">=7.1.1"
 flake8-formatter-junit-xml = ">=0.0.6"
 jira = ">=3.8.0"

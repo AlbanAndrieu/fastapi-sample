@@ -415,60 +415,6 @@ EOF
 
   } # group fastapi-sample
 
-  group "fastapi-sample-redis-exporter" {
-    count = 1
-
-    network {
-      port "redis-exporter" {
-        to = 9121
-      }
-    }
-
-    task "fastapi-sample-redis-exporter" {
-      driver = "docker"
-
-      config {
-        # See https://github.com/oliver006/redis_exporter
-        image = "oliver006/redis_exporter:v1.77.0"
-        ports = ["redis-exporter"]
-
-        args = [
-          "-redis.addr=redis://fastapi-sample-redis.service.gra.${var.env}.consul:6380",
-          "-log-format=json"
-        ]
-
-      }
-
-      env {
-        REDIS_ADDR = "redis://fastapi-sample-redis.service.gra.${var.env}.consul:6380"
-        REDIS_EXPORTER_INCL_SYSTEM_METRICS=true
-      }
-
-      service {
-        name = "fastapi-sample-redis-exporter"
-        port = "redis-exporter"
-
-        tags = [
-          "traefik.enable=true",
-          "traefik.http.routers.fastapi-sample-redis-exporter.entrypoints=http",
-          "traefik.http.routers.fastapi-sample-redis-exporter.rule=Host(`fastapi-sample-redis-exporter.service.gra.${var.env}.consul`)",
-        ]
-
-        check {
-          type = "http"
-          path = "/metrics"
-          timeout = "30s"
-          interval = "15s"
-        }
-      } # service
-
-      resources {
-        cpu    = 100 # Mhz
-        memory = 64  # MB
-      }
-    } # task fastapi-sample-redis-exporter
-  } # group fastapi-sample-redis-exporter
-
   group "fastapi-sample-redis" {
     count = 1
 
@@ -513,21 +459,26 @@ EOF
 
       config {
         image = "redis:8.2.1"
-        memory_hard_limit = 2048  # at 2G we will have OOM and the container will be killed
 
         args = [
           "--appendonly", "yes",
           "--appendfilename", "appendonly.aof",
           "--appendfsync", "everysec", # Options: always, everysec, no
-          "--maxmemory-policy", "volatile-lru",
-          "--databases", "50",
+          "--maxmemory", var.env == "prod" ? "800mb" : "300mb",
+          "--maxmemory-policy", "allkeys-lru", # volatile-lru is the default
+          "--maxmemory-samples", "5",
+          "--databases", "16",
           "--save", "900 1", "--save", "300 10", "--save", "60 10000",
+          "--tcp-keepalive", "60",
+          "--timeout", "300",
         ]
 
         # args = [
         #   "--requirepass",
         #   "mystery",
         # ]
+
+        memory_hard_limit = 2048  # at 2G we will have OOM and the container will be killed
 
         ulimit {
            memlock = "-1"
@@ -536,8 +487,6 @@ EOF
         }
 
         ports = ["redis"]
-
-        # network_mode = "host"
 
         labels = [
           {
@@ -591,4 +540,57 @@ EOF
 
   } # group fastapi-sample-redis
 
+  group "fastapi-sample-redis-exporter" {
+    count = 1
+
+    network {
+      port "redis-exporter" {
+        to = 9121
+      }
+    }
+
+    task "fastapi-sample-redis-exporter" {
+      driver = "docker"
+
+      config {
+        # See https://github.com/oliver006/redis_exporter
+        image = "oliver006/redis_exporter:v1.77.0"
+        ports = ["redis-exporter"]
+
+        args = [
+          "-redis.addr=redis://fastapi-sample-redis.service.gra.${var.env}.consul:6380",
+          "-log-format=json"
+        ]
+
+      }
+
+      env {
+        REDIS_ADDR = "redis://fastapi-sample-redis.service.gra.${var.env}.consul:6380"
+        REDIS_EXPORTER_INCL_SYSTEM_METRICS=true
+      }
+
+      service {
+        name = "fastapi-sample-redis-exporter"
+        port = "redis-exporter"
+
+        tags = [
+          "traefik.enable=true",
+          "traefik.http.routers.fastapi-sample-redis-exporter.entrypoints=http",
+          "traefik.http.routers.fastapi-sample-redis-exporter.rule=Host(`fastapi-sample-redis-exporter.service.gra.${var.env}.consul`)",
+        ]
+
+        check {
+          type = "http"
+          path = "/metrics"
+          timeout = "30s"
+          interval = "15s"
+        }
+      } # service
+
+      resources {
+        cpu    = 100 # Mhz
+        memory = 64  # MB
+      }
+    } # task fastapi-sample-redis-exporter
+  } # group fastapi-sample-redis-exporter
 }
