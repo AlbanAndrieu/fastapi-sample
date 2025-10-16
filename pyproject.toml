@@ -1,7 +1,7 @@
 [build-system]
 # requires = ["setuptools>=61.0"]
 # build-backend = "setuptools.build_meta"
-requires = ["hatchling", "versioningit"]
+requires = ["hatchling", "versioningit", "setuptools>=61.0", "versioneer[toml]==0.29", "packaging>=24.2"]
 build-backend = "hatchling.build"
 # requires = ["poetry-core"]
 # build-backend = "poetry.core.masonry.api"
@@ -477,11 +477,11 @@ versionfile_build = "nabla/_version.py"
 tag_prefix = "prod-"
 parentdir_prefix = ""
 
-[tool.hatch.metadata.hooks.datadog-build-metadata]
-
-[tool.hatch.metadata.hooks.datadog-build-metadata.urls]
-Homepage = "https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample"
-source_archive = "{remote_http_url}/archive/{commit_hash}.tar.gz"
+# [tool.hatch.metadata.hooks.datadog-build-metadata]
+#
+# [tool.hatch.metadata.hooks.datadog-build-metadata.urls]
+# Homepage = "https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample"
+# source_archive = "{remote_http_url}/archive/{commit_hash}.tar.gz"
 
 [tool.hatch.build.targets.wheel]
 packages = ["nabla"]
