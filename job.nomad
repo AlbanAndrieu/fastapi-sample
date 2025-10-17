@@ -190,7 +190,7 @@ job "fastapi-sample" {
         auth_soft_fail = true
         # image_pull_timeout = "25m"
 
-        memory_hard_limit = 2048  # at ???G we will have OOM and the container will be killed
+        memory_hard_limit = 4096  # at 2G we will have OOM and the container will be killed
       } # config
 
       kill_timeout = "30s"
@@ -409,11 +409,136 @@ EOF
 
       resources {
         cpu    = 300 # MHz
-        memory = 2048 # MB
+        memory = 2512 # MB
       }
     } # task fastapi-sample
 
   } # group fastapi-sample
+
+  group "fastapi-sample-redis" {
+    count = 1
+
+    network {
+      port "redis" {
+        to = 6379
+      }
+    }
+
+    constraint {
+      operator = "distinct_hosts"
+      value = "true"
+    }
+
+    constraint {
+      attribute = "${attr.kernel.name}"
+      value = "linux"
+    }
+
+    spread {
+      # Spread allocations equally over all nodes
+      attribute = "${node.unique.id}"
+      weight = 50
+    }
+
+    restart {
+      attempts = 3
+      interval = "5m"
+      delay    = "25s"
+      mode     = var.env == "dev" ? "fail" : "delay"
+    }
+
+    # volume "fastapi-sample-test" {
+    #   type            = "csi"
+    #   source          = "cinder-gra-sample-${var.env}"
+    #   attachment_mode = "file-system"
+    #   access_mode     = "multi-node-multi-writer"
+    # }
+
+    task "fastapi-sample-redis" {
+      driver = "docker"
+
+      config {
+        image = "redis:8.2.1"
+
+        args = [
+          "--appendonly", "yes",
+          "--appendfilename", "appendonly.aof",
+          "--appendfsync", "everysec", # Options: always, everysec, no
+          "--maxmemory", var.env == "prod" ? "800mb" : "300mb",
+          "--maxmemory-policy", "allkeys-lru", # volatile-lru is the default
+          "--maxmemory-samples", "5",
+          "--databases", "16",
+          "--save", "900 1", "--save", "300 10", "--save", "60 10000",
+          "--tcp-keepalive", "60",
+          "--timeout", "300",
+        ]
+
+        # args = [
+        #   "--requirepass",
+        #   "mystery",
+        # ]
+
+        memory_hard_limit = 2048  # at 2G we will have OOM and the container will be killed
+
+        ulimit {
+           memlock = "-1"
+           nofile = "65536"
+           nproc = "65536"
+        }
+
+        ports = ["redis"]
+
+        labels = [
+          {
+            "com.datadoghq.tags.env" = "${var.env}"
+            "com.datadoghq.tags.service" = "fastapi-sample-redis"
+            "com.datadoghq.tags.version" = "${var.env}-0.0.1"
+            "com.datadoghq.ad.check_names" = "[\"redisdb\"]"
+            "com.datadoghq.ad.init_configs" = "[{}]"
+            "com.datadoghq.ad.instances": "[{\"host\": \"%%host%%\",\"port\":\"6380\"}]"
+          }
+        ]
+      } # config
+
+      env {
+        AWS_REGION = "gra"
+      }
+
+      # volume_mount {
+      #   volume      = "fastapi-sample-test"
+      #   destination = "/data"
+      #   read_only   = false
+      # }
+
+      service {
+        name = "fastapi-sample-redis"
+        port = "redis"
+
+        tags = [
+          "traefik.enable=true",
+          "traefik.tcp.routers.fastapi-sample-redis.service=fastapi-sample-redis",
+          "traefik.tcp.routers.fastapi-sample-redis.entrypoints=tcp-redis-juicefs",
+          "traefik.tcp.routers.fastapi-sample-redis.rule=HostSNI(`*`)",
+          "traefik.tcp.routers.fastapi-sample-redis.tls=false"
+        ]
+
+        check {
+          name     = "alive"
+          type     = "tcp"
+          interval = "10s"
+          timeout  = "2s"
+        }
+
+      } # service fastapi-sample-redis
+
+      resources {
+        cpu    = 300 # MHz
+        memory = 300 # Mb
+      }
+
+    } # task fastapi-sample-redis
+
+  } # group fastapi-sample-redis
 
   group "fastapi-sample-redis-exporter" {
     count = 1
@@ -468,127 +593,4 @@ EOF
       }
     } # task fastapi-sample-redis-exporter
   } # group fastapi-sample-redis-exporter
-
-  group "fastapi-sample-redis" {
-    count = 1
-
-    network {
-      port "redis" {
-        to = 6379
-      }
-    }
-
-    constraint {
-      operator = "distinct_hosts"
-      value = "true"
-    }
-
-    constraint {
-      attribute = "${attr.kernel.name}"
-      value = "linux"
-    }
-
-    spread {
-      # Spread allocations equally over all nodes
-      attribute = "${node.unique.id}"
-      weight = 50
-    }
-
-    restart {
-      attempts = 3
-      interval = "5m"
-      delay    = "25s"
-      mode     = var.env == "dev" ? "fail" : "delay"
-    }
-
-    # volume "fastapi-sample-test" {
-    #   type            = "csi"
-    #   source          = "cinder-gra-sample-${var.env}"
-    #   attachment_mode = "file-system"
-    #   access_mode     = "multi-node-multi-writer"
-    # }
-
-    task "fastapi-sample-redis" {
-      driver = "docker"
-
-      config {
-        image = "redis:8.2.1"
-        memory_hard_limit = 2048  # at 2G we will have OOM and the container will be killed
-
-        args = [
-          "--appendonly", "yes",
-          "--appendfilename", "appendonly.aof",
-          "--appendfsync", "everysec", # Options: always, everysec, no
-          "--maxmemory-policy", "volatile-lru",
-          "--databases", "50",
-          "--save", "900 1", "--save", "300 10", "--save", "60 10000",
-        ]
-
-        # args = [
-        #   "--requirepass",
-        #   "mystery",
-        # ]
-
-        ulimit {
-           memlock = "-1"
-           nofile = "65536"
-           nproc = "65536"
-        }
-
-        ports = ["redis"]
-
-        # network_mode = "host"
-
-        labels = [
-          {
-            "com.datadoghq.tags.env" = "${var.env}"
-            "com.datadoghq.tags.service" = "fastapi-sample-redis"
-            "com.datadoghq.tags.version" = "${var.env}-0.0.1"
-            "com.datadoghq.ad.check_names" = "[\"redisdb\"]"
-            "com.datadoghq.ad.init_configs" = "[{}]"
-            "com.datadoghq.ad.instances": "[{\"host\": \"%%host%%\",\"port\":\"6380\"}]"
-          }
-        ]
-      } # config
-
-      env {
-        AWS_REGION = "gra"
-      }
-
-      # volume_mount {
-      #   volume      = "fastapi-sample-test"
-      #   destination = "/data"
-      #   read_only   = false
-      # }
-
-      service {
-        name = "fastapi-sample-redis"
-        port = "redis"
-
-        tags = [
-          "traefik.enable=true",
-          "traefik.tcp.routers.fastapi-sample-redis.service=fastapi-sample-redis",
-          "traefik.tcp.routers.fastapi-sample-redis.entrypoints=tcp-redis-juicefs",
-          "traefik.tcp.routers.fastapi-sample-redis.rule=HostSNI(`*`)",
-          "traefik.tcp.routers.fastapi-sample-redis.tls=false"
-        ]
-
-        check {
-          name     = "alive"
-          type     = "tcp"
-          interval = "10s"
-          timeout  = "2s"
-        }
-
-      } # service fastapi-sample-redis
-
-      resources {
-        cpu    = 300 # MHz
-        memory = 300 # Mb
-      }
-
-    } # task fastapi-sample-redis
-
-  } # group fastapi-sample-redis
-
 }
