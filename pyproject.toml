@@ -228,7 +228,8 @@ python = ">=3.12,<4.0"
 # python = ">=3.14,<3.15" for trition 2.8.0
 torch = [
     { version = ">=2.7.1", source = "pypi", markers = "sys_platform == 'darwin'" }, # For macOS users (CPU only)
-    { version = ">=2.7.1", markers = "sys_platform != 'darwin'", source = "pytorch-gpu" }, # For GPU users (non-macOS only)
+    { version = ">=2.7.1", source = "pytorch-cpu", markers = "sys_platform != 'darwin'" }, # For non-macOS users (CPU only)
+    # { version = ">=2.7.1", source = "pytorch-gpu", markers = "sys_platform != 'darwin'" }, # For GPU users (non-macOS only)
 ]
 # jm-ner = {version= ">=3.1.14rc0", source = "gitlab"}
 # jm-ner-processor = {version = ">=0.0.4", source="gitlab"}
