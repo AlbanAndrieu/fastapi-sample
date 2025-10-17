@@ -1012,12 +1012,12 @@
         },
         "fastmcp": {
             "hashes": [
-                "sha256:56188fbbc1a9df58c537063f25958c57b5c4d715f73e395c41b51550b247d140",
-                "sha256:b55fe89537038f19d0f4476544f9ca5ac171033f61811cc8f12bdeadcbea5016"
+                "sha256:2dfd02e255705a4afe43d26caddbc864563036e233dbc6870f389ee523b39a6a",
+                "sha256:b1e542f9b83dbae7cecfdc9c73b062f77074785abda9f2306799116121344133"
             ],
             "index": "pypi",
             "markers": "python_version >= '3.10'",
-            "version": "==2.12.4"
+            "version": "==2.12.5"
         },
         "filelock": {
             "hashes": [
@@ -1919,11 +1919,11 @@
         },
         "mcp": {
             "hashes": [
-                "sha256:42f10c270de18e7892fdf9da259029120b1ea23964ff688248c69db9d72b1d0a",
-                "sha256:aa278c44b1efc0a297f53b68df865b988e52dd08182d702019edcf33a8e109f6"
+                "sha256:39b8ca25460c578ee2cdad33feeea122694cfdf73eef58bee76c42f6ef0589df",
+                "sha256:ec917be9a5d31b09ba331e1768aa576e0af45470d657a0319996a20a57d7d633"
             ],
             "markers": "python_version >= '3.10'",
-            "version": "==1.18.0"
+            "version": "==1.16.0"
         },
         "mdurl": {
             "hashes": [
