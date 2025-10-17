@@ -415,7 +415,7 @@ EOF
 
   } # group fastapi-sample
 
-  group "fastapi-sample-redis" {
+ group "fastapi-sample-redis" {
     count = 1
 
     network {
@@ -593,4 +593,29 @@ EOF
       }
     } # task fastapi-sample-redis-exporter
   } # group fastapi-sample-redis-exporter
+
+  group "smi" {
+    task "smi" {
+      driver = "docker"
+
+      config {
+        image = "nvidia/cuda:12.8.1-base-ubuntu22.04"
+        command = "nvidia-smi"
+      }
+
+      resources {
+        device "nvidia/gpu" {
+          count = 1
+
+          # Add an affinity for a particular model
+          affinity {
+            attribute = "${device.model}"
+            value     = "Tesla K80"
+            weight    = 50
+          }
+        }
+      }
+    }
+  } # group smi
+
 }
