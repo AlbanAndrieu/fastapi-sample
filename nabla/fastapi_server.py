@@ -370,26 +370,27 @@ def initialize_api() -> FastAPI:
 
 app = initialize_api()
 
+# Convert to MCP server, see https://gofastmcp.com/integrations/fastapi
+mcp = FastMCP.from_fastapi(app=app, name="Sample MCP")
+
+# 2. Create the MCP's ASGI app
+mcp_app = mcp.http_app(path="/mcp")
+
 if client.is_enabled("mcp"):
-    # Convert to MCP server, see https://gofastmcp.com/integrations/fastapi
-    mcp = FastMCP.from_fastapi(app=app, name="Sample MCP")
-
-    # 2. Create the MCP's ASGI app
-    mcp_app = mcp.http_app(path="/mcp")
-
     app.mount("/llm", mcp_app)
     # Now you have:
     # - Regular API: http://localhost:8091/version
     # - LLM-friendly MCP: http://localhost:8091/llm/mcp/
     # Both served from the same FastAPI application!
 
-    # Static resource
-    @mcp.resource("config://version")
-    def get_version():
-        return APP_VERSION
-
 else:
     logger.warning("Feature flag : mcp is not enabled")
+
+
+# Static resource
+@mcp.resource("config://version")
+def get_version():
+    return APP_VERSION
 
 
 @app.middleware("http")
