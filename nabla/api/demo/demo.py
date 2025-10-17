@@ -26,7 +26,10 @@ router = APIRouter()
 
 mcp = FastMCP(name="DemoServer")
 
-FeatureFlags.load_conf_from_url("https://pastebin.com/raw/EguW6FSh")
+# TODO switch to unleash feature flagq
+FeatureFlags()
+FeatureFlags.load_conf_from_url("https://pastebin.com/raw/4Ai3j2DC")
+FeatureFlags.reload_feature_flags()
 print("Enabled Features:", FeatureFlags.get_features())
 
 # The demo sample project to test the tracing

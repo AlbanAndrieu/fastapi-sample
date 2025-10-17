@@ -57,6 +57,7 @@ from nabla.config_settings import (
     APP_VERSION,
     OTLP_GRPC_ENDPOINT,
     SENTRY_DSN,
+    client,
     get_settings,
 )
 from nabla.utils.email import conf
@@ -209,43 +210,51 @@ def initialize_api() -> FastAPI:
         default_response_class=ORJSONResponse,
     )
 
-    app.state.limiter = limiter
-    app.add_exception_handler(
-        RateLimitExceeded,
-        # _rate_limit_exceeded_handler,
-        lambda r, e: JSONResponse(
-            status_code=429,
-            content={"error": "Too Many Requests"},
-        ),
-    )
+    if client.is_enabled("rate_limiter"):
+        app.add_exception_handler(
+            RateLimitExceeded,
+            # _rate_limit_exceeded_handler,
+            lambda r, e: JSONResponse(
+                status_code=429,
+                content={"error": "Too Many Requests"},
+            ),
+        )
+    else:
+        logger.warning("Feature flag : rate_limiter is not enabled")
 
-    app.add_middleware(LogMiddleware)
+    if client.is_enabled("logging_requests"):
+        app.add_middleware(LogMiddleware)
 
-    origins = [
-        "http://localhost",
-        "http://localhost:8080",
-        "http://localhost:8091",
-        "http://localhost:8001",
-        "https://fastapi-sample.service.gra.dev.consul/",
-        "https://fastapi-sample.service.gra.uat.consul/",
-        # "*",
-    ]
+    if client.is_enabled("cors"):
+        origins = [
+            "http://localhost",
+            "http://localhost:8080",
+            "http://localhost:8091",
+            "http://localhost:8001",
+            "https://fastapi-sample.service.gra.dev.consul/",
+            "https://fastapi-sample.service.gra.uat.consul/",
+        ]
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=origins,
+            allow_credentials=True,
+            # allow_methods=["DELETE", "GET", "POST", "PUT"],
+            allow_methods=["GET", "POST", "PUT"],
+            allow_headers=["*"],
+        )
 
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=origins,
-        allow_credentials=True,
-        # allow_methods=["DELETE", "GET", "POST", "PUT"],
-        allow_methods=["GET", "POST", "PUT"],
-        allow_headers=["*"],
-    )
+    else:
+        logger.warning("Feature flag : cors is not enabled")
 
-    # Setting metrics middleware
-    # PrometheusMiddleware seems not working BUT below metrics_middleware works
-    app.add_middleware(
-        PrometheusMiddleware,
-        app_name=APP_NAME,
-    )
+    if client.is_enabled("logging_metrics"):
+        # Setting metrics middleware
+        # PrometheusMiddleware seems not working BUT below metrics_middleware works
+        app.add_middleware(
+            PrometheusMiddleware,
+            app_name=APP_NAME,
+        )
+    else:
+        logger.warning("Feature flag : logging_metrics is not enabled")
 
     api_settings = get_settings()
 
@@ -348,34 +357,39 @@ def initialize_api() -> FastAPI:
 
     app.add_api_websocket_route("/ws/sensor", websocket_endpoint)
 
-    # Create admin
-    admin = Admin(app, engine, title="Example: SQLAlchemy")
+    if client.is_enabled("admin_panel"):
+        # Create admin
+        admin = Admin(app, engine, title="Example: SQLAlchemy")
 
-    # Add view
-    # admin.add_view(ModelView(User))
-    admin.add_view(UserAdmin)
+        # Add view
+        # admin.add_view(ModelView(User))
+        admin.add_view(UserAdmin)
 
     return app
 
 
 app = initialize_api()
-# Convert to MCP server, see https://gofastmcp.com/integrations/fastapi
-mcp = FastMCP.from_fastapi(app=app, name="Sample MCP")
 
-# 2. Create the MCP's ASGI app
-mcp_app = mcp.http_app(path="/mcp")
+if client.is_enabled("mcp"):
+    # Convert to MCP server, see https://gofastmcp.com/integrations/fastapi
+    mcp = FastMCP.from_fastapi(app=app, name="Sample MCP")
 
-app.mount("/llm", mcp_app)
-# Now you have:
-# - Regular API: http://localhost:8091/version
-# - LLM-friendly MCP: http://localhost:8091/llm/mcp/
-# Both served from the same FastAPI application!
+    # 2. Create the MCP's ASGI app
+    mcp_app = mcp.http_app(path="/mcp")
 
+    app.mount("/llm", mcp_app)
+    # Now you have:
+    # - Regular API: http://localhost:8091/version
+    # - LLM-friendly MCP: http://localhost:8091/llm/mcp/
+    # Both served from the same FastAPI application!
 
-# Static resource
-@mcp.resource("config://version")
-def get_version():
-    return APP_VERSION
+    # Static resource
+    @mcp.resource("config://version")
+    def get_version():
+        return APP_VERSION
+
+else:
+    logger.warning("Feature flag : mcp is not enabled")
 
 
 @app.middleware("http")

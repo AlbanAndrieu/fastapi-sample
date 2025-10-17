@@ -20,6 +20,7 @@ from nabla.api.demo.socket.redis import (
     REDIS_TASK_QUEUE,
     redis,
 )
+from nabla.config_settings import client
 from nabla.utils.logger import logger
 
 Base = declarative_base()
@@ -166,7 +167,7 @@ class SensorData:
         recent_readings.extend(history)
         logger.info(f"Initialized sensor history with {len(history)} readings")
 
-    def generate_reading(self, timestamp: datetime = None) -> Dict:
+    def generate_reading(self, timestamp: datetime | None = None) -> Dict:
         """Generate a sensor reading with optional timestamp"""
         if timestamp is None:
             # timestamp = datetime.now(tz("Europe/Paris"))
@@ -201,11 +202,15 @@ class SensorData:
         # OK res = await set_cache("data", str(db_reading))
         # NOK res = await set_cache("data", db_reading)
 
-        # TODO : Below is working, BUT it is not a good idea to push the whole reading to the cache
-        # because it is too big and it is slowing down the system
-        res = await save_redis(REDIS_SENSOR_CHANNEL, data)
-        logger.debug(f"queued data: {res}")
-        return res
+        if client.is_enabled("sensor_reading_redis_cache"):
+            # TODO : Below is working, BUT it is not a good idea to push the whole reading to the cache
+            # because it is too big and it is slowing down the system
+            res = await save_redis(REDIS_SENSOR_CHANNEL, data)
+            logger.debug(f"queued data: {res}")
+            return res
+        else:
+            logger.warning("Feature flag : sensor_reading_redis_cache is not enabled")
+            return None
 
     async def save_reading(self, data: Dict[str, Any]) -> None:
         """Save sensor reading to PostgreSQL database"""

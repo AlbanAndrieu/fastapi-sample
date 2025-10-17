@@ -234,6 +234,13 @@ secret_detection:
 # upload-cloc:uat:
 #   extends: .upload-cloc:uat
 
+gitlab_version:
+  image:
+    name: registry.gitlab.com/python-gitlab/python-gitlab:latest
+    entrypoint: [""]
+  before_script: gitlab --version
+  script: gitlab namespace list || true
+
 # ======
 # Python Code Checks
 # ======
