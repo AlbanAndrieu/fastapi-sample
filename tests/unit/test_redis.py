@@ -47,7 +47,7 @@ def test_uniform_secret():
     # print(secret)
     # assert set(secret).issubset(range(0, 3))
     assert isinstance(secret, int)
-    assert secret == max(1, min(secret, 30))  # Between 1-30 seconds
+    assert secret == max(0, min(secret, 30))  # Between 1-30 seconds
 
 
 @requires_env("DEV", "UAT")

@@ -285,9 +285,9 @@ ruff = ">=0.5.1"
 optional = true
 [tool.poetry.group.ci.dependencies]
 bandit = ">=1.8.3"
-checkov = ">=3.2.372"
-#selenium = ">=4.6.0"
-#semgrep = ">=1.15.0" # semgrep (>=1.15.0) and ansible-lint[yamllint] (>=6.18.0), version solving failed
+# checkov = ">=3.2.372"
+# selenium = ">=4.6.0"
+# semgrep = ">=1.15.0" # semgrep (>=1.15.0) and ansible-lint[yamllint] (>=6.18.0), version solving failed
 sphinx = ">=7.1.2"
 twine = ">=4.0.2"
 cyclonedx-bom = ">=4.5.0"
