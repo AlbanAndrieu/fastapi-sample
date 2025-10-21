@@ -8,6 +8,7 @@ from typing import Annotated, ClassVar, Literal, Optional
 from keycloak import KeycloakOpenID
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from UnleashClient import UnleashClient
 
 from nabla._version import get_versions
 from nabla.utils.prometheus import PrometheusSettings
@@ -62,6 +63,10 @@ APP_DOMAIN = os.environ.get(
     "APP_DOMAIN",
     "jusmundi.com",
 )
+
+UNLEASH_API_URL = os.environ.get("UNLEASH_API_URL", "https://gitlab.com/api/v4/feature_flags/unleash/46788175")
+UNLEASH_APP_NAME = os.environ.get("UNLEASH_APP_NAME", "fastapi-sample")
+UNLEASH_API_TOKEN = os.environ.get("UNLEASH_API_TOKEN", "XXX")
 
 
 class AzureOpenAiInstance(BaseModel):
@@ -145,7 +150,7 @@ class _Settings(BaseSettings):
     ]
     ovh_container: str = "nabla_models"
 
-    oauth_token_secret: str = "my_dev_secret"
+    oauth_token_secret: str = "XXX"  # noqa: S105
 
     keycloak_server_url: Annotated[str, Field(min_length=1)]
     keycloak_realm: Annotated[str, Field(min_length=1)]
@@ -191,3 +196,12 @@ keycloak_openid = KeycloakOpenID(
 
 def get_openid_config():
     return keycloak_openid.well_known()
+
+
+client = UnleashClient(
+    url=UNLEASH_API_URL,
+    app_name=UNLEASH_APP_NAME,
+    custom_headers={"Authorization": UNLEASH_API_TOKEN},
+)
+
+client.initialize_client()

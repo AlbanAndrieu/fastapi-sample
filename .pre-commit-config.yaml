@@ -481,8 +481,6 @@ repos:
     hooks:
       - id: gitlint
         name: "🌳 git · Lint"
-        # additional_dependencies:
-        #   - gitlint-core[trusted-deps]==0.19.1
 
   # ---------------------------------------------------------------------------- #
   #                            👑 Mega linter                                    #
