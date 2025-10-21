@@ -1,3 +1,4 @@
+import os
 from typing import List
 
 from fastapi import APIRouter
@@ -17,16 +18,18 @@ class EmailSchema(BaseModel):
     email: List[EmailStr]
 
 
-MAIL_INBOX_FOLDER = "inbox"
-MAIL_TO = "alban.andrieu@free.fr"
+MAIL_INBOX_FOLDER = os.environ.get("MAIL_INBOX_FOLDER", "inbox")
+
+MAIL_TO = os.environ.get("MAIL_TO", "alban.andrieu@free.fr")
+MAIL_FROM = os.environ.get("MAIL_FROM", "alban.andrieu@gmail.com")
 
 conf = ConnectionConfig(
-    MAIL_USERNAME="username",
-    MAIL_PASSWORD="XXX",  # noqa: S106 noqa:B106 # nosec B106
-    MAIL_FROM="alban.andrieu@gmail.com",
-    MAIL_PORT=587,
-    MAIL_SERVER="imap.gmail.com",
-    MAIL_FROM_NAME="Alban Andrieu",
+    MAIL_USERNAME=os.environ.get("MAIL_USERNAME", "username"),
+    MAIL_PASSWORD=os.environ.get("MAIL_PASSWORD", "password"),
+    MAIL_FROM=MAIL_FROM,
+    MAIL_PORT=int(os.environ.get("MAIL_PORT", "587")),
+    MAIL_SERVER=os.environ.get("MAIL_SERVER", "imap.gmail.com"),
+    MAIL_FROM_NAME=os.environ.get("MAIL_FROM_NAME", "Alban Andrieu"),
     MAIL_STARTTLS=True,
     MAIL_SSL_TLS=False,
     USE_CREDENTIALS=True,

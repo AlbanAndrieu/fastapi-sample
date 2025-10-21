@@ -1,3 +1,4 @@
+<!doctype html>
 {% extends 'base.html' %} {% block content %}
 <div class="container mx-auto px-4 py-4 max-w-7xl">
   <!-- Header with task manager -->
@@ -8,7 +9,8 @@
   </div>
   <!-- Header with gradient goodness -->
   <div
-    class="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6 gap-4">
+    class="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6 gap-4"
+  >
     <div>
       <h1
         class="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent mb-2"
@@ -45,17 +47,22 @@
         <h2 class="card-title">Current Notes</h2>
       </div>
 
+      <div id="notes">{% include "notes.html" %}</div>
+
       <div>
-        <h1class="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent mb-2"
-        >Note Manager</h1>
-        <form hx-post="/notes/add" hx-target="#notes" hx-swap="outerHTML">
-          <input type="text" name="title" placeholder="New note" required>
+        <h1 class="card-title">Note Manager</h1>
+        <form hx-post="/notes/add" hx-target="#notes-list" hx-swap="outerHTML">
+          <input type="text" name="title" placeholder="Title" required />
+          <!--<textarea name="content" placeholder="Content" required></textarea>-->
           <button type="submit">Add</button>
         </form>
 
-        <div id="notes">
-          {% include "notes.html" %}
-        </div>
+        <div
+          id="notes-list"
+          hx-get="/notes/notes"
+          hx-trigger="load"
+          hx-swap="outerHTML"
+        ></div>
       </div>
     </div>
   </div>
@@ -68,17 +75,16 @@
         <h2 class="card-title">Current Readings</h2>
       </div>
 
-		  <div hx-ext="sse" sse-connect="/stream/2">
-		    <!-- Sensor data updater
+      <div hx-ext="sse" sse-connect="/stream/2">
+        <!-- Sensor data updater
          hx-trigger="load once" -->
-		    <div
-		      id="sensor-display"
-		      hx-get="/sensor-data"
-		      hx-target="#sensor-display"
+        <div
+          id="sensor-display"
+          hx-get="/sensor-data"
+          hx-target="#sensor-display"
           hx-trigger="sse:sensor_update"
-		      hx-swap="innerHTML"
-		    >
-				</div>
+          hx-swap="innerHTML"
+        ></div>
       </div>
     </div>
   </div>
@@ -120,10 +126,10 @@
           </div>
         </div>
         <div class="card bg-base-100 shadow-xl">
-         <div class="card-body">
+          <div class="card-body">
             <h3 class="card-title text-lg">Humidity</h3>
             <div class="h-48">
-                <canvas id="humidityChart"></canvas>
+              <canvas id="humidityChart"></canvas>
             </div>
           </div>
         </div>
@@ -131,16 +137,14 @@
           <div class="card-body">
             <h3 class="card-title text-lg">Pressure</h3>
             <div class="h-48">
-                <canvas id="pressureChart"></canvas>
+              <canvas id="pressureChart"></canvas>
             </div>
           </div>
         </div>
       </div>
     </div>
-
   </div>
   <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-6">
-
     <!-- Status distribution -->
     <div class="card bg-base-100 shadow-xl">
       <div class="card-body py-2">

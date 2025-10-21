@@ -1,0 +1,31 @@
+<!doctype html>
+<div
+  id="note-{{ note.id }}"
+  class="note-item {% if note.done %}done{% endif %}"
+>
+  <h2>{{ note.title }} {% if note.completed %}✔{% endif %}</h2>
+  <p>{{ note.content }}</p>
+  <div class="note-actions">
+    <button
+      hx-post="/notes/notes/{{ note.id }}/toggle"
+      hx-target="#note-{{ note.id }}"
+      hx-swap="outerHTML"
+    >
+      Toggle
+    </button>
+    <button
+      hx-get="/notes/notes/{{ note.id }}/edit"
+      hx-target="#note-{{ note.id }}"
+      hx-swap="outerHTML"
+    >
+      Edit
+    </button>
+    <button
+      hx-post="/notes/notes/{{ note.id }}/delete"
+      hx-target="#notes-list"
+      hx-swap="outerHTML"
+    >
+      Delete
+    </button>
+  </div>
+</div>
