@@ -13,25 +13,25 @@ Fastapi sample
 <!-- toc -->
 
 - [Initialize](#initialize)
-  - [Requirements](#requirements)
-  - [Install fastapi-sample as a developer](#install-fastapi-sample-as-a-developer)
-    - [Using virtualenv](#using-virtualenv)
-  - [Getting started](#getting-started)
-  - [Vite UI](#vite-ui)
-  - [Test JWT](#test-jwt)
-  - [Test](#test)
-  - [Jupiter](#jupiter)
-  - [User guide](#user-guide)
-    - [Installation and commands](#installation-and-commands)
-    - [Database demo](#database-demo)
+  * [Requirements](#requirements)
+  * [Install fastapi-sample as a developer](#install-fastapi-sample-as-a-developer)
+    + [Using virtualenv](#using-virtualenv)
+  * [Getting started](#getting-started)
+  * [Vite UI](#vite-ui)
+  * [Test JWT](#test-jwt)
+  * [Test](#test)
+  * [Jupiter](#jupiter)
+  * [User guide](#user-guide)
+    + [Installation and commands](#installation-and-commands)
+    + [Database demo](#database-demo)
 - [Create PostgreSQL postgres on pg-gra.service.gra.dev.consul with Alembic](#create-postgresql-postgres-on-pg-graservicegradevconsul-with-alembic)
-  - [Create PostgreSQL fastapi_sample_gitlab on pg-gra.service.gra.dev.consul by hand](#create-postgresql-fastapi_sample_gitlab-on-pg-graservicegradevconsul-by-hand)
-    - [Temporal demo](#temporal-demo)
-    - [Defect Dojo Parameters](#defect-dojo-parameters)
-  - [Quality check](#quality-check)
-  - [Utility scripts](#utility-scripts)
-  - [Installation and commands](#installation-and-commands-1)
-  - [Update README.md](#update-readmemd)
+  * [Create PostgreSQL fastapi_sample_gitlab on pg-gra.service.gra.dev.consul by hand](#create-postgresql-fastapi_sample_gitlab-on-pg-graservicegradevconsul-by-hand)
+    + [Temporal demo](#temporal-demo)
+    + [Defect Dojo Parameters](#defect-dojo-parameters)
+  * [Quality check](#quality-check)
+  * [Utility scripts](#utility-scripts)
+  * [Installation and commands](#installation-and-commands-1)
+  * [Update README.md](#update-readmemd)
 
 <!-- tocstop -->
 
@@ -93,8 +93,8 @@ use [poetry](https://python-poetry.org/docs/cli/)
 poetry config http-basic.gitlab-ds package_read ${CI_PIP_GITLABJUSMUNDI_TOKEN}
 # export POETRY_GITLAB_TOKEN_GITLAB=${GITLAB_FULL_PRIVATE_TOKEN}
 
-poetry install --no-dev # --dev-only
 poetry install --with format,test,extra,open_telemetry,api,deployment,influxdb,panda,temporal,utils,webui
+poetry install --no-dev # --dev-only
 poetry install --extras "mysql pgsql"
 #poetry install -E mysql -E pgsql
 poetry install --all-extras
