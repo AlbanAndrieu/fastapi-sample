@@ -316,16 +316,17 @@ repos:
       #   name: "📓 notebook · Type-check cells"
 
   ### Markdown ###
-  - repo: https://github.com/hukkin/mdformat
-    rev: 1.0.0
-    hooks:
-      - id: mdformat
-        name: "📝 markdown · Format markdown"
-        additional_dependencies:
-          - mdformat-gfm # GitHub-Flavored Markdown support
-          - mdformat-ruff # Python code formatting
-          - mdformat-frontmatter # YAML frontmatter support
-          - ruff # Required for mdformat-ruff
+  # - repo: https://github.com/hukkin/mdformat
+  #   rev: 1.0.0
+  #   hooks:
+  #     - id: mdformat
+  #       name: "📝 markdown · Format markdown"
+  #       additional_dependencies:
+  #         - mdformat-gfm # GitHub-Flavored Markdown support
+  #         - mdformat-ruff # Python code formatting
+  #         - mdformat-frontmatter # YAML frontmatter support
+  #         - ruff # Required for mdformat-ruff
+
   - repo: https://github.com/markdownlint/markdownlint
     rev: v0.12.0
     hooks:
