@@ -323,7 +323,7 @@ git-url-parse = ">=1.2.2"
 gitpython = ">=3.1.29"
 numpy = ">=1.19.3,<2" # conflict possible with jm-multilabel-evaluator, TODO >=2.2.3
 packaging = ">=24.2"
-pre-commit = ">=4.2.0"
+pre-commit = ">=4.3.0"
 pre-commit-hooks = ">=4.4.0"
 pip-upgrader = ">=1.4.15"
 python-keystoneclient = ">=0.0.18"
