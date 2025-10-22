@@ -1,7 +1,7 @@
 # vi: ft=yaml.ansible.jinja2
 ---
 # fail_fast: true
-minimum_pre_commit_version: 4.2.0
+minimum_pre_commit_version: 4.3.0
 exclude: |
   (?x)^(
       .*\{\{.*\}\}.*|     # Exclude any files with cookiecutter variables

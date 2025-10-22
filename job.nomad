@@ -56,7 +56,7 @@ job "fastapi-sample" {
   }
 
   group "fastapi-sample" {
-    count = 2
+    count = 1
 
     scaling {
       min     = 1
@@ -470,7 +470,7 @@ EOF
           "--databases", "16",
           "--save", "900 1", "--save", "300 10", "--save", "60 10000",
           "--tcp-keepalive", "60",
-          "--timeout", "300",
+          "--timeout", "3000",
         ]
 
         # args = [
