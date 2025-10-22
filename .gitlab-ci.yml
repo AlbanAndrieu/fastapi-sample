@@ -8,6 +8,7 @@ stages:
   - train
   - review
   - deploy
+  - fuzz
   - dast
   - notify
   - dependabot
@@ -39,10 +40,6 @@ include:
     ref: main
     file: "/templates/javascript.gitlab-ci.yml"
 
-  # - project: jusmundi-group/infrastructure/ci-templates
-  #   ref: main
-  #   file: "/templates/_apk.gitlab-ci.yml"
-
   - project: jusmundi-group/infrastructure/ci-templates
     ref: main
     file: "/templates/data.gitlab-ci.yml"
@@ -50,6 +47,8 @@ include:
   - project: jusmundi-group/infrastructure/ci-templates
     ref: main
     file: "/templates/mega-linter.gitlab-ci.yml"
+
+  - component: $CI_SERVER_FQDN/guided-explorations/ci-components/ultimate-auto-semversioning/ultimate-auto-semversioning@1.2.8
 
   - component: $CI_SERVER_FQDN/to-be-continuous/semantic-release/gitlab-ci-semrel@3.11.2
     inputs:
@@ -69,17 +68,26 @@ include:
   #- project: 'renovate-bot/renovate-runner'
   #  file: '/templates/renovate.gitlab-ci.yml'
 
-  - remote: https://gitlab.com/renovate-bot/renovate-runner/-/raw/v24.0.0/templates/renovate.gitlab-ci.yml
-  # - remote: git@gitlab.com:renovate-bot/renovate-runner/-/raw/v17.69.3/templates/renovate.gitlab-ci.yml
+  # - remote: https://gitlab.com/renovate-bot/renovate-runner/-/raw/v24.0.0/templates/renovate.gitlab-ci.yml
+  - component: $CI_SERVER_FQDN/to-be-continuous/renovate/gitlab-ci-renovate@1.9.0
+
+  - project: "renovate-bot/renovate-runner"
+    file: "/templates/renovate-config-validator.gitlab-ci.yml"
 
   - component: gitlab.com/components/sast/sast@main
 
   # NOK - template: Cosign.gitlab-ci.yml
 
+  - template: Security/API-Fuzzing.gitlab-ci.yml
   - template: Security/SAST.gitlab-ci.yml
+  - template: DAST.gitlab-ci.yml
   - template: Security/Dependency-Scanning.gitlab-ci.yml
   - template: Security/Secret-Detection.gitlab-ci.yml
   # - template: Jobs/Container-Scanning.gitlab-ci.yml
+
+  - component: $CI_SERVER_FQDN/components/code-quality-oss/codequality-os-scanners-integration/codequality-oss@1.1.4
+  - component: $CI_SERVER_FQDN/components/code-quality-oss/codequality-os-scanners-integration/tflint@1.1.4
+  - component: $CI_SERVER_FQDN/components/code-quality-oss/codequality-os-scanners-integration/hadolint@1.1.4
 
 default:
   cache: &global_cache
@@ -98,12 +106,7 @@ default:
       # - vendor/
     policy: pull-push
 
-# dast:
-#   services: # use services to link your app container to the dast job
-#     # - name: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
-#     - name: $CI_REGISTRY_IMAGE:1.1.1-db93557e
-#       alias: fastapi-sample.service.gra.${ENV}.consul
-
+# Tip: Insert the following variables anywhere below stages and include
 variables:
   CI_IMAGE_PYTHON: python:3.12.10
   PROJECT_PYTHON_VERSION: "3.12"
@@ -171,23 +174,31 @@ variables:
   DEFAULT_COV_ARGS: "--no-ddtrace --no-cov" # --cov-fail-under=1
   # NETLIFY_SITE_ID: '8dc3759f-f33d-424d-9300-d21f859ca183'
   DAST_TARGET_URL: https://fastapi-sample.service.gra.${ENV}.consul
-  DAST_FULL_SCAN: "true" # do a full scan
   DAST_BROWSER_SCAN: "true" # use the browser-based GitLab DAST crawler
+  DAST_FULL_SCAN_ENABLED: "true"
+  # DAST_AUTH_URL: "https://my-site.example/signin"
+  # DAST_AUTH_USERNAME: “john”
+  # DAST_AUTH_PASSWORD: “P@ssw0rd”
+  FUZZAPI_TARGET_URL: https://fastapi-sample.service.gra.${ENV}.consul/openapi.json
+  FUZZAPI_OPENAPI: https://fastapi-sample.service.gra.${ENV}.consul/openapi.json
+  FUZZAPI_PROFILE: Quick-10
   CONTAINER_SCANNING_DISABLED: false
   CUSTOM_CONTAINER_SCANNING_DISABLED: "true"
   GITLAB_ADVANCED_SAST_ENABLED: true
   DS_ENFORCE_NEW_ANALYZER: "true"
-  RENOVATE_BASE_DIR: $CI_PROJECT_DIR/renovate
+  # RENOVATE_BASE_DIR: $CI_PROJECT_DIR/renovate
   RENOVATE_PLATFORM: gitlab
   RENOVATE_ONBOARDING_CONFIG: '{"$$schema": "https://docs.renovatebot.com/renovate-schema.json", "extends": ["config:recommended"] }'
-  RENOVATE_GIT_AUTHOR: Renovate Bot a.andrieu@jusmundi.com>
+  # RENOVATE_GIT_AUTHOR: "alban.andrieu@free.fr"
   RENOVATE_OPTIMIZE_FOR_DISABLED: "true"
   RENOVATE_REPOSITORY_CACHE: "true"
   RENOVATE_LOG_FILE: renovate-log.ndjson
-  CI_RENOVATE_IMAGE: ghcr.io/renovatebot/renovate:37.174.7@sha256:da387ec816e93c404380dc2607df76d8b91f3ac6e1f00d9e4424fe4afa669c76
+  RENOVATE_EXTRA_FLAGS: --autodiscover=true --onboarding=false
+  CI_RENOVATE_IMAGE: ghcr.io/renovatebot/renovate:41.152.9@sha256:3d4da143701edbedaebc7b43961614acc795fca272d71f533d15feb3296014c9
   RUNNER_GENERATE_ARTIFACTS_METADATA: "true"
   MEND_SCA_ORCHESTRATOR_ENABLED: "true"
   MEND_AI_ENABLE_CODE_CAPABILITIES: "true"
+  CS_DISABLE_LANGUAGE_VULNERABILITY_SCAN: "false"
 
 .renovate:
   cache:
@@ -218,6 +229,17 @@ run_renovate:
     - schedules
   script:
     - renovate $RENOVATE_EXTRA_FLAGS
+
+# dast:
+#   services: # use services to link your app container to the dast job
+#     # - name: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+#     - name: $CI_REGISTRY_IMAGE:1.1.1-db93557e
+#       alias: fastapi-sample.service.gra.${ENV}.consul
+dast:
+  stage: dast
+  dast_configuration:
+    site_profile: "DAST API DEV"
+    scanner_profile: "DAST Passive Test"
 
 .dependabot-gitlab:
   stage: dependabot
@@ -322,6 +344,7 @@ test-pytest-poetry:
     - python3 -m pip install --user redis arel
     - python3 -m pipenv install --dev --site-packages --ignore-pipfile
     - export DB_URL=${DB_URL}
+    - export LOG_LEVEL=DEBUG
     - echo "ENV is :${ENV}"
     - pytest --cov=${DEFAULT_COV} --cov-report term --cov-report xml:coverage.xml --junitxml pytest-junit.xml ${DEFAULT_COV_ARGS}
 
@@ -347,6 +370,7 @@ test-pytest:
     - pip install --upgrade pip
     - if [ -n "${DEFAULT_POETRY_OPT_GROUPS}" ]; then ${POETRY_HOME}/bin/poetry install --no-root --with ${DEFAULT_POETRY_OPT_GROUPS}; else ${POETRY_HOME}/bin/poetry install --no-root; fi
     - export DB_URL=${DB_URL}
+    - export LOG_LEVEL=DEBUG
     - echo "PATH = $PATH"
     - pytest --cov=${DEFAULT_COV} --cov-report term --cov-report xml:coverage.xml --junitxml pytest-junit.xml ${DEFAULT_COV_ARGS}
 

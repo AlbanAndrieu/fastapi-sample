@@ -28,7 +28,8 @@ mcp = FastMCP(name="DemoServer")
 
 # TODO switch to unleash feature flagq
 FeatureFlags()
-FeatureFlags.load_conf_from_url("https://pastebin.com/raw/4Ai3j2DC")
+# FeatureFlags.load_conf_from_url("https://pastebin.com/raw/4Ai3j2DC")
+FeatureFlags.load_conf_from_dict({"web_only": False, "web_1": True, "web_2": False, "web_3": True, "web_4": False})
 FeatureFlags.reload_feature_flags()
 print("Enabled Features:", FeatureFlags.get_features())
 

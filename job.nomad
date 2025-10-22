@@ -56,7 +56,7 @@ job "fastapi-sample" {
   }
 
   group "fastapi-sample" {
-    count = 2
+    count = 1
 
     scaling {
       min     = 1
@@ -470,7 +470,7 @@ EOF
           "--databases", "16",
           "--save", "900 1", "--save", "300 10", "--save", "60 10000",
           "--tcp-keepalive", "60",
-          "--timeout", "300",
+          "--timeout", "3000",
         ]
 
         # args = [
@@ -594,28 +594,28 @@ EOF
     } # task fastapi-sample-redis-exporter
   } # group fastapi-sample-redis-exporter
 
-  group "smi" {
-    task "smi" {
-      driver = "docker"
-
-      config {
-        image = "nvidia/cuda:12.8.1-base-ubuntu22.04"
-        command = "nvidia-smi"
-      }
-
-      resources {
-        device "nvidia/gpu" {
-          count = 1
-
-          # Add an affinity for a particular model
-          affinity {
-            attribute = "${device.model}"
-            value     = "Tesla K80"
-            weight    = 50
-          }
-        }
-      }
-    }
-  } # group smi
+  # group "smi" {
+  #   task "smi" {
+  #     driver = "docker"
+  #
+  #     config {
+  #       image = "nvidia/cuda:12.8.1-base-ubuntu22.04"
+  #       command = "nvidia-smi"
+  #     }
+  #
+  #     resources {
+  #       device "nvidia/gpu" {
+  #         count = 1
+  #
+  #         # Add an affinity for a particular model
+  #         affinity {
+  #           attribute = "${device.model}"
+  #           value     = "Tesla K80"
+  #           weight    = 50
+  #         }
+  #       }
+  #     }
+  #   }
+  # } # group smi
 
 }
