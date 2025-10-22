@@ -56,7 +56,7 @@ job "fastapi-sample" {
   }
 
   group "fastapi-sample" {
-    count = 2
+    count = 1
 
     scaling {
       min     = 1
