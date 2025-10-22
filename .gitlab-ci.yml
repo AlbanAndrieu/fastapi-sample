@@ -52,6 +52,8 @@ include:
     ref: main
     file: "/templates/mega-linter.gitlab-ci.yml"
 
+  - component: $CI_SERVER_FQDN/guided-explorations/ci-components/ultimate-auto-semversioning/ultimate-auto-semversioning@1.2.8
+
   - component: $CI_SERVER_FQDN/to-be-continuous/semantic-release/gitlab-ci-semrel@3.11.2
     inputs:
       dry-run: false
@@ -77,6 +79,7 @@ include:
 
   # NOK - template: Cosign.gitlab-ci.yml
 
+  - template: Security/API-Fuzzing.gitlab-ci.yml
   - template: Security/SAST.gitlab-ci.yml
   - template: Security/Dependency-Scanning.gitlab-ci.yml
   - template: Security/Secret-Detection.gitlab-ci.yml
@@ -105,12 +108,10 @@ default:
 #     - name: $CI_REGISTRY_IMAGE:1.1.1-db93557e
 #       alias: fastapi-sample.service.gra.${ENV}.consul
 
-- template: Security/API-Fuzzing.gitlab-ci.yml
-
 # Tip: Insert the following variables anywhere below stages and include
 variables:
   FUZZAPI_TARGET_URL: http://www.example.com/openapi.json.
-  FUZZAPI_OPENAPI: https://fastapi-sample.service.gra.uat.consul/openapi.json
+  FUZZAPI_OPENAPI: https://fastapi-sample.service.gra.${ENV}.consul/openapi.json
   FUZZAPI_PROFILE: Quick-10
   CI_IMAGE_PYTHON: python:3.12.10
   PROJECT_PYTHON_VERSION: "3.12"
