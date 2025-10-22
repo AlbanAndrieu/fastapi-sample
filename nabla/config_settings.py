@@ -65,8 +65,8 @@ APP_DOMAIN = os.environ.get(
 )
 
 UNLEASH_API_URL = os.environ.get("UNLEASH_API_URL", "https://gitlab.com/api/v4/feature_flags/unleash/46788175")
-UNLEASH_APP_NAME = os.environ.get("UNLEASH_APP_NAME", "fastapi-sample")
-UNLEASH_API_TOKEN = os.environ.get("UNLEASH_API_TOKEN", "XXX")
+UNLEASH_APP_NAME = os.environ.get("UNLEASH_APP_NAME", "staging")
+UNLEASH_INSTANCE_ID = os.environ.get("UNLEASH_INSTANCE_ID", "XXX")
 
 
 class AzureOpenAiInstance(BaseModel):
@@ -139,7 +139,7 @@ class _Settings(BaseSettings):
         ),
     ]
     ovh_password: Annotated[SecretStr, Field(min_length=8)]
-    ovh_project_name: str = Annotated[
+    ovh_project_name: str = Annotated[  # pyright: ignore[reportAssignmentType]
         str,
         Field(
             alias="123456789",
@@ -201,7 +201,12 @@ def get_openid_config():
 client = UnleashClient(
     url=UNLEASH_API_URL,
     app_name=UNLEASH_APP_NAME,
-    custom_headers={"Authorization": UNLEASH_API_TOKEN},
+    environment="staging",
+    instance_id=UNLEASH_INSTANCE_ID,
+    # custom_headers={"Authorization": UNLEASH_INSTANCE_ID},
+    custom_options={
+        "verify": False,
+    },
 )
 
 client.initialize_client()

@@ -1,10 +1,11 @@
+import os
 import uuid
 
 from fastapi import Depends
 from fastapi_users import schemas
 from fastapi_users.db import SQLAlchemyBaseUserTableUUID
 from fastapi_users_db_sqlalchemy import SQLAlchemyUserDatabase
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqladmin import ModelView
 from sqlalchemy import Column, String
 
@@ -12,7 +13,6 @@ from sqlalchemy import Column, String
 from sqlalchemy.orm import Session, declarative_base
 
 from nabla.api.db.database import engine, get_session
-from nabla.utils.email import conf
 
 Base = declarative_base()
 
@@ -22,7 +22,7 @@ async def init_db():
     Base.metadata.create_all(engine)
 
 
-class UserEvent(BaseModel):
+class UserIn(BaseModel):
     # model_config = ConfigDict(
     #     str_max_length=120,      # hard caps avoid pathological inputs
     #     extra="ignore",          # drop unknown fields instead of raising
@@ -30,7 +30,7 @@ class UserEvent(BaseModel):
     #     ser_json_inf_nan=False   # stricter but faster JSON
     # )
 
-    name: str
+    name: str = Field(min_length=1)
     email: str
     password: str
     phone: str
@@ -43,7 +43,7 @@ class UserEvent(BaseModel):
     def __init__(
         self,
         name="Alban Andrieu",
-        email=conf.MAIL_FROM,
+        email=os.environ.get("MAIL_FROM", "alban.andrieu@gmail.com"),
         password="XXX",  # noqa: S107 noqa:B107 # nosec B107
         phone="0695435353",
         address="11 terrasse de l'université",
@@ -63,6 +63,10 @@ class UserEvent(BaseModel):
             zipcode=zipcode,
             country=country,
         )
+
+
+class UserOut(UserIn):
+    id: int
 
 
 class UserRead(schemas.BaseUser[uuid.UUID]):

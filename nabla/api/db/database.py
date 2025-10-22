@@ -1,30 +1,29 @@
+import os
 from functools import lru_cache
 from typing import AsyncGenerator
 
-import os
 import orjson
 import psycopg_pool
 from databases import Database
 from ddtrace import patch
 from fastapi import Depends
-from sqlalchemy import Engine, create_engine, URL
+from sqlalchemy import URL, Engine, create_engine
 
 # With PostgreSQL
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
-
 
 # Database url if none is passed the default one is used
 # DB_URL: Final[str] = str(get_settings().db_url)
 # print(os.getenv('DB_URL'))
 
 DB_URL = URL.create(
-    "postgresql",
-    username="back",
+    "postgresql+psycopg",
+    username=os.environ["POSTGRES_USER"],
     password=os.environ["POSTGRES_PASSWORD"],
-    host="localhost",
-    port=5432,
-    database="back",
+    host=os.environ["POSTGRES_HOST"],
+    port=int(os.environ["POSTGRES_PORT"]),  # type: ignore
+    database=os.environ["POSTGRES_DB"],
 )
 
 patch(sqlalchemy=True)
