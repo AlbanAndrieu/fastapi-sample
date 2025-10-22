@@ -1,21 +1,31 @@
 from functools import lru_cache
-from typing import AsyncGenerator, Final
+from typing import AsyncGenerator
 
+import os
 import orjson
 import psycopg_pool
 from databases import Database
 from ddtrace import patch
 from fastapi import Depends
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import Engine, create_engine, URL
 
 # With PostgreSQL
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
-from nabla.config_settings import get_settings
 
 # Database url if none is passed the default one is used
-DB_URL: Final[str] = str(get_settings().db_url)
+# DB_URL: Final[str] = str(get_settings().db_url)
+# print(os.getenv('DB_URL'))
+
+DB_URL = URL.create(
+    "postgresql",
+    username="back",
+    password=os.environ["POSTGRES_PASSWORD"],
+    host="localhost",
+    port=5432,
+    database="back",
+)
 
 patch(sqlalchemy=True)
 
@@ -29,7 +39,8 @@ def orjson_serializer(obj):
 
 # Create a psycopg_pool connection pool
 db_pool = psycopg_pool.ConnectionPool(
-    conninfo=DB_URL.replace("+psycopg", "").replace("+asyncpg", ""),
+    # conninfo=DB_URL.replace("+psycopg", "").replace("+asyncpg", ""),
+    conninfo=DB_URL.render_as_string(True),
     min_size=0,
     max_size=1,
     max_idle=5,
@@ -121,4 +132,5 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
 
 # Databases query builder
 
-database = Database(DB_URL.replace("+psycopg", "").replace("+asyncpg", ""), max_inactive_connection_lifetime=300)
+# database = Database(DB_URL.replace("+psycopg", "").replace("+asyncpg", ""), max_inactive_connection_lifetime=300)
+database = Database(DB_URL.render_as_string(True), max_inactive_connection_lifetime=300)
