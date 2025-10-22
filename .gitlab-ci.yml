@@ -40,10 +40,6 @@ include:
     ref: main
     file: "/templates/javascript.gitlab-ci.yml"
 
-  # - project: jusmundi-group/infrastructure/ci-templates
-  #   ref: main
-  #   file: "/templates/_apk.gitlab-ci.yml"
-
   - project: jusmundi-group/infrastructure/ci-templates
     ref: main
     file: "/templates/data.gitlab-ci.yml"
@@ -72,8 +68,8 @@ include:
   #- project: 'renovate-bot/renovate-runner'
   #  file: '/templates/renovate.gitlab-ci.yml'
 
-  - remote: https://gitlab.com/renovate-bot/renovate-runner/-/raw/v24.0.0/templates/renovate.gitlab-ci.yml
-  # - remote: git@gitlab.com:renovate-bot/renovate-runner/-/raw/v17.69.3/templates/renovate.gitlab-ci.yml
+  # - remote: https://gitlab.com/renovate-bot/renovate-runner/-/raw/v24.0.0/templates/renovate.gitlab-ci.yml
+  - component: $CI_SERVER_FQDN/to-be-continuous/renovate/gitlab-ci-renovate@1.9.0
 
   - component: gitlab.com/components/sast/sast@main
 
@@ -84,6 +80,10 @@ include:
   - template: Security/Dependency-Scanning.gitlab-ci.yml
   - template: Security/Secret-Detection.gitlab-ci.yml
   # - template: Jobs/Container-Scanning.gitlab-ci.yml
+
+  - component: $CI_SERVER_FQDN/components/code-quality-oss/codequality-os-scanners-integration/codequality-oss@1.1.4
+  - component: $CI_SERVER_FQDN/components/code-quality-oss/codequality-os-scanners-integration/tflint@1.1.4
+  - component: $CI_SERVER_FQDN/components/code-quality-oss/codequality-os-scanners-integration/hadolint@1.1.4
 
 default:
   cache: &global_cache
@@ -185,10 +185,10 @@ variables:
   CUSTOM_CONTAINER_SCANNING_DISABLED: "true"
   GITLAB_ADVANCED_SAST_ENABLED: true
   DS_ENFORCE_NEW_ANALYZER: "true"
-  RENOVATE_BASE_DIR: $CI_PROJECT_DIR/renovate
+  # RENOVATE_BASE_DIR: $CI_PROJECT_DIR/renovate
   RENOVATE_PLATFORM: gitlab
   RENOVATE_ONBOARDING_CONFIG: '{"$$schema": "https://docs.renovatebot.com/renovate-schema.json", "extends": ["config:recommended"] }'
-  RENOVATE_GIT_AUTHOR: Renovate Bot a.andrieu@jusmundi.com>
+  RENOVATE_GIT_AUTHOR: Renovate Bot a.andrieu@jusmundi.com
   RENOVATE_OPTIMIZE_FOR_DISABLED: "true"
   RENOVATE_REPOSITORY_CACHE: "true"
   RENOVATE_LOG_FILE: renovate-log.ndjson
