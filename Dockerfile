@@ -96,7 +96,7 @@ WORKDIR ${PYSETUP_PATH}
 
 # This is used by nuxt, its dependencies require OpenSSLv2 where node v20 uses OpenSSLv3
 ENV NODE_OPTIONS="--openssl-legacy-provider"
-ENV NODE_VERSION=${NODE_VERSION:-"20"}
+ENV NODE_VERSION=${NODE_VERSION:-"22"}
 
 # hadolint ignore=DL3008,DL3015,DL3006,DL4006
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
