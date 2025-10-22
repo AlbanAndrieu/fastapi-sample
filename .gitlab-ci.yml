@@ -332,7 +332,7 @@ test-pytest:
   interruptible: true
   allow_failure: false
   variables:
-    DEFAULT_COV_ARGS: "--no-ddtrace --no-cov"
+    DEFAULT_COV_ARGS: "--no-ddtrace --cov-fail-under=70"
     DEFAULT_PIPENV_ARGS: "--system --dev --ignore-pipfile" # --dev  --verbose --index=https://package_read:${CI_PIP_GITLABJUSMUNDI_TOKEN}@gitlab.com/api/v4/groups/7364654/-/packages/pypi/simple
     DEFAULT_PYTEST_PACKAGES: "pytest pytest-cov pytest-env"
     KEYCLOAK_SERVER_URL: "https://keycloak-https.service.gra.uat.consul"
