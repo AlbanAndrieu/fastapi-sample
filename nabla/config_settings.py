@@ -163,7 +163,7 @@ class _Settings(BaseSettings):
 class APIDeploymentSettings(PrometheusSettings, _Settings):
     # API related
     # api_port: int
-    api_log_level: str = "info"
+    api_log_level: str = "INFO"
 
     # Scope
     scope: Literal["sample-V1", "sample-V2"] = "sample-V2"
