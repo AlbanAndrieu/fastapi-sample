@@ -328,10 +328,15 @@ psql -h pg-gra.service.gra.dev.consul -U postgres
 # BW : GRADBINTEGR01 - fastapisample - dev
 CREATE USER fastapisample WITH PASSWORD 'XXX';
 ALTER ROLE fastapisample WITH LOGIN;
-create database fastapi_sample_gitlab with owner fastapisample encoding 'UTF8';
+-- create database fastapi_sample_gitlab with owner fastapisample encoding 'UTF8';
 create database fastapi_sample_dev with owner fastapisample encoding 'UTF8';
 # ALTER USER fastapisample PASSWORD 'XXX';
--- GRANT SELECT ON TABLE public.fastapi_sample_gitlab TO fastapi_sample_dev;
+GRANT ALL ON SCHEMA public TO fastapisample;
+GRANT ALL ON TABLE public.note TO fastapisample;
+GRANT ALL ON TABLE public.sensor_reading TO fastapisample;
+GRANT ALL ON TABLE public."user" TO fastapisample;
+-- GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.note TO fastapisample;
+
 ```
 
 ```
@@ -339,7 +344,9 @@ create database fastapi_sample_dev with owner fastapisample encoding 'UTF8';
 DB_USER="postgres"
 DB_PASS="password-reset-XXX"
 # otherwise classic connection
-DB_URL="postgresql+psycopg://postgres:password-reset-@127.0.0.1:5432/fastapi_sample_gitlab" # nosec
+DB_URL="postgresql://postgres:password-reset-@127.0.0.1:5432/fastapi_sample_dev" # nosec
+# Remove asyncpg for alembic to be able to init DB as fastapisample
+DB_URL="postgresql://fastapisample:password-reset-@127.0.0.1:5432/fastapi_sample_dev" # nosec
 ```
 
 ### Temporal demo

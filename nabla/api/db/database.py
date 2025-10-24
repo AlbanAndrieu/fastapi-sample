@@ -1,31 +1,41 @@
 import os
 from functools import lru_cache
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Final
 
 import orjson
 import psycopg_pool
 from databases import Database
 from ddtrace import patch
 from fastapi import Depends
+from pydantic import SecretStr
 from sqlalchemy import URL, Engine, create_engine
 
 # With PostgreSQL
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
-# Database url if none is passed the default one is used
-# DB_URL: Final[str] = str(get_settings().db_url)
-# print(os.getenv('DB_URL'))
+from nabla.config_settings import get_settings
+from nabla.utils.logger import logger
 
-DB_URL = URL.create(
-    # "postgresql+psycopg",
-    "postgresql",
+# Database url if none is passed the default one is used
+DB_URL: Final[str] = str(get_settings().db_url)
+print(os.getenv("DB_URL"))
+
+DB_URL_TEST = URL.create(
+    drivername=os.environ["POSTGRES_DRIVER"],  # "postgresql+psycopg",
     username=os.environ["POSTGRES_USER"],
-    password=os.environ["POSTGRES_PASSWORD"],
+    password=SecretStr(os.environ["POSTGRES_PASSWORD"]).get_secret_value(),
     host=os.environ["POSTGRES_HOST"],
     port=int(os.environ["POSTGRES_PORT"]),  # type: ignore
     database=os.environ["POSTGRES_DB"],
-)
+).render_as_string(True)
+
+# conninfo=DB_URL.replace("+psycopg", "").replace("+asyncpg", ""),
+
+logger.info("🛢️ Postgres configuration")
+logger.info(f"Postgres URL: {DB_URL}")
+logger.info(f"Postgres pass: {bool(os.getenv('POSTGRES_PASSWORD'))}")
+logger.info(f"Postgres driver: {bool(os.getenv('POSTGRES_DRIVER'))}")
 
 patch(sqlalchemy=True)
 
@@ -39,8 +49,8 @@ def orjson_serializer(obj):
 
 # Create a psycopg_pool connection pool
 db_pool = psycopg_pool.ConnectionPool(
-    # conninfo=DB_URL.replace("+psycopg", "").replace("+asyncpg", ""),
-    conninfo=DB_URL.render_as_string(True),
+    # conninfo=DB_URL.render_as_string(True).replace("+psycopg", "").replace("+asyncpg", ""),
+    conninfo=DB_URL,
     min_size=0,
     max_size=1,
     max_idle=5,
@@ -133,4 +143,4 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
 # Databases query builder
 
 # database = Database(DB_URL.replace("+psycopg", "").replace("+asyncpg", ""), max_inactive_connection_lifetime=300)
-database = Database(DB_URL.render_as_string(True), max_inactive_connection_lifetime=300)
+database = Database(DB_URL, max_inactive_connection_lifetime=300)

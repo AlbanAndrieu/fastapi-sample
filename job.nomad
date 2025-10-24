@@ -138,29 +138,29 @@ job "fastapi-sample" {
 
     # task "prep-disk" {
     #   driver = "docker"
-	# 
+	#
     #   volume_mount {
     #     volume      = "fastapi-sample-juicefs-test"
     #     destination = "/data/" #<-- in the container
     #     read_only   = false
     #   }
-	# 
+	#
     #   config {
     #     image        = "busybox:latest"
     #     command      = "sh"
     #     args    = ["-c", "chown -R 999:999 /data/ "]
     #   }
-	# 
+	#
     #   resources {
     #     cpu    = 200
     #     memory = 128
     #   }
-	# 
+	#
     #   lifecycle {
     #     hook    = "prestart"
     #     sidecar = false
     #   }
-	# 
+	#
     # } # task prep-disk
 
     task "fastapi-sample" {
@@ -225,6 +225,7 @@ job "fastapi-sample" {
         DD_APPSEC_AUTOMATED_USER_EVENTS_TRACKING=extended
         DD_DBM_PROPAGATION_MODE="full"
         DD_PROFILING_TIMELINE_ENABLED=true
+        DD_VERSION="1.0.0"
         REDIS_HOST="fastapi-sample-redis.service.gra.${var.env}.consul"
         REDIS_PORT="6380"
         # ALLOWED_HOSTS="[\"${NOMAD_HOST_IP_server}\",\"fastapi-sample.service.gra.${var.env}.consul\"]"
