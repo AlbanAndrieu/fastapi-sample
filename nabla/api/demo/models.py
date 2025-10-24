@@ -181,17 +181,17 @@ class SensorData:
             "status": random.choice(["normal", "warning", "critical"]),  # noqa: S311 # nosec
         }
 
-        logger.info("Sensor reading created successfully")
+        logger.debug("Sensor reading created successfully")
         # Log critical readings for monitoring
         if reading["status"] == "critical":
-            logger.warning(
+            logger.debug(
                 f"Critical sensor reading: temp={reading['temperature']}°C, humidity={reading['humidity']}%, pressure={reading['pressure']}hPa",
             )
 
         return reading
 
     async def save_reading_to_redis(self, data: Dict[str, Any]) -> None:
-        logger.info(f"SensorData toJSON: {self}")
+        logger.debug(f"SensorData toJSON: {self}")
 
         # TODO push list of readings to redis
         # redis.lpush(REDIS_CHANNEL, db_reading.to_json())

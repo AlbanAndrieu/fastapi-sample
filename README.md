@@ -335,6 +335,7 @@ GRANT ALL ON SCHEMA public TO fastapisample;
 GRANT ALL ON TABLE public.note TO fastapisample;
 GRANT ALL ON TABLE public.sensor_reading TO fastapisample;
 GRANT ALL ON TABLE public."user" TO fastapisample;
+GRANT SELECT, USAGE, UPDATE ON SEQUENCE public.sensor_reading_id_seq TO fastapisample;
 -- GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.note TO fastapisample;
 
 ```
