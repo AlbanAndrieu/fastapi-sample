@@ -6,7 +6,6 @@ pkgs.mkShellNoCC {
     python3
     virtualenv
     nodejs
-    npm
     git
     cowsay
   ];
