@@ -81,8 +81,8 @@ include:
   - template: Security/API-Fuzzing.gitlab-ci.yml
   - template: Security/SAST.gitlab-ci.yml
   - template: DAST.gitlab-ci.yml
-  - template: Security/Dependency-Scanning.v2.gitlab-ci.yml
-  - template: Jobs/Dependency-Scanning.latest.gitlab-ci.yml
+  - template: Jobs/Dependency-Scanning.v2.gitlab-ci.yml
+  # - template: Jobs/Dependency-Scanning.latest.gitlab-ci.yml
   - template: Security/Secret-Detection.gitlab-ci.yml
   # - template: Jobs/Container-Scanning.gitlab-ci.yml
 
