@@ -250,7 +250,7 @@ secret_detection:
   stage: secret-detection
 
 gemnasium-dependency_scanning:
-  dependencies: ["build"]
+  dependencies: ["docker-build"]
 
 # upload_trivy:uat:
 #   extends: .upload_trivy:uat
