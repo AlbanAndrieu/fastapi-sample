@@ -8,11 +8,11 @@ stages:
   - train
   - review
   - deploy
+  - publish
   - fuzz
   - dast
   - notify
   - dependabot
-  - publish
   - release
 
 services:
