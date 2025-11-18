@@ -232,17 +232,6 @@ run_renovate:
   script:
     - renovate $RENOVATE_EXTRA_FLAGS
 
-# dast:
-#   services: # use services to link your app container to the dast job
-#     # - name: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
-#     - name: $CI_REGISTRY_IMAGE:1.1.1-db93557e
-#       alias: fastapi-sample.service.gra.${ENV}.consul
-dast:
-  stage: dast
-  dast_configuration:
-    site_profile: "DAST API DEV"
-    scanner_profile: "DAST Passive Test"
-
 .dependabot-gitlab:
   stage: dependabot
 
@@ -251,6 +240,23 @@ secret_detection:
 
 gemnasium-dependency_scanning:
   dependencies: ["docker-build"]
+
+gemnasium-python-dependency_scanning:
+  allow_failure: false # force pipeline to fail if this job fails
+
+  before_script:
+    - apt-get update -y && apt-get install -y jq
+
+  script:
+    - /analyzer run
+    - HIGH_SEVERITY_COUNT=$(jq '.vulnerabilities | map(select(.severity=="High")) | length' gl-dependency-scanning-report.json )
+    - >
+      if [[ $HIGH_SEVERITY_COUNT -gt 0 ]]
+      then
+        echo "High severity found"; exit 1
+      else
+        echo "No High severity found"
+      fi
 
 # upload_trivy:uat:
 #   extends: .upload_trivy:uat
@@ -585,6 +591,7 @@ deploy:prod:
 
 pages-deploy:
   image: ${CI_IMAGE_NPM}
+  dependencies: ["unit-tests-npm"]
   stage: publish
   before_script:
     - cd vue-client/
@@ -620,6 +627,13 @@ pages-deploy:
       variables:
         PAGES_PREFIX: "mr-$CI_MERGE_REQUEST_IID"
       when: always
+
+dast:
+  dependencies: ["pages-deploy"]
+  stage: dast
+  dast_configuration:
+    site_profile: "DAST API DEV"
+    scanner_profile: "DAST Passive Test"
 
 publish:
   image: ${CI_IMAGE_NPM}

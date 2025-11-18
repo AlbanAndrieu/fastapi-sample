@@ -21,6 +21,7 @@ maintainers = [
   { name = "Alban Andrieu", email = "alban.andrieu@free.fr" }
 ]
 dependencies = ["dynamic"]
+# dependencies = ["dynamic", "dvc (>=3.64.0,<4.0.0)", "dvc-s3 (>=3.2.2,<4.0.0)"]
 requires-python = ">=3.12"
 readme = "README.md"
 license = "MIT"
@@ -318,6 +319,7 @@ ansible-lint = ">=25.8.2"
 # ansible-playbook-grapher = ">=1.1.0"
 click-completion = ">=0.5.2"
 colorama = ">=0.4.6"
+dvc-s3 = ">=3.2.2"
 httpx = {version = ">=0.23.3"}
 jupyterlab = ">=3.4.3"
 git-url-parse = ">=1.2.2"
