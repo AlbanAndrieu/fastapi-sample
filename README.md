@@ -343,11 +343,11 @@ GRANT SELECT, USAGE, UPDATE ON SEQUENCE public.sensor_reading_id_seq TO fastapis
 ```
 # for alembic
 DB_USER="postgres"
-DB_PASS="password-reset-XXX"
+DB_PASS="password-reset-XXX" # nosec
 # otherwise classic connection
-DB_URL="postgresql://postgres:password-reset-@127.0.0.1:5432/fastapi_sample_dev" # nosec
+DB_URL="postgresql://postgres:password-reset-XXX@127.0.0.1:5432/fastapi_sample_dev" # nosec
 # Remove asyncpg for alembic to be able to init DB as fastapisample
-DB_URL="postgresql://fastapisample:password-reset-@127.0.0.1:5432/fastapi_sample_dev" # nosec
+DB_URL="postgresql://fastapisample:password-reset-XXX@127.0.0.1:5432/fastapi_sample_dev" # nosec
 ```
 
 ### Temporal demo

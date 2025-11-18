@@ -17,7 +17,7 @@ services:
       - ./.env.secrets
     environment:
       - PYTHONPATH=.
-      - DB_URL=postgresql://fastapi-sample:password-reset-XXX@db:5432/postgres
+      - DB_URL=postgresql://fastapi-sample:password-reset-XXX@db:5432/postgres #nosec
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     depends_on:
