@@ -172,7 +172,7 @@ repos:
       - id: pyupgrade
         name: "🐍 python · Py Upgrade"
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.0
+    rev: v0.14.1
     hooks:
       - id: ruff-format
         name: "🐍 python · Format with Ruff"
@@ -215,7 +215,7 @@ repos:
   # This helps ensure cross-compatibility with people who don't wish to use uv
   - repo: https://github.com/astral-sh/uv-pre-commit
     # uv version.
-    rev: 0.5.27
+    rev: 0.9.4
     hooks:
       - id: uv-sync
         name: "⚡️ uv · Sync dependencies with uv"
@@ -290,7 +290,7 @@ repos:
 
   ### SQL ###
   - repo: https://github.com/sqlfluff/sqlfluff
-    rev: 3.4.2
+    rev: 3.5.0
     hooks:
       - id: sqlfluff-fix
         name: "📊 SQL · Attempts to fix rule violations."
@@ -316,16 +316,17 @@ repos:
       #   name: "📓 notebook · Type-check cells"
 
   ### Markdown ###
-  - repo: https://github.com/hukkin/mdformat
-    rev: 0.7.22
-    hooks:
-      - id: mdformat
-        name: "📝 markdown · Format markdown"
-        additional_dependencies:
-          - mdformat-gfm # GitHub-Flavored Markdown support
-          - mdformat-ruff # Python code formatting
-          - mdformat-frontmatter # YAML frontmatter support
-          - ruff # Required for mdformat-ruff
+  # - repo: https://github.com/hukkin/mdformat
+  #   rev: 1.0.0
+  #   hooks:
+  #     - id: mdformat
+  #       name: "📝 markdown · Format markdown"
+  #       additional_dependencies:
+  #         - mdformat-gfm # GitHub-Flavored Markdown support
+  #         - mdformat-ruff # Python code formatting
+  #         - mdformat-frontmatter # YAML frontmatter support
+  #         - ruff # Required for mdformat-ruff
+
   - repo: https://github.com/markdownlint/markdownlint
     rev: v0.12.0
     hooks:

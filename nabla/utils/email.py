@@ -1,14 +1,16 @@
+import os
 from typing import List
 
 from fastapi import APIRouter
 from fastapi.background import BackgroundTasks
-from fastapi_mail import (
-    ConnectionConfig,
-    FastMail,
-    MessageSchema,
-    MessageType,
-    MultipartSubtypeEnum,
-)
+
+# from fastapi_mail import (
+#     ConnectionConfig,
+#     FastMail,
+#     MessageSchema,
+#     MessageType,
+#     MultipartSubtypeEnum,
+# )
 from pydantic import BaseModel, EmailStr
 from starlette.responses import JSONResponse
 
@@ -17,21 +19,23 @@ class EmailSchema(BaseModel):
     email: List[EmailStr]
 
 
-MAIL_INBOX_FOLDER = "inbox"
-MAIL_TO = "alban.andrieu@free.fr"
+MAIL_INBOX_FOLDER = os.environ.get("MAIL_INBOX_FOLDER", "inbox")
 
-conf = ConnectionConfig(
-    MAIL_USERNAME="username",
-    MAIL_PASSWORD="XXX",  # noqa: S106 noqa:B106 # nosec B106
-    MAIL_FROM="alban.andrieu@gmail.com",
-    MAIL_PORT=587,
-    MAIL_SERVER="imap.gmail.com",
-    MAIL_FROM_NAME="Alban Andrieu",
-    MAIL_STARTTLS=True,
-    MAIL_SSL_TLS=False,
-    USE_CREDENTIALS=True,
-    VALIDATE_CERTS=True,
-)
+MAIL_TO = os.environ.get("MAIL_TO", "alban.andrieu@free.fr")
+MAIL_FROM = os.environ.get("MAIL_FROM", "alban.andrieu@gmail.com")
+
+# conf = ConnectionConfig(
+#     MAIL_USERNAME=os.environ.get("MAIL_USERNAME", "username"),
+#     MAIL_PASSWORD=os.environ.get("MAIL_PASSWORD", "password"),
+#     MAIL_FROM=MAIL_FROM,
+#     MAIL_PORT=int(os.environ.get("MAIL_PORT", "587")),
+#     MAIL_SERVER=os.environ.get("MAIL_SERVER", "imap.gmail.com"),
+#     MAIL_FROM_NAME=os.environ.get("MAIL_FROM_NAME", "Alban Andrieu"),
+#     MAIL_STARTTLS=True,
+#     MAIL_SSL_TLS=False,
+#     USE_CREDENTIALS=True,
+#     VALIDATE_CERTS=True,
+# )
 
 
 router = APIRouter()
@@ -55,15 +59,15 @@ router = APIRouter()
 async def simple_send(email: EmailSchema) -> JSONResponse:
     html = """<p>Hi this test mail, thanks for using Fastapi-mail</p> """
 
-    message = MessageSchema(
-        subject="Fastapi-Mail module",
-        recipients=email.dict().get("email"),
-        body=html,
-        subtype=MessageType.html,
-    )
+    # message = MessageSchema(
+    #     subject="Fastapi-Mail module",
+    #     recipients=email.dict().get("email"),
+    #     body=html,
+    #     subtype=MessageType.html,
+    # )
 
-    fm = FastMail(conf)
-    await fm.send_message(message)
+    # fm = FastMail(conf)
+    # await fm.send_message(message)
     return JSONResponse(status_code=200, content={"message": "email has been sent"})
 
 
@@ -72,18 +76,18 @@ async def send_in_background(
     background_tasks: BackgroundTasks,
     email: EmailSchema,
 ) -> JSONResponse:
-    message = MessageSchema(
-        subject="Fastapi mail module",
-        recipients=email.dict().get("email"),
-        body="Simple background task",
-        template_body="<b>This is a test email</b>",
-        subtype=MessageType.plain,
-        alternative_body="This is a test email",
-        multipart_subtype=MultipartSubtypeEnum.alternative,
-    )
+    # message = MessageSchema(
+    #     subject="Fastapi mail module",
+    #     recipients=email.dict().get("email"),
+    #     body="Simple background task",
+    #     template_body="<b>This is a test email</b>",
+    #     subtype=MessageType.plain,
+    #     alternative_body="This is a test email",
+    #     multipart_subtype=MultipartSubtypeEnum.alternative,
+    # )
 
-    fm = FastMail(conf)
+    # fm = FastMail(conf)
 
-    background_tasks.add_task(fm.send_message, message)
+    # background_tasks.add_task(fm.send_message, message)
 
     return JSONResponse(status_code=200, content={"message": "email has been sent"})

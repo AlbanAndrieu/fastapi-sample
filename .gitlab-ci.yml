@@ -8,11 +8,11 @@ stages:
   - train
   - review
   - deploy
+  - publish
   - fuzz
   - dast
   - notify
   - dependabot
-  - publish
   - release
 
 services:
@@ -81,7 +81,8 @@ include:
   - template: Security/API-Fuzzing.gitlab-ci.yml
   - template: Security/SAST.gitlab-ci.yml
   - template: DAST.gitlab-ci.yml
-  - template: Security/Dependency-Scanning.gitlab-ci.yml
+  - template: Jobs/Dependency-Scanning.v2.gitlab-ci.yml
+  # - template: Jobs/Dependency-Scanning.latest.gitlab-ci.yml
   - template: Security/Secret-Detection.gitlab-ci.yml
   # - template: Jobs/Container-Scanning.gitlab-ci.yml
 
@@ -174,8 +175,11 @@ variables:
   DEFAULT_COV_ARGS: "--no-ddtrace --no-cov" # --cov-fail-under=1
   # NETLIFY_SITE_ID: '8dc3759f-f33d-424d-9300-d21f859ca183'
   DAST_TARGET_URL: https://fastapi-sample.service.gra.${ENV}.consul
-  DAST_FULL_SCAN: "true" # do a full scan
   DAST_BROWSER_SCAN: "true" # use the browser-based GitLab DAST crawler
+  DAST_FULL_SCAN_ENABLED: "true"
+  # DAST_AUTH_URL: "https://my-site.example/signin"
+  # DAST_AUTH_USERNAME: “john”
+  # DAST_AUTH_PASSWORD: “P@ssw0rd”
   FUZZAPI_TARGET_URL: https://fastapi-sample.service.gra.${ENV}.consul/openapi.json
   FUZZAPI_OPENAPI: https://fastapi-sample.service.gra.${ENV}.consul/openapi.json
   FUZZAPI_PROFILE: Quick-10
@@ -196,6 +200,7 @@ variables:
   MEND_SCA_ORCHESTRATOR_ENABLED: "true"
   MEND_AI_ENABLE_CODE_CAPABILITIES: "true"
   CS_DISABLE_LANGUAGE_VULNERABILITY_SCAN: "false"
+  SECRET_DETECTION_HISTORIC_SCAN: false
 
 .renovate:
   cache:
@@ -227,22 +232,31 @@ run_renovate:
   script:
     - renovate $RENOVATE_EXTRA_FLAGS
 
-# dast:
-#   services: # use services to link your app container to the dast job
-#     # - name: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
-#     - name: $CI_REGISTRY_IMAGE:1.1.1-db93557e
-#       alias: fastapi-sample.service.gra.${ENV}.consul
-dast:
-  stage: dast
-  dast_configuration:
-    site_profile: "DAST API DEV"
-    scanner_profile: "DAST Passive Test"
-
 .dependabot-gitlab:
   stage: dependabot
 
 secret_detection:
   stage: secret-detection
+
+gemnasium-dependency_scanning:
+  dependencies: ["docker-build"]
+
+gemnasium-python-dependency_scanning:
+  allow_failure: false # force pipeline to fail if this job fails
+
+  before_script:
+    - apt-get update -y && apt-get install -y jq
+
+  script:
+    - /analyzer run
+    - HIGH_SEVERITY_COUNT=$(jq '.vulnerabilities | map(select(.severity=="High")) | length' gl-dependency-scanning-report.json )
+    - >
+      if [[ $HIGH_SEVERITY_COUNT -gt 0 ]]
+      then
+        echo "High severity found"; exit 1
+      else
+        echo "No High severity found"
+      fi
 
 # upload_trivy:uat:
 #   extends: .upload_trivy:uat
@@ -341,6 +355,12 @@ test-pytest-poetry:
     - python3 -m pip install --user redis arel
     - python3 -m pipenv install --dev --site-packages --ignore-pipfile
     - export DB_URL=${DB_URL}
+    - export POSTGRES_DRIVER="postgresql"
+    - export POSTGRES_HOST="pg-gra.service.gra.dev.consul"
+    - export POSTGRES_PORT="5432"
+    - export POSTGRES_DB="fastapi_sample_gitlab"
+    - export POSTGRES_USER=${POSTGRES_USER}
+    - export POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     - export LOG_LEVEL=DEBUG
     - echo "ENV is :${ENV}"
     - pytest --cov=${DEFAULT_COV} --cov-report term --cov-report xml:coverage.xml --junitxml pytest-junit.xml ${DEFAULT_COV_ARGS}
@@ -352,7 +372,7 @@ test-pytest:
   interruptible: true
   allow_failure: false
   variables:
-    DEFAULT_COV_ARGS: "--no-ddtrace --no-cov"
+    DEFAULT_COV_ARGS: "--no-ddtrace --cov-fail-under=70"
     DEFAULT_PIPENV_ARGS: "--system --dev --ignore-pipfile" # --dev  --verbose --index=https://package_read:${CI_PIP_GITLABJUSMUNDI_TOKEN}@gitlab.com/api/v4/groups/7364654/-/packages/pypi/simple
     DEFAULT_PYTEST_PACKAGES: "pytest pytest-cov pytest-env"
     KEYCLOAK_SERVER_URL: "https://keycloak-https.service.gra.uat.consul"
@@ -367,6 +387,12 @@ test-pytest:
     - pip install --upgrade pip
     - if [ -n "${DEFAULT_POETRY_OPT_GROUPS}" ]; then ${POETRY_HOME}/bin/poetry install --no-root --with ${DEFAULT_POETRY_OPT_GROUPS}; else ${POETRY_HOME}/bin/poetry install --no-root; fi
     - export DB_URL=${DB_URL}
+    - export POSTGRES_DRIVER="postgresql"
+    - export POSTGRES_HOST="pg-gra.service.gra.dev.consul"
+    - export POSTGRES_PORT="5432"
+    - export POSTGRES_DB="fastapi_sample_gitlab"
+    - export POSTGRES_USER=${POSTGRES_USER}
+    - export POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     - export LOG_LEVEL=DEBUG
     - echo "PATH = $PATH"
     - pytest --cov=${DEFAULT_COV} --cov-report term --cov-report xml:coverage.xml --junitxml pytest-junit.xml ${DEFAULT_COV_ARGS}
@@ -565,6 +591,7 @@ deploy:prod:
 
 pages-deploy:
   image: ${CI_IMAGE_NPM}
+  dependencies: ["unit-tests-npm"]
   stage: publish
   before_script:
     - cd vue-client/
@@ -600,6 +627,13 @@ pages-deploy:
       variables:
         PAGES_PREFIX: "mr-$CI_MERGE_REQUEST_IID"
       when: always
+
+dast:
+  dependencies: ["pages-deploy"]
+  stage: dast
+  dast_configuration:
+    site_profile: "DAST API DEV"
+    scanner_profile: "DAST Passive Test"
 
 publish:
   image: ${CI_IMAGE_NPM}

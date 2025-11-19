@@ -13,25 +13,25 @@ Fastapi sample
 <!-- toc -->
 
 - [Initialize](#initialize)
-  - [Requirements](#requirements)
-  - [Install fastapi-sample as a developer](#install-fastapi-sample-as-a-developer)
-    - [Using virtualenv](#using-virtualenv)
-  - [Getting started](#getting-started)
-  - [Vite UI](#vite-ui)
-  - [Test JWT](#test-jwt)
-  - [Test](#test)
-  - [Jupiter](#jupiter)
-  - [User guide](#user-guide)
-    - [Installation and commands](#installation-and-commands)
-    - [Database demo](#database-demo)
+  * [Requirements](#requirements)
+  * [Install fastapi-sample as a developer](#install-fastapi-sample-as-a-developer)
+    + [Using virtualenv](#using-virtualenv)
+  * [Getting started](#getting-started)
+  * [Vite UI](#vite-ui)
+  * [Test JWT](#test-jwt)
+  * [Test](#test)
+  * [Jupiter](#jupiter)
+  * [User guide](#user-guide)
+    + [Installation and commands](#installation-and-commands)
+    + [Database demo](#database-demo)
 - [Create PostgreSQL postgres on pg-gra.service.gra.dev.consul with Alembic](#create-postgresql-postgres-on-pg-graservicegradevconsul-with-alembic)
-  - [Create PostgreSQL fastapi_sample_gitlab on pg-gra.service.gra.dev.consul by hand](#create-postgresql-fastapi_sample_gitlab-on-pg-graservicegradevconsul-by-hand)
-    - [Temporal demo](#temporal-demo)
-    - [Defect Dojo Parameters](#defect-dojo-parameters)
-  - [Quality check](#quality-check)
-  - [Utility scripts](#utility-scripts)
-  - [Installation and commands](#installation-and-commands-1)
-  - [Update README.md](#update-readmemd)
+  * [Create PostgreSQL fastapi_sample_gitlab on pg-gra.service.gra.dev.consul by hand](#create-postgresql-fastapi_sample_gitlab-on-pg-graservicegradevconsul-by-hand)
+    + [Temporal demo](#temporal-demo)
+    + [Defect Dojo Parameters](#defect-dojo-parameters)
+  * [Quality check](#quality-check)
+  * [Utility scripts](#utility-scripts)
+  * [Installation and commands](#installation-and-commands-1)
+  * [Update README.md](#update-readmemd)
 
 <!-- tocstop -->
 
@@ -93,8 +93,8 @@ use [poetry](https://python-poetry.org/docs/cli/)
 poetry config http-basic.gitlab-ds package_read ${CI_PIP_GITLABJUSMUNDI_TOKEN}
 # export POETRY_GITLAB_TOKEN_GITLAB=${GITLAB_FULL_PRIVATE_TOKEN}
 
-poetry install --no-dev # --dev-only
 poetry install --with format,test,extra,open_telemetry,api,deployment,influxdb,panda,temporal,utils,webui
+poetry install --no-dev # --dev-only
 poetry install --extras "mysql pgsql"
 #poetry install -E mysql -E pgsql
 poetry install --all-extras
@@ -328,18 +328,26 @@ psql -h pg-gra.service.gra.dev.consul -U postgres
 # BW : GRADBINTEGR01 - fastapisample - dev
 CREATE USER fastapisample WITH PASSWORD 'XXX';
 ALTER ROLE fastapisample WITH LOGIN;
-create database fastapi_sample_gitlab with owner fastapisample encoding 'UTF8';
+-- create database fastapi_sample_gitlab with owner fastapisample encoding 'UTF8';
 create database fastapi_sample_dev with owner fastapisample encoding 'UTF8';
 # ALTER USER fastapisample PASSWORD 'XXX';
--- GRANT SELECT ON TABLE public.fastapi_sample_gitlab TO fastapi_sample_dev;
+GRANT ALL ON SCHEMA public TO fastapisample;
+GRANT ALL ON TABLE public.note TO fastapisample;
+GRANT ALL ON TABLE public.sensor_reading TO fastapisample;
+GRANT ALL ON TABLE public."user" TO fastapisample;
+GRANT SELECT, USAGE, UPDATE ON SEQUENCE public.sensor_reading_id_seq TO fastapisample;
+-- GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.note TO fastapisample;
+
 ```
 
 ```
 # for alembic
 DB_USER="postgres"
-DB_PASS="password-reset-XXX"
+DB_PASS="password-reset-XXX" # nosec
 # otherwise classic connection
-DB_URL="postgresql+psycopg://postgres:password-reset-@127.0.0.1:5432/fastapi_sample_gitlab" # nosec
+DB_URL="postgresql://postgres:password-reset-XXX@127.0.0.1:5432/fastapi_sample_dev" # nosec
+# Remove asyncpg for alembic to be able to init DB as fastapisample
+DB_URL="postgresql://fastapisample:password-reset-XXX@127.0.0.1:5432/fastapi_sample_dev" # nosec
 ```
 
 ### Temporal demo

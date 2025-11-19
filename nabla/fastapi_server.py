@@ -60,7 +60,6 @@ from nabla.config_settings import (
     client,
     get_settings,
 )
-from nabla.utils.email import conf
 from nabla.utils.log_config import LogMiddleware, setup_logging
 
 # We need to load as soon as possible the setup_loggers
@@ -459,7 +458,7 @@ set_user(
     tracer,
     user_id,
     name="AlbanAndrieu",
-    email=conf.MAIL_FROM,
+    email=os.environ.get("MAIL_FROM", "alban.andrieu@gmail.com"),
     scope="sample_scope",
     role="manager",
     session_id="id_session",

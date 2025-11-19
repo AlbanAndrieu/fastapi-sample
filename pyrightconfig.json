@@ -1,6 +1,6 @@
 {
-	"exclude": ["**/__pycache__", "noxfile.py", ".venv"],
-	"pythonVersion": "3.10",
+	"exclude": ["**/__pycache__", "noxfile.py", ".venv", ".direnv", ".ansible"],
+	"pythonVersion": "3.12",
 	"pythonPlatform": "All",
 	"typeCheckingMode": "standard",
 

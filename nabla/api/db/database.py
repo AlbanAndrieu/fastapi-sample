@@ -1,3 +1,4 @@
+import os
 from functools import lru_cache
 from typing import AsyncGenerator, Final
 
@@ -6,16 +7,36 @@ import psycopg_pool
 from databases import Database
 from ddtrace import patch
 from fastapi import Depends
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import URL, Engine, create_engine
 
 # With PostgreSQL
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 from nabla.config_settings import get_settings
+from nabla.utils.logger import logger
 
 # Database url if none is passed the default one is used
 DB_URL: Final[str] = str(get_settings().db_url)
+
+DB_URL_INIT = URL.create(
+    drivername=os.environ["POSTGRES_DRIVER"].replace("+psycopg", "").replace("+asyncpg", ""),  # NOT "postgresql+psycopg", for initialisation
+    username=os.environ["POSTGRES_USER"],
+    # password=SecretStr(os.environ["POSTGRES_PASSWORD"]).get_secret_value(),
+    password=os.environ["POSTGRES_PASSWORD"],
+    host=os.environ["POSTGRES_HOST"],
+    port=int(os.environ["POSTGRES_PORT"]),  # type: ignore
+    database=os.environ["POSTGRES_DB"],
+)
+
+
+logger.info("🛢️ Postgres configuration")
+# TODO: exemple of password to detect
+# Below is a security leak on purpose to detect if the password is in the logs
+logger.info(f"Postgres URL: {DB_URL}")
+logger.info(f"Postgres URL INIT: {DB_URL_INIT.render_as_string(True)}")
+logger.info(f"Postgres pass: {os.getenv('POSTGRES_PASSWORD')}")
+logger.info(f"Postgres driver: {os.getenv('POSTGRES_DRIVER')}")
 
 patch(sqlalchemy=True)
 
@@ -29,7 +50,8 @@ def orjson_serializer(obj):
 
 # Create a psycopg_pool connection pool
 db_pool = psycopg_pool.ConnectionPool(
-    conninfo=DB_URL.replace("+psycopg", "").replace("+asyncpg", ""),
+    # conninfo=DB_URL.render_as_string(True),
+    conninfo=DB_URL,
     min_size=0,
     max_size=1,
     max_idle=5,
@@ -57,8 +79,9 @@ db_pool = psycopg_pool.ConnectionPool(
 @lru_cache(maxsize=1)
 def get_engine() -> Engine:
     # Create a SQLAlchemy engine without connection pool
+    # Used by pytest
     return create_engine(
-        url=DB_URL,
+        url=DB_URL_INIT,
         json_serializer=orjson_serializer,
         json_deserializer=orjson.loads,
     )
@@ -121,4 +144,5 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
 
 # Databases query builder
 
-database = Database(DB_URL.replace("+psycopg", "").replace("+asyncpg", ""), max_inactive_connection_lifetime=300)
+# database = Database(DB_URL.replace("+psycopg", "").replace("+asyncpg", ""), max_inactive_connection_lifetime=300)
+database = Database(DB_URL, max_inactive_connection_lifetime=300)

@@ -11,6 +11,8 @@ echo -e "${green} Run test ${NC}"
 #pip install coverage==4.5.3
 #coverage --version || true
 
+# curl --head -H "Authorization: ${UNLEASH_API_TOKEN}" https://gitlab.com/api/v4/feature_flags/unleash/46788175
+
 DEFAULT_COV_TARGET="--cov-report xml:reports/coverage.xml --cov-append"
 DEFAULT_COV_ARGS="--cov-fail-under=70"
 

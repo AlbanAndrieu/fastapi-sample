@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Annotated, ClassVar, Literal, Optional
 
 from keycloak import KeycloakOpenID
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from UnleashClient import UnleashClient
 
@@ -27,6 +27,7 @@ DD_TRACE_AGENT_PORT = os.environ.get("DD_TRACE_AGENT_PORT", "8126")
 
 REDIS_HOST = os.environ.get("REDIS_HOST", "127.0.0.1")
 REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))  # [invalid-envvar-default]
+REDIS_PASSWORD = SecretStr(os.environ.get("REDIS_PASSWORD", "password"))
 
 # http://grpc.jaeger-collector-grpc.service.gra.dev.consul
 # http://jaeger-collector-grpc.service.gra.dev.consul:14250
@@ -65,8 +66,8 @@ APP_DOMAIN = os.environ.get(
 )
 
 UNLEASH_API_URL = os.environ.get("UNLEASH_API_URL", "https://gitlab.com/api/v4/feature_flags/unleash/46788175")
-UNLEASH_APP_NAME = os.environ.get("UNLEASH_APP_NAME", "fastapi-sample")
-UNLEASH_API_TOKEN = os.environ.get("UNLEASH_API_TOKEN", "XXX")
+UNLEASH_APP_NAME = os.environ.get("UNLEASH_APP_NAME", "staging")
+UNLEASH_INSTANCE_ID = os.environ.get("UNLEASH_INSTANCE_ID", "XXX")
 
 
 class AzureOpenAiInstance(BaseModel):
@@ -121,7 +122,7 @@ class _Settings(BaseSettings):
     ]
     db_password: Annotated[
         str,
-        Field(default="back", description="The database password", min_length=1),
+        Field(default="backpass", description="The database password", min_length=8),
     ]
     db_port: int = 5432
 
@@ -138,8 +139,8 @@ class _Settings(BaseSettings):
             min_length=1,
         ),
     ]
-    ovh_password: str = "password"  # noqa: S105
-    ovh_project_name: str = Annotated[
+    ovh_password: Annotated[SecretStr, Field(min_length=8)]
+    ovh_project_name: str = Annotated[  # pyright: ignore[reportAssignmentType]
         str,
         Field(
             alias="123456789",
@@ -150,12 +151,12 @@ class _Settings(BaseSettings):
     ]
     ovh_container: str = "nabla_models"
 
-    oauth_token_secret: str = "XXX"  # noqa: S105
+    oauth_token_secret: Annotated[SecretStr, Field(min_length=8)]
 
     keycloak_server_url: Annotated[str, Field(min_length=1)]
     keycloak_realm: Annotated[str, Field(min_length=1)]
     keycloak_client_id: Annotated[str, Field(min_length=1)]
-    keycloak_client_secret: Annotated[str, Field(min_length=1)]
+    keycloak_client_secret: Annotated[SecretStr, Field(min_length=8)]
 
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
 
@@ -190,7 +191,7 @@ keycloak_openid = KeycloakOpenID(
     server_url=get_settings().keycloak_server_url,
     realm_name=get_settings().keycloak_realm,
     client_id=get_settings().keycloak_client_id,
-    client_secret_key=get_settings().keycloak_client_secret,
+    client_secret_key=get_settings().keycloak_client_secret.get_secret_value(),
 )
 
 
@@ -201,7 +202,12 @@ def get_openid_config():
 client = UnleashClient(
     url=UNLEASH_API_URL,
     app_name=UNLEASH_APP_NAME,
-    custom_headers={"Authorization": UNLEASH_API_TOKEN},
+    environment="staging",
+    instance_id=UNLEASH_INSTANCE_ID,
+    # custom_headers={"Authorization": UNLEASH_INSTANCE_ID},
+    custom_options={
+        "verify": False,
+    },
 )
 
 client.initialize_client()

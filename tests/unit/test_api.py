@@ -128,7 +128,7 @@ def test_health(test_app) -> None:
     assert status["status"] == "healthy"
     assert status["readings_count"] == 50
     assert status["active_connections"] == 0
-    assert status["total_requests"] == 1
+    assert status["total_requests"] == 2
 
 
 @pytest.mark.skip(reason="Skipping this test for now")

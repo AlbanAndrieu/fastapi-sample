@@ -1,4 +1,7 @@
+import typing
 from datetime import datetime as dt
+
+from databases.interfaces import Record
 
 from nabla.api.db.database import SessionLocal, database
 from nabla.api.notes.models import Note, NoteResponse, notes
@@ -31,17 +34,17 @@ async def post(payload: NoteResponse):
     # return await database.execute(query=query)
 
 
-async def get(note_id: int):
+async def get(note_id: int) -> typing.Optional[Record]:
     query = notes.select().where(notes.c.id == note_id)
     return await database.fetch_one(query=query)
 
 
-async def get_all():
+async def get_all() -> typing.List[Record]:
     query = notes.select()
     return await database.fetch_all(query=query)
 
 
-async def put(note_id: int, payload=NoteResponse):
+async def put(note_id: int, payload=NoteResponse) -> typing.Any:
     created_date = dt.now().strftime("%Y-%m-%d %H:%M")
     query = (
         notes.update()
@@ -59,6 +62,6 @@ async def put(note_id: int, payload=NoteResponse):
     return await database.execute(query=query)
 
 
-async def delete(note_id: int):
+async def delete(note_id: int) -> typing.Any:
     query = notes.delete().where(notes.c.id == note_id)
     return await database.execute(query=query)

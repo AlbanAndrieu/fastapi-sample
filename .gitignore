@@ -9,7 +9,6 @@ data/*
 notebooks/.ipynb_checkpoints
 *mlruns
 .editorconfig
-.dvc/config
 **/*.log
 docker-dive-stats.json
 scan-report*.md

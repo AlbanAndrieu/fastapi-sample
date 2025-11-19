@@ -11,6 +11,7 @@ PORT          = 8091
 NUMPROC := $(shell grep -c ^processor /proc/cpuinfo)
 # Only take half as many processors as available
 NPROC := $(shell echo "$(NUMPROC)/2"|bc)
+NPROC := 1
 
 # Image
 APP_NAME     = fastapi-sample
@@ -49,6 +50,10 @@ DOCKER_RUN = "export GIT_BRANCH=$(GIT_BRANCH) && docker-compose run"
 	            # there is no name conflict between your files and your targets.
 
 ## —— 🐝 The Strangebuzz Docker Makefile 🐝 ———————————————————————————————————
+
+_welcome: ## Print a Welcome screen
+	curl -s https://raw.githubusercontent.com/AlbanAndrieu/AlbanAndrieu/master/welcome.txt
+
 .PHONY: help Makefile
 help: ## Outputs this help screen
 	@grep -E '(^[a-zA-Z0-9_-]+:.*?##.*$$)|(^##)' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}{printf "\033[32m%-30s\033[0m %s\n", $$1, $$2}' | sed -e 's/\[32m##/[33m/'
@@ -185,8 +190,8 @@ up-gunicorn:
 	.venv/bin/ddtrace-run .venv/bin/gunicorn main:app --reload --name fastapi-sample -k uvicorn_worker.UvicornWorker \
 	--workers $(NPROC) \
 	--max-requests 5000 --max-requests-jitter 500 \
-  --graceful-timeout 30 --timeout 60 --keep-alive 5 \
-  --threads 1 --worker-connections 1000 \
+    --graceful-timeout 30 --timeout 60 --keep-alive 5 \
+    --threads 1 --worker-connections 1000 \
 	--bind 0.0.0.0:$(PORT) --log-level info --access-logfile -
 
 
