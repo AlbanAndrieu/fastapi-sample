@@ -437,21 +437,22 @@ repos:
         entry: zricethezav/gitleaks protect --verbose --redact --staged
 
   ### Ansible ###
-  - repo: https://github.com/ansible-community/ansible-lint.git
-    rev: v25.9.2
-    hooks:
-      - id: ansible-lint
-        name: "📜 ansible - Lint Ansible"
-        # args: [--verbose]
-        files: \.(yaml|yml)$
-        exclude: >
-          (?x)^(
-            .travis.yml|
-            docker/|
-            requirements.yml|
-            playbooks/group_vars/all/vault.yml|
-            .gitlab-ci.yml|
-          )$
+  # Disable because too slow
+  # - repo: https://github.com/ansible-community/ansible-lint.git
+  #   rev: v25.9.2
+  #   hooks:
+  #     - id: ansible-lint
+  #       name: "📜 ansible - Lint Ansible"
+  #       # args: [--verbose]
+  #       files: \.(yaml|yml)$
+  #       exclude: >
+  #         (?x)^(
+  #           .travis.yml|
+  #           docker/|
+  #           requirements.yml|
+  #           playbooks/group_vars/all/vault.yml|
+  #           .gitlab-ci.yml|
+  #         )$
   - repo: https://github.com/adrienverge/yamllint.git
     rev: v1.37.1
     hooks:
