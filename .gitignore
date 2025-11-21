@@ -19,6 +19,7 @@ output/
 vue-client/.output/
 
 .netlify/
+.vercel/
 
 # dotenv environment variable files
 
@@ -407,3 +408,4 @@ buildNumber.properties
 
 .dev.vars
 .wrangler/
+.vercel

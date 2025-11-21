@@ -1,10 +1,10 @@
 import asyncio
+import os
 import random
 import uuid
 from typing import Annotated, Optional
 
 import pybreaker
-from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi_cache.decorator import cache
 from fastapi_users import BaseUserManager, FastAPIUsers, UUIDIDMixin
 from fastapi_users.authentication import (
@@ -21,6 +21,7 @@ from jwt import PyJWTError
 from sqlalchemy import select
 from sqlmodel import Session
 
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from nabla.api.auth.token import (
     ACCESS_TOKEN_SECRET_KEY,
     TokenData,
