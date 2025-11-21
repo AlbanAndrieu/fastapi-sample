@@ -129,40 +129,6 @@ job "fastapi-sample" {
       mode     = var.env == "dev" ? "fail" : "delay"
     }
 
-    # volume "fastapi-sample-juicefs-test" {
-    #   type            = "csi"
-    #   source          = "juicefs-gra-sample-${var.env}"
-    #   attachment_mode = "file-system"
-    #   access_mode     = "multi-node-multi-writer"
-    # }
-
-    # task "prep-disk" {
-    #   driver = "docker"
-	#
-    #   volume_mount {
-    #     volume      = "fastapi-sample-juicefs-test"
-    #     destination = "/data/" #<-- in the container
-    #     read_only   = false
-    #   }
-	#
-    #   config {
-    #     image        = "busybox:latest"
-    #     command      = "sh"
-    #     args    = ["-c", "chown -R 999:999 /data/ "]
-    #   }
-	#
-    #   resources {
-    #     cpu    = 200
-    #     memory = 128
-    #   }
-	#
-    #   lifecycle {
-    #     hook    = "prestart"
-    #     sidecar = false
-    #   }
-	#
-    # } # task prep-disk
-
     task "fastapi-sample" {
       driver = "docker"
 
@@ -196,12 +162,6 @@ job "fastapi-sample" {
       kill_timeout = "30s"
       # See https://moonape1226.medium.com/achieve-zero-downtime-when-upgrading-nomad-cluster-9c97d25606ad
       shutdown_delay = "10s"
-
-      # volume_mount {
-      #   volume      = "fastapi-sample-juicefs-test"
-      #   destination = "/usr/share/data/"
-      #   read_only   = false
-      # }
 
       env {
         FASTAPI_ENV = "development"
@@ -447,13 +407,6 @@ EOF
       mode     = var.env == "dev" ? "fail" : "delay"
     }
 
-    # volume "fastapi-sample-test" {
-    #   type            = "csi"
-    #   source          = "cinder-gra-sample-${var.env}"
-    #   attachment_mode = "file-system"
-    #   access_mode     = "multi-node-multi-writer"
-    # }
-
     task "fastapi-sample-redis" {
       driver = "docker"
 
@@ -503,12 +456,6 @@ EOF
       env {
         AWS_REGION = "gra"
       }
-
-      # volume_mount {
-      #   volume      = "fastapi-sample-test"
-      #   destination = "/data"
-      #   read_only   = false
-      # }
 
       service {
         name = "fastapi-sample-redis"

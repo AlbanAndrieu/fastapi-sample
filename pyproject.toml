@@ -507,3 +507,10 @@ default-version = "0.0.0+unknown"
 
 [tool.commitizen]
 name = "cz_gitmoji"
+
+[tool.vercel.scripts]
+build = "python build.py"
+
+[project.scripts]
+app = "server:app"
+# app = "nabla.server:app"
