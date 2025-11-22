@@ -48,7 +48,7 @@ include:
     ref: main
     file: "/templates/mega-linter.gitlab-ci.yml"
 
-  - component: $CI_SERVER_FQDN/guided-explorations/ci-components/ultimate-auto-semversioning/ultimate-auto-semversioning@1.2.8
+  # - component: $CI_SERVER_FQDN/guided-explorations/ci-components/ultimate-auto-semversioning/ultimate-auto-semversioning@1.2.8
 
   - component: $CI_SERVER_FQDN/to-be-continuous/semantic-release/gitlab-ci-semrel@3.11.2
     inputs:
@@ -201,6 +201,7 @@ variables:
   MEND_AI_ENABLE_CODE_CAPABILITIES: "true"
   CS_DISABLE_LANGUAGE_VULNERABILITY_SCAN: "false"
   SECRET_DETECTION_HISTORIC_SCAN: false
+  IGNORE_NORMALISATION_GIT_HEAD_MOVE: "true"
 
 .renovate:
   cache:

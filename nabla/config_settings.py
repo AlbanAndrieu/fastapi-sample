@@ -200,9 +200,9 @@ def get_openid_config():
 
 
 client = UnleashClient(
-    url=UNLEASH_API_URL,
-    app_name=UNLEASH_APP_NAME,
-    environment="staging",
+    url="https://gitlab.com/api/v4/feature_flags/unleash/46788175",  # UNLEASH_API_URL,
+    app_name="production",  # UNLEASH_APP_NAME,
+    # environment="staging",
     instance_id=UNLEASH_INSTANCE_ID,
     # custom_headers={"Authorization": UNLEASH_INSTANCE_ID},
     custom_options={
