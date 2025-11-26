@@ -7,16 +7,21 @@
 		"dev": "vite",
 		"generate": "nuxt generate",
 		"build": "vite build",
-		"preview": "vite preview"
+		"preview": "vite preview",
+		"postinstall": "nuxt prepare"
 	},
 	"peerDependencies": {
-		"nuxt": ">=2.15.8",
+		"nuxt": ">=4.2.0",
 		"sass": ">=1.49.4"
 	},
 	"dependencies": {
 		"axios": "^1.2.4",
 		"@nuxt/kit": "^3.12.4",
-		"vue": "^3.2.45"
+		"@popperjs/core": "^2.11.8",
+		"nuxt": "^4.2.0",
+		"usebootstrap": "^3.5.107",
+		"vue": "^3.5.22",
+		"vue-router": "^4.6.3"
 	},
 	"devDependencies": {
 		"eslint": "^9.7.0",

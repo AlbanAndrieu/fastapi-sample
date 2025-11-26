@@ -48,7 +48,7 @@ include:
     ref: main
     file: "/templates/mega-linter.gitlab-ci.yml"
 
-  - component: $CI_SERVER_FQDN/guided-explorations/ci-components/ultimate-auto-semversioning/ultimate-auto-semversioning@1.2.8
+  # - component: $CI_SERVER_FQDN/guided-explorations/ci-components/ultimate-auto-semversioning/ultimate-auto-semversioning@1.2.8
 
   - component: $CI_SERVER_FQDN/to-be-continuous/semantic-release/gitlab-ci-semrel@3.11.2
     inputs:
@@ -175,9 +175,9 @@ variables:
   DEFAULT_COV_ARGS: "--no-ddtrace --no-cov" # --cov-fail-under=1
   # NETLIFY_SITE_ID: '8dc3759f-f33d-424d-9300-d21f859ca183'
   DAST_TARGET_URL: https://fastapi-sample.service.gra.${ENV}.consul
+  DAST_AUTH_URL: "https://fastapi-sample.service.gra.${ENV}.consul/login"
   DAST_BROWSER_SCAN: "true" # use the browser-based GitLab DAST crawler
   DAST_FULL_SCAN_ENABLED: "true"
-  # DAST_AUTH_URL: "https://my-site.example/signin"
   # DAST_AUTH_USERNAME: “john”
   # DAST_AUTH_PASSWORD: “P@ssw0rd”
   FUZZAPI_TARGET_URL: https://fastapi-sample.service.gra.${ENV}.consul/openapi.json
@@ -201,6 +201,7 @@ variables:
   MEND_AI_ENABLE_CODE_CAPABILITIES: "true"
   CS_DISABLE_LANGUAGE_VULNERABILITY_SCAN: "false"
   SECRET_DETECTION_HISTORIC_SCAN: false
+  IGNORE_NORMALISATION_GIT_HEAD_MOVE: "true"
 
 .renovate:
   cache:
@@ -631,6 +632,22 @@ pages-deploy:
 dast:
   dependencies: ["pages-deploy"]
   stage: dast
+  tags:
+    - jusmundi-nomad-runner
+  variables:
+    # DAST_TARGET_URL: "https://fastapi-sample.service.gra.${ENV}.consul"
+    # DAST_AUTH_URL: "https://fastapi-sample.service.gra.${ENV}.consul/login"
+    DAST_AUTH_USERNAME_FIELD: "css:[name=username]"
+    DAST_AUTH_PASSWORD_FIELD: "css:[name=password]"
+    DAST_AUTH_SUBMIT_FIELD: "css:button[type=submit]"
+    # DAST_TARGET_CHECK_TIMEOUT: "5m"  # Wait up to 5 minutes
+    # DAST_AUTH_COOKIE_NAMES: "sessionID,refreshToken"
+    # DAST_AUTH_SUCCESS_IF_AT_URL: "https://fastapi-sample.service.gra.${ENV}.consul/admin"
+    DAST_SCOPE_EXCLUDE_URLS: "https://fastapi-sample.service.gra.${ENV}.consul/logout,/user/.*/logout"
+    # DAST_BROWSER_SCAN: "true" # use the browser-based GitLab DAST crawler
+    DAST_PAGE_READY_AFTER_NAVIGATION_TIMEOUT: "45s"
+    DAST_PAGE_READY_AFTER_ACTION_TIMEOUT: "15s"
+    DAST_PAGE_DOM_READY_TIMEOUT: "15s"
   dast_configuration:
     site_profile: "DAST API DEV"
     scanner_profile: "DAST Passive Test"
