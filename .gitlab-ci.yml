@@ -632,6 +632,8 @@ pages-deploy:
 dast:
   dependencies: ["pages-deploy"]
   stage: dast
+  tags:
+    - jusmundi-nomad-runner
   dast_configuration:
     site_profile: "DAST API DEV"
     scanner_profile: "DAST Passive Test"
