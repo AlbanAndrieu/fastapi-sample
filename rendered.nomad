@@ -1,6 +1,7 @@
+
 # nomad job stop --namespace=* -purge fastapi-sample
 # aws --endpoint-url https://s3.gra.perf.cloud.ovh.net --profile s3-dev s3 rm s3://juicefs-gra-sample-${NOMAD_VAR_env} --recursive --exclude "*juicefs_uuid"
-# nomad job run -var env=uat -var team=uat job.nomad
+# nomad job run -var env=dev -var team=dev rendered.nomad
 
 variable "env" {
   type    = string
@@ -129,11 +130,45 @@ job "fastapi-sample" {
       mode     = var.env == "dev" ? "fail" : "delay"
     }
 
+    # volume "fastapi-sample-juicefs-test" {
+    #   type            = "csi"
+    #   source          = "juicefs-gra-sample-${var.env}"
+    #   attachment_mode = "file-system"
+    #   access_mode     = "multi-node-multi-writer"
+    # }
+
+    # task "prep-disk" {
+    #   driver = "docker"
+	#
+    #   volume_mount {
+    #     volume      = "fastapi-sample-juicefs-test"
+    #     destination = "/data/" #<-- in the container
+    #     read_only   = false
+    #   }
+	#
+    #   config {
+    #     image        = "busybox:latest"
+    #     command      = "sh"
+    #     args    = ["-c", "chown -R 999:999 /data/ "]
+    #   }
+	#
+    #   resources {
+    #     cpu    = 200
+    #     memory = 128
+    #   }
+	#
+    #   lifecycle {
+    #     hook    = "prestart"
+    #     sidecar = false
+    #   }
+	#
+    # } # task prep-disk
+
     task "fastapi-sample" {
       driver = "docker"
 
       config {
-        image = "[[ .CONTAINER_IMAGE ]]"
+        image = "registry.gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample:dev-2025-10-26.1-591ee5eb"
         ports = ["http"]
 
         labels = [
@@ -163,14 +198,20 @@ job "fastapi-sample" {
       # See https://moonape1226.medium.com/achieve-zero-downtime-when-upgrading-nomad-cluster-9c97d25606ad
       shutdown_delay = "10s"
 
+      # volume_mount {
+      #   volume      = "fastapi-sample-juicefs-test"
+      #   destination = "/usr/share/data/"
+      #   read_only   = false
+      # }
+
       env {
         FASTAPI_ENV = "development"
         FASTMCP_EXPERIMENTAL_ENABLE_NEW_OPENAPI_PARSER=true
         SENTRY_ENVIRONMENT = "development"
-        SENTRY_RELEASE = "[[ .CI_COMMIT_TAG ]]"
+        SENTRY_RELEASE = "dev-2025-10-26.1"
         SENTRY_DSN = "" # Disabled
-        DD_VERSION = "[[ .CI_COMMIT_TAG ]]"
-        DD_GIT_COMMIT_SHA = "[[ .CI_COMMIT_SHA ]]"
+        DD_VERSION = "dev-2025-10-26.1"
+        DD_GIT_COMMIT_SHA = "591ee5eb8a5655dfa473680a88390a1c8e87c845"
         DD_GIT_REPOSITORY_URL = "git@gitlab.com:jusmundi-group/proof-of-concept/fastapi-sample.git"
         DD_TRACE_SAMPLING_RULES = "[{\"service\":\"fastapi-sample\",\"resource\":\"GET /metrics\",\"sample_rate\":0.01},{\"service\":\"fastapi-sample\",\"resource\":\"GET /health\",\"sample_rate\":0.01},{\"service\":\"fastapi-sample\",\"resource\":\"GET /v1/ping\",\"sample_rate\":0.01},{\"service\":\"fastapi-sample\",\"resource\":\"GET /v2/ping\",\"sample_rate\":0.01},{\"service\":\"fastapi-sample\",\"resource\":\"GET /ping\",\"sample_rate\":0.01},{\"service\":\"fastapi-sample\",\"resource\":\"GET /cpu_task\",\"sample_rate\":1},{\"service\":\"fastapi-sample\",\"resource\":\"POST /io_task\",\"sample_rate\":1}]"
         # DD_PROFILING_PYTORCH_ENABLED=true
@@ -194,6 +235,7 @@ job "fastapi-sample" {
         TARGET_ONE_HOST = "fastapi-sample.service.gra.${var.env}.consul"
         TARGET_TWO_HOST = "fastapi-sample.service.gra.${var.env}.consul"
         ENABLE_METRICS=true
+        POSTGRES_DRIVER="postgresql"
       }
 
       vault {
@@ -407,6 +449,13 @@ EOF
       mode     = var.env == "dev" ? "fail" : "delay"
     }
 
+    # volume "fastapi-sample-test" {
+    #   type            = "csi"
+    #   source          = "cinder-gra-sample-${var.env}"
+    #   attachment_mode = "file-system"
+    #   access_mode     = "multi-node-multi-writer"
+    # }
+
     task "fastapi-sample-redis" {
       driver = "docker"
 
@@ -456,6 +505,12 @@ EOF
       env {
         AWS_REGION = "gra"
       }
+
+      # volume_mount {
+      #   volume      = "fastapi-sample-test"
+      #   destination = "/data"
+      #   read_only   = false
+      # }
 
       service {
         name = "fastapi-sample-redis"

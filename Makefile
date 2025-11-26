@@ -143,12 +143,6 @@ build-buildah-docker: ## Build container with buildah
 	@echo "=> Building image..."
 	buildah bud -t $(IMAGE) --build-arg CI_PIP_GITLABJUSMUNDI_TOKEN=$${CI_PIP_GITLABJUSMUNDI_TOKEN} .
 
-## —— Buildah 🐶 ————————————————————————————————————————————————————————————————
-.PHONY: build-buildah
-build-buildah: ## Build container with buildah
-	@echo "=> Building image..."
-	./build-oci.sh
-
 ## —— Build 🚀 —————————————————————————————————————————————————————————————————
 .PHONY: build
 build: build-docker

@@ -14,10 +14,14 @@ from ddtrace import config, patch, tracer
 from ddtrace.contrib.trace_utils import set_user
 from ddtrace.profiling import Profiler
 from ddtrace.trace import TraceFilter
-from fastapi import APIRouter, FastAPI, Request
 from fastapi.concurrency import asynccontextmanager
 from fastapi.openapi.utils import get_openapi
-from fastapi.responses import HTMLResponse, JSONResponse, ORJSONResponse
+from fastapi.responses import (
+    HTMLResponse,
+    JSONResponse,
+    ORJSONResponse,
+    RedirectResponse,
+)
 from fastapi.templating import Jinja2Templates
 from fastapi_cache import FastAPICache
 from fastapi_cache.backends.inmemory import InMemoryBackend
@@ -34,6 +38,7 @@ from sqlmodel import select
 from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Mount
 
+from fastapi import APIRouter, FastAPI, Request
 from nabla.api import ping, v1, v2
 from nabla.api.auth import keycloak
 from nabla.api.db.database import SessionLocal, database, engine, init_db
@@ -60,6 +65,9 @@ from nabla.config_settings import (
     client,
     get_settings,
 )
+
+# Disable Unleash integration if env variable is set to "false"
+UNLEASH_ENABLED = os.getenv("UNLEASH_ENABLED", "False").lower() == "true"
 from nabla.utils.log_config import LogMiddleware, setup_logging
 
 # We need to load as soon as possible the setup_loggers
@@ -209,7 +217,11 @@ def initialize_api() -> FastAPI:
         default_response_class=ORJSONResponse,
     )
 
-    if client.is_enabled("rate_limiter"):
+    if not UNLEASH_ENABLED:
+        logger.warning("UNLEASH integration is disabled via UNLEASH_ENABLED env variable.")
+        # Optionally, you can skip or mock any Unleash-related setup here
+
+    if UNLEASH_ENABLED or client.is_enabled("rate_limiter"):
         app.add_exception_handler(
             RateLimitExceeded,
             # _rate_limit_exceeded_handler,
@@ -221,10 +233,10 @@ def initialize_api() -> FastAPI:
     else:
         logger.warning("Feature flag : rate_limiter is not enabled")
 
-    if client.is_enabled("logging_requests"):
+    if UNLEASH_ENABLED or client.is_enabled("logging_requests"):
         app.add_middleware(LogMiddleware)
 
-    if client.is_enabled("cors"):
+    if UNLEASH_ENABLED or client.is_enabled("cors"):
         origins = [
             "http://localhost",
             "http://localhost:8080",
@@ -245,7 +257,7 @@ def initialize_api() -> FastAPI:
     else:
         logger.warning("Feature flag : cors is not enabled")
 
-    if client.is_enabled("logging_metrics"):
+    if UNLEASH_ENABLED or client.is_enabled("logging_metrics"):
         # Setting metrics middleware
         # PrometheusMiddleware seems not working BUT below metrics_middleware works
         app.add_middleware(
@@ -356,7 +368,7 @@ def initialize_api() -> FastAPI:
 
     app.add_api_websocket_route("/ws/sensor", websocket_endpoint)
 
-    if client.is_enabled("admin_panel"):
+    if not UNLEASH_ENABLED or client.is_enabled("admin_panel"):
         # Create admin
         admin = Admin(app, engine, title="Example: SQLAlchemy")
 
@@ -375,13 +387,14 @@ mcp = FastMCP.from_fastapi(app=app, name="Sample MCP")
 # 2. Create the MCP's ASGI app
 mcp_app = mcp.http_app(path="/mcp")
 
-if client.is_enabled("mcp"):
+if not UNLEASH_ENABLED or client.is_enabled("mcp"):
     app.mount("/llm", mcp_app)
     # Now you have:
     # - Regular API: http://localhost:8091/version
     # - LLM-friendly MCP: http://localhost:8091/llm/mcp/
     # Both served from the same FastAPI application!
-
+elif not UNLEASH_ENABLED:
+    logger.warning("MCP feature not enabled because UNLEASH_ENABLED is set.")
 else:
     logger.warning("Feature flag : mcp is not enabled")
 
@@ -520,6 +533,347 @@ def dashboard(request: Request):
     )
 
 
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    # /vercel.svg is automatically served when included in the public/** directory.
+    return RedirectResponse("/vercel.svg", status_code=307)
+
+
+@app.get("/api/data")
+def get_sample_data():
+    return {
+        "data": [
+            {"id": 1, "name": "Sample Item 1", "value": 100},
+            {"id": 2, "name": "Sample Item 2", "value": 200},
+            {"id": 3, "name": "Sample Item 3", "value": 300},
+        ],
+        "total": 3,
+        "timestamp": "2024-01-01T00:00:00Z",
+    }
+
+
+@app.get("/api/items/{item_id}")
+def get_item(item_id: int):
+    return {
+        "item": {
+            "id": item_id,
+            "name": "Sample Item " + str(item_id),
+            "value": item_id * 100,
+        },
+        "timestamp": "2024-01-01T00:00:00Z",
+    }
+
+
+@app.get("/api", response_class=HTMLResponse)
+def read_root():
+    return """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Vercel + FastAPI</title>
+        <link rel="icon" type="image/x-icon" href="/favicon.ico">
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+                background-color: #000000;
+                color: #ffffff;
+                line-height: 1.6;
+                min-height: 100vh;
+                display: flex;
+                flex-direction: column;
+            }
+
+            header {
+                border-bottom: 1px solid #333333;
+                padding: 0;
+            }
+
+            nav {
+                max-width: 1200px;
+                margin: 0 auto;
+                display: flex;
+                align-items: center;
+                padding: 1rem 2rem;
+                gap: 2rem;
+            }
+
+            .logo {
+                font-size: 1.25rem;
+                font-weight: 600;
+                color: #ffffff;
+                text-decoration: none;
+            }
+
+            .nav-links {
+                display: flex;
+                gap: 1.5rem;
+                margin-left: auto;
+            }
+
+            .nav-links a {
+                text-decoration: none;
+                color: #888888;
+                padding: 0.5rem 1rem;
+                border-radius: 6px;
+                transition: all 0.2s ease;
+                font-size: 0.875rem;
+                font-weight: 500;
+            }
+
+            .nav-links a:hover {
+                color: #ffffff;
+                background-color: #111111;
+            }
+
+            main {
+                flex: 1;
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 4rem 2rem;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+            }
+
+            .hero {
+                margin-bottom: 3rem;
+            }
+
+            .hero-code {
+                margin-top: 2rem;
+                width: 100%;
+                max-width: 900px;
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            }
+
+            .hero-code pre {
+                background-color: #0a0a0a;
+                border: 1px solid #333333;
+                border-radius: 8px;
+                padding: 1.5rem;
+                text-align: left;
+                grid-column: 1 / -1;
+            }
+
+            h1 {
+                font-size: 3rem;
+                font-weight: 700;
+                margin-bottom: 1rem;
+                background: linear-gradient(to right, #ffffff, #888888);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+            }
+
+            .subtitle {
+                font-size: 1.25rem;
+                color: #888888;
+                margin-bottom: 2rem;
+                max-width: 600px;
+            }
+
+            .cards {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                gap: 1.5rem;
+                width: 100%;
+                max-width: 900px;
+            }
+
+            .card {
+                background-color: #111111;
+                border: 1px solid #333333;
+                border-radius: 8px;
+                padding: 1.5rem;
+                transition: all 0.2s ease;
+                text-align: left;
+            }
+
+            .card:hover {
+                border-color: #555555;
+                transform: translateY(-2px);
+            }
+
+            .card h3 {
+                font-size: 1.125rem;
+                font-weight: 600;
+                margin-bottom: 0.5rem;
+                color: #ffffff;
+            }
+
+            .card p {
+                color: #888888;
+                font-size: 0.875rem;
+                margin-bottom: 1rem;
+            }
+
+            .card a {
+                display: inline-flex;
+                align-items: center;
+                color: #ffffff;
+                text-decoration: none;
+                font-size: 0.875rem;
+                font-weight: 500;
+                padding: 0.5rem 1rem;
+                background-color: #222222;
+                border-radius: 6px;
+                border: 1px solid #333333;
+                transition: all 0.2s ease;
+            }
+
+            .card a:hover {
+                background-color: #333333;
+                border-color: #555555;
+            }
+
+            .status-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.5rem;
+                background-color: #0070f3;
+                color: #ffffff;
+                padding: 0.25rem 0.75rem;
+                border-radius: 20px;
+                font-size: 0.75rem;
+                font-weight: 500;
+                margin-bottom: 2rem;
+            }
+
+            .status-dot {
+                width: 6px;
+                height: 6px;
+                background-color: #00ff88;
+                border-radius: 50%;
+            }
+
+            pre {
+                background-color: #0a0a0a;
+                border: 1px solid #333333;
+                border-radius: 6px;
+                padding: 1rem;
+                overflow-x: auto;
+                margin: 0;
+            }
+
+            code {
+                font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+                font-size: 0.85rem;
+                line-height: 1.5;
+                color: #ffffff;
+            }
+
+            /* Syntax highlighting */
+            .keyword {
+                color: #ff79c6;
+            }
+
+            .string {
+                color: #f1fa8c;
+            }
+
+            .function {
+                color: #50fa7b;
+            }
+
+            .class {
+                color: #8be9fd;
+            }
+
+            .module {
+                color: #8be9fd;
+            }
+
+            .variable {
+                color: #f8f8f2;
+            }
+
+            .decorator {
+                color: #ffb86c;
+            }
+
+            @media (max-width: 768px) {
+                nav {
+                    padding: 1rem;
+                    flex-direction: column;
+                    gap: 1rem;
+                }
+
+                .nav-links {
+                    margin-left: 0;
+                }
+
+                main {
+                    padding: 2rem 1rem;
+                }
+
+                h1 {
+                    font-size: 2rem;
+                }
+
+                .hero-code {
+                    grid-template-columns: 1fr;
+                }
+
+                .cards {
+                    grid-template-columns: 1fr;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <header>
+            <nav>
+                <a href="/" class="logo">Vercel + FastAPI</a>
+                <div class="nav-links">
+                    <a href="/docs">API Docs</a>
+                    <a href="/api/data">API</a>
+                </div>
+            </nav>
+        </header>
+        <main>
+            <div class="hero">
+                <h1>Vercel + FastAPI</h1>
+                <div class="hero-code">
+                    <pre><code><span class="keyword">from</span> <span class="module">fastapi</span> <span class="keyword">import</span> <span class="class">FastAPI</span>
+
+<span class="variable">app</span> = <span class="class">FastAPI</span>()
+
+<span class="decorator">@app.get</span>(<span class="string">"/"</span>)
+<span class="keyword">def</span> <span class="function">read_root</span>():
+    <span class="keyword">return</span> {<span class="string">"Python"</span>: <span class="string">"on Vercel"</span>}</code></pre>
+                </div>
+            </div>
+
+            <div class="cards">
+                <div class="card">
+                    <h3>Interactive API Docs</h3>
+                    <p>Explore this API's endpoints with the interactive Swagger UI. Test requests and view response schemas in real-time.</p>
+                    <a href="/docs">Open Swagger UI →</a>
+                </div>
+
+                <div class="card">
+                    <h3>Sample Data</h3>
+                    <p>Access sample JSON data through our REST API. Perfect for testing and development purposes.</p>
+                    <a href="/api/data">Get Data →</a>
+                </div>
+
+            </div>
+        </main>
+    </body>
+    </html>
+    """
+
+
 @circuit_breaker_web
 @app.get("/health")
 def get_status() -> Dict[str, str]:
@@ -535,6 +889,11 @@ def trigger_error():
 
 # Error handling
 @app.exception_handler(Exception)
+def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled exception on {request.url}: {exc}")
+    return {"error": "Internal server error", "timestamp": datetime.now().isoformat()}
+
+
 def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled exception on {request.url}: {exc}")
     return {"error": "Internal server error", "timestamp": datetime.now().isoformat()}
