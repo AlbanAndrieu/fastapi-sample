@@ -26,6 +26,7 @@ Fastapi sample
     + [Database demo](#database-demo)
 - [Create PostgreSQL postgres on pg-gra.service.gra.dev.consul with Alembic](#create-postgresql-postgres-on-pg-graservicegradevconsul-with-alembic)
   * [Create PostgreSQL fastapi_sample_gitlab on pg-gra.service.gra.dev.consul by hand](#create-postgresql-fastapi_sample_gitlab-on-pg-graservicegradevconsul-by-hand)
+    + [Deploying to Vercel](#deploying-to-vercel)
     + [Temporal demo](#temporal-demo)
     + [Defect Dojo Parameters](#defect-dojo-parameters)
   * [Quality check](#quality-check)
@@ -348,6 +349,16 @@ DB_PASS="password-reset-XXX" # nosec
 DB_URL="postgresql://postgres:password-reset-XXX@127.0.0.1:5432/fastapi_sample_dev" # nosec
 # Remove asyncpg for alembic to be able to init DB as fastapisample
 DB_URL="postgresql://fastapisample:password-reset-XXX@127.0.0.1:5432/fastapi_sample_dev" # nosec
+```
+
+
+### Deploying to Vercel
+
+Deploy your project to Vercel with the following command:
+
+```bash
+npm install -g vercel
+vercel --prod --archive=tgz
 ```
 
 ### Temporal demo
