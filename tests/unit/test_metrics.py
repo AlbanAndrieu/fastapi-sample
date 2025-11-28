@@ -1,5 +1,7 @@
 # test for the prometheus metrics endpoint
 
+import sys
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -14,6 +16,10 @@ def test_app():
     # database.disconnect()
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 8),
+    reason="Need Python 3.8 or upper",
+)
 def test_metrics(test_app):
     response = test_app.get("/metrics")
     assert response.status_code == 200

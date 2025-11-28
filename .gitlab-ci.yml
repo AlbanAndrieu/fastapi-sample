@@ -494,6 +494,19 @@ code_quality:
         echo "Disable report_ruff.json report_pyright.json report combine";
       fi
 
+.terrascan:
+  image:
+    name: tenable/terrascan:1.18.3
+    entrypoint: ["/bin/sh", "-c"]
+  stage: static
+  script:
+    - /go/bin/terrascan scan . --skip-rules="AC_AWS_0214,AC_AWS_0148" --severity="high" --config-path ./terrascan.yaml || true
+  allow_failure: true
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: never
+    - !reference [.default_rules, rules]
+
 train-commit-activated:
   stage: train
   image: $CONTAINER_IMAGE
@@ -637,9 +650,9 @@ dast:
   variables:
     # DAST_TARGET_URL: "https://fastapi-sample.service.gra.${ENV}.consul"
     # DAST_AUTH_URL: "https://fastapi-sample.service.gra.${ENV}.consul/login"
-    DAST_AUTH_USERNAME_FIELD: "css:[name=username]"
-    DAST_AUTH_PASSWORD_FIELD: "css:[name=password]"
-    DAST_AUTH_SUBMIT_FIELD: "css:button[type=submit]"
+    # DAST_AUTH_USERNAME_FIELD: "css:[name=username]"
+    # DAST_AUTH_PASSWORD_FIELD: "css:[name=password]"
+    # DAST_AUTH_SUBMIT_FIELD: "css:button[type=submit]"
     # DAST_TARGET_CHECK_TIMEOUT: "5m"  # Wait up to 5 minutes
     # DAST_AUTH_COOKIE_NAMES: "sessionID,refreshToken"
     # DAST_AUTH_SUCCESS_IF_AT_URL: "https://fastapi-sample.service.gra.${ENV}.consul/admin"

@@ -324,7 +324,6 @@ EOF
         port = "http"
 
         tags = [
-          "api",
           "traefik.enable=true",
           "traefik.http.routers.fastapi-sample.entrypoints=https",
           "traefik.http.routers.fastapi-sample.rule=Host(`fastapi-sample.service.gra.${var.env}.consul`)",
@@ -349,6 +348,7 @@ EOF
           "traefik.http.services.fastapi-sample.loadbalancer.healthCheck.path=/health",
           "traefik.http.services.fastapi-sample.loadbalancer.healthCheck.interval=10s",
           "traefik.http.services.fastapi-sample.loadbalancer.healthCheck.timeout=3s",
+          "squad=[[ .SQUAD ]]",
         ]
 
         check {
