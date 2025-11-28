@@ -32,7 +32,7 @@ ci:
 default_install_hook_types:
   - pre-commit
     # make sure you include `prepare-commit-msg` in `default_install_hook_types`
-    # - prepare-commit-msg
+  - prepare-commit-msg
   - commit-msg
 repos:
   # ---------------------------------------------------------------------------- #
