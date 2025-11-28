@@ -61,7 +61,9 @@
 		"streetsidesoftware.code-spell-checker",
 		"exiasr.hadolint",
 		"hbenl.vscode-test-explorer",
-		"LittleFoxTeam.vscode-python-test-adapter"
+		"LittleFoxTeam.vscode-python-test-adapter",
+		"editorconfig.editorconfig",
+		"davidanson.vscode-markdownlint"
 	],
 	// List of extensions recommended by VS Code that should not be recommended for users of this workspace.
 	"unwantedRecommendations": [
