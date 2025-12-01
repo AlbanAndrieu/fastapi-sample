@@ -13,6 +13,8 @@ from UnleashClient import UnleashClient
 from nabla._version import get_versions
 from nabla.utils.prometheus import PrometheusSettings
 
+from statsig_python_core import Statsig, StatsigOptions  # note underscores instead of hyphens in import
+
 APP_NAME = os.environ.get("APP_NAME", "fastapi-sample")
 APP_PREFIX_VERSION = os.environ.get("APP_PREFIX_VERSION", "v")
 APP_VERSION = get_versions()["version"]
@@ -68,6 +70,8 @@ APP_DOMAIN = os.environ.get(
 UNLEASH_API_URL = os.environ.get("UNLEASH_API_URL", "https://gitlab.com/api/v4/feature_flags/unleash/46788175")
 UNLEASH_APP_NAME = os.environ.get("UNLEASH_APP_NAME", "staging")
 UNLEASH_INSTANCE_ID = os.environ.get("UNLEASH_INSTANCE_ID", "XXX")
+
+STATSIG_API_KEY = os.environ.get("STATSIG_API_KEY", "XXX")
 
 
 class AzureOpenAiInstance(BaseModel):
@@ -211,3 +215,13 @@ client = UnleashClient(
 )
 
 client.initialize_client()
+
+# statsig = Statsig(STATSIG_API_KEY)
+# statsig.initialize().wait()
+
+# or with StatsigOptions
+options = StatsigOptions()
+options.environment = "development"
+
+statsig = Statsig(STATSIG_API_KEY, options)
+statsig.initialize().wait()
