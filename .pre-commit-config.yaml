@@ -176,7 +176,7 @@ repos:
       - id: pyupgrade
         name: "🐍 python · Py Upgrade"
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.6
+    rev: v0.14.7
     hooks:
       - id: ruff-format
         name: "🐍 python · Format with Ruff"
@@ -219,7 +219,7 @@ repos:
     # This helps ensure cross-compatibility with people who don't wish to use uv
   - repo: https://github.com/astral-sh/uv-pre-commit
     # uv version.
-    rev: 0.9.13
+    rev: 0.9.14
     hooks:
       - id: uv-sync
         name: "⚡️ uv · Sync dependencies with uv"
@@ -471,10 +471,10 @@ repos:
     # --------------------------- ✍️ Git Commit Quality -------------------------- #
 
     ### Commit Message Standards ###
-  - repo: https://github.com/the-cafe/git-ai-commit
-    rev: v1.0.13
-    hooks:
-      - id: git-ai-commit
+    # - repo: https://github.com/the-cafe/git-ai-commit
+    #   rev: v1.0.13
+    #   hooks:
+    #     - id: git-ai-commit
   - repo: https://github.com/commitizen-tools/commitizen
     rev: v4.10.0
     hooks:
