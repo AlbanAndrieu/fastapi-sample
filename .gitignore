@@ -8,7 +8,7 @@ env/scripts/jenkins/tls.lua
 data/*
 notebooks/.ipynb_checkpoints
 *mlruns
-.editorconfig
+# .editorconfig
 **/*.log
 docker-dive-stats.json
 scan-report*.md
