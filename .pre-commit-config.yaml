@@ -1,5 +1,5 @@
 # fail_fast: true
-minimum_pre_commit_version: 4.3.0
+minimum_pre_commit_version: 4.5.0
 exclude: |
   (?x)^(
       .*\{\{.*\}\}.*|     # Exclude any files with cookiecutter variables
@@ -30,10 +30,10 @@ ci:
     - schemas
   submodules: true
 default_install_hook_types:
-  - pre-commit
-    # make sure you include `prepare-commit-msg` in `default_install_hook_types`
+  # - pre-commit
+  # make sure you include `prepare-commit-msg` in `default_install_hook_types`
   - prepare-commit-msg
-  - commit-msg
+  # - commit-msg
 repos:
   # ---------------------------------------------------------------------------- #
   #                              🔄 Pre-Commit Hooks                             #
@@ -258,7 +258,7 @@ repos:
       - id: shfmt-docker # Docker image (requires Docker to run)
         name: "🐚 🐳 shell · Format shell scripts"
   - repo: https://github.com/detailyang/pre-commit-shell
-    rev: v1.0.6
+    rev: 1.0.5
     hooks:
       - id: shell-lint
         name: "🐚 shell · Lint shell scripts"
@@ -294,7 +294,7 @@ repos:
 
     ### SQL ###
   - repo: https://github.com/sqlfluff/sqlfluff
-    rev: 3.5.0
+    rev: 4.0.0a2
     hooks:
       - id: sqlfluff-fix
         name: "📊 SQL · Attempts to fix rule violations."
@@ -319,30 +319,32 @@ repos:
         # - id: nbqa-mypy
         #   name: "📓 notebook · Type-check cells"
 
-    ### Markdown ###
-    # - repo: https://github.com/hukkin/mdformat
-    #   rev: 1.0.0
-    #   hooks:
-    #     - id: mdformat
-    #       name: "📝 markdown · Format markdown"
-    #       additional_dependencies:
-    #         - mdformat-gfm # GitHub-Flavored Markdown support
-    #         - mdformat-ruff # Python code formatting
-    #         - mdformat-frontmatter # YAML frontmatter support
-    #         - ruff # Required for mdformat-ruff
+  ### Markdown ###
+  # mdformat --check README.md CHANGELOG.md
+  # - repo: https://github.com/hukkin/mdformat
+  #   rev: 1.0.0
+  #   hooks:
+  #     - id: mdformat
+  #       name: "📝 markdown · Format markdown"
+  #       additional_dependencies:
+  #         - mdformat-gfm # GitHub-Flavored Markdown support
+  #         - mdformat-ruff # Python code formatting
+  #         - mdformat-frontmatter # YAML frontmatter support
+  #         - ruff # Required for mdformat-ruff
+  # NOK with ruby 3.4.7
+  # gem install mdl
+  # - repo: https://github.com/markdownlint/markdownlint
+  #   rev: v0.15.0
+  #   hooks:
+  #     - id: markdownlint
+  #       name: "📝 markdown · Lint markdown"
+  #       exclude: >
+  #         (?x)^(
+  #             CHANGELOG.md|
+  #             README.md|
+  #         )$
 
-  - repo: https://github.com/markdownlint/markdownlint
-    rev: v0.15.0
-    hooks:
-      - id: markdownlint
-        name: "📝 markdown · Lint markdown"
-        exclude: >
-          (?x)^(
-              CHANGELOG.md|
-              README.md|
-          )$
-
-    ### Javascript & Web Tools ###
+  ### Javascript & Web Tools ###
   - repo: https://github.com/biomejs/pre-commit
     rev: "v2.3.8"
     hooks:
@@ -379,7 +381,7 @@ repos:
 
     ### Additional File Types ###
   - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: v3.1.0
+    rev: v4.0.0-alpha.8
     hooks:
       - id: prettier
         name: "✨ misc-files · Format misc web files"
@@ -475,6 +477,14 @@ repos:
   #     rev: v1.0.13
   #     hooks:
   #     -   id: git-ai-commit
+  - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
+    rev: v9.23.0
+    hooks:
+      - id: commitlint
+        stages: [commit-msg]
+        additional_dependencies:
+          - "@commitlint/config-conventional"
+          - conventional-changelog-conventionalcommits  
   - repo: https://github.com/commitizen-tools/commitizen
     rev: v4.10.0
     hooks:
