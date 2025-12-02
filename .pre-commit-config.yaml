@@ -30,10 +30,10 @@ ci:
     - schemas
   submodules: true
 default_install_hook_types:
-  - pre-commit
-    # make sure you include `prepare-commit-msg` in `default_install_hook_types`
+  # - pre-commit
+  # make sure you include `prepare-commit-msg` in `default_install_hook_types`
   - prepare-commit-msg
-  - commit-msg
+  # - commit-msg
 repos:
   # ---------------------------------------------------------------------------- #
   #                              🔄 Pre-Commit Hooks                             #
@@ -320,6 +320,7 @@ repos:
         #   name: "📓 notebook · Type-check cells"
 
   ### Markdown ###
+  # mdformat --check README.md CHANGELOG.md
   # - repo: https://github.com/hukkin/mdformat
   #   rev: 1.0.0
   #   hooks:
@@ -331,6 +332,7 @@ repos:
   #         - mdformat-frontmatter # YAML frontmatter support
   #         - ruff # Required for mdformat-ruff
   # NOK with ruby 3.4.7
+  # gem install mdl
   # - repo: https://github.com/markdownlint/markdownlint
   #   rev: v0.15.0
   #   hooks:
@@ -471,10 +473,10 @@ repos:
     # --------------------------- ✍️ Git Commit Quality -------------------------- #
 
     ### Commit Message Standards ###
-  -   repo: https://github.com/the-cafe/git-ai-commit
-      rev: v1.0.13
-      hooks:
-      -   id: git-ai-commit
+  # - repo: https://github.com/the-cafe/git-ai-commit
+  #   rev: v1.0.13
+  #   hooks:
+  #     - id: git-ai-commit
   - repo: https://github.com/commitizen-tools/commitizen
     rev: v4.10.0
     hooks:
