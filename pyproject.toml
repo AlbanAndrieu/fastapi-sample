@@ -255,6 +255,7 @@ optional = true
 [tool.poetry.group.test.dependencies]
 async-asgi-testclient = ">= 1.4.11"
 coverage = ">= 7.2.7"
+git-ai-commit = ">= 1.0.13"
 # molecule = ">=5.1.0"
 mypy = ">=1.16.0"
 pytest = ">=8.3.4"              # Testing framework
@@ -277,6 +278,7 @@ pytest-timeout = ">=2.3.1"      # Test timeouts
 pyright = ">=1.1.0"
 pyright-to-gitlab-ci = ">=1.1.0"
 nox = ">=2023.4.22"
+statsig-python-core = ">=0.12.0"
 tox = ">=3.27.1"
 
 [tool.poetry.group.format]
@@ -326,7 +328,7 @@ git-url-parse = ">=1.2.2"
 gitpython = ">=3.1.29"
 numpy = ">=1.19.3,<2" # conflict possible with jm-multilabel-evaluator, TODO >=2.2.3
 packaging = ">=24.2"
-pre-commit = ">=4.3.0"
+pre-commit = ">=4.5.0"
 pre-commit-hooks = ">=4.4.0"
 pip-upgrader = ">=1.4.15"
 python-keystoneclient = ">=0.0.18"
