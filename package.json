@@ -86,6 +86,7 @@
 		"test": "jest --passWithNoTests",
 		"lint": "eslint --format gitlab my-app/",
 		"lint:fix": "eslint . --fix",
+		"commit": "commit",
 		"semantic-release": "semantic-release"
 	},
 	"remarkConfig": {
