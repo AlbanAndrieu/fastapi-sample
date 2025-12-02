@@ -326,16 +326,17 @@ repos:
           - mdformat-ruff # Python code formatting
           - mdformat-frontmatter # YAML frontmatter support
           - ruff # Required for mdformat-ruff
-  - repo: https://github.com/markdownlint/markdownlint
-    rev: v0.12.0
-    hooks:
-      - id: markdownlint
-        name: "📝 markdown · Lint markdown"
-        exclude: >
-          (?x)^(
-              CHANGELOG.md|
-              README.md|
-          )$
+  # NOK with ruby 3.4.7
+  # - repo: https://github.com/markdownlint/markdownlint
+  #   rev: v0.12.0
+  #   hooks:
+  #     - id: markdownlint
+  #       name: "📝 markdown · Lint markdown"
+  #       exclude: >
+  #         (?x)^(
+  #             CHANGELOG.md|
+  #             README.md|
+  #         )$
 
   ### Javascript & Web Tools ###
   - repo: https://github.com/biomejs/pre-commit

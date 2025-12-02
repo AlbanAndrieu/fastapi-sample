@@ -20,35 +20,27 @@ services:
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-clean
     file: "/templates/default.gitlab-ci.yml"
 
-  # - project: jusmundi-group/infrastructure/ci-templates
-  #   ref: main
-  #   file: "/templates/docker-build.gitlab-ci.yml"
-
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-clean
     file: "/templates/deploy-nomad.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-clean
     file: "/templates/test-python.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-clean
     file: "/templates/javascript.gitlab-ci.yml"
 
-  # - project: jusmundi-group/infrastructure/ci-templates
-  #   ref: main
-  #   file: "/templates/_apk.gitlab-ci.yml"
-
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-clean
     file: "/templates/data.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feature-clean
     file: "/templates/mega-linter.gitlab-ci.yml"
 
   - component: $CI_SERVER_FQDN/to-be-continuous/semantic-release/gitlab-ci-semrel@3.11.2

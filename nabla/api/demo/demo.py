@@ -92,12 +92,12 @@ async def read_item(item_id: int, q: Optional[str] = None):
 
     # yield cached_value
 
-    if item_id % 2 == 0:
+    if item_id % 5 == 0:
         # mock io - wait for x seconds
         # seconds = uniform_secret()
         seconds = item_id
         logger.info(f"Sleeping for {seconds} seconds")
-        await asyncio.sleep(seconds)
+        asyncio.sleep(seconds)
 
     cached_value = await redis.get(f"{REDIS_CHANNEL}.item_{item_id}")
 
