@@ -140,7 +140,7 @@ pytest-order = ">=1.0.1"
 pytest-testinfra = ">=6.4.0"
 readme-renderer = {version = ">=37.3", extras = ["md"]}
 ruff = ">=0.5.1"
-sqlfluff = ">=3.1.0"
+sqlfluff = ">=3.5.0"
 selenium = ">=4.6.0"
 # semgrep = ">=1.15.0"
 # setup-cfg-fmt = ">=2.2.0"
