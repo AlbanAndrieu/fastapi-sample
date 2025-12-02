@@ -326,6 +326,10 @@ httpx = {version = ">=0.23.3"}
 jupyterlab = ">=3.4.3"
 git-url-parse = ">=1.2.2"
 gitpython = ">=3.1.29"
+markdown-it-py = ">=4.0.0"
+mdformat = ">=1.0.0"
+mdformat-gfm = ">=1.0.0"
+mdurl = ">=0.1.2"
 numpy = ">=1.19.3,<2" # conflict possible with jm-multilabel-evaluator, TODO >=2.2.3
 packaging = ">=24.2"
 pre-commit = ">=4.5.0"
