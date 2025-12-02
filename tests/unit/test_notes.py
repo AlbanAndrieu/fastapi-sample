@@ -6,6 +6,7 @@ import pytest
 from nabla.api.notes import crud
 
 
+@pytest.mark.webtest
 def test_homepage(test_app):
     response = test_app.get("/")
     assert response.status_code == 200

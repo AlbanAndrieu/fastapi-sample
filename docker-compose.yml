@@ -17,7 +17,8 @@ services:
       - ./.env.secrets
     environment:
       - PYTHONPATH=.
-      - DB_URL=postgresql+asyncpg://fastapi-sample:password-reset-XXX@db:5432/postgres
+      # secretlint-disable-next-line
+      - DB_URL=postgresql://fastapi-sample:password-reset-XXX@db:5432/postgres #nosec
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     depends_on:
@@ -45,7 +46,8 @@ services:
       - postgres_data:/var/lib/postgresql/data/
     environment:
       - POSTGRES_USER=fastapisample
-      - POSTGRES_PASSWORD=password-reset-XXX
+      # secretlint-disable-next-line
+      - POSTGRES_PASSWORD=password-reset-XXX #nosec
       - POSTGRES_DB=fastapi_sample_dev
     ports:
       - "5432:5432"

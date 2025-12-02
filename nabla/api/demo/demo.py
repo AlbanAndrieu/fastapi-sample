@@ -1,4 +1,3 @@
-import asyncio
 import os
 import random
 import secrets
@@ -9,15 +8,14 @@ import requests
 from fastapi import APIRouter, HTTPException, status
 from fastapi_cache.decorator import cache
 from fastapi_featureflags import FeatureFlags, feature_enabled, feature_flag
-from fastapi_mail import FastMail, MessageSchema, MessageType
+
+# from fastapi_mail import FastMail, MessageSchema, MessageType
 from fastmcp import FastMCP
 from opentelemetry import trace
 from opentelemetry.trace.status import Status, StatusCode
-from starlette.responses import JSONResponse
 
 from nabla.api.demo.socket.redis import REDIS_CHANNEL, redis
 from nabla.auth.controller import AuthController
-from nabla.utils.email import EmailSchema, conf
 from nabla.utils.logger import logger
 from nabla.utils.misc import timed_operation
 from nabla.utils.prometheus import API_REQUEST_COUNTER, API_REQUEST_SUMMARY
@@ -26,7 +24,11 @@ router = APIRouter()
 
 mcp = FastMCP(name="DemoServer")
 
-FeatureFlags.load_conf_from_url("https://pastebin.com/raw/4Ai3j2DC")
+# TODO switch to unleash feature flagq
+FeatureFlags()
+# FeatureFlags.load_conf_from_url("https://pastebin.com/raw/4Ai3j2DC")
+FeatureFlags.load_conf_from_dict({"web_only": False, "web_1": True, "web_2": False, "web_3": True, "web_4": False})
+FeatureFlags.reload_feature_flags()
 print("Enabled Features:", FeatureFlags.get_features())
 
 # The demo sample project to test the tracing
@@ -97,7 +99,10 @@ async def read_item(item_id: int, q: Optional[str] = None):
         # seconds = uniform_secret()
         seconds = item_id
         logger.info(f"Sleeping for {seconds} seconds")
+
         asyncio.sleep(seconds)
+        # await asyncio.sleep(seconds)
+        # await run_in_threadpool(time.sleep, seconds)
 
     cached_value = await redis.get(f"{REDIS_CHANNEL}.item_{item_id}")
 
@@ -224,17 +229,17 @@ def demo_internal_api():
     return status.HTTP_200_OK
 
 
-@router.post("/demo/email")
-async def simple_send(email: EmailSchema) -> JSONResponse:
-    html = """<p>Hi this test mail, thanks for using Fastapi-mail</p> """
+# @router.post("/demo/email")
+# async def simple_send(email: EmailSchema) -> JSONResponse:
+#     html = """<p>Hi this test mail, thanks for using Fastapi-mail</p> """
 
-    message = MessageSchema(
-        subject="Fastapi-Mail module",
-        recipients=email.dict().get("email"),
-        body=html,
-        subtype=MessageType.html,
-    )
+#     message = MessageSchema(
+#         subject="Fastapi-Mail module",
+#         recipients=email.dict().get("email"),
+#         body=html,
+#         subtype=MessageType.html,
+#     )
 
-    fm = FastMail(conf)
-    await fm.send_message(message)
-    return JSONResponse(status_code=200, content={"message": "email has been sent"})
+#     fm = FastMail(conf)
+#     await fm.send_message(message)
+#     return JSONResponse(status_code=200, content={"message": "email has been sent"})

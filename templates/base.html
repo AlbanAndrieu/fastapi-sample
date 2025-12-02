@@ -28,10 +28,36 @@
     <style>
       body {
         font-family: "Inter", sans-serif;
+        color: #ffff;
+        line-height: 1.6;
       }
 
       .plotly-chart {
         background: transparent !important;
+      }
+
+      .container {
+        max-width: 700px;
+        margin: 2rem auto;
+        padding: 1rem;
+        background: #222222;
+        border-radius: 5px;
+      }
+
+      .note-item {
+        border: 1px solid #ddd;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border-radius: 5px;
+      }
+
+      .note-item.done {
+        background: #f0f0f0;
+        text-decoration: line-through;
+      }
+
+      .note-actions button {
+        margin-right: 0.5rem;
       }
     </style>
 

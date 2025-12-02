@@ -6,6 +6,7 @@ import httpx
 import pyroscope
 from ddtrace.trace import tracer
 from fastapi import APIRouter, Response
+from fastapi.concurrency import run_in_threadpool
 from opentelemetry.propagate import inject
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -43,7 +44,8 @@ async def ping():
 async def io_task():
     time.sleep(1)
     logger.error("io task")
-    return "IO bound task finish!"
+    # If you must call sync code:
+    return {"IO bound task finish": await run_in_threadpool(time.sleep, 1)}
 
 
 def work(n):
@@ -87,25 +89,29 @@ async def chain():
         timeout=5.0,
         limits=httpx.Limits(max_connections=100),
     ) as client:
-        await client.get(
+        r = await client.get(
             f"http://localhost:{EXPOSE_PORT}/",
             headers=headers,
         )
+        logger.info(r.text)
     async with httpx.AsyncClient(
         timeout=5.0,
         limits=httpx.Limits(max_connections=100),
     ) as client:
-        await client.get(
+        r = await client.get(
             f"http://{TARGET_ONE_HOST}:{EXPOSE_PORT}/io_task",
             headers=headers,
         )
+        logger.info(r.text)
     async with httpx.AsyncClient(
         timeout=5.0,
         limits=httpx.Limits(max_connections=100),
     ) as client:
-        await client.get(
+        r = await client.get(
             f"http://{TARGET_TWO_HOST}:{EXPOSE_PORT}/cpu_task",
             headers=headers,
         )
+        logger.info(r.text)
+
     logger.info("Chain Finished")
     return {"path": "/chain"}

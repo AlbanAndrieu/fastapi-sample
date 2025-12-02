@@ -1,10 +1,10 @@
 import asyncio
+import os
 import random
 import uuid
 from typing import Annotated, Optional
 
 import pybreaker
-from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi_cache.decorator import cache
 from fastapi_users import BaseUserManager, FastAPIUsers, UUIDIDMixin
 from fastapi_users.authentication import (
@@ -21,6 +21,7 @@ from jwt import PyJWTError
 from sqlalchemy import select
 from sqlmodel import Session
 
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from nabla.api.auth.token import (
     ACCESS_TOKEN_SECRET_KEY,
     TokenData,
@@ -31,8 +32,7 @@ from nabla.api.auth.token import (
     verify_password,
 )
 from nabla.api.db.database import get_db, get_session
-from nabla.api.users.models import User, UserEvent, get_user_db
-from nabla.utils.email import conf
+from nabla.api.users.models import User, UserIn, UserOut, get_user_db
 from nabla.utils.logger import logger
 from nabla.utils.prometheus import USER_REGISTRATIONS
 
@@ -110,19 +110,20 @@ current_active_user = fastapi_users.current_user(active=True, get_enabled_backen
     name="get_user_details",
     exclude_args=["user_id"],
 )
-def get_user_details(user_id: str = None) -> UserEvent:
+def get_user_details(user_id: str = None) -> UserIn:
     # def get_user_details(user_id: str = None) -> dict[str, str]:
     # user_id will be injected by the server, not provided by the LLM
     if user_id is None:
         logger.info("get_user_details", user_id=user_id)
 
-    return get_me()
+    user = {"id": 1, **get_me()}
+    return user
 
 
-def get_me() -> UserEvent:
-    user = UserEvent(
+def get_me() -> UserIn:
+    user = UserIn(
         name="Alban Andrieu",
-        email=conf.MAIL_FROM,
+        email=os.environ.get("MAIL_FROM", "alban.andrieu@gmail.com"),
         phone="0695435353",
         address="11 terrasse de l'université",
         city="Paris",
@@ -137,22 +138,22 @@ def get_me() -> UserEvent:
 # This endpoint will not be registered as a tool, since it was added after the MCP instance was created
 # Dynamic resource template
 @mcp.resource("users://whoami/profile")
-@router.get("/whoami/", operation_id="whoami", response_model=UserEvent)
+@router.get("/whoami/", operation_id="whoami", response_model=UserIn)
 async def whoami():
     return get_me()
 
 
 # def me()-> dict[str, str]:
-# @router.get("/users/current", response_model=UserEvent)
+# @router.get("/users/current", response_model=UserIn)
 @cache(expire=300)
-@router.get("/users/current")
+@router.get("/users/current", response_model=UserOut)
 async def current_user():
     # return {"status": "registered"}
     # return json.loads(get_user_details(None))
     # return json.dumps(get_user_details(None))
 
     # user = get_user_details(None)
-    # return UserEvent(**user)
+    # return UserIn(**user)
     return get_me()
 
 
@@ -204,7 +205,7 @@ async def validate_is_authenticated(
 
 # Dynamic resource template
 @mcp.resource("users://{user_id}/profile")
-@router.get("/users/{user_id}", response_model=UserEvent, operation_id="get_user_info", dependencies=[Depends(validate_is_authenticated)])
+@router.get("/users/{user_id}", response_model=UserOut, operation_id="get_user_info", dependencies=[Depends(validate_is_authenticated)])
 # @circuit_breaker_user
 # @cache(expire=300)  # Cache for 5 minutes to avoid repeated execution of complex SQL
 # async def get_user(user_id: int, db=Depends(get_db)):
@@ -235,8 +236,8 @@ async def get_user(user_id: int):
     return user
 
 
-@router.post("/users/register")
-async def register(user: UserEvent, session: Session = Depends(get_session)):
+@router.post("/users/register", response_model=UserOut, status_code=201)
+async def register(user: UserIn, session: Session = Depends(get_session)):
     result = await session.execute(select(User).where(User.name == user.name))
     if result.scalar():
         raise HTTPException(status_code=400, detail="User already exists")
@@ -247,11 +248,12 @@ async def register(user: UserEvent, session: Session = Depends(get_session)):
     logger.info("user_action", action="register")
     # Your registration logic
     USER_REGISTRATIONS.inc()
-    return {"status": "User created"}
+    user = {"id": 1, **user.model_dump()}
+    return {"status": "User created", "user": user}
 
 
 @router.post("/login")
-async def login(user: UserEvent, session: Session = Depends(get_session)):
+async def login(user: UserIn, session: Session = Depends(get_session)):
     result = await session.execute(select(User).where(User.name == user.name))
     db_user = result.scalar()
     if not db_user or not verify_password(user.password, db_user.hashed_password):
