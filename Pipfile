@@ -125,7 +125,7 @@ pytest-order = ">=1.0.1"
 pytest-testinfra = ">=6.4.0"
 readme-renderer = {version = ">=37.3", extras = ["md"]}
 ruff = ">=0.5.1"
-sqlfluff = ">=3.1.0"
+sqlfluff = ">=3.5.0"
 selenium = ">=4.6.0"
 setuptools = ">=80.7.1"
 sphinx = ">=7.1.2" # 4.2.0 is ok with awscli, 7.2.6 docutils conflicting with awscli 1.32.22 requires docutils<0.17,>=0.10 https://github.com/aws/aws-cli/blob/develop/setup.cfg#L7C9-L7C17
