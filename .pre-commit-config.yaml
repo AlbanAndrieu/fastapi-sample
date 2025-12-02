@@ -477,6 +477,14 @@ repos:
   #     rev: v1.0.13
   #     hooks:
   #     -   id: git-ai-commit
+  - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
+    rev: v2.1.0
+    hooks:
+      - id: commitlint
+        stages: [commit-msg]
+        additional_dependencies:
+          - "@commitlint/config-conventional"
+          - conventional-changelog-conventionalcommits  
   - repo: https://github.com/commitizen-tools/commitizen
     rev: v4.10.0
     hooks:
