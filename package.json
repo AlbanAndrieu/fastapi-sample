@@ -29,13 +29,17 @@
 		"parserOptions": {
 			"ecmaVersion": 6
 		},
-		"plugins": ["compat"],
+		"plugins": [
+			"compat"
+		],
 		"rules": {
 			"compat/compat": "warn"
 		}
 	},
 	"stylelint": {
-		"plugins": ["stylelint-no-unsupported-browser-features"],
+		"plugins": [
+			"stylelint-no-unsupported-browser-features"
+		],
 		"rules": {
 			"plugin/no-unsupported-browser-features": true
 		},
@@ -49,6 +53,8 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.2.6",
+		"@commitlint/cli": "^20.1.0",
+		"@commitlint/config-conventional": "^20.0.0",
 		"@datadog/datadog-ci": "^3.18.0",
 		"@eslint/js": "^9.34.0",
 		"@nuxt/eslint-config": "^0.3.13",
@@ -81,7 +87,9 @@
 		"semantic-release": "semantic-release"
 	},
 	"remarkConfig": {
-		"plugins": ["remark-preset-lint-recommended"]
+		"plugins": [
+			"remark-preset-lint-recommended"
+		]
 	},
 	"publishConfig": {
 		"access": "restricted",

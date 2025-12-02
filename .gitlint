@@ -8,11 +8,11 @@ ignore-stdin=true
 
 # Configure title-max-length rule, set title length to 80 (72 = default)
 [title-max-length]
-line-length=80
+line-length=256
 
 # You can also reference rules by their id (B1 = body-max-line-length)
 [B1]
-line-length=123
+line-length=666
 
 [ignore-by-author-name]
 regex=(.*)dependabot(.*) #
