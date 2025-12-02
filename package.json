@@ -66,7 +66,11 @@
 		"@semantic-release/gitlab": "^13.2.5",
 		"@semantic-release/npm": "^12.0.1",
 		"@typescript-eslint/parser": "^8.34.0",
+		"commitizen": "^4.3.1",
+		"commitlint-config-gitmoji": "^2.3.1",
 		"conventional-changelog-conventionalcommits": "7.0.2",
+		"cz-conventional-changelog": "^3.3.0",
+		"cz-emoji-conventional": "^1.2.1",
 		"eslint": "^9.36.0",
 		"eslint-formatter-gitlab": "^6.0.1",
 		"jest": "^27.3.1",
@@ -76,7 +80,6 @@
 		"secretlint": "^9.3.1",
 		"semantic-release": "^24.2.5",
 		"semantic-release-replace-plugin": "^1.2.7",
-		"simple-git-hooks": "^2.13.1",
 		"typescript": "^5.9.2",
 		"typescript-eslint": "^8.46.1",
 		"wrangler": "^4.9.1"
@@ -87,7 +90,7 @@
 		"test": "jest --passWithNoTests",
 		"lint": "eslint --format gitlab my-app/",
 		"lint:fix": "eslint . --fix",
-		"commit": "commit",
+		"commit": "cz",
 		"semantic-release": "semantic-release"
 	},
 	"remarkConfig": {
@@ -98,5 +101,11 @@
 	"publishConfig": {
 		"access": "restricted",
 		"@jusmundi-group:registry": "https://gitlab.com/api/v4/projects/46788175/packages/npm/"
+	},
+	"config": {
+		"commitizen": {
+			"path": "./node_modules/cz-emoji-conventional",
+			"useGitmojis": true
+		}
 	}
 }

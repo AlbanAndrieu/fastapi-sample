@@ -17,6 +17,8 @@ results.sarif
 megalinter-reports/
 output/
 vue-client/.output/
+.opencommit-commitlint
+.config/
 
 .netlify/
 .vercel/

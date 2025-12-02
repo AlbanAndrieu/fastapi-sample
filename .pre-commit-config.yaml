@@ -30,10 +30,11 @@ ci:
     - schemas
   submodules: true
 default_install_hook_types:
-  # - pre-commit
+  - pre-commit # gitleak
   # make sure you include `prepare-commit-msg` in `default_install_hook_types`
-  - prepare-commit-msg
-  # - commit-msg
+  # prepare-commit-msg made by oco
+  # - prepare-commit-msg
+  - commit-msg
 repos:
   # ---------------------------------------------------------------------------- #
   #                              🔄 Pre-Commit Hooks                             #
@@ -514,7 +515,7 @@ repos:
     #     - id: megalinter-incremental  # Faster, less thorough
     #       name: "👑 🐳 megalinter - All in linter"
     #       stages:
-    #         - commit
+    #         - pre-commit
     #       args:
     #         - mega-linter-runner
     #         - --containername
