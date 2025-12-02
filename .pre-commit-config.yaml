@@ -473,10 +473,10 @@ repos:
     # --------------------------- ✍️ Git Commit Quality -------------------------- #
 
     ### Commit Message Standards ###
-  # - repo: https://github.com/the-cafe/git-ai-commit
-  #   rev: v1.0.13
-  #   hooks:
-  #     - id: git-ai-commit
+  # -   repo: https://github.com/the-cafe/git-ai-commit
+  #     rev: v1.0.13
+  #     hooks:
+  #     -   id: git-ai-commit
   - repo: https://github.com/commitizen-tools/commitizen
     rev: v4.10.0
     hooks:
