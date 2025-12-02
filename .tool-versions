@@ -4,3 +4,4 @@ direnv 2.32.1
 ruby 3.4.7
 ripgrep 14.1.0
 terragrunt 0.93.9
+nodejs 22
