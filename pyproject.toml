@@ -326,6 +326,10 @@ httpx = {version = ">=0.23.3"}
 jupyterlab = ">=3.4.3"
 git-url-parse = ">=1.2.2"
 gitpython = ">=3.1.29"
+markdown-it-py = ">=4.0.0"
+mdformat = ">=1.0.0"
+mdformat-gfm = ">=1.0.0"
+mdurl = ">=0.1.2"
 numpy = ">=1.19.3,<2" # conflict possible with jm-multilabel-evaluator, TODO >=2.2.3
 packaging = ">=24.2"
 pre-commit = ">=4.5.0"
@@ -508,7 +512,42 @@ source = "versioningit"
 default-version = "0.0.0+unknown"
 
 [tool.commitizen]
-name = "cz_gitmoji"
+name = "cz_customize"
+version = "1.2.3"
+update_changelog_on_bump = true
+
+[tool.commitizen.customize]
+message_template = "{{change_type}}:{% if show_message %} {{message}}{% endif %}"
+example = "feature: this feature enable customize through config file"
+schema = "<type>: <body>"
+schema_pattern = "(feature|bug fix):(\\s.*)"
+bump_pattern = "^(break|new|fix|hotfix)"
+bump_map = {"break" = "MAJOR", "new" = "MINOR", "fix" = "PATCH", "hotfix" = "PATCH"}
+change_type_order = ["BREAKING CHANGE", "feat", "fix", "refactor", "perf"]
+info_path = "cz_customize_info.txt"
+info = """
+This is customized info
+"""
+commit_parser = "^(?P<change_type>feature|bug fix):\\s(?P<message>.*)?"
+changelog_pattern = "^(feature|bug fix)?(!)?"
+change_type_map = {"feature" = "Feat", "bug fix" = "Fix"}
+
+[[tool.commitizen.customize.questions]]
+type = "list"
+name = "change_type"
+choices = [{value = "feature", name = "feature: A new feature."}, {value = "fix", name = "bug fix: A bug fix."}]
+# choices = ["feature", "fix"]  # short version
+message = "Select the type of change you are committing"
+
+[[tool.commitizen.customize.questions]]
+type = "input"
+name = "message"
+message = "Body."
+
+[[tool.commitizen.customize.questions]]
+type = "confirm"
+name = "show_message"
+message = "Do you want to add body message in commit?"
 
 [tool.vercel.scripts]
 build = "python build.py"

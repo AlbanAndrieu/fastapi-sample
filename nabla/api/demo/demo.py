@@ -6,7 +6,6 @@ from uuid import uuid4
 
 import requests
 from fastapi import APIRouter, HTTPException, status
-from fastapi.concurrency import run_in_threadpool
 from fastapi_cache.decorator import cache
 from fastapi_featureflags import FeatureFlags, feature_enabled, feature_flag
 
@@ -95,13 +94,15 @@ async def read_item(item_id: int, q: Optional[str] = None):
 
     # yield cached_value
 
-    if item_id % 2 == 0:
+    if item_id % 5 == 0:
         # mock io - wait for x seconds
         # seconds = uniform_secret()
         seconds = item_id
         logger.info(f"Sleeping for {seconds} seconds")
+
+        asyncio.sleep(seconds)
         # await asyncio.sleep(seconds)
-        await run_in_threadpool(time.sleep, seconds)
+        # await run_in_threadpool(time.sleep, seconds)
 
     cached_value = await redis.get(f"{REDIS_CHANNEL}.item_{item_id}")
 
