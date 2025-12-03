@@ -255,7 +255,7 @@ optional = true
 [tool.poetry.group.test.dependencies]
 async-asgi-testclient = ">= 1.4.11"
 coverage = ">= 7.2.7"
-git-ai-commit = ">= 1.0.13"
+# git-ai-commit = ">= 1.0.13"
 # molecule = ">=5.1.0"
 mypy = ">=1.16.0"
 pytest = ">=8.3.4"              # Testing framework
