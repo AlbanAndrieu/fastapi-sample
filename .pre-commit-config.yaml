@@ -30,10 +30,11 @@ ci:
     - schemas
   submodules: true
 default_install_hook_types:
-  # - pre-commit
+  - pre-commit # gitleak
   # make sure you include `prepare-commit-msg` in `default_install_hook_types`
-  - prepare-commit-msg
-  # - commit-msg
+  # prepare-commit-msg made by oco
+  # - prepare-commit-msg
+  - commit-msg
 repos:
   # ---------------------------------------------------------------------------- #
   #                              🔄 Pre-Commit Hooks                             #
@@ -473,10 +474,6 @@ repos:
     # --------------------------- ✍️ Git Commit Quality -------------------------- #
 
     ### Commit Message Standards ###
-  # -   repo: https://github.com/the-cafe/git-ai-commit
-  #     rev: v1.0.13
-  #     hooks:
-  #     -   id: git-ai-commit
   - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
     rev: v9.23.0
     hooks:
@@ -514,7 +511,7 @@ repos:
     #     - id: megalinter-incremental  # Faster, less thorough
     #       name: "👑 🐳 megalinter - All in linter"
     #       stages:
-    #         - commit
+    #         - pre-commit
     #       args:
     #         - mega-linter-runner
     #         - --containername
