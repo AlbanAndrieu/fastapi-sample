@@ -354,6 +354,10 @@ vulture = ">=2.14"
 #[tool]
 #setuptools-pipfile = "Pipfile"
 
+
+[tool.poetry.group.dev.dependencies]
+commitizen = "^4.10.0"
+
 [tool.pytest.ini_options]
 testpaths = "tests/"
 
