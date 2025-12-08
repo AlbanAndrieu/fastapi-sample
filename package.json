@@ -84,7 +84,7 @@
 		"simple-git-hooks": "^2.13.1",
 		"typescript": "^5.9.2",
 		"typescript-eslint": "^8.46.1",
-		"wrangler": "^4.9.1"
+		"wrangler": "^4.53.0"
 	},
 	"scripts": {
 		"prettier": "prettier --check --ignore-unknown \"**/*.*\"",
@@ -93,7 +93,10 @@
 		"lint": "eslint --format gitlab my-app/",
 		"lint:fix": "eslint . --fix",
 		"commit": "cz",
-		"semantic-release": "semantic-release"
+		"semantic-release": "semantic-release",
+		"deploy": "wrangler deploy",
+		"dev": "wrangler dev",
+		"start": "wrangler dev"
 	},
 	"remarkConfig": {
 		"plugins": [

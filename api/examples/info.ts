@@ -1,7 +1,6 @@
 // A proxy to get the basic info of an existing github/gitlab repo:
 // GET /info?repo=vercel/micro
 
-// @ts-ignore
 import parseGitUrl from 'parse-github-url';
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { withApiHandler } from '../_lib/util/with-api-handler';
