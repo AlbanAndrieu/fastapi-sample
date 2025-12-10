@@ -9,7 +9,7 @@ STATSIG_API_KEY = { required = true }
 SENTRY_DSN = { required = true }
 
 # Database connection (must be set in environment or mise.local.toml)
-DATABASE_URL = { required = "Set DATABASE_URL to your PostgreSQL connection string (e.g., postgres://user:pass@localhost/dbname)" }
+DATABASE_URL = { required = "Set DATABASE_URL to your PostgreSQL connection string (e.g., postgres://user:pass@localhost/dbname)" } #nosec allow:gitleaks
 
 # Feature flags (must be explicitly configured)
 ENABLE_BETA_FEATURES = { required = true }
