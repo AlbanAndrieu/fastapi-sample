@@ -1,7 +1,8 @@
 python 3.12.10
 poetry 2.2.1
-direnv 2.32.1
+# direnv 2.32.1
 ruby 3.4.7
-ripgrep 14.1.0
-terragrunt 0.93.9
-nodejs 22
+# ripgrep 14.1.0
+t# erragrunt 0.93.9
+nodejs 24
+golang 1.25.5
