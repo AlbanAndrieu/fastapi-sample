@@ -2,5 +2,9 @@
 /*
 !api
 !public
+!templates
+!nabla
+!my-app
 !vercel.json
 !*.html
+
