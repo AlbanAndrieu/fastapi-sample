@@ -1,5 +1,4 @@
 {
-  "hash": "23f82d40b967682837723966502ef063f0034dfd0a9d99ada1e90e273bf79e06",
   "prompts": [
     "There should always be a blank line at the beginning of the body.",
     "Each line of the body should always have 100 characters or less.",
