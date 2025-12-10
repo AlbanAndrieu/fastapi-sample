@@ -8,6 +8,8 @@ export default tseslint.config(
       ignores: [
         '.direnv/*',
         '.venv/*',
+        '.vscode/*',
+        'api/_lib/*',
         '**/dist/*',
         '**/tests/*',
         'tsconfig.json',
