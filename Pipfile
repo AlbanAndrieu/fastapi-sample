@@ -86,7 +86,6 @@ uvicorn-worker = ">=0.2.0"
 traceback2 = ">=1.4.0"
 webtypy = ">=0.1.7"
 "web.py" = ">=0.62"
-sqlfluff = "*"
 
 [dev-packages]
 ansible-core = ">=2.16.8"

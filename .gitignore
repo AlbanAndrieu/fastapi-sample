@@ -23,6 +23,8 @@ vue-client/.output/
 .netlify/
 .vercel/
 
+mise.local.toml
+
 # dotenv environment variable files
 
 .env

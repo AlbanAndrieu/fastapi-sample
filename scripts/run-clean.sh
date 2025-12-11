@@ -13,6 +13,7 @@ rm -Rf "${WORKING_DIR}/megalinter-reports"
 rm -Rf "${WORKING_DIR}/node_modules"
 rm -Rf "${WORKING_DIR}/vue-client/.nuxt"
 rm -Rf "${WORKING_DIR}/vue-client/.npm"
+rm -Rf "${WORKING_DIR}/.vercel/output"
 
 rm -Rf _build/ build/ .eggs/ .toxs/ dist/ output/pytest-report.xml .coverage output/coverage.xml coverage.xml docs/_build/ .tox/ .scannerwork/ .pytest_cache/ pytest-report.xml output/htmlcov/ cprofile
 
