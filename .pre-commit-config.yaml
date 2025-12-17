@@ -316,7 +316,7 @@ repos:
         types: [jupyter]
         additional_dependencies:
           - mdformat
-          - mdformat-gfm
+          # - mdformat-gfm
           - mdformat-ruff
           - mdformat-frontmatter
           - ruff
