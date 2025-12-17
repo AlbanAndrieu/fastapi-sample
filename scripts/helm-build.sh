@@ -23,13 +23,13 @@ export HELM_DEPLOYEMENT=${HELM_DEPLOYEMENT:-"helm-sample"}
 echo -e "${magenta} helm lint ./charts/helm-sample/charts --kubeconfig ${HELM_CONFIG_HOME}/config --kube-context ${HELM_KUBECONTEXT} ${NC}"
 
 echo -e "${magenta} helm package ./charts/helm-sample/charts --kubeconfig ${HELM_CONFIG_HOME}/config --kube-context ${HELM_KUBECONTEXT} --namespace ${HELM_NAMESPACE} --version ${HELM_TAG} --app-version ${DOCKER_TAG} --dependency-update ${NC}"
-echo -e "${magenta} helm uninstall --kubeconfig ${HELM_CONFIG_HOME}/config --kube-context ${HELM_KUBECONTEXT} --namespace ${HELM_NAMESPACE} my-develop ${NC}"
-echo -e "${magenta} helm install --kubeconfig ${HELM_CONFIG_HOME}/config --kube-context ${HELM_KUBECONTEXT} --namespace ${HELM_NAMESPACE} my-develop helm-sample-${HELM_TAG}.tgz --timeout 5m0s --wait --atomic --devel --replace --dependency-update --set imagePullPolicy=Always ${NC}"
+echo -e "${magenta} helm uninstall --kubeconfig ${HELM_CONFIG_HOME}/config --kube-context ${HELM_KUBECONTEXT} --namespace ${HELM_NAMESPACE} ${HELM_DEPLOYEMENT} ${NC}"
+echo -e "${magenta} helm install --kubeconfig ${HELM_CONFIG_HOME}/config --kube-context ${HELM_KUBECONTEXT} --namespace ${HELM_NAMESPACE} ${HELM_DEPLOYEMENT} helm-sample-${HELM_TAG}.tgz --timeout 5m0s --wait --atomic --devel --replace --dependency-update --set imagePullPolicy=Always ${NC}"
 
 #helm plugin install https://github.com/karuppiah7890/helm-schema-gen.git
 echo -e "${magenta} helm schema-gen charts/helm-sample/values.yaml ${NC}"
 #helm plugin install https://github.com/databus23/helm-diff
-#echo -e "${magenta} helm diff upgrade my-develop ./charts/helm-sample ${NC}"
+#echo -e "${magenta} helm diff upgrade ${HELM_DEPLOYEMENT} ./charts/helm-sample ${NC}"
 echo -e "${magenta} helmfile diff ${NC}"
 
 echo -e "${magenta} kubectl flame helm-sample -t 1m --lang java -f /tmp/flamegraph.svg --kubeconfig=$HOME/.kube/config ${NC}"
