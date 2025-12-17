@@ -153,7 +153,7 @@ repos:
           )$
 
   - repo: https://github.com/pre-commit/pre-commit.git
-    rev: v4.5.0
+    rev: v4.5.1
     hooks:
       - id: validate_manifest
         name: "🤖 manifest · Validate manifest scripts"
@@ -179,7 +179,7 @@ repos:
       - id: pyupgrade
         name: "🐍 python · Py Upgrade"
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.7
+    rev: v0.14.9
     hooks:
       - id: ruff-format
         name: "🐍 python · Format with Ruff"
@@ -222,7 +222,7 @@ repos:
     # This helps ensure cross-compatibility with people who don't wish to use uv
   - repo: https://github.com/astral-sh/uv-pre-commit
     # uv version.
-    rev: 0.9.14
+    rev: 0.9.18
     hooks:
       - id: uv-sync
         name: "⚡️ uv · Sync dependencies with uv"
@@ -350,7 +350,7 @@ repos:
 
   ### Javascript & Web Tools ###
   - repo: https://github.com/biomejs/pre-commit
-    rev: "v2.3.8"
+    rev: "v2.3.9"
     hooks:
       - id: biome-check
         name: "🟨 javascript · Lint, format, and safe fixes with Biome"
@@ -400,7 +400,7 @@ repos:
 
     ### Data & Config Validation ###
   - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: 0.35.0
+    rev: 0.36.0
     hooks:
       - id: check-github-workflows
         name: "🧩 github-actions · Validate gh workflow files"
@@ -417,7 +417,7 @@ repos:
         name: "🐳 hadolint · Validate Dockerfile"
 
   - repo: https://github.com/gruntwork-io/pre-commit
-    rev: v0.1.29
+    rev: v0.1.30
     hooks:
       - id: helmlint
         name : "☸️ helmlint · Validate Helm Charts"
