@@ -59,7 +59,7 @@ spec:
           - name: TITLE
             value: "Welcome to (AKS)"
           image: "{{ .Values.global.registry }}{{ .Values.image.repository }}:{{ default .Values.image.tag .Chart.AppVersion  }}"         
-          command: ["java", "-Djava.io.tmpdir=/home/jenkins/", "-jar", "/opt/jetty-runner.jar", "/opt/test.war"]
+          # command: ["java", "-Djava.io.tmpdir=/home/jenkins/", "-jar", "/opt/jetty-runner.jar", "/opt/test.war"]
           #args: ["--version"]
           #imagePullPolicy: {{ .Values.image.imagePullPolicy }}
           terminationMessagePath: "/tmp/my-log"
@@ -67,7 +67,7 @@ spec:
             - name: http
               #containerPort: 80
               containerPort: 8080
-              hostPort: 9093
+              hostPort: 8091
               protocol: TCP
           # See https://kubernetes.io/fr/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
           readinessProbe:

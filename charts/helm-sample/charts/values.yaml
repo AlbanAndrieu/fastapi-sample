@@ -53,7 +53,7 @@ securityContext:
 service:
   #type: ClusterIP
   type: NodePort
-  port: 9093
+  port: 8091
 
 ingress:
   enabled: true
@@ -88,7 +88,7 @@ tolerations: []
 affinity: {}
 
 mysql:
-  enabled: true
+  enabled: false
 
 tags:
   front-end: false

@@ -408,12 +408,28 @@ repos:
       - id: check-taskfile
         name: "✅ taskfile · Validate Task configuration"
 
+    # ----------------------------- 🔒 Deployment Tools ---------------------------- #
+    
   - repo: https://github.com/hadolint/hadolint
     rev: v2.14.0
     hooks:
       - id: hadolint-docker
         name: "🐳 hadolint · Validate Dockerfile"
 
+  - repo: https://github.com/gruntwork-io/pre-commit
+    rev: v0.1.29
+    hooks:
+      - id: helmlint
+        name : "☸️ helmlint · Validate Helm Charts"
+  - repo: https://github.com/norwoodj/helm-docs
+    rev: v1.14.2
+    hooks:
+      - id: helm-docs
+        args:
+          - --chart-search-root=charts/helm-sample/charts          
+        files: (README\.md\.gotmpl|(Chart|requirements|values)\.yaml)$
+        name : "☸️ helm docs · Generate Helm Charts documentation"        
+        
     # ----------------------------- 🔒 Security Tools ---------------------------- #
 
   - repo: https://github.com/PyCQA/bandit
