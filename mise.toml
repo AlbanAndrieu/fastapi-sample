@@ -1,5 +1,16 @@
 min_version = "2024.9.5"
 
+[tools]
+python = "{{ get_env(name='PYTHON_VERSION', default='3.11') }}"
+ruff = "latest"
+awscli = { version = "latest", symlink_bins = "true" }
+k9s = "latest"
+kubectl = "latest"
+helm = "latest"
+terraform = "latest"
+argocd = "latest"
+trivy = "latest"
+
 [env]
 # Utiliser le nom du projet dérivé du répertoire courant
 PROJECT_NAME = "{{ config_root | basename }}"
@@ -15,10 +26,7 @@ DATABASE_URL = { required = "Set DATABASE_URL to your PostgreSQL connection stri
 ENABLE_BETA_FEATURES = { required = true }
 
 AWS_REGION = { required = "Set to your AWS region (e.g., us-east-1, eu-west-1)" }
-
-[tools]
-python = "{{ get_env(name='PYTHON_VERSION', default='3.11') }}"
-ruff = "latest"
+AWS_PROFILE = "eks"
 
 [tasks]
 init = "bash ./scripts/run-install.sh"

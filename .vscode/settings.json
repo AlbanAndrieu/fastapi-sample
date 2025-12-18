@@ -158,5 +158,6 @@
 		"wrangler.json": "jsonc"
 	},
 	"cursorpyright.analysis.logLevel": "Trace",
+	"datadog.ust.environment.setup.focusedName": "uat",
 	"git.ignoreLimitWarning": true
 }
