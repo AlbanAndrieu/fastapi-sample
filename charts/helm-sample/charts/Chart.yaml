@@ -27,9 +27,8 @@ maintainers:
   - name: aandrieu
     email: "alban.andrieu@free.fr"
 
-#helm search repo bitnami
 dependencies:
-#- name: mongodb
-#  version: 3.0.4
-#  repository: https://kubernetes-charts.storage.googleapis.com/
-#  condition: mongodb.enabled
+# - name: mongodb
+#   version: 3.0.4
+#   repository: https://kubernetes-charts.storage.googleapis.com/
+#   condition: mongodb.enabled

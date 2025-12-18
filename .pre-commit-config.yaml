@@ -418,14 +418,14 @@ repos:
     hooks:
     -   id: helmlint
         name: "☸️ helmlint · Validate Helm Charts"
--   repo: https://github.com/norwoodj/helm-docs
-    rev: '19.0614'
-    hooks:
-    -   id: helm-docs
-        args:
-        -   --chart-search-root=charts/helm-sample/charts
-        files: (README\.md\.gotmpl|(Chart|requirements|values)\.yaml)$
-        name: "☸️ helm docs · Generate Helm Charts documentation"
+# -   repo: https://github.com/norwoodj/helm-docs
+#     rev: '19.0614'
+#     hooks:
+#     -   id: helm-docs
+#         args:
+#         -   --chart-search-root=charts/helm-sample/charts
+#         files: (README\.md\.gotmpl|(Chart|requirements|values)\.yaml)$
+#         name: "☸️ helm docs · Generate Helm Charts documentation"
 
     # ----------------------------- 🔒 Security Tools ---------------------------- #
 
