@@ -95,6 +95,8 @@ spec:
             capabilities:
               add:
               - SYS_PTRACE
+              drop:
+              - ALL
           stdin: true
           tty: true
       {{- with .Values.nodeSelector }}
