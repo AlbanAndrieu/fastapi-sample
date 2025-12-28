@@ -553,8 +553,8 @@ type = "confirm"
 name = "show_message"
 message = "Do you want to add body message in commit?"
 
-[tool.vercel.scripts]
-build = "python build.py"
+# [tool.vercel.scripts]
+# build = "python build.py"
 
 [project.scripts]
 app = "server:app"

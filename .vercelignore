@@ -12,4 +12,5 @@
 !my-app
 !vercel.json
 !*.html
+!README.md
 packages/*/test/**
