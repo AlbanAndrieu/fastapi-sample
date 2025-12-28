@@ -1,7 +1,7 @@
 [build-system]
 # requires = ["setuptools>=61.0"]
 # build-backend = "setuptools.build_meta"
-requires = ["hatchling", "versioningit", "setuptools>=61.0", "versioneer[toml]==0.29", "packaging>=24.2"]
+requires = ["hatchling", "versioningit", "setuptools>=61.0", "versioneer[toml]==0.29", "packaging>=24.2", "wheel"]
 build-backend = "hatchling.build"
 # requires = ["poetry-core"]
 # build-backend = "poetry.core.masonry.api"
@@ -21,7 +21,6 @@ maintainers = [
   { name = "Alban Andrieu", email = "alban.andrieu@free.fr" }
 ]
 dependencies = ["dynamic"]
-# dependencies = ["dynamic", "dvc (>=3.64.0,<4.0.0)", "dvc-s3 (>=3.2.2,<4.0.0)"]
 requires-python = ">=3.12"
 readme = "README.md"
 license = "MIT"
@@ -48,9 +47,6 @@ toml = ["tomli; python_version < '3.11'"]
 name = "fastapi-sample"
 description = "Custom hooks to improve code quality before pushing to git"
 authors = ["Alban Andrieu <alban.andrieu@free.fr>"]
-# license = "MIT"
-# homepage = "https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample"
-# readme = ["README.md", "LICENSE"]
 
 packages = [
   { include = "nabla" }
@@ -334,7 +330,7 @@ mdurl = ">=0.1.2"
 numpy = ">=1.19.3,<2" # conflict possible with jm-multilabel-evaluator, TODO >=2.2.3
 packaging = ">=24.2"
 pre-commit = ">=4.5.0"
-pre-commit-hooks = ">=4.4.0"
+# pre-commit-hooks = ">=4.4.0"
 pip-upgrader = ">=1.4.15"
 python-keystoneclient = ">=0.0.18"
 readme-renderer = {version = ">=43.0", extras = ["md"]}
@@ -346,9 +342,11 @@ termcolor = ">=1.1.0" # >=2.4.0
 types-PyYAML = ">=6.0.12.20250915" # for notebooks/training_example.ipynb
 versioneer = {version = ">=0.29", extras = ["toml"]}
 versioningit = ">=3.3.0"
+vulture = ">=2.14"
 webtypy = ">=0.1.7"
 # wheel = ">=0.45.1"
-vulture = ">=2.14"
+workers-py = ">=1.7.0"
+workers-runtime-sdk = ">=0.3.1"
 
 #[tool.setuptools-pipfile]
 

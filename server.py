@@ -46,6 +46,7 @@ def uvicorn_run() -> None:
                 port=EXPOSE_PORT,
                 log_config=None,
                 log_level=api_settings.api_log_level,
+                reload=True,
             )
             server = uvicorn.Server(config)
             server.run()
