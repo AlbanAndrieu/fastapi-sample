@@ -38,6 +38,7 @@ classifiers = [
 "Homepage" = "https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample"
 
 [project.optional-dependencies]
+build = ["setuptools", "cython"]
 toml = ["tomli; python_version < '3.11'"]
 
 #[virtualenvs]
@@ -524,7 +525,7 @@ update_changelog_on_bump = true
 message_template = "{{change_type}}:{% if show_message %} {{message}}{% endif %}"
 example = "feature: this feature enable customize through config file"
 schema = "<type>: <body>"
-schema_pattern = "(feature|bug fix):(\\s.*)"
+schema_pattern = "(feature|fix):(\\s.*)"
 bump_pattern = "^(break|new|fix|hotfix)"
 bump_map = {"break" = "MAJOR", "new" = "MINOR", "fix" = "PATCH", "hotfix" = "PATCH"}
 change_type_order = ["BREAKING CHANGE", "feat", "fix", "refactor", "perf"]
@@ -532,9 +533,9 @@ info_path = "cz_customize_info.txt"
 info = """
 This is customized info
 """
-commit_parser = "^(?P<change_type>feature|bug fix):\\s(?P<message>.*)?"
-changelog_pattern = "^(feature|bug fix)?(!)?"
-change_type_map = {"feature" = "Feat", "bug fix" = "Fix"}
+commit_parser = "^(?P<change_type>feature|fix):\\s(?P<message>.*)?"
+changelog_pattern = "^(feature|fix)?(!)?"
+change_type_map = {"feature" = "Feat", "fix" = "Fix"}
 
 [[tool.commitizen.customize.questions]]
 type = "list"
@@ -559,3 +560,6 @@ message = "Do you want to add body message in commit?"
 [project.scripts]
 app = "server:app"
 # app = "nabla.server:app"
+
+[tool.uv]
+package = false
