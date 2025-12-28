@@ -24,4 +24,4 @@ jobs:
 
       - name: Analysing the code with pylint
         run: |
-          pylint $(find ./hooks -name "*.py" | xargs)
+          pylint $(find ./api -name "*.py" | xargs)

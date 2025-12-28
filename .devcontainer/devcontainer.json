@@ -22,7 +22,15 @@
 	"features": {
 		"ghcr.io/dhoeric/features/act:1": {},
 		"ghcr.io/jsburckhardt/devcontainer-features/uv:1": {},
-		"github-cli": "latest",
+		"ghcr.io/devcontainers/features/github-cli:1": {},
+		"ghcr.io/devcontainers/features/aws-cli:1": {},
+		"ghcr.io/devcontainers/features/terraform:1": {
+			"version": "1.1",
+			"tflint": "latest"
+		},
+		"ghcr.io/iterative/features/dvc:1": {},
+		"ghcr.io/joedmck/devcontainer-features/wrangler:1": {},
+		"ghcr.io/devcontainers-extra/features/vercel-cli:1": {},
 		"docker-in-docker": "latest",
 		"git": "latest"
 	},
