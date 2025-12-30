@@ -1,7 +1,7 @@
 min_version = "2024.9.5"
 
 [tools]
-python = "{{ get_env(name='PYTHON_VERSION', default='3.11') }}"
+python = "{{ get_env(name='PYTHON_VERSION', default='3.12') }}"
 ruff = "latest"
 awscli = { version = "latest", symlink_bins = "true" }
 k9s = "latest"
@@ -33,28 +33,25 @@ init = "bash ./scripts/run-install.sh"
 build = "npm run build"
 
 [tasks.install]
-description = "Installer les dépendances"
+description = "Install all poetry dependencies"
 alias = "i"
 run = "poetry install --with format,test,extra,open_telemetry,api,deployment,influxdb,panda,temporal,utils,webui"
 
 [tasks.run]
-description = "Lancer l'application"
+description = "Lunch app"
 run = "python app.py"
 
 [tasks.test]
-description = "Exécuter les tests"
+description = "Run tests"
 run = "pytest tests/"
 
 [tasks.lint]
-description = "Analyser le code"
+description = "Lint code"
 run = "ruff src/"
 
 [tasks.info]
-description = "Afficher les informations du projet"
+description = "Project infos"
 run = '''
-echo "Projet : $PROJECT_NAME"
-echo "Environnement virtuel : $VIRTUAL_ENV"
+echo "Project : $PROJECT_NAME"
+echo "Virtuel environnment : $VIRTUAL_ENV"
 '''
-
-
-
