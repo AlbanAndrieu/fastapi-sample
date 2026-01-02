@@ -564,10 +564,6 @@ message = "Do you want to add body message in commit?"
 # [tool.vercel.scripts]
 # build = "python build.py"
 
-[project.scripts]
-app = "nabla.main:app"
-# app = "server_all:mcp"
-
 [tool.fastapi]
 entrypoint = "nabla.main:app"
 
