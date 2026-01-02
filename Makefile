@@ -15,8 +15,8 @@ NPROC := 1
 
 # Image
 APP_NAME     = fastapi-sample
-# 783876277037.dkr.ecr.eu-west-3.amazonaws.com
-OCI_REGISTRY = registry.gitlab.com/jusmundi-group/proof-of-concept
+OCI_REGISTRY = 783876277037.dkr.ecr.eu-west-3.amazonaws.com
+# OCI_REGISTRY = registry.gitlab.com/jusmundi-group/proof-of-concept
 AWS_REGION   = eu-west-3
 OCI_IMAGE := $(OCI_REGISTRY)/$(APP_NAME)
 OCI_TAG := $${OCI_TAG:-"1.1.3"}
@@ -158,14 +158,14 @@ up-docker:
 up-python:
 	@echo "python -m scripts toto.csv"
 	@echo "up python http://0.0.0.0:$(PORT)/health"
-	python -m server
+	python -m server_app
 
 ## —— Up Python ✅🦄 —————————————————————————————————————————————————————————————————
 .PHONY: up-uvicorn
 up-uvicorn:
 	@echo "up uvicorn http://0.0.0.0:$(PORT)/v1/ping"
-	@echo ".venv/bin/uvicorn server:app --reload --workers 1 --host 0.0.0.0 --port $(PORT)"
-	.venv/bin/uvicorn server:app --reload --workers $(NPROC) --host 0.0.0.0 --port $(PORT) \
+	@echo ".venv/bin/uvicorn server_app:app --reload --workers 1 --host 0.0.0.0 --port $(PORT)"
+	.venv/bin/uvicorn server_app:app --reload --workers $(NPROC) --host 0.0.0.0 --port $(PORT) \
 	--loop uvloop --http httptools \
 	--timeout-keep-alive 5 \
   --limit-concurrency 1000 \
@@ -180,8 +180,8 @@ up-uvicorn:
 .PHONY: up-gunicorn
 up-gunicorn:
 	@echo "up gunicorn http://0.0.0.0:$(PORT)/v1/ping"
-	# @echo ".venv/bin/ddtrace-run .venv/bin/gunicorn main:app --reload --name fastapi-sample --workers 1 -k uvicorn_worker.UvicornWorker --bind 0.0.0.0:$(PORT) --logger-class=nabla.utils.log_config.JMGunicornLogger --log-level info --access-logfile - --statsd-host localhost:8125"
-	.venv/bin/ddtrace-run .venv/bin/gunicorn main:app --reload --name fastapi-sample -k uvicorn_worker.UvicornWorker \
+	# @echo ".venv/bin/ddtrace-run .venv/bin/gunicorn server_all:app --reload --name fastapi-sample --workers 1 -k uvicorn_worker.UvicornWorker --bind 0.0.0.0:$(PORT) --logger-class=nabla.utils.log_config.JMGunicornLogger --log-level info --access-logfile - --statsd-host localhost:8125"
+	.venv/bin/ddtrace-run .venv/bin/gunicorn server_all:app --reload --name fastapi-sample -k uvicorn_worker.UvicornWorker \
 	--workers $(NPROC) \
 	--max-requests 5000 --max-requests-jitter 500 \
     --graceful-timeout 30 --timeout 60 --keep-alive 5 \
@@ -193,7 +193,7 @@ up-gunicorn:
 .PHONY: up-mcp
 up-mcp:
 	@echo "up mcp http://0.0.0.0:8000/mcp"
-	fastmcp run server-mcp.py
+	fastmcp run server_mcp.py
 
 ## —— Up ✅ —————————————————————————————————————————————————————————————————
 .PHONY: up

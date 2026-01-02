@@ -96,10 +96,10 @@ make sast-docker             # Security scan with Trivy
 
 ### Application Structure
 
-- **`main.py`**: Main entry point that imports the FastAPI app from `nabla.fastapi_server`
+- **`main.py`**: Main entry point that imports the FastAPI app from `nabla.main`
 - **`server.py`**: Uvicorn server configuration with Pyroscope profiling
 - **`nabla/`**: Main application package
-  - **`fastapi_server.py`**: Core FastAPI application setup, middleware, lifespan management
+  - **`main.py`**: Core FastAPI application setup, middleware, lifespan management
   - **`config_settings.py`**: Centralized configuration using Pydantic settings
   - **`api/`**: API endpoints organized by domain
     - `ping.py`: Health check endpoints
@@ -152,7 +152,7 @@ make sast-docker             # Security scan with Trivy
 
 **2. Async-First**: All database and I/O operations use async/await. Database queries use `databases` library or SQLAlchemy async sessions.
 
-**3. Lifespan Management**: Application startup/shutdown handled via `@asynccontextmanager` in `fastapi_server.py`:
+**3. Lifespan Management**: Application startup/shutdown handled via `@asynccontextmanager` in `main.py`:
 - Initializes FastAPICache, Redis, database connections
 - Starts background tasks (system metrics, event listeners)
 - Properly cleans up on shutdown
@@ -189,7 +189,7 @@ make sast-docker             # Security scan with Trivy
 2. Define Pydantic models for request/response
 3. Add database models if needed (use SQLModel)
 4. Create Alembic migration if schema changes: `alembic revision --autogenerate -m "description"`
-5. Register router in `nabla/fastapi_server.py`
+5. Register router in `nabla/main.py`
 6. Add tests in `tests/`
 7. Run linting before commit: `ruff check` and `ruff format`
 
@@ -271,7 +271,7 @@ From `.cursor/rules/001_project-description.mdc`:
 
 ### Monitoring
 
-- Datadog profiler starts on import (prof.start() in `fastapi_server.py`)
+- Datadog profiler starts on import (prof.start() in `main.py`)
 - Traces filtered to exclude noisy endpoints (see `FilterbyName` class)
 - Custom Prometheus metrics in `nabla/utils/prometheus.py`
 - Structured logs via `structlog` and `python-json-logger`

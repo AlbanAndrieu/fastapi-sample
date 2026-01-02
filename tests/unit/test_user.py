@@ -3,7 +3,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from server import app
+from server_app import app
 
 
 @pytest.fixture(scope="module")

@@ -11,7 +11,8 @@ from sqlalchemy import URL, Engine, create_engine
 
 # With PostgreSQL
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from sqlalchemy.orm import Session, declarative_base, sessionmaker
+from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlmodel import Session as SQLModelSession
 
 from nabla.config_settings import get_settings
 from nabla.utils.logger import logger
@@ -126,15 +127,19 @@ async def init_db():
     #     await conn.run_sync(Base.metadata.create_all)
 
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# Fix AttributeError: 'Session' object has no attribute 'exec'
+# https://github.com/fastapi/sqlmodel/issues/75
+SessionLocal = sessionmaker(class_ = SQLModelSession, autocommit=False, autoflush=False , bind=engine)
 AsyncSessionLocal = async_sessionmaker(autocommit=False, autoflush=False, bind=engine)
 SyncSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 # TODO replace get_session with get_async_session
 async def get_session() -> None:
-    async with Session(engine, expire_on_commit=False) as session:
+    with SessionLocal() as session:
         yield session
+    # async with Session(engine, expire_on_commit=False) as session:
+    #    yield session
 
 
 async def get_async_session() -> AsyncGenerator[AsyncSession, None]:

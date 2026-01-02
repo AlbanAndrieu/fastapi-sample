@@ -5,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import nabla.api.demo.demo as demo
-from server import app
+from server_app import app
 from tests.unit.conftest import requires_env
 
 # from async_asgi_testclient import TestClient

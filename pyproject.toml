@@ -26,6 +26,7 @@ requires-python = ">=3.12"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
+package-mode = false
 
 # Keywords (translated to tags on the package index)
 keywords = ["packaging", "poetry" ,"fastapi-samples"]
@@ -33,6 +34,11 @@ keywords = ["packaging", "poetry" ,"fastapi-samples"]
 classifiers = [
   "Private :: Do not Upload"
 ]
+
+[project.scripts]
+# app = "nabla.main:app"
+app = "server_app:app"
+#  python -m build --wheel
 
 [project.urls]
 "Homepage" = "https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample"
@@ -74,6 +80,7 @@ priority = "explicit"
 
 [tool.poetry.dependencies]
 python = ">=3.12,<4.0"
+arel = "0.4.0"
 
 [tool.poetry.group.api]
 optional = false
@@ -107,7 +114,6 @@ logfire = ">=4.2.0"
 ovh = ">=1.2.0"
 podmena = ">=0.6.1"
 gunicorn = ">=23.0.0"
-# psycopg2-binary = ">=2.9.5"
 openai = ">=1.95.0"
 # pydantic = {version = ">=2.6.1", extras = ["dotenv"]}
 passlib = ">=1.7.4"
@@ -115,6 +121,7 @@ pandas = ">=2.2.1"
 plotly = ">=6.3.0"
 polars = ">=1.32.3"
 pybreaker = ">=1.4.0"
+# psycopg2-binary = ">=2.9.5"
 # psycopg2 = ">=2.9.7"  # WARNING need sudo apt-get install libpq-dev
 psycopg = {version = ">=3.2.10", extras = ["binary","pool"]}
 pyarrow = ">=16.0.0"
@@ -211,7 +218,8 @@ optional = false
 # pandas = ">=2.2.1"
 sqlalchemy =  {extras = ["asyncio"], version = ">=2.0.20"}
 sqlmodel = ">=0.0.25"
-psycopg2 = ">=2.9.7"  # WARNING need sudo apt-get install libpq-dev
+# psycopg2 = ">=2.9.7"  # WARNING need sudo apt-get install libpq-dev
+psycopg = {version = ">=3.2.10", extras = ["binary","pool"]}
 
 [tool.poetry.group.influxdb]
 optional = true
@@ -357,6 +365,7 @@ vulture = ">=2.14"
 
 [tool.poetry.group.dev.dependencies]
 commitizen = "^4.10.0"
+psycopg2-binary = "^2.9.11"
 
 [tool.pytest.ini_options]
 testpaths = "tests/"
@@ -553,9 +562,8 @@ type = "confirm"
 name = "show_message"
 message = "Do you want to add body message in commit?"
 
+[tool.fastapi]
+entrypoint = "nabla.main:app"
+
 [tool.vercel.scripts]
 build = "python build.py"
-
-[project.scripts]
-app = "server:app"
-# app = "nabla.server:app"

@@ -5,7 +5,7 @@
   "github": {
     "silent": true,
     "autoJobCancelation": true
-  },
+  },  
   "headers": [
     {
       "source": "/api(/v[0-9]+)?/frameworks",

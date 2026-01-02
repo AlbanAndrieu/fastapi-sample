@@ -100,7 +100,7 @@ async def read_item(item_id: int, q: Optional[str] = None):
         seconds = item_id
         logger.info(f"Sleeping for {seconds} seconds")
 
-        asyncio.sleep(seconds)
+        # asyncio.sleep(seconds)
         # await asyncio.sleep(seconds)
         # await run_in_threadpool(time.sleep, seconds)
 

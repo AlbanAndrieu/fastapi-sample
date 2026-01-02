@@ -7,4 +7,9 @@
 !my-app
 !vercel.json
 !*.html
-
+# api/examples/*
+# api/frameworks.ts
+tests/**
+__tests__/**
+**/*.test.py
+**/test_*.py

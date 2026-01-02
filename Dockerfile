@@ -47,7 +47,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   && apt-get -y install --no-install-recommends build-essential \
   libpq-dev \
   locales tzdata curl \
-  nano vim && \
+  nano vim \
+  net-tools bash && \
   apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # because of tzdata and the need of noninteractive
@@ -172,8 +173,8 @@ USER jm-python
 RUN poetry --no-root install --with api,extras,open_telemetry,deployment,temporal
 
 COPY --chown=jm-python:jm-python nabla/ "${PYSETUP_PATH}/jm-python/nabla/"
-COPY --chown=jm-python:jm-python server.py ""${PYSETUP_PATH}/jm-python/"
-COPY --chown=jm-python:jm-python main.py ""${PYSETUP_PATH}/jm-python/"
+COPY --chown=jm-python:jm-python server_app.py ""${PYSETUP_PATH}/jm-python/"
+COPY --chown=jm-python:jm-python server_all.py ""${PYSETUP_PATH}/jm-python/"
 
 RUN mkdir -p "${PYSETUP_PATH}/jm-python/var/"
 
@@ -183,7 +184,7 @@ HEALTHCHECK CMD curl --fail http://localhost:8080/v1/ping || exit 1
 
 EXPOSE 8080
 
-CMD ["/code/.venv/bin/uvicorn", "--reload", "main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["/code/.venv/bin/uvicorn", "--reload", "server_all:app", "--host", "0.0.0.0", "--port", "8080"]
 
 # `production` image used for runtime
 FROM python-base AS production
@@ -212,8 +213,9 @@ USER jm-python
 COPY --from=builder-base "${PYSETUP_PATH}" "${PYSETUP_PATH}/"
 
 COPY --chown=jm-python:jm-python nabla/ "${PYSETUP_PATH}/jm-python/nabla/"
-COPY --chown=jm-python:jm-python main.py "${PYSETUP_PATH}/jm-python/"
-COPY --chown=jm-python:jm-python my-app/ "${PYSETUP_PATH}/jm-python/my-app/"
+# COPY --chown=jm-python:jm-python server_app.py "${PYSETUP_PATH}/jm-python/"
+COPY --chown=jm-python:jm-python server_all.py "${PYSETUP_PATH}/jm-python/"
+COPY --chown=jm-python:jm-python my-login-app/ "${PYSETUP_PATH}/jm-python/my-login-app/"
 COPY --chown=jm-python:jm-python templates/ "${PYSETUP_PATH}/jm-python/templates/"
 
 ENV PATH="${PYSETUP_PATH}/.local/bin/:${POETRY_HOME}/bin:${VENV_PATH}/bin:${PATH}"
@@ -222,11 +224,11 @@ WORKDIR "${PYSETUP_PATH}/jm-python/"
 
 EXPOSE 8080
 
-# CMD ["/code/.venv/bin/uvicorn", "--reload", "server:app", "--host", "0.0.0.0", "--port", "8080"]
+# CMD ["/code/.venv/bin/uvicorn", "--reload", "server_all:app", "--host", "0.0.0.0", "--port", "8080"]
 
 CMD [ \
     "ddtrace-run", \
-    "gunicorn", "main:app", \
+    "gunicorn", "server_all:app", \
     "-k", "uvicorn_worker.UvicornWorker", \
     "--name", "fastapi-sample", \
     "--workers", "4", \

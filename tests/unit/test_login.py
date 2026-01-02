@@ -8,7 +8,7 @@ from passlib.context import CryptContext
 
 from nabla.api.auth.token import create_access_token
 from nabla.api.db.database import database
-from server import app
+from server_app import app
 from tests.unit.conftest import requires_env
 
 
