@@ -2,7 +2,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from server import app
+from server_app import app
 from tests.unit.conftest import requires_env
 
 

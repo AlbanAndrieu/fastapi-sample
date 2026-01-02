@@ -1,7 +1,7 @@
 min_version = "2024.9.5"
 
 [tools]
-python = "{{ get_env(name='PYTHON_VERSION', default='3.12') }}"
+python = "{{ get_env(name='PYTHON_VERSION', default='3.14') }}"
 ruff = "latest"
 awscli = { version = "latest", symlink_bins = "true" }
 k9s = "latest"
@@ -48,6 +48,11 @@ run = "pytest tests/"
 [tasks.lint]
 description = "Lint code"
 run = "ruff src/"
+
+[tasks.deploy]
+description = "Deploy to Cloudflare Wrangler"
+alias = "d"
+run = "npx wrangler dev"
 
 [tasks.info]
 description = "Project infos"

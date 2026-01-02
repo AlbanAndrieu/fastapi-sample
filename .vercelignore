@@ -13,4 +13,8 @@
 !vercel.json
 !*.html
 !README.md
-packages/*/test/**
+tests/**
+__tests__/**
+**/*.test.py
+**/test_*.py
+

@@ -5,7 +5,7 @@ from typing import Dict
 import pytest
 from fastapi.testclient import TestClient
 
-from server import app
+from server_app import app
 
 # from unittest.mock import patch
 

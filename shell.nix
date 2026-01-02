@@ -1,4 +1,4 @@
-{ pkgs ? import (fetchTarball "https://github.com/NixOS/nixpkgs/tarball/nixos-25.05") {} }:
+{ pkgs ? import (fetchTarball "https://channels.nixos.org/nixos-25.11/nixexprs.tar.xz") { config = { allowUnfree = true; }; } }:
 
 pkgs.mkShellNoCC {
   packages = with pkgs; [

@@ -5,7 +5,7 @@ import sys
 import pytest
 from fastapi.testclient import TestClient
 
-from nabla.fastapi_server import app
+from nabla.main import app
 
 
 @pytest.fixture(scope="module")
@@ -28,7 +28,8 @@ def test_metrics(test_app):
 def test_metrics_get_request(test_app):
     response = test_app.get("/metrics")
     assert response.status_code == 200
-    assert response.headers["content-type"] == "text/plain; version=1.0.0; charset=utf-8'  'text/plain; version=0.0.4; charset=utf-8"
+    # assert response.headers["content-type"] == "text/plain; version=1.0.0; charset=utf-8'  'text/plain; version=0.0.4; charset=utf-8"
+    assert response.headers["content-type"] == "text/plain; version=1.0.0; charset=utf-8"
 
 
 @pytest.mark.skip(reason="Skipping this test for now")

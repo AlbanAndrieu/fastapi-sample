@@ -3,7 +3,7 @@ import os
 import pytest
 from starlette.testclient import TestClient
 
-from server import app
+from server_app import app
 
 
 @pytest.fixture(scope="module")

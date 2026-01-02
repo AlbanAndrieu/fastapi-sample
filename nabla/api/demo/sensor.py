@@ -247,7 +247,7 @@ async def get_sensor_data(request: Request):
     )
 
 
-# Health check endpoint overridding the default one on fastapi_server.py
+# Health check endpoint overridding the default one on main.py
 @router.get("/health")
 async def health_check():
     """Health check endpoint with system metrics"""
@@ -271,7 +271,7 @@ async def health_check():
     return health_data
 
 
-# Metrics endpoint overridding the default one on fastapi_server.py
+# Metrics endpoint overridding the default one on main.py
 @router.get("/stats")
 async def get_metrics():
     """Detailed metrics endpoint for monitoring"""
