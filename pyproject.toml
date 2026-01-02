@@ -20,7 +20,7 @@ authors = [
 maintainers = [
   { name = "Alban Andrieu", email = "alban.andrieu@free.fr" }
 ]
-dependencies = ["dynamic"]
+# dependencies = ["dynamic"]
 requires-python = ">=3.12"
 readme = "README.md"
 license = "MIT"
@@ -356,11 +356,14 @@ webtypy = ">=0.1.7"
 workers-py = ">=1.7.0"
 workers-runtime-sdk = ">=0.3.1"
 
+[tool.poetry.requires-plugins]
+poetry-plugin-export = ">=1.8"
+# poetry export -f requirements.txt --output requirements.txt --all-extras --all-groups
+
 #[tool.setuptools-pipfile]
 
 #[tool]
 #setuptools-pipfile = "Pipfile"
-
 
 [tool.poetry.group.dev.dependencies]
 commitizen = "^4.10.0"

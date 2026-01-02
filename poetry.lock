@@ -384,7 +384,7 @@ filelock = ">=3.8.2"
 jsonschema = ">=4.10.0"
 packaging = ">=22.0"
 pathspec = ">=0.10.3"
-pyyaml = {version = ">=6.0.1", markers = "python_version >= \"3.14\""}
+pyyaml = {version = ">=6.0.1", markers = "python_version < \"3.14\""}
 referencing = ">=0.36.2"
 ruamel-yaml = ">=0.18.11"
 ruamel-yaml-clib = {version = ">=0.2.12", markers = "python_version < \"3.14\""}
@@ -571,8 +571,8 @@ files = [
 
 [package.dependencies]
 cffi = [
-    {version = ">=2.0.0b1", markers = "python_version >= \"3.14\""},
     {version = ">=1.0.1", markers = "python_version < \"3.14\""},
+    {version = ">=2.0.0b1", markers = "python_version >= \"3.14\""},
 ]
 
 [[package]]
@@ -845,7 +845,7 @@ description = "LTS Port of Python audioop"
 optional = false
 python-versions = ">=3.13"
 groups = ["webui"]
-markers = "python_version >= \"3.13.0\""
+markers = "python_version >= \"3.13\""
 files = [
     {file = "audioop_lts-0.2.2-cp313-abi3-macosx_10_13_universal2.whl", hash = "sha256:fd3d4602dc64914d462924a08c1a9816435a2155d74f325853c1f1ac3b2d9800"},
     {file = "audioop_lts-0.2.2-cp313-abi3-macosx_10_13_x86_64.whl", hash = "sha256:550c114a8df0aafe9a05442a1162dfc8fec37e9af1d625ae6060fed6e756f303"},
@@ -1215,7 +1215,7 @@ description = "The Blis BLAS-like linear algebra library, as a self-contained C-
 optional = false
 python-versions = "<3.15,>=3.9"
 groups = ["deployment"]
-markers = "python_version < \"3.14.0\""
+markers = "python_version < \"3.14\""
 files = [
     {file = "blis-1.3.3-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:650f1d2b28e3c875927c63deebda463a6f9d237dff30e445bfe2127718c1a344"},
     {file = "blis-1.3.3-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:9b0d42420ddd543eec51ccb99d38364a0c0833b6895eced37127822de6ecacff"},
@@ -2430,7 +2430,7 @@ description = "Manage calls to calloc/free through Cython"
 optional = false
 python-versions = "<3.15,>=3.9"
 groups = ["deployment"]
-markers = "python_version < \"3.14.0\""
+markers = "python_version < \"3.14\""
 files = [
     {file = "cymem-2.0.13-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:8efc4f308169237aade0e82877a65a563833dec32eb7ab2326120253e0e9e918"},
     {file = "cymem-2.0.13-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:e03bb575a96c59bc210d7d59862747f0012696b0dac3427ce8af33c7afb3d4a2"},
@@ -2708,7 +2708,7 @@ description = "Datadog APM client library"
 optional = false
 python-versions = "<3.15,>=3.9"
 groups = ["api"]
-markers = "python_version < \"3.14.0\""
+markers = "python_version < \"3.14\""
 files = [
     {file = "ddtrace-4.1.1-cp310-cp310-macosx_12_0_arm64.whl", hash = "sha256:f57030251f55cfdb823d964900258e657e979fd7dd72afeeb3df278883268280"},
     {file = "ddtrace-4.1.1-cp310-cp310-macosx_12_0_x86_64.whl", hash = "sha256:5e9508b16fcdc20a1e79cd4583eabe6ec73e66c9ef91c9cb4f65e5d099201c46"},
@@ -2767,8 +2767,8 @@ files = [
 
 [package.dependencies]
 bytecode = [
-    {version = ">=0.16.0,<1", markers = "python_version >= \"3.13.0\" and python_version < \"3.14.0\""},
     {version = ">=0.15.1,<1", markers = "python_version ~= \"3.12.0\""},
+    {version = ">=0.16.0,<1", markers = "python_version >= \"3.13.0\" and python_version < \"3.14.0\""},
 ]
 envier = ">=0.6.1,<0.7.0"
 opentelemetry-api = ">=1,<2"
@@ -3378,17 +3378,6 @@ docs = ["mkdocs (>=1.5.2,<2)", "mkdocs-gen-files (>=0.5.0,<1)", "mkdocs-material
 tests = ["pytest (>=7,<9)", "pytest-celery (<1)", "pytest-cov (>=4.1.0)", "pytest-mock", "pytest-rerunfailures", "pytest-sugar", "pytest-test-utils (>=0.0.6)"]
 
 [[package]]
-name = "dynamic"
-version = "0.1.1"
-description = "Class to create dynamic objects."
-optional = false
-python-versions = "*"
-groups = ["main"]
-files = [
-    {file = "dynamic-0.1.1.tar.gz", hash = "sha256:385a601076538274a42060b1d650fe662f7aa5b15ae95bbdd4ac6d2c49302dba"},
-]
-
-[[package]]
 name = "email-validator"
 version = "2.3.0"
 description = "A robust email address syntax and deliverability validation library."
@@ -3558,7 +3547,7 @@ description = "A library for efficient similarity search and clustering of dense
 optional = false
 python-versions = "<3.15,>=3.10"
 groups = ["api"]
-markers = "python_version < \"3.14.0\""
+markers = "python_version < \"3.14\""
 files = [
     {file = "faiss_cpu-1.13.2-cp310-abi3-macosx_14_0_arm64.whl", hash = "sha256:a9064eb34f8f64438dd5b95c8f03a780b1a3f0b99c46eeacb1f0b5d15fc02dc1"},
     {file = "faiss_cpu-1.13.2-cp310-abi3-macosx_14_0_x86_64.whl", hash = "sha256:c8d097884521e1ecaea6467aeebbf1aa56ee4a36350b48b2ca6b39366565c317"},
@@ -7560,7 +7549,7 @@ description = "Cython bindings for MurmurHash"
 optional = false
 python-versions = "<3.15,>=3.6"
 groups = ["deployment"]
-markers = "python_version < \"3.14.0\""
+markers = "python_version < \"3.14\""
 files = [
     {file = "murmurhash-1.0.15-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:f4989c16053a9a83b02c520dd00a31f0877d5fd2ab8a9b6b75ed9eba0e25c489"},
     {file = "murmurhash-1.0.15-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:899068ba3d7c371e7edd093852c634cce802fefd9aaddfcc0d2fda1d7433c7f9"},
@@ -7894,7 +7883,7 @@ description = "Python package for creating and manipulating graphs and networks"
 optional = false
 python-versions = "!=3.14.1,>=3.11"
 groups = ["api", "extra", "pytorch"]
-markers = "python_version < \"3.14.0\""
+markers = "python_version < \"3.14\""
 files = [
     {file = "networkx-3.6.1-py3-none-any.whl", hash = "sha256:d47fbf302e7d9cbbb9e2555a0d267983d2aa476bac30e90dfbe5669bd57f3762"},
     {file = "networkx-3.6.1.tar.gz", hash = "sha256:26b7c357accc0c8cde558ad486283728b65b6a95d85ee1cd66bafab4c8168509"},
@@ -8109,7 +8098,7 @@ description = "CUBLAS native runtime libraries"
 optional = false
 python-versions = ">=3"
 groups = ["api", "pytorch"]
-markers = "python_version < \"3.14.0\" and platform_system == \"Linux\" and platform_machine == \"x86_64\" and sys_platform == \"darwin\""
+markers = "python_version < \"3.14\" and platform_system == \"Linux\" and platform_machine == \"x86_64\" and sys_platform == \"darwin\""
 files = [
     {file = "nvidia_cublas_cu12-12.8.4.1-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:b86f6dd8935884615a0683b663891d43781b819ac4f2ba2b0c9604676af346d0"},
     {file = "nvidia_cublas_cu12-12.8.4.1-py3-none-manylinux_2_27_x86_64.whl", hash = "sha256:8ac4e771d5a348c551b2a426eda6193c19aa630236b418086020df5ba9667142"},
@@ -8139,7 +8128,7 @@ description = "CUDA profiling tools runtime libs."
 optional = false
 python-versions = ">=3"
 groups = ["api", "pytorch"]
-markers = "python_version < \"3.14.0\" and platform_system == \"Linux\" and platform_machine == \"x86_64\" and sys_platform == \"darwin\""
+markers = "python_version < \"3.14\" and platform_system == \"Linux\" and platform_machine == \"x86_64\" and sys_platform == \"darwin\""
 files = [
     {file = "nvidia_cuda_cupti_cu12-12.8.90-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:4412396548808ddfed3f17a467b104ba7751e6b58678a4b840675c56d21cf7ed"},
     {file = "nvidia_cuda_cupti_cu12-12.8.90-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:ea0cb07ebda26bb9b29ba82cda34849e73c166c18162d3913575b0c9db9a6182"},
@@ -8167,7 +8156,7 @@ description = "NVRTC native runtime libraries"
 optional = false
 python-versions = ">=3"
 groups = ["api", "pytorch"]
-markers = "python_version < \"3.14.0\" and platform_system == \"Linux\" and platform_machine == \"x86_64\" and sys_platform == \"darwin\""
+markers = "python_version < \"3.14\" and platform_system == \"Linux\" and platform_machine == \"x86_64\" and sys_platform == \"darwin\""
 files = [
     {file = "nvidia_cuda_nvrtc_cu12-12.8.93-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl", hash = "sha256:a7756528852ef889772a84c6cd89d41dfa74667e24cca16bb31f8f061e3e9994"},
     {file = "nvidia_cuda_nvrtc_cu12-12.8.93-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:fc1fec1e1637854b4c0a65fb9a8346b51dd9ee69e61ebaccc82058441f15bce8"},
@@ -8197,7 +8186,7 @@ description = "CUDA Runtime native Libraries"
 optional = false
 python-versions = ">=3"
 groups = ["api", "pytorch"]
-markers = "python_version < \"3.14.0\" and platform_system == \"Linux\" and platform_machine == \"x86_64\" and sys_platform == \"darwin\""
+markers = "python_version < \"3.14\" and platform_system == \"Linux\" and platform_machine == \"x86_64\" and sys_platform == \"darwin\""
 files = [
     {file = "nvidia_cuda_runtime_cu12-12.8.90-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:52bf7bbee900262ffefe5e9d5a2a69a30d97e2bc5bb6cc866688caa976966e3d"},
     {file = "nvidia_cuda_runtime_cu12-12.8.90-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:adade8dcbd0edf427b7204d480d6066d33902cab2a4707dcfc48a2d0fd44ab90"},
@@ -8228,7 +8217,7 @@ description = "cuDNN runtime libraries"
 optional = false
 python-versions = ">=3"
 groups = ["api", "pytorch"]
-markers = "python_version < \"3.14.0\" and platform_system == \"Linux\" and platform_machine == \"x86_64\" and sys_platform == \"darwin\""
+markers = "python_version < \"3.14\" and platform_system == \"Linux\" and platform_machine == \"x86_64\" and sys_platform == \"darwin\""
 files = [
     {file = "nvidia_cudnn_cu12-9.10.2.21-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:c9132cc3f8958447b4910a1720036d9eff5928cc3179b0a51fb6d167c6cc87d8"},
     {file = "nvidia_cudnn_cu12-9.10.2.21-py3-none-manylinux_2_27_x86_64.whl", hash = "sha256:949452be657fa16687d0930933f032835951ef0892b37d2d53824d1a84dc97a8"},
@@ -8264,7 +8253,7 @@ description = "CUFFT native runtime libraries"
 optional = false
 python-versions = ">=3"
 groups = ["api", "pytorch"]
-markers = "python_version < \"3.14.0\" and platform_system == \"Linux\" and platform_machine == \"x86_64\" and sys_platform == \"darwin\""
+markers = "python_version < \"3.14\" and platform_system == \"Linux\" and platform_machine == \"x86_64\" and sys_platform == \"darwin\""
 files = [
     {file = "nvidia_cufft_cu12-11.3.3.83-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:848ef7224d6305cdb2a4df928759dca7b1201874787083b6e7550dd6765ce69a"},
     {file = "nvidia_cufft_cu12-11.3.3.83-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:4d2dd21ec0b88cf61b62e6b43564355e5222e4a3fb394cac0db101f2dd0d4f74"},
@@ -8294,7 +8283,7 @@ description = "cuFile GPUDirect libraries"
 optional = false
 python-versions = ">=3"
 groups = ["api", "pytorch"]
-markers = "python_version < \"3.14.0\" and platform_system == \"Linux\" and platform_machine == \"x86_64\" and sys_platform == \"darwin\""
+markers = "python_version < \"3.14\" and platform_system == \"Linux\" and platform_machine == \"x86_64\" and sys_platform == \"darwin\""
 files = [
     {file = "nvidia_cufile_cu12-1.13.1.3-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:1d069003be650e131b21c932ec3d8969c1715379251f8d23a1860554b1cb24fc"},
     {file = "nvidia_cufile_cu12-1.13.1.3-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:4beb6d4cce47c1a0f1013d72e02b0994730359e17801d395bdcbf20cfb3bb00a"},
@@ -8323,7 +8312,7 @@ description = "CURAND native runtime libraries"
 optional = false
 python-versions = ">=3"
 groups = ["api", "pytorch"]
-markers = "python_version < \"3.14.0\" and platform_system == \"Linux\" and platform_machine == \"x86_64\" and sys_platform == \"darwin\""
+markers = "python_version < \"3.14\" and platform_system == \"Linux\" and platform_machine == \"x86_64\" and sys_platform == \"darwin\""
 files = [
     {file = "nvidia_curand_cu12-10.3.9.90-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:dfab99248034673b779bc6decafdc3404a8a6f502462201f2f31f11354204acd"},
     {file = "nvidia_curand_cu12-10.3.9.90-py3-none-manylinux_2_27_x86_64.whl", hash = "sha256:b32331d4f4df5d6eefa0554c565b626c7216f87a06a4f56fab27c3b68a830ec9"},
@@ -8358,7 +8347,7 @@ description = "CUDA solver native runtime libraries"
 optional = false
 python-versions = ">=3"
 groups = ["api", "pytorch"]
-markers = "python_version < \"3.14.0\" and platform_system == \"Linux\" and platform_machine == \"x86_64\" and sys_platform == \"darwin\""
+markers = "python_version < \"3.14\" and platform_system == \"Linux\" and platform_machine == \"x86_64\" and sys_platform == \"darwin\""
 files = [
     {file = "nvidia_cusolver_cu12-11.7.3.90-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:db9ed69dbef9715071232caa9b69c52ac7de3a95773c2db65bdba85916e4e5c0"},
     {file = "nvidia_cusolver_cu12-11.7.3.90-py3-none-manylinux_2_27_x86_64.whl", hash = "sha256:4376c11ad263152bd50ea295c05370360776f8c3427b30991df774f9fb26c450"},
@@ -8396,7 +8385,7 @@ description = "CUSPARSE native runtime libraries"
 optional = false
 python-versions = ">=3"
 groups = ["api", "pytorch"]
-markers = "python_version < \"3.14.0\" and platform_system == \"Linux\" and platform_machine == \"x86_64\" and sys_platform == \"darwin\""
+markers = "python_version < \"3.14\" and platform_system == \"Linux\" and platform_machine == \"x86_64\" and sys_platform == \"darwin\""
 files = [
     {file = "nvidia_cusparse_cu12-12.5.8.93-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:9b6c161cb130be1a07a27ea6923df8141f3c295852f4b260c65f18f3e0a091dc"},
     {file = "nvidia_cusparse_cu12-12.5.8.93-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:1ec05d76bbbd8b61b06a80e1eaf8cf4959c3d4ce8e711b65ebd0443bb0ebb13b"},
@@ -8427,7 +8416,7 @@ description = "NVIDIA cuSPARSELt"
 optional = false
 python-versions = "*"
 groups = ["api", "pytorch"]
-markers = "python_version < \"3.14.0\" and platform_system == \"Linux\" and platform_machine == \"x86_64\" and sys_platform == \"darwin\""
+markers = "python_version < \"3.14\" and platform_system == \"Linux\" and platform_machine == \"x86_64\" and sys_platform == \"darwin\""
 files = [
     {file = "nvidia_cusparselt_cu12-0.7.1-py3-none-manylinux2014_aarch64.whl", hash = "sha256:8878dce784d0fac90131b6817b607e803c36e629ba34dc5b433471382196b6a5"},
     {file = "nvidia_cusparselt_cu12-0.7.1-py3-none-manylinux2014_x86_64.whl", hash = "sha256:f1bb701d6b930d5a7cea44c19ceb973311500847f81b634d802b7b539dc55623"},
@@ -8454,7 +8443,7 @@ description = "NVIDIA Collective Communication Library (NCCL) Runtime"
 optional = false
 python-versions = ">=3"
 groups = ["api", "pytorch"]
-markers = "python_version < \"3.14.0\" and platform_system == \"Linux\" and platform_machine == \"x86_64\" and sys_platform == \"darwin\""
+markers = "python_version < \"3.14\" and platform_system == \"Linux\" and platform_machine == \"x86_64\" and sys_platform == \"darwin\""
 files = [
     {file = "nvidia_nccl_cu12-2.27.5-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:31432ad4d1fb1004eb0c56203dc9bc2178a1ba69d1d9e02d64a6938ab5e40e7a"},
     {file = "nvidia_nccl_cu12-2.27.5-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:ad730cf15cb5d25fe849c6e6ca9eb5b76db16a80f13f425ac68d8e2e55624457"},
@@ -8481,7 +8470,7 @@ description = "Nvidia JIT LTO Library"
 optional = false
 python-versions = ">=3"
 groups = ["api", "pytorch"]
-markers = "python_version < \"3.14.0\" and platform_system == \"Linux\" and platform_machine == \"x86_64\" and sys_platform == \"darwin\""
+markers = "python_version < \"3.14\" and platform_system == \"Linux\" and platform_machine == \"x86_64\" and sys_platform == \"darwin\""
 files = [
     {file = "nvidia_nvjitlink_cu12-12.8.93-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl", hash = "sha256:81ff63371a7ebd6e6451970684f916be2eab07321b73c9d244dc2b4da7f73b88"},
     {file = "nvidia_nvjitlink_cu12-12.8.93-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:adccd7161ace7261e01bb91e44e88da350895c270d23f744f0820c818b7229e7"},
@@ -8495,7 +8484,7 @@ description = "NVSHMEM creates a global address space that provides efficient an
 optional = false
 python-versions = ">=3"
 groups = ["api", "pytorch"]
-markers = "python_version < \"3.14.0\" and platform_system == \"Linux\" and platform_machine == \"x86_64\" and sys_platform == \"darwin\""
+markers = "python_version < \"3.14\" and platform_system == \"Linux\" and platform_machine == \"x86_64\" and sys_platform == \"darwin\""
 files = [
     {file = "nvidia_nvshmem_cu12-3.3.20-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:0b0b960da3842212758e4fa4696b94f129090b30e5122fea3c5345916545cff0"},
     {file = "nvidia_nvshmem_cu12-3.3.20-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:d00f26d3f9b2e3c3065be895e3059d6479ea5c638a3f38c9fec49b1b9dd7c1e5"},
@@ -8524,7 +8513,7 @@ description = "NVIDIA Tools Extension"
 optional = false
 python-versions = ">=3"
 groups = ["api", "pytorch"]
-markers = "python_version < \"3.14.0\" and platform_system == \"Linux\" and platform_machine == \"x86_64\" and sys_platform == \"darwin\""
+markers = "python_version < \"3.14\" and platform_system == \"Linux\" and platform_machine == \"x86_64\" and sys_platform == \"darwin\""
 files = [
     {file = "nvidia_nvtx_cu12-12.8.90-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:d7ad891da111ebafbf7e015d34879f7112832fc239ff0d7d776b6cb685274615"},
     {file = "nvidia_nvtx_cu12-12.8.90-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:5b17e2001cc0d751a5bc2c6ec6d26ad95913324a4adb86788c944f8ce9ba441f"},
@@ -8775,8 +8764,8 @@ files = [
 [package.dependencies]
 googleapis-common-protos = ">=1.57,<2.0"
 grpcio = [
-    {version = ">=1.66.2,<2.0.0", markers = "python_version >= \"3.13\""},
     {version = ">=1.63.2,<2.0.0", markers = "python_version < \"3.13\""},
+    {version = ">=1.66.2,<2.0.0", markers = "python_version >= \"3.13\""},
 ]
 opentelemetry-api = ">=1.15,<2.0"
 opentelemetry-exporter-otlp-proto-common = "1.39.1"
@@ -9918,7 +9907,7 @@ description = "Cython hash table that trusts the keys are pre-hashed"
 optional = false
 python-versions = "<3.15,>=3.6"
 groups = ["deployment"]
-markers = "python_version < \"3.14.0\""
+markers = "python_version < \"3.14\""
 files = [
     {file = "preshed-3.0.12-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:d8f0bc207bb5bfe69e3a232367c264cac900dc14e9219cd061b98eaca9e7da61"},
     {file = "preshed-3.0.12-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:0c8a8d571c044ddab5369d30d172c87545f44daa1510bde92b7e0144a8f4f92b"},
@@ -11209,7 +11198,7 @@ description = "A Python package providing core interpreter functionality for Pyo
 optional = false
 python-versions = ">=3.12"
 groups = ["extra"]
-markers = "python_version ~= \"3.12.0\""
+markers = "python_version == \"3.12\""
 files = [
     {file = "pyodide_py-0.27.7-py3-none-any.whl", hash = "sha256:2fa7db63a14720e548eb6174d492643424f8b5f21d43b7c9fecb6d712187fe6a"},
     {file = "pyodide_py-0.27.7.tar.gz", hash = "sha256:afb68f8abf503f691a4ab5d2ffdbf6dd05117920508e1161e04a34737c649d36"},
@@ -11222,7 +11211,7 @@ description = "A Python package providing core interpreter functionality for Pyo
 optional = false
 python-versions = ">=3.13"
 groups = ["extra"]
-markers = "python_version >= \"3.13.0\""
+markers = "python_version >= \"3.13\""
 files = [
     {file = "pyodide_py-0.29.0-py3-none-any.whl", hash = "sha256:fa213ad8f3f7fb3afd6bdff9bc3e1b40193d56eee392e642a7d18279e7269c21"},
     {file = "pyodide_py-0.29.0.tar.gz", hash = "sha256:408e50d22c9d241c8aa4a542614ebbb760dc16a54dc78f61f2206b7f66bd8918"},
@@ -12898,7 +12887,7 @@ description = "C version of reader, parser and emitter for ruamel.yaml derived f
 optional = false
 python-versions = ">=3.9"
 groups = ["extra"]
-markers = "python_version < \"3.14.0\""
+markers = "python_version < \"3.14\""
 files = [
     {file = "ruamel_yaml_clib-0.2.15-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:88eea8baf72f0ccf232c22124d122a7f26e8a24110a0273d9bcddcb0f7e1fa03"},
     {file = "ruamel_yaml_clib-0.2.15-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:9b6f7d74d094d1f3a4e157278da97752f16ee230080ae331fcc219056ca54f77"},
@@ -13734,7 +13723,7 @@ description = "Industrial-strength Natural Language Processing (NLP) in Python"
 optional = false
 python-versions = "<3.15,>=3.9"
 groups = ["deployment"]
-markers = "python_version < \"3.14.0\""
+markers = "python_version < \"3.14\""
 files = [
     {file = "spacy-3.8.11-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:f9cc7f775cfc41ccb8be63bd6258a1ec4613d4ad3859f2ba2c079f34240b21f6"},
     {file = "spacy-3.8.11-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:be9d665be8581926fba4303543ba189d34e8517803052551b000cf1a1af33b87"},
@@ -14212,7 +14201,7 @@ description = "Modern high-performance serialization utilities for Python"
 optional = false
 python-versions = "<3.15,>=3.9"
 groups = ["deployment", "extra"]
-markers = "python_version < \"3.14.0\""
+markers = "python_version < \"3.14\""
 files = [
     {file = "srsly-2.5.2-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:5491fe0683da900cd0c563538510c70a007380e1f6b29ebbb5225e7590981e2a"},
     {file = "srsly-2.5.2-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:7375c2955935b73a6cad3851fe819c2f4ec506504afe7ca92b917555e6850fae"},
@@ -14623,7 +14612,7 @@ description = "A refreshing functional take on deep learning, compatible with yo
 optional = false
 python-versions = "<3.15,>=3.10"
 groups = ["deployment"]
-markers = "python_version < \"3.14.0\""
+markers = "python_version < \"3.14\""
 files = [
     {file = "thinc-8.3.10-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:fbe0313cb3c898f4e6a3f13b704af51f4bf8f927078deb0fe2d6eaf3c6c5b31b"},
     {file = "thinc-8.3.10-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:892ac91cf7cc8d3ac9a4527c68ead37a96e87132c9f589de56b057b50358e895"},
@@ -14927,7 +14916,7 @@ description = "Tensors and Dynamic neural networks in Python with strong GPU acc
 optional = false
 python-versions = ">=3.10"
 groups = ["api", "pytorch"]
-markers = "python_version < \"3.14.0\" and sys_platform == \"darwin\""
+markers = "python_version < \"3.14\" and sys_platform == \"darwin\""
 files = [
     {file = "torch-2.9.1-cp310-cp310-manylinux_2_28_aarch64.whl", hash = "sha256:1cc208435f6c379f9b8fdfd5ceb5be1e3b72a6bdf1cb46c0d2812aa73472db9e"},
     {file = "torch-2.9.1-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:9fd35c68b3679378c11f5eb73220fdcb4e6f4592295277fbb657d31fd053237c"},
@@ -15229,7 +15218,7 @@ description = "A language and compiler for custom Deep Learning operations"
 optional = false
 python-versions = "<3.15,>=3.10"
 groups = ["api", "pytorch"]
-markers = "python_version < \"3.14.0\" and platform_system == \"Linux\" and platform_machine == \"x86_64\" and sys_platform == \"darwin\""
+markers = "python_version < \"3.14\" and platform_system == \"Linux\" and platform_machine == \"x86_64\" and sys_platform == \"darwin\""
 files = [
     {file = "triton-3.5.1-cp310-cp310-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:f63e34dcb32d7bd3a1d0195f60f30d2aee8b08a69a0424189b71017e23dfc3d2"},
     {file = "triton-3.5.1-cp310-cp310-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:5fc53d849f879911ea13f4a877243afc513187bc7ee92d1f2c0f1ba3169e3c94"},
@@ -15378,7 +15367,7 @@ files = [
     {file = "typing_extensions-4.15.0-py3-none-any.whl", hash = "sha256:f0fa19c6845758ab08074a0cfa8b7aecb71c999ca73d62883bc25cc018c4e548"},
     {file = "typing_extensions-4.15.0.tar.gz", hash = "sha256:0cea48d173cc12fa28ecabc3b837ea3cf6f38c6d1136f85cbaaf598984861466"},
 ]
-markers = {ci = "python_version ~= \"3.12.0\"", encryption = "python_version ~= \"3.12.0\"", format = "python_version ~= \"3.12.0\""}
+markers = {ci = "python_version == \"3.12\"", encryption = "python_version == \"3.12\"", format = "python_version == \"3.12\""}
 
 [[package]]
 name = "typing-inspection"
@@ -16889,4 +16878,4 @@ toml = ["tomli"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4.0"
-content-hash = "ced1df573181550ddb7ba796d042f626c380491228782fc126c7b353d05ef57d"
+content-hash = "c1452e1f541ea891f98c15a4151993894f8632a869827cc070de8e12e078570e"
