@@ -22,6 +22,8 @@ vue-client/.output/
 
 .netlify/
 .vercel/
+.astro/
+.flox/
 
 mise.local.toml
 
