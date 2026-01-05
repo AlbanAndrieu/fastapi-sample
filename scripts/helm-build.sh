@@ -26,7 +26,8 @@ echo -e "${magenta} helm lint ./charts/helm-sample/charts --kubeconfig ${HELM_CO
 echo -e "${magenta} helm package ./charts/helm-sample/charts --kubeconfig ${HELM_CONFIG_HOME}/config --kube-context ${HELM_KUBECONTEXT} --namespace ${HELM_NAMESPACE} --version ${HELM_TAG} --app-version ${DOCKER_TAG} ${NC}"
 #  --dependency-update
 echo -e "${magenta} helm uninstall --kubeconfig ${HELM_CONFIG_HOME}/config --kube-context ${HELM_KUBECONTEXT} --namespace ${HELM_NAMESPACE} ${HELM_DEPLOYEMENT} ${NC}"
-echo -e "${magenta} helm install --kubeconfig ${HELM_CONFIG_HOME}/config --kube-context ${HELM_KUBECONTEXT} --namespace ${HELM_NAMESPACE} ${HELM_DEPLOYEMENT} helm-sample-${HELM_TAG}.tgz --timeout 5m0s --wait --atomic --devel --replace --set imagePullPolicy=Always ${NC}"
+echo -e "${magenta} helm install --kubeconfig ${HELM_CONFIG_HOME}/config --kube-context ${HELM_KUBECONTEXT} --namespace ${HELM_NAMESPACE} ${HELM_DEPLOYEMENT} helm-sample-${HELM_TAG}.tgz --timeout 5m0s --wait --devel --replace --set imagePullPolicy=Always ${NC}"
+#  --atomic
 
 #helm plugin install https://github.com/karuppiah7890/helm-schema-gen.git
 echo -e "${magenta} helm schema-gen charts/helm-sample/values.yaml ${NC}"
