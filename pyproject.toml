@@ -20,7 +20,6 @@ authors = [
 maintainers = [
   { name = "Alban Andrieu", email = "alban.andrieu@free.fr" }
 ]
-# dependencies = ["dynamic"]
 requires-python = ">=3.12"
 readme = "README.md"
 license = "MIT"
@@ -34,6 +33,12 @@ classifiers = [
   "Private :: Do not Upload"
 ]
 
+# dependencies = ["dynamic"]
+# dependencies = [
+#     "jinja2>=3.1.6",
+# ]
+dependencies = []
+
 [project.scripts]
 # app = "nabla.main:app"
 app = "server_app:app"
@@ -43,8 +48,8 @@ app = "server_app:app"
 "Homepage" = "https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample"
 
 [project.optional-dependencies]
-build = ["setuptools", "cython"]
-toml = ["tomli; python_version < '3.11'"]
+# build = ["setuptools", "cython"]
+# toml = ["tomli; python_version < '3.11'"]
 
 #[virtualenvs]
 #in-project = true
@@ -276,7 +281,7 @@ pytest-playwright = ">=0.6.2"   # Browser testing
 pytest-profiling = ">=1.8.1"    # Test profiling
 pytest-random-order = ">=1.1.1" # Randomized test order
 pytest-shutil = ">=1.8.1"       # File system testing
-pytest-split = ">=0.10.0"       # Parallel testing
+# pytest-split = ">=0.10.0"       # Parallel testing
 pytest-sugar = ">=1.0.0"        # Test progress visualization
 pytest-testinfra = ">=10.1.1"
 pytest-timeout = ">=2.3.1"      # Test timeouts
@@ -314,7 +319,6 @@ cyclonedx-bom = ">=4.5.0"
 # awscli = ">=1.32.11"
 # awscli-plugin-endpoint = ">=0.4"
 
-# [tool.poetry.dev-dependencies]
 [tool.poetry.group.extra]
 optional = true
 [tool.poetry.group.extra.dependencies]
@@ -326,6 +330,7 @@ ansible-lint = ">=25.8.2"
 # ansible-playbook-grapher = ">=1.1.0"
 click-completion = ">=0.5.2"
 colorama = ">=0.4.6"
+commitizen = ">=4.11.0"
 dvc-s3 = ">=3.2.2"
 httpx = {version = ">=0.23.3"}
 jupyterlab = ">=3.4.3"
@@ -427,6 +432,10 @@ lint.ignore = ["E501", "E203", "RUF012"]
 # Allow autofix for all enabled rules (when `--fix`) is provided.
 lint.fixable = ["ALL"]
 lint.unfixable = []
+lint.per-file-ignores = {}
+
+# Allow unused variables when underscore-prefixed.
+lint.dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 # Exclude a variety of commonly ignored directories.
 exclude = [
@@ -452,13 +461,9 @@ exclude = [
     "node_modules",
     "venv",
 ]
-lint.per-file-ignores = {}
 
 # Same as Black.
 line-length = 88
-
-# Allow unused variables when underscore-prefixed.
-lint.dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 # Assume Python 3.12.3
 target-version = "py312"
@@ -574,9 +579,6 @@ message = "Do you want to add body message in commit?"
 
 [tool.fastapi]
 entrypoint = "nabla.main:app"
-
-[tool.uv]
-package = false
 
 [tool.codespell]
 # Ref: https://github.com/codespell-project/codespell#using-a-config-file
