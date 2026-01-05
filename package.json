@@ -30,17 +30,13 @@
 		"parserOptions": {
 			"ecmaVersion": 6
 		},
-		"plugins": [
-			"compat"
-		],
+		"plugins": ["compat"],
 		"rules": {
 			"compat/compat": "warn"
 		}
 	},
 	"stylelint": {
-		"plugins": [
-			"stylelint-no-unsupported-browser-features"
-		],
+		"plugins": ["stylelint-no-unsupported-browser-features"],
 		"rules": {
 			"plugin/no-unsupported-browser-features": true
 		},
@@ -79,6 +75,7 @@
 		"jest": "^27.3.1",
 		"jest-junit": "^16.0.0",
 		"markdown-toc": "^1.2.0",
+		"opencommit": "^3.2.10",
 		"prettier": "^3.2.4",
 		"secretlint": "^9.3.1",
 		"semantic-release": "^25.0.2",
@@ -101,9 +98,7 @@
 		"start": "wrangler dev"
 	},
 	"remarkConfig": {
-		"plugins": [
-			"remark-preset-lint-recommended"
-		]
+		"plugins": ["remark-preset-lint-recommended"]
 	},
 	"publishConfig": {
 		"access": "restricted",

@@ -1,3 +1,14 @@
+## 1.2.5 (2026-01-02)
+
+### Fix
+
+- Update requirements.txt
+- uv
+- vercel
+- Rename .python-version-direnv for vercel
+- Helm lint
+- Helm lint
+
 ## [1.2.4](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/compare/1.2.3...1.2.4) (2025-10-13)
 
 ### Bug Fixes

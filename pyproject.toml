@@ -8,7 +8,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "fastapi-sample"
-version = "1.2.4"
+version = "1.2.3"
 # dynamic = ["version"]
 # dynamic = [
 #   "urls",
@@ -529,6 +529,11 @@ default-version = "0.0.0+unknown"
 [tool.commitizen]
 name = "cz_customize"
 version = "1.2.3"
+version_files = [
+    "nabla/__version__.py",
+    "nabla/__init__.py",
+    "setup.py",
+]
 update_changelog_on_bump = true
 
 [tool.commitizen.customize]
@@ -573,3 +578,8 @@ entrypoint = "nabla.main:app"
 [tool.uv]
 package = false
 
+[tool.codespell]
+# Ref: https://github.com/codespell-project/codespell#using-a-config-file
+skip = '.git*,*.svg,*.lock'
+check-hidden = true
+ignore-words-list = 'asend'
