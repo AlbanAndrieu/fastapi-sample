@@ -18,7 +18,7 @@ image:
   imagePullPolicy: IfNotPresent
   #imagePullPolicy: Always
   # tag: latest
-  tag: 1.0.0
+  tag: 1.2.3
   # tag: "{{ default .Chart.AppVersion latest }}"
 
 imagePullSecrets: []
