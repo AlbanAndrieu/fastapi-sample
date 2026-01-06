@@ -30,7 +30,7 @@ echo -e "${magenta} helm install --kubeconfig ${HELM_CONFIG_HOME}/config --kube-
 #  --atomic
 
 #helm plugin install https://github.com/karuppiah7890/helm-schema-gen.git
-echo -e "${magenta} helm schema-gen charts/helm-sample/values.yaml ${NC}"
+echo -e "${magenta} helm schema-gen charts/helm-sample/charts/values.yaml ${NC}"
 #helm plugin install https://github.com/databus23/helm-diff
 #echo -e "${magenta} helm diff upgrade ${HELM_DEPLOYEMENT} ./charts/helm-sample ${NC}"
 echo -e "${magenta} helmfile diff ${NC}"
