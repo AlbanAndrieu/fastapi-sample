@@ -245,5 +245,5 @@ CMD [ \
     "--access-logfile", "-" \
 ]
 
-HEALTHCHECK --interval=60s --timeout=10s --start-period=60s --retries=5 \
-    CMD curl -f http://localhost:8000/health || exit 1
+HEALTHCHECK --interval=1m --timeout=10s --start-period=60s --retries=5 \
+    CMD curl --noproxy localhost -o /dev/null -sS http://localhost:8000/health || exit 1

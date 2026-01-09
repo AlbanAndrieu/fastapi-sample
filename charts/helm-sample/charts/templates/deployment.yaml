@@ -56,12 +56,12 @@ spec:
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           env:
-          - name: TITLE
-            value: "Welcome to (AKS)"
+            - name: TITLE
+              value: "Welcome to (EKS)"
           image: "{{ .Values.global.registry }}{{ .Values.image.repository }}:{{ default .Values.image.tag .Chart.AppVersion  }}"         
           # command: ["java", "-Djava.io.tmpdir=/home/jenkins/", "-jar", "/opt/jetty-runner.jar", "/opt/test.war"]
-          #args: ["--version"]
-          #imagePullPolicy: {{ .Values.image.imagePullPolicy }}
+          # args: ["--version"]
+          # imagePullPolicy: {{ .Values.image.imagePullPolicy }}
           terminationMessagePath: "/tmp/my-log"
           ports:
             - name: http
@@ -72,7 +72,7 @@ spec:
           # See https://kubernetes.io/fr/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
           readinessProbe:
             httpGet:
-              path: /#/
+              path: /health
               port: http
             initialDelaySeconds: 5
             periodSeconds: 10
@@ -80,7 +80,7 @@ spec:
             failureThreshold: 12 # ~2 minutes
           livenessProbe:
             httpGet:
-              path: /#/
+              path: /health
               port: http
             initialDelaySeconds: 15
             periodSeconds: 20

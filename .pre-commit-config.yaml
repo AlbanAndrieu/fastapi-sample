@@ -1,5 +1,5 @@
 # fail_fast: true
-minimum_pre_commit_version: 4.5.0
+minimum_pre_commit_version: 4.2.0
 exclude: |
   (?x)^(
       .*\{\{.*\}\}.*|     # Exclude any files with cookiecutter variables
@@ -354,17 +354,17 @@ repos:
     #         )$
 
     ### Javascript & Web Tools ###
-  - repo: https://github.com/biomejs/pre-commit
-    rev: "v2.3.11"
-    hooks:
-      - id: biome-check
-        name: "🟨 javascript · Lint, format, and safe fixes with Biome"
-        additional_dependencies: ["@biomejs/biome@1.9.4"]
-        exclude: >
-          (?x)^(
-              trivy-sbom.json|
-              my-app/public/.*|
-          )$
+  # - repo: https://github.com/biomejs/pre-commit
+  #   rev: "v2.3.11"
+  #   hooks:
+  #     - id: biome-check
+  #       name: "🟨 javascript · Lint, format, and safe fixes with Biome"
+  #       additional_dependencies: ["@biomejs/biome@1.9.4"]
+  #       exclude: >
+  #         (?x)^(
+  #             trivy-sbom.json|
+  #             my-app/public/.*|
+  #         )$
 
   - repo: https://github.com/Lucas-C/pre-commit-hooks-nodejs
     rev: v1.1.2

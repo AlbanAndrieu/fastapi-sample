@@ -1,6 +1,6 @@
+import argparse
 import asyncio
 import logging
-import argparse
 import os
 import re
 import time
@@ -568,13 +568,14 @@ def get_item(item_id: int):
 
 @app.get("/api", response_class=HTMLResponse)
 def read_root():
+    TITLE_SUFFIX = os.getenv("TITLE")
     return """
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Vercel + FastAPI</title>
+        <title>Vercel + FastAPI """ + str(TITLE_SUFFIX) + """ </title>
         <link rel="icon" type="image/x-icon" href="/favicon.ico">
         <style>
             * {
@@ -835,7 +836,7 @@ def read_root():
     <body>
         <header>
             <nav>
-                <a href="/" class="logo">Vercel + FastAPI</a>
+                <a href="/" class="logo">Vercel + FastAPI """ + str(TITLE_SUFFIX) + """</a>
                 <div class="nav-links">
                     <a href="/docs">API Docs</a>
                     <a href="/api/data">API</a>
@@ -844,7 +845,7 @@ def read_root():
         </header>
         <main>
             <div class="hero">
-                <h1>Vercel + FastAPI</h1>
+                <h1>Vercel + FastAPI """ + str(TITLE_SUFFIX) + """</h1>
                 <div class="hero-code">
                     <pre><code><span class="keyword">from</span> <span class="module">fastapi</span> <span class="keyword">import</span> <span class="class">FastAPI</span>
 

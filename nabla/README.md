@@ -23,13 +23,13 @@ This project intend to be uses by all Nabla products
 ## [Monitoring](#table-of-contents)
 
 ```bash
-.venv/bin/uvicorn serve:app --host 0.0.0.0 --port 8080
+.venv/bin/uvicorn serve:app --host 0.0.0.0 --port 8091
 ```
 
-[health](http://localhost:8080/health)
-[ping](http://localhost:8080/ping)
-[v1/ping](http://localhost:8080/v1/ping)
-[metrics](http://localhost:8080/metrics)
+[health](http://localhost:8091/health)
+[ping](http://localhost:8091/ping)
+[v1/ping](http://localhost:8091/v1/ping)
+[metrics](http://localhost:8091/metrics)
 
 [tracing worker sample](https://github.com/temporalio/samples-python/blob/main/open_telemetry/worker.py)
 

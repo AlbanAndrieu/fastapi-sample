@@ -55,7 +55,7 @@ securityContext:
 service:
   # type: ClusterIP
   type: NodePort
-  port: 8091
+  port: 8080
 
 ingress:
   enabled: true
@@ -95,3 +95,58 @@ mysql:
 tags:
   front-end: false
   back-end: true
+
+# additional environment variables for the Neo4j Container
+# env: {}
+env:
+  # - name: BO_API_KEY
+  #   valueFrom:
+  #     secretKeyRef:
+  #       name: conflict-checker-secrets-bo
+  #       key: BO_API_KEY
+  # - name: NEO4J_AUTH
+  #   valueFrom:
+  #     secretKeyRef:
+  #       name: conflict-checker-neo4j-auth
+  #       key: NEO4J_AUTH
+  #       optional: false
+  - name: FASTAPI_ENV
+    value: "development"
+  - name: DD_VERSION
+    value: "eks"
+  - name: DD_URL
+    value: "http://defectdojo.service.gra.uat.consul"
+  - name: DD_PRODUCT_TYPE_NAME
+    value: "Showcase Alban"
+  - name: DD_PRODUCT_NAME
+    value: "fastapi-sample"
+  - name: DD_SERVICE
+    value: "test"  # fastapi-sample
+  - name: DD_ENGAGEMENT_NAME
+    value: "Albandrieu"
+  - name: DD_TEST_NAME
+    value: "Trivy"
+  - name: DD_TEST_TYPE_NAME
+    value: "Trivy Scan"
+  - name: DD_FILE_NAME    
+    value: "trivy.json"
+  - name: DD_SSL_VERIFY    
+    value: False
+
+  - name: OTEL_SDK_DISABLED    
+    value: true
+  - name: DD_LOGS_INJECTION    
+    value: true
+  - name: DD_TRACE_SAMPLE_RATE    
+    value: "1"
+  - name: DD_PROFILING_ENABLED    
+    value: true
+  - name: DD_APPSEC_ENABLED    
+    value: false
+  - name: DD_IAST_ENABLED    
+    value: true
+  - name: DD_APPSEC_SCA_ENABLED    
+    value: false
+
+  - name: UNLEASH_API_URL    
+    value: "https://gitlab.com/api/v4/feature_flags/unleash/46788175"

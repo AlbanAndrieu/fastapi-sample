@@ -12,8 +12,8 @@ WORKING_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo -e "${magenta} Building helm helm-sample ${NC}"
 
-export HELM_TAG=${HELM_TAG:-"1.0.0"}
-export DOCKER_TAG=${DOCKER_TAG:-"1.0.0"}
+export HELM_TAG=${HELM_TAG:-"1.2.3"}
+export DOCKER_TAG=${DOCKER_TAG:-"1.2.3"}
 echo -e "${magenta} k config get-contexts ${NC}"
 
 export HELM_CONFIG_HOME=${HELM_CONFIG_HOME:-"${HOME}/.kube"}

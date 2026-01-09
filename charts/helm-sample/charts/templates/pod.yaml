@@ -24,8 +24,8 @@ spec:
   hostAliases:
   - ip: "127.0.0.1"
     hostnames:
-    - "helm-sample.local"
-    - "helm-sample.local"
+      - "helm-sample.local"
+      - "helm-sample.local"
   # - ip: "10.41.40.40"
   #   hostnames:
   #   - "helm-sample.remote"
