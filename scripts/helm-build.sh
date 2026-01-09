@@ -5,6 +5,7 @@ shopt -s extglob
 #set -ueo pipefail
 set -eo pipefail
 
+# shellcheck disable=SC2034
 WORKING_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # shellcheck source=/dev/null
@@ -35,10 +36,10 @@ echo -e "${magenta} helm schema-gen charts/helm-sample/charts/values.yaml ${NC}"
 #echo -e "${magenta} helm diff upgrade ${HELM_DEPLOYEMENT} ./charts/helm-sample ${NC}"
 echo -e "${magenta} helmfile diff ${NC}"
 
-echo -e "${magenta} kubectl flame helm-sample -t 1m --lang java -f /tmp/flamegraph.svg --kubeconfig=$HOME/.kube/config ${NC}"
+echo -e "${magenta} kubectl flame helm-sample -t 1m --lang java -f /tmp/flamegraph.svg --kubeconfig=${HELM_CONFIG_HOME}/config ${NC}"
 
-echo -e "${magenta} popeye --kubeconfig $HOME/.kube/config --context ${HELM_KUBECONTEXT} -save --out html --output-file popeye-test.html --cluster-name \"TEST OLD\" --namespace \"nabla-standalone-aandrieu\" -f k8s/spinach.yml ${NC}"
-echo -e "${magenta} popeye --kubeconfig $HOME/.kube/config --context \"${HELM_KUBECONTEXT}\" --out html ${NC}"
+echo -e "${magenta} popeye --kubeconfig ${HELM_CONFIG_HOME}/config --context ${HELM_KUBECONTEXT} -save --out html --output-file popeye-test.html --cluster-name \"TEST OLD\" --namespace \"nabla-standalone-aandrieu\" -f k8s/spinach.yml ${NC}"
+echo -e "${magenta} popeye --kubeconfig ${HELM_CONFIG_HOME}/config --context \"${HELM_KUBECONTEXT}\" --out html ${NC}"
 
 echo -e "${magenta} kompose convert -f docker-compose/docker-compose.yml -o base ${NC}"
 echo -e "${magenta} cd base && kustomize create --autodetect ${NC}"

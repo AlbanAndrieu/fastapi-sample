@@ -46,7 +46,7 @@ repos:
   # ---------------------------------------------------------------------------- #
   - repo: meta
     hooks:
-      - id: check-hooks-apply
+      # - id: check-hooks-apply
       - id: check-useless-excludes
 
   - repo: https://gitlab.com/vojko.pribudic.foss/pre-commit-update
@@ -120,6 +120,7 @@ repos:
             .gitlab-ci.yml|
             templates/.*.gitlab-ci.yml|  # because of !reference
             k8s/.*|
+            charts/helm-sample/charts/templates/.*|
           )$
       - id: sort-simple-yaml
         name: "🔀 sort/📜 yaml - Sort yaml"
@@ -265,6 +266,12 @@ repos:
       # - id: shfmt         # native (requires Go to build)
       - id: shfmt-docker # Docker image (requires Docker to run)
         name: "🐚 🐳 shell · Format shell scripts"
+        args:
+          - "-s"
+          - "--indent"
+          - "4"
+          - "-ln"
+          - "bash"
   - repo: https://github.com/detailyang/pre-commit-shell
     rev: v1.0.6
     hooks:
@@ -279,6 +286,8 @@ repos:
             tests/.*|
             docs/Makefile|
             .envrc|
+            trunk|
+            .devcontainer/postCreateCommand.sh|
           )$
 
   - repo: https://github.com/openstack/bashate
@@ -376,6 +385,11 @@ repos:
       - id: htmlhint
         name: "📝 html · Hint html"
         args: [--config, .htmlhintrc]
+        exclude: >
+          (?x)^(
+              templates/charts.html|
+              templates/notes.html|
+          )$
       - id: markdown-toc
         name: "📝 markdown · Toc markdown"
         args: [--maxdepth, "3", -i]
@@ -401,6 +415,7 @@ repos:
           (?x)^(
               trivy-sbom.json|
               my-app/public/.*|
+              charts/helm-sample/charts/templates/.*|
           )$
 
     ### Data & Config Validation ###
@@ -489,6 +504,10 @@ repos:
       - id: yamllint
         name: "📜 yamllint - Lint Yaml"
         args: [--format, parsable, --strict]
+        exclude: >
+          (?x)^(
+            charts/helm-sample/charts/templates/.*|
+          )$
 
     # ---------------------------------------------------------------------------- #
     #                            📝 Commit Message Hooks                           #

@@ -16,7 +16,7 @@ image:
   # repository: registry.gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample
   repository: 783876277037.dkr.ecr.eu-west-3.amazonaws.com/fastapi-sample
   imagePullPolicy: IfNotPresent
-  #imagePullPolicy: Always
+  # imagePullPolicy: Always
   # tag: latest
   tag: 1.2.3
   # tag: "{{ default .Chart.AppVersion latest }}"
@@ -131,7 +131,7 @@ env:
   - name: DD_FILE_NAME
     value: "trivy.json"
   - name: DD_SSL_VERIFY
-    value: False
+    value: false
 
   - name: OTEL_SDK_DISABLED
     value: true

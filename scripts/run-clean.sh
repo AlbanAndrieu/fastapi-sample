@@ -20,7 +20,7 @@ rm -Rf "${WORKING_DIR}/../vue-client/.npm"
 rm -Rf "${WORKING_DIR}/../vue-client/.node_cache"
 rm -Rf "${WORKING_DIR}/../vue-client/node_modules"
 
-cd "${WORKING_DIR}/.."
+cd "${WORKING_DIR}/.." || exit
 
 rm -Rf _build/ build/ .eggs/ .toxs/ dist/ output/pytest-report.xml .coverage output/coverage.xml coverage.xml docs/_build/ .tox/ .scannerwork/ .pytest_cache/ pytest-report.xml output/htmlcov/ cprofile
 
