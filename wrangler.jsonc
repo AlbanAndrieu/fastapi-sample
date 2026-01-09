@@ -11,8 +11,8 @@
 	"assets": {
 		"directory": "./public",
 		"not_found_handling": "single-page-application",
-    "binding": "ASSETS",
-    "run_worker_first": ["/api/*", "!/api/docs/*"]
+		"binding": "ASSETS",
+		"run_worker_first": ["/api/*", "!/api/docs/*"]
 	},
 	"observability": {
 		"enabled": true,
@@ -60,7 +60,7 @@
 	 * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings
 	 */
 	// "services": [{ "binding": "MY_SERVICE", "service": "my-service" }]
-	
+
 	"env": {
 		"staging": {
 			"name": "fastapi-sample-staging",

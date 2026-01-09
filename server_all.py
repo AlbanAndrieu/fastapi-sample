@@ -14,8 +14,10 @@ from nabla.utils.log_config import setup_logging
 
 setup_logging()
 
+
 def main():
     mcp.run()
+
 
 # Run the MCP server
 if __name__ == "__main__":

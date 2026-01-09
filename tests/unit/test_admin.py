@@ -1,4 +1,3 @@
-
 import pytest
 from fastapi.testclient import TestClient
 
@@ -36,4 +35,3 @@ def test_admin_user_not_found(test_app):
     )
     assert response.status_code == 200
     assert response.json()["access_token"]
-

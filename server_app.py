@@ -69,10 +69,11 @@ def main():
     logger = logging.getLogger(__name__)
     uvicorn_run()
 
+
 parser = argparse.ArgumentParser(prog="server_app")
 parser.add_argument("echo", help="String to print back to the console")
 
 if __name__ == "__main__":
     args = parser.parse_args()
-    print(args.echo)    
+    print(args.echo)
     main()

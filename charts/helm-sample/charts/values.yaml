@@ -121,32 +121,32 @@ env:
   - name: DD_PRODUCT_NAME
     value: "fastapi-sample"
   - name: DD_SERVICE
-    value: "test"  # fastapi-sample
+    value: "test" # fastapi-sample
   - name: DD_ENGAGEMENT_NAME
     value: "Albandrieu"
   - name: DD_TEST_NAME
     value: "Trivy"
   - name: DD_TEST_TYPE_NAME
     value: "Trivy Scan"
-  - name: DD_FILE_NAME    
+  - name: DD_FILE_NAME
     value: "trivy.json"
-  - name: DD_SSL_VERIFY    
+  - name: DD_SSL_VERIFY
     value: False
 
-  - name: OTEL_SDK_DISABLED    
+  - name: OTEL_SDK_DISABLED
     value: true
-  - name: DD_LOGS_INJECTION    
+  - name: DD_LOGS_INJECTION
     value: true
-  - name: DD_TRACE_SAMPLE_RATE    
+  - name: DD_TRACE_SAMPLE_RATE
     value: "1"
-  - name: DD_PROFILING_ENABLED    
+  - name: DD_PROFILING_ENABLED
     value: true
-  - name: DD_APPSEC_ENABLED    
+  - name: DD_APPSEC_ENABLED
     value: false
-  - name: DD_IAST_ENABLED    
+  - name: DD_IAST_ENABLED
     value: true
-  - name: DD_APPSEC_SCA_ENABLED    
+  - name: DD_APPSEC_SCA_ENABLED
     value: false
 
-  - name: UNLEASH_API_URL    
+  - name: UNLEASH_API_URL
     value: "https://gitlab.com/api/v4/feature_flags/unleash/46788175"

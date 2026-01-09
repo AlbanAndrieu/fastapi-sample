@@ -569,13 +569,16 @@ def get_item(item_id: int):
 @app.get("/api", response_class=HTMLResponse)
 def read_root():
     TITLE_SUFFIX = os.getenv("TITLE")
-    return """
+    return (
+        """
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Vercel + FastAPI """ + str(TITLE_SUFFIX) + """ </title>
+        <title>Vercel + FastAPI """
+        + str(TITLE_SUFFIX)
+        + """ </title>
         <link rel="icon" type="image/x-icon" href="/favicon.ico">
         <style>
             * {
@@ -836,7 +839,9 @@ def read_root():
     <body>
         <header>
             <nav>
-                <a href="/" class="logo">Vercel + FastAPI """ + str(TITLE_SUFFIX) + """</a>
+                <a href="/" class="logo">Vercel + FastAPI """
+        + str(TITLE_SUFFIX)
+        + """</a>
                 <div class="nav-links">
                     <a href="/docs">API Docs</a>
                     <a href="/api/data">API</a>
@@ -845,7 +850,9 @@ def read_root():
         </header>
         <main>
             <div class="hero">
-                <h1>Vercel + FastAPI """ + str(TITLE_SUFFIX) + """</h1>
+                <h1>Vercel + FastAPI """
+        + str(TITLE_SUFFIX)
+        + """</h1>
                 <div class="hero-code">
                     <pre><code><span class="keyword">from</span> <span class="module">fastapi</span> <span class="keyword">import</span> <span class="class">FastAPI</span>
 
@@ -875,6 +882,7 @@ def read_root():
     </body>
     </html>
     """
+    )
 
 
 @circuit_breaker_web
@@ -901,8 +909,10 @@ def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled exception on {request.url}: {exc}")
     return {"error": "Internal server error", "timestamp": datetime.now().isoformat()}
 
+
 parser = argparse.ArgumentParser(prog="nabla")
 parser.add_argument("echo", help="String to print back to the console")
+
 
 def main():
     args = parser.parse_args()

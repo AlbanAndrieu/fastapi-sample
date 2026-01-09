@@ -27,5 +27,6 @@ def main():
     mcp.run(transport="http", host="127.0.0.1", port=8000, path="/mcp")  # Streamable HTTP: Recommended for web deployments.
     # mcp.run(transport="sse", host="127.0.0.1", port=8000) # SSE: For compatibility with existing SSE clients.
 
+
 if __name__ == "__main__":
     main()

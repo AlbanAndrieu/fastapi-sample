@@ -23,7 +23,7 @@ dependencies = [
 # "uuid (>=1.30,<2.0)",
 # "workers-py (>=1.7.0,<2.0.0)",
 # "workers-runtime-sdk (>=0.3.1,<0.4.0)",
-    
+
 [dependency-groups]
 dev = [
     "workers-py",
@@ -36,7 +36,7 @@ dev = [
 # "web.py" = ">=0.62"
 # uuid = ">=1.30"
 # workers-py = ">=1.7.0"
-# 
+#
 # [tool.poetry.group.extra]
 # optional = true
 # [tool.poetry.group.extra.dependencies]

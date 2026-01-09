@@ -58,7 +58,7 @@ spec:
           env:
             - name: TITLE
               value: "Welcome to (EKS)"
-          image: "{{ .Values.global.registry }}{{ .Values.image.repository }}:{{ default .Values.image.tag .Chart.AppVersion  }}"         
+          image: "{{ .Values.global.registry }}{{ .Values.image.repository }}:{{ default .Values.image.tag .Chart.AppVersion  }}"
           # command: ["java", "-Djava.io.tmpdir=/home/jenkins/", "-jar", "/opt/jetty-runner.jar", "/opt/test.war"]
           # args: ["--version"]
           # imagePullPolicy: {{ .Values.image.imagePullPolicy }}

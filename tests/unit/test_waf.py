@@ -1,4 +1,3 @@
-
 import pytest
 from fastapi_featureflags import FeatureFlags
 

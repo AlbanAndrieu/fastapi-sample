@@ -184,7 +184,7 @@ repos:
       - id: pyupgrade
         name: "🐍 python · Py Upgrade"
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.10
+    rev: v0.14.11
     hooks:
       - id: ruff-format
         name: "🐍 python · Format with Ruff"
@@ -227,7 +227,7 @@ repos:
     # This helps ensure cross-compatibility with people who don't wish to use uv
   - repo: https://github.com/astral-sh/uv-pre-commit
     # uv version.
-    rev: 0.9.21
+    rev: 0.9.22
     hooks:
       - id: uv-sync
         name: "⚡️ uv · Sync dependencies with uv"
@@ -296,7 +296,7 @@ repos:
 
     ### Makefile ###
   - repo: https://github.com/mrtazz/checkmake.git
-    rev: 0.2.2
+    rev: v0.3.0
     hooks:
       - id: checkmake
         name: "🐮 Makefile · Lint Makefile"
@@ -354,17 +354,17 @@ repos:
     #         )$
 
     ### Javascript & Web Tools ###
-  # - repo: https://github.com/biomejs/pre-commit
-  #   rev: "v2.3.11"
-  #   hooks:
-  #     - id: biome-check
-  #       name: "🟨 javascript · Lint, format, and safe fixes with Biome"
-  #       additional_dependencies: ["@biomejs/biome@1.9.4"]
-  #       exclude: >
-  #         (?x)^(
-  #             trivy-sbom.json|
-  #             my-app/public/.*|
-  #         )$
+  - repo: https://github.com/biomejs/pre-commit
+    rev: "v2.3.11"
+    hooks:
+      - id: biome-check
+        name: "🟨 javascript · Lint, format, and safe fixes with Biome"
+        additional_dependencies: ["@biomejs/biome@1.9.4"]
+        exclude: >
+          (?x)^(
+              trivy-sbom.json|
+              my-app/public/.*|
+          )$
 
   - repo: https://github.com/Lucas-C/pre-commit-hooks-nodejs
     rev: v1.1.2

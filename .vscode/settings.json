@@ -161,6 +161,6 @@
 	"datadog.ust.environment.setup.focusedName": "uat",
 	"git.ignoreLimitWarning": true,
 	"languageToolLinter.languageTool.motherTongue": "fr",
-  "languageToolLinter.languageTool.language": "fr",
-  "languageToolLinter.external.url": "http://localhost:8010",
+	"languageToolLinter.languageTool.language": "fr",
+	"languageToolLinter.external.url": "http://localhost:8010"
 }

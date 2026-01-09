@@ -126,7 +126,15 @@ YAML_V8R_FILE_NAMES_REGEX:
   ]
 # ADDITIONAL_EXCLUDED_DIRECTORIES: (\.venv/|\.direnv/|\.mypy_cache/)
 EXCLUDED_DIRECTORIES:
-  [".github", ".gitlab-ci", "node_modules", ".venv", ".direnv", ".mypy_cache", "megalinter-reports"]
+  [
+    ".github",
+    ".gitlab-ci",
+    "node_modules",
+    ".venv",
+    ".direnv",
+    ".mypy_cache",
+    "megalinter-reports",
+  ]
 PARALLEL: true
 CLEAR_REPORT_FOLDER: true
 PRINT_ALPACA: false

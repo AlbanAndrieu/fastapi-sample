@@ -129,7 +129,7 @@ async def init_db():
 
 # Fix AttributeError: 'Session' object has no attribute 'exec'
 # https://github.com/fastapi/sqlmodel/issues/75
-SessionLocal = sessionmaker(class_ = SQLModelSession, autocommit=False, autoflush=False , bind=engine)
+SessionLocal = sessionmaker(class_=SQLModelSession, autocommit=False, autoflush=False, bind=engine)
 AsyncSessionLocal = async_sessionmaker(autocommit=False, autoflush=False, bind=engine)
 SyncSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

@@ -11,6 +11,6 @@ async def on_fetch(request, env):
     # TODO: add a route to get the redis connection
     if url.path == "/v1/random":
         myuuid = uuid4()
-        print('Your UUID is: ' + str(myuuid))
+        print("Your UUID is: " + str(myuuid))
         return Response(str(myuuid))
     return Response("Not Found", status=404)
