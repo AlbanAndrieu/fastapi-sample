@@ -556,19 +556,19 @@ update_changelog_on_bump = true
 # commit_parser = "^(?P<change_type>feature|fix):\\s(?P<message>.*)?"
 # changelog_pattern = "^(feature|fix)?(!)?"
 # change_type_map = {"feature" = "Feat", "fix" = "Fix"}
-# 
+#
 # [[tool.commitizen.customize.questions]]
 # type = "list"
 # name = "change_type"
 # choices = [{value = "feature", name = "feature: A new feature."}, {value = "fix", name = "bug fix: A bug fix."}]
 # # choices = ["feature", "fix"]  # short version
 # message = "Select the type of change you are committing"
-# 
+#
 # [[tool.commitizen.customize.questions]]
 # type = "input"
 # name = "message"
 # message = "Body."
-# 
+#
 # [[tool.commitizen.customize.questions]]
 # type = "confirm"
 # name = "show_message"
