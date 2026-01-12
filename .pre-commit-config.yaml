@@ -531,7 +531,7 @@ repos:
         name: "🌳 git · Validate commit message"
         # stages: [commit-msg]
         stages: [pre-push]
-        additional_dependencies: [cz-conventional-gitmoji]
+        # additional_dependencies: [cz-conventional-gitmoji]
       - id: commitizen-branch
         # stages: [pre-push]
         stages: [post-commit]

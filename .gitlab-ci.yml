@@ -21,27 +21,27 @@ services:
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feat-cache_usage_code_quality_sast_test
     file: "/templates/default.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feat-cache_usage_code_quality_sast_test
     file: "/templates/deploy-nomad.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feat-cache_usage_code_quality_sast_test
     file: "/templates/test-python.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feat-cache_usage_code_quality_sast_test
     file: "/templates/javascript.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feat-cache_usage_code_quality_sast_test
     file: "/templates/data.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
+    ref: feat-cache_usage_code_quality_sast_test
     file: "/templates/mega-linter.gitlab-ci.yml"
 
   # - component: $CI_SERVER_FQDN/guided-explorations/ci-components/ultimate-auto-semversioning/ultimate-auto-semversioning@1.2.8
@@ -156,6 +156,7 @@ variables:
   CACHE_COMPRESSION_LEVEL: "fast"
   # Force-enable BuildKit in "docker build" commands (on Linux it is disabled by default)
   DOCKER_BUILDKIT: 1
+  BUILDKIT_PROGRESS: plain
   # Build the fully-qualified image name (including the registry server prefix), but without the ":version" suffix
   IMAGE_BASE_TAG: $CI_REGISTRY_IMAGE/fastapi-sample
   CONTAINER_IMAGE: $IMAGE_BASE_TAG:latest
