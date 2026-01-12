@@ -546,7 +546,6 @@ message_template = "{{change_type}}:{% if show_message %} {{message}}{% endif %}
 example = "feature: this feature enable customize through config file"
 schema = "<type>: <body>"
 schema_pattern = "(build|bump|chore|ci|docs|feat|feature|fix|perf|refactor|revert|style|test):(\\s.*)"
-# schema_pattern = "(?s)(build|bump|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\(\S+\))?!?: ([^\n\r]+)((\n\n.*)|(\s*))?$"
 bump_pattern = "^(break|new|fix|hotfix)"
 bump_map = {"break" = "MAJOR", "new" = "MINOR", "fix" = "PATCH", "hotfix" = "PATCH"}
 change_type_order = ["BREAKING CHANGE", "feat", "fix", "refactor", "perf"]
