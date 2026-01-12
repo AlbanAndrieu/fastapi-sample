@@ -532,7 +532,8 @@ source = "versioningit"
 default-version = "0.0.0+unknown"
 
 [tool.commitizen]
-name = "cz_customize"
+# name = "cz_customize"
+# name = "cz_emoji"
 version = "1.2.3"
 version_files = [
     "nabla/__version__.py",
@@ -541,38 +542,38 @@ version_files = [
 ]
 update_changelog_on_bump = true
 
-# [tool.commitizen.customize]
-# message_template = "{{change_type}}:{% if show_message %} {{message}}{% endif %}"
-# example = "feature: this feature enable customize through config file"
-# schema = "<type>: <body>"
-# schema_pattern = "(build|bump|chore|ci|docs|feat|feature|fix|perf|refactor|revert|style|test):(\\s.*)"
-# bump_pattern = "^(break|new|fix|hotfix)"
-# bump_map = {"break" = "MAJOR", "new" = "MINOR", "fix" = "PATCH", "hotfix" = "PATCH"}
-# change_type_order = ["BREAKING CHANGE", "feat", "fix", "refactor", "perf"]
-# info_path = "cz_customize_info.txt"
-# info = """
-# This is customized info
-# """
-# commit_parser = "^(?P<change_type>feature|fix):\\s(?P<message>.*)?"
-# changelog_pattern = "^(feature|fix)?(!)?"
-# change_type_map = {"feature" = "Feat", "fix" = "Fix"}
-#
-# [[tool.commitizen.customize.questions]]
-# type = "list"
-# name = "change_type"
-# choices = [{value = "feature", name = "feature: A new feature."}, {value = "fix", name = "bug fix: A bug fix."}]
-# # choices = ["feature", "fix"]  # short version
-# message = "Select the type of change you are committing"
-#
-# [[tool.commitizen.customize.questions]]
-# type = "input"
-# name = "message"
-# message = "Body."
-#
-# [[tool.commitizen.customize.questions]]
-# type = "confirm"
-# name = "show_message"
-# message = "Do you want to add body message in commit?"
+[tool.commitizen.customize]
+message_template = "{{change_type}}:{% if show_message %} {{message}}{% endif %}"
+example = "feature: this feature enable customize through config file"
+schema = "<type>: <body>"
+schema_pattern = "(build|bump|chore|ci|docs|feat|feature|fix|perf|refactor|revert|style|test):(\\s.*)"
+bump_pattern = "^(break|new|fix|hotfix)"
+bump_map = {"break" = "MAJOR", "new" = "MINOR", "fix" = "PATCH", "hotfix" = "PATCH"}
+change_type_order = ["BREAKING CHANGE", "feat", "fix", "refactor", "perf"]
+info_path = "cz_customize_info.txt"
+info = """
+This is customized info
+"""
+commit_parser = "^(?P<change_type>feat|fix):\\s(?P<message>.*)?"
+changelog_pattern = "^(feature|fix)?(!)?"
+change_type_map = {"feature" = "Feat", "fix" = "Fix"}
+
+[[tool.commitizen.customize.questions]]
+type = "list"
+name = "change_type"
+choices = [{value = "feature", name = "feature: A new feature."}, {value = "fix", name = "bug fix: A bug fix."}]
+# choices = ["feature", "fix"]  # short version
+message = "Select the type of change you are committing"
+
+[[tool.commitizen.customize.questions]]
+type = "input"
+name = "message"
+message = "Body."
+
+[[tool.commitizen.customize.questions]]
+type = "confirm"
+name = "show_message"
+message = "Do you want to add body message in commit?"
 
 # [tool.vercel.scripts]
 # build = "python build.py"
@@ -590,4 +591,5 @@ ignore-words-list = 'asend'
 dev = [
     "commitizen>=4.11.2",
     "cz-conventional-gitmoji>=0.7.0",
+    "cz-emoji>=0.4.0",
 ]
