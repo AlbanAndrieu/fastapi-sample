@@ -2,6 +2,8 @@
 # Ignore certain rules (comma-separated list), you can reference them by
 # their id or by their full name
 ignore=body-is-missing,T3
+regex-style-search=true
+fail-without-commits=true
 
 # Ignore any data send to gitlint via stdin
 ignore-stdin=true
