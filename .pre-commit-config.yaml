@@ -526,7 +526,7 @@ repos:
   #         # - commitlint-config-gitmoji # NOK it does not like emoji in type
   #         # - commitlint-config-git-commit-emoji
   #         # - conventional-changelog-gitmoji-config
-  #         - "@commitlint/config-conventional"          
+  #         - "@commitlint/config-conventional"
   #         - conventional-changelog-conventionalcommits
 
   - repo: https://github.com/commitizen-tools/commitizen
