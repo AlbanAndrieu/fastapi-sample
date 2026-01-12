@@ -39,7 +39,6 @@
 		}
 	],
 	"prConcurrentLimit": 3,
-	"autodiscoverFilter": ["jusmundi-group/proof-of-concept/*", "!jusmundi-group/poc-*"],
 	"timezone": "Europe/Paris",
 	"schedule": ["before 10am on monday", "after 3pm on friday"],
 	"rangeStrategy": "bump",
