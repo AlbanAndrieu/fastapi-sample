@@ -57,6 +57,7 @@
 		"@biomejs/biome": "2.2.6",
 		"@commitlint/cli": "^20.3.1",
 		"@commitlint/config-conventional": "^20.3.1",
+		"@commitlint/cz-commitlint": "^20.3.1",
 		"@commitlint/prompt-cli": "^20.3.1",
 		"@datadog/datadog-ci": "^5.0.0",
 		"@eslint/js": "^9.34.0",
@@ -73,6 +74,7 @@
 		"commitlint": "^20.3.1",
 		"commitlint-config-gitmoji": "^2.3.1",
 		"conventional-changelog-gitmoji-config": "^1.5.2",
+		"cz-emoji-conventional": "^1.2.1",
 		"eslint": "^9.36.0",
 		"eslint-formatter-gitlab": "^6.0.1",
 		"jest": "^27.3.1",
@@ -94,7 +96,7 @@
 		"test": "jest --passWithNoTests",
 		"lint": "eslint --format gitlab my-app/",
 		"lint:fix": "eslint . --fix",
-		"commit": "cz",
+		"commit": "git-cz",
 		"semantic-release": "semantic-release",
 		"deploy": "wrangler deploy",
 		"dev": "wrangler dev",
@@ -111,7 +113,7 @@
 	},
 	"config": {
 		"commitizen": {
-			"path": "./node_modules/cz-emoji-conventional",
+			"path": "@commitlint/cz-commitlint",
 			"useGitmojis": true
 		}
 	}
