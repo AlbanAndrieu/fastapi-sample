@@ -520,9 +520,13 @@ repos:
   #   rev: v9.23.0
   #   hooks:
   #     - id: commitlint
+  #       name: "🌳 git · Validate commit message"
   #       stages: [commit-msg]
   #       additional_dependencies:
-  #         - "@commitlint/config-conventional"
+  #         # - commitlint-config-gitmoji # NOK it does not like emoji in type
+  #         # - commitlint-config-git-commit-emoji
+  #         # - conventional-changelog-gitmoji-config
+  #         - "@commitlint/config-conventional"          
   #         - conventional-changelog-conventionalcommits
 
   # - repo: https://github.com/commitizen-tools/commitizen
