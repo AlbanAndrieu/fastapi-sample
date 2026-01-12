@@ -537,6 +537,7 @@ repos:
         # stages: [commit-msg]
         stages: [pre-push]
         additional_dependencies: [cz-conventional-gitmoji]
+        # Use cz --name cz_gitmoji commit
       - id: commitizen-branch
         # stages: [pre-push]
         stages: [post-commit]

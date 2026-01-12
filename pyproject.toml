@@ -545,7 +545,7 @@ update_changelog_on_bump = true
 # message_template = "{{change_type}}:{% if show_message %} {{message}}{% endif %}"
 # example = "feature: this feature enable customize through config file"
 # schema = "<type>: <body>"
-# schema_pattern = "(feature|fix):(\\s.*)"
+# schema_pattern = "(build|bump|chore|ci|docs|feat|feature|fix|perf|refactor|revert|style|test):(\\s.*)"
 # bump_pattern = "^(break|new|fix|hotfix)"
 # bump_map = {"break" = "MAJOR", "new" = "MINOR", "fix" = "PATCH", "hotfix" = "PATCH"}
 # change_type_order = ["BREAKING CHANGE", "feat", "fix", "refactor", "perf"]
@@ -585,3 +585,9 @@ entrypoint = "nabla.main:app"
 skip = '.git*,*.svg,*.lock'
 check-hidden = true
 ignore-words-list = 'asend'
+
+[dependency-groups]
+dev = [
+    "commitizen>=4.11.2",
+    "cz-conventional-gitmoji>=0.7.0",
+]
