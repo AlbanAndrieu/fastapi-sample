@@ -40,7 +40,7 @@ export default {
 			issuePrefixes: ["ANDR-", "TEST-", "DSC-", "ABC-", "CO-"],
 		},
 	},
-	rules: {		
+	rules: {
 		//  Wrap the body at 72 characters.
 		"body-max-line-length": [2, 'always', 72],
 		//  Body is added by leaving a blank line after the subject line.
