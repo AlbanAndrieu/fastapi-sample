@@ -532,9 +532,9 @@ repos:
         # stages: [commit-msg]
         stages: [pre-push]
         additional_dependencies: [cz-conventional-gitmoji]
-      - id: commitizen-branch
-        # stages: [pre-push]
-        stages: [post-commit]
+      # - id: commitizen-branch
+      #   # stages: [pre-push]
+      #   stages: [post-commit]
 
   - repo: https://github.com/jorisroovers/gitlint
     rev: v0.19.1
