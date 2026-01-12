@@ -37,7 +37,7 @@ export default {
 		emojiParser,
 		parserOpts: {
 			// these are samples, add possible prefixes based on your project requirement
-			issuePrefixes: ["ANDR-", "TEST-", "DSC-", "ABC-", "CO-"],
+			issuePrefixes: ["ANDR-", "TEST-", "DSC-", "NABLA-", "JM-"],
 		},
 	},
 	rules: {
@@ -59,13 +59,13 @@ export default {
 			"always",
 			"sentence-case",
 		],
-		"subject-empty": [2, "never"],
+		// "subject-empty": [2, "never"],
 		 // Avoid trailing period.
 		"subject-full-stop": [2, "never", "."],
 		"type-case": [2, "always", "lower-case"],
 		// Format: <type>([optional scope]): <description> - enforced by most rules below.
         // Enforce that the type is not empty.
-		"type-empty": [2, "never"],
+		// "type-empty": [2, "never"],
 		// Enforce specific commit types. Add/remove types based on the project.
 		"type-enum": [
 			2,
