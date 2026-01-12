@@ -533,7 +533,6 @@ default-version = "0.0.0+unknown"
 
 [tool.commitizen]
 # name = "cz_customize"
-# name = "cz_emoji"
 version = "1.2.3"
 version_files = [
     "nabla/__version__.py",
@@ -546,7 +545,7 @@ update_changelog_on_bump = true
 message_template = "{{change_type}}:{% if show_message %} {{message}}{% endif %}"
 example = "feature: this feature enable customize through config file"
 schema = "<type>: <body>"
-schema_pattern = "(build|bump|chore|ci|docs|feat|feature|fix|perf|refactor|revert|style|test):(\\s.*)"
+# schema_pattern = "(build|bump|chore|ci|docs|feat|feature|fix|perf|refactor|revert|style|test):(\\s.*)"
 bump_pattern = "^(break|new|fix|hotfix)"
 bump_map = {"break" = "MAJOR", "new" = "MINOR", "fix" = "PATCH", "hotfix" = "PATCH"}
 change_type_order = ["BREAKING CHANGE", "feat", "fix", "refactor", "perf"]
