@@ -157,16 +157,19 @@ variables:
   # Force-enable BuildKit in "docker build" commands (on Linux it is disabled by default)
   DOCKER_BUILDKIT: 1
   BUILDKIT_PROGRESS: plain
+  DOCKER_BUILD_OPT: "--secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --build-arg ENV=${ENV}"
+  DOCKER_BUILD_PATH: "."
   # Build the fully-qualified image name (including the registry server prefix), but without the ":version" suffix
-  IMAGE_BASE_TAG: $CI_REGISTRY_IMAGE/fastapi-sample
-  CONTAINER_IMAGE: $IMAGE_BASE_TAG:latest
+  IMAGE_BASE_TAG: "registry.gitlab.com/${CI_PROJECT_NAMESPACE}/fastapi-sample"
+  # CONTAINER_IMAGE: ${IMAGE_BASE_TAG}:latest
   # Complement the base tag with various versions, one per image target/stage. We use the CI_COMMIT_REF_SLUG (which is
   # basically the branch/tag name, but slugified) to ensure that the cache images are also different for each branch.
   # This is done because the code that we compile/build/test in any specific branch might be different (from the
   # code of other branches), and the cache images would overwrite each other (if we had not appended the
   # "-$CI_COMMIT_REF_SLUG" suffix), causing cache misses!
   # TEST_CACHE_TAG: $IMAGE_BASE_TAG:test-cache-$CI_COMMIT_REF_SLUG
-  TEST_CACHE_TAG: python:3.12-slim
+  # CACHE_IMAGE: python:3.12-slim
+  CACHE_IMAGE: "${IMAGE_BASE_TAG}/cache:buildcache"
   API_REPORTER_URL: http://loki-read.service.gra.uat.consul:3100/loki/api/v1/push
   API_REPORTER_BEARER_TOKEN: ""
   DEFAULT_COV_ARGS: "--no-ddtrace --no-cov" # --cov-fail-under=1
@@ -451,11 +454,10 @@ mega_linter:
     - jusmundi-nomad-runner
   allow_failure: false
 
-.build-image-dockefile-pre: &build-image-dockefile-pre
-  script:
-    # --target builder-base
-    - export DOCKER_BUILD_OPT="--pull --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from ${TEST_CACHE_TAG} -f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --build-arg ENV=${ENV} -t ${CONTAINER_IMAGE}"
-    - echo -e "\e[35mOverriden on purpose as Sample docker build need explicit \e[0m FOR \e[43m${ENV} - ${DOCKER_BUILD_OPT}.\e[0m"
+# .build-image-dockefile-pre: &build-image-dockefile-pre
+#   script:
+#     - export DOCKER_BUILD_OPT="--pull --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from ${CACHE_IMAGE} -f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --build-arg ENV=${ENV} -t ${CONTAINER_IMAGE}"
+#     - echo -e "\e[35mOverriden on purpose as Sample docker build need explicit \e[0m FOR \e[43m${ENV} - ${DOCKER_BUILD_OPT}.\e[0m"
 
 code_quality:
   extends: .code_quality
