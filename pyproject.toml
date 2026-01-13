@@ -124,7 +124,7 @@ plotly = ">=6.3.0"
 polars = ">=1.32.3"
 pybreaker = ">=1.4.0"
 # psycopg2-binary = ">=2.9.5"
-# psycopg2 = ">=2.9.7"  # WARNING need sudo apt-get install libpq-dev
+psycopg2 = ">=2.9.7"  # WARNING need sudo apt-get install libpq-dev
 psycopg = {version = ">=3.2.10", extras = ["binary","pool"]}
 pyarrow = ">=16.0.0"
 pydantic = ">=2.6.1"
