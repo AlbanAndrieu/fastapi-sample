@@ -398,6 +398,15 @@ test-pytest:
     - export LOG_LEVEL=DEBUG
     - echo "PATH = $PATH"
     - pytest --cov=${DEFAULT_COV} --cov-report term --cov-report xml:coverage.xml --junitxml pytest-junit.xml ${DEFAULT_COV_ARGS}
+  artifacts:
+    when: on_success # don't attempt to upload the docs if generating them failed
+    paths:
+      - pytest-junit.xml
+    reports:
+      junit: pytest-junit.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
 
 docker-build:
   extends: .docker-build
@@ -446,6 +455,7 @@ lint-eslint-npm:
   artifacts:
     reports:
       codequality: gl-codequality.json
+    when: on_success # don't attempt to upload the docs if generating them failed
 
 mega_linter:
   extends: .mega_linter_common
@@ -508,6 +518,7 @@ train-commit-activated:
   artifacts:
     paths:
       - ./model_metrics.md
+    when: on_success # don't attempt to upload the docs if generating them failed
 
 cml:
   stage: notify
