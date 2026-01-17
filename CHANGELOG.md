@@ -1,3 +1,27 @@
+# [1.3.0](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/compare/1.2.4...1.3.0) (2026-01-17)
+
+
+### Bug Fixes
+
+* Helm lint ([c079c07](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/commit/c079c0759d01f358b0f6c67ffca1fae3337b5ba0))
+* Helm lint ([10c6fe2](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/commit/10c6fe24b2b8d495ff9a7fc10903a4623ff578af))
+* pre-commit run ([a9021ad](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/commit/a9021ade8d81802350bb057014f2ec523390f382))
+* pre-commit run ([e66f513](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/commit/e66f5134d534590aed2856af2c600e424e0fb1e0))
+* prepare for uv ([f50d947](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/commit/f50d9470c94857f6078409ab8612c5367cbe3d58))
+* Rename .python-version-direnv for vercel ([2233092](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/commit/2233092acec34947023ff9ef7c25ef95ffac1bda))
+* test new ci ([14ce3fe](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/commit/14ce3fee155649a4dd6d238c65d583af0553c5b9))
+* test new CI ([db0b382](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/commit/db0b38271ac270e818c50323a0b30307d8073550))
+* test new CI ([02cb74e](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/commit/02cb74ec71c7ae36e654c8db7c08bbf674a94152))
+* Update requirements.txt ([c141b57](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/commit/c141b57acff6754a2439477157d02e58cb72bdec))
+* uv ([dfce583](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/commit/dfce583fa7427d4e81024bac97df52e1e70e97cd))
+* vercel ([ecdcc67](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/commit/ecdcc67fe69ffa904779f5b4790faa9d4e608846))
+* versions ([dbdfd2d](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/commit/dbdfd2d27a5397a4be2839708563933a2d03ca24))
+
+
+### Features
+
+* commitizen integration ([c0c23bf](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/commit/c0c23bff45a5926455edb13cf696ade960e50c39))
+
 ## 1.2.5 (2026-01-02)
 
 ### Fix
