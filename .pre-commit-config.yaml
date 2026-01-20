@@ -387,8 +387,7 @@ repos:
         args: [--config, .htmlhintrc]
         exclude: >
           (?x)^(
-              templates/charts.html|
-              templates/notes.html|
+              templates/.*
           )$
       - id: markdown-toc
         name: "📝 markdown · Toc markdown"

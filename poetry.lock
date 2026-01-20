@@ -1559,7 +1559,7 @@ version = "2025.11.12"
 description = "Python package for providing Mozilla's CA Bundle."
 optional = false
 python-versions = ">=3.7"
-groups = ["api", "ci", "deployment", "extra", "influxdb", "locust", "notebook", "open-telemetry", "test", "webui"]
+groups = ["main", "api", "ci", "deployment", "extra", "influxdb", "locust", "notebook", "open-telemetry", "test", "webui"]
 files = [
     {file = "certifi-2025.11.12-py3-none-any.whl", hash = "sha256:97de8790030bbd5c2d96b7ec782fc2f7820ef8dba6db909ccf95449f2d062d4b"},
     {file = "certifi-2025.11.12.tar.gz", hash = "sha256:d8ab5478f2ecd78af242878415affce761ca6bc54a22a27e026d7c25357c3316"},
@@ -1693,7 +1693,7 @@ version = "3.4.4"
 description = "The Real First Universal Charset Detector. Open, modern and actively maintained alternative to Chardet."
 optional = false
 python-versions = ">=3.7"
-groups = ["api", "ci", "deployment", "dev", "extra", "locust", "notebook", "open-telemetry", "test"]
+groups = ["main", "api", "ci", "deployment", "dev", "extra", "locust", "notebook", "open-telemetry", "test"]
 files = [
     {file = "charset_normalizer-3.4.4-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:e824f1492727fa856dd6eda4f7cee25f8518a12f3c4a56a74e8095695089cf6d"},
     {file = "charset_normalizer-3.4.4-cp310-cp310-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:4bd5d4137d500351a30687c2d3971758aac9a19208fc110ccb9d7188fbe709e8"},
@@ -12256,7 +12256,7 @@ version = "2.32.5"
 description = "Python HTTP for Humans."
 optional = false
 python-versions = ">=3.9"
-groups = ["api", "ci", "deployment", "extra", "locust", "notebook", "open-telemetry", "test"]
+groups = ["main", "api", "ci", "deployment", "extra", "locust", "notebook", "open-telemetry", "test"]
 files = [
     {file = "requests-2.32.5-py3-none-any.whl", hash = "sha256:2462f94637a34fd532264295e186976db0f5d453d1cdd31473c85a6a161affb6"},
     {file = "requests-2.32.5.tar.gz", hash = "sha256:dbba0bac56e100853db0ea71b82b4dfd5fe2bf6d3754a8893c3af500cec7d7cf"},
@@ -14216,7 +14216,7 @@ version = "0.14.0"
 description = "Statsig Python bindings for the Statsig Core SDK."
 optional = false
 python-versions = ">=3.7"
-groups = ["test"]
+groups = ["main", "test"]
 files = [
     {file = "statsig_python_core-0.14.0-cp37-abi3-macosx_10_12_x86_64.whl", hash = "sha256:03cc29ec12902560f46f3a02172b50513694725589bf7f373bbc697aee2676fb"},
     {file = "statsig_python_core-0.14.0-cp37-abi3-macosx_11_0_arm64.whl", hash = "sha256:fe1b94dfe61a0079cf535fc890107464705cf8fbbbdc8cd2699097a2d71e543e"},
@@ -15258,7 +15258,7 @@ files = [
     {file = "typing_extensions-4.15.0-py3-none-any.whl", hash = "sha256:f0fa19c6845758ab08074a0cfa8b7aecb71c999ca73d62883bc25cc018c4e548"},
     {file = "typing_extensions-4.15.0.tar.gz", hash = "sha256:0cea48d173cc12fa28ecabc3b837ea3cf6f38c6d1136f85cbaaf598984861466"},
 ]
-markers = {main = "python_version == \"3.12\"", ci = "python_version == \"3.12\"", encryption = "python_version == \"3.12\"", format = "python_version == \"3.12\""}
+markers = {ci = "python_version == \"3.12\"", encryption = "python_version == \"3.12\"", format = "python_version == \"3.12\""}
 
 [[package]]
 name = "typing-inspection"
@@ -15369,7 +15369,7 @@ version = "2.6.2"
 description = "HTTP library with thread-safe connection pooling, file post, and more."
 optional = false
 python-versions = ">=3.9"
-groups = ["api", "ci", "deployment", "extra", "influxdb", "locust", "notebook", "open-telemetry", "test", "utils"]
+groups = ["main", "api", "ci", "deployment", "extra", "influxdb", "locust", "notebook", "open-telemetry", "test", "utils"]
 files = [
     {file = "urllib3-2.6.2-py3-none-any.whl", hash = "sha256:ec21cddfe7724fc7cb4ba4bea7aa8e2ef36f607a4bab81aa6ce42a13dc3f03dd"},
     {file = "urllib3-2.6.2.tar.gz", hash = "sha256:016f9c98bb7e98085cb2b4b17b87d2c702975664e4f060c6532e64d1c1a5e797"},
@@ -16765,4 +16765,4 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4.0"
-content-hash = "a4aa378ea5355d38867c484c552e60d8bb4bd3cbb69b51cc8ab7c55240aed6a4"
+content-hash = "e8850ba9c9bb06d43ce91d66e77691b643af9885f670804cc00bab6e03116330"
