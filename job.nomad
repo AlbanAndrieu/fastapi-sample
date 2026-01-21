@@ -303,21 +303,20 @@ EOF
         env         = true
       } # template
 
-      template {
-        change_mode = "noop"
-
-# TODO change datascience by infrastructure
-        data = <<EOF
-{{ with secret "infrastructure/elasticsearch-vars" }}
-AuthHeader = {{ printf "%s:%s" .Data.data.ELASTICSEARCH_USER .Data.data.ELASTICSEARCH_PASSWORD | base64URLEncode }}
-{{ end }}
-{{ with secret "datascience/test/fastapi-sample" }}
-{{.Data.data.ENV}}
-{{ end }}
-EOF
-        destination = "${NOMAD_SECRETS_DIR}/env.authheader"
-        env = true
-      }
+#       template {
+#         change_mode = "noop"
+# 
+#         data = <<EOF
+# {{ with secret "infrastructure/elasticsearch-vars" }}
+# AuthHeader = {{ printf "%s:%s" .Data.data.ELASTICSEARCH_USER .Data.data.ELASTICSEARCH_PASSWORD | base64URLEncode }}
+# {{ end }}
+# {{ with secret "datascience/test/fastapi-sample" }}
+# {{.Data.data.ENV}}
+# {{ end }}
+# EOF
+#         destination = "${NOMAD_SECRETS_DIR}/env.authheader"
+#         env = true
+#       }
 
       service {
         name = "fastapi-sample"
