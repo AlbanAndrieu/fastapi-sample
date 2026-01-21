@@ -132,7 +132,7 @@ class _Settings(BaseSettings):
         env_file=[".env", ".env.local"],
         env_nested_delimiter="__",  # REDIS__HOST → redis.host
     )
-    
+
     # Always use Annotated with Field() for validation
     db_host: Annotated[str, Field(default="localhost", min_length=1)]
     api_key: Annotated[SecretStr, Field(min_length=8)]  # Use SecretStr for secrets
