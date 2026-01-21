@@ -305,7 +305,7 @@ EOF
 
 #       template {
 #         change_mode = "noop"
-# 
+#
 #         data = <<EOF
 # {{ with secret "infrastructure/elasticsearch-vars" }}
 # AuthHeader = {{ printf "%s:%s" .Data.data.ELASTICSEARCH_USER .Data.data.ELASTICSEARCH_PASSWORD | base64URLEncode }}
