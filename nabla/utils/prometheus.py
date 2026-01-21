@@ -281,4 +281,4 @@ def setting_otlp(
 
 
 class PrometheusSettings(BaseSettings, ABC):
-    enable_metrics: bool
+    metrics_enabled: bool

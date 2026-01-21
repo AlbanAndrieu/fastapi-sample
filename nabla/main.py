@@ -262,7 +262,7 @@ def initialize_api(app):
 
     api_settings = get_settings()
 
-    if api_settings.enable_metrics:
+    if api_settings.metrics_enabled:
         instrumentator = Instrumentator(
             should_group_status_codes=False,
             should_ignore_untemplated=True,

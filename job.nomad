@@ -193,7 +193,7 @@ job "fastapi-sample" {
         EXPOSE_PORT = "8080"
         TARGET_ONE_HOST = "fastapi-sample.service.gra.${var.env}.consul"
         TARGET_TWO_HOST = "fastapi-sample.service.gra.${var.env}.consul"
-        ENABLE_METRICS=true
+        METRICS_ENABLED=true
       }
 
       vault {
@@ -303,20 +303,20 @@ EOF
         env         = true
       } # template
 
-#       template {
-#         change_mode = "noop"
-#
-#         data = <<EOF
+      template {
+        change_mode = "noop"
+
+        data = <<EOF
 # {{ with secret "infrastructure/elasticsearch-vars" }}
 # AuthHeader = {{ printf "%s:%s" .Data.data.ELASTICSEARCH_USER .Data.data.ELASTICSEARCH_PASSWORD | base64URLEncode }}
 # {{ end }}
-# {{ with secret "datascience/test/fastapi-sample" }}
-# {{.Data.data.ENV}}
-# {{ end }}
-# EOF
-#         destination = "${NOMAD_SECRETS_DIR}/env.authheader"
-#         env = true
-#       }
+{{ with secret "datascience/test/fastapi-sample" }}
+{{.Data.data.ENV}}
+{{ end }}
+EOF
+        destination = "${NOMAD_SECRETS_DIR}/env.authheader"
+        env = true
+      }
 
       service {
         name = "fastapi-sample"

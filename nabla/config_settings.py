@@ -8,12 +8,14 @@ from typing import Annotated, ClassVar, Literal, Optional
 from keycloak import KeycloakOpenID
 from pydantic import BaseModel, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from statsig_python_core import (  # note underscores instead of hyphens in import
+    Statsig,
+    StatsigOptions,
+)
 from UnleashClient import UnleashClient
 
 from nabla._version import get_versions
 from nabla.utils.prometheus import PrometheusSettings
-
-from statsig_python_core import Statsig, StatsigOptions  # note underscores instead of hyphens in import
 
 APP_NAME = os.environ.get("APP_NAME", "fastapi-sample")
 APP_PREFIX_VERSION = os.environ.get("APP_PREFIX_VERSION", "v")
@@ -138,7 +140,7 @@ class _Settings(BaseSettings):
     ovh_username: Annotated[
         str,
         Field(
-            default="localhost",
+            default="user-ALBANANDRIEU",
             description="The ovh user's unique username",
             min_length=1,
         ),
@@ -161,6 +163,8 @@ class _Settings(BaseSettings):
     keycloak_realm: Annotated[str, Field(min_length=1)]
     keycloak_client_id: Annotated[str, Field(min_length=1)]
     keycloak_client_secret: Annotated[SecretStr, Field(min_length=8)]
+
+    metrics_enabled: bool = True
 
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
 
