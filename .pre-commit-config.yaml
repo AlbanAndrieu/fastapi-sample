@@ -527,7 +527,6 @@ repos:
   #         # - conventional-changelog-gitmoji-config
   #         - "@commitlint/config-conventional"
   #         - conventional-changelog-conventionalcommits
-
   # - repo: https://github.com/commitizen-tools/commitizen
   #   rev: v4.11.2
   #   hooks:
@@ -542,7 +541,6 @@ repos:
   #     - id: commitizen-branch
   #       # stages: [pre-push]
   #       stages: [post-commit]
-
   - repo: https://github.com/jorisroovers/gitlint
     rev: v0.19.1
     hooks:

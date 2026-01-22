@@ -116,22 +116,26 @@ make sast-docker             # Security scan with Trivy
 ### Technology Stack
 
 **Core:**
+
 - FastAPI 0.115.3+ with async/await
 - Python 3.12+
 - Poetry & Pipenv for dependencies
 - Pydantic for validation and settings
 
 **Database:**
+
 - PostgreSQL (asyncpg, databases, SQLAlchemy 2.0, SQLModel)
 - Alembic for migrations
 - Redis for caching and pub/sub
 
 **Authentication:**
+
 - Keycloak (python-keycloak)
 - JWT tokens (PyJWT)
 - fastapi-users for user management
 
 **Observability:**
+
 - Datadog (ddtrace) for APM
 - Sentry for error tracking
 - Prometheus for metrics
@@ -140,6 +144,7 @@ make sast-docker             # Security scan with Trivy
 - Logfire for structured logging
 
 **API Features:**
+
 - WebSockets (SSE via sse-starlette)
 - Rate limiting (SlowAPI)
 - Circuit breakers (pybreaker)
@@ -153,29 +158,34 @@ make sast-docker             # Security scan with Trivy
 **2. Async-First**: All database and I/O operations use async/await. Database queries use `databases` library or SQLAlchemy async sessions.
 
 **3. Lifespan Management**: Application startup/shutdown handled via `@asynccontextmanager` in `main.py`:
+
 - Initializes FastAPICache, Redis, database connections
 - Starts background tasks (system metrics, event listeners)
 - Properly cleans up on shutdown
 
 **4. Authentication Flow**:
+
 - JWT tokens issued by Keycloak
 - Public keys fetched from Keycloak for validation
 - Middleware validates tokens on protected routes
 - User context tracked via Datadog `set_user()`
 
 **5. Configuration Management**:
+
 - Environment variables via Pydantic BaseSettings
 - `.env` files supported
 - Separate configs for dev/staging/production
 - Database URLs, API keys, feature flags centralized in `config_settings.py`
 
 **6. Error Handling**:
+
 - Global exception handlers in FastAPI app
 - Structured logging with context
 - Sentry integration for production errors
 - Circuit breakers for external service calls
 
 **7. Testing Strategy**:
+
 - pytest with async support (pytest-asyncio)
 - Test database fixtures
 - Mock external services (Keycloak, Datadog)
@@ -204,6 +214,7 @@ make sast-docker             # Security scan with Trivy
 ### Authentication
 
 Protected endpoints use FastAPI dependencies:
+
 ```python
 from nabla.api.auth.keycloak import get_current_user
 
@@ -217,6 +228,7 @@ JWT tokens must be passed as `Authorization: Bearer <token>` header.
 ### Environment Variables
 
 Key variables (see `nabla/config_settings.py` for full list):
+
 - `DB_URL`: PostgreSQL connection string
 - `REDIS_HOST`, `REDIS_PORT`: Redis connection
 - `KEYCLOAK_*`: Keycloak configuration
@@ -248,6 +260,7 @@ Never commit secrets. Use `.env` file locally and environment variables in deplo
 - **Error handling**: Structured logging, avoid bare `except:`
 
 From `.cursor/rules/001_project-description.mdc`:
+
 - Add typing wherever possible
 - Add trailing commas
 - Avoid generic variable name `df` for dataframes
