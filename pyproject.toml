@@ -37,7 +37,7 @@ classifiers = [
 # dependencies = [
 #     "jinja2>=3.1.6",
 # ]
-dependencies = ["statsig-python-core (>=0.14.0,<0.15.0)"]
+dependencies = ["statsig-python-core (>=0.14.0,<0.15.0)", "legacy-cgi (>=2.6.4,<3.0.0)"]
 
 [project.scripts]
 # app = "nabla.main:app"
@@ -364,6 +364,7 @@ workers-runtime-sdk = ">=0.3.1"
 [tool.poetry.requires-plugins]
 poetry-plugin-export = ">=1.8"
 # poetry export -f requirements.txt --output requirements.txt --all-extras --all-groups
+# pip3 freeze > cf-requirements.txt
 
 #[tool.setuptools-pipfile]
 

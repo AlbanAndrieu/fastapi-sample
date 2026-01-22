@@ -6399,6 +6399,18 @@ files = [
 ]
 
 [[package]]
+name = "legacy-cgi"
+version = "2.6.4"
+description = "Fork of the standard library cgi and cgitb modules removed in Python 3.13"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "legacy_cgi-2.6.4-py3-none-any.whl", hash = "sha256:7e235ce58bf1e25d1fc9b2d299015e4e2cd37305eccafec1e6bac3fc04b878cd"},
+    {file = "legacy_cgi-2.6.4.tar.gz", hash = "sha256:abb9dfc7835772f7c9317977c63253fd22a7484b5c9bbcdca60a29dcce97c577"},
+]
+
+[[package]]
 name = "librt"
 version = "0.7.7"
 description = "Mypyc runtime library"
@@ -16765,4 +16777,4 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4.0"
-content-hash = "e8850ba9c9bb06d43ce91d66e77691b643af9885f670804cc00bab6e03116330"
+content-hash = "466fafdcc94becb5e38da3895e76818815948a4a8695f3dc91fa393ce2bcf248"
