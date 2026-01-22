@@ -8,6 +8,7 @@
 	"main": "nabla/main.py",
 	"compatibility_date": "2025-06-13",
 	"compatibility_flags": ["python_workers"],
+	"workers_dev": true,
 	"assets": {
 		"directory": "./public",
 		"not_found_handling": "single-page-application",

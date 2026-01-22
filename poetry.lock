@@ -421,7 +421,7 @@ version = "4.12.0"
 description = "High-level concurrency and networking framework on top of asyncio or Trio"
 optional = false
 python-versions = ">=3.9"
-groups = ["main", "api", "deployment", "extra", "notebook", "webui"]
+groups = ["api", "deployment", "extra", "notebook", "webui"]
 files = [
     {file = "anyio-4.12.0-py3-none-any.whl", hash = "sha256:dad2376a628f98eeca4881fc56cd06affd18f659b17a747d3ff0307ced94b1bb"},
     {file = "anyio-4.12.0.tar.gz", hash = "sha256:73c693b567b0c55130c104d0b43a9baf3aa6a31fc6110116509f27bf75e21ec0"},
@@ -493,7 +493,7 @@ version = "0.4.0"
 description = "Browser hot reload for Python ASGI web apps"
 optional = false
 python-versions = ">=3.9"
-groups = ["main", "api"]
+groups = ["api"]
 files = [
     {file = "arel-0.4.0-py3-none-any.whl", hash = "sha256:7b1fe5d10c06a6f231cfeec79e48888176931b86f0ae6e432196845edf818109"},
     {file = "arel-0.4.0.tar.gz", hash = "sha256:08b2f72f767a84825a649891eb30f20f89c0de6aa67134939691ee0012aafc73"},
@@ -14197,7 +14197,7 @@ version = "0.50.0"
 description = "The little ASGI library that shines."
 optional = false
 python-versions = ">=3.10"
-groups = ["main", "api", "deployment", "webui"]
+groups = ["api", "deployment", "webui"]
 files = [
     {file = "starlette-0.50.0-py3-none-any.whl", hash = "sha256:9e5391843ec9b6e472eed1365a78c8098cfceb7a74bfd4d6b1c0c0095efb3bca"},
     {file = "starlette-0.50.0.tar.gz", hash = "sha256:a2a17b22203254bcbc2e1f926d2d55f3f9497f769416b3190768befe598fa3ca"},
@@ -15671,7 +15671,7 @@ version = "1.1.1"
 description = "Simple, modern and high performance file watching and code reload in python."
 optional = false
 python-versions = ">=3.9"
-groups = ["main", "api"]
+groups = ["api"]
 files = [
     {file = "watchfiles-1.1.1-cp310-cp310-macosx_10_12_x86_64.whl", hash = "sha256:eef58232d32daf2ac67f42dea51a2c80f0d03379075d44a587051e63cc2e368c"},
     {file = "watchfiles-1.1.1-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:03fa0f5237118a0c5e496185cafa92878568b652a2e9a9382a5151b1a0380a43"},
