@@ -29,7 +29,12 @@ export POETRY_VERSION=${POETRY_VERSION:-"2.2.1"}
 # echo -e "${cyan} poetry update ${NC}"
 echo -e "${cyan} pip install poetry==${POETRY_VERSION} ${NC}"
 pip install "poetry==${POETRY_VERSION}"
-poetry install --with format,test,extra,open_telemetry,api,deployment,influxdb,panda,temporal,utils,webui
+
+echo "===> 👉 ⛏️ 💎 poetry install --with format,test,extra,open_telemetry,api,api-legacy,deployment,influxdb,panda,temporal,utils,webui 💸 👈"
+poetry install --with format,test,extra,open_telemetry,api,api-legacy,deployment,influxdb,panda,temporal,utils,webui
+
+echo "===> 👉 poetry export -f requirements.txt --output requirements.txt --with api,deployment --without-hashes --without-urls --without dev"
+poetry export -f requirements.txt --output requirements.txt --with api,deployment --without-hashes --without-urls --without dev
 
 sudo apt-get install mypy
 

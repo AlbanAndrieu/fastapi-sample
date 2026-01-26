@@ -18,6 +18,7 @@ regexes = [
     '''#nosec''',
     '''allow:gitleaks''',
     '''password-reset-XXX''',
+    '''sk-1234567890''',
     ]
 paths = [
     '''gitleaks.toml''',
@@ -33,10 +34,10 @@ paths = [
     '''yarn.lock''',
     '''pnpm-lock.yaml''',
     '''Database.refactorlog''',
-    '''vendor''',
-    '''.venv''',
-    '''.direnv''',
-    '''.tox''',
+    '''vendor/''',
+    '''.venv/''',
+    '''.direnv/''',
+    '''.tox/''',
     '''environment.yml''',
     '''.terraform''',
 ]
