@@ -1,3 +1,13 @@
+## [1.3.1](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/compare/1.3.0...1.3.1) (2026-01-26)
+
+
+### Bug Fixes
+
+* deploy ([a94ec94](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/commit/a94ec9415502544bed960d9abffcb05034c16f6d))
+* deploy ([160b825](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/commit/160b825cb4688a86d2d93f156e78767eb14affeb))
+* deploy ([b4d76b3](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/commit/b4d76b3821ad3ad5bf536a6cf78195f1175d4152))
+* prettier --write ([fbe7148](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/commit/fbe71487aed4fb82452462b0116fc9529eaab83f))
+
 # [1.3.0](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/compare/1.2.4...1.3.0) (2026-01-17)
 
 ### Bug Fixes
