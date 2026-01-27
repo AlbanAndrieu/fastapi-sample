@@ -1,5 +1,5 @@
 creation_rules:
-  - path_regex: test.*\.yaml
+  - path_regex: secrets.*\.yaml
     key_groups:
       # First key group
       - age:

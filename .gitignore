@@ -27,6 +27,9 @@ vue-client/.output/
 
 mise.local.toml
 
+# sops files targeting test-enc.yaml
+secrets.yaml
+
 # dotenv environment variable files
 
 .env
