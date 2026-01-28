@@ -11,7 +11,7 @@ backend = "aqua:argoproj/argo-cd"
 version = "2.32.20"
 backend = "aqua:aws/aws-cli"
 "platforms.linux-arm64" = { url = "https://awscli.amazonaws.com/awscli-exe-linux-aarch64-2.32.20.zip"}
-"platforms.linux-x64" = { url = "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.32.20.zip"}
+"platforms.linux-x64" = { checksum = "blake3:efdf98e6ad3f054a49ed41c3bbba184870a133f279e5e31024bb23d25f9a5b9c", url = "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.32.20.zip"}
 "platforms.macos-arm64" = { url = "https://awscli.amazonaws.com/AWSCLIV2-2.32.20.pkg"}
 "platforms.macos-x64" = { url = "https://awscli.amazonaws.com/AWSCLIV2-2.32.20.pkg"}
 

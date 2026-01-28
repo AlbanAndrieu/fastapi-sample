@@ -15,7 +15,7 @@ trivy = "latest"
 lockfile = true
 
 [env]
-_.file = "test-enc.yaml"
+_.file = "secrets-enc.yaml"
 # Utiliser le nom du projet dérivé du répertoire courant
 PROJECT_NAME = "{{ config_root | basename }}"
 
