@@ -21,27 +21,27 @@ services:
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feat-cache_usage_code_quality_sast_test
+    ref: main
     file: "/templates/default.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feat-cache_usage_code_quality_sast_test
+    ref: main
     file: "/templates/deploy-nomad.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feat-cache_usage_code_quality_sast_test
+    ref: main
     file: "/templates/test-python.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feat-cache_usage_code_quality_sast_test
+    ref: main
     file: "/templates/javascript.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feat-cache_usage_code_quality_sast_test
+    ref: main
     file: "/templates/data.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
-    ref: feat-cache_usage_code_quality_sast_test
+    ref: main
     file: "/templates/mega-linter.gitlab-ci.yml"
 
   # - component: $CI_SERVER_FQDN/guided-explorations/ci-components/ultimate-auto-semversioning/ultimate-auto-semversioning@1.2.8
