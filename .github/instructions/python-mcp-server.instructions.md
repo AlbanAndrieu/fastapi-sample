@@ -119,7 +119,7 @@ from mcp.server.session import ServerSession
 
 @mcp.tool()
 async def process_data(
-    data: str, 
+    data: str,
     ctx: Context[ServerSession, None]
 ) -> str:
     """Process data with logging"""
