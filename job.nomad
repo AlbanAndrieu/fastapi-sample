@@ -410,7 +410,7 @@ EOF
       driver = "docker"
 
       config {
-        image = "redis:8.2.1"
+        image = "redis:8.4.0"
 
         args = [
           "--appendonly", "yes",
@@ -442,12 +442,22 @@ EOF
 
         labels = [
           {
+            # Unified Service Tagging
             "com.datadoghq.tags.env" = "${var.env}"
             "com.datadoghq.tags.service" = "fastapi-sample-redis"
             "com.datadoghq.tags.version" = "${var.env}-0.0.1"
+            
+            # Redis Integration Check
             "com.datadoghq.ad.check_names" = "[\"redisdb\"]"
             "com.datadoghq.ad.init_configs" = "[{}]"
-            "com.datadoghq.ad.instances": "[{\"host\": \"%%host%%\",\"port\":\"6380\"}]"
+            "com.datadoghq.ad.instances" = "[{\"host\":\"%%host%%\",\"port\":6379,\"tags\":[\"env:${var.env}\",\"service:fastapi-sample-redis\",\"component:cache\"],\"keys\":[\"*\"],\"command_stats\":true,\"disable_connection_cache\":false}]"
+
+            # Log Collection
+            "com.datadoghq.ad.logs" = "[{\"source\":\"redis\",\"service\":\"fastapi-sample-redis\",\"tags\":[\"env:${var.env}\",\"component:cache\"]}]"
+
+            # Additional tags for metrics
+            "com.datadoghq.tags.component" = "cache"
+            "com.datadoghq.tags.team" = "platform"
           }
         ]
       } # config
@@ -511,7 +521,7 @@ EOF
       }
 
       env {
-        REDIS_ADDR = "redis://fastapi-sample-redis.service.gra.${var.env}.consul:6380"
+        # REDIS_ADDR = "redis://fastapi-sample-redis.service.gra.${var.env}.consul:6380"
         REDIS_EXPORTER_INCL_SYSTEM_METRICS=true
       }
 
