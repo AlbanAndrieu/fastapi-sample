@@ -446,7 +446,7 @@ EOF
             "com.datadoghq.tags.env" = "${var.env}"
             "com.datadoghq.tags.service" = "fastapi-sample-redis"
             "com.datadoghq.tags.version" = "${var.env}-0.0.1"
-            
+
             # Redis Integration Check
             "com.datadoghq.ad.check_names" = "[\"redisdb\"]"
             "com.datadoghq.ad.init_configs" = "[{}]"
