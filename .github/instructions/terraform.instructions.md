@@ -33,7 +33,7 @@ applyTo: "**/*.tf"
   - Enable encryption for Block Storage (EBS or Cinder) volumes, S3 buckets, and PostgreSQL/RDS instances.
   - Use TLS for communication between services.
 - Regularly review and audit your Terraform configurations for security vulnerabilities.
-  ccc
+  - Use tools like `trivy`, `tfsec`, or `checkov` to scan your Terraform configurations for security issues.
 
 ## Modularity
 
