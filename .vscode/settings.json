@@ -162,5 +162,11 @@
   "git.ignoreLimitWarning": true,
   "languageToolLinter.languageTool.motherTongue": "fr",
   "languageToolLinter.languageTool.language": "fr",
-  "languageToolLinter.external.url": "http://localhost:8010"
+  "languageToolLinter.external.url": "http://localhost:8010",
+  "github.copilot.chat.pullRequestDescriptionGeneration.instructions": [
+    { "text": "Always include a list of key changes." }
+  ],
+  "github.copilot.chat.reviewSelection.instructions": [
+    { "file": "code-review-generic.instructions.md" }
+  ]
 }
