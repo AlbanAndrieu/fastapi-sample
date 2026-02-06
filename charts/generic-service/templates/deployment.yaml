@@ -51,18 +51,18 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      shareProcessNamespace: true
-      initContainers:
-        - name: sleep
-          image: debian:stretch
-          imagePullPolicy: Always
-          command:
-            - sh
-            - -c
-            - 'echo "create by init-container" > /secrets/file'
-          volumeMounts:
-            - mountPath: /secrets
-              name: shared
+      # shareProcessNamespace: true
+      # initContainers:
+      #   - name: sleep
+      #     image: debian:stretch
+      #     imagePullPolicy: Always
+      #     command:
+      #       - sh
+      #       - -c
+      #       - 'echo "create by init-container" > /secrets/file'
+      #     volumeMounts:
+      #       - mountPath: /secrets
+      #         name: shared
       containers:
         - name: {{ .Chart.Name }}
           # command: ["java", "-Djava.io.tmpdir=/home/jenkins/", "-jar", "/opt/jetty-runner.jar", "/opt/test.war"]
@@ -137,10 +137,10 @@ spec:
       volumes:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-        - name: shared
-          # emptyDir: {}
-          emptyDir:
-            medium: Memory
+        # - name: shared
+        #   # emptyDir: {}
+        #   emptyDir:
+        #     medium: Memory
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

@@ -38,7 +38,7 @@ echo -e "${magenta} helmfile diff ${NC}"
 
 echo -e "${magenta} kubectl flame helm-sample -t 1m --lang java -f /tmp/flamegraph.svg --kubeconfig=${HELM_CONFIG_HOME}/config ${NC}"
 
-echo -e "${magenta} popeye --kubeconfig ${HELM_CONFIG_HOME}/config --context ${HELM_KUBECONTEXT} -save --out html --output-file popeye-test.html --cluster-name \"TEST OLD\" --namespace \"nabla-standalone-aandrieu\" -f k8s/spinach.yml ${NC}"
+echo -e "${magenta} popeye --kubeconfig ${HELM_CONFIG_HOME}/config --context ${HELM_KUBECONTEXT} -save --out html --output-file popeye-test.html --cluster-name \"TEST OLD\" --namespace \"${HELM_NAMESPACE}\" -f k8s/spinach.yml ${NC}"
 echo -e "${magenta} popeye --kubeconfig ${HELM_CONFIG_HOME}/config --context \"${HELM_KUBECONTEXT}\" --out html ${NC}"
 
 echo -e "${magenta} kompose convert -f docker-compose/docker-compose.yml -o base ${NC}"
