@@ -11,7 +11,7 @@ WORKING_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 # source "${WORKING_DIR}/docker-env.sh"
 
-echo -e "${magenta} Building helm helm-sample ${NC}"
+echo -e "${magenta} Building helm generic-service ${NC}"
 
 export HELM_TAG=${HELM_TAG:-"1.2.3"}
 export DOCKER_TAG=${DOCKER_TAG:-"1.2.3"}
@@ -22,18 +22,18 @@ export HELM_KUBECONTEXT=${HELM_KUBECONTEXT:-"arn:aws:eks:us-east-1:783876277037:
 export HELM_NAMESPACE=${HELM_NAMESPACE:-"default"}
 export HELM_DEPLOYEMENT=${HELM_DEPLOYEMENT:-"helm-sample"}
 
-echo -e "${magenta} helm lint ./charts/helm-sample/charts --kubeconfig ${HELM_CONFIG_HOME}/config --kube-context ${HELM_KUBECONTEXT} ${NC}"
+echo -e "${magenta} helm lint ./charts/generic-service --kubeconfig ${HELM_CONFIG_HOME}/config --kube-context ${HELM_KUBECONTEXT} ${NC}"
 
-echo -e "${magenta} helm package ./charts/helm-sample/charts --kubeconfig ${HELM_CONFIG_HOME}/config --kube-context ${HELM_KUBECONTEXT} --namespace ${HELM_NAMESPACE} --version ${HELM_TAG} --app-version ${DOCKER_TAG} ${NC}"
+echo -e "${magenta} helm package ./charts/generic-service --kubeconfig ${HELM_CONFIG_HOME}/config --kube-context ${HELM_KUBECONTEXT} --namespace ${HELM_NAMESPACE} --version ${HELM_TAG} --app-version ${DOCKER_TAG} ${NC}"
 #  --dependency-update
 echo -e "${magenta} helm uninstall --kubeconfig ${HELM_CONFIG_HOME}/config --kube-context ${HELM_KUBECONTEXT} --namespace ${HELM_NAMESPACE} ${HELM_DEPLOYEMENT} ${NC}"
 echo -e "${magenta} helm install --kubeconfig ${HELM_CONFIG_HOME}/config --kube-context ${HELM_KUBECONTEXT} --namespace ${HELM_NAMESPACE} ${HELM_DEPLOYEMENT} helm-sample-${HELM_TAG}.tgz --timeout 5m0s --wait --devel --replace --set imagePullPolicy=Always ${NC}"
 #  --atomic
 
 #helm plugin install https://github.com/karuppiah7890/helm-schema-gen.git
-echo -e "${magenta} helm schema-gen charts/helm-sample/charts/values.yaml ${NC}"
+echo -e "${magenta} helm schema-gen charts/generic-service/values.yaml ${NC}"
 #helm plugin install https://github.com/databus23/helm-diff
-#echo -e "${magenta} helm diff upgrade ${HELM_DEPLOYEMENT} ./charts/helm-sample ${NC}"
+#echo -e "${magenta} helm diff upgrade ${HELM_DEPLOYEMENT} ./charts/generic-service ${NC}"
 echo -e "${magenta} helmfile diff ${NC}"
 
 echo -e "${magenta} kubectl flame helm-sample -t 1m --lang java -f /tmp/flamegraph.svg --kubeconfig=${HELM_CONFIG_HOME}/config ${NC}"

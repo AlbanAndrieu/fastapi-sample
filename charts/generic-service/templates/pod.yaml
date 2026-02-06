@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: "{{ include "testChart.fullname" . }}-termination"
+  name: "{{ include "service.fullname" . }}-termination"
   labels:
     environment: staging
-    app.kubernetes.io/name: "{{ template "testChart.name" . }}"
+    app.kubernetes.io/name: "{{ template "service.name" . }}"
     helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
     app.kubernetes.io/managed-by: "{{ .Release.Service  }}"
     app.kubernetes.io/instance: "{{ .Release.Name }}"
@@ -12,15 +12,15 @@ metadata:
     app.kubernetes.io/component: sample
     app.kubernetes.io/part-of: test
     app.kubernetes.io/managed-by: helm
-    app: "{{ template "testChart.name" . }}"
+    app: "{{ template "service.name" . }}"
     chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
     heritage: "{{ .Release.Service  }}"
     release: "{{ .Release.Name }}"
-    {{- include "testChart.labels" . | nindent 4 }}
+    {{- include "service.labels" . | nindent 4 }}
 spec:
   selector:
     matchLabels:
-      {{- include "testChart.selectorLabels" . | nindent 6 }}
+      {{- include "service.selectorLabels" . | nindent 6 }}
   hostAliases:
   - ip: "127.0.0.1"
     hostnames:
