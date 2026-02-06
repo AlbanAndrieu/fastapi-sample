@@ -65,13 +65,13 @@ spec:
               name: shared
       containers:
         - name: {{ .Chart.Name }}
-          # command: ["java", "-Djava.io.tmpdir=/home/jenkins/", "-jar", "/opt/jetty-runner.jar", "/opt/test.war"]          
+          # command: ["java", "-Djava.io.tmpdir=/home/jenkins/", "-jar", "/opt/jetty-runner.jar", "/opt/test.war"]
           {{- if hasKey .Values "command" }}
           command: {{ .Values.command }}
           {{- end}}
           # args: ["--version"]
           {{- if and (hasKey .Values "command") (hasKey .Values "args") }}
-          args: 
+          args:
           {{- range .Values.args }}
           - "{{ . }}"
           {{- end}}

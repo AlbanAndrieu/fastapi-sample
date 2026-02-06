@@ -122,7 +122,7 @@ repos:
             .gitlab-ci.yml|
             templates/.*.gitlab-ci.yml|  # because of !reference
             k8s/.*|
-            charts/helm-sample/charts/templates/.*|
+            charts/generic-service/templates/.*|
           )$
       - id: sort-simple-yaml
         name: "🔀 sort/📜 yaml - Sort yaml"
@@ -416,7 +416,7 @@ repos:
           (?x)^(
               trivy-sbom.json|
               my-app/public/.*|
-              charts/helm-sample/charts/templates/.*|
+              charts/generic-service/templates/.*|
           )$
 
     ### Data & Config Validation ###
@@ -446,7 +446,7 @@ repos:
     #     hooks:
     #     -   id: helm-docs
     #         args:
-    #         -   --chart-search-root=charts/helm-sample/charts
+    #         -   --chart-search-root=charts/generic-service
     #         files: (README\.md\.gotmpl|(Chart|requirements|values)\.yaml)$
     #         name: "☸️ helm docs · Generate Helm Charts documentation"
 
@@ -507,7 +507,7 @@ repos:
         args: [--format, parsable, --strict]
         exclude: >
           (?x)^(
-            charts/helm-sample/charts/templates/.*|
+            charts/generic-service/templates/.*|
           )$
 
     # ---------------------------------------------------------------------------- #
