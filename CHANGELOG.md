@@ -1,3 +1,10 @@
+## [1.3.2](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/compare/1.3.1...1.3.2) (2026-02-06)
+
+
+### Bug Fixes
+
+* python 3.12 ([1e89ca4](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/commit/1e89ca43f0c019baab7628d8f548fe18cf41c0f7))
+
 ## [1.3.1](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/compare/1.3.0...1.3.1) (2026-01-26)
 
 
