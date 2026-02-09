@@ -22,7 +22,7 @@ export HELM_KUBECONTEXT=${HELM_KUBECONTEXT:-"arn:aws:eks:us-east-1:783876277037:
 export HELM_NAMESPACE=${HELM_NAMESPACE:-"default"}
 export HELM_DEPLOYEMENT=${HELM_DEPLOYEMENT:-"helm-sample"}
 
-echo -e "${magenta} kubectl kustomize ./charts/generic-service/overlays/dev ${NC}"
+echo -e "${magenta} helm registry login ${NC}"
 
 echo -e "${magenta} helm lint ./charts/generic-service --kubeconfig ${HELM_CONFIG_HOME}/config --kube-context ${HELM_KUBECONTEXT} ${NC}"
 
@@ -42,6 +42,9 @@ echo -e "${magenta} kubectl flame ${HELM_DEPLOYEMENT} -t 1m --lang java -f /tmp/
 
 echo -e "${magenta} popeye --kubeconfig ${HELM_CONFIG_HOME}/config --context ${HELM_KUBECONTEXT} -save --out html --output-file popeye-test.html --cluster-name \"TEST OLD\" --namespace \"${HELM_NAMESPACE}\" -f k8s/spinach.yml ${NC}"
 echo -e "${magenta} popeye --kubeconfig ${HELM_CONFIG_HOME}/config --context \"${HELM_KUBECONTEXT}\" --out html ${NC}"
+
+echo -e "${magenta} kubectl kustomize ./charts/generic-service/overlays/dev ${NC}"
+echo -e "${magenta} kubectl diff -k overlays/dev/ ${NC}"
 
 echo -e "${magenta} kompose convert -f docker-compose/docker-compose.yml -o base ${NC}"
 echo -e "${magenta} cd base && kustomize create --autodetect ${NC}"

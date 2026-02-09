@@ -16,3 +16,21 @@ images:
   - name: 783876277037.dkr.ecr.eu-west-3.amazonaws.com/fastapi-sample
     # newName: registry.gitlab.com/proof-of-concept/fastapi-sample
     newTag: latest
+
+namePrefix: dev-
+nameSuffix: -v1
+
+commonAnnotations:
+  owner: "alban.andrieu@free.fr"
+
+configMapGenerator:
+  - name: app-config
+    literals:
+      - ENV=dev
+      - LOG_LEVEL=debug
+      
+secretGenerator:
+  - name: db-secret
+    files:
+      - secrets/db-password.txt  # Fichier dans .gitignore
+    type: Opaque
