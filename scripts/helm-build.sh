@@ -22,6 +22,8 @@ export HELM_KUBECONTEXT=${HELM_KUBECONTEXT:-"arn:aws:eks:us-east-1:783876277037:
 export HELM_NAMESPACE=${HELM_NAMESPACE:-"default"}
 export HELM_DEPLOYEMENT=${HELM_DEPLOYEMENT:-"helm-sample"}
 
+echo -e "${magenta} kubectl kustomize ./charts/generic-service/overlays/dev ${NC}"
+
 echo -e "${magenta} helm lint ./charts/generic-service --kubeconfig ${HELM_CONFIG_HOME}/config --kube-context ${HELM_KUBECONTEXT} ${NC}"
 
 echo -e "${magenta} helm package ./charts/generic-service --kubeconfig ${HELM_CONFIG_HOME}/config --kube-context ${HELM_KUBECONTEXT} --namespace ${HELM_NAMESPACE} --version ${HELM_TAG} --app-version ${DOCKER_TAG} ${NC}"
@@ -36,7 +38,7 @@ echo -e "${magenta} helm schema-gen charts/generic-service/values.yaml ${NC}"
 #echo -e "${magenta} helm diff upgrade ${HELM_DEPLOYEMENT} ./charts/generic-service ${NC}"
 echo -e "${magenta} helmfile diff ${NC}"
 
-echo -e "${magenta} kubectl flame helm-sample -t 1m --lang java -f /tmp/flamegraph.svg --kubeconfig=${HELM_CONFIG_HOME}/config ${NC}"
+echo -e "${magenta} kubectl flame ${HELM_DEPLOYEMENT} -t 1m --lang java -f /tmp/flamegraph.svg --kubeconfig=${HELM_CONFIG_HOME}/config ${NC}"
 
 echo -e "${magenta} popeye --kubeconfig ${HELM_CONFIG_HOME}/config --context ${HELM_KUBECONTEXT} -save --out html --output-file popeye-test.html --cluster-name \"TEST OLD\" --namespace \"${HELM_NAMESPACE}\" -f k8s/spinach.yml ${NC}"
 echo -e "${magenta} popeye --kubeconfig ${HELM_CONFIG_HOME}/config --context \"${HELM_KUBECONTEXT}\" --out html ${NC}"
