@@ -29,8 +29,8 @@ configMapGenerator:
       - ENV=dev
       - LOG_LEVEL=debug
 
-secretGenerator:
-  - name: db-secret
-    files:
-      - secrets/db-password.txt  # Fichier dans .gitignore
-    type: Opaque
+# secretGenerator:
+#   - name: db-secret
+#     files:
+#       - secrets/db-password.txt  # Fichier dans .gitignore
+#     type: Opaque

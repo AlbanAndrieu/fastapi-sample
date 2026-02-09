@@ -73,8 +73,8 @@ controls:
       - registry.gitlab.com/security-products/*
 
       # Add your organization's trusted registries below:
-      # - your-registry.example.com/*
-      # - ghcr.io/your-org/*
+      - 783876277037.dkr.ecr.eu-west-3.amazonaws.com/*
+      - ghcr.io/jusmundi/*
 
   # ===========================================
   # Branch must be protected
