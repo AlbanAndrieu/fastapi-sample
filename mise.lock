@@ -43,7 +43,7 @@ backend = "aqua:kubernetes/kubernetes/kubectl"
 "platforms.windows-x64" = { checksum = "sha256:4c5d14b8673bd55f813a8965ad70d5150e3960ee5f274025e2286aea3a0fa8b6", url = "https://dl.k8s.io/v1.35.0/bin/windows/amd64/kubectl.exe"}
 
 [[tools.python]]
-version = "3.14.2"
+version = "3.12.10"
 backend = "core:python"
 
 [[tools.ruff]]
