@@ -16,6 +16,17 @@ A Helm sample chart for Kubernetes
 
 - <https://github.com/AlbanAndrieu/nabla-servers-bower-sample>
 
+## SOPS encrypted secrets
+
+To inject SOPS-decrypted secrets from `secrets-enc.yaml` into the application:
+
+1. Install [helm-secrets](https://github.com/jkroepke/helm-secrets) (e.g. `helm plugin install https://github.com/jkroepke/helm-secrets`).
+2. In `values.yaml` set `sopsSecrets.enabled: true` and adjust `sopsSecrets.keys` to the env var names present in your decrypted file (default list matches the repo `secrets-enc.yaml`).
+3. Install/upgrade with the encrypted file:  
+   `helm secrets upgrade --install <release> . -f values.yaml -f secrets-enc.yaml`
+
+The chart creates a Secret from those values and the deployment loads it via `envFrom`, so the keys become environment variables in the container.
+
 ## Values
 
 | Key                        | Type   | Default                  | Description |

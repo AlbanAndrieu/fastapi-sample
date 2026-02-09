@@ -11,6 +11,33 @@ secret_from_vault:
   enabled: false
   mount: "infrastructure"
 
+# SOPS-decrypted secrets (e.g. from secrets-enc.yaml).
+# Use with: helm secrets upgrade -f values.yaml -f secrets-enc.yaml ...
+# Decrypted file may be flat (keys at root); list those key names here so they
+# are included in the created Secret. Leave empty if using sopsSecrets.data instead.
+sopsSecrets:
+  enabled: false
+  # Keys to pull from top-level values when using decrypted secrets-enc.yaml as -f
+  keys:
+    - DD_API_KEY
+    - DB_URL
+    - POSTGRES_PASSWORD
+    - KEYCLOAK_CLIENT_SECRET
+    - OPENAI_API_KEY
+    - OVH_APPLICATION_KEY
+    - OVH_APPLICATION_SECRET
+    - OVH_CONSUMER_KEY
+    - OAUTH_TOKEN_SECRET
+    - UNLEASH_API_URL
+    - UNLEASH_INSTANCE_ID
+    - UNLEASH_APP_NAME
+    - UNLEASH_API_TOKEN
+    - MAIL_PASSWORD
+    - STATSIG_API_KEY
+    - VERCEL_OIDC_TOKEN
+  # Alternatively, pass secret key-value map here (e.g. from a wrapper values file)
+  data: {}
+
 global:
   # See https://kubernetes.io/fr/docs/concepts/containers/images/
   imagePullPolicy: IfNotPresent
