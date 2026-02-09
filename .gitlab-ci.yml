@@ -92,7 +92,7 @@ include:
       server_url: https://gitlab.com  # Self-hosted GitLab
       branch: main                         # Specific branch to analyze
       verbose: true                           # Debug output
-      
+
 default:
   cache: &global_cache
     # key: $CI_COMMIT_REF_SLUG

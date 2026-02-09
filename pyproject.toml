@@ -98,7 +98,6 @@ optional = false
 [tool.poetry.group.api.dependencies]
 alembic = ">=1.16.5"
 ansicolors = ">=1.1.8"
-arel = ">=0.4.0"
 asyevent = ">=0.2.10"
 # aioredis = ">=2.0.1"
 # cfgv = ">=3.3.0"
@@ -171,6 +170,7 @@ locust = ">=2.18.3"
 [tool.poetry.group.cloudflare]
 optional = false
 [tool.poetry.group.cloudflare.dependencies]
+arel = ">=0.4.0"
 webtypy = ">=0.1.7"
 # "web.py" = ">=0.62"
 # Moved to optional group due to poetry parsing issues with conditional dependencies

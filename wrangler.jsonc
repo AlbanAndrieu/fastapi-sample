@@ -79,6 +79,6 @@
     },
   },
   "build": {
-    "command": "poetry install --with extra,open_telemetry,base,api,deployment,utils,webui"
+    "command": "poetry install --with extra,open_telemetry,base,api,deployment,cloudflare,utils,webui"
   }
 }
