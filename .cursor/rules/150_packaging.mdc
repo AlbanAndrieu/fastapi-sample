@@ -1,6 +1,6 @@
 ---
 description:
-globs: flake.nix,default.nix,pyproject.toml,*.rb,docker/**/*,install.sh
+globs: flake.nix,default.nix,pyproject.toml,*.rb,docker/**/*,install.sh,charts/**/,applications/**/
 alwaysApply: false
 ---
 # Packaging Options
@@ -11,5 +11,7 @@ This projects uses a few packaging options:
 - Homebrew Formula (`Formula.rb`)
 - PyPi (`pyproject.toml`)
 - Container Images (`docker/`)
+- Kubernetes helm Charts template (`charts/`)
+- Kubernetes helm Charts application, which are using helm Charts template from (`charts/`) are in  (`applications/`)
 
 These should be properly maintianed as the project experiences updates.

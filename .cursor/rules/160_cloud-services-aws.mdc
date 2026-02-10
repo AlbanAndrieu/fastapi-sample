@@ -1,10 +1,12 @@
 ---
-description: Guidelines for AWS and cloud service usage in projects
-globs: *.tf,*.yaml,*.yml,*Dockerfile*,docker-compose.yml,**/deployment/**
+description: AWS and EKS best practices; IAM, security, cost, networking, IRSA, node groups
+globs: *.tf,*.yaml,*.yml,*Dockerfile*,docker-compose.yml,**/deployment/**,applications/**/*.yaml,charts/**/*
 alwaysApply: false
 ---
 
-# Cloud Services - AWS
+# Cloud Services - AWS & EKS
+
+**Full guidance:** See `.github/instructions/aws-eks-best-practices.instructions.md` for comprehensive AWS and EKS best practices.
 
 ## 01 Platform Selection
 
@@ -75,7 +77,8 @@ alwaysApply: false
 - 06.01 Architecture
 
   - Implement proper VPC design with public/private subnets
-  - Use Transit Gateway for complex networking requirements
+  - Use **SD-WAN** for site-to-site and cross-datacenter connectivity; prefer **Cloudflare Magic WAN** (and Magic Transit) to connect datacenters across countries
+  - Use Transit Gateway for complex AWS-only hub-and-spoke; combine with SD-WAN for hybrid/multi-cloud
   - Implement proper security groups and NACLs
 
 - 06.02 Connectivity
@@ -83,3 +86,13 @@ alwaysApply: false
   - Configure proper DNS resolution
   - Document IP address allocations
   - Use service discovery when appropriate
+  - For multi-site/multi-country: use Cloudflare Magic WAN as the preferred backbone between datacenters and cloud
+
+## 07 Amazon EKS (summary)
+
+- Use **IRSA** (IAM Roles for Service Accounts) for pod-level AWS access; avoid broad node IAM roles.
+- Prefer **Managed Node Groups**; use Karpenter or cluster-autoscaler for scaling; consider Spot for fault-tolerant workloads.
+- Harden pods: **Pod Security Standards**, non-root, drop capabilities; restrict IMDS where not needed.
+- Use **AWS Load Balancer Controller** for ALB/NLB; prefer internal LBs for in-VPC traffic.
+- Pin **EKS and add-on versions** in IaC; plan upgrades and test in non-prod first.
+- For full EKS and AWS guidance, use `.github/instructions/aws-eks-best-practices.instructions.md`.
