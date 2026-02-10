@@ -27,6 +27,7 @@ sopsSecrets:
     - OVH_APPLICATION_KEY
     - OVH_APPLICATION_SECRET
     - OVH_CONSUMER_KEY
+    - OVH_PASSWORD
     - OAUTH_TOKEN_SECRET
     - UNLEASH_API_URL
     - UNLEASH_INSTANCE_ID
@@ -133,7 +134,7 @@ httpRoute:
     - name: gateway
       sectionName: http
       # namespace: default
-      namespace: jussquad
+      namespace: infrastructure
   # Hostnames matching HTTP header.
   hostnames:
     - chart-example.local
@@ -215,58 +216,51 @@ tags:
   front-end: false
   back-end: true
 
-# additional environment variables for the Neo4j Container
-# env_var: {}
-# env: {}
-env:
-  # - name: BO_API_KEY
-  #   valueFrom:
-  #     secretKeyRef:
-  #       name: conflict-checker-secrets-bo
-  #       key: BO_API_KEY
-  # - name: NEO4J_AUTH
-  #   valueFrom:
-  #     secretKeyRef:
-  #       name: conflict-checker-neo4j-auth
-  #       key: NEO4J_AUTH
-  #       optional: false
-  - name: FASTAPI_ENV
-    value: "development"
-  - name: DD_VERSION
-    value: "eks"
-  - name: DD_URL
-    value: "http://defectdojo.service.gra.uat.consul"
-  - name: DD_PRODUCT_TYPE_NAME
-    value: "Showcase Alban"
-  - name: DD_PRODUCT_NAME
-    value: "fastapi-sample"
-  - name: DD_SERVICE
-    value: "test" # fastapi-sample
-  - name: DD_ENGAGEMENT_NAME
-    value: "Albandrieu"
-  - name: DD_TEST_NAME
-    value: "Trivy"
-  - name: DD_TEST_TYPE_NAME
-    value: "Trivy Scan"
-  - name: DD_FILE_NAME
-    value: "trivy.json"
-  - name: DD_SSL_VERIFY
-    value: false
+# Non-secret environment variables (ConfigMap). Override per environment.
+# Sensitive vars (DD_API_KEY, DB_URL, POSTGRES_PASSWORD, OVH_*, KEYCLOAK_CLIENT_SECRET,
+# OAUTH_TOKEN_SECRET, UNLEASH_API_TOKEN, STATSIG_API_KEY, etc.) come from sopsSecrets.
+env_vars:
+  FASTAPI_ENV: "development"
+  DD_URL: "http://defectdojo.service.gra.uat.consul"
+  DD_PRODUCT_TYPE_NAME: "Showcase Alban"
+  DD_PRODUCT_NAME: "fastapi-sample"
+  DD_SERVICE: "fastapi-sample"
+  DD_ENV: "uat"
+  DD_ENGAGEMENT_NAME: "Albandrieu"
+  DD_TEST_NAME: "Trivy"
+  DD_TEST_TYPE_NAME: "Trivy Scan"
+  DD_FILE_NAME: "trivy.json"
+  DD_SSL_VERIFY: "false"
+  DD_LOGS_INJECTION: "true"
+  DD_TRACE_ENABLED: "false"
+  DD_TRACE_SAMPLE_RATE: "1"
+  DD_PROFILING_ENABLED: "true"
+  DD_APPSEC_ENABLED: "false"
+  DD_IAST_ENABLED: "true"
+  DD_APPSEC_SCA_ENABLED: "false"
+  OTEL_SDK_DISABLED: "true"
 
-  - name: OTEL_SDK_DISABLED
-    value: true
-  - name: DD_LOGS_INJECTION
-    value: true
-  - name: DD_TRACE_SAMPLE_RATE
-    value: "1"
-  - name: DD_PROFILING_ENABLED
-    value: true
-  - name: DD_APPSEC_ENABLED
-    value: false
-  - name: DD_IAST_ENABLED
-    value: true
-  - name: DD_APPSEC_SCA_ENABLED
-    value: false
+  POSTGRES_DRIVER: "postgresql"
+  POSTGRES_USER: "fastapisample"
+  POSTGRES_HOST: "pg-gra.service.gra.uat.consul"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "fastapi_sample_uat"
 
-  - name: UNLEASH_API_URL
-    value: "https://gitlab.com/api/v4/feature_flags/unleash/46788175"
+  OVH_USERNAME: "user-ANMa942Qs2ud"
+  OVH_PROJECT_NAME: "2844848994573234"
+
+  KEYCLOAK_SERVER_URL: "https://keycloak-https.service.gra.uat.consul"
+  KEYCLOAK_REALM: "jus_mundi"
+  KEYCLOAK_CLIENT_ID: "jusmundi_uat"
+
+  UNLEASH_API_URL: "https://gitlab.com/api/v4/feature_flags/unleash/46788175"
+  UNLEASH_INSTANCE_ID: "glffct-Zx1LUSKRWstCFsyZ3NLK"
+  UNLEASH_APP_NAME: "fastapi-sample"
+
+  METRICS_ENABLED: "true"
+  FASTMCP_EXPERIMENTAL_ENABLE_NEW_OPENAPI_PARSER: "true"
+
+  # Optional: uncomment and set for Datadog agent
+  # DD_AGENT_HOST: "datadog-agent.service.gra.uat.consul"
+  # DD_TRACE_AGENT_PORT: "8126"
+  # DD_VERSION: "prod-0.0.5"

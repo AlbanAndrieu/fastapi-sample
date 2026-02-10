@@ -20,7 +20,7 @@ echo -e "${magenta} k config get-contexts ${NC}"
 export HELM_CONFIG_HOME=${HELM_CONFIG_HOME:-"${HOME}/.kube"}
 export HELM_KUBECONTEXT=${HELM_KUBECONTEXT:-"arn:aws:eks:us-east-1:783876277037:cluster/jusmundi-eks-cluster"}
 export HELM_NAMESPACE=${HELM_NAMESPACE:-"default"}
-export HELM_DEPLOYEMENT=${HELM_DEPLOYEMENT:-"helm-sample"}
+export HELM_DEPLOYEMENT=${HELM_DEPLOYEMENT:-"helm-sample"} # AKA HELM_RELEASE
 
 echo -e "${magenta} helm registry login ${NC}"
 
@@ -31,6 +31,8 @@ echo -e "${magenta} helm package ./charts/generic-service --kubeconfig ${HELM_CO
 echo -e "${magenta} helm uninstall --kubeconfig ${HELM_CONFIG_HOME}/config --kube-context ${HELM_KUBECONTEXT} --namespace ${HELM_NAMESPACE} ${HELM_DEPLOYEMENT} ${NC}"
 echo -e "${magenta} helm install --kubeconfig ${HELM_CONFIG_HOME}/config --kube-context ${HELM_KUBECONTEXT} --namespace ${HELM_NAMESPACE} ${HELM_DEPLOYEMENT} helm-sample-${HELM_TAG}.tgz --timeout 5m0s --wait --devel --replace --set imagePullPolicy=Always ${NC}"
 #  --atomic
+
+echo -e "${magenta} helm secrets upgrade --install --namespace ${HELM_NAMESPACE} ${HELM_DEPLOYEMENT} ./charts/generic-service -f charts/generic-service/values.yaml -f secrets-enc.yaml ${NC}"
 
 #helm plugin install https://github.com/karuppiah7890/helm-schema-gen.git
 echo -e "${magenta} helm schema-gen charts/generic-service/values.yaml ${NC}"
