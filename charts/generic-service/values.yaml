@@ -253,7 +253,7 @@ env_vars:
   KEYCLOAK_REALM: "jus_mundi"
   KEYCLOAK_CLIENT_ID: "jusmundi_uat"
 
-  UNLEASH_API_URL: "https://gitlab.com/api/v4/feature_flags/unleash/46788175"  
+  UNLEASH_API_URL: "https://gitlab.com/api/v4/feature_flags/unleash/46788175"
   UNLEASH_APP_NAME: "fastapi-sample"
 
   METRICS_ENABLED: "true"
