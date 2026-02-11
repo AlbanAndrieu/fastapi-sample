@@ -38,4 +38,8 @@ poetry export -f requirements.txt --output requirements.txt --with api,deploymen
 
 sudo apt-get install mypy
 
+# os file watch limit reached uvicorn
+sudo sysctl fs.inotify.max_user_watches=131070
+sudo sysctl -p
+
 exit 0

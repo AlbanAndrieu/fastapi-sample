@@ -74,6 +74,7 @@ from nabla.utils.log_config import LogMiddleware, setup_logging
 # We need to load as soon as possible the setup_loggers
 from nabla.utils.logger import logger
 from nabla.utils.prometheus import (
+    INFLIGHT_REQUESTS,
     REQUESTS,
     REQUESTS_IN_PROGRESS,
     REQUESTS_PROCESSING_TIME,
@@ -413,43 +414,39 @@ async def metrics_middleware(request, call_next):
     🔧 Automatic metrics collection middleware
     This captures every request without modifying your business logic
     """
-
     start_time = time.time()
-
+    INFLIGHT_REQUESTS.inc()
     REQUESTS_IN_PROGRESS.labels(
         method=request.method,
         path=request.url.path,
         app_name=APP_NAME,
     ).inc()
-
     REQUESTS.labels(
         method=request.method,
         path=request.url.path,
         app_name=APP_NAME,
     ).inc()
-
-    response = await call_next(request)
-
-    # Record comprehensive metrics
-    RESPONSES.labels(
-        method=request.method,
-        path=request.url.path,
-        status_code=response.status_code,
-        app_name=APP_NAME,
-    ).inc()
-
-    REQUESTS_PROCESSING_TIME.labels(
-        method=request.method,
-        path=request.url.path,
-        app_name=APP_NAME,
-    ).observe(time.time() - start_time)
-
-    REQUESTS_IN_PROGRESS.labels(
-        method=request.method,
-        path=request.url.path,
-        app_name=APP_NAME,
-    ).dec()
-    return response
+    try:
+        response = await call_next(request)
+        RESPONSES.labels(
+            method=request.method,
+            path=request.url.path,
+            status_code=response.status_code,
+            app_name=APP_NAME,
+        ).inc()
+        REQUESTS_PROCESSING_TIME.labels(
+            method=request.method,
+            path=request.url.path,
+            app_name=APP_NAME,
+        ).observe(time.time() - start_time)
+        return response
+    finally:
+        INFLIGHT_REQUESTS.dec()
+        REQUESTS_IN_PROGRESS.labels(
+            method=request.method,
+            path=request.url.path,
+            app_name=APP_NAME,
+        ).dec()
 
 
 @app.middleware("http")

@@ -80,10 +80,12 @@ podAnnotations: {}
 # For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
 podLabels: {}
 
-# This is the max unavailable setting for the pod disruption budget
-# The default value of 1 will make sure that kubernetes won't allow more than 1
-# of your pods to be unavailable during maintenance
-maxUnavailable: 1
+# PodDisruptionBudget: limit voluntary disruptions (evictions, node drain) so at least
+# (replicas - maxUnavailable) or minAvailable pods stay up. Use exactly one of minAvailable or maxUnavailable.
+pdb:
+  enabled: true
+  # minAvailable: 2   # optional: ensure at least N pods (use this OR maxUnavailable)
+  maxUnavailable: 1   # allow at most 1 pod down during maintenance
 
 podSecurityContext: {}
   # fsGroup: 2000
@@ -182,13 +184,54 @@ readinessProbe:
     path: /health
     port: http
 
-# This section is for setting up autoscaling more information can be found here: https://kubernetes.io/docs/concepts/workloads/autoscaling/
+# This section is for setting up autoscaling (HPA v2).
+# See: https://kubernetes.io/docs/concepts/workloads/autoscaling/
+# Tactic: sane baseline with 60-70% CPU (burst headroom), scale down slowly / scale up fast.
 autoscaling:
   enabled: false
-  minReplicas: 1
-  maxReplicas: 2
-  targetCPUUtilizationPercentage: 80
+  # Min replicas: use at least 3 for HA when autoscaling is on; max must fit cluster capacity.
+  minReplicas: 3
+  maxReplicas: 10
+  # 60-70% leaves burst headroom; avoid thrashing on spiky traffic.
+  targetCPUUtilizationPercentage: 65
   # targetMemoryUtilizationPercentage: 80
+
+  # Custom metrics (Pods type). Requires metrics-server + Prometheus Adapter so the
+  # metric is available as a pods metric. Metric name must match the app (fastapi_inflight_requests).
+  customMetrics: []
+  # Example: scale when avg inflight requests per pod exceeds 10
+  # customMetrics:
+  #   - type: Pods
+  #     pods:
+  #       metric:
+  #         name: fastapi_inflight_requests
+  #       target:
+  #         type: AverageValue
+  #         averageValue: "10"
+
+  # HPA v2 behavior: scale down slowly (avoid thrash), scale up fast.
+  # Omit or set to {} to use cluster defaults. selectPolicy: Max = use largest allowed change; Min = smallest.
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+      selectPolicy: Min
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 15
+        - type: Pods
+          value: 4
+          periodSeconds: 15
+      selectPolicy: Max
 
 # Additional volumes on the output Deployment definition.
 volumes: []

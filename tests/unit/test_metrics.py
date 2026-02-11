@@ -32,6 +32,13 @@ def test_metrics_get_request(test_app):
     assert response.headers["content-type"] == "text/plain; version=1.0.0; charset=utf-8"
 
 
+def test_metrics_inflight_requests_gauge(test_app):
+    """fastapi_inflight_requests is exposed for HPA custom metric (scale on in-flight requests)."""
+    response = test_app.get("/metrics")
+    assert response.status_code == 200
+    assert "fastapi_inflight_requests" in response.text
+
+
 @pytest.mark.skip(reason="Skipping this test for now")
 def test_metrics_put_request(test_app):
     response = test_app.put("/metrics")

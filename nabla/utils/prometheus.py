@@ -56,6 +56,11 @@ REQUESTS_IN_PROGRESS = Gauge(
     "Gauge of requests by method and path currently being processed",
     ["method", "path", "app_name"],
 )
+# Single gauge per pod for HPA: scale on in-flight request count (no labels).
+INFLIGHT_REQUESTS = Gauge(
+    "fastapi_inflight_requests",
+    "Number of HTTP requests currently being processed (for HPA custom metric).",
+)
 
 # Define a counter metric
 
