@@ -53,6 +53,7 @@
     "@vercel/analytics": "^1.5.0",
     "dd-trace": "^5.28.0",
     "lodash-es": "^4.17.23",
+    "mcp-remote": "^0.1.38",
     "vercel": "^50.1.3"
   },
   "devDependencies": {
