@@ -1,8 +1,6 @@
 <!-- Render charts in hidden divs, then move to containers -->
 {% if charts.timeseries %}
-<div id="timeseries-update" style="display: none">
-  {{ charts.timeseries | safe }}
-</div>
+<div id="timeseries-update" style="display: none">{{ charts.timeseries | safe }}</div>
 <script>
   const timeseriesUpdate = document.getElementById("timeseries-update");
   const timeseriesChart = document.getElementById("timeseries-chart");
@@ -20,9 +18,7 @@
   }
 </script>
 {% endif %} {% if charts.correlation %}
-<div id="correlation-update" style="display: none">
-  {{ charts.correlation | safe }}
-</div>
+<div id="correlation-update" style="display: none">{{ charts.correlation | safe }}</div>
 <script>
   const correlationUpdate = document.getElementById("correlation-update");
   const correlationChart = document.getElementById("correlation-chart");
@@ -31,9 +27,7 @@
   }
 </script>
 {% endif %} {% if charts.anomalies %}
-<div id="anomalies-update" style="display: none">
-  {{ charts.anomalies | safe }}
-</div>
+<div id="anomalies-update" style="display: none">{{ charts.anomalies | safe }}</div>
 
 <script>
   const anomaliesUpdate = document.getElementById("anomalies-update");

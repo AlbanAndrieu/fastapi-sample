@@ -1,10 +1,6 @@
 <!doctype html>
 <div id="note-{{ note.id }}" class="note-item-edit">
-  <form
-    hx-post="/notes/notes/{{ note.id }}"
-    hx-target="#note-{{ note.id }}"
-    hx-swap="outerHTML"
-  >
+  <form hx-post="/notes/notes/{{ note.id }}" hx-target="#note-{{ note.id }}" hx-swap="outerHTML">
     <input type="text" name="title" value="{{ note.title }}" required />
     <textarea name="content" required>{{ note.content }}</textarea>
     <button type="submit">Save</button>

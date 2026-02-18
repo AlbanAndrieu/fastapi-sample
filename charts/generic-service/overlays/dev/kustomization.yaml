@@ -28,7 +28,6 @@ configMapGenerator:
     literals:
       - ENV=dev
       - LOG_LEVEL=debug
-
 # secretGenerator:
 #   - name: db-secret
 #     files:
