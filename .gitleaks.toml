@@ -3,6 +3,7 @@
 # Rules instruct gitleaks on what should be considered a secret.
 # Allowlists instruct gitleaks on what is allowed, i.e. not a secret.
 title = "gitleaks config"
+minVersion = "v8.25.0"
 
 [extend]
 # useDefault will extend the base configuration with the default gitleaks config:
@@ -18,7 +19,9 @@ regexes = [
     '''#nosec''',
     '''allow:gitleaks''',
     '''password-reset-XXX''',
-    '''sk-1234567890''',
+    '''sk-1234567890''',    
+    '''tg3zLMS/bebJFl0LxctiCw''',  # Vercel data-key: value like  (alphanumeric + slash)
+    # '''data-key=[A-Za-z0-9]+/[A-Za-z0-9+/=]{10,70}$''',    
     ]
 paths = [
     '''gitleaks.toml''',
