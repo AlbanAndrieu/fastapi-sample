@@ -1,3 +1,10 @@
+## [1.3.3](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/compare/1.3.2...1.3.3) (2026-02-18)
+
+
+### Bug Fixes
+
+* Format with prettier ([8566a68](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/commit/8566a68f660e3d7d6ca11c0bd8fdf61053161385))
+
 ## [1.3.2](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/compare/1.3.1...1.3.2) (2026-02-06)
 
 
