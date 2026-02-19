@@ -2,38 +2,25 @@
 {% extends 'base.html' %} {% block content %}
 <div class="container mx-auto px-4 py-4 max-w-7xl">
   <!-- Header with task manager -->
-  <div
-    class="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6 gap-4"
-  >
-    TODO
-  </div>
+  <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6 gap-4">TODO</div>
   <!-- Header with gradient goodness -->
-  <div
-    class="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6 gap-4"
-  >
+  <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6 gap-4">
     <div>
       <h1
         class="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent mb-2"
       >
         Sensor Dashboard
       </h1>
-      <p class="text-base-content/70 text-lg">
-        Real-time environmental monitoring with Plotly Python
-      </p>
+      <p class="text-base-content/70 text-lg">Real-time environmental monitoring with Plotly Python</p>
     </div>
 
     <div class="flex items-center gap-4">
       <div class="stats bg-base-100 shadow-lg">
         <div class="stat">
           <div class="stat-title text-xs">Status</div>
-          <div class="stat-value text-lg" id="connection-status">
-            Connecting...
-          </div>
+          <div class="stat-value text-lg" id="connection-status">Connecting...</div>
           <div class="stat-desc">
-            <div
-              class="loading loading-ring loading-sm"
-              id="connection-indicator"
-            ></div>
+            <div class="loading loading-ring loading-sm" id="connection-indicator"></div>
           </div>
         </div>
       </div>
@@ -57,12 +44,7 @@
           <button type="submit">Add</button>
         </form>
 
-        <div
-          id="notes-list"
-          hx-get="/notes/notes"
-          hx-trigger="load"
-          hx-swap="outerHTML"
-        ></div>
+        <div id="notes-list" hx-get="/notes/notes" hx-trigger="load" hx-swap="outerHTML"></div>
       </div>
     </div>
   </div>
@@ -104,12 +86,7 @@
     <!-- HTMX chart data fetcher -->
     <!-- sse-swap="sensor_update"-->
     <div hx-ext="sse" sse-connect="/stream/2">
-      <div
-        id="chart-data"
-        hx-get="/chart-data"
-        hx-target="#chart-data"
-        hx-trigger="sse:sensor_update"
-      >
+      <div id="chart-data" hx-get="/chart-data" hx-target="#chart-data" hx-trigger="sse:sensor_update">
         <div class="flex items-center justify-center py-6">
           <div class="loading loading-spinner loading-lg text-primary"></div>
           <span class="ml-4">Connecting to sensors...</span>
@@ -171,12 +148,7 @@
   </div>
 
   <!-- Charts updater -->
-  <div
-    hx-get="/charts"
-    hx-trigger="load, every 1s"
-    hx-target="#chart-updates"
-    hx-swap="innerHTML"
-  >
+  <div hx-get="/charts" hx-trigger="load, every 1s" hx-target="#chart-updates" hx-swap="innerHTML">
     <div id="chart-updates"></div>
   </div>
 </div>
@@ -285,11 +257,7 @@
       console.log(data);
       // Update sensor display
       const statusClass =
-        data.status === "normal"
-          ? "badge-success"
-          : data.status === "warning"
-            ? "badge-warning"
-            : "badge-error";
+        data.status === "normal" ? "badge-success" : data.status === "warning" ? "badge-warning" : "badge-error";
 
       const html = `
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
@@ -369,14 +337,12 @@
 <script>
   // Handle SSE connection status
   document.body.addEventListener("htmx:sseOpen", function (e) {
-    document.getElementById("connection-indicator").className =
-      "loading loading-ring loading-sm text-success";
+    document.getElementById("connection-indicator").className = "loading loading-ring loading-sm text-success";
     document.getElementById("connection-status").textContent = "Connected";
   });
 
   document.body.addEventListener("htmx:sseError", function (e) {
-    document.getElementById("connection-indicator").className =
-      "loading loading-ring loading-sm text-error";
+    document.getElementById("connection-indicator").className = "loading loading-ring loading-sm text-error";
     document.getElementById("connection-status").textContent = "Disconnected";
   });
 </script>
