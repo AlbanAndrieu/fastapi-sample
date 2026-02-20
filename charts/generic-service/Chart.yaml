@@ -24,7 +24,7 @@ version: 1.0.4-prerelease+build
 appVersion: 1.0.0
 
 sources:
-  - https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample
+  - https://gitlab.com/AlbanAndrieu/fastapi-sample
 
 maintainers:
   - name: aandrieu

@@ -27,7 +27,7 @@ keywords = ["packaging", "poetry" ,"fastapi-samples"]
 
 classifiers = ["Private :: Do not Upload"]
 
-dependencies = ["statsig-python-core (>=0.14.0,<0.15.0)", "legacy-cgi (>=2.6.4,<3.0.0)"]
+dependencies = ["statsig-python-core (>=0.14.0,<0.15.0)", "legacy-cgi (>=2.6.4,<3.0.0)", "langfuse (==2.59.7)", "litellm (>=1.81.13,<2.0.0)"]
 
 [project.scripts]
 # app = "nabla.main:app"
@@ -35,7 +35,7 @@ app = "server_app:app"
 #  python -m build --wheel
 
 [project.urls]
-"Homepage" = "https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample"
+"Homepage" = "https://gitlab.com/AlbanAndrieu/fastapi-sample"
 
 [project.optional-dependencies]
 # build = ["setuptools", "cython"]
@@ -548,7 +548,7 @@ parentdir_prefix = ""
 # [tool.hatch.metadata.hooks.datadog-build-metadata]
 #
 # [tool.hatch.metadata.hooks.datadog-build-metadata.urls]
-# Homepage = "https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample"
+# Homepage = "https://gitlab.com/AlbanAndrieu/fastapi-sample"
 # source_archive = "{remote_http_url}/archive/{commit_hash}.tar.gz"
 
 [tool.hatch.build.targets.wheel]

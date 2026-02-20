@@ -318,7 +318,7 @@ COPY --from=builder-base /app/.venv /app/.venv
 docker build \
   --secret id=CI_JOB_TOKEN,env=CI_PIP_GITLABJUSMUNDI_TOKEN \
   --build-arg ENV=dev \
-  -t registry.gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample:1.2.3 \
+  -t registry.gitlab.com/AlbanAndrieu/fastapi-sample:1.2.3 \
   .
 ```
 

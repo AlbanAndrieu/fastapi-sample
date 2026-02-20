@@ -1,6 +1,6 @@
 <!-- markdown-link-check-disable-next-line -->
 
-# [![Nabla](http://bababou.albandrieu.com/nabla/index/assets/nabla/nabla-4.png)](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample) fastapi-sample
+# [![Nabla](https://nabla.albandrieu.com/assets/nabla/nabla-4.png)](https://gitlab.com/AlbanAndrieu/fastapi-sample) fastapi-sample
 
 Fastapi sample
 
@@ -13,26 +13,26 @@ Fastapi sample
 <!-- toc -->
 
 - [Initialize](#initialize)
-  - [Requirements](#requirements)
-  - [Install fastapi-sample as a developer](#install-fastapi-sample-as-a-developer)
-    - [Using virtualenv](#using-virtualenv)
-  - [Getting started](#getting-started)
-  - [Vite UI](#vite-ui)
-  - [Test JWT](#test-jwt)
-  - [Test](#test)
-  - [Jupiter](#jupiter)
-  - [User guide](#user-guide)
-    - [Installation and commands](#installation-and-commands)
-    - [Database demo](#database-demo)
+  * [Requirements](#requirements)
+  * [Install fastapi-sample as a developer](#install-fastapi-sample-as-a-developer)
+    + [Using virtualenv](#using-virtualenv)
+  * [Getting started](#getting-started)
+  * [Vite UI](#vite-ui)
+  * [Test JWT](#test-jwt)
+  * [Test](#test)
+  * [Jupiter](#jupiter)
+  * [User guide](#user-guide)
+    + [Installation and commands](#installation-and-commands)
+    + [Database demo](#database-demo)
 - [Create PostgreSQL postgres on pg-gra.service.gra.dev.consul with Alembic](#create-postgresql-postgres-on-pg-graservicegradevconsul-with-alembic)
-  - [Create PostgreSQL fastapi_sample_gitlab on pg-gra.service.gra.dev.consul by hand](#create-postgresql-fastapi_sample_gitlab-on-pg-graservicegradevconsul-by-hand)
-    - [Deploying to Vercel](#deploying-to-vercel)
-    - [Temporal demo](#temporal-demo)
-    - [Defect Dojo Parameters](#defect-dojo-parameters)
-  - [Quality check](#quality-check)
-  - [Utility scripts](#utility-scripts)
-  - [Installation and commands](#installation-and-commands-1)
-  - [Update README.md](#update-readmemd)
+  * [Create PostgreSQL fastapi_sample_gitlab on pg-gra.service.gra.dev.consul by hand](#create-postgresql-fastapi_sample_gitlab-on-pg-graservicegradevconsul-by-hand)
+    + [Deploying to Vercel](#deploying-to-vercel)
+    + [Temporal demo](#temporal-demo)
+    + [Defect Dojo Parameters](#defect-dojo-parameters)
+  * [Quality check](#quality-check)
+  * [Utility scripts](#utility-scripts)
+  * [Installation and commands](#installation-and-commands-1)
+  * [Update README.md](#update-readmemd)
 
 <!-- tocstop -->
 

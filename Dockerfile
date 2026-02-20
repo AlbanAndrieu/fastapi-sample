@@ -12,7 +12,7 @@ LABEL com.datadoghq.tags.service="fastapi-sample"
 # LABEL com.datadoghq.tags.env="uat"
 LABEL com.datadoghq.tags.version="1.1.0"
 
-LABEL org.opencontainers.image.source=https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample
+LABEL org.opencontainers.image.source=https://gitlab.com/AlbanAndrieu/fastapi-sample
 LABEL org.opencontainers.image.description="My sample image"
 LABEL org.opencontainers.image.licenses=MIT
 
