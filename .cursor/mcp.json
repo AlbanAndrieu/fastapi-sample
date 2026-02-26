@@ -1,0 +1,66 @@
+{
+  "mcpServers": {
+    "prometheus": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "--network",
+        "host",
+        "-e",
+        "PROMETHEUS_URL",
+        "ghcr.io/pab1it0/prometheus-mcp-server:latest"
+      ],
+      "env": {
+        "PROMETHEUS_URL": "http://prometheus.service.gra.prod.consul:9090"
+      }
+    },
+    "grafana-readonly": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--network",
+        "host",
+        "-e",
+        "GRAFANA_URL",
+        "-e",
+        "GRAFANA_USERNAME",
+        "-e",
+        "GRAFANA_PASSWORD",
+        "-e",
+        "GRAFANA_ORG_ID",
+        "grafana/mcp-grafana",
+        "-t",
+        "stdio",
+        "-disable-write"
+      ],
+      "env": {
+        "GRAFANA_URL": "http://grafana.service.gra.prod.consul",
+        "GRAFANA_USERNAME": "admin",
+        "GRAFANA_PASSWORD": "admin",
+        "GRAFANA_ORG_ID": "1"
+      }
+    },
+    "awslabs.core-mcp-server": {
+      "command": "uvx",
+      "args": [
+        "awslabs.core-mcp-server@latest"
+      ],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      }
+    },
+    "kubernetes-readonly": {
+      "command": "npx",
+      "args": [
+        "mcp-server-kubernetes"
+      ],
+      "env": {
+        "ALLOW_ONLY_NON_DESTRUCTIVE_TOOLS": "true"
+      }
+    }
+  }
+}
