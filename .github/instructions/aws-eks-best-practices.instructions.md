@@ -1,8 +1,8 @@
 ---
 applyTo: '*'
 description: >-
-  AWS and Amazon EKS best practices: IAM, networking, security, cost,
-  EKS cluster design, IRSA, node groups, and operational excellence.
+  AWS and Amazon EKS best practices: IAM, networking, security, cost, EKS
+  cluster design, IRSA, node groups, and operational excellence.
 ---
 # AWS & Amazon EKS Best Practices
 
