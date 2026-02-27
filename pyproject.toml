@@ -195,6 +195,7 @@ sqladmin = {version = ">=0.21.0", extras = ["full"]}
 # citation-dataclasses = {version = ">=0.0.4", source="gitlab"}
 prometheus-client = ">=0.21.1"
 prometheus-fastapi-instrumentator = ">=7.1.0"
+pysqlite3 = ">=0.6.0"
 structlog = ">=25.4.0"
 reretry = ">=0.11.8"
 
@@ -354,6 +355,7 @@ ansible-lint = ">=25.8.2"
 click-completion = ">=0.5.2"
 colorama = ">=0.4.6"
 dvc-s3 = ">=3.2.2"
+filelock = ">=3.24.2,<4"
 httpx = {version = ">=0.23.3"}
 git-url-parse = ">=1.2.2"
 gitpython = ">=3.1.29"

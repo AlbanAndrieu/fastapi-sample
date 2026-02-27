@@ -80,7 +80,7 @@
 		"jest": "^27.3.1",
 		"jest-junit": "^16.0.0",
 		"markdown-toc": "^1.2.0",
-		"opencommit": "^3.2.10",
+		"opencommit": "^3.2.14",
 		"prettier": "^3.2.4",
 		"secretlint": "^9.3.1",
 		"semantic-release": "^25.0.2",
