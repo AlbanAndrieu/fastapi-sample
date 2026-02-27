@@ -185,7 +185,11 @@ repos:
       - id: pyupgrade
         name: "🐍 python · Py Upgrade"
   - repo: https://github.com/astral-sh/ruff-pre-commit
+<<<<<<< HEAD
     rev: v0.15.4
+=======
+    rev: v0.15.2
+>>>>>>> 4fcc110ec47dc3f58ea1c99d9b1d1c0fa2c4eada
     hooks:
       - id: ruff-format
         name: "🐍 python · Format with Ruff"
@@ -419,7 +423,11 @@ repos:
 
     ### Data & Config Validation ###
   - repo: https://github.com/python-jsonschema/check-jsonschema
+<<<<<<< HEAD
     rev: 0.37.0
+=======
+    rev: 0.36.2
+>>>>>>> 4fcc110ec47dc3f58ea1c99d9b1d1c0fa2c4eada
     hooks:
       - id: check-github-workflows
         name: "🧩 github-actions · Validate gh workflow files"
@@ -505,7 +513,7 @@ repos:
         args: [--format, parsable, --strict]
         exclude: >
           (?x)^(
-            charts/generic-service/templates/.*|
+            charts/generic-service/.*|
           )$
 
     # ---------------------------------------------------------------------------- #

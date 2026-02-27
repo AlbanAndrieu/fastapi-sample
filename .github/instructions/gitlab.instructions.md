@@ -1,8 +1,7 @@
 ---
-description: 'Gitlab Conventions and Guidelines'
+description: Gitlab Conventions and Guidelines
 applyTo: '**/*.gitlab-ci.yml'
 ---
-
 # Gitlab Conventions
 
 ## General Instructions

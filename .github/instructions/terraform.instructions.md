@@ -1,8 +1,7 @@
 ---
 description: Terraform Conventions and Guidelines
-applyTo: "**/*.tf"
+applyTo: '**/*.tf'
 ---
-
 # Terraform Conventions
 
 ## General Instructions

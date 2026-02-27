@@ -1,7 +1,6 @@
 ---
 applyTo: docs/**/*.md
 ---
-
 # Project documentation writing guidelines
 
 ## General Guidelines
