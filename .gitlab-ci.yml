@@ -122,7 +122,7 @@ variables:
   OCI_REGISTRY: ${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}
   TYPE_TRAINING: ""
   # MOUNT_POINT: "/builds/$CI_PROJECT_PATH/mnt"
-  CI_IMAGE_NAME: ${CI_REGISTRY}/jusmundi-group/web/templates/jm-oci/jm-ubuntu
+  CI_IMAGE_NAME: registry.gitlab.com/jusmundi-group/web/templates/jm-oci/jm-ubuntu
   CI_IMAGE_TAG: latest
   # GIT_STRATEGY: fetch
   GIT_DEPTH: "3"
