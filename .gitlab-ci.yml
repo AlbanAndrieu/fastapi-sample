@@ -117,9 +117,11 @@ variables:
   PROJECT_PYTHON_VERSION: "3.12"
   POETRY_VERSION: "2.2.1"
   CI_IMAGE_NPM: node:24-alpine # 24.11-alpine3.23
+  APP_NAME: fastapi-sample  
   # CI_REGISTRY: registry.gitlab.com
   CI_REGISTRY: 783876277037.dkr.ecr.eu-west-3.amazonaws.com
-  OCI_REGISTRY: ${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}
+  # OCI_REGISTRY: ${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}
+  OCI_REGISTRY: ${CI_REGISTRY}/${APP_NAME}
   TYPE_TRAINING: ""
   # MOUNT_POINT: "/builds/$CI_PROJECT_PATH/mnt"
   CI_IMAGE_NAME: registry.gitlab.com/jusmundi-group/web/templates/jm-oci/jm-ubuntu
@@ -151,7 +153,6 @@ variables:
   CLOC_SOURCE: "nabla"
   # RUNNER_GENERATE_ARTIFACTS_METADATA: "true"
   # FF_NETWORK_PER_BUILD: "true" # enable network per build so all services can communicate on the same network
-  APP_NAME: fastapi-sample
   NOMAD_ENV_DEPLOY: "-var env=${ENV} -var team=${ENV}"
   NOMAD_SERVICE_DEPLOY_URL_SUFFIX: docs # citemap/ping
   NOMAD_SERVICE_DEPLOY_URL: http://${APP_NAME}.service.gra.${ENV}.consul/${NOMAD_SERVICE_DEPLOY_URL_SUFFIX}
