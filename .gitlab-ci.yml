@@ -420,6 +420,31 @@ test-pytest:
         coverage_format: cobertura
         path: coverage.xml
 
+.login-ecr-docker: &login-ecr-docker
+  script:
+    - echo "AWS_ACCESS_KEY_ID ${AWS_ACCESS_KEY_ID} and AWS_DEFAULT_REGION ${AWS_DEFAULT_REGION} and AWS_REGION ${AWS_REGION}"
+    - aws ecr get-login-password --region ${AWS_REGION:-"eu-west-3"} | docker login --username AWS --password-stdin ${OCI_REGISTRY:-"783876277037.dkr.ecr.eu-west-3.amazonaws.com"}
+    
+.login-gitlab: &login-gitlab
+  script:
+    - echo "Login to gitlab default ${OCI_REGISTRY}/${APP_IMAGE} - $CI_REGISTRY_USER Disable"
+    
+# .build-image-dockefile-pre: &build-image-dockefile-pre
+#   script:
+#     - export DOCKER_BUILD_OPT="--pull --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from ${CACHE_IMAGE} -f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --build-arg ENV=${ENV} -t ${CONTAINER_IMAGE}"
+#     - echo -e "\e[35mOverriden on purpose as Sample docker build need explicit \e[0m FOR \e[43m${ENV} - ${DOCKER_BUILD_OPT}.\e[0m"
+
+.build-image-dockefile: &build-image-dockefile
+  script:
+    - echo -e "\e[35mStarting docker\e[0m FOR \e[43m${ENV}.\e[0m"
+    - |
+      envsubst < etc/pip.conf > pip.conf || true
+      echo -e "\e[35mBuilding with docker build ${DOCKER_BUILD_OPT} -t ${OCI_REGISTRY}/${OCI_IMAGE} ${DOCKER_BUILD_PATH}\e[0m ."
+      docker build ${DOCKER_BUILD_OPT} -t ${OCI_REGISTRY}/${OCI_IMAGE} ${DOCKER_BUILD_PATH}
+      echo -e "\e[102mDocker image build succesfull\e[0m .";
+    - export TRIVY_OCI="${OCI_REGISTRY}/${OCI_IMAGE}"
+    - !reference [.login-registry, script]
+
 docker-build:
   extends: .docker-build
   variables:
@@ -475,11 +500,6 @@ mega_linter:
   tags:
     - jusmundi-nomad-runner
   allow_failure: false
-
-# .build-image-dockefile-pre: &build-image-dockefile-pre
-#   script:
-#     - export DOCKER_BUILD_OPT="--pull --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from ${CACHE_IMAGE} -f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --build-arg ENV=${ENV} -t ${CONTAINER_IMAGE}"
-#     - echo -e "\e[35mOverriden on purpose as Sample docker build need explicit \e[0m FOR \e[43m${ENV} - ${DOCKER_BUILD_OPT}.\e[0m"
 
 code_quality:
   extends: .code_quality
