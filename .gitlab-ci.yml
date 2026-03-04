@@ -424,11 +424,11 @@ test-pytest:
   script:
     - echo "AWS_ACCESS_KEY_ID ${AWS_ACCESS_KEY_ID} and AWS_DEFAULT_REGION ${AWS_DEFAULT_REGION} and AWS_REGION ${AWS_REGION}"
     - aws ecr get-login-password --region ${AWS_REGION:-"eu-west-3"} | docker login --username AWS --password-stdin ${OCI_REGISTRY:-"783876277037.dkr.ecr.eu-west-3.amazonaws.com"}
-    
+
 .login-gitlab: &login-gitlab
   script:
     - echo "Login to gitlab default ${OCI_REGISTRY}/${APP_IMAGE} - $CI_REGISTRY_USER Disable"
-    
+
 # .build-image-dockefile-pre: &build-image-dockefile-pre
 #   script:
 #     - export DOCKER_BUILD_OPT="--pull --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from ${CACHE_IMAGE} -f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --build-arg ENV=${ENV} -t ${CONTAINER_IMAGE}"
