@@ -1,3 +1,9 @@
+## [1.3.5](https://gitlab.com/AlbanAndrieu/fastapi-sample/compare/1.3.4...1.3.5) (2026-03-18)
+
+
+### Bug Fixes
+
+* urls ([86a7a6f](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/86a7a6fe41fceb2d8db1e28e5950bf9a634da3c1))
 
 ## [1.3.4](https://gitlab.com/AlbanAndrieu/fastapi-sample/compare/1.3.3...1.3.4) (2026-03-04)
 
