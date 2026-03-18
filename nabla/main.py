@@ -7,7 +7,6 @@ import time
 from datetime import datetime
 from typing import Dict
 
-import arel
 import pybreaker
 import pyroscope
 import sentry_sdk
@@ -503,7 +502,10 @@ async def reload_data():
 
 
 # Hot reload magic for development (because restarting servers is for losers)
+# arel is optional: only imported when DEBUG is set so Cloudflare Workers (no arel in Pyodide) can deploy.
 if os.getenv("DEBUG"):
+    import arel
+
     # hot_reload = arel.HotReload(paths=["."])
     hot_reload = arel.HotReload(
         paths=[
