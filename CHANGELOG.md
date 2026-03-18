@@ -1,5 +1,19 @@
-## [1.3.3](https://gitlab.com/AlbanAndrieu/fastapi-sample/compare/1.3.2...1.3.3) (2026-02-18)
 
+## [1.3.4](https://gitlab.com/AlbanAndrieu/fastapi-sample/compare/1.3.3...1.3.4) (2026-03-04)
+
+
+### Bug Fixes
+
+* update ([2d8eef1](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/2d8eef10588b7f341cee3b1607270ed551c6a0c2))
+* update ([4000fe4](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/4000fe45960e6795ad1311cb24fd6c94b1084a0b))
+* update ([d4cb5bc](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/d4cb5bcda969583daa1594a1f8550919c05928ea))
+* update ([453e245](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/453e24532255af378db1aed6e7e6044989acf5ca))
+* update ([33cf313](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/33cf313ce68548ac06d06b4f2fed22404bde4b16))
+* update ([4fcc110](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/4fcc110ec47dc3f58ea1c99d9b1d1c0fa2c4eada))
+* update ([c61b450](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/c61b45016a7209e65d791d7ec62a0828a1df7a0a))
+* update ([b58e191](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/b58e191551197cb48d426d541f8746cedae598bc))
+
+## [1.3.3](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/compare/1.3.2...1.3.3) (2026-02-18)
 
 ### Bug Fixes
 

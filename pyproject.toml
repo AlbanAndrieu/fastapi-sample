@@ -8,7 +8,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "fastapi-sample"
-version = "1.3.3"
+version = "1.3.4"
 # dynamic = ["version"]
 # dynamic = [
 #   "urls",
@@ -564,7 +564,7 @@ default-version = "0.0.0+unknown"
 
 [tool.commitizen]
 # name = "cz_customize"
-version = "1.3.3"
+version = "1.3.4"
 version_files = [
     "nabla/__version__.py",
     "nabla/__init__.py",
