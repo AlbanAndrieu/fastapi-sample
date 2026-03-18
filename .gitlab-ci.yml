@@ -120,7 +120,7 @@ variables:
   # CI_REGISTRY: registry.gitlab.com
   CI_REGISTRY: 783876277037.dkr.ecr.eu-west-3.amazonaws.com
   # OCI_REGISTRY: ${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}
-  OCI_REGISTRY: ${CI_REGISTRY} 
+  OCI_REGISTRY: ${CI_REGISTRY}
   TYPE_TRAINING: ""
   # MOUNT_POINT: "/builds/$CI_PROJECT_PATH/mnt"
   CI_IMAGE_NAME: registry.gitlab.com/jusmundi-group/web/templates/jm-oci/jm-ubuntu
@@ -259,7 +259,7 @@ gemnasium-python-dependency_scanning:
     - apt-get update -y && apt-get install -y jq
     - pip install "poetry>=2,<3"  # Or via another method: https://python-poetry.org/docs/#installation
     - poetry update --lock # Generates the lock file to be analyzed.
-    
+
   script:
     - /analyzer run
     - HIGH_SEVERITY_COUNT=$(jq '.vulnerabilities | map(select(.severity=="High")) | length' gl-dependency-scanning-report.json )
