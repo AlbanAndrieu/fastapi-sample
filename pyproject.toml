@@ -92,6 +92,7 @@ fastapi-cache2 = {version = ">=0.0.1", extras = ["redis"]} # NOK aioredis deprec
 fastmcp = ">=2.12.2"
 gunicorn = ">=23.0.0"
 jinja2 = ">=3.1.6"
+pybreaker = ">=1.4.0"
 
 [tool.poetry.group.api]
 optional = false
@@ -122,7 +123,6 @@ passlib = ">=1.7.4"
 pandas = ">=2.2.1"
 plotly = ">=6.3.0"
 polars = ">=1.32.3"
-pybreaker = ">=1.4.0"
 pyarrow = ">=16.0.0"
 pydantic = ">=2.12.3"
 pydantic-settings = "*" # Defined by pydantic
@@ -171,6 +171,7 @@ locust = ">=2.18.3"
 optional = false
 [tool.poetry.group.cloudflare.dependencies]
 arel = ">=0.4.0"
+pybreaker = ">=1.4.0"
 webtypy = ">=0.1.7"
 # "web.py" = ">=0.62"
 # Moved to optional group due to poetry parsing issues with conditional dependencies

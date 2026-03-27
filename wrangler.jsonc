@@ -42,6 +42,7 @@
 	// "vars": { "MY_VARIABLE": "production_value" },
 	"vars": {
 		"ENVIRONMENT": "development",
+		"SENTRY_DSN": "https://11c5d815632831d3274c830441885207@o4505783360356352.ingest.sentry.io/4505783364681728",
 		"MCP_SERVER_NAME": "PLACEHOLDER",
 		"MCP_SERVER_VERSION": "PLACEHOLDER"
 	},

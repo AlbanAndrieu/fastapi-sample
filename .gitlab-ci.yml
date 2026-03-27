@@ -478,7 +478,7 @@ test-pytest:
   <<: *redis_healthcheck
   script:
     - pip install --upgrade pip
-    - pip install poetry=2.2.1
+    - pip install poetry==2.2.1
     # - python3 -m pipenv install --dev --site-packages --ignore-pipfile
     - if [ -n "${DEFAULT_POETRY_OPT_GROUPS}" ]; then ${POETRY_HOME}/bin/poetry install --no-root --with ${DEFAULT_POETRY_OPT_GROUPS}; else ${POETRY_HOME}/bin/poetry install --no-root; fi
     - export DB_URL=${DB_URL}
