@@ -82,7 +82,7 @@ include:
   - component: $CI_SERVER_FQDN/components/code-quality-oss/codequality-os-scanners-integration/tflint@1.1.5
   - component: $CI_SERVER_FQDN/components/code-quality-oss/codequality-os-scanners-integration/hadolint@1.1.5
 
-  - component: gitlab.com/getplumber/plumber/plumber@v0.1.74
+  - component: gitlab.com/getplumber/plumber/plumber@v0.1.30
     inputs:
       threshold: 80 # Minimum % to pass (default: 100)
       # config_file: configs/my-plumber.yaml  # Custom config path
