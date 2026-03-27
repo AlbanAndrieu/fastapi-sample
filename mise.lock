@@ -42,6 +42,10 @@ backend = "aqua:kubernetes/kubernetes/kubectl"
 "platforms.macos-x64" = { checksum = "sha256:2447cb78911b10a667202b078eeb30541ec78d1280c3682921dc81607e148d96", url = "https://dl.k8s.io/v1.35.0/bin/darwin/amd64/kubectl"}
 "platforms.windows-x64" = { checksum = "sha256:4c5d14b8673bd55f813a8965ad70d5150e3960ee5f274025e2286aea3a0fa8b6", url = "https://dl.k8s.io/v1.35.0/bin/windows/amd64/kubectl.exe"}
 
+[[tools.poetry]]
+version = "2.2.1"
+backend = "asdf:poetry"
+
 [[tools.python]]
 version = "3.12.10"
 backend = "core:python"

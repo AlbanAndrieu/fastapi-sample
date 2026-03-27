@@ -10,6 +10,7 @@ helm = "latest"
 terraform = "latest"
 argocd = "latest"
 trivy = "latest"
+poetry = "latest"
 
 [settings]
 lockfile = true

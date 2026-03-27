@@ -18,6 +18,7 @@ stages:
 services:
   - name: redis:latest
     alias: redis
+    # command: ["redis-server", "--port", "7379"]
 
 include:
   - project: jusmundi-group/infrastructure/ci-templates
@@ -27,10 +28,6 @@ include:
   - project: jusmundi-group/infrastructure/ci-templates
     ref: main
     file: "/templates/deploy-nomad.gitlab-ci.yml"
-
-  - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
-    file: "/templates/test-python.gitlab-ci.yml"
 
   - project: jusmundi-group/infrastructure/ci-templates
     ref: main
@@ -85,13 +82,15 @@ include:
   - component: $CI_SERVER_FQDN/components/code-quality-oss/codequality-os-scanners-integration/tflint@1.1.5
   - component: $CI_SERVER_FQDN/components/code-quality-oss/codequality-os-scanners-integration/hadolint@1.1.5
 
-  # - component: gitlab.com/getplumber/plumber/plumber@v0.1.21
-  #   inputs:
-  #     threshold: 80                           # Minimum % to pass (default: 100)
-  #     # config_file: configs/my-plumber.yaml    # Custom config path
-  #     # server_url: https://gitlab.com  # Self-hosted GitLab
-  #     branch: main                         # Specific branch to analyze
-  #     verbose: true                           # Debug output
+  - component: gitlab.com/getplumber/plumber/plumber@v0.1.74
+    inputs:
+      threshold: 80 # Minimum % to pass (default: 100)
+      # config_file: configs/my-plumber.yaml  # Custom config path
+      # server_url: https://gitlab.com        # Self-hosted GitLab
+      # branch: main                            # Specific branch to analyze
+      verbose: true # Debug output
+      mr_comment: true # Requires api scope on token
+      badge: true # Requires api scope on token
 
 default:
   cache: &global_cache
@@ -257,7 +256,7 @@ gemnasium-python-dependency_scanning:
 
   before_script:
     - apt-get update -y && apt-get install -y jq
-    - pip install "poetry>=2,<3"  # Or via another method: https://python-poetry.org/docs/#installation
+    - pip install "poetry>=2,<3" # Or via another method: https://python-poetry.org/docs/#installation
     - poetry update --lock # Generates the lock file to be analyzed.
 
   script:
@@ -307,11 +306,21 @@ gitlab_version:
     - black --check .
 
 lint-ruff:
-  extends: .lint-ruff
-  stage: static
   image: $CI_IMAGE_PYTHON
   interruptible: true
   allow_failure: true
+  stage: static
+  needs: []
+  tags:
+    - jusmundi-nomad-runner
+  script:
+    - $POETRY_HOME/bin/poetry install --no-root --only format
+    - ruff check --output-format gitlab > report_ruff.json && ruff format --check
+  artifacts:
+    paths:
+      - report_ruff.json
+    reports:
+      codequality: report_ruff.json
   rules:
     - if: "$CI_COMMIT_MESSAGE =~ /^.*(#dev|#uat|#team|#prod).*$/s"
       when: never
@@ -319,11 +328,37 @@ lint-ruff:
       when: never
 
 type-checker-pyright:
-  extends: .type-checker-pyright
   stage: static
+  needs: []
+  tags:
+    - jusmundi-nomad-runner
   image: $CI_IMAGE
   interruptible: true
   allow_failure: true
+  script:
+    - |-
+      echo -e "\e[46mRun pyright install PYRIGHT_INSTALL_DISABLED=${PYRIGHT_INSTALL_DISABLED} with reports \e[0m .";
+      if [[ $PYRIGHT_INSTALL_DISABLED != "true" ]]; then
+        pip install --upgrade pip
+        pip3 install pyright pyright-to-gitlab-ci
+      else
+        echo -e "\e[43mDisable pyright install\e[0m .";
+      fi
+    - |-
+      echo -e "\e[46mRun pyright PYRIGHT_DISABLED=${PYRIGHT_DISABLED} with reports \e[0m .";
+      if [[ $PYRIGHT_DISABLED != "true" ]]; then
+        if [ -n "$DEFAULT_POETRY_OPT_GROUPS" ]; then $POETRY_HOME/bin/poetry install --no-root --with ${DEFAULT_POETRY_OPT_GROUPS}; else $POETRY_HOME/bin/poetry install --no-root; fi
+        pyright --outputjson > report_raw.json
+      else
+        echo -e "\e[43mDisable trivy filesystem reports for DD and Gitlab\e[0m .";
+      fi
+  after_script:
+    - pyright-to-gitlab-ci --src report_raw.json --output report_pyright.json --base_path .
+  artifacts:
+    paths:
+      - report_pyright.json
+    reports:
+      codequality: report_pyright.json
   rules:
     - if: "$CI_COMMIT_MESSAGE =~ /^.*(#dev|#uat|#team|#prod).*$/s"
       when: never
@@ -331,26 +366,63 @@ type-checker-pyright:
       when: never
 
 test-pytest-poetry:
-  extends: .test-pytest-poetry
+  # extends: .test-pytest-poetry
   needs: ["lint-ruff", "type-checker-pyright"]
+  stage: test
+  interruptible: true
+  tags:
+    - jusmundi-nomad-runner
   variables:
+    PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
     # DEFAULT_COV_ARGS: "--cov-fail-under=1" # We need to increase the test coverage
     DEFAULT_COV_ARGS: "--no-ddtrace --no-cov"
   allow_failure: false
+  script:
+    - python3 -m pip install --user ${DEFAULT_PYTEST_PACKAGES}
+    - pytest --cov=$DEFAULT_COV --cov-report term --cov-report xml:coverage.xml --junitxml pytest-junit.xml ${DEFAULT_COV_ARGS}
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+  artifacts:
+    when: on_success # don't attempt to upload the docs if generating them failed
+    paths:
+      - pytest-junit.xml
+    reports:
+      junit: pytest-junit.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
   rules:
     - if: "$CI_COMMIT_MESSAGE =~ /^.*(#dev|#uat|#team|#prod).*$/s"
       when: never
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH # Make CI NOT run on main branch
       when: never
 
+.redis_healthcheck: &redis_healthcheck
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq redis-tools
+    - |
+      echo "Waiting for Redis to be ready..."
+      for i in $(seq 1 30); do
+        redis-cli -h redis -p 6379 ping && echo "Redis is up!" && break
+        echo "Attempt $i/30 - Redis not ready yet, retrying in 1s..."
+        sleep 1
+        if [ "$i" -eq 30 ]; then
+          echo "Redis failed to start after 30 seconds"
+          exit 1
+        fi
+      done
+
 # pytest with pipenv
 .test-pytest-pipenv:
-  extends: .test-pytest
+  # extends: .test-pytest
+  stage: test
   needs: []
-  image: $CI_IMAGE_PYTHON
   interruptible: true
+  tags:
+    - jusmundi-nomad-runner
+  image: $CI_IMAGE_PYTHON
   allow_failure: false
   variables:
+    PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
     DEFAULT_COV_ARGS: "--no-ddtrace --no-cov"
     DEFAULT_PIPENV_ARGS: "--system --dev --ignore-pipfile" # --dev  --verbose --index=https://package_read:${CI_PIP_GITLABJUSMUNDI_TOKEN}@gitlab.com/api/v4/groups/7364654/-/packages/pypi/simple
     DEFAULT_PYTEST_PACKAGES: "pytest pytest-cov pytest-env"
@@ -359,10 +431,6 @@ test-pytest-poetry:
     KEYCLOAK_CLIENT_ID: "jusmundi_uat"
     # KEYCLOAK_CLIENT_SECRET: ""
     # BELOW is needed as we do not use jm-ubuntu but python:3.10
-  before_script:
-    - !reference [.install-pip3, script]
-    - !reference [.install-pipenv, script]
-    - !reference [.pipenv-install, script]
   script:
     - python3 -m pip install --user ${DEFAULT_PYTEST_PACKAGES}
     - python3 -m pip install --user redis arel
@@ -377,10 +445,21 @@ test-pytest-poetry:
     - export LOG_LEVEL=DEBUG
     - echo "ENV is :${ENV}"
     - pytest --cov=${DEFAULT_COV} --cov-report term --cov-report xml:coverage.xml --junitxml pytest-junit.xml ${DEFAULT_COV_ARGS}
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+  artifacts:
+    when: on_success # don't attempt to upload the docs if generating them failed
+    paths:
+      - pytest-junit.xml
+    reports:
+      junit: pytest-junit.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
 
 test-pytest:
-  extends: .test-pytest-poetry
+  # extends: .test-pytest-poetry
   needs: []
+  # needs: ["lint-ruff", "type-checker-pyright"]
   image: ${CI_IMAGE_PYTHON}
   interruptible: true
   allow_failure: false
@@ -396,6 +475,7 @@ test-pytest:
     REDIS_HOST: redis
     REDIS_URL: redis://redis:6379
     ENABLE_METRICS: false
+  <<: *redis_healthcheck
   script:
     - pip install --upgrade pip
     - if [ -n "${DEFAULT_POETRY_OPT_GROUPS}" ]; then ${POETRY_HOME}/bin/poetry install --no-root --with ${DEFAULT_POETRY_OPT_GROUPS}; else ${POETRY_HOME}/bin/poetry install --no-root; fi
@@ -470,11 +550,6 @@ install-npm:
   cache:
     # inherit all global cache settings
     <<: *global_cache
-  # artifacts:
-  #   paths:
-  #     - node_modules
-  #   expire_in: 6 hours # your GitLab instance will have a default, you can override it like this
-  #   when: on_success # don't attempt to upload the docs if generating them failed
   allow_failure: false
 
 lint-eslint-npm:
