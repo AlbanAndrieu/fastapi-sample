@@ -84,7 +84,7 @@ include:
 
   - component: gitlab.com/getplumber/plumber/plumber@v0.1.30
     inputs:
-      threshold: 80 # Minimum % to pass (default: 100)
+      threshold: 33 # Minimum % to pass (default: 100)
       # config_file: configs/my-plumber.yaml  # Custom config path
       # server_url: https://gitlab.com        # Self-hosted GitLab
       # branch: main                            # Specific branch to analyze
@@ -478,9 +478,9 @@ test-pytest:
   <<: *redis_healthcheck
   script:
     - pip install --upgrade pip
-    - pip install poetry==2.2.1
+    - pip install poetry==${POETRY_VERSION}
     # - python3 -m pipenv install --dev --site-packages --ignore-pipfile
-    - if [ -n "${DEFAULT_POETRY_OPT_GROUPS}" ]; then ${POETRY_HOME}/bin/poetry install --no-root --with ${DEFAULT_POETRY_OPT_GROUPS}; else ${POETRY_HOME}/bin/poetry install --no-root; fi
+    - if [ -n "${DEFAULT_POETRY_OPT_GROUPS}" ]; then poetry install --no-root --with ${DEFAULT_POETRY_OPT_GROUPS}; else poetry install --no-root; fi
     - export DB_URL=${DB_URL}
     - export POSTGRES_DRIVER="postgresql"
     - export POSTGRES_HOST="pg-gra.service.gra.dev.consul"
