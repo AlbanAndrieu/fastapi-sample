@@ -18,20 +18,38 @@ metadata:
     release: "{{ .Release.Name }}"
     {{- include "service.labels" . | nindent 4 }}
 spec:
-  selector:
-    matchLabels:
-      {{- include "service.selectorLabels" . | nindent 6 }}
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    fsGroup: 10001
+    seccompProfile:
+      type: RuntimeDefault
   hostAliases:
-  - ip: "127.0.0.1"
-    hostnames:
-      - "helm-sample.local"
-      - "helm-sample.local"
-  # - ip: "10.41.40.40"
-  #   hostnames:
-  #   - "helm-sample.remote"
-  #   - "helm-sample.remote"
+    - ip: "127.0.0.1"
+      hostnames:
+        - "helm-sample.local"
   containers:
-  - name: termination-demo-container
-    image: debian
-    command: ["/bin/sh"]
-    args: ["-c", "sleep 10 && echo Sleep expired > /dev/termination-log"]
+    - name: termination-demo-container
+      image: debian:bookworm-slim
+      command: ["/bin/sh"]
+      args: ["-c", "sleep 10 && echo Sleep expired > /dev/termination-log"]
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop:
+            - ALL
+      resources:
+        limits:
+          cpu: 100m
+          memory: 128Mi
+        requests:
+          cpu: 50m
+          memory: 64Mi
+      volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+  volumes:
+    - name: tmp
+      emptyDir: {}

@@ -15,6 +15,19 @@ misconfigurations:
   - id: AVD-DS-0002
     statement: The image needs root privileges
   - id: AVD-DS-0026
+  # Helm / Kustomize samples: namespace comes from release/kustomize at apply time
+  - id: KSV110
+    statement: Chart base omits namespace; set via helm -n or kustomize
+  # Demo Pod hostAliases for local DNS in example only
+  - id: KSV007
+    paths:
+      - "charts/generic-service/templates/pod.yaml"
+    statement: Demo workload only; hostAliases intentional for examples
+  # ConfigMap holds non-secret integration metadata (realm name, URLs), not credentials
+  - id: AVD-KSV-01010
+    paths:
+      - "charts/generic-service/templates/configmap.yaml"
+    statement: Values are identifiers and endpoints, not secrets; secrets use Vault/ESO
 
 licenses:
   - id: GPL-1.0 # License name is used as ID
