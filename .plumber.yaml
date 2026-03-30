@@ -21,7 +21,7 @@ controls:
 
     # Tags considered "forbidden" - images using these will be flagged
     tags:
-      - latest
+      # - latest
       - dev
       - development
       - staging

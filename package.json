@@ -44,7 +44,7 @@
 	},
 	"dependencies": {
 		"@ai-sdk/openai-compatible": "^2.0.15",
-		"@astrojs/vercel": "^9.0.2",
+		"@astrojs/vercel": "^10.0.2",
 		"@dotenvx/dotenvx": "^1.44.2",
 		"@vercel/analytics": "^1.5.0",
 		"dd-trace": "^5.28.0",
@@ -113,6 +113,34 @@
 		"commitizen": {
 			"path": "@commitlint/cz-commitlint",
 			"useGitmojis": true
+		}
+	},
+	"overrides": {
+		"@tootallnate/once": "^3.0.1",
+		"@eslint/eslintrc": {
+			"ajv": "^6.12.6"
+		},
+		"eslint": {
+			"ajv": "^6.12.6"
+		},
+		"ajv": "^8.18.0",
+		"brace-expansion": "^5.0.5",
+		"devalue": "^5.6.4",
+		"h3": "^1.15.9",
+		"minimatch": "^10.2.3",
+		"picomatch": "^4.0.4",
+		"smol-toml": "^1.6.1",
+		"srvx": "^0.11.13",
+		"svgo": "^4.0.1",
+		"tar": "^7.5.11",
+		"undici": "^7.24.0",
+		"yaml": "^2.8.3",
+		"path-to-regexp": "^8.4.0",
+		"express": {
+			"path-to-regexp": "0.1.13"
+		},
+		"mcp-remote": {
+			"path-to-regexp": "^6.3.0"
 		}
 	}
 }

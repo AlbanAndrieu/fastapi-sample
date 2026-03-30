@@ -296,7 +296,6 @@ OTEL_RESOURCE_ATTRIBUTES=service.name=fastapi-sample
 OTEL_SERVICE_NAME=fastapi-sample
 OTEL_EXPORTER_OTLP_ENDPOINT=http://datadog-agent.service.gra.${var.env}.consul:4317
 PYROSCOPE_ENDPOINT="http://pyroscope.service.gra.${var.env}.consul"
-# {{ if ne "${var.env}" "dev" }}DD_AGENT_HOST={{ if eq "${var.env}" "prod" }}{{ env "NOMAD_IP_http" }}{{ else }}datadog-agent.service.gra.${var.env}.consul{{ end }}{{ else }}{{ end }}
 EOF
         destination = "${NOMAD_SECRETS_DIR}/.env.local"
 

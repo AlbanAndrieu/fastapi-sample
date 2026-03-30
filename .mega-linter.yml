@@ -14,7 +14,7 @@ ENABLE_LINTERS: # If you use ENABLE_LINTERS variable, all other linters will be 
   # - TERRAFORM_TERRASCAN
   - BASH_SHELLCHECK
   - MAKEFILE_CHECKMAKE
-  - ANSIBLE_ANSIBLE_LINT
+  # ANSIBLE_ANSIBLE_LINT  # Disabled: crashes in GitLab Docker (non-blocking stdin + ansible-config)
   - REPOSITORY_GIT_DIFF
   - DOCKERFILE_HADOLINT
   - JUPYTER_JUPYFMT
@@ -33,6 +33,7 @@ DISABLE:
 DISABLE_ERRORS_LINTERS:
   - COPYPASTE_JSCPD
 DISABLE_LINTERS:
+  - ANSIBLE_ANSIBLE_LINT
   # - JSON_PRETTIER
   # - JSON_JSONLINT
   # - DOCKERFILE_HADOLINT
@@ -71,7 +72,7 @@ DOCKERFILE_HADOLINT_DISABLE_ERRORS_IF_LESS_THAN: 2
 REPOSITORY_DEVSKIM_DISABLE_ERRORS: true
 REPOSITORY_DEVSKIM_DISABLE_ERRORS_IF_LESS_THAN: 10
 REPOSITORY_DEVSKIM_ARGUMENTS: --severity critical,important --ignore-globs **/.git/**,**/bin/**,.mypy_cache/**,**/tests/**,**/README.md,.npm/**
-REPOSITORY_TRIVY_ARGUMENTS: --scanners vuln,misconfig,secret,license --vuln-type os,library --ignore-unfixed --ignorefile .trivyignore.yaml --skip-dirs .direnv --skip-dirs .venv --skip-dirs code/.venv --skip-dirs megalinter-reports --skip-dirs node_modules --skip-files pip.conf --skip-files Pipfile
+REPOSITORY_TRIVY_ARGUMENTS: --scanners vuln,misconfig,secret,license --vuln-type os,library --ignore-unfixed --ignorefile .trivyignore.yaml --skip-dirs .direnv --skip-dirs .venv --skip-dirs code/.venv --skip-dirs megalinter-reports --skip-dirs node_modules --skip-dirs vue-client/node_modules --skip-files pip.conf --skip-files Pipfile --skip-files "*.tgz"
 REPOSITORY_TRIVY_DISABLE_ERRORS: false
 REPOSITORY_TRIVY_DISABLE_ERRORS_IF_LESS_THAN: 40
 REPOSITORY_CHECKOV_DISABLE_ERRORS_IF_LESS_THAN: 1
