@@ -10827,7 +10827,7 @@ version = "1.4.1"
 description = "Python implementation of the Circuit Breaker pattern"
 optional = false
 python-versions = ">=3.9"
-groups = ["base"]
+groups = ["base", "cloudflare"]
 files = [
     {file = "pybreaker-1.4.1-py3-none-any.whl", hash = "sha256:b4dab4a05195b7f2a64a6c1a6c4ba7a96534ef56ea7210e6bcb59f28897160e0"},
     {file = "pybreaker-1.4.1.tar.gz", hash = "sha256:8df2d245c73ba40c8242c56ffb4f12138fbadc23e296224740c2028ea9dc1178"},
@@ -17272,4 +17272,4 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4.0"
-content-hash = "a1560ffc44c33c96f1a316a99c6c9b1c29fe89f5c9879c4fe6950c3a86ec4d8d"
+content-hash = "abcd37e71582095a0bc6fec8921366b7c72cf841303b9ae479076b7013ce4c21"
