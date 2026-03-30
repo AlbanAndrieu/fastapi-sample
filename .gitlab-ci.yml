@@ -475,13 +475,13 @@ test-pytest:
     REDIS_HOST: redis
     REDIS_URL: redis://redis:6379
     ENABLE_METRICS: false
-    VIRTUAL_ENV: "/builds/${CI_PROJECT_PATH}/.venv"    
+    VIRTUAL_ENV: "/builds/${CI_PROJECT_PATH}/.venv"
   <<: *redis_healthcheck
   script:
-    - export POETRY_HOME=${POETRY_HOME:-"${VIRTUAL_ENV}"}    
+    - export POETRY_HOME=${POETRY_HOME:-"${VIRTUAL_ENV}"}
     - echo "VIRTUAL_ENV = $VIRTUAL_ENV"
     - echo "POETRY_HOME = $POETRY_HOME"
-    - export PATH="$VIRTUAL_ENV/bin:$PATH"  
+    - export PATH="$VIRTUAL_ENV/bin:$PATH"
     - python -m venv $VIRTUAL_ENV
     - pip install --upgrade pip
     - pip install poetry==${POETRY_VERSION}
