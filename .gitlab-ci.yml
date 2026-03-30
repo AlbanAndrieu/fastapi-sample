@@ -489,7 +489,11 @@ test-pytest:
     - export POSTGRES_USER=${POSTGRES_USER}
     - export POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     - export LOG_LEVEL=DEBUG
+    - echo "VIRTUAL_ENV = $VIRTUAL_ENV"
+    - echo "POETRY_HOME = $POETRY_HOME"
     - echo "PATH = $PATH"
+    - ls -lrta ${POETRY_HOME}/bin
+    - pip install "pytest>=8"        
     - pytest --cov=${DEFAULT_COV} --cov-report term --cov-report xml:coverage.xml --junitxml pytest-junit.xml ${DEFAULT_COV_ARGS}
   artifacts:
     when: on_success # don't attempt to upload the docs if generating them failed
