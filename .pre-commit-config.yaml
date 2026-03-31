@@ -199,6 +199,7 @@ repos:
         exclude: >
           (?x)^(
               ccds/hook_utils/dependencies.py|
+              nabla/__init__.py|
           )$
       - id: ruff-check
         name: "🐍 python · Check with Ruff"
@@ -415,6 +416,7 @@ repos:
               trivy-sbom.json|
               my-app/public/.*|
               charts/generic-service/templates/.*|
+              charts/generic-service/overlays/.*|
           )$
 
     ### Data & Config Validation ###
@@ -506,6 +508,7 @@ repos:
         exclude: >
           (?x)^(
             charts/generic-service/.*|
+            secrets-enc.yaml|
           )$
 
     # ---------------------------------------------------------------------------- #

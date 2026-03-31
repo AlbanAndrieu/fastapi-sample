@@ -110,9 +110,6 @@ sidecarShell:
 volumeMounts:
   - name: tmp
     mountPath: /tmp
-volumes:
-  - name: tmp
-    emptyDir: {}
 
 # This is for setting up a service more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/
 service:
@@ -255,7 +252,9 @@ autoscaling:
       selectPolicy: Max
 
 # Additional volumes on the output Deployment definition.
-volumes: []
+volumes:
+  - name: tmp
+    emptyDir: {}
 # - name: foo
 #   secret:
 #     secretName: mysecret
