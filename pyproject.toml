@@ -27,7 +27,8 @@ keywords = ["packaging", "poetry" ,"fastapi-samples"]
 
 classifiers = ["Private :: Do not Upload"]
 
-dependencies = ["statsig-python-core (>=0.14.0,<0.15.0)", "legacy-cgi (>=2.6.4,<3.0.0)", "langfuse (==2.59.7)", "litellm (>=1.81.13,<2.0.0)", "pysqlite3 (>=0.6.0,<0.7.0)"]
+dependencies = ["legacy-cgi (>=2.6.4,<3.0.0)"]
+# "statsig-python-core (>=0.14.0,<0.15.0)", "pysqlite3 (>=0.6.0,<0.7.0)", "litellm (>=1.81.13,<2.0.0)", "langfuse (==2.59.7)"
 
 [project.scripts]
 # app = "nabla.main:app"
