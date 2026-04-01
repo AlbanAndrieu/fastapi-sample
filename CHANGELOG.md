@@ -1,3 +1,10 @@
+## [1.3.6](https://gitlab.com/AlbanAndrieu/fastapi-sample/compare/1.3.5...1.3.6) (2026-04-01)
+
+
+### Bug Fixes
+
+* Save peotry before switching to uv ([caea92a](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/caea92ade28aa516b42e729dd909a0cdff379b22))
+
 ## [1.3.5](https://gitlab.com/AlbanAndrieu/fastapi-sample/compare/1.3.4...1.3.5) (2026-03-18)
 
 
