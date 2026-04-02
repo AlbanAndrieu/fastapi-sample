@@ -2440,6 +2440,7 @@ api = [
     { name = "podmena" },
     { name = "polars" },
     { name = "pyarrow" },
+    { name = "pybreaker" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "pyjwt" },
@@ -2486,7 +2487,6 @@ ci = [
 ]
 cloudflare = [
     { name = "arel" },
-    { name = "pybreaker" },
     { name = "webtypy" },
 ]
 cloudflare-dev = [
@@ -2665,6 +2665,7 @@ api = [
     { name = "podmena", specifier = ">=0.6.1" },
     { name = "polars", specifier = ">=1.32.3" },
     { name = "pyarrow", specifier = ">=16.0.0" },
+    { name = "pybreaker", specifier = ">=1.4.0" },
     { name = "pydantic", specifier = ">=2.12.3" },
     { name = "pydantic-settings" },
     { name = "pyjwt", specifier = ">=2.7.0" },
@@ -2711,7 +2712,6 @@ ci = [
 ]
 cloudflare = [
     { name = "arel", specifier = ">=0.4.0" },
-    { name = "pybreaker", specifier = ">=1.4.0" },
     { name = "webtypy", specifier = ">=0.1.7" },
 ]
 cloudflare-dev = [

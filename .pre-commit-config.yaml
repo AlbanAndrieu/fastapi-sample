@@ -229,7 +229,7 @@ repos:
     # This helps ensure cross-compatibility with people who don't wish to use uv
   - repo: https://github.com/astral-sh/uv-pre-commit
     # uv version.
-    rev: 0.11.2
+    rev: 0.11.3
     hooks:
       - id: uv-sync
         name: "⚡️ uv · Sync dependencies with uv"
@@ -264,8 +264,8 @@ repos:
     rev: v3.13.0-1
     hooks:
       # Choose one of:
-      # - id: shfmt         # native (requires Go to build)
-      - id: shfmt-docker # Docker image (requires Docker to run)
+      - id: shfmt # native (requires Go to build)
+        # -   id: shfmt-docker # Docker image (requires Docker to run)
         name: "🐚 🐳 shell · Format shell scripts"
         args:
           - "-s"

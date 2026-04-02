@@ -16,6 +16,7 @@ Fastapi sample
   * [Requirements](#requirements)
   * [Install fastapi-sample as a developer](#install-fastapi-sample-as-a-developer)
     + [Using virtualenv](#using-virtualenv)
+    + [Using uv (recommended)](#using-uv-recommended)
   * [Getting started](#getting-started)
   * [Vite UI](#vite-ui)
   * [Test JWT](#test-jwt)
@@ -99,6 +100,16 @@ poetry install --no-dev # --dev-only
 poetry install --extras "mysql pgsql"
 #poetry install -E mysql -E pgsql
 poetry install --all-extras
+```
+
+### Using uv (recommended)
+
+Install dependencies from the lockfile into `.venv`, then run CLI tools through `uv run` so they use that environment (avoids `ModuleNotFoundError` for packages like `pybreaker` when a global `fastapi` binary points at another Python).
+
+```bash
+uv sync
+# optional: uv sync --frozen  # strict lockfile
+uv run fastapi dev --port 8091
 ```
 
 ```bash
@@ -226,7 +237,8 @@ DEBUG=1 uv run uvicorn serve:app --reload --workers 1 --host 0.0.0.0 --port 8091
 ```
 
 ```bash
-fastapi dev
+uv sync
+uv run fastapi dev --port 8091
 ```
 
 [health](http://localhost:8091/health)

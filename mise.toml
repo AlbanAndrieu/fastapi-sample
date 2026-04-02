@@ -38,9 +38,13 @@ init = "bash ./scripts/run-install.sh"
 build = "npm run build"
 
 [tasks.install]
-description = "Install all poetry dependencies"
+description = "Install dependencies with uv (pyproject.toml and uv.lock)"
 alias = "i"
-run = "poetry install --with format,test,extra,open_telemetry,api,deployment,influxdb,panda,temporal,utils,webui"
+run = "uv sync"
+
+[tasks.dev]
+description = "Run FastAPI dev server on port 8091"
+run = "uv run fastapi dev --port 8091"
 
 [tasks.run]
 description = "Lunch app"

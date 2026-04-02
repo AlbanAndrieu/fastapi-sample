@@ -9,10 +9,10 @@ source "${WORKING_DIR}/scripts/step-0-color.sh"
 # shellcheck source=/dev/null
 source "${WORKING_DIR}/scripts/step-1-os.sh"
 
-pip install "fastapi[standard]"
-cp uv.lock nabla
+# Install full project dependencies (not only fastapi[standard]) before deploy.
+uv sync
 
-echo "fastapi dev"
-fastapi deploy
+echo "❯ uv run fastapi deploy"
+uv run fastapi deploy
 
 exit 0
