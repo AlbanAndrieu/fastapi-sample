@@ -1,3 +1,10 @@
+## [1.3.7](https://gitlab.com/AlbanAndrieu/fastapi-sample/compare/1.3.6...1.3.7) (2026-04-02)
+
+
+### Bug Fixes
+
+* Save poetry before switching to uv ([5a8caf1](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/5a8caf11fcc3550f6b153f0d8525fcbda762d6a5))
+
 ## [1.3.6](https://gitlab.com/AlbanAndrieu/fastapi-sample/compare/1.3.5...1.3.6) (2026-04-01)
 
 
