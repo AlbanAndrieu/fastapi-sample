@@ -177,8 +177,8 @@ USER jm-python
 RUN poetry --no-root install --with api,extras,open_telemetry,deployment,temporal
 
 COPY --chown=jm-python:jm-python nabla/ "${PYSETUP_PATH}/jm-python/nabla/"
-COPY --chown=jm-python:jm-python server_app.py ""${PYSETUP_PATH}/jm-python/"
-COPY --chown=jm-python:jm-python server_all.py ""${PYSETUP_PATH}/jm-python/"
+COPY --chown=jm-python:jm-python server_app.py "${PYSETUP_PATH}/jm-python/"
+COPY --chown=jm-python:jm-python server_all.py "${PYSETUP_PATH}/jm-python/"
 
 RUN mkdir -p "${PYSETUP_PATH}/jm-python/var/"
 
