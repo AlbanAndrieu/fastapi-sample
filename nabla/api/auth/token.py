@@ -1,4 +1,3 @@
-import datetime
 from datetime import datetime, timedelta
 
 import jwt
@@ -13,7 +12,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 ACCESS_TOKEN_SECRET_KEY = get_settings().oauth_token_secret
-ACCESS_TOKEN_ALGORITHM = "HS256"  # nosec
+ACCESS_TOKEN_ALGORITHM = "HS256"  # noqa: S105
 
 
 class Token(BaseModel):

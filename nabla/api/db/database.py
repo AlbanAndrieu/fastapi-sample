@@ -1,6 +1,6 @@
 import os
 from functools import lru_cache
-from typing import AsyncGenerator, Final
+from typing import Annotated, AsyncGenerator, Final
 
 import orjson
 import psycopg_pool
@@ -88,7 +88,7 @@ def get_engine() -> Engine:
     )
 
 
-async def get_db(engine=Depends(get_engine)):
+async def get_db(engine: Annotated[Engine, Depends(get_engine)]):
     async with AsyncSession(engine) as session:
         yield session
 

@@ -67,7 +67,7 @@ This pre-commit hooks requires the following to run:
 
 ### Using virtualenv
 
-Install python 3.10 and pyenv
+Install python 3.12 and pyenv
 
 ```bash
 curl -L https://pyenv.run | bash
@@ -225,6 +225,10 @@ make up-gunicorn
 DEBUG=1 uv run uvicorn serve:app --reload --workers 1 --host 0.0.0.0 --port 8091
 ```
 
+```bash
+fastapi dev
+```
+
 [health](http://localhost:8091/health)
 
 ```bash
@@ -234,8 +238,12 @@ sudo lsof -i :8080
 ```
 
 ```bash
+# Poetry migration
 pip install -U poetry pipenv-poetry-migrate
 pipenv-poetry-migrate -f Pipfile -t pyproject.toml --no-use-group-notation
+
+# UV migration
+uvx migrate-to-uv
 ```
 
 ## [Vite UI](#table-of-contents)
@@ -326,9 +334,10 @@ alembic downgrade -1
 
 ```bash
 psql -h pg-gra.service.gra.dev.consul -U postgres
-# BW : GRADBINTEGR01 - fastapisample - dev
 CREATE USER fastapisample WITH PASSWORD 'XXX';
 ALTER ROLE fastapisample WITH LOGIN;
+CREATE USER back WITH PASSWORD 'XXX';
+ALTER ROLE back WITH LOGIN;
 -- create database fastapi_sample_gitlab with owner fastapisample encoding 'UTF8';
 create database fastapi_sample_dev with owner fastapisample encoding 'UTF8';
 # ALTER USER fastapisample PASSWORD 'XXX';

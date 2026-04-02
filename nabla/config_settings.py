@@ -76,6 +76,11 @@ UNLEASH_INSTANCE_ID = os.environ.get("UNLEASH_INSTANCE_ID", "XXX")
 STATSIG_API_KEY = os.environ.get("STATSIG_API_KEY", "XXX")
 
 
+def _openai_api_key_from_env() -> str:
+    """Default OpenAI API key from the same env var as the OpenAI SDK."""
+    return os.environ["OPENAI_API_KEY"]
+
+
 class AzureOpenAiInstance(BaseModel):
     """
     Store the elements needed for creating an instance of OpenAI in Azure.
@@ -90,9 +95,9 @@ class AzureOpenAiInstance(BaseModel):
         str,
         Field(pattern=r"^https://[a-z0-9\-]+\.openai\.azure\.com$"),
     ]
-    api_key: Annotated[str, Field(min_length=1)]
+    api_key: Annotated[str, Field(default_factory=_openai_api_key_from_env, min_length=1)]
     api_alias: Annotated[str, Field(min_length=1)]
-    available_models: Annotated[str, Field(min_length=1)]
+    available_models: Annotated[str, Field(default="gpt-5", min_length=1)]
 
 
 # Basic db & ovh settings

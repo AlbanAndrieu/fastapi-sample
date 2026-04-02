@@ -1,11 +1,22 @@
 import os
 
-
 import openai
 from grafana_openai_monitoring import chat_v2
 
-# Set your OpenAI API key
-openai.api_key = os.environ["OPENAI_API_KEY"]
+from nabla.config_settings import get_settings
+
+
+def _resolve_openai_api_key_and_model() -> tuple[str, str]:
+    """Prefer configured Azure OpenAI instance; otherwise env key and default model."""
+    settings = get_settings()
+    if settings.azure_openai_instance:
+        instance = next(iter(settings.azure_openai_instance.values()))
+        return instance.api_key, instance.available_models
+    return os.environ["OPENAI_API_KEY"], "gpt-5"
+
+
+_api_key, _default_chat_model = _resolve_openai_api_key_and_model()
+openai.api_key = _api_key
 
 # Apply the custom decorator to the OpenAI API function
 openai.ChatCompletion.create = chat_v2.monitor(
@@ -19,7 +30,7 @@ openai.ChatCompletion.create = chat_v2.monitor(
 
 # Now any call to openai.ChatCompletion.create will be automatically tracked
 response = openai.ChatCompletion.create(
-    model="gpt-4",
+    model=_default_chat_model,
     max_tokens=100,
     messages=[{"role": "user", "content": "What is Grafana?"}],
 )

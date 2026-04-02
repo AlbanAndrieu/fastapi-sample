@@ -22,3 +22,4 @@ __all__ = ("__version__", "signing_uuid")
 from . import _version
 
 __version__ = _version.get_versions()["version"]
+

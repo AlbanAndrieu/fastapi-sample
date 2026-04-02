@@ -1,5 +1,5 @@
-import logging
 import argparse
+import logging
 
 import pyroscope
 import uvicorn.config
@@ -66,7 +66,6 @@ def uvicorn_run() -> None:
 
 
 def main():
-    logger = logging.getLogger(__name__)
     uvicorn_run()
 
 

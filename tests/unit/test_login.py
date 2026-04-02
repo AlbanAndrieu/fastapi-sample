@@ -1,4 +1,5 @@
 import asyncio
+from typing import Annotated
 
 import pytest
 from fastapi import Depends, HTTPException, status
@@ -56,7 +57,7 @@ def test_login_b(test_app):
 
 @pytest.mark.skip(reason="Skipping this test for now")
 @app.post("/login", tags=["auth"])
-async def login(request: OAuth2PasswordRequestForm = Depends()):
+async def login(request: Annotated[OAuth2PasswordRequestForm, Depends()]):
     user = await database["users"].find_one({"username": request.username})
     if not user:
         raise HTTPException(

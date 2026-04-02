@@ -1,4 +1,5 @@
 from fastapi import WebSocket
+from starlette.websockets import WebSocketDisconnect
 
 from nabla.api.demo.socket.ws_manager import manager
 
@@ -8,5 +9,5 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             await websocket.receive_text()
-    except:
+    except WebSocketDisconnect:
         await manager.disconnect(websocket)

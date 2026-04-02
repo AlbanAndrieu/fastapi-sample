@@ -65,12 +65,7 @@ from nabla.config_settings import (
     client,
     get_settings,
 )
-
-# Disable Unleash integration if env variable is set to "false"
-UNLEASH_ENABLED = os.getenv("UNLEASH_ENABLED", "False").lower() == "true"
 from nabla.utils.log_config import LogMiddleware, setup_logging
-
-# We need to load as soon as possible the setup_loggers
 from nabla.utils.logger import logger
 from nabla.utils.prometheus import (
     INFLIGHT_REQUESTS,
@@ -82,6 +77,9 @@ from nabla.utils.prometheus import (
     setting_otlp,
     update_system_metrics,
 )
+
+# Disable Unleash integration if env variable is set to "false"
+UNLEASH_ENABLED = os.getenv("UNLEASH_ENABLED", "False").lower() == "true"
 
 prof = Profiler(
     env="prod",  # if not specified, falls back to environment variable DD_ENV
@@ -201,23 +199,14 @@ async def combined_lifespan(app: FastAPI):
             yield
 
 
-# def initialize_api() -> FastAPI:
-def initialize_api(app):
-    """
-    Initialize the API.
-
-    :return: FastAPI
-    :raise ValidationError: If there was an issue with the Settings
-    """
-
+def _configure_unleash_feature_middleware(app: FastAPI) -> None:
+    """Apply rate limit, logging, CORS, and Prometheus middleware per Unleash flags."""
     if not UNLEASH_ENABLED:
         logger.warning("UNLEASH integration is disabled via UNLEASH_ENABLED env variable.")
-        # Optionally, you can skip or mock any Unleash-related setup here
 
     if UNLEASH_ENABLED or client.is_enabled("rate_limiter"):
         app.add_exception_handler(
             RateLimitExceeded,
-            # _rate_limit_exceeded_handler,
             lambda r, e: JSONResponse(
                 status_code=429,
                 content={"error": "Too Many Requests"},
@@ -242,11 +231,9 @@ def initialize_api(app):
             CORSMiddleware,
             allow_origins=origins,
             allow_credentials=True,
-            # allow_methods=["DELETE", "GET", "POST", "PUT"],
             allow_methods=["GET", "POST", "PUT"],
             allow_headers=["*"],
         )
-
     else:
         logger.warning("Feature flag : cors is not enabled")
 
@@ -259,6 +246,18 @@ def initialize_api(app):
         )
     else:
         logger.warning("Feature flag : logging_metrics is not enabled")
+
+
+# def initialize_api() -> FastAPI:
+def initialize_api(app):
+    """
+    Initialize the API.
+
+    :return: FastAPI
+    :raise ValidationError: If there was an issue with the Settings
+    """
+
+    _configure_unleash_feature_middleware(app)
 
     api_settings = get_settings()
 
@@ -899,11 +898,6 @@ def trigger_error():
 
 # Error handling
 @app.exception_handler(Exception)
-def global_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Unhandled exception on {request.url}: {exc}")
-    return {"error": "Internal server error", "timestamp": datetime.now().isoformat()}
-
-
 def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled exception on {request.url}: {exc}")
     return {"error": "Internal server error", "timestamp": datetime.now().isoformat()}

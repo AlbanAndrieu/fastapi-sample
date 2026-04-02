@@ -57,12 +57,10 @@ router = APIRouter()
 
 @router.post("/email")
 async def simple_send(email: EmailSchema) -> JSONResponse:
-    html = """<p>Hi this test mail, thanks for using Fastapi-mail</p> """
-
     # message = MessageSchema(
     #     subject="Fastapi-Mail module",
     #     recipients=email.dict().get("email"),
-    #     body=html,
+    #     body="""<p>Hi this test mail, thanks for using Fastapi-mail</p>""",
     #     subtype=MessageType.html,
     # )
 

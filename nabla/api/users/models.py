@@ -1,5 +1,6 @@
 import os
 import uuid
+from typing import Annotated
 
 from fastapi import Depends
 from fastapi_users import schemas
@@ -15,6 +16,8 @@ from sqlalchemy.orm import Session, declarative_base
 from nabla.api.db.database import engine, get_session
 
 Base = declarative_base()
+
+_DEFAULT_USER_IN_EMAIL = os.environ.get("MAIL_FROM", "alban.andrieu@gmail.com")
 
 
 async def init_db():
@@ -43,7 +46,7 @@ class UserIn(BaseModel):
     def __init__(
         self,
         name="Alban Andrieu",
-        email=os.environ.get("MAIL_FROM", "alban.andrieu@gmail.com"),
+        email: str = _DEFAULT_USER_IN_EMAIL,
         password="XXX",  # noqa: S107 noqa:B107 # nosec B107
         phone="0695435353",
         address="11 terrasse de l'université",
@@ -100,7 +103,7 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
 
 # async def get_user_db(session: AsyncSession = Depends(get_async_session)):
 #     yield SQLAlchemyUserDatabase(session, User)
-async def get_user_db(session: Session = Depends(get_session)):  # noqa: B008
+async def get_user_db(session: Annotated[Session, Depends(get_session)]):
     yield SQLAlchemyUserDatabase(session, User)
 
 

@@ -70,19 +70,10 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=off \
     PIP_DISABLE_PIP_VERSION_CHECK=on \
     PIP_DEFAULT_TIMEOUT=100 \
-    # poetry
-    # https://python-poetry.org/docs/configuration/#using-environment-variables
-    POETRY_VERSION=2.2.0 \
-    # make poetry install to this location
-    POETRY_HOME="/code/.poetry_venv" \
-    POETRY_NO_INTERACTION=1 \
-    # make poetry create the virtual environment in the project's root
-    # it gets named `.venv`
-    POETRY_VIRTUALENVS_IN_PROJECT=true \
-    # do not ask any interactive question
-    POETRY_NO_INTERACTION=1 \
-    POETRY_VIRTUALENVS_CREATE=1 \
-    POETRY_CACHE_DIR=/tmp/poetry_cache \
+    # uv (https://docs.astral.sh/uv/guides/integration/docker/)
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_CACHE_DIR=/tmp/uv_cache \
     # paths
     # this is where our requirements + virtual environment will live
     PYSETUP_PATH="/code" \
@@ -126,31 +117,27 @@ RUN --mount=type=secret,id=read-npm-token,uid=999,target=/run/secrets/CI_JOB_TOK
 
 USER root
 
-# Installs Poetry in its own environment to avoid problems with Ubuntu's Python
-# hadolint ignore=SC2086
-RUN --mount=type=cache,target=/root/.cache \
-  python3 -m venv "${POETRY_HOME}" \
-  && "${POETRY_HOME}/bin/pip" install --no-cache-dir --upgrade pip==25.2 \
-  && "${POETRY_HOME}/bin/pip" install --no-cache-dir poetry=="${POETRY_VERSION}" ansible==11.5.0 \
-  && "${POETRY_HOME}/bin/poetry" --version \
-  && rm -rf .cache/pypoetry/artifacts/
+COPY --from=ghcr.io/astral-sh/uv:0.8.14 /uv /usr/local/bin/uv
 
 USER jm-python
 
-COPY --chown=jm-python:jm-python pyproject.toml poetry.lock ${PYSETUP_PATH}/
+COPY --chown=jm-python:jm-python pyproject.toml uv.lock ${PYSETUP_PATH}/
 
-# prepend poetry and venv to path
-ENV PATH="${PYSETUP_PATH}/.local/bin/:${POETRY_HOME}/bin:${VENV_PATH}/bin:${PATH}"
+ENV PATH="${PYSETUP_PATH}/.local/bin/:${VENV_PATH}/bin:${PATH}"
 
 USER root
 
-RUN --mount=type=secret,id=CI_JOB_TOKEN,uid=999,target=${PYSETUP_PATH}/jm-python/.config/pypoetry/CI_JOB_TOKEN \
-  --mount=type=cache,target=$POETRY_CACHE_DIR \
-  "${POETRY_HOME}/bin/poetry" config http-basic.gitlab-ds package_read "$(cat ${PYSETUP_PATH}/jm-python/.config/pypoetry/CI_JOB_TOKEN)" &&\
-  "${POETRY_HOME}/bin/poetry" install --no-root --with format,test,api,extra,open_telemetry,deployment,influxdb,panda,temporal,utils,webui  &&\
-  rm -rf ${PYSETUP_PATH}/.config/pypoetry/
-
-#"${POETRY_HOME}/bin/poetry" install --no-dev --remove-untracked
+# Dependency groups: see `[tool.uv].default-groups` in pyproject.toml.
+# Private index: https://docs.astral.sh/uv/configuration/indexes/#providing-credentials
+RUN --mount=type=secret,id=CI_JOB_TOKEN \
+  --mount=type=cache,target=${UV_CACHE_DIR} \
+  set -eux; \
+  export UV_INDEX_GITLAB_DS_USERNAME=package_read; \
+  UV_INDEX_GITLAB_DS_PASSWORD="$(cat /run/secrets/CI_JOB_TOKEN)"; \
+  export UV_INDEX_GITLAB_DS_PASSWORD; \
+  uv sync --frozen --no-install-project; \
+  uv pip install ansible==11.5.0; \
+  chown -R jm-python:jm-python "${PYSETUP_PATH}/.venv"
 
 USER jm-python
 
@@ -167,18 +154,31 @@ RUN groupadd -r jm-python --gid=999 && useradd -m -d ${PYSETUP_PATH} -r -g jm-py
 
 RUN chown -R jm-python:jm-python /code
 
-# copy in our built poetry + venv
-COPY --from=builder-base "${POETRY_HOME}" "${POETRY_HOME}/"
 COPY --from=builder-base "${PYSETUP_PATH}" "${PYSETUP_PATH}/"
+
+# development stage is FROM python-base; builder's `uv` binary is not inherited
+COPY --from=ghcr.io/astral-sh/uv:0.8.14 /uv /usr/local/bin/uv
 
 USER jm-python
 
-# quicker install as runtime deps are already installed
-RUN poetry --no-root install --with api,extras,open_telemetry,deployment,temporal
+# Slim env vs builder: same intent as former `poetry install --no-root --with api,extra,...`
+RUN --mount=type=secret,id=CI_JOB_TOKEN \
+  --mount=type=cache,target=${UV_CACHE_DIR} \
+  set -eux; \
+  export UV_INDEX_GITLAB_DS_USERNAME=package_read; \
+  UV_INDEX_GITLAB_DS_PASSWORD="$(cat /run/secrets/CI_JOB_TOKEN)"; \
+  export UV_INDEX_GITLAB_DS_PASSWORD; \
+  uv sync --frozen --no-install-project --no-default-groups \
+    --group base \
+    --group api \
+    --group extra \
+    --group open_telemetry \
+    --group deployment \
+    --group temporal
 
 COPY --chown=jm-python:jm-python nabla/ "${PYSETUP_PATH}/jm-python/nabla/"
-COPY --chown=jm-python:jm-python server_app.py ""${PYSETUP_PATH}/jm-python/"
-COPY --chown=jm-python:jm-python server_all.py ""${PYSETUP_PATH}/jm-python/"
+COPY --chown=jm-python:jm-python server_app.py "${PYSETUP_PATH}/jm-python/"
+COPY --chown=jm-python:jm-python server_all.py "${PYSETUP_PATH}/jm-python/"
 
 RUN mkdir -p "${PYSETUP_PATH}/jm-python/var/"
 
@@ -222,7 +222,7 @@ COPY --chown=jm-python:jm-python server_all.py "${PYSETUP_PATH}/jm-python/"
 COPY --chown=jm-python:jm-python my-login-app/ "${PYSETUP_PATH}/jm-python/my-login-app/"
 COPY --chown=jm-python:jm-python templates/ "${PYSETUP_PATH}/jm-python/templates/"
 
-ENV PATH="${PYSETUP_PATH}/.local/bin/:${POETRY_HOME}/bin:${VENV_PATH}/bin:${PATH}"
+ENV PATH="${PYSETUP_PATH}/.local/bin/:${VENV_PATH}/bin:${PATH}"
 
 WORKDIR "${PYSETUP_PATH}/jm-python/"
 

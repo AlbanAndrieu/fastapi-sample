@@ -69,7 +69,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         print(f"Verification requested for user {user.id}. Verification token: {token}")
 
 
-async def get_user_manager(user_db: SQLAlchemyUserDatabase = Depends(get_user_db)):
+async def get_user_manager(user_db: Annotated[SQLAlchemyUserDatabase, Depends(get_user_db)]):
     yield UserManager(user_db)
 
 
@@ -110,7 +110,7 @@ current_active_user = fastapi_users.current_user(active=True, get_enabled_backen
     name="get_user_details",
     exclude_args=["user_id"],
 )
-def get_user_details(user_id: str = None) -> UserIn:
+def get_user_details(user_id: str | None = None) -> UserIn:
     # def get_user_details(user_id: str = None) -> dict[str, str]:
     # user_id will be injected by the server, not provided by the LLM
     if user_id is None:
@@ -177,7 +177,7 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> Use
             raise credentials_exception
         token_data = TokenData(email=email, permissions=permissions)
     except PyJWTError:
-        raise credentials_exception
+        raise credentials_exception from None
     user = await get_user_by_email(token_data.email)
     if user is None:
         raise credentials_exception
@@ -185,12 +185,12 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> Use
 
 
 @router.get("/protected-route")
-def protected_route(user: User = Depends(current_active_user)):
+def protected_route(user: Annotated[User, Depends(current_active_user)]):
     return f"Hello, {user.email}. You are authenticated with a cookie or a JWT."
 
 
 @router.get("/protected-route-only-jwt")
-def protected_route_only_jwt(user: User = Depends(current_active_user)):
+def protected_route_only_jwt(user: Annotated[User, Depends(current_active_user)]):
     return f"Hello, {user.email}. You are authenticated with a JWT."
 
 
@@ -237,7 +237,7 @@ async def get_user(user_id: int):
 
 
 @router.post("/users/register", response_model=UserOut, status_code=201)
-async def register(user: UserIn, session: Session = Depends(get_session)):
+async def register(user: UserIn, session: Annotated[Session, Depends(get_session)]):
     result = await session.execute(select(User).where(User.name == user.name))
     if result.scalar():
         raise HTTPException(status_code=400, detail="User already exists")
@@ -253,7 +253,7 @@ async def register(user: UserIn, session: Session = Depends(get_session)):
 
 
 @router.post("/login")
-async def login(user: UserIn, session: Session = Depends(get_session)):
+async def login(user: UserIn, session: Annotated[Session, Depends(get_session)]):
     result = await session.execute(select(User).where(User.name == user.name))
     db_user = result.scalar()
     if not db_user or not verify_password(user.password, db_user.hashed_password):
