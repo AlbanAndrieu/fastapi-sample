@@ -7,7 +7,7 @@ import psycopg_pool
 from databases import Database
 from ddtrace import patch
 from fastapi import Depends
-from sqlalchemy import URL, Engine, create_engine
+from sqlalchemy import Engine, create_engine
 
 # With PostgreSQL
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -17,25 +17,24 @@ from sqlmodel import Session as SQLModelSession
 from nabla.config_settings import get_settings
 from nabla.utils.logger import logger
 
-# Database url if none is passed the default one is used
-DB_URL: Final[str] = str(get_settings().db_url)
-
-DB_URL_INIT = URL.create(
-    drivername=os.environ["POSTGRES_DRIVER"].replace("+psycopg", "").replace("+asyncpg", ""),  # NOT "postgresql+psycopg", for initialisation
-    username=os.environ["POSTGRES_USER"],
-    # password=SecretStr(os.environ["POSTGRES_PASSWORD"]).get_secret_value(),
-    password=os.environ["POSTGRES_PASSWORD"],
-    host=os.environ["POSTGRES_HOST"],
-    port=int(os.environ["POSTGRES_PORT"]),  # type: ignore
-    database=os.environ["POSTGRES_DB"],
-)
-
+_settings = get_settings()
+# Runtime: app URL from POSTGRES_* (e.g. Supabase pooler). Migrations: build_migration_connection_string().
+DB_URL: Final[str] = _settings.build_app_connection_string()
+MIGRATION_DB_URL: Final[str] = _settings.build_migration_connection_string()
 
 logger.info("🛢️ Postgres configuration")
+logger.info(
+    "Postgres app host=%s db=%s (migration host=%s)",
+    _settings.postgres_host,
+    _settings.postgres_db,
+    _settings.postgres_migration_host or _settings.postgres_host,
+)
+logger.debug("Postgres driver=%s", _settings.postgres_driver)
+
 # TODO: exemple of password to detect
 # Below is a security leak on purpose to detect if the password is in the logs
 logger.info(f"Postgres URL: {DB_URL}")
-logger.info(f"Postgres URL INIT: {DB_URL_INIT.render_as_string(True)}")
+logger.info("Postgres URL MIGRATION: %s", MIGRATION_DB_URL)
 logger.info(f"Postgres pass: {os.getenv('POSTGRES_PASSWORD')}")
 logger.info(f"Postgres driver: {os.getenv('POSTGRES_DRIVER')}")
 
@@ -81,8 +80,9 @@ db_pool = psycopg_pool.ConnectionPool(
 def get_engine() -> Engine:
     # Create a SQLAlchemy engine without connection pool
     # Used by pytest
+    # Sync engine uses migration URL (direct session when POSTGRES_MIGRATION_* set).
     return create_engine(
-        url=DB_URL_INIT,
+        url=MIGRATION_DB_URL,
         json_serializer=orjson_serializer,
         json_deserializer=orjson.loads,
     )

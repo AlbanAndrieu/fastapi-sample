@@ -1,8 +1,8 @@
 from typing import Any
 
-import redis
 from fastapi import APIRouter
 from redis.asyncio import Redis
+from redis.exceptions import ConnectionError as RedisConnectionError
 
 from nabla.api.demo.socket.ws_manager import manager
 from nabla.config_settings import REDIS_HOST, REDIS_PASSWORD, REDIS_PORT
@@ -49,12 +49,15 @@ def get_redis_client(host="localhost", port=6379, password=None):
         response = redis_client.ping()
         print(f"Connected to Redis. Server responded with: {response}")
         return redis_client
-    except redis.ConnectionError as e:
+    except RedisConnectionError as e:
         print(f"Unable to connect to Redis: {e}")
         return None
 
 
 redis_client = get_redis_client(host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD.get_secret_value())
+
+# Async client used by routes and lifespan (`import redis` would shadow this name).
+redis = redis_client
 
 # Redis acts as a message broker. When a POST request is received, the event is pushed to a Redis channel.
 # A background listener consumes events and broadcasts them to WebSocket clients in ws/redis.py

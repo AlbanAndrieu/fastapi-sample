@@ -1,10 +1,9 @@
-import os
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import create_engine, pool
 
 from alembic import context
-from nabla.api.users.models import Base
+from nabla.config_settings import get_settings
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -15,21 +14,15 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
+# URL from POSTGRES_* / POSTGRES_MIGRATION_* (same as sync SQLAlchemy engine).
+config.set_main_option("sqlalchemy.url", get_settings().build_migration_connection_string())
+
+from nabla.api.users.models import Base  # noqa: E402 — after config so URL is set first
+
 # add your model's MetaData object here
 # for 'autogenerate' support
 
 target_metadata = Base.metadata
-# target_metadata = None
-
-# other values from the config, defined by the needs of env.py,
-# can be acquired:
-# my_important_option = config.get_main_option("my_important_option")
-# ... etc.
-# here we allow ourselves to pass interpolation vars to alembic.ini
-# fron the host env
-section = config.config_ini_section
-config.set_section_option(section, "DB_USER", os.environ.get("DB_USER"))
-config.set_section_option(section, "DB_PASS", os.environ.get("DB_PASS"))
 
 
 def run_migrations_offline() -> None:
@@ -63,9 +56,8 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
+    connectable = create_engine(
+        get_settings().build_migration_connection_string(),
         poolclass=pool.NullPool,
     )
 

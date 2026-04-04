@@ -301,8 +301,8 @@ async def get_metrics():
 
 
 @router.get("/queue-status")
-def queue_status():
-    length = redis.llen(REDIS_CHANNEL + REDIS_TASK_QUEUE + REDIS_SENSOR_CHANNEL)
+async def queue_status():
+    length = await redis.llen(REDIS_CHANNEL + REDIS_TASK_QUEUE + REDIS_SENSOR_CHANNEL)
     return {"queue_length": length}
 
 

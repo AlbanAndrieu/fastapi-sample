@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import time
+import warnings
 from datetime import datetime
 from typing import Dict
 
@@ -30,6 +31,7 @@ from fastapi_featureflags import router as ff_router
 from fastmcp import FastMCP
 from prometheus_client import make_asgi_app
 from prometheus_fastapi_instrumentator import Instrumentator
+from pydantic.json_schema import PydanticJsonSchemaWarning
 from sentry_sdk.integrations.logging import LoggingIntegration
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
@@ -78,15 +80,29 @@ from nabla.utils.prometheus import (
     update_system_metrics,
 )
 
+# FastAPI / FastAPI-Users use Depends() as parameter defaults; OpenAPI generation
+# emits PydanticJsonSchemaWarning (defaults are not JSON-schema-serializable).
+warnings.filterwarnings(
+    "ignore",
+    category=PydanticJsonSchemaWarning,
+    message=".*non-serializable-default.*",
+)
+
 # Disable Unleash integration if env variable is set to "false"
 UNLEASH_ENABLED = os.getenv("UNLEASH_ENABLED", "False").lower() == "true"
 
-prof = Profiler(
-    env="prod",  # if not specified, falls back to environment variable DD_ENV
-    service=APP_NAME,  # if not specified, falls back to environment variable DD_SERVICE
-    # version="1.0.0",   # if not specified, falls back to environment variable DD_VERSION
+_DD_PROFILING_ENABLED = os.environ.get("DD_PROFILING_ENABLED", "false").lower() in (
+    "true",
+    "1",
+    "yes",
 )
-prof.start()  # Should be as early as possible, eg before other imports, to ensure everything is profiled
+if _DD_PROFILING_ENABLED:
+    prof = Profiler(
+        env="prod",  # if not specified, falls back to environment variable DD_ENV
+        service=APP_NAME,  # if not specified, falls back to environment variable DD_SERVICE
+        # version="1.0.0",   # if not specified, falls back to environment variable DD_VERSION
+    )
+    prof.start()
 
 
 def custom_openapi():

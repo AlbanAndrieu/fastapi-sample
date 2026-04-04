@@ -121,10 +121,10 @@ class NoteData(NoteResponse):
             session.close()
 
 
-def enqueue_note(note_id, note_type, prompt):
+async def enqueue_note(note_id, note_type, prompt):
     # note_id = str(uuid4())
     note = {"id": note_id, "type": note_type, "prompt": prompt}
-    redis.rpush(
+    await redis.rpush(
         REDIS_CHANNEL + REDIS_TASK_QUEUE + REDIS_NOTES_CHANNEL,
         json.dumps(note),
     )

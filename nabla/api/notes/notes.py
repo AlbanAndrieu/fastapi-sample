@@ -107,7 +107,7 @@ async def update_note(
 ):  # Ensures the input is greater than 0
     await get_note_or_404(note_id)
     note_id = await crud.put(id, payload)  # type: ignore
-    note_id = enqueue_note(note_id, payload.type, payload.prompt)
+    note_id = await enqueue_note(note_id, payload.type, payload.prompt)
     response_object = {
         "id": note_id,
         "title": payload.title,

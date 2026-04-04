@@ -15,6 +15,7 @@ from fastapi_users.authentication import (
 )
 from fastapi_users.db import SQLAlchemyUserDatabase
 from fastmcp import FastMCP
+from fastmcp.dependencies import Depends as McpDepends
 from jwt import PyJWTError
 
 # from fastapi_cache.decorator import cache
@@ -35,6 +36,9 @@ from nabla.api.db.database import get_db, get_session
 from nabla.api.users.models import User, UserIn, UserOut, get_user_db
 from nabla.utils.logger import logger
 from nabla.utils.prometheus import USER_REGISTRATIONS
+
+# OAuth 2.0 access token `token_type` (RFC 6749 §5.1); public keyword, not a credential.
+OAUTH2_ACCESS_TOKEN_TYPE = "bearer"  # noqa: S105  # nosec B105
 
 router = APIRouter(prefix="/test")
 mcp = FastMCP(name="UserServer")
@@ -106,11 +110,13 @@ async def get_enabled_backends(request: Request):
 current_active_user = fastapi_users.current_user(active=True, get_enabled_backends=get_enabled_backends)
 
 
-@mcp.tool(
-    name="get_user_details",
-    exclude_args=["user_id"],
-)
-def get_user_details(user_id: str | None = None) -> UserIn:
+def _get_user_details_user_id() -> str | None:
+    """Injected server-side for MCP; omitted from the tool input schema."""
+    return None
+
+
+@mcp.tool(name="get_user_details")
+def get_user_details(user_id: str | None = McpDepends(_get_user_details_user_id)) -> UserIn:
     # def get_user_details(user_id: str = None) -> dict[str, str]:
     # user_id will be injected by the server, not provided by the LLM
     if user_id is None:
@@ -259,7 +265,7 @@ async def login(user: UserIn, session: Annotated[Session, Depends(get_session)])
     if not db_user or not verify_password(user.password, db_user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     access_token = create_access_token(data={"sub": db_user.name})
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {"access_token": access_token, "token_type": OAUTH2_ACCESS_TOKEN_TYPE}
 
 
 # Query a user and their associated orders in one go, avoiding the N+1 problem of "query 10 users + query 10 roles"

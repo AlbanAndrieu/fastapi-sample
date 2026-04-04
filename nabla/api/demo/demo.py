@@ -6,6 +6,7 @@ from uuid import uuid4
 
 import requests
 from fastapi import APIRouter, HTTPException, status
+from redis.exceptions import RedisError
 from fastapi_cache.decorator import cache
 from fastapi_featureflags import FeatureFlags, feature_enabled, feature_flag
 
@@ -70,7 +71,7 @@ async def demo_random():
         if result is None:
             return str(uuid4())  # Fallback to uuid if key doesn't exist
         return str(result)
-    except redis.RedisError:
+    except RedisError:
         return str(uuid4())  # Fallback to uuid on connection error
 
 

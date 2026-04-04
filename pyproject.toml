@@ -22,6 +22,8 @@ dependencies = [
     "fastapi[standard]>=0.121.0",
     "pybreaker>=1.4.1",
     "pyroscope-io>=0.8.5",
+    "supabase>=2.28.3",
+    "fastapi-cli>=0.0.24",
 ]
 license-files = ["LICENSE"]
 
@@ -243,6 +245,9 @@ web-legacy = [
 github-actions = ["pytest-github-actions-annotate-failures>=0.1.7,<0.2"]
 
 [tool.uv]
+# Use copy when cache and project live on different volumes (Docker, NFS, some CI); avoids
+# "Failed to hardlink files; falling back to full copy" noise and extra work retrying hardlinks.
+link-mode = "copy"
 default-groups = [
     "base",
     "api",

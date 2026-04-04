@@ -24,8 +24,11 @@ PROJECT_NAME = "{{ config_root | basename }}"
 STATSIG_API_KEY = { required = true }
 SENTRY_DSN = { required = true }
 
-# Database connection (must be set in environment or mise.local.toml)
-DATABASE_URL = { required = "Set DATABASE_URL to your PostgreSQL connection string (e.g., postgres://user:pass@localhost/dbname)" } #nosec allow:gitleaks
+# Postgres (must be set in environment or mise.local.toml; no DATABASE_URL / DB_URL)
+POSTGRES_HOST = { required = "Set POSTGRES_HOST (e.g. localhost or db service name)" }
+POSTGRES_USER = { required = "Set POSTGRES_USER" }
+POSTGRES_PASSWORD = { required = "Set POSTGRES_PASSWORD" } #nosec allow:gitleaks
+POSTGRES_DB = { required = "Set POSTGRES_DB" }
 
 # Feature flags (must be explicitly configured)
 # ENABLE_BETA_FEATURES = { required = true }

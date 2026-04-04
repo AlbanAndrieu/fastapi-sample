@@ -1,12 +1,15 @@
 """Settings for nabla project"""
 
+import logging
 import os
+import warnings
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, ClassVar, Literal, Optional
 
+import urllib3
 from keycloak import KeycloakOpenID
-from pydantic import BaseModel, Field, SecretStr
+from pydantic import AliasChoices, BaseModel, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from statsig_python_core import (  # note underscores instead of hyphens in import
     Statsig,
@@ -15,7 +18,18 @@ from statsig_python_core import (  # note underscores instead of hyphens in impo
 from UnleashClient import UnleashClient
 
 from nabla._version import get_versions
+from nabla.db_config import (
+    ensure_supavisor_pooler_username,
+    is_supabase_postgres_host,
+    is_supabase_supavisor_pooler_host,
+    make_postgres_url,
+    merge_postgres_query_sslmode_require,
+    resolve_supabase_project_ref,
+    supabase_session_pooler_targets,
+)
 from nabla.utils.prometheus import PrometheusSettings
+
+_log = logging.getLogger(__name__)
 
 APP_NAME = os.environ.get("APP_NAME", "fastapi-sample")
 APP_PREFIX_VERSION = os.environ.get("APP_PREFIX_VERSION", "v")
@@ -76,6 +90,46 @@ UNLEASH_INSTANCE_ID = os.environ.get("UNLEASH_INSTANCE_ID", "XXX")
 STATSIG_API_KEY = os.environ.get("STATSIG_API_KEY", "XXX")
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.lower() in ("true", "1", "yes")
+
+
+def _unleash_ssl_verify_enabled() -> bool:
+    """
+    Whether Unleash HTTP clients should verify TLS certificates.
+
+    Empty or unset ``UNLEASH_SSL_VERIFY`` must mean "verify" (secure default).
+    Only explicit false-like values disable verification.
+    """
+    raw = os.environ.get("UNLEASH_SSL_VERIFY")
+    if raw is None:
+        return True
+    stripped = raw.strip().lower()
+    if stripped in ("", "true", "1", "yes", "on"):
+        return True
+    if stripped in ("false", "0", "no", "off"):
+        return False
+    return True
+
+
+def _unleash_requests_kwargs() -> dict:
+    """Extra kwargs for UnleashClient HTTP calls (passed to requests)."""
+    ca_bundle = (os.environ.get("UNLEASH_CA_BUNDLE") or "").strip()
+    if ca_bundle:
+        return {"verify": ca_bundle}
+    if _unleash_ssl_verify_enabled():
+        return {"verify": True}
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    warnings.filterwarnings(
+        "ignore",
+        category=urllib3.exceptions.InsecureRequestWarning,
+    )
+    return {"verify": False}
+
+
 def _openai_api_key_from_env() -> str:
     """Default OpenAI API key from the same env var as the OpenAI SDK."""
     return os.environ["OPENAI_API_KEY"]
@@ -118,28 +172,250 @@ class _Settings(BaseSettings):
         env_nested_delimiter="__",
     )
 
-    # db settings
-    db_host: Annotated[
+    # Postgres — built from POSTGRES_* (optional legacy DB_* aliases). No DATABASE_URL / DB_URL.
+    postgres_driver: Annotated[
         str,
-        Field(default="localhost", description="The database host", min_length=1),
+        Field(
+            default="postgresql",
+            description="SQLAlchemy / libpq driver prefix (postgresql, postgresql+psycopg stripped to postgresql for URIs).",
+            min_length=1,
+            validation_alias=AliasChoices("POSTGRES_DRIVER"),
+        ),
     ]
-    db_name: Annotated[
+    postgres_user: Annotated[
         str,
-        Field(default="back", description="The database name", min_length=1),
+        Field(
+            default="back",
+            description="Database user.",
+            min_length=1,
+            validation_alias=AliasChoices("POSTGRES_USER", "DB_USER"),
+        ),
     ]
-    db_user: Annotated[
+    postgres_password: Annotated[
+        SecretStr,
+        Field(
+            description="Database password.",
+            min_length=8,
+            validation_alias=AliasChoices("POSTGRES_PASSWORD", "DB_PASSWORD"),
+        ),
+    ] = SecretStr("backpass")  # nosec B104 — dev default only
+    postgres_host: Annotated[
         str,
-        Field(default="back", description="The database user", min_length=1),
+        Field(
+            default="localhost",
+            description="Database host (pooler or direct).",
+            min_length=1,
+            validation_alias=AliasChoices("POSTGRES_HOST", "DB_HOST"),
+        ),
     ]
-    db_password: Annotated[
+    postgres_port: Annotated[
+        int,
+        Field(
+            default=5432,
+            description="Database port.",
+            validation_alias=AliasChoices("POSTGRES_PORT", "DB_PORT"),
+        ),
+    ]
+    postgres_db: Annotated[
         str,
-        Field(default="backpass", description="The database password", min_length=8),
+        Field(
+            default="back",
+            description="Database name.",
+            min_length=1,
+            validation_alias=AliasChoices("POSTGRES_DB", "DB_NAME"),
+        ),
     ]
-    db_port: int = 5432
+    postgres_query: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            description="Optional URI query (e.g. pgbouncer=true for Supabase pooler).",
+            validation_alias=AliasChoices("POSTGRES_QUERY"),
+        ),
+    ]
 
-    db_url: Optional[str] = "postgresql://fastapisample:password-reset-XXX@127.0.0.1:5432/fastapi_sample_dev"  # nosec
+    postgres_migration_host: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            description="Override host for migrations / sync engine (e.g. Supabase direct session).",
+            validation_alias=AliasChoices("POSTGRES_MIGRATION_HOST"),
+        ),
+    ]
+    postgres_migration_port: Annotated[
+        Optional[int],
+        Field(
+            default=None,
+            description="Override port for migrations.",
+            validation_alias=AliasChoices("POSTGRES_MIGRATION_PORT"),
+        ),
+    ]
+    postgres_migration_user: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            validation_alias=AliasChoices("POSTGRES_MIGRATION_USER"),
+        ),
+    ]
+    postgres_migration_password: Annotated[
+        Optional[SecretStr],
+        Field(
+            default=None,
+            validation_alias=AliasChoices("POSTGRES_MIGRATION_PASSWORD"),
+        ),
+    ]
+    postgres_migration_db: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            validation_alias=AliasChoices("POSTGRES_MIGRATION_DB"),
+        ),
+    ]
+    postgres_migration_query: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            validation_alias=AliasChoices("POSTGRES_MIGRATION_QUERY"),
+        ),
+    ]
+    supabase_pooler_region: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            description=(
+                "Supavisor session pooler region (e.g. eu-west-3). Set when POSTGRES_HOST is "
+                "db.<ref>.supabase.co and your network has no IPv6; uses aws-0-<region>.pooler.supabase.com."
+            ),
+            validation_alias=AliasChoices("SUPABASE_POOLER_REGION"),
+        ),
+    ]
+    supabase_project_ref: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            description=("Supabase project ref for pooler username (postgres.<ref>). If unset, inferred from SUPABASE_URL or db.<ref>.supabase.co in POSTGRES_HOST."),
+            validation_alias=AliasChoices(
+                "SUPABASE_PROJECT_REF",
+                "SUPABASE_PROJECT_ID",
+            ),
+        ),
+    ]
+
+    # Optional Supabase REST client (not used for SQL; use POSTGRES_* for DB).
+    supabase_url: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            description="Project URL, e.g. https://xxx.supabase.co",
+            validation_alias=AliasChoices("SUPABASE_URL"),
+        ),
+    ]
+    supabase_service_role_key: Annotated[
+        Optional[SecretStr],
+        Field(
+            default=None,
+            description="Service role JWT from Dashboard → API (not the CLI sbp_ token).",
+            validation_alias=AliasChoices("SUPABASE_SERVICE_ROLE_KEY"),
+        ),
+    ]
 
     azure_openai_instance: dict[str, AzureOpenAiInstance] = {}
+
+    def _resolve_postgres_connect(
+        self,
+        *,
+        host: str,
+        user: str,
+        port: int,
+        query: str | None,
+    ) -> tuple[str, str, int, str | None]:
+        ph, pu, pp, rewritten = supabase_session_pooler_targets(
+            host,
+            user,
+            port,
+            pooler_region=self.supabase_pooler_region,
+        )
+        if rewritten:
+            _log.info(
+                "Using Supabase session pooler for IPv4 (direct db.*.supabase.co is IPv6-only): host=%s user=%s (was host=%s user=%s)",
+                ph,
+                pu,
+                host.strip(),
+                user.strip(),
+            )
+        ref = resolve_supabase_project_ref(
+            explicit=self.supabase_project_ref,
+            supabase_url=self.supabase_url,
+            db_style_host=host,
+        )
+        pu_before = pu
+        pu = ensure_supavisor_pooler_username(ph, pu, ref)
+        if pu == pu_before and is_supabase_supavisor_pooler_host(ph) and pu_before.strip().lower() == "postgres":
+            _log.warning(
+                "Supabase pooler host %s requires username postgres.<project_ref>, not plain postgres; set SUPABASE_URL, SUPABASE_PROJECT_REF, or POSTGRES_HOST=db.<ref>.supabase.co with SUPABASE_POOLER_REGION.",
+                ph,
+            )
+        q = merge_postgres_query_sslmode_require(query) if is_supabase_postgres_host(ph) else query
+        return ph, pu, pp, q
+
+    def build_app_connection_string(self) -> str:
+        """Connection URI for runtime pool and ``databases`` (libpq / psycopg)."""
+        h, u, p, q = self._resolve_postgres_connect(
+            host=self.postgres_host,
+            user=self.postgres_user,
+            port=self.postgres_port,
+            query=self.postgres_query,
+        )
+        url = make_postgres_url(
+            driver=self.postgres_driver,
+            username=u,
+            password=self.postgres_password.get_secret_value(),
+            host=h,
+            port=p,
+            database=self.postgres_db,
+            query=q,
+            sqlalchemy_psycopg=False,
+        )
+        return url.render_as_string(hide_password=False)
+
+    def build_migration_connection_string(self) -> str:
+        """SQLAlchemy URL for sync engine and Alembic (postgresql+psycopg when base driver is postgresql)."""
+        mh = self.postgres_migration_host or self.postgres_host
+        mu = self.postgres_migration_user or self.postgres_user
+        mp = self.postgres_migration_port if self.postgres_migration_port is not None else self.postgres_port
+        mq = self.postgres_migration_query if self.postgres_migration_query is not None else self.postgres_query
+        h, u, p, q = self._resolve_postgres_connect(host=mh, user=mu, port=mp, query=mq)
+        url = make_postgres_url(
+            driver=self.postgres_driver,
+            username=u,
+            password=(self.postgres_migration_password.get_secret_value() if self.postgres_migration_password is not None else self.postgres_password.get_secret_value()),
+            host=h,
+            port=p,
+            database=self.postgres_migration_db or self.postgres_db,
+            query=q,
+            sqlalchemy_psycopg=True,
+        )
+        return url.render_as_string(hide_password=False)
+
+    @property
+    def db_host(self) -> str:
+        return self.postgres_host
+
+    @property
+    def db_user(self) -> str:
+        return self.postgres_user
+
+    @property
+    def db_password(self) -> str:
+        return self.postgres_password.get_secret_value()
+
+    @property
+    def db_name(self) -> str:
+        return self.postgres_db
+
+    @property
+    def db_port(self) -> int:
+        return self.postgres_port
 
     # s3 settings
     ovh_username: Annotated[
@@ -212,15 +488,21 @@ def get_openid_config():
     return keycloak_openid.well_known()
 
 
+_unleash_refresh_s = int(os.environ.get("UNLEASH_REFRESH_INTERVAL", "60"))
+_unleash_metrics_s = int(os.environ.get("UNLEASH_METRICS_INTERVAL", "90"))
+_unleash_timeout_s = int(os.environ.get("UNLEASH_REQUEST_TIMEOUT", "15"))
+_unleash_retries = int(os.environ.get("UNLEASH_REQUEST_RETRIES", "2"))
+
 client = UnleashClient(
-    url="https://gitlab.com/api/v4/feature_flags/unleash/46788175",  # UNLEASH_API_URL,
-    app_name="production",  # UNLEASH_APP_NAME,
-    # environment="staging",
+    url=UNLEASH_API_URL.rstrip("/"),
+    app_name=UNLEASH_APP_NAME,
     instance_id=UNLEASH_INSTANCE_ID,
-    # custom_headers={"Authorization": UNLEASH_INSTANCE_ID},
-    custom_options={
-        "verify": False,
-    },
+    refresh_interval=_unleash_refresh_s,
+    metrics_interval=_unleash_metrics_s,
+    request_timeout=_unleash_timeout_s,
+    request_retries=_unleash_retries,
+    custom_options=_unleash_requests_kwargs(),
+    disable_metrics=_env_bool("UNLEASH_DISABLE_METRICS", False),
 )
 
 client.initialize_client()

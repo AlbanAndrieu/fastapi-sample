@@ -17,8 +17,13 @@ services:
       - ./.env.secrets
     environment:
       - PYTHONPATH=.
+      - POSTGRES_DRIVER=postgresql
+      - POSTGRES_USER=fastapisample
       # secretlint-disable-next-line
-      - DB_URL=postgresql://fastapi-sample:password-reset-XXX@db:5432/postgres # nosec
+      - POSTGRES_PASSWORD=password-reset-XXX # nosec
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=fastapi_sample_dev
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     depends_on:

@@ -20,8 +20,20 @@ sopsSecrets:
   # Keys to pull from top-level values when using decrypted secrets-enc.yaml as -f
   keys:
     - DD_API_KEY
-    - DB_URL
+    - POSTGRES_DRIVER
+    - POSTGRES_USER
+    - POSTGRES_HOST
+    - POSTGRES_PORT
+    - POSTGRES_DB
     - POSTGRES_PASSWORD
+    - SUPABASE_POOLER_REGION
+    - SUPABASE_URL
+    - SUPABASE_SERVICE_ROLE_KEY
+    - SUPABASE_KEY
+    - SUPABASE_PASSWORD
+    - SUPABASE_DATABASE_URL
+    - SUPABASE_TOKEN
+    - SUPABASE_PROJECT_ID
     - KEYCLOAK_CLIENT_SECRET
     - OPENAI_API_KEY
     - OVH_APPLICATION_KEY
@@ -280,7 +292,7 @@ tags:
   back-end: true
 
 # Non-secret environment variables (ConfigMap). Override per environment.
-# Sensitive vars (DD_API_KEY, DB_URL, POSTGRES_PASSWORD, OVH_*, KEYCLOAK_CLIENT_SECRET,
+# Sensitive vars (DD_API_KEY, POSTGRES_PASSWORD, OVH_*, KEYCLOAK_CLIENT_SECRET,
 # OAUTH_TOKEN_SECRET, UNLEASH_API_TOKEN, STATSIG_API_KEY, etc.) come from sopsSecrets.
 env_vars:
   FASTAPI_ENV: "development"
@@ -297,7 +309,7 @@ env_vars:
   DD_LOGS_INJECTION: "true"
   DD_TRACE_ENABLED: "false"
   DD_TRACE_SAMPLE_RATE: "1"
-  DD_PROFILING_ENABLED: "true"
+  DD_PROFILING_ENABLED: "false"
   DD_APPSEC_ENABLED: "false"
   DD_IAST_ENABLED: "true"
   DD_APPSEC_SCA_ENABLED: "false"
@@ -318,6 +330,12 @@ env_vars:
 
   UNLEASH_API_URL: "https://gitlab.com/api/v4/feature_flags/unleash/46788175"
   UNLEASH_APP_NAME: "fastapi-sample"
+  # Polling default 60s + shorter HTTP timeout avoids APScheduler "max instances" skips when GitLab is slow
+  UNLEASH_REFRESH_INTERVAL: "60"
+  UNLEASH_METRICS_INTERVAL: "90"
+  UNLEASH_REQUEST_TIMEOUT: "15"
+  UNLEASH_REQUEST_RETRIES: "2"
+  UNLEASH_SSL_VERIFY: "true"
 
   METRICS_ENABLED: "true"
   FASTMCP_EXPERIMENTAL_ENABLE_NEW_OPENAPI_PARSER: "true"

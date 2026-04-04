@@ -15,7 +15,7 @@ from nabla.utils.logger import logger
 
 async def worker_loop():
     while True:
-        note_data = redis.blpop(REDIS_CHANNEL + REDIS_TASK_QUEUE + REDIS_NOTES_CHANNEL, timeout=5)
+        note_data = await redis.blpop(REDIS_CHANNEL + REDIS_TASK_QUEUE + REDIS_NOTES_CHANNEL, timeout=5)
         if note_data:
             _, note_json = note_data
             note = json.loads(note_json)
@@ -24,7 +24,7 @@ async def worker_loop():
                 await handle_note(note)
             except Exception as e:
                 logger.error(f"Note {note['id']} failed: {e}")
-                redis.rpush(REDIS_CHANNEL + REDIS_TASK_QUEUE + "retry_queue", json.dumps(note))
+                await redis.rpush(REDIS_CHANNEL + REDIS_TASK_QUEUE + "retry_queue", json.dumps(note))
         await asyncio.sleep(0.1)
 
 

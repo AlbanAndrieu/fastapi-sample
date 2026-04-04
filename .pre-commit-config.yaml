@@ -185,7 +185,7 @@ repos:
       - id: pyupgrade
         name: "🐍 python · Py Upgrade"
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.8
+    rev: v0.15.9
     hooks:
       - id: ruff-format
         name: "🐍 python · Format with Ruff"
@@ -417,6 +417,7 @@ repos:
               my-app/public/.*|
               charts/generic-service/templates/.*|
               charts/generic-service/overlays/.*|
+              charts/generic-service/values.yaml|
           )$
 
     ### Data & Config Validation ###
