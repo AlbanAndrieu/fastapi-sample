@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from tavily import TavilyClient
 
@@ -11,7 +11,7 @@ from nabla.config_settings import get_settings
 SearchDepth = Literal["basic", "advanced", "fast", "ultra-fast"]
 
 
-def get_tavily_client() -> Optional[TavilyClient]:
+def get_tavily_client() -> TavilyClient | None:
     """Return a ``TavilyClient`` when ``TAVILY_API_KEY`` is set and non-empty."""
     settings = get_settings()
     if settings.tavily_api_key is None:

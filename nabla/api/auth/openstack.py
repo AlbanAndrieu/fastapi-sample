@@ -53,8 +53,7 @@ def _build_client() -> ovh.Client:
     ]
     if missing:
         print(
-            "Set non-empty environment variables (no extra quotes/newlines in .env): "
-            + ", ".join(missing),
+            "Set non-empty environment variables (no extra quotes/newlines in .env): " + ", ".join(missing),
             file=sys.stderr,
         )
         sys.exit(1)

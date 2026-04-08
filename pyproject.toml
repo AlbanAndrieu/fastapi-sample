@@ -90,7 +90,7 @@ api-extra = [
 ]
 api-cli = [
     "click>=8.3.0",
-    "click-completion>=0.5.2",    
+    "click-completion>=0.5.2",
 ]
 api-tracing = [
     "ddtrace>=3.12.2",
@@ -132,7 +132,7 @@ cloudflare-dev = [
 ]
 cpu = [
     "faiss-cpu>=1.10.0",
-] 
+]
 deployment = [
     "python-keystoneclient>=5.1.0",
     "python-swiftclient>=4.2.0",
@@ -171,7 +171,7 @@ open_telemetry = [
 ]
 db = [
     "alembic>=1.16.5",
-    "orjson>=3.11.8",    
+    "orjson>=3.11.8",
     "ovh>=1.2.0",
     "psycopg[binary, pool]>=3.2.10",
 ]
@@ -209,7 +209,7 @@ test = [
     "pytest-timeout>=2.3.1",
     "pyright>=1.1.0",
     "pyright-to-gitlab-ci>=1.1.0",
-    "nox>=2023.4.22",    
+    "nox>=2023.4.22",
     "tox>=3.27.1",
 ]
 format = [
@@ -280,10 +280,10 @@ default-groups = [
     "api-extra",
     "api-tracing",
     "ai",
-    "cpu",    
+    "cpu",
     "db",
     "deployment",
-    "utils",    
+    "utils",
     "encryption",
     "open_telemetry",
     "panda",

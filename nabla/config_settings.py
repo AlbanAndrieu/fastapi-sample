@@ -346,9 +346,7 @@ class _Settings(BaseSettings):
         Optional[str],
         Field(
             default=None,
-            description=(
-                "Programmable Search Engine ID (cx) for Google Custom Search; required with GOOGLE_SEARCH_API_KEY."
-            ),
+            description=("Programmable Search Engine ID (cx) for Google Custom Search; required with GOOGLE_SEARCH_API_KEY."),
             validation_alias=AliasChoices(
                 "GOOGLE_SEARCH_CX",
                 "GOOGLE_CSE_ID",
@@ -472,12 +470,11 @@ class _Settings(BaseSettings):
             min_length=8,
         ),
     ]
-    ovh_project_name: str = Annotated[  # pyright: ignore[reportAssignmentType]
-        Optional[SecretStr],
+    ovh_project_name: Annotated[
+        Optional[str],
         Field(
             default=None,
-            alias="123456789",
-            description="The ovh user's unique project name",
+            description="OVH project name; omit when not using OVH object storage",
             min_length=1,
         ),
     ]
