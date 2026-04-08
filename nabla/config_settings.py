@@ -5,11 +5,11 @@ import os
 import warnings
 from functools import lru_cache
 from pathlib import Path
-from typing import Annotated, ClassVar, Literal, Optional
+from typing import Annotated, Any, ClassVar, Literal, Optional
 
 import urllib3
 from keycloak import KeycloakOpenID
-from pydantic import AliasChoices, BaseModel, Field, SecretStr
+from pydantic import AliasChoices, BaseModel, BeforeValidator, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from statsig_python_core import (  # note underscores instead of hyphens in import
     Statsig,
@@ -43,9 +43,7 @@ PYROSCOPE_ENDPOINT = os.environ.get("PYROSCOPE_ENDPOINT", "http://localhost:4040
 DD_AGENT_HOST = os.environ.get("DD_AGENT_HOST", "127.0.0.1")
 DD_TRACE_AGENT_PORT = os.environ.get("DD_TRACE_AGENT_PORT", "8126")
 
-REDIS_HOST = os.environ.get("REDIS_HOST", "127.0.0.1")
-REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))  # [invalid-envvar-default]
-REDIS_PASSWORD = SecretStr(os.environ.get("REDIS_PASSWORD", "password"))
+REDIS_URL = os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/0")
 
 # http://grpc.jaeger-collector-grpc.service.gra.dev.consul
 # http://jaeger-collector-grpc.service.gra.dev.consul:14250
@@ -88,6 +86,13 @@ UNLEASH_APP_NAME = os.environ.get("UNLEASH_APP_NAME", "staging")
 UNLEASH_INSTANCE_ID = os.environ.get("UNLEASH_INSTANCE_ID", "XXX")
 
 STATSIG_API_KEY = os.environ.get("STATSIG_API_KEY", "XXX")
+
+
+def _unset_empty_env(value: Any) -> Any:
+    """Treat blank env strings as unset so field defaults apply (pydantic-settings)."""
+    if isinstance(value, str) and value.strip() == "":
+        return None
+    return value
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -453,32 +458,56 @@ class _Settings(BaseSettings):
     def db_port(self) -> int:
         return self.postgres_port
 
-    # s3 settings
+    # s3 settings (all optional — app can start without OVH object storage)
     ovh_username: Annotated[
         Optional[SecretStr],
+        BeforeValidator(_unset_empty_env),
         Field(
             default="user-ALBANANDRIEU",
             description="The ovh user's unique username",
-            min_length=1,
         ),
     ]
     ovh_password: Annotated[
         Optional[SecretStr],
+        BeforeValidator(_unset_empty_env),
         Field(
             default=None,
             description="OVH password; omit when not using OVH object storage",
-            min_length=8,
         ),
     ]
     ovh_project_name: Annotated[
         Optional[str],
+        BeforeValidator(_unset_empty_env),
         Field(
             default=None,
             description="OVH project name; omit when not using OVH object storage",
-            min_length=1,
         ),
     ]
     ovh_container: str = "nabla_models"
+
+    @field_validator("ovh_username", mode="after")
+    @classmethod
+    def _ovh_username_non_empty_when_set(cls, value: Optional[SecretStr]) -> Optional[SecretStr]:
+        if value is not None and not value.get_secret_value().strip():
+            msg = "ovh_username, when set, cannot be blank"
+            raise ValueError(msg)
+        return value
+
+    @field_validator("ovh_password", mode="after")
+    @classmethod
+    def _ovh_password_min_length_when_set(cls, value: Optional[SecretStr]) -> Optional[SecretStr]:
+        if value is not None and len(value.get_secret_value()) < 8:
+            msg = "ovh_password, when set, must be at least 8 characters"
+            raise ValueError(msg)
+        return value
+
+    @field_validator("ovh_project_name", mode="after")
+    @classmethod
+    def _ovh_project_name_non_empty_when_set(cls, value: Optional[str]) -> Optional[str]:
+        if value is not None and not value.strip():
+            msg = "ovh_project_name, when set, cannot be blank"
+            raise ValueError(msg)
+        return value
 
     oauth_token_secret: Annotated[SecretStr, Field(min_length=8)]
 

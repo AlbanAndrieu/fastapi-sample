@@ -10,8 +10,7 @@ from redis.asyncio import Redis
 urls = ("/", "index")
 app = web.application(urls, globals())
 
-REDIS_HOST = os.environ.get("REDIS_HOST", "127.0.0.1")
-REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))  # noqa: PLW1508 # [invalid-envvar-default]
+REDIS_URL = os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/0")
 
 # Global variable declaration
 redis: Redis | None
@@ -19,7 +18,7 @@ redis: Redis | None
 
 class index:
     def GET(self):
-        redis = Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+        redis = Redis.from_url(REDIS_URL, decode_responses=True)
         redis.set("randomnumber", random.randint(1, 27))  # noqa: S311 # nosec B311
         return str(redis.get("randomnumber"))
 

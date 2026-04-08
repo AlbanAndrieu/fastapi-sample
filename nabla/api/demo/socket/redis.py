@@ -5,7 +5,7 @@ from redis.asyncio import Redis
 from redis.exceptions import ConnectionError as RedisConnectionError
 
 from nabla.api.demo.socket.ws_manager import manager
-from nabla.config_settings import REDIS_HOST, REDIS_PASSWORD, REDIS_PORT
+from nabla.config_settings import REDIS_URL
 
 REDIS_CHANNEL = "fastapi.sample"
 REDIS_EVENT_CHANNEL = REDIS_CHANNEL + ".sensor_events"
@@ -20,11 +20,10 @@ router = APIRouter()
 # redis: Redis | None = None
 
 # global redis
-# redis = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT)
+# redis = redis.StrictRedis.from_url(REDIS_URL)
 
-# redis = Redis(
-#     host=REDIS_HOST,
-#     port=REDIS_PORT,
+# redis = Redis.from_url(
+#     REDIS_URL,
 #     decode_responses=True,
 #     max_connections=96,
 # )
@@ -33,15 +32,13 @@ router = APIRouter()
 # creds_provider = redis.UsernamePasswordCredentialProvider("default", "redis_password")
 
 
-def get_redis_client(host="localhost", port=6379, password=None):
+def get_redis_client(url: str) -> Redis | None:
     try:
         # Create a connection to the Redis server
-        # pool = redis.ConnectionPool(host=REDIS_HOST, port=REDIS_PORT, db=0)
+        # pool = redis.ConnectionPool.from_url(url)
         # redis = redis.Redis(connection_pool=pool, decode_responses=True)
-        redis_client = Redis(
-            host=host,
-            port=port,
-            password=password,
+        redis_client = Redis.from_url(
+            url,
             decode_responses=True,  # Decode responses to UTF-8, if needed
         )
 
@@ -54,7 +51,7 @@ def get_redis_client(host="localhost", port=6379, password=None):
         return None
 
 
-redis_client = get_redis_client(host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD.get_secret_value())
+redis_client = get_redis_client(REDIS_URL)
 
 # Async client used by routes and lifespan (`import redis` would shadow this name).
 redis = redis_client

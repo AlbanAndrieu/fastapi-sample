@@ -470,9 +470,7 @@ test-pytest:
     KEYCLOAK_REALM: "jus_mundi"
     KEYCLOAK_CLIENT_ID: "jusmundi_uat"
     # KEYCLOAK_CLIENT_SECRET: ""
-    REDIS_PORT: 6379
-    REDIS_HOST: redis
-    REDIS_URL: redis://redis:6379
+    REDIS_URL: redis://redis:6379/0
     ENABLE_METRICS: false
     VIRTUAL_ENV: "/builds/${CI_PROJECT_PATH}/.venv"
   <<: *redis_healthcheck

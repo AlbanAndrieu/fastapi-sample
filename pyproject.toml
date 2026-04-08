@@ -260,6 +260,7 @@ dev = [
     "commitizen>=4.11.0",
     "jupyterlab>=3.4.3",
     "locust>=2.18.3",
+    "mypy>=1.16.0",
     "psycopg2-binary>=2.9.11,<3",
     "pyroscope-io>=0.8.5",
 ]

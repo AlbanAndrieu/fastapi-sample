@@ -58,7 +58,7 @@ def uniform_secret():
 async def demo_random():
     try:
         # global redis
-        # redis = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT)
+        # Redis client: nabla.api.demo.socket.redis (REDIS_URL from settings)
         secret = uniform_secret()
 
         # Validate interval (don't let users sleep for too long)

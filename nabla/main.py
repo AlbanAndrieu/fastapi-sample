@@ -6,7 +6,7 @@ import re
 import time
 import warnings
 from datetime import datetime
-from typing import Dict
+from typing import Any, Dict
 
 import pybreaker
 import pyroscope
@@ -50,6 +50,7 @@ from nabla.api.demo.models import recent_readings
 from nabla.api.demo.sensor import metrics
 from nabla.api.demo.socket.redis import redis, start_event_listener
 from nabla.api.demo.socket.websocket import websocket_endpoint
+from nabla.api.health_checks import build_healthz_payload
 from nabla.api.notes import notes
 from nabla.api.notes.models import Note
 from nabla.api.notes.models import init_db as init_db_note
@@ -242,6 +243,7 @@ def _configure_unleash_feature_middleware(app: FastAPI) -> None:
             "http://localhost:8001",
             "https://fastapi-sample.service.gra.dev.consul/",
             "https://fastapi-sample.service.gra.uat.consul/",
+            "https://fastapi-sample.fastapicloud.dev/",
         ]
         app.add_middleware(
             CORSMiddleware,
@@ -286,6 +288,7 @@ def initialize_api(app):
             excluded_handlers=[
                 "/metrics",
                 "/health",
+                "/healthz",
                 "/version",
                 "/v1/version",
                 "/v2/version",
@@ -902,12 +905,11 @@ def read_root():
     )
 
 
-@circuit_breaker_web
-@app.get("/health")
-def get_status() -> Dict[str, str]:
-    """Healthcheck endpoint."""
+@app.get("/healthz")
+async def get_healthz(request: Request) -> Dict[str, Any]:
+    """Deep healthcheck: merges ``GET /health`` with Redis, Postgres, Supabase, and OVH ``/me`` probes."""
     with pyroscope.tag_wrapper({"function": "fast"}):
-        return {"status": "alive_and_kicking", "timestamp": datetime.now().isoformat()}
+        return await build_healthz_payload(request, redis_client=redis, engine=engine)
 
 
 @app.get("/sentry-debug")

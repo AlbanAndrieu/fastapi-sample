@@ -92,7 +92,9 @@
 		".vscode-test": true,
 		".vscode test": true
 	},
-	"python.pipenvPath": ".venv/bin/python",
+	"python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+	"python.terminal.activateEnvironment": true,
+	"python-envs.alwaysUseUv": true,
 	"terminal.integrated.env.linux": {
 		"PYTHONPATH": "${workspaceFolder}/hooks:.venv/bin/:/opt/ansible/env38/bin/:/opt/ansible/env38/lib/python3.8/site-packages/"
 	},
@@ -160,6 +162,8 @@
 	"cursorpyright.analysis.logLevel": "Trace",
 	"datadog.ust.environment.setup.focusedName": "uat",
 	"git.ignoreLimitWarning": true,
+	"git.allowNoVerifyCommit": true,
+	"git.confirmNoVerifyCommit": false,
 	"languageToolLinter.languageTool.motherTongue": "fr",
 	"languageToolLinter.languageTool.language": "fr",
 	"languageToolLinter.external.url": "http://localhost:8010",

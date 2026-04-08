@@ -185,8 +185,7 @@ job "fastapi-sample" {
         DD_APPSEC_AUTOMATED_USER_EVENTS_TRACKING=extended
         DD_DBM_PROPAGATION_MODE="full"
         DD_PROFILING_TIMELINE_ENABLED=true
-        REDIS_HOST="fastapi-sample-redis.service.gra.${var.env}.consul"
-        REDIS_PORT="6380"
+        REDIS_URL="redis://fastapi-sample-redis.service.gra.${var.env}.consul:6380/0"
         # ALLOWED_HOSTS="[\"${NOMAD_HOST_IP_server}\",\"fastapi-sample.service.gra.${var.env}.consul\"]"
         EXPOSE_ENV = "${var.env}"
         EXPOSE_HOST = "localhost"
