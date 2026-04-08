@@ -54,7 +54,7 @@ def test_user_me(test_app) -> None:
 
     expected_status: int = 404
 
-    response = test_app.get("https://jusmundi.com/api/user/me")
+    response = test_app.get("https://fastapi-sample.fastapicloud.dev/api/user/me")
 
     assert response.status_code == expected_status
     # assert response.json() == {

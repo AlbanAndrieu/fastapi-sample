@@ -131,6 +131,90 @@ def test_health(test_app) -> None:
     assert status["total_requests"] == 1
 
 
+def test_tavily_search_returns_503_without_api_key(test_app, monkeypatch) -> None:
+    """Tavily route returns 503 when the API key is missing or empty."""
+    monkeypatch.setenv("TAVILY_API_KEY", "")
+    response = test_app.post("/v1/tavily/search", json={"query": "hello"})
+    assert response.status_code == 503
+
+
+def test_tavily_search_ok_when_mocked(test_app, monkeypatch) -> None:
+    """Tavily route forwards the body and returns the search payload."""
+
+    def _fake(query: str, *, search_depth: str = "advanced") -> dict:
+        return {"query": query, "results": [], "search_depth": search_depth}
+
+    monkeypatch.setattr("nabla.api.tavily_route.tavily_search", _fake)
+    response = test_app.post(
+        "/v1/tavily/search",
+        json={"query": "hello", "search_depth": "basic"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["query"] == "hello"
+    assert body["search_depth"] == "basic"
+
+
+def test_brave_search_returns_503_without_api_key(test_app, monkeypatch) -> None:
+    """Brave route returns 503 when the API key is missing or empty."""
+    monkeypatch.setenv("BRAVE_API_KEY", "")
+    response = test_app.post("/v1/brave/search", json={"query": "hello"})
+    assert response.status_code == 503
+
+
+def test_brave_search_ok_when_mocked(test_app, monkeypatch) -> None:
+    """Brave route forwards the body and returns the search payload."""
+
+    def _fake(query: str, *, count: int = 10) -> dict:
+        return {"query": query, "web": {"results": []}, "count": count}
+
+    monkeypatch.setattr("nabla.api.brave_route.brave_web_search", _fake)
+    response = test_app.post(
+        "/v1/brave/search",
+        json={"query": "hello", "count": 5},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["query"] == "hello"
+    assert body["count"] == 5
+
+
+def test_google_search_returns_503_without_api_key(test_app, monkeypatch) -> None:
+    """Google route returns 503 when the API key is missing or empty."""
+    monkeypatch.setenv("GOOGLE_SEARCH_API_KEY", "")
+    monkeypatch.setenv("GOOGLE_SEARCH_CX", "cx123")
+    response = test_app.post("/v1/google/search", json={"query": "hello"})
+    assert response.status_code == 503
+
+
+def test_google_search_returns_503_without_cx(test_app, monkeypatch) -> None:
+    """Google route returns 503 when cx is missing (Custom Search requires it)."""
+    monkeypatch.setenv("GOOGLE_SEARCH_API_KEY", "fake-key")
+    monkeypatch.setenv("GOOGLE_SEARCH_CX", "")
+    response = test_app.post("/v1/google/search", json={"query": "hello"})
+    assert response.status_code == 503
+
+
+def test_google_search_ok_when_mocked(test_app, monkeypatch) -> None:
+    """Google route forwards the body and returns the search payload."""
+
+    def _fake(query: str, *, num: int = 10) -> dict:
+        return {"queries": {"request": []}, "items": [], "q": query, "num": num}
+
+    monkeypatch.setattr(
+        "nabla.api.google_search_route.google_programmable_search",
+        _fake,
+    )
+    response = test_app.post(
+        "/v1/google/search",
+        json={"query": "hello", "num": 10},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["q"] == "hello"
+    assert body["num"] == 10
+
+
 @pytest.mark.skip(reason="Skipping this test for now")
 def test_chain(test_app) -> None:
     """It runs and chain io_task and cpu_task."""

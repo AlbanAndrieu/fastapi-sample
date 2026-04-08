@@ -39,7 +39,6 @@ sopsSecrets:
     - OVH_APPLICATION_KEY
     - OVH_APPLICATION_SECRET
     - OVH_CONSUMER_KEY
-    - OVH_PASSWORD
     - OAUTH_TOKEN_SECRET
     - UNLEASH_API_URL
     - UNLEASH_INSTANCE_ID
@@ -321,7 +320,6 @@ env_vars:
   POSTGRES_PORT: "5432"
   POSTGRES_DB: "fastapi_sample_uat"
 
-  OVH_USERNAME: "user-ANMa942Qs2ud"
   OVH_PROJECT_NAME: "2844848994573234"
 
   KEYCLOAK_SERVER_URL: "https://keycloak-https.service.gra.uat.consul"

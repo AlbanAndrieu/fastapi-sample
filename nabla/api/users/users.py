@@ -23,7 +23,7 @@ from sqlalchemy import select
 from sqlmodel import Session
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from nabla.api.auth.token import (
+from nabla.api.auth.jwt_tokens import (
     ACCESS_TOKEN_SECRET_KEY,
     TokenData,
     create_access_token,

@@ -318,6 +318,44 @@ class _Settings(BaseSettings):
             validation_alias=AliasChoices("SUPABASE_SERVICE_ROLE_KEY"),
         ),
     ]
+    tavily_api_key: Annotated[
+        Optional[SecretStr],
+        Field(
+            default=None,
+            description="Tavily Search API key (https://tavily.com).",
+            validation_alias=AliasChoices("TAVILY_API_KEY"),
+        ),
+    ]
+    brave_api_key: Annotated[
+        Optional[SecretStr],
+        Field(
+            default=None,
+            description="Brave Search API subscription token (https://brave.com/search/api/).",
+            validation_alias=AliasChoices("BRAVE_API_KEY"),
+        ),
+    ]
+    google_search_api_key: Annotated[
+        Optional[SecretStr],
+        Field(
+            default=None,
+            description="Google API key for Custom Search JSON API.",
+            validation_alias=AliasChoices("GOOGLE_SEARCH_API_KEY"),
+        ),
+    ]
+    google_search_cx: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            description=(
+                "Programmable Search Engine ID (cx) for Google Custom Search; required with GOOGLE_SEARCH_API_KEY."
+            ),
+            validation_alias=AliasChoices(
+                "GOOGLE_SEARCH_CX",
+                "GOOGLE_CSE_ID",
+                "GOOGLE_SEARCH_ENGINE_ID",
+            ),
+        ),
+    ]
 
     azure_openai_instance: dict[str, AzureOpenAiInstance] = {}
 
@@ -419,19 +457,26 @@ class _Settings(BaseSettings):
 
     # s3 settings
     ovh_username: Annotated[
-        str,
+        Optional[SecretStr],
         Field(
             default="user-ALBANANDRIEU",
             description="The ovh user's unique username",
             min_length=1,
         ),
     ]
-    ovh_password: Annotated[SecretStr, Field(min_length=8)]
-    ovh_project_name: str = Annotated[  # pyright: ignore[reportAssignmentType]
-        str,
+    ovh_password: Annotated[
+        Optional[SecretStr],
         Field(
+            default=None,
+            description="OVH password; omit when not using OVH object storage",
+            min_length=8,
+        ),
+    ]
+    ovh_project_name: str = Annotated[  # pyright: ignore[reportAssignmentType]
+        Optional[SecretStr],
+        Field(
+            default=None,
             alias="123456789",
-            default="123456789",
             description="The ovh user's unique project name",
             min_length=1,
         ),

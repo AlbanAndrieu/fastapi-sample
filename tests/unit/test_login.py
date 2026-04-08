@@ -7,7 +7,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.testclient import TestClient
 from passlib.context import CryptContext
 
-from nabla.api.auth.token import create_access_token
+from nabla.api.auth.jwt_tokens import create_access_token
 from nabla.api.db.database import database
 from server_app import app
 from tests.unit.conftest import requires_env

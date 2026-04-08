@@ -14,17 +14,16 @@ keywords = [
 ]
 classifiers = ["Private :: Do not Upload"]
 dependencies = [
-    "statsig-python-core (>=0.14.0,<0.15.0)",
-    "legacy-cgi (>=2.6.4,<3.0.0)",
-    "langfuse (==2.59.7)",
-    "litellm (>=1.81.13,<2.0.0)",
-    "pysqlite3 (>=0.6.0,<0.7.0)",
-    "fastapi[standard]>=0.121.0",
-    "pybreaker>=1.4.1",
-    "pyroscope-io>=0.8.5",
-    "supabase>=2.28.3",
-    "fastapi-cli>=0.0.24",
+    "fastapi[standard]>=0.128.0",
+    "tavily-python>=0.7.23",
 ]
+# dependencies = [
+#     "legacy-cgi (>=2.6.4,<3.0.0)",
+#     "pysqlite3 (>=0.6.0,<0.7.0)",
+#     "fastapi[standard]>=0.121.0",
+#     "pybreaker>=1.4.1",
+#     "fastapi-cli>=0.0.24",
+# ]
 license-files = ["LICENSE"]
 
 [project.optional-dependencies]
@@ -44,38 +43,22 @@ build-backend = "hatchling.build"
 [dependency-groups]
 base = [
     "fastapi[standard]>=0.121.0", # Core framework with standard dependencies
-    "fastapi-featureflags>=0.4.7",
-    "fastapi-mail>=1.5.0",
-    "fastapi-users[sqlalchemy]>=14.0.1",
-    "fastapi-cache2[redis]>=0.0.1",
-    "fastmcp>=2.12.2",
     "gunicorn>=23.0.0",
     "jinja2>=3.1.6", # Template rendering
     "pybreaker>=1.4.0",
 ]
 api = [
-    "alembic>=1.16.5",
     "ansicolors>=1.1.8",
+    "arel>=0.3.0",
     "asyevent>=0.2.10",
-    "click>=8.3.0",
-    "click-completion>=0.5.2",
-    "ddtrace>=3.12.2",
-    "dd-import>=1.0.12",
-    "faiss-cpu>=1.10.0",
     "httpx>=0.28.1",
-    "langgraph>=0.6.6",
-    "langchain>=0.3.27",
-    "langchain-openai>=0.3.32",
-    "logfire>=4.2.0",
-    "openai>=2.6.0",
-    "ovh>=1.2.0",
     "podmena>=0.6.1",
     "passlib>=1.7.4",
     "pandas>=2.2.1",
     "plotly>=6.3.0",
     "polars>=1.32.3",
-    "pyarrow>=16.0.0",
     "pybreaker>=1.4.0",
+    "pyarrow>=16.0.0",
     "pydantic>=2.12.3",
     "pydantic-settings",
     "PyMuPDF>=1.26.4",
@@ -88,15 +71,40 @@ api = [
     "redis>=4.6.0",
     "requests>=2.33.0",
     "reretry>=0.11.8",
-    "sentence-transformers>=5.1.0",
-    "sentry-sdk[fastapi]",
     "slowapi>=0.1.9",
-    "sse-starlette>=2.3.6",
+    # "sse-starlette>=2.3.6",
+    "statsig-python-core>=0.12.0",
     "structlog>=25.4.0",
     "types-pytz>=2025.2.0.20250809",
-    "UnleashClient>=6.3.0",
     "urllib3>=2.5.0",
     "uvicorn-worker>=0.2.0",
+]
+api-extra = [
+    "fastapi-featureflags>=0.4.7",
+    "fastapi-mail>=1.5.0",
+    "fastapi-users[sqlalchemy]>=14.0.1",
+    "fastapi-cache2[redis]>=0.0.1",
+    "fastmcp>=2.12.2",
+    "uvicorn[standard]>=0.38.0",
+    "uvicorn-worker>=0.2.0",
+]
+api-cli = [
+    "click>=8.3.0",
+    "click-completion>=0.5.2",    
+]
+api-tracing = [
+    "ddtrace>=3.12.2",
+    "dd-import>=1.0.12",
+    "logfire>=4.2.0",
+    "pyroscope-io>=0.8.5",
+    "sentry-sdk[fastapi]",
+    "UnleashClient>=6.3.0",
+]
+api-ai = [
+    "langgraph>=0.6.6",
+    "langchain>=0.3.27",
+    "langchain-openai>=0.3.32",
+    "openai>=2.6.0",
 ]
 api-legacy = [
     "webtypy>=0.1.7",
@@ -104,8 +112,13 @@ api-legacy = [
     "legacy-cgi ; python_full_version >= '3.13'",
 ]
 ai = [
+    "langfuse (==2.59.7)",
+    "litellm (>=1.81.13,<2.0.0)",
     "spacy>=3.5.4",
     "dacite>=1.8.0",
+]
+torch = [
+    "sentence-transformers>=5.1.0", # torch
 ]
 locust = ["locust>=2.18.3"]
 cloudflare = [
@@ -113,9 +126,13 @@ cloudflare = [
     "webtypy>=0.1.7",
 ]
 cloudflare-dev = [
+    # Note: Cloudflare runtime provides 'workers' module
     "workers-py>=1.7.0",
     "workers-runtime-sdk>=0.3.1",
 ]
+cpu = [
+    "faiss-cpu>=1.10.0",
+] 
 deployment = [
     "python-keystoneclient>=5.1.0",
     "python-swiftclient>=4.2.0",
@@ -152,10 +169,17 @@ open_telemetry = [
     "opentelemetry-api>=1.33.1",
     "opentelemetry-sdk>=1.33.1",
 ]
+db = [
+    "alembic>=1.16.5",
+    "orjson>=3.11.8",    
+    "ovh>=1.2.0",
+    "psycopg[binary, pool]>=3.2.10",
+]
 panda = [
+    "psycopg[binary, pool]>=3.2.10",
     "sqlalchemy[asyncio]>=2.0.20",
     "sqlmodel>=0.0.25",
-    "psycopg[binary, pool]>=3.2.10",
+    "supabase>=2.28.3",
 ]
 influxdb = ["influxdb-client>=1.29.1"]
 csv = ["asyncpg>=0.27.0"]
@@ -185,8 +209,7 @@ test = [
     "pytest-timeout>=2.3.1",
     "pyright>=1.1.0",
     "pyright-to-gitlab-ci>=1.1.0",
-    "nox>=2023.4.22",
-    "statsig-python-core>=0.12.0",
+    "nox>=2023.4.22",    
     "tox>=3.27.1",
 ]
 format = [
@@ -236,7 +259,9 @@ extra = [
 dev = [
     "commitizen>=4.11.0",
     "jupyterlab>=3.4.3",
+    "locust>=2.18.3",
     "psycopg2-binary>=2.9.11,<3",
+    "pyroscope-io>=0.8.5",
 ]
 web-legacy = [
     "web.py>=0.62 ; python_version < '3.13'",
@@ -251,23 +276,29 @@ link-mode = "copy"
 default-groups = [
     "base",
     "api",
+    "api-cli",
+    "api-extra",
+    "api-tracing",
+    "ai",
+    "cpu",    
+    "db",
     "deployment",
-    "utils",
+    "utils",    
     "encryption",
     "open_telemetry",
     "panda",
     "dev",
 ]
-conflicts = [
-  [
-    { extra = "numpy-1" },
-    { extra = "numpy-2" },
-  ],
-  [
-    { extra = "cpu" },
-    { extra = "cu128" },
-  ],
-]
+# conflicts = [
+#   [
+#     { extra = "numpy-1" },
+#     { extra = "numpy-2" },
+#   ],
+#   [
+#     { extra = "cpu" },
+#     { extra = "cu128" },
+#   ],
+# ]
 no-build-isolation-package = ["flash-attn"]
 
 [[tool.uv.dependency-metadata]]
@@ -423,6 +454,8 @@ no_implicit_optional = true
 [[tool.mypy.overrides]]
 module = "tests.*"
 disallow_untyped_defs = false
+
+[tool.pdm]
 [[tool.pdm.source]]
 name = "pypi"
 url = "https://pypi.org/simple"

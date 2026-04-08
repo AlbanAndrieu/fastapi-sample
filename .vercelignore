@@ -7,6 +7,7 @@
 !templates
 !nabla
 !main.py
+!server_app.py
 !pyproject.toml
 !uv.lock
 !my-app

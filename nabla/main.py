@@ -41,7 +41,7 @@ from sqlmodel import select
 from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Mount
 
-from nabla.api import ping, v1, v2
+from nabla.api import brave_route, google_search_route, ping, tavily_route, v1, v2
 from nabla.api.auth import keycloak
 from nabla.api.db.database import SessionLocal, database, engine, init_db
 from nabla.api.demo import dd, demo, integration, sensor
@@ -362,6 +362,9 @@ def initialize_api(app):
 
     app.include_router(v1.router, tags=["api"])
     app.include_router(v2.router, tags=["api"])
+    app.include_router(tavily_route.router, tags=["tavily"])
+    app.include_router(brave_route.router, tags=["brave"])
+    app.include_router(google_search_route.router, tags=["google"])
     app.include_router(integration.router, tags=["integration"])
     app.include_router(dd.router, tags=["integration"])
     app.include_router(demo.router, tags=["integration"])
