@@ -1,67 +1,84 @@
 <!doctype html>
 {% extends 'base.html' %} {% block content %}
-<div class="container mx-auto px-4 py-4 max-w-7xl">
-  <!-- Header with task manager -->
-  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-2 text-sm text-base-content/70">
-    <span
-      >API version :</span
-    >
-    <span class="font-mono font-semibold text-base-content">{{ request.app.version }}</span>
+<header class="border-b border-[#333333]">
+  <nav class="mx-auto flex max-w-7xl items-center gap-6 px-4 py-4 sm:px-6">
+    <a class="text-lg font-semibold text-white no-underline hover:opacity-90" href="/">Sensor Dashboard</a>
+    <div class="ml-auto flex gap-2">
+      <a
+        class="rounded-md px-4 py-2 text-sm font-medium text-[#888888] no-underline transition-colors hover:bg-[#111111] hover:text-white"
+        href="/api"
+        >API</a
+      >
+    </div>
+  </nav>
+</header>
+<div class="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+  <div class="mb-6 flex flex-col gap-2 text-sm text-[#888888] sm:flex-row sm:items-center sm:justify-between">
+    <span>API version</span>
+    <span class="font-mono font-semibold text-white">{{ request.app.version }}</span>
   </div>
-  <!-- Header with gradient goodness -->
-  <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6 gap-4">
+  <div class="mb-8 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
     <div>
       <h1
-        class="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent mb-2"
+        class="mb-2 bg-gradient-to-r from-white to-[#888888] bg-clip-text text-4xl font-bold text-transparent lg:text-5xl"
       >
         Sensor Dashboard
       </h1>
-      <p class="text-base-content/70 text-lg">Real-time environmental monitoring with Plotly Python</p>
+      <p class="text-lg text-[#888888]">Real-time environmental monitoring with Plotly and Chart.js</p>
     </div>
 
     <div class="flex items-center gap-4">
-      <div class="stats bg-base-100 shadow-lg">
-        <div class="stat">
-          <div class="stat-title text-xs">Status</div>
-          <div class="stat-value text-lg" id="connection-status">Connecting...</div>
-          <div class="stat-desc">
-            <div class="loading loading-ring loading-sm" id="connection-indicator"></div>
+      <div class="dash-panel min-w-[200px]">
+        <div class="border-b border-[#333333] px-4 py-3">
+          <div class="text-xs font-medium text-[#888888]">Connection</div>
+          <div class="text-lg font-semibold text-white" id="connection-status">Connecting...</div>
+          <div class="mt-2 flex items-center gap-2">
+            <div class="loading loading-ring loading-sm text-[#888888]" id="connection-indicator"></div>
+            <span class="text-xs text-[#888888]">SSE stream</span>
           </div>
         </div>
       </div>
     </div>
   </div>
-  <!-- Live notes -->
-  <div class="card bg-base-100 shadow-xl mb-6">
-    <div class="card-body py-4">
-      <div class="flex items-center gap-2 mb-4">
-        <div class="badge badge-secondary">Current</div>
-        <h2 class="card-title">Current Notes</h2>
+  <div class="dash-panel mb-6">
+    <div class="border-b border-[#333333] px-4 py-4 sm:px-6">
+      <div class="mb-1 flex items-center gap-2">
+        <span class="rounded border border-[#333333] bg-[#0a0a0a] px-2 py-0.5 text-xs font-medium text-[#cccccc]"
+          >Notes</span
+        >
+        <h2 class="text-lg font-semibold text-white">Current notes</h2>
       </div>
-
+    </div>
+    <div class="px-4 py-4 sm:px-6">
       <div id="notes">{% include "notes.html" %}</div>
 
-      <div>
-        <h1 class="card-title">Note Manager</h1>
-        <form hx-post="/notes/add" hx-target="#notes-list" hx-swap="outerHTML">
-          <input type="text" name="title" placeholder="Title" required />
-          <!--<textarea name="content" placeholder="Content" required></textarea>-->
-          <button type="submit">Add</button>
+      <div class="mt-6 border-t border-[#333333] pt-6">
+        <h3 class="mb-3 text-base font-semibold text-white">Note manager</h3>
+        <form
+          class="flex flex-col gap-3 sm:flex-row sm:items-end"
+          hx-post="/notes/add"
+          hx-target="#notes-list"
+          hx-swap="outerHTML"
+        >
+          <input class="dash-input" type="text" name="title" placeholder="Title" required />
+          <button class="dash-btn shrink-0" type="submit">Add</button>
         </form>
 
-        <div id="notes-list" hx-get="/notes/notes" hx-trigger="load" hx-swap="outerHTML"></div>
+        <div class="mt-4" id="notes-list" hx-get="/notes/notes" hx-trigger="load" hx-swap="outerHTML"></div>
       </div>
     </div>
   </div>
 
-  <!-- Live sensor data -->
-  <div class="card bg-base-100 shadow-xl mb-6">
-    <div class="card-body py-4">
-      <div class="flex items-center gap-2 mb-4">
-        <div class="badge badge-primary">Live</div>
-        <h2 class="card-title">Current Readings</h2>
+  <div class="dash-panel mb-6">
+    <div class="border-b border-[#333333] px-4 py-4 sm:px-6">
+      <div class="flex items-center gap-2">
+        <span class="rounded border border-[#333333] bg-[#0a0a0a] px-2 py-0.5 text-xs font-medium text-[#cccccc]"
+          >Live</span
+        >
+        <h2 class="text-lg font-semibold text-white">Current readings</h2>
       </div>
-
+    </div>
+    <div class="px-4 py-4 sm:px-6">
       <div hx-ext="sse" sse-connect="/stream/2">
         <!-- Sensor data updater
          hx-trigger="load once" -->
@@ -76,13 +93,13 @@
     </div>
   </div>
 
-  <!-- Charts grid -->
-  <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-6">
-    <!-- Main time series chart -->
+  <div class="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-2">
     <div class="xl:col-span-2">
-      <div class="card bg-base-100 shadow-xl">
-        <div class="card-body py-2 pb-0">
-          <h3 class="card-title mb-2">Multi-Metric Time Series</h3>
+      <div class="dash-panel">
+        <div class="border-b border-[#333333] px-4 py-3 sm:px-6">
+          <h3 class="text-base font-semibold text-white">Multi-metric time series</h3>
+        </div>
+        <div class="px-2 pb-2 pt-2 sm:px-4">
           <div id="timeseries-chart"></div>
         </div>
       </div>
@@ -92,62 +109,61 @@
     <!-- sse-swap="sensor_update"-->
     <div hx-ext="sse" sse-connect="/stream/2">
       <div id="chart-data" hx-get="/chart-data" hx-target="#chart-data" hx-trigger="sse:sensor_update">
-        <div class="flex items-center justify-center py-6">
-          <div class="loading loading-spinner loading-lg text-primary"></div>
-          <span class="ml-4">Connecting to sensors...</span>
+        <div class="flex items-center justify-center py-6 text-[#888888]">
+          <div class="loading loading-spinner loading-lg text-[#888888]"></div>
+          <span class="ml-4">Connecting to sensors…</span>
         </div>
       </div>
     </div>
 
     <div class="xl:col-span-2">
-      <div class="card bg-base-100 shadow-xl">
-        <div class="card-body py-2 pb-0">
-          <h3 class="card-title text-lg">Temperature</h3>
-          <div class="h-48">
+      <div class="dash-panel divide-y divide-[#333333]">
+        <div class="px-4 py-3 sm:px-6">
+          <h3 class="text-base font-semibold text-white">Temperature</h3>
+          <div class="h-48 pt-2">
             <canvas id="tempChart"></canvas>
           </div>
         </div>
-        <div class="card bg-base-100 shadow-xl">
-          <div class="card-body">
-            <h3 class="card-title text-lg">Humidity</h3>
-            <div class="h-48">
-              <canvas id="humidityChart"></canvas>
-            </div>
+        <div class="px-4 py-3 sm:px-6">
+          <h3 class="text-base font-semibold text-white">Humidity</h3>
+          <div class="h-48 pt-2">
+            <canvas id="humidityChart"></canvas>
           </div>
         </div>
-        <div class="card bg-base-100 shadow-xl">
-          <div class="card-body">
-            <h3 class="card-title text-lg">Pressure</h3>
-            <div class="h-48">
-              <canvas id="pressureChart"></canvas>
-            </div>
+        <div class="px-4 py-3 sm:px-6">
+          <h3 class="text-base font-semibold text-white">Pressure</h3>
+          <div class="h-48 pt-2">
+            <canvas id="pressureChart"></canvas>
           </div>
         </div>
       </div>
     </div>
   </div>
-  <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-6">
-    <!-- Status distribution -->
-    <div class="card bg-base-100 shadow-xl">
-      <div class="card-body py-2">
-        <h3 class="card-title mb-2">Status Distribution</h3>
+  <div class="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-2">
+    <div class="dash-panel">
+      <div class="border-b border-[#333333] px-4 py-3 sm:px-6">
+        <h3 class="text-base font-semibold text-white">Status distribution</h3>
+      </div>
+      <div class="px-2 py-2">
         <div id="status-chart"></div>
       </div>
     </div>
 
-    <!-- Correlation matrix -->
-    <div class="card bg-base-100 shadow-xl">
-      <div class="card-body py-4">
-        <h3 class="card-title mb-2">Sensor Correlations</h3>
+    <div class="dash-panel">
+      <div class="border-b border-[#333333] px-4 py-3 sm:px-6">
+        <h3 class="text-base font-semibold text-white">Sensor correlations</h3>
+      </div>
+      <div class="px-2 py-4">
         <div id="correlation-chart"></div>
       </div>
     </div>
   </div>
 
-  <!-- Anomaly detection -->
-  <div class="card bg-base-100 shadow-xl mb-4">
-    <div class="card-body py-2">
-      <h3 class="card-title mb-2">Anomaly Detection</h3>
+  <div class="dash-panel mb-4">
+    <div class="border-b border-[#333333] px-4 py-3 sm:px-6">
+      <h3 class="text-base font-semibold text-white">Anomaly detection</h3>
+    </div>
+    <div class="px-2 py-2">
       <div id="anomaly-chart"></div>
     </div>
   </div>
@@ -194,7 +210,12 @@
         maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
-          y: { beginAtZero: false },
+          y: {
+            beginAtZero: false,
+            grid: { color: "#333333" },
+            ticks: { color: "#888888" },
+            border: { color: "#333333" },
+          },
           x: { display: false },
         },
       },
@@ -221,7 +242,12 @@
         maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
-          y: { beginAtZero: false },
+          y: {
+            beginAtZero: false,
+            grid: { color: "#333333" },
+            ticks: { color: "#888888" },
+            border: { color: "#333333" },
+          },
           x: { display: false },
         },
       },
@@ -248,7 +274,12 @@
         maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
-          y: { beginAtZero: false },
+          y: {
+            beginAtZero: false,
+            grid: { color: "#333333" },
+            ticks: { color: "#888888" },
+            border: { color: "#333333" },
+          },
           x: { display: false },
         },
       },
@@ -265,31 +296,26 @@
         data.status === "normal" ? "badge-success" : data.status === "warning" ? "badge-warning" : "badge-error";
 
       const html = `
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-        <div class="stat bg-primary/10 rounded-lg p-4">
-          <div class="stat-title">Temperature</div>
-          <div class="stat-value text-primary">${data.temperature}°C</div>
-          <div class="stat-desc">Real-time</div>
+      <div class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div class="rounded-lg border border-[#333333] bg-[#0a0a0a] p-4">
+          <div class="text-xs font-medium text-[#888888]">Temperature</div>
+          <div class="text-xl font-semibold text-[#3B82F6]">${data.temperature}°C</div>
+          <div class="text-xs text-[#888888]">Real-time</div>
         </div>
-        <div class="stat bg-secondary/10 rounded-lg p-4">
-          <div class="stat-title">Humidity</div>
-          <div class="stat-value text-secondary">${data.humidity}%</div>
-          <div class="stat-desc">Relative</div>
+        <div class="rounded-lg border border-[#333333] bg-[#0a0a0a] p-4">
+          <div class="text-xs font-medium text-[#888888]">Humidity</div>
+          <div class="text-xl font-semibold text-[#10B981]">${data.humidity}%</div>
+          <div class="text-xs text-[#888888]">Relative</div>
         </div>
-        <div class="stat bg-accent/10 rounded-lg p-4">
-          <div class="stat-title">Pressure</div>
-          <div class="stat-value text-accent">${data.pressure} hPa</div>
-          <div class="stat-desc">Real-time</div>
+        <div class="rounded-lg border border-[#333333] bg-[#0a0a0a] p-4 sm:col-span-2">
+          <div class="text-xs font-medium text-[#888888]">Pressure</div>
+          <div class="text-xl font-semibold text-[#8B5CF6]">${data.pressure} hPa</div>
+          <div class="text-xs text-[#888888]">Real-time</div>
         </div>
       </div>
-      <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-        <div class="text-white font-bold badge ${statusClass}">
-          ${data.status.toUpperCase()}
-
-          </div>
-          <div class="text-sm text-base-content/60">
-            ${new Date(data.timestamp).toLocaleTimeString()}
-          </div>
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div class="font-bold text-white badge ${statusClass}">${data.status.toUpperCase()}</div>
+        <div class="text-sm text-[#888888]">${new Date(data.timestamp).toLocaleTimeString()}</div>
       </div>
       `;
 
@@ -336,18 +362,13 @@
       }
     }
   });
-</script>
-
-// Connection state handling
-<script>
-  // Handle SSE connection status
-  document.body.addEventListener("htmx:sseOpen", function (e) {
-    document.getElementById("connection-indicator").className = "loading loading-ring loading-sm text-success";
+  document.body.addEventListener("htmx:sseOpen", function () {
+    document.getElementById("connection-indicator").className = "loading loading-ring loading-sm dash-loading-ok";
     document.getElementById("connection-status").textContent = "Connected";
   });
 
-  document.body.addEventListener("htmx:sseError", function (e) {
-    document.getElementById("connection-indicator").className = "loading loading-ring loading-sm text-error";
+  document.body.addEventListener("htmx:sseError", function () {
+    document.getElementById("connection-indicator").className = "loading loading-ring loading-sm dash-loading-err";
     document.getElementById("connection-status").textContent = "Disconnected";
   });
 </script>

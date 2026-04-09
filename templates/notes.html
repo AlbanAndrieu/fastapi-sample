@@ -1,4 +1,4 @@
-<ul>
+<ul class="list-inside list-disc space-y-1 text-[#cccccc]">
   {% for note in notes %}
   <li>{{ note.title }} {% if note.completed %}✔{% endif %}</li>
   {% endfor %}

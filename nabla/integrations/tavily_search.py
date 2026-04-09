@@ -7,6 +7,7 @@ from typing import Any, Literal
 from tavily import TavilyClient
 
 from nabla.config_settings import get_settings
+from nabla.integrations.env_secrets import secret_from_env_or_settings
 
 SearchDepth = Literal["basic", "advanced", "fast", "ultra-fast"]
 
@@ -14,10 +15,11 @@ SearchDepth = Literal["basic", "advanced", "fast", "ultra-fast"]
 def get_tavily_client() -> TavilyClient | None:
     """Return a ``TavilyClient`` when ``TAVILY_API_KEY`` is set and non-empty."""
     settings = get_settings()
-    if settings.tavily_api_key is None:
-        return None
-    key = settings.tavily_api_key.get_secret_value().strip()
-    if not key:
+    key = secret_from_env_or_settings(
+        "TAVILY_API_KEY",
+        settings_secret=settings.tavily_api_key,
+    )
+    if key is None:
         return None
     return TavilyClient(api_key=key)
 

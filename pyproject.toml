@@ -15,6 +15,7 @@ keywords = [
 classifiers = ["Private :: Do not Upload"]
 dependencies = [
     "fastapi[standard]>=0.128.0",
+    "litellm>=1.83.0",
     "tavily-python>=0.7.23",
 ]
 # dependencies = [

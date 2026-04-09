@@ -1,5 +1,4 @@
 import asyncio
-import os
 import random
 import uuid
 from typing import Annotated, Optional
@@ -33,6 +32,7 @@ from nabla.api.auth.jwt_tokens import (
     verify_password,
 )
 from nabla.api.db.database import get_db, get_session
+from nabla.api.users.me import get_me
 from nabla.api.users.models import User, UserIn, UserOut, get_user_db
 from nabla.utils.logger import logger
 from nabla.utils.prometheus import USER_REGISTRATIONS
@@ -126,21 +126,6 @@ def get_user_details(user_id: str | None = McpDepends(_get_user_details_user_id)
     return user
 
 
-def get_me() -> UserIn:
-    user = UserIn(
-        name="Alban Andrieu",
-        email=os.environ.get("MAIL_FROM", "alban.andrieu@gmail.com"),
-        phone="0695435353",
-        address="11 terrasse de l'université",
-        city="Paris",
-        state="FR",
-        zipcode="92000",
-        country="France",
-    )
-
-    return user
-
-
 # This endpoint will not be registered as a tool, since it was added after the MCP instance was created
 # Dynamic resource template
 @mcp.resource("users://whoami/profile")
@@ -152,7 +137,7 @@ async def whoami():
 # def me()-> dict[str, str]:
 # @router.get("/users/current", response_model=UserIn)
 @cache(expire=300)
-@router.get("/users/current", response_model=UserOut, operation_id="me")
+@router.get("/users/current", response_model=UserIn, operation_id="me")
 async def current_user():
     # return {"status": "registered"}
     # return json.loads(get_user_details(None))

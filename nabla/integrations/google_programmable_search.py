@@ -6,22 +6,13 @@ from typing import Any
 
 import httpx
 
-from nabla.config_settings import get_settings
+from nabla.integrations.env_secrets import google_search_credentials_runtime
 
 _GOOGLE_CSE_URL = "https://www.googleapis.com/customsearch/v1"
 
 
 def _google_cse_credentials() -> tuple[str | None, str | None]:
-    settings = get_settings()
-    if settings.google_search_api_key is None:
-        return None, None
-    key = settings.google_search_api_key.get_secret_value().strip()
-    if not key:
-        return None, None
-    cx = (settings.google_search_cx or "").strip()
-    if not cx:
-        return key, None
-    return key, cx
+    return google_search_credentials_runtime()
 
 
 def google_programmable_search(
