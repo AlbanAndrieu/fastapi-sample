@@ -152,7 +152,7 @@ async def whoami():
 # def me()-> dict[str, str]:
 # @router.get("/users/current", response_model=UserIn)
 @cache(expire=300)
-@router.get("/users/current", response_model=UserOut)
+@router.get("/users/current", response_model=UserOut, operation_id="me")
 async def current_user():
     # return {"status": "registered"}
     # return json.loads(get_user_details(None))
@@ -211,7 +211,7 @@ async def validate_is_authenticated(
 
 # Dynamic resource template
 @mcp.resource("users://{user_id}/profile")
-@router.get("/users/{user_id}", response_model=UserOut, operation_id="get_user_info", dependencies=[Depends(validate_is_authenticated)])
+@router.get("/users/{user_id}", response_model=UserOut, operation_id="user", dependencies=[Depends(validate_is_authenticated)])
 # @circuit_breaker_user
 # @cache(expire=300)  # Cache for 5 minutes to avoid repeated execution of complex SQL
 # async def get_user(user_id: int, db=Depends(get_db)):

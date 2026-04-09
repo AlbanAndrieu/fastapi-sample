@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import html
 import logging
 import os
 import re
@@ -15,7 +16,7 @@ from ddtrace import config, patch, tracer
 from ddtrace.contrib.trace_utils import set_user
 from ddtrace.profiling import Profiler
 from ddtrace.trace import TraceFilter
-from fastapi import APIRouter, FastAPI, Request
+from fastapi import FastAPI, Request
 from fastapi.concurrency import asynccontextmanager
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import (
@@ -29,6 +30,8 @@ from fastapi_cache import FastAPICache
 from fastapi_cache.backends.inmemory import InMemoryBackend
 from fastapi_featureflags import router as ff_router
 from fastmcp import FastMCP
+from fastmcp.server.providers.openapi.routing import MCPType
+from fastmcp.utilities.openapi.models import HTTPRoute
 from prometheus_client import make_asgi_app
 from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic.json_schema import PydanticJsonSchemaWarning
@@ -289,7 +292,6 @@ def initialize_api(app):
                 "/metrics",
                 "/health",
                 "/healthz",
-                "/version",
                 "/v1/version",
                 "/v2/version",
                 "openapi.json",
@@ -305,25 +307,6 @@ def initialize_api(app):
 
     # Setting OpenTelemetry exporter
     setting_otlp(app, APP_NAME, OTLP_GRPC_ENDPOINT)
-
-    @tracer.wrap()
-    def _version(request: Request):
-        return {"version": request.app.version}
-
-    class VersionedAPIRouter(APIRouter):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args)
-            self.add_api_route(
-                "/version",
-                _version,
-                methods=["GET"],
-            )
-
-    v0_router = VersionedAPIRouter(
-        prefix="/" + APP_PREFIX_VERSION,
-    )
-
-    app.include_router(v0_router)
 
     # Add prometheus asgi middleware to route /metrics requests
     # metrics_app = make_asgi_app()
@@ -404,8 +387,30 @@ app = FastAPI(
 
 initialize_api(app)
 
+_MCP_ALLOWED_ROUTES: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("GET", "/test/users/current"),
+        ("GET", "/test/users/{user_id}"),
+        ("POST", "/v1/tavily/search"),
+        ("POST", "/v1/brave/search"),
+        ("POST", "/v1/google/search"),
+        ("GET", "/v2/version"),
+    },
+)
+
+
+def _mcp_openapi_route_filter(route: HTTPRoute, default_type: MCPType) -> MCPType | None:
+    if (route.method, route.path) in _MCP_ALLOWED_ROUTES:
+        return None
+    return MCPType.EXCLUDE
+
+
 # Convert to MCP server, see https://gofastmcp.com/integrations/fastapi
-mcp = FastMCP.from_fastapi(app=app, name="Sample MCP")
+mcp = FastMCP.from_fastapi(
+    app=app,
+    name="mcp",
+    route_map_fn=_mcp_openapi_route_filter,
+)
 
 # 2. Create the MCP's ASGI app
 mcp_app = mcp.http_app(path="/mcp")
@@ -413,19 +418,13 @@ mcp_app = mcp.http_app(path="/mcp")
 if not UNLEASH_ENABLED or client.is_enabled("mcp"):
     app.mount("/llm", mcp_app)
     # Now you have:
-    # - Regular API: http://localhost:8091/version
+    # - Regular API: http://localhost:8091/v2/version
     # - LLM-friendly MCP: http://localhost:8091/llm/mcp/
     # Both served from the same FastAPI application!
 elif not UNLEASH_ENABLED:
     logger.warning("MCP feature not enabled because UNLEASH_ENABLED is set.")
 else:
     logger.warning("Feature flag : mcp is not enabled")
-
-
-# Static resource
-@mcp.resource("config://version")
-def get_version():
-    return APP_VERSION
 
 
 @app.middleware("http")
@@ -587,8 +586,9 @@ def get_item(item_id: int):
 
 
 @app.get("/api", response_class=HTMLResponse)
-def read_root():
+def read_root(request: Request):
     TITLE_SUFFIX = os.getenv("TITLE")
+    app_version = html.escape(str(request.app.version))
     return (
         """
     <!DOCTYPE html>
@@ -873,6 +873,9 @@ def read_root():
                 <h1>Vercel + FastAPI """
         + str(TITLE_SUFFIX)
         + """</h1>
+                <p class="subtitle" style="margin-top: -0.5rem;">App version : <strong>"""
+        + app_version
+        + """</strong></p>
                 <div class="hero-code">
                     <pre><code><span class="keyword">from</span> <span class="module">fastapi</span> <span class="keyword">import</span> <span class="class">FastAPI</span>
 

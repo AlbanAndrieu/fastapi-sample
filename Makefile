@@ -193,7 +193,7 @@ up-gunicorn:
 .PHONY: up-mcp
 up-mcp:
 	@echo "up mcp http://0.0.0.0:8000/mcp"
-	fastmcp run server_mcp.py
+	uv run fastmcp run server_mcp.py
 
 ## —— Up ✅ —————————————————————————————————————————————————————————————————
 .PHONY: up

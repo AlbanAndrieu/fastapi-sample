@@ -18,7 +18,7 @@ class BraveSearchBody(BaseModel):
     count: int = Field(default=10, ge=1, le=20, description="Number of results.")
 
 
-@router.post("/search")
+@router.post("/search", operation_id="brave")
 def post_brave_search(body: BraveSearchBody) -> dict[str, Any]:
     """Perform a Brave Web Search (requires ``BRAVE_API_KEY``)."""
     try:

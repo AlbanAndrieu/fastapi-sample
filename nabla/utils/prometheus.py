@@ -157,7 +157,7 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
             "/v1/ping",
             "/v2/ping",
             "/docs",
-            "/version",
+            "/v2/version",
             "io_task",
             "cpu_task",
             "server-status",

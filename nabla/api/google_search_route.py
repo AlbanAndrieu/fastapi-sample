@@ -23,7 +23,7 @@ class GoogleSearchBody(BaseModel):
     )
 
 
-@router.post("/search")
+@router.post("/search", operation_id="google")
 def post_google_search(body: GoogleSearchBody) -> dict[str, Any]:
     """Perform a Google Custom Search (requires ``GOOGLE_SEARCH_API_KEY`` and cx)."""
     try:

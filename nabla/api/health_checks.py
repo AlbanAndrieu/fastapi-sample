@@ -325,4 +325,4 @@ async def build_healthz_payload(request: Request, *, redis_client: Any, engine: 
         "pyroscope": pyroscope_check,
     }
     checks = {name: _normalize_probe_result_errors(ch) for name, ch in checks.items()}
-    return {**base, "checks": checks}
+    return {**base, "checks": checks, "version": request.app.version}

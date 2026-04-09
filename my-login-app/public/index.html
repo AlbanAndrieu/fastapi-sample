@@ -31,13 +31,13 @@
     <h2>Application Version</h2>
     <p>Current version: <span id="version">Loading...</span></p>
     <script>
-      fetch("/version")
+      fetch("/v2/version")
         .then((response) => {
           if (!response.ok) throw new Error("Network response was not ok");
-          return response.text(); // or `.json()` if JSON response
+          return response.json();
         })
         .then((data) => {
-          document.getElementById("version").textContent = data;
+          document.getElementById("version").textContent = data.version;
         })
         .catch((error) => {
           document.getElementById("version").textContent = "Error loading version";

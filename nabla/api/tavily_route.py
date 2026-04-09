@@ -20,7 +20,7 @@ class TavilySearchBody(BaseModel):
     )
 
 
-@router.post("/search")
+@router.post("/search", operation_id="tavily")
 def post_tavily_search(body: TavilySearchBody) -> dict[str, Any]:
     """Perform a Tavily search (requires ``TAVILY_API_KEY``)."""
     try:
