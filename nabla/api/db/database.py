@@ -15,6 +15,7 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlmodel import Session as SQLModelSession
 
 from nabla.config_settings import get_settings
+from nabla.db_config import get_sqlalchemy_psycopg_connect_args
 from nabla.utils.logger import logger
 
 _settings = get_settings()
@@ -81,10 +82,13 @@ def get_engine() -> Engine:
     # Create a SQLAlchemy engine without connection pool
     # Used by pytest
     # Sync engine uses migration URL (direct session when POSTGRES_MIGRATION_* set).
+    connection_query = _settings.postgres_migration_query or _settings.postgres_query
+    connect_args = get_sqlalchemy_psycopg_connect_args(connection_query)
     return create_engine(
         url=MIGRATION_DB_URL,
         json_serializer=orjson_serializer,
         json_deserializer=orjson.loads,
+        connect_args=connect_args,
     )
 
 
