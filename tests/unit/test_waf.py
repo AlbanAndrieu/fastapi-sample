@@ -19,16 +19,14 @@ def test_ff_working() -> None:
     """It runs and should be blocked by WAF."""
 
     FeatureFlags()
-    FeatureFlags.load_conf_from_dict({"web_only": False, "web_1": True, "web_2": False, "web_3": True, "web_4": False})
+    FeatureFlags.load_conf_from_dict(
+        {
+            "rate_limiter": True,
+            "mcp": False,
+        },
+    )
     FeatureFlags.reload_feature_flags()
     print("Enabled Features:", FeatureFlags.get_features())
 
-    if FeatureFlags.is_enabled("web_only"):
-        print("Web 1 is enabled")
-    else:
-        print("Web 1 is disabled")
-
-    assert FeatureFlags.is_enabled("web_1")
-    assert not FeatureFlags.is_enabled("web_2")
-    assert FeatureFlags.is_enabled("web_3")
-    assert not FeatureFlags.is_enabled("web_4")
+    assert FeatureFlags.is_enabled("rate_limiter")
+    assert not FeatureFlags.is_enabled("mcp")
