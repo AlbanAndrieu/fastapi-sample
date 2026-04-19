@@ -359,6 +359,30 @@ class _Settings(BaseSettings):
             ),
         ),
     ]
+    appwrite_endpoint: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            description="Appwrite API endpoint, e.g. https://<region>.cloud.appwrite.io/v1",
+            validation_alias=AliasChoices("APPWRITE_ENDPOINT"),
+        ),
+    ]
+    appwrite_project_id: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            description="Appwrite project ID.",
+            validation_alias=AliasChoices("APPWRITE_PROJECT_ID"),
+        ),
+    ]
+    appwrite_api_key: Annotated[
+        Optional[SecretStr],
+        Field(
+            default=None,
+            description="Appwrite server API key.",
+            validation_alias=AliasChoices("APPWRITE_API_KEY"),
+        ),
+    ]
 
     azure_openai_instance: dict[str, AzureOpenAiInstance] = {}
 

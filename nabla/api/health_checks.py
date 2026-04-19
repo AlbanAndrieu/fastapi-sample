@@ -28,6 +28,7 @@ from nabla.config_settings import (
 )
 from nabla.integrations.brave_search import _BRAVE_WEB_SEARCH_URL
 from nabla.integrations.google_programmable_search import _GOOGLE_CSE_URL
+from nabla.integrations.appwrite_client import appwrite_health
 from nabla.integrations.tavily_search import get_tavily_client
 
 
@@ -186,6 +187,23 @@ def probe_google_cse() -> dict[str, Any]:
     return {"reachable": response.status_code < 500, "http_status": response.status_code}
 
 
+def probe_appwrite_health() -> dict[str, Any]:
+    try:
+        appwrite_health()
+    except RuntimeError as exc:
+        message = str(exc)
+        if "must be configured" in message or "not installed" in message:
+            return {
+                "reachable": None,
+                "skipped": True,
+                "reason": message,
+            }
+        return {"reachable": False, "error": _normalize_probe_error(message)}
+    except Exception as exc:
+        return {"reachable": False, "error": _normalize_probe_error(str(exc))}
+    return {"reachable": True}
+
+
 def probe_keycloak_well_known() -> dict[str, Any]:
     try:
         cfg = get_openid_config()
@@ -291,6 +309,7 @@ async def build_healthz_payload(request: Request, *, redis_client: Any, engine: 
         tavily_check,
         brave_check,
         google_check,
+        appwrite_check,
         keycloak_check,
         unleash_check,
         sentry_check,
@@ -304,6 +323,7 @@ async def build_healthz_payload(request: Request, *, redis_client: Any, engine: 
         run_in_threadpool(probe_tavily_search),
         run_in_threadpool(probe_brave_search),
         run_in_threadpool(probe_google_cse),
+        run_in_threadpool(probe_appwrite_health),
         run_in_threadpool(probe_keycloak_well_known),
         run_in_threadpool(probe_unleash_client_features),
         run_in_threadpool(probe_sentry_ingest_host),
@@ -318,6 +338,7 @@ async def build_healthz_payload(request: Request, *, redis_client: Any, engine: 
         "tavily": tavily_check,
         "brave": brave_check,
         "google": google_check,
+        "appwrite": appwrite_check,
         "keycloak": keycloak_check,
         "unleash": unleash_check,
         "sentry": sentry_check,
