@@ -1,43 +1,20 @@
-import os
 import random
 import secrets
 from typing import Optional
 from uuid import uuid4
 
-import requests
-from fastapi import APIRouter, HTTPException, status
-from redis.exceptions import RedisError
 from fastapi_cache.decorator import cache
-from fastapi_featureflags import FeatureFlags, feature_enabled, feature_flag
+from fastapi import APIRouter
+from redis.exceptions import RedisError
 
 # from fastapi_mail import FastMail, MessageSchema, MessageType
-from fastmcp import FastMCP
-from opentelemetry import trace
-from opentelemetry.trace.status import Status, StatusCode
 
 from nabla.api.demo.socket.redis import REDIS_CHANNEL, redis
 from nabla.auth.controller import AuthController
 from nabla.utils.logger import logger
-from nabla.utils.misc import timed_operation
 from nabla.utils.prometheus import API_REQUEST_COUNTER, API_REQUEST_SUMMARY
 
 router = APIRouter()
-
-mcp = FastMCP(name="DemoServer")
-
-# TODO switch to unleash feature flagq
-FeatureFlags()
-# FeatureFlags.load_conf_from_url("https://pastebin.com/raw/4Ai3j2DC")
-FeatureFlags.load_conf_from_dict({"web_only": False, "web_1": True, "web_2": False, "web_3": True, "web_4": False})
-FeatureFlags.reload_feature_flags()
-print("Enabled Features:", FeatureFlags.get_features())
-
-# The demo sample project to test the tracing
-DEMO_SAMPLE_URL = os.environ.get(
-    "DEMO_SAMPLE_URL",
-    "http://test-haproxy-demo-ateam.service.gra.dev.consul",
-)
-
 
 POOL = list(range(1, 7))
 SIZE = 4
@@ -52,7 +29,6 @@ def uniform_secret():
     # return random.uniform(0, 3)  # nosec
 
 
-@feature_flag("web_1")
 @cache()
 @router.get("/demo/random")
 async def demo_random():
@@ -75,7 +51,6 @@ async def demo_random():
         return str(uuid4())  # Fallback to uuid on connection error
 
 
-@feature_flag("web_1")
 @router.get("/demo/items/{item_id}")
 async def read_item(item_id: int, q: Optional[str] = None):
     logger.info(f"Get items : {item_id}")  # [logging-fstring-interpolation]
@@ -114,60 +89,6 @@ async def read_item(item_id: int, q: Optional[str] = None):
     return {"item_id": item_id, "q": cached_value}
 
 
-# We are targetting direct demo hotrod service to test tracing
-@feature_flag("web_2")
-@router.get("/demo/dispatch/customer/{customer_id}")
-async def dispatch_customer(customer_id: int, q: Optional[str] = None):
-    with timed_operation("demo_dispatch_customer"):
-        try:
-            logger.info(
-                f"Dispatch customer : {customer_id}",
-            )  # [logging-fstring-interpolation]
-
-            # API_REQUEST_COUNTER.labels(
-            #     method="GET",
-            #     endpoint="/dispatch/customer/{customer_id}",
-            #     http_status=200,
-            # ).inc()
-            # API_REQUEST_SUMMARY.labels(
-            #     method="GET", endpoint="/dispatch/customer/{customer_id}"
-            # ).observe(0.1)
-
-            url = f"{DEMO_SAMPLE_URL}/dispatch?customer={customer_id}"
-            response = requests.request("GET", url, timeout=1, verify=False)
-
-            response.raise_for_status()
-            logger.info(f"Dispatch customer response is : {response.json()}")
-
-            return {response.json()["ETA"]}
-        except Exception as ex:
-            logger.error(f"Error while dispatching customer due to: {ex}")
-            span = trace.get_current_span()
-
-            # generate random number
-            seconds = uniform_secret()
-
-            # record_exception converts the exception into a span event.
-            exception = IOError("Failed at " + str(seconds))
-            span.record_exception(exception)
-            span.set_attributes({"est": True})
-            # Update the span status to failed.
-            span.set_status(Status(StatusCode.ERROR, "internal error"))
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Got sadness",
-            ) from ex
-        finally:
-            logger.info("Dispatch customer done")
-
-
-# DEMO_SAMPLE_URL "http://test-haproxy-demo-ateam.service.gra.dev.consul"
-# http://frontnuxt-stats.service.gra.uat.consul/health
-# http://frontnuxt-stats.service.gra.uat.consul/?stats;csv
-# http://test-haproxy-stats-ateam.service.gra.dev.consul/dev?stats;csv
-# http://test-haproxy-webapp-prometheus-ateam.service.gra.dev.consul/metrics
-
-
 @router.get("/demo/auth")
 def root():
     logger.info("Hello")
@@ -175,59 +96,6 @@ def root():
     Root endpoint that provides a welcome message and documentation link.
     """
     return AuthController.read_root()
-
-
-# We are targetting dev service
-@feature_flag("web_4")
-@router.get("/demo/dev/heatlh")
-async def demo_dev_health():
-    if feature_enabled("web_3"):
-        with timed_operation("demo_dev_health"):
-            try:
-                logger.info("Test demo service health")  # [logging-fstring-interpolation]
-
-                response = requests.request(
-                    "GET",
-                    "http://frontnuxt-stats.service.gra.dev.consul/health",
-                    timeout=1,
-                )
-
-                response.raise_for_status()
-                logger.info("Demo response is : %s", response.json())
-
-                return {response.json()}
-            except Exception as ex:
-                logger.error(f"Error while dispatching customer due to: {ex}")
-                span = trace.get_current_span()
-
-                # generate random number
-                seconds = uniform_secret()
-
-                # record_exception converts the exception into a span event.
-                exception = IOError("Failed at " + str(seconds))
-                span.record_exception(exception)
-                span.set_attributes({"est": True})
-                # Update the span status to failed.
-                span.set_status(Status(StatusCode.ERROR, "internal error"))
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Got sadness",
-                ) from ex
-            finally:
-                logger.info("Test demo service health done")
-
-
-@feature_flag("web_4")
-@router.get("/demo/internal-api/")
-def demo_internal_api():
-    logger.info("Dispatch customer (for tracing)")
-
-    customer_ids = [123, 392, 731, 567]
-    for customer_id in customer_ids:
-        dp_customer_id = dispatch_customer(customer_id)
-        logger.info(f"Dispatched customer : {dp_customer_id}")
-
-    return status.HTTP_200_OK
 
 
 # @router.post("/demo/email")
