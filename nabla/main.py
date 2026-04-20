@@ -28,7 +28,6 @@ from fastapi.responses import (
 from fastapi.templating import Jinja2Templates
 from fastapi_cache import FastAPICache
 from fastapi_cache.backends.inmemory import InMemoryBackend
-from fastapi_featureflags import router as ff_router
 from fastmcp import FastMCP
 from fastmcp.server.providers.openapi.routing import MCPType
 from fastmcp.utilities.openapi.models import HTTPRoute
@@ -359,9 +358,6 @@ def initialize_api(app):
     app.include_router(keycloak.router, tags=["keycloak"])
     app.include_router(users.router, tags=["users"])
     app.include_router(sensor.router, tags=["sensor"])
-
-    if os.getenv("DEBUG"):
-        app.include_router(ff_router, prefix="/ff", tags=["FeatureFlags"])
 
     app.add_api_websocket_route("/ws/sensor", websocket_endpoint)
 
