@@ -21,26 +21,6 @@ services:
     # command: ["redis-server", "--port", "7379"]
 
 include:
-  - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
-    file: "/templates/default.gitlab-ci.yml"
-
-  - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
-    file: "/templates/deploy-nomad.gitlab-ci.yml"
-
-  - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
-    file: "/templates/javascript.gitlab-ci.yml"
-
-  - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
-    file: "/templates/data.gitlab-ci.yml"
-
-  - project: jusmundi-group/infrastructure/ci-templates
-    ref: main
-    file: "/templates/mega-linter.gitlab-ci.yml"
-
   # - component: $CI_SERVER_FQDN/guided-explorations/ci-components/ultimate-auto-semversioning/ultimate-auto-semversioning@1.2.8
 
   - component: $CI_SERVER_FQDN/to-be-continuous/semantic-release/gitlab-ci-semrel@3.11.2
@@ -77,6 +57,7 @@ include:
   - template: Jobs/Dependency-Scanning.gitlab-ci.yml
 
   - template: Security/SAST-IaC.latest.gitlab-ci.yml
+  - template: Jobs/Secret-Detection.gitlab-ci.yml
 
   - component: $CI_SERVER_FQDN/components/code-quality-oss/codequality-os-scanners-integration/codequality-oss@1.1.5
   - component: $CI_SERVER_FQDN/components/code-quality-oss/codequality-os-scanners-integration/tflint@1.1.5
@@ -115,10 +96,7 @@ variables:
   PROJECT_PYTHON_VERSION: "3.12"
   CI_IMAGE_NPM: node:24-alpine # 24.11-alpine3.23
   APP_NAME: fastapi-sample
-  # CI_REGISTRY: registry.gitlab.com
-  CI_REGISTRY: 783876277037.dkr.ecr.eu-west-3.amazonaws.com
-  # OCI_REGISTRY: ${CI_REGISTRY}/${CI_PROJECT_NAMESPACE}
-  OCI_REGISTRY: ${CI_REGISTRY}
+  # Container images: GitLab Container Registry (CI_REGISTRY / CI_REGISTRY_IMAGE are predefined)
   TYPE_TRAINING: ""
   # MOUNT_POINT: "/builds/$CI_PROJECT_PATH/mnt"
   CI_IMAGE_NAME: registry.gitlab.com/jusmundi-group/web/templates/jm-oci/jm-ubuntu
@@ -150,9 +128,6 @@ variables:
   CLOC_SOURCE: "nabla"
   # RUNNER_GENERATE_ARTIFACTS_METADATA: "true"
   # FF_NETWORK_PER_BUILD: "true" # enable network per build so all services can communicate on the same network
-  NOMAD_ENV_DEPLOY: "-var env=${ENV} -var team=${ENV}"
-  NOMAD_SERVICE_DEPLOY_URL_SUFFIX: docs # citemap/ping
-  NOMAD_SERVICE_DEPLOY_URL: http://${APP_NAME}.service.gra.${ENV}.consul/${NOMAD_SERVICE_DEPLOY_URL_SUFFIX}
   DEFAULT_UV_TEST_GROUP: "test"
   DEPENDENCY_UPDATES_DISABLED: false
   # GIT_CLONE_PATH: '$CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_PIPELINE_ID'
@@ -167,8 +142,9 @@ variables:
   DOCKER_BUILD_OPT: "--secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --build-arg ENV=${ENV}"
   DOCKER_BUILD_PATH: "."
   # Build the fully-qualified image name (including the registry server prefix), but without the ":version" suffix
-  IMAGE_BASE_TAG: "registry.gitlab.com/${CI_PROJECT_NAMESPACE}/fastapi-sample"
-  # CONTAINER_IMAGE: ${IMAGE_BASE_TAG}:latest
+  IMAGE_BASE_TAG: "${CI_REGISTRY_IMAGE}"
+  # Built app image (optional); train-commit-activated falls back to CI_IMAGE_PYTHON if unset in runner env
+  CONTAINER_IMAGE: "${CI_IMAGE_PYTHON}"
   # Complement the base tag with various versions, one per image target/stage. We use the CI_COMMIT_REF_SLUG (which is
   # basically the branch/tag name, but slugified) to ensure that the cache images are also different for each branch.
   # This is done because the code that we compile/build/test in any specific branch might be different (from the
@@ -181,14 +157,14 @@ variables:
   API_REPORTER_BEARER_TOKEN: ""
   DEFAULT_COV_ARGS: "--no-ddtrace --no-cov" # --cov-fail-under=1
   # NETLIFY_SITE_ID: '8dc3759f-f33d-424d-9300-d21f859ca183'
-  DAST_TARGET_URL: https://fastapi-sample.service.gra.${ENV}.consul
-  DAST_AUTH_URL: "https://fastapi-sample.service.gra.${ENV}.consul/login"
+  DAST_TARGET_URL: "${VERCEL_PRODUCTION_URL}"
+  DAST_AUTH_URL: "${VERCEL_PRODUCTION_URL}/login"
   DAST_BROWSER_SCAN: "true" # use the browser-based GitLab DAST crawler
   DAST_FULL_SCAN_ENABLED: "true"
   # DAST_AUTH_USERNAME: “john”
   # DAST_AUTH_PASSWORD: “P@ssw0rd”
-  FUZZAPI_TARGET_URL: https://fastapi-sample.service.gra.${ENV}.consul/openapi.json
-  FUZZAPI_OPENAPI: https://fastapi-sample.service.gra.${ENV}.consul/openapi.json
+  FUZZAPI_TARGET_URL: "${VERCEL_PRODUCTION_URL}/openapi.json"
+  FUZZAPI_OPENAPI: "${VERCEL_PRODUCTION_URL}/openapi.json"
   FUZZAPI_PROFILE: Quick-10
   CONTAINER_SCANNING_DISABLED: false
   CUSTOM_CONTAINER_SCANNING_DISABLED: "true"
@@ -210,6 +186,130 @@ variables:
   SECRET_DETECTION_HISTORIC_SCAN: false
   IGNORE_NORMALISATION_GIT_HEAD_MOVE: "true"
   MEGALINTER_IMAGE_TAG: "v9.2.0"
+  # Vercel (set in GitLab CI/CD variables): VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID
+  VERCEL_TELEMETRY_DISABLED: "1"
+  # Optional: production site URL for DAST / API fuzzing (e.g. https://your-app.vercel.app)
+  VERCEL_PRODUCTION_URL: ""
+
+# -----------------------------------------------------------------------------
+# Local replacements for removed jusmundi-group/infrastructure/ci-templates
+# (default, deploy-nomad, javascript, data, mega-linter).
+# Docker build uses Docker-in-Docker; runners must allow privileged services.
+# -----------------------------------------------------------------------------
+.default_rules:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+
+.login-registry:
+  script:
+    - docker push "${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}"
+    - |
+      if [ "${CI_COMMIT_BRANCH}" = "${CI_DEFAULT_BRANCH}" ]; then
+        docker tag "${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}" "${CI_REGISTRY_IMAGE}:latest"
+        docker push "${CI_REGISTRY_IMAGE}:latest"
+      fi
+
+.docker-build:
+  stage: build
+  interruptible: true
+  image: docker:27-git
+  services:
+    - name: docker:27-dind
+      alias: docker
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+    APP: "${APP_NAME}"
+  before_script:
+    - apk add --no-cache bash gettext
+    - !reference [.login-gitlab-registry, script]
+  script:
+    - !reference [.build-image-dockefile, script]
+
+.install-npm:
+  stage: static
+  image: ${CI_IMAGE_NPM}
+  interruptible: true
+  script:
+    - |
+      if [ -f yarn.lock ]; then
+        yarn install --frozen-lockfile
+      elif [ -f package-lock.json ]; then
+        npm ci --cache .npm --prefer-offline --no-audit || npm install --cache .npm --prefer-offline --no-audit
+      else
+        npm install --cache .npm --prefer-offline --no-audit
+      fi
+
+.lint-eslint-npm:
+  stage: static
+  image: ${CI_IMAGE_NPM}
+  interruptible: true
+  needs:
+    - job: install-npm
+      artifacts: false
+  dependencies: []
+
+.publish-npm:
+  stage: publish
+  image: ${CI_IMAGE_NPM}
+  interruptible: true
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+.mega_linter_common:
+  stage: static
+  image:
+    name: oxsecurity/megalinter:v9.2.0
+    entrypoint: [""]
+  variables:
+    DEFAULT_WORKSPACE: $CI_PROJECT_DIR
+    APPLY_FIXES: none
+    FAIL_IF_UPDATED_SOURCES: "true"
+  interruptible: true
+  script:
+    - bash /entrypoint.sh
+
+.code_quality:
+  stage: test
+  image: ${CI_IMAGE_PYTHON}
+  interruptible: true
+
+.vercel_deploy:
+  stage: deploy
+  image: ${CI_IMAGE_NPM}
+  interruptible: true
+  variables:
+    VERCEL_DEPLOY_PROD: "false"
+  cache:
+    <<: *global_cache
+  before_script:
+    - |
+      for v in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+        eval "val=\${$v}"
+        if [ -z "$val" ]; then
+          echo "Missing required CI/CD variable for Vercel: $v"
+          exit 1
+        fi
+      done
+    - apk add --no-cache libc6-compat python3 make g++ || true
+    - |
+      if [ -f package-lock.json ]; then
+        npm ci --cache .npm --prefer-offline --no-audit
+      elif [ -f yarn.lock ]; then
+        corepack enable
+        corepack prepare yarn@stable --activate
+        yarn install --frozen-lockfile
+      fi
+  script:
+    - npx vercel pull --yes --environment="${VERCEL_REMOTE_ENV}" --token="${VERCEL_TOKEN}"
+    - npx vercel build --token="${VERCEL_TOKEN}"
+    - |
+      if [ "${VERCEL_DEPLOY_PROD}" = "true" ]; then
+        npx vercel deploy --prebuilt --prod --token="${VERCEL_TOKEN}"
+      else
+        npx vercel deploy --prebuilt --token="${VERCEL_TOKEN}"
+      fi
 
 .renovate:
   cache:
@@ -310,8 +410,6 @@ lint-ruff:
   allow_failure: true
   stage: static
   needs: []
-  tags:
-    - jusmundi-nomad-runner
   script:
     - pip install --upgrade uv
     - uv sync --frozen --group format
@@ -330,9 +428,7 @@ lint-ruff:
 type-checker-pyright:
   stage: static
   needs: []
-  tags:
-    - jusmundi-nomad-runner
-  image: $CI_IMAGE
+  image: $CI_IMAGE_PYTHON
   interruptible: true
   allow_failure: true
   script:
@@ -371,8 +467,6 @@ test-pytest-poetry:
   needs: ["lint-ruff", "type-checker-pyright"]
   stage: test
   interruptible: true
-  tags:
-    - jusmundi-nomad-runner
   variables:
     PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
     # DEFAULT_COV_ARGS: "--cov-fail-under=1" # We need to increase the test coverage
@@ -419,8 +513,6 @@ test-pytest-poetry:
   stage: test
   needs: []
   interruptible: true
-  tags:
-    - jusmundi-nomad-runner
   image: $CI_IMAGE_PYTHON
   allow_failure: false
   variables:
@@ -498,14 +590,10 @@ test-pytest:
         coverage_format: cobertura
         path: coverage.xml
 
-.login-ecr-docker: &login-ecr-docker
+.login-gitlab-registry: &login-gitlab-registry
   script:
-    - echo "AWS_ACCESS_KEY_ID ${AWS_ACCESS_KEY_ID} and AWS_DEFAULT_REGION ${AWS_DEFAULT_REGION} and AWS_REGION ${AWS_REGION}"
-    - aws ecr get-login-password --region ${AWS_REGION:-"eu-west-3"} | docker login --username AWS --password-stdin ${OCI_REGISTRY:-"783876277037.dkr.ecr.eu-west-3.amazonaws.com"}
-
-.login-gitlab: &login-gitlab
-  script:
-    - echo "Login to gitlab default ${OCI_REGISTRY}/${APP_IMAGE} - $CI_REGISTRY_USER Disable"
+    - echo "Logging in to GitLab Container Registry ${CI_REGISTRY}"
+    - echo "${CI_JOB_TOKEN}" | docker login -u "${CI_REGISTRY_USER}" --password-stdin "${CI_REGISTRY}"
 
 # .build-image-dockefile-pre: &build-image-dockefile-pre
 #   script:
@@ -517,16 +605,14 @@ test-pytest:
     - echo -e "\e[35mStarting docker\e[0m FOR \e[43m${ENV}.\e[0m"
     - |
       envsubst < etc/pip.conf > pip.conf || true
-      echo -e "\e[35mBuilding with docker build ${DOCKER_BUILD_OPT} -t ${OCI_REGISTRY}/${OCI_IMAGE} ${DOCKER_BUILD_PATH}\e[0m ."
-      docker build ${DOCKER_BUILD_OPT} -t ${OCI_REGISTRY}/${OCI_IMAGE} ${DOCKER_BUILD_PATH}
+      echo -e "\e[35mBuilding with docker build ${DOCKER_BUILD_OPT} -t ${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA} ${DOCKER_BUILD_PATH}\e[0m ."
+      docker build ${DOCKER_BUILD_OPT} -t "${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}" ${DOCKER_BUILD_PATH}
       echo -e "\e[102mDocker image build succesfull\e[0m .";
-    - export TRIVY_OCI="${OCI_REGISTRY}/${OCI_IMAGE}"
+    - export TRIVY_OCI="${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}"
     - !reference [.login-registry, script]
 
 docker-build:
   extends: .docker-build
-  variables:
-    APP_IMAGE: $APP
 
 # See https://docs.gitlab.com/user/packages/npm_registry/?tab=%60npm+config%60#publish-a-package-with-a-cicd-pipeline
 install-npm:
@@ -570,8 +656,6 @@ lint-eslint-npm:
 mega_linter:
   extends: .mega_linter_common
   needs: ["test-pytest"]
-  tags:
-    - jusmundi-nomad-runner
   allow_failure: false
 
 code_quality:
@@ -641,8 +725,6 @@ publish-npm:
   needs: ["install-npm"]
   dependencies:
     - install-npm
-  tags:
-    - jusmundi-nomad-runner
   script:
     # If no .npmrc is included in the repo, generate a temporary one that is configured to publish to GitLab's NPM registry
     - |
@@ -683,28 +765,37 @@ publish-npm:
         echo "Version ${NPM_PACKAGE_VERSION} of ${NPM_PACKAGE_NAME} has already been published, so no new version has been published."
       fi
 
-deploy:dev:
-  extends: .deploy:dev
-  needs: ["docker-build"]
-  tags:
-    - jusmundi-nomad-runner
+# Vercel: set CI/CD variables VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID (see Vercel project Settings → General).
+# Branches: develop|dev → development, staging|uat → preview env, default branch → production (--prod).
+deploy:vercel:dev:
+  extends: .vercel_deploy
+  variables:
+    VERCEL_REMOTE_ENV: development
+    VERCEL_DEPLOY_PROD: "false"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_COMMIT_BRANCH == "dev"
 
-deploy:uat:
-  extends: .deploy:uat
-  needs: ["docker-build"]
-  tags:
-    - jusmundi-nomad-runner
+deploy:vercel:uat:
+  extends: .vercel_deploy
+  variables:
+    VERCEL_REMOTE_ENV: preview
+    VERCEL_DEPLOY_PROD: "false"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "staging"
+    - if: $CI_COMMIT_BRANCH == "uat"
 
-deploy:prod:
-  extends: .deploy:prod
-  tags:
-    - jusmundi-nomad-runner
+deploy:vercel:prod:
+  extends: .vercel_deploy
+  variables:
+    VERCEL_REMOTE_ENV: production
+    VERCEL_DEPLOY_PROD: "true"
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
 dast:
   # dependencies: ["pages-deploy"]
   stage: dast
-  tags:
-    - jusmundi-nomad-runner
   variables:
     # DAST_TARGET_URL: "https://fastapi-sample.service.gra.${ENV}.consul"
     # DAST_AUTH_URL: "https://fastapi-sample.service.gra.${ENV}.consul/login"
@@ -714,7 +805,7 @@ dast:
     # DAST_TARGET_CHECK_TIMEOUT: "5m"  # Wait up to 5 minutes
     # DAST_AUTH_COOKIE_NAMES: "sessionID,refreshToken"
     # DAST_AUTH_SUCCESS_IF_AT_URL: "https://fastapi-sample.service.gra.${ENV}.consul/admin"
-    DAST_SCOPE_EXCLUDE_URLS: "https://fastapi-sample.service.gra.${ENV}.consul/logout,/user/.*/logout"
+    DAST_SCOPE_EXCLUDE_URLS: "${VERCEL_PRODUCTION_URL}/logout,/user/.*/logout"
     # DAST_BROWSER_SCAN: "true" # use the browser-based GitLab DAST crawler
     DAST_PAGE_READY_AFTER_NAVIGATION_TIMEOUT: "45s"
     DAST_PAGE_READY_AFTER_ACTION_TIMEOUT: "15s"
