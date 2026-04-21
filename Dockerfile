@@ -104,9 +104,9 @@ ENV NODE_VERSION=${NODE_FULL_VERSION}
 COPY --from=node-upstream /usr/local/lib/node_modules /usr/local/lib/node_modules
 COPY --from=node-upstream /usr/local/include/node /usr/local/include/node
 COPY --from=node-upstream /usr/local/bin/node /usr/local/bin/node
-COPY --from=node-upstream /usr/local/bin/npm /usr/local/bin/npm
-COPY --from=node-upstream /usr/local/bin/npx /usr/local/bin/npx
-COPY --from=node-upstream /usr/local/bin/corepack /usr/local/bin/corepack
+RUN ln -sf ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \
+  ln -sf ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx && \
+  ln -sf ../lib/node_modules/corepack/dist/corepack.js /usr/local/bin/corepack
 
 RUN npm set progress=false && \
   npm config set depth 0 && \
@@ -211,9 +211,9 @@ ENV NODE_VERSION=${NODE_FULL_VERSION}
 COPY --from=node-upstream /usr/local/lib/node_modules /usr/local/lib/node_modules
 COPY --from=node-upstream /usr/local/include/node /usr/local/include/node
 COPY --from=node-upstream /usr/local/bin/node /usr/local/bin/node
-COPY --from=node-upstream /usr/local/bin/npm /usr/local/bin/npm
-COPY --from=node-upstream /usr/local/bin/npx /usr/local/bin/npx
-COPY --from=node-upstream /usr/local/bin/corepack /usr/local/bin/corepack
+RUN ln -sf ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \
+  ln -sf ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx && \
+  ln -sf ../lib/node_modules/corepack/dist/corepack.js /usr/local/bin/corepack
 
 RUN npm set progress=false && \
   npm config set depth 0 && \
