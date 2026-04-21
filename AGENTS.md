@@ -37,7 +37,7 @@ legal-research-assistant/
 │   └── ai/                     # All active application logic
 │       └── chat_completion.py  # Chat completion
 ├── scripts/                    # Various helper script
-├── docs/                       # Internal docs 
+├── docs/                       # Internal docs
 ├── data/                       # Local test datasets
 ├── pyproject.toml              # Dependencies + tool config
 ├── pyrightconfig.json          # Pyright basic mode config

@@ -356,6 +356,19 @@ wheels = [
 ]
 
 [[package]]
+name = "appwrite"
+version = "18.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/af/39/e438dd8781b02c6b9e3b8a809fe174aa584b5c3abd53840bb3de94580895/appwrite-18.0.0.tar.gz", hash = "sha256:1375d565f46048fb50394d9aefa62aca6d627c8f3c0c5f29831732f2172c36ef", size = 127580, upload-time = "2026-04-16T12:52:04.147Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3b/15/9318bb6e320489a2967e714a38976d9345c69c96e69347ef2de208a78fe9/appwrite-18.0.0-py3-none-any.whl", hash = "sha256:947a58e1537a0e4f1eb15abafba54dba5620ce720ff8266b29360fc59d1376c1", size = 218081, upload-time = "2026-04-16T12:52:02.487Z" },
+]
+
+[[package]]
 name = "apscheduler"
 version = "3.11.2"
 source = { registry = "https://pypi.org/simple" }
@@ -2398,6 +2411,7 @@ ai = [
 ]
 api = [
     { name = "ansicolors" },
+    { name = "appwrite" },
     { name = "arel" },
     { name = "asyevent" },
     { name = "httpx" },
@@ -2643,6 +2657,7 @@ ai = [
 ]
 api = [
     { name = "ansicolors", specifier = ">=1.1.8" },
+    { name = "appwrite", specifier = ">=18.0.0" },
     { name = "arel", specifier = ">=0.3.0" },
     { name = "asyevent", specifier = ">=0.2.10" },
     { name = "httpx", specifier = ">=0.28.1" },
