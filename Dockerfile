@@ -1,5 +1,10 @@
 # syntax=docker/dockerfile:1
 
+# Active LTS Node; keep in sync with package.json engines. Override: --build-arg NODE_FULL_VERSION=24.12.0
+ARG NODE_FULL_VERSION=24.11.1
+# hadolint ignore=DL3007
+FROM node:${NODE_FULL_VERSION}-bookworm-slim AS node-upstream
+
 # dockerfile_lint - ignore
 # hadolint ignore=DL3007
 FROM python:3.12-slim AS python-base
@@ -82,6 +87,8 @@ ENV PYTHONUNBUFFERED=1 \
 # `builder-base` stage is used to build deps + create our virtual environment
 FROM python-base AS builder-base
 
+ARG NODE_FULL_VERSION=24.11.1
+
 # Explicitly set user/group IDs
 RUN groupadd -r jm-python --gid=999 && useradd -m -d ${PYSETUP_PATH} -r -g jm-python --uid=999 jm-python
 
@@ -90,19 +97,20 @@ RUN chown -R jm-python:jm-python ${PYSETUP_PATH}
 # copy project requirement files here to ensure they will be cached.
 WORKDIR ${PYSETUP_PATH}
 
-# This is used by nuxt, its dependencies require OpenSSLv2 where node v20 uses OpenSSLv3
-ARG NODE_VERSION=22
+# Node from official image (no curl to nodejs.org; survives corporate TLS / mirrors).
 ENV NODE_OPTIONS="--openssl-legacy-provider"
-ENV NODE_VERSION=${NODE_VERSION}
+ENV NODE_VERSION=${NODE_FULL_VERSION}
 
-# hadolint ignore=DL3008,DL3015,DL3006,DL4006
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-  --mount=type=cache,target=/var/lib/apt,sharing=locked \
-  curl -sL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - && \
-  apt-get update && apt-get install --no-install-recommends -y nodejs=${NODE_VERSION}* && apt-get clean && rm -rf /var/lib/apt/lists/* && \
-  npm set progress=false && \
+COPY --from=node-upstream /usr/local/lib/node_modules /usr/local/lib/node_modules
+COPY --from=node-upstream /usr/local/include/node /usr/local/include/node
+COPY --from=node-upstream /usr/local/bin/node /usr/local/bin/node
+COPY --from=node-upstream /usr/local/bin/npm /usr/local/bin/npm
+COPY --from=node-upstream /usr/local/bin/npx /usr/local/bin/npx
+COPY --from=node-upstream /usr/local/bin/corepack /usr/local/bin/corepack
+
+RUN npm set progress=false && \
   npm config set depth 0 && \
-  npm install -g npm@11.12.1 && apt-get purge -y npm
+  npm install -g npm@11.12.1
 
 COPY --chown=jm-python:jm-python package.json package-lock.json .npmrc ${PYSETUP_PATH}/
 
@@ -196,19 +204,20 @@ CMD ["/code/.venv/bin/uvicorn", "--reload", "server_all:app", "--host", "0.0.0.0
 FROM python-base AS production
 ENV FASTAPI_ENV=production
 
-# This is used by nuxt, its dependencies require OpenSSLv2 where node v20 uses OpenSSLv3
-ARG NODE_VERSION=20
+ARG NODE_FULL_VERSION=24.11.1
 ENV NODE_OPTIONS="--openssl-legacy-provider"
-ENV NODE_VERSION=${NODE_VERSION}
+ENV NODE_VERSION=${NODE_FULL_VERSION}
 
-# hadolint ignore=DL3008,DL3015,DL3006,DL4006
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-  --mount=type=cache,target=/var/lib/apt,sharing=locked \
-  curl -sL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - && \
-  apt-get update && apt-get install --no-install-recommends -y nodejs=${NODE_VERSION}* && apt-get clean && rm -rf /var/lib/apt/lists/* && \
-  npm set progress=false && \
+COPY --from=node-upstream /usr/local/lib/node_modules /usr/local/lib/node_modules
+COPY --from=node-upstream /usr/local/include/node /usr/local/include/node
+COPY --from=node-upstream /usr/local/bin/node /usr/local/bin/node
+COPY --from=node-upstream /usr/local/bin/npm /usr/local/bin/npm
+COPY --from=node-upstream /usr/local/bin/npx /usr/local/bin/npx
+COPY --from=node-upstream /usr/local/bin/corepack /usr/local/bin/corepack
+
+RUN npm set progress=false && \
   npm config set depth 0 && \
-  npm install -g npm@11.12.1 && apt-get purge -y npm
+  npm install -g npm@11.12.1
 
 # Explicitly set user/group IDs
 RUN groupadd -r jm-python --gid=999 && useradd -m -d ${PYSETUP_PATH} -r -g jm-python --uid=999 jm-python
