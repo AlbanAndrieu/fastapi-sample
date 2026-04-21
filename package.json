@@ -107,10 +107,6 @@
 	"remarkConfig": {
 		"plugins": ["remark-preset-lint-recommended"]
 	},
-	"publishConfig": {
-		"access": "restricted",
-		"@jusmundi-group:registry": "https://gitlab.com/api/v4/projects/46788175/packages/npm/"
-	},
 	"config": {
 		"commitizen": {
 			"path": "@commitlint/cz-commitlint",

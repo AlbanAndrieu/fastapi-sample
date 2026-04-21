@@ -21,8 +21,8 @@ _.file = "secrets-enc.yaml"
 PROJECT_NAME = "{{ config_root | basename }}"
 
 # API keys (must be set in environment or mise.local.toml)
-STATSIG_API_KEY = { required = true }
-SENTRY_DSN = { required = true }
+# STATSIG_API_KEY = { required = true }
+# SENTRY_DSN = { required = true }
 
 # Postgres (must be set in environment or mise.local.toml; no DATABASE_URL / DB_URL)
 POSTGRES_HOST = { required = "Set POSTGRES_HOST (e.g. localhost or db service name)" }

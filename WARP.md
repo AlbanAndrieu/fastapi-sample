@@ -4,7 +4,7 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
 
 ## Project Overview
 
-FastAPI-based sample application with real-time sensor monitoring, authentication, database integrations, and comprehensive observability. This is a production-grade FastAPI application designed for the JusMundi organization, featuring JWT authentication via Keycloak, PostgreSQL persistence, Redis for caching/WebSockets, and full monitoring with Datadog, Sentry, and Prometheus.
+FastAPI-based sample application with real-time sensor monitoring, authentication, database integrations, and comprehensive observability. This is a production-grade FastAPI application designed for the Nabla organization, featuring JWT authentication via Keycloak, PostgreSQL persistence, Redis for caching/WebSockets, and full monitoring with Datadog, Sentry, and Prometheus.
 
 ## Common Commands
 

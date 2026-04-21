@@ -33,17 +33,3 @@ pre-commit install
 
 nvm install lts/iron
 ```
-
-# Add user to gitlab
-
-[members-api](https://docs.gitlab.com/ee/api/members.html)
-
-[group-tech-8793233](https://gitlab.com/jusmundi-group/web)
-
-[thien-4827782](https://gitlab.com/ThienNhatVan)
-
-[amine-10886450](https://gitlab.com/hajali-amine)
-
-```
-curl --request DELETE --header "PRIVATE-TOKEN: ${GITLAB_FULL_PRIVATE_TOKEN}" "https://gitlab.com/api/v4/groups/8793233/billable_members/10886450"
-```
