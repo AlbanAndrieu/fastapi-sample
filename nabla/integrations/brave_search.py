@@ -7,16 +7,17 @@ from typing import Any
 import httpx
 
 from nabla.config_settings import get_settings
+from nabla.integrations.env_secrets import secret_from_env_or_settings
 
 _BRAVE_WEB_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search"
 
 
 def _brave_api_key() -> str | None:
     settings = get_settings()
-    if settings.brave_api_key is None:
-        return None
-    key = settings.brave_api_key.get_secret_value().strip()
-    return key or None
+    return secret_from_env_or_settings(
+        "BRAVE_API_KEY",
+        settings_secret=settings.brave_api_key,
+    )
 
 
 def brave_web_search(

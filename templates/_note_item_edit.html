@@ -1,8 +1,13 @@
 <!doctype html>
-<div id="note-{{ note.id }}" class="note-item-edit">
-  <form hx-post="/notes/notes/{{ note.id }}" hx-target="#note-{{ note.id }}" hx-swap="outerHTML">
-    <input type="text" name="title" value="{{ note.title }}" required />
-    <textarea name="content" required>{{ note.content }}</textarea>
-    <button type="submit">Save</button>
+<div id="note-{{ note.id }}" class="note-item-edit mt-2 space-y-2">
+  <form
+    class="flex flex-col gap-2"
+    hx-post="/notes/notes/{{ note.id }}"
+    hx-target="#note-{{ note.id }}"
+    hx-swap="outerHTML"
+  >
+    <input class="dash-input max-w-none" type="text" name="title" value="{{ note.title }}" required />
+    <textarea class="dash-input max-w-none min-h-[6rem]" name="content" required>{{ note.content }}</textarea>
+    <button class="dash-btn w-fit" type="submit">Save</button>
   </form>
 </div>

@@ -18,6 +18,7 @@ from nabla.config_settings import (
     DD_AGENT_HOST,
     DD_TRACE_AGENT_PORT,
     PYROSCOPE_ENDPOINT,
+    REDIS_URL,
     SENTRY_DSN,
     UNLEASH_API_URL,
     UNLEASH_APP_NAME,
@@ -73,6 +74,12 @@ async def fetch_base_health(request: Request) -> dict[str, Any]:
 
 
 async def check_redis_ping(redis_client: Any) -> dict[str, Any]:
+    if not (REDIS_URL or "").strip():
+        return {
+            "reachable": None,
+            "skipped": True,
+            "reason": "REDIS_URL not configured (empty)",
+        }
     if redis_client is None:
         return {"reachable": False, "error": "redis client not initialized"}
     try:

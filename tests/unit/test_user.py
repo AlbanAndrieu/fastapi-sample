@@ -27,7 +27,7 @@ def test_user_current(test_app) -> None:
         "name": "Alban Andrieu",
         "password": "XXX",
         "email": "alban.andrieu@gmail.com",
-        "phone": "0695435353",
+        "phone": "+33 (0) 6 95 43 53 53",
         "address": "11 terrasse de l'université",
         "city": "Paris",
         "state": "FR",

@@ -588,7 +588,7 @@ def get_item(item_id: int):
 
 @app.get("/api", response_class=HTMLResponse)
 def read_root(request: Request):
-    TITLE_SUFFIX = os.getenv("TITLE")
+    TITLE_SUFFIX = os.getenv("TITLE_SUFFIX")
     app_version = html.escape(str(request.app.version))
     return (
         """
@@ -597,7 +597,7 @@ def read_root(request: Request):
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Vercel + FastAPI """
+        <title>Vercel + FastAPI : """
         + str(TITLE_SUFFIX)
         + """ </title>
         <link rel="icon" type="image/x-icon" href="/favicon.ico">
@@ -828,6 +828,199 @@ def read_root(request: Request):
                 color: #ffb86c;
             }
 
+            .health-board {
+                width: 100%;
+                max-width: 900px;
+                margin: 0 auto 3rem;
+                text-align: left;
+                background-color: #111111;
+                border: 1px solid #333333;
+                border-radius: 12px;
+                padding: 1.5rem 1.75rem;
+            }
+
+            .health-board-title {
+                font-size: 1.25rem;
+                font-weight: 600;
+                color: #ffffff;
+                margin-bottom: 0.35rem;
+            }
+
+            .health-board-meta {
+                font-size: 0.8rem;
+                color: #888888;
+                margin-bottom: 1rem;
+            }
+
+            .health-board-meta a {
+                color: #7ab8ff;
+            }
+
+            .health-refresh {
+                margin-left: 0.75rem;
+                padding: 0.25rem 0.65rem;
+                font-size: 0.75rem;
+                border-radius: 6px;
+                border: 1px solid #444444;
+                background: #1a1a1a;
+                color: #e0e0e0;
+                cursor: pointer;
+            }
+
+            .health-refresh:hover {
+                border-color: #666666;
+                color: #ffffff;
+            }
+
+            .health-summary {
+                display: flex;
+                align-items: center;
+                gap: 0.65rem;
+                padding: 0.65rem 1rem;
+                border-radius: 8px;
+                font-size: 0.9rem;
+                font-weight: 500;
+                margin-bottom: 1rem;
+                border: 1px solid #333333;
+            }
+
+            .health-summary--green {
+                background: rgba(0, 255, 136, 0.08);
+                border-color: rgba(0, 255, 136, 0.35);
+                color: #7dffc4;
+            }
+
+            .health-summary--yellow {
+                background: rgba(255, 200, 50, 0.08);
+                border-color: rgba(255, 200, 50, 0.4);
+                color: #ffd966;
+            }
+
+            .health-summary--red {
+                background: rgba(255, 80, 80, 0.1);
+                border-color: rgba(255, 80, 80, 0.45);
+                color: #ff9999;
+            }
+
+            .health-summary--neutral {
+                background: #0a0a0a;
+                color: #aaaaaa;
+            }
+
+            .health-led {
+                width: 12px;
+                height: 12px;
+                border-radius: 50%;
+                flex-shrink: 0;
+                box-shadow: 0 0 10px currentColor;
+            }
+
+            .health-led--green { background: #00ff88; color: #00ff88; }
+            .health-led--yellow { background: #ffcc33; color: #ffcc33; }
+            .health-led--red { background: #ff4444; color: #ff4444; }
+            .health-led--gray { background: #555555; color: #555555; box-shadow: none; }
+
+            .health-checks {
+                list-style: none;
+                margin: 0;
+                padding: 0;
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .health-row {
+                display: flex;
+                align-items: flex-start;
+                gap: 0.75rem;
+                padding: 0.55rem 0.65rem;
+                background: #0a0a0a;
+                border-radius: 8px;
+                border: 1px solid #2a2a2a;
+            }
+
+            .health-row-icon {
+                flex-shrink: 0;
+                width: 40px;
+                height: 40px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 10px;
+                border-width: 1px;
+                border-style: solid;
+            }
+
+            .health-row-icon svg {
+                width: 22px;
+                height: 22px;
+            }
+
+            .health-row-icon--green {
+                color: #00ff88;
+                background: rgba(0, 255, 136, 0.08);
+                border-color: rgba(0, 255, 136, 0.35);
+                box-shadow: 0 0 12px rgba(0, 255, 136, 0.15);
+            }
+
+            .health-row-icon--yellow {
+                color: #ffcc33;
+                background: rgba(255, 204, 51, 0.08);
+                border-color: rgba(255, 204, 51, 0.4);
+                box-shadow: 0 0 12px rgba(255, 204, 51, 0.12);
+            }
+
+            .health-row-icon--red {
+                color: #ff4444;
+                background: rgba(255, 68, 68, 0.1);
+                border-color: rgba(255, 68, 68, 0.45);
+                box-shadow: 0 0 12px rgba(255, 68, 68, 0.12);
+            }
+
+            .health-row-icon--gray {
+                color: #888888;
+                background: #141414;
+                border-color: #2a2a2a;
+                box-shadow: none;
+            }
+
+            .health-row-led-wrap {
+                flex-shrink: 0;
+                padding-top: 0.35rem;
+            }
+
+            .health-row-main {
+                flex: 1;
+                min-width: 0;
+            }
+
+            .health-row-name {
+                font-weight: 600;
+                font-size: 0.875rem;
+                color: #f0f0f0;
+            }
+
+            .health-row-detail {
+                font-size: 0.75rem;
+                color: #888888;
+                margin-top: 0.2rem;
+                word-break: break-word;
+            }
+
+            .health-row-tags {
+                font-size: 0.65rem;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+                color: #666666;
+                margin-top: 0.25rem;
+            }
+
+            .health-error {
+                color: #ff8888;
+                font-size: 0.75rem;
+                margin-top: 0.35rem;
+            }
+
             @media (max-width: 768px) {
                 nav {
                     padding: 1rem;
@@ -860,18 +1053,19 @@ def read_root(request: Request):
     <body>
         <header>
             <nav>
-                <a href="/" class="logo">Vercel + FastAPI """
+                <a href="/" class="logo">Vercel + FastAPI : """
         + str(TITLE_SUFFIX)
         + """</a>
                 <div class="nav-links">
                     <a href="/docs">API Docs</a>
                     <a href="/api/data">API</a>
+                    <a href="#health-board">Health</a>
                 </div>
             </nav>
         </header>
         <main>
             <div class="hero">
-                <h1>Vercel + FastAPI """
+                <h1>Vercel + FastAPI : """
         + str(TITLE_SUFFIX)
         + """</h1>
                 <p class="subtitle" style="margin-top: -0.5rem;">App version : <strong>"""
@@ -888,6 +1082,19 @@ def read_root(request: Request):
                 </div>
             </div>
 
+            <section class="health-board" id="health-board" aria-labelledby="health-board-title">
+                <h2 class="health-board-title" id="health-board-title">Service health</h2>
+                <p class="health-board-meta">Live view of <a href="/healthz">/healthz</a>.
+                    <button type="button" class="health-refresh" id="health-refresh">Refresh</button>
+                </p>
+                <div class="health-summary health-summary--neutral" id="health-summary">
+                    <span class="health-led health-led--gray" id="health-summary-led" aria-hidden="true"></span>
+                    <span id="health-summary-text">Loading health checks…</span>
+                </div>
+                <ul class="health-checks" id="health-checks"></ul>
+                <p class="health-error" id="health-fetch-error" hidden></p>
+            </section>
+
             <div class="cards">
                 <div class="card">
                     <h3>Interactive API Docs</h3>
@@ -903,6 +1110,223 @@ def read_root(request: Request):
 
             </div>
         </main>
+    <script>
+    (function () {
+        const LABELS = {
+            redis: "Redis",
+            postgres: "PostgreSQL",
+            supabase: "Supabase",
+            openstack_me: "OVH / OpenStack API",
+            tavily: "Tavily Search",
+            brave: "Brave Search",
+            google: "Google Programmable Search",
+            keycloak: "Keycloak (OpenID)",
+            unleash: "Unleash",
+            sentry: "Sentry",
+            datadog: "Datadog Agent",
+            pyroscope: "Pyroscope",
+        };
+        const MANDATORY = new Set(["postgres", "redis", "supabase"]);
+
+        const ICON_PATHS = {
+            postgres:
+                '<ellipse cx="12" cy="5" rx="7.5" ry="2.75"/><path d="M4.5 5v6.5c0 1.5 3.2 2.75 7.5 2.75s7.5-1.25 7.5-2.75V5"/><path d="M4.5 11.5V18c0 1.5 3.2 2.75 7.5 2.75s7.5-1.25 7.5-2.75v-6.5"/>',
+            redis: '<path d="M13 2L4 14h7l-2 10 11-13h-7l2-9z"/>',
+            supabase:
+                '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+            openstack_me:
+                '<path d="M18 10h-1.26a8 8 0 1 0-11.49 3.5 5 5 0 0 0 9.75-1.5H18a3.5 3.5 0 1 0 0-7z"/>',
+            tavily:
+                '<circle cx="11" cy="11" r="6"/><path d="M21 21l-4.35-4.35"/>',
+            brave:
+                '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+            google:
+                '<path d="M5 19V11M10 19V7M15 19v-6M20 19V9"/>',
+            keycloak:
+                '<path d="M10.5 3.5a2.5 2.5 0 0 0-5 0V20"/><circle cx="17.5" cy="14.5" r="3.5"/><path d="M10.5 10.5H15"/>',
+            unleash:
+                '<path d="M5 5v14"/><path d="M5 8l7 3 7-3"/><path d="M5 14l7 3 7-3"/>',
+            sentry:
+                '<path d="M12 3l8.5 14H3.5L12 3z"/><path d="M12 10v5"/>',
+            datadog:
+                '<path d="M4 18V6l4 4 4-4 4 4v8"/><path d="M8 14h8"/>',
+            pyroscope:
+                '<path d="M12 3c-4 6-6 9-6 12a6 6 0 0 0 12 0c0-3-2-6-6-12z"/><path d="M12 10v6"/>',
+            _default: '<rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 12h6M12 9v6"/>',
+        };
+
+        function serviceIconSvg(key, statusCls) {
+            var d = ICON_PATHS[key] || ICON_PATHS._default;
+            return (
+                '<span class="health-row-icon health-row-icon--' +
+                statusCls +
+                '" aria-hidden="true">' +
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' +
+                d +
+                "</svg></span>"
+            );
+        }
+
+        function classify(check) {
+            if (check.skipped === true) return "yellow";
+            if (check.reachable === true) return "green";
+            if (check.reachable === false) return "red";
+            return "gray";
+        }
+
+        function mandatoryFailed(key, check) {
+            if (!MANDATORY.has(key)) return false;
+            if (check.skipped === true) return false;
+            return check.reachable === false;
+        }
+
+        function detailText(check) {
+            if (check.skipped) return check.reason || "Not configured (intentionally disabled).";
+            if (check.reachable === true) {
+                const parts = [];
+                if (check.http_status != null) parts.push("HTTP " + check.http_status);
+                if (check.path) parts.push(check.path);
+                if (check.host != null && check.port != null) parts.push(check.host + ":" + check.port);
+                return parts.length ? parts.join(" · ") : "Connected.";
+            }
+            if (check.error) return check.error;
+            return "Unreachable.";
+        }
+
+        function sortKeys(keys) {
+            const first = ["postgres", "redis", "supabase"];
+            const rest = keys.filter(function (k) { return first.indexOf(k) === -1; }).sort();
+            return first.filter(function (k) { return keys.indexOf(k) !== -1; }).concat(rest);
+        }
+
+        function computeOverall(data) {
+            const checks = data.checks || {};
+            let anyYellow = false;
+            let anyOptionalRed = false;
+
+            for (const key of Object.keys(checks)) {
+                const ch = checks[key];
+                if (mandatoryFailed(key, ch)) {
+                    return {
+                        cls: "red",
+                        text: "A required dependency failed: PostgreSQL, Redis, or Supabase (when configured) must be reachable.",
+                    };
+                }
+                const c = classify(ch);
+                if (c === "yellow") anyYellow = true;
+                if (c === "red" && !MANDATORY.has(key)) anyOptionalRed = true;
+            }
+
+            const st = data.status;
+            if (st && st !== "healthy") {
+                anyYellow = true;
+                const critical =
+                    st === "health_fetch_failed" ||
+                    st === "health_endpoint_non_200" ||
+                    st === "health_invalid_json" ||
+                    st === "health_unexpected_shape";
+                if (critical) {
+                    return {
+                        cls: "red",
+                        text: "Base /health check failed (" + st + ")." + (data.error ? " " + data.error : ""),
+                    };
+                }
+            }
+
+            if (anyOptionalRed) {
+                return {
+                    cls: "yellow",
+                    text: "Core dependencies OK. One or more optional integrations are failing.",
+                };
+            }
+            if (anyYellow) {
+                return {
+                    cls: "yellow",
+                    text: "Core dependencies OK. Yellow = env not set (disabled on purpose) or minor /health note.",
+                };
+            }
+            return {
+                cls: "green",
+                text: "All probed services are reachable.",
+            };
+        }
+
+        function render(data) {
+            const listEl = document.getElementById("health-checks");
+            const summaryEl = document.getElementById("health-summary");
+            const summaryText = document.getElementById("health-summary-text");
+            const summaryLed = document.getElementById("health-summary-led");
+            const errEl = document.getElementById("health-fetch-error");
+
+            errEl.hidden = true;
+            errEl.textContent = "";
+
+            const overall = computeOverall(data);
+            summaryEl.className = "health-summary health-summary--" + overall.cls;
+            summaryLed.className = "health-led health-led--" + overall.cls;
+            summaryText.textContent = overall.text;
+
+            const checks = data.checks || {};
+            const keys = sortKeys(Object.keys(checks));
+            listEl.innerHTML = "";
+
+            keys.forEach(function (key) {
+                const check = checks[key];
+                const tier = MANDATORY.has(key) ? "Required for core stack" : "Optional integration";
+                const cls = classify(check);
+                const li = document.createElement("li");
+                li.className = "health-row";
+                li.innerHTML =
+                    serviceIconSvg(key, cls) +
+                    '<span class="health-row-led-wrap"><span class="health-led health-led--' +
+                    cls +
+                    '" title="' +
+                    cls +
+                    '"></span></span>' +
+                    '<div class="health-row-main">' +
+                    '<div class="health-row-name">' +
+                    (LABELS[key] || key) +
+                    "</div>" +
+                    '<div class="health-row-detail">' +
+                    detailText(check) +
+                    "</div>" +
+                    '<div class="health-row-tags">' +
+                    tier +
+                    "</div>" +
+                    "</div>";
+                listEl.appendChild(li);
+            });
+        }
+
+        function showFetchError(msg) {
+            const summaryEl = document.getElementById("health-summary");
+            const summaryText = document.getElementById("health-summary-text");
+            const summaryLed = document.getElementById("health-summary-led");
+            const errEl = document.getElementById("health-fetch-error");
+            document.getElementById("health-checks").innerHTML = "";
+            summaryEl.className = "health-summary health-summary--red";
+            summaryLed.className = "health-led health-led--red";
+            summaryText.textContent = "Could not load /healthz.";
+            errEl.hidden = false;
+            errEl.textContent = msg;
+        }
+
+        function loadHealth() {
+            fetch("/healthz", { headers: { Accept: "application/json" } })
+                .then(function (r) {
+                    if (!r.ok) throw new Error("HTTP " + r.status);
+                    return r.json();
+                })
+                .then(render)
+                .catch(function (e) {
+                    showFetchError(String(e.message || e));
+                });
+        }
+
+        document.getElementById("health-refresh").addEventListener("click", loadHealth);
+        loadHealth();
+    })();
+    </script>
     </body>
     </html>
     """
