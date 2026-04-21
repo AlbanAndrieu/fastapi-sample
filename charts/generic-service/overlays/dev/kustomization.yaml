@@ -11,10 +11,9 @@ resources:
 patches:
   - path: deployment-patch.yaml
 
-# Image transformation (update this with actual registry)
+# Image transformation (must match base deployment image repository)
 images:
-  - name: 783876277037.dkr.ecr.eu-west-3.amazonaws.com/fastapi-sample
-    # newName: registry.gitlab.com/AlbanAndrieu/fastapi-sample
+  - name: registry.gitlab.com/AlbanAndrieu/fastapi-sample
     newTag: latest
 
 namePrefix: dev-

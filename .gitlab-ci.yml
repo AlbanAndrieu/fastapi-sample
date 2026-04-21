@@ -99,7 +99,7 @@ variables:
   # Container images: GitLab Container Registry (CI_REGISTRY / CI_REGISTRY_IMAGE are predefined)
   TYPE_TRAINING: ""
   # MOUNT_POINT: "/builds/$CI_PROJECT_PATH/mnt"
-  CI_IMAGE_NAME: registry.gitlab.com/jusmundi-group/web/templates/jm-oci/jm-ubuntu
+  CI_IMAGE_NAME: nabla/ansible-jenkins-slave-docker:latest
   CI_IMAGE_TAG: latest
   # GIT_STRATEGY: fetch
   GIT_DEPTH: "3"
@@ -124,7 +124,7 @@ variables:
   DD_CLOSE_OLD_FINDINGS_PRODUCT_SCOPE: "True"
   DD_DO_NOT_REACTIVATE: "False"
   DD_BRANCH_TAG: "${CI_COMMIT_TAG}" # CI_COMMIT_BRANCH CI_IMAGE_TAG
-  # DOCKER_BUILD_OPT: " -f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN"
+  # DOCKER_BUILD_OPT: " -f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABNABLA_TOKEN"
   CLOC_SOURCE: "nabla"
   # RUNNER_GENERATE_ARTIFACTS_METADATA: "true"
   # FF_NETWORK_PER_BUILD: "true" # enable network per build so all services can communicate on the same network
@@ -141,7 +141,7 @@ variables:
   # Force-enable BuildKit in "docker build" commands (on Linux it is disabled by default)
   DOCKER_BUILDKIT: 1
   BUILDKIT_PROGRESS: plain
-  DOCKER_BUILD_OPT: "--secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --build-arg ENV=${ENV}"
+  DOCKER_BUILD_OPT: "--secret id=read-package-token,env=CI_PIP_GITLABNABLA_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --build-arg ENV=${ENV}"
   DOCKER_BUILD_PATH: "."
   # Build the fully-qualified image name (including the registry server prefix), but without the ":version" suffix
   IMAGE_BASE_TAG: "${CI_REGISTRY_IMAGE}"
@@ -194,7 +194,7 @@ variables:
   VERCEL_PRODUCTION_URL: ""
 
 # -----------------------------------------------------------------------------
-# Local replacements for removed jusmundi-group/infrastructure/ci-templates
+# Local replacements for removed nabla-group/infrastructure/ci-templates
 # (default, deploy-nomad, javascript, data, mega-linter).
 # Docker build uses Docker-in-Docker; runners must allow privileged services.
 # -----------------------------------------------------------------------------
@@ -467,7 +467,11 @@ type-checker-pyright:
 
 # Pytest via uv (pyproject.toml, uv.lock); no Poetry in CI.
 test-pytest-uv:
-  needs: ["lint-ruff", "type-checker-pyright"]
+  needs:
+    - job: lint-ruff
+      optional: true
+    - job: type-checker-pyright
+      optional: true
   stage: test
   interruptible: true
   variables:
@@ -519,11 +523,11 @@ test-pytest-uv:
   variables:
     PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
     DEFAULT_COV_ARGS: "--no-ddtrace --no-cov"
-    DEFAULT_PIPENV_ARGS: "--system --dev --ignore-pipfile" # --dev  --verbose --index=https://package_read:${CI_PIP_GITLABJUSMUNDI_TOKEN}@gitlab.com/api/v4/groups/7364654/-/packages/pypi/simple
+    DEFAULT_PIPENV_ARGS: "--system --dev --ignore-pipfile" # --dev  --verbose --index=https://package_read:${CI_PIP_GITLABNABLA_TOKEN}@gitlab.com/api/v4/groups/7364654/-/packages/pypi/simple
     DEFAULT_PYTEST_PACKAGES: "pytest pytest-cov pytest-env"
     KEYCLOAK_SERVER_URL: "https://keycloak-https.service.gra.uat.consul"
     KEYCLOAK_REALM: "jus_mundi"
-    KEYCLOAK_CLIENT_ID: "jusmundi_uat"
+    KEYCLOAK_CLIENT_ID: "nabla_uat"
     # KEYCLOAK_CLIENT_SECRET: ""
     # BELOW is needed as we do not use jm-ubuntu but python:3.10
   script:
@@ -560,7 +564,7 @@ test-pytest:
     DEFAULT_COV_ARGS: "--no-ddtrace --cov-fail-under=70"
     KEYCLOAK_SERVER_URL: "https://keycloak-https.service.gra.uat.consul"
     KEYCLOAK_REALM: "jus_mundi"
-    KEYCLOAK_CLIENT_ID: "jusmundi_uat"
+    KEYCLOAK_CLIENT_ID: "nabla_uat"
     # KEYCLOAK_CLIENT_SECRET: ""
     REDIS_URL: redis://redis:6379/0
     ENABLE_METRICS: false
@@ -595,7 +599,7 @@ test-pytest:
 
 # .build-image-dockefile-pre: &build-image-dockefile-pre
 #   script:
-#     - export DOCKER_BUILD_OPT="--pull --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from ${CACHE_IMAGE} -f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABJUSMUNDI_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --build-arg ENV=${ENV} -t ${CONTAINER_IMAGE}"
+#     - export DOCKER_BUILD_OPT="--pull --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from ${CACHE_IMAGE} -f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABNABLA_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --build-arg ENV=${ENV} -t ${CONTAINER_IMAGE}"
 #     - echo -e "\e[35mOverriden on purpose as Sample docker build need explicit \e[0m FOR \e[43m${ENV} - ${DOCKER_BUILD_OPT}.\e[0m"
 
 .build-image-dockefile: &build-image-dockefile
@@ -617,10 +621,10 @@ install-npm:
   extends: .install-npm
   script:
     # - npm config set @scope:registry=git@gitlab.com:api/v4/groups/2454528/-/packages/npm/
-    # - npm config set '@jusmundi-group:registry=git@gitlab.com:api/v4/projects/60435718/packages/npm/'
-    # - npm config set '@jusmundi-group:registry=git@gitlab.com:api/v4/packages/npm/:_authToken='"${CI_JOB_TOKEN}"
+    # - npm config set '@nabla-group:registry=git@gitlab.com:api/v4/projects/60435718/packages/npm/'
+    # - npm config set '@nabla-group:registry=git@gitlab.com:api/v4/packages/npm/:_authToken='"${CI_JOB_TOKEN}"
     # - echo "@scope:registry=https://${CI_SERVER_HOST}/api/v4/projects/${CI_PROJECT_ID}/packages/npm/" > ~/.npmrc
-    - echo "@jusmundi-group:registry=git@gitlab.com:api/v4/packages/npm/" > ~/.npmrc
+    - echo "@nabla-group:registry=git@gitlab.com:api/v4/packages/npm/" > ~/.npmrc
     # - echo "//${CI_SERVER_HOST}/api/v4/projects/${CI_PROJECT_ID}/packages/npm/:_authToken=${CI_JOB_TOKEN}" >> ~/.npmrc
     - echo "//${CI_SERVER_HOST}/api/v4/packages/npm/:_authToken=${CI_JOB_TOKEN}" >> ~/.npmrc
     # - rm -rf node_modules package-lock.json
@@ -659,18 +663,37 @@ mega_linter:
 code_quality:
   extends: .code_quality
   # stage: test
-  needs: ["docker-build", "lint-ruff", "type-checker-pyright"]
-  dependencies:
-    - docker-build
-    - lint-ruff
-    - type-checker-pyright
+  needs:
+    - job: docker-build
+    - job: lint-ruff
+      optional: true
+    - job: type-checker-pyright
+      optional: true
   script:
     - |-
       if [[ $CONTAINER_SCANNING_GITLAB_CODEQUALITY_TEMPLATE_DISABLE != "true" ]]; then
-        jq -s 'add' report_ruff.json report_pyright.json > gl-codeclimate.json || true;
+        ruff_file="report_ruff.json"
+        pyright_file="report_pyright.json"
+        if [[ -f "$ruff_file" && -f "$pyright_file" ]]; then
+          jq -s 'add' "$ruff_file" "$pyright_file" > gl-codeclimate.json || echo '[]' > gl-codeclimate.json
+        elif [[ -f "$ruff_file" ]]; then
+          cp "$ruff_file" gl-codeclimate.json
+        elif [[ -f "$pyright_file" ]]; then
+          cp "$pyright_file" gl-codeclimate.json
+        else
+          echo "No Ruff or Pyright codequality artifacts; skipping merge."
+          echo '[]' > gl-codeclimate.json
+        fi
       else
-        echo "Disable report_ruff.json report_pyright.json report combine";
+        echo "Disable report_ruff.json report_pyright.json report combine"
+        echo '[]' > gl-codeclimate.json
       fi
+  artifacts:
+    paths:
+      - gl-codeclimate.json
+    reports:
+      codequality: gl-codeclimate.json
+    when: on_success
 
 .terrascan:
   image:

@@ -5,7 +5,6 @@ branch: main
 compact: true
 # directory:
 # - test-dir
-# docker-image: registry.gitlab.com/jusmundi-group/web/templates/jm-oci/jm-ubuntu
 dockerfile-path: Dockerfile
 download-external-modules: true
 evaluate-variables: true

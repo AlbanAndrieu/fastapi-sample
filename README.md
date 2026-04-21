@@ -92,7 +92,7 @@ python -m pipenv install --dev --ignore-pipfile
 use [poetry](https://python-poetry.org/docs/cli/)
 
 ```bash
-poetry config http-basic.gitlab-ds package_read ${CI_PIP_GITLABJUSMUNDI_TOKEN}
+poetry config http-basic.gitlab-ds package_read ${CI_PIP_GITLABNABLA_TOKEN}
 # export POETRY_GITLAB_TOKEN_GITLAB=${GITLAB_FULL_PRIVATE_TOKEN}
 
 poetry install --with format,test,extra,open_telemetry,api,deployment,influxdb,panda,temporal,utils,webui
@@ -127,9 +127,9 @@ sequenceDiagram
     participant API as sample API Service
 
     autonumber
-    User ->> HAProxy: HTTP Request ( https://krakend.jusmundi.com/sample/threads)
+    User ->> HAProxy: HTTP Request ( https://krakend.nabla.com/sample/threads)
     HAProxy ->> Traefik: Forward Request (Add jm-client-ip)
-    Traefik ->> Traefik: Resolve (krakend.jusmundi.com -> kraken.service.gra.uat.consul -> IP and PORT)
+    Traefik ->> Traefik: Resolve (krakend.nabla.com -> kraken.service.gra.uat.consul -> IP and PORT)
     Traefik ->>+ KrakenD: Forward Request (resolve kraken.service.gra.uat.consul)
     alt is jwt
     KrakenD ->> KrakenD: Check its Config (Get JWT public key URL)
@@ -267,9 +267,9 @@ npm run dev
 
 ## [Test JWT](#table-of-contents)
 
-Get the public key from [keycloak-lex](https://account-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/realms/jus_mundi) \[keycloak-uat\]((http://account.staging.int.jusmundi.com/realms/jus_mundi)
+Get the public key from [keycloak-lex](https://account-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/realms/jus_mundi) \[keycloak-uat\]((http://account.staging.int.nabla.com/realms/jus_mundi)
 
-or [keycloak-dev](http://account.dev.int.jusmundi.com/realms/jus_mundi) [keycloak-admin](http://keycloak-admin.service.gra.dev.consul/realms/jus_mundi/)
+or [keycloak-dev](http://account.dev.int.nabla.com/realms/jus_mundi) [keycloak-admin](http://keycloak-admin.service.gra.dev.consul/realms/jus_mundi/)
 
 and put it to key.pem
 

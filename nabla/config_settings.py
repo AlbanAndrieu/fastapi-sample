@@ -78,7 +78,8 @@ SENTRY_DSN = os.environ.get(
 
 APP_DOMAIN = os.environ.get(
     "APP_DOMAIN",
-    "jusmundi.com",
+    "albandrieu.com",
+    "fastapi-sample.fastapicloud.dev",
 )
 
 UNLEASH_API_URL = os.environ.get("UNLEASH_API_URL", "https://gitlab.com/api/v4/feature_flags/unleash/46788175")

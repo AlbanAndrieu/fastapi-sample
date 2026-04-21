@@ -110,7 +110,7 @@ COPY --chown=jm-python:jm-python package.json package-lock.json .npmrc ${PYSETUP
 # hadolint ignore=SC3037
 RUN --mount=type=secret,id=read-npm-token,uid=999,target=/run/secrets/CI_JOB_TOKEN \
   --mount=type=cache,target=/root/.npm,id=npm_cache \
-  echo "@jusmundi-group:registry=https://gitlab.com/api/v4/packages/npm/" > ${PYSETUP_PATH}/.npmrc && \
+  echo "@nabla-group:registry=https://gitlab.com/api/v4/packages/npm/" > ${PYSETUP_PATH}/.npmrc && \
   echo -e "'//gitlab.com/api/v4/packages/npm/:_authToken'=\"$(cat /run/secrets/CI_JOB_TOKEN)\"" >> ${PYSETUP_PATH}/.npmrc && \
   npm install --cache /root/.npm && npm cache clean --force && \
   rm -rf ~/.npmrc ${PYSETUP_PATH}/.npmrc ${PYSETUP_PATH}/.npm

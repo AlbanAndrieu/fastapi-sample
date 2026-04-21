@@ -15,9 +15,8 @@ NPROC := 1
 
 # Image
 APP_NAME     = fastapi-sample
-OCI_REGISTRY = 783876277037.dkr.ecr.eu-west-3.amazonaws.com
-# OCI_REGISTRY = registry.gitlab.com/jusmundi-group/proof-of-concept
-AWS_REGION   = eu-west-3
+# GitLab Container Registry for this project (same path as CI_REGISTRY_IMAGE on GitLab CI)
+OCI_REGISTRY = registry.gitlab.com/AlbanAndrieu
 OCI_IMAGE := $(OCI_REGISTRY)/$(APP_NAME)
 OCI_TAG := $${OCI_TAG:-"1.2.3"}
 IMAGE_NEXT_TAG := $${OCI_IMAGE_TAG:-"latest"}
@@ -129,19 +128,19 @@ fmt: ## Run formating
 .PHONY: build-docker-base
 build-docker-base:  ## Build base container with docker
 	@echo "=> Building builder image..."
-	docker build -t $(IMAGE) --target builder-base --secret id=CI_JOB_TOKEN,env=CI_PIP_GITLABJUSMUNDI_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --secret id=npmrc,src=$${HOME}/.npmrc --build-arg ENV=dev --build-arg CI_JOB_TOKEN=$${CI_JOB_TOKEN} --build-arg CI_PIP_GITLABJUSMUNDI_TOKEN=$${CI_PIP_GITLABJUSMUNDI_TOKEN} -f Dockerfile .
+	docker build -t $(IMAGE) --target builder-base --secret id=CI_JOB_TOKEN,env=CI_PIP_GITLABNABLA_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --secret id=npmrc,src=$${HOME}/.npmrc --build-arg ENV=dev --build-arg CI_JOB_TOKEN=$${CI_JOB_TOKEN} --build-arg CI_PIP_GITLABNABLA_TOKEN=$${CI_PIP_GITLABNABLA_TOKEN} -f Dockerfile .
 
 ## —— Docker 🐳 ————————————————————————————————————————————————————————————————
 .PHONY: build-docker
 build-docker:  ## Build container with docker
 	@echo "=> Building image..."
-	docker build --secret id=CI_JOB_TOKEN,env=CI_PIP_GITLABJUSMUNDI_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --build-arg ENV=dev -t $(IMAGE) .
+	docker build --secret id=CI_JOB_TOKEN,env=CI_PIP_GITLABNABLA_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --build-arg ENV=dev -t $(IMAGE) .
 
 ## —— Buildah Docker 🐶🐳 ————————————————————————————————————————————————————————————————
 .PHONY: build-buildah-docker
 build-buildah-docker: ## Build container with buildah
 	@echo "=> Building image..."
-	buildah bud -t $(IMAGE) --build-arg CI_PIP_GITLABJUSMUNDI_TOKEN=$${CI_PIP_GITLABJUSMUNDI_TOKEN} .
+	buildah bud -t $(IMAGE) --build-arg CI_PIP_GITLABNABLA_TOKEN=$${CI_PIP_GITLABNABLA_TOKEN} .
 
 ## —— Build 🚀 —————————————————————————————————————————————————————————————————
 .PHONY: build
@@ -226,8 +225,8 @@ ruff: ## Linter ruff
 .PHONY: debug
 debug: ## Enter container
 	@echo "=> Debuging image..."
-	@echo "docker run -it -u 0 --entrypoint /bin/bash --env CI_PIP_GITLABJUSMUNDI_TOKEN=$${CI_PIP_GITLABJUSMUNDI_TOKEN} --env CI_JOB_TOKEN=$${CI_JOB_TOKEN} $(IMAGE)"
-	docker run -it --entrypoint /bin/bash --env CI_PIP_GITLABJUSMUNDI_TOKEN=$${CI_PIP_GITLABJUSMUNDI_TOKEN} --env CI_JOB_TOKEN=$${CI_JOB_TOKEN} $(IMAGE)
+	@echo "docker run -it -u 0 --entrypoint /bin/bash --env CI_PIP_GITLABNABLA_TOKEN=$${CI_PIP_GITLABNABLA_TOKEN} --env CI_JOB_TOKEN=$${CI_JOB_TOKEN} $(IMAGE)"
+	docker run -it --entrypoint /bin/bash --env CI_PIP_GITLABNABLA_TOKEN=$${CI_PIP_GITLABNABLA_TOKEN} --env CI_JOB_TOKEN=$${CI_JOB_TOKEN} $(IMAGE)
 
 ## —— Project 🐝🐳 ———————————————————————————————————————————————————————————————
 .PHONY: start
@@ -328,7 +327,7 @@ deploy-docker: ## Push to registry
 	@echo "=> Tagging image..."
 	docker tag $(IMAGE) $(OCI_IMAGE):$(IMAGE_NEXT_TAG)
 	@echo "=> docker login registry.gitlab.com --username \$${GITLAB_PRIVATE_USERNAME} --password \$${GITLAB_FULL_PRIVATE_TOKEN}"
-	@echo "=> aws ecr get-login-password --region \$${AWS_REGION:-"eu-west-3"} | docker login --username AWS --password-stdin \$${OCI_REGISTRY:-\"783876277037.dkr.ecr.eu-west-3.amazonaws.com\"} "
+	@echo "=> echo \"\$${CI_JOB_TOKEN}\" | docker login -u gitlab-ci-token --password-stdin registry.gitlab.com   # or GITLAB_PRIVATE_USERNAME + token"
 	@echo "=> Pushing image..."
 	@echo "=> By Hand 👊 => docker push $(OCI_IMAGE):$(IMAGE_NEXT_TAG)"
 	@echo "=> By Hand ✌ => docker push $(OCI_IMAGE):latest"

@@ -33,7 +33,7 @@
 * update ([c61b450](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/c61b45016a7209e65d791d7ec62a0828a1df7a0a))
 * update ([b58e191](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/b58e191551197cb48d426d541f8746cedae598bc))
 
-## [1.3.3](https://gitlab.com/jusmundi-group/proof-of-concept/fastapi-sample/compare/1.3.2...1.3.3) (2026-02-18)
+## [1.3.3](https://gitlab.com/AlbanAndrieu/fastapi-sample/compare/1.3.2...1.3.3) (2026-02-18)
 
 ### Bug Fixes
 
