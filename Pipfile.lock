@@ -13,7 +13,7 @@
             },
             {
                 "name": "gitlab",
-                "url": "https://package_read:${CI_PIP_GITLABJUSMUNDI_TOKEN}@gitlab.com/api/v4/groups/7364654/-/packages/pypi/simple",
+                "url": "https://package_read:${CI_PIP_GITLABNABLA_TOKEN}@gitlab.com/api/v4/groups/7364654/-/packages/pypi/simple",
                 "verify_ssl": false
             }
         ]

@@ -215,6 +215,28 @@ def test_google_search_ok_when_mocked(test_app, monkeypatch) -> None:
     assert body["num"] == 10
 
 
+def test_appwrite_health_returns_503_without_config(test_app, monkeypatch) -> None:
+    """Appwrite route returns 503 when endpoint/project/key are not configured."""
+    monkeypatch.setenv("APPWRITE_ENDPOINT", "")
+    monkeypatch.setenv("APPWRITE_PROJECT_ID", "")
+    monkeypatch.setenv("APPWRITE_API_KEY", "")
+    response = test_app.get("/v1/appwrite/health")
+    assert response.status_code == 503
+
+
+def test_appwrite_health_ok_when_mocked(test_app, monkeypatch) -> None:
+    """Appwrite route returns integration payload when helper succeeds."""
+
+    def _fake() -> dict:
+        return {"status": "pass"}
+
+    monkeypatch.setattr("nabla.api.appwrite_route.appwrite_health", _fake)
+    response = test_app.get("/v1/appwrite/health")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "pass"
+
+
 @pytest.mark.skip(reason="Skipping this test for now")
 def test_chain(test_app) -> None:
     """It runs and chain io_task and cpu_task."""

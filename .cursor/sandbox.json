@@ -10,7 +10,7 @@
 			"ghcr.io",
 			"*.googleapis.com",
 			"*.githubusercontent.com",
-			"*.jusmundi.com",
+			"*.nabla.com",
 			"*.albandrieu.com"
 		],
 		"deny": ["*.internal.corp.example.com"]
