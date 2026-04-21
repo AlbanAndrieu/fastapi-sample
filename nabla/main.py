@@ -83,6 +83,7 @@ from nabla.utils.prometheus import (
     setting_otlp,
     update_system_metrics,
 )
+from nabla.utils.sentry_filters import should_initialize_sentry
 
 # FastAPI / FastAPI-Users use Depends() as parameter defaults; OpenAPI generation
 # emits PydanticJsonSchemaWarning (defaults are not JSON-schema-serializable).
@@ -497,23 +498,26 @@ set_user(
     propagate=True,
 )
 
-sentry_sdk.init(
-    dsn=SENTRY_DSN,
-    # Set traces_sample_rate to 1.0 to capture 100%
-    # of transactions for performance monitoring.
-    # We recommend adjusting this value in production,
-    traces_sample_rate=1.0,
-    # Set profiles_sample_rate to 1.0 to profile 100%
-    # of sampled transactions.
-    # We recommend adjusting this value in production.
-    profiles_sample_rate=1.0,
-    integrations=[
-        LoggingIntegration(
-            level=logging.INFO,  # Capture info and above as breadcrumbs
-            event_level=logging.ERROR,  # Send errors as events
-        ),
-    ],
-)
+if should_initialize_sentry():
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        # Set traces_sample_rate to 1.0 to capture 100%
+        # of transactions for performance monitoring.
+        # We recommend adjusting this value in production,
+        traces_sample_rate=1.0,
+        # Set profiles_sample_rate to 1.0 to profile 100%
+        # of sampled transactions.
+        # We recommend adjusting this value in production.
+        profiles_sample_rate=1.0,
+        integrations=[
+            LoggingIntegration(
+                level=logging.INFO,  # Capture info and above as breadcrumbs
+                event_level=logging.ERROR,  # Send errors as events
+            ),
+        ],
+    )
+else:
+    logger.info("Skipping Sentry initialization in pytest process context.")
 
 templates = Jinja2Templates(directory="templates")
 
