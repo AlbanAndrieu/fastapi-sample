@@ -129,6 +129,8 @@ variables:
   # RUNNER_GENERATE_ARTIFACTS_METADATA: "true"
   # FF_NETWORK_PER_BUILD: "true" # enable network per build so all services can communicate on the same network
   DEFAULT_UV_TEST_GROUP: "test"
+  # pytest --cov= target (Python import path, not the distribution name)
+  DEFAULT_COV: "nabla"
   DEPENDENCY_UPDATES_DISABLED: false
   # GIT_CLONE_PATH: '$CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_PIPELINE_ID'
   # GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_PROJECT_PATH
@@ -258,7 +260,8 @@ variables:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
 .mega_linter_common:
-  stage: static
+  # Must stay in `test` (or later) when jobs use `needs: [test-pytest]` — needs cannot target a later stage.
+  stage: test
   image:
     name: oxsecurity/megalinter:v9.2.0
     entrypoint: [""]
@@ -462,20 +465,18 @@ type-checker-pyright:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH # Make CI NOT run on main branch
       when: never
 
-test-pytest-poetry:
-  # extends: .test-pytest-poetry
+# Pytest via uv (pyproject.toml, uv.lock); no Poetry in CI.
+test-pytest-uv:
   needs: ["lint-ruff", "type-checker-pyright"]
   stage: test
   interruptible: true
   variables:
-    PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
-    # DEFAULT_COV_ARGS: "--cov-fail-under=1" # We need to increase the test coverage
     DEFAULT_COV_ARGS: "--no-ddtrace --no-cov"
   allow_failure: false
   script:
     - pip install --upgrade uv
     - uv sync --frozen --group ${DEFAULT_UV_TEST_GROUP}
-    - uv run pytest --cov=$DEFAULT_COV --cov-report term --cov-report xml:coverage.xml --junitxml pytest-junit.xml ${DEFAULT_COV_ARGS}
+    - uv run pytest --cov=${DEFAULT_COV} --cov-report term --cov-report xml:coverage.xml --junitxml pytest-junit.xml ${DEFAULT_COV_ARGS}
   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
   artifacts:
     when: on_success # don't attempt to upload the docs if generating them failed
@@ -550,16 +551,13 @@ test-pytest-poetry:
         path: coverage.xml
 
 test-pytest:
-  # extends: .test-pytest-poetry
+  stage: test
   needs: []
-  # needs: ["lint-ruff", "type-checker-pyright"]
   image: ${CI_IMAGE_PYTHON}
   interruptible: true
   allow_failure: false
   variables:
     DEFAULT_COV_ARGS: "--no-ddtrace --cov-fail-under=70"
-    DEFAULT_PIPENV_ARGS: "--system --dev --ignore-pipfile" # --dev  --verbose --index=https://package_read:${CI_PIP_GITLABJUSMUNDI_TOKEN}@gitlab.com/api/v4/groups/7364654/-/packages/pypi/simple
-    DEFAULT_PYTEST_PACKAGES: "pytest pytest-cov pytest-env"
     KEYCLOAK_SERVER_URL: "https://keycloak-https.service.gra.uat.consul"
     KEYCLOAK_REALM: "jus_mundi"
     KEYCLOAK_CLIENT_ID: "jusmundi_uat"
