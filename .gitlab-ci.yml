@@ -466,6 +466,35 @@ type-checker-pyright:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH # Make CI NOT run on main branch
       when: never
 
+.redis_postgres_healthcheck: &redis_postgres_healthcheck
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq redis-tools postgresql-client
+    - |
+      echo "Waiting for Redis to be ready..."
+      for i in $(seq 1 30); do
+        redis-cli -h redis -p 6379 ping && echo "Redis is up!" && break
+        echo "Attempt $i/30 - Redis not ready yet, retrying in 1s..."
+        sleep 1
+        if [ "$i" -eq 30 ]; then
+          echo "Redis failed to start after 30 seconds"
+          exit 1
+        fi
+      done
+    - |
+      echo "Waiting for Postgres to be ready..."
+      for i in $(seq 1 30); do
+        if pg_isready -h postgres -p 5432 -d "${POSTGRES_DB}" -U "${POSTGRES_USER}"; then
+          echo "Postgres is up!"
+          break
+        fi
+        echo "Attempt $i/30 - Postgres not ready yet, retrying in 1s..."
+        sleep 1
+        if [ "$i" -eq 30 ]; then
+          echo "Postgres failed to start after 30 seconds"
+          exit 1
+        fi
+      done
+
 # Pytest via uv (pyproject.toml, uv.lock); no Poetry in CI.
 test-pytest-uv:
   needs:
@@ -475,8 +504,21 @@ test-pytest-uv:
       optional: true
   stage: test
   interruptible: true
+  services:
+    - name: redis:latest
+      alias: redis
+    - name: postgres:16-alpine
+      alias: postgres
   variables:
     DEFAULT_COV_ARGS: "--no-ddtrace --no-cov"
+    REDIS_URL: redis://redis:6379/0
+    POSTGRES_DRIVER: postgresql
+    POSTGRES_HOST: postgres
+    POSTGRES_PORT: "5432"
+    POSTGRES_DB: fastapi_sample_gitlab
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: postgres
+  <<: *redis_postgres_healthcheck
   allow_failure: false
   script:
     - pip install --upgrade uv
@@ -498,21 +540,6 @@ test-pytest-uv:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH # Make CI NOT run on main branch
       when: never
 
-.redis_healthcheck: &redis_healthcheck
-  before_script:
-    - apt-get update -qq && apt-get install -y -qq redis-tools
-    - |
-      echo "Waiting for Redis to be ready..."
-      for i in $(seq 1 30); do
-        redis-cli -h redis -p 6379 ping && echo "Redis is up!" && break
-        echo "Attempt $i/30 - Redis not ready yet, retrying in 1s..."
-        sleep 1
-        if [ "$i" -eq 30 ]; then
-          echo "Redis failed to start after 30 seconds"
-          exit 1
-        fi
-      done
-
 # pytest with pipenv
 .test-pytest-pipenv:
   # extends: .test-pytest
@@ -520,6 +547,11 @@ test-pytest-uv:
   needs: []
   interruptible: true
   image: $CI_IMAGE_PYTHON
+  services:
+    - name: redis:latest
+      alias: redis
+    - name: postgres:16-alpine
+      alias: postgres
   allow_failure: false
   variables:
     PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
@@ -529,18 +561,34 @@ test-pytest-uv:
     KEYCLOAK_SERVER_URL: "https://keycloak-https.service.gra.uat.consul"
     KEYCLOAK_REALM: "jus_mundi"
     KEYCLOAK_CLIENT_ID: "nabla_uat"
+    POSTGRES_DRIVER: postgresql
+    POSTGRES_HOST: postgres
+    POSTGRES_PORT: "5432"
+    POSTGRES_DB: fastapi_sample_gitlab
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: postgres
     # KEYCLOAK_CLIENT_SECRET: ""
     # BELOW is needed as we do not use jm-ubuntu but python:3.10
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq postgresql-client
+    - |
+      echo "Waiting for Postgres to be ready..."
+      for i in $(seq 1 30); do
+        if pg_isready -h postgres -p 5432 -d "${POSTGRES_DB}" -U "${POSTGRES_USER}"; then
+          echo "Postgres is up!"
+          break
+        fi
+        echo "Attempt $i/30 - Postgres not ready yet, retrying in 1s..."
+        sleep 1
+        if [ "$i" -eq 30 ]; then
+          echo "Postgres failed to start after 30 seconds"
+          exit 1
+        fi
+      done
   script:
     - python3 -m pip install --user ${DEFAULT_PYTEST_PACKAGES}
     - python3 -m pip install --user redis arel
     - python3 -m pipenv install --dev --site-packages --ignore-pipfile
-    - export POSTGRES_DRIVER="postgresql"
-    - export POSTGRES_HOST="pg-gra.service.gra.dev.consul"
-    - export POSTGRES_PORT="5432"
-    - export POSTGRES_DB="fastapi_sample_gitlab"
-    - export POSTGRES_USER=${POSTGRES_USER}
-    - export POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     - export LOG_LEVEL=DEBUG
     - echo "ENV is :${ENV}"
     - pytest --cov=${DEFAULT_COV} --cov-report term --cov-report xml:coverage.xml --junitxml pytest-junit.xml ${DEFAULT_COV_ARGS}
@@ -561,6 +609,11 @@ test-pytest:
   image: ${CI_IMAGE_PYTHON}
   interruptible: true
   allow_failure: false
+  services:
+    - name: redis:latest
+      alias: redis
+    - name: postgres:16-alpine
+      alias: postgres
   variables:
     DEFAULT_COV_ARGS: "--no-ddtrace --cov-fail-under=70"
     KEYCLOAK_SERVER_URL: "https://keycloak-https.service.gra.uat.consul"
@@ -570,16 +623,16 @@ test-pytest:
     REDIS_URL: redis://redis:6379/0
     ENABLE_METRICS: false
     VIRTUAL_ENV: "/builds/${CI_PROJECT_PATH}/.venv"
-  <<: *redis_healthcheck
+    POSTGRES_DRIVER: postgresql
+    POSTGRES_HOST: postgres
+    POSTGRES_PORT: "5432"
+    POSTGRES_DB: fastapi_sample_gitlab
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: postgres
+  <<: *redis_postgres_healthcheck
   script:
     - pip install --upgrade uv
     - uv sync --frozen --group ${DEFAULT_UV_TEST_GROUP}
-    - export POSTGRES_DRIVER="postgresql"
-    - export POSTGRES_HOST="pg-gra.service.gra.dev.consul"
-    - export POSTGRES_PORT="5432"
-    - export POSTGRES_DB="fastapi_sample_gitlab"
-    - export POSTGRES_USER=${POSTGRES_USER}
-    - export POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     - export LOG_LEVEL=DEBUG
     - echo "PATH = $PATH"
     - uv run pytest --cov=${DEFAULT_COV} --cov-report term --cov-report xml:coverage.xml --junitxml pytest-junit.xml ${DEFAULT_COV_ARGS}

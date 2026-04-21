@@ -16,7 +16,7 @@ NPROC := 1
 # Image
 APP_NAME     = fastapi-sample
 # GitLab Container Registry for this project (same path as CI_REGISTRY_IMAGE on GitLab CI)
-OCI_REGISTRY = registry.gitlab.com/AlbanAndrieu
+OCI_REGISTRY = registry.gitlab.com/albanandrieu
 OCI_IMAGE := $(OCI_REGISTRY)/$(APP_NAME)
 OCI_TAG := $${OCI_TAG:-"1.2.3"}
 IMAGE_NEXT_TAG := $${OCI_IMAGE_TAG:-"latest"}
@@ -128,13 +128,13 @@ fmt: ## Run formating
 .PHONY: build-docker-base
 build-docker-base:  ## Build base container with docker
 	@echo "=> Building builder image..."
-	docker build -t $(IMAGE) --target builder-base --secret id=CI_JOB_TOKEN,env=CI_PIP_GITLABNABLA_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --secret id=npmrc,src=$${HOME}/.npmrc --build-arg ENV=dev --build-arg CI_JOB_TOKEN=$${CI_JOB_TOKEN} --build-arg CI_PIP_GITLABNABLA_TOKEN=$${CI_PIP_GITLABNABLA_TOKEN} -f Dockerfile .
+	docker build -t $(IMAGE) --target builder-base --secret id=read-package-token,env=CI_PIP_GITLABNABLA_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --secret id=npmrc,src=$${HOME}/.npmrc --build-arg ENV=dev --build-arg CI_JOB_TOKEN=$${CI_JOB_TOKEN} --build-arg CI_PIP_GITLABNABLA_TOKEN=$${CI_PIP_GITLABNABLA_TOKEN} -f Dockerfile .
 
 ## —— Docker 🐳 ————————————————————————————————————————————————————————————————
 .PHONY: build-docker
 build-docker:  ## Build container with docker
 	@echo "=> Building image..."
-	docker build --secret id=CI_JOB_TOKEN,env=CI_PIP_GITLABNABLA_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --build-arg ENV=dev -t $(IMAGE) .
+	docker build --secret id=read-package-token,env=CI_PIP_GITLABNABLA_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --build-arg ENV=dev -t $(IMAGE) .
 
 ## —— Buildah Docker 🐶🐳 ————————————————————————————————————————————————————————————————
 .PHONY: build-buildah-docker

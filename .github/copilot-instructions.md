@@ -316,7 +316,8 @@ COPY --from=builder-base /app/.venv /app/.venv
 **Build with secrets:**
 ```bash
 docker build \
-  --secret id=CI_JOB_TOKEN,env=CI_PIP_GITLABNABLA_TOKEN \
+  --secret id=read-package-token,env=CI_PIP_GITLABNABLA_TOKEN \
+  --secret id=read-npm-token,env=CI_JOB_TOKEN \
   --build-arg ENV=dev \
   -t registry.gitlab.com/AlbanAndrieu/fastapi-sample:1.2.3 \
   .
