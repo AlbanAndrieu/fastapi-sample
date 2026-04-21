@@ -215,9 +215,10 @@ variables:
 .docker-build:
   stage: build
   interruptible: true
-  image: docker:27-git
+  # Pin major with docker:*-cli + matching *-dind (docker:27-git is not published on Docker Hub).
+  image: docker:29-cli
   services:
-    - name: docker:27-dind
+    - name: docker:29-dind
       alias: docker
   variables:
     DOCKER_HOST: tcp://docker:2375
