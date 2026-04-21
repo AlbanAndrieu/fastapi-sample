@@ -3,6 +3,7 @@
 from nabla.db_config import (
     ensure_supavisor_pooler_username,
     extract_supabase_project_ref_from_url,
+    get_sqlalchemy_psycopg_connect_args,
     is_supabase_postgres_host,
     is_supabase_supavisor_pooler_host,
     merge_postgres_query_sslmode_require,
@@ -50,6 +51,18 @@ def test_merge_postgres_query_sslmode_require() -> None:
     assert merge_postgres_query_sslmode_require(None) == "sslmode=require"
     assert merge_postgres_query_sslmode_require("foo=bar") == "foo=bar&sslmode=require"
     assert merge_postgres_query_sslmode_require("sslmode=disable") == "sslmode=disable"
+
+
+def test_get_sqlalchemy_psycopg_connect_args_for_pgbouncer() -> None:
+    assert get_sqlalchemy_psycopg_connect_args("pgbouncer=true") == {"prepare_threshold": None}
+    assert get_sqlalchemy_psycopg_connect_args("foo=bar&pgbouncer=1") == {"prepare_threshold": None}
+    assert get_sqlalchemy_psycopg_connect_args("pgbouncer=YES") == {"prepare_threshold": None}
+
+
+def test_get_sqlalchemy_psycopg_connect_args_without_pgbouncer() -> None:
+    assert get_sqlalchemy_psycopg_connect_args(None) == {}
+    assert get_sqlalchemy_psycopg_connect_args("foo=bar") == {}
+    assert get_sqlalchemy_psycopg_connect_args("pgbouncer=false") == {}
 
 
 def test_is_supabase_postgres_host() -> None:

@@ -138,6 +138,26 @@ def query_string_to_dict(query: str | None) -> dict[str, Any]:
     return out
 
 
+def _is_truthy(value: str | None) -> bool:
+    """Return True for common truthy string values."""
+    if value is None:
+        return False
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def get_sqlalchemy_psycopg_connect_args(query: str | None) -> dict[str, Any]:
+    """Build SQLAlchemy connect args for psycopg URLs.
+
+    pgbouncer transaction pooling invalidates server-side prepared statements across
+    backend hops. Disabling auto-prepare avoids ``DuplicatePreparedStatement`` and
+    ``InvalidSqlStatementName`` failures.
+    """
+    params = query_string_to_dict(query)
+    if _is_truthy(params.get("pgbouncer")):
+        return {"prepare_threshold": None}
+    return {}
+
+
 def make_postgres_url(
     *,
     driver: str,
