@@ -114,6 +114,15 @@ def test_invalid(test_app) -> None:
     }
 
 
+def test_global_exception_handler_returns_json_response(test_app) -> None:
+    """Unhandled errors should be converted into a JSON 500 response."""
+    response = test_app.get("/error_test")
+    assert response.status_code == 500
+    body = response.json()
+    assert body["error"] == "Internal server error"
+    assert "timestamp" in body
+
+
 def test_health(test_app) -> None:
     """It runs and gives health status."""
 
