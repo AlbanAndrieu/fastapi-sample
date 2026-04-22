@@ -114,6 +114,22 @@ def test_invalid(test_app) -> None:
     }
 
 
+def test_global_exception_handler_returns_json_response(test_app, monkeypatch) -> None:
+    """Unhandled exceptions should return JSON via the global exception handler."""
+
+    async def _boom(*_args, **_kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr("nabla.main.build_healthz_payload", _boom)
+
+    response = test_app.get("/healthz")
+
+    assert response.status_code == 500
+    payload = response.json()
+    assert payload["error"] == "Internal server error"
+    assert "timestamp" in payload
+
+
 def test_health(test_app) -> None:
     """It runs and gives health status."""
 
