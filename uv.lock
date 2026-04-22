@@ -2445,6 +2445,7 @@ api-ai = [
     { name = "langchain" },
     { name = "langchain-openai" },
     { name = "langgraph" },
+    { name = "litellm" },
     { name = "openai" },
 ]
 api-cli = [
@@ -2691,6 +2692,7 @@ api-ai = [
     { name = "langchain", specifier = ">=0.3.27" },
     { name = "langchain-openai", specifier = ">=0.3.32" },
     { name = "langgraph", specifier = ">=0.6.6" },
+    { name = "litellm", specifier = ">=1.83.0" },
     { name = "openai", specifier = ">=2.6.0" },
 ]
 api-cli = [

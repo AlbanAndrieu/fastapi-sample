@@ -153,6 +153,8 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
         self.prefix = "nabla"
         self.skip_paths = [
             "/health",
+            "/healthz",
+            "/sickz",
             "/ping",
             "/v1/ping",
             "/v2/ping",

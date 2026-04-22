@@ -10,11 +10,6 @@ from nabla.utils.prometheus import ERROR_COUNT
 router = APIRouter(prefix="/test")
 
 
-@router.get("/sentry-debug")
-def trigger_error():
-    pass
-
-
 @router.get("/invalid")
 def invalid():
     try:

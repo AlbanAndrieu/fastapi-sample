@@ -1,12 +1,14 @@
 import pybreaker
 from dotenv import load_dotenv
+from functools import lru_cache
 from fastapi import APIRouter
+from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage
-from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, constr
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from nabla.ai.llm_factory import build_chat_llm
 from nabla.utils.logger import logger
 
 router = APIRouter()
@@ -17,12 +19,15 @@ load_dotenv()
 # Both fail after 2 consecutive errors and open the circuit for 10 seconds.
 circuit_breaker_llm = pybreaker.CircuitBreaker(fail_max=2, reset_timeout=10)
 
-llm = ChatOpenAI(model="gpt-4o")  # You can switch to gpt-4o-mini for cheaper calls
+
+@lru_cache(maxsize=1)
+def _get_workflow_llm() -> BaseChatModel:
+    return build_chat_llm(model_name="gpt-4o")
 
 
 @retry(wait=wait_exponential(multiplier=1, min=2, max=10), stop=stop_after_attempt(3))
 def safe_invoke_llm(message: str):
-    return llm.invoke([HumanMessage(content=message)])
+    return _get_workflow_llm().invoke([HumanMessage(content=message)])
 
 
 def answer_question(state: dict) -> dict:

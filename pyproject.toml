@@ -106,6 +106,7 @@ api-ai = [
     "langgraph>=0.6.6",
     "langchain>=0.3.27",
     "langchain-openai>=0.3.32",
+    "litellm>=1.83.0",
     "openai>=2.6.0",
 ]
 api-legacy = [

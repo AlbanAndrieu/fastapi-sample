@@ -3,12 +3,16 @@ import os
 import openai
 from grafana_openai_monitoring import chat_v2
 
+from nabla.ai.llm_factory import litellm_openai_api_base
 from nabla.config_settings import get_settings
 
 
 def _resolve_openai_api_key_and_model() -> tuple[str, str]:
-    """Prefer configured Azure OpenAI instance; otherwise env key and default model."""
+    """Prefer LiteLLM proxy, then Azure OpenAI, then ``OPENAI_API_KEY`` and default model."""
     settings = get_settings()
+    litellm_url = (settings.litellm_url or "").strip()
+    if litellm_url:
+        return settings.litellm_api_key.get_secret_value(), "gpt-5"
     if settings.azure_openai_instance:
         instance = next(iter(settings.azure_openai_instance.values()))
         return instance.api_key, instance.available_models
@@ -17,6 +21,9 @@ def _resolve_openai_api_key_and_model() -> tuple[str, str]:
 
 _api_key, _default_chat_model = _resolve_openai_api_key_and_model()
 openai.api_key = _api_key
+_litellm_url = (get_settings().litellm_url or "").strip()
+if _litellm_url:
+    openai.api_base = litellm_openai_api_base(_litellm_url)
 
 # Apply the custom decorator to the OpenAI API function
 openai.ChatCompletion.create = chat_v2.monitor(

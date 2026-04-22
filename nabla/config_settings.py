@@ -9,7 +9,14 @@ from typing import Annotated, Any, ClassVar, Literal, Optional
 
 import urllib3
 from keycloak import KeycloakOpenID
-from pydantic import AliasChoices, BaseModel, BeforeValidator, Field, SecretStr, field_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    BeforeValidator,
+    Field,
+    SecretStr,
+    field_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from statsig_python_core import (  # note underscores instead of hyphens in import
     Statsig,
@@ -38,10 +45,12 @@ APP_VERSION = get_versions()["version"]
 EXPOSE_HOST = os.environ.get("EXPOSE_HOST", "0.0.0.0")  # noqa: S104 noqa:B104 # nosec B104
 EXPOSE_PORT = int(os.environ.get("EXPOSE_PORT", "8080"))
 EXPOSE_MCP_PORT = int(os.environ.get("EXPOSE_MCP_PORT", "8001"))
-PYROSCOPE_ENDPOINT = os.environ.get("PYROSCOPE_ENDPOINT", "http://localhost:4040")
+PYROSCOPE_ENDPOINT = os.environ.get("PYROSCOPE_SERVER_ADDRESS", "http://localhost:4040")
 
 DD_AGENT_HOST = os.environ.get("DD_AGENT_HOST", "127.0.0.1")
 DD_TRACE_AGENT_PORT = os.environ.get("DD_TRACE_AGENT_PORT", "8126")
+# When unset/empty, ddtrace has no explicit agent URL; health probe skips instead of hitting localhost.
+DD_TRACE_AGENT_URL = os.environ.get("DD_TRACE_AGENT_URL", "")
 
 REDIS_URL = os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/0")
 
@@ -73,7 +82,7 @@ OTEL_EXPORTER_JAEGER_ENDPOINT = os.environ.get(
 
 SENTRY_DSN = os.environ.get(
     "SENTRY_DSN",
-    "https://11c5d815632831d3274c830441885207@o4505783360356352.ingest.sentry.io/4505783364681728",
+    "",
 )
 
 APP_DOMAIN = os.environ.get("APP_DOMAIN", "fastapi-sample.fastapicloud.dev")
@@ -154,6 +163,51 @@ class AzureOpenAiInstance(BaseModel):
     api_key: Annotated[str, Field(default_factory=_openai_api_key_from_env, min_length=1)]
     api_alias: Annotated[str, Field(min_length=1)]
     available_models: Annotated[str, Field(default="gpt-5", min_length=1)]
+
+
+_ALBANDRIEU_SICKZ_HOSTNAMES: tuple[str, ...] = (
+    "ollama.albandrieu.com",
+    "ollama-gpu.albandrieu.com",
+    "anythingllm.albandrieu.com",
+    "openclaw.albandrieu.com",
+    "paperless-ngx.albandrieu.com",
+    "paperless-ai.albandrieu.com",
+    "open-webui.albandrieu.com",
+    "n8n.albandrieu.com",
+    "grafana.albandrieu.com",
+    "freenas.albandrieu.com",
+    "truenas.albandrieu.com",
+    "prometheus.albandrieu.com",
+    "adguardhome.albandrieu.com",
+    "localai-gpu.albandrieu.com",
+    "graylog.albandrieu.com",
+    "netalertx.albandrieu.com",
+    "ntopng.albandrieu.com",
+    "portracker-albandrieu.albandrieu.com",
+    "stirling-albandrieu.albandrieu.com",
+)
+
+_ALBANDRIEU_PUBLIC_DOMAIN_SUFFIX = "albandrieu.com"
+
+# ``(healthz_check_key, host_label)`` → ``https://{host_label}.{_ALBANDRIEU_PUBLIC_DOMAIN_SUFFIX}/`` for ``/healthz``.
+_ALBANDRIEU_HEALTHZ_HOST_LABELS: tuple[tuple[str, str], ...] = (
+    ("albandrieu_twofactor", "twofactor-auth"),
+    ("albandrieu_nexus", "nexus"),
+    ("albandrieu_keycloak_ui", "keycloak"),
+    ("albandrieu_homarr", "homarr"),
+    ("albandrieu_plumber_api", "plumber-api"),
+    ("albandrieu_reactive_resume", "reactive-resume"),
+    ("albandrieu_vaultwarden", "vaultwarden-albandrieu"),
+)
+
+_ALBANDRIEU_HEALTHZ_HTTPS: tuple[tuple[str, str], ...] = tuple((key, f"https://{label}.{_ALBANDRIEU_PUBLIC_DOMAIN_SUFFIX}/") for key, label in _ALBANDRIEU_HEALTHZ_HOST_LABELS)
+
+
+def _default_sickz_targets_value() -> str:
+    """pfSense group plus one sickz URL group per internal-only hostname."""
+    pfsense_group = "https://home.albandrieu.com:10443/|https://172.17.0.1:10443/"
+    internal_only = ",".join(f"https://{h}/" for h in _ALBANDRIEU_SICKZ_HOSTNAMES)
+    return f"{pfsense_group},{internal_only}"
 
 
 # Basic db & ovh settings
@@ -380,6 +434,70 @@ class _Settings(BaseSettings):
             validation_alias=AliasChoices("APPWRITE_API_KEY"),
         ),
     ]
+    sickz_targets: Annotated[
+        str,
+        Field(
+            default_factory=_default_sickz_targets_value,
+            description=(
+                "Comma- or newline-separated *groups* for GET /sickz. Within a group, use | between "
+                "equivalent URLs (e.g. pfSense hostname and Docker bridge IP on the same LAN). "
+                "The group fails if *any* alias responds. Probes use verify=False so TLS cert issues "
+                "do not hide reachability. Default includes pfSense plus internal-only *.albandrieu.com hosts. "
+                "Set SICKZ_TARGETS to override or clear."
+            ),
+            validation_alias=AliasChoices("SICKZ_TARGETS"),
+        ),
+    ]
+    sickz_internal_network: Annotated[
+        bool,
+        Field(
+            default=False,
+            description=(
+                "When true, sickz HTTP probes are skipped (home LAN). Also skipped implicitly when "
+                "SICKZ_NETWORK_LABEL is 'nabla' or APP_DOMAIN is albandrieu.albandrieu.com, unless a PaaS runtime is detected."
+            ),
+            validation_alias=AliasChoices("SICKZ_INTERNAL_NETWORK"),
+        ),
+    ]
+    sickz_network_label: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            description=(
+                "Human-readable name for sickz messages; falls back to APP_DOMAIN when unset. "
+                "Exact value 'nabla' (case-insensitive) implies home LAN for sickz skip (same as SICKZ_INTERNAL_NETWORK) unless on PaaS."
+            ),
+            validation_alias=AliasChoices("SICKZ_NETWORK_LABEL"),
+        ),
+    ]
+
+    litellm_url: Annotated[
+        str,
+        Field(
+            default="",
+            description=(
+                "LiteLLM OpenAI-compatible proxy base URL without a path (e.g. http://172.17.0.57:4100). "
+                "When set, LLM chat uses this endpoint before Azure OpenAI or direct OpenAI."
+            ),
+            validation_alias=AliasChoices("LITELLM_URL"),
+        ),
+    ]
+    litellm_api_key: Annotated[
+        SecretStr,
+        Field(
+            default_factory=lambda: SecretStr(""),
+            description="API key for the LiteLLM proxy; leave unset or empty when the proxy does not require auth.",
+            validation_alias=AliasChoices("LITELLM_API_KEY"),
+        ),
+    ]
+    litellm_healthz_url: Annotated[
+        str,
+        Field(
+            default="https://litellm.albandrieu.com",
+            description=("Public LiteLLM proxy origin (no path) for GET /healthz checks (e.g. …/health/liveliness). Set empty to skip the litellm probe."),
+            validation_alias=AliasChoices("LITELLM_HEALTHZ_URL"),
+        ),
+    ]
 
     azure_openai_instance: dict[str, AzureOpenAiInstance] = {}
 
@@ -601,6 +719,13 @@ client.initialize_client()
 
 # statsig = Statsig(STATSIG_API_KEY)
 # statsig.initialize().wait()
+
+# or with StatsigOptions
+options = StatsigOptions()
+options.environment = "development"
+
+statsig = Statsig(STATSIG_API_KEY, options)
+statsig.initialize().wait()
 
 # or with StatsigOptions
 options = StatsigOptions()

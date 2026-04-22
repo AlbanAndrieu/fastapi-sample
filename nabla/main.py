@@ -53,7 +53,7 @@ from nabla.api.demo.models import recent_readings
 from nabla.api.demo.sensor import metrics
 from nabla.api.demo.socket.redis import redis, start_event_listener
 from nabla.api.demo.socket.websocket import websocket_endpoint
-from nabla.api.health_checks import build_healthz_payload
+from nabla.api.health_checks import build_healthz_payload, build_sickz_payload
 from nabla.api.notes import notes
 from nabla.api.notes.models import Note
 from nabla.api.notes.models import init_db as init_db_note
@@ -292,6 +292,7 @@ def initialize_api(app):
                 "/metrics",
                 "/health",
                 "/healthz",
+                "/sickz",
                 "/v1/version",
                 "/v2/version",
                 "openapi.json",
@@ -856,6 +857,13 @@ def read_root(request: Request):
                 color: #7ab8ff;
             }
 
+            .health-subboard-title {
+                font-size: 1.1rem;
+                font-weight: 600;
+                margin: 2rem 0 0.35rem;
+                color: #e8e8e8;
+            }
+
             .health-refresh {
                 margin-left: 0.75rem;
                 padding: 0.25rem 0.65rem;
@@ -956,6 +964,13 @@ def read_root(request: Request):
                 height: 22px;
             }
 
+            .health-row-icon--img img {
+                width: 26px;
+                height: 26px;
+                object-fit: contain;
+                display: block;
+            }
+
             .health-row-icon--green {
                 color: #00ff88;
                 background: rgba(0, 255, 136, 0.08);
@@ -994,6 +1009,70 @@ def read_root(request: Request):
                 min-width: 0;
             }
 
+            .health-row-primary {
+                min-width: 0;
+            }
+
+            .health-row-primary--green .health-row-name,
+            .health-row-primary--green .health-row-detail {
+                color: #00ff88;
+            }
+
+            .health-row-primary--green .health-row-name .sickz-target-link {
+                color: #00ff88;
+                text-decoration-color: rgba(0, 255, 136, 0.45);
+            }
+
+            .health-row-primary--green .health-row-name .sickz-target-link:hover {
+                color: #66ffc4;
+                text-decoration-color: rgba(102, 255, 196, 0.65);
+            }
+
+            .health-row-primary--yellow .health-row-name,
+            .health-row-primary--yellow .health-row-detail {
+                color: #ffcc33;
+            }
+
+            .health-row-primary--yellow .health-row-name .sickz-target-link {
+                color: #ffcc33;
+                text-decoration-color: rgba(255, 204, 51, 0.45);
+            }
+
+            .health-row-primary--yellow .health-row-name .sickz-target-link:hover {
+                color: #ffe066;
+                text-decoration-color: rgba(255, 224, 102, 0.65);
+            }
+
+            .health-row-primary--red .health-row-name,
+            .health-row-primary--red .health-row-detail {
+                color: #ff6666;
+            }
+
+            .health-row-primary--red .health-row-name .sickz-target-link {
+                color: #ff6666;
+                text-decoration-color: rgba(255, 102, 102, 0.5);
+            }
+
+            .health-row-primary--red .health-row-name .sickz-target-link:hover {
+                color: #ff9999;
+                text-decoration-color: rgba(255, 153, 153, 0.65);
+            }
+
+            .health-row-primary--gray .health-row-name,
+            .health-row-primary--gray .health-row-detail {
+                color: #9ca3af;
+            }
+
+            .health-row-primary--gray .health-row-name .sickz-target-link {
+                color: #9ca3af;
+                text-decoration-color: rgba(156, 163, 175, 0.45);
+            }
+
+            .health-row-primary--gray .health-row-name .sickz-target-link:hover {
+                color: #cbd5e1;
+                text-decoration-color: rgba(203, 213, 225, 0.55);
+            }
+
             .health-row-name {
                 font-weight: 600;
                 font-size: 0.875rem;
@@ -1013,6 +1092,48 @@ def read_root(request: Request):
                 letter-spacing: 0.04em;
                 color: #666666;
                 margin-top: 0.25rem;
+            }
+
+            .health-row-name--sickz {
+                display: flex;
+                align-items: center;
+                gap: 0.4rem;
+                flex-wrap: wrap;
+            }
+
+            .sickz-lock-wrap {
+                display: inline-flex;
+                align-items: center;
+                flex-shrink: 0;
+            }
+
+            .sickz-lock-svg {
+                width: 14px;
+                height: 14px;
+                display: block;
+            }
+
+            .sickz-lock--trusted {
+                color: #00ff88;
+            }
+
+            .sickz-lock--untrusted {
+                color: #ff4444;
+            }
+
+            .sickz-lock--unknown {
+                color: #888888;
+            }
+
+            .sickz-target-link {
+                color: #f0f0f0;
+                text-decoration: underline;
+                text-decoration-color: rgba(240, 240, 240, 0.35);
+            }
+
+            .sickz-target-link:hover {
+                color: #ffffff;
+                text-decoration-color: rgba(0, 255, 136, 0.55);
             }
 
             .health-error {
@@ -1084,7 +1205,8 @@ def read_root(request: Request):
 
             <section class="health-board" id="health-board" aria-labelledby="health-board-title">
                 <h2 class="health-board-title" id="health-board-title">Service health</h2>
-                <p class="health-board-meta">Live view of <a href="/healthz">/healthz</a>.
+                <p class="health-board-meta">Live view of <a href="/healthz">/healthz</a> and
+                    <a href="/sickz">/sickz</a>.
                     <button type="button" class="health-refresh" id="health-refresh">Refresh</button>
                 </p>
                 <div class="health-summary health-summary--neutral" id="health-summary">
@@ -1093,6 +1215,22 @@ def read_root(request: Request):
                 </div>
                 <ul class="health-checks" id="health-checks"></ul>
                 <p class="health-error" id="health-fetch-error" hidden></p>
+
+                <h3 class="health-subboard-title" id="sickz-board-title">Unreachable targets (sickz)</h3>
+                <p class="health-board-meta">These URLs must <strong>not</strong> respond when this app runs
+                    outside your home LAN. Probes are skipped when <code>SICKZ_INTERNAL_NETWORK=true</code>, or
+                    implicitly when <code>SICKZ_NETWORK_LABEL=nabla</code> or
+                    <code>APP_DOMAIN=albandrieu.albandrieu.com</code> (unless a cloud/PaaS runtime is detected).
+                    <code>SICKZ_NETWORK_LABEL</code> / <code>APP_DOMAIN</code> also name the network in messages.
+                    Separate equivalent URLs with <code>|</code>; separate unrelated targets with commas.
+                    Probes use TLS verify off so certificate issues do not hide reachability.</p>
+                <div class="health-summary health-summary--neutral" id="sickz-summary">
+                    <span class="health-led health-led--gray" id="sickz-summary-led" aria-hidden="true"></span>
+                    <span id="sickz-summary-text">Loading sickz checks…</span>
+                </div>
+                <p class="health-board-meta" id="sickz-lan-hint" hidden style="margin-top: 0.35rem"></p>
+                <ul class="health-checks" id="sickz-checks"></ul>
+                <p class="health-error" id="sickz-fetch-error" hidden></p>
             </section>
 
             <div class="cards">
@@ -1120,43 +1258,86 @@ def read_root(request: Request):
             tavily: "Tavily Search",
             brave: "Brave Search",
             google: "Google Programmable Search",
+            appwrite: "Appwrite",
             keycloak: "Keycloak (OpenID)",
             unleash: "Unleash",
             sentry: "Sentry",
             datadog: "Datadog Agent",
             pyroscope: "Pyroscope",
+            litellm: "LiteLLM proxy",
+            albandrieu_twofactor: "twofactor-auth",
+            albandrieu_nexus: "nexus",
+            albandrieu_keycloak_ui: "keycloak",
+            albandrieu_homarr: "homarr",
+            albandrieu_plumber_api: "plumber-api",
+            albandrieu_reactive_resume: "reactive-resume",
+            albandrieu_vaultwarden: "vaultwarden-albandrieu",
         };
-        const MANDATORY = new Set(["postgres", "redis", "supabase"]);
+        const MANDATORY = new Set([
+            "postgres",
+            "redis",
+            "supabase",
+            "albandrieu_twofactor",
+            "albandrieu_nexus",
+            "albandrieu_keycloak_ui",
+            "albandrieu_homarr",
+            "albandrieu_plumber_api",
+            "albandrieu_reactive_resume",
+            "albandrieu_vaultwarden",
+        ]);
+
+        /* Filenames from https://selfh.st/icons/ (selfhst/icons repo, default SVG variant). */
+        const SELFHST_ICON_CDN =
+            "https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/";
+        const HEALTHZ_ICON_IMG = {
+            postgres: "postgresql.svg",
+            redis: "redis.svg",
+            supabase: "supabase.svg",
+            openstack_me: "ovh.svg",
+            tavily: "searxng.svg",
+            brave: "brave.svg",
+            google: "google.svg",
+            appwrite: "appwrite.svg",
+            keycloak: "keycloak.svg",
+            sentry: "sentry.svg",
+            datadog: "datadog.svg",
+            pyroscope: "grafana.svg",
+            litellm: "litellm.svg",
+            albandrieu_twofactor: "2fauth.svg",
+            albandrieu_nexus: "sonatype-nexus-repository.svg",
+            albandrieu_keycloak_ui: "keycloak.svg",
+            albandrieu_homarr: "homarr.svg",
+            albandrieu_plumber_api: "docker.svg",
+            albandrieu_reactive_resume: "reactive-resume.svg",
+            albandrieu_vaultwarden: "vaultwarden.svg",
+            sickz_url: "pfsense.svg",
+        };
 
         const ICON_PATHS = {
-            postgres:
-                '<ellipse cx="12" cy="5" rx="7.5" ry="2.75"/><path d="M4.5 5v6.5c0 1.5 3.2 2.75 7.5 2.75s7.5-1.25 7.5-2.75V5"/><path d="M4.5 11.5V18c0 1.5 3.2 2.75 7.5 2.75s7.5-1.25 7.5-2.75v-6.5"/>',
-            redis: '<path d="M13 2L4 14h7l-2 10 11-13h-7l2-9z"/>',
-            supabase:
-                '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
-            openstack_me:
-                '<path d="M18 10h-1.26a8 8 0 1 0-11.49 3.5 5 5 0 0 0 9.75-1.5H18a3.5 3.5 0 1 0 0-7z"/>',
-            tavily:
-                '<circle cx="11" cy="11" r="6"/><path d="M21 21l-4.35-4.35"/>',
-            brave:
-                '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
-            google:
-                '<path d="M5 19V11M10 19V7M15 19v-6M20 19V9"/>',
-            keycloak:
-                '<path d="M10.5 3.5a2.5 2.5 0 0 0-5 0V20"/><circle cx="17.5" cy="14.5" r="3.5"/><path d="M10.5 10.5H15"/>',
             unleash:
-                '<path d="M5 5v14"/><path d="M5 8l7 3 7-3"/><path d="M5 14l7 3 7-3"/>',
-            sentry:
-                '<path d="M12 3l8.5 14H3.5L12 3z"/><path d="M12 10v5"/>',
-            datadog:
-                '<path d="M4 18V6l4 4 4-4 4 4v8"/><path d="M8 14h8"/>',
-            pyroscope:
-                '<path d="M12 3c-4 6-6 9-6 12a6 6 0 0 0 12 0c0-3-2-6-6-12z"/><path d="M12 10v6"/>',
+                '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/>',
+            infra_host:
+                '<circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/>',
             _default: '<rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 12h6M12 9v6"/>',
         };
 
         function serviceIconSvg(key, statusCls) {
-            var d = ICON_PATHS[key] || ICON_PATHS._default;
+            var imgFile = HEALTHZ_ICON_IMG[key];
+            if (imgFile) {
+                return (
+                    '<span class="health-row-icon health-row-icon--img health-row-icon--' +
+                    statusCls +
+                    '" aria-hidden="true">' +
+                    '<img src="' +
+                    SELFHST_ICON_CDN +
+                    imgFile +
+                    '" alt="" width="26" height="26" loading="lazy" referrerpolicy="no-referrer" />' +
+                    "</span>"
+                );
+            }
+            var d =
+                ICON_PATHS[key] ||
+                (key.indexOf("albandrieu_") === 0 ? ICON_PATHS.infra_host : ICON_PATHS._default);
             return (
                 '<span class="health-row-icon health-row-icon--' +
                 statusCls +
@@ -1165,6 +1346,95 @@ def read_root(request: Request):
                 d +
                 "</svg></span>"
             );
+        }
+
+        function sickzEscapeText(s) {
+            return String(s)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;");
+        }
+
+        function sickzUrlForDetail(u) {
+            return String(u).replace(/^https?:\\/\\//i, "");
+        }
+
+        function sickzShortHostForDetail(u) {
+            var s = String(u).replace(/^https?:\\/\\//i, "");
+            var slash = s.indexOf("/");
+            if (slash !== -1) s = s.slice(0, slash);
+            var lower = s.toLowerCase();
+            var suff = ".albandrieu.com";
+            if (lower.endsWith(suff)) return s.slice(0, -suff.length) || s;
+            return s;
+        }
+
+        function sickzLockHtml(tlsTrusted, hrefRaw) {
+            var h = (hrefRaw || "").trim().toLowerCase();
+            var isHttps = h.indexOf("https:") === 0;
+            var wrapCls;
+            var label;
+            if (!isHttps) {
+                wrapCls = "sickz-lock--unknown";
+                label = "TLS: not applicable (non-HTTPS or no link)";
+            } else if (tlsTrusted === true) {
+                wrapCls = "sickz-lock--trusted";
+                label = "TLS: certificate validated";
+            } else {
+                wrapCls = "sickz-lock--untrusted";
+                label =
+                    tlsTrusted === false
+                        ? "TLS: certificate not trusted"
+                        : "TLS: not validated (unreachable or check incomplete)";
+            }
+            var lockPaths =
+                '<rect x="5" y="11" width="14" height="10" rx="2" ry="2"/>' +
+                '<path d="M7 11V7a5 5 0 0 1 10 0v4"/>';
+            return (
+                '<span class="sickz-lock-wrap ' +
+                wrapCls +
+                '" role="img" aria-label="' +
+                sickzEscapeText(label) +
+                '">' +
+                '<svg class="sickz-lock-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">' +
+                lockPaths +
+                "</svg></span>"
+            );
+        }
+
+        function sickzRowIcon(check, statusCls) {
+            var fn = check.icon_filename;
+            if (fn && typeof fn === "string") {
+                return (
+                    '<span class="health-row-icon health-row-icon--img health-row-icon--' +
+                    statusCls +
+                    '" aria-hidden="true">' +
+                    '<img src="' +
+                    SELFHST_ICON_CDN +
+                    sickzEscapeText(fn) +
+                    '" alt="" width="26" height="26" loading="lazy" referrerpolicy="no-referrer" />' +
+                    "</span>"
+                );
+            }
+            return serviceIconSvg("sickz_url", statusCls);
+        }
+
+        function healthRowTitleHtml(check, key) {
+            var rowTitle =
+                check.display_label != null ? check.display_label : LABELS[key] ? LABELS[key] : key;
+            rowTitle = String(rowTitle);
+            var hrefRaw = (check.href || "").trim();
+            var lock = sickzLockHtml(check.tls_trusted, hrefRaw);
+            var inner =
+                hrefRaw.length > 0
+                    ? '<a class="sickz-target-link" target="_blank" rel="noopener noreferrer" href="' +
+                      sickzEscapeText(hrefRaw) +
+                      '">' +
+                      sickzEscapeText(rowTitle) +
+                      "</a>"
+                    : "<span>" + sickzEscapeText(rowTitle) + "</span>";
+            return '<div class="health-row-name health-row-name--sickz">' + lock + inner + "</div>";
         }
 
         function classify(check) {
@@ -1187,6 +1457,7 @@ def read_root(request: Request):
                 if (check.http_status != null) parts.push("HTTP " + check.http_status);
                 if (check.path) parts.push(check.path);
                 if (check.host != null && check.port != null) parts.push(check.host + ":" + check.port);
+                if (check.url) parts.push(String(check.url).replace(/^https?:\\/\\//i, ""));
                 return parts.length ? parts.join(" · ") : "Connected.";
             }
             if (check.error) return check.error;
@@ -1194,7 +1465,19 @@ def read_root(request: Request):
         }
 
         function sortKeys(keys) {
-            const first = ["postgres", "redis", "supabase"];
+            const first = [
+                "postgres",
+                "redis",
+                "supabase",
+                "albandrieu_twofactor",
+                "albandrieu_nexus",
+                "albandrieu_keycloak_ui",
+                "albandrieu_homarr",
+                "albandrieu_plumber_api",
+                "albandrieu_reactive_resume",
+                "albandrieu_vaultwarden",
+                "litellm",
+            ];
             const rest = keys.filter(function (k) { return first.indexOf(k) === -1; }).sort();
             return first.filter(function (k) { return keys.indexOf(k) !== -1; }).concat(rest);
         }
@@ -1209,7 +1492,8 @@ def read_root(request: Request):
                 if (mandatoryFailed(key, ch)) {
                     return {
                         cls: "red",
-                        text: "A required dependency failed: PostgreSQL, Redis, or Supabase (when configured) must be reachable.",
+                        text:
+                            "A required check failed: PostgreSQL, Redis, Supabase (when configured), and required albandrieu.com infra HTTPS endpoints must be reachable.",
                     };
                 }
                 const c = classify(ch);
@@ -1272,7 +1556,11 @@ def read_root(request: Request):
 
             keys.forEach(function (key) {
                 const check = checks[key];
-                const tier = MANDATORY.has(key) ? "Required for core stack" : "Optional integration";
+                const tier = MANDATORY.has(key)
+                    ? key.indexOf("albandrieu_") === 0
+                        ? "Required infra (albandrieu.com)"
+                        : "Required for core stack"
+                    : "Optional integration";
                 const cls = classify(check);
                 const li = document.createElement("li");
                 li.className = "health-row";
@@ -1284,12 +1572,13 @@ def read_root(request: Request):
                     cls +
                     '"></span></span>' +
                     '<div class="health-row-main">' +
-                    '<div class="health-row-name">' +
-                    (LABELS[key] || key) +
-                    "</div>" +
+                    '<div class="health-row-primary health-row-primary--' +
+                    cls +
+                    '">' +
+                    healthRowTitleHtml(check, key) +
                     '<div class="health-row-detail">' +
                     detailText(check) +
-                    "</div>" +
+                    "</div></div>" +
                     '<div class="health-row-tags">' +
                     tier +
                     "</div>" +
@@ -1311,6 +1600,201 @@ def read_root(request: Request):
             errEl.textContent = msg;
         }
 
+        function classifySick(check) {
+            if (check.skipped === true) return "yellow";
+            if (check.reachable === true) return "red";
+            if (check.reachable === false) return "green";
+            return "gray";
+        }
+
+        function detailSickText(check) {
+            if (check.skipped === true) {
+                const intro = check.reason || "Not probed (LAN skip).";
+                if (check.aliases_probed && check.aliases_probed.length) {
+                    return (
+                        intro +
+                        " Targets: " +
+                        check.aliases_probed.map(function (u) { return sickzShortHostForDetail(u); }).join(" · ")
+                    );
+                }
+                return intro;
+            }
+            if (check.alias_results && check.aliases_probed) {
+                const bits = [];
+                check.aliases_probed.forEach(function (u) {
+                    const r = check.alias_results[u];
+                    const tail = sickzShortHostForDetail(u);
+                    if (!r) return;
+                    if (r.reachable === true) {
+                        bits.push(
+                            tail +
+                                " → reachable" +
+                                (r.http_status != null ? " (HTTP " + r.http_status + ")" : "")
+                        );
+                    } else if (r.error) {
+                        bits.push(tail + " → unreachable (" + r.error + ")");
+                    } else {
+                        bits.push(tail + " → unreachable");
+                    }
+                });
+                return bits.join(" · ");
+            }
+            if (check.reachable === true) {
+                const parts = ["Reachable (should be blocked)."];
+                if (check.http_status != null) parts.push("HTTP " + check.http_status);
+                return parts.join(" ");
+            }
+            if (check.reachable === false) {
+                if (check.error) return "Unreachable as expected. " + check.error;
+                return "Unreachable as expected.";
+            }
+            return "Unknown state.";
+        }
+
+        function sickzNetworkPhrase(data) {
+            return data.network_label ? '"' + data.network_label + '"' : "this deployment";
+        }
+
+        function computeSickOverall(data) {
+            const net = sickzNetworkPhrase(data);
+            if (data.status === "skipped_internal_network") {
+                return {
+                    cls: "yellow",
+                    text:
+                        (data.detail || "Sickz skipped on internal network.") +
+                        " Network: " +
+                        net +
+                        ".",
+                };
+            }
+            if (data.status === "no_targets" || Object.keys(data.checks || {}).length === 0) {
+                return {
+                    cls: "yellow",
+                    text: (data.detail || "No sickz targets configured.") + " Network: " + net + ".",
+                };
+            }
+            const checks = data.checks || {};
+            for (const key of Object.keys(checks)) {
+                const ch = checks[key];
+                if (ch.skipped === true) continue;
+                if (ch.reachable === true) {
+                    return {
+                        cls: "red",
+                        text:
+                            "From network " +
+                            net +
+                            ", at least one target is reachable; it should stay blocked from this context.",
+                    };
+                }
+            }
+            return {
+                cls: "green",
+                text:
+                    "From network " +
+                    net +
+                    ", all listed targets are unreachable (expected).",
+            };
+        }
+
+        function renderSickz(data) {
+            const listEl = document.getElementById("sickz-checks");
+            const summaryEl = document.getElementById("sickz-summary");
+            const summaryText = document.getElementById("sickz-summary-text");
+            const summaryLed = document.getElementById("sickz-summary-led");
+            const errEl = document.getElementById("sickz-fetch-error");
+
+            errEl.hidden = true;
+            errEl.textContent = "";
+
+            const overall = computeSickOverall(data);
+            summaryEl.className = "health-summary health-summary--" + overall.cls;
+            summaryLed.className = "health-led health-led--" + overall.cls;
+            summaryText.textContent = overall.text;
+
+            const hintEl = document.getElementById("sickz-lan-hint");
+            const rt = data.runtime || {};
+            if (hintEl) {
+                if (data.status === "skipped_internal_network") {
+                    hintEl.hidden = false;
+                    if (rt.sickz_internal_network_implicit) {
+                        hintEl.textContent =
+                            "LAN skip was inferred from " +
+                            (rt.internal_network_inferred_from || "SICKZ_NETWORK_LABEL / APP_DOMAIN rules") +
+                            " (SICKZ_INTERNAL_NETWORK was not required).";
+                    } else {
+                        hintEl.textContent =
+                            "LAN skip from SICKZ_INTERNAL_NETWORK=true.";
+                    }
+                } else if (rt.cloud_paas_detected && (rt.sickz_internal_network_config || rt.sickz_internal_network_implicit)) {
+                    hintEl.hidden = false;
+                    hintEl.textContent =
+                        "Cloud/PaaS runtime: sickz probes still run even though this host would match home-LAN rules (env or implicit label/domain).";
+                } else {
+                    hintEl.hidden = true;
+                    hintEl.textContent = "";
+                }
+            }
+
+            const checks = data.checks || {};
+            const keys = Object.keys(checks).sort();
+            listEl.innerHTML = "";
+
+            keys.forEach(function (key) {
+                const check = checks[key];
+                const cls = classifySick(check);
+                const li = document.createElement("li");
+                li.className = "health-row";
+                const hrefRaw = (check.href || "").trim();
+                const safeHref = hrefRaw.length ? sickzEscapeText(hrefRaw) : "#";
+                const rowTitle = check.display_label || key;
+                const lockTls = check.skipped === true ? null : check.tls_trusted;
+                const lockHref = check.skipped === true ? "" : hrefRaw;
+                li.innerHTML =
+                    sickzRowIcon(check, cls) +
+                    '<span class="health-row-led-wrap"><span class="health-led health-led--' +
+                    cls +
+                    '" title="' +
+                    cls +
+                    '"></span></span>' +
+                    '<div class="health-row-main">' +
+                    '<div class="health-row-primary health-row-primary--' +
+                    cls +
+                    '">' +
+                    '<div class="health-row-name health-row-name--sickz">' +
+                    sickzLockHtml(lockTls, lockHref) +
+                    '<a class="sickz-target-link" target="_blank" rel="noopener noreferrer" href="' +
+                    safeHref +
+                    '">' +
+                    sickzEscapeText(rowTitle) +
+                    "</a></div>" +
+                    '<div class="health-row-detail">' +
+                    detailSickText(check) +
+                    "</div></div>" +
+                    '<div class="health-row-tags">' +
+                    (check.skipped
+                        ? "Listed for reference; not probed on this network"
+                        : check.alias_results
+                          ? "Equivalent URLs (any alias reachable fails the check)"
+                          : "Must not be reachable") +
+                    "</div>" +
+                    "</div>";
+                listEl.appendChild(li);
+            });
+        }
+
+        function showSickzFetchError(msg) {
+            const summaryEl = document.getElementById("sickz-summary");
+            const summaryText = document.getElementById("sickz-summary-text");
+            const summaryLed = document.getElementById("sickz-summary-led");
+            const errEl = document.getElementById("sickz-fetch-error");
+            document.getElementById("sickz-checks").innerHTML = "";
+            summaryEl.className = "health-summary health-summary--red";
+            summaryLed.className = "health-led health-led--red";
+            summaryText.textContent = "Could not load /sickz.";
+            errEl.hidden = false;
+            errEl.textContent = msg;
+        }
+
         function loadHealth() {
             fetch("/healthz", { headers: { Accept: "application/json" } })
                 .then(function (r) {
@@ -1323,8 +1807,25 @@ def read_root(request: Request):
                 });
         }
 
-        document.getElementById("health-refresh").addEventListener("click", loadHealth);
-        loadHealth();
+        function loadSickz() {
+            fetch("/sickz", { headers: { Accept: "application/json" } })
+                .then(function (r) {
+                    if (!r.ok) throw new Error("HTTP " + r.status);
+                    return r.json();
+                })
+                .then(renderSickz)
+                .catch(function (e) {
+                    showSickzFetchError(String(e.message || e));
+                });
+        }
+
+        function loadHealthBoards() {
+            loadHealth();
+            loadSickz();
+        }
+
+        document.getElementById("health-refresh").addEventListener("click", loadHealthBoards);
+        loadHealthBoards();
     })();
     </script>
     </body>
@@ -1333,23 +1834,44 @@ def read_root(request: Request):
     )
 
 
-@app.get("/healthz")
+@app.get(
+    "/healthz",
+    response_class=ORJSONResponse,
+    tags=["Health"],
+    summary="Deep healthcheck",
+)
 async def get_healthz(request: Request) -> Dict[str, Any]:
-    """Deep healthcheck: merges ``GET /health`` with Redis, Postgres, Supabase, and OVH ``/me`` probes."""
+    """Return JSON: ``GET /health`` payload merged with Redis, Postgres, Supabase, OVH ``/me``, etc."""
     with pyroscope.tag_wrapper({"function": "fast"}):
         return await build_healthz_payload(request, redis_client=redis, engine=engine)
 
 
+@app.get(
+    "/sickz",
+    response_class=ORJSONResponse,
+    tags=["Health"],
+    summary="Inverse reachability (sickz)",
+)
+async def get_sickz(request: Request) -> Dict[str, Any]:
+    """Return JSON: URL groups in ``SICKZ_TARGETS`` must not be reachable (unless ``SICKZ_INTERNAL_NETWORK``)."""
+    with pyroscope.tag_wrapper({"function": "fast"}):
+        return await build_sickz_payload(request)
+
+
 @app.get("/sentry-debug")
-def trigger_error():
-    pass
+async def trigger_error() -> None:
+    """Intentional error to verify Sentry (transaction + error event). See Sentry FastAPI docs."""
+    _ = 1 / 0
 
 
 # Error handling
 @app.exception_handler(Exception)
-def global_exception_handler(request: Request, exc: Exception):
+def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     logger.error(f"Unhandled exception on {request.url}: {exc}")
-    return {"error": "Internal server error", "timestamp": datetime.now().isoformat()}
+    return JSONResponse(
+        status_code=500,
+        content={"error": "Internal server error", "timestamp": datetime.now().isoformat()},
+    )
 
 
 parser = argparse.ArgumentParser(prog="nabla")
