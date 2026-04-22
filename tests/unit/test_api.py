@@ -131,6 +131,18 @@ def test_health(test_app) -> None:
     assert status["total_requests"] == 1
 
 
+def test_uncaught_exception_returns_json_500(test_app) -> None:
+    """Unhandled exceptions should be transformed into a JSON 500 response."""
+
+    response = test_app.get("/error_test")
+
+    assert response.status_code == 500
+    payload = response.json()
+    assert payload["error"] == "Internal server error"
+    assert isinstance(payload["timestamp"], str)
+    assert payload["timestamp"]
+
+
 def test_tavily_search_returns_503_without_api_key(test_app, monkeypatch) -> None:
     """Tavily route returns 503 when the API key is missing or empty."""
     monkeypatch.setenv("TAVILY_API_KEY", "")
