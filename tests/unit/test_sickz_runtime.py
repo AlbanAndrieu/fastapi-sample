@@ -131,3 +131,12 @@ def test_sickz_display_label_multi_alias() -> None:
         hc._sickz_display_label(["https://a.albandrieu.com/", "https://b.albandrieu.com/"])
         == "a · b"
     )
+
+
+def test_sickz_targets_equal_default_catalog_mode() -> None:
+    from nabla.config_settings import _default_sickz_targets_value
+
+    default = _default_sickz_targets_value()
+    assert hc._sickz_targets_equal_default_catalog_mode(default)
+    assert hc._sickz_targets_equal_default_catalog_mode(f"\n{default}\n")
+    assert not hc._sickz_targets_equal_default_catalog_mode(f"{default},https://extra.example/")

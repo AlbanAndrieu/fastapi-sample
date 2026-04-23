@@ -165,49 +165,12 @@ class AzureOpenAiInstance(BaseModel):
     available_models: Annotated[str, Field(default="gpt-5", min_length=1)]
 
 
-_ALBANDRIEU_SICKZ_HOSTNAMES: tuple[str, ...] = (
-    "ollama.albandrieu.com",
-    "ollama-gpu.albandrieu.com",
-    "anythingllm.albandrieu.com",
-    "openclaw.albandrieu.com",
-    "paperless-ngx.albandrieu.com",
-    "paperless-ai.albandrieu.com",
-    "open-webui.albandrieu.com",
-    "n8n.albandrieu.com",
-    "grafana.albandrieu.com",
-    "freenas.albandrieu.com",
-    "truenas.albandrieu.com",
-    "prometheus.albandrieu.com",
-    "adguardhome.albandrieu.com",
-    "localai-gpu.albandrieu.com",
-    "graylog.albandrieu.com",
-    "netalertx.albandrieu.com",
-    "ntopng.albandrieu.com",
-    "portracker-albandrieu.albandrieu.com",
-    "stirling-albandrieu.albandrieu.com",
-)
-
 _ALBANDRIEU_PUBLIC_DOMAIN_SUFFIX = "albandrieu.com"
-
-# ``(healthz_check_key, host_label)`` → ``https://{host_label}.{_ALBANDRIEU_PUBLIC_DOMAIN_SUFFIX}/`` for ``/healthz``.
-_ALBANDRIEU_HEALTHZ_HOST_LABELS: tuple[tuple[str, str], ...] = (
-    ("albandrieu_twofactor", "twofactor-auth"),
-    ("albandrieu_nexus", "nexus"),
-    ("albandrieu_keycloak_ui", "keycloak"),
-    ("albandrieu_homarr", "homarr"),
-    ("albandrieu_plumber_api", "plumber-api"),
-    ("albandrieu_reactive_resume", "reactive-resume"),
-    ("albandrieu_vaultwarden", "vaultwarden-albandrieu"),
-)
-
-_ALBANDRIEU_HEALTHZ_HTTPS: tuple[tuple[str, str], ...] = tuple((key, f"https://{label}.{_ALBANDRIEU_PUBLIC_DOMAIN_SUFFIX}/") for key, label in _ALBANDRIEU_HEALTHZ_HOST_LABELS)
 
 
 def _default_sickz_targets_value() -> str:
-    """pfSense group plus one sickz URL group per internal-only hostname."""
-    pfsense_group = "https://home.albandrieu.com:10443/|https://172.17.0.1:10443/"
-    internal_only = ",".join(f"https://{h}/" for h in _ALBANDRIEU_SICKZ_HOSTNAMES)
-    return f"{pfsense_group},{internal_only}"
+    """pfSense WAN + LAN aliases only; ``/sickz`` merges HTTPS tunnels from the homelab catalog when unchanged."""
+    return "https://home.albandrieu.com:10443/|https://172.17.0.1:10443/"
 
 
 # Basic db & ovh settings
@@ -442,7 +405,8 @@ class _Settings(BaseSettings):
                 "Comma- or newline-separated *groups* for GET /sickz. Within a group, use | between "
                 "equivalent URLs (e.g. pfSense hostname and Docker bridge IP on the same LAN). "
                 "The group fails if *any* alias responds. Probes use verify=False so TLS cert issues "
-                "do not hide reachability. Default includes pfSense plus internal-only *.albandrieu.com hosts. "
+                "do not hide reachability. Default is pfSense only; when left at that default, "
+                "GET /sickz merges HTTPS ``tunnelUrl`` entries from the homelab services JSON (except pfSense). "
                 "Set SICKZ_TARGETS to override or clear."
             ),
             validation_alias=AliasChoices("SICKZ_TARGETS"),

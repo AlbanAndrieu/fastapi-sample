@@ -295,6 +295,31 @@
 		// ### VSCode ###
 		// ##############
 		{
+			"label": "[VSCode] uv sync (pre-debug) 📦",
+			"detail": "Runtime groups + api-extra/api-tracing/api-ai (pyroscope, ddtrace, fastapi-cache/fastmcp, langgraph). No test/ci/dev. Python 3.12.",
+			"type": "shell",
+			"command": "uv sync --frozen --no-install-project --no-default-groups --group base --group api --group api-extra --group api-tracing --group api-ai --group extra --group open_telemetry --group deployment --group influxdb --group panda --group temporal --group utils --group webui --group db --group dev --group test ",
+			"options": {
+				"cwd": "${workspaceFolder}",
+				"env": {
+					"UV_PYTHON": "3.12",
+					"PYTHONPATH": ""
+				}
+			},
+			"group": "test",
+			"icon": {
+				"id": "package",
+				"color": "terminal.ansiRed"
+			},
+			"presentation": {
+				"reveal": "silent",
+				"panel": "shared",
+				"showReuseMessage": false,
+				"clear": false
+			},
+			"problemMatcher": []
+		},
+		{
 			"label": "[VSCode] Startup Welcome 💛",
 			"detail": "Print a Welcome screen",
 			"type": "shell",

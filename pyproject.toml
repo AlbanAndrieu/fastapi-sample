@@ -16,6 +16,7 @@ classifiers = ["Private :: Do not Upload"]
 dependencies = [
     "fastapi[standard]>=0.128.0",
     "litellm>=1.83.0",
+    "sentry-sdk>=2.44.0",
     "tavily-python>=0.7.23",
 ]
 # dependencies = [
@@ -56,6 +57,7 @@ api = [
     "httpx>=0.28.1",
     "podmena>=0.6.1",
     "passlib>=1.7.4",
+    "pyroscope-io>=0.8.5",
     "pandas>=2.2.1",
     "plotly>=6.3.0",
     "polars>=1.32.3",

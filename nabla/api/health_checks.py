@@ -19,11 +19,11 @@ from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
 from nabla.api.auth.openstack import probe_ovh_me_reachable
+from nabla.api.homelab_catalog import homelab_healthz_probe_rows, homelab_sickz_https_single_url_groups
 from nabla.config_settings import (
     APP_DOMAIN,
-    _ALBANDRIEU_HEALTHZ_HOST_LABELS,
-    _ALBANDRIEU_HEALTHZ_HTTPS,
     _ALBANDRIEU_PUBLIC_DOMAIN_SUFFIX,
+    _default_sickz_targets_value,
     APIDeploymentSettings,
     DD_AGENT_HOST,
     DD_TRACE_AGENT_PORT,
@@ -44,8 +44,6 @@ from nabla.integrations.appwrite_client import appwrite_health
 from nabla.integrations.tavily_search import get_tavily_client
 
 _log = logging.getLogger(__name__)
-
-_HEALTHZ_ALBANDRIEU_DISPLAY_LABEL: dict[str, str] = dict(_ALBANDRIEU_HEALTHZ_HOST_LABELS)
 
 
 def _normalize_probe_error(message: str) -> str:
@@ -483,6 +481,7 @@ async def _healthz_enrich_pyroscope(checks: dict[str, Any]) -> None:
 async def build_healthz_payload(request: Request, *, redis_client: Any, engine: Engine) -> dict[str, Any]:
     base = await fetch_base_health(request)
     sentry_debug_url = str(request.url.replace(path="/sentry-debug", query="", fragment=""))
+    homelab_rows = await homelab_healthz_probe_rows()
     (
         (
             redis_check,
@@ -518,7 +517,7 @@ async def build_healthz_payload(request: Request, *, redis_client: Any, engine: 
             run_in_threadpool(probe_pyroscope_server),
             run_in_threadpool(probe_litellm_public_proxy),
         ),
-        asyncio.gather(*(probe_https_get_reachable(url) for _, url in _ALBANDRIEU_HEALTHZ_HTTPS)),
+        asyncio.gather(*(probe_https_get_reachable(url) for _, url, _ in homelab_rows)),
     )
     checks = {
         "redis": redis_check,
@@ -536,11 +535,11 @@ async def build_healthz_payload(request: Request, *, redis_client: Any, engine: 
         "pyroscope": pyroscope_check,
         "litellm": litellm_check,
     }
-    for (key, url), res in zip(_ALBANDRIEU_HEALTHZ_HTTPS, albandrieu_results, strict=True):
+    for (key, url, display_label), res in zip(homelab_rows, albandrieu_results, strict=True):
         norm = _normalize_probe_result_errors(res)
         checks[key] = {
             **norm,
-            "display_label": _HEALTHZ_ALBANDRIEU_DISPLAY_LABEL.get(key, key),
+            "display_label": display_label,
             "href": url,
             "tls_trusted": _tls_trusted_from_https_probe_result(norm, url),
         }
@@ -563,6 +562,22 @@ def _parse_sickz_target_groups(raw: str) -> list[list[str]]:
         if aliases:
             groups.append(aliases)
     return groups
+
+
+def _normalize_sickz_targets_for_compare(raw: str) -> str:
+    parts: list[str] = []
+    for segment in (raw or "").replace("\n", ",").split(","):
+        s = segment.strip()
+        if s:
+            parts.append(s)
+    return ",".join(parts)
+
+
+def _sickz_targets_equal_default_catalog_mode(raw: str) -> bool:
+    """True when ``SICKZ_TARGETS`` is still the pfSense-only default (homelab JSON URLs are merged in)."""
+    return _normalize_sickz_targets_for_compare(raw) == _normalize_sickz_targets_for_compare(
+        _default_sickz_targets_value(),
+    )
 
 
 _ALBANDRIEU_COM = f".{_ALBANDRIEU_PUBLIC_DOMAIN_SUFFIX}"
@@ -865,6 +880,8 @@ async def build_sickz_payload(request: Request) -> dict[str, Any]:
 
     if _sickz_internal_network_effective(settings):
         groups = _parse_sickz_target_groups(settings.sickz_targets)
+        if _sickz_targets_equal_default_catalog_mode(settings.sickz_targets):
+            groups = groups + await homelab_sickz_https_single_url_groups()
         group_keys = [" | ".join(g) for g in groups]
         skip_reason = "Not probed (LAN / internal network skip)."
         checks = {
@@ -887,6 +904,8 @@ async def build_sickz_payload(request: Request) -> dict[str, Any]:
         }
 
     groups = _parse_sickz_target_groups(settings.sickz_targets)
+    if _sickz_targets_equal_default_catalog_mode(settings.sickz_targets):
+        groups = groups + await homelab_sickz_https_single_url_groups()
     if not groups:
         return {
             "checks": {},

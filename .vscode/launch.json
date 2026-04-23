@@ -9,9 +9,10 @@
 			"name": "Python Debugger: FastAPI",
 			"type": "debugpy",
 			"request": "launch",
+			"preLaunchTask": "[VSCode] uv sync (pre-debug) 📦",
 			"module": "uvicorn",
 			"args": [
-				"server:app",
+				"server_app:app",
 				"--reload",
 				"--workers",
 				"1",
@@ -27,6 +28,7 @@
 			"name": "Debug Main",
 			"type": "debugpy",
 			"request": "launch",
+			"preLaunchTask": "[VSCode] uv sync (pre-debug) 📦",
 			"program": "${workspaceFolder}/{{ cookiecutter.module_name }}/main.py",
 			"console": "integratedTerminal"
 		},
@@ -35,6 +37,7 @@
 			"name": "Debug Current File",
 			"type": "debugpy",
 			"request": "launch",
+			"preLaunchTask": "[VSCode] uv sync (pre-debug) 📦",
 			"program": "${file}",
 			"console": "integratedTerminal"
 		}
