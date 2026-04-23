@@ -1,6 +1,7 @@
+from functools import lru_cache
+
 import pybreaker
 from dotenv import load_dotenv
-from functools import lru_cache
 from fastapi import APIRouter
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage
@@ -13,6 +14,8 @@ from nabla.utils.logger import logger
 
 router = APIRouter()
 
+# Made base from https://pub.towardsai.net/building-ai-workflows-with-fastapi-and-langgraph-step-by-step-guide-599937ab84f3
+
 load_dotenv()
 
 # Configure separate circuit breakers for the two external services:
@@ -22,7 +25,7 @@ circuit_breaker_llm = pybreaker.CircuitBreaker(fail_max=2, reset_timeout=10)
 
 @lru_cache(maxsize=1)
 def _get_workflow_llm() -> BaseChatModel:
-    return build_chat_llm(model_name="gpt-4o")
+    return build_chat_llm(model_name="gpt-5.1")
 
 
 @retry(wait=wait_exponential(multiplier=1, min=2, max=10), stop=stop_after_attempt(3))
@@ -57,3 +60,4 @@ graph = workflow.compile()
 async def run_workflow(data: RequestData):
     result = graph.invoke({"user_input": data.user_input})
     return {"result": result["answer"]}
+

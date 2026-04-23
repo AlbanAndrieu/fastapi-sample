@@ -24,10 +24,10 @@ def _azure_chat_model_name(instance: AzureOpenAiInstance) -> str:
     raw = (instance.available_models or "").strip()
     if "," in raw:
         return raw.split(",", maxsplit=1)[0].strip()
-    return raw or "gpt-4o"
+    return raw or "gpt-5.1"
 
 
-def build_chat_llm(*, model_name: str = "gpt-4o") -> BaseChatModel:
+def build_chat_llm(*, model_name: str = "gpt-5.1") -> BaseChatModel:
     """
     Prefer LiteLLM (``LITELLM_URL``), then configured Azure OpenAI, then ``OPENAI_API_KEY``.
     """

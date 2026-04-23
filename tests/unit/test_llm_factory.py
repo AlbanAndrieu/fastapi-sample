@@ -24,7 +24,7 @@ def test_build_chat_llm_uses_litellm_when_url_set(monkeypatch: pytest.MonkeyPatc
         azure_openai_instance={},
     )
     monkeypatch.setattr(lf, "get_settings", lambda: fake)
-    llm = lf.build_chat_llm(model_name="gpt-4o")
+    llm = lf.build_chat_llm(model_name="gpt-5.1")
     assert llm.openai_api_base == "http://proxy:4000/v1"
     key = llm.openai_api_key
     resolved = key.get_secret_value() if hasattr(key, "get_secret_value") else key

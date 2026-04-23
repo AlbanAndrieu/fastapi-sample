@@ -44,6 +44,7 @@ from sqlmodel import select
 from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Mount
 
+from nabla.ai import workflow as ai_workflow
 from nabla.api import appwrite_route, brave_route, google_search_route, ping, tavily_route, v1, v2
 from nabla.api.auth import keycloak
 from nabla.api.db.database import SessionLocal, database, engine, init_db
@@ -358,6 +359,7 @@ def initialize_api(app):
     app.include_router(demo.router, tags=["integration"])
     app.include_router(notes.router, tags=["notes"])
     app.include_router(info.router, tags=["test"])
+    app.include_router(ai_workflow.router, tags=["ai"])
     app.include_router(keycloak.router, tags=["keycloak"])
     app.include_router(users.router, tags=["users"])
     app.include_router(sensor.router, tags=["sensor"])
