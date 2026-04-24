@@ -8,6 +8,7 @@ from databases import Database
 from ddtrace import patch
 from fastapi import Depends
 from sqlalchemy import Engine, create_engine
+from sqlalchemy.engine import make_url
 
 # With PostgreSQL
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -83,7 +84,8 @@ def get_engine() -> Engine:
     # Used by pytest
     # Sync engine uses migration URL (direct session when POSTGRES_MIGRATION_* set).
     connection_query = _settings.postgres_migration_query or _settings.postgres_query
-    connect_args = get_sqlalchemy_psycopg_connect_args(connection_query)
+    connection_host = make_url(MIGRATION_DB_URL).host
+    connect_args = get_sqlalchemy_psycopg_connect_args(connection_query, host=connection_host)
     return create_engine(
         url=MIGRATION_DB_URL,
         json_serializer=orjson_serializer,
