@@ -84,7 +84,10 @@ def test_extract_supabase_project_ref_from_url() -> None:
 def test_ensure_supavisor_pooler_username() -> None:
     pooler = "aws-0-eu-west-3.pooler.supabase.com"
     assert ensure_supavisor_pooler_username(pooler, "postgres", "abc") == "postgres.abc"
+    assert ensure_supavisor_pooler_username(pooler, "back", "abc") == "back.abc"
     assert ensure_supavisor_pooler_username(pooler, "postgres.abc", "ignored") == "postgres.abc"
+    assert ensure_supavisor_pooler_username(pooler, "back.abc", "ignored") == "back.abc"
+    assert ensure_supavisor_pooler_username(pooler, "back", None) == "back"
     assert ensure_supavisor_pooler_username("localhost", "postgres", "abc") == "postgres"
 
 
