@@ -74,6 +74,7 @@ from nabla.config_settings import (
 )
 from nabla.utils.log_config import LogMiddleware, setup_logging
 from nabla.utils.logger import logger
+from nabla.utils.sentry_filters import before_send_filter_test_noise
 from nabla.utils.prometheus import (
     INFLIGHT_REQUESTS,
     REQUESTS,
@@ -516,6 +517,7 @@ sentry_sdk.init(
             event_level=logging.ERROR,  # Send errors as events
         ),
     ],
+    before_send=before_send_filter_test_noise,
 )
 
 templates = Jinja2Templates(directory="templates")
