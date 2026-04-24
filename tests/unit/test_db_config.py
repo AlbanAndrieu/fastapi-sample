@@ -65,6 +65,21 @@ def test_get_sqlalchemy_psycopg_connect_args_without_pgbouncer() -> None:
     assert get_sqlalchemy_psycopg_connect_args("pgbouncer=false") == {}
 
 
+def test_get_sqlalchemy_psycopg_connect_args_for_supavisor_pooler_host() -> None:
+    assert (
+        get_sqlalchemy_psycopg_connect_args(
+            "foo=bar",
+            host="aws-0-eu-west-3.pooler.supabase.com",
+        )
+        == {"prepare_threshold": None}
+    )
+
+
+def test_get_sqlalchemy_psycopg_connect_args_for_non_pooler_host() -> None:
+    assert get_sqlalchemy_psycopg_connect_args("foo=bar", host="db.myref.supabase.co") == {}
+    assert get_sqlalchemy_psycopg_connect_args("foo=bar", host="localhost") == {}
+
+
 def test_is_supabase_postgres_host() -> None:
     assert is_supabase_postgres_host("db.x.supabase.co") is True
     assert is_supabase_postgres_host("aws-0-eu-west-3.pooler.supabase.com") is True

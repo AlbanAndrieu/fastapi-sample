@@ -145,7 +145,11 @@ def _is_truthy(value: str | None) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
-def get_sqlalchemy_psycopg_connect_args(query: str | None) -> dict[str, Any]:
+def get_sqlalchemy_psycopg_connect_args(
+    query: str | None,
+    *,
+    host: str | None = None,
+) -> dict[str, Any]:
     """Build SQLAlchemy connect args for psycopg URLs.
 
     pgbouncer transaction pooling invalidates server-side prepared statements across
@@ -153,7 +157,8 @@ def get_sqlalchemy_psycopg_connect_args(query: str | None) -> dict[str, Any]:
     ``InvalidSqlStatementName`` failures.
     """
     params = query_string_to_dict(query)
-    if _is_truthy(params.get("pgbouncer")):
+    inferred_pgbouncer = bool(host) and is_supabase_supavisor_pooler_host(host)
+    if _is_truthy(params.get("pgbouncer")) or inferred_pgbouncer:
         return {"prepare_threshold": None}
     return {}
 
