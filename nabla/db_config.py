@@ -72,14 +72,17 @@ def resolve_supabase_project_ref(
 
 
 def ensure_supavisor_pooler_username(host: str, user: str, project_ref: str | None) -> str:
-    """Supavisor rejects plain ``postgres`` on ``*.pooler.supabase.com``; use ``postgres.<ref>``."""
+    """Ensure Supavisor pooler usernames include tenant suffix ``<role>.<project_ref>``."""
     if not is_supabase_supavisor_pooler_host(host):
         return user
     u = user.strip()
-    if u.lower().startswith("postgres.") and len(u) > len("postgres."):
+    if not u:
+        return user
+    if "." in u:
         return u
-    if u.lower() == "postgres" and project_ref and project_ref.strip():
-        return f"postgres.{project_ref.strip()}"
+    ref = (project_ref or "").strip()
+    if ref:
+        return f"{u}.{ref}"
     return user
 
 

@@ -494,9 +494,12 @@ class _Settings(BaseSettings):
         )
         pu_before = pu
         pu = ensure_supavisor_pooler_username(ph, pu, ref)
-        if pu == pu_before and is_supabase_supavisor_pooler_host(ph) and pu_before.strip().lower() == "postgres":
+        if pu == pu_before and is_supabase_supavisor_pooler_host(ph) and "." not in pu_before.strip():
             _log.warning(
-                "Supabase pooler host %s requires username postgres.<project_ref>, not plain postgres; set SUPABASE_URL, SUPABASE_PROJECT_REF, or POSTGRES_HOST=db.<ref>.supabase.co with SUPABASE_POOLER_REGION.",
+                "Supabase pooler host %s requires tenant-scoped usernames "
+                "(<role>.<project_ref>), not unsuffixed roles; set SUPABASE_URL, "
+                "SUPABASE_PROJECT_REF, or POSTGRES_HOST=db.<ref>.supabase.co with "
+                "SUPABASE_POOLER_REGION.",
                 ph,
             )
         q = merge_postgres_query_sslmode_require(query) if is_supabase_postgres_host(ph) else query
