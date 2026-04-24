@@ -8,7 +8,11 @@ from urllib.parse import urljoin
 import pytest
 
 from nabla.api import health_checks as hc
-from nabla.api.homelab_catalog import HOMELAB_SERVICES_JSON_URL, homelab_tunnel_url_to_resolved_icon_src
+from nabla.api.homelab_catalog import (
+    HOMELAB_SERVICES_JSON_URL,
+    homelab_tunnel_url_to_resolved_icon_src,
+    homelab_tunnel_url_to_service_name,
+)
 
 
 def _clear_paas_env(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -87,7 +91,9 @@ def test_sickz_pfsense_row_uses_home_href_and_label() -> None:
     urls = ["https://home.albandrieu.com:10443/", "https://172.17.0.1:10443/"]
     meta = hc._sickz_row_ui_metadata(urls)
     assert meta["display_label"] == "PfSense"
+    assert meta["name"] == "PfSense"
     assert meta["href"] == "https://home.albandrieu.com:10443/"
+    assert meta["tunnel_url"] == meta["href"]
     assert meta["icon_filename"] == "pfsense.svg"
 
 
@@ -152,12 +158,36 @@ def test_sickz_lan_skip_pfsense_includes_tcp_port_placeholders(monkeypatch: pyte
     assert len(payload["checks"]) == 1
     row = next(iter(payload["checks"].values()))
     assert row["display_label"] == "PfSense"
+    assert row["name"] == "PfSense"
     assert row.get("pfsense_tcp_ports_skipped") is True
     pts = row.get("pfsense_tcp_ports")
     assert isinstance(pts, dict)
     assert len(pts) == len(hc._SICKZ_PFSENSE_EXTRA_TCP_PORTS)
     for p in hc._SICKZ_PFSENSE_EXTRA_TCP_PORTS:
         assert pts[str(p)] is None
+
+
+def test_build_sickz_payload_lan_skip_injects_pfsense_when_targets_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    """PfSense is always present on LAN skip so /api can render the dedicated PfSense board."""
+
+    async def _run() -> dict:
+        _clear_paas_env(monkeypatch)
+        fake_settings = SimpleNamespace(
+            sickz_internal_network=True,
+            sickz_targets="",
+            sickz_network_label="",
+        )
+        monkeypatch.setattr(hc, "get_settings", lambda: fake_settings)
+        request = MagicMock()
+        request.app.version = "0.0.0-test"
+        return await hc.build_sickz_payload(request)
+
+    payload = asyncio.run(_run())
+    assert payload["status"] == "skipped_internal_network"
+    assert len(payload["checks"]) == 1
+    row = next(iter(payload["checks"].values()))
+    assert row["display_label"] == "PfSense"
+    assert row["skipped"] is True
 
 
 def test_build_sickz_payload_skipped_lists_configured_targets(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -177,7 +207,10 @@ def test_build_sickz_payload_skipped_lists_configured_targets(monkeypatch: pytes
 
     payload = asyncio.run(_run())
     assert payload["status"] == "skipped_internal_network"
-    assert len(payload["checks"]) == 2
+    # Canonical PfSense group is always merged so the /api board can render it.
+    assert len(payload["checks"]) == 3
+    pfsense_rows = [r for r in payload["checks"].values() if r.get("display_label") == "PfSense"]
+    assert len(pfsense_rows) == 1
     for row in payload["checks"].values():
         assert row["skipped"] is True
         assert row["reason"]
@@ -205,6 +238,15 @@ def test_sickz_row_ui_metadata_includes_icon_src_from_homelab_map() -> None:
     assert meta["icon_filename"] == "homepage.svg"
 
 
+def test_sickz_row_ui_metadata_uses_homelab_catalog_name() -> None:
+    urls = ["https://keycloak.albandrieu.com/"]
+    name_map = {"https://keycloak.albandrieu.com/": "Keycloak"}
+    meta = hc._sickz_row_ui_metadata(urls, None, name_map)
+    assert meta["name"] == "Keycloak"
+    assert meta["display_label"] == "Keycloak"
+    assert meta["tunnel_url"] == "https://keycloak.albandrieu.com/"
+
+
 def test_homelab_tunnel_url_to_resolved_icon_src_joins_catalog_base() -> None:
     services = [
         {
@@ -219,11 +261,39 @@ def test_homelab_tunnel_url_to_resolved_icon_src_joins_catalog_base() -> None:
     )
 
 
+def test_homelab_tunnel_url_to_resolved_icon_src_protocol_relative() -> None:
+    services = [
+        {"tunnelUrl": "https://grafana.albandrieu.com", "iconSrc": "//cdn.example.com/icons/grafana.png"},
+    ]
+    m = homelab_tunnel_url_to_resolved_icon_src(services)
+    assert m["https://grafana.albandrieu.com/"] == "https://cdn.example.com/icons/grafana.png"
+
+
+def test_homelab_tunnel_url_to_service_name() -> None:
+    services = [
+        {"tunnelUrl": "https://keycloak.albandrieu.com/app", "name": "Keycloak"},
+    ]
+    m = homelab_tunnel_url_to_service_name(services)
+    assert m["https://keycloak.albandrieu.com/app/"] == "Keycloak"
+
+
 def test_sickz_display_label_multi_alias() -> None:
     assert (
         hc._sickz_display_label(["https://a.albandrieu.com/", "https://b.albandrieu.com/"])
         == "a · b"
     )
+
+
+def test_ensure_pfsense_sickz_group_prepends_when_missing() -> None:
+    groups = [["https://alpha.example/"]]
+    out = hc._ensure_pfsense_sickz_group(groups)
+    assert len(out) == 2
+    assert hc._sickz_pfsense_canonical_href(out[0]) is not None
+
+
+def test_ensure_pfsense_sickz_group_noop_when_pfsense_present() -> None:
+    groups = [["https://home.albandrieu.com:10443/", "https://172.17.0.1:10443/"]]
+    assert hc._ensure_pfsense_sickz_group(groups) is groups
 
 
 def test_sickz_targets_equal_default_catalog_mode() -> None:

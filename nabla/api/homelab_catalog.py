@@ -87,7 +87,7 @@ async def homelab_healthz_probe_rows() -> list[tuple[str, str, str, str | None]]
         used_keys.add(key)
         url = raw_url.rstrip("/") + "/"
         rel_icon = str(svc.get("iconSrc") or "").strip()
-        icon_abs = urljoin(HOMELAB_SERVICES_JSON_URL, rel_icon) if rel_icon else None
+        icon_abs = _homelab_resolved_icon_abs(rel_icon)
         rows.append((key, url, name, icon_abs))
     return rows
 
@@ -97,6 +97,19 @@ def _homelab_https_tunnel_key(raw_url: str) -> str:
     if not u.lower().startswith("https://"):
         return u
     return u.rstrip("/") + "/"
+
+
+def _homelab_resolved_icon_abs(rel: str) -> str | None:
+    """Turn catalog ``iconSrc`` into an absolute URL suitable for ``<img src>`` in any browser context."""
+    s = rel.strip()
+    if not s:
+        return None
+    lower = s.lower()
+    if lower.startswith("https://") or lower.startswith("http://"):
+        return s
+    if s.startswith("//"):
+        return "https:" + s
+    return urljoin(HOMELAB_SERVICES_JSON_URL, s)
 
 
 def homelab_tunnel_url_to_resolved_icon_src(services: list[dict[str, Any]]) -> dict[str, str]:
@@ -110,7 +123,23 @@ def homelab_tunnel_url_to_resolved_icon_src(services: list[dict[str, Any]]) -> d
         if not rel:
             continue
         key = _homelab_https_tunnel_key(raw_url)
-        out[key] = urljoin(HOMELAB_SERVICES_JSON_URL, rel)
+        abs_icon = _homelab_resolved_icon_abs(rel)
+        if abs_icon:
+            out[key] = abs_icon
+    return out
+
+
+def homelab_tunnel_url_to_service_name(services: list[dict[str, Any]]) -> dict[str, str]:
+    """Map canonical HTTPS ``tunnelUrl`` (trailing slash) to catalog ``name`` (e.g. ``Keycloak``)."""
+    out: dict[str, str] = {}
+    for svc in services:
+        raw_url = str(svc.get("tunnelUrl") or "").strip()
+        if not raw_url.lower().startswith("https://"):
+            continue
+        name = str(svc.get("name") or "").strip()
+        if not name:
+            continue
+        out[_homelab_https_tunnel_key(raw_url)] = name
     return out
 
 
@@ -128,11 +157,13 @@ def _homelab_sickz_https_groups_from_services(services: list[dict[str, Any]]) ->
     return groups
 
 
-async def homelab_sickz_catalog_for_sickz() -> tuple[list[list[str]], dict[str, str]]:
-    """Homelab sickz URL groups and tunnel-URL → resolved ``iconSrc`` (for sickz row icons)."""
+async def homelab_sickz_catalog_for_sickz() -> tuple[list[list[str]], dict[str, str], dict[str, str]]:
+    """Homelab sickz URL groups, tunnel → resolved ``iconSrc``, and tunnel → catalog ``name``."""
     services = await fetch_homelab_services_raw()
-    return _homelab_sickz_https_groups_from_services(services), homelab_tunnel_url_to_resolved_icon_src(
-        services,
+    return (
+        _homelab_sickz_https_groups_from_services(services),
+        homelab_tunnel_url_to_resolved_icon_src(services),
+        homelab_tunnel_url_to_service_name(services),
     )
 
 

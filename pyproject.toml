@@ -286,6 +286,7 @@ default-groups = [
     "api-cli",
     "api-extra",
     "api-tracing",
+    "api-ai",
     "ai",
     "cpu",
     "db",

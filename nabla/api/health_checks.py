@@ -24,10 +24,8 @@ from nabla.api.homelab_catalog import (
     homelab_sickz_catalog_for_sickz,
 )
 from nabla.config_settings import (
-    APP_DOMAIN,
     _ALBANDRIEU_PUBLIC_DOMAIN_SUFFIX,
-    _default_sickz_targets_value,
-    APIDeploymentSettings,
+    APP_DOMAIN,
     DD_AGENT_HOST,
     DD_TRACE_AGENT_PORT,
     DD_TRACE_AGENT_URL,
@@ -37,14 +35,16 @@ from nabla.config_settings import (
     UNLEASH_API_URL,
     UNLEASH_APP_NAME,
     UNLEASH_INSTANCE_ID,
+    APIDeploymentSettings,
+    _default_sickz_targets_value,
     _unleash_requests_kwargs,
     _unleash_timeout_s,
     get_openid_config,
     get_settings,
 )
+from nabla.integrations.appwrite_client import appwrite_health
 from nabla.integrations.brave_search import _BRAVE_WEB_SEARCH_URL
 from nabla.integrations.google_search import _GOOGLE_CSE_URL
-from nabla.integrations.appwrite_client import appwrite_health
 from nabla.integrations.tavily_search import get_tavily_client
 
 _log = logging.getLogger(__name__)
@@ -544,7 +544,9 @@ async def build_healthz_payload(request: Request, *, redis_client: Any, engine: 
         row: dict[str, Any] = {
             **norm,
             "display_label": display_label,
+            "name": display_label,
             "href": url,
+            "tunnel_url": url,
             "tls_trusted": _tls_trusted_from_https_probe_result(norm, url),
         }
         if icon_src:
@@ -679,6 +681,30 @@ def _sickz_pfsense_canonical_tcp_host(urls: list[str]) -> str | None:
     return host or None
 
 
+def _canonical_pfsense_sickz_alias_urls() -> list[str]:
+    """Default pfSense sickz aliases (same first segment as :func:`_default_sickz_targets_value`)."""
+    raw = _default_sickz_targets_value()
+    first_segment = raw.replace("\n", ",").split(",")[0].strip()
+    aliases = [a.strip() for a in first_segment.split("|") if a.strip()]
+    if aliases and _sickz_pfsense_canonical_href(aliases) is not None:
+        return aliases
+    return [
+        "https://home.albandrieu.com:10443/",
+        "https://172.17.0.1:10443/",
+    ]
+
+
+def _sickz_groups_include_pfsense(groups: list[list[str]]) -> bool:
+    return any(_sickz_pfsense_canonical_href(g) is not None for g in groups)
+
+
+def _ensure_pfsense_sickz_group(groups: list[list[str]]) -> list[list[str]]:
+    """Always keep a PfSense row for ``/sickz`` and the ``/api`` board, regardless of env overrides."""
+    if _sickz_groups_include_pfsense(groups):
+        return groups
+    return [_canonical_pfsense_sickz_alias_urls(), *groups]
+
+
 def _sickz_pfsense_tcp_skip_payload(urls: list[str]) -> dict[str, Any]:
     """LAN-skip rows: include TCP port map with ``None`` so UIs can still list PfSense ports."""
     if not _sickz_pfsense_canonical_tcp_host(urls):
@@ -726,6 +752,19 @@ def _sickz_homelab_icon_src_for_urls(
     return None
 
 
+def _sickz_homelab_service_name_for_urls(
+    urls: list[str], homelab_name_by_tunnel: dict[str, str] | None
+) -> str | None:
+    if not homelab_name_by_tunnel:
+        return None
+    for raw in urls:
+        key = _sickz_canonical_https_tunnel_key(raw)
+        hit = homelab_name_by_tunnel.get(key)
+        if hit:
+            return hit
+    return None
+
+
 def _sickz_icon_filename(urls: list[str]) -> str:
     """Selfh.st SVG basename for CDN; used when homelab catalog has no ``iconSrc`` for this tunnel."""
     if not urls:
@@ -740,21 +779,31 @@ def _sickz_icon_filename(urls: list[str]) -> str:
 
 
 def _sickz_row_ui_metadata(
-    urls: list[str], homelab_icon_by_tunnel: dict[str, str] | None = None
+    urls: list[str],
+    homelab_icon_by_tunnel: dict[str, str] | None = None,
+    homelab_name_by_tunnel: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     pf_href = _sickz_pfsense_canonical_href(urls)
     if pf_href is not None:
         return {
             "display_label": "PfSense",
+            "name": "PfSense",
             "href": pf_href,
+            "tunnel_url": pf_href,
             "icon_filename": _sickz_validate_icon_filename("pfsense.svg"),
         }
+    href = _sickz_row_href(urls).strip()
+    catalog_name = _sickz_homelab_service_name_for_urls(urls, homelab_name_by_tunnel)
+    display = catalog_name if catalog_name else _sickz_display_label(urls)
     icon_src = _sickz_homelab_icon_src_for_urls(urls, homelab_icon_by_tunnel)
     base: dict[str, Any] = {
-        "display_label": _sickz_display_label(urls),
-        "href": _sickz_row_href(urls),
+        "display_label": display,
+        "href": href,
+        "tunnel_url": href,
         "icon_filename": _sickz_icon_filename(urls),
     }
+    if catalog_name:
+        base["name"] = catalog_name
     if icon_src:
         base["icon_src"] = icon_src
     return base
@@ -852,8 +901,7 @@ def _sickz_skip_detail(settings: APIDeploymentSettings) -> str:
         return "Sickz probes are disabled (SICKZ_INTERNAL_NETWORK). This instance is treated as running on your home LAN where pfSense may be reachable."
     if (settings.sickz_network_label or "").strip().lower() == "nabla":
         return "Sickz probes are disabled: SICKZ_NETWORK_LABEL is 'nabla', so this instance is treated as on your home LAN."
-    if (APP_DOMAIN or "").strip().lower() == "albandrieu.albandrieu.com":
-        return "Sickz probes are disabled: APP_DOMAIN is albandrieu.albandrieu.com, so this instance is treated as on your home LAN."
+    
     return "Sickz probes are disabled."
 
 
@@ -890,7 +938,9 @@ async def _probe_sickz_url(url: str) -> dict[str, Any]:
 
 
 async def _probe_sickz_alias_group(
-    urls: list[str], homelab_icon_by_tunnel: dict[str, str] | None = None
+    urls: list[str],
+    homelab_icon_by_tunnel: dict[str, str] | None = None,
+    homelab_name_by_tunnel: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """One logical target: reachable if any alias responds."""
     href = _sickz_row_href(urls)
@@ -921,7 +971,7 @@ async def _probe_sickz_alias_group(
         "aliases_probed": urls,
         "alias_results": by_url,
         "tls_trusted": tls_trusted,
-        **_sickz_row_ui_metadata(urls, homelab_icon_by_tunnel),
+        **_sickz_row_ui_metadata(urls, homelab_icon_by_tunnel, homelab_name_by_tunnel),
     }
     if tcp_reachable is not None:
         out["pfsense_tcp_ports"] = {
@@ -945,9 +995,10 @@ async def build_sickz_payload(request: Request) -> dict[str, Any]:
     network_label = _sickz_network_label(settings)
     runtime = _sickz_runtime_block(settings)
     homelab_icon_by_tunnel: dict[str, str] | None = None
+    homelab_name_by_tunnel: dict[str, str] | None = None
     homelab_groups: list[list[str]] = []
     if _sickz_targets_equal_default_catalog_mode(settings.sickz_targets):
-        homelab_groups, homelab_icon_by_tunnel = await homelab_sickz_catalog_for_sickz()
+        homelab_groups, homelab_icon_by_tunnel, homelab_name_by_tunnel = await homelab_sickz_catalog_for_sickz()
 
     if _known_paas_runtime_detected() and (settings.sickz_internal_network or _sickz_implicit_internal_network(settings)):
         _log.debug(
@@ -955,7 +1006,9 @@ async def build_sickz_payload(request: Request) -> dict[str, Any]:
         )
 
     if _sickz_internal_network_effective(settings):
-        groups = _parse_sickz_target_groups(settings.sickz_targets) + homelab_groups
+        groups = _ensure_pfsense_sickz_group(
+            _parse_sickz_target_groups(settings.sickz_targets) + homelab_groups,
+        )
         group_keys = [" | ".join(g) for g in groups]
         skip_reason = "Not probed (LAN / internal network skip)."
         checks = {
@@ -964,7 +1017,7 @@ async def build_sickz_payload(request: Request) -> dict[str, Any]:
                 "aliases_probed": list(g),
                 "reason": skip_reason,
                 "tls_trusted": None,
-                **_sickz_row_ui_metadata(g, homelab_icon_by_tunnel),
+                **_sickz_row_ui_metadata(g, homelab_icon_by_tunnel, homelab_name_by_tunnel),
                 **_sickz_pfsense_tcp_skip_payload(g),
             }
             for key, g in zip(group_keys, groups, strict=True)
@@ -978,7 +1031,9 @@ async def build_sickz_payload(request: Request) -> dict[str, Any]:
             "detail": _sickz_skip_detail(settings),
         }
 
-    groups = _parse_sickz_target_groups(settings.sickz_targets) + homelab_groups
+    groups = _ensure_pfsense_sickz_group(
+        _parse_sickz_target_groups(settings.sickz_targets) + homelab_groups,
+    )
     if not groups:
         return {
             "checks": {},
@@ -991,7 +1046,10 @@ async def build_sickz_payload(request: Request) -> dict[str, Any]:
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     group_keys = [" | ".join(g) for g in groups]
     group_results = await asyncio.gather(
-        *(_probe_sickz_alias_group(g, homelab_icon_by_tunnel) for g in groups),
+        *(
+            _probe_sickz_alias_group(g, homelab_icon_by_tunnel, homelab_name_by_tunnel)
+            for g in groups
+        ),
     )
     checks = dict(zip(group_keys, group_results, strict=True))
     return {

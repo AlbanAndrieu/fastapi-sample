@@ -325,6 +325,12 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
                 color: #ff9999;
             }
 
+            .health-summary--blue {
+                background: rgba(56, 189, 248, 0.09);
+                border-color: rgba(56, 189, 248, 0.42);
+                color: #7dd3fc;
+            }
+
             .health-summary--neutral {
                 background: #0a0a0a;
                 color: #aaaaaa;
@@ -341,6 +347,7 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
             .health-led--green { background: #00ff88; color: #00ff88; }
             .health-led--yellow { background: #ffcc33; color: #ffcc33; }
             .health-led--red { background: #ff4444; color: #ff4444; }
+            .health-led--blue { background: #38bdf8; color: #38bdf8; }
             .health-led--gray { background: #555555; color: #555555; box-shadow: none; }
 
             .health-checks {
@@ -412,6 +419,13 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
                 background: #141414;
                 border-color: #2a2a2a;
                 box-shadow: none;
+            }
+
+            .health-row-icon--blue {
+                color: #38bdf8;
+                background: rgba(56, 189, 248, 0.1);
+                border-color: rgba(56, 189, 248, 0.45);
+                box-shadow: 0 0 12px rgba(56, 189, 248, 0.14);
             }
 
             .health-row-led-wrap {
@@ -486,6 +500,21 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
             .health-row-primary--gray .health-row-name .sickz-target-link:hover {
                 color: #cbd5e1;
                 text-decoration-color: rgba(203, 213, 225, 0.55);
+            }
+
+            .health-row-primary--blue .health-row-name,
+            .health-row-primary--blue .health-row-detail {
+                color: #7dd3fc;
+            }
+
+            .health-row-primary--blue .health-row-name .sickz-target-link {
+                color: #7dd3fc;
+                text-decoration-color: rgba(125, 211, 252, 0.45);
+            }
+
+            .health-row-primary--blue .health-row-name .sickz-target-link:hover {
+                color: #bae6fd;
+                text-decoration-color: rgba(186, 230, 253, 0.65);
             }
 
             .health-row-name {
@@ -691,8 +720,7 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
 
             <section class="health-board" id="health-board" aria-labelledby="health-board-title">
                 <h2 class="health-board-title" id="health-board-title">Service health</h2>
-                <p class="health-board-meta">Live view of <a href="/healthz">/healthz</a> and
-                    <a href="/sickz">/sickz</a>.
+                <p class="health-board-meta">Live view of <a href="/healthz">/healthz</a>.
                     <button type="button" class="health-refresh" id="health-refresh">Refresh</button>
                 </p>
                 <div class="health-summary health-summary--neutral" id="health-summary">
@@ -702,7 +730,10 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
                 <ul class="health-checks" id="health-checks"></ul>
                 <p class="health-error" id="health-fetch-error" hidden></p>
 
-                <h3 class="health-subboard-title" id="sickz-board-title">Unreachable targets (sickz)</h3>
+                <h3 class="health-subboard-title" id="sickz-board-title">Unreachable targets</h3>
+                <p class="health-board-meta">Live view of <a href="/sickz">/sickz</a>.
+                    <button type="button" class="health-refresh" id="health-refresh">Refresh</button>
+                </p>
                 <p class="health-board-meta">These URLs must <strong>not</strong> respond when this app runs
                     outside your home LAN. Probes are skipped when <code>SICKZ_INTERNAL_NETWORK=true</code>, or
                     implicitly when <code>SICKZ_NETWORK_LABEL=nabla</code> or
@@ -808,6 +839,19 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
             _default: '<rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 12h6M12 9v6"/>',
         };
 
+        function healthBoardNormalizeIconSrc(raw) {
+            var s = raw == null ? "" : String(raw).trim();
+            if (!s) return "";
+            var lower = s.toLowerCase();
+            if (lower.slice(0, 2) === "//") return "https:" + s;
+            return s;
+        }
+
+        function healthBoardIconSrcIsHttpUrl(s) {
+            var lower = String(s).toLowerCase();
+            return lower.slice(0, 8) === "https://" || lower.slice(0, 7) === "http://";
+        }
+
         function serviceIconSvg(key, statusCls) {
             var imgFile = HEALTHZ_ICON_IMG[key];
             if (imgFile) {
@@ -818,7 +862,7 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
                     '<img src="' +
                     SELFHST_ICON_CDN +
                     imgFile +
-                    '" alt="" width="26" height="26" loading="lazy" referrerpolicy="no-referrer" />' +
+                    '" alt="" width="26" height="26" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" />' +
                     "</span>"
                 );
             }
@@ -844,20 +888,18 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
         }
 
         function healthRowIcon(check, key, statusCls) {
-            var absRaw = "";
-            if (check.icon_src && typeof check.icon_src === "string") absRaw = check.icon_src.trim();
-            else if (check.iconSrc && typeof check.iconSrc === "string") absRaw = check.iconSrc.trim();
-            var absLower = absRaw.toLowerCase();
-            var absOk =
-                absLower.slice(0, 8) === "https://" || absLower.slice(0, 7) === "http://";
-            if (absOk) {
+            var rawPick = "";
+            if (check.icon_src && typeof check.icon_src === "string") rawPick = check.icon_src;
+            else if (check.iconSrc && typeof check.iconSrc === "string") rawPick = check.iconSrc;
+            var absRaw = healthBoardNormalizeIconSrc(rawPick);
+            if (healthBoardIconSrcIsHttpUrl(absRaw)) {
                 return (
                     '<span class="health-row-icon health-row-icon--img health-row-icon--' +
                     statusCls +
                     '" aria-hidden="true">' +
                     '<img src="' +
                     sickzEscapeText(absRaw) +
-                    '" alt="" width="26" height="26" loading="lazy" referrerpolicy="no-referrer" />' +
+                    '" alt="" width="26" height="26" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" />' +
                     "</span>"
                 );
             }
@@ -870,7 +912,7 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
                     '<img src="' +
                     SELFHST_ICON_CDN +
                     sickzEscapeText(fn) +
-                    '" alt="" width="26" height="26" loading="lazy" referrerpolicy="no-referrer" />' +
+                    '" alt="" width="26" height="26" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" />' +
                     "</span>"
                 );
             }
@@ -925,18 +967,18 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
         }
 
         function sickzRowIcon(check, statusCls) {
-            var absRaw = check.icon_src && typeof check.icon_src === "string" ? check.icon_src.trim() : "";
-            var absLower = absRaw.toLowerCase();
-            var absOk =
-                absLower.slice(0, 8) === "https://" || absLower.slice(0, 7) === "http://";
-            if (absOk) {
+            var rawPick = "";
+            if (check.icon_src && typeof check.icon_src === "string") rawPick = check.icon_src;
+            else if (check.iconSrc && typeof check.iconSrc === "string") rawPick = check.iconSrc;
+            var absRaw = healthBoardNormalizeIconSrc(rawPick);
+            if (healthBoardIconSrcIsHttpUrl(absRaw)) {
                 return (
                     '<span class="health-row-icon health-row-icon--img health-row-icon--' +
                     statusCls +
                     '" aria-hidden="true">' +
                     '<img src="' +
                     sickzEscapeText(absRaw) +
-                    '" alt="" width="26" height="26" loading="lazy" referrerpolicy="no-referrer" />' +
+                    '" alt="" width="26" height="26" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" />' +
                     "</span>"
                 );
             }
@@ -949,18 +991,29 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
                     '<img src="' +
                     SELFHST_ICON_CDN +
                     sickzEscapeText(fn) +
-                    '" alt="" width="26" height="26" loading="lazy" referrerpolicy="no-referrer" />' +
+                    '" alt="" width="26" height="26" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" />' +
                     "</span>"
                 );
             }
             return serviceIconSvg("sickz_url", statusCls);
         }
 
+        function healthBoardTunnelHref(check) {
+            var u =
+                (check.tunnel_url && String(check.tunnel_url).trim()) ||
+                (check.tunnelUrl && String(check.tunnelUrl).trim()) ||
+                (check.href && String(check.href).trim()) ||
+                "";
+            return u.trim();
+        }
+
         function healthRowTitleHtml(check, key) {
-            var rowTitle =
-                check.display_label != null ? check.display_label : LABELS[key] ? LABELS[key] : key;
-            rowTitle = String(rowTitle);
-            var hrefRaw = (check.href || "").trim();
+            var rowTitle = "";
+            if (check.name != null && String(check.name).trim()) rowTitle = String(check.name).trim();
+            else if (check.display_label != null) rowTitle = String(check.display_label);
+            else if (LABELS[key]) rowTitle = LABELS[key];
+            else rowTitle = key;
+            var hrefRaw = healthBoardTunnelHref(check);
             var lock = sickzLockHtml(check.tls_trusted, hrefRaw);
             var inner =
                 hrefRaw.length > 0
@@ -973,9 +1026,23 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
             return '<div class="health-row-name health-row-name--sickz">' + lock + inner + "</div>";
         }
 
+        function httpStatusIsSuccess2xx(code) {
+            if (code == null) return true;
+            var s = Number(code);
+            if (isNaN(s)) return true;
+            return s >= 200 && s < 300;
+        }
+
+        function healthHttpStatusIsSuccess2xx(check) {
+            return httpStatusIsSuccess2xx(check.http_status);
+        }
+
         function classify(check) {
             if (check.skipped === true) return "yellow";
-            if (check.reachable === true) return "green";
+            if (check.reachable === true) {
+                if (!healthHttpStatusIsSuccess2xx(check)) return "blue";
+                return "green";
+            }
             if (check.reachable === false) return "red";
             return "gray";
         }
@@ -1022,6 +1089,7 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
             const checks = data.checks || {};
             let anyYellow = false;
             let anyOptionalRed = false;
+            let anyBlue = false;
 
             for (const key of Object.keys(checks)) {
                 const ch = checks[key];
@@ -1035,6 +1103,7 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
                 const c = classify(ch);
                 if (c === "yellow") anyYellow = true;
                 if (c === "red" && !MANDATORY.has(key)) anyOptionalRed = true;
+                if (c === "blue") anyBlue = true;
             }
 
             const st = data.status;
@@ -1057,6 +1126,13 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
                 return {
                     cls: "yellow",
                     text: "Core dependencies OK. One or more optional integrations are failing.",
+                };
+            }
+            if (anyBlue) {
+                return {
+                    cls: "blue",
+                    text:
+                        "A service responded over HTTP but returned a status outside 2xx (e.g. 400, 502, 530); see rows for codes.",
                 };
             }
             if (anyYellow) {
@@ -1158,10 +1234,21 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
             });
         }
 
+        function sickzHasReachableNon2xxHttp(check) {
+            if (check.skipped === true || check.reachable !== true) return false;
+            if (sickzIsForbiddenOnlyReachable(check)) return false;
+            const statuses = sickzReachableHttpStatuses(check);
+            if (statuses.length === 0) return false;
+            return statuses.some(function (s) {
+                return !httpStatusIsSuccess2xx(s);
+            });
+        }
+
         function classifySick(check) {
             if (check.skipped === true) return "yellow";
             if (check.reachable === true) {
                 if (sickzIsForbiddenOnlyReachable(check)) return "yellow";
+                if (sickzHasReachableNon2xxHttp(check)) return "blue";
                 return "red";
             }
             if (check.reachable === false) return "green";
@@ -1245,23 +1332,34 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
                 };
             }
             const checks = data.checks || {};
-            let anyOpenReach = false;
+            let anyOpenReach2xx = false;
+            let anyOpenReachNon2xx = false;
             let anyForbiddenOnly = false;
             for (const key of Object.keys(checks)) {
                 const ch = checks[key];
                 if (ch.skipped === true) continue;
                 if (ch.reachable === true) {
                     if (sickzIsForbiddenOnlyReachable(ch)) anyForbiddenOnly = true;
-                    else anyOpenReach = true;
+                    else if (sickzHasReachableNon2xxHttp(ch)) anyOpenReachNon2xx = true;
+                    else anyOpenReach2xx = true;
                 }
             }
-            if (anyOpenReach) {
+            if (anyOpenReach2xx) {
                 return {
                     cls: "red",
                     text:
                         "From network " +
                         net +
-                        ", at least one target is reachable; it should stay blocked from this context.",
+                        ", at least one target is reachable with HTTP 2xx; it should stay blocked from this context.",
+                };
+            }
+            if (anyOpenReachNon2xx) {
+                return {
+                    cls: "blue",
+                    text:
+                        "From network " +
+                        net +
+                        ", at least one target responded but with a non-2xx HTTP status (e.g. 400, 502); see rows.",
                 };
             }
             if (anyForbiddenOnly) {
@@ -1287,7 +1385,9 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
             for (let i = 0; i < keys.length; i++) {
                 const k = keys[i];
                 const c = checks[k];
-                if (c && c.display_label === "PfSense") return { key: k, check: c };
+                if (!c) continue;
+                if (c.display_label === "PfSense" || c.name === "PfSense") return { key: k, check: c };
+                if (c.pfsense_tcp_ports && typeof c.pfsense_tcp_ports === "object") return { key: k, check: c };
             }
             return null;
         }
@@ -1320,8 +1420,8 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
 
         function sickzBuildPfsenseSectionHtml(_pfKey, pfCheck) {
             const cls = classifySick(pfCheck);
-            const hrefRaw = (pfCheck.href || "").trim();
-            const safeHref = hrefRaw.length ? sickzEscapeText(hrefRaw) : "#";
+            const hrefRaw = healthBoardTunnelHref(pfCheck);
+            const safeHref = hrefRaw.length ? sickzEscapeText(hrefRaw) : "";
             const lockTls = pfCheck.skipped === true ? null : pfCheck.tls_trusted;
             const lockHref = pfCheck.skipped === true ? "" : hrefRaw;
             const portsMap = pfCheck.pfsense_tcp_ports;
@@ -1350,6 +1450,18 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
             if (pfCheck.pfsense_tcp_ports_skipped === true) {
                 meta += " TCP probes were not run (LAN skip).";
             }
+            const rowName =
+                pfCheck.name != null && String(pfCheck.name).trim()
+                    ? String(pfCheck.name).trim()
+                    : String(pfCheck.display_label || "PfSense");
+            const titleLink =
+                safeHref.length > 0
+                    ? '<a class="sickz-target-link" target="_blank" rel="noopener noreferrer" href="' +
+                      safeHref +
+                      '">' +
+                      sickzEscapeText(rowName) +
+                      "</a>"
+                    : "<span>" + sickzEscapeText(rowName) + "</span>";
             return (
                 '<h4 class="sickz-pfsense-title">PfSense</h4>' +
                 '<p class="health-board-meta sickz-pfsense-intro">' +
@@ -1368,11 +1480,8 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
                 '">' +
                 '<div class="health-row-name health-row-name--sickz">' +
                 sickzLockHtml(lockTls, lockHref) +
-                '<a class="sickz-target-link" target="_blank" rel="noopener noreferrer" href="' +
-                safeHref +
-                '">' +
-                sickzEscapeText(String(pfCheck.display_label || "PfSense")) +
-                "</a></div>" +
+                titleLink +
+                "</div>" +
                 '<div class="health-row-detail">' +
                 sickzEscapeText(detailSickText(pfCheck)) +
                 "</div></div>" +
@@ -1450,11 +1559,22 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
                 const cls = classifySick(check);
                 const li = document.createElement("li");
                 li.className = "health-row";
-                const hrefRaw = (check.href || "").trim();
-                const safeHref = hrefRaw.length ? sickzEscapeText(hrefRaw) : "#";
-                const rowTitle = check.display_label || key;
+                const hrefRaw = healthBoardTunnelHref(check);
+                const safeHref = hrefRaw.length ? sickzEscapeText(hrefRaw) : "";
+                var rowTitle = "";
+                if (check.name != null && String(check.name).trim()) rowTitle = String(check.name).trim();
+                else if (check.display_label != null) rowTitle = String(check.display_label);
+                else rowTitle = key;
                 const lockTls = check.skipped === true ? null : check.tls_trusted;
                 const lockHref = check.skipped === true ? "" : hrefRaw;
+                const titleInner =
+                    safeHref.length > 0
+                        ? '<a class="sickz-target-link" target="_blank" rel="noopener noreferrer" href="' +
+                          safeHref +
+                          '">' +
+                          sickzEscapeText(rowTitle) +
+                          "</a>"
+                        : "<span>" + sickzEscapeText(rowTitle) + "</span>";
                 li.innerHTML =
                     sickzRowIcon(check, cls) +
                     '<span class="health-row-led-wrap"><span class="health-led health-led--' +
@@ -1468,11 +1588,8 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
                     '">' +
                     '<div class="health-row-name health-row-name--sickz">' +
                     sickzLockHtml(lockTls, lockHref) +
-                    '<a class="sickz-target-link" target="_blank" rel="noopener noreferrer" href="' +
-                    safeHref +
-                    '">' +
-                    sickzEscapeText(rowTitle) +
-                    "</a></div>" +
+                    titleInner +
+                    "</div>" +
                     '<div class="health-row-detail">' +
                     detailSickText(check) +
                     "</div></div>" +
