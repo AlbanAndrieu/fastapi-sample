@@ -12,19 +12,28 @@ from nabla.integrations.env_secrets import secret_from_env_or_settings
 SearchDepth = Literal["basic", "advanced", "fast", "ultra-fast"]
 
 
-def get_tavily_client() -> TavilyClient | None:
-    """Return a ``TavilyClient`` when ``TAVILY_API_KEY`` is set and non-empty."""
+def _tavily_api_key() -> str | None:
     settings = get_settings()
-    key = secret_from_env_or_settings(
+    return secret_from_env_or_settings(
         "TAVILY_API_KEY",
         settings_secret=settings.tavily_api_key,
     )
+
+
+def is_tavily_api_configured() -> bool:
+    """Return True when ``TAVILY_API_KEY`` is available from env or settings."""
+    return _tavily_api_key() is not None
+
+
+def get_tavily_client() -> TavilyClient | None:
+    """Return a ``TavilyClient`` when ``TAVILY_API_KEY`` is set and non-empty."""
+    key = _tavily_api_key()
     if key is None:
         return None
     return TavilyClient(api_key=key)
 
 
-def tavily_search(
+def web_search(
     query: str,
     *,
     search_depth: SearchDepth = "advanced",

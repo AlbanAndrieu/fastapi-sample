@@ -105,6 +105,7 @@ api-tracing = [
     "UnleashClient>=6.3.0",
 ]
 api-ai = [
+    "langfuse==2.59.7",
     "langgraph>=0.6.6",
     "langchain>=0.3.27",
     "langchain-openai>=0.3.32",

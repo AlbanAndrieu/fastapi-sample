@@ -15,7 +15,13 @@ def _google_cse_credentials() -> tuple[str | None, str | None]:
     return google_search_credentials_runtime()
 
 
-def google_programmable_search(
+def is_google_programmable_search_configured() -> bool:
+    """Return True when API key and Programmable Search engine id (cx) are both set."""
+    key, cx = _google_cse_credentials()
+    return key is not None and cx is not None
+
+
+def web_search(
     query: str,
     *,
     num: int = 10,

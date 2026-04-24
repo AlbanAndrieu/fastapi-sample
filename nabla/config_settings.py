@@ -173,6 +173,10 @@ def _default_sickz_targets_value() -> str:
     return "https://home.albandrieu.com:10443/|https://172.17.0.1:10443/"
 
 
+DEFAULT_CHAT_MODEL = "gpt-5.1"
+"""Default chat model id; overridden by env ``DEFAULT_CHAT_MODEL`` (``default_chat_model`` on settings)."""
+
+
 # Basic db & ovh settings
 class _Settings(BaseSettings):
     """
@@ -462,6 +466,18 @@ class _Settings(BaseSettings):
             validation_alias=AliasChoices("LITELLM_HEALTHZ_URL"),
         ),
     ]
+    default_chat_model: Annotated[
+        str,
+        Field(
+            default=DEFAULT_CHAT_MODEL,
+            description=(
+                "Default OpenAI-compatible chat model id for LiteLLM and direct OpenAI; "
+                "also used when an Azure instance has no ``available_models`` (or empty first segment)."
+            ),
+            validation_alias=AliasChoices("DEFAULT_CHAT_MODEL"),
+            min_length=1,
+        ),
+    ]
 
     azure_openai_instance: dict[str, AzureOpenAiInstance] = {}
 
@@ -664,8 +680,9 @@ def get_openid_config():
 
 _unleash_refresh_s = int(os.environ.get("UNLEASH_REFRESH_INTERVAL", "60"))
 _unleash_metrics_s = int(os.environ.get("UNLEASH_METRICS_INTERVAL", "90"))
-_unleash_timeout_s = int(os.environ.get("UNLEASH_REQUEST_TIMEOUT", "15"))
-_unleash_retries = int(os.environ.get("UNLEASH_REQUEST_RETRIES", "2"))
+# GitLab SaaS `/client/features` can exceed 15s under load; tune via UNLEASH_REQUEST_TIMEOUT.
+_unleash_timeout_s = int(os.environ.get("UNLEASH_REQUEST_TIMEOUT", "45"))
+_unleash_retries = int(os.environ.get("UNLEASH_REQUEST_RETRIES", "4"))
 
 client = UnleashClient(
     url=UNLEASH_API_URL.rstrip("/"),

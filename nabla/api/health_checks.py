@@ -19,7 +19,10 @@ from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
 from nabla.api.auth.openstack import probe_ovh_me_reachable
-from nabla.api.homelab_catalog import homelab_healthz_probe_rows, homelab_sickz_https_single_url_groups
+from nabla.api.homelab_catalog import (
+    homelab_healthz_probe_rows,
+    homelab_sickz_catalog_for_sickz,
+)
 from nabla.config_settings import (
     APP_DOMAIN,
     _ALBANDRIEU_PUBLIC_DOMAIN_SUFFIX,
@@ -35,11 +38,12 @@ from nabla.config_settings import (
     UNLEASH_APP_NAME,
     UNLEASH_INSTANCE_ID,
     _unleash_requests_kwargs,
+    _unleash_timeout_s,
     get_openid_config,
     get_settings,
 )
 from nabla.integrations.brave_search import _BRAVE_WEB_SEARCH_URL
-from nabla.integrations.google_programmable_search import _GOOGLE_CSE_URL
+from nabla.integrations.google_search import _GOOGLE_CSE_URL
 from nabla.integrations.appwrite_client import appwrite_health
 from nabla.integrations.tavily_search import get_tavily_client
 
@@ -270,7 +274,7 @@ def probe_unleash_client_features() -> dict[str, Any]:
     url = f"{base_url}/client/features"
     verify = _unleash_requests_kwargs().get("verify", True)
     try:
-        with httpx.Client(timeout=10.0, verify=verify) as http_client:
+        with httpx.Client(timeout=float(_unleash_timeout_s), verify=verify) as http_client:
             response = http_client.get(
                 url,
                 headers={
@@ -517,7 +521,7 @@ async def build_healthz_payload(request: Request, *, redis_client: Any, engine: 
             run_in_threadpool(probe_pyroscope_server),
             run_in_threadpool(probe_litellm_public_proxy),
         ),
-        asyncio.gather(*(probe_https_get_reachable(url) for _, url, _ in homelab_rows)),
+        asyncio.gather(*(probe_https_get_reachable(url) for _, url, _, _ in homelab_rows)),
     )
     checks = {
         "redis": redis_check,
@@ -535,14 +539,17 @@ async def build_healthz_payload(request: Request, *, redis_client: Any, engine: 
         "pyroscope": pyroscope_check,
         "litellm": litellm_check,
     }
-    for (key, url, display_label), res in zip(homelab_rows, albandrieu_results, strict=True):
+    for (key, url, display_label, icon_src), res in zip(homelab_rows, albandrieu_results, strict=True):
         norm = _normalize_probe_result_errors(res)
-        checks[key] = {
+        row: dict[str, Any] = {
             **norm,
             "display_label": display_label,
             "href": url,
             "tls_trusted": _tls_trusted_from_https_probe_result(norm, url),
         }
+        if icon_src:
+            row["icon_src"] = icon_src
+        checks[key] = row
     checks = {name: _normalize_probe_result_errors(ch) for name, ch in checks.items()}
 
     await _healthz_enrich_litellm(checks)
@@ -582,30 +589,6 @@ def _sickz_targets_equal_default_catalog_mode(raw: str) -> bool:
 
 _ALBANDRIEU_COM = f".{_ALBANDRIEU_PUBLIC_DOMAIN_SUFFIX}"
 _SICKZ_ICON_FILENAME_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*\.svg\Z", re.IGNORECASE)
-
-# Filenames from https://selfh.st/icons/ (selfhst/icons); keys match URL slug under *.albandrieu.com.
-_SICKZ_SELFHST_ICON_BY_SLUG: dict[str, str] = {
-    "adguardhome": "adguard-home.svg",
-    "anythingllm": "anythingllm.svg",
-    "freenas": "truenas-scale.svg",
-    "graylog": "graylog.svg",
-    "grafana": "grafana.svg",
-    "localai-gpu": "ollama.svg",
-    "n8n": "n8n.svg",
-    "netalertx": "netalertx.svg",
-    "ntopng": "librenms.svg",
-    "ollama": "ollama.svg",
-    "ollama-gpu": "ollama.svg",
-    "open-webui": "open-webui.svg",
-    "openclaw": "openclaw.svg",
-    "paperless-ai": "paperless-ngx.svg",
-    "paperless-ngx": "paperless-ngx.svg",
-    "portracker-albandrieu": "portracker.svg",
-    "prometheus": "prometheus.svg",
-    "stirling-albandrieu": "stirling-pdf.svg",
-    "truenas": "truenas-scale.svg",
-    "home": "pfsense.svg",
-}
 
 
 def _sickz_validate_icon_filename(name: str) -> str:
@@ -650,8 +633,30 @@ def _sickz_row_href(urls: list[str]) -> str:
     return urls[0].strip() if urls else ""
 
 
+# When :func:`_sickz_pfsense_canonical_href` applies, :func:`_probe_sickz_alias_group` also TCP-checks
+# these ports on the canonical host (``home.albandrieu.com``).
+_SICKZ_PFSENSE_EXTRA_TCP_PORTS: tuple[int, ...] = (
+    22,
+    9922,
+    7000,
+    8200,
+    9000,
+    3000,
+    4100,
+    1194,
+    1195,
+    8080,
+    8081,
+    8091,
+)
+
+
 def _sickz_pfsense_canonical_href(urls: list[str]) -> str | None:
-    """pfSense sickz group: label ``PfSense``, link ``https://home.albandrieu.com:10443/`` (not the Docker bridge alias)."""
+    """pfSense sickz group: label ``PfSense``, link ``https://home.albandrieu.com:10443/`` (not the Docker bridge alias).
+
+    When this returns a URL, sickz also probes :data:`_SICKZ_PFSENSE_EXTRA_TCP_PORTS` on the canonical
+    hostname (see :func:`_sickz_pfsense_canonical_tcp_host`).
+    """
     hosts: set[str] = set()
     for raw in urls:
         p = urlparse(raw.strip())
@@ -665,37 +670,78 @@ def _sickz_pfsense_canonical_href(urls: list[str]) -> str | None:
     return None
 
 
-def _sickz_icon_slug(urls: list[str]) -> str:
-    if not urls:
-        return "home"
-    p = urlparse(urls[0].strip())
-    host = (p.hostname or "").strip().lower()
-    if not host:
-        return "home"
-    if _sickz_ipv4_host(host):
-        return host
-    if host.endswith(_ALBANDRIEU_COM):
-        leaf = host[: -len(_ALBANDRIEU_COM)]
-        return leaf or host
-    return host.split(".")[0]
+def _sickz_pfsense_canonical_tcp_host(urls: list[str]) -> str | None:
+    """Hostname for extra TCP probes when :func:`_sickz_pfsense_canonical_href` matches."""
+    href = _sickz_pfsense_canonical_href(urls)
+    if not href:
+        return None
+    host = (urlparse(href).hostname or "").strip().lower()
+    return host or None
+
+
+def _sickz_pfsense_tcp_skip_payload(urls: list[str]) -> dict[str, Any]:
+    """LAN-skip rows: include TCP port map with ``None`` so UIs can still list PfSense ports."""
+    if not _sickz_pfsense_canonical_tcp_host(urls):
+        return {}
+    return {
+        "pfsense_tcp_ports": {str(p): None for p in _SICKZ_PFSENSE_EXTRA_TCP_PORTS},
+        "pfsense_tcp_ports_skipped": True,
+    }
+
+
+async def _probe_sickz_tcp_port_open(host: str, port: int, *, timeout_s: float = 2.0) -> bool:
+    """Return whether a TCP connect to ``host:port`` completes within ``timeout_s``."""
+    try:
+        _reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(host, port),
+            timeout=timeout_s,
+        )
+    except (TimeoutError, OSError, ConnectionError):
+        return False
+    writer.close()
+    try:
+        await writer.wait_closed()
+    except OSError:
+        pass
+    return True
+
+
+def _sickz_canonical_https_tunnel_key(url: str) -> str:
+    u = url.strip()
+    if not u.lower().startswith("https://"):
+        return u
+    return u.rstrip("/") + "/"
+
+
+def _sickz_homelab_icon_src_for_urls(
+    urls: list[str], homelab_icon_by_tunnel: dict[str, str] | None
+) -> str | None:
+    if not homelab_icon_by_tunnel:
+        return None
+    for raw in urls:
+        key = _sickz_canonical_https_tunnel_key(raw)
+        hit = homelab_icon_by_tunnel.get(key)
+        if hit:
+            return hit
+    return None
 
 
 def _sickz_icon_filename(urls: list[str]) -> str:
+    """Selfh.st SVG basename for CDN; used when homelab catalog has no ``iconSrc`` for this tunnel."""
     if not urls:
         return _sickz_validate_icon_filename("homepage.svg")
     p = urlparse(urls[0].strip())
     if p.port == 10443:
         return _sickz_validate_icon_filename("pfsense.svg")
-    slug = _sickz_icon_slug(urls)
-    if _sickz_ipv4_host(slug):
+    host = (p.hostname or "").strip().lower()
+    if _sickz_ipv4_host(host):
         return _sickz_validate_icon_filename("pfsense.svg")
-    mapped = _SICKZ_SELFHST_ICON_BY_SLUG.get(slug)
-    if mapped:
-        return _sickz_validate_icon_filename(mapped)
     return _sickz_validate_icon_filename("homepage.svg")
 
 
-def _sickz_row_ui_metadata(urls: list[str]) -> dict[str, Any]:
+def _sickz_row_ui_metadata(
+    urls: list[str], homelab_icon_by_tunnel: dict[str, str] | None = None
+) -> dict[str, Any]:
     pf_href = _sickz_pfsense_canonical_href(urls)
     if pf_href is not None:
         return {
@@ -703,11 +749,15 @@ def _sickz_row_ui_metadata(urls: list[str]) -> dict[str, Any]:
             "href": pf_href,
             "icon_filename": _sickz_validate_icon_filename("pfsense.svg"),
         }
-    return {
+    icon_src = _sickz_homelab_icon_src_for_urls(urls, homelab_icon_by_tunnel)
+    base: dict[str, Any] = {
         "display_label": _sickz_display_label(urls),
         "href": _sickz_row_href(urls),
         "icon_filename": _sickz_icon_filename(urls),
     }
+    if icon_src:
+        base["icon_src"] = icon_src
+    return base
 
 
 async def _probe_sickz_tls_trusted(url: str) -> bool | None:
@@ -839,14 +889,31 @@ async def _probe_sickz_url(url: str) -> dict[str, Any]:
     return {"reachable": True, "http_status": response.status_code}
 
 
-async def _probe_sickz_alias_group(urls: list[str]) -> dict[str, Any]:
+async def _probe_sickz_alias_group(
+    urls: list[str], homelab_icon_by_tunnel: dict[str, str] | None = None
+) -> dict[str, Any]:
     """One logical target: reachable if any alias responds."""
     href = _sickz_row_href(urls)
     tls_coro = _probe_sickz_tls_trusted(href) if href.lower().startswith("https:") else _async_none()
-    results, tls_trusted = await asyncio.gather(
-        asyncio.gather(*(_probe_sickz_url(u) for u in urls)),
-        tls_coro,
-    )
+    pf_tcp_host = _sickz_pfsense_canonical_tcp_host(urls)
+    if pf_tcp_host:
+        tcp_coro = asyncio.gather(
+            *(
+                _probe_sickz_tcp_port_open(pf_tcp_host, port)
+                for port in _SICKZ_PFSENSE_EXTRA_TCP_PORTS
+            ),
+        )
+        results, tls_trusted, tcp_reachable = await asyncio.gather(
+            asyncio.gather(*(_probe_sickz_url(u) for u in urls)),
+            tls_coro,
+            tcp_coro,
+        )
+    else:
+        results, tls_trusted = await asyncio.gather(
+            asyncio.gather(*(_probe_sickz_url(u) for u in urls)),
+            tls_coro,
+        )
+        tcp_reachable = None
     by_url = {u: _normalize_probe_result_errors(r) for u, r in zip(urls, results, strict=True)}
     any_reachable = any(r.get("reachable") is True for r in results)
     out: dict[str, Any] = {
@@ -854,8 +921,13 @@ async def _probe_sickz_alias_group(urls: list[str]) -> dict[str, Any]:
         "aliases_probed": urls,
         "alias_results": by_url,
         "tls_trusted": tls_trusted,
-        **_sickz_row_ui_metadata(urls),
+        **_sickz_row_ui_metadata(urls, homelab_icon_by_tunnel),
     }
+    if tcp_reachable is not None:
+        out["pfsense_tcp_ports"] = {
+            str(port): reachable
+            for port, reachable in zip(_SICKZ_PFSENSE_EXTRA_TCP_PORTS, tcp_reachable, strict=True)
+        }
     for r in results:
         if r.get("reachable") is True and r.get("http_status") is not None:
             out["http_status"] = r["http_status"]
@@ -872,6 +944,10 @@ async def build_sickz_payload(request: Request) -> dict[str, Any]:
     settings = get_settings()
     network_label = _sickz_network_label(settings)
     runtime = _sickz_runtime_block(settings)
+    homelab_icon_by_tunnel: dict[str, str] | None = None
+    homelab_groups: list[list[str]] = []
+    if _sickz_targets_equal_default_catalog_mode(settings.sickz_targets):
+        homelab_groups, homelab_icon_by_tunnel = await homelab_sickz_catalog_for_sickz()
 
     if _known_paas_runtime_detected() and (settings.sickz_internal_network or _sickz_implicit_internal_network(settings)):
         _log.debug(
@@ -879,9 +955,7 @@ async def build_sickz_payload(request: Request) -> dict[str, Any]:
         )
 
     if _sickz_internal_network_effective(settings):
-        groups = _parse_sickz_target_groups(settings.sickz_targets)
-        if _sickz_targets_equal_default_catalog_mode(settings.sickz_targets):
-            groups = groups + await homelab_sickz_https_single_url_groups()
+        groups = _parse_sickz_target_groups(settings.sickz_targets) + homelab_groups
         group_keys = [" | ".join(g) for g in groups]
         skip_reason = "Not probed (LAN / internal network skip)."
         checks = {
@@ -890,7 +964,8 @@ async def build_sickz_payload(request: Request) -> dict[str, Any]:
                 "aliases_probed": list(g),
                 "reason": skip_reason,
                 "tls_trusted": None,
-                **_sickz_row_ui_metadata(g),
+                **_sickz_row_ui_metadata(g, homelab_icon_by_tunnel),
+                **_sickz_pfsense_tcp_skip_payload(g),
             }
             for key, g in zip(group_keys, groups, strict=True)
         }
@@ -903,9 +978,7 @@ async def build_sickz_payload(request: Request) -> dict[str, Any]:
             "detail": _sickz_skip_detail(settings),
         }
 
-    groups = _parse_sickz_target_groups(settings.sickz_targets)
-    if _sickz_targets_equal_default_catalog_mode(settings.sickz_targets):
-        groups = groups + await homelab_sickz_https_single_url_groups()
+    groups = _parse_sickz_target_groups(settings.sickz_targets) + homelab_groups
     if not groups:
         return {
             "checks": {},
@@ -917,7 +990,9 @@ async def build_sickz_payload(request: Request) -> dict[str, Any]:
         }
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     group_keys = [" | ".join(g) for g in groups]
-    group_results = await asyncio.gather(*(_probe_sickz_alias_group(g) for g in groups))
+    group_results = await asyncio.gather(
+        *(_probe_sickz_alias_group(g, homelab_icon_by_tunnel) for g in groups),
+    )
     checks = dict(zip(group_keys, group_results, strict=True))
     return {
         "checks": checks,

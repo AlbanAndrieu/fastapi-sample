@@ -7,6 +7,7 @@ import logging
 import re
 import time
 from typing import Any
+from urllib.parse import urljoin
 
 import httpx
 
@@ -64,10 +65,13 @@ def _healthz_check_key(service_name: str, index: int) -> str:
     return f"albandrieu_{slug}"
 
 
-async def homelab_healthz_probe_rows() -> list[tuple[str, str, str]]:
-    """Rows ``(check_key, https_url_with_trailing_slash, display_label)`` for HTTPS tunnel services."""
+async def homelab_healthz_probe_rows() -> list[tuple[str, str, str, str | None]]:
+    """Rows ``(check_key, https_url_with_trailing_slash, display_label, icon_src)`` for HTTPS tunnels.
+
+    ``icon_src`` is an absolute URL resolved from catalog ``iconSrc`` (same rules as sickz), or ``None``.
+    """
     services = await fetch_homelab_services_raw()
-    rows: list[tuple[str, str, str]] = []
+    rows: list[tuple[str, str, str, str | None]] = []
     used_keys: set[str] = set()
     for index, svc in enumerate(services):
         raw_url = str(svc.get("tunnelUrl") or "").strip()
@@ -82,13 +86,36 @@ async def homelab_healthz_probe_rows() -> list[tuple[str, str, str]]:
             suffix += 1
         used_keys.add(key)
         url = raw_url.rstrip("/") + "/"
-        rows.append((key, url, name))
+        rel_icon = str(svc.get("iconSrc") or "").strip()
+        icon_abs = urljoin(HOMELAB_SERVICES_JSON_URL, rel_icon) if rel_icon else None
+        rows.append((key, url, name, icon_abs))
     return rows
 
 
-async def homelab_sickz_https_single_url_groups() -> list[list[str]]:
-    """One URL per group for ``/sickz`` (inverse reachability); skips pfSense (handled by default targets)."""
-    services = await fetch_homelab_services_raw()
+def _homelab_https_tunnel_key(raw_url: str) -> str:
+    u = raw_url.strip()
+    if not u.lower().startswith("https://"):
+        return u
+    return u.rstrip("/") + "/"
+
+
+def homelab_tunnel_url_to_resolved_icon_src(services: list[dict[str, Any]]) -> dict[str, str]:
+    """Map canonical HTTPS ``tunnelUrl`` (trailing slash) to absolute ``iconSrc`` URL from the catalog host."""
+    out: dict[str, str] = {}
+    for svc in services:
+        raw_url = str(svc.get("tunnelUrl") or "").strip()
+        if not raw_url.lower().startswith("https://"):
+            continue
+        rel = str(svc.get("iconSrc") or "").strip()
+        if not rel:
+            continue
+        key = _homelab_https_tunnel_key(raw_url)
+        out[key] = urljoin(HOMELAB_SERVICES_JSON_URL, rel)
+    return out
+
+
+def _homelab_sickz_https_groups_from_services(services: list[dict[str, Any]]) -> list[list[str]]:
+    """One URL per group for ``/sickz``; skips pfSense (handled by default targets)."""
     groups: list[list[str]] = []
     for svc in services:
         name = str(svc.get("name") or "").strip().lower()
@@ -97,6 +124,19 @@ async def homelab_sickz_https_single_url_groups() -> list[list[str]]:
         raw_url = str(svc.get("tunnelUrl") or "").strip()
         if not raw_url.lower().startswith("https://"):
             continue
-        url = raw_url.rstrip("/") + "/"
-        groups.append([url])
+        groups.append([_homelab_https_tunnel_key(raw_url)])
     return groups
+
+
+async def homelab_sickz_catalog_for_sickz() -> tuple[list[list[str]], dict[str, str]]:
+    """Homelab sickz URL groups and tunnel-URL → resolved ``iconSrc`` (for sickz row icons)."""
+    services = await fetch_homelab_services_raw()
+    return _homelab_sickz_https_groups_from_services(services), homelab_tunnel_url_to_resolved_icon_src(
+        services,
+    )
+
+
+async def homelab_sickz_https_single_url_groups() -> list[list[str]]:
+    """One URL per group for ``/sickz`` (inverse reachability); skips pfSense (handled by default targets)."""
+    services = await fetch_homelab_services_raw()
+    return _homelab_sickz_https_groups_from_services(services)

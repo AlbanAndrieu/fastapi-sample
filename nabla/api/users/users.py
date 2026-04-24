@@ -32,7 +32,7 @@ from nabla.api.auth.jwt_tokens import (
     verify_password,
 )
 from nabla.api.db.database import get_db, get_session
-from nabla.api.users.me import get_me
+from nabla.api.users.me import WHOAMI_HANDLE, get_me
 from nabla.api.users.models import User, UserIn, UserOut, get_user_db
 from nabla.utils.logger import logger
 from nabla.utils.prometheus import USER_REGISTRATIONS
@@ -214,7 +214,7 @@ async def get_user(user_id: int):
 
     logger.info(
         "User retrieve attempt",
-        user="aandrieu",
+        user=WHOAMI_HANDLE,
         success=True,
         ip_address="192.168.1.1",
     )

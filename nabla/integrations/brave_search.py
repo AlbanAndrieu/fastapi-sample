@@ -20,7 +20,12 @@ def _brave_api_key() -> str | None:
     )
 
 
-def brave_web_search(
+def is_brave_api_configured() -> bool:
+    """Return True when ``BRAVE_API_KEY`` is available from env or settings."""
+    return _brave_api_key() is not None
+
+
+def web_search(
     query: str,
     *,
     count: int = 10,

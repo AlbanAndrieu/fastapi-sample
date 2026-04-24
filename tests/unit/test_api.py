@@ -144,7 +144,7 @@ def test_tavily_search_ok_when_mocked(test_app, monkeypatch) -> None:
     def _fake(query: str, *, search_depth: str = "advanced") -> dict:
         return {"query": query, "results": [], "search_depth": search_depth}
 
-    monkeypatch.setattr("nabla.api.tavily_route.tavily_search", _fake)
+    monkeypatch.setattr("nabla.api.tavily_route.web_search", _fake)
     response = test_app.post(
         "/v1/tavily/search",
         json={"query": "hello", "search_depth": "basic"},
@@ -168,7 +168,7 @@ def test_brave_search_ok_when_mocked(test_app, monkeypatch) -> None:
     def _fake(query: str, *, count: int = 10) -> dict:
         return {"query": query, "web": {"results": []}, "count": count}
 
-    monkeypatch.setattr("nabla.api.brave_route.brave_web_search", _fake)
+    monkeypatch.setattr("nabla.api.brave_route.web_search", _fake)
     response = test_app.post(
         "/v1/brave/search",
         json={"query": "hello", "count": 5},
@@ -202,7 +202,7 @@ def test_google_search_ok_when_mocked(test_app, monkeypatch) -> None:
         return {"queries": {"request": []}, "items": [], "q": query, "num": num}
 
     monkeypatch.setattr(
-        "nabla.api.google_search_route.google_programmable_search",
+        "nabla.api.google_search_route.web_search",
         _fake,
     )
     response = test_app.post(

@@ -5,7 +5,7 @@ from typing import Any, Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from nabla.integrations.tavily_search import tavily_search
+from nabla.integrations.tavily_search import web_search
 
 router = APIRouter(prefix="/v1/tavily")
 
@@ -24,6 +24,6 @@ class TavilySearchBody(BaseModel):
 def post_tavily_search(body: TavilySearchBody) -> dict[str, Any]:
     """Perform a Tavily search (requires ``TAVILY_API_KEY``)."""
     try:
-        return tavily_search(body.query, search_depth=body.search_depth)
+        return web_search(body.query, search_depth=body.search_depth)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc

@@ -1,15 +1,19 @@
 from functools import lru_cache
+from typing import Any
 
 import pybreaker
+import sentry_sdk
 from dotenv import load_dotenv
 from fastapi import APIRouter
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langgraph.graph import END, START, StateGraph
-from pydantic import BaseModel, constr
+from pydantic import BaseModel, Field
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from nabla.ai.llm_factory import build_chat_llm
+from nabla.api.users import bababou
+from nabla.api.users import me as alban_me
 from nabla.utils.logger import logger
 
 router = APIRouter()
@@ -18,6 +22,19 @@ router = APIRouter()
 
 load_dotenv()
 
+
+_WORKFLOW_TOOLS = (
+    alban_me.fetch_my_profile,
+    bababou.fetch_bababou_public_page,
+)
+
+_TOOLS_WITH_USER_QUESTION_FALLBACK = frozenset(
+    {
+        alban_me.fetch_my_profile.name,
+        bababou.fetch_bababou_public_page.name,
+    },
+)
+
 # Configure separate circuit breakers for the two external services:
 # Both fail after 2 consecutive errors and open the circuit for 10 seconds.
 circuit_breaker_llm = pybreaker.CircuitBreaker(fail_max=2, reset_timeout=10)
@@ -25,12 +42,45 @@ circuit_breaker_llm = pybreaker.CircuitBreaker(fail_max=2, reset_timeout=10)
 
 @lru_cache(maxsize=1)
 def _get_workflow_llm() -> BaseChatModel:
-    return build_chat_llm(model_name="gpt-5.1")
+    return build_chat_llm()
+
+
+def _invoke_with_optional_tools(message: str) -> AIMessage:
+    """Single-turn chat with optional tool calls (LangChain tool pattern, Sentry-friendly)."""
+    llm = _get_workflow_llm()
+    llm_tools = llm.bind_tools(list(_WORKFLOW_TOOLS))
+    tool_by_name = {t.name: t for t in _WORKFLOW_TOOLS}
+    messages: list[Any] = [
+        SystemMessage(content=alban_me.get_agent_system_prompt()),
+        HumanMessage(content=message),
+    ]
+    max_tool_rounds = 6
+    for _ in range(max_tool_rounds):
+        ai_msg = llm_tools.invoke(messages)
+        messages.append(ai_msg)
+        if not ai_msg.tool_calls:
+            return ai_msg
+        for call in ai_msg.tool_calls:
+            name = call["name"]
+            args = call.get("args") or {}
+            tool_fn = tool_by_name.get(name)
+            if tool_fn is None:
+                payload = f"Unknown tool: {name}"
+            else:
+                if name in _TOOLS_WITH_USER_QUESTION_FALLBACK and "user_question" not in args:
+                    args = {**args, "user_question": message}
+                payload = tool_fn.invoke(args)
+            messages.append(
+                ToolMessage(content=str(payload), tool_call_id=call["id"]),
+            )
+    return AIMessage(
+        content="Tool loop limit exceeded; summarize with what you have so far.",
+    )
 
 
 @retry(wait=wait_exponential(multiplier=1, min=2, max=10), stop=stop_after_attempt(3))
 def safe_invoke_llm(message: str):
-    return _get_workflow_llm().invoke([HumanMessage(content=message)])
+    return _invoke_with_optional_tools(message)
 
 
 def answer_question(state: dict) -> dict:
@@ -44,7 +94,7 @@ def answer_question(state: dict) -> dict:
 
 
 class RequestData(BaseModel):
-    user_input: constr(min_length=1, max_length=500)  # limit input size
+    user_input: str = Field(min_length=1, max_length=500)
 
 
 # Build the graph (must follow final answer_question definition)
@@ -58,6 +108,8 @@ graph = workflow.compile()
 @router.post("/run")
 # TODO @circuit_breaker_llm
 async def run_workflow(data: RequestData):
-    result = graph.invoke({"user_input": data.user_input})
+    # Groups LangGraph + LangChain LLM spans under one trace root (Sentry AI monitoring).
+    with sentry_sdk.start_transaction(name="nabla-ai-workflow", op="ai.langgraph"):
+        result = graph.invoke({"user_input": data.user_input})
     return {"result": result["answer"]}
 

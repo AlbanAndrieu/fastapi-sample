@@ -8,7 +8,10 @@ from typing import Any, cast
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_openai import AzureChatOpenAI, ChatOpenAI
 
+from nabla import config_settings as _config_settings
 from nabla.config_settings import AzureOpenAiInstance, get_settings
+
+DEFAULT_CHAT_MODEL = _config_settings.DEFAULT_CHAT_MODEL
 
 _ChatOpenAI = cast(Any, ChatOpenAI)
 _AzureChatOpenAI = cast(Any, AzureChatOpenAI)
@@ -24,18 +27,39 @@ def _azure_chat_model_name(instance: AzureOpenAiInstance) -> str:
     raw = (instance.available_models or "").strip()
     if "," in raw:
         return raw.split(",", maxsplit=1)[0].strip()
-    return raw or "gpt-5.1"
+    return raw or get_settings().default_chat_model
 
 
-def build_chat_llm(*, model_name: str = "gpt-5.1") -> BaseChatModel:
+def resolve_openai_api_key_and_model(
+    *, model_name: str | None = None,
+) -> tuple[str, str]:
+    """
+    API key and chat model string for the legacy OpenAI Python SDK.
+
+    Uses the same LiteLLM → Azure → direct OpenAI routing as :func:`build_chat_llm`.
+    Azure returns the deployment-facing model name from settings (first entry if comma-separated).
+    """
+    settings = get_settings()
+    litellm_url = (settings.litellm_url or "").strip()
+    resolved = model_name or settings.default_chat_model
+    if litellm_url:
+        return settings.litellm_api_key.get_secret_value(), resolved
+    if settings.azure_openai_instance:
+        instance: AzureOpenAiInstance = next(iter(settings.azure_openai_instance.values()))
+        return instance.api_key, _azure_chat_model_name(instance)
+    return os.environ["OPENAI_API_KEY"], resolved
+
+
+def build_chat_llm(*, model_name: str | None = None) -> BaseChatModel:
     """
     Prefer LiteLLM (``LITELLM_URL``), then configured Azure OpenAI, then ``OPENAI_API_KEY``.
     """
     settings = get_settings()
+    resolved_model = model_name if model_name is not None else settings.default_chat_model
     litellm_url = (settings.litellm_url or "").strip()
     if litellm_url:
         return _ChatOpenAI(
-            model=model_name,
+            model=resolved_model,
             openai_api_base=litellm_openai_api_base(litellm_url),
             openai_api_key=settings.litellm_api_key.get_secret_value(),
         )
@@ -51,4 +75,4 @@ def build_chat_llm(*, model_name: str = "gpt-5.1") -> BaseChatModel:
             model=_azure_chat_model_name(instance),
         )
 
-    return _ChatOpenAI(model=model_name)
+    return _ChatOpenAI(model=resolved_model)

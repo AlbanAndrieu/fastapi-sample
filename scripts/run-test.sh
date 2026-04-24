@@ -6,7 +6,7 @@ WORKING_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 source "${WORKING_DIR}/../scripts/step-0-color.sh"
 
-echo -e "${green} Run test ${NC}"
+echo -e "${green} Run python test ${NC}"
 
 #pip install coverage==4.5.3
 #coverage --version || true
@@ -22,8 +22,4 @@ COVERAGE_FILE=.coverage coverage run --rcfile=.coveragerc -m pytest --cov="${DEF
 
 echo "pytest -k test_redis_demo_items_one_second --timeout=5 --collect-only"
 
-curl -sS --max-time 95 -X POST "http://127.0.0.1:8091/run" \
-  -H "Content-Type: application/json" \
-  --data-binary '{"user_input":"What is LangGraph?"}'
-  
 exit 0

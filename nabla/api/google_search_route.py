@@ -6,7 +6,7 @@ import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from nabla.integrations.google_programmable_search import google_programmable_search
+from nabla.integrations.google_search import web_search
 
 router = APIRouter(prefix="/v1/google")
 
@@ -27,7 +27,7 @@ class GoogleSearchBody(BaseModel):
 def post_google_search(body: GoogleSearchBody) -> dict[str, Any]:
     """Perform a Google Custom Search (requires ``GOOGLE_SEARCH_API_KEY`` and cx)."""
     try:
-        return google_programmable_search(body.query, num=body.num)
+        return web_search(body.query, num=body.num)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except httpx.HTTPStatusError as exc:

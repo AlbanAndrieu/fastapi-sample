@@ -4,7 +4,7 @@
     "langfuse": {
       "source": "langfuse/skills",
       "sourceType": "github",
-      "computedHash": "d2561d49820b0625ceff795a82d6d215e39099a639838e241d446b26cd21c5f6"
+      "computedHash": "eed5993fcdc4cc017aebc8847f0ed316e8197897895901e250cb88db2a2652f7"
     }
   }
 }

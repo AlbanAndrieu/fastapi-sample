@@ -6,7 +6,7 @@ import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from nabla.integrations.brave_search import brave_web_search
+from nabla.integrations.brave_search import web_search
 
 router = APIRouter(prefix="/v1/brave")
 
@@ -22,7 +22,7 @@ class BraveSearchBody(BaseModel):
 def post_brave_search(body: BraveSearchBody) -> dict[str, Any]:
     """Perform a Brave Web Search (requires ``BRAVE_API_KEY``)."""
     try:
-        return brave_web_search(body.query, count=body.count)
+        return web_search(body.query, count=body.count)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except httpx.HTTPStatusError as exc:

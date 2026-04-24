@@ -33,6 +33,12 @@ class UserIn(BaseModel):
     #     ser_json_inf_nan=False   # stricter but faster JSON
     # )
 
+    user_id: str = Field(
+        default="albandrieu",
+        min_length=1,
+        max_length=128,
+        description="Application/database user id (handle)",
+    )
     name: str = Field(min_length=1)
     email: str
     password: str
@@ -45,6 +51,7 @@ class UserIn(BaseModel):
 
     def __init__(
         self,
+        user_id: str = "albandrieu",
         name="Alban Andrieu",
         email: str = _DEFAULT_USER_IN_EMAIL,
         password="XXX",  # noqa: S107 noqa:B107 # nosec B107
@@ -56,6 +63,7 @@ class UserIn(BaseModel):
         country="France",
     ) -> None:
         super().__init__(
+            user_id=user_id,
             name=name,
             email=email,
             password=password,

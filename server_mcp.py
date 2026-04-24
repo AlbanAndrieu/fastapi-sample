@@ -18,8 +18,9 @@ mcp = FastMCP("Demo 🚀")
 
 
 @mcp.tool
-def hello(name: str) -> str:
-    return f"Hello, {name}!"
+def greet_user(name: str) -> str:
+    """Generate a personalized greeting."""
+    return f"Hello, {name}! Welcome to the MCP server."
 
 
 def main():
