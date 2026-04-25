@@ -149,7 +149,7 @@ make sast-docker             # Security scan with Trivy
 - Rate limiting (SlowAPI)
 - Circuit breakers (pybreaker)
 - Caching (fastapi-cache2)
-- Feature flags (fastapi-featureflags, UnleashClient)
+- Feature flags (UnleashClient)
 
 ### Key Patterns
 

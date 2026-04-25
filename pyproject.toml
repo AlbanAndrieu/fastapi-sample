@@ -84,7 +84,6 @@ api = [
     "uvicorn-worker>=0.2.0",
 ]
 api-extra = [
-    "fastapi-featureflags>=0.4.7",
     "fastapi-mail>=1.5.0",
     "fastapi-users[sqlalchemy]>=14.0.1",
     "fastapi-cache2[redis]>=0.0.1",
