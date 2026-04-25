@@ -86,7 +86,6 @@ python = ">=3.12,<4.0"
 optional = false
 [tool.poetry.group.base.dependencies]
 fastapi = {version = ">=0.121.0", extras = ["standard"]}
-fastapi-featureflags = ">=0.4.7"
 fastapi-mail = ">=1.5.0" # NOK 1.5.2
 fastapi-users = {version = ">=14.0.1", extras = ["sqlalchemy"]}
 fastapi-cache2 = {version = ">=0.0.1", extras = ["redis"]} # NOK aioredis deprecated

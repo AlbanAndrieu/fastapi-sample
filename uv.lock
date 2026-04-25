@@ -2374,19 +2374,6 @@ wheels = [
 ]
 
 [[package]]
-name = "fastapi-featureflags"
-version = "0.4.7"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "fastapi" },
-    { name = "requests" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/1f/54/23a649c3a081101bd568fc4899c171c4adbb817b74d59b4286a8ba2b56b5/fastapi_featureflags-0.4.7.tar.gz", hash = "sha256:81ebc71ca0dfef967ce3a0ebbc83e02469b36d2ef9d045b9182b5a5be2cba152", size = 6281, upload-time = "2023-03-09T13:54:05.606Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/e5/72/02caac9568ac370b0d627646f6620b18e216a9f1be1af78d482cb27d286a/fastapi_featureflags-0.4.7-py3-none-any.whl", hash = "sha256:2e6a2d2cee8ffdd7582f05cd47f66e8ee823f43c8aa5fce7a24953b347eb4be5", size = 8920, upload-time = "2023-03-09T13:54:03.932Z" },
-]
-
-[[package]]
 name = "fastapi-mail"
 version = "1.6.2"
 source = { registry = "https://pypi.org/simple" }
@@ -2472,7 +2459,6 @@ api-cli = [
 ]
 api-extra = [
     { name = "fastapi-cache2", extra = ["redis"] },
-    { name = "fastapi-featureflags" },
     { name = "fastapi-mail" },
     { name = "fastapi-users", extra = ["sqlalchemy"] },
     { name = "fastmcp" },
@@ -2722,7 +2708,6 @@ api-cli = [
 ]
 api-extra = [
     { name = "fastapi-cache2", extras = ["redis"], specifier = ">=0.0.1" },
-    { name = "fastapi-featureflags", specifier = ">=0.4.7" },
     { name = "fastapi-mail", specifier = ">=1.5.0" },
     { name = "fastapi-users", extras = ["sqlalchemy"], specifier = ">=14.0.1" },
     { name = "fastmcp", specifier = ">=2.12.2" },

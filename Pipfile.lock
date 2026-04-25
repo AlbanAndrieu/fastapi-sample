@@ -1115,15 +1115,6 @@
             "markers": "python_version >= '3.10'",
             "version": "==0.15.1"
         },
-        "fastapi-featureflags": {
-            "hashes": [
-                "sha256:2e6a2d2cee8ffdd7582f05cd47f66e8ee823f43c8aa5fce7a24953b347eb4be5",
-                "sha256:81ebc71ca0dfef967ce3a0ebbc83e02469b36d2ef9d045b9182b5a5be2cba152"
-            ],
-            "index": "pypi",
-            "markers": "python_version >= '3.6'",
-            "version": "==0.4.7"
-        },
         "fastapi-mail": {
             "hashes": [
                 "sha256:1992c416f1576c305130773360de989d78041c6dad9bdb7ac0072a9a78b02f84",
