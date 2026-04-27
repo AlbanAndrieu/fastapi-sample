@@ -1,0 +1,68 @@
+{
+	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
+	"extends": [
+		"config:recommended",
+		"helpers:pinGitHubActionDigests",
+		":preserveSemverRanges",
+		":dependencyDashboard",
+		":rebaseStalePrs",
+		":enableVulnerabilityAlertsWithLabel('security')",
+		"group:recommended"
+	],
+	"customManagers": [
+		{
+			"customType": "regex",
+			"managerFilePatterns": ["/\\.yml$/"],
+			"datasourceTemplate": "custom.hashicorp",
+			"matchStrings": [
+				"#\\s*renovate:\\s*(datasource=(?<datasource>.*?) )?depName=(?<depName>.*?)( versioning=(?<versioning>.*?))?\\s*\\w*:\\s*(?<currentValue>.*)\\s"
+			],
+			"versioningTemplate": "{{#if versioning}}{{{versioning}}}{{else}}semver{{/if}}"
+		}
+	],
+	"customDatasources": {
+		"Ubuntu24LinuxRelease": {
+			"defaultRegistryUrlTemplate": "https://cloud-images.ubuntu.com/releases/24.04/",
+			"format": "html"
+		},
+		"hashicorp": {
+			"defaultRegistryUrlTemplate": "https://api.releases.hashicorp.com/v1/releases/{{packageName}}?license_class=oss",
+			"transformTemplates": [
+				"{ \"releases\": $map($, function($v) { { \"version\": $v.version, \"releaseTimestamp\": $v.timestamp_created, \"changelogUrl\": $v.url_changelog, \"sourceUrl\": $v.url_source_repository } }), \"homepage\": $[0].url_project_website, \"sourceUrl\": $[0].url_source_repository }"
+			]
+		}
+	},
+	"packageRules": [
+		{
+			"matchDatasources": ["custom.Ubuntu24LinuxRelease"],
+			"extractVersion": "^release-(?<version>\\d+)/$"
+		},
+		{
+			"packageNames": ["colorama"],
+			"schedule": "before 5am every wednesday"
+		},
+		{
+			"packagePatterns": ["^jira.*"],
+			"groupName": "jira",
+			"automerge": true
+		},
+		{
+			"packagePatterns": ["^cryptography.*"],
+			"groupName": "cryptography",
+			"automerge": true
+		}
+	],
+	"prConcurrentLimit": 3,
+	"timezone": "Europe/Paris",
+	"schedule": ["before 10am on monday", "after 3pm on friday"],
+	"lockFileMaintenance": {
+		"enabled": true,
+		"schedule": "after 10pm on sunday"
+	},
+	"rangeStrategy": "bump",
+	"major": { "automerge": false },
+	"minor": { "automerge": true },
+	"patch": { "automerge": true },
+	"ignoreDeps": ["lodash", "express"],
+	"ignorePaths": ["tests/**"]
+}

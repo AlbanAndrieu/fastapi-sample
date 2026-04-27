@@ -1,0 +1,13 @@
+services:
+  fastapi-sample:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fastapi-sample
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/app
+    env_file:
+      - ./.env.local
+      - ./.env.secrets

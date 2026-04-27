@@ -1,0 +1,902 @@
+---
+stages:
+  - static
+  - secret-detection
+  - renovate
+  - build
+  - test
+  - train
+  - review
+  - deploy
+  - publish
+  - fuzz
+  - dast
+  - notify
+  - dependabot
+  - release
+
+services:
+  - name: redis:latest
+    alias: redis
+    # command: ["redis-server", "--port", "7379"]
+
+include:
+  # - component: $CI_SERVER_FQDN/guided-explorations/ci-components/ultimate-auto-semversioning/ultimate-auto-semversioning@1.2.8
+
+  - component: $CI_SERVER_FQDN/to-be-continuous/semantic-release/gitlab-ci-semrel@3.11.2
+    inputs:
+      dry-run: false
+      changelog-enabled: true
+      changelog-title: "My changelog"
+      auto-release-enabled: true
+      info-on: all
+
+  - component: $CI_SERVER_FQDN/dependabot-gitlab/dependabot-standalone/template@3.23.0
+    inputs:
+      gitlab_access_token: gitlab-access-token
+      github_access_token: github-access-token
+    rules:
+      - if: $PACKAGE_MANAGER_SET
+
+  #- project: 'renovate-bot/renovate-runner'
+  #  file: '/templates/renovate.gitlab-ci.yml'
+
+  # - remote: https://gitlab.com/renovate-bot/renovate-runner/-/raw/v24.0.0/templates/renovate.gitlab-ci.yml
+  - component: $CI_SERVER_FQDN/to-be-continuous/renovate/gitlab-ci-renovate@1.9.0
+
+  - project: "renovate-bot/renovate-runner"
+    file: "/templates/renovate-config-validator.gitlab-ci.yml"
+
+  - component: gitlab.com/components/sast/sast@main
+
+  # NOK - template: Cosign.gitlab-ci.yml
+
+  - template: Security/API-Fuzzing.gitlab-ci.yml
+  - template: Security/SAST.gitlab-ci.yml
+  - template: DAST.gitlab-ci.yml
+  - template: Jobs/Dependency-Scanning.gitlab-ci.yml
+
+  - template: Security/SAST-IaC.latest.gitlab-ci.yml
+  - template: Jobs/Secret-Detection.gitlab-ci.yml
+
+  - component: $CI_SERVER_FQDN/components/code-quality-oss/codequality-os-scanners-integration/codequality-oss@1.1.5
+  - component: $CI_SERVER_FQDN/components/code-quality-oss/codequality-os-scanners-integration/tflint@1.1.5
+  - component: $CI_SERVER_FQDN/components/code-quality-oss/codequality-os-scanners-integration/hadolint@1.1.5
+
+  - component: gitlab.com/getplumber/plumber/plumber@v0.1.30
+    inputs:
+      threshold: 33 # Minimum % to pass (default: 100)
+      # config_file: configs/my-plumber.yaml  # Custom config path
+      # server_url: https://gitlab.com        # Self-hosted GitLab
+      # branch: main                            # Specific branch to analyze
+      verbose: true # Debug output
+      mr_comment: true # Requires api scope on token
+      badge: true # Requires api scope on token
+
+default:
+  cache: &global_cache
+    # key: $CI_COMMIT_REF_SLUG
+    # Cache modules using lock file
+    key:
+      files:
+        - package-lock.json
+    paths:
+      # This folder is cached between builds
+      # https://docs.gitlab.com/ee/ci/yaml/#cache
+      - node_modules/
+      # # Cache modules in between jobs
+      - .npm/
+      # - public/
+      # - vendor/
+    policy: pull-push
+
+# Tip: Insert the following variables anywhere below stages and include
+variables:
+  CI_IMAGE_PYTHON: python:3.12.10
+  PROJECT_PYTHON_VERSION: "3.12"
+  CI_IMAGE_NPM: node:24-alpine # 24.11-alpine3.23
+  APP_NAME: fastapi-sample
+  # Container images: GitLab Container Registry (CI_REGISTRY / CI_REGISTRY_IMAGE are predefined)
+  TYPE_TRAINING: ""
+  # MOUNT_POINT: "/builds/$CI_PROJECT_PATH/mnt"
+  CI_IMAGE_NAME: nabla/ansible-jenkins-slave-docker:latest
+  CI_IMAGE_TAG: latest
+  # GIT_STRATEGY: fetch
+  GIT_DEPTH: "3"
+  FLAVOR: "-python"
+  TRIVY_VERSION: "0.68.2"
+  TRIVY_SCANNERS: "vuln,misconfig,secret,license"
+  CS_SEVERITY_THRESHOLD: "CRITICAL"
+  CS_SEVERITY_FILESYTEM_THRESHOLD: "CRITICAL" # CRITICAL,HIGH
+  TRIVY_GLOBAL_IGNORE_FILE: "--ignorefile .trivyignore.yaml"
+  # TRIVY_GLOBAL_SECURITY_CHECKS_EXTRA: "--ignore-unfixed --ignorefile .trivyignore.yaml --ignored-licenses LGPL-2.0,LGPL-2.1,LGPL-3.0"
+  # DD_GLOBAL_SECURITY_CHECKS_EXTRA: "--ignore-unfixed --ignorefile .trivyignore.yaml --ignored-licenses LGPL-2.0,LGPL-2.1,LGPL-3.0"
+  TRIVY_ARGS: "--skip-dirs .direnv --skip-dirs .venv --skip-dirs .node_cache --skip-dirs code/node_modules/ --skip-dirs go/go/pkg/mod/github.com/ --skip-dirs /usr/bin/go/pkg/mod/github.com/ --skip-dirs code/.venv/ --skip-dirs node_modules --skip-dirs usr/lib/node_modules/ --skip-dirs root/.npm/ --skip-files pip.conf --skip-files Pipfile" #  --insecure  --debug
+  DD_ARGS: "${TRIVY_ARGS}"
+  TRIVY_FS_ARGS: "${TRIVY_ARGS}  --skip-files package-lock.json --skip-files yarn.lock"
+  DD_PRODUCT_NAME: "$CI_PROJECT_NAME"
+  DD_SERVICE: "test" # fastapi-sample
+  DD_PRODUCT_TYPE_NAME: "Showcase Alban" # "Research and Development"
+  DD_URL_UAT: "http://defectdojo.service.gra.uat.consul"
+  DD_TEST_NAME: "JM Trivy"
+  DD_MINIMUM_SEVERITY: "MEDIUM"
+  DD_CLOSE_OLD_FINDINGS: "True"
+  DD_CLOSE_OLD_FINDINGS_PRODUCT_SCOPE: "True"
+  DD_DO_NOT_REACTIVATE: "False"
+  DD_BRANCH_TAG: "${CI_COMMIT_TAG}" # CI_COMMIT_BRANCH CI_IMAGE_TAG
+  # DOCKER_BUILD_OPT: " -f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABNABLA_TOKEN"
+  CLOC_SOURCE: "nabla"
+  # RUNNER_GENERATE_ARTIFACTS_METADATA: "true"
+  # FF_NETWORK_PER_BUILD: "true" # enable network per build so all services can communicate on the same network
+  DEFAULT_UV_TEST_GROUP: "test"
+  # pytest --cov= target (Python import path, not the distribution name)
+  DEFAULT_COV: "nabla"
+  DEPENDENCY_UPDATES_DISABLED: false
+  # GIT_CLONE_PATH: '$CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_PIPELINE_ID'
+  # GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_PROJECT_PATH
+  MEGALINTER_EXIT_ON_FAILURE: 1
+  FF_USE_FASTZIP: "true"
+  ARTIFACT_COMPRESSION_LEVEL: "fast"
+  CACHE_COMPRESSION_LEVEL: "fast"
+  # Force-enable BuildKit in "docker build" commands (on Linux it is disabled by default)
+  DOCKER_BUILDKIT: 1
+  BUILDKIT_PROGRESS: plain
+  DOCKER_BUILD_OPT: "--secret id=read-package-token,env=CI_PIP_GITLABNABLA_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --build-arg ENV=${ENV}"
+  DOCKER_BUILD_PATH: "."
+  # Build the fully-qualified image name (including the registry server prefix), but without the ":version" suffix
+  IMAGE_BASE_TAG: "${CI_REGISTRY_IMAGE}"
+  # Built app image (optional); train-commit-activated falls back to CI_IMAGE_PYTHON if unset in runner env
+  CONTAINER_IMAGE: "${CI_IMAGE_PYTHON}"
+  # Complement the base tag with various versions, one per image target/stage. We use the CI_COMMIT_REF_SLUG (which is
+  # basically the branch/tag name, but slugified) to ensure that the cache images are also different for each branch.
+  # This is done because the code that we compile/build/test in any specific branch might be different (from the
+  # code of other branches), and the cache images would overwrite each other (if we had not appended the
+  # "-$CI_COMMIT_REF_SLUG" suffix), causing cache misses!
+  # TEST_CACHE_TAG: $IMAGE_BASE_TAG:test-cache-$CI_COMMIT_REF_SLUG
+  # CACHE_IMAGE: python:3.12-slim
+  CACHE_IMAGE: "${IMAGE_BASE_TAG}/cache:buildcache"
+  API_REPORTER_URL: http://loki-read.service.gra.uat.consul:3100/loki/api/v1/push
+  API_REPORTER_BEARER_TOKEN: ""
+  DEFAULT_COV_ARGS: "--no-ddtrace --no-cov" # --cov-fail-under=1
+  # NETLIFY_SITE_ID: '8dc3759f-f33d-424d-9300-d21f859ca183'
+  DAST_TARGET_URL: "${VERCEL_PRODUCTION_URL}"
+  DAST_AUTH_URL: "${VERCEL_PRODUCTION_URL}/login"
+  DAST_BROWSER_SCAN: "true" # use the browser-based GitLab DAST crawler
+  DAST_FULL_SCAN_ENABLED: "true"
+  # DAST_AUTH_USERNAME: “john”
+  # DAST_AUTH_PASSWORD: “P@ssw0rd”
+  FUZZAPI_TARGET_URL: "${VERCEL_PRODUCTION_URL}/openapi.json"
+  FUZZAPI_OPENAPI: "${VERCEL_PRODUCTION_URL}/openapi.json"
+  FUZZAPI_PROFILE: Quick-10
+  CONTAINER_SCANNING_DISABLED: false
+  CUSTOM_CONTAINER_SCANNING_DISABLED: "true"
+  GITLAB_ADVANCED_SAST_ENABLED: true
+  DS_ENFORCE_NEW_ANALYZER: "true"
+  # RENOVATE_BASE_DIR: $CI_PROJECT_DIR/renovate
+  RENOVATE_PLATFORM: gitlab
+  RENOVATE_ONBOARDING_CONFIG: '{"$$schema": "https://docs.renovatebot.com/renovate-schema.json", "extends": ["config:recommended"] }'
+  # RENOVATE_GIT_AUTHOR: "alban.andrieu@free.fr"
+  RENOVATE_OPTIMIZE_FOR_DISABLED: "true"
+  RENOVATE_REPOSITORY_CACHE: "true"
+  RENOVATE_LOG_FILE: renovate-log.ndjson
+  RENOVATE_EXTRA_FLAGS: --autodiscover=true --onboarding=false
+  CI_RENOVATE_IMAGE: ghcr.io/renovatebot/renovate:41.152.9@sha256:3d4da143701edbedaebc7b43961614acc795fca272d71f533d15feb3296014c9
+  RUNNER_GENERATE_ARTIFACTS_METADATA: "true"
+  MEND_SCA_ORCHESTRATOR_ENABLED: "true"
+  MEND_AI_ENABLE_CODE_CAPABILITIES: "true"
+  CS_DISABLE_LANGUAGE_VULNERABILITY_SCAN: "false"
+  SECRET_DETECTION_HISTORIC_SCAN: false
+  IGNORE_NORMALISATION_GIT_HEAD_MOVE: "true"
+  MEGALINTER_IMAGE_TAG: "v9.2.0"
+  # Vercel (set in GitLab CI/CD variables): VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID
+  VERCEL_TELEMETRY_DISABLED: "1"
+  # Optional: production site URL for DAST / API fuzzing (e.g. https://your-app.vercel.app)
+  VERCEL_PRODUCTION_URL: ""
+
+# -----------------------------------------------------------------------------
+# Local replacements for removed nabla-group/infrastructure/ci-templates
+# (default, deploy-nomad, javascript, data, mega-linter).
+# Docker build uses Docker-in-Docker; runners must allow privileged services.
+# -----------------------------------------------------------------------------
+.default_rules:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+
+.login-registry:
+  script:
+    - docker push "${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}"
+    - |
+      if [ "${CI_COMMIT_BRANCH}" = "${CI_DEFAULT_BRANCH}" ]; then
+        docker tag "${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}" "${CI_REGISTRY_IMAGE}:latest"
+        docker push "${CI_REGISTRY_IMAGE}:latest"
+      fi
+
+.docker-build:
+  stage: build
+  interruptible: true
+  # Pin major with docker:*-cli + matching *-dind (docker:27-git is not published on Docker Hub).
+  image: docker:29-cli
+  services:
+    - name: docker:29-dind
+      alias: docker
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+    APP: "${APP_NAME}"
+  before_script:
+    - apk add --no-cache bash gettext
+    - !reference [.login-gitlab-registry, script]
+  script:
+    - !reference [.build-image-dockefile, script]
+
+.install-npm:
+  stage: static
+  image: ${CI_IMAGE_NPM}
+  interruptible: true
+  script:
+    - |
+      if [ -f yarn.lock ]; then
+        yarn install --frozen-lockfile
+      elif [ -f package-lock.json ]; then
+        npm ci --cache .npm --prefer-offline --no-audit || npm install --cache .npm --prefer-offline --no-audit
+      else
+        npm install --cache .npm --prefer-offline --no-audit
+      fi
+
+.lint-eslint-npm:
+  stage: static
+  image: ${CI_IMAGE_NPM}
+  interruptible: true
+  needs:
+    - job: install-npm
+      artifacts: false
+  dependencies: []
+
+.publish-npm:
+  stage: publish
+  image: ${CI_IMAGE_NPM}
+  interruptible: true
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+.mega_linter_common:
+  # Must stay in `test` (or later) when jobs use `needs: [test-pytest]` — needs cannot target a later stage.
+  stage: test
+  image:
+    name: oxsecurity/megalinter:v9.2.0
+    entrypoint: [""]
+  variables:
+    DEFAULT_WORKSPACE: $CI_PROJECT_DIR
+    APPLY_FIXES: none
+    FAIL_IF_UPDATED_SOURCES: "true"
+  interruptible: true
+  script:
+    - bash /entrypoint.sh
+
+.code_quality:
+  stage: test
+  image: ${CI_IMAGE_PYTHON}
+  interruptible: true
+
+.vercel_deploy:
+  stage: deploy
+  image: ${CI_IMAGE_NPM}
+  interruptible: true
+  variables:
+    VERCEL_DEPLOY_PROD: "false"
+  cache:
+    <<: *global_cache
+  before_script:
+    - |
+      for v in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+        eval "val=\${$v}"
+        if [ -z "$val" ]; then
+          echo "Missing required CI/CD variable for Vercel: $v"
+          exit 1
+        fi
+      done
+    - apk add --no-cache libc6-compat python3 make g++ || true
+    - |
+      if [ -f package-lock.json ]; then
+        npm ci --cache .npm --prefer-offline --no-audit
+      elif [ -f yarn.lock ]; then
+        corepack enable
+        corepack prepare yarn@stable --activate
+        yarn install --frozen-lockfile
+      fi
+  script:
+    - npx vercel pull --yes --environment="${VERCEL_REMOTE_ENV}" --token="${VERCEL_TOKEN}"
+    - npx vercel build --token="${VERCEL_TOKEN}"
+    - |
+      if [ "${VERCEL_DEPLOY_PROD}" = "true" ]; then
+        npx vercel deploy --prebuilt --prod --token="${VERCEL_TOKEN}"
+      else
+        npx vercel deploy --prebuilt --token="${VERCEL_TOKEN}"
+      fi
+
+.renovate:
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}-renovate
+    paths:
+      - renovate/cache/renovate/repository/
+  image: ${CI_RENOVATE_IMAGE}
+  script:
+    - renovate $RENOVATE_EXTRA_FLAGS
+
+renovate:
+  extends: .renovate
+  stage: renovate
+  resource_group: production
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+  artifacts:
+    when: always
+    expire_in: 1d
+    paths:
+      - "$RENOVATE_LOG_FILE"
+
+run_renovate:
+  image: ${CI_RENOVATE_IMAGE}
+  stage: renovate
+  resource_group: production
+  only:
+    - schedules
+  script:
+    - renovate $RENOVATE_EXTRA_FLAGS
+
+.dependabot-gitlab:
+  stage: dependabot
+
+secret_detection:
+  stage: secret-detection
+
+gemnasium-dependency_scanning:
+  dependencies: ["docker-build"]
+
+gemnasium-python-dependency_scanning:
+  allow_failure: true # force pipeline to fail if this job fails
+
+  before_script:
+    - apt-get update -y && apt-get install -y jq
+    - pip install --upgrade uv
+    - uv lock # Generates the lock file to be analyzed.
+
+  script:
+    - /analyzer run
+    - HIGH_SEVERITY_COUNT=$(jq '.vulnerabilities | map(select(.severity=="High")) | length' gl-dependency-scanning-report.json )
+    - >
+      if [[ $HIGH_SEVERITY_COUNT -gt 0 ]]
+      then
+        echo "High severity found"; exit 1
+      else
+        echo "No High severity found"
+      fi
+
+# upload_trivy:uat:
+#   extends: .upload_trivy:uat
+
+# cloc:
+#   extends: .cloc
+
+# upload-cloc:uat:
+#   extends: .upload-cloc:uat
+
+gitlab_version:
+  image:
+    name: registry.gitlab.com/python-gitlab/python-gitlab:latest
+    entrypoint: [""]
+  before_script: gitlab --version
+  script: gitlab namespace list || true
+
+# ======
+# Python Code Checks
+# ======
+
+.python-check: &python-check
+  stage: test
+  image: registry.gitlab.com/gitlab-data/data-image/ci-python-image:v1.0.0
+  only:
+    changes:
+      - "**/*.ipynb"
+    refs:
+      - merge_requests
+  allow_failure: true
+
+.python-black:
+  <<: *python-check
+  script:
+    - black --check .
+
+lint-ruff:
+  image: $CI_IMAGE_PYTHON
+  interruptible: true
+  allow_failure: true
+  stage: static
+  needs: []
+  script:
+    - pip install --upgrade uv
+    - uv sync --frozen --group format
+    - uv run ruff check --output-format gitlab > report_ruff.json && uv run ruff format --check
+  artifacts:
+    paths:
+      - report_ruff.json
+    reports:
+      codequality: report_ruff.json
+  rules:
+    - if: "$CI_COMMIT_MESSAGE =~ /^.*(#dev|#uat|#team|#prod).*$/s"
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH # Make CI NOT run on main branch
+      when: never
+
+type-checker-pyright:
+  stage: static
+  needs: []
+  image: $CI_IMAGE_PYTHON
+  interruptible: true
+  allow_failure: true
+  script:
+    - pip install --upgrade uv
+    - |-
+      echo -e "\e[46mRun pyright install PYRIGHT_INSTALL_DISABLED=${PYRIGHT_INSTALL_DISABLED} with reports \e[0m .";
+      if [[ $PYRIGHT_INSTALL_DISABLED != "true" ]]; then
+        pip install --upgrade pip
+        pip3 install pyright pyright-to-gitlab-ci
+      else
+        echo -e "\e[43mDisable pyright install\e[0m .";
+      fi
+    - |-
+      echo -e "\e[46mRun pyright PYRIGHT_DISABLED=${PYRIGHT_DISABLED} with reports \e[0m .";
+      if [[ $PYRIGHT_DISABLED != "true" ]]; then
+        uv sync --frozen --group ${DEFAULT_UV_TEST_GROUP}
+        pyright --outputjson > report_raw.json
+      else
+        echo -e "\e[43mDisable trivy filesystem reports for DD and Gitlab\e[0m .";
+      fi
+  after_script:
+    - pyright-to-gitlab-ci --src report_raw.json --output report_pyright.json --base_path .
+  artifacts:
+    paths:
+      - report_pyright.json
+    reports:
+      codequality: report_pyright.json
+  rules:
+    - if: "$CI_COMMIT_MESSAGE =~ /^.*(#dev|#uat|#team|#prod).*$/s"
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH # Make CI NOT run on main branch
+      when: never
+
+.redis_postgres_healthcheck: &redis_postgres_healthcheck
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq redis-tools postgresql-client
+    - |
+      echo "Waiting for Redis to be ready..."
+      for i in $(seq 1 30); do
+        redis-cli -h redis -p 6379 ping && echo "Redis is up!" && break
+        echo "Attempt $i/30 - Redis not ready yet, retrying in 1s..."
+        sleep 1
+        if [ "$i" -eq 30 ]; then
+          echo "Redis failed to start after 30 seconds"
+          exit 1
+        fi
+      done
+    - |
+      echo "Waiting for Postgres to be ready..."
+      for i in $(seq 1 30); do
+        if pg_isready -h postgres -p 5432 -d "${POSTGRES_DB}" -U "${POSTGRES_USER}"; then
+          echo "Postgres is up!"
+          break
+        fi
+        echo "Attempt $i/30 - Postgres not ready yet, retrying in 1s..."
+        sleep 1
+        if [ "$i" -eq 30 ]; then
+          echo "Postgres failed to start after 30 seconds"
+          exit 1
+        fi
+      done
+
+# Pytest via uv (pyproject.toml, uv.lock); no Poetry in CI.
+test-pytest-uv:
+  needs:
+    - job: lint-ruff
+      optional: true
+    - job: type-checker-pyright
+      optional: true
+  stage: test
+  interruptible: true
+  services:
+    - name: redis:latest
+      alias: redis
+    - name: postgres:16-alpine
+      alias: postgres
+  variables:
+    DEFAULT_COV_ARGS: "--no-ddtrace --no-cov"
+    REDIS_URL: redis://redis:6379/0
+    POSTGRES_DRIVER: postgresql
+    POSTGRES_HOST: postgres
+    POSTGRES_PORT: "5432"
+    POSTGRES_DB: fastapi_sample_gitlab
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: postgres
+  <<: *redis_postgres_healthcheck
+  allow_failure: false
+  script:
+    - pip install --upgrade uv
+    - uv sync --frozen --group ${DEFAULT_UV_TEST_GROUP}
+    - uv run pytest --cov=${DEFAULT_COV} --cov-report term --cov-report xml:coverage.xml --junitxml pytest-junit.xml ${DEFAULT_COV_ARGS}
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+  artifacts:
+    when: on_success # don't attempt to upload the docs if generating them failed
+    paths:
+      - pytest-junit.xml
+    reports:
+      junit: pytest-junit.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+  rules:
+    - if: "$CI_COMMIT_MESSAGE =~ /^.*(#dev|#uat|#team|#prod).*$/s"
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH # Make CI NOT run on main branch
+      when: never
+
+# pytest with pipenv
+.test-pytest-pipenv:
+  # extends: .test-pytest
+  stage: test
+  needs: []
+  interruptible: true
+  image: $CI_IMAGE_PYTHON
+  services:
+    - name: redis:latest
+      alias: redis
+    - name: postgres:16-alpine
+      alias: postgres
+  allow_failure: false
+  variables:
+    PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+    DEFAULT_COV_ARGS: "--no-ddtrace --no-cov"
+    DEFAULT_PIPENV_ARGS: "--system --dev --ignore-pipfile" # --dev  --verbose --index=https://package_read:${CI_PIP_GITLABNABLA_TOKEN}@gitlab.com/api/v4/groups/7364654/-/packages/pypi/simple
+    DEFAULT_PYTEST_PACKAGES: "pytest pytest-cov pytest-env"
+    KEYCLOAK_SERVER_URL: "https://keycloak-https.service.gra.uat.consul"
+    KEYCLOAK_REALM: "jus_mundi"
+    KEYCLOAK_CLIENT_ID: "nabla_uat"
+    POSTGRES_DRIVER: postgresql
+    POSTGRES_HOST: postgres
+    POSTGRES_PORT: "5432"
+    POSTGRES_DB: fastapi_sample_gitlab
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: postgres
+    # KEYCLOAK_CLIENT_SECRET: ""
+    # BELOW is needed as we do not use jm-ubuntu but python:3.10
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq postgresql-client
+    - |
+      echo "Waiting for Postgres to be ready..."
+      for i in $(seq 1 30); do
+        if pg_isready -h postgres -p 5432 -d "${POSTGRES_DB}" -U "${POSTGRES_USER}"; then
+          echo "Postgres is up!"
+          break
+        fi
+        echo "Attempt $i/30 - Postgres not ready yet, retrying in 1s..."
+        sleep 1
+        if [ "$i" -eq 30 ]; then
+          echo "Postgres failed to start after 30 seconds"
+          exit 1
+        fi
+      done
+  script:
+    - python3 -m pip install --user ${DEFAULT_PYTEST_PACKAGES}
+    - python3 -m pip install --user redis arel
+    - python3 -m pipenv install --dev --site-packages --ignore-pipfile
+    - export LOG_LEVEL=DEBUG
+    - echo "ENV is :${ENV}"
+    - pytest --cov=${DEFAULT_COV} --cov-report term --cov-report xml:coverage.xml --junitxml pytest-junit.xml ${DEFAULT_COV_ARGS}
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+  artifacts:
+    when: on_success # don't attempt to upload the docs if generating them failed
+    paths:
+      - pytest-junit.xml
+    reports:
+      junit: pytest-junit.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+
+test-pytest:
+  stage: test
+  needs: []
+  image: ${CI_IMAGE_PYTHON}
+  interruptible: true
+  allow_failure: false
+  services:
+    - name: redis:latest
+      alias: redis
+    - name: postgres:16-alpine
+      alias: postgres
+  variables:
+    DEFAULT_COV_ARGS: "--no-ddtrace --cov-fail-under=70"
+    KEYCLOAK_SERVER_URL: "https://keycloak-https.service.gra.uat.consul"
+    KEYCLOAK_REALM: "jus_mundi"
+    KEYCLOAK_CLIENT_ID: "nabla_uat"
+    # KEYCLOAK_CLIENT_SECRET: ""
+    REDIS_URL: redis://redis:6379/0
+    ENABLE_METRICS: false
+    VIRTUAL_ENV: "/builds/${CI_PROJECT_PATH}/.venv"
+    POSTGRES_DRIVER: postgresql
+    POSTGRES_HOST: postgres
+    POSTGRES_PORT: "5432"
+    POSTGRES_DB: fastapi_sample_gitlab
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: postgres
+  <<: *redis_postgres_healthcheck
+  script:
+    - pip install --upgrade uv
+    - uv sync --frozen --group ${DEFAULT_UV_TEST_GROUP}
+    - export LOG_LEVEL=DEBUG
+    - echo "PATH = $PATH"
+    - uv run pytest --cov=${DEFAULT_COV} --cov-report term --cov-report xml:coverage.xml --junitxml pytest-junit.xml ${DEFAULT_COV_ARGS}
+  artifacts:
+    when: on_success # don't attempt to upload the docs if generating them failed
+    paths:
+      - pytest-junit.xml
+    reports:
+      junit: pytest-junit.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+
+.login-gitlab-registry: &login-gitlab-registry
+  script:
+    - echo "Logging in to GitLab Container Registry ${CI_REGISTRY}"
+    - echo "${CI_JOB_TOKEN}" | docker login -u "${CI_REGISTRY_USER}" --password-stdin "${CI_REGISTRY}"
+
+# .build-image-dockefile-pre: &build-image-dockefile-pre
+#   script:
+#     - export DOCKER_BUILD_OPT="--pull --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from ${CACHE_IMAGE} -f Dockerfile --secret id=read-package-token,env=CI_PIP_GITLABNABLA_TOKEN --secret id=read-npm-token,env=CI_JOB_TOKEN --build-arg ENV=${ENV} -t ${CONTAINER_IMAGE}"
+#     - echo -e "\e[35mOverriden on purpose as Sample docker build need explicit \e[0m FOR \e[43m${ENV} - ${DOCKER_BUILD_OPT}.\e[0m"
+
+.build-image-dockefile: &build-image-dockefile
+  script:
+    - echo -e "\e[35mStarting docker\e[0m FOR \e[43m${ENV}.\e[0m"
+    - |
+      envsubst < etc/pip.conf > pip.conf || true
+      echo -e "\e[35mBuilding with docker build ${DOCKER_BUILD_OPT} -t ${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA} ${DOCKER_BUILD_PATH}\e[0m ."
+      docker build ${DOCKER_BUILD_OPT} -t "${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}" ${DOCKER_BUILD_PATH}
+      echo -e "\e[102mDocker image build succesfull\e[0m .";
+    - export TRIVY_OCI="${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}"
+    - !reference [.login-registry, script]
+
+docker-build:
+  extends: .docker-build
+
+# See https://docs.gitlab.com/user/packages/npm_registry/?tab=%60npm+config%60#publish-a-package-with-a-cicd-pipeline
+install-npm:
+  extends: .install-npm
+  script:
+    # - npm config set @scope:registry=git@gitlab.com:api/v4/groups/2454528/-/packages/npm/
+    # - npm config set '@nabla-group:registry=git@gitlab.com:api/v4/projects/60435718/packages/npm/'
+    # - npm config set '@nabla-group:registry=git@gitlab.com:api/v4/packages/npm/:_authToken='"${CI_JOB_TOKEN}"
+    # - echo "@scope:registry=https://${CI_SERVER_HOST}/api/v4/projects/${CI_PROJECT_ID}/packages/npm/" > ~/.npmrc
+    - echo "@nabla-group:registry=git@gitlab.com:api/v4/packages/npm/" > ~/.npmrc
+    # - echo "//${CI_SERVER_HOST}/api/v4/projects/${CI_PROJECT_ID}/packages/npm/:_authToken=${CI_JOB_TOKEN}" >> ~/.npmrc
+    - echo "//${CI_SERVER_HOST}/api/v4/packages/npm/:_authToken=${CI_JOB_TOKEN}" >> ~/.npmrc
+    # - rm -rf node_modules package-lock.json
+    - |
+      if [ -e yarn.lock ]; then
+        yarn install --frozen-lockfile
+      elif [ -e package-lock.json ]; then
+        npm i --cache .npm --prefer-offline --no-audit
+      fi
+  cache:
+    # inherit all global cache settings
+    <<: *global_cache
+  allow_failure: false
+
+lint-eslint-npm:
+  extends: .lint-eslint-npm
+  script:
+    - npm test --cache .npm
+    - npx eslint --format gitlab .
+  allow_failure: false
+  cache:
+    # inherit all global cache settings
+    <<: *global_cache
+    # override the policy
+    policy: pull
+  artifacts:
+    reports:
+      codequality: gl-codequality.json
+    when: on_success # don't attempt to upload the docs if generating them failed
+
+mega_linter:
+  extends: .mega_linter_common
+  needs: ["test-pytest"]
+  allow_failure: false
+
+code_quality:
+  extends: .code_quality
+  # stage: test
+  needs:
+    - job: docker-build
+    - job: lint-ruff
+      optional: true
+    - job: type-checker-pyright
+      optional: true
+  script:
+    - |-
+      if [[ $CONTAINER_SCANNING_GITLAB_CODEQUALITY_TEMPLATE_DISABLE != "true" ]]; then
+        ruff_file="report_ruff.json"
+        pyright_file="report_pyright.json"
+        if [[ -f "$ruff_file" && -f "$pyright_file" ]]; then
+          jq -s 'add' "$ruff_file" "$pyright_file" > gl-codeclimate.json || echo '[]' > gl-codeclimate.json
+        elif [[ -f "$ruff_file" ]]; then
+          cp "$ruff_file" gl-codeclimate.json
+        elif [[ -f "$pyright_file" ]]; then
+          cp "$pyright_file" gl-codeclimate.json
+        else
+          echo "No Ruff or Pyright codequality artifacts; skipping merge."
+          echo '[]' > gl-codeclimate.json
+        fi
+      else
+        echo "Disable report_ruff.json report_pyright.json report combine"
+        echo '[]' > gl-codeclimate.json
+      fi
+  artifacts:
+    paths:
+      - gl-codeclimate.json
+    reports:
+      codequality: gl-codeclimate.json
+    when: on_success
+
+.terrascan:
+  image:
+    name: tenable/terrascan:1.18.3
+    entrypoint: ["/bin/sh", "-c"]
+  stage: static
+  script:
+    - /go/bin/terrascan scan . --skip-rules="AC_AWS_0214,AC_AWS_0148" --severity="high" --config-path ./terrascan.yaml || true
+  allow_failure: true
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: never
+    - !reference [.default_rules, rules]
+
+train-commit-activated:
+  stage: train
+  image: $CONTAINER_IMAGE
+  tags:
+    - saas-linux-medium-amd64-gpu-standard
+  script:
+    - echo "GPU training activated by commit message"
+    - echo "message passed is $CI_COMMIT_MESSAGE"
+    - notebookName=$(echo ${CI_COMMIT_MESSAGE/train})
+    - echo "Notebook name $notebookName"
+    - papermill -p is_local_development False -p tree_method 'gpu_hist' $notebookName -
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "staging"'
+      when: never
+    - if: $CI_COMMIT_MESSAGE =~ /\w+\.ipynb/
+      when: always
+      allow_failure: true
+  artifacts:
+    paths:
+      - ./model_metrics.md
+    when: on_success # don't attempt to upload the docs if generating them failed
+
+cml:
+  stage: notify
+  image: dvcorg/cml-py3:latest
+  script:
+    - cml-send-comment model_metrics.md
+  rules:
+    - if: $CI_COMMIT_MESSAGE =~ /\w+\.ipynb/
+      when: always
+      allow_failure: true
+
+publish-npm:
+  image: ${CI_IMAGE_NPM}
+  extends: .publish-npm
+  needs: ["install-npm"]
+  dependencies:
+    - install-npm
+  script:
+    # If no .npmrc is included in the repo, generate a temporary one that is configured to publish to GitLab's NPM registry
+    - |
+      if [[ ! -f .npmrc ]]; then
+        echo 'No .npmrc found! Creating one now. Please review the following link for more information: https://docs.gitlab.com/ee/user/packages/npm_registry/#with-the-npmrc-file'
+        {
+          echo "@${CI_PROJECT_ROOT_NAMESPACE}:registry=${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/npm/"
+          echo "${CI_API_V4_URL#http*:}/projects/${CI_PROJECT_ID}/packages/npm/:_authToken=\${CI_JOB_TOKEN}"
+        } >> .npmrc
+      fi
+    - echo "Created the following .npmrc:"; cat .npmrc
+    # Extract a few values from package.json
+    - NPM_PACKAGE_NAME=$(node -p "require('./package.json').name")
+    - NPM_PACKAGE_VERSION=$(node -p "require('./package.json').version")
+
+    # Validate that the package name is properly scoped to the project's root namespace.
+    # For more information, see https://docs.gitlab.com/ee/user/packages/npm_registry/#package-naming-convention
+    - |
+      if [[ ! $NPM_PACKAGE_NAME =~ ^@$CI_PROJECT_ROOT_NAMESPACE/ ]]; then
+        echo "Invalid package scope! Packages must be scoped in the root namespace of the project, e.g. \"@${CI_PROJECT_ROOT_NAMESPACE}/${CI_PROJECT_NAME}\""
+        echo 'For more information, see https://docs.gitlab.com/ee/user/packages/npm_registry/#package-naming-convention'
+        exit 1
+      fi
+
+    # Compare the version in package.json to all published versions.
+    # If the package.json version has not yet been published, run `npm publish`.
+    # If $SIGSTORE_ID_TOKEN is set this template will generate a provenance
+    # document. For more information refer to the documentation: https://docs.gitlab.com/ee/ci/yaml/signing_examples/
+    - |
+      if [[ "$(npm view ${NPM_PACKAGE_NAME} versions)" != *"'${NPM_PACKAGE_VERSION}'"* ]]; then
+        if [[ -n "${SIGSTORE_ID_TOKEN}" ]]; then
+          npm publish --provenance
+        else
+          npm publish
+        fi
+        echo "Successfully published version ${NPM_PACKAGE_VERSION} of ${NPM_PACKAGE_NAME} to GitLab's NPM registry: ${CI_PROJECT_URL}/-/packages"
+      else
+        echo "Version ${NPM_PACKAGE_VERSION} of ${NPM_PACKAGE_NAME} has already been published, so no new version has been published."
+      fi
+
+# Vercel: set CI/CD variables VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID (see Vercel project Settings → General).
+# Branches: develop|dev → development, staging|uat → preview env, default branch → production (--prod).
+deploy:vercel:dev:
+  extends: .vercel_deploy
+  variables:
+    VERCEL_REMOTE_ENV: development
+    VERCEL_DEPLOY_PROD: "false"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_COMMIT_BRANCH == "dev"
+
+deploy:vercel:uat:
+  extends: .vercel_deploy
+  variables:
+    VERCEL_REMOTE_ENV: preview
+    VERCEL_DEPLOY_PROD: "false"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "staging"
+    - if: $CI_COMMIT_BRANCH == "uat"
+
+deploy:vercel:prod:
+  extends: .vercel_deploy
+  variables:
+    VERCEL_REMOTE_ENV: production
+    VERCEL_DEPLOY_PROD: "true"
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+dast:
+  # dependencies: ["pages-deploy"]
+  stage: dast
+  variables:
+    # DAST_TARGET_URL: "https://fastapi-sample.service.gra.${ENV}.consul"
+    # DAST_AUTH_URL: "https://fastapi-sample.service.gra.${ENV}.consul/login"
+    # DAST_AUTH_USERNAME_FIELD: "css:[name=username]"
+    # DAST_AUTH_PASSWORD_FIELD: "css:[name=password]"
+    # DAST_AUTH_SUBMIT_FIELD: "css:button[type=submit]"
+    # DAST_TARGET_CHECK_TIMEOUT: "5m"  # Wait up to 5 minutes
+    # DAST_AUTH_COOKIE_NAMES: "sessionID,refreshToken"
+    # DAST_AUTH_SUCCESS_IF_AT_URL: "https://fastapi-sample.service.gra.${ENV}.consul/admin"
+    DAST_SCOPE_EXCLUDE_URLS: "${VERCEL_PRODUCTION_URL}/logout,/user/.*/logout"
+    # DAST_BROWSER_SCAN: "true" # use the browser-based GitLab DAST crawler
+    DAST_PAGE_READY_AFTER_NAVIGATION_TIMEOUT: "45s"
+    DAST_PAGE_READY_AFTER_ACTION_TIMEOUT: "15s"
+    DAST_PAGE_DOM_READY_TIMEOUT: "15s"
+  dast_configuration:
+    site_profile: "DAST API DEV"
+    scanner_profile: "DAST Passive Test"
+
+publish:
+  image: ${CI_IMAGE_NPM}
+  stage: release
+  #   dependencies:
+  #     - semantic-release-info
+  script: echo $SEMREL_INFO_LAST_VERSION
+    echo $SEMREL_INFO_NEXT_VERSION
+    echo $SEMREL_INFO_NEXT_VERSION_TYPE
+    npm run semantic-release
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

@@ -1,0 +1,34 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: infrastructure
+
+resources:
+  - ../../base
+  # - deployment.yaml
+
+patches:
+  - path: deployment-patch.yaml
+
+# Image transformation (must match base deployment image repository)
+images:
+  - name: registry.gitlab.com/AlbanAndrieu/fastapi-sample
+    newTag: latest
+
+namePrefix: dev-
+nameSuffix: -v1
+
+commonAnnotations:
+  owner: "alban.andrieu@free.fr"
+
+configMapGenerator:
+  - name: app-config
+    literals:
+      - ENV=dev
+      - LOG_LEVEL=debug
+# secretGenerator:
+#   - name: db-secret
+#     files:
+#       - secrets/db-password.txt  # Fichier dans .gitignore
+#     type: Opaque

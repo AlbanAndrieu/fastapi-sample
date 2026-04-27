@@ -1,0 +1,74 @@
+min_version = "2024.9.5"
+
+[tools]
+python = "{{ get_env(name='PYTHON_VERSION', default='3.12') }}"
+ruff = "latest"
+awscli = { version = "latest", symlink_bins = "true" }
+k9s = "latest"
+kubectl = "latest"
+helm = "latest"
+terraform = "latest"
+argocd = "latest"
+trivy = "latest"
+poetry = "latest"
+
+[settings]
+lockfile = true
+
+[env]
+_.file = "secrets-enc.yaml"
+# Utiliser le nom du projet dérivé du répertoire courant
+PROJECT_NAME = "{{ config_root | basename }}"
+
+# API keys (must be set in environment or mise.local.toml)
+# STATSIG_API_KEY = { required = true }
+# SENTRY_DSN = { required = true }
+
+# Postgres (must be set in environment or mise.local.toml; no DATABASE_URL / DB_URL)
+POSTGRES_HOST = { required = "Set POSTGRES_HOST (e.g. localhost or db service name)" }
+POSTGRES_USER = { required = "Set POSTGRES_USER" }
+POSTGRES_PASSWORD = { required = "Set POSTGRES_PASSWORD" } #nosec allow:gitleaks
+POSTGRES_DB = { required = "Set POSTGRES_DB" }
+
+# Feature flags (must be explicitly configured)
+# ENABLE_BETA_FEATURES = { required = true }
+
+AWS_REGION = { required = "Set to your AWS region (e.g., us-east-1, eu-west-1)" }
+AWS_PROFILE = "eks"
+
+[tasks]
+init = "bash ./scripts/run-install.sh"
+build = "npm run build"
+
+[tasks.install]
+description = "Install dependencies with uv (pyproject.toml and uv.lock)"
+alias = "i"
+run = "uv sync"
+
+[tasks.dev]
+description = "Run FastAPI dev server on port 8091"
+run = "uv run fastapi dev --port 8091"
+
+[tasks.run]
+description = "Lunch app"
+run = "python app.py"
+
+[tasks.test]
+description = "Run tests"
+run = "pytest tests/"
+
+[tasks.lint]
+description = "Lint code"
+run = "ruff src/"
+
+[tasks.deploy]
+description = "Deploy to Cloudflare Wrangler"
+alias = "d"
+run = "npx wrangler dev"
+
+[tasks.info]
+description = "Project infos"
+run = '''
+echo "Project : $PROJECT_NAME"
+echo "Virtuel environnment : $VIRTUAL_ENV"
+'''

@@ -1,0 +1,15 @@
+---
+description: Health board (/healthz UI) service icons — prefer Self-Hosted Dashboard Icons from selfh.st
+globs: nabla/main.py
+alwaysApply: false
+---
+
+# Health board icons (`nabla/main.py`)
+
+When adding or changing icons for the embedded `/healthz` dashboard (inline script: `HEALTHZ_ICON_IMG`, `serviceIconSvg`, `ICON_PATHS`) or sickz row icons (API fields `icon_filename` / `_SICKZ_SELFHST_ICON_BY_SLUG` in `nabla/api/health_checks.py`):
+
+1. **Search [Self-Hosted Dashboard Icons](https://selfh.st/icons/) first** (same assets as the [`selfhst/icons`](https://github.com/selfhst/icons) GitHub repo). Pick the slug that matches the product (e.g. `keycloak.svg`, `vaultwarden.svg`).
+2. **Default asset**: use the neutral `*.svg` variant from the CDN base already in code: `https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/<filename>.svg`.
+3. **If no match** on selfh.st for a vendor (e.g. a niche API), keep an inline stroke SVG in `ICON_PATHS` or a reasonable generic from the catalog; document the fallback in a short comment next to the entry.
+
+Do not invent CDN filenames: confirm the `.svg` name exists in the selfh.st index or repo tree before wiring it into `HEALTHZ_ICON_IMG`.

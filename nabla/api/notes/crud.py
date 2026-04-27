@@ -1,0 +1,67 @@
+import typing
+from datetime import datetime as dt
+
+from databases.interfaces import Record
+
+from nabla.api.db.database import SessionLocal, database
+from nabla.api.notes.models import Note, NoteResponse, notes
+
+
+# TODO session: Session = Depends(get_session)
+async def post(payload: NoteResponse):
+    created_date = dt.now().strftime("%Y-%m-%d %H:%M")
+    session = SessionLocal()
+    session.add(
+        Note(
+            title=payload.title,
+            description=payload.description,
+            type=payload.type,
+            prompt=payload.prompt,
+            completed=payload.completed,
+            created_date=created_date,
+        ),
+    )
+    session.commit()
+    session.close()
+    return payload
+
+    # query = notes.insert().values(
+    #     title=payload.title,
+    #     description=payload.description,
+    #     completed=payload.completed,
+    #     created_date=created_date,
+    # )
+    # return await database.execute(query=query)
+
+
+async def get(note_id: int) -> typing.Optional[Record]:
+    query = notes.select().where(notes.c.id == note_id)
+    return await database.fetch_one(query=query)
+
+
+async def get_all() -> typing.List[Record]:
+    query = notes.select()
+    return await database.fetch_all(query=query)
+
+
+async def put(note_id: int, payload=NoteResponse) -> typing.Any:
+    created_date = dt.now().strftime("%Y-%m-%d %H:%M")
+    query = (
+        notes.update()
+        .where(notes.c.id == note_id)
+        .values(
+            title=payload.title,
+            description=payload.description,
+            type=payload.type,
+            prompt=payload.prompt,
+            completed=payload.completed,
+            created_date=created_date,
+        )
+        .returning(notes.c.id)
+    )
+    return await database.execute(query=query)
+
+
+async def delete(note_id: int) -> typing.Any:
+    query = notes.delete().where(notes.c.id == note_id)
+    return await database.execute(query=query)

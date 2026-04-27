@@ -1,0 +1,100 @@
+{% if sensor_data %}
+<div class="mb-6 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+  <div class="rounded-lg border border-[#333333] bg-[#0a0a0a] p-4">
+    <div class="text-xs font-medium text-[#888888]">Temperature</div>
+    <div class="text-xl font-semibold text-[#3B82F6]">{{ "%.1f"|format(sensor_data.temperature) }}°C</div>
+    <div class="text-xs text-[#888888]">Real-time reading</div>
+  </div>
+
+  <div class="rounded-lg border border-[#333333] bg-[#0a0a0a] p-4">
+    <div class="text-xs font-medium text-[#888888]">Humidity</div>
+    <div class="text-xl font-semibold text-[#10B981]">{{ "%.1f"|format(sensor_data.humidity) }}%</div>
+    <div class="text-xs text-[#888888]">Relative humidity</div>
+  </div>
+
+  <div class="rounded-lg border border-[#333333] bg-[#0a0a0a] p-4">
+    <div class="text-xs font-medium text-[#888888]">Pressure</div>
+    <div class="text-xl font-semibold text-[#8B5CF6]">{{ "%.1f"|format(sensor_data.pressure) }}</div>
+    <div class="text-xs text-[#888888]">hPa</div>
+  </div>
+
+  <div class="rounded-lg border border-[#333333] bg-[#0a0a0a] p-4">
+    <div class="text-xs font-medium text-[#888888]">Status</div>
+    <div class="text-xl">
+      {% set status_colors = { 'normal': 'badge-success', 'warning': 'badge-warning', 'critical': 'badge-error' } %}
+      <div class="badge {{ status_colors.get(sensor_data.status, 'badge-neutral') }} font-bold text-white">
+        {{ sensor_data.status.upper() }}
+      </div>
+    </div>
+    <div class="mt-1 text-xs text-[#888888]">{{ sensor_data.timestamp.split('T')[1].split('.')[0] }}</div>
+  </div>
+</div>
+
+{% if sensor_data.status == 'critical' %}
+<div class="dash-alert dash-alert--err mb-4 animate-pulse">
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    class="h-6 w-6 shrink-0 animate-bounce"
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+    stroke-width="2"
+  >
+    <path
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+    />
+  </svg>
+  <span class="animate-pulse">
+    <strong>Critical alert:</strong> Environmental conditions outside normal range. Temperature {{
+    "%.1f"|format(sensor_data.temperature) }}°C, humidity {{ "%.1f"|format(sensor_data.humidity) }}%
+  </span>
+</div>
+
+<style>
+  @keyframes slideInOut {
+    0% {
+      transform: translateX(-100%);
+      opacity: 0;
+    }
+
+    10% {
+      transform: translateX(0);
+      opacity: 1;
+    }
+
+    90% {
+      transform: translateX(0);
+      opacity: 1;
+    }
+
+    100% {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+  }
+
+  .dash-alert--err.animate-pulse {
+    animation: slideInOut 4s ease-in-out infinite;
+  }
+</style>
+{% endif %} {% else %}
+<div class="dash-alert dash-alert--warn">
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    class="h-6 w-6 shrink-0"
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+    stroke-width="2"
+  >
+    <path
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z"
+    />
+  </svg>
+  <span>No sensor data available</span>
+</div>
+{% endif %}

@@ -1,0 +1,9 @@
+version = 1
+agents = ["cursor"]
+
+[trust]
+allow_all = true
+
+[[skills]]
+name = "dotagents"
+source = "getsentry/dotagents"

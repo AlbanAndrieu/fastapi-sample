@@ -1,0 +1,6 @@
+# List dependencies in a format that readthedocs.org understands.
+
+docutils == 0.21.2
+furo == 2025.7.19
+myst-parser == 4.0.1
+sphinx == 8.2.3

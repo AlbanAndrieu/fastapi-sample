@@ -1,0 +1,122 @@
+---
+# kics-scan ignore
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    tty: true
+    container_name: fastapi-sample
+    command: uvicorn server:app --reload --workers 1 --host 0.0.0.0 --port 8091
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/app
+    env_file:
+      - ./.env.local
+      - ./.env.secrets
+    environment:
+      - PYTHONPATH=.
+      - POSTGRES_DRIVER=postgresql
+      - POSTGRES_USER=fastapisample
+      # secretlint-disable-next-line
+      - POSTGRES_PASSWORD=password-reset-XXX # nosec
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=fastapi_sample_dev
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8091/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  # web:
+  #   build: ./vue-client/
+  #   command: npm run dev
+  #
+  #   volumes:
+  #     - ./src/:/usr/src/app/
+  #   ports:
+  #     - "5173:5173"
+  #   depends_on:
+  #     - api
+  db:
+    image: postgres:16.2-alpine
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_USER=fastapisample
+      # secretlint-disable-next-line
+      - POSTGRES_PASSWORD=password-reset-XXX # nosec
+      - POSTGRES_DB=fastapi_sample_dev
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: "redis:alpine"
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prom
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus_data/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana-1
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+
+  datascience-notebook:
+    image: registry.gitlab.com/gitlab-data/data-image/analyst-image:v0.0.19
+    volumes:
+      - type: bind
+        source: ${HOME}/
+        target: /files
+      - type: bind
+        source: ${HOME}/.dbt
+        target: /usr/local/snowflake_profile/
+      - type: bind
+        source: ${HOME}/.ssh
+        target: /home/albanandrieu/.ssh/
+    ports:
+      - "8888:8888"
+    environment:
+      - JUPYTER_ENABLE_LAB=1
+    command: start-notebook.sh --NotebookApp.notebook_dir=/files
+
+volumes:
+  prometheus_data:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: ./prometheus_data
+  grafana_data:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: ./grafana_data
+  postgres_data:
+
+networks:
+  default:
+    name: fastapi-sample
