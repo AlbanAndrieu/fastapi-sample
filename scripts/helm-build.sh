@@ -18,7 +18,7 @@ export DOCKER_TAG=${DOCKER_TAG:-"1.2.3"}
 echo -e "${magenta} k config get-contexts ${NC}"
 
 export HELM_CONFIG_HOME=${HELM_CONFIG_HOME:-"${HOME}/.kube"}
-export HELM_KUBECONTEXT=${HELM_KUBECONTEXT:-"arn:aws:eks:us-east-1:783876277037:cluster/nabla-eks-cluster"}
+export HELM_KUBECONTEXT=${HELM_KUBECONTEXT:-"arn:aws:eks:us-east-1:123456789101:cluster/nabla-eks-cluster"}
 export HELM_NAMESPACE=${HELM_NAMESPACE:-"default"}
 export HELM_DEPLOYEMENT=${HELM_DEPLOYEMENT:-"helm-sample"} # AKA HELM_RELEASE
 

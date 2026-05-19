@@ -640,13 +640,14 @@ def _sickz_row_href(urls: list[str]) -> str:
 _SICKZ_PFSENSE_EXTRA_TCP_PORTS: tuple[int, ...] = (
     22,
     9922,
+    8076,
     7000,
     8200,
     9000,
     3000,
     4100,
     1194,
-    1195,
+    1195,    
     8080,
     8081,
     8091,
@@ -691,6 +692,7 @@ def _canonical_pfsense_sickz_alias_urls() -> list[str]:
     return [
         "https://home.albandrieu.com:10443/",
         "https://172.17.0.1:10443/",
+        "http://172.17.0.1:8076/",
     ]
 
 
