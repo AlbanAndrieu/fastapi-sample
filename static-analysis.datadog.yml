@@ -5,3 +5,5 @@ rulesets:
   - python-inclusive
   - python-pandas
   - python-security
+  - python-django
+  - python-flask

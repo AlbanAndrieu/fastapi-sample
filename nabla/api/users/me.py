@@ -32,7 +32,7 @@ from nabla.integrations.web_search_factory import (
 from nabla.utils.logger import logger
 
 DISPLAY_NAME = "Alban Andrieu"
-EMAIL = os.environ.get("MAIL_FROM", "alban.andrieu@gmail.com")
+EMAIL = os.environ.get("MAIL_FROM", "alban.andrieu@albandrieu.com")
 PHONE = "+33 (0) 6 95 43 53 53"
 ADDRESS = "11 terrasse de l'université"
 CITY = "Paris"
@@ -43,8 +43,8 @@ COUNTRY = "France"
 # Application / database user id; same value as ``UserIn.user_id`` from :func:`get_me`.
 WHOAMI_HANDLE = "albandrieu"
 
-PROFESSIONAL_WEBSITE_URL = "https://www.dr-alban.com/"
-LINKEDIN_URL = "https://www.linkedin.com/"
+PROFESSIONAL_WEBSITE_URL = "https://www.albanandrieu.com/"
+LINKEDIN_URL = "https://www.linkedin.com/in/nabla/"
 
 PROFILE_WEBSITE_QUERY_MARKERS: tuple[str, ...] = (
     "alban",
@@ -78,7 +78,7 @@ def code_review_prompt(language: str = "python") -> str:
 @mcp.prompt()
 def lawyer_prompt() -> str:
     """Generate a lawyer prompt for child abduction and alienation by mother."""
-    return f"""Act as a personal attorney who guides me through any legal matter using massive chain-of-thought, chain-of-draft, and mixture-of-experts techniques.
+    return """Act as a personal attorney who guides me through any legal matter using massive chain-of-thought, chain-of-draft, and mixture-of-experts techniques.
 
 The process must be recursive and personalized.
 
@@ -125,9 +125,9 @@ AGENT_SYSTEM_PROMPT = """You are a helpful assistant.
 
 You can call ``fetch_my_profile`` when the user asks about Alban Andrieu
 (professional profile, career, services). Pass their question as ``user_question``.
-That tool prefers web search for dr-alban.com, then for LinkedIn ([https://www.linkedin.com/](https://www.linkedin.com/))
+That tool prefers web search for albanandrieu.com, then for LinkedIn ([https://www.linkedin.com/](https://www.linkedin.com/))
 if the first pass is empty or errors. If no search API works, it falls back to direct HTTP
-fetches using the site sitemap to gather page text from dr-alban.com.
+fetches using the site sitemap to gather page text from albanandrieu.com.
 
 You can call ``fetch_bababou_public_page`` when the user asks about Éléonore
 Andrieu (Bababou) or the bababou.com site. Pass their question as ``user_question``.
@@ -148,7 +148,7 @@ def _dr_alban_origin() -> str:
 def _http_get_text(url: str, *, timeout: float = 20.0) -> str:
     req = urllib.request.Request(  # noqa: S310 — fixed HTTPS URLs from callers
         url,
-        headers={"User-Agent": "nabla-fetch-my-profile/1.0 (+https://www.dr-alban.com/)"},
+        headers={"User-Agent": "nabla-fetch-my-profile/1.0 (+https://www.albanandrieu.com/)"},
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
         return resp.read().decode(
@@ -210,7 +210,7 @@ def _expand_sitemap_to_page_urls(seed_locs: list[str], *, origin_netloc: str, ma
 
 
 def _dr_alban_http_sitemap_fallback(*, max_pages: int = 7, total_budget: int = 24_000) -> str:
-    """Fetch dr-alban.com pages discovered via sitemap (or homepage) when web search is unavailable."""
+    """Fetch albanandrieu.com pages discovered via sitemap (or homepage) when web search is unavailable."""
     origin = _dr_alban_origin()
     origin_netloc = urlparse(origin).netloc
     seed_locs: list[str] = []
@@ -254,10 +254,10 @@ def _web_search_profile_blocks() -> str | None:
         return None
     max_results = get_settings().web_search_max_results
     primary_q = (
-        f'Alban Andrieu professional profile site:dr-alban.com "{PROFESSIONAL_WEBSITE_URL}"'
+        f'Alban Andrieu professional profile site:albanandrieu.com "{PROFESSIONAL_WEBSITE_URL}"'
     )
     linkedin_queries = (
-        "Alban Andrieu site:linkedin.com/in/",
+        "Alban Andrieu site:linkedin.com/in/nabla",
         f'Alban Andrieu DevSecOps site:linkedin.com "{LINKEDIN_URL}"',
     )
     blocks: list[str] = []
@@ -265,9 +265,9 @@ def _web_search_profile_blocks() -> str | None:
     try:
         primary_text = web_search_to_context_string(primary_q, max_results=max_results).strip()
     except Exception as exc:
-        logger.warning("fetch_my_profile: dr-alban web search failed: %s", exc)
+        logger.warning("fetch_my_profile: albanandrieu.com web search failed: %s", exc)
     if primary_text:
-        blocks.append(f"Web search — dr-alban.com\n{primary_text}")
+        blocks.append(f"Web search — albanandrieu.com\n{primary_text}")
     if not primary_text:
         for q in linkedin_queries:
             try:
@@ -286,10 +286,10 @@ def _web_search_profile_blocks() -> str | None:
 @tool
 def fetch_my_profile(user_question: str | None = None) -> str:
     """
-    Load Alban Andrieu's public profile from dr-alban.com (and secondarily LinkedIn via search).
+    Load Alban Andrieu's public profile from albanandrieu.com (and secondarily LinkedIn via search).
 
-    Uses configured web search when available (dr-alban first, then LinkedIn). If search
-    is not configured or yields nothing, fetches dr-alban.com directly using sitemap.xml
+    Uses configured web search when available (albanandrieu first, then LinkedIn). If search
+    is not configured or yields nothing, fetches albanandrieu.com directly using sitemap.xml
     (and related sitemaps) to pull page text. Pass ``user_question`` verbatim for gating.
     """
     if not user_question or not user_question.strip():
@@ -321,7 +321,9 @@ def runtime_whoami() -> str:
 
 
 def get_me() -> UserIn:
-    """Return the canonical profile for Alban Andrieu (demo / MCP / ``whoami``)."""
+    """
+    👤 Return the canonical profile for Alban Andrieu (demo / MCP / ``whoami``).
+    """
     return UserIn(
         user_id=WHOAMI_HANDLE,
         name=DISPLAY_NAME,

@@ -3,7 +3,6 @@ import random
 # import redis
 from ddtrace.trace import tracer
 from fastapi import APIRouter
-from fastapi_cache.decorator import cache
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -23,13 +22,6 @@ QUOTES = [
 
 router = APIRouter(prefix="/v1")
 limiter = Limiter(key_func=get_remote_address)
-
-
-@cache(expire=60)
-@router.get("/message")
-def demo_message():
-    logger.info("demo_message")
-    return {"Hello": "World"}
 
 
 @router.get("/ping")

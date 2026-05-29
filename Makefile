@@ -187,13 +187,6 @@ up-gunicorn:
     --threads 1 --worker-connections 1000 \
 	--bind 0.0.0.0:$(PORT) --log-level info --access-logfile -
 
-
-## —— Up Python App MCP ✅ —————————————————————————————————————————————————————————————————
-.PHONY: up-mcp
-up-mcp:
-	@echo "up mcp http://0.0.0.0:8000/mcp"
-	uv run fastmcp run server_mcp.py
-
 ## —— Up ✅ —————————————————————————————————————————————————————————————————
 .PHONY: up
 up: up-gunicorn # Serve up (gunicorn)

@@ -4,6 +4,7 @@ import uuid
 from typing import Annotated, Optional
 
 import pybreaker
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi_cache.decorator import cache
 from fastapi_users import BaseUserManager, FastAPIUsers, UUIDIDMixin
 from fastapi_users.authentication import (
@@ -21,7 +22,6 @@ from jwt import PyJWTError
 from sqlalchemy import select
 from sqlmodel import Session
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
 from nabla.api.auth.jwt_tokens import (
     ACCESS_TOKEN_SECRET_KEY,
     TokenData,
@@ -139,6 +139,9 @@ async def whoami():
 @cache(expire=300)
 @router.get("/users/current", response_model=UserIn, operation_id="me")
 async def current_user():
+    """
+    👤 Retrieve the current user
+    """
     # return {"status": "registered"}
     # return json.loads(get_user_details(None))
     # return json.dumps(get_user_details(None))

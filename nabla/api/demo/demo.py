@@ -6,7 +6,6 @@ from uuid import uuid4
 
 import requests
 from fastapi import APIRouter, HTTPException, status
-from redis.exceptions import RedisError
 from fastapi_cache.decorator import cache
 from fastapi_featureflags import FeatureFlags, feature_enabled, feature_flag
 
@@ -14,6 +13,7 @@ from fastapi_featureflags import FeatureFlags, feature_enabled, feature_flag
 from fastmcp import FastMCP
 from opentelemetry import trace
 from opentelemetry.trace.status import Status, StatusCode
+from redis.exceptions import RedisError
 
 from nabla.api.demo.socket.redis import REDIS_CHANNEL, redis
 from nabla.auth.controller import AuthController
@@ -21,9 +21,9 @@ from nabla.utils.logger import logger
 from nabla.utils.misc import timed_operation
 from nabla.utils.prometheus import API_REQUEST_COUNTER, API_REQUEST_SUMMARY
 
-router = APIRouter()
+router = APIRouter(prefix="/demo")
 
-mcp = FastMCP(name="DemoServer")
+mcp = FastMCP(name="Demo 🚀")
 
 # TODO switch to unleash feature flagq
 FeatureFlags()
@@ -54,7 +54,7 @@ def uniform_secret():
 
 @feature_flag("web_1")
 @cache()
-@router.get("/demo/random")
+@router.get("/random")
 async def demo_random():
     try:
         # global redis
@@ -76,7 +76,7 @@ async def demo_random():
 
 
 @feature_flag("web_1")
-@router.get("/demo/items/{item_id}")
+@router.get("/items/{item_id}")
 async def read_item(item_id: int, q: Optional[str] = None):
     logger.info(f"Get items : {item_id}")  # [logging-fstring-interpolation]
 
@@ -116,7 +116,7 @@ async def read_item(item_id: int, q: Optional[str] = None):
 
 # We are targetting direct demo hotrod service to test tracing
 @feature_flag("web_2")
-@router.get("/demo/dispatch/customer/{customer_id}")
+@router.get("/dispatch/customer/{customer_id}")
 async def dispatch_customer(customer_id: int, q: Optional[str] = None):
     with timed_operation("demo_dispatch_customer"):
         try:
@@ -168,7 +168,7 @@ async def dispatch_customer(customer_id: int, q: Optional[str] = None):
 # http://test-haproxy-webapp-prometheus-ateam.service.gra.dev.consul/metrics
 
 
-@router.get("/demo/auth")
+@router.get("/auth")
 def root():
     logger.info("Hello")
     """
@@ -179,7 +179,7 @@ def root():
 
 # We are targetting dev service
 @feature_flag("web_4")
-@router.get("/demo/dev/heatlh")
+@router.get("/dev/heatlh")
 async def demo_dev_health():
     if feature_enabled("web_3"):
         with timed_operation("demo_dev_health"):
@@ -218,7 +218,7 @@ async def demo_dev_health():
 
 
 @feature_flag("web_4")
-@router.get("/demo/internal-api/")
+@router.get("/internal-api/")
 def demo_internal_api():
     logger.info("Dispatch customer (for tracing)")
 
@@ -230,7 +230,40 @@ def demo_internal_api():
     return status.HTTP_200_OK
 
 
-# @router.post("/demo/email")
+# Define Tool 1: Add two numbers
+@router.get("/add", operation_id="add")
+def add(a: int, b: int) -> int:
+    """Add two numbers. Use this for any arithmetic addition."""
+    return a + b
+
+# Define Tool 2: Greet someone
+# @mcp.tool
+@router.get("/greet_user/{name}", operation_id="greet")
+def greet_user(name: str) -> str:
+    """Greet someone by name"""
+    return f"Hello, {name}! Welcome to the MCP server."
+
+# Define Tool 3: Multiply numbers
+@router.get("/multiply")
+def multiply(a: float, b: float) -> float:
+    """Multiply two numbers"""
+    return a * b
+
+# Define Tool 4: Get current time
+@router.get("/get_time", operation_id="get_time")
+def get_time() -> str:
+    """Get the current time"""
+    from datetime import datetime
+    return datetime.now().strftime("%I:%M %p")
+
+
+@cache(expire=60)
+@router.get("/message")
+def demo_message():
+    logger.info("demo_message")
+    return {"Hello": "World"}
+
+# @router.post("/email")
 # async def simple_send(email: EmailSchema) -> JSONResponse:
 #     html = """<p>Hi this test mail, thanks for using Fastapi-mail</p> """
 

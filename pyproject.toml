@@ -14,8 +14,10 @@ keywords = [
 ]
 classifiers = ["Private :: Do not Upload"]
 dependencies = [
+    "botocore>=1.43.0",
     "fastapi[standard]>=0.128.0",
     "litellm>=1.83.0",
+    "ollama>=0.6.2",
     "sentry-sdk>=2.44.0",
     "tavily-python>=0.7.23",
 ]
@@ -54,6 +56,7 @@ api = [
     "ansicolors>=1.1.8",
     "arel>=0.3.0",
     "asyevent>=0.2.10",
+    "botocore>=1.43.0",
     "httpx>=0.28.1",
     "podmena>=0.6.1",
     "passlib>=1.7.4",

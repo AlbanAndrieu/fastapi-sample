@@ -68,7 +68,7 @@ def test_message_hello_world_v1(test_app) -> None:
     expected_status: int = 200
 
     # when
-    response = test_app.get("/v1/message")
+    response = test_app.get("/demo/message")
 
     # then
     assert response.status_code == expected_status

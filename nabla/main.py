@@ -46,7 +46,6 @@ from sqlmodel import select
 from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Mount
 
-from nabla.deepagents import workflow as ai_workflow
 from nabla.api import (
     appwrite_route,
     brave_route,
@@ -84,6 +83,7 @@ from nabla.config_settings import (
     client,
     get_settings,
 )
+from nabla.deepagents import workflow as ai_workflow
 from nabla.utils.log_config import LogMiddleware, setup_logging
 from nabla.utils.logger import logger
 from nabla.utils.prometheus import (
@@ -406,12 +406,16 @@ initialize_api(app)
 
 _MCP_ALLOWED_ROUTES: frozenset[tuple[str, str]] = frozenset(
     {
-        ("GET", "/test/users/current"),
-        ("GET", "/test/users/{user_id}"),
         ("POST", "/v1/tavily/search"),
         ("POST", "/v1/brave/search"),
         ("POST", "/v1/google/search"),
         ("GET", "/v2/version"),
+        ("GET", "/demo/greet_user/{name}"),
+        ("GET", "/demo/get_time"),
+        ("GET", "/demo/add"),
+        ("GET", "/demo/multiply"),
+        # ("GET", "/test/users/current"),
+        # ("GET", "/test/users/{user_id}"),
     },
 )
 

@@ -53,7 +53,7 @@ class QuickStart(HttpUser):
         self.client.get("test/exception", verify=False)
         self.client.get("/test/env", verify=False)
         self.client.get("/test/invalid", verify=False)
-        self.client.get("/mcp", verify=False)
+        self.client.get("/llm/mcp", verify=False)
         self.client.get("/demo/items/0", verify=False)
         self.client.get("/sensor-data", verify=False)
         self.client.get("/charts", verify=False)
