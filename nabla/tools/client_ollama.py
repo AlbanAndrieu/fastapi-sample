@@ -7,8 +7,9 @@ import ollama
 from fastmcp import Client as MCPClient
 
 # Configuration
-OLLAMA_MODEL = "llama3.1:70b" # llama3.1:8b llama3.2 llama3.1
+OLLAMA_MODEL = "llama3.2"  # llama3.1:8b  llama3.1, NOK llama3.1:70b
 MCP_SERVER_URL = "http://127.0.0.1:8091/llm/mcp/"
+
 
 # ------------------------------------------------------------
 # Step 1: Discover available tools from MCP server
@@ -23,20 +24,23 @@ async def load_mcp_tools():
             # Convert to format Ollama understands
             ollama_tools = []
             for tool in tools_list:
-                ollama_tools.append({
-                    "type": "function",
-                    "function": {
-                        "name": tool.name,
-                        "description": tool.description,
-                        "parameters": tool.inputSchema,
+                ollama_tools.append(
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": tool.name,
+                            "description": tool.description,
+                            "parameters": tool.inputSchema,
+                        },
                     },
-                })
+                )
             return ollama_tools
     except Exception as e:
         print(f"❌ ERROR connecting to MCP server: {e}")
         print("\nMake sure the server is running:")
         print(" uv run python mcp_server.py")
         sys.exit(1)
+
 
 # ------------------------------------------------------------
 # Step 2: Execute a tool when AI requests it
@@ -50,6 +54,7 @@ async def execute_tool(tool_name: str, arguments: dict):
     except Exception as e:
         print(f"❌ ERROR executing tool {tool_name}: {e}")
         return {"error": str(e)}
+
 
 # ------------------------------------------------------------
 # Step 3: Main conversation loop
@@ -90,7 +95,7 @@ async def main():
     # Process tool calls
     messages = [
         {"role": "user", "content": user_msg},
-        response["message"]
+        response["message"],
     ]
 
     for tool_call in response["message"]["tool_calls"]:
@@ -109,10 +114,12 @@ async def main():
         print(f"✅ Tool result: {tool_result}\n")
 
         # Add tool response to conversation
-        messages.append({
-            "role": "tool",
-            "content": json.dumps(tool_result) if isinstance(tool_result, dict) else str(tool_result),
-        })
+        messages.append(
+            {
+                "role": "tool",
+                "content": json.dumps(tool_result) if isinstance(tool_result, dict) else str(tool_result),
+            },
+        )
 
     # print(messages)
 
@@ -125,6 +132,7 @@ async def main():
 
     print("🤖 Final AI response:")
     print(final["message"]["content"])
+
 
 if __name__ == "__main__":
     asyncio.run(main())

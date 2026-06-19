@@ -39,7 +39,7 @@ export default {
 		emojiParser,
 		parserOpts: {
 			// these are samples, add possible prefixes based on your project requirement
-			issuePrefixes: ["ANDR-", "TEST-", "DSC-", "NABLA-", "JM-"],
+			issuePrefixes: ["ANDR-", "TEST-", "DSC-", "NABLA-", "AA-"],
 		},
 	},
 	rules: {
@@ -144,7 +144,7 @@ export default {
 						description:
 							"Changes that affect the build system or external dependencies (example scopes: gulp, broccoli, npm)",
 						title: "Builds",
-						emoji: "🛠",
+						emoji: "🛠️",
 					},
 					ci: {
 						description:
@@ -160,9 +160,11 @@ export default {
 					revert: {
 						description: "Reverts a previous commit",
 						title: "Reverts",
-						emoji: "🗑",
+						emoji: "🗑️",
 					},
 				},
+				// This setting includes the emoji in the final commit header.
+				headerWithEmoji: true,
 			},
 			scope: {
 				description:
