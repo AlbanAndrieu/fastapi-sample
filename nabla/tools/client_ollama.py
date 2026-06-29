@@ -98,6 +98,8 @@ async def main():
         response["message"],
     ]
 
+    tool_outputs = []
+
     for tool_call in response["message"]["tool_calls"]:
         tool_name = tool_call["function"]["name"]
         args = tool_call["function"]["arguments"]
@@ -114,19 +116,37 @@ async def main():
         print(f"✅ Tool result: {tool_result}\n")
 
         # Add tool response to conversation
+        result = tool_result.structured_content if hasattr(tool_result, "structured_content") else {"result": str(tool_result)}
+        # Create a structured summary so that model will not forget previous results
+
+        tool_outputs.append(
+            {
+                "tool": tool_name,
+                "arguments": args,
+                "result": result,
+            }
+        )
+
         messages.append(
             {
                 "role": "tool",
-                "content": json.dumps(tool_result) if isinstance(tool_result, dict) else str(tool_result),
-            },
+                "content": json.dumps(tool_outputs[-1], ensure_ascii=False),
+            }
         )
 
-    # print(messages)
+    print(messages)
 
     # Send tool results back to AI for final answer
     final = ollama.chat(
         model=OLLAMA_MODEL,
-        messages=messages,
+        # messages=messages,
+        messages=messages
+        + [
+            {
+                "role": "user",
+                "content": "Now produce the final answer using all tool results. Include both the greeting and the addition result.",
+            },
+        ],
         stream=False,
     )
 

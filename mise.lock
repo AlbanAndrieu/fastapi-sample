@@ -15,6 +15,10 @@ backend = "aqua:aws/aws-cli"
 "platforms.macos-arm64" = { url = "https://awscli.amazonaws.com/AWSCLIV2-2.32.20.pkg"}
 "platforms.macos-x64" = { url = "https://awscli.amazonaws.com/AWSCLIV2-2.32.20.pkg"}
 
+[[tools.docker-compose]]
+version = "5.2.0"
+backend = "aqua:docker/compose"
+
 [[tools.helm]]
 version = "4.0.4"
 backend = "aqua:helm/helm"
@@ -59,6 +63,10 @@ backend = "aqua:astral-sh/ruff"
 "platforms.macos-x64" = { checksum = "sha256:ce980eb4b44a84cbf278686f8cf71a21b353888b29472ca269ffe385ce4f2351", url = "https://github.com/astral-sh/ruff/releases/download/0.14.9/ruff-x86_64-apple-darwin.tar.gz"}
 "platforms.windows-x64" = { checksum = "sha256:98727a845f01782b78efe1a3f0913aa9ec76c9a24e09aca89e26b3b684ca86a0", url = "https://github.com/astral-sh/ruff/releases/download/0.14.9/ruff-x86_64-pc-windows-msvc.zip"}
 
+[[tools.sops]]
+version = "3.11.0"
+backend = "aqua:getsops/sops"
+
 [[tools.terraform]]
 version = "1.14.3"
 backend = "aqua:hashicorp/terraform"
@@ -76,3 +84,8 @@ backend = "aqua:aquasecurity/trivy"
 "platforms.macos-arm64" = { checksum = "sha256:dfbe15ffe47426dad9fd3e0d52aeacf3dbbb25ca5dbc66049f5920834435988d", url = "https://github.com/aquasecurity/trivy/releases/download/v0.68.2/trivy_0.68.2_macOS-ARM64.tar.gz"}
 "platforms.macos-x64" = { checksum = "sha256:c0790530cd717b6bdd02ed437be0710f5c7043078fafaf6841be7c865bf251ce", url = "https://github.com/aquasecurity/trivy/releases/download/v0.68.2/trivy_0.68.2_macOS-64bit.tar.gz"}
 "platforms.windows-x64" = { checksum = "sha256:2aaa0ce06f9f2221a6bb21e1fc0e0ecc6aeb56362bc5c9463e9fd7b06983c3c3", url = "https://github.com/aquasecurity/trivy/releases/download/v0.68.2/trivy_0.68.2_windows-64bit.zip"}
+
+[[tools.uv]]
+version = "0.11.25"
+backend = "aqua:astral-sh/uv"
+"platforms.linux-x64" = { checksum = "sha256:7195cfcc1785d0c559d4682ad9109f26664b8db4d828d42d66078ef454061891", url = "https://github.com/astral-sh/uv/releases/download/0.11.25/uv-x86_64-unknown-linux-musl.tar.gz"}

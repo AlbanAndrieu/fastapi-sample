@@ -11,6 +11,9 @@ terraform = "latest"
 argocd = "latest"
 trivy = "latest"
 poetry = "latest"
+sops = "latest"
+uv = "latest"
+docker-compose = "latest"
 
 [settings]
 lockfile = true

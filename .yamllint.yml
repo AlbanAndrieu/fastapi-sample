@@ -1,4 +1,4 @@
-# Usage : yamllint . --config-file .yamllint
+# Usage : yamllint . --config-file .yamllint.yml
 # extends: default
 extends: relaxed
 rules:
