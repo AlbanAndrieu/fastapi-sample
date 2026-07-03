@@ -1,7 +1,7 @@
-#!/bin/bash
-set -xv
+#!/usr/bin/env bash
+# shellcheck shell=bash
 
-WORKING_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKING_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 # https://github.com/locustio/locust/wiki/Installation#increasing-maximum-number-of-open-files-limit
 # https://www.tecmint.com/increase-set-open-file-limits-in-linux/

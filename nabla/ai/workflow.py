@@ -122,4 +122,3 @@ async def run_workflow(data: RequestData):
             lambda: graph.invoke({"user_input": data.user_input}),
         )
     return {"result": result["answer"]}
-

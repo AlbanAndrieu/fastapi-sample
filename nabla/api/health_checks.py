@@ -647,7 +647,7 @@ _SICKZ_PFSENSE_EXTRA_TCP_PORTS: tuple[int, ...] = (
     3000,
     4100,
     1194,
-    1195,    
+    1195,
     8080,
     8081,
     8091,
@@ -742,7 +742,8 @@ def _sickz_canonical_https_tunnel_key(url: str) -> str:
 
 
 def _sickz_homelab_icon_src_for_urls(
-    urls: list[str], homelab_icon_by_tunnel: dict[str, str] | None
+    urls: list[str],
+    homelab_icon_by_tunnel: dict[str, str] | None,
 ) -> str | None:
     if not homelab_icon_by_tunnel:
         return None
@@ -755,7 +756,8 @@ def _sickz_homelab_icon_src_for_urls(
 
 
 def _sickz_homelab_service_name_for_urls(
-    urls: list[str], homelab_name_by_tunnel: dict[str, str] | None
+    urls: list[str],
+    homelab_name_by_tunnel: dict[str, str] | None,
 ) -> str | None:
     if not homelab_name_by_tunnel:
         return None
@@ -903,7 +905,7 @@ def _sickz_skip_detail(settings: APIDeploymentSettings) -> str:
         return "Sickz probes are disabled (SICKZ_INTERNAL_NETWORK). This instance is treated as running on your home LAN where pfSense may be reachable."
     if (settings.sickz_network_label or "").strip().lower() == "nabla":
         return "Sickz probes are disabled: SICKZ_NETWORK_LABEL is 'nabla', so this instance is treated as on your home LAN."
-    
+
     return "Sickz probes are disabled."
 
 
@@ -950,10 +952,7 @@ async def _probe_sickz_alias_group(
     pf_tcp_host = _sickz_pfsense_canonical_tcp_host(urls)
     if pf_tcp_host:
         tcp_coro = asyncio.gather(
-            *(
-                _probe_sickz_tcp_port_open(pf_tcp_host, port)
-                for port in _SICKZ_PFSENSE_EXTRA_TCP_PORTS
-            ),
+            *(_probe_sickz_tcp_port_open(pf_tcp_host, port) for port in _SICKZ_PFSENSE_EXTRA_TCP_PORTS),
         )
         results, tls_trusted, tcp_reachable = await asyncio.gather(
             asyncio.gather(*(_probe_sickz_url(u) for u in urls)),
@@ -976,10 +975,7 @@ async def _probe_sickz_alias_group(
         **_sickz_row_ui_metadata(urls, homelab_icon_by_tunnel, homelab_name_by_tunnel),
     }
     if tcp_reachable is not None:
-        out["pfsense_tcp_ports"] = {
-            str(port): reachable
-            for port, reachable in zip(_SICKZ_PFSENSE_EXTRA_TCP_PORTS, tcp_reachable, strict=True)
-        }
+        out["pfsense_tcp_ports"] = {str(port): reachable for port, reachable in zip(_SICKZ_PFSENSE_EXTRA_TCP_PORTS, tcp_reachable, strict=True)}
     for r in results:
         if r.get("reachable") is True and r.get("http_status") is not None:
             out["http_status"] = r["http_status"]
@@ -1048,10 +1044,7 @@ async def build_sickz_payload(request: Request) -> dict[str, Any]:
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     group_keys = [" | ".join(g) for g in groups]
     group_results = await asyncio.gather(
-        *(
-            _probe_sickz_alias_group(g, homelab_icon_by_tunnel, homelab_name_by_tunnel)
-            for g in groups
-        ),
+        *(_probe_sickz_alias_group(g, homelab_icon_by_tunnel, homelab_name_by_tunnel) for g in groups),
     )
     checks = dict(zip(group_keys, group_results, strict=True))
     return {

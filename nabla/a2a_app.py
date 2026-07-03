@@ -12,6 +12,7 @@ from nabla.config_settings import APIDeploymentSettings, get_settings
 if TYPE_CHECKING:
     from starlette.applications import Starlette
 
+
 def _agent_card(settings: APIDeploymentSettings):
     from a2a.types import a2a_pb2  # noqa: PLC0415
     from a2a.utils.constants import (  # noqa: PLC0415

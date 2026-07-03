@@ -2,12 +2,14 @@
 import asyncio
 import json
 import sys
+import os
 
 import ollama
 from fastmcp import Client as MCPClient
 
-# Configuration
-OLLAMA_MODEL = "llama3.2"  # llama3.1:8b  llama3.1, NOK llama3.1:70b
+# Default model if DEFAULT_MODEL is unset or empty
+OLLAMA_MODEL = (os.getenv("DEFAULT_MODEL") or "").strip() or "llama3.2"  # llama3.2 llama3.1:8b llama3.1, NOK llama3.1:70b
+
 MCP_SERVER_URL = "http://127.0.0.1:8091/llm/mcp/"
 
 
@@ -124,14 +126,14 @@ async def main():
                 "tool": tool_name,
                 "arguments": args,
                 "result": result,
-            }
+            },
         )
 
         messages.append(
             {
                 "role": "tool",
                 "content": json.dumps(tool_outputs[-1], ensure_ascii=False),
-            }
+            },
         )
 
     print(messages)
@@ -147,6 +149,9 @@ async def main():
                 "content": "Now produce the final answer using all tool results. Include both the greeting and the addition result.",
             },
         ],
+        # USe Pydantic to generate JSON Schema https://blog.stephane-robert.info/docs/developper/programmation/python/ollama-structured-outputs/
+        # format=TicketSupport.model_json_schema(),
+        options={"temperature": 0},
         stream=False,
     )
 

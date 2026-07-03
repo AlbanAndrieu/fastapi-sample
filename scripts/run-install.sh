@@ -1,8 +1,8 @@
-#!/bin/bash
-#set -xv
+#!/usr/bin/env bash
+# shellcheck shell=bash
 
 # shellcheck disable=SC2034
-WORKING_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKING_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 # shellcheck source=./docs/build.sh
 #echo "${WORKING_DIR}/docs/build.sh"

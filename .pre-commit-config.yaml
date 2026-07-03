@@ -1,3 +1,4 @@
+---
 fail_fast: true
 minimum_pre_commit_version: 4.2.0
 exclude: |
@@ -121,6 +122,8 @@ repos:
             templates/.*.gitlab-ci.yml|  # because of !reference
             k8s/.*|
             charts/generic-service/templates/.*|
+            charts/generic-service/values.yaml|
+            charts/generic-service/overlays/.*|
           )$
     -   id: sort-simple-yaml
         name: "🔀 sort/📜 yaml - Sort yaml"
@@ -229,7 +232,7 @@ repos:
     # This helps ensure cross-compatibility with people who don't wish to use uv
 -   repo: https://github.com/astral-sh/uv-pre-commit
     # uv version.
-    rev: 0.11.25
+    rev: 0.11.26
     hooks:
     -   id: uv-sync
         name: "⚡️ uv · Sync dependencies with uv"
@@ -422,7 +425,7 @@ repos:
 
     ### Data & Config Validation ###
 -   repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: 0.37.3
+    rev: 0.37.4
     hooks:
     -   id: check-github-workflows
         name: "🧩 github-actions · Validate gh workflow files"

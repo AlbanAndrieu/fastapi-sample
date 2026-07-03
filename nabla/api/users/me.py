@@ -68,6 +68,7 @@ PROFILE_WEBSITE_QUERY_MARKERS: tuple[str, ...] = (
 # Define a prompt
 mcp = FastMCP(name="UserServer")
 
+
 @mcp.prompt(title="Code Review")
 def code_review_prompt(language: str = "python") -> str:
     """Generate a code review prompt for a specific language."""
@@ -167,11 +168,7 @@ def _html_to_visible_text(html: str, *, max_chars: int = 8000) -> str:
 
 def _sitemap_locs(xml_body: str) -> list[str]:
     """Extract ``<loc>`` URLs without full XML parsing (sitemaps are trusted first-party hosts)."""
-    return [
-        m.strip()
-        for m in re.findall(r"<loc>\s*([^<]+?)\s*</loc>", xml_body, flags=re.IGNORECASE | re.DOTALL)
-        if m.strip()
-    ]
+    return [m.strip() for m in re.findall(r"<loc>\s*([^<]+?)\s*</loc>", xml_body, flags=re.IGNORECASE | re.DOTALL) if m.strip()]
 
 
 def _same_dr_alban_host(url: str, origin_netloc: str) -> bool:
@@ -214,7 +211,7 @@ def _dr_alban_http_sitemap_fallback(*, max_pages: int = 7, total_budget: int = 2
     origin = _dr_alban_origin()
     origin_netloc = urlparse(origin).netloc
     seed_locs: list[str] = []
-    for path in ("sitemap.xml"):
+    for path in "sitemap.xml":
         sm_url = urljoin(origin + "/", path)
         try:
             xml_body = _http_get_text(sm_url)
@@ -253,9 +250,7 @@ def _web_search_profile_blocks() -> str | None:
     if resolve_web_search_provider() is None:
         return None
     max_results = get_settings().web_search_max_results
-    primary_q = (
-        f'Alban Andrieu professional profile site:albanandrieu.com "{PROFESSIONAL_WEBSITE_URL}"'
-    )
+    primary_q = f'Alban Andrieu professional profile site:albanandrieu.com "{PROFESSIONAL_WEBSITE_URL}"'
     linkedin_queries = (
         "Alban Andrieu site:linkedin.com/in/nabla",
         f'Alban Andrieu DevSecOps site:linkedin.com "{LINKEDIN_URL}"',
@@ -293,26 +288,14 @@ def fetch_my_profile(user_question: str | None = None) -> str:
     (and related sitemaps) to pull page text. Pass ``user_question`` verbatim for gating.
     """
     if not user_question or not user_question.strip():
-        return (
-            "Missing `user_question`. Pass the user's question verbatim so I can confirm "
-            "they are asking about Alban Andrieu before fetching profile context."
-        )
+        return "Missing `user_question`. Pass the user's question verbatim so I can confirm they are asking about Alban Andrieu before fetching profile context."
     if not question_refers_to_alban_profile(user_question):
-        return (
-            "Skipped web search: the question does not appear to be about "
-            "Alban Andrieu. Answer from general knowledge only, or ask the user to clarify."
-        )
+        return "Skipped web search: the question does not appear to be about Alban Andrieu. Answer from general knowledge only, or ask the user to clarify."
     search_block = _web_search_profile_blocks()
     if search_block:
-        return (
-            f"Profile context (web search; {PROFESSIONAL_WEBSITE_URL}; LinkedIn fallback {LINKEDIN_URL}):\n\n"
-            f"{search_block}"
-        )
+        return f"Profile context (web search; {PROFESSIONAL_WEBSITE_URL}; LinkedIn fallback {LINKEDIN_URL}):\n\n{search_block}"
     http_block = _dr_alban_http_sitemap_fallback()
-    return (
-        "Profile context (direct HTTP + sitemap; no web search API configured or no results):\n\n"
-        f"{http_block}"
-    )
+    return f"Profile context (direct HTTP + sitemap; no web search API configured or no results):\n\n{http_block}"
 
 
 def runtime_whoami() -> str:
@@ -335,4 +318,3 @@ def get_me() -> UserIn:
         zipcode=ZIPCODE,
         country=COUNTRY,
     )
-

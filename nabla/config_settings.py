@@ -175,8 +175,7 @@ def _default_sickz_targets_value() -> str:
     return "https://home.albandrieu.com:10443/|https://172.17.0.1:10443/"
 
 
-DEFAULT_CHAT_MODEL = "gpt-5.1"
-"""Default chat model id; overridden by env ``DEFAULT_CHAT_MODEL`` (``default_chat_model`` on settings)."""
+DEFAULT_CHAT_MODEL = "gpt-4.1"
 
 
 class McpServerConfig(BaseModel):
@@ -415,10 +414,7 @@ class _Settings(BaseSettings):
         list[McpServerConfig],
         Field(
             default_factory=list,
-            description=(
-                "External MCP servers (stdio). Set ``MCP_CLIENTS`` to a JSON array of objects "
-                "with keys: name, command, args, env (optional), enabled (optional)."
-            ),
+            description=("External MCP servers (stdio). Set ``MCP_CLIENTS`` to a JSON array of objects with keys: name, command, args, env (optional), enabled (optional)."),
             validation_alias=AliasChoices("MCP_CLIENTS"),
         ),
     ]
@@ -440,10 +436,7 @@ class _Settings(BaseSettings):
         BeforeValidator(_unset_empty_env),
         Field(
             default=None,
-            description=(
-                "Public base URL for the Agent Card JSON-RPC interface (e.g. https://api.example.com). "
-                "If unset, relative paths are used in the card."
-            ),
+            description=("Public base URL for the Agent Card JSON-RPC interface (e.g. https://api.example.com). If unset, relative paths are used in the card."),
             validation_alias=AliasChoices("A2A_PUBLIC_BASE_URL"),
         ),
     ]
@@ -551,8 +544,7 @@ class _Settings(BaseSettings):
         Field(
             default=DEFAULT_CHAT_MODEL,
             description=(
-                "Default OpenAI-compatible chat model id for LiteLLM and direct OpenAI; "
-                "also used when an Azure instance has no ``available_models`` (or empty first segment)."
+                "Default OpenAI-compatible chat model id for LiteLLM and direct OpenAI; also used when an Azure instance has no ``available_models`` (or empty first segment)."
             ),
             validation_alias=AliasChoices("DEFAULT_CHAT_MODEL"),
             min_length=1,

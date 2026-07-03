@@ -20,7 +20,7 @@ def _langfuse_credentials_configured() -> bool:
 
 @lru_cache(maxsize=1)
 def _langfuse_client() -> Langfuse:
-    host = os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com").strip().rstrip("/")
+    host = os.environ.get("LANGFUSE_BASE_URL", "https://cloud.langfuse.com").strip().rstrip("/")
     if not host:
         host = "https://cloud.langfuse.com"
     return Langfuse(
@@ -65,10 +65,7 @@ def resolve_langfuse_text_prompt(
 
 def resolve_nabla_agent_system_prompt(fallback: str) -> str:
     """Load the nabla AI workflow system prompt from Langfuse when configured."""
-    name = (
-        os.environ.get("LANGFUSE_AGENT_SYSTEM_PROMPT_NAME", _DEFAULT_AGENT_SYSTEM_PROMPT_NAME).strip()
-        or _DEFAULT_AGENT_SYSTEM_PROMPT_NAME
-    )
+    name = os.environ.get("LANGFUSE_AGENT_SYSTEM_PROMPT_NAME", _DEFAULT_AGENT_SYSTEM_PROMPT_NAME).strip() or _DEFAULT_AGENT_SYSTEM_PROMPT_NAME
     label_raw = os.environ.get("LANGFUSE_PROMPT_LABEL", "").strip()
     label = label_raw or None
     return resolve_langfuse_text_prompt(name, fallback=fallback, label=label)

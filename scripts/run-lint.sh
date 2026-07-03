@@ -1,12 +1,13 @@
-#!/bin/bash
-#set -xv
+#!/usr/bin/env bash
+# shellcheck shell=bash
+
 shopt -s extglob
 
 #set -ueo pipefail
 set -eo pipefail
 
 # shellcheck disable=SC2034
-WORKING_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKING_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 # shellcheck source=/dev/null
 # source "${WORKING_DIR}/docker-env.sh"

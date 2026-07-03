@@ -41,7 +41,7 @@ WEBSITE_QUERY_MARKERS: tuple[str, ...] = (
     "child of alban andrieu",
     "child of alban andrieu and rachael brooke",
     "baby",
-    "daugher"
+    "daugher",
 )
 
 
@@ -80,11 +80,7 @@ def _same_host(url: str, *, origin_netloc: str) -> bool:
 
 
 def _sitemap_locs(xml_body: str) -> list[str]:
-    return [
-        m.strip()
-        for m in re.findall(r"<loc>\s*([^<]+?)\s*</loc>", xml_body, flags=re.IGNORECASE | re.DOTALL)
-        if m.strip()
-    ]
+    return [m.strip() for m in re.findall(r"<loc>\s*([^<]+?)\s*</loc>", xml_body, flags=re.IGNORECASE | re.DOTALL) if m.strip()]
 
 
 def _http_sitemap_fallback(*, max_pages: int = 5, total_budget: int = 24_000) -> str:
@@ -135,10 +131,7 @@ def fetch_bababou_public_page(user_question: str | None = None) -> str:
             "they are asking about Éléonore Célèste Andrieu Brooke (Bababou) before fetching site context."
         )
     if not question_refers_to_eleonore(user_question):
-        return (
-            "Skipped fetching the site: the question does not appear to be about "
-            "Éléonore (Bababou). Answer carefully or ask the user to clarify."
-        )
+        return "Skipped fetching the site: the question does not appear to be about Éléonore (Bababou). Answer carefully or ask the user to clarify."
 
     if resolve_web_search_provider() is not None:
         q = f"{user_question} site:bababou.com"
@@ -150,7 +143,4 @@ def fetch_bababou_public_page(user_question: str | None = None) -> str:
         if ctx:
             return f"Public site context (web search; {PUBLIC_WEBSITE_URL}):\n\n{ctx}"
 
-    return (
-        "Public site context (direct HTTP + sitemap; no web search API configured or no results):\n\n"
-        f"{_http_sitemap_fallback()}"
-    )
+    return f"Public site context (direct HTTP + sitemap; no web search API configured or no results):\n\n{_http_sitemap_fallback()}"

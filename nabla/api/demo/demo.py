@@ -236,6 +236,7 @@ def add(a: int, b: int) -> int:
     """Add two numbers. Use this for any arithmetic addition."""
     return a + b
 
+
 # Define Tool 2: Greet someone
 # @mcp.tool
 @router.get("/greet_user/{name}", operation_id="greet")
@@ -243,17 +244,20 @@ def greet_user(name: str) -> str:
     """Greet someone by name"""
     return f"Hello, {name}! Welcome to the MCP server."
 
+
 # Define Tool 3: Multiply numbers
 @router.get("/multiply")
 def multiply(a: float, b: float) -> float:
     """Multiply two numbers"""
     return a * b
 
+
 # Define Tool 4: Get current time
 @router.get("/get_time", operation_id="get_time")
 def get_time() -> str:
     """Get the current time"""
     from datetime import datetime
+
     return datetime.now().strftime("%I:%M %p")
 
 
@@ -262,6 +266,7 @@ def get_time() -> str:
 def demo_message():
     logger.info("demo_message")
     return {"Hello": "World"}
+
 
 # @router.post("/email")
 # async def simple_send(email: EmailSchema) -> JSONResponse:

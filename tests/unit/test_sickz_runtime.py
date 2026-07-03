@@ -133,9 +133,7 @@ def test_probe_sickz_alias_group_pfsense_adds_tcp_port_map(monkeypatch: pytest.M
         return await hc._probe_sickz_alias_group(urls, None)
 
     out = asyncio.run(_run())
-    assert out["pfsense_tcp_ports"] == {
-        str(p): True for p in hc._SICKZ_PFSENSE_EXTRA_TCP_PORTS
-    }
+    assert out["pfsense_tcp_ports"] == {str(p): True for p in hc._SICKZ_PFSENSE_EXTRA_TCP_PORTS}
 
 
 def test_sickz_lan_skip_pfsense_includes_tcp_port_placeholders(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -252,7 +250,7 @@ def test_homelab_tunnel_url_to_resolved_icon_src_joins_catalog_base() -> None:
         {
             "tunnelUrl": "https://grafana.albandrieu.com",
             "iconSrc": "assets/selfh-icons/grafana.png",
-        }
+        },
     ]
     m = homelab_tunnel_url_to_resolved_icon_src(services)
     assert m["https://grafana.albandrieu.com/"] == urljoin(
@@ -278,10 +276,7 @@ def test_homelab_tunnel_url_to_service_name() -> None:
 
 
 def test_sickz_display_label_multi_alias() -> None:
-    assert (
-        hc._sickz_display_label(["https://a.albandrieu.com/", "https://b.albandrieu.com/"])
-        == "a · b"
-    )
+    assert hc._sickz_display_label(["https://a.albandrieu.com/", "https://b.albandrieu.com/"]) == "a · b"
 
 
 def test_ensure_pfsense_sickz_group_prepends_when_missing() -> None:

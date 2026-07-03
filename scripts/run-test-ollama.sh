@@ -1,7 +1,7 @@
-#!/bin/bash
-#set -xve
+#!/usr/bin/env bash
+# shellcheck shell=bash
 
-WORKING_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKING_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 # shellcheck source=/dev/null
 source "${WORKING_DIR}/../scripts/step-0-color.sh"
@@ -21,8 +21,12 @@ echo -e "${magenta} make up ${NC}"
 echo "http://0.0.0.0:8091/llm/mcp"
 # http://0.0.0.0:8091/v1/mcp/ops/servers
 
-# export OLLAMA_HOST="http://172.17.0.57:11434"
-export OLLAMA_HOST="http://172.17.0.24:30068"
+export OLLAMA_HOST="http://172.17.0.57:11434"
+# export OLLAMA_HOST="http://172.17.0.24:30068"
+
+export DEFAULT_MODEL="qwen3:4b" # qwen3.5:2b
+
+ollama pull ${DEFAULT_MODEL}
 
 echo -e "${magenta} sudo journalctl -n 50 -fu ollama ${NC}"
 

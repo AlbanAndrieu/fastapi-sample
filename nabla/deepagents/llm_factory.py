@@ -31,7 +31,8 @@ def _azure_chat_model_name(instance: AzureOpenAiInstance) -> str:
 
 
 def resolve_openai_api_key_and_model(
-    *, model_name: str | None = None,
+    *,
+    model_name: str | None = None,
 ) -> tuple[str, str]:
     """
     API key and chat model string for the legacy OpenAI Python SDK.

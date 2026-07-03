@@ -41,9 +41,7 @@ def _mcp_clients_signature() -> tuple[tuple[str, str, tuple[str, ...], bool], ..
     """Stable signature so the deep agent is rebuilt when MCP client definitions change."""
     from nabla.config_settings import get_settings  # noqa: PLC0415
 
-    return tuple(
-        (c.name, c.command, tuple(c.args), c.enabled) for c in get_settings().mcp_clients
-    )
+    return tuple((c.name, c.command, tuple(c.args), c.enabled) for c in get_settings().mcp_clients)
 
 
 # Configure separate circuit breakers for the two external services:
@@ -112,4 +110,3 @@ async def run_workflow(data: RequestData):
             lambda: answer_question({"user_input": data.user_input}),
         )
     return {"result": result["answer"]}
-
