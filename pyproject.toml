@@ -85,6 +85,7 @@ api = [
     "types-pytz>=2025.2.0.20250809",
     "urllib3>=2.5.0",
     "uvicorn-worker>=0.2.0",
+    { include-group = "base" },
 ]
 api-extra = [
     "fastapi-featureflags>=0.4.7",
@@ -99,6 +100,7 @@ api-extra = [
 api-cli = [
     "click>=8.3.0",
     "click-completion>=0.5.2",
+    { include-group = "api-extra" },
 ]
 api-tracing = [
     "ddtrace>=3.12.2",
@@ -107,6 +109,7 @@ api-tracing = [
     "pyroscope-io>=0.8.5",
     "sentry-sdk[fastapi]",
     "UnleashClient>=6.3.0",
+    { include-group = "api-extra" },
 ]
 api-ai = [
     "langfuse==2.59.7",
@@ -118,6 +121,7 @@ api-ai = [
     "deepagents>=0.5.3",
     "a2a-sdk>=1.0.0",
     "mcp>=1.0",
+    { include-group = "api-extra" },
 ]
 api-legacy = [
     "webtypy>=0.1.7",
@@ -129,6 +133,7 @@ ai = [
     "litellm (>=1.81.13,<2.0.0)",
     "spacy>=3.5.4",
     "dacite>=1.8.0",
+    { include-group = "base" },
 ]
 torch = [
     "sentence-transformers>=5.1.0", # torch
@@ -204,10 +209,10 @@ test = [
     "async-asgi-testclient>= 1.4.11",
     "coverage>= 7.2.7",
     "mypy>=1.16.0",
-    "pytest>=8.4.1",
+    "pytest<9",
     "pytest-asyncio>=0.21.0",
     "pytest-env>=1.1.5",
-    "pytest-cases>=3.8.6",
+    "pytest-cases>=3.8.3",
     "pytest-cov>=6.0.0",
     "pytest-dependency>=0.5.1",
     "pytest-icdiff>=0.9",
@@ -276,6 +281,18 @@ dev = [
     "mypy>=1.16.0",
     "psycopg2-binary>=2.9.11,<3",
     "pyroscope-io>=0.8.5",
+    { include-group = "api" },
+    { include-group = "db" },
+    { include-group = "temporal" },
+    { include-group = "utils" },
+    { include-group = "webui" },
+    { include-group = "format" },
+    { include-group = "test" },
+    { include-group = "ci" },
+    { include-group = "deployment" },
+    { include-group = "api-extra" },
+    { include-group = "api-ai" },
+    { include-group = "api-tracing" },
 ]
 web-legacy = [
     "web.py>=0.62 ; python_version < '3.13'",
@@ -291,9 +308,6 @@ default-groups = [
     "base",
     "api",
     "api-cli",
-    "api-extra",
-    "api-tracing",
-    "api-ai",
     "ai",
     "cpu",
     "db",

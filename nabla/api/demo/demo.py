@@ -3,6 +3,7 @@ import random
 import secrets
 from typing import Optional
 from uuid import uuid4
+from datetime import datetime
 
 import requests
 from fastapi import APIRouter, HTTPException, status
@@ -38,7 +39,6 @@ DEMO_SAMPLE_URL = os.environ.get(
     "http://test-haproxy-demo-ateam.service.gra.dev.consul",
 )
 
-
 POOL = list(range(1, 7))
 SIZE = 4
 
@@ -60,10 +60,8 @@ async def demo_random():
         # global redis
         # Redis client: nabla.api.demo.socket.redis (REDIS_URL from settings)
         secret = uniform_secret()
-
         # Validate interval (don't let users sleep for too long)
         secret = max(1, min(secret, 10))  # Between 1-10 seconds
-
         logger.info(f"set random number {secret} to redis")
         await redis.set(REDIS_CHANNEL + ".randomnumber", secret)
         logger.info(f"get random number {secret} from redis")
@@ -79,38 +77,29 @@ async def demo_random():
 @router.get("/items/{item_id}")
 async def read_item(item_id: int, q: Optional[str] = None):
     logger.info(f"Get items : {item_id}")  # [logging-fstring-interpolation]
-
     # Validate interval (don't let users sleep for too long)
     item_id = max(1, min(item_id, 10))  # Between 1-10 seconds
-
     API_REQUEST_COUNTER.labels(
         method="GET",
         endpoint="/items/{item_id}",
         http_status=200,
     ).inc()
     API_REQUEST_SUMMARY.labels(method="GET", endpoint="/items/{item_id}").observe(0.1)
-
     # Example of storing data in Redis
     await redis.set(f"{REDIS_CHANNEL}.item_{item_id}", q or "No Query")
-
     # yield cached_value
-
     if item_id % 5 == 0:
         # mock io - wait for x seconds
         # seconds = uniform_secret()
         seconds = item_id
         logger.info(f"Sleeping for {seconds} seconds")
-
         # asyncio.sleep(seconds)
         # await asyncio.sleep(seconds)
         # await run_in_threadpool(time.sleep, seconds)
-
     cached_value = await redis.get(f"{REDIS_CHANNEL}.item_{item_id}")
-
     if cached_value is None:
         logger.info(f"Cached value is None for item_id: {item_id}")
         cached_value = "None"
-
     return {"item_id": item_id, "q": cached_value}
 
 
@@ -123,7 +112,6 @@ async def dispatch_customer(customer_id: int, q: Optional[str] = None):
             logger.info(
                 f"Dispatch customer : {customer_id}",
             )  # [logging-fstring-interpolation]
-
             # API_REQUEST_COUNTER.labels(
             #     method="GET",
             #     endpoint="/dispatch/customer/{customer_id}",
@@ -132,21 +120,16 @@ async def dispatch_customer(customer_id: int, q: Optional[str] = None):
             # API_REQUEST_SUMMARY.labels(
             #     method="GET", endpoint="/dispatch/customer/{customer_id}"
             # ).observe(0.1)
-
             url = f"{DEMO_SAMPLE_URL}/dispatch?customer={customer_id}"
-            response = requests.request("GET", url, timeout=1, verify=False)
-
+            response = requests.request("GET", url, timeout=1, verify=False)  # noqa: S501
             response.raise_for_status()
             logger.info(f"Dispatch customer response is : {response.json()}")
-
             return {response.json()["ETA"]}
         except Exception as ex:
             logger.error(f"Error while dispatching customer due to: {ex}")
             span = trace.get_current_span()
-
             # generate random number
             seconds = uniform_secret()
-
             # record_exception converts the exception into a span event.
             exception = IOError("Failed at " + str(seconds))
             span.record_exception(exception)
@@ -159,13 +142,6 @@ async def dispatch_customer(customer_id: int, q: Optional[str] = None):
             ) from ex
         finally:
             logger.info("Dispatch customer done")
-
-
-# DEMO_SAMPLE_URL "http://test-haproxy-demo-ateam.service.gra.dev.consul"
-# http://frontnuxt-stats.service.gra.uat.consul/health
-# http://frontnuxt-stats.service.gra.uat.consul/?stats;csv
-# http://test-haproxy-stats-ateam.service.gra.dev.consul/dev?stats;csv
-# http://test-haproxy-webapp-prometheus-ateam.service.gra.dev.consul/metrics
 
 
 @router.get("/auth")
@@ -185,24 +161,19 @@ async def demo_dev_health():
         with timed_operation("demo_dev_health"):
             try:
                 logger.info("Test demo service health")  # [logging-fstring-interpolation]
-
                 response = requests.request(
                     "GET",
                     "http://frontnuxt-stats.service.gra.dev.consul/health",
                     timeout=1,
                 )
-
                 response.raise_for_status()
                 logger.info("Demo response is : %s", response.json())
-
                 return {response.json()}
             except Exception as ex:
                 logger.error(f"Error while dispatching customer due to: {ex}")
                 span = trace.get_current_span()
-
                 # generate random number
                 seconds = uniform_secret()
-
                 # record_exception converts the exception into a span event.
                 exception = IOError("Failed at " + str(seconds))
                 span.record_exception(exception)
@@ -221,12 +192,10 @@ async def demo_dev_health():
 @router.get("/internal-api/")
 def demo_internal_api():
     logger.info("Dispatch customer (for tracing)")
-
     customer_ids = [123, 392, 731, 567]
     for customer_id in customer_ids:
         dp_customer_id = dispatch_customer(customer_id)
         logger.info(f"Dispatched customer : {dp_customer_id}")
-
     return status.HTTP_200_OK
 
 
@@ -256,8 +225,6 @@ def multiply(a: float, b: float) -> float:
 @router.get("/get_time", operation_id="get_time")
 def get_time() -> str:
     """Get the current time"""
-    from datetime import datetime
-
     return datetime.now().strftime("%I:%M %p")
 
 
@@ -271,14 +238,12 @@ def demo_message():
 # @router.post("/email")
 # async def simple_send(email: EmailSchema) -> JSONResponse:
 #     html = """<p>Hi this test mail, thanks for using Fastapi-mail</p> """
-
 #     message = MessageSchema(
 #         subject="Fastapi-Mail module",
 #         recipients=email.dict().get("email"),
 #         body=html,
 #         subtype=MessageType.html,
 #     )
-
 #     fm = FastMail(conf)
 #     await fm.send_message(message)
 #     return JSONResponse(status_code=200, content={"message": "email has been sent"})

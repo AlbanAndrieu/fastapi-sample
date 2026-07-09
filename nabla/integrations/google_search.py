@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 import httpx
-
+from nabla.config_settings import get_settings
 from nabla.integrations.env_secrets import google_search_credentials_runtime
 
 _GOOGLE_CSE_URL = "https://www.googleapis.com/customsearch/v1"
@@ -48,9 +48,6 @@ def web_search(
     if cx is None:
         msg = "Google Custom Search requires a search engine id (cx). Set GOOGLE_SEARCH_CX (or GOOGLE_CSE_ID / GOOGLE_SEARCH_ENGINE_ID)."
         raise RuntimeError(msg)
-
-    from nabla.config_settings import get_settings
-
     settings = get_settings()
     resolved = settings.web_search_max_results if num is None else num
     capped = min(max(int(resolved), 1), 5)

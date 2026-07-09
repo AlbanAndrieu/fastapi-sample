@@ -185,7 +185,7 @@ up-gunicorn:
 	--max-requests 5000 --max-requests-jitter 500 \
     --graceful-timeout 30 --timeout 60 --keep-alive 5 \
     --threads 1 --worker-connections 1000 \
-	--bind 0.0.0.0:$(PORT) --log-level info --access-logfile -
+	  --bind 0.0.0.0:$(PORT) --log-level info --access-logfile -
 
 ## —— Up ✅ —————————————————————————————————————————————————————————————————
 .PHONY: up
@@ -207,8 +207,8 @@ doc: ## Documentation
 ## —— Lint 🧪 —————————————————————————————————————————————————————————————————
 .PHONY: ruff
 ruff: ## Linter ruff
-	@echo "=> Linter flake8..."
-	flake8 ./nabla/ tests  --config .flake8 --count --exit-zero --max-line-length=88 --max-complexity=12 --statistics
+	# @echo "=> Linter flake8..."
+	# flake8 ./nabla/ tests  --config .flake8 --count --exit-zero --max-line-length=88 --max-complexity=12 --statistics
 	# @echo "=> Linter black..."
 	# @pipenv run black .
 	@echo "=> Linter ruff..."
@@ -276,7 +276,8 @@ test-nox:
 test-tox:
 	@echo "=> Testing python..."
 	@echo "=> tox --notest"
-	tox py310
+	@echo "=> tox -e ruff"
+	tox -e py312
 
 ## —— Tests CST 🧪🕳️ —————————————————————————————————————————————————————————————————
 .PHONY: test-cst

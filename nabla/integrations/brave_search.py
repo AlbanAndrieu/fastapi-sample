@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 import httpx
-
 from nabla.config_settings import get_settings
 from nabla.integrations.env_secrets import secret_from_env_or_settings
 
@@ -46,9 +45,6 @@ def web_search(
     if key is None:
         msg = "BRAVE_API_KEY is not set or empty; configure it in the environment."
         raise RuntimeError(msg)
-
-    from nabla.config_settings import get_settings
-
     settings = get_settings()
     resolved = settings.web_search_max_results if count is None else count
     capped = min(max(int(resolved), 1), 5)

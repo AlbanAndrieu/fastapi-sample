@@ -142,8 +142,8 @@ async def main():
     final = ollama.chat(
         model=OLLAMA_MODEL,
         # messages=messages,
-        messages=messages
-        + [
+        messages=[
+            *messages,
             {
                 "role": "user",
                 "content": "Now produce the final answer using all tool results. Include both the greeting and the addition result.",

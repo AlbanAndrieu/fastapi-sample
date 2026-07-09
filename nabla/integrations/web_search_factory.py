@@ -11,6 +11,7 @@ from enum import Enum
 from typing import Any
 
 from nabla.integrations import brave_search, google_search, tavily_search
+from nabla.config_settings import get_settings
 
 
 class WebSearchProvider(str, Enum):
@@ -80,12 +81,8 @@ def web_search_to_context_string(
             "or BRAVE_API_KEY, or TAVILY_API_KEY."
         )
         raise RuntimeError(msg)
-
     if max_results is None:
-        from nabla.config_settings import get_settings
-
         max_results = get_settings().web_search_max_results
-
     if provider is WebSearchProvider.GOOGLE:
         raw = google_search.web_search(query, num=max_results)
         return _format_google_items(raw, max_chars=max_chars)

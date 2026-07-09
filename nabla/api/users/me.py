@@ -113,7 +113,7 @@ Deliverables:
 Conclusion:
 - Summarize key recommendations and next steps.
 
-Let’s begin: what’s your legal issue or objective?"""
+Let's begin: what's your legal issue or objective?"""
 
 
 def question_refers_to_alban_profile(question: str) -> bool:
@@ -151,7 +151,7 @@ def _http_get_text(url: str, *, timeout: float = 20.0) -> str:
         url,
         headers={"User-Agent": "nabla-fetch-my-profile/1.0 (+https://www.albanandrieu.com/)"},
     )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310   # nosec B310 - HTTPS-only URLs controlled by callers
         return resp.read().decode(
             resp.headers.get_content_charset() or "utf-8",
             errors="replace",
