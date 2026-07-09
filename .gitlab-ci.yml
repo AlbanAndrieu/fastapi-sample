@@ -694,7 +694,7 @@ lint-eslint-npm:
   extends: .lint-eslint-npm
   script:
     - npm test --cache .npm
-    - npx eslint --format gitlab .
+    - npx eslint --format gitlab scripts/**/*.mjs eslint.config.mjs
   allow_failure: false
   cache:
     # inherit all global cache settings
