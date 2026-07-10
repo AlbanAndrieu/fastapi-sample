@@ -1,3 +1,13 @@
+# 1.0.0 (2026-07-10)
+
+
+### Bug Fixes
+
+* Add Ollama Client to test MCP Server ([fbd53bb](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/fbd53bb0f27ba8dd5363f74303d0ba6e2c3f2e7b))
+* disable vercel deploy in gitlab ([dffb7a6](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/dffb7a6c0523be733c3ee1566abae0c8ccc02398))
+* use smaller model : llama3.1:70b ([9c9045f](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/9c9045f1dd9b17e03d09ab6adf4ea4110d7f7765))
+* Use uv in tox and fix ruff format ([ba5f6ec](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/ba5f6ec423f3e0cb5fcedecb53a1bf98f5cb69e9))
+
 ## [1.3.7](https://gitlab.com/AlbanAndrieu/fastapi-sample/compare/1.3.6...1.3.7) (2026-04-02)
 
 
