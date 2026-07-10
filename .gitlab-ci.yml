@@ -293,7 +293,11 @@ variables:
           exit 1
         fi
       done
-    - apk add --no-cache libc6-compat python3 make g++ || true
+    - apk add --no-cache curl ca-certificates libc6-compat python3 make g++ || true
+    - curl -LsSf https://astral.sh/uv/install.sh | sh
+    - export PATH="$HOME/.local/bin:$PATH"
+    - uv --version
+    - node --version
     - |
       if [ -f package-lock.json ]; then
         npm ci --cache .npm --prefer-offline --no-audit
@@ -302,7 +306,11 @@ variables:
         corepack prepare yarn@stable --activate
         yarn install --frozen-lockfile
       fi
+    - npx vercel --version          
   script:
+    - test -n "${VERCEL_TOKEN:-}" || { echo "Missing VERCEL_TOKEN"; exit 1; }
+    - test -n "${VERCEL_ORG_ID:-}" || { echo "Missing VERCEL_ORG_ID"; exit 1; }
+    - test -n "${VERCEL_PROJECT_ID:-}" || { echo "Missing VERCEL_PROJECT_ID"; exit 1; }  
     - npx vercel pull --yes --environment="${VERCEL_REMOTE_ENV}" --token="${VERCEL_TOKEN}"
     - npx vercel build --token="${VERCEL_TOKEN}"
     - |
