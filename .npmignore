@@ -1,0 +1,134 @@
+# Development environments
+.direnv/
+.venv/
+.tox/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage/
+reports/
+scripts/
+
+# Editors and AI assistants
+.vscode/
+.idea/
+.cursor/
+.claude/
+.agents/
+.github/
+.gitlab/
+
+# CI/CD and repository tooling
+.gitlab-ci.yml
+.pre-commit-config.yaml
+.mega-linter.yml
+.codeclimate.yml
+.deepsource.toml
+.renovate*
+renovate.json
+dependabot.yml
+
+# Security and scan configuration
+.bandit.yml
+.checkov.yml
+.gitleaks*
+.grype.yaml
+.semgrepignore
+.sops.yaml
+.tfsecignore
+.trivyignore*
+trivy-sbom.json
+findings.json
+
+# Secrets and local configuration
+.env
+.env.*
+.envrc
+*.local.*
+secrets-enc.yaml
+test-enc.yaml
+config.yml
+default.json
+
+# Python build and dependency files
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+Pipfile
+Pipfile.lock
+poetry.lock
+uv.lock
+pyproject*.toml
+setup.py
+tox.ini
+pytest.ini
+pytest.toml
+mypy.ini
+pyrightconfig.json
+
+# Tests, benchmarks and notebooks
+tests/
+notebooks/
+*.ipynb
+test.log.dvc
+traffic_generator.py
+
+# Infrastructure and deployment
+Dockerfile*
+docker-compose*
+charts/
+alembic/
+supabase/
+*.nomad
+job.nomad
+*.tf
+*.tfvars
+wrangler.jsonc
+vercel.json
+.vercelignore
+
+# Documentation
+docs/
+README.md
+CHANGELOG.md
+HISTORY.md
+CONTRIBUTING.md
+CLAUDE.md
+AGENTS.md
+WARP.md
+TODO.md
+
+# Miscellaneous project tooling
+Makefile*
+Taskfile.yml
+Brewfile
+flake.nix
+shell.nix
+devenv.*
+mise.*
+.tool-versions*
+.editorconfig*
+*.toml
+*.yaml
+*.yml
+
+# Other languages and examples
+*.go
+go.mod
+hello-*.go
+version*.go
+ccds/
+my-login-app/
+
+# Runtime Python application, unless intentionally published through npm
+nabla/
+templates/
+public/
+static/
+server_*.py
+scripts.py
+run
+bin/
