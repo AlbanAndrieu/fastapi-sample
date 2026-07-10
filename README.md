@@ -18,6 +18,7 @@ Fastapi sample
     + [Using virtualenv](#using-virtualenv)
     + [Using uv (recommended)](#using-uv-recommended)
   * [Getting started](#getting-started)
+    + [MCP clients (e.g. OpenRAG) and A2A](#mcp-clients-eg-openrag-and-a2a)
   * [Vite UI](#vite-ui)
   * [Test JWT](#test-jwt)
   * [Test](#test)
@@ -25,8 +26,8 @@ Fastapi sample
   * [User guide](#user-guide)
     + [Installation and commands](#installation-and-commands)
     + [Database demo](#database-demo)
-- [Create PostgreSQL postgres on pg-gra.service.gra.dev.consul with Alembic](#create-postgresql-postgres-on-pg-graservicegradevconsul-with-alembic)
-  * [Create PostgreSQL fastapi_sample_gitlab on pg-gra.service.gra.dev.consul by hand](#create-postgresql-fastapi_sample_gitlab-on-pg-graservicegradevconsul-by-hand)
+- [Create PostgreSQL postgres on pg-gra.albandrieu.com with Alembic](#create-postgresql-postgres-on-pg-graalbandrieucom-with-alembic)
+  * [Create PostgreSQL fastapi_sample_gitlab on pg-gra.albandrieu.com by hand](#create-postgresql-fastapi_sample_gitlab-on-pg-graalbandrieucom-by-hand)
     + [Deploying to Vercel](#deploying-to-vercel)
     + [Temporal demo](#temporal-demo)
     + [Defect Dojo Parameters](#defect-dojo-parameters)
@@ -236,6 +237,7 @@ curl --request GET http://0.0.0.0:8091/v1/external-api
 [docs](http://0.0.0.0:8091/docs)
 [metrics](http://0.0.0.0:8091/metrics)
 [openapi](http://0.0.0.0:8091/openapi.json)
+[mcp](http://0.0.0.0:8091/llm/mcp)
 
 ```bash
 export OTEL_SDK_DISABLED=true
@@ -288,49 +290,49 @@ npm run dev
 
 ## [Test JWT](#table-of-contents)
 
-Get the public key from [keycloak-lex](https://account-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/realms/jus_mundi) \[keycloak-uat\]((http://account.staging.int.nabla.com/realms/jus_mundi)
+Get the public key from [keycloak](https://account-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/realms/nabla) \[keycloak-uat\]((http://account.int.albandrieu.com/realms/nabla)
 
-or [keycloak-dev](http://account.dev.int.nabla.com/realms/jus_mundi) [keycloak-admin](http://keycloak-admin.service.gra.dev.consul/realms/jus_mundi/)
+or [keycloak-dev](http://account.int.albandrieu.com/realms/nabla) [keycloak-admin](http://keycloak-admin.albandrieu.com/realms/nabla/)
 
 and put it to key.pem
 
-Get the bearer token [valid-jwt-uat](https://jm-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/en/api/valid-jwt)
+Get the bearer token [valid-jwt](https://fastapi-sample.fastapicloud.dev/en/api/valid-jwt)
 
-Go on [back-dev](https://back.service.gra.dev.consul/welcome)
+Go on [back](https://back.albandrieu.com/welcome)
 
 Get from cookie, access_token
 
 Validate JWT [validate-jwt](https://jwt.io/)
 
 ```bash
-# Go on back https://back.service.gra.dev.consul/welcome
+# Go on back https://back.albandrieu.com/welcome
 # Get from cookie access_token
-# export JWT_TOKEN=$(curl -k "http://jm-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/en/api/valid-jwt")
-# export JWT_TOKEN=$(curl -k "https://jm.frontnuxt.service.gra.dev.consul/en/api/valid-jwt")
+# export JWT_TOKEN=$(curl -k "http://fastapi-sample.fastapicloud.dev/en/api/valid-jwt")
+# export JWT_TOKEN=$(curl -k "https://nabla.front.albandrieu.com/en/api/valid-jwt")
 
-# http://keycloak-admin.service.gra.dev.consul/realms/jus_mundi/
+# http://keycloak-admin.albandrieu.com/realms/nabla/
 
 export JWT_TOKEN="eyJhbGcXXX"
 
-curl -k -H "Authorization: Bearer $JWT_TOKEN" -X GET https://fastapi-sample.service.gra.dev.consul/
+curl -k -H "Authorization: Bearer $JWT_TOKEN" -X GET https://fastapi-sample.albandrieu.com/
 
 # token is expired
 #  {"Hello":"World"}
 
-curl -k -i -X POST -H "Origin: https://jm.frontnuxt.service.gra.dev.consul" \
+curl -k -i -X POST -H "Origin: https://nabla.front.albandrieu.com" \
     -H 'Content-Type: text/plain' \
     -H "Authorization: Bearer $JWT_TOKEN" \
     --data "{}" \
-    "https://authorization.service.gra.dev.consul/v1/token/upgrade"
+    "https://authorization.albandrieu.com/v1/token/upgrade"
 ```
 
 ## [Test](#table-of-contents)
 
 ```bash
-curl -k -fsSL https://fastapi-sample.service.gra.dev.consul/
-curl -k -v -I -H "X-Demo: test" -X GET  https://fastapi-sample.service.gra.dev.consul/
-curl -k -H "X-Demo: test" -X GET https://fastapi-sample.service.gra.dev.consul/ | jq
-curl -k -verbose -I -H "X-Forwarded-For: 1.1.1.1" -H 'Content-Type: application/json' -X GET  http://fastapi-sample.service.gra.dev.consul/
+curl -k -fsSL https://fastapi-sample.albandrieu.com/
+curl -k -v -I -H "X-Demo: test" -X GET  https://fastapi-sample.albandrieu.com/
+curl -k -H "X-Demo: test" -X GET https://fastapi-sample.albandrieu.com/ | jq
+curl -k -verbose -I -H "X-Forwarded-For: 1.1.1.1" -H 'Content-Type: application/json' -X GET  http://fastapi-sample.albandrieu.com/
 ```
 
 [io_task]\[http://0.0.0.0:8080/io_task)
@@ -355,7 +357,7 @@ python3 ./my-app/src/get_redis.py
 
 ### Database demo
 
-# Create PostgreSQL postgres on pg-gra.service.gra.dev.consul with Alembic
+# Create PostgreSQL postgres on pg-gra.albandrieu.com with Alembic
 
 ```bash
 # Create/Upgrade schema
@@ -363,10 +365,10 @@ alembic upgrade head
 alembic downgrade -1
 ```
 
-## Create PostgreSQL fastapi_sample_gitlab on pg-gra.service.gra.dev.consul by hand
+## Create PostgreSQL fastapi_sample_gitlab on pg-gra.albandrieu.com by hand
 
 ```bash
-psql -h pg-gra.service.gra.dev.consul -U postgres
+psql -h pg-gra.albandrieu.com -U postgres
 CREATE USER fastapisample WITH PASSWORD 'XXX';
 ALTER ROLE fastapisample WITH LOGIN;
 CREATE USER back WITH PASSWORD 'XXX';
