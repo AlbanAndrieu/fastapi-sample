@@ -114,7 +114,7 @@ variables:
   DD_PRODUCT_NAME: "$CI_PROJECT_NAME"
   DD_SERVICE: "test" # fastapi-sample
   DD_PRODUCT_TYPE_NAME: "Showcase Alban" # "Research and Development"
-  DD_URL_UAT: "http://defectdojo.service.gra.uat.consul"
+  DD_URL_UAT: "https://defectdojo.albandrieu.com"
   DD_TEST_NAME: "JM Trivy"
   DD_MINIMUM_SEVERITY: "MEDIUM"
   DD_CLOSE_OLD_FINDINGS: "True"
@@ -152,18 +152,19 @@ variables:
   # TEST_CACHE_TAG: $IMAGE_BASE_TAG:test-cache-$CI_COMMIT_REF_SLUG
   # CACHE_IMAGE: python:3.12-slim
   CACHE_IMAGE: "${IMAGE_BASE_TAG}/cache:buildcache"
-  API_REPORTER_URL: http://loki-read.service.gra.uat.consul:3100/loki/api/v1/push
+  API_REPORTER_URL: http://loki-read.albandrieu.com:3100/loki/api/v1/push
   API_REPORTER_BEARER_TOKEN: ""
   DEFAULT_COV_ARGS: "--no-ddtrace --no-cov" # --cov-fail-under=1
   # NETLIFY_SITE_ID: '8dc3759f-f33d-424d-9300-d21f859ca183'
-  DAST_TARGET_URL: "${VERCEL_PRODUCTION_URL}"
-  DAST_AUTH_URL: "${VERCEL_PRODUCTION_URL}/login"
+  PRODUCTION_URL: "https://fastapi-sample.fastapicloud.dev"
+  DAST_TARGET_URL: "${PRODUCTION_URL}"
+  DAST_AUTH_URL: "${PRODUCTION_URL}/login"
   DAST_BROWSER_SCAN: "true" # use the browser-based GitLab DAST crawler
   DAST_FULL_SCAN_ENABLED: "true"
   # DAST_AUTH_USERNAME: “john”
   # DAST_AUTH_PASSWORD: “P@ssw0rd”
-  FUZZAPI_TARGET_URL: "${VERCEL_PRODUCTION_URL}/openapi.json"
-  FUZZAPI_OPENAPI: "${VERCEL_PRODUCTION_URL}/openapi.json"
+  FUZZAPI_TARGET_URL: "${PRODUCTION_URL}/openapi.json"
+  FUZZAPI_OPENAPI: "${PRODUCTION_URL}/openapi.json"
   FUZZAPI_PROFILE: Quick-10
   CONTAINER_SCANNING_DISABLED: false
   CUSTOM_CONTAINER_SCANNING_DISABLED: "true"
@@ -188,7 +189,6 @@ variables:
   # Vercel (set in GitLab CI/CD variables): VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID
   VERCEL_TELEMETRY_DISABLED: "1"
   # Optional: production site URL for DAST / API fuzzing (e.g. https://your-app.vercel.app)
-  VERCEL_PRODUCTION_URL: ""
 
 # -----------------------------------------------------------------------------
 # Local replacements for removed nabla-group/infrastructure/ci-templates
@@ -563,7 +563,7 @@ test-pytest-uv:
     DEFAULT_COV_ARGS: "--no-ddtrace --no-cov"
     DEFAULT_PIPENV_ARGS: "--system --dev --ignore-pipfile" # --dev  --verbose --index=https://package_read:${CI_PIP_GITLABNABLA_TOKEN}@gitlab.com/api/v4/groups/7364654/-/packages/pypi/simple
     DEFAULT_PYTEST_PACKAGES: "pytest pytest-cov pytest-env"
-    KEYCLOAK_SERVER_URL: "https://keycloak-https.service.gra.uat.consul"
+    KEYCLOAK_SERVER_URL: "https://keycloak.albandrieu.com"
     KEYCLOAK_REALM: "jus_mundi"
     KEYCLOAK_CLIENT_ID: "nabla_uat"
     POSTGRES_DRIVER: postgresql
@@ -621,7 +621,7 @@ test-pytest:
       alias: postgres
   variables:
     DEFAULT_COV_ARGS: "--no-ddtrace --cov-fail-under=70"
-    KEYCLOAK_SERVER_URL: "https://keycloak-https.service.gra.uat.consul"
+    KEYCLOAK_SERVER_URL: "https://keycloak.albandrieu.com"
     KEYCLOAK_REALM: "jus_mundi"
     KEYCLOAK_CLIENT_ID: "nabla_uat"
     # KEYCLOAK_CLIENT_SECRET: ""
@@ -867,45 +867,45 @@ publish-npm:
 
 # Vercel: set CI/CD variables VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID (see Vercel project Settings → General).
 # Branches: develop|dev → development, staging|uat → preview env, default branch → production (--prod).
-deploy:vercel:dev:
-  extends: .vercel_deploy
-  variables:
-    VERCEL_REMOTE_ENV: development
-    VERCEL_DEPLOY_PROD: "false"
-  rules:
-    - if: $CI_COMMIT_BRANCH == "develop"
-    - if: $CI_COMMIT_BRANCH == "dev"
-
-deploy:vercel:uat:
-  extends: .vercel_deploy
-  variables:
-    VERCEL_REMOTE_ENV: preview
-    VERCEL_DEPLOY_PROD: "false"
-  rules:
-    - if: $CI_COMMIT_BRANCH == "staging"
-    - if: $CI_COMMIT_BRANCH == "uat"
-
-deploy:vercel:prod:
-  extends: .vercel_deploy
-  variables:
-    VERCEL_REMOTE_ENV: production
-    VERCEL_DEPLOY_PROD: "true"
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+# deploy:vercel:dev:
+#   extends: .vercel_deploy
+#   variables:
+#     VERCEL_REMOTE_ENV: development
+#     VERCEL_DEPLOY_PROD: "false"
+#   rules:
+#     - if: $CI_COMMIT_BRANCH == "develop"
+#     - if: $CI_COMMIT_BRANCH == "dev"
+# 
+# deploy:vercel:uat:
+#   extends: .vercel_deploy
+#   variables:
+#     VERCEL_REMOTE_ENV: preview
+#     VERCEL_DEPLOY_PROD: "false"
+#   rules:
+#     - if: $CI_COMMIT_BRANCH == "staging"
+#     - if: $CI_COMMIT_BRANCH == "uat"
+# 
+# deploy:vercel:prod:
+#   extends: .vercel_deploy
+#   variables:
+#     VERCEL_REMOTE_ENV: production
+#     VERCEL_DEPLOY_PROD: "true"
+#   rules:
+#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
 dast:
   # dependencies: ["pages-deploy"]
   stage: dast
   variables:
-    # DAST_TARGET_URL: "https://fastapi-sample.service.gra.${ENV}.consul"
-    # DAST_AUTH_URL: "https://fastapi-sample.service.gra.${ENV}.consul/login"
+    # DAST_TARGET_URL: "https://fastapi-sample.fastapicloud.${ENV}"
+    # DAST_AUTH_URL: "https://fastapi-sample.fastapicloud.${ENV}/login"
     # DAST_AUTH_USERNAME_FIELD: "css:[name=username]"
     # DAST_AUTH_PASSWORD_FIELD: "css:[name=password]"
     # DAST_AUTH_SUBMIT_FIELD: "css:button[type=submit]"
     # DAST_TARGET_CHECK_TIMEOUT: "5m"  # Wait up to 5 minutes
     # DAST_AUTH_COOKIE_NAMES: "sessionID,refreshToken"
-    # DAST_AUTH_SUCCESS_IF_AT_URL: "https://fastapi-sample.service.gra.${ENV}.consul/admin"
-    DAST_SCOPE_EXCLUDE_URLS: "${VERCEL_PRODUCTION_URL}/logout,/user/.*/logout"
+    # DAST_AUTH_SUCCESS_IF_AT_URL: "https://fastapi-sample.fastapicloud.${ENV}/admin"
+    DAST_SCOPE_EXCLUDE_URLS: "${PRODUCTION_URL}/logout,/user/.*/logout"
     # DAST_BROWSER_SCAN: "true" # use the browser-based GitLab DAST crawler
     DAST_PAGE_READY_AFTER_NAVIGATION_TIMEOUT: "45s"
     DAST_PAGE_READY_AFTER_ACTION_TIMEOUT: "15s"
