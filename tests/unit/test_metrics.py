@@ -29,7 +29,8 @@ def test_metrics_get_request(test_app):
     response = test_app.get("/metrics")
     assert response.status_code == 200
     # assert response.headers["content-type"] == "text/plain; version=1.0.0; charset=utf-8'  'text/plain; version=0.0.4; charset=utf-8"
-    assert response.headers["content-type"] == "text/plain; version=1.0.0; charset=utf-8"
+    # Accept modern prometheus_client content-type
+    assert response.headers["content-type"].startswith("application/openmetrics-text; version=1.0.0; charset=utf-8")
 
 
 def test_metrics_inflight_requests_gauge(test_app):

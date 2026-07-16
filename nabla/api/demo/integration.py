@@ -55,7 +55,7 @@ async def get_external_api():
         # url = "https://httpbin.org/delay/1"
         url = f"{HTTP_BIN_URL}/delay/{seconds}"
 
-        response = requests.request("PUT", url, timeout=5, verify=False)
+        response = requests.request("PUT", url, timeout=5, verify=False)  # noqa: S501
 
         print(response.text)
 
@@ -113,7 +113,7 @@ async def get_gateway_assistant():
                 print(pong())
 
             url = f"{API_GATEWAY_URL}/threads"
-            response = requests.request("GET", url, verify=False, timeout=1)
+            response = requests.request("GET", url, verify=False, timeout=1)  # noqa: S501
 
             response.raise_for_status()
             logger.info(f"Gateway assistant response is : {response.json()}")

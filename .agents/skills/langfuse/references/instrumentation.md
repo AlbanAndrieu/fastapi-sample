@@ -1,17 +1,15 @@
 ---
 name: langfuse-observability
 description: Instrument LLM applications with Langfuse tracing. Use when setting up Langfuse, adding observability to LLM calls, or auditing existing instrumentation.
+metadata:
+  required_access:
+    - CODEBASE
+    - LANGFUSE_PROJECT_SCRIPT
 ---
 
 # Langfuse Observability
 
 Instrument LLM applications with Langfuse tracing, following best practices and tailored to your use case.
-
-## When to Use
-
-- Setting up Langfuse in a new project
-- Auditing existing Langfuse instrumentation
-- Adding observability to LLM calls
 
 ## Workflow
 

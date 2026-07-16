@@ -141,8 +141,9 @@ def test_tavily_search_returns_503_without_api_key(test_app, monkeypatch) -> Non
 def test_tavily_search_ok_when_mocked(test_app, monkeypatch) -> None:
     """Tavily route forwards the body and returns the search payload."""
 
-    def _fake(query: str, *, search_depth: str = "advanced") -> dict:
-        return {"query": query, "results": [], "search_depth": search_depth}
+
+def _fake(query: str, *, search_depth: str = "advanced", max_results: int = 1, monkeypatch) -> dict:
+    return {"query": query, "results": [], "search_depth": search_depth, "max_results": max_results}
 
     monkeypatch.setattr("nabla.api.tavily_route.web_search", _fake)
     response = test_app.post(
@@ -207,12 +208,12 @@ def test_google_search_ok_when_mocked(test_app, monkeypatch) -> None:
     )
     response = test_app.post(
         "/v1/google/search",
-        json={"query": "hello", "num": 10},
+        json={"query": "hello", "num": 5},
     )
     assert response.status_code == 200
     body = response.json()
     assert body["q"] == "hello"
-    assert body["num"] == 10
+    assert body["num"] == 5
 
 
 def test_appwrite_health_returns_503_without_config(test_app, monkeypatch) -> None:

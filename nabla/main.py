@@ -3,7 +3,6 @@ import asyncio
 import html
 import logging
 import os
-import re
 import time
 import warnings
 from datetime import datetime
@@ -32,7 +31,10 @@ from fastapi_featureflags import router as ff_router
 from fastmcp import FastMCP
 from fastmcp.server.providers.openapi.routing import MCPType
 from fastmcp.utilities.openapi.models import HTTPRoute
-from prometheus_client import make_asgi_app
+
+from prometheus_client import REGISTRY
+from prometheus_client.openmetrics.exposition import CONTENT_TYPE_LATEST, generate_latest
+from starlette.responses import Response
 from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic.json_schema import PydanticJsonSchemaWarning
 from sentry_sdk.integrations.logging import LoggingIntegration
@@ -44,7 +46,6 @@ from slowapi.util import get_remote_address
 from sqladmin import Admin
 from sqlmodel import select
 from starlette.middleware.cors import CORSMiddleware
-from starlette.routing import Mount
 
 from nabla.api import (
     appwrite_route,
@@ -326,11 +327,7 @@ def initialize_api(app):
     # metrics_app = make_asgi_app()
     # app.mount("/metrics", metrics_app)
 
-    # Add prometheus asgi middleware to route /metrics requests
-    # https://github.com/prometheus/client_python/issues/1016
-    route = Mount("/metrics", make_asgi_app())
-    route.path_regex = re.compile("^/metrics(?P<path>.*)$")
-    app.routes.append(route)
+    # Note: do not mount ASGI app or append Mount route for /metrics - override via explicit route above
 
     app.include_router(
         ping.router,
@@ -731,6 +728,14 @@ def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
 
 parser = argparse.ArgumentParser(prog="nabla")
 parser.add_argument("echo", help="String to print back to the console")
+
+
+@app.get("/metrics")
+def prometheus_metrics():
+    if os.environ.get("ENV") == "dev":
+        return Response(generate_latest(REGISTRY), media_type="text/plain")
+    else:
+        return Response(generate_latest(REGISTRY), headers={"Content-Type": CONTENT_TYPE_LATEST})
 
 
 def main():

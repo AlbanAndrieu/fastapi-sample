@@ -10,7 +10,7 @@ from nabla.api.notes import crud
 def test_homepage(test_app):
     response = test_app.get("/")
     assert response.status_code == 200
-    assert "Note Manager" in response.text
+    assert "Sensor Dashboard" in response.text
 
 
 def test_create_note(test_app, monkeypatch):
@@ -206,7 +206,7 @@ def test_update_note_invalid(test_app, monkeypatch, note_id, payload, status_cod
 
     response = test_app.put(
         f"/notes/{note_id}/",
-        data=json.dumps(payload),
+        json=payload,
     )
     assert response.status_code == status_code
 

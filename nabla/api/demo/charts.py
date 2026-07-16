@@ -271,7 +271,7 @@ class ChartFactory:
 
         # Highlight anomalies
         if anomalies:
-            anomaly_times = [datetime.fromisoformat(a["timestamp"]) for a in anomalies]
+            anomaly_times = [datetime.fromisoformat(a["timestamp"]) if isinstance(a["timestamp"], str) else a["timestamp"] for a in anomalies]
             anomaly_temps = [a["temperature"] for a in anomalies]
 
             logger.info(f"Highlighting {len(anomalies)} anomalies on chart")

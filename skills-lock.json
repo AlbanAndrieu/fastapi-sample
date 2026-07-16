@@ -4,7 +4,26 @@
     "langfuse": {
       "source": "langfuse/skills",
       "sourceType": "github",
-      "computedHash": "eed5993fcdc4cc017aebc8847f0ed316e8197897895901e250cb88db2a2652f7"
+      "skillPath": "skills/langfuse/SKILL.md",
+      "computedHash": "c252bdfb0b1e8734e7309992fcbe9c0ef969df6d403d1c1780ee4c426fe30568"
+    },
+    "sentry-workflow": {
+      "source": "getsentry/sentry-for-ai",
+      "sourceType": "github",
+      "skillPath": "skills/sentry-workflow/SKILL.md",
+      "computedHash": "219e8f7bd0de395531b28974272859a5df2c9f52271152aeb3d4b0cd07a20f76"
+    },
+    "supabase": {
+      "source": "supabase/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/supabase/SKILL.md",
+      "computedHash": "17a437f3de2371ec43ad8a17d3e858337695efb46ed4af5dd6426f330bb6d032"
+    },
+    "supabase-postgres-best-practices": {
+      "source": "supabase/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/supabase-postgres-best-practices/SKILL.md",
+      "computedHash": "ec56a54fba0e97bee52c7f244ba603bb284bf8d1b739c66a5cc84ec3df709d9d"
     }
   }
 }

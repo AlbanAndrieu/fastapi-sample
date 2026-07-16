@@ -20,6 +20,9 @@ lockfile = true
 
 [env]
 _.file = "secrets-enc.yaml"
+
+ENV = "dev"
+
 # Utiliser le nom du projet dérivé du répertoire courant
 PROJECT_NAME = "{{ config_root | basename }}"
 
@@ -74,4 +77,5 @@ description = "Project infos"
 run = '''
 echo "Project : $PROJECT_NAME"
 echo "Virtuel environnment : $VIRTUAL_ENV"
+echo "Langfuse PK : $LANGFUSE_PUBLIC_KEY"
 '''

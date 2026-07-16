@@ -8,6 +8,9 @@ import nabla.api.demo.demo as demo
 from server_app import app
 from tests.unit.conftest import requires_env
 
+from unittest.mock import AsyncMock
+import nabla.api.demo.socket.redis as redis_module
+
 # from async_asgi_testclient import TestClient
 
 
@@ -54,34 +57,26 @@ def test_uniform_secret():
 def test_redis_demo_random(test_app) -> None:
     """It runs and gives random number."""
 
-    expected_status: int = 200
-
     # when
     response = test_app.get("/demo/random")
 
     # print(response.json())
-    assert response.status_code == expected_status
+    assert response.status_code == 200
 
     assert response.json() != "b'1'"
     assert response.json() is not None
 
 
+@pytest.fixture(autouse=True)
+def patch_redis_mocks():
+    redis_module.redis.set = AsyncMock(return_value=None)
+    redis_module.redis.get = AsyncMock(return_value="No Query")
+
+
 @pytest.mark.asyncio
-async def test_redis_demo_items_one_second(test_app) -> None:
-    """It runs and gives the number 1."""
-
-    expected_status: int = 200
-
-    # async with TestClient(app) as async_client:
-    #     response = await async_client.get(
-    #         "/demo/items/1",
-    #         query_string={"example": "param"},
-    #     )
-
-    # when
+def test_redis_demo_items_one_second(test_app):
     response = test_app.get("/demo/items/1")
-    # print(response.json())
-    assert response.status_code == expected_status
+    assert response.status_code == 200
     assert response.json() == {"item_id": 1, "q": "No Query"}
 
 
@@ -89,11 +84,8 @@ async def test_redis_demo_items_one_second(test_app) -> None:
 def test_redis_demo_items_two_second(test_app) -> None:
     """It runs and gives the number 1."""
 
-    expected_status: int = 200
-
     # when
     response = test_app.get("/demo/items/2")
 
-    # print(response.json())
-    assert response.status_code == expected_status
+    assert response.status_code == 200
     assert response.json() == {"item_id": 2, "q": "No Query"}

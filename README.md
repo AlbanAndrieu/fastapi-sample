@@ -117,6 +117,26 @@ uv run fastapi dev --port 8091
 pytest --cov=nabla --cov-report term --cov-report xml:coverage.xml --junitxml pytest-junit.xml --no-ddtrace  --no-cov
 ```
 
+### Cypher Uncypher env variable
+
+```bash
+# Cypher
+# DOTENV
+cp .env.secrets secrets.env.sops
+sops -e -i secrets.env.sops
+```
+
+```bash
+# Uncypher
+# YAML
+sops -d secrets-enc.yaml
+# DOTENV
+sops -d secrets.env.sops > .env.sops.secrets
+
+If no mise
+source .env.secrets
+```
+
 ## [Getting started](#table-of-contents)
 
 ```mermaid

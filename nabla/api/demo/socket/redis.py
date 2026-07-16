@@ -1,3 +1,4 @@
+import os
 from typing import Any
 
 from fastapi import APIRouter
@@ -32,16 +33,16 @@ router = APIRouter()
 # creds_provider = redis.UsernamePasswordCredentialProvider("default", "redis_password")
 
 
+REDIS_AUTH = os.environ.get("REDIS_AUTH", "")
+
+
 def get_redis_client(url: str) -> Redis | None:
     try:
-        # Create a connection to the Redis server
-        # pool = redis.ConnectionPool.from_url(url)
-        # redis = redis.Redis(connection_pool=pool, decode_responses=True)
         redis_client = Redis.from_url(
             url,
+            password=REDIS_AUTH,
             decode_responses=True,  # Decode responses to UTF-8, if needed
         )
-
         # Ping the server to check the connection
         response = redis_client.ping()
         print(f"Connected to Redis. Server responded with: {response}")

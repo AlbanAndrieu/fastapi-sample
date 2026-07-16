@@ -7,13 +7,13 @@ description: "My eval"
 prompts:
   - "Write a tweet about {{topic}}"
   - "Write a concise, funny tweet about {{topic}}"
-  
+
 
 providers:
   - "ollama:chat:llama3:8b"
   - "ollama:chat:qwen3:4b"
   # - "ollama:chat:phi4"
-  
+
 
 tests:
   - vars:
@@ -38,4 +38,3 @@ tests:
       # For more information on model-graded evals, see https://promptfoo.dev/docs/configuration/expected-outputs/model-graded
       - type: llm-rubric
         value: ensure that the output is funny
-

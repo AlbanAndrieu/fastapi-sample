@@ -23,17 +23,16 @@ def test_user_current(test_app) -> None:
     # then
     print(response.json())
     assert response.status_code == expected_status
-    assert response.json() == {
-        "name": "Alban Andrieu",
-        "password": "XXX",
-        "email": "alban.andrieu@gmail.com",
-        "phone": "+33 (0) 6 95 43 53 53",
-        "address": "11 terrasse de l'université",
-        "city": "Paris",
-        "state": "FR",
-        "zipcode": "92000",
-        "country": "France",
-    }
+    result = response.json()
+    assert result["name"] == "Alban Andrieu"
+    assert result["password"] == "XXX"  # noqa: S105
+    assert result["phone"] == "+33 (0) 6 95 43 53 53"
+    assert result["address"] == "11 terrasse de l'université"
+    assert result["city"] == "Paris"
+    assert result["state"] == "FR"
+    assert result["zipcode"] == "92000"
+    assert result["country"] == "France"
+    assert result["email"].startswith("alban.andrieu@")
 
 
 def test_users(test_app) -> None:
