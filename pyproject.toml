@@ -13,22 +13,11 @@ keywords = [
     "fastapi-samples",
 ]
 classifiers = ["Private :: Do not Upload"]
-dependencies = [
-    "botocore>=1.43.0",
-    "fastapi[standard]>=0.128.0",
-    "litellm>=1.83.0",
-    "ollama>=0.6.2",
-    "sentry-sdk>=2.44.0",
-    "tavily-python>=0.7.23",
-]
-# dependencies = [
-#     "legacy-cgi (>=2.6.4,<3.0.0)",
-#     "pysqlite3 (>=0.6.0,<0.7.0)",
-#     "fastapi[standard]>=0.121.0",
-#     "pybreaker>=1.4.1",
-#     "fastapi-cli>=0.0.24",
-# ]
+
 license-files = ["LICENSE"]
+dependencies = [
+    "truenas-api-client",
+]
 
 [project.optional-dependencies]
 
@@ -96,6 +85,8 @@ api-extra = [
     "mcp>=1.0",
     "uvicorn[standard]>=0.38.0",
     "uvicorn-worker>=0.2.0",
+    "truenas-api-client>=0.0.0",
+    "tavily-python>=0.7.23"
 ]
 api-cli = [
     "click>=8.3.0",
@@ -117,6 +108,7 @@ api-ai = [
     "langchain>=0.3.27",
     "langchain-openai>=0.3.32",
     "litellm>=1.83.0",
+    "ollama>=0.6.2",
     "openai>=2.6.0",
     "deepagents>=0.5.3",
     "a2a-sdk>=1.0.0",
@@ -294,6 +286,12 @@ dev = [
     { include-group = "api-ai" },
     { include-group = "api-tracing" },
 ]
+rag = [
+    "PyMuPDF>=1.24.2",
+    "python-docx>=1.1.0",
+    "pdfplumber>=0.11.0",
+    "watchdog>=4.0.0"
+]
 web-legacy = [
     "web.py>=0.62 ; python_version < '3.13'",
     "legacy-cgi ; python_version >= '3.13'",
@@ -316,6 +314,7 @@ default-groups = [
     "encryption",
     "open_telemetry",
     "panda",
+    "rag",
     "dev",
 ]
 # conflicts = [
@@ -355,6 +354,11 @@ explicit = true
 [tool.uv.build-backend]
 module-name = ["nabla"]
 module-root = ""
+
+[tool.uv.sources]
+truenas-api-client = { git = "https://github.com/truenas/api_client.git" }
+# uv add "truenas-api-client@git+https://github.com/truenas/api_client.git"
+# python -m pip install --force-reinstall 'git+https://github.com/truenas/api_client.git'
 
 [tool.pytest.ini_options]
 testpaths = "tests/"

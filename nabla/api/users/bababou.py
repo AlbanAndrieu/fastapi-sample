@@ -116,14 +116,14 @@ def _http_sitemap_fallback(*, max_pages: int = 5, total_budget: int = 24_000) ->
     return body or f"Could not extract readable text from {PUBLIC_WEBSITE_URL}."
 
 
+from nabla.integrations.external_rag import external_rag_search
+
+
 @tool
 def fetch_bababou_public_page(user_question: str | None = None) -> str:
     """
     Load public content from bababou.com about Éléonore Célèste Andrieu Brooke (Bababou).
-
-    Use when the user asks about Éléonore Célèste Andrieu Brooke / Bababou, her story, or the family site.
-    Pass the user's question verbatim in ``user_question`` so the tool can confirm
-    the topic before fetching.
+    Uses OpenRAG if configured, otherwise tries local web search and sitemap crawl.
     """
     if not user_question or not user_question.strip():
         return (
@@ -133,6 +133,12 @@ def fetch_bababou_public_page(user_question: str | None = None) -> str:
     if not question_refers_to_eleonore(user_question):
         return "Skipped fetching the site: the question does not appear to be about Éléonore (Bababou). Answer carefully or ask the user to clarify."
 
+    # 1. OpenRAG first
+    rag_chunks = external_rag_search(user_question, k=5)
+    if rag_chunks:
+        return f"Public site info from external RAG:\n\n" + "\n---\n".join(rag_chunks)
+
+    # 2. Local fallback
     if resolve_web_search_provider() is not None:
         q = f"{user_question} site:bababou.com"
         try:
@@ -142,5 +148,4 @@ def fetch_bababou_public_page(user_question: str | None = None) -> str:
             ctx = ""
         if ctx:
             return f"Public site context (web search; {PUBLIC_WEBSITE_URL}):\n\n{ctx}"
-
     return f"Public site context (direct HTTP + sitemap; no web search API configured or no results):\n\n{_http_sitemap_fallback()}"

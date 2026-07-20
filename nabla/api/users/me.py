@@ -278,19 +278,25 @@ def _web_search_profile_blocks() -> str | None:
     return "\n\n---\n\n".join(blocks)
 
 
+from nabla.integrations.external_rag import external_rag_search
+
+
 @tool
 def fetch_my_profile(user_question: str | None = None) -> str:
     """
-    Load Alban Andrieu's public profile from albanandrieu.com (and secondarily LinkedIn via search).
-
-    Uses configured web search when available (albanandrieu first, then LinkedIn). If search
-    is not configured or yields nothing, fetches albanandrieu.com directly using sitemap.xml
-    (and related sitemaps) to pull page text. Pass ``user_question`` verbatim for gating.
+    Load Alban Andrieu's profile using external RAG if configured, else fallback to web search and sitemap.
     """
     if not user_question or not user_question.strip():
         return "Missing `user_question`. Pass the user's question verbatim so I can confirm they are asking about Alban Andrieu before fetching profile context."
     if not question_refers_to_alban_profile(user_question):
         return "Skipped web search: the question does not appear to be about Alban Andrieu. Answer from general knowledge only, or ask the user to clarify."
+
+    # 1. Try OpenRAG first
+    rag_chunks = external_rag_search(user_question, k=5)
+    if rag_chunks:
+        return f"Profile info (external RAG):\n\n" + "\n---\n".join(rag_chunks)
+
+    # 2. Local fallback, same as before
     search_block = _web_search_profile_blocks()
     if search_block:
         return f"Profile context (web search; {PROFESSIONAL_WEBSITE_URL}; LinkedIn fallback {LINKEDIN_URL}):\n\n{search_block}"

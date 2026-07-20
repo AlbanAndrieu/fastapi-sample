@@ -26,8 +26,8 @@ Fastapi sample
   * [User guide](#user-guide)
     + [Installation and commands](#installation-and-commands)
     + [Database demo](#database-demo)
-- [Create PostgreSQL postgres on pg-gra.albandrieu.com with Alembic](#create-postgresql-postgres-on-pg-graalbandrieucom-with-alembic)
-  * [Create PostgreSQL fastapi_sample_gitlab on pg-gra.albandrieu.com by hand](#create-postgresql-fastapi_sample_gitlab-on-pg-graalbandrieucom-by-hand)
+- [Create PostgreSQL postgres on postgres.albandrieu.com with Alembic](#create-postgresql-postgres-on-postgresalbandrieucom-with-alembic)
+  * [Create PostgreSQL fastapi_sample_gitlab on postgres.albandrieu.com by hand](#create-postgresql-fastapi_sample_gitlab-on-postgresalbandrieucom-by-hand)
     + [Deploying to Vercel](#deploying-to-vercel)
     + [Temporal demo](#temporal-demo)
     + [Defect Dojo Parameters](#defect-dojo-parameters)
@@ -377,7 +377,7 @@ python3 ./my-app/src/get_redis.py
 
 ### Database demo
 
-# Create PostgreSQL postgres on pg-gra.albandrieu.com with Alembic
+# Create PostgreSQL postgres on postgres.albandrieu.com with Alembic
 
 ```bash
 # Create/Upgrade schema
@@ -385,10 +385,10 @@ alembic upgrade head
 alembic downgrade -1
 ```
 
-## Create PostgreSQL fastapi_sample_gitlab on pg-gra.albandrieu.com by hand
+## Create PostgreSQL fastapi_sample_gitlab on postgres.albandrieu.com by hand
 
 ```bash
-psql -h pg-gra.albandrieu.com -U postgres
+psql -h postgres.albandrieu.com -U postgres
 CREATE USER fastapisample WITH PASSWORD 'XXX';
 ALTER ROLE fastapisample WITH LOGIN;
 CREATE USER back WITH PASSWORD 'XXX';
@@ -500,6 +500,8 @@ python3 nabla/loki/influxdb.py
 
 # Create/Upgrade schema
 alembic upgrade head
+
+alembic upgrade head --sql > sql/schema-$(date +%F).sql
 
 # Add header in file
 # user_id,email text,last_login,cgu_read_and_accepted,roles

@@ -57,6 +57,10 @@ from nabla.api import (
     v1,
     v2,
 )
+from nabla.api import rag as rag_api
+from nabla.api import truenas_apps_api as truenas_api
+from nabla.api import services as services_api
+from nabla.rag import ingest as rag_ingest
 from nabla.api.auth import keycloak
 from nabla.api.db.database import SessionLocal, database, engine, init_db
 from nabla.api.demo import dd, demo, integration, sensor
@@ -373,6 +377,9 @@ def initialize_api(app):
     app.include_router(keycloak.router, tags=["keycloak"])
     app.include_router(users.router, tags=["users"])
     app.include_router(sensor.router, tags=["sensor"])
+    app.include_router(rag_api.router, tags=["rag"])
+    app.include_router(services_api.router, tags=["internal"])
+    app.include_router(truenas_api.router, tags=["internal"])
 
     if os.getenv("DEBUG"):
         app.include_router(ff_router, prefix="/ff", tags=["FeatureFlags"])
@@ -398,6 +405,9 @@ app = FastAPI(
     debug=os.getenv("DEBUG", "False").lower() == "true",
     default_response_class=ORJSONResponse,
 )
+
+# Initialize RAG ingestion and watcher before routers
+rag_ingest.setup_rag()
 
 initialize_api(app)
 

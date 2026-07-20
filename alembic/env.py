@@ -43,6 +43,9 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        connect_args={
+            "options": "-c lock_timeout=2000",
+        },
     )
 
     with context.begin_transaction():

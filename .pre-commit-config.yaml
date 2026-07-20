@@ -187,7 +187,7 @@ repos:
     -   id: pyupgrade
         name: "🐍 python · Py Upgrade"
 -   repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.21
+    rev: v0.15.22
     hooks:
     -   id: ruff-format
         name: "🐍 python · Format with Ruff"
@@ -322,6 +322,11 @@ repos:
         name: "📊 SQL · Attempts to fix rule violations."
     -   id: sqlfluff-lint
         name: "📊 SQL · Lint SQL code files"
+-   repo: https://github.com/sbdchd/squawk
+    rev: v2.60.0
+    hooks:
+    -   id: squawk
+        files: sql/schema-2026-07-17.sql
 
     ### Notebooks ###
 -   repo: https://github.com/nbQA-dev/nbQA

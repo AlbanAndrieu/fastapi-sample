@@ -105,12 +105,46 @@ class RequestData(BaseModel):
     user_input: str = Field(min_length=1, max_length=500)
 
 
+from fastapi.responses import StreamingResponse
+
 # Build the graph (must follow final answer_question definition)
 workflow = StateGraph(dict)
 workflow.add_node("answer", answer_question)
 workflow.add_edge(START, "answer")
 workflow.add_edge("answer", END)
 graph = workflow.compile()
+
+
+@router.post("/run/sse")
+async def run_workflow_sse(data: RequestData):
+    """SSE streaming endpoint for chat completion"""
+    import asyncio
+    from contextlib import suppress
+    from langchain_core.messages import SystemMessage, HumanMessage
+
+    llm = _get_workflow_llm()
+    tools = list(_all_workflow_tools())
+    llm_tools = llm.bind_tools(tools)
+
+    messages = [
+        SystemMessage(content=alban_me.get_agent_system_prompt()),
+        HumanMessage(content=data.user_input),
+    ]
+
+    async def event_stream():
+        try:
+            # For each chunk, stream as SSE event
+            for chunk in llm_tools.stream(messages):
+                text = getattr(chunk, "text", str(chunk))
+                # Defensive: Some LLMs may not yield 'text' field
+                if text:
+                    yield f"data: {text}\n\n"
+            # Optional: emit end of stream marker
+            yield "data: [DONE]\n\n"
+        except Exception as e:
+            yield f"data: [ERROR] {e}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 @router.post("/run")
