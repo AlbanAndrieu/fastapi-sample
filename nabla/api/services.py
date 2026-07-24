@@ -1,54 +1,81 @@
+"""Merge the curated homelab catalog with live TrueNAS application data."""
+
+from __future__ import annotations
+
+import logging
+import re
+from typing import Any
+
 import requests
 from fastapi import APIRouter, Response
+
 from nabla.integrations.truenas_apps import get_truenas_apps_json
-import logging
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 REFERENCE_URL = "https://www.albanandrieu.com/homelab-services.json"
 
 
-# Helper: build index from reference by (name, internalPort)
-def service_index(services):
-    idx = {}
-    for s in services:
-        k = (s.get("name"), s.get("internalPort"))
-        idx[k] = s
-    return idx
+def _normalized_name(value: object) -> str:
+    return re.sub(r"[^a-z0-9]", "", str(value).lower())
 
 
-@router.get("/internal/services.json")
-def merged_services():
-    logging.info("Fetching reference services from master JSON...")
+def _reference_indexes(
+    services: list[dict[str, Any]],
+) -> tuple[dict[str, dict[str, Any]], dict[tuple[str, object], dict[str, Any]]]:
+    by_name = {_normalized_name(service.get("name")): service for service in services}
+    by_name_port = {(_normalized_name(service.get("name")), service.get("internalPort")): service for service in services}
+    return by_name, by_name_port
+
+
+def merge_services(
+    reference_services: list[dict[str, Any]],
+    truenas_services: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Merge curated metadata with live app state, containers and port mappings."""
+    by_name, by_name_port = _reference_indexes(reference_services)
+    merged: list[dict[str, Any]] = []
+    used_reference_ids: set[int] = set()
+
+    for live in truenas_services:
+        name = _normalized_name(live.get("name"))
+        reference = by_name_port.get((name, live.get("internalPort"))) or by_name.get(name)
+        service = dict(reference or {})
+        service.update(live)
+
+        # A curated UI port is more useful than an arbitrary first Docker port,
+        # but only retain it when TrueNAS confirms that it is currently published.
+        if reference and reference.get("internalPort") in live.get("hostPorts", []):
+            service["internalPort"] = reference["internalPort"]
+        merged.append(service)
+        if reference:
+            used_reference_ids.add(id(reference))
+
+    merged.extend(dict(reference) for reference in reference_services if id(reference) not in used_reference_ids)
+    return merged
+
+
+@router.get("/internal/services.json", response_model=None)
+def merged_services() -> dict[str, Any] | Response:
+    logger.info("Fetching reference services from master JSON...")
     try:
-        ref = requests.get(REFERENCE_URL, timeout=15)
-        ref.raise_for_status()
-        ref_json = ref.json()
-    except Exception as e:
-        return Response(f"Failed to fetch reference JSON: {e}", status_code=502)
-    ref_svcs = ref_json.get("services", [])
-    ref_idx = service_index(ref_svcs)
+        response = requests.get(REFERENCE_URL, timeout=15)
+        response.raise_for_status()
+        reference_json = response.json()
+    except (requests.RequestException, ValueError) as exc:
+        return Response(f"Failed to fetch reference JSON: {exc}", status_code=502)
 
     try:
-        tn_json = get_truenas_apps_json()
-        tn_svcs = tn_json.get("services", [])
-    except Exception as e:
-        return Response(f"Failed to fetch TrueNAS apps: {e}", status_code=502)
+        truenas_json = get_truenas_apps_json()
+    except Exception as exc:
+        logger.exception("Failed to fetch TrueNAS apps")
+        return Response(f"Failed to fetch TrueNAS apps: {exc}", status_code=502)
 
-    # Merge!
-    merged = []
-    used_keys = set()
-    # Always include all reference+enrich where possible
-    for s in tn_svcs:
-        k = (s.get("name"), s.get("internalPort"))
-        ref = ref_idx.get(k, {})
-        # Prefer the reference fields, but override port/host with live TrueNAS
-        merged_s = dict(ref)  # Copy all enrichment fields
-        merged_s.update(s)  # But ensure name, host, port, and minimal info up to date
-        merged.append(merged_s)
-        used_keys.add(k)
-    # Add any reference service not already used (TrueNAS didn't detect it but it's in the master list)
-    for k, ref in ref_idx.items():
-        if k not in used_keys:
-            merged.append(dict(ref))
-    return {"version": 1, "services": merged}
+    return {
+        "version": 2,
+        "services": merge_services(
+            reference_json.get("services", []),
+            truenas_json.get("services", []),
+        ),
+    }
