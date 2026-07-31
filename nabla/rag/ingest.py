@@ -1,15 +1,14 @@
 import os
-import time
-import mimetypes
 from pathlib import Path
-from typing import List, Dict, Tuple
-import threading
+from typing import Any
 
 import fitz  # PyMuPDF
+import numpy as np
 import pdfplumber
 import docx
-from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
+from watchdog.observers.api import BaseObserver
 
 import logging
 
@@ -19,14 +18,14 @@ DATA_DIR = Path("data/")
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 100
 
-VECTOR_DB: List[Dict] = []  # [{"filepath": path, "chunk_id": i, "text": str, "embedding": [...]}, ...]
+VECTOR_DB: list[dict[str, Any]] = []
 
 
 def extract_text_from_pdf(filepath: Path) -> str:
     try:
         # Try PyMuPDF first (fast for most PDFs)
         with fitz.open(filepath) as doc:
-            return "\n".join([page.get_text("text") for page in doc])
+            return "\n".join(str(page.get_text("text")) for page in doc)
     except Exception:
         # Fallback: pdfplumber
         with pdfplumber.open(str(filepath)) as pdf:
@@ -62,7 +61,7 @@ def text_to_markdown(text: str, ext: str) -> str:
         return text
 
 
-def chunk_text(text: str, chunk_size=CHUNK_SIZE, overlap=CHUNK_OVERLAP) -> List[str]:
+def chunk_text(text: str, chunk_size=CHUNK_SIZE, overlap=CHUNK_OVERLAP) -> list[str]:
     chunks = []
     i = 0
     while i < len(text):
@@ -72,16 +71,39 @@ def chunk_text(text: str, chunk_size=CHUNK_SIZE, overlap=CHUNK_OVERLAP) -> List[
     return chunks
 
 
-def embed_chunks(chunks: List[str]) -> List[List[float]]:
-    # Use LiteLLM to embed all chunks. Import at runtime to avoid import errors in old setups.
-    import litellm
-    import os
+def _extract_embeddings(response: Any, *, expected_count: int) -> list[list[float]]:
+    """Validate and normalize LiteLLM's OpenAI-compatible embedding response."""
+    data = response.get("data") if isinstance(response, dict) else getattr(response, "data", None)
+    if not isinstance(data, list):
+        raise ValueError("Embedding response has no 'data' list")
+
+    embeddings: list[list[float]] = []
+    for index, item in enumerate(data):
+        raw = item.get("embedding") if isinstance(item, dict) else getattr(item, "embedding", None)
+        if not isinstance(raw, list) or not raw or not all(isinstance(value, (int, float)) for value in raw):
+            raise ValueError(f"Embedding response item {index} has an invalid vector")
+        embeddings.append([float(value) for value in raw])
+
+    if len(embeddings) != expected_count:
+        raise ValueError(f"Embedding response count mismatch: expected {expected_count}, got {len(embeddings)}")
+    dimensions = {len(vector) for vector in embeddings}
+    if len(dimensions) > 1:
+        raise ValueError("Embedding response contains inconsistent vector dimensions")
+    return embeddings
+
+
+def embed_chunks(chunks: list[str]) -> list[list[float]]:
+    # Use LiteLLM to embed all chunks.
+    if not chunks:
+        return []
+    import litellm  # noqa: PLC0415 - expensive optional integration, loaded only when RAG is used
 
     model = os.environ.get("RAG_EMBEDDING_MODEL", "text-embedding-ada-002")
-    return litellm.embedding(
+    response = litellm.embedding(
         model=model,
         input=chunks,
     )
+    return _extract_embeddings(response, expected_count=len(chunks))
 
 
 def add_file_to_vector_db(filepath: Path):
@@ -90,7 +112,7 @@ def add_file_to_vector_db(filepath: Path):
     md = text_to_markdown(text, ext)
     chunks = chunk_text(md)
     embeddings = embed_chunks(chunks)
-    for i, (chunk, emb) in enumerate(zip(chunks, embeddings)):
+    for i, (chunk, emb) in enumerate(zip(chunks, embeddings, strict=True)):
         VECTOR_DB.append(
             {
                 "filepath": str(filepath),
@@ -102,9 +124,9 @@ def add_file_to_vector_db(filepath: Path):
     logger.info(f"Ingested {filepath}: {len(chunks)} chunks")
 
 
-def find_files(data_dir: Path) -> List[Path]:
+def find_files(data_dir: Path) -> list[Path]:
     all_files = []
-    for root, dirs, files in os.walk(data_dir):
+    for root, _, files in os.walk(data_dir):
         for fname in files:
             p = Path(root) / fname
             if p.suffix.lower() in {".pdf", ".docx", ".md", ".txt"}:
@@ -123,42 +145,37 @@ def initial_ingest():
 class RAGFileEventHandler(FileSystemEventHandler):
     def on_created(self, event):
         if not event.is_directory:
-            path = Path(event.src_path)
+            path = Path(os.fsdecode(event.src_path))
             if path.suffix.lower() in {".pdf", ".docx", ".md", ".txt"}:
                 add_file_to_vector_db(path)
 
 
-def start_watching():
+def start_watching() -> BaseObserver:
     event_handler = RAGFileEventHandler()
     observer = Observer()
     observer.schedule(event_handler, str(DATA_DIR), recursive=True)
     observer.daemon = True
     observer.start()
+    return observer
 
 
-def cosine_similarity(a: List[float], b: List[float]) -> float:
-    import numpy as np
-
-    a = np.array(a)
-    b = np.array(b)
-    return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-10))
+def cosine_similarity(a: list[float], b: list[float]) -> float:
+    vector_a = np.array(a)
+    vector_b = np.array(b)
+    return float(np.dot(vector_a, vector_b) / (np.linalg.norm(vector_a) * np.linalg.norm(vector_b) + 1e-10))
 
 
-def semantic_search(query: str, topk=5) -> List[Dict]:
+def semantic_search(query: str, topk: int = 5) -> list[dict[str, Any]]:
     if not VECTOR_DB:
         return []
-    import litellm
-
-    emb = litellm.embedding(
-        model=os.environ.get("RAG_EMBEDDING_MODEL", "text-embedding-ada-002"),
-        input=[query],
-    )[0]
+    emb = embed_chunks([query])[0]
     scored = [(cosine_similarity(emb, row["embedding"]), row) for row in VECTOR_DB]
     scored.sort(reverse=True, key=lambda x: x[0])
-    return [row for _, row in scored[:topk]]
+    return [{**row, "score": score} for score, row in scored[:topk]]
 
 
-def setup_rag():
+def setup_rag() -> BaseObserver:
     initial_ingest()
-    start_watching()
+    observer = start_watching()
     logger.info(f"RAG directory watcher active on: {DATA_DIR}")
+    return observer

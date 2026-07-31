@@ -1,8 +1,9 @@
 import json
+from collections.abc import Awaitable
 
 # from datetime import datetime as dt
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Dict, cast
 
 from pydantic import BaseModel, Field
 from pytz import timezone as tz
@@ -88,7 +89,7 @@ class NoteResponse(BaseModel):
     type: str
     prompt: str = Field(..., min_length=3, max_length=100)
     completed: bool = False
-    created_date: str = datetime.now(tz("Europe/Paris")).strftime("%Y-%m-%d %H:%M")
+    created_date: str = Field(default_factory=lambda: datetime.now(tz("Europe/Paris")).strftime("%Y-%m-%d %H:%M"))
 
 
 class NoteData(NoteResponse):
@@ -124,9 +125,12 @@ class NoteData(NoteResponse):
 async def enqueue_note(note_id, note_type, prompt):
     # note_id = str(uuid4())
     note = {"id": note_id, "type": note_type, "prompt": prompt}
-    await redis.rpush(
-        REDIS_CHANNEL + REDIS_TASK_QUEUE + REDIS_NOTES_CHANNEL,
-        json.dumps(note),
+    await cast(
+        Awaitable[int],
+        redis.rpush(
+            REDIS_CHANNEL + REDIS_TASK_QUEUE + REDIS_NOTES_CHANNEL,
+            json.dumps(note),
+        ),
     )
     return note_id
 

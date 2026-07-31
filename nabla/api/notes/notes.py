@@ -1,6 +1,4 @@
-import typing
 from datetime import datetime as dt
-from typing import List
 
 from databases.interfaces import Record
 from fastapi import APIRouter, Form, HTTPException, Path, Request
@@ -33,13 +31,14 @@ def summarize_request(text: str) -> str:
     return f"Please summarize the following text:\n\n{text}"
 
 
-@router.get("/notes/", response_model=List[NoteData])
+@router.get("/notes/", response_model=list[NoteData])
 async def get_notes(request: Request):
     API_REQUEST_COUNTER.labels(method="GET", endpoint="/notes", http_status=200).inc()
     API_REQUEST_SUMMARY.labels(method="GET", endpoint="/notes").observe(0.1)
 
     notes = await read_all_notes()
     return templates.TemplateResponse(
+        request,
         "_notes_list.html",
         {"request": request, "notes": notes},
     )
@@ -64,6 +63,7 @@ def add_note(request: Request, title: str):
     session.refresh(note)
     notes = session.exec(select(NoteResponse)).all()
     return templates.TemplateResponse(
+        request,
         "_notes_list.html",
         {"request": request, "notes": notes},
     )
@@ -91,8 +91,8 @@ async def create_note(payload: NoteResponse):
     return response_object
 
 
-async def get_note_or_404(note_id: int) -> typing.Optional[Record]:
-    note: typing.Optional[Record] = await crud.get(note_id)
+async def get_note_or_404(note_id: int) -> Record:
+    note = await crud.get(note_id)
     if not note:
         raise HTTPException(status_code=404, detail="Note not found")
     return note
@@ -106,7 +106,7 @@ async def update_note(
     note_id: int = Path(..., gt=0),
 ):  # Ensures the input is greater than 0
     await get_note_or_404(note_id)
-    note_id = await crud.put(id, payload)  # type: ignore
+    note_id = await crud.put(note_id, payload)
     note_id = await enqueue_note(note_id, payload.type, payload.prompt)
     response_object = {
         "id": note_id,
@@ -121,10 +121,17 @@ async def update_note(
 
 @router.post("/notes/{note_id}", response_class=HTMLResponse)
 async def update_note_form(request: Request, note_id: int, title: str = Form(...), content: str = Form(...)):
-    note = get_note_or_404(note_id)
-    note.title = title
-    note.content = content
-    return templates.TemplateResponse("_note_item.html", {"request": request, "note": note})
+    note = await get_note_or_404(note_id)
+    payload = NoteResponse(
+        title=title,
+        description=content,
+        type=note["type"],
+        prompt=note["prompt"],
+        completed=note["completed"] in (True, "true", "True", "1"),
+    )
+    await crud.put(note_id, payload)
+    rendered_note = {**dict(note), **payload.model_dump(), "id": note_id}
+    return templates.TemplateResponse(request, "_note_item.html", {"request": request, "note": rendered_note})
 
 
 # @cache(expire=300)  # Cache for 5 minutes to avoid repeated execution of complex SQL
@@ -163,8 +170,8 @@ async def delete_note(note_id: int = Path(..., gt=0)):
 
 @router.get("/notes/{note_id}/edit", response_class=HTMLResponse)
 async def edit_note_form(request: Request, note_id: int):
-    note = get_note_or_404(note_id)
-    return templates.TemplateResponse("_note_item_edit.html", {"request": request, "note": note})
+    note = await get_note_or_404(note_id)
+    return templates.TemplateResponse(request, "_note_item_edit.html", {"request": request, "note": note})
 
 
 # @app.exception_handler(NotFoundInJM)

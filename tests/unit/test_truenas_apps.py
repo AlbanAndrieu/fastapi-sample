@@ -8,7 +8,7 @@ class FakeClient:
         self.calls: list[tuple[str, tuple[object, ...]]] = []
         self.login: tuple[str, str] | None = None
 
-    def __enter__(self) -> "FakeClient":
+    def __enter__(self) -> FakeClient:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> bool:

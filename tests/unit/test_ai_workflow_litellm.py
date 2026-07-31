@@ -5,16 +5,12 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
-from fastapi.testclient import TestClient
-from langchain_core.messages import AIMessage
+from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
 from pydantic import SecretStr
 
 from nabla.config_settings import DEFAULT_CHAT_MODEL, get_settings
-from nabla.main import app
 from nabla.deepagents import workflow as wf
-
-import nabla.api.demo.models as demo_models
-import nabla.main as main_mod
 
 import nabla.config_settings as config_settings
 import nabla.deepagents.llm_factory as llm_factory
@@ -29,44 +25,47 @@ def clear_workflow_llm_cache() -> None:
     wf._build_workflow_agent.cache_clear()
 
 
-@pytest.fixture(autouse=True)
-def disable_db_init(monkeypatch):
-
-    monkeypatch.setattr(demo_models, "init_db", lambda: None)
-    if hasattr(main_mod, "init_db_sensor_reading"):
-
-        async def fake_async_noop(*args, **kwargs):
-            return None
-
-        monkeypatch.setattr(main_mod, "init_db_sensor_reading", fake_async_noop)
+async def _run_inline(func: Any) -> Any:
+    """Unit tests do not need the production thread-pool boundary."""
+    return func()
 
 
-def test_post_run_returns_llm_result(monkeypatch: pytest.MonkeyPatch) -> None:
-    def fake_safe_invoke(message: str) -> AIMessage:
+def _workflow_test_app() -> FastAPI:
+    app = FastAPI()
+    app.include_router(wf.router)
+    return app
+
+
+@pytest.mark.asyncio
+async def test_post_run_returns_llm_result(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_safe_invoke(message: str) -> str:
         assert "LangGraph" in message
-        return AIMessage(content="LangGraph is a graph-based orchestration layer for LLM apps.")
+        return "LangGraph is a graph-based orchestration layer for LLM apps."
 
     monkeypatch.setattr(wf, "safe_invoke_llm", fake_safe_invoke)
-    with TestClient(app) as client:
-        res = client.post("/run", json={"user_input": "What is LangGraph?"})
+    monkeypatch.setattr(wf.anyio.to_thread, "run_sync", _run_inline)
+    async with AsyncClient(transport=ASGITransport(app=_workflow_test_app()), base_url="http://test") as client:
+        res = await client.post("/run", json={"user_input": "What is LangGraph?"})
     assert res.status_code == 200
     body = res.json()
     assert "result" in body
-    assert "orchestration" in body["result"]["content"]
+    assert "orchestration" in body["result"]
 
 
-def test_post_run_returns_llm_result_person_question(monkeypatch: pytest.MonkeyPatch) -> None:
-    def fake_safe_invoke(message: str) -> AIMessage:
+@pytest.mark.asyncio
+async def test_post_run_returns_llm_result_person_question(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_safe_invoke(message: str) -> str:
         assert "Alban Andrieu" in message
-        return AIMessage(content="Alban Andrieu is a software engineer focused on cloud orchestration.")
+        return "Alban Andrieu is a software engineer focused on cloud orchestration."
 
     monkeypatch.setattr(wf, "safe_invoke_llm", fake_safe_invoke)
-    with TestClient(app) as client:
-        res = client.post("/run", json={"user_input": "Who is Alban Andrieu"})
+    monkeypatch.setattr(wf.anyio.to_thread, "run_sync", _run_inline)
+    async with AsyncClient(transport=ASGITransport(app=_workflow_test_app()), base_url="http://test") as client:
+        res = await client.post("/run", json={"user_input": "Who is Alban Andrieu"})
     assert res.status_code == 200
     body = res.json()
     assert "result" in body
-    assert "orchestration" in body["result"]["content"]
+    assert "orchestration" in body["result"]
 
 
 def test_workflow_llm_requests_gpt51_from_factory(monkeypatch: pytest.MonkeyPatch) -> None:

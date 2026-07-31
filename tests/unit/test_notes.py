@@ -2,18 +2,27 @@ import json
 from datetime import datetime as dt
 
 import pytest
+from httpx import ASGITransport, AsyncClient
 
 from nabla.api.notes import crud
+from nabla.api.notes.models import NoteResponse
+from nabla.main import app
+
+
+@pytest.fixture
+async def test_app():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        yield client
 
 
 @pytest.mark.webtest
-def test_homepage(test_app):
-    response = test_app.get("/")
+async def test_homepage(test_app):
+    response = await test_app.get("/")
     assert response.status_code == 200
     assert "Sensor Dashboard" in response.text
 
 
-def test_create_note(test_app, monkeypatch):
+async def test_create_note(test_app, monkeypatch):
     test_request_payload = {
         "title": "something",
         "description": "something else",
@@ -36,24 +45,61 @@ def test_create_note(test_app, monkeypatch):
 
     monkeypatch.setattr(crud, "post", mock_post)
 
-    response = test_app.post("/notes/", json=test_request_payload)
+    response = await test_app.post("/notes/", json=test_request_payload)
     print(response.json())
     assert response.status_code == 201
     assert response.json() == test_response_payload
 
 
-def test_create_note_invalid_json(test_app):
-    response = test_app.post("/notes/", data=json.dumps({"title": "something"}))
+async def test_crud_post_returns_generated_id_and_closes_session(monkeypatch):
+    class FakeSession:
+        committed = False
+        closed = False
+        note = None
+
+        def add(self, note):
+            self.note = note
+
+        def commit(self):
+            self.committed = True
+
+        def refresh(self, note):
+            note.id = 42
+
+        def rollback(self):
+            raise AssertionError("rollback should not be called")
+
+        def close(self):
+            self.closed = True
+
+    session = FakeSession()
+    monkeypatch.setattr(crud, "SessionLocal", lambda: session)
+    payload = NoteResponse(
+        title="something",
+        description="something else",
+        type="note",
+        prompt="test prompt",
+    )
+
+    note_id = await crud.post(payload)
+
+    assert note_id == 42
+    assert session.committed is True
+    assert session.closed is True
+
+
+async def test_create_note_invalid_json(test_app):
+    response = await test_app.post("/notes/", content=json.dumps({"title": "something"}))
     assert response.status_code == 422
-    response = test_app.post(
+    response = await test_app.post(
         "/notes/",
-        data=json.dumps({"title": "1", "description": "2"}),
+        content=json.dumps({"title": "1", "description": "2"}),
     )
     assert response.status_code == 422
 
 
 # These tests should be run in order
-def test_read_note(test_app, monkeypatch):
+async def test_read_note(test_app, monkeypatch):
     test_data = {
         "id": 1,
         "title": "something",
@@ -69,38 +115,38 @@ def test_read_note(test_app, monkeypatch):
 
     monkeypatch.setattr(crud, "get", mock_get)
 
-    response = test_app.get("/notes/1/")
+    response = await test_app.get("/notes/1/")
     assert response.status_code == 200
     assert response.json() == test_data
 
 
-def test_read_note_incorrect_id(test_app, monkeypatch):
+async def test_read_note_incorrect_id(test_app, monkeypatch):
     async def mock_get(note_id):
         return None
 
     monkeypatch.setattr(crud, "get", mock_get)
 
-    response = test_app.get("/notes/999/")
+    response = await test_app.get("/notes/999/")
     assert response.status_code == 404
     assert response.json()["detail"] == "Note not found"
 
 
-def test_read_note_incorrect_id_twice(test_app, monkeypatch):
+async def test_read_note_incorrect_id_twice(test_app, monkeypatch):
     async def mock_get(note_id):
         return None
 
     monkeypatch.setattr(crud, "get", mock_get)
 
-    response = test_app.get("/notes/999/")
+    response = await test_app.get("/notes/999/")
     assert response.status_code == 404
     assert response.json()["detail"] == "Note not found"
 
-    response = test_app.get("/notes/0/")
+    response = await test_app.get("/notes/0/")
     assert response.status_code == 404
 
 
 # test for reading all notes:
-def test_read_all_notes(test_app, monkeypatch):
+async def test_read_all_notes(test_app, monkeypatch):
     test_data = [
         {
             "title": "something",
@@ -127,13 +173,12 @@ def test_read_all_notes(test_app, monkeypatch):
 
     monkeypatch.setattr(crud, "get_all", mock_get_all)
 
-    response = test_app.get("/notes/")
+    response = await test_app.get("/notes/")
     assert response.status_code == 200
 
 
 # Test for the PUT method
-@pytest.mark.skip(reason="Skipping this test for now")
-def test_update_note(test_app, monkeypatch):
+async def test_update_note(test_app, monkeypatch):
     test_update_data = {
         "title": "something",
         "description": "something else",
@@ -141,7 +186,6 @@ def test_update_note(test_app, monkeypatch):
         "type": "note",
         "prompt": "test prompt",
         "completed": False,
-        "created_date": dt.now().strftime("%Y-%m-%d %H:%M"),
     }
     test_changes = {
         "title": "something",
@@ -159,21 +203,28 @@ def test_update_note(test_app, monkeypatch):
         "type": "note",
         "prompt": "test prompt",
         "completed": True,
-        "created_date": dt.now().strftime("%Y-%m-%d %H:%M"),
     }
 
-    async def mock_get(id):  # noqa: A002
+    async def mock_get(note_id):
         return test_update_data
 
-    async def mock_put(id, payload):  # noqa: A002
-        return test_response
+    seen_ids: list[int] = []
+
+    async def mock_put(note_id, payload):
+        seen_ids.append(note_id)
+        return note_id
+
+    async def mock_enqueue(note_id, note_type, prompt):
+        return note_id
 
     monkeypatch.setattr(crud, "get", mock_get)
     monkeypatch.setattr(crud, "put", mock_put)
+    monkeypatch.setattr("nabla.api.notes.notes.enqueue_note", mock_enqueue)
 
-    response = test_app.put("/notes/1/", data=json.dumps(test_changes))
+    response = await test_app.put("/notes/1/", json=test_changes)
     assert response.status_code == 200
     assert response.json() == test_response
+    assert seen_ids == [1]
 
 
 @pytest.mark.parametrize(
@@ -198,13 +249,13 @@ def test_update_note(test_app, monkeypatch):
         [0, {"title": "foo", "description": "bar"}, 422],
     ],
 )
-def test_update_note_invalid(test_app, monkeypatch, note_id, payload, status_code):
+async def test_update_note_invalid(test_app, monkeypatch, note_id, payload, status_code):
     async def mock_get(note_id):
         return None
 
     monkeypatch.setattr(crud, "get", mock_get)
 
-    response = test_app.put(
+    response = await test_app.put(
         f"/notes/{note_id}/",
         json=payload,
     )
@@ -212,7 +263,7 @@ def test_update_note_invalid(test_app, monkeypatch, note_id, payload, status_cod
 
 
 # Test for DELETE route
-def test_remove_note(test_app, monkeypatch):
+async def test_remove_note(test_app, monkeypatch):
     test_data = {
         "title": "something",
         "description": "something else",
@@ -233,20 +284,20 @@ def test_remove_note(test_app, monkeypatch):
 
     monkeypatch.setattr(crud, "delete", mock_delete)
 
-    response = test_app.delete("/notes/1/")
+    response = await test_app.delete("/notes/1/")
     assert response.status_code == 200
     assert response.json() == test_data
 
 
-def test_remove_note_incorrect_id(test_app, monkeypatch):
+async def test_remove_note_incorrect_id(test_app, monkeypatch):
     async def mock_get(note_id):
         return None
 
     monkeypatch.setattr(crud, "get", mock_get)
 
-    response = test_app.delete("/notes/999/")
+    response = await test_app.delete("/notes/999/")
     assert response.status_code == 404
     assert response.json()["detail"] == "Note not found"
 
-    response = test_app.delete("/notes/0/")
+    response = await test_app.delete("/notes/0/")
     assert response.status_code == 422

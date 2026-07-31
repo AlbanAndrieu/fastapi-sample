@@ -11,6 +11,8 @@ from tests.unit.conftest import requires_env
 from unittest.mock import AsyncMock
 import nabla.api.demo.socket.redis as redis_module
 
+pytestmark = pytest.mark.integration
+
 # from async_asgi_testclient import TestClient
 
 

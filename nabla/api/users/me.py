@@ -24,6 +24,7 @@ from langchain_core.tools import tool
 
 from nabla.api.users.models import UserIn
 from nabla.config_settings import get_settings
+from nabla.integrations.external_rag import external_rag_search
 from nabla.integrations.langfuse_prompts import resolve_nabla_agent_system_prompt
 from nabla.integrations.web_search_factory import (
     resolve_web_search_provider,
@@ -278,9 +279,6 @@ def _web_search_profile_blocks() -> str | None:
     return "\n\n---\n\n".join(blocks)
 
 
-from nabla.integrations.external_rag import external_rag_search
-
-
 @tool
 def fetch_my_profile(user_question: str | None = None) -> str:
     """
@@ -294,7 +292,7 @@ def fetch_my_profile(user_question: str | None = None) -> str:
     # 1. Try OpenRAG first
     rag_chunks = external_rag_search(user_question, k=5)
     if rag_chunks:
-        return f"Profile info (external RAG):\n\n" + "\n---\n".join(rag_chunks)
+        return "Profile info (external RAG):\n\n" + "\n---\n".join(rag_chunks)
 
     # 2. Local fallback, same as before
     search_block = _web_search_profile_blocks()

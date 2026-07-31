@@ -12,6 +12,8 @@ from nabla.api.db.database import database
 from server_app import app
 from tests.unit.conftest import requires_env
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture(scope="module")
 def test_app():

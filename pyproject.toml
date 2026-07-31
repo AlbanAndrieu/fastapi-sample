@@ -273,6 +273,7 @@ dev = [
     "mypy>=1.16.0",
     "psycopg2-binary>=2.9.11,<3",
     "pyroscope-io>=0.8.5",
+    "fastapi-radar",
     { include-group = "api" },
     { include-group = "db" },
     { include-group = "temporal" },

@@ -161,7 +161,7 @@ repos:
           )$
 
 -   repo: https://github.com/pre-commit/pre-commit.git
-    rev: v4.6.0
+    rev: v4.6.1
     hooks:
     -   id: validate_manifest
         name: "🤖 manifest · Validate manifest scripts"
@@ -187,7 +187,7 @@ repos:
     -   id: pyupgrade
         name: "🐍 python · Py Upgrade"
 -   repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.22
+    rev: v0.16.1
     hooks:
     -   id: ruff-format
         name: "🐍 python · Format with Ruff"
@@ -231,7 +231,7 @@ repos:
     # This helps ensure cross-compatibility with people who don't wish to use uv
 -   repo: https://github.com/astral-sh/uv-pre-commit
     # uv version.
-    rev: 0.11.29
+    rev: 0.12.0
     hooks:
     -   id: uv-sync
         name: "⚡️ uv · Sync dependencies with uv"
@@ -323,7 +323,7 @@ repos:
     -   id: sqlfluff-lint
         name: "📊 SQL · Lint SQL code files"
 -   repo: https://github.com/sbdchd/squawk
-    rev: v2.60.0
+    rev: v2.61.0
     hooks:
     -   id: squawk
         files: sql/schema-2026-07-17.sql
@@ -373,7 +373,7 @@ repos:
 
     ### Javascript & Web Tools ###
 -   repo: https://github.com/biomejs/pre-commit
-    rev: "v2.5.4"
+    rev: "v2.5.6"
     hooks:
     -   id: biome-check
         name: "🟨 javascript · Lint, format, and safe fixes with Biome"
@@ -440,7 +440,7 @@ repos:
 
     # ----------------------------- 🔒 Deployment Tools ---------------------------- #
 -   repo: https://github.com/hadolint/hadolint
-    rev: v2.14.0
+    rev: v2.15.0
     hooks:
     -   id: hadolint-docker
         name: "🐳 hadolint · Validate Dockerfile"

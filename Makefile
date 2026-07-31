@@ -189,7 +189,9 @@ up-gunicorn:
 
 ## —— Up ✅ —————————————————————————————————————————————————————————————————
 .PHONY: up
-up: up-gunicorn # Serve up (gunicorn)
+up:
+	@echo "Démarrage fastapi main service (dashboard intégré)"
+	$(MAKE) up-gunicorn
 
 .PHONY: down
 down:
@@ -336,5 +338,6 @@ deploy-buildah: ## Push to registry
 	@echo "=> TODO => buildah push $(OCI_IMAGE):latest"
 
 ## —— Deploy 💾👑 ———————————————————————————————————————————————————————————————
+
 .PHONY: deploy
 deploy: deploy-docker ## Push to registry

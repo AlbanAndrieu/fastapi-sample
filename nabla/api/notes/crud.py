@@ -1,5 +1,5 @@
-import typing
-from datetime import datetime as dt
+from datetime import datetime
+from typing import Any, cast
 
 from databases.interfaces import Record
 
@@ -8,22 +8,27 @@ from nabla.api.notes.models import Note, NoteResponse, notes
 
 
 # TODO session: Session = Depends(get_session)
-async def post(payload: NoteResponse):
-    created_date = dt.now().strftime("%Y-%m-%d %H:%M")
+async def post(payload: NoteResponse) -> int:
+    """Persist a note and return its generated primary key."""
     session = SessionLocal()
-    session.add(
-        Note(
+    try:
+        note = Note(
             title=payload.title,
             description=payload.description,
             type=payload.type,
             prompt=payload.prompt,
             completed=payload.completed,
-            created_date=created_date,
-        ),
-    )
-    session.commit()
-    session.close()
-    return payload
+            created_date=datetime.now(),
+        )
+        session.add(note)
+        session.commit()
+        session.refresh(note)
+        return cast(int, note.id)
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
 
     # query = notes.insert().values(
     #     title=payload.title,
@@ -34,18 +39,18 @@ async def post(payload: NoteResponse):
     # return await database.execute(query=query)
 
 
-async def get(note_id: int) -> typing.Optional[Record]:
+async def get(note_id: int) -> Record | None:
     query = notes.select().where(notes.c.id == note_id)
     return await database.fetch_one(query=query)
 
 
-async def get_all() -> typing.List[Record]:
+async def get_all() -> list[Record]:
     query = notes.select()
     return await database.fetch_all(query=query)
 
 
-async def put(note_id: int, payload=NoteResponse) -> typing.Any:
-    created_date = dt.now().strftime("%Y-%m-%d %H:%M")
+async def put(note_id: int, payload: NoteResponse) -> Any:
+    created_date = datetime.now()
     query = (
         notes.update()
         .where(notes.c.id == note_id)
@@ -62,6 +67,6 @@ async def put(note_id: int, payload=NoteResponse) -> typing.Any:
     return await database.execute(query=query)
 
 
-async def delete(note_id: int) -> typing.Any:
+async def delete(note_id: int) -> Any:
     query = notes.delete().where(notes.c.id == note_id)
     return await database.execute(query=query)

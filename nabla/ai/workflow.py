@@ -6,6 +6,7 @@ import pybreaker
 import sentry_sdk
 from dotenv import load_dotenv
 from fastapi import APIRouter
+from fastapi.responses import StreamingResponse
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langgraph.graph import END, START, StateGraph
@@ -105,8 +106,6 @@ class RequestData(BaseModel):
     user_input: str = Field(min_length=1, max_length=500)
 
 
-from fastapi.responses import StreamingResponse
-
 # Build the graph (must follow final answer_question definition)
 workflow = StateGraph(dict)
 workflow.add_node("answer", answer_question)
@@ -118,10 +117,6 @@ graph = workflow.compile()
 @router.post("/run/sse")
 async def run_workflow_sse(data: RequestData):
     """SSE streaming endpoint for chat completion"""
-    import asyncio
-    from contextlib import suppress
-    from langchain_core.messages import SystemMessage, HumanMessage
-
     llm = _get_workflow_llm()
     tools = list(_all_workflow_tools())
     llm_tools = llm.bind_tools(tools)

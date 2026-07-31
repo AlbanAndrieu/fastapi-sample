@@ -1,0 +1,13 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "command": {
+    "fastapi-radar-dashboard": {
+      "template": "Lance le dashboard radar.",
+      "description": "Dashboard radar FastAPI.",
+      "type": "local",
+      "url": "http://localhost:8091/__radar/",
+      "enabled": true,
+      "environment": {}
+    }
+  }
+}

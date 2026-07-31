@@ -6,15 +6,16 @@ import os
 import time
 import warnings
 from datetime import datetime
+from collections.abc import AsyncIterator
 from typing import Any, Dict
 
 import pybreaker
 import pyroscope
 import sentry_sdk
-from ddtrace import config, patch, tracer
-from ddtrace.contrib.trace_utils import set_user
-from ddtrace.profiling import Profiler
-from ddtrace.trace import TraceFilter
+from ddtrace import config, patch
+from ddtrace.contrib.trace_utils import set_user  # pyright: ignore[reportPrivateImportUsage]
+from ddtrace.profiling.profiler import Profiler
+from ddtrace.trace import TraceFilter, tracer
 from fastapi import FastAPI, Request
 from fastapi.concurrency import asynccontextmanager
 from fastapi.openapi.utils import get_openapi
@@ -85,6 +86,7 @@ from nabla.config_settings import (
     APP_VERSION,
     OTLP_GRPC_ENDPOINT,
     SENTRY_DSN,
+    UNLEASH_ENABLED,
     client,
     get_settings,
 )
@@ -109,9 +111,6 @@ warnings.filterwarnings(
     category=PydanticJsonSchemaWarning,
     message=".*non-serializable-default.*",
 )
-
-# Disable Unleash integration if env variable is set to "false"
-UNLEASH_ENABLED = os.getenv("UNLEASH_ENABLED", "False").lower() == "true"
 
 _DD_PROFILING_ENABLED = os.environ.get("DD_PROFILING_ENABLED", "false").lower() in (
     "true",
@@ -158,7 +157,8 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
 # Both fail after 2 consecutive errors and open the circuit for 10 seconds.
 circuit_breaker_web = pybreaker.CircuitBreaker(fail_max=2, reset_timeout=10)
 
-patch(fastapi=True)
+if os.getenv("DD_TRACE_ENABLED", "false").strip().lower() in ("true", "1", "yes"):
+    patch(fastapi=True)
 
 # Override service name
 config.fastapi["service_name"] = APP_NAME
@@ -187,7 +187,7 @@ tracer.configure(trace_processors=[FilterbyName()])
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """background task starts at startup"""
 
     FastAPICache.init(InMemoryBackend())
@@ -200,6 +200,7 @@ async def lifespan(app: FastAPI):
     await init_db_note()
     await init_db_user()
     await init_db_sensor_reading()
+    rag_observer = rag_ingest.setup_rag()
 
     """Start background system monitoring"""
     system_metrics_task = asyncio.create_task(update_system_metrics())
@@ -215,6 +216,9 @@ async def lifespan(app: FastAPI):
     # Cancel the background task on shutdown
     system_metrics_task.cancel()
     event_listener.cancel()
+    await asyncio.gather(system_metrics_task, event_listener, return_exceptions=True)
+    rag_observer.stop()
+    await asyncio.to_thread(rag_observer.join, 5)
 
     if database:
         await database.disconnect()
@@ -230,7 +234,7 @@ async def lifespan(app: FastAPI):
 
 # Combine both lifespans
 @asynccontextmanager
-async def combined_lifespan(app: FastAPI):
+async def combined_lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Run both lifespans
     async with lifespan(app):
         async with mcp_app.lifespan(app):
@@ -242,7 +246,7 @@ def _configure_unleash_feature_middleware(app: FastAPI) -> None:
     if not UNLEASH_ENABLED:
         logger.warning("UNLEASH integration is disabled via UNLEASH_ENABLED env variable.")
 
-    if UNLEASH_ENABLED or client.is_enabled("rate_limiter"):
+    if UNLEASH_ENABLED and client.is_enabled("rate_limiter"):
         app.add_exception_handler(
             RateLimitExceeded,
             lambda r, e: JSONResponse(
@@ -253,10 +257,10 @@ def _configure_unleash_feature_middleware(app: FastAPI) -> None:
     else:
         logger.warning("Feature flag : rate_limiter is not enabled")
 
-    if UNLEASH_ENABLED or client.is_enabled("logging_requests"):
+    if UNLEASH_ENABLED and client.is_enabled("logging_requests"):
         app.add_middleware(LogMiddleware)
 
-    if UNLEASH_ENABLED or client.is_enabled("cors"):
+    if UNLEASH_ENABLED and client.is_enabled("cors"):
         origins = [
             "http://localhost",
             "http://localhost:8080",
@@ -276,7 +280,7 @@ def _configure_unleash_feature_middleware(app: FastAPI) -> None:
     else:
         logger.warning("Feature flag : cors is not enabled")
 
-    if UNLEASH_ENABLED or client.is_enabled("logging_metrics"):
+    if UNLEASH_ENABLED and client.is_enabled("logging_metrics"):
         # Setting metrics middleware
         # PrometheusMiddleware seems not working BUT below metrics_middleware works
         app.add_middleware(
@@ -288,13 +292,28 @@ def _configure_unleash_feature_middleware(app: FastAPI) -> None:
 
 
 # def initialize_api() -> FastAPI:
-def initialize_api(app):
+def initialize_api(app: FastAPI) -> None:
     """
     Initialize the API.
 
     :return: FastAPI
     :raise ValidationError: If there was an issue with the Settings
     """
+
+    # Route de démo pour le compteur sentry
+    import sentry_sdk
+
+    @app.post("/simulate_click")
+    async def simulate_click():
+        sentry_sdk.metrics.count(
+            "button_click",
+            5,
+            attributes={
+                "browser": "Firefox",
+                "app_version": APP_VERSION,
+            },
+        )
+        return {"ok": True, "msg": "Sentry counter incremented"}
 
     _configure_unleash_feature_middleware(app)
 
@@ -324,8 +343,9 @@ def initialize_api(app):
         # instrumentator.add(http_requested_languages_total())
         instrumentator.expose(app=app, include_in_schema=False)
 
-    # Setting OpenTelemetry exporter
-    setting_otlp(app, APP_NAME, OTLP_GRPC_ENDPOINT)
+    # Avoid installing global OpenTelemetry hooks unless explicitly requested.
+    if os.getenv("OTEL_TRACING_ENABLED", "false").strip().lower() in ("true", "1", "yes"):
+        setting_otlp(app, APP_NAME, OTLP_GRPC_ENDPOINT)
 
     # Add prometheus asgi middleware to route /metrics requests
     # metrics_app = make_asgi_app()
@@ -403,11 +423,14 @@ app = FastAPI(
     description="FastAPI Sample for demo",
     version=f"{APP_PREFIX_VERSION}{APP_VERSION}",
     debug=os.getenv("DEBUG", "False").lower() == "true",
-    default_response_class=ORJSONResponse,
+    default_response_class=JSONResponse,
 )
 
-# Initialize RAG ingestion and watcher before routers
-rag_ingest.setup_rag()
+# Monitoring dashboard (FastAPI Radar)
+from fastapi_radar import Radar
+
+radar = Radar(app)
+radar.create_tables()
 
 initialize_api(app)
 
@@ -467,9 +490,10 @@ if get_settings().a2a_enabled:
 @app.middleware("http")
 async def metrics_middleware(request, call_next):
     """
-    🔧 Automatic metrics collection middleware
-    This captures every request without modifying your business logic
+    🔧 Automatic metrics collection middleware (Prometheus & Sentry custom metrics)
     """
+    import sentry_sdk
+
     start_time = time.time()
     INFLIGHT_REQUESTS.inc()
     REQUESTS_IN_PROGRESS.labels(
@@ -482,8 +506,26 @@ async def metrics_middleware(request, call_next):
         path=request.url.path,
         app_name=APP_NAME,
     ).inc()
+
+    # Sentry: page_load distribution for /docs, gauge for /api
+    response = None
     try:
         response = await call_next(request)
+        elapsed_ms = int((time.time() - start_time) * 1000)
+        if request.url.path == "/docs":
+            sentry_sdk.metrics.distribution(
+                "page_load",
+                elapsed_ms,
+                unit="millisecond",
+                attributes={"page": "/docs"},
+            )
+        if request.url.path.startswith("/api"):
+            sentry_sdk.metrics.gauge(
+                "page_load",
+                elapsed_ms,
+                unit="millisecond",
+                attributes={"page": "/api"},
+            )
         RESPONSES.labels(
             method=request.method,
             path=request.url.path,
@@ -566,49 +608,14 @@ def _sentry_integrations() -> list[Any]:
     return integrations
 
 
-sentry_sdk.init(
-    dsn=SENTRY_DSN,
-    # Set traces_sample_rate to 1.0 to capture 100%
-    # of transactions for performance monitoring.
-    # We recommend adjusting this value in production,
-    traces_sample_rate=1.0,
-    # Set profiles_sample_rate to 1.0 to profile 100%
-    # of sampled transactions.
-    # We recommend adjusting this value in production.
-    profiles_sample_rate=1.0,
-    send_default_pii=True,
-    integrations=_sentry_integrations(),
-)
-
-# Record five total button clicks
-sentry_sdk.metrics.count(
-    "button_click",
-    5,
-    attributes={
-        "browser": "Firefox",
-        "app_version": APP_VERSION,
-    },
-)
-
-# Add '15.0' to a distribution used for tracking the loading times per page.
-sentry_sdk.metrics.distribution(
-    "page_load",
-    15.0,
-    unit="millisecond",
-    attributes={
-        "page": "/expertise",
-    },
-)
-
-# Add '15.0' to a gauge used for tracking the loading times for a page.
-sentry_sdk.metrics.gauge(
-    "page_load",
-    15.0,
-    unit="millisecond",
-    attributes={
-        "page": "/cv",
-    },
-)
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        traces_sample_rate=1.0,
+        profiles_sample_rate=1.0,
+        send_default_pii=True,
+        integrations=_sentry_integrations(),
+    )
 
 templates = Jinja2Templates(directory="templates")
 
@@ -630,7 +637,7 @@ if os.getenv("DEBUG"):
             arel.Path("./templates"),
         ],
     )
-    app.add_websocket_route("/hot-reload", route=hot_reload)
+    app.add_websocket_route("/hot-reload", route=hot_reload)  # pyright: ignore[reportArgumentType]
     app.add_event_handler("startup", hot_reload.startup)
     app.add_event_handler("shutdown", hot_reload.shutdown)
     templates.env.globals["DEBUG"] = True
@@ -645,6 +652,7 @@ def dashboard(request: Request):
     session = SessionLocal()
     notes = session.exec(select(Note)).all()
     return templates.TemplateResponse(
+        request,
         "index.html",
         {"request": request, "notes": notes},
     )
@@ -658,7 +666,7 @@ async def favicon():
 
 # Define a resource
 @mcp.resource("config://settings")
-def get_settings() -> str:
+def get_server_configuration() -> str:
     """Get server configuration settings."""
     return "Server Configuration: Version " + APP_VERSION
 

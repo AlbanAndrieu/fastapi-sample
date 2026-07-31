@@ -2,6 +2,8 @@
 	"exclude": ["**/__pycache__", "noxfile.py", ".venv", ".direnv", ".ansible"],
 	"pythonVersion": "3.12",
 	"pythonPlatform": "All",
+	"venvPath": ".",
+	"venv": ".venv",
 	"typeCheckingMode": "standard",
 
 	"reportUnnecessaryTypeIgnoreComment": true,
