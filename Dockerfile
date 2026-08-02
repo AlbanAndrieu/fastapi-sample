@@ -7,7 +7,7 @@ FROM node:${NODE_FULL_VERSION}-bookworm-slim AS node-upstream
 
 # dockerfile_lint - ignore
 # hadolint ignore=DL3007
-FROM python:3.12-slim AS python-base
+FROM python:3.14-slim AS python-base
 
 LABEL name="fastapi-sample" vendor="sample" version="1.2.0" \
  description="Image used by our products to build python\
