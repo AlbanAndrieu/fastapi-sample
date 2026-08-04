@@ -8,13 +8,13 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+env:
+  PYTHON_VERSION: "3.12"
+
 jobs:
   build:
     if: github.actor != 'dependabot[bot]' && github.actor != 'dependabot-preview[bot]'
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.12", "3.13"]
     env:
       JIRA_USER: aandrieu
       JIRA_PASSWORD: XXX
@@ -23,10 +23,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python 3.12
         uses: actions/setup-python@v6
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install pip dependencies
         run: |
