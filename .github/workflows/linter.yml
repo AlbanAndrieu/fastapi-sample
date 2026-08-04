@@ -8,6 +8,8 @@ on:
 permissions:
   contents: read
   statuses: write
+  pull-requests: write
+  issues: write
 
 jobs:
   lint:
@@ -18,6 +20,9 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+
+      - name: Install commitlint runtime dependency
+        run: npm install --no-save --no-package-lock lodash-es
 
       - name: Super-linter
         uses: super-linter/super-linter@v8.7.0
