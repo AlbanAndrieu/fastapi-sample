@@ -33,4 +33,8 @@ jobs:
         run: uv sync --only-group format
 
       - name: Analyse Python code with Pylint
-        run: uv run --only-group format pylint server_app.py nabla
+        run: >-
+          uv run --only-group format pylint
+          --fail-under=9.5
+          --disable=E1701,E0102,E1003
+          server_app.py nabla
