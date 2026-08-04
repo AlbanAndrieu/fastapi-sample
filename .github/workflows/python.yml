@@ -2,32 +2,29 @@
 name: Python package
 
 on:
-  # Trigger analysis when pushing in master or pull requests, and when creating
-  # a pull request.
   push:
     branches:
-      - master
+      - main
   pull_request:
     types: [opened, synchronize, reopened]
 
 jobs:
   build:
-    if: github.actor != 'dependabot[bot]' && github.actor!= 'dependabot-preview[bot]' # ignore the pull request which comes from user dependabot.
+    if: github.actor != 'dependabot[bot]' && github.actor != 'dependabot-preview[bot]'
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.12", "3.13"]
     env:
       JIRA_USER: aandrieu
       JIRA_PASSWORD: XXX
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
-          # Disabling shallow clone is recommended for improving relevancy of reporting
           fetch-depth: 0
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -51,22 +48,10 @@ jobs:
           poetry install
           echo "poetry install DONE"
 
-      # - name: Install pipenv dependencies
-      #   run: |
-      #     pip install virtualenv
-      #     virtualenv venv
-      #     source venv/bin/activate
-      #     python -m pip install --upgrade pip
-      #     python -m pip install pipenv=="2022.6.7"
-      #     python -m pipenv install --dev --ignore-pipfile
-
       - name: Lint with flake8
         run: |
           source venv/bin/activate
-          # stop the build if there are Python syntax errors or undefined names
-          #flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-          flake8 hooks tests  --config .flake8 --count --exit-zero --max-line-length=88 --max-complexity=12 --statistics
-          # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide, but black 88
+          flake8 hooks tests --config .flake8 --count --exit-zero --max-line-length=88 --max-complexity=12 --statistics
           flake8 hooks tests --count --exit-zero --max-line-length=88 --max-complexity=12 --statistics
 
       - name: Lint with pylint
@@ -82,7 +67,6 @@ jobs:
       - name: Test with pytest
         run: |
           source venv/bin/activate
-          # install package is needed for tests/test_package.py
           python3 setup.py install
           echo "setup.py install DONE"
           pytest --cache-clear --setup-show tests/test_package.py
@@ -94,8 +78,8 @@ jobs:
           tox
 
       - name: Upload Test Results to Trunk.io
-        if: ${{ !cancelled() }} # Upload the results even if the tests fail
-        continue-on-error: true # don't fail this job if the upload fails
+        if: ${{ !cancelled() }}
+        continue-on-error: true
         uses: trunk-io/analytics-uploader@v1
         with:
           junit-paths: "**/*.xml"
@@ -103,14 +87,13 @@ jobs:
           token: $TRUNK_API_TOKEN
 
   sonarcloud:
+    if: github.actor != 'dependabot[bot]' && github.actor != 'dependabot-preview[bot]'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
-          # Disabling shallow clone is recommended for improving relevancy of reporting
           fetch-depth: 0
       - name: SonarCloud Scan
-        # You may pin to the exact commit or the version.
         uses: SonarSource/sonarqube-scan-action@v6.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
