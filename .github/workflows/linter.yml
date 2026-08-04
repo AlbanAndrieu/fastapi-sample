@@ -1,20 +1,23 @@
 ---
 name: Lint using super-linter
 
-on: [pull_request]
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  statuses: write
+  pull-requests: write
+  issues: write
 
 jobs:
   lint:
     name: Lint using super-linter
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-      statuses: write
-
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -22,7 +25,10 @@ jobs:
         uses: super-linter/super-linter@v8.7.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEFAULT_BRANCH: main
           IGNORE_GENERATED_FILES: true
           IGNORE_GITIGNORED_FILES: true
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_PYTHON_ISORT: false
+          FILTER_REGEX_EXCLUDE: >-
+            (megalinter-reports/|open-webui/|(^|/)uv\.lock$|(^|/)Pipfile\.lock$|(^|/)trivy-sbom\.json$)

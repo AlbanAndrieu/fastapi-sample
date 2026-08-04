@@ -1,6 +1,4 @@
 ---
-# This workflow will build a Docker image
-
 name: Docker CI
 
 permissions:
@@ -11,97 +9,93 @@ permissions:
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - "**.md"
-  schedule:
-    - cron: 0 6 * * 3
+    paths-ignore: ["**.md"]
   pull_request:
     branches: [main]
-    paths-ignore:
-      - "**.md"
+    paths-ignore: ["**.md"]
+  schedule:
+    - cron: "0 6 * * 3"
 
 env:
-  REPO: ${{ github.event.repository.name }}
-  OWNER: ${{ github.event.repository.owner.login }}
-  ISSUE_NUMBER: ${{ github.event.issue.number }}
-  HEAD_OWNER: ${{ github.event.pull_request.head.repo.owner.login }}
+  IMAGE_NAME: pgclient
 
 jobs:
   build-template:
     name: Build Docker
     runs-on: ubuntu-latest
+    env:
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      READ_NPM_TOKEN: ${{ secrets.READ_NPM_TOKEN }}
+      READ_PACKAGE_TOKEN: ${{ secrets.CI_PIP_GITLABNABLA_TOKEN }}
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v6
-
-      # Runs a single command using the runners shell
-      - name: Install Node.Js
-        uses: actions/setup-node@v7
-        with:
-          node-version: 20
-
-      - name: Install npm package
-        run: npm install -g markdown-toc@latest secretlint@latest
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Login to DockerHub
+      - name: Login to Docker Hub
+        if: github.event_name != 'pull_request' && env.DOCKER_USERNAME != '' && env.DOCKER_PASSWORD != ''
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-          logout: true
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ env.DOCKER_PASSWORD }}
 
-      - name: Login to Github Packages
+      - name: Login to GitHub Container Registry
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-          #password: ${{ secrets.GHCR_PAT }}  # ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push debug
-        run: echo "docker push ${{ env.OWNER }}/pgclient:latest,${{ github.repository }}:${{ github.sha }}"
+      - name: Prepare image metadata and build secrets
+        id: meta
+        shell: bash
+        run: |
+          owner_lc="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "ghcr_tag=ghcr.io/${owner_lc}/${IMAGE_NAME}:latest" >> "$GITHUB_OUTPUT"
+          printf '%s' "${READ_NPM_TOKEN:-not-configured}" > /tmp/read-npm-token
+          printf '%s' "${READ_PACKAGE_TOKEN:-not-configured}" > /tmp/read-package-token
 
-      - name: Build and push
-        id: docker_build
-        uses: docker/build-push-action@v5
+      - name: Build image
+        uses: docker/build-push-action@v6
         with:
-          #context: .
-          #tags: ${{ github.event.repository.name }}/pgclient:latest,${{ env.OWNER }}/pgclient:latest
-          tags: |
-            ${{ env.OWNER }}/pgclient:latest
-            ghcr.io/${{ env.OWNER }}/pgclient:latest
+          context: .
+          tags: ${{ steps.meta.outputs.ghcr_tag }}
           build-args: |
             PG_MAJOR=18
-            BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
-            GIT_SHA=${GITHUB_SHA::8}
-          # build on feature branches, push only on main branch
-          push: ${{ github.ref == 'refs/heads/main' }}
+            GIT_SHA=${{ github.sha }}
+          secret-files: |
+            read-npm-token=/tmp/read-npm-token
+            read-package-token=/tmp/read-package-token
+          load: true
+          push: false
 
-      - name: Image digest
-        run: echo ${{ steps.docker_build.outputs.digest }}
+      - name: Push image to GHCR
+        if: github.event_name != 'pull_request'
+        run: docker push "${{ steps.meta.outputs.ghcr_tag }}"
+
+      - name: Push image to Docker Hub
+        if: github.event_name != 'pull_request' && env.DOCKER_USERNAME != '' && env.DOCKER_PASSWORD != ''
+        shell: bash
+        run: |
+          dockerhub_tag="${DOCKER_USERNAME,,}/${IMAGE_NAME}:latest"
+          docker tag "${{ steps.meta.outputs.ghcr_tag }}" "${dockerhub_tag}"
+          docker push "${dockerhub_tag}"
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: ${{ env.OWNER }}/pgclient:latest
-          format: "template"
-          template: "@/contrib/sarif.tpl"
-          output: "trivy-results.sarif"
-          # format: 'table'
-          # exit-code: '1'
+          image-ref: ${{ steps.meta.outputs.ghcr_tag }}
+          format: sarif
+          output: trivy-results.sarif
           ignore-unfixed: true
-          vuln-type: "os,library"
-          severity: "CRITICAL,HIGH"
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
 
-      - name: Upload Trivy scan results to GitHub Security tab
+      - name: Upload Trivy scan results
+        if: always() && hashFiles('trivy-results.sarif') != ''
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: "trivy-results.sarif"
-
-      - name: Print the GitHub context
-        env:
-          GITHUB_CONTEXT: ${{ toJson(github) }}
-        run: echo "$GITHUB_CONTEXT"
+          sarif_file: trivy-results.sarif
