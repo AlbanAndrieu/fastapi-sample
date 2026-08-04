@@ -1,13 +1,9 @@
 # This is the default gitleaks configuration file.
 # Rules and allowlists are defined within this file.
-# Rules instruct gitleaks on what should be considered a secret.
-# Allowlists instruct gitleaks on what is allowed, i.e. not a secret.
 title = "gitleaks config"
 minVersion = "v8.25.0"
 
 [extend]
-# useDefault will extend the base configuration with the default gitleaks config:
-# https://github.com/zricethezav/gitleaks/blob/master/config/gitleaks.toml
 useDefault = true
 
 [allowlist]
@@ -20,9 +16,8 @@ regexes = [
     '''allow:gitleaks''',
     '''password-reset-XXX''',
     '''sk-1234567890''',
-    '''tg3zLMS/bebJFl0LxctiCw''',  # Vercel data-key: value like  (alphanumeric + slash)
-    # '''data-key=[A-Za-z0-9]+/[A-Za-z0-9+/=]{10,70}$''',
-    ]
+    '''tg3zLMS/bebJFl0LxctiCw''',
+]
 paths = [
     '''gitleaks.toml''',
     '''(.*?)(jpg|gif|doc|docx|zip|xls|pdf|bin|svg|socket|vsidx|v2|suo|wsuo|.dll|pdb|exe)$''',
@@ -30,12 +25,16 @@ paths = [
     '''gradle.lockfile''',
     '''megalinter-reports''',
     '''node_modules''',
+    '''open-webui/''',
     '''.mypy_cache''',
     '''(.*?)gitleaks\.toml$''',
     '''vue-client/node_modules''',
     '''package-lock.json''',
     '''yarn.lock''',
     '''pnpm-lock.yaml''',
+    '''(^|/)uv\.lock$''',
+    '''(^|/)Pipfile\.lock$''',
+    '''(^|/)trivy-sbom\.json$''',
     '''Database.refactorlog''',
     '''vendor/''',
     '''.venv/''',
