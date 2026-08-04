@@ -29,4 +29,4 @@ jobs:
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_PYTHON_ISORT: false
           FILTER_REGEX_EXCLUDE: >-
-            (megalinter-reports/|(^|/)uv\.lock$|(^|/)Pipfile\.lock$|(^|/)trivy-sbom\.json$)
+            (megalinter-reports/|open-webui/|(^|/)uv\.lock$|(^|/)Pipfile\.lock$|(^|/)trivy-sbom\.json$)
