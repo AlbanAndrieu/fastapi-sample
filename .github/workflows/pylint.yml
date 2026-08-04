@@ -30,7 +30,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install lint dependencies
-        run: uv sync --frozen --only-group format
+        run: uv sync --only-group format
 
       - name: Analyse Python code with Pylint
         run: uv run --only-group format pylint server_app.py nabla
