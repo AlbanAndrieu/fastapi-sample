@@ -16,8 +16,8 @@
 		}
 	],
 	"publishConfig": {
-    "registry": "https://gitlab.com/api/v4/projects/60435718/packages/npm/"
-  },
+		"registry": "https://gitlab.com/api/v4/projects/60435718/packages/npm/"
+	},
 	"engines": {
 		"node": ">=24.11.1",
 		"npm": ">=10.8.2",
@@ -116,9 +116,9 @@
 		"opencommit": "node scripts/run-opencommit.mjs"
 	},
 	"files": [
-    "scripts/run-opencommit.mjs",
-    "scripts.js"
-  ],
+		"scripts/run-opencommit.mjs",
+		"scripts.js"
+	],
 	"remarkConfig": {
 		"plugins": [
 			"remark-preset-lint-recommended"

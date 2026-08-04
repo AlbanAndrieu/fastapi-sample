@@ -1,5 +1,5 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.4.12/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.5.0/schema.json",
 	"assist": {
 		"actions": {
 			"source": {
@@ -7,13 +7,22 @@
 			}
 		}
 	},
-	"linter": { "enabled": true, "rules": { "recommended": true } },
+	"linter": { "enabled": true, "rules": { "preset": "recommended" } },
 	"formatter": { "enabled": true, "indentStyle": "tab" },
+	"files": {
+		"includes": [
+			"**",
+			"!templates",
+			"!uv.lock",
+			"!Pipfile.lock",
+			"!trivy-sbom.json"
+		]
+	},
 	"json": { "parser": { "allowComments": true, "allowTrailingCommas": true } },
 	"vcs": {
 		"enabled": true,
 		"clientKind": "git",
 		"useIgnoreFile": true,
-		"defaultBranch": "master"
+		"defaultBranch": "main"
 	}
 }

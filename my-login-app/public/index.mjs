@@ -39,7 +39,7 @@ async function handlePost(request) {
 	// Validate login, redirect user, etc.
 	// For this demo, we just echo the "/siteverify" response:
 	return new Response(
-		"Turnstile token successfully validated. \n" + JSON.stringify(outcome),
+		`Turnstile token successfully validated. \n${JSON.stringify(outcome)}`,
 	);
 }
 

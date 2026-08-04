@@ -1,8 +1,7 @@
 import config from "@commitlint/config-conventional";
-import type { ParserPreset, UserConfig } from "@commitlint/types";
 import createPreset from "conventional-changelog-conventionalcommits";
 
-async function createEmojiParser(): Promise<ParserPreset> {
+async function createEmojiParser() {
 	const emojiRegexPart = Object.values(config.prompt.questions.type.enum)
 		.map((value) => value.emoji.trim())
 		.join("|");
@@ -79,4 +78,4 @@ export default {
 			],
 		],
 	},
-} satisfies UserConfig;
+};

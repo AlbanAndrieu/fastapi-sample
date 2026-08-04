@@ -1,80 +1,80 @@
 {
-  "mcpServers": {
-    "prometheus": {
-      "command": "docker",
-      "args": [
-        "run",
-        "-i",
-        "--rm",
-        "--network",
-        "host",
-        "-e",
-        "PROMETHEUS_URL",
-        "ghcr.io/pab1it0/prometheus-mcp-server:latest"
-      ],
-      "env": {
-        "PROMETHEUS_URL": "http://prometheus.service.gra.prod.consul:9090"
-      }
-    },
-    "grafana-readonly": {
-      "command": "docker",
-      "args": [
-        "run",
-        "--rm",
-        "-i",
-        "-e",
-        "GRAFANA_URL",
-        "-e",
-        "GRAFANA_USERNAME",
-        "-e",
-        "GRAFANA_PASSWORD",
-        "-e",
-        "GRAFANA_ORG_ID",
-        "grafana/mcp-grafana",
-        "-t",
-        "stdio",
-        "-disable-write"
-      ],
-      "env": {
-        "GRAFANA_URL": "http://grafana.service.gra.uat.consul",
-        "GRAFANA_USERNAME": "admin",
-        "GRAFANA_PASSWORD": "${env:GRAFANA_PASSWORD}",
-        "GRAFANA_ORG_ID": "1"
-      }
-    },
+	"mcpServers": {
+		"prometheus": {
+			"command": "docker",
+			"args": [
+				"run",
+				"-i",
+				"--rm",
+				"--network",
+				"host",
+				"-e",
+				"PROMETHEUS_URL",
+				"ghcr.io/pab1it0/prometheus-mcp-server:latest"
+			],
+			"env": {
+				"PROMETHEUS_URL": "http://prometheus.service.gra.prod.consul:9090"
+			}
+		},
+		"grafana-readonly": {
+			"command": "docker",
+			"args": [
+				"run",
+				"--rm",
+				"-i",
+				"-e",
+				"GRAFANA_URL",
+				"-e",
+				"GRAFANA_USERNAME",
+				"-e",
+				"GRAFANA_PASSWORD",
+				"-e",
+				"GRAFANA_ORG_ID",
+				"grafana/mcp-grafana",
+				"-t",
+				"stdio",
+				"-disable-write"
+			],
+			"env": {
+				"GRAFANA_URL": "http://grafana.service.gra.uat.consul",
+				"GRAFANA_USERNAME": "admin",
+				"GRAFANA_PASSWORD": "${env:GRAFANA_PASSWORD}",
+				"GRAFANA_ORG_ID": "1"
+			}
+		},
 		"gitlab-docker": {
-      "command": "docker",
-      "args": [
-        "run",
-        "-i",
-        "--rm",
-        "-e",
-        "GITLAB_API_URL",
-        "-e",
-        "GITLAB_PERSONAL_ACCESS_TOKEN",
-        "mcp/gitlab"
-      ],
-      "env": {
-        "GITLAB_API_URL": "https://gitlab.com/api/v4",
-        "GITLAB_PERSONAL_ACCESS_TOKEN": "${env:GITLAB_PERSONAL_ACCESS_TOKEN}"
-      }
-    },
-    "io.github.github/github-mcp-server": {
-      "type": "stdio",
-      "command": "docker",
-      "args": [
-        "run",
-        "-i",
-        "--rm",
-        "-e",
-        "GITHUB_PERSONAL_ACCESS_TOKEN",
-        "ghcr.io/github/github-mcp-server:0.29.0"
-      ],
-      "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "${env:GITHUB_TOKEN}"
-      },
-      "gallery": "https://api.mcp.github.com",
-      "version": "0.29.0"
-    }
-  }
+			"command": "docker",
+			"args": [
+				"run",
+				"-i",
+				"--rm",
+				"-e",
+				"GITLAB_API_URL",
+				"-e",
+				"GITLAB_PERSONAL_ACCESS_TOKEN",
+				"mcp/gitlab"
+			],
+			"env": {
+				"GITLAB_API_URL": "https://gitlab.com/api/v4",
+				"GITLAB_PERSONAL_ACCESS_TOKEN": "${env:GITLAB_PERSONAL_ACCESS_TOKEN}"
+			}
+		},
+		"io.github.github/github-mcp-server": {
+			"type": "stdio",
+			"command": "docker",
+			"args": [
+				"run",
+				"-i",
+				"--rm",
+				"-e",
+				"GITHUB_PERSONAL_ACCESS_TOKEN",
+				"ghcr.io/github/github-mcp-server:0.29.0"
+			],
+			"env": {
+				"GITHUB_PERSONAL_ACCESS_TOKEN": "${env:GITHUB_TOKEN}"
+			},
+			"gallery": "https://api.mcp.github.com",
+			"version": "0.29.0"
+		}
+	}
 }
