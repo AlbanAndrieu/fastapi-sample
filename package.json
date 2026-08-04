@@ -52,11 +52,11 @@
 	},
 	"dependencies": {
 		"@ai-sdk/openai-compatible": "^2.0.15",
-		"@astrojs/vercel": "^10.0.2",
+		"@astrojs/vercel": "^11.0.4",
 		"@dotenvx/dotenvx": "^1.44.2",
 		"@supabase/supabase-js": "^2.101.1",
 		"@vercel/analytics": "^1.5.0",
-		"dd-trace": "^5.28.0",
+		"dd-trace": "^5.100.0",
 		"mcp-remote": "^0.1.38",
 		"vercel": "^55.0.0"
 	},
