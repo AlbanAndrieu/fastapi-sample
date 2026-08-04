@@ -31,10 +31,8 @@ jobs:
     name: Build Docker
     runs-on: ubuntu-latest
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v6
 
-      # Runs a single command using the runners shell
       - name: Install Node.Js
         uses: actions/setup-node@v4
         with:
@@ -59,7 +57,6 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-          #password: ${{ secrets.GHCR_PAT }}  # ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push debug
         run: echo "docker push ${{ env.OWNER }}/pgclient:latest,${{ github.repository }}:${{ github.sha }}"
@@ -68,8 +65,6 @@ jobs:
         id: docker_build
         uses: docker/build-push-action@v5
         with:
-          #context: .
-          #tags: ${{ github.event.repository.name }}/pgclient:latest,${{ env.OWNER }}/pgclient:latest
           tags: |
             ${{ env.OWNER }}/pgclient:latest
             ghcr.io/${{ env.OWNER }}/pgclient:latest
@@ -77,21 +72,18 @@ jobs:
             PG_MAJOR=18
             BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
             GIT_SHA=${GITHUB_SHA::8}
-          # build on feature branches, push only on main branch
           push: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.OWNER }}/pgclient:latest
           format: "template"
           template: "@/contrib/sarif.tpl"
           output: "trivy-results.sarif"
-          # format: 'table'
-          # exit-code: '1'
           ignore-unfixed: true
           vuln-type: "os,library"
           severity: "CRITICAL,HIGH"
