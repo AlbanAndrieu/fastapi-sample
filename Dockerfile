@@ -207,6 +207,7 @@ CMD ["/code/.venv/bin/uvicorn", "--reload", "server_all:app", "--host", "0.0.0.0
 # `production` image used for runtime
 FROM python-base AS production
 ENV FASTAPI_ENV=production \
+    WEB_CONCURRENCY="1" \
     DATADOG_ENABLED="false" \
     DD_TRACE_ENABLED="false" \
     DD_PROFILING_ENABLED="false" \
@@ -256,7 +257,6 @@ CMD [ \
     "gunicorn", "server_all:app", \
     "-k", "uvicorn_worker.UvicornWorker", \
     "--name", "fastapi-sample", \
-    "--workers", "4", \
     "--threads", "1", \
     "--worker-connections", "1000", \
     "--max-requests", "1000", \
