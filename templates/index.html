@@ -79,7 +79,7 @@
       </div>
     </div>
     <div class="px-4 py-4 sm:px-6">
-      <div hx-ext="sse" sse-connect="/stream/2">
+      <div hx-ext="sse" sse-connect="/stream">
         <!-- Sensor data updater
          hx-trigger="load once" -->
         <div
@@ -107,7 +107,7 @@
     <!-- Detailed time series chart -->
     <!-- HTMX chart data fetcher -->
     <!-- sse-swap="sensor_update"-->
-    <div hx-ext="sse" sse-connect="/stream/2">
+    <div hx-ext="sse" sse-connect="/stream">
       <div id="chart-data" hx-get="/chart-data" hx-target="#chart-data" hx-trigger="sse:sensor_update">
         <div class="flex items-center justify-center py-6 text-[#888888]">
           <div class="loading loading-spinner loading-lg text-[#888888]"></div>
@@ -169,13 +169,21 @@
   </div>
 
   <!-- Charts updater -->
-  <div hx-get="/charts" hx-trigger="load, every 1s" hx-target="#chart-updates" hx-swap="innerHTML">
+  <div hx-get="/charts" hx-trigger="load, every {{ charts_refresh_interval_seconds }}s" hx-target="#chart-updates" hx-swap="innerHTML">
     <div id="chart-updates"></div>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+  const dashboardRefreshSeconds = {{ dashboard_refresh_interval_seconds }};
+  if (dashboardRefreshSeconds > 0) {
+    window.setTimeout(() => window.location.reload(), dashboardRefreshSeconds * 1000);
+  }
+
+  // The server advertises SSE retry timing; this value documents the active stream cadence.
+  document.documentElement.dataset.sseStreamInterval = "{{ sse_stream_interval_seconds }}";
+
   let tempChart, humidityChart, pressureChart;
 
   // Initialize charts
