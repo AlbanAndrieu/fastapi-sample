@@ -1,3 +1,6 @@
+# ruff: noqa: E402 -- Datadog opt-out environment must be set before SDK imports.
+# pylint: disable=wrong-import-position
+
 import argparse
 import asyncio
 import html
@@ -7,11 +10,15 @@ import warnings
 from datetime import datetime
 from typing import Any, Dict
 
-# ddtrace defaults tracing to enabled. Keep Datadog completely opt-in so importing
-# modules that create spans cannot start an exporter against localhost:8126.
-os.environ.setdefault("DD_TRACE_ENABLED", "false")
-os.environ.setdefault("DD_LOGS_INJECTION", "false")
-os.environ.setdefault("DD_PROFILING_ENABLED", "false")
+# Datadog is a separate, explicit application opt-in. Force the SDK off before
+# any application import unless DATADOG_ENABLED is deliberately enabled.
+_DATADOG_ENABLED = os.environ.get("DATADOG_ENABLED", "false").lower() in {"1", "true", "yes"}
+if not _DATADOG_ENABLED:
+    os.environ["DD_TRACE_ENABLED"] = "false"
+    os.environ["DD_LOGS_INJECTION"] = "false"
+    os.environ["DD_PROFILING_ENABLED"] = "false"
+    os.environ["DD_APPSEC_ENABLED"] = "false"
+    os.environ["DD_IAST_ENABLED"] = "false"
 
 import pybreaker
 import pyroscope
@@ -88,7 +95,7 @@ from nabla.config_settings import (
     get_settings,
 )
 from nabla.deepagents import workflow as ai_workflow
-from nabla.utils.log_config import LogMiddleware, setup_logging
+from nabla.utils.log_config import setup_logging
 from nabla.utils.logger import logger
 from nabla.utils.logfire_config import configure_logfire
 from nabla.utils.prometheus import (
@@ -255,9 +262,6 @@ def _configure_unleash_feature_middleware(app: FastAPI) -> None:
         )
     else:
         logger.warning("Feature flag : rate_limiter is not enabled")
-
-    if UNLEASH_ENABLED or client.is_enabled("logging_requests"):
-        app.add_middleware(LogMiddleware)
 
     if UNLEASH_ENABLED or client.is_enabled("cors"):
         origins = [
@@ -516,15 +520,54 @@ async def metrics_middleware(request, call_next):
 @app.middleware("http")
 async def logging_middleware(request, call_next):
     start_time = time.time()
-    response = await call_next(request)
+    try:
+        response = await call_next(request)
+    except Exception:
+        logger.exception(
+            "request_failed",
+            method=request.method,
+            path=request.url.path,
+            duration_seconds=time.time() - start_time,
+        )
+        raise
 
-    logger.info(
-        "request_completed",
-        method=request.method,
-        url=str(request.url),
-        status_code=response.status_code,
-        duration=time.time() - start_time,
+    duration = time.time() - start_time
+    log_fields = {
+        "method": request.method,
+        "path": request.url.path,
+        "status_code": response.status_code,
+        "duration_seconds": duration,
+    }
+    noisy_success_paths = {
+        "/docs",
+        "/docs/oauth2-redirect",
+        "/health",
+        "/healthz",
+        "/logs",
+        "/metrics",
+        "/openapi.json",
+        "/ping",
+        "/redoc",
+        "/sickz",
+        "/stream",
+    }
+    noisy_success_prefixes = (
+        "/llm/",
+        "/logs/",
+        "/stream/",
+        "/v1/mcp/",
     )
+    is_noisy_success = response.status_code < 400 and (
+        request.url.path in noisy_success_paths
+        or request.url.path.startswith(noisy_success_prefixes)
+    )
+
+    if response.status_code >= 500:
+        logger.error("request_completed", **log_fields)
+    elif response.status_code >= 400 or duration >= 2.0:
+        logger.warning("request_completed", **log_fields)
+    elif not is_noisy_success:
+        logger.info("request_completed", **log_fields)
     return response
 
 
@@ -657,6 +700,7 @@ async def get_sickz(request: Request) -> Dict[str, Any]:
 @app.get("/sentry-debug", response_class=JSONResponse)
 async def trigger_error() -> JSONResponse:
     """Send a controlled test error to Sentry without polluting ASGI logs."""
+    event_id = None
     try:
         _ = 1 / 0
     except ZeroDivisionError as exc:

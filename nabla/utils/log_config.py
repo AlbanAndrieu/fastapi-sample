@@ -33,9 +33,9 @@ class JsonBaseFormatter(JsonFormatter):
         :param additional_fields: Besides message, level, and name, (default ones),
         you can add more from this list: https://docs.python.org/3/library/logging.html#logrecord-attributes
         :param additional_rename_fields: Besides the renaming of
-         "name" -> "service_name", "levelname" -> "level",
-         and "exc_info" -> "error_detail"
-          you can add other fields to rename
+        "name" -> "service_name", "levelname" -> "level",
+        and "exc_info" -> "error_detail"
+        you can add other fields to rename
         """
         super(JsonFormatter, self).__init__()
 
@@ -63,32 +63,28 @@ class JsonBaseFormatter(JsonFormatter):
 
     def add_fields(
         self,
-        log_record: dict[str, Any],
+        log_data: dict[str, Any],
         record: logging.LogRecord,
         message_dict: dict[str, Any],
     ) -> None:
         """
         Add and update new fields of the logger.
 
-        :param log_record: The dictionary storing the logs
+        :param log_data: The dictionary storing the logs
         :param record: The LogRecord instance represents an event being logged.
         :param message_dict: A dictionary of messages
         :return: None
         """
-        super().add_fields(
-            log_record=log_record,
-            record=record,
-            message_dict=message_dict,
-        )
-        log_record["timestamp"] = log_record["timestamp"].strftime(
+        super().add_fields(log_data, record, message_dict)
+        log_data["timestamp"] = log_data["timestamp"].strftime(
             "%Y-%m-%dT%H:%M:%S.%fZ",
         )
-        if "exc_info" in log_record:
-            log_record["error_detail"] = log_record.pop("exc_info")
+        if "exc_info" in log_data:
+            log_data["error_detail"] = log_data.pop("exc_info")
 
         # This type of messaged that comes from uvicorn.error is removed
-        if "color_message" in log_record:
-            log_record.pop("color_message")
+        if "color_message" in log_data:
+            log_data.pop("color_message")
 
 
 class JsonRequestFormatter(JsonBaseFormatter):

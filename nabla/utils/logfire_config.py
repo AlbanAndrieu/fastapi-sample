@@ -7,10 +7,17 @@ from typing import Any
 
 from fastapi import FastAPI, Request, WebSocket
 
-from nabla.utils.logger import logger
+from nabla.utils.logger import enable_logfire_processor, logger
 
-LOGFIRE_BASE_URL = "https://logfire-eu.pydantic.dev"
-_EXCLUDED_URLS = r".*/(?:health|healthz|sickz|metrics)(?:\?.*)?$"
+LOGFIRE_BASE_URL = os.getenv(
+    "LOGFIRE_BASE_URL",
+    "https://logfire-eu.pydantic.dev",
+).rstrip("/")
+_EXCLUDED_URLS = (
+    r".*/(?:docs(?:/oauth2-redirect)?|health|healthz|logs(?:/.*)?|metrics|"
+    r"openapi\.json|ping|redoc|sickz|stream(?:/.*)?|llm(?:/.*)?|"
+    r"v1/mcp(?:/.*)?)(?:\?.*)?$"
+)
 
 
 def _discard_request_attributes(
@@ -52,6 +59,7 @@ def configure_logfire(
             excluded_urls=_EXCLUDED_URLS,
             request_attributes_mapper=_discard_request_attributes,
         )
+        enable_logfire_processor(logfire.StructlogProcessor())
     except Exception:
         logger.exception("Logfire configuration failed; application startup will continue")
         return False

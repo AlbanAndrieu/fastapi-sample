@@ -141,7 +141,7 @@ class ChartFactory:
             },
         )
 
-        logger.info("Time series chart created successfully")
+        logger.debug("time_series_chart_created")
         return fig.to_html(include_plotlyjs="cdn", div_id="timeseries-chart")
 
     def create_status_distribution(self, df: pl.DataFrame) -> str:
@@ -180,7 +180,7 @@ class ChartFactory:
         fig.update_yaxes(showgrid=False, zeroline=False)
         fig.update_xaxes(showgrid=False, zeroline=False)
 
-        logger.info("Status distribution chart created successfully")
+        logger.debug("status_distribution_chart_created")
         return fig.to_html(include_plotlyjs="cdn", div_id="status-chart")
 
     def create_correlation_heatmap(self, df: pl.DataFrame) -> str:
@@ -241,7 +241,7 @@ class ChartFactory:
         fig.update_xaxes(**axis_common)
         fig.update_yaxes(**axis_common)
 
-        logger.info("Correlation heatmap created successfully")
+        logger.debug("correlation_heatmap_created")
         return fig.to_html(include_plotlyjs="cdn", div_id="correlation-chart")
 
     def create_anomaly_highlights(self, df: pl.DataFrame, anomalies: List[Dict]) -> str:
@@ -311,7 +311,7 @@ class ChartFactory:
         fig.update_xaxes(**axis_common)
         fig.update_yaxes(**axis_common)
 
-        logger.info("Anomaly detection chart created successfully")
+        logger.debug("anomaly_detection_chart_created")
         return fig.to_html(include_plotlyjs="cdn", div_id="anomaly-chart")
 
     def _create_empty_chart(self, message: str) -> str:
