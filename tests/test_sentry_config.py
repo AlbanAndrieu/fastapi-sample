@@ -3,6 +3,9 @@
 from unittest.mock import Mock
 
 import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.mcp import MCPIntegration
+from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
 from nabla.utils import sentry_config
 
@@ -57,3 +60,54 @@ def test_sentry_enables_logs_without_logfire(monkeypatch) -> None:
     assert kwargs["enable_logs"] is True
     assert kwargs["traces_sample_rate"] == 0.1
     assert kwargs["profiles_sample_rate"] == 0.0
+    assert kwargs["send_default_pii"] is False
+    assert kwargs["sample_rate"] == 1.0
+    assert kwargs["max_breadcrumbs"] == 50
+    assert kwargs["shutdown_timeout"] == 2.0
+
+
+def test_scrubs_sensitive_fields() -> None:
+    event = {
+        "request": {
+            "headers": {"Authorization": "Bearer secret", "accept": "application/json"},
+            "cookies": {"token": "secret"},
+        },
+    }
+
+    scrubbed = sentry_config._before_send(event, {})
+
+    assert scrubbed["request"]["headers"]["Authorization"] == sentry_config._FILTERED_VALUE
+    assert scrubbed["request"]["cookies"]["token"] == sentry_config._FILTERED_VALUE
+    assert event["request"]["headers"]["Authorization"] == "Bearer secret"
+
+
+def test_filters_technical_transactions() -> None:
+    assert (
+        sentry_config._before_send_transaction(
+            {"request": {"url": "https://example.test/metrics?format=openmetrics"}},
+            {},
+        )
+        is None
+    )
+    assert (
+        sentry_config._before_send_transaction(
+            {"transaction": "/healthz"},
+            {},
+        )
+        is None
+    )
+    assert (
+        sentry_config._before_send_transaction(
+            {"request": {"url": "https://example.test/api"}},
+            {},
+        )
+        is not None
+    )
+
+
+def test_core_integrations_are_explicit() -> None:
+    integrations = sentry_config._integrations(include_logging=False)
+
+    assert any(isinstance(item, FastApiIntegration) for item in integrations)
+    assert any(isinstance(item, SqlalchemyIntegration) for item in integrations)
+    assert any(isinstance(item, MCPIntegration) for item in integrations)
