@@ -33,7 +33,10 @@ jobs:
           DEFAULT_BRANCH: main
           IGNORE_GENERATED_FILES: true
           IGNORE_GITIGNORED_FILES: true
+          SAVE_SUPER_LINTER_SUMMARY: true
           VALIDATE_ALL_CODEBASE: false
+          # Ruff is the canonical Python formatter/linter in this repository.
+          VALIDATE_PYTHON_BLACK: false
           VALIDATE_PYTHON_ISORT: false
           VALIDATE_JSCPD: false
           # Repository/image scans run in dedicated workflows; Super-linter's
@@ -41,3 +44,7 @@ jobs:
           VALIDATE_TRIVY: false
           FILTER_REGEX_EXCLUDE: >-
             (report/|megalinter-reports/|open-webui/|(^|/)uv\.lock$|(^|/)Pipfile\.lock$|(^|/)trivy-sbom\.json$)
+          # VS Code and devcontainer files are JSON with comments (JSONC), despite
+          # their .json extension. Biome still validates them as JSONC.
+          JSON_FILTER_REGEX_EXCLUDE: >-
+            (^|/)(\.vscode/|\.devcontainer/)

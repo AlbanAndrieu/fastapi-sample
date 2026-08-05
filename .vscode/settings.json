@@ -139,7 +139,7 @@
       "tools": ["pdflatex"]
     },
     {
-      "name": "pdflatex ➞ bibtex ➞ pdflatex × 2",
+      "name": "pdflatex -> bibtex -> pdflatex x 2",
       "tools": ["pdflatex", "bibtex", "pdflatex", "pdflatex"]
     }
   ],

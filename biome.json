@@ -19,7 +19,10 @@
       "!report"
     ]
   },
-  "json": { "parser": { "allowComments": true, "allowTrailingCommas": true } },
+  "json": {
+    "formatter": { "trailingCommas": "none" },
+    "parser": { "allowComments": true, "allowTrailingCommas": true }
+  },
   "vcs": {
     "enabled": true,
     "clientKind": "git",

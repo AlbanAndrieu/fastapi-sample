@@ -1,6 +1,7 @@
 ---
 useTabs: false
 tabWidth: 2
+trailingComma: none
 overrides:
   - files: "*.md"
     options:

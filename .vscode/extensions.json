@@ -67,11 +67,11 @@
   ],
   // List of extensions recommended by VS Code that should not be recommended for users of this workspace.
   "unwantedRecommendations": [
-    // Superceded by ruff
+    // Superseded by ruff
     "ms-python.black-formatter",
     "ms-python.isort",
     "ms-python.pylint",
-    // Superceded by Pylance
+    // Superseded by Pylance
     "ms-pyright.pyright"
   ]
 }

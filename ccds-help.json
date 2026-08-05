@@ -136,7 +136,7 @@
       {
         "choice": "pipenv",
         "help": {
-          "description": "Manages dependencies and virual environments.",
+          "description": "Manages dependencies and virtual environments.",
           "more_information": "[Docs](https://pipenv.pypa.io/en/latest/)"
         }
       },
