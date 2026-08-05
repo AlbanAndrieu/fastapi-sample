@@ -39,7 +39,8 @@ logger.info("Postgres URL MIGRATION: %s", MIGRATION_DB_URL)
 logger.info(f"Postgres pass: {os.getenv('POSTGRES_PASSWORD')}")
 logger.info(f"Postgres driver: {os.getenv('POSTGRES_DRIVER')}")
 
-patch(sqlalchemy=True)
+if os.environ.get("DD_TRACE_ENABLED", "false").lower() in ("true", "1", "yes"):
+    patch(sqlalchemy=True)
 
 
 def orjson_serializer(obj):
