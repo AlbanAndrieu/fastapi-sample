@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 import time
 import weakref
 from datetime import datetime
@@ -40,6 +41,29 @@ sensor = SensorData()
 chart_factory = ChartFactory()
 
 active_connections: weakref.WeakSet[Any] = weakref.WeakSet()
+
+
+def _bounded_env_int(name: str, default: int, minimum: int, maximum: int) -> int:
+    """Read a bounded integer interval from the environment."""
+    raw_value = os.environ.get(name, str(default))
+    try:
+        value = int(raw_value)
+    except ValueError:
+        logger.warning("invalid_refresh_interval", variable=name, value=raw_value, default=default)
+        return default
+    return max(minimum, min(value, maximum))
+
+
+DASHBOARD_REFRESH_INTERVAL_SECONDS = _bounded_env_int(
+    "DASHBOARD_REFRESH_INTERVAL_SECONDS", 0, 0, 86400
+)
+CHARTS_REFRESH_INTERVAL_SECONDS = _bounded_env_int(
+    "CHARTS_REFRESH_INTERVAL_SECONDS", 10, 1, 3600
+)
+SSE_STREAM_INTERVAL_SECONDS = _bounded_env_int("SSE_STREAM_INTERVAL_SECONDS", 5, 1, 60)
+SSE_RETRY_INTERVAL_MILLISECONDS = _bounded_env_int(
+    "SSE_RETRY_INTERVAL_MILLISECONDS", 5000, 1000, 60000
+)
 
 
 # Performance monitoring
@@ -83,7 +107,15 @@ def dashboard(request: Request):
     """Main dashboard with real-time Plotly charts"""
     metrics.track_request()
     logger.info(f"Dashboard accessed from {request.client.host}")
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(
+        "index.html",
+        {
+            "request": request,
+            "dashboard_refresh_interval_seconds": DASHBOARD_REFRESH_INTERVAL_SECONDS,
+            "charts_refresh_interval_seconds": CHARTS_REFRESH_INTERVAL_SECONDS,
+            "sse_stream_interval_seconds": SSE_STREAM_INTERVAL_SECONDS,
+        },
+    )
 
 
 @router.post("/events")
@@ -95,9 +127,10 @@ async def post_sensor_event(event: SensorEvent, request: Request):
     return {"status": "received", "duration_ms": round(duration * 1000, 2)}
 
 
+@router.get("/stream")
 @router.get("/stream/{interval}")
 # @limiter.limit("100/second")
-async def stream_sensor_data(interval: int = 2):
+async def stream_sensor_data(interval: int = SSE_STREAM_INTERVAL_SECONDS):
     """Stream live sensor data via SSE"""
     metrics.track_connection()
     logger.info("Starting SSE stream for sensor data")
@@ -127,6 +160,7 @@ async def stream_sensor_data(interval: int = 2):
                 # Send to all connected browsers
                 yield {
                     "event": "sensor_update",
+                    "retry": SSE_RETRY_INTERVAL_MILLISECONDS,
                     "data": json.dumps(
                         data,
                         default=serialize_dates,
