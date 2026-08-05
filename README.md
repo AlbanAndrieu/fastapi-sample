@@ -524,7 +524,7 @@ Sentry prefers the self-hosted instance on `localhost:9000` and falls back to
 local project uses different DSN credentials from the cloud project.
 
 ```env
-SENTRY_DSN=https://public-key@organization.ingest.sentry.io/project-id
+SENTRY_DSN=https://11c5d815632831d3274c830441885207@o4505783360356352.ingest.us.sentry.io/4505783364681728
 SENTRY_LOCAL_DSN=http://public-key@localhost:9000/project-id
 SENTRY_ENVIRONMENT=development
 SENTRY_TRACES_SAMPLE_RATE=0.1
@@ -537,12 +537,20 @@ SENTRY_SHUTDOWN_TIMEOUT=2
 When `LOGFIRE_TOKEN` is non-empty, Sentry continues to receive errors but its
 logs, traces, and profiles are disabled to avoid duplicate telemetry.
 
-Both DSN variables default to an empty string. When only `SENTRY_DSN` is set,
-the application derives a local candidate by replacing its host with
+`SENTRY_DSN` defaults to the Sentry Cloud project shown above, while
+`SENTRY_LOCAL_DSN` defaults to an empty string. The application derives a
+local candidate from the cloud DSN by replacing its host with
 `localhost:9000`, preserving the project key and ID; it uses the cloud DSN only
 when that local endpoint is unreachable. Events and logs redact common secrets,
 and performance transactions for `/health`, `/healthz`, `/sickz`, and `/metrics`
 are discarded.
+
+Sentry's native Python SDK is the single exporter for logs and traces. Do not
+also point the application's legacy OTLP exporter at Sentry, because that would
+duplicate telemetry. If a standalone OpenTelemetry Collector is used instead,
+its Sentry OTLP/HTTP endpoints are `/integration/otlp/v1/logs` and
+`/integration/otlp/v1/traces`; keep that exporter disabled whenever
+`LOGFIRE_TOKEN` is non-empty.
 
 ## [Utility scripts](#table-of-contents)
 
