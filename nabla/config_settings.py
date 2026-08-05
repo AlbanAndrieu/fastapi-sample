@@ -366,6 +366,24 @@ class _Settings(BaseSettings):
             validation_alias=AliasChoices("SUPABASE_SERVICE_ROLE_KEY"),
         ),
     ]
+    supabase_publishable_key: Annotated[
+        Optional[SecretStr],
+        BeforeValidator(_unset_empty_env),
+        Field(
+            default=None,
+            description="Publishable API key used by the unprivileged Data API health probe.",
+            validation_alias=AliasChoices("SUPABASE_PUBLISHABLE_KEY", "SUPABASE_KEY"),
+        ),
+    ]
+    supabase_health_table: Annotated[
+        str,
+        Field(
+            default="note",
+            pattern=r"^[A-Za-z_][A-Za-z0-9_]*$",
+            description="RLS-protected public table used for a zero-row Supabase Data API probe.",
+            validation_alias=AliasChoices("SUPABASE_HEALTH_TABLE"),
+        ),
+    ]
     tavily_api_key: Annotated[
         Optional[SecretStr],
         Field(

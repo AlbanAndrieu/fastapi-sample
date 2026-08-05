@@ -142,6 +142,7 @@ def check_postgres_sql(engine: Engine) -> dict[str, Any]:
 
 
 async def check_supabase_http() -> dict[str, Any]:
+    """Probe the Supabase Data API with the least-privileged configured API key."""
     settings = get_settings()
     base_url = (settings.supabase_url or "").strip()
     if not base_url:
@@ -150,20 +151,41 @@ async def check_supabase_http() -> dict[str, Any]:
             "skipped": True,
             "reason": "SUPABASE_URL not configured",
         }
-    health_url = f"{base_url.rstrip('/')}/auth/v1/health"
-    headers: dict[str, str] = {}
-    if settings.supabase_service_role_key is not None:
-        api_key = settings.supabase_service_role_key.get_secret_value().strip()
-        if api_key:
-            headers = {"apikey": api_key, "Authorization": f"Bearer {api_key}"}
+    health_table = getattr(settings, "supabase_health_table", "note")
+    health_url = f"{base_url.rstrip('/')}/rest/v1/{health_table}"
+    publishable_key = getattr(settings, "supabase_publishable_key", None)
+    service_role_key = getattr(settings, "supabase_service_role_key", None)
+    key_source = None
+    api_key = ""
+    if publishable_key is not None:
+        api_key = publishable_key.get_secret_value().strip()
+        key_source = "publishable_key" if api_key else None
+    if not api_key and service_role_key is not None:
+        api_key = service_role_key.get_secret_value().strip()
+        key_source = "service_role_key" if api_key else None
+    if not api_key:
+        return {
+            "reachable": None,
+            "skipped": True,
+            "reason": "SUPABASE_PUBLISHABLE_KEY and SUPABASE_SERVICE_ROLE_KEY are not configured",
+            "probe": "data_api",
+        }
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get(health_url, headers=headers)
+            response = await client.get(
+                health_url,
+                headers={"apikey": api_key, "Accept": "application/json"},
+                params={"select": "id", "limit": "0"},
+            )
     except httpx.HTTPError as exc:
         return {"reachable": False, "error": _normalize_probe_error(str(exc))}
     return {
         "reachable": response.status_code < 400,
         "http_status": response.status_code,
+        "probe": "data_api",
+        "authentication": key_source,
+        "resource": health_table,
+        "path": f"/rest/v1/{health_table}",
     }
 
 

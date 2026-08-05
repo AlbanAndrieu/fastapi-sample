@@ -1018,10 +1018,10 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
             var inner =
                 hrefRaw.length > 0
                     ? '<a class="sickz-target-link" target="_blank" rel="noopener noreferrer" href="' +
-                      sickzEscapeText(hrefRaw) +
-                      '">' +
-                      sickzEscapeText(rowTitle) +
-                      "</a>"
+                        sickzEscapeText(hrefRaw) +
+                        '">' +
+                        sickzEscapeText(rowTitle) +
+                        "</a>"
                     : "<span>" + sickzEscapeText(rowTitle) + "</span>";
             return '<div class="health-row-name health-row-name--sickz">' + lock + inner + "</div>";
         }
@@ -1470,10 +1470,10 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
             const titleLink =
                 safeHref.length > 0
                     ? '<a class="sickz-target-link" target="_blank" rel="noopener noreferrer" href="' +
-                      safeHref +
-                      '">' +
-                      sickzEscapeText(rowName) +
-                      "</a>"
+                        safeHref +
+                        '">' +
+                        sickzEscapeText(rowName) +
+                        "</a>"
                     : "<span>" + sickzEscapeText(rowName) + "</span>";
             return (
                 '<h4 class="sickz-pfsense-title">PfSense</h4>' +
@@ -1583,10 +1583,10 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
                 const titleInner =
                     safeHref.length > 0
                         ? '<a class="sickz-target-link" target="_blank" rel="noopener noreferrer" href="' +
-                          safeHref +
-                          '">' +
-                          sickzEscapeText(rowTitle) +
-                          "</a>"
+                            safeHref +
+                            '">' +
+                            sickzEscapeText(rowTitle) +
+                            "</a>"
                         : "<span>" + sickzEscapeText(rowTitle) + "</span>";
                 li.innerHTML =
                     sickzRowIcon(check, cls) +
@@ -1610,8 +1610,8 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
                     (check.skipped
                         ? "Listed for reference; not probed on this network"
                         : check.alias_results
-                          ? "Equivalent URLs (any alias reachable fails the check)"
-                          : "Must not be reachable") +
+                            ? "Equivalent URLs (any alias reachable fails the check)"
+                            : "Must not be reachable") +
                     "</div>" +
                     "</div>";
                 listEl.appendChild(li);
