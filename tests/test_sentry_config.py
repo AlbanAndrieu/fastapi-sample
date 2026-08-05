@@ -4,7 +4,6 @@ from unittest.mock import Mock
 
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
-from sentry_sdk.integrations.mcp import MCPIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
 from nabla.utils import sentry_config
@@ -127,4 +126,10 @@ def test_core_integrations_are_explicit() -> None:
 
     assert any(isinstance(item, FastApiIntegration) for item in integrations)
     assert any(isinstance(item, SqlalchemyIntegration) for item in integrations)
-    assert any(isinstance(item, MCPIntegration) for item in integrations)
+    assert not any(type(item).__name__ == "MCPIntegration" for item in integrations)
+
+
+def test_ai_integrations_are_opt_in() -> None:
+    integrations = sentry_config._integrations(include_logging=False, include_ai=True)
+
+    assert any(type(item).__name__ == "MCPIntegration" for item in integrations)
