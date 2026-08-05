@@ -2545,6 +2545,7 @@ dependencies = [
     { name = "botocore" },
     { name = "fastapi", extra = ["standard"] },
     { name = "litellm" },
+    { name = "logfire", extra = ["fastapi"] },
     { name = "ollama" },
     { name = "sentry-sdk" },
     { name = "tavily-python" },
@@ -2652,7 +2653,6 @@ api-tracing = [
     { name = "fastapi-mail" },
     { name = "fastapi-users", extra = ["sqlalchemy"] },
     { name = "fastmcp" },
-    { name = "logfire" },
     { name = "mcp" },
     { name = "pyroscope-io" },
     { name = "sentry-sdk", extra = ["fastapi"] },
@@ -2744,7 +2744,6 @@ dev = [
     { name = "langgraph" },
     { name = "litellm" },
     { name = "locust" },
-    { name = "logfire" },
     { name = "mcp" },
     { name = "mypy" },
     { name = "nox" },
@@ -2938,6 +2937,7 @@ requires-dist = [
     { name = "botocore", specifier = ">=1.43.0" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.128.0" },
     { name = "litellm", specifier = ">=1.83.0" },
+    { name = "logfire", extras = ["fastapi"], specifier = ">=4.2.0" },
     { name = "ollama", specifier = ">=0.6.2" },
     { name = "sentry-sdk", specifier = ">=2.44.0" },
     { name = "tavily-python", specifier = ">=0.7.23" },
@@ -3044,7 +3044,6 @@ api-tracing = [
     { name = "fastapi-mail", specifier = ">=1.5.0" },
     { name = "fastapi-users", extras = ["sqlalchemy"], specifier = ">=14.0.1" },
     { name = "fastmcp", specifier = ">=2.12.2" },
-    { name = "logfire", specifier = ">=4.2.0" },
     { name = "mcp", specifier = ">=1.0" },
     { name = "pyroscope-io", specifier = ">=0.8.5" },
     { name = "sentry-sdk", extras = ["fastapi"] },
@@ -3132,7 +3131,6 @@ dev = [
     { name = "langgraph", specifier = ">=0.6.6" },
     { name = "litellm", specifier = ">=1.83.0" },
     { name = "locust", specifier = ">=2.18.3" },
-    { name = "logfire", specifier = ">=4.2.0" },
     { name = "mcp", specifier = ">=1.0" },
     { name = "mypy", specifier = ">=1.16.0" },
     { name = "nox", specifier = ">=2023.4.22" },
@@ -5521,6 +5519,11 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/81/a6/6cbd7064d7ab120fbdd72ca1a218b3fa3343a5f1f0733fcfa34d43333aaf/logfire-4.34.0.tar.gz", hash = "sha256:d88bb04f26a5ae0064d36eeb0fca5413599f0e2d068d629bcab25993ff405e25", size = 1144711, upload-time = "2026-05-26T18:09:51.81Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/de/04/a386debccf1e91575dda55fa07b96f8309fc544833d7eec24b69869278f9/logfire-4.34.0-py3-none-any.whl", hash = "sha256:b9d9fc71aec184b28c29a9a9e280c954a3ea52c399f1d7b95ce82bff6b177364", size = 344385, upload-time = "2026-05-26T18:09:48.436Z" },
+]
+
+[package.optional-dependencies]
+fastapi = [
+    { name = "opentelemetry-instrumentation-fastapi" },
 ]
 
 [[package]]
