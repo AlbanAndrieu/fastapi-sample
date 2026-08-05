@@ -79,6 +79,8 @@ from nabla.config_settings import (
     APP_NAME,
     APP_PREFIX_VERSION,
     APP_VERSION,
+    DD_TRACE_ENABLED,
+    OTEL_SDK_DISABLED,
     OTLP_GRPC_ENDPOINT,
     SENTRY_DSN,
     client,
@@ -109,7 +111,7 @@ warnings.filterwarnings(
 # Disable Unleash integration if env variable is set to "false"
 UNLEASH_ENABLED = os.getenv("UNLEASH_ENABLED", "False").lower() == "true"
 
-_DD_PROFILING_ENABLED = os.environ.get("DD_PROFILING_ENABLED", "false").lower() in (
+_DD_PROFILING_ENABLED = DD_TRACE_ENABLED and os.environ.get("DD_PROFILING_ENABLED", "false").lower() in (
     "true",
     "1",
     "yes",
@@ -154,10 +156,11 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
 # Both fail after 2 consecutive errors and open the circuit for 10 seconds.
 circuit_breaker_web = pybreaker.CircuitBreaker(fail_max=2, reset_timeout=10)
 
-patch(fastapi=True)
+if DD_TRACE_ENABLED:
+    patch(fastapi=True)
 
-# Override service name
-config.fastapi["service_name"] = APP_NAME
+    # Override service name
+    config.fastapi["service_name"] = APP_NAME
 
 # Override request span name
 # config.fastapi["request_span_name"] = APP_NAME + "-request-span-name"
@@ -179,7 +182,8 @@ class FilterbyName(TraceFilter):
         return trace
 
 
-tracer.configure(trace_processors=[FilterbyName()])
+if DD_TRACE_ENABLED:
+    tracer.configure(trace_processors=[FilterbyName()])
 
 
 @asynccontextmanager
@@ -320,8 +324,11 @@ def initialize_api(app):
         # instrumentator.add(http_requested_languages_total())
         instrumentator.expose(app=app, include_in_schema=False)
 
-    # Setting OpenTelemetry exporter
-    setting_otlp(app, APP_NAME, OTLP_GRPC_ENDPOINT)
+    # Export OpenTelemetry only when explicitly enabled and configured.
+    if not OTEL_SDK_DISABLED and OTLP_GRPC_ENDPOINT:
+        setting_otlp(app, APP_NAME, OTLP_GRPC_ENDPOINT)
+    elif not OTEL_SDK_DISABLED:
+        logger.warning("OpenTelemetry enabled without OTLP_GRPC_ENDPOINT; exporter skipped")
 
     # Add prometheus asgi middleware to route /metrics requests
     # metrics_app = make_asgi_app()
