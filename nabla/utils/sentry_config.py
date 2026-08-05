@@ -21,6 +21,7 @@ from nabla._version import get_versions
 
 _logger = logging.getLogger(__name__)
 _DEFAULT_LOCAL_SENTRY_PORT = 9000
+DEFAULT_SENTRY_DSN = "https://11c5d815632831d3274c830441885207@o4505783360356352.ingest.us.sentry.io/4505783364681728"
 _FILTERED_VALUE = "[Filtered]"
 _SENSITIVE_KEYS = frozenset(
     {
@@ -81,7 +82,7 @@ def sentry_dsn_is_reachable(dsn: str, *, timeout: float = 0.25) -> bool:
 def select_sentry_dsn(env: Mapping[str, str] | None = None) -> tuple[str, str]:
     """Prefer reachable self-hosted Sentry, then fall back to the cloud DSN."""
     values = os.environ if env is None else env
-    cloud_dsn = values.get("SENTRY_DSN", "").strip()
+    cloud_dsn = values.get("SENTRY_DSN", DEFAULT_SENTRY_DSN).strip()
     local_dsn = values.get("SENTRY_LOCAL_DSN", "").strip() or _derived_local_dsn(cloud_dsn)
 
     if local_dsn and sentry_dsn_is_reachable(local_dsn):
