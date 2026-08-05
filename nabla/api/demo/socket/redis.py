@@ -3,7 +3,6 @@ from typing import Any
 
 from fastapi import APIRouter
 from redis.asyncio import Redis
-from redis.exceptions import ConnectionError as RedisConnectionError
 
 from nabla.api.demo.socket.ws_manager import manager
 from nabla.config_settings import REDIS_URL
@@ -37,19 +36,13 @@ REDIS_AUTH = os.environ.get("REDIS_AUTH", "")
 
 
 def get_redis_client(url: str) -> Redis | None:
-    try:
-        redis_client = Redis.from_url(
-            url,
-            password=REDIS_AUTH,
-            decode_responses=True,  # Decode responses to UTF-8, if needed
-        )
-        # Ping the server to check the connection
-        response = redis_client.ping()
-        print(f"Connected to Redis. Server responded with: {response}")
-        return redis_client
-    except RedisConnectionError as e:
-        print(f"Unable to connect to Redis: {e}")
-        return None
+    """Create the async client; connectivity is checked by the health probe."""
+    return Redis.from_url(
+        url,
+        password=REDIS_AUTH or None,
+        decode_responses=True,
+        max_connections=int(os.environ.get("REDIS_MAX_CONNECTIONS", "10")),
+    )
 
 
 redis_client = get_redis_client(REDIS_URL)
@@ -66,8 +59,13 @@ async def publish_event(channel: str = REDIS_EVENT_CHANNEL, event: Any = None):
 
 
 async def start_event_listener(channel: str = REDIS_EVENT_CHANNEL):
+    if redis is None:
+        return
     pubsub = redis.pubsub()
-    await pubsub.subscribe(channel)
-    async for message in pubsub.listen():
-        if message["type"] == "message":
-            await manager.broadcast(message["data"])
+    try:
+        await pubsub.subscribe(channel)
+        async for message in pubsub.listen():
+            if message["type"] == "message":
+                await manager.broadcast(message["data"])
+    finally:
+        await pubsub.aclose()
