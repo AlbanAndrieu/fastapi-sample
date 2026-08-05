@@ -538,8 +538,29 @@ async def logging_middleware(request, call_next):
         "status_code": response.status_code,
         "duration_seconds": duration,
     }
-    noisy_success_paths = {"/health", "/healthz", "/sickz", "/metrics"}
-    is_noisy_success = response.status_code < 400 and (request.url.path in noisy_success_paths or request.url.path.startswith("/stream/"))
+    noisy_success_paths = {
+        "/docs",
+        "/docs/oauth2-redirect",
+        "/health",
+        "/healthz",
+        "/logs",
+        "/metrics",
+        "/openapi.json",
+        "/ping",
+        "/redoc",
+        "/sickz",
+        "/stream",
+    }
+    noisy_success_prefixes = (
+        "/llm/",
+        "/logs/",
+        "/stream/",
+        "/v1/mcp/",
+    )
+    is_noisy_success = response.status_code < 400 and (
+        request.url.path in noisy_success_paths
+        or request.url.path.startswith(noisy_success_prefixes)
+    )
 
     if response.status_code >= 500:
         logger.error("request_completed", **log_fields)
