@@ -1,5 +1,5 @@
 #!/bin/bash
-case "${OSTYP}E" in
+case "${OSTYPE}" in
 linux*) export SYSTEM=LINUX;;
 darwin*) export SYSTEM=OSX;;
 win*) export SYSTEM=Windows;;
@@ -12,20 +12,22 @@ esac
 echo "SYSTEM : ${SYSTEM}"
 if [ -f /etc/os-release ];then
   . /etc/os-release
-  OS=$NAME
-  VER=$VERSION_ID
+  OS=${NAME}
+  VER=${VERSION_ID}
 elif type lsb_release > /dev/null 2>&1;then
   OS=$(lsb_release -si)
   VER=$(lsb_release -sr)
 elif [ -f /etc/lsb-release ];then
+  # shellcheck source=/dev/null
   . /etc/lsb-release
-  OS=$DISTRIB_ID
-  VER=$DISTRIB_RELEASE
+  OS=${DISTRIB_ID}
+  VER=${DISTRIB_RELEASE}
 elif [ -f /etc/debian_version ];then
   OS=Debian
   VER=$(cat /etc/debian_version)
 elif [ -f /etc/SuSe-release ];then
-  ...
+  OS=SuSE
+  VER=$(uname -r)
 elif [ -f /etc/redhat-release ];then
   OS=$(uname -s)
   VER=$(uname -r)

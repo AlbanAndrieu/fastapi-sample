@@ -38,16 +38,16 @@
       "extractVersion": "^release-(?<version>\\d+)/$"
     },
     {
-      "packageNames": ["colorama"],
-      "schedule": "before 5am every wednesday"
+      "matchPackageNames": ["colorama"],
+      "schedule": "before 5am on wednesday"
     },
     {
-      "packagePatterns": ["^jira.*"],
+      "matchPackageNames": ["/^jira.*/"],
       "groupName": "jira",
       "automerge": true
     },
     {
-      "packagePatterns": ["^cryptography.*"],
+      "matchPackageNames": ["/^cryptography.*/"],
       "groupName": "cryptography",
       "automerge": true
     }

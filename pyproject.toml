@@ -566,4 +566,4 @@ entrypoint = "nabla.main:app"
 # Ref: https://github.com/codespell-project/codespell#using-a-config-file
 skip = '.git*,*.svg,*.lock'
 check-hidden = true
-ignore-words-list = 'asend'
+ignore-words-list = 'asend,sav'

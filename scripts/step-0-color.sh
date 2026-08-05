@@ -1,6 +1,6 @@
 #!/bin/bash
 NO_COLOR=${NO_COLOR:-false}
-if [ "$NO_COLOR"   == "false" ];then
+if [ "${NO_COLOR}" == "false" ];then
   export bold="\033[01m"
   export underline="\033[04m"
   export blink="\033[05m"

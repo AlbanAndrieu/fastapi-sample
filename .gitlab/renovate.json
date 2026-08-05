@@ -60,7 +60,7 @@
     {
       "customType": "regex",
       "description": "Update docker references in gitlab variables",
-      "fileMatch": ["\\.gitlab-ci\\.yml$"],
+      "managerFilePatterns": ["/\\.gitlab-ci\\.yml$/"],
       "matchStrings": [
         "CI_RENOVATE_IMAGE[A-Z_]*\\s*:\\s*(?<depName>[^:]+?):(?<currentValue>[a-z0-9.-]+)(?:@(?<currentDigest>sha256:[a-f0-9]+))?"
       ],
@@ -70,7 +70,7 @@
     {
       "customType": "regex",
       "description": "Update renovate-runner references",
-      "fileMatch": ["^README\\.md$"],
+      "managerFilePatterns": ["/^README\\.md$/"],
       "matchStrings": [
         "\\s+- remote: https://gitlab\\.com/renovate-bot/renovate-runner/-/raw/(?<currentValue>v[0-9.]+)/",
         "\\s+ref: (?<currentValue>v[0-9.]+)\\s+",
@@ -83,7 +83,7 @@
     }
   ],
   "gitlabci": {
-    "fileMatch": ["\\.gitlab-ci\\.yml$"],
+    "managerFilePatterns": ["/\\.gitlab-ci\\.yml$/"],
     "pinDigests": true
   }
 }
