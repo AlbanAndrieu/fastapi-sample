@@ -25,6 +25,9 @@ jobs:
       KEYCLOAK_CLIENT_ID: test
       KEYCLOAK_CLIENT_SECRET: test-secret
       METRICS_ENABLED: "false"
+      LOGFIRE_ENABLED: "false"
+      LOGFIRE_ENVIRONMENT: test
+      LOGFIRE_TOKEN: ""
       SENTRY_ENABLED: "false"
       SENTRY_DSN: ""
       SENTRY_ENVIRONMENT: test

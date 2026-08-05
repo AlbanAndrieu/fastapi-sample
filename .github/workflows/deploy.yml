@@ -24,6 +24,9 @@ jobs:
       KEYCLOAK_REALM: test
       KEYCLOAK_SERVER_URL: http://localhost:8080
       METRICS_ENABLED: "false"
+      LOGFIRE_ENABLED: "false"
+      LOGFIRE_ENVIRONMENT: test
+      LOGFIRE_TOKEN: ""
       PYTHON_VERSION: "3.12"
       SENTRY_ENABLED: "false"
       SENTRY_DSN: ""

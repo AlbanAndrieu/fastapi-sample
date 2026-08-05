@@ -23,9 +23,9 @@ _EXCLUDED_URLS = (
 def _discard_request_attributes(
     _request: Request | WebSocket,
     _attributes: Mapping[str, Any],
-) -> None:
+) -> dict[str, Any]:
     """Avoid recording validated request values or validation inputs."""
-    return None
+    return {}
 
 
 def configure_logfire(
@@ -35,6 +35,11 @@ def configure_logfire(
     service_version: str,
 ) -> bool:
     """Configure Logfire when a write token is present without blocking startup."""
+    enabled = os.getenv("LOGFIRE_ENABLED", "true").strip().lower()
+    if enabled in {"0", "false", "no", "off"}:
+        logger.info("Logfire disabled by LOGFIRE_ENABLED")
+        return False
+
     token = os.getenv("LOGFIRE_TOKEN", "").strip()
     if not token:
         logger.info("Logfire disabled: LOGFIRE_TOKEN is not configured")

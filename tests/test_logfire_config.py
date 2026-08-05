@@ -9,6 +9,7 @@ from nabla.utils.logfire_config import LOGFIRE_BASE_URL, configure_logfire
 
 @pytest.mark.parametrize("token", [None, "", "   "])
 def test_logfire_is_disabled_without_token(monkeypatch, token):
+    monkeypatch.setenv("LOGFIRE_ENABLED", "true")
     if token is None:
         monkeypatch.delenv("LOGFIRE_TOKEN", raising=False)
     else:
@@ -20,7 +21,18 @@ def test_logfire_is_disabled_without_token(monkeypatch, token):
     load_sdk.assert_not_called()
 
 
+def test_logfire_is_disabled_explicitly_during_pytest(monkeypatch):
+    monkeypatch.setenv("LOGFIRE_ENABLED", "false")
+    monkeypatch.setenv("LOGFIRE_TOKEN", "test-token")
+    load_sdk = MagicMock()
+    monkeypatch.setattr("nabla.utils.logfire_config.import_module", load_sdk)
+
+    assert not configure_logfire(MagicMock(), service_name="test", service_version="1")
+    load_sdk.assert_not_called()
+
+
 def test_logfire_uses_eu_project_token_without_request_data(monkeypatch):
+    monkeypatch.setenv("LOGFIRE_ENABLED", "true")
     monkeypatch.setenv("LOGFIRE_TOKEN", "test-token")
     monkeypatch.setenv("LOGFIRE_ENVIRONMENT", "test")
     configure = MagicMock()
@@ -54,16 +66,14 @@ def test_logfire_uses_eu_project_token_without_request_data(monkeypatch):
     assert "health" in instrumentation_options["excluded_urls"]
     assert "openapi" in instrumentation_options["excluded_urls"]
     assert "v1/mcp" in instrumentation_options["excluded_urls"]
-    assert (
-        instrumentation_options["request_attributes_mapper"](
-            MagicMock(),
-            {"values": {"field": object()}},
-        )
-        is None
-    )
+    assert instrumentation_options["request_attributes_mapper"](
+        MagicMock(),
+        {"values": {"field": object()}},
+    ) == {}
 
 
 def test_logfire_failure_does_not_block_startup(monkeypatch):
+    monkeypatch.setenv("LOGFIRE_ENABLED", "true")
     monkeypatch.setenv("LOGFIRE_TOKEN", "invalid-token")
     logfire = SimpleNamespace(
         AdvancedOptions=MagicMock(),
