@@ -7,6 +7,12 @@ import warnings
 from datetime import datetime
 from typing import Any, Dict
 
+# ddtrace defaults tracing to enabled. Keep Datadog completely opt-in so importing
+# modules that create spans cannot start an exporter against localhost:8126.
+os.environ.setdefault("DD_TRACE_ENABLED", "false")
+os.environ.setdefault("DD_LOGS_INJECTION", "false")
+os.environ.setdefault("DD_PROFILING_ENABLED", "false")
+
 import pybreaker
 import pyroscope
 from ddtrace import config, patch, tracer
