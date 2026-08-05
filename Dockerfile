@@ -206,7 +206,13 @@ CMD ["/code/.venv/bin/uvicorn", "--reload", "server_all:app", "--host", "0.0.0.0
 
 # `production` image used for runtime
 FROM python-base AS production
-ENV FASTAPI_ENV=production
+ENV FASTAPI_ENV=production \
+    DATADOG_ENABLED="false" \
+    DD_TRACE_ENABLED="false" \
+    DD_PROFILING_ENABLED="false" \
+    DD_LOGS_INJECTION="false" \
+    DD_APPSEC_ENABLED="false" \
+    DD_IAST_ENABLED="false"
 
 ARG NODE_FULL_VERSION=24.11.1
 ENV NODE_OPTIONS="--openssl-legacy-provider"
