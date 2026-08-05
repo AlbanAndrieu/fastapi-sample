@@ -5,10 +5,22 @@ on:
     types:
       - published
 
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
 jobs:
   build:
     name: Build and publish new release
     runs-on: "ubuntu-latest"
+    permissions:
+      contents: read
+      id-token: write # Required for PyPI Trusted Publishing (OIDC).
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
 
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -24,6 +36,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
+          enable-cache: false
           version: "0.12.1"
 
       - name: Check that versions match
@@ -32,7 +45,6 @@ jobs:
           uv run python scripts/check_versions.py
           PACKAGE_VERSION=$(uv run python -c \
             "from nabla import __version__; print(__version__)")
-          RELEASE_TAG="${{ github.event.release.tag_name }}"
           RELEASE_VERSION="${RELEASE_TAG#v}"
           test "${RELEASE_VERSION}" = "${PACKAGE_VERSION}"
           echo "major_minor_version=v${PACKAGE_VERSION%.*}" >> "${GITHUB_OUTPUT}"
@@ -41,16 +53,12 @@ jobs:
         run: uv build
 
       - name: Publish to Test PyPI
-        uses: pypa/gh-action-pypi-publish@v1.3.0
+        uses: pypa/gh-action-pypi-publish@106e0b0b7c337fa67ed433972f777c6357f78598 # v1.13.0
         with:
-          user: ${{ secrets.PYPI_TEST_USERNAME }}
-          password: ${{ secrets.PYPI_TEST_PASSWORD }}
           repository_url: https://test.pypi.org/legacy/
           skip_existing: true
 
       - name: Publish to Production PyPI
-        uses: pypa/gh-action-pypi-publish@v1.3.0
+        uses: pypa/gh-action-pypi-publish@106e0b0b7c337fa67ed433972f777c6357f78598 # v1.13.0
         with:
-          user: ${{ secrets.PYPI_PROD_USERNAME }}
-          password: ${{ secrets.PYPI_PROD_PASSWORD }}
           skip_existing: false

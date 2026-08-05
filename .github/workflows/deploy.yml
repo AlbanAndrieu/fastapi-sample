@@ -25,6 +25,10 @@ jobs:
       KEYCLOAK_SERVER_URL: http://localhost:8080
       METRICS_ENABLED: "false"
       PYTHON_VERSION: "3.12"
+      SENTRY_ENABLED: "false"
+      SENTRY_DSN: ""
+      SENTRY_ENVIRONMENT: test
+      SENTRY_RELEASE: ci-${{ github.sha }}
 
     steps:
       - name: Checkout repository
