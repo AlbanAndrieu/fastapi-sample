@@ -5,7 +5,7 @@
   "branchVersion": "^1.2.3",
   "branchPattern": "1.2.*",
   "version": "1.2.3",
-  "author": "Alban Andrieu <alban.andrieu@free.fr> (http://dr-alban.com)",
+  "author": "Alban Andrieu <alban.andrieu@free.fr> (http://albanandrieu.com)",
   "main": "scripts.js",
   "type": "module",
   "license": "MIT",
