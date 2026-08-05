@@ -529,10 +529,20 @@ SENTRY_LOCAL_DSN=http://public-key@localhost:9000/project-id
 SENTRY_ENVIRONMENT=development
 SENTRY_TRACES_SAMPLE_RATE=0.1
 SENTRY_PROFILES_SAMPLE_RATE=0.0
+SENTRY_ERROR_SAMPLE_RATE=1.0
+SENTRY_MAX_BREADCRUMBS=50
+SENTRY_SHUTDOWN_TIMEOUT=2
 ```
 
 When `LOGFIRE_TOKEN` is non-empty, Sentry continues to receive errors but its
 logs, traces, and profiles are disabled to avoid duplicate telemetry.
+
+Both DSN variables default to an empty string. When only `SENTRY_DSN` is set,
+the application derives a local candidate by replacing its host with
+`localhost:9000`, preserving the project key and ID; it uses the cloud DSN only
+when that local endpoint is unreachable. Events and logs redact common secrets,
+and performance transactions for `/health`, `/healthz`, `/sickz`, and `/metrics`
+are discarded.
 
 ## [Utility scripts](#table-of-contents)
 
