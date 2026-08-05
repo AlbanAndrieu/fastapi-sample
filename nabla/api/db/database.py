@@ -57,6 +57,7 @@ db_pool = psycopg_pool.ConnectionPool(
     min_size=0,
     max_size=1,
     max_idle=5,
+    kwargs={"prepare_threshold": None},
 )
 
 # db_async_pool = psycopg_pool.AsyncConnectionPool(
