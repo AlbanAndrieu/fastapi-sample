@@ -91,7 +91,7 @@ jobs:
           docker push "${dockerhub_tag}"
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: ${{ steps.meta.outputs.ghcr_tag }}
           format: sarif
@@ -102,6 +102,6 @@ jobs:
 
       - name: Upload Trivy scan results
         if: always() && hashFiles('trivy-results.sarif') != ''
-        uses: github/codeql-action/upload-sarif@c3400c2f38909e0dcf3c3a41f2030a8217be5d3e # v3
+        uses: github/codeql-action/upload-sarif@c4dd10e44af883a891fe31ced449bcb4a6728b9b # v3.37.6
         with:
           sarif_file: trivy-results.sarif

@@ -63,7 +63,7 @@ charset = utf-8
 
 # Keep JavaScript, TypeScript and JSON aligned with Biome and Prettier.
 [*.{js,mjs,ts,json,jsonc}]
-indent_style = tab
+indent_style = space
 indent_size = 2
 
 # Python follows PEP 8 indentation.

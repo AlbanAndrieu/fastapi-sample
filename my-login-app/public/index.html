@@ -1,49 +1,49 @@
 <!doctype html>
 <html lang="en">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>Hello, World!</title>
-	</head>
-	<body>
-		<h1 id="heading">Loading…</h1>
-		<p>This page comes from a static asset stored at `public/index.html` as configured in `wrangler.jsonc`.</p>
-		<button id="button" type="button">Fetch a random UUID</button>
-		<output id="random" for="button"></output>
-		<script>
-			fetch("/v1/message")
-				.then((resp) => resp.text())
-				.then((text) => {
-					const h1 = document.getElementById("heading");
-					h1.textContent = text;
-				});
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hello, World!</title>
+  </head>
+  <body>
+    <h1 id="heading">Loading…</h1>
+    <p>This page comes from a static asset stored at `public/index.html` as configured in `wrangler.jsonc`.</p>
+    <button id="button" type="button">Fetch a random UUID</button>
+    <output id="random" for="button"></output>
+    <script>
+      fetch("/v1/message")
+        .then((resp) => resp.text())
+        .then((text) => {
+          const h1 = document.getElementById("heading");
+          h1.textContent = text;
+        });
 
-			const button = document.getElementById("button");
-			button.addEventListener("click", () => {
-				fetch("/v1/random")
-					.then((resp) => resp.text())
-					.then((text) => {
-						const random = document.getElementById("random");
-						random.textContent = text;
-					});
-			});
-		</script>
-		<h2>Application Version</h2>
-		<p>Current version: <span id="version">Loading...</span></p>
-		<script>
-			fetch("/v2/version")
-				.then((response) => {
-					if (!response.ok) throw new Error("Network response was not ok");
-					return response.json();
-				})
-				.then((data) => {
-					document.getElementById("version").textContent = data.version;
-				})
-				.catch((error) => {
-					document.getElementById("version").textContent = "Error loading version";
-					console.error("Fetch error:", error);
-				});
-		</script>
-		<p class="mt-5 mb-3 text-muted">Go to the <a href="/implicit">implicit render demo</a></p>
-	</body>
+      const button = document.getElementById("button");
+      button.addEventListener("click", () => {
+        fetch("/v1/random")
+          .then((resp) => resp.text())
+          .then((text) => {
+            const random = document.getElementById("random");
+            random.textContent = text;
+          });
+      });
+    </script>
+    <h2>Application Version</h2>
+    <p>Current version: <span id="version">Loading...</span></p>
+    <script>
+      fetch("/v2/version")
+        .then((response) => {
+          if (!response.ok) throw new Error("Network response was not ok");
+          return response.json();
+        })
+        .then((data) => {
+          document.getElementById("version").textContent = data.version;
+        })
+        .catch((error) => {
+          document.getElementById("version").textContent = "Error loading version";
+          console.error("Fetch error:", error);
+        });
+    </script>
+    <p class="mt-5 mb-3 text-muted">Go to the <a href="/implicit">implicit render demo</a></p>
+  </body>
 </html>

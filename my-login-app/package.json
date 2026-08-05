@@ -1,16 +1,16 @@
 {
-	"name": "my-login-app",
-	"version": "0.0.1",
-	"private": true,
-	"scripts": {
-		"deploy": "wrangler deploy",
-		"dev": "wrangler dev",
-		"start": "wrangler dev"
-	},
-	"devDependencies": {
-		"wrangler": "^4.118.0",
-		"eslint": "^9.28.0",
-		"eslint-formatter-gitlab": "^6.0.1"
-	},
-	"dependencies": {}
+  "name": "my-login-app",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "start": "wrangler dev"
+  },
+  "devDependencies": {
+    "wrangler": "^4.118.0",
+    "eslint": "^9.28.0",
+    "eslint-formatter-gitlab": "^6.0.1"
+  },
+  "dependencies": {}
 }

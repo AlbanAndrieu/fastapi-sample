@@ -40,4 +40,4 @@ jobs:
           # repository-wide Trivy invocation ignores its diff filter.
           VALIDATE_TRIVY: false
           FILTER_REGEX_EXCLUDE: >-
-            (megalinter-reports/|open-webui/|(^|/)uv\.lock$|(^|/)Pipfile\.lock$|(^|/)trivy-sbom\.json$)
+            (report/|megalinter-reports/|open-webui/|(^|/)uv\.lock$|(^|/)Pipfile\.lock$|(^|/)trivy-sbom\.json$)
