@@ -141,6 +141,10 @@ COPY --chown=jm-python:jm-python pyproject.toml poetry.lock ${PYSETUP_PATH}/
 
 # prepend poetry and venv to path
 ENV PATH="${PYSETUP_PATH}/.local/bin/:${POETRY_HOME}/bin:${VENV_PATH}/bin:${PATH}"
+ENV DD_TRACE_ENABLED="false" \
+    DD_PROFILING_ENABLED="false" \
+    DD_LOGS_INJECTION="false" \
+    OTEL_SDK_DISABLED="true"
 
 USER root
 
