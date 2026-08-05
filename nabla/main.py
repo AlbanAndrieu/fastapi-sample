@@ -7,6 +7,7 @@ import html
 import os
 import time
 import warnings
+from contextlib import suppress
 from datetime import datetime
 from typing import Any, Dict
 
@@ -215,7 +216,9 @@ async def lifespan(app: FastAPI):
     """Start background system monitoring"""
     system_metrics_task = asyncio.create_task(update_system_metrics())
 
-    event_listener = asyncio.create_task(start_event_listener())
+    background_tasks = [system_metrics_task]
+    if redis is not None:
+        background_tasks.append(asyncio.create_task(start_event_listener()))
 
     logger.info("🚀 Sensor Dashboard application started successfully")
     logger.info(f"Debug mode: {bool(os.getenv('DEBUG'))}")
@@ -224,14 +227,17 @@ async def lifespan(app: FastAPI):
     yield
 
     # Cancel the background task on shutdown
-    system_metrics_task.cancel()
-    event_listener.cancel()
+    for task in background_tasks:
+        task.cancel()
+    for task in background_tasks:
+        with suppress(asyncio.CancelledError):
+            await task
 
     if database:
         await database.disconnect()
 
-    # if app.state.redis:
-    #     app.state.redis.close()
+    if redis is not None:
+        await redis.aclose()
 
     logger.info("📊 Sensor Dashboard application shutting down")
     logger.info(
@@ -558,10 +564,7 @@ async def logging_middleware(request, call_next):
         "/stream/",
         "/v1/mcp/",
     )
-    is_noisy_success = response.status_code < 400 and (
-        request.url.path in noisy_success_paths
-        or request.url.path.startswith(noisy_success_prefixes)
-    )
+    is_noisy_success = response.status_code < 400 and (request.url.path in noisy_success_paths or request.url.path.startswith(noisy_success_prefixes))
 
     if response.status_code >= 500:
         logger.error("request_completed", **log_fields)
