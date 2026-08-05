@@ -25,12 +25,16 @@ def test_logfire_uses_eu_project_token_without_request_data(monkeypatch):
     monkeypatch.setenv("LOGFIRE_ENVIRONMENT", "test")
     configure = MagicMock()
     instrument = MagicMock()
+    structlog_processor = object()
     logfire = SimpleNamespace(
         AdvancedOptions=SimpleNamespace,
+        StructlogProcessor=MagicMock(return_value=structlog_processor),
         configure=configure,
         instrument_fastapi=instrument,
     )
     monkeypatch.setattr("nabla.utils.logfire_config.import_module", MagicMock(return_value=logfire))
+    enable_processor = MagicMock()
+    monkeypatch.setattr("nabla.utils.logfire_config.enable_logfire_processor", enable_processor)
 
     app = MagicMock()
     assert configure_logfire(app, service_name="fastapi-sample", service_version="1")
@@ -43,10 +47,13 @@ def test_logfire_uses_eu_project_token_without_request_data(monkeypatch):
     assert options["environment"] == "test"
     assert options["advanced"].base_url == LOGFIRE_BASE_URL
     instrument.assert_called_once()
+    enable_processor.assert_called_once_with(structlog_processor)
     assert instrument.call_args.args == (app,)
     instrumentation_options = instrument.call_args.kwargs
     assert instrumentation_options["capture_headers"] is False
     assert "health" in instrumentation_options["excluded_urls"]
+    assert "openapi" in instrumentation_options["excluded_urls"]
+    assert "v1/mcp" in instrumentation_options["excluded_urls"]
     assert (
         instrumentation_options["request_attributes_mapper"](
             MagicMock(),
@@ -60,6 +67,7 @@ def test_logfire_failure_does_not_block_startup(monkeypatch):
     monkeypatch.setenv("LOGFIRE_TOKEN", "invalid-token")
     logfire = SimpleNamespace(
         AdvancedOptions=MagicMock(),
+        StructlogProcessor=MagicMock(),
         configure=MagicMock(side_effect=RuntimeError("unavailable")),
     )
     monkeypatch.setattr("nabla.utils.logfire_config.import_module", MagicMock(return_value=logfire))
