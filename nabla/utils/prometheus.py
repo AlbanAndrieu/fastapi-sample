@@ -66,6 +66,10 @@ INFLIGHT_REQUESTS = Gauge(
 
 CPU_USAGE = Gauge("system_cpu_usage_percent", "System CPU usage percentage")
 MEMORY_USAGE = Gauge("system_memory_usage_percent", "System memory usage percentage")
+PROCESS_MEMORY_RSS = Gauge(
+    "process_memory_rss_bytes",
+    "Resident memory used by this application worker in bytes.",
+)
 
 
 API_REQUEST_COUNTER = Counter(
@@ -136,9 +140,11 @@ async def update_system_metrics():
     📊 Continuous system metrics collection
     Updates every 5 seconds with current system state
     """
+    process = psutil.Process()
     while True:
         CPU_USAGE.set(psutil.cpu_percent())
         MEMORY_USAGE.set(psutil.virtual_memory().percent)
+        PROCESS_MEMORY_RSS.set(process.memory_info().rss)
         await asyncio.sleep(5)
 
 
