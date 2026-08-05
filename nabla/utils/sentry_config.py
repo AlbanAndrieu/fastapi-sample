@@ -6,18 +6,34 @@ import logging
 import os
 import socket
 from collections.abc import Mapping
+from copy import deepcopy
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.logging import LoggingIntegration
 from sentry_sdk.integrations.mcp import MCPIntegration
 from sentry_sdk.integrations.openai import OpenAIIntegration
+from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
 from nabla._version import get_versions
 
 _logger = logging.getLogger(__name__)
 _DEFAULT_LOCAL_SENTRY_PORT = 9000
+_FILTERED_VALUE = "[Filtered]"
+_SENSITIVE_KEYS = frozenset(
+    {
+        "authorization",
+        "cookie",
+        "password",
+        "secret",
+        "set-cookie",
+        "token",
+        "x-api-key",
+    },
+)
+_IGNORED_TRANSACTION_PATHS = frozenset({"/health", "/healthz", "/metrics", "/sickz"})
 
 
 def _env_float(env: Mapping[str, str], name: str, default: float) -> float:
@@ -75,6 +91,34 @@ def select_sentry_dsn(env: Mapping[str, str] | None = None) -> tuple[str, str]:
     return "", "disabled"
 
 
+def _scrub_sensitive(value: Any) -> Any:
+    """Return a copy with common credential fields removed."""
+    if isinstance(value, dict):
+        return {key: _FILTERED_VALUE if str(key).lower() in _SENSITIVE_KEYS else _scrub_sensitive(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_scrub_sensitive(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_scrub_sensitive(item) for item in value)
+    return value
+
+
+def _before_send(event: dict[str, Any], _hint: dict[str, Any]) -> dict[str, Any]:
+    return _scrub_sensitive(deepcopy(event))
+
+
+def _before_send_log(log: dict[str, Any], _hint: dict[str, Any]) -> dict[str, Any]:
+    return _scrub_sensitive(deepcopy(log))
+
+
+def _before_send_transaction(event: dict[str, Any], _hint: dict[str, Any]) -> dict[str, Any] | None:
+    request_url = str(event.get("request", {}).get("url", ""))
+    path = urlsplit(request_url).path
+    transaction = str(event.get("transaction", ""))
+    if path in _IGNORED_TRANSACTION_PATHS or transaction in _IGNORED_TRANSACTION_PATHS:
+        return None
+    return _scrub_sensitive(deepcopy(event))
+
+
 def _integrations(*, include_logging: bool) -> list[Any]:
     integrations: list[Any] = []
     for module_name, class_name in (
@@ -88,7 +132,14 @@ def _integrations(*, include_logging: bool) -> list[Any]:
         except Exception as exc:
             _logger.debug("Skipping Sentry integration %s.%s: %s", module_name, class_name, exc)
 
-    integrations.extend([OpenAIIntegration(), MCPIntegration()])
+    integrations.extend(
+        [
+            FastApiIntegration(transaction_style="endpoint"),
+            SqlalchemyIntegration(),
+            OpenAIIntegration(),
+            MCPIntegration(),
+        ],
+    )
     if include_logging:
         integrations.append(
             LoggingIntegration(
@@ -116,7 +167,14 @@ def configure_sentry(env: Mapping[str, str] | None = None) -> bool:
             enable_logs=not logfire_enabled,
             traces_sample_rate=(None if logfire_enabled else _env_float(values, "SENTRY_TRACES_SAMPLE_RATE", 0.1)),
             profiles_sample_rate=(0.0 if logfire_enabled else _env_float(values, "SENTRY_PROFILES_SAMPLE_RATE", 0.0)),
+            sample_rate=_env_float(values, "SENTRY_ERROR_SAMPLE_RATE", 1.0),
             send_default_pii=False,
+            before_send=_before_send,
+            before_send_log=_before_send_log,
+            before_send_transaction=_before_send_transaction,
+            ignore_errors=[BrokenPipeError, ConnectionResetError, TimeoutError],
+            max_breadcrumbs=int(values.get("SENTRY_MAX_BREADCRUMBS", "50")),
+            shutdown_timeout=float(values.get("SENTRY_SHUTDOWN_TIMEOUT", "2")),
             environment=values.get("SENTRY_ENVIRONMENT") or values.get("ENV") or "development",
             release=values.get("SENTRY_RELEASE") or app_version,
             integrations=_integrations(include_logging=not logfire_enabled),
