@@ -15,6 +15,7 @@ os.environ.setdefault("DD_PROFILING_ENABLED", "false")
 
 import pybreaker
 import pyroscope
+import sentry_sdk
 from ddtrace import config, patch, tracer
 from ddtrace.contrib.trace_utils import set_user
 from ddtrace.profiling import Profiler
@@ -653,10 +654,21 @@ async def get_sickz(request: Request) -> Dict[str, Any]:
         return await build_sickz_payload(request)
 
 
-@app.get("/sentry-debug")
-async def trigger_error() -> None:
-    """Intentional error to verify Sentry (transaction + error event). See Sentry FastAPI docs."""
-    _ = 1 / 0
+@app.get("/sentry-debug", response_class=JSONResponse)
+async def trigger_error() -> JSONResponse:
+    """Send a controlled test error to Sentry without polluting ASGI logs."""
+    try:
+        _ = 1 / 0
+    except ZeroDivisionError as exc:
+        event_id = sentry_sdk.capture_exception(exc)
+
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "Intentional Sentry test error",
+            "event_id": str(event_id) if event_id else None,
+        },
+    )
 
 
 # Error handling
