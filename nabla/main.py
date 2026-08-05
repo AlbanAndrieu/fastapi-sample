@@ -1,7 +1,6 @@
 import argparse
 import asyncio
 import html
-import logging
 import os
 import time
 import warnings
@@ -10,7 +9,6 @@ from typing import Any, Dict
 
 import pybreaker
 import pyroscope
-import sentry_sdk
 from ddtrace import config, patch, tracer
 from ddtrace.contrib.trace_utils import set_user
 from ddtrace.profiling import Profiler
@@ -37,9 +35,6 @@ from prometheus_client.openmetrics.exposition import CONTENT_TYPE_LATEST, genera
 from starlette.responses import Response
 from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic.json_schema import PydanticJsonSchemaWarning
-from sentry_sdk.integrations.logging import LoggingIntegration
-from sentry_sdk.integrations.mcp import MCPIntegration
-from sentry_sdk.integrations.openai import OpenAIIntegration
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -82,7 +77,6 @@ from nabla.config_settings import (
     DD_TRACE_ENABLED,
     OTEL_SDK_DISABLED,
     OTLP_GRPC_ENDPOINT,
-    SENTRY_DSN,
     client,
     get_settings,
 )
@@ -100,6 +94,7 @@ from nabla.utils.prometheus import (
     setting_otlp,
     update_system_metrics,
 )
+from nabla.utils.sentry_config import configure_sentry
 
 # FastAPI / FastAPI-Users use Depends() as parameter defaults; OpenAPI generation
 # emits PydanticJsonSchemaWarning (defaults are not JSON-schema-serializable).
@@ -540,81 +535,7 @@ set_user(
 )
 
 
-def _sentry_integrations() -> list[Any]:
-    """Sentry integrations that require optional deps are skipped if those deps are missing."""
-    integrations: list[Any] = []
-    for module_name, class_name in (
-        ("sentry_sdk.integrations.litellm", "LiteLLMIntegration"),
-        ("sentry_sdk.integrations.langchain", "LangchainIntegration"),
-        ("sentry_sdk.integrations.langgraph", "LanggraphIntegration"),
-    ):
-        try:
-            module = __import__(module_name, fromlist=[class_name])
-            integrations.append(getattr(module, class_name)())
-        except Exception as exc:
-            logger.debug(
-                "Skipping Sentry integration %s.%s: %s",
-                module_name,
-                class_name,
-                exc,
-            )
-            continue
-    integrations.extend(
-        [
-            OpenAIIntegration(),
-            LoggingIntegration(
-                level=logging.INFO,  # Capture info and above as breadcrumbs
-                event_level=logging.ERROR,  # Send errors as events
-            ),
-            MCPIntegration(),
-        ],
-    )
-    return integrations
-
-
-sentry_sdk.init(
-    dsn=SENTRY_DSN,
-    # Set traces_sample_rate to 1.0 to capture 100%
-    # of transactions for performance monitoring.
-    # We recommend adjusting this value in production,
-    traces_sample_rate=1.0,
-    # Set profiles_sample_rate to 1.0 to profile 100%
-    # of sampled transactions.
-    # We recommend adjusting this value in production.
-    profiles_sample_rate=1.0,
-    send_default_pii=True,
-    integrations=_sentry_integrations(),
-)
-
-# Record five total button clicks
-sentry_sdk.metrics.count(
-    "button_click",
-    5,
-    attributes={
-        "browser": "Firefox",
-        "app_version": APP_VERSION,
-    },
-)
-
-# Add '15.0' to a distribution used for tracking the loading times per page.
-sentry_sdk.metrics.distribution(
-    "page_load",
-    15.0,
-    unit="millisecond",
-    attributes={
-        "page": "/expertise",
-    },
-)
-
-# Add '15.0' to a gauge used for tracking the loading times for a page.
-sentry_sdk.metrics.gauge(
-    "page_load",
-    15.0,
-    unit="millisecond",
-    attributes={
-        "page": "/cv",
-    },
-)
+configure_sentry()
 
 templates = Jinja2Templates(directory="templates")
 
@@ -735,7 +656,7 @@ async def trigger_error() -> None:
 # Error handling
 @app.exception_handler(Exception)
 def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    logger.error(f"Unhandled exception on {request.url}: {exc}")
+    logger.opt(exception=exc).error("Unhandled exception on {}", request.url)
     return JSONResponse(
         status_code=500,
         content={"error": "Internal server error", "timestamp": datetime.now().isoformat()},

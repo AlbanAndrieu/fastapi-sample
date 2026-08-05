@@ -19,7 +19,7 @@ dependencies = [
     "litellm>=1.83.0",
     "logfire[fastapi]>=4.2.0",
     "ollama>=0.6.2",
-    "sentry-sdk>=2.44.0",
+    "sentry-sdk>=2.66.1",
     "tavily-python>=0.7.23",
 ]
 # dependencies = [

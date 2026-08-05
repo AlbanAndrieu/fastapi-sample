@@ -517,6 +517,23 @@ pyright-to-gitlab-ci --src report_raw.json --output report_pyright.json --base_p
 [trigger error in sentry-debug](http://0.0.0.0:8080/sentry-debug)
 [sentry](https://nabla-4f3768f61.sentry.io/profiling/)
 
+### Sentry observability
+
+Sentry prefers the self-hosted instance on `localhost:9000` and falls back to
+`SENTRY_DSN` when the local port is unavailable. Set `SENTRY_LOCAL_DSN` when the
+local project uses different DSN credentials from the cloud project.
+
+```env
+SENTRY_DSN=https://public-key@organization.ingest.sentry.io/project-id
+SENTRY_LOCAL_DSN=http://public-key@localhost:9000/project-id
+SENTRY_ENVIRONMENT=development
+SENTRY_TRACES_SAMPLE_RATE=0.1
+SENTRY_PROFILES_SAMPLE_RATE=0.0
+```
+
+When `LOGFIRE_TOKEN` is non-empty, Sentry continues to receive errors but its
+logs, traces, and profiles are disabled to avoid duplicate telemetry.
+
 ## [Utility scripts](#table-of-contents)
 
 ```
