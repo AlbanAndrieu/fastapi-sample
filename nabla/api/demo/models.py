@@ -260,7 +260,7 @@ def get_sensor_dataframe() -> pl.DataFrame:
 
     # Parse timestamps (Polars handles this beautifully)
     df = df.with_columns(
-        [pl.col("timestamp").str.strptime(pl.Datetime, format="%Y-%m-%dT%H:%M:%S.%f")],
+        [pl.col("timestamp").str.strptime(pl.Datetime, format="%Y-%m-%dT%H:%M:%S%.f")],
     )
     #  [pl.col("timestamp").str.strptime(pl.Datetime, format="%d/%B/%Y %H:%M:%S")]
 

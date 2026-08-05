@@ -1,3 +1,5 @@
+# ruff: noqa: E402 -- Datadog opt-out environment must be set before SDK imports.
+
 import argparse
 import asyncio
 import html
@@ -92,7 +94,7 @@ from nabla.config_settings import (
     get_settings,
 )
 from nabla.deepagents import workflow as ai_workflow
-from nabla.utils.log_config import LogMiddleware, setup_logging
+from nabla.utils.log_config import setup_logging
 from nabla.utils.logger import logger
 from nabla.utils.logfire_config import configure_logfire
 from nabla.utils.prometheus import (
@@ -259,9 +261,6 @@ def _configure_unleash_feature_middleware(app: FastAPI) -> None:
         )
     else:
         logger.warning("Feature flag : rate_limiter is not enabled")
-
-    if UNLEASH_ENABLED or client.is_enabled("logging_requests"):
-        app.add_middleware(LogMiddleware)
 
     if UNLEASH_ENABLED or client.is_enabled("cors"):
         origins = [
@@ -520,15 +519,33 @@ async def metrics_middleware(request, call_next):
 @app.middleware("http")
 async def logging_middleware(request, call_next):
     start_time = time.time()
-    response = await call_next(request)
+    try:
+        response = await call_next(request)
+    except Exception:
+        logger.exception(
+            "request_failed",
+            method=request.method,
+            path=request.url.path,
+            duration_seconds=time.time() - start_time,
+        )
+        raise
 
-    logger.info(
-        "request_completed",
-        method=request.method,
-        url=str(request.url),
-        status_code=response.status_code,
-        duration=time.time() - start_time,
-    )
+    duration = time.time() - start_time
+    log_fields = {
+        "method": request.method,
+        "path": request.url.path,
+        "status_code": response.status_code,
+        "duration_seconds": duration,
+    }
+    noisy_success_paths = {"/health", "/healthz", "/sickz", "/metrics"}
+    is_noisy_success = response.status_code < 400 and (request.url.path in noisy_success_paths or request.url.path.startswith("/stream/"))
+
+    if response.status_code >= 500:
+        logger.error("request_completed", **log_fields)
+    elif response.status_code >= 400 or duration >= 2.0:
+        logger.warning("request_completed", **log_fields)
+    elif not is_noisy_success:
+        logger.info("request_completed", **log_fields)
     return response
 
 

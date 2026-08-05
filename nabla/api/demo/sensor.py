@@ -208,7 +208,7 @@ async def get_charts(request: Request):
         duration = time.time() - start_time
         metrics.track_chart_generation(duration)
 
-        logger.info(f"Charts generated successfully in {duration:.3f}s")
+        logger.debug("charts_generated", duration_seconds=duration)
 
         return templates.TemplateResponse(
             "charts.html",
