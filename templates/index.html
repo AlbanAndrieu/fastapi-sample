@@ -81,7 +81,7 @@
     <div class="px-4 py-4 sm:px-6">
       <div hx-ext="sse" sse-connect="/stream">
         <!-- Sensor data updater
-         hx-trigger="load once" -->
+          hx-trigger="load once" -->
         <div
           id="sensor-display"
           hx-get="/sensor-data"
@@ -169,7 +169,12 @@
   </div>
 
   <!-- Charts updater -->
-  <div hx-get="/charts" hx-trigger="load, every {{ charts_refresh_interval_seconds }}s" hx-target="#chart-updates" hx-swap="innerHTML">
+  <div
+    hx-get="/charts"
+    hx-trigger="load, every {{ charts_refresh_interval_seconds }}s"
+    hx-target="#chart-updates"
+    hx-swap="innerHTML"
+  >
     <div id="chart-updates"></div>
   </div>
 </div>

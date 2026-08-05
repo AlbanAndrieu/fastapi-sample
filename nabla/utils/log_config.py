@@ -33,9 +33,9 @@ class JsonBaseFormatter(JsonFormatter):
         :param additional_fields: Besides message, level, and name, (default ones),
         you can add more from this list: https://docs.python.org/3/library/logging.html#logrecord-attributes
         :param additional_rename_fields: Besides the renaming of
-         "name" -> "service_name", "levelname" -> "level",
-         and "exc_info" -> "error_detail"
-          you can add other fields to rename
+        "name" -> "service_name", "levelname" -> "level",
+        and "exc_info" -> "error_detail"
+        you can add other fields to rename
         """
         super(JsonFormatter, self).__init__()
 
