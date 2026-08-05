@@ -25,6 +25,10 @@ jobs:
       KEYCLOAK_SERVER_URL: http://localhost:8080
       METRICS_ENABLED: "false"
       PYTHON_VERSION: "3.12"
+      SENTRY_ENABLED: "false"
+      SENTRY_DSN: ""
+      SENTRY_ENVIRONMENT: test
+      SENTRY_RELEASE: ci-${{ github.sha }}
 
     steps:
       - name: Checkout repository
@@ -46,6 +50,9 @@ jobs:
 
       - name: Install locked dependencies
         run: uv sync --frozen
+
+      - name: Check release version consistency
+        run: uv run python scripts/check_versions.py
 
       - name: Run critical static checks
         run: uv run ruff check server_app.py nabla --select=E9,F63,F7,F82

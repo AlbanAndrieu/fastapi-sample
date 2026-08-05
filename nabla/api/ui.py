@@ -1037,8 +1037,18 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
             return httpStatusIsSuccess2xx(check.http_status);
         }
 
-        function classify(check) {
+        function isExpectedSentryDebugFailure(key, check) {
+            return (
+                key === "sentry" &&
+                check.reachable === true &&
+                Number(check.http_status) === 500 &&
+                (check.via === "/sentry-debug" || check.path === "/sentry-debug")
+            );
+        }
+
+        function classify(key, check) {
             if (check.skipped === true) return "yellow";
+            if (isExpectedSentryDebugFailure(key, check)) return "green";
             if (check.reachable === true) {
                 if (!healthHttpStatusIsSuccess2xx(check)) return "blue";
                 return "green";
@@ -1053,8 +1063,11 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
             return check.reachable === false;
         }
 
-        function detailText(check) {
+        function detailText(key, check) {
             if (check.skipped) return check.reason || "Not configured (intentionally disabled).";
+            if (isExpectedSentryDebugFailure(key, check)) {
+                return "HTTP 500 · Expected: the test error was intentionally triggered and captured by Sentry.";
+            }
             if (check.reachable === true) {
                 const parts = [];
                 if (check.http_status != null) parts.push("HTTP " + check.http_status);
@@ -1100,7 +1113,7 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
                             "A required check failed: PostgreSQL, Redis, Supabase (when configured), and required albandrieu.com infra HTTPS endpoints must be reachable.",
                     };
                 }
-                const c = classify(ch);
+                const c = classify(key, ch);
                 if (c === "yellow") anyYellow = true;
                 if (c === "red" && !MANDATORY.has(key)) anyOptionalRed = true;
                 if (c === "blue") anyBlue = true;
@@ -1173,7 +1186,7 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
                         ? "Required infra (albandrieu.com)"
                         : "Required for core stack"
                     : "Optional integration";
-                const cls = classify(check);
+                const cls = classify(key, check);
                 const li = document.createElement("li");
                 li.className = "health-row";
                 li.innerHTML =
@@ -1189,7 +1202,7 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
                     '">' +
                     healthRowTitleHtml(check, key) +
                     '<div class="health-row-detail">' +
-                    detailText(check) +
+                    detailText(key, check) +
                     "</div></div>" +
                     '<div class="health-row-tags">' +
                     tier +

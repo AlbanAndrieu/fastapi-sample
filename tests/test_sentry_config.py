@@ -10,6 +10,14 @@ from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 from nabla.utils import sentry_config
 
 
+def test_sentry_can_be_explicitly_disabled(monkeypatch) -> None:
+    select_dsn = Mock()
+    monkeypatch.setattr(sentry_config, "select_sentry_dsn", select_dsn)
+
+    assert sentry_config.configure_sentry({"SENTRY_ENABLED": "false"}) is False
+    select_dsn.assert_not_called()
+
+
 def test_uses_default_cloud_sentry_dsn(monkeypatch) -> None:
     monkeypatch.setattr(sentry_config, "sentry_dsn_is_reachable", lambda _dsn: False)
 

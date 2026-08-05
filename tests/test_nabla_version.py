@@ -1,15 +1,9 @@
-import re
-
 from nabla import __version__
+from nabla.version import API_VERSION, RELEASE_VERSION, RUNTIME_VERSION
 
 
 def test_version():
-    # assert re.match(r"^0\+untagged.*.+$", __version__)  # nosec
-    #  2024-04-12-1+156.gcb8029a.dirty
-    assert re.match(r"^.*.dirty+$", __version__)  # nosec
-
-    __version_test__ = "v1.0.6"
-    assert __version_test__ == "v1.0.6"
-
-    assert re.match(r"^v1.0.6?.+$", __version_test__)  # nosec
-    assert re.match(r"^v\d{1,5}\.\d{1,5}\.\d{1,5}$", __version_test__)  # nosec
+    assert __version__ == "1.3.7"
+    assert RELEASE_VERSION == __version__
+    assert API_VERSION == "v0"
+    assert RUNTIME_VERSION == "v0+1.3.7"

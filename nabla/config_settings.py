@@ -26,7 +26,7 @@ from statsig_python_core import (  # note underscores instead of hyphens in impo
 )
 from UnleashClient import UnleashClient
 
-from nabla._version import get_versions
+from nabla.version import API_VERSION, RELEASE_VERSION, RUNTIME_VERSION
 from nabla.db_config import (
     ensure_supavisor_pooler_username,
     is_supabase_postgres_host,
@@ -41,8 +41,10 @@ from nabla.utils.prometheus import PrometheusSettings
 _log = logging.getLogger(__name__)
 
 APP_NAME = os.environ.get("APP_NAME", "fastapi-sample")
-APP_PREFIX_VERSION = os.environ.get("APP_PREFIX_VERSION", "v")
-APP_VERSION = get_versions()["version"]
+# ``APP_PREFIX_VERSION`` is retained as a compatibility alias for callers.
+APP_PREFIX_VERSION = API_VERSION
+APP_VERSION = RELEASE_VERSION
+APP_RUNTIME_VERSION = RUNTIME_VERSION
 
 EXPOSE_HOST = os.environ.get("EXPOSE_HOST", "0.0.0.0")  # noqa: S104 noqa:B104 # nosec B104
 EXPOSE_PORT = int(os.environ.get("EXPOSE_PORT", "8080"))

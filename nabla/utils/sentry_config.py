@@ -154,6 +154,9 @@ def _integrations(*, include_logging: bool) -> list[Any]:
 def configure_sentry(env: Mapping[str, str] | None = None) -> bool:
     """Initialize Sentry without making application startup depend on telemetry."""
     values = os.environ if env is None else env
+    if values.get("SENTRY_ENABLED", "true").strip().lower() in {"0", "false", "no", "off"}:
+        _logger.info("Sentry is disabled by SENTRY_ENABLED")
+        return False
     dsn, target = select_sentry_dsn(values)
     if not dsn:
         _logger.info("Sentry is disabled: no DSN configured")
