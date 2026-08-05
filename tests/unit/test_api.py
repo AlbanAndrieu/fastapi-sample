@@ -30,6 +30,14 @@ def test_pong_v1(test_app) -> None:
     assert response.json() == expected_response
 
 
+def test_api_landing_page(test_app) -> None:
+    """The production landing route renders without external dependencies."""
+    response = test_app.get("/api")
+
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+
+
 def test_ping_v1(test_app) -> None:
     """It runs and gives correct response from ping."""
 

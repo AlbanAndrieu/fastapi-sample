@@ -31,7 +31,6 @@ from nabla.config_settings import (
     DD_TRACE_AGENT_URL,
     PYROSCOPE_ENDPOINT,
     REDIS_URL,
-    SENTRY_DSN,
     UNLEASH_API_URL,
     UNLEASH_APP_NAME,
     UNLEASH_INSTANCE_ID,
@@ -46,6 +45,7 @@ from nabla.integrations.appwrite_client import appwrite_health
 from nabla.integrations.brave_search import _BRAVE_WEB_SEARCH_URL
 from nabla.integrations.google_search import _GOOGLE_CSE_URL
 from nabla.integrations.tavily_search import get_tavily_client
+from nabla.utils.sentry_config import select_sentry_dsn, sentry_dsn_is_reachable
 
 _log = logging.getLogger(__name__)
 
@@ -151,13 +151,18 @@ async def check_supabase_http() -> dict[str, Any]:
             "reason": "SUPABASE_URL not configured",
         }
     health_url = f"{base_url.rstrip('/')}/auth/v1/health"
+    headers: dict[str, str] = {}
+    if settings.supabase_service_role_key is not None:
+        api_key = settings.supabase_service_role_key.get_secret_value().strip()
+        if api_key:
+            headers = {"apikey": api_key, "Authorization": f"Bearer {api_key}"}
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get(health_url)
+            response = await client.get(health_url, headers=headers)
     except httpx.HTTPError as exc:
         return {"reachable": False, "error": _normalize_probe_error(str(exc))}
     return {
-        "reachable": response.status_code < 500,
+        "reachable": response.status_code < 400,
         "http_status": response.status_code,
     }
 
@@ -287,62 +292,19 @@ def probe_unleash_client_features() -> dict[str, Any]:
     return {"reachable": response.status_code < 500, "http_status": response.status_code}
 
 
-def probe_sentry_reachable(sentry_debug_url: str) -> dict[str, Any]:
-    """GET ``/sentry-debug`` on this app (URL built from the incoming ``/healthz`` request).
-
-    That route intentionally raises so the Sentry SDK can capture an error and transaction
-    (see Sentry FastAPI docs). A server error response or the app's JSON error payload means
-    the route ran; this does **not** confirm delivery in the Sentry UI.
-    """
-    dsn = (SENTRY_DSN or "").strip()
+def probe_sentry_reachable() -> dict[str, Any]:
+    """Check the selected Sentry intake without generating an error event."""
+    dsn, target = select_sentry_dsn()
     if not dsn:
         return {
             "reachable": None,
             "skipped": True,
-            "reason": "SENTRY_DSN not configured",
-        }
-    try:
-        with httpx.Client(timeout=5.0, follow_redirects=True) as client:
-            response = client.get(sentry_debug_url)
-    except httpx.HTTPError as exc:
-        return {
-            "reachable": False,
-            "error": _normalize_probe_error(str(exc)),
-        }
-    if response.status_code == 404:
-        return {
-            "reachable": False,
-            "error": _normalize_probe_error("/sentry-debug not found"),
-            "http_status": 404,
-        }
-    if response.status_code >= 500:
-        return {
-            "reachable": True,
-            "http_status": response.status_code,
-            "via": "/sentry-debug",
-        }
-    try:
-        body = response.json()
-    except ValueError:
-        body = None
-    if isinstance(body, dict) and body.get("error") == "Internal server error":
-        return {
-            "reachable": True,
-            "http_status": response.status_code,
-            "via": "/sentry-debug",
-        }
-    if response.status_code == 200:
-        return {
-            "reachable": False,
-            "http_status": response.status_code,
-            "error": _normalize_probe_error(
-                "expected /sentry-debug to raise (unexpected 200 response)",
-            ),
+            "reason": "SENTRY_LOCAL_DSN and SENTRY_DSN are not configured",
         }
     return {
-        "reachable": response.status_code >= 400,
-        "http_status": response.status_code,
-        "via": "/sentry-debug",
+        "reachable": sentry_dsn_is_reachable(dsn),
+        "target": target,
+        "probe": "dsn_socket",
     }
 
 
@@ -484,7 +446,6 @@ async def _healthz_enrich_pyroscope(checks: dict[str, Any]) -> None:
 
 async def build_healthz_payload(request: Request, *, redis_client: Any, engine: Engine) -> dict[str, Any]:
     base = await fetch_base_health(request)
-    sentry_debug_url = str(request.url.replace(path="/sentry-debug", query="", fragment=""))
     homelab_rows = await homelab_healthz_probe_rows()
     (
         (
@@ -516,7 +477,7 @@ async def build_healthz_payload(request: Request, *, redis_client: Any, engine: 
             run_in_threadpool(probe_appwrite_health),
             run_in_threadpool(probe_keycloak_well_known),
             run_in_threadpool(probe_unleash_client_features),
-            run_in_threadpool(probe_sentry_reachable, sentry_debug_url),
+            run_in_threadpool(probe_sentry_reachable),
             run_in_threadpool(probe_datadog_trace_agent),
             run_in_threadpool(probe_pyroscope_server),
             run_in_threadpool(probe_litellm_public_proxy),

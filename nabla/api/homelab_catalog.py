@@ -13,7 +13,7 @@ import httpx
 
 _log = logging.getLogger(__name__)
 
-HOMELAB_SERVICES_JSON_URL = "https://www.dr-alban.com/homelab-services.json"
+HOMELAB_SERVICES_JSON_URL = "https://www.albanandrieu.com/homelab-services.json"
 _CACHE_TTL_SEC = 300.0
 
 _cache_lock = asyncio.Lock()

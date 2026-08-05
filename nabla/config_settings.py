@@ -90,7 +90,7 @@ OTEL_EXPORTER_JAEGER_ENDPOINT = os.environ.get(
 
 SENTRY_DSN = os.environ.get(
     "SENTRY_DSN",
-    "",
+    "https://11c5d815632831d3274c830441885207@o4505783360356352.ingest.us.sentry.io/4505783364681728",
 )
 
 APP_DOMAIN = os.environ.get("APP_DOMAIN", "")
