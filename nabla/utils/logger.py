@@ -88,6 +88,17 @@ else:
         structlog.processors.JSONRenderer(),
     ]
 
+
+def enable_logfire_processor(processor) -> None:
+    """Forward structlog events to Logfire before the console/JSON renderer."""
+    if processor not in processors:
+        processors.insert(-1, processor)
+        structlog.configure(
+            wrapper_class=structlog.make_filtering_bound_logger(LOG_LEVEL),
+            processors=processors,
+        )
+
+
 structlog.configure(
     wrapper_class=structlog.make_filtering_bound_logger(LOG_LEVEL),
     processors=processors,
