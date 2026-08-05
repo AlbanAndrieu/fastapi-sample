@@ -87,6 +87,7 @@ from nabla.api.users.users import fastapi_users, jwt_backend
 from nabla.config_settings import (
     APP_NAME,
     APP_PREFIX_VERSION,
+    APP_RUNTIME_VERSION,
     APP_VERSION,
     DD_TRACE_ENABLED,
     OTEL_SDK_DISABLED,
@@ -409,7 +410,7 @@ app = FastAPI(
     lifespan=combined_lifespan,
     title=APP_NAME + " " + APP_PREFIX_VERSION,
     description="FastAPI Sample for demo",
-    version=f"{APP_PREFIX_VERSION}{APP_VERSION}",
+    version=APP_RUNTIME_VERSION,
     debug=os.getenv("DEBUG", "False").lower() == "true",
     default_response_class=ORJSONResponse,
 )

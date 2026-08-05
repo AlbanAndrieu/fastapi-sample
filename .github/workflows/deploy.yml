@@ -47,6 +47,9 @@ jobs:
       - name: Install locked dependencies
         run: uv sync --frozen
 
+      - name: Check release version consistency
+        run: uv run python scripts/check_versions.py
+
       - name: Run critical static checks
         run: uv run ruff check server_app.py nabla --select=E9,F63,F7,F82
 

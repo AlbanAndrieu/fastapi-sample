@@ -13,14 +13,45 @@ plugins:
         - files:
             - pyproject.toml
           from:
-            - ^version *= *"\d+\.\d+\.\d+"
+            - '(?<=name = "fastapi-sample"\n)version = "\d+\.\d+\.\d+"'
           to: 'version = "${nextRelease.version}"'
           countMatches: true
+        - files:
+            - pyproject.toml
+          from:
+            - '(?<=\[tool.versioningit\]\n)default-version = "\d+\.\d+\.\d+"'
+          to: 'default-version = "${nextRelease.version}"'
+          countMatches: true
+        - files:
+            - pyproject.toml
+          from:
+            - '(?<=\[tool.commitizen\]\n)version = "\d+\.\d+\.\d+"'
+          to: 'version = "${nextRelease.version}"'
+          countMatches: true
+        - files:
+            - nabla/_release.py
+          from:
+            - '__version__ = "\d+\.\d+\.\d+"'
+          to: '__version__ = "${nextRelease.version}"'
+          countMatches: true
+        - files:
+            - uv.lock
+          from:
+            - '(?<=name = "fastapi-sample"\n)version = "\d+\.\d+\.\d+"'
+          to: 'version = "${nextRelease.version}"'
+          countMatches: true
+  # Synchronizes package.json and package-lock.json without publishing npm.
+  - - "@semantic-release/npm"
+    - npmPublish: false
   # git commit/push modified files
   - - "@semantic-release/git"
     - assets:
         - "CHANGELOG.md"
         - "pyproject.toml"
+        - "package.json"
+        - "package-lock.json"
+        - "nabla/_release.py"
+        - "uv.lock"
       # the commit MUST trigger a pipeline on tag (to perform publish jobs)
       # can be skipped on prod branch
       message: "chore(release): ${nextRelease.version} [skip ci on prod]"
