@@ -1,4 +1,5 @@
 # ruff: noqa: E402 -- Datadog opt-out environment must be set before SDK imports.
+# pylint: disable=wrong-import-position
 
 import argparse
 import asyncio
@@ -678,6 +679,7 @@ async def get_sickz(request: Request) -> Dict[str, Any]:
 @app.get("/sentry-debug", response_class=JSONResponse)
 async def trigger_error() -> JSONResponse:
     """Send a controlled test error to Sentry without polluting ASGI logs."""
+    event_id = None
     try:
         _ = 1 / 0
     except ZeroDivisionError as exc:
