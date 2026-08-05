@@ -72,7 +72,7 @@ class SensorReading(Base):
         return f"SensorReading ID : {self.id}\tTemperature : {self.temperature}\tHumidity : {self.humidity}\tPressure : {self.pressure}\tStatus : {self.status}\tCreated Date : {self.timestamp}"
 
     def toJSON(self):
-        logger.info(f"SensorReading toJSON: {self}")
+        logger.debug(f"SensorReading toJSON: {self}")
         return orjson.dumps(self, option=orjson.OPT_SORT_KEYS).decode()
         # return json.dumps(
         #     self,
@@ -101,7 +101,7 @@ class SensorEvent(BaseModel):
         super().__init__(timestamp=timestamp, temperature=temperature, humidity=humidity, pressure=pressure, status=status)
 
     def toJSON(self):
-        logger.info(f"SensorEvent toJSON: {self}")
+        logger.debug(f"SensorEvent toJSON: {self}")
         return json.dumps(
             self,
             default=lambda o: o.__dict__,
@@ -142,7 +142,7 @@ async def save_redis(suffix, data: Any):
 
 class SensorData:
     def __init__(self):
-        logger.info("Initializing SensorData")
+        logger.debug("Initializing SensorData")
 
         # Room temperature range (adjust if you live in Antarctica)
         self.min_temp = 18.0
@@ -150,7 +150,7 @@ class SensorData:
         self.min_humidity = 30.0
         self.max_humidity = 65.0
 
-        logger.info("Sensor data generator initialized")
+        logger.debug("Sensor data generator initialized")
         self._initialize_history()
 
     def _initialize_history(self):
@@ -165,7 +165,7 @@ class SensorData:
 
         # Store in deque for efficient updates
         recent_readings.extend(history)
-        logger.info(f"Initialized sensor history with {len(history)} readings")
+        logger.debug(f"Initialized sensor history with {len(history)} readings")
 
     def generate_reading(self, timestamp: datetime | None = None) -> Dict:
         """Generate a sensor reading with optional timestamp"""
@@ -209,7 +209,7 @@ class SensorData:
             logger.debug(f"queued data: {res}")
             return res
         else:
-            logger.warning("Feature flag : sensor_reading_redis_cache is not enabled")
+            logger.debug("Feature flag : sensor_reading_redis_cache is not enabled")
             return None
 
     async def save_reading(self, data: Dict[str, Any]) -> None:
@@ -291,7 +291,7 @@ def get_statistical_summary() -> Dict:
         ],
     ).to_dict(as_series=False)
 
-    logger.info("Statistical summary calculated successfully")
+    logger.debug("Statistical summary calculated successfully")
     return stats
 
 
