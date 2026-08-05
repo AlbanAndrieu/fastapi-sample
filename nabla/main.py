@@ -242,6 +242,7 @@ def _configure_unleash_feature_middleware(app: FastAPI) -> None:
     """Apply rate limit, logging, CORS, and Prometheus middleware per Unleash flags."""
     if not UNLEASH_ENABLED:
         logger.warning("UNLEASH integration is disabled via UNLEASH_ENABLED env variable.")
+        return
 
     if is_unleash_feature_enabled("rate_limiter"):
         app.add_exception_handler(

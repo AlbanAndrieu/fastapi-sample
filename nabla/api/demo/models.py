@@ -20,7 +20,7 @@ from nabla.api.demo.socket.redis import (
     REDIS_TASK_QUEUE,
     redis,
 )
-from nabla.config_settings import is_unleash_feature_enabled
+from nabla.config_settings import UNLEASH_ENABLED, is_unleash_feature_enabled
 from nabla.utils.logger import logger
 
 Base = declarative_base()
@@ -208,9 +208,9 @@ class SensorData:
             res = await save_redis(REDIS_SENSOR_CHANNEL, data)
             logger.debug(f"queued data: {res}")
             return res
-        else:
+        elif UNLEASH_ENABLED:
             logger.warning("Feature flag : sensor_reading_redis_cache is not enabled")
-            return None
+        return None
 
     async def save_reading(self, data: Dict[str, Any]) -> None:
         """Save sensor reading to PostgreSQL database"""
