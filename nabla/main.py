@@ -89,6 +89,7 @@ from nabla.config_settings import (
 from nabla.deepagents import workflow as ai_workflow
 from nabla.utils.log_config import LogMiddleware, setup_logging
 from nabla.utils.logger import logger
+from nabla.utils.logfire_config import configure_logfire
 from nabla.utils.prometheus import (
     INFLIGHT_REQUESTS,
     REQUESTS,
@@ -288,7 +289,7 @@ def _configure_unleash_feature_middleware(app: FastAPI) -> None:
 
 
 # def initialize_api() -> FastAPI:
-def initialize_api(app):
+def initialize_api(app, *, logfire_enabled: bool = False):
     """
     Initialize the API.
 
@@ -324,10 +325,11 @@ def initialize_api(app):
         # instrumentator.add(http_requested_languages_total())
         instrumentator.expose(app=app, include_in_schema=False)
 
-    # Export OpenTelemetry only when explicitly enabled and configured.
-    if not OTEL_SDK_DISABLED and OTLP_GRPC_ENDPOINT:
+    # Logfire owns the OpenTelemetry pipeline when enabled. Keep the legacy
+    # exporter as an explicit fallback without installing two tracer providers.
+    if not logfire_enabled and not OTEL_SDK_DISABLED and OTLP_GRPC_ENDPOINT:
         setting_otlp(app, APP_NAME, OTLP_GRPC_ENDPOINT)
-    elif not OTEL_SDK_DISABLED:
+    elif not logfire_enabled and not OTEL_SDK_DISABLED:
         logger.warning("OpenTelemetry enabled without OTLP_GRPC_ENDPOINT; exporter skipped")
 
     # Add prometheus asgi middleware to route /metrics requests
@@ -406,7 +408,14 @@ app = FastAPI(
     default_response_class=ORJSONResponse,
 )
 
-initialize_api(app)
+initialize_api(
+    app,
+    logfire_enabled=configure_logfire(
+        app,
+        service_name=APP_NAME,
+        service_version=APP_VERSION,
+    ),
+)
 
 _MCP_ALLOWED_ROUTES: frozenset[tuple[str, str]] = frozenset(
     {
