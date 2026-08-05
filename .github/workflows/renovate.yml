@@ -5,7 +5,7 @@ on:
   push:
     # this list of branches is often enough,
     # but you may still ignore other public branches
-    branches-ignore: [main master dev development release]
+    branches-ignore: [main, master, dev, development, release]
 
 permissions:
   contents: read
@@ -17,11 +17,13 @@ jobs:
       RENOVATE_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
       - name: Self-hosted Renovate
         if: env.RENOVATE_TOKEN != ''
-        uses: renovatebot/github-action@v42.0.6
+        uses: renovatebot/github-action@87c405b9750f1b6affae06311395b50e3882d54f # v42.0.6
         with:
           docker-cmd-file: .github/renovate-entrypoint.sh
           docker-user: root

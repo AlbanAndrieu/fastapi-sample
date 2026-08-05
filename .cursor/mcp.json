@@ -42,7 +42,7 @@
         "GRAFANA_ORG_ID": "1"
       }
     },
-		"gitlab-docker": {
+    "gitlab-docker": {
       "command": "docker",
       "args": [
         "run",

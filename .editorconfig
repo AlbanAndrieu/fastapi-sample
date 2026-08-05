@@ -61,10 +61,15 @@ trim_trailing_whitespace = true
 [*.{js,py}]
 charset = utf-8
 
-# 2 tab indentation
-[*.py]
-indent_style = tab
+# Keep JavaScript, TypeScript and JSON aligned with Biome and Prettier.
+[*.{js,mjs,ts,json,jsonc}]
+indent_style = space
 indent_size = 2
+
+# Python follows PEP 8 indentation.
+[*.py]
+indent_style = space
+indent_size = 4
 
 # Tab indentation (no size specified)
 [Makefile]

@@ -1,29 +1,29 @@
 {
-	"$schema": "https://openapi.vercel.sh/vercel.json",
-	"outputDirectory": "public",
-	"redirects": [{ "source": "/", "destination": "/api" }],
-	"github": {
-		"silent": true,
-		"autoJobCancelation": true
-	},
-	"headers": [
-		{
-			"source": "/api(/v[0-9]+)?/frameworks",
-			"headers": [
-				{
-					"key": "cache-control",
-					"value": "public, max-age=60, s-maxage=500, stale-while-revalidate=500, stale-if-error=500"
-				}
-			]
-		},
-		{
-			"source": "/api/examples(.*)",
-			"headers": [
-				{
-					"key": "cache-control",
-					"value": "public, max-age=60, s-maxage=86400, stale-while-revalidate=86400, stale-if-error=86400"
-				}
-			]
-		}
-	]
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "outputDirectory": "public",
+  "redirects": [{ "source": "/", "destination": "/api" }],
+  "github": {
+    "silent": true,
+    "autoJobCancelation": true
+  },
+  "headers": [
+    {
+      "source": "/api(/v[0-9]+)?/frameworks",
+      "headers": [
+        {
+          "key": "cache-control",
+          "value": "public, max-age=60, s-maxage=500, stale-while-revalidate=500, stale-if-error=500"
+        }
+      ]
+    },
+    {
+      "source": "/api/examples(.*)",
+      "headers": [
+        {
+          "key": "cache-control",
+          "value": "public, max-age=60, s-maxage=86400, stale-while-revalidate=86400, stale-if-error=86400"
+        }
+      ]
+    }
+  ]
 }
