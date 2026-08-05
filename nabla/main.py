@@ -84,8 +84,9 @@ from nabla.config_settings import (
     DD_TRACE_ENABLED,
     OTEL_SDK_DISABLED,
     OTLP_GRPC_ENDPOINT,
-    client,
+    UNLEASH_ENABLED,
     get_settings,
+    is_unleash_feature_enabled,
 )
 from nabla.deepagents import workflow as ai_workflow
 from nabla.utils.log_config import LogMiddleware, setup_logging
@@ -110,9 +111,6 @@ warnings.filterwarnings(
     category=PydanticJsonSchemaWarning,
     message=".*non-serializable-default.*",
 )
-
-# Disable Unleash integration if env variable is set to "false"
-UNLEASH_ENABLED = os.getenv("UNLEASH_ENABLED", "False").lower() == "true"
 
 _DD_PROFILING_ENABLED = DD_TRACE_ENABLED and os.environ.get("DD_PROFILING_ENABLED", "false").lower() in (
     "true",
@@ -245,7 +243,7 @@ def _configure_unleash_feature_middleware(app: FastAPI) -> None:
     if not UNLEASH_ENABLED:
         logger.warning("UNLEASH integration is disabled via UNLEASH_ENABLED env variable.")
 
-    if UNLEASH_ENABLED or client.is_enabled("rate_limiter"):
+    if is_unleash_feature_enabled("rate_limiter"):
         app.add_exception_handler(
             RateLimitExceeded,
             lambda r, e: JSONResponse(
@@ -256,10 +254,10 @@ def _configure_unleash_feature_middleware(app: FastAPI) -> None:
     else:
         logger.warning("Feature flag : rate_limiter is not enabled")
 
-    if UNLEASH_ENABLED or client.is_enabled("logging_requests"):
+    if is_unleash_feature_enabled("logging_requests"):
         app.add_middleware(LogMiddleware)
 
-    if UNLEASH_ENABLED or client.is_enabled("cors"):
+    if is_unleash_feature_enabled("cors"):
         origins = [
             "http://localhost",
             "http://localhost:8080",
@@ -279,7 +277,7 @@ def _configure_unleash_feature_middleware(app: FastAPI) -> None:
     else:
         logger.warning("Feature flag : cors is not enabled")
 
-    if UNLEASH_ENABLED or client.is_enabled("logging_metrics"):
+    if is_unleash_feature_enabled("logging_metrics"):
         # Setting metrics middleware
         # PrometheusMiddleware seems not working BUT below metrics_middleware works
         app.add_middleware(
@@ -390,7 +388,7 @@ def initialize_api(app, *, logfire_enabled: bool = False):
 
     app.add_api_websocket_route("/ws/sensor", websocket_endpoint)
 
-    if not UNLEASH_ENABLED or client.is_enabled("admin_panel"):
+    if is_unleash_feature_enabled("admin_panel", default_when_disabled=True):
         # Create admin
         admin = Admin(app, engine, title="Example: SQLAlchemy")
 
@@ -451,15 +449,13 @@ mcp = FastMCP.from_fastapi(
 # 2. Create the MCP's ASGI app
 mcp_app = mcp.http_app(path="/mcp")
 
-if not UNLEASH_ENABLED or client.is_enabled("mcp"):
+if is_unleash_feature_enabled("mcp", default_when_disabled=True):
     app.mount("/llm", mcp_app)
     # Now you have:
     # - Regular API: http://localhost:8091/v2/version
     # - LLM-friendly MCP: http://localhost:8091/llm/mcp/
     # Both served from the same FastAPI application!
-elif not UNLEASH_ENABLED:
-    logger.warning("MCP feature not enabled because UNLEASH_ENABLED is set.")
-else:
+elif UNLEASH_ENABLED:
     logger.warning("Feature flag : mcp is not enabled")
 
 if get_settings().a2a_enabled:

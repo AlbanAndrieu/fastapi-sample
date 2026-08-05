@@ -20,7 +20,7 @@ from nabla.api.demo.socket.redis import (
     REDIS_TASK_QUEUE,
     redis,
 )
-from nabla.config_settings import client
+from nabla.config_settings import is_unleash_feature_enabled
 from nabla.utils.logger import logger
 
 Base = declarative_base()
@@ -202,7 +202,7 @@ class SensorData:
         # OK res = await set_cache("data", str(db_reading))
         # NOK res = await set_cache("data", db_reading)
 
-        if client.is_enabled("sensor_reading_redis_cache"):
+        if is_unleash_feature_enabled("sensor_reading_redis_cache"):
             # TODO : Below is working, BUT it is not a good idea to push the whole reading to the cache
             # because it is too big and it is slowing down the system
             res = await save_redis(REDIS_SENSOR_CHANNEL, data)

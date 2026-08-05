@@ -116,6 +116,9 @@ def _env_bool(name: str, default: bool) -> bool:
     return raw.lower() in ("true", "1", "yes")
 
 
+UNLEASH_ENABLED = _env_bool("UNLEASH_ENABLED", False)
+
+
 def _unleash_ssl_verify_enabled() -> bool:
     """
     Whether Unleash HTTP clients should verify TLS certificates.
@@ -768,19 +771,29 @@ _unleash_metrics_s = int(os.environ.get("UNLEASH_METRICS_INTERVAL", "90"))
 _unleash_timeout_s = int(os.environ.get("UNLEASH_REQUEST_TIMEOUT", "45"))
 _unleash_retries = int(os.environ.get("UNLEASH_REQUEST_RETRIES", "4"))
 
-client = UnleashClient(
-    url=UNLEASH_API_URL.rstrip("/"),
-    app_name=UNLEASH_APP_NAME,
-    instance_id=UNLEASH_INSTANCE_ID,
-    refresh_interval=_unleash_refresh_s,
-    metrics_interval=_unleash_metrics_s,
-    request_timeout=_unleash_timeout_s,
-    request_retries=_unleash_retries,
-    custom_options=_unleash_requests_kwargs(),
-    disable_metrics=_env_bool("UNLEASH_DISABLE_METRICS", False),
-)
+if UNLEASH_ENABLED:
+    client = UnleashClient(
+        url=UNLEASH_API_URL.rstrip("/"),
+        app_name=UNLEASH_APP_NAME,
+        instance_id=UNLEASH_INSTANCE_ID,
+        refresh_interval=_unleash_refresh_s,
+        metrics_interval=_unleash_metrics_s,
+        request_timeout=_unleash_timeout_s,
+        request_retries=_unleash_retries,
+        custom_options=_unleash_requests_kwargs(),
+        disable_metrics=_env_bool("UNLEASH_DISABLE_METRICS", False),
+    )
+    client.initialize_client()
+else:
+    client = None
 
-client.initialize_client()
+
+def is_unleash_feature_enabled(feature_name: str, *, default_when_disabled: bool = False) -> bool:
+    """Evaluate a flag only when the Unleash integration is enabled."""
+    if not UNLEASH_ENABLED or client is None:
+        return default_when_disabled
+    return client.is_enabled(feature_name)
+
 
 # statsig = Statsig(STATSIG_API_KEY)
 # statsig.initialize().wait()
