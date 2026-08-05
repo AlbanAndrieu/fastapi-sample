@@ -10,8 +10,8 @@ FROM node:${NODE_FULL_VERSION}-bookworm-slim AS node-upstream
 FROM python:3.12-slim AS python-base
 
 LABEL name="fastapi-sample" vendor="sample" version="1.2.0" \
- description="Image used by our products to build python\
- this image is running on Python 3.12."
+  description="Image used by our products to build python\
+  this image is running on Python 3.12."
 
 LABEL com.datadoghq.tags.service="fastapi-sample"
 # LABEL com.datadoghq.tags.env="uat"
