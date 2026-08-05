@@ -2,30 +2,38 @@
 APPLY_FIXES: none
 DEFAULT_BRANCH: main
 ENABLE_LINTERS:
+  # Checks migrated from the now-manual Super-Linter workflow.
+  - ACTION_ZIZMOR
+  - COPYPASTE_JSCPD
+  - EDITORCONFIG_EDITORCONFIG_CHECKER
+  - HTML_HTMLHINT
+  - JAVASCRIPT_ES
+  - JAVASCRIPT_PRETTIER
+  - JSON_ESLINT_PLUGIN_JSONC
+  - JSON_JSONLINT
+  - JSON_PRETTIER
+  - REPOSITORY_CHECKOV
+  - SPELL_CODESPELL
+  - TYPESCRIPT_ES
+  - TYPESCRIPT_PRETTIER
+  - YAML_PRETTIER
+  - YAML_YAMLLINT
   - REPOSITORY_SECRETLINT
   - REPOSITORY_GITLEAKS
   - REPOSITORY_TRIVY
   - BASH_SHELLCHECK
   - MAKEFILE_CHECKMAKE
-  - REPOSITORY_GIT_DIFF
+  - GIT_GIT_DIFF
   - DOCKERFILE_HADOLINT
   - JUPYTER_JUPYFMT
 DISABLE:
   - CLOUDFORMATION
-  - EDITORCONFIG
   - MARKDOWN
-  - SPELL
-  - JAVASCRIPT
-  - YAML
   - TEKTON
-  - SPELL_LYCHEE
-DISABLE_ERRORS_LINTERS:
-  - COPYPASTE_JSCPD
 DISABLE_LINTERS:
   - ANSIBLE_ANSIBLE_LINT
   - PYTHON_MYPY
   - PYTHON_ISORT
-  - REPOSITORY_CHECKOV
   - REPOSITORY_DEVSKIM
   - REPOSITORY_DUSTILOCK
   - REPOSITORY_TRIVY_SBOM
@@ -39,13 +47,11 @@ DISABLE_LINTERS:
   - TERRAFORM_KICS
 IGNORE_GITIGNORED_FILES: true
 FILTER_REGEX_EXCLUDE: >-
-  (megalinter-reports/|open-webui/|\.automation/test|\.automation/generated|\.github/workflows|\.venv/|\.direnv/|\.mypy_cache/|docs/javascripts|docs/overrides|docs/json-schemas|flavors|clj-kondo|TEMPLATES|tests|trunk|(^|/)uv\.lock$|(^|/)Pipfile\.lock$|(^|/)trivy-sbom\.json$)
+  (megalinter-reports/|open-webui/|\.automation/test|\.automation/generated|\.venv/|\.direnv/|\.mypy_cache/|docs/javascripts|docs/overrides|docs/json-schemas|flavors|clj-kondo|TEMPLATES|tests|trunk|(^|/)uv\.lock$|(^|/)Pipfile\.lock$|(^|/)trivy-sbom\.json$)
 JSON_JSONLINT_FILTER_REGEX_EXCLUDE: >-
-  (\.vscode/|(^|/)uv\.lock$|(^|/)Pipfile\.lock$|(^|/)trivy-sbom\.json$)
-REPOSITORY_GIT_DIFF_FILTER_REGEX_EXCLUDE: >-
-  ((^|/)uv\.lock$|(^|/)Pipfile\.lock$|(^|/)trivy-sbom\.json$)
-REPOSITORY_SECRETLINT_FILTER_REGEX_EXCLUDE: >-
-  ((^|/)uv\.lock$|(^|/)Pipfile\.lock$|(^|/)trivy-sbom\.json$)
+  ((^|/)(\.vscode|\.devcontainer)/|(^|/)uv\.lock$|(^|/)Pipfile\.lock$|(^|/)trivy-sbom\.json$)
+JSON_PRETTIER_FILTER_REGEX_EXCLUDE: >-
+  ((^|/)(\.vscode|\.devcontainer)/|(^|/)uv\.lock$|(^|/)Pipfile\.lock$|(^|/)trivy-sbom\.json$)
 YAML_YAMLLINT_FILTER_REGEX_EXCLUDE: (templates/\.mega-linter\.yml)
 YAML_PRETTIER_FILTER_REGEX_EXCLUDE: (templates/\.mega-linter\.yml|mkdocs\.yml)
 BASH_FILTER_REGEX_EXCLUDE: (lib|open-webui/)
@@ -69,14 +75,12 @@ REPOSITORY_TRIVY_DISABLE_ERRORS: true
 REPOSITORY_GITLEAKS_DISABLE_ERRORS: false
 REPOSITORY_GITLEAKS_ARGUMENTS: -v --no-git --config .gitleaks.toml
 REPOSITORY_GITLEAKS_PR_COMMITS_SCAN: true
-PULL_REQUEST: true
 REPOSITORY_SECRETLINT_DISABLE_ERRORS: false
 BASH_SHELLCHECK_ARGUMENTS: -e "SC2162"
 BASH_SHELLCHECK_FILTER_REGEX_EXCLUDE: (test\|examples|docs/Makefile|open-webui/)
 BASH_SHELLCHECK_DISABLE_ERRORS: false
 BASH_SHELLCHECK_DISABLE_ERRORS_IF_LESS_THAN: 7
 EXCLUDED_DIRECTORIES:
-  - .github
   - .gitlab-ci
   - node_modules
   - open-webui
