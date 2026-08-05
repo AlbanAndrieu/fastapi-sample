@@ -51,6 +51,11 @@ PYROSCOPE_ENDPOINT = os.environ.get("PYROSCOPE_SERVER_ADDRESS", "http://localhos
 
 DD_AGENT_HOST = os.environ.get("DD_AGENT_HOST", "127.0.0.1")
 DD_TRACE_AGENT_PORT = os.environ.get("DD_TRACE_AGENT_PORT", "8126")
+DD_TRACE_ENABLED = os.environ.get("DD_TRACE_ENABLED", "false").lower() in (
+    "true",
+    "1",
+    "yes",
+)
 # When unset/empty, ddtrace has no explicit agent URL; health probe skips instead of hitting localhost.
 DD_TRACE_AGENT_URL = os.environ.get("DD_TRACE_AGENT_URL", "")
 
@@ -61,11 +66,12 @@ REDIS_URL = os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/0")
 # http://datadog-agent.service.gra.dev.consul:4317
 # http://otel-collector.service.gra.dev.consul:9411/api/v2/spans
 
-OTLP_GRPC_ENDPOINT = os.environ.get(
-    # "OTLP_GRPC_ENDPOINT", "http://grpc.jaeger-collector-grpc.service.gra.dev.consul"
-    "OTLP_GRPC_ENDPOINT",
-    "http://datadog-agent.service.gra.dev.consul:4317",
+OTEL_SDK_DISABLED = os.environ.get("OTEL_SDK_DISABLED", "true").lower() in (
+    "true",
+    "1",
+    "yes",
 )
+OTLP_GRPC_ENDPOINT = os.environ.get("OTLP_GRPC_ENDPOINT", "")
 
 OTEL_EXPORTER_JAEGER_AGENT_HOST = os.environ.get(
     "OTEL_EXPORTER_JAEGER_AGENT_HOST",
