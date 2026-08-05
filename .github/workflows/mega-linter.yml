@@ -10,12 +10,7 @@ permissions:
   statuses: write
 
 on:
-  # Trigger mega-linter at every push. Action will also be visible from Pull Requests to main
-  #push: # Comment this line to trigger action only on pull-requests (not recommended if you don't pay for GH Actions)
-  push:
-    branches: [main]
-    paths-ignore:
-      - "**.md"
+  # Quality checks run before merge; production pushes do not repeat them.
   pull_request:
     branches: [main]
 

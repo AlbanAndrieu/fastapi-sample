@@ -50,6 +50,11 @@ FILTER_REGEX_EXCLUDE: >-
   (megalinter-reports/|open-webui/|\.automation/test|\.automation/generated|\.venv/|\.direnv/|\.mypy_cache/|docs/javascripts|docs/overrides|docs/json-schemas|flavors|clj-kondo|TEMPLATES|tests|trunk|(^|/)uv\.lock$|(^|/)Pipfile\.lock$|(^|/)trivy-sbom\.json$)
 # Super-Linter remains available manually but is not part of the canonical CI audit.
 ACTION_ZIZMOR_FILTER_REGEX_EXCLUDE: (^|/)\.github/workflows/linter\.yml$
+# Allow zizmor to authenticate GitHub API requests made by audits such as
+# ref-confusion. MegaLinter blocks environment variables unless explicitly
+# whitelisted for the linter.
+ACTION_ZIZMOR_UNSECURED_ENV_VARIABLES:
+  - GITHUB_TOKEN
 JSON_JSONLINT_FILTER_REGEX_EXCLUDE: >-
   ((^|/)(\.vscode|\.devcontainer)/|(^|/)uv\.lock$|(^|/)Pipfile\.lock$|(^|/)trivy-sbom\.json$)
 JSON_PRETTIER_FILTER_REGEX_EXCLUDE: >-

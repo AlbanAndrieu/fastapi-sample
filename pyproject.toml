@@ -17,6 +17,7 @@ dependencies = [
     "botocore>=1.43.0",
     "fastapi[standard]>=0.128.0",
     "litellm>=1.83.0",
+    "logfire[fastapi]>=4.2.0",
     "ollama>=0.6.2",
     "sentry-sdk>=2.44.0",
     "tavily-python>=0.7.23",
@@ -105,7 +106,6 @@ api-cli = [
 api-tracing = [
     "ddtrace>=3.12.2",
     "dd-import>=1.0.12",
-    "logfire>=4.2.0",
     "pyroscope-io>=0.8.5",
     "sentry-sdk[fastapi]",
     "UnleashClient>=6.3.0",

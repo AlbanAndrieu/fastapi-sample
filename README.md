@@ -233,6 +233,30 @@ curl --request GET http://0.0.0.0:8091/metrics
 curl --request GET http://0.0.0.0:8091/v1/external-api
 ```
 
+### Logfire observability
+
+Pydantic Logfire tracing is enabled only when `LOGFIRE_TOKEN` is present. Create
+the write token in the `nabla/fastapi-sample` project and store it as a secret in
+FastAPI Cloud; never commit it. The optional `LOGFIRE_ENVIRONMENT` value makes
+production and local telemetry easier to filter.
+
+```bash
+export LOGFIRE_TOKEN="<write-token>"
+export LOGFIRE_ENVIRONMENT="production"
+```
+
+For local OAuth authentication against the EU region:
+
+```bash
+logfire --base-url='https://logfire-eu.pydantic.dev' auth
+logfire --base-url='https://logfire-eu.pydantic.dev' projects use \
+  --org 'nabla' 'fastapi-sample'
+```
+
+Request and response headers, parsed request values, health checks, and metrics
+are not sent to Logfire. Without a token, the application starts normally and
+uses its existing OpenTelemetry configuration.
+
 ### MCP clients (e.g. OpenRAG) and A2A
 
 - **Outbound MCP**: set `MCP_CLIENTS` to a JSON array of stdio servers, for example:
