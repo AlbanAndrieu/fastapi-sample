@@ -2,9 +2,9 @@
 
 import os
 from collections.abc import Mapping
+from importlib import import_module
 from typing import Any
 
-import logfire
 from fastapi import FastAPI, Request, WebSocket
 
 from nabla.utils.logger import logger
@@ -34,6 +34,10 @@ def configure_logfire(
         return False
 
     try:
+        # Keep the SDK completely inactive unless explicit credentials are
+        # provided. This also avoids import-time telemetry side effects in
+        # tests and local development.
+        logfire = import_module("logfire")
         logfire.configure(
             token=token,
             send_to_logfire=True,
