@@ -10,6 +10,15 @@ from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 from nabla.utils import sentry_config
 
 
+def test_uses_default_cloud_sentry_dsn(monkeypatch) -> None:
+    monkeypatch.setattr(sentry_config, "sentry_dsn_is_reachable", lambda _dsn: False)
+
+    assert sentry_config.select_sentry_dsn({}) == (
+        sentry_config.DEFAULT_SENTRY_DSN,
+        "cloud",
+    )
+
+
 def test_selects_reachable_local_sentry(monkeypatch) -> None:
     monkeypatch.setattr(sentry_config, "sentry_dsn_is_reachable", lambda _dsn: True)
 
