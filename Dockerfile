@@ -133,6 +133,10 @@ USER jm-python
 COPY --chown=jm-python:jm-python pyproject.toml uv.lock ${PYSETUP_PATH}/
 
 ENV PATH="${PYSETUP_PATH}/.local/bin/:${VENV_PATH}/bin:${PATH}"
+ENV DD_TRACE_ENABLED="false" \
+    DD_PROFILING_ENABLED="false" \
+    DD_LOGS_INJECTION="false" \
+    OTEL_SDK_DISABLED="true"
 
 USER root
 
