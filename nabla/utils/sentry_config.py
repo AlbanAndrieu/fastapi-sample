@@ -13,8 +13,6 @@ from urllib.parse import urlsplit, urlunsplit
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.logging import LoggingIntegration
-from sentry_sdk.integrations.mcp import MCPIntegration
-from sentry_sdk.integrations.openai import OpenAIIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
 from nabla._version import get_versions
@@ -120,25 +118,26 @@ def _before_send_transaction(event: dict[str, Any], _hint: dict[str, Any]) -> di
     return _scrub_sensitive(deepcopy(event))
 
 
-def _integrations(*, include_logging: bool) -> list[Any]:
+def _integrations(*, include_logging: bool, include_ai: bool = False) -> list[Any]:
     integrations: list[Any] = []
-    for module_name, class_name in (
-        ("sentry_sdk.integrations.litellm", "LiteLLMIntegration"),
-        ("sentry_sdk.integrations.langchain", "LangchainIntegration"),
-        ("sentry_sdk.integrations.langgraph", "LanggraphIntegration"),
-    ):
-        try:
-            module = __import__(module_name, fromlist=[class_name])
-            integrations.append(getattr(module, class_name)())
-        except Exception as exc:
-            _logger.debug("Skipping Sentry integration %s.%s: %s", module_name, class_name, exc)
+    if include_ai:
+        for module_name, class_name in (
+            ("sentry_sdk.integrations.litellm", "LiteLLMIntegration"),
+            ("sentry_sdk.integrations.langchain", "LangchainIntegration"),
+            ("sentry_sdk.integrations.langgraph", "LanggraphIntegration"),
+            ("sentry_sdk.integrations.openai", "OpenAIIntegration"),
+            ("sentry_sdk.integrations.mcp", "MCPIntegration"),
+        ):
+            try:
+                module = __import__(module_name, fromlist=[class_name])
+                integrations.append(getattr(module, class_name)())
+            except Exception as exc:
+                _logger.debug("Skipping Sentry integration %s.%s: %s", module_name, class_name, exc)
 
     integrations.extend(
         [
             FastApiIntegration(transaction_style="endpoint"),
             SqlalchemyIntegration(),
-            OpenAIIntegration(),
-            MCPIntegration(),
         ],
     )
     if include_logging:
@@ -181,7 +180,10 @@ def configure_sentry(env: Mapping[str, str] | None = None) -> bool:
             shutdown_timeout=float(values.get("SENTRY_SHUTDOWN_TIMEOUT", "2")),
             environment=values.get("SENTRY_ENVIRONMENT") or values.get("ENV") or "development",
             release=values.get("SENTRY_RELEASE") or app_version,
-            integrations=_integrations(include_logging=not logfire_enabled),
+            integrations=_integrations(
+                include_logging=not logfire_enabled,
+                include_ai=values.get("SENTRY_AI_INTEGRATIONS_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"},
+            ),
             server_name=app_name,
         )
     except Exception:
