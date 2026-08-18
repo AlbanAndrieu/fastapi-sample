@@ -28,7 +28,7 @@ def test_version_endpoint_exposes_api_release_and_mcp_metadata():
     assert payload["release_version"] == "1.3.7"
     assert payload["service"] == "fastapi-sample"
     assert payload["mcp"]["transport"] == "streamable-http"
-    assert payload["mcp"]["endpoint"] == "/llm/mcp/"
+    assert payload["mcp"]["endpoint"] == "/mcp"
     assert payload["mcp"]["openapi_endpoint"] == "/openapi.json"
     assert payload["mcp"]["api_ui"] == "/api"
     assert payload["knowledge"]["alban_profile"] == "https://www.albanandrieu.com/"
