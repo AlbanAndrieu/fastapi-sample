@@ -18,12 +18,17 @@ def test_invalid_release_version_uses_generated_fallback(monkeypatch):
     assert resolve_release_version() == "1.3.7"
 
 
-def test_version_endpoint_exposes_api_and_release_versions():
+def test_version_endpoint_exposes_api_release_and_mcp_metadata():
     response = TestClient(app).get("/v2/version")
 
     assert response.status_code == 200
-    assert response.json() == {
-        "version": "v0+1.3.7",
-        "api_version": "v0",
-        "release_version": "1.3.7",
-    }
+    payload = response.json()
+    assert payload["version"] == "v0+1.3.7"
+    assert payload["api_version"] == "v0"
+    assert payload["release_version"] == "1.3.7"
+    assert payload["service"] == "fastapi-sample"
+    assert payload["mcp"]["transport"] == "streamable-http"
+    assert payload["mcp"]["endpoint"] == "/llm/mcp/"
+    assert payload["mcp"]["openapi_endpoint"] == "/openapi.json"
+    assert payload["mcp"]["api_ui"] == "/api"
+    assert payload["knowledge"]["alban_profile"] == "https://www.albanandrieu.com/"
