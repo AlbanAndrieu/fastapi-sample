@@ -72,7 +72,7 @@ def register_routes(app: FastAPI) -> None:
         from nabla.api.health_checks import build_healthz_payload
         from nabla.api.db.database import engine
         from nabla.api.demo.socket.redis import redis
-        
+
         with pyroscope.tag_wrapper({"function": "fast"}):
             return await build_healthz_payload(request, redis_client=redis, engine=engine)
 
@@ -80,7 +80,7 @@ def register_routes(app: FastAPI) -> None:
     async def get_sickz(request: Request):
         """Return JSON: URL groups must not be reachable."""
         from nabla.api.health_checks import build_sickz_payload
-        
+
         with pyroscope.tag_wrapper({"function": "fast"}):
             return await build_sickz_payload(request)
 
