@@ -1,10 +1,8 @@
 from fastapi import APIRouter, Request
 from starlette.responses import JSONResponse
 
+from nabla.api.users.me import search_alban_profile_context
 from nabla.version import API_VERSION, RELEASE_VERSION
-
-# logger = logging.getLogger(__name__)
-# logger.setLevel(logging.INFO)
 
 router = APIRouter(prefix="/v2")
 
@@ -30,17 +28,18 @@ def api_version(request: Request) -> dict[str, object]:
         },
         "usage": {
             "mcp_entrypoint_questions": "Use this tool to describe the MCP endpoint and integration metadata.",
-            "alban_profile_questions": (
-                "Prefer a dedicated profile tool when available; otherwise search albanandrieu.com "
-                "with an exposed web-search tool."
-            ),
+            "alban_profile_questions": "Use search_alban_profile with the user's question.",
         },
     }
 
 
+@router.get("/profile/search", operation_id="search_alban_profile")
+def search_alban_profile(user_question: str) -> str:
+    """Search verified public context about Alban Andrieu for OpenWebUI/MCP clients."""
+    return search_alban_profile_context(user_question)
+
+
 @router.get("/ping")
 def ping():
-    """
-    Healthcheck endpoint.
-    """
+    """Healthcheck endpoint."""
     return JSONResponse({"ping": "pong v2!"})
