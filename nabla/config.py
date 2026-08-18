@@ -1,6 +1,8 @@
 """Central configuration for the FastAPI application."""
+
 import os
 import warnings
+
 from pydantic.json_schema import PydanticJsonSchemaWarning
 
 # Datadog setup
@@ -34,20 +36,32 @@ CORS_ORIGINS = [
 ]
 
 # MCP allowed routes
-MCP_ALLOWED_ROUTES: frozenset[tuple[str, str]] = frozenset({
-    ("POST", "/v1/tavily/search"),
-    ("POST", "/v1/brave/search"),
-    ("POST", "/v1/google/search"),
-    ("GET", "/v2/version"),
-    ("GET", "/demo/greet_user/{name}"),
-    ("GET", "/demo/get_time"),
-    ("GET", "/demo/add"),
-    ("GET", "/demo/multiply"),
-})
+MCP_ALLOWED_ROUTES: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("POST", "/v1/tavily/search"),
+        ("POST", "/v1/brave/search"),
+        ("POST", "/v1/google/search"),
+        ("GET", "/v2/version"),
+        ("GET", "/v2/profile/search"),
+        ("GET", "/demo/greet_user/{name}"),
+        ("GET", "/demo/get_time"),
+        ("GET", "/demo/add"),
+        ("GET", "/demo/multiply"),
+    }
+)
 
 # Noisy paths to exclude from detailed logging
 NOISY_SUCCESS_PATHS = {
-    "/docs", "/docs/oauth2-redirect", "/health", "/healthz",
-    "/logs", "/metrics", "/openapi.json", "/ping", "/redoc", "/sickz", "/stream",
+    "/docs",
+    "/docs/oauth2-redirect",
+    "/health",
+    "/healthz",
+    "/logs",
+    "/metrics",
+    "/openapi.json",
+    "/ping",
+    "/redoc",
+    "/sickz",
+    "/stream",
 }
-NOISY_SUCCESS_PREFIXES = ("/llm/", "/logs/", "/stream/", "/v1/mcp/")
+NOISY_SUCCESS_PREFIXES = ("/mcp", "/logs/", "/stream/", "/v1/mcp/")
