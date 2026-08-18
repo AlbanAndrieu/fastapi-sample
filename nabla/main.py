@@ -23,7 +23,6 @@ from starlette.middleware.cors import CORSMiddleware
 from nabla.api import (
     appwrite_route,
     brave_route,
-    dd,
     demo,
     google_search_route,
     info,
@@ -201,7 +200,6 @@ def _register_routers(app: FastAPI) -> None:
     app.include_router(brave_route.router, tags=["brave"])
     app.include_router(google_search_route.router, tags=["google"])
     app.include_router(integration.router, tags=["integration"])
-    app.include_router(dd.router, tags=["integration"])
     app.include_router(demo.router, tags=["integration"])
     app.include_router(notes.router, tags=["notes"])
     app.include_router(info.router, tags=["test"])
@@ -279,7 +277,9 @@ def _configure_hot_reload(app: FastAPI) -> None:
 
 
 def _setup_datadog_user_info() -> None:
-    """Setup Datadog user context."""
+    """Setup Datadog user context only when Datadog tracing is enabled."""
+    if not DD_TRACE_ENABLED:
+        return
     set_user(
         tracer,
         "usr.id",
