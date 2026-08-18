@@ -25,7 +25,7 @@ async def lifespan(app: FastAPI):
     await init_db()
     from nabla.api.notes.models import init_db as init_db_note
     from nabla.api.users.models import init_db as init_db_user
-    
+
     await init_db_note()
     await init_db_user()
     await init_db_sensor_reading()
