@@ -29,7 +29,6 @@ from nabla.api import (
     integration,
     keycloak,
     mcp_ops_route,
-    notes,
     ping,
     sensor,
     tavily_route,
@@ -39,6 +38,7 @@ from nabla.api import (
 )
 from nabla.api.auth import keycloak as keycloak_auth
 from nabla.api.db.database import engine
+from nabla.api.notes import notes
 from nabla.api.users.models import UserAdmin, UserCreate, UserRead, UserUpdate
 from nabla.api.users.users import fastapi_users, jwt_backend
 from nabla.config import CORS_ORIGINS, MCP_ALLOWED_ROUTES, UNLEASH_ENABLED
