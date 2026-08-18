@@ -109,7 +109,6 @@ def _configure_unleash_middleware(app: FastAPI) -> None:
         logger.warning("UNLEASH integration disabled via env variable")
         return
 
-    # Rate limiting
     if client.is_enabled("rate_limiter"):
         from fastapi.responses import JSONResponse
         from slowapi.errors import RateLimitExceeded
@@ -123,7 +122,6 @@ def _configure_unleash_middleware(app: FastAPI) -> None:
     else:
         logger.warning("Feature flag: rate_limiter not enabled")
 
-    # CORS
     if client.is_enabled("cors"):
         app.add_middleware(
             CORSMiddleware,
@@ -135,7 +133,6 @@ def _configure_unleash_middleware(app: FastAPI) -> None:
     else:
         logger.warning("Feature flag: cors not enabled")
 
-    # Prometheus metrics
     if client.is_enabled("logging_metrics"):
         app.add_middleware(PrometheusMiddleware, app_name=APP_NAME)
     else:
@@ -167,7 +164,6 @@ def _configure_metrics(app: FastAPI) -> None:
         ).instrument(app)
         instrumentator.expose(app=app, include_in_schema=False)
 
-    # OpenTelemetry
     if not OTEL_SDK_DISABLED and OTLP_GRPC_ENDPOINT:
         setting_otlp(app, APP_NAME, OTLP_GRPC_ENDPOINT)
     elif not OTEL_SDK_DISABLED:
@@ -176,10 +172,8 @@ def _configure_metrics(app: FastAPI) -> None:
 
 def _register_routers(app: FastAPI) -> None:
     """Register API routers."""
-    # Basic routers
     app.include_router(ping.router, tags=["ping"])
 
-    # Auth routers
     app.include_router(
         fastapi_users.get_auth_router(jwt_backend), prefix="/auth/jwt", tags=["auth"]
     )
@@ -200,7 +194,6 @@ def _register_routers(app: FastAPI) -> None:
         tags=["auth"],
     )
 
-    # API routers
     app.include_router(v1.router, tags=["api"])
     app.include_router(v2.router, tags=["api"])
     app.include_router(appwrite_route.router, tags=["appwrite"])
@@ -218,20 +211,18 @@ def _register_routers(app: FastAPI) -> None:
     app.include_router(users.router, tags=["users"])
     app.include_router(sensor.router, tags=["sensor"])
 
-    # Feature flags
     if os.getenv("DEBUG"):
         from fastapi_featureflags import router as ff_router
 
         app.include_router(ff_router, prefix="/ff", tags=["FeatureFlags"])
 
-    # WebSocket
     from nabla.api.demo.socket.websocket import websocket_endpoint
 
     app.add_api_websocket_route("/ws/sensor", websocket_endpoint)
 
 
 def _configure_mcp(app: FastAPI) -> None:
-    """Configure Model Context Protocol (MCP) integration."""
+    """Configure MCP Streamable HTTP directly at /mcp."""
     from fastmcp.server.providers.openapi.routing import HTTPRoute
 
     def filter_route(route: HTTPRoute, default_type: MCPType) -> MCPType | None:
@@ -241,15 +232,14 @@ def _configure_mcp(app: FastAPI) -> None:
 
     global mcp_app
     mcp = FastMCP.from_fastapi(app=app, name="mcp", route_map_fn=filter_route)
-    mcp_app = mcp.http_app(path="/mcp")
+    mcp_app = mcp.http_app(path="/")
 
     if not UNLEASH_ENABLED or client.is_enabled("mcp"):
-        app.mount("/llm", mcp_app)
-        logger.info("MCP mounted at /llm/mcp/")
+        app.mount("/mcp", mcp_app)
+        logger.info("MCP Streamable HTTP mounted at /mcp")
     else:
         logger.warning("MCP feature not enabled")
 
-    # A2A integration
     if get_settings().a2a_enabled:
         try:
             from nabla.a2a_app import build_a2a_starlette_application
@@ -312,7 +302,6 @@ def create_app() -> FastAPI:
         debug=os.getenv("DEBUG", "False").lower() == "true",
     )
 
-    # Custom OpenAPI schema
     def custom_openapi():
         if app.openapi_schema:
             return app.openapi_schema
@@ -324,18 +313,16 @@ def create_app() -> FastAPI:
             routes=app.routes,
         )
         openapi_schema["info"]["x-logo"] = {
-            "url": "https://fastapi.tiangolo.com/img/logo-margin/logo-teal.png",
+            "url": "https://fastapi.tiangolo.com/img/logo-margin-logo-teal.png",
         }
         app.openapi_schema = openapi_schema
         return app.openapi_schema
 
     app.openapi = custom_openapi
 
-    # Middleware
     app.add_middleware("http", logging_middleware)
     app.add_middleware("http", metrics_middleware)
 
-    # Configuration
     _configure_unleash_middleware(app)
     _configure_metrics(app)
     _register_routers(app)
@@ -343,26 +330,18 @@ def create_app() -> FastAPI:
     _configure_admin_panel(app)
     _configure_hot_reload(app)
 
-    # Observability
-    logfire_enabled = configure_logfire(
-        app, service_name=APP_NAME, service_version=APP_VERSION
-    )
+    configure_logfire(app, service_name=APP_NAME, service_version=APP_VERSION)
     configure_sentry()
     _setup_datadog_user_info()
 
-    # Routes
     register_routes(app)
 
     return app
 
 
-# Global MCP app instance
 mcp_app = None
-
-# Create application instance
 app = create_app()
 
-# CLI parser
 parser = argparse.ArgumentParser(prog="nabla")
 parser.add_argument("echo", help="String to print back to the console")
 
