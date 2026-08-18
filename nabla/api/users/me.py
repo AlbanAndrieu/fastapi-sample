@@ -39,33 +39,18 @@ CITY = "Paris"
 STATE = "FR"
 ZIPCODE = "92000"
 COUNTRY = "France"
-
-# Application / database user id; same value as ``UserIn.user_id`` from :func:`get_me`.
 WHOAMI_HANDLE = "albandrieu"
 
 PROFESSIONAL_WEBSITE_URL = "https://www.albanandrieu.com/"
 LINKEDIN_URL = "https://www.linkedin.com/in/nabla/"
 
 PROFILE_WEBSITE_QUERY_MARKERS: tuple[str, ...] = (
-    "alban",
-    "andrieu",
-    "albandrieu",
-    "devsecops",
-    "engineer",
-    "cloud architect",
-    "cloud engineer",
-    "cloud developer",
-    "cloud security",
-    "cloud infrastructure",
-    "cloud operations",
-    "cloud monitoring",
-    "cloud logging",
-    "cloud automation",
-    "dr alban.com",
+    "alban", "andrieu", "albandrieu", "devsecops", "engineer",
+    "cloud architect", "cloud engineer", "cloud developer", "cloud security",
+    "cloud infrastructure", "cloud operations", "cloud monitoring", "cloud logging",
+    "cloud automation", "dr alban.com",
 )
 
-
-# Define a prompt
 mcp = FastMCP(name="UserServer")
 
 
@@ -75,7 +60,6 @@ def code_review_prompt(language: str = "python") -> str:
     return f"You are an expert {language} code reviewer..."
 
 
-# Define a prompt
 @mcp.prompt()
 def lawyer_prompt() -> str:
     """Generate a lawyer prompt for child abduction and alienation by mother."""
@@ -137,7 +121,7 @@ Use returned page text to answer; for unrelated questions, do not call these too
 
 
 def get_agent_system_prompt() -> str:
-    """Return the workflow system prompt from Langfuse when configured, else :data:`AGENT_SYSTEM_PROMPT`."""
+    """Return the workflow system prompt from Langfuse when configured, else fallback."""
     return resolve_nabla_agent_system_prompt(AGENT_SYSTEM_PROMPT)
 
 
@@ -147,15 +131,12 @@ def _dr_alban_origin() -> str:
 
 
 def _http_get_text(url: str, *, timeout: float = 20.0) -> str:
-    req = urllib.request.Request(  # noqa: S310 — fixed HTTPS URLs from callers
+    req = urllib.request.Request(  # noqa: S310
         url,
         headers={"User-Agent": "nabla-fetch-my-profile/1.0 (+https://www.albanandrieu.com/)"},
     )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310   # nosec B310 - HTTPS-only URLs controlled by callers
-        return resp.read().decode(
-            resp.headers.get_content_charset() or "utf-8",
-            errors="replace",
-        )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310  # nosec B310
+        return resp.read().decode(resp.headers.get_content_charset() or "utf-8", errors="replace")
 
 
 def _html_to_visible_text(html: str, *, max_chars: int = 8000) -> str:
@@ -167,8 +148,14 @@ def _html_to_visible_text(html: str, *, max_chars: int = 8000) -> str:
 
 
 def _sitemap_locs(xml_body: str) -> list[str]:
-    """Extract ``<loc>`` URLs without full XML parsing (sitemaps are trusted first-party hosts)."""
-    return [m.strip() for m in re.findall(r"<loc>\s*([^<]+?)\s*</loc>", xml_body, flags=re.IGNORECASE | re.DOTALL) if m.strip()]
+    """Extract ``<loc>`` URLs without full XML parsing."""
+    return [
+        match.strip()
+        for match in re.findall(
+            r"<loc>\s*([^<]+?)\s*</loc>", xml_body, flags=re.IGNORECASE | re.DOTALL
+        )
+        if match.strip()
+    ]
 
 
 def _same_dr_alban_host(url: str, origin_netloc: str) -> bool:
@@ -178,7 +165,9 @@ def _same_dr_alban_host(url: str, origin_netloc: str) -> bool:
         return False
 
 
-def _expand_sitemap_to_page_urls(seed_locs: list[str], *, origin_netloc: str, max_subsitemaps: int = 8) -> list[str]:
+def _expand_sitemap_to_page_urls(
+    seed_locs: list[str], *, origin_netloc: str, max_subsitemaps: int = 8
+) -> list[str]:
     pages: list[str] = []
     subs: list[str] = []
     for loc in seed_locs:
@@ -196,22 +185,15 @@ def _expand_sitemap_to_page_urls(seed_locs: list[str], *, origin_netloc: str, ma
         for loc in _sitemap_locs(nested):
             if _same_dr_alban_host(loc, origin_netloc) and not loc.lower().endswith(".xml"):
                 pages.append(loc)
-    seen: set[str] = set()
-    ordered: list[str] = []
-    for u in pages:
-        if u in seen:
-            continue
-        seen.add(u)
-        ordered.append(u)
-    return ordered
+    return list(dict.fromkeys(pages))
 
 
 def _dr_alban_http_sitemap_fallback(*, max_pages: int = 7, total_budget: int = 24_000) -> str:
-    """Fetch albanandrieu.com pages discovered via sitemap (or homepage) when web search is unavailable."""
+    """Fetch albanandrieu.com pages discovered via sitemap when web search is unavailable."""
     origin = _dr_alban_origin()
     origin_netloc = urlparse(origin).netloc
     seed_locs: list[str] = []
-    for path in "sitemap.xml":
+    for path in ("sitemap.xml", "sitemap_index.xml"):
         sm_url = urljoin(origin + "/", path)
         try:
             xml_body = _http_get_text(sm_url)
@@ -221,12 +203,7 @@ def _dr_alban_http_sitemap_fallback(*, max_pages: int = 7, total_budget: int = 2
         if seed_locs:
             break
     page_urls = _expand_sitemap_to_page_urls(seed_locs, origin_netloc=origin_netloc)
-    ordered: list[str] = [PROFESSIONAL_WEBSITE_URL]
-    for u in page_urls:
-        if u not in ordered:
-            ordered.append(u)
-    if not ordered:
-        ordered = [PROFESSIONAL_WEBSITE_URL]
+    ordered = list(dict.fromkeys([PROFESSIONAL_WEBSITE_URL, *page_urls]))
     chunks: list[str] = []
     used = 0
     for url in ordered[:max_pages]:
@@ -264,9 +241,9 @@ def _web_search_profile_blocks() -> str | None:
     if primary_text:
         blocks.append(f"Web search — albanandrieu.com\n{primary_text}")
     if not primary_text:
-        for q in linkedin_queries:
+        for query in linkedin_queries:
             try:
-                linked = web_search_to_context_string(q, max_results=max_results).strip()
+                linked = web_search_to_context_string(query, max_results=max_results).strip()
             except Exception as exc:
                 logger.warning("fetch_my_profile: LinkedIn web search failed: %s", exc)
                 linked = ""
@@ -278,24 +255,23 @@ def _web_search_profile_blocks() -> str | None:
     return "\n\n---\n\n".join(blocks)
 
 
-@tool
-def fetch_my_profile(user_question: str | None = None) -> str:
-    """
-    Load Alban Andrieu's public profile from albanandrieu.com (and secondarily LinkedIn via search).
-
-    Uses configured web search when available (albanandrieu first, then LinkedIn). If search
-    is not configured or yields nothing, fetches albanandrieu.com directly using sitemap.xml
-    (and related sitemaps) to pull page text. Pass ``user_question`` verbatim for gating.
-    """
+def search_alban_profile_context(user_question: str) -> str:
+    """Return verified public profile context for an Alban Andrieu question."""
     if not user_question or not user_question.strip():
-        return "Missing `user_question`. Pass the user's question verbatim so I can confirm they are asking about Alban Andrieu before fetching profile context."
+        return "Missing `user_question`. Pass the user's question verbatim."
     if not question_refers_to_alban_profile(user_question):
-        return "Skipped web search: the question does not appear to be about Alban Andrieu. Answer from general knowledge only, or ask the user to clarify."
+        return "Skipped profile search: the question does not appear to be about Alban Andrieu."
     search_block = _web_search_profile_blocks()
     if search_block:
         return f"Profile context (web search; {PROFESSIONAL_WEBSITE_URL}; LinkedIn fallback {LINKEDIN_URL}):\n\n{search_block}"
     http_block = _dr_alban_http_sitemap_fallback()
     return f"Profile context (direct HTTP + sitemap; no web search API configured or no results):\n\n{http_block}"
+
+
+@tool
+def fetch_my_profile(user_question: str | None = None) -> str:
+    """Load Alban Andrieu's public profile for the LangChain workflow."""
+    return search_alban_profile_context(user_question or "")
 
 
 def runtime_whoami() -> str:
@@ -304,9 +280,7 @@ def runtime_whoami() -> str:
 
 
 def get_me() -> UserIn:
-    """
-    👤 Return the canonical profile for Alban Andrieu (demo / MCP / ``whoami``).
-    """
+    """👤 Return the canonical profile for Alban Andrieu."""
     return UserIn(
         user_id=WHOAMI_HANDLE,
         name=DISPLAY_NAME,
