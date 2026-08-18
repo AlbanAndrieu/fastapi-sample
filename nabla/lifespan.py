@@ -1,16 +1,20 @@
 """Application lifecycle management (startup/shutdown)."""
+
 import asyncio
 import os
 from contextlib import asynccontextmanager, suppress
+
 from fastapi import FastAPI
 from fastapi_cache import FastAPICache
 from fastapi_cache.backends.inmemory import InMemoryBackend
+
 from nabla.api.db.database import database, init_db
-from nabla.api.demo.models import init_db as init_db_sensor_reading, recent_readings
-from nabla.api.demo.models import metrics
+from nabla.api.demo.models import init_db as init_db_sensor_reading
+from nabla.api.demo.models import recent_readings
+from nabla.api.demo.sensor import metrics
 from nabla.api.demo.socket.redis import redis, start_event_listener
-from nabla.utils.prometheus import update_system_metrics
 from nabla.utils.logger import logger
+from nabla.utils.prometheus import update_system_metrics
 
 
 @asynccontextmanager
