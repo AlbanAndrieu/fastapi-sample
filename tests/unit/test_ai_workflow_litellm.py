@@ -1,5 +1,6 @@
 """LangGraph /run endpoint and LiteLLM (OpenAI-compatible) wiring for the workflow LLM."""
 
+import importlib
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import MagicMock
@@ -13,7 +14,7 @@ from nabla.config_settings import DEFAULT_CHAT_MODEL, get_settings
 from nabla.main import app
 from nabla.deepagents import workflow as wf
 
-import nabla.api.demo.models as demo_models
+demo_models = importlib.import_module("nabla.api.demo.models")
 import nabla.main as main_mod
 
 import nabla.config_settings as config_settings

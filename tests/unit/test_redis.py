@@ -1,15 +1,16 @@
 import asyncio
+import importlib
 import random
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi.testclient import TestClient
 
-import nabla.api.demo.demo as demo
 from server_app import app
 from tests.unit.conftest import requires_env
 
-from unittest.mock import AsyncMock
-import nabla.api.demo.socket.redis as redis_module
+demo = importlib.import_module("nabla.api.demo.demo")
+redis_module = importlib.import_module("nabla.api.demo.socket.redis")
 
 # from async_asgi_testclient import TestClient
 

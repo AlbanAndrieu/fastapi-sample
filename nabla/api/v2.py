@@ -17,7 +17,7 @@ def api_version(request: Request) -> dict[str, object]:
         "service": "fastapi-sample",
         "mcp": {
             "transport": "streamable-http",
-            "endpoint": "/llm/mcp/",
+            "endpoint": "/mcp",
             "openapi_endpoint": "/openapi.json",
             "api_ui": "/api",
         },
