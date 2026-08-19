@@ -2,7 +2,6 @@
 APPLY_FIXES: none
 DEFAULT_BRANCH: main
 ENABLE_LINTERS:
-  # Checks migrated from the now-manual Super-Linter workflow.
   - ACTION_ZIZMOR
   - COPYPASTE_JSCPD
   - EDITORCONFIG_EDITORCONFIG_CHECKER
@@ -48,11 +47,7 @@ DISABLE_LINTERS:
 IGNORE_GITIGNORED_FILES: true
 FILTER_REGEX_EXCLUDE: >-
   (megalinter-reports/|\.megalinter_github_conf/|open-webui/|\.automation/test|\.automation/generated|\.venv/|\.direnv/|\.mypy_cache/|docs/javascripts|docs/overrides|docs/json-schemas|flavors|clj-kondo|TEMPLATES|tests|trunk|(^|/)uv\.lock$|(^|/)Pipfile\.lock$|(^|/)trivy-sbom\.json$)
-# Super-Linter remains available manually but is not part of the canonical CI audit.
 ACTION_ZIZMOR_FILTER_REGEX_EXCLUDE: (^|/)\.github/workflows/linter\.yml$
-# Allow zizmor to authenticate GitHub API requests made by audits such as
-# ref-confusion. MegaLinter blocks environment variables unless explicitly
-# whitelisted for the linter.
 ACTION_ZIZMOR_UNSECURED_ENV_VARIABLES:
   - GITHUB_TOKEN
 JSON_JSONLINT_FILTER_REGEX_EXCLUDE: >-
@@ -104,6 +99,7 @@ SHOW_ELAPSED_TIME: true
 JSON_REPORTER: true
 SARIF_REPORTER: true
 FILEIO_REPORTER: false
+UPDATED_SOURCES_REPORTER: false
 VALIDATE_ALL_CODEBASE: true
 FLAVOR_SUGGESTIONS: false
 SHOW_SKIPPED_LINTERS: false
