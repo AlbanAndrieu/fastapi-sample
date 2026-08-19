@@ -66,10 +66,8 @@ from nabla.utils.sentry_config import configure_sentry
 setup_logging()
 logger.info("Creating API")
 
-# Circuit breaker for external services
 circuit_breaker_web = CircuitBreaker(fail_max=2, reset_timeout=10)
 
-# Datadog tracing configuration
 if DD_TRACE_ENABLED:
     patch(fastapi=True)
     config.fastapi["service_name"] = APP_NAME
@@ -85,7 +83,6 @@ if DD_TRACE_ENABLED:
 
     tracer.configure(trace_processors=[FilterbyName()])
 
-# Datadog profiling
 _DD_PROFILING_ENABLED = DD_TRACE_ENABLED and os.environ.get(
     "DD_PROFILING_ENABLED", "false"
 ).lower() in ("true", "1", "yes")
@@ -172,14 +169,11 @@ def _configure_metrics(app: FastAPI) -> None:
 def _register_routers(app: FastAPI) -> None:
     """Register API routers."""
     app.include_router(ping.router, tags=["ping"])
-
     app.include_router(
         fastapi_users.get_auth_router(jwt_backend), prefix="/auth/jwt", tags=["auth"]
     )
     app.include_router(
-        fastapi_users.get_register_router(UserRead, UserCreate),
-        prefix="/auth",
-        tags=["auth"],
+        fastapi_users.get_register_router(UserRead, UserCreate), prefix="/auth", tags=["auth"]
     )
     app.include_router(
         fastapi_users.get_reset_password_router(), prefix="/auth", tags=["auth"]
@@ -188,11 +182,8 @@ def _register_routers(app: FastAPI) -> None:
         fastapi_users.get_verify_router(UserRead), prefix="/auth", tags=["auth"]
     )
     app.include_router(
-        fastapi_users.get_users_router(UserRead, UserUpdate),
-        prefix="/users",
-        tags=["auth"],
+        fastapi_users.get_users_router(UserRead, UserUpdate), prefix="/users", tags=["auth"]
     )
-
     app.include_router(v1.router, tags=["api"])
     app.include_router(v2.router, tags=["api"])
     app.include_router(appwrite_route.router, tags=["appwrite"])
@@ -220,7 +211,7 @@ def _register_routers(app: FastAPI) -> None:
 
 
 def _configure_mcp(app: FastAPI) -> None:
-    """Configure MCP Streamable HTTP directly at /mcp."""
+    """Expose MCP Streamable HTTP on the canonical /mcp endpoint."""
     from fastmcp.server.providers.openapi.routing import HTTPRoute
 
     def filter_route(route: HTTPRoute, default_type: MCPType) -> MCPType | None:
@@ -228,15 +219,15 @@ def _configure_mcp(app: FastAPI) -> None:
             return None
         return MCPType.EXCLUDE
 
-    global mcp_app
+    global mcp, mcp_app
     mcp = FastMCP.from_fastapi(app=app, name="mcp", route_map_fn=filter_route)
-    mcp_app = mcp.http_app(path="/")
 
-    if not UNLEASH_ENABLED or client.is_enabled("mcp"):
-        app.mount("/mcp", mcp_app)
-        logger.info("MCP Streamable HTTP mounted at /mcp")
-    else:
-        logger.warning("MCP feature not enabled")
+    # FastMCP owns the complete `/mcp` transport path. Mounting an app whose
+    # internal path is `/` below `/mcp` makes clients/proxies depend on slash
+    # redirects. Open WebUI expects a canonical Streamable HTTP endpoint.
+    mcp_app = mcp.http_app(path="/mcp")
+    app.mount("/", mcp_app)
+    logger.info("MCP Streamable HTTP exposed at /mcp")
 
     if get_settings().a2a_enabled:
         try:
@@ -263,11 +254,7 @@ def _configure_hot_reload(app: FastAPI) -> None:
             print("Reloading server data...")
 
         hot_reload = arel.HotReload(
-            paths=[
-                arel.Path("./nabla/data", on_reload=[reload_data]),
-                arel.Path("./nabla/static"),
-                arel.Path("./templates"),
-            ],
+            paths=[arel.Path("./nabla/data", on_reload=[reload_data]), arel.Path("./nabla/static"), arel.Path("./templates")],
         )
         app.add_websocket_route("/hot-reload", route=hot_reload)
         app.add_event_handler("startup", hot_reload.startup)
@@ -312,33 +299,27 @@ def create_app() -> FastAPI:
             description="Here's a longer description of the custom **OpenAPI** schema",
             routes=app.routes,
         )
-        openapi_schema["info"]["x-logo"] = {
-            "url": "https://fastapi.tiangolo.com/img/logo-margin-logo-teal.png",
-        }
+        openapi_schema["info"]["x-logo"] = {"url": "https://fastapi.tiangolo.com/img/logo-margin-logo-teal.png"}
         app.openapi_schema = openapi_schema
         return app.openapi_schema
 
     app.openapi = custom_openapi
-
     app.add_middleware("http", logging_middleware)
     app.add_middleware("http", metrics_middleware)
-
     _configure_unleash_middleware(app)
     _configure_metrics(app)
     _register_routers(app)
     _configure_mcp(app)
     _configure_admin_panel(app)
     _configure_hot_reload(app)
-
     configure_logfire(app, service_name=APP_NAME, service_version=APP_VERSION)
     configure_sentry()
     _setup_datadog_user_info()
-
     register_routes(app)
-
     return app
 
 
+mcp = None
 mcp_app = None
 app = create_app()
 
