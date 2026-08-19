@@ -92,6 +92,7 @@ jobs:
 
   sonarcloud:
     name: Scan with SonarCloud
+    needs: build
     if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     env:
@@ -107,3 +108,25 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
+
+  docker:
+    name: Docker CI
+    needs: build
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+    uses: ./.github/workflows/docker-build.yml
+    secrets: inherit
+
+  mega-linter:
+    name: MegaLinter
+    needs: build
+    if: github.actor != 'dependabot[bot]'
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      statuses: write
+    uses: ./.github/workflows/mega-linter.yml
+    secrets: inherit
