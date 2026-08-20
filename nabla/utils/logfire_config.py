@@ -18,6 +18,7 @@ _EXCLUDED_URLS = (
     r"openapi\.json|ping|redoc|sickz|stream(?:/.*)?|llm(?:/.*)?|"
     r"v1/mcp(?:/.*)?)(?:\?.*)?$"
 )
+_FALSE_VALUES = {"0", "false", "no", "off"}
 
 
 def _discard_request_attributes(
@@ -36,14 +37,22 @@ def configure_logfire(
 ) -> bool:
     """Configure Logfire when a write token is present without blocking startup."""
     enabled = os.getenv("LOGFIRE_ENABLED", "true").strip().lower()
-    if enabled in {"0", "false", "no", "off"}:
+    if enabled in _FALSE_VALUES:
         logger.info("Logfire disabled by LOGFIRE_ENABLED")
         return False
 
     token = os.getenv("LOGFIRE_TOKEN", "").strip()
     if not token:
-        logger.info("Logfire disabled: LOGFIRE_TOKEN is not configured")
+        logger.warning(
+            "Logfire disabled: LOGFIRE_TOKEN is not configured",
+            logfire_base_url=LOGFIRE_BASE_URL,
+        )
         return False
+
+    # LangGraph/DeepAgents can emit GenAI telemetry through OpenTelemetry.
+    # Keep prompt, completion and tool content disabled unless explicitly
+    # approved later; timing and non-content metadata remain observable.
+    os.environ.setdefault("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "false")
 
     try:
         # Keep the SDK completely inactive unless explicit credentials are
@@ -58,6 +67,7 @@ def configure_logfire(
             environment=os.getenv("LOGFIRE_ENVIRONMENT"),
             advanced=logfire.AdvancedOptions(base_url=LOGFIRE_BASE_URL),
         )
+        logfire.instrument_system_metrics()
         logfire.instrument_fastapi(
             app,
             capture_headers=False,
@@ -66,8 +76,19 @@ def configure_logfire(
         )
         enable_logfire_processor(logfire.StructlogProcessor())
     except Exception:
-        logger.exception("Logfire configuration failed; application startup will continue")
+        logger.exception(
+            "Logfire configuration failed; application startup will continue",
+            logfire_base_url=LOGFIRE_BASE_URL,
+            service_name=service_name,
+        )
         return False
 
-    logger.info("Logfire instrumentation enabled", service_name=service_name)
+    logger.info(
+        "Logfire instrumentation enabled",
+        service_name=service_name,
+        service_version=service_version,
+        logfire_base_url=LOGFIRE_BASE_URL,
+        system_metrics=True,
+        genai_content_capture=False,
+    )
     return True
