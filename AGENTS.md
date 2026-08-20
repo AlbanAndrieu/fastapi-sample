@@ -84,6 +84,9 @@ Use a **UV** CLI compatible with the lockfile (`poetry --version`). Regenerate `
 # Install (include test and format groups)
 uv sync
 
+# Install repository-managed Git hooks once per clone
+bash scripts/install-quality-hooks.sh
+
 # Start dev server
 uvicorn main:app --host 0.0.0.0 --port 8091 --reload
 ```
@@ -108,6 +111,23 @@ pytest -m asyncio       # async tests
 ---
 
 ## Code quality
+
+### Mandatory agent push policy
+
+Agents must never push immediately after changing code.
+
+Before every `git push`:
+
+1. Run `bash scripts/quality-gate.sh`.
+2. Fix every formatter, linter, pre-commit, lockfile, or test failure.
+3. If the gate modifies files, review and commit those changes.
+4. Run `bash scripts/quality-gate.sh` again until it exits successfully with a clean working tree.
+5. Verify `git status --short` is empty.
+6. Only then run `git push`.
+
+The repository-managed `.githooks/pre-push` hook executes `scripts/pre-push-check.sh` as a final check-only safety layer. Install it once per clone with `bash scripts/install-quality-hooks.sh`.
+
+Never bypass repository hooks with `git push --no-verify`. Never weaken or disable lint/security rules merely to make a quality gate pass. Ruff unsafe fixes are not allowed as an automatic default; use them only after reviewing the proposed transformation.
 
 ### Maintainability and file size
 
