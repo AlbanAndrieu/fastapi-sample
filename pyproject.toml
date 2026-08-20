@@ -18,10 +18,11 @@ dependencies = [
     "ddtrace>=3.12.2",
     "fastapi[standard]>=0.128.0",
     "litellm>=1.83.0",
-    "logfire[fastapi]>=4.2.0",
+    "logfire[fastapi,system-metrics]>=4.2.0",
     "ollama>=0.6.2",
     "sentry-sdk>=2.44.0",
     "tavily-python>=0.7.23",
+    "unleashclient>=6.3.0",
 ]
 # dependencies = [
 #     "legacy-cgi (>=2.6.4,<3.0.0)",
