@@ -56,6 +56,13 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           version: "0.12.1"
 
+      - name: Validate minimal FastAPI Cloud runtime
+        env:
+          UV_PROJECT_ENVIRONMENT: .venv-runtime
+        run: |
+          uv sync --frozen --no-default-groups
+          .venv-runtime/bin/python -c "import nabla.main"
+
       - name: Resolve and install project dependencies
         run: uv sync
 
