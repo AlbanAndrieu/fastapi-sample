@@ -76,7 +76,14 @@ jobs:
         shell: bash
         run: |
           git checkout 1c39809dfdba629b99280ced5659816d9eca0e79 -- nabla/config_settings.py
-          uv add 'structlog>=25.4.0' 'fastapi-featureflags>=0.4.7' 'slowapi>=0.1.9' 'plotly>=6.0.0' 'polars>=1.31.0'
+          uv add \
+            'structlog>=25.4.0' \
+            'fastapi-featureflags>=0.4.7' \
+            'slowapi>=0.1.9' \
+            'plotly>=6.0.0' \
+            'polars>=1.31.0' \
+            'psycopg[pool]>=3.2.0' \
+            'sqlmodel>=0.0.24'
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add nabla/config_settings.py pyproject.toml uv.lock
