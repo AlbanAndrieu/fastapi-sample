@@ -51,6 +51,7 @@ dependencies = [
     "pyroscope-io>=0.8.5",
     "python-dotenv>=1.0.0",
     "python-keycloak>=4.4.0",
+    "pytz>=2025.2",
     "redis>=4.6.0",
     "sentry-sdk>=2.44.0",
     "slowapi>=0.1.9",
