@@ -15,6 +15,7 @@ keywords = [
 classifiers = ["Private :: Do not Upload"]
 dependencies = [
     "botocore>=1.43.0",
+    "ddtrace>=3.12.2",
     "fastapi[standard]>=0.128.0",
     "litellm>=1.83.0",
     "logfire[fastapi]>=4.2.0",

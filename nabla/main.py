@@ -7,10 +7,6 @@ import argparse
 import os
 from contextlib import asynccontextmanager
 
-from ddtrace import config, patch, tracer
-from ddtrace.contrib.trace_utils import set_user
-from ddtrace.profiling import Profiler
-from ddtrace.trace import TraceFilter
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 from fastmcp import FastMCP
@@ -57,6 +53,11 @@ from nabla.deepagents import workflow as ai_workflow
 from nabla.lifespan import lifespan as app_lifespan
 from nabla.middleware import logging_middleware, metrics_middleware
 from nabla.routes import register_routes, templates
+from nabla.utils.datadog_config import (
+    configure_datadog,
+    set_datadog_user,
+    start_datadog_profiler,
+)
 from nabla.utils.log_config import setup_logging
 from nabla.utils.logger import logger
 from nabla.utils.logfire_config import configure_logfire
@@ -68,27 +69,12 @@ logger.info("Creating API")
 
 circuit_breaker_web = CircuitBreaker(fail_max=2, reset_timeout=10)
 
-if DD_TRACE_ENABLED:
-    patch(fastapi=True)
-    config.fastapi["service_name"] = APP_NAME
-
-    class FilterbyName(TraceFilter):
-        """Filter out specific spans from traces."""
-
-        def process_trace(self, trace):
-            for span in trace:
-                if span.name == "get_quote":
-                    return None
-            return trace
-
-    tracer.configure(trace_processors=[FilterbyName()])
-
-_DD_PROFILING_ENABLED = DD_TRACE_ENABLED and os.environ.get(
+_DATADOG_ACTIVE = configure_datadog(enabled=DD_TRACE_ENABLED, app_name=APP_NAME)
+_DD_PROFILING_ENABLED = _DATADOG_ACTIVE and os.environ.get(
     "DD_PROFILING_ENABLED", "false"
 ).lower() in ("true", "1", "yes")
 if _DD_PROFILING_ENABLED:
-    prof = Profiler(env="prod", service=APP_NAME)
-    prof.start()
+    start_datadog_profiler(app_name=APP_NAME)
 
 
 @asynccontextmanager
@@ -264,18 +250,15 @@ def _configure_hot_reload(app: FastAPI) -> None:
 
 
 def _setup_datadog_user_info() -> None:
-    """Setup Datadog user context only when Datadog tracing is enabled."""
-    if not DD_TRACE_ENABLED:
-        return
-    set_user(
-        tracer,
-        "usr.id",
+    """Setup Datadog user context only when tracing is active."""
+    set_datadog_user(
+        enabled=_DATADOG_ACTIVE,
+        user_id="usr.id",
         name="AlbanAndrieu",
         email=os.environ.get("MAIL_FROM", "alban.andrieu@gmail.com"),
         scope="sample_scope",
         role="manager",
         session_id="id_session",
-        propagate=True,
     )
 
 
