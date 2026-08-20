@@ -46,6 +46,7 @@ dependencies = [
     "python-keycloak>=4.4.0",
     "redis>=4.6.0",
     "sentry-sdk>=2.44.0",
+    "slowapi>=0.1.9",
     "sqladmin[full]>=0.21.0",
     "sqlalchemy[asyncio]>=2.0.20",
     "statsig-python-core>=0.12.0",
