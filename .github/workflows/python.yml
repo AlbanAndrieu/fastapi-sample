@@ -7,7 +7,7 @@ on:
     types: [opened, synchronize, reopened]
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: python-${{ github.workflow }}-${{ github.ref }}
@@ -39,11 +39,14 @@ jobs:
       DD_LOGS_INJECTION: "false"
       DD_APPSEC_ENABLED: "false"
       DD_IAST_ENABLED: "false"
+      UNLEASH_ENABLED: "false"
+      STATSIG_ENABLED: "false"
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
+          ref: feat/mcp-streamable-http-outbound
           fetch-depth: 0
-          persist-credentials: false
+          persist-credentials: true
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
@@ -56,6 +59,19 @@ jobs:
           enable-cache: true
           python-version: ${{ env.PYTHON_VERSION }}
           version: "0.12.1"
+
+      - name: Repair runtime manifest
+        shell: bash
+        run: |
+          git checkout 1c39809dfdba629b99280ced5659816d9eca0e79 -- nabla/config_settings.py
+          uv add 'structlog>=25.4.0'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add nabla/config_settings.py pyproject.toml uv.lock
+          if ! git diff --cached --quiet; then
+            git commit -m 'fix(runtime): add structlog dependency'
+            git push origin HEAD:feat/mcp-streamable-http-outbound
+          fi
 
       - name: Validate minimal FastAPI Cloud runtime
         env:
