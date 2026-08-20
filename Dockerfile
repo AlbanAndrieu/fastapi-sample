@@ -35,8 +35,7 @@ RUN --mount=type=secret,id=read-package-token \
       --group open_telemetry \
       --group panda \
       --group temporal; \
-    /code/.venv/bin/python -c "import ddtrace"; \
-    uv cache clean
+    /code/.venv/bin/python -c "import ddtrace"
 
 FROM python:3.12-slim AS production
 
