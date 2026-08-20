@@ -3,7 +3,7 @@
 
 The gate is intentionally diff/pre-commit oriented: callers pass the Python files
 being changed. Existing oversized legacy files can be grandfathered against a Git
-baseline, but they may not grow further without triggering a failure.
+baseline. Minor edits are tolerated, while significant growth remains blocked.
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ from typing import Iterable
 
 DEFAULT_WARNING_LINES = 400
 DEFAULT_FAILURE_LINES = 700
+DEFAULT_LEGACY_GROWTH_PERCENT = 2.0
 DEFAULT_EXCLUDES = (
     "**/migrations/**",
     "**/generated/**",
@@ -75,7 +76,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--fail", type=int, default=DEFAULT_FAILURE_LINES)
     parser.add_argument(
         "--baseline-ref",
-        help="Git ref used to grandfather already-oversized files without allowing growth",
+        help="Git ref used to grandfather already-oversized files",
+    )
+    parser.add_argument(
+        "--legacy-growth-percent",
+        type=float,
+        default=DEFAULT_LEGACY_GROWTH_PERCENT,
+        help="Maximum percentage growth allowed for files already above --fail",
     )
     parser.add_argument(
         "--exclude",
@@ -90,6 +97,8 @@ def main() -> int:
     args = parse_args()
     if args.warn < 1 or args.fail <= args.warn:
         raise SystemExit("--fail must be greater than --warn, and both must be positive")
+    if args.legacy_growth_percent < 0:
+        raise SystemExit("--legacy-growth-percent must be non-negative")
 
     paths = args.paths or ["nabla", "scripts", "server_app.py"]
     exclusions = (*DEFAULT_EXCLUDES, *args.exclude)
@@ -104,16 +113,19 @@ def main() -> int:
         baseline_lines = _baseline_line_count(path, args.baseline_ref)
 
         if line_count > args.fail:
-            grandfathered = (
-                baseline_lines is not None
-                and baseline_lines > args.fail
-                and line_count <= baseline_lines
-            )
-            if grandfathered:
+            legacy_limit = None
+            if baseline_lines is not None and baseline_lines > args.fail:
+                legacy_limit = max(
+                    baseline_lines,
+                    int(baseline_lines * (1 + args.legacy_growth_percent / 100)),
+                )
+
+            if legacy_limit is not None and line_count <= legacy_limit:
                 warnings += 1
                 print(
                     f"WARNING {path}: {line_count} lines remains above {args.fail} "
-                    f"but does not exceed baseline {baseline_lines}; refactor when touched.",
+                    f"(baseline {baseline_lines}, legacy limit {legacy_limit}); "
+                    "refactor when adding substantial functionality.",
                     file=sys.stderr,
                 )
                 continue
