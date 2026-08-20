@@ -2766,6 +2766,7 @@ dependencies = [
     { name = "opentelemetry-instrumentation-fastapi" },
     { name = "opentelemetry-instrumentation-logging" },
     { name = "opentelemetry-sdk" },
+    { name = "passlib", extra = ["bcrypt"] },
     { name = "plotly" },
     { name = "polars" },
     { name = "prometheus-client" },
@@ -2774,6 +2775,7 @@ dependencies = [
     { name = "psycopg", extra = ["pool"] },
     { name = "pybreaker" },
     { name = "pydantic-settings" },
+    { name = "pyjwt" },
     { name = "python-dotenv" },
     { name = "python-keycloak" },
     { name = "redis" },
@@ -3193,6 +3195,7 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-fastapi", specifier = ">=0.49b1" },
     { name = "opentelemetry-instrumentation-logging", specifier = ">=0.49b1" },
     { name = "opentelemetry-sdk", specifier = ">=1.33.1" },
+    { name = "passlib", extras = ["bcrypt"], specifier = ">=1.7.4" },
     { name = "plotly", specifier = ">=6.0.0" },
     { name = "polars", specifier = ">=1.31.0" },
     { name = "prometheus-client", specifier = ">=0.21.1" },
@@ -3201,6 +3204,7 @@ requires-dist = [
     { name = "psycopg", extras = ["pool"], specifier = ">=3.2.0" },
     { name = "pybreaker", specifier = ">=1.4.0" },
     { name = "pydantic-settings", specifier = ">=2.12.0" },
+    { name = "pyjwt", specifier = ">=2.7.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "python-keycloak", specifier = ">=4.4.0" },
     { name = "redis", specifier = ">=4.6.0" },
@@ -7595,6 +7599,11 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/b6/06/9da9ee59a67fae7761aab3ccc84fa4f3f33f125b370f1ccdb915bf967c11/passlib-1.7.4.tar.gz", hash = "sha256:defd50f72b65c5402ab2c573830a6978e5f202ad0d984793c8dde2c4152ebe04", size = 689844, upload-time = "2020-10-08T19:00:52.121Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3b/a4/ab6b7589382ca3df236e03faa71deac88cae040af60c071a78d254a62172/passlib-1.7.4-py2.py3-none-any.whl", hash = "sha256:aa6bca462b8d8bda89c70b382f0c298a20b5560af6cbfa2dce410c0a2fb669f1", size = 525554, upload-time = "2020-10-08T19:00:49.856Z" },
+]
+
+[package.optional-dependencies]
+bcrypt = [
+    { name = "bcrypt" },
 ]
 
 [[package]]
