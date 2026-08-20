@@ -64,12 +64,12 @@ jobs:
         shell: bash
         run: |
           git checkout 1c39809dfdba629b99280ced5659816d9eca0e79 -- nabla/config_settings.py
-          uv add 'structlog>=25.4.0'
+          uv add 'structlog>=25.4.0' 'fastapi-featureflags>=0.4.7'
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add nabla/config_settings.py pyproject.toml uv.lock
           if ! git diff --cached --quiet; then
-            git commit -m 'fix(runtime): add structlog dependency'
+            git commit -m 'fix(runtime): declare direct startup dependencies'
             git push origin HEAD:feat/mcp-streamable-http-outbound
           fi
 
