@@ -77,28 +77,9 @@ jobs:
         run: |
           git checkout 1c39809dfdba629b99280ced5659816d9eca0e79 -- nabla/config_settings.py
           uv add 'structlog>=25.4.0' 'fastapi-featureflags>=0.4.7' 'slowapi>=0.1.9' 'plotly>=6.0.0' 'polars>=1.31.0'
-          python - <<'PY'
-          from pathlib import Path
-
-          path = Path('.pre-commit-config.yaml')
-          text = path.read_text(encoding='utf-8')
-          hook_id = 'code-size-maintainability'
-          marker = '-   repo: local\n    hooks:\n'
-          hook = (
-              '    -   id: code-size-maintainability\n'
-              '        name: "🐍 python · Enforce code-size maintainability"\n'
-              '        entry: python scripts/check_code_size.py --baseline-ref HEAD\n'
-              '        language: system\n'
-              '        types: [python]\n'
-          )
-          if hook_id not in text:
-              if marker not in text:
-                  raise SystemExit('Unable to locate local pre-commit hook section')
-              path.write_text(text.replace(marker, marker + hook, 1), encoding='utf-8')
-          PY
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add .pre-commit-config.yaml nabla/config_settings.py pyproject.toml uv.lock
+          git add nabla/config_settings.py pyproject.toml uv.lock
           if ! git diff --cached --quiet; then
             git commit -m 'fix(runtime): declare direct startup dependencies'
             git push origin HEAD:feat/mcp-streamable-http-outbound
