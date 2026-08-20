@@ -187,16 +187,18 @@ DEFAULT_CHAT_MODEL = "gpt-4.1"
 
 
 class McpServerConfig(BaseModel):
-    """One external MCP server this app can spawn and call over stdio (e.g. OpenRAG ``openrag-mcp``)."""
+    """One external MCP server reached over stdio or Streamable HTTP."""
 
     model_config = ConfigDict(extra="ignore")
 
     name: Annotated[str, Field(min_length=1, description="Logical name, e.g. ``openrag``.")]
-    transport: Literal["stdio"] = "stdio"
-    command: Annotated[str, Field(min_length=1, description="Executable, e.g. ``uvx`` or ``docker``.")]
+    transport: Literal["stdio", "streamable-http"] = "stdio"
+    command: str | None = Field(default=None, description="stdio executable, e.g. ``uvx`` or ``docker``.")
     args: list[str] = Field(default_factory=list)
     env: dict[str, str] = Field(default_factory=dict, description="Extra env merged with a safe inherited subset.")
-    cwd: str | None = Field(default=None, description="Optional working directory for the subprocess.")
+    cwd: str | None = Field(default=None, description="Optional working directory for the stdio subprocess.")
+    url: str | None = Field(default=None, description="Streamable HTTP MCP endpoint, e.g. ``https://example.test/mcp``.")
+    headers: dict[str, str] = Field(default_factory=dict, description="Optional HTTP headers (for example Authorization).")
     enabled: bool = True
     startup_timeout_seconds: float = Field(default=30.0, ge=1.0, le=300.0)
     tool_call_timeout_seconds: float = Field(default=120.0, ge=1.0, le=600.0)
@@ -440,7 +442,7 @@ class _Settings(BaseSettings):
         list[McpServerConfig],
         Field(
             default_factory=list,
-            description=("External MCP servers (stdio). Set ``MCP_CLIENTS`` to a JSON array of objects with keys: name, command, args, env (optional), enabled (optional)."),
+            description=("External MCP servers over stdio or Streamable HTTP. Set ``MCP_CLIENTS`` to a JSON array; stdio uses command/args/env, Streamable HTTP uses url/headers."),
             validation_alias=AliasChoices("MCP_CLIENTS"),
         ),
     ]

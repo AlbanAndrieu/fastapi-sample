@@ -13,6 +13,7 @@ from nabla.api.demo.models import init_db as init_db_sensor_reading
 from nabla.api.demo.models import recent_readings
 from nabla.api.demo.sensor import metrics
 from nabla.api.demo.socket.redis import redis, start_event_listener
+from nabla.mcp.client import close_mcp_clients, initialize_mcp_clients
 from nabla.utils.logger import logger
 from nabla.utils.prometheus import update_system_metrics
 
@@ -33,6 +34,7 @@ async def lifespan(app: FastAPI):
     await init_db_note()
     await init_db_user()
     await init_db_sensor_reading()
+    await initialize_mcp_clients()
 
     # Start background tasks
     system_metrics_task = asyncio.create_task(update_system_metrics())
@@ -53,6 +55,7 @@ async def lifespan(app: FastAPI):
         with suppress(asyncio.CancelledError):
             await task
 
+    await close_mcp_clients()
     if database:
         await database.disconnect()
     if redis is not None:

@@ -1,4 +1,4 @@
-"""Operational endpoints for configured MCP clients (list servers, tools, dry-run call)."""
+"""Operational endpoints for configured outbound MCP clients."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ def _require_ops_key(x_mcp_ops_key: str | None) -> None:
 def list_mcp_servers(
     x_mcp_ops_key: Annotated[str | None, Header(alias="X-MCP-Ops-Key")] = None,
 ) -> dict[str, Any]:
-    """Return configured MCP client definitions (secrets in ``env`` are not redacted — protect this route)."""
+    """Return configured MCP client metadata without header or environment values."""
     _require_ops_key(x_mcp_ops_key)
     servers = []
     for c in get_settings().mcp_clients:
@@ -38,7 +38,9 @@ def list_mcp_servers(
                 "args": list(c.args),
                 "enabled": c.enabled,
                 "cwd": c.cwd,
+                "url": c.url,
                 "env_keys": sorted(c.env.keys()) if c.env else [],
+                "header_keys": sorted(c.headers.keys()) if c.headers else [],
             },
         )
     return {"servers": servers}
@@ -49,7 +51,7 @@ async def list_tools_for_server(
     server_name: str,
     x_mcp_ops_key: Annotated[str | None, Header(alias="X-MCP-Ops-Key")] = None,
 ) -> dict[str, Any]:
-    """List tools from a configured MCP server (spawns stdio server)."""
+    """List tools from a configured stdio or Streamable HTTP MCP server."""
     _require_ops_key(x_mcp_ops_key)
     try:
         tools = await list_mcp_tools_for_server(server_name)
