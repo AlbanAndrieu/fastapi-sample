@@ -7,7 +7,7 @@ on:
     types: [opened, synchronize, reopened]
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: python-${{ github.workflow }}-${{ github.ref }}
@@ -44,9 +44,8 @@ jobs:
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: feat/mcp-streamable-http-outbound
           fetch-depth: 0
-          persist-credentials: true
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
@@ -71,33 +70,6 @@ jobs:
           enable-cache: true
           python-version: ${{ env.PYTHON_VERSION }}
           version: "0.12.1"
-
-      - name: Repair runtime manifest
-        shell: bash
-        run: |
-          git checkout 1c39809dfdba629b99280ced5659816d9eca0e79 -- nabla/config_settings.py
-          uv add \
-            'structlog>=25.4.0' \
-            'fastapi-featureflags>=0.4.7' \
-            'slowapi>=0.1.9' \
-            'plotly>=6.0.0' \
-            'polars>=1.31.0' \
-            'psycopg[pool]>=3.2.0' \
-            'sqlmodel>=0.0.24' \
-            'passlib[bcrypt]>=1.7.4' \
-            'pyjwt>=2.7.0' \
-            'langfuse==2.59.7' \
-            'pyroscope-io>=0.8.5' \
-            'pytz>=2025.2' \
-            'gunicorn>=23.0.0' \
-            'python-json-logger>=2.0.7'
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add nabla/config_settings.py pyproject.toml uv.lock
-          if ! git diff --cached --quiet; then
-            git commit -m 'fix(runtime): declare direct startup dependencies'
-            git push origin HEAD:feat/mcp-streamable-http-outbound
-          fi
 
       - name: Validate minimal FastAPI Cloud runtime
         env:
