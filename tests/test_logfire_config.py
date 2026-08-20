@@ -35,14 +35,17 @@ def test_logfire_uses_eu_project_token_without_request_data(monkeypatch):
     monkeypatch.setenv("LOGFIRE_ENABLED", "true")
     monkeypatch.setenv("LOGFIRE_TOKEN", "test-token")
     monkeypatch.setenv("LOGFIRE_ENVIRONMENT", "test")
+    monkeypatch.delenv("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", raising=False)
     configure = MagicMock()
     instrument = MagicMock()
+    instrument_system_metrics = MagicMock()
     structlog_processor = object()
     logfire = SimpleNamespace(
         AdvancedOptions=SimpleNamespace,
         StructlogProcessor=MagicMock(return_value=structlog_processor),
         configure=configure,
         instrument_fastapi=instrument,
+        instrument_system_metrics=instrument_system_metrics,
     )
     monkeypatch.setattr("nabla.utils.logfire_config.import_module", MagicMock(return_value=logfire))
     enable_processor = MagicMock()
@@ -58,6 +61,7 @@ def test_logfire_uses_eu_project_token_without_request_data(monkeypatch):
     assert options["service_name"] == "fastapi-sample"
     assert options["environment"] == "test"
     assert options["advanced"].base_url == LOGFIRE_BASE_URL
+    instrument_system_metrics.assert_called_once_with()
     instrument.assert_called_once()
     enable_processor.assert_called_once_with(structlog_processor)
     assert instrument.call_args.args == (app,)
@@ -70,6 +74,25 @@ def test_logfire_uses_eu_project_token_without_request_data(monkeypatch):
         MagicMock(),
         {"values": {"field": object()}},
     ) == {}
+    assert os.environ["OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"] == "false"
+
+
+def test_logfire_preserves_explicit_genai_content_setting(monkeypatch):
+    monkeypatch.setenv("LOGFIRE_ENABLED", "true")
+    monkeypatch.setenv("LOGFIRE_TOKEN", "test-token")
+    monkeypatch.setenv("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "true")
+    logfire = SimpleNamespace(
+        AdvancedOptions=SimpleNamespace,
+        StructlogProcessor=MagicMock(return_value=object()),
+        configure=MagicMock(),
+        instrument_fastapi=MagicMock(),
+        instrument_system_metrics=MagicMock(),
+    )
+    monkeypatch.setattr("nabla.utils.logfire_config.import_module", MagicMock(return_value=logfire))
+    monkeypatch.setattr("nabla.utils.logfire_config.enable_logfire_processor", MagicMock())
+
+    assert configure_logfire(MagicMock(), service_name="test", service_version="1")
+    assert os.environ["OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"] == "true"
 
 
 def test_logfire_failure_does_not_block_startup(monkeypatch):
