@@ -9,6 +9,7 @@ from starlette.testclient import TestClient
 
 from nabla.a2a_app import build_a2a_starlette_application
 from nabla.api import mcp_ops_route
+from nabla.config_settings import McpServerConfig
 from nabla.mcp.client import mcp_call_tool
 
 
@@ -21,6 +22,25 @@ async def test_mcp_call_tool_unknown_server(monkeypatch: pytest.MonkeyPatch) -> 
 
     with pytest.raises(KeyError, match="No enabled MCP server"):
         await mcp_call_tool("missing", "any_tool", {})
+
+
+def test_mcp_streamable_http_config() -> None:
+    cfg = McpServerConfig(
+        name="remote",
+        transport="streamable-http",
+        url="https://mcp.example.test/mcp",
+        headers={"Authorization": "Bearer secret"},
+    )
+    assert cfg.transport == "streamable-http"
+    assert cfg.command is None
+    assert cfg.url == "https://mcp.example.test/mcp"
+
+
+def test_mcp_stdio_config_keeps_local_transport() -> None:
+    cfg = McpServerConfig(name="local", command="uvx", args=["openrag-mcp"])
+    assert cfg.transport == "stdio"
+    assert cfg.command == "uvx"
+    assert cfg.url is None
 
 
 def test_a2a_agent_card_json() -> None:

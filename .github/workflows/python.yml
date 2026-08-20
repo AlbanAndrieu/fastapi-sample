@@ -24,6 +24,7 @@ jobs:
       KEYCLOAK_REALM: test
       KEYCLOAK_CLIENT_ID: test
       KEYCLOAK_CLIENT_SECRET: test-secret
+      OAUTH_TOKEN_SECRET: mocked-oauth-token-secret
       METRICS_ENABLED: "false"
       LOGFIRE_ENABLED: "false"
       LOGFIRE_ENVIRONMENT: test
@@ -38,6 +39,8 @@ jobs:
       DD_LOGS_INJECTION: "false"
       DD_APPSEC_ENABLED: "false"
       DD_IAST_ENABLED: "false"
+      UNLEASH_ENABLED: "false"
+      STATSIG_ENABLED: "false"
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -49,12 +52,31 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
+      - name: Check modified Python file sizes
+        shell: bash
+        run: |
+          mapfile -t changed_python < <(
+            git diff --name-only --diff-filter=ACMR "origin/${GITHUB_BASE_REF}...HEAD" -- '*.py'
+          )
+          if (( ${#changed_python[@]} )); then
+            python scripts/check_code_size.py \
+              --baseline-ref "origin/${GITHUB_BASE_REF}" \
+              "${changed_python[@]}"
+          fi
+
       - name: Install uv
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
           python-version: ${{ env.PYTHON_VERSION }}
           version: "0.12.1"
+
+      - name: Validate minimal FastAPI Cloud runtime
+        env:
+          UV_PROJECT_ENVIRONMENT: .venv-runtime
+        run: |
+          uv sync --frozen --no-default-groups
+          .venv-runtime/bin/python -c "import nabla.main"
 
       - name: Resolve and install project dependencies
         run: uv sync
@@ -117,7 +139,10 @@ jobs:
       packages: write
       security-events: write
     uses: ./.github/workflows/docker-build.yml
-    secrets: inherit
+    secrets:
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      CI_PIP_GITLABNABLA_TOKEN: ${{ secrets.CI_PIP_GITLABNABLA_TOKEN }}
 
   mega-linter:
     name: MegaLinter
@@ -128,5 +153,5 @@ jobs:
       pull-requests: write
       issues: write
       statuses: write
+      security-events: write
     uses: ./.github/workflows/mega-linter.yml
-    secrets: inherit

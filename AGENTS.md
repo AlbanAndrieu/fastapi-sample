@@ -84,6 +84,9 @@ Use a **UV** CLI compatible with the lockfile (`poetry --version`). Regenerate `
 # Install (include test and format groups)
 uv sync
 
+# Install repository-managed Git hooks once per clone
+bash scripts/install-quality-hooks.sh
+
 # Start dev server
 uvicorn main:app --host 0.0.0.0 --port 8091 --reload
 ```
@@ -108,6 +111,35 @@ pytest -m asyncio       # async tests
 ---
 
 ## Code quality
+
+### Mandatory agent push policy
+
+Agents must never push immediately after changing code.
+
+Before every `git push`:
+
+1. Run `bash scripts/quality-gate.sh`.
+2. Fix every formatter, linter, pre-commit, lockfile, or test failure.
+3. If the gate modifies files, review and commit those changes.
+4. Run `bash scripts/quality-gate.sh` again until it exits successfully with a clean working tree.
+5. Verify `git status --short` is empty.
+6. Only then run `git push`.
+
+The repository-managed `.githooks/pre-push` hook executes `scripts/pre-push-check.sh` as a final check-only safety layer. Install it once per clone with `bash scripts/install-quality-hooks.sh`.
+
+Never bypass repository hooks with `git push --no-verify`. Never weaken or disable lint/security rules merely to make a quality gate pass. Ruff unsafe fixes are not allowed as an automatic default; use them only after reviewing the proposed transformation.
+
+### Maintainability and file size
+
+Before modifying a source file, assess both its size and its responsibilities.
+
+- Python files above **400 lines** are a maintainability warning. Prefer extracting cohesive modules instead of adding unrelated responsibilities.
+- Python files above **700 lines** must normally be refactored before significant new functionality is added, unless the file is generated, a migration, or inherently declarative.
+- Functions above roughly **60 lines** should be reviewed for extraction; functions above **100 lines** should normally be refactored.
+- Classes above roughly **250 lines** should be reviewed; classes above **400 lines** should normally be split by responsibility.
+- Avoid module-level initialization that performs network calls, opens database connections, starts telemetry exporters, or initializes feature-flag SDKs. Prefer lazy factories, dependency injection, or FastAPI lifespan initialization.
+- When using an API that replaces a complete file, never submit a partial file body. Fetch the complete current file, transform it, validate the result, then replace it.
+- The repository enforces modified Python file size with `scripts/check_code_size.py`: warning above 400 lines and failure above 700 lines. Generated code and migrations are excluded explicitly.
 
 ### Ruff (`.ruff.toml`)
 
