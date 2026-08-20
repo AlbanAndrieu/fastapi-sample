@@ -48,6 +48,7 @@ dependencies = [
     "sqladmin[full]>=0.21.0",
     "sqlalchemy[asyncio]>=2.0.20",
     "statsig-python-core>=0.12.0",
+    "structlog>=25.4.0",
     "tavily-python>=0.7.23",
     "tenacity>=9.0.0",
     "unleashclient>=6.3.0",
