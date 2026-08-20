@@ -287,8 +287,8 @@ def create_app() -> FastAPI:
         return app.openapi_schema
 
     app.openapi = custom_openapi
-    app.add_middleware("http", logging_middleware)
-    app.add_middleware("http", metrics_middleware)
+    app.middleware("http")(logging_middleware)
+    app.middleware("http")(metrics_middleware)
     _configure_unleash_middleware(app)
     _configure_metrics(app)
     _register_routers(app)
