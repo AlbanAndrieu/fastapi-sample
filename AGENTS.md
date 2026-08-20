@@ -109,6 +109,18 @@ pytest -m asyncio       # async tests
 
 ## Code quality
 
+### Maintainability and file size
+
+Before modifying a source file, assess both its size and its responsibilities.
+
+- Python files above **400 lines** are a maintainability warning. Prefer extracting cohesive modules instead of adding unrelated responsibilities.
+- Python files above **700 lines** must normally be refactored before significant new functionality is added, unless the file is generated, a migration, or inherently declarative.
+- Functions above roughly **60 lines** should be reviewed for extraction; functions above **100 lines** should normally be refactored.
+- Classes above roughly **250 lines** should be reviewed; classes above **400 lines** should normally be split by responsibility.
+- Avoid module-level initialization that performs network calls, opens database connections, starts telemetry exporters, or initializes feature-flag SDKs. Prefer lazy factories, dependency injection, or FastAPI lifespan initialization.
+- When using an API that replaces a complete file, never submit a partial file body. Fetch the complete current file, transform it, validate the result, then replace it.
+- The repository enforces modified Python file size with `scripts/check_code_size.py`: warning above 400 lines and failure above 700 lines. Generated code and migrations are excluded explicitly.
+
 ### Ruff (`.ruff.toml`)
 
 - Max McCabe complexity: **15** (relaxed from default 10 to accommodate inherently complex agent logic).
