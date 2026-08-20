@@ -87,7 +87,8 @@ jobs:
             'passlib[bcrypt]>=1.7.4' \
             'pyjwt>=2.7.0' \
             'langfuse==2.59.7' \
-            'pyroscope-io>=0.8.5'
+            'pyroscope-io>=0.8.5' \
+            'pytz>=2025.2'
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add nabla/config_settings.py pyproject.toml uv.lock
