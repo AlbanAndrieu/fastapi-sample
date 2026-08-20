@@ -24,6 +24,7 @@ jobs:
       KEYCLOAK_REALM: test
       KEYCLOAK_CLIENT_ID: test
       KEYCLOAK_CLIENT_SECRET: test-secret
+      OAUTH_TOKEN_SECRET: mocked-oauth-token-secret
       METRICS_ENABLED: "false"
       LOGFIRE_ENABLED: "false"
       LOGFIRE_ENVIRONMENT: test
