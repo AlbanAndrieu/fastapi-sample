@@ -21,6 +21,7 @@ dependencies = [
     "ddtrace>=3.12.2",
     "deepagents>=0.5.3",
     "fastapi-cache2[redis]>=0.0.1",
+    "fastapi-featureflags>=0.4.7",
     "fastapi-users[sqlalchemy]>=14.0.1",
     "fastapi[standard]>=0.128.0",
     "fastmcp>=2.12.2",
