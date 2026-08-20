@@ -1,0 +1,93 @@
+name: Temporary Datadog runtime fix
+
+on:
+  push:
+    branches:
+      - fix/datadog-optional-runtime
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/datadog-optional-runtime
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.10.0"
+      - name: Apply Datadog runtime hardening
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          main = Path("nabla/main.py")
+          text = main.read_text()
+          text = text.replace(
+              "from ddtrace import config, patch, tracer\n"
+              "from ddtrace.contrib.trace_utils import set_user\n"
+              "from ddtrace.profiling import Profiler\n"
+              "from ddtrace.trace import TraceFilter\n",
+              "",
+          )
+          text = text.replace(
+              "from nabla.utils.log_config import setup_logging\n",
+              "from nabla.utils.datadog_config import (\n"
+              "    configure_datadog,\n"
+              "    set_datadog_user,\n"
+              "    start_datadog_profiler,\n"
+              ")\n"
+              "from nabla.utils.log_config import setup_logging\n",
+          )
+          old = '''if DD_TRACE_ENABLED:\n    patch(fastapi=True)\n    config.fastapi["service_name"] = APP_NAME\n\n    class FilterbyName(TraceFilter):\n        """Filter out specific spans from traces."""\n\n        def process_trace(self, trace):\n            for span in trace:\n                if span.name == "get_quote":\n                    return None\n            return trace\n\n    tracer.configure(trace_processors=[FilterbyName()])\n\n_DD_PROFILING_ENABLED = DD_TRACE_ENABLED and os.environ.get(\n    "DD_PROFILING_ENABLED", "false"\n).lower() in ("true", "1", "yes")\nif _DD_PROFILING_ENABLED:\n    prof = Profiler(env="prod", service=APP_NAME)\n    prof.start()\n'''
+          new = '''_DATADOG_ACTIVE = configure_datadog(enabled=DD_TRACE_ENABLED, app_name=APP_NAME)\n_DD_PROFILING_ENABLED = _DATADOG_ACTIVE and os.environ.get(\n    "DD_PROFILING_ENABLED", "false"\n).lower() in ("true", "1", "yes")\nif _DD_PROFILING_ENABLED:\n    start_datadog_profiler(app_name=APP_NAME)\n'''
+          if old not in text:
+              raise SystemExit("Datadog initialization block not found")
+          text = text.replace(old, new)
+          old_user = '''def _setup_datadog_user_info() -> None:\n    """Setup Datadog user context only when Datadog tracing is enabled."""\n    if not DD_TRACE_ENABLED:\n        return\n    set_user(\n        tracer,\n        "usr.id",\n        name="AlbanAndrieu",\n        email=os.environ.get("MAIL_FROM", "alban.andrieu@gmail.com"),\n        scope="sample_scope",\n        role="manager",\n        session_id="id_session",\n        propagate=True,\n    )\n'''
+          new_user = '''def _setup_datadog_user_info() -> None:\n    """Setup Datadog user context only when tracing is active."""\n    set_datadog_user(\n        enabled=_DATADOG_ACTIVE,\n        user_id="usr.id",\n        name="AlbanAndrieu",\n        email=os.environ.get("MAIL_FROM", "alban.andrieu@gmail.com"),\n        scope="sample_scope",\n        role="manager",\n        session_id="id_session",\n    )\n'''
+          if old_user not in text:
+              raise SystemExit("Datadog user block not found")
+          main.write_text(text.replace(old_user, new_user))
+
+          helper = Path("nabla/utils/datadog_config.py")
+          helper.write_text('''"""Optional Datadog instrumentation helpers.\n\nThe application must remain bootable when ``ddtrace`` is not installed.\nThe SDK is imported lazily only when Datadog tracing is explicitly enabled.\n"""\n\nfrom __future__ import annotations\n\nfrom typing import Any\n\nfrom nabla.utils.logger import logger\n\n\ndef _load_ddtrace() -> tuple[Any, Any, Any, Any, Any] | None:\n    """Load Datadog lazily, returning ``None`` when the optional SDK is absent."""\n    try:\n        from ddtrace import config, patch, tracer\n        from ddtrace.contrib.trace_utils import set_user\n        from ddtrace.profiling import Profiler\n    except ImportError as exc:\n        logger.warning("Datadog tracing requested but ddtrace is unavailable: %s", exc)\n        return None\n    return config, patch, tracer, set_user, Profiler\n\n\ndef configure_datadog(*, enabled: bool, app_name: str) -> bool:\n    """Configure Datadog tracing when requested and available."""\n    if not enabled:\n        return False\n    loaded = _load_ddtrace()\n    if loaded is None:\n        return False\n    config, patch, tracer, _, _ = loaded\n    try:\n        from ddtrace.trace import TraceFilter\n    except ImportError as exc:\n        logger.warning("Datadog TraceFilter unavailable; tracing disabled: %s", exc)\n        return False\n\n    patch(fastapi=True)\n    config.fastapi["service_name"] = app_name\n\n    class FilterByName(TraceFilter):\n        """Filter out specific spans from traces."""\n\n        def process_trace(self, trace):\n            for span in trace:\n                if span.name == "get_quote":\n                    return None\n            return trace\n\n    tracer.configure(trace_processors=[FilterByName()])\n    logger.info("Datadog tracing enabled")\n    return True\n\n\ndef start_datadog_profiler(*, app_name: str) -> bool:\n    """Start the Datadog profiler if the SDK is available."""\n    loaded = _load_ddtrace()\n    if loaded is None:\n        return False\n    _, _, _, _, profiler_cls = loaded\n    profiler = profiler_cls(env="prod", service=app_name)\n    profiler.start()\n    logger.info("Datadog profiler enabled")\n    return True\n\n\ndef set_datadog_user(\n    *,\n    enabled: bool,\n    user_id: str,\n    name: str,\n    email: str,\n    scope: str,\n    role: str,\n    session_id: str,\n) -> bool:\n    """Set Datadog user context without making the SDK a startup dependency."""\n    if not enabled:\n        return False\n    loaded = _load_ddtrace()\n    if loaded is None:\n        return False\n    _, _, tracer, set_user, _ = loaded\n    set_user(\n        tracer,\n        user_id,\n        name=name,\n        email=email,\n        scope=scope,\n        role=role,\n        session_id=session_id,\n        propagate=True,\n    )\n    return True\n''')
+
+          pyproject = Path("pyproject.toml")
+          text = pyproject.read_text()
+          marker = '    "botocore>=1.43.0",\n'
+          if '    "ddtrace>=3.12.2",\n' not in text.split("[project.optional-dependencies]", 1)[0]:
+              if marker not in text:
+                  raise SystemExit("project dependency insertion point not found")
+              text = text.replace(marker, marker + '    "ddtrace>=3.12.2",\n', 1)
+          pyproject.write_text(text)
+
+          dockerfile = Path("Dockerfile")
+          text = dockerfile.read_text()
+          old = '      --group temporal; \\\n    uv cache clean\n'
+          new = '      --group temporal; \\\n    /code/.venv/bin/python -c "import ddtrace"; \\\n    uv cache clean\n'
+          if old not in text:
+              raise SystemExit("Docker runtime dependency block not found")
+          dockerfile.write_text(text.replace(old, new, 1))
+
+          test = Path("tests/utils/test_datadog_config.py")
+          test.parent.mkdir(parents=True, exist_ok=True)
+          test.write_text('''"""Tests for optional Datadog runtime integration."""\n\nimport builtins\n\nfrom nabla.utils import datadog_config\n\n\ndef test_datadog_disabled_does_not_import_sdk(monkeypatch):\n    """Disabled Datadog must not import ddtrace or add startup overhead."""\n    real_import = builtins.__import__\n\n    def guarded_import(name, *args, **kwargs):\n        if name.startswith("ddtrace"):\n            raise AssertionError("ddtrace must not be imported while disabled")\n        return real_import(name, *args, **kwargs)\n\n    monkeypatch.setattr(builtins, "__import__", guarded_import)\n    assert datadog_config.configure_datadog(enabled=False, app_name="test") is False\n\n\ndef test_missing_datadog_is_non_fatal(monkeypatch):\n    """An explicitly enabled but absent SDK must degrade gracefully."""\n    real_import = builtins.__import__\n\n    def missing_ddtrace(name, *args, **kwargs):\n        if name.startswith("ddtrace"):\n            raise ModuleNotFoundError("No module named 'ddtrace'", name="ddtrace")\n        return real_import(name, *args, **kwargs)\n\n    monkeypatch.setattr(builtins, "__import__", missing_ddtrace)\n    assert datadog_config.configure_datadog(enabled=True, app_name="test") is False\n''')
+          PY
+      - name: Regenerate lockfile
+        run: uv lock
+      - name: Validate syntax
+        run: python -m py_compile nabla/main.py nabla/utils/datadog_config.py tests/utils/test_datadog_config.py
+      - name: Remove temporary workflow and commit
+        shell: bash
+        run: |
+          rm .github/workflows/_tmp_fix_datadog_runtime.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add nabla/main.py nabla/utils/datadog_config.py tests/utils/test_datadog_config.py pyproject.toml uv.lock Dockerfile .github/workflows/_tmp_fix_datadog_runtime.yml
+          git commit -m "fix(runtime): make Datadog optional"
+          git push origin HEAD:fix/datadog-optional-runtime
