@@ -53,6 +53,18 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
+      - name: Check modified Python file sizes
+        shell: bash
+        run: |
+          mapfile -t changed_python < <(
+            git diff --name-only --diff-filter=ACMR "origin/${GITHUB_BASE_REF}...HEAD" -- '*.py'
+          )
+          if (( ${#changed_python[@]} )); then
+            python scripts/check_code_size.py \
+              --baseline-ref "origin/${GITHUB_BASE_REF}" \
+              "${changed_python[@]}"
+          fi
+
       - name: Install uv
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
