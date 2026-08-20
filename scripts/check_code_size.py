@@ -2,14 +2,15 @@
 """Enforce maintainability limits for modified Python source files.
 
 The gate is intentionally diff/pre-commit oriented: callers pass the Python files
-being changed. Existing oversized legacy files therefore do not break unrelated
-changes, but modifying one makes the maintainability debt visible immediately.
+being changed. Existing oversized legacy files can be grandfathered against a Git
+baseline, but they may not grow further without triggering a failure.
 """
 
 from __future__ import annotations
 
 import argparse
 import fnmatch
+import subprocess
 import sys
 from pathlib import Path
 from typing import Iterable
@@ -37,6 +38,21 @@ def _line_count(path: Path) -> int:
         return sum(1 for _ in source)
 
 
+def _baseline_line_count(path: Path, baseline_ref: str | None) -> int | None:
+    if not baseline_ref:
+        return None
+
+    result = subprocess.run(  # noqa: S603 -- fixed git executable and validated path input
+        ["git", "show", f"{baseline_ref}:{path.as_posix()}"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return None
+    return len(result.stdout.splitlines())
+
+
 def _iter_python_files(paths: Iterable[str]) -> Iterable[Path]:
     seen: set[Path] = set()
     for raw_path in paths:
@@ -57,6 +73,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("paths", nargs="*", help="Python files/directories to inspect")
     parser.add_argument("--warn", type=int, default=DEFAULT_WARNING_LINES)
     parser.add_argument("--fail", type=int, default=DEFAULT_FAILURE_LINES)
+    parser.add_argument(
+        "--baseline-ref",
+        help="Git ref used to grandfather already-oversized files without allowing growth",
+    )
     parser.add_argument(
         "--exclude",
         action="append",
@@ -81,10 +101,29 @@ def main() -> int:
             continue
 
         line_count = _line_count(path)
+        baseline_lines = _baseline_line_count(path, args.baseline_ref)
+
         if line_count > args.fail:
+            grandfathered = (
+                baseline_lines is not None
+                and baseline_lines > args.fail
+                and line_count <= baseline_lines
+            )
+            if grandfathered:
+                warnings += 1
+                print(
+                    f"WARNING {path}: {line_count} lines remains above {args.fail} "
+                    f"but does not exceed baseline {baseline_lines}; refactor when touched.",
+                    file=sys.stderr,
+                )
+                continue
+
             failures += 1
+            baseline_detail = (
+                f" (baseline: {baseline_lines})" if baseline_lines is not None else ""
+            )
             print(
-                f"ERROR {path}: {line_count} lines exceeds {args.fail}; "
+                f"ERROR {path}: {line_count} lines exceeds {args.fail}{baseline_detail}; "
                 "refactor before adding significant functionality.",
                 file=sys.stderr,
             )
