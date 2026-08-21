@@ -1,64 +1,34 @@
 ---
 name: supabase-postgres-best-practices
-description: Postgres performance optimization and best practices from Supabase. Use this skill when writing, reviewing, or optimizing Postgres queries, schema designs, or database configurations.
+description: Use for PostgreSQL query, schema, indexing, connection, RLS, locking, or performance work, especially on Supabase-hosted Postgres.
 license: MIT
+compatibility: Cursor, OpenCode, Codex, Copilot, Claude Code
 metadata:
-  author: supabase
-  version: "1.1.1"
-  organization: Supabase
-  date: January 2026
-  abstract: Comprehensive Postgres performance optimization guide for developers using Supabase and Postgres. Contains performance rules across 8 categories, prioritized by impact from critical (query performance, connection management) to incremental (advanced features). Each rule includes detailed explanations, incorrect vs. correct SQL examples, query plan analysis, and specific performance metrics to guide automated optimization and code generation.
+  scope: postgres
+  load: on-demand
 ---
 
-# Supabase Postgres Best Practices
+# Supabase Postgres best practices
 
-Comprehensive performance optimization guide for Postgres, maintained by Supabase. Contains rules across 8 categories, prioritized by impact to guide automated query optimization and schema design.
+Use this skill for PostgreSQL design and performance work. Load only the reference files relevant to the problem.
 
-## When to Apply
+## Priority order
 
-Reference these guidelines when:
-- Writing SQL queries or designing schemas
-- Implementing indexes or query optimization
-- Reviewing database performance issues
-- Configuring connection pooling or scaling
-- Optimizing for Postgres-specific features
-- Working with Row-Level Security (RLS)
+1. Query plans and missing/incorrect indexes.
+2. Connection limits and pooling.
+3. Security and RLS.
+4. Schema design and constraints.
+5. Locking/concurrency.
+6. Data-access patterns.
+7. Monitoring and maintenance.
 
-## Rule Categories by Priority
+## Workflow
 
-| Priority | Category | Impact | Prefix |
-|----------|----------|--------|--------|
-| 1 | Query Performance | CRITICAL | `query-` |
-| 2 | Connection Management | CRITICAL | `conn-` |
-| 3 | Security & RLS | CRITICAL | `security-` |
-| 4 | Schema Design | HIGH | `schema-` |
-| 5 | Concurrency & Locking | MEDIUM-HIGH | `lock-` |
-| 6 | Data Access Patterns | MEDIUM | `data-` |
-| 7 | Monitoring & Diagnostics | LOW-MEDIUM | `monitor-` |
-| 8 | Advanced Features | LOW | `advanced-` |
+- Inspect the actual query/schema before recommending indexes or rewrites.
+- Prefer `EXPLAIN (ANALYZE, BUFFERS)` evidence for performance conclusions when available.
+- Keep transactions short and avoid unnecessary lock scope.
+- Avoid N+1 access patterns and unbounded offset pagination on large datasets.
+- Treat RLS/security changes separately from pure performance optimization.
+- Validate changes with representative queries/tests before declaring an optimization successful.
 
-## How to Use
-
-Read individual rule files for detailed explanations and SQL examples:
-
-```
-references/query-missing-indexes.md
-references/query-partial-indexes.md
-references/_sections.md
-```
-
-Each rule file contains:
-- Brief explanation of why it matters
-- Incorrect SQL example with explanation
-- Correct SQL example with explanation
-- Optional EXPLAIN output or metrics
-- Additional context and references
-- Supabase-specific notes (when applicable)
-
-## References
-
-- https://www.postgresql.org/docs/current/
-- https://supabase.com/docs
-- https://wiki.postgresql.org/wiki/Performance_Optimization
-- https://supabase.com/docs/guides/database/overview
-- https://supabase.com/docs/guides/auth/row-level-security
+The detailed rules remain under `references/`; open only the files matching the current issue rather than loading the full reference corpus.
