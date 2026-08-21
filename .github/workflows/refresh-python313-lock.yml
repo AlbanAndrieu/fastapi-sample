@@ -1,0 +1,72 @@
+---
+name: Refresh Python 3.13 uv lock
+
+on:
+  push:
+    branches:
+      - fix/fastapi-cloud-python-313
+    paths:
+      - .github/workflows/refresh-python313-lock.yml
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-lock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: fix/fastapi-cloud-python-313
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.1"
+          python-version: "3.13"
+
+      - name: Refresh lock for Python 3.13
+        env:
+          UV_PYTHON: "3.13"
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("pyproject.toml")
+          path.write_text(path.read_text().rstrip("\n") + "\n")
+          PY
+          uv lock --upgrade-package numpy
+          uv lock --check
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          text = Path("uv.lock").read_text()
+          project = Path("pyproject.toml").read_text()
+          if 'requires-python = "==3.13.*"' not in project:
+              raise SystemExit("pyproject.toml is not pinned to Python 3.13")
+          match = re.search(r'\[\[package\]\]\nname = "numpy"\nversion = "([^"]+)"', text)
+          if not match:
+              raise SystemExit("NumPy entry not found in uv.lock")
+          version = tuple(int(part) for part in match.group(1).split(".")[:2])
+          if version < (2, 1):
+              raise SystemExit(f"NumPy {match.group(1)} does not support CPython 3.13 wheels")
+          print(f"Locked NumPy {match.group(1)} for Python 3.13")
+          PY
+          rm .github/workflows/refresh-python313-lock.yml
+
+      - name: Commit refreshed lock
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add uv.lock pyproject.toml .github/workflows/refresh-python313-lock.yml
+          git commit -m 'fix: refresh uv lock for Python 3.13'
+          git push origin HEAD:fix/fastapi-cloud-python-313
