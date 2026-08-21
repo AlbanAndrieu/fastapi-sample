@@ -18,7 +18,7 @@ jobs:
     name: Test and build Python package
     runs-on: ubuntu-latest
     env:
-      PYTHON_VERSION: "3.12"
+      PYTHON_VERSION: "3.13"
       TRUNK_API_TOKEN: ${{ secrets.TRUNK_API_TOKEN }}
       KEYCLOAK_SERVER_URL: http://localhost:8080
       KEYCLOAK_REALM: test
