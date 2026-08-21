@@ -1,3 +1,10 @@
+## [1.4.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.4.0...1.4.1) (2026-08-21)
+
+
+### Bug Fixes
+
+* **release:** harden version sync and refactor config settings ([#45](https://github.com/AlbanAndrieu/fastapi-sample/issues/45)) ([d32bd74](https://github.com/AlbanAndrieu/fastapi-sample/commit/d32bd749242b27007be32dc60e238e788e7c1a4d))
+
 # [1.4.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.3.8...1.4.0) (2026-08-21)
 
 
