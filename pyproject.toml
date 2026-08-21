@@ -559,7 +559,7 @@ default-version = "1.4.0"
 
 [tool.commitizen]
 # name = "cz_customize"
-version = "1.3.7"
+version = "1.4.0"
 version_files = [
     "nabla/__version__.py",
     "nabla/__init__.py",
@@ -576,7 +576,7 @@ bump_pattern = "^(break|new|fix|hotfix)"
 bump_map = {"break" = "MAJOR", "new" = "MINOR", "fix" = "PATCH", "hotfix" = "PATCH"}
 change_type_order = ["BREAKING CHANGE", "feat", "fix", "refactor", "perf"]
 info_path = "cz_customize_info.txt"
-info = """
+info = ""
 This is customized info
 """
 commit_parser = "^(?P<change_type>feat|fix):\\s(?P<message>.*)?"
