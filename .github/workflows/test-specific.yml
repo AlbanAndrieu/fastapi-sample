@@ -13,10 +13,9 @@ on:
         description: "Python version"
         required: true
         type: choice
-        default: "3.12"
+        default: "3.13"
         options:
-          - "3.12"
-          - "3.14"
+          - "3.13"
       os:
         description: "Operating system"
         required: true
