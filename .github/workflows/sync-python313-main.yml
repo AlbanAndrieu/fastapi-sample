@@ -1,0 +1,83 @@
+name: Sync Python 3.13 branch with latest main
+
+on:
+  push:
+    branches:
+      - fix/fastapi-cloud-python-313
+    paths:
+      - .github/workflows/sync-python313-main.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: fix/fastapi-cloud-python-313
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Merge latest main and preserve Python 3.13 policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main:refs/remotes/origin/main
+          set +e
+          git merge --no-ff --no-commit refs/remotes/origin/main
+          merge_rc=$?
+          set -e
+
+          if (( merge_rc != 0 )); then
+            mapfile -t conflicts < <(git diff --name-only --diff-filter=U)
+            for path in "${conflicts[@]}"; do
+              case "$path" in
+                Dockerfile)
+                  git checkout --ours -- "$path"
+                  sed -i 's/ARG APP_VERSION="1.4.0"/ARG APP_VERSION="1.4.1"/' "$path"
+                  git add "$path"
+                  ;;
+                pyproject.toml)
+                  git checkout --ours -- "$path"
+                  python - <<'PY'
+          from pathlib import Path
+          path = Path("pyproject.toml")
+          text = path.read_text()
+          text = text.replace('version = "1.4.0"', 'version = "1.4.1"', 1)
+          text = text.replace('default-version = "1.4.0"', 'default-version = "1.4.1"', 1)
+          marker = '[tool.commitizen]\n# name = "cz_customize"\nversion = "1.4.0"'
+          if marker in text:
+              text = text.replace(marker, '[tool.commitizen]\n# name = "cz_customize"\nversion = "1.4.1"', 1)
+          path.write_text(text)
+          PY
+                  git add "$path"
+                  ;;
+                *)
+                  echo "Unexpected merge conflict: $path" >&2
+                  exit 1
+                  ;;
+              esac
+            done
+          fi
+
+          rm .github/workflows/sync-python313-main.yml
+          git add -A
+
+          git merge-base --is-ancestor refs/remotes/origin/main HEAD || {
+            test -f .git/MERGE_HEAD || { echo 'main was not merged' >&2; exit 1; }
+          }
+          grep -F 'requires-python = "==3.13.*"' pyproject.toml
+          grep -F 'target-version = "py313"' pyproject.toml
+          grep -F 'FROM python:3.13-slim-trixie AS production' Dockerfile
+          python scripts/check_versions.py
+
+      - name: Commit merge
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'chore: sync Python 3.13 fix with latest main'
+          git push origin HEAD:fix/fastapi-cloud-python-313
