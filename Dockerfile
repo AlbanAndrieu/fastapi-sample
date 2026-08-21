@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM python:3.12-slim AS builder
+FROM python:3.12-slim-trixie AS builder
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -37,12 +37,13 @@ RUN --mount=type=secret,id=read-package-token \
       --group temporal; \
     /code/.venv/bin/python -c "import ddtrace"
 
-FROM python:3.12-slim AS production
+FROM python:3.12-slim-trixie AS production
 
 ARG APP_VERSION="1.3.7"
 
 LABEL name="fastapi-sample" \
       vendor="sample" \
+      version="${APP_VERSION}" \
       org.opencontainers.image.source="https://github.com/AlbanAndrieu/fastapi-sample" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.version="${APP_VERSION}"
@@ -62,9 +63,12 @@ ENV FASTAPI_ENV=production \
     DD_IAST_ENABLED=false
 
 # Runtime libraries only. Compiler toolchain, Node/npm, editors, network tools,
-# pytest and Ansible deliberately stay out of the production image.
+# pytest and Ansible deliberately stay out of the production image. Versions are
+# pinned to Debian 13 (trixie) packages so the image remains reproducible.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl libpq5 \
+    && apt-get install -y --no-install-recommends \
+       curl=8.14.1-2+deb13u4 \
+       libpq5=17.10-0+deb13u1 \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system --gid 999 jm-python \
     && useradd --system --uid 999 --gid jm-python --home-dir /code jm-python \
