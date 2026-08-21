@@ -9,7 +9,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_openai import AzureChatOpenAI, ChatOpenAI
 
 from nabla import config_settings as _config_settings
-from nabla.config_settings import AzureOpenAiInstance, get_settings
+from nabla.config_settings import AzureOpenAiInstance
 
 DEFAULT_CHAT_MODEL = _config_settings.DEFAULT_CHAT_MODEL
 
@@ -27,7 +27,7 @@ def _azure_chat_model_name(instance: AzureOpenAiInstance) -> str:
     raw = (instance.available_models or "").strip()
     if "," in raw:
         return raw.split(",", maxsplit=1)[0].strip()
-    return raw or get_settings().default_chat_model
+    return raw or _config_settings.get_settings().default_chat_model
 
 
 def resolve_openai_api_key_and_model(
@@ -40,7 +40,7 @@ def resolve_openai_api_key_and_model(
     Uses the same LiteLLM → Azure → direct OpenAI routing as :func:`build_chat_llm`.
     Azure returns the deployment-facing model name from settings (first entry if comma-separated).
     """
-    settings = get_settings()
+    settings = _config_settings.get_settings()
     litellm_url = (settings.litellm_url or "").strip()
     resolved = model_name or settings.default_chat_model
     if litellm_url:
@@ -55,7 +55,7 @@ def build_chat_llm(*, model_name: str | None = None) -> BaseChatModel:
     """
     Prefer LiteLLM (``LITELLM_URL``), then configured Azure OpenAI, then ``OPENAI_API_KEY``.
     """
-    settings = get_settings()
+    settings = _config_settings.get_settings()
     resolved_model = model_name if model_name is not None else settings.default_chat_model
     litellm_url = (settings.litellm_url or "").strip()
     if litellm_url:
