@@ -9,10 +9,6 @@ from fastapi import FastAPI, Request, WebSocket
 
 from nabla.utils.logger import enable_logfire_processor, logger
 
-LOGFIRE_BASE_URL = os.getenv(
-    "LOGFIRE_BASE_URL",
-    "https://logfire-eu.pydantic.dev",
-).rstrip("/")
 _EXCLUDED_URLS = (
     r".*/(?:docs(?:/oauth2-redirect)?|health|healthz|logs(?:/.*)?|metrics|"
     r"openapi\.json|ping|redoc|sickz|stream(?:/.*)?|llm(?:/.*)?|"
@@ -43,10 +39,7 @@ def configure_logfire(
 
     token = os.getenv("LOGFIRE_TOKEN", "").strip()
     if not token:
-        logger.warning(
-            "Logfire disabled: LOGFIRE_TOKEN is not configured",
-            logfire_base_url=LOGFIRE_BASE_URL,
-        )
+        logger.warning("Logfire disabled: LOGFIRE_TOKEN is not configured")
         return False
 
     # LangGraph/DeepAgents can emit GenAI telemetry through OpenTelemetry.
@@ -55,9 +48,8 @@ def configure_logfire(
     os.environ.setdefault("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "false")
 
     try:
-        # Keep the SDK completely inactive unless explicit credentials are
-        # provided. This also avoids import-time telemetry side effects in
-        # tests and local development.
+        # FastAPI Cloud provides LOGFIRE_TOKEN. Let the Logfire SDK resolve the
+        # appropriate ingestion endpoint instead of forcing a region/base URL.
         logfire = import_module("logfire")
         logfire.configure(
             token=token,
@@ -65,7 +57,6 @@ def configure_logfire(
             service_name=service_name,
             service_version=service_version,
             environment=os.getenv("LOGFIRE_ENVIRONMENT"),
-            advanced=logfire.AdvancedOptions(base_url=LOGFIRE_BASE_URL),
         )
         logfire.instrument_system_metrics()
         logfire.instrument_fastapi(
@@ -78,7 +69,6 @@ def configure_logfire(
     except Exception:
         logger.exception(
             "Logfire configuration failed; application startup will continue",
-            logfire_base_url=LOGFIRE_BASE_URL,
             service_name=service_name,
         )
         return False
@@ -87,7 +77,8 @@ def configure_logfire(
         "Logfire instrumentation enabled",
         service_name=service_name,
         service_version=service_version,
-        logfire_base_url=LOGFIRE_BASE_URL,
+        environment=os.getenv("LOGFIRE_ENVIRONMENT"),
+        token_present=True,
         system_metrics=True,
         genai_content_capture=False,
     )
