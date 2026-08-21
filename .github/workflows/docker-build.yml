@@ -17,7 +17,7 @@ on:
     - cron: "0 6 * * 3"
 
 env:
-  IMAGE_NAME: pgclient
+  IMAGE_NAME: fastapi-sample
 
 concurrency:
   group: docker-${{ github.workflow }}-${{ github.ref }}
