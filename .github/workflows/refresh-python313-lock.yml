@@ -32,6 +32,7 @@ jobs:
           version: "0.12.1"
           python-version: "3.13"
 
+      # Resolve against the same Python minor used by FastAPI Cloud and Docker.
       - name: Refresh lock for Python 3.13
         env:
           UV_PYTHON: "3.13"
