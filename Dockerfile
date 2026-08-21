@@ -43,7 +43,6 @@ ARG APP_VERSION="1.3.7"
 
 LABEL name="fastapi-sample" \
       vendor="sample" \
-      version="${APP_VERSION}" \
       org.opencontainers.image.source="https://github.com/AlbanAndrieu/fastapi-sample" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.version="${APP_VERSION}"
@@ -67,8 +66,8 @@ ENV FASTAPI_ENV=production \
 # pinned to Debian 13 (trixie) packages so the image remains reproducible.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-       curl=8.14.1-2+deb13u4 \
-       libpq5=17.10-0+deb13u1 \
+        curl=8.14.1-2+deb13u4 \
+        libpq5=17.10-0+deb13u1 \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system --gid 999 jm-python \
     && useradd --system --uid 999 --gid jm-python --home-dir /code jm-python \
