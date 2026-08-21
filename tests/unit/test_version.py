@@ -2,8 +2,9 @@
 
 from fastapi.testclient import TestClient
 
+from nabla import __version__
 from nabla.main import app
-from nabla.version import resolve_release_version
+from nabla.version import API_VERSION, resolve_release_version
 
 
 def test_release_version_environment_override(monkeypatch):
@@ -15,7 +16,7 @@ def test_release_version_environment_override(monkeypatch):
 def test_invalid_release_version_uses_generated_fallback(monkeypatch):
     monkeypatch.setenv("RELEASE_VERSION", "unknown")
 
-    assert resolve_release_version() == "1.3.7"
+    assert resolve_release_version() == __version__
 
 
 def test_version_endpoint_exposes_api_release_and_mcp_metadata():
@@ -23,9 +24,9 @@ def test_version_endpoint_exposes_api_release_and_mcp_metadata():
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["version"] == "v0+1.3.7"
-    assert payload["api_version"] == "v0"
-    assert payload["release_version"] == "1.3.7"
+    assert payload["version"] == f"{API_VERSION}+{__version__}"
+    assert payload["api_version"] == API_VERSION
+    assert payload["release_version"] == __version__
     assert payload["service"] == "fastapi-sample"
     assert payload["mcp"]["transport"] == "streamable-http"
     assert payload["mcp"]["endpoint"] == "/mcp"

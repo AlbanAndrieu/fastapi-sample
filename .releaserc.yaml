@@ -19,6 +19,8 @@ plugins:
   - - "@semantic-release/npm"
     - npmPublish: false
   # Synchronize every non-npm version source with nextRelease.version.
+  # Each replacement asserts exactly one match/replacement so semantic-release
+  # fails during prepare instead of publishing a partially-versioned release.
   - - semantic-release-replace-plugin
     - replacements:
         - files:
@@ -26,36 +28,66 @@ plugins:
           from:
             - '(?<=name = "fastapi-sample"\n)version = "\d+\.\d+\.\d+"'
           to: 'version = "${nextRelease.version}"'
+          results:
+            - file: pyproject.toml
+              hasChanged: true
+              numMatches: 1
+              numReplacements: 1
           countMatches: true
         - files:
             - pyproject.toml
           from:
             - '(?<=\[tool.versioningit\]\n)default-version = "\d+\.\d+\.\d+"'
           to: 'default-version = "${nextRelease.version}"'
+          results:
+            - file: pyproject.toml
+              hasChanged: true
+              numMatches: 1
+              numReplacements: 1
           countMatches: true
         - files:
             - pyproject.toml
           from:
-            - '(?<=\[tool.commitizen\]\n)version = "\d+\.\d+\.\d+"'
-          to: 'version = "${nextRelease.version}"'
+            - '(\[tool\.commitizen\](?:\n#[^\n]*)*\n)version = "\d+\.\d+\.\d+"'
+          to: '$1version = "${nextRelease.version}"'
+          results:
+            - file: pyproject.toml
+              hasChanged: true
+              numMatches: 1
+              numReplacements: 1
           countMatches: true
         - files:
             - nabla/_release.py
           from:
             - '__version__ = "\d+\.\d+\.\d+"'
           to: '__version__ = "${nextRelease.version}"'
+          results:
+            - file: nabla/_release.py
+              hasChanged: true
+              numMatches: 1
+              numReplacements: 1
           countMatches: true
         - files:
             - uv.lock
           from:
             - '(?<=name = "fastapi-sample"\n)version = "\d+\.\d+\.\d+"'
           to: 'version = "${nextRelease.version}"'
+          results:
+            - file: uv.lock
+              hasChanged: true
+              numMatches: 1
+              numReplacements: 1
           countMatches: true
         - files:
             - Dockerfile
           from:
             - 'ARG APP_VERSION="\d+\.\d+\.\d+"'
           to: 'ARG APP_VERSION="${nextRelease.version}"'
+          results:
+            - file: Dockerfile
+              hasChanged: true
+              numMatches: 1
+              numReplacements: 1
           countMatches: true
   # Commit the generated changelog and synchronized version files.
   - - "@semantic-release/git"

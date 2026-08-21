@@ -559,7 +559,7 @@ default-version = "1.4.0"
 
 [tool.commitizen]
 # name = "cz_customize"
-version = "1.3.7"
+version = "1.4.0"
 version_files = [
     "nabla/__version__.py",
     "nabla/__init__.py",
