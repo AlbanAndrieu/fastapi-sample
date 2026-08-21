@@ -1,0 +1,65 @@
+name: Finalize Python 3.13 alignment
+
+on:
+  push:
+    branches:
+      - fix/fastapi-cloud-python-313
+    paths:
+      - .github/workflows/fix-python313-alignment.yml
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: fix/fastapi-cloud-python-313
+          fetch-depth: 2
+          persist-credentials: true
+
+      - name: Align remaining Python metadata and version
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("pyproject.toml")
+          text = path.read_text()
+          replacements = {
+              'target-version = ["py310", "py311"]': 'target-version = ["py313"]',
+              'pythonVersion = "3.12"': 'pythonVersion = "3.13"',
+              '# Assume Python 3.12.3': '# Assume Python 3.13',
+              'target-version = "py312"': 'target-version = "py313"',
+              'version = "1.3.7"\nversion_files': 'version = "1.4.0"\nversion_files',
+          }
+          for old, new in replacements.items():
+              if old not in text:
+                  raise SystemExit(f"Expected text not found: {old!r}")
+              text = text.replace(old, new, 1)
+          path.write_text(text)
+          PY
+          rm .github/workflows/fix-python313-alignment.yml
+
+      - name: Verify alignment
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'requires-python = "==3.13.*"' pyproject.toml
+          grep -F 'pythonVersion = "3.13"' pyproject.toml
+          grep -F 'target-version = "py313"' pyproject.toml
+          grep -F 'target-version = ["py313"]' pyproject.toml
+          python scripts/check_versions.py
+
+      - name: Commit finalized alignment
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add pyproject.toml .github/workflows/fix-python313-alignment.yml
+          git commit -m 'fix: complete Python 3.13 alignment'
+          git push origin HEAD:fix/fastapi-cloud-python-313
