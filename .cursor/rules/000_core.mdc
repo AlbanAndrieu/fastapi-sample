@@ -1,0 +1,9 @@
+---
+description: FastAPI Sample core agent rules
+globs:
+alwaysApply: true
+---
+
+# Core
+
+Use `AGENTS.md` as the canonical project guide. Keep context small: inspect only files relevant to the task and load `.agents/skills/` on demand. Before push run `bash scripts/quality-gate.sh`; never bypass hooks or tolerate unexpected test failures.
