@@ -18,6 +18,7 @@ from nabla.feature_flags import (
     UNLEASH_API_URL,
     UNLEASH_APP_NAME,
     UNLEASH_INSTANCE_ID,
+    unleash_client as client,
     unleash_requests_kwargs as _unleash_requests_kwargs,
     unleash_timeout_seconds,
 )
@@ -83,7 +84,6 @@ def _default_sickz_targets_value() -> str:
     return "https://home.albandrieu.com:10443/|https://172.17.0.1:10443/"
 
 
-# Compatibility for existing health-check imports. Computing the timeout is local only.
 _unleash_timeout_s = unleash_timeout_seconds()
 
 
@@ -92,33 +92,20 @@ class _Settings(DatabaseSettings):
 
     tavily_api_key: Annotated[
         Optional[SecretStr],
-        Field(
-            default=None,
-            description="Tavily Search API key.",
-            validation_alias=AliasChoices("TAVILY_API_KEY"),
-        ),
+        Field(default=None, validation_alias=AliasChoices("TAVILY_API_KEY")),
     ]
     brave_api_key: Annotated[
         Optional[SecretStr],
-        Field(
-            default=None,
-            description="Brave Search API subscription token.",
-            validation_alias=AliasChoices("BRAVE_API_KEY"),
-        ),
+        Field(default=None, validation_alias=AliasChoices("BRAVE_API_KEY")),
     ]
     google_search_api_key: Annotated[
         Optional[SecretStr],
-        Field(
-            default=None,
-            description="Google Custom Search API key.",
-            validation_alias=AliasChoices("GOOGLE_SEARCH_API_KEY"),
-        ),
+        Field(default=None, validation_alias=AliasChoices("GOOGLE_SEARCH_API_KEY")),
     ]
     google_search_cx: Annotated[
         Optional[str],
         Field(
             default=None,
-            description="Google Programmable Search Engine identifier.",
             validation_alias=AliasChoices(
                 "GOOGLE_SEARCH_CX",
                 "GOOGLE_CSE_ID",
@@ -132,7 +119,6 @@ class _Settings(DatabaseSettings):
             default=5,
             ge=1,
             le=5,
-            description="Maximum number of web-search results.",
             validation_alias=AliasChoices(
                 "WEB_SEARCH_MAX_RESULTS",
                 "SEARCH_MAX_RESULTS",
@@ -143,11 +129,7 @@ class _Settings(DatabaseSettings):
 
     mcp_clients: Annotated[
         list[McpServerConfig],
-        Field(
-            default_factory=list,
-            description="External MCP servers over stdio or Streamable HTTP.",
-            validation_alias=AliasChoices("MCP_CLIENTS"),
-        ),
+        Field(default_factory=list, validation_alias=AliasChoices("MCP_CLIENTS")),
     ]
 
     @field_validator("mcp_clients", mode="before")
@@ -165,19 +147,11 @@ class _Settings(DatabaseSettings):
     a2a_public_base_url: Annotated[
         Optional[str],
         BeforeValidator(_unset_empty_env),
-        Field(
-            default=None,
-            description="Public base URL for the Agent Card JSON-RPC interface.",
-            validation_alias=AliasChoices("A2A_PUBLIC_BASE_URL"),
-        ),
+        Field(default=None, validation_alias=AliasChoices("A2A_PUBLIC_BASE_URL")),
     ]
     mcp_ops_key: Annotated[
         Optional[SecretStr],
-        Field(
-            default=None,
-            description="Optional X-MCP-Ops-Key secret for MCP operations routes.",
-            validation_alias=AliasChoices("MCP_OPS_KEY"),
-        ),
+        Field(default=None, validation_alias=AliasChoices("MCP_OPS_KEY")),
     ]
 
     appwrite_endpoint: Annotated[
@@ -197,42 +171,26 @@ class _Settings(DatabaseSettings):
         str,
         Field(
             default_factory=_default_sickz_targets_value,
-            description=(
-                "Comma/newline-separated inverse-health target groups; use | for aliases."
-            ),
             validation_alias=AliasChoices("SICKZ_TARGETS"),
         ),
     ]
     sickz_internal_network: Annotated[
         bool,
-        Field(
-            default=False,
-            description="Skip sickz HTTP probes when running on the trusted home LAN.",
-            validation_alias=AliasChoices("SICKZ_INTERNAL_NETWORK"),
-        ),
+        Field(default=False, validation_alias=AliasChoices("SICKZ_INTERNAL_NETWORK")),
     ]
     sickz_network_label: Annotated[
         Optional[str],
-        Field(
-            default=None,
-            description="Human-readable network label for sickz diagnostics.",
-            validation_alias=AliasChoices("SICKZ_NETWORK_LABEL"),
-        ),
+        Field(default=None, validation_alias=AliasChoices("SICKZ_NETWORK_LABEL")),
     ]
 
     litellm_url: Annotated[
         str,
-        Field(
-            default="",
-            description="LiteLLM OpenAI-compatible proxy base URL.",
-            validation_alias=AliasChoices("LITELLM_URL"),
-        ),
+        Field(default="", validation_alias=AliasChoices("LITELLM_URL")),
     ]
     litellm_api_key: Annotated[
         SecretStr,
         Field(
             default_factory=lambda: SecretStr(""),
-            description="Optional API key for the LiteLLM proxy.",
             validation_alias=AliasChoices("LITELLM_API_KEY"),
         ),
     ]
@@ -240,7 +198,6 @@ class _Settings(DatabaseSettings):
         str,
         Field(
             default="https://litellm.albandrieu.com",
-            description="Public LiteLLM origin used by health checks.",
             validation_alias=AliasChoices("LITELLM_HEALTHZ_URL"),
         ),
     ]
@@ -248,7 +205,6 @@ class _Settings(DatabaseSettings):
         str,
         Field(
             default=DEFAULT_CHAT_MODEL,
-            description="Default OpenAI-compatible chat model identifier.",
             validation_alias=AliasChoices("DEFAULT_CHAT_MODEL"),
             min_length=1,
         ),
@@ -319,7 +275,6 @@ class APIDeploymentSettings(PrometheusSettings, _Settings):
     scope: Literal["sample-V1", "sample-V2"] = "sample-V2"
     a2a_enabled: bool = Field(
         default=False,
-        description="Mount the in-process A2A JSON-RPC application at /a2a.",
         validation_alias=AliasChoices("A2A_ENABLED"),
     )
 
