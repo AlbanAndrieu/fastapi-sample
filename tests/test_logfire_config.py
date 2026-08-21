@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from nabla.utils.logfire_config import LOGFIRE_BASE_URL, configure_logfire
+from nabla.utils.logfire_config import configure_logfire
 
 
 @pytest.mark.parametrize("token", [None, "", "   "])
@@ -31,7 +31,7 @@ def test_logfire_is_disabled_explicitly_during_pytest(monkeypatch):
     load_sdk.assert_not_called()
 
 
-def test_logfire_uses_eu_project_token_without_request_data(monkeypatch):
+def test_logfire_uses_project_token_without_forcing_endpoint(monkeypatch):
     monkeypatch.setenv("LOGFIRE_ENABLED", "true")
     monkeypatch.setenv("LOGFIRE_TOKEN", "test-token")
     monkeypatch.setenv("LOGFIRE_ENVIRONMENT", "test")
@@ -41,7 +41,6 @@ def test_logfire_uses_eu_project_token_without_request_data(monkeypatch):
     instrument_system_metrics = MagicMock()
     structlog_processor = object()
     logfire = SimpleNamespace(
-        AdvancedOptions=SimpleNamespace,
         StructlogProcessor=MagicMock(return_value=structlog_processor),
         configure=configure,
         instrument_fastapi=instrument,
@@ -59,8 +58,9 @@ def test_logfire_uses_eu_project_token_without_request_data(monkeypatch):
     assert options["token"] == os.environ["LOGFIRE_TOKEN"]
     assert options["send_to_logfire"] is True
     assert options["service_name"] == "fastapi-sample"
+    assert options["service_version"] == "1"
     assert options["environment"] == "test"
-    assert options["advanced"].base_url == LOGFIRE_BASE_URL
+    assert "advanced" not in options
     instrument_system_metrics.assert_called_once_with()
     instrument.assert_called_once()
     enable_processor.assert_called_once_with(structlog_processor)
@@ -82,7 +82,6 @@ def test_logfire_preserves_explicit_genai_content_setting(monkeypatch):
     monkeypatch.setenv("LOGFIRE_TOKEN", "test-token")
     monkeypatch.setenv("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "true")
     logfire = SimpleNamespace(
-        AdvancedOptions=SimpleNamespace,
         StructlogProcessor=MagicMock(return_value=object()),
         configure=MagicMock(),
         instrument_fastapi=MagicMock(),
@@ -99,7 +98,6 @@ def test_logfire_failure_does_not_block_startup(monkeypatch):
     monkeypatch.setenv("LOGFIRE_ENABLED", "true")
     monkeypatch.setenv("LOGFIRE_TOKEN", "invalid-token")
     logfire = SimpleNamespace(
-        AdvancedOptions=MagicMock(),
         StructlogProcessor=MagicMock(),
         configure=MagicMock(side_effect=RuntimeError("unavailable")),
     )
