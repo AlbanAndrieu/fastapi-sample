@@ -1,0 +1,14 @@
+---
+description: Python and FastAPI coding rules
+globs: "**/*.py"
+alwaysApply: false
+---
+
+# Python
+
+- Target Python 3.12 and prefer native typing (`X | None`, `list[str]`).
+- Keep runtime imports required by `nabla.main` in `[project].dependencies`.
+- Do not perform network, DB, telemetry, or feature-flag initialization at module import time.
+- Prefer dependency injection, lazy factories, and FastAPI lifespan for runtime resources.
+- Use Ruff formatting/linting and existing Pydantic/FastAPI patterns.
+- Refactor cohesive responsibilities before significantly growing files above 700 lines.
