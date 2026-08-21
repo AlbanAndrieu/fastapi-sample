@@ -10,18 +10,15 @@ on:
   repository_dispatch:
     types:
       - semantic-release-published
+  # Manual recovery publishes the latest existing GitHub Release. No free-form
+  # tag input is accepted, so a user parameter cannot alter the build source.
   workflow_dispatch:
-    inputs:
-      release_tag:
-        description: Existing release tag to publish (for example 1.4.0)
-        required: true
-        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.event.client_payload.tag || github.event.release.tag_name || inputs.release_tag }}
+  group: release-${{ github.event.client_payload.tag || github.event.release.tag_name || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -31,10 +28,29 @@ jobs:
     permissions:
       contents: read
       id-token: write # Required for PyPI Trusted Publishing (OIDC).
-    env:
-      RELEASE_TAG: ${{ github.event.client_payload.tag || github.event.release.tag_name || inputs.release_tag }}
 
     steps:
+      - name: Resolve immutable release tag
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DISPATCH_TAG: ${{ github.event.client_payload.tag }}
+          RELEASE_EVENT_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          if [[ -n "${DISPATCH_TAG}" ]]; then
+            release_tag="${DISPATCH_TAG}"
+          elif [[ -n "${RELEASE_EVENT_TAG}" ]]; then
+            release_tag="${RELEASE_EVENT_TAG}"
+          else
+            release_tag="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq '.tag_name')"
+          fi
+          if [[ -z "${release_tag}" ]]; then
+            echo "Unable to resolve a GitHub Release tag" >&2
+            exit 1
+          fi
+          echo "RELEASE_TAG=${release_tag}" >> "${GITHUB_ENV}"
+
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           fetch-depth: 0
