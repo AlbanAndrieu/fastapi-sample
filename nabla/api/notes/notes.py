@@ -40,8 +40,9 @@ async def get_notes(request: Request):
 
     notes = await read_all_notes()
     return templates.TemplateResponse(
+        request,
         "_notes_list.html",
-        {"request": request, "notes": notes},
+        {"notes": notes},
     )
 
 
@@ -64,8 +65,9 @@ def add_note(request: Request, title: str):
     session.refresh(note)
     notes = session.exec(select(NoteResponse)).all()
     return templates.TemplateResponse(
+        request,
         "_notes_list.html",
-        {"request": request, "notes": notes},
+        {"notes": notes},
     )
 
 
@@ -124,7 +126,7 @@ async def update_note_form(request: Request, note_id: int, title: str = Form(...
     note = get_note_or_404(note_id)
     note.title = title
     note.content = content
-    return templates.TemplateResponse("_note_item.html", {"request": request, "note": note})
+    return templates.TemplateResponse(request, "_note_item.html", {"note": note})
 
 
 # @cache(expire=300)  # Cache for 5 minutes to avoid repeated execution of complex SQL
@@ -164,7 +166,7 @@ async def delete_note(note_id: int = Path(..., gt=0)):
 @router.get("/notes/{note_id}/edit", response_class=HTMLResponse)
 async def edit_note_form(request: Request, note_id: int):
     note = get_note_or_404(note_id)
-    return templates.TemplateResponse("_note_item_edit.html", {"request": request, "note": note})
+    return templates.TemplateResponse(request, "_note_item_edit.html", {"note": note})
 
 
 # @app.exception_handler(NotFoundInJM)
