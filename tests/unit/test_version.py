@@ -15,7 +15,7 @@ def test_release_version_environment_override(monkeypatch):
 def test_invalid_release_version_uses_generated_fallback(monkeypatch):
     monkeypatch.setenv("RELEASE_VERSION", "unknown")
 
-    assert resolve_release_version() == "1.3.7"
+    assert resolve_release_version() == "1.4.0"
 
 
 def test_version_endpoint_exposes_api_release_and_mcp_metadata():
@@ -23,9 +23,9 @@ def test_version_endpoint_exposes_api_release_and_mcp_metadata():
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["version"] == "v0+1.3.7"
+    assert payload["version"] == "v0+1.4.0"
     assert payload["api_version"] == "v0"
-    assert payload["release_version"] == "1.3.7"
+    assert payload["release_version"] == "1.4.0"
     assert payload["service"] == "fastapi-sample"
     assert payload["mcp"]["transport"] == "streamable-http"
     assert payload["mcp"]["endpoint"] == "/mcp"
