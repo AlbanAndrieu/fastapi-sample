@@ -76,13 +76,26 @@ jobs:
           UV_PROJECT_ENVIRONMENT: .venv-runtime
         run: |
           uv sync --frozen --no-default-groups
-          .venv-runtime/bin/python -c "import nabla.main"
+          .venv-runtime/bin/python -c "import nabla.main; assert nabla.main.app is not None"
+          rm -rf .venv-runtime
 
       - name: Resolve and install project dependencies
         run: uv sync
 
       - name: Check release version consistency
         run: uv run python scripts/check_versions.py
+
+      - name: FastAPI startup smoke test
+        run: |
+          uv run python - <<'PY'
+          from fastapi.testclient import TestClient
+          from nabla.main import app
+
+          client = TestClient(app)
+          response = client.get("/api")
+          assert response.status_code == 200, response.text
+          assert any(getattr(route, "path", None) == "/mcp" or getattr(route, "path", None) == "/" for route in app.routes)
+          PY
 
       - name: Ruff critical checks
         run: uv run ruff check server_app.py nabla --select=E9,F63,F7,F82

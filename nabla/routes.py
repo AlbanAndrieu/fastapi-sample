@@ -1,21 +1,39 @@
 """Application route registration and handlers."""
-import os
 import html
-from fastapi import Request, FastAPI
-from fastapi.responses import ORJSONResponse, RedirectResponse, JSONResponse, HTMLResponse
+import os
+
+import pyroscope
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse, JSONResponse, ORJSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlmodel import select
+from starlette.routing import Mount
+
 from nabla.api.db.database import SessionLocal
 from nabla.api.notes.models import Note
 from nabla.utils.logger import logger
-from nabla.config_settings import APP_VERSION
-import pyroscope
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 
 
 templates = Jinja2Templates(directory="templates")
 limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
+
+
+def _move_root_mounts_last(app: FastAPI) -> None:
+    """Keep catch-all root mounts behind concrete FastAPI routes.
+
+    Starlette evaluates routes in registration order. A ``Mount('/')`` added
+    before concrete routes captures requests such as ``/api`` and ``/metrics``.
+    """
+    root_mounts = [
+        route
+        for route in app.routes
+        if isinstance(route, Mount) and getattr(route, "path", None) in ("", "/")
+    ]
+    for route in root_mounts:
+        app.routes.remove(route)
+        app.routes.append(route)
 
 
 def register_routes(app: FastAPI) -> None:
@@ -66,17 +84,29 @@ def register_routes(app: FastAPI) -> None:
             app_version=html.escape(str(request.app.version)),
         )
 
-    @app.get("/healthz", response_class=ORJSONResponse, tags=["Health"], summary="Deep healthcheck")
+    @app.get(
+        "/healthz",
+        response_class=ORJSONResponse,
+        tags=["Health"],
+        summary="Deep healthcheck",
+    )
     async def get_healthz(request: Request):
         """Return JSON: GET /health payload merged with Redis, Postgres, etc."""
-        from nabla.api.health_checks import build_healthz_payload
         from nabla.api.db.database import engine
         from nabla.api.demo.socket.redis import redis
+        from nabla.api.health_checks import build_healthz_payload
 
         with pyroscope.tag_wrapper({"function": "fast"}):
-            return await build_healthz_payload(request, redis_client=redis, engine=engine)
+            return await build_healthz_payload(
+                request, redis_client=redis, engine=engine
+            )
 
-    @app.get("/sickz", response_class=ORJSONResponse, tags=["Health"], summary="Inverse reachability")
+    @app.get(
+        "/sickz",
+        response_class=ORJSONResponse,
+        tags=["Health"],
+        summary="Inverse reachability",
+    )
     async def get_sickz(request: Request):
         """Return JSON: URL groups must not be reachable."""
         from nabla.api.health_checks import build_sickz_payload
@@ -110,13 +140,19 @@ def register_routes(app: FastAPI) -> None:
         logger.opt(exception=exc).error("Unhandled exception on {}", request.url)
         return JSONResponse(
             status_code=500,
-            content={"error": "Internal server error", "timestamp": datetime.now().isoformat()},
+            content={
+                "error": "Internal server error",
+                "timestamp": datetime.now().isoformat(),
+            },
         )
 
     @app.get("/metrics")
     def prometheus_metrics():
         from prometheus_client import REGISTRY
-        from prometheus_client.openmetrics.exposition import CONTENT_TYPE_LATEST, generate_latest
+        from prometheus_client.openmetrics.exposition import (
+            CONTENT_TYPE_LATEST,
+            generate_latest,
+        )
         from starlette.responses import Response
 
         if os.environ.get("ENV") == "dev":
@@ -124,3 +160,5 @@ def register_routes(app: FastAPI) -> None:
         return Response(
             generate_latest(REGISTRY), headers={"Content-Type": CONTENT_TYPE_LATEST}
         )
+
+    _move_root_mounts_last(app)

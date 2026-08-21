@@ -9,12 +9,17 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_openai import AzureChatOpenAI, ChatOpenAI
 
 from nabla import config_settings as _config_settings
-from nabla.config_settings import AzureOpenAiInstance, get_settings
+from nabla.config_settings import AzureOpenAiInstance
 
 DEFAULT_CHAT_MODEL = _config_settings.DEFAULT_CHAT_MODEL
 
 _ChatOpenAI = cast(Any, ChatOpenAI)
 _AzureChatOpenAI = cast(Any, AzureChatOpenAI)
+
+
+def get_settings():
+    """Resolve settings dynamically so tests can patch either public seam."""
+    return _config_settings.get_settings()
 
 
 def litellm_openai_api_base(url: str) -> str:

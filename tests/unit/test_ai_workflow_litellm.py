@@ -1,6 +1,5 @@
 """LangGraph /run endpoint and LiteLLM (OpenAI-compatible) wiring for the workflow LLM."""
 
-import importlib
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import MagicMock
@@ -10,15 +9,11 @@ from fastapi.testclient import TestClient
 from langchain_core.messages import AIMessage
 from pydantic import SecretStr
 
-from nabla.config_settings import DEFAULT_CHAT_MODEL, get_settings
-from nabla.main import app
-from nabla.deepagents import workflow as wf
-
-demo_models = importlib.import_module("nabla.api.demo.models")
-import nabla.main as main_mod
-
 import nabla.config_settings as config_settings
 import nabla.deepagents.llm_factory as llm_factory
+from nabla.config_settings import DEFAULT_CHAT_MODEL, get_settings
+from nabla.deepagents import workflow as wf
+from nabla.main import app
 
 
 @pytest.fixture(autouse=True)
@@ -30,26 +25,14 @@ def clear_workflow_llm_cache() -> None:
     wf._build_workflow_agent.cache_clear()
 
 
-@pytest.fixture(autouse=True)
-def disable_db_init(monkeypatch):
-
-    monkeypatch.setattr(demo_models, "init_db", lambda: None)
-    if hasattr(main_mod, "init_db_sensor_reading"):
-
-        async def fake_async_noop(*args, **kwargs):
-            return None
-
-        monkeypatch.setattr(main_mod, "init_db_sensor_reading", fake_async_noop)
-
-
 def test_post_run_returns_llm_result(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_safe_invoke(message: str) -> AIMessage:
         assert "LangGraph" in message
         return AIMessage(content="LangGraph is a graph-based orchestration layer for LLM apps.")
 
     monkeypatch.setattr(wf, "safe_invoke_llm", fake_safe_invoke)
-    with TestClient(app) as client:
-        res = client.post("/run", json={"user_input": "What is LangGraph?"})
+    client = TestClient(app)
+    res = client.post("/run", json={"user_input": "What is LangGraph?"})
     assert res.status_code == 200
     body = res.json()
     assert "result" in body
@@ -62,8 +45,8 @@ def test_post_run_returns_llm_result_person_question(monkeypatch: pytest.MonkeyP
         return AIMessage(content="Alban Andrieu is a software engineer focused on cloud orchestration.")
 
     monkeypatch.setattr(wf, "safe_invoke_llm", fake_safe_invoke)
-    with TestClient(app) as client:
-        res = client.post("/run", json={"user_input": "Who is Alban Andrieu"})
+    client = TestClient(app)
+    res = client.post("/run", json={"user_input": "Who is Alban Andrieu"})
     assert res.status_code == 200
     body = res.json()
     assert "result" in body
