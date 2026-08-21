@@ -80,8 +80,14 @@ jobs:
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
+
           path = Path("pyproject.toml")
-          path.write_text(path.read_text().rstrip("\n") + "\n")
+          text = path.read_text()
+          old = '"numpy>=1.19.3,<2",'
+          if old not in text:
+              raise SystemExit("Legacy NumPy <2 constraint not found")
+          text = text.replace(old, '"numpy>=2.1",', 1)
+          path.write_text(text.rstrip("\n") + "\n")
           PY
           uv lock --upgrade-package numpy
           uv lock --check
