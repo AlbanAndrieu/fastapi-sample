@@ -1,3 +1,22 @@
+# [1.4.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.3.8...1.4.0) (2026-08-21)
+
+
+### Bug Fixes
+
+* **ci:** ignore transient MegaLinter GitHub config in Checkov ([#32](https://github.com/AlbanAndrieu/fastapi-sample/issues/32)) ([254724f](https://github.com/AlbanAndrieu/fastapi-sample/commit/254724fba083751e98f5f58ef64ec78e9b58f4a5))
+* **logfire:** simplify FastAPI Cloud integration ([#43](https://github.com/AlbanAndrieu/fastapi-sample/issues/43)) ([26b8c60](https://github.com/AlbanAndrieu/fastapi-sample/commit/26b8c60185ca71a8d1c72169b626af036a69742a))
+* **mcp:** expose canonical streamable HTTP endpoint ([#35](https://github.com/AlbanAndrieu/fastapi-sample/issues/35)) ([93ec084](https://github.com/AlbanAndrieu/fastapi-sample/commit/93ec084b4a5283fcfbedcebb7b1dd16d835ed898))
+* **observability:** enable Logfire on FastAPI Cloud ([#39](https://github.com/AlbanAndrieu/fastapi-sample/issues/39)) ([0c66b29](https://github.com/AlbanAndrieu/fastapi-sample/commit/0c66b298908070328c6bf57cd7f8a002d7d931cc))
+* **runtime:** make Datadog optional on FastAPI Cloud ([#38](https://github.com/AlbanAndrieu/fastapi-sample/issues/38)) ([b8c08b2](https://github.com/AlbanAndrieu/fastapi-sample/commit/b8c08b2af87cb9025d39237491e707962c234c3e))
+* **runtime:** stabilize FastAPI Cloud and start config refactor ([#40](https://github.com/AlbanAndrieu/fastapi-sample/issues/40)) ([2c489df](https://github.com/AlbanAndrieu/fastapi-sample/commit/2c489df62ff762d0cc9daf4e3b25b2b819e6cc0e))
+
+
+### Features
+
+* **mcp:** add persistent Streamable HTTP outbound clients ([#37](https://github.com/AlbanAndrieu/fastapi-sample/issues/37)) ([2ddbd33](https://github.com/AlbanAndrieu/fastapi-sample/commit/2ddbd337c6631bfdba8e44fbd614b3f20b5b4abc))
+* **mcp:** improve OpenWebUI MCP discovery guidance ([#31](https://github.com/AlbanAndrieu/fastapi-sample/issues/31)) ([a529a93](https://github.com/AlbanAndrieu/fastapi-sample/commit/a529a930ef7858a01cb6e260f4c0cc47f67a833f))
+* **release:** migrate semantic-release to GitHub ([#42](https://github.com/AlbanAndrieu/fastapi-sample/issues/42)) ([2385b1c](https://github.com/AlbanAndrieu/fastapi-sample/commit/2385b1caac771f9d710fa84c7c125fd6bf321923))
+
 # 1.0.0 (2026-07-10)
 
 
