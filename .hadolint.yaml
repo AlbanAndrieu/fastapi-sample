@@ -1,6 +1,7 @@
 ---
 trustedRegistries:
   - docker.io
+  - ghcr.io
   - registry.gitlab.com
 ignored:
   - DL3007

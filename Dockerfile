@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM python:3.12-slim-trixie AS builder
+FROM python:3.13-slim-trixie AS builder
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -37,7 +37,7 @@ RUN --mount=type=secret,id=read-package-token \
       --group temporal; \
     /code/.venv/bin/python -c "import ddtrace"
 
-FROM python:3.12-slim-trixie AS production
+FROM python:3.13-slim-trixie AS production
 
 ARG APP_VERSION="1.4.1"
 

@@ -27,7 +27,7 @@ jobs:
       LOGFIRE_ENABLED: "false"
       LOGFIRE_ENVIRONMENT: test
       LOGFIRE_TOKEN: ""
-      PYTHON_VERSION: "3.12"
+      PYTHON_VERSION: "3.13"
       SENTRY_ENABLED: "false"
       SENTRY_DSN: ""
       SENTRY_ENVIRONMENT: test

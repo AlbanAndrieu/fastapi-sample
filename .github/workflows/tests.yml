@@ -23,7 +23,7 @@ jobs:
       fail-fast: true
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python-version: ["3.12", "3.14"]
+        python-version: ["3.13"]
     env:
       METRICS_ENABLED: "false"
       LOGFIRE_ENABLED: "false"

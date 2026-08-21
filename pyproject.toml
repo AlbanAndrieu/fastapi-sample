@@ -3,7 +3,7 @@ name = "fastapi-sample"
 version = "1.4.1"
 description = "Fastapi sample"
 authors = [{ name = "Alban Andrieu", email = "alban.andrieu@free.fr" }]
-requires-python = ">=3.12"
+requires-python = "==3.13.*"
 readme = "README.md"
 license = "MIT"
 maintainers = [{ name = "Alban Andrieu", email = "alban.andrieu@free.fr" }]
@@ -302,7 +302,7 @@ extra = [
     "mdformat>=1.0.0",
     "mdformat-gfm>=1.0.0",
     "mdurl>=0.1.2",
-    "numpy>=1.19.3,<2",
+    "numpy>=2.1",
     "packaging>=24.2",
     "pre-commit>=4.5.0",
     "pip-upgrader>=1.4.15",
@@ -429,7 +429,7 @@ skips = ["B101", "B311"]
 
 [tool.black]
 line-length = 88
-target-version = ["py310", "py311"]
+target-version = ["py313"]
 include = "/(tests|nabla)"
 
 [tool.pyright]
@@ -445,7 +445,7 @@ venv = ".venv"
 reportMissingImports = "error"
 reportMissingTypeStubs = false
 
-pythonVersion = "3.12"
+pythonVersion = "3.13"
 pythonPlatform = "Linux"
 
 [tool.ruff]
@@ -491,8 +491,8 @@ exclude = [
 # Same as Black.
 line-length = 88
 
-# Assume Python 3.12.3
-target-version = "py312"
+# Assume Python 3.13
+target-version = "py313"
 
 [tool.isort]
 multi_line_output = 3
