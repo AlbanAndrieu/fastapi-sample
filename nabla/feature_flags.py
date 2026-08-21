@@ -7,6 +7,7 @@ created and initialized only when their explicit getters are called.
 import os
 import warnings
 from functools import lru_cache
+from typing import Any
 
 import urllib3
 from statsig_python_core import Statsig, StatsigOptions
@@ -78,6 +79,16 @@ def get_unleash_client() -> UnleashClient:
     )
     client.initialize_client()
     return client
+
+
+class LazyUnleashClient:
+    """Compatibility proxy that defers Unleash construction until first use."""
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(get_unleash_client(), name)
+
+
+unleash_client = LazyUnleashClient()
 
 
 @lru_cache(maxsize=1)
