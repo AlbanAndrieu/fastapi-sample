@@ -36,6 +36,14 @@ jobs:
       - name: Install semantic-release dependencies
         run: npm ci --ignore-scripts
 
+      # package.json/package-lock.json still contain the historical GitLab plugin
+      # on the pre-release commit. Remove it here so the generated release commit
+      # contains no GitLab semantic-release dependency.
+      - name: Remove legacy GitLab semantic-release dependency
+        run: |
+          npm pkg delete 'devDependencies.@semantic-release/gitlab'
+          npm install --package-lock-only --ignore-scripts
+
       - name: Verify versions before release
         run: python scripts/check_versions.py
 
