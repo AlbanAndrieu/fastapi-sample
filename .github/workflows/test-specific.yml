@@ -50,6 +50,8 @@ jobs:
       DD_LOGS_INJECTION: "false"
       DD_APPSEC_ENABLED: "false"
       DD_IAST_ENABLED: "false"
+      TEST_EXPRESSION: ${{ inputs.expression }}
+      TEST_PYTHON_VERSION: ${{ inputs.python-version }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -68,13 +70,13 @@ jobs:
           version: "0.12.1"
 
       - name: Install project dependencies
-        run: uv sync --python ${{ inputs.python-version }}
+        run: uv sync --python "$TEST_PYTHON_VERSION"
 
       - name: Run selected tests
         shell: bash
         run: |
-          if [[ -n "${{ inputs.expression }}" ]]; then
-            uv run --python "${{ inputs.python-version }}" pytest -k "${{ inputs.expression }}"
+          if [[ -n "$TEST_EXPRESSION" ]]; then
+            uv run --python "$TEST_PYTHON_VERSION" pytest -k "$TEST_EXPRESSION"
           else
-            uv run --python "${{ inputs.python-version }}" pytest
+            uv run --python "$TEST_PYTHON_VERSION" pytest
           fi
