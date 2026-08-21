@@ -3,7 +3,7 @@ name = "fastapi-sample"
 version = "1.4.0"
 description = "Fastapi sample"
 authors = [{ name = "Alban Andrieu", email = "alban.andrieu@free.fr" }]
-requires-python = ">=3.12"
+requires-python = "==3.13.*"
 readme = "README.md"
 license = "MIT"
 maintainers = [{ name = "Alban Andrieu", email = "alban.andrieu@free.fr" }]
