@@ -24,14 +24,14 @@ jobs:
       security-events: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
           fetch-depth: 0
 
       - name: MegaLinter
         id: ml
-        uses: oxsecurity/megalinter@ef3e84b8b836d76db562d0f3ed7da61e8fd538bc # v9.6.0
+        uses: oxsecurity/megalinter@15e5b45552097e318c93de385779ce3b1084052c # v10.0.0
         env:
           APPLY_FIXES: none
           VALIDATE_ALL_CODEBASE: false
