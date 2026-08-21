@@ -1,135 +1,82 @@
-# FastApi Sample (Sample) — Agent Guide
+# fastapi-sample — Agent Guide
 
-This document gives AI coding assistants the context needed to work effectively in this repository.
+## Mission
 
-## What this service does
+Maintain this Python/FastAPI application with minimal, testable changes.
 
-The Sample is a Python/FastAPI service that answers legal research queries using an agentic OpenRAG pipeline. It streams responses over SSE. Queries are received from OpenWebUI, not directly from this service.
+Prefer repository sources of truth over assumptions or duplicated documentation.
 
----
+## Sources of truth
 
-## Tech stack
+Before changing behavior, inspect the relevant files:
 
-| Area | Choice |
-|------|--------|
-| Language | Python 3.12 |
-| Web framework | FastAPI + uvicorn (dev) / gunicorn+uvicorn worker (prod) |
-| Package management | UV (`uv.lock`) |
-| LLM providers | Azure OpenAI, Anthropic, Google GenAI (multi-provider load balancer) throught LiteLLM |
-| Observability | Langfuse (tracing + prompts), Prometheus metrics, optional Datadog |
-| Feature flags | Statsig |
-| Streaming | Server-Sent Events (`sse-starlette`) |
-| Type checking | Pyright (basic mode) |
-| Linting | Ruff (`.ruff.toml`) |
-| Formatting | Ruff (`ruff format`; `[format]` in `.ruff.toml`) |
+- `README.md` — project usage and architecture
+- `pyproject.toml` — Python version, dependencies, and tool configuration
+- `nabla/config_settings.py` — application settings
+- `nabla/main.py` — FastAPI application
+- `tests/` — expected behavior
+- `scripts/` — repository quality and maintenance commands
+- `.github/workflows/` — CI behavior
+- `docs/` — detailed documentation
 
----
+Do not duplicate information from these files into code or agent instructions.
 
-## Repository layout
+## Package management
 
-```
-legal-research-assistant/
-├── main.py                     # ASGI entry: sets up logging + Langfuse, imports app
-├── fastapi_server.py           # FastAPI app, lifespan, routes
-├── nabla/
-│   ├── api/
-│   │   └── health_checks.py    # Health checks
-│   └── ai/                     # All active application logic
-│       └── chat_completion.py  # Chat completion
-├── scripts/                    # Various helper script
-├── docs/                       # Internal docs
-├── data/                       # Local test datasets
-├── pyproject.toml              # Dependencies + tool config
-├── pyrightconfig.json          # Pyright basic mode config
-├── .ruff.toml                  # Ruff config
-└── Dockerfile                  # Container build
-```
+Use `uv`.
 
----
+Do not introduce Poetry-based workflows unless the repository explicitly requires them.
 
-## Key entry points
-
-- **`main.py`** — Calls `setup_logging()` and `fetch_prompts_on_startup()`, then exports `app` from `fastapi_server`.
-- **`fastapi_server.py`** — Defines the FastAPI `app`, lifespan (daily metadata maintenance + schema generation), and wires routes.
-- **Health check:** `GET http://localhost:8091/health`
-
----
-
-## Nabla: `/healthz`, `/sickz`, and LAN vs cloud
-
-- **Routes:** [`nabla/main.py`](nabla/main.py) exposes `GET /healthz` (deep dependency JSON) and `GET /sickz` (inverse reachability JSON, `ORJSONResponse`). `/healthz` also requires HTTPS reachability of a fixed set of `*.albandrieu.com` endpoints (see [`nabla/api/health_checks.py`](nabla/api/health_checks.py) `_ALBANDRIEU_HEALTHZ_HTTPS`). Default `/sickz` targets include pfSense plus internal-only `*.albandrieu.com` hosts (see `config_settings._ALBANDRIEU_SICKZ_HOSTNAMES`).
-- **Probe logic:** [`nabla/api/health_checks.py`](nabla/api/health_checks.py) (`build_healthz_payload`, `build_sickz_payload`). Settings: [`nabla/config_settings.py`](nabla/config_settings.py) (`SICKZ_*`).
-- **`SICKZ_INTERNAL_NETWORK`:** Set `true` when this process runs in the same trust zone as pfSense (e.g. home LAN) so `/sickz` skips HTTP probes that pfSense would answer. Leave `false` on cloud or any host that must not reach the firewall UI. **Implicit LAN skip** also applies when `SICKZ_NETWORK_LABEL` is exactly `nabla` (case-insensitive) or when module `APP_DOMAIN` is `albandrieu.albandrieu.com`, unless a known PaaS runtime is detected. **There is no full auto-proof of “same network as pfSense”** from bind address alone (`0.0.0.0` does not imply LAN); combine flags, implicit rules, and inventory per deployment.
-- **Docker:** Containers often see a bridge IP (e.g. `172.17.0.1`) that is not your whole home subnet. Prefer the explicit flag (and `network_mode: host` only when you intentionally need host networking). Optional `SICKZ_TARGETS` groups use `|` for equivalent URLs (hostname vs gateway).
-- **`SICKZ_TARGETS` / `SICKZ_NETWORK_LABEL`:** See field descriptions in `config_settings.py`; `SICKZ_NETWORK_LABEL` falls back to `APP_DOMAIN` for messages.
-- **Known PaaS:** If the runtime looks like Vercel, Kubernetes, Lambda, Fly, Railway, or Heroku (`DYNO`), `/sickz` **never** skips probes for internal LAN (even if `SICKZ_INTERNAL_NETWORK=true`), so isolation checks stay meaningful on managed platforms. The JSON `runtime` object includes `cloud_paas_detected`, `sickz_internal_network_config`, and `sickz_internal_network_effective`.
-
----
-
-## Environment and configuration
-
-- All env vars use `V2__` prefix with `__` as separator for nested settings (Pydantic nested models in `config_settings.py`).
-- Mode-specific agent/retrieval behaviour and Statsig-gated overrides are in `backend/v2/config.py`.
-- **Never edit per-repo `.env`, `.env.local`,  `.env.secrets` directly in the setup** —.
-
-Key variables: `V2__AZURE__*` (LLM), `LANGFUSE_*`, `STATSIG_*`.
-
----
-
-## Running locally
-
-Use a **UV** CLI compatible with the lockfile (`poetry --version`). Regenerate `uv.lock` on (the file’s first line records the generator).
+Prefer:
 
 ```bash
-# Install (include test and format groups)
 uv sync
-
-# Install repository-managed Git hooks once per clone
-bash scripts/install-quality-hooks.sh
-
-# Start dev server
-uvicorn main:app --host 0.0.0.0 --port 8091 --reload
+uv run pytest
+uv run ruff check .
+uv run ruff format --check .
 ```
 
-PostgesSQP must be reachable before startup. Sample will fail to start if PG is down.
+## Development rules
 
----
+- Make the smallest change that solves the requested problem.
+- Prefer editing existing modules over creating new abstractions.
+- Preserve backward compatibility unless explicitly asked otherwise.
+- Follow existing Python naming and architecture.
+- Use type annotations for public functions and FastAPI endpoints.
+- Do not perform network, database, telemetry, or SDK initialization at module import time.
+- Never log credentials, tokens, or secret values.
+- Do not edit `.env`, `.env.local`, or `.env.secrets` unless explicitly requested.
 
-## Testing
+## Testing and quality
+
+For a focused change, run the closest relevant tests first.
+
+Before considering a substantial change complete, run the repository quality gate when available:
 
 ```bash
-pytest                  # run all tests
-pytest tests/unit/      # unit tests only
-pytest -m asyncio       # async tests
+bash scripts/quality-gate.sh
 ```
 
-- Tests live under `tests/`
-- Root `conftest.py` injects extensive mock `V2__*` env vars and disables Langfuse tracing.
-- Coverage threshold: `--cov-fail-under=35` (CI enforced).
-- Use `pytest-asyncio` for async tests; mark with `@pytest.mark.asyncio`.
+Fix failures caused by the change.
 
----
+Do not weaken tests, security checks, or lint rules merely to obtain a green build.
 
-## Code quality
-
-### Mandatory agent push policy
+## Mandatory agent push policy
 
 Agents must never push immediately after changing code.
 
 Before every `git push`:
 
 1. Run `bash scripts/quality-gate.sh`.
-2. Fix every formatter, linter, pre-commit, lockfile, or test failure.
+2. Fix every formatter, linter, pre-commit, lockfile, or test failure caused by the change.
 3. If the gate modifies files, review and commit those changes.
 4. Run `bash scripts/quality-gate.sh` again until it exits successfully with a clean working tree.
 5. Verify `git status --short` is empty.
 6. Only then run `git push`.
 
-The repository-managed `.githooks/pre-push` hook executes `scripts/pre-push-check.sh` as a final check-only safety layer. Install it once per clone with `bash scripts/install-quality-hooks.sh`.
+Never bypass repository hooks with `git push --no-verify`. Never weaken or disable lint or security rules merely to make a quality gate pass.
 
-Never bypass repository hooks with `git push --no-verify`. Never weaken or disable lint/security rules merely to make a quality gate pass. Ruff unsafe fixes are not allowed as an automatic default; use them only after reviewing the proposed transformation.
-
-### Maintainability and file size
+## Maintainability and file size
 
 Before modifying a source file, assess both its size and its responsibilities.
 
@@ -137,36 +84,22 @@ Before modifying a source file, assess both its size and its responsibilities.
 - Python files above **700 lines** must normally be refactored before significant new functionality is added, unless the file is generated, a migration, or inherently declarative.
 - Functions above roughly **60 lines** should be reviewed for extraction; functions above **100 lines** should normally be refactored.
 - Classes above roughly **250 lines** should be reviewed; classes above **400 lines** should normally be split by responsibility.
+- Existing oversized modules are technical-debt candidates: when a requested change touches one, actively look for a safe opportunity to extract cohesive responsibilities rather than making the file larger.
+- Configuration modules are not exempt merely because they contain many settings; split them by coherent domain when size and coupling justify it.
 - Avoid module-level initialization that performs network calls, opens database connections, starts telemetry exporters, or initializes feature-flag SDKs. Prefer lazy factories, dependency injection, or FastAPI lifespan initialization.
 - When using an API that replaces a complete file, never submit a partial file body. Fetch the complete current file, transform it, validate the result, then replace it.
 - The repository enforces modified Python file size with `scripts/check_code_size.py`: warning above 400 lines and failure above 700 lines. Generated code and migrations are excluded explicitly.
 
-### Ruff (`.ruff.toml`)
+Do not refactor unrelated code unless necessary for the requested change.
 
-- Max McCabe complexity: **15** (relaxed from default 10 to accommodate inherently complex agent logic).
-- Always enforced: security (`S`), errors (`E`, `F`), async rules (`ASYNC`), performance (`PERF`).
-- Run: `ruff check .` / `ruff format .`
+## External information
 
-### Pyright (`pyrightconfig.json`)
+When behavior depends on a third-party API, framework, or library version, verify current official documentation rather than relying on memory.
 
-**Basic mode** — do not expect strict enforcement. Key rules to follow anyway:
+## Completion
 
-- Never pass `None` where a non-optional type is expected. Handle `Optional` explicitly.
-- Ensure function return types match their signatures.
-- Validate external data (API responses, ES results) at boundaries.
-- Use `# type: ignore` sparingly and only when the type system cannot express the runtime behavior.
-- Excluded from type checking: see `exclude` in `pyrightconfig.json` (includes `utility_scripts/`, `jm_gunicorn_logger.py`, tests, etc.).
+Report:
 
----
-
-## Important constraints
-
-- **VPN may be required** for shared Elasticsearch / Back Office / Keycloak.
-- **Langfuse prompts** are fetched at startup. Tests disable this via `LANGFUSE_TRACING_ENABLED=false`.
-- **Statsig** controls feature flags and per-mode config overrides. Use `utils/statsig_manager.py` for flag checks.
-
----
-
-## Evaluation
-
-An end-to-end retrieval benchmark lives under `backend/v2/evaluation/` (Snakemake workflow). See `backend/v2/evaluation/README.md` for setup and usage. The REST endpoint `/evaluation/metrics` and `/auto-mode-selection/benchmark` are available when running the server.
+1. what changed;
+2. tests/checks executed;
+3. unresolved failures or risks.
