@@ -12,10 +12,12 @@ ignored:
 #  - DL3018
 label-schema:
   name: text
+  # The release version is injected from APP_VERSION at image build time, so
+  # validate the OCI label as text instead of requiring a literal semver here.
+  org.opencontainers.image.version: text
   # author: text
   # contact: email
   # created: rfc3339
-  version: semver
   # documentation: url
   # git-revision: hash
   # license: spdx

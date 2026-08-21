@@ -123,9 +123,11 @@ def test_invalid(test_app) -> None:
 
 
 def test_health(test_app) -> None:
-    """It runs and gives health status."""
+    """It runs and gives health status without depending on test order."""
+    from nabla.api.demo.sensor import metrics
 
     expected_status: int = 200
+    requests_before = metrics.total_requests
 
     # when
     response = test_app.get("/health")
@@ -136,7 +138,7 @@ def test_health(test_app) -> None:
     assert status["status"] == "healthy"
     assert status["readings_count"] == 50
     assert status["active_connections"] == 0
-    assert status["total_requests"] == 1
+    assert status["total_requests"] == requests_before + 1
 
 
 def test_tavily_search_returns_503_without_api_key(test_app, monkeypatch) -> None:

@@ -108,9 +108,9 @@ def dashboard(request: Request):
     metrics.track_request()
     logger.info(f"Dashboard accessed from {request.client.host}")
     return templates.TemplateResponse(
+        request,
         "index.html",
         {
-            "request": request,
             "dashboard_refresh_interval_seconds": DASHBOARD_REFRESH_INTERVAL_SECONDS,
             "charts_refresh_interval_seconds": CHARTS_REFRESH_INTERVAL_SECONDS,
             "sse_stream_interval_seconds": SSE_STREAM_INTERVAL_SECONDS,
@@ -190,17 +190,15 @@ async def get_chart_data(request: Request):
     logger.debug("Starting old chart generation")
 
     try:
-        # generate_sensor_data(2)
-
         temp_data = [r["temperature"] for r in recent_readings]
         humidity_data = [r["humidity"] for r in recent_readings]
         pressure_data = [r["pressure"] for r in recent_readings]
         labels = [str(i) for i in range(len(recent_readings))]
 
         return templates.TemplateResponse(
+            request,
             "chart_data.html",
             {
-                "request": request,
                 "temp_data": json.dumps(temp_data),
                 "humidity_data": json.dumps(humidity_data),
                 "pressure_data": json.dumps(pressure_data),
@@ -228,7 +226,6 @@ async def get_charts(request: Request):
 
         logger.debug(f"Processing {len(df)} sensor readings for chart generation")
 
-        # Generate all charts
         charts_html = {
             "timeseries": chart_factory.create_time_series_chart(df),
             "status": chart_factory.create_status_distribution(df),
@@ -236,7 +233,6 @@ async def get_charts(request: Request):
             "anomalies": chart_factory.create_anomaly_highlights(df, anomalies),
         }
 
-        # Get statistics
         stats = get_statistical_summary()
 
         duration = time.time() - start_time
@@ -245,9 +241,9 @@ async def get_charts(request: Request):
         logger.debug("charts_generated", duration_seconds=duration)
 
         return templates.TemplateResponse(
+            request,
             "charts.html",
             {
-                "request": request,
                 "charts": charts_html,
                 "stats": stats,
                 "anomaly_count": len(anomalies),
@@ -270,14 +266,16 @@ async def get_sensor_data(request: Request):
         latest = recent_readings[-1]
         logger.debug(f"Serving latest sensor data: {latest['status']} status")
         return templates.TemplateResponse(
+            request,
             "sensor_data.html",
-            {"request": request, "sensor_data": latest},
+            {"sensor_data": latest},
         )
 
     logger.warning("No sensor data available")
     return templates.TemplateResponse(
+        request,
         "sensor_data.html",
-        {"request": request, "sensor_data": None},
+        {"sensor_data": None},
     )
 
 
@@ -295,9 +293,8 @@ async def health_check():
         "timestamp": datetime.now().isoformat(),
     }
 
-    # Add performance metrics if available
     if metrics.chart_generation_times:
-        recent_times = metrics.chart_generation_times[-10:]  # Last 10 generations
+        recent_times = metrics.chart_generation_times[-10:]
         health_data["avg_chart_generation_time"] = sum(recent_times) / len(recent_times)
         health_data["max_chart_generation_time"] = max(recent_times)
 

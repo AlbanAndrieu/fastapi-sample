@@ -1,0 +1,97 @@
+name: Semantic Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: semantic-release-main
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Version, changelog and GitHub release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install semantic-release dependencies
+        run: npm ci --ignore-scripts
+
+      # package.json/package-lock.json still contain the historical GitLab plugin
+      # on the pre-release commit. Remove it here so the generated release commit
+      # contains no GitLab semantic-release dependency.
+      - name: Remove legacy GitLab semantic-release dependency
+        run: |
+          npm pkg delete 'devDependencies.@semantic-release/gitlab'
+          npm install --package-lock-only --ignore-scripts
+
+      - name: Verify versions before release
+        run: python scripts/check_versions.py
+
+      - name: Run semantic-release
+        id: semantic_release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          BEFORE_HEAD="$(git rev-parse HEAD)"
+
+          # Let git use gh as its credential helper without leaving the token in
+          # the checkout configuration for unrelated preceding steps.
+          gh auth setup-git
+          npx semantic-release
+
+          AFTER_HEAD="$(git rev-parse HEAD)"
+          if [[ "${AFTER_HEAD}" == "${BEFORE_HEAD}" ]]; then
+            echo "published=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          RELEASE_TAG="$(git tag --points-at "${AFTER_HEAD}" --sort=-version:refname | head -n 1)"
+          if [[ -z "${RELEASE_TAG}" ]]; then
+            echo "semantic-release changed HEAD but no release tag points at it" >&2
+            exit 1
+          fi
+
+          gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null
+          echo "published=true" >> "${GITHUB_OUTPUT}"
+          echo "tag=${RELEASE_TAG}" >> "${GITHUB_OUTPUT}"
+          echo "version=${RELEASE_TAG#v}" >> "${GITHUB_OUTPUT}"
+
+      - name: Verify synchronized release files
+        if: steps.semantic_release.outputs.published == 'true'
+        run: python scripts/check_versions.py
+
+      # release events emitted with GITHUB_TOKEN do not start another workflow.
+      # repository_dispatch is explicitly allowed by GitHub for workflow chaining.
+      - name: Trigger package publishing workflow
+        if: steps.semantic_release.outputs.published == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.semantic_release.outputs.tag }}
+        shell: bash
+        run: |
+          jq -n --arg tag "${RELEASE_TAG}" \
+            '{event_type:"semantic-release-published",client_payload:{tag:$tag}}' \
+            | gh api --method POST "repos/${GITHUB_REPOSITORY}/dispatches" --input -

@@ -1,13 +1,24 @@
+branches:
+  - main
+
+tagFormat: "${version}"
+
 plugins:
-  # GitLab support
-  - "@semantic-release/gitlab"
-  # analyses the Git commits
-  - "@semantic-release/commit-analyzer"
-  # generates the release note from the Git commit messages
+  # Determine the SemVer bump from Conventional Commits.
+  # `feat:` is the standard Conventional Commit type; `feature:` is accepted
+  # as an explicit project alias and receives the same MINOR bump.
+  - - "@semantic-release/commit-analyzer"
+    - releaseRules:
+        - type: feature
+          release: minor
+  # Generate release notes from the commits included in the release.
   - "@semantic-release/release-notes-generator"
-  # generates the CHANGELOG.md file
+  # Keep a repository CHANGELOG in sync with the generated release notes.
   - "@semantic-release/changelog"
-  # emulates bumpversion (replaces 'version' in pyproject.toml)
+  # Synchronize npm metadata without publishing an npm package.
+  - - "@semantic-release/npm"
+    - npmPublish: false
+  # Synchronize every non-npm version source with nextRelease.version.
   - - semantic-release-replace-plugin
     - replacements:
         - files:
@@ -40,22 +51,22 @@ plugins:
             - '(?<=name = "fastapi-sample"\n)version = "\d+\.\d+\.\d+"'
           to: 'version = "${nextRelease.version}"'
           countMatches: true
-  # Synchronizes package.json and package-lock.json without publishing npm.
-  - - "@semantic-release/npm"
-    - npmPublish: false
-  # git commit/push modified files
+        - files:
+            - Dockerfile
+          from:
+            - 'ARG APP_VERSION="\d+\.\d+\.\d+"'
+          to: 'ARG APP_VERSION="${nextRelease.version}"'
+          countMatches: true
+  # Commit the generated changelog and synchronized version files.
   - - "@semantic-release/git"
     - assets:
         - "CHANGELOG.md"
+        - "Dockerfile"
         - "pyproject.toml"
         - "package.json"
         - "package-lock.json"
         - "nabla/_release.py"
         - "uv.lock"
-      # the commit MUST trigger a pipeline on tag (to perform publish jobs)
-      # can be skipped on prod branch
-      message: "chore(release): ${nextRelease.version} [skip ci on prod]"
-branches:
-  - main
-  # - master
-tagFormat: "${version}"
+      message: "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+  # Publish the Git tag/release notes as a GitHub Release.
+  - "@semantic-release/github"

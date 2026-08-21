@@ -6,7 +6,6 @@ import pytest
 from nabla.api.notes import crud
 
 
-@pytest.mark.webtest
 def test_homepage(test_app):
     response = test_app.get("/")
     assert response.status_code == 200
@@ -43,11 +42,16 @@ def test_create_note(test_app, monkeypatch):
 
 
 def test_create_note_invalid_json(test_app):
-    response = test_app.post("/notes/", data=json.dumps({"title": "something"}))
+    response = test_app.post(
+        "/notes/",
+        content=json.dumps({"title": "something"}),
+        headers={"content-type": "application/json"},
+    )
     assert response.status_code == 422
     response = test_app.post(
         "/notes/",
-        data=json.dumps({"title": "1", "description": "2"}),
+        content=json.dumps({"title": "1", "description": "2"}),
+        headers={"content-type": "application/json"},
     )
     assert response.status_code == 422
 
@@ -146,7 +150,7 @@ def test_update_note(test_app, monkeypatch):
     test_changes = {
         "title": "something",
         "description": "something else",
-        # "id": 1,
+        "id": 1,
         "type": "note",
         "prompt": "test prompt",
         "completed": True,
@@ -171,7 +175,11 @@ def test_update_note(test_app, monkeypatch):
     monkeypatch.setattr(crud, "get", mock_get)
     monkeypatch.setattr(crud, "put", mock_put)
 
-    response = test_app.put("/notes/1/", data=json.dumps(test_changes))
+    response = test_app.put(
+        "/notes/1/",
+        content=json.dumps(test_changes),
+        headers={"content-type": "application/json"},
+    )
     assert response.status_code == 200
     assert response.json() == test_response
 

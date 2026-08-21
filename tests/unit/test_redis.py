@@ -74,7 +74,6 @@ def patch_redis_mocks():
     redis_module.redis.get = AsyncMock(return_value="No Query")
 
 
-@pytest.mark.asyncio
 def test_redis_demo_items_one_second(test_app):
     response = test_app.get("/demo/items/1")
     assert response.status_code == 200
