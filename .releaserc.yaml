@@ -5,7 +5,12 @@ tagFormat: "${version}"
 
 plugins:
   # Determine the SemVer bump from Conventional Commits.
-  - "@semantic-release/commit-analyzer"
+  # `feat:` is the standard Conventional Commit type; `feature:` is accepted
+  # as an explicit project alias and receives the same MINOR bump.
+  - - "@semantic-release/commit-analyzer"
+    - releaseRules:
+        - type: feature
+          release: minor
   # Generate release notes from the commits included in the release.
   - "@semantic-release/release-notes-generator"
   # Keep a repository CHANGELOG in sync with the generated release notes.
