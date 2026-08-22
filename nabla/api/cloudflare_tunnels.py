@@ -77,8 +77,11 @@ class CloudflareTunnelObserver:
         client_factory: _CloudflareClientFactory | None = None,
     ) -> None:
         self._settings = settings
+        if client is not None:
+            self._client = client
+            return
         factory = client_factory or _load_cloudflare_client()
-        self._client = client if client is not None else factory(api_token=settings.api_token)
+        self._client = factory(api_token=settings.api_token)
 
     def list_tunnels(self) -> list[CloudflareTunnelObservation]:
         """Return active Cloudflared tunnels and Cloudflare-managed public hostnames."""
