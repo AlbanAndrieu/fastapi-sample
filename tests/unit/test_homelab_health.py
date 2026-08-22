@@ -46,6 +46,48 @@ def test_internal_probes_can_be_explicitly_enabled(monkeypatch, value: str) -> N
     assert homelab_health.internal_probes_enabled() is True
 
 
+def test_truenas_internal_target_prefers_explicit_configuration(monkeypatch) -> None:
+    services = [HomelabService(name="App", internalHost="172.17.0.24", internalPort=80)]
+    monkeypatch.setenv("TRUENAS_INTERNAL_HOST", "192.168.1.24")
+    monkeypatch.setenv("TRUENAS_INTERNAL_PORT", "8443")
+
+    assert homelab_health._truenas_internal_target(services) == ("192.168.1.24", 8443)
+
+
+def test_truenas_internal_target_falls_back_to_dot_24(monkeypatch) -> None:
+    services = [
+        HomelabService(name="Other", internalHost="172.17.0.20", internalPort=80),
+        HomelabService(name="App", internalHost="172.17.0.24", internalPort=8080),
+    ]
+    monkeypatch.delenv("TRUENAS_INTERNAL_HOST", raising=False)
+    monkeypatch.delenv("TRUENAS_INTERNAL_PORT", raising=False)
+
+    assert homelab_health._truenas_internal_target(services) == ("172.17.0.24", 443)
+
+
+@pytest.mark.parametrize(
+    ("public_state", "internal_state", "expected"),
+    [
+        ("ok", None, "ok"),
+        ("ok", "ok", "ok"),
+        ("ok", "fail", "warn"),
+        ("warn", None, "warn"),
+        ("fail", "ok", "warn"),
+        ("fail", "fail", "fail"),
+        ("fail", None, "fail"),
+    ],
+)
+def test_truenas_state_distinguishes_host_and_ingress_failures(
+    public_state: str,
+    internal_state: str | None,
+    expected: str,
+) -> None:
+    public = {"state": public_state}
+    internal = {"state": internal_state} if internal_state is not None else None
+
+    assert homelab_health._truenas_state(public, internal) == expected
+
+
 @pytest.mark.asyncio
 async def test_health_snapshot_only_probes_approved_public_services(monkeypatch) -> None:
     services = [
@@ -77,6 +119,14 @@ async def test_health_snapshot_only_probes_approved_public_services(monkeypatch)
             "latency_ms": 1,
         }
     )
+    truenas_probe = AsyncMock(
+        return_value={
+            "state": "ok",
+            "public": {"state": "ok"},
+            "internal": None,
+            "internal_probe_enabled": False,
+        }
+    )
 
     monkeypatch.delenv("HOMELAB_INTERNAL_PROBES_ENABLED", raising=False)
     monkeypatch.setattr(
@@ -85,17 +135,20 @@ async def test_health_snapshot_only_probes_approved_public_services(monkeypatch)
         AsyncMock(return_value=services),
     )
     monkeypatch.setattr(homelab_health, "_probe_public_service", probe)
+    monkeypatch.setattr(homelab_health, "_probe_truenas", truenas_probe)
     monkeypatch.setattr(homelab_health, "_cached_payload", None)
     monkeypatch.setattr(homelab_health, "_cached_at", 0.0)
 
     payload = await homelab_health.build_homelab_health_payload()
 
-    assert payload["schema_version"] == 1
+    assert payload["schema_version"] == 2
+    assert payload["truenas"]["state"] == "ok"
     assert len(payload["services"]) == 1
     assert payload["services"][0]["url"] == "https://langfuse.albandrieu.com/"
     assert payload["internal_probes_enabled"] is False
     assert payload["internal_services"] == []
     assert probe.await_count == 1
+    assert truenas_probe.await_count == 1
 
 
 @pytest.mark.asyncio
@@ -156,6 +209,18 @@ async def test_internal_probes_cover_private_and_external_services(monkeypatch) 
                 "state": "ok",
                 "tls_trusted": True,
                 "latency_ms": 1,
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        homelab_health,
+        "_probe_truenas",
+        AsyncMock(
+            return_value={
+                "state": "ok",
+                "public": {"state": "ok"},
+                "internal": {"state": "ok"},
+                "internal_probe_enabled": True,
             }
         ),
     )
@@ -284,10 +349,33 @@ async def test_probe_reports_tls_failure_as_red() -> None:
     assert result["tls_trusted"] is False
 
 
+@pytest.mark.asyncio
+async def test_global_health_rows_always_include_truenas(monkeypatch) -> None:
+    monkeypatch.setattr(
+        homelab_catalog,
+        "fetch_homelab_services",
+        AsyncMock(return_value=[]),
+    )
+
+    rows = await homelab_catalog.homelab_healthz_probe_rows()
+
+    assert rows[0][:3] == (
+        "albandrieu_truenas",
+        "https://truenas.albandrieu.com:7000/",
+        "TrueNAS",
+    )
+
+
 def test_public_homelab_routes(monkeypatch) -> None:
     health_payload = {
-        "schema_version": 1,
+        "schema_version": 2,
         "checked_at": "2026-08-23T00:00:00Z",
+        "truenas": {
+            "state": "fail",
+            "public": {"state": "fail"},
+            "internal": None,
+            "internal_probe_enabled": False,
+        },
         "services": [],
         "internal_probes_enabled": False,
         "internal_services": [],
