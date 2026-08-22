@@ -1,8 +1,9 @@
-"""Homelab service catalog (HTTPS tunnels) for ``/healthz`` and ``/sickz``."""
+"""Typed homelab service catalog for ``/healthz`` and ``/sickz``."""
 
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Sequence
 import logging
 import re
 import time
@@ -10,6 +11,8 @@ from typing import Any
 from urllib.parse import urljoin
 
 import httpx
+
+from nabla.api.homelab_models import HomelabCatalog, HomelabService
 
 _log = logging.getLogger(__name__)
 
@@ -19,43 +22,52 @@ _CACHE_TTL_SEC = 300.0
 _cache_lock = asyncio.Lock()
 
 
-class _HomelabServicesCache:
-    """In-process TTL cache for catalog JSON (mutated only under ``_cache_lock``)."""
+class _HomelabCatalogCache:
+    """In-process TTL cache for the validated catalog."""
 
-    __slots__ = ("cached_at", "services")
+    __slots__ = ("cached_at", "catalog")
 
     def __init__(self) -> None:
-        self.services: list[dict[str, Any]] | None = None
+        self.catalog: HomelabCatalog | None = None
         self.cached_at: float = 0.0
 
 
-_homelab_cache = _HomelabServicesCache()
+_homelab_cache = _HomelabCatalogCache()
 
 
-async def fetch_homelab_services_raw() -> list[dict[str, Any]]:
-    """Return ``services`` from the homelab JSON; cached briefly. On failure, last good cache or ``[]``."""
+async def fetch_homelab_catalog() -> HomelabCatalog:
+    """Fetch and validate the homelab catalog, falling back to the last good copy."""
     async with _cache_lock:
         now = time.monotonic()
-        if _homelab_cache.services is not None and (now - _homelab_cache.cached_at) < _CACHE_TTL_SEC:
-            return _homelab_cache.services
+        if _homelab_cache.catalog is not None and (now - _homelab_cache.cached_at) < _CACHE_TTL_SEC:
+            return _homelab_cache.catalog
         try:
             async with httpx.AsyncClient(timeout=httpx.Timeout(15.0)) as client:
                 response = await client.get(
                     HOMELAB_SERVICES_JSON_URL,
-                    headers={"User-Agent": "nabla-homelab-catalog/1.0"},
+                    headers={"User-Agent": "nabla-homelab-catalog/2.0"},
                 )
                 response.raise_for_status()
-                data = response.json()
-            services = data.get("services") if isinstance(data, dict) else None
-            if not isinstance(services, list):
-                services = []
-            parsed = [s for s in services if isinstance(s, dict)]
+                catalog = HomelabCatalog.model_validate(response.json())
         except Exception as exc:
-            _log.warning("Homelab catalog fetch failed (%s): %s", HOMELAB_SERVICES_JSON_URL, exc)
-            return list(_homelab_cache.services) if _homelab_cache.services is not None else []
-        _homelab_cache.services = parsed
+            _log.warning("Homelab catalog fetch/validation failed (%s): %s", HOMELAB_SERVICES_JSON_URL, exc)
+            if _homelab_cache.catalog is not None:
+                return _homelab_cache.catalog
+            return HomelabCatalog()
+        _homelab_cache.catalog = catalog
         _homelab_cache.cached_at = time.monotonic()
-        return parsed
+        return catalog
+
+
+async def fetch_homelab_services() -> list[HomelabService]:
+    """Return typed homelab services from the validated catalog."""
+    return list((await fetch_homelab_catalog()).services)
+
+
+async def fetch_homelab_services_raw() -> list[dict[str, Any]]:
+    """Compatibility view of validated services using the JSON wire-format aliases."""
+    services = await fetch_homelab_services()
+    return [service.model_dump(mode="json", by_alias=True, exclude_none=True) for service in services]
 
 
 def _healthz_check_key(service_name: str, index: int) -> str:
@@ -66,18 +78,15 @@ def _healthz_check_key(service_name: str, index: int) -> str:
 
 
 async def homelab_healthz_probe_rows() -> list[tuple[str, str, str, str | None]]:
-    """Rows ``(check_key, https_url_with_trailing_slash, display_label, icon_src)`` for HTTPS tunnels.
-
-    ``icon_src`` is an absolute URL resolved from catalog ``iconSrc`` (same rules as sickz), or ``None``.
-    """
-    services = await fetch_homelab_services_raw()
+    """Return public HTTPS services that are explicitly approved for external access."""
+    services = await fetch_homelab_services()
     rows: list[tuple[str, str, str, str | None]] = []
     used_keys: set[str] = set()
-    for index, svc in enumerate(services):
-        raw_url = str(svc.get("tunnelUrl") or "").strip()
-        if not raw_url.lower().startswith("https://"):
+    for index, service in enumerate(services):
+        url = service.public_https_probe_url
+        if url is None:
             continue
-        name = str(svc.get("name") or f"service_{index}").strip() or f"service_{index}"
+        name = service.name or f"service_{index}"
         key = _healthz_check_key(name, index)
         base = key
         suffix = 2
@@ -85,9 +94,7 @@ async def homelab_healthz_probe_rows() -> list[tuple[str, str, str, str | None]]
             key = f"{base}_{suffix}"
             suffix += 1
         used_keys.add(key)
-        url = raw_url.rstrip("/") + "/"
-        rel_icon = str(svc.get("iconSrc") or "").strip()
-        icon_abs = _homelab_resolved_icon_abs(rel_icon)
+        icon_abs = _homelab_resolved_icon_abs(service.icon_src or "")
         rows.append((key, url, name, icon_abs))
     return rows
 
@@ -112,54 +119,46 @@ def _homelab_resolved_icon_abs(rel: str) -> str | None:
     return urljoin(HOMELAB_SERVICES_JSON_URL, s)
 
 
-def homelab_tunnel_url_to_resolved_icon_src(services: list[dict[str, Any]]) -> dict[str, str]:
-    """Map canonical HTTPS ``tunnelUrl`` (trailing slash) to absolute ``iconSrc`` URL from the catalog host."""
+def homelab_tunnel_url_to_resolved_icon_src(services: Sequence[HomelabService]) -> dict[str, str]:
+    """Map approved public HTTPS endpoints to absolute catalog icon URLs."""
     out: dict[str, str] = {}
-    for svc in services:
-        raw_url = str(svc.get("tunnelUrl") or "").strip()
-        if not raw_url.lower().startswith("https://"):
+    for service in services:
+        url = service.public_https_probe_url
+        if url is None or not service.icon_src:
             continue
-        rel = str(svc.get("iconSrc") or "").strip()
-        if not rel:
-            continue
-        key = _homelab_https_tunnel_key(raw_url)
-        abs_icon = _homelab_resolved_icon_abs(rel)
+        abs_icon = _homelab_resolved_icon_abs(service.icon_src)
         if abs_icon:
-            out[key] = abs_icon
+            out[_homelab_https_tunnel_key(url)] = abs_icon
     return out
 
 
-def homelab_tunnel_url_to_service_name(services: list[dict[str, Any]]) -> dict[str, str]:
-    """Map canonical HTTPS ``tunnelUrl`` (trailing slash) to catalog ``name`` (e.g. ``Keycloak``)."""
+def homelab_tunnel_url_to_service_name(services: Sequence[HomelabService]) -> dict[str, str]:
+    """Map approved public HTTPS endpoints to catalog service names."""
     out: dict[str, str] = {}
-    for svc in services:
-        raw_url = str(svc.get("tunnelUrl") or "").strip()
-        if not raw_url.lower().startswith("https://"):
+    for service in services:
+        url = service.public_https_probe_url
+        if url is None:
             continue
-        name = str(svc.get("name") or "").strip()
-        if not name:
-            continue
-        out[_homelab_https_tunnel_key(raw_url)] = name
+        out[_homelab_https_tunnel_key(url)] = service.name
     return out
 
 
-def _homelab_sickz_https_groups_from_services(services: list[dict[str, Any]]) -> list[list[str]]:
-    """One URL per group for ``/sickz``; skips pfSense (handled by default targets)."""
+def _homelab_sickz_https_groups_from_services(services: Sequence[HomelabService]) -> list[list[str]]:
+    """Return one approved public HTTPS URL per group for ``/sickz``."""
     groups: list[list[str]] = []
-    for svc in services:
-        name = str(svc.get("name") or "").strip().lower()
-        if name == "pfsense":
+    for service in services:
+        if service.name.casefold() == "pfsense":
             continue
-        raw_url = str(svc.get("tunnelUrl") or "").strip()
-        if not raw_url.lower().startswith("https://"):
+        url = service.public_https_probe_url
+        if url is None:
             continue
-        groups.append([_homelab_https_tunnel_key(raw_url)])
+        groups.append([_homelab_https_tunnel_key(url)])
     return groups
 
 
 async def homelab_sickz_catalog_for_sickz() -> tuple[list[list[str]], dict[str, str], dict[str, str]]:
-    """Homelab sickz URL groups, tunnel → resolved ``iconSrc``, and tunnel → catalog ``name``."""
-    services = await fetch_homelab_services_raw()
+    """Return sickz groups, resolved icons, and names for approved public services."""
+    services = await fetch_homelab_services()
     return (
         _homelab_sickz_https_groups_from_services(services),
         homelab_tunnel_url_to_resolved_icon_src(services),
@@ -168,6 +167,6 @@ async def homelab_sickz_catalog_for_sickz() -> tuple[list[list[str]], dict[str, 
 
 
 async def homelab_sickz_https_single_url_groups() -> list[list[str]]:
-    """One URL per group for ``/sickz`` (inverse reachability); skips pfSense (handled by default targets)."""
-    services = await fetch_homelab_services_raw()
+    """Return approved public HTTPS targets for inverse reachability checks."""
+    services = await fetch_homelab_services()
     return _homelab_sickz_https_groups_from_services(services)
