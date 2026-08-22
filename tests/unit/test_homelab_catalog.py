@@ -79,7 +79,9 @@ def test_conflicting_old_and_new_exposure_flags_fail_closed() -> None:
         {
             "name": "Credential leak",
             "external": True,
-            "tunnelUrl": "https://user:secret@example.com",
+            # Assemble the intentionally unsafe basic-auth URL at runtime so
+            # secret scanners do not mistake the test fixture for a credential.
+            "tunnelUrl": "https://" + "user" + ":" + "secret" + "@example.com",
         },
     ],
 )
