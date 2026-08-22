@@ -1,8 +1,9 @@
-"""Cached public health snapshot for externally exposed homelab services."""
+"""Cached health snapshots for external and optional internal homelab probes."""
 
 from __future__ import annotations
 
 import asyncio
+import os
 import time
 from datetime import datetime, timezone
 from typing import Any, Literal
@@ -18,6 +19,7 @@ _WARNING_HTTP_STATUSES = frozenset({401, 403, 407, 429})
 _HEALTH_CACHE_TTL_SEC = 30.0
 _MAX_PROBE_CONCURRENCY = 8
 _PROBE_TIMEOUT_SEC = 5.0
+_INTERNAL_PROBE_ENV = "HOMELAB_INTERNAL_PROBES_ENABLED"
 
 _cache_lock = asyncio.Lock()
 _cached_at = 0.0
@@ -31,6 +33,11 @@ def classify_public_http_status(status: int) -> HealthState:
     if status in _WARNING_HTTP_STATUSES:
         return "warn"
     return "fail"
+
+
+def internal_probes_enabled() -> bool:
+    """Return whether internal TCP probes are explicitly enabled for this runtime."""
+    return os.getenv(_INTERNAL_PROBE_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _looks_like_tls_error(message: str) -> bool:
@@ -104,16 +111,62 @@ async def _probe_public_service(
     return result
 
 
+async def _probe_internal_service(
+    semaphore: asyncio.Semaphore,
+    service: HomelabService,
+) -> dict[str, Any]:
+    """Probe catalog-declared internal host/port reachability using TCP only."""
+    host = service.internal_host
+    port = service.internal_port
+    if not host or port is None:
+        raise ValueError("service has no internal host/port target")
+
+    started = time.perf_counter()
+    writer: asyncio.StreamWriter | None = None
+    try:
+        async with semaphore:
+            _, writer = await asyncio.wait_for(
+                asyncio.open_connection(host, port),
+                timeout=_PROBE_TIMEOUT_SEC,
+            )
+        result: dict[str, Any] = {
+            "name": service.name,
+            "host": host,
+            "port": port,
+            "reachable": True,
+            "state": "ok",
+        }
+    except (OSError, TimeoutError) as exc:
+        result = {
+            "name": service.name,
+            "host": host,
+            "port": port,
+            "reachable": False,
+            "state": "fail",
+            "error": _short_error(exc),
+        }
+    finally:
+        if writer is not None:
+            writer.close()
+            await writer.wait_closed()
+
+    result["latency_ms"] = max(0, round((time.perf_counter() - started) * 1000))
+    return result
+
+
 def _copy_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    """Return a shallow JSON-safe copy so callers cannot mutate the cache."""
+    """Return a JSON-safe copy so callers cannot mutate cached probe rows."""
     return {
         **payload,
         "services": [dict(service) for service in payload.get("services", [])],
+        "internal_services": [
+            dict(service) for service in payload.get("internal_services", [])
+        ],
     }
 
 
 async def build_homelab_health_payload() -> dict[str, Any]:
-    """Return a cached health snapshot for explicitly public homelab endpoints."""
+    """Return cached external health plus optional internal TCP reachability."""
     global _cached_at, _cached_payload
 
     async with _cache_lock:
@@ -124,25 +177,44 @@ async def build_homelab_health_payload() -> dict[str, Any]:
         ):
             return _copy_payload(_cached_payload)
 
-        services = [
+        catalog_services = await fetch_homelab_services()
+        public_services = [
             service
-            for service in await fetch_homelab_services()
+            for service in catalog_services
             if service.public_https_probe_url is not None
         ]
+        internal_enabled = internal_probes_enabled()
+        internal_services = [
+            service
+            for service in catalog_services
+            if internal_enabled
+            and service.internal_host
+            and service.internal_port is not None
+        ]
+
         semaphore = asyncio.Semaphore(_MAX_PROBE_CONCURRENCY)
         timeout = httpx.Timeout(_PROBE_TIMEOUT_SEC)
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
-            results = await asyncio.gather(
+            public_results = await asyncio.gather(
                 *(
                     _probe_public_service(client, semaphore, service)
-                    for service in services
+                    for service in public_services
                 )
             )
+
+        internal_results = await asyncio.gather(
+            *(
+                _probe_internal_service(semaphore, service)
+                for service in internal_services
+            )
+        )
 
         payload: dict[str, Any] = {
             "schema_version": 1,
             "checked_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-            "services": results,
+            "services": public_results,
+            "internal_probes_enabled": internal_enabled,
+            "internal_services": internal_results,
         }
         _cached_payload = payload
         _cached_at = time.monotonic()
