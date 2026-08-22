@@ -24,15 +24,16 @@ warnings.filterwarnings(
     message=".*non-serializable-default.*",
 )
 
-# CORS origins
+# CORS origins. Origins must not include a trailing slash.
 CORS_ORIGINS = [
     "http://localhost",
     "http://localhost:8080",
     "http://localhost:8091",
     "http://localhost:8001",
-    "https://fastapi-sample.service.gra.dev.consul/",
-    "https://fastapi-sample.service.gra.uat.consul/",
-    "https://fastapi-sample.fastapicloud.dev/",
+    "https://fastapi-sample.service.gra.dev.consul",
+    "https://fastapi-sample.service.gra.uat.consul",
+    "https://fastapi-sample.fastapicloud.dev",
+    "https://www.albanandrieu.com",
 ]
 
 # MCP allowed routes
@@ -52,6 +53,8 @@ MCP_ALLOWED_ROUTES: frozenset[tuple[str, str]] = frozenset(
 
 # Noisy paths to exclude from detailed logging
 NOISY_SUCCESS_PATHS = {
+    "/api/homelab-services",
+    "/api/homelab/health",
     "/docs",
     "/docs/oauth2-redirect",
     "/health",
