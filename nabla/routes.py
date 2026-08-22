@@ -85,6 +85,31 @@ def register_routes(app: FastAPI) -> None:
         )
 
     @app.get(
+        "/api/homelab-services",
+        response_class=ORJSONResponse,
+        tags=["Homelab"],
+        summary="Homelab service catalog",
+    )
+    async def get_homelab_services():
+        """Expose the validated homelab catalog through FastAPI."""
+        from nabla.api.homelab_catalog import fetch_homelab_catalog
+
+        catalog = await fetch_homelab_catalog()
+        return catalog.model_dump(mode="json", by_alias=True, exclude_none=True)
+
+    @app.get(
+        "/api/homelab/health",
+        response_class=ORJSONResponse,
+        tags=["Homelab", "Health"],
+        summary="Public homelab endpoint health",
+    )
+    async def get_homelab_health():
+        """Return a cached health snapshot for explicitly public homelab URLs."""
+        from nabla.api.homelab_health import build_homelab_health_payload
+
+        return await build_homelab_health_payload()
+
+    @app.get(
         "/healthz",
         response_class=ORJSONResponse,
         tags=["Health"],
