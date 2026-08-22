@@ -1,7 +1,7 @@
 """Tests for the public homelab catalog and health API."""
 
 import asyncio
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import httpx
 import pytest
@@ -31,6 +31,19 @@ from nabla.routes import register_routes
 )
 def test_classify_public_http_status(status: int, expected: str) -> None:
     assert homelab_health.classify_public_http_status(status) == expected
+
+
+def test_internal_probes_are_disabled_by_default(monkeypatch) -> None:
+    monkeypatch.delenv("HOMELAB_INTERNAL_PROBES_ENABLED", raising=False)
+
+    assert homelab_health.internal_probes_enabled() is False
+
+
+@pytest.mark.parametrize("value", ["1", "true", "TRUE", "yes", "on"])
+def test_internal_probes_can_be_explicitly_enabled(monkeypatch, value: str) -> None:
+    monkeypatch.setenv("HOMELAB_INTERNAL_PROBES_ENABLED", value)
+
+    assert homelab_health.internal_probes_enabled() is True
 
 
 @pytest.mark.asyncio
@@ -65,6 +78,7 @@ async def test_health_snapshot_only_probes_approved_public_services(monkeypatch)
         }
     )
 
+    monkeypatch.delenv("HOMELAB_INTERNAL_PROBES_ENABLED", raising=False)
     monkeypatch.setattr(
         homelab_health,
         "fetch_homelab_services",
@@ -79,7 +93,110 @@ async def test_health_snapshot_only_probes_approved_public_services(monkeypatch)
     assert payload["schema_version"] == 1
     assert len(payload["services"]) == 1
     assert payload["services"][0]["url"] == "https://langfuse.albandrieu.com/"
+    assert payload["internal_probes_enabled"] is False
+    assert payload["internal_services"] == []
     assert probe.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_internal_probes_cover_private_and_external_services(monkeypatch) -> None:
+    services = [
+        HomelabService(
+            name="Private service",
+            internalHost="192.168.1.20",
+            internalPort=8080,
+            external=False,
+        ),
+        HomelabService(
+            name="Exposed service",
+            internalHost="192.168.1.21",
+            internalPort=3000,
+            tunnelUrl="https://service.albandrieu.com",
+            external=True,
+        ),
+        HomelabService(name="No internal endpoint", external=False),
+    ]
+    internal_probe = AsyncMock(
+        side_effect=[
+            {
+                "name": "Private service",
+                "host": "192.168.1.20",
+                "port": 8080,
+                "reachable": True,
+                "state": "ok",
+                "latency_ms": 1,
+            },
+            {
+                "name": "Exposed service",
+                "host": "192.168.1.21",
+                "port": 3000,
+                "reachable": True,
+                "state": "ok",
+                "latency_ms": 1,
+            },
+        ]
+    )
+
+    monkeypatch.setenv("HOMELAB_INTERNAL_PROBES_ENABLED", "true")
+    monkeypatch.setattr(
+        homelab_health,
+        "fetch_homelab_services",
+        AsyncMock(return_value=services),
+    )
+    monkeypatch.setattr(homelab_health, "_probe_internal_service", internal_probe)
+    monkeypatch.setattr(
+        homelab_health,
+        "_probe_public_service",
+        AsyncMock(
+            return_value={
+                "name": "Exposed service",
+                "url": "https://service.albandrieu.com/",
+                "reachable": True,
+                "http_status": 200,
+                "state": "ok",
+                "tls_trusted": True,
+                "latency_ms": 1,
+            }
+        ),
+    )
+    monkeypatch.setattr(homelab_health, "_cached_payload", None)
+    monkeypatch.setattr(homelab_health, "_cached_at", 0.0)
+
+    payload = await homelab_health.build_homelab_health_payload()
+
+    assert payload["internal_probes_enabled"] is True
+    assert [row["name"] for row in payload["internal_services"]] == [
+        "Private service",
+        "Exposed service",
+    ]
+    assert internal_probe.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_internal_tcp_probe_reports_reachability(monkeypatch) -> None:
+    writer = Mock()
+    writer.wait_closed = AsyncMock()
+    open_connection = AsyncMock(return_value=(Mock(), writer))
+    monkeypatch.setattr(asyncio, "open_connection", open_connection)
+    service = HomelabService(
+        name="Internal service",
+        internalHost="192.168.1.30",
+        internalPort=8443,
+        external=False,
+    )
+
+    result = await homelab_health._probe_internal_service(
+        asyncio.Semaphore(1),
+        service,
+    )
+
+    open_connection.assert_awaited_once_with("192.168.1.30", 8443)
+    writer.close.assert_called_once_with()
+    writer.wait_closed.assert_awaited_once_with()
+    assert result["reachable"] is True
+    assert result["state"] == "ok"
+    assert result["host"] == "192.168.1.30"
+    assert result["port"] == 8443
 
 
 @pytest.mark.asyncio
@@ -172,6 +289,8 @@ def test_public_homelab_routes(monkeypatch) -> None:
         "schema_version": 1,
         "checked_at": "2026-08-23T00:00:00Z",
         "services": [],
+        "internal_probes_enabled": False,
+        "internal_services": [],
     }
     catalog = HomelabCatalog(
         version=2,
