@@ -131,7 +131,7 @@ async def build_homelab_health_payload() -> dict[str, Any]:
         ]
         semaphore = asyncio.Semaphore(_MAX_PROBE_CONCURRENCY)
         timeout = httpx.Timeout(_PROBE_TIMEOUT_SEC)
-        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
             results = await asyncio.gather(
                 *(
                     _probe_public_service(client, semaphore, service)
