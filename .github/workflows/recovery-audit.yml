@@ -1,0 +1,33 @@
+---
+name: Recovery audit
+
+on:
+  push:
+    branches:
+      - recovery/pr-63-66-68-70
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Fetch historical PR heads
+        run: |
+          git fetch origin \
+            refs/pull/63/head:refs/remotes/origin/recovery-pr63 \
+            refs/pull/66/head:refs/remotes/origin/recovery-pr66 \
+            refs/pull/68/head:refs/remotes/origin/recovery-pr68 \
+            refs/pull/70/head:refs/remotes/origin/recovery-pr70
+      - name: Show unique histories
+        run: |
+          echo '=== PR63 unique commits since #70 merge ==='
+          git log --reverse --oneline 901c86c9f0e62c082b94194ff1e03cf9bab4905b..origin/recovery-pr63
+          echo '=== PR66 unique commits since #70 merge ==='
+          git log --reverse --oneline 901c86c9f0e62c082b94194ff1e03cf9bab4905b..origin/recovery-pr66
+          echo '=== PR63 vs PR66 ==='
+          git log --left-right --cherry-pick --oneline origin/recovery-pr63...origin/recovery-pr66
