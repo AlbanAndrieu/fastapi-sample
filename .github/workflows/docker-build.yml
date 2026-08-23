@@ -1,6 +1,4 @@
 ---
-# This workflow will build a Docker image
-
 name: Docker CI
 
 permissions:
@@ -14,94 +12,109 @@ on:
     paths-ignore:
       - "**.md"
   schedule:
-    - cron: 0 6 * * 3
+    - cron: "0 6 * * 3"
   pull_request:
     branches: [main]
     paths-ignore:
       - "**.md"
 
 env:
-  REPO: ${{ github.event.repository.name }}
-  OWNER: ${{ github.event.repository.owner.login }}
-  ISSUE_NUMBER: ${{ github.event.issue.number }}
-  HEAD_OWNER: ${{ github.event.pull_request.head.repo.owner.login }}
+  IMAGE_NAME: fastapi-sample
+
+concurrency:
+  group: docker-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-template:
     name: Build Docker
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      READ_PACKAGE_TOKEN: ${{ secrets.CI_PIP_GITLABNABLA_TOKEN }}
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v6
-
-      # Runs a single command using the runners shell
-      - name: Install Node.Js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          node-version: 20
-
-      - name: Install npm package
-        run: npm install -g markdown-toc@latest secretlint@latest
+          persist-credentials: false
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
-      - name: Login to DockerHub
-        uses: docker/login-action@v3
+      - name: Login to Docker Hub
+        if: github.ref == 'refs/heads/main' && env.DOCKER_USERNAME != '' && env.DOCKER_PASSWORD != ''
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-          logout: true
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ env.DOCKER_PASSWORD }}
 
-      - name: Login to Github Packages
-        uses: docker/login-action@v3
+      - name: Login to GitHub Container Registry
+        if: github.ref == 'refs/heads/main'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-          #password: ${{ secrets.GHCR_PAT }}  # ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push debug
-        run: echo "docker push ${{ env.OWNER }}/pgclient:latest,${{ github.repository }}:${{ github.sha }}"
+      - name: Prepare image metadata and build secrets
+        id: meta
+        shell: bash
+        run: |
+          owner_lc="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "ghcr_tag=ghcr.io/${owner_lc}/${IMAGE_NAME}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "ghcr_latest=ghcr.io/${owner_lc}/${IMAGE_NAME}:latest" >> "$GITHUB_OUTPUT"
+          printf '%s' "${READ_PACKAGE_TOKEN:-not-configured}" > /tmp/read-package-token
+          printf '%s' "${READ_PACKAGE_TOKEN:-not-configured}" > /tmp/read-npm-token
 
-      - name: Build and push
-        id: docker_build
-        uses: docker/build-push-action@v5
+      - name: Build image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
-          #context: .
-          #tags: ${{ github.event.repository.name }}/pgclient:latest,${{ env.OWNER }}/pgclient:latest
+          context: .
+          target: production
           tags: |
-            ${{ env.OWNER }}/pgclient:latest
-            ghcr.io/${{ env.OWNER }}/pgclient:latest
-          build-args: |
-            PG_MAJOR=18
-            BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
-            GIT_SHA=${GITHUB_SHA::8}
-          # build on feature branches, push only on main branch
-          push: ${{ github.ref == 'refs/heads/main' }}
+            ${{ steps.meta.outputs.ghcr_tag }}
+            ${{ steps.meta.outputs.ghcr_latest }}
+          secret-files: |
+            read-package-token=/tmp/read-package-token
+            read-npm-token=/tmp/read-npm-token
+          load: true
+          push: false
+          cache-from: type=gha,scope=production
+          cache-to: type=gha,mode=max,scope=production
 
-      - name: Image digest
-        run: echo ${{ steps.docker_build.outputs.digest }}
+      - name: Push image to GHCR
+        if: github.ref == 'refs/heads/main'
+        env:
+          GHCR_TAG: ${{ steps.meta.outputs.ghcr_tag }}
+          GHCR_LATEST: ${{ steps.meta.outputs.ghcr_latest }}
+        run: |
+          docker push "${GHCR_TAG}"
+          docker push "${GHCR_LATEST}"
+
+      - name: Push image to Docker Hub
+        if: github.ref == 'refs/heads/main' && env.DOCKER_USERNAME != '' && env.DOCKER_PASSWORD != ''
+        env:
+          GHCR_TAG: ${{ steps.meta.outputs.ghcr_tag }}
+        shell: bash
+        run: |
+          dockerhub_tag="${DOCKER_USERNAME,,}/${IMAGE_NAME}:latest"
+          docker tag "${GHCR_TAG}" "${dockerhub_tag}"
+          docker push "${dockerhub_tag}"
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: ${{ env.OWNER }}/pgclient:latest
-          format: "template"
-          template: "@/contrib/sarif.tpl"
-          output: "trivy-results.sarif"
-          # format: 'table'
-          # exit-code: '1'
+          version: v0.71.2
+          image-ref: ${{ steps.meta.outputs.ghcr_tag }}
+          format: sarif
+          output: trivy-results.sarif
           ignore-unfixed: true
-          vuln-type: "os,library"
-          severity: "CRITICAL,HIGH"
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
 
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
+      - name: Upload Trivy scan results
+        if: always() && hashFiles('trivy-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@c4dd10e44af883a891fe31ced449bcb4a6728b9b # v3.37.6
         with:
-          sarif_file: "trivy-results.sarif"
-
-      - name: Print the GitHub context
-        env:
-          GITHUB_CONTEXT: ${{ toJson(github) }}
-        run: echo "$GITHUB_CONTEXT"
+          sarif_file: trivy-results.sarif
