@@ -7,11 +7,11 @@ FROM node:${NODE_FULL_VERSION}-bookworm-slim AS node-upstream
 
 # dockerfile_lint - ignore
 # hadolint ignore=DL3007
-FROM python:3.12-slim AS python-base
+FROM python:3.13-slim AS python-base
 
 LABEL name="fastapi-sample" vendor="sample" version="1.2.0" \
  description="Image used by our products to build python\
- this image is running on Python 3.12."
+ this image is running on Python 3.13."
 
 LABEL com.datadoghq.tags.service="fastapi-sample"
 # LABEL com.datadoghq.tags.env="uat"
@@ -47,6 +47,7 @@ RUN echo "APT::Acquire::Retries \"10\";" > /etc/apt/apt.conf.d/80-retries \
 && echo "APT::Get::Assume-Yes \"true\";" > /etc/apt/apt.conf.d/90assumeyes
 
 # build-essential has gcc
+# Git is required by uv for Git-backed dependencies such as truenas-api-client.
 # kics-scan ignore-line
 # hadolint ignore=DL3008
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -55,7 +56,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   && apt-get full-upgrade -y \
   && apt-get -y install --no-install-recommends build-essential \
   libpq-dev \
-  locales tzdata curl \
+  locales tzdata curl git \
   nano vim \
   net-tools bash && \
   apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -126,7 +127,7 @@ RUN --mount=type=secret,id=read-npm-token,uid=999,target=/run/secrets/CI_JOB_TOK
 
 USER root
 
-COPY --from=ghcr.io/astral-sh/uv:0.8.14 /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.12.1 /uv /usr/local/bin/uv
 
 USER jm-python
 
@@ -167,7 +168,7 @@ RUN chown -R jm-python:jm-python /code
 COPY --from=builder-base "${PYSETUP_PATH}" "${PYSETUP_PATH}/"
 
 # development stage is FROM python-base; builder's `uv` binary is not inherited
-COPY --from=ghcr.io/astral-sh/uv:0.8.14 /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.12.1 /uv /usr/local/bin/uv
 
 USER jm-python
 
