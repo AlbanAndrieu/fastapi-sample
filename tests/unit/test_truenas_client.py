@@ -1,6 +1,5 @@
 """Tests for the read-only TrueNAS 26 websocket API adapter."""
 
-from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
