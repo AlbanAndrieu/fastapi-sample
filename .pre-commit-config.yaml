@@ -322,7 +322,7 @@ repos:
         name: "📊 SQL · Attempts to fix rule violations."
       - id: sqlfluff-lint
         name: "📊 SQL · Lint SQL code files"
-        
+
   - repo: https://github.com/sbdchd/squawk
     rev: v2.63.0
     hooks:
