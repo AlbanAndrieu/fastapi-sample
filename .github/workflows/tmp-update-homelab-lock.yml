@@ -1,0 +1,47 @@
+name: Temporary homelab dependency lock update
+
+on:
+  push:
+    branches:
+      - refactor/ui-assets-and-runtime-clients
+
+permissions:
+  contents: write
+
+jobs:
+  update-lock:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    env:
+      PYTHON_VERSION: "3.13"
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+
+      - name: Add runtime clients and refresh lock
+        shell: bash
+        run: |
+          uv add --python "${PYTHON_VERSION}" 'cloudflare>=5.6.0,<6'
+          uv add --python "${PYTHON_VERSION}" 'truenas-api-client @ git+https://github.com/truenas/api_client.git@TS-26.0.0-BETA.1'
+          uv lock --python "${PYTHON_VERSION}"
+          git diff --check
+
+      - name: Commit generated dependency files
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pyproject.toml uv.lock
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: add homelab runtime clients"
+            git push
+          fi
