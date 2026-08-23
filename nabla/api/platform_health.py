@@ -20,6 +20,43 @@ def _short_error(exc: BaseException) -> str:
     return message[:240]
 
 
+def _cloudflare_api_error(response: httpx.Response) -> dict[str, Any]:
+    """Return safe Cloudflare error details without exposing credentials or account IDs."""
+    result: dict[str, Any] = {
+        "reachable": False,
+        "api_reachable": True,
+        "http_status": response.status_code,
+        "probe": "cloudflare_tunnel_api",
+    }
+
+    message = f"Cloudflare Tunnel API returned HTTP {response.status_code}"
+    error_code: int | str | None = None
+    try:
+        payload = response.json()
+    except ValueError:
+        payload = None
+
+    if isinstance(payload, dict):
+        errors = payload.get("errors")
+        if isinstance(errors, list) and errors and isinstance(errors[0], dict):
+            first = errors[0]
+            cloudflare_message = str(first.get("message") or "").strip()
+            if cloudflare_message:
+                message = cloudflare_message[:240]
+            error_code = first.get("code")
+
+    if response.status_code == 404:
+        message = (
+            f"{message}; verify CLOUDFLARE_ACCOUNT_ID is the Cloudflare Account ID "
+            "(not a Zone ID) and that CLOUDFLARE_API_TOKEN is scoped to that account"
+        )
+
+    result["error"] = message[:480]
+    if error_code is not None:
+        result["cloudflare_error_code"] = error_code
+    return result
+
+
 async def check_cloudflare_tunnels() -> dict[str, Any]:
     """Check Cloudflare Tunnel control-plane and tunnel health read-only."""
     settings = CloudflareTunnelSettings.from_environment()
@@ -42,12 +79,24 @@ async def check_cloudflare_tunnels() -> dict[str, Any]:
                 },
                 params={"is_deleted": "false"},
             )
-        response.raise_for_status()
-        payload = response.json()
-    except (httpx.HTTPError, ValueError, OSError) as exc:
+    except (httpx.HTTPError, OSError) as exc:
         return {
             "reachable": False,
             "api_reachable": False,
+            "error": _short_error(exc),
+            "probe": "cloudflare_tunnel_api",
+        }
+
+    if response.status_code >= 400:
+        return _cloudflare_api_error(response)
+
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        return {
+            "reachable": False,
+            "api_reachable": True,
+            "http_status": response.status_code,
             "error": _short_error(exc),
             "probe": "cloudflare_tunnel_api",
         }
