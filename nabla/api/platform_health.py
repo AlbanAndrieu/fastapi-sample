@@ -1,23 +1,89 @@
-"""Optional platform API health probes for Cloudflare Tunnel and pfSense."""
+"""Optional platform and observability health probes."""
 
 from __future__ import annotations
 
 import asyncio
 import os
+import socket
+import ssl
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 
 from nabla.api.cloudflare_tunnels import CloudflareTunnelSettings
 
 _CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4"
+_LOGFIRE_DEFAULT_BASE_URL = "https://logfire-api.pydantic.dev"
 _PFSENSE_STATUS_PATH = "/api/v2/status/system"
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
+_FALSE_VALUES = frozenset({"0", "false", "no", "off"})
 
 
 def _short_error(exc: BaseException) -> str:
     message = str(exc).strip() or exc.__class__.__name__
     return message[:240]
+
+
+def _logfire_enabled() -> bool:
+    """Honor the canonical flag and the historical singular alias."""
+    raw = os.getenv("LOGFIRE_ENABLED")
+    if raw is None:
+        raw = os.getenv("LOGFIRE_ENABLE", "true")
+    return raw.strip().lower() not in _FALSE_VALUES
+
+
+def check_logfire_connectivity() -> dict[str, Any]:
+    """Verify configured Logfire ingestion DNS/TCP/TLS connectivity without emitting telemetry."""
+    if not _logfire_enabled():
+        return {
+            "reachable": None,
+            "skipped": True,
+            "reason": "Logfire is disabled by LOGFIRE_ENABLED",
+            "probe": "ingest_tls_socket",
+        }
+
+    token = os.getenv("LOGFIRE_TOKEN", "").strip()
+    if not token:
+        return {
+            "reachable": False,
+            "error": "LOGFIRE_ENABLED is true but LOGFIRE_TOKEN is not configured",
+            "probe": "ingest_tls_socket",
+        }
+
+    base_url = os.getenv("LOGFIRE_BASE_URL", _LOGFIRE_DEFAULT_BASE_URL).strip()
+    parsed = urlparse(base_url)
+    if parsed.scheme != "https" or not parsed.hostname:
+        return {
+            "reachable": False,
+            "error": "LOGFIRE_BASE_URL must be a valid HTTPS URL",
+            "probe": "ingest_tls_socket",
+        }
+
+    host = parsed.hostname
+    port = parsed.port or 443
+    try:
+        with socket.create_connection((host, port), timeout=3.0) as raw_socket:
+            context = ssl.create_default_context()
+            with context.wrap_socket(raw_socket, server_hostname=host):
+                pass
+    except (OSError, ssl.SSLError) as exc:
+        return {
+            "reachable": False,
+            "error": _short_error(exc),
+            "probe": "ingest_tls_socket",
+            "host": host,
+            "port": port,
+        }
+
+    return {
+        "reachable": True,
+        "probe": "ingest_tls_socket",
+        "host": host,
+        "port": port,
+        "tls_trusted": True,
+        "token_present": True,
+    }
 
 
 async def check_cloudflare_tunnels() -> dict[str, Any]:
@@ -139,12 +205,14 @@ async def check_pfsense_api() -> dict[str, Any]:
 
 
 async def enrich_optional_platform_checks(payload: dict[str, Any]) -> dict[str, Any]:
-    """Add Cloudflare and pfSense API checks without changing required health semantics."""
-    cloudflare, pfsense = await asyncio.gather(
+    """Add optional platform/observability checks without changing required health semantics."""
+    cloudflare, pfsense, logfire = await asyncio.gather(
         check_cloudflare_tunnels(),
         check_pfsense_api(),
+        asyncio.to_thread(check_logfire_connectivity),
     )
     checks = dict(payload.get("checks") or {})
     checks["cloudflare"] = cloudflare
     checks["pfsense"] = pfsense
+    checks["logfire"] = logfire
     return {**payload, "checks": checks}
