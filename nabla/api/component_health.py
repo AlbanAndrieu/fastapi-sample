@@ -24,11 +24,21 @@ def _truenas_component(snapshot: dict[str, Any]) -> dict[str, Any]:
     """Reduce the detailed TrueNAS snapshot to a component-level status."""
     truenas = snapshot.get("truenas")
     if not isinstance(truenas, dict):
-        return {"reachable": None, "skipped": True, "reason": "TrueNAS health unavailable"}
+        return {
+            "reachable": None,
+            "skipped": True,
+            "reason": "TrueNAS health unavailable",
+        }
 
     state = str(truenas.get("state") or "unknown")
-    public = truenas.get("public") if isinstance(truenas.get("public"), dict) else {}
-    internal = truenas.get("internal") if isinstance(truenas.get("internal"), dict) else None
+    public = (
+        truenas.get("public") if isinstance(truenas.get("public"), dict) else {}
+    )
+    internal = (
+        truenas.get("internal")
+        if isinstance(truenas.get("internal"), dict)
+        else None
+    )
     api = truenas.get("api") if isinstance(truenas.get("api"), dict) else None
     return {
         "reachable": state != "fail",
@@ -80,10 +90,11 @@ def component_status(components: dict[str, dict[str, Any]]) -> str:
             continue
         if check.get("reachable") is False:
             return "unhealthy"
-    if any(
-        check.get("reachable") is False
-        for key, check in components.items()
-        if key in PLATFORM_COMPONENT_KEYS and check.get("skipped") is not True
-    ):
-        return "degraded"
+
+    for key in PLATFORM_COMPONENT_KEYS:
+        check = components.get(key, {})
+        if check.get("skipped") is True:
+            continue
+        if check.get("reachable") is False or check.get("state") == "warn":
+            return "degraded"
     return "healthy"
