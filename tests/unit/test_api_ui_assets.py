@@ -20,6 +20,7 @@ def test_api_page_serves_external_assets() -> None:
     page = client.get("/api")
     bootstrap = client.get("/api/assets/api-health.js")
     health = client.get("/api/assets/api-health-core.js")
+    ui = client.get("/api/assets/api-health-ui.js")
     sickz = client.get("/api/assets/api-sickz.js")
     styles = client.get("/api/assets/api.css")
 
@@ -28,12 +29,15 @@ def test_api_page_serves_external_assets() -> None:
     assert 'type="module" src="/api/assets/api-health.js"' in page.text
     assert "function computeOverall" not in page.text
 
-    for asset in (bootstrap, health, sickz):
+    for asset in (bootstrap, health, ui, sickz):
         assert asset.status_code == 200
         assert "javascript" in asset.headers["content-type"]
 
     assert 'from "./api-health-core.js"' in bootstrap.text
     assert 'from "./api-sickz.js"' in bootstrap.text
+    assert 'from "./api-health-ui.js"' in health.text
+    assert 'from "./api-health-ui.js"' in sickz.text
+    assert 'from "./api-health-core.js"' not in sickz.text
     assert "function computeOverall" in health.text
     assert "function computeOverall" in sickz.text
 
@@ -75,10 +79,16 @@ def test_platform_labels_are_owned_by_health_module() -> None:
     assert 'logfire: "Pydantic Logfire"' in script
 
 
-def test_health_bootstrap_stays_small() -> None:
+def test_health_assets_stay_within_refactoring_thresholds() -> None:
     bootstrap = (_ASSET_DIR / "api-health.js").read_text(encoding="utf-8")
+    health = (_ASSET_DIR / "api-health-core.js").read_text(encoding="utf-8")
+    ui = (_ASSET_DIR / "api-health-ui.js").read_text(encoding="utf-8")
+    sickz = (_ASSET_DIR / "api-sickz.js").read_text(encoding="utf-8")
 
     assert len(bootstrap.splitlines()) < 50
+    assert len(health.splitlines()) < 400
+    assert len(ui.splitlines()) < 250
+    assert len(sickz.splitlines()) < 400
     assert "loadHealthBoards" in bootstrap
     assert "computeOverall" not in bootstrap
 
