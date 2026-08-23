@@ -23,9 +23,7 @@ jobs:
         run: |
           git fetch origin \
             refs/pull/63/head:refs/remotes/origin/recovery-pr63 \
-            refs/pull/66/head:refs/remotes/origin/recovery-pr66 \
-            refs/pull/68/head:refs/remotes/origin/recovery-pr68 \
-            refs/pull/70/head:refs/remotes/origin/recovery-pr70
+            refs/pull/66/head:refs/remotes/origin/recovery-pr66
       - name: Show unique histories
         run: |
           echo '=== PR63 unique commits since #70 merge ==='
@@ -47,7 +45,6 @@ jobs:
           git config user.email recovery-audit@users.noreply.github.com
           git checkout -B recovery-scratch origin/main
 
-          echo '=== cherry-pick 46f85e5 with restored-main conflict resolution ==='
           if ! git cherry-pick 46f85e5; then
             conflicts=(
               nabla/api/db/database.py
@@ -70,7 +67,14 @@ jobs:
             git cherry-pick --continue
           fi
 
-          commits=(615ae51 0940ee0 987e31f b85cceb 06a8fc0)
+          echo '=== cherry-pick 615ae51; keep restored Pylint workflow on conflict ==='
+          if ! git cherry-pick 615ae51; then
+            git checkout --ours -- .github/workflows/pylint.yml
+            git add .github/workflows/pylint.yml
+            git cherry-pick --continue
+          fi
+
+          commits=(0940ee0 987e31f b85cceb 06a8fc0)
           for commit in "${commits[@]}"; do
             echo "=== cherry-pick ${commit} ==="
             if ! git cherry-pick "${commit}"; then
