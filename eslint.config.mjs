@@ -37,4 +37,19 @@ export default tseslint.config(
       },
     },
   },
+  {
+    files: ["nabla/api/assets/**/*.js"],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+      },
+    },
+    // The project intentionally targets ESLint 9 while MegaLinter v10 bundles
+    // ESLint 10. Keep the repository's intended rule set stable until the local
+    // ESLint major is upgraded; the extracted legacy asset is covered by its
+    // API contract tests and remains subject to all ESLint 9 recommended rules.
+    rules: {
+      "no-useless-assignment": "off",
+    },
+  },
 );
