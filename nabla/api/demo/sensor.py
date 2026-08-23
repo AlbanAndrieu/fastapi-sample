@@ -30,6 +30,7 @@ from nabla.api.demo.socket.redis import (
     publish_event,
     redis,
 )
+from nabla.config_settings import APP_RUNTIME_VERSION
 from nabla.utils.logger import logger
 
 router = APIRouter()
@@ -279,18 +280,34 @@ async def get_sensor_data(request: Request):
     )
 
 
-# Health check endpoint overridding the default one on main.py
 @router.get("/health")
 async def health_check():
-    """Health check endpoint with system metrics"""
+    """Return lightweight runtime health without probing external dependencies."""
     metrics.track_request()
 
     health_data = {
         "status": "healthy",
+        "version": APP_RUNTIME_VERSION,
         "readings_count": len(recent_readings),
         "active_connections": metrics.connection_count,
         "total_requests": metrics.total_requests,
         "timestamp": datetime.now().isoformat(),
+        "components": {
+            "api": {"status": "healthy"},
+            "sensor": {
+                "status": "healthy",
+                "readings_count": len(recent_readings),
+            },
+            "streaming": {
+                "status": "healthy",
+                "active_connections": metrics.connection_count,
+            },
+            "health_api": {
+                "status": "healthy",
+                "deep_health": "/healthz",
+                "homelab_health": "/api/homelab/health",
+            },
+        },
     }
 
     if metrics.chart_generation_times:

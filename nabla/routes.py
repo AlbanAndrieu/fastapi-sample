@@ -1,4 +1,5 @@
 """Application route registration and handlers."""
+import asyncio
 import html
 import os
 
@@ -12,6 +13,7 @@ from sqlmodel import select
 from starlette.routing import Mount
 
 from nabla.api.db.database import SessionLocal
+from nabla.api.health_board import prioritize_optional_truenas
 from nabla.api.notes.models import Note
 from nabla.utils.logger import logger
 
@@ -21,11 +23,7 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
 
 
 def _move_root_mounts_last(app: FastAPI) -> None:
-    """Keep catch-all root mounts behind concrete FastAPI routes.
-
-    Starlette evaluates routes in registration order. A ``Mount('/')`` added
-    before concrete routes captures requests such as ``/api`` and ``/metrics``.
-    """
+    """Keep catch-all root mounts behind concrete FastAPI routes."""
     root_mounts = [
         route
         for route in app.routes
@@ -38,6 +36,15 @@ def _move_root_mounts_last(app: FastAPI) -> None:
 
 def register_routes(app: FastAPI) -> None:
     """Register all application routes."""
+
+    async def _build_extended_healthz(request: Request) -> dict:
+        from nabla.api.db.database import engine
+        from nabla.api.demo.socket.redis import redis
+        from nabla.api.health_checks import build_healthz_payload
+        from nabla.api.platform_health import enrich_optional_platform_checks
+
+        payload = await build_healthz_payload(request, redis_client=redis, engine=engine)
+        return await enrich_optional_platform_checks(payload)
 
     @app.get("/", response_class=HTMLResponse)
     @limiter.limit("100/second")
@@ -79,10 +86,11 @@ def register_routes(app: FastAPI) -> None:
     def read_root(request: Request):
         from nabla.api.ui import render_api_root_page
 
-        return render_api_root_page(
+        page = render_api_root_page(
             title_suffix=os.getenv("TITLE_SUFFIX"),
             app_version=html.escape(str(request.app.version)),
         )
+        return prioritize_optional_truenas(page)
 
     @app.get(
         "/api/homelab-services",
@@ -101,13 +109,25 @@ def register_routes(app: FastAPI) -> None:
         "/api/homelab/health",
         response_class=ORJSONResponse,
         tags=["Homelab", "Health"],
-        summary="Public homelab endpoint health",
+        summary="Homelab and platform health",
     )
     async def get_homelab_health():
-        """Return a cached health snapshot for explicitly public homelab URLs."""
+        """Return detailed homelab services plus shared core/platform components."""
+        from nabla.api.component_health import build_component_checks, component_status
+        from nabla.api.db.database import engine
+        from nabla.api.demo.socket.redis import redis
         from nabla.api.homelab_health import build_homelab_health_payload
 
-        return await build_homelab_health_payload()
+        homelab_task = asyncio.create_task(build_homelab_health_payload())
+        components = await build_component_checks(
+            redis_client=redis,
+            engine=engine,
+            homelab_snapshot=homelab_task,
+        )
+        homelab_payload = await homelab_task
+        homelab_payload["components_status"] = component_status(components)
+        homelab_payload["components"] = components
+        return homelab_payload
 
     @app.get(
         "/healthz",
@@ -116,15 +136,9 @@ def register_routes(app: FastAPI) -> None:
         summary="Deep healthcheck",
     )
     async def get_healthz(request: Request):
-        """Return JSON: GET /health payload merged with Redis, Postgres, etc."""
-        from nabla.api.db.database import engine
-        from nabla.api.demo.socket.redis import redis
-        from nabla.api.health_checks import build_healthz_payload
-
+        """Return runtime health plus deep dependency and service probes."""
         with pyroscope.tag_wrapper({"function": "fast"}):
-            return await build_healthz_payload(
-                request, redis_client=redis, engine=engine
-            )
+            return await _build_extended_healthz(request)
 
     @app.get(
         "/sickz",
