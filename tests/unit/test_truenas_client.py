@@ -1,10 +1,10 @@
-"""Tests for the read-only TrueNAS 26 websocket API adapter."""
+"""Tests for the read-only TrueNAS 26 WebSocket API adapter."""
 
 from unittest.mock import Mock
 
 import pytest
 
-from nabla.api.truenas_client import TrueNASReadOnlyAdapter, TrueNASSettings
+from nabla.integrations.truenas_client import TrueNASReadOnlyAdapter, TrueNASSettings
 
 
 class FakeClient:
@@ -41,6 +41,7 @@ def test_settings_require_username_and_api_key(monkeypatch) -> None:
     for name in (
         "TRUENAS_API_USERNAME",
         "TRUENAS_USERNAME",
+        "TRUENAS_USER",
         "TRUENAS_API_KEY",
         "TRUENAS_MCP_API_KEY",
     ):
@@ -63,6 +64,21 @@ def test_settings_reuse_mcp_api_key(monkeypatch) -> None:
     assert settings.api_key == "1-test-key"
     assert settings.websocket_uri == "wss://172.17.0.24/api/current"
     assert settings.verify_ssl is True
+
+
+def test_settings_accept_legacy_user_and_verify_ssl(monkeypatch) -> None:
+    monkeypatch.delenv("TRUENAS_API_USERNAME", raising=False)
+    monkeypatch.delenv("TRUENAS_USERNAME", raising=False)
+    monkeypatch.setenv("TRUENAS_USER", "legacy-user")
+    monkeypatch.setenv("TRUENAS_API_KEY", "1-test-key")
+    monkeypatch.delenv("TRUENAS_API_VERIFY_SSL", raising=False)
+    monkeypatch.setenv("TRUENAS_VERIFY_SSL", "false")
+
+    settings = TrueNASSettings.from_environment()
+
+    assert settings is not None
+    assert settings.username == "legacy-user"
+    assert settings.verify_ssl is False
 
 
 @pytest.mark.parametrize(
