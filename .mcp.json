@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "fastapi-radar": {
+      "command": "python",
+      "args": ["-m", "fastapi_radar", "--host", "0.0.0.0", "--port", "8091"]
+    }
+  }
+}

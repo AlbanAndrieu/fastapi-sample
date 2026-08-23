@@ -23,7 +23,7 @@ def _require_ops_key(x_mcp_ops_key: str | None) -> None:
 
 
 @router.get("/servers")
-def list_mcp_servers(
+async def list_mcp_servers(
     x_mcp_ops_key: Annotated[str | None, Header(alias="X-MCP-Ops-Key")] = None,
 ) -> dict[str, Any]:
     """Return configured MCP client definitions (secrets in ``env`` are not redacted — protect this route)."""

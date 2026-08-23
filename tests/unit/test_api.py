@@ -7,6 +7,8 @@ from fastapi.testclient import TestClient
 
 from server_app import app
 
+pytestmark = pytest.mark.integration
+
 # from unittest.mock import patch
 
 
@@ -141,9 +143,8 @@ def test_tavily_search_returns_503_without_api_key(test_app, monkeypatch) -> Non
 def test_tavily_search_ok_when_mocked(test_app, monkeypatch) -> None:
     """Tavily route forwards the body and returns the search payload."""
 
-
-def _fake(query: str, *, search_depth: str = "advanced", max_results: int = 1, monkeypatch) -> dict:
-    return {"query": query, "results": [], "search_depth": search_depth, "max_results": max_results}
+    def _fake(query: str, *, search_depth: str = "advanced", max_results: int = 1) -> dict:
+        return {"query": query, "results": [], "search_depth": search_depth, "max_results": max_results}
 
     monkeypatch.setattr("nabla.api.tavily_route.web_search", _fake)
     response = test_app.post(

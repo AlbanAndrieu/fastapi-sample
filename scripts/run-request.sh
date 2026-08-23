@@ -1,6 +1,6 @@
 #!/bin/bash
 TIMES=1
-for i in $(eval echo "{1..$TIMES}");do
+for i in $(eval echo "{1..${TIMES}}" );do
   siege -c 1 -r 10 http://localhost:8091/
   siege -c 3 -r 5 http://localhost:8091/demo/items/0
   siege -c 2 -r 3 http://0.0.0.0:8091/chain

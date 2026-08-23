@@ -1,9 +1,9 @@
 import os
+import traceback
 from typing import Any
 
 from fastapi import APIRouter
 from redis.asyncio import Redis
-from redis.exceptions import ConnectionError as RedisConnectionError
 
 from nabla.api.demo.socket.ws_manager import manager
 from nabla.config_settings import REDIS_URL
@@ -36,19 +36,25 @@ router = APIRouter()
 REDIS_AUTH = os.environ.get("REDIS_AUTH", "")
 
 
-def get_redis_client(url: str) -> Redis | None:
+async def get_redis_client(url: str, debug: bool = False) -> Redis | None:
+    """Build the lazy async Redis client and verify connectivity with an async ping."""
     try:
+        if debug:
+            print(f"Redis client init with url={url}")
         redis_client = Redis.from_url(
             url,
-            password=REDIS_AUTH,
-            decode_responses=True,  # Decode responses to UTF-8, if needed
+            password=REDIS_AUTH or None,
+            decode_responses=True,
         )
-        # Ping the server to check the connection
-        response = redis_client.ping()
+        if debug:
+            print("Redis client created, now pinging…")
+        response = await redis_client.ping()
         print(f"Connected to Redis. Server responded with: {response}")
         return redis_client
-    except RedisConnectionError as e:
+    except Exception as e:
         print(f"Unable to connect to Redis: {e}")
+        if debug:
+            traceback.print_exc()
         return None
 
 

@@ -84,11 +84,17 @@ def get_engine() -> Engine:
     # Sync engine uses migration URL (direct session when POSTGRES_MIGRATION_* set).
     connection_query = _settings.postgres_migration_query or _settings.postgres_query
     connect_args = get_sqlalchemy_psycopg_connect_args(connection_query)
+    # Désactive les prepared statements pour éviter les erreurs duplicate
+    connect_args["prepare_threshold"] = None
     return create_engine(
         url=MIGRATION_DB_URL,
         json_serializer=orjson_serializer,
         json_deserializer=orjson.loads,
         connect_args=connect_args,
+        pool_pre_ping=True,
+        pool_recycle=600,
+        pool_size=5,
+        # use_prepared_statements=False,  # Uncomment if your version supports it
     )
 
 

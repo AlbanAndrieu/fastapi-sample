@@ -94,6 +94,8 @@ UNLEASH_APP_NAME = os.environ.get("UNLEASH_APP_NAME", "staging")
 UNLEASH_INSTANCE_ID = os.environ.get("UNLEASH_INSTANCE_ID", "XXX")
 
 STATSIG_API_KEY = os.environ.get("STATSIG_API_KEY", "XXX")
+STATSIG_ENABLED = os.environ.get("STATSIG_ENABLED", "false").strip().lower() in ("true", "1", "yes")
+UNLEASH_ENABLED = os.environ.get("UNLEASH_ENABLED", "false").strip().lower() in ("true", "1", "yes")
 
 
 def _unset_empty_env(value: Any) -> Any:
@@ -741,7 +743,7 @@ def get_settings() -> APIDeploymentSettings:
     #  setting default values in the configuration.
     # Thus, we can either set some by default (even dummies) or just
     #  silence pyright
-    return APIDeploymentSettings()  # pyright: ignore
+    return APIDeploymentSettings()  # pyright: ignore[reportCallIssue] - populated by pydantic-settings
 
 
 keycloak_openid = KeycloakOpenID(
@@ -774,21 +776,12 @@ client = UnleashClient(
     disable_metrics=_env_bool("UNLEASH_DISABLE_METRICS", False),
 )
 
-client.initialize_client()
+if UNLEASH_ENABLED:
+    client.initialize_client()
 
-# statsig = Statsig(STATSIG_API_KEY)
-# statsig.initialize().wait()
-
-# or with StatsigOptions
 options = StatsigOptions()
 options.environment = "development"
 
 statsig = Statsig(STATSIG_API_KEY, options)
-statsig.initialize().wait()
-
-# or with StatsigOptions
-options = StatsigOptions()
-options.environment = "development"
-
-statsig = Statsig(STATSIG_API_KEY, options)
-statsig.initialize().wait()
+if STATSIG_ENABLED:
+    statsig.initialize().wait()

@@ -6,6 +6,7 @@ import pybreaker
 import sentry_sdk
 from dotenv import load_dotenv
 from fastapi import APIRouter
+from fastapi.responses import StreamingResponse
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langgraph.graph import END, START, StateGraph
@@ -111,6 +112,34 @@ workflow.add_node("answer", answer_question)
 workflow.add_edge(START, "answer")
 workflow.add_edge("answer", END)
 graph = workflow.compile()
+
+
+@router.post("/run/sse")
+async def run_workflow_sse(data: RequestData):
+    """SSE streaming endpoint for chat completion"""
+    llm = _get_workflow_llm()
+    tools = list(_all_workflow_tools())
+    llm_tools = llm.bind_tools(tools)
+
+    messages = [
+        SystemMessage(content=alban_me.get_agent_system_prompt()),
+        HumanMessage(content=data.user_input),
+    ]
+
+    async def event_stream():
+        try:
+            # For each chunk, stream as SSE event
+            for chunk in llm_tools.stream(messages):
+                text = getattr(chunk, "text", str(chunk))
+                # Defensive: Some LLMs may not yield 'text' field
+                if text:
+                    yield f"data: {text}\n\n"
+            # Optional: emit end of stream marker
+            yield "data: [DONE]\n\n"
+        except Exception as e:
+            yield f"data: [ERROR] {e}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 @router.post("/run")

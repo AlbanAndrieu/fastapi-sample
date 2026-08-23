@@ -121,7 +121,7 @@ async def dispatch_customer(customer_id: int, q: Optional[str] = None):
             #     method="GET", endpoint="/dispatch/customer/{customer_id}"
             # ).observe(0.1)
             url = f"{DEMO_SAMPLE_URL}/dispatch?customer={customer_id}"
-            response = requests.request("GET", url, timeout=1, verify=False)  # noqa: S501
+            response = requests.request("GET", url, timeout=1)
             response.raise_for_status()
             logger.info(f"Dispatch customer response is : {response.json()}")
             return {response.json()["ETA"]}

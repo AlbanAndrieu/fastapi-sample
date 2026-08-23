@@ -2,6 +2,7 @@
 
 env/scripts/jenkins/*.nse
 env/scripts/jenkins/tls.lua
+radar.duckdb*
 
 *.csv
 *.ipynb_checkpoints
