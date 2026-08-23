@@ -12,6 +12,7 @@ from sqlmodel import select
 from starlette.routing import Mount
 
 from nabla.api.db.database import SessionLocal
+from nabla.api.health_board import prioritize_optional_truenas
 from nabla.api.notes.models import Note
 from nabla.utils.logger import logger
 
@@ -79,10 +80,11 @@ def register_routes(app: FastAPI) -> None:
     def read_root(request: Request):
         from nabla.api.ui import render_api_root_page
 
-        return render_api_root_page(
+        page = render_api_root_page(
             title_suffix=os.getenv("TITLE_SUFFIX"),
             app_version=html.escape(str(request.app.version)),
         )
+        return prioritize_optional_truenas(page)
 
     @app.get(
         "/api/homelab-services",
