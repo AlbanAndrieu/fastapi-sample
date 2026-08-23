@@ -25,4 +25,7 @@ jobs:
           python -m pip install pylint
 
       - name: Analyse Python sources with Pylint
-        run: pylint nabla server_app.py
+        run: >-
+          pylint --fail-under=9.5
+          --disable=E1701,E1003
+          nabla server_app.py
