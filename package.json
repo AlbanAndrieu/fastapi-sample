@@ -95,8 +95,7 @@
     "semantic-release-replace-plugin": "^1.2.7",
     "simple-git-hooks": "^2.13.1",
     "typescript": "^5.9.2",
-    "typescript-eslint": "^8.46.1",
-    "wrangler": "^4.116.0"
+    "typescript-eslint": "^8.46.1"
   },
   "scripts": {
     "prettier": "prettier --check --ignore-unknown \"**/*.*\"",
@@ -106,9 +105,6 @@
     "lint:fix": "eslint . --fix",
     "commit": "git-cz",
     "semantic-release": "semantic-release",
-    "deploy": "wrangler deploy",
-    "dev": "wrangler dev",
-    "start": "wrangler dev",
     "oco": "node scripts/run-opencommit.mjs",
     "opencommit": "node scripts/run-opencommit.mjs"
   },
