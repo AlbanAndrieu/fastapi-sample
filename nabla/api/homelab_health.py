@@ -12,6 +12,7 @@ import httpx
 
 from nabla.api.homelab_catalog import fetch_homelab_services
 from nabla.api.homelab_models import HomelabService
+from nabla.api.truenas_client import observe_truenas_api
 
 HealthState = Literal["ok", "warn", "fail"]
 
@@ -180,18 +181,32 @@ def _truenas_internal_target(
     return host, port
 
 
+async def _observe_truenas_api() -> dict[str, Any] | None:
+    """Run the synchronous official TrueNAS client outside the event loop."""
+    try:
+        return await asyncio.to_thread(observe_truenas_api)
+    except Exception as exc:  # Adapter/network/auth errors are health data, not route failures.
+        return {
+            "reachable": False,
+            "error": _short_error(exc),
+        }
+
+
 def _truenas_state(
     public_result: dict[str, Any],
     internal_result: dict[str, Any] | None,
+    api_result: dict[str, Any] | None = None,
 ) -> HealthState:
     """Classify host health while distinguishing host-down from ingress-only failures."""
     public_state = public_result.get("state")
     internal_state = internal_result.get("state") if internal_result else None
-    if public_state == "fail" and internal_state == "ok":
+    api_reachable = api_result.get("reachable") if api_result else None
+
+    if public_state == "fail" and (internal_state == "ok" or api_reachable is True):
         return "warn"
     if public_state == "fail":
         return "fail"
-    if internal_state == "fail":
+    if internal_state == "fail" or api_reachable is False:
         return "warn"
     if public_state == "warn":
         return "warn"
@@ -204,7 +219,7 @@ async def _probe_truenas(
     *,
     internal_enabled: bool,
 ) -> dict[str, Any]:
-    """Probe TrueNAS public ingress and, when enabled, its LAN TCP endpoint."""
+    """Probe TrueNAS public ingress, optional LAN TCP, and optional authenticated API."""
     public_service = HomelabService(
         name="TrueNAS",
         tunnelUrl=_TRUENAS_PUBLIC_URL,
@@ -225,10 +240,12 @@ async def _probe_truenas(
             ),
         )
 
+    api_result = await _observe_truenas_api()
     return {
-        "state": _truenas_state(public_result, internal_result),
+        "state": _truenas_state(public_result, internal_result, api_result),
         "public": public_result,
         "internal": internal_result,
+        "api": api_result,
         "internal_probe_enabled": internal_enabled,
     }
 
@@ -240,10 +257,12 @@ def _copy_payload(payload: dict[str, Any]) -> dict[str, Any]:
     if isinstance(truenas, dict):
         public = truenas.get("public")
         internal = truenas.get("internal")
+        api = truenas.get("api")
         truenas_copy = {
             **truenas,
             "public": dict(public) if isinstance(public, dict) else public,
             "internal": dict(internal) if isinstance(internal, dict) else internal,
+            "api": dict(api) if isinstance(api, dict) else api,
         }
     return {
         **payload,
