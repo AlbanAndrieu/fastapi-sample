@@ -68,7 +68,12 @@ def register_routes(app: FastAPI) -> None:
     async def favicon():
         return RedirectResponse("/vercel.svg", status_code=307)
 
-    @app.get("/health", response_class=ORJSONResponse, tags=["Health"], summary="Runtime healthcheck")
+    @app.get(
+        "/health",
+        response_class=ORJSONResponse,
+        tags=["Health"],
+        summary="Runtime healthcheck",
+    )
     async def get_health(request: Request):
         """Return a lightweight runtime health view without probing homelab services."""
         from nabla.api.demo import sensor
@@ -152,10 +157,13 @@ def register_routes(app: FastAPI) -> None:
         from nabla.api.demo.socket.redis import redis
         from nabla.api.homelab_health import build_homelab_health_payload
 
-        homelab_payload, components = await asyncio.gather(
-            build_homelab_health_payload(),
-            build_component_checks(redis_client=redis, engine=engine),
+        homelab_task = asyncio.create_task(build_homelab_health_payload())
+        components = await build_component_checks(
+            redis_client=redis,
+            engine=engine,
+            homelab_snapshot=homelab_task,
         )
+        homelab_payload = await homelab_task
         homelab_payload["components_status"] = component_status(components)
         homelab_payload["components"] = components
         return homelab_payload
