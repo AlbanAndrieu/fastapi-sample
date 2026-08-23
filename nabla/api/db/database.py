@@ -105,7 +105,7 @@ engine = get_engine()
 Base = declarative_base()
 
 
-# Register a 'checkin' event listener to return connections to psycopg_pool
+# Register a 'check-in' event listener to return connections to psycopg_pool
 # (https://docs.sqlalchemy.org/en/20/core/events.html#sqlalchemy.events.PoolEvents.checkin)
 async def return_to_pool(dbapi_connection, connection_record):
     await db_pool.putconn(dbapi_connection)

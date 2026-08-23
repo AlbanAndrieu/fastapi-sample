@@ -17,6 +17,7 @@ from ddtrace.trace import TraceFilter, tracer
 from fastapi import FastAPI, Request
 from fastapi.concurrency import asynccontextmanager
 from fastapi.openapi.utils import get_openapi
+from fastapi_radar import Radar
 from fastapi.responses import (
     HTMLResponse,
     JSONResponse,
@@ -297,8 +298,6 @@ def initialize_api(app: FastAPI) -> None:
     """
 
     # Route de démo pour le compteur sentry
-    import sentry_sdk
-
     @app.post("/simulate_click")
     async def simulate_click():
         sentry_sdk.metrics.count(
@@ -423,8 +422,6 @@ app = FastAPI(
 )
 
 # Monitoring dashboard (FastAPI Radar)
-from fastapi_radar import Radar
-
 radar = Radar(app)
 radar.create_tables()
 

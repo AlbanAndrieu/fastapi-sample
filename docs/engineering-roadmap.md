@@ -2,7 +2,7 @@
 
 This document is the single planning source for future `fastapi-sample` pull
 requests. Keep completed work, open follow-ups and intentional compatibility
-exceptions here rather than creating additional TODO or refactoring documents.
+exceptions here rather than creating additional todo or refactoring documents.
 
 ## Operating constraints
 
@@ -97,6 +97,8 @@ exceptions here rather than creating additional TODO or refactoring documents.
   quality gate.
 - [ ] Make relevant Trivy findings blocking once the current vulnerability
   baseline has been triaged.
+- [ ] Reduce the current Trivy dependency baseline below 48 findings and lower
+  its temporary regression ceiling of 55 as vulnerabilities are remediated.
 - [ ] Pin every reusable GitHub Action to a verified immutable commit SHA.
 - [ ] Protect `main`, require reviewed pull requests and enforce the final
   mandatory test/security checks after the current refactoring stabilizes.
@@ -191,7 +193,7 @@ git diff --check
 
 ### Priority 1: application factory and import safety
 
-#### Work
+#### application factory and import safety work
 
 - Introduce `create_app(settings)` instead of constructing the application at
   module import time.
@@ -203,7 +205,7 @@ git diff --check
 - Replace the remaining global database and Redis clients with resources owned
   by `app.state` or injected dependencies.
 
-#### Acceptance criteria
+#### application factory and import safety acceptance criteria
 
 - A unit test can create a minimal application without PostgreSQL, Redis,
   Statsig, Unleash, Datadog, Sentry, MCP, or RAG.
@@ -213,7 +215,7 @@ git diff --check
 
 ### Priority 2: lifecycle resilience
 
-#### Work
+#### lifecycle resilience work
 
 - Use `contextlib.AsyncExitStack` to manage startup resources.
 - Close Redis explicitly during shutdown.
@@ -224,7 +226,7 @@ git diff --check
   restarted with bounded backoff.
 - Add startup and shutdown tests for success, partial failure, and cancellation.
 
-#### Acceptance criteria
+#### lifecycle resilience acceptance criteria
 
 - Every acquired resource is released after normal shutdown and failed startup.
 - No watcher, thread, pool, task, or client remains alive after lifecycle tests.
@@ -232,7 +234,7 @@ git diff --check
 
 ### Priority 3: integration tests
 
-#### Work
+#### integration tests work
 
 - Migrate the remaining `TestClient` suites to `httpx.AsyncClient` and
   `ASGITransport` where appropriate.
@@ -244,7 +246,7 @@ git diff --check
 - Add a CI job for `pytest -m integration`.
 - Keep unit tests network-disabled by default.
 
-#### Acceptance criteria
+#### integration tests acceptance criteria
 
 - `pytest tests/unit` requires no external service and remains deterministic.
 - `pytest -m integration` either provisions its dependencies or fails with a
@@ -259,7 +261,7 @@ Importing the full application still loads Datadog and produces a Python 3.12
 `crypt` deprecation warning. During pytest shutdown, the tracer can also log to
 an already closed output stream.
 
-#### Work
+#### Datadog and observability isolation work
 
 - Load Datadog modules only when `DD_TRACE_ENABLED=true`.
 - Remove unconditional tracer configuration and user assignment.
@@ -267,7 +269,7 @@ an already closed output stream.
 - Reconsider Sentry `send_default_pii=True` and sampling rates of `1.0`.
 - Verify that disabled observability creates no threads or shutdown hooks.
 
-#### Acceptance criteria
+#### Datadog and observability isolation acceptance criteria
 
 - Unit tests finish without Datadog warnings, five-second tracer waits, or
   logging errors.
@@ -276,7 +278,7 @@ an already closed output stream.
 
 ### Priority 5: Notes domain cleanup
 
-#### Work
+#### Notes domain cleanup work
 
 - Replace legacy SQLAlchemy declarative models and `databases.Record` with one
   consistent SQLAlchemy 2 or SQLModel data-access approach.
@@ -290,7 +292,7 @@ an already closed output stream.
 - Decide whether updating a note must enqueue Redis work; expose queue failures
   with an intentional transaction policy.
 
-#### Acceptance criteria
+#### Notes domain cleanup acceptance criteria
 
 - Database and API types agree for IDs, booleans, and timestamps.
 - Notes CRUD has unit and integration coverage for success, validation,
@@ -299,7 +301,7 @@ an already closed output stream.
 
 ### Priority 6: RAG architecture
 
-#### Work
+#### RAG architecture work
 
 - Replace the mutable global `VECTOR_DB` with a `VectorStore` protocol.
 - Provide an in-memory implementation for tests and a persistent implementation
@@ -310,7 +312,7 @@ an already closed output stream.
 - Add bounded concurrency, timeouts, and structured errors around embeddings.
 - Move document parsing dependencies behind optional integration boundaries.
 
-#### Acceptance criteria
+#### RAG architecture acceptance criteria
 
 - Search is deterministic under concurrent ingestion.
 - Restarting the application does not duplicate existing chunks.
@@ -319,7 +321,7 @@ an already closed output stream.
 
 ### Priority 7: outbound HTTP and health checks
 
-#### Work
+#### outbound HTTP and health checks work
 
 - Create shared lifespan-owned `httpx.AsyncClient` instances.
 - Define consistent connect, read, write, pool, and overall timeouts.
@@ -329,7 +331,7 @@ an already closed output stream.
 - Validate configurable probe destinations to reduce SSRF risk.
 - Replace remaining synchronous `requests` calls in async routes.
 
-#### Acceptance criteria
+#### outbound HTTP and health checks acceptance criteria
 
 - `/livez` performs no dependency I/O.
 - `/readyz` checks only dependencies required to serve traffic.
@@ -337,7 +339,7 @@ an already closed output stream.
 
 ### Priority 8: typing and dependency boundaries
 
-#### Work
+#### typing and dependency boundaries work
 
 - Expand Pyright coverage module by module until the full `nabla/` package is
   checked within an acceptable runtime.
@@ -348,7 +350,7 @@ an already closed output stream.
 - Consolidate package management around UV and remove obsolete Poetry, Pipenv,
   Conda, or duplicate Docker paths after confirming they are unused.
 
-#### Acceptance criteria
+#### typing and dependency boundaries acceptance criteria
 
 - `pyright nabla` completes in CI and reports zero errors.
 - Core application imports require only core runtime dependencies.
@@ -356,7 +358,7 @@ an already closed output stream.
 
 ### Priority 9: security and production hardening
 
-#### Work
+#### security and production hardening work
 
 - Remove or tightly isolate remaining `verify=False` HTTP calls.
 - Ensure operational endpoints never expose secrets or unredacted environment
@@ -367,7 +369,7 @@ an already closed output stream.
 - Confirm SOPS files and generated secrets cannot be committed accidentally.
 - Run dependency, container, and secret scans in CI.
 
-#### Acceptance criteria
+#### security and production hardening acceptance criteria
 
 - Security scans run on every merge request.
 - No endpoint returns credentials, tokens, DSNs, or raw provider payloads.

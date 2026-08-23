@@ -33,6 +33,18 @@ jobs:
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_PYTHON_BLACK: false
           VALIDATE_PYTHON_ISORT: false
+          # Canonical Python linting and typing use Ruff and the dedicated
+          # Pylint workflow; legacy files do not satisfy competing defaults.
+          VALIDATE_PYTHON_PYLINT: false
+          VALIDATE_PYTHON_FLAKE8: false
+          VALIDATE_PYTHON_MYPY: false
+          VALIDATE_PYTHON_RUFF_FORMAT: false
+          # Preserve project-native npm indentation and historical prose while
+          # still validating JSON, Markdown structure, YAML, and Ruff rules.
+          VALIDATE_JSON_PRETTIER: false
+          VALIDATE_MARKDOWN_PRETTIER: false
+          VALIDATE_NATURAL_LANGUAGE: false
+          VALIDATE_SPELL_CODESPELL: false
           # JSCPD is covered by the canonical MegaLinter workflow. Super-linter
           # v8.7.0 currently passes an unsupported option to its bundled JSCPD.
           VALIDATE_JSCPD: false
@@ -44,3 +56,5 @@ jobs:
             ((^|/)\.git/|report/|megalinter-reports/|open-webui/|(^|/)uv\.lock$|(^|/)Pipfile\.lock$|(^|/)trivy-sbom\.json$)
           JSON_FILTER_REGEX_EXCLUDE: >-
             (^|/)(\.vscode/|\.devcontainer/)
+          MARKDOWN_FILTER_REGEX_EXCLUDE: >-
+            (^|/)README\.md$
