@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 from typing import Any
 
@@ -10,6 +11,8 @@ import httpx
 _CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4"
 _PFSENSE_STATUS_PATH = "/api/v2/status/system"
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
+_REQUIRED_HOMELAB_KEYS = frozenset({"postgres", "redis", "supabase"})
+_OPTIONAL_PLATFORM_KEYS = frozenset({"albandrieu_truenas", "cloudflare", "pfsense"})
 
 
 def _short_error(exc: BaseException) -> str:
@@ -118,3 +121,31 @@ async def check_pfsense_api() -> dict[str, Any]:
     if response.status_code >= 400:
         result["error"] = f"pfSense API returned HTTP {response.status_code}"
     return result
+
+
+async def enrich_optional_platform_checks(payload: dict[str, Any]) -> dict[str, Any]:
+    """Add Cloudflare and pfSense API checks without changing required health semantics."""
+    cloudflare, pfsense = await asyncio.gather(
+        check_cloudflare_tunnels(),
+        check_pfsense_api(),
+    )
+    checks = dict(payload.get("checks") or {})
+    checks["cloudflare"] = cloudflare
+    checks["pfsense"] = pfsense
+    return {**payload, "checks": checks}
+
+
+def select_homelab_health_checks(payload: dict[str, Any]) -> dict[str, Any]:
+    """Select core, required infra, and platform checks for the homelab health API."""
+    checks = payload.get("checks")
+    if not isinstance(checks, dict):
+        return {}
+    selected: dict[str, Any] = {}
+    for key, value in checks.items():
+        if (
+            key in _REQUIRED_HOMELAB_KEYS
+            or key in _OPTIONAL_PLATFORM_KEYS
+            or (key.startswith("albandrieu_") and key != "albandrieu_truenas")
+        ):
+            selected[key] = value
+    return selected
