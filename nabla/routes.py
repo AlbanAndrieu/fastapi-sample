@@ -23,11 +23,7 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
 
 
 def _move_root_mounts_last(app: FastAPI) -> None:
-    """Keep catch-all root mounts behind concrete FastAPI routes.
-
-    Starlette evaluates routes in registration order. A ``Mount('/')`` added
-    before concrete routes captures requests such as ``/api`` and ``/metrics``.
-    """
+    """Keep catch-all root mounts behind concrete FastAPI routes."""
     root_mounts = [
         route
         for route in app.routes
@@ -38,8 +34,17 @@ def _move_root_mounts_last(app: FastAPI) -> None:
         app.routes.append(route)
 
 
+def _remove_existing_health_route(app: FastAPI) -> None:
+    """Replace the legacy sensor `/health` route with the composed runtime view."""
+    for route in list(app.routes):
+        if getattr(route, "path", None) == "/health":
+            app.routes.remove(route)
+
+
 def register_routes(app: FastAPI) -> None:
     """Register all application routes."""
+
+    _remove_existing_health_route(app)
 
     async def _build_extended_healthz(request: Request) -> dict:
         from nabla.api.db.database import engine
@@ -62,6 +67,31 @@ def register_routes(app: FastAPI) -> None:
     @app.get("/favicon.ico", include_in_schema=False)
     async def favicon():
         return RedirectResponse("/vercel.svg", status_code=307)
+
+    @app.get("/health", response_class=ORJSONResponse, tags=["Health"], summary="Runtime healthcheck")
+    async def get_health(request: Request):
+        """Return a lightweight runtime health view without probing homelab services."""
+        from nabla.api.demo import sensor
+
+        base = await sensor.health_check()
+        base["version"] = request.app.version
+        base["components"] = {
+            "api": {"status": "healthy"},
+            "sensor": {
+                "status": "healthy",
+                "readings_count": base.get("readings_count", 0),
+            },
+            "streaming": {
+                "status": "healthy",
+                "active_connections": base.get("active_connections", 0),
+            },
+            "health_api": {
+                "status": "healthy",
+                "deep_health": "/healthz",
+                "homelab_health": "/api/homelab/health",
+            },
+        }
+        return base
 
     @app.get("/api/data")
     def get_sample_data():
@@ -115,19 +145,18 @@ def register_routes(app: FastAPI) -> None:
         tags=["Homelab", "Health"],
         summary="Homelab and platform health",
     )
-    async def get_homelab_health(request: Request):
-        """Return homelab endpoint health plus core and platform dependency checks."""
+    async def get_homelab_health():
+        """Return detailed homelab services plus shared core/platform components."""
+        from nabla.api.component_health import build_component_checks
+        from nabla.api.db.database import engine
+        from nabla.api.demo.socket.redis import redis
         from nabla.api.homelab_health import build_homelab_health_payload
-        from nabla.api.platform_health import select_homelab_health_checks
 
-        homelab_payload, healthz_payload = await asyncio.gather(
+        homelab_payload, components = await asyncio.gather(
             build_homelab_health_payload(),
-            _build_extended_healthz(request),
+            build_component_checks(redis_client=redis, engine=engine),
         )
-        return {
-            **homelab_payload,
-            "checks": select_homelab_health_checks(healthz_payload),
-        }
+        return {**homelab_payload, "components": components}
 
     @app.get(
         "/healthz",
@@ -136,7 +165,7 @@ def register_routes(app: FastAPI) -> None:
         summary="Deep healthcheck",
     )
     async def get_healthz(request: Request):
-        """Return JSON: GET /health payload merged with core and optional platform checks."""
+        """Return runtime health plus deep dependency and service probes."""
         with pyroscope.tag_wrapper({"function": "fast"}):
             return await _build_extended_healthz(request)
 
