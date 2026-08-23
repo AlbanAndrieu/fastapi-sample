@@ -5,22 +5,23 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import urlsplit
 
-from fastapi import APIRouter
-
-from nabla.integrations.truenas_api_ws import TRUENAS_URL, fetch_truenas_apps_sync
-
-router = APIRouter()
+from nabla.integrations.truenas_client import TrueNASReadOnlyAdapter, build_truenas_adapter
 
 
 def _host_ports(port_config: list[dict[str, Any]]) -> list[int]:
     """Return unique published ports, ignoring duplicate IPv4/IPv6 bindings."""
     return list(
-        dict.fromkeys(host["host_port"] for mapping in port_config for host in mapping.get("host_ports", []) if isinstance(host.get("host_port"), int)),
+        dict.fromkeys(
+            host["host_port"]
+            for mapping in port_config
+            for host in mapping.get("host_ports", [])
+            if isinstance(host.get("host_port"), int)
+        )
     )
 
 
 def _primary_port(app: dict[str, Any], ports: list[int]) -> int | None:
-    """Prefer a Web UI portal port, then the first published TCP port."""
+    """Prefer a Web UI portal port, then the first published port."""
     for portal in (app.get("portals") or {}).values():
         urls = portal if isinstance(portal, list) else [portal]
         for url in urls:
@@ -37,26 +38,25 @@ def _primary_port(app: dict[str, Any], ports: list[int]) -> int | None:
 
 
 def _port_mappings(workloads: dict[str, Any]) -> list[dict[str, Any]]:
-    mappings: list[dict[str, Any]] = []
-    for item in workloads.get("used_ports") or []:
-        mappings.append(
-            {
-                "containerPort": item.get("container_port"),
-                "hostPorts": [
-                    {
-                        "hostIp": host.get("host_ip"),
-                        "hostPort": host.get("host_port"),
-                    }
-                    for host in item.get("host_ports") or []
-                ],
-                "protocol": item.get("protocol"),
-            },
-        )
-    return mappings
+    """Normalize TrueNAS port bindings into the homelab JSON shape."""
+    return [
+        {
+            "containerPort": item.get("container_port"),
+            "hostPorts": [
+                {
+                    "hostIp": host.get("host_ip"),
+                    "hostPort": host.get("host_port"),
+                }
+                for host in item.get("host_ports") or []
+            ],
+            "protocol": item.get("protocol"),
+        }
+        for item in workloads.get("used_ports") or []
+    ]
 
 
-def app_to_service(app: dict[str, Any]) -> dict[str, Any]:
-    """Create a compact but useful public representation of a TrueNAS app."""
+def app_to_service(app: dict[str, Any], *, internal_host: str | None) -> dict[str, Any]:
+    """Create a compact public representation of one TrueNAS application."""
     workloads = app.get("active_workloads") or {}
     mappings = _port_mappings(workloads)
     published_ports = _host_ports(workloads.get("used_ports") or [])
@@ -66,7 +66,9 @@ def app_to_service(app: dict[str, Any]) -> dict[str, Any]:
             "serviceName": container.get("service_name"),
             "image": container.get("image"),
             "state": container.get("state"),
-            "ports": _port_mappings({"used_ports": container.get("port_config") or []}),
+            "ports": _port_mappings(
+                {"used_ports": container.get("port_config") or []}
+            ),
         }
         for container in workloads.get("container_details") or []
     ]
@@ -75,7 +77,7 @@ def app_to_service(app: dict[str, Any]) -> dict[str, Any]:
         "name": app.get("name", "?"),
         "id": app.get("id"),
         "status": app.get("state", app.get("status")),
-        "internalHost": urlsplit(TRUENAS_URL).hostname,
+        "internalHost": internal_host,
         "internalPort": _primary_port(app, published_ports),
         "hostPorts": published_ports,
         "ports": mappings,
@@ -92,15 +94,19 @@ def app_to_service(app: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def get_truenas_apps_json() -> dict[str, Any]:
-    """Return all installed TrueNAS applications in homelab JSON format."""
+def get_truenas_apps_json(
+    adapter: TrueNASReadOnlyAdapter | None = None,
+) -> dict[str, Any]:
+    """Return installed TrueNAS applications in homelab JSON format."""
+    client = adapter or build_truenas_adapter()
+    if client is None:
+        raise RuntimeError("TrueNAS API credentials are not configured")
+
+    internal_host = client.settings.hostname
     return {
         "version": 2,
-        "services": [app_to_service(app) for app in fetch_truenas_apps_sync()],
+        "services": [
+            app_to_service(app, internal_host=internal_host)
+            for app in client.list_apps()
+        ],
     }
-
-
-@router.get("/internal/truenas-apps", tags=["internal"])
-def truenas_apps_endpoint() -> dict[str, Any]:
-    """Expose the TrueNAS applications list through FastAPI."""
-    return get_truenas_apps_json()
