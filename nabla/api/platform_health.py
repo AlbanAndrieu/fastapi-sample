@@ -11,8 +11,6 @@ import httpx
 _CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4"
 _PFSENSE_STATUS_PATH = "/api/v2/status/system"
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
-_REQUIRED_HOMELAB_KEYS = frozenset({"postgres", "redis", "supabase"})
-_OPTIONAL_PLATFORM_KEYS = frozenset({"albandrieu_truenas", "cloudflare", "pfsense"})
 
 
 def _short_error(exc: BaseException) -> str:
@@ -67,7 +65,9 @@ async def check_cloudflare_tunnels() -> dict[str, Any]:
         for tunnel in tunnels
         if isinstance(tunnel, dict)
     ]
-    unhealthy = [status for status in statuses if status in {"inactive", "degraded", "down"}]
+    unhealthy = [
+        status for status in statuses if status in {"inactive", "degraded", "down"}
+    ]
     healthy = sum(status == "healthy" for status in statuses)
     return {
         "reachable": not unhealthy,
@@ -94,7 +94,9 @@ async def check_pfsense_api() -> dict[str, Any]:
             "probe": "pfsense_rest_api_v2",
         }
 
-    verify_ssl = os.getenv("PFSENSE_API_VERIFY_SSL", "true").strip().lower() in _TRUE_VALUES
+    verify_ssl = (
+        os.getenv("PFSENSE_API_VERIFY_SSL", "true").strip().lower() in _TRUE_VALUES
+    )
     url = f"{base_url}{_PFSENSE_STATUS_PATH}"
     try:
         async with httpx.AsyncClient(
@@ -120,7 +122,9 @@ async def check_pfsense_api() -> dict[str, Any]:
         "http_status": response.status_code,
         "probe": "pfsense_rest_api_v2",
         "url": url,
-        "tls_trusted": True if verify_ssl and url.lower().startswith("https://") else None,
+        "tls_trusted": True
+        if verify_ssl and url.lower().startswith("https://")
+        else None,
     }
     if not healthy:
         result["error"] = f"pfSense API returned HTTP {response.status_code}"
@@ -137,19 +141,3 @@ async def enrich_optional_platform_checks(payload: dict[str, Any]) -> dict[str, 
     checks["cloudflare"] = cloudflare
     checks["pfsense"] = pfsense
     return {**payload, "checks": checks}
-
-
-def select_homelab_health_checks(payload: dict[str, Any]) -> dict[str, Any]:
-    """Select core, required infra, and platform checks for the homelab health API."""
-    checks = payload.get("checks")
-    if not isinstance(checks, dict):
-        return {}
-    selected: dict[str, Any] = {}
-    for key, value in checks.items():
-        if (
-            key in _REQUIRED_HOMELAB_KEYS
-            or key in _OPTIONAL_PLATFORM_KEYS
-            or (key.startswith("albandrieu_") and key != "albandrieu_truenas")
-        ):
-            selected[key] = value
-    return selected
