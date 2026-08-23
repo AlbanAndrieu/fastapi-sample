@@ -1,0 +1,112 @@
+.health-row-name--sickz {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.sickz-lock-wrap {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.sickz-lock-svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+
+.sickz-lock--trusted {
+  color: #00ff88;
+}
+
+.sickz-lock--untrusted {
+  color: #ff4444;
+}
+
+.sickz-lock--unknown {
+  color: #888888;
+}
+
+.sickz-target-link {
+  color: #f0f0f0;
+  text-decoration: underline;
+  text-decoration-color: rgba(240, 240, 240, 0.35);
+}
+
+.sickz-target-link:hover {
+  color: #ffffff;
+  text-decoration-color: rgba(0, 255, 136, 0.55);
+}
+
+.sickz-pfsense-wrap {
+  margin-bottom: 0.85rem;
+}
+
+.sickz-pfsense-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0 0 0.35rem;
+  color: #e5e7eb;
+}
+
+.sickz-pfsense-intro {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+}
+
+.sickz-pfsense-main {
+  margin-bottom: 0.5rem;
+}
+
+.sickz-pfsense-ports-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #666666;
+  margin-bottom: 0.35rem;
+}
+
+.sickz-pfsense-ports {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.sickz-pfsense-port {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  padding: 0.25rem 0.45rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  border: 1px solid #2a2a2a;
+}
+
+.sickz-pfsense-port-num {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.sickz-pfsense-port--open {
+  border-color: rgba(255, 68, 68, 0.5);
+  color: #ff8888;
+  background: rgba(255, 68, 68, 0.08);
+}
+
+.sickz-pfsense-port--closed {
+  border-color: rgba(0, 255, 136, 0.35);
+  color: #66ffc4;
+  background: rgba(0, 255, 136, 0.06);
+}
+
+.sickz-pfsense-port--na {
+  border-color: #3a3a3a;
+  color: #888888;
+  background: #111111;
+}
+
+.sickz-pfsense-host {
+  font-size: 0.85em;
+}
