@@ -31,6 +31,18 @@ jobs:
           IGNORE_GITIGNORED_FILES: true
           SAVE_SUPER_LINTER_SUMMARY: true
           VALIDATE_ALL_CODEBASE: false
+          # An explicit allowlist avoids unrelated repository-wide formatters
+          # when configuration files change, while keeping security checks on.
+          VALIDATE_CHECKOV: true
+          VALIDATE_GITHUB_ACTIONS: true
+          VALIDATE_GITHUB_ACTIONS_ZIZMOR: true
+          VALIDATE_GITLEAKS: true
+          VALIDATE_GIT_MERGE_CONFLICT_MARKERS: true
+          VALIDATE_JSON: true
+          VALIDATE_MARKDOWN: true
+          VALIDATE_PYTHON_RUFF: true
+          VALIDATE_YAML: true
+          VALIDATE_YAML_PRETTIER: true
           VALIDATE_PYTHON_BLACK: false
           VALIDATE_PYTHON_ISORT: false
           # Canonical Python linting and typing use Ruff and the dedicated
@@ -53,8 +65,6 @@ jobs:
           # Never lint Git metadata or tools installed in .git (for example
           # Trivy templates, which otherwise get misdetected as PHP sources).
           FILTER_REGEX_EXCLUDE: >-
-            ((^|/)\.git/|report/|megalinter-reports/|open-webui/|(^|/)uv\.lock$|(^|/)Pipfile\.lock$|(^|/)trivy-sbom\.json$)
+            ((^|/)\.git/|report/|megalinter-reports/|open-webui/|(^|/)README\.md$|(^|/)uv\.lock$|(^|/)Pipfile\.lock$|(^|/)trivy-sbom\.json$)
           JSON_FILTER_REGEX_EXCLUDE: >-
             (^|/)(\.vscode/|\.devcontainer/)
-          MARKDOWN_FILTER_REGEX_EXCLUDE: >-
-            (^|/)README\.md$
