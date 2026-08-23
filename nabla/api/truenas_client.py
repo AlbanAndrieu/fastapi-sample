@@ -103,13 +103,13 @@ class TrueNASReadOnlyAdapter:
             verify_ssl=self._settings.verify_ssl,
         )
 
-    def system_info(self) -> dict[str, Any]:
-        """Return sanitized system metadata after authenticated read-only access."""
+    def system_version(self) -> str:
+        """Return the TrueNAS software version using a minimal read-only method."""
         with self._connect() as client:
             client.login_with_api_key(self._settings.username, self._settings.api_key)
-            result = client.call("system.info")
-        if not isinstance(result, dict):
-            raise RuntimeError("TrueNAS system.info returned an unexpected payload")
+            result = client.call("system.version")
+        if not isinstance(result, str):
+            raise RuntimeError("TrueNAS system.version returned an unexpected payload")
         return result
 
     def list_apps(self) -> list[dict[str, Any]]:
@@ -122,12 +122,12 @@ class TrueNASReadOnlyAdapter:
         return [item for item in result if isinstance(item, dict)]
 
     def health_snapshot(self) -> dict[str, Any]:
-        """Return a small non-secret host/app status view suitable for health APIs."""
+        """Return a small non-secret version/app status view suitable for health APIs."""
         with self._connect() as client:
             client.login_with_api_key(self._settings.username, self._settings.api_key)
-            system = client.call("system.info")
+            version = client.call("system.version")
             apps = client.call("app.query")
-        if not isinstance(system, dict) or not isinstance(apps, list):
+        if not isinstance(version, str) or not isinstance(apps, list):
             raise RuntimeError("TrueNAS API returned an unexpected health payload")
 
         app_rows = [
@@ -141,8 +141,7 @@ class TrueNASReadOnlyAdapter:
         ]
         return {
             "reachable": True,
-            "version": system.get("version"),
-            "hostname": system.get("hostname"),
+            "version": version,
             "apps": app_rows,
         }
 
