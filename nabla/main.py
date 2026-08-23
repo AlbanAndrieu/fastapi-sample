@@ -1,9 +1,7 @@
 import argparse
 import asyncio
 import html
-import logging
 import os
-import time
 import warnings
 from datetime import datetime
 from collections.abc import AsyncIterator
@@ -38,9 +36,6 @@ from prometheus_client.openmetrics.exposition import CONTENT_TYPE_LATEST, genera
 from starlette.responses import Response
 from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic.json_schema import PydanticJsonSchemaWarning
-from sentry_sdk.integrations.logging import LoggingIntegration
-from sentry_sdk.integrations.mcp import MCPIntegration
-from sentry_sdk.integrations.openai import OpenAIIntegration
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -48,6 +43,7 @@ from sqladmin import Admin
 from sqlmodel import select
 from starlette.middleware.cors import CORSMiddleware
 
+from nabla.access_control import operations_access_middleware
 from nabla.api import (
     appwrite_route,
     brave_route,
@@ -85,24 +81,20 @@ from nabla.config_settings import (
     APP_PREFIX_VERSION,
     APP_VERSION,
     OTLP_GRPC_ENDPOINT,
-    SENTRY_DSN,
     UNLEASH_ENABLED,
     client,
     get_settings,
 )
 from nabla.deepagents import workflow as ai_workflow
+from nabla.middleware import logging_middleware, metrics_middleware
 from nabla.utils.log_config import LogMiddleware, setup_logging
 from nabla.utils.logger import logger
 from nabla.utils.prometheus import (
-    INFLIGHT_REQUESTS,
-    REQUESTS,
-    REQUESTS_IN_PROGRESS,
-    REQUESTS_PROCESSING_TIME,
-    RESPONSES,
     PrometheusMiddleware,
     setting_otlp,
     update_system_metrics,
 )
+from nabla.utils.sentry_config import configure_sentry
 
 # FastAPI / FastAPI-Users use Depends() as parameter defaults; OpenAPI generation
 # emits PydanticJsonSchemaWarning (defaults are not JSON-schema-serializable).
@@ -203,7 +195,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     rag_observer = rag_ingest.setup_rag()
 
     """Start background system monitoring"""
-    system_metrics_task = asyncio.create_task(update_system_metrics())
+    system_metrics_task = (
+        asyncio.create_task(update_system_metrics())
+        if get_settings().metrics_enabled
+        else None
+    )
 
     event_listener = asyncio.create_task(start_event_listener())
 
@@ -214,9 +210,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
 
     # Cancel the background task on shutdown
-    system_metrics_task.cancel()
     event_listener.cancel()
-    await asyncio.gather(system_metrics_task, event_listener, return_exceptions=True)
+    background_tasks = [event_listener]
+    if system_metrics_task is not None:
+        system_metrics_task.cancel()
+        background_tasks.append(system_metrics_task)
+    await asyncio.gather(*background_tasks, return_exceptions=True)
     rag_observer.stop()
     await asyncio.to_thread(rag_observer.join, 5)
 
@@ -260,27 +259,24 @@ def _configure_unleash_feature_middleware(app: FastAPI) -> None:
     if UNLEASH_ENABLED and client.is_enabled("logging_requests"):
         app.add_middleware(LogMiddleware)
 
-    if UNLEASH_ENABLED and client.is_enabled("cors"):
-        origins = [
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
             "http://localhost",
             "http://localhost:8080",
             "http://localhost:8091",
             "http://localhost:8001",
-            "https://fastapi-sample.service.gra.dev.consul/",
-            "https://fastapi-sample.service.gra.uat.consul/",
-            "https://fastapi-sample.fastapicloud.dev/",
-        ]
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=origins,
-            allow_credentials=True,
-            allow_methods=["GET", "POST", "PUT"],
-            allow_headers=["*"],
-        )
-    else:
-        logger.warning("Feature flag : cors is not enabled")
+            "https://fastapi-sample.service.gra.dev.consul",
+            "https://fastapi-sample.service.gra.uat.consul",
+            "https://fastapi-sample.fastapicloud.dev",
+            "https://www.albanandrieu.com",
+        ],
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT"],
+        allow_headers=["*"],
+    )
 
-    if UNLEASH_ENABLED and client.is_enabled("logging_metrics"):
+    if get_settings().metrics_enabled and UNLEASH_ENABLED and client.is_enabled("logging_metrics"):
         # Setting metrics middleware
         # PrometheusMiddleware seems not working BUT below metrics_middleware works
         app.add_middleware(
@@ -406,7 +402,7 @@ def initialize_api(app: FastAPI) -> None:
 
     app.add_api_websocket_route("/ws/sensor", websocket_endpoint)
 
-    if not UNLEASH_ENABLED or client.is_enabled("admin_panel"):
+    if api_settings.admin_enabled and (not UNLEASH_ENABLED or client.is_enabled("admin_panel")):
         # Create admin
         admin = Admin(app, engine, title="Example: SQLAlchemy")
 
@@ -487,79 +483,10 @@ if get_settings().a2a_enabled:
         logger.warning("A2A mount skipped (a2a-sdk not installed): %s", exc)
 
 
-@app.middleware("http")
-async def metrics_middleware(request, call_next):
-    """
-    🔧 Automatic metrics collection middleware (Prometheus & Sentry custom metrics)
-    """
-    import sentry_sdk
-
-    start_time = time.time()
-    INFLIGHT_REQUESTS.inc()
-    REQUESTS_IN_PROGRESS.labels(
-        method=request.method,
-        path=request.url.path,
-        app_name=APP_NAME,
-    ).inc()
-    REQUESTS.labels(
-        method=request.method,
-        path=request.url.path,
-        app_name=APP_NAME,
-    ).inc()
-
-    # Sentry: page_load distribution for /docs, gauge for /api
-    response = None
-    try:
-        response = await call_next(request)
-        elapsed_ms = int((time.time() - start_time) * 1000)
-        if request.url.path == "/docs":
-            sentry_sdk.metrics.distribution(
-                "page_load",
-                elapsed_ms,
-                unit="millisecond",
-                attributes={"page": "/docs"},
-            )
-        if request.url.path.startswith("/api"):
-            sentry_sdk.metrics.gauge(
-                "page_load",
-                elapsed_ms,
-                unit="millisecond",
-                attributes={"page": "/api"},
-            )
-        RESPONSES.labels(
-            method=request.method,
-            path=request.url.path,
-            status_code=response.status_code,
-            app_name=APP_NAME,
-        ).inc()
-        REQUESTS_PROCESSING_TIME.labels(
-            method=request.method,
-            path=request.url.path,
-            app_name=APP_NAME,
-        ).observe(time.time() - start_time)
-        return response
-    finally:
-        INFLIGHT_REQUESTS.dec()
-        REQUESTS_IN_PROGRESS.labels(
-            method=request.method,
-            path=request.url.path,
-            app_name=APP_NAME,
-        ).dec()
-
-
-@app.middleware("http")
-async def logging_middleware(request, call_next):
-    start_time = time.time()
-    response = await call_next(request)
-
-    logger.info(
-        "request_completed",
-        method=request.method,
-        url=str(request.url),
-        status_code=response.status_code,
-        duration=time.time() - start_time,
-    )
-    return response
+app.middleware("http")(logging_middleware)
+if get_settings().metrics_enabled:
+    app.middleware("http")(metrics_middleware)
+app.middleware("http")(operations_access_middleware)
 
 
 # See https://docs.datadoghq.com/fr/security/application_security/threats/add-user-info/?tab=python
@@ -576,46 +503,7 @@ set_user(
 )
 
 
-def _sentry_integrations() -> list[Any]:
-    """Sentry integrations that require optional deps are skipped if those deps are missing."""
-    integrations: list[Any] = []
-    for module_name, class_name in (
-        ("sentry_sdk.integrations.litellm", "LiteLLMIntegration"),
-        ("sentry_sdk.integrations.langchain", "LangchainIntegration"),
-        ("sentry_sdk.integrations.langgraph", "LanggraphIntegration"),
-    ):
-        try:
-            module = __import__(module_name, fromlist=[class_name])
-            integrations.append(getattr(module, class_name)())
-        except Exception as exc:
-            logger.debug(
-                "Skipping Sentry integration %s.%s: %s",
-                module_name,
-                class_name,
-                exc,
-            )
-            continue
-    integrations.extend(
-        [
-            OpenAIIntegration(),
-            LoggingIntegration(
-                level=logging.INFO,  # Capture info and above as breadcrumbs
-                event_level=logging.ERROR,  # Send errors as events
-            ),
-            MCPIntegration(),
-        ],
-    )
-    return integrations
-
-
-if SENTRY_DSN:
-    sentry_sdk.init(
-        dsn=SENTRY_DSN,
-        traces_sample_rate=1.0,
-        profiles_sample_rate=1.0,
-        send_default_pii=True,
-        integrations=_sentry_integrations(),
-    )
+configure_sentry()
 
 templates = Jinja2Templates(directory="templates")
 

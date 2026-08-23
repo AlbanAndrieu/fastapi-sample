@@ -927,7 +927,7 @@ async def _probe_sickz_url(url: str) -> dict[str, Any]:
     try:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(5.0),
-            verify=False,  # noqa: S501 — sickz must detect TLS hosts even with invalid certs
+            verify=False,  # noqa: S501 # nosec B501 - sickz detects hosts despite invalid certificates
             follow_redirects=True,
         ) as client:
             response = await client.get(

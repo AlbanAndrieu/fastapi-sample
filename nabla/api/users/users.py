@@ -33,7 +33,7 @@ from nabla.api.auth.jwt_tokens import (
 )
 from nabla.api.db.database import get_db, get_session
 from nabla.api.users.me import WHOAMI_HANDLE, get_me
-from nabla.api.users.models import User, UserIn, UserOut, get_user_db
+from nabla.api.users.models import PublicUserProfile, User, UserIn, UserOut, get_user_db
 from nabla.utils.logger import logger
 from nabla.utils.prometheus import USER_REGISTRATIONS
 
@@ -62,7 +62,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         token: str,
         request: Optional[Request] = None,
     ):
-        print(f"User {user.id} has forgot their password. Reset token: {token}")
+        logger.info("Password reset requested", user_id=str(user.id))
 
     async def on_after_request_verify(
         self,
@@ -70,7 +70,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         token: str,
         request: Optional[Request] = None,
     ):
-        print(f"Verification requested for user {user.id}. Verification token: {token}")
+        logger.info("Account verification requested", user_id=str(user.id))
 
 
 async def get_user_manager(user_db: Annotated[SQLAlchemyUserDatabase, Depends(get_user_db)]):
@@ -116,28 +116,29 @@ def _get_user_details_user_id() -> str | None:
 
 
 @mcp.tool(name="get_user_details")
-def get_user_details(user_id: str | None = McpDepends(_get_user_details_user_id)) -> UserIn:
+def get_user_details(
+    user_id: str | None = McpDepends(_get_user_details_user_id),
+) -> PublicUserProfile:
     # def get_user_details(user_id: str = None) -> dict[str, str]:
     # user_id will be injected by the server, not provided by the LLM
     if user_id is None:
         logger.info("get_user_details", user_id=user_id)
 
-    user = {"id": 1, **get_me()}
-    return user
+    return PublicUserProfile.model_validate(get_me().model_dump())
 
 
 # This endpoint will not be registered as a tool, since it was added after the MCP instance was created
 # Dynamic resource template
 @mcp.resource("users://whoami/profile")
-@router.get("/whoami/", operation_id="whoami", response_model=UserIn)
+@router.get("/whoami/", operation_id="whoami", response_model=PublicUserProfile)
 async def whoami():
     return get_me()
 
 
 # def me()-> dict[str, str]:
-# @router.get("/users/current", response_model=UserIn)
+# @router.get("/users/current", response_model=PublicUserProfile)
 @cache(expire=300)
-@router.get("/users/current", response_model=UserIn, operation_id="me")
+@router.get("/users/current", response_model=PublicUserProfile, operation_id="me")
 async def current_user():
     """
     👤 Retrieve the current user

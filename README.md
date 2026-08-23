@@ -53,14 +53,16 @@ Fastapi sample
 
 ```bash
 direnv allow
-pyenv install 3.12.3
-pyenv local 3.12.3
-python -m pipenv install --dev --ignore-pipfile
-direnv allow
-pre-commit install
+pyenv install 3.13.15
+pyenv local 3.13.15
+uv sync --frozen
+uv run pre-commit install
 
 nvm install lts/iron
 ```
+
+See [the engineering and security roadmap](docs/engineering-roadmap.md) for
+planned refactoring, staged endpoint protection and future pull requests.
 
 ## [Requirements](#table-of-contents)
 
@@ -76,7 +78,7 @@ This pre-commit hooks requires the following to run:
 
 ### Using virtualenv
 
-Install python 3.12 and pyenv
+Install Python 3.13 and pyenv.
 
 ```bash
 curl -L https://pyenv.run | bash
@@ -85,29 +87,13 @@ echo 'eval "$(pyenv init -)"' >> ~/.bashrc
 echo 'eval "$(pyenv virtualenv-init -)"' >> ~/.bashrc
 source ~/.bashrc
 
-pyenv install 3.12.3
+pyenv install 3.13.15
 ```
 
 and [integrate](https://stackabuse.com/managing-python-environments-with-direnv-and-pyenv/) it with direnv
 
 ```bash
-# pip3.10 install -r hooks/requirements.txt -r requirements.testing.txt
-pipenv check
-python -m pipenv install --dev
-python -m pipenv install --dev --ignore-pipfile
-```
-
-use [poetry](https://python-poetry.org/docs/cli/)
-
-```bash
-poetry config http-basic.gitlab-ds package_read ${CI_PIP_GITLABNABLA_TOKEN}
-# export POETRY_GITLAB_TOKEN_GITLAB=${GITLAB_FULL_PRIVATE_TOKEN}
-
-poetry install --with format,test,extra,open_telemetry,api,deployment,influxdb,panda,temporal,utils,webui
-poetry install --no-dev # --dev-only
-poetry install --extras "mysql pgsql"
-#poetry install -E mysql -E pgsql
-poetry install --all-extras
+uv sync --frozen
 ```
 
 ### Using uv (recommended)
@@ -117,7 +103,7 @@ Install dependencies from the lockfile into `.venv`, then run CLI tools through 
 ```bash
 uv sync
 # optional: uv sync --frozen  # strict lockfile
-uv run fastapi dev --port 8091
+uv run fastapi dev server_app.py --port 8080
 ```
 
 ```bash

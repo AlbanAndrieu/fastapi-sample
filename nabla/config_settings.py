@@ -451,6 +451,14 @@ class _Settings(BaseSettings):
             validation_alias=AliasChoices("MCP_OPS_KEY"),
         ),
     ]
+    mcp_ops_require_key: bool = Field(default=False, validation_alias=AliasChoices("MCP_OPS_REQUIRE_KEY"))
+    admin_enabled: bool = Field(default=True, validation_alias=AliasChoices("ADMIN_ENABLED"))
+    admin_access_key: Annotated[Optional[SecretStr], BeforeValidator(_unset_empty_env)] = Field(
+        default=None, validation_alias=AliasChoices("ADMIN_ACCESS_KEY")
+    )
+    diagnostics_access_key: Annotated[Optional[SecretStr], BeforeValidator(_unset_empty_env)] = Field(
+        default=None, validation_alias=AliasChoices("DIAGNOSTICS_ACCESS_KEY")
+    )
 
     appwrite_endpoint: Annotated[
         Optional[str],

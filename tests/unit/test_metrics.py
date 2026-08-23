@@ -3,9 +3,11 @@
 import sys
 
 import pytest
+from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
 from nabla.main import app
+from nabla.middleware import metric_route_label
 
 pytestmark = pytest.mark.integration
 
@@ -40,6 +42,43 @@ def test_metrics_inflight_requests_gauge(test_app):
     response = test_app.get("/metrics")
     assert response.status_code == 200
     assert "fastapi_inflight_requests" in response.text
+
+
+def test_metric_route_label_uses_stable_path_template() -> None:
+    mini = FastAPI()
+
+    @mini.get("/users/{user_id}")
+    def get_user(user_id: str) -> dict[str, str]:
+        return {"user_id": user_id}
+
+    request = Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/users/12345",
+            "headers": [],
+            "query_string": b"",
+            "app": mini,
+        }
+    )
+
+    assert metric_route_label(request) == "/users/{user_id}"
+
+
+def test_metric_route_label_groups_unknown_paths() -> None:
+    mini = FastAPI()
+    request = Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/random/unique-value",
+            "headers": [],
+            "query_string": b"",
+            "app": mini,
+        }
+    )
+
+    assert metric_route_label(request) == "__unmatched__"
 
 
 @pytest.mark.skip(reason="Skipping this test for now")

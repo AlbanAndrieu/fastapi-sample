@@ -67,6 +67,12 @@ jobs:
       - name: Install project dependencies
         run: uv sync --frozen
 
+      - name: Enforce Python module size limits
+        run: uv run python scripts/check_code_size.py --baseline-ref origin/main nabla tests
+
+      - name: Block high-confidence, high-severity Bandit findings
+        run: uv run bandit -r nabla server_app.py --severity-level high --confidence-level high
+
       - name: Run tests
         run: uv run pytest --junit-xml=junit.xml
 

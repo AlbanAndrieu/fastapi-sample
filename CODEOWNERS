@@ -1,22 +1,10 @@
-[Infrastructure]
-*.gemspec @2453982
+# Default ownership until repository teams and branch protection are introduced.
+* @AlbanAndrieu
 
-Dockerfile @2453982
-*.sh @2453982
-nabla/ @2453982
-
-# This line would match the file terms.md
-*.md @doc-team
-
-# This line would also match the file terms.md
-terms.md @legal-team
-
-[Documentation] @docs-team
-docs/
-README.md
-
-# All group members as Code Owners for a file
-.gitlab-ci.yml @cloud-team
-
-[Python]
-*.py @dev-team
+# Keep operational and release changes explicitly reviewable.
+/.github/ @AlbanAndrieu
+/nabla/ @AlbanAndrieu
+/docs/ @AlbanAndrieu
+/Dockerfile @AlbanAndrieu
+/docker-compose.yml @AlbanAndrieu
+/docker-compose.yaml @AlbanAndrieu

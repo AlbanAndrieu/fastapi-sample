@@ -34,11 +34,11 @@ from nabla.utils.logger import logger
 
 DISPLAY_NAME = "Alban Andrieu"
 EMAIL = os.environ.get("MAIL_FROM", "alban.andrieu@albandrieu.com")
-PHONE = "+33 (0) 6 95 43 53 53"
-ADDRESS = "11 terrasse de l'université"
+PHONE = os.environ.get("PUBLIC_PROFILE_PHONE", "")
+ADDRESS = os.environ.get("PUBLIC_PROFILE_LOCATION", "Paris, France")
 CITY = "Paris"
 STATE = "FR"
-ZIPCODE = "92000"
+ZIPCODE = os.environ.get("PUBLIC_PROFILE_ZIPCODE", "")
 COUNTRY = "France"
 
 # Application / database user id; same value as ``UserIn.user_id`` from :func:`get_me`.

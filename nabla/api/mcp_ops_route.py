@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from secrets import compare_digest
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Header, HTTPException
@@ -15,10 +16,16 @@ router = APIRouter(prefix="/v1/mcp/ops")
 
 
 def _require_ops_key(x_mcp_ops_key: str | None) -> None:
-    expected = get_settings().mcp_ops_key
+    settings = get_settings()
+    expected = settings.mcp_ops_key
     if expected is None:
+        if getattr(settings, "mcp_ops_require_key", False):
+            raise HTTPException(status_code=503, detail="MCP operations access key is not configured")
         return
-    if not x_mcp_ops_key or x_mcp_ops_key.strip() != expected.get_secret_value():
+    if not x_mcp_ops_key or not compare_digest(
+        x_mcp_ops_key.strip(),
+        expected.get_secret_value(),
+    ):
         raise HTTPException(status_code=403, detail="Missing or invalid X-MCP-Ops-Key")
 
 

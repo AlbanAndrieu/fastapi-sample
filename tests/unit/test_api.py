@@ -32,6 +32,27 @@ def test_pong_v1(test_app) -> None:
     assert response.json() == expected_response
 
 
+def test_api_landing_page(test_app) -> None:
+    response = test_app.get("/api")
+
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+
+
+def test_trusted_public_site_cors_works_without_unleash(test_app) -> None:
+    origin = "https://www.albanandrieu.com"
+    response = test_app.options(
+        "/api/homelab-services",
+        headers={
+            "Origin": origin,
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == origin
+
+
 def test_ping_v1(test_app) -> None:
     """It runs and gives correct response from ping."""
 

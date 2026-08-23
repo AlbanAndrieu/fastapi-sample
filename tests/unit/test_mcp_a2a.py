@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 from pydantic import SecretStr
 
@@ -50,3 +51,25 @@ async def test_mcp_ops_requires_key_when_configured(monkeypatch: pytest.MonkeyPa
     assert r.status_code == 403
     assert r2.status_code == 200
     assert "servers" in r2.json()
+
+
+def test_mcp_ops_remains_available_without_optional_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = SimpleNamespace(mcp_ops_key=None, mcp_ops_require_key=False, mcp_clients=[])
+    monkeypatch.setattr("nabla.api.mcp_ops_route.get_settings", lambda: fake)
+    mini = FastAPI()
+    mini.include_router(mcp_ops_route.router)
+
+    assert TestClient(mini).get("/v1/mcp/ops/servers").status_code == 200
+
+
+def test_mcp_ops_can_explicitly_require_a_configured_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = SimpleNamespace(mcp_ops_key=None, mcp_ops_require_key=True, mcp_clients=[])
+    monkeypatch.setattr("nabla.api.mcp_ops_route.get_settings", lambda: fake)
+    mini = FastAPI()
+    mini.include_router(mcp_ops_route.router)
+
+    assert TestClient(mini).get("/v1/mcp/ops/servers").status_code == 503

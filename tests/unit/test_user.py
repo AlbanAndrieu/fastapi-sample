@@ -27,12 +27,12 @@ def test_user_current(test_app) -> None:
     assert response.status_code == expected_status
     result = response.json()
     assert result["name"] == "Alban Andrieu"
-    assert result["password"] == "XXX"  # noqa: S105
-    assert result["phone"] == "+33 (0) 6 95 43 53 53"
-    assert result["address"] == "11 terrasse de l'université"
+    assert "password" not in result
+    assert result["phone"] == ""
+    assert result["address"] == "Paris, France"
     assert result["city"] == "Paris"
     assert result["state"] == "FR"
-    assert result["zipcode"] == "92000"
+    assert result["zipcode"] == ""
     assert result["country"] == "France"
     assert result["email"].startswith("alban.andrieu@")
 
@@ -48,6 +48,14 @@ def test_users(test_app) -> None:
     # then
     assert response.status_code == expected_status
     assert response.json() == {"detail": [{"type": "missing", "loc": ["query", "current_user"], "msg": "Field required", "input": None}]}
+
+
+def test_whoami_never_returns_password(test_app) -> None:
+    """Public identity resources must not serialize account credentials."""
+    response = test_app.get("/test/whoami/")
+
+    assert response.status_code == 200
+    assert "password" not in response.json()
 
 
 def test_user_me(test_app) -> None:
