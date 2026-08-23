@@ -5,6 +5,17 @@ from unittest.mock import MagicMock
 from nabla.api import platform_health
 
 
+def test_logfire_check_is_skipped_when_not_configured(monkeypatch) -> None:
+    monkeypatch.delenv("LOGFIRE_ENABLED", raising=False)
+    monkeypatch.delenv("LOGFIRE_ENABLE", raising=False)
+    monkeypatch.delenv("LOGFIRE_TOKEN", raising=False)
+
+    result = platform_health.check_logfire_connectivity()
+
+    assert result["skipped"] is True
+    assert result["reachable"] is None
+
+
 def test_logfire_check_is_skipped_when_disabled(monkeypatch) -> None:
     monkeypatch.setenv("LOGFIRE_ENABLED", "false")
     monkeypatch.setenv("LOGFIRE_TOKEN", "unused")
@@ -39,7 +50,11 @@ def test_logfire_check_verifies_tls_ingestion_connectivity(monkeypatch) -> None:
 
     create_connection = MagicMock(return_value=raw_socket)
     monkeypatch.setattr(platform_health.socket, "create_connection", create_connection)
-    monkeypatch.setattr(platform_health.ssl, "create_default_context", MagicMock(return_value=context))
+    monkeypatch.setattr(
+        platform_health.ssl,
+        "create_default_context",
+        MagicMock(return_value=context),
+    )
 
     result = platform_health.check_logfire_connectivity()
 
