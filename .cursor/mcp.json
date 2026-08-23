@@ -75,6 +75,15 @@
       },
       "gallery": "https://api.mcp.github.com",
       "version": "0.29.0"
+    },
+    "truenas-readonly": {
+      "type": "stdio",
+      "command": "truenas-mcp",
+      "env": {
+        "TRUENAS_URL": "${env:TRUENAS_URL}",
+        "TRUENAS_API_KEY": "${env:TRUENAS_MCP_API_KEY}",
+        "TRUENAS_MCP_DEBUG": "0"
+      }
     }
   }
 }
