@@ -23,6 +23,8 @@ _INTERNAL_PROBE_ENV = "HOMELAB_INTERNAL_PROBES_ENABLED"
 _TRUENAS_PUBLIC_URL = "https://truenas.albandrieu.com:7000/"
 _TRUENAS_INTERNAL_HOST_ENV = "TRUENAS_INTERNAL_HOST"
 _TRUENAS_INTERNAL_PORT_ENV = "TRUENAS_INTERNAL_PORT"
+_TRUENAS_INTERNAL_HOST_DEFAULT = "172.17.0.24"
+_TRUENAS_INTERNAL_PORT_DEFAULT = 443
 
 _cache_lock = asyncio.Lock()
 _cached_at = 0.0
@@ -157,30 +159,22 @@ async def _probe_internal_service(
     return result
 
 
-def _truenas_internal_target(services: list[HomelabService]) -> tuple[str, int] | None:
-    """Resolve the TrueNAS LAN target from explicit config or the known .24 host."""
-    configured_host = os.getenv(_TRUENAS_INTERNAL_HOST_ENV, "").strip()
-    if configured_host:
-        host = configured_host
-    else:
-        host = next(
-            (
-                service.internal_host
-                for service in services
-                if service.internal_host and service.internal_host.endswith(".24")
-            ),
-            None,
-        )
-    if not host:
-        return None
-
-    raw_port = os.getenv(_TRUENAS_INTERNAL_PORT_ENV, "443").strip()
+def _truenas_internal_target() -> tuple[str, int]:
+    """Resolve the TrueNAS LAN target, defaulting to the Docker bridge endpoint."""
+    host = (
+        os.getenv(_TRUENAS_INTERNAL_HOST_ENV, _TRUENAS_INTERNAL_HOST_DEFAULT).strip()
+        or _TRUENAS_INTERNAL_HOST_DEFAULT
+    )
+    raw_port = os.getenv(
+        _TRUENAS_INTERNAL_PORT_ENV,
+        str(_TRUENAS_INTERNAL_PORT_DEFAULT),
+    ).strip()
     try:
         port = int(raw_port)
     except ValueError:
-        port = 443
+        port = _TRUENAS_INTERNAL_PORT_DEFAULT
     if not 1 <= port <= 65535:
-        port = 443
+        port = _TRUENAS_INTERNAL_PORT_DEFAULT
     return host, port
 
 
@@ -205,7 +199,6 @@ def _truenas_state(
 async def _probe_truenas(
     client: httpx.AsyncClient,
     semaphore: asyncio.Semaphore,
-    services: list[HomelabService],
     *,
     internal_enabled: bool,
 ) -> dict[str, Any]:
@@ -218,9 +211,8 @@ async def _probe_truenas(
     public_result = await _probe_public_service(client, semaphore, public_service)
 
     internal_result: dict[str, Any] | None = None
-    target = _truenas_internal_target(services) if internal_enabled else None
-    if target is not None:
-        host, port = target
+    if internal_enabled:
+        host, port = _truenas_internal_target()
         internal_result = await _probe_internal_service(
             semaphore,
             HomelabService(
@@ -301,7 +293,6 @@ async def build_homelab_health_payload() -> dict[str, Any]:
                 _probe_truenas(
                     client,
                     semaphore,
-                    catalog_services,
                     internal_enabled=internal_enabled,
                 ),
             )
