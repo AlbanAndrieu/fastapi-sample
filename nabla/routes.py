@@ -1,9 +1,12 @@
 """Application route registration and handlers."""
+
 import html
 import os
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -11,7 +14,6 @@ from sqlmodel import select
 from starlette.routing import Mount
 
 from nabla.api.db.database import SessionLocal
-from nabla.api.health_board import prioritize_optional_truenas
 from nabla.api.health_routes import register_health_routes
 from nabla.api.notes.models import Note
 from nabla.utils.logger import logger
@@ -19,6 +21,7 @@ from nabla.utils.logger import logger
 
 templates = Jinja2Templates(directory="templates")
 limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
+_API_ASSETS_DIR = Path(__file__).resolve().parent / "api" / "assets"
 
 
 def _move_root_mounts_last(app: FastAPI) -> None:
@@ -35,6 +38,11 @@ def _move_root_mounts_last(app: FastAPI) -> None:
 
 def register_routes(app: FastAPI) -> None:
     """Register all application routes."""
+    app.mount(
+        "/api/assets",
+        StaticFiles(directory=_API_ASSETS_DIR),
+        name="api-assets",
+    )
 
     @app.get("/", response_class=HTMLResponse)
     @limiter.limit("100/second")
@@ -76,11 +84,10 @@ def register_routes(app: FastAPI) -> None:
     def read_root(request: Request):
         from nabla.api.ui import render_api_root_page
 
-        page = render_api_root_page(
+        return render_api_root_page(
             title_suffix=os.getenv("TITLE_SUFFIX"),
             app_version=html.escape(str(request.app.version)),
         )
-        return prioritize_optional_truenas(page)
 
     register_health_routes(app)
 
