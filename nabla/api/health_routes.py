@@ -85,7 +85,7 @@ def register_health_routes(app: FastAPI) -> None:
     )
     async def get_sickz(request: Request):
         """Return JSON: URL groups must not be reachable."""
-        from nabla.api.health_checks import build_sickz_payload
+        from nabla.api.sickz_checks import build_sickz_payload
 
         with pyroscope.tag_wrapper({"function": "fast"}):
             return await build_sickz_payload(request)
