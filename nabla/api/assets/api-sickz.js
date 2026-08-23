@@ -5,7 +5,7 @@ import {
   shortHostForDetail,
   sickzRowIcon,
   tunnelHref,
-} from "./api-health-core.js";
+} from "./api-health-ui.js";
 
 function reachableHttpStatuses(check) {
   if (check.alias_results && check.aliases_probed) {
