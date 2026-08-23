@@ -5,6 +5,9 @@ on:
   push:
     branches:
       - recovery/pr-63-66-68-70
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
