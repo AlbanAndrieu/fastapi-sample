@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock
 
-from nabla.api import platform_health
+from nabla.api import observability_health
 
 
 def test_logfire_check_is_skipped_when_not_configured(monkeypatch) -> None:
@@ -10,7 +10,7 @@ def test_logfire_check_is_skipped_when_not_configured(monkeypatch) -> None:
     monkeypatch.delenv("LOGFIRE_ENABLE", raising=False)
     monkeypatch.delenv("LOGFIRE_TOKEN", raising=False)
 
-    result = platform_health.check_logfire_connectivity()
+    result = observability_health.check_logfire_connectivity()
 
     assert result["skipped"] is True
     assert result["reachable"] is None
@@ -20,7 +20,7 @@ def test_logfire_check_is_skipped_when_disabled(monkeypatch) -> None:
     monkeypatch.setenv("LOGFIRE_ENABLED", "false")
     monkeypatch.setenv("LOGFIRE_TOKEN", "unused")
 
-    result = platform_health.check_logfire_connectivity()
+    result = observability_health.check_logfire_connectivity()
 
     assert result["skipped"] is True
     assert result["reachable"] is None
@@ -30,7 +30,7 @@ def test_logfire_check_fails_when_enabled_without_token(monkeypatch) -> None:
     monkeypatch.setenv("LOGFIRE_ENABLED", "true")
     monkeypatch.delenv("LOGFIRE_TOKEN", raising=False)
 
-    result = platform_health.check_logfire_connectivity()
+    result = observability_health.check_logfire_connectivity()
 
     assert result["reachable"] is False
     assert "LOGFIRE_TOKEN" in result["error"]
@@ -49,14 +49,18 @@ def test_logfire_check_verifies_tls_ingestion_connectivity(monkeypatch) -> None:
     context.wrap_socket.return_value = tls_socket
 
     create_connection = MagicMock(return_value=raw_socket)
-    monkeypatch.setattr(platform_health.socket, "create_connection", create_connection)
     monkeypatch.setattr(
-        platform_health.ssl,
+        observability_health.socket,
+        "create_connection",
+        create_connection,
+    )
+    monkeypatch.setattr(
+        observability_health.ssl,
         "create_default_context",
         MagicMock(return_value=context),
     )
 
-    result = platform_health.check_logfire_connectivity()
+    result = observability_health.check_logfire_connectivity()
 
     create_connection.assert_called_once_with(("logfire.example", 443), timeout=3.0)
     context.wrap_socket.assert_called_once_with(raw_socket, server_hostname="logfire.example")
