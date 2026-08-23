@@ -9,7 +9,7 @@ FROM node:${NODE_FULL_VERSION}-bookworm-slim AS node-upstream
 # hadolint ignore=DL3007
 FROM python:3.12-slim AS python-base
 
-LABEL name="fastapi-sample" vendor="sample" version="1.2.0" \
+LABEL name="fastapi-sample" vendor="sample" version="1.4.1" \
  description="Image used by our products to build python\
  this image is running on Python 3.12."
 

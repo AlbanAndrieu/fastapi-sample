@@ -16,6 +16,12 @@ plugins:
             - ^version *= *"\d+\.\d+\.\d+"
           to: 'version = "${nextRelease.version}"'
           countMatches: true
+        - files:
+            - package.json
+          from:
+            - '"version": "[0-9]+\.[0-9]+\.[0-9]+"'
+          to: '"version": "${nextRelease.version}"'
+          countMatches: true
   # git commit/push modified files
   - - "@semantic-release/git"
     - assets:
@@ -26,5 +32,4 @@ plugins:
       message: "chore(release): ${nextRelease.version} [skip ci on prod]"
 branches:
   - main
-  # - master
 tagFormat: "${version}"
