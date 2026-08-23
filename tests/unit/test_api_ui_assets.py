@@ -36,13 +36,16 @@ def test_api_page_serves_external_assets() -> None:
 def test_health_board_platform_order_is_asset_contract() -> None:
     script = (_ASSET_DIR / "api-health.js").read_text(encoding="utf-8")
 
+    priority_start = script.index("const first = [")
+    priority_end = script.index("];", priority_start)
+    priority = script[priority_start:priority_end]
     order = [
-        script.index('"albandrieu_truenas"'),
-        script.index('"cloudflare"'),
-        script.index('"pfsense"'),
-        script.index('"litellm"'),
-        script.index('"sentry"'),
-        script.index('"logfire"'),
+        priority.index('"albandrieu_truenas"'),
+        priority.index('"cloudflare"'),
+        priority.index('"pfsense"'),
+        priority.index('"litellm"'),
+        priority.index('"sentry"'),
+        priority.index('"logfire"'),
     ]
     assert order == sorted(order)
 
