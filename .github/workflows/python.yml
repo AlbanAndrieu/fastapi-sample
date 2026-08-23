@@ -2,116 +2,102 @@
 name: Python package
 
 on:
-  # Trigger analysis when pushing in master or pull requests, and when creating
-  # a pull request.
   push:
-    branches:
-      - master
+    branches: [main]
   pull_request:
+    branches: [main]
     types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: python-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
-    if: github.actor != 'dependabot[bot]' && github.actor!= 'dependabot-preview[bot]' # ignore the pull request which comes from user dependabot.
+    name: Test and build Python package
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.11", "3.12"]
     env:
-      JIRA_USER: aandrieu
-      JIRA_PASSWORD: XXX
+      PYTHON_VERSION: "3.13"
+      TRUNK_API_TOKEN: ${{ secrets.TRUNK_API_TOKEN }}
+      KEYCLOAK_SERVER_URL: http://localhost:8080
+      KEYCLOAK_REALM: test
+      KEYCLOAK_CLIENT_ID: test
+      KEYCLOAK_CLIENT_SECRET: test-secret
+      OAUTH_TOKEN_SECRET: mocked-oauth-token-secret
+      METRICS_ENABLED: "false"
+      LOGFIRE_ENABLED: "false"
+      LOGFIRE_ENVIRONMENT: test
+      LOGFIRE_TOKEN: ""
+      SENTRY_ENABLED: "false"
+      SENTRY_DSN: ""
+      SENTRY_ENVIRONMENT: test
+      SENTRY_RELEASE: ci-${{ github.sha }}
+      DATADOG_ENABLED: "false"
+      DD_TRACE_ENABLED: "false"
+      DD_PROFILING_ENABLED: "false"
+      DD_LOGS_INJECTION: "false"
+      DD_APPSEC_ENABLED: "false"
+      DD_IAST_ENABLED: "false"
+      UNLEASH_ENABLED: "false"
+      STATSIG_ENABLED: "false"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          # Disabling shallow clone is recommended for improving relevancy of reporting
           fetch-depth: 0
+          persist-credentials: false
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install pip dependencies
-        run: |
-          pip install virtualenv
-          virtualenv venv
-          source venv/bin/activate
-          python -m pip install --upgrade pip
-          python -m pip install flake8 pytest pytest-env tox tox-gh-actions poetry==2.1.3
-          echo "pip install basic DONE"
-          if [[ -f requirements.txt && -f requirements.testing.txt ]]; then pip install -r requirements.txt -r requirements.testing.txt; fi
-          echo "pip install DONE"
-
-      - name: Install poetry dependencies
-        run: |
-          source venv/bin/activate
-          poetry --version
-          poetry lock
-          echo "poetry lock DONE"
-          poetry install
-          echo "poetry install DONE"
-
-      # - name: Install pipenv dependencies
-      #   run: |
-      #     pip install virtualenv
-      #     virtualenv venv
-      #     source venv/bin/activate
-      #     python -m pip install --upgrade pip
-      #     python -m pip install pipenv=="2022.6.7"
-      #     python -m pipenv install --dev --ignore-pipfile
-
-      - name: Lint with flake8
-        run: |
-          source venv/bin/activate
-          # stop the build if there are Python syntax errors or undefined names
-          #flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-          flake8 hooks tests  --config .flake8 --count --exit-zero --max-line-length=88 --max-complexity=12 --statistics
-          # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide, but black 88
-          flake8 hooks tests --count --exit-zero --max-line-length=88 --max-complexity=12 --statistics
-
-      - name: Lint with pylint
-        run: |
-          source venv/bin/activate
-          ./scripts/run-pylint.sh
-
-      - name: Lint with bandit
-        run: |
-          source venv/bin/activate
-          ./scripts/run-bandit.sh
-
-      - name: Test with pytest
-        run: |
-          source venv/bin/activate
-          # install package is needed for tests/test_package.py
-          python3 setup.py install
-          echo "setup.py install DONE"
-          pytest --cache-clear --setup-show tests/test_package.py
-          python -m pytest --cov=hooks --cov-fail-under=30 --junit-xml=junit.xml -o junit_family=xunit1
-
-      - name: Test with tox
-        run: |
-          source venv/bin/activate
-          tox
-
-      - name: Upload Test Results to Trunk.io
-        if: ${{ !cancelled() }} # Upload the results even if the tests fail
-        continue-on-error: true # don't fail this job if the upload fails
-        uses: trunk-io/analytics-uploader@v1
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
-          junit-paths: "**/*.xml"
+          enable-cache: true
+          python-version: ${{ env.PYTHON_VERSION }}
+          version: "0.12.1"
+
+      - name: Validate lock file
+        run: uv lock --check
+
+      - name: Install project dependencies
+        run: uv sync --frozen
+
+      - name: Run tests
+        run: uv run pytest --junit-xml=junit.xml
+
+      - name: Build package
+        run: uv build
+
+      - name: Upload test results to Trunk.io
+        if: ${{ !cancelled() && env.TRUNK_API_TOKEN != '' }}
+        continue-on-error: true
+        uses: trunk-io/analytics-uploader@0e6c416c9d47c105654657984e5e4f0506dd84aa # v1
+        with:
+          junit-paths: "**/junit.xml"
           org-slug: alban
-          token: $TRUNK_API_TOKEN
+          token: ${{ env.TRUNK_API_TOKEN }}
 
   sonarcloud:
+    name: Scan with SonarCloud
+    needs: build
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          # Disabling shallow clone is recommended for improving relevancy of reporting
           fetch-depth: 0
+          persist-credentials: false
+
       - name: SonarCloud Scan
-        # You may pin to the exact commit or the version.
-        uses: SonarSource/sonarqube-scan-action@v6.0.0
+        if: env.SONAR_TOKEN != ''
+        uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602 # v6.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
