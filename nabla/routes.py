@@ -40,6 +40,15 @@ def _move_root_mounts_last(app: FastAPI) -> None:
 def register_routes(app: FastAPI) -> None:
     """Register all application routes."""
 
+    async def _build_extended_healthz(request: Request) -> dict:
+        from nabla.api.db.database import engine
+        from nabla.api.demo.socket.redis import redis
+        from nabla.api.health_checks import build_healthz_payload
+        from nabla.api.platform_health import enrich_optional_platform_checks
+
+        payload = await build_healthz_payload(request, redis_client=redis, engine=engine)
+        return await enrich_optional_platform_checks(payload)
+
     @app.get("/", response_class=HTMLResponse)
     @limiter.limit("100/second")
     def dashboard(request: Request):
@@ -103,13 +112,21 @@ def register_routes(app: FastAPI) -> None:
         "/api/homelab/health",
         response_class=ORJSONResponse,
         tags=["Homelab", "Health"],
-        summary="Public homelab endpoint health",
+        summary="Homelab and platform health",
     )
-    async def get_homelab_health():
-        """Return a cached health snapshot for explicitly public homelab URLs."""
+    async def get_homelab_health(request: Request):
+        """Return homelab endpoint health plus core and platform dependency checks."""
         from nabla.api.homelab_health import build_homelab_health_payload
+        from nabla.api.platform_health import select_homelab_health_checks
 
-        return await build_homelab_health_payload()
+        homelab_payload, healthz_payload = await __import__("asyncio").gather(
+            build_homelab_health_payload(),
+            _build_extended_healthz(request),
+        )
+        return {
+            **homelab_payload,
+            "checks": select_homelab_health_checks(healthz_payload),
+        }
 
     @app.get(
         "/healthz",
@@ -118,15 +135,9 @@ def register_routes(app: FastAPI) -> None:
         summary="Deep healthcheck",
     )
     async def get_healthz(request: Request):
-        """Return JSON: GET /health payload merged with Redis, Postgres, etc."""
-        from nabla.api.db.database import engine
-        from nabla.api.demo.socket.redis import redis
-        from nabla.api.health_checks import build_healthz_payload
-
+        """Return JSON: GET /health payload merged with core and optional platform checks."""
         with pyroscope.tag_wrapper({"function": "fast"}):
-            return await build_healthz_payload(
-                request, redis_client=redis, engine=engine
-            )
+            return await _build_extended_healthz(request)
 
     @app.get(
         "/sickz",
