@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 import socket
 import ssl
@@ -78,3 +79,13 @@ def check_logfire_connectivity() -> dict[str, Any]:
         "tls_trusted": True,
         "token_present": True,
     }
+
+
+async def enrich_optional_observability_checks(
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    """Add optional observability checks without changing required health semantics."""
+    logfire = await asyncio.to_thread(check_logfire_connectivity)
+    checks = dict(payload.get("checks") or {})
+    checks["logfire"] = logfire
+    return {**payload, "checks": checks}
