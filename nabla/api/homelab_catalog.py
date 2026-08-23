@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Sequence
 import logging
-import re
 import time
 from typing import Any
 from urllib.parse import urljoin
@@ -81,11 +80,9 @@ async def fetch_homelab_services_raw() -> list[dict[str, Any]]:
     ]
 
 
-def _healthz_check_key(service_name: str, index: int) -> str:
-    slug = re.sub(r"[^a-z0-9]+", "_", service_name.lower()).strip("_")
-    if not slug:
-        slug = f"svc_{index}"
-    return f"albandrieu_{slug}"
+def _healthz_check_key(service_id: str) -> str:
+    """Build the legacy-prefixed health key from the stable service ID."""
+    return f"albandrieu_{service_id.replace('-', '_')}"
 
 
 async def homelab_healthz_probe_rows() -> list[tuple[str, str, str, str | None]]:
@@ -95,12 +92,11 @@ async def homelab_healthz_probe_rows() -> list[tuple[str, str, str, str | None]]
         ("albandrieu_truenas", TRUENAS_PUBLIC_HEALTH_URL, "TrueNAS", None)
     ]
     used_keys: set[str] = {"albandrieu_truenas"}
-    for index, service in enumerate(services):
+    for service in services:
         url = service.public_https_probe_url
         if url is None or url == TRUENAS_PUBLIC_HEALTH_URL:
             continue
-        name = service.name or f"service_{index}"
-        key = _healthz_check_key(name, index)
+        key = _healthz_check_key(service.service_id)
         base = key
         suffix = 2
         while key in used_keys:
@@ -108,7 +104,7 @@ async def homelab_healthz_probe_rows() -> list[tuple[str, str, str, str | None]]
             suffix += 1
         used_keys.add(key)
         icon_abs = _homelab_resolved_icon_abs(service.icon_src or "")
-        rows.append((key, url, name, icon_abs))
+        rows.append((key, url, service.name, icon_abs))
     return rows
 
 
