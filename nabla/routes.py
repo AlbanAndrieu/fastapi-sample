@@ -147,7 +147,7 @@ def register_routes(app: FastAPI) -> None:
     )
     async def get_homelab_health():
         """Return detailed homelab services plus shared core/platform components."""
-        from nabla.api.component_health import build_component_checks
+        from nabla.api.component_health import build_component_checks, component_status
         from nabla.api.db.database import engine
         from nabla.api.demo.socket.redis import redis
         from nabla.api.homelab_health import build_homelab_health_payload
@@ -156,7 +156,9 @@ def register_routes(app: FastAPI) -> None:
             build_homelab_health_payload(),
             build_component_checks(redis_client=redis, engine=engine),
         )
-        return {**homelab_payload, "components": components}
+        homelab_payload["components_status"] = component_status(components)
+        homelab_payload["components"] = components
+        return homelab_payload
 
     @app.get(
         "/healthz",
