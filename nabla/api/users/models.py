@@ -25,13 +25,8 @@ async def init_db():
     Base.metadata.create_all(engine)
 
 
-class UserIn(BaseModel):
-    # model_config = ConfigDict(
-    #     str_max_length=120,      # hard caps avoid pathological inputs
-    #     extra="ignore",          # drop unknown fields instead of raising
-    #     revalidate_instances="never",  # don't re-check already-validated data
-    #     ser_json_inf_nan=False   # stricter but faster JSON
-    # )
+class PublicUserProfile(BaseModel):
+    """Public identity fields that can be returned without exposing credentials."""
 
     user_id: str = Field(
         default="albandrieu",
@@ -41,7 +36,6 @@ class UserIn(BaseModel):
     )
     name: str = Field(min_length=1)
     email: str
-    password: str
     phone: str
     address: str
     city: str
@@ -49,17 +43,28 @@ class UserIn(BaseModel):
     zipcode: str
     country: str
 
+
+class UserIn(PublicUserProfile):
+    # model_config = ConfigDict(
+    #     str_max_length=120,      # hard caps avoid pathological inputs
+    #     extra="ignore",          # drop unknown fields instead of raising
+    #     revalidate_instances="never",  # don't re-check already-validated data
+    #     ser_json_inf_nan=False   # stricter but faster JSON
+    # )
+
+    password: str
+
     def __init__(
         self,
         user_id: str = "albandrieu",
         name="Alban Andrieu",
         email: str = _DEFAULT_USER_IN_EMAIL,
         password="XXX",  # noqa: S107 noqa:B107 # nosec B107
-        phone="0695435353",
-        address="11 terrasse de l'université",
+        phone="",
+        address="Paris, France",
         city="Paris",
         state="FR",
-        zipcode="92000",
+        zipcode="",
         country="France",
     ) -> None:
         super().__init__(
@@ -76,7 +81,9 @@ class UserIn(BaseModel):
         )
 
 
-class UserOut(UserIn):
+class UserOut(PublicUserProfile):
+    """Authenticated user response without the input password field."""
+
     id: int
 
 

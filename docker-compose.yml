@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile
     tty: true
     container_name: fastapi-sample
-    command: uvicorn server:app --reload --workers 1 --host 0.0.0.0 --port 8091
+    command: uvicorn server_all:app --reload --workers 1 --host 0.0.0.0 --port 8080
     ports:
       - "8080:8080"
     volumes:
@@ -29,7 +29,7 @@ services:
       - db
       - redis
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8091/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -54,12 +54,12 @@ services:
       - POSTGRES_PASSWORD=password-reset-XXX # nosec
       - POSTGRES_DB=fastapi_sample_dev
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
 
   redis:
     image: "redis:alpine"
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
@@ -88,14 +88,11 @@ services:
     image: registry.gitlab.com/gitlab-data/data-image/analyst-image:v0.0.19
     volumes:
       - type: bind
-        source: ${HOME}/
+        source: ./
         target: /files
       - type: bind
         source: ${HOME}/.dbt
         target: /usr/local/snowflake_profile/
-      - type: bind
-        source: ${HOME}/.ssh
-        target: /home/albanandrieu/.ssh/
     ports:
       - "8888:8888"
     environment:
