@@ -21,7 +21,7 @@ def _short_error(exc: BaseException) -> str:
 
 
 async def check_cloudflare_tunnels() -> dict[str, Any]:
-    """Check Cloudflare Tunnel control-plane health with read-only credentials."""
+    """Check Cloudflare Tunnel control-plane and tunnel health read-only."""
     account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID", "").strip()
     api_token = os.getenv("CLOUDFLARE_API_TOKEN", "").strip()
     if not account_id or not api_token:
@@ -48,6 +48,7 @@ async def check_cloudflare_tunnels() -> dict[str, Any]:
     except (httpx.HTTPError, ValueError, OSError) as exc:
         return {
             "reachable": False,
+            "api_reachable": False,
             "error": _short_error(exc),
             "probe": "cloudflare_tunnel_api",
         }
@@ -56,6 +57,7 @@ async def check_cloudflare_tunnels() -> dict[str, Any]:
     if not isinstance(tunnels, list):
         return {
             "reachable": False,
+            "api_reachable": True,
             "error": "Cloudflare Tunnel API returned an unexpected payload",
             "probe": "cloudflare_tunnel_api",
         }
@@ -68,7 +70,8 @@ async def check_cloudflare_tunnels() -> dict[str, Any]:
     unhealthy = [status for status in statuses if status in {"inactive", "degraded", "down"}]
     healthy = sum(status == "healthy" for status in statuses)
     return {
-        "reachable": True,
+        "reachable": not unhealthy,
+        "api_reachable": True,
         "http_status": response.status_code,
         "probe": "cloudflare_tunnel_api",
         "tunnel_count": len(statuses),
@@ -111,14 +114,15 @@ async def check_pfsense_api() -> dict[str, Any]:
             "url": url,
         }
 
+    healthy = 200 <= response.status_code < 400
     result: dict[str, Any] = {
-        "reachable": response.status_code < 500,
+        "reachable": healthy,
         "http_status": response.status_code,
         "probe": "pfsense_rest_api_v2",
         "url": url,
         "tls_trusted": True if verify_ssl and url.lower().startswith("https://") else None,
     }
-    if response.status_code >= 400:
+    if not healthy:
         result["error"] = f"pfSense API returned HTTP {response.status_code}"
     return result
 
