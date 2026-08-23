@@ -26,10 +26,12 @@ def _short_error(exc: BaseException) -> str:
 
 
 def _logfire_enabled() -> bool:
-    """Honor the canonical flag and the historical singular alias."""
+    """Enable the probe only when configured or explicitly requested."""
     raw = os.getenv("LOGFIRE_ENABLED")
     if raw is None:
-        raw = os.getenv("LOGFIRE_ENABLE", "true")
+        raw = os.getenv("LOGFIRE_ENABLE")
+    if raw is None:
+        return bool(os.getenv("LOGFIRE_TOKEN", "").strip())
     return raw.strip().lower() not in _FALSE_VALUES
 
 
@@ -39,7 +41,7 @@ def check_logfire_connectivity() -> dict[str, Any]:
         return {
             "reachable": None,
             "skipped": True,
-            "reason": "Logfire is disabled by LOGFIRE_ENABLED",
+            "reason": "Logfire is disabled or not configured",
             "probe": "ingest_tls_socket",
         }
 
@@ -47,7 +49,7 @@ def check_logfire_connectivity() -> dict[str, Any]:
     if not token:
         return {
             "reachable": False,
-            "error": "LOGFIRE_ENABLED is true but LOGFIRE_TOKEN is not configured",
+            "error": "Logfire is enabled but LOGFIRE_TOKEN is not configured",
             "probe": "ingest_tls_socket",
         }
 
