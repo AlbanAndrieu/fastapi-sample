@@ -8,6 +8,8 @@ from typing import Any
 
 import httpx
 
+from nabla.api.cloudflare_tunnels import CloudflareTunnelSettings
+
 _CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4"
 _PFSENSE_STATUS_PATH = "/api/v2/status/system"
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
@@ -20,9 +22,8 @@ def _short_error(exc: BaseException) -> str:
 
 async def check_cloudflare_tunnels() -> dict[str, Any]:
     """Check Cloudflare Tunnel control-plane and tunnel health read-only."""
-    account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID", "").strip()
-    api_token = os.getenv("CLOUDFLARE_API_TOKEN", "").strip()
-    if not account_id or not api_token:
+    settings = CloudflareTunnelSettings.from_environment()
+    if settings is None:
         return {
             "reachable": None,
             "skipped": True,
@@ -30,13 +31,13 @@ async def check_cloudflare_tunnels() -> dict[str, Any]:
             "probe": "cloudflare_tunnel_api",
         }
 
-    url = f"{_CLOUDFLARE_API_BASE}/accounts/{account_id}/cfd_tunnel"
+    url = f"{_CLOUDFLARE_API_BASE}/accounts/{settings.account_id}/cfd_tunnel"
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(5.0)) as client:
             response = await client.get(
                 url,
                 headers={
-                    "Authorization": f"Bearer {api_token}",
+                    "Authorization": f"Bearer {settings.api_token}",
                     "Accept": "application/json",
                 },
                 params={"is_deleted": "false"},
@@ -91,6 +92,12 @@ async def check_pfsense_api() -> dict[str, Any]:
             "reachable": None,
             "skipped": True,
             "reason": "PFSENSE_API_URL and PFSENSE_API_KEY are not configured",
+            "probe": "pfsense_rest_api_v2",
+        }
+    if not base_url.lower().startswith("https://"):
+        return {
+            "reachable": False,
+            "error": "PFSENSE_API_URL must use HTTPS when API-key authentication is enabled",
             "probe": "pfsense_rest_api_v2",
         }
 
