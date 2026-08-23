@@ -34,3 +34,30 @@ jobs:
           git log --reverse --oneline 901c86c9f0e62c082b94194ff1e03cf9bab4905b..origin/recovery-pr66
           echo '=== PR63 vs PR66 ==='
           git log --left-right --cherry-pick --oneline origin/recovery-pr63...origin/recovery-pr66
+
+  dry-run-pr63:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Test transplant of PR63 commits on restored main
+        shell: bash
+        run: |
+          set -u
+          git config user.name recovery-audit
+          git config user.email recovery-audit@users.noreply.github.com
+          git checkout -B recovery-scratch origin/main
+          commits=(46f85e5 615ae51 0940ee0 987e31f b85cceb 06a8fc0)
+          for commit in "${commits[@]}"; do
+            echo "=== cherry-pick ${commit} ==="
+            if ! git cherry-pick "${commit}"; then
+              echo "=== conflicts for ${commit} ==="
+              git status --short
+              echo '=== unmerged files ==='
+              git diff --name-only --diff-filter=U
+              exit 1
+            fi
+          done
+          echo '=== PR63 transplant succeeded ==='
+          git log --oneline origin/main..HEAD
