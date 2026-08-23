@@ -22,73 +22,86 @@ plugins:
   # Each replacement asserts exactly one match/replacement so semantic-release
   # fails during prepare instead of publishing a partially-versioned release.
   - - semantic-release-replace-plugin
+
     - replacements:
-        - files:
+
+      - files:
+            - charts/generic-service/Chart.yaml
+        from:
+            - 'version: [^\n]+'
+        to: 'version: "${nextRelease.version}"'
+        results:
+          - file: charts/generic-service/Chart.yaml
+            hasChanged: true
+            numMatches: 1
+            numReplacements: 1
+        countMatches: true
+      - files:
             - pyproject.toml
-          from:
+        from:
             - '(?<=name = "fastapi-sample"\n)version = "\d+\.\d+\.\d+"'
-          to: 'version = "${nextRelease.version}"'
-          results:
-            - file: pyproject.toml
-              hasChanged: true
-              numMatches: 1
-              numReplacements: 1
-          countMatches: true
-        - files:
+        to: 'version = "${nextRelease.version}"'
+        results:
+          - file: pyproject.toml
+            hasChanged: true
+            numMatches: 1
+            numReplacements: 1
+        countMatches: true
+      - files:
             - pyproject.toml
-          from:
+        from:
             - '(?<=\[tool.versioningit\]\n)default-version = "\d+\.\d+\.\d+"'
-          to: 'default-version = "${nextRelease.version}"'
-          results:
-            - file: pyproject.toml
-              hasChanged: true
-              numMatches: 1
-              numReplacements: 1
-          countMatches: true
-        - files:
+        to: 'default-version = "${nextRelease.version}"'
+        results:
+          - file: pyproject.toml
+            hasChanged: true
+            numMatches: 1
+            numReplacements: 1
+        countMatches: true
+      - files:
             - pyproject.toml
-          from:
+        from:
             - '(\[tool\.commitizen\](?:\n#[^\n]*)*\n)version = "\d+\.\d+\.\d+"'
-          to: '$1version = "${nextRelease.version}"'
-          results:
-            - file: pyproject.toml
-              hasChanged: true
-              numMatches: 1
-              numReplacements: 1
-          countMatches: true
-        - files:
+        to: '$1version = "${nextRelease.version}"'
+        results:
+          - file: pyproject.toml
+            hasChanged: true
+            numMatches: 1
+            numReplacements: 1
+        countMatches: true
+      - files:
             - nabla/_release.py
-          from:
+        from:
             - '__version__ = "\d+\.\d+\.\d+"'
-          to: '__version__ = "${nextRelease.version}"'
-          results:
-            - file: nabla/_release.py
-              hasChanged: true
-              numMatches: 1
-              numReplacements: 1
-          countMatches: true
-        - files:
+        to: '__version__ = "${nextRelease.version}"'
+        results:
+          - file: nabla/_release.py
+            hasChanged: true
+            numMatches: 1
+            numReplacements: 1
+        countMatches: true
+      - files:
             - uv.lock
-          from:
+        from:
             - '(?<=name = "fastapi-sample"\n)version = "\d+\.\d+\.\d+"'
-          to: 'version = "${nextRelease.version}"'
-          results:
-            - file: uv.lock
-              hasChanged: true
-              numMatches: 1
-              numReplacements: 1
-          countMatches: true
-        - files:
+        to: 'version = "${nextRelease.version}"'
+        results:
+          - file: uv.lock
+            hasChanged: true
+            numMatches: 1
+            numReplacements: 1
+        countMatches: true
+      - files:
             - Dockerfile
-          from:
+        from:
             - 'ARG APP_VERSION="\d+\.\d+\.\d+"'
-          to: 'ARG APP_VERSION="${nextRelease.version}"'
-          results:
-            - file: Dockerfile
-              hasChanged: true
-              numMatches: 1
-              numReplacements: 1
-          countMatches: true
+        to: 'ARG APP_VERSION="${nextRelease.version}"'
+        results:
+          - file: Dockerfile
+            hasChanged: true
+            numMatches: 1
+            numReplacements: 1
+        countMatches: true
   # Commit the generated changelog and synchronized version files.
   - - "@semantic-release/git"
     - assets:
@@ -96,9 +109,9 @@ plugins:
         - "Dockerfile"
         - "pyproject.toml"
         - "package.json"
-        - "package-lock.json"
         - "nabla/_release.py"
-        - "uv.lock"
+        - "charts/generic-service/Chart.yaml"
+
       message: "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
   # Publish the Git tag/release notes as a GitHub Release.
   - "@semantic-release/github"

@@ -121,6 +121,8 @@ pytest --cov=nabla --cov-report term --cov-report xml:coverage.xml --junitxml py
 
 ```bash
 # Cypher
+# YAML
+sops secrets-enc.yaml
 # DOTENV
 cp .env.secrets secrets.env.sops
 sops -e -i secrets.env.sops

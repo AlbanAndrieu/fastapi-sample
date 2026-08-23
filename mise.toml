@@ -1,7 +1,8 @@
 min_version = "2024.9.5"
 
 [tools]
-python = "{{ get_env(name='PYTHON_VERSION', default='3.13') }}"
+# working with 3.12 not 3.13 python = "{{ get_env(name='PYTHON_VERSION', default='3.12') }}"
+python = "system"
 ruff = "latest"
 awscli = { version = "latest", symlink_bins = "true" }
 k9s = "latest"
