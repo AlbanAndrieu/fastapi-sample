@@ -27,8 +27,8 @@ class FakeClient:
 
     def call(self, method: str, *params):
         self.calls.append(method)
-        if method == "system.info":
-            return {"hostname": "truenas", "version": "26.0.0-BETA.3"}
+        if method == "system.version":
+            return "26.0.0-BETA.3"
         if method == "app.query":
             return [
                 {"name": "open-webui", "state": "RUNNING", "upgrade_available": False},
@@ -80,7 +80,7 @@ def test_websocket_uri_normalization(url: str, expected: str) -> None:
     assert settings.websocket_uri == expected
 
 
-def test_health_snapshot_uses_system_info_and_app_query() -> None:
+def test_health_snapshot_uses_system_version_and_app_query() -> None:
     clients: list[FakeClient] = []
 
     def factory(**kwargs):
@@ -100,7 +100,6 @@ def test_health_snapshot_uses_system_info_and_app_query() -> None:
     assert snapshot == {
         "reachable": True,
         "version": "26.0.0-BETA.3",
-        "hostname": "truenas",
         "apps": [
             {"name": "open-webui", "state": "RUNNING", "upgrade_available": False},
             {"name": "litellm", "state": "CRASHED", "upgrade_available": True},
@@ -109,7 +108,7 @@ def test_health_snapshot_uses_system_info_and_app_query() -> None:
     assert clients[0].uri == "wss://truenas.example/api/current"
     assert clients[0].verify_ssl is True
     clients[0].login.assert_called_once_with("readonly", "1-secret")
-    assert clients[0].calls == ["system.info", "app.query"]
+    assert clients[0].calls == ["system.version", "app.query"]
 
 
 def test_invalid_truenas_url_is_rejected() -> None:
