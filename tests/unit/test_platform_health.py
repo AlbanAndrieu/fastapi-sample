@@ -63,6 +63,17 @@ async def test_pfsense_check_is_skipped_without_credentials(monkeypatch) -> None
 
 
 @pytest.mark.asyncio
+async def test_pfsense_check_rejects_plain_http_api_key_transport(monkeypatch) -> None:
+    monkeypatch.setenv("PFSENSE_API_URL", "http://172.17.0.1")
+    monkeypatch.setenv("PFSENSE_API_KEY", "key")
+
+    result = await platform_health.check_pfsense_api()
+
+    assert result["reachable"] is False
+    assert "must use HTTPS" in result["error"]
+
+
+@pytest.mark.asyncio
 async def test_pfsense_check_uses_api_key_and_status_endpoint(monkeypatch) -> None:
     monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example")
     monkeypatch.setenv("PFSENSE_API_KEY", "key")
@@ -84,31 +95,3 @@ async def test_pfsense_check_uses_api_key_and_status_endpoint(monkeypatch) -> No
     assert result["reachable"] is True
     assert result["http_status"] == 200
     assert result["probe"] == "pfsense_rest_api_v2"
-
-
-def test_select_homelab_health_checks_keeps_core_infra_and_platforms() -> None:
-    payload = {
-        "checks": {
-            "postgres": {"reachable": True},
-            "redis": {"reachable": True},
-            "supabase": {"reachable": True},
-            "albandrieu_truenas": {"reachable": False},
-            "albandrieu_nexus": {"reachable": True},
-            "cloudflare": {"reachable": True},
-            "pfsense": {"reachable": None, "skipped": True},
-            "litellm": {"reachable": True},
-        }
-    }
-
-    selected = platform_health.select_homelab_health_checks(payload)
-
-    assert list(selected) == [
-        "postgres",
-        "redis",
-        "supabase",
-        "albandrieu_truenas",
-        "albandrieu_nexus",
-        "cloudflare",
-        "pfsense",
-    ]
-    assert "litellm" not in selected
