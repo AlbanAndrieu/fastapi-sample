@@ -1,21 +1,42 @@
 ---
-name: "Renovate Action"
+name: Renovate
 
 on:
-  push:
-    # this list of branches is often enough,
-    # but you may still ignore other public branches
-    branches-ignore: [main master dev development release]
+  workflow_dispatch:
+  schedule:
+    - cron: "0 7 * * 1"
+    - cron: "0 15 * * 5"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: renovate
+  cancel-in-progress: false
 
 jobs:
   renovate:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Self-hosted Renovate
-        uses: renovatebot/github-action@v42.0.6
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
         with:
-          docker-cmd-file: .github/renovate-entrypoint.sh
-          docker-user: root
-          token: ${{ secrets.RENOVATE_TOKEN }}
+          client-id: ${{ vars.RENOVATE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Self-hosted Renovate
+        uses: renovatebot/github-action@v46.2.1
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          renovate-version: 44.2.1
+        env:
+          LOG_LEVEL: info
+          RENOVATE_ONBOARDING: "false"
+          RENOVATE_PLATFORM: github
+          RENOVATE_PLATFORM_COMMIT: enabled
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
+          RENOVATE_REQUIRE_CONFIG: required
