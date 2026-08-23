@@ -159,7 +159,9 @@ async def _probe_internal_service(
     return result
 
 
-def _truenas_internal_target() -> tuple[str, int]:
+def _truenas_internal_target(
+    _services: list[HomelabService] | None = None,
+) -> tuple[str, int]:
     """Resolve the TrueNAS LAN target, defaulting to the Docker bridge endpoint."""
     host = (
         os.getenv(_TRUENAS_INTERNAL_HOST_ENV, _TRUENAS_INTERNAL_HOST_DEFAULT).strip()
