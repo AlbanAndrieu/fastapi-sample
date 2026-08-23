@@ -1,0 +1,164 @@
+name: Temporary API UI extraction
+
+on:
+  push:
+    branches:
+      - refactor/ui-assets-and-runtime-clients
+
+permissions:
+  contents: write
+
+jobs:
+  extract-ui:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Extract health board JavaScript
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          ui_path = Path("nabla/api/ui.py")
+          ui = ui_path.read_text(encoding="utf-8")
+          start_marker = "    <script>\n"
+          end_marker = "    </script>"
+          start = ui.index(start_marker)
+          end = ui.index(end_marker, start)
+          raw_js = ui[start + len(start_marker) : end]
+
+          order_anchor = '                "albandrieu_vaultwarden",\n                "litellm",'
+          order_replacement = (
+              '                "albandrieu_vaultwarden",\n'
+              '                "albandrieu_truenas",\n'
+              '                "cloudflare",\n'
+              '                "pfsense",\n'
+              '                "litellm",\n'
+              '                "sentry",\n'
+              '                "logfire",'
+          )
+          label_anchor = '            litellm: "LiteLLM proxy",'
+          label_replacement = (
+              '            litellm: "LiteLLM proxy",\n'
+              '            cloudflare: "Cloudflare Tunnels",\n'
+              '            pfsense: "pfSense API",\n'
+              '            logfire: "Pydantic Logfire",'
+          )
+          if order_anchor not in raw_js or label_anchor not in raw_js:
+              raise SystemExit("health-board ordering anchors not found")
+          raw_js = raw_js.replace(order_anchor, order_replacement, 1)
+          raw_js = raw_js.replace(label_anchor, label_replacement, 1)
+
+          js = textwrap.dedent(raw_js).strip() + "\n"
+          assets = Path("nabla/api/assets")
+          assets.mkdir(parents=True, exist_ok=True)
+          (assets / "api-health.js").write_text(js, encoding="utf-8")
+
+          external_script = '    <script src="/api/assets/api-health.js" defer></script>'
+          ui = ui[:start] + external_script + ui[end + len(end_marker) :]
+          ui_path.write_text(ui, encoding="utf-8")
+
+          routes_path = Path("nabla/routes.py")
+          routes = routes_path.read_text(encoding="utf-8")
+          replacements = [
+              (
+                  "import html\nimport os\n",
+                  "import html\nimport os\nfrom pathlib import Path\n",
+              ),
+              (
+                  "from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse\n",
+                  "from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse\n"
+                  "from fastapi.staticfiles import StaticFiles\n",
+              ),
+              ("from nabla.api.health_board import prioritize_optional_truenas\n", ""),
+              (
+                  'limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])\n',
+                  'limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])\n'
+                  '_API_ASSETS_DIR = Path(__file__).resolve().parent / "api" / "assets"\n',
+              ),
+              (
+                  '    """Register all application routes."""\n\n',
+                  '    """Register all application routes."""\n\n'
+                  '    app.mount(\n'
+                  '        "/api/assets",\n'
+                  '        StaticFiles(directory=_API_ASSETS_DIR),\n'
+                  '        name="api-assets",\n'
+                  '    )\n\n',
+              ),
+              ("        return prioritize_optional_truenas(page)\n", "        return page\n"),
+          ]
+          for old, new in replacements:
+              if old not in routes:
+                  raise SystemExit(f"routes.py refactor anchor not found: {old!r}")
+              routes = routes.replace(old, new, 1)
+          routes_path.write_text(routes, encoding="utf-8")
+
+          for obsolete in (
+              Path("nabla/api/health_board.py"),
+              Path("tests/unit/test_health_board.py"),
+              Path("tests/unit/test_health_board_logfire.py"),
+          ):
+              obsolete.unlink()
+
+          test_path = Path("tests/unit/test_api_ui_assets.py")
+          test_path.write_text(
+              '''"""Regression tests for the external API health-board asset."""\n\n'
+              'from fastapi import FastAPI\n'
+              'from fastapi.testclient import TestClient\n\n'
+              'from nabla.routes import register_routes\n\n\n'
+              'def test_api_page_serves_external_health_board_script() -> None:\n'
+              '    app = FastAPI(version="test-version")\n'
+              '    register_routes(app)\n'
+              '    client = TestClient(app)\n\n'
+              '    page = client.get("/api")\n'
+              '    script = client.get("/api/assets/api-health.js")\n\n'
+              '    assert page.status_code == 200\n'
+              '    assert \'src="/api/assets/api-health.js"\' in page.text\n'
+              '    assert "function computeOverall" not in page.text\n'
+              '    assert script.status_code == 200\n'
+              '    assert "javascript" in script.headers["content-type"]\n'
+              '    assert "function computeOverall" in script.text\n'
+              '    assert "Pydantic Logfire" in script.text\n\n\n'
+              'def test_health_board_platform_order_is_static_asset_contract() -> None:\n'
+              '    script = (\n'
+              '        __import__("pathlib").Path(__file__).parents[2]\n'
+              '        / "nabla"\n'
+              '        / "api"\n'
+              '        / "assets"\n'
+              '        / "api-health.js"\n'
+              '    ).read_text(encoding="utf-8")\n\n'
+              '    order = [\n'
+              '        script.index(\'"albandrieu_truenas"\'),\n'
+              '        script.index(\'"cloudflare"\'),\n'
+              '        script.index(\'"pfsense"\'),\n'
+              '        script.index(\'"litellm"\'),\n'
+              '        script.index(\'"sentry"\'),\n'
+              '        script.index(\'"logfire"\'),\n'
+              '    ]\n'
+              '    assert order == sorted(order)\n''',
+              encoding="utf-8",
+          )
+
+          line_count = len(ui_path.read_text(encoding="utf-8").splitlines())
+          print(f"nabla/api/ui.py: {line_count} lines")
+          if line_count > 700:
+              raise SystemExit("ui.py remains above the 700-line refactor threshold")
+          PY
+
+          git diff --check
+
+      - name: Commit UI extraction
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add nabla/api/ui.py nabla/api/assets/api-health.js nabla/routes.py \
+            nabla/api/health_board.py tests/unit/test_health_board.py \
+            tests/unit/test_health_board_logfire.py tests/unit/test_api_ui_assets.py
+          git commit -m "refactor: extract api health board javascript"
+          git push
