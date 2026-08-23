@@ -15,11 +15,53 @@ def test_truenas_discovery_is_private_by_default() -> None:
         internal_port=30025,
     )
 
+    assert service.service_id == "sabnzbd"
     assert service.source is HomelabDiscoverySource.TRUENAS
     assert service.external is False
     assert service.endpoint_enabled is False
     assert service.tunnel_url is None
     assert service.public_https_probe_url is None
+
+
+def test_legacy_catalog_derives_id_from_public_hostname() -> None:
+    service = HomelabService.model_validate(
+        {
+            "name": "Langfuse",
+            "tunnelUrl": "https://langfuse.albandrieu.com",
+            "external": True,
+        }
+    )
+
+    payload = service.model_dump(mode="json", by_alias=True, exclude_none=True)
+
+    assert service.service_id == "langfuse"
+    assert payload["id"] == "langfuse"
+    assert payload["tunnelUrl"] == "https://langfuse.albandrieu.com"
+
+
+def test_legacy_private_service_derives_id_from_name() -> None:
+    service = HomelabService.model_validate(
+        {
+            "name": "Open SpeedTest",
+            "internalHost": "172.17.0.24",
+            "internalPort": 30117,
+            "external": False,
+        }
+    )
+
+    assert service.service_id == "open-speedtest"
+
+
+def test_explicit_service_id_is_preserved() -> None:
+    service = HomelabService.model_validate(
+        {
+            "id": "langfuse-worker",
+            "name": "Langfuse Worker",
+            "external": False,
+        }
+    )
+
+    assert service.service_id == "langfuse-worker"
 
 
 def test_external_access_requires_explicit_validated_opt_in() -> None:
@@ -32,6 +74,7 @@ def test_external_access_requires_explicit_validated_opt_in() -> None:
 
     exposed = discovered.with_external_access("https://openwebui.albandrieu.com")
 
+    assert exposed.service_id == "open-webui"
     assert exposed.external is True
     assert exposed.endpoint_enabled is True
     assert exposed.public_https_probe_url == "https://openwebui.albandrieu.com/"
@@ -49,6 +92,7 @@ def test_legacy_exposure_alias_is_accepted_but_not_emitted() -> None:
     payload = service.model_dump(mode="json", by_alias=True, exclude_none=True)
 
     assert service.external is True
+    assert payload["id"] == "vaultwarden"
     assert payload["external"] is True
     assert "reacheableFromOutside" not in payload
 
@@ -117,11 +161,27 @@ def test_sickz_only_uses_explicitly_external_https_services() -> None:
     ]
 
 
+def test_healthz_key_uses_stable_service_id() -> None:
+    assert homelab_catalog._healthz_check_key("langfuse-worker") == (
+        "albandrieu_langfuse_worker"
+    )
+
+
 def test_catalog_rejects_duplicate_service_names_case_insensitively() -> None:
     with pytest.raises(ValidationError, match="duplicate homelab service name"):
         HomelabCatalog(
             services=[
                 HomelabService(name="Grafana"),
                 HomelabService(name="grafana"),
+            ]
+        )
+
+
+def test_catalog_rejects_duplicate_service_ids() -> None:
+    with pytest.raises(ValidationError, match="duplicate homelab service id"):
+        HomelabCatalog(
+            services=[
+                HomelabService(id="langfuse", name="Langfuse UI"),
+                HomelabService(id="langfuse", name="Langfuse Worker"),
             ]
         )
