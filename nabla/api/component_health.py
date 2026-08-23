@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable
 from typing import Any
 
 from fastapi.concurrency import run_in_threadpool
@@ -55,8 +56,10 @@ async def build_component_checks(
     *,
     redis_client: Any,
     engine: Engine,
+    homelab_snapshot: Awaitable[dict[str, Any]] | None = None,
 ) -> dict[str, dict[str, Any]]:
-    """Build the canonical core/platform component checks once for reuse."""
+    """Build canonical core/platform checks, reusing a homelab probe when supplied."""
+    homelab_probe = homelab_snapshot or build_homelab_health_payload()
     (
         postgres,
         redis,
@@ -68,7 +71,7 @@ async def build_component_checks(
         run_in_threadpool(check_postgres_sql, engine),
         check_redis_ping(redis_client),
         check_supabase_http(),
-        build_homelab_health_payload(),
+        homelab_probe,
         check_cloudflare_tunnels(),
         check_pfsense_api(),
     )
