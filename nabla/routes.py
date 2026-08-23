@@ -34,17 +34,8 @@ def _move_root_mounts_last(app: FastAPI) -> None:
         app.routes.append(route)
 
 
-def _remove_existing_health_route(app: FastAPI) -> None:
-    """Replace the legacy sensor `/health` route with the composed runtime view."""
-    for route in list(app.routes):
-        if getattr(route, "path", None) == "/health":
-            app.routes.remove(route)
-
-
 def register_routes(app: FastAPI) -> None:
     """Register all application routes."""
-
-    _remove_existing_health_route(app)
 
     async def _build_extended_healthz(request: Request) -> dict:
         from nabla.api.db.database import engine
@@ -67,36 +58,6 @@ def register_routes(app: FastAPI) -> None:
     @app.get("/favicon.ico", include_in_schema=False)
     async def favicon():
         return RedirectResponse("/vercel.svg", status_code=307)
-
-    @app.get(
-        "/health",
-        response_class=ORJSONResponse,
-        tags=["Health"],
-        summary="Runtime healthcheck",
-    )
-    async def get_health(request: Request):
-        """Return a lightweight runtime health view without probing homelab services."""
-        from nabla.api.demo import sensor
-
-        base = await sensor.health_check()
-        base["version"] = request.app.version
-        base["components"] = {
-            "api": {"status": "healthy"},
-            "sensor": {
-                "status": "healthy",
-                "readings_count": base.get("readings_count", 0),
-            },
-            "streaming": {
-                "status": "healthy",
-                "active_connections": base.get("active_connections", 0),
-            },
-            "health_api": {
-                "status": "healthy",
-                "deep_health": "/healthz",
-                "homelab_health": "/api/homelab/health",
-            },
-        }
-        return base
 
     @app.get("/api/data")
     def get_sample_data():
