@@ -5,9 +5,33 @@ from __future__ import annotations
 from datetime import datetime
 from enum import StrEnum
 from ipaddress import ip_address
+import re
 from urllib.parse import urlsplit
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
+
+_SERVICE_ID_RE = re.compile(r"[^a-z0-9]+")
+_HOMELAB_DOMAIN_SUFFIX = ".albandrieu.com"
+
+
+def _slugify_service_id(value: str) -> str:
+    """Return a stable lowercase service identifier suitable for JSON keys."""
+    slug = _SERVICE_ID_RE.sub("-", value.strip().lower()).strip("-")
+    return slug or "service"
+
+
+def _derive_service_id(name: str, tunnel_url: str | None) -> str:
+    """Prefer the albandrieu.com hostname label, otherwise derive from the name."""
+    if tunnel_url:
+        try:
+            host = (urlsplit(tunnel_url).hostname or "").lower().rstrip(".")
+        except ValueError:
+            host = ""
+        if host.endswith(_HOMELAB_DOMAIN_SUFFIX):
+            prefix = host[: -len(_HOMELAB_DOMAIN_SUFFIX)].strip(".")
+            if prefix:
+                return _slugify_service_id(prefix.replace(".", "-"))
+    return _slugify_service_id(name)
 
 
 class HomelabDiscoverySource(StrEnum):
@@ -32,6 +56,13 @@ class HomelabService(BaseModel):
         str_strip_whitespace=True,
     )
 
+    service_id: str = Field(
+        min_length=1,
+        max_length=128,
+        pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
+        validation_alias=AliasChoices("id", "serviceId", "service_id"),
+        serialization_alias="id",
+    )
     name: str = Field(min_length=1, max_length=128)
     description: str | None = None
     icons: list[str] = Field(default_factory=list)
@@ -115,6 +146,20 @@ class HomelabService(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
+    def populate_service_id(cls, data: object) -> object:
+        """Backfill a stable ID for legacy catalog entries that predate the field."""
+        if not isinstance(data, dict):
+            return data
+        if any(data.get(key) for key in ("id", "serviceId", "service_id")):
+            return data
+        name = str(data.get("name") or "service")
+        tunnel_url = data.get("tunnelUrl") or data.get("tunnel_url")
+        payload = dict(data)
+        payload["id"] = _derive_service_id(name, str(tunnel_url) if tunnel_url else None)
+        return payload
+
+    @model_validator(mode="before")
+    @classmethod
     def reject_conflicting_exposure_aliases(cls, data: object) -> object:
         """Fail closed when old and new exposure flags disagree."""
         if not isinstance(data, dict):
@@ -179,6 +224,7 @@ class HomelabService(BaseModel):
         external access after discovery.
         """
         return cls(
+            service_id=_slugify_service_id(source_id),
             name=name,
             description=description,
             internal_host=internal_host,
@@ -231,14 +277,18 @@ class HomelabCatalog(BaseModel):
     )
 
     @model_validator(mode="after")
-    def require_unique_service_names(self) -> HomelabCatalog:
-        """Reject ambiguous duplicate service names."""
+    def require_unique_service_identity(self) -> HomelabCatalog:
+        """Reject ambiguous duplicate service names or stable IDs."""
         names: set[str] = set()
+        service_ids: set[str] = set()
         for service in self.services:
             normalized = service.name.casefold()
             if normalized in names:
                 raise ValueError(f"duplicate homelab service name: {service.name}")
+            if service.service_id in service_ids:
+                raise ValueError(f"duplicate homelab service id: {service.service_id}")
             names.add(normalized)
+            service_ids.add(service.service_id)
         return self
 
     @property
