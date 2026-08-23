@@ -88,7 +88,7 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
                 </div>
             </div>
         </main>
-        <script src="/api/assets/api-health.js" defer></script>
+        <script type="module" src="/api/assets/api-health.js"></script>
     </body>
     </html>
     """
