@@ -10,27 +10,36 @@ from __future__ import annotations
 
 _TRUENAS_CHECK_KEY = "albandrieu_truenas"
 _HEALTH_PRIORITY_ANCHOR = '                "albandrieu_vaultwarden",\n                "litellm",'
-_HEALTH_PRIORITY_WITH_TRUENAS = (
+_HEALTH_PRIORITY_WITH_PLATFORMS = (
     '                "albandrieu_vaultwarden",\n'
     f'                "{_TRUENAS_CHECK_KEY}",\n'
+    '                "cloudflare",\n'
+    '                "pfsense",\n'
     '                "litellm",'
+)
+_LABEL_ANCHOR = '            litellm: "LiteLLM proxy",'
+_LABELS_WITH_PLATFORMS = (
+    '            litellm: "LiteLLM proxy",\n'
+    '            cloudflare: "Cloudflare Tunnels",\n'
+    '            pfsense: "pfSense API",'
 )
 
 
 def prioritize_optional_truenas(html: str) -> str:
-    """Place TrueNAS immediately after required health checks.
+    """Place TrueNAS, Cloudflare and pfSense after required health checks.
 
-    ``albandrieu_truenas`` deliberately stays out of the JavaScript ``MANDATORY``
-    set. The transformation only changes display order: a failed TrueNAS probe
-    remains an optional integration failure and therefore degrades the board to
-    yellow instead of failing the core FastAPI health in red.
+    These keys deliberately stay out of the JavaScript ``MANDATORY`` set. The
+    transformation only changes display order and labels: failures remain optional
+    integration failures and therefore degrade the board instead of failing core
+    FastAPI health in red.
     """
-    if _HEALTH_PRIORITY_WITH_TRUENAS in html:
-        return html
-    if _HEALTH_PRIORITY_ANCHOR not in html:
-        return html
-    return html.replace(
-        _HEALTH_PRIORITY_ANCHOR,
-        _HEALTH_PRIORITY_WITH_TRUENAS,
-        1,
-    )
+    result = html
+    if _HEALTH_PRIORITY_WITH_PLATFORMS not in result and _HEALTH_PRIORITY_ANCHOR in result:
+        result = result.replace(
+            _HEALTH_PRIORITY_ANCHOR,
+            _HEALTH_PRIORITY_WITH_PLATFORMS,
+            1,
+        )
+    if _LABELS_WITH_PLATFORMS not in result and _LABEL_ANCHOR in result:
+        result = result.replace(_LABEL_ANCHOR, _LABELS_WITH_PLATFORMS, 1)
+    return result
