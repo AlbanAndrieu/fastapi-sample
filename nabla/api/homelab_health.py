@@ -94,6 +94,7 @@ async def _probe_public_service(
                 )
         status = response.status_code
         result: dict[str, Any] = {
+            "id": service.service_id,
             "name": service.name,
             "url": url,
             "reachable": True,
@@ -104,6 +105,7 @@ async def _probe_public_service(
     except (httpx.HTTPError, OSError) as exc:
         error = _short_error(exc)
         result = {
+            "id": service.service_id,
             "name": service.name,
             "url": url,
             "reachable": False,
@@ -136,6 +138,7 @@ async def _probe_internal_service(
                 timeout=_PROBE_TIMEOUT_SEC,
             )
         result: dict[str, Any] = {
+            "id": service.service_id,
             "name": service.name,
             "host": host,
             "port": port,
@@ -144,6 +147,7 @@ async def _probe_internal_service(
         }
     except (OSError, TimeoutError) as exc:
         result = {
+            "id": service.service_id,
             "name": service.name,
             "host": host,
             "port": port,
@@ -242,6 +246,7 @@ async def _probe_truenas(
 
     api_result = await _observe_truenas_api()
     return {
+        "id": "truenas",
         "state": _truenas_state(public_result, internal_result, api_result),
         "public": public_result,
         "internal": internal_result,

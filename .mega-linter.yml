@@ -20,7 +20,6 @@ ENABLE_LINTERS:
   - REPOSITORY_BETTERLEAKS
   - REPOSITORY_TRIVY
   - BASH_SHELLCHECK
-  - GIT_GIT_DIFF
   - DOCKERFILE_HADOLINT
   - JUPYTER_JUPYFMT
 DISABLE:
@@ -35,13 +34,10 @@ DISABLE_LINTERS:
   - REPOSITORY_DUSTILOCK
   - REPOSITORY_TRIVY_SBOM
   - REPOSITORY_SYFT
-  - REPOSITORY_KICS
   - REPOSITORY_GRYPE
   - REPOSITORY_TRUFFLEHOG
   - RST_RSTCHECK
   - TERRAFORM_TERRAGRUNT
-  - TERRAFORM_TERRASCAN
-  - TERRAFORM_KICS
 IGNORE_GITIGNORED_FILES: true
 FILTER_REGEX_EXCLUDE: >-
   (megalinter-reports/|\.megalinter_github_conf/|open-webui/|\.automation/test|\.automation/generated|\.venv/|\.direnv/|\.mypy_cache/|docs/javascripts|docs/overrides|docs/json-schemas|flavors|clj-kondo|TEMPLATES|tests|trunk|(^|/)uv\.lock$|(^|/)Pipfile\.lock$|(^|/)trivy-sbom\.json$)
@@ -56,8 +52,7 @@ YAML_YAMLLINT_FILTER_REGEX_EXCLUDE: (templates/\.mega-linter\.yml)
 YAML_PRETTIER_FILTER_REGEX_EXCLUDE: (templates/\.mega-linter\.yml|mkdocs\.yml)
 BASH_FILTER_REGEX_EXCLUDE: (lib|open-webui/)
 MARKDOWN_FILTER_REGEX_EXCLUDE: (license\.md)
-MARKDOWN_MARKDOWN_LINK_CHECK_DISABLE_ERRORS: true
-SPELL_MISSPELL_FILTER_REGEX_EXCLUDE: (\.automation/generated|docs/descriptors)
+SPELL_CODESPELL_FILTER_REGEX_EXCLUDE: (\.automation/generated|docs/descriptors)
 DOCKERFILE_HADOLINT_ARGUMENTS: >-
   --ignore DL3003 --ignore DL3007 --ignore DL3013 --ignore DL3016 --ignore DL3018
   --ignore DL3028 --ignore DL4001 --ignore DL4006 --ignore SC2015 --ignore SC2016

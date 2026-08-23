@@ -12,6 +12,12 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /code
 
+# uv delegates Git-backed dependencies to the Git executable. Keep Git confined
+# to the builder stage so the production image remains minimal.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=ghcr.io/astral-sh/uv:0.8.14 /uv /usr/local/bin/uv
 COPY pyproject.toml uv.lock ./
 
@@ -35,7 +41,7 @@ RUN --mount=type=secret,id=read-package-token \
       --group open_telemetry \
       --group panda \
       --group temporal; \
-    /code/.venv/bin/python -c "import ddtrace"
+    /code/.venv/bin/python -c "import cloudflare, ddtrace, truenas_api_client"
 
 FROM python:3.13-slim-trixie AS production
 

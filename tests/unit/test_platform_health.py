@@ -52,6 +52,38 @@ async def test_cloudflare_check_reports_unhealthy_tunnel(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
+async def test_cloudflare_404_reports_account_scope_diagnostic(monkeypatch) -> None:
+    monkeypatch.setenv("CLOUDFLARE_ACCOUNT_ID", "wrong-account")
+    monkeypatch.setenv("CLOUDFLARE_API_TOKEN", "token")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            404,
+            request=request,
+            json={
+                "success": False,
+                "errors": [{"code": 7003, "message": "Could not route to account"}],
+            },
+        )
+
+    class FakeAsyncClient(httpx.AsyncClient):
+        def __init__(self, *args, **kwargs) -> None:
+            kwargs["transport"] = httpx.MockTransport(handler)
+            super().__init__(*args, **kwargs)
+
+    monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
+
+    result = await platform_health.check_cloudflare_tunnels()
+
+    assert result["reachable"] is False
+    assert result["api_reachable"] is True
+    assert result["http_status"] == 404
+    assert result["cloudflare_error_code"] == 7003
+    assert "CLOUDFLARE_ACCOUNT_ID" in result["error"]
+    assert "Zone ID" in result["error"]
+
+
+@pytest.mark.asyncio
 async def test_pfsense_check_is_skipped_without_credentials(monkeypatch) -> None:
     monkeypatch.delenv("PFSENSE_API_URL", raising=False)
     monkeypatch.delenv("PFSENSE_API_KEY", raising=False)
