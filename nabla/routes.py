@@ -1,4 +1,5 @@
 """Application route registration and handlers."""
+import asyncio
 import html
 import os
 
@@ -119,7 +120,7 @@ def register_routes(app: FastAPI) -> None:
         from nabla.api.homelab_health import build_homelab_health_payload
         from nabla.api.platform_health import select_homelab_health_checks
 
-        homelab_payload, healthz_payload = await __import__("asyncio").gather(
+        homelab_payload, healthz_payload = await asyncio.gather(
             build_homelab_health_payload(),
             _build_extended_healthz(request),
         )
