@@ -18,23 +18,32 @@ def test_api_page_serves_external_assets() -> None:
     client = TestClient(app)
 
     page = client.get("/api")
-    script = client.get("/api/assets/api-health.js")
+    bootstrap = client.get("/api/assets/api-health.js")
+    health = client.get("/api/assets/api-health-core.js")
+    sickz = client.get("/api/assets/api-sickz.js")
     styles = client.get("/api/assets/api.css")
 
     assert page.status_code == 200
     assert 'href="/api/assets/api.css"' in page.text
-    assert 'src="/api/assets/api-health.js"' in page.text
+    assert 'type="module" src="/api/assets/api-health.js"' in page.text
     assert "function computeOverall" not in page.text
-    assert script.status_code == 200
-    assert "javascript" in script.headers["content-type"]
-    assert "function computeOverall" in script.text
+
+    for asset in (bootstrap, health, sickz):
+        assert asset.status_code == 200
+        assert "javascript" in asset.headers["content-type"]
+
+    assert 'from "./api-health-core.js"' in bootstrap.text
+    assert 'from "./api-sickz.js"' in bootstrap.text
+    assert "function computeOverall" in health.text
+    assert "function computeOverall" in sickz.text
+
     assert styles.status_code == 200
     assert "text/css" in styles.headers["content-type"]
     assert ".health-board" in styles.text
 
 
 def test_health_board_platform_order_is_asset_contract() -> None:
-    script = (_ASSET_DIR / "api-health.js").read_text(encoding="utf-8")
+    script = (_ASSET_DIR / "api-health-core.js").read_text(encoding="utf-8")
 
     priority_start = script.index("const first = [")
     priority_end = script.index("];", priority_start)
@@ -49,7 +58,7 @@ def test_health_board_platform_order_is_asset_contract() -> None:
     ]
     assert order == sorted(order)
 
-    mandatory_start = script.index("const MANDATORY = new Set([")
+    mandatory_start = script.index("export const MANDATORY = new Set([")
     mandatory_end = script.index("]);", mandatory_start)
     mandatory = script[mandatory_start:mandatory_end]
     assert '"albandrieu_truenas"' not in mandatory
@@ -58,12 +67,20 @@ def test_health_board_platform_order_is_asset_contract() -> None:
     assert '"logfire"' not in mandatory
 
 
-def test_platform_labels_are_owned_by_static_asset() -> None:
-    script = (_ASSET_DIR / "api-health.js").read_text(encoding="utf-8")
+def test_platform_labels_are_owned_by_health_module() -> None:
+    script = (_ASSET_DIR / "api-health-core.js").read_text(encoding="utf-8")
 
     assert 'cloudflare: "Cloudflare Tunnels"' in script
     assert 'pfsense: "pfSense API"' in script
     assert 'logfire: "Pydantic Logfire"' in script
+
+
+def test_health_bootstrap_stays_small() -> None:
+    bootstrap = (_ASSET_DIR / "api-health.js").read_text(encoding="utf-8")
+
+    assert len(bootstrap.splitlines()) < 50
+    assert "loadHealthBoards" in bootstrap
+    assert "computeOverall" not in bootstrap
 
 
 def test_optional_runtime_clients_are_installed() -> None:
