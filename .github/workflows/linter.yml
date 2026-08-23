@@ -3,10 +3,13 @@ name: Lint using super-linter
 
 on: [pull_request]
 
+permissions: {}
+
 jobs:
   lint:
     name: Lint using super-linter
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     permissions:
       contents: read
@@ -14,15 +17,30 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Super-linter
-        uses: super-linter/super-linter@v5.7.2
+        uses: super-linter/super-linter@4ce20838b8ab83717e78138c5b3a1407148e0918 # v8.7.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEFAULT_BRANCH: main
           IGNORE_GENERATED_FILES: true
           IGNORE_GITIGNORED_FILES: true
+          SAVE_SUPER_LINTER_SUMMARY: true
           VALIDATE_ALL_CODEBASE: false
+          VALIDATE_PYTHON_BLACK: false
           VALIDATE_PYTHON_ISORT: false
+          # JSCPD is covered by the canonical MegaLinter workflow. Super-linter
+          # v8.7.0 currently passes an unsupported option to its bundled JSCPD.
+          VALIDATE_JSCPD: false
+          # Repository/image scanning is covered by dedicated workflows.
+          VALIDATE_TRIVY: false
+          # Never lint Git metadata or tools installed in .git (for example
+          # Trivy templates, which otherwise get misdetected as PHP sources).
+          FILTER_REGEX_EXCLUDE: >-
+            ((^|/)\.git/|report/|megalinter-reports/|open-webui/|(^|/)uv\.lock$|(^|/)Pipfile\.lock$|(^|/)trivy-sbom\.json$)
+          JSON_FILTER_REGEX_EXCLUDE: >-
+            (^|/)(\.vscode/|\.devcontainer/)
