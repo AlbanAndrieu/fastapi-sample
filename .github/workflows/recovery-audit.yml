@@ -32,8 +32,6 @@ jobs:
           git log --reverse --oneline 901c86c9f0e62c082b94194ff1e03cf9bab4905b..origin/recovery-pr63
           echo '=== PR66 unique commits since #70 merge ==='
           git log --reverse --oneline 901c86c9f0e62c082b94194ff1e03cf9bab4905b..origin/recovery-pr66
-          echo '=== PR63 vs PR66 ==='
-          git log --left-right --cherry-pick --oneline origin/recovery-pr63...origin/recovery-pr66
 
   dry-run-pr63:
     runs-on: ubuntu-latest
@@ -41,14 +39,38 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - name: Test transplant of PR63 commits on restored main
+      - name: Test transplant of PR63 commits preserving restored conflict files
         shell: bash
         run: |
           set -u
           git config user.name recovery-audit
           git config user.email recovery-audit@users.noreply.github.com
           git checkout -B recovery-scratch origin/main
-          commits=(46f85e5 615ae51 0940ee0 987e31f b85cceb 06a8fc0)
+
+          echo '=== cherry-pick 46f85e5 with restored-main conflict resolution ==='
+          if ! git cherry-pick 46f85e5; then
+            conflicts=(
+              nabla/api/db/database.py
+              nabla/api/health_checks.py
+              nabla/main.py
+              nabla/middleware.py
+              nabla/utils/logger.py
+              nabla/utils/sentry_config.py
+              package-lock.json
+              package.json
+              pytest.ini
+              tests/test_sentry_config.py
+              tests/unit/test_api.py
+              tests/unit/test_mcp_a2a.py
+            )
+            for path in "${conflicts[@]}"; do
+              git checkout --ours -- "$path"
+              git add "$path"
+            done
+            git cherry-pick --continue
+          fi
+
+          commits=(615ae51 0940ee0 987e31f b85cceb 06a8fc0)
           for commit in "${commits[@]}"; do
             echo "=== cherry-pick ${commit} ==="
             if ! git cherry-pick "${commit}"; then
