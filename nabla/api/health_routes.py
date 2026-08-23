@@ -1,7 +1,7 @@
 """Health and homelab route registration.
 
 Keep dependency probes and diagnostic endpoints isolated from the general application
-route module.  The public paths and response contracts intentionally remain unchanged.
+route module. The public paths and response contracts intentionally remain unchanged.
 """
 
 from __future__ import annotations
@@ -14,14 +14,16 @@ from fastapi.responses import JSONResponse, ORJSONResponse
 
 
 async def _build_extended_healthz(request: Request) -> dict:
-    """Compose the deep health payload with optional platform checks."""
+    """Compose deep health with optional platform and observability checks."""
     from nabla.api.db.database import engine
     from nabla.api.demo.socket.redis import redis
     from nabla.api.health_checks import build_healthz_payload
+    from nabla.api.observability_health import enrich_optional_observability_checks
     from nabla.api.platform_health import enrich_optional_platform_checks
 
     payload = await build_healthz_payload(request, redis_client=redis, engine=engine)
-    return await enrich_optional_platform_checks(payload)
+    payload = await enrich_optional_platform_checks(payload)
+    return await enrich_optional_observability_checks(payload)
 
 
 def register_health_routes(app: FastAPI) -> None:
