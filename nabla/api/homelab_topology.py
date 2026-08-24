@@ -8,7 +8,7 @@ import logging
 import time
 
 import httpx
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 HOMELAB_TOPOLOGY_URL = (
     "https://raw.githubusercontent.com/AlbanAndrieu/nabla-compose/"
@@ -44,7 +44,7 @@ class HomelabRelationStrength(StrEnum):
 class HomelabTopologyNode(BaseModel):
     """One component participating in the declared topology."""
 
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True)
 
     id: str = Field(
         min_length=1,
@@ -54,7 +54,13 @@ class HomelabTopologyNode(BaseModel):
     name: str = Field(min_length=1, max_length=128)
     kind: str = Field(min_length=1, max_length=64)
     category: str = Field(min_length=1, max_length=64)
-    sourcePath: str | None = Field(default=None, min_length=1, max_length=512)
+    source_path: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=512,
+        validation_alias=AliasChoices("sourcePath", "source_path"),
+        serialization_alias="sourcePath",
+    )
     url: str | None = Field(default=None, min_length=1, max_length=2048)
     description: str | None = Field(default=None, max_length=1024)
 
