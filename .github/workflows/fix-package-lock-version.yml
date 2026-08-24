@@ -2,9 +2,9 @@
 name: Fix package lock version
 
 on:
-  push:
+  pull_request:
     branches:
-      - refactor/consolidate-truenas-access
+      - main
 
 permissions:
   contents: write
@@ -24,7 +24,7 @@ jobs:
       - name: Regenerate npm lock metadata
         run: npm version 1.5.0 --no-git-tag-version --allow-same-version
       - name: Verify repository versions
-        run: uv run python scripts/check_versions.py
+        run: python scripts/check_versions.py
       - name: Commit corrected lock and remove temporary workflow
         shell: bash
         run: |
