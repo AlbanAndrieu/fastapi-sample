@@ -195,6 +195,8 @@ in reviewable batches; never overwrite newer fixes with the old blob wholesale.
   the consolidated official-client adapter and Homelab response models.
 - [x] Rewrite `docs/entrypoints-and-dashboards.md` for the current application,
   MCP transport and Compose services.
+- [x] Reconcile README startup examples and links with port 8080,
+  `server_all:app` and the canonical `/mcp` transport.
 - [ ] Rewrite `scripts/discover_dashboards.py` only if machine-readable dashboard
   discovery is still useful; the PR #63 parser targets invalid OpenCode fields.
 - [ ] Review the missing SQL snapshot and `panda.py` separately for necessity,
