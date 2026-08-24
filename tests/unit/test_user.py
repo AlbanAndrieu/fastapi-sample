@@ -25,7 +25,7 @@ def test_user_current(test_app) -> None:
     assert response.status_code == expected_status
     result = response.json()
     assert result["name"] == "Alban Andrieu"
-    assert result["password"] == "XXX"  # noqa: S105
+    assert "password" not in result
     assert result["phone"] == "+33 (0) 6 95 43 53 53"
     assert result["address"] == "11 terrasse de l'université"
     assert result["city"] == "Paris"
