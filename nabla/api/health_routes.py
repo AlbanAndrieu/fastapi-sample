@@ -43,6 +43,19 @@ def register_health_routes(app: FastAPI) -> None:
         return catalog.model_dump(mode="json", by_alias=True, exclude_none=True)
 
     @app.get(
+        "/api/homelab-topology",
+        response_class=ORJSONResponse,
+        tags=["Homelab"],
+        summary="Declared homelab service topology",
+    )
+    async def get_homelab_topology():
+        """Expose the validated design-time topology sourced from nabla-compose."""
+        from nabla.api.homelab_topology import fetch_homelab_topology
+
+        topology = await fetch_homelab_topology()
+        return topology.model_dump(mode="json", by_alias=True, exclude_none=True)
+
+    @app.get(
         "/api/homelab/health",
         response_class=ORJSONResponse,
         tags=["Homelab", "Health"],
