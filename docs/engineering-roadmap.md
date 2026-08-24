@@ -95,6 +95,8 @@ exceptions here rather than creating additional todo or refactoring documents.
   orphaned transitive dependencies from the npm lockfile.
 - [x] Align locked `esbuild` and `js-yaml` dependencies with existing secure npm
   overrides instead of suppressing Trivy vulnerability findings.
+- [x] Exclude npm-generated `package-lock.json` from Prettier while retaining
+  JSON parsing and dependency/security validation.
 - [x] Keep the inverse `/sickz` certificate exception narrowly justified for
   both Ruff and Bandit instead of disabling TLS findings globally.
 - [ ] Consolidate duplicate Pylint jobs and keep one authoritative Python
@@ -126,6 +128,30 @@ exceptions here rather than creating additional todo or refactoring documents.
 - [ ] Reduce production image size after runtime dependency groups are isolated.
 - [ ] Make Debian package pinning reproducible without depending on package
   versions disappearing from the active repository.
+
+## P2 — Search provider architecture
+
+- [x] Group Tavily, Brave and Google routes under one `search` OpenAPI tag
+  without changing their public paths or provider-specific response contracts.
+- [ ] Add SearXNG to `nabla-compose`; it is not present on the current `master`
+  branch. Pin the container image, enable JSON output, keep it behind the private
+  network or an authenticated reverse proxy, and enable the limiter with Valkey
+  if it becomes internet-accessible.
+- [ ] Add an optional `/v1/searxng/search` adapter with a normalized response
+  model, bounded timeout and explicit provider provenance.
+- [ ] Enable SearXNG's official `braveapi` engine when a Brave API key is
+  configured. Evaluate its keyless Brave web engine separately because HTML
+  parsing has different reliability and provider-policy risks.
+- [ ] Evaluate Google through SearXNG as a transitional source only; its web
+  engine can encounter bot-protection responses, while Google's Custom Search
+  JSON API is closed to new customers and scheduled to end for existing
+  customers on 2027-01-01.
+- [ ] Keep Tavily as a direct provider until a separate experiment proves that a
+  SearXNG JSON/custom engine preserves its LLM-oriented scoring, content and
+  answer metadata without exposing its API key in source control.
+- [ ] Add a provider orchestrator above the adapters with per-provider budgets,
+  timeouts, circuit breakers, deduplication and fallback policy. Do not make
+  SearXNG a mandatory dependency for every search request.
 
 ## P2 — Local development and documentation
 
