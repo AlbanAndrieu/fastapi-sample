@@ -2,7 +2,9 @@
 
 import asyncio
 import os
-from contextlib import AsyncExitStack, asynccontextmanager, suppress
+from collections.abc import Coroutine
+from contextlib import AsyncExitStack, asynccontextmanager
+from typing import Any
 
 from fastapi import FastAPI
 from fastapi_cache import FastAPICache
@@ -19,13 +21,40 @@ from nabla.utils.logger import logger
 from nabla.utils.prometheus import update_system_metrics
 
 
-async def _cancel_background_tasks(tasks: list[asyncio.Task]) -> None:
+async def _cancel_background_tasks(tasks: list[asyncio.Task[None]]) -> None:
     """Cancel application-owned background tasks before releasing resources."""
     for task in tasks:
         task.cancel()
-    for task in tasks:
-        with suppress(asyncio.CancelledError):
-            await task
+    await asyncio.gather(*tasks, return_exceptions=True)
+
+
+def _report_background_task_result(task: asyncio.Task[None]) -> None:
+    """Report unexpected termination without making optional workers fatal."""
+    if task.cancelled():
+        return
+
+    error = task.exception()
+    if error is None:
+        logger.warning("background_task_stopped", task_name=task.get_name())
+        return
+
+    logger.error(
+        "background_task_failed",
+        task_name=task.get_name(),
+        exception_type=type(error).__name__,
+    )
+
+
+def _start_background_task(
+    coroutine: Coroutine[Any, Any, None],
+    *,
+    name: str,
+    tasks: list[asyncio.Task[None]],
+) -> None:
+    """Start and track one best-effort application background task."""
+    task = asyncio.create_task(coroutine, name=name)
+    task.add_done_callback(_report_background_task_result)
+    tasks.append(task)
 
 
 @asynccontextmanager
@@ -51,15 +80,19 @@ async def lifespan(app: FastAPI):
         resources.push_async_callback(close_mcp_clients)
         await initialize_mcp_clients()
 
-        background_tasks: list[asyncio.Task] = []
+        background_tasks: list[asyncio.Task[None]] = []
         resources.push_async_callback(_cancel_background_tasks, background_tasks)
         if get_settings().metrics_enabled:
-            background_tasks.append(
-                asyncio.create_task(update_system_metrics(), name="system-metrics")
+            _start_background_task(
+                update_system_metrics(),
+                name="system-metrics",
+                tasks=background_tasks,
             )
         if redis is not None:
-            background_tasks.append(
-                asyncio.create_task(start_event_listener(), name="redis-event-listener")
+            _start_background_task(
+                start_event_listener(),
+                name="redis-event-listener",
+                tasks=background_tasks,
             )
 
         logger.info("🚀 Sensor Dashboard started")
