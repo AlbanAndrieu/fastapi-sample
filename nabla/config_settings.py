@@ -48,6 +48,11 @@ DD_TRACE_ENABLED = os.environ.get("DD_TRACE_ENABLED", "false").lower() in (
     "1",
     "yes",
 )
+DD_PROFILING_ENABLED = os.environ.get("DD_PROFILING_ENABLED", "false").lower() in (
+    "true",
+    "1",
+    "yes",
+)
 DD_TRACE_AGENT_URL = os.environ.get("DD_TRACE_AGENT_URL", "")
 REDIS_URL = os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/0")
 

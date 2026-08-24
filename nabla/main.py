@@ -43,6 +43,7 @@ from nabla.config_settings import (
     APP_PREFIX_VERSION,
     APP_RUNTIME_VERSION,
     APP_VERSION,
+    DD_PROFILING_ENABLED,
     DD_TRACE_ENABLED,
     OTEL_SDK_DISABLED,
     OTLP_GRPC_ENDPOINT,
@@ -55,8 +56,8 @@ from nabla.middleware import logging_middleware, metrics_middleware
 from nabla.routes import register_routes, templates
 from nabla.utils.datadog_config import (
     configure_datadog,
-    set_datadog_user,
     start_datadog_profiler,
+    stop_datadog_profiler,
 )
 from nabla.utils.log_config import setup_logging
 from nabla.utils.logger import logger
@@ -69,20 +70,22 @@ logger.info("Creating API")
 
 circuit_breaker_web = CircuitBreaker(fail_max=2, reset_timeout=10)
 
-_DATADOG_ACTIVE = configure_datadog(enabled=DD_TRACE_ENABLED, app_name=APP_NAME)
-_DD_PROFILING_ENABLED = _DATADOG_ACTIVE and os.environ.get(
-    "DD_PROFILING_ENABLED", "false"
-).lower() in ("true", "1", "yes")
-if _DD_PROFILING_ENABLED:
-    start_datadog_profiler(app_name=APP_NAME)
+configure_datadog(enabled=DD_TRACE_ENABLED, app_name=APP_NAME)
 
 
 @asynccontextmanager
 async def combined_lifespan(app: FastAPI):
     """Combine application lifespan with MCP lifespan."""
-    async with app_lifespan(app):
-        async with mcp_app.lifespan(app):
-            yield
+    profiler = start_datadog_profiler(
+        enabled=DD_PROFILING_ENABLED,
+        app_name=APP_NAME,
+    )
+    try:
+        async with app_lifespan(app):
+            async with mcp_app.lifespan(app):
+                yield
+    finally:
+        stop_datadog_profiler(profiler)
 
 
 def _configure_unleash_middleware(app: FastAPI) -> None:
@@ -249,19 +252,6 @@ def _configure_hot_reload(app: FastAPI) -> None:
         templates.env.globals["hot_reload"] = hot_reload
 
 
-def _setup_datadog_user_info() -> None:
-    """Setup Datadog user context only when tracing is active."""
-    set_datadog_user(
-        enabled=_DATADOG_ACTIVE,
-        user_id="usr.id",
-        name="AlbanAndrieu",
-        email=os.environ.get("MAIL_FROM", "alban.andrieu@gmail.com"),
-        scope="sample_scope",
-        role="manager",
-        session_id="id_session",
-    )
-
-
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     app = FastAPI(
@@ -297,7 +287,6 @@ def create_app() -> FastAPI:
     _configure_hot_reload(app)
     configure_logfire(app, service_name=APP_NAME, service_version=APP_VERSION)
     configure_sentry()
-    _setup_datadog_user_info()
     register_routes(app)
     return app
 

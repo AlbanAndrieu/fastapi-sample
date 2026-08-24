@@ -258,24 +258,28 @@ git diff --check
 
 ### Current issue
 
-Importing the full application still loads Datadog and produces a Python 3.12
-`crypt` deprecation warning. During pytest shutdown, the tracer can also log to
-an already closed output stream.
+Direct Datadog imports previously loaded the SDK through database and route
+modules even when tracing was disabled. The profiler also started during module
+import and had no application-owned shutdown.
 
 #### Datadog and observability isolation work
 
-- Load Datadog modules only when `DD_TRACE_ENABLED=true`.
-- Remove unconditional tracer configuration and user assignment.
-- Make profiling, tracing, and PII collection independently configurable.
-- Reconsider Sentry `send_default_pii=True` and sampling rates of `1.0`.
-- Verify that disabled observability creates no threads or shutdown hooks.
+- [x] Load Datadog tracing modules only when `DD_TRACE_ENABLED=true`.
+- [x] Remove direct tracer imports from database and route modules.
+- [x] Own profiler startup and shutdown in the application lifespan.
+- [x] Configure profiling independently with `DD_PROFILING_ENABLED`.
+- [x] Remove the global placeholder user assignment and keep Datadog PII
+  disabled until authenticated request identity is available.
+- [x] Keep Sentry PII disabled and make trace, profile and error sampling
+  configurable with conservative defaults.
+- [x] Verify that disabled Datadog paths do not import the SDK.
 
 #### Datadog and observability isolation acceptance criteria
 
-- Unit tests finish without Datadog warnings, five-second tracer waits, or
+- [x] Unit tests finish without Datadog warnings, five-second tracer waits, or
   logging errors.
-- Disabled observability has no measurable import-time side effect.
-- Production configuration documents sampling and PII choices explicitly.
+- [x] Disabled Datadog instrumentation has no SDK import-time side effect.
+- [x] Production configuration documents tracing, profiling and PII choices.
 
 ### Priority 5: Notes domain cleanup
 

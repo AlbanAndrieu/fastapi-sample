@@ -289,6 +289,7 @@ export OTEL_SDK_DISABLED=true
 export DD_SERVICE="fastapi-sample"
 export DD_ENV="nabla"
 export DD_LOGS_INJECTION=true
+export DD_TRACE_ENABLED=true
 export DD_TRACE_SAMPLE_RATE="1"
 export DD_PROFILING_ENABLED=true
 export DD_APPSEC_ENABLED=true
@@ -302,6 +303,11 @@ make up-gunicorn
 
 DEBUG=1 uv run uvicorn serve:app --reload --workers 1 --host 0.0.0.0 --port 8091
 ```
+
+`DD_TRACE_ENABLED` and `DD_PROFILING_ENABLED` are independent and default to
+`false`. The profiler is started and stopped with the FastAPI lifespan. The
+application does not set a global Datadog user or send PII; user context should
+only be attached later from an authenticated request identity.
 
 ```bash
 uv sync
