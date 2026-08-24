@@ -21,14 +21,17 @@ RUN apt-get update \
 COPY --from=ghcr.io/astral-sh/uv:0.8.14 /uv /usr/local/bin/uv
 COPY pyproject.toml uv.lock ./
 
-# Install only runtime groups. In particular, do not install the default/dev,
-# test or extra groups: those contain pytest, Ansible and other CI tooling.
-RUN --mount=type=secret,id=read-package-token \
+# Install only runtime groups. The package-read secret is optional so a normal
+# `docker compose build` works for the public dependency graph. Environments
+# that require the private GitLab index can still inject the BuildKit secret.
+RUN --mount=type=secret,id=read-package-token,required=false \
     --mount=type=cache,target=/tmp/uv_cache \
     set -eux; \
-    export UV_INDEX_GITLAB_DS_USERNAME=package_read; \
-    UV_INDEX_GITLAB_DS_PASSWORD="$(cat /run/secrets/read-package-token)"; \
-    export UV_INDEX_GITLAB_DS_PASSWORD; \
+    if [ -s /run/secrets/read-package-token ]; then \
+      export UV_INDEX_GITLAB_DS_USERNAME=package_read; \
+      UV_INDEX_GITLAB_DS_PASSWORD="$(cat /run/secrets/read-package-token)"; \
+      export UV_INDEX_GITLAB_DS_PASSWORD; \
+    fi; \
     uv sync --frozen --no-install-project --no-default-groups \
       --group base \
       --group api \
