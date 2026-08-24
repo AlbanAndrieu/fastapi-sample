@@ -139,6 +139,8 @@ async def test_failed_background_task_is_reported_and_does_not_break_cleanup(
     logger = Mock()
     monkeypatch.setattr(lifecycle, "logger", logger)
     tasks: list[asyncio.Task[None]] = []
+    reported = asyncio.Event()
+    logger.error.side_effect = lambda *args, **kwargs: reported.set()
 
     async def fail() -> None:
         raise ConnectionError("listener unavailable")
@@ -148,7 +150,7 @@ async def test_failed_background_task_is_reported_and_does_not_break_cleanup(
         name="redis-event-listener",
         tasks=tasks,
     )
-    await asyncio.sleep(0)
+    await asyncio.wait_for(reported.wait(), timeout=1)
     await lifecycle._cancel_background_tasks(tasks)
 
     logger.error.assert_called_once_with(
