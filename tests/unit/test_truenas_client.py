@@ -81,6 +81,19 @@ def test_settings_accept_legacy_user_and_verify_ssl(monkeypatch) -> None:
     assert settings.verify_ssl is False
 
 
+def test_settings_accept_custom_websocket_path(monkeypatch) -> None:
+    monkeypatch.setenv("TRUENAS_API_USERNAME", "readonly")
+    monkeypatch.setenv("TRUENAS_API_KEY", "1-test-key")
+    monkeypatch.setenv("TRUENAS_URL", "https://truenas.example/base")
+    monkeypatch.setenv("TRUENAS_WS_PATH", "/api/custom")
+
+    settings = TrueNASSettings.from_environment()
+
+    assert settings is not None
+    assert settings.websocket_path == "/api/custom"
+    assert settings.websocket_uri == "wss://truenas.example/base/api/custom"
+
+
 @pytest.mark.parametrize(
     ("url", "expected"),
     [
