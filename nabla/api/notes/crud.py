@@ -3,35 +3,25 @@ from datetime import datetime as dt
 
 from databases.interfaces import Record
 
-from nabla.api.db.database import SessionLocal, database
-from nabla.api.notes.models import Note, NoteResponse, notes
+from nabla.api.db.database import database
+from nabla.api.notes.models import NoteResponse, notes
 
 
-# TODO session: Session = Depends(get_session)
-async def post(payload: NoteResponse):
-    created_date = dt.now().strftime("%Y-%m-%d %H:%M")
-    session = SessionLocal()
-    session.add(
-        Note(
+async def post(payload: NoteResponse) -> int:
+    """Insert a note asynchronously and return its persisted identifier."""
+    query = (
+        notes.insert()
+        .values(
             title=payload.title,
             description=payload.description,
             type=payload.type,
             prompt=payload.prompt,
             completed=payload.completed,
-            created_date=created_date,
-        ),
+            created_date=dt.now(),
+        )
+        .returning(notes.c.id)
     )
-    session.commit()
-    session.close()
-    return payload
-
-    # query = notes.insert().values(
-    #     title=payload.title,
-    #     description=payload.description,
-    #     completed=payload.completed,
-    #     created_date=created_date,
-    # )
-    # return await database.execute(query=query)
+    return await database.execute(query=query)
 
 
 async def get(note_id: int) -> typing.Optional[Record]:
@@ -44,8 +34,8 @@ async def get_all() -> typing.List[Record]:
     return await database.fetch_all(query=query)
 
 
-async def put(note_id: int, payload=NoteResponse) -> typing.Any:
-    created_date = dt.now().strftime("%Y-%m-%d %H:%M")
+async def put(note_id: int, payload: NoteResponse) -> typing.Any:
+    """Update note content without replacing its original creation timestamp."""
     query = (
         notes.update()
         .where(notes.c.id == note_id)
@@ -55,7 +45,6 @@ async def put(note_id: int, payload=NoteResponse) -> typing.Any:
             type=payload.type,
             prompt=payload.prompt,
             completed=payload.completed,
-            created_date=created_date,
         )
         .returning(notes.c.id)
     )

@@ -287,15 +287,24 @@ import and had no application-owned shutdown.
 
 - Replace legacy SQLAlchemy declarative models and `databases.Record` with one
   consistent SQLAlchemy 2 or SQLModel data-access approach.
+- [x] Replace synchronous note creation with asynchronous database queries and
+  return the persisted database identifier.
+- [x] Fix note updates to use the requested identifier and preserve the original
+  creation timestamp.
 - Change `Note.completed` from a string column to a boolean column through an
   Alembic migration.
 - Store `created_date` as a timezone-aware timestamp and serialize it only at
   the API boundary.
-- Remove the synchronous DB session work from async request handlers or execute
-  it through a properly managed async session.
-- Add response models for create, update, read, and delete operations.
-- Decide whether updating a note must enqueue Redis work; expose queue failures
-  with an intentional transaction policy.
+- [x] Generate note response timestamps per instance instead of freezing them
+  when the models module is imported.
+- [x] Remove synchronous DB session work from asynchronous Notes request
+  handlers.
+- [x] Add response models for note creation and update operations.
+- Add response models for read and delete operations.
+- [x] Require Redis enqueue after persisting note updates; return HTTP 503 when
+  the update succeeded but background processing is unavailable.
+- [x] Restore the note-update regression test and cover asynchronous CRUD plus
+  Redis queue failure.
 
 #### Notes domain cleanup acceptance criteria
 
