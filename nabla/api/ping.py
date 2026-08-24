@@ -4,13 +4,14 @@ import time
 
 import httpx
 import pyroscope
-from ddtrace.trace import tracer
 from fastapi import APIRouter, Response
 from fastapi.concurrency import run_in_threadpool
 from opentelemetry.propagate import inject
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
+from nabla.config_settings import DD_TRACE_ENABLED
+from nabla.utils.datadog_config import datadog_trace
 from nabla.utils.logger import logger
 
 EXPOSE_HOST = os.environ.get("EXPOSE_HOST", "localhost")
@@ -40,12 +41,16 @@ async def ping():
 
 
 @router.get("/io_task")
-@tracer.wrap(service="ping_io_task_helper")
 async def io_task():
-    time.sleep(1)
-    logger.error("io task")
-    # If you must call sync code:
-    return {"IO bound task finish": await run_in_threadpool(time.sleep, 1)}
+    with datadog_trace(
+        enabled=DD_TRACE_ENABLED,
+        name="io_task",
+        service="ping_io_task_helper",
+    ):
+        time.sleep(1)
+        logger.error("io task")
+        # If you must call sync code:
+        return {"IO bound task finish": await run_in_threadpool(time.sleep, 1)}
 
 
 def work(n):

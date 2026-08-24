@@ -5,7 +5,6 @@ from typing import Annotated, AsyncGenerator, Final
 import orjson
 import psycopg_pool
 from databases import Database
-from ddtrace import patch
 from fastapi import Depends
 from sqlalchemy import Engine, create_engine
 
@@ -31,10 +30,6 @@ logger.info(
     _settings.postgres_migration_host or _settings.postgres_host,
 )
 logger.debug("Postgres driver=%s", _settings.postgres_driver)
-
-if os.environ.get("DD_TRACE_ENABLED", "false").lower() in ("true", "1", "yes"):
-    patch(sqlalchemy=True)
-
 
 def orjson_serializer(obj):
     """

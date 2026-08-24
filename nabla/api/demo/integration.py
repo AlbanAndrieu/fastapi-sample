@@ -4,13 +4,14 @@ import random
 import aiohttp
 import pybreaker
 import requests
-from ddtrace.trace import tracer
 from fastapi import APIRouter, HTTPException, status
 from opentelemetry import trace
 from opentelemetry.trace.status import Status, StatusCode
 
 from nabla.api.demo.demo import uniform_secret
 from nabla.api.v1 import pong
+from nabla.config_settings import DD_TRACE_ENABLED
+from nabla.utils.datadog_config import datadog_trace
 from nabla.utils.logger import logger
 from nabla.utils.misc import timed_operation
 
@@ -105,7 +106,8 @@ async def get_gateway_assistant():
                 "Test gateway service assistant",
             )  # [logging-fstring-interpolation]
 
-            with tracer.trace(
+            with datadog_trace(
+                enabled=DD_TRACE_ENABLED,
                 name="assistant_helper",
                 service="assistant_helper",
                 resource="another_process",
