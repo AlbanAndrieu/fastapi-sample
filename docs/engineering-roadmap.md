@@ -171,6 +171,35 @@ exceptions here rather than creating additional todo or refactoring documents.
 - [ ] Continue the MCP SDK integration review:
   <https://github.com/modelcontextprotocol/python-sdk>.
 
+## PR #63 recovery ledger
+
+The unmerged PR #63 changed 95 paths. Compared with the current PR branch,
+11 are byte-identical, 64 have since diverged and 20 are absent. Recover changes
+in reviewable batches; never overwrite newer fixes with the old blob wholesale.
+
+- [x] Restore the global TrueNAS SDK instruction; current runtime code already
+  follows it by lazily importing the official `truenas_api_client` package.
+- [x] Restore the FastAPI agent skill in its official directory layout, including
+  every referenced file, instead of the incomplete flat file from PR #63.
+- [ ] Restore FastAPI Radar as one coherent optional development feature:
+  dependency and lock, ignored database, dashboard discovery, documentation,
+  `.mcp.json` and `opencode.json`. Do not add commands before their executable
+  dependency exists.
+- [ ] Compare the three missing RAG modules and their tests with the newer
+  deep-agent/external integration architecture; port behavior, not stale files.
+- [ ] Compare the missing TrueNAS route/service modules and mapping tests with
+  the consolidated official-client adapter and Homelab response models.
+- [ ] Review `docs/entrypoints-and-dashboards.md` and
+  `scripts/discover_dashboards.py` with the Radar batch.
+- [ ] Review the missing SQL snapshot and `panda.py` separately for necessity,
+  generated-content policy and secret exposure before restoring either file.
+- [ ] Compare Langfuse skill/reference updates with the current installed skill;
+  retain the newer content and port only missing guidance.
+- [ ] Review every divergent workflow, dependency and application file against
+  current CI results; apply small semantic patches with focused tests.
+- [ ] Record an explicit retained, superseded or restored decision for every one
+  of the 20 absent PR #63 paths before closing this recovery effort.
+
 ## Suggested future pull requests
 
 1. `feat(security): introduce Keycloak-backed administrative access`
