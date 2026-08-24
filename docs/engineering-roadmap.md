@@ -206,7 +206,7 @@ in reviewable batches; never overwrite newer fixes with the old blob wholesale.
   guidance.
 - [ ] Review every divergent workflow, dependency and application file against
   current CI results; apply small semantic patches with focused tests.
-- [ ] Record an explicit retained, superseded or restored decision for every one
+- [x] Record an explicit retained, superseded or restored decision for every one
   of the 20 absent PR #63 paths before closing this recovery effort.
 
 ### PR #63 absent-path disposition
