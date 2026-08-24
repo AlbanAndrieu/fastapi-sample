@@ -3,6 +3,17 @@
 
 """FastAPI application factory and initialization."""
 
+import logging
+
+class SafeFormatter(logging.Formatter):
+    def format(self, record):
+        for key in ("otelTraceID", "otelSpanID", "otelServiceName"):
+            if not hasattr(record, key):
+                setattr(record, key, "")
+        return super().format(record)
+
+logging.Formatter = SafeFormatter  # Patch global, monkeypatch to fix ALL handlers—even after fork
+
 import argparse
 import os
 from contextlib import asynccontextmanager
