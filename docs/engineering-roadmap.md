@@ -106,7 +106,8 @@ exceptions here rather than creating additional todo or refactoring documents.
 ## P2 — Runtime and database architecture
 
 - [x] Avoid opening the auxiliary PostgreSQL connection pool during module
-  import.
+  import and close it explicitly during application shutdown.
+- [x] Keep JSON log formatters safe while Python clears module globals at shutdown.
 - [ ] Consolidate SQLAlchemy, `databases` and psycopg pools behind one explicit
   application lifecycle.
 - [ ] Move schema creation out of worker startup and run Alembic migrations as
@@ -217,11 +218,11 @@ git diff --check
 
 #### lifecycle resilience work
 
-- Use `contextlib.AsyncExitStack` to manage startup resources.
-- Close Redis explicitly during shutdown.
-- Ensure partially completed startup is rolled back when a later dependency
-  fails.
-- Add names and structured error reporting to background tasks.
+- [x] Use `contextlib.AsyncExitStack` to manage startup resources.
+- [x] Close Redis, PostgreSQL pools and MCP clients explicitly during shutdown.
+- [x] Roll back partially completed startup when a later dependency fails.
+- [x] Add stable names to application-owned background tasks.
+- [ ] Add structured error reporting to background tasks.
 - Decide whether a background-task crash should stop the application or be
   restarted with bounded backoff.
 - Add startup and shutdown tests for success, partial failure, and cancellation.

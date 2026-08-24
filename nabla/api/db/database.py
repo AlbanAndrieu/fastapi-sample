@@ -32,13 +32,6 @@ logger.info(
 )
 logger.debug("Postgres driver=%s", _settings.postgres_driver)
 
-# TODO: exemple of password to detect
-# Below is a security leak on purpose to detect if the password is in the logs
-logger.info(f"Postgres URL: {DB_URL}")
-logger.info("Postgres URL MIGRATION: %s", MIGRATION_DB_URL)
-logger.info(f"Postgres pass: {os.getenv('POSTGRES_PASSWORD')}")
-logger.info(f"Postgres driver: {os.getenv('POSTGRES_DRIVER')}")
-
 if os.environ.get("DD_TRACE_ENABLED", "false").lower() in ("true", "1", "yes"):
     patch(sqlalchemy=True)
 
@@ -57,6 +50,7 @@ db_pool = psycopg_pool.ConnectionPool(
     min_size=0,
     max_size=1,
     max_idle=5,
+    open=False,
     kwargs={"prepare_threshold": None},
 )
 

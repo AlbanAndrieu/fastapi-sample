@@ -1,6 +1,12 @@
 """HTTP middleware for metrics, logging, and request handling."""
+
 import time
+
 from fastapi import Request
+from starlette.routing import Match, Mount
+
+from nabla.config import NOISY_SUCCESS_PATHS, NOISY_SUCCESS_PREFIXES
+from nabla.config_settings import APP_NAME, get_settings
 from nabla.utils.logger import logger
 from nabla.utils.prometheus import (
     INFLIGHT_REQUESTS,
@@ -9,37 +15,55 @@ from nabla.utils.prometheus import (
     REQUESTS_PROCESSING_TIME,
     RESPONSES,
 )
-from nabla.config_settings import APP_NAME
-from nabla.config import NOISY_SUCCESS_PATHS, NOISY_SUCCESS_PREFIXES
+def metric_route_label(request: Request) -> str:
+    """Return a bounded-cardinality route template for Prometheus labels."""
+    current_route = request.scope.get("route")
+    if current_route is not None:
+        route_template = getattr(current_route, "path_format", None)
+        if route_template:
+            return route_template
+
+    for route in request.app.routes:
+        if isinstance(route, Mount):
+            continue
+        match, _ = route.matches(request.scope)
+        if match is Match.FULL:
+            return getattr(route, "path_format", route.path)
+
+    return "__unmatched__"
 
 
 async def metrics_middleware(request: Request, call_next):
     """Automatic metrics collection middleware."""
+    if not get_settings().metrics_enabled:
+        return await call_next(request)
+
     start_time = time.time()
+    route_label = metric_route_label(request)
     INFLIGHT_REQUESTS.inc()
     REQUESTS_IN_PROGRESS.labels(
-        method=request.method, path=request.url.path, app_name=APP_NAME
+        method=request.method, path=route_label, app_name=APP_NAME
     ).inc()
     REQUESTS.labels(
-        method=request.method, path=request.url.path, app_name=APP_NAME
+        method=request.method, path=route_label, app_name=APP_NAME
     ).inc()
 
     try:
         response = await call_next(request)
         RESPONSES.labels(
             method=request.method,
-            path=request.url.path,
+            path=route_label,
             status_code=response.status_code,
             app_name=APP_NAME,
         ).inc()
         REQUESTS_PROCESSING_TIME.labels(
-            method=request.method, path=request.url.path, app_name=APP_NAME
+            method=request.method, path=route_label, app_name=APP_NAME
         ).observe(time.time() - start_time)
         return response
     finally:
         INFLIGHT_REQUESTS.dec()
         REQUESTS_IN_PROGRESS.labels(
-            method=request.method, path=request.url.path, app_name=APP_NAME
+            method=request.method, path=route_label, app_name=APP_NAME
         ).dec()
 
 

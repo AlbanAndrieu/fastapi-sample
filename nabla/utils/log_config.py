@@ -99,7 +99,7 @@ class JsonRequestFormatter(JsonBaseFormatter):
             json_record["req"] = record.__dict__["req"]
         if "res" in record.__dict__:
             json_record["res"] = record.__dict__["res"]
-        if record.levelno == logging.ERROR and record.exc_info:
+        if record.exc_info and record.levelno >= 40:
             json_record["err"] = self.formatException(record.exc_info)
         if "levelname" in record.__dict__:
             json_record["level"] = record.__dict__["levelname"]
@@ -128,7 +128,7 @@ class JsonErrorFormatter(JsonBaseFormatter):
     def format(self, record):
         json_record = {}
         # json_record["data"] = record.getMessage()
-        if record.levelno == logging.ERROR and record.exc_info:
+        if record.exc_info and record.levelno >= 40:
             json_record["err"] = self.formatException(record.exc_info)
         if "levelname" in record.__dict__:
             json_record["level"] = record.__dict__["levelname"]
