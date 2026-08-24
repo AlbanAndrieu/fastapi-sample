@@ -9,4 +9,8 @@ services:
       - "${FASTAPI_PORT:-8080}:8080"
     environment:
       FASTAPI_ENV: ${FASTAPI_ENV:-production}
+      TRUENAS_URL: ${TRUENAS_URL:-}
+      TRUENAS_API_USERNAME: ${TRUENAS_API_USERNAME:-}
+      TRUENAS_API_KEY: ${TRUENAS_API_KEY:-}
+      TRUENAS_API_VERIFY_SSL: ${TRUENAS_API_VERIFY_SSL:-true}
     restart: unless-stopped
