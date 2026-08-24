@@ -53,7 +53,7 @@ def register_health_routes(app: FastAPI) -> None:
         from nabla.api.homelab_topology import fetch_homelab_topology
 
         topology = await fetch_homelab_topology()
-        return topology.model_dump(mode="json", exclude_none=True)
+        return topology.model_dump(mode="json", by_alias=True, exclude_none=True)
 
     @app.get(
         "/api/homelab/health",
