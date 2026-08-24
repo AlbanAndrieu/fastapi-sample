@@ -1,6 +1,6 @@
 ---
 name: homelab-service-contract
-description: Detect cross-repository API and semantic drift in the homelab service catalog shared by fastapi-sample and nabla-site-alban. Use when changing homelab catalog fields, service exposure, tunnel URLs, health/sick probes, JSON generation, or the TrueNAS/Nabla service UI.
+description: Detect cross-repository drift between nabla-compose declarations, TrueNAS runtime observations, fastapi-sample reconciliation/health APIs, and nabla-site-alban presentation.
 license: Apache-2.0
 role: reviewer
 ---
@@ -9,97 +9,85 @@ role: reviewer
 
 ## Goal
 
-Keep the homelab service contract compatible across `fastapi-sample` and `AlbanAndrieu/nabla-site-alban`, including behavior that cannot be detected from JSON shape alone.
+Keep declared configuration, observed runtime state, operational health and UI presentation compatible without making any one of those concepts stand in for another.
 
-Treat repository code as the source of truth. Do not copy a permanent field inventory into this skill; derive the active contract from the producer, fixtures/schema, and every consumer.
+## Ownership model
 
-## Repositories and surfaces
+Treat these boundaries as architectural invariants:
 
-Inspect the local `fastapi-sample` implementation first, especially:
+- **`AlbanAndrieu/nabla-compose` owns declared inventory and declared topology.** Service identity, category, source path, runtime binding and architecture relations belong with the Compose code, primarily under `x-nabla`.
+- **TrueNAS owns observed runtime facts.** `app.query` reports installed Apps, states, versions, containers, images and ports. Runtime discovery is evidence, never declaration or exposure policy.
+- **`fastapi-sample` owns validation, reconciliation, health and API presentation.** It joins declared services to TrueNAS observations and reports drift without rewriting the source declarations.
+- **`AlbanAndrieu/nabla-site-alban` owns presentation only.** It must not become an upstream data source for backend monitoring or runtime identity.
 
-- `nabla/api/homelab_catalog.py`
-- `nabla/api/health_checks.py`
-- related API routes, Pydantic models, JSON Schema/OpenAPI, tests, and generated artifacts when present
+Use **Declared != Observed != Healthy** as the mental model:
 
-Inspect the current default branch of `AlbanAndrieu/nabla-site-alban` and any PR explicitly involved in the requested change, especially:
+- declared: what code says should exist;
+- observed: what the runtime says exists now;
+- healthy: whether a service is operational/reachable according to its monitoring policy.
 
-- `public/homelab-services.json`
-- `public/homelab-services-render.js`
-- `app/components/truenas/ServiceGrid.tsx`
-- other code referencing catalog fields such as `external`, `tunnelUrl`, internal endpoints, reachability, TLS, or probe state
+## Identity and TrueNAS reconciliation
 
-Use an available GitHub integration/API or a checked-out repository. When reviewing a PR, compare its head with the consumer default branch rather than relying on the PR description alone.
+Never match services by display name alone.
 
-## Review workflow
+For TrueNAS Apps, prefer an explicit `x-nabla.runtime` binding. `provider: truenas-app` must contain at least one of:
 
-1. Read the local diff and identify every catalog field or behavior that changes.
-2. Read the current producer/consumer implementations in both repositories.
-3. Build a field-use matrix showing which component reads, writes, validates, renders, or probes each affected field.
-4. Compare JSON shape, types, required/optional status, defaults, aliases, and schema version.
-5. Compare semantics separately from shape. Check whether the same value controls clickability, visibility, monitoring, TLS indicators, labels, or network probes consistently in every consumer.
-6. Search both repositories for legacy field names and duplicate implementations before declaring a migration complete.
-7. Classify the change and state the required migration/tests.
+- `appId`: exact TrueNAS App identity when known and stable;
+- `containerService`: exact Compose service reported by `active_workloads.container_details[].service_name`.
 
-## Drift classification
+A TrueNAS App may own multiple containers/services, so do not assume one declared service equals one TrueNAS App. Multiple declared services may intentionally bind to distinct `containerService` values inside the same App.
 
-Use these classes:
+Classify reconciliation explicitly, for example:
 
-- **BREAKING** — field removal/rename without compatibility, type change, required-field change, changed meaning that makes an existing consumer behave incorrectly, or an endpoint/version change without migration.
-- **COMPATIBLE** — additive optional field or semantic extension that preserves existing consumers, including a deliberately temporary alias/fallback.
-- **SEMANTIC DRIFT** — JSON still parses but two consumers interpret the same data differently. Treat this as a correctness failure even when schemas match.
-- **DATA ONLY** — values changed without changing the contract or behavior.
+- `in_sync`: declaration matches exactly one observed runtime;
+- `declared_only`: code declares the service but TrueNAS does not expose a matching runtime;
+- `observed_only`: TrueNAS exposes an App not covered by code-owned declarations;
+- `binding_conflict`: one declaration matches multiple observed runtimes;
+- `runtime_unknown`: TrueNAS cannot be queried;
+- `not_observed`: the declared service is logical or intentionally has no TrueNAS binding.
+
+## TrueNAS API invariant
+
+Use the official `truenas_api_client` Python package for TrueNAS middleware access. For application workloads use `app.query`; `service.query` represents TrueNAS system services and is a different inventory.
+
+Keep TrueNAS access read-only for this integration. Never expose credentials, raw API keys or privileged middleware payloads through public API responses.
 
 ## Exposure and probing invariant
 
-Do not infer public reachability from the presence of `tunnelUrl` alone.
+Do not infer public reachability from ports, portals, DNS names or `tunnelUrl` alone. Runtime discovery must never set `external=true`.
 
-During the current migration, `external` is the preferred exposure-policy field and `reacheableFromOutside` is a legacy alias only when compatibility is intentionally required. Verify this against the current consumer branch before applying it.
+During the migration, `external` remains the preferred exposure-policy field and `reacheableFromOutside` is a legacy input alias only where compatibility is deliberately retained.
 
-When the active contract defines `external: false` as internal-only:
+When `external: false`:
 
-- the public/external UI control must not be clickable;
-- public reachability/TLS probes must not run solely because a stale `tunnelUrl` exists;
-- monitoring code must explicitly apply the same exposure policy rather than selecting every HTTPS `tunnelUrl`;
-- stale external URLs should be reported as data debt and removed when they are no longer meaningful.
+- external UI controls must not become active merely because a URL exists;
+- public probes must not run solely because a stale URL exists;
+- internal monitoring must be modeled independently from exposure.
 
-If internal monitoring is desired later, model it independently from exposure instead of overloading `external` (for example with an explicit monitoring policy/target).
+## Catalog generation
 
-## Required review output
+Generate declared services and topology from the same `nabla-compose` scan so they cannot drift through independent hand editing. Generated artifacts must be deterministic and CI must fail when checked-in output is stale.
 
-Return a concise report containing:
+`catalog/services.json` contains code-owned service declarations. `catalog/service-topology.json` contains graph nodes and relations. Keep them separate because consumers need different views, but validate their versions/references together.
 
-1. affected fields and components;
-2. compatibility classification;
-3. behavioral/UI differences;
-4. stale legacy aliases or URLs;
-5. required producer and consumer changes;
-6. focused contract tests that should be added or updated.
+During migration, legacy presentation metadata may remain outside the new declared catalog. Do not silently drop it; retire it only after the equivalent code-owned metadata has moved into `x-nabla`.
 
-Flag a change as incomplete if the JSON renderer and React/Next.js renderer do not implement the same semantics.
+## Review workflow
 
-## Target architecture
+1. Read the producer diff in `nabla-compose` and identify changed IDs, runtime bindings and relations.
+2. Verify generated services/topology and schemas are synchronized.
+3. Inspect `fastapi-sample` models/routes/reconciliation and confirm exact identity semantics.
+4. Inspect `nabla-site-alban` consumers and ensure presentation does not reinterpret runtime or exposure fields.
+5. Test declared-only, observed-only, exact match, ambiguous match and TrueNAS-unavailable behavior.
+6. Search all repositories for legacy aliases or duplicate source-of-truth files before calling a migration complete.
 
-Prefer evolving toward `fastapi-sample` as the catalog contract owner and producer:
+## Compatibility classification
 
-1. define the service model with typed Pydantic models;
-2. expose a versioned read-only catalog endpoint and generated JSON Schema/OpenAPI;
-3. generate the JSON artifact from the same typed model rather than maintaining a second handwritten contract;
-4. let `nabla-site-alban` consume the generated contract at build/deploy time or from a cacheable read-only endpoint;
-5. generate or validate TypeScript types from the producer schema;
-6. run consumer contract validation in CI so incompatible producer changes fail before deployment.
+Use these classes:
 
-Keep transport, exposure policy, health monitoring policy, and UI presentation as separate concepts. Avoid making a consumer repository the implicit source of truth for backend monitoring.
+- **BREAKING** — ID/binding removal, incompatible type/schema change, or semantic change that makes an existing consumer wrong.
+- **COMPATIBLE** — additive optional metadata or deliberately retained fallback.
+- **SEMANTIC DRIFT** — shapes still parse but producer/runtime/consumer meanings differ; treat as a correctness failure.
+- **DATA ONLY** — values change without changing contract semantics.
 
-## Suggested contract tests
-
-At minimum, cover these cases when the corresponding fields exist:
-
-- externally exposed service with a valid external URL;
-- internal-only service that still contains a stale external URL;
-- service without an external URL;
-- legacy alias during migration;
-- conflicting legacy and new fields, where the new field must have deterministic precedence;
-- malformed/unsupported URL scheme;
-- producer schema version unknown to the consumer.
-
-For each case, assert both serialized contract behavior and consumer behavior (render/probe eligibility), not only successful JSON parsing.
+Keep transport, deployment identity, exposure policy, runtime state, health policy and UI presentation as separate concepts.
