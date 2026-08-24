@@ -3,17 +3,6 @@
 
 """FastAPI application factory and initialization."""
 
-import logging
-
-class SafeFormatter(logging.Formatter):
-    def format(self, record):
-        for key in ("otelTraceID", "otelSpanID", "otelServiceName"):
-            if not hasattr(record, key):
-                setattr(record, key, "")
-        return super().format(record)
-
-logging.Formatter = SafeFormatter  # Patch global, monkeypatch to fix ALL handlers—even after fork
-
 import argparse
 import os
 from contextlib import asynccontextmanager
@@ -27,6 +16,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from sqladmin import Admin
 from starlette.middleware.cors import CORSMiddleware
 
+from nabla.access_control import operations_access_middleware
 from nabla.api import (
     appwrite_route,
     brave_route,
@@ -290,15 +280,16 @@ def create_app() -> FastAPI:
     app.openapi = custom_openapi
     app.middleware("http")(logging_middleware)
     app.middleware("http")(metrics_middleware)
+    app.middleware("http")(operations_access_middleware)
     _configure_unleash_middleware(app)
     _configure_metrics(app)
     _register_routers(app)
-    _configure_mcp(app)
     _configure_admin_panel(app)
     _configure_hot_reload(app)
     configure_logfire(app, service_name=APP_NAME, service_version=APP_VERSION)
     configure_sentry()
     register_routes(app)
+    _configure_mcp(app)
     return app
 
 

@@ -42,6 +42,8 @@ exceptions here rather than creating additional todo or refactoring documents.
 - [x] Allow an optional `ADMIN_ACCESS_KEY` for `/admin` and its descendants.
 - [x] Allow an optional `DIAGNOSTICS_ACCESS_KEY` for detailed health, homelab,
   metrics and Sentry diagnostic endpoints while leaving `/health` public.
+- [x] Apply the same optional diagnostic-key protection to the declared homelab
+  topology endpoint without changing its open-by-default behavior.
 - [x] Preserve optional `MCP_OPS_KEY` compatibility and compare configured keys
   in constant time.
 - [x] Provide `MCP_OPS_REQUIRE_KEY=true` for operators who explicitly want
@@ -91,6 +93,8 @@ exceptions here rather than creating additional todo or refactoring documents.
 - [x] Make high-confidence, high-severity Bandit findings block Python CI.
 - [x] Remove the unused Wrangler npm package, its worker-only scripts and
   orphaned transitive dependencies from the npm lockfile.
+- [x] Align locked `esbuild` and `js-yaml` dependencies with existing secure npm
+  overrides instead of suppressing Trivy vulnerability findings.
 - [x] Keep the inverse `/sickz` certificate exception narrowly justified for
   both Ruff and Bandit instead of disabling TLS findings globally.
 - [ ] Consolidate duplicate Pylint jobs and keep one authoritative Python
@@ -128,6 +132,8 @@ exceptions here rather than creating additional todo or refactoring documents.
 - [x] Make Docker Compose use the real `server_all:app` entrypoint and port 8080.
 - [x] Bind local PostgreSQL and Redis ports to loopback by default.
 - [x] Remove the notebook container's access to the host SSH directory.
+- [x] Register diagnostic routes before MCP captures OpenAPI so Homelab catalog,
+  topology and health endpoints remain visible in Swagger with typed schemas.
 - [ ] Merge the two Compose files into one documented configuration with
   optional development, notebook and observability profiles.
 - [ ] Replace legacy Pipenv/Poetry instructions with a Python 3.13 + `uv`

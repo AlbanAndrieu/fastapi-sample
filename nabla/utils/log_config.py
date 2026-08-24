@@ -18,16 +18,18 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from nabla.config_settings import get_settings
 from nabla.utils.logger import logger
 
+_OTEL_LOG_FIELDS = ("otelTraceID", "otelSpanID", "otelServiceName")
+
 
 class SafeFormatter(logging.Formatter):
-    """
-    A logging formatter that always fills missing otel* fields to prevent KeyError, for Gunicorn, Uvicorn and any custom logs.
-    """
+    """Provide empty OpenTelemetry fields when instrumentation did not add them."""
+
     def format(self, record: logging.LogRecord) -> str:
-        for key in ["otelTraceID", "otelSpanID", "otelServiceName"]:
-            if not hasattr(record, key):
-                setattr(record, key, "")
+        for field_name in _OTEL_LOG_FIELDS:
+            if not hasattr(record, field_name):
+                setattr(record, field_name, "")
         return super().format(record)
+
 
 class JsonBaseFormatter(JsonFormatter):
     """Format the JSON logs into my style."""
@@ -193,21 +195,10 @@ def setup_logging() -> None:
     # Need to setup loggers before importing other modules that may use loggers
     # Use whatever path you need to grab the log_config.json file
     with open(os.path.join(os.path.dirname(__file__), "log_config.json")) as f:
-        config = json.load(f)
-        logging.config.dictConfig(config)
-
-    # Patch all stream handlers using 'standard' format to use SafeFormatter (robuste)
-    for logger_name in (None, "uvicorn.error", "gunicorn.error", ""):  # root et principaux usages
-        log = logging.getLogger(logger_name) if logger_name else logging.getLogger()
-        for handler in log.handlers:
-            if isinstance(handler, logging.StreamHandler):
-                fmt = getattr(getattr(handler, 'formatter', None), 'fmt', "") if hasattr(handler, 'formatter') else ''
-                if not hasattr(handler, 'formatter') or (hasattr(handler, 'formatter') and "otelTraceID" in str(fmt)):
-                    handler.setFormatter(SafeFormatter("%(asctime)s %(levelname)s [%(name)s] [%(filename)s:%(lineno)d] [trace_id=%(otelTraceID)s span_id=%(otelSpanID)s resource.service.name=%(otelServiceName)s] - %(message)s"))
+        logging.config.dictConfig(json.load(f))
 
     # Get root logger
     logger: logging.Logger = logging.getLogger()
-
 
     # Remove /credentials/health from application server logs
     logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())

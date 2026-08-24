@@ -6,9 +6,37 @@ The health endpoints intentionally keep credentials out of source control. Creat
 
 - `/health`: lightweight FastAPI/runtime liveness only; it must not depend on external homelab services.
 - `/healthz`: deep dependency diagnostics used by the `/api#health-board` UI.
+- `/api/homelab-services`: validated service inventory and declared exposure settings.
+- `/api/homelab-topology`: validated design-time service graph, including nodes and directed relationships.
 - `/api/homelab/health`: detailed homelab/platform state, including external and optional internal service probes.
 
 Optional integrations must not make the required/core health red. Missing credentials should be reported as disabled/skipped unless the integration is explicitly enabled and its required credential is missing.
+
+The Homelab endpoints are documented under the `Homelab` section of `/docs` and
+in `/openapi.json`. They remain accessible by default. Configure
+`DIAGNOSTICS_ACCESS_KEY` to require `X-Diagnostics-Key` or an `Authorization:
+Bearer` token for the service catalog, topology, and detailed health endpoints.
+
+Generate an opaque URL-safe value of at least 32 characters; it is compared as
+text and must not be decoded by the application:
+
+```bash
+python -c 'import secrets; print(secrets.token_urlsafe(32))'
+```
+
+Store the value in the local untracked `.env.secrets` for local execution and
+as a secret environment variable in FastAPI Cloud for production. Authorized
+server-side consumers must receive the same value and send either:
+
+```text
+X-Diagnostics-Key: <secret>
+Authorization: Bearer <secret>
+```
+
+Never expose it through browser JavaScript or a `NEXT_PUBLIC_*` variable. A web
+application such as `nabla-site-alban` may store it only in its server-side
+deployment secrets and proxy requests from a protected server route. Public
+pages should instead consume the future redacted public Homelab projection.
 
 ## Cloudflare Tunnel API
 

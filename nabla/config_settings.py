@@ -158,6 +158,22 @@ class _Settings(DatabaseSettings):
         Optional[SecretStr],
         Field(default=None, validation_alias=AliasChoices("MCP_OPS_KEY")),
     ]
+    admin_access_key: Annotated[
+        Optional[SecretStr],
+        BeforeValidator(_unset_empty_env),
+        Field(
+            default=None,
+            validation_alias=AliasChoices("ADMIN_ACCESS_KEY"),
+        ),
+    ]
+    diagnostics_access_key: Annotated[
+        Optional[SecretStr],
+        BeforeValidator(_unset_empty_env),
+        Field(
+            default=None,
+            validation_alias=AliasChoices("DIAGNOSTICS_ACCESS_KEY"),
+        ),
+    ]
 
     appwrite_endpoint: Annotated[
         Optional[str],
