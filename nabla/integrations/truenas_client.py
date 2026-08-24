@@ -33,6 +33,7 @@ class TrueNASSettings:
     username: str = ""
     api_key: str = ""
     verify_ssl: bool = True
+    websocket_path: str = _DEFAULT_API_PATH
 
     @classmethod
     def from_environment(cls) -> TrueNASSettings | None:
@@ -53,17 +54,19 @@ class TrueNASSettings:
             os.getenv("TRUENAS_API_VERIFY_SSL", "").strip()
             or os.getenv("TRUENAS_VERIFY_SSL", "true").strip()
         )
+        websocket_path = os.getenv("TRUENAS_WS_PATH", _DEFAULT_API_PATH).strip()
         return cls(
             url=os.getenv("TRUENAS_URL", _DEFAULT_TRUENAS_URL).strip()
             or _DEFAULT_TRUENAS_URL,
             username=username,
             api_key=api_key,
             verify_ssl=verify_ssl_raw.lower() in _TRUE_VALUES,
+            websocket_path=websocket_path or _DEFAULT_API_PATH,
         )
 
     @property
     def websocket_uri(self) -> str:
-        """Normalize an HTTP(S) TrueNAS URL to the v26 JSON-RPC WebSocket endpoint."""
+        """Normalize an HTTP(S) TrueNAS URL to the configured JSON-RPC WebSocket endpoint."""
         parsed = urlsplit(self.url)
         scheme = {"https": "wss", "http": "ws", "wss": "wss", "ws": "ws"}.get(
             parsed.scheme.lower()
@@ -72,10 +75,11 @@ class TrueNASSettings:
             raise ValueError("TRUENAS_URL must be an HTTP(S) or WS(S) URL with a host")
 
         path = parsed.path.rstrip("/")
+        configured_path = "/" + self.websocket_path.lstrip("/")
         if not path or path == "/":
-            path = _DEFAULT_API_PATH
-        elif not path.endswith(_DEFAULT_API_PATH):
-            path = f"{path}{_DEFAULT_API_PATH}"
+            path = configured_path
+        elif not path.endswith(configured_path):
+            path = f"{path}{configured_path}"
         return urlunsplit((scheme, parsed.netloc, path, "", ""))
 
     @property
