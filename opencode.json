@@ -1,0 +1,15 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": [
+    "AGENTS.md",
+    ".github/instructions/*.instructions.md",
+    ".github/instructions/memory.instruction.md"
+  ],
+  "mcp": {
+    "fastapi-sample": {
+      "type": "remote",
+      "url": "http://127.0.0.1:8080/mcp",
+      "enabled": true
+    }
+  }
+}

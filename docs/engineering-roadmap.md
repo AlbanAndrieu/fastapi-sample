@@ -181,10 +181,14 @@ in reviewable batches; never overwrite newer fixes with the old blob wholesale.
   follows it by lazily importing the official `truenas_api_client` package.
 - [x] Restore the FastAPI agent skill in its official directory layout, including
   every referenced file, instead of the incomplete flat file from PR #63.
-- [ ] Restore FastAPI Radar as one coherent optional development feature:
-  dependency and lock, ignored database, dashboard discovery, documentation,
-  `.mcp.json` and `opencode.json`. Do not add commands before their executable
-  dependency exists.
+- [x] Restore `.mcp.json` and `opencode.json` against the application’s real
+  Streamable HTTP endpoint at `http://127.0.0.1:8080/mcp`. The old PR #63
+  `python -m fastapi_radar` command is not restored because FastAPI Radar 0.3.4
+  exposes neither a module CLI nor an MCP server.
+- [ ] Evaluate FastAPI Radar as one coherent, optional local-development feature:
+  dependency and lock, ignored DuckDB file, application instrumentation,
+  dashboard discovery and accurate security documentation. Keep it disabled in
+  production because it records request/response bodies and headers.
 - [ ] Compare the three missing RAG modules and their tests with the newer
   deep-agent/external integration architecture; port behavior, not stale files.
 - [ ] Compare the missing TrueNAS route/service modules and mapping tests with
