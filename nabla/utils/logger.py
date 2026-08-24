@@ -10,12 +10,13 @@ logger = structlog.get_logger()
 
 _REDACTED = "[REDACTED]"
 _SENSITIVE_KEY = re.compile(
-    r"(?:password|passwd|pwd|secret|token|api[_-]?key|authorization|cookie|"
+    r"(?:password|passwd|(?<![a-z])pass(?![a-z])|pwd|secret|token|"
+    r"api[_-]?key|authorization|cookie|"
     r"instance[_-]?id|client[_-]?secret|credential)",
     re.IGNORECASE,
 )
 _SENSITIVE_VALUE = re.compile(
-    r"(?i)(?P<prefix>(?:password|passwd|pwd|secret|token|api[_-]?key|"
+    r"(?i)(?P<prefix>(?:password|passwd|pass|pwd|secret|token|api[_-]?key|"
     r"authorization|instance[_-]?id|client[_-]?secret)\s*[=:]\s*)"
     r"(?P<value>[^\s,;}&]+)"
 )
