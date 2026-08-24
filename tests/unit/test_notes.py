@@ -1,15 +1,40 @@
 import json
 from datetime import datetime as dt
+from unittest.mock import AsyncMock
 
 import pytest
 
-from nabla.api.notes import crud
+from nabla.api.notes import crud, models as note_models, notes as notes_routes
+from nabla.api.notes.models import NoteResponse
 
 
 def test_homepage(test_app):
     response = test_app.get("/")
     assert response.status_code == 200
     assert "Sensor Dashboard" in response.text
+
+
+def test_note_response_generates_timestamp_for_each_instance(monkeypatch):
+    timestamps = iter((dt(2026, 8, 24, 12, 34), dt(2026, 8, 24, 12, 35)))
+
+    class Clock:
+        @staticmethod
+        def now(_timezone):
+            return next(timestamps)
+
+    monkeypatch.setattr(note_models, "datetime", Clock)
+    payload = {
+        "title": "something",
+        "description": "something else",
+        "type": "note",
+        "prompt": "test prompt",
+    }
+
+    first_note = NoteResponse(**payload)
+    second_note = NoteResponse(**payload)
+
+    assert first_note.created_date == "2026-08-24 12:34"
+    assert second_note.created_date == "2026-08-24 12:35"
 
 
 def test_create_note(test_app, monkeypatch):
@@ -136,7 +161,6 @@ def test_read_all_notes(test_app, monkeypatch):
 
 
 # Test for the PUT method
-@pytest.mark.skip(reason="Skipping this test for now")
 def test_update_note(test_app, monkeypatch):
     test_update_data = {
         "title": "something",
@@ -169,11 +193,17 @@ def test_update_note(test_app, monkeypatch):
     async def mock_get(id):  # noqa: A002
         return test_update_data
 
-    async def mock_put(id, payload):  # noqa: A002
-        return test_response
+    async def mock_put(note_id, payload):
+        assert note_id == 1
+        return note_id
+
+    async def mock_enqueue(note_id, note_type, prompt):
+        assert note_id == 1
+        return note_id
 
     monkeypatch.setattr(crud, "get", mock_get)
     monkeypatch.setattr(crud, "put", mock_put)
+    monkeypatch.setattr(notes_routes, "enqueue_note", mock_enqueue)
 
     response = test_app.put(
         "/notes/1/",
@@ -182,6 +212,78 @@ def test_update_note(test_app, monkeypatch):
     )
     assert response.status_code == 200
     assert response.json() == test_response
+
+
+def test_update_note_reports_queue_failure(test_app, monkeypatch):
+    existing_note = {
+        "id": 1,
+        "title": "previous",
+        "description": "previous description",
+        "type": "note",
+        "prompt": "previous prompt",
+        "completed": False,
+        "created_date": dt.now().strftime("%Y-%m-%d %H:%M"),
+    }
+    payload = {
+        "title": "updated",
+        "description": "updated description",
+        "type": "note",
+        "prompt": "updated prompt",
+        "completed": True,
+    }
+
+    async def mock_enqueue(note_id, note_type, prompt):
+        raise ConnectionError("Redis unavailable")
+
+    monkeypatch.setattr(crud, "get", AsyncMock(return_value=existing_note))
+    monkeypatch.setattr(crud, "put", AsyncMock(return_value=1))
+    monkeypatch.setattr(notes_routes, "enqueue_note", mock_enqueue)
+
+    response = test_app.put("/notes/1/", json=payload)
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == (
+        "Note saved but background processing is unavailable"
+    )
+
+
+async def test_crud_post_uses_async_database_and_returns_persisted_id(
+    monkeypatch,
+) -> None:
+    execute = AsyncMock(return_value=42)
+    monkeypatch.setattr(crud.database, "execute", execute)
+    payload = NoteResponse(
+        title="new note",
+        description="new description",
+        type="note",
+        prompt="new prompt",
+    )
+
+    note_id = await crud.post(payload)
+
+    assert note_id == 42
+    query = execute.await_args.kwargs["query"]
+    parameters = query.compile().params
+    assert isinstance(parameters["created_date"], dt)
+    assert parameters["title"] == "new note"
+
+
+async def test_crud_put_preserves_creation_timestamp(monkeypatch) -> None:
+    execute = AsyncMock(return_value=7)
+    monkeypatch.setattr(crud.database, "execute", execute)
+    payload = NoteResponse(
+        title="updated note",
+        description="updated description",
+        type="note",
+        prompt="updated prompt",
+    )
+
+    note_id = await crud.put(7, payload)
+
+    assert note_id == 7
+    parameters = execute.await_args.kwargs["query"].compile().params
+    assert 7 in parameters.values()
+    assert "created_date" not in parameters
 
 
 @pytest.mark.parametrize(
