@@ -222,15 +222,15 @@ git diff --check
 - [x] Close Redis, PostgreSQL pools and MCP clients explicitly during shutdown.
 - [x] Roll back partially completed startup when a later dependency fails.
 - [x] Add stable names to application-owned background tasks.
-- [ ] Add structured error reporting to background tasks.
-- Decide whether a background-task crash should stop the application or be
-  restarted with bounded backoff.
-- Add startup and shutdown tests for success, partial failure, and cancellation.
+- [x] Add structured error reporting to background tasks.
+- [x] Keep optional metrics and Redis listener failures isolated from request
+  handling; report their task name and exception type without automatic restart.
+- [x] Add startup and shutdown tests for success, partial failure, and cancellation.
 
 #### lifecycle resilience acceptance criteria
 
-- Every acquired resource is released after normal shutdown and failed startup.
-- No watcher, thread, pool, task, or client remains alive after lifecycle tests.
+- [x] Every acquired resource is released after normal shutdown and failed startup.
+- [x] No watcher, thread, pool, task, or client remains alive after lifecycle tests.
 - Shutdown completes within a documented timeout.
 
 ### Priority 3: integration tests
