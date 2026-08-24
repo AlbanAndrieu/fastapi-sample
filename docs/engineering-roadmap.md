@@ -193,8 +193,10 @@ in reviewable batches; never overwrite newer fixes with the old blob wholesale.
   deep-agent/external integration architecture; port behavior, not stale files.
 - [ ] Compare the missing TrueNAS route/service modules and mapping tests with
   the consolidated official-client adapter and Homelab response models.
-- [ ] Review `docs/entrypoints-and-dashboards.md` and
-  `scripts/discover_dashboards.py` with the Radar batch.
+- [x] Rewrite `docs/entrypoints-and-dashboards.md` for the current application,
+  MCP transport and Compose services.
+- [ ] Rewrite `scripts/discover_dashboards.py` only if machine-readable dashboard
+  discovery is still useful; the PR #63 parser targets invalid OpenCode fields.
 - [ ] Review the missing SQL snapshot and `panda.py` separately for necessity,
   generated-content policy and secret exposure before restoring either file.
 - [x] Restore the PR #63 Langfuse skill update as one locked bundle: prompt
@@ -215,7 +217,7 @@ in reviewable batches; never overwrite newer fixes with the old blob wholesale.
 | `.github/instructions/memory.instruction.md` | Restored | Preserves the official TrueNAS SDK rule. |
 | `.mcp.json` | Adapted | Points clients at the application’s real Streamable HTTP `/mcp` endpoint. |
 | `TODO.md` | Retained deletion | Its content is consolidated in this roadmap. |
-| `docs/entrypoints-and-dashboards.md` | Deferred rewrite | PR #63 documents obsolete entry points, port 8091 and unsupported OpenCode command fields. |
+| `docs/entrypoints-and-dashboards.md` | Adapted | Rewritten for the current ASGI entry point, port 8080, MCP mount and Compose dashboards. |
 | `nabla/api/rag.py` | Deferred semantic port | The old synchronous route depends on a blocking, process-global vector store. |
 | `nabla/api/services.py` | Deferred semantic port | The old async route performs blocking `requests` and leaks raw integration errors. |
 | `nabla/api/truenas_apps_api.py` | Superseded | Its router alias targets an object that no longer exists after TrueNAS consolidation. |
