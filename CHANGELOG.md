@@ -1,3 +1,10 @@
+## [1.5.3](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.2...1.5.3) (2026-08-25)
+
+
+### Bug Fixes
+
+* **release:** reject unpublished version baselines ([#84](https://github.com/AlbanAndrieu/fastapi-sample/issues/84)) ([163f4a3](https://github.com/AlbanAndrieu/fastapi-sample/commit/163f4a3d5bd6ecb5db425f87f8a384aff64c05a0))
+
 ## [1.5.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.1...1.5.2) (2026-08-25)
 
 
