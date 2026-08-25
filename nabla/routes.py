@@ -95,7 +95,7 @@ def register_routes(app: FastAPI) -> None:
     def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         from datetime import datetime
 
-        logger.opt(exception=exc).error("Unhandled exception on {}", request.url)
+        logger.error("Unhandled exception on %s", request.url, exc_info=exc)
         return JSONResponse(
             status_code=500,
             content={
