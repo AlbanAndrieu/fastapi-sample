@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+import importlib.util
+from pathlib import Path
+
 import pytest
 
-from scripts.check_release_baseline import (
-    normalize_release_version,
-    validate_release_baseline,
-)
+SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "check_release_baseline.py"
+SPEC = importlib.util.spec_from_file_location("check_release_baseline", SCRIPT_PATH)
+assert SPEC is not None and SPEC.loader is not None
+MODULE = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(MODULE)
+
+normalize_release_version = MODULE.normalize_release_version
+validate_release_baseline = MODULE.validate_release_baseline
 
 
 def test_release_baseline_accepts_equal_version() -> None:
