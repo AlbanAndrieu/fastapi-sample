@@ -43,7 +43,7 @@ Before changing a Redis lifecycle call:
 1. Read every Redis constraint in `pyproject.toml`.
 2. Inspect the resolved redis-py version in `uv.lock`.
 3. Verify the target API against the installed asynchronous class, not memory or
-   a synchronous-client example.
+    a synchronous-client example.
 4. Update duplicate dependency groups and `uv.lock` in the same commit.
 5. Run `uv lock --check` after `uv lock --upgrade-package redis`.
 
