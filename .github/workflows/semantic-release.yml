@@ -61,6 +61,20 @@ jobs:
       - name: Verify versions before release
         run: python scripts/check_versions.py
 
+      # @semantic-release/git pushes prepared version files before the GitHub
+      # publish step. If publishing fails, main can therefore contain a version
+      # that has no corresponding tag/release. Refuse to calculate another
+      # release from that inconsistent baseline instead of silently down-bumping
+      # the checked-in version on the next run.
+      - name: Verify published release baseline
+        env:
+          GH_TOKEN: ${{ steps.release_app_token.outputs.token || secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          LATEST_RELEASE_TAG="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq '.tag_name')"
+          python scripts/check_release_baseline.py "${LATEST_RELEASE_TAG}"
+
       - name: Run semantic-release
         id: semantic_release
         env:
