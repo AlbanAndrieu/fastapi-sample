@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Reject semantic-release runs when source versions diverge from the latest release."""
 
 from __future__ import annotations
