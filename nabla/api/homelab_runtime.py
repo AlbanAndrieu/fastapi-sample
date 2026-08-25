@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import threading
+import time
 from datetime import datetime, timezone
 from typing import Any, Literal
 
@@ -23,6 +26,11 @@ ReconciliationState = Literal[
     "runtime_unknown",
     "not_observed",
 ]
+
+_DEFAULT_RUNTIME_CACHE_TTL_SECONDS = 30.0
+_RUNTIME_CACHE_LOCK = threading.Lock()
+_RUNTIME_CACHE: TrueNASRuntimeSnapshot | None = None
+_RUNTIME_CACHE_EXPIRES_AT = 0.0
 
 
 class ObservedContainer(BaseModel):
@@ -58,12 +66,25 @@ class TrueNASRuntimeSnapshot(BaseModel):
     observed_at: str
     configured: bool
     reachable: bool
+    stale: bool = False
     apps: list[ObservedApp] = Field(default_factory=list)
     error: str | None = None
 
 
 def _short_error(exc: BaseException) -> str:
     return (str(exc).strip() or exc.__class__.__name__)[:240]
+
+
+def _runtime_cache_ttl_seconds() -> float:
+    """Return a bounded cache TTL so configuration mistakes cannot cache indefinitely."""
+    raw = os.getenv("TRUENAS_RUNTIME_CACHE_TTL_SECONDS", "").strip()
+    if not raw:
+        return _DEFAULT_RUNTIME_CACHE_TTL_SECONDS
+    try:
+        value = float(raw)
+    except ValueError:
+        return _DEFAULT_RUNTIME_CACHE_TTL_SECONDS
+    return max(5.0, min(value, 300.0))
 
 
 def _observed_app(raw: dict[str, Any]) -> ObservedApp:
@@ -134,9 +155,45 @@ def observe_truenas_runtime() -> TrueNASRuntimeSnapshot:
     )
 
 
+def _cached_truenas_runtime() -> TrueNASRuntimeSnapshot:
+    """Share one TrueNAS observation across callers and retain the last known good snapshot."""
+    global _RUNTIME_CACHE, _RUNTIME_CACHE_EXPIRES_AT
+
+    now = time.monotonic()
+    with _RUNTIME_CACHE_LOCK:
+        if _RUNTIME_CACHE is not None and now < _RUNTIME_CACHE_EXPIRES_AT:
+            return _RUNTIME_CACHE
+
+        previous = _RUNTIME_CACHE
+        refreshed = observe_truenas_runtime()
+        ttl = _runtime_cache_ttl_seconds()
+        _RUNTIME_CACHE_EXPIRES_AT = time.monotonic() + ttl
+
+        if refreshed.reachable or previous is None or not previous.reachable:
+            _RUNTIME_CACHE = refreshed
+            return refreshed
+
+        stale = previous.model_copy(
+            update={
+                "stale": True,
+                "error": refreshed.error or "TrueNAS refresh failed; serving last known good snapshot",
+            }
+        )
+        _RUNTIME_CACHE = stale
+        return stale
+
+
+def _reset_runtime_cache() -> None:
+    """Reset module cache for deterministic tests."""
+    global _RUNTIME_CACHE, _RUNTIME_CACHE_EXPIRES_AT
+    with _RUNTIME_CACHE_LOCK:
+        _RUNTIME_CACHE = None
+        _RUNTIME_CACHE_EXPIRES_AT = 0.0
+
+
 async def fetch_truenas_runtime() -> TrueNASRuntimeSnapshot:
-    """Run the synchronous official TrueNAS client outside the ASGI event loop."""
-    return await asyncio.to_thread(observe_truenas_runtime)
+    """Return the shared runtime snapshot without blocking the ASGI event loop."""
+    return await asyncio.to_thread(_cached_truenas_runtime)
 
 
 def _matches_binding(
