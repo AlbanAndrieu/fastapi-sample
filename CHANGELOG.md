@@ -1,3 +1,16 @@
+# [1.6.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.0...1.6.0) (2026-08-25)
+
+
+### Bug Fixes
+
+* **homelab:** publish topology OpenAPI and remediate Trivy findings ([#77](https://github.com/AlbanAndrieu/fastapi-sample/issues/77)) ([5e7ba4f](https://github.com/AlbanAndrieu/fastapi-sample/commit/5e7ba4f4fb6c2c25e94c34a52bf8f7698a56426a))
+
+
+### Features
+
+* **homelab:** expose validated service topology ([#75](https://github.com/AlbanAndrieu/fastapi-sample/issues/75)) ([1a79e0a](https://github.com/AlbanAndrieu/fastapi-sample/commit/1a79e0a2c1829ae5837d7a42b426a4d3f5d9a5c3))
+* **homelab:** reconcile x-nabla services with TrueNAS runtime ([#78](https://github.com/AlbanAndrieu/fastapi-sample/issues/78)) ([7586b4d](https://github.com/AlbanAndrieu/fastapi-sample/commit/7586b4d4b4807a6dc8a56ad97b930a1ba06e0144))
+
 # [1.5.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.4.1...1.5.0) (2026-08-23)
 
 
