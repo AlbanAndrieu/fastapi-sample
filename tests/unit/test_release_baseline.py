@@ -18,6 +18,7 @@ validate_release_baseline = MODULE.validate_release_baseline
 
 
 def test_release_baseline_accepts_equal_version() -> None:
+    assert normalize_release_version("v1.5.1") == "1.5.1"
     validate_release_baseline("1.5.1", "1.5.1")
     validate_release_baseline("1.5.1", "v1.5.1")
 
