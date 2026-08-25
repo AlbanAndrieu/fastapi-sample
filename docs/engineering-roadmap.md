@@ -42,6 +42,8 @@ exceptions here rather than creating additional todo or refactoring documents.
 - [x] Allow an optional `ADMIN_ACCESS_KEY` for `/admin` and its descendants.
 - [x] Allow an optional `DIAGNOSTICS_ACCESS_KEY` for detailed health, homelab,
   metrics and Sentry diagnostic endpoints while leaving `/health` public.
+- [x] Apply the same optional diagnostic-key protection to the declared homelab
+  topology endpoint without changing its open-by-default behavior.
 - [x] Preserve optional `MCP_OPS_KEY` compatibility and compare configured keys
   in constant time.
 - [x] Provide `MCP_OPS_REQUIRE_KEY=true` for operators who explicitly want
@@ -91,6 +93,10 @@ exceptions here rather than creating additional todo or refactoring documents.
 - [x] Make high-confidence, high-severity Bandit findings block Python CI.
 - [x] Remove the unused Wrangler npm package, its worker-only scripts and
   orphaned transitive dependencies from the npm lockfile.
+- [x] Align locked `esbuild` and `js-yaml` dependencies with existing secure npm
+  overrides instead of suppressing Trivy vulnerability findings.
+- [x] Exclude npm-generated `package-lock.json` from Prettier while retaining
+  JSON parsing and dependency/security validation.
 - [x] Keep the inverse `/sickz` certificate exception narrowly justified for
   both Ruff and Bandit instead of disabling TLS findings globally.
 - [ ] Consolidate duplicate Pylint jobs and keep one authoritative Python
@@ -123,11 +129,37 @@ exceptions here rather than creating additional todo or refactoring documents.
 - [ ] Make Debian package pinning reproducible without depending on package
   versions disappearing from the active repository.
 
+## P2 — Search provider architecture
+
+- [x] Group Tavily, Brave and Google routes under one `search` OpenAPI tag
+  without changing their public paths or provider-specific response contracts.
+- [ ] Add SearXNG to `nabla-compose`; it is not present on the current `master`
+  branch. Pin the container image, enable JSON output, keep it behind the private
+  network or an authenticated reverse proxy, and enable the limiter with Valkey
+  if it becomes internet-accessible.
+- [ ] Add an optional `/v1/searxng/search` adapter with a normalized response
+  model, bounded timeout and explicit provider provenance.
+- [ ] Enable SearXNG's official `braveapi` engine when a Brave API key is
+  configured. Evaluate its keyless Brave web engine separately because HTML
+  parsing has different reliability and provider-policy risks.
+- [ ] Evaluate Google through SearXNG as a transitional source only; its web
+  engine can encounter bot-protection responses, while Google's Custom Search
+  JSON API is closed to new customers and scheduled to end for existing
+  customers on 2027-01-01.
+- [ ] Keep Tavily as a direct provider until a separate experiment proves that a
+  SearXNG JSON/custom engine preserves its LLM-oriented scoring, content and
+  answer metadata without exposing its API key in source control.
+- [ ] Add a provider orchestrator above the adapters with per-provider budgets,
+  timeouts, circuit breakers, deduplication and fallback policy. Do not make
+  SearXNG a mandatory dependency for every search request.
+
 ## P2 — Local development and documentation
 
 - [x] Make Docker Compose use the real `server_all:app` entrypoint and port 8080.
 - [x] Bind local PostgreSQL and Redis ports to loopback by default.
 - [x] Remove the notebook container's access to the host SSH directory.
+- [x] Register diagnostic routes before MCP captures OpenAPI so Homelab catalog,
+  topology and health endpoints remain visible in Swagger with typed schemas.
 - [ ] Merge the two Compose files into one documented configuration with
   optional development, notebook and observability profiles.
 - [ ] Replace legacy Pipenv/Poetry instructions with a Python 3.13 + `uv`
@@ -138,6 +170,72 @@ exceptions here rather than creating additional todo or refactoring documents.
   generated files.
 - [ ] Continue the MCP SDK integration review:
   <https://github.com/modelcontextprotocol/python-sdk>.
+
+## PR #63 recovery ledger
+
+The unmerged PR #63 changed 95 paths. Compared with the current PR branch,
+11 are byte-identical, 64 have since diverged and 20 are absent. Recover changes
+in reviewable batches; never overwrite newer fixes with the old blob wholesale.
+
+- [x] Restore the global TrueNAS SDK instruction; current runtime code already
+  follows it by lazily importing the official `truenas_api_client` package.
+- [x] Restore the FastAPI agent skill in its official directory layout, including
+  every referenced file, instead of the incomplete flat file from PR #63.
+- [x] Restore `.mcp.json` and `opencode.json` against the application’s real
+  Streamable HTTP endpoint at `http://127.0.0.1:8080/mcp`. The old PR #63
+  `python -m fastapi_radar` command is not restored because FastAPI Radar 0.3.4
+  exposes neither a module CLI nor an MCP server.
+- [ ] Evaluate FastAPI Radar as one coherent, optional local-development feature:
+  dependency and lock, ignored DuckDB file, application instrumentation,
+  dashboard discovery and accurate security documentation. Keep it disabled in
+  production because it records request/response bodies and headers.
+- [ ] Compare the three missing RAG modules and their tests with the newer
+  deep-agent/external integration architecture; port behavior, not stale files.
+- [ ] Compare the missing TrueNAS route/service modules and mapping tests with
+  the consolidated official-client adapter and Homelab response models.
+- [x] Rewrite `docs/entrypoints-and-dashboards.md` for the current application,
+  MCP transport and Compose services.
+- [x] Reconcile README startup examples and links with port 8080,
+  `server_all:app` and the canonical `/mcp` transport.
+- [ ] Rewrite `scripts/discover_dashboards.py` only if machine-readable dashboard
+  discovery is still useful; the PR #63 parser targets invalid OpenCode fields.
+- [ ] Review the missing SQL snapshot and `panda.py` separately for necessity,
+  generated-content policy and secret exposure before restoring either file.
+- [x] Restore the PR #63 Langfuse skill update as one locked bundle: prompt
+  engineering, v4 project migration, instrumentation self-audit and SDK upgrade
+  guidance.
+- [ ] Review every divergent workflow, dependency and application file against
+  current CI results; apply small semantic patches with focused tests.
+- [x] Record an explicit retained, superseded or restored decision for every one
+  of the 20 absent PR #63 paths before closing this recovery effort.
+
+### PR #63 absent-path disposition
+
+| PR #63 path | Decision | Reason |
+| --- | --- | --- |
+| `.agents/skills/fastapi-SKILL.md` | Adapted | Restored as the complete official `.agents/skills/fastapi/` bundle so relative references resolve. |
+| `.agents/skills/langfuse/references/prompt-engineering.md` | Restored | Part of the locked Langfuse skill update. |
+| `.agents/skills/langfuse/references/v4-project-migration.md` | Restored | Part of the locked Langfuse skill update. |
+| `.github/instructions/memory.instruction.md` | Restored | Preserves the official TrueNAS SDK rule. |
+| `.mcp.json` | Adapted | Points clients at the application’s real Streamable HTTP `/mcp` endpoint. |
+| `TODO.md` | Retained deletion | Its content is consolidated in this roadmap. |
+| `docs/entrypoints-and-dashboards.md` | Adapted | Rewritten for the current ASGI entry point, port 8080, MCP mount and Compose dashboards. |
+| `nabla/api/rag.py` | Deferred semantic port | The old synchronous route depends on a blocking, process-global vector store. |
+| `nabla/api/services.py` | Deferred semantic port | The old async route performs blocking `requests` and leaks raw integration errors. |
+| `nabla/api/truenas_apps_api.py` | Superseded | Its router alias targets an object that no longer exists after TrueNAS consolidation. |
+| `nabla/integrations/external_rag.py` | Deferred semantic port | Replace synchronous `requests`, import-time environment reads and swallowed exceptions. |
+| `nabla/integrations/truenas_api_ws.py` | Superseded | Current `nabla/integrations/truenas_client.py` owns the official SDK adapter and safer TLS defaults. |
+| `nabla/rag/ingest.py` | Deferred redesign | Avoid the mutable global store, duplicate ingestion and blocking parsing in request/lifespan paths. |
+| `opencode.json` | Adapted | Uses OpenCode’s documented `mcp.remote` schema instead of fake command metadata. |
+| `panda.py` | Deferred | Restore only through a validated CLI entry point with argument handling. |
+| `scripts/discover_dashboards.py` | Deferred rewrite | Its parser relies on the invalid PR #63 OpenCode schema. |
+| `sql/schema-2026-07-17.sql` | Superseded | Alembic is the migration source of truth; do not add a duplicate generated snapshot. |
+| `tests/unit/test_main_wiring.py` | Deferred semantic port | It asserts an old MCP resource function removed by the newer application wiring. |
+| `tests/unit/test_rag_ingest.py` | Deferred with RAG | Its expectations encode the unsafe global vector-store implementation. |
+| `tests/unit/test_truenas_service_mapping.py` | Superseded | Current TrueNAS tests cover the consolidated adapter and current keyword-only mapping API. |
+
+“Deferred semantic port” means that the capability remains planned, but the old
+file must not be copied into the current application unchanged.
 
 ## Suggested future pull requests
 

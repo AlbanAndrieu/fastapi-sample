@@ -226,6 +226,20 @@ def test_google_search_ok_when_mocked(test_app, monkeypatch) -> None:
     assert body["num"] == 5
 
 
+def test_search_providers_share_openapi_tag(test_app) -> None:
+    """Tavily, Brave and Google appear in one Swagger search group."""
+    response = test_app.get("/openapi.json")
+
+    assert response.status_code == 200
+    paths = response.json()["paths"]
+    for path in (
+        "/v1/tavily/search",
+        "/v1/brave/search",
+        "/v1/google/search",
+    ):
+        assert paths[path]["post"]["tags"] == ["search"]
+
+
 def test_appwrite_health_returns_503_without_config(test_app, monkeypatch) -> None:
     """Appwrite route returns 503 when endpoint/project/key are not configured."""
     monkeypatch.setenv("APPWRITE_ENDPOINT", "")

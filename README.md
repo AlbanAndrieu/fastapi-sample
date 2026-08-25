@@ -110,7 +110,7 @@ Install dependencies from the lockfile into `.venv`, then run CLI tools through 
 ```bash
 uv sync
 # optional: uv sync --frozen  # strict lockfile
-uv run fastapi dev --port 8091
+uv run fastapi dev --port 8080
 ```
 
 ```bash
@@ -227,10 +227,10 @@ redis-cli --cluster fix 127.0.0.1:6379
 ```bash
 make up-uvicorn
 
-curl --request GET http://0.0.0.0:8091/ping
-curl --request GET http://0.0.0.0:8091/metrics
+curl --request GET http://127.0.0.1:8080/ping
+curl --request GET http://127.0.0.1:8080/metrics
 
-curl --request GET http://0.0.0.0:8091/v1/external-api
+curl --request GET http://127.0.0.1:8080/v1/external-api
 ```
 
 ### Logfire observability
@@ -259,6 +259,8 @@ uses its existing OpenTelemetry configuration.
 
 ### MCP clients (e.g. OpenRAG) and A2A
 
+See [Application entry points and local dashboards](docs/entrypoints-and-dashboards.md) for the current ASGI, OpenAPI, MCP and Compose URLs.
+
 - **Outbound MCP**: set `MCP_CLIENTS` to a JSON array of stdio servers, for example:
 
   ```json
@@ -278,10 +280,10 @@ uses its existing OpenTelemetry configuration.
 
 - **A2A**: set `A2A_ENABLED=true` and install deps from the `api-ai` group. The app mounts JSON-RPC at `/a2a` and the agent card at `/a2a/.well-known/agent-card.json`. Set `A2A_PUBLIC_BASE_URL` so the card lists a public JSON-RPC URL (e.g. `https://api.example.com`).
 
-[docs](http://0.0.0.0:8091/docs)
-[metrics](http://0.0.0.0:8091/metrics)
-[openapi](http://0.0.0.0:8091/openapi.json)
-[mcp](http://0.0.0.0:8091/llm/mcp)
+[docs](http://127.0.0.1:8080/docs)
+[metrics](http://127.0.0.1:8080/metrics)
+[openapi](http://127.0.0.1:8080/openapi.json)
+[mcp](http://127.0.0.1:8080/mcp)
 
 ```bash
 export OTEL_SDK_DISABLED=true
@@ -301,7 +303,7 @@ export DD_GIT_REPOSITORY_URL="$(git config --get remote.origin.url)"
 
 make up-gunicorn
 
-DEBUG=1 uv run uvicorn serve:app --reload --workers 1 --host 0.0.0.0 --port 8091
+DEBUG=1 uv run uvicorn server_all:app --reload --workers 1 --host 0.0.0.0 --port 8080
 ```
 
 `DD_TRACE_ENABLED` and `DD_PROFILING_ENABLED` are independent and default to
@@ -311,10 +313,10 @@ only be attached later from an authenticated request identity.
 
 ```bash
 uv sync
-uv run fastapi dev --port 8091
+uv run fastapi dev --port 8080
 ```
 
-[health](http://localhost:8091/health)
+[health](http://127.0.0.1:8080/health)
 
 ```bash
 sudo lsof -ni:8080 -sTCP:ESTABLISHED

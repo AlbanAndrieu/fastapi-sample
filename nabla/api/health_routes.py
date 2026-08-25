@@ -12,6 +12,9 @@ import pyroscope
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, ORJSONResponse
 
+from nabla.api.homelab_models import HomelabCatalog
+from nabla.api.homelab_topology import HomelabTopology
+
 
 async def _build_extended_healthz(request: Request) -> dict:
     """Compose deep health with optional platform and observability checks."""
@@ -32,6 +35,8 @@ def register_health_routes(app: FastAPI) -> None:
     @app.get(
         "/api/homelab-services",
         response_class=ORJSONResponse,
+        response_model=HomelabCatalog,
+        response_model_exclude_none=True,
         tags=["Homelab"],
         summary="Homelab service catalog",
     )
@@ -45,6 +50,8 @@ def register_health_routes(app: FastAPI) -> None:
     @app.get(
         "/api/homelab-topology",
         response_class=ORJSONResponse,
+        response_model=HomelabTopology,
+        response_model_exclude_none=True,
         tags=["Homelab"],
         summary="Declared homelab service topology",
     )

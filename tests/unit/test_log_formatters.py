@@ -8,6 +8,20 @@ import pytest
 from nabla.utils import log_config
 
 
+def test_safe_formatter_supplies_missing_otel_fields() -> None:
+    formatter = log_config.SafeFormatter(
+        "%(levelname)s trace=%(otelTraceID)s span=%(otelSpanID)s "
+        "service=%(otelServiceName)s %(message)s"
+    )
+    record = logging.LogRecord(
+        "uvicorn.error", logging.ERROR, __file__, 1, "ASGI failure", (), None
+    )
+
+    rendered = formatter.format(record)
+
+    assert rendered == "ERROR trace= span= service= ASGI failure"
+
+
 @pytest.mark.parametrize(
     "formatter_type",
     [log_config.JsonRequestFormatter, log_config.JsonErrorFormatter],

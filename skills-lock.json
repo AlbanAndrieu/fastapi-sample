@@ -5,7 +5,7 @@
       "source": "langfuse/skills",
       "sourceType": "github",
       "skillPath": "skills/langfuse/SKILL.md",
-      "computedHash": "c252bdfb0b1e8734e7309992fcbe9c0ef969df6d403d1c1780ee4c426fe30568"
+      "computedHash": "38cb23bf337eff2ccdbf54c09391ef96ed4cda42b97474ecd17abca820065121"
     },
     "sentry-workflow": {
       "source": "getsentry/sentry-for-ai",

@@ -65,7 +65,7 @@ async def lifespan(app: FastAPI):
         FastAPICache.init(InMemoryBackend())
         app.state.redis = redis
         if redis is not None:
-            resources.push_async_callback(redis.close)
+            resources.push_async_callback(redis.aclose)
 
         await database.connect()
         resources.push_async_callback(database.disconnect)
