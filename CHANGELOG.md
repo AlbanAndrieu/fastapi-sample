@@ -1,3 +1,10 @@
+## [1.5.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.1...1.5.2) (2026-08-25)
+
+
+### Bug Fixes
+
+* **runtime:** handle included routes and slim Vercel deploy ([#83](https://github.com/AlbanAndrieu/fastapi-sample/issues/83)) ([3ee90f8](https://github.com/AlbanAndrieu/fastapi-sample/commit/3ee90f843f770b755363d039276516947c361572))
+
 ## [1.5.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.0...1.5.1) (2026-08-25)
 
 
