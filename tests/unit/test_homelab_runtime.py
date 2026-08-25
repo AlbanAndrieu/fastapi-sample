@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+import nabla.api.homelab_runtime as homelab_runtime
 from nabla.api.homelab_declared import DeclaredServiceCatalog
 from nabla.api.homelab_runtime import (
     TrueNASRuntimeSnapshot,
@@ -32,6 +33,66 @@ def test_observed_app_preserves_truenas_container_service_name() -> None:
 
     assert app.app_id == "litellm-albandrieu"
     assert app.containers[0].service_name == "litellm"
+
+
+def test_runtime_cache_reuses_one_observation(monkeypatch) -> None:
+    homelab_runtime._reset_runtime_cache()
+    calls = 0
+    snapshot = TrueNASRuntimeSnapshot(
+        observed_at="2026-08-25T20:00:00Z",
+        configured=True,
+        reachable=True,
+    )
+
+    def fake_observe() -> TrueNASRuntimeSnapshot:
+        nonlocal calls
+        calls += 1
+        return snapshot
+
+    monkeypatch.setattr(homelab_runtime, "observe_truenas_runtime", fake_observe)
+    try:
+        first = homelab_runtime._cached_truenas_runtime()
+        second = homelab_runtime._cached_truenas_runtime()
+    finally:
+        homelab_runtime._reset_runtime_cache()
+
+    assert first is second
+    assert calls == 1
+
+
+def test_runtime_cache_serves_last_known_good_after_refresh_failure(monkeypatch) -> None:
+    homelab_runtime._reset_runtime_cache()
+    good = TrueNASRuntimeSnapshot(
+        observed_at="2026-08-25T20:00:00Z",
+        configured=True,
+        reachable=True,
+        apps=[_observed_app({"id": "openwebui", "state": "RUNNING"})],
+    )
+    failed = TrueNASRuntimeSnapshot(
+        observed_at="2026-08-25T20:01:00Z",
+        configured=True,
+        reachable=False,
+        error="temporary websocket failure",
+    )
+    snapshots = iter([good, failed])
+    monkeypatch.setattr(
+        homelab_runtime,
+        "observe_truenas_runtime",
+        lambda: next(snapshots),
+    )
+
+    try:
+        first = homelab_runtime._cached_truenas_runtime()
+        monkeypatch.setattr(homelab_runtime, "_RUNTIME_CACHE_EXPIRES_AT", 0.0)
+        second = homelab_runtime._cached_truenas_runtime()
+    finally:
+        homelab_runtime._reset_runtime_cache()
+
+    assert first.reachable is True
+    assert second.reachable is True
+    assert second.stale is True
+    assert second.apps[0].app_id == "openwebui"
+    assert second.error == "temporary websocket failure"
 
 
 @pytest.mark.asyncio
