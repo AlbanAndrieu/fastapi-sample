@@ -1,3 +1,10 @@
+## [1.5.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.0...1.5.1) (2026-08-25)
+
+
+### Performance Improvements
+
+* **truenas:** cache runtime observations ([#82](https://github.com/AlbanAndrieu/fastapi-sample/issues/82)) ([18a8c18](https://github.com/AlbanAndrieu/fastapi-sample/commit/18a8c18a0569d06b0326d651e0d545b380309293))
+
 # [1.5.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.4.1...1.5.0) (2026-08-25)
 
 
