@@ -59,6 +59,10 @@ exceptions here rather than creating additional todo or refactoring documents.
 
 ## P1 — Release and production deployment
 
+- [x] Keep Vercel as a lightweight HTTP compatibility proxy to FastAPI Cloud
+  instead of bundling the full Python dependency graph beyond the 500 MB limit.
+- [ ] Reconnect the Vercel project to GitHub or verify that the GitLab mirror
+  deploys the same immutable commit as the GitHub release.
 - [ ] Trigger FastAPI Cloud deployment for the existing
   `semantic-release-published` repository dispatch.
 - [ ] Check out the immutable release tag in validation and deployment jobs.

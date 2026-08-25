@@ -447,14 +447,17 @@ DB_URL="postgresql://postgres:password-reset-XXX@127.0.0.1:5432/fastapi_sample_d
 DB_URL="postgresql://fastapisample:password-reset-XXX@127.0.0.1:5432/fastapi_sample_dev" # nosec
 ```
 
-### Deploying to Vercel
+### Vercel compatibility proxy
 
-Deploy your project to Vercel with the following command:
+The Python application is deployed on
+[FastAPI Cloud](https://fastapi-sample.fastapicloud.dev). Vercel is configured
+as a lightweight external rewrite to that canonical runtime; it must not bundle
+the full Python dependency graph, which exceeds Vercel's function-size limit.
 
-```bash
-npm install -g vercel
-vercel --prod --archive=tgz
-```
+The Vercel project currently follows the GitLab mirror. Synchronize the mirror
+after merging deployment changes, or reconnect the Vercel project to this
+GitHub repository. Use the FastAPI Cloud URL directly for WebSockets and MCP
+streaming instead of relying on the HTTP compatibility proxy.
 
 ### Temporal demo
 

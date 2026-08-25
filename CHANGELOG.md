@@ -26,36 +26,6 @@
 * **homelab:** reconcile x-nabla services with TrueNAS runtime ([#78](https://github.com/AlbanAndrieu/fastapi-sample/issues/78)) ([7586b4d](https://github.com/AlbanAndrieu/fastapi-sample/commit/7586b4d4b4807a6dc8a56ad97b930a1ba06e0144))
 * prepare read-only Cloudflare tunnel observer ([#52](https://github.com/AlbanAndrieu/fastapi-sample/issues/52)) ([ab4ddc3](https://github.com/AlbanAndrieu/fastapi-sample/commit/ab4ddc325d292393209335ff74fea4d208abe2d6))
 
-# [1.6.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.0...1.6.0) (2026-08-25)
-
-
-### Bug Fixes
-
-* **homelab:** publish topology OpenAPI and remediate Trivy findings ([#77](https://github.com/AlbanAndrieu/fastapi-sample/issues/77)) ([5e7ba4f](https://github.com/AlbanAndrieu/fastapi-sample/commit/5e7ba4f4fb6c2c25e94c34a52bf8f7698a56426a))
-
-
-### Features
-
-* **homelab:** expose validated service topology ([#75](https://github.com/AlbanAndrieu/fastapi-sample/issues/75)) ([1a79e0a](https://github.com/AlbanAndrieu/fastapi-sample/commit/1a79e0a2c1829ae5837d7a42b426a4d3f5d9a5c3))
-* **homelab:** reconcile x-nabla services with TrueNAS runtime ([#78](https://github.com/AlbanAndrieu/fastapi-sample/issues/78)) ([7586b4d](https://github.com/AlbanAndrieu/fastapi-sample/commit/7586b4d4b4807a6dc8a56ad97b930a1ba06e0144))
-
-# [1.5.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.4.1...1.5.0) (2026-08-23)
-
-
-### Bug Fixes
-
-* pin Python 3.13 for FastAPI Cloud ([#46](https://github.com/AlbanAndrieu/fastapi-sample/issues/46)) ([2a0d89a](https://github.com/AlbanAndrieu/fastapi-sample/commit/2a0d89a18e252bdc44c5f9229d0d3f8dcbad55a9))
-
-
-### Features
-
-* add homelab service contract skill ([#49](https://github.com/AlbanAndrieu/fastapi-sample/issues/49)) ([eaf081d](https://github.com/AlbanAndrieu/fastapi-sample/commit/eaf081dc343ad0be3625a2aa84a1beab00705914))
-* add public homelab health API ([#51](https://github.com/AlbanAndrieu/fastapi-sample/issues/51)) ([de68681](https://github.com/AlbanAndrieu/fastapi-sample/commit/de68681921184f0574f0655c154202d4c9ad0cff))
-* add secure typed homelab catalog ([#50](https://github.com/AlbanAndrieu/fastapi-sample/issues/50)) ([050debb](https://github.com/AlbanAndrieu/fastapi-sample/commit/050debbf51e67920725b7f3cf890c406dca60eeb))
-* add TrueNAS dependency health signal ([#53](https://github.com/AlbanAndrieu/fastapi-sample/issues/53)) ([f246b59](https://github.com/AlbanAndrieu/fastapi-sample/commit/f246b59e0f5a306a7a18a37c22114a91b4ee629d))
-* consolidate runtime, platform and observability health ([#54](https://github.com/AlbanAndrieu/fastapi-sample/issues/54)) ([2e5a939](https://github.com/AlbanAndrieu/fastapi-sample/commit/2e5a939a48142f51b13efd9695793d8a84d763d1))
-* prepare read-only Cloudflare tunnel observer ([#52](https://github.com/AlbanAndrieu/fastapi-sample/issues/52)) ([ab4ddc3](https://github.com/AlbanAndrieu/fastapi-sample/commit/ab4ddc325d292393209335ff74fea4d208abe2d6))
-
 ## [1.4.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.4.0...1.4.1) (2026-08-21)
 
 

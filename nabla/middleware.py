@@ -15,11 +15,22 @@ from nabla.utils.prometheus import (
     REQUESTS_PROCESSING_TIME,
     RESPONSES,
 )
+
+
+def _route_template(route: object) -> str | None:
+    """Return a route path without assuming a concrete Starlette route type."""
+    for attribute in ("path_format", "path"):
+        value = getattr(route, attribute, None)
+        if isinstance(value, str) and value:
+            return value
+    return None
+
+
 def metric_route_label(request: Request) -> str:
     """Return a bounded-cardinality route template for Prometheus labels."""
     current_route = request.scope.get("route")
     if current_route is not None:
-        route_template = getattr(current_route, "path_format", None)
+        route_template = _route_template(current_route)
         if route_template:
             return route_template
 
@@ -28,7 +39,7 @@ def metric_route_label(request: Request) -> str:
             continue
         match, _ = route.matches(request.scope)
         if match is Match.FULL:
-            return getattr(route, "path_format", route.path)
+            return _route_template(route) or "__unmatched__"
 
     return "__unmatched__"
 
