@@ -38,13 +38,26 @@ def register_health_routes(app: FastAPI) -> None:
         response_model=HomelabCatalog,
         response_model_exclude_none=True,
         tags=["Homelab"],
-        summary="Homelab service catalog",
+        summary="Legacy homelab presentation catalog",
     )
     async def get_homelab_services():
-        """Expose the validated homelab catalog through FastAPI."""
+        """Expose the legacy UI/exposure catalog during the x-nabla migration."""
         from nabla.api.homelab_catalog import fetch_homelab_catalog
 
         catalog = await fetch_homelab_catalog()
+        return catalog.model_dump(mode="json", by_alias=True, exclude_none=True)
+
+    @app.get(
+        "/api/homelab/declared-services",
+        response_class=ORJSONResponse,
+        tags=["Homelab"],
+        summary="Code-owned declared homelab services",
+    )
+    async def get_declared_homelab_services():
+        """Expose the service inventory generated from nabla-compose x-nabla metadata."""
+        from nabla.api.homelab_declared import fetch_declared_service_catalog
+
+        catalog = await fetch_declared_service_catalog()
         return catalog.model_dump(mode="json", by_alias=True, exclude_none=True)
 
     @app.get(
@@ -61,6 +74,31 @@ def register_health_routes(app: FastAPI) -> None:
 
         topology = await fetch_homelab_topology()
         return topology.model_dump(mode="json", by_alias=True, exclude_none=True)
+
+    @app.get(
+        "/api/homelab/runtime",
+        response_class=ORJSONResponse,
+        tags=["Homelab", "TrueNAS"],
+        summary="Observed TrueNAS application runtime",
+    )
+    async def get_homelab_runtime():
+        """Expose a sanitized app.query snapshot from the official TrueNAS client."""
+        from nabla.api.homelab_runtime import fetch_truenas_runtime
+
+        runtime = await fetch_truenas_runtime()
+        return runtime.model_dump(mode="json", exclude_none=True)
+
+    @app.get(
+        "/api/homelab/status",
+        response_class=ORJSONResponse,
+        tags=["Homelab", "TrueNAS"],
+        summary="Declared versus observed homelab status",
+    )
+    async def get_homelab_status():
+        """Reconcile x-nabla declarations with TrueNAS runtime observations."""
+        from nabla.api.homelab_runtime import build_homelab_status_payload
+
+        return await build_homelab_status_payload()
 
     @app.get(
         "/api/homelab/health",
