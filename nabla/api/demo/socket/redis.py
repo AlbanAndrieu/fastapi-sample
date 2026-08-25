@@ -1,4 +1,3 @@
-import inspect
 import os
 from typing import Any
 
@@ -59,16 +58,6 @@ async def publish_event(channel: str = REDIS_EVENT_CHANNEL, event: Any = None):
     await redis.publish(channel, event.json())
 
 
-async def _close_pubsub(pubsub: Any) -> None:
-    """Close a Redis PubSub instance across redis-py async API versions."""
-    close = getattr(pubsub, "aclose", None) or getattr(pubsub, "close", None)
-    if close is None:
-        return
-    result = close()
-    if inspect.isawaitable(result):
-        await result
-
-
 async def start_event_listener(channel: str = REDIS_EVENT_CHANNEL):
     if redis is None:
         return
@@ -79,4 +68,4 @@ async def start_event_listener(channel: str = REDIS_EVENT_CHANNEL):
             if message["type"] == "message":
                 await manager.broadcast(message["data"])
     finally:
-        await _close_pubsub(pubsub)
+        await pubsub.aclose()

@@ -318,6 +318,8 @@ git diff --check
 
 - [x] Use `contextlib.AsyncExitStack` to manage startup resources.
 - [x] Close Redis, PostgreSQL pools and MCP clients explicitly during shutdown.
+- [x] Align the locked redis-py version with the asynchronous `aclose()`
+  lifecycle API and validate the real installed client contract without mocks.
 - [x] Roll back partially completed startup when a later dependency fails.
 - [x] Add stable names to application-owned background tasks.
 - [x] Add structured error reporting to background tasks.
