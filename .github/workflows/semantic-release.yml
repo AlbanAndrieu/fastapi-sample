@@ -1,9 +1,11 @@
 name: Semantic Release
 
+# The automatic main-push trigger is temporarily disabled while the repository
+# is being rebased onto the consolidated 1.4.0 release tag. Re-enable it only
+# after the historical 1.4.0 tag has been recreated on the consolidated main
+# commit; otherwise semantic-release would scan the post-1.4.0 history and
+# immediately publish a newer version again.
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
