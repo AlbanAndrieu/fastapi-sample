@@ -76,17 +76,18 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
                 <ul class="health-checks" id="health-checks"></ul>
                 <p class="health-error" id="health-fetch-error" hidden></p>
 
-                <h3 class="health-subboard-title" id="sickz-board-title">Unreachable targets</h3>
+                <h3 class="health-subboard-title" id="sickz-board-title">Exposure security policy</h3>
                 <p class="health-board-meta">Live view of <a href="/sickz">/sickz</a>.
                     <button type="button" class="health-refresh">Refresh</button>
                 </p>
-                <p class="health-board-meta">These URLs must <strong>not</strong> respond when this app runs
-                    outside your home LAN. Probes are skipped when <code>SICKZ_INTERNAL_NETWORK=true</code>, or
-                    implicitly when <code>SICKZ_NETWORK_LABEL=nabla</code> or
-                    <code>APP_DOMAIN=albandrieu.albandrieu.com</code> (unless a cloud/PaaS runtime is detected).
-                    <code>SICKZ_NETWORK_LABEL</code> / <code>APP_DOMAIN</code> also name the network in messages.
-                    Separate equivalent URLs with <code>|</code>; separate unrelated targets with commas.
-                    Probes use TLS verify off so certificate issues do not hide reachability.</p>
+                <p class="health-board-meta"><code>/sickz</code> compares declared exposure intent with
+                    external HTTP/TLS and read-only Cloudflare Tunnel evidence. Services with
+                    <code>external=false</code> must stay unreachable from outside the home LAN. Services with
+                    <code>external=true</code> must be reachable; when <code>tunnelSecure=true</code>, Cloudflare
+                    protection is expected and verified. Direct <code>*.int.albandrieu.com</code> exposure is an
+                    explicit weaker-security exception only with <code>tunnelSecure=false</code> and is shown as
+                    an orange warning. Probes are skipped on the internal network unless a cloud/PaaS runtime is
+                    detected. TLS trust is checked separately so certificate failures remain visible.</p>
                 <div class="health-summary health-summary--neutral" id="sickz-summary">
                     <span class="health-led health-led--gray" id="sickz-summary-led" aria-hidden="true"></span>
                     <span id="sickz-summary-text">Loading sickz checks…</span>
