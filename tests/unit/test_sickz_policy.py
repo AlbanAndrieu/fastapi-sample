@@ -315,7 +315,7 @@ def test_n8n_broad_access_bypass_is_red_security_exception() -> None:
     assert state == "fail"
     assert "⚠️" in detail
     assert "whole hostname" in detail
-    assert "check the Cloudflare Access policy" in detail.lower()
+    assert "check the cloudflare access policy" in detail.lower()
 
 
 def test_path_scoped_webhook_bypass_is_warning_not_full_host_failure() -> None:
