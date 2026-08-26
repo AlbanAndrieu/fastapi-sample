@@ -42,10 +42,10 @@ def register_health_routes(app: FastAPI) -> None:
         response_model=HomelabCatalog,
         response_model_exclude_none=True,
         tags=["Homelab"],
-        summary="Legacy homelab presentation catalog",
+        summary="FastAPI-owned homelab exposure catalog",
     )
-    async def get_homelab_services() -> HomelabCatalog:
-        """Expose the legacy UI/exposure catalog during the x-nabla migration."""
+    async def get_homelab_services():
+        """Expose the FastAPI-owned presentation and exposure policy catalog."""
         from nabla.api.homelab_catalog import fetch_homelab_catalog
 
         return await fetch_homelab_catalog()

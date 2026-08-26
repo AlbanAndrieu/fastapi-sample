@@ -185,3 +185,24 @@ def test_catalog_rejects_duplicate_service_ids() -> None:
                 HomelabService(id="langfuse", name="Langfuse Worker"),
             ]
         )
+
+
+def test_exposure_catalog_is_packaged_with_fastapi() -> None:
+    path = homelab_catalog.HOMELAB_SERVICES_CATALOG_PATH
+
+    assert path.is_file()
+    assert path.name == "homelab-services.json"
+    assert path.parent.name == "data"
+
+
+@pytest.mark.asyncio
+async def test_packaged_catalog_preserves_litellm_exposure_policy() -> None:
+    catalog = await homelab_catalog.fetch_homelab_catalog()
+    by_name = {service.name: service for service in catalog.services}
+
+    assert by_name["LiteLLM"].external is True
+    assert by_name["LiteLLM"].internal_port == 4000
+    assert by_name["LiteLLM - albandrieu"].external is False
+    assert by_name["LiteLLM - albandrieu"].internal_port == 4000
+    assert by_name["Home"].tunnel_url == "https://home.albandrieu.com:10443"
+    assert by_name["Home"].external is False
