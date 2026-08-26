@@ -1,331 +1,80 @@
-## [1.8.5](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.8.4...1.8.5) (2026-08-26)
+# Changelog
 
+## 1.4.0 — consolidated release (2026-08-27)
 
-### Bug Fixes
+This release intentionally consolidates the work that was temporarily published under versions greater than `1.4.0`. Those GitHub releases were removed and the project is being realigned on `1.4.0` as the release baseline.
 
-* **health:** require TrueNAS and improve refresh diagnostics ([#101](https://github.com/AlbanAndrieu/fastapi-sample/issues/101)) ([5c709c2](https://github.com/AlbanAndrieu/fastapi-sample/commit/5c709c2e605cbfbb47b6ffd5fa71f790e3b4107c))
+### Runtime, deployment and packaging
 
-## [1.8.4](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.8.3...1.8.4) (2026-08-26)
+- Standardize supported runtime and CI on Python 3.13, including FastAPI Cloud and Docker.
+- Harden FastAPI Cloud deployment metadata, runtime detection, health endpoints and production entrypoints.
+- Keep Docker runtime minimal and align application version metadata across Python, npm and OCI images.
+- Align local/MCP serving ports and deployment configuration, including the 8091 local MCP compatibility work.
+- Reduce Vercel deployment scope and improve runtime/route handling.
+- Harden semantic-release, release-baseline validation, GitHub release publication and version synchronization.
+- Improve dependency, Renovate, CodeQL, MegaLinter, pre-commit and repository quality workflows.
 
+### Homelab catalog and topology
 
-### Bug Fixes
+- Introduce the typed homelab service catalog and validated topology APIs.
+- Preserve service IDs, icons, internal endpoints, external exposure intent and security metadata.
+- Make FastAPI the authoritative exposure-policy source and add explicit exposure overrides where required.
+- Reconcile declared services with TrueNAS runtime/application inventory.
+- Add application lifecycle observations and cached TrueNAS runtime snapshots.
+- Add public homelab health APIs and split internal versus external observations.
 
-* restore clean homelab schema v4 CI ([#100](https://github.com/AlbanAndrieu/fastapi-sample/issues/100)) ([1cb7216](https://github.com/AlbanAndrieu/fastapi-sample/commit/1cb7216be92ec8ddf8a7bd2c560d6acb612e54d8))
+### TrueNAS
 
-## [1.8.3](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.8.2...1.8.3) (2026-08-26)
+- Add the TrueNAS dependency health signal and the read-only TrueNAS 26 API client integration.
+- Consolidate TrueNAS URL handling around `TRUENAS_URL` with `https://truenas.albandrieu.com:7000` as the default.
+- Add runtime/application inventory checks, caching and stale-result handling.
+- Make TrueNAS required infrastructure in the production health board while distinguishing public ingress, optional internal TCP and authenticated API evidence.
+- Add explicit INFO logging of the effective `TRUENAS_URL` to diagnose FastAPI Cloud connectivity.
 
+### Exposure security, Sickz and Cloudflare
 
-### Bug Fixes
+- Split Sickz from generic availability health and turn it into exposure-policy validation.
+- Verify declared `external` and `tunnelSecure` intent against HTTP reachability, TLS trust and Cloudflare evidence.
+- Add the read-only Cloudflare Tunnel observer and reconcile tunnel observations with declared service posture.
+- Detect private services that unexpectedly become externally reachable or gain Cloudflare ingress.
+- Verify Cloudflare-protected public services and report uncertain observer states separately.
+- Preserve explicit direct `.int.albandrieu.com` exposure as a security warning rather than silently treating it as secure.
+- Add protocol-aware pfSense/public-port policy checks, including SSH, LiteLLM and TrueNAS exposure expectations.
+- Correct the LiteLLM public-policy port from 4100 to 4000.
+- Detect application-level failure payloads even when an endpoint returns an HTTP success status.
 
-* **homelab:** reconcile Cloudflare exposure status ([#99](https://github.com/AlbanAndrieu/fastapi-sample/issues/99)) ([cfb9152](https://github.com/AlbanAndrieu/fastapi-sample/commit/cfb91528ea23364be37ebb5fd20c3042b736d4e6))
+### Health board and UI
 
-## [1.8.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.8.1...1.8.2) (2026-08-26)
+- Refactor the health subsystem into focused platform, integration, observability, homelab and Sickz modules.
+- Add reconciled service-health evidence and distinguish availability health from security-policy compliance.
+- Improve refresh diagnostics, stale-state handling and required-infrastructure reporting.
+- Split API JavaScript and CSS assets by responsibility and simplify the API page implementation.
+- Improve Sickz status rendering, TLS indicators, Cloudflare evidence and pfSense port-policy presentation.
+- Add OpenGraph/runtime presentation improvements and preserve service icons in the topology UI.
 
+### Observability and robustness
 
-### Bug Fixes
+- Simplify Logfire/FastAPI Cloud integration and keep observability integrations optional when disabled.
+- Isolate Datadog runtime lifecycle and make it optional for FastAPI Cloud.
+- Improve Sentry, Redis and optional integration health handling.
+- Harden logging formatters and stream handlers against malformed records.
+- Refactor Redis async lifecycle and failure handling.
+- Improve notes persistence/queue error isolation and application startup/shutdown robustness.
 
-* detect functional homelab service failures ([#98](https://github.com/AlbanAndrieu/fastapi-sample/issues/98)) ([c65e72b](https://github.com/AlbanAndrieu/fastapi-sample/commit/c65e72bef19fd955580c8e53873dd9df5c3a4fb4))
+### Architecture and maintainability
 
-## [1.8.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.8.0...1.8.1) (2026-08-26)
+- Split oversized health, UI, configuration and integration modules into focused components.
+- Introduce reusable FastAPI, homelab-service-contract and Redis lifecycle skills/rules for coding agents.
+- Add feature flags, access-control helpers and environment/runtime abstractions.
+- Consolidate engineering roadmap and health/environment documentation.
+- Preserve the project line-count quality contract rather than relaxing oversized-module thresholds.
 
+### Included post-1.4.0 work
 
-### Bug Fixes
-
-* **sickz:** verify declared exposure posture ([#97](https://github.com/AlbanAndrieu/fastapi-sample/issues/97)) ([1aa9d4d](https://github.com/AlbanAndrieu/fastapi-sample/commit/1aa9d4d7cec4f2c0eebf0f399cdf8106aa052b63))
-
-# [1.8.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.7.0...1.8.0) (2026-08-26)
-
-
-### Bug Fixes
-
-* align local server port ([#94](https://github.com/AlbanAndrieu/fastapi-sample/issues/94)) ([859403e](https://github.com/AlbanAndrieu/fastapi-sample/commit/859403e887886ef7c942ad29327ebed63c3d61ad))
-* restore production homelab health ([#93](https://github.com/AlbanAndrieu/fastapi-sample/issues/93)) ([3bb4adc](https://github.com/AlbanAndrieu/fastapi-sample/commit/3bb4adc5ee06f5711effc91c9812730f7db34fe0))
-* **sickz:** enforce public port exposure policy ([#96](https://github.com/AlbanAndrieu/fastapi-sample/issues/96)) ([8b008f6](https://github.com/AlbanAndrieu/fastapi-sample/commit/8b008f615d3374775e0c4ac08b24f06bb47c31bf))
-
-
-### Features
-
-* **homelab:** reconcile service health evidence ([#95](https://github.com/AlbanAndrieu/fastapi-sample/issues/95)) ([1b962d6](https://github.com/AlbanAndrieu/fastapi-sample/commit/1b962d64ccc8150dc0f41349f2015619e2652015))
-
-# [1.7.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.6.1...1.7.0) (2026-08-26)
-
-
-### Features
-
-* improve deployment metadata and runtime configuration ([#87](https://github.com/AlbanAndrieu/fastapi-sample/issues/87)) ([4a8deee](https://github.com/AlbanAndrieu/fastapi-sample/commit/4a8deee780fb3a6e52ae0f5b8261fed4f27f1540))
-
-## [1.6.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.6.0...1.6.1) (2026-08-26)
-
-
-### Bug Fixes
-
-* **homelab:** own exposure catalog and correct TLS state ([#88](https://github.com/AlbanAndrieu/fastapi-sample/issues/88)) ([5af6167](https://github.com/AlbanAndrieu/fastapi-sample/commit/5af61676ea635dd6c6fbb03bcd8c99d949caac5e))
-
-# [1.6.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.5...1.6.0) (2026-08-26)
-
-
-### Features
-
-* **homelab:** preserve catalog service icons ([#85](https://github.com/AlbanAndrieu/fastapi-sample/issues/85)) ([19612e5](https://github.com/AlbanAndrieu/fastapi-sample/commit/19612e566ccd47ef2657bf12dbcd088e1937aa18))
-
-## [1.5.5](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.4...1.5.5) (2026-08-26)
-
-
-### Bug Fixes
-
-* local mcp port to 8091 ([56d3c33](https://github.com/AlbanAndrieu/fastapi-sample/commit/56d3c33fd53e92d6dccaf9b7e8973120a8e24207))
-
-## [1.5.4](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.3...1.5.4) (2026-08-26)
-
-
-### Bug Fixes
-
-* README.md ([42f15bf](https://github.com/AlbanAndrieu/fastapi-sample/commit/42f15bf68305e6a3aaadfab84754f3f5983abdde))
-
-## [1.5.3](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.2...1.5.3) (2026-08-25)
-
-
-### Bug Fixes
-
-* **release:** reject unpublished version baselines ([#84](https://github.com/AlbanAndrieu/fastapi-sample/issues/84)) ([163f4a3](https://github.com/AlbanAndrieu/fastapi-sample/commit/163f4a3d5bd6ecb5db425f87f8a384aff64c05a0))
-
-## [1.5.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.1...1.5.2) (2026-08-25)
-
-## CI & Infrastructure
-- ci: Harden main ruleset and upgrade MegaLinter v10 (#47)
-- fix: Pin Python 3.13 for FastAPI Cloud (#46)
-
-## Homelab et Observabilité
-- feat: add homelab service contract skill (#49)
-- feat: add secure typed homelab catalog (#50)
-- feat: prepare read-only Cloudflare tunnel observer (#52)
-- feat: add public homelab health API (#51)
-- feat: add TrueNAS dependency health signal (#53)
-- feat: consolidate runtime, platform and observability health (#54)
-- refactor: split health routing modules (#55)
-- refactor: split API UI assets and add runtime clients (#56)
-- refactor: split API health JavaScript modules (#57)
-- refactor: extract shared API UI helpers (#58)
-- refactor: split sickz from deep health probes (#59)
-- refactor: extract optional integration health probes (#60)
-- refactor: split API page styles by responsibility (#62)
-
-## Release/Recovery
-- chore(release): 1.5.0 [skip ci] (suppression d'étiquettes, inclut tous les changements ci-dessus)
-- recover: reapply PRs #63, #66, #68 and #70 (#71)
-
-## TrueNAS & Application Services
-- refactor: consolidate TrueNAS access and services (#72)
-- refactor: verify and supervise application lifecycle (#73)
-- refactor(observability): isolate Datadog runtime lifecycle (#74)
-- feat(homelab): expose validated service topology (#75)
-
-## Notes & Persistence
-- refactor(notes): isolate asynchronous persistence and queue failures (#76)
-
-## Logging & Robustesse
-- fix: Patch all stream handlers to use SafeFormatter for robust logging (main)
+The consolidation includes the changes previously represented by the temporary `1.4.1`, `1.5.x`, `1.6.x`, `1.7.x` and `1.8.x` release history, notably PRs #45–#101 and their follow-up fixes/refactors. The Git commit history remains the authoritative detailed audit trail.
 
 ---
 
-# [1.5.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.4.1...1.5.0) (2026-08-23)
+## Historical releases before 1.4.0
 
-### Bug Fixes
-
-* **runtime:** handle included routes and slim Vercel deploy ([#83](https://github.com/AlbanAndrieu/fastapi-sample/issues/83)) ([3ee90f8](https://github.com/AlbanAndrieu/fastapi-sample/commit/3ee90f843f770b755363d039276516947c361572))
-
-## [1.5.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.0...1.5.1) (2026-08-25)
-
-
-### Performance Improvements
-
-* **truenas:** cache runtime observations ([#82](https://github.com/AlbanAndrieu/fastapi-sample/issues/82)) ([18a8c18](https://github.com/AlbanAndrieu/fastapi-sample/commit/18a8c18a0569d06b0326d651e0d545b380309293))
-
-# [1.5.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.4.1...1.5.0) (2026-08-25)
-
-
-### Bug Fixes
-
-* **homelab:** publish topology OpenAPI and remediate Trivy findings ([#77](https://github.com/AlbanAndrieu/fastapi-sample/issues/77)) ([5e7ba4f](https://github.com/AlbanAndrieu/fastapi-sample/commit/5e7ba4f4fb6c2c25e94c34a52bf8f7698a56426a))
-* pin Python 3.13 for FastAPI Cloud ([#46](https://github.com/AlbanAndrieu/fastapi-sample/issues/46)) ([2a0d89a](https://github.com/AlbanAndrieu/fastapi-sample/commit/2a0d89a18e252bdc44c5f9229d0d3f8dcbad55a9))
-* **redis:** align async lifecycle with locked client ([#81](https://github.com/AlbanAndrieu/fastapi-sample/issues/81)) ([4bcf6dd](https://github.com/AlbanAndrieu/fastapi-sample/commit/4bcf6dd0033c3d9d70a72fb845152bdb6a043cd7))
-
-### Features
-
-* add homelab service contract skill ([#49](https://github.com/AlbanAndrieu/fastapi-sample/issues/49)) ([eaf081d](https://github.com/AlbanAndrieu/fastapi-sample/commit/eaf081dc343ad0be3625a2aa84a1beab00705914))
-* add public homelab health API ([#51](https://github.com/AlbanAndrieu/fastapi-sample/issues/51)) ([de68681](https://github.com/AlbanAndrieu/fastapi-sample/commit/de68681921184f0574f0655c154202d4c9ad0cff))
-* add secure typed homelab catalog ([#50](https://github.com/AlbanAndrieu/fastapi-sample/issues/50)) ([050debb](https://github.com/AlbanAndrieu/fastapi-sample/commit/050debbf51e67920725b7f3cf890c406dca60eeb))
-* add TrueNAS dependency health signal ([#53](https://github.com/AlbanAndrieu/fastapi-sample/issues/53)) ([f246b59](https://github.com/AlbanAndrieu/fastapi-sample/commit/f246b59e0f5a306a7a18a37c22114a91b4ee629d))
-* consolidate runtime, platform and observability health ([#54](https://github.com/AlbanAndrieu/fastapi-sample/issues/54)) ([2e5a939](https://github.com/AlbanAndrieu/fastapi-sample/commit/2e5a939a48142f51b13efd9695793d8a84d763d1))
-* **homelab:** expose validated service topology ([#75](https://github.com/AlbanAndrieu/fastapi-sample/issues/75)) ([1a79e0a](https://github.com/AlbanAndrieu/fastapi-sample/commit/1a79e0a2c1829ae5837d7a42b426a4d3f5d9a5c3))
-* **homelab:** reconcile x-nabla services with TrueNAS runtime ([#78](https://github.com/AlbanAndrieu/fastapi-sample/issues/78)) ([7586b4d](https://github.com/AlbanAndrieu/fastapi-sample/commit/7586b4d4b4807a6dc8a56ad97b930a1ba06e0144))
-* prepare read-only Cloudflare tunnel observer ([#52](https://github.com/AlbanAndrieu/fastapi-sample/issues/52)) ([ab4ddc3](https://github.com/AlbanAndrieu/fastapi-sample/commit/ab4ddc325d292393209335ff74fea4d208abe2d6))
-
-## [1.4.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.4.0...1.4.1) (2026-08-21)
-
-### Bug Fixes
-
-* **release:** harden version sync and refactor config settings ([#45](https://github.com/AlbanAndrieu/fastapi-sample/issues/45)) ([d32bd74](https://github.com/AlbanAndrieu/fastapi-sample/commit/d32bd749242b27007be32dc60e238e788e7c1a4d))
-
-# [1.4.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.3.8...1.4.0) (2026-08-21)
-
-### Bug Fixes
-
-* **ci:** ignore transient MegaLinter GitHub config in Checkov ([#32](https://github.com/AlbanAndrieu/fastapi-sample/issues/32)) ([254724f](https://github.com/AlbanAndrieu/fastapi-sample/commit/254724fba083751e98f5f58ef64ec78e9b58f4a5))
-* **logfire:** simplify FastAPI Cloud integration ([#43](https://github.com/AlbanAndrieu/fastapi-sample/issues/43)) ([26b8c60](https://github.com/AlbanAndrieu/fastapi-sample/commit/26b8c60185ca71a8d1c72169b626af036a69742a))
-* **mcp:** expose canonical streamable HTTP endpoint ([#35](https://github.com/AlbanAndrieu/fastapi-sample/issues/35)) ([93ec084](https://github.com/AlbanAndrieu/fastapi-sample/commit/93ec084b4a5283fcfbedcebb7b1dd16d835ed898))
-* **observability:** enable Logfire on FastAPI Cloud ([#39](https://github.com/AlbanAndrieu/fastapi-sample/issues/39)) ([0c66b29](https://github.com/AlbanAndrieu/fastapi-sample/commit/0c66b298908070328c6bf57cd7f8a002d7d931cc))
-* **runtime:** make Datadog optional on FastAPI Cloud ([#38](https://github.com/AlbanAndrieu/fastapi-sample/issues/38)) ([b8c08b2](https://github.com/AlbanAndrieu/fastapi-sample/commit/b8c08b2af87cb9025d39237491e707962c234c3e))
-* **runtime:** stabilize FastAPI Cloud and start config refactor ([#40](https://github.com/AlbanAndrieu/fastapi-sample/issues/40)) ([2c489df](https://github.com/AlbanAndrieu/fastapi-sample/commit/2c489df62ff762d0cc9daf4e3b25b2b819e6cc0e))
-
-### Features
-
-* **mcp:** add persistent Streamable HTTP outbound clients ([#37](https://github.com/AlbanAndrieu/fastapi-sample/issues/37)) ([2ddbd33](https://github.com/AlbanAndrieu/fastapi-sample/commit/2ddbd337c6631bfdba8e44fbd614b3f20b5b4abc))
-* **mcp:** improve OpenWebUI MCP discovery guidance ([#31](https://github.com/AlbanAndrieu/fastapi-sample/issues/31)) ([a529a93](https://github.com/AlbanAndrieu/fastapi-sample/commit/a529a930ef7858a01cb6e260f4c0cc47f67a833f))
-* **release:** migrate semantic-release to GitHub ([#42](https://github.com/AlbanAndrieu/fastapi-sample/issues/42)) ([2385b1c](https://github.com/AlbanAndrieu/fastapi-sample/commit/2385b1caac771f9d710fa84c7c125fd6bf321923))
-
-# 1.0.0 (2026-07-10)
-
-### Bug Fixes
-
-* Add Ollama Client to test MCP Server ([fbd53bb](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/fbd53bb0f27ba8dd5363f74303d0ba6e2c3f2e7b))
-* disable vercel deploy in gitlab ([dffb7a6](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/dffb7a6c0523be733c3ee1566abae0c8ccc02398))
-* use smaller model : llama3.1:70b ([9c9045f](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/9c9045f1dd9b17e03d09ab6adf4ea4110d7f7765))
-* Use uv in tox and fix ruff format ([ba5f6ec](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/ba5f6ec423f3e0cb5fcedecb53a1bf98f5cb69e9))
-
-## [1.3.7](https://gitlab.com/AlbanAndrieu/fastapi-sample/compare/1.3.6...1.3.7) (2026-04-02)
-
-### Bug Fixes
-
-* Save poetry before switching to uv ([5a8caf1](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/5a8caf11fcc3550f6b153f0d8525fcbda762d6a5))
-
-## [1.3.6](https://gitlab.com/AlbanAndrieu/fastapi-sample/compare/1.3.5...1.3.6) (2026-04-01)
-
-### Bug Fixes
-
-* Save peotry before switching to uv ([caea92a](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/caea92ade28aa516b42e729dd909a0cdff379b22))
-
-## [1.3.5](https://gitlab.com/AlbanAndrieu/fastapi-sample/compare/1.3.4...1.3.5) (2026-03-18)
-
-### Bug Fixes
-
-* urls ([86a7a6f](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/86a7a6fe41fceb2d8db1e28e5950bf9a634da3c1))
-
-## [1.3.4](https://gitlab.com/AlbanAndrieu/fastapi-sample/compare/1.3.3...1.3.4) (2026-03-04)
-
-### Bug Fixes
-
-* update ([2d8eef1](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/2d8eef10588b7f341cee3b1607270ed551c6a0c2))
-* update ([4000fe4](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/4000fe45960e6795ad1311cb24fd6c94b1084a0b))
-* update ([d4cb5bc](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/d4cb5bcda969583daa1594a1f8550919c05928ea))
-* update ([453e245](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/453e24532255af378db1aed6e7e6044989acf5ca))
-* update ([33cf313](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/33cf313ce68548ac06d06b4f2fed22404bde4b16))
-* update ([4fcc110](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/4fcc110ec47dc3f58ea1c99d9b1d1c0fa2c4eada))
-* update ([c61b450](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/c61b45016a7209e65d791d7ec62a0828a1df7a0a))
-* update ([b58e191](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/b58e191551197cb48d426d541f8746cedae598bc))
-
-## [1.3.3](https://gitlab.com/AlbanAndrieu/fastapi-sample/compare/1.3.2...1.3.3) (2026-02-18)
-
-### Bug Fixes
-
-* Format with prettier ([8566a68](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/8566a68f660e3d7d6ca11c0bd8fdf61053161385))
-
-## [1.3.2](https://gitlab.com/AlbanAndrieu/fastapi-sample/compare/1.3.1...1.3.2) (2026-02-06)
-
-### Bug Fixes
-
-* python 3.12 ([1e89ca4](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/1e89ca43f0c019baab7628d8f548fe18cf41c0f7))
-
-## [1.3.1](https://gitlab.com/AlbanAndrieu/fastapi-sample/compare/1.3.0...1.3.1) (2026-01-26)
-
-### Bug Fixes
-
-* deploy ([a94ec94](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/a94ec9415502544bed960d9abffcb05034c16f6d))
-* deploy ([160b825](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/160b825cb4688a86d2d93f156e78767eb14affeb))
-* deploy ([b4d76b3](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/b4d76b3821ad3ad5bf536a6cf78195f1175d4152))
-* prettier --write ([fbe7148](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/fbe71487aed4fb82452462b0116fc9529eaab83f))
-
-# [1.3.0](https://gitlab.com/AlbanAndrieu/fastapi-sample/compare/1.2.4...1.3.0) (2026-01-17)
-
-### Bug Fixes
-
-- Helm lint ([c079c07](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/c079c0759d01f358b0f6c67ffca1fae3337b5ba0))
-- Helm lint ([10c6fe2](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/10c6fe24b2b8d495ff9a7fc10903a4623ff578af))
-- pre-commit run ([a9021ad](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/a9021ade8d81802350bb057014f2ec523390f382))
-- pre-commit run ([e66f513](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/e66f5134d534590aed2856af2c600e424e0fb1e0))
-- prepare for uv ([f50d947](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/f50d9470c94857f6078409ab8612c5367cbe3d58))
-- Rename .python-version-direnv for vercel ([2233092](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/2233092acec34947023ff9ef7c25ef95ffac1bda))
-- test new ci ([14ce3fe](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/14ce3fee155649a4dd6d238c65d583af0553c5b9))
-- test new CI ([db0b382](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/db0b38271ac270e818c50323a0b30307d8073550))
-- test new CI ([02cb74e](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/02cb74ec71c7ae36e654c8db7c08bbf674a94152))
-- Update requirements.txt ([c141b57](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/c141b57acff6754a2439477157d02e58cb72bdec))
-- uv ([dfce583](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/dfce583fa7427d4e81024bac97df52e1e70e97cd))
-- vercel ([ecdcc67](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/ecdcc67fe69ffa904779f5b4790faae0d7e608846))
-- versions ([dbdfd2d](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/dbdfd2d27a5397a4be2839708563933a2d03ca24))
-
-### Features
-
-- commitizen integration ([c0c23bf](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/c0c23bff45a5926455edb13cf696ade960e50c39))
-
-## 1.2.5 (2026-01-02)
-
-### Fix
-
-- uv
-
-## [1.2.4](https://gitlab.com/AlbanAndrieu/fastapi-sample/compare/1.2.3...1.2.4) (2025-10-13)
-
-### Fix
-
-- Add vscode files ([43f71e4](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/43f71e4c7e9aaf1e80a5dd7e80d9abb60ea9d687))
-
-## [1.2.3](https://gitlab.com/AlbanAndrieu/fastapi-sample/compare/1.2.2...1.2.3) (2025-10-13)
-
-### Fix
-
-- pytest ([b4b26b7](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/b4b26b7f8a16cdf4ab49dee44bd435909e1fc1b6))
-
-## [1.2.2](https://gitlab.com/AlbanAndrieu/fastapi-sample/compare/1.2.1...1.2.2) (2025-10-13)
-
-### Fix
-
-- pipfile lock ([63a1c9b](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/63a1c9b14c95bd8cfb764c9a63d2460b3e082287))
-
-## [1.2.1](https://gitlab.com/AlbanAndrieu/fastapi-sample/compare/1.2.0...1.2.1) (2025-10-10)
-
-### Fix
-
-- upgrade to version 1.2.0 ([f58d847](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/f58d84728d3c75db839ac1add2aa6d63f074ce5d))
-
-# [1.2.0](https://gitlab.com/AlbanAndrieu/fastapi-sample/compare/1.1.4...1.2.0) (2025-10-09)
-
-### Feat
-
-- Add feature flags ([6ef3c40](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/6ef3c40ab4bb64cdc3c5ca11d1e5b04f52cd6551))
-
-# [1.2.0](https://gitlab.com/AlbanAndrieu/fastapi-sample/compare/1.1.4...1.2.0) (2025-10-08)
-
-### Feat
-
-- Add feature flags ([6ef3c40](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/6ef3c40ab4bb64cdc3c5ca11d1e5b04f52cd6551))
-
-## [1.1.4](https://gitlab.com/AlbanAndrieu/fastapi-sample/compare/1.1.3...1.1.4) (2025-10-07)
-
-### Fix
-
-- gitlab pages ([3215ffd](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/3215ffd3a65c1be4141d421184dead04ca4ec138))
-
-# [1.1.3]
-
-Docker images 6.02GB
-
-### Feat
-
-- Add labchain with GPU and CUDA
-
-# [1.1.0](https://gitlab.com/AlbanAndrieu/fastapi-sample/compare/1.0.5...1.1.0) (2024-12-10)
-
-### Feat
-
-- **env:** add Go installation and configuration to .envrc for better development setup ([f321726](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/f3217266728970e901cf3c0245868f252a42b551))
-- **go.mod:** initialize Go module with module path and Go version ([7444150](https://gitlab.com/AlbanAndrieu/fastapi-sample/commit/7444150ce6b704827c9751bb2ad73991b7857484))
+Detailed pre-1.4.0 release history remains available in Git history and the tags `1.0.0` through `1.3.8`. The consolidated `1.4.0` entry above is now the maintained release baseline.
