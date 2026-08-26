@@ -148,10 +148,12 @@ def register_health_routes(app: FastAPI) -> None:
         """Compare declared external/Cloudflare policy with observed reachability."""
         from nabla.api.sickz_checks import build_sickz_payload
         from nabla.api.sickz_policy import enrich_sickz_policy
+        from nabla.api.sickz_port_annotations import enrich_pfsense_port_annotations
 
         response.headers.update(_NO_STORE_HEADERS)
         with pyroscope.tag_wrapper({"function": "fast"}):
-            return await enrich_sickz_policy(await build_sickz_payload(request))
+            payload = await enrich_sickz_policy(await build_sickz_payload(request))
+            return enrich_pfsense_port_annotations(payload)
 
     @app.post(
         "/api/health-board/refresh-event",
