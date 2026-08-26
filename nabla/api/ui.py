@@ -54,20 +54,30 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
                 <ul class="health-checks" id="health-checks"></ul>
                 <p class="health-error" id="health-fetch-error" hidden></p>
 
-                <h3 class="health-subboard-title" id="sickz-board-title">Unreachable targets</h3>
+                <h3 class="health-subboard-title" id="exposure-board-title">Cloudflare exposure drift</h3>
+                <p class="health-board-meta">Live comparison of reviewed <code>external</code> policy with
+                    <a href="/api/homelab/exposure-audit">Cloudflare Tunnel observations</a>.
+                    <button type="button" class="health-refresh">Refresh</button>
+                </p>
+                <div class="health-summary health-summary--neutral" id="exposure-summary">
+                    <span class="health-led health-led--gray" id="exposure-summary-led" aria-hidden="true"></span>
+                    <span id="exposure-summary-text">Loading Cloudflare exposure audit…</span>
+                </div>
+                <ul class="health-checks" id="exposure-checks"></ul>
+                <p class="health-error" id="exposure-fetch-error" hidden></p>
+
+                <h3 class="health-subboard-title" id="sickz-board-title">Network exposure policy</h3>
                 <p class="health-board-meta">Live view of <a href="/sickz">/sickz</a>.
                     <button type="button" class="health-refresh">Refresh</button>
                 </p>
-                <p class="health-board-meta">These URLs must <strong>not</strong> respond when this app runs
-                    outside your home LAN. Probes are skipped when <code>SICKZ_INTERNAL_NETWORK=true</code>, or
-                    implicitly when <code>SICKZ_NETWORK_LABEL=nabla</code> or
-                    <code>APP_DOMAIN=albandrieu.albandrieu.com</code> (unless a cloud/PaaS runtime is detected).
-                    <code>SICKZ_NETWORK_LABEL</code> / <code>APP_DOMAIN</code> also name the network in messages.
-                    Separate equivalent URLs with <code>|</code>; separate unrelated targets with commas.
-                    Probes use TLS verify off so certificate issues do not hide reachability.</p>
+                <p class="health-board-meta"><code>/sickz</code> compares observed external reachability
+                    with explicit policy. Public HTTPS targets declared <code>external=false</code> must remain
+                    unreachable, while reviewed direct-WAN exceptions may be expected to respond. TCP ports
+                    without an explicit expectation are informational only. Probes are skipped on the trusted
+                    home-LAN context unless a cloud/PaaS runtime is detected.</p>
                 <div class="health-summary health-summary--neutral" id="sickz-summary">
                     <span class="health-led health-led--gray" id="sickz-summary-led" aria-hidden="true"></span>
-                    <span id="sickz-summary-text">Loading sickz checks…</span>
+                    <span id="sickz-summary-text">Loading exposure checks…</span>
                 </div>
                 <p class="health-board-meta" id="sickz-lan-hint" hidden style="margin-top: 0.35rem"></p>
                 <div id="sickz-pfsense-wrap" class="sickz-pfsense-wrap" hidden></div>
