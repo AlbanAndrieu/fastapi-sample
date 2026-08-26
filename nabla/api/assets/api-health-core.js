@@ -31,6 +31,7 @@ const LABELS = {
   albandrieu_plumber_api: "plumber-api",
   albandrieu_reactive_resume: "reactive-resume",
   albandrieu_vaultwarden: "vaultwarden-albandrieu",
+  albandrieu_truenas: "TrueNAS",
 };
 
 export const MANDATORY = new Set([
@@ -44,6 +45,7 @@ export const MANDATORY = new Set([
   "albandrieu_plumber_api",
   "albandrieu_reactive_resume",
   "albandrieu_vaultwarden",
+  "albandrieu_truenas",
 ]);
 
 function healthRowTitleHtml(check, key) {
@@ -137,7 +139,7 @@ function computeOverall(data) {
     if (mandatoryFailed(key, check)) {
       return {
         cls: "red",
-        text: "A required check failed: PostgreSQL, Redis, Supabase (when configured), and required albandrieu.com infra HTTPS endpoints must be reachable.",
+        text: "A required check failed: PostgreSQL, Redis, Supabase (when configured), and required albandrieu.com infra HTTPS endpoints including TrueNAS must be reachable.",
       };
     }
     const classification = classify(key, check);
@@ -233,7 +235,10 @@ function showFetchError(message) {
 }
 
 export function loadHealth() {
-  fetch("/healthz", { headers: { Accept: "application/json" } })
+  fetch("/healthz", {
+    cache: "no-store",
+    headers: { Accept: "application/json", "Cache-Control": "no-cache" },
+  })
     .then((response) => {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return response.json();

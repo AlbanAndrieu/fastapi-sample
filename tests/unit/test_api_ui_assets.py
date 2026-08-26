@@ -24,6 +24,7 @@ def test_api_page_serves_external_assets() -> None:
     ui = client.get("/api/assets/api-health-ui.js")
     sickz = client.get("/api/assets/api-sickz.js")
     sickz_policy = client.get("/api/assets/api-sickz-policy.js")
+    sickz_ports = client.get("/api/assets/api-sickz-port-labels.js")
     styles = client.get("/api/assets/api.css")
     base_styles = client.get("/api/assets/api-base.css")
     health_styles = client.get("/api/assets/api-health.css")
@@ -42,12 +43,13 @@ def test_api_page_serves_external_assets() -> None:
     assert open_graph.headers["content-type"] == "image/png"
     assert unpack(">II", open_graph.content[16:24]) == (1200, 630)
 
-    for asset in (bootstrap, health, ui, sickz, sickz_policy):
+    for asset in (bootstrap, health, ui, sickz, sickz_policy, sickz_ports):
         assert asset.status_code == 200
         assert "javascript" in asset.headers["content-type"]
 
     assert 'from "./api-health-core.js"' in bootstrap.text
     assert 'from "./api-sickz.js"' in bootstrap.text
+    assert 'from "./api-sickz-port-labels.js"' in bootstrap.text
     assert 'from "./api-health-ui.js"' in health.text
     assert 'from "./api-health-ui.js"' in sickz.text
     assert 'from "./api-sickz-policy.js"' in sickz.text
@@ -55,6 +57,10 @@ def test_api_page_serves_external_assets() -> None:
     assert 'from "./api-health-core.js"' not in sickz.text
     assert "function computeOverall" in health.text
     assert "function computeOverall" in sickz.text
+    assert '10443: "pfSense"' in sickz_ports.text
+    assert '3000: "ntopng"' in sickz_ports.text
+    assert '4000: "LiteLLM"' in sickz_ports.text
+    assert '8200: "Vault"' in sickz_ports.text
 
     for asset in (styles, base_styles, health_styles, sickz_styles):
         assert asset.status_code == 200
@@ -87,7 +93,7 @@ def test_health_board_platform_order_is_asset_contract() -> None:
     mandatory_start = script.index("export const MANDATORY = new Set([")
     mandatory_end = script.index("]);", mandatory_start)
     mandatory = script[mandatory_start:mandatory_end]
-    assert '"albandrieu_truenas"' not in mandatory
+    assert '"albandrieu_truenas"' in mandatory
     assert '"cloudflare"' not in mandatory
     assert '"pfsense"' not in mandatory
     assert '"logfire"' not in mandatory
@@ -98,7 +104,28 @@ def test_platform_labels_are_owned_by_health_module() -> None:
 
     assert 'cloudflare: "Cloudflare Tunnels"' in script
     assert 'pfsense: "pfSense API"' in script
+    assert 'albandrieu_truenas: "TrueNAS"' in script
     assert 'logfire: "Pydantic Logfire"' in script
+
+
+def test_refresh_event_is_logged_and_health_responses_are_not_cached() -> None:
+    app = FastAPI(version="test-version")
+    register_routes(app)
+    client = TestClient(app)
+
+    refresh = client.post(
+        "/api/health-board/refresh-event",
+        headers={"Referer": "https://example.test/api#health-board"},
+    )
+
+    assert refresh.status_code == 204
+    assert refresh.headers["cache-control"] == "no-store, max-age=0"
+
+    bootstrap = (_ASSET_DIR / "api-health.js").read_text(encoding="utf-8")
+    health = (_ASSET_DIR / "api-health-core.js").read_text(encoding="utf-8")
+    assert 'fetch("/api/health-board/refresh-event"' in bootstrap
+    assert 'cache: "no-store"' in bootstrap
+    assert 'cache: "no-store"' in health
 
 
 def test_sickz_tls_unknown_state_is_neutral() -> None:
@@ -119,12 +146,14 @@ def test_health_assets_stay_within_refactoring_thresholds() -> None:
     ui = (_ASSET_DIR / "api-health-ui.js").read_text(encoding="utf-8")
     sickz = (_ASSET_DIR / "api-sickz.js").read_text(encoding="utf-8")
     sickz_policy = (_ASSET_DIR / "api-sickz-policy.js").read_text(encoding="utf-8")
+    sickz_ports = (_ASSET_DIR / "api-sickz-port-labels.js").read_text(encoding="utf-8")
 
-    assert len(bootstrap.splitlines()) < 50
+    assert len(bootstrap.splitlines()) < 60
     assert len(health.splitlines()) < 400
     assert len(ui.splitlines()) < 250
     assert len(sickz.splitlines()) < 400
     assert len(sickz_policy.splitlines()) < 100
+    assert len(sickz_ports.splitlines()) < 150
     assert "loadHealthBoards" in bootstrap
     assert "computeOverall" not in bootstrap
 
