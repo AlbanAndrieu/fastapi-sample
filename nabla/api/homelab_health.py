@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import time
 from datetime import datetime, timezone
 from typing import Any, Literal
@@ -24,6 +25,21 @@ _HEALTH_CACHE_TTL_SEC = 30.0
 _MAX_PROBE_CONCURRENCY = 8
 _PROBE_TIMEOUT_SEC = 5.0
 _INTERNAL_PROBE_ENV = "HOMELAB_INTERNAL_PROBES_ENABLED"
+_MAX_APPLICATION_BODY_BYTES = 16_384
+_APPLICATION_ERROR_PREFIXES = (
+    "error:",
+    "fatal:",
+    "exception:",
+    "application error",
+    "internal server error",
+    "bad gateway",
+    "service unavailable",
+)
+_APPLICATION_ERROR_MARKERS = (
+    "traceback (most recent call last)",
+    "uncaught exception",
+    "unhandled exception",
+)
 _cache_lock = asyncio.Lock()
 _cached_at = 0.0
 _cached_payload: dict[str, Any] | None = None
@@ -63,6 +79,59 @@ def _short_error(exc: BaseException) -> str:
     return message[:240]
 
 
+def _is_textual_response(response: httpx.Response) -> bool:
+    """Return whether a successful response is useful for lightweight body checks."""
+    content_type = response.headers.get("content-type", "").lower()
+    return content_type.startswith("text/") or any(
+        marker in content_type
+        for marker in ("application/json", "application/problem+json", "application/xml")
+    )
+
+
+def _application_error_from_response(response: httpx.Response) -> str | None:
+    """Detect explicit application failures hidden behind a successful HTTP status.
+
+    Detection is deliberately conservative: normal pages may contain words such as
+    ``error`` in JavaScript or documentation, so only explicit response-level error
+    shapes are treated as fatal.
+    """
+    if not (200 <= response.status_code <= 299) or not _is_textual_response(response):
+        return None
+
+    content_type = response.headers.get("content-type", "").lower()
+    if "json" in content_type:
+        try:
+            payload = response.json()
+        except ValueError:
+            payload = None
+        if isinstance(payload, dict):
+            value = payload.get("error") or payload.get("errors") or payload.get("exception")
+            if value:
+                message = re.sub(r"\s+", " ", str(value)).strip()
+                return message[:240] or "Application error"
+
+    text = response.text[:_MAX_APPLICATION_BODY_BYTES].strip()
+    if not text:
+        return None
+
+    lowered_raw = text.casefold()
+    plain = re.sub(r"<[^>]+>", " ", text)
+    plain = re.sub(r"\s+", " ", plain).strip()
+    lowered_plain = plain.casefold()
+
+    if any(lowered_plain.startswith(prefix) for prefix in _APPLICATION_ERROR_PREFIXES):
+        return plain[:240]
+    if any(marker in lowered_raw for marker in _APPLICATION_ERROR_MARKERS):
+        return plain[:240]
+    if re.search(
+        r"<(?:title|h1)[^>]*>\s*(?:error|fatal|exception|application error|internal server error|bad gateway|service unavailable)\b",
+        text,
+        flags=re.IGNORECASE,
+    ):
+        return plain[:240]
+    return None
+
+
 async def _probe_http_endpoint(
     client: httpx.AsyncClient,
     semaphore: asyncio.Semaphore,
@@ -71,7 +140,7 @@ async def _probe_http_endpoint(
     name: str,
     url: str,
 ) -> dict[str, Any]:
-    """Probe one HTTP endpoint and preserve its real status and TLS outcome."""
+    """Probe one HTTP endpoint and preserve status, TLS and application outcome."""
 
     started = time.perf_counter()
     try:
@@ -80,25 +149,31 @@ async def _probe_http_endpoint(
                 url,
                 headers={"User-Agent": "nabla-homelab-health/1.0"},
             )
-            if response.status_code in {405, 501}:
+            should_get = response.status_code in {405, 501} or (
+                200 <= response.status_code <= 299 and _is_textual_response(response)
+            )
+            if should_get:
                 response = await client.get(
                     url,
                     headers={
                         "User-Agent": "nabla-homelab-health/1.0",
-                        "Range": "bytes=0-0",
-                        "Accept": "*/*",
+                        "Range": f"bytes=0-{_MAX_APPLICATION_BODY_BYTES - 1}",
+                        "Accept": "text/html,text/plain,application/json,*/*;q=0.1",
                     },
                 )
         status = response.status_code
+        application_error = _application_error_from_response(response)
         result: dict[str, Any] = {
             "id": service_id,
             "name": name,
             "url": url,
             "reachable": True,
             "http_status": status,
-            "state": classify_public_http_status(status),
+            "state": "fail" if application_error else classify_public_http_status(status),
             "tls_trusted": True,
         }
+        if application_error:
+            result["application_error"] = application_error
     except (httpx.HTTPError, OSError) as exc:
         error = _short_error(exc)
         result = {
@@ -290,15 +365,30 @@ async def build_homelab_health_payload() -> dict[str, Any]:
             return _copy_payload(_cached_payload)
 
         catalog_services = await fetch_homelab_services()
-        public_services = [service for service in catalog_services if service.public_https_probe_url is not None]
+        public_services = [
+            service
+            for service in catalog_services
+            if service.public_https_probe_url is not None
+        ]
         internal_enabled = internal_probes_enabled()
-        internal_services = [service for service in catalog_services if internal_enabled and service.internal_host and service.internal_port is not None]
+        internal_services = [
+            service
+            for service in catalog_services
+            if internal_enabled
+            and service.internal_host
+            and service.internal_port is not None
+        ]
 
         semaphore = asyncio.Semaphore(_MAX_PROBE_CONCURRENCY)
         timeout = httpx.Timeout(_PROBE_TIMEOUT_SEC)
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
             public_results, truenas = await asyncio.gather(
-                asyncio.gather(*(_probe_public_service(client, semaphore, service) for service in public_services)),
+                asyncio.gather(
+                    *(
+                        _probe_public_service(client, semaphore, service)
+                        for service in public_services
+                    )
+                ),
                 _probe_truenas(
                     client,
                     semaphore,
@@ -306,7 +396,12 @@ async def build_homelab_health_payload() -> dict[str, Any]:
                 ),
             )
 
-        internal_results = await asyncio.gather(*(_probe_internal_service(semaphore, service) for service in internal_services))
+        internal_results = await asyncio.gather(
+            *(
+                _probe_internal_service(semaphore, service)
+                for service in internal_services
+            )
+        )
 
         payload: dict[str, Any] = {
             "schema_version": 2,
