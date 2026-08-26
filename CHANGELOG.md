@@ -1,3 +1,10 @@
+## [1.5.4](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.3...1.5.4) (2026-08-26)
+
+
+### Bug Fixes
+
+* README.md ([42f15bf](https://github.com/AlbanAndrieu/fastapi-sample/commit/42f15bf68305e6a3aaadfab84754f3f5983abdde))
+
 ## [1.5.3](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.2...1.5.3) (2026-08-25)
 
 
