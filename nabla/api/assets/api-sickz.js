@@ -97,6 +97,17 @@ function networkPhrase(data) {
   return data.network_label ? `"${data.network_label}"` : "this deployment";
 }
 
+function tcpPolicyViolation(check) {
+  const ports = check.pfsense_tcp_ports;
+  const policy = check.pfsense_tcp_port_policy;
+  if (!ports || !policy) return false;
+  return Object.keys(policy).some((port) => {
+    const expected = policy[port]?.expected_reachable;
+    const actual = ports[port];
+    return typeof expected === "boolean" && typeof actual === "boolean" && expected !== actual;
+  });
+}
+
 function computeOverall(data) {
   const network = networkPhrase(data);
   if (data.status === "skipped_internal_network") {
@@ -113,17 +124,25 @@ function computeOverall(data) {
   }
 
   const checks = data.checks || {};
+  let anyTcpPolicyViolation = false;
   let anyOpenReach2xx = false;
   let anyOpenReachNon2xx = false;
   let anyForbiddenOnly = false;
   for (const key of Object.keys(checks)) {
     const check = checks[key];
     if (check.skipped === true) continue;
+    if (tcpPolicyViolation(check)) anyTcpPolicyViolation = true;
     if (check.reachable === true) {
       if (isForbiddenOnlyReachable(check)) anyForbiddenOnly = true;
       else if (hasReachableNon2xxHttp(check)) anyOpenReachNon2xx = true;
       else anyOpenReach2xx = true;
     }
+  }
+  if (anyTcpPolicyViolation) {
+    return {
+      cls: "red",
+      text: `From network ${network}, at least one TCP service violates its exposure policy; see the pfSense port checks.`,
+    };
   }
   if (anyOpenReach2xx) {
     return {
@@ -145,7 +164,7 @@ function computeOverall(data) {
   }
   return {
     cls: "green",
-    text: `From network ${network}, all listed targets are unreachable (expected).`,
+    text: `From network ${network}, all listed targets satisfy the configured reachability policy.`,
   };
 }
 
@@ -172,16 +191,29 @@ function pfsenseTcpPortNumbers(map) {
     .sort((left, right) => left - right);
 }
 
-function pfsensePortChipClass(reachable) {
+function pfsensePortPolicy(pfCheck, port) {
+  const map = pfCheck.pfsense_tcp_port_policy;
+  if (!map || typeof map !== "object") return null;
+  return map[String(port)] || null;
+}
+
+function pfsensePortChipClass(reachable, policy) {
+  if (reachable == null) return "sickz-pfsense-port--na";
+  if (policy && typeof policy.expected_reachable === "boolean") {
+    return reachable === policy.expected_reachable
+      ? "sickz-pfsense-port--closed"
+      : "sickz-pfsense-port--open";
+  }
   if (reachable === true) return "sickz-pfsense-port--open";
   if (reachable === false) return "sickz-pfsense-port--closed";
   return "sickz-pfsense-port--na";
 }
 
-function pfsensePortLabel(reachable) {
-  if (reachable === true) return "reachable";
-  if (reachable === false) return "unreachable";
-  return "not probed";
+function pfsensePortLabel(reachable, policy) {
+  if (reachable == null) return "indeterminate";
+  const state = reachable === true ? "reachable" : "blocked";
+  if (!policy || typeof policy.expected_reachable !== "boolean") return state;
+  return `${state} · ${reachable === policy.expected_reachable ? "expected" : "unexpected"}`;
 }
 
 function buildPfsenseSectionHtml(pfCheck) {
@@ -195,16 +227,22 @@ function buildPfsenseSectionHtml(pfCheck) {
   let chips = "";
   nums.forEach((port) => {
     const reachable = portsMap[String(port)];
-    const portClass = pfsensePortChipClass(reachable);
-    const portLabel = pfsensePortLabel(reachable);
+    const policy = pfsensePortPolicy(pfCheck, port);
+    const portClass = pfsensePortChipClass(reachable, policy);
+    const portLabel = pfsensePortLabel(reachable, policy);
+    const serviceLabel = policy?.service ? ` · ${policy.service}` : "";
+    const expectedLabel =
+      policy && typeof policy.expected_reachable === "boolean"
+        ? ` · expected ${policy.expected_reachable ? "reachable" : "blocked"}`
+        : "";
     chips +=
-      `<span class="sickz-pfsense-port ${portClass}" title="TCP ${port}: ${portLabel}">` +
+      `<span class="sickz-pfsense-port ${portClass}" title="TCP ${port}${serviceLabel}: ${portLabel}${expectedLabel}">` +
       `<span class="sickz-pfsense-port-num">${port}</span>` +
       `<span class="sickz-pfsense-port-st">${escapeText(portLabel)}</span></span>`;
   });
   let meta =
-    "HTTPS aliases use the same sickz rules as other targets. PfSense additionally runs TCP connect checks on " +
-    '<code class="sickz-pfsense-host">home.albandrieu.com</code> for the ports below.';
+    "HTTPS aliases use the same sickz rules as other targets. Known TCP services use protocol-aware checks; unknown ports are not trusted on cloud/PaaS from a TCP handshake alone. " +
+    '<code class="sickz-pfsense-host">home.albandrieu.com</code> is the external probe host.';
   if (pfCheck.pfsense_tcp_ports_skipped === true) {
     meta += " TCP probes were not run (LAN skip).";
   }
@@ -217,7 +255,7 @@ function buildPfsenseSectionHtml(pfCheck) {
       ? `<a class="sickz-target-link" target="_blank" rel="noopener noreferrer" href="${safeHref}">${escapeText(rowName)}</a>`
       : `<span>${escapeText(rowName)}</span>`;
   return (
-    '<h4 class="sickz-pfsense-title">PfSense</h4>' +
+    '<h4 class="sickz-pfsense-title">PfSense / public port policy</h4>' +
     `<p class="health-board-meta sickz-pfsense-intro">${meta}</p>` +
     '<ul class="health-checks sickz-pfsense-main"><li class="health-row sickz-pfsense-row">' +
     sickzRowIcon(pfCheck, cls) +
@@ -229,7 +267,7 @@ function buildPfsenseSectionHtml(pfCheck) {
     titleLink +
     "</div>" +
     `<div class="health-row-detail">${escapeText(detailSickText(pfCheck))}</div></div>` +
-    '<div class="health-row-tags">PfSense · HTTPS UI + extra TCP ports</div>' +
+    '<div class="health-row-tags">PfSense · HTTPS UI + policy-aware public TCP ports</div>' +
     "</div></li></ul>" +
     '<div class="sickz-pfsense-ports-label">TCP ports (home.albandrieu.com)</div>' +
     `<div class="sickz-pfsense-ports">${chips}</div>`
@@ -268,6 +306,10 @@ function render(data) {
       hintEl.hidden = false;
       hintEl.textContent =
         "Cloud/PaaS runtime: sickz probes still run even though this host would match home-LAN rules (env or implicit label/domain).";
+    } else if (runtime.cloud_paas_detected) {
+      hintEl.hidden = false;
+      hintEl.textContent =
+        "Cloud/PaaS runtime: protocol-aware probes are used for known public ports; bare TCP-only results are reported as indeterminate.";
     } else {
       hintEl.hidden = true;
       hintEl.textContent = "";

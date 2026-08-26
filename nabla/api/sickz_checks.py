@@ -114,13 +114,38 @@ _PFSENSE_EXTRA_TCP_PORTS: tuple[int, ...] = (
     8200,
     9000,
     3000,
-    4100,
+    4000,
     1194,
     1195,
     8080,
     8081,
     8091,
 )
+
+_PFSENSE_TCP_PORT_POLICY: dict[int, dict[str, Any]] = {
+    22: {
+        "service": "SSH",
+        "expected_reachable": False,
+        "probe": "ssh",
+        "reason": "Remote shell access must not be exposed to the public Internet.",
+    },
+    4000: {
+        "service": "LiteLLM",
+        "expected_reachable": False,
+        "probe": "http",
+        "reason": "LiteLLM should only be exposed through the approved reverse proxy/tunnel path.",
+    },
+    7000: {
+        "service": "TrueNAS",
+        "expected_reachable": True,
+        "probe": "https",
+        "reason": "TrueNAS is intentionally reachable on this externally published port.",
+    },
+}
+
+
+def _pfsense_tcp_port_policy_payload() -> dict[str, dict[str, Any]]:
+    return {str(port): dict(policy) for port, policy in _PFSENSE_TCP_PORT_POLICY.items()}
 
 
 def _pfsense_canonical_href(urls: list[str]) -> str | None:
@@ -175,11 +200,18 @@ def _pfsense_tcp_skip_payload(urls: list[str]) -> dict[str, Any]:
         return {}
     return {
         "pfsense_tcp_ports": {str(port): None for port in _PFSENSE_EXTRA_TCP_PORTS},
+        "pfsense_tcp_port_policy": _pfsense_tcp_port_policy_payload(),
         "pfsense_tcp_ports_skipped": True,
     }
 
 
-async def _probe_tcp_port_open(host: str, port: int, *, timeout_s: float = 2.0) -> bool:
+async def _probe_tcp_port_open(
+    host: str,
+    port: int,
+    *,
+    timeout_s: float = 2.0,
+) -> bool:
+    """Raw TCP-connect probe, used only where a PaaS interception cannot mislead us."""
     try:
         _reader, writer = await asyncio.wait_for(
             asyncio.open_connection(host, port),
@@ -193,6 +225,71 @@ async def _probe_tcp_port_open(host: str, port: int, *, timeout_s: float = 2.0) 
     except OSError:
         pass
     return True
+
+
+async def _probe_ssh_port(
+    host: str,
+    port: int,
+    *,
+    timeout_s: float = 2.0,
+) -> bool | None:
+    """Require an SSH identification banner instead of trusting a TCP handshake alone."""
+    writer: asyncio.StreamWriter | None = None
+    try:
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(host, port),
+            timeout=timeout_s,
+        )
+        banner = await asyncio.wait_for(reader.read(128), timeout=timeout_s)
+    except (TimeoutError, OSError, ConnectionError):
+        return False
+    finally:
+        if writer is not None:
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except OSError:
+                pass
+    if banner.startswith(b"SSH-"):
+        return True
+    return None
+
+
+async def _probe_http_port(
+    host: str,
+    port: int,
+    *,
+    secure: bool,
+    timeout_s: float = 3.0,
+) -> bool:
+    """Require an HTTP(S) response so cloud egress TCP interception is not a false positive."""
+    scheme = "https" if secure else "http"
+    url = f"{scheme}://{host}:{port}/"
+    try:
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(timeout_s),
+            verify=False,
+            follow_redirects=False,
+        ) as client:
+            await client.get(url, headers={"User-Agent": "nabla-sickz-port-probe/1.0"})
+    except (httpx.HTTPError, OSError):
+        return False
+    return True
+
+
+async def _probe_pfsense_tcp_port(host: str, port: int) -> bool | None:
+    """Probe known services by protocol; avoid bare-TCP false positives on PaaS."""
+    policy = _PFSENSE_TCP_PORT_POLICY.get(port)
+    probe = policy.get("probe") if policy else None
+    if probe == "ssh":
+        return await _probe_ssh_port(host, port)
+    if probe == "http":
+        return await _probe_http_port(host, port, secure=False)
+    if probe == "https":
+        return await _probe_http_port(host, port, secure=True)
+    if _known_paas_runtime_detected():
+        return None
+    return await _probe_tcp_port_open(host, port)
 
 
 def _canonical_https_tunnel_key(url: str) -> str:
@@ -379,7 +476,7 @@ async def _probe_alias_group(
     pf_tcp_host = _pfsense_canonical_tcp_host(urls)
     if pf_tcp_host:
         tcp_coro = asyncio.gather(
-            *(_probe_tcp_port_open(pf_tcp_host, port) for port in _PFSENSE_EXTRA_TCP_PORTS),
+            *(_probe_pfsense_tcp_port(pf_tcp_host, port) for port in _PFSENSE_EXTRA_TCP_PORTS),
         )
         results, tls_trusted, tcp_reachable = await asyncio.gather(
             asyncio.gather(*(_probe_url(url) for url in urls)),
@@ -409,6 +506,8 @@ async def _probe_alias_group(
             str(port): reachable
             for port, reachable in zip(_PFSENSE_EXTRA_TCP_PORTS, tcp_reachable, strict=True)
         }
+        out["pfsense_tcp_port_policy"] = _pfsense_tcp_port_policy_payload()
+        out["pfsense_tcp_ports_protocol_validated"] = True
     for result in results:
         if result.get("reachable") is True and result.get("http_status") is not None:
             out["http_status"] = result["http_status"]

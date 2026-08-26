@@ -100,48 +100,53 @@ def _homelab_resolved_icon_abs(rel: str) -> str | None:
 def homelab_tunnel_url_to_resolved_icon_src(
     services: Sequence[HomelabService],
 ) -> dict[str, str]:
-    """Map approved public HTTPS endpoints to catalog icon references."""
+    """Map catalog HTTPS endpoints to icon references used by health-board rows."""
     out: dict[str, str] = {}
     for service in services:
-        url = service.public_https_probe_url
-        if url is None or not service.icon_src:
+        if not service.tunnel_url or not service.tunnel_url.lower().startswith("https://"):
             continue
-        icon_src = _homelab_resolved_icon_abs(service.icon_src)
+        icon_src = _homelab_resolved_icon_abs(service.icon_src or "")
         if icon_src:
-            out[_homelab_https_tunnel_key(url)] = icon_src
+            out[_homelab_https_tunnel_key(service.tunnel_url)] = icon_src
     return out
 
 
 def homelab_tunnel_url_to_service_name(
     services: Sequence[HomelabService],
 ) -> dict[str, str]:
-    """Map approved public HTTPS endpoints to catalog service names."""
+    """Map catalog HTTPS endpoints to service names used by health-board rows."""
     out: dict[str, str] = {}
     for service in services:
-        url = service.public_https_probe_url
-        if url is None:
+        if not service.tunnel_url or not service.tunnel_url.lower().startswith("https://"):
             continue
-        out[_homelab_https_tunnel_key(url)] = service.name
+        out[_homelab_https_tunnel_key(service.tunnel_url)] = service.name
     return out
 
 
 def _homelab_sickz_https_groups_from_services(
     services: Sequence[HomelabService],
 ) -> list[list[str]]:
-    """Return one approved public HTTPS URL per group for ``/sickz``."""
+    """Return private HTTPS hostnames that must remain unreachable externally.
+
+    ``/healthz`` validates services explicitly marked ``external=true``.
+    ``/sickz`` is the inverse control and therefore probes only services whose
+    catalog policy is ``external=false`` but which still have an HTTPS hostname
+    recorded. This catches accidental DNS/tunnel exposure without penalising
+    deliberately public services such as 2FAuth or Vaultwarden.
+    """
     groups: list[list[str]] = []
     for service in services:
-        if service.name.casefold() == "pfsense":
+        if service.name.casefold() == "pfsense" or service.external:
             continue
-        url = service.public_https_probe_url
-        if url is None:
+        url = service.tunnel_url
+        if not url or not url.lower().startswith("https://"):
             continue
         groups.append([_homelab_https_tunnel_key(url)])
     return groups
 
 
 async def homelab_sickz_catalog_for_sickz() -> tuple[list[list[str]], dict[str, str], dict[str, str]]:
-    """Return sickz groups, resolved icons, and names for approved public services."""
+    """Return private sickz targets plus icon/name metadata for all catalog URLs."""
     services = await fetch_homelab_services()
     return (
         _homelab_sickz_https_groups_from_services(services),
@@ -151,6 +156,6 @@ async def homelab_sickz_catalog_for_sickz() -> tuple[list[list[str]], dict[str, 
 
 
 async def homelab_sickz_https_single_url_groups() -> list[list[str]]:
-    """Return approved public HTTPS targets for inverse reachability checks."""
+    """Return private HTTPS targets for inverse reachability checks."""
     services = await fetch_homelab_services()
     return _homelab_sickz_https_groups_from_services(services)
