@@ -196,6 +196,22 @@ def build_reconciled_service_health(
         internal_health = (
             str(internal_result.get("state")) if internal_result is not None else None
         )
+        application_error = (
+            str(direct_result.get("application_error"))
+            if direct_result is not None and direct_result.get("application_error")
+            else None
+        )
+        reconciled_state = (
+            "fail"
+            if application_error
+            else _reconciled_state(
+                direct=direct_health,
+                internal=internal_health,
+                runtime=runtime_health,
+                tunnel=tunnel_health,
+                external=service.external,
+            )
+        )
 
         row: dict[str, Any] = {
             "id": service.service_id,
@@ -203,13 +219,7 @@ def build_reconciled_service_health(
             "url": url,
             "reachable": bool(direct_result and direct_result.get("reachable")),
             "http_status": int(direct_result.get("http_status", 0)) if direct_result else 0,
-            "state": _reconciled_state(
-                direct=direct_health,
-                internal=internal_health,
-                runtime=runtime_health,
-                tunnel=tunnel_health,
-                external=service.external,
-            ),
+            "state": reconciled_state,
             "tls_trusted": direct_result.get("tls_trusted") if direct_result else None,
             "direct_state": direct_health,
             "internal_state": internal_health,
@@ -219,7 +229,7 @@ def build_reconciled_service_health(
         }
 
         if direct_result is not None:
-            for key in ("latency_ms", "error"):
+            for key in ("latency_ms", "error", "application_error"):
                 if key in direct_result:
                     row[key] = direct_result[key]
         if tunnel_evidence is not None:
