@@ -1,91 +1,62 @@
 [[tools.argocd]]
-version = "3.2.2"
+version = "3.5.1"
 backend = "aqua:argoproj/argo-cd"
-"platforms.linux-arm64" = { checksum = "sha256:54724a26e2c4606aff5a3a331b1813a4844b4e6bb5312314a4a3732a9fde63a3", url = "https://github.com/argoproj/argo-cd/releases/download/v3.2.2/argocd-linux-arm64"}
-"platforms.linux-x64" = { checksum = "sha256:34fb3d2eaf6fa3fadd0288d45782aa6844047df021344ec1a83304bd910e56cc", url = "https://github.com/argoproj/argo-cd/releases/download/v3.2.2/argocd-linux-amd64"}
-"platforms.macos-arm64" = { checksum = "sha256:03151e475ecb0951d37e5ff797b3f276225bf261fc4907ad54c0635f5ffd85c7", url = "https://github.com/argoproj/argo-cd/releases/download/v3.2.2/argocd-darwin-arm64"}
-"platforms.macos-x64" = { checksum = "sha256:7744cab7d0b368f2235169ee61afca3f66926870608da0b73aee5bc9068a1f3d", url = "https://github.com/argoproj/argo-cd/releases/download/v3.2.2/argocd-darwin-amd64"}
-"platforms.windows-x64" = { checksum = "sha256:5c63f8fd0e6973926d64a5fa6564b0208c4348e60a06625d2985632d479c2d53", url = "https://github.com/argoproj/argo-cd/releases/download/v3.2.2/argocd-windows-amd64.exe"}
+"platforms.linux-x64" = { checksum = "sha256:0a66b7150608e3f8ae07c521d56c9f34244033cf88a83e0953f7337a3799035e", url = "https://github.com/argoproj/argo-cd/releases/download/v3.5.1/argocd-linux-amd64"}
 
 [[tools.awscli]]
-version = "2.32.20"
+version = "2.36.31"
 backend = "aqua:aws/aws-cli"
-"platforms.linux-arm64" = { url = "https://awscli.amazonaws.com/awscli-exe-linux-aarch64-2.32.20.zip"}
-"platforms.linux-x64" = { checksum = "blake3:efdf98e6ad3f054a49ed41c3bbba184870a133f279e5e31024bb23d25f9a5b9c", url = "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.32.20.zip"}
-"platforms.macos-arm64" = { url = "https://awscli.amazonaws.com/AWSCLIV2-2.32.20.pkg"}
-"platforms.macos-x64" = { url = "https://awscli.amazonaws.com/AWSCLIV2-2.32.20.pkg"}
+"platforms.linux-x64" = { checksum = "blake3:2e9a06f513dabf8b64e46734c0327e4c2c4a4ba8bbc3f770d6fc28cca8d8b069", url = "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.36.31.zip"}
 
 [[tools.docker-compose]]
-version = "5.2.0"
+version = "5.5.0"
 backend = "aqua:docker/compose"
+"platforms.linux-x64" = { checksum = "sha256:c57ab918abd5b05ca7e7d0f275875dd1330a695074f309dc9eab1b49efafcd4b", url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-x86_64"}
 
 [[tools.helm]]
-version = "4.0.4"
+version = "4.2.4"
 backend = "aqua:helm/helm"
-"platforms.linux-arm64" = { checksum = "sha256:16b88acc6503d646b7537a298e7389bef469c5cc9ebadf727547abe9f6a35903", url = "https://get.helm.sh/helm-v4.0.4-linux-arm64.tar.gz"}
-"platforms.linux-x64" = { checksum = "sha256:29454bc351f4433e66c00f5d37841627cbbcc02e4c70a6d796529d355237671c", url = "https://get.helm.sh/helm-v4.0.4-linux-amd64.tar.gz"}
-"platforms.macos-arm64" = { checksum = "sha256:a7ea99937a9679b3935fa0a2b70e577aa1ea84e5856e7c0821ca6ffa064ea976", url = "https://get.helm.sh/helm-v4.0.4-darwin-arm64.tar.gz"}
-"platforms.macos-x64" = { checksum = "sha256:73bcfd6ab000fdc95acf9fe1c59e8e47179426a653e45ae485889869d4a00523", url = "https://get.helm.sh/helm-v4.0.4-darwin-amd64.tar.gz"}
-"platforms.windows-x64" = { checksum = "sha256:d5c119dbc502687a886a233e5e6996ebc5b2594fd571f67216f8cdc23acb870e", url = "https://get.helm.sh/helm-v4.0.4-windows-amd64.tar.gz"}
+"platforms.linux-x64" = { checksum = "sha256:c306b46f719b0a4da32d0f78ee21bf90ce8d602f15b22ab753f0674d1670a7f3", url = "https://get.helm.sh/helm-v4.2.4-linux-amd64.tar.gz"}
 
 [[tools.k9s]]
-version = "0.50.16"
+version = "0.51.0"
 backend = "aqua:derailed/k9s"
-"platforms.linux-arm64" = { checksum = "sha256:7f3b414bc5e6b584fbcb97f9f4f5b2c67a51cdffcbccb95adcadbaeab904e98e", url = "https://github.com/derailed/k9s/releases/download/v0.50.16/k9s_Linux_arm64.tar.gz"}
-"platforms.linux-x64" = { checksum = "sha256:bda09dc030a08987fe2b3bed678b15b52f23d6705e872d561932d4ca07db7818", url = "https://github.com/derailed/k9s/releases/download/v0.50.16/k9s_Linux_amd64.tar.gz"}
-"platforms.macos-arm64" = { checksum = "sha256:83e3adcf479af1a816fc3907e751d4a7b2b0a6d2ea742d88e23356d8f0a45bc3", url = "https://github.com/derailed/k9s/releases/download/v0.50.16/k9s_Darwin_arm64.tar.gz"}
-"platforms.macos-x64" = { checksum = "sha256:4dfaccbf0521df1794b352911abe70339422b96c74b470c2636a5de1c00fb943", url = "https://github.com/derailed/k9s/releases/download/v0.50.16/k9s_Darwin_amd64.tar.gz"}
-"platforms.windows-x64" = { checksum = "sha256:af166d249bfd87c7dc3e93838d677bcab4396159e7aff600b50c43142442a16e", url = "https://github.com/derailed/k9s/releases/download/v0.50.16/k9s_Windows_amd64.zip"}
+"platforms.linux-x64" = { checksum = "sha256:c3752ad51a5a4015a113819c4eeb6e55a4d0e4b8e652494797532f6fc8161dd7", url = "https://github.com/derailed/k9s/releases/download/v0.51.0/k9s_Linux_amd64.tar.gz"}
 
 [[tools.kubectl]]
-version = "1.35.0"
+version = "1.36.4"
 backend = "aqua:kubernetes/kubernetes/kubectl"
-"platforms.linux-arm64" = { checksum = "sha256:58f82f9fe796c375c5c4b8439850b0f3f4d401a52434052f2df46035a8789e25", url = "https://dl.k8s.io/v1.35.0/bin/linux/arm64/kubectl"}
-"platforms.linux-x64" = { checksum = "sha256:a2e984a18a0c063279d692533031c1eff93a262afcc0afdc517375432d060989", url = "https://dl.k8s.io/v1.35.0/bin/linux/amd64/kubectl"}
-"platforms.macos-arm64" = { checksum = "sha256:cf699c56340dc775230fde4ef84237d27563ea6ef52164c7d078072b586c3918", url = "https://dl.k8s.io/v1.35.0/bin/darwin/arm64/kubectl"}
-"platforms.macos-x64" = { checksum = "sha256:2447cb78911b10a667202b078eeb30541ec78d1280c3682921dc81607e148d96", url = "https://dl.k8s.io/v1.35.0/bin/darwin/amd64/kubectl"}
-"platforms.windows-x64" = { checksum = "sha256:4c5d14b8673bd55f813a8965ad70d5150e3960ee5f274025e2286aea3a0fa8b6", url = "https://dl.k8s.io/v1.35.0/bin/windows/amd64/kubectl.exe"}
+"platforms.linux-x64" = { checksum = "sha256:8b8f088da2dab964f853b38464033b1be15ede2839eca751482357c45abdd05a", url = "https://dl.k8s.io/v1.36.4/bin/linux/amd64/kubectl"}
 
 [[tools.poetry]]
-version = "2.2.1"
+version = "2.4.1"
 backend = "asdf:poetry"
 
 [[tools.python]]
-version = "3.12.10"
+version = "system"
 backend = "core:python"
 
 [[tools.ruff]]
-version = "0.14.9"
+version = "0.16.4"
 backend = "aqua:astral-sh/ruff"
-"platforms.linux-arm64" = { checksum = "sha256:9bdedf2e8d6398e193c2b2feccb2b4c9f8d37a6dc87cc0b587340a60e87d14e2", url = "https://github.com/astral-sh/ruff/releases/download/0.14.9/ruff-aarch64-unknown-linux-musl.tar.gz"}
-"platforms.linux-x64" = { checksum = "sha256:3bdbdb32f95bcf2c5bc45502a2050f30706f1c205fa0087ee3d4c688f67854fc", url = "https://github.com/astral-sh/ruff/releases/download/0.14.9/ruff-x86_64-unknown-linux-musl.tar.gz"}
-"platforms.macos-arm64" = { checksum = "sha256:ea132e6d6af23dbcf21c81d7fd8c5a94ccf16b1fb36a8bc60da971e339301f10", url = "https://github.com/astral-sh/ruff/releases/download/0.14.9/ruff-aarch64-apple-darwin.tar.gz"}
-"platforms.macos-x64" = { checksum = "sha256:ce980eb4b44a84cbf278686f8cf71a21b353888b29472ca269ffe385ce4f2351", url = "https://github.com/astral-sh/ruff/releases/download/0.14.9/ruff-x86_64-apple-darwin.tar.gz"}
-"platforms.windows-x64" = { checksum = "sha256:98727a845f01782b78efe1a3f0913aa9ec76c9a24e09aca89e26b3b684ca86a0", url = "https://github.com/astral-sh/ruff/releases/download/0.14.9/ruff-x86_64-pc-windows-msvc.zip"}
+"platforms.linux-x64" = { checksum = "sha256:0c2a1616b0782dbf7ee04239576887c4c894277189e04ba94ff3160eba9c1863", url = "https://github.com/astral-sh/ruff/releases/download/0.16.4/ruff-x86_64-unknown-linux-musl.tar.gz"}
 
 [[tools.sops]]
-version = "3.11.0"
+version = "3.13.3"
 backend = "aqua:getsops/sops"
+"platforms.linux-x64" = { checksum = "sha256:e5bec3346a873ae91d871550f3e698c1aad962aff462a080e40f25fde17fef6b", url = "https://github.com/getsops/sops/releases/download/v3.13.3/sops-v3.13.3.linux.amd64"}
 
 [[tools.terraform]]
-version = "1.14.3"
+version = "1.15.9"
 backend = "aqua:hashicorp/terraform"
-"platforms.linux-arm64" = { checksum = "sha256:fb5b004070e5e438214a74ddca321c22246f799e5cbe1ee9df582528e953f8cc", url = "https://releases.hashicorp.com/terraform/1.14.3/terraform_1.14.3_linux_arm64.zip"}
-"platforms.linux-x64" = { checksum = "sha256:178b2a602251bb68b94732aceca2cc1023d87597cb83dba92cab31b6689edb4d", url = "https://releases.hashicorp.com/terraform/1.14.3/terraform_1.14.3_linux_amd64.zip"}
-"platforms.macos-arm64" = { checksum = "sha256:c45e74c19f38ec7fcb55f74b9788a75a2cbb07da45343b197ae4a41637e571b6", url = "https://releases.hashicorp.com/terraform/1.14.3/terraform_1.14.3_darwin_arm64.zip"}
-"platforms.macos-x64" = { checksum = "sha256:f88d0c3ff98add0e0288bfc1fe59df15e7fb0302bddef6a7367f734ef213cd02", url = "https://releases.hashicorp.com/terraform/1.14.3/terraform_1.14.3_darwin_amd64.zip"}
-"platforms.windows-x64" = { checksum = "sha256:7bdb1dfd8b3960aca08b6cf3e47e64be840582a3b6e396018b22126d517b0434", url = "https://releases.hashicorp.com/terraform/1.14.3/terraform_1.14.3_windows_amd64.zip"}
+"platforms.linux-x64" = { checksum = "sha256:76edd0b22d2f27d3d2e097cd793209646f719cf60f02ff3af626b07361137da1", url = "https://releases.hashicorp.com/terraform/1.15.9/terraform_1.15.9_linux_amd64.zip"}
 
 [[tools.trivy]]
-version = "0.68.2"
+version = "0.74.0"
 backend = "aqua:aquasecurity/trivy"
-"platforms.linux-arm64" = { checksum = "sha256:33c87995fd0c3d1559086c3e18fd3148051296dfd0ca2a67583eb64f89998c91", url = "https://github.com/aquasecurity/trivy/releases/download/v0.68.2/trivy_0.68.2_Linux-ARM64.tar.gz"}
-"platforms.linux-x64" = { checksum = "sha256:3d933bbc3685f95ec15280f620583d05d97ee3affb66944d14481d5d6d567064", url = "https://github.com/aquasecurity/trivy/releases/download/v0.68.2/trivy_0.68.2_Linux-64bit.tar.gz"}
-"platforms.macos-arm64" = { checksum = "sha256:dfbe15ffe47426dad9fd3e0d52aeacf3dbbb25ca5dbc66049f5920834435988d", url = "https://github.com/aquasecurity/trivy/releases/download/v0.68.2/trivy_0.68.2_macOS-ARM64.tar.gz"}
-"platforms.macos-x64" = { checksum = "sha256:c0790530cd717b6bdd02ed437be0710f5c7043078fafaf6841be7c865bf251ce", url = "https://github.com/aquasecurity/trivy/releases/download/v0.68.2/trivy_0.68.2_macOS-64bit.tar.gz"}
-"platforms.windows-x64" = { checksum = "sha256:2aaa0ce06f9f2221a6bb21e1fc0e0ecc6aeb56362bc5c9463e9fd7b06983c3c3", url = "https://github.com/aquasecurity/trivy/releases/download/v0.68.2/trivy_0.68.2_windows-64bit.zip"}
+"platforms.linux-x64" = { checksum = "sha256:2ae6fe3ee734b7fdf11335663e18c75ea12dccc76062f09f164a3b0f8be4371a", url = "https://github.com/aquasecurity/trivy/releases/download/v0.74.0/trivy_0.74.0_Linux-64bit.tar.gz"}
 
 [[tools.uv]]
-version = "0.11.25"
+version = "0.12.6"
 backend = "aqua:astral-sh/uv"
-"platforms.linux-x64" = { checksum = "sha256:7195cfcc1785d0c559d4682ad9109f26664b8db4d828d42d66078ef454061891", url = "https://github.com/astral-sh/uv/releases/download/0.11.25/uv-x86_64-unknown-linux-musl.tar.gz"}
+"platforms.linux-x64" = { checksum = "sha256:14e4172aace66a475062cebec7ca04f497d5619e95325dfcc9e4447b9c516846", url = "https://github.com/astral-sh/uv/releases/download/0.12.6/uv-x86_64-unknown-linux-musl.tar.gz"}

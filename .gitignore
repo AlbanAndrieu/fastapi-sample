@@ -24,6 +24,7 @@ vue-client/.output/
 .vercel/
 .astro/
 .flox/
+radar.duckdb*
 
 mise.local.toml
 
