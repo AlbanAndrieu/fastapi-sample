@@ -122,12 +122,12 @@ export function lockHtml(tlsTrusted, hrefRaw) {
   } else if (tlsTrusted === true) {
     wrapCls = "sickz-lock--trusted";
     label = "TLS: certificate validated";
-  } else {
+  } else if (tlsTrusted === false) {
     wrapCls = "sickz-lock--untrusted";
-    label =
-      tlsTrusted === false
-        ? "TLS: certificate not trusted"
-        : "TLS: not validated (unreachable or check incomplete)";
+    label = "TLS: certificate not trusted";
+  } else {
+    wrapCls = "sickz-lock--unknown";
+    label = "TLS: not validated (target unreachable or check incomplete)";
   }
   const lockPaths =
     '<rect x="5" y="11" width="14" height="10" rx="2" ry="2"/>' +
