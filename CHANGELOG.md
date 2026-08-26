@@ -1,3 +1,17 @@
+# [1.8.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.7.0...1.8.0) (2026-08-26)
+
+
+### Bug Fixes
+
+* align local server port ([#94](https://github.com/AlbanAndrieu/fastapi-sample/issues/94)) ([859403e](https://github.com/AlbanAndrieu/fastapi-sample/commit/859403e887886ef7c942ad29327ebed63c3d61ad))
+* restore production homelab health ([#93](https://github.com/AlbanAndrieu/fastapi-sample/issues/93)) ([3bb4adc](https://github.com/AlbanAndrieu/fastapi-sample/commit/3bb4adc5ee06f5711effc91c9812730f7db34fe0))
+* **sickz:** enforce public port exposure policy ([#96](https://github.com/AlbanAndrieu/fastapi-sample/issues/96)) ([8b008f6](https://github.com/AlbanAndrieu/fastapi-sample/commit/8b008f615d3374775e0c4ac08b24f06bb47c31bf))
+
+
+### Features
+
+* **homelab:** reconcile service health evidence ([#95](https://github.com/AlbanAndrieu/fastapi-sample/issues/95)) ([1b962d6](https://github.com/AlbanAndrieu/fastapi-sample/commit/1b962d64ccc8150dc0f41349f2015619e2652015))
+
 # [1.7.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.6.1...1.7.0) (2026-08-26)
 
 
