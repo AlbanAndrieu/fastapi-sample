@@ -124,7 +124,7 @@ def _reconciled_state(
     tunnel: HealthState | None,
     external: bool,
 ) -> HealthState:
-    """Prefer measured reachability while avoiding false-red cloud/private probes."""
+    """Prefer functional evidence and distinguish unverified from degraded state."""
     if direct == "ok":
         return "warn" if runtime == "fail" or tunnel == "fail" else "ok"
     if direct == "warn":
@@ -134,9 +134,9 @@ def _reconciled_state(
             return "warn"
         return "fail"
 
-    # Private services are not HTTP-probed from FastAPI Cloud. A successful LAN
-    # TCP probe is sufficient for green; TrueNAS/runtime-only evidence is orange
-    # because it proves the workload is up but not that the UI endpoint is usable.
+    # Private services are not normally HTTP-probed from FastAPI Cloud. A
+    # successful LAN TCP probe is sufficient for green; TrueNAS/runtime-only
+    # evidence is orange because it proves the workload is up, not the web UI.
     if internal == "ok":
         return "ok"
     if runtime == "ok" or tunnel == "ok":
@@ -145,10 +145,11 @@ def _reconciled_state(
         return "fail"
     if external and tunnel == "fail":
         return "fail"
+    if any(state is not None for state in (direct, internal, runtime, tunnel)):
+        return "warn"
 
-    # Unknown/unverified endpoints stay degraded rather than falsely red once an
-    # observer participates in reconciliation.
-    return "warn"
+    # Every catalog service gets a row. No evidence means unknown, not degraded.
+    return "unknown"
 
 
 def build_reconciled_service_health(
@@ -159,7 +160,7 @@ def build_reconciled_service_health(
     runtime: TrueNASRuntimeSnapshot | None,
     tunnels: Iterable[CloudflareTunnelObservation],
 ) -> list[dict[str, Any]]:
-    """Return one URL health row per catalog service with multi-source evidence."""
+    """Return one endpoint-health row per catalog service with multi-source evidence."""
     direct_by_url = {
         normalized: result
         for result in public_results
@@ -174,7 +175,7 @@ def build_reconciled_service_health(
 
     rows: list[dict[str, Any]] = []
     for service in services:
-        url = _normalized_url(service.tunnel_url)
+        url = _normalized_url(service.effective_endpoint_url)
         if url is None:
             continue
 
@@ -196,20 +197,31 @@ def build_reconciled_service_health(
         internal_health = (
             str(internal_result.get("state")) if internal_result is not None else None
         )
-
-        row: dict[str, Any] = {
-            "id": service.service_id,
-            "name": service.name,
-            "url": url,
-            "reachable": bool(direct_result and direct_result.get("reachable")),
-            "http_status": int(direct_result.get("http_status", 0)) if direct_result else 0,
-            "state": _reconciled_state(
+        application_error = (
+            str(direct_result.get("application_error"))
+            if direct_result is not None and direct_result.get("application_error")
+            else None
+        )
+        reconciled_state = (
+            "fail"
+            if application_error
+            else _reconciled_state(
                 direct=direct_health,
                 internal=internal_health,
                 runtime=runtime_health,
                 tunnel=tunnel_health,
                 external=service.external,
-            ),
+            )
+        )
+
+        row: dict[str, Any] = {
+            "id": service.service_id,
+            "name": service.name,
+            "url": url,
+            "url_derived": service.tunnel_url is None,
+            "reachable": bool(direct_result and direct_result.get("reachable")),
+            "http_status": int(direct_result.get("http_status", 0)) if direct_result else 0,
+            "state": reconciled_state,
             "tls_trusted": direct_result.get("tls_trusted") if direct_result else None,
             "direct_state": direct_health,
             "internal_state": internal_health,
@@ -219,7 +231,7 @@ def build_reconciled_service_health(
         }
 
         if direct_result is not None:
-            for key in ("latency_ms", "error"):
+            for key in ("latency_ms", "error", "application_error"):
                 if key in direct_result:
                     row[key] = direct_result[key]
         if tunnel_evidence is not None:
@@ -239,7 +251,7 @@ async def _observe_cloudflare_safely() -> list[CloudflareTunnelObservation]:
 
 
 async def reconcile_homelab_health_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    """Enrich the legacy probe payload with TrueNAS and Cloudflare observations."""
+    """Return one API health row per catalog service with reconciled observations."""
     services_task = asyncio.create_task(fetch_homelab_services())
     runtime_task = asyncio.create_task(fetch_truenas_runtime())
     tunnels_task = asyncio.create_task(_observe_cloudflare_safely())
@@ -257,12 +269,6 @@ async def reconcile_homelab_health_payload(payload: dict[str, Any]) -> dict[str,
         for row in payload.get("internal_services", [])
         if isinstance(row, dict)
     ]
-
-    # No observed evidence means there is nothing reliable to reconcile. Preserve
-    # the established v2 contract instead of synthesizing orange rows from absence.
-    if not runtime.reachable and not tunnels and not internal_results:
-        return payload
-
     reconciled = build_reconciled_service_health(
         services,
         public_results=public_results,
@@ -273,7 +279,7 @@ async def reconcile_homelab_health_payload(payload: dict[str, Any]) -> dict[str,
 
     return {
         **payload,
-        "schema_version": 3,
+        "schema_version": 4,
         "services": reconciled,
         "truenas_runtime_reachable": runtime.reachable,
         "truenas_runtime_stale": runtime.stale,
