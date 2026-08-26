@@ -1,0 +1,53 @@
+name: Temporary release 1.4.0 alignment
+
+on:
+  push:
+    branches:
+      - chore/finish-1.4.0-version-alignment
+
+permissions:
+  contents: write
+
+jobs:
+  align:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: chore/finish-1.4.0-version-alignment
+          fetch-depth: 0
+
+      - name: Align release metadata
+        shell: python
+        run: |
+          from pathlib import Path
+
+          pyproject = Path("pyproject.toml")
+          pyproject_text = pyproject.read_text()
+          accidental = '"ansicolors>=1.1.0"'
+          expected = '"ansicolors>=1.1.8"'
+          if accidental in pyproject_text:
+              pyproject_text = pyproject_text.replace(accidental, expected, 1)
+              pyproject.write_text(pyproject_text)
+
+          uv_lock = Path("uv.lock")
+          uv_text = uv_lock.read_text()
+          old = 'name = "fastapi-sample"\nversion = "1.8.5"'
+          new = 'name = "fastapi-sample"\nversion = "1.4.0"'
+          count = uv_text.count(old)
+          if count != 1:
+              raise SystemExit(f"Expected exactly one stale fastapi-sample lock version, found {count}")
+          uv_lock.write_text(uv_text.replace(old, new, 1))
+
+      - name: Commit aligned metadata
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pyproject.toml uv.lock
+          if git diff --cached --quiet; then
+            echo "No metadata changes required"
+            exit 0
+          fi
+          git commit -m "chore(release): align remaining metadata to 1.4.0"
+          git push origin HEAD:chore/finish-1.4.0-version-alignment
