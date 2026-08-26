@@ -56,7 +56,7 @@ def test_explicit_service_id_is_preserved() -> None:
     service = HomelabService.model_validate(
         {
             "id": "langfuse-worker",
-            "name": "Langfuse Worker",
+            "name": "Langfuse UI",
             "external": False,
         }
     )
@@ -115,7 +115,7 @@ def test_conflicting_old_and_new_exposure_flags_fail_closed() -> None:
         {"name": "Missing URL", "external": True},
         {"name": "Cleartext", "external": True, "tunnelUrl": "http://example.com"},
         {
-            "name": "Private DNS",
+            "name": "Unqualified direct ingress",
             "external": True,
             "tunnelUrl": "https://service.int.albandrieu.com",
         },
@@ -132,6 +132,21 @@ def test_invalid_external_exposure_is_rejected(payload: dict[str, object]) -> No
         HomelabService.model_validate(payload)
 
 
+def test_int_external_exception_requires_explicit_direct_security_posture() -> None:
+    service = HomelabService.model_validate(
+        {
+            "name": "Garage",
+            "tunnelUrl": "https://garage.int.albandrieu.com",
+            "external": True,
+            "tunnelSecure": False,
+        }
+    )
+
+    assert service.external is True
+    assert service.tunnel_secure is False
+    assert service.public_https_probe_url == "https://garage.int.albandrieu.com/"
+
+
 def test_stale_public_url_does_not_imply_external_exposure() -> None:
     service = HomelabService(
         name="SABnzbd",
@@ -142,7 +157,7 @@ def test_stale_public_url_does_not_imply_external_exposure() -> None:
     assert service.public_https_probe_url is None
 
 
-def test_sickz_only_uses_services_expected_to_stay_private() -> None:
+def test_sickz_uses_all_declared_https_exposure_targets() -> None:
     private = HomelabService(
         name="SABnzbd",
         tunnel_url="https://sabnzbd.albandrieu.com",
@@ -155,11 +170,12 @@ def test_sickz_only_uses_services_expected_to_stay_private() -> None:
     )
 
     assert homelab_catalog._homelab_sickz_https_groups_from_services([private, public]) == [
-        ["https://sabnzbd.albandrieu.com/"]
+        ["https://sabnzbd.albandrieu.com/"],
+        ["https://2fauth.albandrieu.com/"],
     ]
 
 
-def test_sickz_metadata_keeps_names_for_private_targets() -> None:
+def test_sickz_metadata_keeps_names_for_policy_targets() -> None:
     private = HomelabService(
         name="SABnzbd",
         tunnel_url="https://sabnzbd.albandrieu.com",
@@ -207,6 +223,7 @@ def test_exposure_catalog_is_packaged_with_fastapi() -> None:
     assert path.is_file()
     assert path.name == "homelab-services.json"
     assert path.parent.name == "data"
+    assert homelab_catalog.HOMELAB_EXPOSURE_OVERRIDES_PATH.is_file()
 
 
 @pytest.mark.asyncio
@@ -223,7 +240,7 @@ async def test_packaged_catalog_preserves_litellm_exposure_policy() -> None:
 
 
 @pytest.mark.asyncio
-async def test_packaged_catalog_routes_2fauth_to_healthz_not_sickz() -> None:
+async def test_packaged_catalog_routes_2fauth_to_healthz_and_policy_aware_sickz() -> None:
     services = await homelab_catalog.fetch_homelab_services()
     by_name = {service.name: service for service in services}
     twofa = by_name["2FAuth"]
@@ -231,4 +248,15 @@ async def test_packaged_catalog_routes_2fauth_to_healthz_not_sickz() -> None:
     assert twofa.external is True
     assert twofa.public_https_probe_url == "https://2fauth.albandrieu.com/"
     sickz_groups = homelab_catalog._homelab_sickz_https_groups_from_services(services)
-    assert ["https://2fauth.albandrieu.com/"] not in sickz_groups
+    assert ["https://2fauth.albandrieu.com/"] in sickz_groups
+
+
+@pytest.mark.asyncio
+async def test_packaged_catalog_applies_garage_direct_exposure_override() -> None:
+    services = await homelab_catalog.fetch_homelab_services()
+    by_name = {service.name: service for service in services}
+    garage = by_name["Garage"]
+
+    assert garage.tunnel_url == "https://garage.int.albandrieu.com"
+    assert garage.external is True
+    assert garage.tunnel_secure is False
