@@ -1,3 +1,10 @@
+## [1.8.3](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.8.2...1.8.3) (2026-08-26)
+
+
+### Bug Fixes
+
+* **homelab:** reconcile Cloudflare exposure status ([#99](https://github.com/AlbanAndrieu/fastapi-sample/issues/99)) ([cfb9152](https://github.com/AlbanAndrieu/fastapi-sample/commit/cfb91528ea23364be37ebb5fd20c3042b736d4e6))
+
 ## [1.8.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.8.1...1.8.2) (2026-08-26)
 
 
