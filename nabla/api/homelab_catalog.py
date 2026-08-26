@@ -11,14 +11,14 @@ from urllib.parse import urlsplit
 
 from nabla.api.homelab_models import HomelabCatalog, HomelabService
 
-_HOMELAB_CATALOG_PATH = Path(__file__).with_name("data") / "homelab-services.json"
+HOMELAB_SERVICES_CATALOG_PATH = Path(__file__).with_name("data") / "homelab-services.json"
 TRUENAS_PUBLIC_HEALTH_URL = "https://truenas.albandrieu.com:7000/"
 _PFSENSE_PUBLIC_UI_URL = "https://home.albandrieu.com:10443/"
 
 
 def fetch_homelab_catalog_sync() -> HomelabCatalog:
     """Load and validate the FastAPI-owned homelab exposure catalog."""
-    payload = json.loads(_HOMELAB_CATALOG_PATH.read_text(encoding="utf-8"))
+    payload = json.loads(HOMELAB_SERVICES_CATALOG_PATH.read_text(encoding="utf-8"))
     return HomelabCatalog.model_validate(payload)
 
 
@@ -35,7 +35,10 @@ async def fetch_homelab_services() -> list[HomelabService]:
 async def fetch_homelab_services_raw() -> list[dict[str, Any]]:
     """Compatibility view of validated services using the JSON wire-format aliases."""
     services = await fetch_homelab_services()
-    return [service.model_dump(mode="json", by_alias=True, exclude_none=True) for service in services]
+    return [
+        service.model_dump(mode="json", by_alias=True, exclude_none=True)
+        for service in services
+    ]
 
 
 def _healthz_check_key(service_id: str) -> str:
@@ -92,9 +95,9 @@ def _homelab_resolved_icon_abs(rel: str) -> str | None:
 def _inverse_https_probe_url(service: HomelabService) -> str | None:
     """Return a public HTTPS endpoint only when exposure is explicitly forbidden.
 
-    ``/sickz`` is an inverse reachability check: it should verify that endpoints
-    declared ``external=false`` stay unreachable from an external runtime. Internal
-    DNS names, private IPs and non-HTTPS endpoints are not Internet exposure targets.
+    ``/sickz`` is an inverse reachability check: it verifies that endpoints declared
+    ``external=false`` stay unreachable from an external runtime. Internal DNS names,
+    private IPs and non-HTTPS endpoints are not Internet exposure targets.
     """
     if service.external or not service.tunnel_url:
         return None
@@ -156,14 +159,20 @@ def homelab_tunnel_url_to_resolved_icon_src(
     services: Sequence[HomelabService],
 ) -> dict[str, str]:
     """Map explicitly approved public HTTPS endpoints to absolute icon URLs."""
-    return _tunnel_url_to_resolved_icon_src(services, lambda service: service.public_https_probe_url)
+    return _tunnel_url_to_resolved_icon_src(
+        services,
+        lambda service: service.public_https_probe_url,
+    )
 
 
 def homelab_tunnel_url_to_service_name(
     services: Sequence[HomelabService],
 ) -> dict[str, str]:
     """Map explicitly approved public HTTPS endpoints to catalog service names."""
-    return _tunnel_url_to_service_name(services, lambda service: service.public_https_probe_url)
+    return _tunnel_url_to_service_name(
+        services,
+        lambda service: service.public_https_probe_url,
+    )
 
 
 def _homelab_sickz_https_groups_from_services(
