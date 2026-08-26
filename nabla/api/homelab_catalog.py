@@ -1,70 +1,46 @@
-"""Typed homelab service catalog for ``/healthz`` and ``/sickz``."""
+"""Typed homelab exposure catalog for ``/healthz`` and ``/sickz``."""
 
 from __future__ import annotations
 
-import asyncio
 from collections.abc import Sequence
+from functools import lru_cache
+import json
 import logging
-import time
+from pathlib import Path
 from typing import Any
-from urllib.parse import urljoin
 
-import httpx
+from pydantic import ValidationError
 
 from nabla.api.homelab_models import HomelabCatalog, HomelabService
 
 _log = logging.getLogger(__name__)
 
-HOMELAB_SERVICES_JSON_URL = "https://raw.githubusercontent.com/AlbanAndrieu/nabla-compose/master/catalog/homelab-services.json"
+HOMELAB_SERVICES_CATALOG_PATH = Path(__file__).with_name("data") / "homelab-services.json"
 TRUENAS_PUBLIC_HEALTH_URL = "https://truenas.albandrieu.com:7000/"
-_CACHE_TTL_SEC = 300.0
-
-_cache_lock = asyncio.Lock()
 
 
-class _HomelabCatalogCache:
-    """In-process TTL cache for the validated catalog."""
-
-    __slots__ = ("cached_at", "catalog")
-
-    def __init__(self) -> None:
-        self.catalog: HomelabCatalog | None = None
-        self.cached_at: float = 0.0
-
-
-_homelab_cache = _HomelabCatalogCache()
+@lru_cache(maxsize=1)
+def _load_homelab_catalog() -> HomelabCatalog:
+    """Load the FastAPI-owned exposure catalog from the packaged JSON resource."""
+    try:
+        payload = json.loads(HOMELAB_SERVICES_CATALOG_PATH.read_text(encoding="utf-8"))
+        return HomelabCatalog.model_validate(payload)
+    except (OSError, json.JSONDecodeError, ValidationError) as exc:
+        _log.error(
+            "Homelab exposure catalog load/validation failed (%s): %s",
+            HOMELAB_SERVICES_CATALOG_PATH,
+            exc,
+        )
+        return HomelabCatalog()
 
 
 async def fetch_homelab_catalog() -> HomelabCatalog:
-    """Fetch and validate the homelab catalog, falling back to the last good copy."""
-    async with _cache_lock:
-        now = time.monotonic()
-        if _homelab_cache.catalog is not None and (now - _homelab_cache.cached_at) < _CACHE_TTL_SEC:
-            return _homelab_cache.catalog
-        try:
-            async with httpx.AsyncClient(timeout=httpx.Timeout(15.0)) as client:
-                response = await client.get(
-                    HOMELAB_SERVICES_JSON_URL,
-                    headers={"User-Agent": "nabla-homelab-catalog/2.0"},
-                )
-                response.raise_for_status()
-                catalog = HomelabCatalog.model_validate(response.json())
-        except Exception as exc:
-            _log.warning(
-                "Homelab catalog fetch/validation failed (%s): %s",
-                HOMELAB_SERVICES_JSON_URL,
-                exc,
-            )
-            if _homelab_cache.catalog is not None:
-                return _homelab_cache.catalog
-            return HomelabCatalog()
-        _homelab_cache.catalog = catalog
-        _homelab_cache.cached_at = time.monotonic()
-        return catalog
+    """Return the validated FastAPI-owned homelab exposure catalog."""
+    return _load_homelab_catalog()
 
 
 async def fetch_homelab_services() -> list[HomelabService]:
-    """Return typed homelab services from the validated catalog."""
+    """Return typed homelab services from the validated exposure catalog."""
     return list((await fetch_homelab_catalog()).services)
 
 
@@ -110,7 +86,7 @@ def _homelab_https_tunnel_key(raw_url: str) -> str:
 
 
 def _homelab_resolved_icon_abs(rel: str) -> str | None:
-    """Turn catalog ``iconSrc`` into an absolute URL for browser contexts."""
+    """Preserve catalog icon references without reintroducing a website dependency."""
     s = rel.strip()
     if not s:
         return None
@@ -119,24 +95,21 @@ def _homelab_resolved_icon_abs(rel: str) -> str | None:
         return s
     if s.startswith("//"):
         return "https:" + s
-    # Ne pas faire de urljoin si la base est un chemin filesystem
-    if HOMELAB_SERVICES_JSON_URL.startswith("/"):
-        return s  # laisser brute, relative à la racine statique locale
-    return urljoin(HOMELAB_SERVICES_JSON_URL, s)
+    return s
 
 
 def homelab_tunnel_url_to_resolved_icon_src(
     services: Sequence[HomelabService],
 ) -> dict[str, str]:
-    """Map approved public HTTPS endpoints to absolute catalog icon URLs."""
+    """Map approved public HTTPS endpoints to catalog icon references."""
     out: dict[str, str] = {}
     for service in services:
         url = service.public_https_probe_url
         if url is None or not service.icon_src:
             continue
-        abs_icon = _homelab_resolved_icon_abs(service.icon_src)
-        if abs_icon:
-            out[_homelab_https_tunnel_key(url)] = abs_icon
+        icon_src = _homelab_resolved_icon_abs(service.icon_src)
+        if icon_src:
+            out[_homelab_https_tunnel_key(url)] = icon_src
     return out
 
 
@@ -173,7 +146,7 @@ async def homelab_sickz_catalog_for_sickz() -> tuple[
     dict[str, str],
     dict[str, str],
 ]:
-    """Return sickz groups, resolved icons, and names for approved public services."""
+    """Return sickz groups, icons, and names for approved public services."""
     services = await fetch_homelab_services()
     return (
         _homelab_sickz_https_groups_from_services(services),
