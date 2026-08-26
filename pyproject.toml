@@ -1,6 +1,6 @@
 [project]
 name = "fastapi-sample"
-version = "1.8.5"
+version = "1.4.0"
 description = "Fastapi sample"
 authors = [{ name = "Alban Andrieu", email = "alban.andrieu@free.fr" }]
 requires-python = "==3.13.*"
@@ -100,7 +100,7 @@ base = [
 ]
 api = [
     "appwrite>=18.0.0",
-    "ansicolors>=1.1.8",
+    "ansicolors>=1.1.0",
     "arel>=0.3.0",
     "asyevent>=0.2.10",
     "botocore>=1.43.0",
@@ -554,11 +554,11 @@ packages = ["nabla"]
 source = "versioningit"
 
 [tool.versioningit]
-default-version = "1.8.5"
+default-version = "1.4.0"
 
 [tool.commitizen]
 # name = "cz_customize"
-version = "1.8.5"
+version = "1.4.0"
 version_files = [
     "nabla/__version__.py",
     "nabla/__init__.py",
