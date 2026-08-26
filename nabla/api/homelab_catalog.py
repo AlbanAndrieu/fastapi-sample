@@ -17,13 +17,67 @@ from nabla.integrations.truenas_client import truenas_url
 _log = logging.getLogger(__name__)
 
 HOMELAB_SERVICES_CATALOG_PATH = Path(__file__).with_name("data") / "homelab-services.json"
+HOMELAB_EXPOSURE_OVERRIDES_PATH = (
+    Path(__file__).with_name("data") / "homelab-exposure-overrides.json"
+)
+
+
+def _apply_exposure_overrides(payload: dict[str, Any]) -> dict[str, Any]:
+    """Apply small reviewed policy overrides without rewriting the generated catalog.
+
+    The packaged catalog is intentionally broad and periodically synchronized from the
+    website inventory. Security-sensitive exceptions are kept in a separate, auditable
+    overlay so an intentional direct exposure cannot be lost in a bulk catalog refresh.
+    """
+    try:
+        overrides_payload = json.loads(
+            HOMELAB_EXPOSURE_OVERRIDES_PATH.read_text(encoding="utf-8")
+        )
+    except FileNotFoundError:
+        return payload
+    except (OSError, json.JSONDecodeError) as exc:
+        _log.error(
+            "Homelab exposure override load failed (%s): %s",
+            HOMELAB_EXPOSURE_OVERRIDES_PATH,
+            exc,
+        )
+        return payload
+
+    services = payload.get("services")
+    overrides = overrides_payload.get("services")
+    if not isinstance(services, list) or not isinstance(overrides, list):
+        return payload
+
+    merged = dict(payload)
+    merged_services = [dict(item) if isinstance(item, dict) else item for item in services]
+    by_name = {
+        str(item.get("name") or "").casefold(): item
+        for item in merged_services
+        if isinstance(item, dict) and item.get("name")
+    }
+
+    for override in overrides:
+        if not isinstance(override, dict):
+            continue
+        name = str(override.get("name") or "").strip()
+        target = by_name.get(name.casefold())
+        if not name or target is None:
+            _log.warning("Unknown homelab exposure override target: %s", name or "<empty>")
+            continue
+        for key in ("external", "tunnelSecure", "endpointEnabled", "tunnelTitle"):
+            if key in override:
+                target[key] = override[key]
+
+    merged["services"] = merged_services
+    return merged
 
 
 @lru_cache(maxsize=1)
 def _load_homelab_catalog() -> HomelabCatalog:
-    """Load the FastAPI-owned exposure catalog from the packaged JSON resource."""
+    """Load the FastAPI-owned exposure catalog and reviewed policy overrides."""
     try:
         payload = json.loads(HOMELAB_SERVICES_CATALOG_PATH.read_text(encoding="utf-8"))
+        payload = _apply_exposure_overrides(payload)
         return HomelabCatalog.model_validate(payload)
     except (OSError, json.JSONDecodeError, ValidationError) as exc:
         _log.error(
@@ -59,7 +113,9 @@ async def homelab_healthz_probe_rows() -> list[tuple[str, str, str, str | None]]
     """Return TrueNAS plus approved public HTTPS services for global health."""
     services = await fetch_homelab_services()
     configured_truenas_url = truenas_url().rstrip("/") + "/"
-    rows: list[tuple[str, str, str, str | None]] = [("albandrieu_truenas", configured_truenas_url, "TrueNAS", None)]
+    rows: list[tuple[str, str, str, str | None]] = [
+        ("albandrieu_truenas", configured_truenas_url, "TrueNAS", None)
+    ]
     used_keys: set[str] = {"albandrieu_truenas"}
     for service in services:
         url = service.public_https_probe_url
@@ -126,17 +182,17 @@ def homelab_tunnel_url_to_service_name(
 def _homelab_sickz_https_groups_from_services(
     services: Sequence[HomelabService],
 ) -> list[list[str]]:
-    """Return private HTTPS hostnames that must remain unreachable externally.
+    """Return every declared HTTPS exposure target for policy-aware ``/sickz``.
 
-    ``/healthz`` validates services explicitly marked ``external=true``.
-    ``/sickz`` is the inverse control and therefore probes only services whose
-    catalog policy is ``external=false`` but which still have an HTTPS hostname
-    recorded. This catches accidental DNS/tunnel exposure without penalising
-    deliberately public services such as 2FAuth or Vaultwarden.
+    Sickz no longer means simply "this URL must be unreachable". Every catalog
+    service participates so the endpoint can compare declared intent (``external``
+    and ``tunnelSecure``) with observed HTTP/TLS and Cloudflare Tunnel evidence.
+    The canonical pfSense/Home target is handled separately by the dedicated port
+    policy row and is therefore not duplicated here.
     """
     groups: list[list[str]] = []
     for service in services:
-        if service.name.casefold() == "pfsense" or service.external:
+        if service.name.casefold() in {"pfsense", "home"}:
             continue
         url = service.tunnel_url
         if not url or not url.lower().startswith("https://"):
@@ -146,7 +202,7 @@ def _homelab_sickz_https_groups_from_services(
 
 
 async def homelab_sickz_catalog_for_sickz() -> tuple[list[list[str]], dict[str, str], dict[str, str]]:
-    """Return private sickz targets plus icon/name metadata for all catalog URLs."""
+    """Return policy targets plus icon/name metadata for all catalog HTTPS URLs."""
     services = await fetch_homelab_services()
     return (
         _homelab_sickz_https_groups_from_services(services),
@@ -156,6 +212,6 @@ async def homelab_sickz_catalog_for_sickz() -> tuple[list[list[str]], dict[str, 
 
 
 async def homelab_sickz_https_single_url_groups() -> list[list[str]]:
-    """Return private HTTPS targets for inverse reachability checks."""
+    """Return all HTTPS targets used by the exposure-policy checks."""
     services = await fetch_homelab_services()
     return _homelab_sickz_https_groups_from_services(services)
