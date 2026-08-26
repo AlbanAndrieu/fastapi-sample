@@ -1,3 +1,10 @@
+# [1.7.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.6.1...1.7.0) (2026-08-26)
+
+
+### Features
+
+* improve deployment metadata and runtime configuration ([#87](https://github.com/AlbanAndrieu/fastapi-sample/issues/87)) ([4a8deee](https://github.com/AlbanAndrieu/fastapi-sample/commit/4a8deee780fb3a6e52ae0f5b8261fed4f27f1540))
+
 ## [1.6.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.6.0...1.6.1) (2026-08-26)
 
 
