@@ -1,6 +1,6 @@
 <!-- markdown-link-check-disable-next-line -->
 
-# [![Nabla](https://nabla.albandrieu.com/assets/nabla/nabla-4.png)](https://gitlab.com/AlbanAndrieu/fastapi-sample) fastapi-sample
+# [![Nabla](https://nabla.albandrieu.com/assets/nabla/nabla-4.png)](https://github.com/AlbanAndrieu/fastapi-sample) fastapi-sample
 
 Fastapi sample
 
@@ -25,11 +25,6 @@ Fastapi sample
 
 ```bash
 direnv allow
-pyenv install 3.10.9
-pyenv local 3.10.9
-python -m pipenv install --dev --ignore-pipfile
-direnv allow
-pre-commit install
-
-nvm install lts/iron
+uv sync --frozen
+uv run pre-commit install
 ```

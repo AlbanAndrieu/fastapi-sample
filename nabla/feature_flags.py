@@ -18,8 +18,10 @@ UNLEASH_API_URL = os.environ.get(
     "https://gitlab.com/api/v4/feature_flags/unleash/46788175",
 )
 UNLEASH_APP_NAME = os.environ.get("UNLEASH_APP_NAME", "staging")
-UNLEASH_INSTANCE_ID = os.environ.get("UNLEASH_INSTANCE_ID", "XXX")
+UNLEASH_INSTANCE_ID = os.environ.get("UNLEASH_INSTANCE_ID", "")
 STATSIG_API_KEY = os.environ.get("STATSIG_API_KEY", "XXX")
+
+_PLACEHOLDER_CREDENTIALS = frozenset({"", "xxx", "changeme", "change-me"})
 
 
 def env_bool(name: str, default: bool) -> bool:
@@ -63,13 +65,22 @@ def unleash_timeout_seconds() -> int:
     return int(os.environ.get("UNLEASH_REQUEST_TIMEOUT", "45"))
 
 
+def unleash_is_configured() -> bool:
+    """Return whether Unleash has a non-placeholder client instance ID."""
+    instance_id = os.environ.get("UNLEASH_INSTANCE_ID", UNLEASH_INSTANCE_ID)
+    return instance_id.strip().lower() not in _PLACEHOLDER_CREDENTIALS
+
+
 @lru_cache(maxsize=1)
 def get_unleash_client() -> UnleashClient:
     """Create and initialize the Unleash client on first use only."""
+    if not unleash_is_configured():
+        raise RuntimeError("UNLEASH_INSTANCE_ID must be configured when UNLEASH_ENABLED=true")
+
     client = UnleashClient(
         url=UNLEASH_API_URL.rstrip("/"),
         app_name=UNLEASH_APP_NAME,
-        instance_id=UNLEASH_INSTANCE_ID,
+        instance_id=os.environ.get("UNLEASH_INSTANCE_ID", UNLEASH_INSTANCE_ID),
         refresh_interval=int(os.environ.get("UNLEASH_REFRESH_INTERVAL", "60")),
         metrics_interval=int(os.environ.get("UNLEASH_METRICS_INTERVAL", "90")),
         request_timeout=unleash_timeout_seconds(),

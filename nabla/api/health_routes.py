@@ -1,3 +1,5 @@
+# ruff: noqa: C901, PLC0415 -- route-local imports keep optional probes lazy.
+
 """Health and homelab route registration.
 
 Keep dependency probes and diagnostic endpoints isolated from the general application
@@ -7,12 +9,15 @@ route module. The public paths and response contracts intentionally remain uncha
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 
 import pyroscope
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, ORJSONResponse
+from fastapi.responses import JSONResponse
 
+from nabla.api.homelab_declared import DeclaredServiceCatalog
 from nabla.api.homelab_models import HomelabCatalog
+from nabla.api.homelab_runtime import TrueNASRuntimeSnapshot
 from nabla.api.homelab_topology import HomelabTopology
 
 
@@ -34,67 +39,62 @@ def register_health_routes(app: FastAPI) -> None:
 
     @app.get(
         "/api/homelab-services",
-        response_class=ORJSONResponse,
         response_model=HomelabCatalog,
         response_model_exclude_none=True,
         tags=["Homelab"],
         summary="Legacy homelab presentation catalog",
     )
-    async def get_homelab_services():
+    async def get_homelab_services() -> HomelabCatalog:
         """Expose the legacy UI/exposure catalog during the x-nabla migration."""
         from nabla.api.homelab_catalog import fetch_homelab_catalog
 
-        catalog = await fetch_homelab_catalog()
-        return catalog.model_dump(mode="json", by_alias=True, exclude_none=True)
+        return await fetch_homelab_catalog()
 
     @app.get(
         "/api/homelab/declared-services",
-        response_class=ORJSONResponse,
+        response_model=DeclaredServiceCatalog,
+        response_model_exclude_none=True,
         tags=["Homelab"],
         summary="Code-owned declared homelab services",
     )
-    async def get_declared_homelab_services():
+    async def get_declared_homelab_services() -> DeclaredServiceCatalog:
         """Expose the service inventory generated from nabla-compose x-nabla metadata."""
         from nabla.api.homelab_declared import fetch_declared_service_catalog
 
-        catalog = await fetch_declared_service_catalog()
-        return catalog.model_dump(mode="json", by_alias=True, exclude_none=True)
+        return await fetch_declared_service_catalog()
 
     @app.get(
         "/api/homelab-topology",
-        response_class=ORJSONResponse,
         response_model=HomelabTopology,
         response_model_exclude_none=True,
         tags=["Homelab"],
         summary="Declared homelab service topology",
     )
-    async def get_homelab_topology():
+    async def get_homelab_topology() -> HomelabTopology:
         """Expose the validated design-time topology sourced from nabla-compose."""
         from nabla.api.homelab_topology import fetch_homelab_topology
 
-        topology = await fetch_homelab_topology()
-        return topology.model_dump(mode="json", by_alias=True, exclude_none=True)
+        return await fetch_homelab_topology()
 
     @app.get(
         "/api/homelab/runtime",
-        response_class=ORJSONResponse,
+        response_model=TrueNASRuntimeSnapshot,
+        response_model_exclude_none=True,
         tags=["Homelab", "TrueNAS"],
         summary="Observed TrueNAS application runtime",
     )
-    async def get_homelab_runtime():
+    async def get_homelab_runtime() -> TrueNASRuntimeSnapshot:
         """Expose a sanitized app.query snapshot from the official TrueNAS client."""
         from nabla.api.homelab_runtime import fetch_truenas_runtime
 
-        runtime = await fetch_truenas_runtime()
-        return runtime.model_dump(mode="json", exclude_none=True)
+        return await fetch_truenas_runtime()
 
     @app.get(
         "/api/homelab/status",
-        response_class=ORJSONResponse,
         tags=["Homelab", "TrueNAS"],
         summary="Declared versus observed homelab status",
     )
-    async def get_homelab_status():
+    async def get_homelab_status() -> dict[str, Any]:
         """Reconcile x-nabla declarations with TrueNAS runtime observations."""
         from nabla.api.homelab_runtime import build_homelab_status_payload
 
@@ -102,11 +102,10 @@ def register_health_routes(app: FastAPI) -> None:
 
     @app.get(
         "/api/homelab/health",
-        response_class=ORJSONResponse,
         tags=["Homelab", "Health"],
         summary="Homelab and platform health",
     )
-    async def get_homelab_health():
+    async def get_homelab_health() -> dict[str, Any]:
         """Return detailed homelab services plus shared core/platform components."""
         from nabla.api.component_health import build_component_checks, component_status
         from nabla.api.db.database import engine
@@ -126,22 +125,20 @@ def register_health_routes(app: FastAPI) -> None:
 
     @app.get(
         "/healthz",
-        response_class=ORJSONResponse,
         tags=["Health"],
         summary="Deep healthcheck",
     )
-    async def get_healthz(request: Request):
+    async def get_healthz(request: Request) -> dict[str, Any]:
         """Return runtime health plus deep dependency and service probes."""
         with pyroscope.tag_wrapper({"function": "fast"}):
             return await _build_extended_healthz(request)
 
     @app.get(
         "/sickz",
-        response_class=ORJSONResponse,
         tags=["Health"],
         summary="Inverse reachability",
     )
-    async def get_sickz(request: Request):
+    async def get_sickz(request: Request) -> dict[str, Any]:
         """Return JSON: URL groups must not be reachable."""
         from nabla.api.sickz_checks import build_sickz_payload
 

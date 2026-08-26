@@ -10,6 +10,7 @@ def test_vercel_is_a_lightweight_fastapi_cloud_proxy() -> None:
     config = json.loads((ROOT / "vercel.json").read_text(encoding="utf-8"))
 
     assert config["framework"] is None
+    assert config["ignoreCommand"] == '[ "$VERCEL_GIT_COMMIT_REF" != "main" ]'
     assert config["rewrites"] == [
         {
             "source": "/:path*",

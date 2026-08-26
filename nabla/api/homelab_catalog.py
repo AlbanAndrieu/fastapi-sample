@@ -12,11 +12,11 @@ from urllib.parse import urljoin
 import httpx
 
 from nabla.api.homelab_models import HomelabCatalog, HomelabService
+from nabla.integrations.truenas_client import truenas_url
 
 _log = logging.getLogger(__name__)
 
 HOMELAB_SERVICES_JSON_URL = "https://www.albanandrieu.com/homelab-services.json"
-TRUENAS_PUBLIC_HEALTH_URL = "https://truenas.albandrieu.com:7000/"
 _CACHE_TTL_SEC = 300.0
 
 _cache_lock = asyncio.Lock()
@@ -39,10 +39,7 @@ async def fetch_homelab_catalog() -> HomelabCatalog:
     """Fetch and validate the homelab catalog, falling back to the last good copy."""
     async with _cache_lock:
         now = time.monotonic()
-        if (
-            _homelab_cache.catalog is not None
-            and (now - _homelab_cache.cached_at) < _CACHE_TTL_SEC
-        ):
+        if _homelab_cache.catalog is not None and (now - _homelab_cache.cached_at) < _CACHE_TTL_SEC:
             return _homelab_cache.catalog
         try:
             async with httpx.AsyncClient(timeout=httpx.Timeout(15.0)) as client:
@@ -74,10 +71,7 @@ async def fetch_homelab_services() -> list[HomelabService]:
 async def fetch_homelab_services_raw() -> list[dict[str, Any]]:
     """Compatibility view of validated services using the JSON wire-format aliases."""
     services = await fetch_homelab_services()
-    return [
-        service.model_dump(mode="json", by_alias=True, exclude_none=True)
-        for service in services
-    ]
+    return [service.model_dump(mode="json", by_alias=True, exclude_none=True) for service in services]
 
 
 def _healthz_check_key(service_id: str) -> str:
@@ -88,13 +82,12 @@ def _healthz_check_key(service_id: str) -> str:
 async def homelab_healthz_probe_rows() -> list[tuple[str, str, str, str | None]]:
     """Return TrueNAS plus approved public HTTPS services for global health."""
     services = await fetch_homelab_services()
-    rows: list[tuple[str, str, str, str | None]] = [
-        ("albandrieu_truenas", TRUENAS_PUBLIC_HEALTH_URL, "TrueNAS", None)
-    ]
+    configured_truenas_url = truenas_url().rstrip("/") + "/"
+    rows: list[tuple[str, str, str, str | None]] = [("albandrieu_truenas", configured_truenas_url, "TrueNAS", None)]
     used_keys: set[str] = {"albandrieu_truenas"}
     for service in services:
         url = service.public_https_probe_url
-        if url is None or url == TRUENAS_PUBLIC_HEALTH_URL:
+        if url is None or url == configured_truenas_url:
             continue
         key = _healthz_check_key(service.service_id)
         base = key
@@ -171,9 +164,7 @@ def _homelab_sickz_https_groups_from_services(
     return groups
 
 
-async def homelab_sickz_catalog_for_sickz() -> tuple[
-    list[list[str]], dict[str, str], dict[str, str]
-]:
+async def homelab_sickz_catalog_for_sickz() -> tuple[list[list[str]], dict[str, str], dict[str, str]]:
     """Return sickz groups, resolved icons, and names for approved public services."""
     services = await fetch_homelab_services()
     return (

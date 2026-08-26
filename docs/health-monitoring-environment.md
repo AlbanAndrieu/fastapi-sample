@@ -78,12 +78,18 @@ Create a dedicated local/API-only TrueNAS service account with the smallest read
 Create:
 
 ```text
-TRUENAS_URL=https://172.17.0.24
+TRUENAS_URL=https://truenas.albandrieu.com:7000/
 TRUENAS_API_USERNAME=<read-only service account>
 TRUENAS_API_KEY=<dedicated API key>
 TRUENAS_API_VERIFY_SSL=true
-TRUENAS_INTERNAL_HOST=172.17.0.24
-TRUENAS_INTERNAL_PORT=443
+```
+
+`TRUENAS_URL` is the single endpoint used by the public HTTP check, optional TCP
+probe and authenticated WebSocket adapter. Its production default is
+`https://truenas.albandrieu.com:7000/`. Override it only on an internal runtime:
+
+```text
+TRUENAS_URL=https://172.17.0.24:7000
 ```
 
 The adapter also accepts these compatibility fallbacks:

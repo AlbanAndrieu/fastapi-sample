@@ -1,3 +1,5 @@
+# ruff: noqa: PLW0603 -- the module owns one lock-protected snapshot cache.
+
 """Cached health snapshots for external and optional internal homelab probes."""
 
 from __future__ import annotations
@@ -13,6 +15,7 @@ import httpx
 from nabla.api.homelab_catalog import fetch_homelab_services
 from nabla.api.homelab_models import HomelabService
 from nabla.api.truenas_client import observe_truenas_api
+from nabla.integrations.truenas_client import truenas_host_port, truenas_url
 
 HealthState = Literal["ok", "warn", "fail"]
 
@@ -21,12 +24,6 @@ _HEALTH_CACHE_TTL_SEC = 30.0
 _MAX_PROBE_CONCURRENCY = 8
 _PROBE_TIMEOUT_SEC = 5.0
 _INTERNAL_PROBE_ENV = "HOMELAB_INTERNAL_PROBES_ENABLED"
-_TRUENAS_PUBLIC_URL = "https://truenas.albandrieu.com:7000/"
-_TRUENAS_INTERNAL_HOST_ENV = "TRUENAS_INTERNAL_HOST"
-_TRUENAS_INTERNAL_PORT_ENV = "TRUENAS_INTERNAL_PORT"
-_TRUENAS_INTERNAL_HOST_DEFAULT = "172.17.0.24"
-_TRUENAS_INTERNAL_PORT_DEFAULT = 443
-
 _cache_lock = asyncio.Lock()
 _cached_at = 0.0
 _cached_payload: dict[str, Any] | None = None
@@ -66,15 +63,15 @@ def _short_error(exc: BaseException) -> str:
     return message[:240]
 
 
-async def _probe_public_service(
+async def _probe_http_endpoint(
     client: httpx.AsyncClient,
     semaphore: asyncio.Semaphore,
-    service: HomelabService,
+    *,
+    service_id: str,
+    name: str,
+    url: str,
 ) -> dict[str, Any]:
-    """Probe one catalog-approved public endpoint and preserve its real HTTP status."""
-    url = service.public_https_probe_url
-    if url is None:
-        raise ValueError("service is not approved for public HTTPS probing")
+    """Probe one HTTP endpoint and preserve its real status and TLS outcome."""
 
     started = time.perf_counter()
     try:
@@ -94,8 +91,8 @@ async def _probe_public_service(
                 )
         status = response.status_code
         result: dict[str, Any] = {
-            "id": service.service_id,
-            "name": service.name,
+            "id": service_id,
+            "name": name,
             "url": url,
             "reachable": True,
             "http_status": status,
@@ -105,8 +102,8 @@ async def _probe_public_service(
     except (httpx.HTTPError, OSError) as exc:
         error = _short_error(exc)
         result = {
-            "id": service.service_id,
-            "name": service.name,
+            "id": service_id,
+            "name": name,
             "url": url,
             "reachable": False,
             "http_status": 0,
@@ -117,6 +114,24 @@ async def _probe_public_service(
 
     result["latency_ms"] = max(0, round((time.perf_counter() - started) * 1000))
     return result
+
+
+async def _probe_public_service(
+    client: httpx.AsyncClient,
+    semaphore: asyncio.Semaphore,
+    service: HomelabService,
+) -> dict[str, Any]:
+    """Probe one catalog-approved public endpoint."""
+    url = service.public_https_probe_url
+    if url is None:
+        raise ValueError("service is not approved for public HTTPS probing")
+    return await _probe_http_endpoint(
+        client,
+        semaphore,
+        service_id=service.service_id,
+        name=service.name,
+        url=url,
+    )
 
 
 async def _probe_internal_service(
@@ -167,22 +182,8 @@ async def _probe_internal_service(
 def _truenas_internal_target(
     _services: list[HomelabService] | None = None,
 ) -> tuple[str, int]:
-    """Resolve the TrueNAS LAN target, defaulting to the Docker bridge endpoint."""
-    host = (
-        os.getenv(_TRUENAS_INTERNAL_HOST_ENV, _TRUENAS_INTERNAL_HOST_DEFAULT).strip()
-        or _TRUENAS_INTERNAL_HOST_DEFAULT
-    )
-    raw_port = os.getenv(
-        _TRUENAS_INTERNAL_PORT_ENV,
-        str(_TRUENAS_INTERNAL_PORT_DEFAULT),
-    ).strip()
-    try:
-        port = int(raw_port)
-    except ValueError:
-        port = _TRUENAS_INTERNAL_PORT_DEFAULT
-    if not 1 <= port <= 65535:
-        port = _TRUENAS_INTERNAL_PORT_DEFAULT
-    return host, port
+    """Resolve the optional TCP probe from the shared ``TRUENAS_URL``."""
+    return truenas_host_port()
 
 
 async def _observe_truenas_api() -> dict[str, Any] | None:
@@ -224,12 +225,14 @@ async def _probe_truenas(
     internal_enabled: bool,
 ) -> dict[str, Any]:
     """Probe TrueNAS public ingress, optional LAN TCP, and optional authenticated API."""
-    public_service = HomelabService(
+    configured_url = truenas_url().rstrip("/") + "/"
+    public_result = await _probe_http_endpoint(
+        client,
+        semaphore,
+        service_id="truenas",
         name="TrueNAS",
-        tunnelUrl=_TRUENAS_PUBLIC_URL,
-        external=True,
+        url=configured_url,
     )
-    public_result = await _probe_public_service(client, semaphore, public_service)
 
     internal_result: dict[str, Any] | None = None
     if internal_enabled:
@@ -273,9 +276,7 @@ def _copy_payload(payload: dict[str, Any]) -> dict[str, Any]:
         **payload,
         "truenas": truenas_copy,
         "services": [dict(service) for service in payload.get("services", [])],
-        "internal_services": [
-            dict(service) for service in payload.get("internal_services", [])
-        ],
+        "internal_services": [dict(service) for service in payload.get("internal_services", [])],
     }
 
 
@@ -285,37 +286,19 @@ async def build_homelab_health_payload() -> dict[str, Any]:
 
     async with _cache_lock:
         now = time.monotonic()
-        if (
-            _cached_payload is not None
-            and (now - _cached_at) < _HEALTH_CACHE_TTL_SEC
-        ):
+        if _cached_payload is not None and (now - _cached_at) < _HEALTH_CACHE_TTL_SEC:
             return _copy_payload(_cached_payload)
 
         catalog_services = await fetch_homelab_services()
-        public_services = [
-            service
-            for service in catalog_services
-            if service.public_https_probe_url is not None
-        ]
+        public_services = [service for service in catalog_services if service.public_https_probe_url is not None]
         internal_enabled = internal_probes_enabled()
-        internal_services = [
-            service
-            for service in catalog_services
-            if internal_enabled
-            and service.internal_host
-            and service.internal_port is not None
-        ]
+        internal_services = [service for service in catalog_services if internal_enabled and service.internal_host and service.internal_port is not None]
 
         semaphore = asyncio.Semaphore(_MAX_PROBE_CONCURRENCY)
         timeout = httpx.Timeout(_PROBE_TIMEOUT_SEC)
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
             public_results, truenas = await asyncio.gather(
-                asyncio.gather(
-                    *(
-                        _probe_public_service(client, semaphore, service)
-                        for service in public_services
-                    )
-                ),
+                asyncio.gather(*(_probe_public_service(client, semaphore, service) for service in public_services)),
                 _probe_truenas(
                     client,
                     semaphore,
@@ -323,12 +306,7 @@ async def build_homelab_health_payload() -> dict[str, Any]:
                 ),
             )
 
-        internal_results = await asyncio.gather(
-            *(
-                _probe_internal_service(semaphore, service)
-                for service in internal_services
-            )
-        )
+        internal_results = await asyncio.gather(*(_probe_internal_service(semaphore, service) for service in internal_services))
 
         payload: dict[str, Any] = {
             "schema_version": 2,
