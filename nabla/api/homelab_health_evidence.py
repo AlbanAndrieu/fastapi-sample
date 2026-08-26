@@ -146,8 +146,8 @@ def _reconciled_state(
     if external and tunnel == "fail":
         return "fail"
 
-    # A failed LAN probe from a cloud runtime is not authoritative by itself.
-    # Unknown/unverified endpoints therefore stay degraded rather than falsely red.
+    # Unknown/unverified endpoints stay degraded rather than falsely red once an
+    # observer participates in reconciliation.
     return "warn"
 
 
@@ -257,6 +257,12 @@ async def reconcile_homelab_health_payload(payload: dict[str, Any]) -> dict[str,
         for row in payload.get("internal_services", [])
         if isinstance(row, dict)
     ]
+
+    # No observed evidence means there is nothing reliable to reconcile. Preserve
+    # the established v2 contract instead of synthesizing orange rows from absence.
+    if not runtime.reachable and not tunnels and not internal_results:
+        return payload
+
     reconciled = build_reconciled_service_health(
         services,
         public_results=public_results,
