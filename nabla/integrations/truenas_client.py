@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import logging
 import os
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -11,6 +12,7 @@ from urllib.parse import urlsplit, urlunsplit
 DEFAULT_TRUENAS_URL = "https://truenas.albandrieu.com:7000"
 _DEFAULT_API_PATH = "/api/current"
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
+logger = logging.getLogger(__name__)
 
 
 class TrueNASClientProtocol(Protocol):
@@ -78,7 +80,9 @@ class TrueNASSettings:
 def truenas_url() -> str:
     """Return the single configured TrueNAS endpoint used by every probe."""
     configured = os.getenv("TRUENAS_URL", DEFAULT_TRUENAS_URL).strip()
-    return configured or DEFAULT_TRUENAS_URL
+    effective_url = configured or DEFAULT_TRUENAS_URL
+    logger.info("TrueNAS runtime endpoint: TRUENAS_URL=%s", effective_url)
+    return effective_url
 
 
 def truenas_host_port() -> tuple[str, int]:
@@ -102,20 +106,12 @@ def _load_client_factory() -> Any:
 class TrueNASReadOnlyAdapter:
     """Small synchronous adapter over the TrueNAS 26 official WebSocket client."""
 
-    def __init__(
-        self,
-        settings: TrueNASSettings,
-        *,
-        client_factory: Any | None = None,
-    ) -> None:
+    def __init__(self, settings: TrueNASSettings, *, client_factory: Any | None = None) -> None:
         self.settings = settings
         self._client_factory = client_factory or _load_client_factory()
 
     def _connect(self) -> TrueNASClientProtocol:
-        return self._client_factory(
-            uri=self.settings.websocket_uri,
-            verify_ssl=self.settings.verify_ssl,
-        )
+        return self._client_factory(uri=self.settings.websocket_uri, verify_ssl=self.settings.verify_ssl)
 
     def _call(self, method: str, *params: Any) -> Any:
         """Authenticate once for a single read-only JSON-RPC call."""
