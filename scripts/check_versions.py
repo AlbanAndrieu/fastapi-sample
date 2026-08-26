@@ -20,8 +20,13 @@ def main() -> int:
 
     with (ROOT / "package.json").open(encoding="utf-8") as package_file:
         npm_version = json.load(package_file)["version"]
-    with (ROOT / "package-lock.json").open(encoding="utf-8") as lock_file:
-        npm_lock_version = json.load(lock_file)["version"]
+
+    npm_lock_version: str | None = None
+    package_lock_path = ROOT / "package-lock.json"
+    package_lock_text = package_lock_path.read_text(encoding="utf-8").strip()
+    if package_lock_text:
+        npm_lock_version = json.loads(package_lock_text)["version"]
+
     with (ROOT / "uv.lock").open("rb") as uv_lock_file:
         uv_packages = tomllib.load(uv_lock_file)["package"]
     uv_version = next(
@@ -39,11 +44,12 @@ def main() -> int:
     versions = {
         "pyproject.toml [project]": python_version,
         "package.json": npm_version,
-        "package-lock.json": npm_lock_version,
         "uv.lock": uv_version,
         "nabla/_release.py": runtime_version,
         "Dockerfile": docker_match.group(1),
     }
+    if npm_lock_version is not None:
+        versions["package-lock.json"] = npm_lock_version
 
     versioningit = pyproject.get("tool", {}).get("versioningit", {}).get("default-version")
     if versioningit is not None:
