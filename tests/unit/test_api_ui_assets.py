@@ -23,6 +23,7 @@ def test_api_page_serves_external_assets() -> None:
     health = client.get("/api/assets/api-health-core.js")
     ui = client.get("/api/assets/api-health-ui.js")
     sickz = client.get("/api/assets/api-sickz.js")
+    sickz_policy = client.get("/api/assets/api-sickz-policy.js")
     styles = client.get("/api/assets/api.css")
     base_styles = client.get("/api/assets/api-base.css")
     health_styles = client.get("/api/assets/api-health.css")
@@ -41,7 +42,7 @@ def test_api_page_serves_external_assets() -> None:
     assert open_graph.headers["content-type"] == "image/png"
     assert unpack(">II", open_graph.content[16:24]) == (1200, 630)
 
-    for asset in (bootstrap, health, ui, sickz):
+    for asset in (bootstrap, health, ui, sickz, sickz_policy):
         assert asset.status_code == 200
         assert "javascript" in asset.headers["content-type"]
 
@@ -49,6 +50,8 @@ def test_api_page_serves_external_assets() -> None:
     assert 'from "./api-sickz.js"' in bootstrap.text
     assert 'from "./api-health-ui.js"' in health.text
     assert 'from "./api-health-ui.js"' in sickz.text
+    assert 'from "./api-sickz-policy.js"' in sickz.text
+    assert 'from "./api-health-ui.js"' in sickz_policy.text
     assert 'from "./api-health-core.js"' not in sickz.text
     assert "function computeOverall" in health.text
     assert "function computeOverall" in sickz.text
@@ -115,11 +118,13 @@ def test_health_assets_stay_within_refactoring_thresholds() -> None:
     health = (_ASSET_DIR / "api-health-core.js").read_text(encoding="utf-8")
     ui = (_ASSET_DIR / "api-health-ui.js").read_text(encoding="utf-8")
     sickz = (_ASSET_DIR / "api-sickz.js").read_text(encoding="utf-8")
+    sickz_policy = (_ASSET_DIR / "api-sickz-policy.js").read_text(encoding="utf-8")
 
     assert len(bootstrap.splitlines()) < 50
     assert len(health.splitlines()) < 400
     assert len(ui.splitlines()) < 250
     assert len(sickz.splitlines()) < 400
+    assert len(sickz_policy.splitlines()) < 100
     assert "loadHealthBoards" in bootstrap
     assert "computeOverall" not in bootstrap
 
