@@ -1,3 +1,10 @@
+## [1.8.4](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.8.3...1.8.4) (2026-08-26)
+
+
+### Bug Fixes
+
+* restore clean homelab schema v4 CI ([#100](https://github.com/AlbanAndrieu/fastapi-sample/issues/100)) ([1cb7216](https://github.com/AlbanAndrieu/fastapi-sample/commit/1cb7216be92ec8ddf8a7bd2c560d6acb612e54d8))
+
 ## [1.8.3](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.8.2...1.8.3) (2026-08-26)
 
 
