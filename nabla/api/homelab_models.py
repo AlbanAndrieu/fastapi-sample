@@ -123,6 +123,19 @@ class HomelabService(BaseModel):
         validation_alias=AliasChoices("endpointEnabled", "endpoint_enabled"),
         serialization_alias="endpointEnabled",
     )
+    cloudflare_access_required: bool | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "cloudflareAccessRequired",
+            "cloudflare_access_required",
+        ),
+        serialization_alias="cloudflareAccessRequired",
+    )
+    security_exception: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("securityException", "security_exception"),
+        serialization_alias="securityException",
+    )
 
     # Secure default: discovery and incomplete JSON are private unless exposure
     # intent is explicitly present. The misspelled legacy field is accepted only
@@ -258,6 +271,18 @@ class HomelabService(BaseModel):
             }
         )
         return type(self).model_validate(payload)
+
+    @property
+    def effective_cloudflare_access_required(self) -> bool:
+        """Return whether anonymous public access should be blocked by Cloudflare Access.
+
+        Existing catalog entries inherit the stricter policy from ``tunnelSecure=true``.
+        A future service that intentionally uses Cloudflare only as a tunnel/edge may
+        explicitly set ``cloudflareAccessRequired=false`` instead of relying on a bypass.
+        """
+        if self.cloudflare_access_required is not None:
+            return self.cloudflare_access_required
+        return bool(self.external and self.tunnel_secure is True)
 
     @property
     def public_https_probe_url(self) -> str | None:
