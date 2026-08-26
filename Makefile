@@ -7,11 +7,8 @@
 SHELL         = bash
 ME            = $(shell whoami)
 
-PORT          = 8091
-NUMPROC := $(shell grep -c ^processor /proc/cpuinfo)
-# Only take half as many processors as available
-NPROC := $(shell echo "$(NUMPROC)/2"|bc)
-NPROC := 1
+PORT         ?= 8080
+NPROC        ?= 1
 
 # Image
 APP_NAME     = fastapi-sample
