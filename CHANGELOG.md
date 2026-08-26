@@ -1,3 +1,10 @@
+## [1.8.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.8.1...1.8.2) (2026-08-26)
+
+
+### Bug Fixes
+
+* detect functional homelab service failures ([#98](https://github.com/AlbanAndrieu/fastapi-sample/issues/98)) ([c65e72b](https://github.com/AlbanAndrieu/fastapi-sample/commit/c65e72bef19fd955580c8e53873dd9df5c3a4fb4))
+
 ## [1.8.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.8.0...1.8.1) (2026-08-26)
 
 
