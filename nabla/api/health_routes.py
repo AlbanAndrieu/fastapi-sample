@@ -137,14 +137,15 @@ def register_health_routes(app: FastAPI) -> None:
     @app.get(
         "/sickz",
         tags=["Health"],
-        summary="Inverse reachability",
+        summary="Exposure security policy",
     )
     async def get_sickz(request: Request) -> dict[str, Any]:
-        """Return JSON: URL groups must not be reachable."""
+        """Compare declared external/Cloudflare policy with observed reachability."""
         from nabla.api.sickz_checks import build_sickz_payload
+        from nabla.api.sickz_policy import enrich_sickz_policy
 
         with pyroscope.tag_wrapper({"function": "fast"}):
-            return await build_sickz_payload(request)
+            return await enrich_sickz_policy(await build_sickz_payload(request))
 
     @app.get("/sentry-debug", response_class=JSONResponse)
     async def trigger_error():

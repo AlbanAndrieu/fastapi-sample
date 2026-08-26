@@ -12,6 +12,7 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 _SERVICE_ID_RE = re.compile(r"[^a-z0-9]+")
 _HOMELAB_DOMAIN_SUFFIX = ".albandrieu.com"
+_DIRECT_EXTERNAL_DOMAIN_SUFFIX = ".int.albandrieu.com"
 
 
 def _slugify_service_id(value: str) -> str:
@@ -172,7 +173,13 @@ class HomelabService(BaseModel):
 
     @model_validator(mode="after")
     def validate_external_exposure(self) -> HomelabService:
-        """Require an explicit, plausibly public endpoint for external access."""
+        """Require an explicit, plausibly public endpoint for external access.
+
+        ``*.int.albandrieu.com`` is an intentional legacy/direct-ingress exception:
+        it may be externally reachable through Traefik rather than Cloudflare, but
+        only when ``tunnelSecure=false`` makes that weaker security posture explicit.
+        Sickz then reports the exception as a warning instead of treating it as secure.
+        """
         if not self.external:
             return self
         if not self.tunnel_url:
@@ -194,8 +201,11 @@ class HomelabService(BaseModel):
             raise ValueError("external HTTP endpoints must use HTTPS")
         if host in {"localhost", "localhost.localdomain"} or host.endswith(".local"):
             raise ValueError("external tunnelUrl must not target a local hostname")
-        if host.endswith(".int.albandrieu.com"):
-            raise ValueError("*.int.albandrieu.com endpoints are private and cannot be external")
+        if host.endswith(_DIRECT_EXTERNAL_DOMAIN_SUFFIX) and self.tunnel_secure is not False:
+            raise ValueError(
+                "external *.int.albandrieu.com endpoints require tunnelSecure=false "
+                "to declare the direct non-Cloudflare exposure exception"
+            )
 
         try:
             address = ip_address(host)
