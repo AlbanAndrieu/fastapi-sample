@@ -24,13 +24,13 @@ def main() -> int:
         npm_lock_version = json.load(lock_file)["version"]
     with (ROOT / "uv.lock").open("rb") as uv_lock_file:
         uv_packages = tomllib.load(uv_lock_file)["package"]
-    uv_version = next(
-        package["version"] for package in uv_packages if package["name"] == "fastapi-sample"
-    )
+    uv_version = next(package["version"] for package in uv_packages if package["name"] == "fastapi-sample")
 
     dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
     docker_match = re.search(
-        r'^ARG APP_VERSION="([0-9]+\.[0-9]+\.[0-9]+)"$', dockerfile, re.MULTILINE
+        r'^ARG APP_VERSION="([0-9]+\.[0-9]+\.[0-9]+)"$',
+        dockerfile,
+        re.MULTILINE,
     )
     if docker_match is None:
         print("Unable to find ARG APP_VERSION in Dockerfile", file=sys.stderr)
@@ -62,4 +62,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(master())

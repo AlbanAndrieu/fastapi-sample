@@ -10,7 +10,7 @@ from typing import Literal
 def configure_github_repo(
     directory: str | Path,
     repo_name: str,
-    protection_type: Literal["none", "main", "main_and_dev"],
+    protection_type: Literal["none", "master", "master_and_dev"],
     no_github: bool = False,
 ) -> bool:
     """Configure a Git repository locally and optionally on GitHub with specified branch protections.
@@ -20,8 +20,8 @@ def configure_github_repo(
         repo_name: Name of the repository
         protection_type: Type of branch protection to apply:
             - "none": No branch protection
-            - "main": Protected main branch
-            - "main_and_dev": Protected main and dev branches
+            - "master": Protected master branch
+            - "master_and_dev": Protected master and dev branches
         no_github: If True, skips GitHub operations and only sets up local repository
 
     Returns:
@@ -51,7 +51,7 @@ def configure_github_repo(
 
         # Initialize repository if needed
         if not (directory / ".git").is_dir():
-            _run_git_command("init -b main")
+            _run_git_command("init -b master")
 
         # Add and commit changes if needed
         if _run_git_command("status --porcelain", capture_output=True).stdout:
@@ -84,7 +84,7 @@ def configure_github_repo(
                     _run_git_command(f"remote add origin {remote_url}")
 
             # Push branches and tags
-            _run_git_command("push -u origin main")
+            _run_git_command("push -u origin master")
             _run_git_command("push --tags")
 
             if _branch_exists("dev"):
@@ -93,10 +93,11 @@ def configure_github_repo(
             # Set branch protections if repository is public
             is_public = _is_repo_public(github_username, repo_name)
             if is_public:
-                if protection_type in ["main", "main_and_dev"]:
-                    _set_branch_protection(github_username, repo_name, "main")
-                if protection_type == "main_and_dev":
+                if protection_type in ["master", "master_and_dev"]:
+                    _set_branch_protection(github_username, repo_name, "master")
+                if protection_type == "master_and_dev":
                     _set_branch_protection(github_username, repo_name, "dev")
+
                 print("Branch protections set successfully.")
             else:
                 print(

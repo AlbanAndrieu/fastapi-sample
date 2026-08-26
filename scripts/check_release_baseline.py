@@ -9,7 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SEMVER_RE = re.compile(
-    r"^(?:v)?(?P<version>(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))$"
+    r"^(?:v)?(?P<version>(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))$",
 )
 
 
@@ -35,17 +35,13 @@ def validate_release_baseline(source_version: str, release_tag: str) -> None:
     if normalized_source == published_version:
         return
 
-    relation = (
-        "ahead of"
-        if version_tuple(normalized_source) > version_tuple(published_version)
-        else "behind"
-    )
+    relation = "ahead of" if version_tuple(normalized_source) > version_tuple(published_version) else "behind"
     raise ValueError(
         "release baseline mismatch: checked-in version "
         f"{normalized_source} is {relation} latest published GitHub Release "
         f"{published_version}. This usually means a release prepare was only partially "
         "published or version files were changed outside semantic-release. Recover the "
-        "release baseline before running semantic-release again."
+        "release baseline before running semantic-release again.",
     )
 
 
@@ -74,4 +70,4 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(master())

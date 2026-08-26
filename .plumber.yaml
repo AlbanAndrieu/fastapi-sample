@@ -25,7 +25,7 @@ controls:
       - dev
       - development
       - staging
-      - main
+      - master
       - master
       # v8.15.0
       # Add your organization's custom mutable tags below:
@@ -92,7 +92,7 @@ controls:
 
     # Branch name patterns that must be protected (supports wildcards)
     namePatterns:
-      - main
+      - master
       - master
       - release/*
       - production
@@ -159,7 +159,7 @@ controls:
     forbiddenVersions:
       - latest
       - "~latest"
-      - main
+      - master
       - master
       - HEAD
       # Add your organization's custom forbidden versions below:

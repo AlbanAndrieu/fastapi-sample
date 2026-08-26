@@ -1,5 +1,5 @@
 ---
-branch: main
+branch: master
 # check:
 # - CKV_DOCKER_1
 compact: true

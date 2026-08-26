@@ -17,8 +17,8 @@ resolve_base_ref() {
     printf '%s\n' "${QUALITY_BASE_REF}"
   elif git symbolic-ref --quiet refs/remotes/origin/HEAD >/dev/null 2>&1; then
     git symbolic-ref --quiet --short refs/remotes/origin/HEAD
-  elif git rev-parse --verify origin/main >/dev/null 2>&1; then
-    printf '%s\n' "origin/main"
+  elif git rev-parse --verify origin/master >/dev/null 2>&1; then
+    printf '%s\n' "origin/master"
   elif git rev-parse --verify origin/master >/dev/null 2>&1; then
     printf '%s\n' "origin/master"
   elif git rev-parse --verify HEAD~1 >/dev/null 2>&1; then

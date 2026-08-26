@@ -111,7 +111,7 @@ def configure_github_repo(
             #     _git(f"remote add origin {remote_url}")
 
         # Push to newly created origin
-        _git("push -u origin main")
+        _git("push -u origin master")
 
         print("Repository configuration complete on GitHub!")
 
