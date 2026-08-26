@@ -1,3 +1,10 @@
+## [1.8.5](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.8.4...1.8.5) (2026-08-26)
+
+
+### Bug Fixes
+
+* **health:** require TrueNAS and improve refresh diagnostics ([#101](https://github.com/AlbanAndrieu/fastapi-sample/issues/101)) ([5c709c2](https://github.com/AlbanAndrieu/fastapi-sample/commit/5c709c2e605cbfbb47b6ffd5fa71f790e3b4107c))
+
 ## [1.8.4](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.8.3...1.8.4) (2026-08-26)
 
 
