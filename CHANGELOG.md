@@ -1,3 +1,10 @@
+## [1.5.5](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.4...1.5.5) (2026-08-26)
+
+
+### Bug Fixes
+
+* local mcp port to 8091 ([56d3c33](https://github.com/AlbanAndrieu/fastapi-sample/commit/56d3c33fd53e92d6dccaf9b7e8973120a8e24207))
+
 ## [1.5.4](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.3...1.5.4) (2026-08-26)
 
 
