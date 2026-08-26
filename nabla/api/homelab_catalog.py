@@ -1,46 +1,34 @@
-"""Typed homelab exposure catalog for ``/healthz`` and ``/sickz``."""
+"""Typed homelab service catalog for ``/healthz`` and ``/sickz``."""
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from functools import lru_cache
+from collections.abc import Callable, Sequence
+from ipaddress import ip_address
 import json
-import logging
 from pathlib import Path
 from typing import Any
-
-from pydantic import ValidationError
+from urllib.parse import urlsplit
 
 from nabla.api.homelab_models import HomelabCatalog, HomelabService
 
-_log = logging.getLogger(__name__)
-
-HOMELAB_SERVICES_CATALOG_PATH = Path(__file__).with_name("data") / "homelab-services.json"
+_HOMELAB_CATALOG_PATH = Path(__file__).with_name("data") / "homelab-services.json"
 TRUENAS_PUBLIC_HEALTH_URL = "https://truenas.albandrieu.com:7000/"
+_PFSENSE_PUBLIC_UI_URL = "https://home.albandrieu.com:10443/"
 
 
-@lru_cache(maxsize=1)
-def _load_homelab_catalog() -> HomelabCatalog:
-    """Load the FastAPI-owned exposure catalog from the packaged JSON resource."""
-    try:
-        payload = json.loads(HOMELAB_SERVICES_CATALOG_PATH.read_text(encoding="utf-8"))
-        return HomelabCatalog.model_validate(payload)
-    except (OSError, json.JSONDecodeError, ValidationError) as exc:
-        _log.error(
-            "Homelab exposure catalog load/validation failed (%s): %s",
-            HOMELAB_SERVICES_CATALOG_PATH,
-            exc,
-        )
-        return HomelabCatalog()
+def fetch_homelab_catalog_sync() -> HomelabCatalog:
+    """Load and validate the FastAPI-owned homelab exposure catalog."""
+    payload = json.loads(_HOMELAB_CATALOG_PATH.read_text(encoding="utf-8"))
+    return HomelabCatalog.model_validate(payload)
 
 
 async def fetch_homelab_catalog() -> HomelabCatalog:
-    """Return the validated FastAPI-owned homelab exposure catalog."""
-    return _load_homelab_catalog()
+    """Return the packaged, validated homelab exposure catalog."""
+    return fetch_homelab_catalog_sync()
 
 
 async def fetch_homelab_services() -> list[HomelabService]:
-    """Return typed homelab services from the validated exposure catalog."""
+    """Return typed homelab services from the validated catalog."""
     return list((await fetch_homelab_catalog()).services)
 
 
@@ -56,7 +44,7 @@ def _healthz_check_key(service_id: str) -> str:
 
 
 async def homelab_healthz_probe_rows() -> list[tuple[str, str, str, str | None]]:
-    """Return TrueNAS plus approved public HTTPS services for global health."""
+    """Return TrueNAS plus explicitly approved public HTTPS services for global health."""
     services = await fetch_homelab_services()
     rows: list[tuple[str, str, str, str | None]] = [
         ("albandrieu_truenas", TRUENAS_PUBLIC_HEALTH_URL, "TrueNAS", None),
@@ -86,7 +74,7 @@ def _homelab_https_tunnel_key(raw_url: str) -> str:
 
 
 def _homelab_resolved_icon_abs(rel: str) -> str | None:
-    """Preserve catalog icon references without reintroducing a website dependency."""
+    """Resolve catalog ``iconSrc`` against the public site asset location."""
     s = rel.strip()
     if not s:
         return None
@@ -95,49 +83,99 @@ def _homelab_resolved_icon_abs(rel: str) -> str | None:
         return s
     if s.startswith("//"):
         return "https:" + s
+    normalized = s.lstrip("/")
+    if normalized.startswith("assets/"):
+        return f"https://www.albanandrieu.com/{normalized}"
     return s
 
 
-def homelab_tunnel_url_to_resolved_icon_src(
+def _inverse_https_probe_url(service: HomelabService) -> str | None:
+    """Return a public HTTPS endpoint only when exposure is explicitly forbidden.
+
+    ``/sickz`` is an inverse reachability check: it should verify that endpoints
+    declared ``external=false`` stay unreachable from an external runtime. Internal
+    DNS names, private IPs and non-HTTPS endpoints are not Internet exposure targets.
+    """
+    if service.external or not service.tunnel_url:
+        return None
+
+    raw = service.tunnel_url.strip()
+    try:
+        parsed = urlsplit(raw)
+    except ValueError:
+        return None
+    if parsed.scheme.lower() != "https" or not parsed.hostname:
+        return None
+    if parsed.username or parsed.password:
+        return None
+
+    host = parsed.hostname.lower().rstrip(".")
+    if host in {"localhost", "localhost.localdomain"} or host.endswith(".local"):
+        return None
+    if host.endswith(".int.albandrieu.com"):
+        return None
+    try:
+        address = ip_address(host)
+    except ValueError:
+        address = None
+    if address is not None and not address.is_global:
+        return None
+
+    return _homelab_https_tunnel_key(raw)
+
+
+def _tunnel_url_to_resolved_icon_src(
     services: Sequence[HomelabService],
+    url_for_service: Callable[[HomelabService], str | None],
 ) -> dict[str, str]:
-    """Map approved public HTTPS endpoints to catalog icon references."""
     out: dict[str, str] = {}
     for service in services:
-        url = service.public_https_probe_url
+        url = url_for_service(service)
         if url is None or not service.icon_src:
             continue
-        icon_src = _homelab_resolved_icon_abs(service.icon_src)
-        if icon_src:
-            out[_homelab_https_tunnel_key(url)] = icon_src
+        abs_icon = _homelab_resolved_icon_abs(service.icon_src)
+        if abs_icon:
+            out[_homelab_https_tunnel_key(url)] = abs_icon
     return out
 
 
-def homelab_tunnel_url_to_service_name(
+def _tunnel_url_to_service_name(
     services: Sequence[HomelabService],
+    url_for_service: Callable[[HomelabService], str | None],
 ) -> dict[str, str]:
-    """Map approved public HTTPS endpoints to catalog service names."""
     out: dict[str, str] = {}
     for service in services:
-        url = service.public_https_probe_url
+        url = url_for_service(service)
         if url is None:
             continue
         out[_homelab_https_tunnel_key(url)] = service.name
     return out
 
 
+def homelab_tunnel_url_to_resolved_icon_src(
+    services: Sequence[HomelabService],
+) -> dict[str, str]:
+    """Map explicitly approved public HTTPS endpoints to absolute icon URLs."""
+    return _tunnel_url_to_resolved_icon_src(services, lambda service: service.public_https_probe_url)
+
+
+def homelab_tunnel_url_to_service_name(
+    services: Sequence[HomelabService],
+) -> dict[str, str]:
+    """Map explicitly approved public HTTPS endpoints to catalog service names."""
+    return _tunnel_url_to_service_name(services, lambda service: service.public_https_probe_url)
+
+
 def _homelab_sickz_https_groups_from_services(
     services: Sequence[HomelabService],
 ) -> list[list[str]]:
-    """Return one approved public HTTPS URL per group for ``/sickz``."""
+    """Return external=false public HTTPS targets that must remain unreachable."""
     groups: list[list[str]] = []
     for service in services:
-        if service.name.casefold() == "pfsense":
+        url = _inverse_https_probe_url(service)
+        if url is None or url == _PFSENSE_PUBLIC_UI_URL:
             continue
-        url = service.public_https_probe_url
-        if url is None:
-            continue
-        groups.append([_homelab_https_tunnel_key(url)])
+        groups.append([url])
     return groups
 
 
@@ -146,16 +184,16 @@ async def homelab_sickz_catalog_for_sickz() -> tuple[
     dict[str, str],
     dict[str, str],
 ]:
-    """Return sickz groups, icons, and names for approved public services."""
+    """Return inverse targets plus matching icon/name metadata for ``/sickz``."""
     services = await fetch_homelab_services()
     return (
         _homelab_sickz_https_groups_from_services(services),
-        homelab_tunnel_url_to_resolved_icon_src(services),
-        homelab_tunnel_url_to_service_name(services),
+        _tunnel_url_to_resolved_icon_src(services, _inverse_https_probe_url),
+        _tunnel_url_to_service_name(services, _inverse_https_probe_url),
     )
 
 
 async def homelab_sickz_https_single_url_groups() -> list[list[str]]:
-    """Return approved public HTTPS targets for inverse reachability checks."""
+    """Return public HTTPS targets whose catalog policy is ``external=false``."""
     services = await fetch_homelab_services()
     return _homelab_sickz_https_groups_from_services(services)
