@@ -4,7 +4,22 @@
       "name": "Garage",
       "external": true,
       "tunnelSecure": false,
-      "reason": "garage.int.albandrieu.com is intentionally published through direct Traefik ingress rather than Cloudflare; sickz must keep this as an explicit security warning."
+      "cloudflareAccessRequired": false,
+      "securityException": "garage.int.albandrieu.com is intentionally published directly through Traefik with Let's Encrypt rather than Cloudflare. Keep this visible as an orange security-debt warning until migrated behind Cloudflare."
+    },
+    {
+      "name": "Bichon",
+      "external": false,
+      "tunnelSecure": false,
+      "cloudflareAccessRequired": false,
+      "securityException": "Bichon must stay private. Any public DNS or Cloudflare Tunnel entry is configuration drift and must be reported by sickz."
+    },
+    {
+      "name": "n8n",
+      "external": true,
+      "tunnelSecure": true,
+      "cloudflareAccessRequired": true,
+      "securityException": "n8n currently needs a public webhook path for integrations such as Slack. A broad Cloudflare Access bypass/Everyone policy is intentionally treated as a red security exception; narrow it to the webhook path or replace it with Service Auth."
     }
   ]
 }
