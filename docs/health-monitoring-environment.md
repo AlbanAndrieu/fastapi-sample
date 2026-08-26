@@ -6,6 +6,7 @@ The health endpoints intentionally keep credentials out of source control. Creat
 
 - `/health`: lightweight FastAPI/runtime liveness only; it must not depend on external homelab services.
 - `/healthz`: deep dependency diagnostics used by the `/api#health-board` UI.
+- `/sickz`: exposure-policy reconciliation. It compares catalog intent (`external`, `tunnelSecure`, Cloudflare Access requirements) with HTTP/TLS, Cloudflare Tunnel/Access and TrueNAS runtime evidence.
 - `/api/homelab-services`: validated service inventory and declared exposure settings.
 - `/api/homelab-topology`: validated design-time service graph, including nodes and directed relationships.
 - `/api/homelab/health`: detailed homelab/platform state, including external and optional internal service probes.
@@ -38,7 +39,7 @@ application such as `nabla-site-alban` may store it only in its server-side
 deployment secrets and proxy requests from a protected server route. Public
 pages should instead consume the future redacted public Homelab projection.
 
-## Cloudflare Tunnel API
+## Cloudflare Tunnel and Access APIs
 
 Create:
 
@@ -47,9 +48,26 @@ CLOUDFLARE_ACCOUNT_ID=<Cloudflare account id>
 CLOUDFLARE_API_TOKEN=<read-only Cloudflare API token>
 ```
 
-Use a dedicated token with the minimum permissions needed to read Cloudflare Tunnel state/configuration for the selected account. Do not reuse a global API key.
+Use a dedicated token and never reuse a global API key. For complete `/sickz`
+security posture, grant only the read permissions required for:
 
-The health probe reads the Cloudflare Tunnel control plane and reports API reachability separately from tunnel state.
+- Cloudflare Tunnel state/configuration;
+- `Access: Apps and Policies Read`.
+
+The observer reads Tunnel ingress and Cloudflare Access applications/policies
+independently. If the token can read Tunnel configuration but lacks the Access
+scope, `/sickz` reports Access protection as unverified rather than assuming a
+service is secure.
+
+A Cloudflare Tunnel by itself proves routing through Cloudflare, not Access
+authorization. For services whose policy requires Cloudflare Access,
+`Bypass + Everyone` or an `Allow` policy that includes Everyone is treated as a
+security exception. A host-wide exception is red. A narrowly path-scoped bypass
+(for example an incoming webhook endpoint) is orange and should remain as small
+as possible. Prefer Cloudflare Service Auth for automated callers when the
+integration supports it.
+
+The health probe reads the Cloudflare control plane and reports API reachability separately from tunnel and Access policy state.
 
 ## pfSense API
 
@@ -102,6 +120,12 @@ TRUENAS_MCP_API_KEY=<fallback API key>
 Prefer `TRUENAS_API_USERNAME` + `TRUENAS_API_KEY` for the FastAPI runtime so the application credential can be rotated independently of the agent/MCP credential.
 
 TrueNAS 26 uses the JSON-RPC WebSocket API at `/api/current`. The observer currently reads the system version and app inventory only; credentials must never be returned by health endpoints.
+
+`/sickz` also correlates HTTP failures with the observed TrueNAS app state. A
+reachable Cloudflare/DNS edge returning `502`, `503`, or `504` while the matching
+TrueNAS app is in a failed/down state is reported as a workload failure and the
+health board uses a skull icon to distinguish it from a simple exposure-policy
+violation.
 
 As with pfSense, do not make the TrueNAS management API public solely to satisfy FastAPI Cloud health checks. Direct checks require network reachability from the runtime to the private TrueNAS address.
 

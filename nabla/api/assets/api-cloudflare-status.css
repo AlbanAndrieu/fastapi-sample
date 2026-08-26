@@ -1,0 +1,65 @@
+.health-summary--pending {
+  position: relative;
+}
+
+.health-led--pending {
+  animation: health-pending-pulse 1.25s ease-in-out infinite;
+}
+
+@keyframes health-pending-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.82);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+}
+
+.cloudflare-tunnel-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: 0.55rem;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+  vertical-align: middle;
+}
+
+.cloudflare-tunnel-badge img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+.cloudflare-tunnel-badge--green {
+  color: #00ff88;
+  background: rgba(0, 255, 136, 0.08);
+}
+
+.cloudflare-tunnel-badge--yellow {
+  color: #ffcc33;
+  background: rgba(255, 204, 51, 0.08);
+}
+
+.cloudflare-tunnel-badge--red {
+  color: #ff6666;
+  background: rgba(255, 68, 68, 0.1);
+}
+
+.health-row--probe-inconclusive .health-row-detail {
+  font-style: italic;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .health-led--pending {
+    animation: none;
+  }
+}

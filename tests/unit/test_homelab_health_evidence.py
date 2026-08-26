@@ -169,3 +169,63 @@ def test_direct_success_remains_green_without_conflicting_evidence() -> None:
     )
 
     assert rows[0]["state"] == "ok"
+
+
+def test_service_without_url_gets_conventional_endpoint_and_unknown_state() -> None:
+    service = HomelabService(name="Prometheus", external=False)
+    rows = build_reconciled_service_health(
+        [service],
+        public_results=[],
+        internal_results=[],
+        runtime=None,
+        tunnels=[],
+    )
+
+    assert rows == [
+        {
+            "id": "prometheus",
+            "name": "Prometheus",
+            "url": "https://prometheus.albandrieu.com/",
+            "url_derived": True,
+            "reachable": False,
+            "http_status": 0,
+            "state": "unknown",
+            "tls_trusted": None,
+            "direct_state": None,
+            "internal_state": None,
+            "runtime_state": None,
+            "runtime_app": None,
+            "runtime_reachable": None,
+        }
+    ]
+
+
+def test_application_error_remains_failure_despite_positive_runtime() -> None:
+    service = HomelabService(
+        name="LanguageTool",
+        tunnelUrl="https://languagetool.albandrieu.com",
+        external=True,
+    )
+    rows = build_reconciled_service_health(
+        [service],
+        public_results=[
+            {
+                "id": service.service_id,
+                "name": service.name,
+                "url": "https://languagetool.albandrieu.com/",
+                "reachable": True,
+                "http_status": 200,
+                "state": "fail",
+                "tls_trusted": True,
+                "application_error": "Application error",
+            }
+        ],
+        internal_results=[],
+        runtime=_runtime(
+            ObservedApp(app_id="languagetool", name="LanguageTool", state="RUNNING")
+        ),
+        tunnels=[],
+    )
+
+    assert rows[0]["state"] == "fail"
+    assert rows[0]["application_error"] == "Application error"

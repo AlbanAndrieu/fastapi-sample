@@ -21,13 +21,23 @@ HOMELAB_EXPOSURE_OVERRIDES_PATH = (
     Path(__file__).with_name("data") / "homelab-exposure-overrides.json"
 )
 
+_OVERRIDE_FIELDS = (
+    "external",
+    "tunnelSecure",
+    "endpointEnabled",
+    "tunnelTitle",
+    "cloudflareAccessRequired",
+    "securityException",
+)
+
 
 def _apply_exposure_overrides(payload: dict[str, Any]) -> dict[str, Any]:
     """Apply small reviewed policy overrides without rewriting the generated catalog.
 
     The packaged catalog is intentionally broad and periodically synchronized from the
     website inventory. Security-sensitive exceptions are kept in a separate, auditable
-    overlay so an intentional direct exposure cannot be lost in a bulk catalog refresh.
+    overlay so intentional direct exposure or a known Cloudflare Access exception cannot
+    be lost in a bulk catalog refresh.
     """
     try:
         overrides_payload = json.loads(
@@ -64,7 +74,7 @@ def _apply_exposure_overrides(payload: dict[str, Any]) -> dict[str, Any]:
         if not name or target is None:
             _log.warning("Unknown homelab exposure override target: %s", name or "<empty>")
             continue
-        for key in ("external", "tunnelSecure", "endpointEnabled", "tunnelTitle"):
+        for key in _OVERRIDE_FIELDS:
             if key in override:
                 target[key] = override[key]
 
@@ -186,9 +196,9 @@ def _homelab_sickz_https_groups_from_services(
 
     Sickz no longer means simply "this URL must be unreachable". Every catalog
     service participates so the endpoint can compare declared intent (``external``
-    and ``tunnelSecure``) with observed HTTP/TLS and Cloudflare Tunnel evidence.
-    The canonical pfSense/Home target is handled separately by the dedicated port
-    policy row and is therefore not duplicated here.
+    and ``tunnelSecure``) with observed HTTP/TLS, TrueNAS runtime and Cloudflare
+    Tunnel/Access evidence. The canonical pfSense/Home target is handled separately
+    by the dedicated port policy row and is therefore not duplicated here.
     """
     groups: list[list[str]] = []
     for service in services:

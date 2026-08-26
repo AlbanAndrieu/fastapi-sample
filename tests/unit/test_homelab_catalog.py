@@ -147,6 +147,28 @@ def test_int_external_exception_requires_explicit_direct_security_posture() -> N
     assert service.public_https_probe_url == "https://garage.int.albandrieu.com/"
 
 
+def test_secure_external_service_requires_cloudflare_access_by_default() -> None:
+    service = HomelabService(
+        name="2FAuth",
+        tunnel_url="https://2fauth.albandrieu.com",
+        tunnel_secure=True,
+        external=True,
+    )
+
+    assert service.effective_cloudflare_access_required is True
+
+
+def test_direct_external_service_does_not_require_access_by_default() -> None:
+    service = HomelabService(
+        name="Garage",
+        tunnel_url="https://garage.int.albandrieu.com",
+        tunnel_secure=False,
+        external=True,
+    )
+
+    assert service.effective_cloudflare_access_required is False
+
+
 def test_stale_public_url_does_not_imply_external_exposure() -> None:
     service = HomelabService(
         name="SABnzbd",
@@ -247,16 +269,31 @@ async def test_packaged_catalog_routes_2fauth_to_healthz_and_policy_aware_sickz(
 
     assert twofa.external is True
     assert twofa.public_https_probe_url == "https://2fauth.albandrieu.com/"
+    assert twofa.effective_cloudflare_access_required is True
     sickz_groups = homelab_catalog._homelab_sickz_https_groups_from_services(services)
     assert ["https://2fauth.albandrieu.com/"] in sickz_groups
 
 
 @pytest.mark.asyncio
-async def test_packaged_catalog_applies_garage_direct_exposure_override() -> None:
+async def test_packaged_catalog_applies_reviewed_exposure_overrides() -> None:
     services = await homelab_catalog.fetch_homelab_services()
     by_name = {service.name: service for service in services}
-    garage = by_name["Garage"]
 
+    garage = by_name["Garage"]
     assert garage.tunnel_url == "https://garage.int.albandrieu.com"
     assert garage.external is True
     assert garage.tunnel_secure is False
+    assert garage.effective_cloudflare_access_required is False
+    assert garage.security_exception is not None
+
+    bichon = by_name["Bichon"]
+    assert bichon.external is False
+    assert bichon.tunnel_secure is False
+    assert bichon.effective_cloudflare_access_required is False
+    assert bichon.security_exception is not None
+
+    n8n = by_name["n8n"]
+    assert n8n.external is True
+    assert n8n.tunnel_secure is True
+    assert n8n.effective_cloudflare_access_required is True
+    assert n8n.security_exception is not None
