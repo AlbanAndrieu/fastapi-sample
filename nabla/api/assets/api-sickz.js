@@ -38,6 +38,10 @@ function hasReachableNon2xxHttp(check) {
 }
 
 function classifySick(check) {
+  if (check.policy_status === "ok") return "green";
+  if (check.policy_status === "warn") return "yellow";
+  if (check.policy_status === "fail") return "red";
+  if (check.policy_status === "unknown") return "gray";
   if (check.skipped === true) return "yellow";
   if (check.reachable === true) {
     if (isForbiddenOnlyReachable(check)) return "yellow";
@@ -48,7 +52,7 @@ function classifySick(check) {
   return "gray";
 }
 
-function detailSickText(check) {
+function rawDetailSickText(check) {
   if (check.skipped === true) {
     const intro = check.reason || "Not probed (LAN skip).";
     if (check.aliases_probed && check.aliases_probed.length) {
@@ -74,23 +78,27 @@ function detailSickText(check) {
     });
     const line = bits.join(" · ");
     if (isForbiddenOnlyReachable(check)) {
-      return `${line} — HTTP 403 only: host responded but access is forbidden (yellow, not full exposure).`;
+      return `${line} — HTTP 403 only: host responded but access is forbidden.`;
     }
     return line;
   }
   if (check.reachable === true) {
-    const parts = ["Reachable (should be blocked)."];
+    const parts = ["Reachable."];
     if (check.http_status != null) parts.push(`HTTP ${check.http_status}`);
-    if (isForbiddenOnlyReachable(check)) {
-      parts.push("HTTP 403: host reached but forbidden — shown as yellow.");
-    }
     return parts.join(" ");
   }
   if (check.reachable === false) {
-    if (check.error) return `Unreachable as expected. ${check.error}`;
-    return "Unreachable as expected.";
+    if (check.error) return `Unreachable. ${check.error}`;
+    return "Unreachable.";
   }
-  return "Unknown state.";
+  return "Unknown reachability state.";
+}
+
+function detailSickText(check) {
+  const raw = rawDetailSickText(check);
+  if (!check.policy_detail) return raw;
+  const warning = check.policy_status === "warn" && !String(check.policy_detail).startsWith("⚠️") ? "⚠️ " : "";
+  return `${raw} — ${warning}${check.policy_detail}`;
 }
 
 function networkPhrase(data) {
@@ -124,6 +132,8 @@ function computeOverall(data) {
   }
 
   const checks = data.checks || {};
+  let anyPolicyFail = false;
+  let anyPolicyWarn = false;
   let anyTcpPolicyViolation = false;
   let anyOpenReach2xx = false;
   let anyOpenReachNon2xx = false;
@@ -131,12 +141,27 @@ function computeOverall(data) {
   for (const key of Object.keys(checks)) {
     const check = checks[key];
     if (check.skipped === true) continue;
+    if (check.policy_status === "fail") {
+      anyPolicyFail = true;
+      continue;
+    }
+    if (check.policy_status === "warn") {
+      anyPolicyWarn = true;
+      continue;
+    }
+    if (check.policy_status === "ok") continue;
     if (tcpPolicyViolation(check)) anyTcpPolicyViolation = true;
     if (check.reachable === true) {
       if (isForbiddenOnlyReachable(check)) anyForbiddenOnly = true;
       else if (hasReachableNon2xxHttp(check)) anyOpenReachNon2xx = true;
       else anyOpenReach2xx = true;
     }
+  }
+  if (anyPolicyFail) {
+    return {
+      cls: "red",
+      text: `From network ${network}, at least one service violates its declared exposure/Cloudflare policy.`,
+    };
   }
   if (anyTcpPolicyViolation) {
     return {
@@ -147,24 +172,30 @@ function computeOverall(data) {
   if (anyOpenReach2xx) {
     return {
       cls: "red",
-      text: `From network ${network}, at least one target is reachable with HTTP 2xx; it should stay blocked from this context.`,
+      text: `From network ${network}, at least one unclassified target is reachable with HTTP 2xx.`,
     };
   }
   if (anyOpenReachNon2xx) {
     return {
       cls: "blue",
-      text: `From network ${network}, at least one target responded but with a non-2xx HTTP status (e.g. 400, 502); see rows.`,
+      text: `From network ${network}, at least one unclassified target responded with a non-2xx HTTP status; see rows.`,
+    };
+  }
+  if (anyPolicyWarn) {
+    return {
+      cls: "yellow",
+      text: `From network ${network}, exposure policy is compliant only with explicit security warnings; see orange rows.`,
     };
   }
   if (anyForbiddenOnly) {
     return {
       cls: "yellow",
-      text: `From network ${network}, at least one target responded with HTTP 403 (Forbidden) only — the host is reachable but access is denied.`,
+      text: `From network ${network}, at least one target responded with HTTP 403 (Forbidden) only.`,
     };
   }
   return {
     cls: "green",
-    text: `From network ${network}, all listed targets satisfy the configured reachability policy.`,
+    text: `From network ${network}, all listed targets satisfy the configured exposure policy.`,
   };
 }
 
@@ -241,7 +272,7 @@ function buildPfsenseSectionHtml(pfCheck) {
       `<span class="sickz-pfsense-port-st">${escapeText(portLabel)}</span></span>`;
   });
   let meta =
-    "HTTPS aliases use the same sickz rules as other targets. Known TCP services use protocol-aware checks; unknown ports are not trusted on cloud/PaaS from a TCP handshake alone. " +
+    "Known TCP services use protocol-aware checks; unknown ports are not trusted on cloud/PaaS from a TCP handshake alone. " +
     '<code class="sickz-pfsense-host">home.albandrieu.com</code> is the external probe host.';
   if (pfCheck.pfsense_tcp_ports_skipped === true) {
     meta += " TCP probes were not run (LAN skip).";
@@ -274,6 +305,23 @@ function buildPfsenseSectionHtml(pfCheck) {
   );
 }
 
+function exposureTags(check) {
+  if (!check.policy_status) {
+    return check.alias_results
+      ? "Equivalent URLs (any alias reachable fails the legacy check)"
+      : "Legacy inverse-reachability target";
+  }
+  const external = check.external === true ? "external=true" : "external=false";
+  const tunnel =
+    check.tunnel_secure === true
+      ? "Cloudflare expected"
+      : check.tunnel_secure === false
+        ? "direct exposure / no Cloudflare"
+        : "security mode unspecified";
+  const observed = check.cloudflare_tunnel_observed === true ? "Cloudflare observed" : "Cloudflare not observed";
+  return `${external} · ${tunnel} · ${observed}`;
+}
+
 function render(data) {
   const listEl = document.getElementById("sickz-checks");
   const summaryEl = document.getElementById("sickz-summary");
@@ -299,17 +347,10 @@ function render(data) {
       } else {
         hintEl.textContent = "LAN skip from SICKZ_INTERNAL_NETWORK=true.";
       }
-    } else if (
-      runtime.cloud_paas_detected &&
-      (runtime.sickz_internal_network_config || runtime.sickz_internal_network_implicit)
-    ) {
-      hintEl.hidden = false;
-      hintEl.textContent =
-        "Cloud/PaaS runtime: sickz probes still run even though this host would match home-LAN rules (env or implicit label/domain).";
     } else if (runtime.cloud_paas_detected) {
       hintEl.hidden = false;
       hintEl.textContent =
-        "Cloud/PaaS runtime: protocol-aware probes are used for known public ports; bare TCP-only results are reported as indeterminate.";
+        "Cloud/PaaS runtime: sickz compares declared external/Cloudflare policy with HTTP, TLS and read-only Cloudflare Tunnel evidence.";
     } else {
       hintEl.hidden = true;
       hintEl.textContent = "";
@@ -346,6 +387,7 @@ function render(data) {
     if (check.name != null && String(check.name).trim()) rowTitle = String(check.name).trim();
     else if (check.display_label != null) rowTitle = String(check.display_label);
     else rowTitle = key;
+    if (check.policy_status === "warn") rowTitle = `⚠️ ${rowTitle}`;
     const lockTls = check.skipped === true ? null : check.tls_trusted;
     const lockHref = check.skipped === true ? "" : hrefRaw;
     const titleInner =
@@ -361,14 +403,8 @@ function render(data) {
       lockHtml(lockTls, lockHref) +
       titleInner +
       "</div>" +
-      `<div class="health-row-detail">${detailSickText(check)}</div></div>` +
-      `<div class="health-row-tags">${
-        check.skipped
-          ? "Listed for reference; not probed on this network"
-          : check.alias_results
-            ? "Equivalent URLs (any alias reachable fails the check)"
-            : "Must not be reachable"
-      }</div>` +
+      `<div class="health-row-detail">${escapeText(detailSickText(check))}</div></div>` +
+      `<div class="health-row-tags">${escapeText(exposureTags(check))}</div>` +
       "</div>";
     listEl.appendChild(item);
   });
