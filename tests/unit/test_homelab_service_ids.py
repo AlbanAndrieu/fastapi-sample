@@ -10,6 +10,23 @@ from nabla.api import homelab_health
 from nabla.api.homelab_models import HomelabService
 
 
+def test_effective_endpoint_uses_stable_id_when_url_is_missing() -> None:
+    service = HomelabService(name="Prometheus - albandrieu", external=False)
+
+    assert service.service_id == "prometheus-albandrieu"
+    assert service.effective_endpoint_url == "https://prometheus-albandrieu.albandrieu.com"
+
+
+def test_effective_endpoint_preserves_explicit_url() -> None:
+    service = HomelabService(
+        name="Prometheus",
+        tunnelUrl="https://metrics.albandrieu.com",
+        external=False,
+    )
+
+    assert service.effective_endpoint_url == "https://metrics.albandrieu.com"
+
+
 @pytest.mark.asyncio
 async def test_public_snapshot_uses_catalog_service_id() -> None:
     service = HomelabService(
