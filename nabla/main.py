@@ -4,7 +4,6 @@
 """FastAPI application factory and initialization."""
 
 import argparse
-import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -59,6 +58,7 @@ from nabla.utils.datadog_config import (
     start_datadog_profiler,
     stop_datadog_profiler,
 )
+from nabla.utils.environment import env_bool
 from nabla.utils.log_config import setup_logging
 from nabla.utils.logger import logger
 from nabla.utils.logfire_config import configure_logfire
@@ -156,7 +156,7 @@ def _configure_metrics(app: FastAPI) -> None:
         logger.warning("OpenTelemetry enabled without OTLP_GRPC_ENDPOINT")
 
 
-def _register_routers(app: FastAPI) -> None:
+def _register_routers(app: FastAPI, *, debug: bool) -> None:
     """Register API routers."""
     app.include_router(ping.router, tags=["ping"])
     app.include_router(fastapi_users.get_auth_router(jwt_backend), prefix="/auth/jwt", tags=["auth"])
@@ -180,7 +180,7 @@ def _register_routers(app: FastAPI) -> None:
     app.include_router(users.router, tags=["users"])
     app.include_router(sensor.router, tags=["sensor"])
 
-    if os.getenv("DEBUG"):
+    if debug:
         from fastapi_featureflags import router as ff_router
 
         app.include_router(ff_router, prefix="/ff", tags=["FeatureFlags"])
@@ -225,9 +225,9 @@ def _configure_admin_panel(app: FastAPI) -> None:
         Admin(app, engine, title="Example: SQLAlchemy").add_view(UserAdmin)
 
 
-def _configure_hot_reload(app: FastAPI) -> None:
+def _configure_hot_reload(app: FastAPI, *, debug: bool) -> None:
     """Configure hot reload for development mode."""
-    if os.getenv("DEBUG"):
+    if debug:
         import arel
 
         async def reload_data():
@@ -245,12 +245,13 @@ def _configure_hot_reload(app: FastAPI) -> None:
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
+    debug = env_bool("DEBUG")
     app = FastAPI(
         lifespan=combined_lifespan,
         title=f"{APP_NAME} {APP_PREFIX_VERSION}",
         description="FastAPI Sample for demo",
         version=APP_RUNTIME_VERSION,
-        debug=os.getenv("DEBUG", "False").lower() == "true",
+        debug=debug,
     )
 
     def custom_openapi():
@@ -273,9 +274,9 @@ def create_app() -> FastAPI:
     app.middleware("http")(operations_access_middleware)
     _configure_unleash_middleware(app)
     _configure_metrics(app)
-    _register_routers(app)
+    _register_routers(app, debug=debug)
     _configure_admin_panel(app)
-    _configure_hot_reload(app)
+    _configure_hot_reload(app, debug=debug)
     configure_logfire(app, service_name=APP_NAME, service_version=APP_VERSION)
     configure_sentry()
     register_routes(app)

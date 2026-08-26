@@ -16,8 +16,7 @@ from nabla.integrations.truenas_client import truenas_url
 
 _log = logging.getLogger(__name__)
 
-HOMELAB_SERVICES_JSON_URL = "https://www.albanandrieu.com/homelab-services.json"
-_CACHE_TTL_SEC = 300.0
+HOMELAB_SERVICES_CATALOG_PATH = Path(__file__).with_name("data") / "homelab-services.json"
 
 
 @lru_cache(maxsize=1)
@@ -36,31 +35,8 @@ def _load_homelab_catalog() -> HomelabCatalog:
 
 
 async def fetch_homelab_catalog() -> HomelabCatalog:
-    """Fetch and validate the homelab catalog, falling back to the last good copy."""
-    async with _cache_lock:
-        now = time.monotonic()
-        if _homelab_cache.catalog is not None and (now - _homelab_cache.cached_at) < _CACHE_TTL_SEC:
-            return _homelab_cache.catalog
-        try:
-            async with httpx.AsyncClient(timeout=httpx.Timeout(15.0)) as client:
-                response = await client.get(
-                    HOMELAB_SERVICES_JSON_URL,
-                    headers={"User-Agent": "nabla-homelab-catalog/2.0"},
-                )
-                response.raise_for_status()
-                catalog = HomelabCatalog.model_validate(response.json())
-        except Exception as exc:
-            _log.warning(
-                "Homelab catalog fetch/validation failed (%s): %s",
-                HOMELAB_SERVICES_JSON_URL,
-                exc,
-            )
-            if _homelab_cache.catalog is not None:
-                return _homelab_cache.catalog
-            return HomelabCatalog()
-        _homelab_cache.catalog = catalog
-        _homelab_cache.cached_at = time.monotonic()
-        return catalog
+    """Return the validated FastAPI-owned homelab exposure catalog."""
+    return _load_homelab_catalog()
 
 
 async def fetch_homelab_services() -> list[HomelabService]:

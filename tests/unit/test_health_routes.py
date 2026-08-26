@@ -58,12 +58,8 @@ def test_homelab_routes_publish_response_models_in_openapi() -> None:
     catalog = schema["paths"]["/api/homelab-services"]["get"]
     topology = schema["paths"]["/api/homelab-topology"]["get"]
 
-    assert catalog["responses"]["200"]["content"]["application/json"]["schema"] == {
-        "$ref": "#/components/schemas/HomelabCatalog"
-    }
-    assert topology["responses"]["200"]["content"]["application/json"]["schema"] == {
-        "$ref": "#/components/schemas/HomelabTopology"
-    }
+    assert catalog["responses"]["200"]["content"]["application/json"]["schema"] == {"$ref": "#/components/schemas/HomelabCatalog"}
+    assert topology["responses"]["200"]["content"]["application/json"]["schema"] == {"$ref": "#/components/schemas/HomelabTopology"}
 
 
 def test_application_openapi_includes_homelab_routes(test_app) -> None:
@@ -74,3 +70,12 @@ def test_application_openapi_includes_homelab_routes(test_app) -> None:
     assert "/api/homelab-services" in paths
     assert "/api/homelab-topology" in paths
     assert "/api/homelab/health" in paths
+
+
+def test_application_serves_packaged_homelab_catalog(test_app) -> None:
+    response = test_app.get("/api/homelab-services")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["version"] == 1
+    assert payload["services"]
