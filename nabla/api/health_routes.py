@@ -12,13 +12,17 @@ import asyncio
 from typing import Any
 
 import pyroscope
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 
 from nabla.api.homelab_declared import DeclaredServiceCatalog
 from nabla.api.homelab_models import HomelabCatalog
 from nabla.api.homelab_runtime import TrueNASRuntimeSnapshot
 from nabla.api.homelab_topology import HomelabTopology
+from nabla.utils.logger import logger
+
+
+_NO_STORE_HEADERS = {"Cache-Control": "no-store, max-age=0", "Pragma": "no-cache"}
 
 
 async def _build_extended_healthz(request: Request) -> dict:
@@ -129,8 +133,9 @@ def register_health_routes(app: FastAPI) -> None:
         tags=["Health"],
         summary="Deep healthcheck",
     )
-    async def get_healthz(request: Request) -> dict[str, Any]:
+    async def get_healthz(request: Request, response: Response) -> dict[str, Any]:
         """Return runtime health plus deep dependency and service probes."""
+        response.headers.update(_NO_STORE_HEADERS)
         with pyroscope.tag_wrapper({"function": "fast"}):
             return await _build_extended_healthz(request)
 
@@ -139,13 +144,30 @@ def register_health_routes(app: FastAPI) -> None:
         tags=["Health"],
         summary="Exposure security policy",
     )
-    async def get_sickz(request: Request) -> dict[str, Any]:
+    async def get_sickz(request: Request, response: Response) -> dict[str, Any]:
         """Compare declared external/Cloudflare policy with observed reachability."""
         from nabla.api.sickz_checks import build_sickz_payload
         from nabla.api.sickz_policy import enrich_sickz_policy
+        from nabla.api.sickz_port_annotations import enrich_pfsense_port_annotations
 
+        response.headers.update(_NO_STORE_HEADERS)
         with pyroscope.tag_wrapper({"function": "fast"}):
-            return await enrich_sickz_policy(await build_sickz_payload(request))
+            payload = await enrich_sickz_policy(await build_sickz_payload(request))
+            return enrich_pfsense_port_annotations(payload)
+
+    @app.post(
+        "/api/health-board/refresh-event",
+        include_in_schema=False,
+        status_code=204,
+    )
+    async def log_health_board_refresh(request: Request) -> Response:
+        """Record an explicit UI refresh click for FastAPI Cloud runtime diagnostics."""
+        logger.info(
+            "health_board_refresh clicked referer=%s user_agent=%s",
+            request.headers.get("referer", "-"),
+            request.headers.get("user-agent", "-"),
+        )
+        return Response(status_code=204, headers=_NO_STORE_HEADERS)
 
     @app.get("/sentry-debug", response_class=JSONResponse)
     async def trigger_error():
