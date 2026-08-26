@@ -17,7 +17,9 @@ Fastapi sample
   * [Install fastapi-sample as a developer](#install-fastapi-sample-as-a-developer)
     + [Using virtualenv](#using-virtualenv)
     + [Using uv (recommended)](#using-uv-recommended)
+    + [Cypher Uncypher env variable](#cypher-uncypher-env-variable)
   * [Getting started](#getting-started)
+    + [Logfire observability](#logfire-observability)
     + [MCP clients (e.g. OpenRAG) and A2A](#mcp-clients-eg-openrag-and-a2a)
   * [Vite UI](#vite-ui)
   * [Test JWT](#test-jwt)
@@ -28,10 +30,11 @@ Fastapi sample
     + [Database demo](#database-demo)
 - [Create PostgreSQL postgres on pg-gra.albandrieu.com with Alembic](#create-postgresql-postgres-on-pg-graalbandrieucom-with-alembic)
   * [Create PostgreSQL fastapi_sample_gitlab on pg-gra.albandrieu.com by hand](#create-postgresql-fastapi_sample_gitlab-on-pg-graalbandrieucom-by-hand)
-    + [Deploying to Vercel](#deploying-to-vercel)
+    + [Vercel compatibility proxy](#vercel-compatibility-proxy)
     + [Temporal demo](#temporal-demo)
     + [Defect Dojo Parameters](#defect-dojo-parameters)
   * [Quality check](#quality-check)
+    + [Sentry observability](#sentry-observability)
   * [Utility scripts](#utility-scripts)
   * [Installation and commands](#installation-and-commands-1)
   * [Update README.md](#update-readmemd)
@@ -169,44 +172,6 @@ sequenceDiagram
     Traefik -->> HAProxy: Forward Response
     HAProxy -->> User: HTTP Response
 
-```
-
-```mermaid
-flowchart TD
-
-%% Nodes
-    A("fab:fa-youtube Jus AI")
-    B("fa:fa-comment-dots Assistant")
-    D{"fa:fa-shapes Use LRA"}
-    C(fa:fa-book-open Assistant OCR)@{ shape: delay}
-    H(fa:fa-code Assistant BO)@{ shape: delay}
-    E(fa:fa-shapes FO)
-    F("fa:fa-chevron-up SE API")
-    G("fa:fa-book-open Assitant worker")
-    I("fa:fa-code BACK")
-    J(fa:fa-arrow-left Get documents)
-    n1@{ icon: "fa:gem", pos: "b", h: 24}
-
-%% Edge connections between nodes
-    A --> B --> D & C & H
-    D -- Call SE using FO --> E --> F
-    D -- Call SE direclty --> F
-    G -- Use AI --> B
-    H -- Call --> I --> J
-    F --> n1
-    J --> n1
-
-%% Individual node styling. Try the visual editor toolbar for easier styling!
-    style I color:#FFFFFF, fill:#AA00FF, stroke:#AA00FF
-    style B olor:#FFFFFF, stroke:#2962FF, fill:#2962FF
-    style D color:#FFFFFF, stroke:#00C853, fill:#00C853
-    style E color:#FFFFFF, fill:#AA00FF, stroke:#AA00FF
-    style F color:#FFFFFF, fill:#AA00FF, stroke:#AA00FF
-    style G color:#FFFFFF, stroke:#00C853, fill:#00C853
-    style C color:#FFFFFF, stroke:#2962FF, fill:#2962FF
-    style H color:#FFFFFF, stroke:#00C853, fill:#00C853
-
-%% You can add notes with two "%" signs in a row!
 ```
 
 Fix redis cluster : All slots are not covered after query all startup_nodes
