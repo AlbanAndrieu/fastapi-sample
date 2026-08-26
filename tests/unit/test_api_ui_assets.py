@@ -22,6 +22,7 @@ def test_api_page_serves_external_assets() -> None:
     health = client.get("/api/assets/api-health-core.js")
     ui = client.get("/api/assets/api-health-ui.js")
     sickz = client.get("/api/assets/api-sickz.js")
+    pfsense = client.get("/api/assets/api-sickz-pfsense.js")
     styles = client.get("/api/assets/api.css")
     base_styles = client.get("/api/assets/api-base.css")
     health_styles = client.get("/api/assets/api-health.css")
@@ -32,7 +33,7 @@ def test_api_page_serves_external_assets() -> None:
     assert 'type="module" src="/api/assets/api-health.js"' in page.text
     assert "function computeOverall" not in page.text
 
-    for asset in (bootstrap, health, ui, sickz):
+    for asset in (bootstrap, health, ui, sickz, pfsense):
         assert asset.status_code == 200
         assert "javascript" in asset.headers["content-type"]
 
@@ -40,6 +41,8 @@ def test_api_page_serves_external_assets() -> None:
     assert 'from "./api-sickz.js"' in bootstrap.text
     assert 'from "./api-health-ui.js"' in health.text
     assert 'from "./api-health-ui.js"' in sickz.text
+    assert 'from "./api-sickz-pfsense.js"' in sickz.text
+    assert 'from "./api-health-ui.js"' in pfsense.text
     assert 'from "./api-health-core.js"' not in sickz.text
     assert "function computeOverall" in health.text
     assert "function computeOverall" in sickz.text
@@ -103,12 +106,13 @@ def test_sickz_tls_unknown_state_is_neutral() -> None:
 
 def test_sickz_ui_uses_explicit_exposure_expectations() -> None:
     script = (_ASSET_DIR / "api-sickz.js").read_text(encoding="utf-8")
+    pfsense = (_ASSET_DIR / "api-sickz-pfsense.js").read_text(encoding="utf-8")
 
     assert "check.expected_reachable === true" in script
     assert "check.pfsense_tcp_policy_failed === true" in script
     assert "reviewed WAN TCP port differs" in script
-    assert "Direct WAN management · expected reachable" in script
-    assert "only ports with a reviewed expectation are pass/fail checks" in script
+    assert "Direct WAN management · expected reachable" in pfsense
+    assert "only ports with a reviewed expectation are pass/fail checks" in pfsense
 
 
 def test_health_assets_stay_within_refactoring_thresholds() -> None:
@@ -116,11 +120,13 @@ def test_health_assets_stay_within_refactoring_thresholds() -> None:
     health = (_ASSET_DIR / "api-health-core.js").read_text(encoding="utf-8")
     ui = (_ASSET_DIR / "api-health-ui.js").read_text(encoding="utf-8")
     sickz = (_ASSET_DIR / "api-sickz.js").read_text(encoding="utf-8")
+    pfsense = (_ASSET_DIR / "api-sickz-pfsense.js").read_text(encoding="utf-8")
 
     assert len(bootstrap.splitlines()) < 50
     assert len(health.splitlines()) < 400
     assert len(ui.splitlines()) < 250
     assert len(sickz.splitlines()) < 400
+    assert len(pfsense.splitlines()) < 250
     assert "loadHealthBoards" in bootstrap
     assert "computeOverall" not in bootstrap
 
