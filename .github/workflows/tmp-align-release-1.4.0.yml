@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: temporary-release-1.4.0-alignment
+  cancel-in-progress: true
+
 jobs:
   align:
     if: github.actor != 'github-actions[bot]'
