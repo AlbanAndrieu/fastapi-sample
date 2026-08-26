@@ -4,7 +4,11 @@ from unittest.mock import Mock
 
 import pytest
 
-from nabla.integrations.truenas_client import TrueNASReadOnlyAdapter, TrueNASSettings
+from nabla.integrations.truenas_client import (
+    TrueNASReadOnlyAdapter,
+    TrueNASSettings,
+    truenas_host_port,
+)
 
 
 class FakeClient:
@@ -59,10 +63,10 @@ def test_settings_reuse_mcp_api_key(monkeypatch) -> None:
     settings = TrueNASSettings.from_environment()
 
     assert settings is not None
-    assert settings.url == "https://172.17.0.24"
+    assert settings.url == "https://truenas.albandrieu.com:7000"
     assert settings.username == "readonly"
     assert settings.api_key == "1-test-key"
-    assert settings.websocket_uri == "wss://172.17.0.24/api/current"
+    assert settings.websocket_uri == ("wss://truenas.albandrieu.com:7000/api/current")
     assert settings.verify_ssl is True
 
 
@@ -92,6 +96,18 @@ def test_settings_accept_custom_websocket_path(monkeypatch) -> None:
     assert settings is not None
     assert settings.websocket_path == "/api/custom"
     assert settings.websocket_uri == "wss://truenas.example/base/api/custom"
+
+
+def test_local_url_override_drives_api_and_health_target(monkeypatch) -> None:
+    monkeypatch.setenv("TRUENAS_API_USERNAME", "readonly")
+    monkeypatch.setenv("TRUENAS_API_KEY", "1-test-key")
+    monkeypatch.setenv("TRUENAS_URL", "https://172.17.0.24:7000")
+
+    settings = TrueNASSettings.from_environment()
+
+    assert settings is not None
+    assert settings.websocket_uri == "wss://172.17.0.24:7000/api/current"
+    assert truenas_host_port() == ("172.17.0.24", 7000)
 
 
 @pytest.mark.parametrize(

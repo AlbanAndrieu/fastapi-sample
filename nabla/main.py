@@ -1,4 +1,4 @@
-# ruff: noqa: E402 -- Datadog opt-out environment must be set before SDK imports.
+# ruff: noqa: PLC0415, PLW0603 -- optional integrations stay lazy; MCP is app state.
 # pylint: disable=wrong-import-position
 
 """FastAPI application factory and initialization."""
@@ -24,7 +24,6 @@ from nabla.api import (
     google_search_route,
     info,
     integration,
-    keycloak,
     mcp_ops_route,
     ping,
     sensor,
@@ -48,9 +47,9 @@ from nabla.config_settings import (
     DD_TRACE_ENABLED,
     OTEL_SDK_DISABLED,
     OTLP_GRPC_ENDPOINT,
-    client,
     get_settings,
 )
+from nabla.feature_flags import unleash_client as client, unleash_is_configured
 from nabla.deepagents import workflow as ai_workflow
 from nabla.lifespan import lifespan as app_lifespan
 from nabla.middleware import logging_middleware, metrics_middleware
@@ -94,6 +93,9 @@ def _configure_unleash_middleware(app: FastAPI) -> None:
     if not UNLEASH_ENABLED:
         logger.warning("UNLEASH integration disabled via env variable")
         return
+    if not unleash_is_configured():
+        logger.warning("UNLEASH_ENABLED is true but UNLEASH_INSTANCE_ID is missing; feature-flag middleware is disabled")
+        return
 
     if client.is_enabled("rate_limiter"):
         from fastapi.responses import JSONResponse
@@ -101,9 +103,7 @@ def _configure_unleash_middleware(app: FastAPI) -> None:
 
         app.add_exception_handler(
             RateLimitExceeded,
-            lambda r, e: JSONResponse(
-                status_code=429, content={"error": "Too Many Requests"}
-            ),
+            lambda r, e: JSONResponse(status_code=429, content={"error": "Too Many Requests"}),
         )
     else:
         logger.warning("Feature flag: rate_limiter not enabled")
@@ -159,21 +159,11 @@ def _configure_metrics(app: FastAPI) -> None:
 def _register_routers(app: FastAPI) -> None:
     """Register API routers."""
     app.include_router(ping.router, tags=["ping"])
-    app.include_router(
-        fastapi_users.get_auth_router(jwt_backend), prefix="/auth/jwt", tags=["auth"]
-    )
-    app.include_router(
-        fastapi_users.get_register_router(UserRead, UserCreate), prefix="/auth", tags=["auth"]
-    )
-    app.include_router(
-        fastapi_users.get_reset_password_router(), prefix="/auth", tags=["auth"]
-    )
-    app.include_router(
-        fastapi_users.get_verify_router(UserRead), prefix="/auth", tags=["auth"]
-    )
-    app.include_router(
-        fastapi_users.get_users_router(UserRead, UserUpdate), prefix="/users", tags=["auth"]
-    )
+    app.include_router(fastapi_users.get_auth_router(jwt_backend), prefix="/auth/jwt", tags=["auth"])
+    app.include_router(fastapi_users.get_register_router(UserRead, UserCreate), prefix="/auth", tags=["auth"])
+    app.include_router(fastapi_users.get_reset_password_router(), prefix="/auth", tags=["auth"])
+    app.include_router(fastapi_users.get_verify_router(UserRead), prefix="/auth", tags=["auth"])
+    app.include_router(fastapi_users.get_users_router(UserRead, UserUpdate), prefix="/users", tags=["auth"])
     app.include_router(v1.router, tags=["api"])
     app.include_router(v2.router, tags=["api"])
     app.include_router(appwrite_route.router, tags=["appwrite"])
@@ -231,7 +221,7 @@ def _configure_mcp(app: FastAPI) -> None:
 
 def _configure_admin_panel(app: FastAPI) -> None:
     """Configure SQLAdmin panel."""
-    if not UNLEASH_ENABLED or client.is_enabled("admin_panel"):
+    if not UNLEASH_ENABLED or not unleash_is_configured() or client.is_enabled("admin_panel"):
         Admin(app, engine, title="Example: SQLAlchemy").add_view(UserAdmin)
 
 

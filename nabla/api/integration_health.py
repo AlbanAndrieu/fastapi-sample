@@ -16,13 +16,16 @@ from nabla.config_settings import (
     DD_TRACE_AGENT_PORT,
     DD_TRACE_AGENT_URL,
     PYROSCOPE_ENDPOINT,
-    UNLEASH_API_URL,
-    UNLEASH_APP_NAME,
-    UNLEASH_INSTANCE_ID,
-    _unleash_requests_kwargs,
     _unleash_timeout_s,
     get_openid_config,
     get_settings,
+)
+from nabla.feature_flags import (
+    UNLEASH_API_URL,
+    UNLEASH_APP_NAME,
+    UNLEASH_INSTANCE_ID,
+    unleash_is_configured,
+    unleash_requests_kwargs as _unleash_requests_kwargs,
 )
 from nabla.integrations.appwrite_client import appwrite_health
 from nabla.integrations.brave_search import _BRAVE_WEB_SEARCH_URL
@@ -145,6 +148,12 @@ def probe_keycloak_well_known() -> dict[str, Any]:
 
 
 def probe_unleash_client_features() -> dict[str, Any]:
+    if not unleash_is_configured():
+        return {
+            "reachable": None,
+            "skipped": True,
+            "reason": "UNLEASH_INSTANCE_ID is not configured",
+        }
     url = f"{UNLEASH_API_URL.rstrip('/')}/client/features"
     verify = _unleash_requests_kwargs().get("verify", True)
     try:
@@ -299,30 +308,18 @@ async def _enrich_litellm(checks: dict[str, Any]) -> None:
     output: dict[str, Any] = {**result, "display_label": "LiteLLM"}
     if href:
         output["href"] = href
-        output["tls_trusted"] = (
-            await probe_https_tls_trusted(href)
-            if href.lower().startswith("https:")
-            else None
-        )
+        output["tls_trusted"] = await probe_https_tls_trusted(href) if href.lower().startswith("https:") else None
     checks["litellm"] = output
 
 
 async def _enrich_pyroscope(checks: dict[str, Any]) -> None:
     result = checks.get("pyroscope")
-    if (
-        not isinstance(result, dict)
-        or result.get("skipped")
-        or not str(result.get("url") or "").strip()
-    ):
+    if not isinstance(result, dict) or result.get("skipped") or not str(result.get("url") or "").strip():
         return
     url = str(result["url"]).strip()
     checks["pyroscope"] = {
         **result,
         "display_label": "Pyroscope",
         "href": url,
-        "tls_trusted": (
-            await probe_https_tls_trusted(url)
-            if url.lower().startswith("https:")
-            else None
-        ),
+        "tls_trusted": (await probe_https_tls_trusted(url) if url.lower().startswith("https:") else None),
     }

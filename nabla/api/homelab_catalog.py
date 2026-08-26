@@ -12,11 +12,12 @@ from typing import Any
 from pydantic import ValidationError
 
 from nabla.api.homelab_models import HomelabCatalog, HomelabService
+from nabla.integrations.truenas_client import truenas_url
 
 _log = logging.getLogger(__name__)
 
-HOMELAB_SERVICES_CATALOG_PATH = Path(__file__).with_name("data") / "homelab-services.json"
-TRUENAS_PUBLIC_HEALTH_URL = "https://truenas.albandrieu.com:7000/"
+HOMELAB_SERVICES_JSON_URL = "https://www.albanandrieu.com/homelab-services.json"
+_CACHE_TTL_SEC = 300.0
 
 
 @lru_cache(maxsize=1)
@@ -35,8 +36,31 @@ def _load_homelab_catalog() -> HomelabCatalog:
 
 
 async def fetch_homelab_catalog() -> HomelabCatalog:
-    """Return the validated FastAPI-owned homelab exposure catalog."""
-    return _load_homelab_catalog()
+    """Fetch and validate the homelab catalog, falling back to the last good copy."""
+    async with _cache_lock:
+        now = time.monotonic()
+        if _homelab_cache.catalog is not None and (now - _homelab_cache.cached_at) < _CACHE_TTL_SEC:
+            return _homelab_cache.catalog
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(15.0)) as client:
+                response = await client.get(
+                    HOMELAB_SERVICES_JSON_URL,
+                    headers={"User-Agent": "nabla-homelab-catalog/2.0"},
+                )
+                response.raise_for_status()
+                catalog = HomelabCatalog.model_validate(response.json())
+        except Exception as exc:
+            _log.warning(
+                "Homelab catalog fetch/validation failed (%s): %s",
+                HOMELAB_SERVICES_JSON_URL,
+                exc,
+            )
+            if _homelab_cache.catalog is not None:
+                return _homelab_cache.catalog
+            return HomelabCatalog()
+        _homelab_cache.catalog = catalog
+        _homelab_cache.cached_at = time.monotonic()
+        return catalog
 
 
 async def fetch_homelab_services() -> list[HomelabService]:
@@ -58,13 +82,12 @@ def _healthz_check_key(service_id: str) -> str:
 async def homelab_healthz_probe_rows() -> list[tuple[str, str, str, str | None]]:
     """Return TrueNAS plus approved public HTTPS services for global health."""
     services = await fetch_homelab_services()
-    rows: list[tuple[str, str, str, str | None]] = [
-        ("albandrieu_truenas", TRUENAS_PUBLIC_HEALTH_URL, "TrueNAS", None),
-    ]
+    configured_truenas_url = truenas_url().rstrip("/") + "/"
+    rows: list[tuple[str, str, str, str | None]] = [("albandrieu_truenas", configured_truenas_url, "TrueNAS", None)]
     used_keys: set[str] = {"albandrieu_truenas"}
     for service in services:
         url = service.public_https_probe_url
-        if url is None or url == TRUENAS_PUBLIC_HEALTH_URL:
+        if url is None or url == configured_truenas_url:
             continue
         key = _healthz_check_key(service.service_id)
         base = key
@@ -141,12 +164,8 @@ def _homelab_sickz_https_groups_from_services(
     return groups
 
 
-async def homelab_sickz_catalog_for_sickz() -> tuple[
-    list[list[str]],
-    dict[str, str],
-    dict[str, str],
-]:
-    """Return sickz groups, icons, and names for approved public services."""
+async def homelab_sickz_catalog_for_sickz() -> tuple[list[list[str]], dict[str, str], dict[str, str]]:
+    """Return sickz groups, resolved icons, and names for approved public services."""
     services = await fetch_homelab_services()
     return (
         _homelab_sickz_https_groups_from_services(services),

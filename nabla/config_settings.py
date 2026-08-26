@@ -13,12 +13,13 @@ from typing import Annotated, Literal, Optional
 from keycloak import KeycloakOpenID
 from pydantic import AliasChoices, BeforeValidator, Field, SecretStr, field_validator
 
-from nabla.feature_flags import (
+from nabla.feature_flags import (  # noqa: F401 -- compatibility facade exports
     STATSIG_API_KEY,
     UNLEASH_API_URL,
     UNLEASH_APP_NAME,
     UNLEASH_INSTANCE_ID,
     unleash_client as client,
+    unleash_is_configured,
     unleash_requests_kwargs as _unleash_requests_kwargs,
     unleash_timeout_seconds,
 )
