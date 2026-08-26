@@ -273,6 +273,17 @@ class HomelabService(BaseModel):
         return type(self).model_validate(payload)
 
     @property
+    def effective_endpoint_url(self) -> str:
+        """Return the declared endpoint or the conventional homelab DNS fallback.
+
+        The fallback is navigation/health identity only. It never grants public
+        exposure: ``external=true`` still requires an explicitly reviewed ``tunnelUrl``.
+        """
+        if self.tunnel_url:
+            return self.tunnel_url
+        return f"https://{self.service_id}{_HOMELAB_DOMAIN_SUFFIX}"
+
+    @property
     def effective_cloudflare_access_required(self) -> bool:
         """Return whether anonymous public access should be blocked by Cloudflare Access.
 
