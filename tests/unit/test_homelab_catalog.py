@@ -123,8 +123,6 @@ def test_conflicting_old_and_new_exposure_flags_fail_closed() -> None:
         {
             "name": "Credential leak",
             "external": True,
-            # Assemble the intentionally unsafe basic-auth URL at runtime so
-            # secret scanners do not mistake the test fixture for a credential.
             "tunnelUrl": "https://" + "user" + ":" + "secret" + "@example.com",
         },
     ],
@@ -144,21 +142,41 @@ def test_stale_public_url_does_not_imply_external_exposure() -> None:
     assert service.public_https_probe_url is None
 
 
-def test_sickz_only_uses_explicitly_external_https_services() -> None:
-    private = HomelabService(
+def test_sickz_only_uses_public_https_targets_declared_non_external() -> None:
+    private_public_hostname = HomelabService(
         name="SABnzbd",
         tunnel_url="https://sabnzbd.albandrieu.com",
         external=False,
     )
-    public = HomelabService(
+    explicitly_public = HomelabService(
         name="Vaultwarden",
         tunnel_url="https://vaultwarden.albandrieu.com",
         external=True,
     )
+    internal_dns = HomelabService(
+        name="Garage",
+        tunnel_url="https://garage.int.albandrieu.com",
+        external=False,
+    )
+    private_ip = HomelabService(
+        name="Private UI",
+        tunnel_url="https://172.17.0.24:8443",
+        external=False,
+    )
 
-    assert homelab_catalog._homelab_sickz_https_groups_from_services([private, public]) == [
-        ["https://vaultwarden.albandrieu.com/"]
-    ]
+    assert homelab_catalog._homelab_sickz_https_groups_from_services(
+        [private_public_hostname, explicitly_public, internal_dns, private_ip]
+    ) == [["https://sabnzbd.albandrieu.com/"]]
+
+
+def test_sickz_does_not_duplicate_pfsense_home_alias() -> None:
+    home = HomelabService(
+        name="Home",
+        tunnel_url="https://home.albandrieu.com:10443",
+        external=False,
+    )
+
+    assert homelab_catalog._homelab_sickz_https_groups_from_services([home]) == []
 
 
 def test_healthz_key_uses_stable_service_id() -> None:
