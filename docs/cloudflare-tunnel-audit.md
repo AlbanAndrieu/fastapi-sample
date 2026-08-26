@@ -1,24 +1,34 @@
 # Cloudflare Tunnel read-only audit
 
-`nabla.api.cloudflare_tunnels` prepares a read-only observer for the homelab exposure audit.
-It is intentionally separate from the desired `HomelabCatalog`: Cloudflare is observed state,
-while `HomelabService.external` remains reviewed desired state.
+`nabla.api.cloudflare_tunnels` observes Cloudflare read-only state while
+`nabla.api.homelab_exposure_audit` compares it with the reviewed `HomelabCatalog` exposure policy.
+Cloudflare remains observed state; `HomelabService.external` remains desired state and is never
+mutated from runtime observations.
+
+## Runtime endpoint
+
+The comparison is exposed at:
+
+```text
+GET /api/homelab/exposure-audit
+```
+
+The endpoint reports:
+
+- `MATCH`: desired and observed Cloudflare exposure agree;
+- `UNEXPECTEDLY_EXPOSED`: Cloudflare routes a hostname that should not be exposed, or a hostname is
+  observed that is not managed by the FastAPI exposure catalog;
+- `MISSING_EXPOSURE`: `external=true` but no matching remotely managed Cloudflare ingress exists;
+- `UNKNOWN`: the absence of exposure cannot be established safely, for example because a tunnel uses
+  local configuration.
+
+Direct WAN endpoints on non-standard ports, such as `home.albandrieu.com:10443`, are intentionally
+excluded from the Cloudflare-hostname comparison. They are audited separately by `/sickz` WAN policy.
 
 ## Python SDK
 
-Use Cloudflare's official `cloudflare` Python package (5.x). The observer intentionally loads it
-lazily so deployments without Cloudflare audit credentials perform no Cloudflare import or network
-request.
-
-When enabling the integration, install the SDK with `uv` and regenerate `uv.lock`:
-
-```bash
-uv add --group cloudflare 'cloudflare>=5.6.0,<6'
-```
-
-The package is not added to `pyproject.toml` in this preparation PR because the execution environment
-used to create the PR cannot reach PyPI to regenerate `uv.lock`. Do not merge a dependency change with
-a stale lock file.
+Use Cloudflare's official `cloudflare` Python package (5.x). The project installs the SDK as a runtime
+dependency. The observer is still loaded only when the integration is configured.
 
 ## Credentials
 
@@ -32,8 +42,9 @@ CLOUDFLARE_API_TOKEN=<scoped read-only token>
 The token should have the minimum Cloudflare Tunnel read permission needed to list tunnels and read
 their configurations. Do not grant Tunnel Write.
 
-If either environment variable is absent, `observe_cloudflare_tunnels()` returns an empty list and
-performs no network request.
+If either environment variable is absent, the audit returns `status=disabled` and performs no
+Cloudflare network request. Desired hostname findings are reported as `UNKNOWN` rather than assuming
+that missing credentials mean missing exposure.
 
 ## What is observed
 
@@ -44,19 +55,17 @@ For each active Cloudflared tunnel, the observer records:
 - configuration source (`cloudflare` or `local`);
 - for remotely managed tunnels, each configured public hostname and its origin service.
 
-Catch-all ingress rules without a hostname (for example an HTTP 404 fallback) are ignored because
-they do not represent a public hostname.
+Catch-all ingress rules without a hostname are ignored because they do not represent a public
+hostname.
 
-Locally managed (`config_src=local`) tunnel ingress cannot be reliably reconstructed from the remote
-configuration endpoint. The observer therefore reports the tunnel but leaves its ingress unknown
-instead of guessing that it is safe.
+Locally managed (`config_src=local`) tunnel ingress cannot be reconstructed reliably from the remote
+configuration endpoint. If any such tunnel is present, an absent hostname is therefore `UNKNOWN`, not
+`MISSING_EXPOSURE` or a false `MATCH`.
 
-## Intended next phase
-
-The observer will later be compared against the desired homelab catalog:
+## Security invariant
 
 ```text
-HomelabCatalog desired state          Cloudflare observed state
+FastAPI exposure catalog              Cloudflare observed state
 external=true/false                   hostname -> origin
           |                                  |
           +---------------+------------------+
@@ -64,12 +73,6 @@ external=true/false                   hostname -> origin
                     exposure audit
 ```
 
-Useful finding states will be:
-
-- `MATCH`: desired and observed exposure agree;
-- `UNEXPECTEDLY_EXPOSED`: Cloudflare routes a hostname for a service whose desired `external` is false;
-- `MISSING_EXPOSURE`: desired `external` is true but no matching Cloudflare route is observed;
-- `UNKNOWN`: exposure cannot be established safely, for example a locally managed tunnel.
-
-This comparison must fail closed: TrueNAS discovery, DNS resolution, HTTP reachability, or a stored
-`tunnelUrl` must never automatically change a service to `external=true`.
+The comparison fails closed: TrueNAS discovery, DNS resolution, HTTP reachability, a stored
+`tunnelUrl`, or Cloudflare observations must never automatically change a service to `external=true`.
+An observed hostname that is absent from the catalog is itself reported as unexpected exposure.
