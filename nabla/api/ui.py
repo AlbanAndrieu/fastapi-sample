@@ -2,10 +2,17 @@
 
 from __future__ import annotations
 
+from html import escape
+
+_PUBLIC_API_URL = "https://fastapi-sample.fastapicloud.dev/api"
+_OPEN_GRAPH_IMAGE_URL = f"{_PUBLIC_API_URL}/assets/open-graph.png"
+_PAGE_DESCRIPTION = "FastAPI sample application with health diagnostics, search integrations, MCP and homelab observability."
+
 
 def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
     """Build the API landing page while CSS and behavior live in static assets."""
-    title = str(title_suffix)
+    title = escape(title_suffix or "fastapi-sample")
+    description = escape(_PAGE_DESCRIPTION)
     return f"""
     <!DOCTYPE html>
     <html lang="en">
@@ -13,6 +20,21 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Vercel + FastAPI : {title} </title>
+        <meta name="description" content="{description}">
+        <link rel="canonical" href="{_PUBLIC_API_URL}">
+        <meta property="og:type" content="website">
+        <meta property="og:site_name" content="fastapi-sample">
+        <meta property="og:title" content="FastAPI sample — {title}">
+        <meta property="og:description" content="{description}">
+        <meta property="og:url" content="{_PUBLIC_API_URL}">
+        <meta property="og:image" content="{_OPEN_GRAPH_IMAGE_URL}">
+        <meta property="og:image:width" content="1200">
+        <meta property="og:image:height" content="630">
+        <meta property="og:image:alt" content="FastAPI sample service overview">
+        <meta name="twitter:card" content="summary_large_image">
+        <meta name="twitter:title" content="FastAPI sample — {title}">
+        <meta name="twitter:description" content="{description}">
+        <meta name="twitter:image" content="{_OPEN_GRAPH_IMAGE_URL}">
         <link rel="icon" type="image/x-icon" href="/favicon.ico">
         <link rel="stylesheet" href="/api/assets/api.css">
     </head>

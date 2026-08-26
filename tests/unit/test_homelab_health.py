@@ -1,6 +1,7 @@
 """Tests for the public homelab catalog and health API."""
 
 import asyncio
+import warnings
 from unittest.mock import AsyncMock, Mock
 
 import httpx
@@ -47,11 +48,8 @@ def test_internal_probes_can_be_explicitly_enabled(monkeypatch, value: str) -> N
 
 
 def test_truenas_internal_target_prefers_explicit_configuration(monkeypatch) -> None:
-    services = [
-        HomelabService(name="App", internalHost="172.17.0.24", internalPort=80)
-    ]
-    monkeypatch.setenv("TRUENAS_INTERNAL_HOST", "192.168.1.24")
-    monkeypatch.setenv("TRUENAS_INTERNAL_PORT", "8443")
+    services = [HomelabService(name="App", internalHost="172.17.0.24", internalPort=80)]
+    monkeypatch.setenv("TRUENAS_URL", "https://192.168.1.24:8443")
 
     assert homelab_health._truenas_internal_target(services) == (
         "192.168.1.24",
@@ -59,15 +57,17 @@ def test_truenas_internal_target_prefers_explicit_configuration(monkeypatch) -> 
     )
 
 
-def test_truenas_internal_target_falls_back_to_dot_24(monkeypatch) -> None:
+def test_truenas_internal_target_uses_public_default(monkeypatch) -> None:
     services = [
         HomelabService(name="Other", internalHost="172.17.0.20", internalPort=80),
         HomelabService(name="App", internalHost="172.17.0.24", internalPort=8080),
     ]
-    monkeypatch.delenv("TRUENAS_INTERNAL_HOST", raising=False)
-    monkeypatch.delenv("TRUENAS_INTERNAL_PORT", raising=False)
+    monkeypatch.delenv("TRUENAS_URL", raising=False)
 
-    assert homelab_health._truenas_internal_target(services) == ("172.17.0.24", 443)
+    assert homelab_health._truenas_internal_target(services) == (
+        "truenas.albandrieu.com",
+        7000,
+    )
 
 
 @pytest.mark.parametrize(
@@ -410,14 +410,17 @@ def test_public_homelab_routes(monkeypatch) -> None:
     register_routes(app)
     client = TestClient(app)
 
-    health_response = client.get("/api/homelab/health")
-    catalog_response = client.get("/api/homelab-services")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        health_response = client.get("/api/homelab/health")
+        catalog_response = client.get("/api/homelab-services")
 
     assert health_response.status_code == 200
     assert health_response.json() == health_payload
     assert catalog_response.status_code == 200
     assert catalog_response.json()["version"] == 2
     assert catalog_response.json()["services"][0]["external"] is True
+    assert not any("ORJSONResponse is deprecated" in str(item.message) for item in caught)
 
 
 def test_cors_origins_include_public_site_and_fastapi_cloud() -> None:

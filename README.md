@@ -1,8 +1,11 @@
 <!-- markdown-link-check-disable-next-line -->
 
-# [![Nabla](https://nabla.albandrieu.com/assets/nabla/nabla-4.png)](https://gitlab.com/AlbanAndrieu/fastapi-sample) fastapi-sample
+# [![Nabla](https://nabla.albandrieu.com/assets/nabla/nabla-4.png)](https://github.com/AlbanAndrieu/fastapi-sample) fastapi-sample
 
-Fastapi sample
+FastAPI reference service for REST APIs, MCP/A2A, search integrations and
+homelab observability. The canonical runtime is deployed on
+[FastAPI Cloud](https://fastapi-sample.fastapicloud.dev); Vercel provides a
+lightweight HTTP compatibility proxy.
 
 # Table of contents
 
@@ -13,31 +16,30 @@ Fastapi sample
 <!-- toc -->
 
 - [Initialize](#initialize)
-  * [Requirements](#requirements)
-  * [Install fastapi-sample as a developer](#install-fastapi-sample-as-a-developer)
-    + [Using virtualenv](#using-virtualenv)
-    + [Using uv (recommended)](#using-uv-recommended)
-    + [Cypher Uncypher env variable](#cypher-uncypher-env-variable)
-  * [Getting started](#getting-started)
-    + [Logfire observability](#logfire-observability)
-    + [MCP clients (e.g. OpenRAG) and A2A](#mcp-clients-eg-openrag-and-a2a)
-  * [Vite UI](#vite-ui)
-  * [Test JWT](#test-jwt)
-  * [Test](#test)
-  * [Jupiter](#jupiter)
-  * [User guide](#user-guide)
-    + [Installation and commands](#installation-and-commands)
-    + [Database demo](#database-demo)
+  - [Requirements](#requirements)
+  - [Install fastapi-sample as a developer](#install-fastapi-sample-as-a-developer)
+    - [Using uv](#using-uv)
+    - [Cypher Uncypher env variable](#cypher-uncypher-env-variable)
+  - [Getting started](#getting-started)
+    - [Logfire observability](#logfire-observability)
+    - [MCP clients (e.g. OpenRAG) and A2A](#mcp-clients-eg-openrag-and-a2a)
+  - [Vite UI](#vite-ui)
+  - [Test JWT](#test-jwt)
+  - [Test](#test)
+  - [Jupiter](#jupiter)
+  - [User guide](#user-guide)
+    - [Installation and commands](#installation-and-commands)
+    - [Database demo](#database-demo)
 - [Create PostgreSQL postgres on pg-gra.albandrieu.com with Alembic](#create-postgresql-postgres-on-pg-graalbandrieucom-with-alembic)
-  * [Create PostgreSQL fastapi_sample_gitlab on pg-gra.albandrieu.com by hand](#create-postgresql-fastapi_sample_gitlab-on-pg-graalbandrieucom-by-hand)
-    + [Vercel compatibility proxy](#vercel-compatibility-proxy)
-    + [Temporal demo](#temporal-demo)
-    + [Defect Dojo Parameters](#defect-dojo-parameters)
-  * [Quality check](#quality-check)
-    + [Sentry observability](#sentry-observability)
-  * [Utility scripts](#utility-scripts)
-  * [Installation and commands](#installation-and-commands-1)
-  * [Update README.md](#update-readmemd)
+  - [Create PostgreSQL fastapi_sample_gitlab on pg-gra.albandrieu.com by hand](#create-postgresql-fastapi_sample_gitlab-on-pg-graalbandrieucom-by-hand)
+    - [Vercel compatibility proxy](#vercel-compatibility-proxy)
+    - [Temporal demo](#temporal-demo)
+    - [Defect Dojo Parameters](#defect-dojo-parameters)
+  - [Quality check](#quality-check)
+    - [Sentry observability](#sentry-observability)
+  - [Utility scripts](#utility-scripts)
+  - [Installation and commands](#installation-and-commands-1)
+  - [Update README.md](#update-readmemd)
 
 <!-- tocstop -->
 
@@ -47,22 +49,18 @@ Fastapi sample
 
 # [Initialize](#table-of-contents)
 
-```bash
-direnv allow
-pyenv install 3.12.3
-pyenv local 3.12.3
-python -m pipenv install --dev --ignore-pipfile
-direnv allow
-pre-commit install
-
-nvm install lts/iron
-```
-
 ## [Requirements](#table-of-contents)
 
-See requirements.txt for mandatory packages.
+Required tooling:
 
-This pre-commit hooks requires the following to run:
+- Python 3.13;
+- [uv](https://docs.astral.sh/uv/) for dependency and virtual-environment
+  management;
+- Node.js 24 and npm 10 for repository tooling;
+- Docker only for optional local infrastructure.
+
+Install `pre-commit` through the locked Python environment; do not install a
+second global copy.
 
 <!-- markdown-link-check-disable-next-line -->
 
@@ -70,55 +68,27 @@ This pre-commit hooks requires the following to run:
 
 ## [Install fastapi-sample as a developer](#table-of-contents)
 
-### Using virtualenv
-
-Install python 3.12 and pyenv
-
-```bash
-curl -L https://pyenv.run | bash
-echo 'export PATH="~/.pyenv/bin:$PATH"' >> ~/.bashrc
-echo 'eval "$(pyenv init -)"' >> ~/.bashrc
-echo 'eval "$(pyenv virtualenv-init -)"' >> ~/.bashrc
-source ~/.bashrc
-
-pyenv install 3.12.3
-```
-
-and [integrate](https://stackabuse.com/managing-python-environments-with-direnv-and-pyenv/) it with direnv
-
-```bash
-# pip3.10 install -r hooks/requirements.txt -r requirements.testing.txt
-pipenv check
-python -m pipenv install --dev
-python -m pipenv install --dev --ignore-pipfile
-```
-
-use [poetry](https://python-poetry.org/docs/cli/)
-
-```bash
-poetry config http-basic.gitlab-ds package_read ${CI_PIP_GITLABNABLA_TOKEN}
-# export POETRY_GITLAB_TOKEN_GITLAB=${GITLAB_FULL_PRIVATE_TOKEN}
-
-poetry install --with format,test,extra,open_telemetry,api,deployment,influxdb,panda,temporal,utils,webui
-poetry install --no-dev # --dev-only
-poetry install --extras "mysql pgsql"
-#poetry install -E mysql -E pgsql
-poetry install --all-extras
-```
-
-### Using uv (recommended)
+### Using uv
 
 Install dependencies from the lockfile into `.venv`, then run CLI tools through `uv run` so they use that environment (avoids `ModuleNotFoundError` for packages like `pybreaker` when a global `fastapi` binary points at another Python).
 
 ```bash
-uv sync
-# optional: uv sync --frozen  # strict lockfile
+uv sync --frozen
+uv run pre-commit install
 uv run fastapi dev --port 8080
 ```
 
+Use the complete ASGI entrypoint when testing MCP and lifespan resources:
+
 ```bash
-pytest --cov=nabla --cov-report term --cov-report xml:coverage.xml --junitxml pytest-junit.xml --no-ddtrace  --no-cov
+uv run uvicorn server_all:app --reload --host 0.0.0.0 --port 8080
+uv run pytest --no-cov
 ```
+
+Keep `UNLEASH_ENABLED=false` for local development unless
+`UNLEASH_INSTANCE_ID`, `UNLEASH_API_URL` and `UNLEASH_APP_NAME` are configured
+from the GitLab feature-flag settings. Missing or placeholder credentials no
+longer start the Unleash polling thread.
 
 ### Cypher Uncypher env variable
 
@@ -234,7 +204,10 @@ See [Application entry points and local dashboards](docs/entrypoints-and-dashboa
       "name": "openrag",
       "command": "uvx",
       "args": ["openrag-mcp"],
-      "env": {"OPENRAG_API_KEY": "your-key", "OPENRAG_URL": "http://localhost:3000"}
+      "env": {
+        "OPENRAG_API_KEY": "your-key",
+        "OPENRAG_URL": "http://localhost:3000"
+      }
     }
   ]
   ```
@@ -287,15 +260,6 @@ uv run fastapi dev --port 8080
 sudo lsof -ni:8080 -sTCP:ESTABLISHED
 netstat -tlnp | grep 8080
 sudo lsof -i :8080
-```
-
-```bash
-# Poetry migration
-pip install -U poetry pipenv-poetry-migrate
-pipenv-poetry-migrate -f Pipfile -t pyproject.toml --no-use-group-notation
-
-# UV migration
-uvx migrate-to-uv
 ```
 
 ## [Vite UI](#table-of-contents)
@@ -419,22 +383,26 @@ The Python application is deployed on
 as a lightweight external rewrite to that canonical runtime; it must not bundle
 the full Python dependency graph, which exceeds Vercel's function-size limit.
 
-The Vercel project currently follows the GitLab mirror. Synchronize the mirror
-after merging deployment changes, or reconnect the Vercel project to this
-GitHub repository. Use the FastAPI Cloud URL directly for WebSockets and MCP
-streaming instead of relying on the HTTP compatibility proxy.
+The Vercel project follows this GitHub repository. Only `main` is built: the
+`ignoreCommand` in `vercel.json` skips branch and pull-request previews, which
+would otherwise try to package an application that exceeds the function-size
+limit. Pull requests remain validated by GitHub Actions. Use the FastAPI Cloud
+URL directly for WebSockets and MCP streaming instead of relying on the HTTP
+compatibility proxy.
+
+The `/api` landing page publishes Open Graph and Twitter Card metadata. Its
+1200×630 image is served at `/api/assets/open-graph.png` by FastAPI Cloud and
+through the Vercel rewrite.
 
 ### Temporal demo
 
 [Temporal](https://github.com/temporalio/samples-python/tree/main)
 
-```
-poetry install --with format,test,extra,open_telemetry,api,deployment,influxdb,panda,temporal,utils,webui
-poetry run python nabla/temporalio/activities.py
-
-poetry run python worker.py
-poetry run python starter.py
-
+```bash
+uv sync --group temporal
+uv run python nabla/temporalio/activities.py
+uv run python worker.py
+uv run python starter.py
 ```
 
 ### Defect Dojo Parameters

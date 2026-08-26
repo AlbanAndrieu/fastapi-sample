@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 from urllib.parse import urlsplit, urlunsplit
 
-_DEFAULT_TRUENAS_URL = "https://172.17.0.24"
+DEFAULT_TRUENAS_URL = "https://truenas.albandrieu.com:7000"
 _DEFAULT_API_PATH = "/api/current"
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 
@@ -29,7 +29,7 @@ class TrueNASClientProtocol(Protocol):
 class TrueNASSettings:
     """Configuration for read-only TrueNAS 26 JSON-RPC access."""
 
-    url: str = _DEFAULT_TRUENAS_URL
+    url: str = DEFAULT_TRUENAS_URL
     username: str = ""
     api_key: str = ""
     verify_ssl: bool = True
@@ -38,26 +38,15 @@ class TrueNASSettings:
     @classmethod
     def from_environment(cls) -> TrueNASSettings | None:
         """Load optional TrueNAS credentials from the supported environment names."""
-        username = (
-            os.getenv("TRUENAS_API_USERNAME", "").strip()
-            or os.getenv("TRUENAS_USERNAME", "").strip()
-            or os.getenv("TRUENAS_USER", "").strip()
-        )
-        api_key = (
-            os.getenv("TRUENAS_API_KEY", "").strip()
-            or os.getenv("TRUENAS_MCP_API_KEY", "").strip()
-        )
+        username = os.getenv("TRUENAS_API_USERNAME", "").strip() or os.getenv("TRUENAS_USERNAME", "").strip() or os.getenv("TRUENAS_USER", "").strip()
+        api_key = os.getenv("TRUENAS_API_KEY", "").strip() or os.getenv("TRUENAS_MCP_API_KEY", "").strip()
         if not username or not api_key:
             return None
 
-        verify_ssl_raw = (
-            os.getenv("TRUENAS_API_VERIFY_SSL", "").strip()
-            or os.getenv("TRUENAS_VERIFY_SSL", "true").strip()
-        )
+        verify_ssl_raw = os.getenv("TRUENAS_API_VERIFY_SSL", "").strip() or os.getenv("TRUENAS_VERIFY_SSL", "true").strip()
         websocket_path = os.getenv("TRUENAS_WS_PATH", _DEFAULT_API_PATH).strip()
         return cls(
-            url=os.getenv("TRUENAS_URL", _DEFAULT_TRUENAS_URL).strip()
-            or _DEFAULT_TRUENAS_URL,
+            url=truenas_url(),
             username=username,
             api_key=api_key,
             verify_ssl=verify_ssl_raw.lower() in _TRUE_VALUES,
@@ -66,11 +55,9 @@ class TrueNASSettings:
 
     @property
     def websocket_uri(self) -> str:
-        """Normalize an HTTP(S) TrueNAS URL to the configured JSON-RPC WebSocket endpoint."""
+        """Normalize an HTTP(S) URL to the configured JSON-RPC WebSocket endpoint."""
         parsed = urlsplit(self.url)
-        scheme = {"https": "wss", "http": "ws", "wss": "wss", "ws": "ws"}.get(
-            parsed.scheme.lower()
-        )
+        scheme = {"https": "wss", "http": "ws", "wss": "wss", "ws": "ws"}.get(parsed.scheme.lower())
         if scheme is None or not parsed.netloc:
             raise ValueError("TRUENAS_URL must be an HTTP(S) or WS(S) URL with a host")
 
@@ -88,14 +75,27 @@ class TrueNASSettings:
         return urlsplit(self.url).hostname
 
 
+def truenas_url() -> str:
+    """Return the single configured TrueNAS endpoint used by every probe."""
+    configured = os.getenv("TRUENAS_URL", DEFAULT_TRUENAS_URL).strip()
+    return configured or DEFAULT_TRUENAS_URL
+
+
+def truenas_host_port() -> tuple[str, int]:
+    """Return the host and effective port derived from :envvar:`TRUENAS_URL`."""
+    parsed = urlsplit(truenas_url())
+    if parsed.scheme.lower() not in {"http", "https", "ws", "wss"} or not parsed.hostname:
+        raise ValueError("TRUENAS_URL must be an HTTP(S) or WS(S) URL with a host")
+    default_port = 443 if parsed.scheme.lower() in {"https", "wss"} else 80
+    return parsed.hostname, parsed.port or default_port
+
+
 def _load_client_factory() -> Any:
-    """Load the official client lazily so optional TrueNAS support has no startup cost."""
+    """Load the official client lazily, without adding startup work."""
     try:
         module = importlib.import_module("truenas_api_client")
     except ModuleNotFoundError as exc:
-        raise RuntimeError(
-            "TrueNAS credentials are configured but truenas_api_client is not installed"
-        ) from exc
+        raise RuntimeError("TrueNAS credentials are configured but truenas_api_client is not installed") from exc
     return module.Client
 
 

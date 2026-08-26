@@ -2,6 +2,7 @@
 
 from importlib import import_module
 from pathlib import Path
+from struct import unpack
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -26,11 +27,19 @@ def test_api_page_serves_external_assets() -> None:
     base_styles = client.get("/api/assets/api-base.css")
     health_styles = client.get("/api/assets/api-health.css")
     sickz_styles = client.get("/api/assets/api-sickz.css")
+    open_graph = client.get("/api/assets/open-graph.png")
 
     assert page.status_code == 200
     assert 'href="/api/assets/api.css"' in page.text
     assert 'type="module" src="/api/assets/api-health.js"' in page.text
     assert "function computeOverall" not in page.text
+    assert 'property="og:type" content="website"' in page.text
+    assert 'property="og:image" content="https://fastapi-sample.fastapicloud.dev/api/assets/open-graph.png"' in page.text
+    assert 'name="twitter:card" content="summary_large_image"' in page.text
+
+    assert open_graph.status_code == 200
+    assert open_graph.headers["content-type"] == "image/png"
+    assert unpack(">II", open_graph.content[16:24]) == (1200, 630)
 
     for asset in (bootstrap, health, ui, sickz):
         assert asset.status_code == 200

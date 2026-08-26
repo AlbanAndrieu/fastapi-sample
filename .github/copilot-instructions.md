@@ -26,15 +26,10 @@ This is a **production-grade FastAPI application** with comprehensive observabil
 
 ### Environment Setup
 ```bash
-# Python 3.12+ required
-pyenv install 3.12.3 && pyenv local 3.12.3
-
-# Poetry (primary) - install all dependencies
-poetry install --all-extras
-# Or specific groups: poetry install --with api,temporal,test,webui
-
-# Pipenv (alternate) - full development setup
-python -m pipenv install --dev --ignore-pipfile
+# Python 3.13 and uv are required
+uv sync --frozen
+# Optional dependency group
+uv sync --frozen --group temporal
 
 # Enable direnv for automatic environment activation
 direnv allow
@@ -112,7 +107,7 @@ ruff check . --fix     # Lint and auto-fix issues
 
 **Type checking:**
 - Pyright configured via [pyrightconfig.json](pyrightconfig.json)
-- Use Python 3.12 type syntax: `Union[X, Y]` not `X | Y`, `Optional[X]` not `X | None`
+- Use Python 3.13 type syntax: `X | Y` and `X | None`
 - Always annotate function signatures, return types, and class attributes
 
 **Pre-commit hooks:**
@@ -188,10 +183,14 @@ alembic downgrade -1
 
 **Response optimization:**
 ```python
-from fastapi.responses import ORJSONResponse
+from pydantic import BaseModel
 
-# Use as default for 2-3x faster JSON serialization
-app = FastAPI(default_response_class=ORJSONResponse)
+class Status(BaseModel):
+    state: str
+
+@app.get("/status", response_model=Status)
+async def status() -> Status:
+    return Status(state="ok")
 ```
 
 **Rate limiting:**
@@ -283,7 +282,7 @@ sentry_sdk.init(
 - Google-style docstrings for all public functions/classes
 - Use `pathlib.Path` over `os.path` for file operations
 - Type annotations required: function signatures, return types, class attributes
-- Python 3.12 syntax: `Union[X, Y]` not `X | Y`, `Optional[X]` not `X | None`
+- Python 3.13 syntax: prefer `X | Y` and `X | None`
 - Prefer Pydantic models over dataclasses, TypedDict, NamedTuple for structured data
 - Use loguru for logging (no print statements); rich for user-facing output
 - Single-line comprehensions over iterative building; use `itertools`/`functools` to reduce nesting
@@ -304,12 +303,11 @@ sentry_sdk.init(
 **Multi-stage Dockerfile:**
 ```dockerfile
 # builder-base stage for dependency caching
-FROM python:3.12-slim AS builder-base
-RUN --mount=type=secret,id=CI_JOB_TOKEN \
-    poetry install --no-dev
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS builder-base
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev
 
 # Final stage
-FROM python:3.12-slim
+FROM python:3.13-slim
 COPY --from=builder-base /app/.venv /app/.venv
 ```
 
@@ -402,8 +400,8 @@ make jupyter-local          # Launch Jupyter Lab
 
 ## Repository Context
 
-- **Languages**: Python 3.12+ (backend), TypeScript/Vue.js (frontend), Go (experiments)
-- **Build tools**: Poetry/pipenv (Python), npm (JS), Makefile (orchestration)
+- **Languages**: Python 3.13 (backend), TypeScript/Vue.js (frontend), Go (experiments)
+- **Build tools**: uv (Python), npm (JS), Makefile (orchestration)
 - **Infrastructure**: Nomad job specs ([job.nomad](job.nomad)), Nix flakes ([flake.nix](flake.nix)), devenv ([devenv.nix](devenv.nix))
 - **CI/CD**: GitHub Actions (`.github/workflows/`), GitLab CI (`.gitlab-ci.yml` if present)
 - **Documentation**: Sphinx in [docs/source/](docs/source/), served via `make docs-serve`
@@ -426,9 +424,9 @@ make jupyter-local          # Launch Jupyter Lab
 4. Apply migration: `alembic upgrade head`
 
 **New dependency:**
-1. Add to appropriate `[tool.poetry.group.<group>]` in [pyproject.toml](pyproject.toml)
-2. Run `poetry lock` to update lockfile
-3. Install: `poetry install --with <group>`
+1. Add to the appropriate `[dependency-groups]` entry in [pyproject.toml](pyproject.toml)
+2. Run `uv lock` to update `uv.lock`
+3. Install: `uv sync --group <group>`
 
 **Code quality checklist:**
 1. Run `make format` to auto-format code
