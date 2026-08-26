@@ -13,6 +13,8 @@ import urllib3
 from statsig_python_core import Statsig, StatsigOptions
 from UnleashClient import UnleashClient
 
+from nabla.utils.environment import env_bool
+
 UNLEASH_API_URL = os.environ.get(
     "UNLEASH_API_URL",
     "https://gitlab.com/api/v4/feature_flags/unleash/46788175",
@@ -22,14 +24,6 @@ UNLEASH_INSTANCE_ID = os.environ.get("UNLEASH_INSTANCE_ID", "")
 STATSIG_API_KEY = os.environ.get("STATSIG_API_KEY", "XXX")
 
 _PLACEHOLDER_CREDENTIALS = frozenset({"", "xxx", "changeme", "change-me"})
-
-
-def env_bool(name: str, default: bool) -> bool:
-    """Read a permissive boolean environment variable."""
-    raw = os.environ.get(name)
-    if raw is None:
-        return default
-    return raw.lower() in ("true", "1", "yes")
 
 
 def unleash_ssl_verify_enabled() -> bool:

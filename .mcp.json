@@ -2,11 +2,7 @@
   "mcpServers": {
     "fastapi-sample": {
       "type": "http",
-      "url": "http://127.0.0.1:8091/mcp"
-    },
-    "fastapi-radar": {
-      "command": "python",
-      "args": ["-m", "fastapi_radar", "--host", "0.0.0.0", "--port", "8091"]
+      "url": "http://127.0.0.1:8080/mcp"
     }
   }
 }
