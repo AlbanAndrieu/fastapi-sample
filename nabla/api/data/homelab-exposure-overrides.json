@@ -1,0 +1,10 @@
+{
+  "services": [
+    {
+      "name": "Garage",
+      "external": true,
+      "tunnelSecure": false,
+      "reason": "garage.int.albandrieu.com is intentionally published through direct Traefik ingress rather than Cloudflare; sickz must keep this as an explicit security warning."
+    }
+  ]
+}
