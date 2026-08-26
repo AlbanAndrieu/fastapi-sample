@@ -123,8 +123,6 @@ def test_conflicting_old_and_new_exposure_flags_fail_closed() -> None:
         {
             "name": "Credential leak",
             "external": True,
-            # Assemble the intentionally unsafe basic-auth URL at runtime so
-            # secret scanners do not mistake the test fixture for a credential.
             "tunnelUrl": "https://" + "user" + ":" + "secret" + "@example.com",
         },
     ],
@@ -144,21 +142,37 @@ def test_stale_public_url_does_not_imply_external_exposure() -> None:
     assert service.public_https_probe_url is None
 
 
-def test_sickz_only_uses_explicitly_external_https_services() -> None:
+def test_sickz_only_uses_services_expected_to_stay_private() -> None:
     private = HomelabService(
         name="SABnzbd",
         tunnel_url="https://sabnzbd.albandrieu.com",
         external=False,
     )
     public = HomelabService(
-        name="Vaultwarden",
-        tunnel_url="https://vaultwarden.albandrieu.com",
+        name="2FAuth",
+        tunnel_url="https://2fauth.albandrieu.com",
         external=True,
     )
 
     assert homelab_catalog._homelab_sickz_https_groups_from_services([private, public]) == [
-        ["https://vaultwarden.albandrieu.com/"]
+        ["https://sabnzbd.albandrieu.com/"]
     ]
+
+
+def test_sickz_metadata_keeps_names_for_private_targets() -> None:
+    private = HomelabService(
+        name="SABnzbd",
+        tunnel_url="https://sabnzbd.albandrieu.com",
+        external=False,
+        icon_src="assets/selfh-icons/sabnzbd.png",
+    )
+
+    assert homelab_catalog.homelab_tunnel_url_to_service_name([private]) == {
+        "https://sabnzbd.albandrieu.com/": "SABnzbd"
+    }
+    assert homelab_catalog.homelab_tunnel_url_to_resolved_icon_src([private]) == {
+        "https://sabnzbd.albandrieu.com/": "assets/selfh-icons/sabnzbd.png"
+    }
 
 
 def test_healthz_key_uses_stable_service_id() -> None:
@@ -206,3 +220,15 @@ async def test_packaged_catalog_preserves_litellm_exposure_policy() -> None:
     assert by_name["LiteLLM - albandrieu"].internal_port == 4000
     assert by_name["Home"].tunnel_url == "https://home.albandrieu.com:10443"
     assert by_name["Home"].external is False
+
+
+@pytest.mark.asyncio
+async def test_packaged_catalog_routes_2fauth_to_healthz_not_sickz() -> None:
+    services = await homelab_catalog.fetch_homelab_services()
+    by_name = {service.name: service for service in services}
+    twofa = by_name["2FAuth"]
+
+    assert twofa.external is True
+    assert twofa.public_https_probe_url == "https://2fauth.albandrieu.com/"
+    sickz_groups = homelab_catalog._homelab_sickz_https_groups_from_services(services)
+    assert ["https://2fauth.albandrieu.com/"] not in sickz_groups
