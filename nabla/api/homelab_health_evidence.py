@@ -2,13 +2,23 @@
 
 from __future__ import annotations
 
+import asyncio
 import re
 from typing import Any, Iterable
 from urllib.parse import urlsplit
 
-from nabla.api.cloudflare_tunnels import CloudflareTunnelObservation
+from nabla.api.cloudflare_tunnels import (
+    CloudflareTunnelObservation,
+    CloudflareTunnelSettings,
+    observe_cloudflare_tunnels,
+)
+from nabla.api.homelab_catalog import fetch_homelab_services
 from nabla.api.homelab_models import HomelabService
-from nabla.api.homelab_runtime import ObservedApp, TrueNASRuntimeSnapshot
+from nabla.api.homelab_runtime import (
+    ObservedApp,
+    TrueNASRuntimeSnapshot,
+    fetch_truenas_runtime,
+)
 
 HealthState = str
 
@@ -218,3 +228,49 @@ def build_reconciled_service_health(
         rows.append(row)
 
     return rows
+
+
+async def _observe_cloudflare_safely() -> list[CloudflareTunnelObservation]:
+    """Keep Cloudflare API failures as health evidence instead of route failures."""
+    try:
+        return await asyncio.to_thread(observe_cloudflare_tunnels)
+    except Exception:
+        return []
+
+
+async def reconcile_homelab_health_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Enrich the legacy probe payload with TrueNAS and Cloudflare observations."""
+    services_task = asyncio.create_task(fetch_homelab_services())
+    runtime_task = asyncio.create_task(fetch_truenas_runtime())
+    tunnels_task = asyncio.create_task(_observe_cloudflare_safely())
+    services, runtime, tunnels = await asyncio.gather(
+        services_task,
+        runtime_task,
+        tunnels_task,
+    )
+
+    public_results = [
+        dict(row) for row in payload.get("services", []) if isinstance(row, dict)
+    ]
+    internal_results = [
+        dict(row)
+        for row in payload.get("internal_services", [])
+        if isinstance(row, dict)
+    ]
+    reconciled = build_reconciled_service_health(
+        services,
+        public_results=public_results,
+        internal_results=internal_results,
+        runtime=runtime,
+        tunnels=tunnels,
+    )
+
+    return {
+        **payload,
+        "schema_version": 3,
+        "services": reconciled,
+        "truenas_runtime_reachable": runtime.reachable,
+        "truenas_runtime_stale": runtime.stale,
+        "cloudflare_configured": CloudflareTunnelSettings.from_environment() is not None,
+        "cloudflare_tunnels_observed": len(tunnels),
+    }
