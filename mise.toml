@@ -14,6 +14,7 @@ trivy = "latest"
 poetry = "latest"
 sops = "latest"
 uv = "latest"
+pre-commit = "latest"
 docker-compose = "latest"
 
 [settings]
@@ -40,7 +41,7 @@ POSTGRES_DB = { required = "Set POSTGRES_DB" }
 # Feature flags (must be explicitly configured)
 # ENABLE_BETA_FEATURES = { required = true }
 
-AWS_REGION = { required = "Set to your AWS region (e.g., us-east-1, eu-west-1)" }
+AWS_REGION = { required = "Set to your AWS region (e.g. us-east-1, eu-west-1)" }
 AWS_PROFILE = "eks"
 
 [tasks]
@@ -48,11 +49,14 @@ init = "bash ./scripts/run-install.sh"
 build = "npm run build"
 
 [tasks.hooks]
-description = "Install pre-commit, commit-msg and pre-push Git hooks"
-run = "pre-commit install"
+description = "Install canonical pre-commit, commit-msg and pre-push Git hooks"
+run = '''
+pre-commit install --install-hooks --hook-type pre-commit --hook-type commit-msg
+pre-commit install --config .pre-commit-pre-push.yaml --install-hooks --hook-type pre-push
+'''
 
 [tasks.quality]
-description = "Run the same quality gate enforced by the pre-push hook"
+description = "Run the canonical publication quality gate"
 run = "bash scripts/quality-gate.sh"
 
 [tasks.install]
