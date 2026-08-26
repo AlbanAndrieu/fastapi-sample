@@ -6,6 +6,16 @@ Maintain this Python/FastAPI application with minimal, testable changes.
 
 Prefer repository sources of truth over assumptions or duplicated documentation.
 
+## Repository bootstrap
+
+Git hook configuration is versioned, but Git does not install repository hooks automatically after clone. On a new checkout, run:
+
+```bash
+mise run hooks
+```
+
+This installs the configured `pre-commit`, `commit-msg`, and canonical `pre-push` quality-gate hooks. CI remains the authoritative enforcement layer because local hooks can be absent or explicitly bypassed.
+
 ## Sources of truth
 
 Before changing behavior, inspect the relevant files:
@@ -47,34 +57,38 @@ uv run ruff format --check .
 - Never log credentials, tokens, or secret values.
 - Do not edit `.env`, `.env.local`, or `.env.secrets` unless explicitly requested.
 
-## Testing and quality
+## Validation
 
-For a focused change, run the closest relevant tests first.
+For a focused change, run the closest relevant formatter/linter or test first.
 
-Before considering a substantial change complete, run the repository quality gate when available:
+Before considering a substantial change complete, and always before publishing repository changes, run:
 
 ```bash
 bash scripts/quality-gate.sh
 ```
 
-Fix failures caused by the change.
+The canonical gate validates files touched by the branch plus staged, unstaged, and untracked working-tree files through the repository `pre-commit` stage. Fix every formatter, linter, YAML, workflow, configuration, generated-file, lockfile, or security failure reported by the configured hooks. Re-run until the gate exits successfully and `git status --short` is empty.
 
-Do not weaken tests, security checks, or lint rules merely to obtain a green build.
+Project-specific tests and expensive build/deployment checks remain in their native commands and CI; do not duplicate them inside the shared publication orchestrator.
 
-## Mandatory agent push policy
+## Mandatory agent publish policy
 
-Agents must never push immediately after changing code.
+Agents must never publish changes immediately after editing files.
 
-Before every `git push`:
+Before every `git push`, GitHub API file update, or other remote repository mutation:
 
-1. Run `bash scripts/quality-gate.sh`.
-2. Fix every formatter, linter, pre-commit, lockfile, or test failure caused by the change.
+1. Run `bash scripts/quality-gate.sh` from a local checkout whenever shell access is available.
+2. Fix every formatter, linter, YAML, workflow, configuration, generated-file, lockfile, or security-check failure caused by the change.
 3. If the gate modifies files, review and commit those changes.
 4. Run `bash scripts/quality-gate.sh` again until it exits successfully with a clean working tree.
 5. Verify `git status --short` is empty.
-6. Only then run `git push`.
+6. Only then publish the changes.
 
-Never bypass repository hooks with `git push --no-verify`. Never weaken or disable lint or security rules merely to make a quality gate pass.
+When `mise run hooks` has been run, the normal Git `pre-commit` hook validates commits and the canonical `pre-push` hook invokes the same `scripts/quality-gate.sh` automatically before push.
+
+An API-only agent must not silently treat remote API writes as a way to bypass local hooks. If its runtime cannot obtain or execute a checkout, it must explicitly report that limitation, reproduce the closest deterministic validations available, keep the remote patch minimal, and inspect the resulting CI immediately. It must never claim that the local quality gate passed when it was not executed.
+
+Never bypass repository hooks with `git push --no-verify`. Never weaken or disable formatter, lint, security, YAML, workflow, generated-file, or validation rules merely to make a push or CI build pass.
 
 ## Maintainability and file size
 
@@ -101,5 +115,5 @@ When behavior depends on a third-party API, framework, or library version, verif
 Report:
 
 1. what changed;
-2. tests/checks executed;
+2. checks executed;
 3. unresolved failures or risks.

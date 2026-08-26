@@ -1,56 +1,73 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Agent/human quality gate to run before every push.
-# This phase may apply safe formatting/fixes; if it changes files, commit them and
-# run the gate again before pushing.
+# Canonical agent/human quality gate. Keep this file byte-for-byte identical
+# across Nabla repositories so local publication policy cannot drift by project.
 
 ROOT="$(git rev-parse --show-toplevel)"
-cd "$ROOT"
+cd "${ROOT}"
 
-BASE_REF="${QUALITY_BASE_REF:-origin/main}"
-if ! git rev-parse --verify "$BASE_REF" >/dev/null 2>&1; then
-    BASE_REF="HEAD~1"
+if ! command -v pre-commit >/dev/null 2>&1; then
+  echo "❌ pre-commit is required. Run 'mise run hooks' first."
+  exit 1
 fi
 
-mapfile -t PYTHON_FILES < <(
-    git diff --name-only --diff-filter=ACMR "$BASE_REF...HEAD" -- '*.py' |
-        while IFS= read -r file; do
-            [[ -f "$file" ]] && printf '%s\n' "$file"
-        done
+resolve_base_ref() {
+  if [[ -n "${QUALITY_BASE_REF:-}" ]]; then
+    printf '%s\n' "${QUALITY_BASE_REF}"
+  elif git symbolic-ref --quiet refs/remotes/origin/HEAD >/dev/null 2>&1; then
+    git symbolic-ref --quiet --short refs/remotes/origin/HEAD
+  elif git rev-parse --verify origin/main >/dev/null 2>&1; then
+    printf '%s\n' "origin/main"
+  elif git rev-parse --verify origin/master >/dev/null 2>&1; then
+    printf '%s\n' "origin/master"
+  elif git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+    printf '%s\n' "HEAD~1"
+  else
+    printf '%s\n' "HEAD"
+  fi
+}
+
+BASE_REF="$(resolve_base_ref)"
+
+mapfile -t CHANGED_FILES < <(
+  {
+    if [[ "${BASE_REF}" != "HEAD" ]]; then
+      git diff --name-only --diff-filter=ACMR "${BASE_REF}...HEAD"
+    fi
+    git diff --name-only --diff-filter=ACMR
+    git diff --cached --name-only --diff-filter=ACMR
+    git ls-files --others --exclude-standard
+  } | awk 'NF' | sort -u | while IFS= read -r file; do
+    [[ -f "${file}" ]] && printf '%s\n' "${file}"
+  done
 )
 
-echo "🔧 Running safe local auto-fixes before push..."
-if (( ${#PYTHON_FILES[@]} )); then
-    uv run ruff check --fix -- "${PYTHON_FILES[@]}"
-    uv run ruff format -- "${PYTHON_FILES[@]}"
-fi
-
-# Run the repository's existing pre-commit policy only for the branch diff.
-# Explicit pre-commit stage avoids recursion with the pre-push hook.
-echo "🔍 Running pre-commit policy on branch changes..."
-uv run pre-commit run --hook-stage pre-commit --from-ref "$BASE_REF" --to-ref HEAD
-
-echo "🔍 Verifying Ruff after auto-fixes..."
-if (( ${#PYTHON_FILES[@]} )); then
-    uv run ruff format --check -- "${PYTHON_FILES[@]}"
-    uv run ruff check -- "${PYTHON_FILES[@]}"
-fi
-
-echo "🔒 Checking dependency lock consistency..."
-uv lock --check
-
-echo "🧪 Running fast test gate..."
-uv run pytest -q --disable-warnings --maxfail=1
-
-echo "🔍 Checking whitespace and generated modifications..."
-git diff --check
-
-if ! git diff --quiet || ! git diff --cached --quiet; then
-    echo "❌ Quality tools changed tracked files or staged changes remain."
-    echo "   Review the changes, commit them, then run scripts/quality-gate.sh again."
+if ((${#CHANGED_FILES[@]} > 0)); then
+  echo "🔧 Running repository formatters and linters on changed files..."
+  if ! pre-commit run \
+    --hook-stage pre-commit \
+    --files "${CHANGED_FILES[@]}" \
+    --show-diff-on-failure; then
+    echo "❌ Pre-commit changed files or found validation errors."
+    echo "   Review/fix the output, then run scripts/quality-gate.sh again."
     git status --short
     exit 1
+  fi
+else
+  echo "✅ No changed files require formatter/linter validation."
 fi
 
-echo "✅ Quality gate passed; repository is clean and ready to push."
+echo "🔍 Checking whitespace errors..."
+git diff --check
+git diff --cached --check
+
+STATUS="$(git status --short)"
+if [[ -n "${STATUS}" ]]; then
+  echo "❌ Working tree is not clean after quality validation."
+  echo "   Review and commit generated/fixed files, then run scripts/quality-gate.sh again."
+  printf '%s\n' "${STATUS}"
+  exit 1
+fi
+
+echo "✅ Quality gate passed; repository is clean and ready to publish."
