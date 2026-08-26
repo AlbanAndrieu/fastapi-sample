@@ -101,6 +101,16 @@ def test_sickz_tls_unknown_state_is_neutral() -> None:
     assert "target unreachable or check incomplete" in lock
 
 
+def test_sickz_ui_uses_explicit_exposure_expectations() -> None:
+    script = (_ASSET_DIR / "api-sickz.js").read_text(encoding="utf-8")
+
+    assert "check.expected_reachable === true" in script
+    assert "check.pfsense_tcp_policy_failed === true" in script
+    assert "reviewed WAN TCP port differs" in script
+    assert "Direct WAN management · expected reachable" in script
+    assert "only ports with a reviewed expectation are pass/fail checks" in script
+
+
 def test_health_assets_stay_within_refactoring_thresholds() -> None:
     bootstrap = (_ASSET_DIR / "api-health.js").read_text(encoding="utf-8")
     health = (_ASSET_DIR / "api-health-core.js").read_text(encoding="utf-8")
