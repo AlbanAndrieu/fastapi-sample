@@ -74,6 +74,7 @@ class DeclaredService(BaseModel):
     )
     url: str | None = None
     description: str | None = None
+    icon: str | None = Field(default=None, min_length=1, max_length=32)
     runtime: RuntimeBinding | None = None
 
 
