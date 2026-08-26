@@ -1,3 +1,10 @@
+## [1.8.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.8.0...1.8.1) (2026-08-26)
+
+
+### Bug Fixes
+
+* **sickz:** verify declared exposure posture ([#97](https://github.com/AlbanAndrieu/fastapi-sample/issues/97)) ([1aa9d4d](https://github.com/AlbanAndrieu/fastapi-sample/commit/1aa9d4d7cec4f2c0eebf0f399cdf8106aa052b63))
+
 # [1.8.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.7.0...1.8.0) (2026-08-26)
 
 
