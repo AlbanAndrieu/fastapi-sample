@@ -114,13 +114,24 @@ _PFSENSE_EXTRA_TCP_PORTS: tuple[int, ...] = (
     8200,
     9000,
     3000,
-    4100,
+    4000,
     1194,
     1195,
     8080,
     8081,
     8091,
 )
+
+# Only ports with an explicitly reviewed policy are pass/fail checks. Remaining
+# ports are observational until their intended WAN exposure is documented.
+_PFSENSE_TCP_PORT_EXPECTATIONS: dict[int, bool] = {
+    4000: False,  # LiteLLM raw origin: Cloudflare exposure must not open the origin port.
+    7000: True,  # TrueNAS direct public endpoint is intentionally reachable.
+}
+_PFSENSE_TCP_PORT_LABELS: dict[int, str] = {
+    4000: "LiteLLM raw origin",
+    7000: "TrueNAS direct endpoint",
+}
 
 
 def _pfsense_canonical_href(urls: list[str]) -> str | None:
@@ -170,12 +181,25 @@ def _ensure_pfsense_group(groups: list[list[str]]) -> list[list[str]]:
     return [_canonical_pfsense_alias_urls(), *groups]
 
 
+def _pfsense_tcp_policy_payload() -> dict[str, Any]:
+    return {
+        "pfsense_tcp_port_expectations": {
+            str(port): expected for port, expected in _PFSENSE_TCP_PORT_EXPECTATIONS.items()
+        },
+        "pfsense_tcp_port_labels": {
+            str(port): label for port, label in _PFSENSE_TCP_PORT_LABELS.items()
+        },
+    }
+
+
 def _pfsense_tcp_skip_payload(urls: list[str]) -> dict[str, Any]:
     if not _pfsense_canonical_tcp_host(urls):
         return {}
     return {
         "pfsense_tcp_ports": {str(port): None for port in _PFSENSE_EXTRA_TCP_PORTS},
         "pfsense_tcp_ports_skipped": True,
+        "pfsense_tcp_policy_failed": None,
+        **_pfsense_tcp_policy_payload(),
     }
 
 
@@ -253,6 +277,8 @@ def _row_ui_metadata(
             "href": pf_href,
             "tunnel_url": pf_href,
             "icon_filename": _validate_icon_filename("pfsense.svg"),
+            "expected_reachable": True,
+            "exposure_policy": "direct-wan-management",
         }
     href = _row_href(urls).strip()
     catalog_name = _homelab_service_name_for_urls(urls, homelab_name_by_tunnel)
@@ -263,6 +289,8 @@ def _row_ui_metadata(
         "href": href,
         "tunnel_url": href,
         "icon_filename": _icon_filename(urls),
+        "expected_reachable": False,
+        "exposure_policy": "must-not-be-public",
     }
     if catalog_name:
         base["name"] = catalog_name
@@ -373,9 +401,11 @@ async def _probe_alias_group(
     homelab_icon_by_tunnel: dict[str, str] | None = None,
     homelab_name_by_tunnel: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    """Probe one logical target; any reachable alias makes the group reachable."""
+    """Probe one logical target and compare it with its exposure policy."""
     href = _row_href(urls)
-    tls_coro = probe_https_tls_trusted(href) if href.lower().startswith("https:") else _async_none()
+    tls_coro = (
+        probe_https_tls_trusted(href) if href.lower().startswith("https:") else _async_none()
+    )
     pf_tcp_host = _pfsense_canonical_tcp_host(urls)
     if pf_tcp_host:
         tcp_coro = asyncio.gather(
@@ -405,10 +435,16 @@ async def _probe_alias_group(
         **_row_ui_metadata(urls, homelab_icon_by_tunnel, homelab_name_by_tunnel),
     }
     if tcp_reachable is not None:
-        out["pfsense_tcp_ports"] = {
+        port_results = {
             str(port): reachable
             for port, reachable in zip(_PFSENSE_EXTRA_TCP_PORTS, tcp_reachable, strict=True)
         }
+        out["pfsense_tcp_ports"] = port_results
+        out.update(_pfsense_tcp_policy_payload())
+        out["pfsense_tcp_policy_failed"] = any(
+            port_results[str(port)] != expected
+            for port, expected in _PFSENSE_TCP_PORT_EXPECTATIONS.items()
+        )
     for result in results:
         if result.get("reachable") is True and result.get("http_status") is not None:
             out["http_status"] = result["http_status"]
@@ -417,7 +453,7 @@ async def _probe_alias_group(
 
 
 async def build_sickz_payload(request: Request) -> dict[str, Any]:
-    """Build inverse-reachability results; reachable targets represent isolation failures."""
+    """Build exposure-policy results from the current network context."""
     settings = get_settings()
     network_label = _network_label(settings)
     runtime = _runtime_block(settings)

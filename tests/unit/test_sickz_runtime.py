@@ -79,6 +79,23 @@ def test_pfsense_group_is_not_duplicated() -> None:
     assert groups == [existing]
 
 
+def test_pfsense_ui_is_expected_to_be_reachable_from_wan() -> None:
+    metadata = sc._row_ui_metadata(sc._canonical_pfsense_alias_urls())
+
+    assert metadata["expected_reachable"] is True
+    assert metadata["exposure_policy"] == "direct-wan-management"
+    assert metadata["tunnel_url"] == "https://home.albandrieu.com:10443/"
+
+
+def test_tcp_policy_uses_actual_litellm_port_and_truenas_exception() -> None:
+    assert 4100 not in sc._PFSENSE_EXTRA_TCP_PORTS
+    assert 4000 in sc._PFSENSE_EXTRA_TCP_PORTS
+    assert sc._PFSENSE_TCP_PORT_EXPECTATIONS[4000] is False
+    assert sc._PFSENSE_TCP_PORT_LABELS[4000] == "LiteLLM raw origin"
+    assert sc._PFSENSE_TCP_PORT_EXPECTATIONS[7000] is True
+    assert sc._PFSENSE_TCP_PORT_LABELS[7000] == "TrueNAS direct endpoint"
+
+
 def test_sickz_targets_equal_default_catalog_mode() -> None:
     from nabla.config_settings import _default_sickz_targets_value
 
