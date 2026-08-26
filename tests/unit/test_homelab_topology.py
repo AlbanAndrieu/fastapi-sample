@@ -21,6 +21,7 @@ def _topology_payload() -> dict:
                 "kind": "application",
                 "category": "ai",
                 "sourcePath": "apps/openwebui/compose.yml",
+                "icon": "💬",
             },
             {
                 "id": "litellm",
@@ -47,7 +48,9 @@ def test_topology_accepts_declared_relation_and_preserves_wire_aliases() -> None
     payload = topology.model_dump(mode="json", by_alias=True, exclude_none=True)
 
     assert topology.nodes[0].source_path == "apps/openwebui/compose.yml"
+    assert topology.nodes[0].icon == "💬"
     assert payload["nodes"][0]["sourcePath"] == "apps/openwebui/compose.yml"
+    assert payload["nodes"][0]["icon"] == "💬"
     assert payload["relations"][0]["type"] == "consumesApi"
 
 
@@ -66,6 +69,7 @@ def test_topology_endpoint_returns_validated_service_graph(monkeypatch) -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["nodes"][0]["sourcePath"] == "apps/openwebui/compose.yml"
+    assert payload["nodes"][0]["icon"] == "💬"
     assert payload["relations"][0]["type"] == "consumesApi"
 
 
