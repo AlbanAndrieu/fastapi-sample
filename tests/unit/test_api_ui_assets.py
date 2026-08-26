@@ -89,6 +89,18 @@ def test_platform_labels_are_owned_by_health_module() -> None:
     assert 'logfire: "Pydantic Logfire"' in script
 
 
+def test_sickz_tls_unknown_state_is_neutral() -> None:
+    script = (_ASSET_DIR / "api-health-ui.js").read_text(encoding="utf-8")
+    lock_start = script.index("export function lockHtml")
+    lock_end = script.index("export function tunnelHref", lock_start)
+    lock = script[lock_start:lock_end]
+
+    assert "else if (tlsTrusted === false)" in lock
+    assert 'wrapCls = "sickz-lock--untrusted";' in lock
+    assert 'wrapCls = "sickz-lock--unknown";' in lock
+    assert "target unreachable or check incomplete" in lock
+
+
 def test_health_assets_stay_within_refactoring_thresholds() -> None:
     bootstrap = (_ASSET_DIR / "api-health.js").read_text(encoding="utf-8")
     health = (_ASSET_DIR / "api-health-core.js").read_text(encoding="utf-8")
