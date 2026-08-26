@@ -101,6 +101,18 @@ def register_health_routes(app: FastAPI) -> None:
         return await build_homelab_status_payload()
 
     @app.get(
+        "/api/homelab/exposure-audit",
+        response_class=ORJSONResponse,
+        tags=["Homelab", "Cloudflare", "Security"],
+        summary="Desired versus observed Cloudflare exposure",
+    )
+    async def get_homelab_exposure_audit():
+        """Compare reviewed ``external`` policy with read-only Cloudflare observations."""
+        from nabla.api.homelab_exposure_audit import audit_homelab_exposure
+
+        return await audit_homelab_exposure()
+
+    @app.get(
         "/api/homelab/health",
         response_class=ORJSONResponse,
         tags=["Homelab", "Health"],
@@ -138,11 +150,11 @@ def register_health_routes(app: FastAPI) -> None:
     @app.get(
         "/sickz",
         response_class=ORJSONResponse,
-        tags=["Health"],
-        summary="Inverse reachability",
+        tags=["Health", "Security"],
+        summary="Exposure policy audit",
     )
     async def get_sickz(request: Request):
-        """Return JSON: URL groups must not be reachable."""
+        """Return desired reachability versus observed external reachability."""
         from nabla.api.sickz_checks import build_sickz_payload
 
         with pyroscope.tag_wrapper({"function": "fast"}):
