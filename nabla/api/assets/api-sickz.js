@@ -37,8 +37,17 @@ function hasReachableNon2xxHttp(check) {
   return statuses.some((status) => !httpStatusIsSuccess2xx(status));
 }
 
+function expectsReachable(check) {
+  return check.expected_reachable === true;
+}
+
 function classifySick(check) {
   if (check.skipped === true) return "yellow";
+  if (expectsReachable(check)) {
+    if (check.reachable === true) return "green";
+    if (check.reachable === false) return "red";
+    return "gray";
+  }
   if (check.reachable === true) {
     if (isForbiddenOnlyReachable(check)) return "yellow";
     if (hasReachableNon2xxHttp(check)) return "blue";
@@ -73,12 +82,16 @@ function detailSickText(check) {
       }
     });
     const line = bits.join(" · ");
+    if (expectsReachable(check)) {
+      return `${line} — direct WAN management endpoint: reachable is expected.`;
+    }
     if (isForbiddenOnlyReachable(check)) {
       return `${line} — HTTP 403 only: host responded but access is forbidden (yellow, not full exposure).`;
     }
     return line;
   }
   if (check.reachable === true) {
+    if (expectsReachable(check)) return "Reachable as expected.";
     const parts = ["Reachable (should be blocked)."];
     if (check.http_status != null) parts.push(`HTTP ${check.http_status}`);
     if (isForbiddenOnlyReachable(check)) {
@@ -87,6 +100,11 @@ function detailSickText(check) {
     return parts.join(" ");
   }
   if (check.reachable === false) {
+    if (expectsReachable(check)) {
+      return check.error
+        ? `Unreachable unexpectedly. ${check.error}`
+        : "Unreachable unexpectedly.";
+    }
     if (check.error) return `Unreachable as expected. ${check.error}`;
     return "Unreachable as expected.";
   }
@@ -113,17 +131,36 @@ function computeOverall(data) {
   }
 
   const checks = data.checks || {};
+  let anyExpectedReachabilityFailure = false;
+  let anyTcpPolicyFailure = false;
   let anyOpenReach2xx = false;
   let anyOpenReachNon2xx = false;
   let anyForbiddenOnly = false;
   for (const key of Object.keys(checks)) {
     const check = checks[key];
     if (check.skipped === true) continue;
+    if (check.pfsense_tcp_policy_failed === true) anyTcpPolicyFailure = true;
+    if (expectsReachable(check)) {
+      if (check.reachable !== true) anyExpectedReachabilityFailure = true;
+      continue;
+    }
     if (check.reachable === true) {
       if (isForbiddenOnlyReachable(check)) anyForbiddenOnly = true;
       else if (hasReachableNon2xxHttp(check)) anyOpenReachNon2xx = true;
       else anyOpenReach2xx = true;
     }
+  }
+  if (anyExpectedReachabilityFailure) {
+    return {
+      cls: "red",
+      text: `From network ${network}, an endpoint that should be reachable is unavailable; see rows.`,
+    };
+  }
+  if (anyTcpPolicyFailure) {
+    return {
+      cls: "red",
+      text: `From network ${network}, at least one reviewed WAN TCP port differs from its expected exposure policy.`,
+    };
   }
   if (anyOpenReach2xx) {
     return {
@@ -145,7 +182,7 @@ function computeOverall(data) {
   }
   return {
     cls: "green",
-    text: `From network ${network}, all listed targets are unreachable (expected).`,
+    text: `From network ${network}, reviewed exposure policies match their expected state.`,
   };
 }
 
@@ -172,16 +209,17 @@ function pfsenseTcpPortNumbers(map) {
     .sort((left, right) => left - right);
 }
 
-function pfsensePortChipClass(reachable) {
-  if (reachable === true) return "sickz-pfsense-port--open";
-  if (reachable === false) return "sickz-pfsense-port--closed";
-  return "sickz-pfsense-port--na";
+function pfsensePortChipClass(reachable, expected) {
+  if (reachable == null) return "sickz-pfsense-port--na";
+  if (typeof expected !== "boolean") return "sickz-pfsense-port--na";
+  return reachable === expected ? "sickz-pfsense-port--closed" : "sickz-pfsense-port--open";
 }
 
-function pfsensePortLabel(reachable) {
-  if (reachable === true) return "reachable";
-  if (reachable === false) return "unreachable";
-  return "not probed";
+function pfsensePortLabel(reachable, expected) {
+  if (reachable == null) return "not probed";
+  const state = reachable === true ? "reachable" : "unreachable";
+  if (typeof expected !== "boolean") return state;
+  return `${state} · ${reachable === expected ? "expected" : "unexpected"}`;
 }
 
 function buildPfsenseSectionHtml(pfCheck) {
@@ -191,20 +229,26 @@ function buildPfsenseSectionHtml(pfCheck) {
   const lockTls = pfCheck.skipped === true ? null : pfCheck.tls_trusted;
   const lockHref = pfCheck.skipped === true ? "" : hrefRaw;
   const portsMap = pfCheck.pfsense_tcp_ports;
+  const expectations = pfCheck.pfsense_tcp_port_expectations || {};
+  const labels = pfCheck.pfsense_tcp_port_labels || {};
   const nums = pfsenseTcpPortNumbers(portsMap);
   let chips = "";
   nums.forEach((port) => {
-    const reachable = portsMap[String(port)];
-    const portClass = pfsensePortChipClass(reachable);
-    const portLabel = pfsensePortLabel(reachable);
+    const key = String(port);
+    const reachable = portsMap[key];
+    const expected = expectations[key];
+    const portClass = pfsensePortChipClass(reachable, expected);
+    const portLabel = pfsensePortLabel(reachable, expected);
+    const serviceLabel = labels[key] ? ` · ${labels[key]}` : "";
     chips +=
-      `<span class="sickz-pfsense-port ${portClass}" title="TCP ${port}: ${portLabel}">` +
+      `<span class="sickz-pfsense-port ${portClass}" title="TCP ${port}${serviceLabel}: ${portLabel}">` +
       `<span class="sickz-pfsense-port-num">${port}</span>` +
       `<span class="sickz-pfsense-port-st">${escapeText(portLabel)}</span></span>`;
   });
   let meta =
-    "HTTPS aliases use the same sickz rules as other targets. PfSense additionally runs TCP connect checks on " +
-    '<code class="sickz-pfsense-host">home.albandrieu.com</code> for the ports below.';
+    "pfSense HTTPS on " +
+    '<code class="sickz-pfsense-host">home.albandrieu.com:10443</code> is an explicitly allowed direct WAN management endpoint. ' +
+    "The TCP chips below are external observations; only ports with a reviewed expectation are pass/fail checks.";
   if (pfCheck.pfsense_tcp_ports_skipped === true) {
     meta += " TCP probes were not run (LAN skip).";
   }
@@ -217,7 +261,7 @@ function buildPfsenseSectionHtml(pfCheck) {
       ? `<a class="sickz-target-link" target="_blank" rel="noopener noreferrer" href="${safeHref}">${escapeText(rowName)}</a>`
       : `<span>${escapeText(rowName)}</span>`;
   return (
-    '<h4 class="sickz-pfsense-title">PfSense</h4>' +
+    '<h4 class="sickz-pfsense-title">PfSense / WAN exposure</h4>' +
     `<p class="health-board-meta sickz-pfsense-intro">${meta}</p>` +
     '<ul class="health-checks sickz-pfsense-main"><li class="health-row sickz-pfsense-row">' +
     sickzRowIcon(pfCheck, cls) +
@@ -229,9 +273,9 @@ function buildPfsenseSectionHtml(pfCheck) {
     titleLink +
     "</div>" +
     `<div class="health-row-detail">${escapeText(detailSickText(pfCheck))}</div></div>` +
-    '<div class="health-row-tags">PfSense · HTTPS UI + extra TCP ports</div>' +
+    '<div class="health-row-tags">Direct WAN management · expected reachable</div>' +
     "</div></li></ul>" +
-    '<div class="sickz-pfsense-ports-label">TCP ports (home.albandrieu.com)</div>' +
+    '<div class="sickz-pfsense-ports-label">TCP exposure (home.albandrieu.com)</div>' +
     `<div class="sickz-pfsense-ports">${chips}</div>`
   );
 }
@@ -323,9 +367,11 @@ function render(data) {
       `<div class="health-row-tags">${
         check.skipped
           ? "Listed for reference; not probed on this network"
-          : check.alias_results
-            ? "Equivalent URLs (any alias reachable fails the check)"
-            : "Must not be reachable"
+          : expectsReachable(check)
+            ? "Expected to be reachable"
+            : check.alias_results
+              ? "Equivalent URLs (any alias reachable fails the check)"
+              : "Must not be reachable"
       }</div>` +
       "</div>";
     listEl.appendChild(item);
