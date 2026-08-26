@@ -100,7 +100,7 @@ base = [
 ]
 api = [
     "appwrite>=18.0.0",
-    "ansicolors>=1.1.0",
+    "ansicolors>=1.1.8",
     "arel>=0.3.0",
     "asyevent>=0.2.10",
     "botocore>=1.43.0",
