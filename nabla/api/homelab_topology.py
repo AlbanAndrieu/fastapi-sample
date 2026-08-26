@@ -63,6 +63,7 @@ class HomelabTopologyNode(BaseModel):
     )
     url: str | None = Field(default=None, min_length=1, max_length=2048)
     description: str | None = Field(default=None, max_length=1024)
+    icon: str | None = Field(default=None, min_length=1, max_length=32)
 
 
 class HomelabTopologyRelation(BaseModel):
