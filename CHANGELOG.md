@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.5...1.6.0) (2026-08-26)
+
+
+### Features
+
+* **homelab:** preserve catalog service icons ([#85](https://github.com/AlbanAndrieu/fastapi-sample/issues/85)) ([19612e5](https://github.com/AlbanAndrieu/fastapi-sample/commit/19612e566ccd47ef2657bf12dbcd088e1937aa18))
+
 ## [1.5.5](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.4...1.5.5) (2026-08-26)
 
 
