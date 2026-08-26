@@ -26,6 +26,7 @@ from nabla.feature_flags import (  # noqa: F401 -- compatibility facade exports
 from nabla.settings.base import unset_empty_env as _unset_empty_env
 from nabla.settings.database import DatabaseSettings
 from nabla.settings.models import AzureOpenAiInstance, DEFAULT_CHAT_MODEL, McpServerConfig
+from nabla.utils.environment import env_bool
 from nabla.utils.prometheus import PrometheusSettings
 from nabla.version import API_VERSION, RELEASE_VERSION, RUNTIME_VERSION
 
@@ -44,24 +45,12 @@ PYROSCOPE_ENDPOINT = os.environ.get(
 
 DD_AGENT_HOST = os.environ.get("DD_AGENT_HOST", "127.0.0.1")
 DD_TRACE_AGENT_PORT = os.environ.get("DD_TRACE_AGENT_PORT", "8126")
-DD_TRACE_ENABLED = os.environ.get("DD_TRACE_ENABLED", "false").lower() in (
-    "true",
-    "1",
-    "yes",
-)
-DD_PROFILING_ENABLED = os.environ.get("DD_PROFILING_ENABLED", "false").lower() in (
-    "true",
-    "1",
-    "yes",
-)
+DD_TRACE_ENABLED = env_bool("DD_TRACE_ENABLED")
+DD_PROFILING_ENABLED = env_bool("DD_PROFILING_ENABLED")
 DD_TRACE_AGENT_URL = os.environ.get("DD_TRACE_AGENT_URL", "")
 REDIS_URL = os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/0")
 
-OTEL_SDK_DISABLED = os.environ.get("OTEL_SDK_DISABLED", "true").lower() in (
-    "true",
-    "1",
-    "yes",
-)
+OTEL_SDK_DISABLED = env_bool("OTEL_SDK_DISABLED", default=True)
 OTLP_GRPC_ENDPOINT = os.environ.get("OTLP_GRPC_ENDPOINT", "")
 OTEL_EXPORTER_JAEGER_AGENT_HOST = os.environ.get(
     "OTEL_EXPORTER_JAEGER_AGENT_HOST",

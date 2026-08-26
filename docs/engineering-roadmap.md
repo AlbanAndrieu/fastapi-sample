@@ -20,8 +20,25 @@ exceptions here rather than creating additional todo or refactoring documents.
 - Configure GitHub branch protection only after the application and CI changes
   are stable; do not change `main` protection in the current implementation.
 
+## Production audit — 2026-08-26
+
+- `/api`, `/health`, `/openapi.json`, `/api/homelab-topology`,
+  `/api/homelab/runtime` and `/mcp` remained reachable in FastAPI Cloud.
+- `/healthz`, `/api/homelab-services` and `/api/homelab/health` returned 500
+  because a merge retained the obsolete remote-cache implementation after its
+  imports and state had been removed. The packaged catalog is now the only
+  source and the production deployment smoke test exercises it.
+- The Python workflow for PR #87 detected the resulting 15 Ruff errors but the
+  red merge was accepted. Branch protection remains the final safeguard planned
+  after CI stabilizes.
+- FastAPI Cloud returned application tracebacks to public clients, which proves
+  that `DEBUG` is enabled in the production environment. Set it to `false` in
+  FastAPI Cloud; application code now parses all debug consumers consistently.
+
 ## P0 — Credentials and private data
 
+- [ ] Set `DEBUG=false` in the FastAPI Cloud production environment and verify
+      that unexpected exceptions no longer expose application tracebacks.
 - [ ] Rotate PostgreSQL credentials if historical application logs contain them.
 - [ ] Audit retained FastAPI Cloud, Sentry, Logfire and centralized logs for
       connection strings, reset tokens, verification tokens and other credentials.
@@ -61,14 +78,15 @@ exceptions here rather than creating additional todo or refactoring documents.
 
 - [x] Keep Vercel as a lightweight HTTP compatibility proxy to FastAPI Cloud
       instead of bundling the full Python dependency graph beyond the 500 MB limit.
-- [ ] Reconnect the Vercel project to GitHub or verify that the GitLab mirror
-      deploys the same immutable commit as the GitHub release.
+- [x] Reconnect the Vercel project to GitHub; GitHub commits now receive the
+      project’s Vercel deployment status.
 - [ ] Trigger FastAPI Cloud deployment for the existing
       `semantic-release-published` repository dispatch.
 - [ ] Check out the immutable release tag in validation and deployment jobs.
-- [ ] Verify the deployed release version through the public version endpoint.
-- [ ] Investigate why existing `feat:` commits did not advance version `1.4.1`;
-      inspect semantic-release permissions, GitHub App credentials and workflow logs.
+- [x] Verify the deployed release through the public `/health` version field and
+      smoke-test the packaged homelab catalog after every workflow deployment.
+- [x] Restore semantic release progression; releases `1.6.1` and `1.7.0`
+      demonstrate that later `feat:` commits advance the project version.
 - [ ] Consolidate push and release-triggered deployment into a single production
       rollout after observing the repaired release sequence.
 - [ ] Publish container images with both semantic-version and commit-SHA tags,
@@ -103,8 +121,12 @@ exceptions here rather than creating additional todo or refactoring documents.
       JSON parsing and dependency/security validation.
 - [x] Keep the inverse `/sickz` certificate exception narrowly justified for
       both Ruff and Bandit instead of disabling TLS findings globally.
-- [ ] Consolidate duplicate Pylint jobs and keep one authoritative Python
-      quality gate.
+- [x] Align the Biome package, pre-commit hook and configuration schema on one
+      pinned version.
+- [x] Run Gitleaks through its native Go pre-commit hook so secret scanning does
+      not require a local Docker daemon.
+- [x] Remove the duplicate standalone Pylint workflow and keep the Python
+      package workflow as the authoritative Pylint quality gate.
 - [ ] Make relevant Trivy findings blocking once the current vulnerability
       baseline has been triaged.
 - [ ] Reduce the current Trivy dependency baseline below 48 findings and lower
@@ -118,6 +140,10 @@ exceptions here rather than creating additional todo or refactoring documents.
 - [x] Avoid opening the auxiliary PostgreSQL connection pool during module
       import and close it explicitly during application shutdown.
 - [x] Keep JSON log formatters safe while Python clears module globals at shutdown.
+- [x] Use one environment-boolean parser for application debug, feature flags,
+      telemetry and internal homelab probes.
+- [x] Remove obsolete `uv_build` settings after standardizing the package on
+      Hatchling, eliminating the conflicting-backend build warning.
 - [ ] Consolidate SQLAlchemy, `databases` and psycopg pools behind one explicit
       application lifecycle.
 - [ ] Move schema creation out of worker startup and run Alembic migrations as

@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 import time
 from datetime import datetime, timezone
 from typing import Any, Literal
@@ -16,6 +15,7 @@ from nabla.api.homelab_catalog import fetch_homelab_services
 from nabla.api.homelab_models import HomelabService
 from nabla.api.truenas_client import observe_truenas_api
 from nabla.integrations.truenas_client import truenas_host_port, truenas_url
+from nabla.utils.environment import env_bool
 
 HealthState = Literal["ok", "warn", "fail"]
 
@@ -40,7 +40,7 @@ def classify_public_http_status(status: int) -> HealthState:
 
 def internal_probes_enabled() -> bool:
     """Return whether internal TCP probes are explicitly enabled for this runtime."""
-    return os.getenv(_INTERNAL_PROBE_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
+    return env_bool(_INTERNAL_PROBE_ENV)
 
 
 def _looks_like_tls_error(message: str) -> bool:

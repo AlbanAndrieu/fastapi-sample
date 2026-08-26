@@ -1,7 +1,8 @@
+# ruff: noqa: PLC0415 -- model initialization imports stay lazy to avoid cycles.
+
 """Application lifecycle management (startup/shutdown)."""
 
 import asyncio
-import os
 from collections.abc import Coroutine
 from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Any
@@ -97,11 +98,9 @@ async def lifespan(app: FastAPI):
 
         logger.info("🚀 Sensor Dashboard started")
         logger.info(f"Initial sensor readings: {len(recent_readings)}")
-        logger.info(f"Debug mode: {bool(os.getenv('DEBUG'))}")
+        logger.info("Debug mode: %s", getattr(app, "debug", False))
 
         yield
 
         logger.info("📊 Sensor Dashboard shutting down")
-        logger.info(
-            f"Final metrics - Connections: {metrics.connection_count}, Requests: {metrics.total_requests}"
-        )
+        logger.info(f"Final metrics - Connections: {metrics.connection_count}, Requests: {metrics.total_requests}")

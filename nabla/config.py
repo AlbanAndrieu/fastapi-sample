@@ -5,8 +5,10 @@ import warnings
 
 from pydantic.json_schema import PydanticJsonSchemaWarning
 
+from nabla.utils.environment import env_bool
+
 # Datadog setup
-_DATADOG_ENABLED = os.environ.get("DATADOG_ENABLED", "false").lower() in {"1", "true", "yes"}
+_DATADOG_ENABLED = env_bool("DATADOG_ENABLED")
 if not _DATADOG_ENABLED:
     os.environ["DD_TRACE_ENABLED"] = "false"
     os.environ["DD_LOGS_INJECTION"] = "false"
@@ -15,7 +17,7 @@ if not _DATADOG_ENABLED:
     os.environ["DD_IAST_ENABLED"] = "false"
 
 # Feature flags
-UNLEASH_ENABLED = os.getenv("UNLEASH_ENABLED", "False").lower() == "true"
+UNLEASH_ENABLED = env_bool("UNLEASH_ENABLED")
 
 # Suppress warnings
 warnings.filterwarnings(
@@ -48,7 +50,7 @@ MCP_ALLOWED_ROUTES: frozenset[tuple[str, str]] = frozenset(
         ("GET", "/demo/get_time"),
         ("GET", "/demo/add"),
         ("GET", "/demo/multiply"),
-    }
+    },
 )
 
 # Noisy paths to exclude from detailed logging
