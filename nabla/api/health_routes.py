@@ -111,6 +111,7 @@ def register_health_routes(app: FastAPI) -> None:
         from nabla.api.db.database import engine
         from nabla.api.demo.socket.redis import redis
         from nabla.api.homelab_health import build_homelab_health_payload
+        from nabla.api.homelab_health_evidence import reconcile_homelab_health_payload
 
         homelab_task = asyncio.create_task(build_homelab_health_payload())
         components = await build_component_checks(
@@ -118,7 +119,7 @@ def register_health_routes(app: FastAPI) -> None:
             engine=engine,
             homelab_snapshot=homelab_task,
         )
-        homelab_payload = await homelab_task
+        homelab_payload = await reconcile_homelab_health_payload(await homelab_task)
         homelab_payload["components_status"] = component_status(components)
         homelab_payload["components"] = components
         return homelab_payload
