@@ -1,3 +1,10 @@
+## [1.6.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.6.0...1.6.1) (2026-08-26)
+
+
+### Bug Fixes
+
+* **homelab:** own exposure catalog and correct TLS state ([#88](https://github.com/AlbanAndrieu/fastapi-sample/issues/88)) ([5af6167](https://github.com/AlbanAndrieu/fastapi-sample/commit/5af61676ea635dd6c6fbb03bcd8c99d949caac5e))
+
 # [1.6.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.5...1.6.0) (2026-08-26)
 
 
