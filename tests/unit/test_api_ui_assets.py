@@ -23,6 +23,7 @@ def test_api_page_serves_external_assets() -> None:
     ui = client.get("/api/assets/api-health-ui.js")
     sickz = client.get("/api/assets/api-sickz.js")
     pfsense = client.get("/api/assets/api-sickz-pfsense.js")
+    exposure = client.get("/api/assets/api-exposure-audit.js")
     styles = client.get("/api/assets/api.css")
     base_styles = client.get("/api/assets/api-base.css")
     health_styles = client.get("/api/assets/api-health.css")
@@ -31,18 +32,22 @@ def test_api_page_serves_external_assets() -> None:
     assert page.status_code == 200
     assert 'href="/api/assets/api.css"' in page.text
     assert 'type="module" src="/api/assets/api-health.js"' in page.text
+    assert "Cloudflare exposure drift" in page.text
+    assert "Network exposure policy" in page.text
     assert "function computeOverall" not in page.text
 
-    for asset in (bootstrap, health, ui, sickz, pfsense):
+    for asset in (bootstrap, health, ui, sickz, pfsense, exposure):
         assert asset.status_code == 200
         assert "javascript" in asset.headers["content-type"]
 
+    assert 'from "./api-exposure-audit.js"' in bootstrap.text
     assert 'from "./api-health-core.js"' in bootstrap.text
     assert 'from "./api-sickz.js"' in bootstrap.text
     assert 'from "./api-health-ui.js"' in health.text
     assert 'from "./api-health-ui.js"' in sickz.text
     assert 'from "./api-sickz-pfsense.js"' in sickz.text
     assert 'from "./api-health-ui.js"' in pfsense.text
+    assert 'from "./api-health-ui.js"' in exposure.text
     assert 'from "./api-health-core.js"' not in sickz.text
     assert "function computeOverall" in health.text
     assert "function computeOverall" in sickz.text
@@ -115,18 +120,30 @@ def test_sickz_ui_uses_explicit_exposure_expectations() -> None:
     assert "only ports with a reviewed expectation are pass/fail checks" in pfsense
 
 
+def test_exposure_audit_ui_maps_security_findings() -> None:
+    script = (_ASSET_DIR / "api-exposure-audit.js").read_text(encoding="utf-8")
+
+    assert 'state === "UNEXPECTEDLY_EXPOSED"' in script
+    assert 'state === "MISSING_EXPOSURE"' in script
+    assert 'fetch("/api/homelab/exposure-audit"' in script
+    assert "desired_external" in script
+    assert "observed_exposed" in script
+
+
 def test_health_assets_stay_within_refactoring_thresholds() -> None:
     bootstrap = (_ASSET_DIR / "api-health.js").read_text(encoding="utf-8")
     health = (_ASSET_DIR / "api-health-core.js").read_text(encoding="utf-8")
     ui = (_ASSET_DIR / "api-health-ui.js").read_text(encoding="utf-8")
     sickz = (_ASSET_DIR / "api-sickz.js").read_text(encoding="utf-8")
     pfsense = (_ASSET_DIR / "api-sickz-pfsense.js").read_text(encoding="utf-8")
+    exposure = (_ASSET_DIR / "api-exposure-audit.js").read_text(encoding="utf-8")
 
     assert len(bootstrap.splitlines()) < 50
     assert len(health.splitlines()) < 400
     assert len(ui.splitlines()) < 250
     assert len(sickz.splitlines()) < 400
     assert len(pfsense.splitlines()) < 250
+    assert len(exposure.splitlines()) < 250
     assert "loadHealthBoards" in bootstrap
     assert "computeOverall" not in bootstrap
 
