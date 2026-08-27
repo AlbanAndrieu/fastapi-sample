@@ -1,8 +1,8 @@
 name: Semantic Release
 
-# The automatic main-push trigger is temporarily disabled while the repository
+# The automatic master-push trigger is temporarily disabled while the repository
 # is being rebased onto the consolidated 1.4.0 release tag. Re-enable it only
-# after the historical 1.4.0 tag has been recreated on the consolidated main
+# after the historical 1.4.0 tag has been recreated on the consolidated master
 # commit; otherwise semantic-release would scan the post-1.4.0 history and
 # immediately publish a newer version again.
 on:
@@ -14,7 +14,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: semantic-release-main
+  group: semantic-release-master
   cancel-in-progress: false
 
 jobs:
@@ -64,7 +64,7 @@ jobs:
         run: python scripts/check_versions.py
 
       # @semantic-release/git pushes prepared version files before the GitHub
-      # publish step. If publishing fails, main can therefore contain a version
+      # publish step. If publishing fails, master can therefore contain a version
       # that has no corresponding tag/release. Refuse to calculate another
       # release from that inconsistent baseline instead of silently down-bumping
       # the checked-in version on the next run.

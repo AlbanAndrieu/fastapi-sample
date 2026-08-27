@@ -6,6 +6,8 @@ This roadmap turns `/sickz`, `/healthz`, the TrueNAS read-only runtime inventory
 
 - **pfSense administration (`10443/tcp`)**: allow only from trusted LAN/VPN administration paths. A successful probe from FastAPI Cloud or another Internet vantage point is a security failure.
 - **TrueNAS HTTPS/API (`7000/tcp`)**: currently an intentional direct publication through pfSense HAProxy. The path is `Internet -> pfSense WAN:7000 -> HAProxy TLS termination -> TrueNAS 172.17.0.24:7000 over TLS`. This path does **not** use Cloudflare Tunnel and must remain narrowly scoped to the dedicated HAProxy listener/rule.
+- **Target state for `7000/tcp`**: after the broad pfSense Easy Rule is removed, do not leave TCP/7000 open to the whole Internet. Create pfSense aliases for explicitly approved source egress addresses/CIDRs (at minimum the verified FastAPI Cloud production egress address set and the trusted work/office public egress address set) and permit only those aliases to the HAProxy listener. Treat the currently observed FastAPI Cloud source address as evidence to verify, not as a permanent allowlist until FastAPI Cloud egress stability/documentation has been confirmed.
+- Prefer named pfSense aliases such as `FASTAPI_CLOUD_EGRESS` and `TRUSTED_WORK_EGRESS` over duplicated literal addresses in firewall rules. This keeps future egress changes auditable without broadening the rule.
 - **TrueNAS SSH (`9922/tcp`) and firewall SSH (`22/tcp`)**: external reachability is always a failure.
 - Remove broad WAN pass rules such as an Easy Rule that permits arbitrary inbound TCP. Every public listener must have an explicit port/service policy.
 - Keep Cloudflare Tunnel evidence distinct from direct HAProxy/Traefik exposure. `tunnelSecure=true` means a Cloudflare-protected exposure is expected; direct exceptions must remain auditable and visible as security debt.
@@ -39,9 +41,69 @@ Target principle: a TrueNAS Apps outage may reduce filtering/telemetry but must 
 - Report unmanaged TrueNAS Apps explicitly; do not guess their dependency order until their Compose metadata is represented in the topology catalog.
 - Derive restart waves from **required** topology edges before optional observability/exposure edges.
 
+### Next API contract: propagate `required` dependencies
+
+Prepare the health API around three distinct concepts instead of overloading one color/state:
+
+1. `local_state`: direct evidence for the service itself (HTTP/application probe, TrueNAS App/container runtime, internal probe, Cloudflare evidence).
+2. `dependency_state`: aggregation of outgoing topology relations whose `strength` is `required`; the relation direction is `source -> target`, so an unhealthy target degrades the source.
+3. `effective_state`: the final state consumed by FastAPI UI and `nabla-site-alban` after combining local and dependency evidence.
+
+Add structured fields such as:
+
+```json
+{
+  "local_state": "ok",
+  "dependency_state": "degraded",
+  "effective_state": "warn",
+  "required_dependencies": ["postgres", "clickhouse", "redis", "minio"],
+  "blocked_by": ["postgres", "clickhouse"],
+  "dependency_evidence": [
+    {"id": "postgres", "state": "fail", "relation": "dependsOn"},
+    {"id": "clickhouse", "state": "fail", "relation": "storesIn"}
+  ]
+}
+```
+
+Policy:
+
+- a direct/local failure remains `fail` regardless of dependency state;
+- a locally healthy/running service with at least one failed **required** dependency becomes `warn`/degraded unless its own application-level probe also proves functional failure, in which case it is `fail`;
+- unknown/stale required dependency evidence must not produce green; use `warn` with explicit uncertainty;
+- optional relations never downgrade `effective_state` by themselves;
+- evaluate propagation deterministically from a graph snapshot, detect required-edge cycles/SCCs, and surface the cycle instead of recursively looping;
+- keep both raw/local state and effective/propagated state in the payload so UIs can explain why a service changed color.
+
+Add contract tests for Langfuse (`postgres`, `clickhouse`, `redis`, `minio`), n8n/PostgreSQL, LiteLLM/Ollama, and OpenWebUI/LiteLLM, including stopped Apps with empty `active_workloads`.
+
+## P1 — UI and topology visualization contract
+
+Use one health/status vocabulary across the FastAPI operations UI and every React Flow diagram in `nabla-site-alban`:
+
+- node fill/border = `effective_state`;
+- a small inner/runtime indicator = `local_state` so `RUNNING but degraded` is visible rather than collapsed into one color;
+- required edge state = healthy/degraded/failed/unknown based on the target dependency evidence;
+- optional edges remain visually secondary and must not turn a node red;
+- tooltips/details show `blocked_by`, evidence source, observation age and stale status;
+- expose/publish edges must visually distinguish `HAProxy direct`, `Cloudflare Tunnel`, `LAN/VPN only`, and ordinary internal service dependencies;
+- keep ports visible for infrastructure edges (`7000`, `10443`, `9922`) instead of hiding them behind host labels;
+- avoid browser-side probing overriding server-authoritative FastAPI evidence; browser probing remains fallback only when no usable server evidence exists.
+
+FastAPI should remain lightweight: improve its existing health board/components rather than introducing React solely for React Flow. `nabla-site-alban` owns the richer React Flow views and consumes the same API contract.
+
 ## P1 — TrueNAS host capacity guardrail
 
 A host with an AMD Ryzen 7 7700 must not proceed with mass application reconciliation when the operating system exposes only CPU 0. Add an operational check comparing expected hardware inventory with host-visible CPU count and Docker `NCPU`; block or warn before app redeploy when the counts are implausibly low.
+
+Current evidence on TrueNAS 26.0.0-BETA.3:
+
+- `/proc/cmdline` contains no `maxcpus=1`, `nr_cpus=1`, or equivalent explicit one-CPU limit;
+- `kernel_extra_options` is empty;
+- `/sys/devices/system/cpu/{possible,present,online}` all contain only `0`;
+- only `/sys/devices/system/cpu/cpu0` exists;
+- therefore this is upstream of Docker/cgroup CPU limits: the kernel has only identified/allocated CPU0.
+
+Next diagnostics: preserve the full early-boot `dmesg` CPU/APIC/ACPI lines, inspect `kernel_max`, SMBIOS/firmware CPU inventory, and verify BIOS/UEFI Core/Downcore Control and SMT settings. Because 26.0.0-BETA.3 updates the Linux kernel, compare with a known-good previous TrueNAS boot environment before changing application CPU reservations.
 
 ## P2 — Exposure observability
 
