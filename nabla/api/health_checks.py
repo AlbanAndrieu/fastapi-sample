@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import socket
-import ssl
 import time
 from typing import Any
 
@@ -39,75 +37,32 @@ from nabla.config_settings import REDIS_URL, get_settings
 logger = logging.getLogger(__name__)
 
 
-def _exception_chain(exc: BaseException) -> list[BaseException]:
-    """Return ``exc`` plus chained causes/contexts without looping forever."""
-    chain: list[BaseException] = []
-    current: BaseException | None = exc
-    seen: set[int] = set()
-    while current is not None and id(current) not in seen:
-        chain.append(current)
-        seen.add(id(current))
-        current = current.__cause__ or current.__context__
-    return chain
-
-
-def _probe_failure_stage(exc: BaseException) -> str:
-    """Classify a failed network probe into a useful operational stage."""
-    chain = _exception_chain(exc)
-    message = " ".join(str(item) for item in chain).casefold()
-
-    if any(isinstance(item, socket.gaierror) for item in chain) or any(
-        marker in message
-        for marker in (
-            "name or service not known",
-            "temporary failure in name resolution",
-            "nodename nor servname provided",
-            "getaddrinfo failed",
-        )
-    ):
-        return "dns"
-    if any(isinstance(item, ssl.SSLError) for item in chain) or any(
-        marker in message
-        for marker in (
-            "certificate verify failed",
-            "hostname mismatch",
-            "ssl:",
-            "tls",
-        )
-    ):
-        return "tls"
+def _http_probe_error_kind(exc: Exception) -> str:
+    """Classify outbound HTTP failures without exposing implementation details."""
+    message = str(exc).lower()
     if isinstance(exc, httpx.ConnectTimeout):
         return "connect_timeout"
     if isinstance(exc, httpx.ReadTimeout):
         return "read_timeout"
-    if isinstance(exc, httpx.WriteTimeout):
-        return "write_timeout"
-    if isinstance(exc, httpx.PoolTimeout):
-        return "pool_timeout"
-    if "connection refused" in message:
-        return "connect_refused"
-    if "network is unreachable" in message or "no route to host" in message:
-        return "network_unreachable"
-    if isinstance(exc, httpx.ConnectError):
-        return "connect"
-    if isinstance(exc, httpx.RemoteProtocolError):
-        return "protocol"
-    if isinstance(exc, httpx.TimeoutException) or any(
-        isinstance(item, TimeoutError) for item in chain
-    ):
+    if isinstance(exc, httpx.TimeoutException):
         return "timeout"
+    if any(marker in message for marker in ("certificate", "ssl", "tls")):
+        return "tls_error"
+    if any(marker in message for marker in ("name or service not known", "nodename nor servname", "temporary failure in name resolution", "getaddrinfo")):
+        return "dns_error"
+    if isinstance(exc, httpx.ConnectError):
+        return "connect_error"
     if isinstance(exc, httpx.HTTPError):
-        return "http_client"
-    return "network"
+        return "http_error"
+    if isinstance(exc, OSError):
+        return "os_error"
+    return "unknown_error"
 
 
-async def probe_https_get_reachable(
-    url: str,
-    *,
-    probe_name: str | None = None,
-) -> dict[str, Any]:
-    """GET ``url`` and expose timing plus the exact network failure stage."""
-    started = time.perf_counter()
+async def probe_https_get_reachable(url: str) -> dict[str, Any]:
+    """GET ``url``; any completed HTTP response counts as reachable."""
+    started = time.monotonic()
+    logger.info("health outbound probe started url=%s", url)
     try:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(5.0),
@@ -118,46 +73,39 @@ async def probe_https_get_reachable(
                 headers={"User-Agent": "nabla-healthz-probe/1.0"},
             )
     except (httpx.HTTPError, OSError) as exc:
-        elapsed_ms = round((time.perf_counter() - started) * 1000)
-        stage = _probe_failure_stage(exc)
-        result = {
+        elapsed_ms = round((time.monotonic() - started) * 1000)
+        error_kind = _http_probe_error_kind(exc)
+        exception_type = type(exc).__name__
+        normalized_error = _normalize_probe_error(str(exc))
+        logger.warning(
+            "health outbound probe failed url=%s error_kind=%s exception_type=%s elapsed_ms=%s error=%s",
+            url,
+            error_kind,
+            exception_type,
+            elapsed_ms,
+            normalized_error,
+        )
+        return {
             "reachable": False,
-            "error": _normalize_probe_error(str(exc)),
-            "exception_type": exc.__class__.__name__,
-            "failure_stage": stage,
+            "error": normalized_error,
+            "error_kind": error_kind,
+            "exception_type": exception_type,
             "elapsed_ms": elapsed_ms,
             "url": url,
         }
-        if (probe_name or "").casefold() == "truenas":
-            logger.warning(
-                "TrueNAS HTTP probe failed url=%s stage=%s exception=%s elapsed_ms=%s error=%s",
-                url,
-                stage,
-                exc.__class__.__name__,
-                elapsed_ms,
-                result["error"],
-            )
-        return result
-
-    elapsed_ms = round((time.perf_counter() - started) * 1000)
-    result = {
+    elapsed_ms = round((time.monotonic() - started) * 1000)
+    logger.info(
+        "health outbound probe completed url=%s http_status=%s elapsed_ms=%s",
+        url,
+        response.status_code,
+        elapsed_ms,
+    )
+    return {
         "reachable": True,
         "http_status": response.status_code,
-        "url": url,
-        "final_url": str(response.url),
-        "redirects": len(response.history),
         "elapsed_ms": elapsed_ms,
+        "url": url,
     }
-    if (probe_name or "").casefold() == "truenas":
-        logger.info(
-            "TrueNAS HTTP probe succeeded url=%s final_url=%s status=%s redirects=%s elapsed_ms=%s",
-            url,
-            response.url,
-            response.status_code,
-            len(response.history),
-            elapsed_ms,
-        )
-    return result
 
 
 def _tls_trusted_from_https_probe_result(
