@@ -417,7 +417,7 @@ def test_public_homelab_routes(monkeypatch) -> None:
 
     assert health_response.status_code == 200
     health_body = health_response.json()
-    assert health_body["schema_version"] == 4
+    assert health_body["schema_version"] == 5
     assert health_body["checked_at"] == health_payload["checked_at"]
     assert health_body["truenas"] == health_payload["truenas"]
     assert len(health_body["services"]) == 1
