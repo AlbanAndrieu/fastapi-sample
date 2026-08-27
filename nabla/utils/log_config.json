@@ -13,7 +13,7 @@
       "": "nabla.utils.log_config.JsonRequestFormatter"
     },
     "json_error": {
-      "()": "nabla.utils.log_config.JsonErrorFormatter"
+      "()": "nabla.utils.log_config.JsonRequestFormatter"
     }
   },
   "handlers": {
