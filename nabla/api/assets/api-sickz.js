@@ -30,7 +30,7 @@ function classifySick(check) {
 function rawDetailSickText(check) {
   if (check.skipped === true) {
     const intro = check.reason || "Not probed (LAN skip).";
-    if (check.aliases_probed && check.aliases_probed.length) {
+    if (check.aliases_probed?.length) {
       return `${intro} Targets: ${check.aliases_probed.map(shortHostForDetail).join(" · ")}`;
     }
     return intro;
@@ -72,7 +72,11 @@ function rawDetailSickText(check) {
 function detailSickText(check) {
   const raw = rawDetailSickText(check);
   if (!check.policy_detail) return raw;
-  const warning = check.policy_status === "warn" && !String(check.policy_detail).startsWith("⚠️") ? "⚠️ " : "";
+  const warning =
+    check.policy_status === "warn" &&
+    !String(check.policy_detail).startsWith("⚠️")
+      ? "⚠️ "
+      : "";
   return `${raw} — ${warning}${check.policy_detail}`;
 }
 
@@ -84,7 +88,10 @@ function computeOverall(data) {
       text: `${data.detail || "Sickz skipped on internal network."} Network: ${network}.`,
     };
   }
-  if (data.status === "no_targets" || Object.keys(data.checks || {}).length === 0) {
+  if (
+    data.status === "no_targets" ||
+    Object.keys(data.checks || {}).length === 0
+  ) {
     return {
       cls: "yellow",
       text: `${data.detail || "No sickz targets configured."} Network: ${network}.`,
@@ -167,7 +174,10 @@ function findPfsenseEntry(checks) {
     if (check.display_label === "PfSense" || check.name === "PfSense") {
       return { key, check };
     }
-    if (check.pfsense_tcp_ports && typeof check.pfsense_tcp_ports === "object") {
+    if (
+      check.pfsense_tcp_ports &&
+      typeof check.pfsense_tcp_ports === "object"
+    ) {
       return { key, check };
     }
   }
@@ -278,7 +288,10 @@ function exposureTags(check) {
       : check.tunnel_secure === false
         ? "direct exposure / no Cloudflare"
         : "security mode unspecified";
-  const observed = check.cloudflare_tunnel_observed === true ? "Cloudflare observed" : "Cloudflare not observed";
+  const observed =
+    check.cloudflare_tunnel_observed === true
+      ? "Cloudflare observed"
+      : "Cloudflare not observed";
   return `${external} · ${tunnel} · ${observed}`;
 }
 
@@ -344,8 +357,10 @@ function render(data) {
     const hrefRaw = tunnelHref(check);
     const safeHref = hrefRaw.length ? escapeText(hrefRaw) : "";
     let rowTitle = "";
-    if (check.name != null && String(check.name).trim()) rowTitle = String(check.name).trim();
-    else if (check.display_label != null) rowTitle = String(check.display_label);
+    if (check.name != null && String(check.name).trim())
+      rowTitle = String(check.name).trim();
+    else if (check.display_label != null)
+      rowTitle = String(check.display_label);
     else rowTitle = key;
     if (check.policy_status === "warn") rowTitle = `⚠️ ${rowTitle}`;
     const lockTls = check.skipped === true ? null : check.tls_trusted;
