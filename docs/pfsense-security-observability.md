@@ -109,7 +109,7 @@ Use this to support the planned DNS architecture review:
 
 ```text
 LAN clients -> pfSense/Unbound -> filtering/upstream policy
-                               -> Pi-hole / AdGuard Home as explicitly designed
+  -> Pi-hole / AdGuard Home as explicitly designed
 ```
 
 The goal is to preserve DNS resolution when TrueNAS Apps are down while still
@@ -180,12 +180,12 @@ public projections remain redacted.
 ## Implementation order
 
 1. Keep `/api/v2/status/system` as the cheap liveness probe and instrument its
-   latency/error stage.
+    latency/error stage.
 2. Add interfaces + gateways.
 3. Add firewall rules + aliases and implement the Easy Rule/management-port
-   policy assertions.
+    policy assertions.
 4. Add NAT checks.
 5. Add DNS resolver policy.
 6. Add VPN/service state only for services intentionally managed by the homelab.
 7. Add bounded log correlation as a troubleshooting feature, not a continuous
-   public health payload.
+    public health payload.
