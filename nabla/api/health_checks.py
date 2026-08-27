@@ -119,6 +119,8 @@ def _tls_trusted_from_https_probe_result(
         return None
     if result.get("reachable") is True:
         return True
+    if result.get("failure_stage") == "tls":
+        return False
     error = str(result.get("error") or "").lower()
     markers = ("ssl", "certificate", "tls", "cert verify", "hostname mismatch")
     return False if any(marker in error for marker in markers) else None
@@ -309,7 +311,10 @@ async def build_healthz_payload(
     dependency_results, homelab_results = await asyncio.gather(
         _run_dependency_probes(redis_client, engine),
         asyncio.gather(
-            *(probe_https_get_reachable(url) for _, url, _, _ in homelab_rows),
+            *(
+                probe_https_get_reachable(url, probe_name=display_label)
+                for _, url, display_label, _ in homelab_rows
+            ),
         ),
     )
     checks = _dependency_checks(dependency_results)

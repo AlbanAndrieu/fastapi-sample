@@ -5,6 +5,9 @@ from __future__ import annotations
 import importlib
 import logging
 import os
+import socket
+import ssl
+import time
 from dataclasses import dataclass
 from typing import Any, Protocol
 from urllib.parse import urlsplit, urlunsplit
@@ -40,12 +43,21 @@ class TrueNASSettings:
     @classmethod
     def from_environment(cls) -> TrueNASSettings | None:
         """Load optional TrueNAS credentials from the supported environment names."""
-        username = os.getenv("TRUENAS_API_USERNAME", "").strip() or os.getenv("TRUENAS_USERNAME", "").strip() or os.getenv("TRUENAS_USER", "").strip()
-        api_key = os.getenv("TRUENAS_API_KEY", "").strip() or os.getenv("TRUENAS_MCP_API_KEY", "").strip()
+        username = (
+            os.getenv("TRUENAS_API_USERNAME", "").strip()
+            or os.getenv("TRUENAS_USERNAME", "").strip()
+            or os.getenv("TRUENAS_USER", "").strip()
+        )
+        api_key = os.getenv("TRUENAS_API_KEY", "").strip() or os.getenv(
+            "TRUENAS_MCP_API_KEY", ""
+        ).strip()
         if not username or not api_key:
             return None
 
-        verify_ssl_raw = os.getenv("TRUENAS_API_VERIFY_SSL", "").strip() or os.getenv("TRUENAS_VERIFY_SSL", "true").strip()
+        verify_ssl_raw = (
+            os.getenv("TRUENAS_API_VERIFY_SSL", "").strip()
+            or os.getenv("TRUENAS_VERIFY_SSL", "true").strip()
+        )
         websocket_path = os.getenv("TRUENAS_WS_PATH", _DEFAULT_API_PATH).strip()
         return cls(
             url=truenas_url(),
@@ -59,7 +71,12 @@ class TrueNASSettings:
     def websocket_uri(self) -> str:
         """Normalize an HTTP(S) URL to the configured JSON-RPC WebSocket endpoint."""
         parsed = urlsplit(self.url)
-        scheme = {"https": "wss", "http": "ws", "wss": "wss", "ws": "ws"}.get(parsed.scheme.lower())
+        scheme = {
+            "https": "wss",
+            "http": "ws",
+            "wss": "wss",
+            "ws": "ws",
+        }.get(parsed.scheme.lower())
         if scheme is None or not parsed.netloc:
             raise ValueError("TRUENAS_URL must be an HTTP(S) or WS(S) URL with a host")
 
@@ -88,10 +105,66 @@ def truenas_url() -> str:
 def truenas_host_port() -> tuple[str, int]:
     """Return the host and effective port derived from :envvar:`TRUENAS_URL`."""
     parsed = urlsplit(truenas_url())
-    if parsed.scheme.lower() not in {"http", "https", "ws", "wss"} or not parsed.hostname:
+    if (
+        parsed.scheme.lower() not in {"http", "https", "ws", "wss"}
+        or not parsed.hostname
+    ):
         raise ValueError("TRUENAS_URL must be an HTTP(S) or WS(S) URL with a host")
     default_port = 443 if parsed.scheme.lower() in {"https", "wss"} else 80
     return parsed.hostname, parsed.port or default_port
+
+
+def _exception_chain(exc: BaseException) -> list[BaseException]:
+    """Return a bounded cause/context chain for network error classification."""
+    chain: list[BaseException] = []
+    current: BaseException | None = exc
+    seen: set[int] = set()
+    while current is not None and id(current) not in seen:
+        chain.append(current)
+        seen.add(id(current))
+        current = current.__cause__ or current.__context__
+    return chain
+
+
+def _truenas_failure_stage(exc: BaseException) -> str:
+    """Classify TrueNAS WebSocket/API failures for runtime diagnostics."""
+    chain = _exception_chain(exc)
+    message = " ".join(str(item) for item in chain).casefold()
+    class_names = {item.__class__.__name__.casefold() for item in chain}
+
+    if any(isinstance(item, socket.gaierror) for item in chain) or any(
+        marker in message
+        for marker in (
+            "name or service not known",
+            "temporary failure in name resolution",
+            "getaddrinfo failed",
+        )
+    ):
+        return "dns"
+    if any(isinstance(item, ssl.SSLError) for item in chain) or any(
+        marker in message
+        for marker in (
+            "certificate verify failed",
+            "hostname mismatch",
+            "ssl:",
+            "tls",
+        )
+    ):
+        return "tls"
+    if "connection refused" in message or "connectionrefusederror" in class_names:
+        return "connect_refused"
+    if "network is unreachable" in message or "no route to host" in message:
+        return "network_unreachable"
+    if "timeout" in message or any("timeout" in name for name in class_names):
+        return "connect_timeout"
+    if any(
+        marker in message
+        for marker in ("unauthorized", "authentication", "invalid credentials", "api key")
+    ):
+        return "authentication"
+    if any("websocket" in name for name in class_names):
+        return "websocket"
+    return "api"
 
 
 def _load_client_factory() -> Any:
@@ -99,25 +172,60 @@ def _load_client_factory() -> Any:
     try:
         module = importlib.import_module("truenas_api_client")
     except ModuleNotFoundError as exc:
-        raise RuntimeError("TrueNAS credentials are configured but truenas_api_client is not installed") from exc
+        raise RuntimeError(
+            "TrueNAS credentials are configured but truenas_api_client is not installed"
+        ) from exc
     return module.Client
 
 
 class TrueNASReadOnlyAdapter:
     """Small synchronous adapter over the TrueNAS 26 official WebSocket client."""
 
-    def __init__(self, settings: TrueNASSettings, *, client_factory: Any | None = None) -> None:
+    def __init__(
+        self,
+        settings: TrueNASSettings,
+        *,
+        client_factory: Any | None = None,
+    ) -> None:
         self.settings = settings
         self._client_factory = client_factory or _load_client_factory()
 
     def _connect(self) -> TrueNASClientProtocol:
-        return self._client_factory(uri=self.settings.websocket_uri, verify_ssl=self.settings.verify_ssl)
+        return self._client_factory(
+            uri=self.settings.websocket_uri,
+            verify_ssl=self.settings.verify_ssl,
+        )
 
     def _call(self, method: str, *params: Any) -> Any:
         """Authenticate once for a single read-only JSON-RPC call."""
-        with self._connect() as client:
-            client.login_with_api_key(self.settings.username, self.settings.api_key)
-            return client.call(method, *params)
+        started = time.perf_counter()
+        uri = self.settings.websocket_uri
+        try:
+            with self._connect() as client:
+                client.login_with_api_key(self.settings.username, self.settings.api_key)
+                result = client.call(method, *params)
+        except Exception as exc:
+            elapsed_ms = round((time.perf_counter() - started) * 1000)
+            logger.warning(
+                "TrueNAS API probe failed method=%s uri=%s verify_ssl=%s stage=%s "
+                "exception=%s elapsed_ms=%s error=%s",
+                method,
+                uri,
+                self.settings.verify_ssl,
+                _truenas_failure_stage(exc),
+                exc.__class__.__name__,
+                elapsed_ms,
+                str(exc)[:500],
+            )
+            raise
+        logger.info(
+            "TrueNAS API probe succeeded method=%s uri=%s verify_ssl=%s elapsed_ms=%s",
+            method,
+            uri,
+            self.settings.verify_ssl,
+            round((time.perf_counter() - started) * 1000),
+        )
+        return result
 
     def system_version(self) -> str:
         """Return the TrueNAS software version."""
@@ -135,10 +243,32 @@ class TrueNASReadOnlyAdapter:
 
     def health_snapshot(self) -> dict[str, Any]:
         """Return a compact non-secret version/app view suitable for health APIs."""
-        with self._connect() as client:
-            client.login_with_api_key(self.settings.username, self.settings.api_key)
-            version = client.call("system.version")
-            apps = client.call("app.query")
+        started = time.perf_counter()
+        uri = self.settings.websocket_uri
+        try:
+            with self._connect() as client:
+                client.login_with_api_key(self.settings.username, self.settings.api_key)
+                version = client.call("system.version")
+                apps = client.call("app.query")
+        except Exception as exc:
+            elapsed_ms = round((time.perf_counter() - started) * 1000)
+            logger.warning(
+                "TrueNAS API health probe failed uri=%s verify_ssl=%s stage=%s "
+                "exception=%s elapsed_ms=%s error=%s",
+                uri,
+                self.settings.verify_ssl,
+                _truenas_failure_stage(exc),
+                exc.__class__.__name__,
+                elapsed_ms,
+                str(exc)[:500],
+            )
+            raise
+        logger.info(
+            "TrueNAS API health probe succeeded uri=%s verify_ssl=%s elapsed_ms=%s",
+            uri,
+            self.settings.verify_ssl,
+            round((time.perf_counter() - started) * 1000),
+        )
         if not isinstance(version, str) or not isinstance(apps, list):
             raise RuntimeError("TrueNAS API returned an unexpected health payload")
 
