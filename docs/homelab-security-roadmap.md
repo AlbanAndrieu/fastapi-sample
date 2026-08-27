@@ -95,15 +95,23 @@ FastAPI should remain lightweight: improve its existing health board/components 
 
 A host with an AMD Ryzen 7 7700 must not proceed with mass application reconciliation when the operating system exposes only CPU 0. Add an operational check comparing expected hardware inventory with host-visible CPU count and Docker `NCPU`; block or warn before app redeploy when the counts are implausibly low.
 
-Current evidence on TrueNAS 26.0.0-BETA.3:
+Evidence on TrueNAS 26.0.0-BETA.3:
 
 - `/proc/cmdline` contains no `maxcpus=1`, `nr_cpus=1`, or equivalent explicit one-CPU limit;
 - `kernel_extra_options` is empty;
 - `/sys/devices/system/cpu/{possible,present,online}` all contain only `0`;
 - only `/sys/devices/system/cpu/cpu0` exists;
-- therefore this is upstream of Docker/cgroup CPU limits: the kernel has only identified/allocated CPU0.
+- SMBIOS still reports the AMD Ryzen 7 7700 as 8 enabled cores / 16 threads;
+- therefore this is upstream of Docker/cgroup CPU limits: the BETA.3 kernel has only identified/allocated CPU0.
 
-Next diagnostics: preserve the full early-boot `dmesg` CPU/APIC/ACPI lines, inspect `kernel_max`, SMBIOS/firmware CPU inventory, and verify BIOS/UEFI Core/Downcore Control and SMT settings. Because 26.0.0-BETA.3 updates the Linux kernel, compare with a known-good previous TrueNAS boot environment before changing application CPU reservations.
+Rollback validation on the previous TrueNAS 26.0.0-BETA.2 boot environment shows CPUs `0-15` online in `lscpu -e`. This makes the one-CPU condition specific to the BETA.3 boot environment on this host and is sufficient to **block the TrueNAS upgrade for now**. Do not normalize application CPU limits down to one CPU as a workaround.
+
+Upgrade policy:
+
+- remain on the previous working boot environment until the BETA.3 CPU enumeration regression is explained/fixed;
+- preserve BETA.3 diagnostic evidence for upstream comparison;
+- before any future retry, validate host-visible CPU topology, Docker `NCPU`, Apps networking, and representative application startup before making the new boot environment default;
+- rotate `PFSENSE_API_KEY` again after the TrueNAS upgrade/recovery work is complete because the current key was changed during troubleshooting.
 
 ## P2 — Exposure observability
 
