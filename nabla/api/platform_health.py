@@ -46,10 +46,7 @@ def _cloudflare_api_error(response: httpx.Response) -> dict[str, Any]:
             error_code = first.get("code")
 
     if response.status_code == 404:
-        message = (
-            f"{message}; verify CLOUDFLARE_ACCOUNT_ID is the Cloudflare Account ID "
-            "(not a Zone ID) and that CLOUDFLARE_API_TOKEN is scoped to that account"
-        )
+        message = f"{message}; verify CLOUDFLARE_ACCOUNT_ID is the Cloudflare Account ID (not a Zone ID) and that CLOUDFLARE_API_TOKEN is scoped to that account"
 
     result["error"] = message[:480]
     if error_code is not None:
@@ -110,14 +107,8 @@ async def check_cloudflare_tunnels() -> dict[str, Any]:
             "probe": "cloudflare_tunnel_api",
         }
 
-    statuses = [
-        str(tunnel.get("status") or "unknown").lower()
-        for tunnel in tunnels
-        if isinstance(tunnel, dict)
-    ]
-    unhealthy = [
-        status for status in statuses if status in {"inactive", "degraded", "down"}
-    ]
+    statuses = [str(tunnel.get("status") or "unknown").lower() for tunnel in tunnels if isinstance(tunnel, dict)]
+    unhealthy = [status for status in statuses if status in {"inactive", "degraded", "down"}]
     healthy = sum(status == "healthy" for status in statuses)
     return {
         "reachable": not unhealthy,
@@ -150,9 +141,7 @@ async def check_pfsense_api() -> dict[str, Any]:
             "probe": "pfsense_rest_api_v2",
         }
 
-    verify_ssl = (
-        os.getenv("PFSENSE_API_VERIFY_SSL", "true").strip().lower() in _TRUE_VALUES
-    )
+    verify_ssl = os.getenv("PFSENSE_API_VERIFY_SSL", "true").strip().lower() in _TRUE_VALUES
     url = f"{base_url}{_PFSENSE_STATUS_PATH}"
     try:
         async with httpx.AsyncClient(
@@ -178,9 +167,7 @@ async def check_pfsense_api() -> dict[str, Any]:
         "http_status": response.status_code,
         "probe": "pfsense_rest_api_v2",
         "url": url,
-        "tls_trusted": True
-        if verify_ssl and url.lower().startswith("https://")
-        else None,
+        "tls_trusted": True if verify_ssl and url.lower().startswith("https://") else None,
     }
     if not healthy:
         result["error"] = f"pfSense API returned HTTP {response.status_code}"

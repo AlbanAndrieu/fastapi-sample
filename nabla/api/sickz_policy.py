@@ -109,9 +109,7 @@ def _access_by_hostname(
                 decision = (policy.decision or "").lower()
                 if decision:
                     decisions.append(decision)
-                public = decision == "bypass" or (
-                    decision == "allow" and policy.includes_everyone
-                )
+                public = decision == "bypass" or (decision == "allow" and policy.includes_everyone)
                 if not public:
                     continue
                 label = policy.name or policy.policy_id
@@ -125,13 +123,7 @@ def _access_by_hostname(
             "cloudflare_access_domains": sorted(set(domains)),
             "cloudflare_access_policy_decisions": sorted(set(decisions)),
             "cloudflare_access_public": bool(public_host_policies or public_path_policies),
-            "cloudflare_access_public_scope": (
-                "host"
-                if public_host_policies
-                else "path"
-                if public_path_policies
-                else None
-            ),
+            "cloudflare_access_public_scope": ("host" if public_host_policies else "path" if public_path_policies else None),
             "cloudflare_access_public_policies": public_host_policies + public_path_policies,
         }
     return out
@@ -189,15 +181,10 @@ async def _probe_http_edge_evidence(url: str) -> dict[str, Any]:
     location = response.headers.get("location", "").casefold()
     cf_mitigated = response.headers.get("cf-mitigated", "").casefold()
     cloudflare_edge = bool(
-        response.headers.get("cf-ray")
-        or response.headers.get("cf-cache-status")
-        or "cloudflare" in server
-        or cf_mitigated
+        response.headers.get("cf-ray") or response.headers.get("cf-cache-status") or "cloudflare" in server or cf_mitigated,
     )
     access_signal = bool(
-        "cloudflareaccess.com" in location
-        or "/cdn-cgi/access/" in location
-        or cf_mitigated in {"challenge", "managed_challenge"}
+        "cloudflareaccess.com" in location or "/cdn-cgi/access/" in location or cf_mitigated in {"challenge", "managed_challenge"},
     )
     return {
         "cloudflare_http_evidence": cloudflare_edge,
@@ -221,11 +208,7 @@ def _runtime_app_for_service(
         )
         if candidate
     }
-    matches = [
-        app
-        for app in runtime.apps
-        if candidates.intersection({_key(app.app_id), _key(app.name)})
-    ]
+    matches = [app for app in runtime.apps if candidates.intersection({_key(app.app_id), _key(app.name)})]
     return matches[0] if len(matches) == 1 else None
 
 
@@ -255,13 +238,10 @@ def _runtime_evidence(
         out["icon_src"] = _SKULL_ICON_SRC
         if http_status in _GATEWAY_HTTP_STATUSES:
             out["failure_detail"] = (
-                f"💀 HTTP {http_status} Bad Gateway/upstream failure matches TrueNAS app state {app.state}; "
-                "the public edge is alive but the service workload is not running."
+                f"💀 HTTP {http_status} Bad Gateway/upstream failure matches TrueNAS app state {app.state}; the public edge is alive but the service workload is not running."
             )
         else:
-            out["failure_detail"] = (
-                f"💀 TrueNAS reports app state {app.state}; the service workload is not running."
-            )
+            out["failure_detail"] = f"💀 TrueNAS reports app state {app.state}; the service workload is not running."
     return out
 
 
@@ -321,13 +301,64 @@ def _secure_external_policy(
     access_evidence: dict[str, Any] | None,
     http_evidence: dict[str, Any],
 ) -> tuple[str, str]:
-    if not reachable:
-        return "fail", "external=true expects the service to be reachable from the Internet."
-    if tls_trusted is False:
-        return "fail", "Service is reachable but its public TLS certificate is not trusted."
-    if http_status is not None and http_status >= 500:
-        return "fail", f"Service is externally reachable but returns HTTP {http_status}."
+    # Early checks
+    fail = _policy_reachable_check(reachable)
+    if fail:
+        return fail
+    fail = _policy_tls_check(tls_trusted)
+    if fail:
+        return fail
+    fail = _policy_http_status_check(http_status)
+    if fail:
+        return fail
 
+    # Tunnel checks
+    tunnel_status, tunnel_detail = _policy_tunnel_check(
+        tunnel_evidence,
+        http_evidence,
+        tunnel_observer_error,
+        observer_configured,
+    )
+    if tunnel_status == "fail":
+        return "fail", tunnel_detail
+
+    # Access checks
+    access_result = _access_policy_result(
+        access_required=access_required,
+        access_evidence=access_evidence,
+        access_observer_error=access_observer_error,
+        http_evidence=http_evidence,
+    )
+    if access_result is None:
+        return tunnel_status, tunnel_detail or "Cloudflare Tunnel posture is compliant."
+
+    access_status, access_detail = access_result
+    if access_status == "fail":
+        return "fail", f"{tunnel_detail} {access_detail}".strip()
+    if access_status == "warn" or tunnel_status == "warn":
+        return "warn", f"{tunnel_detail} {access_detail}".strip()
+    return "ok", f"{tunnel_detail} {access_detail}".strip()
+
+
+def _policy_reachable_check(reachable):
+    if not reachable:
+        return ("fail", "external=true expects the service to be reachable from the Internet.")
+    return None
+
+
+def _policy_tls_check(tls_trusted):
+    if tls_trusted is False:
+        return ("fail", "Service is reachable but its public TLS certificate is not trusted.")
+    return None
+
+
+def _policy_http_status_check(http_status):
+    if http_status is not None and http_status >= 500:
+        return ("fail", f"Service is externally reachable but returns HTTP {http_status}.")
+    return None
+
+
+def _policy_tunnel_check(tunnel_evidence, http_evidence, tunnel_observer_error, observer_configured):
     tunnel_status = "ok"
     tunnel_detail = ""
     if tunnel_evidence is not None:
@@ -357,25 +388,7 @@ def _secure_external_policy(
         else:
             tunnel_status = "fail"
             tunnel_detail = "tunnelSecure=true but the hostname has no observed Cloudflare Tunnel/edge evidence."
-
-    if tunnel_status == "fail":
-        return "fail", tunnel_detail
-
-    access_result = _access_policy_result(
-        access_required=access_required,
-        access_evidence=access_evidence,
-        access_observer_error=access_observer_error,
-        http_evidence=http_evidence,
-    )
-    if access_result is None:
-        return tunnel_status, tunnel_detail or "Cloudflare Tunnel posture is compliant."
-
-    access_status, access_detail = access_result
-    if access_status == "fail":
-        return "fail", f"{tunnel_detail} {access_detail}".strip()
-    if access_status == "warn" or tunnel_status == "warn":
-        return "warn", f"{tunnel_detail} {access_detail}".strip()
-    return "ok", f"{tunnel_detail} {access_detail}".strip()
+    return tunnel_status, tunnel_detail
 
 
 def _direct_external_policy(
@@ -398,7 +411,7 @@ def _direct_external_policy(
         )
 
     bits = [
-        "⚠️ Direct external exposure without Cloudflare is explicitly allowed by policy but remains a security debt."
+        "⚠️ Direct external exposure without Cloudflare is explicitly allowed by policy but remains a security debt.",
     ]
     if host.endswith(_DIRECT_EXTERNAL_SUFFIX):
         bits.append("*.int.albandrieu.com is the intentional direct-Traefik exception.")
@@ -499,18 +512,11 @@ async def enrich_sickz_policy(payload: dict[str, Any]) -> dict[str, Any]:
         access_observer_error,
     ) = cloudflare_result
 
-    services_by_url = {
-        normalized: service
-        for service in services
-        if (normalized := _normalized_url(service.tunnel_url)) is not None
-    }
+    services_by_url = {normalized: service for service in services if (normalized := _normalized_url(service.tunnel_url)) is not None}
     tunnels_by_host = _tunnels_by_hostname(tunnel_observations)
     access_by_host = _access_by_hostname(access_observations)
 
-    checks = {
-        key: dict(value) if isinstance(value, dict) else value
-        for key, value in payload.get("checks", {}).items()
-    }
+    checks = {key: dict(value) if isinstance(value, dict) else value for key, value in payload.get("checks", {}).items()}
     matched: list[tuple[str, dict[str, Any], HomelabService]] = []
     for key, check in checks.items():
         if not isinstance(check, dict):
@@ -521,7 +527,7 @@ async def enrich_sickz_policy(payload: dict[str, Any]) -> dict[str, Any]:
             matched.append((key, check, service))
 
     evidence_results = await asyncio.gather(
-        *(_probe_http_edge_evidence(service.tunnel_url or "") for _, _, service in matched)
+        *(_probe_http_edge_evidence(service.tunnel_url or "") for _, _, service in matched),
     )
 
     for (key, check, service), http_evidence in zip(
@@ -563,7 +569,7 @@ async def enrich_sickz_policy(payload: dict[str, Any]) -> dict[str, Any]:
                 "cloudflare_observer_configured": observer_configured,
                 **http_evidence,
                 **runtime_evidence,
-            }
+            },
         )
         if tunnel_evidence is not None:
             check.update(tunnel_evidence)
@@ -571,11 +577,7 @@ async def enrich_sickz_policy(payload: dict[str, Any]) -> dict[str, Any]:
             check.update(access_evidence)
         checks[key] = check
 
-    counts = Counter(
-        str(check.get("policy_status"))
-        for check in checks.values()
-        if isinstance(check, dict) and check.get("policy_status")
-    )
+    counts = Counter(str(check.get("policy_status")) for check in checks.values() if isinstance(check, dict) and check.get("policy_status"))
     return {
         **payload,
         "checks": checks,

@@ -18,9 +18,7 @@ def test_datadog_disabled_does_not_import_sdk(monkeypatch):
 
     monkeypatch.setattr(builtins, "__import__", guarded_import)
     assert datadog_config.configure_datadog(enabled=False, app_name="test") is False
-    assert (
-        datadog_config.start_datadog_profiler(enabled=False, app_name="test") is None
-    )
+    assert datadog_config.start_datadog_profiler(enabled=False, app_name="test") is None
     with datadog_config.datadog_trace(enabled=False, name="test") as span:
         assert span is None
 

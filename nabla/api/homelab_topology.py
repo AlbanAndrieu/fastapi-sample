@@ -10,10 +10,7 @@ import time
 import httpx
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
-HOMELAB_TOPOLOGY_URL = (
-    "https://raw.githubusercontent.com/AlbanAndrieu/nabla-compose/"
-    "master/catalog/service-topology.json"
-)
+HOMELAB_TOPOLOGY_URL = "https://raw.githubusercontent.com/AlbanAndrieu/nabla-compose/master/catalog/service-topology.json"
 _CACHE_TTL_SEC = 300.0
 _log = logging.getLogger(__name__)
 _cache_lock = asyncio.Lock()
@@ -116,14 +113,12 @@ class HomelabTopology(BaseModel):
         for relation in self.relations:
             if relation.source not in known or relation.target not in known:
                 raise ValueError(
-                    "topology relation references an unknown node: "
-                    f"{relation.source} -> {relation.target}"
+                    f"topology relation references an unknown node: {relation.source} -> {relation.target}",
                 )
             key = (relation.source, relation.target, relation.type)
             if key in relation_keys:
                 raise ValueError(
-                    "duplicate homelab topology relation: "
-                    f"{relation.source} -> {relation.target} ({relation.type})"
+                    f"duplicate homelab topology relation: {relation.source} -> {relation.target} ({relation.type})",
                 )
             relation_keys.add(key)
         return self
@@ -146,10 +141,7 @@ async def fetch_homelab_topology() -> HomelabTopology:
     """Fetch declared topology, retaining the last valid graph on transient failure."""
     async with _cache_lock:
         now = time.monotonic()
-        if (
-            _topology_cache.topology is not None
-            and (now - _topology_cache.cached_at) < _CACHE_TTL_SEC
-        ):
+        if _topology_cache.topology is not None and (now - _topology_cache.cached_at) < _CACHE_TTL_SEC:
             return _topology_cache.topology
 
         try:

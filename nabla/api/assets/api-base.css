@@ -5,8 +5,9 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
-    "Ubuntu", "Cantarell", sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu",
+    "Cantarell", sans-serif;
   background-color: #000000;
   color: #ffffff;
   line-height: 1.6;
@@ -190,8 +191,9 @@ pre {
 }
 
 code {
-  font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas,
-    "Courier New", monospace;
+  font-family:
+    "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New",
+    monospace;
   font-size: 0.85rem;
   line-height: 1.5;
   color: #ffffff;

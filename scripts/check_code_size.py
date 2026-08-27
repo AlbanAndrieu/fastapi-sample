@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import subprocess
+import shutil
 import sys
 from pathlib import Path
 from typing import Iterable
@@ -43,8 +44,16 @@ def _baseline_line_count(path: Path, baseline_ref: str | None) -> int | None:
     if not baseline_ref:
         return None
 
-    result = subprocess.run(  # noqa: S603 -- fixed git executable and validated path input
-        ["git", "show", f"{baseline_ref}:{path.as_posix()}"],
+
+def _baseline_line_count(path: Path, baseline_ref: str | None) -> int | None:
+    if not baseline_ref:
+        return None
+    # S607: Verify that git is available before invoking
+    git_path = shutil.which("git")
+    if not git_path:
+        raise RuntimeError("'git' must be installed and on PATH")
+    result = subprocess.run(  # noqa: S603 - git path is resolved, args trusted
+        [git_path, "show", f"{baseline_ref}:{path.as_posix()}"],
         check=False,
         capture_output=True,
         text=True,
@@ -148,4 +157,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(master())
+    raise SystemExit(main())

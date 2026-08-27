@@ -10,11 +10,16 @@ from nabla.utils import log_config
 
 def test_safe_formatter_supplies_missing_otel_fields() -> None:
     formatter = log_config.SafeFormatter(
-        "%(levelname)s trace=%(otelTraceID)s span=%(otelSpanID)s "
-        "service=%(otelServiceName)s %(message)s"
+        "%(levelname)s trace=%(otelTraceID)s span=%(otelSpanID)s service=%(otelServiceName)s %(message)s",
     )
     record = logging.LogRecord(
-        "uvicorn.error", logging.ERROR, __file__, 1, "ASGI failure", (), None
+        "uvicorn.error",
+        logging.ERROR,
+        __file__,
+        1,
+        "ASGI failure",
+        (),
+        None,
     )
 
     rendered = formatter.format(record)
@@ -27,11 +32,18 @@ def test_safe_formatter_supplies_missing_otel_fields() -> None:
     [log_config.JsonRequestFormatter, log_config.JsonErrorFormatter],
 )
 def test_json_formatter_survives_logging_module_shutdown(
-    monkeypatch, formatter_type
+    monkeypatch,
+    formatter_type,
 ) -> None:
     formatter = formatter_type()
     record = logging.LogRecord(
-        "shutdown", logging.WARNING, __file__, 1, "closing", (), None
+        "shutdown",
+        logging.WARNING,
+        __file__,
+        1,
+        "closing",
+        (),
+        None,
     )
     monkeypatch.setattr(log_config, "logging", None)
 

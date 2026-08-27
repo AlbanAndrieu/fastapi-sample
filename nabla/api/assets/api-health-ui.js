@@ -56,7 +56,9 @@ function serviceIconSvg(key, statusCls) {
   }
   const path =
     ICON_PATHS[key] ||
-    (key.indexOf("albandrieu_") === 0 ? ICON_PATHS.infra_host : ICON_PATHS._default);
+    (key.indexOf("albandrieu_") === 0
+      ? ICON_PATHS.infra_host
+      : ICON_PATHS._default);
   return (
     `<span class="health-row-icon health-row-icon--${statusCls}" aria-hidden="true">` +
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' +
@@ -75,8 +77,10 @@ export function escapeText(value) {
 
 export function rowIcon(check, key, statusCls) {
   let rawPick = "";
-  if (check.icon_src && typeof check.icon_src === "string") rawPick = check.icon_src;
-  else if (check.iconSrc && typeof check.iconSrc === "string") rawPick = check.iconSrc;
+  if (check.icon_src && typeof check.icon_src === "string")
+    rawPick = check.icon_src;
+  else if (check.iconSrc && typeof check.iconSrc === "string")
+    rawPick = check.iconSrc;
   const absRaw = normalizeIconSrc(rawPick);
   if (iconSrcIsHttpUrl(absRaw)) {
     return (

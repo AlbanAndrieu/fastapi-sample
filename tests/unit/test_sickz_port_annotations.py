@@ -21,8 +21,8 @@ def test_pfsense_10443_uses_https_alias_reachability() -> None:
                 "reachable": True,
                 "pfsense_tcp_ports": {"22": False, "3000": None, "4000": False, "8200": None},
                 "pfsense_tcp_port_policy": {},
-            }
-        }
+            },
+        },
     }
 
     result = enrich_pfsense_port_annotations(payload)
@@ -41,8 +41,8 @@ def test_named_tcp_services_keep_expected_blocked_policy() -> None:
                 "reachable": False,
                 "pfsense_tcp_ports": {},
                 "pfsense_tcp_port_policy": {},
-            }
-        }
+            },
+        },
     }
 
     check = enrich_pfsense_port_annotations(payload)["checks"]["pfsense"]

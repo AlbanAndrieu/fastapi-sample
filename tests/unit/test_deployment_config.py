@@ -15,7 +15,7 @@ def test_vercel_is_a_lightweight_fastapi_cloud_proxy() -> None:
         {
             "source": "/:path*",
             "destination": "https://fastapi-sample.fastapicloud.dev/:path*",
-        }
+        },
     ]
 
     ignored = (ROOT / ".vercelignore").read_text(encoding="utf-8")

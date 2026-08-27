@@ -90,8 +90,8 @@ class NoteResponse(BaseModel):
     completed: bool = False
     created_date: str = Field(
         default_factory=lambda: datetime.now(tz("Europe/Paris")).strftime(
-            "%Y-%m-%d %H:%M"
-        )
+            "%Y-%m-%d %H:%M",
+        ),
     )
 
 

@@ -15,7 +15,7 @@ def _request(app: FastAPI, path: str) -> Request:
             "headers": [],
             "query_string": b"",
             "app": app,
-        }
+        },
     )
 
 

@@ -86,7 +86,7 @@ def _load_cloudflare_client() -> _CloudflareClientFactory:
         module = importlib.import_module("cloudflare")
     except ImportError as exc:
         raise RuntimeError(
-            "Cloudflare observation requires the official 'cloudflare' Python SDK"
+            "Cloudflare observation requires the official 'cloudflare' Python SDK",
         ) from exc
     return module.Cloudflare
 
@@ -163,7 +163,7 @@ class CloudflareTunnelObserver:
                     status=_value(tunnel, "status"),
                     config_source=config_source,
                     ingress=ingress,
-                )
+                ),
             )
 
         return observations
@@ -196,7 +196,7 @@ class CloudflareTunnelObserver:
                     hostname=hostname.rstrip("."),
                     service=service,
                     status=status,
-                )
+                ),
             )
 
         return tuple(observed)
@@ -230,20 +230,10 @@ class CloudflareTunnelObserver:
                 policies.append(
                     CloudflareAccessPolicyObservation(
                         policy_id=policy_id,
-                        name=(
-                            str(_value(policy, "name"))
-                            if _value(policy, "name") is not None
-                            else None
-                        ),
-                        decision=(
-                            str(_value(policy, "decision")).lower()
-                            if _value(policy, "decision") is not None
-                            else None
-                        ),
-                        includes_everyone=any(
-                            _rule_includes_everyone(rule) for rule in include_rules
-                        ),
-                    )
+                        name=(str(_value(policy, "name")) if _value(policy, "name") is not None else None),
+                        decision=(str(_value(policy, "decision")).lower() if _value(policy, "decision") is not None else None),
+                        includes_everyone=any(_rule_includes_everyone(rule) for rule in include_rules),
+                    ),
                 )
 
             observations.append(
@@ -254,7 +244,7 @@ class CloudflareTunnelObserver:
                     hostname=hostname,
                     path=path,
                     policies=tuple(policies),
-                )
+                ),
             )
 
         return observations

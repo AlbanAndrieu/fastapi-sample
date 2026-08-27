@@ -18,17 +18,14 @@ _SENSITIVE_KEY = re.compile(
 _SENSITIVE_VALUE = re.compile(
     r"(?i)(?P<prefix>(?:password|passwd|pass|pwd|secret|token|api[_-]?key|"
     r"authorization|instance[_-]?id|client[_-]?secret)\s*[=:]\s*)"
-    r"(?P<value>[^\s,;}&]+)"
+    r"(?P<value>[^\s,;}&]+)",
 )
 _CONNECTION_PASSWORD = re.compile(r"(?P<scheme>[a-z][a-z0-9+.-]*://[^:/\s]+:)(?P<password>[^@/\s]+)(?=@)")
 
 
 def _redact_value(value):
     if isinstance(value, Mapping):
-        return {
-            key: _REDACTED if _SENSITIVE_KEY.search(str(key)) else _redact_value(item)
-            for key, item in value.items()
-        }
+        return {key: _REDACTED if _SENSITIVE_KEY.search(str(key)) else _redact_value(item) for key, item in value.items()}
     if isinstance(value, list):
         return [_redact_value(item) for item in value]
     if isinstance(value, tuple):
@@ -82,12 +79,9 @@ shared_processors = [
     structlog.processors.UnicodeDecoder(),
 ]
 if sys.stderr.isatty():
-    processors = shared_processors + [structlog.dev.ConsoleRenderer()]
+    processors = [*shared_processors, structlog.dev.ConsoleRenderer()]
 else:
-    processors = shared_processors + [
-        structlog.processors.dict_tracebacks,
-        structlog.processors.JSONRenderer(),
-    ]
+    processors = [*shared_processors, structlog.processors.dict_tracebacks, structlog.processors.JSONRenderer()]
 
 
 def enable_logfire_processor(processor) -> None:

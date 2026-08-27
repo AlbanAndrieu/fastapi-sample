@@ -60,10 +60,7 @@ _KNOWN_PAAS_ENV_MARKERS: tuple[str, ...] = (
 
 
 def pfsense_tcp_port_policy_payload() -> dict[str, dict[str, Any]]:
-    return {
-        str(port): dict(policy)
-        for port, policy in _PFSENSE_TCP_PORT_POLICY.items()
-    }
+    return {str(port): dict(policy) for port, policy in _PFSENSE_TCP_PORT_POLICY.items()}
 
 
 def pfsense_canonical_href(urls: list[str]) -> str | None:
@@ -91,11 +88,7 @@ def pfsense_canonical_tcp_host(urls: list[str]) -> str | None:
 
 def canonical_pfsense_alias_urls(default_targets: str) -> list[str]:
     first_segment = default_targets.replace("\n", ",").split(",")[0].strip()
-    aliases = [
-        alias.strip()
-        for alias in first_segment.split("|")
-        if alias.strip()
-    ]
+    aliases = [alias.strip() for alias in first_segment.split("|") if alias.strip()]
     if aliases and pfsense_canonical_href(aliases) is not None:
         return aliases
     return [
@@ -124,9 +117,7 @@ def pfsense_tcp_skip_payload(urls: list[str]) -> dict[str, Any]:
     if not pfsense_canonical_tcp_host(urls):
         return {}
     return {
-        "pfsense_tcp_ports": {
-            str(port): None for port in PFSENSE_EXTRA_TCP_PORTS
-        },
+        "pfsense_tcp_ports": {str(port): None for port in PFSENSE_EXTRA_TCP_PORTS},
         "pfsense_tcp_port_policy": pfsense_tcp_port_policy_payload(),
         "pfsense_tcp_ports_skipped": True,
     }
@@ -134,10 +125,7 @@ def pfsense_tcp_skip_payload(urls: list[str]) -> dict[str, Any]:
 
 def known_paas_runtime_detected() -> bool:
     env = os.environ
-    return any(
-        env.get(key) is not None and str(env.get(key)).strip() != ""
-        for key in _KNOWN_PAAS_ENV_MARKERS
-    )
+    return any(env.get(key) is not None and str(env.get(key)).strip() != "" for key in _KNOWN_PAAS_ENV_MARKERS)
 
 
 async def _probe_tcp_port_open(
@@ -203,7 +191,7 @@ async def _probe_http_port(
     try:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(timeout_s),
-            verify=False,
+            verify=False,  # noqa: S501 - self-signed homelab certs allowed in test/dev
             follow_redirects=False,
         ) as client:
             await client.get(

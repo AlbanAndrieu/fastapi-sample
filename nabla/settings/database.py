@@ -182,20 +182,12 @@ class DatabaseSettings(SettingsBase):
             resolved_user,
             project_ref,
         )
-        if (
-            resolved_user == previous_user
-            and is_supabase_supavisor_pooler_host(resolved_host)
-            and previous_user.strip().lower() == "postgres"
-        ):
+        if resolved_user == previous_user and is_supabase_supavisor_pooler_host(resolved_host) and previous_user.strip().lower() == "postgres":
             _log.warning(
                 "Supabase pooler host %s requires username postgres.<project_ref>; set SUPABASE_URL, SUPABASE_PROJECT_REF, or a db.<ref>.supabase.co host.",
                 resolved_host,
             )
-        resolved_query = (
-            merge_postgres_query_sslmode_require(query)
-            if is_supabase_postgres_host(resolved_host)
-            else query
-        )
+        resolved_query = merge_postgres_query_sslmode_require(query) if is_supabase_postgres_host(resolved_host) else query
         return resolved_host, resolved_user, resolved_port, resolved_query
 
     def build_app_connection_string(self) -> str:
@@ -222,27 +214,15 @@ class DatabaseSettings(SettingsBase):
         """Return the sync/Alembic PostgreSQL connection URI."""
         migration_host = self.postgres_migration_host or self.postgres_host
         migration_user = self.postgres_migration_user or self.postgres_user
-        migration_port = (
-            self.postgres_migration_port
-            if self.postgres_migration_port is not None
-            else self.postgres_port
-        )
-        migration_query = (
-            self.postgres_migration_query
-            if self.postgres_migration_query is not None
-            else self.postgres_query
-        )
+        migration_port = self.postgres_migration_port if self.postgres_migration_port is not None else self.postgres_port
+        migration_query = self.postgres_migration_query if self.postgres_migration_query is not None else self.postgres_query
         host, user, port, query = self._resolve_postgres_connect(
             host=migration_host,
             user=migration_user,
             port=migration_port,
             query=migration_query,
         )
-        password = (
-            self.postgres_migration_password.get_secret_value()
-            if self.postgres_migration_password is not None
-            else self.postgres_password.get_secret_value()
-        )
+        password = self.postgres_migration_password.get_secret_value() if self.postgres_migration_password is not None else self.postgres_password.get_secret_value()
         url = make_postgres_url(
             driver=self.postgres_driver,
             username=user,

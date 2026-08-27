@@ -53,10 +53,14 @@ async def metrics_middleware(request: Request, call_next):
     route_label = metric_route_label(request)
     INFLIGHT_REQUESTS.inc()
     REQUESTS_IN_PROGRESS.labels(
-        method=request.method, path=route_label, app_name=APP_NAME
+        method=request.method,
+        path=route_label,
+        app_name=APP_NAME,
     ).inc()
     REQUESTS.labels(
-        method=request.method, path=route_label, app_name=APP_NAME
+        method=request.method,
+        path=route_label,
+        app_name=APP_NAME,
     ).inc()
 
     try:
@@ -68,13 +72,17 @@ async def metrics_middleware(request: Request, call_next):
             app_name=APP_NAME,
         ).inc()
         REQUESTS_PROCESSING_TIME.labels(
-            method=request.method, path=route_label, app_name=APP_NAME
+            method=request.method,
+            path=route_label,
+            app_name=APP_NAME,
         ).observe(time.time() - start_time)
         return response
     finally:
         INFLIGHT_REQUESTS.dec()
         REQUESTS_IN_PROGRESS.labels(
-            method=request.method, path=route_label, app_name=APP_NAME
+            method=request.method,
+            path=route_label,
+            app_name=APP_NAME,
         ).dec()
 
 
@@ -85,7 +93,9 @@ async def logging_middleware(request: Request, call_next):
         response = await call_next(request)
     except Exception:
         logger.exception(
-            "request_failed", method=request.method, path=request.url.path
+            "request_failed",
+            method=request.method,
+            path=request.url.path,
         )
         raise
 
@@ -96,13 +106,7 @@ async def logging_middleware(request: Request, call_next):
         "status_code": response.status_code,
         "duration_seconds": duration,
     }
-    is_noisy = (
-        response.status_code < 400
-        and (
-            request.url.path in NOISY_SUCCESS_PATHS
-            or request.url.path.startswith(NOISY_SUCCESS_PREFIXES)
-        )
-    )
+    is_noisy = response.status_code < 400 and (request.url.path in NOISY_SUCCESS_PATHS or request.url.path.startswith(NOISY_SUCCESS_PREFIXES))
 
     if response.status_code >= 500:
         logger.error("request_completed", **log_fields)

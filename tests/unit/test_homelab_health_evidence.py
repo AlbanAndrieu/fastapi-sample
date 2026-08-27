@@ -59,7 +59,7 @@ def test_private_service_is_green_when_internal_probe_succeeds() -> None:
                 "port": 8099,
                 "reachable": True,
                 "state": "ok",
-            }
+            },
         ],
         runtime=_runtime(ObservedApp(app_id="hello", name="hello", state="RUNNING")),
         tunnels=[],
@@ -102,7 +102,7 @@ def test_cloudflare_protected_service_is_warning_not_failure() -> None:
                 "state": "fail",
                 "tls_trusted": None,
                 "error": "probe blocked",
-            }
+            },
         ],
         internal_results=[],
         runtime=_runtime(ObservedApp(app_id="searxng", name="SearXNG", state="RUNNING")),
@@ -133,7 +133,7 @@ def test_direct_403_stays_warning_with_cloudflare_access() -> None:
                 "http_status": 403,
                 "state": "warn",
                 "tls_trusted": True,
-            }
+            },
         ],
         internal_results=[],
         runtime=None,
@@ -161,7 +161,7 @@ def test_direct_success_remains_green_without_conflicting_evidence() -> None:
                 "http_status": 200,
                 "state": "ok",
                 "tls_trusted": True,
-            }
+            },
         ],
         internal_results=[],
         runtime=None,
@@ -196,7 +196,7 @@ def test_service_without_url_gets_conventional_endpoint_and_unknown_state() -> N
             "runtime_state": None,
             "runtime_app": None,
             "runtime_reachable": None,
-        }
+        },
     ]
 
 
@@ -218,11 +218,11 @@ def test_application_error_remains_failure_despite_positive_runtime() -> None:
                 "state": "fail",
                 "tls_trusted": True,
                 "application_error": "Application error",
-            }
+            },
         ],
         internal_results=[],
         runtime=_runtime(
-            ObservedApp(app_id="languagetool", name="LanguageTool", state="RUNNING")
+            ObservedApp(app_id="languagetool", name="LanguageTool", state="RUNNING"),
         ),
         tunnels=[],
     )

@@ -340,7 +340,7 @@ def test_path_scoped_webhook_bypass_is_warning_not_full_host_failure() -> None:
                     includes_everyone=True,
                 ),
             ),
-        )
+        ),
     ]
     access = _access_by_hostname(apps)["n8n.albandrieu.com"]
 

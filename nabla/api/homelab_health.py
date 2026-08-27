@@ -82,10 +82,7 @@ def _short_error(exc: BaseException) -> str:
 def _is_textual_response(response: httpx.Response) -> bool:
     """Return whether a successful response is useful for lightweight body checks."""
     content_type = response.headers.get("content-type", "").lower()
-    return content_type.startswith("text/") or any(
-        marker in content_type
-        for marker in ("application/json", "application/problem+json", "application/xml")
-    )
+    return content_type.startswith("text/") or any(marker in content_type for marker in ("application/json", "application/problem+json", "application/xml"))
 
 
 def _application_error_from_response(response: httpx.Response) -> str | None:
@@ -149,9 +146,7 @@ async def _probe_http_endpoint(
                 url,
                 headers={"User-Agent": "nabla-homelab-health/1.0"},
             )
-            should_get = response.status_code in {405, 501} or (
-                200 <= response.status_code <= 299 and _is_textual_response(response)
-            )
+            should_get = response.status_code in {405, 501} or (200 <= response.status_code <= 299 and _is_textual_response(response))
             if should_get:
                 response = await client.get(
                     url,
@@ -365,29 +360,16 @@ async def build_homelab_health_payload() -> dict[str, Any]:
             return _copy_payload(_cached_payload)
 
         catalog_services = await fetch_homelab_services()
-        public_services = [
-            service
-            for service in catalog_services
-            if service.public_https_probe_url is not None
-        ]
+        public_services = [service for service in catalog_services if service.public_https_probe_url is not None]
         internal_enabled = internal_probes_enabled()
-        internal_services = [
-            service
-            for service in catalog_services
-            if internal_enabled
-            and service.internal_host
-            and service.internal_port is not None
-        ]
+        internal_services = [service for service in catalog_services if internal_enabled and service.internal_host and service.internal_port is not None]
 
         semaphore = asyncio.Semaphore(_MAX_PROBE_CONCURRENCY)
         timeout = httpx.Timeout(_PROBE_TIMEOUT_SEC)
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
             public_results, truenas = await asyncio.gather(
                 asyncio.gather(
-                    *(
-                        _probe_public_service(client, semaphore, service)
-                        for service in public_services
-                    )
+                    *(_probe_public_service(client, semaphore, service) for service in public_services),
                 ),
                 _probe_truenas(
                     client,
@@ -397,10 +379,7 @@ async def build_homelab_health_payload() -> dict[str, Any]:
             )
 
         internal_results = await asyncio.gather(
-            *(
-                _probe_internal_service(semaphore, service)
-                for service in internal_services
-            )
+            *(_probe_internal_service(semaphore, service) for service in internal_services),
         )
 
         payload: dict[str, Any] = {

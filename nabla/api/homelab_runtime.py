@@ -29,8 +29,7 @@ ReconciliationState = Literal[
 
 _DEFAULT_RUNTIME_CACHE_TTL_SECONDS = 30.0
 _RUNTIME_CACHE_LOCK = threading.Lock()
-_RUNTIME_CACHE: TrueNASRuntimeSnapshot | None = None
-_RUNTIME_CACHE_EXPIRES_AT = 0.0
+_RUNTIME_STATE = {"cache": None, "expires_at": 0.0}
 
 
 class ObservedContainer(BaseModel):
@@ -92,21 +91,9 @@ def _observed_app(raw: dict[str, Any]) -> ObservedApp:
     raw_containers = workloads.get("container_details") or []
     containers = [
         ObservedContainer(
-            service_name=(
-                str(container.get("service_name"))
-                if container.get("service_name") is not None
-                else None
-            ),
-            image=(
-                str(container.get("image"))
-                if container.get("image") is not None
-                else None
-            ),
-            state=(
-                str(container.get("state"))
-                if container.get("state") is not None
-                else None
-            ),
+            service_name=(str(container.get("service_name")) if container.get("service_name") is not None else None),
+            image=(str(container.get("image")) if container.get("image") is not None else None),
+            state=(str(container.get("state")) if container.get("state") is not None else None),
         )
         for container in raw_containers
         if isinstance(container, dict)
@@ -117,11 +104,7 @@ def _observed_app(raw: dict[str, Any]) -> ObservedApp:
         name=str(raw.get("name") or app_id),
         state=str(raw.get("state") or raw.get("status") or "UNKNOWN"),
         version=str(raw["version"]) if raw.get("version") is not None else None,
-        human_version=(
-            str(raw["human_version"])
-            if raw.get("human_version") is not None
-            else None
-        ),
+        human_version=(str(raw["human_version"]) if raw.get("human_version") is not None else None),
         upgrade_available=bool(raw.get("upgrade_available", False)),
         containers=containers,
     )
@@ -157,38 +140,35 @@ def observe_truenas_runtime() -> TrueNASRuntimeSnapshot:
 
 def _cached_truenas_runtime() -> TrueNASRuntimeSnapshot:
     """Share one TrueNAS observation across callers and retain the last known good snapshot."""
-    global _RUNTIME_CACHE, _RUNTIME_CACHE_EXPIRES_AT
-
     now = time.monotonic()
     with _RUNTIME_CACHE_LOCK:
-        if _RUNTIME_CACHE is not None and now < _RUNTIME_CACHE_EXPIRES_AT:
-            return _RUNTIME_CACHE
+        if _RUNTIME_STATE["cache"] is not None and now < _RUNTIME_STATE["expires_at"]:
+            return _RUNTIME_STATE["cache"]
 
-        previous = _RUNTIME_CACHE
+        previous = _RUNTIME_STATE["cache"]
         refreshed = observe_truenas_runtime()
         ttl = _runtime_cache_ttl_seconds()
-        _RUNTIME_CACHE_EXPIRES_AT = time.monotonic() + ttl
+        _RUNTIME_STATE["expires_at"] = time.monotonic() + ttl
 
         if refreshed.reachable or previous is None or not previous.reachable:
-            _RUNTIME_CACHE = refreshed
+            _RUNTIME_STATE["cache"] = refreshed
             return refreshed
 
         stale = previous.model_copy(
             update={
                 "stale": True,
                 "error": refreshed.error or "TrueNAS refresh failed; serving last known good snapshot",
-            }
+            },
         )
-        _RUNTIME_CACHE = stale
+        _RUNTIME_STATE["cache"] = stale
         return stale
 
 
 def _reset_runtime_cache() -> None:
     """Reset module cache for deterministic tests."""
-    global _RUNTIME_CACHE, _RUNTIME_CACHE_EXPIRES_AT
     with _RUNTIME_CACHE_LOCK:
-        _RUNTIME_CACHE = None
-        _RUNTIME_CACHE_EXPIRES_AT = 0.0
+        _RUNTIME_STATE["cache"] = None
+        _RUNTIME_STATE["expires_at"] = 0.0
 
 
 async def fetch_truenas_runtime() -> TrueNASRuntimeSnapshot:
@@ -204,11 +184,7 @@ def _matches_binding(
         return False, None
     if not binding.container_service:
         return True, None
-    matches = [
-        container
-        for container in app.containers
-        if container.service_name == binding.container_service
-    ]
+    matches = [container for container in app.containers if container.service_name == binding.container_service]
     if not matches:
         return False, None
     return True, matches[0]
@@ -225,11 +201,7 @@ def _reconcile_declared(
         "declared": True,
         "sourcePath": service.source_path,
         "composeService": service.compose_service,
-        "runtimeBinding": (
-            binding.model_dump(mode="json", by_alias=True, exclude_none=True)
-            if binding is not None
-            else None
-        ),
+        "runtimeBinding": (binding.model_dump(mode="json", by_alias=True, exclude_none=True) if binding is not None else None),
     }
     if binding is None or binding.provider != "truenas-app":
         return {**base, "reconciliation": "not_observed"}, set()
@@ -294,10 +266,7 @@ async def build_homelab_status_payload() -> dict[str, Any]:
                 "version": app.version,
                 "humanVersion": app.human_version,
                 "upgradeAvailable": app.upgrade_available,
-                "containers": [
-                    container.model_dump(exclude_none=True)
-                    for container in app.containers
-                ],
+                "containers": [container.model_dump(exclude_none=True) for container in app.containers],
             },
         }
         for app in runtime.apps

@@ -148,10 +148,7 @@ async def check_supabase_http() -> dict[str, Any]:
         return {
             "reachable": None,
             "skipped": True,
-            "reason": (
-                "SUPABASE_PUBLISHABLE_KEY and SUPABASE_SERVICE_ROLE_KEY "
-                "are not configured"
-            ),
+            "reason": ("SUPABASE_PUBLISHABLE_KEY and SUPABASE_SERVICE_ROLE_KEY are not configured"),
             "probe": "data_api",
         }
     try:
@@ -259,9 +256,6 @@ async def build_healthz_payload(
     )
     checks = _dependency_checks(dependency_results)
     _merge_homelab_checks(checks, homelab_rows, homelab_results)
-    checks = {
-        name: _normalize_probe_result_errors(check)
-        for name, check in checks.items()
-    }
+    checks = {name: _normalize_probe_result_errors(check) for name, check in checks.items()}
     await enrich_integration_metadata(checks)
     return {**base, "checks": checks, "version": request.app.version}

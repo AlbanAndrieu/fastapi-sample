@@ -29,7 +29,7 @@ def test_legacy_catalog_derives_id_from_public_hostname() -> None:
             "name": "Langfuse",
             "tunnelUrl": "https://langfuse.albandrieu.com",
             "external": True,
-        }
+        },
     )
 
     payload = service.model_dump(mode="json", by_alias=True, exclude_none=True)
@@ -46,7 +46,7 @@ def test_legacy_private_service_derives_id_from_name() -> None:
             "internalHost": "172.17.0.24",
             "internalPort": 30117,
             "external": False,
-        }
+        },
     )
 
     assert service.service_id == "open-speedtest"
@@ -58,7 +58,7 @@ def test_explicit_service_id_is_preserved() -> None:
             "id": "langfuse-worker",
             "name": "Langfuse UI",
             "external": False,
-        }
+        },
     )
 
     assert service.service_id == "langfuse-worker"
@@ -86,7 +86,7 @@ def test_legacy_exposure_alias_is_accepted_but_not_emitted() -> None:
             "name": "Vaultwarden",
             "tunnelUrl": "https://vaultwarden.albandrieu.com",
             "reacheableFromOutside": True,
-        }
+        },
     )
 
     payload = service.model_dump(mode="json", by_alias=True, exclude_none=True)
@@ -105,7 +105,7 @@ def test_conflicting_old_and_new_exposure_flags_fail_closed() -> None:
                 "tunnelUrl": "https://example.com",
                 "external": False,
                 "reacheableFromOutside": True,
-            }
+            },
         )
 
 
@@ -139,7 +139,7 @@ def test_int_external_exception_requires_explicit_direct_security_posture() -> N
             "tunnelUrl": "https://garage.int.albandrieu.com",
             "external": True,
             "tunnelSecure": False,
-        }
+        },
     )
 
     assert service.external is True
@@ -206,17 +206,15 @@ def test_sickz_metadata_keeps_names_for_policy_targets() -> None:
     )
 
     assert homelab_catalog.homelab_tunnel_url_to_service_name([private]) == {
-        "https://sabnzbd.albandrieu.com/": "SABnzbd"
+        "https://sabnzbd.albandrieu.com/": "SABnzbd",
     }
     assert homelab_catalog.homelab_tunnel_url_to_resolved_icon_src([private]) == {
-        "https://sabnzbd.albandrieu.com/": "assets/selfh-icons/sabnzbd.png"
+        "https://sabnzbd.albandrieu.com/": "assets/selfh-icons/sabnzbd.png",
     }
 
 
 def test_healthz_key_uses_stable_service_id() -> None:
-    assert homelab_catalog._healthz_check_key("langfuse-worker") == (
-        "albandrieu_langfuse_worker"
-    )
+    assert homelab_catalog._healthz_check_key("langfuse-worker") == ("albandrieu_langfuse_worker")
 
 
 def test_catalog_rejects_duplicate_service_names_case_insensitively() -> None:
@@ -225,7 +223,7 @@ def test_catalog_rejects_duplicate_service_names_case_insensitively() -> None:
             services=[
                 HomelabService(name="Grafana"),
                 HomelabService(name="grafana"),
-            ]
+            ],
         )
 
 
@@ -235,7 +233,7 @@ def test_catalog_rejects_duplicate_service_ids() -> None:
             services=[
                 HomelabService(id="langfuse", name="Langfuse UI"),
                 HomelabService(id="langfuse", name="Langfuse Worker"),
-            ]
+            ],
         )
 
 

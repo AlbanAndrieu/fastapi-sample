@@ -10,15 +10,11 @@ from typing import Literal
 import httpx
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
-DECLARED_SERVICES_URL = (
-    "https://raw.githubusercontent.com/AlbanAndrieu/nabla-compose/"
-    "master/catalog/services.json"
-)
+DECLARED_SERVICES_URL = "https://raw.githubusercontent.com/AlbanAndrieu/nabla-compose/master/catalog/services.json"
 _CACHE_TTL_SEC = 300.0
 _log = logging.getLogger(__name__)
 _cache_lock = asyncio.Lock()
-_cached_at = 0.0
-_cached_catalog: "DeclaredServiceCatalog | None" = None
+_STATE = {"catalog": None, "at": 0.0}
 
 
 class RuntimeBinding(BaseModel):
@@ -39,11 +35,9 @@ class RuntimeBinding(BaseModel):
     )
 
     @model_validator(mode="after")
-    def require_truenas_identity(self) -> "RuntimeBinding":
+    def require_truenas_identity(self) -> RuntimeBinding:
         """TrueNAS bindings must provide deterministic app or Compose-service identity."""
-        if self.provider == "truenas-app" and not (
-            self.app_id or self.container_service
-        ):
+        if self.provider == "truenas-app" and not (self.app_id or self.container_service):
             raise ValueError("truenas-app runtime requires appId or containerService")
         return self
 
@@ -98,7 +92,7 @@ class DeclaredServiceCatalog(BaseModel):
     services: list[DeclaredService] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def require_unique_ids(self) -> "DeclaredServiceCatalog":
+    def require_unique_ids(self) -> DeclaredServiceCatalog:
         ids = [service.service_id for service in self.services]
         if len(ids) != len(set(ids)):
             raise ValueError("duplicate declared service id")
@@ -107,12 +101,10 @@ class DeclaredServiceCatalog(BaseModel):
 
 async def fetch_declared_service_catalog() -> DeclaredServiceCatalog:
     """Fetch the code-owned catalog, retaining the last known good copy."""
-    global _cached_at, _cached_catalog
-
     async with _cache_lock:
         now = time.monotonic()
-        if _cached_catalog is not None and now - _cached_at < _CACHE_TTL_SEC:
-            return _cached_catalog
+        if _STATE["catalog"] is not None and now - _STATE["at"] < _CACHE_TTL_SEC:
+            return _STATE["catalog"]
         try:
             async with httpx.AsyncClient(timeout=httpx.Timeout(15.0)) as client:
                 response = await client.get(
@@ -127,14 +119,14 @@ async def fetch_declared_service_catalog() -> DeclaredServiceCatalog:
                 DECLARED_SERVICES_URL,
                 exc,
             )
-            if _cached_catalog is not None:
-                return _cached_catalog
+            if _STATE["catalog"] is not None:
+                return _STATE["catalog"]
             return DeclaredServiceCatalog(
                 version=1,
                 catalogRevision="unavailable",
                 topologyVersion=1,
                 name="Nabla homelab declared services",
             )
-        _cached_catalog = catalog
-        _cached_at = time.monotonic()
+        _STATE["catalog"] = catalog
+        _STATE["at"] = time.monotonic()
         return catalog

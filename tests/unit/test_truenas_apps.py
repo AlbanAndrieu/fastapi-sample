@@ -31,7 +31,7 @@ class FakeClient:
                     "id": "vaultwarden",
                     "state": "RUNNING",
                     "active_workloads": {"used_ports": [], "container_details": []},
-                }
+                },
             ]
         raise AssertionError(f"unexpected method: {method}")
 

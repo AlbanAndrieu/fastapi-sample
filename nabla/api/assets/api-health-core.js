@@ -50,7 +50,8 @@ export const MANDATORY = new Set([
 
 function healthRowTitleHtml(check, key) {
   let rowTitle = "";
-  if (check.name != null && String(check.name).trim()) rowTitle = String(check.name).trim();
+  if (check.name != null && String(check.name).trim())
+    rowTitle = String(check.name).trim();
   else if (check.display_label != null) rowTitle = String(check.display_label);
   else if (LABELS[key]) rowTitle = LABELS[key];
   else rowTitle = key;
@@ -90,7 +91,8 @@ function mandatoryFailed(key, check) {
 }
 
 function detailText(key, check) {
-  if (check.skipped) return check.reason || "Not configured (intentionally disabled).";
+  if (check.skipped)
+    return check.reason || "Not configured (intentionally disabled).";
   if (isExpectedSentryDebugFailure(key, check)) {
     return "HTTP 500 · Expected: the test error was intentionally triggered and captured by Sentry.";
   }
@@ -98,7 +100,8 @@ function detailText(key, check) {
     const parts = [];
     if (check.http_status != null) parts.push(`HTTP ${check.http_status}`);
     if (check.path) parts.push(check.path);
-    if (check.host != null && check.port != null) parts.push(`${check.host}:${check.port}`);
+    if (check.host != null && check.port != null)
+      parts.push(`${check.host}:${check.port}`);
     if (check.url) parts.push(String(check.url).replace(/^https?:\/\//i, ""));
     return parts.length ? parts.join(" · ") : "Connected.";
   }

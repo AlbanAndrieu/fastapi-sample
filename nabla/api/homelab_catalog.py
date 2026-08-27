@@ -17,9 +17,7 @@ from nabla.integrations.truenas_client import truenas_url
 _log = logging.getLogger(__name__)
 
 HOMELAB_SERVICES_CATALOG_PATH = Path(__file__).with_name("data") / "homelab-services.json"
-HOMELAB_EXPOSURE_OVERRIDES_PATH = (
-    Path(__file__).with_name("data") / "homelab-exposure-overrides.json"
-)
+HOMELAB_EXPOSURE_OVERRIDES_PATH = Path(__file__).with_name("data") / "homelab-exposure-overrides.json"
 
 _OVERRIDE_FIELDS = (
     "external",
@@ -41,7 +39,7 @@ def _apply_exposure_overrides(payload: dict[str, Any]) -> dict[str, Any]:
     """
     try:
         overrides_payload = json.loads(
-            HOMELAB_EXPOSURE_OVERRIDES_PATH.read_text(encoding="utf-8")
+            HOMELAB_EXPOSURE_OVERRIDES_PATH.read_text(encoding="utf-8"),
         )
     except FileNotFoundError:
         return payload
@@ -60,11 +58,7 @@ def _apply_exposure_overrides(payload: dict[str, Any]) -> dict[str, Any]:
 
     merged = dict(payload)
     merged_services = [dict(item) if isinstance(item, dict) else item for item in services]
-    by_name = {
-        str(item.get("name") or "").casefold(): item
-        for item in merged_services
-        if isinstance(item, dict) and item.get("name")
-    }
+    by_name = {str(item.get("name") or "").casefold(): item for item in merged_services if isinstance(item, dict) and item.get("name")}
 
     for override in overrides:
         if not isinstance(override, dict):
@@ -124,7 +118,7 @@ async def homelab_healthz_probe_rows() -> list[tuple[str, str, str, str | None]]
     services = await fetch_homelab_services()
     configured_truenas_url = truenas_url().rstrip("/") + "/"
     rows: list[tuple[str, str, str, str | None]] = [
-        ("albandrieu_truenas", configured_truenas_url, "TrueNAS", None)
+        ("albandrieu_truenas", configured_truenas_url, "TrueNAS", None),
     ]
     used_keys: set[str] = {"albandrieu_truenas"}
     for service in services:

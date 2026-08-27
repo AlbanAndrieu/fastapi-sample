@@ -32,14 +32,8 @@ def _truenas_component(snapshot: dict[str, Any]) -> dict[str, Any]:
         }
 
     state = str(truenas.get("state") or "unknown")
-    public = (
-        truenas.get("public") if isinstance(truenas.get("public"), dict) else {}
-    )
-    internal = (
-        truenas.get("internal")
-        if isinstance(truenas.get("internal"), dict)
-        else None
-    )
+    public = truenas.get("public") if isinstance(truenas.get("public"), dict) else {}
+    internal = truenas.get("internal") if isinstance(truenas.get("internal"), dict) else None
     api = truenas.get("api") if isinstance(truenas.get("api"), dict) else None
     return {
         "reachable": state != "fail",

@@ -73,11 +73,7 @@ def _runtime_app_for_service(
     if not candidates:
         return None
 
-    matches = [
-        app
-        for app in runtime.apps
-        if candidates.intersection({_key(app.app_id), _key(app.name)})
-    ]
+    matches = [app for app in runtime.apps if candidates.intersection({_key(app.app_id), _key(app.name)})]
     return matches[0] if len(matches) == 1 else None
 
 
@@ -161,16 +157,8 @@ def build_reconciled_service_health(
     tunnels: Iterable[CloudflareTunnelObservation],
 ) -> list[dict[str, Any]]:
     """Return one endpoint-health row per catalog service with multi-source evidence."""
-    direct_by_url = {
-        normalized: result
-        for result in public_results
-        if (normalized := _normalized_url(str(result.get("url") or ""))) is not None
-    }
-    internal_by_id = {
-        str(result.get("id")): result
-        for result in internal_results
-        if result.get("id")
-    }
+    direct_by_url = {normalized: result for result in public_results if (normalized := _normalized_url(str(result.get("url") or ""))) is not None}
+    internal_by_id = {str(result.get("id")): result for result in internal_results if result.get("id")}
     tunnels_by_host = _tunnel_by_hostname(tunnels)
 
     rows: list[dict[str, Any]] = []
@@ -185,23 +173,11 @@ def build_reconciled_service_health(
         runtime_health = _runtime_state(app)
         host = _hostname(url)
         tunnel_evidence = tunnels_by_host.get(host or "")
-        tunnel_status = (
-            str(tunnel_evidence.get("tunnel_status"))
-            if tunnel_evidence and tunnel_evidence.get("tunnel_status") is not None
-            else None
-        )
+        tunnel_status = str(tunnel_evidence.get("tunnel_status")) if tunnel_evidence and tunnel_evidence.get("tunnel_status") is not None else None
         tunnel_health = _tunnel_state(tunnel_status)
-        direct_health = (
-            str(direct_result.get("state")) if direct_result is not None else None
-        )
-        internal_health = (
-            str(internal_result.get("state")) if internal_result is not None else None
-        )
-        application_error = (
-            str(direct_result.get("application_error"))
-            if direct_result is not None and direct_result.get("application_error")
-            else None
-        )
+        direct_health = str(direct_result.get("state")) if direct_result is not None else None
+        internal_health = str(internal_result.get("state")) if internal_result is not None else None
+        application_error = str(direct_result.get("application_error")) if direct_result is not None and direct_result.get("application_error") else None
         reconciled_state = (
             "fail"
             if application_error
@@ -261,14 +237,8 @@ async def reconcile_homelab_health_payload(payload: dict[str, Any]) -> dict[str,
         tunnels_task,
     )
 
-    public_results = [
-        dict(row) for row in payload.get("services", []) if isinstance(row, dict)
-    ]
-    internal_results = [
-        dict(row)
-        for row in payload.get("internal_services", [])
-        if isinstance(row, dict)
-    ]
+    public_results = [dict(row) for row in payload.get("services", []) if isinstance(row, dict)]
+    internal_results = [dict(row) for row in payload.get("internal_services", []) if isinstance(row, dict)]
     reconciled = build_reconciled_service_health(
         services,
         public_results=public_results,

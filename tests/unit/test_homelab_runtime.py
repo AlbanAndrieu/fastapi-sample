@@ -25,10 +25,10 @@ def test_observed_app_preserves_truenas_container_service_name() -> None:
                         "service_name": "litellm",
                         "image": "ghcr.io/berriai/litellm:main-stable",
                         "state": "running",
-                    }
-                ]
+                    },
+                ],
             },
-        }
+        },
     )
 
     assert app.app_id == "litellm-albandrieu"
@@ -115,9 +115,9 @@ async def test_status_matches_declared_service_by_container_service(monkeypatch)
                         "provider": "truenas-app",
                         "containerService": "litellm",
                     },
-                }
+                },
             ],
-        }
+        },
     )
     runtime = TrueNASRuntimeSnapshot(
         observed_at="2026-08-24T16:00:00Z",
@@ -131,11 +131,11 @@ async def test_status_matches_declared_service_by_container_service(monkeypatch)
                     "state": "RUNNING",
                     "active_workloads": {
                         "container_details": [
-                            {"service_name": "litellm", "state": "running"}
-                        ]
+                            {"service_name": "litellm", "state": "running"},
+                        ],
                     },
-                }
-            )
+                },
+            ),
         ],
     )
 
@@ -146,7 +146,8 @@ async def test_status_matches_declared_service_by_container_service(monkeypatch)
         return runtime
 
     monkeypatch.setattr(
-        "nabla.api.homelab_runtime.fetch_declared_service_catalog", fake_catalog
+        "nabla.api.homelab_runtime.fetch_declared_service_catalog",
+        fake_catalog,
     )
     monkeypatch.setattr("nabla.api.homelab_runtime.fetch_truenas_runtime", fake_runtime)
 
@@ -166,7 +167,7 @@ async def test_status_reports_unmanaged_truenas_apps(monkeypatch) -> None:
             "topologyVersion": 1,
             "name": "test",
             "services": [],
-        }
+        },
     )
     runtime = TrueNASRuntimeSnapshot(
         observed_at="2026-08-24T16:00:00Z",
@@ -182,7 +183,8 @@ async def test_status_reports_unmanaged_truenas_apps(monkeypatch) -> None:
         return runtime
 
     monkeypatch.setattr(
-        "nabla.api.homelab_runtime.fetch_declared_service_catalog", fake_catalog
+        "nabla.api.homelab_runtime.fetch_declared_service_catalog",
+        fake_catalog,
     )
     monkeypatch.setattr("nabla.api.homelab_runtime.fetch_truenas_runtime", fake_runtime)
 

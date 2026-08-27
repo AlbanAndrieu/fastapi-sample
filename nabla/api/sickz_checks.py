@@ -107,15 +107,9 @@ def _internal_network_effective(settings: APIDeploymentSettings) -> bool:
 
 def _skip_detail(settings: APIDeploymentSettings) -> str:
     if bool(settings.sickz_internal_network):
-        return (
-            "Sickz probes are disabled (SICKZ_INTERNAL_NETWORK). This instance "
-            "is treated as running on your home LAN where pfSense may be reachable."
-        )
+        return "Sickz probes are disabled (SICKZ_INTERNAL_NETWORK). This instance is treated as running on your home LAN where pfSense may be reachable."
     if (settings.sickz_network_label or "").strip().lower() == "nabla":
-        return (
-            "Sickz probes are disabled: SICKZ_NETWORK_LABEL is 'nabla', so this "
-            "instance is treated as on your home LAN."
-        )
+        return "Sickz probes are disabled: SICKZ_NETWORK_LABEL is 'nabla', so this instance is treated as on your home LAN."
     return "Sickz probes are disabled."
 
 
@@ -160,18 +154,11 @@ async def _probe_alias_group(
 ) -> dict[str, Any]:
     """Probe one logical target; any reachable alias makes the group reachable."""
     href = row_href(urls)
-    tls_coro = (
-        probe_https_tls_trusted(href)
-        if href.lower().startswith("https:")
-        else _async_none()
-    )
+    tls_coro = probe_https_tls_trusted(href) if href.lower().startswith("https:") else _async_none()
     pf_tcp_host = pfsense_canonical_tcp_host(urls)
     if pf_tcp_host:
         tcp_coro = asyncio.gather(
-            *(
-                probe_pfsense_tcp_port(pf_tcp_host, port)
-                for port in PFSENSE_EXTRA_TCP_PORTS
-            ),
+            *(probe_pfsense_tcp_port(pf_tcp_host, port) for port in PFSENSE_EXTRA_TCP_PORTS),
         )
         results, tls_trusted, tcp_reachable = await asyncio.gather(
             asyncio.gather(*(_probe_url(url) for url in urls)),
@@ -185,14 +172,9 @@ async def _probe_alias_group(
         )
         tcp_reachable = None
 
-    by_url = {
-        url: normalize_probe_result_errors(result)
-        for url, result in zip(urls, results, strict=True)
-    }
+    by_url = {url: normalize_probe_result_errors(result) for url, result in zip(urls, results, strict=True)}
     out: dict[str, Any] = {
-        "reachable": any(
-            result.get("reachable") is True for result in results
-        ),
+        "reachable": any(result.get("reachable") is True for result in results),
         "aliases_probed": urls,
         "alias_results": by_url,
         "tls_trusted": tls_trusted,
@@ -214,10 +196,7 @@ async def _probe_alias_group(
         out["pfsense_tcp_port_policy"] = pfsense_tcp_port_policy_payload()
         out["pfsense_tcp_ports_protocol_validated"] = True
     for result in results:
-        if (
-            result.get("reachable") is True
-            and result.get("http_status") is not None
-        ):
+        if result.get("reachable") is True and result.get("http_status") is not None:
             out["http_status"] = result["http_status"]
             break
     return out
@@ -238,13 +217,9 @@ async def build_sickz_payload(request: Request) -> dict[str, Any]:
             homelab_name_by_tunnel,
         ) = await homelab_sickz_catalog_for_sickz()
 
-    if known_paas_runtime_detected() and (
-        settings.sickz_internal_network
-        or _implicit_internal_network(settings)
-    ):
+    if known_paas_runtime_detected() and (settings.sickz_internal_network or _implicit_internal_network(settings)):
         _log.debug(
-            "Home LAN skip would apply but a cloud/PaaS runtime was detected; "
-            "sickz probes still run.",
+            "Home LAN skip would apply but a cloud/PaaS runtime was detected; sickz probes still run.",
         )
 
     groups = ensure_pfsense_group(
@@ -284,10 +259,7 @@ async def build_sickz_payload(request: Request) -> dict[str, Any]:
             "status": "no_targets",
             "network_label": network_label,
             "runtime": runtime,
-            "detail": (
-                "SICKZ_TARGETS is empty; add comma- or newline-separated "
-                "URL groups to probe."
-            ),
+            "detail": ("SICKZ_TARGETS is empty; add comma- or newline-separated URL groups to probe."),
         }
 
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)

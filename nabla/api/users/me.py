@@ -45,10 +45,21 @@ PROFESSIONAL_WEBSITE_URL = "https://www.albanandrieu.com/"
 LINKEDIN_URL = "https://www.linkedin.com/in/nabla/"
 
 PROFILE_WEBSITE_QUERY_MARKERS: tuple[str, ...] = (
-    "alban", "andrieu", "albandrieu", "devsecops", "engineer",
-    "cloud architect", "cloud engineer", "cloud developer", "cloud security",
-    "cloud infrastructure", "cloud operations", "cloud monitoring", "cloud logging",
-    "cloud automation", "dr alban.com",
+    "alban",
+    "andrieu",
+    "albandrieu",
+    "devsecops",
+    "engineer",
+    "cloud architect",
+    "cloud engineer",
+    "cloud developer",
+    "cloud security",
+    "cloud infrastructure",
+    "cloud operations",
+    "cloud monitoring",
+    "cloud logging",
+    "cloud automation",
+    "dr alban.com",
 )
 
 mcp = FastMCP(name="UserServer")
@@ -152,7 +163,9 @@ def _sitemap_locs(xml_body: str) -> list[str]:
     return [
         match.strip()
         for match in re.findall(
-            r"<loc>\s*([^<]+?)\s*</loc>", xml_body, flags=re.IGNORECASE | re.DOTALL
+            r"<loc>\s*([^<]+?)\s*</loc>",
+            xml_body,
+            flags=re.IGNORECASE | re.DOTALL,
         )
         if match.strip()
     ]
@@ -166,7 +179,10 @@ def _same_dr_alban_host(url: str, origin_netloc: str) -> bool:
 
 
 def _expand_sitemap_to_page_urls(
-    seed_locs: list[str], *, origin_netloc: str, max_subsitemaps: int = 8
+    seed_locs: list[str],
+    *,
+    origin_netloc: str,
+    max_subsitemaps: int = 8,
 ) -> list[str]:
     pages: list[str] = []
     subs: list[str] = []

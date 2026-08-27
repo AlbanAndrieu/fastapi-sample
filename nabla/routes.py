@@ -17,6 +17,11 @@ from nabla.api.db.database import SessionLocal
 from nabla.api.health_routes import register_health_routes
 from nabla.api.notes.models import Note
 from nabla.utils.logger import logger
+from nabla.api.ui import render_api_root_page
+from prometheus_client import REGISTRY
+from prometheus_client.openmetrics.exposition import CONTENT_TYPE_LATEST, generate_latest
+from starlette.responses import Response
+from datetime import datetime
 
 
 templates = Jinja2Templates(directory="templates")
@@ -26,11 +31,7 @@ _API_ASSETS_DIR = Path(__file__).resolve().parent / "api" / "assets"
 
 def _move_root_mounts_last(app: FastAPI) -> None:
     """Keep catch-all root mounts behind concrete FastAPI routes."""
-    root_mounts = [
-        route
-        for route in app.routes
-        if isinstance(route, Mount) and getattr(route, "path", None) in ("", "/")
-    ]
+    root_mounts = [route for route in app.routes if isinstance(route, Mount) and getattr(route, "path", None) in ("", "/")]
     for route in root_mounts:
         app.routes.remove(route)
         app.routes.append(route)
@@ -50,7 +51,8 @@ def register_routes(app: FastAPI) -> None:
         session = SessionLocal()
         notes = session.exec(select(Note)).all()
         return templates.TemplateResponse(
-            "index.html", {"request": request, "notes": notes}
+            "index.html",
+            {"request": request, "notes": notes},
         )
 
     @app.get("/favicon.ico", include_in_schema=False)
@@ -82,8 +84,6 @@ def register_routes(app: FastAPI) -> None:
 
     @app.get("/api", response_class=HTMLResponse)
     def read_root(request: Request):
-        from nabla.api.ui import render_api_root_page
-
         return render_api_root_page(
             title_suffix=os.getenv("TITLE_SUFFIX"),
             app_version=html.escape(str(request.app.version)),
@@ -93,8 +93,6 @@ def register_routes(app: FastAPI) -> None:
 
     @app.exception_handler(Exception)
     def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-        from datetime import datetime
-
         logger.error("Unhandled exception on %s", request.url, exc_info=exc)
         return JSONResponse(
             status_code=500,
@@ -106,17 +104,11 @@ def register_routes(app: FastAPI) -> None:
 
     @app.get("/metrics")
     def prometheus_metrics():
-        from prometheus_client import REGISTRY
-        from prometheus_client.openmetrics.exposition import (
-            CONTENT_TYPE_LATEST,
-            generate_latest,
-        )
-        from starlette.responses import Response
-
         if os.environ.get("ENV") == "dev":
             return Response(generate_latest(REGISTRY), media_type="text/plain")
         return Response(
-            generate_latest(REGISTRY), headers={"Content-Type": CONTENT_TYPE_LATEST}
+            generate_latest(REGISTRY),
+            headers={"Content-Type": CONTENT_TYPE_LATEST},
         )
 
     _move_root_mounts_last(app)

@@ -33,9 +33,9 @@ function ensureServiceLabel(chip) {
 function ensurePfsense10443(wrap) {
   const ports = wrap.querySelector(".sickz-pfsense-ports");
   if (!ports) return;
-  const existing = Array.from(ports.querySelectorAll(".sickz-pfsense-port-num")).some(
-    (node) => Number(node.textContent) === 10443,
-  );
+  const existing = Array.from(
+    ports.querySelectorAll(".sickz-pfsense-port-num"),
+  ).some((node) => Number(node.textContent) === 10443);
   if (existing) return;
 
   const state = chipStateFromPfsenseRow(wrap);

@@ -35,5 +35,5 @@ def test_release_baseline_rejects_sources_behind_release() -> None:
 
 @pytest.mark.parametrize("value", ["", "1.5", "1.5.1-rc.1", "release-1.5.1"])
 def test_release_baseline_rejects_non_stable_semver(value: str) -> None:
-    with pytest.raises(ValueError, match="stable X.Y.Z"):
+    with pytest.raises(ValueError, match=r"stable X.Y.Z"):
         normalize_release_version(value)

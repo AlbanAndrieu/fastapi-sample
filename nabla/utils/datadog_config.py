@@ -16,43 +16,59 @@ from nabla.utils.logger import logger
 
 def _load_tracing() -> tuple[Any, Any, Any, Any] | None:
     """Load only the Datadog tracing components."""
-    try:
-        from ddtrace import config, patch, tracer
-        from ddtrace.trace import TraceFilter
-    except ImportError as exc:
+
+
+try:
+    from ddtrace import config, patch, tracer
+    from ddtrace.trace import TraceFilter
+except ImportError:
+    config = patch = tracer = TraceFilter = None
+
+
+def _load_tracing() -> tuple[Any, Any, Any, Any] | None:
+    """Load only the Datadog tracing components."""
+    if config is None or patch is None or tracer is None or TraceFilter is None:
         logger.warning(
             "datadog_sdk_unavailable",
             component="tracing",
-            exception_type=type(exc).__name__,
+            exception_type="ImportError",
         )
         return None
     return config, patch, tracer, TraceFilter
 
 
+try:
+    from ddtrace.profiling import Profiler
+except ImportError:
+    Profiler = None
+
+
 def _load_profiler() -> Any | None:
     """Load the profiler without importing tracing components."""
-    try:
-        from ddtrace.profiling import Profiler
-    except ImportError as exc:
+    if Profiler is None:
         logger.warning(
             "datadog_sdk_unavailable",
             component="profiling",
-            exception_type=type(exc).__name__,
+            exception_type="ImportError",
         )
         return None
     return Profiler
 
 
+try:
+    from ddtrace import tracer
+    from ddtrace.contrib.trace_utils import set_user
+except ImportError:
+    tracer = set_user = None
+
+
 def _load_user_context() -> tuple[Any, Any] | None:
     """Load user-context helpers only for a future request integration."""
-    try:
-        from ddtrace import tracer
-        from ddtrace.contrib.trace_utils import set_user
-    except ImportError as exc:
+    if tracer is None or set_user is None:
         logger.warning(
             "datadog_sdk_unavailable",
             component="user_context",
-            exception_type=type(exc).__name__,
+            exception_type="ImportError",
         )
         return None
     return tracer, set_user

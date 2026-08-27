@@ -70,10 +70,13 @@ def test_logfire_uses_project_token_without_forcing_endpoint(monkeypatch):
     assert "health" in instrumentation_options["excluded_urls"]
     assert "openapi" in instrumentation_options["excluded_urls"]
     assert "v1/mcp" in instrumentation_options["excluded_urls"]
-    assert instrumentation_options["request_attributes_mapper"](
-        MagicMock(),
-        {"values": {"field": object()}},
-    ) == {}
+    assert (
+        instrumentation_options["request_attributes_mapper"](
+            MagicMock(),
+            {"values": {"field": object()}},
+        )
+        == {}
+    )
     assert os.environ["OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"] == "false"
 
 

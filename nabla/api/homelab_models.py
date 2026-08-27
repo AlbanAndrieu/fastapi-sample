@@ -188,45 +188,55 @@ class HomelabService(BaseModel):
     def validate_external_exposure(self) -> HomelabService:
         """Require an explicit, plausibly public endpoint for external access.
 
-        ``*.int.albandrieu.com`` is an intentional legacy/direct-ingress exception:
-        it may be externally reachable through Traefik rather than Cloudflare, but
-        only when ``tunnelSecure=false`` makes that weaker security posture explicit.
-        Sickz then reports the exception as a warning instead of treating it as secure.
+        ``*.int.albandrieu.com`` is an intentional legacy/direct-ingress exception.
         """
         if not self.external:
             return self
         if not self.tunnel_url:
             raise ValueError("external=true requires tunnelUrl")
+        parsed = self._parse_tunnel_url()
+        self._validate_scheme_and_host(parsed)
+        self._validate_no_credentials_in_url(parsed)
+        self._validate_https_and_public_host(parsed)
+        self._validate_direct_ingress_exception(parsed.hostname)
+        self._validate_ip_global(parsed.hostname)
+        return self
 
+    def _parse_tunnel_url(self):
         try:
-            parsed = urlsplit(self.tunnel_url)
+            return urlsplit(self.tunnel_url)
         except ValueError as exc:
             raise ValueError("external tunnelUrl is invalid") from exc
 
+    def _validate_scheme_and_host(self, parsed):
         if not parsed.scheme or not parsed.hostname:
             raise ValueError("external tunnelUrl must contain a scheme and host")
+
+    def _validate_no_credentials_in_url(self, parsed):
         if parsed.username or parsed.password:
             raise ValueError("external tunnelUrl must not contain credentials")
 
+    def _validate_https_and_public_host(self, parsed):
         scheme = parsed.scheme.lower()
         host = parsed.hostname.lower().rstrip(".")
         if scheme == "http":
             raise ValueError("external HTTP endpoints must use HTTPS")
         if host in {"localhost", "localhost.localdomain"} or host.endswith(".local"):
             raise ValueError("external tunnelUrl must not target a local hostname")
+
+    def _validate_direct_ingress_exception(self, host):
         if host.endswith(_DIRECT_EXTERNAL_DOMAIN_SUFFIX) and self.tunnel_secure is not False:
             raise ValueError(
-                "external *.int.albandrieu.com endpoints require tunnelSecure=false "
-                "to declare the direct non-Cloudflare exposure exception"
+                "external *.int.albandrieu.com endpoints require tunnelSecure=false to declare the direct non-Cloudflare exposure exception",
             )
 
+    def _validate_ip_global(self, host):
         try:
             address = ip_address(host)
         except ValueError:
             address = None
         if address is not None and not address.is_global:
             raise ValueError("external tunnelUrl must not target a non-global IP address")
-        return self
 
     @classmethod
     def from_truenas_discovery(
@@ -268,7 +278,7 @@ class HomelabService(BaseModel):
                 "tunnel_url": url,
                 "external": True,
                 "endpoint_enabled": True,
-            }
+            },
         )
         return type(self).model_validate(payload)
 

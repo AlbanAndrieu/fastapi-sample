@@ -11,12 +11,7 @@ from nabla.integrations.truenas_client import TrueNASReadOnlyAdapter, build_true
 def _host_ports(port_config: list[dict[str, Any]]) -> list[int]:
     """Return unique published ports, ignoring duplicate IPv4/IPv6 bindings."""
     return list(
-        dict.fromkeys(
-            host["host_port"]
-            for mapping in port_config
-            for host in mapping.get("host_ports", [])
-            if isinstance(host.get("host_port"), int)
-        )
+        dict.fromkeys(host["host_port"] for mapping in port_config for host in mapping.get("host_ports", []) if isinstance(host.get("host_port"), int)),
     )
 
 
@@ -67,7 +62,7 @@ def app_to_service(app: dict[str, Any], *, internal_host: str | None) -> dict[st
             "image": container.get("image"),
             "state": container.get("state"),
             "ports": _port_mappings(
-                {"used_ports": container.get("port_config") or []}
+                {"used_ports": container.get("port_config") or []},
             ),
         }
         for container in workloads.get("container_details") or []
@@ -105,8 +100,5 @@ def get_truenas_apps_json(
     internal_host = client.settings.hostname
     return {
         "version": 2,
-        "services": [
-            app_to_service(app, internal_host=internal_host)
-            for app in client.list_apps()
-        ],
+        "services": [app_to_service(app, internal_host=internal_host) for app in client.list_apps()],
     }

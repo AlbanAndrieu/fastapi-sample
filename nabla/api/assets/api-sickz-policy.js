@@ -11,7 +11,8 @@ function reachableHttpStatuses(check) {
     });
     return out;
   }
-  if (check.reachable === true && check.http_status != null) return [check.http_status];
+  if (check.reachable === true && check.http_status != null)
+    return [check.http_status];
   return [];
 }
 
@@ -41,6 +42,10 @@ export function tcpPolicyViolation(check) {
   return Object.keys(policy).some((port) => {
     const expected = policy[port]?.expected_reachable;
     const actual = ports[port];
-    return typeof expected === "boolean" && typeof actual === "boolean" && expected !== actual;
+    return (
+      typeof expected === "boolean" &&
+      typeof actual === "boolean" &&
+      expected !== actual
+    );
   });
 }

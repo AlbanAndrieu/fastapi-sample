@@ -122,7 +122,7 @@ async def test_health_snapshot_only_probes_approved_public_services(monkeypatch)
             "state": "ok",
             "tls_trusted": True,
             "latency_ms": 1,
-        }
+        },
     )
     truenas_probe = AsyncMock(
         return_value={
@@ -130,7 +130,7 @@ async def test_health_snapshot_only_probes_approved_public_services(monkeypatch)
             "public": {"state": "ok"},
             "internal": None,
             "internal_probe_enabled": False,
-        }
+        },
     )
 
     monkeypatch.delenv("HOMELAB_INTERNAL_PROBES_ENABLED", raising=False)
@@ -192,7 +192,7 @@ async def test_internal_probes_cover_private_and_external_services(monkeypatch) 
                 "state": "ok",
                 "latency_ms": 1,
             },
-        ]
+        ],
     )
 
     monkeypatch.setenv("HOMELAB_INTERNAL_PROBES_ENABLED", "true")
@@ -214,7 +214,7 @@ async def test_internal_probes_cover_private_and_external_services(monkeypatch) 
                 "state": "ok",
                 "tls_trusted": True,
                 "latency_ms": 1,
-            }
+            },
         ),
     )
     monkeypatch.setattr(
@@ -226,7 +226,7 @@ async def test_internal_probes_cover_private_and_external_services(monkeypatch) 
                 "public": {"state": "ok"},
                 "internal": {"state": "ok"},
                 "internal_probe_enabled": True,
-            }
+            },
         ),
     )
     monkeypatch.setattr(homelab_health, "_cached_payload", None)
@@ -392,7 +392,7 @@ def test_public_homelab_routes(monkeypatch) -> None:
                 name="Langfuse",
                 tunnelUrl="https://langfuse.albandrieu.com",
                 external=True,
-            )
+            ),
         ],
     )
     monkeypatch.setattr(

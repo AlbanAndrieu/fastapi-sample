@@ -38,7 +38,7 @@ class McpClientManager:
             try:
                 self._sessions[cfg.name] = await self._connect(cfg, stack)
                 logger.info("Connected outbound MCP %s via %s", cfg.name, cfg.transport)
-            except Exception:  # noqa: BLE001 -- one unavailable MCP must not block FastAPI startup
+            except Exception:
                 logger.exception("Unable to connect outbound MCP %s via %s", cfg.name, cfg.transport)
 
     async def close(self) -> None:
@@ -58,7 +58,7 @@ class McpClientManager:
         read, write = await _enter_transport(cfg, stack)
         timeout = timedelta(seconds=cfg.tool_call_timeout_seconds)
         session = await stack.enter_async_context(
-            ClientSession(read, write, read_timeout_seconds=timeout)
+            ClientSession(read, write, read_timeout_seconds=timeout),
         )
         await session.initialize()
         return session
@@ -113,10 +113,10 @@ async def _enter_transport(cfg: McpServerConfig, stack: AsyncExitStack) -> tuple
                 headers=cfg.headers or None,
                 timeout=timeout,
                 follow_redirects=True,
-            )
+            ),
         )
         read, write, _get_session_id = await stack.enter_async_context(
-            streamable_http_client(cfg.url, http_client=http_client)
+            streamable_http_client(cfg.url, http_client=http_client),
         )
         return read, write
 
@@ -132,7 +132,7 @@ async def _one_shot_session(cfg: McpServerConfig) -> AsyncIterator[Any]:
         read, write = await _enter_transport(cfg, stack)
         timeout = timedelta(seconds=cfg.tool_call_timeout_seconds)
         session = await stack.enter_async_context(
-            ClientSession(read, write, read_timeout_seconds=timeout)
+            ClientSession(read, write, read_timeout_seconds=timeout),
         )
         await session.initialize()
         yield session

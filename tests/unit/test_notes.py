@@ -242,9 +242,7 @@ def test_update_note_reports_queue_failure(test_app, monkeypatch):
     response = test_app.put("/notes/1/", json=payload)
 
     assert response.status_code == 503
-    assert response.json()["detail"] == (
-        "Note saved but background processing is unavailable"
-    )
+    assert response.json()["detail"] == ("Note saved but background processing is unavailable")
 
 
 async def test_crud_post_uses_async_database_and_returns_persisted_id(

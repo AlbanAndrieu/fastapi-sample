@@ -1,5 +1,6 @@
 """Tests for sickz PaaS detection and effective internal-network behavior."""
 
+from nabla.config_settings import _default_sickz_targets_value
 from types import SimpleNamespace
 
 import pytest
@@ -21,7 +22,7 @@ def _settings(*, internal: bool = False, label: str = "") -> SimpleNamespace:
 
 def test_parse_sickz_target_groups_preserves_aliases() -> None:
     assert sc.parse_sickz_target_groups(
-        "https://one.example|https://two.example, https://three.example\n"
+        "https://one.example|https://two.example, https://three.example\n",
     ) == [
         ["https://one.example", "https://two.example"],
         ["https://three.example"],
@@ -80,9 +81,8 @@ def test_pfsense_group_is_not_duplicated() -> None:
 
 
 def test_sickz_targets_equal_default_catalog_mode() -> None:
-    from nabla.config_settings import _default_sickz_targets_value
-
     assert sc._targets_equal_default_catalog_mode(_default_sickz_targets_value()) is True
+
     assert sc._targets_equal_default_catalog_mode("https://example.com") is False
 
 

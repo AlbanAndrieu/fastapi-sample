@@ -1,9 +1,9 @@
-import { loadHealth } from "./api-health-core.js";
-import { loadSickz } from "./api-sickz.js";
 import {
   decorateCloudflareTunnelStatuses,
   markHealthBoardsPending,
 } from "./api-cloudflare-status.js";
+import { loadHealth } from "./api-health-core.js";
+import { loadSickz } from "./api-sickz.js";
 import { installPfsensePortLabels } from "./api-sickz-port-labels.js";
 
 function logRefreshClick() {

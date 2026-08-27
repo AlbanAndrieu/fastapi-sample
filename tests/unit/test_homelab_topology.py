@@ -37,7 +37,7 @@ def _topology_payload() -> dict:
                 "type": "consumesApi",
                 "strength": "required",
                 "evidence": ["apps/openwebui/compose.yml:OPENAI_API_BASE_URL"],
-            }
+            },
         ],
     }
 

@@ -20,9 +20,6 @@ def test_health_exposes_runtime_components_without_homelab_services() -> None:
     }
     assert payload["components"]["api"]["status"] == "healthy"
     assert payload["components"]["health_api"]["deep_health"] == "/healthz"
-    assert (
-        payload["components"]["health_api"]["homelab_health"]
-        == "/api/homelab/health"
-    )
+    assert payload["components"]["health_api"]["homelab_health"] == "/api/homelab/health"
     assert "services" not in payload
     assert "internal_services" not in payload
