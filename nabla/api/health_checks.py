@@ -59,10 +59,14 @@ def _http_probe_error_kind(exc: Exception) -> str:
     return "unknown_error"
 
 
-async def probe_https_get_reachable(url: str) -> dict[str, Any]:
+async def probe_https_get_reachable(
+    url: str,
+    *,
+    probe_name: str | None = None,
+) -> dict[str, Any]:
     """GET ``url``; any completed HTTP response counts as reachable."""
     started = time.monotonic()
-    logger.info("health outbound probe started url=%s", url)
+    logger.info("health outbound probe started name=%s url=%s", probe_name or "-", url)
     try:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(5.0),
@@ -78,7 +82,8 @@ async def probe_https_get_reachable(url: str) -> dict[str, Any]:
         exception_type = type(exc).__name__
         normalized_error = _normalize_probe_error(str(exc))
         logger.warning(
-            "health outbound probe failed url=%s error_kind=%s exception_type=%s elapsed_ms=%s error=%s",
+            "health outbound probe failed name=%s url=%s error_kind=%s exception_type=%s elapsed_ms=%s error=%s",
+            probe_name or "-",
             url,
             error_kind,
             exception_type,
@@ -95,7 +100,8 @@ async def probe_https_get_reachable(url: str) -> dict[str, Any]:
         }
     elapsed_ms = round((time.monotonic() - started) * 1000)
     logger.info(
-        "health outbound probe completed url=%s http_status=%s elapsed_ms=%s",
+        "health outbound probe completed name=%s url=%s http_status=%s elapsed_ms=%s",
+        probe_name or "-",
         url,
         response.status_code,
         elapsed_ms,
