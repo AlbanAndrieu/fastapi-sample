@@ -8,7 +8,6 @@ from typing import Any
 
 import httpx
 import urllib3
-import os
 from fastapi import Request
 
 from nabla.api.health_probe_utils import (
@@ -135,7 +134,7 @@ async def _probe_url(url: str) -> dict[str, Any]:
     try:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(5.0),
-            verify=not os.environ.get("SICKZ_ALLOW_INSECURE_CERT", "0") == "1",  # B501: only if SICKZ_ALLOW_INSECURE_CERT
+            verify=False,  # noqa: S501 — sickz must detect hosts with invalid certs
             follow_redirects=True,
         ) as client:
             response = await client.get(

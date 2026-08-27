@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
+import ssl
+import time
 from typing import Any
 
 import httpx
@@ -13,11 +16,40 @@ from nabla.api.cloudflare_tunnels import CloudflareTunnelSettings
 _CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4"
 _PFSENSE_STATUS_PATH = "/api/v2/status/system"
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
+_PFSENSE_CONNECT_TIMEOUT_SEC = 3.0
+_PFSENSE_READ_TIMEOUT_SEC = 5.0
+logger = logging.getLogger(__name__)
 
 
 def _short_error(exc: BaseException) -> str:
     message = str(exc).strip() or exc.__class__.__name__
     return message[:240]
+
+
+def _http_error_kind(exc: BaseException) -> str:
+    """Classify transport failures for safe runtime diagnostics."""
+    message = str(exc).casefold()
+    if isinstance(exc, httpx.ConnectTimeout):
+        return "connect_timeout"
+    if isinstance(exc, httpx.ReadTimeout):
+        return "read_timeout"
+    if isinstance(exc, httpx.PoolTimeout):
+        return "pool_timeout"
+    if isinstance(exc, httpx.TimeoutException):
+        return "timeout"
+    if isinstance(exc, httpx.ConnectError):
+        if any(marker in message for marker in ("certificate", "ssl", "tls")):
+            return "tls_error"
+        return "connect_error"
+    if isinstance(exc, ssl.SSLError) or any(
+        marker in message for marker in ("certificate", "ssl", "tls")
+    ):
+        return "tls_error"
+    if isinstance(exc, httpx.HTTPError):
+        return "http_error"
+    if isinstance(exc, OSError):
+        return "os_error"
+    return "unknown_error"
 
 
 def _cloudflare_api_error(response: httpx.Response) -> dict[str, Any]:
@@ -154,9 +186,23 @@ async def check_pfsense_api() -> dict[str, Any]:
         os.getenv("PFSENSE_API_VERIFY_SSL", "true").strip().lower() in _TRUE_VALUES
     )
     url = f"{base_url}{_PFSENSE_STATUS_PATH}"
+    timeout = httpx.Timeout(
+        connect=_PFSENSE_CONNECT_TIMEOUT_SEC,
+        read=_PFSENSE_READ_TIMEOUT_SEC,
+        write=_PFSENSE_CONNECT_TIMEOUT_SEC,
+        pool=_PFSENSE_CONNECT_TIMEOUT_SEC,
+    )
+    started = time.monotonic()
+    logger.info(
+        "pfSense API probe started url=%s verify_ssl=%s connect_timeout_s=%s read_timeout_s=%s",
+        url,
+        verify_ssl,
+        _PFSENSE_CONNECT_TIMEOUT_SEC,
+        _PFSENSE_READ_TIMEOUT_SEC,
+    )
     try:
         async with httpx.AsyncClient(
-            timeout=httpx.Timeout(5.0),
+            timeout=timeout,
             verify=verify_ssl,
             follow_redirects=False,
         ) as client:
@@ -165,19 +211,49 @@ async def check_pfsense_api() -> dict[str, Any]:
                 headers={"X-API-Key": api_key, "Accept": "application/json"},
             )
     except (httpx.HTTPError, OSError) as exc:
+        elapsed_ms = round((time.monotonic() - started) * 1000)
+        error_kind = _http_error_kind(exc)
+        exception_type = type(exc).__name__
+        error = _short_error(exc)
+        logger.warning(
+            "pfSense API probe failed url=%s verify_ssl=%s error_kind=%s "
+            "exception_type=%s elapsed_ms=%s error=%s",
+            url,
+            verify_ssl,
+            error_kind,
+            exception_type,
+            elapsed_ms,
+            error,
+        )
         return {
             "reachable": False,
-            "error": _short_error(exc),
+            "error": error,
+            "error_kind": error_kind,
+            "exception_type": exception_type,
+            "elapsed_ms": elapsed_ms,
             "probe": "pfsense_rest_api_v2",
             "url": url,
+            "verify_ssl": verify_ssl,
         }
 
+    elapsed_ms = round((time.monotonic() - started) * 1000)
     healthy = 200 <= response.status_code < 400
+    logger.info(
+        "pfSense API probe completed url=%s verify_ssl=%s http_status=%s "
+        "elapsed_ms=%s reachable=%s",
+        url,
+        verify_ssl,
+        response.status_code,
+        elapsed_ms,
+        healthy,
+    )
     result: dict[str, Any] = {
         "reachable": healthy,
         "http_status": response.status_code,
+        "elapsed_ms": elapsed_ms,
         "probe": "pfsense_rest_api_v2",
         "url": url,
+        "verify_ssl": verify_ssl,
         "tls_trusted": True
         if verify_ssl and url.lower().startswith("https://")
         else None,
