@@ -54,10 +54,7 @@ class TrueNASSettings:
         if not username or not api_key:
             return None
 
-        verify_ssl_raw = (
-            os.getenv("TRUENAS_API_VERIFY_SSL", "").strip()
-            or os.getenv("TRUENAS_VERIFY_SSL", "true").strip()
-        )
+        verify_ssl_raw = os.getenv("TRUENAS_API_VERIFY_SSL", "true").strip()
         websocket_path = os.getenv("TRUENAS_WS_PATH", _DEFAULT_API_PATH).strip()
         return cls(
             url=truenas_url(),
