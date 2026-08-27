@@ -13,12 +13,14 @@ from nabla.api.cloudflare_tunnels import (
     observe_cloudflare_tunnels,
 )
 from nabla.api.homelab_catalog import fetch_homelab_services
+from nabla.api.homelab_dependency_health import propagate_required_dependency_health
 from nabla.api.homelab_models import HomelabService
 from nabla.api.homelab_runtime import (
     ObservedApp,
     TrueNASRuntimeSnapshot,
     fetch_truenas_runtime,
 )
+from nabla.api.homelab_topology import fetch_homelab_topology
 
 HealthState = str
 
@@ -251,14 +253,16 @@ async def _observe_cloudflare_safely() -> list[CloudflareTunnelObservation]:
 
 
 async def reconcile_homelab_health_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    """Return one API health row per catalog service with reconciled observations."""
+    """Return dependency-aware API health rows with reconciled observations."""
     services_task = asyncio.create_task(fetch_homelab_services())
     runtime_task = asyncio.create_task(fetch_truenas_runtime())
     tunnels_task = asyncio.create_task(_observe_cloudflare_safely())
-    services, runtime, tunnels = await asyncio.gather(
+    topology_task = asyncio.create_task(fetch_homelab_topology())
+    services, runtime, tunnels, topology = await asyncio.gather(
         services_task,
         runtime_task,
         tunnels_task,
+        topology_task,
     )
 
     public_results = [
@@ -276,11 +280,12 @@ async def reconcile_homelab_health_payload(payload: dict[str, Any]) -> dict[str,
         runtime=runtime,
         tunnels=tunnels,
     )
+    dependency_aware = propagate_required_dependency_health(reconciled, topology)
 
     return {
         **payload,
-        "schema_version": 4,
-        "services": reconciled,
+        "schema_version": 5,
+        "services": dependency_aware,
         "truenas_runtime_reachable": runtime.reachable,
         "truenas_runtime_stale": runtime.stale,
         "cloudflare_configured": CloudflareTunnelSettings.from_environment() is not None,
