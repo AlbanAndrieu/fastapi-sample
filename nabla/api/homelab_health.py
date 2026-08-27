@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import re
 import time
 from datetime import datetime, timezone
@@ -26,6 +27,7 @@ _MAX_PROBE_CONCURRENCY = 8
 _PROBE_TIMEOUT_SEC = 5.0
 _INTERNAL_PROBE_ENV = "HOMELAB_INTERNAL_PROBES_ENABLED"
 _MAX_APPLICATION_BODY_BYTES = 16_384
+_TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 _APPLICATION_ERROR_PREFIXES = (
     "error:",
     "fatal:",
@@ -59,6 +61,15 @@ def internal_probes_enabled() -> bool:
     return env_bool(_INTERNAL_PROBE_ENV)
 
 
+def truenas_http_verify_ssl() -> bool:
+    """Return the shared TrueNAS TLS verification policy, defaulting to secure."""
+    raw = (
+        os.getenv("TRUENAS_API_VERIFY_SSL", "").strip()
+        or os.getenv("TRUENAS_VERIFY_SSL", "true").strip()
+    )
+    return raw.lower() in _TRUE_VALUES
+
+
 def _looks_like_tls_error(message: str) -> bool:
     lower = message.lower()
     return any(
@@ -80,7 +91,6 @@ def _short_error(exc: BaseException) -> str:
 
 
 def _is_textual_response(response: httpx.Response) -> bool:
-    """Return whether a successful response is useful for lightweight body checks."""
     content_type = response.headers.get("content-type", "").lower()
     return content_type.startswith("text/") or any(
         marker in content_type
@@ -89,12 +99,7 @@ def _is_textual_response(response: httpx.Response) -> bool:
 
 
 def _application_error_from_response(response: httpx.Response) -> str | None:
-    """Detect explicit application failures hidden behind a successful HTTP status.
-
-    Detection is deliberately conservative: normal pages may contain words such as
-    ``error`` in JavaScript or documentation, so only explicit response-level error
-    shapes are treated as fatal.
-    """
+    """Detect explicit application failures hidden behind a successful HTTP status."""
     if not (200 <= response.status_code <= 299) or not _is_textual_response(response):
         return None
 
@@ -118,7 +123,6 @@ def _application_error_from_response(response: httpx.Response) -> str | None:
     plain = re.sub(r"<[^>]+>", " ", text)
     plain = re.sub(r"\s+", " ", plain).strip()
     lowered_plain = plain.casefold()
-
     if any(lowered_plain.startswith(prefix) for prefix in _APPLICATION_ERROR_PREFIXES):
         return plain[:240]
     if any(marker in lowered_raw for marker in _APPLICATION_ERROR_MARKERS):
@@ -141,7 +145,6 @@ async def _probe_http_endpoint(
     url: str,
 ) -> dict[str, Any]:
     """Probe one HTTP endpoint and preserve status, TLS and application outcome."""
-
     started = time.perf_counter()
     try:
         async with semaphore:
@@ -186,7 +189,6 @@ async def _probe_http_endpoint(
             "tls_trusted": False if _looks_like_tls_error(error) else None,
             "error": error,
         }
-
     result["latency_ms"] = max(0, round((time.perf_counter() - started) * 1000))
     return result
 
@@ -196,7 +198,6 @@ async def _probe_public_service(
     semaphore: asyncio.Semaphore,
     service: HomelabService,
 ) -> dict[str, Any]:
-    """Probe one catalog-approved public endpoint."""
     url = service.public_https_probe_url
     if url is None:
         raise ValueError("service is not approved for public HTTPS probing")
@@ -213,7 +214,6 @@ async def _probe_internal_service(
     semaphore: asyncio.Semaphore,
     service: HomelabService,
 ) -> dict[str, Any]:
-    """Probe catalog-declared internal host/port reachability using TCP only."""
     host = service.internal_host
     port = service.internal_port
     if not host or port is None:
@@ -224,8 +224,7 @@ async def _probe_internal_service(
     try:
         async with semaphore:
             _, writer = await asyncio.wait_for(
-                asyncio.open_connection(host, port),
-                timeout=_PROBE_TIMEOUT_SEC,
+                asyncio.open_connection(host, port), timeout=_PROBE_TIMEOUT_SEC
             )
         result: dict[str, Any] = {
             "id": service.service_id,
@@ -249,7 +248,6 @@ async def _probe_internal_service(
         if writer is not None:
             writer.close()
             await writer.wait_closed()
-
     result["latency_ms"] = max(0, round((time.perf_counter() - started) * 1000))
     return result
 
@@ -257,19 +255,14 @@ async def _probe_internal_service(
 def _truenas_internal_target(
     _services: list[HomelabService] | None = None,
 ) -> tuple[str, int]:
-    """Resolve the optional TCP probe from the shared ``TRUENAS_URL``."""
     return truenas_host_port()
 
 
 async def _observe_truenas_api() -> dict[str, Any] | None:
-    """Run the synchronous official TrueNAS client outside the event loop."""
     try:
         return await asyncio.to_thread(observe_truenas_api)
-    except Exception as exc:  # Adapter/network/auth errors are health data, not route failures.
-        return {
-            "reachable": False,
-            "error": _short_error(exc),
-        }
+    except Exception as exc:  # Adapter/network/auth errors are health data.
+        return {"reachable": False, "error": _short_error(exc)}
 
 
 def _truenas_state(
@@ -277,11 +270,9 @@ def _truenas_state(
     internal_result: dict[str, Any] | None,
     api_result: dict[str, Any] | None = None,
 ) -> HealthState:
-    """Classify host health while distinguishing host-down from ingress-only failures."""
     public_state = public_result.get("state")
     internal_state = internal_result.get("state") if internal_result else None
     api_reachable = api_result.get("reachable") if api_result else None
-
     if public_state == "fail" and (internal_state == "ok" or api_reachable is True):
         return "warn"
     if public_state == "fail":
@@ -294,20 +285,25 @@ def _truenas_state(
 
 
 async def _probe_truenas(
-    client: httpx.AsyncClient,
     semaphore: asyncio.Semaphore,
     *,
     internal_enabled: bool,
 ) -> dict[str, Any]:
-    """Probe TrueNAS public ingress, optional LAN TCP, and optional authenticated API."""
+    """Probe TrueNAS with its own TLS policy instead of weakening other probes."""
     configured_url = truenas_url().rstrip("/") + "/"
-    public_result = await _probe_http_endpoint(
-        client,
-        semaphore,
-        service_id="truenas",
-        name="TrueNAS",
-        url=configured_url,
-    )
+    timeout = httpx.Timeout(_PROBE_TIMEOUT_SEC)
+    async with httpx.AsyncClient(
+        timeout=timeout,
+        follow_redirects=False,
+        verify=truenas_http_verify_ssl(),
+    ) as truenas_client:
+        public_result = await _probe_http_endpoint(
+            truenas_client,
+            semaphore,
+            service_id="truenas",
+            name="TrueNAS",
+            url=configured_url,
+        )
 
     internal_result: dict[str, Any] | None = None
     if internal_enabled:
@@ -330,11 +326,11 @@ async def _probe_truenas(
         "internal": internal_result,
         "api": api_result,
         "internal_probe_enabled": internal_enabled,
+        "verify_ssl": truenas_http_verify_ssl(),
     }
 
 
 def _copy_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    """Return a JSON-safe copy so callers cannot mutate cached probe rows."""
     truenas = payload.get("truenas")
     truenas_copy = None
     if isinstance(truenas, dict):
@@ -389,11 +385,7 @@ async def build_homelab_health_payload() -> dict[str, Any]:
                         for service in public_services
                     )
                 ),
-                _probe_truenas(
-                    client,
-                    semaphore,
-                    internal_enabled=internal_enabled,
-                ),
+                _probe_truenas(semaphore, internal_enabled=internal_enabled),
             )
 
         internal_results = await asyncio.gather(
@@ -402,7 +394,6 @@ async def build_homelab_health_payload() -> dict[str, Any]:
                 for service in internal_services
             )
         )
-
         payload: dict[str, Any] = {
             "schema_version": 2,
             "checked_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
