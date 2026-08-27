@@ -89,8 +89,10 @@ def test_known_public_port_policy_matches_expected_exposure() -> None:
     assert policy["9922"]["expected_reachable"] is False
     assert policy["4000"]["service"] == "LiteLLM"
     assert policy["4000"]["expected_reachable"] is False
-    assert policy["7000"]["service"] == "TrueNAS"
+    assert policy["7000"]["service"] == "TrueNAS via pfSense HAProxy"
     assert policy["7000"]["expected_reachable"] is True
+    assert policy["10443"]["service"] == "pfSense Admin UI"
+    assert policy["10443"]["expected_reachable"] is False
 
 
 @pytest.mark.asyncio
@@ -125,3 +127,4 @@ async def test_known_ports_dispatch_to_protocol_aware_probes(monkeypatch: pytest
     assert await sp.probe_pfsense_tcp_port("example.test", 9922) is True
     assert await sp.probe_pfsense_tcp_port("example.test", 4000) is False
     assert await sp.probe_pfsense_tcp_port("example.test", 7000) is True
+    assert await sp.probe_pfsense_tcp_port("example.test", 10443) is True

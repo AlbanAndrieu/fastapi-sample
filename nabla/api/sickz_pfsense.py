@@ -18,6 +18,7 @@ PFSENSE_EXTRA_TCP_PORTS: tuple[int, ...] = (
     9000,
     3000,
     4000,
+    10443,
     1194,
     1195,
     8080,
@@ -48,10 +49,24 @@ _PFSENSE_TCP_PORT_POLICY: dict[int, dict[str, Any]] = {
         "reason": "LiteLLM should only be exposed through the approved reverse proxy/tunnel path.",
     },
     7000: {
-        "service": "TrueNAS",
+        "service": "TrueNAS via pfSense HAProxy",
         "expected_reachable": True,
         "probe": "https",
-        "reason": "TrueNAS is intentionally reachable on this externally published port.",
+        "reason": (
+            "pfSense HAProxy intentionally publishes TrueNAS HTTPS/API on WAN port "
+            "7000 and re-encrypts traffic to 172.17.0.24:7000. This is direct HAProxy "
+            "exposure, not a Cloudflare Tunnel."
+        ),
+    },
+    10443: {
+        "service": "pfSense Admin UI",
+        "expected_reachable": False,
+        "probe": "https",
+        "reason": (
+            "pfSense administration may be reachable from the trusted LAN/VPN, but "
+            "WAN port 10443 must not be reachable from an external runtime such as "
+            "FastAPI Cloud."
+        ),
     },
 }
 

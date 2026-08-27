@@ -70,10 +70,23 @@ def test_settings_reuse_mcp_api_key(monkeypatch) -> None:
     assert settings.verify_ssl is True
 
 
-def test_settings_accept_legacy_user_and_verify_ssl(monkeypatch) -> None:
+def test_settings_use_canonical_api_verify_ssl(monkeypatch) -> None:
     monkeypatch.delenv("TRUENAS_API_USERNAME", raising=False)
     monkeypatch.delenv("TRUENAS_USERNAME", raising=False)
     monkeypatch.setenv("TRUENAS_USER", "legacy-user")
+    monkeypatch.setenv("TRUENAS_API_KEY", "1-test-key")
+    monkeypatch.setenv("TRUENAS_API_VERIFY_SSL", "false")
+    monkeypatch.setenv("TRUENAS_VERIFY_SSL", "true")
+
+    settings = TrueNASSettings.from_environment()
+
+    assert settings is not None
+    assert settings.username == "legacy-user"
+    assert settings.verify_ssl is False
+
+
+def test_legacy_verify_ssl_alias_is_not_used(monkeypatch) -> None:
+    monkeypatch.setenv("TRUENAS_API_USERNAME", "readonly")
     monkeypatch.setenv("TRUENAS_API_KEY", "1-test-key")
     monkeypatch.delenv("TRUENAS_API_VERIFY_SSL", raising=False)
     monkeypatch.setenv("TRUENAS_VERIFY_SSL", "false")
@@ -81,8 +94,7 @@ def test_settings_accept_legacy_user_and_verify_ssl(monkeypatch) -> None:
     settings = TrueNASSettings.from_environment()
 
     assert settings is not None
-    assert settings.username == "legacy-user"
-    assert settings.verify_ssl is False
+    assert settings.verify_ssl is True
 
 
 def test_settings_accept_custom_websocket_path(monkeypatch) -> None:

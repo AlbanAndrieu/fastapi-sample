@@ -1,13 +1,13 @@
 """Tests for network-stage diagnostics used by TrueNAS probes."""
 
+import inspect
 import logging
-import socket
 import ssl
 
 import httpx
 import pytest
 
-from nabla.api.health_checks import _http_probe_error_kind
+from nabla.api.health_checks import _http_probe_error_kind, probe_https_get_reachable
 from nabla.api.homelab_health import truenas_http_verify_ssl
 from nabla.integrations.truenas_client import (
     TrueNASReadOnlyAdapter,
@@ -32,6 +32,14 @@ def test_http_probe_classifies_connect_timeout() -> None:
     exc = httpx.ConnectTimeout("connection timed out")
 
     assert _http_probe_error_kind(exc) == "connect_timeout"
+
+
+def test_http_probe_keeps_probe_name_contract() -> None:
+    """Prevent the /healthz orchestration/runtime signature drift that caused HTTP 500."""
+    signature = inspect.signature(probe_https_get_reachable)
+
+    assert "probe_name" in signature.parameters
+    assert signature.parameters["probe_name"].kind is inspect.Parameter.KEYWORD_ONLY
 
 
 def test_truenas_http_verify_ssl_defaults_to_true(monkeypatch) -> None:
