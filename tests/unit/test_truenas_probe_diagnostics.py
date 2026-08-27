@@ -7,7 +7,8 @@ import ssl
 import httpx
 import pytest
 
-from nabla.api.health_checks import _probe_failure_stage
+from nabla.api.health_checks import _http_probe_error_kind
+from nabla.api.homelab_health import truenas_http_verify_ssl
 from nabla.integrations.truenas_client import (
     TrueNASReadOnlyAdapter,
     TrueNASSettings,
@@ -16,21 +17,35 @@ from nabla.integrations.truenas_client import (
 
 
 def test_http_probe_classifies_dns_failure() -> None:
-    exc = socket.gaierror(-2, "Name or service not known")
+    exc = httpx.ConnectError("Name or service not known")
 
-    assert _probe_failure_stage(exc) == "dns"
+    assert _http_probe_error_kind(exc) == "dns_error"
 
 
 def test_http_probe_classifies_tls_failure() -> None:
-    exc = ssl.SSLError("certificate verify failed")
+    exc = httpx.ConnectError(str(ssl.SSLError("certificate verify failed")))
 
-    assert _probe_failure_stage(exc) == "tls"
+    assert _http_probe_error_kind(exc) == "tls_error"
 
 
 def test_http_probe_classifies_connect_timeout() -> None:
     exc = httpx.ConnectTimeout("connection timed out")
 
-    assert _probe_failure_stage(exc) == "connect_timeout"
+    assert _http_probe_error_kind(exc) == "connect_timeout"
+
+
+def test_truenas_http_verify_ssl_defaults_to_true(monkeypatch) -> None:
+    monkeypatch.delenv("TRUENAS_API_VERIFY_SSL", raising=False)
+    monkeypatch.delenv("TRUENAS_VERIFY_SSL", raising=False)
+
+    assert truenas_http_verify_ssl() is True
+
+
+def test_truenas_http_verify_ssl_honors_api_setting(monkeypatch) -> None:
+    monkeypatch.setenv("TRUENAS_API_VERIFY_SSL", "false")
+    monkeypatch.setenv("TRUENAS_VERIFY_SSL", "true")
+
+    assert truenas_http_verify_ssl() is False
 
 
 def test_truenas_probe_classifies_connection_refused() -> None:
