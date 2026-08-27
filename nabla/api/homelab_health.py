@@ -62,11 +62,8 @@ def internal_probes_enabled() -> bool:
 
 
 def truenas_http_verify_ssl() -> bool:
-    """Return the shared TrueNAS TLS verification policy, defaulting to secure."""
-    raw = (
-        os.getenv("TRUENAS_API_VERIFY_SSL", "").strip()
-        or os.getenv("TRUENAS_VERIFY_SSL", "true").strip()
-    )
+    """Return the TrueNAS TLS policy from the single canonical environment setting."""
+    raw = os.getenv("TRUENAS_API_VERIFY_SSL", "true").strip()
     return raw.lower() in _TRUE_VALUES
 
 
