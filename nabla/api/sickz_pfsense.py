@@ -32,6 +32,15 @@ _PFSENSE_TCP_PORT_POLICY: dict[int, dict[str, Any]] = {
         "probe": "ssh",
         "reason": "Remote shell access must not be exposed to the public Internet.",
     },
+    9922: {
+        "service": "TrueNAS SSH",
+        "expected_reachable": False,
+        "probe": "ssh",
+        "reason": (
+            "TrueNAS SSH may be enabled for trusted LAN administration but must not "
+            "be exposed to the public Internet."
+        ),
+    },
     4000: {
         "service": "LiteLLM",
         "expected_reachable": False,
