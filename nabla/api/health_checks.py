@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+import time
 from typing import Any
 
 import httpx
@@ -32,9 +34,35 @@ from nabla.api.integration_health import (
 )
 from nabla.config_settings import REDIS_URL, get_settings
 
+logger = logging.getLogger(__name__)
+
+
+def _http_probe_error_kind(exc: Exception) -> str:
+    """Classify outbound HTTP failures without exposing implementation details."""
+    message = str(exc).lower()
+    if isinstance(exc, httpx.ConnectTimeout):
+        return "connect_timeout"
+    if isinstance(exc, httpx.ReadTimeout):
+        return "read_timeout"
+    if isinstance(exc, httpx.TimeoutException):
+        return "timeout"
+    if any(marker in message for marker in ("certificate", "ssl", "tls")):
+        return "tls_error"
+    if any(marker in message for marker in ("name or service not known", "nodename nor servname", "temporary failure in name resolution", "getaddrinfo")):
+        return "dns_error"
+    if isinstance(exc, httpx.ConnectError):
+        return "connect_error"
+    if isinstance(exc, httpx.HTTPError):
+        return "http_error"
+    if isinstance(exc, OSError):
+        return "os_error"
+    return "unknown_error"
+
 
 async def probe_https_get_reachable(url: str) -> dict[str, Any]:
     """GET ``url``; any completed HTTP response counts as reachable."""
+    started = time.monotonic()
+    logger.info("health outbound probe started url=%s", url)
     try:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(5.0),
@@ -45,12 +73,39 @@ async def probe_https_get_reachable(url: str) -> dict[str, Any]:
                 headers={"User-Agent": "nabla-healthz-probe/1.0"},
             )
     except (httpx.HTTPError, OSError) as exc:
+        elapsed_ms = round((time.monotonic() - started) * 1000)
+        error_kind = _http_probe_error_kind(exc)
+        exception_type = type(exc).__name__
+        normalized_error = _normalize_probe_error(str(exc))
+        logger.warning(
+            "health outbound probe failed url=%s error_kind=%s exception_type=%s elapsed_ms=%s error=%s",
+            url,
+            error_kind,
+            exception_type,
+            elapsed_ms,
+            normalized_error,
+        )
         return {
             "reachable": False,
-            "error": _normalize_probe_error(str(exc)),
+            "error": normalized_error,
+            "error_kind": error_kind,
+            "exception_type": exception_type,
+            "elapsed_ms": elapsed_ms,
             "url": url,
         }
-    return {"reachable": True, "http_status": response.status_code, "url": url}
+    elapsed_ms = round((time.monotonic() - started) * 1000)
+    logger.info(
+        "health outbound probe completed url=%s http_status=%s elapsed_ms=%s",
+        url,
+        response.status_code,
+        elapsed_ms,
+    )
+    return {
+        "reachable": True,
+        "http_status": response.status_code,
+        "elapsed_ms": elapsed_ms,
+        "url": url,
+    }
 
 
 def _tls_trusted_from_https_probe_result(
