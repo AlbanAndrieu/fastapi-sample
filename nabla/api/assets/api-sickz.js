@@ -331,9 +331,7 @@ function render(data) {
     }
   }
 
-  const keys = Object.keys(checks)
-    .filter((key) => key !== pfKey)
-    .sort();
+  const keys = Object.keys(checks).filter((key) => key !== pfKey).sort();
   listEl.innerHTML = "";
 
   keys.forEach((key) => {
