@@ -3,13 +3,38 @@
 import json
 from pathlib import Path
 
+import pytest
+
+from scripts import set_release_version as release_version
+
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def _write_release_version_fixture(root: Path, *, valid_dockerfile: bool = True) -> list[Path]:
+    """Create the minimal release metadata set consumed by the sync script."""
+    (root / "nabla").mkdir()
+    files = {
+        root / "pyproject.toml": (
+            '[project]\nname = "fastapi-sample"\nversion = "1.4.0"\n\n'
+            '[tool.versioningit]\ndefault-version = "1.4.0"\n\n'
+            '[tool.commitizen]\nversion = "1.4.0"\n'
+        ),
+        root / "nabla/_release.py": '__version__ = "1.4.0"\n',
+        root / "uv.lock": '[[package]]\nname = "fastapi-sample"\nversion = "1.4.0"\n',
+        root / "Dockerfile": (
+            'ARG APP_VERSION="1.4.0"\n' if valid_dockerfile else "FROM python:3.13\n"
+        ),
+    }
+    for path, content in files.items():
+        path.write_text(content, encoding="utf-8")
+    return list(files)
 
 
 def test_vercel_is_a_lightweight_fastapi_cloud_proxy() -> None:
     config = json.loads((ROOT / "vercel.json").read_text(encoding="utf-8"))
 
     assert config["framework"] is None
+    assert config["git"]["deploymentEnabled"] == {"*": False, "master": True}
     assert config["ignoreCommand"] == '[ "$VERCEL_GIT_COMMIT_REF" != "master" ]'
     assert config["rewrites"] == [
         {
@@ -88,10 +113,48 @@ def test_release_dispatch_deploys_immutable_tag_then_runs_smoke() -> None:
 def test_semantic_release_recovers_exactly_1_4_1_then_dispatches_deploy() -> None:
     workflow = (ROOT / ".github/workflows/semantic-release.yml").read_text(encoding="utf-8")
 
-    assert 'SOURCE_VERSION}" == "1.4.0"' in workflow
+    assert 'SOURCE_VERSION_BEFORE}" == "1.4.0"' in workflow
     assert 'LATEST_RELEASE_TAG}" == "1.4.0"' in workflow
-    assert 'RELEASE_TAG}" != "1.4.1"' in workflow
+    assert 'RECOVERY_VERSION="1.4.1"' in workflow
+    assert 'python scripts/set_release_version.py "${RECOVERY_VERSION}"' in workflow
+    assert 'npm version "${RECOVERY_VERSION}" --no-git-tag-version --ignore-scripts' in workflow
+    assert "git tag --force 1.4.0" not in workflow
+    assert 'SOURCE_VERSION_BEFORE}" == "1.4.1"' in workflow
+    assert 'REMOTE_TAG_SHA}" != "${HEAD_SHA}"' in workflow
     assert "semantic-release-published" in workflow
+
+
+def test_release_version_sync_updates_all_non_npm_sources(tmp_path, monkeypatch) -> None:
+    paths = _write_release_version_fixture(tmp_path)
+    monkeypatch.setattr(release_version, "ROOT", tmp_path)
+
+    release_version.set_release_version("1.4.1")
+
+    for path in paths:
+        content = path.read_text(encoding="utf-8")
+        assert "1.4.1" in content
+        assert "1.4.0" not in content
+
+
+def test_release_version_sync_is_transactional_on_drift(tmp_path, monkeypatch) -> None:
+    paths = _write_release_version_fixture(tmp_path, valid_dockerfile=False)
+    before = {path: path.read_text(encoding="utf-8") for path in paths}
+    monkeypatch.setattr(release_version, "ROOT", tmp_path)
+
+    with pytest.raises(ValueError, match="Dockerfile: expected exactly one version match"):
+        release_version.set_release_version("1.4.1")
+
+    assert {path: path.read_text(encoding="utf-8") for path in paths} == before
+
+
+def test_recovery_manifest_and_changelog_document_1_4_1() -> None:
+    changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    manifest = (ROOT / "docs/release-1.4.1.md").read_text(encoding="utf-8")
+
+    assert "## 1.4.1 — homelab diagnostics and release recovery" in changelog
+    assert "does **not** force-move" in manifest
+    assert "scripts/set_release_version.py" in manifest
+    assert "would clobber existing tag" in manifest
 
 
 def test_package_publication_uses_single_validated_release_dispatch() -> None:
