@@ -1,5 +1,7 @@
 """Contract tests for the typed homelab service catalog."""
 
+import asyncio
+
 import pytest
 from pydantic import ValidationError
 
@@ -270,7 +272,40 @@ async def test_remote_catalog_is_authoritative(monkeypatch) -> None:
     try:
         catalog = await homelab_catalog.fetch_homelab_catalog()
         assert catalog is remote
-        assert homelab_catalog._catalog_cache_source == "nabla-compose"
+        assert homelab_catalog.homelab_catalog_cache_source() == "nabla-compose"
+    finally:
+        homelab_catalog.clear_homelab_catalog_cache()
+
+
+@pytest.mark.asyncio
+async def test_concurrent_catalog_requests_share_one_remote_refresh(monkeypatch) -> None:
+    remote = HomelabCatalog(
+        services=[
+            HomelabService(
+                name="Remote only",
+                tunnel_url="https://remote-only.albandrieu.com",
+                external=True,
+            )
+        ]
+    )
+    attempts = 0
+
+    async def fetch_remote() -> HomelabCatalog:
+        nonlocal attempts
+        attempts += 1
+        await asyncio.sleep(0.01)
+        return remote
+
+    homelab_catalog.clear_homelab_catalog_cache()
+    monkeypatch.setattr(homelab_catalog, "_fetch_remote_catalog", fetch_remote)
+    try:
+        catalogs = await asyncio.gather(
+            homelab_catalog.fetch_homelab_catalog(),
+            homelab_catalog.fetch_homelab_catalog(),
+            homelab_catalog.fetch_homelab_catalog(),
+        )
+        assert catalogs == [remote, remote, remote]
+        assert attempts == 1
     finally:
         homelab_catalog.clear_homelab_catalog_cache()
 
@@ -302,7 +337,7 @@ async def test_remote_refresh_failure_keeps_last_known_good(monkeypatch) -> None
         assert await homelab_catalog.fetch_homelab_catalog() is remote
         assert await homelab_catalog.fetch_homelab_catalog() is remote
         assert attempts == 2
-        assert homelab_catalog._catalog_cache_source == "nabla-compose"
+        assert homelab_catalog.homelab_catalog_cache_source() == "nabla-compose"
     finally:
         homelab_catalog.clear_homelab_catalog_cache()
 
