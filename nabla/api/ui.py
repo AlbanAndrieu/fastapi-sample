@@ -65,7 +65,19 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
             </div>
 
             <section class="health-board" id="health-board" aria-labelledby="health-board-title">
-                <h2 class="health-board-title" id="health-board-title">Service health</h2>
+                <div class="health-board-heading-row">
+                    <div>
+                        <h2 class="health-board-title" id="health-board-title">Service health</h2>
+                        <p class="health-board-meta">Live dependency and exposure observability, grouped by declared blast radius.</p>
+                    </div>
+                    <div class="service-filter">
+                        <label for="service-filter">Filter services</label>
+                        <div class="service-filter-control">
+                            <input id="service-filter" type="search" autocomplete="off" placeholder="Name, host, tier or status">
+                            <button type="button" id="service-filter-clear">Clear</button>
+                        </div>
+                    </div>
+                </div>
                 <p class="health-board-meta">Live view of <a href="/healthz">/healthz</a>.
                     <button type="button" class="health-refresh">Refresh</button>
                 </p>
@@ -73,10 +85,16 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
                     <span class="health-led health-led--gray" id="health-summary-led" aria-hidden="true"></span>
                     <span id="health-summary-text">Loading health checks…</span>
                 </div>
+                <div class="service-group-heading service-group-heading--core" id="health-core-group-heading">
+                    <div>
+                        <h3>Core services</h3>
+                        <p>Required for core stack</p>
+                    </div>
+                </div>
                 <ul class="health-checks" id="health-checks"></ul>
                 <p class="health-error" id="health-fetch-error" hidden></p>
 
-                <section class="truenas-platform" id="truenas-platform" aria-labelledby="truenas-platform-title">
+                <section class="truenas-platform" id="truenas-platform" data-service-filter-target data-search-text="truenas storage platform required infrastructure https websocket api" aria-labelledby="truenas-platform-title">
                     <div class="truenas-platform-heading">
                         <div>
                             <h3 class="health-subboard-title truenas-platform-title" id="truenas-platform-title">TrueNAS platform</h3>
@@ -88,6 +106,8 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
                     <div class="truenas-pipeline" id="truenas-pipeline" aria-live="polite"></div>
                     <p class="health-error" id="truenas-platform-error" hidden></p>
                 </section>
+
+                <div class="service-groups" id="health-services-groups" aria-live="polite"></div>
 
                 <h3 class="health-subboard-title" id="sickz-board-title">Exposure security policy</h3>
                 <p class="health-board-meta">Live view of <a href="/sickz">/sickz</a>.

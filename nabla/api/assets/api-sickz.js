@@ -11,6 +11,7 @@ import {
   networkPhrase,
   tcpPolicyViolation,
 } from "./api-sickz-policy.js";
+import { organizeSickzRows } from "./api-service-groups.js";
 
 function classifySick(check) {
   if (check.policy_status === "ok") return "green";
@@ -246,7 +247,7 @@ function buildPfsenseSectionHtml(pfCheck) {
       ? `<a class="sickz-target-link" target="_blank" rel="noopener noreferrer" href="${safeHref}">${escapeText(rowName)}</a>`
       : `<span>${escapeText(rowName)}</span>`;
   return (
-    '<h4 class="sickz-pfsense-title">PfSense / public port policy</h4>' +
+    '<h4 class="sickz-pfsense-title">1 · Infrastructure foundations · PfSense / public port policy</h4>' +
     `<p class="health-board-meta sickz-pfsense-intro">${meta}</p>` +
     '<ul class="health-checks sickz-pfsense-main"><li class="health-row sickz-pfsense-row">' +
     sickzRowIcon(pfCheck, cls) +
@@ -327,6 +328,8 @@ function render(data) {
       wrapPf.innerHTML = "";
     } else {
       wrapPf.hidden = false;
+      wrapPf.dataset.serviceFilterTarget = "";
+      wrapPf.dataset.searchText = `pfsense firewall foundation public port policy ${detailSickText(pfEntry.check)}`.toLowerCase();
       wrapPf.innerHTML = buildPfsenseSectionHtml(pfEntry.check);
     }
   }
@@ -339,6 +342,8 @@ function render(data) {
     const cls = classifySick(check);
     const item = document.createElement("li");
     item.className = "health-row";
+    item.dataset.serviceFilterTarget = "";
+    item.dataset.serviceKey = key;
     const hrefRaw = tunnelHref(check);
     const safeHref = hrefRaw.length ? escapeText(hrefRaw) : "";
     let rowTitle = "";
@@ -346,6 +351,15 @@ function render(data) {
     else if (check.display_label != null) rowTitle = String(check.display_label);
     else rowTitle = key;
     if (check.policy_status === "warn") rowTitle = `⚠️ ${rowTitle}`;
+    item.dataset.serviceName = rowTitle.replace(/^⚠️\s*/, "");
+    item.dataset.serviceUrl = hrefRaw;
+    item.dataset.searchText = [
+      key,
+      item.dataset.serviceName,
+      hrefRaw,
+      detailSickText(check),
+      exposureTags(check),
+    ].join(" ").toLowerCase();
     const lockTls = check.skipped === true ? null : check.tls_trusted;
     const lockHref = check.skipped === true ? "" : hrefRaw;
     const titleInner =
@@ -366,6 +380,7 @@ function render(data) {
       "</div>";
     listEl.appendChild(item);
   });
+  organizeSickzRows(data, pfKey);
 }
 
 function showFetchError(message) {
