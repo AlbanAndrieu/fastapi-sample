@@ -1,0 +1,87 @@
+---
+name: Refresh TrueNAS BETA.2 pin
+
+on:
+  push:
+    branches:
+      - fix/truenas-beta2-opencode-mcp
+    paths:
+      - .github/workflows/refresh-truenas-beta2.yml
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    env:
+      PYTHON_VERSION: "3.13"
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+          python-version: ${{ env.PYTHON_VERSION }}
+          version: "0.12.1"
+
+      - name: Align TrueNAS client and OpenCode GitHub MCP
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          pyproject = Path("pyproject.toml")
+          text = pyproject.read_text()
+          old = 'rev = "TS-26.0.0-BETA.1"'
+          new = 'rev = "TS-26.0.0-BETA.2"'
+          if text.count(old) != 1:
+              raise SystemExit("Expected exactly one TrueNAS BETA.1 pin")
+          pyproject.write_text(text.replace(old, new))
+
+          opencode = Path("opencode.json")
+          config = json.loads(opencode.read_text())
+          config["mcp"]["github"] = {
+              "type": "local",
+              "command": [
+                  "docker",
+                  "run",
+                  "-i",
+                  "--rm",
+                  "-e",
+                  "GITHUB_PERSONAL_ACCESS_TOKEN",
+                  "ghcr.io/github/github-mcp-server",
+                  "--read-only",
+                  "--toolsets=context,repos,pull_requests,issues,actions,code_security",
+              ],
+              "enabled": True,
+              "environment": {
+                  "GITHUB_PERSONAL_ACCESS_TOKEN": "{env:GITHUB_PERSONAL_ACCESS_TOKEN}"
+              },
+          }
+          opencode.write_text(json.dumps(config, indent=2) + "\n")
+          PY
+
+          uv lock
+
+      - name: Commit generated lockfile
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pyproject.toml uv.lock opencode.json
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "fix(devtools): align TrueNAS client and GitHub MCP"
+          git push origin HEAD
