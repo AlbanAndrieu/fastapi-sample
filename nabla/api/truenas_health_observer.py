@@ -12,6 +12,14 @@ from nabla.api.provider_credentials import inspect_environment_credentials
 from nabla.api.truenas_client import observe_truenas_api
 from nabla.utils.logger import logger
 
+_TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
+
+
+def truenas_http_verify_ssl() -> bool:
+    """Return the TrueNAS TLS policy from the single canonical environment setting."""
+    raw = os.getenv("TRUENAS_API_VERIFY_SSL", "true").strip()
+    return raw.lower() in _TRUE_VALUES
+
 
 def _short_error(exc: BaseException) -> str:
     message = str(exc).strip() or exc.__class__.__name__
