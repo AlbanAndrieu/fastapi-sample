@@ -24,6 +24,7 @@ const LABELS = {
   litellm: "LiteLLM proxy",
   cloudflare: "Cloudflare Tunnels",
   pfsense: "pfSense API",
+  truenas_api: "TrueNAS API",
   albandrieu_twofactor: "twofactor-auth",
   albandrieu_nexus: "nexus",
   albandrieu_keycloak_ui: "keycloak",
@@ -31,7 +32,7 @@ const LABELS = {
   albandrieu_plumber_api: "plumber-api",
   albandrieu_reactive_resume: "reactive-resume",
   albandrieu_vaultwarden: "vaultwarden-albandrieu",
-  albandrieu_truenas: "TrueNAS",
+  albandrieu_truenas: "TrueNAS HTTPS",
 };
 
 export const MANDATORY = new Set([
@@ -76,6 +77,7 @@ function classify(key, check) {
   if (check.skipped === true) return "yellow";
   if (isExpectedSentryDebugFailure(key, check)) return "green";
   if (check.reachable === true) {
+    if (key === "truenas_api") return "green";
     if (!httpStatusIsSuccess2xx(check.http_status)) return "blue";
     return "green";
   }
@@ -93,6 +95,12 @@ function detailText(key, check) {
   if (check.skipped) return check.reason || "Not configured (intentionally disabled).";
   if (isExpectedSentryDebugFailure(key, check)) {
     return "HTTP 500 · Expected: the test error was intentionally triggered and captured by Sentry.";
+  }
+  if (key === "truenas_api" && check.reachable === true) {
+    const parts = ["WebSocket API connected"];
+    if (check.version) parts.push(String(check.version));
+    if (check.app_count != null) parts.push(`${check.app_count} apps`);
+    return parts.join(" · ");
   }
   if (check.reachable === true) {
     const parts = [];
@@ -119,6 +127,7 @@ function sortKeys(keys) {
     "albandrieu_reactive_resume",
     "albandrieu_vaultwarden",
     "albandrieu_truenas",
+    "truenas_api",
     "cloudflare",
     "pfsense",
     "litellm",
@@ -234,6 +243,28 @@ function showFetchError(message) {
   errEl.textContent = message;
 }
 
+function truenasApiCheck(homelab) {
+  const truenas = homelab && typeof homelab.truenas === "object" ? homelab.truenas : null;
+  const api = truenas && typeof truenas.api === "object" ? truenas.api : null;
+  if (!api) {
+    return {
+      name: "TrueNAS API",
+      display_label: "TrueNAS API",
+      reachable: null,
+      skipped: true,
+      reason: "TrueNAS API credentials are not configured or the API probe is unavailable.",
+    };
+  }
+  return {
+    name: "TrueNAS API",
+    display_label: "TrueNAS API",
+    reachable: api.reachable === true,
+    error: api.error || null,
+    version: api.version || null,
+    app_count: Array.isArray(api.apps) ? api.apps.length : null,
+  };
+}
+
 export function loadHealth() {
   fetch("/healthz", {
     cache: "no-store",
@@ -243,7 +274,34 @@ export function loadHealth() {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return response.json();
     })
-    .then(render)
+    .then((data) => {
+      render(data);
+      fetch("/api/homelab/health", {
+        cache: "no-store",
+        headers: { Accept: "application/json", "Cache-Control": "no-cache" },
+      })
+        .then((response) => {
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          return response.json();
+        })
+        .then((homelab) => {
+          data.checks = { ...(data.checks || {}), truenas_api: truenasApiCheck(homelab) };
+          render(data);
+        })
+        .catch((error) => {
+          data.checks = {
+            ...(data.checks || {}),
+            truenas_api: {
+              name: "TrueNAS API",
+              display_label: "TrueNAS API",
+              reachable: null,
+              skipped: true,
+              reason: `TrueNAS API health unavailable: ${String(error.message || error)}`,
+            },
+          };
+          render(data);
+        });
+    })
     .catch((error) => {
       showFetchError(String(error.message || error));
     });
