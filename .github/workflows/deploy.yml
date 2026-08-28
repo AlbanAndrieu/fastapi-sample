@@ -103,7 +103,7 @@ jobs:
         env:
           FASTAPI_CLOUD_APP_ID: ${{ secrets.FASTAPI_CLOUD_APP_ID }}
           FASTAPI_CLOUD_TOKEN: ${{ secrets.FASTAPI_CLOUD_TOKEN }}
-        run: uvx fastapi-cloud-cli fastapi deploy
+        run: uv run fastapi deploy
 
       - name: Verify production release and catalog
         run: |
