@@ -10,6 +10,26 @@
       "type": "remote",
       "url": "http://127.0.0.1:8080/mcp",
       "enabled": true
+    },
+    "github": {
+      "type": "remote",
+      "url": "https://api.githubcopilot.com/mcp/x/all/readonly",
+      "enabled": true
+    },
+    "vercel": {
+      "type": "remote",
+      "url": "https://mcp.vercel.com",
+      "enabled": true
+    },
+    "pfsense-auditor": {
+      "type": "local",
+      "command": [
+        "uvx",
+        "--from",
+        "pfsense-mcp-server==0.5.1",
+        "pfsense-mcp-server"
+      ],
+      "enabled": false
     }
   }
 }

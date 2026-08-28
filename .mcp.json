@@ -3,6 +3,14 @@
     "fastapi-sample": {
       "type": "http",
       "url": "http://127.0.0.1:8080/mcp"
+    },
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/x/all/readonly"
+    },
+    "vercel": {
+      "type": "http",
+      "url": "https://mcp.vercel.com"
     }
   }
 }
