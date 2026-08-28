@@ -22,6 +22,7 @@ from nabla.api.truenas_diagnostics import (
 )
 from nabla.api.truenas_health_observer import (
     observe_truenas_health_api as _observe_truenas_api,
+    truenas_http_verify_ssl,
 )
 from nabla.integrations.truenas_client import (
     TrueNASSettings,
@@ -38,7 +39,6 @@ _MAX_PROBE_CONCURRENCY = 8
 _PROBE_TIMEOUT_SEC = 5.0
 _INTERNAL_PROBE_ENV = "HOMELAB_INTERNAL_PROBES_ENABLED"
 _MAX_APPLICATION_BODY_BYTES = 16_384
-_TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 _APPLICATION_ERROR_PREFIXES = (
     "error:",
     "fatal:",
@@ -70,12 +70,6 @@ def classify_public_http_status(status: int) -> HealthState:
 def internal_probes_enabled() -> bool:
     """Return whether internal TCP probes are explicitly enabled for this runtime."""
     return env_bool(_INTERNAL_PROBE_ENV)
-
-
-def truenas_http_verify_ssl() -> bool:
-    """Return the TrueNAS TLS policy from the single canonical environment setting."""
-    raw = os.getenv("TRUENAS_API_VERIFY_SSL", "true").strip()
-    return raw.lower() in _TRUE_VALUES
 
 
 def _short_error(exc: BaseException) -> str:
