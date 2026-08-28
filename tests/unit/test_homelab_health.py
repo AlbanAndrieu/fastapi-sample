@@ -367,7 +367,7 @@ async def test_global_health_rows_always_include_truenas(monkeypatch) -> None:
     assert rows[0][:3] == (
         "albandrieu_truenas",
         "https://truenas.albandrieu.com:7000/",
-        "TrueNAS",
+        "TrueNAS HTTPS",
     )
 
 
