@@ -255,7 +255,7 @@ test = [
     "async-asgi-testclient>= 1.4.11",
     "coverage>= 7.2.7",
     "mypy>=1.16.0",
-    "pytest<9",
+    "pytest<10",
     "pytest-asyncio>=0.21.0",
     "pytest-env>=1.1.5",
     "pytest-cases>=3.8.3",
@@ -454,7 +454,7 @@ pythonPlatform = "Linux"
 lint.select = ["E", "F"]
 lint.ignore = ["E501", "E203", "RUF012"]
 
-# Allow autofix for all enabled rules (when `--fix`) is provided.
+# Allow autofix for all enabled rules when --fix is provided.
 lint.fixable = ["ALL"]
 lint.unfixable = []
 lint.per-file-ignores = {}
