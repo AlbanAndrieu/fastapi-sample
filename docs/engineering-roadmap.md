@@ -564,3 +564,11 @@ At the time this roadmap was created, `.pre-commit-config.yaml` already
 contained user changes and `.env.sops.secrets` / `secrets.env.sops` were
 untracked. They must not be overwritten, reformatted, deleted, or committed as
 part of unrelated quality work.
+
+
+## Observability log qualification debt
+
+- Revisit the DEBUG / INFO / WARNING / ERROR taxonomy across health and integration probes.
+- Treat failures of required infrastructure dependencies such as the TrueNAS API as ERROR, while keeping intentionally disabled optional integrations at WARNING/INFO.
+- Preserve sanitized failure phase/stage metadata for Sentry without logging credentials or secret values.
+- Add Sentry fingerprinting/rate limiting for periodic health failures so a 30-second probe cache cannot create duplicate incident noise.

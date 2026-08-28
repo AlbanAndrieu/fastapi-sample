@@ -76,6 +76,19 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
                 <ul class="health-checks" id="health-checks"></ul>
                 <p class="health-error" id="health-fetch-error" hidden></p>
 
+                <section class="truenas-platform" id="truenas-platform" aria-labelledby="truenas-platform-title">
+                    <div class="truenas-platform-heading">
+                        <div>
+                            <h3 class="health-subboard-title truenas-platform-title" id="truenas-platform-title">TrueNAS platform</h3>
+                            <p class="health-board-meta">Required infrastructure dependency · HTTPS and WebSocket API diagnostics.</p>
+                        </div>
+                        <span class="truenas-platform-state truenas-platform-state--neutral" id="truenas-platform-state">Loading…</span>
+                    </div>
+                    <div class="truenas-platform-target" id="truenas-platform-target">https://truenas.albandrieu.com:7000</div>
+                    <div class="truenas-pipeline" id="truenas-pipeline" aria-live="polite"></div>
+                    <p class="health-error" id="truenas-platform-error" hidden></p>
+                </section>
+
                 <h3 class="health-subboard-title" id="sickz-board-title">Exposure security policy</h3>
                 <p class="health-board-meta">Live view of <a href="/sickz">/sickz</a>.
                     <button type="button" class="health-refresh">Refresh</button>

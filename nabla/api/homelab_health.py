@@ -16,7 +16,16 @@ import httpx
 from nabla.api.homelab_catalog import fetch_homelab_services
 from nabla.api.homelab_models import HomelabService
 from nabla.api.truenas_client import observe_truenas_api
-from nabla.integrations.truenas_client import truenas_host_port, truenas_url
+from nabla.api.truenas_diagnostics import (
+    append_truenas_api_stages,
+    collect_truenas_network_diagnostics,
+)
+from nabla.integrations.truenas_client import (
+    TrueNASSettings,
+    truenas_host_port,
+    truenas_url,
+)
+from nabla.utils.logger import logger
 from nabla.utils.environment import env_bool
 
 HealthState = Literal["ok", "warn", "fail"]
@@ -255,11 +264,94 @@ def _truenas_internal_target(
     return truenas_host_port()
 
 
-async def _observe_truenas_api() -> dict[str, Any] | None:
+def _truenas_api_configuration_failure() -> dict[str, Any] | None:
+    """Return a sanitized authentication configuration failure, if any."""
+    username = (
+        os.getenv("TRUENAS_API_USERNAME", "").strip()
+        or os.getenv("TRUENAS_USERNAME", "").strip()
+        or os.getenv("TRUENAS_USER", "").strip()
+    )
+    api_key = os.getenv("TRUENAS_API_KEY", "").strip()
+    if not username:
+        return {
+            "reachable": False,
+            "phase": "authentication",
+            "stage": "missing_username",
+            "error": "TrueNAS API username is missing; authentication cannot be attempted.",
+            "username_configured": False,
+            "api_key_configured": bool(api_key),
+        }
+    if not api_key:
+        return {
+            "reachable": False,
+            "phase": "authentication",
+            "stage": "missing_api_key",
+            "error": "TRUENAS_API_KEY is missing; authentication cannot be attempted.",
+            "username_configured": True,
+            "api_key_configured": False,
+        }
+    if re.fullmatch(r"[A-Z][A-Z0-9_]{2,}", api_key):
+        return {
+            "reachable": False,
+            "phase": "authentication",
+            "stage": "invalid_api_key_reference",
+            "error": (
+                "TRUENAS_API_KEY contains an environment-variable name instead of "
+                "raw TrueNAS API key material."
+            ),
+            "username_configured": True,
+            "api_key_configured": True,
+        }
+    if re.fullmatch(r"[0-9]+-.+", api_key) is None:
+        return {
+            "reachable": False,
+            "phase": "authentication",
+            "stage": "invalid_api_key_format",
+            "error": "TRUENAS_API_KEY does not match the expected <id>-<key> format.",
+            "username_configured": True,
+            "api_key_configured": True,
+        }
+    return None
+
+
+async def _observe_truenas_api() -> dict[str, Any]:
+    configuration_failure = _truenas_api_configuration_failure()
+    if configuration_failure is not None:
+        logger.error(
+            "TrueNAS API authentication unavailable stage=%s error=%s",
+            configuration_failure["stage"],
+            configuration_failure["error"],
+        )
+        return configuration_failure
+
+    started = time.perf_counter()
     try:
-        return await asyncio.to_thread(observe_truenas_api)
-    except Exception as exc:  # Adapter/network/auth errors are health data.
-        return {"reachable": False, "error": _short_error(exc)}
+        result = await asyncio.to_thread(observe_truenas_api)
+        if not isinstance(result, dict):
+            raise RuntimeError("TrueNAS API probe returned no health payload")
+        result = dict(result)
+        result.setdefault("phase", "call")
+        result.setdefault("stage", "ok")
+        result.setdefault("elapsed_ms", max(0, round((time.perf_counter() - started) * 1000)))
+        return result
+    except Exception as exc:  # Adapter/network/auth errors are health data and Sentry evidence.
+        elapsed_ms = max(0, round((time.perf_counter() - started) * 1000))
+        logger.exception("TrueNAS API health probe failed after configuration validation")
+        try:
+            import sentry_sdk
+
+            sentry_sdk.capture_exception(exc)
+        except Exception:  # pragma: no cover - observability must not break health reporting.
+            logger.exception("Unable to report TrueNAS API failure to Sentry")
+        return {
+            "reachable": False,
+            "phase": "api",
+            "stage": "exception",
+            "elapsed_ms": elapsed_ms,
+            "error": _short_error(exc),
+            "username_configured": True,
+            "api_key_configured": True,
+        }
 
 
 def _truenas_state(
@@ -270,11 +362,13 @@ def _truenas_state(
     public_state = public_result.get("state")
     internal_state = internal_result.get("state") if internal_result else None
     api_reachable = api_result.get("reachable") if api_result else None
+    if api_reachable is False:
+        return "fail"
     if public_state == "fail" and (internal_state == "ok" or api_reachable is True):
         return "warn"
     if public_state == "fail":
         return "fail"
-    if internal_state == "fail" or api_reachable is False:
+    if internal_state == "fail":
         return "warn"
     if public_state == "warn":
         return "warn"
@@ -316,14 +410,31 @@ async def _probe_truenas(
         )
 
     api_result = await _observe_truenas_api()
+    host, port = truenas_host_port()
+    verify_ssl = truenas_http_verify_ssl()
+    ws_path = os.getenv("TRUENAS_WS_PATH", "/api/current").strip() or "/api/current"
+    websocket_uri = TrueNASSettings(
+        url=truenas_url(),
+        verify_ssl=verify_ssl,
+        websocket_path=ws_path,
+    ).websocket_uri
+    diagnostics = await collect_truenas_network_diagnostics(
+        host=host,
+        port=port,
+        websocket_uri=websocket_uri,
+        verify_ssl=verify_ssl,
+        public_result=public_result,
+    )
+    diagnostics = append_truenas_api_stages(diagnostics, api_result)
     return {
         "id": "truenas",
         "state": _truenas_state(public_result, internal_result, api_result),
         "public": public_result,
         "internal": internal_result,
         "api": api_result,
+        "diagnostics": diagnostics,
         "internal_probe_enabled": internal_enabled,
-        "verify_ssl": truenas_http_verify_ssl(),
+        "verify_ssl": verify_ssl,
     }
 
 

@@ -1,5 +1,6 @@
 import { loadHealth } from "./api-health-core.js";
 import { loadSickz } from "./api-sickz.js";
+import { loadTrueNas } from "./api-truenas.js";
 import {
   decorateCloudflareTunnelStatuses,
   markHealthBoardsPending,
@@ -20,6 +21,7 @@ function logRefreshClick() {
 function loadHealthBoards() {
   markHealthBoardsPending();
   loadHealth();
+  loadTrueNas();
   loadSickz();
   decorateCloudflareTunnelStatuses();
 }

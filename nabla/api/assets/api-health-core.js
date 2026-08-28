@@ -205,7 +205,7 @@ function render(data) {
   summaryLed.className = `health-led health-led--${overall.cls}`;
   summaryText.textContent = overall.text;
   const checks = data.checks || {};
-  const keys = sortKeys(Object.keys(checks));
+  const keys = sortKeys(Object.keys(checks)).filter((key) => key !== "truenas_api" && key !== "albandrieu_truenas");
   listEl.innerHTML = "";
   keys.forEach((key) => {
     const check = checks[key];
