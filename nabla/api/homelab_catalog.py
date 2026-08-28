@@ -23,6 +23,7 @@ HOMELAB_EXPOSURE_OVERRIDES_PATH = (
 
 _OVERRIDE_FIELDS = (
     "external",
+    "tunnelUrl",
     "tunnelSecure",
     "endpointEnabled",
     "tunnelTitle",
