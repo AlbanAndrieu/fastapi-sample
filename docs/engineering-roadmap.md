@@ -102,6 +102,13 @@ exceptions here rather than creating additional todo or refactoring documents.
 - [x] Keep Sentry logs and traces enabled when a Logfire token exists but
       `LOGFIRE_ENABLED=false`.
 - [x] Disable external Sentry/Logfire exporters by default during pytest runs.
+- [ ] Finish the self-hosted Sentry integration at `sentry.albandrieu.com`:
+      create a dedicated `fastapi-sample` project in the `sentry` organization
+      instead of reusing the current `internal` project; configure its DSN through
+      `SENTRY_DSN` for local and FastAPI Cloud runtimes; verify environment and
+      release tagging, error capture and traces; create a separate least-privilege
+      `SENTRY_ACCESS_TOKEN` for the official Sentry MCP `inspect` skill; and verify
+      that MCP issue/event inspection works without granting project/team writes.
 - [ ] Benchmark resident memory and startup time with Logfire, Redis,
       OpenTelemetry, Datadog and Prometheus independently enabled.
 - [ ] Remove duplicated instrumentation and make expensive system-metric
