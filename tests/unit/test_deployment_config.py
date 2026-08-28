@@ -3,31 +3,7 @@
 import json
 from pathlib import Path
 
-import pytest
-
-from scripts import set_release_version as release_version
-
 ROOT = Path(__file__).resolve().parents[2]
-
-
-def _write_release_version_fixture(root: Path, *, valid_dockerfile: bool = True) -> list[Path]:
-    """Create the minimal release metadata set consumed by the sync script."""
-    (root / "nabla").mkdir()
-    files = {
-        root / "pyproject.toml": (
-            '[project]\nname = "fastapi-sample"\nversion = "1.4.0"\n\n'
-            '[tool.versioningit]\ndefault-version = "1.4.0"\n\n'
-            '[tool.commitizen]\nversion = "1.4.0"\n'
-        ),
-        root / "nabla/_release.py": '__version__ = "1.4.0"\n',
-        root / "uv.lock": '[[package]]\nname = "fastapi-sample"\nversion = "1.4.0"\n',
-        root / "Dockerfile": (
-            'ARG APP_VERSION="1.4.0"\n' if valid_dockerfile else "FROM python:3.13\n"
-        ),
-    }
-    for path, content in files.items():
-        path.write_text(content, encoding="utf-8")
-    return list(files)
 
 
 def test_vercel_is_a_lightweight_fastapi_cloud_proxy() -> None:
@@ -110,41 +86,18 @@ def test_release_dispatch_deploys_immutable_tag_then_runs_smoke() -> None:
     assert "GITHUB_ENV" not in smoke
 
 
-def test_semantic_release_recovers_exactly_1_4_1_then_dispatches_deploy() -> None:
+def test_semantic_release_uses_normal_post_recovery_flow() -> None:
     workflow = (ROOT / ".github/workflows/semantic-release.yml").read_text(encoding="utf-8")
 
-    assert 'SOURCE_VERSION_BEFORE}" == "1.4.0"' in workflow
-    assert 'LATEST_RELEASE_TAG}" == "1.4.0"' in workflow
-    assert 'RECOVERY_VERSION="1.4.1"' in workflow
-    assert 'python scripts/set_release_version.py "${RECOVERY_VERSION}"' in workflow
-    assert 'npm version "${RECOVERY_VERSION}" --no-git-tag-version --ignore-scripts' in workflow
-    assert "git tag --force 1.4.0" not in workflow
-    assert 'SOURCE_VERSION_BEFORE}" == "1.4.1"' in workflow
-    assert 'REMOTE_TAG_SHA}" != "${HEAD_SHA}"' in workflow
+    assert "python scripts/check_release_baseline.py" in workflow
+    assert "npx semantic-release" in workflow
     assert "semantic-release-published" in workflow
-
-
-def test_release_version_sync_updates_all_non_npm_sources(tmp_path, monkeypatch) -> None:
-    paths = _write_release_version_fixture(tmp_path)
-    monkeypatch.setattr(release_version, "ROOT", tmp_path)
-
-    release_version.set_release_version("1.4.1")
-
-    for path in paths:
-        content = path.read_text(encoding="utf-8")
-        assert "1.4.1" in content
-        assert "1.4.0" not in content
-
-
-def test_release_version_sync_is_transactional_on_drift(tmp_path, monkeypatch) -> None:
-    paths = _write_release_version_fixture(tmp_path, valid_dockerfile=False)
-    before = {path: path.read_text(encoding="utf-8") for path in paths}
-    monkeypatch.setattr(release_version, "ROOT", tmp_path)
-
-    with pytest.raises(ValueError, match="Dockerfile: expected exactly one version match"):
-        release_version.set_release_version("1.4.1")
-
-    assert {path: path.read_text(encoding="utf-8") for path in paths} == before
+    assert "git tag --force 1.4.0" not in workflow
+    assert "RECOVERY_VERSION" not in workflow
+    assert "scripts/set_release_version.py" not in workflow
+    assert "npm version" not in workflow
+    assert "npm pkg delete" not in workflow
+    assert "@semantic-release/gitlab" not in workflow
 
 
 def test_recovery_manifest_and_changelog_document_1_4_1() -> None:
@@ -153,15 +106,34 @@ def test_recovery_manifest_and_changelog_document_1_4_1() -> None:
 
     assert "## 1.4.1 — homelab diagnostics and release recovery" in changelog
     assert "does **not** force-move" in manifest
-    assert "scripts/set_release_version.py" in manifest
     assert "would clobber existing tag" in manifest
 
 
-def test_package_publication_uses_single_validated_release_dispatch() -> None:
+def test_package_publication_respects_private_classifier_and_least_privilege() -> None:
     workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
 
     assert "semantic-release-published" in workflow
-    assert "\n  release:\n" not in workflow
+    assert "\n  build:\n" in workflow
+    assert "\n  publish_github:\n" in workflow
+    assert "\n  publish_testpypi:\n" in workflow
+    assert "\n  publish_pypi:\n" in workflow
     assert '[[ ! "${release_tag}" =~ ^[0-9]+\\.[0-9]+\\.[0-9]+$ ]]' in workflow
     assert "ref: ${{ steps.release_ref.outputs.tag }}" in workflow
+    assert "Private ::" in workflow
+    assert "pypi_allowed" in workflow
+    assert "if: needs.build.outputs.pypi_allowed == 'true'" in workflow
+    assert 'gh release upload "${RELEASE_TAG}" dist/* --clobber' in workflow
+    assert "environment: testpypi" in workflow
+    assert "environment: pypi" in workflow
+    assert workflow.count("id-token: write") == 2
+    assert workflow.count("pypa/gh-action-pypi-publish@") == 2
+    assert "pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33" in workflow
+    assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in workflow
+    assert workflow.count(
+        "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c"
+    ) == 3
+    assert "repository-url: https://test.pypi.org/legacy/" in workflow
+    assert "skip-existing: true" in workflow
+    assert "repository_url:" not in workflow
+    assert "skip_existing:" not in workflow
     assert "GITHUB_ENV" not in workflow

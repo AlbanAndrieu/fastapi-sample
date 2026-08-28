@@ -1,9 +1,8 @@
 name: Semantic Release
 
-# The historical 1.4.0 tag predates the consolidated source baseline. The one-time
-# 1.4.0 -> 1.4.1 recovery below therefore creates an explicit 1.4.1 release commit
-# without rewriting or shadowing 1.4.0. Once source and the latest GitHub Release
-# are aligned on 1.4.1 or later, normal semantic-release progression resumes.
+# The one-time 1.4.1 recovery completed successfully. From this baseline onward,
+# releases follow the normal Conventional Commit semantic-release flow and the
+# historical 1.4.0 tag remains immutable.
 on:
   push:
     branches: [master]
@@ -53,18 +52,19 @@ jobs:
       - name: Install semantic-release dependencies
         run: npm ci --ignore-scripts
 
-      # package.json/package-lock.json still contain the historical GitLab plugin
-      # on the pre-release commit. Remove it here so the generated release commit
-      # contains no GitLab semantic-release dependency.
-      - name: Remove legacy GitLab semantic-release dependency
-        run: |
-          npm pkg delete 'devDependencies.@semantic-release/gitlab'
-          npm install --package-lock-only --ignore-scripts
-
       - name: Verify versions before release
         run: python scripts/check_versions.py
 
-      - name: Publish release
+      - name: Verify published release baseline
+        env:
+          GH_TOKEN: ${{ steps.release_app_token.outputs.token || secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          LATEST_RELEASE_TAG="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq '.tag_name')"
+          python scripts/check_release_baseline.py "${LATEST_RELEASE_TAG}"
+
+      - name: Run semantic-release
         id: semantic_release
         env:
           GITHUB_TOKEN: ${{ steps.release_app_token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -72,93 +72,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
-          source_version() {
-            python - <<'PY'
-          import tomllib
-          from pathlib import Path
-
-          print(tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"])
-          PY
-          }
-
-          publish_outputs() {
-            local release_tag="$1"
-            echo "published=true" >> "${GITHUB_OUTPUT}"
-            echo "tag=${release_tag}" >> "${GITHUB_OUTPUT}"
-            echo "version=${release_tag#v}" >> "${GITHUB_OUTPUT}"
-          }
-
-          SOURCE_VERSION_BEFORE="$(source_version)"
-          LATEST_RELEASE_TAG="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq '.tag_name')"
-
-          # Let git use gh as its credential helper only for the publishing step.
-          gh auth setup-git
-
-          if [[ "${SOURCE_VERSION_BEFORE}" == "1.4.0" && "${LATEST_RELEASE_TAG}" == "1.4.0" ]]; then
-            RECOVERY_VERSION="1.4.1"
-            echo "Preparing deterministic ${RECOVERY_VERSION} recovery without moving tag 1.4.0."
-
-            if git ls-remote --exit-code --tags origin "refs/tags/${RECOVERY_VERSION}" >/dev/null 2>&1; then
-              echo "Remote tag ${RECOVERY_VERSION} already exists while source is still 1.4.0" >&2
-              exit 1
-            fi
-
-            npm version "${RECOVERY_VERSION}" --no-git-tag-version --ignore-scripts
-            python scripts/set_release_version.py "${RECOVERY_VERSION}"
-            python scripts/check_versions.py
-
-            git config user.name "semantic-release-bot"
-            git config user.email "semantic-release-bot@users.noreply.github.com"
-            git add CHANGELOG.md Dockerfile pyproject.toml package.json package-lock.json nabla/_release.py uv.lock
-            git commit -m "chore(release): ${RECOVERY_VERSION}"
-            git push origin HEAD:master
-
-            git tag "${RECOVERY_VERSION}"
-            git push origin "refs/tags/${RECOVERY_VERSION}"
-            gh release create "${RECOVERY_VERSION}" \
-              --repo "${GITHUB_REPOSITORY}" \
-              --verify-tag \
-              --title "${RECOVERY_VERSION}" \
-              --notes-file docs/release-1.4.1.md
-            publish_outputs "${RECOVERY_VERSION}"
-            exit 0
-          fi
-
-          # A failed recovery can leave the synchronized release commit on master
-          # before its tag/GitHub Release exists. Repair only that exact state and
-          # refuse to repoint an existing tag to a different commit.
-          if [[ "${SOURCE_VERSION_BEFORE}" == "1.4.1" && "${LATEST_RELEASE_TAG}" == "1.4.0" ]]; then
-            RECOVERY_VERSION="1.4.1"
-            HEAD_SHA="$(git rev-parse HEAD)"
-            REMOTE_TAG_SHA="$(git ls-remote --tags origin "refs/tags/${RECOVERY_VERSION}" | awk '{print $1}')"
-
-            if [[ -n "${REMOTE_TAG_SHA}" && "${REMOTE_TAG_SHA}" != "${HEAD_SHA}" ]]; then
-              echo "Remote tag ${RECOVERY_VERSION} points to ${REMOTE_TAG_SHA}, expected ${HEAD_SHA}" >&2
-              exit 1
-            fi
-            if [[ -z "${REMOTE_TAG_SHA}" ]]; then
-              git tag "${RECOVERY_VERSION}"
-              git push origin "refs/tags/${RECOVERY_VERSION}"
-            fi
-            if ! gh release view "${RECOVERY_VERSION}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
-              gh release create "${RECOVERY_VERSION}" \
-                --repo "${GITHUB_REPOSITORY}" \
-                --verify-tag \
-                --title "${RECOVERY_VERSION}" \
-                --notes-file docs/release-1.4.1.md
-            fi
-            publish_outputs "${RECOVERY_VERSION}"
-            exit 0
-          fi
-
-          # Normal operation: checked-in version and latest published release must
-          # agree before semantic-release calculates the next Conventional Commit bump.
-          python scripts/check_release_baseline.py "${LATEST_RELEASE_TAG}"
           BEFORE_HEAD="$(git rev-parse HEAD)"
-          npx semantic-release
-          AFTER_HEAD="$(git rev-parse HEAD)"
 
+          # Let git use gh as its credential helper only for the release step.
+          gh auth setup-git
+          npx semantic-release
+
+          AFTER_HEAD="$(git rev-parse HEAD)"
           if [[ "${AFTER_HEAD}" == "${BEFORE_HEAD}" ]]; then
             echo "published=false" >> "${GITHUB_OUTPUT}"
             exit 0
@@ -169,15 +89,18 @@ jobs:
             echo "semantic-release changed HEAD but no release tag points at it" >&2
             exit 1
           fi
+
           gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null
-          publish_outputs "${RELEASE_TAG}"
+          echo "published=true" >> "${GITHUB_OUTPUT}"
+          echo "tag=${RELEASE_TAG}" >> "${GITHUB_OUTPUT}"
+          echo "version=${RELEASE_TAG#v}" >> "${GITHUB_OUTPUT}"
 
       - name: Verify synchronized release files
         if: steps.semantic_release.outputs.published == 'true'
         run: python scripts/check_versions.py
 
-      # release events emitted with GITHUB_TOKEN do not start another workflow.
-      # repository_dispatch is explicitly allowed by GitHub for workflow chaining.
+      # repository_dispatch is explicitly supported for workflow chaining and
+      # provides one deterministic trigger for package publication and deploy.
       - name: Trigger package publishing and production deployment
         if: steps.semantic_release.outputs.published == 'true'
         env:
