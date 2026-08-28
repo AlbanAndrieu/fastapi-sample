@@ -1,5 +1,5 @@
 ---
-applyTo: '**'
+applyTo: 'nabla/api/truenas*.py,nabla/integrations/truenas*.py,tests/**/*truenas*.py'
 ---
 Toujours utiliser le SDK officiel truenas-api-client (https://github.com/truenas/api_client), importé depuis truenas_api_client, dès qu'il est installé.
 Ne recourir à un client WebSocket minimaliste maison que si et seulement si ce package n'est pas installé ou ne fonctionne pas.

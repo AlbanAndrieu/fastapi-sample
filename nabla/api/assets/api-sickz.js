@@ -11,6 +11,8 @@ import {
   networkPhrase,
   tcpPolicyViolation,
 } from "./api-sickz-policy.js";
+import { renderPfsenseSection } from "./api-sickz-pfsense.js";
+import { organizeSickzRows } from "./api-service-groups.js";
 
 function classifySick(check) {
   if (check.policy_status === "ok") return "green";
@@ -72,7 +74,10 @@ function rawDetailSickText(check) {
 function detailSickText(check) {
   const raw = rawDetailSickText(check);
   if (!check.policy_detail) return raw;
-  const warning = check.policy_status === "warn" && !String(check.policy_detail).startsWith("⚠️") ? "⚠️ " : "";
+  const warning =
+    check.policy_status === "warn" && !String(check.policy_detail).startsWith("⚠️")
+      ? "⚠️ "
+      : "";
   return `${raw} — ${warning}${check.policy_detail}`;
 }
 
@@ -159,112 +164,6 @@ function computeOverall(data) {
   };
 }
 
-function findPfsenseEntry(checks) {
-  const keys = Object.keys(checks || {});
-  for (const key of keys) {
-    const check = checks[key];
-    if (!check) continue;
-    if (check.display_label === "PfSense" || check.name === "PfSense") {
-      return { key, check };
-    }
-    if (check.pfsense_tcp_ports && typeof check.pfsense_tcp_ports === "object") {
-      return { key, check };
-    }
-  }
-  return null;
-}
-
-function pfsenseTcpPortNumbers(map) {
-  if (!map || typeof map !== "object") return [];
-  return Object.keys(map)
-    .map((value) => Number.parseInt(value, 10))
-    .filter((value) => !Number.isNaN(value))
-    .sort((left, right) => left - right);
-}
-
-function pfsensePortPolicy(pfCheck, port) {
-  const map = pfCheck.pfsense_tcp_port_policy;
-  if (!map || typeof map !== "object") return null;
-  return map[String(port)] || null;
-}
-
-function pfsensePortChipClass(reachable, policy) {
-  if (reachable == null) return "sickz-pfsense-port--na";
-  if (policy && typeof policy.expected_reachable === "boolean") {
-    return reachable === policy.expected_reachable
-      ? "sickz-pfsense-port--closed"
-      : "sickz-pfsense-port--open";
-  }
-  if (reachable === true) return "sickz-pfsense-port--open";
-  if (reachable === false) return "sickz-pfsense-port--closed";
-  return "sickz-pfsense-port--na";
-}
-
-function pfsensePortLabel(reachable, policy) {
-  if (reachable == null) return "indeterminate";
-  const state = reachable === true ? "reachable" : "blocked";
-  if (!policy || typeof policy.expected_reachable !== "boolean") return state;
-  return `${state} · ${reachable === policy.expected_reachable ? "expected" : "unexpected"}`;
-}
-
-function buildPfsenseSectionHtml(pfCheck) {
-  const cls = classifySick(pfCheck);
-  const hrefRaw = tunnelHref(pfCheck);
-  const safeHref = hrefRaw.length ? escapeText(hrefRaw) : "";
-  const lockTls = pfCheck.skipped === true ? null : pfCheck.tls_trusted;
-  const lockHref = pfCheck.skipped === true ? "" : hrefRaw;
-  const portsMap = pfCheck.pfsense_tcp_ports;
-  const nums = pfsenseTcpPortNumbers(portsMap);
-  let chips = "";
-  nums.forEach((port) => {
-    const reachable = portsMap[String(port)];
-    const policy = pfsensePortPolicy(pfCheck, port);
-    const portClass = pfsensePortChipClass(reachable, policy);
-    const portLabel = pfsensePortLabel(reachable, policy);
-    const serviceLabel = policy?.service ? ` · ${policy.service}` : "";
-    const expectedLabel =
-      policy && typeof policy.expected_reachable === "boolean"
-        ? ` · expected ${policy.expected_reachable ? "reachable" : "blocked"}`
-        : "";
-    chips +=
-      `<span class="sickz-pfsense-port ${portClass}" title="TCP ${port}${serviceLabel}: ${portLabel}${expectedLabel}">` +
-      `<span class="sickz-pfsense-port-num">${port}</span>` +
-      `<span class="sickz-pfsense-port-st">${escapeText(portLabel)}</span></span>`;
-  });
-  let meta =
-    "Known TCP services use protocol-aware checks; unknown ports are not trusted on cloud/PaaS from a TCP handshake alone. " +
-    '<code class="sickz-pfsense-host">home.albandrieu.com</code> is the external probe host.';
-  if (pfCheck.pfsense_tcp_ports_skipped === true) {
-    meta += " TCP probes were not run (LAN skip).";
-  }
-  const rowName =
-    pfCheck.name != null && String(pfCheck.name).trim()
-      ? String(pfCheck.name).trim()
-      : String(pfCheck.display_label || "PfSense");
-  const titleLink =
-    safeHref.length > 0
-      ? `<a class="sickz-target-link" target="_blank" rel="noopener noreferrer" href="${safeHref}">${escapeText(rowName)}</a>`
-      : `<span>${escapeText(rowName)}</span>`;
-  return (
-    '<h4 class="sickz-pfsense-title">PfSense / public port policy</h4>' +
-    `<p class="health-board-meta sickz-pfsense-intro">${meta}</p>` +
-    '<ul class="health-checks sickz-pfsense-main"><li class="health-row sickz-pfsense-row">' +
-    sickzRowIcon(pfCheck, cls) +
-    `<span class="health-row-led-wrap"><span class="health-led health-led--${cls}" title="${cls}"></span></span>` +
-    '<div class="health-row-main">' +
-    `<div class="health-row-primary health-row-primary--${cls}">` +
-    '<div class="health-row-name health-row-name--sickz">' +
-    lockHtml(lockTls, lockHref) +
-    titleLink +
-    "</div>" +
-    `<div class="health-row-detail">${escapeText(detailSickText(pfCheck))}</div></div>` +
-    '<div class="health-row-tags">PfSense · HTTPS UI + policy-aware public TCP ports</div>' +
-    "</div></li></ul>" +
-    '<div class="sickz-pfsense-ports-label">TCP ports (home.albandrieu.com)</div>' +
-    `<div class="sickz-pfsense-ports">${chips}</div>`
-  );
-}
-
 function exposureTags(check) {
   if (!check.policy_status) {
     return check.alias_results
@@ -278,7 +177,8 @@ function exposureTags(check) {
       : check.tunnel_secure === false
         ? "direct exposure / no Cloudflare"
         : "security mode unspecified";
-  const observed = check.cloudflare_tunnel_observed === true ? "Cloudflare observed" : "Cloudflare not observed";
+  const observed =
+    check.cloudflare_tunnel_observed === true ? "Cloudflare observed" : "Cloudflare not observed";
   return `${external} · ${tunnel} · ${observed}`;
 }
 
@@ -318,19 +218,7 @@ function render(data) {
   }
 
   const checks = data.checks || {};
-  const pfEntry = findPfsenseEntry(checks);
-  const pfKey = pfEntry ? pfEntry.key : null;
-  const wrapPf = document.getElementById("sickz-pfsense-wrap");
-  if (wrapPf) {
-    if (!pfEntry) {
-      wrapPf.hidden = true;
-      wrapPf.innerHTML = "";
-    } else {
-      wrapPf.hidden = false;
-      wrapPf.innerHTML = buildPfsenseSectionHtml(pfEntry.check);
-    }
-  }
-
+  const pfKey = renderPfsenseSection(checks, classifySick, detailSickText);
   const keys = Object.keys(checks).filter((key) => key !== pfKey).sort();
   listEl.innerHTML = "";
 
@@ -339,6 +227,8 @@ function render(data) {
     const cls = classifySick(check);
     const item = document.createElement("li");
     item.className = "health-row";
+    item.dataset.serviceFilterTarget = "";
+    item.dataset.serviceKey = key;
     const hrefRaw = tunnelHref(check);
     const safeHref = hrefRaw.length ? escapeText(hrefRaw) : "";
     let rowTitle = "";
@@ -346,12 +236,22 @@ function render(data) {
     else if (check.display_label != null) rowTitle = String(check.display_label);
     else rowTitle = key;
     if (check.policy_status === "warn") rowTitle = `⚠️ ${rowTitle}`;
+    item.dataset.serviceName = rowTitle.replace(/^⚠️\s*/, "");
+    item.dataset.serviceUrl = hrefRaw;
+    item.dataset.searchText = [
+      key,
+      item.dataset.serviceName,
+      hrefRaw,
+      detailSickText(check),
+      exposureTags(check),
+    ]
+      .join(" ")
+      .toLowerCase();
     const lockTls = check.skipped === true ? null : check.tls_trusted;
     const lockHref = check.skipped === true ? "" : hrefRaw;
-    const titleInner =
-      safeHref.length > 0
-        ? `<a class="sickz-target-link" target="_blank" rel="noopener noreferrer" href="${safeHref}">${escapeText(rowTitle)}</a>`
-        : `<span>${escapeText(rowTitle)}</span>`;
+    const titleInner = safeHref
+      ? `<a class="sickz-target-link" target="_blank" rel="noopener noreferrer" href="${safeHref}">${escapeText(rowTitle)}</a>`
+      : `<span>${escapeText(rowTitle)}</span>`;
     item.innerHTML =
       sickzRowIcon(check, cls) +
       `<span class="health-row-led-wrap"><span class="health-led health-led--${cls}" title="${cls}"></span></span>` +
@@ -366,6 +266,7 @@ function render(data) {
       "</div>";
     listEl.appendChild(item);
   });
+  organizeSickzRows(data, pfKey);
 }
 
 function showFetchError(message) {

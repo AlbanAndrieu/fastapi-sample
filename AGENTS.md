@@ -31,6 +31,68 @@ Before changing behavior, inspect the relevant files:
 
 Do not duplicate information from these files into code or agent instructions.
 
+## Tool and context efficiency
+
+`AGENTS.md` is the repository-wide source of truth for agent policy. Keep `CLAUDE.md` and `.github/copilot-instructions.md` as thin adapters to this file. Treat `.github/instructions/` and `.agents/skills/` as task-specific, on-demand guidance; do not preload every instruction or skill.
+
+Optimize the amount of context needed to obtain reliable evidence, not the agent's capabilities. Context efficiency must never be used to skip a necessary tool, test, security check, diagnostic, artifact, or deployment validation.
+
+### Tool classes for this repository
+
+**First-class — use without functional restriction when the task needs them, but do not preload their full schemas or output:**
+
+- local repository tooling: `git`, `rg`, `git status`, `git diff`, `git ls-files`, `uv`, `mise`, and repository scripts;
+- GitHub repository/PR/Actions/code-security tooling, including the Python CI, pytest, Ruff, Pylint, Bandit, MegaLinter, CodeQL, Docker and Trivy gates;
+- the local `fastapi-sample` MCP/runtime diagnostics when the application is running;
+- FastAPI Cloud deployment, environment inventory, runtime logs and production validation;
+- Vercel deployment/status for the lightweight compatibility proxy;
+- Sentry issue/error/trace diagnostics when investigating production or observability behavior.
+
+**On-demand — keep available, but discover/load only for a relevant task:**
+
+- direct TrueNAS and pfSense MCPs; prefer the application's read-only homelab/runtime abstraction first unless appliance-level evidence is required;
+- Prometheus and Grafana direct tooling;
+- Supabase, Langfuse, Redis and other integration-specific skills/tools;
+- GitLab tooling for the retained legacy Pages/mirror pipeline;
+- FastAPI/MCP, Kubernetes, AWS/EKS, Terraform and other domain instruction files when the current files or task actually require them.
+
+**Out-of-scope by default:**
+
+- AWS/EKS and Terraform operations for ordinary FastAPI application work; the current repository has no active EKS/Terraform implementation;
+- any global connector, plugin, MCP or skill not referenced by the current task or by an active repository integration.
+
+Do not uninstall, disconnect, or remove a globally available integration merely to save context. An installed integration that is not discovered or invoked costs less project context while remaining available for other repositories and future tasks.
+
+### Targeted discovery and reuse
+
+- For MCPs/connectors, discover only the few functions required for the current operation instead of loading the connector's complete schema. Reuse already discovered functions during the same task.
+- Reuse previously fetched files, response resources, run/job identifiers, diffs and API results when they are still current; do not repeat an equivalent call without a reason.
+- Prefer specialized operations such as PR metadata, changed filenames, a single file patch, workflow jobs or job steps over broad repository/REST responses.
+- Fetch the smallest useful file fragment, diff, log range or result set first. Expand progressively only when the targeted evidence is insufficient.
+- Do not avoid a first-class tool because its response may be large. Narrow the request first; if complete evidence is required, retrieve it.
+
+### Repository context
+
+Start investigation with the smallest local views that can answer the question: `git status --short`, `git diff --stat`, `git diff`, `rg`, `git ls-files`, then explicitly relevant files or line ranges. Avoid recursive repository reads, giant PR diffs, generated artifacts, lockfiles and large documents unless the task actually requires their complete contents.
+
+When an API can return a changed-file list and per-file patches, prefer that progression over fetching an entire large PR patch. When a large file must be replaced through an API, fetching its complete current body is required by the file-replacement safety rule below.
+
+### CI, deployment and observability evidence
+
+Inspect failures progressively:
+
+1. workflow/check status;
+2. failed job;
+3. failed step;
+4. targeted job/step logs;
+5. complete logs, artifacts, reports, traces, screenshots or videos only when the narrower evidence does not explain the failure or the richer artifact is itself the relevant evidence.
+
+For Playwright, Cypress or other E2E failures, preserve existing coverage. Fetch reports, traces, screenshots and videos when they materially help; for difficult failures, use the complete artifact rather than guessing.
+
+For FastAPI Cloud, Vercel, Sentry and other operational platforms, prefer narrow status fields and bounded/relevant logs before full deployment/event payloads. This is a response-size policy, not permission to weaken runtime diagnosis.
+
+Do not poll workflow, deployment, check, job or observability status in a tight loop. Read once, continue other useful work, and revalidate when the result can materially change the next action. A requested final CI/deployment verification is mandatory even when intermediate polling is avoided.
+
 ## Package management
 
 Use `uv`.

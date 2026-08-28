@@ -239,18 +239,76 @@ def test_catalog_rejects_duplicate_service_ids() -> None:
         )
 
 
-def test_exposure_catalog_is_packaged_with_fastapi() -> None:
-    path = homelab_catalog.HOMELAB_SERVICES_CATALOG_PATH
-
-    assert path.is_file()
-    assert path.name == "homelab-services.json"
-    assert path.parent.name == "data"
+def test_exposure_catalog_uses_nabla_compose_as_authority_with_bootstrap_cache() -> None:
+    assert "AlbanAndrieu/nabla-compose/master/catalog/homelab-services.json" in (
+        homelab_catalog.HOMELAB_SERVICES_CATALOG_URL
+    )
+    assert "AlbanAndrieu/nabla-compose/master/catalog/homelab-exposure-overrides.json" in (
+        homelab_catalog.HOMELAB_EXPOSURE_OVERRIDES_URL
+    )
+    assert homelab_catalog.HOMELAB_SERVICES_CATALOG_PATH.is_file()
     assert homelab_catalog.HOMELAB_EXPOSURE_OVERRIDES_PATH.is_file()
 
 
 @pytest.mark.asyncio
-async def test_packaged_catalog_preserves_litellm_exposure_policy() -> None:
-    catalog = await homelab_catalog.fetch_homelab_catalog()
+async def test_remote_catalog_is_authoritative(monkeypatch) -> None:
+    remote = HomelabCatalog(
+        services=[
+            HomelabService(
+                name="Remote only",
+                tunnel_url="https://remote-only.albandrieu.com",
+                external=True,
+            )
+        ]
+    )
+
+    async def fetch_remote() -> HomelabCatalog:
+        return remote
+
+    homelab_catalog.clear_homelab_catalog_cache()
+    monkeypatch.setattr(homelab_catalog, "_fetch_remote_catalog", fetch_remote)
+    try:
+        catalog = await homelab_catalog.fetch_homelab_catalog()
+        assert catalog is remote
+        assert homelab_catalog._catalog_cache_source == "nabla-compose"
+    finally:
+        homelab_catalog.clear_homelab_catalog_cache()
+
+
+@pytest.mark.asyncio
+async def test_remote_refresh_failure_keeps_last_known_good(monkeypatch) -> None:
+    remote = HomelabCatalog(
+        services=[
+            HomelabService(
+                name="Remote only",
+                tunnel_url="https://remote-only.albandrieu.com",
+                external=True,
+            )
+        ]
+    )
+    attempts = 0
+
+    async def fetch_remote() -> HomelabCatalog:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            return remote
+        raise ValueError("temporary source outage")
+
+    homelab_catalog.clear_homelab_catalog_cache()
+    monkeypatch.setattr(homelab_catalog, "_fetch_remote_catalog", fetch_remote)
+    monkeypatch.setattr(homelab_catalog, "_REMOTE_CACHE_TTL_SECONDS", 0.0)
+    try:
+        assert await homelab_catalog.fetch_homelab_catalog() is remote
+        assert await homelab_catalog.fetch_homelab_catalog() is remote
+        assert attempts == 2
+        assert homelab_catalog._catalog_cache_source == "nabla-compose"
+    finally:
+        homelab_catalog.clear_homelab_catalog_cache()
+
+
+def test_bootstrap_catalog_preserves_litellm_exposure_policy() -> None:
+    catalog = homelab_catalog._load_bootstrap_catalog()
     by_name = {service.name: service for service in catalog.services}
 
     assert by_name["LiteLLM"].external is True
@@ -261,9 +319,8 @@ async def test_packaged_catalog_preserves_litellm_exposure_policy() -> None:
     assert by_name["Home"].external is False
 
 
-@pytest.mark.asyncio
-async def test_packaged_catalog_routes_2fauth_to_healthz_and_policy_aware_sickz() -> None:
-    services = await homelab_catalog.fetch_homelab_services()
+def test_bootstrap_catalog_routes_2fauth_to_healthz_and_policy_aware_sickz() -> None:
+    services = list(homelab_catalog._load_bootstrap_catalog().services)
     by_name = {service.name: service for service in services}
     twofa = by_name["2FAuth"]
 
@@ -274,9 +331,8 @@ async def test_packaged_catalog_routes_2fauth_to_healthz_and_policy_aware_sickz(
     assert ["https://2fauth.albandrieu.com/"] in sickz_groups
 
 
-@pytest.mark.asyncio
-async def test_packaged_catalog_applies_reviewed_exposure_overrides() -> None:
-    services = await homelab_catalog.fetch_homelab_services()
+def test_bootstrap_catalog_applies_reviewed_exposure_overrides() -> None:
+    services = list(homelab_catalog._load_bootstrap_catalog().services)
     by_name = {service.name: service for service in services}
 
     truenas = by_name["TrueNAS"]

@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Sequence
 from functools import lru_cache
 import json
 import logging
+import os
 from pathlib import Path
+import time
 from typing import Any
 
+import httpx
 from pydantic import ValidationError
 
 from nabla.api.homelab_models import HomelabCatalog, HomelabService
@@ -16,10 +20,28 @@ from nabla.integrations.truenas_client import truenas_url
 
 _log = logging.getLogger(__name__)
 
+# nabla-compose owns this contract. The packaged files are retained only as a
+# bootstrap/last-known-good snapshot so health endpoints remain useful during a
+# transient GitHub outage; they are no longer the authoritative source.
 HOMELAB_SERVICES_CATALOG_PATH = Path(__file__).with_name("data") / "homelab-services.json"
 HOMELAB_EXPOSURE_OVERRIDES_PATH = (
     Path(__file__).with_name("data") / "homelab-exposure-overrides.json"
 )
+HOMELAB_SERVICES_CATALOG_URL = os.getenv(
+    "HOMELAB_SERVICES_CATALOG_URL",
+    "https://raw.githubusercontent.com/AlbanAndrieu/nabla-compose/master/catalog/homelab-services.json",
+).strip()
+HOMELAB_EXPOSURE_OVERRIDES_URL = os.getenv(
+    "HOMELAB_EXPOSURE_OVERRIDES_URL",
+    "https://raw.githubusercontent.com/AlbanAndrieu/nabla-compose/master/catalog/homelab-exposure-overrides.json",
+).strip()
+
+_REMOTE_CACHE_TTL_SECONDS = 300.0
+_REMOTE_FAILURE_RETRY_SECONDS = 60.0
+_REMOTE_TIMEOUT_SECONDS = 5.0
+_catalog_cache: HomelabCatalog | None = None
+_catalog_cache_expires_at = 0.0
+_catalog_cache_source = "none"
 
 _OVERRIDE_FIELDS = (
     "external",
@@ -32,27 +54,25 @@ _OVERRIDE_FIELDS = (
 )
 
 
-def _apply_exposure_overrides(payload: dict[str, Any]) -> dict[str, Any]:
-    """Apply small reviewed policy overrides without rewriting the generated catalog.
-
-    The packaged catalog is intentionally broad and periodically synchronized from the
-    website inventory. Security-sensitive exceptions are kept in a separate, auditable
-    overlay so intentional direct exposure or a known Cloudflare Access exception cannot
-    be lost in a bulk catalog refresh.
-    """
-    try:
-        overrides_payload = json.loads(
-            HOMELAB_EXPOSURE_OVERRIDES_PATH.read_text(encoding="utf-8")
-        )
-    except FileNotFoundError:
-        return payload
-    except (OSError, json.JSONDecodeError) as exc:
-        _log.error(
-            "Homelab exposure override load failed (%s): %s",
-            HOMELAB_EXPOSURE_OVERRIDES_PATH,
-            exc,
-        )
-        return payload
+def _apply_exposure_overrides(
+    payload: dict[str, Any],
+    overrides_payload: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Apply reviewed exposure policy over a generated presentation catalog."""
+    if overrides_payload is None:
+        try:
+            overrides_payload = json.loads(
+                HOMELAB_EXPOSURE_OVERRIDES_PATH.read_text(encoding="utf-8")
+            )
+        except FileNotFoundError:
+            return payload
+        except (OSError, json.JSONDecodeError) as exc:
+            _log.error(
+                "Homelab bootstrap exposure override load failed (%s): %s",
+                HOMELAB_EXPOSURE_OVERRIDES_PATH,
+                exc,
+            )
+            return payload
 
     services = payload.get("services")
     overrides = overrides_payload.get("services")
@@ -84,24 +104,95 @@ def _apply_exposure_overrides(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 @lru_cache(maxsize=1)
-def _load_homelab_catalog() -> HomelabCatalog:
-    """Load the FastAPI-owned exposure catalog and reviewed policy overrides."""
+def _load_bootstrap_catalog() -> HomelabCatalog:
+    """Load the packaged last-known-good snapshot used only as a cold-start fallback."""
     try:
         payload = json.loads(HOMELAB_SERVICES_CATALOG_PATH.read_text(encoding="utf-8"))
         payload = _apply_exposure_overrides(payload)
         return HomelabCatalog.model_validate(payload)
     except (OSError, json.JSONDecodeError, ValidationError) as exc:
         _log.error(
-            "Homelab exposure catalog load/validation failed (%s): %s",
+            "Homelab bootstrap catalog load/validation failed (%s): %s",
             HOMELAB_SERVICES_CATALOG_PATH,
             exc,
         )
         return HomelabCatalog()
 
 
+async def _fetch_remote_catalog() -> HomelabCatalog:
+    """Fetch and validate the authoritative presentation/exposure contract."""
+    if not HOMELAB_SERVICES_CATALOG_URL or not HOMELAB_EXPOSURE_OVERRIDES_URL:
+        raise ValueError("authoritative homelab catalog URLs are not configured")
+
+    timeout = httpx.Timeout(_REMOTE_TIMEOUT_SECONDS)
+    headers = {
+        "Accept": "application/json",
+        "User-Agent": "fastapi-sample-homelab-catalog/1",
+    }
+    async with httpx.AsyncClient(timeout=timeout, follow_redirects=True, headers=headers) as client:
+        services_response, overrides_response = await asyncio.gather(
+            client.get(HOMELAB_SERVICES_CATALOG_URL),
+            client.get(HOMELAB_EXPOSURE_OVERRIDES_URL),
+        )
+        services_response.raise_for_status()
+        overrides_response.raise_for_status()
+        services_payload = services_response.json()
+        overrides_payload = overrides_response.json()
+
+    if not isinstance(services_payload, dict) or not isinstance(overrides_payload, dict):
+        raise ValueError("authoritative homelab catalog payload must be a JSON object")
+
+    catalog = HomelabCatalog.model_validate(
+        _apply_exposure_overrides(services_payload, overrides_payload)
+    )
+    if not catalog.services:
+        raise ValueError("authoritative homelab catalog contains no services")
+    return catalog
+
+
+def clear_homelab_catalog_cache() -> None:
+    """Clear runtime and bootstrap caches; intended for tests and explicit refreshes."""
+    global _catalog_cache, _catalog_cache_expires_at, _catalog_cache_source
+    _catalog_cache = None
+    _catalog_cache_expires_at = 0.0
+    _catalog_cache_source = "none"
+    _load_bootstrap_catalog.cache_clear()
+
+
 async def fetch_homelab_catalog() -> HomelabCatalog:
-    """Return the validated FastAPI-owned homelab exposure catalog."""
-    return _load_homelab_catalog()
+    """Return the remote authoritative catalog with last-known-good fallback semantics."""
+    global _catalog_cache, _catalog_cache_expires_at, _catalog_cache_source
+
+    now = time.monotonic()
+    if _catalog_cache is not None and now < _catalog_cache_expires_at:
+        return _catalog_cache
+
+    try:
+        remote_catalog = await _fetch_remote_catalog()
+    except (httpx.HTTPError, json.JSONDecodeError, ValidationError, TypeError, ValueError) as exc:
+        if _catalog_cache is not None:
+            _catalog_cache_expires_at = now + _REMOTE_FAILURE_RETRY_SECONDS
+            _log.warning(
+                "Authoritative homelab catalog refresh failed; using last-known-good %s catalog: %s",
+                _catalog_cache_source,
+                exc,
+            )
+            return _catalog_cache
+
+        bootstrap = _load_bootstrap_catalog()
+        _catalog_cache = bootstrap
+        _catalog_cache_expires_at = now + _REMOTE_FAILURE_RETRY_SECONDS
+        _catalog_cache_source = "packaged-bootstrap"
+        _log.warning(
+            "Authoritative homelab catalog unavailable at cold start; using packaged bootstrap snapshot: %s",
+            exc,
+        )
+        return bootstrap
+
+    _catalog_cache = remote_catalog
+    _catalog_cache_expires_at = now + _REMOTE_CACHE_TTL_SECONDS
+    _catalog_cache_source = "nabla-compose"
+    return remote_catalog
 
 
 async def fetch_homelab_services() -> list[HomelabService]:

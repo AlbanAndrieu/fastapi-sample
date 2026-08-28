@@ -23,6 +23,31 @@ def normalize_probe_result_errors(result: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def looks_like_tls_error(message: str) -> bool:
+    """Return whether a sanitized transport error is TLS/certificate related."""
+    lower = message.lower()
+    return any(
+        marker in lower
+        for marker in (
+            "certificate",
+            "cert verify",
+            "hostname mismatch",
+            "ssl",
+            "tls",
+            "unable to verify",
+        )
+    )
+
+
+def is_textual_response(response: httpx.Response) -> bool:
+    """Return whether a bounded response body is safe/useful for application checks."""
+    content_type = response.headers.get("content-type", "").lower()
+    return content_type.startswith("text/") or any(
+        marker in content_type
+        for marker in ("application/json", "application/problem+json", "application/xml")
+    )
+
+
 async def probe_https_tls_trusted(url: str) -> bool | None:
     """Return whether the default CA store trusts an HTTPS endpoint."""
     target = url.strip()

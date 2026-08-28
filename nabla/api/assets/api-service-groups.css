@@ -1,0 +1,112 @@
+.health-board-heading-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.service-filter {
+  min-width: min(100%, 300px);
+}
+
+.service-filter label {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: #aeb4be;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.service-filter-control {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.service-filter input {
+  width: 100%;
+  min-width: 0;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid #3a3a3a;
+  border-radius: 7px;
+  background: #0b0b0b;
+  color: #f3f4f6;
+}
+
+.service-filter button {
+  padding: 0.5rem 0.65rem;
+  border: 1px solid #3a3a3a;
+  border-radius: 7px;
+  background: #171717;
+  color: #d1d5db;
+  cursor: pointer;
+}
+
+.service-groups {
+  margin-top: 1.35rem;
+}
+
+.service-group {
+  margin-top: 1rem;
+}
+
+.service-group-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 1rem 0 0.45rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid #2d2d2d;
+}
+
+.service-group-heading h3,
+.service-group-heading h4 {
+  margin: 0;
+  font-size: 0.86rem;
+}
+
+.service-group-heading p {
+  margin: 0.2rem 0 0;
+  color: #8d949e;
+  font-size: 0.68rem;
+}
+
+.service-group-heading > span {
+  flex-shrink: 0;
+  color: #777;
+  font-size: 0.66rem;
+}
+
+.service-group-heading--core {
+  margin-top: 0.85rem;
+}
+
+.service-group-list {
+  margin-top: 0;
+}
+
+.service-group-shell {
+  list-style: none;
+  padding: 0;
+  border: 0;
+}
+
+.service-group-shell > .service-group {
+  margin-top: 0.7rem;
+}
+
+[data-service-filter-target][hidden],
+[data-service-group][hidden],
+#health-core-group-heading[hidden] {
+  display: none !important;
+}
+
+@media (max-width: 720px) {
+  .health-board-heading-row {
+    flex-direction: column;
+  }
+
+  .service-filter {
+    width: 100%;
+  }
+}

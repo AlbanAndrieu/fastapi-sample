@@ -1,0 +1,56 @@
+---
+name: Production Smoke
+
+on:
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-smoke-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  production-smoke:
+    name: Production API and UI smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PRODUCTION_API_URL: https://fastapi-sample.fastapicloud.dev/api
+
+    steps:
+      - name: Checkout smoke-test code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check production homelab status
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error \
+            https://fastapi-sample.fastapicloud.dev/api/homelab/status \
+            | jq .
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: "24"
+
+      - name: Install Playwright smoke-test runtime
+        run: |
+          npm install --no-save --package-lock=false --ignore-scripts playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Check production UI version matches source revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="$(jq -r '.version' package.json)"
+          test -n "${expected}" && test "${expected}" != "null"
+          echo "Expected source version: ${expected}"
+          EXPECTED_VERSION="${expected}" node scripts/check-production-api-ui.mjs

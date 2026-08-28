@@ -1,0 +1,83 @@
+.truenas-platform {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border: 1px solid #333333;
+  border-radius: 10px;
+  background: #0b0b0b;
+}
+
+.truenas-platform-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.truenas-platform-title {
+  margin-top: 0;
+}
+
+.truenas-platform-state {
+  flex-shrink: 0;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid #444;
+  border-radius: 999px;
+  font-size: 0.7rem;
+}
+
+.truenas-platform-state--ok { color: #7dffc4; border-color: rgba(0, 255, 136, 0.35); }
+.truenas-platform-state--warn { color: #ffd966; border-color: rgba(255, 200, 50, 0.4); }
+.truenas-platform-state--fail { color: #ff9999; border-color: rgba(255, 80, 80, 0.45); }
+.truenas-platform-state--neutral { color: #aaa; }
+
+.truenas-platform-target {
+  margin: 0.25rem 0 0.9rem;
+  color: #9ca3af;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+}
+
+.truenas-pipeline {
+  display: flex;
+  align-items: stretch;
+  overflow-x: auto;
+  padding-bottom: 0.35rem;
+}
+
+.truenas-stage {
+  width: 112px;
+  min-width: 112px;
+  padding: 0.65rem;
+  border: 1px solid #333;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.truenas-stage--ok { border-color: rgba(0, 255, 136, 0.35); color: #7dffc4; }
+.truenas-stage--fail { border-color: rgba(255, 80, 80, 0.55); color: #ff9999; }
+.truenas-stage--blocked { border-color: #3a3a3a; color: #777; }
+.truenas-stage-icon { font-size: 1rem; min-height: 1.25rem; }
+.truenas-stage-label { font-size: 0.72rem; font-weight: 600; }
+.truenas-stage-time { font-size: 0.65rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.truenas-stage-detail { font-size: 0.62rem; color: #888; overflow-wrap: anywhere; }
+
+.truenas-connector {
+  align-self: center;
+  width: 26px;
+  min-width: 26px;
+  height: 2px;
+  background: #00ff88;
+}
+
+.truenas-connector--broken {
+  height: 0;
+  background: transparent;
+  border-top: 2px dashed #ff6666;
+}
+
+@media (max-width: 700px) {
+  .truenas-platform-heading { flex-direction: column; }
+  .truenas-platform-state { align-self: flex-start; }
+}
