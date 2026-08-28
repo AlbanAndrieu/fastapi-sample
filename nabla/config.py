@@ -38,12 +38,16 @@ CORS_ORIGINS = [
     "https://www.albanandrieu.com",
 ]
 
-# MCP allowed routes
+# MCP allowed routes. Runtime diagnostics only exist when the local opt-in router
+# is registered; keeping them here does not make them available in production.
 MCP_ALLOWED_ROUTES: frozenset[tuple[str, str]] = frozenset(
     {
         ("POST", "/v1/tavily/search"),
         ("POST", "/v1/brave/search"),
         ("POST", "/v1/google/search"),
+        ("GET", "/v1/runtime/metadata"),
+        ("GET", "/v1/runtime/logs"),
+        ("GET", "/v1/runtime/errors"),
         ("GET", "/v2/version"),
         ("GET", "/v2/profile/search"),
         ("GET", "/demo/greet_user/{name}"),
@@ -68,5 +72,8 @@ NOISY_SUCCESS_PATHS = {
     "/redoc",
     "/sickz",
     "/stream",
+    "/v1/runtime/errors",
+    "/v1/runtime/logs",
+    "/v1/runtime/metadata",
 }
 NOISY_SUCCESS_PREFIXES = ("/mcp", "/logs/", "/stream/", "/v1/mcp/")
