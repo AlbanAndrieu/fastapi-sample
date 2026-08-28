@@ -15,7 +15,7 @@ def _set_username(monkeypatch: pytest.MonkeyPatch) -> None:
 async def test_missing_canonical_api_key_is_explicit_authentication_failure(monkeypatch) -> None:
     _set_username(monkeypatch)
     monkeypatch.delenv("TRUENAS_API_KEY", raising=False)
-    monkeypatch.setenv("TRUENAS_MCP_API_KEY", "7-legacy-mcp-key")
+    monkeypatch.setenv("TRUENAS_MCP_API_KEY", "unused-mcp-placeholder")
 
     result = await homelab_health._observe_truenas_api()
 
@@ -24,7 +24,7 @@ async def test_missing_canonical_api_key_is_explicit_authentication_failure(monk
     assert result["stage"] == "missing_api_key"
     assert result["api_key_configured"] is False
     assert "TRUENAS_API_KEY" in result["error"]
-    assert "legacy-mcp-key" not in result["error"]
+    assert "unused-mcp-placeholder" not in result["error"]
 
 
 @pytest.mark.asyncio
