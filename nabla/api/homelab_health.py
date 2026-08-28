@@ -13,19 +13,21 @@ from typing import Any, Literal
 
 import httpx
 
+from nabla.api.health_probe_utils import is_textual_response, looks_like_tls_error
 from nabla.api.homelab_catalog import fetch_homelab_services
 from nabla.api.homelab_models import HomelabService
-from nabla.api.truenas_client import observe_truenas_api
 from nabla.api.truenas_diagnostics import (
     append_truenas_api_stages,
     collect_truenas_network_diagnostics,
+)
+from nabla.api.truenas_health_observer import (
+    observe_truenas_health_api as _observe_truenas_api,
 )
 from nabla.integrations.truenas_client import (
     TrueNASSettings,
     truenas_host_port,
     truenas_url,
 )
-from nabla.utils.logger import logger
 from nabla.utils.environment import env_bool
 
 HealthState = Literal["ok", "warn", "fail"]
@@ -76,37 +78,14 @@ def truenas_http_verify_ssl() -> bool:
     return raw.lower() in _TRUE_VALUES
 
 
-def _looks_like_tls_error(message: str) -> bool:
-    lower = message.lower()
-    return any(
-        marker in lower
-        for marker in (
-            "certificate",
-            "cert verify",
-            "hostname mismatch",
-            "ssl",
-            "tls",
-            "unable to verify",
-        )
-    )
-
-
 def _short_error(exc: BaseException) -> str:
     message = str(exc).strip() or exc.__class__.__name__
     return message[:240]
 
 
-def _is_textual_response(response: httpx.Response) -> bool:
-    content_type = response.headers.get("content-type", "").lower()
-    return content_type.startswith("text/") or any(
-        marker in content_type
-        for marker in ("application/json", "application/problem+json", "application/xml")
-    )
-
-
 def _application_error_from_response(response: httpx.Response) -> str | None:
     """Detect explicit application failures hidden behind a successful HTTP status."""
-    if not (200 <= response.status_code <= 299) or not _is_textual_response(response):
+    if not (200 <= response.status_code <= 299) or not is_textual_response(response):
         return None
 
     content_type = response.headers.get("content-type", "").lower()
@@ -159,7 +138,7 @@ async def _probe_http_endpoint(
                 headers={"User-Agent": "nabla-homelab-health/1.0"},
             )
             should_get = response.status_code in {405, 501} or (
-                200 <= response.status_code <= 299 and _is_textual_response(response)
+                200 <= response.status_code <= 299 and is_textual_response(response)
             )
             if should_get:
                 response = await client.get(
@@ -192,7 +171,7 @@ async def _probe_http_endpoint(
             "reachable": False,
             "http_status": 0,
             "state": "fail",
-            "tls_trusted": False if _looks_like_tls_error(error) else None,
+            "tls_trusted": False if looks_like_tls_error(error) else None,
             "error": error,
         }
     result["latency_ms"] = max(0, round((time.perf_counter() - started) * 1000))
@@ -262,96 +241,6 @@ def _truenas_internal_target(
     _services: list[HomelabService] | None = None,
 ) -> tuple[str, int]:
     return truenas_host_port()
-
-
-def _truenas_api_configuration_failure() -> dict[str, Any] | None:
-    """Return a sanitized authentication configuration failure, if any."""
-    username = (
-        os.getenv("TRUENAS_API_USERNAME", "").strip()
-        or os.getenv("TRUENAS_USERNAME", "").strip()
-        or os.getenv("TRUENAS_USER", "").strip()
-    )
-    api_key = os.getenv("TRUENAS_API_KEY", "").strip()
-    if not username:
-        return {
-            "reachable": False,
-            "phase": "authentication",
-            "stage": "missing_username",
-            "error": "TrueNAS API username is missing; authentication cannot be attempted.",
-            "username_configured": False,
-            "api_key_configured": bool(api_key),
-        }
-    if not api_key:
-        return {
-            "reachable": False,
-            "phase": "authentication",
-            "stage": "missing_api_key",
-            "error": "TRUENAS_API_KEY is missing; authentication cannot be attempted.",
-            "username_configured": True,
-            "api_key_configured": False,
-        }
-    if re.fullmatch(r"[A-Z][A-Z0-9_]{2,}", api_key):
-        return {
-            "reachable": False,
-            "phase": "authentication",
-            "stage": "invalid_api_key_reference",
-            "error": (
-                "TRUENAS_API_KEY contains an environment-variable name instead of "
-                "raw TrueNAS API key material."
-            ),
-            "username_configured": True,
-            "api_key_configured": True,
-        }
-    if re.fullmatch(r"[0-9]+-.+", api_key) is None:
-        return {
-            "reachable": False,
-            "phase": "authentication",
-            "stage": "invalid_api_key_format",
-            "error": "TRUENAS_API_KEY does not match the expected <id>-<key> format.",
-            "username_configured": True,
-            "api_key_configured": True,
-        }
-    return None
-
-
-async def _observe_truenas_api() -> dict[str, Any]:
-    configuration_failure = _truenas_api_configuration_failure()
-    if configuration_failure is not None:
-        logger.error(
-            "TrueNAS API authentication unavailable stage=%s error=%s",
-            configuration_failure["stage"],
-            configuration_failure["error"],
-        )
-        return configuration_failure
-
-    started = time.perf_counter()
-    try:
-        result = await asyncio.to_thread(observe_truenas_api)
-        if not isinstance(result, dict):
-            raise RuntimeError("TrueNAS API probe returned no health payload")
-        result = dict(result)
-        result.setdefault("phase", "call")
-        result.setdefault("stage", "ok")
-        result.setdefault("elapsed_ms", max(0, round((time.perf_counter() - started) * 1000)))
-        return result
-    except Exception as exc:  # Adapter/network/auth errors are health data and Sentry evidence.
-        elapsed_ms = max(0, round((time.perf_counter() - started) * 1000))
-        logger.exception("TrueNAS API health probe failed after configuration validation")
-        try:
-            import sentry_sdk
-
-            sentry_sdk.capture_exception(exc)
-        except Exception:  # pragma: no cover - observability must not break health reporting.
-            logger.exception("Unable to report TrueNAS API failure to Sentry")
-        return {
-            "reachable": False,
-            "phase": "api",
-            "stage": "exception",
-            "elapsed_ms": elapsed_ms,
-            "error": _short_error(exc),
-            "username_configured": True,
-            "api_key_configured": True,
-        }
 
 
 def _truenas_state(
