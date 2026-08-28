@@ -279,6 +279,12 @@ async def test_packaged_catalog_applies_reviewed_exposure_overrides() -> None:
     services = await homelab_catalog.fetch_homelab_services()
     by_name = {service.name: service for service in services}
 
+    truenas = by_name["TrueNAS"]
+    assert truenas.tunnel_url == "https://truenas.albandrieu.com:7000"
+    assert truenas.public_https_probe_url == "https://truenas.albandrieu.com:7000/"
+    assert truenas.external is True
+    assert truenas.tunnel_secure is False
+
     garage = by_name["Garage"]
     assert garage.tunnel_url == "https://garage.int.albandrieu.com"
     assert garage.external is True
