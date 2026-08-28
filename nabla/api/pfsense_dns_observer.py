@@ -13,6 +13,8 @@ from typing import Any, Literal
 
 import httpx
 
+from nabla.api.provider_credentials import inspect_environment_credentials
+
 DNSPolicyState = Literal["ok", "warn", "fail", "unknown"]
 
 _PFSENSE_TIMEOUT_SEC = 4.0
@@ -20,6 +22,16 @@ _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 _FALSE_VALUES = frozenset({"0", "false", "no", "off"})
 _RUNNING_STATES = frozenset({"active", "healthy", "running", "started", "up"})
 _STOPPED_STATES = frozenset({"crashed", "down", "error", "failed", "stopped"})
+
+
+def pfsense_api_configuration_status() -> dict[str, object]:
+    """Return sanitized presence state for the pfSense read-only API configuration."""
+    return inspect_environment_credentials(
+        "pfsense",
+        "PFSENSE_API_URL",
+        "PFSENSE_API_KEY",
+        secret_variables=frozenset({"PFSENSE_API_KEY"}),
+    ).as_dict()
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,11 +44,18 @@ class PfSenseDNSSettings:
 
     @classmethod
     def from_environment(cls) -> PfSenseDNSSettings | None:
-        """Return settings only when the API URL and key are both configured."""
+        """Return settings only when the API URL and canonical key are validly configured."""
+        status = inspect_environment_credentials(
+            "pfsense",
+            "PFSENSE_API_URL",
+            "PFSENSE_API_KEY",
+            secret_variables=frozenset({"PFSENSE_API_KEY"}),
+        )
+        if not status.configured:
+            return None
+
         base_url = os.getenv("PFSENSE_API_URL", "").strip().rstrip("/")
         api_key = os.getenv("PFSENSE_API_KEY", "").strip()
-        if not base_url or not api_key:
-            return None
         if not base_url.lower().startswith(("https://", "http://")):
             return None
 
@@ -158,11 +177,8 @@ async def observe_pfsense_dns_posture(
     truenas_hosts: frozenset[str] = frozenset(),
     settings: PfSenseDNSSettings | None = None,
 ) -> dict[str, Any]:
-    """Return sanitized pfSense/Unbound DNS policy evidence.
-
-    The four read-only requests are executed concurrently. Missing credentials result in
-    an explicit ``unknown`` observation rather than a false green state.
-    """
+    """Return sanitized pfSense/Unbound DNS policy evidence."""
+    configuration = pfsense_api_configuration_status() if settings is None else None
     configured = settings or PfSenseDNSSettings.from_environment()
     if configured is None:
         return {
@@ -170,6 +186,7 @@ async def observe_pfsense_dns_posture(
             "reachable": None,
             "policy_state": "unknown",
             "reason": "pfSense API observation is not configured",
+            **(configuration or {}),
         }
 
     timeout = httpx.Timeout(_PFSENSE_TIMEOUT_SEC)
