@@ -5,12 +5,25 @@
       "url": "http://127.0.0.1:8080/mcp"
     },
     "github": {
-      "type": "http",
-      "url": "https://api.githubcopilot.com/mcp/x/all/readonly"
+      "command": "bash",
+      "args": [
+        "-lc",
+        "token=\"${GITHUB_PERSONAL_ACCESS_TOKEN:-$(gh auth token 2>/dev/null)}\"; test -n \"$token\" || { echo 'GitHub token unavailable; run gh auth login or export GITHUB_PERSONAL_ACCESS_TOKEN' >&2; exit 1; }; export GITHUB_PERSONAL_ACCESS_TOKEN=\"$token\" GITHUB_READ_ONLY=1 GITHUB_TOOLSETS=context,repos,pull_requests,issues,actions,code_security; exec docker run -i --rm -e GITHUB_PERSONAL_ACCESS_TOKEN -e GITHUB_READ_ONLY -e GITHUB_TOOLSETS ghcr.io/github/github-mcp-server"
+      ]
     },
     "vercel": {
       "type": "http",
       "url": "https://mcp.vercel.com"
+    },
+    "sentry": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@sentry/mcp-server@latest",
+        "--host=sentry.albandrieu.com",
+        "--skills=inspect",
+        "--sentry-dsn="
+      ]
     }
   }
 }

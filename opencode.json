@@ -12,14 +12,30 @@
       "enabled": true
     },
     "github": {
-      "type": "remote",
-      "url": "https://api.githubcopilot.com/mcp/x/all/readonly",
+      "type": "local",
+      "command": [
+        "bash",
+        "-lc",
+        "token=\"${GITHUB_PERSONAL_ACCESS_TOKEN:-$(gh auth token 2>/dev/null)}\"; test -n \"$token\" || { echo 'GitHub token unavailable; run gh auth login or export GITHUB_PERSONAL_ACCESS_TOKEN' >&2; exit 1; }; export GITHUB_PERSONAL_ACCESS_TOKEN=\"$token\" GITHUB_READ_ONLY=1 GITHUB_TOOLSETS=context,repos,pull_requests,issues,actions,code_security; exec docker run -i --rm -e GITHUB_PERSONAL_ACCESS_TOKEN -e GITHUB_READ_ONLY -e GITHUB_TOOLSETS ghcr.io/github/github-mcp-server"
+      ],
       "enabled": true
     },
     "vercel": {
       "type": "remote",
       "url": "https://mcp.vercel.com",
       "enabled": true
+    },
+    "sentry": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@sentry/mcp-server@latest",
+        "--host=sentry.albandrieu.com",
+        "--skills=inspect",
+        "--sentry-dsn="
+      ],
+      "enabled": false
     },
     "pfsense-auditor": {
       "type": "local",

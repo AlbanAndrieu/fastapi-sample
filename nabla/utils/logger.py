@@ -6,6 +6,8 @@ from collections.abc import Mapping
 
 import structlog
 
+from nabla.utils.runtime_logs import capture_structlog_event
+
 logger = structlog.get_logger()
 
 _REDACTED = "[REDACTED]"
@@ -79,6 +81,7 @@ shared_processors = [
     redact_sensitive_data,
     structlog.processors.StackInfoRenderer(),
     structlog.processors.format_exc_info,
+    capture_structlog_event,
     structlog.processors.UnicodeDecoder(),
 ]
 if sys.stderr.isatty():

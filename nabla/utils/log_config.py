@@ -17,6 +17,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from nabla.config_settings import get_settings
 from nabla.utils.logger import logger
+from nabla.utils.runtime_logs import attach_runtime_log_handler
 
 _OTEL_LOG_FIELDS = ("otelTraceID", "otelSpanID", "otelServiceName")
 
@@ -236,3 +237,5 @@ def setup_logging() -> None:
         # Set console handler as the only handler for root logger
         logger.handlers = [console_handler]
         logger.setLevel(log_level)
+
+    attach_runtime_log_handler(logger)
