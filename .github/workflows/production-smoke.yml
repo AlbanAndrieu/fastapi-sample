@@ -1,0 +1,64 @@
+---
+name: Production Smoke
+
+on:
+  pull_request:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Deploy to FastAPI Cloud"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-smoke-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  production-smoke:
+    name: Production API and UI smoke
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PRODUCTION_API_URL: https://fastapi-sample.fastapicloud.dev/api
+
+    steps:
+      - name: Checkout master version source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: master
+          persist-credentials: false
+
+      - name: Check production homelab status
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error \
+            https://fastapi-sample.fastapicloud.dev/api/homelab/status \
+            | jq .
+
+      - name: Read expected version from master
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="$(jq -r '.version' package.json)"
+          test -n "${expected}" && test "${expected}" != "null"
+          echo "EXPECTED_MASTER_VERSION=${expected}" >> "${GITHUB_ENV}"
+          echo "Master source version: ${expected}"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: "24"
+
+      - name: Install Playwright smoke-test runtime
+        run: |
+          npm install --no-save --package-lock=false --ignore-scripts playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Check production UI version matches master
+        run: node scripts/check-production-api-ui.mjs
