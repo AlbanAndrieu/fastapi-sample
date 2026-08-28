@@ -1,3 +1,10 @@
+## [1.4.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.4.1...1.4.2) (2026-08-28)
+
+
+### Bug Fixes
+
+* **release:** harden post-1.4.1 publishing ([#131](https://github.com/AlbanAndrieu/fastapi-sample/issues/131)) ([4bd9737](https://github.com/AlbanAndrieu/fastapi-sample/commit/4bd9737a2efdad048a2bcf512b55a57bf0be1f7c))
+
 # Changelog
 
 ## 1.4.1 — homelab diagnostics and release recovery (2026-08-29)
