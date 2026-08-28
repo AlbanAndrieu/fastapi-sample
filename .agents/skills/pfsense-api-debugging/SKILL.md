@@ -4,6 +4,7 @@ description: >-
   Diagnose pfSense networking, HAProxy, firewall paths and REST API v2 access
   safely, with pfSense csh/tcsh shell conventions.
 ---
+
 # pfSense API and network debugging
 
 Use this skill for pfSense routing, firewall, NAT, HAProxy, interface, TLS and REST API v2 diagnostics in the Nabla homelab.
