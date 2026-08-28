@@ -14,6 +14,20 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    env:
+      OAUTH_TOKEN_SECRET: mocked-oauth-token-secret
+      KEYCLOAK_SERVER_URL: http://localhost:8080
+      KEYCLOAK_REALM: test
+      KEYCLOAK_CLIENT_ID: test
+      KEYCLOAK_CLIENT_SECRET: test-secret
+      METRICS_ENABLED: "false"
+      LOGFIRE_ENABLED: "false"
+      LOGFIRE_TOKEN: ""
+      SENTRY_ENABLED: "false"
+      SENTRY_DSN: ""
+      DATADOG_ENABLED: "false"
+      UNLEASH_ENABLED: "false"
+      STATSIG_ENABLED: "false"
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
