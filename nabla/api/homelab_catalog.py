@@ -125,7 +125,7 @@ async def homelab_healthz_probe_rows() -> list[tuple[str, str, str, str | None]]
     services = await fetch_homelab_services()
     configured_truenas_url = truenas_url().rstrip("/") + "/"
     rows: list[tuple[str, str, str, str | None]] = [
-        ("albandrieu_truenas", configured_truenas_url, "TrueNAS", None)
+        ("albandrieu_truenas", configured_truenas_url, "TrueNAS HTTPS", None)
     ]
     used_keys: set[str] = {"albandrieu_truenas"}
     for service in services:
