@@ -14,11 +14,20 @@
     "github": {
       "type": "local",
       "command": [
-        "bash",
-        "-lc",
-        "token=\"${GITHUB_PERSONAL_ACCESS_TOKEN:-$(gh auth token 2>/dev/null)}\"; test -n \"$token\" || { echo 'GitHub token unavailable; run gh auth login or export GITHUB_PERSONAL_ACCESS_TOKEN' >&2; exit 1; }; export GITHUB_PERSONAL_ACCESS_TOKEN=\"$token\" GITHUB_READ_ONLY=1 GITHUB_TOOLSETS=context,repos,pull_requests,issues,actions,code_security; exec docker run -i --rm -e GITHUB_PERSONAL_ACCESS_TOKEN -e GITHUB_READ_ONLY -e GITHUB_TOOLSETS ghcr.io/github/github-mcp-server"
+        "docker",
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "ghcr.io/github/github-mcp-server",
+        "--read-only",
+        "--toolsets=context,repos,pull_requests,issues,actions,code_security"
       ],
-      "enabled": true
+      "enabled": true,
+      "environment": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "{env:GITHUB_PERSONAL_ACCESS_TOKEN}"
+      }
     },
     "vercel": {
       "type": "remote",
