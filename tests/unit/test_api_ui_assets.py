@@ -104,7 +104,8 @@ def test_platform_labels_are_owned_by_health_module() -> None:
 
     assert 'cloudflare: "Cloudflare Tunnels"' in script
     assert 'pfsense: "pfSense API"' in script
-    assert 'albandrieu_truenas: "TrueNAS"' in script
+    assert 'albandrieu_truenas: "TrueNAS HTTPS"' in script
+    assert 'truenas_api: "TrueNAS API"' in script
     assert 'logfire: "Pydantic Logfire"' in script
 
 
