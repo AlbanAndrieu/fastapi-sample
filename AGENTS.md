@@ -75,6 +75,12 @@ Project-specific tests and expensive build/deployment checks remain in their nat
 
 Agents must never publish changes immediately after editing files.
 
+### Default branch is never a mutation target
+
+Agents must never create, replace, delete, commit, push, or move a Git ref directly on `master`, including through GitHub API file actions. This prohibition also applies to trivial, documentation-only, CI, emergency, and one-line changes.
+
+Every remote mutation must explicitly target a non-default branch created from the intended `master` revision, and repository changes must reach `master` only through a pull request. Agents must not merge that pull request unless the user explicitly asks them to do so.
+
 Before every `git push`, GitHub API file update, or other remote repository mutation:
 
 1. Run `bash scripts/quality-gate.sh` from a local checkout whenever shell access is available.
