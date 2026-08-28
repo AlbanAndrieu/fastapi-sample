@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from collections import deque
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from itertools import count
 import json
 import logging
 import os
+import re
 import sys
 import threading
 from typing import Any
@@ -18,6 +20,7 @@ _MAX_CAPACITY = 5000
 _MAX_MESSAGE_CHARS = 4000
 _MAX_EXCEPTION_CHARS = 12000
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
+_BEARER_TOKEN = re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]+")
 
 
 def runtime_diagnostics_enabled() -> bool:
@@ -42,11 +45,23 @@ _LOCK = threading.Lock()
 _SEQUENCE = count(1)
 
 
+def _mask_bearer(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {key: _mask_bearer(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_mask_bearer(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_mask_bearer(item) for item in value)
+    if isinstance(value, str):
+        return _BEARER_TOKEN.sub("Bearer [REDACTED]", value)
+    return value
+
+
 def _redact(value: Any) -> Any:
-    """Reuse the application's existing log redaction without creating an import cycle."""
+    """Apply the application redactor plus stricter bearer-token masking."""
     from nabla.utils.logger import _redact_value  # noqa: PLC2701
 
-    return _redact_value(value)
+    return _mask_bearer(_redact_value(value))
 
 
 def _truncate(value: Any, *, limit: int) -> str:
