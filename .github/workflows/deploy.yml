@@ -23,6 +23,7 @@ jobs:
       KEYCLOAK_CLIENT_SECRET: test-secret
       KEYCLOAK_REALM: test
       KEYCLOAK_SERVER_URL: http://localhost:8080
+      OAUTH_TOKEN_SECRET: mocked-oauth-token-secret
       METRICS_ENABLED: "false"
       LOGFIRE_ENABLED: "false"
       LOGFIRE_ENVIRONMENT: test
