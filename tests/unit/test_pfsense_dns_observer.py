@@ -23,12 +23,25 @@ async def test_unconfigured_observer_is_unknown(monkeypatch) -> None:
 
     result = await pfsense_dns_observer.observe_pfsense_dns_posture()
 
-    assert result == {
-        "configured": False,
-        "reachable": None,
-        "policy_state": "unknown",
-        "reason": "pfSense API observation is not configured",
-    }
+    assert result["configured"] is False
+    assert result["reachable"] is None
+    assert result["policy_state"] == "unknown"
+    assert result["configuration_stage"] == "missing_credentials"
+    assert result["missing_variables"] == ["PFSENSE_API_URL", "PFSENSE_API_KEY"]
+    assert result["invalid_reference_variables"] == []
+
+
+@pytest.mark.asyncio
+async def test_pfsense_api_key_reference_is_rejected_without_echoing_value(monkeypatch) -> None:
+    monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example.test")
+    monkeypatch.setenv("PFSENSE_API_KEY", "TRUENAS_API_KEY")
+
+    result = await pfsense_dns_observer.observe_pfsense_dns_posture()
+
+    assert result["configured"] is False
+    assert result["configuration_stage"] == "invalid_credential_reference"
+    assert result["invalid_reference_variables"] == ["PFSENSE_API_KEY"]
+    assert "TRUENAS_API_KEY" not in repr(result)
 
 
 @pytest.mark.asyncio
