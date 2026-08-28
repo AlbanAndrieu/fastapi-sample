@@ -1,5 +1,5 @@
 ---
-applyTo: '*'
+applyTo: 'infra/aws/**,infra/eks/**,aws/**,eks/**'
 description: >-
   AWS and Amazon EKS best practices: IAM, networking, security, cost, EKS
   cluster design, IRSA, node groups, and operational excellence.
