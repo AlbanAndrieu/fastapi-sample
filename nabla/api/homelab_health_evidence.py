@@ -21,6 +21,7 @@ from nabla.api.homelab_runtime import (
     fetch_truenas_runtime,
 )
 from nabla.api.homelab_topology import fetch_homelab_topology
+from nabla.api.pfsense_dns_observer import observe_pfsense_dns_posture
 
 HealthState = str
 
@@ -252,17 +253,30 @@ async def _observe_cloudflare_safely() -> list[CloudflareTunnelObservation]:
         return []
 
 
+def _truenas_internal_hosts(services: Iterable[HomelabService]) -> frozenset[str]:
+    return frozenset(
+        service.internal_host
+        for service in services
+        if service.service_id == "truenas" and service.internal_host
+    )
+
+
 async def reconcile_homelab_health_payload(payload: dict[str, Any]) -> dict[str, Any]:
     """Return dependency-aware API health rows with reconciled observations."""
     services_task = asyncio.create_task(fetch_homelab_services())
     runtime_task = asyncio.create_task(fetch_truenas_runtime())
     tunnels_task = asyncio.create_task(_observe_cloudflare_safely())
     topology_task = asyncio.create_task(fetch_homelab_topology())
-    services, runtime, tunnels, topology = await asyncio.gather(
-        services_task,
+
+    services = await services_task
+    pfsense_dns_task = asyncio.create_task(
+        observe_pfsense_dns_posture(truenas_hosts=_truenas_internal_hosts(services))
+    )
+    runtime, tunnels, topology, pfsense_dns = await asyncio.gather(
         runtime_task,
         tunnels_task,
         topology_task,
+        pfsense_dns_task,
     )
 
     public_results = [
@@ -284,10 +298,11 @@ async def reconcile_homelab_health_payload(payload: dict[str, Any]) -> dict[str,
 
     return {
         **payload,
-        "schema_version": 5,
+        "schema_version": 6,
         "services": dependency_aware,
         "truenas_runtime_reachable": runtime.reachable,
         "truenas_runtime_stale": runtime.stale,
         "cloudflare_configured": CloudflareTunnelSettings.from_environment() is not None,
         "cloudflare_tunnels_observed": len(tunnels),
+        "pfsense": {"dns": pfsense_dns},
     }
