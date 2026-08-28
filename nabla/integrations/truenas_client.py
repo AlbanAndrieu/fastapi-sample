@@ -148,6 +148,8 @@ def _truenas_failure_stage(exc: BaseException) -> str:
         )
     ):
         return "tls"
+    if any(isinstance(item, ConnectionResetError) for item in chain):
+        return "connection_reset"
     if "connection refused" in message or "connectionrefusederror" in class_names:
         return "connect_refused"
     if "network is unreachable" in message or "no route to host" in message:
@@ -197,18 +199,22 @@ class TrueNASReadOnlyAdapter:
         """Authenticate once for a single read-only JSON-RPC call."""
         started = time.perf_counter()
         uri = self.settings.websocket_uri
+        phase = "connect"
         try:
             with self._connect() as client:
+                phase = "authentication"
                 client.login_with_api_key(self.settings.username, self.settings.api_key)
+                phase = "call"
                 result = client.call(method, *params)
         except Exception as exc:
             elapsed_ms = round((time.perf_counter() - started) * 1000)
             logger.warning(
-                "TrueNAS API probe failed method=%s uri=%s verify_ssl=%s stage=%s "
-                "exception=%s elapsed_ms=%s error=%s",
+                "TrueNAS API probe failed method=%s uri=%s verify_ssl=%s phase=%s "
+                "stage=%s exception=%s elapsed_ms=%s error=%s",
                 method,
                 uri,
                 self.settings.verify_ssl,
+                phase,
                 _truenas_failure_stage(exc),
                 exc.__class__.__name__,
                 elapsed_ms,
@@ -242,18 +248,27 @@ class TrueNASReadOnlyAdapter:
         """Return a compact non-secret version/app view suitable for health APIs."""
         started = time.perf_counter()
         uri = self.settings.websocket_uri
+        phase = "connect"
+        method = "connect"
         try:
             with self._connect() as client:
+                phase = "authentication"
+                method = "auth.login_with_api_key"
                 client.login_with_api_key(self.settings.username, self.settings.api_key)
-                version = client.call("system.version")
-                apps = client.call("app.query")
+                phase = "call"
+                method = "system.version"
+                version = client.call(method)
+                method = "app.query"
+                apps = client.call(method)
         except Exception as exc:
             elapsed_ms = round((time.perf_counter() - started) * 1000)
             logger.warning(
-                "TrueNAS API health probe failed uri=%s verify_ssl=%s stage=%s "
-                "exception=%s elapsed_ms=%s error=%s",
+                "TrueNAS API health probe failed method=%s uri=%s verify_ssl=%s "
+                "phase=%s stage=%s exception=%s elapsed_ms=%s error=%s",
+                method,
                 uri,
                 self.settings.verify_ssl,
+                phase,
                 _truenas_failure_stage(exc),
                 exc.__class__.__name__,
                 elapsed_ms,
