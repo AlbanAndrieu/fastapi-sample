@@ -1,0 +1,646 @@
+name: Implement homelab health grouping
+
+on:
+  push:
+    branches:
+      - feat/truenas-health-board
+
+permissions:
+  contents: write
+
+jobs:
+  implement:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feat/truenas-health-board
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Add grouped health and exposure UI
+        shell: bash
+        run: |
+          if test -f nabla/api/assets/api-service-groups.js; then
+            echo 'Homelab service grouping is already applied.'
+            exit 0
+          fi
+
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('nabla/api/ui.py')
+          text = path.read_text()
+          text = text.replace(
+              '''                <h2 class="health-board-title" id="health-board-title">Service health</h2>\n                <p class="health-board-meta">Live view of <a href="/healthz">/healthz</a>.\n''',
+              '''                <div class="health-board-heading-row">\n                    <div>\n                        <h2 class="health-board-title" id="health-board-title">Service health</h2>\n                        <p class="health-board-meta">Live dependency and exposure observability, grouped by declared blast radius.</p>\n                    </div>\n                    <div class="service-filter">\n                        <label for="service-filter">Filter services</label>\n                        <div class="service-filter-control">\n                            <input id="service-filter" type="search" autocomplete="off" placeholder="Name, host, tier or status">\n                            <button type="button" id="service-filter-clear">Clear</button>\n                        </div>\n                    </div>\n                </div>\n                <p class="health-board-meta">Live view of <a href="/healthz">/healthz</a>.\n''',
+              1,
+          )
+          text = text.replace(
+              '''                <ul class="health-checks" id="health-checks"></ul>\n                <p class="health-error" id="health-fetch-error" hidden></p>\n\n                <section class="truenas-platform" id="truenas-platform" aria-labelledby="truenas-platform-title">\n''',
+              '''                <div class="service-group-heading service-group-heading--core" id="health-core-group-heading">\n                    <div>\n                        <h3>Core services</h3>\n                        <p>Required for core stack</p>\n                    </div>\n                </div>\n                <ul class="health-checks" id="health-checks"></ul>\n                <p class="health-error" id="health-fetch-error" hidden></p>\n\n                <section class="truenas-platform" id="truenas-platform" data-service-filter-target data-search-text="truenas storage platform required infrastructure https websocket api" aria-labelledby="truenas-platform-title">\n''',
+              1,
+          )
+          text = text.replace(
+              '''                </section>\n\n                <h3 class="health-subboard-title" id="sickz-board-title">Exposure security policy</h3>\n''',
+              '''                </section>\n\n                <div class="service-groups" id="health-services-groups" aria-live="polite"></div>\n\n                <h3 class="health-subboard-title" id="sickz-board-title">Exposure security policy</h3>\n''',
+              1,
+          )
+          path.write_text(text)
+
+          path = Path('nabla/api/assets/api-health-core.js')
+          text = path.read_text()
+          text = text.replace(
+              '} from "./api-health-ui.js";\n',
+              '} from "./api-health-ui.js";\nimport { organizeHealthRows } from "./api-service-groups.js";\n',
+              1,
+          )
+          text = text.replace(
+              '''  const keys = sortKeys(Object.keys(checks)).filter((key) => key !== "truenas_api" && key !== "albandrieu_truenas");\n  listEl.innerHTML = "";\n''',
+              '''  const keys = sortKeys(Object.keys(checks)).filter((key) => key !== "truenas_api" && key !== "albandrieu_truenas");\n  listEl.innerHTML = "";\n  const groupedEl = document.getElementById("health-services-groups");\n  if (groupedEl) groupedEl.innerHTML = "";\n''',
+              1,
+          )
+          text = text.replace(
+              '''    const item = document.createElement("li");\n    item.className = "health-row";\n    item.innerHTML =\n''',
+              '''    const item = document.createElement("li");\n    item.className = "health-row";\n    item.dataset.serviceFilterTarget = "";\n    item.dataset.serviceKey = key;\n    item.dataset.serviceName = String(check.name || check.display_label || LABELS[key] || key);\n    item.dataset.serviceUrl = tunnelHref(check);\n    item.dataset.searchText = [\n      key,\n      item.dataset.serviceName,\n      item.dataset.serviceUrl,\n      detailText(key, check),\n      tier,\n    ].join(" ").toLowerCase();\n    item.innerHTML =\n''',
+              1,
+          )
+          text = text.replace(
+              '''    listEl.appendChild(item);\n  });\n}\n\nfunction showFetchError(message) {\n''',
+              '''    listEl.appendChild(item);\n  });\n  organizeHealthRows(data);\n}\n\nfunction showFetchError(message) {\n''',
+              1,
+          )
+          text = text.replace(
+              '''  document.getElementById("health-checks").innerHTML = "";\n''',
+              '''  document.getElementById("health-checks").innerHTML = "";\n  const groupedEl = document.getElementById("health-services-groups");\n  if (groupedEl) groupedEl.innerHTML = "";\n''',
+              1,
+          )
+          text = re.sub(
+              r'\nfunction truenasApiCheck\(homelab\) \{.*?\n\}\n\nexport function loadHealth\(\) \{.*?\n\}\s*$',
+              '''\nexport function loadHealth() {\n  fetch("/healthz", {\n    cache: "no-store",\n    headers: { Accept: "application/json", "Cache-Control": "no-cache" },\n  })\n    .then((response) => {\n      if (!response.ok) throw new Error(`HTTP ${response.status}`);\n      return response.json();\n    })\n    .then(render)\n    .catch((error) => {\n      showFetchError(String(error.message || error));\n    });\n}\n''',
+              text,
+              flags=re.S,
+          )
+          path.write_text(text)
+
+          path = Path('nabla/api/assets/api-sickz.js')
+          text = path.read_text()
+          insert_after = '''} from "./api-sickz-policy.js";\n'''
+          text = text.replace(
+              insert_after,
+              insert_after + 'import { organizeSickzRows } from "./api-service-groups.js";\n',
+              1,
+          )
+          text = text.replace(
+              '''      wrapPf.hidden = false;\n      wrapPf.innerHTML = buildPfsenseSectionHtml(pfEntry.check);\n''',
+              '''      wrapPf.hidden = false;\n      wrapPf.dataset.serviceFilterTarget = "";\n      wrapPf.dataset.searchText = `pfsense firewall foundation public port policy ${detailSickText(pfEntry.check)}`.toLowerCase();\n      wrapPf.innerHTML = buildPfsenseSectionHtml(pfEntry.check);\n''',
+              1,
+          )
+          text = text.replace(
+              '''    const item = document.createElement("li");\n    item.className = "health-row";\n    const hrefRaw = tunnelHref(check);\n''',
+              '''    const item = document.createElement("li");\n    item.className = "health-row";\n    item.dataset.serviceFilterTarget = "";\n    item.dataset.serviceKey = key;\n    const hrefRaw = tunnelHref(check);\n''',
+              1,
+          )
+          text = text.replace(
+              '''    if (check.policy_status === "warn") rowTitle = `⚠️ ${rowTitle}`;\n''',
+              '''    if (check.policy_status === "warn") rowTitle = `⚠️ ${rowTitle}`;\n    item.dataset.serviceName = rowTitle.replace(/^⚠️\\s*/, "");\n    item.dataset.serviceUrl = hrefRaw;\n    item.dataset.searchText = [\n      key,\n      item.dataset.serviceName,\n      hrefRaw,\n      detailSickText(check),\n      exposureTags(check),\n    ].join(" ").toLowerCase();\n''',
+              1,
+          )
+          text = text.replace(
+              '''    listEl.appendChild(item);\n  });\n}\n\nfunction showFetchError(message) {\n''',
+              '''    listEl.appendChild(item);\n  });\n  organizeSickzRows(data, pfKey);\n}\n\nfunction showFetchError(message) {\n''',
+              1,
+          )
+          text = text.replace(
+              '<h4 class="sickz-pfsense-title">PfSense / public port policy</h4>',
+              '<h4 class="sickz-pfsense-title">1 · Infrastructure foundations · PfSense / public port policy</h4>',
+              1,
+          )
+          path.write_text(text)
+
+          path = Path('nabla/api/assets/api-health.js')
+          text = path.read_text()
+          text = text.replace(
+              'import { loadTrueNas } from "./api-truenas.js";\n',
+              'import { loadTrueNas } from "./api-truenas.js";\nimport { installServiceFilter } from "./api-service-groups.js";\n',
+              1,
+          )
+          text = text.replace(
+              'installPfsensePortLabels();\nloadHealthBoards();\n',
+              'installPfsensePortLabels();\ninstallServiceFilter();\nloadHealthBoards();\n',
+              1,
+          )
+          path.write_text(text)
+
+          path = Path('nabla/api/assets/api.css')
+          text = path.read_text()
+          if 'api-service-groups.css' not in text:
+              text += '\n@import url("./api-service-groups.css");\n'
+          path.write_text(text)
+          PY
+
+          cat > nabla/api/assets/api-service-groups.js <<'JS'
+          const CORE_HEALTH_KEYS = new Set(["postgres", "redis", "supabase"]);
+
+          const BLOCKING_RELATION_TYPES = new Set([
+            "dependsOn",
+            "consumesApi",
+            "routesTo",
+            "storesIn",
+            "authenticatesVia",
+            "partOf",
+          ]);
+
+          const FOUNDATION_KINDS = new Set([
+            "storage-platform",
+            "container-runtime",
+            "firewall",
+            "edge",
+            "network-gateway",
+            "reverse-proxy",
+          ]);
+
+          const SHARED_DATA_KINDS = new Set([
+            "database",
+            "cache",
+            "key-value-store",
+            "object-storage",
+            "analytics-database",
+            "vector-database",
+            "message-broker",
+            "search",
+            "log-store",
+            "metrics-store",
+            "trace-store",
+          ]);
+
+          const GROUPS = [
+            {
+              key: "foundation",
+              label: "1 · Infrastructure foundations",
+              description: "Storage, runtime, firewall and edge components with the broadest failure domain.",
+            },
+            {
+              key: "shared-data",
+              label: "2 · Shared data & state",
+              description: "Databases, caches and durable state used by dependent services.",
+            },
+            {
+              key: "shared-platform",
+              label: "3 · Shared platform services",
+              description: "Gateways, runtimes and shared capabilities reused by several consumers.",
+            },
+            {
+              key: "application",
+              label: "4 · Applications & consumers",
+              description: "User-facing workloads and consumers of the shared layers above.",
+            },
+            {
+              key: "support",
+              label: "5 · Support / low blast radius",
+              description: "Leaf, observability and support components without required downstream consumers.",
+            },
+          ];
+
+          const EXTRA_GROUP = {
+            key: "external",
+            label: "External / optional integrations",
+            description: "Checks outside the declared homelab dependency graph or not yet mapped to it.",
+          };
+
+          let topologyPromise = null;
+          let activeFilter = "";
+
+          function normalize(value) {
+            return String(value || "")
+              .normalize("NFKD")
+              .replace(/[\u0300-\u036f]/g, "")
+              .trim()
+              .toLowerCase();
+          }
+
+          function hostOf(value) {
+            if (!value) return "";
+            try {
+              return new URL(String(value)).hostname.toLowerCase();
+            } catch {
+              return "";
+            }
+          }
+
+          function collectReachable(start, adjacency) {
+            const seen = new Set();
+            const pending = [...(adjacency.get(start) || [])];
+            while (pending.length > 0) {
+              const current = pending.pop();
+              if (!current || current === start || seen.has(current)) continue;
+              seen.add(current);
+              for (const next of adjacency.get(current) || []) {
+                if (!seen.has(next)) pending.push(next);
+              }
+            }
+            return seen;
+          }
+
+          function analyzeTopology(topology) {
+            const requiredDependencies = new Map();
+            const requiredDependents = new Map();
+            for (const relation of topology?.relations || []) {
+              if (relation?.strength !== "required" || !BLOCKING_RELATION_TYPES.has(relation?.type)) {
+                continue;
+              }
+              if (!requiredDependencies.has(relation.source)) requiredDependencies.set(relation.source, new Set());
+              requiredDependencies.get(relation.source).add(relation.target);
+              if (!requiredDependents.has(relation.target)) requiredDependents.set(relation.target, new Set());
+              requiredDependents.get(relation.target).add(relation.source);
+            }
+
+            const analysis = new Map();
+            for (const node of topology?.nodes || []) {
+              const directDependencies = requiredDependencies.get(node.id)?.size || 0;
+              const transitiveDependents = collectReachable(node.id, requiredDependents).size;
+              let tier = "support";
+              if (FOUNDATION_KINDS.has(node.kind)) tier = "foundation";
+              else if ((node.category === "data" || SHARED_DATA_KINDS.has(node.kind)) && transitiveDependents > 0) {
+                tier = "shared-data";
+              } else if (transitiveDependents > 0) tier = "shared-platform";
+              else if (directDependencies > 0) tier = "application";
+              analysis.set(node.id, { tier, transitiveDependents });
+            }
+            return analysis;
+          }
+
+          function topologyIndexes(topology) {
+            const byId = new Map();
+            const byName = new Map();
+            const byHost = new Map();
+            for (const node of topology?.nodes || []) {
+              byId.set(node.id, node);
+              byName.set(normalize(node.name), node);
+              const host = hostOf(node.url);
+              if (host && !byHost.has(host)) byHost.set(host, node);
+            }
+            return { byId, byName, byHost };
+          }
+
+          function candidateIdFromKey(key) {
+            const raw = String(key || "");
+            if (raw.startsWith("albandrieu_")) return raw.slice("albandrieu_".length).replaceAll("_", "-");
+            return raw.replaceAll("_", "-");
+          }
+
+          function findTopologyNode(row, check, indexes) {
+            const idCandidates = [
+              check?.service_id,
+              check?.id,
+              row?.dataset?.serviceKey,
+              candidateIdFromKey(row?.dataset?.serviceKey),
+            ];
+            for (const candidate of idCandidates) {
+              if (candidate && indexes.byId.has(String(candidate))) return indexes.byId.get(String(candidate));
+            }
+
+            const nameCandidates = [
+              check?.name,
+              check?.display_label,
+              row?.dataset?.serviceName,
+            ];
+            for (const candidate of nameCandidates) {
+              const name = normalize(candidate);
+              if (name && indexes.byName.has(name)) return indexes.byName.get(name);
+            }
+
+            const urls = [
+              check?.url,
+              check?.tunnel_url,
+              check?.tunnelUrl,
+              row?.dataset?.serviceUrl,
+              ...(Array.isArray(check?.aliases_probed) ? check.aliases_probed : []),
+            ];
+            for (const value of urls) {
+              const host = hostOf(value);
+              if (host && indexes.byHost.has(host)) return indexes.byHost.get(host);
+            }
+            return null;
+          }
+
+          function topology() {
+            if (!topologyPromise) {
+              topologyPromise = fetch("/api/homelab-topology", {
+                cache: "no-store",
+                headers: { Accept: "application/json", "Cache-Control": "no-cache" },
+              })
+                .then((response) => {
+                  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                  return response.json();
+                })
+                .catch(() => ({ nodes: [], relations: [] }));
+            }
+            return topologyPromise;
+          }
+
+          function serviceGroupSection(definition, rows) {
+            const section = document.createElement("section");
+            section.className = "service-group";
+            section.dataset.serviceGroup = definition.key;
+            const heading = document.createElement("div");
+            heading.className = "service-group-heading";
+            heading.innerHTML = `<div><h4>${definition.label}</h4><p>${definition.description}</p></div><span>${rows.length} service${rows.length === 1 ? "" : "s"}</span>`;
+            const list = document.createElement("ul");
+            list.className = "health-checks service-group-list";
+            rows
+              .sort((left, right) => (left.textContent || "").localeCompare(right.textContent || ""))
+              .forEach((row) => list.appendChild(row));
+            section.append(heading, list);
+            return section;
+          }
+
+          function assignRows(rows, checks, topologyData) {
+            const indexes = topologyIndexes(topologyData);
+            const analysis = analyzeTopology(topologyData);
+            const buckets = new Map([...GROUPS, EXTRA_GROUP].map((group) => [group.key, []]));
+            for (const row of rows) {
+              const key = row.dataset.serviceKey || "";
+              const check = checks?.[key] || {};
+              const node = findTopologyNode(row, check, indexes);
+              const tier = node ? analysis.get(node.id)?.tier || "support" : "external";
+              row.dataset.criticalityTier = tier;
+              const group = GROUPS.find((item) => item.key === tier) || EXTRA_GROUP;
+              row.dataset.searchText = `${row.dataset.searchText || ""} ${group.label} ${group.description}`.toLowerCase();
+              buckets.get(group.key).push(row);
+            }
+            return buckets;
+          }
+
+          function refreshFilter() {
+            const tokens = normalize(activeFilter).split(/\s+/).filter(Boolean);
+            for (const target of document.querySelectorAll("[data-service-filter-target]")) {
+              const haystack = normalize(target.dataset.searchText || target.textContent || "");
+              target.hidden = tokens.length > 0 && !tokens.every((token) => haystack.includes(token));
+            }
+            for (const group of document.querySelectorAll("[data-service-group]")) {
+              const visible = [...group.querySelectorAll("[data-service-filter-target]")].some((row) => !row.hidden);
+              group.hidden = !visible;
+            }
+            const coreHeading = document.getElementById("health-core-group-heading");
+            if (coreHeading) {
+              const coreRows = [...document.querySelectorAll("#health-checks > [data-service-filter-target]")];
+              coreHeading.hidden = coreRows.length > 0 && !coreRows.some((row) => !row.hidden);
+            }
+          }
+
+          export async function organizeHealthRows(data) {
+            const list = document.getElementById("health-checks");
+            const target = document.getElementById("health-services-groups");
+            if (!list || !target) return;
+            const currentRows = [...list.querySelectorAll(":scope > [data-service-filter-target]")];
+            const nonCore = currentRows.filter((row) => !CORE_HEALTH_KEYS.has(row.dataset.serviceKey || ""));
+            for (const row of nonCore) row.remove();
+            target.innerHTML = "";
+
+            const topologyData = await topology();
+            const buckets = assignRows(nonCore, data?.checks || {}, topologyData);
+            for (const definition of [...GROUPS, EXTRA_GROUP]) {
+              const rows = buckets.get(definition.key) || [];
+              if (rows.length > 0) target.appendChild(serviceGroupSection(definition, rows));
+            }
+            refreshFilter();
+          }
+
+          export async function organizeSickzRows(data, pfsenseKey) {
+            const list = document.getElementById("sickz-checks");
+            if (!list) return;
+            const rows = [...list.querySelectorAll(":scope > [data-service-filter-target]")];
+            const topologyData = await topology();
+            const checks = { ...(data?.checks || {}) };
+            if (pfsenseKey) delete checks[pfsenseKey];
+            const buckets = assignRows(rows, checks, topologyData);
+            list.innerHTML = "";
+            for (const definition of [...GROUPS, EXTRA_GROUP]) {
+              const groupRows = buckets.get(definition.key) || [];
+              if (groupRows.length === 0) continue;
+              const shell = document.createElement("li");
+              shell.className = "service-group-shell";
+              shell.appendChild(serviceGroupSection(definition, groupRows));
+              list.appendChild(shell);
+            }
+            refreshFilter();
+          }
+
+          export function installServiceFilter() {
+            const input = document.getElementById("service-filter");
+            const clear = document.getElementById("service-filter-clear");
+            if (!input) return;
+            input.addEventListener("input", () => {
+              activeFilter = input.value;
+              refreshFilter();
+            });
+            clear?.addEventListener("click", () => {
+              input.value = "";
+              activeFilter = "";
+              refreshFilter();
+              input.focus();
+            });
+          }
+          JS
+
+          cat > nabla/api/assets/api-service-groups.css <<'CSS'
+          .health-board-heading-row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+          }
+
+          .service-filter {
+            min-width: min(100%, 300px);
+          }
+
+          .service-filter label {
+            display: block;
+            margin-bottom: 0.35rem;
+            color: #aeb4be;
+            font-size: 0.72rem;
+            font-weight: 600;
+          }
+
+          .service-filter-control {
+            display: flex;
+            gap: 0.4rem;
+          }
+
+          .service-filter input {
+            width: 100%;
+            min-width: 0;
+            padding: 0.5rem 0.65rem;
+            border: 1px solid #3a3a3a;
+            border-radius: 7px;
+            background: #0b0b0b;
+            color: #f3f4f6;
+          }
+
+          .service-filter button {
+            padding: 0.5rem 0.65rem;
+            border: 1px solid #3a3a3a;
+            border-radius: 7px;
+            background: #171717;
+            color: #d1d5db;
+            cursor: pointer;
+          }
+
+          .service-groups {
+            margin-top: 1.35rem;
+          }
+
+          .service-group {
+            margin-top: 1rem;
+          }
+
+          .service-group-heading {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+            margin: 1rem 0 0.45rem;
+            padding-bottom: 0.45rem;
+            border-bottom: 1px solid #2d2d2d;
+          }
+
+          .service-group-heading h3,
+          .service-group-heading h4 {
+            margin: 0;
+            font-size: 0.86rem;
+          }
+
+          .service-group-heading p {
+            margin: 0.2rem 0 0;
+            color: #8d949e;
+            font-size: 0.68rem;
+          }
+
+          .service-group-heading > span {
+            flex-shrink: 0;
+            color: #777;
+            font-size: 0.66rem;
+          }
+
+          .service-group-heading--core {
+            margin-top: 0.85rem;
+          }
+
+          .service-group-list {
+            margin-top: 0;
+          }
+
+          .service-group-shell {
+            list-style: none;
+            padding: 0;
+            border: 0;
+          }
+
+          .service-group-shell > .service-group {
+            margin-top: 0.7rem;
+          }
+
+          [data-service-filter-target][hidden],
+          [data-service-group][hidden],
+          #health-core-group-heading[hidden] {
+            display: none !important;
+          }
+
+          @media (max-width: 720px) {
+            .health-board-heading-row {
+              flex-direction: column;
+            }
+
+            .service-filter {
+              width: 100%;
+            }
+          }
+          CSS
+
+          cat > tests/unit/test_api_service_group_assets.py <<'PY'
+          """Contracts for the grouped health/exposure UI assets."""
+
+          from pathlib import Path
+
+          from nabla.api.ui import render_api_root_page
+
+
+          ASSETS = Path(__file__).parents[2] / "nabla" / "api" / "assets"
+
+
+          def test_api_page_orders_core_truenas_groups_then_exposure() -> None:
+              html = render_api_root_page(title_suffix="test", app_version="test")
+
+              core = html.index('id="health-core-group-heading"')
+              truenas = html.index('id="truenas-platform"')
+              groups = html.index('id="health-services-groups"')
+              exposure = html.index('id="sickz-board-title"')
+              assert core < truenas < groups < exposure
+              assert 'id="service-filter"' in html
+
+
+          def test_service_group_asset_mirrors_site_criticality_contract() -> None:
+              source = (ASSETS / "api-service-groups.js").read_text(encoding="utf-8")
+
+              for label in (
+                  "1 · Infrastructure foundations",
+                  "2 · Shared data & state",
+                  "3 · Shared platform services",
+                  "4 · Applications & consumers",
+                  "5 · Support / low blast radius",
+              ):
+                  assert label in source
+              for relation in (
+                  "dependsOn",
+                  "consumesApi",
+                  "routesTo",
+                  "storesIn",
+                  "authenticatesVia",
+                  "partOf",
+              ):
+                  assert relation in source
+
+
+          def test_true_nas_is_not_duplicated_in_generic_health_rows() -> None:
+              source = (ASSETS / "api-health-core.js").read_text(encoding="utf-8")
+
+              assert 'key !== "truenas_api"' in source
+              assert 'key !== "albandrieu_truenas"' in source
+              assert "truenasApiCheck" not in source
+          PY
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Validate JavaScript syntax
+        run: >-
+          node --check nabla/api/assets/api-service-groups.js &&
+          node --check nabla/api/assets/api-health-core.js &&
+          node --check nabla/api/assets/api-sickz.js &&
+          node --check nabla/api/assets/api-health.js
+
+      - name: Run focused UI tests
+        run: uv run pytest -q tests/unit/test_api_service_group_assets.py tests/unit/test_truenas_health_configuration.py tests/unit/test_truenas_diagnostics.py
+
+      - name: Commit implementation
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo 'No implementation changes to commit.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add nabla/api/ui.py nabla/api/assets/api-health-core.js nabla/api/assets/api-sickz.js nabla/api/assets/api-health.js nabla/api/assets/api.css nabla/api/assets/api-service-groups.js nabla/api/assets/api-service-groups.css tests/unit/test_api_service_group_assets.py
+          git commit -m 'feat(health): group homelab checks by blast radius'
+          git push origin HEAD:feat/truenas-health-board
