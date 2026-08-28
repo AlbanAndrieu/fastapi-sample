@@ -59,3 +59,12 @@ def test_fastapi_cloud_deploy_uses_project_cli() -> None:
 
     assert "run: uv run fastapi deploy" in deploy
     assert "uvx fastapi-cloud-cli" not in deploy
+
+
+def test_fastapi_cloud_deploy_job_sets_up_python() -> None:
+    deploy = (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8")
+    deploy_job = deploy.split("\n  deploy:\n", maxsplit=1)[1]
+
+    assert 'PYTHON_VERSION: "3.13"' in deploy_job
+    assert "- name: Set up Python" in deploy_job
+    assert "python-version: ${{ env.PYTHON_VERSION }}" in deploy_job
