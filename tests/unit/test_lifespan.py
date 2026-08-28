@@ -9,6 +9,8 @@ import pytest
 
 import nabla.lifespan as lifecycle
 
+pytestmark = pytest.mark.asyncio
+
 
 def _startup_module(name: str, init_db: AsyncMock) -> ModuleType:
     module = ModuleType(name)
