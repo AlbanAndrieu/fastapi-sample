@@ -27,10 +27,10 @@ jobs:
       PRODUCTION_API_URL: https://fastapi-sample.fastapicloud.dev/api
 
     steps:
-      - name: Checkout master version source
+      - name: Checkout smoke-test code
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
-          ref: master
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Check production homelab status
@@ -45,7 +45,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected="$(jq -r '.version' package.json)"
+          git fetch --no-tags origin master
+          expected="$(git show origin/master:package.json | jq -r '.version')"
           test -n "${expected}" && test "${expected}" != "null"
           echo "EXPECTED_MASTER_VERSION=${expected}" >> "${GITHUB_ENV}"
           echo "Master source version: ${expected}"
