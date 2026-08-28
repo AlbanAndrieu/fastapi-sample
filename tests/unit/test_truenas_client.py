@@ -7,6 +7,7 @@ import pytest
 from nabla.integrations.truenas_client import (
     TrueNASReadOnlyAdapter,
     TrueNASSettings,
+    _websocket_proxy_route,
     truenas_host_port,
 )
 
@@ -120,6 +121,33 @@ def test_local_url_override_drives_api_and_health_target(monkeypatch) -> None:
     assert settings is not None
     assert settings.websocket_uri == "wss://172.17.0.24:7000/api/current"
     assert truenas_host_port() == ("172.17.0.24", 7000)
+
+
+def test_websocket_proxy_route_is_direct_without_https_proxy(monkeypatch) -> None:
+    monkeypatch.delenv("HTTPS_PROXY", raising=False)
+    monkeypatch.delenv("https_proxy", raising=False)
+    monkeypatch.delenv("NO_PROXY", raising=False)
+    monkeypatch.delenv("no_proxy", raising=False)
+
+    assert _websocket_proxy_route("truenas.albandrieu.com") == "direct"
+
+
+def test_websocket_proxy_route_detects_proxy_candidate(monkeypatch) -> None:
+    monkeypatch.setenv("HTTPS_PROXY", "http://proxy.example:8080")
+    monkeypatch.delenv("https_proxy", raising=False)
+    monkeypatch.delenv("NO_PROXY", raising=False)
+    monkeypatch.delenv("no_proxy", raising=False)
+
+    assert _websocket_proxy_route("truenas.albandrieu.com") == "proxy_candidate"
+
+
+def test_websocket_proxy_route_honors_no_proxy_without_logging_value(monkeypatch) -> None:
+    monkeypatch.setenv("HTTPS_PROXY", "http://user:secret@proxy.example:8080")
+    monkeypatch.setenv("NO_PROXY", ".albandrieu.com,localhost")
+    monkeypatch.delenv("https_proxy", raising=False)
+    monkeypatch.delenv("no_proxy", raising=False)
+
+    assert _websocket_proxy_route("truenas.albandrieu.com") == "bypass"
 
 
 @pytest.mark.parametrize(

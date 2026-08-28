@@ -111,6 +111,30 @@ def truenas_host_port() -> tuple[str, int]:
     return parsed.hostname, parsed.port or default_port
 
 
+def _no_proxy_matches(hostname: str) -> bool:
+    """Mirror websocket-client domain NO_PROXY matching without exposing its value."""
+    raw = os.getenv("no_proxy", os.getenv("NO_PROXY", "")).replace(" ", "")
+    for entry in (item for item in raw.split(",") if item):
+        if entry == "*" or hostname == entry:
+            return True
+        domain = entry.lstrip(".")
+        if domain and (hostname == domain or hostname.endswith(f".{domain}")):
+            return True
+    return False
+
+
+def _websocket_proxy_route(hostname: str | None) -> str:
+    """Describe whether websocket-client can select an HTTPS proxy, without secrets."""
+    if not hostname:
+        return "unknown"
+    if _no_proxy_matches(hostname):
+        return "bypass"
+    proxy_configured = bool(
+        os.getenv("https_proxy", "").strip() or os.getenv("HTTPS_PROXY", "").strip()
+    )
+    return "proxy_candidate" if proxy_configured else "direct"
+
+
 def _exception_chain(exc: BaseException) -> list[BaseException]:
     """Return a bounded cause/context chain for network error classification."""
     chain: list[BaseException] = []
@@ -199,6 +223,7 @@ class TrueNASReadOnlyAdapter:
         """Authenticate once for a single read-only JSON-RPC call."""
         started = time.perf_counter()
         uri = self.settings.websocket_uri
+        proxy_route = _websocket_proxy_route(self.settings.hostname)
         phase = "connect"
         try:
             with self._connect() as client:
@@ -209,11 +234,12 @@ class TrueNASReadOnlyAdapter:
         except Exception as exc:
             elapsed_ms = round((time.perf_counter() - started) * 1000)
             logger.warning(
-                "TrueNAS API probe failed method=%s uri=%s verify_ssl=%s phase=%s "
-                "stage=%s exception=%s elapsed_ms=%s error=%s",
+                "TrueNAS API probe failed method=%s uri=%s verify_ssl=%s proxy_route=%s "
+                "phase=%s stage=%s exception=%s elapsed_ms=%s error=%s",
                 method,
                 uri,
                 self.settings.verify_ssl,
+                proxy_route,
                 phase,
                 _truenas_failure_stage(exc),
                 exc.__class__.__name__,
@@ -222,10 +248,12 @@ class TrueNASReadOnlyAdapter:
             )
             raise
         logger.info(
-            "TrueNAS API probe succeeded method=%s uri=%s verify_ssl=%s elapsed_ms=%s",
+            "TrueNAS API probe succeeded method=%s uri=%s verify_ssl=%s proxy_route=%s "
+            "elapsed_ms=%s",
             method,
             uri,
             self.settings.verify_ssl,
+            proxy_route,
             round((time.perf_counter() - started) * 1000),
         )
         return result
@@ -248,6 +276,7 @@ class TrueNASReadOnlyAdapter:
         """Return a compact non-secret version/app view suitable for health APIs."""
         started = time.perf_counter()
         uri = self.settings.websocket_uri
+        proxy_route = _websocket_proxy_route(self.settings.hostname)
         phase = "connect"
         method = "connect"
         try:
@@ -264,10 +293,11 @@ class TrueNASReadOnlyAdapter:
             elapsed_ms = round((time.perf_counter() - started) * 1000)
             logger.warning(
                 "TrueNAS API health probe failed method=%s uri=%s verify_ssl=%s "
-                "phase=%s stage=%s exception=%s elapsed_ms=%s error=%s",
+                "proxy_route=%s phase=%s stage=%s exception=%s elapsed_ms=%s error=%s",
                 method,
                 uri,
                 self.settings.verify_ssl,
+                proxy_route,
                 phase,
                 _truenas_failure_stage(exc),
                 exc.__class__.__name__,
@@ -276,9 +306,11 @@ class TrueNASReadOnlyAdapter:
             )
             raise
         logger.info(
-            "TrueNAS API health probe succeeded uri=%s verify_ssl=%s elapsed_ms=%s",
+            "TrueNAS API health probe succeeded uri=%s verify_ssl=%s proxy_route=%s "
+            "elapsed_ms=%s",
             uri,
             self.settings.verify_ssl,
+            proxy_route,
             round((time.perf_counter() - started) * 1000),
         )
         if not isinstance(version, str) or not isinstance(apps, list):
