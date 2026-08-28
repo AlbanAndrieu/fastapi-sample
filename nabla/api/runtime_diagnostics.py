@@ -17,7 +17,7 @@ from nabla.utils.runtime_logs import (
 )
 
 
-def _require_loopback(request: Request) -> None:
+def require_loopback(request: Request) -> None:
     """Reject direct LAN/WAN access to development runtime diagnostics."""
     client = request.client
     if client is None:
@@ -32,7 +32,7 @@ def _require_loopback(request: Request) -> None:
 
 router = APIRouter(
     prefix="/v1/runtime",
-    dependencies=[Depends(_require_loopback)],
+    dependencies=[Depends(require_loopback)],
 )
 
 
