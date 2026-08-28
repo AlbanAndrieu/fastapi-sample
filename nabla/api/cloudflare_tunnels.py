@@ -10,6 +10,8 @@ from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict
 
+from nabla.api.provider_credentials import inspect_environment_credentials
+
 
 class CloudflareTunnelIngress(BaseModel):
     """Observed public hostname routed through a Cloudflare Tunnel."""
@@ -59,6 +61,16 @@ class CloudflareAccessApplicationObservation(BaseModel):
     policies: tuple[CloudflareAccessPolicyObservation, ...] = ()
 
 
+def cloudflare_api_configuration_status() -> dict[str, object]:
+    """Return sanitized canonical Cloudflare credential state."""
+    return inspect_environment_credentials(
+        "cloudflare",
+        "CLOUDFLARE_ACCOUNT_ID",
+        "CLOUDFLARE_API_TOKEN",
+        secret_variables=frozenset({"CLOUDFLARE_API_TOKEN"}),
+    ).as_dict()
+
+
 @dataclass(frozen=True, slots=True)
 class CloudflareTunnelSettings:
     """Credentials required to inspect Cloudflare Tunnel and Access configuration."""
@@ -68,11 +80,12 @@ class CloudflareTunnelSettings:
 
     @classmethod
     def from_environment(cls) -> CloudflareTunnelSettings | None:
-        """Return settings only when both read-only credentials are configured."""
+        """Return settings only when both canonical read-only credentials are valid."""
+        status = cloudflare_api_configuration_status()
+        if status["configured"] is not True:
+            return None
         account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID", "").strip()
         api_token = os.getenv("CLOUDFLARE_API_TOKEN", "").strip()
-        if not account_id or not api_token:
-            return None
         return cls(account_id=account_id, api_token=api_token)
 
 
@@ -187,7 +200,6 @@ class CloudflareTunnelObserver:
             hostname = str(_value(rule, "hostname", "") or "").strip().lower()
             service = str(_value(rule, "service", "") or "").strip()
             if not hostname:
-                # Catch-all rules such as http_status:404 are not public hostnames.
                 continue
             observed.append(
                 CloudflareTunnelIngress(
