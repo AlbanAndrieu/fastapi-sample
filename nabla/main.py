@@ -180,6 +180,11 @@ def _register_routers(app: FastAPI, *, debug: bool) -> None:
     app.include_router(users.router, tags=["users"])
     app.include_router(sensor.router, tags=["sensor"])
 
+    if env_bool("RUNTIME_DIAGNOSTICS_ENABLED"):
+        from nabla.api import runtime_diagnostics
+
+        app.include_router(runtime_diagnostics.router, tags=["runtime-devtools"])
+
     if debug:
         from fastapi_featureflags import router as ff_router
 
