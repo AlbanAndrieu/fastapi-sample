@@ -8,7 +8,6 @@ from nabla.api.pfsense_dns_observer import PfSenseDNSSettings
 
 
 @pytest.fixture
-
 def settings() -> PfSenseDNSSettings:
     return PfSenseDNSSettings(
         base_url="https://pfsense.example.test",
@@ -17,11 +16,12 @@ def settings() -> PfSenseDNSSettings:
     )
 
 
-def test_unconfigured_observer_is_unknown(monkeypatch) -> None:
+@pytest.mark.asyncio
+async def test_unconfigured_observer_is_unknown(monkeypatch) -> None:
     monkeypatch.delenv("PFSENSE_API_URL", raising=False)
     monkeypatch.delenv("PFSENSE_API_KEY", raising=False)
 
-    result = pytest.run(asyncio=pfsense_dns_observer.observe_pfsense_dns_posture())
+    result = await pfsense_dns_observer.observe_pfsense_dns_posture()
 
     assert result == {
         "configured": False,
