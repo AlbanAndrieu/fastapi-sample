@@ -247,6 +247,7 @@ def test_update_note_reports_queue_failure(test_app, monkeypatch):
     )
 
 
+@pytest.mark.asyncio
 async def test_crud_post_uses_async_database_and_returns_persisted_id(
     monkeypatch,
 ) -> None:
@@ -268,6 +269,7 @@ async def test_crud_post_uses_async_database_and_returns_persisted_id(
     assert parameters["title"] == "new note"
 
 
+@pytest.mark.asyncio
 async def test_crud_put_preserves_creation_timestamp(monkeypatch) -> None:
     execute = AsyncMock(return_value=7)
     monkeypatch.setattr(crud.database, "execute", execute)
