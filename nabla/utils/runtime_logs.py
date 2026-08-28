@@ -8,21 +8,24 @@ from itertools import count
 import json
 import logging
 import os
+import sys
 import threading
 from typing import Any
-
-from nabla.utils.environment import env_bool
 
 _DEFAULT_CAPACITY = 1000
 _MIN_CAPACITY = 100
 _MAX_CAPACITY = 5000
 _MAX_MESSAGE_CHARS = 4000
 _MAX_EXCEPTION_CHARS = 12000
+_TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 
 
 def runtime_diagnostics_enabled() -> bool:
-    """Return whether local runtime diagnostics are explicitly enabled."""
-    return env_bool("RUNTIME_DIAGNOSTICS_ENABLED")
+    """Enable diagnostics explicitly, or automatically for local reload servers."""
+    configured = os.getenv("RUNTIME_DIAGNOSTICS_ENABLED")
+    if configured is not None:
+        return configured.strip().lower() in _TRUE_VALUES
+    return "--reload" in sys.argv
 
 
 def _capacity() -> int:
@@ -116,7 +119,7 @@ class RuntimeLogHandler(logging.Handler):
 
 
 def attach_runtime_log_handler(root_logger: logging.Logger) -> None:
-    """Attach one diagnostics handler when the opt-in local feature is enabled."""
+    """Attach one diagnostics handler when local development diagnostics are enabled."""
     if not runtime_diagnostics_enabled():
         return
     if any(isinstance(handler, RuntimeLogHandler) for handler in root_logger.handlers):
