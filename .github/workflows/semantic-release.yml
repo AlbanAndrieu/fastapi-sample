@@ -1,11 +1,14 @@
 name: Semantic Release
 
-# The automatic master-push trigger is temporarily disabled while the repository
-# is being rebased onto the consolidated 1.4.0 release tag. Re-enable it only
-# after the historical 1.4.0 tag has been recreated on the consolidated master
-# commit; otherwise semantic-release would scan the post-1.4.0 history and
-# immediately publish a newer version again.
+# 1.4.0 was published retrospectively from its historical tag after the source
+# tree had already moved forward. The first automatic run after this workflow is
+# merged therefore repairs that tag only in the local checkout so semantic-release
+# can calculate the intended 1.4.1 patch from the current production baseline.
+# The remote 1.4.0 tag is never rewritten. Once 1.4.1 exists, normal semantic
+# release progression resumes from the new immutable tag.
 on:
+  push:
+    branches: [master]
   workflow_dispatch:
 
 permissions:
@@ -77,6 +80,27 @@ jobs:
           LATEST_RELEASE_TAG="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq '.tag_name')"
           python scripts/check_release_baseline.py "${LATEST_RELEASE_TAG}"
 
+      - name: Prepare one-time 1.4.1 local release baseline
+        env:
+          GH_TOKEN: ${{ steps.release_app_token.outputs.token || secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_VERSION="$(python - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          print(tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"])
+          PY
+          )"
+          LATEST_RELEASE_TAG="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq '.tag_name')"
+
+          if [[ "${SOURCE_VERSION}" == "1.4.0" && "${LATEST_RELEASE_TAG}" == "1.4.0" ]]; then
+            RECOVERY_BASE="$(git rev-parse HEAD^)"
+            git tag --force 1.4.0 "${RECOVERY_BASE}"
+            echo "Using local-only 1.4.0 recovery baseline ${RECOVERY_BASE} for the 1.4.1 calculation."
+          fi
+
       - name: Run semantic-release
         id: semantic_release
         env:
@@ -86,6 +110,13 @@ jobs:
         run: |
           set -euo pipefail
           BEFORE_HEAD="$(git rev-parse HEAD)"
+          SOURCE_VERSION_BEFORE="$(python - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          print(tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"])
+          PY
+          )"
 
           # Let git use gh as its credential helper without leaving the token in
           # the checkout configuration for unrelated preceding steps.
@@ -103,8 +134,17 @@ jobs:
             echo "semantic-release changed HEAD but no release tag points at it" >&2
             exit 1
           fi
+          if [[ "${SOURCE_VERSION_BEFORE}" == "1.4.0" && "${RELEASE_TAG}" != "1.4.1" ]]; then
+            echo "Expected the recovery release to be exactly 1.4.1, got ${RELEASE_TAG}" >&2
+            exit 1
+          fi
 
           gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null
+          if [[ "${SOURCE_VERSION_BEFORE}" == "1.4.0" ]]; then
+            gh release edit "${RELEASE_TAG}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --notes-file docs/release-1.4.1.md
+          fi
           echo "published=true" >> "${GITHUB_OUTPUT}"
           echo "tag=${RELEASE_TAG}" >> "${GITHUB_OUTPUT}"
           echo "version=${RELEASE_TAG#v}" >> "${GITHUB_OUTPUT}"
@@ -115,7 +155,7 @@ jobs:
 
       # release events emitted with GITHUB_TOKEN do not start another workflow.
       # repository_dispatch is explicitly allowed by GitHub for workflow chaining.
-      - name: Trigger package publishing workflow
+      - name: Trigger package publishing and production deployment
         if: steps.semantic_release.outputs.published == 'true'
         env:
           GH_TOKEN: ${{ steps.release_app_token.outputs.token || secrets.GITHUB_TOKEN }}

@@ -1,5 +1,7 @@
 import { loadHealth } from "./api-health-core.js";
 import { loadSickz } from "./api-sickz.js";
+import { loadTrueNas } from "./api-truenas.js";
+import { installServiceFilter } from "./api-service-groups.js";
 import {
   decorateCloudflareTunnelStatuses,
   markHealthBoardsPending,
@@ -20,6 +22,7 @@ function logRefreshClick() {
 function loadHealthBoards() {
   markHealthBoardsPending();
   loadHealth();
+  loadTrueNas();
   loadSickz();
   decorateCloudflareTunnelStatuses();
 }
@@ -32,4 +35,5 @@ document.querySelectorAll(".health-refresh").forEach((button) => {
 });
 
 installPfsensePortLabels();
+installServiceFilter();
 loadHealthBoards();

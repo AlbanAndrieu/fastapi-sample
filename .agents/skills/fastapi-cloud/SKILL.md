@@ -61,6 +61,34 @@ fastapi cloud env list .
 
 Do not copy secret values into issues, PRs, logs, or chat. When diagnosing configuration drift, compare variable **names and presence** whenever possible.
 
+Canonical infrastructure credentials used by the health observers are:
+
+```text
+TRUENAS_API_KEY
+PFSENSE_API_KEY
+CLOUDFLARE_API_TOKEN
+```
+
+Provider health must validate that its canonical credential exists before attempting provider authentication. A missing credential is configuration health data, not a generic network failure. Never substitute one provider's key for another provider or silently fall back to a differently named secret.
+
+### Updating a FastAPI Cloud secret
+
+Set or replace a secret interactively without putting its value on the command line:
+
+```bash
+uv run fastapi cloud env set --secret TRUENAS_API_KEY
+```
+
+After changing an application environment variable, redeploy before validating the running application:
+
+```bash
+uv run fastapi deploy
+```
+
+Treat `env set` and runtime deployment as two distinct steps. A successful `env set` proves only that the application configuration was updated; the runtime check is authoritative only after the new deployment is ready.
+
+For a negative credential test, temporarily remove the canonical variable, deploy, and require an explicit sanitized result such as `phase=authentication stage=missing_api_key`. Restore the secret with `env set --secret`, redeploy, then require Authentication and API stages to recover. Never paste the secret into test fixtures, logs, PR descriptions, or diagnostic output.
+
 ## Runtime logs
 
 Recent logs:

@@ -5,6 +5,7 @@ import {
   rowIcon,
   tunnelHref,
 } from "./api-health-ui.js";
+import { organizeHealthRows } from "./api-service-groups.js";
 
 const LABELS = {
   redis: "Redis",
@@ -205,8 +206,10 @@ function render(data) {
   summaryLed.className = `health-led health-led--${overall.cls}`;
   summaryText.textContent = overall.text;
   const checks = data.checks || {};
-  const keys = sortKeys(Object.keys(checks));
+  const keys = sortKeys(Object.keys(checks)).filter((key) => key !== "truenas_api" && key !== "albandrieu_truenas");
   listEl.innerHTML = "";
+  const groupedEl = document.getElementById("health-services-groups");
+  if (groupedEl) groupedEl.innerHTML = "";
   keys.forEach((key) => {
     const check = checks[key];
     const tier = MANDATORY.has(key)
@@ -217,6 +220,17 @@ function render(data) {
     const cls = classify(key, check);
     const item = document.createElement("li");
     item.className = "health-row";
+    item.dataset.serviceFilterTarget = "";
+    item.dataset.serviceKey = key;
+    item.dataset.serviceName = String(check.name || check.display_label || LABELS[key] || key);
+    item.dataset.serviceUrl = tunnelHref(check);
+    item.dataset.searchText = [
+      key,
+      item.dataset.serviceName,
+      item.dataset.serviceUrl,
+      detailText(key, check),
+      tier,
+    ].join(" ").toLowerCase();
     item.innerHTML =
       rowIcon(check, key, cls) +
       `<span class="health-row-led-wrap"><span class="health-led health-led--${cls}" title="${cls}"></span></span>` +
@@ -228,6 +242,7 @@ function render(data) {
       "</div>";
     listEl.appendChild(item);
   });
+  organizeHealthRows(data);
 }
 
 function showFetchError(message) {
@@ -236,33 +251,13 @@ function showFetchError(message) {
   const summaryLed = document.getElementById("health-summary-led");
   const errEl = document.getElementById("health-fetch-error");
   document.getElementById("health-checks").innerHTML = "";
+  const groupedEl = document.getElementById("health-services-groups");
+  if (groupedEl) groupedEl.innerHTML = "";
   summaryEl.className = "health-summary health-summary--red";
   summaryLed.className = "health-led health-led--red";
   summaryText.textContent = "Could not load /healthz.";
   errEl.hidden = false;
   errEl.textContent = message;
-}
-
-function truenasApiCheck(homelab) {
-  const truenas = homelab && typeof homelab.truenas === "object" ? homelab.truenas : null;
-  const api = truenas && typeof truenas.api === "object" ? truenas.api : null;
-  if (!api) {
-    return {
-      name: "TrueNAS API",
-      display_label: "TrueNAS API",
-      reachable: null,
-      skipped: true,
-      reason: "TrueNAS API credentials are not configured or the API probe is unavailable.",
-    };
-  }
-  return {
-    name: "TrueNAS API",
-    display_label: "TrueNAS API",
-    reachable: api.reachable === true,
-    error: api.error || null,
-    version: api.version || null,
-    app_count: Array.isArray(api.apps) ? api.apps.length : null,
-  };
 }
 
 export function loadHealth() {
@@ -274,34 +269,7 @@ export function loadHealth() {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return response.json();
     })
-    .then((data) => {
-      render(data);
-      fetch("/api/homelab/health", {
-        cache: "no-store",
-        headers: { Accept: "application/json", "Cache-Control": "no-cache" },
-      })
-        .then((response) => {
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          return response.json();
-        })
-        .then((homelab) => {
-          data.checks = { ...(data.checks || {}), truenas_api: truenasApiCheck(homelab) };
-          render(data);
-        })
-        .catch((error) => {
-          data.checks = {
-            ...(data.checks || {}),
-            truenas_api: {
-              name: "TrueNAS API",
-              display_label: "TrueNAS API",
-              reachable: null,
-              skipped: true,
-              reason: `TrueNAS API health unavailable: ${String(error.message || error)}`,
-            },
-          };
-          render(data);
-        });
-    })
+    .then(render)
     .catch((error) => {
       showFetchError(String(error.message || error));
     });

@@ -99,10 +99,13 @@ def register_health_routes(app: FastAPI) -> None:
         summary="Declared versus observed homelab status",
     )
     async def get_homelab_status() -> dict[str, Any]:
-        """Reconcile x-nabla declarations with TrueNAS runtime observations."""
+        """Reconcile declarations/runtime and expose provider credential presence only."""
         from nabla.api.homelab_runtime import build_homelab_status_payload
+        from nabla.api.provider_credentials import infrastructure_provider_credentials
 
-        return await build_homelab_status_payload()
+        payload = await build_homelab_status_payload()
+        payload["providerCredentials"] = infrastructure_provider_credentials()
+        return payload
 
     @app.get(
         "/api/homelab/health",
@@ -116,6 +119,7 @@ def register_health_routes(app: FastAPI) -> None:
         from nabla.api.demo.socket.redis import redis
         from nabla.api.homelab_health import build_homelab_health_payload
         from nabla.api.homelab_health_evidence import reconcile_homelab_health_payload
+        from nabla.api.provider_credentials import infrastructure_provider_credentials
 
         homelab_task = asyncio.create_task(build_homelab_health_payload())
         components = await build_component_checks(
@@ -126,6 +130,7 @@ def register_health_routes(app: FastAPI) -> None:
         homelab_payload = await reconcile_homelab_health_payload(await homelab_task)
         homelab_payload["components_status"] = component_status(components)
         homelab_payload["components"] = components
+        homelab_payload["provider_credentials"] = infrastructure_provider_credentials()
         return homelab_payload
 
     @app.get(

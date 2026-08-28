@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from nabla.api.cloudflare_tunnels import (
     CloudflareTunnelObserver,
     CloudflareTunnelSettings,
+    cloudflare_api_configuration_status,
     observe_cloudflare_access_applications,
     observe_cloudflare_tunnels,
 )
@@ -83,6 +84,19 @@ def test_settings_are_disabled_when_credentials_are_incomplete(monkeypatch) -> N
     assert CloudflareTunnelSettings.from_environment() is None
     assert observe_cloudflare_tunnels() == []
     assert observe_cloudflare_access_applications() == []
+
+
+def test_settings_reject_environment_variable_reference(monkeypatch) -> None:
+    monkeypatch.setenv("CLOUDFLARE_ACCOUNT_ID", "account-placeholder")
+    monkeypatch.setenv("CLOUDFLARE_API_TOKEN", "PFSENSE_API_KEY")
+
+    status = cloudflare_api_configuration_status()
+
+    assert status["configured"] is False
+    assert status["configuration_stage"] == "invalid_credential_reference"
+    assert status["invalid_reference_variables"] == ["CLOUDFLARE_API_TOKEN"]
+    assert CloudflareTunnelSettings.from_environment() is None
+    assert "PFSENSE_API_KEY" not in repr(status)
 
 
 def test_observer_reads_remote_tunnel_public_hostnames() -> None:

@@ -13,10 +13,22 @@ from typing import Any, Literal
 
 import httpx
 
+from nabla.api.health_probe_utils import is_textual_response, looks_like_tls_error
 from nabla.api.homelab_catalog import fetch_homelab_services
 from nabla.api.homelab_models import HomelabService
-from nabla.api.truenas_client import observe_truenas_api
-from nabla.integrations.truenas_client import truenas_host_port, truenas_url
+from nabla.api.truenas_diagnostics import (
+    append_truenas_api_stages,
+    collect_truenas_network_diagnostics,
+)
+from nabla.api.truenas_health_observer import (
+    observe_truenas_health_api as _observe_truenas_api,
+    truenas_http_verify_ssl,
+)
+from nabla.integrations.truenas_client import (
+    TrueNASSettings,
+    truenas_host_port,
+    truenas_url,
+)
 from nabla.utils.environment import env_bool
 
 HealthState = Literal["ok", "warn", "fail"]
@@ -27,7 +39,6 @@ _MAX_PROBE_CONCURRENCY = 8
 _PROBE_TIMEOUT_SEC = 5.0
 _INTERNAL_PROBE_ENV = "HOMELAB_INTERNAL_PROBES_ENABLED"
 _MAX_APPLICATION_BODY_BYTES = 16_384
-_TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 _APPLICATION_ERROR_PREFIXES = (
     "error:",
     "fatal:",
@@ -61,43 +72,14 @@ def internal_probes_enabled() -> bool:
     return env_bool(_INTERNAL_PROBE_ENV)
 
 
-def truenas_http_verify_ssl() -> bool:
-    """Return the TrueNAS TLS policy from the single canonical environment setting."""
-    raw = os.getenv("TRUENAS_API_VERIFY_SSL", "true").strip()
-    return raw.lower() in _TRUE_VALUES
-
-
-def _looks_like_tls_error(message: str) -> bool:
-    lower = message.lower()
-    return any(
-        marker in lower
-        for marker in (
-            "certificate",
-            "cert verify",
-            "hostname mismatch",
-            "ssl",
-            "tls",
-            "unable to verify",
-        )
-    )
-
-
 def _short_error(exc: BaseException) -> str:
     message = str(exc).strip() or exc.__class__.__name__
     return message[:240]
 
 
-def _is_textual_response(response: httpx.Response) -> bool:
-    content_type = response.headers.get("content-type", "").lower()
-    return content_type.startswith("text/") or any(
-        marker in content_type
-        for marker in ("application/json", "application/problem+json", "application/xml")
-    )
-
-
 def _application_error_from_response(response: httpx.Response) -> str | None:
     """Detect explicit application failures hidden behind a successful HTTP status."""
-    if not (200 <= response.status_code <= 299) or not _is_textual_response(response):
+    if not (200 <= response.status_code <= 299) or not is_textual_response(response):
         return None
 
     content_type = response.headers.get("content-type", "").lower()
@@ -150,7 +132,7 @@ async def _probe_http_endpoint(
                 headers={"User-Agent": "nabla-homelab-health/1.0"},
             )
             should_get = response.status_code in {405, 501} or (
-                200 <= response.status_code <= 299 and _is_textual_response(response)
+                200 <= response.status_code <= 299 and is_textual_response(response)
             )
             if should_get:
                 response = await client.get(
@@ -183,7 +165,7 @@ async def _probe_http_endpoint(
             "reachable": False,
             "http_status": 0,
             "state": "fail",
-            "tls_trusted": False if _looks_like_tls_error(error) else None,
+            "tls_trusted": False if looks_like_tls_error(error) else None,
             "error": error,
         }
     result["latency_ms"] = max(0, round((time.perf_counter() - started) * 1000))
@@ -255,13 +237,6 @@ def _truenas_internal_target(
     return truenas_host_port()
 
 
-async def _observe_truenas_api() -> dict[str, Any] | None:
-    try:
-        return await asyncio.to_thread(observe_truenas_api)
-    except Exception as exc:  # Adapter/network/auth errors are health data.
-        return {"reachable": False, "error": _short_error(exc)}
-
-
 def _truenas_state(
     public_result: dict[str, Any],
     internal_result: dict[str, Any] | None,
@@ -270,11 +245,13 @@ def _truenas_state(
     public_state = public_result.get("state")
     internal_state = internal_result.get("state") if internal_result else None
     api_reachable = api_result.get("reachable") if api_result else None
+    if api_reachable is False:
+        return "fail"
     if public_state == "fail" and (internal_state == "ok" or api_reachable is True):
         return "warn"
     if public_state == "fail":
         return "fail"
-    if internal_state == "fail" or api_reachable is False:
+    if internal_state == "fail":
         return "warn"
     if public_state == "warn":
         return "warn"
@@ -316,14 +293,31 @@ async def _probe_truenas(
         )
 
     api_result = await _observe_truenas_api()
+    host, port = truenas_host_port()
+    verify_ssl = truenas_http_verify_ssl()
+    ws_path = os.getenv("TRUENAS_WS_PATH", "/api/current").strip() or "/api/current"
+    websocket_uri = TrueNASSettings(
+        url=truenas_url(),
+        verify_ssl=verify_ssl,
+        websocket_path=ws_path,
+    ).websocket_uri
+    diagnostics = await collect_truenas_network_diagnostics(
+        host=host,
+        port=port,
+        websocket_uri=websocket_uri,
+        verify_ssl=verify_ssl,
+        public_result=public_result,
+    )
+    diagnostics = append_truenas_api_stages(diagnostics, api_result)
     return {
         "id": "truenas",
         "state": _truenas_state(public_result, internal_result, api_result),
         "public": public_result,
         "internal": internal_result,
         "api": api_result,
+        "diagnostics": diagnostics,
         "internal_probe_enabled": internal_enabled,
-        "verify_ssl": truenas_http_verify_ssl(),
+        "verify_ssl": verify_ssl,
     }
 
 
