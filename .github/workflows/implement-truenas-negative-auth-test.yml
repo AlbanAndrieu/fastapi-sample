@@ -1,0 +1,419 @@
+name: Implement TrueNAS negative auth health state
+
+on:
+  push:
+    branches:
+      - feat/truenas-health-board
+
+permissions:
+  contents: write
+
+jobs:
+  implement:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feat/truenas-health-board
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Patch TrueNAS health contract and UI
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('nabla/api/homelab_health.py')
+          text = path.read_text()
+          text = text.replace(
+              'from nabla.api.homelab_models import HomelabService\nfrom nabla.api.truenas_client import observe_truenas_api\nfrom nabla.integrations.truenas_client import truenas_host_port, truenas_url\n',
+              'from nabla.api.homelab_models import HomelabService\nfrom nabla.api.truenas_client import observe_truenas_api\nfrom nabla.api.truenas_diagnostics import (\n    append_truenas_api_stages,\n    collect_truenas_network_diagnostics,\n)\nfrom nabla.integrations.truenas_client import (\n    TrueNASSettings,\n    truenas_host_port,\n    truenas_url,\n)\nfrom nabla.utils.logger import logger\n',
+          )
+          old = '''async def _observe_truenas_api() -> dict[str, Any] | None:\n    try:\n        return await asyncio.to_thread(observe_truenas_api)\n    except Exception as exc:  # Adapter/network/auth errors are health data.\n        return {"reachable": False, "error": _short_error(exc)}\n'''
+          new = '''def _truenas_api_configuration_failure() -> dict[str, Any] | None:\n    """Return a sanitized authentication configuration failure, if any."""\n    username = (\n        os.getenv("TRUENAS_API_USERNAME", "").strip()\n        or os.getenv("TRUENAS_USERNAME", "").strip()\n        or os.getenv("TRUENAS_USER", "").strip()\n    )\n    api_key = os.getenv("TRUENAS_API_KEY", "").strip()\n    if not username:\n        return {\n            "reachable": False,\n            "phase": "authentication",\n            "stage": "missing_username",\n            "error": "TrueNAS API username is missing; authentication cannot be attempted.",\n            "username_configured": False,\n            "api_key_configured": bool(api_key),\n        }\n    if not api_key:\n        return {\n            "reachable": False,\n            "phase": "authentication",\n            "stage": "missing_api_key",\n            "error": "TRUENAS_API_KEY is missing; authentication cannot be attempted.",\n            "username_configured": True,\n            "api_key_configured": False,\n        }\n    if re.fullmatch(r"[A-Z][A-Z0-9_]{2,}", api_key):\n        return {\n            "reachable": False,\n            "phase": "authentication",\n            "stage": "invalid_api_key_reference",\n            "error": (\n                "TRUENAS_API_KEY contains an environment-variable name instead of "\n                "raw TrueNAS API key material."\n            ),\n            "username_configured": True,\n            "api_key_configured": True,\n        }\n    if re.fullmatch(r"[0-9]+-.+", api_key) is None:\n        return {\n            "reachable": False,\n            "phase": "authentication",\n            "stage": "invalid_api_key_format",\n            "error": "TRUENAS_API_KEY does not match the expected <id>-<key> format.",\n            "username_configured": True,\n            "api_key_configured": True,\n        }\n    return None\n\n\nasync def _observe_truenas_api() -> dict[str, Any]:\n    configuration_failure = _truenas_api_configuration_failure()\n    if configuration_failure is not None:\n        logger.error(\n            "TrueNAS API authentication unavailable stage=%s error=%s",\n            configuration_failure["stage"],\n            configuration_failure["error"],\n        )\n        return configuration_failure\n\n    started = time.perf_counter()\n    try:\n        result = await asyncio.to_thread(observe_truenas_api)\n        if not isinstance(result, dict):\n            raise RuntimeError("TrueNAS API probe returned no health payload")\n        result = dict(result)\n        result.setdefault("phase", "call")\n        result.setdefault("stage", "ok")\n        result.setdefault("elapsed_ms", max(0, round((time.perf_counter() - started) * 1000)))\n        return result\n    except Exception as exc:  # Adapter/network/auth errors are health data and Sentry evidence.\n        elapsed_ms = max(0, round((time.perf_counter() - started) * 1000))\n        logger.exception("TrueNAS API health probe failed after configuration validation")\n        try:\n            import sentry_sdk\n\n            sentry_sdk.capture_exception(exc)\n        except Exception:  # pragma: no cover - observability must not break health reporting.\n            logger.exception("Unable to report TrueNAS API failure to Sentry")\n        return {\n            "reachable": False,\n            "phase": "api",\n            "stage": "exception",\n            "elapsed_ms": elapsed_ms,\n            "error": _short_error(exc),\n            "username_configured": True,\n            "api_key_configured": True,\n        }\n'''
+          if old not in text:
+              raise SystemExit('expected _observe_truenas_api block not found')
+          text = text.replace(old, new)
+          text = text.replace(
+              '''    if public_state == "fail" and (internal_state == "ok" or api_reachable is True):\n        return "warn"\n    if public_state == "fail":\n        return "fail"\n    if internal_state == "fail" or api_reachable is False:\n        return "warn"\n''',
+              '''    if api_reachable is False:\n        return "fail"\n    if public_state == "fail" and (internal_state == "ok" or api_reachable is True):\n        return "warn"\n    if public_state == "fail":\n        return "fail"\n    if internal_state == "fail":\n        return "warn"\n''',
+          )
+          old_probe = '''    api_result = await _observe_truenas_api()\n    return {\n        "id": "truenas",\n        "state": _truenas_state(public_result, internal_result, api_result),\n        "public": public_result,\n        "internal": internal_result,\n        "api": api_result,\n        "internal_probe_enabled": internal_enabled,\n        "verify_ssl": truenas_http_verify_ssl(),\n    }\n'''
+          new_probe = '''    api_result = await _observe_truenas_api()\n    host, port = truenas_host_port()\n    verify_ssl = truenas_http_verify_ssl()\n    ws_path = os.getenv("TRUENAS_WS_PATH", "/api/current").strip() or "/api/current"\n    websocket_uri = TrueNASSettings(\n        url=truenas_url(),\n        verify_ssl=verify_ssl,\n        websocket_path=ws_path,\n    ).websocket_uri\n    diagnostics = await collect_truenas_network_diagnostics(\n        host=host,\n        port=port,\n        websocket_uri=websocket_uri,\n        verify_ssl=verify_ssl,\n        public_result=public_result,\n    )\n    diagnostics = append_truenas_api_stages(diagnostics, api_result)\n    return {\n        "id": "truenas",\n        "state": _truenas_state(public_result, internal_result, api_result),\n        "public": public_result,\n        "internal": internal_result,\n        "api": api_result,\n        "diagnostics": diagnostics,\n        "internal_probe_enabled": internal_enabled,\n        "verify_ssl": verify_ssl,\n    }\n'''
+          if old_probe not in text:
+              raise SystemExit('expected _probe_truenas tail not found')
+          text = text.replace(old_probe, new_probe)
+          path.write_text(text)
+
+          path = Path('nabla/api/ui.py')
+          text = path.read_text()
+          needle = '''                <ul class="health-checks" id="health-checks"></ul>\n                <p class="health-error" id="health-fetch-error" hidden></p>\n\n                <h3 class="health-subboard-title" id="sickz-board-title">Exposure security policy</h3>\n'''
+          replacement = '''                <ul class="health-checks" id="health-checks"></ul>\n                <p class="health-error" id="health-fetch-error" hidden></p>\n\n                <section class="truenas-platform" id="truenas-platform" aria-labelledby="truenas-platform-title">\n                    <div class="truenas-platform-heading">\n                        <div>\n                            <h3 class="health-subboard-title truenas-platform-title" id="truenas-platform-title">TrueNAS platform</h3>\n                            <p class="health-board-meta">Required infrastructure dependency · HTTPS and WebSocket API diagnostics.</p>\n                        </div>\n                        <span class="truenas-platform-state truenas-platform-state--neutral" id="truenas-platform-state">Loading…</span>\n                    </div>\n                    <div class="truenas-platform-target" id="truenas-platform-target">https://truenas.albandrieu.com:7000</div>\n                    <div class="truenas-pipeline" id="truenas-pipeline" aria-live="polite"></div>\n                    <p class="health-error" id="truenas-platform-error" hidden></p>\n                </section>\n\n                <h3 class="health-subboard-title" id="sickz-board-title">Exposure security policy</h3>\n'''
+          if needle not in text:
+              raise SystemExit('expected UI health insertion point not found')
+          path.write_text(text.replace(needle, replacement))
+
+          path = Path('nabla/api/assets/api-health-core.js')
+          text = path.read_text()
+          text = text.replace(
+              '  const keys = sortKeys(Object.keys(checks));',
+              '  const keys = sortKeys(Object.keys(checks)).filter((key) => key !== "truenas_api" && key !== "albandrieu_truenas");',
+          )
+          path.write_text(text)
+
+          path = Path('nabla/api/assets/api-health.js')
+          text = path.read_text()
+          if 'api-truenas.js' not in text:
+              text = text.replace(
+                  'import { loadSickz } from "./api-sickz.js";\n',
+                  'import { loadSickz } from "./api-sickz.js";\nimport { loadTrueNas } from "./api-truenas.js";\n',
+              )
+              text = text.replace(
+                  '  loadHealth();\n  loadSickz();\n',
+                  '  loadHealth();\n  loadTrueNas();\n  loadSickz();\n',
+              )
+          path.write_text(text)
+
+          path = Path('nabla/api/assets/api.css')
+          text = path.read_text()
+          if 'api-truenas.css' not in text:
+              text += '\n@import url("./api-truenas.css");\n'
+          path.write_text(text)
+
+          roadmap = Path('docs/engineering-roadmap.md')
+          text = roadmap.read_text()
+          marker = '## Observability log qualification debt'
+          if marker not in text:
+              text += '''\n\n## Observability log qualification debt\n\n- Revisit the DEBUG / INFO / WARNING / ERROR taxonomy across health and integration probes.\n- Treat failures of required infrastructure dependencies such as the TrueNAS API as ERROR, while keeping intentionally disabled optional integrations at WARNING/INFO.\n- Preserve sanitized failure phase/stage metadata for Sentry without logging credentials or secret values.\n- Add Sentry fingerprinting/rate limiting for periodic health failures so a 30-second probe cache cannot create duplicate incident noise.\n'''
+          roadmap.write_text(text)
+          PY
+
+          cat > nabla/api/assets/api-truenas.js <<'JS'
+          import { escapeText } from "./api-health-ui.js";
+
+          function stageClass(stage) {
+            if (stage?.state === "ok") return "ok";
+            if (stage?.state === "fail") return "fail";
+            return "blocked";
+          }
+
+          function stageIcon(stage) {
+            if (stage?.state === "ok") return "●";
+            if (stage?.state === "fail") return "💀";
+            return "⊘";
+          }
+
+          function stageTime(stage) {
+            return stage?.elapsed_ms != null ? `${stage.elapsed_ms} ms` : "—";
+          }
+
+          function renderStage(stage) {
+            const cls = stageClass(stage);
+            return `<div class="truenas-stage truenas-stage--${cls}" title="${escapeText(stage?.detail || "")}">` +
+              `<span class="truenas-stage-icon" aria-hidden="true">${stageIcon(stage)}</span>` +
+              `<span class="truenas-stage-label">${escapeText(stage?.label || stage?.id || "stage")}</span>` +
+              `<span class="truenas-stage-time">${escapeText(stageTime(stage))}</span>` +
+              `<span class="truenas-stage-detail">${escapeText(stage?.detail || "")}</span>` +
+              `</div>`;
+          }
+
+          function renderConnector(left, right) {
+            const broken = left?.state !== "ok" || right?.state !== "ok";
+            return `<div class="truenas-connector${broken ? " truenas-connector--broken" : ""}" aria-hidden="true"></div>`;
+          }
+
+          function render(data) {
+            const truenas = data?.truenas;
+            const stages = truenas?.diagnostics?.stages;
+            const pipeline = document.getElementById("truenas-pipeline");
+            const state = document.getElementById("truenas-platform-state");
+            const target = document.getElementById("truenas-platform-target");
+            const error = document.getElementById("truenas-platform-error");
+            if (!pipeline || !state || !target || !error) return;
+
+            error.hidden = true;
+            error.textContent = "";
+            target.textContent = truenas?.diagnostics?.target || truenas?.public?.url || "TrueNAS";
+
+            if (!Array.isArray(stages) || stages.length === 0) {
+              pipeline.innerHTML = "";
+              state.className = "truenas-platform-state truenas-platform-state--fail";
+              state.textContent = "diagnostics unavailable";
+              error.hidden = false;
+              error.textContent = "TrueNAS diagnostics are missing from /api/homelab/health.";
+              return;
+            }
+
+            let html = "";
+            stages.forEach((stage, index) => {
+              if (index > 0) html += renderConnector(stages[index - 1], stage);
+              html += renderStage(stage);
+            });
+            pipeline.innerHTML = html;
+
+            const overall = truenas?.state || "fail";
+            state.className = `truenas-platform-state truenas-platform-state--${overall}`;
+            const api = truenas?.api || {};
+            if (api.stage === "missing_api_key") {
+              state.textContent = "authentication blocked · API key missing";
+            } else if (api.stage === "invalid_api_key_reference") {
+              state.textContent = "authentication failed · invalid secret reference";
+            } else if (overall === "ok") {
+              const version = api.version ? ` · ${api.version}` : "";
+              state.textContent = `healthy${version}`;
+            } else {
+              state.textContent = overall;
+            }
+          }
+
+          export function loadTrueNas() {
+            fetch("/api/homelab/health", {
+              cache: "no-store",
+              headers: { Accept: "application/json", "Cache-Control": "no-cache" },
+            })
+              .then((response) => {
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                return response.json();
+              })
+              .then(render)
+              .catch((err) => {
+                const state = document.getElementById("truenas-platform-state");
+                const error = document.getElementById("truenas-platform-error");
+                const pipeline = document.getElementById("truenas-pipeline");
+                if (state) {
+                  state.className = "truenas-platform-state truenas-platform-state--fail";
+                  state.textContent = "health fetch failed";
+                }
+                if (pipeline) pipeline.innerHTML = "";
+                if (error) {
+                  error.hidden = false;
+                  error.textContent = String(err?.message || err);
+                }
+              });
+          }
+          JS
+
+          cat > nabla/api/assets/api-truenas.css <<'CSS'
+          .truenas-platform {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            border: 1px solid #333333;
+            border-radius: 10px;
+            background: #0b0b0b;
+          }
+
+          .truenas-platform-heading {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+          }
+
+          .truenas-platform-title {
+            margin-top: 0;
+          }
+
+          .truenas-platform-state {
+            flex-shrink: 0;
+            padding: 0.3rem 0.55rem;
+            border: 1px solid #444;
+            border-radius: 999px;
+            font-size: 0.7rem;
+          }
+
+          .truenas-platform-state--ok { color: #7dffc4; border-color: rgba(0, 255, 136, 0.35); }
+          .truenas-platform-state--warn { color: #ffd966; border-color: rgba(255, 200, 50, 0.4); }
+          .truenas-platform-state--fail { color: #ff9999; border-color: rgba(255, 80, 80, 0.45); }
+          .truenas-platform-state--neutral { color: #aaa; }
+
+          .truenas-platform-target {
+            margin: 0.25rem 0 0.9rem;
+            color: #9ca3af;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.72rem;
+          }
+
+          .truenas-pipeline {
+            display: flex;
+            align-items: stretch;
+            overflow-x: auto;
+            padding-bottom: 0.35rem;
+          }
+
+          .truenas-stage {
+            width: 112px;
+            min-width: 112px;
+            padding: 0.65rem;
+            border: 1px solid #333;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+          }
+
+          .truenas-stage--ok { border-color: rgba(0, 255, 136, 0.35); color: #7dffc4; }
+          .truenas-stage--fail { border-color: rgba(255, 80, 80, 0.55); color: #ff9999; }
+          .truenas-stage--blocked { border-color: #3a3a3a; color: #777; }
+          .truenas-stage-icon { font-size: 1rem; min-height: 1.25rem; }
+          .truenas-stage-label { font-size: 0.72rem; font-weight: 600; }
+          .truenas-stage-time { font-size: 0.65rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+          .truenas-stage-detail { font-size: 0.62rem; color: #888; overflow-wrap: anywhere; }
+
+          .truenas-connector {
+            align-self: center;
+            width: 26px;
+            min-width: 26px;
+            height: 2px;
+            background: #00ff88;
+          }
+
+          .truenas-connector--broken {
+            height: 0;
+            background: transparent;
+            border-top: 2px dashed #ff6666;
+          }
+
+          @media (max-width: 700px) {
+            .truenas-platform-heading { flex-direction: column; }
+            .truenas-platform-state { align-self: flex-start; }
+          }
+          CSS
+
+          cat > tests/unit/test_truenas_health_configuration.py <<'PY'
+          """TrueNAS health configuration must fail closed without leaking secret values."""
+
+          import pytest
+
+          from nabla.api import homelab_health
+
+
+          def _set_username(monkeypatch: pytest.MonkeyPatch) -> None:
+              monkeypatch.setenv("TRUENAS_USER", "albandrieu")
+              monkeypatch.delenv("TRUENAS_API_USERNAME", raising=False)
+              monkeypatch.delenv("TRUENAS_USERNAME", raising=False)
+
+
+          @pytest.mark.asyncio
+          async def test_missing_canonical_api_key_is_explicit_authentication_failure(monkeypatch) -> None:
+              _set_username(monkeypatch)
+              monkeypatch.delenv("TRUENAS_API_KEY", raising=False)
+              monkeypatch.setenv("TRUENAS_MCP_API_KEY", "7-legacy-mcp-key")
+
+              result = await homelab_health._observe_truenas_api()
+
+              assert result["reachable"] is False
+              assert result["phase"] == "authentication"
+              assert result["stage"] == "missing_api_key"
+              assert result["api_key_configured"] is False
+              assert "TRUENAS_API_KEY" in result["error"]
+              assert "legacy-mcp-key" not in result["error"]
+
+
+          @pytest.mark.asyncio
+          async def test_variable_name_in_api_key_is_rejected_without_echoing_value(monkeypatch) -> None:
+              _set_username(monkeypatch)
+              monkeypatch.setenv("TRUENAS_API_KEY", "PFSENSE_API_KEY")
+
+              result = await homelab_health._observe_truenas_api()
+
+              assert result["reachable"] is False
+              assert result["phase"] == "authentication"
+              assert result["stage"] == "invalid_api_key_reference"
+              assert result["api_key_configured"] is True
+              assert "environment-variable name" in result["error"]
+              assert "PFSENSE_API_KEY" not in result["error"]
+
+
+          @pytest.mark.asyncio
+          async def test_malformed_raw_api_key_is_rejected_before_official_client(monkeypatch) -> None:
+              _set_username(monkeypatch)
+              monkeypatch.setenv("TRUENAS_API_KEY", "not-a-truenas-key")
+
+              result = await homelab_health._observe_truenas_api()
+
+              assert result["stage"] == "invalid_api_key_format"
+              assert result["reachable"] is False
+          PY
+
+          cat > tests/unit/test_truenas_diagnostics.py <<'PY'
+          """Tests for the ordered TrueNAS diagnostic pipeline."""
+
+          from nabla.api.truenas_diagnostics import append_truenas_api_stages
+
+
+          def _network_ok():
+              return {
+                  "target": "truenas.example:7000",
+                  "stages": [
+                      {"id": "dns", "label": "DNS", "state": "ok"},
+                      {"id": "socket", "label": "TCP socket", "state": "ok"},
+                      {"id": "tls", "label": "TLS handshake", "state": "ok"},
+                      {"id": "https", "label": "HTTPS", "state": "ok"},
+                      {"id": "websocket", "label": "WebSocket tunnel", "state": "ok"},
+                  ],
+              }
+
+
+          def test_missing_api_key_marks_auth_failed_and_api_blocked() -> None:
+              result = append_truenas_api_stages(
+                  _network_ok(),
+                  {
+                      "reachable": False,
+                      "phase": "authentication",
+                      "stage": "missing_api_key",
+                      "error": "TRUENAS_API_KEY is missing; authentication cannot be attempted.",
+                  },
+              )
+
+              auth, api = result["stages"][-2:]
+              assert auth["id"] == "authentication"
+              assert auth["state"] == "fail"
+              assert auth["failure_stage"] == "missing_api_key"
+              assert api == {
+                  "id": "api",
+                  "label": "TrueNAS API",
+                  "state": "blocked",
+                  "detail": "Blocked by authentication",
+              }
+
+
+          def test_websocket_failure_blocks_authentication() -> None:
+              network = _network_ok()
+              network["stages"][-1]["state"] = "fail"
+              result = append_truenas_api_stages(network, {"reachable": False})
+
+              assert result["stages"][-2]["state"] == "blocked"
+              assert result["stages"][-1]["state"] == "blocked"
+          PY
+
+      - name: Install test dependencies
+        run: uv sync --frozen
+
+      - name: Run focused tests
+        run: >-
+          uv run pytest -q
+          tests/unit/test_truenas_health_configuration.py
+          tests/unit/test_truenas_diagnostics.py
+          tests/unit/test_truenas_client.py
+          tests/unit/test_homelab_health.py
+
+      - name: Commit implementation
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo 'No generated changes to commit.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add nabla/api/homelab_health.py nabla/api/ui.py nabla/api/assets/api-health-core.js nabla/api/assets/api-health.js nabla/api/assets/api.css nabla/api/assets/api-truenas.js nabla/api/assets/api-truenas.css docs/engineering-roadmap.md tests/unit/test_truenas_health_configuration.py tests/unit/test_truenas_diagnostics.py
+          git commit -m 'feat(health): show TrueNAS missing API key stage'
+          git push origin HEAD:feat/truenas-health-board
