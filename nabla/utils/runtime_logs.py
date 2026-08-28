@@ -58,10 +58,10 @@ def _mask_bearer(value: Any) -> Any:
 
 
 def _redact(value: Any) -> Any:
-    """Apply the application redactor plus stricter bearer-token masking."""
+    """Mask bearer credentials before applying the generic application redactor."""
     from nabla.utils.logger import _redact_value  # noqa: PLC2701
 
-    return _mask_bearer(_redact_value(value))
+    return _redact_value(_mask_bearer(value))
 
 
 def _truncate(value: Any, *, limit: int) -> str:
