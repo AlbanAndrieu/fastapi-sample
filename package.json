@@ -2,7 +2,7 @@
   "name": "@AlbanAndrieu/fastapi-sample",
   "description": "FastAPI sample",
   "private": false,
-  "version": "1.4.0",
+  "version": "1.4.1",
   "author": "Alban Andrieu <alban.andrieu@free.fr> (http://albanandrieu.com)",
   "main": "scripts.js",
   "type": "module",
@@ -22,15 +22,30 @@
     "node-gyp": ">=3.0.3"
   },
   "engine-strict": true,
-  "browserslist": ["last 1 version", "> 1%", "maintained node versions", "not dead"],
+  "browserslist": [
+    "last 1 version",
+    "> 1%",
+    "maintained node versions",
+    "not dead"
+  ],
   "eslintConfig": {
-    "parserOptions": {"ecmaVersion": 6},
-    "plugins": ["compat"],
-    "rules": {"compat/compat": "warn"}
+    "parserOptions": {
+      "ecmaVersion": 6
+    },
+    "plugins": [
+      "compat"
+    ],
+    "rules": {
+      "compat/compat": "warn"
+    }
   },
   "stylelint": {
-    "plugins": ["stylelint-no-unsupported-browser-features"],
-    "rules": {"plugin/no-unsupported-browser-features": true},
+    "plugins": [
+      "stylelint-no-unsupported-browser-features"
+    ],
+    "rules": {
+      "plugin/no-unsupported-browser-features": true
+    },
     "defaultSeverity": "warning"
   },
   "dependencies": {
@@ -93,13 +108,29 @@
     "oco": "node scripts/run-opencommit.mjs",
     "opencommit": "node scripts/run-opencommit.mjs"
   },
-  "files": ["scripts/run-opencommit.mjs", "scripts.js"],
-  "remarkConfig": {"plugins": ["remark-preset-lint-recommended"]},
-  "config": {"commitizen": {"path": "@commitlint/cz-commitlint", "useGitmojis": true}},
+  "files": [
+    "scripts/run-opencommit.mjs",
+    "scripts.js"
+  ],
+  "remarkConfig": {
+    "plugins": [
+      "remark-preset-lint-recommended"
+    ]
+  },
+  "config": {
+    "commitizen": {
+      "path": "@commitlint/cz-commitlint",
+      "useGitmojis": true
+    }
+  },
   "overrides": {
     "@tootallnate/once": "^3.0.1",
-    "@eslint/eslintrc": {"ajv": "^6.12.6"},
-    "eslint": {"ajv": "^6.12.6"},
+    "@eslint/eslintrc": {
+      "ajv": "^6.12.6"
+    },
+    "eslint": {
+      "ajv": "^6.12.6"
+    },
     "ajv": "^8.18.0",
     "brace-expansion": "^5.0.5",
     "devalue": "^5.6.4",
@@ -112,11 +143,15 @@
     "svgo": "^4.0.1",
     "yaml": "^2.8.3",
     "path-to-regexp": "^8.4.0",
-    "express": {"path-to-regexp": "0.1.13"},
+    "express": {
+      "path-to-regexp": "0.1.13"
+    },
     "esbuild": "^0.28.1",
     "ip-address": "^10.4.0",
     "js-yaml": "^4.3.1",
-    "mcp-remote": {"path-to-regexp": "^6.3.0"},
+    "mcp-remote": {
+      "path-to-regexp": "^6.3.0"
+    },
     "tar": "^7.5.22",
     "undici": "^7.29.0",
     "ws": "^8.21.2"
