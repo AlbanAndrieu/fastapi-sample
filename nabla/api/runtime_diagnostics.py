@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from ipaddress import ip_address
 import os
 from pathlib import Path
 import platform
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from nabla.config_settings import APP_RUNTIME_VERSION
 from nabla.utils.runtime_logs import (
@@ -15,7 +16,24 @@ from nabla.utils.runtime_logs import (
     runtime_log_metadata,
 )
 
-router = APIRouter(prefix="/v1/runtime")
+
+def _require_loopback(request: Request) -> None:
+    """Reject direct LAN/WAN access to development runtime diagnostics."""
+    client = request.client
+    if client is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="loopback only")
+    try:
+        is_loopback = ip_address(client.host).is_loopback
+    except ValueError:
+        is_loopback = client.host == "testclient"
+    if not is_loopback:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="loopback only")
+
+
+router = APIRouter(
+    prefix="/v1/runtime",
+    dependencies=[Depends(_require_loopback)],
+)
 
 
 @router.get("/metadata", operation_id="get_runtime_metadata")
