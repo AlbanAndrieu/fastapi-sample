@@ -33,6 +33,7 @@ Security properties:
 
 - the tools are not registered in a normal production process without `--reload`;
 - `RUNTIME_DIAGNOSTICS_ENABLED=false` always disables them;
+- direct `/v1/runtime/*` HTTP access is restricted to loopback clients even though the development server itself binds on `0.0.0.0`;
 - the buffer is bounded and process-local (local development defaults to one worker);
 - the existing application redactor plus bearer-token masking runs before events are returned;
 - message and exception sizes are bounded;
