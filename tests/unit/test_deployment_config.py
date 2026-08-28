@@ -36,3 +36,19 @@ def test_production_branch_is_master() -> None:
     assert "\n  - master\n" in release
     assert "branches: [main]" not in deploy
     assert "\n  - main\n" not in release
+
+
+def test_production_validation_provides_required_auth_settings() -> None:
+    deploy = (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8")
+    python_ci = (ROOT / ".github/workflows/python.yml").read_text(encoding="utf-8")
+
+    required_test_settings = (
+        "KEYCLOAK_CLIENT_ID: test",
+        "KEYCLOAK_CLIENT_SECRET: test-secret",
+        "KEYCLOAK_REALM: test",
+        "KEYCLOAK_SERVER_URL: http://localhost:8080",
+        "OAUTH_TOKEN_SECRET: mocked-oauth-token-secret",
+    )
+    for setting in required_test_settings:
+        assert setting in deploy
+        assert setting in python_ci
