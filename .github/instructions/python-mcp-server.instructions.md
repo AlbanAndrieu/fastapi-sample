@@ -2,7 +2,7 @@
 description: >-
   Instructions for building Model Context Protocol (MCP) servers using the
   Python SDK
-applyTo: '**/*.py, **/pyproject.toml, **/requirements.txt'
+applyTo: 'server_mcp.py,nabla/**/*mcp*.py,nabla/**/mcp/**,tests/**/*mcp*.py'
 ---
 # Python MCP Server Development
 
