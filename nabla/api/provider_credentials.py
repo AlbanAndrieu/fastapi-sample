@@ -60,3 +60,33 @@ def inspect_environment_credentials(
         missing_variables=tuple(missing),
         invalid_reference_variables=tuple(invalid_references),
     )
+
+
+def infrastructure_provider_credentials() -> dict[str, dict[str, object]]:
+    """Return sanitized credential presence for external homelab control planes."""
+    truenas = inspect_environment_credentials(
+        "truenas",
+        "TRUENAS_API_KEY",
+        secret_variables=frozenset({"TRUENAS_API_KEY"}),
+    ).as_dict()
+    truenas["username_configured"] = bool(
+        os.getenv("TRUENAS_API_USERNAME", "").strip()
+        or os.getenv("TRUENAS_USERNAME", "").strip()
+        or os.getenv("TRUENAS_USER", "").strip()
+    )
+
+    return {
+        "truenas": truenas,
+        "pfsense": inspect_environment_credentials(
+            "pfsense",
+            "PFSENSE_API_URL",
+            "PFSENSE_API_KEY",
+            secret_variables=frozenset({"PFSENSE_API_KEY"}),
+        ).as_dict(),
+        "cloudflare": inspect_environment_credentials(
+            "cloudflare",
+            "CLOUDFLARE_ACCOUNT_ID",
+            "CLOUDFLARE_API_TOKEN",
+            secret_variables=frozenset({"CLOUDFLARE_API_TOKEN"}),
+        ).as_dict(),
+    }
