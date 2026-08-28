@@ -1,5 +1,5 @@
 ---
-applyTo: '*'
+applyTo: 'k8s/**,manifests/**,deploy/**,charts/**/templates/**'
 description: >-
   Comprehensive best practices for deploying and managing applications on
   Kubernetes. Covers Pods, Deployments, Services, Ingress, ConfigMaps, Secrets,
