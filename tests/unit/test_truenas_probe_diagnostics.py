@@ -62,7 +62,13 @@ def test_truenas_probe_classifies_connection_refused() -> None:
     assert _truenas_failure_stage(exc) == "connect_refused"
 
 
-def test_truenas_probe_logs_stage_without_credentials(caplog) -> None:
+def test_truenas_probe_classifies_connection_reset() -> None:
+    exc = ConnectionResetError(104, "Connection reset by peer")
+
+    assert _truenas_failure_stage(exc) == "connection_reset"
+
+
+def test_truenas_probe_logs_connect_phase_without_credentials(caplog) -> None:
     class FailingClient:
         def __enter__(self):
             raise TimeoutError("connection timed out")
@@ -86,7 +92,72 @@ def test_truenas_probe_logs_stage_without_credentials(caplog) -> None:
         with pytest.raises(TimeoutError):
             adapter.list_apps()
 
+    assert "phase=connect" in caplog.text
     assert "stage=connect_timeout" in caplog.text
     assert "wss://truenas.example:7000/api/current" in caplog.text
     assert "super-secret-api-key" not in caplog.text
     assert "readonly-user" not in caplog.text
+
+
+def test_truenas_probe_logs_authentication_phase(caplog) -> None:
+    class AuthenticationFailureClient:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback) -> None:
+            return None
+
+        def login_with_api_key(self, username, api_key):
+            raise RuntimeError("Failed to authenticate with API key")
+
+        def call(self, method, *params):
+            pytest.fail("API call must not run after authentication failure")
+
+    adapter = TrueNASReadOnlyAdapter(
+        TrueNASSettings(
+            url="https://truenas.example:7000",
+            username="readonly-user",
+            api_key="super-secret-api-key",
+        ),
+        client_factory=lambda **kwargs: AuthenticationFailureClient(),
+    )
+
+    with caplog.at_level(logging.WARNING):
+        with pytest.raises(RuntimeError, match="authenticate"):
+            adapter.list_apps()
+
+    assert "phase=authentication" in caplog.text
+    assert "stage=authentication" in caplog.text
+    assert "super-secret-api-key" not in caplog.text
+
+
+def test_truenas_probe_logs_call_phase(caplog) -> None:
+    class CallFailureClient:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback) -> None:
+            return None
+
+        def login_with_api_key(self, username, api_key):
+            return True
+
+        def call(self, method, *params):
+            raise ConnectionResetError(104, "Connection reset by peer")
+
+    adapter = TrueNASReadOnlyAdapter(
+        TrueNASSettings(
+            url="https://truenas.example:7000",
+            username="readonly-user",
+            api_key="super-secret-api-key",
+        ),
+        client_factory=lambda **kwargs: CallFailureClient(),
+    )
+
+    with caplog.at_level(logging.WARNING):
+        with pytest.raises(ConnectionResetError):
+            adapter.list_apps()
+
+    assert "method=app.query" in caplog.text
+    assert "phase=call" in caplog.text
+    assert "stage=connection_reset" in caplog.text
