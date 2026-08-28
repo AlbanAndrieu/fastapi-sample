@@ -454,7 +454,7 @@ pythonPlatform = "Linux"
 lint.select = ["E", "F"]
 lint.ignore = ["E501", "E203", "RUF012"]
 
-# Allow autofix for all enabled rules (when `--fix`) is provided.
+# Allow autofix for all enabled rules when --fix is provided.
 lint.fixable = ["ALL"]
 lint.unfixable = []
 lint.per-file-ignores = {}
