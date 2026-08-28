@@ -298,7 +298,7 @@ async def reconcile_homelab_health_payload(payload: dict[str, Any]) -> dict[str,
 
     return {
         **payload,
-        "schema_version": 6,
+        "schema_version": 5,
         "services": dependency_aware,
         "truenas_runtime_reachable": runtime.reachable,
         "truenas_runtime_stale": runtime.stale,

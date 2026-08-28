@@ -204,19 +204,23 @@ async def observe_pfsense_dns_posture(
         }
 
     failed_stage = next(
-        (name for name in ("services", "resolver", "system_dns") if isinstance(observed[name], BaseException)),
+        (
+            name
+            for name in ("services", "resolver", "system_dns")
+            if isinstance(observed[name], BaseException)
+        ),
         None,
     )
     if failed_stage is not None:
         error = observed[failed_stage]
-        assert isinstance(error, BaseException)
+        error_text = _safe_error(error) if isinstance(error, BaseException) else "unknown"
         return {
             "configured": True,
             "reachable": True,
             "policy_state": "unknown",
             "reason": "pfSense DNS policy evidence is incomplete",
             "error_stage": failed_stage,
-            "error": _safe_error(error),
+            "error": error_text,
         }
 
     resolver = observed["resolver"]
