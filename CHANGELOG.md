@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.4.1 — homelab diagnostics and release recovery (2026-08-29)
+
+### Health, security and observability
+
+- Add ordered TrueNAS DNS, TCP, TLS, HTTPS, WebSocket, authentication and API diagnostics with explicit required-dependency failures.
+- Reconcile service availability and exposure policy using the authoritative `nabla-compose` catalog with validated last-known-good/bootstrap fallback behavior.
+- Expose only sanitized provider credential-presence state and improve pfSense/Cloudflare/TrueNAS diagnostics without leaking secret material.
+- Group the API health board by topology/blast radius and preserve service metadata, icons and policy-aware Sickz behavior.
+- Encapsulate homelab catalog cache state and serialize expired-cache refreshes so concurrent health/UI requests share one authoritative-source request.
+
+### CI, release and deployment
+
+- Reuse an outside-in production smoke workflow after immutable-tag FastAPI Cloud deployments.
+- Keep Python 3.13, version-consistency, Docker/Trivy, MegaLinter and code-scanning gates in the release path.
+- Replace the incompatible local `1.4.0` retagging workaround with a deterministic, retryable `1.4.1` recovery that never rewrites the historical remote tag.
+- Synchronize explicit recovery versions across npm, Python, uv and Docker metadata with exact-match assertions before publishing.
+- Return to normal Conventional Commit semantic-release progression after `1.4.1` establishes the new immutable release baseline.
+
 ## 1.4.0 — consolidated release (2026-08-27)
 
 This release intentionally consolidates the work that was temporarily published under versions greater than `1.4.0`. Those GitHub releases were removed and the project is being realigned on `1.4.0` as the release baseline.

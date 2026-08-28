@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Sequence
+from dataclasses import dataclass
 from functools import lru_cache
 import json
 import logging
@@ -39,9 +40,37 @@ HOMELAB_EXPOSURE_OVERRIDES_URL = os.getenv(
 _REMOTE_CACHE_TTL_SECONDS = 300.0
 _REMOTE_FAILURE_RETRY_SECONDS = 60.0
 _REMOTE_TIMEOUT_SECONDS = 5.0
-_catalog_cache: HomelabCatalog | None = None
-_catalog_cache_expires_at = 0.0
-_catalog_cache_source = "none"
+
+
+@dataclass(slots=True)
+class _CatalogCacheState:
+    """Keep catalog cache value, expiry and provenance consistent as one unit."""
+
+    catalog: HomelabCatalog | None = None
+    expires_at: float = 0.0
+    source: str = "none"
+
+    def fresh_catalog(self, now: float) -> HomelabCatalog | None:
+        """Return the cached catalog only while its monotonic TTL is valid."""
+        if self.catalog is not None and now < self.expires_at:
+            return self.catalog
+        return None
+
+    def store(self, catalog: HomelabCatalog, *, expires_at: float, source: str) -> None:
+        """Atomically update the three cache-state fields from one code path."""
+        self.catalog = catalog
+        self.expires_at = expires_at
+        self.source = source
+
+    def reset(self) -> None:
+        """Reset the runtime cache to its cold-start state."""
+        self.catalog = None
+        self.expires_at = 0.0
+        self.source = "none"
+
+
+_catalog_cache_state = _CatalogCacheState()
+_catalog_refresh_lock = asyncio.Lock()
 
 _OVERRIDE_FIELDS = (
     "external",
@@ -152,47 +181,62 @@ async def _fetch_remote_catalog() -> HomelabCatalog:
 
 def clear_homelab_catalog_cache() -> None:
     """Clear runtime and bootstrap caches; intended for tests and explicit refreshes."""
-    global _catalog_cache, _catalog_cache_expires_at, _catalog_cache_source
-    _catalog_cache = None
-    _catalog_cache_expires_at = 0.0
-    _catalog_cache_source = "none"
+    _catalog_cache_state.reset()
     _load_bootstrap_catalog.cache_clear()
+
+
+def homelab_catalog_cache_source() -> str:
+    """Return sanitized provenance for the current in-process catalog cache."""
+    return _catalog_cache_state.source
 
 
 async def fetch_homelab_catalog() -> HomelabCatalog:
     """Return the remote authoritative catalog with last-known-good fallback semantics."""
-    global _catalog_cache, _catalog_cache_expires_at, _catalog_cache_source
-
     now = time.monotonic()
-    if _catalog_cache is not None and now < _catalog_cache_expires_at:
-        return _catalog_cache
+    cached = _catalog_cache_state.fresh_catalog(now)
+    if cached is not None:
+        return cached
 
-    try:
-        remote_catalog = await _fetch_remote_catalog()
-    except (httpx.HTTPError, json.JSONDecodeError, ValidationError, TypeError, ValueError) as exc:
-        if _catalog_cache is not None:
-            _catalog_cache_expires_at = now + _REMOTE_FAILURE_RETRY_SECONDS
+    # Health and UI requests can arrive together when the cache expires. Serialize
+    # the refresh and re-check after acquiring the lock so only one request reaches
+    # the authoritative GitHub source per process/TTL window.
+    async with _catalog_refresh_lock:
+        now = time.monotonic()
+        cached = _catalog_cache_state.fresh_catalog(now)
+        if cached is not None:
+            return cached
+
+        try:
+            remote_catalog = await _fetch_remote_catalog()
+        except (httpx.HTTPError, json.JSONDecodeError, ValidationError, TypeError, ValueError) as exc:
+            last_known_good = _catalog_cache_state.catalog
+            if last_known_good is not None:
+                _catalog_cache_state.expires_at = now + _REMOTE_FAILURE_RETRY_SECONDS
+                _log.warning(
+                    "Authoritative homelab catalog refresh failed; using last-known-good %s catalog: %s",
+                    _catalog_cache_state.source,
+                    exc,
+                )
+                return last_known_good
+
+            bootstrap = _load_bootstrap_catalog()
+            _catalog_cache_state.store(
+                bootstrap,
+                expires_at=now + _REMOTE_FAILURE_RETRY_SECONDS,
+                source="packaged-bootstrap",
+            )
             _log.warning(
-                "Authoritative homelab catalog refresh failed; using last-known-good %s catalog: %s",
-                _catalog_cache_source,
+                "Authoritative homelab catalog unavailable at cold start; using packaged bootstrap snapshot: %s",
                 exc,
             )
-            return _catalog_cache
+            return bootstrap
 
-        bootstrap = _load_bootstrap_catalog()
-        _catalog_cache = bootstrap
-        _catalog_cache_expires_at = now + _REMOTE_FAILURE_RETRY_SECONDS
-        _catalog_cache_source = "packaged-bootstrap"
-        _log.warning(
-            "Authoritative homelab catalog unavailable at cold start; using packaged bootstrap snapshot: %s",
-            exc,
+        _catalog_cache_state.store(
+            remote_catalog,
+            expires_at=now + _REMOTE_CACHE_TTL_SECONDS,
+            source="nabla-compose",
         )
-        return bootstrap
-
-    _catalog_cache = remote_catalog
-    _catalog_cache_expires_at = now + _REMOTE_CACHE_TTL_SECONDS
-    _catalog_cache_source = "nabla-compose"
-    return remote_catalog
+        return remote_catalog
 
 
 async def fetch_homelab_services() -> list[HomelabService]:
