@@ -52,3 +52,10 @@ def test_production_validation_provides_required_auth_settings() -> None:
     for setting in required_test_settings:
         assert setting in deploy
         assert setting in python_ci
+
+
+def test_fastapi_cloud_deploy_uses_project_cli() -> None:
+    deploy = (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8")
+
+    assert "run: uv run fastapi deploy" in deploy
+    assert "uvx fastapi-cloud-cli" not in deploy
