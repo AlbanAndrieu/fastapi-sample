@@ -13,7 +13,10 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /code
 
 # uv delegates Git-backed dependencies to the Git executable. Keep Git confined
-# to the builder stage so the production image remains minimal.
+# to the builder stage so the production image remains minimal. These transient
+# build tools intentionally track the security-updated packages from the pinned
+# Debian release instead of coupling the build to repository snapshot versions.
+# hadolint ignore=DL3008
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git ca-certificates \
     && rm -rf /var/lib/apt/lists/*
@@ -89,12 +92,12 @@ COPY --chown=jm-python:jm-python server_all.py /code/jm-python/
 COPY --chown=jm-python:jm-python my-login-app/ /code/jm-python/my-login-app/
 COPY --chown=jm-python:jm-python templates/ /code/jm-python/templates/
 
-USER jm-python
+USER 999:999
 WORKDIR /code/jm-python
 
 EXPOSE 8080
 
 HEALTHCHECK --interval=1m --timeout=10s --start-period=60s --retries=5 \
-    CMD curl --fail --silent --show-error http://localhost:8080/health >/dev/null || exit 1
+    CMD ["curl", "--fail", "--silent", "--show-error", "http://localhost:8080/health"]
 
 CMD ["gunicorn", "server_all:app", "-k", "uvicorn_worker.UvicornWorker", "--name", "fastapi-sample", "--threads", "1", "--worker-connections", "1000", "--max-requests", "1000", "--max-requests-jitter", "100", "--bind", "0.0.0.0:8080", "--graceful-timeout", "120", "--timeout", "120", "--keep-alive", "5", "--logger-class=nabla.utils.log_config.JMGunicornLogger", "--log-level", "info", "--access-logfile", "-"]

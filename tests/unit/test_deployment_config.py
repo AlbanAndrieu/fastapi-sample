@@ -133,3 +133,16 @@ def test_package_publication_respects_private_classifier_and_least_privilege() -
     assert "repository_url:" not in workflow
     assert "skip_existing:" not in workflow
     assert "GITHUB_ENV" not in workflow
+
+
+def test_dockerfile_hadolint_hardening_is_explicit() -> None:
+    dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+
+    assert "# hadolint ignore=DL3008" in dockerfile
+    assert "USER 999:999" in dockerfile
+    assert "USER jm-python" not in dockerfile
+    assert (
+        'CMD ["curl", "--fail", "--silent", "--show-error", '
+        '"http://localhost:8080/health"]'
+    ) in dockerfile
+    assert "CMD curl --fail" not in dockerfile
