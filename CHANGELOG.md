@@ -1,3 +1,10 @@
+## [1.4.3](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.4.2...1.4.3) (2026-08-29)
+
+
+### Bug Fixes
+
+* **release:** align trusted publisher OIDC claims ([#133](https://github.com/AlbanAndrieu/fastapi-sample/issues/133)) ([55e88ec](https://github.com/AlbanAndrieu/fastapi-sample/commit/55e88ecc40d5865ae629e329bef27c489f924e0a))
+
 ## [1.4.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.4.1...1.4.2) (2026-08-28)
 
 
