@@ -86,6 +86,24 @@ def test_release_dispatch_deploys_immutable_tag_then_runs_smoke() -> None:
     assert "GITHUB_ENV" not in smoke
 
 
+def test_production_smoke_bounds_browser_cost_without_losing_post_deploy_ui_check() -> None:
+    smoke = (ROOT / ".github/workflows/production-smoke.yml").read_text(encoding="utf-8")
+
+    assert "pull_request:" in smoke
+    assert "workflow_dispatch:" in smoke
+    assert "workflow_call:" in smoke
+    assert smoke.count("if: github.event_name != 'pull_request'") == 3
+    assert "npx --no-install playwright install --with-deps --only-shell chromium" in smoke
+    assert "npx playwright install --with-deps chromium" not in smoke
+    assert "--omit=dev" in smoke
+    assert "timeout-minutes: 6" in smoke
+    assert "--retry-all-errors" in smoke
+    assert "--connect-timeout 10" in smoke
+    assert "--max-time 30" in smoke
+    assert "fetch-depth: 0" not in smoke
+    assert "EXPECTED_VERSION=\"${expected}\" node scripts/check-production-api-ui.mjs" in smoke
+
+
 def test_semantic_release_uses_normal_post_recovery_flow() -> None:
     workflow = (ROOT / ".github/workflows/semantic-release.yml").read_text(encoding="utf-8")
 

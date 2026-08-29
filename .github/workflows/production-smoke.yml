@@ -25,7 +25,6 @@ jobs:
       - name: Checkout smoke-test code
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
-          fetch-depth: 0
           persist-credentials: false
 
       - name: Check production homelab status
@@ -33,20 +32,33 @@ jobs:
         run: |
           set -euo pipefail
           curl --fail --silent --show-error \
+            --connect-timeout 10 \
+            --max-time 30 \
+            --retry 3 \
+            --retry-delay 5 \
+            --retry-all-errors \
             https://fastapi-sample.fastapicloud.dev/api/homelab/status \
             | jq .
 
-      - name: Set up Node.js
+      # Pull requests cannot exercise their code against the already deployed
+      # production UI. Keep the live API gate above on PRs, and reserve the
+      # browser check for manual runs and the post-deployment workflow call.
+      - name: Set up Node.js for deployed UI smoke
+        if: github.event_name != 'pull_request'
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: "24"
 
-      - name: Install Playwright smoke-test runtime
+      - name: Install Playwright headless smoke runtime
+        if: github.event_name != 'pull_request'
+        timeout-minutes: 6
         run: |
-          npm install --no-save --package-lock=false --ignore-scripts playwright@1.55.0
-          npx playwright install --with-deps chromium
+          set -euo pipefail
+          npm install --no-save --package-lock=false --ignore-scripts --omit=dev --no-audit --no-fund playwright@1.55.0
+          npx --no-install playwright install --with-deps --only-shell chromium
 
       - name: Check production UI version matches source revision
+        if: github.event_name != 'pull_request'
         shell: bash
         run: |
           set -euo pipefail
