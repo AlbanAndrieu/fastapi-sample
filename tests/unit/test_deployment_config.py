@@ -109,11 +109,12 @@ def test_recovery_manifest_and_changelog_document_1_4_1() -> None:
     assert "would clobber existing tag" in manifest
 
 
-def test_package_publication_uses_isolated_trusted_publishing_jobs() -> None:
+def test_package_publication_respects_private_classifier_and_least_privilege() -> None:
     workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
 
     assert "semantic-release-published" in workflow
     assert "\n  build:\n" in workflow
+    assert "\n  publish_github:\n" in workflow
     assert "\n  publish_testpypi:\n" in workflow
     assert "\n  publish_pypi:\n" in workflow
     assert '[[ ! "${release_tag}" =~ ^[0-9]+\\.[0-9]+\\.[0-9]+$ ]]' in workflow
@@ -122,10 +123,11 @@ def test_package_publication_uses_isolated_trusted_publishing_jobs() -> None:
     assert "environment: pypi" not in workflow
     assert workflow.count("id-token: write") == 2
     assert workflow.count("pypa/gh-action-pypi-publish@") == 2
+    assert "pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33" in workflow
     assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in workflow
     assert workflow.count(
         "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c"
-    ) == 2
+    ) == 3
     assert "repository-url: https://test.pypi.org/legacy/" in workflow
     assert "skip-existing: true" in workflow
     assert "repository_url:" not in workflow
