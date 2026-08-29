@@ -131,7 +131,9 @@ jobs:
     needs: build
     if: needs.build.outputs.pypi_allowed == 'true'
     runs-on: ubuntu-latest
-    environment: testpypi
+    # Trusted Publisher registration is repository/workflow scoped and does not
+    # include a GitHub environment claim. Keep OIDC isolated to this job without
+    # changing the subject expected by TestPyPI.
     permissions:
       contents: read
       id-token: write
@@ -156,7 +158,8 @@ jobs:
       - publish_testpypi
     if: needs.build.outputs.pypi_allowed == 'true'
     runs-on: ubuntu-latest
-    environment: pypi
+    # Match the existing PyPI Trusted Publisher subject while keeping OIDC
+    # unavailable to the build job and every unrelated workflow step.
     permissions:
       contents: read
       id-token: write

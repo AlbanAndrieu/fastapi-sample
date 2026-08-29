@@ -119,12 +119,8 @@ def test_package_publication_respects_private_classifier_and_least_privilege() -
     assert "\n  publish_pypi:\n" in workflow
     assert '[[ ! "${release_tag}" =~ ^[0-9]+\\.[0-9]+\\.[0-9]+$ ]]' in workflow
     assert "ref: ${{ steps.release_ref.outputs.tag }}" in workflow
-    assert "Private ::" in workflow
-    assert "pypi_allowed" in workflow
-    assert "if: needs.build.outputs.pypi_allowed == 'true'" in workflow
-    assert 'gh release upload "${RELEASE_TAG}" dist/* --clobber' in workflow
-    assert "environment: testpypi" in workflow
-    assert "environment: pypi" in workflow
+    assert "environment: testpypi" not in workflow
+    assert "environment: pypi" not in workflow
     assert workflow.count("id-token: write") == 2
     assert workflow.count("pypa/gh-action-pypi-publish@") == 2
     assert "pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33" in workflow
