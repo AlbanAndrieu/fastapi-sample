@@ -1,3 +1,10 @@
+## [1.4.4](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.4.3...1.4.4) (2026-08-29)
+
+
+### Bug Fixes
+
+* **release:** respect private package policy ([#132](https://github.com/AlbanAndrieu/fastapi-sample/issues/132)) ([c9fe18b](https://github.com/AlbanAndrieu/fastapi-sample/commit/c9fe18b6b4384ade021dad793e1239948b892ae6))
+
 ## [1.4.3](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.4.2...1.4.3) (2026-08-29)
 
 
