@@ -1,3 +1,10 @@
+## [1.4.5](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.4.4...1.4.5) (2026-08-29)
+
+
+### Bug Fixes
+
+* **ci:** harden Dockerfile linting ([#134](https://github.com/AlbanAndrieu/fastapi-sample/issues/134)) ([6ae9b00](https://github.com/AlbanAndrieu/fastapi-sample/commit/6ae9b00559532375a53c8cf09f170097304043a8))
+
 ## [1.4.4](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.4.3...1.4.4) (2026-08-29)
 
 
