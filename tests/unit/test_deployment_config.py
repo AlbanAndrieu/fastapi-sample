@@ -118,8 +118,8 @@ def test_package_publication_uses_isolated_trusted_publishing_jobs() -> None:
     assert "\n  publish_pypi:\n" in workflow
     assert '[[ ! "${release_tag}" =~ ^[0-9]+\\.[0-9]+\\.[0-9]+$ ]]' in workflow
     assert "ref: ${{ steps.release_ref.outputs.tag }}" in workflow
-    assert "environment: testpypi" in workflow
-    assert "environment: pypi" in workflow
+    assert "environment: testpypi" not in workflow
+    assert "environment: pypi" not in workflow
     assert workflow.count("id-token: write") == 2
     assert workflow.count("pypa/gh-action-pypi-publish@") == 2
     assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in workflow
