@@ -1,3 +1,10 @@
+## [1.4.6](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.4.5...1.4.6) (2026-08-29)
+
+
+### Bug Fixes
+
+* **ci:** bound production smoke browser cost ([#135](https://github.com/AlbanAndrieu/fastapi-sample/issues/135)) ([dfa7c1b](https://github.com/AlbanAndrieu/fastapi-sample/commit/dfa7c1b3fb422b8b40df1b86fd030e7ddb3cf1b7))
+
 ## [1.4.5](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.4.4...1.4.5) (2026-08-29)
 
 
