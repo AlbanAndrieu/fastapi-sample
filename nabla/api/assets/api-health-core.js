@@ -1,4 +1,9 @@
 import {
+  dependencyDetailText,
+  dependencyHealthClass,
+  mergeHomelabEvidence,
+} from "./api-health-dependency.js";
+import {
   escapeText,
   httpStatusIsSuccess2xx,
   lockHtml,
@@ -50,26 +55,6 @@ export const MANDATORY = new Set([
   "albandrieu_truenas",
 ]);
 
-const HOMELAB_EVIDENCE_FIELDS = [
-  "local_state",
-  "dependency_state",
-  "effective_state",
-  "required_dependencies",
-  "blocked_by",
-  "dependency_evidence",
-  "dependency_cycle",
-  "observed_at",
-  "observation_age_seconds",
-  "observation_stale",
-  "direct_state",
-  "internal_state",
-  "runtime_state",
-  "runtime_app",
-  "runtime_reachable",
-  "tunnel_status",
-  "tunnel_name",
-];
-
 function healthRowTitleHtml(check, key) {
   let rowTitle = "";
   if (check.name != null && String(check.name).trim()) rowTitle = String(check.name).trim();
@@ -94,17 +79,11 @@ function isExpectedSentryDebugFailure(key, check) {
   );
 }
 
-function healthStateClass(state) {
-  if (state === "ok") return "green";
-  if (state === "warn") return "yellow";
-  if (state === "fail") return "red";
-  return "gray";
-}
-
 function classify(key, check) {
   if (check.skipped === true) return "yellow";
   if (isExpectedSentryDebugFailure(key, check)) return "green";
-  if (check.effective_state) return healthStateClass(check.effective_state);
+  const dependencyClass = dependencyHealthClass(check);
+  if (dependencyClass) return dependencyClass;
   if (check.reachable === true) {
     if (key === "truenas_api") return "green";
     if (!httpStatusIsSuccess2xx(check.http_status)) return "blue";
@@ -144,73 +123,9 @@ function baseDetailText(key, check) {
   return "Unreachable.";
 }
 
-function dependencyBlockedLabels(check) {
-  const blocked = new Set(Array.isArray(check.blocked_by) ? check.blocked_by : []);
-  if (blocked.size === 0) return [];
-  const evidence = Array.isArray(check.dependency_evidence) ? check.dependency_evidence : [];
-  return [...blocked].map((target) => {
-    const item = evidence.find((entry) => entry?.target === target);
-    return String(item?.target_name || target);
-  });
-}
-
-function evidenceSources(check) {
-  const sources = [];
-  if (check.direct_state) sources.push("HTTP");
-  if (check.internal_state) sources.push("internal probe");
-  if (check.runtime_state) sources.push("TrueNAS runtime");
-  if (check.tunnel_status) sources.push("Cloudflare tunnel");
-  return sources;
-}
-
-function dependencyDetailText(check) {
-  if (!check.effective_state) return "";
-  const parts = [];
-  const runtimeRunning = String(check.runtime_state || "").toUpperCase() === "RUNNING";
-  if (runtimeRunning && check.effective_state !== "ok") parts.push("RUNNING but degraded");
-  if (check.local_state && check.local_state !== check.effective_state) {
-    parts.push(`local ${check.local_state} → effective ${check.effective_state}`);
-  }
-  const blocked = dependencyBlockedLabels(check);
-  if (blocked.length > 0) parts.push(`blocked by ${blocked.join(", ")}`);
-  const sources = evidenceSources(check);
-  if (sources.length > 0) parts.push(`evidence: ${sources.join(" + ")}`);
-  if (check.observation_stale === true) {
-    const age = Number(check.observation_age_seconds);
-    parts.push(Number.isFinite(age) ? `stale evidence (${Math.round(age)}s old)` : "stale evidence");
-  } else if (check.observation_age_seconds != null) {
-    const age = Number(check.observation_age_seconds);
-    if (Number.isFinite(age)) parts.push(`observed ${Math.round(age)}s ago`);
-  }
-  const cycle = Array.isArray(check.dependency_cycle) ? check.dependency_cycle : [];
-  if (cycle.length > 1) parts.push(`dependency cycle: ${cycle.join(" ↔ ")}`);
-  return parts.join(" · ");
-}
-
 function detailText(key, check) {
   const details = [baseDetailText(key, check), dependencyDetailText(check)].filter(Boolean);
   return details.join(" · ");
-}
-
-function candidateServiceIds(key, check) {
-  const ids = [check?.service_id, check?.id, key];
-  if (String(key).startsWith("albandrieu_")) ids.push(String(key).slice("albandrieu_".length));
-  return ids.filter(Boolean).map((value) => String(value).replaceAll("_", "-"));
-}
-
-function mergeHomelabEvidence(data, homelab) {
-  const rows = Array.isArray(homelab?.services) ? homelab.services : [];
-  const byId = new Map(rows.filter((row) => row?.id).map((row) => [String(row.id), row]));
-  for (const [key, check] of Object.entries(data?.checks || {})) {
-    const evidence = candidateServiceIds(key, check)
-      .map((candidate) => byId.get(candidate))
-      .find(Boolean);
-    if (!evidence) continue;
-    for (const field of HOMELAB_EVIDENCE_FIELDS) {
-      if (Object.prototype.hasOwnProperty.call(evidence, field)) check[field] = evidence[field];
-    }
-  }
-  return data;
 }
 
 function sortKeys(keys) {
