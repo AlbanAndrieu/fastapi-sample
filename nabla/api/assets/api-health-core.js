@@ -289,11 +289,13 @@ function fetchJson(path, { required = true } = {}) {
 }
 
 export function loadHealth() {
-  Promise.all([
-    fetchJson("/healthz"),
-    fetchJson("/api/homelab/health", { required: false }),
-  ])
-    .then(([data, homelab]) => render(mergeHomelabEvidence(data, homelab)))
+  fetchJson("/healthz")
+    .then((data) => {
+      render(data);
+      return fetchJson("/api/homelab/health", { required: false }).then((homelab) => {
+        if (homelab) render(mergeHomelabEvidence(data, homelab));
+      });
+    })
     .catch((error) => {
       showFetchError(String(error.message || error));
     });
