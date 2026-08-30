@@ -75,7 +75,7 @@
     "@typescript-eslint/parser": "^8.65.0",
     "cloc": "^2.0.0-cloc",
     "commitizen": "^4.2.4",
-    "commitlint": "^20.3.1",
+    "commitlint": "^21.2.2",
     "commitlint-config-gitmoji": "^2.3.1",
     "conventional-changelog-gitmoji-config": "^1.5.2",
     "cz-conventional-changelog": "^3.0.1",
