@@ -196,6 +196,9 @@ def test_service_without_url_gets_conventional_endpoint_and_unknown_state() -> N
             "runtime_state": None,
             "runtime_app": None,
             "runtime_reachable": None,
+            "observed_at": None,
+            "observation_age_seconds": None,
+            "observation_stale": False,
         }
     ]
 
