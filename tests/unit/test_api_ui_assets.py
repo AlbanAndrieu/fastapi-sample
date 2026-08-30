@@ -129,6 +129,20 @@ def test_refresh_event_is_logged_and_health_responses_are_not_cached() -> None:
     assert 'cache: "no-store"' in health
 
 
+def test_health_board_explains_dependency_propagation() -> None:
+    script = (_ASSET_DIR / "api-health-core.js").read_text(encoding="utf-8")
+
+    assert 'fetchJson("/api/homelab/health", { required: false })' in script
+    assert "if (check.effective_state) return healthStateClass(check.effective_state);" in script
+    assert 'parts.push("RUNNING but degraded")' in script
+    assert 'parts.push(`blocked by ${blocked.join(", ")}`)' in script
+    assert 'parts.push(`evidence: ${sources.join(" + ")}`)' in script
+    assert 'parts.push(Number.isFinite(age) ? `stale evidence (${Math.round(age)}s old)`' in script
+    assert 'parts.push(`dependency cycle: ${cycle.join(" ↔ ")}`)' in script
+    assert '"local_state"' in script
+    assert '"effective_state"' in script
+
+
 def test_sickz_tls_unknown_state_is_neutral() -> None:
     script = (_ASSET_DIR / "api-health-ui.js").read_text(encoding="utf-8")
     lock_start = script.index("export function lockHtml")
