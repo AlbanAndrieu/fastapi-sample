@@ -1,3 +1,10 @@
+## [1.4.13](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.4.12...1.4.13) (2026-09-01)
+
+
+### Bug Fixes
+
+* **health:** separate TrueNAS TCP and TLS diagnostics ([#160](https://github.com/AlbanAndrieu/fastapi-sample/issues/160)) ([00dd9ce](https://github.com/AlbanAndrieu/fastapi-sample/commit/00dd9ce2a579236551af8a45e441708b3b56fb5f))
+
 ## [1.4.12](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.4.11...1.4.12) (2026-09-01)
 
 
