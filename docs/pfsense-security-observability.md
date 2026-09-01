@@ -185,13 +185,13 @@ public projections remain redacted.
 ## Implementation order
 
 1. Use `/api/v2/system/version` as the cheap liveness probe and instrument its
-   latency/error stage; keep `/api/v2/status/system` out of the synchronous
-   liveness path.
+  latency/error stage; keep `/api/v2/status/system` out of the synchronous
+  liveness path.
 2. Add interfaces + gateways.
 3. Add firewall rules + aliases and implement the Easy Rule/management-port
-   policy assertions.
+  policy assertions.
 4. Add NAT checks.
 5. Add DNS resolver policy.
 6. Add VPN/service state only for services intentionally managed by the homelab.
 7. Add bounded log correlation as a troubleshooting feature, not a continuous
-   public health payload.
+  public health payload.
