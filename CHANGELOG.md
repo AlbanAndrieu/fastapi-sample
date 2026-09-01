@@ -1,3 +1,10 @@
+## [1.4.11](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.4.10...1.4.11) (2026-09-01)
+
+
+### Bug Fixes
+
+* **health:** reduce network probe fan-out ([#158](https://github.com/AlbanAndrieu/fastapi-sample/issues/158)) ([f58ab37](https://github.com/AlbanAndrieu/fastapi-sample/commit/f58ab37dabd63c1ffeaf8e43544e959d8873492b))
+
 ## [1.4.10](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.4.9...1.4.10) (2026-09-01)
 
 
