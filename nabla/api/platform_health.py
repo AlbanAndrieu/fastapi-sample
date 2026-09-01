@@ -14,7 +14,7 @@ import httpx
 from nabla.api.cloudflare_tunnels import CloudflareTunnelSettings
 
 _CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4"
-_PFSENSE_STATUS_PATH = "/api/v2/status/system"
+_PFSENSE_LIVENESS_PATH = "/api/v2/system/version"
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 _PFSENSE_CONNECT_TIMEOUT_SEC = 3.0
 _PFSENSE_READ_TIMEOUT_SEC = 5.0
@@ -50,6 +50,16 @@ def _http_error_kind(exc: BaseException) -> str:
     if isinstance(exc, OSError):
         return "os_error"
     return "unknown_error"
+
+
+def _pfsense_failure_stage(error_kind: str) -> str:
+    if error_kind in {"connect_timeout", "connect_error", "tls_error", "os_error"}:
+        return "connect"
+    if error_kind == "pool_timeout":
+        return "client_pool"
+    if error_kind == "read_timeout":
+        return "response"
+    return "request"
 
 
 def _cloudflare_api_error(response: httpx.Response) -> dict[str, Any]:
@@ -165,7 +175,7 @@ async def check_cloudflare_tunnels() -> dict[str, Any]:
 
 
 async def check_pfsense_api() -> dict[str, Any]:
-    """Check the configured pfSense REST API v2 status endpoint read-only."""
+    """Check pfSense REST API liveness with the cheap read-only version endpoint."""
     base_url = os.getenv("PFSENSE_API_URL", "").strip().rstrip("/")
     api_key = os.getenv("PFSENSE_API_KEY", "").strip()
     if not base_url or not api_key:
@@ -185,7 +195,7 @@ async def check_pfsense_api() -> dict[str, Any]:
     verify_ssl = (
         os.getenv("PFSENSE_API_VERIFY_SSL", "true").strip().lower() in _TRUE_VALUES
     )
-    url = f"{base_url}{_PFSENSE_STATUS_PATH}"
+    url = f"{base_url}{_PFSENSE_LIVENESS_PATH}"
     timeout = httpx.Timeout(
         connect=_PFSENSE_CONNECT_TIMEOUT_SEC,
         read=_PFSENSE_READ_TIMEOUT_SEC,
@@ -194,7 +204,7 @@ async def check_pfsense_api() -> dict[str, Any]:
     )
     started = time.monotonic()
     logger.info(
-        "pfSense API probe started url=%s verify_ssl=%s connect_timeout_s=%s read_timeout_s=%s",
+        "pfSense API liveness probe started url=%s verify_ssl=%s connect_timeout_s=%s read_timeout_s=%s",
         url,
         verify_ssl,
         _PFSENSE_CONNECT_TIMEOUT_SEC,
@@ -213,14 +223,21 @@ async def check_pfsense_api() -> dict[str, Any]:
     except (httpx.HTTPError, OSError) as exc:
         elapsed_ms = round((time.monotonic() - started) * 1000)
         error_kind = _http_error_kind(exc)
+        failure_stage = _pfsense_failure_stage(error_kind)
         exception_type = type(exc).__name__
         error = _short_error(exc)
+        if error_kind == "read_timeout":
+            error = (
+                "pfSense accepted the connection but did not return the REST API "
+                f"response within {_PFSENSE_READ_TIMEOUT_SEC:.0f}s"
+            )
         logger.warning(
-            "pfSense API probe failed url=%s verify_ssl=%s error_kind=%s "
-            "exception_type=%s elapsed_ms=%s error=%s",
+            "pfSense API liveness probe failed url=%s verify_ssl=%s error_kind=%s "
+            "failure_stage=%s exception_type=%s elapsed_ms=%s error=%s",
             url,
             verify_ssl,
             error_kind,
+            failure_stage,
             exception_type,
             elapsed_ms,
             error,
@@ -229,9 +246,11 @@ async def check_pfsense_api() -> dict[str, Any]:
             "reachable": False,
             "error": error,
             "error_kind": error_kind,
+            "failure_stage": failure_stage,
             "exception_type": exception_type,
             "elapsed_ms": elapsed_ms,
             "probe": "pfsense_rest_api_v2",
+            "path": _PFSENSE_LIVENESS_PATH,
             "url": url,
             "verify_ssl": verify_ssl,
         }
@@ -239,7 +258,7 @@ async def check_pfsense_api() -> dict[str, Any]:
     elapsed_ms = round((time.monotonic() - started) * 1000)
     healthy = 200 <= response.status_code < 400
     logger.info(
-        "pfSense API probe completed url=%s verify_ssl=%s http_status=%s "
+        "pfSense API liveness probe completed url=%s verify_ssl=%s http_status=%s "
         "elapsed_ms=%s reachable=%s",
         url,
         verify_ssl,
@@ -252,6 +271,7 @@ async def check_pfsense_api() -> dict[str, Any]:
         "http_status": response.status_code,
         "elapsed_ms": elapsed_ms,
         "probe": "pfsense_rest_api_v2",
+        "path": _PFSENSE_LIVENESS_PATH,
         "url": url,
         "verify_ssl": verify_ssl,
         "tls_trusted": True

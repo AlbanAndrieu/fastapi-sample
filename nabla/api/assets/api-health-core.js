@@ -3,6 +3,7 @@ import {
   dependencyHealthClass,
   mergeHomelabEvidence,
 } from "./api-health-dependency.js";
+import { fetchHomelabHealth } from "./api-homelab-health.js";
 import {
   escapeText,
   httpStatusIsSuccess2xx,
@@ -118,6 +119,10 @@ function baseDetailText(key, check) {
     if (check.host != null && check.port != null) parts.push(`${check.host}:${check.port}`);
     if (check.url) parts.push(String(check.url).replace(/^https?:\/\//i, ""));
     return parts.length ? parts.join(" · ") : "Connected.";
+  }
+  if (check.error_kind) {
+    const stage = String(check.error_kind).replaceAll("_", " ");
+    return check.error ? `${stage}: ${check.error}` : stage;
   }
   if (check.error) return check.error;
   return "Unreachable.";
@@ -273,28 +278,25 @@ function showFetchError(message) {
   errEl.textContent = message;
 }
 
-function fetchJson(path, { required = true } = {}) {
+function fetchJson(path) {
   return fetch(path, {
     cache: "no-store",
     headers: { Accept: "application/json", "Cache-Control": "no-cache" },
-  })
-    .then((response) => {
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return response.json();
-    })
-    .catch((error) => {
-      if (required) throw error;
-      return null;
-    });
+  }).then((response) => {
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response.json();
+  });
 }
 
 export function loadHealth() {
-  fetchJson("/healthz")
+  return fetchJson("/healthz")
     .then((data) => {
       render(data);
-      return fetchJson("/api/homelab/health", { required: false }).then((homelab) => {
-        if (homelab) render(mergeHomelabEvidence(data, homelab));
-      });
+      return fetchHomelabHealth()
+        .catch(() => null)
+        .then((homelab) => {
+          if (homelab) render(mergeHomelabEvidence(data, homelab));
+        });
     })
     .catch((error) => {
       showFetchError(String(error.message || error));

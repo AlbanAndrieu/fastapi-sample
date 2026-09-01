@@ -28,6 +28,7 @@ ReconciliationState = Literal[
 ]
 
 _DEFAULT_RUNTIME_CACHE_TTL_SECONDS = 30.0
+_TRUENAS_RESET_RETRY_DELAY_SECONDS = 0.2
 _RUNTIME_CACHE_LOCK = threading.Lock()
 _RUNTIME_CACHE: TrueNASRuntimeSnapshot | None = None
 _RUNTIME_CACHE_EXPIRES_AT = 0.0
@@ -127,6 +128,15 @@ def _observed_app(raw: dict[str, Any]) -> ObservedApp:
     )
 
 
+def _list_apps_with_reset_retry(adapter: Any) -> list[dict[str, Any]]:
+    """Retry one transient peer reset without hiding persistent/auth failures."""
+    try:
+        return adapter.list_apps()
+    except ConnectionResetError:
+        time.sleep(_TRUENAS_RESET_RETRY_DELAY_SECONDS)
+        return adapter.list_apps()
+
+
 def observe_truenas_runtime() -> TrueNASRuntimeSnapshot:
     """Read app.query through the official client without exposing credentials."""
     observed_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -139,7 +149,7 @@ def observe_truenas_runtime() -> TrueNASRuntimeSnapshot:
             error="TrueNAS API credentials are not configured",
         )
     try:
-        apps = [_observed_app(app) for app in adapter.list_apps()]
+        apps = [_observed_app(app) for app in _list_apps_with_reset_retry(adapter)]
     except Exception as exc:
         return TrueNASRuntimeSnapshot(
             observed_at=observed_at,

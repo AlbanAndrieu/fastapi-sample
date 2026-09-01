@@ -81,11 +81,18 @@ PFSENSE_API_VERIFY_SSL=true
 
 `PFSENSE_API_URL` must use HTTPS when API-key authentication is enabled. Keep TLS verification enabled when the certificate is trusted. If the homelab uses a private/self-signed certificate, `PFSENSE_API_VERIFY_SSL=false` may be used explicitly, but the transport must still be HTTPS.
 
-The current read-only health probe targets:
+The health-board liveness probe intentionally uses the lightweight read-only
+version endpoint:
 
 ```text
-GET /api/v2/status/system
+GET /api/v2/system/version
 ```
+
+Do not use `GET /api/v2/status/system` as the synchronous liveness gate. The
+pfSense REST package builds that response from live platform, BIOS, temperature,
+CPU/load, mbuf, memory, swap, and filesystem metrics, so a healthy firewall can
+exceed a short health-check read timeout. Keep `/api/v2/status/system` for
+on-demand or separately cached detailed observability.
 
 Do not expose the pfSense management API publicly solely for FastAPI Cloud monitoring. Prefer private connectivity/overlay routing if the FastAPI runtime needs direct access.
 

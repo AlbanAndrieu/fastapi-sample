@@ -37,11 +37,16 @@ reachability with certificate policy.
 Start small and normalize only fields that support an explicit security or
 availability policy.
 
-### System and service status
+### API liveness, system and service status
 
+- `GET /api/v2/system/version`
+  - cheap authenticated API/liveness signal;
+  - reads pfSense version files without collecting live system metrics.
 - `GET /api/v2/status/system`
-  - basic API/liveness signal;
-  - software/runtime identity and high-level host status where exposed.
+  - detailed software/runtime and host resource status;
+  - use on demand or behind a separate cache because the model collects live
+    platform, BIOS, temperature, CPU/load, mbuf, memory, swap and filesystem
+    data and can exceed a short liveness timeout.
 - `GET /api/v2/status/services`
   - detect expected critical services that are stopped;
   - useful for DNS resolver, DHCP, VPN and monitoring service availability.
@@ -179,13 +184,14 @@ public projections remain redacted.
 
 ## Implementation order
 
-1. Keep `/api/v2/status/system` as the cheap liveness probe and instrument its
-    latency/error stage.
+1. Use `/api/v2/system/version` as the cheap liveness probe and instrument its
+   latency/error stage; keep `/api/v2/status/system` out of the synchronous
+   liveness path.
 2. Add interfaces + gateways.
 3. Add firewall rules + aliases and implement the Easy Rule/management-port
-    policy assertions.
+   policy assertions.
 4. Add NAT checks.
 5. Add DNS resolver policy.
 6. Add VPN/service state only for services intentionally managed by the homelab.
 7. Add bounded log correlation as a troubleshooting feature, not a continuous
-    public health payload.
+   public health payload.

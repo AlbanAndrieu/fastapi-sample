@@ -1,4 +1,5 @@
 import { loadHealth } from "./api-health-core.js";
+import { resetHomelabHealthRequest } from "./api-homelab-health.js";
 import { loadSickz } from "./api-sickz.js";
 import { loadTrueNas } from "./api-truenas.js";
 import { installServiceFilter } from "./api-service-groups.js";
@@ -20,11 +21,12 @@ function logRefreshClick() {
 }
 
 function loadHealthBoards() {
+  resetHomelabHealthRequest();
   markHealthBoardsPending();
-  loadHealth();
-  loadTrueNas();
+  const healthRequest = loadHealth();
   loadSickz();
   decorateCloudflareTunnelStatuses();
+  Promise.resolve(healthRequest).finally(() => loadTrueNas());
 }
 
 document.querySelectorAll(".health-refresh").forEach((button) => {
