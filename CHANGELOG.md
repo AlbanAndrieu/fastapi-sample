@@ -1,3 +1,10 @@
+## [1.4.8](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.4.7...1.4.8) (2026-09-01)
+
+
+### Bug Fixes
+
+* **ci:** complete CodeQL v4 migration and harden quality gate ([#143](https://github.com/AlbanAndrieu/fastapi-sample/issues/143)) ([ac5c293](https://github.com/AlbanAndrieu/fastapi-sample/commit/ac5c293a86560e1c2a48d361e34ad4066eab8d26))
+
 ## [1.4.7](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.4.6...1.4.7) (2026-09-01)
 
 
