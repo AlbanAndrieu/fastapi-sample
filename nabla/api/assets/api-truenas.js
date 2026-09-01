@@ -32,6 +32,59 @@ function renderConnector(left, right) {
   return `<div class="truenas-connector${broken ? " truenas-connector--broken" : ""}" aria-hidden="true"></div>`;
 }
 
+function targetText(truenas) {
+  const diagnostics = truenas?.diagnostics;
+  const configuredTarget = diagnostics?.target || truenas?.public?.url || "TrueNAS";
+  const wan = diagnostics?.wan;
+  if (!wan?.ipv4) return configuredTarget;
+  const provider = wan?.provider ? ` · ${wan.provider}` : "";
+  const addressKind = wan?.static ? " static IPv4" : " IPv4";
+  return `${configuredTarget} · WAN ${wan.ipv4}${provider}${addressKind}`;
+}
+
+function filterClass(filter) {
+  if (filter?.state === "running" || filter?.state === "in_path") return "possible";
+  if (filter?.state === "stopped") return "stopped";
+  return "unknown";
+}
+
+function filterIcon(filter) {
+  if (filter?.state === "running") return "●";
+  if (filter?.state === "in_path") return "◐";
+  if (filter?.state === "stopped") return "○";
+  return "?";
+}
+
+function ensureSecurityFilters(target) {
+  let container = document.getElementById("truenas-security-filters");
+  if (container || !target) return container;
+  container = document.createElement("div");
+  container.id = "truenas-security-filters";
+  container.className = "truenas-security-filters";
+  target.insertAdjacentElement("afterend", container);
+  return container;
+}
+
+function renderSecurityFilters(data, target) {
+  const container = ensureSecurityFilters(target);
+  if (!container) return;
+  const filters = data?.pfsense?.dns?.security_filters;
+  if (!Array.isArray(filters) || filters.length === 0) {
+    container.innerHTML = '<span class="truenas-security-filters-title">Ingress filters</span>' +
+      '<span class="truenas-filter truenas-filter--unknown">? telemetry unavailable</span>';
+    return;
+  }
+  const chips = filters.map((filter) => {
+    const cls = filterClass(filter);
+    const label = escapeText(filter?.label || filter?.id || "filter");
+    const state = escapeText(filter?.state || "unknown");
+    const detail = escapeText(filter?.detail || "");
+    return `<span class="truenas-filter truenas-filter--${cls}" title="${detail}">` +
+      `<span aria-hidden="true">${filterIcon(filter)}</span> ${label} · ${state}</span>`;
+  }).join("");
+  container.innerHTML = '<span class="truenas-security-filters-title">Ingress filters</span>' + chips;
+}
+
 function render(data) {
   const truenas = data?.truenas;
   const stages = truenas?.diagnostics?.stages;
@@ -43,7 +96,8 @@ function render(data) {
 
   error.hidden = true;
   error.textContent = "";
-  target.textContent = truenas?.diagnostics?.target || truenas?.public?.url || "TrueNAS";
+  target.textContent = targetText(truenas);
+  renderSecurityFilters(data, target);
 
   if (!Array.isArray(stages) || stages.length === 0) {
     pipeline.innerHTML = "";

@@ -10,6 +10,7 @@ This roadmap turns `/sickz`, `/healthz`, the TrueNAS read-only runtime inventory
 - Prefer named pfSense aliases such as `FASTAPI_CLOUD_EGRESS` and `TRUSTED_WORK_EGRESS` over duplicated literal addresses in firewall rules. This keeps future egress changes auditable without broadening the rule.
 - **TrueNAS SSH (`9922/tcp`) and firewall SSH (`22/tcp`)**: external reachability is always a failure.
 - Remove broad WAN pass rules such as an Easy Rule that permits arbitrary inbound TCP. Every public listener must have an explicit port/service policy.
+- **2026-09-02 acceptance evidence**: the broad WAN Easy Rule created states from the observed FastAPI Cloud source `52.1.10.241` to both `7000/tcp` and the pfSense administration listener `10443/tcp`. Replacing that rule remains P0. The acceptance test is that an Internet/FastAPI Cloud vantage point can reach only explicitly approved public listeners, cannot establish `10443/tcp`, and can reach `7000/tcp` only through an approved source alias once stable FastAPI Cloud egress is verified.
 - Keep Cloudflare Tunnel evidence distinct from direct HAProxy/Traefik exposure. `tunnelSecure=true` means a Cloudflare-protected exposure is expected; direct exceptions must remain auditable and visible as security debt.
 
 ## P0 — Health endpoint reliability
@@ -117,4 +118,9 @@ Upgrade policy:
 
 - Surface the expected/observed state of `10443`, `7000`, `9922`, `4000`, `22`, and other reviewed ports in `/sickz`.
 - Include the exposure mechanism (`LAN-only`, `HAProxy direct`, `Cloudflare Tunnel`, `Traefik direct`) in diagnostics rather than inferring it only from the hostname.
+- Surface sanitized ingress-filter telemetry in the FastAPI operations UI: pfSense/PF as a possible filtering layer in the path, plus observed service state for Snort, pfBlockerNG and CrowdSec. A running service is **not** proof that it blocked a request; block attribution requires explicit table/rule/log evidence such as `snort2c`, PF logs, pfBlocker aliases or CrowdSec decisions.
+- Add bounded, cached **source-IP enrichment** for observed external addresses. The enrichment should combine RDAP/WHOIS ownership, BGP origin ASN/prefix, PTR/reverse DNS, and cloud-provider published prefix metadata when available; expose fields such as `ip`, `network`, `asn`, `asn_name`, `organization`, `country`, `rdns`, `cloud_provider`, `cloud_service`, `cloud_region`, `observed_at`, and `confidence`.
+- Add an optional bounded egress-IP observation from the FastAPI Cloud runtime so a request observed by pfSense can be correlated with the application's current public source address. Treat the result as transient evidence unless the hosting platform documents a stable egress contract.
+- Cache enrichment results and enforce strict timeouts/rate limits so `/healthz`, `/sickz`, and the operations UI cannot be degraded by external RDAP/ASN/echo services. Enrichment failures must remain informational and must not fail application health.
+- Never expose secrets or automatically mutate pfSense aliases/firewall rules from enrichment data. Human review is required before an address/CIDR becomes an allowlist entry.
 - Correlate Cloudflare Tunnel/Access evidence, TrueNAS runtime state, application-level HTTP checks, and pfSense port policy without treating any one signal as authoritative for every service.

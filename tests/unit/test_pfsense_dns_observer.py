@@ -48,9 +48,11 @@ async def test_pfsense_api_key_reference_is_rejected_without_echoing_value(monke
 async def test_recursive_unbound_is_independent_and_green(monkeypatch, settings) -> None:
     async def fake_get_data(_client, path: str):
         return {
-            "/api/v2/status/system": {"platform": "pfSense"},
+            "/api/v2/system/version": {"version": "2.8.0"},
             "/api/v2/status/services": [
-                {"name": "unbound", "description": "DNS Resolver", "status": "running"}
+                {"name": "unbound", "description": "DNS Resolver", "status": "running"},
+                {"name": "snort_wan", "description": "Snort IDS", "status": "running"},
+                {"name": "crowdsec", "description": "CrowdSec", "status": "stopped"},
             ],
             "/api/v2/services/dns_resolver/settings": {
                 "enable": True,
@@ -75,12 +77,18 @@ async def test_recursive_unbound_is_independent_and_green(monkeypatch, settings)
     assert result["upstream"]["independent_from_truenas"] is True
     assert result["upstream"]["truenas_only"] is False
 
+    filters = {row["id"]: row for row in result["security_filters"]}
+    assert filters["firewall"]["state"] == "in_path"
+    assert filters["snort"]["state"] == "running"
+    assert filters["pfblockerng"]["state"] == "not_observed"
+    assert filters["crowdsec"]["state"] == "stopped"
+
 
 @pytest.mark.asyncio
 async def test_forwarding_only_to_truenas_is_warning(monkeypatch, settings) -> None:
     async def fake_get_data(_client, path: str):
         return {
-            "/api/v2/status/system": {"platform": "pfSense"},
+            "/api/v2/system/version": {"version": "2.8.0"},
             "/api/v2/status/services": [{"service": "unbound", "running": True}],
             "/api/v2/services/dns_resolver/settings": {
                 "enable": True,
@@ -108,7 +116,7 @@ async def test_forwarding_only_to_truenas_is_warning(monkeypatch, settings) -> N
 async def test_stopped_unbound_is_failure(monkeypatch, settings) -> None:
     async def fake_get_data(_client, path: str):
         return {
-            "/api/v2/status/system": {"platform": "pfSense"},
+            "/api/v2/system/version": {"version": "2.8.0"},
             "/api/v2/status/services": [{"name": "unbound", "status": "stopped"}],
             "/api/v2/services/dns_resolver/settings": {
                 "enable": True,
@@ -126,7 +134,7 @@ async def test_stopped_unbound_is_failure(monkeypatch, settings) -> None:
 
 
 def test_http_errors_are_redacted() -> None:
-    request = httpx.Request("GET", "https://172.17.0.1/api/v2/status/system")
+    request = httpx.Request("GET", "https://172.17.0.1/api/v2/system/version")
     response = httpx.Response(403, request=request)
     error = httpx.HTTPStatusError("forbidden", request=request, response=response)
 

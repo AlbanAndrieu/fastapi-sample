@@ -8,7 +8,7 @@ def _network_ok():
         "target": "truenas.example:7000",
         "stages": [
             {"id": "dns", "label": "DNS", "state": "ok"},
-            {"id": "socket", "label": "TCP socket", "state": "ok"},
+            {"id": "socket", "label": "TCP connect", "state": "ok"},
             {"id": "tls", "label": "TLS handshake", "state": "ok"},
             {"id": "https", "label": "HTTPS", "state": "ok"},
             {"id": "websocket", "label": "WebSocket tunnel", "state": "ok"},
