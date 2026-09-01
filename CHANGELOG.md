@@ -1,3 +1,10 @@
+## [1.4.7](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.4.6...1.4.7) (2026-09-01)
+
+
+### Bug Fixes
+
+* **health:** expose stale dependency and cycle evidence ([#136](https://github.com/AlbanAndrieu/fastapi-sample/issues/136)) ([c1468c3](https://github.com/AlbanAndrieu/fastapi-sample/commit/c1468c317ad8fa54b60fce29e68904bba41dc2e7))
+
 ## [1.4.6](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.4.5...1.4.6) (2026-08-29)
 
 
