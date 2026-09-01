@@ -5,9 +5,13 @@ from __future__ import annotations
 import asyncio
 import importlib
 import socket
-import ssl
 import time
 from typing import Any
+
+from nabla.api.truenas_transport_diagnostics import (
+    collect_tcp_tls_stages,
+    homelab_wan_metadata,
+)
 
 _DIAGNOSTIC_TIMEOUT_SEC = 5.0
 
@@ -66,101 +70,6 @@ async def _dns_stage(host: str) -> tuple[dict[str, Any], bool]:
             elapsed_ms=_elapsed_ms(started),
             detail=f"{len(addresses)} address(es) resolved",
             resolved=addresses[:4],
-        ),
-        True,
-    )
-
-
-async def _socket_stage(host: str, port: int) -> tuple[dict[str, Any], bool]:
-    started = time.perf_counter()
-    writer: asyncio.StreamWriter | None = None
-    try:
-        _, writer = await asyncio.wait_for(
-            asyncio.open_connection(host, port), timeout=_DIAGNOSTIC_TIMEOUT_SEC
-        )
-    except (OSError, TimeoutError, asyncio.TimeoutError) as exc:
-        return (
-            _stage(
-                "socket",
-                "TCP socket",
-                "fail",
-                elapsed_ms=_elapsed_ms(started),
-                detail=_error_text(exc),
-            ),
-            False,
-        )
-    finally:
-        if writer is not None:
-            writer.close()
-            try:
-                await writer.wait_closed()
-            except OSError:
-                # Best-effort cleanup must not replace the measured socket result.
-                pass
-
-    return (
-        _stage(
-            "socket",
-            "TCP socket",
-            "ok",
-            elapsed_ms=_elapsed_ms(started),
-            detail=f"Connected to {host}:{port}",
-        ),
-        True,
-    )
-
-
-async def _tls_stage(host: str, port: int, verify_ssl: bool) -> tuple[dict[str, Any], bool]:
-    started = time.perf_counter()
-    writer: asyncio.StreamWriter | None = None
-    context = ssl.create_default_context()
-    if not verify_ssl:
-        context.check_hostname = False
-        context.verify_mode = ssl.CERT_NONE
-    try:
-        _, writer = await asyncio.wait_for(
-            asyncio.open_connection(
-                host,
-                port,
-                ssl=context,
-                server_hostname=host,
-            ),
-            timeout=_DIAGNOSTIC_TIMEOUT_SEC,
-        )
-        ssl_object = writer.get_extra_info("ssl_object")
-        tls_version = ssl_object.version() if ssl_object is not None else None
-        cipher = ssl_object.cipher()[0] if ssl_object is not None and ssl_object.cipher() else None
-    except (OSError, ssl.SSLError, TimeoutError, asyncio.TimeoutError) as exc:
-        return (
-            _stage(
-                "tls",
-                "TLS handshake",
-                "fail",
-                elapsed_ms=_elapsed_ms(started),
-                detail=_error_text(exc),
-                verify_ssl=verify_ssl,
-            ),
-            False,
-        )
-    finally:
-        if writer is not None:
-            writer.close()
-            try:
-                await writer.wait_closed()
-            except OSError:
-                # Best-effort cleanup must not replace the measured TLS result.
-                pass
-
-    return (
-        _stage(
-            "tls",
-            "TLS handshake",
-            "ok",
-            elapsed_ms=_elapsed_ms(started),
-            detail="Certificate trusted" if verify_ssl else "TLS connected without certificate verification",
-            verify_ssl=verify_ssl,
-            tls_version=tls_version,
-            cipher=cipher,
         ),
         True,
     )
@@ -348,18 +257,12 @@ async def collect_truenas_network_diagnostics(
     stages.append(dns)
 
     if dns_ok:
-        socket_stage, socket_ok = await _socket_stage(host, port)
-        stages.append(socket_stage)
-    else:
-        socket_ok = False
-        stages.append(_stage("socket", "TCP socket", "blocked", detail="Blocked by DNS failure"))
-
-    if socket_ok:
-        tls, tls_ok = await _tls_stage(host, port, verify_ssl)
-        stages.append(tls)
+        socket_stage, tls_stage, tls_ok = await collect_tcp_tls_stages(host, port, verify_ssl)
+        stages.extend((socket_stage, tls_stage))
     else:
         tls_ok = False
-        stages.append(_stage("tls", "TLS handshake", "blocked", detail="Blocked by socket failure"))
+        stages.append(_stage("socket", "TCP connect", "blocked", detail="Blocked by DNS failure"))
+        stages.append(_stage("tls", "TLS handshake", "blocked", detail="Blocked by DNS failure"))
 
     stages.append(_https_stage(public_result))
 
@@ -378,6 +281,7 @@ async def collect_truenas_network_diagnostics(
 
     return {
         "target": f"{host}:{port}",
+        "wan": homelab_wan_metadata(),
         "websocket_uri": websocket_uri,
         "verify_ssl": verify_ssl,
         "stages": stages,
