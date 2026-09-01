@@ -1,3 +1,11 @@
+## [1.4.9](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.4.8...1.4.9) (2026-09-01)
+
+
+### Bug Fixes
+
+* **deps-dev:** bump @nuxt/eslint-config from 0.3.13 to 1.17.0 ([#147](https://github.com/AlbanAndrieu/fastapi-sample/issues/147)) ([2bc4335](https://github.com/AlbanAndrieu/fastapi-sample/commit/2bc4335a1a993d8bce83ed8efc4651fbb3d90cc9))
+* **deps:** bump astral-sh/setup-uv from 9.0.0 to 10.0.1 ([#157](https://github.com/AlbanAndrieu/fastapi-sample/issues/157)) ([ceaedc2](https://github.com/AlbanAndrieu/fastapi-sample/commit/ceaedc2645901d0000370a328b86e78bb996949d))
+
 ## [1.4.8](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.4.7...1.4.8) (2026-09-01)
 
 
