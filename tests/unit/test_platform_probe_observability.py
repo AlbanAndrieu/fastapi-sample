@@ -35,7 +35,7 @@ class _FakeAsyncClient:
 
 @pytest.mark.asyncio
 async def test_pfsense_read_timeout_is_classified_and_logged(monkeypatch, caplog) -> None:
-    url = "https://172.17.0.1:10443/api/v2/status/system"
+    url = "https://172.17.0.1:10443/api/v2/system/version"
     request = httpx.Request("GET", url)
     error = httpx.ReadTimeout("timed out while reading", request=request)
     captured: dict[str, object] = {}
@@ -58,12 +58,14 @@ async def test_pfsense_read_timeout_is_classified_and_logged(monkeypatch, caplog
 
     assert result["reachable"] is False
     assert result["error_kind"] == "read_timeout"
+    assert result["failure_stage"] == "response"
     assert result["exception_type"] == "ReadTimeout"
     assert result["verify_ssl"] is False
     assert result["elapsed_ms"] >= 0
+    assert result["path"] == "/api/v2/system/version"
     assert captured["verify"] is False
-    assert "pfSense API probe started" in caplog.text
-    assert "pfSense API probe failed" in caplog.text
+    assert "pfSense API liveness probe started" in caplog.text
+    assert "pfSense API liveness probe failed" in caplog.text
     assert "test-key" not in caplog.text
 
 
@@ -92,8 +94,9 @@ async def test_pfsense_success_reports_timing_and_tls_policy(monkeypatch, caplog
     assert result["http_status"] == 200
     assert result["verify_ssl"] is True
     assert result["tls_trusted"] is True
+    assert result["path"] == "/api/v2/system/version"
     assert captured["verify"] is True
-    assert "pfSense API probe completed" in caplog.text
+    assert "pfSense API liveness probe completed" in caplog.text
     assert "test-key" not in caplog.text
 
 

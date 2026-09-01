@@ -35,6 +35,46 @@ def test_observed_app_preserves_truenas_container_service_name() -> None:
     assert app.containers[0].service_name == "litellm"
 
 
+def test_runtime_retries_one_transient_connection_reset(monkeypatch) -> None:
+    class ResetOnceAdapter:
+        calls = 0
+
+        def list_apps(self):
+            self.calls += 1
+            if self.calls == 1:
+                raise ConnectionResetError(104, "Connection reset by peer")
+            return [{"id": "n8n", "state": "RUNNING"}]
+
+    adapter = ResetOnceAdapter()
+    monkeypatch.setattr(homelab_runtime, "build_truenas_adapter", lambda: adapter)
+    monkeypatch.setattr(homelab_runtime.time, "sleep", lambda _seconds: None)
+
+    snapshot = homelab_runtime.observe_truenas_runtime()
+
+    assert adapter.calls == 2
+    assert snapshot.reachable is True
+    assert snapshot.apps[0].app_id == "n8n"
+
+
+def test_runtime_does_not_hide_persistent_connection_reset(monkeypatch) -> None:
+    class ResetAdapter:
+        calls = 0
+
+        def list_apps(self):
+            self.calls += 1
+            raise ConnectionResetError(104, "Connection reset by peer")
+
+    adapter = ResetAdapter()
+    monkeypatch.setattr(homelab_runtime, "build_truenas_adapter", lambda: adapter)
+    monkeypatch.setattr(homelab_runtime.time, "sleep", lambda _seconds: None)
+
+    snapshot = homelab_runtime.observe_truenas_runtime()
+
+    assert adapter.calls == 2
+    assert snapshot.reachable is False
+    assert "Connection reset by peer" in str(snapshot.error)
+
+
 def test_runtime_cache_reuses_one_observation(monkeypatch) -> None:
     homelab_runtime._reset_runtime_cache()
     calls = 0

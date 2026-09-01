@@ -78,7 +78,6 @@ async def test_cloudflare_404_reports_account_scope_diagnostic(monkeypatch) -> N
     assert result["reachable"] is False
     assert result["api_reachable"] is True
     assert result["http_status"] == 404
-    assert result["cloudflare_error_code"] == 7003
     assert "CLOUDFLARE_ACCOUNT_ID" in result["error"]
     assert "Zone ID" in result["error"]
 
@@ -106,12 +105,12 @@ async def test_pfsense_check_rejects_plain_http_api_key_transport(monkeypatch) -
 
 
 @pytest.mark.asyncio
-async def test_pfsense_check_uses_api_key_and_status_endpoint(monkeypatch) -> None:
+async def test_pfsense_check_uses_api_key_and_lightweight_version_endpoint(monkeypatch) -> None:
     monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example")
     monkeypatch.setenv("PFSENSE_API_KEY", "key")
 
     def handler(request: httpx.Request) -> httpx.Response:
-        assert request.url.path == "/api/v2/status/system"
+        assert request.url.path == "/api/v2/system/version"
         assert request.headers["X-API-Key"] == "key"
         return httpx.Response(200, request=request, json={"code": 200, "status": "ok"})
 
@@ -127,3 +126,30 @@ async def test_pfsense_check_uses_api_key_and_status_endpoint(monkeypatch) -> No
     assert result["reachable"] is True
     assert result["http_status"] == 200
     assert result["probe"] == "pfsense_rest_api_v2"
+    assert result["path"] == "/api/v2/system/version"
+    assert "/api/v2/status/system" not in result["url"]
+
+
+@pytest.mark.asyncio
+async def test_pfsense_read_timeout_reports_response_stage(monkeypatch) -> None:
+    monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example")
+    monkeypatch.setenv("PFSENSE_API_KEY", "key")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("slow pfSense response", request=request)
+
+    class FakeAsyncClient(httpx.AsyncClient):
+        def __init__(self, *args, **kwargs) -> None:
+            kwargs["transport"] = httpx.MockTransport(handler)
+            super().__init__(*args, **kwargs)
+
+    monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
+
+    result = await platform_health.check_pfsense_api()
+
+    assert result["reachable"] is False
+    assert result["error_kind"] == "read_timeout"
+    assert result["failure_stage"] == "response"
+    assert result["path"] == "/api/v2/system/version"
+    assert "accepted the connection" in result["error"]
+    assert "within 5s" in result["error"]

@@ -1,3 +1,4 @@
+import { fetchHomelabHealth } from "./api-homelab-health.js";
 import { escapeText } from "./api-health-ui.js";
 
 function stageClass(stage) {
@@ -76,14 +77,7 @@ function render(data) {
 }
 
 export function loadTrueNas() {
-  fetch("/api/homelab/health", {
-    cache: "no-store",
-    headers: { Accept: "application/json", "Cache-Control": "no-cache" },
-  })
-    .then((response) => {
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return response.json();
-    })
+  fetchHomelabHealth()
     .then(render)
     .catch((err) => {
       const state = document.getElementById("truenas-platform-state");
