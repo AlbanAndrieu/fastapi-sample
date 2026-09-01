@@ -1,27 +1,72 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Canonical agent/human quality gate. Keep this file byte-for-byte identical
-# across Nabla repositories so local publication policy cannot drift by project.
+# Canonical agent/human quality gate. Keep behavior aligned across Nabla
+# repositories so local publication policy cannot drift by project.
 
-ROOT="$(git rev-parse --show-toplevel)"
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
+  echo "❌ quality-gate.sh must run inside a Git working tree."
+  exit 2
+}
 cd "${ROOT}"
 
-if ! command -v pre-commit >/dev/null 2>&1; then
-  echo "❌ pre-commit is required. Run 'mise run hooks' first."
-  exit 1
+PRE_COMMIT_CMD=()
+if [[ -x "${ROOT}/.venv/bin/pre-commit" ]]; then
+  PRE_COMMIT_CMD=("${ROOT}/.venv/bin/pre-commit")
+elif command -v pre-commit >/dev/null 2>&1; then
+  PRE_COMMIT_CMD=(pre-commit)
+elif command -v uv >/dev/null 2>&1 && uv run --no-sync pre-commit --version >/dev/null 2>&1; then
+  PRE_COMMIT_CMD=(uv run --no-sync pre-commit)
+else
+  echo "❌ pre-commit is required in the project environment or PATH."
+  echo "   Run 'mise run hooks' after syncing the development environment."
+  exit 2
 fi
 
+verified_commit_ref() {
+  git rev-parse --verify --quiet "${1}^{commit}" >/dev/null 2>&1
+}
+
+closest_remote_default_ref() {
+  local candidate distance best_ref="" best_distance=""
+  for candidate in origin/master origin/main; do
+    if ! verified_commit_ref "${candidate}"; then
+      continue
+    fi
+    distance="$(git rev-list --count "${candidate}...HEAD")"
+    if [[ -z "${best_distance}" || "${distance}" -lt "${best_distance}" ]]; then
+      best_ref="${candidate}"
+      best_distance="${distance}"
+    fi
+  done
+  if [[ -n "${best_ref}" ]]; then
+    printf '%s\n' "${best_ref}"
+  fi
+  return 0
+}
+
 resolve_base_ref() {
-  if [[ -n "${QUALITY_BASE_REF:-}" ]]; then
-    printf '%s\n' "${QUALITY_BASE_REF}"
-  elif git symbolic-ref --quiet refs/remotes/origin/HEAD >/dev/null 2>&1; then
-    git symbolic-ref --quiet --short refs/remotes/origin/HEAD
-  elif git rev-parse --verify origin/main >/dev/null 2>&1; then
-    printf '%s\n' "origin/main"
-  elif git rev-parse --verify origin/master >/dev/null 2>&1; then
-    printf '%s\n' "origin/master"
-  elif git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+  local configured origin_head candidate
+  configured="${QUALITY_BASE_REF:-}"
+  if [[ -n "${configured}" ]]; then
+    if ! verified_commit_ref "${configured}"; then
+      echo "❌ QUALITY_BASE_REF does not resolve to a commit: ${configured}" >&2
+      return 2
+    fi
+    printf '%s\n' "${configured}"
+    return
+  fi
+
+  if origin_head="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null)" \
+    && verified_commit_ref "${origin_head}"; then
+    printf '%s\n' "${origin_head}"
+    return
+  fi
+
+  candidate="$(closest_remote_default_ref)"
+  if [[ -n "${candidate}" ]]; then
+    printf '%s\n' "${candidate}"
+  elif verified_commit_ref HEAD~1; then
     printf '%s\n' "HEAD~1"
   else
     printf '%s\n' "HEAD"
@@ -29,6 +74,7 @@ resolve_base_ref() {
 }
 
 BASE_REF="$(resolve_base_ref)"
+echo "📐 Comparing changed files against ${BASE_REF}."
 
 mapfile -t CHANGED_FILES < <(
   {
@@ -45,7 +91,7 @@ mapfile -t CHANGED_FILES < <(
 
 if ((${#CHANGED_FILES[@]} > 0)); then
   echo "🔧 Running repository formatters and linters on changed files..."
-  if ! pre-commit run \
+  if ! "${PRE_COMMIT_CMD[@]}" run \
     --hook-stage pre-commit \
     --files "${CHANGED_FILES[@]}" \
     --show-diff-on-failure; then
