@@ -31,10 +31,47 @@
 .truenas-platform-state--neutral { color: #aaa; }
 
 .truenas-platform-target {
-  margin: 0.25rem 0 0.9rem;
+  margin: 0.25rem 0 0.65rem;
   color: #9ca3af;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.72rem;
+}
+
+.truenas-security-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 0.9rem;
+}
+
+.truenas-security-filters-title {
+  color: #9ca3af;
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.truenas-filter {
+  padding: 0.2rem 0.45rem;
+  border: 1px solid #3a3a3a;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  line-height: 1.35;
+}
+
+.truenas-filter--possible {
+  color: #ffd966;
+  border-color: rgba(255, 200, 50, 0.4);
+}
+
+.truenas-filter--stopped {
+  color: #9ca3af;
+  border-color: #3a3a3a;
+}
+
+.truenas-filter--unknown {
+  color: #777;
+  border-style: dashed;
 }
 
 .truenas-pipeline {
@@ -80,4 +117,5 @@
 @media (max-width: 700px) {
   .truenas-platform-heading { flex-direction: column; }
   .truenas-platform-state { align-self: flex-start; }
+  .truenas-security-filters { align-items: flex-start; }
 }
