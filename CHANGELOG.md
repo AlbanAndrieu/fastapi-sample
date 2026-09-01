@@ -1,3 +1,10 @@
+## [1.4.12](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.4.11...1.4.12) (2026-09-01)
+
+
+### Bug Fixes
+
+* **ci:** align pfSense roadmap indentation ([#159](https://github.com/AlbanAndrieu/fastapi-sample/issues/159)) ([fd3ee28](https://github.com/AlbanAndrieu/fastapi-sample/commit/fd3ee28b2222e536b35ffa54d84c512fcaa80346))
+
 ## [1.4.11](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.4.10...1.4.11) (2026-09-01)
 
 
