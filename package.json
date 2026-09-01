@@ -80,7 +80,7 @@
     "conventional-changelog-gitmoji-config": "^1.5.2",
     "cz-conventional-changelog": "^3.0.1",
     "cz-emoji-conventional": "^1.0.1",
-    "eslint": "^9.36.0",
+    "eslint": "^10.9.1",
     "eslint-formatter-gitlab": "^7.2.0",
     "globals": "^17.7.0",
     "jest": "^27.3.1",
