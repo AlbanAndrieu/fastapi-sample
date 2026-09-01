@@ -32,6 +32,16 @@ function renderConnector(left, right) {
   return `<div class="truenas-connector${broken ? " truenas-connector--broken" : ""}" aria-hidden="true"></div>`;
 }
 
+function targetText(truenas) {
+  const diagnostics = truenas?.diagnostics;
+  const configuredTarget = diagnostics?.target || truenas?.public?.url || "TrueNAS";
+  const wan = diagnostics?.wan;
+  if (!wan?.ipv4) return configuredTarget;
+  const provider = wan?.provider ? ` · ${wan.provider}` : "";
+  const addressKind = wan?.static ? " static IPv4" : " IPv4";
+  return `${configuredTarget} · WAN ${wan.ipv4}${provider}${addressKind}`;
+}
+
 function render(data) {
   const truenas = data?.truenas;
   const stages = truenas?.diagnostics?.stages;
@@ -43,7 +53,7 @@ function render(data) {
 
   error.hidden = true;
   error.textContent = "";
-  target.textContent = truenas?.diagnostics?.target || truenas?.public?.url || "TrueNAS";
+  target.textContent = targetText(truenas);
 
   if (!Array.isArray(stages) || stages.length === 0) {
     pipeline.innerHTML = "";
