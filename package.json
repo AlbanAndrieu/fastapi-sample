@@ -95,7 +95,7 @@
     "semantic-release-replace-plugin": "^1.2.7",
     "simple-git-hooks": "^2.13.1",
     "typescript": "^5.9.2",
-    "typescript-eslint": "^8.46.1"
+    "typescript-eslint": "^8.68.0"
   },
   "scripts": {
     "prettier": "prettier --check --ignore-unknown \"**/*.*\"",
