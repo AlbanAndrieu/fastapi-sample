@@ -1,4 +1,9 @@
 import {
+  dependencyDetailText,
+  dependencyHealthClass,
+  mergeHomelabEvidence,
+} from "./api-health-dependency.js";
+import {
   escapeText,
   httpStatusIsSuccess2xx,
   lockHtml,
@@ -77,6 +82,8 @@ function isExpectedSentryDebugFailure(key, check) {
 function classify(key, check) {
   if (check.skipped === true) return "yellow";
   if (isExpectedSentryDebugFailure(key, check)) return "green";
+  const dependencyClass = dependencyHealthClass(check);
+  if (dependencyClass) return dependencyClass;
   if (check.reachable === true) {
     if (key === "truenas_api") return "green";
     if (!httpStatusIsSuccess2xx(check.http_status)) return "blue";
@@ -89,10 +96,11 @@ function classify(key, check) {
 function mandatoryFailed(key, check) {
   if (!MANDATORY.has(key)) return false;
   if (check.skipped === true) return false;
+  if (check.effective_state) return check.effective_state === "fail";
   return check.reachable === false;
 }
 
-function detailText(key, check) {
+function baseDetailText(key, check) {
   if (check.skipped) return check.reason || "Not configured (intentionally disabled).";
   if (isExpectedSentryDebugFailure(key, check)) {
     return "HTTP 500 · Expected: the test error was intentionally triggered and captured by Sentry.";
@@ -113,6 +121,11 @@ function detailText(key, check) {
   }
   if (check.error) return check.error;
   return "Unreachable.";
+}
+
+function detailText(key, check) {
+  const details = [baseDetailText(key, check), dependencyDetailText(check)].filter(Boolean);
+  return details.join(" · ");
 }
 
 function sortKeys(keys) {
@@ -187,7 +200,7 @@ function computeOverall(data) {
   if (anyYellow) {
     return {
       cls: "yellow",
-      text: "Core dependencies OK. Yellow = env not set (disabled on purpose) or minor /health note.",
+      text: "Core dependencies OK. Yellow = degraded dependency, env not set, or a minor health note.",
     };
   }
   return { cls: "green", text: "All probed services are reachable." };
@@ -237,7 +250,7 @@ function render(data) {
       '<div class="health-row-main">' +
       `<div class="health-row-primary health-row-primary--${cls}">` +
       healthRowTitleHtml(check, key) +
-      `<div class="health-row-detail">${detailText(key, check)}</div></div>` +
+      `<div class="health-row-detail">${escapeText(detailText(key, check))}</div></div>` +
       `<div class="health-row-tags">${tier}</div>` +
       "</div>";
     listEl.appendChild(item);
@@ -260,8 +273,8 @@ function showFetchError(message) {
   errEl.textContent = message;
 }
 
-export function loadHealth() {
-  fetch("/healthz", {
+function fetchJson(path, { required = true } = {}) {
+  return fetch(path, {
     cache: "no-store",
     headers: { Accept: "application/json", "Cache-Control": "no-cache" },
   })
@@ -269,7 +282,20 @@ export function loadHealth() {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return response.json();
     })
-    .then(render)
+    .catch((error) => {
+      if (required) throw error;
+      return null;
+    });
+}
+
+export function loadHealth() {
+  fetchJson("/healthz")
+    .then((data) => {
+      render(data);
+      return fetchJson("/api/homelab/health", { required: false }).then((homelab) => {
+        if (homelab) render(mergeHomelabEvidence(data, homelab));
+      });
+    })
     .catch((error) => {
       showFetchError(String(error.message || error));
     });

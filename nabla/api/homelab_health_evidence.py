@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+from datetime import datetime, timezone
 from typing import Any, Iterable
 from urllib.parse import urlsplit
 
@@ -55,6 +56,20 @@ def _normalized_url(url: str | None) -> str | None:
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         return None
     return url.rstrip("/") + "/"
+
+
+def _observation_age_seconds(observed_at: str | None) -> int | None:
+    """Return a bounded non-negative wall-clock age for ISO-8601 evidence."""
+    if not observed_at:
+        return None
+    try:
+        observed = datetime.fromisoformat(observed_at.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if observed.tzinfo is None:
+        observed = observed.replace(tzinfo=timezone.utc)
+    age = (datetime.now(timezone.utc) - observed.astimezone(timezone.utc)).total_seconds()
+    return max(0, int(age))
 
 
 def _runtime_app_for_service(
@@ -155,6 +170,32 @@ def _reconciled_state(
     return "unknown"
 
 
+def _observation_freshness(
+    *,
+    checked_at: str | None,
+    direct_result: dict[str, Any] | None,
+    internal_result: dict[str, Any] | None,
+    runtime: TrueNASRuntimeSnapshot | None,
+    app: ObservedApp | None,
+    tunnel_evidence: dict[str, str | None] | None,
+) -> tuple[str | None, int | None, bool]:
+    """Describe the observation that supports the reconciled service state."""
+    has_fresh_probe = (
+        direct_result is not None
+        or internal_result is not None
+        or tunnel_evidence is not None
+    )
+    if has_fresh_probe:
+        return checked_at, _observation_age_seconds(checked_at), False
+    if runtime is not None and app is not None:
+        return (
+            runtime.observed_at,
+            _observation_age_seconds(runtime.observed_at),
+            runtime.stale,
+        )
+    return None, None, False
+
+
 def build_reconciled_service_health(
     services: list[HomelabService],
     *,
@@ -162,6 +203,7 @@ def build_reconciled_service_health(
     internal_results: list[dict[str, Any]],
     runtime: TrueNASRuntimeSnapshot | None,
     tunnels: Iterable[CloudflareTunnelObservation],
+    checked_at: str | None = None,
 ) -> list[dict[str, Any]]:
     """Return one endpoint-health row per catalog service with multi-source evidence."""
     direct_by_url = {
@@ -216,6 +258,16 @@ def build_reconciled_service_health(
                 external=service.external,
             )
         )
+        observed_at, observation_age_seconds, observation_stale = (
+            _observation_freshness(
+                checked_at=checked_at,
+                direct_result=direct_result,
+                internal_result=internal_result,
+                runtime=runtime,
+                app=app,
+                tunnel_evidence=tunnel_evidence,
+            )
+        )
 
         row: dict[str, Any] = {
             "id": service.service_id,
@@ -231,6 +283,9 @@ def build_reconciled_service_health(
             "runtime_state": app.state if app is not None else None,
             "runtime_app": app.app_id if app is not None else None,
             "runtime_reachable": runtime.reachable if runtime is not None else None,
+            "observed_at": observed_at,
+            "observation_age_seconds": observation_age_seconds,
+            "observation_stale": observation_stale,
         }
 
         if direct_result is not None:
@@ -287,12 +342,14 @@ async def reconcile_homelab_health_payload(payload: dict[str, Any]) -> dict[str,
         for row in payload.get("internal_services", [])
         if isinstance(row, dict)
     ]
+    checked_at = str(payload.get("checked_at") or "").strip() or None
     reconciled = build_reconciled_service_health(
         services,
         public_results=public_results,
         internal_results=internal_results,
         runtime=runtime,
         tunnels=tunnels,
+        checked_at=checked_at,
     )
     dependency_aware = propagate_required_dependency_health(reconciled, topology)
 

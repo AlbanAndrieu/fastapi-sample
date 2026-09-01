@@ -70,10 +70,68 @@ def _required_relations(
     return dict(required)
 
 
+def _reachable(start: str, graph: dict[str, set[str]]) -> set[str]:
+    """Return nodes reachable from ``start`` without recursive traversal."""
+    seen: set[str] = set()
+    pending = [start]
+    while pending:
+        node = pending.pop()
+        if node in seen:
+            continue
+        seen.add(node)
+        pending.extend(graph.get(node, set()) - seen)
+    return seen
+
+
+def _required_dependency_cycles(
+    required: dict[str, list[HomelabTopologyRelation]],
+) -> dict[str, list[str]]:
+    """Map nodes in required-edge strongly connected components to cycle members."""
+    nodes = set(required)
+    for relations in required.values():
+        nodes.update(relation.target for relation in relations)
+
+    graph = {node: set() for node in nodes}
+    reverse = {node: set() for node in nodes}
+    for source, relations in required.items():
+        for relation in relations:
+            graph[source].add(relation.target)
+            reverse[relation.target].add(source)
+
+    cycles: dict[str, list[str]] = {}
+    remaining = set(nodes)
+    while remaining:
+        start = min(remaining)
+        component = _reachable(start, graph) & _reachable(start, reverse)
+        remaining.difference_update(component)
+        if len(component) <= 1:
+            continue
+        members = sorted(component)
+        for member in component:
+            cycles[member] = members
+    return cycles
+
+
+def _dependency_target_state(
+    target: str,
+    *,
+    effective_states: dict[str, HealthState],
+    rows_by_id: dict[str, dict[str, Any]],
+) -> HealthState:
+    """Treat stale non-failing evidence as unknown for required dependencies."""
+    state = effective_states.get(target, "unknown")
+    target_row = rows_by_id.get(target)
+    if state != "fail" and target_row is not None and target_row.get("observation_stale"):
+        return "unknown"
+    return state
+
+
 def _dependency_evidence(
     relation: HomelabTopologyRelation,
     *,
     target_state: HealthState,
+    target_effective_state: HealthState,
+    target_row: dict[str, Any] | None,
     node_names: dict[str, str],
 ) -> dict[str, Any]:
     evidence: dict[str, Any] = {
@@ -81,8 +139,18 @@ def _dependency_evidence(
         "target_name": node_names.get(relation.target, relation.target),
         "relation_type": relation.type.value,
         "target_state": target_state,
+        "target_effective_state": target_effective_state,
         "evidence": list(relation.evidence),
     }
+    if target_row is not None:
+        freshness_fields = {
+            "observed_at": "target_observed_at",
+            "observation_age_seconds": "target_observation_age_seconds",
+            "observation_stale": "target_observation_stale",
+        }
+        for source_key, evidence_key in freshness_fields.items():
+            if source_key in target_row:
+                evidence[evidence_key] = target_row[source_key]
     if relation.description:
         evidence["description"] = relation.description
     return evidence
@@ -105,6 +173,7 @@ def propagate_required_dependency_health(
         if isinstance(row.get("id"), str) and row.get("id")
     }
     required = _required_relations(topology)
+    cycles = _required_dependency_cycles(required)
     node_names = {node.id: node.name for node in topology.nodes}
     local_states = {
         service_id: _health_state(row.get("state"))
@@ -112,16 +181,19 @@ def propagate_required_dependency_health(
     }
     effective_states = dict(local_states)
 
-    # Resolve dependency chains to a fixed point. The state space only moves from
-    # local/ok toward warn when required targets degrade, so this is bounded even
-    # when the declared topology contains a cycle.
+    # Resolve dependency chains to a fixed point. Required cycles are handled by
+    # bounded iteration and surfaced separately through ``dependency_cycle``.
     for _ in range(max(1, len(rows_by_id) + 1)):
         changed = False
         next_states = dict(effective_states)
         for service_id, local_state in local_states.items():
             relations = required.get(service_id, [])
             target_states = [
-                effective_states.get(relation.target, "unknown")
+                _dependency_target_state(
+                    relation.target,
+                    effective_states=effective_states,
+                    rows_by_id=rows_by_id,
+                )
                 for relation in relations
             ]
             resolved = _effective_state(
@@ -140,8 +212,16 @@ def propagate_required_dependency_health(
         service_id = str(row.get("id") or "")
         local_state = _health_state(row.get("state"))
         relations = required.get(service_id, [])
-        target_states = [
+        target_effective_states = [
             effective_states.get(relation.target, "unknown") for relation in relations
+        ]
+        target_states = [
+            _dependency_target_state(
+                relation.target,
+                effective_states=effective_states,
+                rows_by_id=rows_by_id,
+            )
+            for relation in relations
         ]
         dependency_state = _dependency_state(target_states)
         effective_state = effective_states.get(
@@ -162,15 +242,19 @@ def propagate_required_dependency_health(
                 "effective_state": effective_state,
                 "required_dependencies": [relation.target for relation in relations],
                 "blocked_by": blocked_by,
+                "dependency_cycle": cycles.get(service_id, []),
                 "dependency_evidence": [
                     _dependency_evidence(
                         relation,
                         target_state=target_state,
+                        target_effective_state=target_effective_state,
+                        target_row=rows_by_id.get(relation.target),
                         node_names=node_names,
                     )
-                    for relation, target_state in zip(
+                    for relation, target_state, target_effective_state in zip(
                         relations,
                         target_states,
+                        target_effective_states,
                         strict=True,
                     )
                 ],

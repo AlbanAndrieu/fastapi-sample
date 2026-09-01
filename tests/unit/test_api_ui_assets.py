@@ -21,6 +21,7 @@ def test_api_page_serves_external_assets() -> None:
     page = client.get("/api")
     bootstrap = client.get("/api/assets/api-health.js")
     health = client.get("/api/assets/api-health-core.js")
+    dependency = client.get("/api/assets/api-health-dependency.js")
     ui = client.get("/api/assets/api-health-ui.js")
     sickz = client.get("/api/assets/api-sickz.js")
     sickz_policy = client.get("/api/assets/api-sickz-policy.js")
@@ -43,13 +44,14 @@ def test_api_page_serves_external_assets() -> None:
     assert open_graph.headers["content-type"] == "image/png"
     assert unpack(">II", open_graph.content[16:24]) == (1200, 630)
 
-    for asset in (bootstrap, health, ui, sickz, sickz_policy, sickz_ports):
+    for asset in (bootstrap, health, dependency, ui, sickz, sickz_policy, sickz_ports):
         assert asset.status_code == 200
         assert "javascript" in asset.headers["content-type"]
 
     assert 'from "./api-health-core.js"' in bootstrap.text
     assert 'from "./api-sickz.js"' in bootstrap.text
     assert 'from "./api-sickz-port-labels.js"' in bootstrap.text
+    assert 'from "./api-health-dependency.js"' in health.text
     assert 'from "./api-health-ui.js"' in health.text
     assert 'from "./api-health-ui.js"' in sickz.text
     assert 'from "./api-sickz-policy.js"' in sickz.text
@@ -129,6 +131,25 @@ def test_refresh_event_is_logged_and_health_responses_are_not_cached() -> None:
     assert 'cache: "no-store"' in health
 
 
+def test_health_board_explains_dependency_propagation() -> None:
+    health = (_ASSET_DIR / "api-health-core.js").read_text(encoding="utf-8")
+    dependency = (_ASSET_DIR / "api-health-dependency.js").read_text(encoding="utf-8")
+
+    enrichment = 'fetchJson("/api/homelab/health", { required: false })'
+    assert enrichment in health
+    assert health.index("render(data);") < health.index(enrichment)
+    assert "const dependencyClass = dependencyHealthClass(check);" in health
+    assert 'parts.push("RUNNING but degraded")' in dependency
+    assert 'parts.push(`blocked by ${blocked.join(", ")}`)' in dependency
+    assert 'parts.push(`evidence: ${sources.join(" + ")}`)' in dependency
+    assert 'parts.push(Number.isFinite(age) ? `stale evidence (${Math.round(age)}s old)`' in dependency
+    assert 'parts.push(`dependency cycle: ${cycle.join(" ↔ ")}`)' in dependency
+    assert '"local_state"' in dependency
+    assert '"effective_state"' in dependency
+    assert "indexes.byHost.has(host)" in dependency
+    assert "indexes.byName.has(name)" in dependency
+
+
 def test_sickz_tls_unknown_state_is_neutral() -> None:
     script = (_ASSET_DIR / "api-health-ui.js").read_text(encoding="utf-8")
     lock_start = script.index("export function lockHtml")
@@ -144,6 +165,7 @@ def test_sickz_tls_unknown_state_is_neutral() -> None:
 def test_health_assets_stay_within_refactoring_thresholds() -> None:
     bootstrap = (_ASSET_DIR / "api-health.js").read_text(encoding="utf-8")
     health = (_ASSET_DIR / "api-health-core.js").read_text(encoding="utf-8")
+    dependency = (_ASSET_DIR / "api-health-dependency.js").read_text(encoding="utf-8")
     ui = (_ASSET_DIR / "api-health-ui.js").read_text(encoding="utf-8")
     sickz = (_ASSET_DIR / "api-sickz.js").read_text(encoding="utf-8")
     sickz_policy = (_ASSET_DIR / "api-sickz-policy.js").read_text(encoding="utf-8")
@@ -151,6 +173,7 @@ def test_health_assets_stay_within_refactoring_thresholds() -> None:
 
     assert len(bootstrap.splitlines()) < 60
     assert len(health.splitlines()) < 400
+    assert len(dependency.splitlines()) < 250
     assert len(ui.splitlines()) < 250
     assert len(sickz.splitlines()) < 400
     assert len(sickz_policy.splitlines()) < 100
