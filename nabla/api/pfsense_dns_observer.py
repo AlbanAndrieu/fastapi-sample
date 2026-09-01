@@ -22,6 +22,16 @@ _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 _FALSE_VALUES = frozenset({"0", "false", "no", "off"})
 _RUNNING_STATES = frozenset({"active", "healthy", "running", "started", "up"})
 _STOPPED_STATES = frozenset({"crashed", "down", "error", "failed", "stopped"})
+_SECURITY_SERVICE_MATCHERS = {
+    "snort": ("snort",),
+    "pfblockerng": ("pfblocker", "pfb_filter", "pfb_dnsbl"),
+    "crowdsec": ("crowdsec",),
+}
+_SECURITY_SERVICE_LABELS = {
+    "snort": "Snort",
+    "pfblockerng": "pfBlockerNG",
+    "crowdsec": "CrowdSec",
+}
 
 
 def pfsense_api_configuration_status() -> dict[str, object]:
@@ -93,30 +103,85 @@ def _safe_error(exc: BaseException) -> str:
     return exc.__class__.__name__
 
 
+def _service_identity(row: dict[str, Any]) -> str:
+    return " ".join(
+        str(row.get(key) or "")
+        for key in ("name", "service", "description", "title")
+    ).casefold()
+
+
+def _service_runtime_state(row: dict[str, Any]) -> str:
+    for key in ("running", "active", "enabled"):
+        parsed = _optional_bool(row.get(key))
+        if parsed is not None:
+            return "running" if parsed else "stopped"
+    status = str(row.get("status") or row.get("state") or "").strip().casefold()
+    if status in _RUNNING_STATES:
+        return "running"
+    if status in _STOPPED_STATES:
+        return "stopped"
+    return "unknown"
+
+
 def _service_running(services: object) -> bool | None:
     if not isinstance(services, list):
         return None
     for row in services:
         if not isinstance(row, dict):
             continue
-        identity = " ".join(
-            str(row.get(key) or "")
-            for key in ("name", "service", "description", "title")
-        ).casefold()
+        identity = _service_identity(row)
         if "unbound" not in identity and "dns resolver" not in identity:
             continue
-
-        for key in ("running", "active", "enabled"):
-            parsed = _optional_bool(row.get(key))
-            if parsed is not None:
-                return parsed
-        status = str(row.get("status") or row.get("state") or "").strip().casefold()
-        if status in _RUNNING_STATES:
+        state = _service_runtime_state(row)
+        if state == "running":
             return True
-        if status in _STOPPED_STATES:
+        if state == "stopped":
             return False
         return None
     return None
+
+
+def _security_filter_observations(services: object) -> list[dict[str, str]]:
+    """Project sanitized service-state evidence for ingress filtering layers."""
+    filters: list[dict[str, str]] = [
+        {
+            "id": "firewall",
+            "label": "pfSense firewall",
+            "state": "in_path",
+            "detail": (
+                "PF is on the WAN ingress path; the exact matching rule is not "
+                "attributed by the service-status probe"
+            ),
+        }
+    ]
+    service_rows = [row for row in services if isinstance(row, dict)] if isinstance(services, list) else []
+    for filter_id, matchers in _SECURITY_SERVICE_MATCHERS.items():
+        matches = [
+            row
+            for row in service_rows
+            if any(matcher in _service_identity(row) for matcher in matchers)
+        ]
+        if not matches:
+            state = "not_observed"
+            detail = "Not exposed by /api/v2/status/services"
+        else:
+            states = {_service_runtime_state(row) for row in matches}
+            if "running" in states:
+                state = "running"
+            elif states == {"stopped"}:
+                state = "stopped"
+            else:
+                state = "unknown"
+            detail = f"{len(matches)} service entr{'y' if len(matches) == 1 else 'ies'} observed"
+        filters.append(
+            {
+                "id": filter_id,
+                "label": _SECURITY_SERVICE_LABELS[filter_id],
+                "state": state,
+                "detail": detail,
+            }
+        )
+    return filters
 
 
 def _dns_upstreams(system_dns: object) -> tuple[str, ...]:
@@ -177,7 +242,7 @@ async def observe_pfsense_dns_posture(
     truenas_hosts: frozenset[str] = frozenset(),
     settings: PfSenseDNSSettings | None = None,
 ) -> dict[str, Any]:
-    """Return sanitized pfSense/Unbound DNS policy evidence."""
+    """Return sanitized pfSense/Unbound DNS policy and filtering evidence."""
     configuration = pfsense_api_configuration_status() if settings is None else None
     configured = settings or PfSenseDNSSettings.from_environment()
     if configured is None:
@@ -198,7 +263,7 @@ async def observe_pfsense_dns_posture(
         verify=configured.verify_ssl,
     ) as client:
         paths = {
-            "system": "/api/v2/status/system",
+            "system": "/api/v2/system/version",
             "services": "/api/v2/status/services",
             "resolver": "/api/v2/services/dns_resolver/settings",
             "system_dns": "/api/v2/system/dns",
@@ -276,4 +341,5 @@ async def observe_pfsense_dns_posture(
             "independent_from_truenas": independent,
             "truenas_only": truenas_only,
         },
+        "security_filters": _security_filter_observations(observed["services"]),
     }
