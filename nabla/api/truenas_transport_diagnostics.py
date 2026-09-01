@@ -7,6 +7,7 @@ import os
 import socket
 import ssl
 import time
+from contextlib import suppress
 from datetime import datetime, timezone
 from typing import Any
 
@@ -136,6 +137,7 @@ def _tcp_tls_probe(
     }
 
     context = ssl.create_default_context()
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
     if not verify_ssl:
         context.check_hostname = False
         context.verify_mode = ssl.CERT_NONE
@@ -183,10 +185,8 @@ def _tcp_tls_probe(
     finally:
         for candidate in (tls_socket, raw_socket):
             if candidate is not None:
-                try:
+                with suppress(OSError):
                     candidate.close()
-                except OSError:
-                    pass
 
 
 async def collect_tcp_tls_stages(
