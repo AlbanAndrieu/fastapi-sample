@@ -122,7 +122,7 @@ jobs:
       - name: Upload test results to Trunk.io
         if: ${{ !cancelled() && env.TRUNK_API_TOKEN != '' }}
         continue-on-error: true
-        uses: trunk-io/analytics-uploader@0e6c416c9d47c105654657984e5e4f0506dd84aa # v1
+        uses: trunk-io/analytics-uploader@385f1ccdf345b4532dc4b6c665dd432b702b8e28 # v2.1.2
         with:
           junit-paths: "**/junit.xml"
           org-slug: alban
