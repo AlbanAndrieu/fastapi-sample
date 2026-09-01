@@ -31,6 +31,25 @@ During the 2026-09-02 incident, a synchronized WAN capture showed requests from 
 
 Treat this as **observed egress**, not as a permanent FastAPI Cloud allowlist contract. Do not assume that another deployment, replica, region, or platform change will keep the same address. In particular, do not broadly allowlist the surrounding AWS range solely to make the health probe work.
 
+### Identify an observed source address
+
+Use several independent signals rather than a geolocation label alone:
+
+1. RDAP/WHOIS identifies the registered network owner and allocation.
+2. BGP/ASN lookup identifies the network currently originating the prefix.
+3. Reverse DNS can provide a useful hostname hint, but absence of PTR data is normal and a PTR is not proof of workload identity.
+4. For a known cloud owner, compare the address with that provider's published IP-prefix data to identify a service/region when the provider publishes such metadata.
+5. Correlate the address with a synchronized application request and pfSense state/capture before concluding that it is the current FastAPI Cloud egress.
+
+Useful shell examples are:
+
+```sh
+whois 52.1.10.241
+host 52.1.10.241
+```
+
+A future FastAPI Sample diagnostic may expose its **currently observed outbound public IP** using a bounded, cached external echo request and then enrich that value with RDAP/ASN information. Such telemetry must remain informational: it must never automatically rewrite firewall aliases or assume the observed address is a stable FastAPI Cloud contract.
+
 A WAN capture for one refresh can be restricted to the observed source:
 
 ```sh
@@ -65,7 +84,18 @@ When `TRUENAS_API_VERIFY_SSL=true` and the handshake succeeds, the TLS stage exp
 - certificate expiration timestamp and remaining days;
 - whether certificate and hostname verification were enabled.
 
-The public certificate observed on 2026-09-01 was `CN=*.albandrieu.com`, issued by Let's Encrypt `YR2`, matched `truenas.albandrieu.com`, and verified successfully. Keep `TRUENAS_API_VERIFY_SSL=true` for this public HAProxy endpoint.
+The public certificate observed on 2026-09-01 was `CN=*.albandrieu.com`, issued by Let's Encrypt `YR2`, matched `truenas.albandrieu.com`, and verified successfully. Keep `TRUENAS_API_VERIFY_SSL=true` for this public HAProxy endpoint. The diagnostic TLS context requires TLS 1.2 or newer.
+
+## Ingress filtering telemetry
+
+The FastAPI operations UI should distinguish **possible filtering layers** from proven block attribution. The sanitized pfSense observer reuses `/api/v2/status/services` to expose service-state evidence for:
+
+- pfSense/PF firewall: always shown as `in_path`; the exact matching PF rule is not inferred from service state;
+- Snort: `running`, `stopped`, `unknown`, or `not_observed`;
+- pfBlockerNG: `running`, `stopped`, `unknown`, or `not_observed` when a corresponding service is exposed;
+- CrowdSec: `running`, `stopped`, `unknown`, or `not_observed`.
+
+A `running` badge means only that the service was observed running. It does **not** prove that the layer blocked the FastAPI Cloud request. Attribution requires specific evidence such as a `snort2c` match, PF/pfBlocker rule or alias evidence, or a CrowdSec decision.
 
 ## Snort / `snort2c`
 
@@ -77,9 +107,11 @@ Test the currently observed FastAPI Cloud source directly from the pfSense shell
 pfctl -t snort2c -T test 52.1.10.241
 ```
 
-A `1/1 addresses match` result means the address is currently in the table. A `0/1` result after stopping Snort does not prove that the address was absent before the service/table was cleared.
+Do not append punctuation to the address. `52.1.10.241.` contains a trailing dot and is not parsed as the intended IPv4 literal by `pfctl`.
 
-For a confirmed false positive, prefer a Snort **Pass List** containing only the trusted external address/range and assign that list to the relevant Snort interface. Do not rely on a later generic PF pass rule to override a preceding `quick` Snort block.
+A `1/1 addresses match` result means the address is currently in the table. A `0/1` result after stopping or restarting Snort does not prove that the address was absent before the service/table was cleared.
+
+When isolating an intermittent block, enable Snort by itself, trigger one uncached health refresh, then immediately inspect both `snort2c` and the Snort alert/SID that caused the insertion. For a confirmed false positive, prefer a Snort **Pass List** containing only the trusted external address/range and assign that list to the relevant Snort interface. Do not rely on a later generic PF pass rule to override a preceding `quick` Snort block.
 
 ## pfBlockerNG
 
@@ -115,6 +147,8 @@ If stopping pfBlockerNG, Snort, and CrowdSec restores the endpoint, re-enable th
 2. enable CrowdSec and validate;
 3. enable Snort last and validate `snort2c` immediately if the failure returns.
 
+If pfBlockerNG and CrowdSec are currently stopped and the endpoint is healthy, it is also valid to restart **Snort alone first**. That gives the cleanest test of the leading hypothesis. Do not restart all three simultaneously because a returning failure would again be ambiguous.
+
 This avoids masking the actual source of the block with a broad whitelist.
 
 ## Useful pfSense commands
@@ -137,4 +171,10 @@ Show HAProxy CSV header together with only the TrueNAS frontend/backend rows on 
 echo "show stat" | socat stdio /tmp/haproxy.socket | grep -E '^(#|freenas,|freenas_ipvANY,)'
 ```
 
-The header is important because HAProxy's runtime statistics are positional CSV fields. The key health indicators are the frontend `OPEN` state, backend/server `UP`, and a server health check such as `L7OK` with HTTP `200`.
+A concise server-only summary is:
+
+```sh
+echo "show stat" | socat stdio /tmp/haproxy.socket | awk -F',' '$1=="freenas_ipvANY" && $2=="freenas" {print "proxy="$1,"server="$2,"scur="$5,"stot="$8,"status="$18,"check_status="$37,"check_code="$38,"check_duration_ms="$39}'
+```
+
+The 2026-09-02 observation returned `status=UP`, `check_status=L7OK`, `check_code=200`, and a 12 ms check duration against `172.17.0.24:7000`. This is strong evidence that the HAProxy backend-to-TrueNAS path was healthy at that instant. It does not prove that a WAN-side PF/Snort/pfBlocker/CrowdSec policy will accept every future source connection.
