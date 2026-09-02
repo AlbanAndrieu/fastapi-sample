@@ -1,3 +1,10 @@
+# [1.7.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.6.0...1.7.0) (2026-09-02)
+
+
+### Features
+
+* **cache:** share external probe results across replicas ([#171](https://github.com/AlbanAndrieu/fastapi-sample/issues/171)) ([edc66db](https://github.com/AlbanAndrieu/fastapi-sample/commit/edc66db28df5d709bd62bbcf0bbb66e6d5eefa83))
+
 # [1.6.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.7...1.6.0) (2026-09-02)
 
 
