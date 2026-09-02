@@ -8,29 +8,81 @@ signals answer different questions:
 - pfSense API: what firewall, NAT, gateway, interface and service policy is
   configured or currently observed on the firewall?
 
-The API key must belong to a dedicated read-only account. Do not grant write,
-apply, reboot, command-prompt or configuration mutation privileges to the
+The API credentials must belong to dedicated read-only accounts. Do not grant
+write, apply, reboot, command-prompt or configuration mutation privileges to the
 FastAPI observer.
 
-## Probe transport
+## Probe transport and credential split
 
-Canonical variables:
+The Snort block-attribution credential is intentionally narrower than the
+posture credential:
 
 ```text
-PFSENSE_API_URL=https://<trusted-pfsense-endpoint>
-PFSENSE_API_KEY=<read-only-api-key>
+PFSENSE_API_URL=https://<pfSense-security-endpoint>
+PFSENSE_API_KEY=<GET-diagnostics-table-only-key>
 PFSENSE_API_VERIFY_SSL=true
+PFSENSE_SECURITY_PATH_MODE=shared_wan
+
+PFSENSE_POSTURE_API_URL=https://<pfSense-posture-endpoint>  # optional; falls back to PFSENSE_API_URL
+PFSENSE_POSTURE_API_KEY=<broader-read-only-posture-key>
+PFSENSE_POSTURE_API_VERIFY_SSL=true                         # optional
 ```
+
+`PFSENSE_API_KEY` needs exactly the pfSense privilege
+`api-v2-diagnostics-table-get`, whose generated GUI name is
+`REST API - /api/v2/diagnostics/table GET`. It does **not** need the matching
+DELETE privilege. Do not assign `page-all` or `WebCfg - All pages`.
+
+The posture observer needs additional GET privileges for the endpoints it
+actually reads, currently including system version, service status, DNS Resolver
+settings and system DNS. `PFSENSE_POSTURE_API_KEY` exists so those broader read
+permissions do not have to be added to the narrow Snort credential.
+
+For backward compatibility, if `PFSENSE_POSTURE_API_KEY` is absent the posture
+observer falls back to `PFSENSE_API_KEY`. That legacy shared-key mode is not the
+target least-privilege configuration; deployments should migrate to the two-key
+layout above.
 
 Use `PFSENSE_API_VERIFY_SSL=false` only for an explicitly trusted private
 endpoint whose certificate is self-signed or issued by an untrusted internal
-CA. This setting applies to the pfSense API client only.
+CA. This setting applies to the pfSense security API client only. The posture
+client can be overridden independently with `PFSENSE_POSTURE_API_VERIFY_SSL`.
 
-`/sickz` intentionally does not use this setting. Its HTTP reachability phase
-must still detect a host with an invalid certificate as **reachable**, while a
-separate TLS-trust probe reports the certificate problem. A generic
-`SICKZ_ALLOW_INSECURE_CERT` switch is therefore unnecessary and would blur
-reachability with certificate policy.
+### Shared-WAN diagnostic blind spot
+
+A pfSense REST call made from FastAPI Cloud to the public `:10443` listener is
+not an independent control plane when Snort/PF filters that same source on WAN.
+The generated `snort2c` rules block the source bidirectionally, so a source that
+is blocked from `:7000` may also be unable to query `:10443` to discover that it
+is present in `snort2c`.
+
+Set:
+
+```text
+PFSENSE_SECURITY_PATH_MODE=shared_wan
+```
+
+while `PFSENSE_API_URL` traverses the same WAN filter. In this mode a timeout or
+connection failure is exposed as a **self-diagnostic blind spot**, not as proof
+that Snort did or did not block the request.
+
+A genuinely independent implementation must use a path that does not traverse
+the same WAN Snort/PF decision. The preferred future architecture is a small
+homelab-side observer that reads pfSense over LAN and publishes only sanitized
+security evidence through an outbound authenticated channel, for example a
+Cloudflare Tunnel protected by service authentication. Do not expose the raw
+pfSense administration API merely to remove this blind spot.
+
+Only after an independent path is actually deployed should the application be
+configured with:
+
+```text
+PFSENSE_SECURITY_PATH_MODE=out_of_band
+```
+
+`/sickz` intentionally does not use these verification switches. Its HTTP
+reachability phase must still detect a host with an invalid certificate as
+**reachable**, while a separate TLS-trust probe reports the certificate problem.
 
 ## P0/P1 read-only data
 
@@ -53,6 +105,26 @@ availability policy.
 
 Do not mark the whole homelab red solely because an optional service is stopped.
 Map each service to an explicit policy.
+
+### Snort block attribution
+
+Use only:
+
+```text
+GET /api/v2/diagnostics/table?id=snort2c
+```
+
+for direct Snort/PF block attribution. Compare the returned table with the
+FastAPI runtime's bounded/cached observed egress IP. An exact match can be shown
+as a proven Snort/PF block; a service merely being `running` cannot.
+
+The observer never calls:
+
+```text
+DELETE /api/v2/diagnostics/table
+```
+
+and never adds, removes or flushes table entries.
 
 ### Interfaces and gateways
 
@@ -80,10 +152,8 @@ Target assertions include:
 - no broad WAN `pass tcp any -> any` / Easy Rule;
 - pfSense admin `10443/tcp` is not permitted from arbitrary WAN sources;
 - TrueNAS SSH `9922/tcp` and firewall SSH `22/tcp` remain externally blocked;
-- TrueNAS/HAProxy `7000/tcp` is permitted only from approved source aliases once
-  the temporary broad Easy Rule is removed;
-- aliases such as `FASTAPI_CLOUD_EGRESS` and `TRUSTED_WORK_EGRESS` exist and are
-  the sources used by the `7000/tcp` rule.
+- TrueNAS/HAProxy `7000/tcp` is permitted only from approved source policy once
+  the temporary broad Easy Rule is removed.
 
 Return only normalized compliance evidence such as rule identifiers,
 descriptions, interface, protocol, source class, destination port and
@@ -99,8 +169,13 @@ direct HAProxy publication is not confused with a port forward. The expected
 TrueNAS architecture is:
 
 ```text
-Internet -> pfSense WAN:7000 -> HAProxy -> TrueNAS 172.17.0.24:7000
+Internet -> pfSense WAN:7000 -> HAProxy -> TLS re-encryption -> TrueNAS 172.17.0.24:7000
 ```
+
+HAProxy runs in HTTP mode for this listener and preserves a valid WebSocket
+upgrade natively; the application must not assume manually injected `Upgrade`
+headers are required. The TrueNAS Platform pipeline therefore displays HAProxy
+before the measured WebSocket upgrade and API authentication stages.
 
 If HAProxy owns WAN:7000, a separate NAT port-forward for the same service is
 unexpected configuration drift.
@@ -163,14 +238,15 @@ Expose a small sanitized posture block rather than the raw pfSense response:
 ```json
 {
   "reachable": true,
-  "elapsed_ms": 142,
   "gateway_state": "online",
   "wan_link_state": "up",
-  "policy": {
-    "broad_wan_pass_rule": false,
-    "pfsense_admin_public": false,
-    "truenas_ssh_public": false,
-    "truenas_7000_source_restricted": true
+  "ingress_block": {
+    "state": "clear",
+    "mechanism": "snort2c",
+    "control_path": {
+      "mode": "shared_wan",
+      "blind_spot": true
+    }
   },
   "dns": {
     "resolver_enabled": true,
@@ -184,14 +260,15 @@ public projections remain redacted.
 
 ## Implementation order
 
-1. Use `/api/v2/system/version` as the cheap liveness probe and instrument its
-  latency/error stage; keep `/api/v2/status/system` out of the synchronous
-  liveness path.
-2. Add interfaces + gateways.
-3. Add firewall rules + aliases and implement the Easy Rule/management-port
+1. Keep the dedicated `snort2c` observer GET-only and separate from posture
+  credentials.
+2. Replace the shared-WAN `:10443` security control path with a sanitized
+  out-of-band observer before treating telemetry failure as authoritative.
+3. Add interfaces + gateways.
+4. Add firewall rules + aliases and implement the Easy Rule/management-port
   policy assertions.
-4. Add NAT checks.
-5. Add DNS resolver policy.
-6. Add VPN/service state only for services intentionally managed by the homelab.
-7. Add bounded log correlation as a troubleshooting feature, not a continuous
+5. Add NAT checks.
+6. Add DNS resolver policy.
+7. Add VPN/service state only for services intentionally managed by the homelab.
+8. Add bounded log correlation as a troubleshooting feature, not a continuous
   public health payload.
