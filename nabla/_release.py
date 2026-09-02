@@ -4,4 +4,4 @@ Do not edit manually: ``.releaserc.yaml`` keeps this value synchronized with
 the Python and npm package manifests.
 """
 
-__version__ = "1.5.1"
+__version__ = "1.5.2"

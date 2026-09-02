@@ -1,3 +1,10 @@
+## [1.5.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.1...1.5.2) (2026-09-02)
+
+
+### Performance Improvements
+
+* **health:** parallelize probes and model trusted pfSense access ([#164](https://github.com/AlbanAndrieu/fastapi-sample/issues/164)) ([f132a19](https://github.com/AlbanAndrieu/fastapi-sample/commit/f132a19c4c580474b13db011cc0e1b9f33ae9306))
+
 ## [1.5.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.0...1.5.1) (2026-09-02)
 
 
