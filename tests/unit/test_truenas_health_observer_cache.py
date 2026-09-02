@@ -2,12 +2,19 @@
 
 import pytest
 
+from nabla.api import external_probe_cache
 from nabla.api import truenas_health_observer as observer
 
 
 def _valid_configuration(monkeypatch) -> None:
     monkeypatch.setattr(observer, "truenas_api_configuration_failure", lambda: None)
     monkeypatch.setattr(observer, "_report_failure_to_sentry", lambda _exc, _signature: None)
+
+
+def _expire_current_value(key: str) -> None:
+    envelope, stored_at = external_probe_cache._l1[key]
+    envelope["current"]["fetched_at"] = 0.0
+    external_probe_cache._l1[key] = (envelope, stored_at)
 
 
 @pytest.mark.asyncio
@@ -36,6 +43,7 @@ async def test_successful_truenas_api_probe_is_reused(monkeypatch) -> None:
     assert first["stale"] is False
     assert second["reachable"] is True
     assert second["cached"] is True
+    assert second["cache_layer"] == "l1"
     assert second["last_success_at"] == first["last_success_at"]
     await observer.reset_truenas_health_cache()
 
@@ -91,7 +99,7 @@ async def test_failed_refresh_keeps_last_good_as_stale_evidence(monkeypatch) -> 
     monkeypatch.setattr(observer, "observe_truenas_api", probe)
 
     healthy = await observer.observe_truenas_health_api()
-    observer._cached_at = -999.0
+    _expire_current_value(observer._CACHE_KEY)
     failed = await observer.observe_truenas_health_api()
 
     assert healthy["reachable"] is True
