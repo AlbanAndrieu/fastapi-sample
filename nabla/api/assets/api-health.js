@@ -7,6 +7,7 @@ import {
   resetHealthBoardRequest,
 } from "./api-health-board.js";
 import { loadHealth } from "./api-health-core.js";
+import { loadRuntimeTopology } from "./api-runtime.js";
 import { installServiceFilter } from "./api-service-groups.js";
 import { loadSickz } from "./api-sickz.js";
 import { installPfsensePortLabels } from "./api-sickz-port-labels.js";
@@ -26,6 +27,7 @@ function logRefreshClick() {
 function loadHealthBoards({ forceRefresh = false } = {}) {
   resetHealthBoardRequest({ forceRefresh });
   markHealthBoardsPending();
+  loadRuntimeTopology();
   const healthRequest = loadHealth();
   loadSickz();
   fetchHealthBoard()

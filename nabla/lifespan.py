@@ -16,6 +16,7 @@ from nabla.api.demo.models import init_db as init_db_sensor_reading
 from nabla.api.demo.models import recent_readings
 from nabla.api.demo.sensor import metrics
 from nabla.api.demo.socket.redis import redis, start_event_listener
+from nabla.api.runtime_topology import runtime_topology_heartbeat
 from nabla.config_settings import get_settings
 from nabla.mcp.client import close_mcp_clients, initialize_mcp_clients
 from nabla.utils.logger import logger
@@ -95,6 +96,11 @@ async def lifespan(app: FastAPI):
                 name="redis-event-listener",
                 tasks=background_tasks,
             )
+            _start_background_task(
+                runtime_topology_heartbeat(redis),
+                name="runtime-topology-heartbeat",
+                tasks=background_tasks,
+            )
 
         logger.info("🚀 Sensor Dashboard started")
         logger.info(f"Initial sensor readings: {len(recent_readings)}")
@@ -103,4 +109,6 @@ async def lifespan(app: FastAPI):
         yield
 
         logger.info("📊 Sensor Dashboard shutting down")
-        logger.info(f"Final metrics - Connections: {metrics.connection_count}, Requests: {metrics.total_requests}")
+        logger.info(
+            f"Final metrics - Connections: {metrics.connection_count}, Requests: {metrics.total_requests}"
+        )

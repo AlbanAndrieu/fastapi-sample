@@ -36,9 +36,23 @@ def test_truenas_platform_displays_proven_snort_pf_block() -> None:
     assert "blocked by Snort/PF" in javascript
 
 
-def test_truenas_platform_displays_shared_wan_diagnostic_blind_spot() -> None:
+def test_truenas_platform_distinguishes_unavailable_and_stale_snort_telemetry() -> None:
     javascript = ASSET.read_text(encoding="utf-8")
 
     assert 'block?.state === "telemetry_unavailable"' in javascript
-    assert "controlPath?.blind_spot === true" in javascript
-    assert "Snort attribution unavailable · self-diagnostic blind spot" in javascript
+    assert "Snort telemetry temporarily unavailable" in javascript
+    assert "Control path:" in javascript
+    assert 'block?.state === "telemetry_stale"' in javascript
+    assert "Snort telemetry stale · last-known-good table retained" in javascript
+    assert "No current clear/blocked verdict is emitted from stale data." in javascript
+
+
+def test_truenas_platform_surfaces_transport_failure_stage() -> None:
+    javascript = ASSET.read_text(encoding="utf-8")
+
+    assert 'api?.stage === "connection_reset"' in javascript
+    assert "API connection reset" in javascript
+    assert 'api?.stage === "tls_handshake_timeout"' in javascript
+    assert "TLS handshake timeout" in javascript
+    assert 'api?.stage === "api_call_timeout"' in javascript
+    assert "API call timeout" in javascript
