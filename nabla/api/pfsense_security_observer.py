@@ -20,6 +20,21 @@ _PFSENSE_TIMEOUT_SEC = 4.0
 _TRUENAS_PUBLIC_PORT = 7000
 
 
+def _security_environment_variables() -> tuple[str, str]:
+    """Prefer the dedicated security identity while retaining legacy compatibility."""
+    url_var = (
+        "PFSENSE_SECURITY_API_URL"
+        if os.getenv("PFSENSE_SECURITY_API_URL", "").strip()
+        else "PFSENSE_API_URL"
+    )
+    key_var = (
+        "PFSENSE_SECURITY_API_KEY"
+        if os.getenv("PFSENSE_SECURITY_API_KEY", "").strip()
+        else "PFSENSE_API_KEY"
+    )
+    return url_var, key_var
+
+
 @dataclass(frozen=True, slots=True)
 class PfSenseSecuritySettings:
     """Dedicated credentials for GET-only security telemetry."""
@@ -31,22 +46,26 @@ class PfSenseSecuritySettings:
 
     @classmethod
     def from_environment(cls) -> PfSenseSecuritySettings | None:
-        """Load the narrow security token without falling back to posture credentials."""
+        """Load the dedicated security token with a temporary legacy fallback."""
+        url_var, key_var = _security_environment_variables()
         status = inspect_environment_credentials(
             "pfsense_security",
-            "PFSENSE_API_URL",
-            "PFSENSE_API_KEY",
-            secret_variables=frozenset({"PFSENSE_API_KEY"}),
+            url_var,
+            key_var,
+            secret_variables=frozenset({key_var}),
         )
         if not status.configured:
             return None
 
         raw_mode = os.getenv("PFSENSE_SECURITY_PATH_MODE", "shared_wan").strip().lower()
         mode = raw_mode if raw_mode in _CONTROL_PATH_MODES else "shared_wan"
-        raw_verify = os.getenv("PFSENSE_API_VERIFY_SSL", "true").strip().lower()
+        raw_verify = os.getenv(
+            "PFSENSE_SECURITY_API_VERIFY_SSL",
+            os.getenv("PFSENSE_API_VERIFY_SSL", "true"),
+        ).strip().lower()
         return cls(
-            base_url=os.getenv("PFSENSE_API_URL", "").strip().rstrip("/"),
-            api_key=os.getenv("PFSENSE_API_KEY", "").strip(),
+            base_url=os.getenv(url_var, "").strip().rstrip("/"),
+            api_key=os.getenv(key_var, "").strip(),
             verify_ssl=raw_verify not in _FALSE_VALUES,
             control_path_mode=cast(ControlPathMode, mode),
         )
@@ -54,14 +73,20 @@ class PfSenseSecuritySettings:
 
 def security_configuration_status() -> dict[str, object]:
     """Return sanitized configuration state for the narrow Snort observer."""
+    url_var, key_var = _security_environment_variables()
     status = inspect_environment_credentials(
         "pfsense_security",
-        "PFSENSE_API_URL",
-        "PFSENSE_API_KEY",
-        secret_variables=frozenset({"PFSENSE_API_KEY"}),
+        url_var,
+        key_var,
+        secret_variables=frozenset({key_var}),
     ).as_dict()
     status["required_privilege"] = "api-v2-diagnostics-table-get"
     status["write_privileges_required"] = False
+    status["credential_mode"] = (
+        "dedicated_security"
+        if key_var == "PFSENSE_SECURITY_API_KEY"
+        else "legacy_shared"
+    )
     return status
 
 
