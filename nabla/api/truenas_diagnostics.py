@@ -93,6 +93,30 @@ def _https_stage(public_result: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+def _haproxy_stage(tls_ok: bool) -> dict[str, Any]:
+    """Describe the declared HAProxy hop without claiming a config API probe."""
+    if not tls_ok:
+        return _stage(
+            "haproxy",
+            "HAProxy WebSocket proxy",
+            "blocked",
+            detail="Blocked before the public HAProxy listener could be validated",
+        )
+    return _stage(
+        "haproxy",
+        "HAProxy WebSocket proxy",
+        "ok",
+        detail=(
+            "HAProxy :7000 · HTTP mode · native WebSocket upgrade forwarding · "
+            "TLS re-encryption to TrueNAS; WebSocket path validated next"
+        ),
+        evidence="declared_topology",
+        proxy_mode="http",
+        websocket_upgrade="native",
+        backend_tls="re-encryption",
+    )
+
+
 async def _websocket_stage(
     websocket_uri: str,
     verify_ssl: bool,
@@ -115,7 +139,7 @@ async def _websocket_stage(
         return (
             _stage(
                 "websocket",
-                "WebSocket tunnel",
+                "WebSocket upgrade",
                 "fail",
                 elapsed_ms=_elapsed_ms(started),
                 detail=_error_text(exc),
@@ -126,10 +150,10 @@ async def _websocket_stage(
     return (
         _stage(
             "websocket",
-            "WebSocket tunnel",
+            "WebSocket upgrade",
             "ok",
             elapsed_ms=_elapsed_ms(started),
-            detail="WebSocket connection established without credentials",
+            detail="WebSocket connection established through HAProxy to TrueNAS without credentials",
         ),
         True,
     )
@@ -251,7 +275,7 @@ async def collect_truenas_network_diagnostics(
     verify_ssl: bool,
     public_result: dict[str, Any],
 ) -> dict[str, Any]:
-    """Measure DNS -> TCP -> TLS -> HTTPS -> WebSocket without credentials."""
+    """Measure DNS -> TCP -> TLS -> HTTPS -> HAProxy -> WebSocket without credentials."""
     stages: list[dict[str, Any]] = []
     dns, dns_ok = await _dns_stage(host)
     stages.append(dns)
@@ -265,6 +289,7 @@ async def collect_truenas_network_diagnostics(
         stages.append(_stage("tls", "TLS handshake", "blocked", detail="Blocked by DNS failure"))
 
     stages.append(_https_stage(public_result))
+    stages.append(_haproxy_stage(tls_ok))
 
     if tls_ok:
         websocket, _ = await _websocket_stage(websocket_uri, verify_ssl)
@@ -273,9 +298,9 @@ async def collect_truenas_network_diagnostics(
         stages.append(
             _stage(
                 "websocket",
-                "WebSocket tunnel",
+                "WebSocket upgrade",
                 "blocked",
-                detail="Blocked by TLS failure",
+                detail="Blocked before HAProxy/WebSocket validation",
             )
         )
 
