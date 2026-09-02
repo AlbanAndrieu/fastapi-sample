@@ -62,6 +62,25 @@ def _pfsense_failure_stage(error_kind: str) -> str:
     return "request"
 
 
+def _pfsense_posture_transport() -> tuple[str, str, bool, str]:
+    """Resolve posture credentials, preferring the dedicated read-only identity."""
+    posture_url = os.getenv("PFSENSE_POSTURE_API_URL", "").strip()
+    posture_key = os.getenv("PFSENSE_POSTURE_API_KEY", "").strip()
+    legacy_url = os.getenv("PFSENSE_API_URL", "").strip()
+    legacy_key = os.getenv("PFSENSE_API_KEY", "").strip()
+
+    dedicated = bool(posture_key)
+    base_url = (posture_url or legacy_url).rstrip("/")
+    api_key = posture_key or legacy_key
+    raw_verify = os.getenv(
+        "PFSENSE_POSTURE_API_VERIFY_SSL",
+        os.getenv("PFSENSE_API_VERIFY_SSL", "true"),
+    )
+    verify_ssl = raw_verify.strip().lower() in _TRUE_VALUES
+    credential_mode = "dedicated_posture" if dedicated else "legacy_shared"
+    return base_url, api_key, verify_ssl, credential_mode
+
+
 def _cloudflare_api_error(response: httpx.Response) -> dict[str, Any]:
     """Return safe Cloudflare error details without exposing credentials or account IDs."""
     result: dict[str, Any] = {
@@ -175,26 +194,27 @@ async def check_cloudflare_tunnels() -> dict[str, Any]:
 
 
 async def check_pfsense_api() -> dict[str, Any]:
-    """Check pfSense REST API liveness with the cheap read-only version endpoint."""
-    base_url = os.getenv("PFSENSE_API_URL", "").strip().rstrip("/")
-    api_key = os.getenv("PFSENSE_API_KEY", "").strip()
+    """Check pfSense REST API liveness with the posture read-only identity."""
+    base_url, api_key, verify_ssl, credential_mode = _pfsense_posture_transport()
     if not base_url or not api_key:
         return {
             "reachable": None,
             "skipped": True,
-            "reason": "PFSENSE_API_URL and PFSENSE_API_KEY are not configured",
+            "reason": (
+                "PFSENSE_POSTURE_API_KEY (or legacy PFSENSE_API_KEY) and a pfSense API URL "
+                "are not configured"
+            ),
             "probe": "pfsense_rest_api_v2",
+            "credential_mode": credential_mode,
         }
     if not base_url.lower().startswith("https://"):
         return {
             "reachable": False,
-            "error": "PFSENSE_API_URL must use HTTPS when API-key authentication is enabled",
+            "error": "pfSense posture API URL must use HTTPS when API-key authentication is enabled",
             "probe": "pfsense_rest_api_v2",
+            "credential_mode": credential_mode,
         }
 
-    verify_ssl = (
-        os.getenv("PFSENSE_API_VERIFY_SSL", "true").strip().lower() in _TRUE_VALUES
-    )
     url = f"{base_url}{_PFSENSE_LIVENESS_PATH}"
     timeout = httpx.Timeout(
         connect=_PFSENSE_CONNECT_TIMEOUT_SEC,
@@ -204,9 +224,11 @@ async def check_pfsense_api() -> dict[str, Any]:
     )
     started = time.monotonic()
     logger.info(
-        "pfSense API liveness probe started url=%s verify_ssl=%s connect_timeout_s=%s read_timeout_s=%s",
+        "pfSense API liveness probe started url=%s verify_ssl=%s credential_mode=%s "
+        "connect_timeout_s=%s read_timeout_s=%s",
         url,
         verify_ssl,
+        credential_mode,
         _PFSENSE_CONNECT_TIMEOUT_SEC,
         _PFSENSE_READ_TIMEOUT_SEC,
     )
@@ -232,10 +254,11 @@ async def check_pfsense_api() -> dict[str, Any]:
                 f"response within {_PFSENSE_READ_TIMEOUT_SEC:.0f}s"
             )
         logger.warning(
-            "pfSense API liveness probe failed url=%s verify_ssl=%s error_kind=%s "
-            "failure_stage=%s exception_type=%s elapsed_ms=%s error=%s",
+            "pfSense API liveness probe failed url=%s verify_ssl=%s credential_mode=%s "
+            "error_kind=%s failure_stage=%s exception_type=%s elapsed_ms=%s error=%s",
             url,
             verify_ssl,
+            credential_mode,
             error_kind,
             failure_stage,
             exception_type,
@@ -253,15 +276,17 @@ async def check_pfsense_api() -> dict[str, Any]:
             "path": _PFSENSE_LIVENESS_PATH,
             "url": url,
             "verify_ssl": verify_ssl,
+            "credential_mode": credential_mode,
         }
 
     elapsed_ms = round((time.monotonic() - started) * 1000)
     healthy = 200 <= response.status_code < 400
     logger.info(
-        "pfSense API liveness probe completed url=%s verify_ssl=%s http_status=%s "
-        "elapsed_ms=%s reachable=%s",
+        "pfSense API liveness probe completed url=%s verify_ssl=%s credential_mode=%s "
+        "http_status=%s elapsed_ms=%s reachable=%s",
         url,
         verify_ssl,
+        credential_mode,
         response.status_code,
         elapsed_ms,
         healthy,
@@ -274,6 +299,7 @@ async def check_pfsense_api() -> dict[str, Any]:
         "path": _PFSENSE_LIVENESS_PATH,
         "url": url,
         "verify_ssl": verify_ssl,
+        "credential_mode": credential_mode,
         "tls_trusted": True
         if verify_ssl and url.lower().startswith("https://")
         else None,

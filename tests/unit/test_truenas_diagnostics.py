@@ -1,6 +1,6 @@
 """Tests for the ordered TrueNAS diagnostic pipeline."""
 
-from nabla.api.truenas_diagnostics import append_truenas_api_stages
+from nabla.api.truenas_diagnostics import append_truenas_api_stages, _haproxy_stage
 
 
 def _network_ok():
@@ -11,9 +11,24 @@ def _network_ok():
             {"id": "socket", "label": "TCP connect", "state": "ok"},
             {"id": "tls", "label": "TLS handshake", "state": "ok"},
             {"id": "https", "label": "HTTPS", "state": "ok"},
-            {"id": "websocket", "label": "WebSocket tunnel", "state": "ok"},
+            {
+                "id": "haproxy",
+                "label": "HAProxy WebSocket proxy",
+                "state": "ok",
+            },
+            {"id": "websocket", "label": "WebSocket upgrade", "state": "ok"},
         ],
     }
+
+
+def test_haproxy_stage_documents_websocket_and_tls_reencryption() -> None:
+    stage = _haproxy_stage(True)
+
+    assert stage["id"] == "haproxy"
+    assert stage["state"] == "ok"
+    assert stage["proxy_mode"] == "http"
+    assert stage["websocket_upgrade"] == "native"
+    assert stage["backend_tls"] == "re-encryption"
 
 
 def test_missing_api_key_marks_auth_failed_and_api_blocked() -> None:
