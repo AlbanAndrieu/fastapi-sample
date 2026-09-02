@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.4.13...1.5.0) (2026-09-02)
+
+
+### Features
+
+* **health:** attribute Snort PF ingress blocks ([#161](https://github.com/AlbanAndrieu/fastapi-sample/issues/161)) ([0f28638](https://github.com/AlbanAndrieu/fastapi-sample/commit/0f286384b2e5d4a322c7e2df1253bca582718749))
+
 ## [1.4.13](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.4.12...1.4.13) (2026-09-01)
 
 
