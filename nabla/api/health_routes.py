@@ -105,6 +105,19 @@ def register_health_routes(app: FastAPI) -> None:
         return await build_homelab_snapshot()
 
     @app.get(
+        "/api/runtime/topology",
+        tags=["Health", "Runtime"],
+        summary="Observed application runtimes and public egress",
+    )
+    async def get_runtime_topology(response: Response) -> dict[str, Any]:
+        """Expose sanitized cross-replica heartbeat and egress evidence."""
+        from nabla.api.demo.socket.redis import redis
+        from nabla.api.runtime_topology import build_runtime_topology_snapshot
+
+        response.headers.update(_NO_STORE_HEADERS)
+        return await build_runtime_topology_snapshot(redis)
+
+    @app.get(
         "/livez",
         tags=["Health"],
         summary="Process liveness without dependency I/O",
