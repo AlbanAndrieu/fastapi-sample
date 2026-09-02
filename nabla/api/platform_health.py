@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime
 import logging
 import os
-import ssl
 import time
 from typing import Any
 
@@ -18,6 +16,12 @@ from nabla.api.external_probe_cache import (
     ProbeCacheResult,
     get_or_refresh_probe,
     reset_probe_cache,
+)
+from nabla.api.platform_health_diagnostics import (
+    http_error_kind as _http_error_kind,
+    pfsense_failure_stage as _pfsense_failure_stage,
+    short_error as _short_error,
+    utc_now as _utc_now,
 )
 
 _CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4"
@@ -40,51 +44,6 @@ _CLOUDFLARE_CACHE_POLICY = ProbeCachePolicy(
     stale_ttl=600.0,
 )
 logger = logging.getLogger(__name__)
-
-
-def _utc_now() -> str:
-    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
-
-
-def _short_error(exc: BaseException) -> str:
-    message = str(exc).strip() or exc.__class__.__name__
-    return message[:240]
-
-
-def _http_error_kind(exc: BaseException) -> str:
-    """Classify transport failures for safe runtime diagnostics."""
-    message = str(exc).casefold()
-    if isinstance(exc, httpx.ConnectTimeout):
-        return "connect_timeout"
-    if isinstance(exc, httpx.ReadTimeout):
-        return "read_timeout"
-    if isinstance(exc, httpx.PoolTimeout):
-        return "pool_timeout"
-    if isinstance(exc, httpx.TimeoutException):
-        return "timeout"
-    if isinstance(exc, httpx.ConnectError):
-        if any(marker in message for marker in ("certificate", "ssl", "tls")):
-            return "tls_error"
-        return "connect_error"
-    if isinstance(exc, ssl.SSLError) or any(
-        marker in message for marker in ("certificate", "ssl", "tls")
-    ):
-        return "tls_error"
-    if isinstance(exc, httpx.HTTPError):
-        return "http_error"
-    if isinstance(exc, OSError):
-        return "os_error"
-    return "unknown_error"
-
-
-def _pfsense_failure_stage(error_kind: str) -> str:
-    if error_kind in {"connect_timeout", "connect_error", "tls_error", "os_error"}:
-        return "connect"
-    if error_kind == "pool_timeout":
-        return "client_pool"
-    if error_kind == "read_timeout":
-        return "response"
-    return "request"
 
 
 def _pfsense_posture_transport() -> tuple[str, str, bool, str]:
@@ -313,7 +272,7 @@ async def check_pfsense_api() -> dict[str, Any]:
             "url": url,
             "verify_ssl": verify_ssl,
             "credential_mode": credential_mode,
-            "tls_trusted": not not verify_ssl,
+            "tls_trusted": False if not verify_ssl else None,
         }
 
     healthy = 200 <= response.status_code < 400
