@@ -1,3 +1,10 @@
+## [1.5.5](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.4...1.5.5) (2026-09-02)
+
+
+### Bug Fixes
+
+* **pfsense:** reconcile source-aware exposure policy ([#167](https://github.com/AlbanAndrieu/fastapi-sample/issues/167)) ([3001e3d](https://github.com/AlbanAndrieu/fastapi-sample/commit/3001e3da7c265341cec1314724fd55255b83e23b))
+
 ## [1.5.4](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.3...1.5.4) (2026-09-02)
 
 
