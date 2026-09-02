@@ -13,15 +13,75 @@ def _settings(mode="shared_wan") -> PfSenseSecuritySettings:
     )
 
 
+def _clear_security_env(monkeypatch) -> None:
+    for name in (
+        "PFSENSE_API_URL",
+        "PFSENSE_API_KEY",
+        "PFSENSE_API_VERIFY_SSL",
+        "PFSENSE_SECURITY_API_URL",
+        "PFSENSE_SECURITY_API_KEY",
+        "PFSENSE_SECURITY_API_VERIFY_SSL",
+        "PFSENSE_SECURITY_PATH_MODE",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+
 def test_security_configuration_documents_exact_get_privilege(monkeypatch) -> None:
+    _clear_security_env(monkeypatch)
     monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example.test:10443")
-    monkeypatch.setenv("PFSENSE_API_KEY", "test-only-security-key")
+    monkeypatch.setenv("PFSENSE_SECURITY_API_KEY", "test-only-security-key")
 
     status = observer.security_configuration_status()
 
     assert status["configured"] is True
     assert status["required_privilege"] == "api-v2-diagnostics-table-get"
     assert status["write_privileges_required"] is False
+    assert status["credential_mode"] == "dedicated_security"
+
+
+def test_security_settings_prefer_dedicated_key_over_legacy(monkeypatch) -> None:
+    _clear_security_env(monkeypatch)
+    monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example.test:10443")
+    monkeypatch.setenv("PFSENSE_API_KEY", "legacy-key")
+    monkeypatch.setenv("PFSENSE_SECURITY_API_KEY", "dedicated-key")
+
+    settings = observer.PfSenseSecuritySettings.from_environment()
+
+    assert settings is not None
+    assert settings.base_url == "https://pfsense.example.test:10443"
+    assert settings.api_key == "dedicated-key"
+    assert settings.verify_ssl is True
+
+
+def test_security_settings_allow_fully_dedicated_transport(monkeypatch) -> None:
+    _clear_security_env(monkeypatch)
+    monkeypatch.setenv(
+        "PFSENSE_SECURITY_API_URL",
+        "https://security-pfsense.example.test:10443",
+    )
+    monkeypatch.setenv("PFSENSE_SECURITY_API_KEY", "dedicated-key")
+    monkeypatch.setenv("PFSENSE_SECURITY_API_VERIFY_SSL", "false")
+
+    settings = observer.PfSenseSecuritySettings.from_environment()
+
+    assert settings is not None
+    assert settings.base_url == "https://security-pfsense.example.test:10443"
+    assert settings.api_key == "dedicated-key"
+    assert settings.verify_ssl is False
+
+
+def test_security_settings_keep_legacy_fallback(monkeypatch) -> None:
+    _clear_security_env(monkeypatch)
+    monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example.test:10443")
+    monkeypatch.setenv("PFSENSE_API_KEY", "legacy-key")
+
+    status = observer.security_configuration_status()
+    settings = observer.PfSenseSecuritySettings.from_environment()
+
+    assert status["configured"] is True
+    assert status["credential_mode"] == "legacy_shared"
+    assert settings is not None
+    assert settings.api_key == "legacy-key"
 
 
 def test_exact_observed_egress_is_attributed_to_snort2c() -> None:

@@ -18,35 +18,52 @@ The Snort block-attribution credential is intentionally narrower than the
 posture credential:
 
 ```text
-PFSENSE_API_URL=https://<pfSense-security-endpoint>
-PFSENSE_API_KEY=<GET-diagnostics-table-only-key>
+PFSENSE_API_URL=https://<pfSense-shared-endpoint>
 PFSENSE_API_VERIFY_SSL=true
+
+PFSENSE_SECURITY_API_KEY=<GET-diagnostics-table-only-key>
+PFSENSE_SECURITY_API_URL=https://<pfSense-security-endpoint>  # optional; falls back to PFSENSE_API_URL
+PFSENSE_SECURITY_API_VERIFY_SSL=true                          # optional
 PFSENSE_SECURITY_PATH_MODE=shared_wan
 
-PFSENSE_POSTURE_API_URL=https://<pfSense-posture-endpoint>  # optional; falls back to PFSENSE_API_URL
 PFSENSE_POSTURE_API_KEY=<broader-read-only-posture-key>
-PFSENSE_POSTURE_API_VERIFY_SSL=true                         # optional
+PFSENSE_POSTURE_API_URL=https://<pfSense-posture-endpoint>    # optional; falls back to PFSENSE_API_URL
+PFSENSE_POSTURE_API_VERIFY_SSL=true                           # optional
 ```
 
-`PFSENSE_API_KEY` needs exactly the pfSense privilege
+`PFSENSE_SECURITY_API_KEY` needs exactly the pfSense privilege
 `api-v2-diagnostics-table-get`, whose generated GUI name is
 `REST API - /api/v2/diagnostics/table GET`. It does **not** need the matching
-DELETE privilege. Do not assign `page-all` or `WebCfg - All pages`.
+DELETE privilege. Do not assign `page-all`, `WebCfg - All pages`, shell access,
+or any write privilege.
 
 The posture observer needs additional GET privileges for the endpoints it
 actually reads, currently including system version, service status, DNS Resolver
 settings and system DNS. `PFSENSE_POSTURE_API_KEY` exists so those broader read
 permissions do not have to be added to the narrow Snort credential.
 
-For backward compatibility, if `PFSENSE_POSTURE_API_KEY` is absent the posture
-observer falls back to `PFSENSE_API_KEY`. That legacy shared-key mode is not the
-target least-privilege configuration; deployments should migrate to the two-key
-layout above.
+Recommended pfSense owners are `fastapi-pfsense-security` for the security key
+and `fastapi-pfsense-posture` for the posture key. Keep both pfSense user objects
+enabled: pfREST rejects API-key authentication when the key owner is marked
+`This user cannot login`. API keys themselves cannot authenticate to the
+webConfigurator or SSH, so harden these service accounts by withholding WebCfg,
+admin-group and shell privileges rather than disabling the user object.
 
-Use `PFSENSE_API_VERIFY_SSL=false` only for an explicitly trusted private
-endpoint whose certificate is self-signed or issued by an untrusted internal
-CA. This setting applies to the pfSense security API client only. The posture
-client can be overridden independently with `PFSENSE_POSTURE_API_VERIFY_SSL`.
+For backward compatibility, the security observer falls back to
+`PFSENSE_API_KEY` only when `PFSENSE_SECURITY_API_KEY` is absent, and the posture
+observer does the same when `PFSENSE_POSTURE_API_KEY` is absent. This legacy
+shared-key mode is not the target least-privilege configuration. Once both
+dedicated keys are deployed and validated, remove `PFSENSE_API_KEY` from the
+FastAPI Cloud environment.
+
+Use `PFSENSE_API_VERIFY_SSL=false` only for an explicitly trusted endpoint whose
+certificate is self-signed or issued by an untrusted internal CA. The dedicated
+clients can override it independently with `PFSENSE_SECURITY_API_VERIFY_SSL` and
+`PFSENSE_POSTURE_API_VERIFY_SSL`.
+
+Keep the pfSense REST API globally in read-only mode during normal operation.
+Temporarily disabling read-only mode to create or rotate a key is acceptable,
+but re-enable it immediately afterwards; the runtime observers require GET only.
 
 ### Shared-WAN diagnostic blind spot
 
@@ -62,9 +79,9 @@ Set:
 PFSENSE_SECURITY_PATH_MODE=shared_wan
 ```
 
-while `PFSENSE_API_URL` traverses the same WAN filter. In this mode a timeout or
-connection failure is exposed as a **self-diagnostic blind spot**, not as proof
-that Snort did or did not block the request.
+while the security API URL traverses the same WAN filter. In this mode a timeout
+or connection failure is exposed as a **self-diagnostic blind spot**, not as
+proof that Snort did or did not block the request.
 
 A genuinely independent implementation must use a path that does not traverse
 the same WAN Snort/PF decision. The preferred future architecture is a small
