@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import ipaddress
 import os
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import httpx
 
@@ -13,6 +13,7 @@ from nabla.api.provider_credentials import inspect_environment_credentials
 from nabla.api.public_egress_observer import observe_public_egress_ip
 from nabla.api.truenas_transport_diagnostics import homelab_wan_metadata
 
+ControlPathMode = Literal["shared_wan", "out_of_band"]
 _CONTROL_PATH_MODES = frozenset({"shared_wan", "out_of_band"})
 _FALSE_VALUES = frozenset({"0", "false", "no", "off"})
 _PFSENSE_TIMEOUT_SEC = 4.0
@@ -26,7 +27,7 @@ class PfSenseSecuritySettings:
     base_url: str
     api_key: str
     verify_ssl: bool = True
-    control_path_mode: Literal["shared_wan", "out_of_band"] = "shared_wan"
+    control_path_mode: ControlPathMode = "shared_wan"
 
     @classmethod
     def from_environment(cls) -> PfSenseSecuritySettings | None:
@@ -47,7 +48,7 @@ class PfSenseSecuritySettings:
             base_url=os.getenv("PFSENSE_API_URL", "").strip().rstrip("/"),
             api_key=os.getenv("PFSENSE_API_KEY", "").strip(),
             verify_ssl=raw_verify not in _FALSE_VALUES,
-            control_path_mode=mode,  # type: ignore[arg-type]
+            control_path_mode=cast(ControlPathMode, mode),
         )
 
 
@@ -106,12 +107,17 @@ def _canonical_table_entries(table: object) -> frozenset[str]:
     return frozenset(normalized)
 
 
-def _control_path(settings: PfSenseSecuritySettings) -> dict[str, Any]:
+def _control_path(
+    settings: PfSenseSecuritySettings,
+    *,
+    blind_spot: bool | None = None,
+) -> dict[str, Any]:
     independent = settings.control_path_mode == "out_of_band"
+    effective_blind_spot = not independent if blind_spot is None else blind_spot
     return {
         "mode": settings.control_path_mode,
         "independent_from_wan_filter": independent,
-        "blind_spot": not independent,
+        "blind_spot": effective_blind_spot,
         "detail": (
             "Out-of-band pfSense telemetry path is independent from the public WAN listener"
             if independent
@@ -123,13 +129,19 @@ def _control_path(settings: PfSenseSecuritySettings) -> dict[str, Any]:
 def _unavailable(
     settings: PfSenseSecuritySettings | None,
     evidence: str,
+    *,
+    blind_spot: bool | None = None,
 ) -> dict[str, Any]:
-    control_path = _control_path(settings) if settings is not None else {
-        "mode": "unconfigured",
-        "independent_from_wan_filter": False,
-        "blind_spot": True,
-        "detail": "Dedicated pfSense security telemetry is not configured",
-    }
+    control_path = (
+        _control_path(settings, blind_spot=blind_spot)
+        if settings is not None
+        else {
+            "mode": "unconfigured",
+            "independent_from_wan_filter": False,
+            "blind_spot": False,
+            "detail": "Dedicated pfSense security telemetry is not configured",
+        }
+    )
     return {
         "state": "telemetry_unavailable",
         "engine": "snort",
@@ -183,7 +195,11 @@ async def observe_pfsense_ingress_block(
 
     egress = await observe_public_egress_ip()
     if egress.get("observed") is not True:
-        return _unavailable(configured, "Runtime public egress IP could not be observed")
+        return _unavailable(
+            configured,
+            "Runtime public egress IP could not be observed",
+            blind_spot=False,
+        )
 
     timeout = httpx.Timeout(_PFSENSE_TIMEOUT_SEC)
     try:
@@ -199,12 +215,17 @@ async def observe_pfsense_ingress_block(
             table = _response_data(response.json())
     except (httpx.HTTPError, ValueError) as exc:
         reason = _safe_error(exc)
-        shared = configured.control_path_mode == "shared_wan"
+        transport_failure = isinstance(exc, httpx.TransportError)
+        blind_spot = configured.control_path_mode == "shared_wan" and transport_failure
         suffix = (
             "; shared WAN control path cannot prove whether Snort blocked its own telemetry"
-            if shared
+            if blind_spot
             else ""
         )
-        return _unavailable(configured, f"snort2c telemetry unavailable: {reason}{suffix}")
+        return _unavailable(
+            configured,
+            f"snort2c telemetry unavailable: {reason}{suffix}",
+            blind_spot=blind_spot,
+        )
 
     return _block_evidence(table=table, egress=egress, settings=configured)
