@@ -8,34 +8,28 @@ from __future__ import annotations
 
 import asyncio
 from copy import deepcopy
-import json
-import os
 import secrets
 import time
 from typing import Any, Awaitable, Callable
 
 from redis.asyncio import Redis
 
+from nabla.api.external_probe_cache_redis import (
+    KEY_PREFIX as _KEY_PREFIX,
+    LOCK_PREFIX as _LOCK_PREFIX,
+    SCHEMA_VERSION as _SCHEMA_VERSION,
+    acquire_lock as _acquire_lock,
+    read_envelope as _redis_get,
+    release_lock as _release_lock,
+    resolve_redis_client as _redis_client,
+    write_envelope as _redis_put,
+)
 from nabla.api.external_probe_cache_types import ProbeCachePolicy, ProbeCacheResult
 from nabla.utils.logger import logger
 
-_SCHEMA_VERSION = 1
-_KEY_PREFIX = "health:v1:probe:"
-_LOCK_PREFIX = "health:v1:lock:"
 _L1_HOT_TTL_SEC = 5.0
 _l1_lock = asyncio.Lock()
 _l1: dict[str, tuple[dict[str, Any], float]] = {}
-
-
-def _redis_client() -> Redis | None:
-    """Resolve the shared client only when REDIS_URL is explicitly configured."""
-    if not os.getenv("REDIS_URL", "").strip():
-        return None
-    try:
-        from nabla.api.demo.socket.redis import redis as client
-    except (ImportError, RuntimeError):  # pragma: no cover - defensive startup fallback.
-        return None
-    return client
 
 
 def _record(
@@ -169,59 +163,6 @@ async def _l1_get(
 async def _l1_put(key: str, envelope: dict[str, Any]) -> None:
     async with _l1_lock:
         _l1[key] = (deepcopy(envelope), time.monotonic())
-
-
-async def _redis_get(client: Redis, key: str) -> dict[str, Any] | None:
-    raw = await client.get(f"{_KEY_PREFIX}{key}")
-    if not isinstance(raw, str):
-        return None
-    try:
-        envelope = json.loads(raw)
-    except json.JSONDecodeError:
-        return None
-    if not isinstance(envelope, dict) or envelope.get("schema") != _SCHEMA_VERSION:
-        return None
-    return envelope
-
-
-async def _redis_put(
-    client: Redis,
-    key: str,
-    envelope: dict[str, Any],
-    policy: ProbeCachePolicy,
-) -> None:
-    ttl = max(policy.success_ttl, policy.failure_ttl, policy.stale_ttl)
-    await client.set(
-        f"{_KEY_PREFIX}{key}",
-        json.dumps(envelope, separators=(",", ":"), sort_keys=True),
-        ex=max(1, int(ttl)),
-    )
-
-
-async def _acquire_lock(client: Redis, key: str, token: str, ttl: int) -> bool:
-    return bool(
-        await client.set(
-            f"{_LOCK_PREFIX}{key}",
-            token,
-            nx=True,
-            ex=max(1, ttl),
-        )
-    )
-
-
-async def _release_lock(client: Redis, key: str, token: str) -> None:
-    script = (
-        "if redis.call('get', KEYS[1]) == ARGV[1] then "
-        "return redis.call('del', KEYS[1]) else return 0 end"
-    )
-    try:
-        await client.eval(script, 1, f"{_LOCK_PREFIX}{key}", token)
-    except Exception as exc:  # pragma: no cover - lock expiry is the safety net.
-        logger.debug(
-            "external_probe_cache_lock_release_failed",
-            key=key,
-            exception_type=type(exc).__name__,
-        )
 
 
 async def _wait_for_peer(
