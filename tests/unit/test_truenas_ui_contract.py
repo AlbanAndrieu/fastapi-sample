@@ -14,15 +14,15 @@ def test_truenas_platform_displays_public_wan_metadata() -> None:
     assert "static IPv4" in javascript
 
 
-def test_truenas_platform_displays_ingress_filter_observations() -> None:
+def test_truenas_platform_puts_ingress_filters_in_traffic_pipeline() -> None:
     javascript = ASSET.read_text(encoding="utf-8")
 
     assert "security_filters" in javascript
-    assert "Ingress filters" in javascript
-    assert "truenas-security-filters" in javascript
-    assert 'filter?.state === "blocked"' in javascript
-    assert 'filter?.state === "in_path"' in javascript
-    assert 'filter?.state === "running"' in javascript
+    assert "ingressPolicyStage" in javascript
+    assert 'id: "pfsense_wan_ingress"' in javascript
+    assert 'label: "pfSense WAN ingress"' in javascript
+    assert "trafficStages" in javascript
+    assert 'stage?.id === "dns"' in javascript
 
 
 def test_truenas_platform_displays_proven_snort_pf_block() -> None:
