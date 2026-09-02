@@ -62,6 +62,35 @@ def inspect_environment_credentials(
     )
 
 
+def _pfsense_credential_status(
+    provider: str,
+    *,
+    dedicated_url_var: str,
+    dedicated_key_var: str,
+) -> dict[str, object]:
+    """Report one pfSense identity using dedicated variables with legacy fallback."""
+    url_var = (
+        dedicated_url_var
+        if os.getenv(dedicated_url_var, "").strip()
+        else "PFSENSE_API_URL"
+    )
+    key_var = (
+        dedicated_key_var
+        if os.getenv(dedicated_key_var, "").strip()
+        else "PFSENSE_API_KEY"
+    )
+    status = inspect_environment_credentials(
+        provider,
+        url_var,
+        key_var,
+        secret_variables=frozenset({key_var}),
+    ).as_dict()
+    status["credential_mode"] = (
+        "dedicated" if key_var == dedicated_key_var else "legacy_shared"
+    )
+    return status
+
+
 def infrastructure_provider_credentials() -> dict[str, dict[str, object]]:
     """Return sanitized credential presence for external homelab control planes."""
     truenas = inspect_environment_credentials(
@@ -77,12 +106,16 @@ def infrastructure_provider_credentials() -> dict[str, dict[str, object]]:
 
     return {
         "truenas": truenas,
-        "pfsense": inspect_environment_credentials(
+        "pfsense": _pfsense_credential_status(
             "pfsense",
-            "PFSENSE_API_URL",
-            "PFSENSE_API_KEY",
-            secret_variables=frozenset({"PFSENSE_API_KEY"}),
-        ).as_dict(),
+            dedicated_url_var="PFSENSE_POSTURE_API_URL",
+            dedicated_key_var="PFSENSE_POSTURE_API_KEY",
+        ),
+        "pfsense_security": _pfsense_credential_status(
+            "pfsense_security",
+            dedicated_url_var="PFSENSE_SECURITY_API_URL",
+            dedicated_key_var="PFSENSE_SECURITY_API_KEY",
+        ),
         "cloudflare": inspect_environment_credentials(
             "cloudflare",
             "CLOUDFLARE_ACCOUNT_ID",
