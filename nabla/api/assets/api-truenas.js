@@ -39,16 +39,18 @@ function targetText(truenas) {
   if (!wan?.ipv4) return configuredTarget;
   const provider = wan?.provider ? ` · ${wan.provider}` : "";
   const addressKind = wan?.static ? " static IPv4" : " IPv4";
-  return `${configuredTarget} · WAN ${wan.ipv4}${provider}${addressKind}`;
+  return `${configuredTarget} · pfSense WAN / homelab public endpoint ${wan.ipv4}${provider}${addressKind}`;
 }
 
 function filterClass(filter) {
+  if (filter?.state === "blocked") return "blocked";
   if (filter?.state === "running" || filter?.state === "in_path") return "possible";
   if (filter?.state === "stopped") return "stopped";
   return "unknown";
 }
 
 function filterIcon(filter) {
+  if (filter?.state === "blocked") return "💀";
   if (filter?.state === "running") return "●";
   if (filter?.state === "in_path") return "◐";
   if (filter?.state === "stopped") return "○";
@@ -63,6 +65,46 @@ function ensureSecurityFilters(target) {
   container.className = "truenas-security-filters";
   target.insertAdjacentElement("afterend", container);
   return container;
+}
+
+function ensureIngressBlock(target) {
+  let container = document.getElementById("truenas-ingress-block");
+  if (container || !target) return container;
+  container = document.createElement("div");
+  container.id = "truenas-ingress-block";
+  container.className = "truenas-ingress-block";
+  target.insertAdjacentElement("afterend", container);
+  return container;
+}
+
+function endpointText(endpoint) {
+  if (!endpoint?.ip) return endpoint?.role || "unknown endpoint";
+  const port = endpoint?.port != null ? `:${endpoint.port}` : "";
+  const role = endpoint?.role ? ` (${endpoint.role})` : "";
+  return `${endpoint.ip}${port}${role}`;
+}
+
+function renderIngressBlock(data, target) {
+  const container = ensureIngressBlock(target);
+  if (!container) return;
+  const block = data?.pfsense?.dns?.ingress_block;
+  if (block?.state !== "blocked") {
+    container.hidden = true;
+    container.innerHTML = "";
+    return;
+  }
+
+  const engine = escapeText(block?.engine || "filter");
+  const firewall = escapeText(block?.firewall || "firewall");
+  const mechanism = escapeText(block?.mechanism || "filter table");
+  const source = escapeText(endpointText(block?.source));
+  const destination = escapeText(endpointText(block?.destination));
+  const evidence = escapeText(block?.evidence || "");
+  container.hidden = false;
+  container.innerHTML =
+    `<strong>💀 Ingress blocked by ${engine} → ${firewall}</strong>` +
+    `<span>${source} → ${destination}</span>` +
+    `<span>Evidence: ${mechanism} · ${evidence}</span>`;
 }
 
 function renderSecurityFilters(data, target) {
@@ -97,6 +139,7 @@ function render(data) {
   error.hidden = true;
   error.textContent = "";
   target.textContent = targetText(truenas);
+  renderIngressBlock(data, target);
   renderSecurityFilters(data, target);
 
   if (!Array.isArray(stages) || stages.length === 0) {
@@ -115,18 +158,24 @@ function render(data) {
   });
   pipeline.innerHTML = html;
 
+  const ingressBlock = data?.pfsense?.dns?.ingress_block;
   const overall = truenas?.state || "fail";
-  state.className = `truenas-platform-state truenas-platform-state--${overall}`;
   const api = truenas?.api || {};
-  if (api.stage === "missing_api_key") {
-    state.textContent = "authentication blocked · API key missing";
-  } else if (api.stage === "invalid_api_key_reference") {
-    state.textContent = "authentication failed · invalid secret reference";
-  } else if (overall === "ok") {
-    const version = api.version ? ` · ${api.version}` : "";
-    state.textContent = `healthy${version}`;
+  if (ingressBlock?.state === "blocked") {
+    state.className = "truenas-platform-state truenas-platform-state--fail";
+    state.textContent = "blocked by Snort/PF";
   } else {
-    state.textContent = overall;
+    state.className = `truenas-platform-state truenas-platform-state--${overall}`;
+    if (api.stage === "missing_api_key") {
+      state.textContent = "authentication blocked · API key missing";
+    } else if (api.stage === "invalid_api_key_reference") {
+      state.textContent = "authentication failed · invalid secret reference";
+    } else if (overall === "ok") {
+      const version = api.version ? ` · ${api.version}` : "";
+      state.textContent = `healthy${version}`;
+    } else {
+      state.textContent = overall;
+    }
   }
 }
 
