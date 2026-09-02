@@ -75,6 +75,39 @@ def _port_10443_reachability(check: dict[str, Any]) -> bool | None:
     return reachable if isinstance(reachable, bool) else None
 
 
+def _apply_source_aware_10443_policy(
+    check: dict[str, Any],
+    reachable: bool | None,
+) -> None:
+    """Override the legacy external=false verdict with the current trusted-source contract."""
+    if reachable is True:
+        status = "warn"
+        detail = (
+            "⚠️ pfSense REST/API 10443 is reachable from the approved FastAPI Cloud runtime "
+            "as required by the trusted_sources_only exception. This positive probe does not "
+            "prove the default-deny policy for unrelated Internet origins; an independent "
+            "negative probe is still required."
+        )
+    elif reachable is False:
+        status = "fail"
+        detail = (
+            "pfSense REST/API 10443 is not reachable from the approved FastAPI Cloud runtime, "
+            "but the current trusted_sources_only contract requires this monitoring path."
+        )
+    else:
+        status = "unknown"
+        detail = (
+            "pfSense REST/API 10443 reachability from FastAPI Cloud is unknown; the "
+            "trusted_sources_only policy cannot be reconciled without a positive runtime probe."
+        )
+
+    exception = str(check.get("security_exception") or "").strip()
+    if exception:
+        detail = f"{detail} Known policy exception: {exception}"
+    check["policy_status"] = status
+    check["policy_detail"] = detail
+
+
 def enrich_pfsense_port_annotations(payload: dict[str, Any]) -> dict[str, Any]:
     """Add stable service names and the source-aware pfSense 10443 policy."""
     checks = payload.get("checks")
@@ -88,11 +121,13 @@ def enrich_pfsense_port_annotations(payload: dict[str, Any]) -> dict[str, Any]:
         policy = check.setdefault("pfsense_tcp_port_policy", {})
         if not isinstance(ports, dict) or not isinstance(policy, dict):
             continue
-        ports["10443"] = _port_10443_reachability(check)
+        reachability_10443 = _port_10443_reachability(check)
+        ports["10443"] = reachability_10443
         for port, metadata in _PORT_POLICY.items():
             existing = policy.get(port)
             merged = dict(existing) if isinstance(existing, dict) else {}
             merged.update(metadata)
             policy[port] = merged
+        _apply_source_aware_10443_policy(check, reachability_10443)
         break
     return payload
