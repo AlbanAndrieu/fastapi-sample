@@ -1,13 +1,16 @@
-import { loadHealth } from "./api-health-core.js";
-import { resetHomelabHealthRequest } from "./api-homelab-health.js";
-import { loadSickz } from "./api-sickz.js";
-import { loadTrueNas } from "./api-truenas.js";
-import { installServiceFilter } from "./api-service-groups.js";
 import {
   decorateCloudflareTunnelStatuses,
   markHealthBoardsPending,
 } from "./api-cloudflare-status.js";
+import {
+  fetchHealthBoard,
+  resetHealthBoardRequest,
+} from "./api-health-board.js";
+import { loadHealth } from "./api-health-core.js";
+import { installServiceFilter } from "./api-service-groups.js";
+import { loadSickz } from "./api-sickz.js";
 import { installPfsensePortLabels } from "./api-sickz-port-labels.js";
+import { loadTrueNas } from "./api-truenas.js";
 
 function logRefreshClick() {
   fetch("/api/health-board/refresh-event", {
@@ -20,19 +23,21 @@ function logRefreshClick() {
   });
 }
 
-function loadHealthBoards() {
-  resetHomelabHealthRequest();
+function loadHealthBoards({ forceRefresh = false } = {}) {
+  resetHealthBoardRequest({ forceRefresh });
   markHealthBoardsPending();
   const healthRequest = loadHealth();
   loadSickz();
-  decorateCloudflareTunnelStatuses();
+  fetchHealthBoard()
+    .then((snapshot) => decorateCloudflareTunnelStatuses(snapshot.sickz))
+    .catch(() => {});
   Promise.resolve(healthRequest).finally(() => loadTrueNas());
 }
 
 document.querySelectorAll(".health-refresh").forEach((button) => {
   button.addEventListener("click", () => {
     logRefreshClick();
-    loadHealthBoards();
+    loadHealthBoards({ forceRefresh: true });
   });
 });
 

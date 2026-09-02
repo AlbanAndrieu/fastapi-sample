@@ -1,3 +1,4 @@
+# ruff: noqa: PLW0603 -- cache state is intentionally process-local.
 """TrueNAS runtime observation and reconciliation with code-owned declarations."""
 
 from __future__ import annotations
@@ -29,6 +30,7 @@ ReconciliationState = Literal[
 
 _DEFAULT_RUNTIME_CACHE_TTL_SECONDS = 30.0
 _TRUENAS_RESET_RETRY_DELAY_SECONDS = 0.2
+_TRUENAS_MAX_ATTEMPTS = 3
 _RUNTIME_CACHE_LOCK = threading.Lock()
 _RUNTIME_CACHE: TrueNASRuntimeSnapshot | None = None
 _RUNTIME_CACHE_EXPIRES_AT = 0.0
@@ -93,21 +95,9 @@ def _observed_app(raw: dict[str, Any]) -> ObservedApp:
     raw_containers = workloads.get("container_details") or []
     containers = [
         ObservedContainer(
-            service_name=(
-                str(container.get("service_name"))
-                if container.get("service_name") is not None
-                else None
-            ),
-            image=(
-                str(container.get("image"))
-                if container.get("image") is not None
-                else None
-            ),
-            state=(
-                str(container.get("state"))
-                if container.get("state") is not None
-                else None
-            ),
+            service_name=(str(container.get("service_name")) if container.get("service_name") is not None else None),
+            image=(str(container.get("image")) if container.get("image") is not None else None),
+            state=(str(container.get("state")) if container.get("state") is not None else None),
         )
         for container in raw_containers
         if isinstance(container, dict)
@@ -118,23 +108,29 @@ def _observed_app(raw: dict[str, Any]) -> ObservedApp:
         name=str(raw.get("name") or app_id),
         state=str(raw.get("state") or raw.get("status") or "UNKNOWN"),
         version=str(raw["version"]) if raw.get("version") is not None else None,
-        human_version=(
-            str(raw["human_version"])
-            if raw.get("human_version") is not None
-            else None
-        ),
+        human_version=(str(raw["human_version"]) if raw.get("human_version") is not None else None),
         upgrade_available=bool(raw.get("upgrade_available", False)),
         containers=containers,
     )
 
 
 def _list_apps_with_reset_retry(adapter: Any) -> list[dict[str, Any]]:
-    """Retry one transient peer reset without hiding persistent/auth failures."""
-    try:
-        return adapter.list_apps()
-    except ConnectionResetError:
-        time.sleep(_TRUENAS_RESET_RETRY_DELAY_SECONDS)
-        return adapter.list_apps()
+    """Retry bounded transient peer resets without hiding persistent failures."""
+    for attempt in range(1, _TRUENAS_MAX_ATTEMPTS + 1):
+        try:
+            return adapter.list_apps()
+        except Exception as exc:
+            transient = (
+                isinstance(
+                    exc,
+                    (ConnectionError, TimeoutError),
+                )
+                or "timeout" in exc.__class__.__name__.casefold()
+            )
+            if not transient or attempt == _TRUENAS_MAX_ATTEMPTS:
+                raise
+            time.sleep(_TRUENAS_RESET_RETRY_DELAY_SECONDS * attempt)
+    raise RuntimeError("unreachable TrueNAS retry state")
 
 
 def observe_truenas_runtime() -> TrueNASRuntimeSnapshot:
@@ -187,7 +183,7 @@ def _cached_truenas_runtime() -> TrueNASRuntimeSnapshot:
             update={
                 "stale": True,
                 "error": refreshed.error or "TrueNAS refresh failed; serving last known good snapshot",
-            }
+            },
         )
         _RUNTIME_CACHE = stale
         return stale
@@ -214,11 +210,7 @@ def _matches_binding(
         return False, None
     if not binding.container_service:
         return True, None
-    matches = [
-        container
-        for container in app.containers
-        if container.service_name == binding.container_service
-    ]
+    matches = [container for container in app.containers if container.service_name == binding.container_service]
     if not matches:
         return False, None
     return True, matches[0]
@@ -235,11 +227,7 @@ def _reconcile_declared(
         "declared": True,
         "sourcePath": service.source_path,
         "composeService": service.compose_service,
-        "runtimeBinding": (
-            binding.model_dump(mode="json", by_alias=True, exclude_none=True)
-            if binding is not None
-            else None
-        ),
+        "runtimeBinding": (binding.model_dump(mode="json", by_alias=True, exclude_none=True) if binding is not None else None),
     }
     if binding is None or binding.provider != "truenas-app":
         return {**base, "reconciliation": "not_observed"}, set()
@@ -304,10 +292,7 @@ async def build_homelab_status_payload() -> dict[str, Any]:
                 "version": app.version,
                 "humanVersion": app.human_version,
                 "upgradeAvailable": app.upgrade_available,
-                "containers": [
-                    container.model_dump(exclude_none=True)
-                    for container in app.containers
-                ],
+                "containers": [container.model_dump(exclude_none=True) for container in app.containers],
             },
         }
         for app in runtime.apps

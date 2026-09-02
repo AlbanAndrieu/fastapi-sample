@@ -32,7 +32,17 @@ _SENSITIVE_KEYS = frozenset(
         "x-api-key",
     },
 )
-_IGNORED_TRANSACTION_PATHS = frozenset({"/health", "/healthz", "/metrics", "/sickz"})
+_IGNORED_TRANSACTION_PATHS = frozenset(
+    {
+        "/api/health-board",
+        "/health",
+        "/healthz",
+        "/livez",
+        "/metrics",
+        "/readyz",
+        "/sickz",
+    },
+)
 
 
 def _env_float(env: Mapping[str, str], name: str, default: float) -> float:
@@ -161,7 +171,12 @@ def configure_sentry(env: Mapping[str, str] | None = None) -> bool:
         _logger.info("Sentry is disabled: no DSN configured")
         return False
 
-    logfire_enabled = bool(values.get("LOGFIRE_TOKEN", "").strip())
+    logfire_enabled = values.get("LOGFIRE_ENABLED", "false").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    } and bool(values.get("LOGFIRE_TOKEN", "").strip())
     app_name = values.get("APP_NAME", "fastapi-sample")
     app_version = get_versions()["version"]
     try:

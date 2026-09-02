@@ -52,12 +52,8 @@ async def metrics_middleware(request: Request, call_next):
     start_time = time.time()
     route_label = metric_route_label(request)
     INFLIGHT_REQUESTS.inc()
-    REQUESTS_IN_PROGRESS.labels(
-        method=request.method, path=route_label, app_name=APP_NAME
-    ).inc()
-    REQUESTS.labels(
-        method=request.method, path=route_label, app_name=APP_NAME
-    ).inc()
+    REQUESTS_IN_PROGRESS.labels(method=request.method, path=route_label, app_name=APP_NAME).inc()
+    REQUESTS.labels(method=request.method, path=route_label, app_name=APP_NAME).inc()
 
     try:
         response = await call_next(request)
@@ -67,15 +63,11 @@ async def metrics_middleware(request: Request, call_next):
             status_code=response.status_code,
             app_name=APP_NAME,
         ).inc()
-        REQUESTS_PROCESSING_TIME.labels(
-            method=request.method, path=route_label, app_name=APP_NAME
-        ).observe(time.time() - start_time)
+        REQUESTS_PROCESSING_TIME.labels(method=request.method, path=route_label, app_name=APP_NAME).observe(time.time() - start_time)
         return response
     finally:
         INFLIGHT_REQUESTS.dec()
-        REQUESTS_IN_PROGRESS.labels(
-            method=request.method, path=route_label, app_name=APP_NAME
-        ).dec()
+        REQUESTS_IN_PROGRESS.labels(method=request.method, path=route_label, app_name=APP_NAME).dec()
 
 
 async def logging_middleware(request: Request, call_next):
@@ -84,9 +76,7 @@ async def logging_middleware(request: Request, call_next):
     try:
         response = await call_next(request)
     except Exception:
-        logger.exception(
-            "request_failed", method=request.method, path=request.url.path
-        )
+        logger.exception("request_failed", method=request.method, path=request.url.path)
         raise
 
     duration = time.time() - start_time
@@ -96,17 +86,11 @@ async def logging_middleware(request: Request, call_next):
         "status_code": response.status_code,
         "duration_seconds": duration,
     }
-    is_noisy = (
-        response.status_code < 400
-        and (
-            request.url.path in NOISY_SUCCESS_PATHS
-            or request.url.path.startswith(NOISY_SUCCESS_PREFIXES)
-        )
-    )
+    is_noisy = response.status_code < 400 and (request.url.path in NOISY_SUCCESS_PATHS or request.url.path.startswith(NOISY_SUCCESS_PREFIXES))
 
     if response.status_code >= 500:
         logger.error("request_completed", **log_fields)
-    elif response.status_code >= 400 or duration >= 2.0:
+    elif response.status_code >= 400 or duration >= (15.0 if is_noisy else 2.0):
         logger.warning("request_completed", **log_fields)
     elif not is_noisy:
         logger.info("request_completed", **log_fields)

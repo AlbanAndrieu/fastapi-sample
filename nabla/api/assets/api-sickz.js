@@ -1,3 +1,4 @@
+import { fetchHealthBoard } from "./api-health-board.js";
 import {
   escapeText,
   lockHtml,
@@ -5,14 +6,14 @@ import {
   sickzRowIcon,
   tunnelHref,
 } from "./api-health-ui.js";
+import { organizeSickzRows } from "./api-service-groups.js";
+import { renderPfsenseSection } from "./api-sickz-pfsense.js";
 import {
   hasReachableNon2xxHttp,
   isForbiddenOnlyReachable,
   networkPhrase,
   tcpPolicyViolation,
 } from "./api-sickz-policy.js";
-import { renderPfsenseSection } from "./api-sickz-pfsense.js";
-import { organizeSickzRows } from "./api-service-groups.js";
 
 function classifySick(check) {
   if (check.policy_status === "ok") return "green";
@@ -32,7 +33,7 @@ function classifySick(check) {
 function rawDetailSickText(check) {
   if (check.skipped === true) {
     const intro = check.reason || "Not probed (LAN skip).";
-    if (check.aliases_probed && check.aliases_probed.length) {
+    if (check.aliases_probed?.length) {
       return `${intro} Targets: ${check.aliases_probed.map(shortHostForDetail).join(" · ")}`;
     }
     return intro;
@@ -75,7 +76,8 @@ function detailSickText(check) {
   const raw = rawDetailSickText(check);
   if (!check.policy_detail) return raw;
   const warning =
-    check.policy_status === "warn" && !String(check.policy_detail).startsWith("⚠️")
+    check.policy_status === "warn" &&
+    !String(check.policy_detail).startsWith("⚠️")
       ? "⚠️ "
       : "";
   return `${raw} — ${warning}${check.policy_detail}`;
@@ -89,7 +91,10 @@ function computeOverall(data) {
       text: `${data.detail || "Sickz skipped on internal network."} Network: ${network}.`,
     };
   }
-  if (data.status === "no_targets" || Object.keys(data.checks || {}).length === 0) {
+  if (
+    data.status === "no_targets" ||
+    Object.keys(data.checks || {}).length === 0
+  ) {
     return {
       cls: "yellow",
       text: `${data.detail || "No sickz targets configured."} Network: ${network}.`,
@@ -178,7 +183,9 @@ function exposureTags(check) {
         ? "direct exposure / no Cloudflare"
         : "security mode unspecified";
   const observed =
-    check.cloudflare_tunnel_observed === true ? "Cloudflare observed" : "Cloudflare not observed";
+    check.cloudflare_tunnel_observed === true
+      ? "Cloudflare observed"
+      : "Cloudflare not observed";
   return `${external} · ${tunnel} · ${observed}`;
 }
 
@@ -219,7 +226,9 @@ function render(data) {
 
   const checks = data.checks || {};
   const pfKey = renderPfsenseSection(checks, classifySick, detailSickText);
-  const keys = Object.keys(checks).filter((key) => key !== pfKey).sort();
+  const keys = Object.keys(checks)
+    .filter((key) => key !== pfKey)
+    .sort();
   listEl.innerHTML = "";
 
   keys.forEach((key) => {
@@ -232,8 +241,10 @@ function render(data) {
     const hrefRaw = tunnelHref(check);
     const safeHref = hrefRaw.length ? escapeText(hrefRaw) : "";
     let rowTitle = "";
-    if (check.name != null && String(check.name).trim()) rowTitle = String(check.name).trim();
-    else if (check.display_label != null) rowTitle = String(check.display_label);
+    if (check.name != null && String(check.name).trim())
+      rowTitle = String(check.name).trim();
+    else if (check.display_label != null)
+      rowTitle = String(check.display_label);
     else rowTitle = key;
     if (check.policy_status === "warn") rowTitle = `⚠️ ${rowTitle}`;
     item.dataset.serviceName = rowTitle.replace(/^⚠️\s*/, "");
@@ -288,10 +299,11 @@ function showFetchError(message) {
 }
 
 export function loadSickz() {
-  fetch("/sickz", { headers: { Accept: "application/json" } })
-    .then((response) => {
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return response.json();
+  return fetchHealthBoard()
+    .then((snapshot) => {
+      if (!snapshot.sickz)
+        throw new Error("health snapshot is missing /sickz data");
+      return snapshot.sickz;
     })
     .then(render)
     .catch((error) => {

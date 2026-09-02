@@ -42,7 +42,7 @@ async def test_component_checks_compose_core_and_platform_without_service_rows(
                     "api": {"reachable": True},
                 },
                 "services": [{"name": "must-not-leak"}],
-            }
+            },
         ),
     )
     monkeypatch.setattr(
@@ -52,7 +52,7 @@ async def test_component_checks_compose_core_and_platform_without_service_rows(
     )
     monkeypatch.setattr(
         component_health,
-        "check_pfsense_api",
+        "get_pfsense_api_snapshot",
         AsyncMock(return_value={"reachable": True}),
     )
 

@@ -43,14 +43,8 @@ class TrueNASSettings:
     @classmethod
     def from_environment(cls) -> TrueNASSettings | None:
         """Load optional TrueNAS credentials from the supported environment names."""
-        username = (
-            os.getenv("TRUENAS_API_USERNAME", "").strip()
-            or os.getenv("TRUENAS_USERNAME", "").strip()
-            or os.getenv("TRUENAS_USER", "").strip()
-        )
-        api_key = os.getenv("TRUENAS_API_KEY", "").strip() or os.getenv(
-            "TRUENAS_MCP_API_KEY", ""
-        ).strip()
+        username = os.getenv("TRUENAS_API_USERNAME", "").strip() or os.getenv("TRUENAS_USERNAME", "").strip() or os.getenv("TRUENAS_USER", "").strip()
+        api_key = os.getenv("TRUENAS_API_KEY", "").strip() or os.getenv("TRUENAS_MCP_API_KEY", "").strip()
         if not username or not api_key:
             return None
 
@@ -95,17 +89,14 @@ def truenas_url() -> str:
     """Return the single configured TrueNAS endpoint used by every probe."""
     configured = os.getenv("TRUENAS_URL", DEFAULT_TRUENAS_URL).strip()
     effective_url = configured or DEFAULT_TRUENAS_URL
-    logger.info("TrueNAS runtime endpoint: TRUENAS_URL=%s", effective_url)
+    logger.debug("TrueNAS runtime endpoint: TRUENAS_URL=%s", effective_url)
     return effective_url
 
 
 def truenas_host_port() -> tuple[str, int]:
     """Return the host and effective port derived from :envvar:`TRUENAS_URL`."""
     parsed = urlsplit(truenas_url())
-    if (
-        parsed.scheme.lower() not in {"http", "https", "ws", "wss"}
-        or not parsed.hostname
-    ):
+    if parsed.scheme.lower() not in {"http", "https", "ws", "wss"} or not parsed.hostname:
         raise ValueError("TRUENAS_URL must be an HTTP(S) or WS(S) URL with a host")
     default_port = 443 if parsed.scheme.lower() in {"https", "wss"} else 80
     return parsed.hostname, parsed.port or default_port
@@ -129,9 +120,7 @@ def _websocket_proxy_route(hostname: str | None) -> str:
         return "unknown"
     if _no_proxy_matches(hostname):
         return "bypass"
-    proxy_configured = bool(
-        os.getenv("https_proxy", "").strip() or os.getenv("HTTPS_PROXY", "").strip()
-    )
+    proxy_configured = bool(os.getenv("https_proxy", "").strip() or os.getenv("HTTPS_PROXY", "").strip())
     return "proxy_candidate" if proxy_configured else "direct"
 
 
@@ -180,10 +169,7 @@ def _truenas_failure_stage(exc: BaseException) -> str:
         return "network_unreachable"
     if "timeout" in message or any("timeout" in name for name in class_names):
         return "connect_timeout"
-    if any(
-        marker in message
-        for marker in ("unauthorized", "authentication", "invalid credentials", "api key")
-    ):
+    if any(marker in message for marker in ("unauthorized", "authentication", "invalid credentials", "api key")):
         return "authentication"
     if any("websocket" in name for name in class_names):
         return "websocket"
@@ -195,9 +181,7 @@ def _load_client_factory() -> Any:
     try:
         module = importlib.import_module("truenas_api_client")
     except ModuleNotFoundError as exc:
-        raise RuntimeError(
-            "TrueNAS credentials are configured but truenas_api_client is not installed"
-        ) from exc
+        raise RuntimeError("TrueNAS credentials are configured but truenas_api_client is not installed") from exc
     return module.Client
 
 
@@ -234,8 +218,7 @@ class TrueNASReadOnlyAdapter:
         except Exception as exc:
             elapsed_ms = round((time.perf_counter() - started) * 1000)
             logger.warning(
-                "TrueNAS API probe failed method=%s uri=%s verify_ssl=%s proxy_route=%s "
-                "phase=%s stage=%s exception=%s elapsed_ms=%s error=%s",
+                "TrueNAS API probe failed method=%s uri=%s verify_ssl=%s proxy_route=%s phase=%s stage=%s exception=%s elapsed_ms=%s error=%s",
                 method,
                 uri,
                 self.settings.verify_ssl,
@@ -247,9 +230,8 @@ class TrueNASReadOnlyAdapter:
                 str(exc)[:500],
             )
             raise
-        logger.info(
-            "TrueNAS API probe succeeded method=%s uri=%s verify_ssl=%s proxy_route=%s "
-            "elapsed_ms=%s",
+        logger.debug(
+            "TrueNAS API probe succeeded method=%s uri=%s verify_ssl=%s proxy_route=%s elapsed_ms=%s",
             method,
             uri,
             self.settings.verify_ssl,
@@ -292,8 +274,7 @@ class TrueNASReadOnlyAdapter:
         except Exception as exc:
             elapsed_ms = round((time.perf_counter() - started) * 1000)
             logger.warning(
-                "TrueNAS API health probe failed method=%s uri=%s verify_ssl=%s "
-                "proxy_route=%s phase=%s stage=%s exception=%s elapsed_ms=%s error=%s",
+                "TrueNAS API health probe failed method=%s uri=%s verify_ssl=%s proxy_route=%s phase=%s stage=%s exception=%s elapsed_ms=%s error=%s",
                 method,
                 uri,
                 self.settings.verify_ssl,
@@ -306,8 +287,7 @@ class TrueNASReadOnlyAdapter:
             )
             raise
         logger.info(
-            "TrueNAS API health probe succeeded uri=%s verify_ssl=%s proxy_route=%s "
-            "elapsed_ms=%s",
+            "TrueNAS API health probe succeeded uri=%s verify_ssl=%s proxy_route=%s elapsed_ms=%s",
             uri,
             self.settings.verify_ssl,
             proxy_route,

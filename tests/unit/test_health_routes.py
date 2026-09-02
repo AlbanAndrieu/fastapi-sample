@@ -15,6 +15,9 @@ def test_health_routes_keep_public_paths_once() -> None:
         "/api/homelab-services",
         "/api/homelab-topology",
         "/api/homelab/health",
+        "/api/health-board",
+        "/livez",
+        "/readyz",
         "/healthz",
         "/sickz",
         "/sentry-debug",
@@ -37,6 +40,9 @@ def test_health_routes_keep_openapi_tags() -> None:
             "/api/homelab-services",
             "/api/homelab-topology",
             "/api/homelab/health",
+            "/api/health-board",
+            "/livez",
+            "/readyz",
             "/healthz",
             "/sickz",
         }
@@ -45,8 +51,19 @@ def test_health_routes_keep_openapi_tags() -> None:
     assert tagged["/api/homelab-services"] == {"Homelab"}
     assert tagged["/api/homelab-topology"] == {"Homelab"}
     assert tagged["/api/homelab/health"] == {"Homelab", "Health"}
+    assert tagged["/api/health-board"] == {"Health"}
+    assert tagged["/livez"] == {"Health"}
+    assert tagged["/readyz"] == {"Health"}
     assert tagged["/healthz"] == {"Health"}
     assert tagged["/sickz"] == {"Health"}
+
+
+def test_health_routes_have_unique_operation_ids() -> None:
+    app = FastAPI()
+    register_health_routes(app)
+
+    operation_ids = [route.operation_id for route in app.routes if getattr(route, "operation_id", None) is not None]
+    assert len(operation_ids) == len(set(operation_ids))
 
 
 def test_homelab_routes_publish_response_models_in_openapi() -> None:

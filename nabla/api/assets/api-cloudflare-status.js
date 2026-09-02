@@ -6,14 +6,25 @@ function setPending(summaryId, ledId, textId, label) {
   const led = document.getElementById(ledId);
   const text = document.getElementById(textId);
   if (!summary || !led || !text) return;
-  summary.className = "health-summary health-summary--blue health-summary--pending";
+  summary.className =
+    "health-summary health-summary--blue health-summary--pending";
   led.className = "health-led health-led--blue health-led--pending";
   text.textContent = `Pending — ${label} checks are running…`;
 }
 
 export function markHealthBoardsPending() {
-  setPending("health-summary", "health-summary-led", "health-summary-text", "health");
-  setPending("sickz-summary", "sickz-summary-led", "sickz-summary-text", "exposure");
+  setPending(
+    "health-summary",
+    "health-summary-led",
+    "health-summary-text",
+    "health",
+  );
+  setPending(
+    "sickz-summary",
+    "sickz-summary-led",
+    "sickz-summary-text",
+    "exposure",
+  );
 }
 
 function normalizeTunnelStatus(check) {
@@ -21,18 +32,26 @@ function normalizeTunnelStatus(check) {
 
   const observed = check.cloudflare_tunnel_observed;
   const status = String(check.cloudflare_tunnel_status || "").toUpperCase();
-  const observerConfigured = check.cloudflare_tunnel_observer_configured === true;
-  const observerError = String(check.cloudflare_tunnel_observer_error || "").trim();
+  const observerConfigured =
+    check.cloudflare_tunnel_observer_configured === true;
+  const observerError = String(
+    check.cloudflare_tunnel_observer_error || "",
+  ).trim();
   const edgeObserved =
     check.cloudflare_http_evidence === true ||
     check.cloudflare_edge_observed === true ||
     check.cloudflare_edge_headers_observed === true;
 
-  if (observed === true && (!status || ["HEALTHY", "ACTIVE", "UP"].includes(status))) {
+  if (
+    observed === true &&
+    (!status || ["HEALTHY", "ACTIVE", "UP"].includes(status))
+  ) {
     return {
       cls: "green",
       label: "Cloudflare Tunnel configured",
-      detail: status ? `Tunnel ingress observed (${status}).` : "Tunnel ingress hostname observed.",
+      detail: status
+        ? `Tunnel ingress observed (${status}).`
+        : "Tunnel ingress hostname observed.",
     };
   }
 
@@ -48,7 +67,8 @@ function normalizeTunnelStatus(check) {
     return {
       cls: "red",
       label: "Cloudflare Tunnel missing",
-      detail: "tunnelSecure=true but the hostname is absent from the authoritative Tunnel ingress inventory.",
+      detail:
+        "tunnelSecure=true but the hostname is absent from the authoritative Tunnel ingress inventory.",
     };
   }
 
@@ -71,7 +91,9 @@ function normalizeTunnelStatus(check) {
 }
 
 function findRow(check) {
-  const href = String(check.tunnel_url || check.tunnelUrl || check.href || "").trim();
+  const href = String(
+    check.tunnel_url || check.tunnelUrl || check.href || "",
+  ).trim();
   if (href) {
     const links = document.querySelectorAll("#sickz-checks .sickz-target-link");
     for (const link of links) {
@@ -80,10 +102,16 @@ function findRow(check) {
       }
     }
   }
-  const name = String(check.name || check.display_label || "").trim().toLowerCase();
+  const name = String(check.name || check.display_label || "")
+    .trim()
+    .toLowerCase();
   if (!name) return null;
   for (const row of document.querySelectorAll("#sickz-checks .health-row")) {
-    const rowName = row.querySelector(".health-row-name")?.textContent?.replace(/^⚠️\s*/, "").trim().toLowerCase();
+    const rowName = row
+      .querySelector(".health-row-name")
+      ?.textContent?.replace(/^⚠️\s*/, "")
+      .trim()
+      .toLowerCase();
     if (rowName === name) return row;
   }
   return null;
@@ -110,7 +138,9 @@ function replaceDirectProbeWording(row, check) {
 
 function appendTunnelBadge(row, state) {
   if (!row || !state || row.querySelector(".cloudflare-tunnel-badge")) return;
-  const tags = row.querySelector(".health-row-tags") || row.querySelector(".health-row-main");
+  const tags =
+    row.querySelector(".health-row-tags") ||
+    row.querySelector(".health-row-main");
   if (!tags) return;
   const badge = document.createElement("span");
   badge.className = `cloudflare-tunnel-badge cloudflare-tunnel-badge--${state.cls}`;
@@ -121,26 +151,14 @@ function appendTunnelBadge(row, state) {
   tags.appendChild(badge);
 }
 
-function decorate(data) {
+export function decorateCloudflareTunnelStatuses(data) {
   const checks = data?.checks || {};
-  Object.values(checks).forEach((check) => {
-    const row = findRow(check);
-    replaceDirectProbeWording(row, check);
-    appendTunnelBadge(row, normalizeTunnelStatus(check));
-  });
-}
-
-export function decorateCloudflareTunnelStatuses() {
-  fetch("/sickz", { headers: { Accept: "application/json" } })
-    .then((response) => {
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return response.json();
-    })
-    .then((data) => {
-      // api-sickz.js renders from the same endpoint. Defer one task so its rows exist.
-      window.setTimeout(() => decorate(data), 0);
-    })
-    .catch(() => {
-      // The primary sickz renderer owns fetch-error reporting. Do not duplicate it.
+  // api-sickz.js renders from the same snapshot. Defer one task so its rows exist.
+  window.setTimeout(() => {
+    Object.values(checks).forEach((check) => {
+      const row = findRow(check);
+      replaceDirectProbeWording(row, check);
+      appendTunnelBadge(row, normalizeTunnelStatus(check));
     });
+  }, 0);
 }

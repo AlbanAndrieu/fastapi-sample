@@ -21,6 +21,7 @@ def test_api_page_serves_external_assets() -> None:
     page = client.get("/api")
     bootstrap = client.get("/api/assets/api-health.js")
     health = client.get("/api/assets/api-health-core.js")
+    board = client.get("/api/assets/api-health-board.js")
     dependency = client.get("/api/assets/api-health-dependency.js")
     ui = client.get("/api/assets/api-health-ui.js")
     sickz = client.get("/api/assets/api-sickz.js")
@@ -44,11 +45,12 @@ def test_api_page_serves_external_assets() -> None:
     assert open_graph.headers["content-type"] == "image/png"
     assert unpack(">II", open_graph.content[16:24]) == (1200, 630)
 
-    for asset in (bootstrap, health, dependency, ui, sickz, sickz_policy, sickz_ports):
+    for asset in (bootstrap, board, health, dependency, ui, sickz, sickz_policy, sickz_ports):
         assert asset.status_code == 200
         assert "javascript" in asset.headers["content-type"]
 
     assert 'from "./api-health-core.js"' in bootstrap.text
+    assert 'from "./api-health-board.js"' in bootstrap.text
     assert 'from "./api-sickz.js"' in bootstrap.text
     assert 'from "./api-sickz-port-labels.js"' in bootstrap.text
     assert 'from "./api-health-dependency.js"' in health.text
@@ -125,18 +127,18 @@ def test_refresh_event_is_logged_and_health_responses_are_not_cached() -> None:
     assert refresh.headers["cache-control"] == "no-store, max-age=0"
 
     bootstrap = (_ASSET_DIR / "api-health.js").read_text(encoding="utf-8")
-    health = (_ASSET_DIR / "api-health-core.js").read_text(encoding="utf-8")
+    board = (_ASSET_DIR / "api-health-board.js").read_text(encoding="utf-8")
     assert 'fetch("/api/health-board/refresh-event"' in bootstrap
     assert 'cache: "no-store"' in bootstrap
-    assert 'cache: "no-store"' in health
+    assert 'cache: "no-store"' in board
 
 
 def test_health_board_explains_dependency_propagation() -> None:
     health = (_ASSET_DIR / "api-health-core.js").read_text(encoding="utf-8")
     dependency = (_ASSET_DIR / "api-health-dependency.js").read_text(encoding="utf-8")
 
-    enrichment = "fetchHomelabHealth()"
-    assert 'from "./api-homelab-health.js"' in health
+    enrichment = "snapshot.homelab"
+    assert 'from "./api-health-board.js"' in health
     assert enrichment in health
     assert 'fetchJson("/api/homelab/health"' not in health
     assert health.index("render(data);") < health.index(enrichment)
@@ -144,7 +146,7 @@ def test_health_board_explains_dependency_propagation() -> None:
     assert 'parts.push("RUNNING but degraded")' in dependency
     assert 'parts.push(`blocked by ${blocked.join(", ")}`)' in dependency
     assert 'parts.push(`evidence: ${sources.join(" + ")}`)' in dependency
-    assert 'parts.push(Number.isFinite(age) ? `stale evidence (${Math.round(age)}s old)`' in dependency
+    assert "parts.push(Number.isFinite(age) ? `stale evidence (${Math.round(age)}s old)`" in dependency
     assert 'parts.push(`dependency cycle: ${cycle.join(" ↔ ")}`)' in dependency
     assert '"local_state"' in dependency
     assert '"effective_state"' in dependency

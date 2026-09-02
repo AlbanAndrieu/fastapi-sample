@@ -25,10 +25,10 @@ def test_observed_app_preserves_truenas_container_service_name() -> None:
                         "service_name": "litellm",
                         "image": "ghcr.io/berriai/litellm:main-stable",
                         "state": "running",
-                    }
-                ]
+                    },
+                ],
             },
-        }
+        },
     )
 
     assert app.app_id == "litellm-albandrieu"
@@ -70,7 +70,7 @@ def test_runtime_does_not_hide_persistent_connection_reset(monkeypatch) -> None:
 
     snapshot = homelab_runtime.observe_truenas_runtime()
 
-    assert adapter.calls == 2
+    assert adapter.calls == 3
     assert snapshot.reachable is False
     assert "Connection reset by peer" in str(snapshot.error)
 
@@ -155,9 +155,9 @@ async def test_status_matches_declared_service_by_container_service(monkeypatch)
                         "provider": "truenas-app",
                         "containerService": "litellm",
                     },
-                }
+                },
             ],
-        }
+        },
     )
     runtime = TrueNASRuntimeSnapshot(
         observed_at="2026-08-24T16:00:00Z",
@@ -169,13 +169,9 @@ async def test_status_matches_declared_service_by_container_service(monkeypatch)
                     "id": "litellm-albandrieu",
                     "name": "litellm-albandrieu",
                     "state": "RUNNING",
-                    "active_workloads": {
-                        "container_details": [
-                            {"service_name": "litellm", "state": "running"}
-                        ]
-                    },
-                }
-            )
+                    "active_workloads": {"container_details": [{"service_name": "litellm", "state": "running"}]},
+                },
+            ),
         ],
     )
 
@@ -185,9 +181,7 @@ async def test_status_matches_declared_service_by_container_service(monkeypatch)
     async def fake_runtime():
         return runtime
 
-    monkeypatch.setattr(
-        "nabla.api.homelab_runtime.fetch_declared_service_catalog", fake_catalog
-    )
+    monkeypatch.setattr("nabla.api.homelab_runtime.fetch_declared_service_catalog", fake_catalog)
     monkeypatch.setattr("nabla.api.homelab_runtime.fetch_truenas_runtime", fake_runtime)
 
     payload = await build_homelab_status_payload()
@@ -206,7 +200,7 @@ async def test_status_reports_unmanaged_truenas_apps(monkeypatch) -> None:
             "topologyVersion": 1,
             "name": "test",
             "services": [],
-        }
+        },
     )
     runtime = TrueNASRuntimeSnapshot(
         observed_at="2026-08-24T16:00:00Z",
@@ -221,9 +215,7 @@ async def test_status_reports_unmanaged_truenas_apps(monkeypatch) -> None:
     async def fake_runtime():
         return runtime
 
-    monkeypatch.setattr(
-        "nabla.api.homelab_runtime.fetch_declared_service_catalog", fake_catalog
-    )
+    monkeypatch.setattr("nabla.api.homelab_runtime.fetch_declared_service_catalog", fake_catalog)
     monkeypatch.setattr("nabla.api.homelab_runtime.fetch_truenas_runtime", fake_runtime)
 
     payload = await build_homelab_status_payload()

@@ -183,3 +183,30 @@ async def test_pfsense_read_timeout_reports_response_stage(monkeypatch) -> None:
     assert result["path"] == "/api/v2/system/version"
     assert "accepted the connection" in result["error"]
     assert "within 5s" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_pfsense_cache_serves_last_good_result_after_transient_failure(
+    monkeypatch,
+) -> None:
+    await platform_health.reset_pfsense_api_cache()
+    results = iter(
+        [
+            {"reachable": True, "http_status": 200},
+            {"reachable": False, "error": "temporary timeout"},
+        ],
+    )
+
+    async def check():
+        return next(results)
+
+    monkeypatch.setattr(platform_health, "check_pfsense_api", check)
+    first = await platform_health.get_pfsense_api_snapshot()
+    monkeypatch.setattr(platform_health, "_pfsense_cache_at", 0.0)
+    stale = await platform_health.get_pfsense_api_snapshot()
+
+    assert first["reachable"] is True
+    assert stale["reachable"] is True
+    assert stale["stale"] is True
+    assert stale["refresh_error"] == "temporary timeout"
+    await platform_health.reset_pfsense_api_cache()

@@ -54,7 +54,11 @@ def test_logfire_disables_sentry_logs_traces_and_profiles(monkeypatch) -> None:
     monkeypatch.setattr(sentry_sdk, "init", init)
 
     assert sentry_config.configure_sentry(
-        {"SENTRY_DSN": "https://public@example.com/1", "LOGFIRE_TOKEN": "token"},
+        {
+            "SENTRY_DSN": "https://public@example.com/1",
+            "LOGFIRE_ENABLED": "true",
+            "LOGFIRE_TOKEN": "token",
+        },
     )
 
     kwargs = init.call_args.kwargs
@@ -80,6 +84,28 @@ def test_sentry_enables_logs_without_logfire(monkeypatch) -> None:
     assert kwargs["sample_rate"] == 1.0
     assert kwargs["max_breadcrumbs"] == 50
     assert kwargs["shutdown_timeout"] == 2.0
+
+
+def test_disabled_logfire_token_does_not_disable_sentry_logs(monkeypatch) -> None:
+    init = Mock()
+    monkeypatch.setattr(
+        sentry_config,
+        "select_sentry_dsn",
+        lambda _env: ("https://public@example.com/1", "cloud"),
+    )
+    monkeypatch.setattr(sentry_config, "_integrations", lambda **_kwargs: [])
+    monkeypatch.setattr(sentry_sdk, "init", init)
+
+    assert sentry_config.configure_sentry(
+        {
+            "SENTRY_DSN": "https://public@example.com/1",
+            "LOGFIRE_ENABLED": "false",
+            "LOGFIRE_TOKEN": "token-left-in-environment",
+        },
+    )
+
+    assert init.call_args.kwargs["enable_logs"] is True
+    assert init.call_args.kwargs["traces_sample_rate"] == 0.1
 
 
 def test_scrubs_sensitive_fields() -> None:

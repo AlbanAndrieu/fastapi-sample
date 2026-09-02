@@ -17,6 +17,8 @@ def test_api_page_orders_core_truenas_groups_then_exposure() -> None:
     exposure = html.index('id="sickz-board-title"')
     assert core < truenas < groups < exposure
     assert 'id="service-filter"' in html
+    assert 'id="service-expand-issues"' in html
+    assert 'id="service-collapse-all"' in html
 
 
 def test_service_group_asset_mirrors_site_criticality_contract() -> None:
@@ -39,6 +41,8 @@ def test_service_group_asset_mirrors_site_criticality_contract() -> None:
         "partOf",
     ):
         assert relation in source
+    assert 'document.createElement("details")' in source
+    assert "section.open = issueCount > 0" in source
 
 
 def test_true_nas_is_not_duplicated_in_generic_health_rows() -> None:

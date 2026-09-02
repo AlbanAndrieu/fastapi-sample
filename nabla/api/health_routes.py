@@ -8,11 +8,10 @@ route module. The public paths and response contracts intentionally remain uncha
 
 from __future__ import annotations
 
-import asyncio
-from typing import Any
+from typing import Annotated, Any
 
 import pyroscope
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Query, Request, Response, status
 from fastapi.responses import JSONResponse
 
 from nabla.api.homelab_declared import DeclaredServiceCatalog
@@ -23,19 +22,6 @@ from nabla.utils.logger import logger
 
 
 _NO_STORE_HEADERS = {"Cache-Control": "no-store, max-age=0", "Pragma": "no-cache"}
-
-
-async def _build_extended_healthz(request: Request) -> dict:
-    """Compose deep health with optional platform and observability checks."""
-    from nabla.api.db.database import engine
-    from nabla.api.demo.socket.redis import redis
-    from nabla.api.health_checks import build_healthz_payload
-    from nabla.api.observability_health import enrich_optional_observability_checks
-    from nabla.api.platform_health import enrich_optional_platform_checks
-
-    payload = await build_healthz_payload(request, redis_client=redis, engine=engine)
-    payload = await enrich_optional_platform_checks(payload)
-    return await enrich_optional_observability_checks(payload)
 
 
 def register_health_routes(app: FastAPI) -> None:
@@ -114,24 +100,43 @@ def register_health_routes(app: FastAPI) -> None:
     )
     async def get_homelab_health() -> dict[str, Any]:
         """Return detailed homelab services plus shared core/platform components."""
-        from nabla.api.component_health import build_component_checks, component_status
+        from nabla.api.health_board import build_homelab_snapshot
+
+        return await build_homelab_snapshot()
+
+    @app.get(
+        "/livez",
+        tags=["Health"],
+        summary="Process liveness without dependency I/O",
+        operation_id="get_liveness",
+    )
+    async def get_liveness(response: Response) -> dict[str, Any]:
+        from nabla.api.health_contracts import build_liveness_payload
+
+        response.headers.update(_NO_STORE_HEADERS)
+        return build_liveness_payload(version=app.version)
+
+    @app.get(
+        "/readyz",
+        tags=["Health"],
+        summary="Readiness of traffic-critical dependencies",
+        operation_id="get_readiness",
+    )
+    async def get_readiness() -> JSONResponse:
         from nabla.api.db.database import engine
         from nabla.api.demo.socket.redis import redis
-        from nabla.api.homelab_health import build_homelab_health_payload
-        from nabla.api.homelab_health_evidence import reconcile_homelab_health_payload
-        from nabla.api.provider_credentials import infrastructure_provider_credentials
+        from nabla.api.health_contracts import build_readiness_payload
 
-        homelab_task = asyncio.create_task(build_homelab_health_payload())
-        components = await build_component_checks(
+        payload, ready = await build_readiness_payload(
             redis_client=redis,
             engine=engine,
-            homelab_snapshot=homelab_task,
+            version=app.version,
         )
-        homelab_payload = await reconcile_homelab_health_payload(await homelab_task)
-        homelab_payload["components_status"] = component_status(components)
-        homelab_payload["components"] = components
-        homelab_payload["provider_credentials"] = infrastructure_provider_credentials()
-        return homelab_payload
+        return JSONResponse(
+            payload,
+            status_code=status.HTTP_200_OK if ready else status.HTTP_503_SERVICE_UNAVAILABLE,
+            headers=_NO_STORE_HEADERS,
+        )
 
     @app.get(
         "/healthz",
@@ -140,9 +145,11 @@ def register_health_routes(app: FastAPI) -> None:
     )
     async def get_healthz(request: Request, response: Response) -> dict[str, Any]:
         """Return runtime health plus deep dependency and service probes."""
+        from nabla.api.health_board import build_extended_healthz
+
         response.headers.update(_NO_STORE_HEADERS)
         with pyroscope.tag_wrapper({"function": "fast"}):
-            return await _build_extended_healthz(request)
+            return await build_extended_healthz(request)
 
     @app.get(
         "/sickz",
@@ -151,14 +158,30 @@ def register_health_routes(app: FastAPI) -> None:
     )
     async def get_sickz(request: Request, response: Response) -> dict[str, Any]:
         """Compare declared external/Cloudflare policy with observed reachability."""
-        from nabla.api.sickz_checks import build_sickz_payload
-        from nabla.api.sickz_policy import enrich_sickz_policy
-        from nabla.api.sickz_port_annotations import enrich_pfsense_port_annotations
+        from nabla.api.health_board import build_sickz_snapshot
 
         response.headers.update(_NO_STORE_HEADERS)
         with pyroscope.tag_wrapper({"function": "fast"}):
-            payload = await enrich_sickz_policy(await build_sickz_payload(request))
-            return enrich_pfsense_port_annotations(payload)
+            return await build_sickz_snapshot(request)
+
+    @app.get(
+        "/api/health-board",
+        tags=["Health"],
+        summary="Cached aggregate used by the public health board",
+        operation_id="get_health_board_snapshot",
+    )
+    async def get_health_board(
+        request: Request,
+        response: Response,
+        force_refresh: Annotated[bool, Query(alias="refresh")] = False,
+    ) -> dict[str, Any]:
+        from nabla.api.health_board import get_health_board_snapshot
+
+        response.headers.update(_NO_STORE_HEADERS)
+        return await get_health_board_snapshot(
+            request,
+            force_refresh=force_refresh,
+        )
 
     @app.post(
         "/api/health-board/refresh-event",
