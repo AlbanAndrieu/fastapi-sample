@@ -39,6 +39,19 @@ def test_security_configuration_documents_exact_get_privilege(monkeypatch) -> No
     assert status["credential_mode"] == "dedicated_security"
 
 
+def test_missing_security_key_reports_dedicated_variable(monkeypatch) -> None:
+    _clear_security_env(monkeypatch)
+    monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example.test:10443")
+
+    status = observer.security_configuration_status()
+    settings = observer.PfSenseSecuritySettings.from_environment()
+
+    assert status["configured"] is False
+    assert status["credential_mode"] == "dedicated_security"
+    assert status["missing_variables"] == ["PFSENSE_SECURITY_API_KEY"]
+    assert settings is None
+
+
 def test_security_settings_prefer_dedicated_key_over_legacy(monkeypatch) -> None:
     _clear_security_env(monkeypatch)
     monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example.test:10443")
@@ -70,7 +83,7 @@ def test_security_settings_allow_fully_dedicated_transport(monkeypatch) -> None:
     assert settings.verify_ssl is False
 
 
-def test_security_settings_keep_legacy_fallback(monkeypatch) -> None:
+def test_security_settings_keep_legacy_fallback_when_explicitly_present(monkeypatch) -> None:
     _clear_security_env(monkeypatch)
     monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example.test:10443")
     monkeypatch.setenv("PFSENSE_API_KEY", "legacy-key")
