@@ -361,7 +361,7 @@ async def get_or_refresh_probe(
         new_envelope: dict[str, Any] = {
             "schema": _SCHEMA_VERSION,
             "current": current,
-            "last_good": current if success else previous_good,
+            "last_good": deepcopy(current) if success else previous_good,
         }
         await _l1_put(key, new_envelope)
         if client is not None and redis_available:
