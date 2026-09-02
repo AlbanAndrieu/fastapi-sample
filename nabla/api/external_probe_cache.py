@@ -1,8 +1,7 @@
 """Best-effort L1 + Redis L2 cache for sanitized external health probes.
 
-The cache is deliberately optional: Redis failures fall back to process-local
-state and direct bounded probes. Only JSON-serializable sanitized health data is
-stored; credentials and raw provider responses must never be passed here.
+Redis is optional: failures fall back to process-local state and bounded origin
+probes. Only JSON-serializable sanitized health data belongs in this cache.
 """
 
 from __future__ import annotations
@@ -23,7 +22,7 @@ from nabla.utils.logger import logger
 _SCHEMA_VERSION = 1
 _KEY_PREFIX = "health:v1:probe:"
 _LOCK_PREFIX = "health:v1:lock:"
-_L1_MAX_TTL_SEC = 5.0
+_L1_HOT_TTL_SEC = 5.0
 _l1_lock = asyncio.Lock()
 _l1: dict[str, tuple[dict[str, Any], float]] = {}
 
@@ -50,7 +49,7 @@ class ProbeCacheResult:
 
 
 def _redis_client() -> Redis | None:
-    """Resolve the application Redis client only when deployment configured it."""
+    """Resolve the shared client only when REDIS_URL is explicitly configured."""
     if not os.getenv("REDIS_URL", "").strip():
         return None
     try:
@@ -66,11 +65,7 @@ def _record(
     success: bool,
     fetched_at: float,
 ) -> dict[str, Any]:
-    return {
-        "value": deepcopy(value),
-        "success": success,
-        "fetched_at": fetched_at,
-    }
+    return {"value": deepcopy(value), "success": success, "fetched_at": fetched_at}
 
 
 def _valid_last_good(
@@ -84,9 +79,7 @@ def _valid_last_good(
     fetched_at = candidate.get("fetched_at")
     if not isinstance(fetched_at, int | float):
         return None
-    if now - float(fetched_at) > stale_ttl:
-        return None
-    return candidate
+    return candidate if now - float(fetched_at) <= stale_ttl else None
 
 
 def _current_fresh(
@@ -141,22 +134,19 @@ def _result_from_envelope(
     refresh_in_progress: bool = False,
     redis_available: bool = True,
 ) -> ProbeCacheResult | None:
-    now = time.time()
     current = envelope.get("current")
-    last_good_record = _valid_last_good(envelope, now, policy.stale_ttl)
+    last_good_record = _valid_last_good(envelope, time.time(), policy.stale_ttl)
     last_good = (
         deepcopy(last_good_record["value"])
         if last_good_record is not None
         else None
     )
-
     if stale and last_good is not None:
         value = deepcopy(last_good)
     elif isinstance(current, dict) and isinstance(current.get("value"), dict):
         value = deepcopy(current["value"])
     else:
         return None
-
     return ProbeCacheResult(
         value=value,
         metadata=_metadata(
@@ -171,21 +161,22 @@ def _result_from_envelope(
     )
 
 
-async def _l1_get(key: str, policy: ProbeCachePolicy) -> dict[str, Any] | None:
+async def _l1_get(
+    key: str,
+    policy: ProbeCachePolicy,
+) -> tuple[dict[str, Any] | None, bool]:
+    """Return retained L1 envelope and whether it may bypass a Redis read."""
     async with _l1_lock:
         entry = _l1.get(key)
         if entry is None:
-            return None
+            return None, False
         envelope, stored_at = entry
-        l1_ttl = min(
-            _L1_MAX_TTL_SEC,
-            policy.success_ttl,
-            policy.failure_ttl,
-        )
-        if time.monotonic() - stored_at >= l1_ttl:
+        age = time.monotonic() - stored_at
+        retention = max(policy.success_ttl, policy.failure_ttl, policy.stale_ttl)
+        if age >= retention:
             _l1.pop(key, None)
-            return None
-        return deepcopy(envelope)
+            return None, False
+        return deepcopy(envelope), age < _L1_HOT_TTL_SEC
 
 
 async def _l1_put(key: str, envelope: dict[str, Any]) -> None:
@@ -220,12 +211,7 @@ async def _redis_put(
     )
 
 
-async def _acquire_lock(
-    client: Redis,
-    key: str,
-    token: str,
-    ttl: int,
-) -> bool:
+async def _acquire_lock(client: Redis, key: str, token: str, ttl: int) -> bool:
     return bool(
         await client.set(
             f"{_LOCK_PREFIX}{key}",
@@ -261,6 +247,24 @@ async def _wait_for_peer(
     return None
 
 
+def _cached_result(
+    envelope: dict[str, Any] | None,
+    *,
+    policy: ProbeCachePolicy,
+    layer: str,
+    redis_available: bool,
+) -> ProbeCacheResult | None:
+    if envelope is None or not _current_fresh(envelope, time.time(), policy):
+        return None
+    return _result_from_envelope(
+        envelope,
+        layer=layer,
+        cached=True,
+        policy=policy,
+        redis_available=redis_available,
+    )
+
+
 async def get_or_refresh_probe(
     key: str,
     loader: Callable[[], Awaitable[dict[str, Any]]],
@@ -269,15 +273,14 @@ async def get_or_refresh_probe(
     policy: ProbeCachePolicy,
     redis_client: Redis | None = None,
 ) -> ProbeCacheResult:
-    """Return a probe using L1, Redis L2 and distributed single-flight refresh."""
-    now = time.time()
-    envelope = await _l1_get(key, policy)
-    if envelope is not None and _current_fresh(envelope, now, policy):
-        result = _result_from_envelope(
+    """Return a probe using hot L1, shared Redis and distributed single-flight."""
+    envelope, l1_hot = await _l1_get(key, policy)
+    if l1_hot:
+        result = _cached_result(
             envelope,
-            layer="l1",
-            cached=True,
             policy=policy,
+            layer="l1",
+            redis_available=True,
         )
         if result is not None:
             return result
@@ -290,36 +293,40 @@ async def get_or_refresh_probe(
             if remote is not None:
                 envelope = remote
                 await _l1_put(key, remote)
-                if _current_fresh(remote, time.time(), policy):
-                    result = _result_from_envelope(
-                        remote,
-                        layer="redis",
-                        cached=True,
-                        policy=policy,
-                    )
-                    if result is not None:
-                        return result
-        except Exception as exc:  # Redis must never make the probe unavailable.
+                result = _cached_result(
+                    remote,
+                    policy=policy,
+                    layer="redis",
+                    redis_available=True,
+                )
+                if result is not None:
+                    return result
+        except Exception as exc:
             redis_available = False
             logger.debug(
                 "external_probe_cache_redis_read_failed",
                 key=key,
                 exception_type=type(exc).__name__,
             )
+    else:
+        redis_available = False
 
-    last_envelope = (
-        envelope if isinstance(envelope, dict) else {"schema": _SCHEMA_VERSION}
-    )
+    if not redis_available:
+        result = _cached_result(
+            envelope,
+            policy=policy,
+            layer="local_fallback",
+            redis_available=False,
+        )
+        if result is not None:
+            return result
+
+    last_envelope = envelope or {"schema": _SCHEMA_VERSION}
     lock_token = secrets.token_hex(12)
     lock_acquired = False
     if client is not None and redis_available:
         try:
-            lock_acquired = await _acquire_lock(
-                client,
-                key,
-                lock_token,
-                policy.lock_ttl,
-            )
+            lock_acquired = await _acquire_lock(client, key, lock_token, policy.lock_ttl)
             if not lock_acquired:
                 peer = await _wait_for_peer(client, key, policy)
                 if peer is not None:
@@ -396,7 +403,7 @@ async def reset_probe_cache(
     *,
     redis_client: Redis | None = None,
 ) -> None:
-    """Reset process-local state and optional Redis entries for deterministic tests."""
+    """Reset local state and optional Redis entries for deterministic tests."""
     async with _l1_lock:
         if key is None:
             _l1.clear()
