@@ -209,7 +209,7 @@ def _service_exposure(
         ),
     }
 
-    if not service.external or not service.endpoint_enabled:
+    if not service.external or service.endpoint_enabled is False:
         return {
             "state": "not_applicable",
             "reasons": [],
