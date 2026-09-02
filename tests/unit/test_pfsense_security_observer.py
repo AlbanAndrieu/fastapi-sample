@@ -95,6 +95,8 @@ def test_exact_observed_egress_is_attributed_to_snort2c() -> None:
     )
 
     assert result["state"] == "blocked"
+    assert result["telemetry_available"] is True
+    assert result["attribution_available"] is True
     assert result["mechanism"] == "snort2c"
     assert result["source"]["ip"] == "34.200.20.162"
     assert result["destination"] == {
@@ -115,6 +117,19 @@ def test_different_egress_is_clear() -> None:
     assert result["state"] == "clear"
 
 
+def test_readable_table_survives_missing_egress_attribution() -> None:
+    result = observer._attribution_unavailable(
+        table={"name": "snort2c", "entries": ["52.1.10.241"]},
+        settings=_settings(),
+    )
+
+    assert result["state"] == "attribution_unavailable"
+    assert result["telemetry_available"] is True
+    assert result["attribution_available"] is False
+    assert result["table_entry_count"] == 1
+    assert result["control_path"]["blind_spot"] is False
+
+
 def test_out_of_band_control_path_is_marked_independent() -> None:
     result = observer._block_evidence(
         table={"name": "snort2c", "entries": []},
@@ -131,5 +146,7 @@ def test_unavailable_shared_wan_path_reports_blind_spot() -> None:
     result = observer._unavailable(_settings(), "snort2c telemetry unavailable: timeout")
 
     assert result["state"] == "telemetry_unavailable"
+    assert result["telemetry_available"] is False
+    assert result["attribution_available"] is False
     assert result["control_path"]["mode"] == "shared_wan"
     assert result["control_path"]["blind_spot"] is True
