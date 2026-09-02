@@ -11,19 +11,24 @@ import ssl
 import time
 from typing import Any
 
+from nabla.api.external_probe_cache import (
+    ProbeCachePolicy,
+    get_or_refresh_probe,
+    reset_probe_cache,
+)
 from nabla.api.provider_credentials import inspect_environment_credentials
 from nabla.api.truenas_client import observe_truenas_api
 from nabla.utils.logger import logger
 
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
-_SUCCESS_CACHE_TTL_SEC = 60.0
-_FAILURE_CACHE_TTL_SEC = 120.0
+_CACHE_KEY = "truenas:api"
+_CACHE_POLICY = ProbeCachePolicy(
+    success_ttl=60.0,
+    failure_ttl=120.0,
+    stale_ttl=600.0,
+    lock_ttl=20,
+)
 _SENTRY_FAILURE_COOLDOWN_SEC = 900.0
-_cache_lock = asyncio.Lock()
-_cached_result: dict[str, Any] | None = None
-_cached_at = 0.0
-_last_good: dict[str, Any] | None = None
-_last_success_at: str | None = None
 _last_failure_signature: str | None = None
 _last_failure_reported_at = 0.0
 
@@ -122,10 +127,6 @@ def truenas_api_configuration_failure() -> dict[str, Any] | None:
     return None
 
 
-def _cache_ttl(result: dict[str, Any]) -> float:
-    return _SUCCESS_CACHE_TTL_SEC if result.get("reachable") is True else _FAILURE_CACHE_TTL_SEC
-
-
 def _should_report_failure(signature: str) -> bool:
     global _last_failure_reported_at, _last_failure_signature
     now = time.monotonic()
@@ -153,20 +154,88 @@ def _report_failure_to_sentry(exc: BaseException, signature: str) -> None:
         )
 
 
-def _stale_last_good() -> dict[str, Any] | None:
-    if _last_good is None:
-        return None
+def _last_good_payload(value: dict[str, Any]) -> dict[str, Any]:
     return {
-        "version": _last_good.get("version"),
-        "apps": deepcopy(_last_good.get("apps")),
-        "last_success_at": _last_success_at,
+        "version": value.get("version"),
+        "apps": deepcopy(value.get("apps")),
+        "last_success_at": value.get("last_success_at"),
     }
 
 
-async def observe_truenas_health_api() -> dict[str, Any]:
-    """Run a cached official API probe after sanitized configuration validation."""
-    global _cached_at, _cached_result, _last_good, _last_success_at
+async def _probe_origin() -> dict[str, Any]:
+    started = time.perf_counter()
+    try:
+        result = await asyncio.to_thread(observe_truenas_api)
+        if not isinstance(result, dict):
+            raise RuntimeError("TrueNAS API probe returned no health payload")
+        value = dict(result)
+        value.setdefault("phase", "call")
+        value.setdefault("stage", "ok")
+        value.setdefault(
+            "elapsed_ms",
+            max(0, round((time.perf_counter() - started) * 1000)),
+        )
+        if value.get("reachable") is True:
+            value["last_success_at"] = _utc_now()
+        return value
+    except Exception as exc:  # Adapter/network/auth errors are health data.
+        elapsed_ms = max(0, round((time.perf_counter() - started) * 1000))
+        phase, stage = _failure_kind(exc)
+        logger.debug(
+            "truenas_api_health_probe_classified",
+            phase=phase,
+            stage=stage,
+            exception_type=exc.__class__.__name__,
+            elapsed_ms=elapsed_ms,
+        )
+        _report_failure_to_sentry(exc, f"{phase}:{stage}:{exc.__class__.__name__}")
+        return {
+            "reachable": False,
+            "phase": phase,
+            "stage": stage,
+            "elapsed_ms": elapsed_ms,
+            "error": _short_error(exc),
+            "exception_type": exc.__class__.__name__,
+            "retry_after_seconds": int(_CACHE_POLICY.failure_ttl),
+            "username_configured": True,
+            "api_key_configured": True,
+        }
 
+
+def _apply_cache_evidence(
+    value: dict[str, Any],
+    *,
+    metadata: dict[str, Any],
+    last_good: dict[str, Any] | None,
+) -> dict[str, Any]:
+    result = dict(value)
+    result.update(metadata)
+    stale_refresh = metadata.get("stale") is True
+    current_failure = result.get("reachable") is not True
+
+    if stale_refresh:
+        evidence = last_good or value
+        result = {
+            "reachable": False,
+            "phase": "cache",
+            "stage": "refresh_in_progress",
+            "error": "A peer runtime is refreshing the TrueNAS API; last-known-good evidence is stale.",
+            **metadata,
+            "stale": True,
+            "last_good": _last_good_payload(evidence),
+            "last_success_at": evidence.get("last_success_at"),
+        }
+    elif current_failure and last_good is not None:
+        result["stale"] = True
+        result["last_good"] = _last_good_payload(last_good)
+        result["last_success_at"] = last_good.get("last_success_at")
+    else:
+        result["stale"] = False
+    return result
+
+
+async def observe_truenas_health_api() -> dict[str, Any]:
+    """Run the official TrueNAS probe through local and shared Redis caches."""
     configuration_failure = truenas_api_configuration_failure()
     if configuration_failure is not None:
         logger.error(
@@ -176,77 +245,22 @@ async def observe_truenas_health_api() -> dict[str, Any]:
         )
         return configuration_failure
 
-    async with _cache_lock:
-        now = time.monotonic()
-        if _cached_result is not None and now - _cached_at < _cache_ttl(_cached_result):
-            cached = deepcopy(_cached_result)
-            cached["cached"] = True
-            cached["cache_age_seconds"] = round(now - _cached_at, 3)
-            return cached
-
-        started = time.perf_counter()
-        try:
-            result = await asyncio.to_thread(observe_truenas_api)
-            if not isinstance(result, dict):
-                raise RuntimeError("TrueNAS API probe returned no health payload")
-            result = dict(result)
-            result.setdefault("phase", "call")
-            result.setdefault("stage", "ok")
-            result.setdefault(
-                "elapsed_ms",
-                max(0, round((time.perf_counter() - started) * 1000)),
-            )
-            result["cached"] = False
-            result["stale"] = False
-            if result.get("reachable") is True:
-                _last_success_at = _utc_now()
-                result["last_success_at"] = _last_success_at
-                _last_good = deepcopy(result)
-            _cached_result = result
-            _cached_at = time.monotonic()
-            return deepcopy(result)
-        except Exception as exc:  # Adapter/network/auth errors are health data.
-            elapsed_ms = max(0, round((time.perf_counter() - started) * 1000))
-            phase, stage = _failure_kind(exc)
-            error = _short_error(exc)
-            stale = _stale_last_good()
-            failure = {
-                "reachable": False,
-                "phase": phase,
-                "stage": stage,
-                "elapsed_ms": elapsed_ms,
-                "error": error,
-                "exception_type": exc.__class__.__name__,
-                "cached": False,
-                "stale": stale is not None,
-                "retry_after_seconds": int(_FAILURE_CACHE_TTL_SEC),
-                "username_configured": True,
-                "api_key_configured": True,
-            }
-            if stale is not None:
-                failure["last_good"] = stale
-                failure["last_success_at"] = _last_success_at
-            logger.debug(
-                "truenas_api_health_probe_classified",
-                phase=phase,
-                stage=stage,
-                exception_type=exc.__class__.__name__,
-                elapsed_ms=elapsed_ms,
-            )
-            _report_failure_to_sentry(exc, f"{phase}:{stage}:{exc.__class__.__name__}")
-            _cached_result = failure
-            _cached_at = time.monotonic()
-            return deepcopy(failure)
+    cached = await get_or_refresh_probe(
+        _CACHE_KEY,
+        _probe_origin,
+        is_success=lambda value: value.get("reachable") is True,
+        policy=_CACHE_POLICY,
+    )
+    return _apply_cache_evidence(
+        cached.value,
+        metadata=cached.metadata,
+        last_good=cached.last_good,
+    )
 
 
 async def reset_truenas_health_cache() -> None:
-    """Reset process-local cache/reporting state for deterministic tests."""
-    global _cached_at, _cached_result, _last_good, _last_success_at
+    """Reset process-local probe cache/reporting state for deterministic tests."""
     global _last_failure_reported_at, _last_failure_signature
-    async with _cache_lock:
-        _cached_result = None
-        _cached_at = 0.0
-        _last_good = None
-        _last_success_at = None
-        _last_failure_signature = None
-        _last_failure_reported_at = 0.0
+    await reset_probe_cache(_CACHE_KEY)
+    _last_failure_signature = None
+    _last_failure_reported_at = 0.0
