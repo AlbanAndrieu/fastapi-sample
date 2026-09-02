@@ -39,9 +39,9 @@ FastAPI Cloud
   -> pfSense WAN 82.66.4.247:7000
   -> Snort / PF
   -> HAProxy :7000
-     - HTTP mode
-     - native WebSocket upgrade forwarding
-     - TLS re-encryption to backend
+    - HTTP mode
+    - native WebSocket upgrade forwarding
+    - TLS re-encryption to backend
   -> TrueNAS 172.17.0.24:7000
   -> WebSocket upgrade
   -> API authentication
