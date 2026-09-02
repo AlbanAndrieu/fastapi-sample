@@ -88,9 +88,24 @@ function renderIngressBlock(data, target) {
   const container = ensureIngressBlock(target);
   if (!container) return;
   const block = data?.pfsense?.dns?.ingress_block;
+  const controlPath = block?.control_path;
+
+  if (block?.state === "telemetry_unavailable" && controlPath?.blind_spot === true) {
+    const detail = escapeText(controlPath?.detail || "pfSense security telemetry shares the WAN path");
+    const evidence = escapeText(block?.evidence || "snort2c cannot be queried");
+    container.className = "truenas-ingress-block truenas-ingress-block--warning";
+    container.hidden = false;
+    container.innerHTML =
+      "<strong>⚠ Snort attribution unavailable · self-diagnostic blind spot</strong>" +
+      `<span>${detail}</span>` +
+      `<span>${evidence}</span>`;
+    return;
+  }
+
   if (block?.state !== "blocked") {
     container.hidden = true;
     container.innerHTML = "";
+    container.className = "truenas-ingress-block";
     return;
   }
 
@@ -100,6 +115,7 @@ function renderIngressBlock(data, target) {
   const source = escapeText(endpointText(block?.source));
   const destination = escapeText(endpointText(block?.destination));
   const evidence = escapeText(block?.evidence || "");
+  container.className = "truenas-ingress-block";
   container.hidden = false;
   container.innerHTML =
     `<strong>💀 Ingress blocked by ${engine} → ${firewall}</strong>` +
