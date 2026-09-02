@@ -106,21 +106,61 @@ function endpointText(endpoint) {
   return `${endpoint.ip}${port}${role}`;
 }
 
+function telemetryTiming(block) {
+  const values = [];
+  if (block?.error_kind) values.push(block.error_kind);
+  if (block?.failure_stage) values.push(`stage ${block.failure_stage}`);
+  if (block?.attempts != null) values.push(`${block.attempts} attempt${block.attempts === 1 ? "" : "s"}`);
+  if (block?.elapsed_ms != null) values.push(`${block.elapsed_ms} ms`);
+  if (block?.last_success_at) values.push(`last success ${block.last_success_at}`);
+  return values.join(" · ");
+}
+
 function renderIngressBlock(data, target) {
   const container = ensureIngressBlock(target);
   if (!container) return;
   const block = data?.pfsense?.dns?.ingress_block;
   const controlPath = block?.control_path;
 
-  if (block?.state === "telemetry_unavailable" && controlPath?.blind_spot === true) {
-    const detail = escapeText(controlPath?.detail || "pfSense security telemetry shares the WAN path");
+  if (block?.state === "telemetry_unavailable") {
     const evidence = escapeText(block?.evidence || "snort2c cannot be queried");
+    const timing = escapeText(telemetryTiming(block));
+    const path = escapeText(controlPath?.mode || "unknown");
+    const independence = controlPath?.blind_spot === true
+      ? "shared WAN · not independent"
+      : "independent or application-level failure";
     container.className = "truenas-ingress-block truenas-ingress-block--warning";
     container.hidden = false;
     container.innerHTML =
-      "<strong>⚠ Snort attribution unavailable · self-diagnostic blind spot</strong>" +
-      `<span>${detail}</span>` +
-      `<span>${evidence}</span>`;
+      "<strong>⚠ Snort telemetry temporarily unavailable</strong>" +
+      `<span>${evidence}</span>` +
+      (timing ? `<span>${timing}</span>` : "") +
+      `<span>Control path: ${path} · ${escapeText(independence)}</span>`;
+    return;
+  }
+
+  if (block?.state === "telemetry_stale") {
+    const evidence = escapeText(block?.evidence || "Last-known-good snort2c table retained");
+    const timing = escapeText(telemetryTiming(block));
+    const match = block?.last_known_match === true
+      ? "Observed egress was present in the stale table; current attribution is withheld."
+      : "No current clear/blocked verdict is emitted from stale data.";
+    container.className = "truenas-ingress-block truenas-ingress-block--warning";
+    container.hidden = false;
+    container.innerHTML =
+      "<strong>⚠ Snort telemetry stale · last-known-good table retained</strong>" +
+      `<span>${evidence}</span>` +
+      (timing ? `<span>${timing}</span>` : "") +
+      `<span>${escapeText(match)}</span>`;
+    return;
+  }
+
+  if (block?.state === "attribution_unavailable") {
+    container.className = "truenas-ingress-block truenas-ingress-block--warning";
+    container.hidden = false;
+    container.innerHTML =
+      "<strong>⚠ Snort telemetry available · egress attribution unavailable</strong>" +
+      `<span>${escapeText(block?.evidence || "Runtime public egress IP was not observed")}</span>`;
     return;
   }
 
@@ -143,6 +183,16 @@ function renderIngressBlock(data, target) {
     `<strong>💀 Ingress blocked by ${engine} → ${firewall}</strong>` +
     `<span>${source} → ${destination}</span>` +
     `<span>Evidence: ${mechanism} · ${evidence}</span>`;
+}
+
+function apiFailureState(api) {
+  const stale = api?.stale === true ? " · stale last-good available" : "";
+  if (api?.stage === "connection_reset") return `API connection reset${stale}`;
+  if (api?.stage === "tls_handshake_timeout") return `TLS handshake timeout${stale}`;
+  if (api?.stage === "api_call_timeout") return `API call timeout${stale}`;
+  if (api?.stage === "connect_timeout") return `API connect timeout${stale}`;
+  if (api?.stage === "tls_error") return `TLS error${stale}`;
+  return null;
 }
 
 function render(data) {
@@ -184,13 +234,17 @@ function render(data) {
     state.textContent = "blocked by Snort/PF";
   } else {
     state.className = `truenas-platform-state truenas-platform-state--${overall}`;
+    const failureState = apiFailureState(api);
     if (api.stage === "missing_api_key") {
       state.textContent = "authentication blocked · API key missing";
     } else if (api.stage === "invalid_api_key_reference") {
       state.textContent = "authentication failed · invalid secret reference";
+    } else if (failureState) {
+      state.textContent = failureState;
     } else if (overall === "ok") {
       const version = api.version ? ` · ${api.version}` : "";
-      state.textContent = `healthy${version}`;
+      const cached = api.cached === true ? " · cached" : "";
+      state.textContent = `healthy${version}${cached}`;
     } else {
       state.textContent = overall;
     }
