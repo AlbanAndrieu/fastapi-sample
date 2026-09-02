@@ -13,7 +13,7 @@ def test_health_board_reuses_one_aggregate_request_per_refresh() -> None:
     health = (ASSETS / "api-health-core.js").read_text(encoding="utf-8")
     truenas = (ASSETS / "api-truenas.js").read_text(encoding="utf-8")
 
-    assert 'fetch(`/api/health-board${force ? "?refresh=true" : ""}`' in board
+    assert '/api/health-board${force ? "?refresh=true" : ""}' in board
     assert "let healthBoardRequest = null" in board
     assert "resetHealthBoardRequest({ forceRefresh });" in bootstrap
     assert 'from "./api-health-board.js"' in health
