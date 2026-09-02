@@ -19,6 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
+      PRODUCTION_ROOT_URL: https://fastapi-sample.fastapicloud.dev
       PRODUCTION_API_URL: https://fastapi-sample.fastapicloud.dev/api
 
     steps:
@@ -37,8 +38,73 @@ jobs:
             --retry 3 \
             --retry-delay 5 \
             --retry-all-errors \
-            https://fastapi-sample.fastapicloud.dev/api/homelab/status \
+            "${PRODUCTION_API_URL}/homelab/status" \
             | jq .
+
+      - name: Check production pfSense observability
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          fetch_json() {
+            local url="$1"
+            local output="$2"
+            curl --fail --silent --show-error \
+              --connect-timeout 10 \
+              --max-time 30 \
+              --retry 3 \
+              --retry-delay 5 \
+              --retry-all-errors \
+              "${url}" >"${output}"
+          }
+
+          fetch_json "${PRODUCTION_ROOT_URL}/healthz" /tmp/healthz.json
+          fetch_json "${PRODUCTION_API_URL}/homelab/health" /tmp/homelab-health.json
+          fetch_json "${PRODUCTION_API_URL}/homelab/status" /tmp/homelab-status.json
+
+          echo "::group::pfSense direct liveness"
+          jq '.checks.pfsense' /tmp/healthz.json
+          echo "::endgroup::"
+
+          echo "::group::pfSense credential inventory"
+          jq '.providerCredentials | {pfsense, pfsense_security}' /tmp/homelab-status.json
+          echo "::endgroup::"
+
+          echo "::group::pfSense ingress/Snort telemetry"
+          jq '.pfsense.dns | {
+            configured,
+            reachable,
+            policy_state,
+            reason,
+            error_stage,
+            error,
+            ingress_block,
+            security_filters
+          }' /tmp/homelab-health.json
+          echo "::endgroup::"
+
+          jq -e '
+            .checks.pfsense.reachable == true and
+            (.checks.pfsense.http_status >= 200 and .checks.pfsense.http_status < 300) and
+            .checks.pfsense.credential_mode == "dedicated_posture"
+          ' /tmp/healthz.json >/dev/null
+
+          jq -e '
+            .providerCredentials.pfsense.configured == true and
+            .providerCredentials.pfsense.credential_mode == "dedicated" and
+            .providerCredentials.pfsense_security.configured == true and
+            .providerCredentials.pfsense_security.credential_mode == "dedicated"
+          ' /tmp/homelab-status.json >/dev/null
+
+          # Pull-request runs inspect the currently deployed production version.
+          # After deployment, workflow_call/manual runs also require working
+          # Snort/PF telemetry so a dedicated security-key regression is caught.
+          if [[ "${GITHUB_EVENT_NAME}" != "pull_request" ]]; then
+            jq -e '
+              .pfsense.dns.ingress_block.state != "telemetry_unavailable" and
+              (.pfsense.dns.security_filters | type == "array" and length > 0)
+            ' /tmp/homelab-health.json >/dev/null
+          fi
 
       # Pull requests cannot exercise their code against the already deployed
       # production UI. Keep the live API gate above on PRs, and reserve the

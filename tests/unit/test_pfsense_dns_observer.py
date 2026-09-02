@@ -52,6 +52,7 @@ async def test_unconfigured_observer_is_unknown(monkeypatch) -> None:
     assert result["configuration_stage"] == "missing_credentials"
     assert result["missing_variables"] == ["PFSENSE_API_URL", "PFSENSE_API_KEY"]
     assert result["ingress_block"]["state"] == "telemetry_unavailable"
+    assert isinstance(result["security_filters"], list)
 
 
 @pytest.mark.asyncio
@@ -161,6 +162,41 @@ async def test_independent_security_evidence_survives_posture_failure(monkeypatc
     assert result["reachable"] is False
     assert result["ingress_block"]["state"] == "blocked"
     assert result["ingress_block"]["control_path"]["mode"] == "out_of_band"
+    filters = {row["id"]: row for row in result["security_filters"]}
+    assert filters["firewall"]["state"] == "blocked"
+    assert filters["snort"]["state"] == "blocked"
+
+
+@pytest.mark.asyncio
+async def test_snort_filter_survives_services_timeout(monkeypatch, settings) -> None:
+    async def fake_get_data(_client, path: str):
+        if path == "/api/v2/status/services":
+            request = httpx.Request("GET", "https://pfsense.example.test/api/v2/status/services")
+            raise httpx.ReadTimeout("slow", request=request)
+        return {
+            "/api/v2/system/version": {"version": "2.8.0"},
+            "/api/v2/services/dns_resolver/settings": {
+                "enable": True,
+                "forwarding": False,
+            },
+            "/api/v2/system/dns": {"dnsserver": []},
+        }[path]
+
+    monkeypatch.setattr(pfsense_dns_observer, "_get_data", fake_get_data)
+    monkeypatch.setattr(
+        pfsense_dns_observer,
+        "observe_pfsense_ingress_block",
+        _security_clear,
+    )
+
+    result = await pfsense_dns_observer.observe_pfsense_dns_posture(settings=settings)
+
+    assert result["reachable"] is True
+    assert result["error_stage"] == "services"
+    assert result["error"] == "timeout"
+    filters = {row["id"]: row for row in result["security_filters"]}
+    assert filters["firewall"]["state"] == "in_path"
+    assert filters["snort"]["state"] == "clear"
 
 
 @pytest.mark.asyncio

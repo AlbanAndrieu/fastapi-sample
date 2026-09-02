@@ -14,7 +14,8 @@ from nabla.api.provider_credentials import inspect_environment_credentials
 
 DNSPolicyState = Literal["ok", "warn", "fail", "unknown"]
 
-_PFSENSE_TIMEOUT_SEC = 4.0
+_PFSENSE_TIMEOUT_SEC = 6.0
+_PFSENSE_MAX_CONCURRENCY = 2
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 _FALSE_VALUES = frozenset({"0", "false", "no", "off"})
 _RUNNING_STATES = frozenset({"active", "healthy", "running", "started", "up"})
@@ -163,8 +164,10 @@ def _service_running(services: object) -> bool | None:
 def _security_filter_observations(
     services: object,
     *,
-    snort_blocked: bool = False,
+    ingress_block: dict[str, Any] | None = None,
 ) -> list[dict[str, str]]:
+    ingress_state = str((ingress_block or {}).get("state") or "unknown")
+    snort_blocked = ingress_state == "blocked"
     filters: list[dict[str, str]] = [
         {
             "id": "firewall",
@@ -177,7 +180,9 @@ def _security_filter_observations(
             ),
         }
     ]
-    service_rows = [row for row in services if isinstance(row, dict)] if isinstance(services, list) else []
+    service_rows = [
+        row for row in services if isinstance(row, dict)
+    ] if isinstance(services, list) else []
     for filter_id, matchers in _SECURITY_SERVICE_MATCHERS.items():
         matches = [
             row
@@ -187,10 +192,7 @@ def _security_filter_observations(
         if filter_id == "snort" and snort_blocked:
             state = "blocked"
             detail = "Observed FastAPI egress is present in the Snort snort2c PF table"
-        elif not matches:
-            state = "not_observed"
-            detail = "Not exposed by /api/v2/status/services"
-        else:
+        elif matches:
             states = {_service_runtime_state(row) for row in matches}
             if "running" in states:
                 state = "running"
@@ -199,6 +201,18 @@ def _security_filter_observations(
             else:
                 state = "unknown"
             detail = f"{len(matches)} service entr{'y' if len(matches) == 1 else 'ies'} observed"
+        elif filter_id == "snort" and ingress_state == "clear":
+            state = "clear"
+            detail = "snort2c telemetry is reachable and the observed FastAPI egress is not blocked"
+        elif filter_id == "snort" and ingress_state == "attribution_unavailable":
+            state = "observed"
+            detail = "snort2c telemetry is reachable but runtime egress attribution is unavailable"
+        elif filter_id == "snort" and ingress_state == "telemetry_unavailable":
+            state = "unknown"
+            detail = "snort2c telemetry is unavailable"
+        else:
+            state = "not_observed"
+            detail = "Not exposed by /api/v2/status/services"
         filters.append(
             {
                 "id": filter_id,
@@ -262,27 +276,77 @@ async def _get_data(client: httpx.AsyncClient, path: str) -> object:
     return _response_data(response.json())
 
 
+async def _bounded_observations(
+    client: httpx.AsyncClient,
+    paths: dict[str, str],
+) -> dict[str, object | BaseException]:
+    semaphore = asyncio.Semaphore(_PFSENSE_MAX_CONCURRENCY)
+
+    async def fetch(path: str) -> object:
+        async with semaphore:
+            return await _get_data(client, path)
+
+    results = await asyncio.gather(
+        *(fetch(path) for path in paths.values()),
+        return_exceptions=True,
+    )
+    return dict(zip(paths, results, strict=True))
+
+
+def _partial_response(
+    *,
+    reachable: bool,
+    reason: str,
+    error_stage: str,
+    error: BaseException,
+    services: object,
+    ingress_block: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "configured": True,
+        "reachable": reachable,
+        "policy_state": "unknown",
+        "reason": reason,
+        "error_stage": error_stage,
+        "error": _safe_error(error),
+        "security_filters": _security_filter_observations(
+            services,
+            ingress_block=ingress_block,
+        ),
+        "ingress_block": ingress_block,
+    }
+
+
 async def observe_pfsense_dns_posture(
     *,
     truenas_hosts: frozenset[str] = frozenset(),
     settings: PfSenseDNSSettings | None = None,
 ) -> dict[str, Any]:
     """Return sanitized DNS posture plus independent Snort/PF evidence when possible."""
-    security_task = asyncio.create_task(observe_pfsense_ingress_block())
     configuration = pfsense_api_configuration_status() if settings is None else None
     configured = settings or PfSenseDNSSettings.from_environment()
     if configured is None:
-        ingress_block = await security_task
+        ingress_block = await observe_pfsense_ingress_block()
         return {
             **(configuration or {}),
             "configured": False,
             "reachable": None,
             "policy_state": "unknown",
             "reason": "pfSense posture observation is not configured",
+            "security_filters": _security_filter_observations(
+                None,
+                ingress_block=ingress_block,
+            ),
             "ingress_block": ingress_block,
         }
 
-    timeout = httpx.Timeout(_PFSENSE_TIMEOUT_SEC)
+    timeout = httpx.Timeout(_PFSENSE_TIMEOUT_SEC, connect=3.0)
+    paths = {
+        "system": "/api/v2/system/version",
+        "services": "/api/v2/status/services",
+        "resolver": "/api/v2/services/dns_resolver/settings",
+        "system_dns": "/api/v2/system/dns",
+    }
     async with httpx.AsyncClient(
         base_url=configured.base_url,
         headers={"X-API-Key": configured.api_key, "Accept": "application/json"},
@@ -290,31 +354,29 @@ async def observe_pfsense_dns_posture(
         follow_redirects=False,
         verify=configured.verify_ssl,
     ) as client:
-        paths = {
-            "system": "/api/v2/system/version",
-            "services": "/api/v2/status/services",
-            "resolver": "/api/v2/services/dns_resolver/settings",
-            "system_dns": "/api/v2/system/dns",
-        }
-        results = await asyncio.gather(
-            *(_get_data(client, path) for path in paths.values()),
-            return_exceptions=True,
+        try:
+            system_result = await _get_data(client, paths["system"])
+        except (httpx.HTTPError, ValueError) as exc:
+            ingress_block = await observe_pfsense_ingress_block()
+            return _partial_response(
+                reachable=False,
+                reason="pfSense posture API is unreachable from this runtime",
+                error_stage="system",
+                error=exc,
+                services=None,
+                ingress_block=ingress_block,
+            )
+
+        remaining = await _bounded_observations(
+            client,
+            {name: path for name, path in paths.items() if name != "system"},
         )
 
-    ingress_block = await security_task
-    observed = dict(zip(paths, results, strict=True))
-    system_result = observed["system"]
-    if isinstance(system_result, BaseException):
-        return {
-            "configured": True,
-            "reachable": False,
-            "policy_state": "unknown",
-            "reason": "pfSense posture API is unreachable from this runtime",
-            "error_stage": "system",
-            "error": _safe_error(system_result),
-            "ingress_block": ingress_block,
-        }
-
+    ingress_block = await observe_pfsense_ingress_block()
+    observed: dict[str, object | BaseException] = {
+        "system": system_result,
+        **remaining,
+    }
     failed_stage = next(
         (
             name
@@ -324,17 +386,17 @@ async def observe_pfsense_dns_posture(
         None,
     )
     if failed_stage is not None:
-        error = observed[failed_stage]
-        error_text = _safe_error(error) if isinstance(error, BaseException) else "unknown"
-        return {
-            "configured": True,
-            "reachable": True,
-            "policy_state": "unknown",
-            "reason": "pfSense DNS policy evidence is incomplete",
-            "error_stage": failed_stage,
-            "error": error_text,
-            "ingress_block": ingress_block,
-        }
+        failure = observed[failed_stage]
+        assert isinstance(failure, BaseException)
+        services = observed["services"]
+        return _partial_response(
+            reachable=True,
+            reason="pfSense DNS policy evidence is incomplete",
+            error_stage=failed_stage,
+            error=failure,
+            services=None if isinstance(services, BaseException) else services,
+            ingress_block=ingress_block,
+        )
 
     resolver = observed["resolver"]
     resolver_data = resolver if isinstance(resolver, dict) else {}
@@ -355,7 +417,6 @@ async def observe_pfsense_dns_posture(
     )
 
     port = resolver_data.get("port")
-    snort_blocked = ingress_block.get("state") == "blocked"
     return {
         "configured": True,
         "reachable": True,
@@ -375,7 +436,7 @@ async def observe_pfsense_dns_posture(
         },
         "security_filters": _security_filter_observations(
             observed["services"],
-            snort_blocked=snort_blocked,
+            ingress_block=ingress_block,
         ),
         "ingress_block": ingress_block,
     }

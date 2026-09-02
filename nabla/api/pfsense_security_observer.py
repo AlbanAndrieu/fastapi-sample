@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 import ipaddress
 import os
@@ -16,7 +17,7 @@ from nabla.api.truenas_transport_diagnostics import homelab_wan_metadata
 ControlPathMode = Literal["shared_wan", "out_of_band"]
 _CONTROL_PATH_MODES = frozenset({"shared_wan", "out_of_band"})
 _FALSE_VALUES = frozenset({"0", "false", "no", "off"})
-_PFSENSE_TIMEOUT_SEC = 4.0
+_PFSENSE_TIMEOUT_SEC = 6.0
 _TRUENAS_PUBLIC_PORT = 7000
 
 
@@ -169,11 +170,43 @@ def _unavailable(
     )
     return {
         "state": "telemetry_unavailable",
+        "telemetry_available": False,
+        "attribution_available": False,
         "engine": "snort",
         "firewall": "pfSense/PF",
         "mechanism": "snort2c",
         "evidence": evidence,
         "control_path": control_path,
+    }
+
+
+def _attribution_unavailable(
+    *,
+    table: object,
+    settings: PfSenseSecuritySettings,
+) -> dict[str, Any]:
+    wan = homelab_wan_metadata()
+    return {
+        "state": "attribution_unavailable",
+        "telemetry_available": True,
+        "attribution_available": False,
+        "engine": "snort",
+        "firewall": "pfSense/PF",
+        "mechanism": "snort2c",
+        "source": {
+            "ip": None,
+            "role": "FastAPI Cloud egress (not observed)",
+        },
+        "destination": {
+            "ip": wan["ipv4"],
+            "port": _TRUENAS_PUBLIC_PORT,
+            "role": "pfSense WAN / homelab public endpoint",
+        },
+        "table_entry_count": len(_canonical_table_entries(table)),
+        "evidence": (
+            "snort2c telemetry is reachable, but the runtime public egress IP could not be observed"
+        ),
+        "control_path": _control_path(settings, blind_spot=False),
     }
 
 
@@ -188,6 +221,8 @@ def _block_evidence(
     blocked = bool(observed_ip and observed_ip in _canonical_table_entries(table))
     return {
         "state": "blocked" if blocked else "clear",
+        "telemetry_available": True,
+        "attribution_available": True,
         "engine": "snort",
         "firewall": "pfSense/PF",
         "mechanism": "snort2c",
@@ -209,6 +244,20 @@ def _block_evidence(
     }
 
 
+async def _read_snort2c(settings: PfSenseSecuritySettings) -> object:
+    timeout = httpx.Timeout(_PFSENSE_TIMEOUT_SEC, connect=3.0)
+    async with httpx.AsyncClient(
+        base_url=settings.base_url,
+        headers={"X-API-Key": settings.api_key, "Accept": "application/json"},
+        timeout=timeout,
+        follow_redirects=False,
+        verify=settings.verify_ssl,
+    ) as client:
+        response = await client.get("/api/v2/diagnostics/table?id=snort2c")
+        response.raise_for_status()
+        return _response_data(response.json())
+
+
 async def observe_pfsense_ingress_block(
     *,
     settings: PfSenseSecuritySettings | None = None,
@@ -218,29 +267,14 @@ async def observe_pfsense_ingress_block(
     if configured is None:
         return _unavailable(None, "Dedicated pfSense security telemetry is not configured")
 
-    egress = await observe_public_egress_ip()
-    if egress.get("observed") is not True:
-        return _unavailable(
-            configured,
-            "Runtime public egress IP could not be observed",
-            blind_spot=False,
-        )
-
-    timeout = httpx.Timeout(_PFSENSE_TIMEOUT_SEC)
-    try:
-        async with httpx.AsyncClient(
-            base_url=configured.base_url,
-            headers={"X-API-Key": configured.api_key, "Accept": "application/json"},
-            timeout=timeout,
-            follow_redirects=False,
-            verify=configured.verify_ssl,
-        ) as client:
-            response = await client.get("/api/v2/diagnostics/table?id=snort2c")
-            response.raise_for_status()
-            table = _response_data(response.json())
-    except (httpx.HTTPError, ValueError) as exc:
-        reason = _safe_error(exc)
-        transport_failure = isinstance(exc, httpx.TransportError)
+    table_result, egress_result = await asyncio.gather(
+        _read_snort2c(configured),
+        observe_public_egress_ip(),
+        return_exceptions=True,
+    )
+    if isinstance(table_result, BaseException):
+        reason = _safe_error(table_result)
+        transport_failure = isinstance(table_result, httpx.TransportError)
         blind_spot = configured.control_path_mode == "shared_wan" and transport_failure
         suffix = (
             "; shared WAN control path cannot prove whether Snort blocked its own telemetry"
@@ -253,4 +287,8 @@ async def observe_pfsense_ingress_block(
             blind_spot=blind_spot,
         )
 
-    return _block_evidence(table=table, egress=egress, settings=configured)
+    egress = egress_result if isinstance(egress_result, dict) else {}
+    if egress.get("observed") is not True:
+        return _attribution_unavailable(table=table_result, settings=configured)
+
+    return _block_evidence(table=table_result, egress=egress, settings=configured)
