@@ -62,6 +62,15 @@ def inspect_environment_credentials(
     )
 
 
+def _pfsense_key_variable(dedicated_key_var: str) -> str:
+    """Use legacy compatibility only when the historical shared key actually exists."""
+    if os.getenv(dedicated_key_var, "").strip():
+        return dedicated_key_var
+    if os.getenv("PFSENSE_API_KEY", "").strip():
+        return "PFSENSE_API_KEY"
+    return dedicated_key_var
+
+
 def _pfsense_credential_status(
     provider: str,
     *,
@@ -74,11 +83,7 @@ def _pfsense_credential_status(
         if os.getenv(dedicated_url_var, "").strip()
         else "PFSENSE_API_URL"
     )
-    key_var = (
-        dedicated_key_var
-        if os.getenv(dedicated_key_var, "").strip()
-        else "PFSENSE_API_KEY"
-    )
+    key_var = _pfsense_key_variable(dedicated_key_var)
     status = inspect_environment_credentials(
         provider,
         url_var,
