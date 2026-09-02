@@ -78,7 +78,21 @@ def test_inventory_tracks_split_pfsense_identities_without_secret_material(monke
         assert secret not in serialized
 
 
-def test_inventory_keeps_legacy_pfsense_fallback(monkeypatch) -> None:
+def test_inventory_requests_dedicated_keys_when_generic_fallback_is_absent(monkeypatch) -> None:
+    _clear_pfsense_env(monkeypatch)
+    monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example.test")
+
+    result = infrastructure_provider_credentials()
+
+    assert result["pfsense"]["configured"] is False
+    assert result["pfsense"]["credential_mode"] == "dedicated"
+    assert result["pfsense"]["missing_variables"] == ["PFSENSE_POSTURE_API_KEY"]
+    assert result["pfsense_security"]["configured"] is False
+    assert result["pfsense_security"]["credential_mode"] == "dedicated"
+    assert result["pfsense_security"]["missing_variables"] == ["PFSENSE_SECURITY_API_KEY"]
+
+
+def test_inventory_keeps_legacy_pfsense_fallback_when_explicitly_present(monkeypatch) -> None:
     _clear_pfsense_env(monkeypatch)
     monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example.test")
     monkeypatch.setenv("PFSENSE_API_KEY", "legacy-test-placeholder")

@@ -49,12 +49,12 @@ enabled: pfREST rejects API-key authentication when the key owner is marked
 webConfigurator or SSH, so harden these service accounts by withholding WebCfg,
 admin-group and shell privileges rather than disabling the user object.
 
-For backward compatibility, the security observer falls back to
-`PFSENSE_API_KEY` only when `PFSENSE_SECURITY_API_KEY` is absent, and the posture
-observer does the same when `PFSENSE_POSTURE_API_KEY` is absent. This legacy
-shared-key mode is not the target least-privilege configuration. Once both
-dedicated keys are deployed and validated, remove `PFSENSE_API_KEY` from the
-FastAPI Cloud environment.
+The production FastAPI Cloud environment completed the credential split on
+2026-09-02 and no longer defines `PFSENSE_API_KEY`. Runtime code may temporarily
+retain the historical shared-key path for migration/rollback compatibility, but
+that fallback is not the target configuration and must only activate when the
+legacy variable is explicitly present. Do not restore the generic key or merge
+the posture and security privileges back into one credential.
 
 Use `PFSENSE_API_VERIFY_SSL=false` only for an explicitly trusted endpoint whose
 certificate is self-signed or issued by an untrusted internal CA. The dedicated
@@ -167,10 +167,12 @@ public health endpoint.
 Target assertions include:
 
 - no broad WAN `pass tcp any -> any` / Easy Rule;
-- pfSense admin `10443/tcp` is not permitted from arbitrary WAN sources;
+- pfSense admin/API `10443/tcp` follows the source-aware `trusted_sources_only`
+  policy: required FastAPI Cloud/approved administration sources may reach it,
+  while unrelated Internet origins are denied;
 - TrueNAS SSH `9922/tcp` and firewall SSH `22/tcp` remain externally blocked;
-- TrueNAS/HAProxy `7000/tcp` is permitted only from approved source policy once
-  the temporary broad Easy Rule is removed.
+- TrueNAS/HAProxy `7000/tcp` follows the same reviewed source-aware exception
+  while FastAPI Cloud lacks a stable user-controlled egress identity.
 
 Return only normalized compliance evidence such as rule identifiers,
 descriptions, interface, protocol, source class, destination port and

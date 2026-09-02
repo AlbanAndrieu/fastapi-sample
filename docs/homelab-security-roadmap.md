@@ -4,13 +4,14 @@ This roadmap turns `/sickz`, `/healthz`, the TrueNAS read-only runtime inventory
 
 ## P0 — Public exposure policy
 
-- **pfSense administration (`10443/tcp`)**: allow only from trusted LAN/VPN administration paths. A successful probe from FastAPI Cloud or another Internet vantage point is a security failure.
-- **TrueNAS HTTPS/API (`7000/tcp`)**: currently an intentional direct publication through pfSense HAProxy. The path is `Internet -> pfSense WAN:7000 -> HAProxy TLS termination -> TrueNAS 172.17.0.24:7000 over TLS`. This path does **not** use Cloudflare Tunnel and must remain narrowly scoped to the dedicated HAProxy listener/rule.
-- **Target state for `7000/tcp`**: after the broad pfSense Easy Rule is removed, do not leave TCP/7000 open to the whole Internet. Create pfSense aliases for explicitly approved source egress addresses/CIDRs (at minimum the verified FastAPI Cloud production egress address set and the trusted work/office public egress address set) and permit only those aliases to the HAProxy listener. Treat the currently observed FastAPI Cloud source address as evidence to verify, not as a permanent allowlist until FastAPI Cloud egress stability/documentation has been confirmed.
-- Prefer named pfSense aliases such as `FASTAPI_CLOUD_EGRESS` and `TRUSTED_WORK_EGRESS` over duplicated literal addresses in firewall rules. This keeps future egress changes auditable without broadening the rule.
+- **pfSense administration/API (`10443/tcp`)**: FastAPI Cloud currently requires this listener for the dedicated read-only posture and Snort/PF observers. Treat it as `trusted_sources_only`: the production FastAPI Cloud runtime and explicitly approved administration sources are expected to reach it, while unrelated Internet origins must remain denied.
+- **TrueNAS HTTPS/API (`7000/tcp`)**: currently an intentional direct publication through pfSense HAProxy. The path is `Internet -> pfSense WAN:7000 -> HAProxy TLS termination -> TLS re-encryption -> TrueNAS 172.17.0.24:7000`. This path does **not** use Cloudflare Tunnel and must remain narrowly scoped to the dedicated HAProxy listener/rule.
+- **Source-identity constraint**: the current FastAPI Cloud deployment does not expose a user-controlled static egress gateway or outbound tunnel. Observed cloud source IPs are transient diagnostic evidence, not a stable workload identity. Do not automatically populate `FASTAPI_CLOUD_EGRESS`, allow an entire AWS allocation, or convert one observed address into a permanent firewall/Snort pass-list entry.
+- Prefer named pfSense aliases for genuinely stable approved administration sources such as office/VPN/DDNS egress. Add a FastAPI Cloud alias only if the platform later provides a stable, documented source contract or another controlled network identity.
 - **TrueNAS SSH (`9922/tcp`) and firewall SSH (`22/tcp`)**: external reachability is always a failure.
 - Remove broad WAN pass rules such as an Easy Rule that permits arbitrary inbound TCP. Every public listener must have an explicit port/service policy.
-- **2026-09-02 acceptance evidence**: the broad WAN Easy Rule created states from the observed FastAPI Cloud source `52.1.10.241` to both `7000/tcp` and the pfSense administration listener `10443/tcp`. Replacing that rule remains P0. The acceptance test is that an Internet/FastAPI Cloud vantage point can reach only explicitly approved public listeners, cannot establish `10443/tcp`, and can reach `7000/tcp` only through an approved source alias once stable FastAPI Cloud egress is verified.
+- **2026-09-02 acceptance evidence**: the broad WAN Easy Rule created states from observed FastAPI Cloud sources to both `7000/tcp` and `10443/tcp`. Replacing that rule remains P0. The acceptance test is source-aware: FastAPI Cloud must retain the required `7000` and `10443` paths; an independent untrusted Internet vantage point must not establish either application path; `22` and `9922` remain blocked; and no broad WAN pass may make the explicit listener/source rules ineffective.
+- A successful FastAPI Cloud probe proves only the approved positive path. An HTTP `401` or `403` from an independent untrusted source still proves TCP/TLS reachability and does not satisfy an L3/L4 default-deny requirement.
 - Keep Cloudflare Tunnel evidence distinct from direct HAProxy/Traefik exposure. `tunnelSecure=true` means a Cloudflare-protected exposure is expected; direct exceptions must remain auditable and visible as security debt.
 
 ## P0 — Health endpoint reliability
@@ -112,7 +113,7 @@ Upgrade policy:
 - remain on the previous working boot environment until the BETA.3 CPU enumeration regression is explained/fixed;
 - preserve BETA.3 diagnostic evidence for upstream comparison;
 - before any future retry, validate host-visible CPU topology, Docker `NCPU`, Apps networking, and representative application startup before making the new boot environment default;
-- rotate `PFSENSE_API_KEY` again after the TrueNAS upgrade/recovery work is complete because the current key was changed during troubleshooting.
+- do not reintroduce the generic `PFSENSE_API_KEY`. Production uses separate `PFSENSE_POSTURE_API_KEY` and `PFSENSE_SECURITY_API_KEY`; rotate only the affected dedicated identity if future troubleshooting exposes or compromises it.
 
 ## P2 — Exposure observability
 

@@ -65,11 +65,36 @@ Canonical infrastructure credentials used by the health observers are:
 
 ```text
 TRUENAS_API_KEY
-PFSENSE_API_KEY
+PFSENSE_POSTURE_API_KEY
+PFSENSE_SECURITY_API_KEY
 CLOUDFLARE_API_TOKEN
 ```
 
-Provider health must validate that its canonical credential exists before attempting provider authentication. A missing credential is configuration health data, not a generic network failure. Never substitute one provider's key for another provider or silently fall back to a differently named secret.
+The two pfSense identities intentionally share transport defaults while keeping credentials separate:
+
+```text
+PFSENSE_API_URL=https://home.albandrieu.com:10443
+PFSENSE_API_VERIFY_SSL=true
+PFSENSE_POSTURE_API_KEY=<dedicated posture GET-only key>
+PFSENSE_SECURITY_API_KEY=<dedicated diagnostics-table GET-only key>
+PFSENSE_SECURITY_PATH_MODE=shared_wan
+```
+
+`PFSENSE_POSTURE_API_URL`, `PFSENSE_POSTURE_API_VERIFY_SSL`, `PFSENSE_SECURITY_API_URL`, and `PFSENSE_SECURITY_API_VERIFY_SSL` are optional overrides when an identity uses a different transport. `PFSENSE_API_KEY` is a temporary application compatibility fallback only; it was removed from the production FastAPI Cloud environment on 2026-09-02 after both dedicated identities were validated. Do not recommend restoring or reusing the generic key.
+
+Provider health must validate that its canonical credential exists before attempting provider authentication. A missing credential is configuration health data, not a generic network failure. Never substitute one provider's key for another provider or recommend collapsing the dedicated pfSense identities back into one shared secret.
+
+For pfSense liveness, use the posture identity and the lightweight endpoint:
+
+```text
+GET /api/v2/system/version
+```
+
+Do not use `/api/v2/status/system` as the synchronous liveness gate; it collects substantially more live system information and can exceed a short health timeout. The security identity should only read:
+
+```text
+GET /api/v2/diagnostics/table?id=snort2c
+```
 
 ### Updating a FastAPI Cloud secret
 

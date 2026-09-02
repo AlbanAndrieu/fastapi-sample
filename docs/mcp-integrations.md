@@ -123,9 +123,16 @@ PFSENSE_IDENTITY
 PFSENSE_API_KEY_FILE
 ```
 
-`PFSENSE_API_KEY_FILE` must point to an owner-readable key file outside the repository. Keep TLS verification strict. Optionally reduce the tool surface with `PFSENSE_ALLOWED_TOOLS`.
+`PFSENSE_API_KEY_FILE` belongs to the local MCP auditor and must point to an owner-readable key file outside the repository. Keep TLS verification strict. Optionally reduce the tool surface with `PFSENSE_ALLOWED_TOOLS`.
 
-The FastAPI application's own pfSense observer is separate and uses `PFSENSE_API_KEY` in the `X-API-Key` header. Do not reuse or confuse that credential with `TRUENAS_API_KEY`.
+The FastAPI application's runtime observers are a separate security boundary. Production uses two independently rotatable environment secrets in the `X-API-Key` header:
+
+```text
+PFSENSE_POSTURE_API_KEY
+PFSENSE_SECURITY_API_KEY
+```
+
+They share `PFSENSE_API_URL` / `PFSENSE_API_VERIFY_SSL` by default but intentionally have different pfSense privileges. The generic runtime `PFSENSE_API_KEY` was removed from FastAPI Cloud on 2026-09-02 and must not be confused with `PFSENSE_API_KEY_FILE`, restored as the normal application credential, or reused as `TRUENAS_API_KEY`.
 
 After configuration, set `pfsense-auditor.enabled` to `true` in a local OpenCode override, or run the server directly for testing:
 
