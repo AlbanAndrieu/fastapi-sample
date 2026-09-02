@@ -37,6 +37,24 @@
   font-size: 0.72rem;
 }
 
+.truenas-ingress-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0 0 0.75rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgba(255, 80, 80, 0.55);
+  border-radius: 8px;
+  color: #ff9999;
+  background: rgba(255, 80, 80, 0.08);
+  font-size: 0.68rem;
+  overflow-wrap: anywhere;
+}
+
+.truenas-ingress-block[hidden] {
+  display: none;
+}
+
 .truenas-security-filters {
   display: flex;
   align-items: center;
@@ -57,6 +75,12 @@
   border-radius: 999px;
   font-size: 0.62rem;
   line-height: 1.35;
+}
+
+.truenas-filter--blocked {
+  color: #ff9999;
+  border-color: rgba(255, 80, 80, 0.55);
+  background: rgba(255, 80, 80, 0.08);
 }
 
 .truenas-filter--possible {
