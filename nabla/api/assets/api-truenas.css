@@ -51,6 +51,12 @@
   overflow-wrap: anywhere;
 }
 
+.truenas-ingress-block--warning {
+  color: #ffd966;
+  border-color: rgba(255, 200, 50, 0.4);
+  background: rgba(255, 200, 50, 0.06);
+}
+
 .truenas-ingress-block[hidden] {
   display: none;
 }
