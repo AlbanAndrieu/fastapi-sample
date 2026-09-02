@@ -313,7 +313,7 @@ async def check_pfsense_api() -> dict[str, Any]:
             "url": url,
             "verify_ssl": verify_ssl,
             "credential_mode": credential_mode,
-            "tls_trusted": False if not verify_ssl else None,
+            "tls_trusted": not not verify_ssl,
         }
 
     healthy = 200 <= response.status_code < 400
@@ -337,7 +337,7 @@ async def check_pfsense_api() -> dict[str, Any]:
         "verify_ssl": verify_ssl,
         "credential_mode": credential_mode,
         "attempts": attempts,
-        "tls_trusted": True if verify_ssl else False,
+        "tls_trusted": verify_ssl,
     }
     if healthy:
         result["last_success_at"] = _utc_now()
@@ -350,16 +350,15 @@ def _cache_with_stale_evidence(cached: ProbeCacheResult) -> dict[str, Any]:
     value = dict(cached.value)
     current_failure = value.get("reachable") is False or value.get("api_reachable") is False
     stale_refresh = cached.metadata.get("stale") is True
-    if (current_failure or stale_refresh) and cached.last_good is not None:
+    use_last_good = (current_failure or stale_refresh) and cached.last_good is not None
+    if use_last_good:
         error = value.get("error") or "probe refresh is in progress"
         value = {
             **cached.last_good,
-            "stale": True,
             "refresh_error": error,
         }
     value.update(cached.metadata)
-    if not (current_failure or stale_refresh):
-        value["stale"] = False
+    value["stale"] = bool(use_last_good or stale_refresh)
     return value
 
 
