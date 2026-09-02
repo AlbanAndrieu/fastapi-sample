@@ -85,6 +85,10 @@ export function dependencyHealthClass(check) {
   if (check.effective_state === "ok") return "green";
   if (check.effective_state === "warn") return "yellow";
   if (check.effective_state === "fail") return "red";
+  // Unknown dependency-graph evidence must not erase a fresh successful direct probe.
+  // Keep the direct HTTP/API result authoritative for reachability while still
+  // rendering the unknown dependency evidence in the detail text.
+  if (check.reachable === true) return null;
   return "gray";
 }
 
@@ -114,6 +118,9 @@ export function dependencyDetailText(check) {
   if (runtimeRunning && check.effective_state !== "ok") parts.push("RUNNING but degraded");
   if (check.local_state && check.local_state !== check.effective_state) {
     parts.push(`local ${check.local_state} → effective ${check.effective_state}`);
+  }
+  if (check.effective_state === "unknown" && check.reachable === true) {
+    parts.push("dependency evidence unknown; direct probe reachable");
   }
   const blocked = dependencyBlockedLabels(check);
   if (blocked.length > 0) parts.push(`blocked by ${blocked.join(", ")}`);
