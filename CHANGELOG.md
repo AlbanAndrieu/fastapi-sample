@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.7...1.6.0) (2026-09-02)
+
+
+### Features
+
+* **health:** expose edge evidence and resilient production diagnostics ([#170](https://github.com/AlbanAndrieu/fastapi-sample/issues/170)) ([d69b3cf](https://github.com/AlbanAndrieu/fastapi-sample/commit/d69b3cf728e8f2bf91ebc6a524376cf7543aea01))
+
 ## [1.5.7](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.6...1.5.7) (2026-09-02)
 
 
