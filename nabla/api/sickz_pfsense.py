@@ -51,21 +51,30 @@ _PFSENSE_TCP_PORT_POLICY: dict[int, dict[str, Any]] = {
     7000: {
         "service": "TrueNAS via pfSense HAProxy",
         "expected_reachable": True,
+        "access_policy": "trusted_sources_only",
+        "default_action": "deny",
+        "expected_from": ["fastapi_cloud", "approved_admin_sources"],
+        "negative_probe_required": True,
         "probe": "https",
         "reason": (
-            "pfSense HAProxy intentionally publishes TrueNAS HTTPS/API on WAN port "
-            "7000 and re-encrypts traffic to 172.17.0.24:7000. This is direct HAProxy "
-            "exposure, not a Cloudflare Tunnel."
+            "FastAPI Cloud intentionally requires the pfSense HAProxy TrueNAS HTTPS/API "
+            "listener on WAN port 7000. The runtime currently has no user-controlled "
+            "static egress or outbound tunnel, so positive reachability is expected from "
+            "this approved runtime while unrelated Internet origins must remain denied."
         ),
     },
     10443: {
-        "service": "pfSense Admin UI",
-        "expected_reachable": False,
+        "service": "pfSense Admin/API",
+        "expected_reachable": True,
+        "access_policy": "trusted_sources_only",
+        "default_action": "deny",
+        "expected_from": ["fastapi_cloud", "approved_admin_sources"],
+        "negative_probe_required": True,
         "probe": "https",
         "reason": (
-            "pfSense administration may be reachable from the trusted LAN/VPN, but "
-            "WAN port 10443 must not be reachable from an external runtime such as "
-            "FastAPI Cloud."
+            "FastAPI Cloud intentionally requires the pfSense REST API on WAN port 10443. "
+            "This is an accepted trusted-source exception while the platform provides no "
+            "user-controlled static egress/tunnel; generic Internet origins must remain denied."
         ),
     },
 }
