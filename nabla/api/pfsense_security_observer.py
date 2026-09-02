@@ -31,6 +31,8 @@ _TRUENAS_PUBLIC_PORT = 7000
 _snort2c_cache_lock = asyncio.Lock()
 _snort2c_cache: object | None = None
 _snort2c_cache_at = 0.0
+_snort2c_cache_stale = False
+_snort2c_cache_failure: dict[str, Any] | None = None
 _snort2c_last_success_at: str | None = None
 
 
@@ -326,9 +328,7 @@ def _stale_telemetry(
 ) -> dict[str, Any]:
     wan = homelab_wan_metadata()
     observed_ip = str(egress.get("ip") or "").strip()
-    last_known_match = bool(
-        observed_ip and observed_ip in _canonical_table_entries(table)
-    )
+    last_known_match = bool(observed_ip and observed_ip in _canonical_table_entries(table))
     return _with_telemetry(
         {
             "state": "telemetry_stale",
@@ -357,7 +357,9 @@ def _stale_telemetry(
     )
 
 
-async def _fetch_snort2c(settings: PfSenseSecuritySettings) -> tuple[object | None, dict[str, Any]]:
+async def _fetch_snort2c(
+    settings: PfSenseSecuritySettings,
+) -> tuple[object | None, dict[str, Any]]:
     timeout = httpx.Timeout(
         connect=_PFSENSE_CONNECT_TIMEOUT_SEC,
         read=_PFSENSE_READ_TIMEOUT_SEC,
@@ -421,12 +423,23 @@ async def _fetch_snort2c(settings: PfSenseSecuritySettings) -> tuple[object | No
 async def _read_snort2c_cached(
     settings: PfSenseSecuritySettings,
 ) -> tuple[object | None, dict[str, Any]]:
-    global _snort2c_cache, _snort2c_cache_at, _snort2c_last_success_at
+    global _snort2c_cache, _snort2c_cache_at, _snort2c_cache_failure
+    global _snort2c_cache_stale, _snort2c_last_success_at
 
     async with _snort2c_cache_lock:
         now = time.monotonic()
         age = now - _snort2c_cache_at if _snort2c_cache is not None else None
         if _snort2c_cache is not None and age is not None and age < _SNORT2C_CACHE_TTL_SEC:
+            if _snort2c_cache_stale:
+                failure = deepcopy(_snort2c_cache_failure) or {}
+                return deepcopy(_snort2c_cache), {
+                    **failure,
+                    "path": _SNORT2C_PATH,
+                    "cached": True,
+                    "stale": True,
+                    "cache_age_seconds": round(age, 3),
+                    "last_success_at": _snort2c_last_success_at,
+                }
             return deepcopy(_snort2c_cache), {
                 "path": _SNORT2C_PATH,
                 "cached": True,
@@ -443,6 +456,8 @@ async def _read_snort2c_cached(
         if table is not None:
             _snort2c_cache = deepcopy(table)
             _snort2c_cache_at = time.monotonic()
+            _snort2c_cache_stale = False
+            _snort2c_cache_failure = None
             _snort2c_last_success_at = _utc_now()
             return table, {
                 **telemetry,
@@ -452,6 +467,8 @@ async def _read_snort2c_cached(
         if previous is not None:
             cache_age = max(0.0, time.monotonic() - previous_at)
             _snort2c_cache_at = time.monotonic()
+            _snort2c_cache_stale = True
+            _snort2c_cache_failure = deepcopy(telemetry)
             return previous, {
                 **telemetry,
                 "cached": True,
@@ -519,8 +536,11 @@ async def observe_pfsense_ingress_block(
 
 async def reset_snort2c_cache() -> None:
     """Reset process-local security telemetry state for deterministic tests."""
-    global _snort2c_cache, _snort2c_cache_at, _snort2c_last_success_at
+    global _snort2c_cache, _snort2c_cache_at, _snort2c_cache_failure
+    global _snort2c_cache_stale, _snort2c_last_success_at
     async with _snort2c_cache_lock:
         _snort2c_cache = None
         _snort2c_cache_at = 0.0
+        _snort2c_cache_stale = False
+        _snort2c_cache_failure = None
         _snort2c_last_success_at = None
