@@ -381,12 +381,10 @@ async def build_homelab_health_payload() -> dict[str, Any]:
 
         semaphore = asyncio.Semaphore(_MAX_PROBE_CONCURRENCY)
         timeout = httpx.Timeout(_PROBE_TIMEOUT_SEC)
-        internal_results_task = asyncio.create_task(
-            asyncio.gather(
-                *(
-                    _probe_internal_service(semaphore, service)
-                    for service in internal_services
-                )
+        internal_results_future = asyncio.gather(
+            *(
+                _probe_internal_service(semaphore, service)
+                for service in internal_services
             )
         )
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
@@ -398,7 +396,7 @@ async def build_homelab_health_payload() -> dict[str, Any]:
                     )
                 ),
                 _probe_truenas(semaphore, internal_enabled=internal_enabled),
-                internal_results_task,
+                internal_results_future,
             )
 
         payload: dict[str, Any] = {
