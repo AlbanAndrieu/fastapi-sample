@@ -90,8 +90,10 @@ PFSENSE_SECURITY_PATH_MODE=shared_wan
 
 When the dedicated URL variables are absent, both identities reuse
 `PFSENSE_API_URL`. When their dedicated TLS flags are absent, they reuse
-`PFSENSE_API_VERIFY_SSL`. `PFSENSE_API_KEY` is retained only as a temporary
-legacy fallback and can be removed after both dedicated keys are deployed.
+`PFSENSE_API_VERIFY_SSL`. Production completed the split on 2026-09-02 and no
+longer defines `PFSENSE_API_KEY`. Runtime code may temporarily keep the old
+shared-key name for migration/rollback compatibility, but it is not canonical
+configuration and must not be restored merely to satisfy a missing-key diagnostic.
 
 Recommended pfSense service accounts:
 
