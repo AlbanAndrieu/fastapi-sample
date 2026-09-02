@@ -1,3 +1,10 @@
+## [1.5.3](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.2...1.5.3) (2026-09-02)
+
+
+### Bug Fixes
+
+* **pfsense:** use dedicated security API key ([#165](https://github.com/AlbanAndrieu/fastapi-sample/issues/165)) ([dafbf91](https://github.com/AlbanAndrieu/fastapi-sample/commit/dafbf91d15a7eab0eeb0decf7aca187f8110000b))
+
 ## [1.5.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.1...1.5.2) (2026-09-02)
 
 
