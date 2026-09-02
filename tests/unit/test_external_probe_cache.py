@@ -51,6 +51,39 @@ def policy() -> ProbeCachePolicy:
     )
 
 
+def test_l1_hot_ttl_uses_success_ttl() -> None:
+    policy = ProbeCachePolicy(
+        success_ttl=0.25,
+        failure_ttl=30.0,
+        stale_ttl=120.0,
+    )
+
+    assert cache._l1_hot_ttl({"current": {"success": True}}, policy) == 0.25
+
+
+def test_l1_hot_ttl_uses_failure_ttl() -> None:
+    policy = ProbeCachePolicy(
+        success_ttl=30.0,
+        failure_ttl=0.5,
+        stale_ttl=120.0,
+    )
+
+    assert cache._l1_hot_ttl({"current": {"success": False}}, policy) == 0.5
+
+
+def test_l1_hot_ttl_caps_long_ttl_at_local_window() -> None:
+    policy = ProbeCachePolicy(
+        success_ttl=30.0,
+        failure_ttl=15.0,
+        stale_ttl=120.0,
+    )
+
+    assert (
+        cache._l1_hot_ttl({"current": {"success": True}}, policy)
+        == cache._L1_HOT_TTL_SEC
+    )
+
+
 @pytest.mark.asyncio
 async def test_second_replica_reuses_redis_l2(policy) -> None:
     redis = FakeRedis()
