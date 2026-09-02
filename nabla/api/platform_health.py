@@ -238,14 +238,24 @@ async def check_pfsense_api() -> dict[str, Any]:
         pool=_PFSENSE_CONNECT_TIMEOUT_SEC,
     )
     started = time.monotonic()
+    logger.debug(
+        "pfSense API liveness probe started url=%s verify_ssl=%s "
+        "connect_timeout_s=%s read_timeout_s=%s",
+        url,
+        verify_ssl,
+        _PFSENSE_CONNECT_TIMEOUT_SEC,
+        _PFSENSE_READ_TIMEOUT_SEC,
+    )
     response: httpx.Response | None = None
     last_error: BaseException | None = None
+    attempts = 0
     async with httpx.AsyncClient(
         timeout=timeout,
         verify=verify_ssl,
         follow_redirects=False,
     ) as client:
         for attempt in range(1, _PFSENSE_MAX_ATTEMPTS + 1):
+            attempts = attempt
             try:
                 response = await client.get(
                     url,
@@ -277,14 +287,27 @@ async def check_pfsense_api() -> dict[str, Any]:
                 "pfSense accepted the connection but did not return the REST API "
                 f"response within {_PFSENSE_READ_TIMEOUT_SEC:.0f}s"
             )
+        failure_stage = _pfsense_failure_stage(error_kind)
+        logger.warning(
+            "pfSense API liveness probe failed url=%s verify_ssl=%s "
+            "error_kind=%s failure_stage=%s exception_type=%s "
+            "elapsed_ms=%s attempts=%s",
+            url,
+            verify_ssl,
+            error_kind,
+            failure_stage,
+            type(exc).__name__,
+            elapsed_ms,
+            attempts,
+        )
         return {
             "reachable": False,
             "error": error,
             "error_kind": error_kind,
-            "failure_stage": _pfsense_failure_stage(error_kind),
+            "failure_stage": failure_stage,
             "exception_type": type(exc).__name__,
             "elapsed_ms": elapsed_ms,
-            "attempts": _PFSENSE_MAX_ATTEMPTS,
+            "attempts": attempts,
             "probe": "pfsense_rest_api_v2",
             "path": _PFSENSE_LIVENESS_PATH,
             "url": url,
@@ -294,6 +317,16 @@ async def check_pfsense_api() -> dict[str, Any]:
         }
 
     healthy = 200 <= response.status_code < 400
+    logger.debug(
+        "pfSense API liveness probe completed url=%s verify_ssl=%s "
+        "http_status=%s elapsed_ms=%s attempts=%s reachable=%s",
+        url,
+        verify_ssl,
+        response.status_code,
+        elapsed_ms,
+        attempts,
+        healthy,
+    )
     result: dict[str, Any] = {
         "reachable": healthy,
         "http_status": response.status_code,
@@ -303,7 +336,7 @@ async def check_pfsense_api() -> dict[str, Any]:
         "url": url,
         "verify_ssl": verify_ssl,
         "credential_mode": credential_mode,
-        "attempts": 1 if last_error is None else 2,
+        "attempts": attempts,
         "tls_trusted": True if verify_ssl else False,
     }
     if healthy:
