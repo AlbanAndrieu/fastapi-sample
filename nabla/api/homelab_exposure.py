@@ -14,18 +14,30 @@ from nabla.api.cloudflare_tunnels import (
     observe_cloudflare_access_applications,
     observe_cloudflare_tunnels,
 )
+from nabla.api.external_probe_cache import ProbeCachePolicy, get_or_refresh_probe
 from nabla.api.homelab_models import HomelabService
+
+_CLOUDFLARE_EXPOSURE_CACHE_KEY = "cloudflare:exposure"
+_CLOUDFLARE_EXPOSURE_CACHE_POLICY = ProbeCachePolicy(
+    success_ttl=90.0,
+    failure_ttl=60.0,
+    stale_ttl=600.0,
+    lock_ttl=20,
+)
 
 
 @dataclass(frozen=True, slots=True)
 class CloudflareExposureSnapshot:
-    """Provider observations plus explicit partial-failure state."""
+    """Provider observations plus explicit partial-failure/cache state."""
 
     configured: bool
     tunnels: tuple[CloudflareTunnelObservation, ...] = ()
     access_applications: tuple[CloudflareAccessApplicationObservation, ...] = ()
     tunnel_error: str | None = None
     access_error: str | None = None
+    stale: bool = False
+    refresh_error: str | None = None
+    cache: dict[str, Any] | None = None
 
     def summary(self) -> dict[str, Any]:
         return {
@@ -48,7 +60,54 @@ class CloudflareExposureSnapshot:
             ),
             "tunnel_error": self.tunnel_error,
             "access_error": self.access_error,
+            "stale": self.stale,
+            "refresh_error": self.refresh_error,
+            "cache": self.cache,
         }
+
+    def cache_payload(self) -> dict[str, Any]:
+        """Return JSON-only provider evidence suitable for shared Redis storage."""
+        return {
+            "configured": self.configured,
+            "tunnels": [item.model_dump(mode="json") for item in self.tunnels],
+            "access_applications": [
+                item.model_dump(mode="json") for item in self.access_applications
+            ],
+            "tunnel_error": self.tunnel_error,
+            "access_error": self.access_error,
+        }
+
+    @classmethod
+    def from_cache_payload(
+        cls,
+        payload: dict[str, Any],
+        *,
+        stale: bool = False,
+        refresh_error: str | None = None,
+        cache: dict[str, Any] | None = None,
+    ) -> CloudflareExposureSnapshot:
+        return cls(
+            configured=bool(payload.get("configured")),
+            tunnels=tuple(
+                CloudflareTunnelObservation.model_validate(item)
+                for item in payload.get("tunnels", [])
+                if isinstance(item, dict)
+            ),
+            access_applications=tuple(
+                CloudflareAccessApplicationObservation.model_validate(item)
+                for item in payload.get("access_applications", [])
+                if isinstance(item, dict)
+            ),
+            tunnel_error=(
+                str(payload["tunnel_error"]) if payload.get("tunnel_error") else None
+            ),
+            access_error=(
+                str(payload["access_error"]) if payload.get("access_error") else None
+            ),
+            stale=stale,
+            refresh_error=refresh_error,
+            cache=cache,
+        )
 
 
 def _short_provider_error(exc: BaseException) -> str:
@@ -56,11 +115,7 @@ def _short_provider_error(exc: BaseException) -> str:
     return exc.__class__.__name__[:80]
 
 
-async def observe_cloudflare_exposure() -> CloudflareExposureSnapshot:
-    """Observe Tunnel and Access independently with sanitized partial failures."""
-    if CloudflareTunnelSettings.from_environment() is None:
-        return CloudflareExposureSnapshot(configured=False)
-
+async def _observe_cloudflare_exposure_origin() -> dict[str, Any]:
     async def tunnels() -> tuple[tuple[CloudflareTunnelObservation, ...], str | None]:
         try:
             return tuple(await asyncio.to_thread(observe_cloudflare_tunnels)), None
@@ -85,6 +140,44 @@ async def observe_cloudflare_exposure() -> CloudflareExposureSnapshot:
         access_applications=access_observations,
         tunnel_error=tunnel_error,
         access_error=access_error,
+    ).cache_payload()
+
+
+def _cloudflare_exposure_success(payload: dict[str, Any]) -> bool:
+    return not payload.get("tunnel_error") and not payload.get("access_error")
+
+
+def _refresh_error(payload: dict[str, Any]) -> str | None:
+    errors = [
+        str(value)
+        for value in (payload.get("tunnel_error"), payload.get("access_error"))
+        if value
+    ]
+    return ", ".join(errors) or None
+
+
+async def observe_cloudflare_exposure() -> CloudflareExposureSnapshot:
+    """Observe Tunnel and Access through L1/Redis cache with stale-if-error."""
+    if CloudflareTunnelSettings.from_environment() is None:
+        return CloudflareExposureSnapshot(configured=False)
+
+    cached = await get_or_refresh_probe(
+        _CLOUDFLARE_EXPOSURE_CACHE_KEY,
+        _observe_cloudflare_exposure_origin,
+        is_success=_cloudflare_exposure_success,
+        policy=_CLOUDFLARE_EXPOSURE_CACHE_POLICY,
+    )
+    current_error = _refresh_error(cached.value)
+    if (current_error or cached.metadata.get("stale") is True) and cached.last_good:
+        return CloudflareExposureSnapshot.from_cache_payload(
+            cached.last_good,
+            stale=True,
+            refresh_error=current_error or "Cloudflare refresh in progress",
+            cache=cached.metadata,
+        )
+    return CloudflareExposureSnapshot.from_cache_payload(
+        cached.value,
+        cache=cached.metadata,
     )
 
 
@@ -227,19 +320,27 @@ def _service_exposure(
         elif snapshot.tunnel_error:
             incomplete.append("Cloudflare Tunnel observation failed")
         elif not tunnel:
-            mismatches.append("Cloudflare edge is declared but no matching Tunnel ingress was observed")
+            mismatches.append(
+                "Cloudflare edge is declared but no matching Tunnel ingress was observed"
+            )
     elif edge_mode == "direct" and tunnel:
-        mismatches.append("Direct exposure is declared but a matching Cloudflare Tunnel ingress was observed")
+        mismatches.append(
+            "Direct exposure is declared but a matching Cloudflare Tunnel ingress was observed"
+        )
 
     if access_required:
         if edge_mode == "direct":
-            mismatches.append("Cloudflare Access is required while the declared edge mode is direct")
+            mismatches.append(
+                "Cloudflare Access is required while the declared edge mode is direct"
+            )
         if not snapshot.configured:
             incomplete.append("Cloudflare Access observation is not configured")
         elif snapshot.access_error:
             incomplete.append("Cloudflare Access observation failed")
         elif not access:
-            mismatches.append("Cloudflare Access is required but no matching Access application was observed")
+            mismatches.append(
+                "Cloudflare Access is required but no matching Access application was observed"
+            )
         elif access.get("cloudflare_access_public") is True:
             scope = access.get("cloudflare_access_public_scope") or "unknown"
             mismatches.append(
