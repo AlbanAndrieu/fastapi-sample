@@ -84,7 +84,7 @@ def _https_stage(public_result: dict[str, Any]) -> dict[str, Any]:
         detail = str(public_result.get("error") or "HTTPS request failed")[:240]
     return _stage(
         "https",
-        "HTTPS",
+        "HTTPS through HAProxy",
         state,
         elapsed_ms=public_result.get("latency_ms"),
         detail=detail,
@@ -98,17 +98,17 @@ def _haproxy_stage(tls_ok: bool) -> dict[str, Any]:
     if not tls_ok:
         return _stage(
             "haproxy",
-            "HAProxy WebSocket proxy",
+            "HAProxy :7000",
             "blocked",
-            detail="Blocked before the public HAProxy listener could be validated",
+            detail="Blocked before the public HAProxy TLS listener could be validated",
         )
     return _stage(
         "haproxy",
-        "HAProxy WebSocket proxy",
+        "HAProxy :7000",
         "ok",
         detail=(
-            "HAProxy :7000 · HTTP mode · native WebSocket upgrade forwarding · "
-            "TLS re-encryption to TrueNAS; WebSocket path validated next"
+            "Public TLS termination · HTTP mode · native WebSocket upgrade forwarding · "
+            "TLS re-encryption to TrueNAS 172.17.0.24:7000"
         ),
         evidence="declared_topology",
         proxy_mode="http",
@@ -275,7 +275,7 @@ async def collect_truenas_network_diagnostics(
     verify_ssl: bool,
     public_result: dict[str, Any],
 ) -> dict[str, Any]:
-    """Measure DNS -> TCP -> TLS -> HTTPS -> HAProxy -> WebSocket without credentials."""
+    """Measure DNS -> TCP -> TLS -> HAProxy -> HTTPS -> WebSocket without credentials."""
     stages: list[dict[str, Any]] = []
     dns, dns_ok = await _dns_stage(host)
     stages.append(dns)
@@ -288,8 +288,8 @@ async def collect_truenas_network_diagnostics(
         stages.append(_stage("socket", "TCP connect", "blocked", detail="Blocked by DNS failure"))
         stages.append(_stage("tls", "TLS handshake", "blocked", detail="Blocked by DNS failure"))
 
-    stages.append(_https_stage(public_result))
     stages.append(_haproxy_stage(tls_ok))
+    stages.append(_https_stage(public_result))
 
     if tls_ok:
         websocket, _ = await _websocket_stage(websocket_uri, verify_ssl)
