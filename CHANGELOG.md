@@ -1,3 +1,10 @@
+## [1.5.6](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.5...1.5.6) (2026-09-02)
+
+
+### Performance Improvements
+
+* **health:** stabilize production diagnostics ([#168](https://github.com/AlbanAndrieu/fastapi-sample/issues/168)) ([50be4a5](https://github.com/AlbanAndrieu/fastapi-sample/commit/50be4a50ed398d984e927fd5015ef3d452f510fb))
+
 ## [1.5.5](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.4...1.5.5) (2026-09-02)
 
 

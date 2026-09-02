@@ -51,7 +51,7 @@ RUN --mount=type=secret,id=read-package-token,required=false \
 
 FROM python:3.13-slim-trixie AS production
 
-ARG APP_VERSION="1.5.5"
+ARG APP_VERSION="1.5.6"
 
 LABEL name="fastapi-sample" \
       vendor="sample" \
