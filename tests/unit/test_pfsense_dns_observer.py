@@ -16,10 +16,33 @@ def settings() -> PfSenseDNSSettings:
     )
 
 
+async def _security_unavailable():
+    return {
+        "state": "telemetry_unavailable",
+        "engine": "snort",
+        "mechanism": "snort2c",
+    }
+
+
+async def _security_clear():
+    return {
+        "state": "clear",
+        "engine": "snort",
+        "mechanism": "snort2c",
+    }
+
+
 @pytest.mark.asyncio
 async def test_unconfigured_observer_is_unknown(monkeypatch) -> None:
     monkeypatch.delenv("PFSENSE_API_URL", raising=False)
     monkeypatch.delenv("PFSENSE_API_KEY", raising=False)
+    monkeypatch.delenv("PFSENSE_POSTURE_API_URL", raising=False)
+    monkeypatch.delenv("PFSENSE_POSTURE_API_KEY", raising=False)
+    monkeypatch.setattr(
+        pfsense_dns_observer,
+        "observe_pfsense_ingress_block",
+        _security_unavailable,
+    )
 
     result = await pfsense_dns_observer.observe_pfsense_dns_posture()
 
@@ -28,13 +51,19 @@ async def test_unconfigured_observer_is_unknown(monkeypatch) -> None:
     assert result["policy_state"] == "unknown"
     assert result["configuration_stage"] == "missing_credentials"
     assert result["missing_variables"] == ["PFSENSE_API_URL", "PFSENSE_API_KEY"]
-    assert result["invalid_reference_variables"] == []
+    assert result["ingress_block"]["state"] == "telemetry_unavailable"
 
 
 @pytest.mark.asyncio
 async def test_pfsense_api_key_reference_is_rejected_without_echoing_value(monkeypatch) -> None:
     monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example.test")
     monkeypatch.setenv("PFSENSE_API_KEY", "TRUENAS_API_KEY")
+    monkeypatch.delenv("PFSENSE_POSTURE_API_KEY", raising=False)
+    monkeypatch.setattr(
+        pfsense_dns_observer,
+        "observe_pfsense_ingress_block",
+        _security_unavailable,
+    )
 
     result = await pfsense_dns_observer.observe_pfsense_dns_posture()
 
@@ -42,6 +71,20 @@ async def test_pfsense_api_key_reference_is_rejected_without_echoing_value(monke
     assert result["configuration_stage"] == "invalid_credential_reference"
     assert result["invalid_reference_variables"] == ["PFSENSE_API_KEY"]
     assert "TRUENAS_API_KEY" not in repr(result)
+
+
+def test_dedicated_posture_credentials_are_preferred(monkeypatch) -> None:
+    monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example.test")
+    monkeypatch.setenv("PFSENSE_API_KEY", "narrow-security-key")
+    monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "posture-read-key")
+
+    status = pfsense_dns_observer.pfsense_api_configuration_status()
+    resolved = PfSenseDNSSettings.from_environment()
+
+    assert status["configured"] is True
+    assert status["credential_mode"] == "dedicated_posture"
+    assert resolved is not None
+    assert resolved.api_key == "posture-read-key"
 
 
 @pytest.mark.asyncio
@@ -64,6 +107,11 @@ async def test_recursive_unbound_is_independent_and_green(monkeypatch, settings)
         }[path]
 
     monkeypatch.setattr(pfsense_dns_observer, "_get_data", fake_get_data)
+    monkeypatch.setattr(
+        pfsense_dns_observer,
+        "observe_pfsense_ingress_block",
+        _security_clear,
+    )
 
     result = await pfsense_dns_observer.observe_pfsense_dns_posture(
         settings=settings,
@@ -82,108 +130,37 @@ async def test_recursive_unbound_is_independent_and_green(monkeypatch, settings)
     assert filters["snort"]["state"] == "running"
     assert filters["pfblockerng"]["state"] == "not_observed"
     assert filters["crowdsec"]["state"] == "stopped"
-    assert result["ingress_block"]["state"] == "telemetry_unavailable"
-
-
-@pytest.mark.asyncio
-async def test_snort_table_attributes_exact_observed_egress_block(monkeypatch, settings) -> None:
-    async def fake_get_data(_client, path: str):
-        return {
-            "/api/v2/system/version": {"version": "2.8.0"},
-            "/api/v2/status/services": [
-                {"name": "unbound", "description": "DNS Resolver", "status": "running"},
-                {"name": "snort_wan", "description": "Snort IDS", "status": "running"},
-            ],
-            "/api/v2/services/dns_resolver/settings": {
-                "enable": True,
-                "forwarding": False,
-                "forward_tls_upstream": False,
-                "port": 53,
-            },
-            "/api/v2/system/dns": {"dnsserver": ["172.17.0.24"]},
-            "/api/v2/diagnostics/table?id=snort2c": {
-                "name": "snort2c",
-                "entries": ["34.200.20.162", "203.0.113.10"],
-            },
-        }[path]
-
-    async def fake_observe_public_egress_ip():
-        return {
-            "ip": "34.200.20.162",
-            "observed": True,
-            "cached": False,
-            "source": "external_echo",
-        }
-
-    monkeypatch.setattr(pfsense_dns_observer, "_get_data", fake_get_data)
-    monkeypatch.setattr(
-        pfsense_dns_observer,
-        "observe_public_egress_ip",
-        fake_observe_public_egress_ip,
-    )
-
-    result = await pfsense_dns_observer.observe_pfsense_dns_posture(settings=settings)
-
-    block = result["ingress_block"]
-    assert block["state"] == "blocked"
-    assert block["engine"] == "snort"
-    assert block["firewall"] == "pfSense/PF"
-    assert block["mechanism"] == "snort2c"
-    assert block["source"] == {
-        "ip": "34.200.20.162",
-        "role": "FastAPI Cloud egress (observed)",
-    }
-    assert block["destination"] == {
-        "ip": "82.66.4.247",
-        "port": 7000,
-        "role": "pfSense WAN / homelab public endpoint",
-    }
-
-    filters = {row["id"]: row for row in result["security_filters"]}
-    assert filters["firewall"]["state"] == "blocked"
-    assert filters["snort"]["state"] == "blocked"
-
-
-@pytest.mark.asyncio
-async def test_snort_table_does_not_attribute_different_egress(monkeypatch, settings) -> None:
-    async def fake_get_data(_client, path: str):
-        return {
-            "/api/v2/system/version": {"version": "2.8.0"},
-            "/api/v2/status/services": [
-                {"name": "unbound", "description": "DNS Resolver", "status": "running"},
-                {"name": "snort_wan", "description": "Snort IDS", "status": "running"},
-            ],
-            "/api/v2/services/dns_resolver/settings": {
-                "enable": True,
-                "forwarding": False,
-            },
-            "/api/v2/system/dns": {"dnsserver": []},
-            "/api/v2/diagnostics/table?id=snort2c": {
-                "name": "snort2c",
-                "entries": "52.1.10.241 54.164.107.133",
-            },
-        }[path]
-
-    async def fake_observe_public_egress_ip():
-        return {
-            "ip": "34.200.20.162",
-            "observed": True,
-            "cached": True,
-            "source": "external_echo",
-        }
-
-    monkeypatch.setattr(pfsense_dns_observer, "_get_data", fake_get_data)
-    monkeypatch.setattr(
-        pfsense_dns_observer,
-        "observe_public_egress_ip",
-        fake_observe_public_egress_ip,
-    )
-
-    result = await pfsense_dns_observer.observe_pfsense_dns_posture(settings=settings)
-
     assert result["ingress_block"]["state"] == "clear"
-    filters = {row["id"]: row for row in result["security_filters"]}
-    assert filters["snort"]["state"] == "running"
+
+
+@pytest.mark.asyncio
+async def test_independent_security_evidence_survives_posture_failure(monkeypatch, settings) -> None:
+    async def fake_get_data(_client, path: str):
+        if path == "/api/v2/system/version":
+            request = httpx.Request("GET", "https://pfsense.example.test/api/v2/system/version")
+            raise httpx.ConnectTimeout("blocked", request=request)
+        return {}
+
+    async def security_blocked():
+        return {
+            "state": "blocked",
+            "engine": "snort",
+            "mechanism": "snort2c",
+            "control_path": {"mode": "out_of_band", "blind_spot": False},
+        }
+
+    monkeypatch.setattr(pfsense_dns_observer, "_get_data", fake_get_data)
+    monkeypatch.setattr(
+        pfsense_dns_observer,
+        "observe_pfsense_ingress_block",
+        security_blocked,
+    )
+
+    result = await pfsense_dns_observer.observe_pfsense_dns_posture(settings=settings)
+
+    assert result["reachable"] is False
+    assert result["ingress_block"]["state"] == "blocked"
+    assert result["ingress_block"]["control_path"]["mode"] == "out_of_band"
 
 
 @pytest.mark.asyncio
@@ -202,6 +179,11 @@ async def test_forwarding_only_to_truenas_is_warning(monkeypatch, settings) -> N
         }[path]
 
     monkeypatch.setattr(pfsense_dns_observer, "_get_data", fake_get_data)
+    monkeypatch.setattr(
+        pfsense_dns_observer,
+        "observe_pfsense_ingress_block",
+        _security_unavailable,
+    )
 
     result = await pfsense_dns_observer.observe_pfsense_dns_posture(
         settings=settings,
@@ -228,6 +210,11 @@ async def test_stopped_unbound_is_failure(monkeypatch, settings) -> None:
         }[path]
 
     monkeypatch.setattr(pfsense_dns_observer, "_get_data", fake_get_data)
+    monkeypatch.setattr(
+        pfsense_dns_observer,
+        "observe_pfsense_ingress_block",
+        _security_unavailable,
+    )
 
     result = await pfsense_dns_observer.observe_pfsense_dns_posture(settings=settings)
 
