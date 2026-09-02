@@ -1,27 +1,20 @@
-"""Read-only pfSense DNS posture observation for homelab health.
-
-The observer intentionally projects only sanitized availability/policy facts. It never
-returns credentials, raw pfSense configuration, DNS server addresses, aliases, or logs.
-"""
+"""Read-only pfSense DNS posture observation for homelab health."""
 
 from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-import ipaddress
 import os
 from typing import Any, Literal
 
 import httpx
 
+from nabla.api.pfsense_security_observer import observe_pfsense_ingress_block
 from nabla.api.provider_credentials import inspect_environment_credentials
-from nabla.api.public_egress_observer import observe_public_egress_ip
-from nabla.api.truenas_transport_diagnostics import homelab_wan_metadata
 
 DNSPolicyState = Literal["ok", "warn", "fail", "unknown"]
 
 _PFSENSE_TIMEOUT_SEC = 4.0
-_TRUENAS_PUBLIC_PORT = 7000
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 _FALSE_VALUES = frozenset({"0", "false", "no", "off"})
 _RUNNING_STATES = frozenset({"active", "healthy", "running", "started", "up"})
@@ -38,27 +31,46 @@ _SECURITY_SERVICE_LABELS = {
 }
 
 
+def _posture_environment_variables() -> tuple[str, str]:
+    """Prefer dedicated posture credentials while retaining legacy compatibility."""
+    url_var = (
+        "PFSENSE_POSTURE_API_URL"
+        if os.getenv("PFSENSE_POSTURE_API_URL", "").strip()
+        else "PFSENSE_API_URL"
+    )
+    key_var = (
+        "PFSENSE_POSTURE_API_KEY"
+        if os.getenv("PFSENSE_POSTURE_API_KEY", "").strip()
+        else "PFSENSE_API_KEY"
+    )
+    return url_var, key_var
+
+
 def pfsense_api_configuration_status() -> dict[str, object]:
-    """Return sanitized presence and URL-validity state for the pfSense API."""
+    """Return sanitized presence and URL-validity state for posture observation."""
+    url_var, key_var = _posture_environment_variables()
     status = inspect_environment_credentials(
         "pfsense",
-        "PFSENSE_API_URL",
-        "PFSENSE_API_KEY",
-        secret_variables=frozenset({"PFSENSE_API_KEY"}),
+        url_var,
+        key_var,
+        secret_variables=frozenset({key_var}),
     ).as_dict()
-    base_url = os.getenv("PFSENSE_API_URL", "").strip()
+    base_url = os.getenv(url_var, "").strip()
     if status["configured"] and not base_url.lower().startswith(("https://", "http://")):
         status["configured"] = False
         status["configuration_stage"] = "invalid_configuration"
-        status["invalid_configuration_variables"] = ["PFSENSE_API_URL"]
+        status["invalid_configuration_variables"] = [url_var]
     else:
         status["invalid_configuration_variables"] = []
+    status["credential_mode"] = (
+        "dedicated_posture" if key_var == "PFSENSE_POSTURE_API_KEY" else "legacy_shared"
+    )
     return status
 
 
 @dataclass(frozen=True, slots=True)
 class PfSenseDNSSettings:
-    """Credentials and transport policy for the read-only pfSense REST API."""
+    """Credentials and transport policy for read-only pfSense posture endpoints."""
 
     base_url: str
     api_key: str
@@ -66,16 +78,20 @@ class PfSenseDNSSettings:
 
     @classmethod
     def from_environment(cls) -> PfSenseDNSSettings | None:
-        """Return settings only when the API URL and canonical key are validly configured."""
         status = pfsense_api_configuration_status()
         if status["configured"] is not True:
             return None
 
-        base_url = os.getenv("PFSENSE_API_URL", "").strip().rstrip("/")
-        api_key = os.getenv("PFSENSE_API_KEY", "").strip()
-        raw_verify = os.getenv("PFSENSE_API_VERIFY_SSL", "true").strip().lower()
-        verify_ssl = raw_verify not in _FALSE_VALUES
-        return cls(base_url=base_url, api_key=api_key, verify_ssl=verify_ssl)
+        url_var, key_var = _posture_environment_variables()
+        raw_verify = os.getenv(
+            "PFSENSE_POSTURE_API_VERIFY_SSL",
+            os.getenv("PFSENSE_API_VERIFY_SSL", "true"),
+        ).strip().lower()
+        return cls(
+            base_url=os.getenv(url_var, "").strip().rstrip("/"),
+            api_key=os.getenv(key_var, "").strip(),
+            verify_ssl=raw_verify not in _FALSE_VALUES,
+        )
 
 
 def _optional_bool(value: object) -> bool | None:
@@ -99,7 +115,6 @@ def _response_data(payload: object) -> object:
 
 
 def _safe_error(exc: BaseException) -> str:
-    """Return a public diagnostic without leaking a private pfSense URL."""
     if isinstance(exc, httpx.HTTPStatusError):
         return f"HTTP {exc.response.status_code}"
     if isinstance(exc, httpx.TimeoutException):
@@ -150,7 +165,6 @@ def _security_filter_observations(
     *,
     snort_blocked: bool = False,
 ) -> list[dict[str, str]]:
-    """Project sanitized service-state evidence for ingress filtering layers."""
     filters: list[dict[str, str]] = [
         {
             "id": "firewall",
@@ -159,8 +173,7 @@ def _security_filter_observations(
             "detail": (
                 "PF is enforcing the snort2c block for the observed FastAPI egress"
                 if snort_blocked
-                else "PF is on the WAN ingress path; the exact matching rule is not "
-                "attributed by the service-status probe"
+                else "PF is on the WAN ingress path; the exact matching rule is not attributed"
             ),
         }
     ]
@@ -197,68 +210,6 @@ def _security_filter_observations(
     return filters
 
 
-def _canonical_table_entries(table: object) -> frozenset[str]:
-    """Return only valid IP literals from a pfSense diagnostics-table response."""
-    candidate: object = table
-    if isinstance(table, list):
-        matching = [
-            row
-            for row in table
-            if isinstance(row, dict) and str(row.get("name") or "") == "snort2c"
-        ]
-        candidate = matching[0] if matching else None
-    if isinstance(candidate, dict):
-        candidate = candidate.get("entries")
-
-    raw_entries: list[str]
-    if isinstance(candidate, str):
-        raw_entries = candidate.split()
-    elif isinstance(candidate, list):
-        raw_entries = [str(value).strip() for value in candidate]
-    else:
-        raw_entries = []
-
-    normalized: set[str] = set()
-    for raw in raw_entries:
-        try:
-            normalized.add(str(ipaddress.ip_address(raw)))
-        except ValueError:
-            continue
-    return frozenset(normalized)
-
-
-def _ingress_block_evidence(
-    *,
-    snort_table: object,
-    egress: dict[str, Any],
-) -> dict[str, Any]:
-    """Attribute a block only when the exact observed egress is in snort2c."""
-    wan = homelab_wan_metadata()
-    observed_ip = str(egress.get("ip") or "").strip()
-    entries = _canonical_table_entries(snort_table)
-    blocked = bool(observed_ip and observed_ip in entries)
-    return {
-        "state": "blocked" if blocked else "clear",
-        "engine": "snort",
-        "firewall": "pfSense/PF",
-        "mechanism": "snort2c",
-        "source": {
-            "ip": observed_ip or None,
-            "role": "FastAPI Cloud egress (observed)",
-        },
-        "destination": {
-            "ip": wan["ipv4"],
-            "port": _TRUENAS_PUBLIC_PORT,
-            "role": "pfSense WAN / homelab public endpoint",
-        },
-        "evidence": (
-            "Exact observed egress IP is present in pfSense table snort2c"
-            if blocked
-            else "Exact observed egress IP is not present in pfSense table snort2c"
-        ),
-    }
-
-
 def _dns_upstreams(system_dns: object) -> tuple[str, ...]:
     if not isinstance(system_dns, dict):
         return ()
@@ -274,7 +225,6 @@ def _independent_from_truenas(
     upstreams: tuple[str, ...],
     truenas_hosts: frozenset[str],
 ) -> tuple[bool | None, bool | None]:
-    """Determine whether pfSense DNS keeps a non-TrueNAS resolution path."""
     if forwarding is False:
         return True, False
     if forwarding is not True or not upstreams:
@@ -317,16 +267,19 @@ async def observe_pfsense_dns_posture(
     truenas_hosts: frozenset[str] = frozenset(),
     settings: PfSenseDNSSettings | None = None,
 ) -> dict[str, Any]:
-    """Return sanitized pfSense/Unbound DNS policy and filtering evidence."""
+    """Return sanitized DNS posture plus independent Snort/PF evidence when possible."""
+    security_task = asyncio.create_task(observe_pfsense_ingress_block())
     configuration = pfsense_api_configuration_status() if settings is None else None
     configured = settings or PfSenseDNSSettings.from_environment()
     if configured is None:
+        ingress_block = await security_task
         return {
             **(configuration or {}),
             "configured": False,
             "reachable": None,
             "policy_state": "unknown",
-            "reason": "pfSense API observation is not configured",
+            "reason": "pfSense posture observation is not configured",
+            "ingress_block": ingress_block,
         }
 
     timeout = httpx.Timeout(_PFSENSE_TIMEOUT_SEC)
@@ -342,13 +295,13 @@ async def observe_pfsense_dns_posture(
             "services": "/api/v2/status/services",
             "resolver": "/api/v2/services/dns_resolver/settings",
             "system_dns": "/api/v2/system/dns",
-            "snort_table": "/api/v2/diagnostics/table?id=snort2c",
         }
         results = await asyncio.gather(
             *(_get_data(client, path) for path in paths.values()),
             return_exceptions=True,
         )
 
+    ingress_block = await security_task
     observed = dict(zip(paths, results, strict=True))
     system_result = observed["system"]
     if isinstance(system_result, BaseException):
@@ -356,16 +309,10 @@ async def observe_pfsense_dns_posture(
             "configured": True,
             "reachable": False,
             "policy_state": "unknown",
-            "reason": "pfSense API is unreachable from this runtime",
+            "reason": "pfSense posture API is unreachable from this runtime",
             "error_stage": "system",
             "error": _safe_error(system_result),
-            "ingress_block": {
-                "state": "telemetry_unavailable",
-                "engine": "snort",
-                "firewall": "pfSense/PF",
-                "mechanism": "snort2c",
-                "evidence": "pfSense API is unreachable; no live snort2c attribution is possible",
-            },
+            "ingress_block": ingress_block,
         }
 
     failed_stage = next(
@@ -386,33 +333,8 @@ async def observe_pfsense_dns_posture(
             "reason": "pfSense DNS policy evidence is incomplete",
             "error_stage": failed_stage,
             "error": error_text,
+            "ingress_block": ingress_block,
         }
-
-    snort_table = observed["snort_table"]
-    ingress_block: dict[str, Any]
-    if isinstance(snort_table, BaseException):
-        ingress_block = {
-            "state": "telemetry_unavailable",
-            "engine": "snort",
-            "firewall": "pfSense/PF",
-            "mechanism": "snort2c",
-            "evidence": f"snort2c telemetry unavailable: {_safe_error(snort_table)}",
-        }
-    else:
-        egress = await observe_public_egress_ip()
-        if egress.get("observed") is True:
-            ingress_block = _ingress_block_evidence(
-                snort_table=snort_table,
-                egress=egress,
-            )
-        else:
-            ingress_block = {
-                "state": "telemetry_unavailable",
-                "engine": "snort",
-                "firewall": "pfSense/PF",
-                "mechanism": "snort2c",
-                "evidence": "Runtime public egress IP could not be observed",
-            }
 
     resolver = observed["resolver"]
     resolver_data = resolver if isinstance(resolver, dict) else {}
