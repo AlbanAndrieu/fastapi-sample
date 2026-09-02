@@ -34,3 +34,11 @@ def test_truenas_platform_displays_proven_snort_pf_block() -> None:
     assert "FastAPI Cloud egress" not in javascript  # role comes from sanitized API evidence
     assert 'ingressBlock?.state === "blocked"' in javascript
     assert "blocked by Snort/PF" in javascript
+
+
+def test_truenas_platform_displays_shared_wan_diagnostic_blind_spot() -> None:
+    javascript = ASSET.read_text(encoding="utf-8")
+
+    assert 'block?.state === "telemetry_unavailable"' in javascript
+    assert "controlPath?.blind_spot === true" in javascript
+    assert "Snort attribution unavailable · self-diagnostic blind spot" in javascript
