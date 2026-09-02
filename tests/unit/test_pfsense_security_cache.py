@@ -48,6 +48,7 @@ async def test_snort2c_success_is_reused_from_process_cache(monkeypatch) -> None
 @pytest.mark.asyncio
 async def test_failed_refresh_returns_stale_table_without_clear_attribution(monkeypatch) -> None:
     await observer.reset_snort2c_cache()
+    calls = 0
     responses = [
         (
             {"name": "snort2c", "entries": []},
@@ -77,6 +78,8 @@ async def test_failed_refresh_returns_stale_table_without_clear_attribution(monk
     ]
 
     async def fetch(_settings):
+        nonlocal calls
+        calls += 1
         return responses.pop(0)
 
     async def egress():
@@ -93,14 +96,18 @@ async def test_failed_refresh_returns_stale_table_without_clear_attribution(monk
     first = await observer.observe_pfsense_ingress_block(settings=_settings())
     observer._snort2c_cache_at = -999.0
     second = await observer.observe_pfsense_ingress_block(settings=_settings())
+    third = await observer.observe_pfsense_ingress_block(settings=_settings())
 
     assert first["state"] == "clear"
     assert second["state"] == "telemetry_stale"
-    assert second["telemetry_available"] is True
-    assert second["attribution_available"] is False
-    assert second["stale"] is True
-    assert second["cached"] is True
-    assert second["error_kind"] == "read_timeout"
-    assert second["attempts"] == 2
-    assert "withheld" in second["evidence"]
+    assert third["state"] == "telemetry_stale"
+    assert calls == 2
+    for result in (second, third):
+        assert result["telemetry_available"] is True
+        assert result["attribution_available"] is False
+        assert result["stale"] is True
+        assert result["cached"] is True
+        assert result["error_kind"] == "read_timeout"
+        assert result["attempts"] == 2
+        assert "withheld" in result["evidence"]
     await observer.reset_snort2c_cache()
