@@ -28,9 +28,17 @@ _PORT_POLICY: dict[str, dict[str, Any]] = {
         "reason": "Vault API must not be exposed directly to FastAPI Cloud.",
     },
     "10443": {
-        "service": "pfSense",
-        "expected_reachable": False,
-        "reason": "pfSense administration on 10443 must remain unreachable from FastAPI Cloud.",
+        "service": "pfSense Admin/API",
+        "expected_reachable": True,
+        "access_policy": "trusted_sources_only",
+        "default_action": "deny",
+        "expected_from": ["fastapi_cloud", "approved_admin_sources"],
+        "negative_probe_required": True,
+        "reason": (
+            "FastAPI Cloud requires the pfSense REST API on 10443 and currently has no "
+            "user-controlled static egress/tunnel. Reachability is expected from this "
+            "approved runtime, while unrelated Internet origins must remain denied."
+        ),
     },
 }
 
@@ -68,7 +76,7 @@ def _port_10443_reachability(check: dict[str, Any]) -> bool | None:
 
 
 def enrich_pfsense_port_annotations(payload: dict[str, Any]) -> dict[str, Any]:
-    """Add stable service names and the pfSense 10443 policy to a sickz payload."""
+    """Add stable service names and the source-aware pfSense 10443 policy."""
     checks = payload.get("checks")
     if not isinstance(checks, dict):
         return payload
