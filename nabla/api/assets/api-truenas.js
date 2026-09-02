@@ -44,8 +44,8 @@ function targetText(truenas) {
 
 function filterIcon(filter) {
   if (filter?.state === "blocked") return "💀";
-  if (filter?.state === "running") return "●";
-  if (filter?.state === "in_path") return "◐";
+  if (filter?.state === "running" || filter?.state === "clear") return "●";
+  if (filter?.state === "in_path" || filter?.state === "observed") return "◐";
   if (filter?.state === "stopped") return "○";
   return "?";
 }
