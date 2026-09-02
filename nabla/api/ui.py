@@ -87,6 +87,41 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
                     <span class="health-led health-led--gray" id="health-summary-led" aria-hidden="true"></span>
                     <span id="health-summary-text">Loading health checks…</span>
                 </div>
+
+                <section class="runtime-topology" id="runtime-topology" aria-labelledby="runtime-topology-title">
+                    <div class="runtime-topology-heading">
+                        <div>
+                            <h3 id="runtime-topology-title">FastAPI Cloud runtime</h3>
+                            <p class="health-board-meta">Observed application runtimes and outbound egress. Shared Redis heartbeats provide cross-replica evidence when available.</p>
+                        </div>
+                        <span class="runtime-topology-state runtime-topology-state--warn" id="runtime-topology-state">Loading…</span>
+                    </div>
+                    <div class="runtime-topology-grid">
+                        <div class="runtime-topology-metric">
+                            <span>Observed instances</span>
+                            <strong id="runtime-instance-count">—</strong>
+                        </div>
+                        <div class="runtime-topology-metric">
+                            <span>FastAPI Cloud replicas</span>
+                            <strong id="runtime-replica-count">control-plane only</strong>
+                        </div>
+                        <div class="runtime-topology-metric">
+                            <span>Aggregation</span>
+                            <strong id="runtime-aggregation">—</strong>
+                        </div>
+                    </div>
+                    <div class="runtime-topology-egress">
+                        <span class="runtime-topology-label">Active egress IPs</span>
+                        <div class="runtime-topology-pills" id="runtime-active-egress">Loading…</div>
+                    </div>
+                    <div class="runtime-topology-egress">
+                        <span class="runtime-topology-label">Recent egress IPs · 24 h</span>
+                        <div class="runtime-topology-pills" id="runtime-recent-egress">Loading…</div>
+                    </div>
+                    <div class="runtime-instance-list" id="runtime-instance-list" aria-live="polite"></div>
+                    <p class="runtime-topology-note" id="runtime-count-semantics">Observed runtime heartbeats are not the authoritative FastAPI Cloud control-plane replica count.</p>
+                </section>
+
                 <div class="service-group-heading service-group-heading--core" id="health-core-group-heading">
                     <div>
                         <h3>Core services</h3>
