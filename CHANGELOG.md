@@ -1,3 +1,10 @@
+## [1.5.7](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.6...1.5.7) (2026-09-02)
+
+
+### Bug Fixes
+
+* **health:** expose runtime topology and stabilize security telemetry ([#169](https://github.com/AlbanAndrieu/fastapi-sample/issues/169)) ([1bda3ba](https://github.com/AlbanAndrieu/fastapi-sample/commit/1bda3ba01aeaae80f2f53d5ad18bdb974ed575b8))
+
 ## [1.5.6](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.5...1.5.6) (2026-09-02)
 
 
