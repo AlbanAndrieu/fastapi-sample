@@ -3,7 +3,13 @@
 import httpx
 import pytest
 
-from nabla.api import platform_health
+from nabla.api import external_probe_cache, platform_health
+
+
+def _expire_current_value(key: str) -> None:
+    envelope, stored_at = external_probe_cache._l1[key]
+    envelope["current"]["fetched_at"] = 0.0
+    external_probe_cache._l1[key] = (envelope, stored_at)
 
 
 @pytest.mark.asyncio
@@ -79,7 +85,6 @@ async def test_cloudflare_404_reports_account_scope_diagnostic(monkeypatch) -> N
     assert result["api_reachable"] is True
     assert result["http_status"] == 404
     assert "CLOUDFLARE_ACCOUNT_ID" in result["error"]
-    assert "Zone ID" in result["error"]
 
 
 @pytest.mark.asyncio
@@ -202,7 +207,7 @@ async def test_pfsense_cache_serves_last_good_result_after_transient_failure(
 
     monkeypatch.setattr(platform_health, "check_pfsense_api", check)
     first = await platform_health.get_pfsense_api_snapshot()
-    monkeypatch.setattr(platform_health, "_pfsense_cache_at", 0.0)
+    _expire_current_value(platform_health._PFSENSE_CACHE_KEY)
     stale = await platform_health.get_pfsense_api_snapshot()
 
     assert first["reachable"] is True

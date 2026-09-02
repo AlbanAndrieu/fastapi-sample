@@ -50,7 +50,10 @@ async def test_unconfigured_observer_is_unknown(monkeypatch) -> None:
     assert result["reachable"] is None
     assert result["policy_state"] == "unknown"
     assert result["configuration_stage"] == "missing_credentials"
-    assert result["missing_variables"] == ["PFSENSE_API_URL", "PFSENSE_API_KEY"]
+    assert result["missing_variables"] == [
+        "PFSENSE_API_URL",
+        "PFSENSE_POSTURE_API_KEY",
+    ]
     assert result["ingress_block"]["state"] == "telemetry_unavailable"
     assert isinstance(result["security_filters"], list)
 

@@ -9,6 +9,7 @@ from typing import Any, Literal
 
 import httpx
 
+from nabla.api.external_probe_cache import ProbeCachePolicy, get_or_refresh_probe
 from nabla.api.pfsense_security_observer import observe_pfsense_ingress_block
 from nabla.api.provider_credentials import inspect_environment_credentials
 
@@ -16,6 +17,13 @@ DNSPolicyState = Literal["ok", "warn", "fail", "unknown"]
 
 _PFSENSE_TIMEOUT_SEC = 6.0
 _PFSENSE_MAX_CONCURRENCY = 2
+_PFSENSE_POSTURE_CACHE_KEY = "pfsense:posture"
+_PFSENSE_POSTURE_CACHE_POLICY = ProbeCachePolicy(
+    success_ttl=45.0,
+    failure_ttl=30.0,
+    stale_ttl=300.0,
+    lock_ttl=15,
+)
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 _FALSE_VALUES = frozenset({"0", "false", "no", "off"})
 _RUNNING_STATES = frozenset({"active", "healthy", "running", "started", "up"})
@@ -39,11 +47,12 @@ def _posture_environment_variables() -> tuple[str, str]:
         if os.getenv("PFSENSE_POSTURE_API_URL", "").strip()
         else "PFSENSE_API_URL"
     )
-    key_var = (
-        "PFSENSE_POSTURE_API_KEY"
-        if os.getenv("PFSENSE_POSTURE_API_KEY", "").strip()
-        else "PFSENSE_API_KEY"
-    )
+    if os.getenv("PFSENSE_POSTURE_API_KEY", "").strip():
+        key_var = "PFSENSE_POSTURE_API_KEY"
+    elif os.getenv("PFSENSE_API_KEY", "").strip():
+        key_var = "PFSENSE_API_KEY"
+    else:
+        key_var = "PFSENSE_POSTURE_API_KEY"
     return url_var, key_var
 
 
@@ -82,7 +91,6 @@ class PfSenseDNSSettings:
         status = pfsense_api_configuration_status()
         if status["configured"] is not True:
             return None
-
         url_var, key_var = _posture_environment_variables()
         raw_verify = os.getenv(
             "PFSENSE_POSTURE_API_VERIFY_SSL",
@@ -124,6 +132,9 @@ def _safe_error(exc: BaseException) -> str:
 
 
 def _service_identity(row: dict[str, Any]) -> str:
+    normalized = str(row.get("identity") or "").strip().casefold()
+    if normalized:
+        return normalized
     return " ".join(
         str(row.get(key) or "")
         for key in ("name", "service", "description", "title")
@@ -131,6 +142,9 @@ def _service_identity(row: dict[str, Any]) -> str:
 
 
 def _service_runtime_state(row: dict[str, Any]) -> str:
+    normalized = str(row.get("runtime_state") or "").strip().casefold()
+    if normalized in {"running", "stopped", "unknown"}:
+        return normalized
     for key in ("running", "active", "enabled"):
         parsed = _optional_bool(row.get(key))
         if parsed is not None:
@@ -141,6 +155,19 @@ def _service_runtime_state(row: dict[str, Any]) -> str:
     if status in _STOPPED_STATES:
         return "stopped"
     return "unknown"
+
+
+def _sanitize_services(services: object) -> list[dict[str, str]]:
+    if not isinstance(services, list):
+        return []
+    return [
+        {
+            "identity": _service_identity(row),
+            "runtime_state": _service_runtime_state(row),
+        }
+        for row in services
+        if isinstance(row, dict)
+    ]
 
 
 def _service_running(services: object) -> bool | None:
@@ -204,9 +231,12 @@ def _security_filter_observations(
         elif filter_id == "snort" and ingress_state == "clear":
             state = "clear"
             detail = "snort2c telemetry is reachable and the observed FastAPI egress is not blocked"
-        elif filter_id == "snort" and ingress_state == "attribution_unavailable":
+        elif filter_id == "snort" and ingress_state in {
+            "attribution_unavailable",
+            "telemetry_stale",
+        }:
             state = "observed"
-            detail = "snort2c telemetry is reachable but runtime egress attribution is unavailable"
+            detail = "snort2c telemetry exists but current egress attribution is not authoritative"
         elif filter_id == "snort" and ingress_state == "telemetry_unavailable":
             state = "unknown"
             detail = "snort2c telemetry is unavailable"
@@ -243,11 +273,10 @@ def _independent_from_truenas(
         return True, False
     if forwarding is not True or not upstreams:
         return None, None
-
-    normalized_truenas = {host.strip().casefold() for host in truenas_hosts if host.strip()}
-    if not normalized_truenas:
+    normalized = {host.strip().casefold() for host in truenas_hosts if host.strip()}
+    if not normalized:
         return None, None
-    truenas_only = all(server.casefold() in normalized_truenas for server in upstreams)
+    truenas_only = all(server.casefold() in normalized for server in upstreams)
     return not truenas_only, truenas_only
 
 
@@ -293,28 +322,103 @@ async def _bounded_observations(
     return dict(zip(paths, results, strict=True))
 
 
-def _partial_response(
-    *,
-    reachable: bool,
-    reason: str,
-    error_stage: str,
-    error: BaseException,
-    services: object,
-    ingress_block: dict[str, Any],
-) -> dict[str, Any]:
+def _resolver_payload(value: object) -> dict[str, Any]:
+    resolver = value if isinstance(value, dict) else {}
+    port = resolver.get("port")
     return {
-        "configured": True,
-        "reachable": reachable,
-        "policy_state": "unknown",
-        "reason": reason,
-        "error_stage": error_stage,
-        "error": _safe_error(error),
-        "security_filters": _security_filter_observations(
-            services,
-            ingress_block=ingress_block,
-        ),
-        "ingress_block": ingress_block,
+        "enabled": _optional_bool(resolver.get("enable")),
+        "forwarding": _optional_bool(resolver.get("forwarding")),
+        "forward_tls_upstream": _optional_bool(resolver.get("forward_tls_upstream")),
+        "port": int(port) if isinstance(port, int | str) and str(port).isdigit() else None,
     }
+
+
+async def _observe_posture_origin(settings: PfSenseDNSSettings) -> dict[str, Any]:
+    paths = {
+        "system": "/api/v2/system/version",
+        "services": "/api/v2/status/services",
+        "resolver": "/api/v2/services/dns_resolver/settings",
+        "system_dns": "/api/v2/system/dns",
+    }
+    timeout = httpx.Timeout(_PFSENSE_TIMEOUT_SEC, connect=3.0)
+    async with httpx.AsyncClient(
+        base_url=settings.base_url,
+        headers={"X-API-Key": settings.api_key, "Accept": "application/json"},
+        timeout=timeout,
+        follow_redirects=False,
+        verify=settings.verify_ssl,
+    ) as client:
+        try:
+            await _get_data(client, paths["system"])
+        except (httpx.HTTPError, ValueError) as exc:
+            return {
+                "reachable": False,
+                "error_stage": "system",
+                "error": _safe_error(exc),
+                "services": [],
+                "resolver": {},
+                "upstreams": [],
+            }
+        remaining = await _bounded_observations(
+            client,
+            {name: path for name, path in paths.items() if name != "system"},
+        )
+
+    failure = next(
+        (
+            (name, value)
+            for name, value in remaining.items()
+            if isinstance(value, BaseException)
+        ),
+        None,
+    )
+    services = remaining.get("services")
+    resolver = remaining.get("resolver")
+    system_dns = remaining.get("system_dns")
+    result: dict[str, Any] = {
+        "reachable": True,
+        "services": _sanitize_services(
+            None if isinstance(services, BaseException) else services
+        ),
+        "resolver": _resolver_payload(
+            None if isinstance(resolver, BaseException) else resolver
+        ),
+        "upstreams": list(
+            _dns_upstreams(
+                None if isinstance(system_dns, BaseException) else system_dns
+            )
+        ),
+    }
+    if failure is not None:
+        stage, error = failure
+        result["error_stage"] = stage
+        result["error"] = _safe_error(error)
+    return result
+
+
+def _posture_success(value: dict[str, Any]) -> bool:
+    return value.get("reachable") is True and not value.get("error_stage")
+
+
+async def _cached_posture(settings: PfSenseDNSSettings) -> dict[str, Any]:
+    cached = await get_or_refresh_probe(
+        _PFSENSE_POSTURE_CACHE_KEY,
+        lambda: _observe_posture_origin(settings),
+        is_success=_posture_success,
+        policy=_PFSENSE_POSTURE_CACHE_POLICY,
+    )
+    current = dict(cached.value)
+    current_failure = current.get("reachable") is False or bool(current.get("error_stage"))
+    if (current_failure or cached.metadata.get("stale") is True) and cached.last_good:
+        result = dict(cached.last_good)
+        result["stale"] = True
+        result["refresh_error_stage"] = current.get("error_stage")
+        result["refresh_error"] = current.get("error") or "posture refresh in progress"
+    else:
+        result = current
+        result["stale"] = False
+    result["cache"] = cached.metadata
+    return result
 
 
 async def observe_pfsense_dns_posture(
@@ -322,121 +426,89 @@ async def observe_pfsense_dns_posture(
     truenas_hosts: frozenset[str] = frozenset(),
     settings: PfSenseDNSSettings | None = None,
 ) -> dict[str, Any]:
-    """Return sanitized DNS posture plus independent Snort/PF evidence when possible."""
+    """Return cached posture plus egress-specific Snort/PF evidence."""
     configuration = pfsense_api_configuration_status() if settings is None else None
     configured = settings or PfSenseDNSSettings.from_environment()
     if configured is None:
-        ingress_block = await observe_pfsense_ingress_block()
+        ingress = await observe_pfsense_ingress_block()
         return {
             **(configuration or {}),
             "configured": False,
             "reachable": None,
             "policy_state": "unknown",
             "reason": "pfSense posture observation is not configured",
-            "security_filters": _security_filter_observations(
-                None,
-                ingress_block=ingress_block,
-            ),
-            "ingress_block": ingress_block,
+            "security_filters": _security_filter_observations(None, ingress_block=ingress),
+            "ingress_block": ingress,
         }
 
-    timeout = httpx.Timeout(_PFSENSE_TIMEOUT_SEC, connect=3.0)
-    paths = {
-        "system": "/api/v2/system/version",
-        "services": "/api/v2/status/services",
-        "resolver": "/api/v2/services/dns_resolver/settings",
-        "system_dns": "/api/v2/system/dns",
-    }
-    async with httpx.AsyncClient(
-        base_url=configured.base_url,
-        headers={"X-API-Key": configured.api_key, "Accept": "application/json"},
-        timeout=timeout,
-        follow_redirects=False,
-        verify=configured.verify_ssl,
-    ) as client:
-        try:
-            system_result = await _get_data(client, paths["system"])
-        except (httpx.HTTPError, ValueError) as exc:
-            ingress_block = await observe_pfsense_ingress_block()
-            return _partial_response(
-                reachable=False,
-                reason="pfSense posture API is unreachable from this runtime",
-                error_stage="system",
-                error=exc,
-                services=None,
-                ingress_block=ingress_block,
-            )
+    if settings is not None:
+        posture_task = asyncio.create_task(_observe_posture_origin(configured))
+    else:
+        posture_task = asyncio.create_task(_cached_posture(configured))
+    ingress_task = asyncio.create_task(observe_pfsense_ingress_block())
+    posture, ingress = await asyncio.gather(posture_task, ingress_task)
 
-        remaining = await _bounded_observations(
-            client,
-            {name: path for name, path in paths.items() if name != "system"},
-        )
+    services = posture.get("services", [])
+    filters = _security_filter_observations(services, ingress_block=ingress)
+    if posture.get("reachable") is not True:
+        return {
+            "configured": True,
+            "reachable": False,
+            "policy_state": "unknown",
+            "reason": "pfSense posture API is unreachable from this runtime",
+            "error_stage": posture.get("error_stage", "system"),
+            "error": posture.get("error", "unknown"),
+            "security_filters": filters,
+            "ingress_block": ingress,
+            **({"cache": posture["cache"]} if "cache" in posture else {}),
+        }
+    if posture.get("error_stage"):
+        return {
+            "configured": True,
+            "reachable": True,
+            "policy_state": "unknown",
+            "reason": "pfSense DNS policy evidence is incomplete",
+            "error_stage": posture["error_stage"],
+            "error": posture.get("error", "unknown"),
+            "security_filters": filters,
+            "ingress_block": ingress,
+        }
 
-    ingress_block = await observe_pfsense_ingress_block()
-    observed: dict[str, object | BaseException] = {
-        "system": system_result,
-        **remaining,
-    }
-    failed_stage = next(
-        (
-            name
-            for name in ("services", "resolver", "system_dns")
-            if isinstance(observed[name], BaseException)
-        ),
-        None,
-    )
-    if failed_stage is not None:
-        failure = observed[failed_stage]
-        assert isinstance(failure, BaseException)
-        services = observed["services"]
-        return _partial_response(
-            reachable=True,
-            reason="pfSense DNS policy evidence is incomplete",
-            error_stage=failed_stage,
-            error=failure,
-            services=None if isinstance(services, BaseException) else services,
-            ingress_block=ingress_block,
-        )
-
-    resolver = observed["resolver"]
-    resolver_data = resolver if isinstance(resolver, dict) else {}
-    resolver_enabled = _optional_bool(resolver_data.get("enable"))
-    forwarding = _optional_bool(resolver_data.get("forwarding"))
-    forward_tls = _optional_bool(resolver_data.get("forward_tls_upstream"))
-    resolver_running = _service_running(observed["services"])
-    upstreams = _dns_upstreams(observed["system_dns"])
+    resolver = posture.get("resolver") if isinstance(posture.get("resolver"), dict) else {}
+    forwarding = _optional_bool(resolver.get("forwarding"))
+    upstreams = tuple(str(value) for value in posture.get("upstreams", []))
     independent, truenas_only = _independent_from_truenas(
         forwarding=forwarding,
         upstreams=upstreams,
         truenas_hosts=truenas_hosts,
     )
+    resolver_running = _service_running(services)
     policy_state, reason = _policy_state(
-        resolver_enabled=resolver_enabled,
+        resolver_enabled=_optional_bool(resolver.get("enabled")),
         resolver_running=resolver_running,
         independent_from_truenas=independent,
     )
-
-    port = resolver_data.get("port")
-    return {
+    result: dict[str, Any] = {
         "configured": True,
         "reachable": True,
         "policy_state": policy_state,
         "reason": reason,
         "resolver": {
-            "enabled": resolver_enabled,
+            **resolver,
             "running": resolver_running,
-            "forwarding": forwarding,
-            "forward_tls_upstream": forward_tls,
-            "port": int(port) if isinstance(port, int | str) and str(port).isdigit() else None,
         },
         "upstream": {
             "count": len(upstreams),
             "independent_from_truenas": independent,
             "truenas_only": truenas_only,
         },
-        "security_filters": _security_filter_observations(
-            observed["services"],
-            ingress_block=ingress_block,
-        ),
-        "ingress_block": ingress_block,
+        "security_filters": filters,
+        "ingress_block": ingress,
     }
+    if posture.get("stale") is True:
+        result["stale"] = True
+        result["refresh_error"] = posture.get("refresh_error")
+        result["refresh_error_stage"] = posture.get("refresh_error_stage")
+    if "cache" in posture:
+        result["cache"] = posture["cache"]
+    return result
