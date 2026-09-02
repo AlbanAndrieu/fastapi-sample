@@ -85,6 +85,36 @@ def test_l1_hot_ttl_caps_long_ttl_at_local_window() -> None:
 
 
 @pytest.mark.asyncio
+async def test_success_keeps_independent_last_good_record(policy) -> None:
+    redis = FakeRedis()
+    key = "test:last-good-independence"
+    await cache.reset_probe_cache(key, redis_client=redis)
+
+    async def loader():
+        return {"reachable": True, "generation": 1}
+
+    await cache.get_or_refresh_probe(
+        key,
+        loader,
+        is_success=lambda value: value["reachable"] is True,
+        policy=policy,
+        redis_client=redis,
+    )
+
+    envelope, stored_at = cache._l1[key]
+    last_good_fetched_at = envelope["last_good"]["fetched_at"]
+    envelope["current"]["fetched_at"] = 0.0
+    cache._l1[key] = (envelope, stored_at)
+
+    retained, _ = await cache._l1_get(key, policy)
+    assert retained is not None
+    assert retained["current"]["fetched_at"] == 0.0
+    assert retained["last_good"]["fetched_at"] == last_good_fetched_at
+    assert retained["last_good"]["fetched_at"] != 0.0
+    await cache.reset_probe_cache(key, redis_client=redis)
+
+
+@pytest.mark.asyncio
 async def test_second_replica_reuses_redis_l2(policy) -> None:
     redis = FakeRedis()
     key = "test:l2"
