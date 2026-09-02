@@ -71,15 +71,47 @@ The health probe reads the Cloudflare control plane and reports API reachability
 
 ## pfSense API
 
-Create:
+Use separate pfSense identities for posture and Snort/PF security telemetry.
+The normal FastAPI Cloud configuration is:
 
 ```text
 PFSENSE_API_URL=https://<pfsense-host>:<https-port>
-PFSENSE_API_KEY=<dedicated read-only API key>
 PFSENSE_API_VERIFY_SSL=true
+
+PFSENSE_POSTURE_API_KEY=<posture GET-only key>
+PFSENSE_POSTURE_API_URL=https://<pfsense-host>:<https-port>      # optional
+PFSENSE_POSTURE_API_VERIFY_SSL=true                              # optional
+
+PFSENSE_SECURITY_API_KEY=<diagnostics-table GET-only key>
+PFSENSE_SECURITY_API_URL=https://<pfsense-host>:<https-port>    # optional
+PFSENSE_SECURITY_API_VERIFY_SSL=true                             # optional
+PFSENSE_SECURITY_PATH_MODE=shared_wan
 ```
 
-`PFSENSE_API_URL` must use HTTPS when API-key authentication is enabled. Keep TLS verification enabled when the certificate is trusted. If the homelab uses a private/self-signed certificate, `PFSENSE_API_VERIFY_SSL=false` may be used explicitly, but the transport must still be HTTPS.
+When the dedicated URL variables are absent, both identities reuse
+`PFSENSE_API_URL`. When their dedicated TLS flags are absent, they reuse
+`PFSENSE_API_VERIFY_SSL`. `PFSENSE_API_KEY` is retained only as a temporary
+legacy fallback and can be removed after both dedicated keys are deployed.
+
+Recommended pfSense service accounts:
+
+- `fastapi-pfsense-posture`: GET only for `/api/v2/system/version`,
+  `/api/v2/system/dns`, `/api/v2/status/services`, and
+  `/api/v2/services/dns_resolver/settings`;
+- `fastapi-pfsense-security`: GET only for
+  `/api/v2/diagnostics/table?id=snort2c`.
+
+Do not assign `WebCfg - All pages`, `page-all`, SSH shell access, write/apply,
+reboot, command-prompt, DELETE, PATCH, PUT, or POST privileges to either account.
+The pfSense user objects must remain enabled: the REST API rejects API-key
+authentication when the key owner is marked disabled (`This user cannot login`).
+API keys themselves do not grant webConfigurator or SSH authentication.
+
+Keep the REST API globally in read-only mode during normal operation. It may be
+temporarily switched out of read-only mode to create/rotate an API key, then
+returned immediately to read-only mode. Runtime monitoring requires only GET.
+
+`PFSENSE_API_URL` must use HTTPS when API-key authentication is enabled. Keep TLS verification enabled when the certificate is trusted. If the homelab uses a private/self-signed certificate, the matching `*_VERIFY_SSL=false` switch may be used explicitly, but the transport must still be HTTPS.
 
 The health-board liveness probe intentionally uses the lightweight read-only
 version endpoint:
@@ -94,7 +126,11 @@ CPU/load, mbuf, memory, swap, and filesystem metrics, so a healthy firewall can
 exceed a short health-check read timeout. Keep `/api/v2/status/system` for
 on-demand or separately cached detailed observability.
 
-Do not expose the pfSense management API publicly solely for FastAPI Cloud monitoring. Prefer private connectivity/overlay routing if the FastAPI runtime needs direct access.
+FastAPI Cloud currently requires direct reachability to the approved pfSense and
+TrueNAS listeners because this deployment does not expose a user-controlled
+outbound tunnel or static egress gateway. Treat `10443` and `7000` as
+`trusted_sources_only` exceptions with default-deny firewall policy and validate
+them from both approved and independent untrusted vantage points.
 
 ## TrueNAS 26 API
 
