@@ -159,9 +159,9 @@ The controlled recovery test was:
 1. disable **Snort WAN only**;
 2. remove only the observed test address from the table:
 
-   ```sh
-   pfctl -t snort2c -T delete 34.200.20.162
-   ```
+  ```sh
+  pfctl -t snort2c -T delete 34.200.20.162
+  ```
 
 3. capture the same `34.200.20.162 -> 82.66.4.247:7000` flow again.
 
