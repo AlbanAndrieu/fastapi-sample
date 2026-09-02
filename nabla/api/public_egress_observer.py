@@ -11,8 +11,7 @@ import httpx
 _ECHO_URL = "https://checkip.amazonaws.com/"
 _TIMEOUT_SEC = 1.5
 _CACHE_TTL_SEC = 300.0
-_cached_ip: str | None = None
-_cached_at = 0.0
+_cache: dict[str, Any] = {"ip": None, "observed_at": 0.0}
 
 
 def _parse_public_ip(raw: str) -> str | None:
@@ -38,12 +37,12 @@ async def _fetch_public_egress_ip() -> str | None:
 
 async def observe_public_egress_ip() -> dict[str, Any]:
     """Return cached non-secret egress telemetry without affecting health state."""
-    global _cached_at, _cached_ip  # noqa: PLW0603
-
     now = time.monotonic()
-    if _cached_ip and now - _cached_at < _CACHE_TTL_SEC:
+    cached_ip = _cache.get("ip")
+    cached_at = float(_cache.get("observed_at") or 0.0)
+    if isinstance(cached_ip, str) and cached_ip and now - cached_at < _CACHE_TTL_SEC:
         return {
-            "ip": _cached_ip,
+            "ip": cached_ip,
             "observed": True,
             "cached": True,
             "source": "external_echo",
@@ -51,12 +50,12 @@ async def observe_public_egress_ip() -> dict[str, Any]:
 
     try:
         observed_ip = await _fetch_public_egress_ip()
-    except (httpx.HTTPError, ValueError):
+    except httpx.HTTPError:
         observed_ip = None
 
     if observed_ip:
-        _cached_ip = observed_ip
-        _cached_at = now
+        _cache["ip"] = observed_ip
+        _cache["observed_at"] = now
         return {
             "ip": observed_ip,
             "observed": True,
