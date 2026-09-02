@@ -75,6 +75,8 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
                         <div class="service-filter-control">
                             <input id="service-filter" type="search" autocomplete="off" placeholder="Name, host, tier or status">
                             <button type="button" id="service-filter-clear">Clear</button>
+                            <button type="button" id="service-expand-issues">Issues</button>
+                            <button type="button" id="service-collapse-all">Collapse</button>
                         </div>
                     </div>
                 </div>

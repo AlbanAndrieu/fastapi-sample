@@ -66,7 +66,7 @@ async def probe_https_get_reachable(
 ) -> dict[str, Any]:
     """GET ``url``; any completed HTTP response counts as reachable."""
     started = time.monotonic()
-    logger.info("health outbound probe started name=%s url=%s", probe_name or "-", url)
+    logger.debug("health outbound probe started name=%s url=%s", probe_name or "-", url)
     try:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(5.0),
@@ -99,7 +99,7 @@ async def probe_https_get_reachable(
             "url": url,
         }
     elapsed_ms = round((time.monotonic() - started) * 1000)
-    logger.info(
+    logger.debug(
         "health outbound probe completed name=%s url=%s http_status=%s elapsed_ms=%s",
         probe_name or "-",
         url,
@@ -132,30 +132,20 @@ def _tls_trusted_from_https_probe_result(
     return False if any(marker in error for marker in markers) else None
 
 
-async def fetch_base_health(request: Request) -> dict[str, Any]:
-    """GET ``/health`` on this app using the incoming scheme/host/port."""
-    url = str(request.url.replace(path="/health", query="", fragment=""))
+async def fetch_base_health(_request: Request) -> dict[str, Any]:
+    """Build the lightweight local health payload without a self-HTTP round trip."""
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get(url)
-    except httpx.HTTPError as exc:
+        from nabla.api.demo.sensor import health_check  # noqa: PLC0415
+
+        body = await health_check()
+    except Exception as exc:
         return {
             "status": "health_fetch_failed",
             "error": _normalize_probe_error(str(exc)),
         }
-    if response.status_code != 200:
-        return {
-            "status": "health_endpoint_non_200",
-            "http_status": response.status_code,
-        }
-    try:
-        body = response.json()
-    except ValueError:
-        return {"status": "health_invalid_json", "http_status": response.status_code}
     if not isinstance(body, dict):
         return {
             "status": "health_unexpected_shape",
-            "http_status": response.status_code,
         }
     return body
 
@@ -211,10 +201,7 @@ async def check_supabase_http() -> dict[str, Any]:
         return {
             "reachable": None,
             "skipped": True,
-            "reason": (
-                "SUPABASE_PUBLISHABLE_KEY and SUPABASE_SERVICE_ROLE_KEY "
-                "are not configured"
-            ),
+            "reason": ("SUPABASE_PUBLISHABLE_KEY and SUPABASE_SERVICE_ROLE_KEY are not configured"),
             "probe": "data_api",
         }
     try:
@@ -317,17 +304,11 @@ async def build_healthz_payload(
     dependency_results, homelab_results = await asyncio.gather(
         _run_dependency_probes(redis_client, engine),
         asyncio.gather(
-            *(
-                probe_https_get_reachable(url, probe_name=display_label)
-                for _, url, display_label, _ in homelab_rows
-            ),
+            *(probe_https_get_reachable(url, probe_name=display_label) for _, url, display_label, _ in homelab_rows),
         ),
     )
     checks = _dependency_checks(dependency_results)
     _merge_homelab_checks(checks, homelab_rows, homelab_results)
-    checks = {
-        name: _normalize_probe_result_errors(check)
-        for name, check in checks.items()
-    }
+    checks = {name: _normalize_probe_result_errors(check) for name, check in checks.items()}
     await enrich_integration_metadata(checks)
     return {**base, "checks": checks, "version": request.app.version}

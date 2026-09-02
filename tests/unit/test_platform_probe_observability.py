@@ -53,7 +53,7 @@ async def test_pfsense_read_timeout_is_classified_and_logged(monkeypatch, caplog
         ),
     )
 
-    with caplog.at_level(logging.INFO, logger=platform_health.__name__):
+    with caplog.at_level(logging.DEBUG, logger=platform_health.__name__):
         result = await platform_health.check_pfsense_api()
 
     assert result["reachable"] is False
@@ -87,7 +87,7 @@ async def test_pfsense_success_reports_timing_and_tls_policy(monkeypatch, caplog
         ),
     )
 
-    with caplog.at_level(logging.INFO, logger=platform_health.__name__):
+    with caplog.at_level(logging.DEBUG, logger=platform_health.__name__):
         result = await platform_health.check_pfsense_api()
 
     assert result["reachable"] is True

@@ -7,8 +7,10 @@ import logging
 import logging.config
 import logging.handlers
 import os
+import re
 import sys
 from typing import Any, Optional
+from urllib.parse import urlsplit, urlunsplit
 
 from fastapi.logger import logger as fastapi_logger
 from gunicorn import glogging
@@ -20,6 +22,49 @@ from nabla.utils.logger import logger
 from nabla.utils.runtime_logs import attach_runtime_log_handler
 
 _OTEL_LOG_FIELDS = ("otelTraceID", "otelSpanID", "otelServiceName")
+_URL_PATTERN = re.compile(r"https?://[^\s\"']+")
+_BEARER_PATTERN = re.compile(r"(?i)(bearer\s+)[^\s,;]+")
+
+
+def _sanitize_url(value: str) -> str:
+    try:
+        parsed = urlsplit(value)
+        hostname = parsed.hostname
+        port = f":{parsed.port}" if parsed.port else ""
+    except ValueError:
+        return value
+    if not hostname:
+        return value
+    safe_netloc = f"{hostname}{port}"
+    query = "[REDACTED]" if parsed.query else ""
+    return urlunsplit((parsed.scheme, safe_netloc, parsed.path, query, ""))
+
+
+def sanitize_log_value(value: Any) -> Any:
+    """Redact credentials and URL query strings from log payloads."""
+    if isinstance(value, dict):
+        return {
+            key: "[REDACTED]" if str(key).casefold() in {"authorization", "cookie", "password", "secret", "token", "x-api-key"} else sanitize_log_value(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        return type(value)(sanitize_log_value(item) for item in value)
+    if not isinstance(value, str):
+        return value
+    sanitized = _BEARER_PATTERN.sub(r"\1[REDACTED]", value)
+    return _URL_PATTERN.sub(lambda match: _sanitize_url(match.group(0)), sanitized)
+
+
+class SensitiveLogFilter(logging.Filter):
+    """Remove common secrets before any configured handler emits a record."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.msg = sanitize_log_value(record.getMessage())
+        record.args = ()
+        for name in ("req", "res"):
+            if hasattr(record, name):
+                setattr(record, name, sanitize_log_value(getattr(record, name)))
+        return True
 
 
 class SafeFormatter(logging.Formatter):
@@ -125,7 +170,7 @@ class LogMiddleware(BaseHTTPMiddleware):
         logger.info(
             "request_extra",
             extra={
-                "req": {"method": request.method, "url": str(request.url)},
+                "req": {"method": request.method, "url": request.url.path},
                 "res": {
                     "status_code": response.status_code,
                 },
@@ -239,3 +284,16 @@ def setup_logging() -> None:
         logger.setLevel(log_level)
 
     attach_runtime_log_handler(logger)
+    sensitive_filter = SensitiveLogFilter()
+    for configured_logger in (
+        logger,
+        logging.getLogger("gunicorn.error"),
+        logging.getLogger("gunicorn.access"),
+        logging.getLogger("uvicorn.access"),
+    ):
+        for handler in configured_logger.handlers:
+            handler.addFilter(sensitive_filter)
+
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("apscheduler.executors").setLevel(logging.WARNING)
+    logging.getLogger("apscheduler.scheduler").setLevel(logging.WARNING)

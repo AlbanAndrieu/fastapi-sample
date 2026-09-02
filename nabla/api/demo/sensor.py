@@ -55,16 +55,10 @@ def _bounded_env_int(name: str, default: int, minimum: int, maximum: int) -> int
     return max(minimum, min(value, maximum))
 
 
-DASHBOARD_REFRESH_INTERVAL_SECONDS = _bounded_env_int(
-    "DASHBOARD_REFRESH_INTERVAL_SECONDS", 0, 0, 86400
-)
-CHARTS_REFRESH_INTERVAL_SECONDS = _bounded_env_int(
-    "CHARTS_REFRESH_INTERVAL_SECONDS", 10, 1, 3600
-)
+DASHBOARD_REFRESH_INTERVAL_SECONDS = _bounded_env_int("DASHBOARD_REFRESH_INTERVAL_SECONDS", 0, 0, 86400)
+CHARTS_REFRESH_INTERVAL_SECONDS = _bounded_env_int("CHARTS_REFRESH_INTERVAL_SECONDS", 10, 1, 3600)
 SSE_STREAM_INTERVAL_SECONDS = _bounded_env_int("SSE_STREAM_INTERVAL_SECONDS", 5, 1, 60)
-SSE_RETRY_INTERVAL_MILLISECONDS = _bounded_env_int(
-    "SSE_RETRY_INTERVAL_MILLISECONDS", 5000, 1000, 60000
-)
+SSE_RETRY_INTERVAL_MILLISECONDS = _bounded_env_int("SSE_RETRY_INTERVAL_MILLISECONDS", 5000, 1000, 60000)
 
 
 # Performance monitoring
@@ -102,7 +96,7 @@ class DashboardMetrics:
 metrics = DashboardMetrics()
 
 
-@router.get("/", response_class=HTMLResponse)
+@router.get("/", response_class=HTMLResponse, operation_id="sensor_dashboard")
 @limiter.limit("100/second")
 def dashboard(request: Request):
     """Main dashboard with real-time Plotly charts"""
@@ -304,6 +298,8 @@ async def health_check():
             },
             "health_api": {
                 "status": "healthy",
+                "liveness": "/livez",
+                "readiness": "/readyz",
                 "deep_health": "/healthz",
                 "homelab_health": "/api/homelab/health",
             },

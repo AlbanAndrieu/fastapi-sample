@@ -19,10 +19,12 @@
 
 .service-filter-control {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.4rem;
 }
 
 .service-filter input {
+  flex: 1 1 180px;
   width: 100%;
   min-width: 0;
   padding: 0.5rem 0.65rem;
@@ -57,6 +59,23 @@
   margin: 1rem 0 0.45rem;
   padding-bottom: 0.45rem;
   border-bottom: 1px solid #2d2d2d;
+  cursor: pointer;
+  list-style: none;
+}
+
+.service-group-heading::-webkit-details-marker {
+  display: none;
+}
+
+.service-group-heading::before {
+  content: "▸";
+  flex: 0 0 auto;
+  color: #8d949e;
+  transition: transform 120ms ease;
+}
+
+.service-group[open] > .service-group-heading::before {
+  transform: rotate(90deg);
 }
 
 .service-group-heading h3,
@@ -98,7 +117,7 @@
 [data-service-filter-target][hidden],
 [data-service-group][hidden],
 #health-core-group-heading[hidden] {
-  display: none !important;
+  display: none;
 }
 
 @media (max-width: 720px) {

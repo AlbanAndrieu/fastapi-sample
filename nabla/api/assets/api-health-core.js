@@ -1,9 +1,9 @@
+import { fetchHealthBoard } from "./api-health-board.js";
 import {
   dependencyDetailText,
   dependencyHealthClass,
   mergeHomelabEvidence,
 } from "./api-health-dependency.js";
-import { fetchHomelabHealth } from "./api-homelab-health.js";
 import {
   escapeText,
   httpStatusIsSuccess2xx,
@@ -58,7 +58,8 @@ export const MANDATORY = new Set([
 
 function healthRowTitleHtml(check, key) {
   let rowTitle = "";
-  if (check.name != null && String(check.name).trim()) rowTitle = String(check.name).trim();
+  if (check.name != null && String(check.name).trim())
+    rowTitle = String(check.name).trim();
   else if (check.display_label != null) rowTitle = String(check.display_label);
   else if (LABELS[key]) rowTitle = LABELS[key];
   else rowTitle = key;
@@ -102,7 +103,8 @@ function mandatoryFailed(key, check) {
 }
 
 function baseDetailText(key, check) {
-  if (check.skipped) return check.reason || "Not configured (intentionally disabled).";
+  if (check.skipped)
+    return check.reason || "Not configured (intentionally disabled).";
   if (isExpectedSentryDebugFailure(key, check)) {
     return "HTTP 500 · Expected: the test error was intentionally triggered and captured by Sentry.";
   }
@@ -116,7 +118,8 @@ function baseDetailText(key, check) {
     const parts = [];
     if (check.http_status != null) parts.push(`HTTP ${check.http_status}`);
     if (check.path) parts.push(check.path);
-    if (check.host != null && check.port != null) parts.push(`${check.host}:${check.port}`);
+    if (check.host != null && check.port != null)
+      parts.push(`${check.host}:${check.port}`);
     if (check.url) parts.push(String(check.url).replace(/^https?:\/\//i, ""));
     return parts.length ? parts.join(" · ") : "Connected.";
   }
@@ -129,7 +132,10 @@ function baseDetailText(key, check) {
 }
 
 function detailText(key, check) {
-  const details = [baseDetailText(key, check), dependencyDetailText(check)].filter(Boolean);
+  const details = [
+    baseDetailText(key, check),
+    dependencyDetailText(check),
+  ].filter(Boolean);
   return details.join(" · ");
 }
 
@@ -224,7 +230,9 @@ function render(data) {
   summaryLed.className = `health-led health-led--${overall.cls}`;
   summaryText.textContent = overall.text;
   const checks = data.checks || {};
-  const keys = sortKeys(Object.keys(checks)).filter((key) => key !== "truenas_api" && key !== "albandrieu_truenas");
+  const keys = sortKeys(Object.keys(checks)).filter(
+    (key) => key !== "truenas_api" && key !== "albandrieu_truenas",
+  );
   listEl.innerHTML = "";
   const groupedEl = document.getElementById("health-services-groups");
   if (groupedEl) groupedEl.innerHTML = "";
@@ -240,7 +248,9 @@ function render(data) {
     item.className = "health-row";
     item.dataset.serviceFilterTarget = "";
     item.dataset.serviceKey = key;
-    item.dataset.serviceName = String(check.name || check.display_label || LABELS[key] || key);
+    item.dataset.serviceName = String(
+      check.name || check.display_label || LABELS[key] || key,
+    );
     item.dataset.serviceUrl = tunnelHref(check);
     item.dataset.searchText = [
       key,
@@ -248,7 +258,9 @@ function render(data) {
       item.dataset.serviceUrl,
       detailText(key, check),
       tier,
-    ].join(" ").toLowerCase();
+    ]
+      .join(" ")
+      .toLowerCase();
     item.innerHTML =
       rowIcon(check, key, cls) +
       `<span class="health-row-led-wrap"><span class="health-led health-led--${cls}" title="${cls}"></span></span>` +
@@ -278,25 +290,14 @@ function showFetchError(message) {
   errEl.textContent = message;
 }
 
-function fetchJson(path) {
-  return fetch(path, {
-    cache: "no-store",
-    headers: { Accept: "application/json", "Cache-Control": "no-cache" },
-  }).then((response) => {
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return response.json();
-  });
-}
-
 export function loadHealth() {
-  return fetchJson("/healthz")
-    .then((data) => {
+  return fetchHealthBoard()
+    .then((snapshot) => {
+      const data = snapshot.healthz;
+      if (!data) throw new Error("health snapshot is missing /healthz data");
       render(data);
-      return fetchHomelabHealth()
-        .catch(() => null)
-        .then((homelab) => {
-          if (homelab) render(mergeHomelabEvidence(data, homelab));
-        });
+      const homelab = snapshot.homelab;
+      if (homelab) render(mergeHomelabEvidence(data, homelab));
     })
     .catch((error) => {
       showFetchError(String(error.message || error));

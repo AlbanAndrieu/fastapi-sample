@@ -36,34 +36,40 @@ const GROUPS = [
   {
     key: "foundation",
     label: "1 · Infrastructure foundations",
-    description: "Storage, runtime, firewall and edge components with the broadest failure domain.",
+    description:
+      "Storage, runtime, firewall and edge components with the broadest failure domain.",
   },
   {
     key: "shared-data",
     label: "2 · Shared data & state",
-    description: "Databases, caches and durable state used by dependent services.",
+    description:
+      "Databases, caches and durable state used by dependent services.",
   },
   {
     key: "shared-platform",
     label: "3 · Shared platform services",
-    description: "Gateways, runtimes and shared capabilities reused by several consumers.",
+    description:
+      "Gateways, runtimes and shared capabilities reused by several consumers.",
   },
   {
     key: "application",
     label: "4 · Applications & consumers",
-    description: "User-facing workloads and consumers of the shared layers above.",
+    description:
+      "User-facing workloads and consumers of the shared layers above.",
   },
   {
     key: "support",
     label: "5 · Support / low blast radius",
-    description: "Leaf, observability and support components without required downstream consumers.",
+    description:
+      "Leaf, observability and support components without required downstream consumers.",
   },
 ];
 
 const EXTRA_GROUP = {
   key: "external",
   label: "External / optional integrations",
-  description: "Checks outside the declared homelab dependency graph or not yet mapped to it.",
+  description:
+    "Checks outside the declared homelab dependency graph or not yet mapped to it.",
 };
 
 let topologyPromise = null;
@@ -104,22 +110,33 @@ function analyzeTopology(topology) {
   const requiredDependencies = new Map();
   const requiredDependents = new Map();
   for (const relation of topology?.relations || []) {
-    if (relation?.strength !== "required" || !BLOCKING_RELATION_TYPES.has(relation?.type)) {
+    if (
+      relation?.strength !== "required" ||
+      !BLOCKING_RELATION_TYPES.has(relation?.type)
+    ) {
       continue;
     }
-    if (!requiredDependencies.has(relation.source)) requiredDependencies.set(relation.source, new Set());
+    if (!requiredDependencies.has(relation.source))
+      requiredDependencies.set(relation.source, new Set());
     requiredDependencies.get(relation.source).add(relation.target);
-    if (!requiredDependents.has(relation.target)) requiredDependents.set(relation.target, new Set());
+    if (!requiredDependents.has(relation.target))
+      requiredDependents.set(relation.target, new Set());
     requiredDependents.get(relation.target).add(relation.source);
   }
 
   const analysis = new Map();
   for (const node of topology?.nodes || []) {
     const directDependencies = requiredDependencies.get(node.id)?.size || 0;
-    const transitiveDependents = collectReachable(node.id, requiredDependents).size;
+    const transitiveDependents = collectReachable(
+      node.id,
+      requiredDependents,
+    ).size;
     let tier = "support";
     if (FOUNDATION_KINDS.has(node.kind)) tier = "foundation";
-    else if ((node.category === "data" || SHARED_DATA_KINDS.has(node.kind)) && transitiveDependents > 0) {
+    else if (
+      (node.category === "data" || SHARED_DATA_KINDS.has(node.kind)) &&
+      transitiveDependents > 0
+    ) {
       tier = "shared-data";
     } else if (transitiveDependents > 0) tier = "shared-platform";
     else if (directDependencies > 0) tier = "application";
@@ -143,7 +160,8 @@ function topologyIndexes(topology) {
 
 function candidateIdFromKey(key) {
   const raw = String(key || "");
-  if (raw.startsWith("albandrieu_")) return raw.slice("albandrieu_".length).replaceAll("_", "-");
+  if (raw.startsWith("albandrieu_"))
+    return raw.slice("albandrieu_".length).replaceAll("_", "-");
   return raw.replaceAll("_", "-");
 }
 
@@ -155,7 +173,8 @@ function findTopologyNode(row, check, indexes) {
     candidateIdFromKey(row?.dataset?.serviceKey),
   ];
   for (const candidate of idCandidates) {
-    if (candidate && indexes.byId.has(String(candidate))) return indexes.byId.get(String(candidate));
+    if (candidate && indexes.byId.has(String(candidate)))
+      return indexes.byId.get(String(candidate));
   }
 
   const nameCandidates = [
@@ -198,17 +217,36 @@ function topology() {
 }
 
 function serviceGroupSection(definition, rows) {
-  const section = document.createElement("section");
+  const severity = (row) => {
+    if (row.querySelector(".health-led--red")) return 0;
+    if (row.querySelector(".health-led--yellow")) return 1;
+    if (row.querySelector(".health-led--gray")) return 2;
+    if (row.querySelector(".health-led--blue")) return 3;
+    return 4;
+  };
+  const issueCount = rows.filter((row) => severity(row) < 2).length;
+  const section = document.createElement("details");
   section.className = "service-group";
   section.dataset.serviceGroup = definition.key;
-  const heading = document.createElement("div");
+  section.open = issueCount > 0;
+  const heading = document.createElement("summary");
   heading.className = "service-group-heading";
-  heading.innerHTML = `<div><h4>${definition.label}</h4><p>${definition.description}</p></div><span>${rows.length} service${rows.length === 1 ? "" : "s"}</span>`;
+  const issueText =
+    issueCount > 0
+      ? ` · ${issueCount} issue${issueCount === 1 ? "" : "s"}`
+      : "";
+  heading.innerHTML = `<div><h4>${definition.label}</h4><p>${definition.description}</p></div><span>${rows.length} service${rows.length === 1 ? "" : "s"}${issueText}</span>`;
   const list = document.createElement("ul");
   list.className = "health-checks service-group-list";
   rows
-    .sort((left, right) => (left.textContent || "").localeCompare(right.textContent || ""))
-    .forEach((row) => list.appendChild(row));
+    .sort(
+      (left, right) =>
+        severity(left) - severity(right) ||
+        (left.textContent || "").localeCompare(right.textContent || ""),
+    )
+    .forEach((row) => {
+      list.appendChild(row);
+    });
   section.append(heading, list);
   return section;
 }
@@ -216,7 +254,9 @@ function serviceGroupSection(definition, rows) {
 function assignRows(rows, checks, topologyData) {
   const indexes = topologyIndexes(topologyData);
   const analysis = analyzeTopology(topologyData);
-  const buckets = new Map([...GROUPS, EXTRA_GROUP].map((group) => [group.key, []]));
+  const buckets = new Map(
+    [...GROUPS, EXTRA_GROUP].map((group) => [group.key, []]),
+  );
   for (const row of rows) {
     const key = row.dataset.serviceKey || "";
     const check = checks?.[key] || {};
@@ -224,7 +264,8 @@ function assignRows(rows, checks, topologyData) {
     const tier = node ? analysis.get(node.id)?.tier || "support" : "external";
     row.dataset.criticalityTier = tier;
     const group = GROUPS.find((item) => item.key === tier) || EXTRA_GROUP;
-    row.dataset.searchText = `${row.dataset.searchText || ""} ${group.label} ${group.description}`.toLowerCase();
+    row.dataset.searchText =
+      `${row.dataset.searchText || ""} ${group.label} ${group.description}`.toLowerCase();
     buckets.get(group.key).push(row);
   }
   return buckets;
@@ -232,18 +273,31 @@ function assignRows(rows, checks, topologyData) {
 
 function refreshFilter() {
   const tokens = normalize(activeFilter).split(/\s+/).filter(Boolean);
-  for (const target of document.querySelectorAll("[data-service-filter-target]")) {
-    const haystack = normalize(target.dataset.searchText || target.textContent || "");
-    target.hidden = tokens.length > 0 && !tokens.every((token) => haystack.includes(token));
+  for (const target of document.querySelectorAll(
+    "[data-service-filter-target]",
+  )) {
+    const haystack = normalize(
+      target.dataset.searchText || target.textContent || "",
+    );
+    target.hidden =
+      tokens.length > 0 && !tokens.every((token) => haystack.includes(token));
   }
   for (const group of document.querySelectorAll("[data-service-group]")) {
-    const visible = [...group.querySelectorAll("[data-service-filter-target]")].some((row) => !row.hidden);
+    const visible = [
+      ...group.querySelectorAll("[data-service-filter-target]"),
+    ].some((row) => !row.hidden);
     group.hidden = !visible;
+    if (tokens.length > 0 && visible) group.open = true;
   }
   const coreHeading = document.getElementById("health-core-group-heading");
   if (coreHeading) {
-    const coreRows = [...document.querySelectorAll("#health-checks > [data-service-filter-target]")];
-    coreHeading.hidden = coreRows.length > 0 && !coreRows.some((row) => !row.hidden);
+    const coreRows = [
+      ...document.querySelectorAll(
+        "#health-checks > [data-service-filter-target]",
+      ),
+    ];
+    coreHeading.hidden =
+      coreRows.length > 0 && !coreRows.some((row) => !row.hidden);
   }
 }
 
@@ -251,8 +305,12 @@ export async function organizeHealthRows(data) {
   const list = document.getElementById("health-checks");
   const target = document.getElementById("health-services-groups");
   if (!list || !target) return;
-  const currentRows = [...list.querySelectorAll(":scope > [data-service-filter-target]")];
-  const nonCore = currentRows.filter((row) => !CORE_HEALTH_KEYS.has(row.dataset.serviceKey || ""));
+  const currentRows = [
+    ...list.querySelectorAll(":scope > [data-service-filter-target]"),
+  ];
+  const nonCore = currentRows.filter(
+    (row) => !CORE_HEALTH_KEYS.has(row.dataset.serviceKey || ""),
+  );
   for (const row of nonCore) row.remove();
   target.innerHTML = "";
 
@@ -260,7 +318,8 @@ export async function organizeHealthRows(data) {
   const buckets = assignRows(nonCore, data?.checks || {}, topologyData);
   for (const definition of [...GROUPS, EXTRA_GROUP]) {
     const rows = buckets.get(definition.key) || [];
-    if (rows.length > 0) target.appendChild(serviceGroupSection(definition, rows));
+    if (rows.length > 0)
+      target.appendChild(serviceGroupSection(definition, rows));
   }
   refreshFilter();
 }
@@ -268,7 +327,9 @@ export async function organizeHealthRows(data) {
 export async function organizeSickzRows(data, pfsenseKey) {
   const list = document.getElementById("sickz-checks");
   if (!list) return;
-  const rows = [...list.querySelectorAll(":scope > [data-service-filter-target]")];
+  const rows = [
+    ...list.querySelectorAll(":scope > [data-service-filter-target]"),
+  ];
   const topologyData = await topology();
   const checks = { ...(data?.checks || {}) };
   if (pfsenseKey) delete checks[pfsenseKey];
@@ -288,6 +349,8 @@ export async function organizeSickzRows(data, pfsenseKey) {
 export function installServiceFilter() {
   const input = document.getElementById("service-filter");
   const clear = document.getElementById("service-filter-clear");
+  const expandIssues = document.getElementById("service-expand-issues");
+  const collapseAll = document.getElementById("service-collapse-all");
   if (!input) return;
   input.addEventListener("input", () => {
     activeFilter = input.value;
@@ -298,5 +361,16 @@ export function installServiceFilter() {
     activeFilter = "";
     refreshFilter();
     input.focus();
+  });
+  expandIssues?.addEventListener("click", () => {
+    for (const group of document.querySelectorAll("[data-service-group]")) {
+      group.open = Boolean(
+        group.querySelector(".health-led--red, .health-led--yellow"),
+      );
+    }
+  });
+  collapseAll?.addEventListener("click", () => {
+    for (const group of document.querySelectorAll("[data-service-group]"))
+      group.open = false;
   });
 }
