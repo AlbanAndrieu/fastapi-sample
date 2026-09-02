@@ -22,17 +22,18 @@ _TRUENAS_PUBLIC_PORT = 7000
 
 
 def _security_environment_variables() -> tuple[str, str]:
-    """Prefer the dedicated security identity while retaining legacy compatibility."""
+    """Prefer the dedicated security identity while retaining explicit legacy compatibility."""
     url_var = (
         "PFSENSE_SECURITY_API_URL"
         if os.getenv("PFSENSE_SECURITY_API_URL", "").strip()
         else "PFSENSE_API_URL"
     )
-    key_var = (
-        "PFSENSE_SECURITY_API_KEY"
-        if os.getenv("PFSENSE_SECURITY_API_KEY", "").strip()
-        else "PFSENSE_API_KEY"
-    )
+    if os.getenv("PFSENSE_SECURITY_API_KEY", "").strip():
+        key_var = "PFSENSE_SECURITY_API_KEY"
+    elif os.getenv("PFSENSE_API_KEY", "").strip():
+        key_var = "PFSENSE_API_KEY"
+    else:
+        key_var = "PFSENSE_SECURITY_API_KEY"
     return url_var, key_var
 
 
