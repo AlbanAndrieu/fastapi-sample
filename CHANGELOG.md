@@ -1,3 +1,11 @@
+## [1.5.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.0...1.5.1) (2026-09-02)
+
+
+### Bug Fixes
+
+* **deps-dev:** bump @humanfs/node ([#162](https://github.com/AlbanAndrieu/fastapi-sample/issues/162)) ([27faaf0](https://github.com/AlbanAndrieu/fastapi-sample/commit/27faaf0ee7dd478df1df86e4c0466800fcfdb386))
+* **deps-dev:** bump @humanfs/node ([#163](https://github.com/AlbanAndrieu/fastapi-sample/issues/163)) ([8273f53](https://github.com/AlbanAndrieu/fastapi-sample/commit/8273f53dd3e9d52af373ab87d11ef9f6cebd5738))
+
 # [1.5.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.4.13...1.5.0) (2026-09-02)
 
 
