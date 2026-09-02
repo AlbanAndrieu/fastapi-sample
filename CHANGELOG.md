@@ -1,3 +1,10 @@
+## [1.5.4](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.3...1.5.4) (2026-09-02)
+
+
+### Bug Fixes
+
+* **pfsense:** stabilize posture and Snort observability ([#166](https://github.com/AlbanAndrieu/fastapi-sample/issues/166)) ([08663d4](https://github.com/AlbanAndrieu/fastapi-sample/commit/08663d4bf24b42eac12e0def5eeb04da328448fb))
+
 ## [1.5.3](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.2...1.5.3) (2026-09-02)
 
 
