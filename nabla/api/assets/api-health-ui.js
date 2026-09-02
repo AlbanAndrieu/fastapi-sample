@@ -15,6 +15,7 @@ const HEALTHZ_ICON_IMG = {
   pyroscope: "grafana.svg",
   litellm: "litellm.svg",
   cloudflare: "cloudflare.svg",
+  pfsense: "pfsense.svg",
   albandrieu_twofactor: "2fauth.svg",
   albandrieu_nexus: "sonatype-nexus-repository.svg",
   albandrieu_keycloak_ui: "keycloak.svg",
@@ -145,6 +146,7 @@ export function tunnelHref(check) {
     (check.tunnel_url && String(check.tunnel_url).trim()) ||
     (check.tunnelUrl && String(check.tunnelUrl).trim()) ||
     (check.href && String(check.href).trim()) ||
+    (check.url && String(check.url).trim()) ||
     "";
   return url.trim();
 }
