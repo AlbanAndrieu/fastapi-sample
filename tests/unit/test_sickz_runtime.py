@@ -91,8 +91,13 @@ def test_known_public_port_policy_matches_expected_exposure() -> None:
     assert policy["4000"]["expected_reachable"] is False
     assert policy["7000"]["service"] == "TrueNAS via pfSense HAProxy"
     assert policy["7000"]["expected_reachable"] is True
-    assert policy["10443"]["service"] == "pfSense Admin UI"
-    assert policy["10443"]["expected_reachable"] is False
+    assert policy["7000"]["access_policy"] == "trusted_sources_only"
+    assert policy["7000"]["default_action"] == "deny"
+    assert policy["10443"]["service"] == "pfSense Admin/API"
+    assert policy["10443"]["expected_reachable"] is True
+    assert policy["10443"]["access_policy"] == "trusted_sources_only"
+    assert policy["10443"]["default_action"] == "deny"
+    assert policy["10443"]["negative_probe_required"] is True
 
 
 @pytest.mark.asyncio
