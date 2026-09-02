@@ -81,7 +81,10 @@ async def build_homelab_snapshot(
         )
     else:
         homelab = await homelab_task
-        components = {key: shared_checks.get(key, {"reachable": None, "skipped": True}) for key in ("postgres", "redis", "supabase", "cloudflare", "pfsense")}
+        components = {
+            key: shared_checks.get(key, {"reachable": None, "skipped": True})
+            for key in ("postgres", "redis", "supabase", "cloudflare", "pfsense")
+        }
         components["truenas"] = truenas_component(homelab)
     payload = await reconcile_homelab_health_payload(await homelab_task)
     payload["components_status"] = component_status(components)
@@ -99,14 +102,24 @@ async def build_sickz_snapshot(request: Request) -> dict[str, Any]:
     return enrich_pfsense_port_annotations(payload)
 
 
+async def build_runtime_snapshot() -> dict[str, Any]:
+    """Return the shared runtime/egress view used by the public API page."""
+    from nabla.api.demo.socket.redis import redis
+    from nabla.api.runtime_topology import build_runtime_topology_snapshot
+
+    return await build_runtime_topology_snapshot(redis)
+
+
 async def build_health_board_snapshot(request: Request) -> dict[str, Any]:
     """Collect expensive views sequentially so one UI load cannot amplify fan-out."""
     healthz = await build_extended_healthz(request)
+    runtime = await build_runtime_snapshot()
     homelab = await build_homelab_snapshot(healthz.get("checks"))
     sickz = await build_sickz_snapshot(request)
     return {
         "schema_version": 1,
         "generated_at": _utc_now(),
+        "runtime": runtime,
         "healthz": healthz,
         "homelab": homelab,
         "sickz": sickz,
@@ -169,6 +182,7 @@ async def get_health_board_snapshot(
             "retry_after_seconds": 2,
             "generated_at": None,
             "error": error,
+            "runtime": None,
             "healthz": None,
             "homelab": None,
             "sickz": None,
