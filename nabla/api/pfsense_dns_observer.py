@@ -8,16 +8,20 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+import ipaddress
 import os
 from typing import Any, Literal
 
 import httpx
 
 from nabla.api.provider_credentials import inspect_environment_credentials
+from nabla.api.public_egress_observer import observe_public_egress_ip
+from nabla.api.truenas_transport_diagnostics import homelab_wan_metadata
 
 DNSPolicyState = Literal["ok", "warn", "fail", "unknown"]
 
 _PFSENSE_TIMEOUT_SEC = 4.0
+_TRUENAS_PUBLIC_PORT = 7000
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 _FALSE_VALUES = frozenset({"0", "false", "no", "off"})
 _RUNNING_STATES = frozenset({"active", "healthy", "running", "started", "up"})
@@ -141,15 +145,21 @@ def _service_running(services: object) -> bool | None:
     return None
 
 
-def _security_filter_observations(services: object) -> list[dict[str, str]]:
+def _security_filter_observations(
+    services: object,
+    *,
+    snort_blocked: bool = False,
+) -> list[dict[str, str]]:
     """Project sanitized service-state evidence for ingress filtering layers."""
     filters: list[dict[str, str]] = [
         {
             "id": "firewall",
-            "label": "pfSense firewall",
-            "state": "in_path",
+            "label": "pfSense/PF firewall",
+            "state": "blocked" if snort_blocked else "in_path",
             "detail": (
-                "PF is on the WAN ingress path; the exact matching rule is not "
+                "PF is enforcing the snort2c block for the observed FastAPI egress"
+                if snort_blocked
+                else "PF is on the WAN ingress path; the exact matching rule is not "
                 "attributed by the service-status probe"
             ),
         }
@@ -161,7 +171,10 @@ def _security_filter_observations(services: object) -> list[dict[str, str]]:
             for row in service_rows
             if any(matcher in _service_identity(row) for matcher in matchers)
         ]
-        if not matches:
+        if filter_id == "snort" and snort_blocked:
+            state = "blocked"
+            detail = "Observed FastAPI egress is present in the Snort snort2c PF table"
+        elif not matches:
             state = "not_observed"
             detail = "Not exposed by /api/v2/status/services"
         else:
@@ -182,6 +195,68 @@ def _security_filter_observations(services: object) -> list[dict[str, str]]:
             }
         )
     return filters
+
+
+def _canonical_table_entries(table: object) -> frozenset[str]:
+    """Return only valid IP literals from a pfSense diagnostics-table response."""
+    candidate: object = table
+    if isinstance(table, list):
+        matching = [
+            row
+            for row in table
+            if isinstance(row, dict) and str(row.get("name") or "") == "snort2c"
+        ]
+        candidate = matching[0] if matching else None
+    if isinstance(candidate, dict):
+        candidate = candidate.get("entries")
+
+    raw_entries: list[str]
+    if isinstance(candidate, str):
+        raw_entries = candidate.split()
+    elif isinstance(candidate, list):
+        raw_entries = [str(value).strip() for value in candidate]
+    else:
+        raw_entries = []
+
+    normalized: set[str] = set()
+    for raw in raw_entries:
+        try:
+            normalized.add(str(ipaddress.ip_address(raw)))
+        except ValueError:
+            continue
+    return frozenset(normalized)
+
+
+def _ingress_block_evidence(
+    *,
+    snort_table: object,
+    egress: dict[str, Any],
+) -> dict[str, Any]:
+    """Attribute a block only when the exact observed egress is in snort2c."""
+    wan = homelab_wan_metadata()
+    observed_ip = str(egress.get("ip") or "").strip()
+    entries = _canonical_table_entries(snort_table)
+    blocked = bool(observed_ip and observed_ip in entries)
+    return {
+        "state": "blocked" if blocked else "clear",
+        "engine": "snort",
+        "firewall": "pfSense/PF",
+        "mechanism": "snort2c",
+        "source": {
+            "ip": observed_ip or None,
+            "role": "FastAPI Cloud egress (observed)",
+        },
+        "destination": {
+            "ip": wan["ipv4"],
+            "port": _TRUENAS_PUBLIC_PORT,
+            "role": "pfSense WAN / homelab public endpoint",
+        },
+        "evidence": (
+            "Exact observed egress IP is present in pfSense table snort2c"
+            if blocked
+            else "Exact observed egress IP is not present in pfSense table snort2c"
+        ),
+    }
 
 
 def _dns_upstreams(system_dns: object) -> tuple[str, ...]:
@@ -267,6 +342,7 @@ async def observe_pfsense_dns_posture(
             "services": "/api/v2/status/services",
             "resolver": "/api/v2/services/dns_resolver/settings",
             "system_dns": "/api/v2/system/dns",
+            "snort_table": "/api/v2/diagnostics/table?id=snort2c",
         }
         results = await asyncio.gather(
             *(_get_data(client, path) for path in paths.values()),
@@ -283,6 +359,13 @@ async def observe_pfsense_dns_posture(
             "reason": "pfSense API is unreachable from this runtime",
             "error_stage": "system",
             "error": _safe_error(system_result),
+            "ingress_block": {
+                "state": "telemetry_unavailable",
+                "engine": "snort",
+                "firewall": "pfSense/PF",
+                "mechanism": "snort2c",
+                "evidence": "pfSense API is unreachable; no live snort2c attribution is possible",
+            },
         }
 
     failed_stage = next(
@@ -305,6 +388,32 @@ async def observe_pfsense_dns_posture(
             "error": error_text,
         }
 
+    snort_table = observed["snort_table"]
+    ingress_block: dict[str, Any]
+    if isinstance(snort_table, BaseException):
+        ingress_block = {
+            "state": "telemetry_unavailable",
+            "engine": "snort",
+            "firewall": "pfSense/PF",
+            "mechanism": "snort2c",
+            "evidence": f"snort2c telemetry unavailable: {_safe_error(snort_table)}",
+        }
+    else:
+        egress = await observe_public_egress_ip()
+        if egress.get("observed") is True:
+            ingress_block = _ingress_block_evidence(
+                snort_table=snort_table,
+                egress=egress,
+            )
+        else:
+            ingress_block = {
+                "state": "telemetry_unavailable",
+                "engine": "snort",
+                "firewall": "pfSense/PF",
+                "mechanism": "snort2c",
+                "evidence": "Runtime public egress IP could not be observed",
+            }
+
     resolver = observed["resolver"]
     resolver_data = resolver if isinstance(resolver, dict) else {}
     resolver_enabled = _optional_bool(resolver_data.get("enable"))
@@ -324,6 +433,7 @@ async def observe_pfsense_dns_posture(
     )
 
     port = resolver_data.get("port")
+    snort_blocked = ingress_block.get("state") == "blocked"
     return {
         "configured": True,
         "reachable": True,
@@ -341,5 +451,9 @@ async def observe_pfsense_dns_posture(
             "independent_from_truenas": independent,
             "truenas_only": truenas_only,
         },
-        "security_filters": _security_filter_observations(observed["services"]),
+        "security_filters": _security_filter_observations(
+            observed["services"],
+            snort_blocked=snort_blocked,
+        ),
+        "ingress_block": ingress_block,
     }
