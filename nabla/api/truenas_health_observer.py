@@ -226,8 +226,8 @@ async def observe_truenas_health_api() -> dict[str, Any]:
             if stale is not None:
                 failure["last_good"] = stale
                 failure["last_success_at"] = _last_success_at
-            logger.warning(
-                "truenas_api_health_probe_failed",
+            logger.debug(
+                "truenas_api_health_probe_classified",
                 phase=phase,
                 stage=stage,
                 exception_type=exc.__class__.__name__,
