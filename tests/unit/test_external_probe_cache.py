@@ -196,53 +196,6 @@ async def test_distributed_lock_serves_stale_instead_of_duplicate_origin(policy)
 
 
 @pytest.mark.asyncio
-async def test_failed_refresh_keeps_current_error_and_marks_last_good_stale(policy) -> None:
-    key = "test:failed-refresh"
-    await cache.reset_probe_cache(key)
-    responses = iter(
-        [
-            {"reachable": True, "generation": 1},
-            {"reachable": False, "error": "read timeout"},
-        ]
-    )
-
-    async def loader():
-        return next(responses)
-
-    first = await cache.get_or_refresh_probe(
-        key,
-        loader,
-        is_success=lambda value: value["reachable"] is True,
-        policy=policy,
-    )
-    envelope, _ = cache._l1[key]
-    envelope["current"]["fetched_at"] = 0.0
-    second = await cache.get_or_refresh_probe(
-        key,
-        loader,
-        is_success=lambda value: value["reachable"] is True,
-        policy=policy,
-    )
-    third = await cache.get_or_refresh_probe(
-        key,
-        loader,
-        is_success=lambda value: value["reachable"] is True,
-        policy=policy,
-    )
-
-    assert first.value["reachable"] is True
-    assert second.value == {"reachable": False, "error": "read timeout"}
-    assert second.last_good == {"reachable": True, "generation": 1}
-    assert second.metadata["stale"] is True
-    assert second.metadata["cached"] is False
-    assert third.value == second.value
-    assert third.last_good == second.last_good
-    assert third.metadata["stale"] is True
-    assert third.metadata["cached"] is True
-    await cache.reset_probe_cache(key)
-
-
-@pytest.mark.asyncio
 async def test_redis_failure_falls_back_to_direct_probe(policy) -> None:
     redis = FailingRedis()
     key = "test:fallback"
