@@ -1,3 +1,10 @@
+## [1.6.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.6.0...1.6.1) (2026-09-03)
+
+
+### Performance Improvements
+
+* **health:** bound aggregate diagnostic fan-out ([#178](https://github.com/AlbanAndrieu/fastapi-sample/issues/178)) ([3b490a3](https://github.com/AlbanAndrieu/fastapi-sample/commit/3b490a335e52f6b0c37ef970f5dfab82bcbcc9ed))
+
 # [1.6.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.10...1.6.0) (2026-09-03)
 
 
