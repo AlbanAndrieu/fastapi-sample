@@ -317,6 +317,64 @@ async def test_redis_failure_falls_back_to_direct_probe(policy) -> None:
     await cache.reset_probe_cache()
 
 
+@pytest.mark.parametrize(
+    ("redis_factory", "redis_id"),
+    [(FakeRedis, "healthy"), (FailingRedis, "unavailable")],
+    ids=lambda value: value if isinstance(value, str) else None,
+)
+@pytest.mark.asyncio
+async def test_failure_window_bounds_concurrent_origin_refreshes(
+    policy,
+    redis_factory,
+    redis_id,
+) -> None:
+    del redis_id
+    redis = redis_factory()
+    key = "test:concurrent-failure-window"
+    await cache.reset_probe_cache(key, redis_client=redis)
+    calls = 0
+    loader_started = asyncio.Event()
+    release_loader = asyncio.Event()
+
+    async def loader():
+        nonlocal calls
+        calls += 1
+        loader_started.set()
+        await release_loader.wait()
+        return {"reachable": False, "error": "provider unavailable"}
+
+    tasks = [
+        asyncio.create_task(
+            cache.get_or_refresh_probe(
+                key,
+                loader,
+                is_success=lambda value: value["reachable"] is True,
+                policy=policy,
+                redis_client=redis,
+            )
+        )
+        for _ in range(12)
+    ]
+    await loader_started.wait()
+    await asyncio.sleep(0)
+    release_loader.set()
+    results = await asyncio.gather(*tasks)
+
+    assert calls == 1
+    assert all(result.value["reachable"] is False for result in results)
+
+    cached = await cache.get_or_refresh_probe(
+        key,
+        loader,
+        is_success=lambda value: value["reachable"] is True,
+        policy=policy,
+        redis_client=redis,
+    )
+    assert calls == 1
+    assert cached.metadata["cached"] is True
+    await cache.reset_probe_cache(key, redis_client=redis)
+
+
 @pytest.mark.asyncio
 async def test_local_singleflight_prevents_stampede_when_redis_fails(policy) -> None:
     redis = FailingRedis()
