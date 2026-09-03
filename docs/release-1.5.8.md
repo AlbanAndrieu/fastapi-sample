@@ -13,6 +13,7 @@ Release `1.5.8` consolidates the code that was temporarily published as `1.6.0` 
 ### Shared external probe cache
 
 - Share external probe results across replicas from PR #171 / commit `edc66db28df5d709bd62bbcf0bbb66e6d5eefa83`.
+- Harden stale-last-known-good semantics, outcome-aware L1 TTL handling, Redis L2 primitives and pfSense probe observability from PR #172 / merge commit `dcc6e714136735381daf548d05df2a02499e155b`.
 - Preserve the L1 + Redis L2 cache, distributed single-flight and stale-last-known-good behavior already present on `master`.
 
 ## Recovery contract
