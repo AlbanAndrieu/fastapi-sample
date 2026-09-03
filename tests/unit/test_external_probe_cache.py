@@ -57,6 +57,48 @@ def policy() -> ProbeCachePolicy:
     )
 
 
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"success_ttl": -1.0, "failure_ttl": 1.0, "stale_ttl": 2.0},
+        {"success_ttl": 1.0, "failure_ttl": float("nan"), "stale_ttl": 2.0},
+        {"success_ttl": 1.0, "failure_ttl": 1.0, "stale_ttl": float("inf")},
+        {
+            "success_ttl": 1.0,
+            "failure_ttl": 1.0,
+            "stale_ttl": 2.0,
+            "wait_timeout": -0.1,
+        },
+        {
+            "success_ttl": 1.0,
+            "failure_ttl": 1.0,
+            "stale_ttl": 2.0,
+            "poll_interval": 0.0,
+        },
+        {
+            "success_ttl": 1.0,
+            "failure_ttl": 1.0,
+            "stale_ttl": 2.0,
+            "lock_ttl": 0,
+        },
+    ],
+)
+def test_policy_rejects_invalid_windows(kwargs) -> None:
+    with pytest.raises(ValueError):
+        ProbeCachePolicy(**kwargs)
+
+
+def test_policy_rejects_poll_interval_longer_than_wait_timeout() -> None:
+    with pytest.raises(ValueError, match="poll_interval"):
+        ProbeCachePolicy(
+            success_ttl=1.0,
+            failure_ttl=1.0,
+            stale_ttl=2.0,
+            wait_timeout=0.1,
+            poll_interval=0.2,
+        )
+
+
 def test_l1_hot_ttl_uses_success_ttl() -> None:
     policy = ProbeCachePolicy(
         success_ttl=0.25,
