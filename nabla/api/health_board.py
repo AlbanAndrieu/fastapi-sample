@@ -20,6 +20,9 @@ logger = logging.getLogger(__name__)
 _DEFAULT_TTL_SECONDS = 30.0
 _MIN_TTL_SECONDS = 10.0
 _MAX_TTL_SECONDS = 300.0
+_HEALTHZ_OPTIONAL_ENRICHMENT_DEADLINE_SEC = 5.0
+_SICKZ_POLICY_DEADLINE_SEC = 6.0
+_HEALTH_BOARD_REFRESH_DEADLINE_SEC = 40.0
 _cache_lock = asyncio.Lock()
 _cached_snapshot: dict[str, Any] | None = None
 _cached_at = 0.0
@@ -44,6 +47,31 @@ def _short_error(exc: BaseException) -> str:
     return (str(exc).strip() or exc.__class__.__name__)[:240]
 
 
+def _deadline_check(probe: str) -> dict[str, Any]:
+    return {
+        "reachable": False,
+        "timed_out": True,
+        "error": "optional diagnostic enrichment deadline exceeded",
+        "error_kind": "deadline",
+        "probe": probe,
+    }
+
+
+def _failed_optional_check(
+    probe: str,
+    exc: BaseException | None = None,
+) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "reachable": False,
+        "error": "optional diagnostic enrichment failed",
+        "error_kind": "probe_error",
+        "probe": probe,
+    }
+    if exc is not None:
+        result["exception_type"] = type(exc).__name__
+    return result
+
+
 async def build_extended_healthz(request: Request) -> dict[str, Any]:
     """Build the backward-compatible deep diagnostic payload."""
     from nabla.api.db.database import engine
@@ -53,9 +81,54 @@ async def build_extended_healthz(request: Request) -> dict[str, Any]:
     from nabla.api.platform_health import enrich_optional_platform_checks
 
     payload = await build_healthz_payload(request, redis_client=redis, engine=engine)
-    payload = await enrich_optional_platform_checks(payload)
-    payload = await enrich_optional_observability_checks(payload)
-    return apply_diagnostic_status(payload)
+
+    async def platform_checks() -> dict[str, Any]:
+        try:
+            async with asyncio.timeout(_HEALTHZ_OPTIONAL_ENRICHMENT_DEADLINE_SEC):
+                enriched = await enrich_optional_platform_checks(payload)
+        except TimeoutError:
+            return {
+                "cloudflare": _deadline_check("cloudflare"),
+                "pfsense": _deadline_check("pfsense"),
+            }
+        except Exception as exc:
+            logger.warning(
+                "optional platform health enrichment failed exception_type=%s",
+                type(exc).__name__,
+            )
+            return {
+                "cloudflare": _failed_optional_check("cloudflare", exc),
+                "pfsense": _failed_optional_check("pfsense", exc),
+            }
+        checks = enriched.get("checks") or {}
+        return {
+            "cloudflare": checks.get("cloudflare", _failed_optional_check("cloudflare")),
+            "pfsense": checks.get("pfsense", _failed_optional_check("pfsense")),
+        }
+
+    async def observability_checks() -> dict[str, Any]:
+        try:
+            async with asyncio.timeout(_HEALTHZ_OPTIONAL_ENRICHMENT_DEADLINE_SEC):
+                enriched = await enrich_optional_observability_checks(payload)
+        except TimeoutError:
+            return {"logfire": _deadline_check("logfire")}
+        except Exception as exc:
+            logger.warning(
+                "optional observability health enrichment failed exception_type=%s",
+                type(exc).__name__,
+            )
+            return {"logfire": _failed_optional_check("logfire", exc)}
+        checks = enriched.get("checks") or {}
+        return {"logfire": checks.get("logfire", _failed_optional_check("logfire"))}
+
+    platform, observability = await asyncio.gather(
+        platform_checks(),
+        observability_checks(),
+    )
+    checks = dict(payload.get("checks") or {})
+    checks.update(platform)
+    checks.update(observability)
+    return apply_diagnostic_status({**payload, "checks": checks})
 
 
 async def build_homelab_snapshot(
@@ -98,7 +171,32 @@ async def build_sickz_snapshot(request: Request) -> dict[str, Any]:
     from nabla.api.sickz_policy import enrich_sickz_policy
     from nabla.api.sickz_port_annotations import enrich_pfsense_port_annotations
 
-    payload = await enrich_sickz_policy(await build_sickz_payload(request))
+    payload = await build_sickz_payload(request)
+    try:
+        async with asyncio.timeout(_SICKZ_POLICY_DEADLINE_SEC):
+            payload = await enrich_sickz_policy(payload)
+    except TimeoutError:
+        payload = {
+            **payload,
+            "policy_enrichment": {
+                "status": "timeout",
+                "timed_out": True,
+                "error_kind": "deadline",
+            },
+        }
+    except Exception as exc:
+        logger.warning(
+            "sickz policy enrichment failed exception_type=%s",
+            type(exc).__name__,
+        )
+        payload = {
+            **payload,
+            "policy_enrichment": {
+                "status": "failed",
+                "error_kind": "probe_error",
+                "exception_type": type(exc).__name__,
+            },
+        }
     return enrich_pfsense_port_annotations(payload)
 
 
@@ -130,7 +228,16 @@ async def _refresh(request: Request) -> None:
     global _cached_at, _cached_snapshot, _last_refresh_error
     started = time.monotonic()
     try:
-        snapshot = await build_health_board_snapshot(request)
+        async with asyncio.timeout(_HEALTH_BOARD_REFRESH_DEADLINE_SEC):
+            snapshot = await build_health_board_snapshot(request)
+    except TimeoutError:
+        _last_refresh_error = "health board refresh deadline exceeded"
+        logger.warning(
+            "health board snapshot refresh timed out duration_seconds=%.3f deadline_seconds=%.1f",
+            time.monotonic() - started,
+            _HEALTH_BOARD_REFRESH_DEADLINE_SEC,
+        )
+        return
     except Exception as exc:
         _last_refresh_error = _short_error(exc)
         logger.warning(
