@@ -70,6 +70,19 @@ def _current_fresh(
     return now - float(fetched_at) < ttl
 
 
+def _failed_with_last_good(
+    envelope: dict[str, Any],
+    policy: ProbeCachePolicy,
+) -> bool:
+    """Return whether current evidence failed while valid prior evidence remains."""
+    current = envelope.get("current")
+    return (
+        isinstance(current, dict)
+        and current.get("success") is False
+        and _valid_last_good(envelope, time.time(), policy.stale_ttl) is not None
+    )
+
+
 def _metadata(
     envelope: dict[str, Any],
     *,
@@ -104,6 +117,7 @@ def _result_from_envelope(
     cached: bool,
     policy: ProbeCachePolicy,
     stale: bool = False,
+    serve_last_good: bool = False,
     refresh_in_progress: bool = False,
     redis_available: bool = True,
 ) -> ProbeCacheResult | None:
@@ -114,7 +128,7 @@ def _result_from_envelope(
         if last_good_record is not None
         else None
     )
-    if stale and last_good is not None:
+    if serve_last_good and last_good is not None:
         value = deepcopy(last_good)
     elif isinstance(current, dict) and isinstance(current.get("value"), dict):
         value = deepcopy(current["value"])
@@ -193,6 +207,7 @@ def _cached_result(
         layer=layer,
         cached=True,
         policy=policy,
+        stale=_failed_with_last_good(envelope, policy),
         redis_available=redis_available,
     )
 
@@ -263,11 +278,11 @@ async def get_or_refresh_probe(
                 peer = await _wait_for_peer(client, key, policy)
                 if peer is not None:
                     await _l1_put(key, peer)
-                    result = _result_from_envelope(
+                    result = _cached_result(
                         peer,
                         layer="redis",
-                        cached=True,
                         policy=policy,
+                        redis_available=True,
                     )
                     if result is not None:
                         return result
@@ -276,6 +291,7 @@ async def get_or_refresh_probe(
                     layer="redis",
                     cached=True,
                     stale=True,
+                    serve_last_good=True,
                     refresh_in_progress=True,
                     policy=policy,
                 )
@@ -320,6 +336,7 @@ async def get_or_refresh_probe(
             layer="origin" if redis_available else "local_fallback",
             cached=False,
             policy=policy,
+            stale=not success and previous_good is not None,
             redis_available=redis_available,
         )
         if result is None:  # pragma: no cover - loader contract protects this branch.
