@@ -1,3 +1,10 @@
+## [1.5.10](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.9...1.5.10) (2026-09-03)
+
+
+### Bug Fixes
+
+* **health:** stabilize TrueNAS and pfSense probes ([#176](https://github.com/AlbanAndrieu/fastapi-sample/issues/176)) ([b728f0b](https://github.com/AlbanAndrieu/fastapi-sample/commit/b728f0b23a8a840e6f99beff2de39b8b9fde2a91))
+
 ## [1.5.9](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.8...1.5.9) (2026-09-03)
 
 
