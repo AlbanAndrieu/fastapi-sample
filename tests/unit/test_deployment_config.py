@@ -114,6 +114,11 @@ def test_semantic_release_has_bounded_1_5_8_recovery_then_normal_flow() -> None:
     assert 'LATEST_RELEASE_TAG}" == "1.5.7"' in workflow
     assert 'RECOVERY_VERSION="1.5.8"' in workflow
     assert "for obsolete_tag in 1.6.0 1.7.0" in workflow
+    assert "assert_remote_tag_absent() {" in workflow
+    assert 'if git ls-remote --exit-code --tags origin "refs/tags/${tag}"' in workflow
+    assert 'if [[ "${status}" -eq 2 ]]' in workflow
+    assert "assert_obsolete_recovery_tags_absent() {" in workflow
+    assert workflow.count("assert_obsolete_recovery_tags_absent") == 3
     assert 'npm version "${RECOVERY_VERSION}" --no-git-tag-version --ignore-scripts' in workflow
     assert 'python scripts/set_release_version.py "${RECOVERY_VERSION}"' in workflow
     assert 'git tag "${RECOVERY_VERSION}"' in workflow
@@ -131,6 +136,7 @@ def test_1_5_8_recovery_manifest_documents_consolidation_contract() -> None:
     assert "# [1.6.0]" not in changelog
     assert "# [1.7.0]" not in changelog
     assert "temporarily published as `1.6.0` and `1.7.0`" in manifest
+    assert "obsolete tags must still be absent" in manifest
     assert "never force-moves an existing tag" in manifest
     assert "expected exactly one version match" in synchronizer
 

@@ -26,6 +26,6 @@ The release workflow may create `1.5.8` only from the exact recovery state where
 
 The workflow then synchronizes npm, Python, uv and Docker version metadata to `1.5.8`, creates a dedicated `chore(release): 1.5.8` commit, pushes the immutable `1.5.8` tag and creates the GitHub Release from this document.
 
-A retry path is allowed only when the synchronized `1.5.8` release commit is already at `master` while the latest published GitHub Release is still `1.5.7`. It never force-moves an existing tag and refuses to publish if `1.5.8` points at a different commit.
+A retry path is allowed only when the synchronized `1.5.8` release commit is already at `master` while the latest published GitHub Release is still `1.5.7`. The obsolete tags must still be absent on every retry, and failure to verify their absence aborts recovery. It never force-moves an existing tag and refuses to publish if `1.5.8` points at a different commit.
 
 After `1.5.8` is published, normal semantic-release progression resumes from that baseline.
