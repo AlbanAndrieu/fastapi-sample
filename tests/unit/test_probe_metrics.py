@@ -13,11 +13,18 @@ def _series(metric) -> set[tuple[tuple[str, str], ...]]:
 
 def _counter_value(metric, **labels) -> float:
     samples = metric.labels(**labels).collect()[0].samples
-    return next(float(sample.value) for sample in samples if sample.name.endswith("_total"))
+    return next(
+        float(sample.value)
+        for sample in samples
+        if sample.name.endswith("_total")
+    )
 
 
 def _gauge_value(metric, **labels) -> float:
-    samples = metric.labels(**labels).collect()[0].samples if labels else metric.collect()[0].samples
+    if labels:
+        samples = metric.labels(**labels).collect()[0].samples
+    else:
+        samples = metric.collect()[0].samples
     return float(samples[0].value)
 
 
