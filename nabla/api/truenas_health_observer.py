@@ -211,9 +211,10 @@ def _apply_cache_evidence(
     result = dict(value)
     result.update(metadata)
     stale_refresh = metadata.get("stale") is True
+    refresh_in_progress = metadata.get("refresh_in_progress") is True
     current_failure = result.get("reachable") is not True
 
-    if stale_refresh:
+    if stale_refresh and refresh_in_progress:
         evidence = last_good or value
         result = {
             "reachable": False,

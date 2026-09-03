@@ -446,6 +446,7 @@ async def _read_snort2c_cached(
     if cached.metadata.get("stale") is True:
         good = cached.last_good or value
         table = good.get("table") if isinstance(good, dict) else None
+        telemetry["cached"] = True
         telemetry.setdefault("refresh_error", "snort2c refresh is in progress")
         return table, telemetry
 
