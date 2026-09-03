@@ -82,7 +82,7 @@ degraded conditions.
       homelab snapshot deadline and a 40-second background health-board refresh
       deadline. Expired queued probes never start and completed partial evidence is
       retained with explicit deadline markers.
-- [ ] Add fixed-cardinality metrics for provider outcome, timeout, breaker state,
+- [x] Add fixed-cardinality metrics for provider outcome, timeout, breaker state,
       origin refresh count and in-flight probe count. Never label metrics with
       URLs, hostnames, cache keys, IP addresses, exception text or credentials.
 - [ ] Add deterministic load/concurrency tests proving that repeated callers
@@ -160,7 +160,7 @@ degraded conditions.
       backoff, coarse Redis state and distributed half-open ownership. Caching
       reduces normal fan-out while the breaker supplies pressure relief during
       repeated provider degradation.
-- [ ] Add bounded cache observability for L1/L2 hit, miss, stale, origin refresh
+- [x] Add bounded cache observability for L1/L2 hit, miss, stale, origin refresh
       and Redis-degraded outcomes using fixed-cardinality labels; never expose raw
       dynamic cache keys or credentials as metric labels.
 - [ ] Add real Redis integration coverage for key expiry, schema rejection,
