@@ -32,9 +32,29 @@ from nabla.api.integration_health import (
     probe_tavily_search,
     probe_unleash_client_features,
 )
+from nabla.api.probe_budget import ProbeBudget
 from nabla.config_settings import REDIS_URL, get_settings
 
 logger = logging.getLogger(__name__)
+
+_HEALTHZ_PROBE_DEADLINE_SEC = 8.0
+_HEALTHZ_MAX_CONCURRENCY = 4
+_DEPENDENCY_KEYS = (
+    "redis",
+    "postgres",
+    "supabase",
+    "openstack_me",
+    "tavily",
+    "brave",
+    "google",
+    "appwrite",
+    "keycloak",
+    "unleash",
+    "sentry",
+    "datadog",
+    "pyroscope",
+    "litellm",
+)
 
 
 def _http_probe_error_kind(exc: Exception) -> str:
@@ -223,48 +243,61 @@ async def check_supabase_http() -> dict[str, Any]:
     }
 
 
+def _deadline_probe_result(
+    probe_name: str,
+    *,
+    url: str | None = None,
+) -> dict[str, Any]:
+    """Return explicit unknown/failure evidence when the aggregate budget expires."""
+    result: dict[str, Any] = {
+        "reachable": False,
+        "timed_out": True,
+        "error": "aggregate health probe deadline exceeded",
+        "error_kind": "deadline",
+        "probe": probe_name,
+    }
+    if url:
+        result["url"] = url
+    return result
+
+
 async def _run_dependency_probes(
     redis_client: Any,
     engine: Engine,
+    budget: ProbeBudget,
 ) -> tuple[dict[str, Any], ...]:
-    """Run core and optional integration probes concurrently."""
-    return await asyncio.gather(
-        check_redis_ping(redis_client),
-        run_in_threadpool(check_postgres_sql, engine),
-        check_supabase_http(),
-        run_in_threadpool(probe_ovh_me_reachable),
-        run_in_threadpool(probe_tavily_search),
-        run_in_threadpool(probe_brave_search),
-        run_in_threadpool(probe_google_cse),
-        run_in_threadpool(probe_appwrite_health),
-        run_in_threadpool(probe_keycloak_well_known),
-        run_in_threadpool(probe_unleash_client_features),
-        run_in_threadpool(probe_sentry_reachable),
-        run_in_threadpool(probe_datadog_trace_agent),
-        run_in_threadpool(probe_pyroscope_server),
-        run_in_threadpool(probe_litellm_public_proxy),
+    """Run dependency probes through one shared concurrency/deadline budget."""
+    factories = (
+        lambda: check_redis_ping(redis_client),
+        lambda: run_in_threadpool(check_postgres_sql, engine),
+        check_supabase_http,
+        lambda: run_in_threadpool(probe_ovh_me_reachable),
+        lambda: run_in_threadpool(probe_tavily_search),
+        lambda: run_in_threadpool(probe_brave_search),
+        lambda: run_in_threadpool(probe_google_cse),
+        lambda: run_in_threadpool(probe_appwrite_health),
+        lambda: run_in_threadpool(probe_keycloak_well_known),
+        lambda: run_in_threadpool(probe_unleash_client_features),
+        lambda: run_in_threadpool(probe_sentry_reachable),
+        lambda: run_in_threadpool(probe_datadog_trace_agent),
+        lambda: run_in_threadpool(probe_pyroscope_server),
+        lambda: run_in_threadpool(probe_litellm_public_proxy),
     )
+    results = await asyncio.gather(
+        *(
+            budget.run(
+                factory,
+                timeout_value=lambda name=name: _deadline_probe_result(name),
+            )
+            for name, factory in zip(_DEPENDENCY_KEYS, factories, strict=True)
+        ),
+    )
+    return tuple(results)
 
 
 def _dependency_checks(results: tuple[dict[str, Any], ...]) -> dict[str, Any]:
     """Map dependency probe results to the stable public check keys."""
-    keys = (
-        "redis",
-        "postgres",
-        "supabase",
-        "openstack_me",
-        "tavily",
-        "brave",
-        "google",
-        "appwrite",
-        "keycloak",
-        "unleash",
-        "sentry",
-        "datadog",
-        "pyroscope",
-        "litellm",
-    )
-    return dict(zip(keys, results, strict=True))
+    return dict(zip(_DEPENDENCY_KEYS, results, strict=True))
 
 
 def _merge_homelab_checks(
@@ -300,15 +333,47 @@ async def build_healthz_payload(
 ) -> dict[str, Any]:
     """Build the deep dependency-health payload used by ``/healthz``."""
     base = await fetch_base_health(request)
-    homelab_rows = await homelab_healthz_probe_rows()
+    budget = ProbeBudget(
+        deadline_seconds=_HEALTHZ_PROBE_DEADLINE_SEC,
+        max_concurrency=_HEALTHZ_MAX_CONCURRENCY,
+    )
+    homelab_rows = await budget.run(
+        homelab_healthz_probe_rows,
+        timeout_value=lambda: None,
+    )
+    catalog_timed_out = homelab_rows is None
+    rows = homelab_rows or []
+
     dependency_results, homelab_results = await asyncio.gather(
-        _run_dependency_probes(redis_client, engine),
+        _run_dependency_probes(redis_client, engine, budget),
         asyncio.gather(
-            *(probe_https_get_reachable(url, probe_name=display_label) for _, url, display_label, _ in homelab_rows),
+            *(
+                budget.run(
+                    lambda url=url, display_label=display_label: probe_https_get_reachable(
+                        url,
+                        probe_name=display_label,
+                    ),
+                    timeout_value=lambda display_label=display_label, url=url: _deadline_probe_result(
+                        display_label,
+                        url=url,
+                    ),
+                )
+                for _, url, display_label, _ in rows
+            ),
         ),
     )
     checks = _dependency_checks(dependency_results)
-    _merge_homelab_checks(checks, homelab_rows, homelab_results)
+    _merge_homelab_checks(checks, rows, list(homelab_results))
+    if catalog_timed_out:
+        checks["homelab_catalog"] = _deadline_probe_result("homelab_catalog")
     checks = {name: _normalize_probe_result_errors(check) for name, check in checks.items()}
     await enrich_integration_metadata(checks)
-    return {**base, "checks": checks, "version": request.app.version}
+    return {
+        **base,
+        "checks": checks,
+        "version": request.app.version,
+        "probe_budget": {
+            "deadline_seconds": _HEALTHZ_PROBE_DEADLINE_SEC,
+            "max_concurrency": _HEALTHZ_MAX_CONCURRENCY,
+        },
+    }
