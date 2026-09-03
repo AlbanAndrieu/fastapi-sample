@@ -141,14 +141,14 @@ jobs:
             (.pfsense.dns.ingress_block.state as $state |
               ["clear", "blocked", "attribution_unavailable", "telemetry_stale", "telemetry_unavailable"] | index($state) != null) and
             (if .pfsense.dns.ingress_block.state == "telemetry_stale" then
-               .pfsense.dns.ingress_block.stale == true and
-               .pfsense.dns.ingress_block.attribution_available == false and
-               (.pfsense.dns.ingress_block.last_success_at | type == "string" and length > 0)
-             elif .pfsense.dns.ingress_block.state == "telemetry_unavailable" then
-               .pfsense.dns.ingress_block.telemetry_available == false and
-               (.pfsense.dns.ingress_block.failure_stage | type == "string" and length > 0) and
-               (.pfsense.dns.ingress_block.error_kind | type == "string" and length > 0)
-             else true end)
+              .pfsense.dns.ingress_block.stale == true and
+              .pfsense.dns.ingress_block.attribution_available == false and
+              (.pfsense.dns.ingress_block.last_success_at | type == "string" and length > 0)
+            elif .pfsense.dns.ingress_block.state == "telemetry_unavailable" then
+              .pfsense.dns.ingress_block.telemetry_available == false and
+              (.pfsense.dns.ingress_block.failure_stage | type == "string" and length > 0) and
+              (.pfsense.dns.ingress_block.error_kind | type == "string" and length > 0)
+            else true end)
           ' /tmp/homelab-health.json >/dev/null
 
       - name: Set up Node.js for deployed UI smoke
