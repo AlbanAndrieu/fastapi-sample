@@ -16,6 +16,7 @@ from nabla.api.health_probe_utils import (
     probe_https_tls_trusted,
 )
 from nabla.api.homelab_catalog import homelab_sickz_catalog_for_sickz
+from nabla.api.probe_budget import ProbeBudget
 from nabla.api.sickz_pfsense import (
     PFSENSE_EXTRA_TCP_PORTS,
     ensure_pfsense_group,
@@ -34,6 +35,9 @@ from nabla.config_settings import (
 )
 
 _log = logging.getLogger(__name__)
+
+_SICKZ_PROBE_DEADLINE_SEC = 8.0
+_SICKZ_MAX_CONCURRENCY = 4
 
 
 def parse_sickz_target_groups(raw: str) -> list[list[str]]:
@@ -223,20 +227,61 @@ async def _probe_alias_group(
     return out
 
 
+def _deadline_group_result(
+    urls: list[str],
+    homelab_icon_by_tunnel: dict[str, str] | None,
+    homelab_name_by_tunnel: dict[str, str] | None,
+) -> dict[str, Any]:
+    """Return unknown exposure evidence when the aggregate sickz budget expires."""
+    return {
+        "reachable": None,
+        "timed_out": True,
+        "error": "aggregate sickz probe deadline exceeded",
+        "error_kind": "deadline",
+        "aliases_probed": list(urls),
+        "alias_results": {
+            url: {
+                "reachable": None,
+                "timed_out": True,
+                "error_kind": "deadline",
+            }
+            for url in urls
+        },
+        "tls_trusted": None,
+        **row_ui_metadata(
+            urls,
+            homelab_icon_by_tunnel,
+            homelab_name_by_tunnel,
+        ),
+    }
+
+
 async def build_sickz_payload(request: Request) -> dict[str, Any]:
     """Build inverse-reachability results for exposure-policy validation."""
     settings = get_settings()
     network_label = _network_label(settings)
     runtime = _runtime_block(settings)
+    budget = ProbeBudget(
+        deadline_seconds=_SICKZ_PROBE_DEADLINE_SEC,
+        max_concurrency=_SICKZ_MAX_CONCURRENCY,
+    )
     homelab_icon_by_tunnel: dict[str, str] | None = None
     homelab_name_by_tunnel: dict[str, str] | None = None
     homelab_groups: list[list[str]] = []
+    catalog_timed_out = False
     if _targets_equal_default_catalog_mode(settings.sickz_targets):
-        (
-            homelab_groups,
-            homelab_icon_by_tunnel,
-            homelab_name_by_tunnel,
-        ) = await homelab_sickz_catalog_for_sickz()
+        catalog = await budget.run(
+            homelab_sickz_catalog_for_sickz,
+            timeout_value=lambda: None,
+        )
+        if catalog is None:
+            catalog_timed_out = True
+        else:
+            (
+                homelab_groups,
+                homelab_icon_by_tunnel,
+                homelab_name_by_tunnel,
+            ) = catalog
 
     if known_paas_runtime_detected() and (
         settings.sickz_internal_network
@@ -294,17 +339,36 @@ async def build_sickz_payload(request: Request) -> dict[str, Any]:
     group_keys = [" | ".join(group) for group in groups]
     group_results = await asyncio.gather(
         *(
-            _probe_alias_group(
-                group,
-                homelab_icon_by_tunnel,
-                homelab_name_by_tunnel,
+            budget.run(
+                lambda group=group: _probe_alias_group(
+                    group,
+                    homelab_icon_by_tunnel,
+                    homelab_name_by_tunnel,
+                ),
+                timeout_value=lambda group=group: _deadline_group_result(
+                    group,
+                    homelab_icon_by_tunnel,
+                    homelab_name_by_tunnel,
+                ),
             )
             for group in groups
         ),
     )
+    checks = dict(zip(group_keys, group_results, strict=True))
+    if catalog_timed_out:
+        checks["homelab_catalog"] = {
+            "reachable": None,
+            "timed_out": True,
+            "error": "aggregate sickz catalog deadline exceeded",
+            "error_kind": "deadline",
+        }
     return {
-        "checks": dict(zip(group_keys, group_results, strict=True)),
+        "checks": checks,
         "version": request.app.version,
         "network_label": network_label,
         "runtime": runtime,
+        "probe_budget": {
+            "deadline_seconds": _SICKZ_PROBE_DEADLINE_SEC,
+            "max_concurrency": _SICKZ_MAX_CONCURRENCY,
+        },
     }
