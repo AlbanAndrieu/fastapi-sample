@@ -14,6 +14,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 DEFAULT_TRUENAS_URL = "https://truenas.albandrieu.com:7000"
 _DEFAULT_API_PATH = "/api/current"
+_DEFAULT_CALL_TIMEOUT_SEC = 5.0
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,7 @@ class TrueNASSettings:
     api_key: str = ""
     verify_ssl: bool = True
     websocket_path: str = _DEFAULT_API_PATH
+    call_timeout: float = _DEFAULT_CALL_TIMEOUT_SEC
 
     @classmethod
     def from_environment(cls) -> TrueNASSettings | None:
@@ -200,6 +202,7 @@ class TrueNASReadOnlyAdapter:
     def _connect(self) -> TrueNASClientProtocol:
         return self._client_factory(
             uri=self.settings.websocket_uri,
+            call_timeout=self.settings.call_timeout,
             verify_ssl=self.settings.verify_ssl,
         )
 
