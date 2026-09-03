@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
 from typing import Any
 
 
@@ -19,7 +19,12 @@ class ProbeCachePolicy:
     poll_interval: float = 0.1
 
     def __post_init__(self) -> None:
-        for field_name in ("success_ttl", "failure_ttl", "stale_ttl", "wait_timeout"):
+        for field_name in (
+            "success_ttl",
+            "failure_ttl",
+            "stale_ttl",
+            "wait_timeout",
+        ):
             value = float(getattr(self, field_name))
             if not math.isfinite(value) or value < 0:
                 raise ValueError(f"{field_name} must be a finite non-negative value")
