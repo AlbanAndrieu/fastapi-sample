@@ -1,3 +1,10 @@
+## [1.5.9](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.8...1.5.9) (2026-09-03)
+
+
+### Performance Improvements
+
+* **cache:** prevent local probe stampedes ([#175](https://github.com/AlbanAndrieu/fastapi-sample/issues/175)) ([eee8730](https://github.com/AlbanAndrieu/fastapi-sample/commit/eee8730c74dd1b121e485dc9b361f67000c8c2c3))
+
 ## [1.5.8](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.7...1.5.8) (2026-09-03)
 
 This release consolidates the changes that were temporarily published as `1.6.0` and `1.7.0` after those GitHub Releases were removed. Git history is unchanged; `1.5.8` becomes the maintained release baseline.
