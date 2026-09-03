@@ -1,3 +1,7 @@
 # content of pytest.toml
 [pytest]
-markers = ["webtest: mark a test as a webtest.", "slow: mark test as slow."]
+markers = [
+    "webtest: mark a test as a webtest.",
+    "slow: mark test as slow.",
+    "integration: requires explicitly provisioned external services.",
+]
