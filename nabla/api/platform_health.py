@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime
 import logging
 import os
-import ssl
 import time
 from typing import Any
 
@@ -18,6 +16,12 @@ from nabla.api.external_probe_cache import (
     ProbeCacheResult,
     get_or_refresh_probe,
     reset_probe_cache,
+)
+from nabla.api.platform_health_diagnostics import (
+    http_error_kind as _http_error_kind,
+    pfsense_failure_stage as _pfsense_failure_stage,
+    short_error as _short_error,
+    utc_now as _utc_now,
 )
 
 _CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4"
@@ -40,51 +44,6 @@ _CLOUDFLARE_CACHE_POLICY = ProbeCachePolicy(
     stale_ttl=600.0,
 )
 logger = logging.getLogger(__name__)
-
-
-def _utc_now() -> str:
-    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
-
-
-def _short_error(exc: BaseException) -> str:
-    message = str(exc).strip() or exc.__class__.__name__
-    return message[:240]
-
-
-def _http_error_kind(exc: BaseException) -> str:
-    """Classify transport failures for safe runtime diagnostics."""
-    message = str(exc).casefold()
-    if isinstance(exc, httpx.ConnectTimeout):
-        return "connect_timeout"
-    if isinstance(exc, httpx.ReadTimeout):
-        return "read_timeout"
-    if isinstance(exc, httpx.PoolTimeout):
-        return "pool_timeout"
-    if isinstance(exc, httpx.TimeoutException):
-        return "timeout"
-    if isinstance(exc, httpx.ConnectError):
-        if any(marker in message for marker in ("certificate", "ssl", "tls")):
-            return "tls_error"
-        return "connect_error"
-    if isinstance(exc, ssl.SSLError) or any(
-        marker in message for marker in ("certificate", "ssl", "tls")
-    ):
-        return "tls_error"
-    if isinstance(exc, httpx.HTTPError):
-        return "http_error"
-    if isinstance(exc, OSError):
-        return "os_error"
-    return "unknown_error"
-
-
-def _pfsense_failure_stage(error_kind: str) -> str:
-    if error_kind in {"connect_timeout", "connect_error", "tls_error", "os_error"}:
-        return "connect"
-    if error_kind == "pool_timeout":
-        return "client_pool"
-    if error_kind == "read_timeout":
-        return "response"
-    return "request"
 
 
 def _pfsense_posture_transport() -> tuple[str, str, bool, str]:
@@ -238,14 +197,24 @@ async def check_pfsense_api() -> dict[str, Any]:
         pool=_PFSENSE_CONNECT_TIMEOUT_SEC,
     )
     started = time.monotonic()
+    logger.debug(
+        "pfSense API liveness probe started url=%s verify_ssl=%s "
+        "connect_timeout_s=%s read_timeout_s=%s",
+        url,
+        verify_ssl,
+        _PFSENSE_CONNECT_TIMEOUT_SEC,
+        _PFSENSE_READ_TIMEOUT_SEC,
+    )
     response: httpx.Response | None = None
     last_error: BaseException | None = None
+    attempts = 0
     async with httpx.AsyncClient(
         timeout=timeout,
         verify=verify_ssl,
         follow_redirects=False,
     ) as client:
         for attempt in range(1, _PFSENSE_MAX_ATTEMPTS + 1):
+            attempts = attempt
             try:
                 response = await client.get(
                     url,
@@ -277,14 +246,27 @@ async def check_pfsense_api() -> dict[str, Any]:
                 "pfSense accepted the connection but did not return the REST API "
                 f"response within {_PFSENSE_READ_TIMEOUT_SEC:.0f}s"
             )
+        failure_stage = _pfsense_failure_stage(error_kind)
+        logger.warning(
+            "pfSense API liveness probe failed url=%s verify_ssl=%s "
+            "error_kind=%s failure_stage=%s exception_type=%s "
+            "elapsed_ms=%s attempts=%s",
+            url,
+            verify_ssl,
+            error_kind,
+            failure_stage,
+            type(exc).__name__,
+            elapsed_ms,
+            attempts,
+        )
         return {
             "reachable": False,
             "error": error,
             "error_kind": error_kind,
-            "failure_stage": _pfsense_failure_stage(error_kind),
+            "failure_stage": failure_stage,
             "exception_type": type(exc).__name__,
             "elapsed_ms": elapsed_ms,
-            "attempts": _PFSENSE_MAX_ATTEMPTS,
+            "attempts": attempts,
             "probe": "pfsense_rest_api_v2",
             "path": _PFSENSE_LIVENESS_PATH,
             "url": url,
@@ -294,6 +276,16 @@ async def check_pfsense_api() -> dict[str, Any]:
         }
 
     healthy = 200 <= response.status_code < 400
+    logger.debug(
+        "pfSense API liveness probe completed url=%s verify_ssl=%s "
+        "http_status=%s elapsed_ms=%s attempts=%s reachable=%s",
+        url,
+        verify_ssl,
+        response.status_code,
+        elapsed_ms,
+        attempts,
+        healthy,
+    )
     result: dict[str, Any] = {
         "reachable": healthy,
         "http_status": response.status_code,
@@ -303,8 +295,8 @@ async def check_pfsense_api() -> dict[str, Any]:
         "url": url,
         "verify_ssl": verify_ssl,
         "credential_mode": credential_mode,
-        "attempts": 1 if last_error is None else 2,
-        "tls_trusted": True if verify_ssl else False,
+        "attempts": attempts,
+        "tls_trusted": verify_ssl,
     }
     if healthy:
         result["last_success_at"] = _utc_now()
@@ -317,16 +309,15 @@ def _cache_with_stale_evidence(cached: ProbeCacheResult) -> dict[str, Any]:
     value = dict(cached.value)
     current_failure = value.get("reachable") is False or value.get("api_reachable") is False
     stale_refresh = cached.metadata.get("stale") is True
-    if (current_failure or stale_refresh) and cached.last_good is not None:
+    use_last_good = (current_failure or stale_refresh) and cached.last_good is not None
+    if use_last_good:
         error = value.get("error") or "probe refresh is in progress"
         value = {
             **cached.last_good,
-            "stale": True,
             "refresh_error": error,
         }
     value.update(cached.metadata)
-    if not (current_failure or stale_refresh):
-        value["stale"] = False
+    value["stale"] = bool(use_last_good or stale_refresh)
     return value
 
 

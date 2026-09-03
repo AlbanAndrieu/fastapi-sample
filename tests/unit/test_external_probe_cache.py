@@ -51,6 +51,69 @@ def policy() -> ProbeCachePolicy:
     )
 
 
+def test_l1_hot_ttl_uses_success_ttl() -> None:
+    policy = ProbeCachePolicy(
+        success_ttl=0.25,
+        failure_ttl=30.0,
+        stale_ttl=120.0,
+    )
+
+    assert cache._l1_hot_ttl({"current": {"success": True}}, policy) == 0.25
+
+
+def test_l1_hot_ttl_uses_failure_ttl() -> None:
+    policy = ProbeCachePolicy(
+        success_ttl=30.0,
+        failure_ttl=0.5,
+        stale_ttl=120.0,
+    )
+
+    assert cache._l1_hot_ttl({"current": {"success": False}}, policy) == 0.5
+
+
+def test_l1_hot_ttl_caps_long_ttl_at_local_window() -> None:
+    policy = ProbeCachePolicy(
+        success_ttl=30.0,
+        failure_ttl=15.0,
+        stale_ttl=120.0,
+    )
+
+    assert (
+        cache._l1_hot_ttl({"current": {"success": True}}, policy)
+        == cache._L1_HOT_TTL_SEC
+    )
+
+
+@pytest.mark.asyncio
+async def test_success_keeps_independent_last_good_record(policy) -> None:
+    redis = FakeRedis()
+    key = "test:last-good-independence"
+    await cache.reset_probe_cache(key, redis_client=redis)
+
+    async def loader():
+        return {"reachable": True, "generation": 1}
+
+    await cache.get_or_refresh_probe(
+        key,
+        loader,
+        is_success=lambda value: value["reachable"] is True,
+        policy=policy,
+        redis_client=redis,
+    )
+
+    envelope, stored_at = cache._l1[key]
+    last_good_fetched_at = envelope["last_good"]["fetched_at"]
+    envelope["current"]["fetched_at"] = 0.0
+    cache._l1[key] = (envelope, stored_at)
+
+    retained, _ = await cache._l1_get(key, policy)
+    assert retained is not None
+    assert retained["current"]["fetched_at"] == 0.0
+    assert retained["last_good"]["fetched_at"] == last_good_fetched_at
+    assert retained["last_good"]["fetched_at"] != 0.0
+    await cache.reset_probe_cache(key, redis_client=redis)
+
+
 @pytest.mark.asyncio
 async def test_second_replica_reuses_redis_l2(policy) -> None:
     redis = FakeRedis()
