@@ -133,7 +133,9 @@ def test_1_5_8_recovery_manifest_documents_consolidation_contract() -> None:
     synchronizer = (ROOT / "scripts/set_release_version.py").read_text(encoding="utf-8")
 
     assert "## [1.5.8]" in changelog
-    assert "# [1.6.0]" not in changelog
+    # The obsolete pre-recovery 1.6.0 was deleted, then 1.6.0 was legitimately
+    # published again after the repaired 1.5.8 -> 1.5.10 release sequence.
+    assert "compare/1.5.10...1.6.0" in changelog
     assert "# [1.7.0]" not in changelog
     assert "temporarily published as `1.6.0` and `1.7.0`" in manifest
     assert "obsolete tags must still be absent" in manifest

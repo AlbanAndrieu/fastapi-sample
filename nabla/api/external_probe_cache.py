@@ -25,6 +25,10 @@ from nabla.api.external_probe_cache_redis import (
     write_envelope as _redis_put,
 )
 from nabla.api.external_probe_cache_types import ProbeCachePolicy, ProbeCacheResult
+from nabla.api.probe_metrics import (
+    record_cache_outcome,
+    record_origin_refresh,
+)
 from nabla.api.provider_circuit import (
     before_provider_probe,
     record_provider_probe_outcome,
@@ -215,6 +219,22 @@ async def _wait_for_peer(
     return None
 
 
+def _observe_cache_result(result: ProbeCacheResult) -> ProbeCacheResult:
+    """Record only bounded cache metadata derived from internal result fields."""
+    if result.metadata.get("cached") is True:
+        layer = result.metadata.get("cache_layer")
+        outcome = {
+            "l1": "l1_hit",
+            "redis": "redis_hit",
+            "local_fallback": "local_hit",
+        }.get(layer)
+        if outcome is not None:
+            record_cache_outcome(outcome)
+    if result.metadata.get("stale") is True:
+        record_cache_outcome("stale")
+    return result
+
+
 def _cached_result(
     envelope: dict[str, Any] | None,
     *,
@@ -252,7 +272,7 @@ async def get_or_refresh_probe(
             redis_available=True,
         )
         if result is not None:
-            return result
+            return _observe_cache_result(result)
 
     refresh_lock = await _get_refresh_lock(key)
     async with refresh_lock:
@@ -266,7 +286,7 @@ async def get_or_refresh_probe(
                 redis_available=True,
             )
             if result is not None:
-                return result
+                return _observe_cache_result(result)
 
         client = redis_client if redis_client is not None else _redis_client()
         redis_available = client is not None
@@ -283,9 +303,10 @@ async def get_or_refresh_probe(
                         redis_available=True,
                     )
                     if result is not None:
-                        return result
+                        return _observe_cache_result(result)
             except Exception as exc:
                 redis_available = False
+                record_cache_outcome("redis_degraded")
                 logger.debug(
                     "external_probe_cache_redis_read_failed",
                     key=key,
@@ -302,7 +323,7 @@ async def get_or_refresh_probe(
                 redis_available=False,
             )
             if result is not None:
-                return result
+                return _observe_cache_result(result)
 
         last_envelope = envelope or {"schema": _SCHEMA_VERSION}
         lock_token = secrets.token_hex(12)
@@ -326,7 +347,7 @@ async def get_or_refresh_probe(
                             redis_available=True,
                         )
                         if result is not None:
-                            return result
+                            return _observe_cache_result(result)
                     stale = _result_from_envelope(
                         last_envelope,
                         layer="redis",
@@ -337,9 +358,10 @@ async def get_or_refresh_probe(
                         policy=policy,
                     )
                     if stale is not None:
-                        return stale
+                        return _observe_cache_result(stale)
             except Exception as exc:
                 redis_available = False
+                record_cache_outcome("redis_degraded")
                 logger.debug(
                     "external_probe_cache_lock_failed",
                     key=key,
@@ -367,8 +389,10 @@ async def get_or_refresh_probe(
                 )
                 if client is not None and lock_acquired:
                     await _release_lock(client, key, lock_token)
-                return suppressed
+                return _observe_cache_result(suppressed)
 
+        record_cache_outcome("miss")
+        record_origin_refresh()
         try:
             try:
                 value = await loader()
@@ -403,6 +427,7 @@ async def get_or_refresh_probe(
                     await _redis_put(client, key, new_envelope, policy)
                 except Exception as exc:
                     redis_available = False
+                    record_cache_outcome("redis_degraded")
                     logger.debug(
                         "external_probe_cache_redis_write_failed",
                         key=key,
@@ -418,7 +443,7 @@ async def get_or_refresh_probe(
             )
             if result is None:  # pragma: no cover - loader contract protects this branch.
                 raise RuntimeError("external probe cache produced no result")
-            return result
+            return _observe_cache_result(result)
         finally:
             await release_provider_probe(circuit_decision)
             if client is not None and lock_acquired:

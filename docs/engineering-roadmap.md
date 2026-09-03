@@ -76,13 +76,16 @@ degraded conditions.
       jitter for repeated TrueNAS, pfSense and Cloudflare failures. Share only
       coarse breaker state through Redis and use one distributed half-open probe
       so replicas do not stampede an appliance when its cooldown expires.
-- [ ] Add an overall deadline to aggregated `/healthz`, `/sickz` and homelab
-      diagnostics so a collection of individually bounded probes cannot exceed
-      the public request budget.
-- [ ] Add fixed-cardinality metrics for provider outcome, timeout, breaker state,
+- [x] Bound aggregate `/healthz`, `/sickz` and homelab diagnostics: use a
+      request-scoped maximum of four active fan-out probes, an 8-second low-level
+      health/sickz probe budget, bounded optional/policy enrichment, a 12-second
+      homelab snapshot deadline and a 40-second background health-board refresh
+      deadline. Expired queued probes never start and completed partial evidence is
+      retained with explicit deadline markers.
+- [x] Add fixed-cardinality metrics for provider outcome, timeout, breaker state,
       origin refresh count and in-flight probe count. Never label metrics with
       URLs, hostnames, cache keys, IP addresses, exception text or credentials.
-- [ ] Add deterministic load/concurrency tests proving that repeated callers
+- [x] Add deterministic load/concurrency tests proving that repeated callers
       create at most one origin refresh per cache key and failure window, both
       with Redis healthy and Redis unavailable.
 - [ ] Add production acceptance checks: appliance degradation must not increase
@@ -106,6 +109,11 @@ degraded conditions.
   until a single half-open recovery probe is allowed after bounded backoff.
 - No optional dependency failure can indefinitely delay `/livez`, readiness or
   the public health/dashboard endpoints.
+- A single deep diagnostic request starts at most four budgeted fan-out probes at
+  once; queued work is skipped after the aggregate deadline instead of creating a
+  late burst against recovering dependencies.
+- A health-board refresh that exceeds 40 seconds is cancelled and leaves the
+  previous stale snapshot available instead of pinning the refresh task forever.
 
 ## P1 — Progressive endpoint protection
 
@@ -152,7 +160,7 @@ degraded conditions.
       backoff, coarse Redis state and distributed half-open ownership. Caching
       reduces normal fan-out while the breaker supplies pressure relief during
       repeated provider degradation.
-- [ ] Add bounded cache observability for L1/L2 hit, miss, stale, origin refresh
+- [x] Add bounded cache observability for L1/L2 hit, miss, stale, origin refresh
       and Redis-degraded outcomes using fixed-cardinality labels; never expose raw
       dynamic cache keys or credentials as metric labels.
 - [ ] Add real Redis integration coverage for key expiry, schema rejection,
