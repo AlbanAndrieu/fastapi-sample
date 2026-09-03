@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.10...1.6.0) (2026-09-03)
+
+
+### Features
+
+* **topology:** accept hostedBy placement relations ([#177](https://github.com/AlbanAndrieu/fastapi-sample/issues/177)) ([e38d79b](https://github.com/AlbanAndrieu/fastapi-sample/commit/e38d79b1fb1efe4f6f6d0251775ca6469b05ad79))
+
 ## [1.5.10](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.9...1.5.10) (2026-09-03)
 
 
