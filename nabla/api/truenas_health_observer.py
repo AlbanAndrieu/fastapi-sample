@@ -28,6 +28,7 @@ _CACHE_POLICY = ProbeCachePolicy(
     stale_ttl=600.0,
     lock_ttl=20,
 )
+_TRUENAS_PROBE_DEADLINE_SEC = 8.0
 _SENTRY_FAILURE_COOLDOWN_SEC = 900.0
 _last_failure_signature: str | None = None
 _last_failure_reported_at = 0.0
@@ -165,7 +166,10 @@ def _last_good_payload(value: dict[str, Any]) -> dict[str, Any]:
 async def _probe_origin() -> dict[str, Any]:
     started = time.perf_counter()
     try:
-        result = await asyncio.to_thread(observe_truenas_api)
+        result = await asyncio.wait_for(
+            asyncio.to_thread(observe_truenas_api),
+            timeout=_TRUENAS_PROBE_DEADLINE_SEC,
+        )
         if not isinstance(result, dict):
             raise RuntimeError("TrueNAS API probe returned no health payload")
         value = dict(result)

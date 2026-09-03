@@ -15,13 +15,15 @@ from nabla.api.provider_credentials import inspect_environment_credentials
 
 DNSPolicyState = Literal["ok", "warn", "fail", "unknown"]
 
-_PFSENSE_TIMEOUT_SEC = 6.0
+_PFSENSE_CONNECT_TIMEOUT_SEC = 2.0
+_PFSENSE_READ_TIMEOUT_SEC = 4.0
+_PFSENSE_POSTURE_DEADLINE_SEC = 8.0
 _PFSENSE_MAX_CONCURRENCY = 2
 _PFSENSE_POSTURE_CACHE_KEY = "pfsense:posture"
 _PFSENSE_POSTURE_CACHE_POLICY = ProbeCachePolicy(
-    success_ttl=45.0,
-    failure_ttl=30.0,
-    stale_ttl=300.0,
+    success_ttl=60.0,
+    failure_ttl=120.0,
+    stale_ttl=600.0,
     lock_ttl=15,
 )
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
@@ -126,7 +128,7 @@ def _response_data(payload: object) -> object:
 def _safe_error(exc: BaseException) -> str:
     if isinstance(exc, httpx.HTTPStatusError):
         return f"HTTP {exc.response.status_code}"
-    if isinstance(exc, httpx.TimeoutException):
+    if isinstance(exc, httpx.TimeoutException | TimeoutError):
         return "timeout"
     return exc.__class__.__name__
 
@@ -333,14 +335,21 @@ def _resolver_payload(value: object) -> dict[str, Any]:
     }
 
 
-async def _observe_posture_origin(settings: PfSenseDNSSettings) -> dict[str, Any]:
+async def _observe_posture_origin_bounded(
+    settings: PfSenseDNSSettings,
+) -> dict[str, Any]:
     paths = {
         "system": "/api/v2/system/version",
         "services": "/api/v2/status/services",
         "resolver": "/api/v2/services/dns_resolver/settings",
         "system_dns": "/api/v2/system/dns",
     }
-    timeout = httpx.Timeout(_PFSENSE_TIMEOUT_SEC, connect=3.0)
+    timeout = httpx.Timeout(
+        connect=_PFSENSE_CONNECT_TIMEOUT_SEC,
+        read=_PFSENSE_READ_TIMEOUT_SEC,
+        write=_PFSENSE_CONNECT_TIMEOUT_SEC,
+        pool=_PFSENSE_CONNECT_TIMEOUT_SEC,
+    )
     async with httpx.AsyncClient(
         base_url=settings.base_url,
         headers={"X-API-Key": settings.api_key, "Accept": "application/json"},
@@ -394,6 +403,21 @@ async def _observe_posture_origin(settings: PfSenseDNSSettings) -> dict[str, Any
         result["error_stage"] = stage
         result["error"] = _safe_error(error)
     return result
+
+
+async def _observe_posture_origin(settings: PfSenseDNSSettings) -> dict[str, Any]:
+    try:
+        async with asyncio.timeout(_PFSENSE_POSTURE_DEADLINE_SEC):
+            return await _observe_posture_origin_bounded(settings)
+    except TimeoutError:
+        return {
+            "reachable": False,
+            "error_stage": "deadline",
+            "error": "timeout",
+            "services": [],
+            "resolver": {},
+            "upstreams": [],
+        }
 
 
 def _posture_success(value: dict[str, Any]) -> bool:

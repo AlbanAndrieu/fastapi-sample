@@ -15,8 +15,9 @@ from nabla.integrations.truenas_client import (
 class FakeClient:
     """Minimal official-client stand-in with deterministic read-only responses."""
 
-    def __init__(self, *, uri: str, verify_ssl: bool) -> None:
+    def __init__(self, *, uri: str, call_timeout: float, verify_ssl: bool) -> None:
         self.uri = uri
+        self.call_timeout = call_timeout
         self.verify_ssl = verify_ssl
         self.login = Mock()
         self.calls: list[str] = []
@@ -69,6 +70,7 @@ def test_settings_reuse_mcp_api_key(monkeypatch) -> None:
     assert settings.api_key == "1-test-key"
     assert settings.websocket_uri == ("wss://truenas.albandrieu.com:7000/api/current")
     assert settings.verify_ssl is True
+    assert settings.call_timeout == 5.0
 
 
 def test_settings_use_canonical_api_verify_ssl(monkeypatch) -> None:
@@ -191,9 +193,31 @@ def test_health_snapshot_uses_system_version_and_app_query() -> None:
         ],
     }
     assert clients[0].uri == "wss://truenas.example/api/current"
+    assert clients[0].call_timeout == 5.0
     assert clients[0].verify_ssl is True
     clients[0].login.assert_called_once_with("readonly", "1-secret")
     assert clients[0].calls == ["system.version", "app.query"]
+
+
+def test_custom_call_timeout_is_forwarded_to_official_client() -> None:
+    clients: list[FakeClient] = []
+
+    def factory(**kwargs):
+        client = FakeClient(**kwargs)
+        clients.append(client)
+        return client
+
+    settings = TrueNASSettings(
+        url="https://truenas.example",
+        username="readonly",
+        api_key="1-secret",
+        call_timeout=2.5,
+    )
+    adapter = TrueNASReadOnlyAdapter(settings, client_factory=factory)
+
+    adapter.system_version()
+
+    assert clients[0].call_timeout == 2.5
 
 
 def test_invalid_truenas_url_is_rejected() -> None:

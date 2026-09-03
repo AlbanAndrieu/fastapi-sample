@@ -7,8 +7,9 @@ from nabla.integrations.truenas_client import TrueNASReadOnlyAdapter, TrueNASSet
 
 
 class FakeClient:
-    def __init__(self, *, uri: str, verify_ssl: bool) -> None:
+    def __init__(self, *, uri: str, call_timeout: float, verify_ssl: bool) -> None:
         self.uri = uri
+        self.call_timeout = call_timeout
         self.verify_ssl = verify_ssl
         self.login = Mock()
         self.calls: list[tuple[str, tuple[object, ...]]] = []
@@ -58,6 +59,7 @@ def test_get_truenas_apps_json_uses_shared_adapter() -> None:
     assert payload["services"][0]["name"] == "vaultwarden"
     assert payload["services"][0]["internalHost"] == "nas.test"
     assert clients[0].uri == "wss://nas.test:7000/api/current"
+    assert clients[0].call_timeout == 5.0
     assert clients[0].verify_ssl is False
     clients[0].login.assert_called_once_with("dummy-user", "1-dummyapi1234567890")
     assert clients[0].calls == [("app.query", ())]

@@ -15,10 +15,13 @@ exceptions here rather than creating additional todo or refactoring documents.
   follow-up.
 - Keep the existing size policy: warn above 400 Python lines and fail above
   700 lines, with explicit generated-code and migration exceptions.
-- Grandfather oversized modules already present on `main` until they can be
+- Grandfather oversized modules already present on `master` until they can be
   split without losing recently integrated functionality.
+- Stabilize dependency probes and production rollout before starting broad new
+  feature or architecture work. Optional homelab appliances must never become a
+  liveness dependency or be overloaded by diagnostics.
 - Configure GitHub branch protection only after the application and CI changes
-  are stable; do not change `main` protection in the current implementation.
+  are stable; do not change `master` protection in the current implementation.
 
 ## Production audit — 2026-08-26
 
@@ -51,6 +54,58 @@ exceptions here rather than creating additional todo or refactoring documents.
       profile source files, tests and API/MCP responses.
 - [x] Use a dedicated public profile response model that never includes a
       password.
+
+## P1 — Runtime stability and appliance protection
+
+Treat this section as the near-term stability gate. Do not add broad new
+integrations until the dependency-observation path is bounded under normal and
+degraded conditions.
+
+- [x] Keep TrueNAS and pfSense optional: failures are diagnostic evidence and do
+      not make application liveness depend on either appliance.
+- [x] Bound TrueNAS JSON-RPC calls through the official client to 5 seconds and
+      cap the asynchronous health probe at 8 seconds. A failed refresh is cached
+      for 120 seconds and may serve explicit stale-last-good evidence.
+- [x] Bound pfSense posture requests to 2-second connect and 4-second read
+      timeouts, cap the complete posture origin probe at 8 seconds, retain at
+      most two concurrent posture requests, and use a 120-second failure cache.
+- [x] Remove the immediate second Snort `snort2c` request during pfSense failure;
+      use one bounded attempt plus the cache/stale path instead, with a
+      120-second failure window.
+- [x] Add provider-level circuit breakers with bounded exponential backoff and
+      jitter for repeated TrueNAS, pfSense and Cloudflare failures. Share only
+      coarse breaker state through Redis and use one distributed half-open probe
+      so replicas do not stampede an appliance when its cooldown expires.
+- [ ] Add an overall deadline to aggregated `/healthz`, `/sickz` and homelab
+      diagnostics so a collection of individually bounded probes cannot exceed
+      the public request budget.
+- [ ] Add fixed-cardinality metrics for provider outcome, timeout, breaker state,
+      origin refresh count and in-flight probe count. Never label metrics with
+      URLs, hostnames, cache keys, IP addresses, exception text or credentials.
+- [ ] Add deterministic load/concurrency tests proving that repeated callers
+      create at most one origin refresh per cache key and failure window, both
+      with Redis healthy and Redis unavailable.
+- [ ] Add production acceptance checks: appliance degradation must not increase
+      API error rate, exhaust worker threads, or create sustained request bursts
+      against TrueNAS/pfSense.
+- [ ] Investigate the official TrueNAS client's fixed WebSocket connect timeout.
+      `asyncio` cancellation can bound the API response but cannot terminate an
+      already-running synchronous client thread; prefer an upstream configurable
+      connect timeout or stronger isolation before tightening this further.
+
+### Stability gate acceptance criteria
+
+- A healthy cached dependency observation completes without origin I/O.
+- A failed pfSense origin observation stops within the 8-second posture budget
+  and is not retried immediately.
+- A failed TrueNAS health observation returns within the 8-second application
+  budget; subsequent requests use failure/stale cache evidence for 120 seconds.
+- Concurrent callers cannot multiply origin probes in one worker or across
+  replicas while Redis is available.
+- Repeated provider failures open a shared circuit and suppress origin refreshes
+  until a single half-open recovery probe is allowed after bounded backoff.
+- No optional dependency failure can indefinitely delay `/livez`, readiness or
+  the public health/dashboard endpoints.
 
 ## P1 — Progressive endpoint protection
 
@@ -91,16 +146,22 @@ exceptions here rather than creating additional todo or refactoring documents.
       so replicas do not duplicate expensive origin probes during refresh.
 - [x] Add process-local per-key single-flight before the Redis/origin slow path so
       a Redis outage cannot trigger a same-worker probe stampede.
+- [x] Validate probe-cache policies at construction so negative/non-finite TTLs,
+      invalid lock TTLs and contradictory polling windows fail fast.
+- [x] Add shared provider circuit breakers above origin refresh, with bounded
+      backoff, coarse Redis state and distributed half-open ownership. Caching
+      reduces normal fan-out while the breaker supplies pressure relief during
+      repeated provider degradation.
 - [ ] Add bounded cache observability for L1/L2 hit, miss, stale, origin refresh
       and Redis-degraded outcomes using fixed-cardinality labels; never expose raw
       dynamic cache keys or credentials as metric labels.
 - [ ] Add real Redis integration coverage for key expiry, schema rejection,
       distributed lock ownership/release and cross-replica reuse; keep unit tests
       deterministic and network-disabled by default.
-- [ ] Centralize and validate probe-cache policies so TTL, stale, wait, poll and
-      lock windows cannot be configured into unsafe or contradictory values.
-- [ ] Add per-provider request budgets/circuit breakers above the cache. Caching
-      reduces fan-out but must not be treated as a substitute for rate limiting.
+- [ ] Centralize provider probe-cache policies so stability budgets are reviewable
+      in one place instead of being distributed across observer modules.
+- [ ] Add explicit per-provider request/rate budgets above caching and circuit
+      breaking where endpoint-level abuse or fan-out can still overload an origin.
 - [ ] Document cache schema-bump/invalidation and production diagnostics, including
       the expected degraded behavior when Redis is unavailable.
 
@@ -169,7 +230,7 @@ exceptions here rather than creating additional todo or refactoring documents.
 - [ ] Reduce the current Trivy dependency baseline below 48 findings and lower
       its temporary regression ceiling of 55 as vulnerabilities are remediated.
 - [ ] Pin every reusable GitHub Action to a verified immutable commit SHA.
-- [ ] Protect `main`, require reviewed pull requests and enforce the final
+- [ ] Protect `master`, require reviewed pull requests and enforce the final
       mandatory test/security checks after the current refactoring stabilizes.
 
 ## P2 — Runtime and database architecture
@@ -318,14 +379,16 @@ file must not be copied into the current application unchanged.
 
 ## Suggested future pull requests
 
-1. `feat(security): introduce Keycloak-backed administrative access`
-2. `feat(homelab): separate public and authenticated service projections`
-3. `perf(cache): add bounded cache telemetry and Redis integration coverage`
-4. `fix(release): complete immutable release-to-production orchestration`
-5. `refactor(database): consolidate pools and deployment migrations`
-6. `refactor(dependencies): isolate lean runtime and optional integrations`
-7. `ci(security): enforce branch protection and mandatory security checks`
-8. `docs(dev): standardize uv onboarding and shared agent instructions`
+1. `perf(stability): bound aggregate health fan-out and deadlines`
+2. `perf(cache): add bounded cache telemetry and Redis integration coverage`
+3. `fix(release): complete immutable release-to-production orchestration`
+4. `ci(stability): add degraded-dependency load and regression gates`
+5. `feat(security): introduce Keycloak-backed administrative access`
+6. `feat(homelab): separate public and authenticated service projections`
+7. `refactor(database): consolidate pools and deployment migrations`
+8. `refactor(dependencies): isolate lean runtime and optional integrations`
+9. `ci(security): enforce branch protection and mandatory security checks`
+10. `docs(dev): standardize uv onboarding and shared agent instructions`
 
 ## Consolidated quality and refactoring backlog
 
@@ -518,6 +581,10 @@ import and had no application-owned shutdown.
 
 - Create shared lifespan-owned `httpx.AsyncClient` instances.
 - Define consistent connect, read, write, pool, and overall timeouts.
+- [x] Bound the current TrueNAS and pfSense health-observation paths with explicit
+      per-call/per-request budgets and provider failure-cache windows.
+- [x] Add shared provider circuit breakers so repeated TrueNAS, pfSense and
+      Cloudflare failures suppress origin refreshes during bounded cooldowns.
 - Add bounded concurrency to `/healthz` and `/sickz` probes.
 - Add an overall deadline for aggregated health responses.
 - Separate liveness, readiness, and detailed dependency diagnostics.
@@ -529,6 +596,8 @@ import and had no application-owned shutdown.
 - `/livez` performs no dependency I/O.
 - `/readyz` checks only dependencies required to serve traffic.
 - One slow dependency cannot indefinitely delay a health response.
+- Repeated dependency failure does not cause immediate retries or unbounded
+  concurrent probe work against the affected appliance.
 
 ### Priority 8: typing and dependency boundaries
 
