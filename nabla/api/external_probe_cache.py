@@ -30,6 +30,7 @@ from nabla.utils.logger import logger
 _L1_HOT_TTL_SEC = 5.0
 _l1_lock = asyncio.Lock()
 _l1: dict[str, tuple[dict[str, Any], float]] = {}
+_refresh_locks: dict[str, asyncio.Lock] = {}
 
 
 def _record(
@@ -179,6 +180,16 @@ async def _l1_put(key: str, envelope: dict[str, Any]) -> None:
         _l1[key] = (deepcopy(envelope), time.monotonic())
 
 
+async def _get_refresh_lock(key: str) -> asyncio.Lock:
+    """Return the process-local single-flight lock for one probe key."""
+    async with _l1_lock:
+        lock = _refresh_locks.get(key)
+        if lock is None:
+            lock = asyncio.Lock()
+            _refresh_locks[key] = lock
+        return lock
+
+
 async def _wait_for_peer(
     client: Redis,
     key: str,
@@ -220,7 +231,7 @@ async def get_or_refresh_probe(
     policy: ProbeCachePolicy,
     redis_client: Redis | None = None,
 ) -> ProbeCacheResult:
-    """Return a probe using hot L1, shared Redis and distributed single-flight."""
+    """Return a probe using local/Redis caches and layered single-flight."""
     envelope, l1_hot = await _l1_get(key, policy)
     if l1_hot:
         result = _cached_result(
@@ -232,119 +243,138 @@ async def get_or_refresh_probe(
         if result is not None:
             return result
 
-    client = redis_client if redis_client is not None else _redis_client()
-    redis_available = client is not None
-    if client is not None:
-        try:
-            remote = await _redis_get(client, key)
-            if remote is not None:
-                envelope = remote
-                await _l1_put(key, remote)
-                result = _cached_result(
-                    remote,
-                    policy=policy,
-                    layer="redis",
-                    redis_available=True,
-                )
-                if result is not None:
-                    return result
-        except Exception as exc:
-            redis_available = False
-            logger.debug(
-                "external_probe_cache_redis_read_failed",
-                key=key,
-                exception_type=type(exc).__name__,
+    refresh_lock = await _get_refresh_lock(key)
+    async with refresh_lock:
+        # A same-process caller may have refreshed while this coroutine waited.
+        envelope, l1_hot = await _l1_get(key, policy)
+        if l1_hot:
+            result = _cached_result(
+                envelope,
+                policy=policy,
+                layer="l1",
+                redis_available=True,
             )
-    else:
-        redis_available = False
+            if result is not None:
+                return result
 
-    if not redis_available:
-        result = _cached_result(
-            envelope,
-            policy=policy,
-            layer="local_fallback",
-            redis_available=False,
-        )
-        if result is not None:
-            return result
-
-    last_envelope = envelope or {"schema": _SCHEMA_VERSION}
-    lock_token = secrets.token_hex(12)
-    lock_acquired = False
-    if client is not None and redis_available:
-        try:
-            lock_acquired = await _acquire_lock(client, key, lock_token, policy.lock_ttl)
-            if not lock_acquired:
-                peer = await _wait_for_peer(client, key, policy)
-                if peer is not None:
-                    await _l1_put(key, peer)
+        client = redis_client if redis_client is not None else _redis_client()
+        redis_available = client is not None
+        if client is not None:
+            try:
+                remote = await _redis_get(client, key)
+                if remote is not None:
+                    envelope = remote
+                    await _l1_put(key, remote)
                     result = _cached_result(
-                        peer,
-                        layer="redis",
+                        remote,
                         policy=policy,
+                        layer="redis",
                         redis_available=True,
                     )
                     if result is not None:
                         return result
-                stale = _result_from_envelope(
-                    last_envelope,
-                    layer="redis",
-                    cached=True,
-                    stale=True,
-                    serve_last_good=True,
-                    refresh_in_progress=True,
-                    policy=policy,
-                )
-                if stale is not None:
-                    return stale
-        except Exception as exc:
-            redis_available = False
-            logger.debug(
-                "external_probe_cache_lock_failed",
-                key=key,
-                exception_type=type(exc).__name__,
-            )
-
-    try:
-        value = await loader()
-        success = bool(is_success(value))
-        fetched_at = time.time()
-        previous_good = _valid_last_good(
-            last_envelope,
-            fetched_at,
-            policy.stale_ttl,
-        )
-        current = _record(value, success=success, fetched_at=fetched_at)
-        new_envelope: dict[str, Any] = {
-            "schema": _SCHEMA_VERSION,
-            "current": current,
-            "last_good": deepcopy(current) if success else previous_good,
-        }
-        await _l1_put(key, new_envelope)
-        if client is not None and redis_available:
-            try:
-                await _redis_put(client, key, new_envelope, policy)
             except Exception as exc:
                 redis_available = False
                 logger.debug(
-                    "external_probe_cache_redis_write_failed",
+                    "external_probe_cache_redis_read_failed",
                     key=key,
                     exception_type=type(exc).__name__,
                 )
-        result = _result_from_envelope(
-            new_envelope,
-            layer="origin" if redis_available else "local_fallback",
-            cached=False,
-            policy=policy,
-            stale=not success and previous_good is not None,
-            redis_available=redis_available,
-        )
-        if result is None:  # pragma: no cover - loader contract protects this branch.
-            raise RuntimeError("external probe cache produced no result")
-        return result
-    finally:
-        if client is not None and lock_acquired:
-            await _release_lock(client, key, lock_token)
+        else:
+            redis_available = False
+
+        if not redis_available:
+            result = _cached_result(
+                envelope,
+                policy=policy,
+                layer="local_fallback",
+                redis_available=False,
+            )
+            if result is not None:
+                return result
+
+        last_envelope = envelope or {"schema": _SCHEMA_VERSION}
+        lock_token = secrets.token_hex(12)
+        lock_acquired = False
+        if client is not None and redis_available:
+            try:
+                lock_acquired = await _acquire_lock(
+                    client,
+                    key,
+                    lock_token,
+                    policy.lock_ttl,
+                )
+                if not lock_acquired:
+                    peer = await _wait_for_peer(client, key, policy)
+                    if peer is not None:
+                        await _l1_put(key, peer)
+                        result = _cached_result(
+                            peer,
+                            layer="redis",
+                            policy=policy,
+                            redis_available=True,
+                        )
+                        if result is not None:
+                            return result
+                    stale = _result_from_envelope(
+                        last_envelope,
+                        layer="redis",
+                        cached=True,
+                        stale=True,
+                        serve_last_good=True,
+                        refresh_in_progress=True,
+                        policy=policy,
+                    )
+                    if stale is not None:
+                        return stale
+            except Exception as exc:
+                redis_available = False
+                logger.debug(
+                    "external_probe_cache_lock_failed",
+                    key=key,
+                    exception_type=type(exc).__name__,
+                )
+
+        try:
+            value = await loader()
+            success = bool(is_success(value))
+            fetched_at = time.time()
+            previous_good = _valid_last_good(
+                last_envelope,
+                fetched_at,
+                policy.stale_ttl,
+            )
+            current = _record(value, success=success, fetched_at=fetched_at)
+            new_envelope: dict[str, Any] = {
+                "schema": _SCHEMA_VERSION,
+                "current": current,
+                "last_good": deepcopy(current) if success else previous_good,
+            }
+            await _l1_put(key, new_envelope)
+            if client is not None and redis_available:
+                try:
+                    await _redis_put(client, key, new_envelope, policy)
+                except Exception as exc:
+                    redis_available = False
+                    logger.debug(
+                        "external_probe_cache_redis_write_failed",
+                        key=key,
+                        exception_type=type(exc).__name__,
+                    )
+            result = _result_from_envelope(
+                new_envelope,
+                layer="origin" if redis_available else "local_fallback",
+                cached=False,
+                policy=policy,
+                stale=not success and previous_good is not None,
+                redis_available=redis_available,
+            )
+            if result is None:  # pragma: no cover - loader contract protects this branch.
+                raise RuntimeError("external probe cache produced no result")
+            return result
+        finally:
+            if client is not None and lock_acquired:
+                await _release_lock(client, key, lock_token)
 
 
 async def reset_probe_cache(
@@ -356,8 +386,10 @@ async def reset_probe_cache(
     async with _l1_lock:
         if key is None:
             _l1.clear()
+            _refresh_locks.clear()
         else:
             _l1.pop(key, None)
+            _refresh_locks.pop(key, None)
     if redis_client is not None and key is not None:
         await redis_client.delete(
             f"{_KEY_PREFIX}{key}",

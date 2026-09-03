@@ -1,5 +1,6 @@
 """Tests for the best-effort L1 + Redis L2 external probe cache."""
 
+import asyncio
 import json
 
 import pytest
@@ -35,8 +36,13 @@ class FakeRedis:
 
 
 class FailingRedis(FakeRedis):
+    def __init__(self) -> None:
+        super().__init__()
+        self.get_calls = 0
+
     async def get(self, key: str):
         del key
+        self.get_calls += 1
         raise ConnectionError("redis unavailable")
 
 
@@ -49,6 +55,48 @@ def policy() -> ProbeCachePolicy:
         wait_timeout=0.01,
         poll_interval=0.001,
     )
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"success_ttl": -1.0, "failure_ttl": 1.0, "stale_ttl": 2.0},
+        {"success_ttl": 1.0, "failure_ttl": float("nan"), "stale_ttl": 2.0},
+        {"success_ttl": 1.0, "failure_ttl": 1.0, "stale_ttl": float("inf")},
+        {
+            "success_ttl": 1.0,
+            "failure_ttl": 1.0,
+            "stale_ttl": 2.0,
+            "wait_timeout": -0.1,
+        },
+        {
+            "success_ttl": 1.0,
+            "failure_ttl": 1.0,
+            "stale_ttl": 2.0,
+            "poll_interval": 0.0,
+        },
+        {
+            "success_ttl": 1.0,
+            "failure_ttl": 1.0,
+            "stale_ttl": 2.0,
+            "lock_ttl": 0,
+        },
+    ],
+)
+def test_policy_rejects_invalid_windows(kwargs) -> None:
+    with pytest.raises(ValueError):
+        ProbeCachePolicy(**kwargs)
+
+
+def test_policy_rejects_poll_interval_longer_than_wait_timeout() -> None:
+    with pytest.raises(ValueError, match="poll_interval"):
+        ProbeCachePolicy(
+            success_ttl=1.0,
+            failure_ttl=1.0,
+            stale_ttl=2.0,
+            wait_timeout=0.1,
+            poll_interval=0.2,
+        )
 
 
 def test_l1_hot_ttl_uses_success_ttl() -> None:
@@ -266,4 +314,52 @@ async def test_redis_failure_falls_back_to_direct_probe(policy) -> None:
     assert result.value["reachable"] is True
     assert result.metadata["cache_layer"] == "local_fallback"
     assert result.metadata["redis_available"] is False
+    await cache.reset_probe_cache()
+
+
+@pytest.mark.asyncio
+async def test_local_singleflight_prevents_stampede_when_redis_fails(policy) -> None:
+    redis = FailingRedis()
+    key = "test:local-single-flight"
+    await cache.reset_probe_cache()
+    calls = 0
+    loader_started = asyncio.Event()
+    release_loader = asyncio.Event()
+
+    async def loader():
+        nonlocal calls
+        calls += 1
+        loader_started.set()
+        await release_loader.wait()
+        return {"reachable": True, "generation": 1}
+
+    first_task = asyncio.create_task(
+        cache.get_or_refresh_probe(
+            key,
+            loader,
+            is_success=lambda value: value["reachable"] is True,
+            policy=policy,
+            redis_client=redis,
+        )
+    )
+    await loader_started.wait()
+    second_task = asyncio.create_task(
+        cache.get_or_refresh_probe(
+            key,
+            loader,
+            is_success=lambda value: value["reachable"] is True,
+            policy=policy,
+            redis_client=redis,
+        )
+    )
+    await asyncio.sleep(0)
+    release_loader.set()
+    first, second = await asyncio.gather(first_task, second_task)
+
+    assert calls == 1
+    assert redis.get_calls == 1
+    assert first.metadata["cache_layer"] == "local_fallback"
+    assert second.metadata["cache_layer"] == "l1"
+    assert second.metadata["cached"] is True
+    assert first.value == second.value == {"reachable": True, "generation": 1}
     await cache.reset_probe_cache()
