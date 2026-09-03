@@ -72,7 +72,37 @@ exceptions here rather than creating additional todo or refactoring documents.
       management endpoints once the desired access flow is defined.
 - [ ] Publish a dedicated public homelab projection that excludes internal host
       names, ports and infrastructure details without breaking existing dashboards.
-- [ ] Add rate limits and response caching to expensive dependency probes.
+- [ ] Add explicit request budgets/rate limits to expensive dependency probes;
+      shared response/probe caching is tracked in the dedicated cache section below.
+
+## P1 — Redis and external-probe caching
+
+- [x] Use a short process-local L1 cache plus optional shared Redis L2 for
+      sanitized external health evidence; Redis remains best-effort and is not a
+      liveness dependency.
+- [x] Cache TrueNAS health, pfSense posture/liveness and `snort2c` evidence, and
+      Cloudflare Tunnel/Access control-plane observations with provider-specific
+      success, failure and stale-last-good windows.
+- [x] Keep current failures separate from last-known-good evidence so a transient
+      error remains visible while retained evidence is explicitly marked stale.
+- [x] Make L1 hot bypass TTL outcome-aware and retain envelopes for the full stale
+      evidence window without letting stale data masquerade as a fresh verdict.
+- [x] Use Redis `SET NX EX` distributed single-flight with token-safe lock release
+      so replicas do not duplicate expensive origin probes during refresh.
+- [x] Add process-local per-key single-flight before the Redis/origin slow path so
+      a Redis outage cannot trigger a same-worker probe stampede.
+- [ ] Add bounded cache observability for L1/L2 hit, miss, stale, origin refresh
+      and Redis-degraded outcomes using fixed-cardinality labels; never expose raw
+      dynamic cache keys or credentials as metric labels.
+- [ ] Add real Redis integration coverage for key expiry, schema rejection,
+      distributed lock ownership/release and cross-replica reuse; keep unit tests
+      deterministic and network-disabled by default.
+- [ ] Centralize and validate probe-cache policies so TTL, stale, wait, poll and
+      lock windows cannot be configured into unsafe or contradictory values.
+- [ ] Add per-provider request budgets/circuit breakers above the cache. Caching
+      reduces fan-out but must not be treated as a substitute for rate limiting.
+- [ ] Document cache schema-bump/invalidation and production diagnostics, including
+      the expected degraded behavior when Redis is unavailable.
 
 ## P1 — Release and production deployment
 
@@ -290,11 +320,12 @@ file must not be copied into the current application unchanged.
 
 1. `feat(security): introduce Keycloak-backed administrative access`
 2. `feat(homelab): separate public and authenticated service projections`
-3. `fix(release): complete immutable release-to-production orchestration`
-4. `refactor(database): consolidate pools and deployment migrations`
-5. `refactor(dependencies): isolate lean runtime and optional integrations`
-6. `ci(security): enforce branch protection and mandatory security checks`
-7. `docs(dev): standardize uv onboarding and shared agent instructions`
+3. `perf(cache): add bounded cache telemetry and Redis integration coverage`
+4. `fix(release): complete immutable release-to-production orchestration`
+5. `refactor(database): consolidate pools and deployment migrations`
+6. `refactor(dependencies): isolate lean runtime and optional integrations`
+7. `ci(security): enforce branch protection and mandatory security checks`
+8. `docs(dev): standardize uv onboarding and shared agent instructions`
 
 ## Consolidated quality and refactoring backlog
 
