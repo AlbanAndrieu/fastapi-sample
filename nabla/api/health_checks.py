@@ -367,7 +367,10 @@ async def build_healthz_payload(
     if catalog_timed_out:
         checks["homelab_catalog"] = _deadline_probe_result("homelab_catalog")
     checks = {name: _normalize_probe_result_errors(check) for name, check in checks.items()}
-    await enrich_integration_metadata(checks)
+    await budget.run(
+        lambda: enrich_integration_metadata(checks),
+        timeout_value=lambda: None,
+    )
     return {
         **base,
         "checks": checks,
