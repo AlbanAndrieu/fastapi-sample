@@ -272,7 +272,7 @@ async def get_or_refresh_probe(
             redis_available=True,
         )
         if result is not None:
-            return result
+            return _observe_cache_result(result)
 
     refresh_lock = await _get_refresh_lock(key)
     async with refresh_lock:
@@ -286,7 +286,7 @@ async def get_or_refresh_probe(
                 redis_available=True,
             )
             if result is not None:
-                return result
+                return _observe_cache_result(result)
 
         client = redis_client if redis_client is not None else _redis_client()
         redis_available = client is not None
@@ -303,7 +303,7 @@ async def get_or_refresh_probe(
                         redis_available=True,
                     )
                     if result is not None:
-                        return result
+                        return _observe_cache_result(result)
             except Exception as exc:
                 redis_available = False
                 record_cache_outcome("redis_degraded")
@@ -323,7 +323,7 @@ async def get_or_refresh_probe(
                 redis_available=False,
             )
             if result is not None:
-                return result
+                return _observe_cache_result(result)
 
         last_envelope = envelope or {"schema": _SCHEMA_VERSION}
         lock_token = secrets.token_hex(12)
@@ -347,7 +347,7 @@ async def get_or_refresh_probe(
                             redis_available=True,
                         )
                         if result is not None:
-                            return result
+                            return _observe_cache_result(result)
                     stale = _result_from_envelope(
                         last_envelope,
                         layer="redis",
@@ -443,7 +443,7 @@ async def get_or_refresh_probe(
             )
             if result is None:  # pragma: no cover - loader contract protects this branch.
                 raise RuntimeError("external probe cache produced no result")
-            return result
+            return _observe_cache_result(result)
         finally:
             await release_provider_probe(circuit_decision)
             if client is not None and lock_acquired:
