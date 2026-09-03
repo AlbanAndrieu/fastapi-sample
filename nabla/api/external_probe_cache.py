@@ -351,12 +351,13 @@ async def get_or_refresh_probe(
             redis_client=client,
         )
         if not circuit_decision.allowed:
+            failed_with_last_good = _failed_with_last_good(last_envelope, policy)
             suppressed = _result_from_envelope(
                 last_envelope,
                 layer="redis" if redis_available else "local_fallback",
                 cached=True,
-                stale=_failed_with_last_good(last_envelope, policy),
-                serve_last_good=_failed_with_last_good(last_envelope, policy),
+                stale=failed_with_last_good,
+                serve_last_good=failed_with_last_good,
                 policy=policy,
                 redis_available=redis_available,
             )
@@ -364,6 +365,8 @@ async def get_or_refresh_probe(
                 suppressed.metadata["circuit_breaker"] = circuit_decision.metadata(
                     origin_suppressed=True
                 )
+                if client is not None and lock_acquired:
+                    await _release_lock(client, key, lock_token)
                 return suppressed
 
         try:
