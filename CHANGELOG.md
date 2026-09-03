@@ -7,6 +7,10 @@ This release consolidates the changes that were temporarily published as `1.6.0`
 * **health:** expose edge evidence and resilient production diagnostics ([#170](https://github.com/AlbanAndrieu/fastapi-sample/issues/170)) ([d69b3cf](https://github.com/AlbanAndrieu/fastapi-sample/commit/d69b3cf728e8f2bf91ebc6a524376cf7543aea01))
 * **cache:** share external probe results across replicas ([#171](https://github.com/AlbanAndrieu/fastapi-sample/issues/171)) ([edc66db](https://github.com/AlbanAndrieu/fastapi-sample/commit/edc66db28df5d709bd62bbcf0bbb66e6d5eefa83))
 
+### Bug Fixes
+
+* **cache:** harden shared probe stale validation ([#172](https://github.com/AlbanAndrieu/fastapi-sample/issues/172)) ([dcc6e71](https://github.com/AlbanAndrieu/fastapi-sample/commit/dcc6e714136735381daf548d05df2a02499e155b))
+
 ## [1.5.7](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.6...1.5.7) (2026-09-02)
 
 
@@ -93,7 +97,7 @@ This release consolidates the changes that were temporarily published as `1.6.0`
 * **deps-dev:** bump @biomejs/biome from 2.2.6 to 2.5.11 ([#151](https://github.com/AlbanAndrieu/fastapi-sample/issues/151)) ([e26d723](https://github.com/AlbanAndrieu/fastapi-sample/commit/e26d723fd231f552b58a61133c8d01ff7d9af0a5))
 * **deps-dev:** bump typescript-eslint from 8.50.0 to 8.68.0 ([#150](https://github.com/AlbanAndrieu/fastapi-sample/issues/150)) ([da08e52](https://github.com/AlbanAndrieu/fastapi-sample/commit/da08e524094808a9a2b9601d21f5bd9f0a457cf9))
 * **deps:** bump docker/login-action from 3.7.0 to 4.6.0 ([#155](https://github.com/AlbanAndrieu/fastapi-sample/issues/155)) ([8651c25](https://github.com/AlbanAndrieu/fastapi-sample/commit/8651c252b89bcf9bc9eb7a5b83b7e90f9b32de80))
-* **deps:** bump docker/setup-buildx-action from 4.2.0 to 4.3.0 ([#152](https://github.com/AlbanAndrieu/fastapi-sample/issues/152)) ([c6b869a](https://github.com/AlbanAndrieu/fastapi-sample/commit/c6b869aa0837031b1509e52ab3951f33d58b3572))
+* **deps:** bump docker/setup-buildx-action from 4.2.0 to 4.3.0 ([#152](https://github.com/AlbanAndrieu/fastapi-sample/issues/152)) ([c6b869aa0837031b1509e52ab3951f33d58b3572))
 * **deps:** bump renovatebot/github-action from 46.2.1 to 46.2.4 ([#154](https://github.com/AlbanAndrieu/fastapi-sample/issues/154)) ([84bf1eb](https://github.com/AlbanAndrieu/fastapi-sample/commit/84bf1eb86e14b74a7cfdd5934f52e24d977da22c))
 * **deps:** bump trunk-io/analytics-uploader from 1.15.0 to 2.1.2 ([#153](https://github.com/AlbanAndrieu/fastapi-sample/issues/153)) ([7f19e95](https://github.com/AlbanAndrieu/fastapi-sample/commit/7f19e95a44282c0a153100e5a05298022943dd27))
 
