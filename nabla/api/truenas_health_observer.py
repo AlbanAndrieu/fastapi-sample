@@ -11,10 +11,9 @@ import ssl
 import time
 from typing import Any
 
-from nabla.api.external_probe_cache import (
-    ProbeCachePolicy,
-    get_or_refresh_probe,
-    reset_probe_cache,
+from nabla.api.external_probe_cache import get_or_refresh_probe, reset_probe_cache
+from nabla.api.provider_probe_policies import (
+    TRUENAS_API_CACHE_POLICY as _CACHE_POLICY,
 )
 from nabla.api.provider_credentials import inspect_environment_credentials
 from nabla.api.truenas_client import observe_truenas_api
@@ -22,12 +21,6 @@ from nabla.utils.logger import logger
 
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 _CACHE_KEY = "truenas:api"
-_CACHE_POLICY = ProbeCachePolicy(
-    success_ttl=60.0,
-    failure_ttl=120.0,
-    stale_ttl=600.0,
-    lock_ttl=20,
-)
 _TRUENAS_PROBE_DEADLINE_SEC = 8.0
 _SENTRY_FAILURE_COOLDOWN_SEC = 900.0
 _last_failure_signature: str | None = None
