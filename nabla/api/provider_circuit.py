@@ -79,6 +79,7 @@ class CircuitDecision:
     state: ProviderCircuitState
     allowed: bool = True
     half_open: bool = False
+    owns_half_open: bool = False
     redis_available: bool = False
     client: Redis | None = None
     lock_token: str | None = None
@@ -307,6 +308,7 @@ async def before_provider_probe(
         state,
         allowed=True,
         half_open=True,
+        owns_half_open=True,
         redis_available=redis_available,
         client=client,
         lock_token=token,
@@ -369,6 +371,7 @@ async def record_provider_probe_outcome(
         new_state,
         allowed=True,
         half_open=decision.half_open,
+        owns_half_open=decision.owns_half_open,
         redis_available=redis_available,
         client=decision.client,
         lock_token=decision.lock_token,
@@ -379,7 +382,7 @@ async def record_provider_probe_outcome(
 async def release_provider_probe(decision: CircuitDecision) -> None:
     """Release local/distributed half-open ownership after an origin probe."""
     provider = decision.provider
-    if provider is None or not decision.half_open:
+    if provider is None or not decision.owns_half_open:
         return
     async with _state_lock:
         _half_open_in_progress.discard(provider)
