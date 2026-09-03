@@ -232,7 +232,7 @@ def _observe_cache_result(result: ProbeCacheResult) -> ProbeCacheResult:
             record_cache_outcome(outcome)
     if result.metadata.get("stale") is True:
         record_cache_outcome("stale")
-    return _observe_cache_result(result)
+    return result
 
 
 def _cached_result(
