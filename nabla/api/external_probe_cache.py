@@ -25,6 +25,13 @@ from nabla.api.external_probe_cache_redis import (
     write_envelope as _redis_put,
 )
 from nabla.api.external_probe_cache_types import ProbeCachePolicy, ProbeCacheResult
+from nabla.api.provider_circuit import (
+    before_provider_probe,
+    record_provider_probe_outcome,
+    release_provider_probe,
+    reset_provider_circuit_for_probe_key,
+    reset_provider_circuits,
+)
 from nabla.utils.logger import logger
 
 _L1_HOT_TTL_SEC = 5.0
@@ -101,7 +108,7 @@ def _metadata(
         if isinstance(fetched_at, int | float)
         else None
     )
-    return {
+    metadata: dict[str, Any] = {
         "cache_layer": layer,
         "cached": cached,
         "stale": stale,
@@ -109,6 +116,10 @@ def _metadata(
         "redis_available": redis_available,
         "cache_age_seconds": round(age, 3) if age is not None else None,
     }
+    circuit = envelope.get("circuit_breaker")
+    if isinstance(circuit, dict):
+        metadata["circuit_breaker"] = deepcopy(circuit)
+    return metadata
 
 
 def _result_from_envelope(
@@ -231,7 +242,7 @@ async def get_or_refresh_probe(
     policy: ProbeCachePolicy,
     redis_client: Redis | None = None,
 ) -> ProbeCacheResult:
-    """Return a probe using local/Redis caches and layered single-flight."""
+    """Return a probe using caches, single-flight and provider circuit breakers."""
     envelope, l1_hot = await _l1_get(key, policy)
     if l1_hot:
         result = _cached_result(
@@ -335,9 +346,40 @@ async def get_or_refresh_probe(
                     exception_type=type(exc).__name__,
                 )
 
+        circuit_decision = await before_provider_probe(
+            key,
+            redis_client=client,
+        )
+        if not circuit_decision.allowed:
+            suppressed = _result_from_envelope(
+                last_envelope,
+                layer="redis" if redis_available else "local_fallback",
+                cached=True,
+                stale=_failed_with_last_good(last_envelope, policy),
+                serve_last_good=_failed_with_last_good(last_envelope, policy),
+                policy=policy,
+                redis_available=redis_available,
+            )
+            if suppressed is not None:
+                suppressed.metadata["circuit_breaker"] = circuit_decision.metadata(
+                    origin_suppressed=True
+                )
+                return suppressed
+
         try:
-            value = await loader()
+            try:
+                value = await loader()
+            except Exception:
+                await record_provider_probe_outcome(
+                    circuit_decision,
+                    success=False,
+                )
+                raise
             success = bool(is_success(value))
+            circuit_metadata = await record_provider_probe_outcome(
+                circuit_decision,
+                success=success,
+            )
             fetched_at = time.time()
             previous_good = _valid_last_good(
                 last_envelope,
@@ -350,6 +392,8 @@ async def get_or_refresh_probe(
                 "current": current,
                 "last_good": deepcopy(current) if success else previous_good,
             }
+            if circuit_metadata:
+                new_envelope["circuit_breaker"] = circuit_metadata
             await _l1_put(key, new_envelope)
             if client is not None and redis_available:
                 try:
@@ -373,6 +417,7 @@ async def get_or_refresh_probe(
                 raise RuntimeError("external probe cache produced no result")
             return result
         finally:
+            await release_provider_probe(circuit_decision)
             if client is not None and lock_acquired:
                 await _release_lock(client, key, lock_token)
 
@@ -390,6 +435,13 @@ async def reset_probe_cache(
         else:
             _l1.pop(key, None)
             _refresh_locks.pop(key, None)
+    if key is None:
+        await reset_provider_circuits()
+    else:
+        await reset_provider_circuit_for_probe_key(
+            key,
+            redis_client=redis_client,
+        )
     if redis_client is not None and key is not None:
         await redis_client.delete(
             f"{_KEY_PREFIX}{key}",
