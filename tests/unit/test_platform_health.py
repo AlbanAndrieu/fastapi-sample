@@ -186,8 +186,18 @@ async def test_pfsense_read_timeout_reports_response_stage(monkeypatch) -> None:
     assert result["error_kind"] == "read_timeout"
     assert result["failure_stage"] == "response"
     assert result["path"] == "/api/v2/system/version"
+    assert result["attempts"] == 1
     assert "accepted the connection" in result["error"]
-    assert "within 5s" in result["error"]
+    assert "within 4s" in result["error"]
+
+
+def test_pfsense_liveness_probe_budget_and_backoff_are_bounded() -> None:
+    assert platform_health._PFSENSE_CONNECT_TIMEOUT_SEC == 2.0
+    assert platform_health._PFSENSE_READ_TIMEOUT_SEC == 4.0
+    assert platform_health._PFSENSE_MAX_ATTEMPTS == 1
+    assert platform_health._PFSENSE_CACHE_POLICY.success_ttl == 60.0
+    assert platform_health._PFSENSE_CACHE_POLICY.failure_ttl == 120.0
+    assert platform_health._PFSENSE_CACHE_POLICY.stale_ttl == 600.0
 
 
 @pytest.mark.asyncio
