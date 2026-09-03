@@ -27,15 +27,15 @@ from nabla.api.platform_health_diagnostics import (
 _CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4"
 _PFSENSE_LIVENESS_PATH = "/api/v2/system/version"
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
-_PFSENSE_CONNECT_TIMEOUT_SEC = 3.0
-_PFSENSE_READ_TIMEOUT_SEC = 5.0
-_PFSENSE_MAX_ATTEMPTS = 2
+_PFSENSE_CONNECT_TIMEOUT_SEC = 2.0
+_PFSENSE_READ_TIMEOUT_SEC = 4.0
+_PFSENSE_MAX_ATTEMPTS = 1
 _PFSENSE_RETRY_DELAY_SEC = 0.2
 _PFSENSE_CACHE_KEY = "pfsense:liveness"
 _PFSENSE_CACHE_POLICY = ProbeCachePolicy(
-    success_ttl=30.0,
-    failure_ttl=30.0,
-    stale_ttl=300.0,
+    success_ttl=60.0,
+    failure_ttl=120.0,
+    stale_ttl=600.0,
 )
 _CLOUDFLARE_CACHE_KEY = "cloudflare:tunnels"
 _CLOUDFLARE_CACHE_POLICY = ProbeCachePolicy(
