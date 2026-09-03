@@ -1,7 +1,5 @@
 """Regression tests for bounded external-probe Prometheus metrics."""
 
-from prometheus_client import generate_latest
-
 from nabla.api import probe_metrics
 
 
@@ -10,13 +8,17 @@ def _counter_value(metric, **labels) -> float:
 
 
 def test_unknown_labels_do_not_create_metric_series() -> None:
-    before = generate_latest().decode("utf-8")
+    provider_series = set(probe_metrics.PROVIDER_OUTCOMES._metrics)
+    cache_series = set(probe_metrics.CACHE_OUTCOMES._metrics)
+    timeout_series = set(probe_metrics.PROBE_TIMEOUTS._metrics)
+
     probe_metrics.record_provider_outcome("https://dynamic.example", "failure")
     probe_metrics.record_cache_outcome("cache-key:user-controlled")
     probe_metrics.record_probe_timeout("https://dynamic.example")
-    after = generate_latest().decode("utf-8")
 
-    assert after == before
+    assert set(probe_metrics.PROVIDER_OUTCOMES._metrics) == provider_series
+    assert set(probe_metrics.CACHE_OUTCOMES._metrics) == cache_series
+    assert set(probe_metrics.PROBE_TIMEOUTS._metrics) == timeout_series
 
 
 def test_provider_outcome_and_circuit_state_use_fixed_labels() -> None:
