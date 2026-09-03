@@ -26,6 +26,7 @@ class HomelabRelationType(StrEnum):
     CONSUMES_API = "consumesApi"
     PROVIDES_API = "providesApi"
     PART_OF = "partOf"
+    HOSTED_BY = "hostedBy"
     ROUTES_TO = "routesTo"
     OBSERVED_BY = "observedBy"
     STORES_IN = "storesIn"

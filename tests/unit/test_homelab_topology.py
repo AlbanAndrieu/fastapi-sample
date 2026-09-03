@@ -54,6 +54,33 @@ def test_topology_accepts_declared_relation_and_preserves_wire_aliases() -> None
     assert payload["relations"][0]["type"] == "consumesApi"
 
 
+def test_topology_accepts_hosted_by_placement_relation() -> None:
+    payload = _topology_payload()
+    payload["nodes"].append(
+        {
+            "id": "docker",
+            "name": "Docker",
+            "kind": "container-runtime",
+            "category": "infrastructure",
+        }
+    )
+    payload["relations"].append(
+        {
+            "source": "openwebui",
+            "target": "docker",
+            "type": "hostedBy",
+            "strength": "required",
+            "evidence": ["apps/openwebui/compose.yml:x-nabla.runtime.containerService"],
+        }
+    )
+
+    topology = HomelabTopology.model_validate(payload)
+    wire = topology.model_dump(mode="json", by_alias=True, exclude_none=True)
+
+    assert topology.relations[1].type.value == "hostedBy"
+    assert wire["relations"][1]["type"] == "hostedBy"
+
+
 def test_topology_endpoint_returns_validated_service_graph(monkeypatch) -> None:
     topology = HomelabTopology.model_validate(_topology_payload())
 
