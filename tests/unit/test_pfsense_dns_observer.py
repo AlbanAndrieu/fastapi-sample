@@ -1,5 +1,7 @@
 """Tests for sanitized read-only pfSense DNS posture observation."""
 
+import asyncio
+
 import httpx
 import pytest
 
@@ -171,6 +173,22 @@ async def test_independent_security_evidence_survives_posture_failure(monkeypatc
 
 
 @pytest.mark.asyncio
+async def test_posture_deadline_returns_bounded_failure(monkeypatch, settings) -> None:
+    async def slow_get_data(_client, _path: str):
+        await asyncio.sleep(0.05)
+        return {}
+
+    monkeypatch.setattr(pfsense_dns_observer, "_get_data", slow_get_data)
+    monkeypatch.setattr(pfsense_dns_observer, "_PFSENSE_POSTURE_DEADLINE_SEC", 0.001)
+
+    result = await pfsense_dns_observer._observe_posture_origin(settings)
+
+    assert result["reachable"] is False
+    assert result["error_stage"] == "deadline"
+    assert result["error"] == "timeout"
+
+
+@pytest.mark.asyncio
 async def test_snort_filter_survives_services_timeout(monkeypatch, settings) -> None:
     async def fake_get_data(_client, path: str):
         if path == "/api/v2/status/services":
@@ -259,6 +277,14 @@ async def test_stopped_unbound_is_failure(monkeypatch, settings) -> None:
 
     assert result["policy_state"] == "fail"
     assert result["resolver"]["running"] is False
+
+
+def test_posture_probe_budget_and_failure_backoff_are_bounded() -> None:
+    assert pfsense_dns_observer._PFSENSE_CONNECT_TIMEOUT_SEC == 2.0
+    assert pfsense_dns_observer._PFSENSE_READ_TIMEOUT_SEC == 4.0
+    assert pfsense_dns_observer._PFSENSE_POSTURE_DEADLINE_SEC == 8.0
+    assert pfsense_dns_observer._PFSENSE_MAX_CONCURRENCY == 2
+    assert pfsense_dns_observer._PFSENSE_POSTURE_CACHE_POLICY.failure_ttl == 120.0
 
 
 def test_http_errors_are_redacted() -> None:
