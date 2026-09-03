@@ -85,7 +85,7 @@ degraded conditions.
 - [x] Add fixed-cardinality metrics for provider outcome, timeout, breaker state,
       origin refresh count and in-flight probe count. Never label metrics with
       URLs, hostnames, cache keys, IP addresses, exception text or credentials.
-- [ ] Add deterministic load/concurrency tests proving that repeated callers
+- [x] Add deterministic load/concurrency tests proving that repeated callers
       create at most one origin refresh per cache key and failure window, both
       with Redis healthy and Redis unavailable.
 - [ ] Add production acceptance checks: appliance degradation must not increase
