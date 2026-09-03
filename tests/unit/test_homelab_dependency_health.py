@@ -123,12 +123,14 @@ def test_required_dependency_health_propagates_across_named_chains() -> None:
 def test_optional_and_structural_relations_do_not_change_health() -> None:
     topology = _topology(
         _relation("openwebui", "searxng", strength="optional"),
+        _relation("openwebui", "docker", relation_type="hostedBy"),
         _relation("langfuse-web", "langfuse", relation_type="partOf"),
     )
     rows = propagate_required_dependency_health(
         [
             _row("openwebui", "ok"),
             _row("searxng", "fail"),
+            _row("docker", "fail"),
             _row("langfuse-web", "ok"),
             _row("langfuse", "fail"),
         ],
