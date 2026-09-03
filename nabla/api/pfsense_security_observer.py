@@ -24,16 +24,16 @@ from nabla.api.truenas_transport_diagnostics import homelab_wan_metadata
 ControlPathMode = Literal["shared_wan", "out_of_band"]
 _CONTROL_PATH_MODES = frozenset({"shared_wan", "out_of_band"})
 _FALSE_VALUES = frozenset({"0", "false", "no", "off"})
-_PFSENSE_CONNECT_TIMEOUT_SEC = 3.0
-_PFSENSE_READ_TIMEOUT_SEC = 5.0
-_PFSENSE_MAX_ATTEMPTS = 2
+_PFSENSE_CONNECT_TIMEOUT_SEC = 2.0
+_PFSENSE_READ_TIMEOUT_SEC = 4.0
+_PFSENSE_MAX_ATTEMPTS = 1
 _PFSENSE_RETRY_DELAY_SEC = 0.2
 _SNORT2C_PATH = "/api/v2/diagnostics/table?id=snort2c"
 _SNORT2C_CACHE_KEY = "pfsense:snort2c"
 _SNORT2C_CACHE_POLICY = ProbeCachePolicy(
-    success_ttl=30.0,
-    failure_ttl=30.0,
-    stale_ttl=120.0,
+    success_ttl=60.0,
+    failure_ttl=120.0,
+    stale_ttl=600.0,
     lock_ttl=15,
 )
 _TRUENAS_PUBLIC_PORT = 7000
