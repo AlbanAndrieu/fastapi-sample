@@ -104,18 +104,41 @@ def test_production_smoke_bounds_browser_cost_without_losing_post_deploy_ui_chec
     assert "EXPECTED_VERSION=\"${expected}\" node scripts/check-production-api-ui.mjs" in smoke
 
 
-def test_semantic_release_uses_normal_post_recovery_flow() -> None:
+def test_semantic_release_has_bounded_1_5_8_recovery_then_normal_flow() -> None:
     workflow = (ROOT / ".github/workflows/semantic-release.yml").read_text(encoding="utf-8")
 
     assert "python scripts/check_release_baseline.py" in workflow
     assert "npx semantic-release" in workflow
     assert "semantic-release-published" in workflow
-    assert "git tag --force 1.4.0" not in workflow
-    assert "RECOVERY_VERSION" not in workflow
-    assert "scripts/set_release_version.py" not in workflow
-    assert "npm version" not in workflow
+    assert 'SOURCE_VERSION_BEFORE}" == "1.7.0"' in workflow
+    assert 'LATEST_RELEASE_TAG}" == "1.5.7"' in workflow
+    assert 'RECOVERY_VERSION="1.5.8"' in workflow
+    assert "for obsolete_tag in 1.6.0 1.7.0" in workflow
+    assert "assert_remote_tag_absent() {" in workflow
+    assert 'if git ls-remote --exit-code --tags origin "refs/tags/${tag}"' in workflow
+    assert 'if [[ "${status}" -eq 2 ]]' in workflow
+    assert "assert_obsolete_recovery_tags_absent() {" in workflow
+    assert workflow.count("assert_obsolete_recovery_tags_absent") == 3
+    assert 'npm version "${RECOVERY_VERSION}" --no-git-tag-version --ignore-scripts' in workflow
+    assert 'python scripts/set_release_version.py "${RECOVERY_VERSION}"' in workflow
+    assert 'git tag "${RECOVERY_VERSION}"' in workflow
+    assert "git tag --force" not in workflow
     assert "npm pkg delete" not in workflow
     assert "@semantic-release/gitlab" not in workflow
+
+
+def test_1_5_8_recovery_manifest_documents_consolidation_contract() -> None:
+    changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    manifest = (ROOT / "docs/release-1.5.8.md").read_text(encoding="utf-8")
+    synchronizer = (ROOT / "scripts/set_release_version.py").read_text(encoding="utf-8")
+
+    assert "## [1.5.8]" in changelog
+    assert "# [1.6.0]" not in changelog
+    assert "# [1.7.0]" not in changelog
+    assert "temporarily published as `1.6.0` and `1.7.0`" in manifest
+    assert "obsolete tags must still be absent" in manifest
+    assert "never force-moves an existing tag" in manifest
+    assert "expected exactly one version match" in synchronizer
 
 
 def test_recovery_manifest_and_changelog_document_1_4_1() -> None:

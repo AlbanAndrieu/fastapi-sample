@@ -1,8 +1,8 @@
 name: Semantic Release
 
-# The one-time 1.4.1 recovery completed successfully. From this baseline onward,
-# releases follow the normal Conventional Commit semantic-release flow and the
-# historical 1.4.0 tag remains immutable.
+# Releases 1.6.0 and 1.7.0 were removed from GitHub. The one-time recovery below
+# consolidates their already-merged code into 1.5.8 without rewriting 1.5.7.
+# After 1.5.8 is published, normal Conventional Commit semantic-release resumes.
 on:
   push:
     branches: [master]
@@ -61,10 +61,27 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          SOURCE_VERSION="$(python - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          print(tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"])
+          PY
+          )"
           LATEST_RELEASE_TAG="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq '.tag_name')"
+
+          if [[ "${SOURCE_VERSION}" == "1.7.0" && "${LATEST_RELEASE_TAG}" == "1.5.7" ]]; then
+            echo "Validated one-time 1.5.8 recovery baseline."
+            exit 0
+          fi
+          if [[ "${SOURCE_VERSION}" == "1.5.8" && "${LATEST_RELEASE_TAG}" == "1.5.7" ]]; then
+            echo "Validated retryable 1.5.8 recovery baseline."
+            exit 0
+          fi
+
           python scripts/check_release_baseline.py "${LATEST_RELEASE_TAG}"
 
-      - name: Run semantic-release
+      - name: Publish release
         id: semantic_release
         env:
           GITHUB_TOKEN: ${{ steps.release_app_token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -72,10 +89,110 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          BEFORE_HEAD="$(git rev-parse HEAD)"
 
-          # Let git use gh as its credential helper only for the release step.
+          source_version() {
+            python - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          print(tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"])
+          PY
+          }
+
+          publish_outputs() {
+            local release_tag="$1"
+            echo "published=true" >> "${GITHUB_OUTPUT}"
+            echo "tag=${release_tag}" >> "${GITHUB_OUTPUT}"
+            echo "version=${release_tag#v}" >> "${GITHUB_OUTPUT}"
+          }
+
+          assert_remote_tag_absent() {
+            local tag="$1"
+            local status
+
+            if git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; then
+              echo "Remote tag ${tag} already exists; refusing release recovery." >&2
+              return 1
+            else
+              status=$?
+            fi
+
+            if [[ "${status}" -eq 2 ]]; then
+              return 0
+            fi
+
+            echo "Unable to verify that remote tag ${tag} is absent (git ls-remote exit ${status}); refusing release recovery." >&2
+            return "${status}"
+          }
+
+          assert_obsolete_recovery_tags_absent() {
+            local obsolete_tag
+            for obsolete_tag in 1.6.0 1.7.0; do
+              assert_remote_tag_absent "${obsolete_tag}"
+            done
+          }
+
+          SOURCE_VERSION_BEFORE="$(source_version)"
+          LATEST_RELEASE_TAG="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq '.tag_name')"
+
           gh auth setup-git
+
+          if [[ "${SOURCE_VERSION_BEFORE}" == "1.7.0" && "${LATEST_RELEASE_TAG}" == "1.5.7" ]]; then
+            RECOVERY_VERSION="1.5.8"
+            echo "Preparing deterministic ${RECOVERY_VERSION} consolidation."
+
+            assert_obsolete_recovery_tags_absent
+            assert_remote_tag_absent "${RECOVERY_VERSION}"
+
+            npm version "${RECOVERY_VERSION}" --no-git-tag-version --ignore-scripts
+            python scripts/set_release_version.py "${RECOVERY_VERSION}"
+            python scripts/check_versions.py
+
+            git config user.name "semantic-release-bot"
+            git config user.email "semantic-release-bot@users.noreply.github.com"
+            git add CHANGELOG.md Dockerfile pyproject.toml package.json package-lock.json nabla/_release.py uv.lock
+            git commit -m "chore(release): ${RECOVERY_VERSION}"
+            git push origin HEAD:master
+
+            git tag "${RECOVERY_VERSION}"
+            git push origin "refs/tags/${RECOVERY_VERSION}"
+            gh release create "${RECOVERY_VERSION}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --verify-tag \
+              --title "${RECOVERY_VERSION}" \
+              --notes-file docs/release-1.5.8.md
+            publish_outputs "${RECOVERY_VERSION}"
+            exit 0
+          fi
+
+          if [[ "${SOURCE_VERSION_BEFORE}" == "1.5.8" && "${LATEST_RELEASE_TAG}" == "1.5.7" ]]; then
+            RECOVERY_VERSION="1.5.8"
+            HEAD_SHA="$(git rev-parse HEAD)"
+
+            assert_obsolete_recovery_tags_absent
+            REMOTE_TAG_SHA="$(git ls-remote --tags origin "refs/tags/${RECOVERY_VERSION}" | awk '{print $1}')"
+
+            if [[ -n "${REMOTE_TAG_SHA}" && "${REMOTE_TAG_SHA}" != "${HEAD_SHA}" ]]; then
+              echo "Remote tag ${RECOVERY_VERSION} points to ${REMOTE_TAG_SHA}, expected ${HEAD_SHA}." >&2
+              exit 1
+            fi
+            if [[ -z "${REMOTE_TAG_SHA}" ]]; then
+              git tag "${RECOVERY_VERSION}"
+              git push origin "refs/tags/${RECOVERY_VERSION}"
+            fi
+            if ! gh release view "${RECOVERY_VERSION}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+              gh release create "${RECOVERY_VERSION}" \
+                --repo "${GITHUB_REPOSITORY}" \
+                --verify-tag \
+                --title "${RECOVERY_VERSION}" \
+                --notes-file docs/release-1.5.8.md
+            fi
+            publish_outputs "${RECOVERY_VERSION}"
+            exit 0
+          fi
+
+          python scripts/check_release_baseline.py "${LATEST_RELEASE_TAG}"
+          BEFORE_HEAD="$(git rev-parse HEAD)"
           npx semantic-release
 
           AFTER_HEAD="$(git rev-parse HEAD)"
@@ -91,16 +208,12 @@ jobs:
           fi
 
           gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null
-          echo "published=true" >> "${GITHUB_OUTPUT}"
-          echo "tag=${RELEASE_TAG}" >> "${GITHUB_OUTPUT}"
-          echo "version=${RELEASE_TAG#v}" >> "${GITHUB_OUTPUT}"
+          publish_outputs "${RELEASE_TAG}"
 
       - name: Verify synchronized release files
         if: steps.semantic_release.outputs.published == 'true'
         run: python scripts/check_versions.py
 
-      # repository_dispatch is explicitly supported for workflow chaining and
-      # provides one deterministic trigger for package publication and deploy.
       - name: Trigger package publishing and production deployment
         if: steps.semantic_release.outputs.published == 'true'
         env:
