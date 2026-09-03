@@ -1,16 +1,11 @@
-# [1.7.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.6.0...1.7.0) (2026-09-02)
+## [1.5.8](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.7...1.5.8) (2026-09-03)
 
-
-### Features
-
-* **cache:** share external probe results across replicas ([#171](https://github.com/AlbanAndrieu/fastapi-sample/issues/171)) ([edc66db](https://github.com/AlbanAndrieu/fastapi-sample/commit/edc66db28df5d709bd62bbcf0bbb66e6d5eefa83))
-
-# [1.6.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.7...1.6.0) (2026-09-02)
-
+This release consolidates the changes that were temporarily published as `1.6.0` and `1.7.0` after those GitHub Releases were removed. Git history is unchanged; `1.5.8` becomes the maintained release baseline.
 
 ### Features
 
 * **health:** expose edge evidence and resilient production diagnostics ([#170](https://github.com/AlbanAndrieu/fastapi-sample/issues/170)) ([d69b3cf](https://github.com/AlbanAndrieu/fastapi-sample/commit/d69b3cf728e8f2bf91ebc6a524376cf7543aea01))
+* **cache:** share external probe results across replicas ([#171](https://github.com/AlbanAndrieu/fastapi-sample/issues/171)) ([edc66db](https://github.com/AlbanAndrieu/fastapi-sample/commit/edc66db28df5d709bd62bbcf0bbb66e6d5eefa83))
 
 ## [1.5.7](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.5.6...1.5.7) (2026-09-02)
 
