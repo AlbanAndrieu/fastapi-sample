@@ -9,6 +9,12 @@ import math
 import time
 from typing import TypeVar
 
+from nabla.api.probe_metrics import (
+    probe_finished,
+    probe_started,
+    record_probe_timeout,
+)
+
 T = TypeVar("T")
 
 
@@ -55,6 +61,7 @@ class ProbeBudget:
         """
         remaining = self.remaining_seconds()
         if remaining <= 0:
+            record_probe_timeout("deadline")
             return timeout_value()
 
         acquired = False
@@ -64,17 +71,24 @@ class ProbeBudget:
                     await self._semaphore.acquire()
                 acquired = True
             except TimeoutError:
+                record_probe_timeout("queue")
                 return timeout_value()
 
             remaining = self.remaining_seconds()
             if remaining <= 0:
+                record_probe_timeout("deadline")
                 return timeout_value()
 
+            probe_started()
             try:
-                async with asyncio.timeout(remaining):
-                    return await factory()
-            except TimeoutError:
-                return timeout_value()
+                try:
+                    async with asyncio.timeout(remaining):
+                        return await factory()
+                except TimeoutError:
+                    record_probe_timeout("origin")
+                    return timeout_value()
+            finally:
+                probe_finished()
         finally:
             if acquired:
                 self._semaphore.release()
