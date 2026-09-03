@@ -22,6 +22,7 @@ _MIN_TTL_SECONDS = 10.0
 _MAX_TTL_SECONDS = 300.0
 _HEALTHZ_OPTIONAL_ENRICHMENT_DEADLINE_SEC = 5.0
 _SICKZ_POLICY_DEADLINE_SEC = 6.0
+_HOMELAB_SNAPSHOT_DEADLINE_SEC = 12.0
 _HEALTH_BOARD_REFRESH_DEADLINE_SEC = 40.0
 _cache_lock = asyncio.Lock()
 _cached_snapshot: dict[str, Any] | None = None
@@ -131,7 +132,7 @@ async def build_extended_healthz(request: Request) -> dict[str, Any]:
     return apply_diagnostic_status({**payload, "checks": checks})
 
 
-async def build_homelab_snapshot(
+async def _build_homelab_snapshot(
     shared_checks: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     from nabla.api.component_health import (
@@ -164,6 +165,30 @@ async def build_homelab_snapshot(
     payload["components"] = components
     payload["provider_credentials"] = infrastructure_provider_credentials()
     return payload
+
+
+async def build_homelab_snapshot(
+    shared_checks: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build homelab diagnostics without allowing a provider hang to hold the route."""
+    try:
+        async with asyncio.timeout(_HOMELAB_SNAPSHOT_DEADLINE_SEC):
+            return await _build_homelab_snapshot(shared_checks)
+    except TimeoutError:
+        from nabla.api.provider_credentials import infrastructure_provider_credentials
+
+        return {
+            "schema_version": 2,
+            "status": "degraded",
+            "timed_out": True,
+            "error": "aggregate homelab diagnostic deadline exceeded",
+            "error_kind": "deadline",
+            "services": [],
+            "internal_services": [],
+            "components_status": "degraded",
+            "components": {},
+            "provider_credentials": infrastructure_provider_credentials(),
+        }
 
 
 async def build_sickz_snapshot(request: Request) -> dict[str, Any]:
