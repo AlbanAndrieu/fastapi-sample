@@ -22,6 +22,7 @@ from nabla.api.external_probe_cache_redis import (
     release_lock,
     resolve_redis_client,
 )
+from nabla.api.probe_metrics import record_circuit_state, record_provider_outcome
 from nabla.utils.logger import logger
 
 _CIRCUIT_SCHEMA = 1
@@ -238,6 +239,8 @@ async def before_provider_probe(
     state, redis_available = await _load_state(provider, client)
     now = _now()
     if state.open_until > now:
+        record_circuit_state(provider, "open")
+        record_provider_outcome(provider, "suppressed")
         return CircuitDecision(
             provider,
             policy,
@@ -249,6 +252,7 @@ async def before_provider_probe(
 
     half_open = state.failures >= policy.failure_threshold
     if not half_open:
+        record_circuit_state(provider, "closed")
         return CircuitDecision(
             provider,
             policy,
@@ -259,6 +263,8 @@ async def before_provider_probe(
 
     async with _state_lock:
         if provider in _half_open_in_progress:
+            record_circuit_state(provider, "half_open")
+            record_provider_outcome(provider, "suppressed")
             return CircuitDecision(
                 provider,
                 policy,
@@ -292,6 +298,8 @@ async def before_provider_probe(
             if not acquired:
                 async with _state_lock:
                     _half_open_in_progress.discard(provider)
+                record_circuit_state(provider, "half_open")
+                record_provider_outcome(provider, "suppressed")
                 return CircuitDecision(
                     provider,
                     policy,
@@ -302,6 +310,7 @@ async def before_provider_probe(
                     client=client,
                 )
 
+    record_circuit_state(provider, "half_open")
     return CircuitDecision(
         provider,
         policy,
@@ -328,6 +337,7 @@ async def record_provider_probe_outcome(
 
     state, redis_available = await _load_state(provider, decision.client)
     if success:
+        record_provider_outcome(provider, "success")
         new_state = ProviderCircuitState()
         async with _state_lock:
             _local_states.pop(provider, None)
@@ -342,6 +352,7 @@ async def record_provider_probe_outcome(
                     exception_type=type(exc).__name__,
                 )
     else:
+        record_provider_outcome(provider, "failure")
         failures = max(state.failures, decision.state.failures) + 1
         open_until = 0.0
         if failures >= policy.failure_threshold:
@@ -364,6 +375,11 @@ async def record_provider_probe_outcome(
                     provider=provider,
                     exception_type=type(exc).__name__,
                 )
+
+    if new_state.open_until > _now():
+        record_circuit_state(provider, "open")
+    else:
+        record_circuit_state(provider, "closed")
 
     final = CircuitDecision(
         provider,
