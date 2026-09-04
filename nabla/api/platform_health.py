@@ -12,10 +12,13 @@ import httpx
 
 from nabla.api.cloudflare_tunnels import CloudflareTunnelSettings
 from nabla.api.external_probe_cache import (
-    ProbeCachePolicy,
     ProbeCacheResult,
     get_or_refresh_probe,
     reset_probe_cache,
+)
+from nabla.api.provider_probe_policies import (
+    CLOUDFLARE_TUNNELS_CACHE_POLICY as _CLOUDFLARE_CACHE_POLICY,
+    PFSENSE_LIVENESS_CACHE_POLICY as _PFSENSE_CACHE_POLICY,
 )
 from nabla.api.platform_health_diagnostics import (
     http_error_kind as _http_error_kind,
@@ -32,17 +35,7 @@ _PFSENSE_READ_TIMEOUT_SEC = 4.0
 _PFSENSE_MAX_ATTEMPTS = 1
 _PFSENSE_RETRY_DELAY_SEC = 0.2
 _PFSENSE_CACHE_KEY = "pfsense:liveness"
-_PFSENSE_CACHE_POLICY = ProbeCachePolicy(
-    success_ttl=60.0,
-    failure_ttl=120.0,
-    stale_ttl=600.0,
-)
 _CLOUDFLARE_CACHE_KEY = "cloudflare:tunnels"
-_CLOUDFLARE_CACHE_POLICY = ProbeCachePolicy(
-    success_ttl=90.0,
-    failure_ttl=60.0,
-    stale_ttl=600.0,
-)
 logger = logging.getLogger(__name__)
 
 

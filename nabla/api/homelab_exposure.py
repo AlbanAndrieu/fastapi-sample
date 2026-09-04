@@ -14,16 +14,13 @@ from nabla.api.cloudflare_tunnels import (
     observe_cloudflare_access_applications,
     observe_cloudflare_tunnels,
 )
-from nabla.api.external_probe_cache import ProbeCachePolicy, get_or_refresh_probe
+from nabla.api.external_probe_cache import get_or_refresh_probe
 from nabla.api.homelab_models import HomelabService
+from nabla.api.provider_probe_policies import (
+    CLOUDFLARE_EXPOSURE_CACHE_POLICY as _CLOUDFLARE_EXPOSURE_CACHE_POLICY,
+)
 
 _CLOUDFLARE_EXPOSURE_CACHE_KEY = "cloudflare:exposure"
-_CLOUDFLARE_EXPOSURE_CACHE_POLICY = ProbeCachePolicy(
-    success_ttl=90.0,
-    failure_ttl=60.0,
-    stale_ttl=600.0,
-    lock_ttl=20,
-)
 
 
 @dataclass(frozen=True, slots=True)

@@ -9,7 +9,10 @@ from typing import Any, Literal
 
 import httpx
 
-from nabla.api.external_probe_cache import ProbeCachePolicy, get_or_refresh_probe
+from nabla.api.external_probe_cache import get_or_refresh_probe
+from nabla.api.provider_probe_policies import (
+    PFSENSE_POSTURE_CACHE_POLICY as _PFSENSE_POSTURE_CACHE_POLICY,
+)
 from nabla.api.pfsense_security_observer import observe_pfsense_ingress_block
 from nabla.api.provider_credentials import inspect_environment_credentials
 
@@ -20,12 +23,6 @@ _PFSENSE_READ_TIMEOUT_SEC = 4.0
 _PFSENSE_POSTURE_DEADLINE_SEC = 8.0
 _PFSENSE_MAX_CONCURRENCY = 2
 _PFSENSE_POSTURE_CACHE_KEY = "pfsense:posture"
-_PFSENSE_POSTURE_CACHE_POLICY = ProbeCachePolicy(
-    success_ttl=60.0,
-    failure_ttl=120.0,
-    stale_ttl=600.0,
-    lock_ttl=15,
-)
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 _FALSE_VALUES = frozenset({"0", "false", "no", "off"})
 _RUNNING_STATES = frozenset({"active", "healthy", "running", "started", "up"})

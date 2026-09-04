@@ -12,10 +12,9 @@ from typing import Any, Literal, cast
 
 import httpx
 
-from nabla.api.external_probe_cache import (
-    ProbeCachePolicy,
-    get_or_refresh_probe,
-    reset_probe_cache,
+from nabla.api.external_probe_cache import get_or_refresh_probe, reset_probe_cache
+from nabla.api.provider_probe_policies import (
+    PFSENSE_SNORT2C_CACHE_POLICY as _SNORT2C_CACHE_POLICY,
 )
 from nabla.api.provider_credentials import inspect_environment_credentials
 from nabla.api.public_egress_observer import observe_public_egress_ip
@@ -30,12 +29,6 @@ _PFSENSE_MAX_ATTEMPTS = 1
 _PFSENSE_RETRY_DELAY_SEC = 0.2
 _SNORT2C_PATH = "/api/v2/diagnostics/table?id=snort2c"
 _SNORT2C_CACHE_KEY = "pfsense:snort2c"
-_SNORT2C_CACHE_POLICY = ProbeCachePolicy(
-    success_ttl=60.0,
-    failure_ttl=120.0,
-    stale_ttl=600.0,
-    lock_ttl=15,
-)
 _TRUENAS_PUBLIC_PORT = 7000
 
 
