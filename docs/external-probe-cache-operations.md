@@ -13,7 +13,8 @@ The Redis implementation currently uses:
 
 - schema version: `1`;
 - probe key prefix: `health:v1:probe:`;
-- distributed-lock prefix: `health:v1:lock:`.
+- distributed-lock prefix: `health:v1:lock:`;
+- provider rate-counter prefix: `health:v1:rate:`.
 
 Each persisted probe entry is a JSON envelope containing:
 
@@ -25,6 +26,10 @@ Each persisted probe entry is a JSON envelope containing:
 
 Only JSON-serializable sanitized health evidence belongs in this cache. Do not
 store credentials, raw provider responses, request headers or secrets.
+
+Rate-budget counters are separate ephemeral integer keys scoped by provider and
+60-second bucket. They contain no provider payload and expire shortly after their
+window closes.
 
 Redis retention uses the longest configured evidence window for the provider:
 the maximum of success TTL, failure TTL and stale TTL. A process-local L1 copy is
@@ -48,6 +53,21 @@ The authoritative policy definitions live in
 Change these values only in the centralized policy module and keep the contract
 tests aligned.
 
+### Provider origin admission budgets
+
+Origin attempts are admitted only after cache lookup, single-flight coordination
+and the circuit breaker. Cache hits therefore never consume provider budget.
+
+| Provider | Origin attempts | Window |
+| --- | ---: | ---: |
+| TrueNAS | 2 | 60 s |
+| pfSense | 6 | 60 s |
+| Cloudflare | 4 | 60 s |
+
+The limits allow two complete declared cold-start passes per provider. Redis
+shares the fixed-window counter across replicas when available; otherwise each
+process applies the same bounded local policy.
+
 ## Schema changes
 
 A schema change must be treated as an explicit invalidation event.
@@ -55,7 +75,7 @@ A schema change must be treated as an explicit invalidation event.
 1. Change `SCHEMA_VERSION` when an existing envelope can no longer be safely
     interpreted.
 2. Change the versioned Redis key prefixes at the same time
-    (`health:vN:probe:` and `health:vN:lock:`).
+    (`health:vN:probe:`, `health:vN:lock:` and `health:vN:rate:`).
 3. Keep readers strict: an envelope whose `schema` does not equal the current
     version is a cache miss, not partially compatible data.
 4. Deploy the new code before deleting old-version keys. Old keys are isolated by
@@ -89,8 +109,9 @@ Expected behavior is:
 2. otherwise use retained local evidence when it is still fresh;
 3. coordinate same-process callers through the per-key local single-flight lock;
 4. consult the provider circuit breaker before starting origin I/O;
-5. perform at most the already-bounded origin probe when necessary;
-6. retain explicit stale-last-good evidence when the current observation fails.
+5. apply the local provider rate budget before starting origin I/O;
+6. perform at most the already-bounded origin probe when necessary;
+7. retain explicit stale-last-good evidence when the current observation fails.
 
 Cross-replica single-flight and shared L2 reuse are unavailable while Redis is
 down, but each process still protects its own origin fan-out. Redis recovery does
@@ -106,6 +127,7 @@ signal:
     `stale`, `redis_degraded`;
 - `nabla_external_probe_origin_refreshes_total`;
 - `nabla_external_provider_outcomes_total{provider,outcome}`;
+- `nabla_external_provider_rate_budget_rejections_total{provider}`;
 - `nabla_external_provider_circuit_state{provider,state}`;
 - `nabla_external_probe_timeouts_total{phase}`;
 - `nabla_external_probes_in_flight`.
@@ -132,7 +154,9 @@ Real Redis behavior is exercised in
 - rejection of unknown schema versions;
 - token-safe distributed lock ownership and release;
 - reuse of shared Redis evidence after local state is cleared to simulate another
-  replica.
+  replica;
+- cross-replica provider rate-budget enforcement after process-local counters are
+  cleared.
 
 Normal unit tests remain network-disabled unless the dedicated integration
 environment explicitly provides `REDIS_INTEGRATION_URL`.

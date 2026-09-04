@@ -421,3 +421,61 @@ async def test_local_singleflight_prevents_stampede_when_redis_fails(policy) -> 
     assert second.metadata["cached"] is True
     assert first.value == second.value == {"reachable": True, "generation": 1}
     await cache.reset_probe_cache()
+
+
+@pytest.mark.asyncio
+async def test_provider_rate_budget_serves_retained_stale_evidence(
+    policy,
+    monkeypatch,
+) -> None:
+    key = "truenas:api"
+    await cache.reset_probe_cache(key)
+    calls = 0
+
+    async def loader():
+        nonlocal calls
+        calls += 1
+        return {"reachable": True, "generation": 1}
+
+    first = await cache.get_or_refresh_probe(
+        key,
+        loader,
+        is_success=lambda value: value["reachable"] is True,
+        policy=policy,
+    )
+    assert first.value["generation"] == 1
+
+    envelope, stored_at = cache._l1[key]
+    envelope["current"]["fetched_at"] = 0.0
+    cache._l1[key] = (envelope, stored_at)
+
+    class Denied:
+        allowed = False
+        provider = "truenas"
+
+        @staticmethod
+        def metadata(*, origin_suppressed: bool):
+            return {
+                "provider": "truenas",
+                "origin_suppressed": origin_suppressed,
+                "max_requests": 2,
+            }
+
+    async def deny(*_args, **_kwargs):
+        return Denied()
+
+    monkeypatch.setattr(cache, "admit_provider_probe", deny)
+
+    second = await cache.get_or_refresh_probe(
+        key,
+        loader,
+        is_success=lambda value: value["reachable"] is True,
+        policy=policy,
+    )
+
+    assert calls == 1
+    assert second.value == {"reachable": True, "generation": 1}
+    assert second.metadata["cached"] is True
+    assert second.metadata["stale"] is True
+    assert second.metadata["provider_rate_budget"]["origin_suppressed"] is True
+    await cache.reset_probe_cache(key)

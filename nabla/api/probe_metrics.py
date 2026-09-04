@@ -17,6 +17,11 @@ PROVIDER_OUTCOMES = Counter(
     "External provider probe outcomes.",
     ("provider", "outcome"),
 )
+PROVIDER_BUDGET_REJECTIONS = Counter(
+    "nabla_external_provider_rate_budget_rejections_total",
+    "External provider origin attempts suppressed by the rate budget.",
+    ("provider",),
+)
 CIRCUIT_STATE = Gauge(
     "nabla_external_provider_circuit_state",
     "Current provider circuit state as a one-hot gauge.",
@@ -46,6 +51,12 @@ def record_provider_outcome(provider: str | None, outcome: str) -> None:
     """Record only pre-approved provider/outcome label values."""
     if provider in _PROVIDERS and outcome in _PROVIDER_OUTCOMES:
         PROVIDER_OUTCOMES.labels(provider=provider, outcome=outcome).inc()
+
+
+def record_provider_budget_rejection(provider: str | None) -> None:
+    """Record only bounded provider labels for rate-budget suppression."""
+    if provider in _PROVIDERS:
+        PROVIDER_BUDGET_REJECTIONS.labels(provider=provider).inc()
 
 
 def record_circuit_state(provider: str | None, state: str) -> None:
