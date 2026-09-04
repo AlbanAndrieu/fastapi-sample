@@ -45,9 +45,10 @@ def redact_sensitive_data(_, __, event_dict):
     return _redact_value(event_dict)
 
 
-# Temporary placeholder until authentication supplies a real request identity.
+# Public routes currently have no authenticated principal. Keep the field stable
+# for downstream log consumers without inventing a user identity.
 def add_user_id(_, __, event_dict):
-    event_dict["user_id"] = "12345"
+    event_dict.setdefault("user_id", "anonymous")
     return event_dict
 
 
