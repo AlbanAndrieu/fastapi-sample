@@ -30,14 +30,17 @@ def _gauge_value(metric, **labels) -> float:
 
 def test_unknown_labels_do_not_create_metric_series() -> None:
     provider_series = _series(probe_metrics.PROVIDER_OUTCOMES)
+    budget_series = _series(probe_metrics.PROVIDER_BUDGET_REJECTIONS)
     cache_series = _series(probe_metrics.CACHE_OUTCOMES)
     timeout_series = _series(probe_metrics.PROBE_TIMEOUTS)
 
     probe_metrics.record_provider_outcome("https://dynamic.example", "failure")
+    probe_metrics.record_provider_budget_rejection("https://dynamic.example")
     probe_metrics.record_cache_outcome("cache-key:user-controlled")
     probe_metrics.record_probe_timeout("https://dynamic.example")
 
     assert _series(probe_metrics.PROVIDER_OUTCOMES) == provider_series
+    assert _series(probe_metrics.PROVIDER_BUDGET_REJECTIONS) == budget_series
     assert _series(probe_metrics.CACHE_OUTCOMES) == cache_series
     assert _series(probe_metrics.PROBE_TIMEOUTS) == timeout_series
 
