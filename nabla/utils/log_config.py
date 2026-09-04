@@ -231,6 +231,14 @@ class MetricsFilter(logging.Filter):
         return record.getMessage().find("metrics") != -1
 
 
+def configure_library_log_levels() -> None:
+    """Keep routine third-party polling chatter out of application INFO logs."""
+    logging.getLogger("UnleashClient").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("apscheduler.executors").setLevel(logging.WARNING)
+    logging.getLogger("apscheduler.scheduler").setLevel(logging.WARNING)
+
+
 def setup_logging() -> None:
     """
     Configure the loggers of the project.
@@ -297,7 +305,4 @@ def setup_logging() -> None:
     # Third-party polling libraries can emit high-volume INFO messages that add
     # no request-level diagnostic value. Preserve warnings/errors while keeping
     # the local console useful.
-    logging.getLogger("UnleashClient").setLevel(logging.WARNING)
-    logging.getLogger("httpx").setLevel(logging.WARNING)
-    logging.getLogger("apscheduler.executors").setLevel(logging.WARNING)
-    logging.getLogger("apscheduler.scheduler").setLevel(logging.WARNING)
+    configure_library_log_levels()
