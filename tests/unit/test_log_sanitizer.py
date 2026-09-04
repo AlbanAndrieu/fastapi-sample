@@ -2,7 +2,11 @@
 
 import logging
 
-from nabla.utils.log_config import SensitiveLogFilter, sanitize_log_value, setup_logging
+from nabla.utils.log_config import (
+    SensitiveLogFilter,
+    configure_library_log_levels,
+    sanitize_log_value,
+)
 from nabla.utils.logger import add_user_id
 
 
@@ -37,8 +41,8 @@ def test_log_filter_scrubs_structured_request_and_bearer_token() -> None:
     assert record.req["authorization"] == "[REDACTED]"
 
 
-def test_setup_logging_suppresses_unleash_polling_info() -> None:
-    setup_logging()
+def test_library_log_levels_suppress_unleash_polling_info() -> None:
+    configure_library_log_levels()
 
     assert logging.getLogger("UnleashClient").getEffectiveLevel() >= logging.WARNING
 
