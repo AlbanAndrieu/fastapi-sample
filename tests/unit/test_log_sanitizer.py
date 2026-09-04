@@ -2,7 +2,8 @@
 
 import logging
 
-from nabla.utils.log_config import SensitiveLogFilter, sanitize_log_value
+from nabla.utils.log_config import SensitiveLogFilter, sanitize_log_value, setup_logging
+from nabla.utils.logger import add_user_id
 
 
 def test_sanitizer_removes_url_credentials_query_and_fragment() -> None:
@@ -34,3 +35,21 @@ def test_log_filter_scrubs_structured_request_and_bearer_token() -> None:
     assert record.getMessage() == "Authorization: Bearer [REDACTED]"
     assert record.req["url"] == "https://example.test/api?[REDACTED]"
     assert record.req["authorization"] == "[REDACTED]"
+
+
+def test_setup_logging_suppresses_unleash_polling_info() -> None:
+    setup_logging()
+
+    assert logging.getLogger("UnleashClient").getEffectiveLevel() >= logging.WARNING
+
+
+def test_structured_log_identity_defaults_to_anonymous() -> None:
+    event = add_user_id(None, None, {})
+
+    assert event["user_id"] == "anonymous"
+
+
+def test_structured_log_identity_preserves_authenticated_user() -> None:
+    event = add_user_id(None, None, {"user_id": "principal-42"})
+
+    assert event["user_id"] == "principal-42"
