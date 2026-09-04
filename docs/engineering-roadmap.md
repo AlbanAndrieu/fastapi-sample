@@ -91,6 +91,18 @@ degraded conditions.
 - [ ] Add production acceptance checks: appliance degradation must not increase
       API error rate, exhaust worker threads, or create sustained request bursts
       against TrueNAS/pfSense.
+- [ ] Remove the Snort self-diagnostic blind spot before treating telemetry loss as
+      authoritative block evidence. While FastAPI Cloud reaches pfSense security
+      telemetry through the same WAN/Snort/PF path, keep
+      `PFSENSE_SECURITY_PATH_MODE=shared_wan` and report transport failure as
+      unknown/unavailable. Prefer a small LAN-side, read-only observer that
+      publishes only sanitized `snort2c` evidence over an outbound authenticated
+      channel; set `out_of_band` only after independence from WAN filtering is
+      proven.
+- [ ] Add a production acceptance test that correlates a forced shared-WAN Snort
+      telemetry timeout with pfSense firewall/Snort evidence from an independent
+      vantage point, so a connect timeout can be distinguished from API auth, TLS,
+      listener and routing failures without weakening the firewall.
 - [ ] Investigate the official TrueNAS client's fixed WebSocket connect timeout.
       `asyncio` cancellation can bound the API response but cannot terminate an
       already-running synchronous client thread; prefer an upstream configurable
@@ -174,6 +186,66 @@ degraded conditions.
       the expected degraded behavior when Redis is unavailable. See
       `docs/external-probe-cache-operations.md`.
 
+## P1 — Runtime library consolidation and technical-debt reduction
+
+Prefer consolidating around dependencies already present in the runtime before
+adding another abstraction. Every migration must preserve production semantics,
+bounded failure behavior and observability; reducing line count alone is not an
+acceptance criterion.
+
+- [x] Consolidate SlowAPI around one shared `Limiter`, one application-level
+      `RateLimitExceeded` handler and explicit per-route decorators. Do not add a
+      global/default-limit middleware until the resolved FastAPI/SlowAPI pair has
+      a regression test proving router/default-limit behavior.
+- [ ] Define the trusted client-identity model for rate limiting behind FastAPI
+      Cloud/reverse proxies before using forwarded headers as limiter keys. If
+      cross-replica limiting moves to Redis, keep a bounded in-memory fallback so
+      Redis failure cannot turn rate limiting into an application outage.
+- [ ] Evaluate `cashews` in an isolated spike before replacing the external-probe
+      cache. A production migration is allowed only if it preserves all current
+      semantics: separately visible current failure and last-known-good evidence,
+      provider-wide cross-key circuit state, a single distributed half-open owner,
+      explicit Redis-degraded metadata, fixed-cardinality metrics and deterministic
+      reset/integration tests.
+- [ ] Require JSON-safe, versioned and sanitized Redis values in any `cashews`
+      experiment; do not adopt its default pickle serialization for shared
+      production cache state. Do not use `cashews` rate limiting alongside
+      SlowAPI for HTTP request policy.
+- [ ] Consolidate remaining module-level `os.getenv` / ad-hoc boolean parsing into
+      domain-specific `pydantic-settings` models. Keep secrets as `SecretStr`,
+      validate bounds/URLs at construction, preserve environment-name compatibility
+      during migration, and keep settings construction free of network side effects.
+- [ ] Create a small set of lifespan-owned `httpx.AsyncClient` instances using the
+      existing `AsyncExitStack`, with explicit connection limits, connect/read/
+      write/pool timeouts and intentional `trust_env` behavior. Keep provider
+      credentials/TLS policies isolated rather than introducing one universal
+      privileged client.
+- [ ] Standardize legitimate retries with `tenacity` for idempotent control-plane
+      calls only, using explicit exception/status predicates, capped attempts,
+      exponential jitter and an enclosing overall deadline. Do not reintroduce
+      immediate retries on TrueNAS or pfSense health probes: those intentionally
+      remain fail-fast to protect appliances.
+- [ ] Consolidate logging through one `structlog` pipeline bridged to stdlib
+      logging. Bind bounded request/release/environment context, preserve secret/PII
+      redaction before rendering, test context cleanup across async requests and
+      avoid duplicate emission to Sentry, Logfire, Datadog and OpenTelemetry.
+
+### Library-consolidation acceptance criteria
+
+- There is exactly one application SlowAPI limiter configuration and every
+  decorated endpoint explicitly accepts `Request`.
+- A Redis/cache/rate-limit backend outage cannot make `/livez` fail or create a
+  new synchronous dependency for ordinary request handling.
+- Shared HTTP clients are created and closed by application lifespan and no
+  provider-specific credentials leak into unrelated requests.
+- Retry policies have finite attempt and wall-clock budgets and are absent from
+  appliance health paths where retries amplify load.
+- Structured logs remain redacted and fixed-cardinality where used for metrics or
+  incident grouping.
+- A `cashews` migration proceeds only if a focused benchmark/test matrix shows a
+  material net reduction in custom cache code without weakening the current
+  failure-visible, stale-last-good and cross-replica pressure-relief contract.
+
 ## P1 — Release and production deployment
 
 - [x] Keep Vercel as a lightweight HTTP compatibility proxy to FastAPI Cloud
@@ -218,7 +290,7 @@ degraded conditions.
 ## P1 — Continuous integration and repository governance
 
 - [x] Use GitHub-compatible `CODEOWNERS` syntax with a real repository owner.
-- [x] Run CodeQL against pull requests targeting `main`.
+- [x] Run CodeQL against pull requests targeting `master`.
 - [x] Make high-confidence, high-severity Bandit findings block Python CI.
 - [x] Remove the unused Wrangler npm package, its worker-only scripts and
       orphaned transitive dependencies from the npm lockfile.
@@ -588,14 +660,16 @@ import and had no application-owned shutdown.
 
 #### outbound HTTP and health checks work
 
-- Create shared lifespan-owned `httpx.AsyncClient` instances.
-- Define consistent connect, read, write, pool, and overall timeouts.
+- [ ] Create shared lifespan-owned `httpx.AsyncClient` instances and reuse
+      connection pools across compatible outbound calls.
+- [ ] Define consistent connect, read, write, pool, and overall timeouts, while
+      preserving stricter provider-specific budgets where required.
 - [x] Bound the current TrueNAS and pfSense health-observation paths with explicit
       per-call/per-request budgets and provider failure-cache windows.
 - [x] Add shared provider circuit breakers so repeated TrueNAS, pfSense and
       Cloudflare failures suppress origin refreshes during bounded cooldowns.
-- Add bounded concurrency to `/healthz` and `/sickz` probes.
-- Add an overall deadline for aggregated health responses.
+- [x] Add bounded concurrency to `/healthz` and `/sickz` probes.
+- [x] Add an overall deadline for aggregated health responses.
 - Separate liveness, readiness, and detailed dependency diagnostics.
 - Validate configurable probe destinations to reduce SSRF risk.
 - Replace remaining synchronous `requests` calls in async routes.
