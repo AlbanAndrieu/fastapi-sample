@@ -38,7 +38,6 @@ async def test_local_runtime_snapshot_is_explicitly_not_platform_replica_count(
     assert "container-a" not in str(snapshot)
 
 
-
 @pytest.mark.asyncio
 async def test_fastapi_cloud_runtime_snapshot_keeps_cloud_semantics(monkeypatch) -> None:
     monkeypatch.setenv("HOSTNAME", "container-cloud")
