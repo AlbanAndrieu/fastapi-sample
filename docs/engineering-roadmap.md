@@ -596,8 +596,9 @@ import and had no application-owned shutdown.
 - [x] Remove direct tracer imports from database and route modules.
 - [x] Own profiler startup and shutdown in the application lifespan.
 - [x] Configure profiling independently with `DD_PROFILING_ENABLED`.
-- [x] Remove the global placeholder user assignment and keep Datadog PII
-      disabled until authenticated request identity is available.
+- [ ] Remove the remaining global structured-log placeholder
+      `user_id="12345"`; bind authenticated request identity only when a real
+      principal exists and keep Datadog/Sentry PII disabled by default.
 - [x] Keep Sentry PII disabled and make trace, profile and error sampling
       configurable with conservative defaults.
 - [x] Verify that disabled Datadog paths do not import the SDK.
