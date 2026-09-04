@@ -7,9 +7,6 @@ import pyroscope
 from fastapi import APIRouter, Response
 from fastapi.concurrency import run_in_threadpool
 from opentelemetry.propagate import inject
-from slowapi import Limiter
-from slowapi.util import get_remote_address
-
 from nabla.config_settings import DD_TRACE_ENABLED
 from nabla.utils.datadog_config import datadog_trace
 from nabla.utils.logger import logger
@@ -30,7 +27,6 @@ TARGET_TWO_HOST = os.environ.get(
 )
 
 router = APIRouter()
-limiter = Limiter(key_func=get_remote_address)
 
 
 @router.get("/ping")
@@ -84,7 +80,6 @@ async def error_test(response: Response):
 
 
 @router.get("/chain")
-# @limiter.limit("100/second")
 async def chain():
     headers = {}
     inject(headers)  # inject trace info to header

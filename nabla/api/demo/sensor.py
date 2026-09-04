@@ -9,8 +9,6 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 from sse_starlette import EventSourceResponse
 
 from nabla.api.demo.charts import ChartFactory
@@ -31,11 +29,10 @@ from nabla.api.demo.socket.redis import (
     redis,
 )
 from nabla.config_settings import APP_RUNTIME_VERSION
+from nabla.rate_limit import limiter
 from nabla.utils.logger import logger
 
 router = APIRouter()
-
-limiter = Limiter(key_func=get_remote_address)
 
 templates = Jinja2Templates(directory="templates")
 sensor = SensorData()
