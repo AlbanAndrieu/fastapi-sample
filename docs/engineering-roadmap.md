@@ -206,7 +206,8 @@ acceptance criterion.
       semantics: separately visible current failure and last-known-good evidence,
       provider-wide cross-key circuit state, a single distributed half-open owner,
       explicit Redis-degraded metadata, fixed-cardinality metrics and deterministic
-      reset/integration tests.
+      reset/integration tests. Use `docs/cashews-evaluation.md` as the evaluation
+      matrix and rollback boundary.
 - [ ] Require JSON-safe, versioned and sanitized Redis values in any `cashews`
       experiment; do not adopt its default pickle serialization for shared
       production cache state. Do not use `cashews` rate limiting alongside
