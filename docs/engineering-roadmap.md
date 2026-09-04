@@ -163,15 +163,16 @@ degraded conditions.
 - [x] Add bounded cache observability for L1/L2 hit, miss, stale, origin refresh
       and Redis-degraded outcomes using fixed-cardinality labels; never expose raw
       dynamic cache keys or credentials as metric labels.
-- [ ] Add real Redis integration coverage for key expiry, schema rejection,
+- [x] Add real Redis integration coverage for key expiry, schema rejection,
       distributed lock ownership/release and cross-replica reuse; keep unit tests
       deterministic and network-disabled by default.
-- [ ] Centralize provider probe-cache policies so stability budgets are reviewable
+- [x] Centralize provider probe-cache policies so stability budgets are reviewable
       in one place instead of being distributed across observer modules.
 - [ ] Add explicit per-provider request/rate budgets above caching and circuit
       breaking where endpoint-level abuse or fan-out can still overload an origin.
-- [ ] Document cache schema-bump/invalidation and production diagnostics, including
-      the expected degraded behavior when Redis is unavailable.
+- [x] Document cache schema-bump/invalidation and production diagnostics, including
+      the expected degraded behavior when Redis is unavailable. See
+      `docs/external-probe-cache-operations.md`.
 
 ## P1 — Release and production deployment
 
