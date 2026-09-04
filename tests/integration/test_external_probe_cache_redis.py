@@ -23,6 +23,10 @@ from nabla.api.external_probe_cache_redis import (
     write_envelope,
 )
 from nabla.api.external_probe_cache_types import ProbeCachePolicy
+from nabla.api.provider_probe_budget import (
+    admit_provider_probe,
+    reset_provider_probe_budgets,
+)
 
 _REDIS_URL = os.getenv("REDIS_INTEGRATION_URL", "").strip()
 pytestmark = [
@@ -153,3 +157,27 @@ async def test_real_redis_reuses_cached_result_after_local_replica_reset() -> No
         assert second.value == first.value
 
         await cache.reset_probe_cache(key, redis_client=client)
+
+
+@pytest.mark.asyncio
+async def test_real_redis_shares_provider_rate_budget_across_replicas() -> None:
+    async with _redis_client() as client:
+        await reset_provider_probe_budgets()
+
+        first = await admit_provider_probe("truenas:api", redis_client=client)
+        second = await admit_provider_probe("truenas:api", redis_client=client)
+
+        assert first.allowed is True
+        assert second.allowed is True
+        assert second.redis_shared is True
+
+        # Clear only process-local state to simulate another application replica.
+        await reset_provider_probe_budgets()
+        third = await admit_provider_probe("truenas:api", redis_client=client)
+
+        assert third.allowed is False
+        assert third.redis_shared is True
+        assert third.count == 3
+        assert third.max_requests == 2
+
+        await reset_provider_probe_budgets()
