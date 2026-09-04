@@ -14,8 +14,6 @@ from prometheus_client.openmetrics.exposition import (
     CONTENT_TYPE_LATEST,
     generate_latest,
 )
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 from sqlmodel import select
 from starlette.routing import Mount
 
@@ -23,11 +21,11 @@ from nabla.api.db.database import SessionLocal
 from nabla.api.health_routes import register_health_routes
 from nabla.api.notes.models import Note
 from nabla.api.ui import render_api_root_page
+from nabla.rate_limit import limiter
 from nabla.utils.logger import logger
 
 
 templates = Jinja2Templates(directory="templates")
-limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
 _API_ASSETS_DIR = Path(__file__).resolve().parent / "api" / "assets"
 
 
