@@ -294,6 +294,10 @@ def setup_logging() -> None:
         for handler in configured_logger.handlers:
             handler.addFilter(sensitive_filter)
 
+    # Third-party polling libraries can emit high-volume INFO messages that add
+    # no request-level diagnostic value. Preserve warnings/errors while keeping
+    # the local console useful.
+    logging.getLogger("UnleashClient").setLevel(logging.WARNING)
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("apscheduler.executors").setLevel(logging.WARNING)
     logging.getLogger("apscheduler.scheduler").setLevel(logging.WARNING)
