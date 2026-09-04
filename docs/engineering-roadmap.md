@@ -102,7 +102,11 @@ degraded conditions.
 - [ ] Add a production acceptance test that correlates a forced shared-WAN Snort
       telemetry timeout with pfSense firewall/Snort evidence from an independent
       vantage point, so a connect timeout can be distinguished from API auth, TLS,
-      listener and routing failures without weakening the firewall.
+      listener and routing failures without weakening the firewall. Until an
+      out-of-band observer exists, compare the active/recent FastAPI Cloud egress
+      set with the source policy protecting WAN `:10443`; treat source drift as a
+      diagnostic condition and never widen the management listener to unrestricted
+      Internet access merely to make telemetry green.
 - [ ] Investigate the official TrueNAS client's fixed WebSocket connect timeout.
       `asyncio` cancellation can bound the API response but cannot terminate an
       already-running synchronous client thread; prefer an upstream configurable
