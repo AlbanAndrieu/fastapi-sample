@@ -155,14 +155,19 @@ async def build_runtime_topology_snapshot(redis_client: Redis | None) -> dict[st
                 "degraded": True,
             }
 
+    is_fastapi_cloud = bool(os.getenv("FASTAPI_CLOUD", "").strip())
     return {
-        "provider": "FastAPI Cloud" if os.getenv("FASTAPI_CLOUD", "").strip() else "runtime",
+        "provider": "FastAPI Cloud" if is_fastapi_cloud else "Local workstation",
+        "runtime_mode": "fastapi_cloud" if is_fastapi_cloud else "local",
         "observed_at": _utc_timestamp(),
         "platform_replica_count": None,
         "platform_replica_count_available": False,
         "count_semantics": (
             "Observed active application runtimes from shared heartbeats; "
             "this is not the FastAPI Cloud control-plane replica count."
+            if is_fastapi_cloud
+            else "Observed application runtimes for the local workstation; "
+            "shared Redis heartbeats may include sibling local processes."
         ),
         "heartbeat_interval_seconds": int(_HEARTBEAT_INTERVAL_SEC),
         "active_window_seconds": int(_ACTIVE_WINDOW_SEC),
