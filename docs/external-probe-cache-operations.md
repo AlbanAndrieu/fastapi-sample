@@ -53,13 +53,13 @@ tests aligned.
 A schema change must be treated as an explicit invalidation event.
 
 1. Change `SCHEMA_VERSION` when an existing envelope can no longer be safely
-   interpreted.
+    interpreted.
 2. Change the versioned Redis key prefixes at the same time
-   (`health:vN:probe:` and `health:vN:lock:`).
+    (`health:vN:probe:` and `health:vN:lock:`).
 3. Keep readers strict: an envelope whose `schema` does not equal the current
-   version is a cache miss, not partially compatible data.
+    version is a cache miss, not partially compatible data.
 4. Deploy the new code before deleting old-version keys. Old keys are isolated by
-   prefix and expire naturally under their configured TTLs.
+    prefix and expire naturally under their configured TTLs.
 5. Never reuse an old lock prefix for a new incompatible schema.
 
 This strategy avoids a coordinated Redis flush during normal schema evolution.
