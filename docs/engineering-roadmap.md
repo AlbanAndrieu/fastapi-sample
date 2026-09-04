@@ -168,8 +168,11 @@ degraded conditions.
       deterministic and network-disabled by default.
 - [x] Centralize provider probe-cache policies so stability budgets are reviewable
       in one place instead of being distributed across observer modules.
-- [ ] Add explicit per-provider request/rate budgets above caching and circuit
+- [x] Add explicit per-provider request/rate budgets above caching and circuit
       breaking where endpoint-level abuse or fan-out can still overload an origin.
+      Fixed 60-second admission windows allow two complete declared cold-start
+      passes per provider and use Redis for cross-replica coordination when
+      available, with process-local fallback otherwise.
 - [x] Document cache schema-bump/invalidation and production diagnostics, including
       the expected degraded behavior when Redis is unavailable. See
       `docs/external-probe-cache-operations.md`.
