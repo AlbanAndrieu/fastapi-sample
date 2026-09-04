@@ -28,6 +28,12 @@ from nabla.api.external_probe_cache_types import ProbeCachePolicy, ProbeCacheRes
 from nabla.api.probe_metrics import (
     record_cache_outcome,
     record_origin_refresh,
+    record_provider_budget_rejection,
+)
+from nabla.api.provider_probe_budget import (
+    admit_provider_probe,
+    reset_provider_probe_budget_for_probe_key,
+    reset_provider_probe_budgets,
 )
 from nabla.api.provider_circuit import (
     before_provider_probe,
@@ -392,8 +398,38 @@ async def get_or_refresh_probe(
                 return _observe_cache_result(suppressed)
 
         record_cache_outcome("miss")
-        record_origin_refresh()
         try:
+            rate_decision = await admit_provider_probe(
+                key,
+                redis_client=client,
+                redis_available=redis_available,
+            )
+            if not rate_decision.allowed:
+                has_last_good = (
+                    _valid_last_good(
+                        last_envelope,
+                        time.time(),
+                        policy.stale_ttl,
+                    )
+                    is not None
+                )
+                suppressed = _result_from_envelope(
+                    last_envelope,
+                    layer="redis" if redis_available else "local_fallback",
+                    cached=True,
+                    stale=True,
+                    serve_last_good=has_last_good,
+                    policy=policy,
+                    redis_available=redis_available,
+                )
+                if suppressed is not None:
+                    suppressed.metadata["provider_rate_budget"] = rate_decision.metadata(
+                        origin_suppressed=True
+                    )
+                    record_provider_budget_rejection(rate_decision.provider)
+                    return _observe_cache_result(suppressed)
+
+            record_origin_refresh()
             try:
                 value = await loader()
             except Exception:
@@ -465,11 +501,13 @@ async def reset_probe_cache(
             _refresh_locks.pop(key, None)
     if key is None:
         await reset_provider_circuits()
+        await reset_provider_probe_budgets()
     else:
         await reset_provider_circuit_for_probe_key(
             key,
             redis_client=redis_client,
         )
+        await reset_provider_probe_budget_for_probe_key(key)
     if redis_client is not None and key is not None:
         await redis_client.delete(
             f"{_KEY_PREFIX}{key}",
