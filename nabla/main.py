@@ -52,6 +52,7 @@ from nabla.feature_flags import unleash_client as client, unleash_is_configured
 from nabla.deepagents import workflow as ai_workflow
 from nabla.lifespan import lifespan as app_lifespan
 from nabla.middleware import logging_middleware, metrics_middleware
+from nabla.rate_limit import configure_rate_limiting
 from nabla.routes import register_routes, templates
 from nabla.utils.datadog_config import (
     configure_datadog,
@@ -96,17 +97,6 @@ def _configure_unleash_middleware(app: FastAPI) -> None:
     if not unleash_is_configured():
         logger.warning("UNLEASH_ENABLED is true but UNLEASH_INSTANCE_ID is missing; feature-flag middleware is disabled")
         return
-
-    if client.is_enabled("rate_limiter"):
-        from fastapi.responses import JSONResponse
-        from slowapi.errors import RateLimitExceeded
-
-        app.add_exception_handler(
-            RateLimitExceeded,
-            lambda r, e: JSONResponse(status_code=429, content={"error": "Too Many Requests"}),
-        )
-    else:
-        logger.warning("Feature flag: rate_limiter not enabled")
 
     if client.is_enabled("cors"):
         app.add_middleware(
@@ -279,6 +269,7 @@ def create_app() -> FastAPI:
     app.middleware("http")(logging_middleware)
     app.middleware("http")(metrics_middleware)
     app.middleware("http")(operations_access_middleware)
+    configure_rate_limiting(app)
     _configure_unleash_middleware(app)
     _configure_metrics(app)
     _register_routers(app, debug=debug)
