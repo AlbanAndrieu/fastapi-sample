@@ -1,3 +1,10 @@
+## [1.6.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.6.1...1.6.2) (2026-09-04)
+
+
+### Performance Improvements
+
+* **cache:** bound provider origin refresh rates ([#183](https://github.com/AlbanAndrieu/fastapi-sample/issues/183)) ([189335a](https://github.com/AlbanAndrieu/fastapi-sample/commit/189335a759268e565250d792d45fed4f88124d66))
+
 ## [1.6.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.6.0...1.6.1) (2026-09-03)
 
 
