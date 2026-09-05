@@ -12,10 +12,14 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 from urllib.parse import urlsplit, urlunsplit
 
-DEFAULT_TRUENAS_URL = "https://truenas.albandrieu.com:7000"
-_DEFAULT_API_PATH = "/api/current"
+from nabla.settings.homelab import (
+    DEFAULT_TRUENAS_URL,
+    DEFAULT_TRUENAS_WS_PATH,
+    TrueNASProviderSettings,
+)
+
+_DEFAULT_API_PATH = DEFAULT_TRUENAS_WS_PATH
 _DEFAULT_CALL_TIMEOUT_SEC = 5.0
-_TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 logger = logging.getLogger(__name__)
 
 
@@ -45,19 +49,18 @@ class TrueNASSettings:
     @classmethod
     def from_environment(cls) -> TrueNASSettings | None:
         """Load optional TrueNAS credentials from the supported environment names."""
-        username = os.getenv("TRUENAS_API_USERNAME", "").strip() or os.getenv("TRUENAS_USERNAME", "").strip() or os.getenv("TRUENAS_USER", "").strip()
-        api_key = os.getenv("TRUENAS_API_KEY", "").strip() or os.getenv("TRUENAS_MCP_API_KEY", "").strip()
+        environment = TrueNASProviderSettings()
+        username = environment.adapter_username
+        api_key = environment.adapter_api_key
         if not username or not api_key:
             return None
 
-        verify_ssl_raw = os.getenv("TRUENAS_API_VERIFY_SSL", "true").strip()
-        websocket_path = os.getenv("TRUENAS_WS_PATH", _DEFAULT_API_PATH).strip()
         return cls(
-            url=truenas_url(),
+            url=environment.url,
             username=username,
             api_key=api_key,
-            verify_ssl=verify_ssl_raw.lower() in _TRUE_VALUES,
-            websocket_path=websocket_path or _DEFAULT_API_PATH,
+            verify_ssl=environment.verify_ssl,
+            websocket_path=environment.websocket_path,
         )
 
     @property
@@ -89,8 +92,7 @@ class TrueNASSettings:
 
 def truenas_url() -> str:
     """Return the single configured TrueNAS endpoint used by every probe."""
-    configured = os.getenv("TRUENAS_URL", DEFAULT_TRUENAS_URL).strip()
-    effective_url = configured or DEFAULT_TRUENAS_URL
+    effective_url = TrueNASProviderSettings().url
     logger.debug("TrueNAS runtime endpoint: TRUENAS_URL=%s", effective_url)
     return effective_url
 
@@ -122,7 +124,9 @@ def _websocket_proxy_route(hostname: str | None) -> str:
         return "unknown"
     if _no_proxy_matches(hostname):
         return "bypass"
-    proxy_configured = bool(os.getenv("https_proxy", "").strip() or os.getenv("HTTPS_PROXY", "").strip())
+    proxy_configured = bool(
+        os.getenv("https_proxy", "").strip() or os.getenv("HTTPS_PROXY", "").strip()
+    )
     return "proxy_candidate" if proxy_configured else "direct"
 
 
@@ -171,7 +175,10 @@ def _truenas_failure_stage(exc: BaseException) -> str:
         return "network_unreachable"
     if "timeout" in message or any("timeout" in name for name in class_names):
         return "connect_timeout"
-    if any(marker in message for marker in ("unauthorized", "authentication", "invalid credentials", "api key")):
+    if any(
+        marker in message
+        for marker in ("unauthorized", "authentication", "invalid credentials", "api key")
+    ):
         return "authentication"
     if any("websocket" in name for name in class_names):
         return "websocket"
@@ -183,7 +190,9 @@ def _load_client_factory() -> Any:
     try:
         module = importlib.import_module("truenas_api_client")
     except ModuleNotFoundError as exc:
-        raise RuntimeError("TrueNAS credentials are configured but truenas_api_client is not installed") from exc
+        raise RuntimeError(
+            "TrueNAS credentials are configured but truenas_api_client is not installed"
+        ) from exc
     return module.Client
 
 

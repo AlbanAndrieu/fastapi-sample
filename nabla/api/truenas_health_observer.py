@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 from copy import deepcopy
 from datetime import UTC, datetime
-import os
 import re
 import ssl
 import time
@@ -17,9 +16,9 @@ from nabla.api.provider_probe_policies import (
 )
 from nabla.api.provider_credentials import inspect_environment_credentials
 from nabla.api.truenas_client import observe_truenas_api
+from nabla.settings.homelab import TrueNASProviderSettings
 from nabla.utils.logger import logger
 
-_TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 _CACHE_KEY = "truenas:api"
 _TRUENAS_PROBE_DEADLINE_SEC = 8.0
 _SENTRY_FAILURE_COOLDOWN_SEC = 900.0
@@ -28,9 +27,8 @@ _last_failure_reported_at = 0.0
 
 
 def truenas_http_verify_ssl() -> bool:
-    """Return the TrueNAS TLS policy from the single canonical environment setting."""
-    raw = os.getenv("TRUENAS_API_VERIFY_SSL", "true").strip()
-    return raw.lower() in _TRUE_VALUES
+    """Return the canonical validated TrueNAS TLS policy."""
+    return TrueNASProviderSettings().verify_ssl
 
 
 def _utc_now() -> str:
@@ -43,11 +41,7 @@ def _short_error(exc: BaseException) -> str:
 
 
 def _configured_username() -> str:
-    return (
-        os.getenv("TRUENAS_API_USERNAME", "").strip()
-        or os.getenv("TRUENAS_USERNAME", "").strip()
-        or os.getenv("TRUENAS_USER", "").strip()
-    )
+    return TrueNASProviderSettings().adapter_username
 
 
 def _failure_kind(exc: BaseException) -> tuple[str, str]:
@@ -64,15 +58,18 @@ def _failure_kind(exc: BaseException) -> tuple[str, str]:
         return "api", "api_call_timeout"
     if isinstance(exc, TimeoutError) or "timeout" in class_name:
         return "connect", "connect_timeout"
-    if any(marker in message for marker in ("unauthorized", "authentication", "api key")):
+    if any(
+        marker in message for marker in ("unauthorized", "authentication", "api key")
+    ):
         return "authentication", "authentication"
     return "api", "exception"
 
 
 def truenas_api_configuration_failure() -> dict[str, Any] | None:
     """Return a sanitized authentication configuration failure, if any."""
-    username = _configured_username()
-    api_key = os.getenv("TRUENAS_API_KEY", "").strip()
+    settings = TrueNASProviderSettings()
+    username = settings.adapter_username
+    api_key = settings.canonical_api_key
     if not username:
         return {
             "reachable": False,
@@ -83,6 +80,8 @@ def truenas_api_configuration_failure() -> dict[str, Any] | None:
             "api_key_configured": bool(api_key),
         }
 
+    # The health contract intentionally requires the canonical TRUENAS_API_KEY.
+    # TRUENAS_MCP_API_KEY remains a lower-level adapter compatibility fallback only.
     credential_status = inspect_environment_credentials(
         "truenas",
         "TRUENAS_API_KEY",
