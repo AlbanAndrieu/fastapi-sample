@@ -55,6 +55,7 @@ function render(snapshot) {
   const count = Number(runtime.observed_instance_count);
   const runtimeMode = runtime.runtime_mode || panel.dataset.runtimeMode || "local";
   const isFastapiCloud = runtimeMode === "fastapi_cloud";
+  setText("runtime-instance-label", isFastapiCloud ? "Observed instances" : "Observed processes");
   setText("runtime-instance-count", Number.isFinite(count) ? String(count) : "—");
   setText(
     "runtime-replica-label",
@@ -71,14 +72,30 @@ function render(snapshot) {
         : "local process",
   );
   setText("runtime-count-semantics", runtime.count_semantics || "Observed runtime heartbeats.");
-  setText("runtime-aggregation", runtime.aggregation || "unknown");
+  const aggregationLabels = {
+    redis_heartbeat: "shared Redis",
+    local_only: "local only",
+    local_fallback: "local fallback",
+  };
+  setText(
+    "runtime-aggregation",
+    aggregationLabels[runtime.aggregation] || runtime.aggregation || "unknown",
+  );
   activeEgress.innerHTML = renderPills(runtime.active_egress_ips);
   recentEgress.innerHTML = renderPills(runtime.recent_egress_ips);
   renderInstances(runtime.instances);
 
   const degraded = runtime.degraded === true;
   state.className = `runtime-topology-state runtime-topology-state--${degraded ? "warn" : "ok"}`;
-  state.textContent = degraded ? "local observation only" : `${count} active observed`;
+  if (isFastapiCloud) {
+    state.textContent = degraded ? "local observation only" : `${count} active observed`;
+  } else {
+    state.textContent = degraded
+      ? "local telemetry degraded"
+      : Number.isFinite(count) && count > 1
+        ? `${count} local processes`
+        : "local runtime";
+  }
 }
 
 export function loadRuntimeTopology() {

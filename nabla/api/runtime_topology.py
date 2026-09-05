@@ -23,12 +23,28 @@ from redis.asyncio import Redis
 from nabla.api.public_egress_observer import observe_public_egress_ip
 from nabla.utils.logger import logger
 
-_INSTANCE_ZSET = "fastapi-sample:runtime:instances:last-seen"
-_INSTANCE_HASH = "fastapi-sample:runtime:instances:details"
-_EGRESS_ZSET = "fastapi-sample:runtime:egress:last-seen"
+_RUNTIME_KEY_PREFIX = "fastapi-sample:runtime"
 _HEARTBEAT_INTERVAL_SEC = 30.0
 _ACTIVE_WINDOW_SEC = 95.0
 _RECENT_EGRESS_WINDOW_SEC = 86_400.0
+_INSTANCE_REGISTRY_TTL_SEC = 600
+_EGRESS_REGISTRY_TTL_SEC = 172_800
+
+
+def runtime_mode() -> str:
+    """Return the stable runtime scope used by UI and Redis telemetry."""
+    return "fastapi_cloud" if os.getenv("FASTAPI_CLOUD", "").strip() else "local"
+
+
+def runtime_registry_keys(mode: str | None = None) -> tuple[str, str, str]:
+    """Return Redis keys isolated by runtime scope to avoid local/cloud mixing."""
+    scope = mode or runtime_mode()
+    prefix = f"{_RUNTIME_KEY_PREFIX}:{scope}"
+    return (
+        f"{prefix}:instances:last-seen",
+        f"{prefix}:instances:details",
+        f"{prefix}:egress:last-seen",
+    )
 
 
 def _utc_timestamp(epoch: float | None = None) -> str:
@@ -72,19 +88,23 @@ async def record_runtime_heartbeat(redis_client: Redis | None) -> dict[str, Any]
     if redis_client is None:
         return details
 
+    instance_zset, instance_hash, egress_zset = runtime_registry_keys()
     stale_before = now - _ACTIVE_WINDOW_SEC
     try:
-        stale_ids = await redis_client.zrangebyscore(_INSTANCE_ZSET, min="-inf", max=stale_before)
+        stale_ids = await redis_client.zrangebyscore(instance_zset, min="-inf", max=stale_before)
         pipeline = redis_client.pipeline(transaction=False)
-        pipeline.zadd(_INSTANCE_ZSET, {instance_id: now})
-        pipeline.hset(_INSTANCE_HASH, instance_id, json.dumps(details, separators=(",", ":")))
+        pipeline.zadd(instance_zset, {instance_id: now})
+        pipeline.hset(instance_hash, instance_id, json.dumps(details, separators=(",", ":")))
         if stale_ids:
-            pipeline.zrem(_INSTANCE_ZSET, *stale_ids)
-            pipeline.hdel(_INSTANCE_HASH, *stale_ids)
+            pipeline.zrem(instance_zset, *stale_ids)
+            pipeline.hdel(instance_hash, *stale_ids)
         egress_ip = details.get("egress_ip")
         if isinstance(egress_ip, str) and egress_ip:
-            pipeline.zadd(_EGRESS_ZSET, {egress_ip: now})
-        pipeline.zremrangebyscore(_EGRESS_ZSET, min="-inf", max=now - _RECENT_EGRESS_WINDOW_SEC)
+            pipeline.zadd(egress_zset, {egress_ip: now})
+        pipeline.zremrangebyscore(egress_zset, min="-inf", max=now - _RECENT_EGRESS_WINDOW_SEC)
+        pipeline.expire(instance_zset, _INSTANCE_REGISTRY_TTL_SEC)
+        pipeline.expire(instance_hash, _INSTANCE_REGISTRY_TTL_SEC)
+        pipeline.expire(egress_zset, _EGRESS_REGISTRY_TTL_SEC)
         await pipeline.execute()
     except Exception as exc:  # Redis telemetry must never affect application health.
         logger.warning(
@@ -96,9 +116,10 @@ async def record_runtime_heartbeat(redis_client: Redis | None) -> dict[str, Any]
 
 async def _shared_runtime_snapshot(redis_client: Redis, current: dict[str, Any]) -> dict[str, Any]:
     now = time.time()
+    instance_zset, instance_hash, egress_zset = runtime_registry_keys()
     active_after = now - _ACTIVE_WINDOW_SEC
-    active_ids = await redis_client.zrangebyscore(_INSTANCE_ZSET, min=active_after, max="+inf")
-    raw_details = await redis_client.hmget(_INSTANCE_HASH, active_ids) if active_ids else []
+    active_ids = await redis_client.zrangebyscore(instance_zset, min=active_after, max="+inf")
+    raw_details = await redis_client.hmget(instance_hash, active_ids) if active_ids else []
     instances = [value for value in (_decode_json(raw) for raw in raw_details) if value is not None]
     if current["id"] not in {item.get("id") for item in instances}:
         instances.append(current)
@@ -111,7 +132,7 @@ async def _shared_runtime_snapshot(redis_client: Redis, current: dict[str, Any])
         }
     )
     recent_egress = await redis_client.zrangebyscore(
-        _EGRESS_ZSET,
+        egress_zset,
         min=now - _RECENT_EGRESS_WINDOW_SEC,
         max="+inf",
     )
@@ -127,6 +148,7 @@ async def _shared_runtime_snapshot(redis_client: Redis, current: dict[str, Any])
 
 async def build_runtime_topology_snapshot(redis_client: Redis | None) -> dict[str, Any]:
     """Return active runtime/egress evidence with explicit count semantics."""
+    mode = runtime_mode()
     current = await record_runtime_heartbeat(redis_client)
     shared: dict[str, Any]
     if redis_client is None:
@@ -136,7 +158,7 @@ async def build_runtime_topology_snapshot(redis_client: Redis | None) -> dict[st
             "active_egress_ips": [current["egress_ip"]] if current.get("egress_ip") else [],
             "recent_egress_ips": [current["egress_ip"]] if current.get("egress_ip") else [],
             "aggregation": "local_only",
-            "degraded": True,
+            "degraded": mode == "fastapi_cloud",
         }
     else:
         try:
@@ -155,10 +177,10 @@ async def build_runtime_topology_snapshot(redis_client: Redis | None) -> dict[st
                 "degraded": True,
             }
 
-    is_fastapi_cloud = bool(os.getenv("FASTAPI_CLOUD", "").strip())
+    is_fastapi_cloud = mode == "fastapi_cloud"
     return {
         "provider": "FastAPI Cloud" if is_fastapi_cloud else "Local workstation",
-        "runtime_mode": "fastapi_cloud" if is_fastapi_cloud else "local",
+        "runtime_mode": mode,
         "observed_at": _utc_timestamp(),
         "platform_replica_count": None,
         "platform_replica_count_available": False,

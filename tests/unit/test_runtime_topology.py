@@ -30,7 +30,7 @@ async def test_local_runtime_snapshot_is_explicitly_not_platform_replica_count(
     assert snapshot["platform_replica_count"] is None
     assert snapshot["platform_replica_count_available"] is False
     assert snapshot["aggregation"] == "local_only"
-    assert snapshot["degraded"] is True
+    assert snapshot["degraded"] is False
     assert snapshot["active_egress_ips"] == ["34.200.20.162"]
     assert snapshot["recent_egress_ips"] == ["34.200.20.162"]
     assert "local workstation" in snapshot["count_semantics"]
@@ -57,6 +57,7 @@ async def test_fastapi_cloud_runtime_snapshot_keeps_cloud_semantics(monkeypatch)
 
     assert snapshot["provider"] == "FastAPI Cloud"
     assert snapshot["runtime_mode"] == "fastapi_cloud"
+    assert snapshot["degraded"] is True
     assert "not the FastAPI Cloud control-plane replica count" in snapshot["count_semantics"]
 
 
@@ -68,3 +69,14 @@ def test_runtime_instance_id_is_stable_and_opaque(monkeypatch) -> None:
     assert first == second
     assert first.startswith("runtime-")
     assert "container-a" not in first
+
+
+
+def test_runtime_registry_keys_isolate_local_and_cloud_heartbeats() -> None:
+    local = runtime_topology.runtime_registry_keys("local")
+    cloud = runtime_topology.runtime_registry_keys("fastapi_cloud")
+
+    assert local != cloud
+    assert all(":local:" in key for key in local)
+    assert all(":fastapi_cloud:" in key for key in cloud)
+    assert all(not key.endswith(":runtime:instances:last-seen") for key in (*local, *cloud))

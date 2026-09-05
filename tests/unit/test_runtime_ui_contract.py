@@ -15,6 +15,8 @@ def test_local_runtime_topology_is_rendered_before_core_services() -> None:
     core = page.index('id="health-core-group-heading"')
     assert runtime < core
     assert "Local workstation runtime" in page
+    assert "Observed processes" in page
+    assert "Observed instances" not in page
     assert "Runtime scope" in page
     assert "FastAPI Cloud runtime" not in page
     assert "FastAPI Cloud replicas" not in page
@@ -33,6 +35,7 @@ def test_fastapi_cloud_runtime_keeps_production_context() -> None:
 
     assert "FastAPI Cloud production" in page
     assert "FastAPI Cloud runtime" in page
+    assert "Observed instances" in page
     assert "FastAPI Cloud replicas" in page
     assert 'data-runtime-mode="fastapi_cloud"' in page
 
@@ -56,6 +59,11 @@ def test_runtime_topology_does_not_claim_control_plane_replica_count() -> None:
     assert "runtime_mode" in javascript
     assert "control-plane only" in javascript
     assert "local process" in javascript
+    assert "local runtime" in javascript
+    assert "local telemetry degraded" in javascript
     assert "observed_instance_count" in javascript
     assert "active_egress_ips" in javascript
     assert "recent_egress_ips" in javascript
+    assert 'redis_heartbeat: "shared Redis"' in javascript
+    assert 'local_only: "local only"' in javascript
+    assert 'local_fallback: "local fallback"' in javascript

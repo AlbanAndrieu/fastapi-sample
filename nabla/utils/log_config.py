@@ -9,6 +9,7 @@ import logging.handlers
 import os
 import re
 import sys
+from datetime import UTC, datetime
 from typing import Any, Optional
 from urllib.parse import urlsplit, urlunsplit
 
@@ -145,22 +146,28 @@ class JsonBaseFormatter(JsonFormatter):
             log_data.pop("color_message")
 
 
+def _json_log_record(record: logging.LogRecord) -> dict[str, Any]:
+    """Return stable context shared by local and Gunicorn JSON logs."""
+    return {
+        "timestamp": datetime.fromtimestamp(record.created, UTC).isoformat().replace("+00:00", "Z"),
+        "service_name": record.name,
+        "level": record.levelname,
+        "message": record.getMessage(),
+    }
+
+
 class JsonRequestFormatter(JsonBaseFormatter):
     def __init__(self):
         super(JsonBaseFormatter, self).__init__()
 
     def format(self, record):
-        json_record = {}
-        # json_record["data"] = record.getMessage()
-        json_record["message"] = record.getMessage()
+        json_record = _json_log_record(record)
         if "req" in record.__dict__:
             json_record["req"] = record.__dict__["req"]
         if "res" in record.__dict__:
             json_record["res"] = record.__dict__["res"]
         if record.exc_info and record.levelno >= 40:
             json_record["err"] = self.formatException(record.exc_info)
-        if "levelname" in record.__dict__:
-            json_record["level"] = record.__dict__["levelname"]
         return json.dumps(json_record)
 
 
@@ -184,12 +191,9 @@ class JsonErrorFormatter(JsonBaseFormatter):
         super(JsonBaseFormatter, self).__init__()
 
     def format(self, record):
-        json_record = {}
-        # json_record["data"] = record.getMessage()
+        json_record = _json_log_record(record)
         if record.exc_info and record.levelno >= 40:
             json_record["err"] = self.formatException(record.exc_info)
-        if "levelname" in record.__dict__:
-            json_record["level"] = record.__dict__["levelname"]
         return json.dumps(json_record)
 
 
@@ -219,16 +223,31 @@ class JMGunicornLogger(glogging.Logger):
         )
 
 
+_QUIET_HEALTH_PATHS = frozenset({"/health", "/healthz", "/livez", "/readyz", "/sickz"})
+_ACCESS_PATH_PATTERN = re.compile(r'"[A-Z]+ (?P<path>[^ ?"]+)')
+
+
+def _access_log_path(record: logging.LogRecord) -> str | None:
+    """Extract the request path from standard Uvicorn access-log records."""
+    args = record.args
+    if isinstance(args, tuple) and len(args) >= 3 and isinstance(args[2], str):
+        return args[2].split("?", 1)[0]
+    match = _ACCESS_PATH_PATTERN.search(record.getMessage())
+    return match.group("path") if match else None
+
+
 class HealthCheckFilter(logging.Filter):
+    """Drop routine operational health access logs while keeping other requests."""
+
     def filter(self, record: logging.LogRecord) -> bool:
-        return record.getMessage().find("/health") == -1
+        return _access_log_path(record) not in _QUIET_HEALTH_PATHS
 
 
 class MetricsFilter(logging.Filter):
-    # Uvicorn endpoint access log filter
+    """Drop routine metrics scrapes while keeping ordinary access logs."""
+
     def filter(self, record: logging.LogRecord) -> bool:
-        # return record.getMessage().find("GET /metrics") == -1
-        return record.getMessage().find("metrics") != -1
+        return _access_log_path(record) != "/metrics"
 
 
 def configure_library_log_levels() -> None:
@@ -254,7 +273,8 @@ def setup_logging() -> None:
     # Get root logger
     logger: logging.Logger = logging.getLogger()
 
-    # Remove /credentials/health from application server logs
+    # Keep high-frequency operational probes out of access logs without hiding
+    # ordinary application requests.
     logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
     logging.getLogger("uvicorn.access").addFilter(MetricsFilter())
 
