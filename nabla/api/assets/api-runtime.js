@@ -78,7 +78,15 @@ function render(snapshot) {
 
   const degraded = runtime.degraded === true;
   state.className = `runtime-topology-state runtime-topology-state--${degraded ? "warn" : "ok"}`;
-  state.textContent = degraded ? "local observation only" : `${count} active observed`;
+  if (isFastapiCloud) {
+    state.textContent = degraded ? "local observation only" : `${count} active observed`;
+  } else {
+    state.textContent = degraded
+      ? "local telemetry degraded"
+      : Number.isFinite(count) && count > 1
+        ? `${count} local processes`
+        : "local runtime";
+  }
 }
 
 export function loadRuntimeTopology() {
