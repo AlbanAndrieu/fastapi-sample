@@ -4,12 +4,12 @@
 
 import json
 import logging
-from datetime import UTC, datetime
 import logging.config
 import logging.handlers
 import os
 import re
 import sys
+from datetime import UTC, datetime
 from typing import Any, Optional
 from urllib.parse import urlsplit, urlunsplit
 
