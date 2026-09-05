@@ -53,6 +53,8 @@ _PFSENSE_TCP_PORT_POLICY: dict[int, dict[str, Any]] = {
     7000: {
         "service": "TrueNAS via pfSense HAProxy",
         "expected_reachable": True,
+        "direct_probe_semantics": "diagnostic_only",
+        "recommended_control_path": "out_of_band",
         "access_policy": "trusted_sources_only",
         "default_action": "deny",
         "expected_from": ["fastapi_cloud", "approved_admin_sources"],
@@ -74,9 +76,10 @@ _PFSENSE_TCP_PORT_POLICY: dict[int, dict[str, Any]] = {
         "negative_probe_required": True,
         "probe": "https",
         "reason": (
-            "FastAPI Cloud intentionally requires the pfSense REST API on WAN port 10443. "
-            "This is an accepted trusted-source exception while the platform provides no "
-            "user-controlled static egress/tunnel; generic Internet origins must remain denied."
+            "The direct FastAPI Cloud probe of pfSense WAN 10443 is diagnostic only. "
+            "The listener must remain trusted_sources_only, and FastAPI Cloud does not provide "
+            "a stable application-controlled egress identity. A failed direct probe can therefore "
+            "be policy-consistent; durable telemetry should use an out-of-band observer."
         ),
     },
 }
