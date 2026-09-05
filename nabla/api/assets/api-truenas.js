@@ -132,7 +132,7 @@ function renderIngressBlock(data, target) {
     container.className = "truenas-ingress-block truenas-ingress-block--warning";
     container.hidden = false;
     container.innerHTML =
-      "<strong>⚠ Snort telemetry temporarily unavailable</strong>" +
+      "<strong>⚠ pfSense security telemetry temporarily unavailable</strong>" +
       `<span>${evidence}</span>` +
       (timing ? `<span>${timing}</span>` : "") +
       `<span>Control path: ${path} · ${escapeText(independence)}</span>`;

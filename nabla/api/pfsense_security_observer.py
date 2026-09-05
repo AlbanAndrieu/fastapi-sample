@@ -27,7 +27,7 @@ from nabla.settings.homelab import (
 
 ControlPathMode = Literal["shared_wan", "out_of_band"]
 _PFSENSE_CONNECT_TIMEOUT_SEC = 2.0
-_PFSENSE_READ_TIMEOUT_SEC = 4.0
+_PFSENSE_READ_TIMEOUT_SEC = 6.0
 _PFSENSE_MAX_ATTEMPTS = 1
 _PFSENSE_RETRY_DELAY_SEC = 0.2
 _SNORT2C_PATH = "/api/v2/diagnostics/table?id=snort2c"

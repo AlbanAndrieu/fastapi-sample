@@ -21,6 +21,7 @@ from nabla.api.runtime_environment import known_paas_runtime_detected
 from nabla.api.sickz_pfsense import (
     PFSENSE_EXTRA_TCP_PORTS,
     ensure_pfsense_group,
+    pfsense_canonical_href,
     pfsense_canonical_tcp_host,
     pfsense_tcp_port_policy_payload,
     pfsense_tcp_skip_payload,
@@ -164,12 +165,20 @@ async def _probe_alias_group(
 ) -> dict[str, Any]:
     """Probe one logical target; any reachable alias makes the group reachable."""
     href = row_href(urls)
-    tls_coro = (
-        probe_https_tls_trusted(href)
-        if href.lower().startswith("https:")
-        else _async_none()
-    )
     pf_tcp_host = pfsense_canonical_tcp_host(urls)
+    paas_pfsense = bool(pf_tcp_host and known_paas_runtime_detected())
+    if paas_pfsense:
+        canonical = pfsense_canonical_href(urls)
+        probe_urls = [canonical] if canonical else []
+        tls_coro = _async_none()
+    else:
+        probe_urls = list(urls)
+        tls_coro = (
+            probe_https_tls_trusted(href)
+            if href.lower().startswith("https:")
+            else _async_none()
+        )
+
     if pf_tcp_host:
         tcp_coro = asyncio.gather(
             *(
@@ -178,26 +187,38 @@ async def _probe_alias_group(
             ),
         )
         results, tls_trusted, tcp_reachable = await asyncio.gather(
-            asyncio.gather(*(_probe_url(url) for url in urls)),
+            asyncio.gather(*(_probe_url(url) for url in probe_urls)),
             tls_coro,
             tcp_coro,
         )
     else:
         results, tls_trusted = await asyncio.gather(
-            asyncio.gather(*(_probe_url(url) for url in urls)),
+            asyncio.gather(*(_probe_url(url) for url in probe_urls)),
             tls_coro,
         )
         tcp_reachable = None
 
     by_url = {
-        url: normalize_probe_result_errors(result)
-        for url, result in zip(urls, results, strict=True)
+        url: {
+            "reachable": None,
+            "skipped": True,
+            "reason": "non-canonical pfSense alias skipped from cloud exposure probing",
+        }
+        for url in urls
+        if url not in probe_urls
     }
+    by_url.update(
+        {
+            url: normalize_probe_result_errors(result)
+            for url, result in zip(probe_urls, results, strict=True)
+        }
+    )
     out: dict[str, Any] = {
         "reachable": any(
             result.get("reachable") is True for result in results
         ),
-        "aliases_probed": urls,
+        "aliases_probed": probe_urls,
+        "aliases_configured": urls,
         "alias_results": by_url,
         "tls_trusted": tls_trusted,
         **row_ui_metadata(

@@ -32,15 +32,22 @@ _PFSENSE_TCP_PORT_POLICY: dict[int, dict[str, Any]] = {
         "service": "SSH",
         "expected_reachable": False,
         "probe": "ssh",
-        "reason": "Remote shell access must not be exposed to the public Internet.",
+        "port_sweep_probe": False,
+        "reason": (
+            "Remote shell access must not be exposed to the public Internet. "
+            "Active banner probes are disabled because repeated pre-auth disconnects "
+            "create sshguard security events."
+        ),
     },
     9922: {
         "service": "TrueNAS SSH",
         "expected_reachable": False,
         "probe": "ssh",
+        "port_sweep_probe": False,
         "reason": (
             "TrueNAS SSH may be enabled for trusted LAN administration but must not "
-            "be exposed to the public Internet."
+            "be exposed to the public Internet. Active banner probes are disabled to "
+            "avoid repeated pre-auth security events."
         ),
     },
     4000: {
@@ -66,19 +73,20 @@ _PFSENSE_TCP_PORT_POLICY: dict[int, dict[str, Any]] = {
     },
     10443: {
         "service": "pfSense Admin/API",
-        "expected_reachable": True,
-        "direct_probe_semantics": "diagnostic_only",
+        "expected_reachable": False,
+        "direct_probe_semantics": "negative_exposure_check",
         "recommended_control_path": "out_of_band",
         "access_policy": "trusted_sources_only",
         "default_action": "deny",
-        "expected_from": ["fastapi_cloud", "approved_admin_sources"],
+        "expected_from": ["approved_admin_sources"],
         "negative_probe_required": True,
         "probe": "https",
+        "port_sweep_probe": False,
         "reason": (
-            "The direct FastAPI Cloud probe of pfSense WAN 10443 is diagnostic only. "
-            "The listener must remain trusted_sources_only, and FastAPI Cloud does not provide "
-            "a stable application-controlled egress identity. A failed direct probe can therefore "
-            "be policy-consistent; durable telemetry should use an out-of-band observer."
+            "pfSense WAN 10443 must be blocked from FastAPI Cloud and unrelated Internet "
+            "origins. Keep one canonical negative exposure probe, but do not duplicate it "
+            "inside the port sweep. Durable posture/Snort telemetry should use an "
+            "independent out-of-band observer."
         ),
     },
 }
@@ -234,6 +242,8 @@ async def _probe_http_port(
 async def probe_pfsense_tcp_port(host: str, port: int) -> bool | None:
     """Probe known services by protocol; avoid bare-TCP PaaS false positives."""
     policy = _PFSENSE_TCP_PORT_POLICY.get(port)
+    if policy and policy.get("port_sweep_probe") is False:
+        return None
     probe = policy.get("probe") if policy else None
     if probe == "ssh":
         return await _probe_ssh_port(host, port)

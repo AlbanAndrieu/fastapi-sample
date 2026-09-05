@@ -99,7 +99,7 @@ def test_security_settings_keep_legacy_fallback_when_explicitly_present(monkeypa
 
 def test_snort_probe_is_fail_fast_and_uses_failure_backoff() -> None:
     assert observer._PFSENSE_CONNECT_TIMEOUT_SEC == 2.0
-    assert observer._PFSENSE_READ_TIMEOUT_SEC == 4.0
+    assert observer._PFSENSE_READ_TIMEOUT_SEC == 6.0
     assert observer._PFSENSE_MAX_ATTEMPTS == 1
     assert observer._SNORT2C_CACHE_POLICY.success_ttl == 60.0
     assert observer._SNORT2C_CACHE_POLICY.failure_ttl == 120.0
