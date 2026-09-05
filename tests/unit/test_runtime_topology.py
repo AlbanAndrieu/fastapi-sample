@@ -106,6 +106,7 @@ async def test_redis_usage_snapshot_reports_safe_capacity_metrics() -> None:
 
     result = await runtime_topology.redis_usage_snapshot(client)
 
+    assert result["configured"] is True
     assert result["available"] is True
     assert result["telemetry_available"] is True
     assert result["used_memory_bytes"] == 1_048_576
@@ -119,8 +120,25 @@ async def test_redis_usage_snapshot_reports_safe_capacity_metrics() -> None:
 async def test_redis_usage_snapshot_is_optional_without_client() -> None:
     result = await runtime_topology.redis_usage_snapshot(None)
 
+    assert result["configured"] is False
     assert result["available"] is False
     assert result["telemetry_available"] is False
+
+@pytest.mark.asyncio
+async def test_redis_usage_snapshot_keeps_ping_health_when_info_is_forbidden() -> None:
+    client = AsyncMock()
+    client.ping.return_value = True
+    client.info.side_effect = PermissionError("INFO not permitted")
+
+    result = await runtime_topology.redis_usage_snapshot(client)
+
+    assert result["configured"] is True
+    assert result["available"] is True
+    assert result["telemetry_available"] is False
+    assert result["failure_stage"] == "info"
+    assert result["exception_type"] == "PermissionError"
+    assert "not permitted" not in str(result)
+
 
 def test_runtime_registry_keys_isolate_local_and_cloud_heartbeats() -> None:
     local = runtime_topology.runtime_registry_keys("local")
