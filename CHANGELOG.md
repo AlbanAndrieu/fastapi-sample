@@ -1,3 +1,10 @@
+## [1.6.3](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.6.2...1.6.3) (2026-09-05)
+
+
+### Bug Fixes
+
+* **ui:** distinguish local runtime and reduce log noise ([#185](https://github.com/AlbanAndrieu/fastapi-sample/issues/185)) ([2e066bd](https://github.com/AlbanAndrieu/fastapi-sample/commit/2e066bdb651652d79c552d31026b39102aa0ce84))
+
 ## [1.6.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.6.1...1.6.2) (2026-09-04)
 
 
