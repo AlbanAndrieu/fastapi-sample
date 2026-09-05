@@ -66,6 +66,38 @@ async def test_fastapi_cloud_runtime_snapshot_keeps_cloud_semantics(monkeypatch)
     assert "not the FastAPI Cloud control-plane replica count" in snapshot["count_semantics"]
 
 
+@pytest.mark.asyncio
+async def test_request_hostname_drives_topology_scope_without_platform_env(
+    monkeypatch,
+) -> None:
+    for name in (
+        "FASTAPI_CLOUD",
+        "FASTAPI_CLOUD_APP_ID",
+        "SICKZ_NETWORK_LABEL",
+        "AWS_EXECUTION_ENV",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+    async def egress():
+        return {
+            "ip": "34.200.20.162",
+            "observed": True,
+            "cached": True,
+            "source": "external_echo",
+        }
+
+    monkeypatch.setattr(runtime_topology, "observe_public_egress_ip", egress)
+
+    snapshot = await runtime_topology.build_runtime_topology_snapshot(
+        None,
+        hostname="fastapi-sample.fastapicloud.dev",
+    )
+
+    assert snapshot["provider"] == "FastAPI Cloud"
+    assert snapshot["runtime_mode"] == "fastapi_cloud"
+    assert snapshot["degraded"] is True
+
+
 def test_runtime_instance_id_is_stable_and_opaque(monkeypatch) -> None:
     monkeypatch.setenv("HOSTNAME", "container-a")
     first = runtime_topology.runtime_instance_id()
@@ -74,7 +106,6 @@ def test_runtime_instance_id_is_stable_and_opaque(monkeypatch) -> None:
     assert first == second
     assert first.startswith("runtime-")
     assert "container-a" not in first
-
 
 
 @pytest.mark.asyncio
@@ -97,7 +128,7 @@ async def test_redis_usage_snapshot_reports_safe_capacity_metrics() -> None:
         {
             "instantaneous_ops_per_sec": 12,
             "keyspace_hits": 40,
-            "keyspace_misses": 2,
+            "keyspace_misses": 10,
             "evicted_keys": 3,
             "expired_keys": 9,
         },
@@ -106,6 +137,10 @@ async def test_redis_usage_snapshot_reports_safe_capacity_metrics() -> None:
 
     result = await runtime_topology.redis_usage_snapshot(client)
 
+    assert result["backend"] == "application_redis"
+    assert result["provider_attribution"] == "unavailable"
+    assert result["telemetry_scope"] == "redis_server_and_selected_database"
+    assert result["key_count_scope"] == "selected_database_total"
     assert result["configured"] is True
     assert result["available"] is True
     assert result["telemetry_available"] is True
@@ -114,15 +149,20 @@ async def test_redis_usage_snapshot_reports_safe_capacity_metrics() -> None:
     assert result["connected_clients"] == 4
     assert result["keys"] == 37
     assert result["instantaneous_ops_per_sec"] == 12
+    assert result["keyspace_hit_rate_percent"] == 80.0
+    assert result["evicted_keys"] == 3
 
 
 @pytest.mark.asyncio
 async def test_redis_usage_snapshot_is_optional_without_client() -> None:
     result = await runtime_topology.redis_usage_snapshot(None)
 
+    assert result["backend"] == "application_redis"
+    assert result["provider_attribution"] == "unavailable"
     assert result["configured"] is False
     assert result["available"] is False
     assert result["telemetry_available"] is False
+
 
 @pytest.mark.asyncio
 async def test_redis_usage_snapshot_keeps_ping_health_when_info_is_forbidden() -> None:
