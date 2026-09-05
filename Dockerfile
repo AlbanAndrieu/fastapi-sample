@@ -89,7 +89,6 @@ RUN apt-get update \
 COPY --from=builder --chown=jm-python:jm-python /code/.venv /code/.venv
 COPY --chown=jm-python:jm-python nabla/ /code/jm-python/nabla/
 COPY --chown=jm-python:jm-python server_all.py /code/jm-python/
-COPY --chown=jm-python:jm-python my-login-app/ /code/jm-python/my-login-app/
 COPY --chown=jm-python:jm-python templates/ /code/jm-python/templates/
 
 USER 999:999
