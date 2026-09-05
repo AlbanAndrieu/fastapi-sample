@@ -6,6 +6,11 @@ from dataclasses import dataclass
 import os
 import re
 
+from nabla.settings.homelab import (
+    pfsense_posture_environment_variables,
+    pfsense_security_environment_variables,
+)
+
 _ENV_REFERENCE_RE = re.compile(r"[A-Z][A-Z0-9_]{2,}")
 
 
@@ -62,28 +67,14 @@ def inspect_environment_credentials(
     )
 
 
-def _pfsense_key_variable(dedicated_key_var: str) -> str:
-    """Use legacy compatibility only when the historical shared key actually exists."""
-    if os.getenv(dedicated_key_var, "").strip():
-        return dedicated_key_var
-    if os.getenv("PFSENSE_API_KEY", "").strip():
-        return "PFSENSE_API_KEY"
-    return dedicated_key_var
-
-
 def _pfsense_credential_status(
     provider: str,
     *,
-    dedicated_url_var: str,
+    url_var: str,
+    key_var: str,
     dedicated_key_var: str,
 ) -> dict[str, object]:
-    """Report one pfSense identity using dedicated variables with legacy fallback."""
-    url_var = (
-        dedicated_url_var
-        if os.getenv(dedicated_url_var, "").strip()
-        else "PFSENSE_API_URL"
-    )
-    key_var = _pfsense_key_variable(dedicated_key_var)
+    """Report one selected pfSense identity without exposing secret material."""
     status = inspect_environment_credentials(
         provider,
         url_var,
@@ -109,16 +100,21 @@ def infrastructure_provider_credentials() -> dict[str, dict[str, object]]:
         or os.getenv("TRUENAS_USER", "").strip()
     )
 
+    posture_url_var, posture_key_var = pfsense_posture_environment_variables()
+    security_url_var, security_key_var = pfsense_security_environment_variables()
+
     return {
         "truenas": truenas,
         "pfsense": _pfsense_credential_status(
             "pfsense",
-            dedicated_url_var="PFSENSE_POSTURE_API_URL",
+            url_var=posture_url_var,
+            key_var=posture_key_var,
             dedicated_key_var="PFSENSE_POSTURE_API_KEY",
         ),
         "pfsense_security": _pfsense_credential_status(
             "pfsense_security",
-            dedicated_url_var="PFSENSE_SECURITY_API_URL",
+            url_var=security_url_var,
+            key_var=security_key_var,
             dedicated_key_var="PFSENSE_SECURITY_API_KEY",
         ),
         "cloudflare": inspect_environment_credentials(

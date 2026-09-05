@@ -83,6 +83,11 @@ function isExpectedSentryDebugFailure(key, check) {
 
 function classify(key, check) {
   if (check.skipped === true) return "yellow";
+  if (
+    key === "pfsense" &&
+    check?.ingress_policy?.state === "possible_ingress_policy_block"
+  )
+    return "yellow";
   if (isExpectedSentryDebugFailure(key, check)) return "green";
   const dependencyClass = dependencyHealthClass(check);
   if (dependencyClass) return dependencyClass;
@@ -131,9 +136,30 @@ function baseDetailText(key, check) {
   return "Unreachable.";
 }
 
+function sourcePolicyDetailText(key, check) {
+  if (
+    key !== "pfsense" ||
+    check?.ingress_policy?.state !== "possible_ingress_policy_block"
+  )
+    return "";
+  const egress = Array.isArray(check.ingress_policy.active_egress_ips)
+    ? check.ingress_policy.active_egress_ips.filter(Boolean).join(", ")
+    : "";
+  return [
+    "possible pfSense ingress-policy block",
+    egress ? `active cloud egress ${egress}` : "",
+    "possible trusted-source drift or PF/Snort filtering",
+    "direct WAN probe is diagnostic only",
+    "prefer out-of-band observer",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
 function detailText(key, check) {
   const details = [
     baseDetailText(key, check),
+    sourcePolicyDetailText(key, check),
     dependencyDetailText(check),
   ].filter(Boolean);
   return details.join(" · ");

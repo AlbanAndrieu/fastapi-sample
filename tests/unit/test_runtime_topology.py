@@ -1,5 +1,7 @@
 """Tests for sanitized application runtime/egress topology evidence."""
 
+from unittest.mock import AsyncMock
+
 import pytest
 
 from nabla.api import runtime_topology
@@ -11,6 +13,9 @@ async def test_local_runtime_snapshot_is_explicitly_not_platform_replica_count(
 ) -> None:
     monkeypatch.setenv("HOSTNAME", "container-a")
     monkeypatch.delenv("FASTAPI_CLOUD", raising=False)
+    monkeypatch.delenv("FASTAPI_CLOUD_APP_ID", raising=False)
+    monkeypatch.delenv("SICKZ_NETWORK_LABEL", raising=False)
+    monkeypatch.delenv("AWS_EXECUTION_ENV", raising=False)
 
     async def egress():
         return {
@@ -61,6 +66,38 @@ async def test_fastapi_cloud_runtime_snapshot_keeps_cloud_semantics(monkeypatch)
     assert "not the FastAPI Cloud control-plane replica count" in snapshot["count_semantics"]
 
 
+@pytest.mark.asyncio
+async def test_request_hostname_drives_topology_scope_without_platform_env(
+    monkeypatch,
+) -> None:
+    for name in (
+        "FASTAPI_CLOUD",
+        "FASTAPI_CLOUD_APP_ID",
+        "SICKZ_NETWORK_LABEL",
+        "AWS_EXECUTION_ENV",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+    async def egress():
+        return {
+            "ip": "34.200.20.162",
+            "observed": True,
+            "cached": True,
+            "source": "external_echo",
+        }
+
+    monkeypatch.setattr(runtime_topology, "observe_public_egress_ip", egress)
+
+    snapshot = await runtime_topology.build_runtime_topology_snapshot(
+        None,
+        hostname="fastapi-sample.fastapicloud.dev",
+    )
+
+    assert snapshot["provider"] == "FastAPI Cloud"
+    assert snapshot["runtime_mode"] == "fastapi_cloud"
+    assert snapshot["degraded"] is True
+
+
 def test_runtime_instance_id_is_stable_and_opaque(monkeypatch) -> None:
     monkeypatch.setenv("HOSTNAME", "container-a")
     first = runtime_topology.runtime_instance_id()
@@ -70,6 +107,77 @@ def test_runtime_instance_id_is_stable_and_opaque(monkeypatch) -> None:
     assert first.startswith("runtime-")
     assert "container-a" not in first
 
+
+@pytest.mark.asyncio
+async def test_redis_usage_snapshot_reports_safe_capacity_metrics() -> None:
+    client = AsyncMock()
+    client.info.side_effect = [
+        {
+            "used_memory": 1_048_576,
+            "used_memory_human": "1.00M",
+            "used_memory_rss": 2_097_152,
+            "used_memory_rss_human": "2.00M",
+            "used_memory_peak": 1_572_864,
+            "used_memory_peak_human": "1.50M",
+            "maxmemory": 4_194_304,
+            "maxmemory_human": "4.00M",
+            "maxmemory_policy": "allkeys-lru",
+            "mem_fragmentation_ratio": 2.0,
+        },
+        {"connected_clients": 4, "blocked_clients": 1},
+        {
+            "instantaneous_ops_per_sec": 12,
+            "keyspace_hits": 40,
+            "keyspace_misses": 10,
+            "evicted_keys": 3,
+            "expired_keys": 9,
+        },
+    ]
+    client.dbsize.return_value = 37
+
+    result = await runtime_topology.redis_usage_snapshot(client)
+
+    assert result["backend"] == "application_redis"
+    assert result["provider_attribution"] == "unavailable"
+    assert result["telemetry_scope"] == "redis_server_and_selected_database"
+    assert result["key_count_scope"] == "selected_database_total"
+    assert result["configured"] is True
+    assert result["available"] is True
+    assert result["telemetry_available"] is True
+    assert result["used_memory_bytes"] == 1_048_576
+    assert result["memory_utilization_percent"] == 25.0
+    assert result["connected_clients"] == 4
+    assert result["keys"] == 37
+    assert result["instantaneous_ops_per_sec"] == 12
+    assert result["keyspace_hit_rate_percent"] == 80.0
+    assert result["evicted_keys"] == 3
+
+
+@pytest.mark.asyncio
+async def test_redis_usage_snapshot_is_optional_without_client() -> None:
+    result = await runtime_topology.redis_usage_snapshot(None)
+
+    assert result["backend"] == "application_redis"
+    assert result["provider_attribution"] == "unavailable"
+    assert result["configured"] is False
+    assert result["available"] is False
+    assert result["telemetry_available"] is False
+
+
+@pytest.mark.asyncio
+async def test_redis_usage_snapshot_keeps_ping_health_when_info_is_forbidden() -> None:
+    client = AsyncMock()
+    client.ping.return_value = True
+    client.info.side_effect = PermissionError("INFO not permitted")
+
+    result = await runtime_topology.redis_usage_snapshot(client)
+
+    assert result["configured"] is True
+    assert result["available"] is True
+    assert result["telemetry_available"] is False
+    assert result["failure_stage"] == "info"
+    assert result["exception_type"] == "PermissionError"
+    assert "not permitted" not in str(result)
 
 
 def test_runtime_registry_keys_isolate_local_and_cloud_heartbeats() -> None:

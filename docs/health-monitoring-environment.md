@@ -128,11 +128,13 @@ CPU/load, mbuf, memory, swap, and filesystem metrics, so a healthy firewall can
 exceed a short health-check read timeout. Keep `/api/v2/status/system` for
 on-demand or separately cached detailed observability.
 
-FastAPI Cloud currently requires direct reachability to the approved pfSense and
-TrueNAS listeners because this deployment does not expose a user-controlled
-outbound tunnel or static egress gateway. Treat `10443` and `7000` as
-`trusted_sources_only` exceptions with default-deny firewall policy and validate
-them from both approved and independent untrusted vantage points.
+FastAPI Cloud currently uses direct reachability for the intentional TrueNAS
+`7000` path. The pfSense `10443` WAN probe is diagnostic-only while the
+platform lacks a stable application-controlled egress identity: keep it
+`trusted_sources_only`, do not chase rotating cloud IPs with permanent
+allowlists, and move posture/Snort telemetry to an independent out-of-band
+observer. Validate management-port denial from an independent untrusted vantage
+point.
 
 ## TrueNAS 26 API
 

@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-import os
 from typing import Any
 from urllib.parse import urlparse
 
 import httpx
+
+from nabla.api.runtime_environment import known_paas_runtime_detected
 
 PFSENSE_EXTRA_TCP_PORTS: tuple[int, ...] = (
     22,
@@ -66,31 +67,21 @@ _PFSENSE_TCP_PORT_POLICY: dict[int, dict[str, Any]] = {
     10443: {
         "service": "pfSense Admin/API",
         "expected_reachable": True,
+        "direct_probe_semantics": "diagnostic_only",
+        "recommended_control_path": "out_of_band",
         "access_policy": "trusted_sources_only",
         "default_action": "deny",
         "expected_from": ["fastapi_cloud", "approved_admin_sources"],
         "negative_probe_required": True,
         "probe": "https",
         "reason": (
-            "FastAPI Cloud intentionally requires the pfSense REST API on WAN port 10443. "
-            "This is an accepted trusted-source exception while the platform provides no "
-            "user-controlled static egress/tunnel; generic Internet origins must remain denied."
+            "The direct FastAPI Cloud probe of pfSense WAN 10443 is diagnostic only. "
+            "The listener must remain trusted_sources_only, and FastAPI Cloud does not provide "
+            "a stable application-controlled egress identity. A failed direct probe can therefore "
+            "be policy-consistent; durable telemetry should use an out-of-band observer."
         ),
     },
 }
-
-_KNOWN_PAAS_ENV_MARKERS: tuple[str, ...] = (
-    "VERCEL",
-    "AWS_EXECUTION_ENV",
-    "AWS_LAMBDA_FUNCTION_NAME",
-    "KUBERNETES_SERVICE_HOST",
-    "FLY_APP_NAME",
-    "RAILWAY_ENVIRONMENT",
-    "RAILWAY_PROJECT_ID",
-    "HEROKU_APP_NAME",
-    "DYNO",
-)
-
 
 def pfsense_tcp_port_policy_payload() -> dict[str, dict[str, Any]]:
     return {
@@ -163,14 +154,6 @@ def pfsense_tcp_skip_payload(urls: list[str]) -> dict[str, Any]:
         "pfsense_tcp_port_policy": pfsense_tcp_port_policy_payload(),
         "pfsense_tcp_ports_skipped": True,
     }
-
-
-def known_paas_runtime_detected() -> bool:
-    env = os.environ
-    return any(
-        env.get(key) is not None and str(env.get(key)).strip() != ""
-        for key in _KNOWN_PAAS_ENV_MARKERS
-    )
 
 
 async def _probe_tcp_port_open(

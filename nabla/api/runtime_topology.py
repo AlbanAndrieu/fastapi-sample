@@ -2,8 +2,8 @@
 
 FastAPI Cloud exposes replica counts in its control-plane Metrics UI, but the
 application runtime does not currently receive a documented control-plane replica
-count.  This module therefore reports *observed active runtimes* using short-lived
-Redis heartbeats.  It never presents that count as the authoritative platform
+count. This module therefore reports *observed active runtimes* using short-lived
+Redis heartbeats. It never presents that count as the authoritative platform
 replica count.
 """
 
@@ -21,6 +21,7 @@ from typing import Any
 from redis.asyncio import Redis
 
 from nabla.api.public_egress_observer import observe_public_egress_ip
+from nabla.api.runtime_environment import runtime_mode
 from nabla.utils.logger import logger
 
 _RUNTIME_KEY_PREFIX = "fastapi-sample:runtime"
@@ -29,11 +30,10 @@ _ACTIVE_WINDOW_SEC = 95.0
 _RECENT_EGRESS_WINDOW_SEC = 86_400.0
 _INSTANCE_REGISTRY_TTL_SEC = 600
 _EGRESS_REGISTRY_TTL_SEC = 172_800
-
-
-def runtime_mode() -> str:
-    """Return the stable runtime scope used by UI and Redis telemetry."""
-    return "fastapi_cloud" if os.getenv("FASTAPI_CLOUD", "").strip() else "local"
+_REDIS_TELEMETRY_TIMEOUT_SEC = 1.5
+_REDIS_BACKEND = "application_redis"
+_REDIS_PROVIDER_ATTRIBUTION = "unavailable"
+_REDIS_TELEMETRY_SCOPE = "redis_server_and_selected_database"
 
 
 def runtime_registry_keys(mode: str | None = None) -> tuple[str, str, str]:
@@ -73,8 +73,130 @@ def _decode_json(raw: object) -> dict[str, Any] | None:
     return value if isinstance(value, dict) else None
 
 
-async def record_runtime_heartbeat(redis_client: Redis | None) -> dict[str, Any]:
-    """Record this runtime in the shared registry and return its sanitized details."""
+def _int_value(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _float_value(value: Any) -> float | None:
+    try:
+        return round(float(value), 3)
+    except (TypeError, ValueError):
+        return None
+
+
+def _redis_identity() -> dict[str, str]:
+    """Describe the observed Redis without claiming which platform manages it."""
+    return {
+        "backend": _REDIS_BACKEND,
+        "provider_attribution": _REDIS_PROVIDER_ATTRIBUTION,
+        "telemetry_scope": _REDIS_TELEMETRY_SCOPE,
+        "key_count_scope": "selected_database_total",
+    }
+
+
+async def redis_usage_snapshot(redis_client: Redis | None) -> dict[str, Any]:
+    """Return bounded, credential-free Redis capacity/usage telemetry."""
+    identity = _redis_identity()
+    if redis_client is None:
+        return {
+            **identity,
+            "configured": False,
+            "available": False,
+            "telemetry_available": False,
+            "reason": "redis client not configured",
+        }
+
+    stage = "ping"
+    try:
+        async with asyncio.timeout(_REDIS_TELEMETRY_TIMEOUT_SEC):
+            await redis_client.ping()
+            stage = "info"
+            memory, clients, stats, key_count = await asyncio.gather(
+                redis_client.info("memory"),
+                redis_client.info("clients"),
+                redis_client.info("stats"),
+                redis_client.dbsize(),
+            )
+    except TimeoutError:
+        return {
+            **identity,
+            "configured": True,
+            "available": stage == "info",
+            "telemetry_available": False,
+            "reason": (
+                "redis telemetry deadline exceeded"
+                if stage == "info"
+                else "redis ping deadline exceeded"
+            ),
+            "error_kind": "deadline",
+            "failure_stage": stage,
+        }
+    except Exception as exc:
+        return {
+            **identity,
+            "configured": True,
+            "available": stage == "info",
+            "telemetry_available": False,
+            "reason": (
+                "redis INFO telemetry unavailable"
+                if stage == "info"
+                else "redis ping unavailable"
+            ),
+            "failure_stage": stage,
+            "exception_type": type(exc).__name__,
+        }
+
+    used_memory = _int_value(memory.get("used_memory"))
+    maxmemory = _int_value(memory.get("maxmemory"))
+    utilization = None
+    if used_memory is not None and maxmemory is not None and maxmemory > 0:
+        utilization = round((used_memory / maxmemory) * 100, 2)
+
+    hits = _int_value(stats.get("keyspace_hits"))
+    misses = _int_value(stats.get("keyspace_misses"))
+    hit_rate = None
+    if hits is not None and misses is not None and hits + misses > 0:
+        hit_rate = round((hits / (hits + misses)) * 100, 2)
+
+    return {
+        **identity,
+        "configured": True,
+        "available": True,
+        "telemetry_available": True,
+        "used_memory_bytes": used_memory,
+        "used_memory_human": memory.get("used_memory_human"),
+        "used_memory_rss_bytes": _int_value(memory.get("used_memory_rss")),
+        "used_memory_rss_human": memory.get("used_memory_rss_human"),
+        "used_memory_peak_bytes": _int_value(memory.get("used_memory_peak")),
+        "used_memory_peak_human": memory.get("used_memory_peak_human"),
+        "maxmemory_bytes": maxmemory,
+        "maxmemory_human": memory.get("maxmemory_human"),
+        "maxmemory_policy": memory.get("maxmemory_policy"),
+        "memory_utilization_percent": utilization,
+        "mem_fragmentation_ratio": _float_value(memory.get("mem_fragmentation_ratio")),
+        "connected_clients": _int_value(clients.get("connected_clients")),
+        "blocked_clients": _int_value(clients.get("blocked_clients")),
+        "keys": _int_value(key_count),
+        "instantaneous_ops_per_sec": _int_value(stats.get("instantaneous_ops_per_sec")),
+        "keyspace_hits": hits,
+        "keyspace_misses": misses,
+        "keyspace_hit_rate_percent": hit_rate,
+        "evicted_keys": _int_value(stats.get("evicted_keys")),
+        "expired_keys": _int_value(stats.get("expired_keys")),
+    }
+
+
+async def record_runtime_heartbeat(
+    redis_client: Redis | None,
+    *,
+    mode: str | None = None,
+) -> dict[str, Any]:
+    """Record this runtime in the scoped registry and return sanitized details."""
     egress = await observe_public_egress_ip()
     now = time.time()
     instance_id = runtime_instance_id()
@@ -88,7 +210,7 @@ async def record_runtime_heartbeat(redis_client: Redis | None) -> dict[str, Any]
     if redis_client is None:
         return details
 
-    instance_zset, instance_hash, egress_zset = runtime_registry_keys()
+    instance_zset, instance_hash, egress_zset = runtime_registry_keys(mode)
     stale_before = now - _ACTIVE_WINDOW_SEC
     try:
         stale_ids = await redis_client.zrangebyscore(instance_zset, min="-inf", max=stale_before)
@@ -114,9 +236,14 @@ async def record_runtime_heartbeat(redis_client: Redis | None) -> dict[str, Any]
     return details
 
 
-async def _shared_runtime_snapshot(redis_client: Redis, current: dict[str, Any]) -> dict[str, Any]:
+async def _shared_runtime_snapshot(
+    redis_client: Redis,
+    current: dict[str, Any],
+    *,
+    mode: str | None = None,
+) -> dict[str, Any]:
     now = time.time()
-    instance_zset, instance_hash, egress_zset = runtime_registry_keys()
+    instance_zset, instance_hash, egress_zset = runtime_registry_keys(mode)
     active_after = now - _ACTIVE_WINDOW_SEC
     active_ids = await redis_client.zrangebyscore(instance_zset, min=active_after, max="+inf")
     raw_details = await redis_client.hmget(instance_hash, active_ids) if active_ids else []
@@ -146,10 +273,15 @@ async def _shared_runtime_snapshot(redis_client: Redis, current: dict[str, Any])
     }
 
 
-async def build_runtime_topology_snapshot(redis_client: Redis | None) -> dict[str, Any]:
+async def build_runtime_topology_snapshot(
+    redis_client: Redis | None,
+    *,
+    hostname: str | None = None,
+) -> dict[str, Any]:
     """Return active runtime/egress evidence with explicit count semantics."""
-    mode = runtime_mode()
-    current = await record_runtime_heartbeat(redis_client)
+    mode = runtime_mode(hostname)
+    current = await record_runtime_heartbeat(redis_client, mode=mode)
+    redis_usage = await redis_usage_snapshot(redis_client)
     shared: dict[str, Any]
     if redis_client is None:
         shared = {
@@ -158,11 +290,11 @@ async def build_runtime_topology_snapshot(redis_client: Redis | None) -> dict[st
             "active_egress_ips": [current["egress_ip"]] if current.get("egress_ip") else [],
             "recent_egress_ips": [current["egress_ip"]] if current.get("egress_ip") else [],
             "aggregation": "local_only",
-            "degraded": mode == "fastapi_cloud",
+            "degraded": mode in {"fastapi_cloud", "cloud_paas"},
         }
     else:
         try:
-            shared = await _shared_runtime_snapshot(redis_client, current)
+            shared = await _shared_runtime_snapshot(redis_client, current, mode=mode)
         except Exception as exc:  # Best-effort diagnostic only.
             logger.warning(
                 "runtime_topology_snapshot_failed",
@@ -178,8 +310,13 @@ async def build_runtime_topology_snapshot(redis_client: Redis | None) -> dict[st
             }
 
     is_fastapi_cloud = mode == "fastapi_cloud"
+    provider = {
+        "fastapi_cloud": "FastAPI Cloud",
+        "cloud_paas": "Cloud/PaaS runtime",
+        "local": "Local workstation",
+    }.get(mode, "Unknown runtime")
     return {
-        "provider": "FastAPI Cloud" if is_fastapi_cloud else "Local workstation",
+        "provider": provider,
         "runtime_mode": mode,
         "observed_at": _utc_timestamp(),
         "platform_replica_count": None,
@@ -188,12 +325,18 @@ async def build_runtime_topology_snapshot(redis_client: Redis | None) -> dict[st
             "Observed active application runtimes from shared heartbeats; "
             "this is not the FastAPI Cloud control-plane replica count."
             if is_fastapi_cloud
-            else "Observed application runtimes for the local workstation; "
-            "shared Redis heartbeats may include sibling local processes."
+            else (
+                "Observed application runtimes for a cloud/PaaS environment; "
+                "this is application heartbeat evidence, not provider control-plane capacity."
+                if mode == "cloud_paas"
+                else "Observed application runtimes for the local workstation; "
+                "shared Redis heartbeats may include sibling local processes."
+            )
         ),
         "heartbeat_interval_seconds": int(_HEARTBEAT_INTERVAL_SEC),
         "active_window_seconds": int(_ACTIVE_WINDOW_SEC),
         "recent_egress_window_seconds": int(_RECENT_EGRESS_WINDOW_SEC),
+        "redis": redis_usage,
         **shared,
     }
 

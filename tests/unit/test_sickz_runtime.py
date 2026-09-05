@@ -4,13 +4,19 @@ from types import SimpleNamespace
 
 import pytest
 
+from nabla.api import runtime_environment as runtime_env
 from nabla.api import sickz_checks as sc
 from nabla.api import sickz_pfsense as sp
 from nabla.config_settings import _default_sickz_targets_value
 
 
 def _clear_paas_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    for name in sp._KNOWN_PAAS_ENV_MARKERS:
+    names = (
+        *runtime_env._KNOWN_PAAS_ENV_MARKERS,
+        *runtime_env._FASTAPI_CLOUD_ENV_MARKERS,
+        "SICKZ_NETWORK_LABEL",
+    )
+    for name in names:
         monkeypatch.delenv(name, raising=False)
 
 
@@ -98,6 +104,8 @@ def test_known_public_port_policy_matches_expected_exposure() -> None:
     assert policy["10443"]["access_policy"] == "trusted_sources_only"
     assert policy["10443"]["default_action"] == "deny"
     assert policy["10443"]["negative_probe_required"] is True
+    assert policy["10443"]["direct_probe_semantics"] == "diagnostic_only"
+    assert policy["10443"]["recommended_control_path"] == "out_of_band"
 
 
 @pytest.mark.asyncio

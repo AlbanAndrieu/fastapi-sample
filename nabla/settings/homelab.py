@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+from typing import Literal
 from urllib.parse import urlsplit
 
 from pydantic import SecretStr, field_validator
@@ -132,3 +134,235 @@ class TrueNASProviderSettings(SettingsBase):
     @property
     def websocket_path(self) -> str:
         return self.truenas_ws_path
+
+
+_ALLOWED_PFSENSE_SCHEMES = frozenset({"http", "https"})
+
+
+def _pfsense_optional_text(value: object) -> object:
+    if isinstance(value, str):
+        stripped = value.strip()
+        return stripped or None
+    return value
+
+
+def _pfsense_optional_secret(value: object) -> object:
+    if isinstance(value, str):
+        stripped = value.strip()
+        return stripped or None
+    return value
+
+
+def _pfsense_optional_tls(value: object) -> object:
+    if isinstance(value, str) and not value.strip():
+        return None
+    return value
+
+
+def _pfsense_shared_tls(value: object) -> object:
+    if isinstance(value, str) and not value.strip():
+        return True
+    return value
+
+
+def _pfsense_url(value: str | None, *, variable: str) -> str | None:
+    if value is None:
+        return None
+    parsed = urlsplit(value)
+    if parsed.scheme.casefold() not in _ALLOWED_PFSENSE_SCHEMES or not parsed.hostname:
+        raise ValueError(f"{variable} must be an HTTP(S) URL with a host")
+    return value.rstrip("/")
+
+
+def _secret_value(secret: SecretStr | None) -> str:
+    return secret.get_secret_value().strip() if secret is not None else ""
+
+
+def pfsense_posture_environment_variables() -> tuple[str, str]:
+    """Return the selected posture URL/key variable names without secret values."""
+    url_var = (
+        "PFSENSE_POSTURE_API_URL"
+        if os.getenv("PFSENSE_POSTURE_API_URL", "").strip()
+        else "PFSENSE_API_URL"
+    )
+    if os.getenv("PFSENSE_POSTURE_API_KEY", "").strip():
+        key_var = "PFSENSE_POSTURE_API_KEY"
+    elif os.getenv("PFSENSE_API_KEY", "").strip():
+        key_var = "PFSENSE_API_KEY"
+    else:
+        key_var = "PFSENSE_POSTURE_API_KEY"
+    return url_var, key_var
+
+
+def pfsense_security_environment_variables() -> tuple[str, str]:
+    """Return the selected security URL/key variable names without secret values."""
+    url_var = (
+        "PFSENSE_SECURITY_API_URL"
+        if os.getenv("PFSENSE_SECURITY_API_URL", "").strip()
+        else "PFSENSE_API_URL"
+    )
+    if os.getenv("PFSENSE_SECURITY_API_KEY", "").strip():
+        key_var = "PFSENSE_SECURITY_API_KEY"
+    elif os.getenv("PFSENSE_API_KEY", "").strip():
+        key_var = "PFSENSE_API_KEY"
+    else:
+        key_var = "PFSENSE_SECURITY_API_KEY"
+    return url_var, key_var
+
+
+class _PfSenseSharedProviderSettings(SettingsBase):
+    """Shared compatibility transport inherited by split pfSense identities."""
+
+    pfsense_api_url: str | None = None
+    pfsense_api_key: SecretStr | None = None
+    pfsense_api_verify_ssl: bool = True
+
+    @field_validator("pfsense_api_url", mode="before")
+    @classmethod
+    def _strip_shared_url(cls, value: object) -> object:
+        return _pfsense_optional_text(value)
+
+    @field_validator("pfsense_api_url")
+    @classmethod
+    def _validate_shared_url(cls, value: str | None) -> str | None:
+        return _pfsense_url(value, variable="PFSENSE_API_URL")
+
+    @field_validator("pfsense_api_key", mode="before")
+    @classmethod
+    def _strip_shared_secret(cls, value: object) -> object:
+        return _pfsense_optional_secret(value)
+
+    @field_validator("pfsense_api_verify_ssl", mode="before")
+    @classmethod
+    def _normalize_shared_tls(cls, value: object) -> object:
+        return _pfsense_shared_tls(value)
+
+
+class PfSensePostureProviderSettings(_PfSenseSharedProviderSettings):
+    """Validated read-only pfSense posture transport settings."""
+
+    pfsense_posture_api_url: str | None = None
+    pfsense_posture_api_key: SecretStr | None = None
+    pfsense_posture_api_verify_ssl: bool | None = None
+
+    @field_validator("pfsense_posture_api_url", mode="before")
+    @classmethod
+    def _strip_posture_url(cls, value: object) -> object:
+        return _pfsense_optional_text(value)
+
+    @field_validator("pfsense_posture_api_url")
+    @classmethod
+    def _validate_posture_url(cls, value: str | None) -> str | None:
+        return _pfsense_url(value, variable="PFSENSE_POSTURE_API_URL")
+
+    @field_validator("pfsense_posture_api_key", mode="before")
+    @classmethod
+    def _strip_posture_secret(cls, value: object) -> object:
+        return _pfsense_optional_secret(value)
+
+    @field_validator("pfsense_posture_api_verify_ssl", mode="before")
+    @classmethod
+    def _normalize_posture_tls(cls, value: object) -> object:
+        return _pfsense_optional_tls(value)
+
+    @property
+    def base_url(self) -> str:
+        return self.pfsense_posture_api_url or self.pfsense_api_url or ""
+
+    @property
+    def api_key(self) -> str:
+        return _secret_value(self.pfsense_posture_api_key) or _secret_value(
+            self.pfsense_api_key
+        )
+
+    @property
+    def verify_ssl(self) -> bool:
+        if self.pfsense_posture_api_verify_ssl is not None:
+            return self.pfsense_posture_api_verify_ssl
+        return self.pfsense_api_verify_ssl
+
+    @property
+    def credential_mode(self) -> str:
+        return (
+            "dedicated_posture"
+            if _secret_value(self.pfsense_posture_api_key)
+            else "legacy_shared"
+        )
+
+
+class PfSenseSecurityProviderSettings(_PfSenseSharedProviderSettings):
+    """Validated least-privilege pfSense security telemetry settings."""
+
+    pfsense_security_api_url: str | None = None
+    pfsense_security_api_key: SecretStr | None = None
+    pfsense_security_api_verify_ssl: bool | None = None
+    pfsense_security_path_mode: Literal["shared_wan", "out_of_band"] = "shared_wan"
+
+    @field_validator("pfsense_security_api_url", mode="before")
+    @classmethod
+    def _strip_security_url(cls, value: object) -> object:
+        return _pfsense_optional_text(value)
+
+    @field_validator("pfsense_security_api_url")
+    @classmethod
+    def _validate_security_url(cls, value: str | None) -> str | None:
+        return _pfsense_url(value, variable="PFSENSE_SECURITY_API_URL")
+
+    @field_validator("pfsense_security_api_key", mode="before")
+    @classmethod
+    def _strip_security_secret(cls, value: object) -> object:
+        return _pfsense_optional_secret(value)
+
+    @field_validator("pfsense_security_api_verify_ssl", mode="before")
+    @classmethod
+    def _normalize_security_tls(cls, value: object) -> object:
+        return _pfsense_optional_tls(value)
+
+    @field_validator("pfsense_security_path_mode", mode="before")
+    @classmethod
+    def _normalize_security_path_mode(cls, value: object) -> object:
+        if isinstance(value, str):
+            stripped = value.strip().lower()
+            return stripped or "shared_wan"
+        return value
+
+    @property
+    def base_url(self) -> str:
+        return self.pfsense_security_api_url or self.pfsense_api_url or ""
+
+    @property
+    def api_key(self) -> str:
+        return _secret_value(self.pfsense_security_api_key) or _secret_value(
+            self.pfsense_api_key
+        )
+
+    @property
+    def verify_ssl(self) -> bool:
+        if self.pfsense_security_api_verify_ssl is not None:
+            return self.pfsense_security_api_verify_ssl
+        return self.pfsense_api_verify_ssl
+
+    @property
+    def credential_mode(self) -> str:
+        return (
+            "dedicated_security"
+            if _secret_value(self.pfsense_security_api_key)
+            else "legacy_shared"
+        )
+
+    @property
+    def control_path_mode(self) -> Literal["shared_wan", "out_of_band"]:
+        return self.pfsense_security_path_mode
+
+
+def pfsense_invalid_configuration_variables(exc: Exception) -> list[str]:
+    """Return only failing environment variable names from a Pydantic error."""
+    errors = getattr(exc, "errors", None)
+    if not callable(errors):
+        return []
+    variables: set[str] = set()
+    for error in errors():
+        location = error.get("loc")
+        if isinstance(location, tuple) and location:
+            variables.add(str(location[-1]).upper())
+    return sorted(variables)

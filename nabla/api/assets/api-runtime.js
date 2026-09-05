@@ -15,6 +15,60 @@ function renderPills(values) {
     .join("");
 }
 
+function clearRedisMetrics(memoryText) {
+  setText("runtime-redis-memory", memoryText);
+  setText("runtime-redis-keys", "—");
+  setText("runtime-redis-clients", "—");
+  setText("runtime-redis-ops", "—");
+  setText("runtime-redis-hit-rate", "—");
+  setText("runtime-redis-evictions", "—");
+}
+
+function renderRedisUsage(redis) {
+  if (!redis || redis.configured === false) {
+    clearRedisMetrics("not configured");
+    setText("runtime-redis-scope", "Application Redis backend is not configured.");
+    return;
+  }
+
+  if (redis.available === false) {
+    clearRedisMetrics("Redis unreachable");
+    setText("runtime-redis-scope", "Application Redis backend is configured but unreachable.");
+    return;
+  }
+
+  if (redis.telemetry_available !== true) {
+    clearRedisMetrics("connected · metrics unavailable");
+    setText(
+      "runtime-redis-scope",
+      "Application Redis backend is reachable; INFO/DBSIZE capacity telemetry is unavailable.",
+    );
+    return;
+  }
+
+  const used = redis.used_memory_human || "—";
+  const max = redis.maxmemory_human;
+  const utilization = Number(redis.memory_utilization_percent);
+  const memory = max && Number(redis.maxmemory_bytes) > 0
+    ? `${used} / ${max}${Number.isFinite(utilization) ? ` · ${utilization}%` : ""}`
+    : `${used} · no max limit`;
+  const hitRate = Number(redis.keyspace_hit_rate_percent);
+
+  setText("runtime-redis-memory", memory);
+  setText("runtime-redis-keys", String(redis.keys ?? "—"));
+  setText("runtime-redis-clients", String(redis.connected_clients ?? "—"));
+  setText("runtime-redis-ops", String(redis.instantaneous_ops_per_sec ?? "—"));
+  setText(
+    "runtime-redis-hit-rate",
+    Number.isFinite(hitRate) ? `${hitRate}%` : "—",
+  );
+  setText("runtime-redis-evictions", String(redis.evicted_keys ?? "—"));
+  setText(
+    "runtime-redis-scope",
+    "Application Redis backend · provider not attributed · server memory and selected DB totals.",
+  );
+}
+
 function renderInstances(instances) {
   const target = document.getElementById("runtime-instance-list");
   if (!target) return;
@@ -81,6 +135,7 @@ function render(snapshot) {
     "runtime-aggregation",
     aggregationLabels[runtime.aggregation] || runtime.aggregation || "unknown",
   );
+  renderRedisUsage(runtime.redis);
   activeEgress.innerHTML = renderPills(runtime.active_egress_ips);
   recentEgress.innerHTML = renderPills(runtime.recent_egress_ips);
   renderInstances(runtime.instances);

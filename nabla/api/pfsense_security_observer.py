@@ -5,12 +5,12 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 import ipaddress
-import os
 import ssl
 import time
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 import httpx
+from pydantic import ValidationError
 
 from nabla.api.external_probe_cache import get_or_refresh_probe, reset_probe_cache
 from nabla.api.provider_probe_policies import (
@@ -19,10 +19,13 @@ from nabla.api.provider_probe_policies import (
 from nabla.api.provider_credentials import inspect_environment_credentials
 from nabla.api.public_egress_observer import observe_public_egress_ip
 from nabla.api.truenas_transport_diagnostics import homelab_wan_metadata
+from nabla.settings.homelab import (
+    PfSenseSecurityProviderSettings,
+    pfsense_invalid_configuration_variables,
+    pfsense_security_environment_variables,
+)
 
 ControlPathMode = Literal["shared_wan", "out_of_band"]
-_CONTROL_PATH_MODES = frozenset({"shared_wan", "out_of_band"})
-_FALSE_VALUES = frozenset({"0", "false", "no", "off"})
 _PFSENSE_CONNECT_TIMEOUT_SEC = 2.0
 _PFSENSE_READ_TIMEOUT_SEC = 4.0
 _PFSENSE_MAX_ATTEMPTS = 1
@@ -30,22 +33,6 @@ _PFSENSE_RETRY_DELAY_SEC = 0.2
 _SNORT2C_PATH = "/api/v2/diagnostics/table?id=snort2c"
 _SNORT2C_CACHE_KEY = "pfsense:snort2c"
 _TRUENAS_PUBLIC_PORT = 7000
-
-
-def _security_environment_variables() -> tuple[str, str]:
-    """Prefer dedicated security credentials and keep explicit legacy rollback."""
-    url_var = (
-        "PFSENSE_SECURITY_API_URL"
-        if os.getenv("PFSENSE_SECURITY_API_URL", "").strip()
-        else "PFSENSE_API_URL"
-    )
-    if os.getenv("PFSENSE_SECURITY_API_KEY", "").strip():
-        key_var = "PFSENSE_SECURITY_API_KEY"
-    elif os.getenv("PFSENSE_API_KEY", "").strip():
-        key_var = "PFSENSE_API_KEY"
-    else:
-        key_var = "PFSENSE_SECURITY_API_KEY"
-    return url_var, key_var
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,40 +46,40 @@ class PfSenseSecuritySettings:
 
     @classmethod
     def from_environment(cls) -> PfSenseSecuritySettings | None:
-        """Load the dedicated security token with an explicit legacy fallback."""
-        url_var, key_var = _security_environment_variables()
-        status = inspect_environment_credentials(
-            "pfsense_security",
-            url_var,
-            key_var,
-            secret_variables=frozenset({key_var}),
-        )
-        if not status.configured:
+        """Load validated security transport with an explicit legacy fallback."""
+        status = security_configuration_status()
+        if status["configured"] is not True:
             return None
-
-        raw_mode = os.getenv("PFSENSE_SECURITY_PATH_MODE", "shared_wan").strip().lower()
-        mode = raw_mode if raw_mode in _CONTROL_PATH_MODES else "shared_wan"
-        raw_verify = os.getenv(
-            "PFSENSE_SECURITY_API_VERIFY_SSL",
-            os.getenv("PFSENSE_API_VERIFY_SSL", "true"),
-        ).strip().lower()
+        try:
+            provider = PfSenseSecurityProviderSettings()
+        except ValidationError:
+            return None
         return cls(
-            base_url=os.getenv(url_var, "").strip().rstrip("/"),
-            api_key=os.getenv(key_var, "").strip(),
-            verify_ssl=raw_verify not in _FALSE_VALUES,
-            control_path_mode=cast(ControlPathMode, mode),
+            base_url=provider.base_url,
+            api_key=provider.api_key,
+            verify_ssl=provider.verify_ssl,
+            control_path_mode=provider.control_path_mode,
         )
 
 
 def security_configuration_status() -> dict[str, object]:
     """Return sanitized configuration state for the narrow Snort observer."""
-    url_var, key_var = _security_environment_variables()
+    url_var, key_var = pfsense_security_environment_variables()
     status = inspect_environment_credentials(
         "pfsense_security",
         url_var,
         key_var,
         secret_variables=frozenset({key_var}),
     ).as_dict()
+    invalid_variables: list[str] = []
+    try:
+        PfSenseSecurityProviderSettings()
+    except ValidationError as exc:
+        invalid_variables = pfsense_invalid_configuration_variables(exc)
+    if invalid_variables:
+        status["configured"] = False
+        status["configuration_stage"] = "invalid_configuration"
+    status["invalid_configuration_variables"] = invalid_variables
     status["required_privilege"] = "api-v2-diagnostics-table-get"
     status["write_privileges_required"] = False
     status["credential_mode"] = (

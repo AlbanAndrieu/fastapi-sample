@@ -101,3 +101,35 @@ def test_shared_transport_is_preserved_as_explicit_compatibility_fallback(
         False,
         "legacy_shared",
     )
+
+
+
+@pytest.mark.asyncio
+async def test_invalid_tls_values_fail_soft_across_pfsense_consumers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_pfsense_env(monkeypatch)
+    monkeypatch.setenv("PFSENSE_API_URL", "https://shared.example.test")
+    monkeypatch.setenv("PFSENSE_API_KEY", "shared-test-key")
+    monkeypatch.setenv("PFSENSE_API_VERIFY_SSL", "sometimes")
+
+    assert PfSenseDNSSettings.from_environment() is None
+    assert PfSenseSecuritySettings.from_environment() is None
+
+    result = await platform_health.check_pfsense_api()
+
+    assert result["reachable"] is False
+    assert result["configuration_stage"] == "invalid_configuration"
+    assert result["invalid_configuration_variables"] == ["PFSENSE_API_VERIFY_SSL"]
+    assert "shared-test-key" not in repr(result)
+
+
+def test_invalid_dedicated_security_mode_is_reported_as_unconfigured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_pfsense_env(monkeypatch)
+    monkeypatch.setenv("PFSENSE_SECURITY_API_URL", "https://security.example.test")
+    monkeypatch.setenv("PFSENSE_SECURITY_API_KEY", "security-test-key")
+    monkeypatch.setenv("PFSENSE_SECURITY_PATH_MODE", "automatic")
+
+    assert PfSenseSecuritySettings.from_environment() is None

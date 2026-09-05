@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-import os
 from typing import Any, Literal
 
 import httpx
+from pydantic import ValidationError
 
 from nabla.api.external_probe_cache import get_or_refresh_probe
 from nabla.api.provider_probe_policies import (
@@ -15,6 +15,11 @@ from nabla.api.provider_probe_policies import (
 )
 from nabla.api.pfsense_security_observer import observe_pfsense_ingress_block
 from nabla.api.provider_credentials import inspect_environment_credentials
+from nabla.settings.homelab import (
+    PfSensePostureProviderSettings,
+    pfsense_invalid_configuration_variables,
+    pfsense_posture_environment_variables,
+)
 
 DNSPolicyState = Literal["ok", "warn", "fail", "unknown"]
 
@@ -39,38 +44,24 @@ _SECURITY_SERVICE_LABELS = {
 }
 
 
-def _posture_environment_variables() -> tuple[str, str]:
-    """Prefer dedicated posture credentials while retaining legacy compatibility."""
-    url_var = (
-        "PFSENSE_POSTURE_API_URL"
-        if os.getenv("PFSENSE_POSTURE_API_URL", "").strip()
-        else "PFSENSE_API_URL"
-    )
-    if os.getenv("PFSENSE_POSTURE_API_KEY", "").strip():
-        key_var = "PFSENSE_POSTURE_API_KEY"
-    elif os.getenv("PFSENSE_API_KEY", "").strip():
-        key_var = "PFSENSE_API_KEY"
-    else:
-        key_var = "PFSENSE_POSTURE_API_KEY"
-    return url_var, key_var
-
-
 def pfsense_api_configuration_status() -> dict[str, object]:
-    """Return sanitized presence and URL-validity state for posture observation."""
-    url_var, key_var = _posture_environment_variables()
+    """Return sanitized presence and validation state for posture observation."""
+    url_var, key_var = pfsense_posture_environment_variables()
     status = inspect_environment_credentials(
         "pfsense",
         url_var,
         key_var,
         secret_variables=frozenset({key_var}),
     ).as_dict()
-    base_url = os.getenv(url_var, "").strip()
-    if status["configured"] and not base_url.lower().startswith(("https://", "http://")):
+    invalid_variables: list[str] = []
+    try:
+        PfSensePostureProviderSettings()
+    except ValidationError as exc:
+        invalid_variables = pfsense_invalid_configuration_variables(exc)
+    if invalid_variables:
         status["configured"] = False
         status["configuration_stage"] = "invalid_configuration"
-        status["invalid_configuration_variables"] = [url_var]
-    else:
-        status["invalid_configuration_variables"] = []
+    status["invalid_configuration_variables"] = invalid_variables
     status["credential_mode"] = (
         "dedicated_posture" if key_var == "PFSENSE_POSTURE_API_KEY" else "legacy_shared"
     )
@@ -90,15 +81,14 @@ class PfSenseDNSSettings:
         status = pfsense_api_configuration_status()
         if status["configured"] is not True:
             return None
-        url_var, key_var = _posture_environment_variables()
-        raw_verify = os.getenv(
-            "PFSENSE_POSTURE_API_VERIFY_SSL",
-            os.getenv("PFSENSE_API_VERIFY_SSL", "true"),
-        ).strip().lower()
+        try:
+            provider = PfSensePostureProviderSettings()
+        except ValidationError:
+            return None
         return cls(
-            base_url=os.getenv(url_var, "").strip().rstrip("/"),
-            api_key=os.getenv(key_var, "").strip(),
-            verify_ssl=raw_verify not in _FALSE_VALUES,
+            base_url=provider.base_url,
+            api_key=provider.api_key,
+            verify_ssl=provider.verify_ssl,
         )
 
 

@@ -39,12 +39,13 @@ def test_pfsense_10443_uses_https_alias_reachability() -> None:
     assert policy["default_action"] == "deny"
     assert policy["negative_probe_required"] is True
     assert check["policy_status"] == "warn"
-    assert "approved FastAPI Cloud runtime" in check["policy_detail"]
+    assert "current FastAPI Cloud egress" in check["policy_detail"]
+    assert "diagnostic evidence" in check["policy_detail"]
     assert "independent negative probe" in check["policy_detail"]
     assert "trusted-source exception" in check["policy_detail"]
 
 
-def test_pfsense_10443_unreachable_from_expected_runtime_is_failure() -> None:
+def test_pfsense_10443_unreachable_cloud_probe_is_policy_warning() -> None:
     payload = {
         "checks": {
             "pfsense": {
@@ -63,8 +64,9 @@ def test_pfsense_10443_unreachable_from_expected_runtime_is_failure() -> None:
     check = enrich_pfsense_port_annotations(payload)["checks"]["pfsense"]
 
     assert check["pfsense_tcp_ports"]["10443"] is False
-    assert check["policy_status"] == "fail"
-    assert "requires this monitoring path" in check["policy_detail"]
+    assert check["policy_status"] == "warn"
+    assert "intended WAN deny policy" in check["policy_detail"]
+    assert "out-of-band observer" in check["policy_detail"]
 
 
 def test_named_tcp_services_keep_expected_blocked_policy() -> None:
@@ -92,3 +94,5 @@ def test_named_tcp_services_keep_expected_blocked_policy() -> None:
     )
     assert policy["10443"]["expected_reachable"] is True
     assert policy["10443"]["access_policy"] == "trusted_sources_only"
+    assert policy["10443"]["direct_probe_semantics"] == "diagnostic_only"
+    assert policy["10443"]["recommended_control_path"] == "out_of_band"

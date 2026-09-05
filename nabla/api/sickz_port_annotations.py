@@ -30,14 +30,16 @@ _PORT_POLICY: dict[str, dict[str, Any]] = {
     "10443": {
         "service": "pfSense Admin/API",
         "expected_reachable": True,
+        "direct_probe_semantics": "diagnostic_only",
+        "recommended_control_path": "out_of_band",
         "access_policy": "trusted_sources_only",
         "default_action": "deny",
         "expected_from": ["fastapi_cloud", "approved_admin_sources"],
         "negative_probe_required": True,
         "reason": (
-            "FastAPI Cloud requires the pfSense REST API on 10443 and currently has no "
-            "user-controlled static egress/tunnel. Reachability is expected from this "
-            "approved runtime, while unrelated Internet origins must remain denied."
+            "The FastAPI Cloud -> pfSense 10443 WAN probe is diagnostic only while cloud "
+            "egress is not a stable workload identity. The listener remains "
+            "trusted_sources_only; durable telemetry should use an out-of-band observer."
         ),
     },
 }
@@ -83,22 +85,27 @@ def _apply_source_aware_10443_policy(
     if reachable is True:
         status = "warn"
         detail = (
-            "⚠️ pfSense REST/API 10443 is reachable from the approved FastAPI Cloud runtime "
-            "as required by the trusted_sources_only exception. This positive probe does not "
+            "⚠️ pfSense REST/API 10443 is reachable from the current FastAPI Cloud egress. "
+            "This is diagnostic evidence, not a requirement to keep every changing cloud "
+            "egress source allowlisted. This positive probe does not "
             "prove the default-deny policy for unrelated Internet origins; an independent "
             "negative probe is still required."
         )
     elif reachable is False:
-        status = "fail"
+        status = "warn"
         detail = (
-            "pfSense REST/API 10443 is not reachable from the approved FastAPI Cloud runtime, "
-            "but the current trusted_sources_only contract requires this monitoring path."
+            "⚠️ pfSense REST/API 10443 is not reachable from this FastAPI Cloud runtime. "
+            "Because the listener is trusted_sources_only and FastAPI Cloud egress is not "
+            "a stable workload identity, this can be consistent with the intended WAN deny "
+            "policy rather than a pfSense outage. Use the out-of-band observer for durable "
+            "security telemetry instead of broadening WAN access."
         )
     else:
         status = "unknown"
         detail = (
-            "pfSense REST/API 10443 reachability from FastAPI Cloud is unknown; the "
-            "trusted_sources_only policy cannot be reconciled without a positive runtime probe."
+            "pfSense REST/API 10443 reachability from FastAPI Cloud is unknown. The direct "
+            "WAN probe is diagnostic only; the trusted_sources_only policy requires an "
+            "independent control path for durable attribution."
         )
 
     exception = str(check.get("security_exception") or "").strip()

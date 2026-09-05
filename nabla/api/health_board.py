@@ -225,18 +225,66 @@ async def build_sickz_snapshot(request: Request) -> dict[str, Any]:
     return enrich_pfsense_port_annotations(payload)
 
 
-async def build_runtime_snapshot() -> dict[str, Any]:
+async def build_runtime_snapshot(request: Request | None = None) -> dict[str, Any]:
     """Return the shared runtime/egress view used by the public API page."""
     from nabla.api.demo.socket.redis import redis
     from nabla.api.runtime_topology import build_runtime_topology_snapshot
 
-    return await build_runtime_topology_snapshot(redis)
+    hostname = request.url.hostname if request is not None else None
+    return await build_runtime_topology_snapshot(redis, hostname=hostname)
+
+
+def _annotate_pfsense_ingress_policy(
+    healthz: dict[str, Any],
+    runtime: dict[str, Any],
+) -> dict[str, Any]:
+    """Make FastAPI Cloud connect-timeout evidence actionable without over-attribution."""
+    if runtime.get("runtime_mode") != "fastapi_cloud":
+        return healthz
+
+    checks = dict(healthz.get("checks") or {})
+    raw = checks.get("pfsense")
+    if not isinstance(raw, dict):
+        return healthz
+    pfsense = dict(raw)
+    if (
+        pfsense.get("reachable") is False
+        and pfsense.get("error_kind") == "connect_timeout"
+        and pfsense.get("failure_stage") == "connect"
+    ):
+        active_egress = [
+            str(value)
+            for value in runtime.get("active_egress_ips") or []
+            if isinstance(value, str) and value
+        ]
+        pfsense["ingress_policy"] = {
+            "state": "possible_ingress_policy_block",
+            "access_policy": "trusted_sources_only",
+            "active_egress_ips": active_egress,
+            "possible_causes": [
+                "trusted_source_policy_drift",
+                "pf_or_snort_filter",
+            ],
+            "attribution_available": False,
+            "detail": (
+                "TCP/TLS connection did not complete before the 2s connect budget. "
+                "The direct control path crosses the same pfSense WAN PF/Snort policy it "
+                "tries to observe, so either trusted-source drift or a PF/Snort block can "
+                "produce this timeout. This is pre-HTTP evidence, not an API credential "
+                "failure."
+            ),
+            "recommended_control_path": "out_of_band",
+        }
+        checks["pfsense"] = pfsense
+        return {**healthz, "checks": checks}
+    return healthz
 
 
 async def build_health_board_snapshot(request: Request) -> dict[str, Any]:
     """Collect expensive views sequentially so one UI load cannot amplify fan-out."""
     healthz = await build_extended_healthz(request)
-    runtime = await build_runtime_snapshot()
+    runtime = await build_runtime_snapshot(request)
+    healthz = _annotate_pfsense_ingress_policy(healthz, runtime)
     homelab = await build_homelab_snapshot(healthz.get("checks"))
     sickz = await build_sickz_snapshot(request)
     return {
