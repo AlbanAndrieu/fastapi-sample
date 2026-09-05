@@ -1,3 +1,10 @@
+## [1.7.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.7.0...1.7.1) (2026-09-05)
+
+
+### Bug Fixes
+
+* **security:** harden local runtime and pfSense probes ([#191](https://github.com/AlbanAndrieu/fastapi-sample/issues/191)) ([39beccf](https://github.com/AlbanAndrieu/fastapi-sample/commit/39beccfd28a3cf7e46aee0355bae95c7b069a2f8))
+
 # [1.7.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.6.5...1.7.0) (2026-09-05)
 
 
