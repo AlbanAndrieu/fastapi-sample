@@ -136,6 +136,22 @@ def render_api_root_page(
                             <span>Aggregation</span>
                             <strong id="runtime-aggregation">—</strong>
                         </div>
+                        <div class="runtime-topology-metric">
+                            <span>Redis memory</span>
+                            <strong id="runtime-redis-memory">—</strong>
+                        </div>
+                        <div class="runtime-topology-metric">
+                            <span>Redis keys</span>
+                            <strong id="runtime-redis-keys">—</strong>
+                        </div>
+                        <div class="runtime-topology-metric">
+                            <span>Redis clients</span>
+                            <strong id="runtime-redis-clients">—</strong>
+                        </div>
+                        <div class="runtime-topology-metric">
+                            <span>Redis ops / sec</span>
+                            <strong id="runtime-redis-ops">—</strong>
+                        </div>
                     </div>
                     <div class="runtime-topology-egress">
                         <span class="runtime-topology-label">Active egress IPs</span>
