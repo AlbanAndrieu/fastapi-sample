@@ -2,7 +2,7 @@
   "name": "@AlbanAndrieu/fastapi-sample",
   "description": "FastAPI sample",
   "private": false,
-  "version": "1.7.1",
+  "version": "1.7.2",
   "author": "Alban Andrieu <alban.andrieu@free.fr> (http://albanandrieu.com)",
   "main": "scripts.js",
   "type": "module",

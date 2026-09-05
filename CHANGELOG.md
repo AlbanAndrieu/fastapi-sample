@@ -1,3 +1,10 @@
+## [1.7.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.7.1...1.7.2) (2026-09-05)
+
+
+### Bug Fixes
+
+* **ci:** finish post-login-demo cleanup ([#194](https://github.com/AlbanAndrieu/fastapi-sample/issues/194)) ([54b61d8](https://github.com/AlbanAndrieu/fastapi-sample/commit/54b61d88fd78225244282c052fd628c5104913e0))
+
 ## [1.7.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.7.0...1.7.1) (2026-09-05)
 
 
