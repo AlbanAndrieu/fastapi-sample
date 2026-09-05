@@ -225,12 +225,13 @@ async def build_sickz_snapshot(request: Request) -> dict[str, Any]:
     return enrich_pfsense_port_annotations(payload)
 
 
-async def build_runtime_snapshot() -> dict[str, Any]:
+async def build_runtime_snapshot(request: Request | None = None) -> dict[str, Any]:
     """Return the shared runtime/egress view used by the public API page."""
     from nabla.api.demo.socket.redis import redis
     from nabla.api.runtime_topology import build_runtime_topology_snapshot
 
-    return await build_runtime_topology_snapshot(redis)
+    hostname = request.url.hostname if request is not None else None
+    return await build_runtime_topology_snapshot(redis, hostname=hostname)
 
 
 def _annotate_pfsense_ingress_policy(
@@ -282,7 +283,7 @@ def _annotate_pfsense_ingress_policy(
 async def build_health_board_snapshot(request: Request) -> dict[str, Any]:
     """Collect expensive views sequentially so one UI load cannot amplify fan-out."""
     healthz = await build_extended_healthz(request)
-    runtime = await build_runtime_snapshot()
+    runtime = await build_runtime_snapshot(request)
     healthz = _annotate_pfsense_ingress_policy(healthz, runtime)
     homelab = await build_homelab_snapshot(healthz.get("checks"))
     sickz = await build_sickz_snapshot(request)
