@@ -21,6 +21,7 @@ from typing import Any
 from redis.asyncio import Redis
 
 from nabla.api.public_egress_observer import observe_public_egress_ip
+from nabla.api.runtime_environment import runtime_mode
 from nabla.utils.logger import logger
 
 _RUNTIME_KEY_PREFIX = "fastapi-sample:runtime"
@@ -29,11 +30,7 @@ _ACTIVE_WINDOW_SEC = 95.0
 _RECENT_EGRESS_WINDOW_SEC = 86_400.0
 _INSTANCE_REGISTRY_TTL_SEC = 600
 _EGRESS_REGISTRY_TTL_SEC = 172_800
-
-
-def runtime_mode() -> str:
-    """Return the stable runtime scope used by UI and Redis telemetry."""
-    return "fastapi_cloud" if os.getenv("FASTAPI_CLOUD", "").strip() else "local"
+_REDIS_TELEMETRY_TIMEOUT_SEC = 1.5
 
 
 def runtime_registry_keys(mode: str | None = None) -> tuple[str, str, str]:
@@ -71,6 +68,85 @@ def _decode_json(raw: object) -> dict[str, Any] | None:
     except json.JSONDecodeError:
         return None
     return value if isinstance(value, dict) else None
+
+
+def _int_value(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _float_value(value: Any) -> float | None:
+    try:
+        return round(float(value), 3)
+    except (TypeError, ValueError):
+        return None
+
+
+async def redis_usage_snapshot(redis_client: Redis | None) -> dict[str, Any]:
+    """Return bounded, credential-free Redis capacity/usage telemetry."""
+    if redis_client is None:
+        return {
+            "available": False,
+            "telemetry_available": False,
+            "reason": "redis client not configured",
+        }
+
+    try:
+        async with asyncio.timeout(_REDIS_TELEMETRY_TIMEOUT_SEC):
+            memory, clients, stats, key_count = await asyncio.gather(
+                redis_client.info("memory"),
+                redis_client.info("clients"),
+                redis_client.info("stats"),
+                redis_client.dbsize(),
+            )
+    except TimeoutError:
+        return {
+            "available": True,
+            "telemetry_available": False,
+            "reason": "redis telemetry deadline exceeded",
+            "error_kind": "deadline",
+        }
+    except Exception as exc:
+        return {
+            "available": True,
+            "telemetry_available": False,
+            "reason": "redis telemetry unavailable",
+            "exception_type": type(exc).__name__,
+        }
+
+    used_memory = _int_value(memory.get("used_memory"))
+    maxmemory = _int_value(memory.get("maxmemory"))
+    utilization = None
+    if used_memory is not None and maxmemory is not None and maxmemory > 0:
+        utilization = round((used_memory / maxmemory) * 100, 2)
+
+    return {
+        "available": True,
+        "telemetry_available": True,
+        "used_memory_bytes": used_memory,
+        "used_memory_human": memory.get("used_memory_human"),
+        "used_memory_rss_bytes": _int_value(memory.get("used_memory_rss")),
+        "used_memory_rss_human": memory.get("used_memory_rss_human"),
+        "used_memory_peak_bytes": _int_value(memory.get("used_memory_peak")),
+        "used_memory_peak_human": memory.get("used_memory_peak_human"),
+        "maxmemory_bytes": maxmemory,
+        "maxmemory_human": memory.get("maxmemory_human"),
+        "maxmemory_policy": memory.get("maxmemory_policy"),
+        "memory_utilization_percent": utilization,
+        "mem_fragmentation_ratio": _float_value(memory.get("mem_fragmentation_ratio")),
+        "connected_clients": _int_value(clients.get("connected_clients")),
+        "blocked_clients": _int_value(clients.get("blocked_clients")),
+        "keys": _int_value(key_count),
+        "instantaneous_ops_per_sec": _int_value(stats.get("instantaneous_ops_per_sec")),
+        "keyspace_hits": _int_value(stats.get("keyspace_hits")),
+        "keyspace_misses": _int_value(stats.get("keyspace_misses")),
+        "evicted_keys": _int_value(stats.get("evicted_keys")),
+        "expired_keys": _int_value(stats.get("expired_keys")),
+    }
 
 
 async def record_runtime_heartbeat(redis_client: Redis | None) -> dict[str, Any]:
@@ -150,6 +226,7 @@ async def build_runtime_topology_snapshot(redis_client: Redis | None) -> dict[st
     """Return active runtime/egress evidence with explicit count semantics."""
     mode = runtime_mode()
     current = await record_runtime_heartbeat(redis_client)
+    redis_usage = await redis_usage_snapshot(redis_client)
     shared: dict[str, Any]
     if redis_client is None:
         shared = {
@@ -194,6 +271,7 @@ async def build_runtime_topology_snapshot(redis_client: Redis | None) -> dict[st
         "heartbeat_interval_seconds": int(_HEARTBEAT_INTERVAL_SEC),
         "active_window_seconds": int(_ACTIVE_WINDOW_SEC),
         "recent_egress_window_seconds": int(_RECENT_EGRESS_WINDOW_SEC),
+        "redis": redis_usage,
         **shared,
     }
 
