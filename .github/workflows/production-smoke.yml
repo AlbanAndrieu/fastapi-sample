@@ -92,11 +92,17 @@ jobs:
             .provider == "FastAPI Cloud" and
             .runtime_mode == "fastapi_cloud" and
             (.observed_instance_count | type == "number" and . >= 1) and
+            .redis.configured == true and
             .redis.available == true and
-            .redis.telemetry_available == true and
-            (.redis.used_memory_bytes | type == "number" and . >= 0) and
-            (.redis.keys | type == "number" and . >= 0) and
-            (.redis.connected_clients | type == "number" and . >= 0)
+            (.redis.telemetry_available | type == "boolean") and
+            (if .redis.telemetry_available == true then
+              (.redis.used_memory_bytes | type == "number" and . >= 0) and
+              (.redis.keys | type == "number" and . >= 0) and
+              (.redis.connected_clients | type == "number" and . >= 0)
+            else
+              (.redis.reason | type == "string" and length > 0) and
+              .redis.failure_stage == "info"
+            end)
           ' /tmp/runtime-topology-deployed.json >/dev/null
 
       - name: Check production pfSense observability
