@@ -91,6 +91,13 @@ degraded conditions.
 - [ ] Add production acceptance checks: appliance degradation must not increase
       API error rate, exhaust worker threads, or create sustained request bursts
       against TrueNAS/pfSense.
+- [x] Classify FastAPI Cloud pfSense connect-stage timeouts as possible
+      `trusted_sources_only` source-policy drift when current cloud egress evidence
+      is available. Keep this diagnostic non-authoritative: it must not imply an
+      API/authentication failure or justify broadening WAN `:10443` access.
+- [x] Treat the direct FastAPI Cloud -> pfSense WAN `:10443` probe as diagnostic
+      only while the platform lacks a stable application-controlled egress
+      identity; surface the out-of-band observer as the durable control path.
 - [ ] Remove the Snort self-diagnostic blind spot before treating telemetry loss as
       authoritative block evidence. While FastAPI Cloud reaches pfSense security
       telemetry through the same WAN/Snort/PF path, keep
@@ -192,6 +199,13 @@ degraded conditions.
 - [x] Document cache schema-bump/invalidation and production diagnostics, including
       the expected degraded behavior when Redis is unavailable. See
       `docs/external-probe-cache-operations.md`.
+- [x] Expose bounded, credential-free Redis capacity telemetry through the
+      runtime topology: used/RSS/peak memory, configured maxmemory and policy,
+      fragmentation, client/key counts, operations, hits/misses and eviction/
+      expiry counters. Keep the INFO calls optional and under a 1.5-second budget.
+- [x] Require the post-deploy smoke to prove FastAPI Cloud runtime identity and
+      live Redis telemetry after the new release is actually deployed; PR smoke
+      remains compatible with the currently deployed previous release.
 
 ## P1 — Runtime library consolidation and technical-debt reduction
 
@@ -210,6 +224,10 @@ acceptance criterion.
 - [x] Make the `/api` runtime card and hero deployment-aware: local workstation
       runs must not present FastAPI Cloud replica/control-plane wording, while the
       production runtime keeps explicit FastAPI Cloud context.
+- [x] Centralize runtime-provider detection instead of relying on an undocumented
+      `FASTAPI_CLOUD` environment variable. Detect this deployment from explicit
+      project markers/network label and the public `*.fastapicloud.dev` request
+      hostname while preserving generic cloud/PaaS and local modes.
 - [x] Isolate runtime heartbeat and egress Redis keys by runtime mode so a
       workstation sharing Redis infrastructure with production cannot pollute the
       FastAPI Cloud replica/egress view (or vice versa); give the scoped registry
