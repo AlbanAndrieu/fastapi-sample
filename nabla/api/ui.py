@@ -137,11 +137,11 @@ def render_api_root_page(
                             <strong id="runtime-aggregation">—</strong>
                         </div>
                         <div class="runtime-topology-metric">
-                            <span>Redis memory</span>
+                            <span>Redis server memory</span>
                             <strong id="runtime-redis-memory">—</strong>
                         </div>
                         <div class="runtime-topology-metric">
-                            <span>Redis keys</span>
+                            <span>Redis DB keys</span>
                             <strong id="runtime-redis-keys">—</strong>
                         </div>
                         <div class="runtime-topology-metric">
@@ -152,7 +152,16 @@ def render_api_root_page(
                             <span>Redis ops / sec</span>
                             <strong id="runtime-redis-ops">—</strong>
                         </div>
+                        <div class="runtime-topology-metric">
+                            <span>Redis hit rate</span>
+                            <strong id="runtime-redis-hit-rate">—</strong>
+                        </div>
+                        <div class="runtime-topology-metric">
+                            <span>Redis evictions</span>
+                            <strong id="runtime-redis-evictions">—</strong>
+                        </div>
                     </div>
+                    <p class="runtime-topology-note" id="runtime-redis-scope">Application Redis backend · provider attribution pending telemetry.</p>
                     <div class="runtime-topology-egress">
                         <span class="runtime-topology-label">Active egress IPs</span>
                         <div class="runtime-topology-pills" id="runtime-active-egress">Loading…</div>
