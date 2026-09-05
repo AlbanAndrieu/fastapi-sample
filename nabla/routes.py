@@ -20,6 +20,7 @@ from starlette.routing import Mount
 from nabla.api.db.database import SessionLocal
 from nabla.api.health_routes import register_health_routes
 from nabla.api.notes.models import Note
+from nabla.api.runtime_environment import fastapi_cloud_runtime_detected
 from nabla.api.ui import render_api_root_page
 from nabla.rate_limit import limiter
 from nabla.utils.logger import logger
@@ -84,7 +85,7 @@ def register_routes(app: FastAPI) -> None:
         return render_api_root_page(
             title_suffix=os.getenv("TITLE_SUFFIX"),
             app_version=html.escape(str(request.app.version)),
-            is_fastapi_cloud=bool(os.getenv("FASTAPI_CLOUD", "").strip()),
+            is_fastapi_cloud=fastapi_cloud_runtime_detected(request.url.hostname),
         )
 
     register_health_routes(app)
