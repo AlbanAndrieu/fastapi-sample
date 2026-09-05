@@ -91,10 +91,11 @@ degraded conditions.
 - [ ] Add production acceptance checks: appliance degradation must not increase
       API error rate, exhaust worker threads, or create sustained request bursts
       against TrueNAS/pfSense.
-- [x] Classify FastAPI Cloud pfSense connect-stage timeouts as possible
-      `trusted_sources_only` source-policy drift when current cloud egress evidence
-      is available. Keep this diagnostic non-authoritative: it must not imply an
-      API/authentication failure or justify broadening WAN `:10443` access.
+- [x] Classify FastAPI Cloud pfSense connect-stage timeouts as a possible ingress
+      policy block when current cloud egress evidence is available. Keep attribution
+      explicitly unavailable because either trusted-source drift or PF/Snort
+      filtering can produce the same pre-HTTP timeout on the shared WAN path; never
+      reinterpret it as an API/authentication failure or broaden WAN `:10443`.
 - [x] Treat the direct FastAPI Cloud -> pfSense WAN `:10443` probe as diagnostic
       only while the platform lacks a stable application-controlled egress
       identity; surface the out-of-band observer as the durable control path.
