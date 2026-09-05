@@ -121,7 +121,6 @@ go.mod
 hello-*.go
 version*.go
 ccds/
-my-login-app/
 
 # Runtime Python application, unless intentionally published through npm
 nabla/

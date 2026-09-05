@@ -223,7 +223,6 @@ COPY --from=builder-base "${PYSETUP_PATH}" "${PYSETUP_PATH}/"
 COPY --chown=jm-python:jm-python nabla/ "${PYSETUP_PATH}/jm-python/nabla/"
 # COPY --chown=jm-python:jm-python server_app.py "${PYSETUP_PATH}/jm-python/"
 COPY --chown=jm-python:jm-python server_all.py "${PYSETUP_PATH}/jm-python/"
-COPY --chown=jm-python:jm-python my-login-app/ "${PYSETUP_PATH}/jm-python/my-login-app/"
 COPY --chown=jm-python:jm-python templates/ "${PYSETUP_PATH}/jm-python/templates/"
 
 ENV PATH="${PYSETUP_PATH}/.local/bin/:${POETRY_HOME}/bin:${VENV_PATH}/bin:${PATH}"
