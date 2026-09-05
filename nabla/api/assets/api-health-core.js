@@ -85,7 +85,7 @@ function classify(key, check) {
   if (check.skipped === true) return "yellow";
   if (
     key === "pfsense" &&
-    check?.source_policy?.state === "possible_source_policy_drift"
+    check?.ingress_policy?.state === "possible_ingress_policy_block"
   )
     return "yellow";
   if (isExpectedSentryDebugFailure(key, check)) return "green";
@@ -139,15 +139,16 @@ function baseDetailText(key, check) {
 function sourcePolicyDetailText(key, check) {
   if (
     key !== "pfsense" ||
-    check?.source_policy?.state !== "possible_source_policy_drift"
+    check?.ingress_policy?.state !== "possible_ingress_policy_block"
   )
     return "";
-  const egress = Array.isArray(check.source_policy.active_egress_ips)
-    ? check.source_policy.active_egress_ips.filter(Boolean).join(", ")
+  const egress = Array.isArray(check.ingress_policy.active_egress_ips)
+    ? check.ingress_policy.active_egress_ips.filter(Boolean).join(", ")
     : "";
   return [
-    "possible trusted-source policy drift",
+    "possible pfSense ingress-policy block",
     egress ? `active cloud egress ${egress}` : "",
+    "possible trusted-source drift or PF/Snort filtering",
     "direct WAN probe is diagnostic only",
     "prefer out-of-band observer",
   ]
