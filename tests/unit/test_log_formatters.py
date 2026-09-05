@@ -38,3 +38,24 @@ def test_json_formatter_survives_logging_module_shutdown(
     payload = json.loads(formatter.format(record))
 
     assert payload["level"] == "WARNING"
+
+
+
+def test_json_request_formatter_keeps_logger_identity_and_timestamp() -> None:
+    formatter = log_config.JsonRequestFormatter()
+    record = logging.LogRecord(
+        "UnleashClient",
+        logging.WARNING,
+        __file__,
+        1,
+        "feature fetch failed",
+        (),
+        None,
+    )
+
+    payload = json.loads(formatter.format(record))
+
+    assert payload["service_name"] == "UnleashClient"
+    assert payload["level"] == "WARNING"
+    assert payload["message"] == "feature fetch failed"
+    assert payload["timestamp"].endswith("Z")
