@@ -103,7 +103,7 @@ def test_production_smoke_bounds_browser_cost_without_losing_post_deploy_ui_chec
     assert "--max-time 30" in smoke
     assert "fetch-depth: 0" not in smoke
     assert "EXPECTED_VERSION=\"${expected}\" node scripts/check-production-api-ui.mjs" in smoke
-    assert \'if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]\' in smoke
+    assert 'if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]' in smoke
     assert ".pfsense.dns.ingress_block.refresh_error" in smoke
 
 
