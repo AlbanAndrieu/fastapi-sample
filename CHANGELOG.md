@@ -1,3 +1,10 @@
+## [1.6.4](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.6.3...1.6.4) (2026-09-05)
+
+
+### Bug Fixes
+
+* **observability:** isolate runtime telemetry and clean access logs ([#186](https://github.com/AlbanAndrieu/fastapi-sample/issues/186)) ([184fe5c](https://github.com/AlbanAndrieu/fastapi-sample/commit/184fe5c32ab11744d1f5595e3a62b04f5cabf770))
+
 ## [1.6.3](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.6.2...1.6.3) (2026-09-05)
 
 

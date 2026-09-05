@@ -2184,7 +2184,7 @@ wheels = [
 
 [[package]]
 name = "fastapi-sample"
-version = "1.6.3"
+version = "1.6.4"
 source = { editable = "." }
 dependencies = [
     { name = "a2a-sdk" },
