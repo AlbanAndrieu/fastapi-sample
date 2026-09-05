@@ -17,10 +17,10 @@ from nabla.api.health_probe_utils import (
 )
 from nabla.api.homelab_catalog import homelab_sickz_catalog_for_sickz
 from nabla.api.probe_budget import ProbeBudget
+from nabla.api.runtime_environment import known_paas_runtime_detected
 from nabla.api.sickz_pfsense import (
     PFSENSE_EXTRA_TCP_PORTS,
     ensure_pfsense_group,
-    known_paas_runtime_detected,
     pfsense_canonical_tcp_host,
     pfsense_tcp_port_policy_payload,
     pfsense_tcp_skip_payload,
