@@ -1,5 +1,7 @@
 """Unit tests for sickz exposure-policy reconciliation."""
 
+import pytest
+
 from nabla.api.cloudflare_tunnels import (
     CloudflareAccessApplicationObservation,
     CloudflareAccessPolicyObservation,
@@ -9,6 +11,7 @@ from nabla.api.homelab_runtime import ObservedApp, TrueNASRuntimeSnapshot
 from nabla.api.sickz_policy import (
     _access_by_hostname,
     _classify_service,
+    _probe_http_edge_evidence,
     _runtime_evidence,
 )
 
@@ -383,3 +386,13 @@ def test_bichon_crashed_runtime_and_bad_gateway_get_skull_evidence() -> None:
     assert evidence["icon_src"].endswith("/1f480.svg")
     assert "HTTP 502" in evidence["failure_detail"]
     assert "CRASHED" in evidence["failure_detail"]
+
+
+@pytest.mark.asyncio
+async def test_pfsense_admin_is_not_reprobed_as_cloudflare_edge() -> None:
+    evidence = await _probe_http_edge_evidence("https://home.albandrieu.com:10443/")
+
+    assert evidence["cloudflare_http_evidence"] is False
+    assert evidence["cloudflare_access_signal"] is False
+    assert evidence["http_evidence_skipped"] is True
+    assert "not a Cloudflare edge target" in evidence["http_evidence_skip_reason"]
