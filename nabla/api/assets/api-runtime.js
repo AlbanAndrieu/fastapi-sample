@@ -15,6 +15,37 @@ function renderPills(values) {
     .join("");
 }
 
+function renderRedisUsage(redis) {
+  if (!redis || redis.available === false) {
+    setText("runtime-redis-memory", "not configured");
+    setText("runtime-redis-keys", "—");
+    setText("runtime-redis-clients", "—");
+    setText("runtime-redis-ops", "—");
+    return;
+  }
+
+  if (redis.telemetry_available !== true) {
+    setText("runtime-redis-memory", "unavailable");
+    setText("runtime-redis-keys", "—");
+    setText("runtime-redis-clients", "—");
+    setText("runtime-redis-ops", "—");
+    return;
+  }
+
+  const used = redis.used_memory_human || "—";
+  const max = redis.maxmemory_human;
+  const utilization = Number(redis.memory_utilization_percent);
+  const memory = max && Number(redis.maxmemory_bytes) > 0
+    ? `${used} / ${max}${Number.isFinite(utilization) ? ` · ${utilization}%` : ""}`
+    : `${used} · no max limit`;
+
+  setText("runtime-redis-memory", memory);
+  setText("runtime-redis-keys", String(redis.keys ?? "—"));
+  setText("runtime-redis-clients", String(redis.connected_clients ?? "—"));
+  setText("runtime-redis-ops", String(redis.instantaneous_ops_per_sec ?? "—"));
+}
+
+
 function renderInstances(instances) {
   const target = document.getElementById("runtime-instance-list");
   if (!target) return;
@@ -81,6 +112,7 @@ function render(snapshot) {
     "runtime-aggregation",
     aggregationLabels[runtime.aggregation] || runtime.aggregation || "unknown",
   );
+  renderRedisUsage(runtime.redis);
   activeEgress.innerHTML = renderPills(runtime.active_egress_ips);
   recentEgress.innerHTML = renderPills(runtime.recent_egress_ips);
   renderInstances(runtime.instances);
