@@ -31,6 +31,7 @@ def test_api_page_serves_external_assets() -> None:
     base_styles = client.get("/api/assets/api-base.css")
     health_styles = client.get("/api/assets/api-health.css")
     sickz_styles = client.get("/api/assets/api-sickz.css")
+    mobile_styles = client.get("/api/assets/api-mobile.css")
     open_graph = client.get("/api/assets/open-graph.png")
 
     assert page.status_code == 200
@@ -66,16 +67,21 @@ def test_api_page_serves_external_assets() -> None:
     assert '4000: "LiteLLM"' in sickz_ports.text
     assert '8200: "Vault"' in sickz_ports.text
 
-    for asset in (styles, base_styles, health_styles, sickz_styles):
+    for asset in (styles, base_styles, health_styles, sickz_styles, mobile_styles):
         assert asset.status_code == 200
         assert "text/css" in asset.headers["content-type"]
 
     assert '@import url("./api-base.css")' in styles.text
     assert '@import url("./api-health.css")' in styles.text
     assert '@import url("./api-sickz.css")' in styles.text
+    assert '@import url("./api-mobile.css")' in styles.text
     assert "body {" in base_styles.text
     assert ".health-board" in health_styles.text
     assert ".sickz-pfsense-port" in sickz_styles.text
+    assert "@media (max-width: 768px)" in mobile_styles.text
+    assert ".service-filter-control" in mobile_styles.text
+    assert ".runtime-topology-grid" in mobile_styles.text
+    assert ".truenas-pipeline" in mobile_styles.text
 
 
 def test_health_board_platform_order_is_asset_contract() -> None:
@@ -191,11 +197,13 @@ def test_api_style_assets_stay_below_review_threshold() -> None:
     base = (_ASSET_DIR / "api-base.css").read_text(encoding="utf-8")
     health = (_ASSET_DIR / "api-health.css").read_text(encoding="utf-8")
     sickz = (_ASSET_DIR / "api-sickz.css").read_text(encoding="utf-8")
+    mobile = (_ASSET_DIR / "api-mobile.css").read_text(encoding="utf-8")
 
     assert len(entrypoint.splitlines()) < 20
     assert len(base.splitlines()) < 400
     assert len(health.splitlines()) < 400
     assert len(sickz.splitlines()) < 250
+    assert len(mobile.splitlines()) < 400
 
 
 def test_optional_runtime_clients_are_installed() -> None:
