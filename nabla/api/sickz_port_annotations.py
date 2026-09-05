@@ -30,6 +30,8 @@ _PORT_POLICY: dict[str, dict[str, Any]] = {
     "10443": {
         "service": "pfSense Admin/API",
         "expected_reachable": True,
+        "direct_probe_semantics": "diagnostic_only",
+        "recommended_control_path": "out_of_band",
         "access_policy": "trusted_sources_only",
         "default_action": "deny",
         "expected_from": ["fastapi_cloud", "approved_admin_sources"],
@@ -89,10 +91,13 @@ def _apply_source_aware_10443_policy(
             "negative probe is still required."
         )
     elif reachable is False:
-        status = "fail"
+        status = "warn"
         detail = (
-            "pfSense REST/API 10443 is not reachable from the approved FastAPI Cloud runtime, "
-            "but the current trusted_sources_only contract requires this monitoring path."
+            "⚠️ pfSense REST/API 10443 is not reachable from this FastAPI Cloud runtime. "
+            "Because the listener is trusted_sources_only and FastAPI Cloud egress is not "
+            "a stable workload identity, this can be consistent with the intended WAN deny "
+            "policy rather than a pfSense outage. Use the out-of-band observer for durable "
+            "security telemetry instead of broadening WAN access."
         )
     else:
         status = "unknown"
