@@ -2,8 +2,8 @@
 
 FastAPI Cloud exposes replica counts in its control-plane Metrics UI, but the
 application runtime does not currently receive a documented control-plane replica
-count.  This module therefore reports *observed active runtimes* using short-lived
-Redis heartbeats.  It never presents that count as the authoritative platform
+count. This module therefore reports *observed active runtimes* using short-lived
+Redis heartbeats. It never presents that count as the authoritative platform
 replica count.
 """
 
@@ -31,6 +31,9 @@ _RECENT_EGRESS_WINDOW_SEC = 86_400.0
 _INSTANCE_REGISTRY_TTL_SEC = 600
 _EGRESS_REGISTRY_TTL_SEC = 172_800
 _REDIS_TELEMETRY_TIMEOUT_SEC = 1.5
+_REDIS_BACKEND = "application_redis"
+_REDIS_PROVIDER_ATTRIBUTION = "unavailable"
+_REDIS_TELEMETRY_SCOPE = "redis_server_and_selected_database"
 
 
 def runtime_registry_keys(mode: str | None = None) -> tuple[str, str, str]:
@@ -86,10 +89,22 @@ def _float_value(value: Any) -> float | None:
         return None
 
 
+def _redis_identity() -> dict[str, str]:
+    """Describe the observed Redis without claiming which platform manages it."""
+    return {
+        "backend": _REDIS_BACKEND,
+        "provider_attribution": _REDIS_PROVIDER_ATTRIBUTION,
+        "telemetry_scope": _REDIS_TELEMETRY_SCOPE,
+        "key_count_scope": "selected_database_total",
+    }
+
+
 async def redis_usage_snapshot(redis_client: Redis | None) -> dict[str, Any]:
     """Return bounded, credential-free Redis capacity/usage telemetry."""
+    identity = _redis_identity()
     if redis_client is None:
         return {
+            **identity,
             "configured": False,
             "available": False,
             "telemetry_available": False,
@@ -109,6 +124,7 @@ async def redis_usage_snapshot(redis_client: Redis | None) -> dict[str, Any]:
             )
     except TimeoutError:
         return {
+            **identity,
             "configured": True,
             "available": stage == "info",
             "telemetry_available": False,
@@ -122,6 +138,7 @@ async def redis_usage_snapshot(redis_client: Redis | None) -> dict[str, Any]:
         }
     except Exception as exc:
         return {
+            **identity,
             "configured": True,
             "available": stage == "info",
             "telemetry_available": False,
@@ -140,7 +157,14 @@ async def redis_usage_snapshot(redis_client: Redis | None) -> dict[str, Any]:
     if used_memory is not None and maxmemory is not None and maxmemory > 0:
         utilization = round((used_memory / maxmemory) * 100, 2)
 
+    hits = _int_value(stats.get("keyspace_hits"))
+    misses = _int_value(stats.get("keyspace_misses"))
+    hit_rate = None
+    if hits is not None and misses is not None and hits + misses > 0:
+        hit_rate = round((hits / (hits + misses)) * 100, 2)
+
     return {
+        **identity,
         "configured": True,
         "available": True,
         "telemetry_available": True,
@@ -159,15 +183,20 @@ async def redis_usage_snapshot(redis_client: Redis | None) -> dict[str, Any]:
         "blocked_clients": _int_value(clients.get("blocked_clients")),
         "keys": _int_value(key_count),
         "instantaneous_ops_per_sec": _int_value(stats.get("instantaneous_ops_per_sec")),
-        "keyspace_hits": _int_value(stats.get("keyspace_hits")),
-        "keyspace_misses": _int_value(stats.get("keyspace_misses")),
+        "keyspace_hits": hits,
+        "keyspace_misses": misses,
+        "keyspace_hit_rate_percent": hit_rate,
         "evicted_keys": _int_value(stats.get("evicted_keys")),
         "expired_keys": _int_value(stats.get("expired_keys")),
     }
 
 
-async def record_runtime_heartbeat(redis_client: Redis | None) -> dict[str, Any]:
-    """Record this runtime in the shared registry and return its sanitized details."""
+async def record_runtime_heartbeat(
+    redis_client: Redis | None,
+    *,
+    mode: str | None = None,
+) -> dict[str, Any]:
+    """Record this runtime in the scoped registry and return sanitized details."""
     egress = await observe_public_egress_ip()
     now = time.time()
     instance_id = runtime_instance_id()
@@ -181,7 +210,7 @@ async def record_runtime_heartbeat(redis_client: Redis | None) -> dict[str, Any]
     if redis_client is None:
         return details
 
-    instance_zset, instance_hash, egress_zset = runtime_registry_keys()
+    instance_zset, instance_hash, egress_zset = runtime_registry_keys(mode)
     stale_before = now - _ACTIVE_WINDOW_SEC
     try:
         stale_ids = await redis_client.zrangebyscore(instance_zset, min="-inf", max=stale_before)
@@ -207,9 +236,14 @@ async def record_runtime_heartbeat(redis_client: Redis | None) -> dict[str, Any]
     return details
 
 
-async def _shared_runtime_snapshot(redis_client: Redis, current: dict[str, Any]) -> dict[str, Any]:
+async def _shared_runtime_snapshot(
+    redis_client: Redis,
+    current: dict[str, Any],
+    *,
+    mode: str | None = None,
+) -> dict[str, Any]:
     now = time.time()
-    instance_zset, instance_hash, egress_zset = runtime_registry_keys()
+    instance_zset, instance_hash, egress_zset = runtime_registry_keys(mode)
     active_after = now - _ACTIVE_WINDOW_SEC
     active_ids = await redis_client.zrangebyscore(instance_zset, min=active_after, max="+inf")
     raw_details = await redis_client.hmget(instance_hash, active_ids) if active_ids else []
@@ -239,10 +273,14 @@ async def _shared_runtime_snapshot(redis_client: Redis, current: dict[str, Any])
     }
 
 
-async def build_runtime_topology_snapshot(redis_client: Redis | None) -> dict[str, Any]:
+async def build_runtime_topology_snapshot(
+    redis_client: Redis | None,
+    *,
+    hostname: str | None = None,
+) -> dict[str, Any]:
     """Return active runtime/egress evidence with explicit count semantics."""
-    mode = runtime_mode()
-    current = await record_runtime_heartbeat(redis_client)
+    mode = runtime_mode(hostname)
+    current = await record_runtime_heartbeat(redis_client, mode=mode)
     redis_usage = await redis_usage_snapshot(redis_client)
     shared: dict[str, Any]
     if redis_client is None:
@@ -252,11 +290,11 @@ async def build_runtime_topology_snapshot(redis_client: Redis | None) -> dict[st
             "active_egress_ips": [current["egress_ip"]] if current.get("egress_ip") else [],
             "recent_egress_ips": [current["egress_ip"]] if current.get("egress_ip") else [],
             "aggregation": "local_only",
-            "degraded": mode == "fastapi_cloud",
+            "degraded": mode in {"fastapi_cloud", "cloud_paas"},
         }
     else:
         try:
-            shared = await _shared_runtime_snapshot(redis_client, current)
+            shared = await _shared_runtime_snapshot(redis_client, current, mode=mode)
         except Exception as exc:  # Best-effort diagnostic only.
             logger.warning(
                 "runtime_topology_snapshot_failed",
