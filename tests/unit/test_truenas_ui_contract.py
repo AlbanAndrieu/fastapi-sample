@@ -40,7 +40,7 @@ def test_truenas_platform_distinguishes_unavailable_and_stale_snort_telemetry() 
     javascript = ASSET.read_text(encoding="utf-8")
 
     assert 'block?.state === "telemetry_unavailable"' in javascript
-    assert "Snort telemetry temporarily unavailable" in javascript
+    assert "pfSense security telemetry temporarily unavailable" in javascript
     assert "Control path:" in javascript
     assert 'block?.state === "telemetry_stale"' in javascript
     assert "Snort telemetry stale · last-known-good table retained" in javascript
