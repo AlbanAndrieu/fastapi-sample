@@ -168,7 +168,18 @@ async def _observe_cloudflare() -> tuple[
 
 
 async def _probe_http_edge_evidence(url: str) -> dict[str, Any]:
-    """Collect sanitized HTTP edge evidence without hiding invalid certificates."""
+    """Collect sanitized HTTP edge evidence without probing pfSense admin directly."""
+    try:
+        if urlsplit(url).port == 10443:
+            return {
+                "cloudflare_http_evidence": False,
+                "cloudflare_access_signal": False,
+                "http_evidence_skipped": True,
+                "http_evidence_skip_reason": "pfSense admin endpoint is not a Cloudflare edge target",
+            }
+    except ValueError:
+        pass
+
     try:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(5.0),
