@@ -56,6 +56,8 @@ def test_runtime_topology_does_not_claim_control_plane_replica_count() -> None:
     assert "runtime_mode" in javascript
     assert "control-plane only" in javascript
     assert "local process" in javascript
+    assert "local runtime" in javascript
+    assert "local telemetry degraded" in javascript
     assert "observed_instance_count" in javascript
     assert "active_egress_ips" in javascript
     assert "recent_egress_ips" in javascript
