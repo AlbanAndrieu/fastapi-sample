@@ -219,16 +219,22 @@ class JMGunicornLogger(glogging.Logger):
         )
 
 
+_QUIET_HEALTH_PATHS = ("/health", "/healthz", "/livez", "/readyz", "/sickz")
+
+
 class HealthCheckFilter(logging.Filter):
+    """Drop routine operational health access logs while keeping other requests."""
+
     def filter(self, record: logging.LogRecord) -> bool:
-        return record.getMessage().find("/health") == -1
+        message = record.getMessage()
+        return not any(path in message for path in _QUIET_HEALTH_PATHS)
 
 
 class MetricsFilter(logging.Filter):
-    # Uvicorn endpoint access log filter
+    """Drop routine metrics scrapes while keeping ordinary access logs."""
+
     def filter(self, record: logging.LogRecord) -> bool:
-        # return record.getMessage().find("GET /metrics") == -1
-        return record.getMessage().find("metrics") != -1
+        return "/metrics" not in record.getMessage()
 
 
 def configure_library_log_levels() -> None:
@@ -254,7 +260,8 @@ def setup_logging() -> None:
     # Get root logger
     logger: logging.Logger = logging.getLogger()
 
-    # Remove /credentials/health from application server logs
+    # Keep high-frequency operational probes out of access logs without hiding
+    # ordinary application requests.
     logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
     logging.getLogger("uvicorn.access").addFilter(MetricsFilter())
 
