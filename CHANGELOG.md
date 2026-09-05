@@ -1,3 +1,10 @@
+# [1.7.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.6.5...1.7.0) (2026-09-05)
+
+
+### Features
+
+* **ui:** improve /api mobile responsiveness ([#190](https://github.com/AlbanAndrieu/fastapi-sample/issues/190)) ([7d439d2](https://github.com/AlbanAndrieu/fastapi-sample/commit/7d439d218bcc7ad9e357b1fe69af9d5b4bc89642))
+
 ## [1.6.5](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.6.4...1.6.5) (2026-09-05)
 
 
