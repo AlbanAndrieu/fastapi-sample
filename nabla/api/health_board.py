@@ -233,10 +233,52 @@ async def build_runtime_snapshot() -> dict[str, Any]:
     return await build_runtime_topology_snapshot(redis)
 
 
+def _annotate_pfsense_source_policy(
+    healthz: dict[str, Any],
+    runtime: dict[str, Any],
+) -> dict[str, Any]:
+    """Make FastAPI Cloud connect-timeout evidence actionable without over-attribution."""
+    if runtime.get("runtime_mode") != "fastapi_cloud":
+        return healthz
+
+    checks = dict(healthz.get("checks") or {})
+    raw = checks.get("pfsense")
+    if not isinstance(raw, dict):
+        return healthz
+    pfsense = dict(raw)
+    if (
+        pfsense.get("reachable") is False
+        and pfsense.get("error_kind") == "connect_timeout"
+        and pfsense.get("failure_stage") == "connect"
+    ):
+        active_egress = [
+            str(value)
+            for value in runtime.get("active_egress_ips") or []
+            if isinstance(value, str) and value
+        ]
+        pfsense["source_policy"] = {
+            "state": "possible_source_policy_drift",
+            "access_policy": "trusted_sources_only",
+            "active_egress_ips": active_egress,
+            "detail": (
+                "TCP/TLS connection did not complete before the 2s connect budget. "
+                "Because pfSense 10443 is restricted to trusted sources and FastAPI Cloud "
+                "does not provide a stable application-controlled egress identity, verify "
+                "the WAN source rule against the currently observed egress before treating "
+                "this as an API or credential failure."
+            ),
+            "recommended_control_path": "out_of_band",
+        }
+        checks["pfsense"] = pfsense
+        return {**healthz, "checks": checks}
+    return healthz
+
+
 async def build_health_board_snapshot(request: Request) -> dict[str, Any]:
     """Collect expensive views sequentially so one UI load cannot amplify fan-out."""
     healthz = await build_extended_healthz(request)
     runtime = await build_runtime_snapshot()
+    healthz = _annotate_pfsense_source_policy(healthz, runtime)
     homelab = await build_homelab_snapshot(healthz.get("checks"))
     sickz = await build_sickz_snapshot(request)
     return {
