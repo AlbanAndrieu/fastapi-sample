@@ -21,7 +21,7 @@ docker-compose = "latest"
 lockfile = true
 
 [env]
-_.file = "secrets-enc.yaml"
+_.file = [".env.secrets", "secrets-enc.yaml", ".env.local"]
 
 ENV = "dev"
 
