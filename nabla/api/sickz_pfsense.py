@@ -9,6 +9,8 @@ from urllib.parse import urlparse
 
 import httpx
 
+from nabla.api.runtime_environment import known_paas_runtime_detected
+
 PFSENSE_EXTRA_TCP_PORTS: tuple[int, ...] = (
     22,
     9922,
@@ -78,19 +80,6 @@ _PFSENSE_TCP_PORT_POLICY: dict[int, dict[str, Any]] = {
         ),
     },
 }
-
-_KNOWN_PAAS_ENV_MARKERS: tuple[str, ...] = (
-    "VERCEL",
-    "AWS_EXECUTION_ENV",
-    "AWS_LAMBDA_FUNCTION_NAME",
-    "KUBERNETES_SERVICE_HOST",
-    "FLY_APP_NAME",
-    "RAILWAY_ENVIRONMENT",
-    "RAILWAY_PROJECT_ID",
-    "HEROKU_APP_NAME",
-    "DYNO",
-)
-
 
 def pfsense_tcp_port_policy_payload() -> dict[str, dict[str, Any]]:
     return {
@@ -163,14 +152,6 @@ def pfsense_tcp_skip_payload(urls: list[str]) -> dict[str, Any]:
         "pfsense_tcp_port_policy": pfsense_tcp_port_policy_payload(),
         "pfsense_tcp_ports_skipped": True,
     }
-
-
-def known_paas_runtime_detected() -> bool:
-    env = os.environ
-    return any(
-        env.get(key) is not None and str(env.get(key)).strip() != ""
-        for key in _KNOWN_PAAS_ENV_MARKERS
-    )
 
 
 async def _probe_tcp_port_open(
