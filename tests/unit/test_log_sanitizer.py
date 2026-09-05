@@ -78,7 +78,13 @@ def test_metrics_filter_drops_scrapes_but_keeps_application_requests() -> None:
     access_filter = MetricsFilter()
 
     assert access_filter.filter(_access_record('127.0.0.1 - "GET /metrics HTTP/1.1" 200')) is False
+    assert access_filter.filter(
+        _access_record('127.0.0.1 - "GET /metrics?format=openmetrics HTTP/1.1" 200')
+    ) is False
     assert access_filter.filter(_access_record('127.0.0.1 - "GET /api HTTP/1.1" 200')) is True
+    assert access_filter.filter(
+        _access_record('127.0.0.1 - "GET /api/health-board HTTP/1.1" 200')
+    ) is True
 
 
 def test_health_filter_drops_operational_probes_but_keeps_api_requests() -> None:
