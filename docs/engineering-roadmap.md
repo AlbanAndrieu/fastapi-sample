@@ -204,8 +204,10 @@ degraded conditions.
       fragmentation, client/key counts, operations, hits/misses and eviction/
       expiry counters. Keep the INFO calls optional and under a 1.5-second budget.
 - [x] Require the post-deploy smoke to prove FastAPI Cloud runtime identity and
-      live Redis telemetry after the new release is actually deployed; PR smoke
-      remains compatible with the currently deployed previous release.
+      Redis connectivity after the new release is actually deployed. Redis INFO
+      capacity telemetry remains best-effort because managed ACLs may legitimately
+      forbid INFO; a denied INFO must not turn an otherwise healthy Redis into a
+      deployment failure. PR smoke remains compatible with the previous release.
 
 ## P1 — Runtime library consolidation and technical-debt reduction
 
