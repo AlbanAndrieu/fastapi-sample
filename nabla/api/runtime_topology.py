@@ -90,13 +90,17 @@ async def redis_usage_snapshot(redis_client: Redis | None) -> dict[str, Any]:
     """Return bounded, credential-free Redis capacity/usage telemetry."""
     if redis_client is None:
         return {
+            "configured": False,
             "available": False,
             "telemetry_available": False,
             "reason": "redis client not configured",
         }
 
+    stage = "ping"
     try:
         async with asyncio.timeout(_REDIS_TELEMETRY_TIMEOUT_SEC):
+            await redis_client.ping()
+            stage = "info"
             memory, clients, stats, key_count = await asyncio.gather(
                 redis_client.info("memory"),
                 redis_client.info("clients"),
@@ -105,16 +109,28 @@ async def redis_usage_snapshot(redis_client: Redis | None) -> dict[str, Any]:
             )
     except TimeoutError:
         return {
-            "available": True,
+            "configured": True,
+            "available": stage == "info",
             "telemetry_available": False,
-            "reason": "redis telemetry deadline exceeded",
+            "reason": (
+                "redis telemetry deadline exceeded"
+                if stage == "info"
+                else "redis ping deadline exceeded"
+            ),
             "error_kind": "deadline",
+            "failure_stage": stage,
         }
     except Exception as exc:
         return {
-            "available": True,
+            "configured": True,
+            "available": stage == "info",
             "telemetry_available": False,
-            "reason": "redis telemetry unavailable",
+            "reason": (
+                "redis INFO telemetry unavailable"
+                if stage == "info"
+                else "redis ping unavailable"
+            ),
+            "failure_stage": stage,
             "exception_type": type(exc).__name__,
         }
 
@@ -125,6 +141,7 @@ async def redis_usage_snapshot(redis_client: Redis | None) -> dict[str, Any]:
         utilization = round((used_memory / maxmemory) * 100, 2)
 
     return {
+        "configured": True,
         "available": True,
         "telemetry_available": True,
         "used_memory_bytes": used_memory,
