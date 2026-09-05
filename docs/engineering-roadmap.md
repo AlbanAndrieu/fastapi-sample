@@ -210,6 +210,13 @@ acceptance criterion.
 - [x] Make the `/api` runtime card and hero deployment-aware: local workstation
       runs must not present FastAPI Cloud replica/control-plane wording, while the
       production runtime keeps explicit FastAPI Cloud context.
+- [x] Isolate runtime heartbeat and egress Redis keys by runtime mode so a
+      workstation sharing Redis infrastructure with production cannot pollute the
+      FastAPI Cloud replica/egress view (or vice versa); give the scoped registry
+      keys finite TTLs so abandoned telemetry expires without manual cleanup.
+- [x] Correct Uvicorn access-log filtering so ordinary application requests remain
+      visible while `/metrics` and routine health/readiness probes are suppressed,
+      and retain `service_name` plus timestamp in JSON logs for useful provenance.
 - [ ] Define the trusted client-identity model for rate limiting behind FastAPI
       Cloud/reverse proxies before using forwarded headers as limiter keys. If
       cross-replica limiting moves to Redis, keep a bounded in-memory fallback so
@@ -256,6 +263,9 @@ acceptance criterion.
   appliance health paths where retries amplify load.
 - Structured logs remain redacted and fixed-cardinality where used for metrics or
   incident grouping.
+- Local workstation runtime telemetry is a normal healthy state without shared
+  Redis; FastAPI Cloud reports missing shared aggregation as degraded, and the two
+  runtime modes never share heartbeat registry keys.
 - A `cashews` migration proceeds only if a focused benchmark/test matrix shows a
   material net reduction in custom cache code without weakening the current
   failure-visible, stale-last-good and cross-replica pressure-relief contract.
