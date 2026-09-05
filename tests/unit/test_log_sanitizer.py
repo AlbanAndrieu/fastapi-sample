@@ -3,6 +3,8 @@
 import logging
 
 from nabla.utils.log_config import (
+    HealthCheckFilter,
+    MetricsFilter,
     SensitiveLogFilter,
     configure_library_log_levels,
     sanitize_log_value,
@@ -57,3 +59,33 @@ def test_structured_log_identity_preserves_authenticated_user() -> None:
     event = add_user_id(None, None, {"user_id": "principal-42"})
 
     assert event["user_id"] == "principal-42"
+
+
+
+def _access_record(message: str) -> logging.LogRecord:
+    return logging.LogRecord(
+        "uvicorn.access",
+        logging.INFO,
+        __file__,
+        1,
+        message,
+        (),
+        None,
+    )
+
+
+def test_metrics_filter_drops_scrapes_but_keeps_application_requests() -> None:
+    access_filter = MetricsFilter()
+
+    assert access_filter.filter(_access_record('127.0.0.1 - "GET /metrics HTTP/1.1" 200')) is False
+    assert access_filter.filter(_access_record('127.0.0.1 - "GET /api HTTP/1.1" 200')) is True
+
+
+def test_health_filter_drops_operational_probes_but_keeps_api_requests() -> None:
+    access_filter = HealthCheckFilter()
+
+    for path in ("/health", "/healthz", "/livez", "/readyz", "/sickz"):
+        assert access_filter.filter(
+            _access_record(f'127.0.0.1 - "GET {path} HTTP/1.1" 200')
+        ) is False
+    assert access_filter.filter(_access_record('127.0.0.1 - "GET /api HTTP/1.1" 200')) is True
