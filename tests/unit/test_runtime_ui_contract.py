@@ -24,6 +24,10 @@ def test_local_runtime_topology_is_rendered_before_core_services() -> None:
     assert 'data-runtime-mode="local"' in page
     assert "Active egress IPs" in page
     assert "Recent egress IPs · 24 h" in page
+    assert 'id="runtime-redis-memory"' in page
+    assert 'id="runtime-redis-keys"' in page
+    assert 'id="runtime-redis-clients"' in page
+    assert 'id="runtime-redis-ops"' in page
 
 
 def test_fastapi_cloud_runtime_keeps_production_context() -> None:
@@ -67,3 +71,6 @@ def test_runtime_topology_does_not_claim_control_plane_replica_count() -> None:
     assert 'redis_heartbeat: "shared Redis"' in javascript
     assert 'local_only: "local only"' in javascript
     assert 'local_fallback: "local fallback"' in javascript
+    assert "renderRedisUsage(runtime.redis)" in javascript
+    assert "memory_utilization_percent" in javascript
+    assert "instantaneous_ops_per_sec" in javascript
