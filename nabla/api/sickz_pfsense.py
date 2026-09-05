@@ -52,8 +52,6 @@ _PFSENSE_TCP_PORT_POLICY: dict[int, dict[str, Any]] = {
     7000: {
         "service": "TrueNAS via pfSense HAProxy",
         "expected_reachable": True,
-        "direct_probe_semantics": "diagnostic_only",
-        "recommended_control_path": "out_of_band",
         "access_policy": "trusted_sources_only",
         "default_action": "deny",
         "expected_from": ["fastapi_cloud", "approved_admin_sources"],
@@ -69,6 +67,8 @@ _PFSENSE_TCP_PORT_POLICY: dict[int, dict[str, Any]] = {
     10443: {
         "service": "pfSense Admin/API",
         "expected_reachable": True,
+        "direct_probe_semantics": "diagnostic_only",
+        "recommended_control_path": "out_of_band",
         "access_policy": "trusted_sources_only",
         "default_action": "deny",
         "expected_from": ["fastapi_cloud", "approved_admin_sources"],
