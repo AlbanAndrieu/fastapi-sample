@@ -26,6 +26,7 @@ def render_api_root_page(
         if is_fastapi_cloud
         else "Observed local runtime processes and outbound egress. Shared Redis heartbeats may include sibling workstation processes."
     )
+    instance_label = "Observed instances" if is_fastapi_cloud else "Observed processes"
     replica_label = "FastAPI Cloud replicas" if is_fastapi_cloud else "Runtime scope"
     replica_value = "control-plane only" if is_fastapi_cloud else "local process"
     runtime_note = (
@@ -124,7 +125,7 @@ def render_api_root_page(
                     </div>
                     <div class="runtime-topology-grid">
                         <div class="runtime-topology-metric">
-                            <span id="runtime-instance-label">${"Observed instances" if is_fastapi_cloud else "Observed processes"}</span>
+                            <span id="runtime-instance-label">{instance_label}</span>
                             <strong id="runtime-instance-count">—</strong>
                         </div>
                         <div class="runtime-topology-metric">
