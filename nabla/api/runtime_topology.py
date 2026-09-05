@@ -255,8 +255,13 @@ async def build_runtime_topology_snapshot(redis_client: Redis | None) -> dict[st
             }
 
     is_fastapi_cloud = mode == "fastapi_cloud"
+    provider = {
+        "fastapi_cloud": "FastAPI Cloud",
+        "cloud_paas": "Cloud/PaaS runtime",
+        "local": "Local workstation",
+    }.get(mode, "Unknown runtime")
     return {
-        "provider": "FastAPI Cloud" if is_fastapi_cloud else "Local workstation",
+        "provider": provider,
         "runtime_mode": mode,
         "observed_at": _utc_timestamp(),
         "platform_replica_count": None,
@@ -265,8 +270,13 @@ async def build_runtime_topology_snapshot(redis_client: Redis | None) -> dict[st
             "Observed active application runtimes from shared heartbeats; "
             "this is not the FastAPI Cloud control-plane replica count."
             if is_fastapi_cloud
-            else "Observed application runtimes for the local workstation; "
-            "shared Redis heartbeats may include sibling local processes."
+            else (
+                "Observed application runtimes for a cloud/PaaS environment; "
+                "this is application heartbeat evidence, not provider control-plane capacity."
+                if mode == "cloud_paas"
+                else "Observed application runtimes for the local workstation; "
+                "shared Redis heartbeats may include sibling local processes."
+            )
         ),
         "heartbeat_interval_seconds": int(_HEARTBEAT_INTERVAL_SEC),
         "active_window_seconds": int(_ACTIVE_WINDOW_SEC),
