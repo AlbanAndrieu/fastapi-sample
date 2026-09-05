@@ -14,6 +14,7 @@ def _clear_paas_env(monkeypatch: pytest.MonkeyPatch) -> None:
     names = (
         *runtime_env._KNOWN_PAAS_ENV_MARKERS,
         *runtime_env._FASTAPI_CLOUD_ENV_MARKERS,
+        "FASTAPI_ENV",
         "SICKZ_NETWORK_LABEL",
     )
     for name in names:
@@ -91,8 +92,10 @@ def test_known_public_port_policy_matches_expected_exposure() -> None:
     policy = sp.pfsense_tcp_port_policy_payload()
     assert policy["22"]["service"] == "SSH"
     assert policy["22"]["expected_reachable"] is False
+    assert policy["22"]["port_sweep_probe"] is False
     assert policy["9922"]["service"] == "TrueNAS SSH"
     assert policy["9922"]["expected_reachable"] is False
+    assert policy["9922"]["port_sweep_probe"] is False
     assert policy["4000"]["service"] == "LiteLLM"
     assert policy["4000"]["expected_reachable"] is False
     assert policy["7000"]["service"] == "TrueNAS via pfSense HAProxy"
@@ -100,11 +103,12 @@ def test_known_public_port_policy_matches_expected_exposure() -> None:
     assert policy["7000"]["access_policy"] == "trusted_sources_only"
     assert policy["7000"]["default_action"] == "deny"
     assert policy["10443"]["service"] == "pfSense Admin/API"
-    assert policy["10443"]["expected_reachable"] is True
+    assert policy["10443"]["expected_reachable"] is False
     assert policy["10443"]["access_policy"] == "trusted_sources_only"
     assert policy["10443"]["default_action"] == "deny"
     assert policy["10443"]["negative_probe_required"] is True
-    assert policy["10443"]["direct_probe_semantics"] == "diagnostic_only"
+    assert policy["10443"]["direct_probe_semantics"] == "negative_exposure_check"
+    assert policy["10443"]["port_sweep_probe"] is False
     assert policy["10443"]["recommended_control_path"] == "out_of_band"
 
 
@@ -121,9 +125,11 @@ async def test_unknown_tcp_port_is_indeterminate_on_paas(monkeypatch: pytest.Mon
 
 
 @pytest.mark.asyncio
-async def test_known_ports_dispatch_to_protocol_aware_probes(monkeypatch: pytest.MonkeyPatch) -> None:
-    async def fake_ssh(_host: str, _port: int, **_kwargs: object) -> bool:
-        return True
+async def test_known_ports_dispatch_without_disruptive_admin_probes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fail_ssh(*_args: object, **_kwargs: object) -> bool:
+        raise AssertionError("SSH banner probes must stay disabled")
 
     async def fake_http(
         _host: str,
@@ -134,10 +140,46 @@ async def test_known_ports_dispatch_to_protocol_aware_probes(monkeypatch: pytest
     ) -> bool:
         return secure
 
-    monkeypatch.setattr(sp, "_probe_ssh_port", fake_ssh)
+    monkeypatch.setattr(sp, "_probe_ssh_port", fail_ssh)
     monkeypatch.setattr(sp, "_probe_http_port", fake_http)
-    assert await sp.probe_pfsense_tcp_port("example.test", 22) is True
-    assert await sp.probe_pfsense_tcp_port("example.test", 9922) is True
+    assert await sp.probe_pfsense_tcp_port("example.test", 22) is None
+    assert await sp.probe_pfsense_tcp_port("example.test", 9922) is None
     assert await sp.probe_pfsense_tcp_port("example.test", 4000) is False
     assert await sp.probe_pfsense_tcp_port("example.test", 7000) is True
-    assert await sp.probe_pfsense_tcp_port("example.test", 10443) is True
+    assert await sp.probe_pfsense_tcp_port("example.test", 10443) is None
+
+
+@pytest.mark.asyncio
+async def test_paas_pfsense_group_uses_one_canonical_admin_probe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    urls = [
+        "https://home.albandrieu.com:10443/",
+        "https://172.17.0.1:10443/",
+        "http://172.17.0.1:8076/",
+    ]
+    calls: list[str] = []
+
+    monkeypatch.setattr(sc, "known_paas_runtime_detected", lambda: True)
+
+    async def fake_url(url: str) -> dict[str, object]:
+        calls.append(url)
+        return {"reachable": True, "http_status": 200}
+
+    async def fake_port(_host: str, _port: int) -> None:
+        return None
+
+    async def fail_tls(_url: str) -> None:
+        raise AssertionError("pfSense TLS verification must not duplicate the cloud admin probe")
+
+    monkeypatch.setattr(sc, "_probe_url", fake_url)
+    monkeypatch.setattr(sc, "probe_pfsense_tcp_port", fake_port)
+    monkeypatch.setattr(sc, "probe_https_tls_trusted", fail_tls)
+
+    result = await sc._probe_alias_group(urls)
+
+    assert calls == ["https://home.albandrieu.com:10443/"]
+    assert result["aliases_probed"] == ["https://home.albandrieu.com:10443/"]
+    assert result["aliases_configured"] == urls
+    assert result["tls_trusted"] is None
+    assert result["alias_results"]["https://172.17.0.1:10443/"]["skipped"] is True
