@@ -63,6 +63,42 @@ jobs:
             (.count_semantics | type == "string" and length > 0)
           ' /tmp/runtime-topology.json >/dev/null
 
+      - name: Verify deployed FastAPI Cloud identity and Redis usage
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error \
+            --connect-timeout 10 \
+            --max-time 30 \
+            --retry 3 \
+            --retry-delay 5 \
+            --retry-all-errors \
+            "${PRODUCTION_API_URL}/runtime/topology" \
+            > /tmp/runtime-topology-deployed.json
+
+          echo "::group::FastAPI Cloud runtime identity"
+          jq '{
+            provider,
+            runtime_mode,
+            observed_instance_count,
+            active_egress_ips,
+            aggregation,
+            redis
+          }' /tmp/runtime-topology-deployed.json
+          echo "::endgroup::"
+
+          jq -e '
+            .provider == "FastAPI Cloud" and
+            .runtime_mode == "fastapi_cloud" and
+            (.observed_instance_count | type == "number" and . >= 1) and
+            .redis.available == true and
+            .redis.telemetry_available == true and
+            (.redis.used_memory_bytes | type == "number" and . >= 0) and
+            (.redis.keys | type == "number" and . >= 0) and
+            (.redis.connected_clients | type == "number" and . >= 0)
+          ' /tmp/runtime-topology-deployed.json >/dev/null
+
       - name: Check production pfSense observability
         shell: bash
         run: |
