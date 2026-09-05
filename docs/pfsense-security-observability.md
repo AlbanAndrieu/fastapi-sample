@@ -168,8 +168,9 @@ Target assertions include:
 
 - no broad WAN `pass tcp any -> any` / Easy Rule;
 - pfSense admin/API `10443/tcp` follows the source-aware `trusted_sources_only`
-  policy: required FastAPI Cloud/approved administration sources may reach it,
-  while unrelated Internet origins are denied;
+  policy. Approved stable administration sources may reach it, while unrelated
+  Internet origins are denied. FastAPI Cloud direct reachability is diagnostic
+  only until the platform provides a stable workload identity;
 - TrueNAS SSH `9922/tcp` and firewall SSH `22/tcp` remain externally blocked;
 - TrueNAS/HAProxy `7000/tcp` follows the same reviewed source-aware exception
   while FastAPI Cloud lacks a stable user-controlled egress identity.
