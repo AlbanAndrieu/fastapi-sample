@@ -4,6 +4,7 @@
 
 import json
 import logging
+from datetime import UTC, datetime
 import logging.config
 import logging.handlers
 import os
@@ -145,22 +146,28 @@ class JsonBaseFormatter(JsonFormatter):
             log_data.pop("color_message")
 
 
+def _json_log_record(record: logging.LogRecord) -> dict[str, Any]:
+    """Return stable context shared by local and Gunicorn JSON logs."""
+    return {
+        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "service_name": record.name,
+        "level": record.levelname,
+        "message": record.getMessage(),
+    }
+
+
 class JsonRequestFormatter(JsonBaseFormatter):
     def __init__(self):
         super(JsonBaseFormatter, self).__init__()
 
     def format(self, record):
-        json_record = {}
-        # json_record["data"] = record.getMessage()
-        json_record["message"] = record.getMessage()
+        json_record = _json_log_record(record)
         if "req" in record.__dict__:
             json_record["req"] = record.__dict__["req"]
         if "res" in record.__dict__:
             json_record["res"] = record.__dict__["res"]
         if record.exc_info and record.levelno >= 40:
             json_record["err"] = self.formatException(record.exc_info)
-        if "levelname" in record.__dict__:
-            json_record["level"] = record.__dict__["levelname"]
         return json.dumps(json_record)
 
 
@@ -184,12 +191,9 @@ class JsonErrorFormatter(JsonBaseFormatter):
         super(JsonBaseFormatter, self).__init__()
 
     def format(self, record):
-        json_record = {}
-        # json_record["data"] = record.getMessage()
+        json_record = _json_log_record(record)
         if record.exc_info and record.levelno >= 40:
             json_record["err"] = self.formatException(record.exc_info)
-        if "levelname" in record.__dict__:
-            json_record["level"] = record.__dict__["levelname"]
         return json.dumps(json_record)
 
 
