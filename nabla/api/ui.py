@@ -124,7 +124,7 @@ def render_api_root_page(
                     </div>
                     <div class="runtime-topology-grid">
                         <div class="runtime-topology-metric">
-                            <span>Observed instances</span>
+                            <span id="runtime-instance-label">${"Observed instances" if is_fastapi_cloud else "Observed processes"}</span>
                             <strong id="runtime-instance-count">—</strong>
                         </div>
                         <div class="runtime-topology-metric">
