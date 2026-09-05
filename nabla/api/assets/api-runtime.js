@@ -15,28 +15,34 @@ function renderPills(values) {
     .join("");
 }
 
+function clearRedisMetrics(memoryText) {
+  setText("runtime-redis-memory", memoryText);
+  setText("runtime-redis-keys", "—");
+  setText("runtime-redis-clients", "—");
+  setText("runtime-redis-ops", "—");
+  setText("runtime-redis-hit-rate", "—");
+  setText("runtime-redis-evictions", "—");
+}
+
 function renderRedisUsage(redis) {
   if (!redis || redis.configured === false) {
-    setText("runtime-redis-memory", "not configured");
-    setText("runtime-redis-keys", "—");
-    setText("runtime-redis-clients", "—");
-    setText("runtime-redis-ops", "—");
+    clearRedisMetrics("not configured");
+    setText("runtime-redis-scope", "Application Redis backend is not configured.");
     return;
   }
 
   if (redis.available === false) {
-    setText("runtime-redis-memory", "Redis unreachable");
-    setText("runtime-redis-keys", "—");
-    setText("runtime-redis-clients", "—");
-    setText("runtime-redis-ops", "—");
+    clearRedisMetrics("Redis unreachable");
+    setText("runtime-redis-scope", "Application Redis backend is configured but unreachable.");
     return;
   }
 
   if (redis.telemetry_available !== true) {
-    setText("runtime-redis-memory", "connected · metrics unavailable");
-    setText("runtime-redis-keys", "—");
-    setText("runtime-redis-clients", "—");
-    setText("runtime-redis-ops", "—");
+    clearRedisMetrics("connected · metrics unavailable");
+    setText(
+      "runtime-redis-scope",
+      "Application Redis backend is reachable; INFO/DBSIZE capacity telemetry is unavailable.",
+    );
     return;
   }
 
@@ -46,13 +52,22 @@ function renderRedisUsage(redis) {
   const memory = max && Number(redis.maxmemory_bytes) > 0
     ? `${used} / ${max}${Number.isFinite(utilization) ? ` · ${utilization}%` : ""}`
     : `${used} · no max limit`;
+  const hitRate = Number(redis.keyspace_hit_rate_percent);
 
   setText("runtime-redis-memory", memory);
   setText("runtime-redis-keys", String(redis.keys ?? "—"));
   setText("runtime-redis-clients", String(redis.connected_clients ?? "—"));
   setText("runtime-redis-ops", String(redis.instantaneous_ops_per_sec ?? "—"));
+  setText(
+    "runtime-redis-hit-rate",
+    Number.isFinite(hitRate) ? `${hitRate}%` : "—",
+  );
+  setText("runtime-redis-evictions", String(redis.evicted_keys ?? "—"));
+  setText(
+    "runtime-redis-scope",
+    "Application Redis backend · provider not attributed · server memory and selected DB totals.",
+  );
 }
-
 
 function renderInstances(instances) {
   const target = document.getElementById("runtime-instance-list");
