@@ -1,3 +1,10 @@
+## [1.6.5](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.6.4...1.6.5) (2026-09-05)
+
+
+### Bug Fixes
+
+* **runtime:** detect FastAPI Cloud and expose Redis usage ([#189](https://github.com/AlbanAndrieu/fastapi-sample/issues/189)) ([c8e0bd7](https://github.com/AlbanAndrieu/fastapi-sample/commit/c8e0bd7a5fc5e934682d309f8b46c7b3e8a117fd))
+
 ## [1.6.4](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.6.3...1.6.4) (2026-09-05)
 
 
