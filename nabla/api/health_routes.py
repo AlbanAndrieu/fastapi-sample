@@ -109,13 +109,16 @@ def register_health_routes(app: FastAPI) -> None:
         tags=["Health", "Runtime"],
         summary="Observed application runtimes and public egress",
     )
-    async def get_runtime_topology(response: Response) -> dict[str, Any]:
+    async def get_runtime_topology(request: Request, response: Response) -> dict[str, Any]:
         """Expose sanitized cross-replica heartbeat and egress evidence."""
         from nabla.api.demo.socket.redis import redis
         from nabla.api.runtime_topology import build_runtime_topology_snapshot
 
         response.headers.update(_NO_STORE_HEADERS)
-        return await build_runtime_topology_snapshot(redis)
+        return await build_runtime_topology_snapshot(
+            redis,
+            hostname=request.url.hostname,
+        )
 
     @app.get(
         "/livez",
@@ -179,52 +182,160 @@ def register_health_routes(app: FastAPI) -> None:
 
     @app.get(
         "/api/health-board",
-        tags=["Health"],
-        summary="Cached aggregate used by the public health board",
-        operation_id="get_health_board_snapshot",
+        tags=["Health", "Runtime"],
+        summary="Cached API health-board snapshot",
     )
-    async def get_health_board(
-        request: Request,
-        response: Response,
-        force_refresh: Annotated[bool, Query(alias="refresh")] = False,
-    ) -> dict[str, Any]:
+    async def get_health_board(request: Request, response: Response) -> dict[str, Any]:
+        """Return the shared health-board snapshot consumed by the API landing page."""
         from nabla.api.health_board import get_health_board_snapshot
 
         response.headers.update(_NO_STORE_HEADERS)
-        return await get_health_board_snapshot(
-            request,
-            force_refresh=force_refresh,
-        )
+        return await get_health_board_snapshot(request)
 
-    @app.post(
-        "/api/health-board/refresh-event",
-        include_in_schema=False,
-        status_code=204,
+    @app.get(
+        "/api/homelab/declared-services/compact",
+        tags=["Homelab"],
+        summary="Compact declared homelab service catalog",
     )
-    async def log_health_board_refresh(request: Request) -> Response:
-        """Record an explicit UI refresh click for FastAPI Cloud runtime diagnostics."""
-        logger.info(
-            "health_board_refresh clicked referer=%s user_agent=%s",
-            request.headers.get("referer", "-"),
-            request.headers.get("user-agent", "-"),
-        )
-        return Response(status_code=204, headers=_NO_STORE_HEADERS)
+    async def get_declared_homelab_services_compact() -> dict[str, Any]:
+        from nabla.api.homelab_declared import fetch_declared_service_catalog
 
-    @app.get("/sentry-debug", response_class=JSONResponse)
-    async def trigger_error():
-        """Send a controlled test error to Sentry."""
-        import sentry_sdk
+        catalog = await fetch_declared_service_catalog()
+        return {
+            "schema_version": catalog.schema_version,
+            "source": catalog.source,
+            "service_count": len(catalog.services),
+            "services": [
+                {
+                    "key": service.key,
+                    "display_name": service.display_name,
+                    "tier": service.tier,
+                    "external": service.external,
+                    "tunnel_secure": service.tunnel_secure,
+                }
+                for service in catalog.services
+            ],
+        }
 
-        event_id = None
-        try:
-            _ = 1 / 0
-        except ZeroDivisionError as exc:
-            event_id = sentry_sdk.capture_exception(exc)
+    @app.get(
+        "/api/homelab/observed-runtime",
+        tags=["Homelab", "Runtime"],
+        summary="Compact observed TrueNAS runtime",
+    )
+    async def get_observed_homelab_runtime() -> dict[str, Any]:
+        from nabla.api.homelab_runtime import fetch_truenas_runtime
 
-        return JSONResponse(
-            status_code=500,
-            content={
-                "error": "Intentional Sentry test error",
-                "event_id": str(event_id) if event_id else None,
+        snapshot = await fetch_truenas_runtime()
+        return snapshot.model_dump(mode="json", exclude_none=True)
+
+    @app.get(
+        "/api/homelab/observed-status",
+        tags=["Homelab", "Runtime"],
+        summary="Compact reconciled homelab status",
+    )
+    async def get_observed_homelab_status() -> dict[str, Any]:
+        from nabla.api.homelab_runtime import build_homelab_status_payload
+
+        return await build_homelab_status_payload()
+
+    @app.get(
+        "/api/homelab/observed-topology",
+        tags=["Homelab", "Runtime"],
+        summary="Compact observed homelab topology",
+    )
+    async def get_observed_homelab_topology() -> dict[str, Any]:
+        from nabla.api.homelab_topology import fetch_homelab_topology
+
+        topology = await fetch_homelab_topology()
+        return topology.model_dump(mode="json", exclude_none=True)
+
+    @app.get(
+        "/api/homelab/refresh",
+        tags=["Homelab", "Runtime"],
+        summary="Explicit homelab health refresh",
+    )
+    async def refresh_homelab_health(request: Request) -> dict[str, Any]:
+        """Force-refresh the cached health board and return the resulting snapshot."""
+        from nabla.api.health_board import force_health_board_refresh
+
+        return await force_health_board_refresh(request)
+
+    @app.get(
+        "/api/homelab/probe-budget",
+        tags=["Homelab", "Health"],
+        summary="Current aggregate health probe budget",
+    )
+    async def get_probe_budget() -> dict[str, Any]:
+        from nabla.api.probe_budget import probe_budget_snapshot
+
+        return probe_budget_snapshot()
+
+    @app.get(
+        "/api/homelab/provider-credentials",
+        tags=["Homelab", "Health"],
+        summary="Provider credential presence without secret values",
+    )
+    async def get_provider_credentials() -> dict[str, Any]:
+        from nabla.api.provider_credentials import infrastructure_provider_credentials
+
+        return infrastructure_provider_credentials()
+
+    @app.get(
+        "/api/homelab/provider-policies",
+        tags=["Homelab", "Health"],
+        summary="External provider probe-cache policies",
+    )
+    async def get_provider_policies() -> dict[str, Any]:
+        from nabla.api.provider_probe_policies import provider_probe_policies_snapshot
+
+        return provider_probe_policies_snapshot()
+
+    @app.get(
+        "/api/homelab/provider-circuits",
+        tags=["Homelab", "Health"],
+        summary="Current provider-circuit states",
+    )
+    async def get_provider_circuits() -> dict[str, Any]:
+        from nabla.api.provider_circuit import provider_circuit_snapshot
+
+        return provider_circuit_snapshot()
+
+    @app.get(
+        "/api/homelab/public-egress",
+        tags=["Homelab", "Runtime"],
+        summary="Current public egress observation",
+    )
+    async def get_public_egress() -> dict[str, Any]:
+        from nabla.api.public_egress_observer import observe_public_egress_ip
+
+        return await observe_public_egress_ip()
+
+    @app.get(
+        "/api/homelab/declared-network",
+        tags=["Homelab", "Runtime"],
+        summary="Current declared network context",
+    )
+    async def get_declared_network() -> dict[str, Any]:
+        from nabla.api.sickz_runtime import sickz_network_context
+
+        return sickz_network_context()
+
+    @app.get(
+        "/api/homelab/pfsense-source-policy",
+        tags=["Homelab", "pfSense", "Security"],
+        summary="Sanitized pfSense trusted-source policy diagnostic",
+    )
+    async def get_pfsense_source_policy(request: Request) -> dict[str, Any]:
+        from nabla.api.health_board import build_extended_healthz, build_runtime_snapshot
+
+        healthz = await build_extended_healthz(request)
+        runtime = await build_runtime_snapshot(request)
+        return {
+            "runtime": {
+                "provider": runtime.get("provider"),
+                "runtime_mode": runtime.get("runtime_mode"),
+                "active_egress_ips": runtime.get("active_egress_ips"),
+                "recent_egress_ips": runtime.get("recent_egress_ips"),
             },
-        )
+            "pfsense": (healthz.get("checks") or {}).get("pfsense"),
+        }
