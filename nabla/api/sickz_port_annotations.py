@@ -37,9 +37,9 @@ _PORT_POLICY: dict[str, dict[str, Any]] = {
         "expected_from": ["fastapi_cloud", "approved_admin_sources"],
         "negative_probe_required": True,
         "reason": (
-            "FastAPI Cloud requires the pfSense REST API on 10443 and currently has no "
-            "user-controlled static egress/tunnel. Reachability is expected from this "
-            "approved runtime, while unrelated Internet origins must remain denied."
+            "The FastAPI Cloud -> pfSense 10443 WAN probe is diagnostic only while cloud "
+            "egress is not a stable workload identity. The listener remains "
+            "trusted_sources_only; durable telemetry should use an out-of-band observer."
         ),
     },
 }
@@ -85,8 +85,9 @@ def _apply_source_aware_10443_policy(
     if reachable is True:
         status = "warn"
         detail = (
-            "⚠️ pfSense REST/API 10443 is reachable from the approved FastAPI Cloud runtime "
-            "as required by the trusted_sources_only exception. This positive probe does not "
+            "⚠️ pfSense REST/API 10443 is reachable from the current FastAPI Cloud egress. "
+            "This is diagnostic evidence, not a requirement to keep every changing cloud "
+            "egress source allowlisted. This positive probe does not "
             "prove the default-deny policy for unrelated Internet origins; an independent "
             "negative probe is still required."
         )
@@ -102,8 +103,9 @@ def _apply_source_aware_10443_policy(
     else:
         status = "unknown"
         detail = (
-            "pfSense REST/API 10443 reachability from FastAPI Cloud is unknown; the "
-            "trusted_sources_only policy cannot be reconciled without a positive runtime probe."
+            "pfSense REST/API 10443 reachability from FastAPI Cloud is unknown. The direct "
+            "WAN probe is diagnostic only; the trusted_sources_only policy requires an "
+            "independent control path for durable attribution."
         )
 
     exception = str(check.get("security_exception") or "").strip()
