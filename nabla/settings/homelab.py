@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from pydantic import SecretStr, field_validator
-from pydantic_settings import SettingsConfigDict
 from urllib.parse import urlsplit
+
+from pydantic import SecretStr, field_validator
 
 from nabla.settings.base import SettingsBase
 
@@ -21,8 +21,6 @@ class TrueNASProviderSettings(SettingsBase):
     backwards compatibility. Keeping both values explicit prevents a fallback
     secret from silently changing the health/configuration contract.
     """
-
-    model_config = SettingsConfigDict(extra="ignore")
 
     truenas_url: str = DEFAULT_TRUENAS_URL
     truenas_api_username: str | None = None
@@ -65,7 +63,8 @@ class TrueNASProviderSettings(SettingsBase):
     @classmethod
     def _validate_url(cls, value: str) -> str:
         parsed = urlsplit(value)
-        if parsed.scheme.casefold() not in _ALLOWED_TRUENAS_SCHEMES or not parsed.hostname:
+        valid_scheme = parsed.scheme.casefold() in _ALLOWED_TRUENAS_SCHEMES
+        if not valid_scheme or not parsed.hostname:
             raise ValueError(
                 "TRUENAS_URL must be an HTTP(S) or WS(S) URL with a host"
             )
