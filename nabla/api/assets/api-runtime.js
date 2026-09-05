@@ -16,7 +16,7 @@ function renderPills(values) {
 }
 
 function renderRedisUsage(redis) {
-  if (!redis || redis.available === false) {
+  if (!redis || redis.configured === false) {
     setText("runtime-redis-memory", "not configured");
     setText("runtime-redis-keys", "—");
     setText("runtime-redis-clients", "—");
@@ -24,8 +24,16 @@ function renderRedisUsage(redis) {
     return;
   }
 
+  if (redis.available === false) {
+    setText("runtime-redis-memory", "Redis unreachable");
+    setText("runtime-redis-keys", "—");
+    setText("runtime-redis-clients", "—");
+    setText("runtime-redis-ops", "—");
+    return;
+  }
+
   if (redis.telemetry_available !== true) {
-    setText("runtime-redis-memory", "unavailable");
+    setText("runtime-redis-memory", "connected · metrics unavailable");
     setText("runtime-redis-keys", "—");
     setText("runtime-redis-clients", "—");
     setText("runtime-redis-ops", "—");
