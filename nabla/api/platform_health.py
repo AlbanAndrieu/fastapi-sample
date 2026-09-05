@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import time
 from typing import Any
 
 import httpx
+from pydantic import ValidationError
 
 from nabla.api.cloudflare_tunnels import CloudflareTunnelSettings
 from nabla.api.external_probe_cache import (
@@ -26,10 +26,13 @@ from nabla.api.platform_health_diagnostics import (
     short_error as _short_error,
     utc_now as _utc_now,
 )
+from nabla.settings.homelab import (
+    PfSensePostureProviderSettings,
+    pfsense_invalid_configuration_variables,
+)
 
 _CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4"
 _PFSENSE_LIVENESS_PATH = "/api/v2/system/version"
-_TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 _PFSENSE_CONNECT_TIMEOUT_SEC = 2.0
 _PFSENSE_READ_TIMEOUT_SEC = 4.0
 _PFSENSE_MAX_ATTEMPTS = 1
@@ -40,22 +43,14 @@ logger = logging.getLogger(__name__)
 
 
 def _pfsense_posture_transport() -> tuple[str, str, bool, str]:
-    """Resolve posture credentials, preferring the dedicated read-only identity."""
-    posture_url = os.getenv("PFSENSE_POSTURE_API_URL", "").strip()
-    posture_key = os.getenv("PFSENSE_POSTURE_API_KEY", "").strip()
-    legacy_url = os.getenv("PFSENSE_API_URL", "").strip()
-    legacy_key = os.getenv("PFSENSE_API_KEY", "").strip()
-
-    dedicated = bool(posture_key)
-    base_url = (posture_url or legacy_url).rstrip("/")
-    api_key = posture_key or legacy_key
-    raw_verify = os.getenv(
-        "PFSENSE_POSTURE_API_VERIFY_SSL",
-        os.getenv("PFSENSE_API_VERIFY_SSL", "true"),
+    """Resolve validated posture transport with the dedicated identity preferred."""
+    provider = PfSensePostureProviderSettings()
+    return (
+        provider.base_url,
+        provider.api_key,
+        provider.verify_ssl,
+        provider.credential_mode,
     )
-    verify_ssl = raw_verify.strip().lower() in _TRUE_VALUES
-    credential_mode = "dedicated_posture" if dedicated else "legacy_shared"
-    return base_url, api_key, verify_ssl, credential_mode
 
 
 def _cloudflare_api_error(response: httpx.Response) -> dict[str, Any]:
@@ -165,7 +160,16 @@ async def check_cloudflare_tunnels() -> dict[str, Any]:
 
 async def check_pfsense_api() -> dict[str, Any]:
     """Check pfSense REST API liveness with the posture read-only identity."""
-    base_url, api_key, verify_ssl, credential_mode = _pfsense_posture_transport()
+    try:
+        base_url, api_key, verify_ssl, credential_mode = _pfsense_posture_transport()
+    except ValidationError as exc:
+        return {
+            "reachable": False,
+            "configuration_stage": "invalid_configuration",
+            "invalid_configuration_variables": pfsense_invalid_configuration_variables(exc),
+            "error": "pfSense posture transport configuration is invalid",
+            "probe": "pfsense_rest_api_v2",
+        }
     if not base_url or not api_key:
         return {
             "reachable": None,
