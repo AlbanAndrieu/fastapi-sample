@@ -7,6 +7,7 @@ def _clear_runtime_markers(monkeypatch) -> None:
     for name in (
         "FASTAPI_CLOUD",
         "FASTAPI_CLOUD_APP_ID",
+        "FASTAPI_ENV",
         "SICKZ_NETWORK_LABEL",
         "VERCEL",
         "AWS_EXECUTION_ENV",
@@ -42,6 +43,37 @@ def test_fastapi_cloud_detected_from_request_hostname(monkeypatch) -> None:
         runtime_environment.runtime_mode("fastapi-sample.fastapicloud.dev")
         == "fastapi_cloud"
     )
+
+
+def test_fastapi_cloud_hostname_wins_over_local_env_marker(monkeypatch) -> None:
+    _clear_runtime_markers(monkeypatch)
+    monkeypatch.setenv("FASTAPI_ENV", "development")
+
+    assert (
+        runtime_environment.runtime_mode("fastapi-sample.fastapicloud.dev")
+        == "fastapi_cloud"
+    )
+
+
+def test_local_request_does_not_claim_fastapi_cloud_from_app_id(monkeypatch) -> None:
+    _clear_runtime_markers(monkeypatch)
+    monkeypatch.setenv("FASTAPI_CLOUD_APP_ID", "local-stale-app-id")
+
+    assert runtime_environment.fastapi_cloud_runtime_detected("0.0.0.0") is False
+    assert runtime_environment.runtime_mode("0.0.0.0") == "local"
+    assert runtime_environment.runtime_mode("127.0.0.1") == "local"
+    assert runtime_environment.runtime_mode("172.17.0.57") == "local"
+    assert runtime_environment.runtime_mode("localhost") == "local"
+
+
+def test_development_env_does_not_claim_fastapi_cloud_from_app_id(monkeypatch) -> None:
+    _clear_runtime_markers(monkeypatch)
+    monkeypatch.setenv("FASTAPI_CLOUD_APP_ID", "local-stale-app-id")
+    monkeypatch.setenv("FASTAPI_ENV", "development")
+
+    assert runtime_environment.fastapi_cloud_runtime_detected() is False
+    assert runtime_environment.known_paas_runtime_detected() is False
+    assert runtime_environment.runtime_mode() == "local"
 
 
 def test_generic_paas_does_not_claim_fastapi_cloud(monkeypatch) -> None:
