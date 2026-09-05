@@ -9,17 +9,39 @@ _OPEN_GRAPH_IMAGE_URL = f"{_PUBLIC_API_URL}/assets/open-graph.png"
 _PAGE_DESCRIPTION = "FastAPI sample application with health diagnostics, search integrations, MCP and homelab observability."
 
 
-def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
+def render_api_root_page(
+    *,
+    title_suffix: str | None,
+    app_version: str,
+    is_fastapi_cloud: bool = False,
+) -> str:
     """Build the API landing page while CSS and behavior live in static assets."""
     title = escape(title_suffix or "fastapi-sample")
     description = escape(_PAGE_DESCRIPTION)
+    runtime_mode = "fastapi_cloud" if is_fastapi_cloud else "local"
+    runtime_context = "FastAPI Cloud production" if is_fastapi_cloud else "Local workstation"
+    runtime_title = "FastAPI Cloud runtime" if is_fastapi_cloud else "Local workstation runtime"
+    runtime_description = (
+        "Observed application runtimes and outbound egress. Shared Redis heartbeats provide cross-replica evidence when available."
+        if is_fastapi_cloud
+        else "Observed local runtime processes and outbound egress. Shared Redis heartbeats may include sibling workstation processes."
+    )
+    replica_label = "FastAPI Cloud replicas" if is_fastapi_cloud else "Runtime scope"
+    replica_value = "control-plane only" if is_fastapi_cloud else "local process"
+    runtime_note = (
+        "Observed runtime heartbeats are not the authoritative FastAPI Cloud control-plane replica count."
+        if is_fastapi_cloud
+        else "Local runtime heartbeats describe this workstation view; they are not a cloud control-plane replica count."
+    )
+    hero_runtime = "FastAPI Cloud" if is_fastapi_cloud else "local workstation"
+    badge_class = "status-badge--cloud" if is_fastapi_cloud else "status-badge--local"
     return f"""
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Vercel + FastAPI : {title} </title>
+        <title>FastAPI Sample · {runtime_context} · {title}</title>
         <meta name="description" content="{description}">
         <link rel="canonical" href="{_PUBLIC_API_URL}">
         <meta property="og:type" content="website">
@@ -41,7 +63,7 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
     <body>
         <header>
             <nav>
-                <a href="/" class="logo">Vercel + FastAPI : {title}</a>
+                <a href="/" class="logo">FastAPI Sample · {title}</a>
                 <div class="nav-links">
                     <a href="/docs">API Docs</a>
                     <a href="/api/data">API</a>
@@ -51,8 +73,12 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
         </header>
         <main>
             <div class="hero">
-                <h1>Vercel + FastAPI : {title}</h1>
-                <p class="subtitle" style="margin-top: -0.5rem;">App version : <strong>{app_version}</strong></p>
+                <div class="status-badge {badge_class}">
+                    <span class="status-dot" aria-hidden="true"></span>
+                    <span>{runtime_context}</span>
+                </div>
+                <h1>{title}</h1>
+                <p class="subtitle">FastAPI runtime · version <strong>{app_version}</strong></p>
                 <div class="hero-code">
                     <pre><code><span class="keyword">from</span> <span class="module">fastapi</span> <span class="keyword">import</span> <span class="class">FastAPI</span>
 
@@ -60,7 +86,7 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
 
 <span class="decorator">@app.get</span>(<span class="string">"/"</span>)
 <span class="keyword">def</span> <span class="function">read_root</span>():
-    <span class="keyword">return</span> {{<span class="string">"Python"</span>: <span class="string">"on Vercel"</span>}}</code></pre>
+    <span class="keyword">return</span> {{<span class="string">"runtime"</span>: <span class="string">"{hero_runtime}"</span>, <span class="string">"status"</span>: <span class="string">"ready"</span>}}</code></pre>
                 </div>
             </div>
 
@@ -88,11 +114,11 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
                     <span id="health-summary-text">Loading health checks…</span>
                 </div>
 
-                <section class="runtime-topology" id="runtime-topology" aria-labelledby="runtime-topology-title">
+                <section class="runtime-topology" id="runtime-topology" data-runtime-mode="{runtime_mode}" aria-labelledby="runtime-topology-title">
                     <div class="runtime-topology-heading">
                         <div>
-                            <h3 id="runtime-topology-title">FastAPI Cloud runtime</h3>
-                            <p class="health-board-meta">Observed application runtimes and outbound egress. Shared Redis heartbeats provide cross-replica evidence when available.</p>
+                            <h3 id="runtime-topology-title">{runtime_title}</h3>
+                            <p class="health-board-meta">{runtime_description}</p>
                         </div>
                         <span class="runtime-topology-state runtime-topology-state--warn" id="runtime-topology-state">Loading…</span>
                     </div>
@@ -102,8 +128,8 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
                             <strong id="runtime-instance-count">—</strong>
                         </div>
                         <div class="runtime-topology-metric">
-                            <span>FastAPI Cloud replicas</span>
-                            <strong id="runtime-replica-count">control-plane only</strong>
+                            <span id="runtime-replica-label">{replica_label}</span>
+                            <strong id="runtime-replica-count">{replica_value}</strong>
                         </div>
                         <div class="runtime-topology-metric">
                             <span>Aggregation</span>
@@ -119,7 +145,7 @@ def render_api_root_page(*, title_suffix: str | None, app_version: str) -> str:
                         <div class="runtime-topology-pills" id="runtime-recent-egress">Loading…</div>
                     </div>
                     <div class="runtime-instance-list" id="runtime-instance-list" aria-live="polite"></div>
-                    <p class="runtime-topology-note" id="runtime-count-semantics">Observed runtime heartbeats are not the authoritative FastAPI Cloud control-plane replica count.</p>
+                    <p class="runtime-topology-note" id="runtime-count-semantics">{runtime_note}</p>
                 </section>
 
                 <div class="service-group-heading service-group-heading--core" id="health-core-group-heading">

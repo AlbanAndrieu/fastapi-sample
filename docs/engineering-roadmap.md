@@ -204,6 +204,12 @@ acceptance criterion.
       `RateLimitExceeded` handler and explicit per-route decorators. Do not add a
       global/default-limit middleware until the resolved FastAPI/SlowAPI pair has
       a regression test proving router/default-limit behavior.
+- [x] Suppress routine Unleash SDK polling chatter at INFO while preserving
+      warnings/errors, so local logs remain diagnostic instead of being dominated
+      by repeated `Getting feature flag.` messages.
+- [x] Make the `/api` runtime card and hero deployment-aware: local workstation
+      runs must not present FastAPI Cloud replica/control-plane wording, while the
+      production runtime keeps explicit FastAPI Cloud context.
 - [ ] Define the trusted client-identity model for rate limiting behind FastAPI
       Cloud/reverse proxies before using forwarded headers as limiter keys. If
       cross-replica limiting moves to Redis, keep a bounded in-memory fallback so
@@ -599,9 +605,13 @@ import and had no application-owned shutdown.
 - [x] Remove direct tracer imports from database and route modules.
 - [x] Own profiler startup and shutdown in the application lifespan.
 - [x] Configure profiling independently with `DD_PROFILING_ENABLED`.
-- [ ] Remove the remaining global structured-log placeholder
-      `user_id="12345"`; bind authenticated request identity only when a real
-      principal exists and keep Datadog/Sentry PII disabled by default.
+- [x] Replace the synthetic structured-log `user_id="12345"` with
+      `user_id="anonymous"` for unauthenticated/public work while preserving an
+      already-bound real principal instead of overwriting it.
+- [ ] Bind authenticated request identity into Structlog when Keycloak/FastAPI
+      Users provides a trustworthy request principal; FastAPI Cloud runtime
+      identity is not an end-user identity. Keep Datadog/Sentry PII disabled by
+      default.
 - [x] Keep Sentry PII disabled and make trace, profile and error sampling
       configurable with conservative defaults.
 - [x] Verify that disabled Datadog paths do not import the SDK.

@@ -53,12 +53,22 @@ function render(snapshot) {
   }
 
   const count = Number(runtime.observed_instance_count);
+  const runtimeMode = runtime.runtime_mode || panel.dataset.runtimeMode || "local";
+  const isFastapiCloud = runtimeMode === "fastapi_cloud";
   setText("runtime-instance-count", Number.isFinite(count) ? String(count) : "—");
   setText(
+    "runtime-replica-label",
+    isFastapiCloud ? "FastAPI Cloud replicas" : "Runtime scope",
+  );
+  setText(
     "runtime-replica-count",
-    runtime.platform_replica_count == null
-      ? "control-plane only"
-      : String(runtime.platform_replica_count),
+    isFastapiCloud
+      ? runtime.platform_replica_count == null
+        ? "control-plane only"
+        : String(runtime.platform_replica_count)
+      : Number.isFinite(count) && count > 1
+        ? `${count} observed processes`
+        : "local process",
   );
   setText("runtime-count-semantics", runtime.count_semantics || "Observed runtime heartbeats.");
   setText("runtime-aggregation", runtime.aggregation || "unknown");

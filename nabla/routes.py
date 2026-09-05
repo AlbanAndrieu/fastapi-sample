@@ -84,6 +84,7 @@ def register_routes(app: FastAPI) -> None:
         return render_api_root_page(
             title_suffix=os.getenv("TITLE_SUFFIX"),
             app_version=html.escape(str(request.app.version)),
+            is_fastapi_cloud=bool(os.getenv("FASTAPI_CLOUD", "").strip()),
         )
 
     register_health_routes(app)

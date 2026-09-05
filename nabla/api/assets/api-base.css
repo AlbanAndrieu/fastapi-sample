@@ -173,6 +173,16 @@ h1 {
   margin-bottom: 2rem;
 }
 
+.status-badge--local {
+  background-color: #123c2b;
+  border: 1px solid #1f6b4b;
+}
+
+.status-badge--cloud {
+  background-color: #0b3266;
+  border: 1px solid #1859a8;
+}
+
 .status-dot {
   width: 6px;
   height: 6px;
