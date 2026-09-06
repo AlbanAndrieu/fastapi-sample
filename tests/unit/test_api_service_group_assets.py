@@ -76,4 +76,7 @@ def test_service_health_ui_exposes_semantic_status_badges() -> None:
     for label in ("Operational", "Degraded", "HTTP issue", "Unknown", "Down"):
         assert f'"{label}"' in source
     assert "health-meta-badge--critical" in css
+    assert "health-meta-badge--impact" in css
+    assert "transitiveDependents" in source
+    assert "downstream" in source
     assert "service-health-overview" in css
