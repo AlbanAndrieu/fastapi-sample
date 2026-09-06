@@ -59,9 +59,19 @@ def _failure_kind(exc: BaseException) -> tuple[str, str]:
     if isinstance(exc, TimeoutError) or "timeout" in class_name:
         return "connect", "connect_timeout"
     if any(
+        marker in message
+        for marker in (
+            "you are not allowed to access this resource",
+            "policy violation",
+        )
+    ):
+        return "connect", "source_allowlist"
+    if any(
         marker in message for marker in ("unauthorized", "authentication", "api key")
     ):
         return "authentication", "authentication"
+    if "websocket" in message:
+        return "connect", "websocket"
     return "api", "exception"
 
 
@@ -233,6 +243,7 @@ def _apply_cache_evidence(
 
 async def observe_truenas_health_api() -> dict[str, Any]:
     """Run the official TrueNAS probe through local and shared Redis caches."""
+    settings = TrueNASProviderSettings()
     configuration_failure = truenas_api_configuration_failure()
     if configuration_failure is not None:
         logger.error(
@@ -248,11 +259,18 @@ async def observe_truenas_health_api() -> dict[str, Any]:
         is_success=lambda value: value.get("reachable") is True,
         policy=_CACHE_POLICY,
     )
-    return _apply_cache_evidence(
+    result = _apply_cache_evidence(
         cached.value,
         metadata=cached.metadata,
         last_good=cached.last_good,
     )
+    result["credential_selection"] = {
+        "username_variable": settings.adapter_username_environment,
+        "api_key_variable": settings.adapter_api_key_environment,
+        "shadowed_username_variables": list(settings.shadowed_username_environments),
+        "shadowed_api_key_variables": list(settings.shadowed_api_key_environments),
+    }
+    return result
 
 
 async def reset_truenas_health_cache() -> None:
