@@ -197,6 +197,19 @@ A WebSocket failure during the client constructor occurs before API-key
 authentication and must be diagnosed as transport/handshake failure rather than
 as an RBAC denial.
 
+TrueNAS also applies `system.general.ui_allowlist` to API/UI WebSocket source
+addresses before authentication. A Docker-hosted observer therefore reaches
+TrueNAS with its Docker bridge source address, not necessarily the LAN address
+of the TrueNAS host. A policy close with code 1008 and
+`You are not allowed to access this resource` is a source-allowlist denial,
+not an `APPS_READ` RBAC failure.
+
+`GET /api/versions` is useful for HTTPS reachability/version discovery but does
+not prove that `/api/current` WebSocket access is permitted. Prefer allowing a
+stable, dedicated observer address (`/32`) over allowing the whole shared
+Docker subnet. Keep the UI allowlist change fail-safe with TrueNAS rollback /
+check-in semantics.
+
 `/sickz` also correlates HTTP failures with the observed TrueNAS app state. A
 reachable Cloudflare/DNS edge returning `502`, `503`, or `504` while the matching
 TrueNAS app is in a failed/down state is reported as a workload failure and the
