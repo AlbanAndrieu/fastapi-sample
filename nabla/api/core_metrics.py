@@ -70,6 +70,7 @@ _METRIC_SPECS: tuple[dict[str, str], ...] = (
 _cache_lock = asyncio.Lock()
 _cached_snapshot: dict[str, Any] | None = None
 _cached_at = 0.0
+_cached_url = ""
 
 
 def _utc_now() -> str:
@@ -251,7 +252,7 @@ async def _fetch_uncached(settings: dict[str, Any]) -> dict[str, Any]:
 
 async def fetch_core_metrics_snapshot() -> dict[str, Any]:
     """Return the fixed sanitized metric projection with a short process cache."""
-    global _cached_at, _cached_snapshot
+    global _cached_at, _cached_snapshot, _cached_url
 
     settings = _settings()
     if not settings["enabled"]:
@@ -261,7 +262,11 @@ async def fetch_core_metrics_snapshot() -> dict[str, Any]:
 
     now = time.monotonic()
     async with _cache_lock:
-        if _cached_snapshot is not None and now - _cached_at < float(settings["ttl"]):
+        if (
+            _cached_snapshot is not None
+            and _cached_url == settings["url"]
+            and now - _cached_at < float(settings["ttl"])
+        ):
             cached = deepcopy(_cached_snapshot)
             cached["cache_age_seconds"] = round(now - _cached_at, 3)
             return cached
@@ -269,7 +274,7 @@ async def fetch_core_metrics_snapshot() -> dict[str, Any]:
         try:
             snapshot = await _fetch_uncached(settings)
         except (httpx.HTTPError, ValueError, TypeError):
-            if _cached_snapshot is None:
+            if _cached_snapshot is None or _cached_url != settings["url"]:
                 return {
                     "schema_version": 1,
                     "configured": True,
@@ -295,12 +300,14 @@ async def fetch_core_metrics_snapshot() -> dict[str, Any]:
 
         _cached_snapshot = snapshot
         _cached_at = time.monotonic()
+        _cached_url = str(settings["url"])
         return deepcopy(snapshot)
 
 
 async def reset_core_metrics_cache() -> None:
     """Reset process-local cache for deterministic tests."""
-    global _cached_at, _cached_snapshot
+    global _cached_at, _cached_snapshot, _cached_url
     async with _cache_lock:
         _cached_snapshot = None
         _cached_at = 0.0
+        _cached_url = ""
