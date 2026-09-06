@@ -65,7 +65,7 @@ def test_service_classification_supports_explicit_role_and_criticality() -> None
     assert "criticality" in source
     for foundation in ("truenas", "docker", "pfsense", "talos", "kubernetes", "etcd"):
         assert f'"{foundation}"' in source
-    for value in ("critical", "high", "standard", "low"):
+    for value in ("critical", "high", "medium", "low"):
         assert f'"{value}"' in source
 
 
