@@ -186,6 +186,14 @@ Prefer `TRUENAS_API_USERNAME` + `TRUENAS_API_KEY` for the FastAPI runtime so the
 
 TrueNAS 26 uses the JSON-RPC WebSocket API at `/api/current`. The observer currently reads the system version and app inventory only; credentials must never be returned by health endpoints.
 
+Keep the official `truenas/api_client` tag aligned with the deployed TrueNAS
+release. The current homelab appliance runs TrueNAS 26.0.0-BETA.3, so the
+application pins `TS-26.0.0-BETA.3`. TrueNAS 26 API-key authentication uses
+SCRAM-SHA-512; the matching BETA.3 client also supports TLS channel binding.
+A WebSocket failure during the client constructor occurs before API-key
+authentication and must be diagnosed as transport/handshake failure rather than
+as an RBAC denial.
+
 `/sickz` also correlates HTTP failures with the observed TrueNAS app state. A
 reachable Cloudflare/DNS edge returning `502`, `503`, or `504` while the matching
 TrueNAS app is in a failed/down state is reported as a workload failure and the
