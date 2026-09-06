@@ -28,7 +28,7 @@ async def test_successful_truenas_api_probe_is_reused(monkeypatch) -> None:
         calls += 1
         return {
             "reachable": True,
-            "version": "26.0.0-BETA.3",
+            "version": "26.0.0-BETA.2",
             "apps": [],
         }
 
@@ -45,6 +45,37 @@ async def test_successful_truenas_api_probe_is_reused(monkeypatch) -> None:
     assert second["cached"] is True
     assert second["cache_layer"] == "l1"
     assert second["last_success_at"] == first["last_success_at"]
+    await observer.reset_truenas_health_cache()
+
+
+@pytest.mark.asyncio
+async def test_health_payload_exposes_only_credential_variable_selection(monkeypatch) -> None:
+    await observer.reset_truenas_health_cache()
+    _valid_configuration(monkeypatch)
+    monkeypatch.setenv("TRUENAS_API_USERNAME", "fastapi_observer")
+    monkeypatch.setenv("TRUENAS_USER", "legacy-admin")
+    monkeypatch.setenv("TRUENAS_API_KEY", "8-secret-material")
+    monkeypatch.setenv("TRUENAS_MCP_API_KEY", "7-legacy-secret")
+
+    monkeypatch.setattr(
+        observer,
+        "observe_truenas_api",
+        lambda: {"reachable": True, "version": "26.0.0-BETA.2", "apps": []},
+    )
+
+    result = await observer.observe_truenas_health_api()
+
+    assert result["credential_selection"] == {
+        "username_variable": "TRUENAS_API_USERNAME",
+        "api_key_variable": "TRUENAS_API_KEY",
+        "shadowed_username_variables": ["TRUENAS_USER"],
+        "shadowed_api_key_variables": ["TRUENAS_MCP_API_KEY"],
+    }
+    rendered = repr(result)
+    assert "fastapi_observer" not in rendered
+    assert "legacy-admin" not in rendered
+    assert "8-secret-material" not in rendered
+    assert "7-legacy-secret" not in rendered
     await observer.reset_truenas_health_cache()
 
 
@@ -84,7 +115,7 @@ async def test_failed_refresh_keeps_last_good_as_stale_evidence(monkeypatch) -> 
     responses = [
         {
             "reachable": True,
-            "version": "26.0.0-BETA.3",
+            "version": "26.0.0-BETA.2",
             "apps": [{"name": "open-webui", "state": "RUNNING"}],
         },
         ConnectionResetError(104, "Connection reset by peer"),
@@ -106,7 +137,7 @@ async def test_failed_refresh_keeps_last_good_as_stale_evidence(monkeypatch) -> 
     assert failed["reachable"] is False
     assert failed["stage"] == "connection_reset"
     assert failed["stale"] is True
-    assert failed["last_good"]["version"] == "26.0.0-BETA.3"
+    assert failed["last_good"]["version"] == "26.0.0-BETA.2"
     assert failed["last_good"]["apps"][0]["name"] == "open-webui"
     assert failed["last_success_at"] == healthy["last_success_at"]
     await observer.reset_truenas_health_cache()
