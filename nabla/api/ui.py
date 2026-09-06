@@ -121,6 +121,10 @@ def render_api_root_page(
                     <div class="service-overview-card service-overview-card--neutral"><span>Support</span><strong>Loading…</strong><small>Observability & tooling</small></div>
                 </div>
 
+                <ul class="health-checks" id="health-checks"></ul>
+                <p class="health-error" id="health-fetch-error" hidden></p>
+                <div class="service-groups" id="health-services-groups" aria-live="polite"></div>
+
                 <section class="runtime-topology" id="runtime-topology" data-runtime-mode="{runtime_mode}" aria-labelledby="runtime-topology-title">
                     <div class="runtime-topology-heading">
                         <div>
@@ -180,9 +184,6 @@ def render_api_root_page(
                     <p class="runtime-topology-note" id="runtime-count-semantics">{runtime_note}</p>
                 </section>
 
-                <ul class="health-checks" id="health-checks"></ul>
-                <p class="health-error" id="health-fetch-error" hidden></p>
-                <div class="service-groups" id="health-services-groups" aria-live="polite"></div>
 
                 <section class="truenas-platform" id="truenas-platform" data-service-filter-target data-search-text="truenas core critical storage platform infrastructure https websocket api" aria-labelledby="truenas-platform-title">
                     <div class="truenas-platform-heading">
