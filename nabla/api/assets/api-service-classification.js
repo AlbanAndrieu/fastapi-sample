@@ -80,12 +80,12 @@ const OBSERVABILITY_KINDS = new Set([
 ]);
 
 const VALID_PRESENTATION_ROLES = new Set(["service", "core", "support"]);
-const VALID_CRITICALITIES = new Set(["critical", "high", "standard", "low"]);
+const VALID_CRITICALITIES = new Set(["critical", "high", "medium", "low"]);
 
 export const CRITICALITY_WEIGHT = {
   critical: 0,
   high: 1,
-  standard: 2,
+  medium: 2,
   low: 3,
 };
 
@@ -136,7 +136,7 @@ function inferredCriticality(node, role, transitiveDependents) {
     return "high";
   }
   if (role === "core") return "high";
-  if (role === "service") return "standard";
+  if (role === "service") return "medium";
   return "low";
 }
 
