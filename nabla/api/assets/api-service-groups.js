@@ -178,6 +178,45 @@ function probeLatencyMs(check) {
   return null;
 }
 
+const CORE_METRIC_LABELS = {
+  truenas: {
+    memory_available_ratio: ["RAM", "free"],
+    cpu_busy_ratio: ["CPU", "busy"],
+  },
+};
+
+function ratioPercent(metric) {
+  const value = Number(metric?.value);
+  if (!metric?.available || !Number.isFinite(value)) return null;
+  return Math.max(0, Math.min(100, Math.round(value * 100)));
+}
+
+function addCoreMetricBadges(target, node, coreMetrics) {
+  if (!node || coreMetrics?.configured !== true) return;
+  const metrics = coreMetrics?.components?.[node.id]?.metrics;
+  if (!metrics || typeof metrics !== "object") return;
+
+  if (coreMetrics.stale === true) {
+    addBadge(target, "metrics stale", "telemetry-warning");
+  } else if (coreMetrics.reachable === false) {
+    addBadge(target, "metrics unavailable", "telemetry-warning");
+  }
+
+  const labels = CORE_METRIC_LABELS[node.id] || {};
+  for (const [key, [label, suffix]] of Object.entries(labels)) {
+    const percent = ratioPercent(metrics[key]);
+    if (percent != null) addBadge(target, `${label} ${percent}% ${suffix}`, "metric");
+  }
+
+  const telemetryGap = Object.values(metrics).some(
+    (metric) =>
+      metric?.signal_type === "telemetry" &&
+      metric?.available === true &&
+      Number(metric.value) !== 1,
+  );
+  if (telemetryGap) addBadge(target, "telemetry gap", "telemetry-warning");
+}
+
 function rowOutcomeOperational(row) {
   if (row.dataset.localState) return row.dataset.localState === "ok";
   return row.dataset.semanticStatus === "operational";
@@ -190,7 +229,7 @@ function addBadge(target, text, kind) {
   target.appendChild(badge);
 }
 
-function decorateRow(row, presentation, check) {
+function decorateRow(row, presentation, check, node, coreMetrics) {
   const status = rowStatus(row, check);
   const statusKind = status.toLowerCase().replaceAll(" ", "-");
   const localState = normalizedHealthState(check?.local_state);
@@ -216,6 +255,7 @@ function decorateRow(row, presentation, check) {
 
   const latency = probeLatencyMs(check);
   if (latency != null) addBadge(tags, `${latency} ms`, "metric");
+  addCoreMetricBadges(tags, node, coreMetrics);
 
   if (presentation.transitiveDependents > 0) {
     addBadge(
@@ -269,7 +309,7 @@ function serviceGroupSection(definition, rows) {
   return section;
 }
 
-function assignRows(rows, checks, topologyData) {
+function assignRows(rows, checks, topologyData, coreMetrics) {
   const indexes = topologyIndexes(topologyData);
   const analysis = analyzeTopology(topologyData);
   const buckets = new Map(
@@ -287,7 +327,7 @@ function assignRows(rows, checks, topologyData) {
           group: "support",
         }
       : { role: "support", criticality: "low", group: "external" };
-    decorateRow(row, presentation, check);
+    decorateRow(row, presentation, check, node, coreMetrics);
     const group =
       GROUPS.find((item) => item.key === presentation.group) || EXTRA_GROUP;
     row.dataset.searchText =
@@ -358,7 +398,7 @@ function refreshFilter() {
   }
 }
 
-export async function organizeHealthRows(data) {
+export async function organizeHealthRows(data, coreMetrics = {}) {
   const list = document.getElementById("health-checks");
   const target = document.getElementById("health-services-groups");
   if (!list || !target) return;
@@ -367,7 +407,12 @@ export async function organizeHealthRows(data) {
   target.innerHTML = "";
 
   const topologyData = await topology();
-  const buckets = assignRows(rows, data?.checks || {}, topologyData);
+  const buckets = assignRows(
+    rows,
+    data?.checks || {},
+    topologyData,
+    coreMetrics,
+  );
   updateOverview(buckets);
   for (const definition of [...GROUPS, EXTRA_GROUP]) {
     const groupRows = buckets.get(definition.key) || [];
@@ -385,7 +430,7 @@ export async function organizeSickzRows(data, pfsenseKey) {
   const topologyData = await topology();
   const checks = { ...(data?.checks || {}) };
   if (pfsenseKey) delete checks[pfsenseKey];
-  const buckets = assignRows(rows, checks, topologyData);
+  const buckets = assignRows(rows, checks, topologyData, {});
   list.innerHTML = "";
   for (const definition of [...GROUPS, EXTRA_GROUP]) {
     const groupRows = buckets.get(definition.key) || [];
