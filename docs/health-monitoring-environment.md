@@ -169,11 +169,14 @@ TRUENAS_API_VERIFY_SSL=true
 
 `TRUENAS_URL` is the single endpoint used by the public HTTP check, optional TCP
 probe and authenticated WebSocket adapter. Its production default is
-`https://truenas.albandrieu.com:7000/`. Override it only on an internal runtime:
+`https://truenas.albandrieu.com:7000/`. Keep that hostname on the internal
+TrueNAS runtime as well. Resolve it locally to `172.17.0.24` (for example with
+the Compose `extra_hosts` entry) so the observer stays on the LAN while
+preserving TLS SNI/hostname validation.
 
-```text
-TRUENAS_URL=https://172.17.0.24:7000
-```
+Do not replace the hostname with `https://172.17.0.24:7000` merely to avoid
+public DNS routing. The transport address and the TLS identity are separate
+concerns.
 
 The adapter also accepts these compatibility fallbacks:
 
@@ -184,7 +187,85 @@ TRUENAS_MCP_API_KEY=<fallback API key>
 
 Prefer `TRUENAS_API_USERNAME` + `TRUENAS_API_KEY` for the FastAPI runtime so the application credential can be rotated independently of the agent/MCP credential.
 
+Username precedence is explicit:
+
+```text
+TRUENAS_API_USERNAME
+  -> TRUENAS_USERNAME
+  -> TRUENAS_USER
+```
+
+The canonical key `TRUENAS_API_KEY` wins over the legacy
+`TRUENAS_MCP_API_KEY` fallback. A lower-priority alias can therefore remain
+configured without changing the active credentials, but that is configuration
+debt: if the canonical username is later removed, the adapter can silently fall
+back to the old username while still using the canonical API key. The sanitized
+health payload reports only the selected variable names and shadowed aliases,
+never the credential values. Remove stale aliases from production runtimes once
+the dedicated service identity is proven.
+
 TrueNAS 26 uses the JSON-RPC WebSocket API at `/api/current`. The observer currently reads the system version and app inventory only; credentials must never be returned by health endpoints.
+
+The raw TrueNAS 26 API-key format is
+`{api_key_id}-{64_character_alphanumeric_string}`. FastAPI validates this
+shape before constructing the WebSocket client, so truncated, copied-as-variable
+or otherwise malformed values fail as configuration errors instead of being
+misdiagnosed as network/RBAC failures.
+
+Keep the official `truenas/api_client` tag aligned with the deployed TrueNAS
+release. The current homelab appliance intentionally remains on
+TrueNAS 26.0.0-BETA.2, so the application pins `TS-26.0.0-BETA.2`.
+Do not upgrade the API client independently of the appliance: this homelab has
+already experienced TrueNAS client/server compatibility failures. TrueNAS 26
+API-key authentication uses SCRAM-SHA-512 and user-linked API keys.
+
+A WebSocket failure during the client constructor occurs before API-key
+authentication and must be diagnosed as transport/handshake failure rather than
+as an RBAC denial.
+
+TrueNAS also applies `system.general.ui_allowlist` to API/UI WebSocket source
+addresses before authentication. A Docker-hosted observer therefore reaches
+TrueNAS with its Docker bridge source address, not necessarily the LAN address
+of the TrueNAS host. A policy close with code 1008 and
+`You are not allowed to access this resource` is a source-allowlist denial,
+not an `APPS_READ` RBAC failure.
+
+`GET /api/versions` is useful for HTTPS reachability/version discovery but does
+not prove that `/api/current` WebSocket access is permitted. Prefer allowing a
+stable, dedicated observer address (`/32`) over allowing the whole shared
+Docker subnet. The address that matters is the source address observed by
+TrueNAS for the WebSocket connection; for a bridge-networked container this is
+normally the container address on the Docker network, not the TrueNAS host LAN
+address. Keep the UI allowlist change fail-safe with TrueNAS rollback / check-in
+semantics.
+
+A proven BETA.2 sequence is:
+
+```text
+GET /api/versions                         -> 200
+midclt on the TrueNAS host                -> system.version + app.query succeed
+container /api/current before allowlist   -> WebSocket policy close
+add container source /32 to ui_allowlist  -> system.version + app.query succeed
+system.general.checkin                    -> persist the change
+```
+
+This distinction is security-relevant: `ui_allowlist` protects both API and UI
+source addresses. Do not permit an entire shared Docker subnet merely to make a
+single observer work.
+
+When diagnosing from the production container, use the application virtual
+environment explicitly:
+
+```bash
+docker exec -i fastapi-sample /code/.venv/bin/python - <<'PY'
+import websocket
+print(websocket.__version__)
+PY
+```
+
+A login shell such as `docker exec ... sh -lc 'python ...'` can resolve a
+different system Python and falsely report that `websocket` is not installed,
+even while FastAPI's venv-backed TrueNAS adapter is functioning.
 
 `/sickz` also correlates HTTP failures with the observed TrueNAS app state. A
 reachable Cloudflare/DNS edge returning `502`, `503`, or `504` while the matching

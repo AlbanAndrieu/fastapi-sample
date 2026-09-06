@@ -7,6 +7,7 @@ import pytest
 from nabla.integrations.truenas_client import (
     TrueNASReadOnlyAdapter,
     TrueNASSettings,
+    _truenas_failure_stage,
     _websocket_proxy_route,
     truenas_host_port,
 )
@@ -34,7 +35,7 @@ class FakeClient:
     def call(self, method: str, *params):
         self.calls.append(method)
         if method == "system.version":
-            return "26.0.0-BETA.3"
+            return "26.0.0-BETA.2"
         if method == "app.query":
             return [
                 {"name": "open-webui", "state": "RUNNING", "upgrade_available": False},
@@ -143,6 +144,21 @@ def test_websocket_proxy_route_detects_proxy_candidate(monkeypatch) -> None:
     assert _websocket_proxy_route("truenas.albandrieu.com") == "proxy_candidate"
 
 
+def test_failure_stage_classifies_client_websocket_close() -> None:
+    exc = RuntimeError("WebSocket connection closed with code=None, reason=None")
+
+    assert _truenas_failure_stage(exc) == "websocket"
+
+
+def test_failure_stage_classifies_truenas_source_allowlist_denial() -> None:
+    exc = RuntimeError(
+        "WebSocket connection closed with code=1008, "
+        "reason='You are not allowed to access this resource'"
+    )
+
+    assert _truenas_failure_stage(exc) == "source_allowlist"
+
+
 def test_websocket_proxy_route_honors_no_proxy_without_logging_value(monkeypatch) -> None:
     monkeypatch.setenv("HTTPS_PROXY", "http://user:secret@proxy.example:8080")
     monkeypatch.setenv("NO_PROXY", ".albandrieu.com,localhost")
@@ -186,7 +202,7 @@ def test_health_snapshot_uses_system_version_and_app_query() -> None:
 
     assert snapshot == {
         "reachable": True,
-        "version": "26.0.0-BETA.3",
+        "version": "26.0.0-BETA.2",
         "apps": [
             {"name": "open-webui", "state": "RUNNING", "upgrade_available": False},
             {"name": "litellm", "state": "CRASHED", "upgrade_available": True},

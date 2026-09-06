@@ -177,10 +177,18 @@ def _truenas_failure_stage(exc: BaseException) -> str:
         return "connect_timeout"
     if any(
         marker in message
+        for marker in (
+            "you are not allowed to access this resource",
+            "policy violation",
+        )
+    ):
+        return "source_allowlist"
+    if any(
+        marker in message
         for marker in ("unauthorized", "authentication", "invalid credentials", "api key")
     ):
         return "authentication"
-    if any("websocket" in name for name in class_names):
+    if "websocket" in message or any("websocket" in name for name in class_names):
         return "websocket"
     return "api"
 

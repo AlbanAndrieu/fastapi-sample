@@ -51,3 +51,31 @@ async def test_malformed_raw_api_key_is_rejected_before_official_client(monkeypa
 
     assert result["stage"] == "invalid_api_key_format"
     assert result["reachable"] is False
+    assert "64-character-alphanumeric" in result["error"]
+
+
+def test_canonical_api_key_accepts_truenas_26_raw_key_format(monkeypatch) -> None:
+    from nabla.api import truenas_health_observer
+
+    monkeypatch.setenv("TRUENAS_API_USERNAME", "fastapi_observer")
+    monkeypatch.delenv("TRUENAS_USERNAME", raising=False)
+    monkeypatch.delenv("TRUENAS_USER", raising=False)
+    monkeypatch.setenv("TRUENAS_API_KEY", "8-" + ("A" * 64))
+
+    assert truenas_health_observer.truenas_api_configuration_failure() is None
+
+
+def test_failure_kind_classifies_truenas_ui_allowlist_denial() -> None:
+    from nabla.api import truenas_health_observer
+
+    phase, stage = truenas_health_observer._failure_kind(
+        RuntimeError(
+            "WebSocket connection closed with code=1008, "
+            "reason='You are not allowed to access this resource'"
+        )
+    )
+
+    assert phase == "connect"
+    assert stage == "source_allowlist"
+
+
