@@ -98,3 +98,19 @@ def test_declared_service_rejects_duplicate_security_functions() -> None:
                 "composeService": "wazuh",
             }
         )
+
+
+def test_declared_service_omits_absent_security_functions() -> None:
+    catalog = _catalog(
+        {
+            "id": "redis",
+            "name": "Redis",
+            "kind": "cache",
+            "category": "data",
+            "sourcePath": "apps/redis/compose.yml",
+            "composeService": "redis",
+        }
+    )
+
+    payload = catalog.model_dump(mode="json", by_alias=True, exclude_none=True)
+    assert "securityFunctions" not in payload["services"][0]
