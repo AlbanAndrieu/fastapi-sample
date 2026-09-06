@@ -48,6 +48,31 @@ def test_service_group_asset_mirrors_site_criticality_contract() -> None:
     assert "CRITICALITY_WEIGHT" in source
 
 
+def test_security_group_exposes_nist_csf_2_reference() -> None:
+    source = (ASSETS / "api-service-groups.js").read_text(encoding="utf-8")
+    classification = (ASSETS / "api-service-classification.js").read_text(
+        encoding="utf-8"
+    )
+    css = (ASSETS / "api-service-groups.css").read_text(encoding="utf-8")
+
+    assert "NIST Cybersecurity Framework (CSF) 2.0" in source
+    assert "https://doi.org/10.6028/NIST.CSWP.29" in source
+    for key, label in (
+        ("govern", "Govern"),
+        ("identify", "Identify"),
+        ("protect", "Protect"),
+        ("detect", "Detect"),
+        ("respond", "Respond"),
+        ("recover", "Recover"),
+    ):
+        assert f'key: "{key}"' in classification
+        assert f'label: "{label}"' in classification
+    assert "securityFunctions" in classification
+    assert "security-controls" in classification
+    assert "health-meta-badge--security-function" in css
+    assert "security-framework-function--declared" in css
+
+
 def test_true_nas_keeps_summary_row_and_separate_api_drilldown() -> None:
     source = (ASSETS / "api-health-core.js").read_text(encoding="utf-8")
     page = render_api_root_page(title_suffix="test", app_version="test")

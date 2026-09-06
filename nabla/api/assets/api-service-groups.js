@@ -1,6 +1,7 @@
 import {
   analyzeTopology,
   CRITICALITY_WEIGHT,
+  NIST_CSF_FUNCTIONS,
 } from "./api-service-classification.js";
 
 const GROUPS = [
@@ -22,7 +23,7 @@ const GROUPS = [
     key: "security-controls",
     label: "3 · Security controls",
     description:
-      "Preventive, detective and response controls used to experiment with and improve security.",
+      "Security-control health and posture, with NIST CSF 2.0 coverage metadata kept separate from effectiveness or compliance.",
     openWhenHealthy: true,
   },
   {
@@ -203,6 +204,7 @@ function decorateRow(row, presentation, check) {
   row.dataset.localState = localState;
   row.dataset.dependencyState = dependencyState;
   row.dataset.downstreamCount = String(presentation.transitiveDependents || 0);
+  row.dataset.securityFunctions = (presentation.securityFunctions || []).join(" ");
 
   const tags = row.querySelector(".health-row-tags");
   if (!tags) return;
@@ -212,6 +214,16 @@ function decorateRow(row, presentation, check) {
   addBadge(tags, presentation.role, "role");
   if (["critical", "high"].includes(presentation.criticality)) {
     addBadge(tags, presentation.criticality, presentation.criticality);
+  }
+  for (const securityFunction of presentation.securityFunctions || []) {
+    const definition = NIST_CSF_FUNCTIONS.find(
+      (item) => item.key === securityFunction,
+    );
+    addBadge(
+      tags,
+      `CSF · ${definition?.label || securityFunction}`,
+      "security-function",
+    );
   }
 
   const latency = probeLatencyMs(check);
@@ -230,6 +242,47 @@ function decorateRow(row, presentation, check) {
     note.textContent = original;
     tags.appendChild(note);
   }
+}
+
+function securityFrameworkReference(rows) {
+  const declared = new Set(
+    rows.flatMap((row) =>
+      String(row.dataset.securityFunctions || "")
+        .split(/\s+/)
+        .filter(Boolean),
+    ),
+  );
+  const reference = document.createElement("div");
+  reference.className = "security-framework-reference";
+
+  const heading = document.createElement("div");
+  heading.className = "security-framework-heading";
+  const title = document.createElement("strong");
+  title.textContent = "NIST Cybersecurity Framework (CSF) 2.0";
+  const link = document.createElement("a");
+  link.href = "https://doi.org/10.6028/NIST.CSWP.29";
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.textContent = "NIST CSWP 29 ↗";
+  heading.append(title, link);
+
+  const note = document.createElement("p");
+  note.textContent =
+    "Six concurrent risk-management functions. Highlighted functions are declared coverage metadata, not proof of control effectiveness, maturity or compliance.";
+
+  const functions = document.createElement("div");
+  functions.className = "security-framework-functions";
+  for (const definition of NIST_CSF_FUNCTIONS) {
+    const item = document.createElement("span");
+    item.className = `security-framework-function${declared.has(definition.key) ? " security-framework-function--declared" : ""}`;
+    item.textContent = definition.label;
+    item.title = definition.description;
+    item.dataset.securityFunction = definition.key;
+    functions.appendChild(item);
+  }
+
+  reference.append(heading, note, functions);
+  return reference;
 }
 
 function serviceGroupSection(definition, rows) {
@@ -265,7 +318,11 @@ function serviceGroupSection(definition, rows) {
         (left.textContent || "").localeCompare(right.textContent || ""),
     )
     .forEach((row) => list.appendChild(row));
-  section.append(heading, list);
+  section.append(heading);
+  if (definition.key === "security-controls") {
+    section.appendChild(securityFrameworkReference(rows));
+  }
+  section.appendChild(list);
   return section;
 }
 
@@ -291,7 +348,7 @@ function assignRows(rows, checks, topologyData) {
     const group =
       GROUPS.find((item) => item.key === presentation.group) || EXTRA_GROUP;
     row.dataset.searchText =
-      `${row.dataset.searchText || ""} ${group.label} ${group.description} ${presentation.role} ${presentation.criticality} ${rowStatus(row, check)}`.toLowerCase();
+      `${row.dataset.searchText || ""} ${group.label} ${group.description} ${presentation.role} ${presentation.criticality} ${(presentation.securityFunctions || []).join(" ")} ${rowStatus(row, check)}`.toLowerCase();
     buckets.get(group.key).push(row);
   }
   return buckets;

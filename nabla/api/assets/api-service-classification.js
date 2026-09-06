@@ -88,6 +88,43 @@ const OBSERVABILITY_KINDS = new Set([
 const VALID_PRESENTATION_ROLES = new Set(["service", "core", "support"]);
 const VALID_CRITICALITIES = new Set(["critical", "high", "medium", "low"]);
 
+export const NIST_CSF_FUNCTIONS = [
+  {
+    key: "govern",
+    label: "Govern",
+    description: "Cybersecurity risk strategy, policy, roles and oversight.",
+  },
+  {
+    key: "identify",
+    label: "Identify",
+    description: "Assets, dependencies, risks and improvement opportunities.",
+  },
+  {
+    key: "protect",
+    label: "Protect",
+    description: "Safeguards that reduce cybersecurity risk.",
+  },
+  {
+    key: "detect",
+    label: "Detect",
+    description: "Discovery and analysis of possible attacks or compromises.",
+  },
+  {
+    key: "respond",
+    label: "Respond",
+    description: "Incident management, containment, mitigation and communication.",
+  },
+  {
+    key: "recover",
+    label: "Recover",
+    description: "Restoration of affected assets and operations.",
+  },
+];
+
+const NIST_CSF_FUNCTION_KEYS = new Set(
+  NIST_CSF_FUNCTIONS.map((item) => item.key),
+);
+
 export const CRITICALITY_WEIGHT = {
   critical: 0,
   high: 1,
@@ -146,10 +183,22 @@ function inferredCriticality(node, role, transitiveDependents) {
   return "low";
 }
 
+function declaredSecurityFunctions(node) {
+  if (!Array.isArray(node?.securityFunctions)) return [];
+  return node.securityFunctions.filter((value) =>
+    NIST_CSF_FUNCTION_KEYS.has(String(value)),
+  );
+}
+
 function presentationGroup(node, role, criticality, transitiveDependents) {
-  if (role === "service") return "services";
   if (criticality === "critical") return "core-critical";
-  if (SECURITY_CONTROL_KINDS.has(node.kind)) return "security-controls";
+  if (
+    declaredSecurityFunctions(node).length > 0 ||
+    SECURITY_CONTROL_KINDS.has(node.kind)
+  ) {
+    return "security-controls";
+  }
+  if (role === "service") return "services";
   if (
     role === "core" ||
     transitiveDependents > 0 ||
@@ -202,6 +251,7 @@ export function analyzeTopology(topology) {
       role,
       criticality,
       group,
+      securityFunctions: declaredSecurityFunctions(node),
       directDependencies,
       transitiveDependents,
     });
