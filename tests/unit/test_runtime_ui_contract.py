@@ -41,7 +41,7 @@ def test_fastapi_cloud_runtime_keeps_production_context() -> None:
     page = render_api_root_page(
         title_suffix="test",
         app_version="1.0.0",
-        is_fastapi_cloud=True,
+        runtime_mode="fastapi_cloud",
     )
 
     assert "FastAPI Cloud production" in page
@@ -49,6 +49,23 @@ def test_fastapi_cloud_runtime_keeps_production_context() -> None:
     assert "Observed instances" in page
     assert "FastAPI Cloud replicas" in page
     assert 'data-runtime-mode="fastapi_cloud"' in page
+
+
+def test_homelab_runtime_has_distinct_production_context() -> None:
+    page = render_api_root_page(
+        title_suffix="test",
+        app_version="1.0.0",
+        runtime_mode="homelab",
+    )
+
+    assert "TrueNAS homelab production" in page
+    assert "TrueNAS homelab runtime" in page
+    assert "Trusted-LAN production observer" in page
+    assert "Observed instances" in page
+    assert "Observer scope" in page
+    assert "trusted LAN" in page
+    assert 'data-runtime-mode="homelab"' in page
+    assert "Local workstation runtime" not in page
 
 
 def test_runtime_topology_uses_shared_health_board_request() -> None:
@@ -72,6 +89,9 @@ def test_runtime_topology_does_not_claim_control_plane_replica_count() -> None:
     assert "local process" in javascript
     assert "local runtime" in javascript
     assert "local telemetry degraded" in javascript
+    assert "homelab telemetry degraded" in javascript
+    assert 'runtimeMode === "homelab"' in javascript
+    assert '"trusted LAN"' in javascript
     assert "observed_instance_count" in javascript
     assert "active_egress_ips" in javascript
     assert "recent_egress_ips" in javascript
