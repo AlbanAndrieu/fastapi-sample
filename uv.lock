@@ -2674,7 +2674,7 @@ requires-dist = [
     { name = "structlog", specifier = ">=25.4.0" },
     { name = "tavily-python", specifier = ">=0.7.23" },
     { name = "tenacity", specifier = ">=9.0.0" },
-    { name = "truenas-api-client", git = "https://github.com/truenas/api_client.git?rev=TS-26.0.0-BETA.3" },
+    { name = "truenas-api-client", git = "https://github.com/truenas/api_client.git?rev=TS-26.0.0-BETA.2" },
     { name = "unleashclient", specifier = ">=6.3.0" },
 ]
 
@@ -9157,7 +9157,7 @@ wheels = [
 [[package]]
 name = "truenas-api-client"
 version = "0.0.0"
-source = { git = "https://github.com/truenas/api_client.git?rev=TS-26.0.0-BETA.3#7b141b87bda0b0908b024d33eb4304923f66ec70" }
+source = { git = "https://github.com/truenas/api_client.git?rev=TS-26.0.0-BETA.2#13185624e32f33532ac9b0aa9b2ea0a74919c2f5" }
 dependencies = [
     { name = "websocket-client" },
 ]
