@@ -224,11 +224,15 @@ authentication and must be diagnosed as transport/handshake failure rather than
 as an RBAC denial.
 
 TrueNAS also applies `system.general.ui_allowlist` to API/UI WebSocket source
-addresses before authentication. A Docker-hosted observer therefore reaches
-TrueNAS with its Docker bridge source address, not necessarily the LAN address
-of the TrueNAS host. A policy close with code 1008 and
-`You are not allowed to access this resource` is a source-allowlist denial,
-not an `APPS_READ` RBAC failure.
+addresses before authentication. The WebSocket handler checks the active runtime
+value returned by `system.general.get_ui_allowlist`; this can temporarily
+differ from the persisted `system.general.config.ui_allowlist` during
+update/restart/rollback/check-in handling. A Docker-hosted observer therefore
+reaches TrueNAS with its effective TCP source address, not necessarily the LAN
+address of the TrueNAS host or even the container address shown by
+`docker inspect` if host routing/NAT rewrites it. A policy close with code 1008
+and `You are not allowed to access this resource` is a source-allowlist
+denial, not an `APPS_READ` RBAC failure.
 
 `GET /api/versions` is useful for HTTPS reachability/version discovery but does
 not prove that `/api/current` WebSocket access is permitted. Prefer allowing a
