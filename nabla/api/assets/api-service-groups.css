@@ -203,6 +203,11 @@
   color: #ffd966;
 }
 
+.health-meta-badge--impact {
+  border-color: rgba(96, 165, 250, 0.35);
+  color: #9cc7ff;
+}
+
 .health-meta-badge--status-operational {
   border-color: rgba(0, 255, 136, 0.3);
   color: #7dffc4;
