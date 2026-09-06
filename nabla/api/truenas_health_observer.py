@@ -118,12 +118,15 @@ def truenas_api_configuration_failure() -> dict[str, Any] | None:
             "username_configured": True,
             "api_key_configured": True,
         }
-    if re.fullmatch(r"[0-9]+-.+", api_key) is None:
+    if re.fullmatch(r"[0-9]+-[A-Za-z0-9]{64}", api_key) is None:
         return {
             "reachable": False,
             "phase": "authentication",
             "stage": "invalid_api_key_format",
-            "error": "TRUENAS_API_KEY does not match the expected <id>-<key> format.",
+            "error": (
+                "TRUENAS_API_KEY does not match the expected "
+                "<id>-<64-character-alphanumeric-key> format."
+            ),
             "username_configured": True,
             "api_key_configured": True,
         }
