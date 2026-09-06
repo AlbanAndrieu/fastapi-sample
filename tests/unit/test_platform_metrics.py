@@ -22,18 +22,16 @@ VALUES = {
 
 def _client(values: dict[str, str | None]) -> httpx.AsyncClient:
     def handler(request: httpx.Request) -> httpx.Response:
-        metric = request.url.params.get("query", "")
-        value = values.get(metric)
-        result = (
-            []
-            if value is None
-            else [
-                {
-                    "metric": {"__name__": metric},
-                    "value": [1_700_000_000, value],
-                }
-            ]
-        )
+        query = request.url.params.get("query", "")
+        assert " or " in query
+        result = [
+            {
+                "metric": {"__name__": metric},
+                "value": [1_700_000_000, value],
+            }
+            for metric, value in values.items()
+            if value is not None and metric in query
+        ]
         return httpx.Response(
             200,
             request=request,
