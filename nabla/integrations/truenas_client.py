@@ -119,15 +119,35 @@ def _no_proxy_matches(hostname: str) -> bool:
 
 
 def _websocket_proxy_route(hostname: str | None) -> str:
-    """Describe whether websocket-client can select an HTTPS proxy, without secrets."""
+    """Describe websocket-client's effective HTTPS proxy decision without secrets."""
     if not hostname:
         return "unknown"
+
+    try:
+        from websocket._url import get_proxy_info
+
+        proxy_host, proxy_port, _proxy_auth = get_proxy_info(
+            hostname,
+            True,
+            None,
+            0,
+            None,
+            None,
+        )
+    except Exception:
+        if _no_proxy_matches(hostname):
+            return "bypass"
+        proxy_configured = bool(
+            os.getenv("https_proxy", "").strip()
+            or os.getenv("HTTPS_PROXY", "").strip()
+        )
+        return "proxy_candidate" if proxy_configured else "direct"
+
+    if proxy_host:
+        return f"proxy:{proxy_host}:{proxy_port}"
     if _no_proxy_matches(hostname):
         return "bypass"
-    proxy_configured = bool(
-        os.getenv("https_proxy", "").strip() or os.getenv("HTTPS_PROXY", "").strip()
-    )
-    return "proxy_candidate" if proxy_configured else "direct"
+    return "direct"
 
 
 def _exception_chain(exc: BaseException) -> list[BaseException]:
