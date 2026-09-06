@@ -72,10 +72,33 @@ class DeclaredService(BaseModel):
         validation_alias=AliasChoices("composeService", "compose_service"),
         serialization_alias="composeService",
     )
+    presentation_role: Literal["service", "core", "support"] | None = Field(
+        default=None,
+        validation_alias=AliasChoices("presentationRole", "presentation_role"),
+        serialization_alias="presentationRole",
+    )
+    criticality: Literal["critical", "high", "medium", "low"] | None = None
+    security_functions: list[
+        Literal["govern", "identify", "protect", "detect", "respond", "recover"]
+    ] | None = Field(
+        default=None,
+        min_length=1,
+        validation_alias=AliasChoices("securityFunctions", "security_functions"),
+        serialization_alias="securityFunctions",
+    )
     url: str | None = None
     description: str | None = None
     icon: str | None = Field(default=None, min_length=1, max_length=32)
     runtime: RuntimeBinding | None = None
+
+    @model_validator(mode="after")
+    def require_unique_security_functions(self) -> "DeclaredService":
+        """Reject ambiguous duplicate NIST CSF function metadata."""
+        if self.security_functions is not None and len(self.security_functions) != len(
+            set(self.security_functions)
+        ):
+            raise ValueError("securityFunctions must not contain duplicates")
+        return self
 
 
 class DeclaredServiceCatalog(BaseModel):

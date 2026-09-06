@@ -20,6 +20,9 @@ def _topology_payload() -> dict:
                 "name": "Open WebUI",
                 "kind": "application",
                 "category": "ai",
+                "presentationRole": "service",
+                "criticality": "high",
+                "securityFunctions": ["identify", "protect", "detect"],
                 "sourcePath": "apps/openwebui/compose.yml",
                 "icon": "💬",
             },
@@ -47,10 +50,17 @@ def test_topology_accepts_declared_relation_and_preserves_wire_aliases() -> None
 
     payload = topology.model_dump(mode="json", by_alias=True, exclude_none=True)
 
+    assert topology.nodes[0].presentation_role == "service"
+    assert topology.nodes[0].criticality == "high"
+    assert topology.nodes[0].security_functions == ["identify", "protect", "detect"]
     assert topology.nodes[0].source_path == "apps/openwebui/compose.yml"
     assert topology.nodes[0].icon == "💬"
+    assert payload["nodes"][0]["presentationRole"] == "service"
+    assert payload["nodes"][0]["criticality"] == "high"
+    assert payload["nodes"][0]["securityFunctions"] == ["identify", "protect", "detect"]
     assert payload["nodes"][0]["sourcePath"] == "apps/openwebui/compose.yml"
     assert payload["nodes"][0]["icon"] == "💬"
+    assert "securityFunctions" not in payload["nodes"][1]
     assert payload["relations"][0]["type"] == "consumesApi"
 
 
@@ -121,4 +131,12 @@ def test_topology_rejects_self_relation() -> None:
     payload["relations"][0]["target"] = "openwebui"
 
     with pytest.raises(ValidationError, match="source and target must differ"):
+        HomelabTopology.model_validate(payload)
+
+
+def test_topology_rejects_duplicate_security_functions() -> None:
+    payload = _topology_payload()
+    payload["nodes"][0]["securityFunctions"] = ["detect", "detect"]
+
+    with pytest.raises(ValidationError, match="securityFunctions must not contain duplicates"):
         HomelabTopology.model_validate(payload)
