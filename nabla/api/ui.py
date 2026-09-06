@@ -13,29 +13,87 @@ def render_api_root_page(
     *,
     title_suffix: str | None,
     app_version: str,
+    runtime_mode: str | None = None,
     is_fastapi_cloud: bool = False,
 ) -> str:
     """Build the API landing page while CSS and behavior live in static assets."""
     title = escape(title_suffix or "fastapi-sample")
     description = escape(_PAGE_DESCRIPTION)
-    runtime_mode = "fastapi_cloud" if is_fastapi_cloud else "local"
-    runtime_context = "FastAPI Cloud production" if is_fastapi_cloud else "Local workstation"
-    runtime_title = "FastAPI Cloud runtime" if is_fastapi_cloud else "Local workstation runtime"
-    runtime_description = (
-        "Observed application runtimes and outbound egress. Shared Redis heartbeats provide cross-replica evidence when available."
-        if is_fastapi_cloud
-        else "Observed local runtime processes and outbound egress. Shared Redis heartbeats may include sibling workstation processes."
-    )
-    instance_label = "Observed instances" if is_fastapi_cloud else "Observed processes"
-    replica_label = "FastAPI Cloud replicas" if is_fastapi_cloud else "Runtime scope"
-    replica_value = "control-plane only" if is_fastapi_cloud else "local process"
-    runtime_note = (
-        "Observed runtime heartbeats are not the authoritative FastAPI Cloud control-plane replica count."
-        if is_fastapi_cloud
-        else "Local runtime heartbeats describe this workstation view; they are not a cloud control-plane replica count."
-    )
-    hero_runtime = "FastAPI Cloud" if is_fastapi_cloud else "local workstation"
-    badge_class = "status-badge--cloud" if is_fastapi_cloud else "status-badge--local"
+    mode = runtime_mode or ("fastapi_cloud" if is_fastapi_cloud else "local")
+    profiles = {
+        "fastapi_cloud": {
+            "context": "FastAPI Cloud production",
+            "title": "FastAPI Cloud runtime",
+            "description": (
+                "External production observer. Shared Redis heartbeats provide "
+                "cross-replica evidence when available."
+            ),
+            "instance_label": "Observed instances",
+            "replica_label": "FastAPI Cloud replicas",
+            "replica_value": "control-plane only",
+            "note": (
+                "Observed runtime heartbeats are not the authoritative FastAPI "
+                "Cloud control-plane replica count."
+            ),
+            "hero": "FastAPI Cloud",
+            "badge": "status-badge--cloud",
+        },
+        "homelab": {
+            "context": "TrueNAS homelab production",
+            "title": "TrueNAS homelab runtime",
+            "description": (
+                "Trusted-LAN production observer for TrueNAS, pfSense and "
+                "Prometheus health and platform telemetry."
+            ),
+            "instance_label": "Observed instances",
+            "replica_label": "Observer scope",
+            "replica_value": "trusted LAN",
+            "note": (
+                "This production runtime observes private homelab dependencies "
+                "from the trusted LAN without exposing them to a cloud observer."
+            ),
+            "hero": "TrueNAS homelab",
+            "badge": "status-badge--local",
+        },
+        "cloud_paas": {
+            "context": "Cloud/PaaS production",
+            "title": "Cloud/PaaS runtime",
+            "description": "External cloud/PaaS runtime and outbound egress observation.",
+            "instance_label": "Observed instances",
+            "replica_label": "Runtime scope",
+            "replica_value": "external",
+            "note": "Observed application heartbeats are not provider control-plane capacity.",
+            "hero": "cloud/PaaS",
+            "badge": "status-badge--cloud",
+        },
+        "local": {
+            "context": "Local workstation",
+            "title": "Local workstation runtime",
+            "description": (
+                "Observed local runtime processes and outbound egress. Shared Redis "
+                "heartbeats may include sibling workstation processes."
+            ),
+            "instance_label": "Observed processes",
+            "replica_label": "Runtime scope",
+            "replica_value": "local process",
+            "note": (
+                "Local runtime heartbeats describe this workstation view; they are "
+                "not a cloud control-plane replica count."
+            ),
+            "hero": "local workstation",
+            "badge": "status-badge--local",
+        },
+    }
+    profile = profiles.get(mode, profiles["local"])
+    runtime_context = profile["context"]
+    runtime_title = profile["title"]
+    runtime_description = profile["description"]
+    instance_label = profile["instance_label"]
+    replica_label = profile["replica_label"]
+    replica_value = profile["replica_value"]
+    runtime_note = profile["note"]
+    hero_runtime = profile["hero"]
+    badge_class = profile["badge"]
     return f"""
     <!DOCTYPE html>
     <html lang="en">
@@ -126,7 +184,7 @@ def render_api_root_page(
                 <p class="health-error" id="health-fetch-error" hidden></p>
                 <div class="service-groups" id="health-services-groups" aria-live="polite"></div>
 
-                <section class="runtime-topology" id="runtime-topology" data-runtime-mode="{runtime_mode}" aria-labelledby="runtime-topology-title">
+                <section class="runtime-topology" id="runtime-topology" data-runtime-mode="{mode}" aria-labelledby="runtime-topology-title">
                     <div class="runtime-topology-heading">
                         <div>
                             <h3 id="runtime-topology-title">{runtime_title}</h3>
