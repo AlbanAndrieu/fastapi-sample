@@ -1,3 +1,10 @@
+# [1.10.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.9.1...1.10.0) (2026-09-06)
+
+
+### Features
+
+* **ui:** expose NIST CSF 2.0 security functions ([#205](https://github.com/AlbanAndrieu/fastapi-sample/issues/205)) ([dbeb232](https://github.com/AlbanAndrieu/fastapi-sample/commit/dbeb2324db081645bf3af8d29b0c7058aefa40e6))
+
 ## [1.9.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.9.0...1.9.1) (2026-09-06)
 
 
