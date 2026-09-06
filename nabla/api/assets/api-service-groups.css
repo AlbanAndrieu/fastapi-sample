@@ -157,6 +157,60 @@
   border-bottom-color: rgba(255, 204, 51, 0.3);
 }
 
+.security-framework-reference {
+  margin: 0.25rem 0 0.75rem;
+  padding: 0.65rem 0.7rem;
+  border: 1px solid rgba(255, 204, 51, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 204, 51, 0.035);
+}
+
+.security-framework-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.security-framework-heading strong {
+  color: #e5e7eb;
+  font-size: 0.72rem;
+}
+
+.security-framework-heading a {
+  color: #9cc7ff;
+  font-size: 0.64rem;
+}
+
+.security-framework-reference p {
+  margin: 0.3rem 0 0.5rem;
+  color: #8d949e;
+  font-size: 0.64rem;
+}
+
+.security-framework-functions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.security-framework-function {
+  padding: 0.12rem 0.4rem;
+  border: 1px solid #343434;
+  border-radius: 999px;
+  color: #8d949e;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.035em;
+}
+
+.security-framework-function--declared,
+.health-meta-badge--security-function {
+  border-color: rgba(255, 204, 51, 0.42);
+  color: #ffd966;
+}
+
 .service-group-list {
   margin-top: 0;
 }
