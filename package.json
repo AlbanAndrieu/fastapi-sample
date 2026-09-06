@@ -51,7 +51,7 @@
   "dependencies": {
     "@ai-sdk/openai-compatible": "^2.0.15",
     "@astrojs/vercel": "^11.0.4",
-    "@dotenvx/dotenvx": "^1.44.2",
+    "@dotenvx/dotenvx": "^2.23.0",
     "@supabase/supabase-js": "^2.101.1",
     "@vercel/analytics": "^2.0.1",
     "dd-trace": "^5.100.0",
