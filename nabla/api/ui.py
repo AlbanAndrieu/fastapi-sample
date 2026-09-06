@@ -95,7 +95,7 @@ def render_api_root_page(
                 <div class="health-board-heading-row">
                     <div>
                         <h2 class="health-board-title" id="health-board-title">Homelab service health</h2>
-                        <p class="health-board-meta">Service outcomes first; critical platform and security controls explain blast radius and likely causes.</p>
+                        <p class="health-board-meta">Service outcomes first. <strong>Operational</strong> describes the current service result; <strong>At risk</strong> means the service still works while a required dependency is degraded. Critical core and security controls explain blast radius and likely causes.</p>
                     </div>
                     <div class="service-filter">
                         <label for="service-filter">Filter services</label>
@@ -115,10 +115,11 @@ def render_api_root_page(
                     <span id="health-summary-text">Loading health checks…</span>
                 </div>
                 <div class="service-health-overview" id="service-health-overview" aria-live="polite">
-                    <div class="service-overview-card service-overview-card--neutral"><span>Services</span><strong>Loading…</strong><small>Outcome health</small></div>
-                    <div class="service-overview-card service-overview-card--neutral"><span>Core platform</span><strong>Loading…</strong><small>Critical foundations</small></div>
-                    <div class="service-overview-card service-overview-card--neutral"><span>Security controls</span><strong>Loading…</strong><small>Security posture inputs</small></div>
-                    <div class="service-overview-card service-overview-card--neutral"><span>Support</span><strong>Loading…</strong><small>Observability & tooling</small></div>
+                    <div class="service-overview-card service-overview-card--neutral"><span>Services</span><strong>Loading…</strong><small>User / experiment outcomes</small></div>
+                    <div class="service-overview-card service-overview-card--neutral"><span>Critical core</span><strong>Loading…</strong><small>Shared failure foundations</small></div>
+                    <div class="service-overview-card service-overview-card--neutral"><span>Security controls</span><strong>Loading…</strong><small>Control health & posture</small></div>
+                    <div class="service-overview-card service-overview-card--neutral"><span>Shared platform</span><strong>Loading…</strong><small>Data & shared capabilities</small></div>
+                    <div class="service-overview-card service-overview-card--neutral"><span>Observability</span><strong>Loading…</strong><small>Telemetry coverage</small></div>
                 </div>
 
                 <ul class="health-checks" id="health-checks"></ul>
