@@ -8,12 +8,13 @@ ROOT = Path(__file__).resolve().parents[2]
 ASSETS = ROOT / "nabla" / "api" / "assets"
 
 
-def test_local_runtime_topology_is_rendered_before_core_services() -> None:
+def test_local_runtime_topology_is_rendered_before_service_health_groups() -> None:
     page = render_api_root_page(title_suffix="test", app_version="1.0.0")
 
     runtime = page.index('id="runtime-topology"')
-    core = page.index('id="health-core-group-heading"')
-    assert runtime < core
+    overview = page.index('id="service-health-overview"')
+    groups = page.index('id="health-services-groups"')
+    assert runtime < overview < groups
     assert "Local workstation runtime" in page
     assert "Observed processes" in page
     assert "Observed instances" not in page
