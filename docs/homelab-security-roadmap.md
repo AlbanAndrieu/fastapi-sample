@@ -99,19 +99,19 @@ FastAPI should remain lightweight: improve its existing health board/components 
 Keep the health board outcome-oriented as the catalog grows:
 
 1. **Services & experiments** answer whether the lab capabilities actually work.
-   Prefer direct/black-box evidence and RED/Golden Signals: availability, request
-   rate/traffic, errors and latency; add saturation only when it changes the
-   service outcome.
+    Prefer direct/black-box evidence and RED/Golden Signals: availability, request
+    rate/traffic, errors and latency; add saturation only when it changes the
+    service outcome.
 2. **Critical core** explains broad platform causes. Prefer USE/capacity signals
-   and component-specific invariants such as TrueNAS memory/filesystem pressure,
-   Talos EPHEMERAL capacity, etcd leader/quota/latency and Kubernetes node
-   Ready/pressure state.
+    and component-specific invariants such as TrueNAS memory/filesystem pressure,
+    Talos EPHEMERAL capacity, etcd leader/quota/latency and Kubernetes node
+    Ready/pressure state.
 3. **Security controls** keep runtime availability separate from security
-   posture. A firewall/IDS/SIEM being reachable does not prove that policy is
-   effective, and alert volume is not a service-health metric.
+    posture. A firewall/IDS/SIEM being reachable does not prove that policy is
+    effective, and alert volume is not a service-health metric.
 4. **Observability/support** reports telemetry coverage separately. Loss of
-   Prometheus, an exporter or a collector is evidence loss and must not by itself
-   mark the observed platform or dependent services down.
+    Prometheus, an exporter or a collector is evidence loss and must not by itself
+    mark the observed platform or dependent services down.
 
 Presentation policy:
 
