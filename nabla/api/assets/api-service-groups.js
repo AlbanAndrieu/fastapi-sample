@@ -202,6 +202,7 @@ function decorateRow(row, presentation, check) {
   row.dataset.semanticStatus = statusKind;
   row.dataset.localState = localState;
   row.dataset.dependencyState = dependencyState;
+  row.dataset.downstreamCount = String(presentation.transitiveDependents || 0);
 
   const tags = row.querySelector(".health-row-tags");
   if (!tags) return;
@@ -259,6 +260,8 @@ function serviceGroupSection(definition, rows) {
         rowSeverity(left) - rowSeverity(right) ||
         (CRITICALITY_WEIGHT[left.dataset.criticality] ?? 9) -
           (CRITICALITY_WEIGHT[right.dataset.criticality] ?? 9) ||
+        Number(right.dataset.downstreamCount || 0) -
+          Number(left.dataset.downstreamCount || 0) ||
         (left.textContent || "").localeCompare(right.textContent || ""),
     )
     .forEach((row) => list.appendChild(row));
