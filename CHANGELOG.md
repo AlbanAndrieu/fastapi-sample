@@ -1,3 +1,10 @@
+# [1.11.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.10.0...1.11.0) (2026-09-06)
+
+
+### Features
+
+* **runtime:** model TrueNAS as homelab production ([#206](https://github.com/AlbanAndrieu/fastapi-sample/issues/206)) ([c3c8670](https://github.com/AlbanAndrieu/fastapi-sample/commit/c3c8670da2c269fbf0eb570068f2b9350a2e3bfa))
+
 # [1.10.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.9.1...1.10.0) (2026-09-06)
 
 
