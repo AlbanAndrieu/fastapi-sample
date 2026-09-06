@@ -1,3 +1,10 @@
+# [1.8.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.7.2...1.8.0) (2026-09-06)
+
+
+### Features
+
+* **ui:** make homelab health service-first ([#196](https://github.com/AlbanAndrieu/fastapi-sample/issues/196)) ([9f8cc42](https://github.com/AlbanAndrieu/fastapi-sample/commit/9f8cc42ec5d9b2a7c84c5b13e5b26c12253948ed))
+
 ## [1.7.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.7.1...1.7.2) (2026-09-05)
 
 
