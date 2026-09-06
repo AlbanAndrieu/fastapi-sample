@@ -172,6 +172,13 @@ function decorateRow(row, presentation) {
   if (["critical", "high"].includes(presentation.criticality)) {
     addBadge(tags, presentation.criticality, presentation.criticality);
   }
+  if (presentation.transitiveDependents > 0) {
+    addBadge(
+      tags,
+      `${presentation.transitiveDependents} downstream`,
+      "impact",
+    );
+  }
   if (original) {
     const note = document.createElement("span");
     note.className = "health-meta-note";
