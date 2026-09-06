@@ -169,11 +169,14 @@ TRUENAS_API_VERIFY_SSL=true
 
 `TRUENAS_URL` is the single endpoint used by the public HTTP check, optional TCP
 probe and authenticated WebSocket adapter. Its production default is
-`https://truenas.albandrieu.com:7000/`. Override it only on an internal runtime:
+`https://truenas.albandrieu.com:7000/`. Keep that hostname on the internal
+TrueNAS runtime as well. Resolve it locally to `172.17.0.24` (for example with
+the Compose `extra_hosts` entry) so the observer stays on the LAN while
+preserving TLS SNI/hostname validation.
 
-```text
-TRUENAS_URL=https://172.17.0.24:7000
-```
+Do not replace the hostname with `https://172.17.0.24:7000` merely to avoid
+public DNS routing. The transport address and the TLS identity are separate
+concerns.
 
 The adapter also accepts these compatibility fallbacks:
 
@@ -202,6 +205,12 @@ never the credential values. Remove stale aliases from production runtimes once
 the dedicated service identity is proven.
 
 TrueNAS 26 uses the JSON-RPC WebSocket API at `/api/current`. The observer currently reads the system version and app inventory only; credentials must never be returned by health endpoints.
+
+The raw TrueNAS 26 API-key format is
+`{api_key_id}-{64_character_alphanumeric_string}`. FastAPI validates this
+shape before constructing the WebSocket client, so truncated, copied-as-variable
+or otherwise malformed values fail as configuration errors instead of being
+misdiagnosed as network/RBAC failures.
 
 Keep the official `truenas/api_client` tag aligned with the deployed TrueNAS
 release. The current homelab appliance intentionally remains on
