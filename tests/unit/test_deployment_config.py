@@ -105,6 +105,8 @@ def test_production_smoke_bounds_browser_cost_without_losing_post_deploy_ui_chec
     assert "EXPECTED_VERSION=\"${expected}\" node scripts/check-production-api-ui.mjs" in smoke
     assert 'if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]' in smoke
     assert ".pfsense.dns.ingress_block.refresh_error" in smoke
+    assert '"snort2c refresh is in progress"' in smoke
+    assert ".pfsense.dns.ingress_block.cache_layer == \"redis\"" in smoke
 
 
 def test_semantic_release_has_bounded_1_5_8_recovery_then_normal_flow() -> None:
