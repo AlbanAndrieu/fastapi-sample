@@ -1,3 +1,10 @@
+# [1.9.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.8.0...1.9.0) (2026-09-06)
+
+
+### Features
+
+* **observability:** add bounded core metrics overview ([#197](https://github.com/AlbanAndrieu/fastapi-sample/issues/197)) ([9d8a42c](https://github.com/AlbanAndrieu/fastapi-sample/commit/9d8a42cd571192e2290fd2ff8708f95af97f8751))
+
 # [1.8.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.7.2...1.8.0) (2026-09-06)
 
 
