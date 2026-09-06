@@ -257,6 +257,16 @@ This distinction is security-relevant: `ui_allowlist` protects both API and UI
 source addresses. Do not permit an entire shared Docker subnet merely to make a
 single observer work.
 
+TrueNAS 26.0.0-BETA.2 writes UI settings to the datastore immediately but can
+roll them back automatically when `rollback_timeout` expires. A successful
+temporary WebSocket probe is therefore not enough to prove persistence.
+`system.general.checkin` itself returns `null`; use
+`system.general.checkin_waiting` to prove a rollback timer exists before
+check-in and is gone afterwards. After check-in, compare both
+`system.general.config.ui_allowlist` and
+`system.general.get_ui_allowlist` to prove persisted and active runtime state
+match.
+
 When diagnosing from the production container, use the application virtual
 environment explicitly:
 
