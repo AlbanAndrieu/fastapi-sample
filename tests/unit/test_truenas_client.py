@@ -7,6 +7,7 @@ import pytest
 from nabla.integrations.truenas_client import (
     TrueNASReadOnlyAdapter,
     TrueNASSettings,
+    _truenas_failure_stage,
     _websocket_proxy_route,
     truenas_host_port,
 )
@@ -141,6 +142,12 @@ def test_websocket_proxy_route_detects_proxy_candidate(monkeypatch) -> None:
     monkeypatch.delenv("no_proxy", raising=False)
 
     assert _websocket_proxy_route("truenas.albandrieu.com") == "proxy_candidate"
+
+
+def test_failure_stage_classifies_client_websocket_close() -> None:
+    exc = RuntimeError("WebSocket connection closed with code=None, reason=None")
+
+    assert _truenas_failure_stage(exc) == "websocket"
 
 
 def test_websocket_proxy_route_honors_no_proxy_without_logging_value(monkeypatch) -> None:
