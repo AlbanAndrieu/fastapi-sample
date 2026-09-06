@@ -52,10 +52,28 @@ def test_alias_precedence_and_adapter_key_fallback_are_explicit(monkeypatch) -> 
     settings = TrueNASProviderSettings()
 
     assert settings.adapter_username == "api-user"
+    assert settings.adapter_username_environment == "TRUENAS_API_USERNAME"
+    assert settings.shadowed_username_environments == (
+        "TRUENAS_USERNAME",
+        "TRUENAS_USER",
+    )
     assert settings.canonical_api_key == ""
     assert settings.adapter_api_key == "7-mcp-secret"
     assert settings.adapter_api_key_environment == "TRUENAS_MCP_API_KEY"
     assert "7-mcp-secret" not in repr(settings)
+
+
+def test_username_environment_reports_legacy_fallback_when_canonical_is_absent(
+    monkeypatch,
+) -> None:
+    _clear_truenas_env(monkeypatch)
+    monkeypatch.setenv("TRUENAS_USER", "legacy-user")
+
+    settings = TrueNASProviderSettings()
+
+    assert settings.adapter_username == "legacy-user"
+    assert settings.adapter_username_environment == "TRUENAS_USER"
+    assert settings.shadowed_username_environments == ()
 
 
 def test_canonical_api_key_wins_without_leaking_secret(monkeypatch) -> None:
@@ -68,6 +86,7 @@ def test_canonical_api_key_wins_without_leaking_secret(monkeypatch) -> None:
     assert settings.canonical_api_key == "8-canonical-secret"
     assert settings.adapter_api_key == "8-canonical-secret"
     assert settings.adapter_api_key_environment == "TRUENAS_API_KEY"
+    assert settings.shadowed_api_key_environments == ("TRUENAS_MCP_API_KEY",)
     assert "8-canonical-secret" not in repr(settings)
     assert "7-mcp-secret" not in repr(settings)
 
