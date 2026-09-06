@@ -6,6 +6,7 @@ import asyncio
 from enum import StrEnum
 import logging
 import time
+from typing import Literal
 
 import httpx
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
@@ -55,6 +56,19 @@ class HomelabTopologyNode(BaseModel):
     name: str = Field(min_length=1, max_length=128)
     kind: str = Field(min_length=1, max_length=64)
     category: str = Field(min_length=1, max_length=64)
+    presentation_role: Literal["service", "core", "support"] | None = Field(
+        default=None,
+        validation_alias=AliasChoices("presentationRole", "presentation_role"),
+        serialization_alias="presentationRole",
+    )
+    criticality: Literal["critical", "high", "medium", "low"] | None = None
+    security_functions: list[
+        Literal["govern", "identify", "protect", "detect", "respond", "recover"]
+    ] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices("securityFunctions", "security_functions"),
+        serialization_alias="securityFunctions",
+    )
     source_path: str | None = Field(
         default=None,
         min_length=1,
@@ -65,6 +79,13 @@ class HomelabTopologyNode(BaseModel):
     url: str | None = Field(default=None, min_length=1, max_length=2048)
     description: str | None = Field(default=None, max_length=1024)
     icon: str | None = Field(default=None, min_length=1, max_length=32)
+
+    @model_validator(mode="after")
+    def require_unique_security_functions(self) -> "HomelabTopologyNode":
+        """Reject ambiguous duplicate NIST CSF function metadata."""
+        if len(self.security_functions) != len(set(self.security_functions)):
+            raise ValueError("securityFunctions must not contain duplicates")
+        return self
 
 
 class HomelabTopologyRelation(BaseModel):
