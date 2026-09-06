@@ -9,21 +9,30 @@ Use this skill for FastAPI Cloud runtime and deployment operations. It complemen
 
 ## Runtime priority
 
-For homelab/runtime status, prefer the local application when the agent is on the LAN:
+FastAPI Sample has two production observer scopes plus the developer workstation:
 
-1. `http://127.0.0.1:8080/api`
-2. `http://127.0.0.1:8080/api/homelab/health`
-3. `http://127.0.0.1:8080/api/homelab/runtime`
-4. `http://127.0.0.1:8080/api/homelab/status`
+1. **TrueNAS homelab production** — preferred for private homelab state when the
+   caller is on the trusted LAN:
+   - `https://sample.int.albandrieu.com/api`
+   - `https://sample.int.albandrieu.com/api/homelab/health`
+   - `https://sample.int.albandrieu.com/api/homelab/runtime`
+   - `https://sample.int.albandrieu.com/api/homelab/status`
+   - direct fallback: `http://172.17.0.24:8091`
+2. **FastAPI Cloud production** — external/WAN observer:
+   - `https://fastapi-sample.fastapicloud.dev/api`
+   - `https://fastapi-sample.fastapicloud.dev/api/homelab/health`
+   - `https://fastapi-sample.fastapicloud.dev/api/homelab/runtime`
+   - `https://fastapi-sample.fastapicloud.dev/api/homelab/status`
+3. **Local workstation** — development behavior only:
+   - `http://127.0.0.1:8080/api`
 
-If the local endpoint is unavailable because the agent is outside the LAN or the local app is not running, use the production fallback:
+Prefer the TrueNAS homelab production runtime for TrueNAS, pfSense and
+Prometheus observations because it has trusted-LAN reachability. Do not make
+FastAPI Cloud an approved LAN administration source merely to reproduce the
+same probes externally.
 
-1. `https://fastapi-sample.fastapicloud.dev/api`
-2. `https://fastapi-sample.fastapicloud.dev/api/homelab/health`
-3. `https://fastapi-sample.fastapicloud.dev/api/homelab/runtime`
-4. `https://fastapi-sample.fastapicloud.dev/api/homelab/status`
-
-Do not treat a failed local probe as evidence that production is unhealthy. Record which runtime was actually tested.
+Do not treat failure of one runtime as proof that another runtime is unhealthy.
+Record the runtime mode and observer scope actually tested.
 
 ## Authentication
 
