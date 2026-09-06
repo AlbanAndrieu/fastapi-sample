@@ -109,11 +109,16 @@ function render(snapshot) {
   const count = Number(runtime.observed_instance_count);
   const runtimeMode = runtime.runtime_mode || panel.dataset.runtimeMode || "local";
   const isFastapiCloud = runtimeMode === "fastapi_cloud";
-  setText("runtime-instance-label", isFastapiCloud ? "Observed instances" : "Observed processes");
+  const isHomelab = runtimeMode === "homelab";
+  const isProduction = runtime.environment_class === "production";
+  setText(
+    "runtime-instance-label",
+    isProduction ? "Observed instances" : "Observed processes",
+  );
   setText("runtime-instance-count", Number.isFinite(count) ? String(count) : "—");
   setText(
     "runtime-replica-label",
-    isFastapiCloud ? "FastAPI Cloud replicas" : "Runtime scope",
+    isFastapiCloud ? "FastAPI Cloud replicas" : isHomelab ? "Observer scope" : "Runtime scope",
   );
   setText(
     "runtime-replica-count",
@@ -121,9 +126,11 @@ function render(snapshot) {
       ? runtime.platform_replica_count == null
         ? "control-plane only"
         : String(runtime.platform_replica_count)
-      : Number.isFinite(count) && count > 1
-        ? `${count} observed processes`
-        : "local process",
+      : isHomelab
+        ? "trusted LAN"
+        : Number.isFinite(count) && count > 1
+          ? `${count} observed processes`
+          : "local process",
   );
   setText("runtime-count-semantics", runtime.count_semantics || "Observed runtime heartbeats.");
   const aggregationLabels = {
@@ -144,6 +151,10 @@ function render(snapshot) {
   state.className = `runtime-topology-state runtime-topology-state--${degraded ? "warn" : "ok"}`;
   if (isFastapiCloud) {
     state.textContent = degraded ? "local observation only" : `${count} active observed`;
+  } else if (isHomelab) {
+    state.textContent = degraded
+      ? "homelab telemetry degraded"
+      : `${count} homelab runtime${count === 1 ? "" : "s"}`;
   } else {
     state.textContent = degraded
       ? "local telemetry degraded"
