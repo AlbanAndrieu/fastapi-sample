@@ -20,6 +20,7 @@ const FOUNDATION_KINDS = new Set([
   "csi",
   "dns",
   "ingress",
+  "network-proxy",
 ]);
 
 const FOUNDATION_IDS = new Set([
@@ -29,6 +30,7 @@ const FOUNDATION_IDS = new Set([
   "pfsense-haproxy",
   "talos",
   "kubernetes",
+  "etcd",
 ]);
 
 const SHARED_DATA_KINDS = new Set([
