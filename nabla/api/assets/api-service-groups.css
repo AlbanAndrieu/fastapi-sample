@@ -213,10 +213,20 @@
   color: #7dffc4;
 }
 
-.health-meta-badge--status-degraded,
-.health-meta-badge--status-http-issue {
+.health-meta-badge--status-at-risk {
+  border-color: rgba(255, 170, 0, 0.42);
+  color: #ffbf66;
+}
+
+.health-meta-badge--status-degraded {
   border-color: rgba(255, 204, 51, 0.35);
   color: #ffd966;
+}
+
+.health-meta-badge--metric {
+  border-color: rgba(96, 165, 250, 0.28);
+  color: #a8cdfc;
+  font-variant-numeric: tabular-nums;
 }
 
 .health-meta-badge--status-down {
