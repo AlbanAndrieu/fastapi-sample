@@ -48,12 +48,14 @@ def test_service_group_asset_mirrors_site_criticality_contract() -> None:
     assert "CRITICALITY_WEIGHT" in source
 
 
-def test_true_nas_is_not_duplicated_in_generic_health_rows() -> None:
+def test_true_nas_keeps_summary_row_and_separate_api_drilldown() -> None:
     source = (ASSETS / "api-health-core.js").read_text(encoding="utf-8")
+    page = render_api_root_page(title_suffix="test", app_version="test")
 
     assert 'key !== "truenas_api"' in source
-    assert 'key !== "albandrieu_truenas"' in source
+    assert 'key !== "albandrieu_truenas"' not in source
     assert "truenasApiCheck" not in source
+    assert "Core drill-down · TrueNAS platform" in page
 
 
 def test_service_classification_supports_explicit_role_and_criticality() -> None:
