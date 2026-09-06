@@ -2,6 +2,24 @@
 
 The health endpoints intentionally keep credentials out of source control. Create the following variables in the target runtime (for example FastAPI Cloud) when the corresponding optional integration should be monitored.
 
+## Runtime observer scope
+
+The deployment runtime is explicit:
+
+```text
+FASTAPI_RUNTIME_MODE=homelab
+```
+
+Use this only for the TrueNAS production deployment. It produces
+`runtime_mode=homelab`, `environment_class=production` and
+`observer_scope=trusted_lan`. The FastAPI Cloud deployment remains
+`runtime_mode=fastapi_cloud` / `observer_scope=external`, while developer
+workstations remain `runtime_mode=local`.
+
+Do not infer this scope from `SICKZ_INTERNAL_NETWORK`, private source
+addresses, or hostnames. Those signals describe probe policy or transport, not
+deployment identity.
+
 ## Endpoint responsibilities
 
 - `/health`: lightweight FastAPI/runtime liveness only; it must not depend on external homelab services.

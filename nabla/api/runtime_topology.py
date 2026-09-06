@@ -290,7 +290,7 @@ async def build_runtime_topology_snapshot(
             "active_egress_ips": [current["egress_ip"]] if current.get("egress_ip") else [],
             "recent_egress_ips": [current["egress_ip"]] if current.get("egress_ip") else [],
             "aggregation": "local_only",
-            "degraded": mode in {"fastapi_cloud", "cloud_paas"},
+            "degraded": mode in {"fastapi_cloud", "cloud_paas", "homelab"},
         }
     else:
         try:
@@ -312,12 +312,22 @@ async def build_runtime_topology_snapshot(
     is_fastapi_cloud = mode == "fastapi_cloud"
     provider = {
         "fastapi_cloud": "FastAPI Cloud",
+        "homelab": "TrueNAS homelab",
         "cloud_paas": "Cloud/PaaS runtime",
         "local": "Local workstation",
     }.get(mode, "Unknown runtime")
+    environment_class = "development" if mode == "local" else "production"
+    observer_scope = {
+        "fastapi_cloud": "external",
+        "homelab": "trusted_lan",
+        "cloud_paas": "external",
+        "local": "workstation",
+    }.get(mode, "unknown")
     return {
         "provider": provider,
         "runtime_mode": mode,
+        "environment_class": environment_class,
+        "observer_scope": observer_scope,
         "observed_at": _utc_timestamp(),
         "platform_replica_count": None,
         "platform_replica_count_available": False,
@@ -326,11 +336,16 @@ async def build_runtime_topology_snapshot(
             "this is not the FastAPI Cloud control-plane replica count."
             if is_fastapi_cloud
             else (
-                "Observed application runtimes for a cloud/PaaS environment; "
-                "this is application heartbeat evidence, not provider control-plane capacity."
-                if mode == "cloud_paas"
-                else "Observed application runtimes for the local workstation; "
-                "shared Redis heartbeats may include sibling local processes."
+                "Observed application runtimes for the TrueNAS homelab production "
+                "observer; trusted-LAN access is scoped separately from cloud runtimes."
+                if mode == "homelab"
+                else (
+                    "Observed application runtimes for a cloud/PaaS environment; "
+                    "this is application heartbeat evidence, not provider control-plane capacity."
+                    if mode == "cloud_paas"
+                    else "Observed application runtimes for the local workstation; "
+                    "shared Redis heartbeats may include sibling local processes."
+                )
             )
         ),
         "heartbeat_interval_seconds": int(_HEARTBEAT_INTERVAL_SEC),

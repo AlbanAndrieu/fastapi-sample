@@ -8,6 +8,7 @@ def _clear_runtime_markers(monkeypatch) -> None:
         "FASTAPI_CLOUD",
         "FASTAPI_CLOUD_APP_ID",
         "FASTAPI_ENV",
+        "FASTAPI_RUNTIME_MODE",
         "SICKZ_NETWORK_LABEL",
         "VERCEL",
         "AWS_EXECUTION_ENV",
@@ -90,3 +91,25 @@ def test_workstation_without_markers_is_local(monkeypatch) -> None:
 
     assert runtime_environment.known_paas_runtime_detected() is False
     assert runtime_environment.runtime_mode() == "local"
+
+
+def test_explicit_homelab_runtime_is_production_scope(monkeypatch) -> None:
+    _clear_runtime_markers(monkeypatch)
+    monkeypatch.setenv("FASTAPI_ENV", "production")
+    monkeypatch.setenv("FASTAPI_RUNTIME_MODE", "homelab")
+
+    assert runtime_environment.homelab_runtime_detected() is True
+    assert runtime_environment.fastapi_cloud_runtime_detected("sample.albandrieu.com") is False
+    assert runtime_environment.runtime_mode("sample.albandrieu.com") == "homelab"
+    assert runtime_environment.runtime_mode("sample.int.albandrieu.com") == "homelab"
+    assert runtime_environment.runtime_mode("172.17.0.24") == "homelab"
+
+
+def test_fastapi_cloud_hostname_wins_over_homelab_marker(monkeypatch) -> None:
+    _clear_runtime_markers(monkeypatch)
+    monkeypatch.setenv("FASTAPI_RUNTIME_MODE", "homelab")
+
+    assert (
+        runtime_environment.runtime_mode("fastapi-sample.fastapicloud.dev")
+        == "fastapi_cloud"
+    )

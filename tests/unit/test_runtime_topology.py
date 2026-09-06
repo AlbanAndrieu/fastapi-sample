@@ -13,6 +13,7 @@ async def test_local_runtime_snapshot_is_explicitly_not_platform_replica_count(
 ) -> None:
     monkeypatch.setenv("HOSTNAME", "container-a")
     monkeypatch.delenv("FASTAPI_CLOUD", raising=False)
+    monkeypatch.delenv("FASTAPI_RUNTIME_MODE", raising=False)
     monkeypatch.delenv("FASTAPI_CLOUD_APP_ID", raising=False)
     monkeypatch.delenv("SICKZ_NETWORK_LABEL", raising=False)
     monkeypatch.delenv("AWS_EXECUTION_ENV", raising=False)
@@ -31,6 +32,8 @@ async def test_local_runtime_snapshot_is_explicitly_not_platform_replica_count(
 
     assert snapshot["provider"] == "Local workstation"
     assert snapshot["runtime_mode"] == "local"
+    assert snapshot["environment_class"] == "development"
+    assert snapshot["observer_scope"] == "workstation"
     assert snapshot["observed_instance_count"] == 1
     assert snapshot["platform_replica_count"] is None
     assert snapshot["platform_replica_count_available"] is False
@@ -62,6 +65,8 @@ async def test_fastapi_cloud_runtime_snapshot_keeps_cloud_semantics(monkeypatch)
 
     assert snapshot["provider"] == "FastAPI Cloud"
     assert snapshot["runtime_mode"] == "fastapi_cloud"
+    assert snapshot["environment_class"] == "production"
+    assert snapshot["observer_scope"] == "external"
     assert snapshot["degraded"] is True
     assert "not the FastAPI Cloud control-plane replica count" in snapshot["count_semantics"]
 
@@ -96,6 +101,36 @@ async def test_request_hostname_drives_topology_scope_without_platform_env(
     assert snapshot["provider"] == "FastAPI Cloud"
     assert snapshot["runtime_mode"] == "fastapi_cloud"
     assert snapshot["degraded"] is True
+
+
+@pytest.mark.asyncio
+async def test_homelab_runtime_snapshot_is_trusted_lan_production(monkeypatch) -> None:
+    monkeypatch.setenv("HOSTNAME", "container-homelab")
+    monkeypatch.setenv("FASTAPI_RUNTIME_MODE", "homelab")
+    monkeypatch.delenv("FASTAPI_CLOUD", raising=False)
+    monkeypatch.delenv("FASTAPI_CLOUD_APP_ID", raising=False)
+
+    async def egress():
+        return {
+            "ip": "82.66.4.247",
+            "observed": True,
+            "cached": True,
+            "source": "external_echo",
+        }
+
+    monkeypatch.setattr(runtime_topology, "observe_public_egress_ip", egress)
+
+    snapshot = await runtime_topology.build_runtime_topology_snapshot(
+        None,
+        hostname="sample.albandrieu.com",
+    )
+
+    assert snapshot["provider"] == "TrueNAS homelab"
+    assert snapshot["runtime_mode"] == "homelab"
+    assert snapshot["environment_class"] == "production"
+    assert snapshot["observer_scope"] == "trusted_lan"
+    assert snapshot["degraded"] is True
+    assert "trusted-LAN access" in snapshot["count_semantics"]
 
 
 def test_runtime_instance_id_is_stable_and_opaque(monkeypatch) -> None:
@@ -180,11 +215,16 @@ async def test_redis_usage_snapshot_keeps_ping_health_when_info_is_forbidden() -
     assert "not permitted" not in str(result)
 
 
-def test_runtime_registry_keys_isolate_local_and_cloud_heartbeats() -> None:
+def test_runtime_registry_keys_isolate_local_cloud_and_homelab_heartbeats() -> None:
     local = runtime_topology.runtime_registry_keys("local")
     cloud = runtime_topology.runtime_registry_keys("fastapi_cloud")
+    homelab = runtime_topology.runtime_registry_keys("homelab")
 
-    assert local != cloud
+    assert len({local, cloud, homelab}) == 3
     assert all(":local:" in key for key in local)
     assert all(":fastapi_cloud:" in key for key in cloud)
-    assert all(not key.endswith(":runtime:instances:last-seen") for key in (*local, *cloud))
+    assert all(":homelab:" in key for key in homelab)
+    assert all(
+        not key.endswith(":runtime:instances:last-seen")
+        for key in (*local, *cloud, *homelab)
+    )
