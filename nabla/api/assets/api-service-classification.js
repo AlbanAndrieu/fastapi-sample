@@ -1,10 +1,16 @@
-const BLOCKING_RELATION_TYPES = new Set([
+const FUNCTIONAL_RELATION_TYPES = new Set([
   "dependsOn",
   "consumesApi",
   "routesTo",
   "storesIn",
   "authenticatesVia",
   "partOf",
+  "exposedBy",
+]);
+
+const IMPACT_RELATION_TYPES = new Set([
+  ...FUNCTIONAL_RELATION_TYPES,
+  "hostedBy",
 ]);
 
 const FOUNDATION_KINDS = new Set([
@@ -156,32 +162,33 @@ function presentationGroup(node, role, criticality, transitiveDependents) {
 }
 
 export function analyzeTopology(topology) {
-  const requiredDependencies = new Map();
-  const requiredDependents = new Map();
+  const functionalDependencies = new Map();
+  const impactDependents = new Map();
 
   for (const relation of topology?.relations || []) {
-    if (
-      relation?.strength !== "required" ||
-      !BLOCKING_RELATION_TYPES.has(relation?.type)
-    ) {
-      continue;
+    if (relation?.strength !== "required") continue;
+
+    if (FUNCTIONAL_RELATION_TYPES.has(relation?.type)) {
+      if (!functionalDependencies.has(relation.source)) {
+        functionalDependencies.set(relation.source, new Set());
+      }
+      functionalDependencies.get(relation.source).add(relation.target);
     }
-    if (!requiredDependencies.has(relation.source)) {
-      requiredDependencies.set(relation.source, new Set());
+
+    if (IMPACT_RELATION_TYPES.has(relation?.type)) {
+      if (!impactDependents.has(relation.target)) {
+        impactDependents.set(relation.target, new Set());
+      }
+      impactDependents.get(relation.target).add(relation.source);
     }
-    requiredDependencies.get(relation.source).add(relation.target);
-    if (!requiredDependents.has(relation.target)) {
-      requiredDependents.set(relation.target, new Set());
-    }
-    requiredDependents.get(relation.target).add(relation.source);
   }
 
   const analysis = new Map();
   for (const node of topology?.nodes || []) {
-    const directDependencies = requiredDependencies.get(node.id)?.size || 0;
+    const directDependencies = functionalDependencies.get(node.id)?.size || 0;
     const transitiveDependents = collectReachable(
       node.id,
-      requiredDependents,
+      impactDependents,
     ).size;
     const role = inferredRole(node, directDependencies, transitiveDependents);
     const criticality = inferredCriticality(node, role, transitiveDependents);
