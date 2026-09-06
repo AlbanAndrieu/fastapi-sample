@@ -330,15 +330,12 @@ function overviewCard(label, rows) {
 function updateOverview(buckets) {
   const target = document.getElementById("service-health-overview");
   if (!target) return;
-  const coreRows = [
-    ...(buckets.get("core-critical") || []),
-    ...(buckets.get("shared-core") || []),
-  ];
   target.innerHTML = [
     overviewCard("Services", buckets.get("services") || []),
-    overviewCard("Core platform", coreRows),
+    overviewCard("Critical core", buckets.get("core-critical") || []),
     overviewCard("Security controls", buckets.get("security-controls") || []),
-    overviewCard("Support", buckets.get("support") || []),
+    overviewCard("Shared platform", buckets.get("shared-core") || []),
+    overviewCard("Observability", buckets.get("support") || []),
   ].join("");
 }
 
