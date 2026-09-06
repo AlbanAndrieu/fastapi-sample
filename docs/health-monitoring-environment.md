@@ -253,6 +253,20 @@ This distinction is security-relevant: `ui_allowlist` protects both API and UI
 source addresses. Do not permit an entire shared Docker subnet merely to make a
 single observer work.
 
+When diagnosing from the production container, use the application virtual
+environment explicitly:
+
+```bash
+docker exec -i fastapi-sample /code/.venv/bin/python - <<'PY'
+import websocket
+print(websocket.__version__)
+PY
+```
+
+A login shell such as `docker exec ... sh -lc 'python ...'` can resolve a
+different system Python and falsely report that `websocket` is not installed,
+even while FastAPI's venv-backed TrueNAS adapter is functioning.
+
 `/sickz` also correlates HTTP failures with the observed TrueNAS app state. A
 reachable Cloudflare/DNS edge returning `502`, `503`, or `504` while the matching
 TrueNAS app is in a failed/down state is reported as a workload failure and the
