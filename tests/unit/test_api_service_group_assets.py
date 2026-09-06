@@ -23,6 +23,7 @@ def test_api_page_prioritizes_service_groups_before_core_drilldown() -> None:
 
 def test_service_group_asset_mirrors_site_criticality_contract() -> None:
     source = (ASSETS / "api-service-groups.js").read_text(encoding="utf-8")
+    classification = (ASSETS / "api-service-classification.js").read_text(encoding="utf-8")
 
     for label in (
         "1 · Services & experiments",
@@ -40,7 +41,7 @@ def test_service_group_asset_mirrors_site_criticality_contract() -> None:
         "authenticatesVia",
         "partOf",
     ):
-        assert relation in source
+        assert relation in classification
     assert 'document.createElement("details")' in source
     assert "openWhenHealthy" in source
     assert "service-health-overview" in source
