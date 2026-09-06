@@ -199,7 +199,7 @@ function computeOverall(data) {
     if (mandatoryFailed(key, check)) {
       return {
         cls: "red",
-        text: "A required check failed: PostgreSQL, Redis, Supabase (when configured), and required albandrieu.com infra HTTPS endpoints including TrueNAS must be reachable.",
+        text: "A required health check failed. Review service outcomes and critical core components below to determine impact and likely cause.",
       };
     }
     const classification = classify(key, check);
@@ -225,7 +225,7 @@ function computeOverall(data) {
   if (anyOptionalRed) {
     return {
       cls: "yellow",
-      text: "Core dependencies OK. One or more optional integrations are failing.",
+      text: "One or more probed services or integrations need attention. Review the service and platform summaries below for impact.",
     };
   }
   if (anyBlue) {
@@ -237,10 +237,10 @@ function computeOverall(data) {
   if (anyYellow) {
     return {
       cls: "yellow",
-      text: "Core dependencies OK. Yellow = degraded dependency, env not set, or a minor health note.",
+      text: "One or more checks are degraded, intentionally skipped, or waiting for complete evidence.",
     };
   }
-  return { cls: "green", text: "All probed services are reachable." };
+  return { cls: "green", text: "All currently probed health checks are healthy." };
 }
 
 function render(data) {
@@ -257,7 +257,7 @@ function render(data) {
   summaryText.textContent = overall.text;
   const checks = data.checks || {};
   const keys = sortKeys(Object.keys(checks)).filter(
-    (key) => key !== "truenas_api" && key !== "albandrieu_truenas",
+    (key) => key !== "truenas_api",
   );
   listEl.innerHTML = "";
   const groupedEl = document.getElementById("health-services-groups");
@@ -267,8 +267,8 @@ function render(data) {
     const tier = MANDATORY.has(key)
       ? key.indexOf("albandrieu_") === 0
         ? "Required infra (albandrieu.com)"
-        : "Required for core stack"
-      : "Optional integration";
+        : "Required health check"
+      : "Optional health check";
     const cls = classify(key, check);
     const item = document.createElement("li");
     item.className = "health-row";

@@ -1,67 +1,41 @@
-const CORE_HEALTH_KEYS = new Set(["postgres", "redis", "supabase"]);
-
-const BLOCKING_RELATION_TYPES = new Set([
-  "dependsOn",
-  "consumesApi",
-  "routesTo",
-  "storesIn",
-  "authenticatesVia",
-  "partOf",
-]);
-
-const FOUNDATION_KINDS = new Set([
-  "storage-platform",
-  "container-runtime",
-  "firewall",
-  "edge",
-  "network-gateway",
-  "reverse-proxy",
-]);
-
-const SHARED_DATA_KINDS = new Set([
-  "database",
-  "cache",
-  "key-value-store",
-  "object-storage",
-  "analytics-database",
-  "vector-database",
-  "message-broker",
-  "search",
-  "log-store",
-  "metrics-store",
-  "trace-store",
-]);
+import {
+  analyzeTopology,
+  CRITICALITY_WEIGHT,
+} from "./api-service-classification.js";
 
 const GROUPS = [
   {
-    key: "foundation",
-    label: "1 · Infrastructure foundations",
+    key: "services",
+    label: "1 · Services & experiments",
     description:
-      "Storage, runtime, firewall and edge components with the broadest failure domain.",
+      "User-facing and lab capabilities — the reason this homelab platform exists.",
+    openWhenHealthy: true,
   },
   {
-    key: "shared-data",
-    label: "2 · Shared data & state",
+    key: "core-critical",
+    label: "2 · Critical core platform",
     description:
-      "Databases, caches and durable state used by dependent services.",
+      "Foundations with broad blast radius: storage, runtime, network and orchestration.",
+    openWhenHealthy: true,
   },
   {
-    key: "shared-platform",
-    label: "3 · Shared platform services",
+    key: "security-controls",
+    label: "3 · Security controls",
     description:
-      "Gateways, runtimes and shared capabilities reused by several consumers.",
+      "Preventive, detective and response controls used to experiment with and improve security.",
+    openWhenHealthy: true,
   },
   {
-    key: "application",
-    label: "4 · Applications & consumers",
+    key: "shared-core",
+    label: "4 · Shared platform & data",
     description:
-      "User-facing workloads and consumers of the shared layers above.",
+      "Shared state and platform capabilities used by multiple services.",
   },
   {
     key: "support",
-    label: "5 · Support / low blast radius",
+    label: "5 · Observability & support",
     description:
-      "Leaf, observability and support components without required downstream consumers.",
+      "Telemetry, dashboards, exporters and auxiliary components.",
   },
 ];
 
@@ -90,59 +64,6 @@ function hostOf(value) {
   } catch {
     return "";
   }
-}
-
-function collectReachable(start, adjacency) {
-  const seen = new Set();
-  const pending = [...(adjacency.get(start) || [])];
-  while (pending.length > 0) {
-    const current = pending.pop();
-    if (!current || current === start || seen.has(current)) continue;
-    seen.add(current);
-    for (const next of adjacency.get(current) || []) {
-      if (!seen.has(next)) pending.push(next);
-    }
-  }
-  return seen;
-}
-
-function analyzeTopology(topology) {
-  const requiredDependencies = new Map();
-  const requiredDependents = new Map();
-  for (const relation of topology?.relations || []) {
-    if (
-      relation?.strength !== "required" ||
-      !BLOCKING_RELATION_TYPES.has(relation?.type)
-    ) {
-      continue;
-    }
-    if (!requiredDependencies.has(relation.source))
-      requiredDependencies.set(relation.source, new Set());
-    requiredDependencies.get(relation.source).add(relation.target);
-    if (!requiredDependents.has(relation.target))
-      requiredDependents.set(relation.target, new Set());
-    requiredDependents.get(relation.target).add(relation.source);
-  }
-
-  const analysis = new Map();
-  for (const node of topology?.nodes || []) {
-    const directDependencies = requiredDependencies.get(node.id)?.size || 0;
-    const transitiveDependents = collectReachable(
-      node.id,
-      requiredDependents,
-    ).size;
-    let tier = "support";
-    if (FOUNDATION_KINDS.has(node.kind)) tier = "foundation";
-    else if (
-      (node.category === "data" || SHARED_DATA_KINDS.has(node.kind)) &&
-      transitiveDependents > 0
-    ) {
-      tier = "shared-data";
-    } else if (transitiveDependents > 0) tier = "shared-platform";
-    else if (directDependencies > 0) tier = "application";
-    analysis.set(node.id, { tier, transitiveDependents });
-  }
-  return analysis;
 }
 
 function topologyIndexes(topology) {
@@ -177,24 +98,22 @@ function findTopologyNode(row, check, indexes) {
       return indexes.byId.get(String(candidate));
   }
 
-  const nameCandidates = [
+  for (const candidate of [
     check?.name,
     check?.display_label,
     row?.dataset?.serviceName,
-  ];
-  for (const candidate of nameCandidates) {
+  ]) {
     const name = normalize(candidate);
     if (name && indexes.byName.has(name)) return indexes.byName.get(name);
   }
 
-  const urls = [
+  for (const value of [
     check?.url,
     check?.tunnel_url,
     check?.tunnelUrl,
     row?.dataset?.serviceUrl,
     ...(Array.isArray(check?.aliases_probed) ? check.aliases_probed : []),
-  ];
-  for (const value of urls) {
+  ]) {
     const host = hostOf(value);
     if (host && indexes.byHost.has(host)) return indexes.byHost.get(host);
   }
@@ -216,37 +135,136 @@ function topology() {
   return topologyPromise;
 }
 
+function rowSeverity(row) {
+  if (row.querySelector(".health-led--red")) return 0;
+  if (row.querySelector(".health-led--yellow")) return 1;
+  if (row.querySelector(".health-led--blue")) return 2;
+  if (row.querySelector(".health-led--gray")) return 3;
+  return 4;
+}
+
+function normalizedHealthState(value) {
+  const state = String(value || "").trim().toLowerCase();
+  return ["ok", "warn", "fail", "unknown"].includes(state) ? state : "";
+}
+
+function rowStatus(row, check = {}) {
+  const localState = normalizedHealthState(check?.local_state);
+  const dependencyState = normalizedHealthState(check?.dependency_state);
+
+  if (localState === "fail") return "Down";
+  if (localState === "warn") return "Degraded";
+  if (localState === "unknown") return "Unknown";
+  if (
+    localState === "ok" &&
+    ["fail", "warn", "unknown"].includes(dependencyState)
+  ) {
+    return "At risk";
+  }
+  if (localState === "ok") return "Operational";
+
+  const severity = rowSeverity(row);
+  if (severity === 0) return "Down";
+  if (severity === 1 || severity === 2) return "Degraded";
+  if (severity === 3) return "Unknown";
+  return "Operational";
+}
+
+function probeLatencyMs(check) {
+  for (const value of [check?.latency_ms, check?.elapsed_ms]) {
+    const latency = Number(value);
+    if (Number.isFinite(latency) && latency >= 0) return Math.round(latency);
+  }
+  return null;
+}
+
+function rowOutcomeOperational(row) {
+  if (row.dataset.localState) return row.dataset.localState === "ok";
+  return row.dataset.semanticStatus === "operational";
+}
+
+function addBadge(target, text, kind) {
+  const badge = document.createElement("span");
+  badge.className = `health-meta-badge health-meta-badge--${kind}`;
+  badge.textContent = text;
+  target.appendChild(badge);
+}
+
+function decorateRow(row, presentation, check) {
+  const status = rowStatus(row, check);
+  const statusKind = status.toLowerCase().replaceAll(" ", "-");
+  const localState = normalizedHealthState(check?.local_state);
+  const dependencyState = normalizedHealthState(check?.dependency_state);
+
+  row.dataset.presentationRole = presentation.role;
+  row.dataset.criticality = presentation.criticality;
+  row.dataset.presentationGroup = presentation.group;
+  row.dataset.semanticStatus = statusKind;
+  row.dataset.localState = localState;
+  row.dataset.dependencyState = dependencyState;
+  row.dataset.downstreamCount = String(presentation.transitiveDependents || 0);
+
+  const tags = row.querySelector(".health-row-tags");
+  if (!tags) return;
+  const original = tags.textContent?.trim() || "";
+  tags.textContent = "";
+  addBadge(tags, status, `status-${statusKind}`);
+  addBadge(tags, presentation.role, "role");
+  if (["critical", "high"].includes(presentation.criticality)) {
+    addBadge(tags, presentation.criticality, presentation.criticality);
+  }
+
+  const latency = probeLatencyMs(check);
+  if (latency != null) addBadge(tags, `${latency} ms`, "metric");
+
+  if (presentation.transitiveDependents > 0) {
+    addBadge(
+      tags,
+      `${presentation.transitiveDependents} downstream`,
+      "impact",
+    );
+  }
+  if (original) {
+    const note = document.createElement("span");
+    note.className = "health-meta-note";
+    note.textContent = original;
+    tags.appendChild(note);
+  }
+}
+
 function serviceGroupSection(definition, rows) {
-  const severity = (row) => {
-    if (row.querySelector(".health-led--red")) return 0;
-    if (row.querySelector(".health-led--yellow")) return 1;
-    if (row.querySelector(".health-led--gray")) return 2;
-    if (row.querySelector(".health-led--blue")) return 3;
-    return 4;
-  };
-  const issueCount = rows.filter((row) => severity(row) < 2).length;
+  const issueCount = rows.filter((row) => rowSeverity(row) < 4).length;
+  const criticalIssues = rows.filter(
+    (row) =>
+      ["critical", "high"].includes(row.dataset.criticality || "") &&
+      rowSeverity(row) < 4,
+  ).length;
   const section = document.createElement("details");
   section.className = "service-group";
   section.dataset.serviceGroup = definition.key;
-  section.open = issueCount > 0;
+  section.open = Boolean(definition.openWhenHealthy || issueCount > 0);
+
   const heading = document.createElement("summary");
   heading.className = "service-group-heading";
   const issueText =
     issueCount > 0
-      ? ` · ${issueCount} issue${issueCount === 1 ? "" : "s"}`
+      ? ` · ${issueCount} attention${criticalIssues ? ` · ${criticalIssues} high impact` : ""}`
       : "";
-  heading.innerHTML = `<div><h4>${definition.label}</h4><p>${definition.description}</p></div><span>${rows.length} service${rows.length === 1 ? "" : "s"}${issueText}</span>`;
+  heading.innerHTML = `<div><h4>${definition.label}</h4><p>${definition.description}</p></div><span>${rows.length} component${rows.length === 1 ? "" : "s"}${issueText}</span>`;
+
   const list = document.createElement("ul");
   list.className = "health-checks service-group-list";
   rows
     .sort(
       (left, right) =>
-        severity(left) - severity(right) ||
+        rowSeverity(left) - rowSeverity(right) ||
+        (CRITICALITY_WEIGHT[left.dataset.criticality] ?? 9) -
+          (CRITICALITY_WEIGHT[right.dataset.criticality] ?? 9) ||
+        Number(right.dataset.downstreamCount || 0) -
+          Number(left.dataset.downstreamCount || 0) ||
         (left.textContent || "").localeCompare(right.textContent || ""),
     )
-    .forEach((row) => {
-      list.appendChild(row);
-    });
+    .forEach((row) => list.appendChild(row));
   section.append(heading, list);
   return section;
 }
@@ -257,47 +275,86 @@ function assignRows(rows, checks, topologyData) {
   const buckets = new Map(
     [...GROUPS, EXTRA_GROUP].map((group) => [group.key, []]),
   );
+
   for (const row of rows) {
     const key = row.dataset.serviceKey || "";
     const check = checks?.[key] || {};
     const node = findTopologyNode(row, check, indexes);
-    const tier = node ? analysis.get(node.id)?.tier || "support" : "external";
-    row.dataset.criticalityTier = tier;
-    const group = GROUPS.find((item) => item.key === tier) || EXTRA_GROUP;
+    const presentation = node
+      ? analysis.get(node.id) || {
+          role: "support",
+          criticality: "low",
+          group: "support",
+        }
+      : { role: "support", criticality: "low", group: "external" };
+    decorateRow(row, presentation, check);
+    const group =
+      GROUPS.find((item) => item.key === presentation.group) || EXTRA_GROUP;
     row.dataset.searchText =
-      `${row.dataset.searchText || ""} ${group.label} ${group.description}`.toLowerCase();
+      `${row.dataset.searchText || ""} ${group.label} ${group.description} ${presentation.role} ${presentation.criticality} ${rowStatus(row, check)}`.toLowerCase();
     buckets.get(group.key).push(row);
   }
   return buckets;
 }
 
+function overviewCard(label, rows) {
+  const total = rows.length;
+  const operational = rows.filter(rowOutcomeOperational).length;
+  const atRisk = rows.filter(
+    (row) => row.dataset.semanticStatus === "at-risk",
+  ).length;
+  const down = rows.filter(
+    (row) => row.dataset.semanticStatus === "down",
+  ).length;
+  const degraded = rows.filter(
+    (row) => row.dataset.semanticStatus === "degraded",
+  ).length;
+  const unknown = rows.filter(
+    (row) => row.dataset.semanticStatus === "unknown",
+  ).length;
+  const attention = atRisk + down + degraded + unknown;
+  const tone =
+    down > 0
+      ? "red"
+      : attention > 0
+        ? "yellow"
+        : total > 0
+          ? "green"
+          : "neutral";
+  const details = [
+    atRisk > 0 ? `${atRisk} at risk` : "",
+    degraded > 0 ? `${degraded} degraded` : "",
+    down > 0 ? `${down} down` : "",
+    unknown > 0 ? `${unknown} unknown` : "",
+  ].filter(Boolean);
+  return `<div class="service-overview-card service-overview-card--${tone}"><span>${label}</span><strong>${operational}/${total} operational</strong><small>${details.length ? details.join(" · ") : "No active issue"}</small></div>`;
+}
+
+function updateOverview(buckets) {
+  const target = document.getElementById("service-health-overview");
+  if (!target) return;
+  target.innerHTML = [
+    overviewCard("Services", buckets.get("services") || []),
+    overviewCard("Critical core", buckets.get("core-critical") || []),
+    overviewCard("Security controls", buckets.get("security-controls") || []),
+    overviewCard("Shared platform", buckets.get("shared-core") || []),
+    overviewCard("Observability", buckets.get("support") || []),
+  ].join("");
+}
+
 function refreshFilter() {
   const tokens = normalize(activeFilter).split(/\s+/).filter(Boolean);
-  for (const target of document.querySelectorAll(
-    "[data-service-filter-target]",
-  )) {
-    const haystack = normalize(
-      target.dataset.searchText || target.textContent || "",
-    );
+  for (const target of document.querySelectorAll("[data-service-filter-target]")) {
+    const haystack = normalize(target.dataset.searchText || target.textContent || "");
     target.hidden =
       tokens.length > 0 && !tokens.every((token) => haystack.includes(token));
   }
   for (const group of document.querySelectorAll("[data-service-group]")) {
-    const visible = [
-      ...group.querySelectorAll("[data-service-filter-target]"),
-    ].some((row) => !row.hidden);
+    const visible = [...group.querySelectorAll("[data-service-filter-target]")].some(
+      (row) => !row.hidden,
+    );
     group.hidden = !visible;
     if (tokens.length > 0 && visible) group.open = true;
-  }
-  const coreHeading = document.getElementById("health-core-group-heading");
-  if (coreHeading) {
-    const coreRows = [
-      ...document.querySelectorAll(
-        "#health-checks > [data-service-filter-target]",
-      ),
-    ];
-    coreHeading.hidden =
-      coreRows.length > 0 && !coreRows.some((row) => !row.hidden);
   }
 }
 
@@ -305,21 +362,18 @@ export async function organizeHealthRows(data) {
   const list = document.getElementById("health-checks");
   const target = document.getElementById("health-services-groups");
   if (!list || !target) return;
-  const currentRows = [
-    ...list.querySelectorAll(":scope > [data-service-filter-target]"),
-  ];
-  const nonCore = currentRows.filter(
-    (row) => !CORE_HEALTH_KEYS.has(row.dataset.serviceKey || ""),
-  );
-  for (const row of nonCore) row.remove();
+  const rows = [...list.querySelectorAll(":scope > [data-service-filter-target]")];
+  for (const row of rows) row.remove();
   target.innerHTML = "";
 
   const topologyData = await topology();
-  const buckets = assignRows(nonCore, data?.checks || {}, topologyData);
+  const buckets = assignRows(rows, data?.checks || {}, topologyData);
+  updateOverview(buckets);
   for (const definition of [...GROUPS, EXTRA_GROUP]) {
-    const rows = buckets.get(definition.key) || [];
-    if (rows.length > 0)
-      target.appendChild(serviceGroupSection(definition, rows));
+    const groupRows = buckets.get(definition.key) || [];
+    if (groupRows.length > 0) {
+      target.appendChild(serviceGroupSection(definition, groupRows));
+    }
   }
   refreshFilter();
 }
@@ -327,9 +381,7 @@ export async function organizeHealthRows(data) {
 export async function organizeSickzRows(data, pfsenseKey) {
   const list = document.getElementById("sickz-checks");
   if (!list) return;
-  const rows = [
-    ...list.querySelectorAll(":scope > [data-service-filter-target]"),
-  ];
+  const rows = [...list.querySelectorAll(":scope > [data-service-filter-target]")];
   const topologyData = await topology();
   const checks = { ...(data?.checks || {}) };
   if (pfsenseKey) delete checks[pfsenseKey];
@@ -352,6 +404,7 @@ export function installServiceFilter() {
   const expandIssues = document.getElementById("service-expand-issues");
   const collapseAll = document.getElementById("service-collapse-all");
   if (!input) return;
+
   input.addEventListener("input", () => {
     activeFilter = input.value;
     refreshFilter();
@@ -365,12 +418,15 @@ export function installServiceFilter() {
   expandIssues?.addEventListener("click", () => {
     for (const group of document.querySelectorAll("[data-service-group]")) {
       group.open = Boolean(
-        group.querySelector(".health-led--red, .health-led--yellow"),
+        group.querySelector(
+          ".health-led--red, .health-led--yellow, .health-led--blue, .health-led--gray",
+        ),
       );
     }
   });
   collapseAll?.addEventListener("click", () => {
-    for (const group of document.querySelectorAll("[data-service-group]"))
+    for (const group of document.querySelectorAll("[data-service-group]")) {
       group.open = false;
+    }
   });
 }

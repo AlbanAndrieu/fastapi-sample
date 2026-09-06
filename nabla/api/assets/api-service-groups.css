@@ -43,6 +43,59 @@
   cursor: pointer;
 }
 
+.service-health-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 0.6rem;
+  margin: 0.85rem 0 1rem;
+}
+
+.service-overview-card {
+  min-width: 0;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid #2d2d2d;
+  border-radius: 9px;
+  background: #0a0a0a;
+}
+
+.service-overview-card span,
+.service-overview-card small {
+  display: block;
+}
+
+.service-overview-card span {
+  color: #9ca3af;
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.service-overview-card strong {
+  display: block;
+  margin-top: 0.2rem;
+  color: #f3f4f6;
+  font-size: 0.9rem;
+}
+
+.service-overview-card small {
+  margin-top: 0.15rem;
+  color: #777;
+  font-size: 0.65rem;
+}
+
+.service-overview-card--green {
+  border-color: rgba(0, 255, 136, 0.25);
+}
+
+.service-overview-card--yellow {
+  border-color: rgba(255, 204, 51, 0.35);
+}
+
+.service-overview-card--red {
+  border-color: rgba(255, 68, 68, 0.4);
+}
+
 .service-groups {
   margin-top: 1.35rem;
 }
@@ -96,12 +149,98 @@
   font-size: 0.66rem;
 }
 
-.service-group-heading--core {
-  margin-top: 0.85rem;
+.service-group[data-service-group="core-critical"] > .service-group-heading {
+  border-bottom-color: rgba(255, 68, 68, 0.35);
+}
+
+.service-group[data-service-group="security-controls"] > .service-group-heading {
+  border-bottom-color: rgba(255, 204, 51, 0.3);
 }
 
 .service-group-list {
   margin-top: 0;
+}
+
+.health-row[data-criticality="critical"] {
+  box-shadow: inset 2px 0 rgba(255, 68, 68, 0.65);
+}
+
+.health-row[data-criticality="high"] {
+  box-shadow: inset 2px 0 rgba(255, 204, 51, 0.5);
+}
+
+.health-row-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.health-meta-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.15rem;
+  padding: 0.08rem 0.35rem;
+  border: 1px solid #343434;
+  border-radius: 999px;
+  background: #151515;
+  color: #aeb4be;
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.health-meta-badge--critical {
+  border-color: rgba(255, 68, 68, 0.45);
+  color: #ff8a8a;
+}
+
+.health-meta-badge--high {
+  border-color: rgba(255, 204, 51, 0.4);
+  color: #ffd966;
+}
+
+.health-meta-badge--impact {
+  border-color: rgba(96, 165, 250, 0.35);
+  color: #9cc7ff;
+}
+
+.health-meta-badge--status-operational {
+  border-color: rgba(0, 255, 136, 0.3);
+  color: #7dffc4;
+}
+
+.health-meta-badge--status-at-risk {
+  border-color: rgba(255, 170, 0, 0.42);
+  color: #ffbf66;
+}
+
+.health-meta-badge--status-degraded {
+  border-color: rgba(255, 204, 51, 0.35);
+  color: #ffd966;
+}
+
+.health-meta-badge--metric {
+  border-color: rgba(96, 165, 250, 0.28);
+  color: #a8cdfc;
+  font-variant-numeric: tabular-nums;
+}
+
+.health-meta-badge--status-down {
+  border-color: rgba(255, 68, 68, 0.45);
+  color: #ff9999;
+}
+
+.health-meta-badge--status-unknown {
+  color: #9ca3af;
+}
+
+.health-meta-note {
+  color: #666;
+  font-size: 0.62rem;
 }
 
 .service-group-shell {
@@ -115,8 +254,7 @@
 }
 
 [data-service-filter-target][hidden],
-[data-service-group][hidden],
-#health-core-group-heading[hidden] {
+[data-service-group][hidden] {
   display: none;
 }
 
@@ -127,5 +265,15 @@
 
   .service-filter {
     width: 100%;
+  }
+
+  .service-health-overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .service-health-overview {
+    grid-template-columns: 1fr;
   }
 }

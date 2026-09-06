@@ -192,6 +192,11 @@ jobs:
                     (.pfsense.dns.ingress_block.failure_stage | type == "string" and length > 0) and
                     (.pfsense.dns.ingress_block.error_kind | type == "string" and length > 0) and
                     (.pfsense.dns.ingress_block.refresh_error | type == "string" and length > 0)
+                  ) or
+                  (
+                    .pfsense.dns.ingress_block.refresh_error == "snort2c refresh is in progress" and
+                    .pfsense.dns.ingress_block.cached == true and
+                    .pfsense.dns.ingress_block.cache_layer == "redis"
                   )
                 )
               elif .pfsense.dns.ingress_block.state == "telemetry_unavailable" then
