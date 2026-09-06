@@ -27,6 +27,7 @@ _LOCAL_FASTAPI_ENV_VALUES = frozenset(
     {"dev", "development", "local", "test", "testing"}
 )
 _LOCAL_HOSTNAMES = frozenset({"localhost", "localhost.localdomain"})
+_HOMELAB_RUNTIME_MODE = "homelab"
 
 
 def _env_present(name: str) -> bool:
@@ -36,6 +37,14 @@ def _env_present(name: str) -> bool:
 
 def _explicit_development_runtime() -> bool:
     return os.environ.get("FASTAPI_ENV", "").strip().casefold() in _LOCAL_FASTAPI_ENV_VALUES
+
+
+def homelab_runtime_detected() -> bool:
+    """Return whether this process is explicitly the trusted homelab runtime."""
+    return (
+        os.environ.get("FASTAPI_RUNTIME_MODE", "").strip().casefold()
+        == _HOMELAB_RUNTIME_MODE
+    )
 
 
 def _explicit_local_hostname(hostname: str | None) -> bool:
@@ -62,6 +71,9 @@ def fastapi_cloud_runtime_detected(hostname: str | None = None) -> bool:
     if host.endswith(".fastapicloud.dev"):
         return True
 
+    if homelab_runtime_detected():
+        return False
+
     if _explicit_local_hostname(hostname) or _explicit_development_runtime():
         return False
 
@@ -82,7 +94,12 @@ def known_paas_runtime_detected(hostname: str | None = None) -> bool:
 
 
 def runtime_mode(hostname: str | None = None) -> str:
-    """Return a stable scope for telemetry and UI semantics."""
+    """Return a stable scope for telemetry, UI and observer semantics."""
+    host = (hostname or "").strip().casefold().rstrip(".")
+    if host.endswith(".fastapicloud.dev"):
+        return "fastapi_cloud"
+    if homelab_runtime_detected():
+        return "homelab"
     if fastapi_cloud_runtime_detected(hostname):
         return "fastapi_cloud"
     if known_paas_runtime_detected(hostname):
