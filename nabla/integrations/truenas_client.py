@@ -177,6 +177,14 @@ def _truenas_failure_stage(exc: BaseException) -> str:
         return "connect_timeout"
     if any(
         marker in message
+        for marker in (
+            "you are not allowed to access this resource",
+            "policy violation",
+        )
+    ):
+        return "source_allowlist"
+    if any(
+        marker in message
         for marker in ("unauthorized", "authentication", "invalid credentials", "api key")
     ):
         return "authentication"
