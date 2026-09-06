@@ -243,7 +243,7 @@ function computeOverall(data) {
   return { cls: "green", text: "All currently probed health checks are healthy." };
 }
 
-function render(data) {
+function render(data, coreMetrics = {}) {
   const listEl = document.getElementById("health-checks");
   const summaryEl = document.getElementById("health-summary");
   const summaryText = document.getElementById("health-summary-text");
@@ -298,7 +298,7 @@ function render(data) {
       "</div>";
     listEl.appendChild(item);
   });
-  organizeHealthRows(data);
+  organizeHealthRows(data, coreMetrics);
 }
 
 function showFetchError(message) {
@@ -321,9 +321,10 @@ export function loadHealth() {
     .then((snapshot) => {
       const data = snapshot.healthz;
       if (!data) throw new Error("health snapshot is missing /healthz data");
-      render(data);
+      const coreMetrics = snapshot.core_metrics || {};
+      render(data, coreMetrics);
       const homelab = snapshot.homelab;
-      if (homelab) render(mergeHomelabEvidence(data, homelab));
+      if (homelab) render(mergeHomelabEvidence(data, homelab), coreMetrics);
     })
     .catch((error) => {
       showFetchError(String(error.message || error));
