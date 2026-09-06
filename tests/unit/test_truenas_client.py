@@ -35,7 +35,7 @@ class FakeClient:
     def call(self, method: str, *params):
         self.calls.append(method)
         if method == "system.version":
-            return "26.0.0-BETA.3"
+            return "26.0.0-BETA.2"
         if method == "app.query":
             return [
                 {"name": "open-webui", "state": "RUNNING", "upgrade_available": False},
@@ -202,7 +202,7 @@ def test_health_snapshot_uses_system_version_and_app_query() -> None:
 
     assert snapshot == {
         "reachable": True,
-        "version": "26.0.0-BETA.3",
+        "version": "26.0.0-BETA.2",
         "apps": [
             {"name": "open-webui", "state": "RUNNING", "upgrade_available": False},
             {"name": "litellm", "state": "CRASHED", "upgrade_available": True},
