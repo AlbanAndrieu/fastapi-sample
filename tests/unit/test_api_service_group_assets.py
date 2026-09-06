@@ -109,3 +109,17 @@ def test_service_health_ui_exposes_semantic_status_badges() -> None:
     assert "downstreamCount" in source
     assert "Number(right.dataset.downstreamCount" in source
     assert "service-health-overview" in css
+
+
+def test_service_overview_surfaces_bounded_platform_metrics() -> None:
+    groups = (ASSETS / "api-service-groups.js").read_text(encoding="utf-8")
+    health = (ASSETS / "api-health-core.js").read_text(encoding="utf-8")
+
+    assert "platformOverviewDetails" in groups
+    assert "truenas_memory_available_ratio" in groups
+    assert "truenas_cpu_busy_ratio" in groups
+    assert "telemetry_total" in groups
+    assert "pfsense_metrics_up" in groups
+    assert "Prometheus metrics not configured" in groups
+    assert "Prometheus telemetry unavailable" in groups
+    assert "snapshot.platform_metrics" in health

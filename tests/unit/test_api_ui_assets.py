@@ -147,7 +147,9 @@ def test_health_board_explains_dependency_propagation() -> None:
     assert 'from "./api-health-board.js"' in health
     assert enrichment in health
     assert 'fetchJson("/api/homelab/health"' not in health
-    assert health.index("render(data);") < health.index(enrichment)
+    initial_render = "render(data, snapshot.platform_metrics);"
+    assert initial_render in health
+    assert health.index(initial_render) < health.index(enrichment)
     assert "const dependencyClass = dependencyHealthClass(check);" in health
     assert 'parts.push("RUNNING but degraded")' in dependency
     assert 'parts.push(`blocked by ${blocked.join(", ")}`)' in dependency

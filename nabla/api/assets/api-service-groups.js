@@ -297,7 +297,7 @@ function assignRows(rows, checks, topologyData) {
   return buckets;
 }
 
-function overviewCard(label, rows) {
+function overviewCard(label, rows, metricDetail = "") {
   const total = rows.length;
   const operational = rows.filter(rowOutcomeOperational).length;
   const atRisk = rows.filter(
@@ -327,18 +327,60 @@ function overviewCard(label, rows) {
     down > 0 ? `${down} down` : "",
     unknown > 0 ? `${unknown} unknown` : "",
   ].filter(Boolean);
-  return `<div class="service-overview-card service-overview-card--${tone}"><span>${label}</span><strong>${operational}/${total} operational</strong><small>${details.length ? details.join(" · ") : "No active issue"}</small></div>`;
+  const footer = [...details, metricDetail].filter(Boolean).join(" · ");
+  return `<div class="service-overview-card service-overview-card--${tone}"><span>${label}</span><strong>${operational}/${total} operational</strong><small>${footer || "No active issue"}</small></div>`;
 }
 
-function updateOverview(buckets) {
+function percentMetric(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "";
+  return `${Math.round(number * 100)}%`;
+}
+
+function platformOverviewDetails(platformMetrics) {
+  const summary = platformMetrics?.summary || {};
+  const memory = percentMetric(summary.truenas_memory_available_ratio);
+  const cpu = percentMetric(summary.truenas_cpu_busy_ratio);
+  const core = [
+    cpu ? `TrueNAS CPU ${cpu}` : "",
+    memory ? `memory ${memory} free` : "",
+  ].filter(Boolean).join(" · ");
+
+  const telemetryTotal = Number(summary.telemetry_total);
+  const telemetryUp = Number(summary.telemetry_up);
+  const telemetry =
+    Number.isFinite(telemetryTotal) && telemetryTotal > 0
+      ? `${telemetryUp}/${telemetryTotal} telemetry signals up`
+      : platformMetrics?.state === "not_configured"
+        ? "Prometheus metrics not configured"
+        : platformMetrics?.state === "telemetry_unavailable"
+          ? "Prometheus telemetry unavailable"
+          : "";
+
+  const pfsense = Number(summary.pfsense_metrics_up);
+  const security = Number.isFinite(pfsense)
+    ? pfsense >= 1
+      ? "pfSense metrics online"
+      : "pfSense metrics unavailable"
+    : "";
+
+  return { core, telemetry, security };
+}
+
+function updateOverview(buckets, platformMetrics = null) {
   const target = document.getElementById("service-health-overview");
   if (!target) return;
+  const metrics = platformOverviewDetails(platformMetrics);
   target.innerHTML = [
     overviewCard("Services", buckets.get("services") || []),
-    overviewCard("Critical core", buckets.get("core-critical") || []),
-    overviewCard("Security controls", buckets.get("security-controls") || []),
+    overviewCard("Critical core", buckets.get("core-critical") || [], metrics.core),
+    overviewCard(
+      "Security controls",
+      buckets.get("security-controls") || [],
+      metrics.security,
+    ),
     overviewCard("Shared platform", buckets.get("shared-core") || []),
-    overviewCard("Observability", buckets.get("support") || []),
+    overviewCard("Observability", buckets.get("support") || [], metrics.telemetry),
   ].join("");
 }
 
@@ -358,7 +400,7 @@ function refreshFilter() {
   }
 }
 
-export async function organizeHealthRows(data) {
+export async function organizeHealthRows(data, platformMetrics = null) {
   const list = document.getElementById("health-checks");
   const target = document.getElementById("health-services-groups");
   if (!list || !target) return;
@@ -368,7 +410,7 @@ export async function organizeHealthRows(data) {
 
   const topologyData = await topology();
   const buckets = assignRows(rows, data?.checks || {}, topologyData);
-  updateOverview(buckets);
+  updateOverview(buckets, platformMetrics);
   for (const definition of [...GROUPS, EXTRA_GROUP]) {
     const groupRows = buckets.get(definition.key) || [];
     if (groupRows.length > 0) {
