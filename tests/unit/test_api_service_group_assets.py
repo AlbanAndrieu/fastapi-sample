@@ -106,4 +106,6 @@ def test_service_health_ui_exposes_semantic_status_badges() -> None:
     assert "health-meta-badge--impact" in css
     assert "transitiveDependents" in source
     assert "downstream" in source
+    assert "downstreamCount" in source
+    assert "Number(right.dataset.downstreamCount" in source
     assert "service-health-overview" in css
