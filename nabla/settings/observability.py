@@ -42,6 +42,8 @@ class HomelabPrometheusSettings(SettingsBase):
             raise ValueError(
                 "HOMELAB_PROMETHEUS_URL must not contain credentials, query or fragment"
             )
+        if parsed.path not in ("", "/"):
+            raise ValueError("HOMELAB_PROMETHEUS_URL must not contain a path")
         return value.rstrip("/")
 
     @property
