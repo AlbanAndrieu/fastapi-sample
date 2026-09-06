@@ -143,13 +143,44 @@ function rowSeverity(row) {
   return 4;
 }
 
-function rowStatus(row) {
+function normalizedHealthState(value) {
+  const state = String(value || "").trim().toLowerCase();
+  return ["ok", "warn", "fail", "unknown"].includes(state) ? state : "";
+}
+
+function rowStatus(row, check = {}) {
+  const localState = normalizedHealthState(check?.local_state);
+  const dependencyState = normalizedHealthState(check?.dependency_state);
+
+  if (localState === "fail") return "Down";
+  if (localState === "warn") return "Degraded";
+  if (localState === "unknown") return "Unknown";
+  if (
+    localState === "ok" &&
+    ["fail", "warn", "unknown"].includes(dependencyState)
+  ) {
+    return "At risk";
+  }
+  if (localState === "ok") return "Operational";
+
   const severity = rowSeverity(row);
   if (severity === 0) return "Down";
-  if (severity === 1) return "Degraded";
-  if (severity === 2) return "HTTP issue";
+  if (severity === 1 || severity === 2) return "Degraded";
   if (severity === 3) return "Unknown";
   return "Operational";
+}
+
+function probeLatencyMs(check) {
+  for (const value of [check?.latency_ms, check?.elapsed_ms]) {
+    const latency = Number(value);
+    if (Number.isFinite(latency) && latency >= 0) return Math.round(latency);
+  }
+  return null;
+}
+
+function rowOutcomeOperational(row) {
+  if (row.dataset.localState) return row.dataset.localState === "ok";
+  return row.dataset.semanticStatus === "operational";
 }
 
 function addBadge(target, text, kind) {
@@ -159,19 +190,32 @@ function addBadge(target, text, kind) {
   target.appendChild(badge);
 }
 
-function decorateRow(row, presentation) {
+function decorateRow(row, presentation, check) {
+  const status = rowStatus(row, check);
+  const statusKind = status.toLowerCase().replaceAll(" ", "-");
+  const localState = normalizedHealthState(check?.local_state);
+  const dependencyState = normalizedHealthState(check?.dependency_state);
+
   row.dataset.presentationRole = presentation.role;
   row.dataset.criticality = presentation.criticality;
   row.dataset.presentationGroup = presentation.group;
+  row.dataset.semanticStatus = statusKind;
+  row.dataset.localState = localState;
+  row.dataset.dependencyState = dependencyState;
+
   const tags = row.querySelector(".health-row-tags");
   if (!tags) return;
   const original = tags.textContent?.trim() || "";
   tags.textContent = "";
-  addBadge(tags, rowStatus(row), `status-${rowStatus(row).toLowerCase().replaceAll(" ", "-")}`);
+  addBadge(tags, status, `status-${statusKind}`);
   addBadge(tags, presentation.role, "role");
   if (["critical", "high"].includes(presentation.criticality)) {
     addBadge(tags, presentation.criticality, presentation.criticality);
   }
+
+  const latency = probeLatencyMs(check);
+  if (latency != null) addBadge(tags, `${latency} ms`, "metric");
+
   if (presentation.transitiveDependents > 0) {
     addBadge(
       tags,
@@ -240,11 +284,11 @@ function assignRows(rows, checks, topologyData) {
           group: "support",
         }
       : { role: "support", criticality: "low", group: "external" };
-    decorateRow(row, presentation);
+    decorateRow(row, presentation, check);
     const group =
       GROUPS.find((item) => item.key === presentation.group) || EXTRA_GROUP;
     row.dataset.searchText =
-      `${row.dataset.searchText || ""} ${group.label} ${group.description} ${presentation.role} ${presentation.criticality} ${rowStatus(row)}`.toLowerCase();
+      `${row.dataset.searchText || ""} ${group.label} ${group.description} ${presentation.role} ${presentation.criticality} ${rowStatus(row, check)}`.toLowerCase();
     buckets.get(group.key).push(row);
   }
   return buckets;
@@ -252,11 +296,35 @@ function assignRows(rows, checks, topologyData) {
 
 function overviewCard(label, rows) {
   const total = rows.length;
-  const operational = rows.filter((row) => rowSeverity(row) === 4).length;
-  const down = rows.filter((row) => rowSeverity(row) === 0).length;
-  const attention = total - operational;
-  const tone = down > 0 ? "red" : attention > 0 ? "yellow" : total > 0 ? "green" : "neutral";
-  return `<div class="service-overview-card service-overview-card--${tone}"><span>${label}</span><strong>${operational}/${total} operational</strong><small>${attention ? `${attention} need attention` : "No active issue"}</small></div>`;
+  const operational = rows.filter(rowOutcomeOperational).length;
+  const atRisk = rows.filter(
+    (row) => row.dataset.semanticStatus === "at-risk",
+  ).length;
+  const down = rows.filter(
+    (row) => row.dataset.semanticStatus === "down",
+  ).length;
+  const degraded = rows.filter(
+    (row) => row.dataset.semanticStatus === "degraded",
+  ).length;
+  const unknown = rows.filter(
+    (row) => row.dataset.semanticStatus === "unknown",
+  ).length;
+  const attention = atRisk + down + degraded + unknown;
+  const tone =
+    down > 0
+      ? "red"
+      : attention > 0
+        ? "yellow"
+        : total > 0
+          ? "green"
+          : "neutral";
+  const details = [
+    atRisk > 0 ? `${atRisk} at risk` : "",
+    degraded > 0 ? `${degraded} degraded` : "",
+    down > 0 ? `${down} down` : "",
+    unknown > 0 ? `${unknown} unknown` : "",
+  ].filter(Boolean);
+  return `<div class="service-overview-card service-overview-card--${tone}"><span>${label}</span><strong>${operational}/${total} operational</strong><small>${details.length ? details.join(" · ") : "No active issue"}</small></div>`;
 }
 
 function updateOverview(buckets) {
