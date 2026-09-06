@@ -16,8 +16,10 @@ def test_bootstrap_home_applies_direct_pfsense_override() -> None:
         assert home.tunnel_secure is False
         assert home.effective_cloudflare_access_required is False
         assert home.security_exception is not None
-        assert "source-aware" in home.security_exception
-        assert "FastAPI Cloud" in home.security_exception
+        home_exception = home.security_exception.lower()
+        assert "source" in home_exception
+        assert "approved" in home_exception
+        assert "fastapi cloud" in home_exception
     finally:
         homelab_catalog.clear_homelab_catalog_cache()
 
@@ -33,7 +35,10 @@ def test_bootstrap_pfsense_keeps_trusted_source_exception() -> None:
         assert pfsense.tunnel_secure is False
         assert pfsense.effective_cloudflare_access_required is False
         assert pfsense.security_exception is not None
-        assert "trusted-source-only" in pfsense.security_exception
-        assert "10443" in pfsense.security_exception
+        pfsense_exception = pfsense.security_exception.lower()
+        assert "trusted" in pfsense_exception
+        assert "source" in pfsense_exception
+        assert "least-privilege" in pfsense_exception
+        assert "10443" in pfsense_exception
     finally:
         homelab_catalog.clear_homelab_catalog_cache()
