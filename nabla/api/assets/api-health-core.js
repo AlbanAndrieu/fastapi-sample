@@ -257,7 +257,7 @@ function render(data) {
   summaryText.textContent = overall.text;
   const checks = data.checks || {};
   const keys = sortKeys(Object.keys(checks)).filter(
-    (key) => key !== "truenas_api" && key !== "albandrieu_truenas",
+    (key) => key !== "truenas_api",
   );
   listEl.innerHTML = "";
   const groupedEl = document.getElementById("health-services-groups");
