@@ -187,9 +187,12 @@ Prefer `TRUENAS_API_USERNAME` + `TRUENAS_API_KEY` for the FastAPI runtime so the
 TrueNAS 26 uses the JSON-RPC WebSocket API at `/api/current`. The observer currently reads the system version and app inventory only; credentials must never be returned by health endpoints.
 
 Keep the official `truenas/api_client` tag aligned with the deployed TrueNAS
-release. The current homelab appliance runs TrueNAS 26.0.0-BETA.3, so the
-application pins `TS-26.0.0-BETA.3`. TrueNAS 26 API-key authentication uses
-SCRAM-SHA-512; the matching BETA.3 client also supports TLS channel binding.
+release. The current homelab appliance intentionally remains on
+TrueNAS 26.0.0-BETA.2, so the application pins `TS-26.0.0-BETA.2`.
+Do not upgrade the API client independently of the appliance: this homelab has
+already experienced TrueNAS client/server compatibility failures. TrueNAS 26
+API-key authentication uses SCRAM-SHA-512 and user-linked API keys.
+
 A WebSocket failure during the client constructor occurs before API-key
 authentication and must be diagnosed as transport/handshake failure rather than
 as an RBAC denial.
