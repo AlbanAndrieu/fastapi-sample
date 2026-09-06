@@ -229,6 +229,11 @@
   font-variant-numeric: tabular-nums;
 }
 
+.health-meta-badge--telemetry-warning {
+  border-color: rgba(255, 170, 0, 0.3);
+  color: #ffc46b;
+}
+
 .health-meta-badge--status-down {
   border-color: rgba(255, 68, 68, 0.45);
   color: #ff9999;
