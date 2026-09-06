@@ -8,14 +8,14 @@ from nabla.api.ui import render_api_root_page
 ASSETS = Path(__file__).parents[2] / "nabla" / "api" / "assets"
 
 
-def test_api_page_orders_core_truenas_groups_then_exposure() -> None:
+def test_api_page_prioritizes_service_groups_before_core_drilldown() -> None:
     html = render_api_root_page(title_suffix="test", app_version="test")
 
-    core = html.index('id="health-core-group-heading"')
-    truenas = html.index('id="truenas-platform"')
+    overview = html.index('id="service-health-overview"')
     groups = html.index('id="health-services-groups"')
+    truenas = html.index('id="truenas-platform"')
     exposure = html.index('id="sickz-board-title"')
-    assert core < truenas < groups < exposure
+    assert overview < groups < truenas < exposure
     assert 'id="service-filter"' in html
     assert 'id="service-expand-issues"' in html
     assert 'id="service-collapse-all"' in html
@@ -25,11 +25,11 @@ def test_service_group_asset_mirrors_site_criticality_contract() -> None:
     source = (ASSETS / "api-service-groups.js").read_text(encoding="utf-8")
 
     for label in (
-        "1 · Infrastructure foundations",
-        "2 · Shared data & state",
-        "3 · Shared platform services",
-        "4 · Applications & consumers",
-        "5 · Support / low blast radius",
+        "1 · Services & experiments",
+        "2 · Critical core platform",
+        "3 · Security controls",
+        "4 · Shared platform & data",
+        "5 · Observability & support",
     ):
         assert label in source
     for relation in (
@@ -42,7 +42,9 @@ def test_service_group_asset_mirrors_site_criticality_contract() -> None:
     ):
         assert relation in source
     assert 'document.createElement("details")' in source
-    assert "section.open = issueCount > 0" in source
+    assert "openWhenHealthy" in source
+    assert "service-health-overview" in source
+    assert "CRITICALITY_WEIGHT" in source
 
 
 def test_true_nas_is_not_duplicated_in_generic_health_rows() -> None:
@@ -51,3 +53,24 @@ def test_true_nas_is_not_duplicated_in_generic_health_rows() -> None:
     assert 'key !== "truenas_api"' in source
     assert 'key !== "albandrieu_truenas"' in source
     assert "truenasApiCheck" not in source
+
+
+def test_service_classification_supports_explicit_role_and_criticality() -> None:
+    source = (ASSETS / "api-service-classification.js").read_text(encoding="utf-8")
+
+    assert "presentationRole" in source
+    assert "criticality" in source
+    for foundation in ("truenas", "docker", "pfsense", "talos", "kubernetes"):
+        assert f'"{foundation}"' in source
+    for value in ("critical", "high", "standard", "low"):
+        assert f'"{value}"' in source
+
+
+def test_service_health_ui_exposes_semantic_status_badges() -> None:
+    source = (ASSETS / "api-service-groups.js").read_text(encoding="utf-8")
+    css = (ASSETS / "api-service-groups.css").read_text(encoding="utf-8")
+
+    for label in ("Operational", "Degraded", "HTTP issue", "Unknown", "Down"):
+        assert f'"{label}"' in source
+    assert "health-meta-badge--critical" in css
+    assert "service-health-overview" in css
