@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from datetime import UTC, datetime
 import logging
 from typing import Any
@@ -21,6 +20,8 @@ _METRICS = {
     "pfsense_metrics_up": "nabla:telemetry:pfsense_metrics_up",
     "prometheus_up": "nabla:observability:prometheus_up",
 }
+_METRIC_TO_KEY = {metric: key for key, metric in _METRICS.items()}
+_FIXED_QUERY = " or ".join(_METRICS.values())
 _UP_SIGNALS = (
     "truenas_node_up",
     "truenas_cadvisor_up",
@@ -43,38 +44,44 @@ def _safe_float(value: object) -> float | None:
     return number
 
 
-def _vector_value(payload: dict[str, Any]) -> float | None:
+def _vector_values(payload: dict[str, Any]) -> dict[str, float | None]:
+    values = {key: None for key in _METRICS}
     if payload.get("status") != "success":
-        return None
+        return values
     data = payload.get("data")
     if not isinstance(data, dict) or data.get("resultType") != "vector":
-        return None
+        return values
     result = data.get("result")
-    if not isinstance(result, list) or len(result) != 1:
-        return None
-    sample = result[0]
-    if not isinstance(sample, dict):
-        return None
-    value = sample.get("value")
-    if not isinstance(value, list) or len(value) != 2:
-        return None
-    return _safe_float(value[1])
+    if not isinstance(result, list):
+        return values
+
+    for sample in result:
+        if not isinstance(sample, dict):
+            continue
+        metric_labels = sample.get("metric")
+        if not isinstance(metric_labels, dict):
+            continue
+        key = _METRIC_TO_KEY.get(str(metric_labels.get("__name__", "")))
+        if key is None:
+            continue
+        raw_value = sample.get("value")
+        if not isinstance(raw_value, list) or len(raw_value) != 2:
+            continue
+        values[key] = _safe_float(raw_value[1])
+    return values
 
 
-async def _query_metric(
-    client: httpx.AsyncClient,
-    metric: str,
-) -> float | None:
+async def _query_fixed_metrics(client: httpx.AsyncClient) -> dict[str, float | None]:
     response = await client.get(
         "/api/v1/query",
-        params={"query": metric},
+        params={"query": _FIXED_QUERY},
         headers={"Accept": "application/json"},
     )
     response.raise_for_status()
     payload = response.json()
     if not isinstance(payload, dict):
-        return None
-    return _vector_value(payload)
+        return {key: None for key in _METRICS}
+    return _vector_values(payload)
 
 
 def _summary(values: dict[str, float | None]) -> dict[str, Any]:
@@ -135,9 +142,7 @@ async def fetch_platform_metrics(
     )
 
     try:
-        results = await asyncio.gather(
-            *(_query_metric(query_client, metric) for metric in _METRICS.values())
-        )
+        values = await _query_fixed_metrics(query_client)
     except (httpx.HTTPError, ValueError) as exc:
         logger.warning(
             "homelab prometheus query failed exception_type=%s",
@@ -163,7 +168,6 @@ async def fetch_platform_metrics(
         if owns_client:
             await query_client.aclose()
 
-    values = dict(zip(_METRICS, results, strict=True))
     return {
         "schema_version": 1,
         "generated_at": _utc_now(),
