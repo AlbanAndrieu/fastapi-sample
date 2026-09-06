@@ -286,6 +286,9 @@ async def build_health_board_snapshot(request: Request) -> dict[str, Any]:
     runtime = await build_runtime_snapshot(request)
     healthz = _annotate_pfsense_ingress_policy(healthz, runtime)
     homelab = await build_homelab_snapshot(healthz.get("checks"))
+    from nabla.api.platform_metrics import fetch_platform_metrics
+
+    platform_metrics = await fetch_platform_metrics()
     sickz = await build_sickz_snapshot(request)
     return {
         "schema_version": 1,
@@ -293,6 +296,7 @@ async def build_health_board_snapshot(request: Request) -> dict[str, Any]:
         "runtime": runtime,
         "healthz": healthz,
         "homelab": homelab,
+        "platform_metrics": platform_metrics,
         "sickz": sickz,
     }
 
@@ -365,6 +369,7 @@ async def get_health_board_snapshot(
             "runtime": None,
             "healthz": None,
             "homelab": None,
+            "platform_metrics": None,
             "sickz": None,
         }
     return {
