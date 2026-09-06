@@ -121,3 +121,10 @@ def test_prometheus_settings_reject_embedded_credentials() -> None:
         HomelabPrometheusSettings(
             homelab_prometheus_url="http://user:password@prometheus.test"
         )
+
+
+def test_prometheus_settings_reject_path() -> None:
+    with pytest.raises(ValidationError):
+        HomelabPrometheusSettings(
+            homelab_prometheus_url="http://prometheus.test/prometheus"
+        )
