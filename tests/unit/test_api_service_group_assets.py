@@ -69,12 +69,39 @@ def test_service_classification_supports_explicit_role_and_criticality() -> None
         assert f'"{value}"' in source
 
 
+def test_structural_hosting_affects_blast_radius_not_functional_dependency() -> None:
+    source = (ASSETS / "api-service-classification.js").read_text(encoding="utf-8")
+
+    assert '"hostedBy"' in source
+    assert "IMPACT_RELATION_TYPES" in source
+    assert "FUNCTIONAL_RELATION_TYPES" in source
+    functional_block = source.split(
+        "const FUNCTIONAL_RELATION_TYPES",
+        maxsplit=1,
+    )[1].split("]);", maxsplit=1)[0]
+    assert '"hostedBy"' not in functional_block
+
+
+def test_service_outcome_can_remain_operational_while_at_risk() -> None:
+    source = (ASSETS / "api-service-groups.js").read_text(encoding="utf-8")
+    css = (ASSETS / "api-service-groups.css").read_text(encoding="utf-8")
+
+    assert 'return "At risk"' in source
+    assert "rowOutcomeOperational" in source
+    assert 'row.dataset.semanticStatus === "at-risk"' in source
+    assert "probeLatencyMs" in source
+    assert 'addBadge(tags, `${latency} ms`, "metric")' in source
+    assert "health-meta-badge--status-at-risk" in css
+    assert "health-meta-badge--metric" in css
+
+
 def test_service_health_ui_exposes_semantic_status_badges() -> None:
     source = (ASSETS / "api-service-groups.js").read_text(encoding="utf-8")
     css = (ASSETS / "api-service-groups.css").read_text(encoding="utf-8")
 
-    for label in ("Operational", "Degraded", "HTTP issue", "Unknown", "Down"):
+    for label in ("Operational", "At risk", "Degraded", "Unknown", "Down"):
         assert f'"{label}"' in source
+    assert '"HTTP issue"' not in source
     assert "health-meta-badge--critical" in css
     assert "health-meta-badge--impact" in css
     assert "transitiveDependents" in source
