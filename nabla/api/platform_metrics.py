@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 import logging
+import math
 from typing import Any
 
 import httpx
@@ -39,7 +40,7 @@ def _safe_float(value: object) -> float | None:
         number = float(value)
     except (TypeError, ValueError):
         return None
-    if number != number or number in (float("inf"), float("-inf")):
+    if not math.isfinite(number):
         return None
     return number
 
