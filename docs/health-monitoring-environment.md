@@ -184,6 +184,23 @@ TRUENAS_MCP_API_KEY=<fallback API key>
 
 Prefer `TRUENAS_API_USERNAME` + `TRUENAS_API_KEY` for the FastAPI runtime so the application credential can be rotated independently of the agent/MCP credential.
 
+Username precedence is explicit:
+
+```text
+TRUENAS_API_USERNAME
+  -> TRUENAS_USERNAME
+  -> TRUENAS_USER
+```
+
+The canonical key `TRUENAS_API_KEY` wins over the legacy
+`TRUENAS_MCP_API_KEY` fallback. A lower-priority alias can therefore remain
+configured without changing the active credentials, but that is configuration
+debt: if the canonical username is later removed, the adapter can silently fall
+back to the old username while still using the canonical API key. The sanitized
+health payload reports only the selected variable names and shadowed aliases,
+never the credential values. Remove stale aliases from production runtimes once
+the dedicated service identity is proven.
+
 TrueNAS 26 uses the JSON-RPC WebSocket API at `/api/current`. The observer currently reads the system version and app inventory only; credentials must never be returned by health endpoints.
 
 Keep the official `truenas/api_client` tag aligned with the deployed TrueNAS
@@ -207,8 +224,25 @@ not an `APPS_READ` RBAC failure.
 `GET /api/versions` is useful for HTTPS reachability/version discovery but does
 not prove that `/api/current` WebSocket access is permitted. Prefer allowing a
 stable, dedicated observer address (`/32`) over allowing the whole shared
-Docker subnet. Keep the UI allowlist change fail-safe with TrueNAS rollback /
-check-in semantics.
+Docker subnet. The address that matters is the source address observed by
+TrueNAS for the WebSocket connection; for a bridge-networked container this is
+normally the container address on the Docker network, not the TrueNAS host LAN
+address. Keep the UI allowlist change fail-safe with TrueNAS rollback / check-in
+semantics.
+
+A proven BETA.2 sequence is:
+
+```text
+GET /api/versions                         -> 200
+midclt on the TrueNAS host                -> system.version + app.query succeed
+container /api/current before allowlist   -> WebSocket policy close
+add container source /32 to ui_allowlist  -> system.version + app.query succeed
+system.general.checkin                    -> persist the change
+```
+
+This distinction is security-relevant: `ui_allowlist` protects both API and UI
+source addresses. Do not permit an entire shared Docker subnet merely to make a
+single observer work.
 
 `/sickz` also correlates HTTP failures with the observed TrueNAS app state. A
 reachable Cloudflare/DNS edge returning `502`, `503`, or `504` while the matching
