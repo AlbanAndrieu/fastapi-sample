@@ -180,7 +180,7 @@ def _truenas_failure_stage(exc: BaseException) -> str:
         for marker in ("unauthorized", "authentication", "invalid credentials", "api key")
     ):
         return "authentication"
-    if any("websocket" in name for name in class_names):
+    if "websocket" in message or any("websocket" in name for name in class_names):
         return "websocket"
     return "api"
 
