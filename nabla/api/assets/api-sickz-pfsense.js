@@ -81,7 +81,7 @@ function sectionHtml(check, classifySick, detailSickText) {
     : `<span>${escapeText(rowName)}</span>`;
 
   return (
-    '<h4 class="sickz-pfsense-title">1 · Infrastructure foundations · PfSense / public port policy</h4>' +
+    '<h4 class="sickz-pfsense-title">Critical core platform · pfSense public exposure policy</h4>' +
     `<p class="health-board-meta sickz-pfsense-intro">${meta}</p>` +
     '<ul class="health-checks sickz-pfsense-main"><li class="health-row sickz-pfsense-row">' +
     sickzRowIcon(check, cls) +
@@ -111,7 +111,7 @@ export function renderPfsenseSection(checks, classifySick, detailSickText) {
   }
   wrap.hidden = false;
   wrap.dataset.serviceFilterTarget = "";
-  wrap.dataset.searchText = `pfsense firewall foundation public port policy ${detailSickText(entry.check)}`.toLowerCase();
+  wrap.dataset.searchText = `pfsense firewall critical core platform public port exposure security policy ${detailSickText(entry.check)}`.toLowerCase();
   wrap.innerHTML = sectionHtml(entry.check, classifySick, detailSickText);
   return entry.key;
 }
