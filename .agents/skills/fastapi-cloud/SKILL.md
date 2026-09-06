@@ -11,20 +11,20 @@ Use this skill for FastAPI Cloud runtime and deployment operations. It complemen
 
 FastAPI Sample has two production observer scopes plus the developer workstation:
 
-1. **TrueNAS homelab production** — preferred for private homelab state when the
-   caller is on the trusted LAN:
-   - `https://sample.int.albandrieu.com/api`
-   - `https://sample.int.albandrieu.com/api/homelab/health`
-   - `https://sample.int.albandrieu.com/api/homelab/runtime`
-   - `https://sample.int.albandrieu.com/api/homelab/status`
-   - direct fallback: `http://172.17.0.24:8091`
-2. **FastAPI Cloud production** — external/WAN observer:
-   - `https://fastapi-sample.fastapicloud.dev/api`
-   - `https://fastapi-sample.fastapicloud.dev/api/homelab/health`
-   - `https://fastapi-sample.fastapicloud.dev/api/homelab/runtime`
-   - `https://fastapi-sample.fastapicloud.dev/api/homelab/status`
-3. **Local workstation** — development behavior only:
-   - `http://127.0.0.1:8080/api`
+- **TrueNAS homelab production** — preferred for private homelab state when the
+  caller is on the trusted LAN:
+  - `https://sample.int.albandrieu.com/api`
+  - `https://sample.int.albandrieu.com/api/homelab/health`
+  - `https://sample.int.albandrieu.com/api/homelab/runtime`
+  - `https://sample.int.albandrieu.com/api/homelab/status`
+  - direct fallback: `http://172.17.0.24:8091`
+- **FastAPI Cloud production** — external/WAN observer:
+  - `https://fastapi-sample.fastapicloud.dev/api`
+  - `https://fastapi-sample.fastapicloud.dev/api/homelab/health`
+  - `https://fastapi-sample.fastapicloud.dev/api/homelab/runtime`
+  - `https://fastapi-sample.fastapicloud.dev/api/homelab/status`
+- **Local workstation** — development behavior only:
+  - `http://127.0.0.1:8080/api`
 
 Prefer the TrueNAS homelab production runtime for TrueNAS, pfSense and
 Prometheus observations because it has trusted-LAN reachability. Do not make
