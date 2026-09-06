@@ -60,6 +60,7 @@ def test_topology_accepts_declared_relation_and_preserves_wire_aliases() -> None
     assert payload["nodes"][0]["securityFunctions"] == ["identify", "protect", "detect"]
     assert payload["nodes"][0]["sourcePath"] == "apps/openwebui/compose.yml"
     assert payload["nodes"][0]["icon"] == "💬"
+    assert "securityFunctions" not in payload["nodes"][1]
     assert payload["relations"][0]["type"] == "consumesApi"
 
 
