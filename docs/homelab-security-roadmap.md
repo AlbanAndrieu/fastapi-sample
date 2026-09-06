@@ -94,6 +94,54 @@ Use one health/status vocabulary across the FastAPI operations UI and every Reac
 
 FastAPI should remain lightweight: improve its existing health board/components rather than introducing React solely for React Flow. `nabla-site-alban` owns the richer React Flow views and consumes the same API contract.
 
+## P1 — Service-first monitoring and security experimentation view
+
+Keep the health board outcome-oriented as the catalog grows:
+
+1. **Services & experiments** answer whether the lab capabilities actually work.
+   Prefer direct/black-box evidence and RED/Golden Signals: availability, request
+   rate/traffic, errors and latency; add saturation only when it changes the
+   service outcome.
+2. **Critical core** explains broad platform causes. Prefer USE/capacity signals
+   and component-specific invariants such as TrueNAS memory/filesystem pressure,
+   Talos EPHEMERAL capacity, etcd leader/quota/latency and Kubernetes node
+   Ready/pressure state.
+3. **Security controls** keep runtime availability separate from security
+   posture. A firewall/IDS/SIEM being reachable does not prove that policy is
+   effective, and alert volume is not a service-health metric.
+4. **Observability/support** reports telemetry coverage separately. Loss of
+   Prometheus, an exporter or a collector is evidence loss and must not by itself
+   mark the observed platform or dependent services down.
+
+Presentation policy:
+
+- keep the service outcome as the primary status/card value;
+- attach only compact role-specific metrics to overview cards;
+- use hierarchical drill-downs for TrueNAS/Talos/Kubernetes/etcd and detailed
+  Prometheus/Grafana views rather than placing every infrastructure metric on the
+  main health page;
+- query only fixed server-side recording rules from FastAPI; never expose an
+  arbitrary PromQL proxy to the browser;
+- keep metric labels/results bounded and sanitized;
+- use catalog `presentationRole` and `criticality` for operator layout, not as
+  synthetic dependency edges;
+- preserve the NIST CSF 2.0 security-function lens as navigation/experiment
+  coverage only; component presence is not evidence of control effectiveness or
+  maturity.
+
+Initial fixed Prometheus contract from the trusted LAN:
+
+- `nabla:core:truenas_memory_available_ratio`;
+- `nabla:core:truenas_cpu_busy_ratio`;
+- `nabla:telemetry:truenas_node_up`;
+- `nabla:telemetry:truenas_cadvisor_up`;
+- `nabla:telemetry:pfsense_metrics_up`;
+- `nabla:observability:prometheus_up`.
+
+Extend this list only after new Talos/Kubernetes/etcd metrics are securely
+available and validated against real labels. Direct control-plane/API checks
+remain independently usable when Prometheus is unavailable.
+
 ## P1 — TrueNAS host capacity guardrail
 
 A host with an AMD Ryzen 7 7700 must not proceed with mass application reconciliation when the operating system exposes only CPU 0. Add an operational check comparing expected hardware inventory with host-visible CPU count and Docker `NCPU`; block or warn before app redeploy when the counts are implausibly low.
