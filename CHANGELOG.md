@@ -1,3 +1,13 @@
+## [1.9.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.9.0...1.9.1) (2026-09-06)
+
+
+### Bug Fixes
+
+* **catalog:** preserve declared security metadata ([#199](https://github.com/AlbanAndrieu/fastapi-sample/issues/199)) ([5b5e3b6](https://github.com/AlbanAndrieu/fastapi-sample/commit/5b5e3b6d2a91ef4b5a4e6a5af931b3061941fc93))
+* **deps-dev:** bump @typescript-eslint/parser from 8.68.0 to 8.69.0 ([#202](https://github.com/AlbanAndrieu/fastapi-sample/issues/202)) ([6c92303](https://github.com/AlbanAndrieu/fastapi-sample/commit/6c923032fd7c824b45f6f92a6a01762b2fa6e548))
+* **deps:** bump @ai-sdk/openai-compatible from 2.0.15 to 3.0.43 ([#203](https://github.com/AlbanAndrieu/fastapi-sample/issues/203)) ([9c60673](https://github.com/AlbanAndrieu/fastapi-sample/commit/9c60673f02982d1b081896f6d59eca595098007c))
+* **deps:** bump @dotenvx/dotenvx from 1.51.2 to 2.23.0 ([#200](https://github.com/AlbanAndrieu/fastapi-sample/issues/200)) ([f1e6de0](https://github.com/AlbanAndrieu/fastapi-sample/commit/f1e6de0d73a8dc7cde8cdf5dd951634c95904355))
+
 # [1.9.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.8.0...1.9.0) (2026-09-06)
 
 
