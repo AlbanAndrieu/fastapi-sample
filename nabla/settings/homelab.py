@@ -105,6 +105,28 @@ class TrueNASProviderSettings(SettingsBase):
         )
 
     @property
+    def adapter_username_environment(self) -> str:
+        """Return the selected username variable name without its value."""
+        if self.truenas_api_username:
+            return "TRUENAS_API_USERNAME"
+        if self.truenas_username:
+            return "TRUENAS_USERNAME"
+        if self.truenas_user:
+            return "TRUENAS_USER"
+        return "TRUENAS_API_USERNAME"
+
+    @property
+    def shadowed_username_environments(self) -> tuple[str, ...]:
+        """Return configured lower-priority username aliases that are ignored."""
+        selected = self.adapter_username_environment
+        configured = (
+            ("TRUENAS_API_USERNAME", self.truenas_api_username),
+            ("TRUENAS_USERNAME", self.truenas_username),
+            ("TRUENAS_USER", self.truenas_user),
+        )
+        return tuple(name for name, value in configured if value and name != selected)
+
+    @property
     def canonical_api_key(self) -> str:
         """Return only the canonical health API key."""
         return self._secret_value(self.truenas_api_key)
@@ -122,6 +144,13 @@ class TrueNASProviderSettings(SettingsBase):
         if self._secret_value(self.truenas_mcp_api_key):
             return "TRUENAS_MCP_API_KEY"
         return "TRUENAS_API_KEY"
+
+    @property
+    def shadowed_api_key_environments(self) -> tuple[str, ...]:
+        """Return configured lower-priority API-key aliases that are ignored."""
+        if self.canonical_api_key and self._secret_value(self.truenas_mcp_api_key):
+            return ("TRUENAS_MCP_API_KEY",)
+        return ()
 
     @property
     def url(self) -> str:
