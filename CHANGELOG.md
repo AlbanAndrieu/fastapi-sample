@@ -1,3 +1,10 @@
+## [1.11.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.11.0...1.11.1) (2026-09-06)
+
+
+### Bug Fixes
+
+* **truenas:** preserve beta 2 observer security contract ([#207](https://github.com/AlbanAndrieu/fastapi-sample/issues/207)) ([d67990f](https://github.com/AlbanAndrieu/fastapi-sample/commit/d67990f5813ce7de16fb093db23718ed25d35e70))
+
 # [1.11.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.10.0...1.11.0) (2026-09-06)
 
 
