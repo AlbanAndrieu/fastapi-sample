@@ -150,6 +150,15 @@ def test_failure_stage_classifies_client_websocket_close() -> None:
     assert _truenas_failure_stage(exc) == "websocket"
 
 
+def test_failure_stage_classifies_truenas_source_allowlist_denial() -> None:
+    exc = RuntimeError(
+        "WebSocket connection closed with code=1008, "
+        "reason='You are not allowed to access this resource'"
+    )
+
+    assert _truenas_failure_stage(exc) == "source_allowlist"
+
+
 def test_websocket_proxy_route_honors_no_proxy_without_logging_value(monkeypatch) -> None:
     monkeypatch.setenv("HTTPS_PROXY", "http://user:secret@proxy.example:8080")
     monkeypatch.setenv("NO_PROXY", ".albandrieu.com,localhost")
