@@ -131,22 +131,13 @@ def component_status(components: dict[str, dict[str, Any]]) -> str:
             continue
         if check.get("reachable") is False or check.get("state") == "fail":
             return "unhealthy"
-        if (
-            check.get("reachable") is None
-            or check.get("state") in {"warn", "unknown"}
-            or check.get("stale") is True
-        ):
+        if check.get("reachable") is None or check.get("state") in {"warn", "unknown"} or check.get("stale") is True:
             critical_degraded = True
 
     for key in PLATFORM_COMPONENT_KEYS:
         check = components.get(key, {})
         if check.get("skipped") is True:
             continue
-        if (
-            check.get("reachable") is False
-            or check.get("state") == "warn"
-            or check.get("stale") is True
-            or check.get("tls_trusted") is False
-        ):
+        if check.get("reachable") is False or check.get("state") == "warn" or check.get("stale") is True or check.get("tls_trusted") is False:
             return "degraded"
     return "degraded" if critical_degraded else "healthy"
