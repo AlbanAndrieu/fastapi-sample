@@ -103,7 +103,7 @@ export SENTRY_ACCESS_TOKEN='...'
 The shared command uses only the read-oriented `inspect` skill, explicitly disables unsupported self-hosted Seer tools, and disables the MCP process's own upstream Sentry telemetry:
 
 ```bash
-npx -y @sentry/mcp-server@latest \
+npx -y @sentry/mcp-server@0.39.0 \
   --host=sentry.albandrieu.com \
   --skills=inspect \
   --disable-skills=seer \
