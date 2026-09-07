@@ -46,6 +46,8 @@ from nabla.config_settings import (
     DD_TRACE_ENABLED,
     OTEL_SDK_DISABLED,
     OTLP_GRPC_ENDPOINT,
+    PYROSCOPE_ENABLED,
+    PYROSCOPE_ENDPOINT,
     get_settings,
 )
 from nabla.feature_flags import unleash_client as client, unleash_is_configured
@@ -64,6 +66,7 @@ from nabla.utils.log_config import setup_logging
 from nabla.utils.logger import logger
 from nabla.utils.logfire_config import configure_logfire
 from nabla.utils.prometheus import PrometheusMiddleware, setting_otlp
+from nabla.utils.pyroscope_config import start_pyroscope, stop_pyroscope
 from nabla.utils.sentry_config import configure_sentry
 
 setup_logging()
@@ -76,7 +79,12 @@ configure_datadog(enabled=DD_TRACE_ENABLED, app_name=APP_NAME)
 
 @asynccontextmanager
 async def combined_lifespan(app: FastAPI):
-    """Combine application lifespan with MCP lifespan."""
+    """Combine application lifespan with process-local observability lifecycles."""
+    pyroscope_started = start_pyroscope(
+        enabled=PYROSCOPE_ENABLED,
+        application_name=APP_NAME,
+        server_address=PYROSCOPE_ENDPOINT,
+    )
     profiler = start_datadog_profiler(
         enabled=DD_PROFILING_ENABLED,
         app_name=APP_NAME,
@@ -87,6 +95,7 @@ async def combined_lifespan(app: FastAPI):
                 yield
     finally:
         stop_datadog_profiler(profiler)
+        stop_pyroscope(pyroscope_started)
 
 
 def _configure_unleash_middleware(app: FastAPI) -> None:

@@ -1,17 +1,10 @@
 import argparse
 import logging
 
-import pyroscope
 import uvicorn.config
 from pydantic import ValidationError
 
-from nabla.config_settings import (
-    APP_NAME,
-    EXPOSE_HOST,
-    EXPOSE_PORT,
-    PYROSCOPE_ENDPOINT,
-    get_settings,
-)
+from nabla.config_settings import EXPOSE_HOST, EXPOSE_PORT, get_settings
 from nabla.main import app
 from nabla.utils.log_config import setup_logging
 
@@ -24,16 +17,6 @@ def uvicorn_run() -> None:
 
     exit_code = 0
     try:
-        pyroscope.configure(
-            application_name=APP_NAME,
-            server_address=PYROSCOPE_ENDPOINT,  # See https://grafana.com/docs/pyroscope/next/configure-client/language-sdks/python/
-            # server_port=EXPOSE_PORT,
-            # service_name="fastapi-sample",
-            # trace_id_key="otelTraceID",
-            # span_id_key="otelSpanID",
-            sample_rate=100,  # default is 100
-        )
-
         setup_logging()
 
         try:

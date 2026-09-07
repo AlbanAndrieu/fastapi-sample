@@ -38,10 +38,12 @@ APP_RUNTIME_VERSION = RUNTIME_VERSION
 EXPOSE_HOST = os.environ.get("EXPOSE_HOST", "0.0.0.0")  # noqa: S104 # nosec B104
 EXPOSE_PORT = int(os.environ.get("EXPOSE_PORT", "8080"))
 EXPOSE_MCP_PORT = int(os.environ.get("EXPOSE_MCP_PORT", "8001"))
-PYROSCOPE_ENDPOINT = os.environ.get(
-    "PYROSCOPE_SERVER_ADDRESS",
-    "http://localhost:4040",
+_PYROSCOPE_SERVER_ADDRESS = os.environ.get("PYROSCOPE_SERVER_ADDRESS", "").strip()
+PYROSCOPE_ENABLED = env_bool(
+    "PYROSCOPE_ENABLED",
+    default=bool(_PYROSCOPE_SERVER_ADDRESS),
 )
+PYROSCOPE_ENDPOINT = _PYROSCOPE_SERVER_ADDRESS or "http://localhost:4040"
 
 DD_AGENT_HOST = os.environ.get("DD_AGENT_HOST", "127.0.0.1")
 DD_TRACE_AGENT_PORT = os.environ.get("DD_TRACE_AGENT_PORT", "8126")

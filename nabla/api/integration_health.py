@@ -15,6 +15,7 @@ from nabla.config_settings import (
     DD_AGENT_HOST,
     DD_TRACE_AGENT_PORT,
     DD_TRACE_AGENT_URL,
+    PYROSCOPE_ENABLED,
     PYROSCOPE_ENDPOINT,
     _unleash_timeout_s,
     get_openid_config,
@@ -251,6 +252,12 @@ def probe_litellm_public_proxy() -> dict[str, Any]:
 
 
 def probe_pyroscope_server() -> dict[str, Any]:
+    if not PYROSCOPE_ENABLED:
+        return {
+            "reachable": None,
+            "skipped": True,
+            "reason": "Pyroscope profiling disabled",
+        }
     base = (PYROSCOPE_ENDPOINT or "").strip().rstrip("/")
     if not base:
         return {
