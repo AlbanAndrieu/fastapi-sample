@@ -60,7 +60,8 @@ jobs:
           version: "0.12.1"
 
       - name: Restore pre-commit environments
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: precommit-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/pre-commit
           key: pre-commit-v1-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}
@@ -78,6 +79,13 @@ jobs:
           QUALITY_BASE_REF: origin/${{ github.base_ref }}
           QUALITY_LOG_TAIL: "120"
         run: bash scripts/agent-quality-gate.sh
+
+      - name: Save pre-commit environments
+        if: ${{ always() && steps.precommit-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-v1-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
       - name: Upload test results to Trunk.io
         if: ${{ !cancelled() && env.TRUNK_API_TOKEN != '' }}

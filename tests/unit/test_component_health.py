@@ -113,9 +113,9 @@ def test_pfsense_unbound_component_is_critical_when_resolver_stops() -> None:
                     "policy_state": "fail",
                     "reason": "pfSense DNS Resolver is not running",
                     "resolver": {"enabled": True, "running": False},
-                }
-            }
-        }
+                },
+            },
+        },
     )
 
     assert component == {
@@ -160,9 +160,9 @@ def test_unconfigured_unbound_observer_does_not_create_false_outage() -> None:
                     "configured": False,
                     "policy_state": "unknown",
                     "reason": "pfSense posture observation is not configured",
-                }
-            }
-        }
+                },
+            },
+        },
     )
 
     assert component["critical"] is True

@@ -38,14 +38,16 @@ def test_python_ci_gates_builds_behind_preflight() -> None:
     assert "\n    needs: preflight\n" in workflow
     assert "github.event.pull_request.draft == false" in workflow
     assert workflow.count("Upload test results to Trunk.io") == 1
-    assert "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" in workflow
+    assert "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" in workflow
+    assert "actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" in workflow
+    assert "steps.precommit-cache.outputs.cache-hit != 'true'" in workflow
     assert "path: ~/.cache/pre-commit" in workflow
     assert "uv run pytest --junit-xml=junit.xml" not in workflow
 
 
 def test_production_smoke_does_not_run_on_every_pr_synchronize() -> None:
     workflow = (ROOT / ".github/workflows/production-smoke.yml").read_text(
-        encoding="utf-8"
+        encoding="utf-8",
     )
 
     assert "types: [opened, ready_for_review]" in workflow
