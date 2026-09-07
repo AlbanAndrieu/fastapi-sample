@@ -382,3 +382,98 @@ def test_stale_cloudflare_tunnel_cannot_rescue_failed_public_probe() -> None:
 
     assert rows[0]["state"] == "fail"
     assert rows[0]["tunnel_stale"] is True
+
+
+def test_cloudflare_access_response_does_not_hide_down_tunnel() -> None:
+    service = HomelabService(
+        name="2FAuth",
+        tunnelUrl="https://2fauth.albandrieu.com",
+        external=True,
+    )
+    tunnel = CloudflareTunnelObservation(
+        tunnel_id="tunnel-1",
+        name="homelab",
+        status="down",
+        config_source="cloudflare",
+        ingress=(
+            CloudflareTunnelIngress(
+                tunnel_id="tunnel-1",
+                tunnel_name="homelab",
+                hostname="2fauth.albandrieu.com",
+                service="http://2fauth:8000",
+                status="down",
+            ),
+        ),
+    )
+    rows = build_reconciled_service_health(
+        [service],
+        public_results=[
+            {
+                "id": service.service_id,
+                "name": service.name,
+                "url": "https://2fauth.albandrieu.com/",
+                "reachable": True,
+                "http_status": 403,
+                "state": "warn",
+                "tls_trusted": True,
+            }
+        ],
+        internal_results=[],
+        runtime=None,
+        tunnels=[tunnel],
+    )
+
+    assert rows[0]["state"] == "fail"
+
+
+def test_down_tunnel_is_degraded_when_origin_is_proven_up() -> None:
+    service = HomelabService(
+        name="2FAuth",
+        tunnelUrl="https://2fauth.albandrieu.com",
+        internalHost="172.17.0.24",
+        internalPort=30081,
+        external=True,
+    )
+    tunnel = CloudflareTunnelObservation(
+        tunnel_id="tunnel-1",
+        name="homelab",
+        status="down",
+        config_source="cloudflare",
+        ingress=(
+            CloudflareTunnelIngress(
+                tunnel_id="tunnel-1",
+                tunnel_name="homelab",
+                hostname="2fauth.albandrieu.com",
+                service="http://2fauth:8000",
+                status="down",
+            ),
+        ),
+    )
+    rows = build_reconciled_service_health(
+        [service],
+        public_results=[
+            {
+                "id": service.service_id,
+                "name": service.name,
+                "url": "https://2fauth.albandrieu.com/",
+                "reachable": True,
+                "http_status": 403,
+                "state": "warn",
+                "tls_trusted": True,
+            }
+        ],
+        internal_results=[
+            {
+                "id": service.service_id,
+                "name": service.name,
+                "host": "172.17.0.24",
+                "port": 30081,
+                "reachable": True,
+                "state": "ok",
+            }
+        ],
+        runtime=None,
+        tunnels=[tunnel],
+    )
+
+    assert rows[0]["state"] == "warn"
