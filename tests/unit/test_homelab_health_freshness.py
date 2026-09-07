@@ -33,10 +33,11 @@ def test_runtime_only_stale_observation_is_exposed_on_service_row() -> None:
 
     assert len(rows) == 1
     row = rows[0]
-    assert row["state"] == "warn"
+    assert row["state"] == "unknown"
     assert row["runtime_state"] == "ACTIVE"
     assert row["observed_at"] == runtime.observed_at
     assert row["observation_stale"] is True
+    assert row["runtime_stale"] is True
     assert row["observation_age_seconds"] > 0
 
 
