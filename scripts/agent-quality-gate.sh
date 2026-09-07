@@ -174,7 +174,7 @@ printf '✅ executable-script contract\n'
 
 run_compact "release/version contract" uv run python scripts/check_versions.py
 run_compact "repository pytest suite (fail-fast)" \
-    uv run pytest -q --disable-warnings --maxfail=1
+    uv run pytest -q --disable-warnings --maxfail=1 --junit-xml=junit.xml
 run_compact "canonical formatter/linter/security gate" \
     bash scripts/quality-gate.sh
 

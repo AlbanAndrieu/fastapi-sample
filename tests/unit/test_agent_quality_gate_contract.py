@@ -17,7 +17,7 @@ def test_agent_quality_gate_wraps_tests_and_canonical_gate() -> None:
     assert "QG_BASE_STALE" in text
     assert "QG_LARGE_DELETION" in text
     assert "QG_EXEC_BIT" in text
-    assert "uv run pytest -q --disable-warnings --maxfail=1" in text
+    assert "uv run pytest -q --disable-warnings --maxfail=1 --junit-xml=junit.xml" in text
     assert "uv run python scripts/check_versions.py" in text
     assert "bash scripts/quality-gate.sh" in text
     assert 'tail -n "${LOG_TAIL}"' in text
@@ -37,6 +37,7 @@ def test_python_ci_gates_builds_behind_preflight() -> None:
     assert "QUALITY_BASE_REF: origin/${{ github.base_ref }}" in workflow
     assert "\n    needs: preflight\n" in workflow
     assert "github.event.pull_request.draft == false" in workflow
+    assert workflow.count("Upload test results to Trunk.io") == 1
     assert "uv run pytest --junit-xml=junit.xml" not in workflow
 
 
@@ -47,4 +48,11 @@ def test_production_smoke_does_not_run_on_every_pr_synchronize() -> None:
 
     assert "types: [opened, ready_for_review]" in workflow
     assert "synchronize" not in workflow.split("jobs:", maxsplit=1)[0]
+    assert "github.event.pull_request.draft == false" in workflow
+
+
+def test_codeql_waits_until_draft_is_ready() -> None:
+    workflow = (ROOT / ".github/workflows/codeql.yml").read_text(encoding="utf-8")
+
+    assert "types: [opened, synchronize, reopened, ready_for_review]" in workflow
     assert "github.event.pull_request.draft == false" in workflow
