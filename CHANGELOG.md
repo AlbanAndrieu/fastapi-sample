@@ -1,3 +1,10 @@
+## [1.11.5](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.11.4...1.11.5) (2026-09-07)
+
+
+### Bug Fixes
+
+* **health:** make homelab downtime authoritative ([#212](https://github.com/AlbanAndrieu/fastapi-sample/issues/212)) ([339816a](https://github.com/AlbanAndrieu/fastapi-sample/commit/339816a4418973e5f1a2fa9942ab7e0f5c74ec14))
+
 ## [1.11.4](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.11.3...1.11.4) (2026-09-07)
 
 
