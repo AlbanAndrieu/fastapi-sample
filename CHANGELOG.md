@@ -1,3 +1,10 @@
+## [1.11.3](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.11.2...1.11.3) (2026-09-07)
+
+
+### Bug Fixes
+
+* **health:** treat trusted LAN pfSense access as legitimate ([#210](https://github.com/AlbanAndrieu/fastapi-sample/issues/210)) ([c0cd8c7](https://github.com/AlbanAndrieu/fastapi-sample/commit/c0cd8c7ea3751b05bddbd34995d4c8a142d665ac))
+
 ## [1.11.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.11.1...1.11.2) (2026-09-07)
 
 
