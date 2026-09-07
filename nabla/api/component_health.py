@@ -115,16 +115,9 @@ async def build_component_checks(
     }
 
 
-def component_status(components: dict[str, dict[str, Any]]) -> str:
-    """Return required-core status without making optional platforms fatal."""
-    for key in CORE_COMPONENT_KEYS:
-        check = components.get(key, {})
-        if check.get("skipped") is True:
-            continue
-        if check.get("reachable") is False:
-            return "unhealthy"
-
-    critical_degraded = False
+def _critical_infra_status(components: dict[str, dict[str, Any]]) -> str | None:
+    """Return the strongest status contributed by critical infrastructure."""
+    degraded = False
     for key in CRITICAL_INFRA_COMPONENT_KEYS:
         check = components.get(key, {})
         if check.get("skipped") is True:
@@ -132,7 +125,22 @@ def component_status(components: dict[str, dict[str, Any]]) -> str:
         if check.get("reachable") is False or check.get("state") == "fail":
             return "unhealthy"
         if check.get("reachable") is None or check.get("state") in {"warn", "unknown"} or check.get("stale") is True:
-            critical_degraded = True
+            degraded = True
+    return "degraded" if degraded else None
+
+
+def component_status(components: dict[str, dict[str, Any]]) -> str:
+    """Return required-core and critical-infrastructure health status."""
+    for key in CORE_COMPONENT_KEYS:
+        check = components.get(key, {})
+        if check.get("skipped") is True:
+            continue
+        if check.get("reachable") is False:
+            return "unhealthy"
+
+    critical_status = _critical_infra_status(components)
+    if critical_status == "unhealthy":
+        return critical_status
 
     for key in PLATFORM_COMPONENT_KEYS:
         check = components.get(key, {})
@@ -140,4 +148,4 @@ def component_status(components: dict[str, dict[str, Any]]) -> str:
             continue
         if check.get("reachable") is False or check.get("state") == "warn" or check.get("stale") is True or check.get("tls_trusted") is False:
             return "degraded"
-    return "degraded" if critical_degraded else "healthy"
+    return critical_status or "healthy"
