@@ -5,11 +5,12 @@ from __future__ import annotations
 import asyncio
 import re
 from datetime import datetime, timezone
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 from urllib.parse import urlsplit
 
 from nabla.api.cloudflare_tunnels import CloudflareTunnelObservation
 from nabla.api.homelab_catalog import fetch_homelab_services
+from nabla.api.homelab_declared import RuntimeBinding, fetch_declared_service_catalog
 from nabla.api.homelab_dependency_health import propagate_required_dependency_health
 from nabla.api.homelab_exposure import enrich_service_exposure, observe_cloudflare_exposure
 from nabla.api.homelab_models import HomelabService
@@ -63,17 +64,45 @@ def _observation_age_seconds(observed_at: str | None) -> int | None:
     return max(0, int(age))
 
 
-def _runtime_app_for_service(service: HomelabService, runtime: TrueNASRuntimeSnapshot | None) -> ObservedApp | None:
+def _runtime_app_for_service(
+    service: HomelabService,
+    runtime: TrueNASRuntimeSnapshot | None,
+    binding: RuntimeBinding | None = None,
+) -> ObservedApp | None:
     if runtime is None or not runtime.reachable:
         return None
+
+    if binding is not None and binding.provider == "truenas-app":
+        matches: list[ObservedApp] = []
+        for app in runtime.apps:
+            if binding.app_id and app.app_id != binding.app_id and app.name != binding.app_id:
+                continue
+            if binding.container_service and not any(
+                container.service_name == binding.container_service
+                for container in app.containers
+            ):
+                continue
+            matches.append(app)
+        return matches[0] if len(matches) == 1 else None
+
+    # Legacy presentation-only entries retain the old bounded heuristic until
+    # their code-owned x-nabla runtime binding exists.
     candidates = {
         candidate
-        for candidate in (_key(service.source_id), _key(service.service_id), _key(service.name))
+        for candidate in (
+            _key(service.source_id),
+            _key(service.service_id),
+            _key(service.name),
+        )
         if candidate
     }
     if not candidates:
         return None
-    matches = [app for app in runtime.apps if candidates.intersection({_key(app.app_id), _key(app.name)})]
+    matches = [
+        app
+        for app in runtime.apps
+        if candidates.intersection({_key(app.app_id), _key(app.name)})
+    ]
     return matches[0] if len(matches) == 1 else None
 
 
@@ -182,6 +211,7 @@ def build_reconciled_service_health(
     internal_results: list[dict[str, Any]],
     runtime: TrueNASRuntimeSnapshot | None,
     tunnels: Iterable[CloudflareTunnelObservation],
+    runtime_bindings: Mapping[str, RuntimeBinding] | None = None,
     cloudflare_stale: bool = False,
     checked_at: str | None = None,
 ) -> list[dict[str, Any]]:
@@ -199,7 +229,8 @@ def build_reconciled_service_health(
             continue
         direct_result = direct_by_url.get(url)
         internal_result = internal_by_id.get(service.service_id)
-        app = _runtime_app_for_service(service, runtime)
+        binding = (runtime_bindings or {}).get(service.service_id)
+        app = _runtime_app_for_service(service, runtime, binding)
         runtime_health = None if runtime is not None and runtime.stale else _runtime_state(app)
         host = _hostname(url)
         tunnel_evidence = tunnels_by_host.get(host or "")
@@ -266,14 +297,24 @@ def _truenas_internal_hosts(services: Iterable[HomelabService]) -> frozenset[str
 
 async def reconcile_homelab_health_payload(payload: dict[str, Any]) -> dict[str, Any]:
     services_task = asyncio.create_task(fetch_homelab_services())
+    declared_task = asyncio.create_task(fetch_declared_service_catalog())
     runtime_task = asyncio.create_task(fetch_truenas_runtime())
     cloudflare_task = asyncio.create_task(observe_cloudflare_exposure())
     topology_task = asyncio.create_task(fetch_homelab_topology())
     services = await services_task
     pfsense_dns_task = asyncio.create_task(observe_pfsense_dns_posture(truenas_hosts=_truenas_internal_hosts(services)))
-    runtime, cloudflare, topology, pfsense_dns = await asyncio.gather(
-        runtime_task, cloudflare_task, topology_task, pfsense_dns_task
+    declared, runtime, cloudflare, topology, pfsense_dns = await asyncio.gather(
+        declared_task,
+        runtime_task,
+        cloudflare_task,
+        topology_task,
+        pfsense_dns_task,
     )
+    runtime_bindings = {
+        service.service_id: service.runtime
+        for service in declared.services
+        if service.runtime is not None
+    }
     public_results = [dict(row) for row in payload.get("services", []) if isinstance(row, dict)]
     internal_results = [dict(row) for row in payload.get("internal_services", []) if isinstance(row, dict)]
     checked_at = str(payload.get("checked_at") or "").strip() or None
@@ -283,6 +324,7 @@ async def reconcile_homelab_health_payload(payload: dict[str, Any]) -> dict[str,
         internal_results=internal_results,
         runtime=runtime,
         tunnels=cloudflare.tunnels,
+        runtime_bindings=runtime_bindings,
         cloudflare_stale=cloudflare.stale,
         checked_at=checked_at,
     )
