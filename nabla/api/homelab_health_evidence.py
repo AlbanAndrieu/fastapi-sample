@@ -132,9 +132,13 @@ def _reconciled_state(
         return "warn"
 
     if direct == "ok":
-        return "warn" if internal == "fail" or tunnel == "fail" else "ok"
+        if tunnel == "fail":
+            return "warn" if "ok" in {internal, runtime} else "fail"
+        return "warn" if internal == "fail" else "ok"
 
     if direct == "warn":
+        if tunnel == "fail":
+            return "warn" if "ok" in {internal, runtime} else "fail"
         return "warn"
 
     if direct == "fail":
