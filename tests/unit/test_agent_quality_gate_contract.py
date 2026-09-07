@@ -38,6 +38,8 @@ def test_python_ci_gates_builds_behind_preflight() -> None:
     assert "\n    needs: preflight\n" in workflow
     assert "github.event.pull_request.draft == false" in workflow
     assert workflow.count("Upload test results to Trunk.io") == 1
+    assert "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" in workflow
+    assert "path: ~/.cache/pre-commit" in workflow
     assert "uv run pytest --junit-xml=junit.xml" not in workflow
 
 

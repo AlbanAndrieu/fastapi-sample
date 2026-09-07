@@ -59,6 +59,14 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           version: "0.12.1"
 
+      - name: Restore pre-commit environments
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-v1-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: |
+            pre-commit-v1-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
+
       - name: Install locked dependencies
         run: uv sync --frozen
 
