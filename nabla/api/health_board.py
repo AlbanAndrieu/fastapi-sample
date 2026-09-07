@@ -192,6 +192,7 @@ async def build_homelab_snapshot(
 
 
 async def build_sickz_snapshot(request: Request) -> dict[str, Any]:
+    from nabla.api.runtime_environment import runtime_mode
     from nabla.api.sickz_checks import build_sickz_payload
     from nabla.api.sickz_policy import enrich_sickz_policy
     from nabla.api.sickz_port_annotations import enrich_pfsense_port_annotations
@@ -222,7 +223,10 @@ async def build_sickz_snapshot(request: Request) -> dict[str, Any]:
                 "exception_type": type(exc).__name__,
             },
         }
-    return enrich_pfsense_port_annotations(payload)
+    return enrich_pfsense_port_annotations(
+        payload,
+        runtime_scope=runtime_mode(request.url.hostname),
+    )
 
 
 async def build_runtime_snapshot(request: Request | None = None) -> dict[str, Any]:

@@ -13,8 +13,11 @@ from nabla.api import sickz_checks
 from nabla.api import sickz_policy
 
 
-def _request():
-    return SimpleNamespace(app=SimpleNamespace(version="test"))
+def _request(hostname: str = "localhost"):
+    return SimpleNamespace(
+        app=SimpleNamespace(version="test"),
+        url=SimpleNamespace(hostname=hostname),
+    )
 
 
 @pytest.mark.asyncio
@@ -69,6 +72,41 @@ async def test_sickz_policy_timeout_keeps_low_level_payload(monkeypatch) -> None
     assert payload["checks"]["service"]["reachable"] is True
     assert payload["policy_enrichment"]["status"] == "timeout"
     assert payload["policy_enrichment"]["error_kind"] == "deadline"
+
+
+@pytest.mark.asyncio
+async def test_sickz_snapshot_uses_local_request_scope_for_pfsense_policy(
+    monkeypatch,
+) -> None:
+    async def low_level(_request):
+        return {
+            "checks": {
+                "pfsense": {
+                    "name": "pfSense",
+                    "aliases_probed": ["https://172.17.0.1:10443/"],
+                    "alias_results": {
+                        "https://172.17.0.1:10443/": {"reachable": True},
+                    },
+                    "reachable": True,
+                    "pfsense_tcp_ports": {},
+                    "pfsense_tcp_port_policy": {},
+                }
+            },
+            "version": "test",
+        }
+
+    async def passthrough(payload):
+        return payload
+
+    monkeypatch.setattr(sickz_checks, "build_sickz_payload", low_level)
+    monkeypatch.setattr(sickz_policy, "enrich_sickz_policy", passthrough)
+
+    payload = await health_board.build_sickz_snapshot(_request("0.0.0.0"))
+
+    pfsense = payload["checks"]["pfsense"]
+    assert pfsense["policy_status"] == "ok"
+    assert pfsense["pfsense_tcp_port_policy"]["10443"]["observer_scope"] == "local"
+    assert "does not prove WAN exposure" in pfsense["policy_detail"]
 
 
 @pytest.mark.asyncio
