@@ -1,3 +1,10 @@
+## [1.11.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.11.1...1.11.2) (2026-09-07)
+
+
+### Bug Fixes
+
+* **sentry:** connect homelab runtime and MCP to self-hosted Sentry ([#209](https://github.com/AlbanAndrieu/fastapi-sample/issues/209)) ([67355c4](https://github.com/AlbanAndrieu/fastapi-sample/commit/67355c4986f9dbbbdf2c7b1d15ff58d1922d002a))
+
 ## [1.11.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.11.0...1.11.1) (2026-09-06)
 
 
