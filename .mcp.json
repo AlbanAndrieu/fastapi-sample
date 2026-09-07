@@ -22,8 +22,12 @@
         "@sentry/mcp-server@latest",
         "--host=sentry.albandrieu.com",
         "--skills=inspect",
+        "--disable-skills=seer",
         "--sentry-dsn="
-      ]
+      ],
+      "env": {
+        "SENTRY_ACCESS_TOKEN": "${SENTRY_ACCESS_TOKEN}"
+      }
     }
   }
 }
