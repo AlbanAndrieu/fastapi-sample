@@ -4,7 +4,7 @@ name: Python package
 on:
   pull_request:
     branches: [master]
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
   contents: read
@@ -14,7 +14,62 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  preflight:
+    name: Agent quality gate
+    runs-on: ubuntu-latest
+    env:
+      PYTHON_VERSION: "3.13"
+      KEYCLOAK_SERVER_URL: http://localhost:8080
+      KEYCLOAK_REALM: test
+      KEYCLOAK_CLIENT_ID: test
+      KEYCLOAK_CLIENT_SECRET: test-secret
+      OAUTH_TOKEN_SECRET: mocked-oauth-token-secret
+      METRICS_ENABLED: "false"
+      LOGFIRE_ENABLED: "false"
+      LOGFIRE_ENVIRONMENT: test
+      LOGFIRE_TOKEN: ""
+      SENTRY_ENABLED: "false"
+      SENTRY_DSN: ""
+      SENTRY_ENVIRONMENT: test
+      SENTRY_RELEASE: ci-${{ github.sha }}
+      DATADOG_ENABLED: "false"
+      DD_TRACE_ENABLED: "false"
+      DD_PROFILING_ENABLED: "false"
+      DD_LOGS_INJECTION: "false"
+      DD_APPSEC_ENABLED: "false"
+      DD_IAST_ENABLED: "false"
+      UNLEASH_ENABLED: "false"
+      STATSIG_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+          python-version: ${{ env.PYTHON_VERSION }}
+          version: "0.12.1"
+
+      - name: Install locked dependencies
+        run: uv sync --frozen
+
+      - name: Run agent-first quality gate before builds
+        env:
+          QUALITY_BASE_REF: origin/${{ github.base_ref }}
+          QUALITY_LOG_TAIL: "120"
+        run: bash scripts/agent-quality-gate.sh
+
   build:
+    needs: preflight
+    if: ${{ github.event.pull_request.draft == false }}
     name: Test and build Python package
     runs-on: ubuntu-latest
     env:
@@ -113,9 +168,6 @@ jobs:
       - name: Bandit security report
         run: uv run bandit -r nabla server_app.py --exit-zero
 
-      - name: Run tests
-        run: uv run pytest --junit-xml=junit.xml
-
       - name: Build package
         run: uv build
 
@@ -130,6 +182,8 @@ jobs:
 
   redis-integration:
     name: Redis integration
+    needs: preflight
+    if: ${{ github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     env:
       PYTHON_VERSION: "3.13"

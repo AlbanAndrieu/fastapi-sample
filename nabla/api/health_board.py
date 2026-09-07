@@ -138,6 +138,7 @@ async def _build_homelab_snapshot(
     from nabla.api.component_health import (
         build_component_checks,
         component_status,
+        pfsense_unbound_component,
         truenas_component,
     )
     from nabla.api.db.database import engine
@@ -161,6 +162,7 @@ async def _build_homelab_snapshot(
         }
         components["truenas"] = truenas_component(homelab)
     payload = await reconcile_homelab_health_payload(await homelab_task)
+    components["unbound"] = pfsense_unbound_component(payload)
     payload["components_status"] = component_status(components)
     payload["components"] = components
     payload["provider_credentials"] = infrastructure_provider_credentials()

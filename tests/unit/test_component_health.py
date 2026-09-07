@@ -102,3 +102,69 @@ def test_component_status_marks_core_failure_unhealthy() -> None:
     }
 
     assert component_health.component_status(components) == "unhealthy"
+
+
+def test_pfsense_unbound_component_is_critical_when_resolver_stops() -> None:
+    component = component_health.pfsense_unbound_component(
+        {
+            "pfsense": {
+                "dns": {
+                    "configured": True,
+                    "policy_state": "fail",
+                    "reason": "pfSense DNS Resolver is not running",
+                    "resolver": {"enabled": True, "running": False},
+                }
+            }
+        }
+    )
+
+    assert component == {
+        "reachable": False,
+        "state": "fail",
+        "critical": True,
+        "required": True,
+        "reason": "pfSense DNS Resolver is not running",
+        "resolver_running": False,
+        "resolver_enabled": True,
+        "stale": False,
+    }
+
+
+def test_component_status_marks_confirmed_unbound_failure_unhealthy() -> None:
+    components = {
+        "postgres": {"reachable": True},
+        "redis": {"reachable": True},
+        "supabase": {"reachable": True},
+        "unbound": {"reachable": False, "state": "fail", "critical": True},
+    }
+
+    assert component_health.component_status(components) == "unhealthy"
+
+
+def test_component_status_degrades_on_unbound_resilience_warning() -> None:
+    components = {
+        "postgres": {"reachable": True},
+        "redis": {"reachable": True},
+        "supabase": {"reachable": True},
+        "unbound": {"reachable": True, "state": "warn", "critical": True},
+    }
+
+    assert component_health.component_status(components) == "degraded"
+
+
+def test_unconfigured_unbound_observer_does_not_create_false_outage() -> None:
+    component = component_health.pfsense_unbound_component(
+        {
+            "pfsense": {
+                "dns": {
+                    "configured": False,
+                    "policy_state": "unknown",
+                    "reason": "pfSense posture observation is not configured",
+                }
+            }
+        }
+    )
+
+    assert component["critical"] is True
+    assert component["skipped"] is True
+    assert component["reachable"] is None

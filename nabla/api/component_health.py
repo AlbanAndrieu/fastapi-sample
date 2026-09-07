@@ -17,6 +17,7 @@ from nabla.api.homelab_health import build_homelab_health_payload
 from nabla.api.platform_health import check_cloudflare_tunnels, get_pfsense_api_snapshot
 
 CORE_COMPONENT_KEYS = ("postgres", "redis", "supabase")
+CRITICAL_INFRA_COMPONENT_KEYS = ("unbound",)
 PLATFORM_COMPONENT_KEYS = ("truenas", "cloudflare", "pfsense")
 
 
@@ -43,6 +44,42 @@ def truenas_component(snapshot: dict[str, Any]) -> dict[str, Any]:
         "tls_trusted": public.get("tls_trusted"),
         "http_status": public.get("http_status"),
     }
+
+
+def pfsense_unbound_component(snapshot: dict[str, Any]) -> dict[str, Any]:
+    """Reduce reconciled pfSense DNS evidence to a critical Unbound component."""
+    pfsense = snapshot.get("pfsense")
+    dns = pfsense.get("dns") if isinstance(pfsense, dict) else None
+    if not isinstance(dns, dict):
+        return {
+            "reachable": None,
+            "state": "unknown",
+            "critical": True,
+            "skipped": True,
+            "reason": "pfSense DNS Resolver health unavailable",
+        }
+
+    configured = dns.get("configured")
+    policy_state = str(dns.get("policy_state") or "unknown")
+    resolver = dns.get("resolver") if isinstance(dns.get("resolver"), dict) else {}
+    result: dict[str, Any] = {
+        "reachable": None,
+        "state": policy_state,
+        "critical": True,
+        "required": True,
+        "reason": dns.get("reason") or "pfSense DNS Resolver state is unknown",
+        "resolver_running": resolver.get("running"),
+        "resolver_enabled": resolver.get("enabled"),
+        "stale": dns.get("stale") is True,
+    }
+    if configured is not True:
+        result["skipped"] = True
+        return result
+    if policy_state == "fail":
+        result["reachable"] = False
+    elif policy_state in {"ok", "warn"}:
+        result["reachable"] = True
+    return result
 
 
 async def build_component_checks(
@@ -87,10 +124,29 @@ def component_status(components: dict[str, dict[str, Any]]) -> str:
         if check.get("reachable") is False:
             return "unhealthy"
 
+    critical_degraded = False
+    for key in CRITICAL_INFRA_COMPONENT_KEYS:
+        check = components.get(key, {})
+        if check.get("skipped") is True:
+            continue
+        if check.get("reachable") is False or check.get("state") == "fail":
+            return "unhealthy"
+        if (
+            check.get("reachable") is None
+            or check.get("state") in {"warn", "unknown"}
+            or check.get("stale") is True
+        ):
+            critical_degraded = True
+
     for key in PLATFORM_COMPONENT_KEYS:
         check = components.get(key, {})
         if check.get("skipped") is True:
             continue
-        if check.get("reachable") is False or check.get("state") == "warn" or check.get("stale") is True or check.get("tls_trusted") is False:
+        if (
+            check.get("reachable") is False
+            or check.get("state") == "warn"
+            or check.get("stale") is True
+            or check.get("tls_trusted") is False
+        ):
             return "degraded"
-    return "healthy"
+    return "degraded" if critical_degraded else "healthy"
