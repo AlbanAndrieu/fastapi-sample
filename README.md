@@ -463,14 +463,32 @@ pyright-to-gitlab-ci --src report_raw.json --output report_pyright.json --base_p
 
 ### Sentry observability
 
-Sentry prefers the self-hosted instance on `localhost:9000` and falls back to
-`SENTRY_DSN` when the local port is unavailable. Set `SENTRY_LOCAL_DSN` when the
-local project uses different DSN credentials from the cloud project.
+The TrueNAS runtime can send errors to the self-hosted Sentry edge at
+`172.17.0.24:9005`, while FastAPI Cloud can continue using an independently
+configured Sentry Cloud DSN.
+
+Self-hosted and SaaS Sentry deployments have different project IDs and public
+keys. Therefore `SENTRY_LOCAL_DSN` must be configured explicitly; the
+application never derives self-hosted credentials from `SENTRY_DSN`.
+
+Create a dedicated `fastapi-sample` project in the self-hosted `sentry`
+organization, then configure its **public DSN** in the TrueNAS runtime:
+
+```bash
+sudo docker exec -it ix-sentry-sentry-web-1 \
+  sentry createproject \
+    --name fastapi-sample \
+    --platform python \
+    --organization sentry
+```
+
+The command prints the new project's public DSN. Store that value outside Git
+and use the TrueNAS host edge as the DSN host:
 
 ```env
-SENTRY_DSN=https://11c5d815632831d3274c830441885207@o4505783360356352.ingest.us.sentry.io/4505783364681728
-SENTRY_LOCAL_DSN=http://public-key@localhost:9000/project-id
-SENTRY_ENVIRONMENT=development
+SENTRY_LOCAL_DSN=http://<public-key>@172.17.0.24:9005/<project-id>
+SENTRY_DSN=https://<cloud-public-key>@<cloud-ingest-host>/<cloud-project-id>
+SENTRY_ENVIRONMENT=homelab
 SENTRY_TRACES_SAMPLE_RATE=0.1
 SENTRY_PROFILES_SAMPLE_RATE=0.0
 SENTRY_ERROR_SAMPLE_RATE=1.0
@@ -478,23 +496,20 @@ SENTRY_MAX_BREADCRUMBS=50
 SENTRY_SHUTDOWN_TIMEOUT=2
 ```
 
-When `LOGFIRE_TOKEN` is non-empty, Sentry continues to receive errors but its
-logs, traces, and profiles are disabled to avoid duplicate telemetry.
+Selection is intentionally local-first **only when `SENTRY_LOCAL_DSN` is
+explicitly configured and its host/port are reachable**. Otherwise the
+application falls back to `SENTRY_DSN`. Reachability is only a transport
+probe; valid project credentials are guaranteed by requiring a real
+self-hosted DSN rather than rewriting a SaaS DSN.
 
-`SENTRY_DSN` defaults to the Sentry Cloud project shown above, while
-`SENTRY_LOCAL_DSN` defaults to an empty string. The application derives a
-local candidate from the cloud DSN by replacing its host with
-`localhost:9000`, preserving the project key and ID; it uses the cloud DSN only
-when that local endpoint is unreachable. Events and logs redact common secrets,
-and performance transactions for `/health`, `/healthz`, `/sickz`, and `/metrics`
-are discarded.
+When `LOGFIRE_TOKEN` is non-empty, Sentry continues to receive errors but its
+logs, traces, and profiles are disabled to avoid duplicate telemetry. Events
+and logs redact common secrets, and performance transactions for `/health`,
+`/healthz`, `/sickz`, and `/metrics` are discarded.
 
 Sentry's native Python SDK is the single exporter for logs and traces. Do not
 also point the application's legacy OTLP exporter at Sentry, because that would
-duplicate telemetry. If a standalone OpenTelemetry Collector is used instead,
-its Sentry OTLP/HTTP endpoints are `/integration/otlp/v1/logs` and
-`/integration/otlp/v1/traces`; keep that exporter disabled whenever
-`LOGFIRE_TOKEN` is non-empty.
+duplicate telemetry.
 
 ## [Utility scripts](#table-of-contents)
 
