@@ -4,12 +4,7 @@ import logging
 import uvicorn.config
 from pydantic import ValidationError
 
-from nabla.config_settings import (
-    APP_NAME,
-    EXPOSE_HOST,
-    EXPOSE_PORT,
-    get_settings,
-)
+from nabla.config_settings import EXPOSE_HOST, EXPOSE_PORT, get_settings
 from nabla.main import app
 from nabla.utils.log_config import setup_logging
 
