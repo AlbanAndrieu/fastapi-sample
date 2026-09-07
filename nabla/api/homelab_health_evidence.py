@@ -110,23 +110,53 @@ def _tunnel_by_hostname(observations: Iterable[CloudflareTunnelObservation]) -> 
     return result
 
 
-def _reconciled_state(*, direct: HealthState | None, internal: HealthState | None, runtime: HealthState | None, tunnel: HealthState | None, external: bool) -> HealthState:
-    if direct == "ok":
-        return "warn" if runtime == "fail" or tunnel == "fail" else "ok"
-    if direct == "warn":
-        return "warn"
-    if direct == "fail":
-        if "ok" in {internal, runtime, tunnel}:
-            return "warn"
-        return "fail"
-    if internal == "ok":
-        return "ok"
-    if runtime == "ok" or tunnel == "ok":
-        return "warn"
+def _reconciled_state(
+    *,
+    direct: HealthState | None,
+    internal: HealthState | None,
+    runtime: HealthState | None,
+    tunnel: HealthState | None,
+    external: bool,
+    application_error: bool = False,
+) -> HealthState:
+    """Classify service availability without letting edge evidence mask downtime.
+
+    Runtime STOPPED/FAILED is authoritative when it is fresh. A healthy
+    Cloudflare tunnel only proves the edge connector is connected; it does not
+    prove the origin application is serving traffic.
+    """
     if runtime == "fail":
         return "fail"
-    if external and tunnel == "fail":
+
+    if application_error:
+        return "warn"
+
+    if direct == "ok":
+        return "warn" if internal == "fail" or tunnel == "fail" else "ok"
+
+    if direct == "warn":
+        return "warn"
+
+    if direct == "fail":
+        # A running origin with a broken public path is degraded. Tunnel health
+        # alone must never rescue a failed application probe.
+        if "ok" in {internal, runtime}:
+            return "warn"
         return "fail"
+
+    if internal == "ok":
+        return "ok"
+    if internal == "fail":
+        return "warn" if runtime == "ok" else "fail"
+
+    if runtime == "ok":
+        return "warn"
+
+    # Missing/down Cloudflare exposure is a configuration degradation when no
+    # stronger application failure has been observed.
+    if tunnel in {"ok", "fail", "warn"}:
+        return "warn"
+
     if any(state is not None for state in (direct, internal, runtime, tunnel)):
         return "warn"
     return "unknown"
@@ -141,7 +171,16 @@ def _observation_freshness(*, checked_at: str | None, direct_result: dict[str, A
     return None, None, False
 
 
-def build_reconciled_service_health(services: list[HomelabService], *, public_results: list[dict[str, Any]], internal_results: list[dict[str, Any]], runtime: TrueNASRuntimeSnapshot | None, tunnels: Iterable[CloudflareTunnelObservation], checked_at: str | None = None) -> list[dict[str, Any]]:
+def build_reconciled_service_health(
+    services: list[HomelabService],
+    *,
+    public_results: list[dict[str, Any]],
+    internal_results: list[dict[str, Any]],
+    runtime: TrueNASRuntimeSnapshot | None,
+    tunnels: Iterable[CloudflareTunnelObservation],
+    cloudflare_stale: bool = False,
+    checked_at: str | None = None,
+) -> list[dict[str, Any]]:
     direct_by_url = {
         normalized: result
         for result in public_results
@@ -157,20 +196,25 @@ def build_reconciled_service_health(services: list[HomelabService], *, public_re
         direct_result = direct_by_url.get(url)
         internal_result = internal_by_id.get(service.service_id)
         app = _runtime_app_for_service(service, runtime)
-        runtime_health = _runtime_state(app)
+        runtime_health = None if runtime is not None and runtime.stale else _runtime_state(app)
         host = _hostname(url)
         tunnel_evidence = tunnels_by_host.get(host or "")
         tunnel_status = str(tunnel_evidence.get("tunnel_status")) if tunnel_evidence and tunnel_evidence.get("tunnel_status") is not None else None
-        tunnel_health = _tunnel_state(tunnel_status)
+        tunnel_health = None if cloudflare_stale else _tunnel_state(tunnel_status)
         direct_health = str(direct_result.get("state")) if direct_result is not None else None
         internal_health = str(internal_result.get("state")) if internal_result is not None else None
-        application_error = str(direct_result.get("application_error")) if direct_result is not None and direct_result.get("application_error") else None
-        reconciled_state = "fail" if application_error else _reconciled_state(
+        application_error = (
+            str(direct_result.get("application_error"))
+            if direct_result is not None and direct_result.get("application_error")
+            else None
+        )
+        reconciled_state = _reconciled_state(
             direct=direct_health,
             internal=internal_health,
             runtime=runtime_health,
             tunnel=tunnel_health,
             external=service.external,
+            application_error=application_error is not None,
         )
         observed_at, observation_age_seconds, observation_stale = _observation_freshness(
             checked_at=checked_at,
@@ -194,6 +238,8 @@ def build_reconciled_service_health(services: list[HomelabService], *, public_re
             "runtime_state": app.state if app is not None else None,
             "runtime_app": app.app_id if app is not None else None,
             "runtime_reachable": runtime.reachable if runtime is not None else None,
+            "runtime_stale": runtime.stale if runtime is not None else False,
+            "tunnel_stale": cloudflare_stale if tunnel_evidence is not None else False,
             "observed_at": observed_at,
             "observation_age_seconds": observation_age_seconds,
             "observation_stale": observation_stale,
@@ -231,6 +277,7 @@ async def reconcile_homelab_health_payload(payload: dict[str, Any]) -> dict[str,
         internal_results=internal_results,
         runtime=runtime,
         tunnels=cloudflare.tunnels,
+        cloudflare_stale=cloudflare.stale,
         checked_at=checked_at,
     )
     dependency_aware = propagate_required_dependency_health(reconciled, topology)
