@@ -29,12 +29,28 @@ def test_uses_default_cloud_sentry_dsn(monkeypatch) -> None:
 def test_selects_reachable_local_sentry(monkeypatch) -> None:
     monkeypatch.setattr(sentry_config, "sentry_dsn_is_reachable", lambda _dsn: True)
 
+    local_dsn = "http://self-hosted-public@172.17.0.24:9005/2"
     dsn, target = sentry_config.select_sentry_dsn(
-        {"SENTRY_DSN": "https://public@example.ingest.sentry.io/42"},
+        {
+            "SENTRY_LOCAL_DSN": local_dsn,
+            "SENTRY_DSN": "https://cloud-public@example.ingest.sentry.io/42",
+        },
     )
 
-    assert dsn == "https://public@localhost:9000/42"
+    assert dsn == local_dsn
     assert target == "local"
+
+
+def test_does_not_derive_self_hosted_credentials_from_cloud_dsn(monkeypatch) -> None:
+    reachable = Mock(return_value=True)
+    monkeypatch.setattr(sentry_config, "sentry_dsn_is_reachable", reachable)
+    cloud_dsn = "https://cloud-public@example.ingest.sentry.io/42"
+
+    assert sentry_config.select_sentry_dsn({"SENTRY_DSN": cloud_dsn}) == (
+        cloud_dsn,
+        "cloud",
+    )
+    reachable.assert_not_called()
 
 
 def test_falls_back_to_cloud_sentry(monkeypatch) -> None:

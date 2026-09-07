@@ -7,10 +7,12 @@ This repository keeps MCP integrations least-privileged by default. Secrets must
 The application exposes the project-local MCP server at:
 
 ```text
-http://127.0.0.1:8080/mcp
+development checkout: http://127.0.0.1:8080/mcp
+TrueNAS runtime:      http://172.17.0.24:8091/mcp
+TrueNAS API:          http://172.17.0.24:8091/api
 ```
 
-Use the local server when the agent runs on the workstation/LAN. For runtime status rather than MCP tools, follow `.agents/skills/fastapi-cloud/SKILL.md`, which uses local HTTP health endpoints first and FastAPI Cloud as fallback.
+Use the appropriate local server when the agent runs on the workstation/LAN. For runtime status rather than MCP tools, follow `.agents/skills/fastapi-cloud/SKILL.md`, which uses local HTTP health endpoints first and FastAPI Cloud as fallback.
 
 ### Local runtime devtools
 
@@ -98,18 +100,28 @@ It is intentionally disabled by default in `opencode.json`. Create a dedicated *
 export SENTRY_ACCESS_TOKEN='...'
 ```
 
-The shared command uses only the read-oriented `inspect` skill and disables the MCP process's own upstream Sentry telemetry:
+The shared command uses only the read-oriented `inspect` skill, explicitly disables unsupported self-hosted Seer tools, and disables the MCP process's own upstream Sentry telemetry:
 
 ```bash
-npx -y @sentry/mcp-server@latest \
+npx -y @sentry/mcp-server@0.39.0 \
   --host=sentry.albandrieu.com \
   --skills=inspect \
+  --disable-skills=seer \
   --sentry-dsn=
 ```
 
-For inspection, grant only the minimum scopes supported by the installed Sentry MCP/server version, normally `org:read`, `project:read`, `team:read`, and `event:read`. Do not grant project/team write scopes unless an explicitly reviewed project-management operation requires them.
+The stdio process reads `SENTRY_ACCESS_TOKEN` from the parent environment. The
+project configurations for generic MCP clients, Cursor, and OpenCode all pass
+that environment variable through without committing its value.
 
-The application DSN (`SENTRY_DSN`) and the MCP API token (`SENTRY_ACCESS_TOKEN`) are different credentials and must remain independently rotatable.
+Use a dedicated Sentry **User Auth Token**. The exact token scopes are version
+dependent; grant only the scopes required by the current official MCP server and
+keep the exposed skill set at `inspect`. Do not enable `triage` or
+`project-management` unless a reviewed write operation is required.
+
+The application DSN (`SENTRY_DSN` / `SENTRY_LOCAL_DSN`) and the MCP API token
+(`SENTRY_ACCESS_TOKEN`) are different credentials and must remain independently
+rotatable.
 
 ## pfSense
 

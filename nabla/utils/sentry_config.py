@@ -8,7 +8,7 @@ import socket
 from collections.abc import Mapping
 from copy import deepcopy
 from typing import Any
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import urlsplit
 
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
@@ -18,7 +18,6 @@ from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 from nabla._version import get_versions
 
 _logger = logging.getLogger(__name__)
-_DEFAULT_LOCAL_SENTRY_PORT = 9000
 DEFAULT_SENTRY_DSN = "https://11c5d815632831d3274c830441885207@o4505783360356352.ingest.us.sentry.io/4505783364681728"
 _FILTERED_VALUE = "[Filtered]"
 _SENSITIVE_KEYS = frozenset(
@@ -52,29 +51,6 @@ def _env_float(env: Mapping[str, str], name: str, default: float) -> float:
         return default
 
 
-def _derived_local_dsn(cloud_dsn: str) -> str:
-    """Reuse the configured DSN credentials against self-hosted Sentry."""
-    if not cloud_dsn:
-        return ""
-    parsed = urlsplit(cloud_dsn)
-    if not parsed.hostname:
-        return ""
-    userinfo = parsed.username or ""
-    if parsed.password:
-        userinfo += f":{parsed.password}"
-    if userinfo:
-        userinfo += "@"
-    return urlunsplit(
-        (
-            parsed.scheme or "http",
-            f"{userinfo}localhost:{_DEFAULT_LOCAL_SENTRY_PORT}",
-            parsed.path,
-            parsed.query,
-            parsed.fragment,
-        ),
-    )
-
-
 def sentry_dsn_is_reachable(dsn: str, *, timeout: float = 0.25) -> bool:
     try:
         parsed = urlsplit(dsn)
@@ -91,8 +67,11 @@ def select_sentry_dsn(env: Mapping[str, str] | None = None) -> tuple[str, str]:
     """Prefer reachable self-hosted Sentry, then fall back to the cloud DSN."""
     values = os.environ if env is None else env
     cloud_dsn = values.get("SENTRY_DSN", DEFAULT_SENTRY_DSN).strip()
-    local_dsn = values.get("SENTRY_LOCAL_DSN", "").strip() or _derived_local_dsn(cloud_dsn)
+    local_dsn = values.get("SENTRY_LOCAL_DSN", "").strip()
 
+    # A self-hosted Sentry deployment has its own project IDs and public keys.
+    # Never derive those credentials from a Sentry SaaS DSN: a TCP-only probe can
+    # otherwise select a reachable endpoint whose project/key pair is invalid.
     if local_dsn and sentry_dsn_is_reachable(local_dsn):
         return local_dsn, "local"
     if cloud_dsn:
