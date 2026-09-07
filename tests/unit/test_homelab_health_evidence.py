@@ -4,9 +4,14 @@ from nabla.api.cloudflare_tunnels import (
     CloudflareTunnelIngress,
     CloudflareTunnelObservation,
 )
+from nabla.api.homelab_declared import RuntimeBinding
 from nabla.api.homelab_health_evidence import build_reconciled_service_health
 from nabla.api.homelab_models import HomelabService
-from nabla.api.homelab_runtime import ObservedApp, TrueNASRuntimeSnapshot
+from nabla.api.homelab_runtime import (
+    ObservedApp,
+    ObservedContainer,
+    TrueNASRuntimeSnapshot,
+)
 
 
 def _runtime(*apps: ObservedApp) -> TrueNASRuntimeSnapshot:
@@ -474,6 +479,133 @@ def test_down_tunnel_is_degraded_when_origin_is_proven_up() -> None:
         ],
         runtime=None,
         tunnels=[tunnel],
+    )
+
+    assert rows[0]["state"] == "warn"
+
+
+def test_declared_container_binding_maps_openwebui_runtime() -> None:
+    service = HomelabService(
+        name="Open WebUI",
+        tunnelUrl="https://open-webui.albandrieu.com",
+        external=True,
+    )
+    runtime = _runtime(
+        ObservedApp(
+            app_id="openwebui",
+            name="openwebui",
+            state="DEPLOYING",
+            containers=[
+                ObservedContainer(
+                    service_name="open-webui",
+                    image="ghcr.io/open-webui/open-webui:v0.11.0",
+                    state="starting",
+                )
+            ],
+        )
+    )
+    rows = build_reconciled_service_health(
+        [service],
+        public_results=[
+            {
+                "id": service.service_id,
+                "name": service.name,
+                "url": "https://open-webui.albandrieu.com/",
+                "reachable": True,
+                "http_status": 403,
+                "state": "warn",
+                "tls_trusted": True,
+            }
+        ],
+        internal_results=[],
+        runtime=runtime,
+        tunnels=[],
+        runtime_bindings={
+            service.service_id: RuntimeBinding(
+                provider="truenas-app",
+                containerService="open-webui",
+            )
+        },
+    )
+
+    assert rows[0]["runtime_app"] == "openwebui"
+    assert rows[0]["runtime_state"] == "DEPLOYING"
+    assert rows[0]["state"] == "fail"
+
+
+def test_declared_app_id_maps_twofactor_auth_runtime() -> None:
+    service = HomelabService(
+        name="2FAuth",
+        tunnelUrl="https://2fauth.albandrieu.com",
+        external=True,
+    )
+    runtime = _runtime(
+        ObservedApp(
+            app_id="twofactor-auth",
+            name="twofactor-auth",
+            state="DEPLOYING",
+        )
+    )
+    rows = build_reconciled_service_health(
+        [service],
+        public_results=[
+            {
+                "id": service.service_id,
+                "name": service.name,
+                "url": "https://2fauth.albandrieu.com/",
+                "reachable": True,
+                "http_status": 302,
+                "state": "ok",
+                "tls_trusted": True,
+            }
+        ],
+        internal_results=[],
+        runtime=runtime,
+        tunnels=[],
+        runtime_bindings={
+            service.service_id: RuntimeBinding(
+                provider="truenas-app",
+                appId="twofactor-auth",
+            )
+        },
+    )
+
+    assert rows[0]["runtime_app"] == "twofactor-auth"
+    assert rows[0]["runtime_state"] == "DEPLOYING"
+    assert rows[0]["state"] == "fail"
+
+
+def test_deploying_runtime_is_degraded_when_origin_is_proven_up() -> None:
+    service = HomelabService(
+        name="Open WebUI",
+        tunnelUrl="https://open-webui.albandrieu.com",
+        external=True,
+    )
+    runtime = _runtime(
+        ObservedApp(app_id="openwebui", name="openwebui", state="DEPLOYING")
+    )
+    rows = build_reconciled_service_health(
+        [service],
+        public_results=[
+            {
+                "id": service.service_id,
+                "name": service.name,
+                "url": "https://open-webui.albandrieu.com/",
+                "reachable": True,
+                "http_status": 200,
+                "state": "ok",
+                "tls_trusted": True,
+            }
+        ],
+        internal_results=[],
+        runtime=runtime,
+        tunnels=[],
+        runtime_bindings={
+            service.service_id: RuntimeBinding(
+                provider="truenas-app",
+                appId="openwebui",
+            )
+        },
     )
 
     assert rows[0]["state"] == "warn"
