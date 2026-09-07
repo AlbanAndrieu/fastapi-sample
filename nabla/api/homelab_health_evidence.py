@@ -238,12 +238,14 @@ def build_reconciled_service_health(
             "runtime_state": app.state if app is not None else None,
             "runtime_app": app.app_id if app is not None else None,
             "runtime_reachable": runtime.reachable if runtime is not None else None,
-            "runtime_stale": runtime.stale if runtime is not None else False,
-            "tunnel_stale": cloudflare_stale if tunnel_evidence is not None else False,
             "observed_at": observed_at,
             "observation_age_seconds": observation_age_seconds,
             "observation_stale": observation_stale,
         }
+        if runtime is not None:
+            row["runtime_stale"] = runtime.stale
+        if tunnel_evidence is not None:
+            row["tunnel_stale"] = cloudflare_stale
         if direct_result is not None:
             for key in ("latency_ms", "error", "application_error"):
                 if key in direct_result:
