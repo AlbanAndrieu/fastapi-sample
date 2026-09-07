@@ -64,9 +64,9 @@ from nabla.utils.datadog_config import (
 from nabla.utils.environment import env_bool
 from nabla.utils.log_config import setup_logging
 from nabla.utils.logger import logger
-from nabla.utils.pyroscope_config import start_pyroscope, stop_pyroscope
 from nabla.utils.logfire_config import configure_logfire
 from nabla.utils.prometheus import PrometheusMiddleware, setting_otlp
+from nabla.utils.pyroscope_config import start_pyroscope, stop_pyroscope
 from nabla.utils.sentry_config import configure_sentry
 
 setup_logging()
