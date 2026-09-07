@@ -353,6 +353,11 @@ def test_bootstrap_catalog_preserves_litellm_exposure_policy() -> None:
     assert by_name["Home"].tunnel_url == "https://home.albandrieu.com:10443"
     assert by_name["Home"].external is False
 
+    garage = by_name["Garage"]
+    assert garage.internal_host == "172.17.0.24"
+    assert garage.internal_port == 3909
+    assert garage.internal_secure is False
+
 
 def test_bootstrap_catalog_routes_2fauth_to_healthz_and_policy_aware_sickz() -> None:
     services = list(homelab_catalog._load_bootstrap_catalog().services)
