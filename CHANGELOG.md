@@ -1,3 +1,10 @@
+## [1.11.4](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.11.3...1.11.4) (2026-09-07)
+
+
+### Bug Fixes
+
+* **pyroscope:** profile production FastAPI workers ([#211](https://github.com/AlbanAndrieu/fastapi-sample/issues/211)) ([bf729e1](https://github.com/AlbanAndrieu/fastapi-sample/commit/bf729e1769de6a4f88ef6c1e9f1daa6c2aba53a5))
+
 ## [1.11.3](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.11.2...1.11.3) (2026-09-07)
 
 
