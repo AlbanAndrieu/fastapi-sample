@@ -1,6 +1,8 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "instructions": ["AGENTS.md"],
+  "instructions": [
+    "AGENTS.md"
+  ],
   "mcp": {
     "fastapi-sample": {
       "type": "remote",
@@ -38,9 +40,13 @@
         "@sentry/mcp-server@latest",
         "--host=sentry.albandrieu.com",
         "--skills=inspect",
+        "--disable-skills=seer",
         "--sentry-dsn="
       ],
-      "enabled": false
+      "enabled": false,
+      "environment": {
+        "SENTRY_ACCESS_TOKEN": "{env:SENTRY_ACCESS_TOKEN}"
+      }
     },
     "pfsense-auditor": {
       "type": "local",
