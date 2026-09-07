@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 from typing import Any
 from urllib.parse import urlparse
 
@@ -53,26 +54,48 @@ def _is_pfsense_check(check: Any) -> bool:
     return str(check.get("name") or check.get("display_label") or "").casefold() == "pfsense"
 
 
-def _port_10443_reachability(check: dict[str, Any]) -> bool | None:
-    """Derive 10443 from the actual pfSense HTTPS alias probes, not raw TCP."""
+def _is_private_alias(raw: Any) -> bool:
+    try:
+        host = urlparse(str(raw)).hostname or ""
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return address.is_private or address.is_loopback or address.is_link_local
+
+
+def _alias_10443_reachability(
+    check: dict[str, Any],
+    *,
+    private_only: bool = False,
+) -> bool | None:
     alias_results = check.get("alias_results")
     aliases = check.get("aliases_probed")
-    if isinstance(alias_results, dict) and isinstance(aliases, list):
-        observations: list[bool] = []
-        for raw in aliases:
-            try:
-                parsed = urlparse(str(raw))
-            except ValueError:
-                continue
-            if parsed.port != 10443:
-                continue
-            result = alias_results.get(raw)
-            if isinstance(result, dict) and isinstance(result.get("reachable"), bool):
-                observations.append(result["reachable"])
-        if any(observations):
-            return True
-        if observations:
-            return False
+    if not isinstance(alias_results, dict) or not isinstance(aliases, list):
+        return None
+
+    observations: list[bool] = []
+    for raw in aliases:
+        try:
+            parsed = urlparse(str(raw))
+        except ValueError:
+            continue
+        if parsed.port != 10443 or (private_only and not _is_private_alias(raw)):
+            continue
+        result = alias_results.get(raw)
+        if isinstance(result, dict) and isinstance(result.get("reachable"), bool):
+            observations.append(result["reachable"])
+    if any(observations):
+        return True
+    if observations:
+        return False
+    return None
+
+
+def _port_10443_reachability(check: dict[str, Any]) -> bool | None:
+    """Derive 10443 from the actual pfSense HTTPS alias probes, not raw TCP."""
+    observed = _alias_10443_reachability(check)
+    if observed is not None:
+        return observed
     reachable = check.get("reachable")
     return reachable if isinstance(reachable, bool) else None
 
@@ -80,27 +103,64 @@ def _port_10443_reachability(check: dict[str, Any]) -> bool | None:
 def _apply_source_aware_10443_policy(
     check: dict[str, Any],
     reachable: bool | None,
+    *,
+    runtime_scope: str,
 ) -> None:
-    """Override the legacy external=false verdict with the current trusted-source contract."""
-    if reachable is True:
+    """Apply pfSense 10443 policy according to the observer's network trust scope."""
+    trusted_lan_runtime = runtime_scope in {"local", "homelab"}
+    private_reachable = _alias_10443_reachability(check, private_only=True)
+
+    if trusted_lan_runtime:
+        if private_reachable is True:
+            status = "ok"
+            detail = (
+                "✅ pfSense REST/API 10443 is reachable through its private LAN address "
+                f"from the trusted {runtime_scope} observer. This is expected for local "
+                "administration and does not prove WAN exposure."
+            )
+        elif reachable is True:
+            status = "warn"
+            detail = (
+                "⚠️ pfSense REST/API 10443 is reachable from the trusted local observer, "
+                "but no private 10443 alias probe succeeded. Treat this as ambiguous "
+                "routing evidence and keep the independent external negative exposure "
+                "probe as the WAN security control."
+            )
+        elif private_reachable is False:
+            status = "warn"
+            detail = (
+                "⚠️ pfSense REST/API 10443 is not reachable through its private LAN "
+                f"address from the {runtime_scope} observer. This is a local control-path "
+                "availability issue, not evidence of safe WAN blocking."
+            )
+        else:
+            status = "unknown"
+            detail = (
+                "pfSense REST/API 10443 private-LAN reachability is unknown from this "
+                f"{runtime_scope} observer."
+            )
+    elif reachable is True:
         status = "fail"
+        source = "FastAPI Cloud" if runtime_scope == "fastapi_cloud" else "cloud/PaaS"
         detail = (
-            "🚨 pfSense REST/API 10443 is reachable from FastAPI Cloud, but this runtime "
+            f"🚨 pfSense REST/API 10443 is reachable from {source}, but this runtime "
             "is not an approved administration source. This violates the intended WAN "
             "default-deny policy; inspect broad WAN pass rules before relying on sshguard "
             "or another dynamic blocklist to hide the exposure."
         )
     elif reachable is False:
         status = "ok"
+        source = "FastAPI Cloud" if runtime_scope == "fastapi_cloud" else "cloud/PaaS"
         detail = (
-            "✅ pfSense REST/API 10443 is blocked from FastAPI Cloud as intended. "
+            f"✅ pfSense REST/API 10443 is blocked from {source} as intended. "
             "Keep administration limited to approved stable sources and use the "
             "out-of-band observer for durable posture/Snort telemetry."
         )
     else:
         status = "unknown"
+        source = "FastAPI Cloud" if runtime_scope == "fastapi_cloud" else "cloud/PaaS"
         detail = (
-            "pfSense REST/API 10443 reachability from FastAPI Cloud is unknown. "
+            f"pfSense REST/API 10443 reachability from {source} is unknown. "
             "The expected state is blocked; use the out-of-band observer for durable "
             "control-plane telemetry."
         )
@@ -112,7 +172,11 @@ def _apply_source_aware_10443_policy(
     check["policy_detail"] = detail
 
 
-def enrich_pfsense_port_annotations(payload: dict[str, Any]) -> dict[str, Any]:
+def enrich_pfsense_port_annotations(
+    payload: dict[str, Any],
+    *,
+    runtime_scope: str = "fastapi_cloud",
+) -> dict[str, Any]:
     """Add stable service names and the source-aware pfSense 10443 policy."""
     checks = payload.get("checks")
     if not isinstance(checks, dict):
@@ -131,7 +195,27 @@ def enrich_pfsense_port_annotations(payload: dict[str, Any]) -> dict[str, Any]:
             existing = policy.get(port)
             merged = dict(existing) if isinstance(existing, dict) else {}
             merged.update(metadata)
+            if port == "10443" and runtime_scope in {"local", "homelab"}:
+                merged.update(
+                    {
+                        "expected_reachable": True,
+                        "direct_probe_semantics": "trusted_lan_control_check",
+                        "recommended_control_path": "direct_lan",
+                        "expected_from": ["trusted_lan", "approved_admin_sources"],
+                        "negative_probe_required": False,
+                        "reason": (
+                            "Trusted local/homelab observers may reach pfSense 10443 through "
+                            "the private LAN path; WAN exposure must be evaluated by an "
+                            "independent external negative probe."
+                        ),
+                    }
+                )
+            merged["observer_scope"] = runtime_scope
             policy[port] = merged
-        _apply_source_aware_10443_policy(check, reachability_10443)
+        _apply_source_aware_10443_policy(
+            check,
+            reachability_10443,
+            runtime_scope=runtime_scope,
+        )
         break
     return payload
