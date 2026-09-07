@@ -84,6 +84,21 @@
         "TRUENAS_API_KEY": "${env:TRUENAS_MCP_API_KEY}",
         "TRUENAS_MCP_DEBUG": "0"
       }
+    },
+    "sentry": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@sentry/mcp-server@latest",
+        "--host=sentry.albandrieu.com",
+        "--skills=inspect",
+        "--disable-skills=seer",
+        "--sentry-dsn="
+      ],
+      "env": {
+        "SENTRY_ACCESS_TOKEN": "${env:SENTRY_ACCESS_TOKEN}"
+      }
     }
   }
 }
