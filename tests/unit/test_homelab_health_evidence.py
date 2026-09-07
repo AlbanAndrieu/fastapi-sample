@@ -203,7 +203,7 @@ def test_service_without_url_gets_conventional_endpoint_and_unknown_state() -> N
     ]
 
 
-def test_application_error_remains_failure_despite_positive_runtime() -> None:
+def test_application_error_is_degraded_when_service_is_still_reachable() -> None:
     service = HomelabService(
         name="LanguageTool",
         tunnelUrl="https://languagetool.albandrieu.com",
@@ -230,5 +230,155 @@ def test_application_error_remains_failure_despite_positive_runtime() -> None:
         tunnels=[],
     )
 
-    assert rows[0]["state"] == "fail"
+    assert rows[0]["state"] == "warn"
     assert rows[0]["application_error"] == "Application error"
+
+
+def test_runtime_failure_overrides_public_edge_success() -> None:
+    service = HomelabService(
+        name="2FAuth",
+        tunnelUrl="https://2fauth.albandrieu.com",
+        external=True,
+    )
+    rows = build_reconciled_service_health(
+        [service],
+        public_results=[
+            {
+                "id": service.service_id,
+                "name": service.name,
+                "url": "https://2fauth.albandrieu.com/",
+                "reachable": True,
+                "http_status": 302,
+                "state": "ok",
+                "tls_trusted": True,
+            }
+        ],
+        internal_results=[],
+        runtime=_runtime(
+            ObservedApp(app_id="2fauth", name="2FAuth", state="STOPPED")
+        ),
+        tunnels=[],
+    )
+
+    assert rows[0]["state"] == "fail"
+    assert rows[0]["runtime_state"] == "STOPPED"
+
+
+def test_healthy_tunnel_does_not_rescue_failed_origin_probe() -> None:
+    service = HomelabService(
+        name="Open WebUI",
+        tunnelUrl="https://open-webui.albandrieu.com",
+        external=True,
+    )
+    tunnel = CloudflareTunnelObservation(
+        tunnel_id="tunnel-1",
+        name="homelab",
+        status="healthy",
+        config_source="cloudflare",
+        ingress=(
+            CloudflareTunnelIngress(
+                tunnel_id="tunnel-1",
+                tunnel_name="homelab",
+                hostname="open-webui.albandrieu.com",
+                service="https://open-webui:8080",
+                status="healthy",
+            ),
+        ),
+    )
+    rows = build_reconciled_service_health(
+        [service],
+        public_results=[
+            {
+                "id": service.service_id,
+                "name": service.name,
+                "url": "https://open-webui.albandrieu.com/",
+                "reachable": False,
+                "http_status": 0,
+                "state": "fail",
+                "tls_trusted": None,
+                "error": "origin unavailable",
+            }
+        ],
+        internal_results=[],
+        runtime=None,
+        tunnels=[tunnel],
+    )
+
+    assert rows[0]["state"] == "fail"
+    assert rows[0]["tunnel_status"] == "healthy"
+
+
+def test_stale_runtime_cannot_rescue_failed_public_probe() -> None:
+    service = HomelabService(
+        name="2FAuth",
+        tunnelUrl="https://2fauth.albandrieu.com",
+        external=True,
+    )
+    runtime = _runtime(
+        ObservedApp(app_id="2fauth", name="2FAuth", state="RUNNING")
+    ).model_copy(update={"stale": True})
+    rows = build_reconciled_service_health(
+        [service],
+        public_results=[
+            {
+                "id": service.service_id,
+                "name": service.name,
+                "url": "https://2fauth.albandrieu.com/",
+                "reachable": False,
+                "http_status": 0,
+                "state": "fail",
+                "tls_trusted": None,
+            }
+        ],
+        internal_results=[],
+        runtime=runtime,
+        tunnels=[],
+    )
+
+    assert rows[0]["state"] == "fail"
+    assert rows[0]["runtime_state"] == "RUNNING"
+    assert rows[0]["runtime_stale"] is True
+
+
+def test_stale_cloudflare_tunnel_cannot_rescue_failed_public_probe() -> None:
+    service = HomelabService(
+        name="Open WebUI",
+        tunnelUrl="https://open-webui.albandrieu.com",
+        external=True,
+    )
+    tunnel = CloudflareTunnelObservation(
+        tunnel_id="tunnel-1",
+        name="homelab",
+        status="healthy",
+        config_source="cloudflare",
+        ingress=(
+            CloudflareTunnelIngress(
+                tunnel_id="tunnel-1",
+                tunnel_name="homelab",
+                hostname="open-webui.albandrieu.com",
+                service="https://open-webui:8080",
+                status="healthy",
+            ),
+        ),
+    )
+    rows = build_reconciled_service_health(
+        [service],
+        public_results=[
+            {
+                "id": service.service_id,
+                "name": service.name,
+                "url": "https://open-webui.albandrieu.com/",
+                "reachable": False,
+                "http_status": 0,
+                "state": "fail",
+                "tls_trusted": None,
+            }
+        ],
+        internal_results=[],
+        runtime=None,
+        tunnels=[tunnel],
+        cloudflare_stale=True,
+    )
+
+    assert rows[0]["state"] == "fail"
+    assert rows[0]["tunnel_stale"] is True
