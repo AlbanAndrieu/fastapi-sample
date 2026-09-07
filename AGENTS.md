@@ -50,7 +50,7 @@ Optimize the amount of context needed to obtain reliable evidence, not the agent
 
 **On-demand — keep available, but discover/load only for a relevant task:**
 
-- direct TrueNAS and pfSense MCPs; prefer the application's read-only homelab/runtime abstraction first unless appliance-level evidence is required;
+- direct TrueNAS and pfSense MCPs; prefer the application's read-only homelab/runtime abstraction first unless appliance-level evidence is required; whenever a task touches pfSense/Netgate, PF, HAProxy, Snort, pfBlockerNG, Unbound, Kea or pflow/IPFIX, first read `.agents/skills/pfsense-api-debugging/SKILL.md` and do not depend on prior-chat context;
 - Prometheus and Grafana direct tooling;
 - Supabase, Langfuse, Redis and other integration-specific skills/tools;
 - GitLab tooling for the retained legacy Pages/mirror pipeline;
