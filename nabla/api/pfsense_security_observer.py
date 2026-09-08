@@ -339,7 +339,7 @@ def _stale_telemetry(
             },
             "table_entry_count": len(_canonical_table_entries(table)),
             "last_known_match": bool(
-                observed_ip and observed_ip in _canonical_table_entries(table)
+                observed_ip and observed_ip in _canonical_table_entries(table),
             ),
             "evidence": (
                 "Last-known-good snort2c table retained after refresh failure; current block attribution is intentionally withheld"
@@ -468,7 +468,7 @@ async def observe_pfsense_ingress_block(
     table, telemetry = table_result
     if table is None:
         blind_spot = configured.control_path_mode == "shared_wan" and telemetry.get(
-            "failure_stage"
+            "failure_stage",
         ) in {"connect", "response", "request", "client_pool"}
         suffix = (
             "; shared WAN control path cannot prove whether the telemetry request itself was filtered"
