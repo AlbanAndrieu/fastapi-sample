@@ -201,7 +201,7 @@ async def _probe_public_service(
         return result
 
     authenticated_status = int(
-        edge_evidence.get("cloudflare_service_token_http_status") or 0
+        edge_evidence.get("cloudflare_service_token_http_status") or 0,
     )
     result["anonymous_http_status"] = result["http_status"]
     result["http_status"] = authenticated_status
@@ -225,7 +225,7 @@ async def _probe_internal_service(
     try:
         async with semaphore:
             _, writer = await asyncio.wait_for(
-                asyncio.open_connection(host, port), timeout=_PROBE_TIMEOUT_SEC
+                asyncio.open_connection(host, port), timeout=_PROBE_TIMEOUT_SEC,
             )
         result: dict[str, Any] = {
             "id": service.service_id,
@@ -301,7 +301,7 @@ async def _probe_truenas(
                     internalPort=port,
                     external=False,
                 ),
-            )
+            ),
         )
 
     async with httpx.AsyncClient(
@@ -410,7 +410,7 @@ async def build_homelab_health_payload() -> dict[str, Any]:
             *(
                 _probe_internal_service(semaphore, service)
                 for service in internal_services
-            )
+            ),
         )
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
             public_results, truenas, internal_results = await asyncio.gather(
@@ -418,7 +418,7 @@ async def build_homelab_health_payload() -> dict[str, Any]:
                     *(
                         _probe_public_service(client, semaphore, service)
                         for service in public_services
-                    )
+                    ),
                 ),
                 _probe_truenas(semaphore, internal_enabled=internal_enabled),
                 internal_results_future,
