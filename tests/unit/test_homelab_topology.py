@@ -24,6 +24,7 @@ def _topology_payload() -> dict:
                 "criticality": "high",
                 "securityFunctions": ["identify", "protect", "detect"],
                 "sourcePath": "apps/openwebui/compose.yml",
+                "internalUrl": "https://openwebui.int.albandrieu.com",
                 "icon": "💬",
             },
             {
@@ -54,11 +55,13 @@ def test_topology_accepts_declared_relation_and_preserves_wire_aliases() -> None
     assert topology.nodes[0].criticality == "high"
     assert topology.nodes[0].security_functions == ["identify", "protect", "detect"]
     assert topology.nodes[0].source_path == "apps/openwebui/compose.yml"
+    assert topology.nodes[0].internal_url == "https://openwebui.int.albandrieu.com"
     assert topology.nodes[0].icon == "💬"
     assert payload["nodes"][0]["presentationRole"] == "service"
     assert payload["nodes"][0]["criticality"] == "high"
     assert payload["nodes"][0]["securityFunctions"] == ["identify", "protect", "detect"]
     assert payload["nodes"][0]["sourcePath"] == "apps/openwebui/compose.yml"
+    assert payload["nodes"][0]["internalUrl"] == "https://openwebui.int.albandrieu.com"
     assert payload["nodes"][0]["icon"] == "💬"
     assert "securityFunctions" not in payload["nodes"][1]
     assert payload["relations"][0]["type"] == "consumesApi"
