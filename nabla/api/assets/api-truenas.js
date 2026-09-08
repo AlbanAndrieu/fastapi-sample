@@ -1,5 +1,5 @@
-import { fetchHomelabHealth } from "./api-homelab-health.js";
 import { escapeText } from "./api-health-ui.js";
+import { fetchHomelabHealth } from "./api-homelab-health.js";
 
 function stageClass(stage) {
   if (stage?.state === "ok") return "ok";
@@ -19,12 +19,14 @@ function stageTime(stage) {
 
 function renderStage(stage) {
   const cls = stageClass(stage);
-  return `<div class="truenas-stage truenas-stage--${cls}" title="${escapeText(stage?.detail || "")}">` +
+  return (
+    `<div class="truenas-stage truenas-stage--${cls}" title="${escapeText(stage?.detail || "")}">` +
     `<span class="truenas-stage-icon" aria-hidden="true">${stageIcon(stage)}</span>` +
     `<span class="truenas-stage-label">${escapeText(stage?.label || stage?.id || "stage")}</span>` +
     `<span class="truenas-stage-time">${escapeText(stageTime(stage))}</span>` +
     `<span class="truenas-stage-detail">${escapeText(stage?.detail || "")}</span>` +
-    `</div>`;
+    `</div>`
+  );
 }
 
 function renderConnector(left, right) {
@@ -34,12 +36,14 @@ function renderConnector(left, right) {
 
 function targetText(truenas) {
   const diagnostics = truenas?.diagnostics;
-  const configuredTarget = diagnostics?.target || truenas?.public?.url || "TrueNAS";
+  const configuredTarget =
+    diagnostics?.target || truenas?.public?.url || "TrueNAS";
   if (diagnostics?.path_mode === "direct_lan") {
     return `${configuredTarget} · TrueNAS HTTPS + WebSocket API endpoint · direct LAN`;
   }
   const wan = diagnostics?.wan;
-  if (!wan?.ipv4) return `${configuredTarget} · TrueNAS HTTPS + WebSocket API endpoint`;
+  if (!wan?.ipv4)
+    return `${configuredTarget} · TrueNAS HTTPS + WebSocket API endpoint`;
   const provider = wan?.provider ? ` · ${wan.provider}` : "";
   const addressKind = wan?.static ? " static IPv4" : " IPv4";
   return `${configuredTarget} · public API path via pfSense/HAProxy · ${wan.ipv4}${provider}${addressKind}`;
@@ -116,9 +120,11 @@ function telemetryTiming(block) {
   const values = [];
   if (block?.error_kind) values.push(block.error_kind);
   if (block?.failure_stage) values.push(`stage ${block.failure_stage}`);
-  if (block?.attempts != null) values.push(`${block.attempts} attempt${block.attempts === 1 ? "" : "s"}`);
+  if (block?.attempts != null)
+    values.push(`${block.attempts} attempt${block.attempts === 1 ? "" : "s"}`);
   if (block?.elapsed_ms != null) values.push(`${block.elapsed_ms} ms`);
-  if (block?.last_success_at) values.push(`last success ${block.last_success_at}`);
+  if (block?.last_success_at)
+    values.push(`last success ${block.last_success_at}`);
   return values.join(" · ");
 }
 
@@ -138,10 +144,12 @@ function renderIngressBlock(data, target) {
     const evidence = escapeText(block?.evidence || "snort2c cannot be queried");
     const timing = escapeText(telemetryTiming(block));
     const path = escapeText(controlPath?.mode || "unknown");
-    const independence = controlPath?.blind_spot === true
-      ? "shared WAN · not independent"
-      : "independent or application-level failure";
-    container.className = "truenas-ingress-block truenas-ingress-block--warning";
+    const independence =
+      controlPath?.blind_spot === true
+        ? "shared WAN · not independent"
+        : "independent or application-level failure";
+    container.className =
+      "truenas-ingress-block truenas-ingress-block--warning";
     container.hidden = false;
     container.innerHTML =
       "<strong>⚠ pfSense security telemetry temporarily unavailable</strong>" +
@@ -152,12 +160,16 @@ function renderIngressBlock(data, target) {
   }
 
   if (block?.state === "telemetry_stale") {
-    const evidence = escapeText(block?.evidence || "Last-known-good snort2c table retained");
+    const evidence = escapeText(
+      block?.evidence || "Last-known-good snort2c table retained",
+    );
     const timing = escapeText(telemetryTiming(block));
-    const match = block?.last_known_match === true
-      ? "Observed egress was present in the stale table; current attribution is withheld."
-      : "No current clear/blocked verdict is emitted from stale data.";
-    container.className = "truenas-ingress-block truenas-ingress-block--warning";
+    const match =
+      block?.last_known_match === true
+        ? "Observed egress was present in the stale table; current attribution is withheld."
+        : "No current clear/blocked verdict is emitted from stale data.";
+    container.className =
+      "truenas-ingress-block truenas-ingress-block--warning";
     container.hidden = false;
     container.innerHTML =
       "<strong>⚠ Snort telemetry stale · last-known-good table retained</strong>" +
@@ -168,7 +180,8 @@ function renderIngressBlock(data, target) {
   }
 
   if (block?.state === "attribution_unavailable") {
-    container.className = "truenas-ingress-block truenas-ingress-block--warning";
+    container.className =
+      "truenas-ingress-block truenas-ingress-block--warning";
     container.hidden = false;
     container.innerHTML =
       "<strong>⚠ Snort telemetry available · egress attribution unavailable</strong>" +
@@ -199,10 +212,13 @@ function renderIngressBlock(data, target) {
 
 function apiFailureState(api) {
   const stale = api?.stale === true ? " · stale last-good available" : "";
-  if (api?.stage === "source_allowlist") return `source IP blocked by TrueNAS allowlist${stale}`;
-  if (api?.stage === "access_denied") return `TrueNAS API access denied after connection${stale}`;
+  if (api?.stage === "source_allowlist")
+    return `source IP blocked by TrueNAS allowlist${stale}`;
+  if (api?.stage === "access_denied")
+    return `TrueNAS API access denied after connection${stale}`;
   if (api?.stage === "connection_reset") return `API connection reset${stale}`;
-  if (api?.stage === "tls_handshake_timeout") return `TLS handshake timeout${stale}`;
+  if (api?.stage === "tls_handshake_timeout")
+    return `TLS handshake timeout${stale}`;
   if (api?.stage === "api_call_timeout") return `API call timeout${stale}`;
   if (api?.stage === "connect_timeout") return `API connect timeout${stale}`;
   if (api?.stage === "tls_error") return `TLS error${stale}`;
@@ -214,7 +230,10 @@ function diagnosticsUnavailable(data, truenas) {
   if (data?.timed_out === true || diagnostics?.error_kind === "deadline") {
     return {
       state: "homelab diagnostics timeout",
-      detail: diagnostics?.detail || data?.error || "aggregate homelab diagnostic deadline exceeded",
+      detail:
+        diagnostics?.detail ||
+        data?.error ||
+        "aggregate homelab diagnostic deadline exceeded",
     };
   }
   return {
