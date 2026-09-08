@@ -90,7 +90,7 @@ async def test_sickz_snapshot_uses_local_request_scope_for_pfsense_policy(
                     "reachable": True,
                     "pfsense_tcp_ports": {},
                     "pfsense_tcp_port_policy": {},
-                }
+                },
             },
             "version": "test",
         }
