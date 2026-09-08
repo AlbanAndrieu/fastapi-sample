@@ -8,14 +8,23 @@ from nabla.api.ui import render_api_root_page
 ASSETS = Path(__file__).parents[2] / "nabla" / "api" / "assets"
 
 
-def test_api_page_prioritizes_service_groups_before_core_drilldown() -> None:
-    html = render_api_root_page(title_suffix="test", app_version="test")
+def test_api_page_places_core_runtime_drilldowns_immediately_after_hero() -> None:
+    html = render_api_root_page(
+        title_suffix="test",
+        app_version="test",
+        runtime_mode="fastapi_cloud",
+    )
 
+    hero = html.index('class="hero-code"')
+    truenas = html.index('id="truenas-platform"')
+    runtime = html.index('id="runtime-topology"')
+    health = html.index('id="health-board"')
     overview = html.index('id="service-health-overview"')
     groups = html.index('id="health-services-groups"')
-    truenas = html.index('id="truenas-platform"')
     exposure = html.index('id="sickz-board-title"')
-    assert overview < groups < truenas < exposure
+    assert hero < truenas < runtime < health < overview < groups < exposure
+    assert "Core drill-down · TrueNAS platform" in html
+    assert "FastAPI Cloud runtime" in html
     assert 'id="service-filter"' in html
     assert 'id="service-expand-issues"' in html
     assert 'id="service-collapse-all"' in html
@@ -179,3 +188,24 @@ def test_health_board_renders_merged_homelab_evidence_once() -> None:
     assert "render(merged, snapshot.platform_metrics);" in health
     assert "render(data, snapshot.platform_metrics);" not in health
     assert health.count("mergeHomelabEvidence(data, homelab)") == 1
+
+
+def test_service_overview_omits_empty_operational_counters() -> None:
+    groups = (ASSETS / "api-service-groups.js").read_text(encoding="utf-8")
+
+    assert 'if (total === 0) return "";' in groups
+    assert 'overviewCard("Other / optional", buckets.get("external") || [])' in groups
+    assert "No classified rows" in groups
+
+
+def test_sickz_keeps_one_exposure_section_without_duplicate_service_groups() -> None:
+    groups = (ASSETS / "api-service-groups.js").read_text(encoding="utf-8")
+
+    start = groups.index("export async function organizeSickzRows")
+    end = groups.index("export function installServiceFilter", start)
+    sickz = groups[start:end]
+
+    assert "serviceGroupSection(" not in sickz
+    assert 'document.createElement("details")' not in sickz
+    assert "sortRows(groupRows)" in sickz
+    assert groups.count('label: "External / optional integrations"') == 1
