@@ -1,3 +1,10 @@
+# [1.12.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.11.5...1.12.0) (2026-09-08)
+
+
+### Features
+
+* **ci:** add critical Unbound and agent pre-build gate ([#213](https://github.com/AlbanAndrieu/fastapi-sample/issues/213)) ([e6565b3](https://github.com/AlbanAndrieu/fastapi-sample/commit/e6565b3cf7c8bd1ead5e5d4ac1a18efae3f1295a))
+
 ## [1.11.5](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.11.4...1.11.5) (2026-09-07)
 
 
