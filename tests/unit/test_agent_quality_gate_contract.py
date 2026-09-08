@@ -24,6 +24,10 @@ def test_agent_quality_gate_wraps_tests_and_canonical_gate() -> None:
     assert "uv run pytest -q --disable-warnings --maxfail=1 --junit-xml=junit.xml" in text
     assert "uv run python scripts/check_versions.py" in text
     assert "bash scripts/quality-gate.sh --publish" in text
+    assert text.index("canonical formatter/linter/security") < text.index(
+        "repository pytest suite (fail-fast)",
+    )
+    assert "Working tree changed after tests" in text
     assert 'tail -n "${LOG_TAIL}"' in text
 
 

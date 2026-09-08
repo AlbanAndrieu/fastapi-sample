@@ -232,16 +232,26 @@ if ((exec_bit_failed != 0)); then
 fi
 printf '✅ executable-script contract\n'
 
+if [[ "${PUBLISH}" == true ]]; then
+    run_compact "canonical formatter/linter/security publication gate" \
+        bash scripts/quality-gate.sh --publish
+else
+    run_compact "canonical formatter/linter/security gate" \
+        bash scripts/quality-gate.sh
+fi
+
 run_compact "release/version contract" uv run python scripts/check_versions.py
 run_compact "repository pytest suite (fail-fast)" \
     uv run pytest -q --disable-warnings --maxfail=1 --junit-xml=junit.xml
 
 if [[ "${PUBLISH}" == true ]]; then
-    run_compact "canonical formatter/linter/security publication gate" \
-        bash scripts/quality-gate.sh --publish
+    STATUS="$(git status --short)"
+    if [[ -n "${STATUS}" ]]; then
+        echo "❌ Working tree changed after tests; review generated output before publishing." >&2
+        printf '%s\n' "${STATUS}" >&2
+        exit 1
+    fi
     echo "✅ Agent publication gate passed; repository is clean and safe to publish."
 else
-    run_compact "canonical formatter/linter/security gate" \
-        bash scripts/quality-gate.sh
     echo "✅ Agent quality gate passed."
 fi
