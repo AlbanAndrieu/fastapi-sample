@@ -1,3 +1,10 @@
+## [1.13.6](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.13.5...1.13.6) (2026-09-08)
+
+
+### Bug Fixes
+
+* **homelab:** reconcile Garage exposure bootstrap ([#224](https://github.com/AlbanAndrieu/fastapi-sample/issues/224)) ([d18e4b1](https://github.com/AlbanAndrieu/fastapi-sample/commit/d18e4b1602d6576c847a6ec996826ff84e4a148e))
+
 ## [1.13.5](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.13.4...1.13.5) (2026-09-08)
 
 
