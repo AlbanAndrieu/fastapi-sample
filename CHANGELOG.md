@@ -1,3 +1,10 @@
+## [1.12.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.12.0...1.12.1) (2026-09-08)
+
+
+### Bug Fixes
+
+* **health:** preserve stale and stopped runtime semantics ([#214](https://github.com/AlbanAndrieu/fastapi-sample/issues/214)) ([c4b4b64](https://github.com/AlbanAndrieu/fastapi-sample/commit/c4b4b64e341af078e4f065a1f3e0b387b11b6acf))
+
 # [1.12.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.11.5...1.12.0) (2026-09-08)
 
 
