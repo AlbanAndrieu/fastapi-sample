@@ -90,7 +90,7 @@ async def test_sickz_snapshot_uses_local_request_scope_for_pfsense_policy(
                     "reachable": True,
                     "pfsense_tcp_ports": {},
                     "pfsense_tcp_port_policy": {},
-                }
+                },
             },
             "version": "test",
         }
@@ -101,7 +101,7 @@ async def test_sickz_snapshot_uses_local_request_scope_for_pfsense_policy(
     monkeypatch.setattr(sickz_checks, "build_sickz_payload", low_level)
     monkeypatch.setattr(sickz_policy, "enrich_sickz_policy", passthrough)
 
-    payload = await health_board.build_sickz_snapshot(_request("0.0.0.0"))
+    payload = await health_board.build_sickz_snapshot(_request("127.0.0.1"))
 
     pfsense = payload["checks"]["pfsense"]
     assert pfsense["policy_status"] == "ok"
@@ -123,6 +123,11 @@ async def test_homelab_snapshot_returns_degraded_timeout_payload(monkeypatch) ->
     assert payload["status"] == "degraded"
     assert payload["timed_out"] is True
     assert payload["error_kind"] == "deadline"
+    assert payload["truenas"]["state"] == "warn"
+    diagnostics = payload["truenas"]["diagnostics"]
+    assert diagnostics["unavailable"] is True
+    assert diagnostics["error_kind"] == "deadline"
+    assert diagnostics["detail"] == payload["error"]
 
 
 @pytest.mark.asyncio

@@ -1,5 +1,6 @@
 """Unit tests for sickz exposure-policy reconciliation."""
 
+import httpx
 import pytest
 
 from nabla.api.cloudflare_tunnels import (
@@ -9,9 +10,12 @@ from nabla.api.cloudflare_tunnels import (
 from nabla.api.homelab_models import HomelabService
 from nabla.api.homelab_runtime import ObservedApp, TrueNASRuntimeSnapshot
 from nabla.api.sickz_policy import (
+    _ANONYMOUS_EDGE_HEADERS,
     _access_by_hostname,
+    _access_policy_result,
     _classify_service,
     _probe_http_edge_evidence,
+    _response_contains_cloudflare_default_deny,
     _runtime_evidence,
 )
 
@@ -343,7 +347,7 @@ def test_path_scoped_webhook_bypass_is_warning_not_full_host_failure() -> None:
                     includes_everyone=True,
                 ),
             ),
-        )
+        ),
     ]
     access = _access_by_hostname(apps)["n8n.albandrieu.com"]
 
@@ -396,3 +400,94 @@ async def test_pfsense_admin_is_not_reprobed_as_cloudflare_edge() -> None:
     assert evidence["cloudflare_access_signal"] is False
     assert evidence["http_evidence_skipped"] is True
     assert "not a Cloudflare edge target" in evidence["http_evidence_skip_reason"]
+
+
+def test_cloudflare_default_deny_body_is_detected() -> None:
+    response = httpx.Response(
+        403,
+        headers={"content-type": "text/html; charset=utf-8"},
+        text=("<html><h1>This resource is blocked by this account's <strong>Default-Deny</strong>&nbsp;policy.</h1></html>"),
+    )
+
+    assert _response_contains_cloudflare_default_deny(response) is True
+
+
+def test_access_inventory_exposes_zero_policy_application() -> None:
+    apps = [
+        CloudflareAccessApplicationObservation(
+            app_id="app-uptime",
+            name="Uptime Kuma",
+            domain="uptime-kuma.albandrieu.com",
+            hostname="uptime-kuma.albandrieu.com",
+            policies=(),
+        ),
+    ]
+
+    access = _access_by_hostname(apps)["uptime-kuma.albandrieu.com"]
+
+    assert access["cloudflare_access_application_count"] == 1
+    assert access["cloudflare_access_policy_count"] == 0
+    assert access["cloudflare_access_policy_names"] == []
+
+
+def test_default_deny_without_access_application_reports_probable_missing_policy() -> None:
+    state, detail = _access_policy_result(
+        access_required=True,
+        access_evidence=None,
+        access_observer_error=None,
+        http_evidence={
+            "cloudflare_http_evidence": True,
+            "cloudflare_default_deny": True,
+        },
+    )
+
+    assert state == "fail"
+    assert "Default-Deny" in detail
+    assert "probably missing" in detail
+
+
+def test_default_deny_with_access_application_but_no_policy_is_failure() -> None:
+    state, detail = _access_policy_result(
+        access_required=True,
+        access_evidence={
+            "cloudflare_access_observed": True,
+            "cloudflare_access_policy_count": 0,
+            "cloudflare_access_public_scope": None,
+        },
+        access_observer_error=None,
+        http_evidence={
+            "cloudflare_http_evidence": True,
+            "cloudflare_default_deny": True,
+        },
+    )
+
+    assert state == "fail"
+    assert "contains no policy" in detail
+
+
+def test_default_deny_with_existing_access_policy_is_warning() -> None:
+    state, detail = _access_policy_result(
+        access_required=True,
+        access_evidence={
+            "cloudflare_access_observed": True,
+            "cloudflare_access_policy_count": 1,
+            "cloudflare_access_public_scope": None,
+        },
+        access_observer_error=None,
+        http_evidence={
+            "cloudflare_http_evidence": True,
+            "cloudflare_default_deny": True,
+        },
+    )
+
+    assert state == "warn"
+    assert "Verify policy selectors" in detail
+
+
+def test_cloudflare_edge_probe_contract_is_anonymous() -> None:
+    assert _ANONYMOUS_EDGE_HEADERS == {
+        "User-Agent": "nabla-sickz-policy-probe/1.0",
+    }
+    lowered = {key.casefold() for key in _ANONYMOUS_EDGE_HEADERS}
+    assert "cf-access-client-id" not in lowered
+    assert "cf-access-client-secret" not in lowered

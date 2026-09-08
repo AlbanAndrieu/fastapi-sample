@@ -12,11 +12,13 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from nabla.api.homelab_catalog import fetch_homelab_catalog
 from nabla.api.homelab_declared import (
     DeclaredService,
     RuntimeBinding,
     fetch_declared_service_catalog,
 )
+from nabla.api.homelab_topology import fetch_homelab_topology
 from nabla.integrations.truenas_client import build_truenas_adapter
 
 ReconciliationState = Literal[
@@ -276,11 +278,61 @@ def _reconcile_declared(
     }, {app.app_id}
 
 
+async def _catalog_membership_drift(
+    declared_services: list[DeclaredService],
+) -> dict[str, Any]:
+    """Compare presentation, declared-runtime and topology membership without failing status."""
+    try:
+        presentation, topology = await asyncio.gather(
+            fetch_homelab_catalog(),
+            fetch_homelab_topology(),
+        )
+    except Exception as exc:  # pragma: no cover - remote catalog/provider dependent
+        return {
+            "available": False,
+            "error": _short_error(exc),
+            "services": [],
+        }
+
+    presentation_by_id = {service.service_id: service.name for service in presentation.services}
+    declared_by_id = {service.service_id: service.name for service in declared_services}
+    topology_by_id = {node.id: node.name for node in topology.nodes}
+    service_ids = sorted(
+        set(presentation_by_id) | set(declared_by_id) | set(topology_by_id),
+    )
+    drift = []
+    for service_id in service_ids:
+        membership = {
+            "presentation": service_id in presentation_by_id,
+            "declared": service_id in declared_by_id,
+            "topology": service_id in topology_by_id,
+        }
+        if len(set(membership.values())) == 1:
+            continue
+        drift.append(
+            {
+                "id": service_id,
+                "name": (presentation_by_id.get(service_id) or declared_by_id.get(service_id) or topology_by_id.get(service_id) or service_id),
+                **membership,
+            },
+        )
+
+    return {
+        "available": True,
+        "presentationCount": len(presentation_by_id),
+        "declaredCount": len(declared_by_id),
+        "topologyCount": len(topology_by_id),
+        "driftCount": len(drift),
+        "services": drift,
+    }
+
+
 async def build_homelab_status_payload() -> dict[str, Any]:
     """Join declared services with TrueNAS runtime and surface configuration drift."""
     catalog_task = asyncio.create_task(fetch_declared_service_catalog())
     runtime_task = asyncio.create_task(fetch_truenas_runtime())
     catalog, runtime = await asyncio.gather(catalog_task, runtime_task)
+    catalog_drift = await _catalog_membership_drift(catalog.services)
 
     rows: list[dict[str, Any]] = []
     matched_app_ids: set[str] = set()
@@ -309,6 +361,28 @@ async def build_homelab_status_payload() -> dict[str, Any]:
         if app.app_id not in matched_app_ids
     ]
 
+    reconciliation_counts = {
+        state: sum(1 for row in rows if row.get("reconciliation") == state)
+        for state in (
+            "in_sync",
+            "declared_only",
+            "binding_conflict",
+            "runtime_unknown",
+            "not_observed",
+        )
+    }
+    drift_summary = {
+        "inSync": reconciliation_counts["in_sync"],
+        "declaredOnly": reconciliation_counts["declared_only"],
+        "bindingConflicts": reconciliation_counts["binding_conflict"],
+        "runtimeUnknown": reconciliation_counts["runtime_unknown"],
+        "notObserved": reconciliation_counts["not_observed"],
+        "observedOnly": len(observed_only),
+        "hasDrift": bool(
+            reconciliation_counts["declared_only"] or reconciliation_counts["binding_conflict"] or observed_only,
+        ),
+    }
+
     return {
         "schemaVersion": 1,
         "checkedAt": runtime.observed_at,
@@ -317,4 +391,6 @@ async def build_homelab_status_payload() -> dict[str, Any]:
         "runtime": runtime.model_dump(mode="json", exclude_none=True),
         "services": rows,
         "observedOnly": observed_only,
+        "driftSummary": drift_summary,
+        "catalogDrift": catalog_drift,
     }

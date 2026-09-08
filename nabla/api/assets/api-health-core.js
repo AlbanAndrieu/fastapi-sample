@@ -240,7 +240,10 @@ function computeOverall(data) {
       text: "One or more checks are degraded, intentionally skipped, or waiting for complete evidence.",
     };
   }
-  return { cls: "green", text: "All currently probed health checks are healthy." };
+  return {
+    cls: "green",
+    text: "All currently probed health checks are healthy.",
+  };
 }
 
 function render(data, platformMetrics = null) {
@@ -321,14 +324,9 @@ export function loadHealth() {
     .then((snapshot) => {
       const data = snapshot.healthz;
       if (!data) throw new Error("health snapshot is missing /healthz data");
-      render(data, snapshot.platform_metrics);
       const homelab = snapshot.homelab;
-      if (homelab) {
-        render(
-          mergeHomelabEvidence(data, homelab),
-          snapshot.platform_metrics,
-        );
-      }
+      const merged = homelab ? mergeHomelabEvidence(data, homelab) : data;
+      render(merged, snapshot.platform_metrics);
     })
     .catch((error) => {
       showFetchError(String(error.message || error));

@@ -1,5 +1,8 @@
 """Tests for multi-source homelab health reconciliation."""
 
+import asyncio
+
+from nabla.api import homelab_health_evidence as module
 from nabla.api.cloudflare_tunnels import (
     CloudflareTunnelIngress,
     CloudflareTunnelObservation,
@@ -201,6 +204,7 @@ def test_service_without_url_gets_conventional_endpoint_and_unknown_state() -> N
             "internal_state": None,
             "runtime_state": None,
             "runtime_app": None,
+            "runtime_missing": False,
             "runtime_reachable": None,
             "observed_at": None,
             "observation_age_seconds": None,
@@ -714,8 +718,6 @@ def test_stale_runtime_does_not_claim_declared_app_is_missing() -> None:
 
 
 def test_runtime_error_is_exposed_in_reconciled_payload(monkeypatch) -> None:
-    from nabla.api import homelab_health_evidence as module
-
     service = HomelabService(
         name="TrueNAS-dependent service",
         tunnelUrl="https://example.albandrieu.com",
@@ -734,6 +736,7 @@ def test_runtime_error_is_exposed_in_reconciled_payload(monkeypatch) -> None:
     async def _declared():
         class Catalog:
             services = []
+
         return Catalog()
 
     async def _runtime():
@@ -744,8 +747,10 @@ def test_runtime_error_is_exposed_in_reconciled_payload(monkeypatch) -> None:
             tunnels = []
             stale = False
             configured = False
+
             def summary(self):
                 return {}
+
         return Cloudflare()
 
     async def _topology():
@@ -761,7 +766,6 @@ def test_runtime_error_is_exposed_in_reconciled_payload(monkeypatch) -> None:
     monkeypatch.setattr(module, "fetch_homelab_topology", _topology)
     monkeypatch.setattr(module, "observe_pfsense_dns_posture", _dns)
 
-    import asyncio
     payload = asyncio.run(module.reconcile_homelab_health_payload({"services": []}))
 
     assert payload["truenas_runtime_reachable"] is False

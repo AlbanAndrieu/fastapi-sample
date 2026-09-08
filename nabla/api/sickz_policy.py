@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 from collections import Counter
 from collections.abc import Iterable
+from html import unescape
 import re
 from typing import Any
 from urllib.parse import urlsplit
@@ -32,6 +33,9 @@ _DOWN_TUNNEL_STATES = frozenset({"DOWN", "FAILED", "INACTIVE"})
 _DOWN_APP_STATES = frozenset({"CRASHED", "DOWN", "ERROR", "FAILED", "STOPPED"})
 _GATEWAY_HTTP_STATUSES = frozenset({502, 503, 504})
 _KEY_RE = re.compile(r"[^a-z0-9]+")
+_MAX_EDGE_BODY_CHARS = 32_768
+_DEFAULT_DENY_FRAGMENT = "this resource is blocked by this account's default-deny policy"
+_ANONYMOUS_EDGE_HEADERS = {"User-Agent": "nabla-sickz-policy-probe/1.0"}
 _SKULL_ICON_SRC = "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f480.svg"
 
 
@@ -58,6 +62,18 @@ def _hostname(url: str | None) -> str | None:
 
 def _key(value: str | None) -> str:
     return _KEY_RE.sub("-", (value or "").strip().lower()).strip("-")
+
+
+def _response_contains_cloudflare_default_deny(response: httpx.Response) -> bool:
+    """Detect Cloudflare account-level Default-Deny from a bounded HTML/text body."""
+    content_type = response.headers.get("content-type", "").casefold()
+    if content_type and not any(marker in content_type for marker in ("text/", "html", "xhtml")):
+        return False
+    text = unescape(response.text[:_MAX_EDGE_BODY_CHARS])
+    plain = re.sub(r"<[^>]+>", " ", text)
+    normalized = re.sub(r"\s+", " ", plain).strip().casefold()
+    normalized = normalized.replace(chr(0x2019), "'")
+    return _DEFAULT_DENY_FRAGMENT in normalized
 
 
 def _observed_http_status(check: dict[str, Any]) -> int | None:
@@ -102,19 +118,21 @@ def _access_by_hostname(
         public_path_policies: list[str] = []
         decisions: list[str] = []
         domains: list[str] = []
+        policy_labels: list[str] = []
+        policy_count = 0
         for application in applications:
             domains.append(application.domain)
             root_scope = application.path in {"", "/", "/*", "*"}
             for policy in application.policies:
+                policy_count += 1
+                label = policy.name or policy.policy_id
+                policy_labels.append(label)
                 decision = (policy.decision or "").lower()
                 if decision:
                     decisions.append(decision)
-                public = decision == "bypass" or (
-                    decision == "allow" and policy.includes_everyone
-                )
+                public = decision == "bypass" or (decision == "allow" and policy.includes_everyone)
                 if not public:
                     continue
-                label = policy.name or policy.policy_id
                 if root_scope:
                     public_host_policies.append(label)
                 else:
@@ -123,15 +141,12 @@ def _access_by_hostname(
         out[hostname] = {
             "cloudflare_access_observed": True,
             "cloudflare_access_domains": sorted(set(domains)),
+            "cloudflare_access_application_count": len(applications),
+            "cloudflare_access_policy_count": policy_count,
+            "cloudflare_access_policy_names": sorted(set(policy_labels)),
             "cloudflare_access_policy_decisions": sorted(set(decisions)),
             "cloudflare_access_public": bool(public_host_policies or public_path_policies),
-            "cloudflare_access_public_scope": (
-                "host"
-                if public_host_policies
-                else "path"
-                if public_path_policies
-                else None
-            ),
+            "cloudflare_access_public_scope": ("host" if public_host_policies else "path" if public_path_policies else None),
             "cloudflare_access_public_policies": public_host_policies + public_path_policies,
         }
     return out
@@ -174,6 +189,7 @@ async def _probe_http_edge_evidence(url: str) -> dict[str, Any]:
             return {
                 "cloudflare_http_evidence": False,
                 "cloudflare_access_signal": False,
+                "http_probe_auth_mode": "anonymous",
                 "http_evidence_skipped": True,
                 "http_evidence_skip_reason": "pfSense admin endpoint is not a Cloudflare edge target",
             }
@@ -188,31 +204,27 @@ async def _probe_http_edge_evidence(url: str) -> dict[str, Any]:
         ) as client:
             response = await client.get(
                 url,
-                headers={"User-Agent": "nabla-sickz-policy-probe/1.0"},
+                headers=_ANONYMOUS_EDGE_HEADERS,
             )
     except (httpx.HTTPError, OSError):
         return {
             "cloudflare_http_evidence": False,
             "cloudflare_access_signal": False,
+            "http_probe_auth_mode": "anonymous",
         }
 
     server = response.headers.get("server", "").casefold()
     location = response.headers.get("location", "").casefold()
     cf_mitigated = response.headers.get("cf-mitigated", "").casefold()
-    cloudflare_edge = bool(
-        response.headers.get("cf-ray")
-        or response.headers.get("cf-cache-status")
-        or "cloudflare" in server
-        or cf_mitigated
-    )
-    access_signal = bool(
-        "cloudflareaccess.com" in location
-        or "/cdn-cgi/access/" in location
-        or cf_mitigated in {"challenge", "managed_challenge"}
-    )
+    default_deny = _response_contains_cloudflare_default_deny(response)
+    cloudflare_edge = bool(response.headers.get("cf-ray") or response.headers.get("cf-cache-status") or "cloudflare" in server or cf_mitigated or default_deny)
+    access_signal = bool("cloudflareaccess.com" in location or "/cdn-cgi/access/" in location or cf_mitigated in {"challenge", "managed_challenge"})
     return {
         "cloudflare_http_evidence": cloudflare_edge,
         "cloudflare_access_signal": access_signal,
+        "http_probe_auth_mode": "anonymous",
+        "cloudflare_default_deny": default_deny,
+        "cloudflare_access_policy_missing_suspected": default_deny,
         "http_evidence_status": response.status_code,
     }
 
@@ -232,11 +244,7 @@ def _runtime_app_for_service(
         )
         if candidate
     }
-    matches = [
-        app
-        for app in runtime.apps
-        if candidates.intersection({_key(app.app_id), _key(app.name)})
-    ]
+    matches = [app for app in runtime.apps if candidates.intersection({_key(app.app_id), _key(app.name)})]
     return matches[0] if len(matches) == 1 else None
 
 
@@ -266,13 +274,10 @@ def _runtime_evidence(
         out["icon_src"] = _SKULL_ICON_SRC
         if http_status in _GATEWAY_HTTP_STATUSES:
             out["failure_detail"] = (
-                f"💀 HTTP {http_status} Bad Gateway/upstream failure matches TrueNAS app state {app.state}; "
-                "the public edge is alive but the service workload is not running."
+                f"💀 HTTP {http_status} Bad Gateway/upstream failure matches TrueNAS app state {app.state}; the public edge is alive but the service workload is not running."
             )
         else:
-            out["failure_detail"] = (
-                f"💀 TrueNAS reports app state {app.state}; the service workload is not running."
-            )
+            out["failure_detail"] = f"💀 TrueNAS reports app state {app.state}; the service workload is not running."
     return out
 
 
@@ -286,7 +291,18 @@ def _access_policy_result(
     if not access_required:
         return None
 
+    default_deny = http_evidence.get("cloudflare_default_deny") is True
+
     if access_evidence is not None:
+        raw_policy_count = access_evidence.get("cloudflare_access_policy_count")
+        policy_count = raw_policy_count if isinstance(raw_policy_count, int) else None
+        if policy_count == 0:
+            detail = (
+                "⚠️ Cloudflare Default-Deny blocked the anonymous request and the observed Access application contains no policy."
+                if default_deny
+                else "Cloudflare Access application is observed but contains no policy."
+            )
+            return "fail", detail + " Add the intended Cloudflare Access policy."
         public_scope = access_evidence.get("cloudflare_access_public_scope")
         if public_scope == "host":
             policies = ", ".join(access_evidence.get("cloudflare_access_public_policies") or [])
@@ -304,8 +320,20 @@ def _access_policy_result(
                 + (f" ({policies})." if policies else ".")
                 + " Keep the exception minimal and prefer Service Auth when the caller supports it.",
             )
+        if default_deny:
+            return (
+                "warn",
+                "⚠️ Cloudflare Default-Deny blocked the anonymous probe even though "
+                f"{policy_count if policy_count is not None else 'one or more'} Access policy/policies are observed. "
+                "Verify policy selectors, precedence and the intended identity flow.",
+            )
         return "ok", "Cloudflare Access application/policies are observed without a public Everyone/bypass exception."
 
+    if default_deny:
+        return (
+            "fail",
+            "⚠️ Cloudflare Default-Deny blocked the hostname, but no matching Access application/policy was observed. An Access policy is probably missing.",
+        )
     if http_evidence.get("cloudflare_access_signal") is True:
         return "ok", "Cloudflare Access enforcement is visible in the anonymous HTTP response."
     if access_observer_error:
@@ -316,6 +344,45 @@ def _access_policy_result(
     return (
         "fail",
         "Cloudflare Access protection is required but no Access application/policy or HTTP Access challenge was observed.",
+    )
+
+
+def _tunnel_policy_result(
+    *,
+    tunnel_evidence: dict[str, Any] | None,
+    observer_configured: bool,
+    tunnel_observer_error: str | None,
+    http_evidence: dict[str, Any],
+) -> tuple[str, str]:
+    if tunnel_evidence is not None:
+        status = str(tunnel_evidence.get("cloudflare_tunnel_status") or "").upper()
+        if status in _DOWN_TUNNEL_STATES:
+            return "fail", f"Cloudflare Tunnel ingress exists but reports status {status}."
+        return "ok", "Cloudflare Tunnel ingress is observed."
+
+    edge_seen = bool(http_evidence.get("cloudflare_http_evidence"))
+    if tunnel_observer_error:
+        detail = (
+            "Cloudflare HTTP edge evidence is present but the Tunnel observer failed."
+            if edge_seen
+            else "The Cloudflare Tunnel observer failed and tunnel protection is unverified."
+        )
+        return "warn", detail
+    if not observer_configured:
+        detail = (
+            "Cloudflare HTTP edge evidence is present but the read-only observer is not configured."
+            if edge_seen
+            else "tunnelSecure=true but no Cloudflare Tunnel/edge evidence was observed."
+        )
+        return ("warn" if edge_seen else "fail"), detail
+    if edge_seen:
+        return (
+            "warn",
+            "Cloudflare edge headers are present, but the hostname is absent from Tunnel ingress inventory.",
+        )
+    return (
+        "fail",
+        "tunnelSecure=true but the hostname has no observed Cloudflare Tunnel/edge evidence.",
     )
 
 
@@ -339,36 +406,12 @@ def _secure_external_policy(
     if http_status is not None and http_status >= 500:
         return "fail", f"Service is externally reachable but returns HTTP {http_status}."
 
-    tunnel_status = "ok"
-    tunnel_detail = ""
-    if tunnel_evidence is not None:
-        status = str(tunnel_evidence.get("cloudflare_tunnel_status") or "").upper()
-        if status in _DOWN_TUNNEL_STATES:
-            return "fail", f"Cloudflare Tunnel ingress exists but reports status {status}."
-        tunnel_detail = "Cloudflare Tunnel ingress is observed."
-    else:
-        edge_seen = bool(http_evidence.get("cloudflare_http_evidence"))
-        if tunnel_observer_error:
-            tunnel_status = "warn"
-            tunnel_detail = (
-                "Cloudflare HTTP edge evidence is present but the Tunnel observer failed."
-                if edge_seen
-                else "The Cloudflare Tunnel observer failed and tunnel protection is unverified."
-            )
-        elif not observer_configured:
-            tunnel_status = "warn" if edge_seen else "fail"
-            tunnel_detail = (
-                "Cloudflare HTTP edge evidence is present but the read-only observer is not configured."
-                if edge_seen
-                else "tunnelSecure=true but no Cloudflare Tunnel/edge evidence was observed."
-            )
-        elif edge_seen:
-            tunnel_status = "warn"
-            tunnel_detail = "Cloudflare edge headers are present, but the hostname is absent from Tunnel ingress inventory."
-        else:
-            tunnel_status = "fail"
-            tunnel_detail = "tunnelSecure=true but the hostname has no observed Cloudflare Tunnel/edge evidence."
-
+    tunnel_status, tunnel_detail = _tunnel_policy_result(
+        tunnel_evidence=tunnel_evidence,
+        observer_configured=observer_configured,
+        tunnel_observer_error=tunnel_observer_error,
+        http_evidence=http_evidence,
+    )
     if tunnel_status == "fail":
         return "fail", tunnel_detail
 
@@ -382,11 +425,12 @@ def _secure_external_policy(
         return tunnel_status, tunnel_detail or "Cloudflare Tunnel posture is compliant."
 
     access_status, access_detail = access_result
+    detail = f"{tunnel_detail} {access_detail}".strip()
     if access_status == "fail":
-        return "fail", f"{tunnel_detail} {access_detail}".strip()
+        return "fail", detail
     if access_status == "warn" or tunnel_status == "warn":
-        return "warn", f"{tunnel_detail} {access_detail}".strip()
-    return "ok", f"{tunnel_detail} {access_detail}".strip()
+        return "warn", detail
+    return "ok", detail
 
 
 def _direct_external_policy(
@@ -409,7 +453,7 @@ def _direct_external_policy(
         )
 
     bits = [
-        "⚠️ Direct external exposure without Cloudflare is explicitly allowed by policy but remains a security debt."
+        "⚠️ Direct external exposure without Cloudflare is explicitly allowed by policy but remains a security debt.",
     ]
     if host.endswith(_DIRECT_EXTERNAL_SUFFIX):
         bits.append("*.int.albandrieu.com is the intentional direct-Traefik exception.")
@@ -510,18 +554,11 @@ async def enrich_sickz_policy(payload: dict[str, Any]) -> dict[str, Any]:
         access_observer_error,
     ) = cloudflare_result
 
-    services_by_url = {
-        normalized: service
-        for service in services
-        if (normalized := _normalized_url(service.tunnel_url)) is not None
-    }
+    services_by_url = {normalized: service for service in services if (normalized := _normalized_url(service.tunnel_url)) is not None}
     tunnels_by_host = _tunnels_by_hostname(tunnel_observations)
     access_by_host = _access_by_hostname(access_observations)
 
-    checks = {
-        key: dict(value) if isinstance(value, dict) else value
-        for key, value in payload.get("checks", {}).items()
-    }
+    checks = {key: dict(value) if isinstance(value, dict) else value for key, value in payload.get("checks", {}).items()}
     matched: list[tuple[str, dict[str, Any], HomelabService]] = []
     for key, check in checks.items():
         if not isinstance(check, dict):
@@ -532,7 +569,7 @@ async def enrich_sickz_policy(payload: dict[str, Any]) -> dict[str, Any]:
             matched.append((key, check, service))
 
     evidence_results = await asyncio.gather(
-        *(_probe_http_edge_evidence(service.tunnel_url or "") for _, _, service in matched)
+        *(_probe_http_edge_evidence(service.tunnel_url or "") for _, _, service in matched),
     )
 
     for (key, check, service), http_evidence in zip(
@@ -574,7 +611,7 @@ async def enrich_sickz_policy(payload: dict[str, Any]) -> dict[str, Any]:
                 "cloudflare_observer_configured": observer_configured,
                 **http_evidence,
                 **runtime_evidence,
-            }
+            },
         )
         if tunnel_evidence is not None:
             check.update(tunnel_evidence)
@@ -582,11 +619,7 @@ async def enrich_sickz_policy(payload: dict[str, Any]) -> dict[str, Any]:
             check.update(access_evidence)
         checks[key] = check
 
-    counts = Counter(
-        str(check.get("policy_status"))
-        for check in checks.values()
-        if isinstance(check, dict) and check.get("policy_status")
-    )
+    counts = Counter(str(check.get("policy_status")) for check in checks.values() if isinstance(check, dict) and check.get("policy_status"))
     return {
         **payload,
         "checks": checks,

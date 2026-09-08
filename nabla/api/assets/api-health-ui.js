@@ -46,6 +46,13 @@ function iconSrcIsHttpUrl(value) {
   return lower.slice(0, 8) === "https://" || lower.slice(0, 7) === "http://";
 }
 
+function selfhstFilenameFromCatalogPath(value) {
+  const match = /^assets\/selfh-icons\/([a-z0-9._-]+)\.(?:png|svg)$/i.exec(
+    String(value || ""),
+  );
+  return match ? `${match[1]}.svg` : "";
+}
+
 function serviceIconSvg(key, statusCls) {
   const imgFile = HEALTHZ_ICON_IMG[key];
   if (imgFile) {
@@ -86,6 +93,14 @@ export function rowIcon(check, key, statusCls) {
       "</span>"
     );
   }
+  const catalogFilename = selfhstFilenameFromCatalogPath(absRaw);
+  if (catalogFilename) {
+    return (
+      `<span class="health-row-icon health-row-icon--img health-row-icon--${statusCls}" aria-hidden="true">` +
+      `<img src="${SELFHST_ICON_CDN}${escapeText(catalogFilename)}" alt="" width="26" height="26" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" />` +
+      "</span>"
+    );
+  }
   const filename = check.icon_filename;
   if (filename && typeof filename === "string") {
     return (
@@ -99,6 +114,16 @@ export function rowIcon(check, key, statusCls) {
 
 export function sickzRowIcon(check, statusCls) {
   return rowIcon(check, "sickz_url", statusCls);
+}
+
+export function cloudflarePolicyWarningHtml(check) {
+  if (check.cloudflare_default_deny !== true) return "";
+  const policyCount = Number(check.cloudflare_access_policy_count);
+  const confirmedMissing = Number.isFinite(policyCount) && policyCount === 0;
+  const label = confirmedMissing
+    ? "Cloudflare Default-Deny: Access application has no policy"
+    : "Cloudflare Default-Deny: verify the matching Access policy";
+  return `<span class="cloudflare-policy-warning" role="img" aria-label="${escapeText(label)}" title="${escapeText(label)}">⚠️</span>`;
 }
 
 export function shortHostForDetail(url) {

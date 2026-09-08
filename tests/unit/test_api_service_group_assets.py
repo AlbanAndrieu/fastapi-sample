@@ -26,8 +26,8 @@ def test_service_group_asset_mirrors_site_criticality_contract() -> None:
     classification = (ASSETS / "api-service-classification.js").read_text(encoding="utf-8")
 
     for label in (
-        "1 · Services & experiments",
-        "2 · Critical core platform",
+        "1 · Critical core platform",
+        "2 · Services & experiments",
         "3 · Security controls",
         "4 · Shared platform & data",
         "5 · Observability & support",
@@ -51,7 +51,7 @@ def test_service_group_asset_mirrors_site_criticality_contract() -> None:
 def test_security_group_exposes_nist_csf_2_reference() -> None:
     source = (ASSETS / "api-service-groups.js").read_text(encoding="utf-8")
     classification = (ASSETS / "api-service-classification.js").read_text(
-        encoding="utf-8"
+        encoding="utf-8",
     )
     css = (ASSETS / "api-service-groups.css").read_text(encoding="utf-8")
 
@@ -156,3 +156,26 @@ def test_critical_core_group_is_first() -> None:
     core = javascript.index('label: "1 · Critical core platform"')
     services = javascript.index('label: "2 · Services & experiments"')
     assert core < services
+
+
+def test_health_grouping_falls_back_to_public_declared_catalog() -> None:
+    groups = (ASSETS / "api-service-groups.js").read_text(encoding="utf-8")
+
+    assert 'fetchJson("/api/homelab-topology")' in groups
+    assert 'fetchJson("/api/homelab/declared-services")' in groups
+    assert "topologyFromDeclaredServices" in groups
+    assert '"declared-services-fallback"' in groups
+    assert "presentationRole" in groups
+    assert "securityFunctions" in groups
+    assert "classification-unavailable" in groups
+    assert "Service classification" in groups
+    assert "Topology and declared-service catalog could not be loaded" in groups
+
+
+def test_health_board_renders_merged_homelab_evidence_once() -> None:
+    health = (ASSETS / "api-health-core.js").read_text(encoding="utf-8")
+
+    assert "const merged = homelab ? mergeHomelabEvidence(data, homelab) : data;" in health
+    assert "render(merged, snapshot.platform_metrics);" in health
+    assert "render(data, snapshot.platform_metrics);" not in health
+    assert health.count("mergeHomelabEvidence(data, homelab)") == 1
