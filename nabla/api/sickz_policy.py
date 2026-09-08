@@ -39,7 +39,7 @@ _MAX_EDGE_BODY_CHARS = 32_768
 _DEFAULT_DENY_FRAGMENT = "this resource is blocked by this account's default-deny policy"
 _ANONYMOUS_EDGE_HEADERS = {"User-Agent": "nabla-sickz-policy-probe/1.0"}
 _CF_ACCESS_CLIENT_ID_HEADER = "CF-Access-Client-Id"
-_CF_ACCESS_CLIENT_SECRET_HEADER = "CF-Access-Client-Secret"
+_CF_ACCESS_SERVICE_AUTH_HEADER = "CF-Access-Client-Secret"
 _SKULL_ICON_SRC = "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f480.svg"
 
 
@@ -268,7 +268,7 @@ async def _probe_http_edge_evidence(
             if token_status["configured"] is not True:
                 return evidence
             if not _service_token_target_allowed(url):
-                evidence["cloudflare_service_token_skip_reason"] = "untrusted_target"
+                evidence["cloudflare_access_fallback_skip_reason"] = "outside_trusted_zone"
                 return evidence
 
             service_headers = {
@@ -277,7 +277,7 @@ async def _probe_http_edge_evidence(
                     "CF_ACCESS_CLIENT_ID",
                     "",
                 ).strip(),
-                _CF_ACCESS_CLIENT_SECRET_HEADER: os.getenv(
+                _CF_ACCESS_SERVICE_AUTH_HEADER: os.getenv(
                     "CF_ACCESS_CLIENT_SECRET",
                     "",
                 ).strip(),
@@ -361,6 +361,77 @@ def _runtime_evidence(
     return out
 
 
+def _observed_access_policy_exception(
+    *,
+    access_evidence: dict[str, Any],
+    default_deny: bool,
+    service_auth_passed: bool,
+) -> tuple[str, str] | None:
+    """Return explicit Access-policy drift/public-scope findings when present."""
+    raw_policy_count = access_evidence.get("cloudflare_access_policy_count")
+    policy_count = raw_policy_count if isinstance(raw_policy_count, int) else None
+    if policy_count == 0:
+        if service_auth_passed:
+            return (
+                "warn",
+                "Cloudflare Service Auth passed the live edge check, but the "
+                "read-only Access observer reports an application with zero "
+                "policies. Reconcile Cloudflare control-plane drift.",
+            )
+        detail = (
+            "⚠️ Cloudflare Default-Deny blocked the anonymous request and the observed Access application contains no policy."
+            if default_deny
+            else "Cloudflare Access application is observed but contains no policy."
+        )
+        return "fail", detail + " Add the intended Cloudflare Access policy."
+
+    public_scope = access_evidence.get("cloudflare_access_public_scope")
+    if public_scope == "host":
+        policies = ", ".join(access_evidence.get("cloudflare_access_public_policies") or [])
+        return (
+            "fail",
+            "⚠️ Cloudflare Access permits or bypasses anonymous access for the whole hostname"
+            + (f" ({policies})." if policies else ".")
+            + " Check the Cloudflare Access policy; scope any webhook exception to a narrow path or use Service Auth.",
+        )
+    if public_scope == "path":
+        policies = ", ".join(access_evidence.get("cloudflare_access_public_policies") or [])
+        return (
+            "warn",
+            "⚠️ Cloudflare Access contains a path-scoped public bypass"
+            + (f" ({policies})." if policies else ".")
+            + " Keep the exception minimal and prefer Service Auth when the caller supports it.",
+        )
+    return None
+
+
+def _service_auth_access_result(
+    *,
+    blocked: bool,
+    attempted: bool,
+    passed: bool,
+    observed_policy: bool,
+) -> tuple[str, str] | None:
+    """Classify the authenticated fallback independently from policy inventory."""
+    if not blocked:
+        return None
+    if passed:
+        detail = (
+            "Cloudflare blocks the anonymous probe and the configured Service Token passes Access; the automated identity path is working."
+            if observed_policy
+            else "Cloudflare blocks anonymous access and the configured Service Token passes the live Access check."
+        )
+        return "ok", detail
+    if attempted:
+        detail = (
+            "Cloudflare blocks the anonymous probe and the configured Service Token did not pass Access. Verify the Service Auth policy and token selectors."
+            if observed_policy
+            else "Cloudflare Access blocks the anonymous request and the configured Service Token did not pass."
+        )
+        return "fail", detail
+    return None
+
+
 def _access_policy_result(
     *,
     access_required: bool,
@@ -373,54 +444,30 @@ def _access_policy_result(
 
     default_deny = http_evidence.get("cloudflare_default_deny") is True
     access_signal = http_evidence.get("cloudflare_access_signal") is True
-    service_token_attempted = http_evidence.get("cloudflare_service_token_attempted") is True
-    service_token_passed = http_evidence.get("cloudflare_service_token_access_passed") is True
+    blocked = default_deny or access_signal
+    service_auth_attempted = http_evidence.get("cloudflare_service_token_attempted") is True
+    service_auth_passed = http_evidence.get("cloudflare_service_token_access_passed") is True
 
     if access_evidence is not None:
-        raw_policy_count = access_evidence.get("cloudflare_access_policy_count")
-        policy_count = raw_policy_count if isinstance(raw_policy_count, int) else None
-        if policy_count == 0:
-            if service_token_passed:
-                return (
-                    "warn",
-                    "Cloudflare Service Auth passed the live edge check, but the "
-                    "read-only Access observer reports an application with zero "
-                    "policies. Reconcile Cloudflare control-plane drift.",
-                )
-            detail = (
-                "⚠️ Cloudflare Default-Deny blocked the anonymous request and the observed Access application contains no policy."
-                if default_deny
-                else "Cloudflare Access application is observed but contains no policy."
-            )
-            return "fail", detail + " Add the intended Cloudflare Access policy."
-        public_scope = access_evidence.get("cloudflare_access_public_scope")
-        if public_scope == "host":
-            policies = ", ".join(access_evidence.get("cloudflare_access_public_policies") or [])
-            return (
-                "fail",
-                "⚠️ Cloudflare Access permits or bypasses anonymous access for the whole hostname"
-                + (f" ({policies})." if policies else ".")
-                + " Check the Cloudflare Access policy; scope any webhook exception to a narrow path or use Service Auth.",
-            )
-        if public_scope == "path":
-            policies = ", ".join(access_evidence.get("cloudflare_access_public_policies") or [])
-            return (
-                "warn",
-                "⚠️ Cloudflare Access contains a path-scoped public bypass"
-                + (f" ({policies})." if policies else ".")
-                + " Keep the exception minimal and prefer Service Auth when the caller supports it.",
-            )
-        if (default_deny or access_signal) and service_token_passed:
-            return (
-                "ok",
-                "Cloudflare blocks the anonymous probe and the configured Service Token passes Access; the automated identity path is working.",
-            )
-        if (default_deny or access_signal) and service_token_attempted:
-            return (
-                "fail",
-                "Cloudflare blocks the anonymous probe and the configured Service Token did not pass Access. Verify the Service Auth policy and token selectors.",
-            )
+        policy_exception = _observed_access_policy_exception(
+            access_evidence=access_evidence,
+            default_deny=default_deny,
+            service_auth_passed=service_auth_passed,
+        )
+        if policy_exception is not None:
+            return policy_exception
+
+        service_auth_result = _service_auth_access_result(
+            blocked=blocked,
+            attempted=service_auth_attempted,
+            passed=service_auth_passed,
+            observed_policy=True,
+        )
+        if service_auth_result is not None:
+            return service_auth_result
         if default_deny:
+            raw_policy_count = access_evidence.get("cloudflare_access_policy_count")
+            policy_count = raw_policy_count if isinstance(raw_policy_count, int) else None
             return (
                 "warn",
                 "⚠️ Cloudflare Default-Deny blocked the anonymous probe even though "
@@ -429,22 +476,20 @@ def _access_policy_result(
             )
         return "ok", "Cloudflare Access application/policies are observed without a public Everyone/bypass exception."
 
-    if (default_deny or access_signal) and service_token_passed:
-        return (
-            "ok",
-            "Cloudflare blocks anonymous access and the configured Service Token passes the live Access check.",
-        )
-    if (default_deny or access_signal) and service_token_attempted:
-        return (
-            "fail",
-            "Cloudflare Access blocks the anonymous request and the configured Service Token did not pass.",
-        )
+    service_auth_result = _service_auth_access_result(
+        blocked=blocked,
+        attempted=service_auth_attempted,
+        passed=service_auth_passed,
+        observed_policy=False,
+    )
+    if service_auth_result is not None:
+        return service_auth_result
     if default_deny:
         return (
             "fail",
             "⚠️ Cloudflare Default-Deny blocked the hostname, but no matching Access application/policy was observed. An Access policy is probably missing.",
         )
-    if http_evidence.get("cloudflare_access_signal") is True:
+    if access_signal:
         return "ok", "Cloudflare Access enforcement is visible in the anonymous HTTP response."
     if access_observer_error:
         return (
