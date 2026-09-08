@@ -42,6 +42,7 @@ async def test_infrastructure_pair_does_not_configure_fastapi_observer(monkeypat
     assert result["phase"] == "authentication"
     assert result["stage"] == "missing_username"
     assert result["username_configured"] is False
+    assert "TRUENAS_API_USERNAME" in result["error"]
 
 
 @pytest.mark.asyncio
