@@ -602,7 +602,7 @@ async def test_cloudflare_service_token_is_not_used_when_anonymous_access_works(
 
     def handler(request: httpx.Request) -> httpx.Response:
         seen_headers.append(
-            {key.casefold(): value for key, value in request.headers.items()}
+            {key.casefold(): value for key, value in request.headers.items()},
         )
         return httpx.Response(
             200,
