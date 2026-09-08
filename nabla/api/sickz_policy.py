@@ -193,16 +193,10 @@ def _edge_response_evidence(response: httpx.Response) -> dict[str, Any]:
     cf_mitigated = response.headers.get("cf-mitigated", "").casefold()
     default_deny = _response_contains_cloudflare_default_deny(response)
     cloudflare_edge = bool(
-        response.headers.get("cf-ray")
-        or response.headers.get("cf-cache-status")
-        or "cloudflare" in server
-        or cf_mitigated
-        or default_deny,
+        response.headers.get("cf-ray") or response.headers.get("cf-cache-status") or "cloudflare" in server or cf_mitigated or default_deny,
     )
     access_signal = bool(
-        "cloudflareaccess.com" in location
-        or "/cdn-cgi/access/" in location
-        or cf_mitigated in {"challenge", "managed_challenge"},
+        "cloudflareaccess.com" in location or "/cdn-cgi/access/" in location or cf_mitigated in {"challenge", "managed_challenge"},
     )
     return {
         "cloudflare_http_evidence": cloudflare_edge,
