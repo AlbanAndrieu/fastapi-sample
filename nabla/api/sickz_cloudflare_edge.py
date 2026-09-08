@@ -31,9 +31,7 @@ def _hostname(url: str | None) -> str | None:
 def _response_contains_cloudflare_default_deny(response: httpx.Response) -> bool:
     """Detect Cloudflare account-level Default-Deny from a bounded HTML/text body."""
     content_type = response.headers.get("content-type", "").casefold()
-    if content_type and not any(
-        marker in content_type for marker in ("text/", "html", "xhtml")
-    ):
+    if content_type and not any(marker in content_type for marker in ("text/", "html", "xhtml")):
         return False
     text = unescape(response.text[:_MAX_EDGE_BODY_CHARS])
     plain = re.sub(r"<[^>]+>", " ", text)
@@ -49,16 +47,10 @@ def _edge_response_evidence(response: httpx.Response) -> dict[str, Any]:
     cf_mitigated = response.headers.get("cf-mitigated", "").casefold()
     default_deny = _response_contains_cloudflare_default_deny(response)
     cloudflare_edge = bool(
-        response.headers.get("cf-ray")
-        or response.headers.get("cf-cache-status")
-        or "cloudflare" in server
-        or cf_mitigated
-        or default_deny,
+        response.headers.get("cf-ray") or response.headers.get("cf-cache-status") or "cloudflare" in server or cf_mitigated or default_deny,
     )
     access_signal = bool(
-        "cloudflareaccess.com" in location
-        or "/cdn-cgi/access/" in location
-        or cf_mitigated in {"challenge", "managed_challenge"},
+        "cloudflareaccess.com" in location or "/cdn-cgi/access/" in location or cf_mitigated in {"challenge", "managed_challenge"},
     )
     return {
         "cloudflare_http_evidence": cloudflare_edge,
@@ -76,10 +68,7 @@ def _service_token_target_allowed(url: str) -> bool:
 
 def _service_token_fallback_needed(evidence: dict[str, Any]) -> bool:
     """Retry only when the anonymous response explicitly looks Access-blocked."""
-    return (
-        evidence.get("cloudflare_default_deny") is True
-        or evidence.get("cloudflare_access_signal") is True
-    )
+    return evidence.get("cloudflare_default_deny") is True or evidence.get("cloudflare_access_signal") is True
 
 
 async def _probe_http_edge_evidence(
