@@ -1,3 +1,10 @@
+## [1.13.7](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.13.6...1.13.7) (2026-09-08)
+
+
+### Bug Fixes
+
+* **ui:** distinguish TrueNAS HTTPS exposure from API health ([#225](https://github.com/AlbanAndrieu/fastapi-sample/issues/225)) ([b76ea03](https://github.com/AlbanAndrieu/fastapi-sample/commit/b76ea038d13fd5a13478e5b11d24be18c1b4c9dd))
+
 ## [1.13.6](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.13.5...1.13.6) (2026-09-08)
 
 
