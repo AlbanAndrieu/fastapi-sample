@@ -188,6 +188,18 @@ def test_pfsense_posture_prefers_dedicated_transport_and_masks_secrets(monkeypat
     assert "shared-secret" not in repr(settings)
 
 
+def test_legacy_pfsense_api_hostname_normalizes_to_home(monkeypatch) -> None:
+    _clear_pfsense_env(monkeypatch)
+    monkeypatch.setenv(
+        "PFSENSE_API_URL",
+        "https://pfsense.albandrieu.com:10443",
+    )
+
+    settings = PfSensePostureProviderSettings()
+
+    assert settings.base_url == "https://home.albandrieu.com:10443"
+
+
 def test_pfsense_posture_blank_tls_override_falls_back_to_shared_policy(monkeypatch) -> None:
     _clear_pfsense_env(monkeypatch)
     monkeypatch.setenv("PFSENSE_API_URL", "https://shared.example.test")
