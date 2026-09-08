@@ -191,7 +191,7 @@ function exposureTags(check) {
   if (check.cloudflare_default_deny === true) {
     access.push("Cloudflare Default-Deny");
   }
-  if (check.cloudflare_service_token_attempted === true) {
+  if (check.cloudflare_service_auth_attempted === true) {
     access.push(
       check.cloudflare_service_token_access_passed === true
         ? "Service token Access OK"
