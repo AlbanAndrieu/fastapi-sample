@@ -298,7 +298,13 @@ async def check_pfsense_api() -> dict[str, Any]:
     if healthy:
         result["last_success_at"] = _utc_now()
     else:
-        result["error"] = f"pfSense API returned HTTP {response.status_code}"
+        result.update(
+            {
+                "error": f"pfSense API returned HTTP {response.status_code}",
+                "error_kind": f"http_{response.status_code}",
+                "failure_stage": "http_response",
+            },
+        )
     return result
 
 
