@@ -41,7 +41,7 @@ def _topology_payload() -> dict:
                 "type": "consumesApi",
                 "strength": "required",
                 "evidence": ["apps/openwebui/compose.yml:OPENAI_API_BASE_URL"],
-            }
+            },
         ],
     }
 
@@ -75,7 +75,7 @@ def test_topology_accepts_hosted_by_placement_relation() -> None:
             "name": "Docker",
             "kind": "container-runtime",
             "category": "infrastructure",
-        }
+        },
     )
     payload["relations"].append(
         {
@@ -84,7 +84,7 @@ def test_topology_accepts_hosted_by_placement_relation() -> None:
             "type": "hostedBy",
             "strength": "required",
             "evidence": ["apps/openwebui/compose.yml:x-nabla.runtime.containerService"],
-        }
+        },
     )
 
     topology = HomelabTopology.model_validate(payload)
