@@ -1,3 +1,10 @@
+## [1.13.4](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.13.3...1.13.4) (2026-09-08)
+
+
+### Bug Fixes
+
+* **ci:** converge post-220 quality gate ([#221](https://github.com/AlbanAndrieu/fastapi-sample/issues/221)) ([2e0f1a2](https://github.com/AlbanAndrieu/fastapi-sample/commit/2e0f1a29873abb898e7adfa5baa3e594d3faa513))
+
 ## [1.13.3](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.13.2...1.13.3) (2026-09-08)
 
 
