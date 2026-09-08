@@ -81,19 +81,13 @@ async def test_mcp_operations_resource_is_discoverable() -> None:
 
     async with Client(server) as client:
         resources = await client.list_resources()
-        assert any(
-            str(resource.uri) == "resource://fastapi/operations"
-            for resource in resources
-        )
+        assert any(str(resource.uri) == "resource://fastapi/operations" for resource in resources)
         content = await client.read_resource("resource://fastapi/operations")
 
     payload = json.loads(content[0].text)
     assert payload["service"] == "fastapi-sample"
     assert payload["mcp_endpoint"] == "/mcp"
-    assert any(
-        item["endpoint"] == "/api/homelab/status"
-        for item in payload["operations"]
-    )
+    assert any(item["endpoint"] == "/api/homelab/status" for item in payload["operations"])
 
 
 def test_mcp_operational_tools_do_not_bypass_diagnostics_protection() -> None:
