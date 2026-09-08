@@ -711,3 +711,58 @@ def test_stale_runtime_does_not_claim_declared_app_is_missing() -> None:
 
     assert rows[0]["runtime_missing"] is False
     assert rows[0]["state"] == "unknown"
+
+
+def test_runtime_error_is_exposed_in_reconciled_payload(monkeypatch) -> None:
+    from nabla.api import homelab_health_evidence as module
+
+    service = HomelabService(
+        name="TrueNAS-dependent service",
+        tunnelUrl="https://example.albandrieu.com",
+        external=True,
+    )
+    runtime = TrueNASRuntimeSnapshot(
+        observed_at="2026-09-08T03:00:00Z",
+        configured=True,
+        reachable=False,
+        error="You are not allowed to access this resource",
+    )
+
+    async def _services():
+        return [service]
+
+    async def _declared():
+        class Catalog:
+            services = []
+        return Catalog()
+
+    async def _runtime():
+        return runtime
+
+    async def _cloudflare():
+        class Cloudflare:
+            tunnels = []
+            stale = False
+            configured = False
+            def summary(self):
+                return {}
+        return Cloudflare()
+
+    async def _topology():
+        return {"nodes": [], "relations": []}
+
+    async def _dns(**_kwargs):
+        return {}
+
+    monkeypatch.setattr(module, "fetch_homelab_services", _services)
+    monkeypatch.setattr(module, "fetch_declared_service_catalog", _declared)
+    monkeypatch.setattr(module, "fetch_truenas_runtime", _runtime)
+    monkeypatch.setattr(module, "observe_cloudflare_exposure", _cloudflare)
+    monkeypatch.setattr(module, "fetch_homelab_topology", _topology)
+    monkeypatch.setattr(module, "observe_pfsense_dns_posture", _dns)
+
+    import asyncio
+    payload = asyncio.run(module.reconcile_homelab_health_payload({"services": []}))
+
+    assert payload["truenas_runtime_reachable"] is False
+    assert payload["truenas_runtime_error"] == "You are not allowed to access this resource"
