@@ -443,15 +443,12 @@ def _access_policy_result(
         if (default_deny or access_signal) and service_token_passed:
             return (
                 "ok",
-                "Cloudflare blocks the anonymous probe and the configured Service "
-                "Token passes Access; the automated identity path is working.",
+                "Cloudflare blocks the anonymous probe and the configured Service Token passes Access; the automated identity path is working.",
             )
         if (default_deny or access_signal) and service_token_attempted:
             return (
                 "fail",
-                "Cloudflare blocks the anonymous probe and the configured Service "
-                "Token did not pass Access. Verify the Service Auth policy and token "
-                "selectors.",
+                "Cloudflare blocks the anonymous probe and the configured Service Token did not pass Access. Verify the Service Auth policy and token selectors.",
             )
         if default_deny:
             return (
@@ -465,14 +462,12 @@ def _access_policy_result(
     if (default_deny or access_signal) and service_token_passed:
         return (
             "ok",
-            "Cloudflare blocks anonymous access and the configured Service Token "
-            "passes the live Access check.",
+            "Cloudflare blocks anonymous access and the configured Service Token passes the live Access check.",
         )
     if (default_deny or access_signal) and service_token_attempted:
         return (
             "fail",
-            "Cloudflare Access blocks the anonymous request and the configured "
-            "Service Token did not pass.",
+            "Cloudflare Access blocks the anonymous request and the configured Service Token did not pass.",
         )
     if default_deny:
         return (
@@ -718,11 +713,7 @@ async def enrich_sickz_policy(payload: dict[str, Any]) -> dict[str, Any]:
             _probe_http_edge_evidence(
                 service.tunnel_url or "",
                 allow_service_token=bool(
-                    service.external
-                    and (
-                        service.tunnel_secure is True
-                        or service.effective_cloudflare_access_required
-                    ),
+                    service.external and (service.tunnel_secure is True or service.effective_cloudflare_access_required),
                 ),
             )
             for _, _, service in matched
