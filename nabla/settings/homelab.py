@@ -68,7 +68,7 @@ class TrueNASProviderSettings(SettingsBase):
         valid_scheme = parsed.scheme.casefold() in _ALLOWED_TRUENAS_SCHEMES
         if not valid_scheme or not parsed.hostname:
             raise ValueError(
-                "TRUENAS_URL must be an HTTP(S) or WS(S) URL with a host"
+                "TRUENAS_URL must be an HTTP(S) or WS(S) URL with a host",
             )
         return value
 
@@ -309,7 +309,7 @@ class PfSensePostureProviderSettings(_PfSenseSharedProviderSettings):
     @property
     def api_key(self) -> str:
         return _secret_value(self.pfsense_posture_api_key) or _secret_value(
-            self.pfsense_api_key
+            self.pfsense_api_key,
         )
 
     @property
