@@ -170,7 +170,6 @@ def test_unconfigured_unbound_observer_does_not_create_false_outage() -> None:
     assert component["reachable"] is None
 
 
-
 def test_component_status_ignores_missing_unbound_component() -> None:
     components = {
         "postgres": {"reachable": True},
