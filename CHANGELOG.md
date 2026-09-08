@@ -1,3 +1,10 @@
+## [1.13.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.13.0...1.13.1) (2026-09-08)
+
+
+### Bug Fixes
+
+* **ci:** converge agent preflight and reduce CI churn ([#215](https://github.com/AlbanAndrieu/fastapi-sample/issues/215)) ([d87abdc](https://github.com/AlbanAndrieu/fastapi-sample/commit/d87abdc2e2bdc11ec60034fef15bf24383b68630))
+
 # [1.13.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.12.1...1.13.0) (2026-09-08)
 
 
