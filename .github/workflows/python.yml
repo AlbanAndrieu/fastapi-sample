@@ -5,6 +5,7 @@ on:
   pull_request:
     branches: [master]
     types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -76,9 +77,9 @@ jobs:
 
       - name: Run agent-first quality gate before builds
         env:
-          QUALITY_BASE_REF: origin/${{ github.base_ref }}
+          QUALITY_BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'origin/master' }}
           QUALITY_LOG_TAIL: "120"
-        run: bash scripts/agent-quality-gate.sh
+        run: bash scripts/agent-quality-gate.sh --publish
 
       - name: Save pre-commit environments
         if: ${{ always() && steps.precommit-cache.outputs.cache-hit != 'true' }}
@@ -98,7 +99,7 @@ jobs:
 
   build:
     needs: preflight
-    if: ${{ github.event.pull_request.draft == false }}
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == false }}
     name: Test and build Python package
     runs-on: ubuntu-latest
     env:
@@ -203,7 +204,7 @@ jobs:
   redis-integration:
     name: Redis integration
     needs: preflight
-    if: ${{ github.event.pull_request.draft == false }}
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     env:
       PYTHON_VERSION: "3.13"
@@ -303,9 +304,6 @@ jobs:
     needs: build
     if: github.actor != 'dependabot[bot]'
     permissions:
-      contents: write
-      pull-requests: write
-      issues: write
-      statuses: write
+      contents: read
       security-events: write
     uses: ./.github/workflows/mega-linter.yml

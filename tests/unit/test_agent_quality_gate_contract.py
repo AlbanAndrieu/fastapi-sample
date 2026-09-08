@@ -16,27 +16,33 @@ def test_agent_quality_gate_wraps_tests_and_canonical_gate() -> None:
     assert mode & stat.S_IXUSR
     assert "QG_BASE_STALE" in text
     assert "QG_LARGE_DELETION" in text
+    assert "diff-filter=D" in text
     assert "QG_EXEC_BIT" in text
+    assert "uv run pre-commit run shfmt" in text
+    assert "uv run pre-commit run shell-lint" in text
+    assert "uv run pre-commit run bashate" in text
     assert "uv run pytest -q --disable-warnings --maxfail=1 --junit-xml=junit.xml" in text
     assert "uv run python scripts/check_versions.py" in text
-    assert "bash scripts/quality-gate.sh" in text
+    assert "bash scripts/quality-gate.sh --publish" in text
     assert 'tail -n "${LOG_TAIL}"' in text
 
 
-def test_pre_push_uses_agent_quality_gate() -> None:
+def test_pre_push_uses_agent_publication_gate() -> None:
     config = (ROOT / ".pre-commit-pre-push.yaml").read_text(encoding="utf-8")
 
-    assert "entry: bash scripts/agent-quality-gate.sh" in config
+    assert "entry: bash scripts/agent-quality-gate.sh --publish" in config
 
 
 def test_python_ci_gates_builds_behind_preflight() -> None:
     workflow = (ROOT / ".github/workflows/python.yml").read_text(encoding="utf-8")
 
     assert "\n  preflight:\n" in workflow
-    assert "run: bash scripts/agent-quality-gate.sh" in workflow
-    assert "QUALITY_BASE_REF: origin/${{ github.base_ref }}" in workflow
+    assert "run: bash scripts/agent-quality-gate.sh --publish" in workflow
+    assert "workflow_dispatch:" in workflow
+    assert "format('origin/{0}', github.base_ref)" in workflow
+    assert "'origin/master'" in workflow
     assert "\n    needs: preflight\n" in workflow
-    assert "github.event.pull_request.draft == false" in workflow
+    assert "github.event_name == 'pull_request' && github.event.pull_request.draft == false" in workflow
     assert workflow.count("Upload test results to Trunk.io") == 1
     assert "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" in workflow
     assert "actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" in workflow
@@ -60,3 +66,31 @@ def test_codeql_waits_until_draft_is_ready() -> None:
 
     assert "types: [opened, synchronize, reopened, ready_for_review]" in workflow
     assert "github.event.pull_request.draft == false" in workflow
+
+
+def test_canonical_quality_gate_has_explicit_publication_mode() -> None:
+    gate = (ROOT / "scripts" / "quality-gate.sh").read_text(encoding="utf-8")
+
+    assert 'if [[ "${1:-}" == "--publish" ]]' in gate
+    assert "Working tree is not clean enough to publish" in gate
+    assert "Quality gate passed. Review and commit validated changes before publishing." in gate
+
+
+def test_mise_exposes_agent_fix_check_and_publish_tasks() -> None:
+    config = (ROOT / "mise.toml").read_text(encoding="utf-8")
+
+    assert "[tasks.agent-fix]" in config
+    assert "[tasks.agent-quality]" in config
+    assert "[tasks.agent-publish]" in config
+    assert 'run = "bash scripts/agent-quality-gate.sh --publish"' in config
+
+
+def test_megalinter_caller_keeps_least_privilege_permissions() -> None:
+    workflow = (ROOT / ".github/workflows/python.yml").read_text(encoding="utf-8")
+    caller = workflow.split("\n  mega-linter:\n", maxsplit=1)[1]
+
+    assert "contents: read" in caller
+    assert "security-events: write" in caller
+    assert "pull-requests: write" not in caller
+    assert "issues: write" not in caller
+    assert "statuses: write" not in caller

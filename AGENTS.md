@@ -131,11 +131,12 @@ After an editing batch, use the repository-specific agent workflow before publis
 bash scripts/agent-quality-gate.sh --fix
 # Review deterministic formatter changes and commit them.
 bash scripts/agent-quality-gate.sh
+bash scripts/agent-quality-gate.sh --publish
 ```
 
-The strict agent gate checks branch freshness, suspicious destructive truncations, executable bits for shebang scripts, release/version consistency, the complete pytest suite in quiet fail-fast mode, and then delegates to the canonical `scripts/quality-gate.sh`.
+The strict agent gate checks branch freshness, suspicious destructive truncations or complete large-file deletions, executable bits for shebang scripts, release/version consistency, and the complete pytest suite in quiet fail-fast mode. When the gate script itself changed, focused shfmt/ShellCheck/bashate hooks run before pytest so gate defects fail early.
 
-The canonical gate remains the shared publication formatter/linter/security orchestrator. It validates files touched by the branch plus staged, unstaged, and untracked working-tree files through the repository `pre-commit` stage. Keep expensive Docker, Sonar, MegaLinter and runtime/deployment checks in CI after the deterministic preflight.
+The canonical gate remains the shared formatter/linter/security orchestrator. Normal mode is dirty-tree aware for iterative validation; `scripts/quality-gate.sh --publish` additionally requires a clean working tree. Keep expensive Docker, Sonar, MegaLinter and runtime/deployment checks in CI after the deterministic preflight. The Python workflow also exposes `workflow_dispatch` as a preflight-only remote execution path for environments that cannot obtain a local dependency-enabled checkout.
 
 ## Mandatory agent publish policy
 
@@ -151,12 +152,12 @@ Before every `git push`, GitHub API file update, or other remote repository muta
 
 1. Run `bash scripts/agent-quality-gate.sh --fix` after the editing batch whenever shell access is available.
 2. Review and commit deterministic formatter changes.
-3. Run `bash scripts/agent-quality-gate.sh` until it exits successfully with a clean working tree.
+3. Run `bash scripts/agent-quality-gate.sh` until validation is green, then run `bash scripts/agent-quality-gate.sh --publish` to require a clean working tree.
 4. Fix every formatter, linter, YAML, workflow, configuration, generated-file, lockfile, unit/contract-test, executable-bit, destructive-diff, or security-check failure caused by the change.
 5. Verify `git status --short` is empty.
 6. Only then publish the changes.
 
-Keep iterative agent pull requests as drafts until the strict local gate is green. Expensive CI may skip draft PRs while the deterministic preflight still runs. When `mise run hooks` has been run, the normal Git `pre-commit` hook validates commits and the `pre-push` hook invokes `scripts/agent-quality-gate.sh`.
+Keep iterative agent pull requests as drafts until the strict local gate is green. Expensive CI may skip draft PRs while the deterministic preflight still runs. When `mise run hooks` has been run, the normal Git `pre-commit` hook validates commits and the `pre-push` hook invokes `scripts/agent-quality-gate.sh --publish`.
 
 An API-only agent must not silently treat remote API writes as a way to bypass local hooks. If its runtime cannot obtain or execute a checkout, it must explicitly report that limitation, reproduce the closest deterministic validations available, keep the remote patch minimal, and inspect the resulting CI immediately. Batch files from one logical patch into one commit/tree whenever possible: every PR synchronize event can start or cancel runners. It must never claim that the local quality gate passed when it was not executed.
 

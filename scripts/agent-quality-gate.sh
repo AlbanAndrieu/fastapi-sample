@@ -5,24 +5,30 @@ ROOT="$(git rev-parse --show-toplevel)"
 cd "${ROOT}"
 
 MODE="check"
+PUBLISH=false
 case "${1:-}" in
     --fix)
         MODE="fix"
         shift
         ;;
+    --publish)
+        PUBLISH=true
+        shift
+        ;;
     -h | --help)
         cat <<'EOF'
 Usage:
-  bash scripts/agent-quality-gate.sh [--fix]
+  bash scripts/agent-quality-gate.sh [--fix|--publish]
 
 Modes:
-  default  strict pre-publish gate; requires a clean tree at the end
-  --fix    apply/check pre-commit hooks on the complete change set first
+  default    strict validation gate
+  --fix      apply/check pre-commit hooks on the complete change set first
+  --publish  strict gate plus canonical clean-tree publication check
 
 Environment:
   QUALITY_BASE_REF                 override comparison base
   QUALITY_LOG_TAIL                 failure log lines to print (default: 80)
-  QUALITY_ALLOW_LARGE_DELETION=1   acknowledge an intentional large truncation
+  QUALITY_ALLOW_LARGE_DELETION=1   acknowledge an intentional large truncation/deletion
 EOF
         exit 0
         ;;
@@ -78,8 +84,7 @@ run_compact() {
 
 collect_changed_files() {
     {
-        if [[ "${BASE_REF}" != "HEAD" ]] &&
-            git rev-parse --verify "${BASE_REF}^{commit}" >/dev/null 2>&1; then
+        if [[ "${BASE_REF}" != "HEAD" ]] && git rev-parse --verify "${BASE_REF}^{commit}" >/dev/null 2>&1; then
             git diff --name-only --diff-filter=ACMR "${BASE_REF}...HEAD"
         fi
         git diff --name-only --diff-filter=ACMR
@@ -95,18 +100,49 @@ collect_changed_files() {
 
 mapfile -t CHANGED_FILES < <(collect_changed_files)
 
+collect_deleted_files() {
+    {
+        if [[ "${BASE_REF}" != "HEAD" ]] && git rev-parse --verify "${BASE_REF}^{commit}" >/dev/null 2>&1; then
+            git diff --name-only --diff-filter=D "${BASE_REF}...HEAD"
+        fi
+        git diff --name-only --diff-filter=D
+        git diff --cached --name-only --diff-filter=D
+    } |
+        awk 'NF' |
+        sort -u
+}
+
+mapfile -t DELETED_FILES < <(collect_deleted_files)
+
 command -v uv >/dev/null 2>&1 || {
     echo "❌ uv is required" >&2
     exit 1
 }
 
+agent_gate_changed=false
+for file in "${CHANGED_FILES[@]}"; do
+    if [[ "${file}" == "scripts/agent-quality-gate.sh" ]]; then
+        agent_gate_changed=true
+        break
+    fi
+done
+
+if [[ "${MODE}" != "fix" && "${agent_gate_changed}" == true ]]; then
+    run_compact "agent gate shell formatting" \
+        uv run pre-commit run shfmt --files scripts/agent-quality-gate.sh
+    run_compact "agent gate shell lint" \
+        uv run pre-commit run shell-lint --files scripts/agent-quality-gate.sh
+    run_compact "agent gate shell style" \
+        uv run pre-commit run bashate --files scripts/agent-quality-gate.sh
+fi
+
 if [[ "${MODE}" == "fix" ]]; then
-    if (("${#CHANGED_FILES[@]}" > 0)); then
+    if ((${#CHANGED_FILES[@]} > 0)); then
         run_compact "apply/check pre-commit hooks on changed files" \
             uv run pre-commit run --hook-stage pre-commit \
             --files "${CHANGED_FILES[@]}" --show-diff-on-failure
     fi
-    echo "ℹ️  review git diff/status, commit deterministic fixes, then run this gate without --fix"
+    echo "ℹ️  review git diff/status, commit deterministic fixes, then run this gate and finally --publish"
     exit 0
 fi
 
@@ -129,7 +165,7 @@ if [[ "${QUALITY_ALLOW_LARGE_DELETION:-0}" != "1" && "${BASE_REF}" != "HEAD" ]];
             uv.lock | Pipfile.lock | package-lock.json | trivy-sbom.json)
                 continue
                 ;;
-            *.md | *.py | *.sh | *.js | *.mjs | *.css | *.yml | *.yaml | *.json | *.toml | Dockerfile* | Makefile | Taskfile.yml)
+            *.md | *.py | *.sh | *.js | *.mjs | *.css | *.yml | *.yaml | *.json | *.toml | Dockerfile* | Makefile)
                 ;;
             *)
                 continue
@@ -149,8 +185,30 @@ if [[ "${QUALITY_ALLOW_LARGE_DELETION:-0}" != "1" && "${BASE_REF}" != "HEAD" ]];
             large_deletion_failed=1
         fi
     done
+
+    for file in "${DELETED_FILES[@]}"; do
+        case "${file}" in
+            uv.lock | Pipfile.lock | package-lock.json | trivy-sbom.json)
+                continue
+                ;;
+            *.md | *.py | *.sh | *.js | *.mjs | *.css | *.yml | *.yaml | *.json | *.toml | Dockerfile* | Makefile)
+                ;;
+            *)
+                continue
+                ;;
+        esac
+        git cat-file -e "${BASE_REF}:${file}" 2>/dev/null || continue
+        base_lines="$(git show "${BASE_REF}:${file}" | wc -l | tr -d ' ')"
+        if ((base_lines >= 200)); then
+            printf '❌ QG_LARGE_DELETION: %s was deleted (%d lines); set QUALITY_ALLOW_LARGE_DELETION=1 only after explicit review\n' \
+                "${file}" "${base_lines}" >&2
+            large_deletion_failed=1
+        fi
+    done
 fi
-((large_deletion_failed == 0)) || exit 1
+if ((large_deletion_failed != 0)); then
+    exit 1
+fi
 printf '✅ destructive-diff guard\n'
 
 exec_bit_failed=0
@@ -169,13 +227,21 @@ for file in "${CHANGED_FILES[@]}"; do
         exec_bit_failed=1
     fi
 done
-((exec_bit_failed == 0)) || exit 1
+if ((exec_bit_failed != 0)); then
+    exit 1
+fi
 printf '✅ executable-script contract\n'
 
 run_compact "release/version contract" uv run python scripts/check_versions.py
 run_compact "repository pytest suite (fail-fast)" \
     uv run pytest -q --disable-warnings --maxfail=1 --junit-xml=junit.xml
-run_compact "canonical formatter/linter/security gate" \
-    bash scripts/quality-gate.sh
 
-echo "✅ Agent quality gate passed; safe to publish and start remote CI."
+if [[ "${PUBLISH}" == true ]]; then
+    run_compact "canonical formatter/linter/security publication gate" \
+        bash scripts/quality-gate.sh --publish
+    echo "✅ Agent publication gate passed; repository is clean and safe to publish."
+else
+    run_compact "canonical formatter/linter/security gate" \
+        bash scripts/quality-gate.sh
+    echo "✅ Agent quality gate passed."
+fi
