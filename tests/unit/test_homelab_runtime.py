@@ -419,11 +419,13 @@ async def test_catalog_membership_drift_flags_uptime_kuma_contract_split(
         return topology
 
     monkeypatch.setattr(
-        "nabla.api.homelab_catalog.fetch_homelab_catalog",
+        homelab_runtime,
+        "fetch_homelab_catalog",
         fake_presentation,
     )
     monkeypatch.setattr(
-        "nabla.api.homelab_topology.fetch_homelab_topology",
+        homelab_runtime,
+        "fetch_homelab_topology",
         fake_topology,
     )
 
