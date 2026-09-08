@@ -20,6 +20,6 @@ def test_production_smoke_accepts_classified_transient_pfsense_failures() -> Non
     assert "Post-deploy smoke remains strict" in smoke
     assert '"telemetry_stale"' in smoke
     assert '"telemetry_unavailable"' in smoke
-    assert '.pfsense.dns.ingress_block.last_success_at' in smoke
-    assert '.pfsense.dns.ingress_block.attribution_available == false' in smoke
+    assert ".pfsense.dns.ingress_block.last_success_at" in smoke
+    assert ".pfsense.dns.ingress_block.attribution_available == false" in smoke
     assert '.pfsense.dns.ingress_block.state != "telemetry_unavailable"' not in smoke
