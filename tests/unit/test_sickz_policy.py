@@ -590,3 +590,32 @@ def test_access_policy_reports_service_token_denial_after_anonymous_block() -> N
 
     assert state == "fail"
     assert "Service Token did not pass" in detail
+
+
+@pytest.mark.asyncio
+async def test_cloudflare_service_token_is_not_used_when_anonymous_access_works(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("CF_ACCESS_CLIENT_ID", "client-id-test")
+    monkeypatch.setenv("CF_ACCESS_CLIENT_SECRET", "client-secret-test")
+    seen_headers: list[dict[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_headers.append(
+            {key.casefold(): value for key, value in request.headers.items()}
+        )
+        return httpx.Response(
+            200,
+            headers={"cf-ray": "test-ray", "content-type": "text/html"},
+            text="<html>public origin reached</html>",
+        )
+
+    evidence = await _probe_http_edge_evidence(
+        "https://status.albandrieu.com/",
+        transport=httpx.MockTransport(handler),
+    )
+
+    assert len(seen_headers) == 1
+    assert "cf-access-client-id" not in seen_headers[0]
+    assert "cf-access-client-secret" not in seen_headers[0]
+    assert evidence["cloudflare_service_token_attempted"] is False
