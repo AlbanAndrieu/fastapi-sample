@@ -200,8 +200,8 @@ observer trust boundary is exactly:
 | Usage | Username variable | Secret variable |
 | --- | --- | --- |
 | FastAPI observer | `TRUENAS_API_USERNAME=fastapi_observer` | `TRUENAS_API_KEY` |
-| OpenTofu/Terragrunt | not consumed by this repository/runtime | `TRUENAS_INFRA_API_KEY` is not consumed |
-| TrueNAS MCP tooling | configured by the MCP launcher only | `TRUENAS_MCP_API_KEY` is not consumed by FastAPI |
+| OpenTofu/Terragrunt | `TRUENAS_INFRA_API_USERNAME=albandrieu` (in `nabla-compose`) | `TRUENAS_INFRA_API_KEY` (not consumed by FastAPI) |
+| TrueNAS MCP tooling | launcher-specific identity | `TRUENAS_MCP_API_KEY` (not consumed by FastAPI) |
 
 OpenTofu/Terragrunt uses the separate
 `TRUENAS_INFRA_API_USERNAME` + `TRUENAS_INFRA_API_KEY` pair in
