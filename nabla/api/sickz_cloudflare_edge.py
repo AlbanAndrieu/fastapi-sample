@@ -96,9 +96,7 @@ async def _probe_http_edge_evidence(
                 "cloudflare_access_signal": False,
                 "http_probe_auth_mode": "anonymous",
                 "http_evidence_skipped": True,
-                "http_evidence_skip_reason": (
-                    "pfSense admin endpoint is not a Cloudflare edge target"
-                ),
+                "http_evidence_skip_reason": ("pfSense admin endpoint is not a Cloudflare edge target"),
                 "cloudflare_service_auth_attempted": False,
             }
     except ValueError:
@@ -107,19 +105,13 @@ async def _probe_http_edge_evidence(
     token_status = cloudflare_access_service_token_credentials().as_dict()
     token_metadata: dict[str, Any] = {
         "cloudflare_service_token_configured": token_status["configured"],
-        "cloudflare_service_token_configuration_stage": token_status[
-            "configuration_stage"
-        ],
+        "cloudflare_service_token_configuration_stage": token_status["configuration_stage"],
         "cloudflare_service_auth_attempted": False,
     }
     if token_status["missing_variables"]:
-        token_metadata["cloudflare_service_token_missing_variables"] = token_status[
-            "missing_variables"
-        ]
+        token_metadata["cloudflare_service_token_missing_variables"] = token_status["missing_variables"]
     if token_status["invalid_reference_variables"]:
-        token_metadata["cloudflare_service_token_invalid_reference_variables"] = (
-            token_status["invalid_reference_variables"]
-        )
+        token_metadata["cloudflare_service_token_invalid_reference_variables"] = token_status["invalid_reference_variables"]
 
     try:
         async with httpx.AsyncClient(
@@ -132,9 +124,7 @@ async def _probe_http_edge_evidence(
             evidence = {
                 **anonymous_evidence,
                 "http_probe_auth_mode": "anonymous",
-                "cloudflare_access_policy_missing_suspected": anonymous_evidence[
-                    "cloudflare_default_deny"
-                ],
+                "cloudflare_access_policy_missing_suspected": anonymous_evidence["cloudflare_default_deny"],
                 **token_metadata,
             }
 
@@ -143,9 +133,7 @@ async def _probe_http_edge_evidence(
             if token_status["configured"] is not True:
                 return evidence
             if not _service_token_target_allowed(url):
-                evidence["cloudflare_access_fallback_skip_reason"] = (
-                    "outside_trusted_zone"
-                )
+                evidence["cloudflare_access_fallback_skip_reason"] = "outside_trusted_zone"
                 return evidence
 
             service_headers = {
@@ -167,20 +155,13 @@ async def _probe_http_edge_evidence(
                 return evidence
 
             service_evidence = _edge_response_evidence(service_response)
-            access_passed = not (
-                service_evidence["cloudflare_default_deny"]
-                or service_evidence["cloudflare_access_signal"]
-            )
+            access_passed = not (service_evidence["cloudflare_default_deny"] or service_evidence["cloudflare_access_signal"])
             evidence.update(
                 {
                     "cloudflare_service_token_access_passed": access_passed,
                     "cloudflare_service_token_http_status": service_response.status_code,
-                    "cloudflare_service_token_default_deny": service_evidence[
-                        "cloudflare_default_deny"
-                    ],
-                    "cloudflare_service_token_access_signal": service_evidence[
-                        "cloudflare_access_signal"
-                    ],
+                    "cloudflare_service_token_default_deny": service_evidence["cloudflare_default_deny"],
+                    "cloudflare_service_token_access_signal": service_evidence["cloudflare_access_signal"],
                 },
             )
             return evidence
