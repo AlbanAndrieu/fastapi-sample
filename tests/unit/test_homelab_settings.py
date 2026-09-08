@@ -19,6 +19,8 @@ _TRUENAS_ENV = (
     "TRUENAS_USER",
     "TRUENAS_API_KEY",
     "TRUENAS_MCP_API_KEY",
+    "TRUENAS_INFRA_API_USERNAME",
+    "TRUENAS_INFRA_API_KEY",
     "TRUENAS_API_VERIFY_SSL",
     "TRUENAS_VERIFY_SSL",
     "TRUENAS_WS_PATH",
@@ -41,55 +43,66 @@ def test_defaults_are_valid_without_credentials(monkeypatch) -> None:
     assert settings.adapter_username == ""
     assert settings.canonical_api_key == ""
     assert settings.adapter_api_key == ""
+    assert settings.adapter_username_environment == "TRUENAS_API_USERNAME"
+    assert settings.adapter_api_key_environment == "TRUENAS_API_KEY"
 
 
-def test_alias_precedence_and_adapter_key_fallback_are_explicit(monkeypatch) -> None:
+def test_non_observer_credentials_are_ignored_but_reported(monkeypatch) -> None:
     _clear_truenas_env(monkeypatch)
-    monkeypatch.setenv("TRUENAS_USER", "legacy-user")
     monkeypatch.setenv("TRUENAS_USERNAME", "compat-user")
-    monkeypatch.setenv("TRUENAS_API_USERNAME", "api-user")
+    monkeypatch.setenv("TRUENAS_USER", "legacy-user")
     monkeypatch.setenv("TRUENAS_MCP_API_KEY", "7-mcp-secret")
+    monkeypatch.setenv("TRUENAS_INFRA_API_USERNAME", "albandrieu")
+    monkeypatch.setenv("TRUENAS_INFRA_API_KEY", "6-infra-secret")
 
     settings = TrueNASProviderSettings()
 
-    assert settings.adapter_username == "api-user"
-    assert settings.adapter_username_environment == "TRUENAS_API_USERNAME"
+    assert settings.adapter_username == ""
+    assert settings.adapter_api_key == ""
     assert settings.shadowed_username_environments == (
         "TRUENAS_USERNAME",
         "TRUENAS_USER",
+        "TRUENAS_INFRA_API_USERNAME",
     )
-    assert settings.canonical_api_key == ""
-    assert settings.adapter_api_key == "7-mcp-secret"
-    assert settings.adapter_api_key_environment == "TRUENAS_MCP_API_KEY"
-    assert "7-mcp-secret" not in repr(settings)
+    assert settings.shadowed_api_key_environments == (
+        "TRUENAS_MCP_API_KEY",
+        "TRUENAS_INFRA_API_KEY",
+    )
+    rendered = repr(settings)
+    assert "compat-user" not in rendered
+    assert "legacy-user" not in rendered
+    assert "7-mcp-secret" not in rendered
+    assert "6-infra-secret" not in rendered
 
 
-def test_username_environment_reports_legacy_fallback_when_canonical_is_absent(
-    monkeypatch,
-) -> None:
+def test_canonical_observer_pair_wins_without_leaking_secrets(monkeypatch) -> None:
     _clear_truenas_env(monkeypatch)
-    monkeypatch.setenv("TRUENAS_USER", "legacy-user")
-
-    settings = TrueNASProviderSettings()
-
-    assert settings.adapter_username == "legacy-user"
-    assert settings.adapter_username_environment == "TRUENAS_USER"
-    assert settings.shadowed_username_environments == ()
-
-
-def test_canonical_api_key_wins_without_leaking_secret(monkeypatch) -> None:
-    _clear_truenas_env(monkeypatch)
+    monkeypatch.setenv("TRUENAS_API_USERNAME", "fastapi_observer")
     monkeypatch.setenv("TRUENAS_API_KEY", "8-canonical-secret")
+    monkeypatch.setenv("TRUENAS_USER", "legacy-user")
+    monkeypatch.setenv("TRUENAS_INFRA_API_USERNAME", "albandrieu")
     monkeypatch.setenv("TRUENAS_MCP_API_KEY", "7-mcp-secret")
+    monkeypatch.setenv("TRUENAS_INFRA_API_KEY", "6-infra-secret")
 
     settings = TrueNASProviderSettings()
 
+    assert settings.adapter_username == "fastapi_observer"
+    assert settings.adapter_username_environment == "TRUENAS_API_USERNAME"
     assert settings.canonical_api_key == "8-canonical-secret"
     assert settings.adapter_api_key == "8-canonical-secret"
     assert settings.adapter_api_key_environment == "TRUENAS_API_KEY"
-    assert settings.shadowed_api_key_environments == ("TRUENAS_MCP_API_KEY",)
-    assert "8-canonical-secret" not in repr(settings)
-    assert "7-mcp-secret" not in repr(settings)
+    assert settings.shadowed_username_environments == (
+        "TRUENAS_USER",
+        "TRUENAS_INFRA_API_USERNAME",
+    )
+    assert settings.shadowed_api_key_environments == (
+        "TRUENAS_MCP_API_KEY",
+        "TRUENAS_INFRA_API_KEY",
+    )
+    rendered = repr(settings)
+    assert "8-canonical-secret" not in rendered
+    assert "7-mcp-secret" not in rendered
+    assert "6-infra-secret" not in rendered
 
 
 def test_url_tls_and_websocket_path_are_normalized(monkeypatch) -> None:
@@ -139,7 +152,6 @@ def test_obsolete_verify_ssl_alias_remains_ignored(monkeypatch) -> None:
     monkeypatch.setenv("TRUENAS_VERIFY_SSL", "false")
 
     assert TrueNASProviderSettings().verify_ssl is True
-
 
 _PFSENSE_ENV = (
     "PFSENSE_API_URL",

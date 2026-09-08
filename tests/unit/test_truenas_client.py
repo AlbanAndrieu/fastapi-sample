@@ -51,41 +51,46 @@ def test_settings_require_username_and_api_key(monkeypatch) -> None:
         "TRUENAS_USER",
         "TRUENAS_API_KEY",
         "TRUENAS_MCP_API_KEY",
+        "TRUENAS_INFRA_API_USERNAME",
+        "TRUENAS_INFRA_API_KEY",
     ):
         monkeypatch.delenv(name, raising=False)
 
     assert TrueNASSettings.from_environment() is None
 
 
-def test_settings_reuse_mcp_api_key(monkeypatch) -> None:
-    monkeypatch.setenv("TRUENAS_API_USERNAME", "readonly")
+def test_settings_do_not_reuse_mcp_api_key(monkeypatch) -> None:
+    monkeypatch.setenv("TRUENAS_API_USERNAME", "fastapi_observer")
     monkeypatch.setenv("TRUENAS_MCP_API_KEY", "1-test-key")
     monkeypatch.delenv("TRUENAS_API_KEY", raising=False)
     monkeypatch.delenv("TRUENAS_URL", raising=False)
 
-    settings = TrueNASSettings.from_environment()
+    assert TrueNASSettings.from_environment() is None
 
-    assert settings is not None
-    assert settings.url == "https://truenas.albandrieu.com:7000"
-    assert settings.username == "readonly"
-    assert settings.api_key == "1-test-key"
-    assert settings.websocket_uri == ("wss://truenas.albandrieu.com:7000/api/current")
-    assert settings.verify_ssl is True
-    assert settings.call_timeout == 5.0
+def test_settings_do_not_accept_infrastructure_credentials(monkeypatch) -> None:
+    monkeypatch.delenv("TRUENAS_API_USERNAME", raising=False)
+    monkeypatch.delenv("TRUENAS_API_KEY", raising=False)
+    monkeypatch.setenv("TRUENAS_INFRA_API_USERNAME", "albandrieu")
+    monkeypatch.setenv("TRUENAS_INFRA_API_KEY", "2-infra-key")
+
+    assert TrueNASSettings.from_environment() is None
+
 
 
 def test_settings_use_canonical_api_verify_ssl(monkeypatch) -> None:
-    monkeypatch.delenv("TRUENAS_API_USERNAME", raising=False)
-    monkeypatch.delenv("TRUENAS_USERNAME", raising=False)
-    monkeypatch.setenv("TRUENAS_USER", "legacy-user")
+    monkeypatch.setenv("TRUENAS_API_USERNAME", "fastapi_observer")
     monkeypatch.setenv("TRUENAS_API_KEY", "1-test-key")
+    monkeypatch.setenv("TRUENAS_USER", "legacy-user")
+    monkeypatch.setenv("TRUENAS_INFRA_API_USERNAME", "albandrieu")
+    monkeypatch.setenv("TRUENAS_INFRA_API_KEY", "2-infra-key")
     monkeypatch.setenv("TRUENAS_API_VERIFY_SSL", "false")
     monkeypatch.setenv("TRUENAS_VERIFY_SSL", "true")
 
     settings = TrueNASSettings.from_environment()
 
     assert settings is not None
-    assert settings.username == "legacy-user"
+    assert settings.username == "fastapi_observer"
+    assert settings.api_key == "1-test-key"
     assert settings.verify_ssl is False
 
 
