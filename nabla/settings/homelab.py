@@ -166,6 +166,7 @@ class TrueNASProviderSettings(SettingsBase):
 
 
 _ALLOWED_PFSENSE_SCHEMES = frozenset({"http", "https"})
+DEFAULT_PFSENSE_API_URL = "https://home.albandrieu.com:10443"
 
 
 def _pfsense_optional_text(value: object) -> object:
@@ -242,7 +243,7 @@ def pfsense_security_environment_variables() -> tuple[str, str]:
 class _PfSenseSharedProviderSettings(SettingsBase):
     """Shared compatibility transport inherited by split pfSense identities."""
 
-    pfsense_api_url: str | None = None
+    pfsense_api_url: str | None = DEFAULT_PFSENSE_API_URL
     pfsense_api_key: SecretStr | None = None
     pfsense_api_verify_ssl: bool = True
 
