@@ -216,9 +216,7 @@ def test_sickz_metadata_keeps_names_for_policy_targets() -> None:
 
 
 def test_healthz_key_uses_stable_service_id() -> None:
-    assert homelab_catalog._healthz_check_key("langfuse-worker") == (
-        "albandrieu_langfuse_worker"
-    )
+    assert homelab_catalog._healthz_check_key("langfuse-worker") == ("albandrieu_langfuse_worker")
 
 
 def test_catalog_rejects_duplicate_service_names_case_insensitively() -> None:
@@ -242,12 +240,8 @@ def test_catalog_rejects_duplicate_service_ids() -> None:
 
 
 def test_exposure_catalog_uses_nabla_compose_as_authority_with_bootstrap_cache() -> None:
-    assert "AlbanAndrieu/nabla-compose/master/catalog/homelab-services.json" in (
-        homelab_catalog.HOMELAB_SERVICES_CATALOG_URL
-    )
-    assert "AlbanAndrieu/nabla-compose/master/catalog/homelab-exposure-overrides.json" in (
-        homelab_catalog.HOMELAB_EXPOSURE_OVERRIDES_URL
-    )
+    assert "AlbanAndrieu/nabla-compose/master/catalog/homelab-services.json" in (homelab_catalog.HOMELAB_SERVICES_CATALOG_URL)
+    assert "AlbanAndrieu/nabla-compose/master/catalog/homelab-exposure-overrides.json" in (homelab_catalog.HOMELAB_EXPOSURE_OVERRIDES_URL)
     assert homelab_catalog.HOMELAB_SERVICES_CATALOG_PATH.is_file()
     assert homelab_catalog.HOMELAB_EXPOSURE_OVERRIDES_PATH.is_file()
 
