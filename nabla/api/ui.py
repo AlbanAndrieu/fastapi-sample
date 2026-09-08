@@ -184,14 +184,28 @@ def render_api_root_page(
                 <p class="health-error" id="health-fetch-error" hidden></p>
                 <div class="service-groups" id="health-services-groups" aria-live="polite"></div>
 
-                <section class="runtime-topology" id="runtime-topology" data-runtime-mode="{mode}" aria-labelledby="runtime-topology-title">
-                    <div class="runtime-topology-heading">
+                <section class="truenas-platform" id="truenas-platform" data-service-filter-target data-search-text="truenas core critical storage platform infrastructure https websocket api" aria-labelledby="truenas-platform-title">
+                    <div class="truenas-platform-heading">
+                        <div>
+                            <h3 class="health-subboard-title truenas-platform-title" id="truenas-platform-title">Core drill-down · TrueNAS platform</h3>
+                            <p class="health-board-meta">Critical storage and VM host · detailed HTTPS and WebSocket API diagnostics.</p>
+                        </div>
+                        <span class="truenas-platform-state truenas-platform-state--neutral" id="truenas-platform-state">Loading…</span>
+                    </div>
+                    <div class="truenas-platform-target" id="truenas-platform-target">https://truenas.albandrieu.com:7000</div>
+                    <div class="truenas-pipeline" id="truenas-pipeline" aria-live="polite"></div>
+                    <p class="health-error" id="truenas-platform-error" hidden></p>
+                </section>
+
+
+                <details class="runtime-topology" id="runtime-topology" open data-runtime-mode="{mode}" aria-labelledby="runtime-topology-title">
+                    <summary class="runtime-topology-heading">
                         <div>
                             <h3 id="runtime-topology-title">{runtime_title}</h3>
                             <p class="health-board-meta">{runtime_description}</p>
                         </div>
                         <span class="runtime-topology-state runtime-topology-state--warn" id="runtime-topology-state">Loading…</span>
-                    </div>
+                    </summary>
                     <div class="runtime-topology-grid">
                         <div class="runtime-topology-metric">
                             <span id="runtime-instance-label">{instance_label}</span>
@@ -241,21 +255,7 @@ def render_api_root_page(
                     </div>
                     <div class="runtime-instance-list" id="runtime-instance-list" aria-live="polite"></div>
                     <p class="runtime-topology-note" id="runtime-count-semantics">{runtime_note}</p>
-                </section>
-
-
-                <section class="truenas-platform" id="truenas-platform" data-service-filter-target data-search-text="truenas core critical storage platform infrastructure https websocket api" aria-labelledby="truenas-platform-title">
-                    <div class="truenas-platform-heading">
-                        <div>
-                            <h3 class="health-subboard-title truenas-platform-title" id="truenas-platform-title">Core drill-down · TrueNAS platform</h3>
-                            <p class="health-board-meta">Critical storage and VM host · detailed HTTPS and WebSocket API diagnostics.</p>
-                        </div>
-                        <span class="truenas-platform-state truenas-platform-state--neutral" id="truenas-platform-state">Loading…</span>
-                    </div>
-                    <div class="truenas-platform-target" id="truenas-platform-target">https://truenas.albandrieu.com:7000</div>
-                    <div class="truenas-pipeline" id="truenas-pipeline" aria-live="polite"></div>
-                    <p class="health-error" id="truenas-platform-error" hidden></p>
-                </section>
+                </details>
 
                 <h3 class="health-subboard-title" id="sickz-board-title">Exposure security policy</h3>
                 <p class="health-board-meta">Live view of <a href="/sickz">/sickz</a>.
