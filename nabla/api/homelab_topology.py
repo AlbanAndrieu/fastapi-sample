@@ -92,7 +92,7 @@ class HomelabTopologyNode(BaseModel):
     def require_unique_security_functions(self) -> "HomelabTopologyNode":
         """Reject ambiguous duplicate NIST CSF function metadata."""
         if self.security_functions is not None and len(self.security_functions) != len(
-            set(self.security_functions)
+            set(self.security_functions),
         ):
             raise ValueError("securityFunctions must not contain duplicates")
         return self
@@ -149,13 +149,13 @@ class HomelabTopology(BaseModel):
             if relation.source not in known or relation.target not in known:
                 raise ValueError(
                     "topology relation references an unknown node: "
-                    f"{relation.source} -> {relation.target}"
+                    f"{relation.source} -> {relation.target}",
                 )
             key = (relation.source, relation.target, relation.type)
             if key in relation_keys:
                 raise ValueError(
                     "duplicate homelab topology relation: "
-                    f"{relation.source} -> {relation.target} ({relation.type})"
+                    f"{relation.source} -> {relation.target} ({relation.type})",
                 )
             relation_keys.add(key)
         return self
