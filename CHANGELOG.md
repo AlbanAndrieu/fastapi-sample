@@ -1,3 +1,11 @@
+## [1.13.8](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.13.7...1.13.8) (2026-09-08)
+
+
+### Bug Fixes
+
+* **ci:** apply Biome formatting after [#225](https://github.com/AlbanAndrieu/fastapi-sample/issues/225) ([#226](https://github.com/AlbanAndrieu/fastapi-sample/issues/226)) ([73782b7](https://github.com/AlbanAndrieu/fastapi-sample/commit/73782b7858dd921bdd20940ad12d6dc28647f27d))
+* **deps:** bump the npm_and_yarn group across 1 directory with 4 updates ([#228](https://github.com/AlbanAndrieu/fastapi-sample/issues/228)) ([d42acb9](https://github.com/AlbanAndrieu/fastapi-sample/commit/d42acb97922f0ea60d5d25f5c49ced0e8d4d4585))
+
 ## [1.13.7](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.13.6...1.13.7) (2026-09-08)
 
 
