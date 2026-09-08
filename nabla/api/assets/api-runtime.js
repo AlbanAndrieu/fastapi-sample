@@ -148,6 +148,11 @@ function render(snapshot) {
   renderInstances(runtime.instances);
 
   const degraded = runtime.degraded === true;
+  const truenasApi = snapshot?.healthz?.checks?.truenas_api;
+  const truenasApiHealthy = truenasApi?.reachable === true;
+  if (panel instanceof HTMLDetailsElement) {
+    panel.open = degraded || !truenasApiHealthy;
+  }
   state.className = `runtime-topology-state runtime-topology-state--${degraded ? "warn" : "ok"}`;
   if (isFastapiCloud) {
     state.textContent = degraded ? "local observation only" : `${count} active observed`;
