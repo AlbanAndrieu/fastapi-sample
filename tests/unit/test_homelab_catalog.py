@@ -138,7 +138,7 @@ def test_int_external_exception_requires_explicit_direct_security_posture() -> N
     service = HomelabService.model_validate(
         {
             "name": "Garage",
-            "tunnelUrl": "https://garage.int.albandrieu.com",
+            "tunnelUrl": "https://s3.int.albandrieu.com",
             "external": True,
             "tunnelSecure": False,
         }
@@ -146,7 +146,7 @@ def test_int_external_exception_requires_explicit_direct_security_posture() -> N
 
     assert service.external is True
     assert service.tunnel_secure is False
-    assert service.public_https_probe_url == "https://garage.int.albandrieu.com/"
+    assert service.public_https_probe_url == "https://s3.int.albandrieu.com/"
 
 
 def test_secure_external_service_requires_cloudflare_access_by_default() -> None:
@@ -163,7 +163,7 @@ def test_secure_external_service_requires_cloudflare_access_by_default() -> None
 def test_direct_external_service_does_not_require_access_by_default() -> None:
     service = HomelabService(
         name="Garage",
-        tunnel_url="https://garage.int.albandrieu.com",
+        tunnel_url="https://s3.int.albandrieu.com",
         tunnel_secure=False,
         external=True,
     )
@@ -355,8 +355,15 @@ def test_bootstrap_catalog_preserves_litellm_exposure_policy() -> None:
 
     garage = by_name["Garage"]
     assert garage.internal_host == "172.17.0.24"
-    assert garage.internal_port == 3909
+    assert garage.internal_port == 3900
     assert garage.internal_secure is False
+    assert garage.tunnel_url == "https://s3.int.albandrieu.com"
+
+    garage_webui = by_name["Garage WebUI"]
+    assert garage_webui.internal_host == "172.17.0.24"
+    assert garage_webui.internal_port == 3909
+    assert garage_webui.internal_secure is False
+    assert garage_webui.tunnel_url == "https://garage-admin.albandrieu.com"
 
 
 def test_bootstrap_catalog_routes_2fauth_to_healthz_and_policy_aware_sickz() -> None:
@@ -382,11 +389,17 @@ def test_bootstrap_catalog_applies_reviewed_exposure_overrides() -> None:
     assert truenas.tunnel_secure is False
 
     garage = by_name["Garage"]
-    assert garage.tunnel_url == "https://garage.int.albandrieu.com"
+    assert garage.tunnel_url == "https://s3.int.albandrieu.com"
     assert garage.external is True
     assert garage.tunnel_secure is False
     assert garage.effective_cloudflare_access_required is False
     assert garage.security_exception is not None
+
+    garage_webui = by_name["Garage WebUI"]
+    assert garage_webui.tunnel_url == "https://garage-admin.albandrieu.com"
+    assert garage_webui.external is True
+    assert garage_webui.tunnel_secure is True
+    assert garage_webui.effective_cloudflare_access_required is True
 
     bichon = by_name["Bichon"]
     assert bichon.external is False
