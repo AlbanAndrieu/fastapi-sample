@@ -39,6 +39,7 @@ secrets.yaml
 .env.production.local
 .env.secrets
 .env.local
+.fastapi-cloud-token
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 

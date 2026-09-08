@@ -14,8 +14,12 @@ def test_production_smoke_accepts_classified_transient_pfsense_failures() -> Non
     assert '.checks.pfsense.credential_mode == "dedicated_posture"' in smoke
     assert '.checks.pfsense.error_kind | type == "string"' in smoke
     assert '.checks.pfsense.failure_stage | type == "string"' in smoke
+    assert 'if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then' in smoke
+    assert ".checks.pfsense.http_status >= 500" in smoke
+    assert '.checks.pfsense.error | type == "string"' in smoke
+    assert "Post-deploy smoke remains strict" in smoke
     assert '"telemetry_stale"' in smoke
     assert '"telemetry_unavailable"' in smoke
-    assert '.pfsense.dns.ingress_block.last_success_at' in smoke
-    assert '.pfsense.dns.ingress_block.attribution_available == false' in smoke
+    assert ".pfsense.dns.ingress_block.last_success_at" in smoke
+    assert ".pfsense.dns.ingress_block.attribution_available == false" in smoke
     assert '.pfsense.dns.ingress_block.state != "telemetry_unavailable"' not in smoke

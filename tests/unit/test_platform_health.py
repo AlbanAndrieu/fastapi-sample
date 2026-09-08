@@ -165,6 +165,33 @@ async def test_pfsense_check_prefers_dedicated_posture_key(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
+async def test_pfsense_http_502_is_classified_as_http_response_failure(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example")
+    monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "posture-key")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(502, request=request, text="Bad Gateway")
+
+    class FakeAsyncClient(httpx.AsyncClient):
+        def __init__(self, *args, **kwargs) -> None:
+            kwargs["transport"] = httpx.MockTransport(handler)
+            super().__init__(*args, **kwargs)
+
+    monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
+
+    result = await platform_health.check_pfsense_api()
+
+    assert result["reachable"] is False
+    assert result["http_status"] == 502
+    assert result["error_kind"] == "http_502"
+    assert result["failure_stage"] == "http_response"
+    assert result["attempts"] == 1
+    assert result["error"] == "pfSense API returned HTTP 502"
+
+
+@pytest.mark.asyncio
 async def test_pfsense_read_timeout_reports_response_stage(monkeypatch) -> None:
     monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example")
     monkeypatch.setenv("PFSENSE_API_KEY", "key")

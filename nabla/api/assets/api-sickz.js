@@ -191,6 +191,13 @@ function exposureTags(check) {
   if (check.cloudflare_default_deny === true) {
     access.push("Cloudflare Default-Deny");
   }
+  if (check.cloudflare_service_token_attempted === true) {
+    access.push(
+      check.cloudflare_service_token_access_passed === true
+        ? "Service token Access OK"
+        : "Service token Access blocked",
+    );
+  }
   const policyCount = Number(check.cloudflare_access_policy_count);
   if (Number.isFinite(policyCount)) {
     access.push(`${policyCount} Access polic${policyCount === 1 ? "y" : "ies"}`);

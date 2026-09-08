@@ -75,10 +75,7 @@ def _cloudflare_api_error(response: httpx.Response) -> dict[str, Any]:
                 message = cloudflare_message[:240]
             error_code = first.get("code")
     if response.status_code == 404:
-        message = (
-            f"{message}; verify CLOUDFLARE_ACCOUNT_ID is the Cloudflare Account ID "
-            "and CLOUDFLARE_API_TOKEN is scoped to that account"
-        )
+        message = f"{message}; verify CLOUDFLARE_ACCOUNT_ID is the Cloudflare Account ID and CLOUDFLARE_API_TOKEN is scoped to that account"
     result["error"] = message[:480]
     if error_code is not None:
         result["cloudflare_error_code"] = error_code
@@ -137,11 +134,7 @@ async def check_cloudflare_tunnels() -> dict[str, Any]:
             "probe": "cloudflare_tunnel_api",
         }
 
-    statuses = [
-        str(tunnel.get("status") or "unknown").lower()
-        for tunnel in tunnels
-        if isinstance(tunnel, dict)
-    ]
+    statuses = [str(tunnel.get("status") or "unknown").lower() for tunnel in tunnels if isinstance(tunnel, dict)]
     unhealthy = [status for status in statuses if status in {"inactive", "degraded", "down"}]
     healthy = sum(status == "healthy" for status in statuses)
     return {
@@ -195,8 +188,7 @@ async def check_pfsense_api() -> dict[str, Any]:
     )
     started = time.monotonic()
     logger.debug(
-        "pfSense API liveness probe started url=%s verify_ssl=%s "
-        "connect_timeout_s=%s read_timeout_s=%s",
+        "pfSense API liveness probe started url=%s verify_ssl=%s connect_timeout_s=%s read_timeout_s=%s",
         url,
         verify_ssl,
         _PFSENSE_CONNECT_TIMEOUT_SEC,
@@ -239,15 +231,10 @@ async def check_pfsense_api() -> dict[str, Any]:
         error_kind = _http_error_kind(exc)
         error = _short_error(exc)
         if error_kind == "read_timeout":
-            error = (
-                "pfSense accepted the connection but did not return the REST API "
-                f"response within {_PFSENSE_READ_TIMEOUT_SEC:.0f}s"
-            )
+            error = f"pfSense accepted the connection but did not return the REST API response within {_PFSENSE_READ_TIMEOUT_SEC:.0f}s"
         failure_stage = _pfsense_failure_stage(error_kind)
         logger.warning(
-            "pfSense API liveness probe failed url=%s verify_ssl=%s "
-            "error_kind=%s failure_stage=%s exception_type=%s "
-            "elapsed_ms=%s attempts=%s",
+            "pfSense API liveness probe failed url=%s verify_ssl=%s error_kind=%s failure_stage=%s exception_type=%s elapsed_ms=%s attempts=%s",
             url,
             verify_ssl,
             error_kind,
@@ -274,8 +261,7 @@ async def check_pfsense_api() -> dict[str, Any]:
 
     healthy = 200 <= response.status_code < 400
     logger.debug(
-        "pfSense API liveness probe completed url=%s verify_ssl=%s "
-        "http_status=%s elapsed_ms=%s attempts=%s reachable=%s",
+        "pfSense API liveness probe completed url=%s verify_ssl=%s http_status=%s elapsed_ms=%s attempts=%s reachable=%s",
         url,
         verify_ssl,
         response.status_code,
@@ -298,7 +284,13 @@ async def check_pfsense_api() -> dict[str, Any]:
     if healthy:
         result["last_success_at"] = _utc_now()
     else:
-        result["error"] = f"pfSense API returned HTTP {response.status_code}"
+        result.update(
+            {
+                "error": f"pfSense API returned HTTP {response.status_code}",
+                "error_kind": f"http_{response.status_code}",
+                "failure_stage": "http_response",
+            },
+        )
     return result
 
 

@@ -55,6 +55,8 @@ def test_inventory_tracks_split_pfsense_identities_without_secret_material(monke
     monkeypatch.setenv("PFSENSE_SECURITY_API_KEY", "security-test-placeholder")
     monkeypatch.setenv("CLOUDFLARE_ACCOUNT_ID", "account-placeholder")
     monkeypatch.setenv("CLOUDFLARE_API_TOKEN", "cloudflare-test-placeholder")
+    monkeypatch.setenv("CF_ACCESS_CLIENT_ID", "service-client-id-placeholder")
+    monkeypatch.setenv("CF_ACCESS_CLIENT_SECRET", "service-client-secret-placeholder")
 
     result = infrastructure_provider_credentials()
 
@@ -63,6 +65,7 @@ def test_inventory_tracks_split_pfsense_identities_without_secret_material(monke
         "pfsense",
         "pfsense_security",
         "cloudflare",
+        "cloudflare_access_service_token",
     }
     assert all(provider["configured"] is True for provider in result.values())
     assert result["pfsense"]["credential_mode"] == "dedicated"
@@ -74,6 +77,8 @@ def test_inventory_tracks_split_pfsense_identities_without_secret_material(monke
         "posture-test-placeholder",
         "security-test-placeholder",
         "cloudflare-test-placeholder",
+        "service-client-id-placeholder",
+        "service-client-secret-placeholder",
     ):
         assert secret not in serialized
 
@@ -104,3 +109,15 @@ def test_inventory_keeps_legacy_pfsense_fallback_when_explicitly_present(monkeyp
     assert result["pfsense_security"]["configured"] is True
     assert result["pfsense_security"]["credential_mode"] == "legacy_shared"
     assert "legacy-test-placeholder" not in repr(result)
+
+
+def test_cloudflare_access_service_token_requires_both_values(monkeypatch) -> None:
+    monkeypatch.setenv("CF_ACCESS_CLIENT_ID", "service-client-id-placeholder")
+    monkeypatch.delenv("CF_ACCESS_CLIENT_SECRET", raising=False)
+
+    result = infrastructure_provider_credentials()["cloudflare_access_service_token"]
+
+    assert result["configured"] is False
+    assert result["configuration_stage"] == "missing_credentials"
+    assert result["missing_variables"] == ["CF_ACCESS_CLIENT_SECRET"]
+    assert "service-client-id-placeholder" not in repr(result)

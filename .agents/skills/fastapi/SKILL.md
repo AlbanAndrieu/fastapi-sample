@@ -18,6 +18,66 @@ Official FastAPI skill to write code with best practices, keeping up to date wit
 * Routing: declare router-level prefix, tags, and shared dependencies on the `APIRouter`; see [the path operation reference](references/path-operations.md).
 * Tooling and related libraries: use uv, Ruff, ty, Asyncer, SQLModel, and HTTPX when applicable; see [the other tools reference](references/other-tools.md).
 
+## Running and Diagnosing FastAPI Services
+
+#### If the FastAPI app runs in the shell with `make up` but not in an agent/automation context:
+
+- Use the exact background run method (mimicking shell behavior):
+  ```bash
+  nohup make up > app.log 2>&1 &
+  ```
+- Check service availability (poll until UP):
+  ```bash
+  for i in {1..30}; do curl --fail --silent http://0.0.0.0:8080/api && echo 'UP' && break || sleep 2; done
+  ```
+- This approach closely emulates interactive development, mitigates process control issues in automated environments, and ensures agent control can robustly start, monitor, and log the FastAPI runtime like a human user would.
+
+#### Découverte d’API diagnostics avancés via OpenAPI ou MCP-like :
+
+Voici les endpoints diagnostics/exposition métier et homelab « MCP-like » disponibles (introspection, logs, drift, santé, topology, TrueNAS…) :
+
+**runtime-devtools :**
+- `GET /v1/runtime/metadata` — métadonnées de process, PID, buffer
+- `GET /v1/runtime/logs` — logs récents avec filtres (niveau, grep)
+- `GET /v1/runtime/errors` — erreurs critiques du runtime
+
+**Homelab / plateforme exposée / drift :**
+- `/api/homelab-services`, `/api/homelab/declared-services` — définitions et status d’exposition
+- `/api/homelab-topology` — topologie réseaux, dépendances, liens
+- `/api/homelab/runtime`, `/api/homelab/status` — statuts TrueNAS, actuels vs déclarés
+- `/api/homelab/health` — santé homelab et infra
+
+**Health/liveness :**
+- `/livez`, `/readyz`, `/healthz`, `/sickz` (cloudflare, exposure, sécurité réseau)
+- `/api/health-board` — dashboard UI synthétique
+- `/api/runtime/topology` — vues multi-runtimes/environnements, egress, drift
+
+Tous ces endpoints peuvent être pingés automatiquement par l’agent pour ：
+- Observabilité, log, drift-detect, diagnostic infra/métier, healthcheck, exposabilité, fuzz test, collecte de métriques, et dashboarding homelab.
+
+Comment faire :
+- Découvre `openapi.json` et ce mapping pour piloter health/ops de ton stack FastAPI : ils sont tous REST, introspectables dynamiquement, et font la surface d’observabilité avancée.
+
+- Pour obtenir la liste exhaustive des endpoints REST de ton FastAPI en temps réel, récupère et parse `/openapi.json` :
+  ```bash
+  curl --silent http://0.0.0.0:8080/openapi.json | jq '.paths | keys'
+  ```
+- Liste typique auto-générée :
+  /, /api, /api/data, /api/health-board, /api/homelab-services, /auth/jwt/login, /v1/runtime/logs, … (see skill for the full expanded list).
+- Chaque endpoint est ensuite interrogeable par l’agent pour superviser, valider ou fuzzer toute l’API (GET, POST, params, schéma sont dans openapi.json).
+
+#### Log analysis:
+- Les logs générés (par exemple `app.log`) peuvent être lus, analysés, filtrés et synthétisés automatiquement par un agent.
+- L’agent peut extraire les erreurs, les événements métier, les métriques de santé ou toute séquence de logs utile à la détection d’anomalies, d’incidents ou à la génération de rapports.
+- Exemples de récupération et d’analyse :
+  ```bash
+  tail -n 100 app.log
+  # ou filtrage par niveau/designation
+  grep ERROR app.log
+  grep 'GET /api' app.log
+  ```
+- L’agent peut produire des résumés structurés des logs récents pour reporting, audit ou troubleshooting automatisé.
+
 ## Use the `fastapi` CLI
 
 Run the development server on localhost with reload:
