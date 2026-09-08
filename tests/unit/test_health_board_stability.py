@@ -101,7 +101,7 @@ async def test_sickz_snapshot_uses_local_request_scope_for_pfsense_policy(
     monkeypatch.setattr(sickz_checks, "build_sickz_payload", low_level)
     monkeypatch.setattr(sickz_policy, "enrich_sickz_policy", passthrough)
 
-    payload = await health_board.build_sickz_snapshot(_request("0.0.0.0"))
+    payload = await health_board.build_sickz_snapshot(_request("127.0.0.1"))
 
     pfsense = payload["checks"]["pfsense"]
     assert pfsense["policy_status"] == "ok"

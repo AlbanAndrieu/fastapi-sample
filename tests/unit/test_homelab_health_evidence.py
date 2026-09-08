@@ -1,5 +1,8 @@
 """Tests for multi-source homelab health reconciliation."""
 
+import asyncio
+
+from nabla.api import homelab_health_evidence as module
 from nabla.api.cloudflare_tunnels import (
     CloudflareTunnelIngress,
     CloudflareTunnelObservation,
@@ -715,8 +718,6 @@ def test_stale_runtime_does_not_claim_declared_app_is_missing() -> None:
 
 
 def test_runtime_error_is_exposed_in_reconciled_payload(monkeypatch) -> None:
-    from nabla.api import homelab_health_evidence as module
-
     service = HomelabService(
         name="TrueNAS-dependent service",
         tunnelUrl="https://example.albandrieu.com",
@@ -764,8 +765,6 @@ def test_runtime_error_is_exposed_in_reconciled_payload(monkeypatch) -> None:
     monkeypatch.setattr(module, "observe_cloudflare_exposure", _cloudflare)
     monkeypatch.setattr(module, "fetch_homelab_topology", _topology)
     monkeypatch.setattr(module, "observe_pfsense_dns_posture", _dns)
-
-    import asyncio
 
     payload = asyncio.run(module.reconcile_homelab_health_payload({"services": []}))
 

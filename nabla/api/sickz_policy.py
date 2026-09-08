@@ -72,7 +72,7 @@ def _response_contains_cloudflare_default_deny(response: httpx.Response) -> bool
     text = unescape(response.text[:_MAX_EDGE_BODY_CHARS])
     plain = re.sub(r"<[^>]+>", " ", text)
     normalized = re.sub(r"\s+", " ", plain).strip().casefold()
-    normalized = normalized.replace("’", "'")
+    normalized = normalized.replace(chr(0x2019), "'")
     return _DEFAULT_DENY_FRAGMENT in normalized
 
 
@@ -347,6 +347,45 @@ def _access_policy_result(
     )
 
 
+def _tunnel_policy_result(
+    *,
+    tunnel_evidence: dict[str, Any] | None,
+    observer_configured: bool,
+    tunnel_observer_error: str | None,
+    http_evidence: dict[str, Any],
+) -> tuple[str, str]:
+    if tunnel_evidence is not None:
+        status = str(tunnel_evidence.get("cloudflare_tunnel_status") or "").upper()
+        if status in _DOWN_TUNNEL_STATES:
+            return "fail", f"Cloudflare Tunnel ingress exists but reports status {status}."
+        return "ok", "Cloudflare Tunnel ingress is observed."
+
+    edge_seen = bool(http_evidence.get("cloudflare_http_evidence"))
+    if tunnel_observer_error:
+        detail = (
+            "Cloudflare HTTP edge evidence is present but the Tunnel observer failed."
+            if edge_seen
+            else "The Cloudflare Tunnel observer failed and tunnel protection is unverified."
+        )
+        return "warn", detail
+    if not observer_configured:
+        detail = (
+            "Cloudflare HTTP edge evidence is present but the read-only observer is not configured."
+            if edge_seen
+            else "tunnelSecure=true but no Cloudflare Tunnel/edge evidence was observed."
+        )
+        return ("warn" if edge_seen else "fail"), detail
+    if edge_seen:
+        return (
+            "warn",
+            "Cloudflare edge headers are present, but the hostname is absent from Tunnel ingress inventory.",
+        )
+    return (
+        "fail",
+        "tunnelSecure=true but the hostname has no observed Cloudflare Tunnel/edge evidence.",
+    )
+
+
 def _secure_external_policy(
     *,
     reachable: bool,
@@ -367,36 +406,12 @@ def _secure_external_policy(
     if http_status is not None and http_status >= 500:
         return "fail", f"Service is externally reachable but returns HTTP {http_status}."
 
-    tunnel_status = "ok"
-    tunnel_detail = ""
-    if tunnel_evidence is not None:
-        status = str(tunnel_evidence.get("cloudflare_tunnel_status") or "").upper()
-        if status in _DOWN_TUNNEL_STATES:
-            return "fail", f"Cloudflare Tunnel ingress exists but reports status {status}."
-        tunnel_detail = "Cloudflare Tunnel ingress is observed."
-    else:
-        edge_seen = bool(http_evidence.get("cloudflare_http_evidence"))
-        if tunnel_observer_error:
-            tunnel_status = "warn"
-            tunnel_detail = (
-                "Cloudflare HTTP edge evidence is present but the Tunnel observer failed."
-                if edge_seen
-                else "The Cloudflare Tunnel observer failed and tunnel protection is unverified."
-            )
-        elif not observer_configured:
-            tunnel_status = "warn" if edge_seen else "fail"
-            tunnel_detail = (
-                "Cloudflare HTTP edge evidence is present but the read-only observer is not configured."
-                if edge_seen
-                else "tunnelSecure=true but no Cloudflare Tunnel/edge evidence was observed."
-            )
-        elif edge_seen:
-            tunnel_status = "warn"
-            tunnel_detail = "Cloudflare edge headers are present, but the hostname is absent from Tunnel ingress inventory."
-        else:
-            tunnel_status = "fail"
-            tunnel_detail = "tunnelSecure=true but the hostname has no observed Cloudflare Tunnel/edge evidence."
-
+    tunnel_status, tunnel_detail = _tunnel_policy_result(
+        tunnel_evidence=tunnel_evidence,
+        observer_configured=observer_configured,
+        tunnel_observer_error=tunnel_observer_error,
+        http_evidence=http_evidence,
+    )
     if tunnel_status == "fail":
         return "fail", tunnel_detail
 
@@ -410,11 +425,12 @@ def _secure_external_policy(
         return tunnel_status, tunnel_detail or "Cloudflare Tunnel posture is compliant."
 
     access_status, access_detail = access_result
+    detail = f"{tunnel_detail} {access_detail}".strip()
     if access_status == "fail":
-        return "fail", f"{tunnel_detail} {access_detail}".strip()
+        return "fail", detail
     if access_status == "warn" or tunnel_status == "warn":
-        return "warn", f"{tunnel_detail} {access_detail}".strip()
-    return "ok", f"{tunnel_detail} {access_detail}".strip()
+        return "warn", detail
+    return "ok", detail
 
 
 def _direct_external_policy(

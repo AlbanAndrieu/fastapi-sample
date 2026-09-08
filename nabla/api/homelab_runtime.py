@@ -12,11 +12,13 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from nabla.api.homelab_catalog import fetch_homelab_catalog
 from nabla.api.homelab_declared import (
     DeclaredService,
     RuntimeBinding,
     fetch_declared_service_catalog,
 )
+from nabla.api.homelab_topology import fetch_homelab_topology
 from nabla.integrations.truenas_client import build_truenas_adapter
 
 ReconciliationState = Literal[
@@ -280,9 +282,6 @@ async def _catalog_membership_drift(
     declared_services: list[DeclaredService],
 ) -> dict[str, Any]:
     """Compare presentation, declared-runtime and topology membership without failing status."""
-    from nabla.api.homelab_catalog import fetch_homelab_catalog
-    from nabla.api.homelab_topology import fetch_homelab_topology
-
     try:
         presentation, topology = await asyncio.gather(
             fetch_homelab_catalog(),
