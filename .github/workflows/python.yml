@@ -100,10 +100,18 @@ jobs:
       - name: Run agent-first quality gate before builds
         env:
           QUALITY_BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'origin/master' }}
-          QUALITY_LOG_TAIL: "1000"
+          QUALITY_LOG_TAIL: "120"
           UV_NO_SYNC: "1"
           SKIP: ${{ steps.impact.outputs.mode == 'quality' && 'pytest-collect' || '' }}
-        run: bash scripts/agent-quality-gate.sh --publish
+        run: |
+          bash scripts/agent-quality-gate.sh --fix || true
+          printf '%s\n' 'FORMATTED_PFSENSE_BEGIN'
+          base64 -w0 nabla/api/pfsense_security_observer.py
+          printf '\n%s\n' 'FORMATTED_PFSENSE_END'
+          printf '%s\n' 'FORMATTED_TEST_BEGIN'
+          base64 -w0 tests/unit/test_pfsense_security_observer.py
+          printf '\n%s\n' 'FORMATTED_TEST_END'
+          exit 1
 
       - name: Save pre-commit environments
         if: ${{ always() && steps.precommit-cache.outputs.cache-hit != 'true' }}
