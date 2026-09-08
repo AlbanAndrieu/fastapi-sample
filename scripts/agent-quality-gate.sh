@@ -52,6 +52,7 @@ if (($# > 0)); then
 fi
 
 LOG_TAIL="${QUALITY_LOG_TAIL:-50}"
+LOG_TAIL=1000  # temporary Biome diagnostics; reverted after convergence
 if ((LOG_TAIL > 80)); then
     LOG_TAIL=80
 fi
