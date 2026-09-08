@@ -200,7 +200,9 @@ function exposureTags(check) {
   }
   const policyCount = Number(check.cloudflare_access_policy_count);
   if (Number.isFinite(policyCount)) {
-    access.push(`${policyCount} Access polic${policyCount === 1 ? "y" : "ies"}`);
+    access.push(
+      `${policyCount} Access polic${policyCount === 1 ? "y" : "ies"}`,
+    );
   }
   return [external, tunnel, observed, ...access].join(" · ");
 }
