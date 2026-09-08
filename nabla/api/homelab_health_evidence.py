@@ -21,7 +21,7 @@ from nabla.api.pfsense_dns_observer import observe_pfsense_dns_posture
 HealthState = str
 _RUNNING_APP_STATES = frozenset({"ACTIVE", "HEALTHY", "RUNNING", "STARTED", "UP"})
 _DOWN_APP_STATES = frozenset(
-    {"CRASHED", "DEPLOYING", "DOWN", "ERROR", "FAILED", "STOPPED", "STOPPING"}
+    {"CRASHED", "DEPLOYING", "DOWN", "ERROR", "FAILED", "STOPPED", "STOPPING"},
 )
 _HEALTHY_TUNNEL_STATES = frozenset({"ACTIVE", "HEALTHY", "OK", "UP"})
 _DOWN_TUNNEL_STATES = frozenset({"DOWN", "FAILED", "INACTIVE"})

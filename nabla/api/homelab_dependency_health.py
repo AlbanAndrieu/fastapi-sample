@@ -23,7 +23,7 @@ _HEALTH_BEARING_RELATION_TYPES = frozenset(
         HomelabRelationType.STORES_IN,
         HomelabRelationType.AUTHENTICATES_VIA,
         HomelabRelationType.EXPOSED_BY,
-    }
+    },
 )
 
 
@@ -258,7 +258,7 @@ def propagate_required_dependency_health(
                         strict=True,
                     )
                 ],
-            }
+            },
         )
         result.append(row)
 

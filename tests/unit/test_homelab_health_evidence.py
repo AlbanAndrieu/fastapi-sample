@@ -64,7 +64,7 @@ def test_private_service_is_green_when_internal_probe_succeeds() -> None:
                 "port": 8099,
                 "reachable": True,
                 "state": "ok",
-            }
+            },
         ],
         runtime=_runtime(ObservedApp(app_id="hello", name="hello", state="RUNNING")),
         tunnels=[],
@@ -107,7 +107,7 @@ def test_cloudflare_protected_service_is_warning_not_failure() -> None:
                 "state": "fail",
                 "tls_trusted": None,
                 "error": "probe blocked",
-            }
+            },
         ],
         internal_results=[],
         runtime=_runtime(ObservedApp(app_id="searxng", name="SearXNG", state="RUNNING")),
@@ -138,7 +138,7 @@ def test_direct_403_stays_warning_with_cloudflare_access() -> None:
                 "http_status": 403,
                 "state": "warn",
                 "tls_trusted": True,
-            }
+            },
         ],
         internal_results=[],
         runtime=None,
@@ -166,7 +166,7 @@ def test_direct_success_remains_green_without_conflicting_evidence() -> None:
                 "http_status": 200,
                 "state": "ok",
                 "tls_trusted": True,
-            }
+            },
         ],
         internal_results=[],
         runtime=None,
@@ -204,7 +204,7 @@ def test_service_without_url_gets_conventional_endpoint_and_unknown_state() -> N
             "observed_at": None,
             "observation_age_seconds": None,
             "observation_stale": False,
-        }
+        },
     ]
 
 
@@ -226,11 +226,11 @@ def test_application_error_is_degraded_when_service_is_still_reachable() -> None
                 "state": "fail",
                 "tls_trusted": True,
                 "application_error": "Application error",
-            }
+            },
         ],
         internal_results=[],
         runtime=_runtime(
-            ObservedApp(app_id="languagetool", name="LanguageTool", state="RUNNING")
+            ObservedApp(app_id="languagetool", name="LanguageTool", state="RUNNING"),
         ),
         tunnels=[],
     )
@@ -256,11 +256,11 @@ def test_runtime_failure_overrides_public_edge_success() -> None:
                 "http_status": 302,
                 "state": "ok",
                 "tls_trusted": True,
-            }
+            },
         ],
         internal_results=[],
         runtime=_runtime(
-            ObservedApp(app_id="2fauth", name="2FAuth", state="STOPPED")
+            ObservedApp(app_id="2fauth", name="2FAuth", state="STOPPED"),
         ),
         tunnels=[],
     )
@@ -302,7 +302,7 @@ def test_healthy_tunnel_does_not_rescue_failed_origin_probe() -> None:
                 "state": "fail",
                 "tls_trusted": None,
                 "error": "origin unavailable",
-            }
+            },
         ],
         internal_results=[],
         runtime=None,
@@ -320,7 +320,7 @@ def test_stale_runtime_cannot_rescue_failed_public_probe() -> None:
         external=True,
     )
     runtime = _runtime(
-        ObservedApp(app_id="2fauth", name="2FAuth", state="RUNNING")
+        ObservedApp(app_id="2fauth", name="2FAuth", state="RUNNING"),
     ).model_copy(update={"stale": True})
     rows = build_reconciled_service_health(
         [service],
@@ -333,7 +333,7 @@ def test_stale_runtime_cannot_rescue_failed_public_probe() -> None:
                 "http_status": 0,
                 "state": "fail",
                 "tls_trusted": None,
-            }
+            },
         ],
         internal_results=[],
         runtime=runtime,
@@ -377,7 +377,7 @@ def test_stale_cloudflare_tunnel_cannot_rescue_failed_public_probe() -> None:
                 "http_status": 0,
                 "state": "fail",
                 "tls_trusted": None,
-            }
+            },
         ],
         internal_results=[],
         runtime=None,
@@ -421,7 +421,7 @@ def test_cloudflare_access_response_does_not_hide_down_tunnel() -> None:
                 "http_status": 403,
                 "state": "warn",
                 "tls_trusted": True,
-            }
+            },
         ],
         internal_results=[],
         runtime=None,
@@ -465,7 +465,7 @@ def test_down_tunnel_is_degraded_when_origin_is_proven_up() -> None:
                 "http_status": 403,
                 "state": "warn",
                 "tls_trusted": True,
-            }
+            },
         ],
         internal_results=[
             {
@@ -475,7 +475,7 @@ def test_down_tunnel_is_degraded_when_origin_is_proven_up() -> None:
                 "port": 30081,
                 "reachable": True,
                 "state": "ok",
-            }
+            },
         ],
         runtime=None,
         tunnels=[tunnel],
@@ -500,9 +500,9 @@ def test_declared_container_binding_maps_openwebui_runtime() -> None:
                     service_name="open-webui",
                     image="ghcr.io/open-webui/open-webui:v0.11.0",
                     state="starting",
-                )
+                ),
             ],
-        )
+        ),
     )
     rows = build_reconciled_service_health(
         [service],
@@ -515,7 +515,7 @@ def test_declared_container_binding_maps_openwebui_runtime() -> None:
                 "http_status": 403,
                 "state": "warn",
                 "tls_trusted": True,
-            }
+            },
         ],
         internal_results=[],
         runtime=runtime,
@@ -524,7 +524,7 @@ def test_declared_container_binding_maps_openwebui_runtime() -> None:
             service.service_id: RuntimeBinding(
                 provider="truenas-app",
                 containerService="open-webui",
-            )
+            ),
         },
     )
 
@@ -544,7 +544,7 @@ def test_declared_app_id_maps_twofactor_auth_runtime() -> None:
             app_id="twofactor-auth",
             name="twofactor-auth",
             state="DEPLOYING",
-        )
+        ),
     )
     rows = build_reconciled_service_health(
         [service],
@@ -557,7 +557,7 @@ def test_declared_app_id_maps_twofactor_auth_runtime() -> None:
                 "http_status": 302,
                 "state": "ok",
                 "tls_trusted": True,
-            }
+            },
         ],
         internal_results=[],
         runtime=runtime,
@@ -566,7 +566,7 @@ def test_declared_app_id_maps_twofactor_auth_runtime() -> None:
             service.service_id: RuntimeBinding(
                 provider="truenas-app",
                 appId="twofactor-auth",
-            )
+            ),
         },
     )
 
@@ -582,7 +582,7 @@ def test_deploying_runtime_is_degraded_when_origin_is_proven_up() -> None:
         external=True,
     )
     runtime = _runtime(
-        ObservedApp(app_id="openwebui", name="openwebui", state="DEPLOYING")
+        ObservedApp(app_id="openwebui", name="openwebui", state="DEPLOYING"),
     )
     rows = build_reconciled_service_health(
         [service],
@@ -595,7 +595,7 @@ def test_deploying_runtime_is_degraded_when_origin_is_proven_up() -> None:
                 "http_status": 200,
                 "state": "ok",
                 "tls_trusted": True,
-            }
+            },
         ],
         internal_results=[],
         runtime=runtime,
@@ -604,7 +604,7 @@ def test_deploying_runtime_is_degraded_when_origin_is_proven_up() -> None:
             service.service_id: RuntimeBinding(
                 provider="truenas-app",
                 appId="openwebui",
-            )
+            ),
         },
     )
 
@@ -623,7 +623,7 @@ def test_exact_app_id_keeps_stopped_runtime_visible_without_container_details() 
             name="openwebui",
             state="STOPPED",
             containers=[],
-        )
+        ),
     )
     rows = build_reconciled_service_health(
         [service],
@@ -636,7 +636,7 @@ def test_exact_app_id_keeps_stopped_runtime_visible_without_container_details() 
                 provider="truenas-app",
                 appId="openwebui",
                 containerService="open-webui",
-            )
+            ),
         },
     )
 

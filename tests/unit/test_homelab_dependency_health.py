@@ -34,7 +34,7 @@ def _topology(*relations: dict[str, object]) -> HomelabTopology:
                 for service_id in sorted(ids)
             ],
             "relations": list(relations),
-        }
+        },
     )
 
 
