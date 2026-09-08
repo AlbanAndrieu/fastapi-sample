@@ -24,7 +24,12 @@ def test_agent_quality_gate_wraps_tests_and_canonical_gate() -> None:
     assert "uv run pytest -q --disable-warnings --maxfail=1 --junit-xml=junit.xml" in text
     assert "uv run python scripts/check_versions.py" in text
     assert "bash scripts/quality-gate.sh --publish" in text
+    assert "modified Python code-size gate" in text
+    assert "uv run python scripts/check_code_size.py" in text
     assert text.index("canonical formatter/linter/security") < text.index(
+        "modified Python code-size gate",
+    )
+    assert text.index("modified Python code-size gate") < text.index(
         "repository pytest suite (fail-fast)",
     )
     assert "Working tree changed after tests" in text
@@ -53,6 +58,7 @@ def test_python_ci_gates_builds_behind_preflight() -> None:
     assert "steps.precommit-cache.outputs.cache-hit != 'true'" in workflow
     assert "path: ~/.cache/pre-commit" in workflow
     assert "uv run pytest --junit-xml=junit.xml" not in workflow
+    assert "Check modified Python file sizes" not in workflow
 
 
 def test_production_smoke_does_not_run_on_every_pr_synchronize() -> None:

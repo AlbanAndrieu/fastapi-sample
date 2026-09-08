@@ -134,7 +134,7 @@ bash scripts/agent-quality-gate.sh
 bash scripts/agent-quality-gate.sh --publish
 ```
 
-The strict agent gate checks branch freshness, suspicious destructive truncations or complete large-file deletions, executable bits for shebang scripts, release/version consistency, and the complete pytest suite in quiet fail-fast mode. When the gate script itself changed, focused shfmt/ShellCheck/bashate hooks run before pytest so gate defects fail early.
+The strict agent gate checks branch freshness, suspicious destructive truncations or complete large-file deletions, executable bits for shebang scripts, modified-Python code-size limits, release/version consistency, and the complete pytest suite in quiet fail-fast mode. When the gate script itself changed, focused shfmt/ShellCheck/bashate hooks run before pytest so gate defects fail early.
 
 The canonical gate remains the shared formatter/linter/security orchestrator. Normal mode is dirty-tree aware for iterative validation; `scripts/quality-gate.sh --publish` additionally requires a clean working tree. Keep expensive Docker, Sonar, MegaLinter and runtime/deployment checks in CI after the deterministic preflight. The Python workflow also exposes `workflow_dispatch` as a preflight-only remote execution path for environments that cannot obtain a local dependency-enabled checkout.
 
