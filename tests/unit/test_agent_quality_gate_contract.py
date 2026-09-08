@@ -18,17 +18,38 @@ def test_agent_quality_gate_wraps_tests_and_canonical_gate() -> None:
     assert "QG_LARGE_DELETION" in text
     assert "diff-filter=D" in text
     assert "QG_EXEC_BIT" in text
+    assert "QG_FIX_NO_PROGRESS" in text
+    assert "QG_FIX_NOT_CONVERGED" in text
+    assert "QUALITY_FIX_PASSES" in text
+    assert "worktree_fingerprint" in text
+    assert "git hash-object --stdin" in text
+    assert "--dependency-mode" in text
+    assert 'echo "full"' in text
+    assert 'echo "quality"' in text
+    assert 'echo "none"' in text
     assert "uv run pre-commit run shfmt" in text
     assert "uv run pre-commit run shell-lint" in text
     assert "uv run pre-commit run bashate" in text
     assert "uv run pytest -q --disable-warnings --maxfail=1 --junit-xml=junit.xml" in text
+    assert "quality-gate contract pytest (isolated fail-fast)" in text
+    assert "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1" in text
+    assert "uv run pytest -q --noconftest" in text
+    assert "tests/unit/test_agent_quality_gate_contract.py --junit-xml=junit.xml" in text
+    assert "full_pytest_impact" in text
+    assert "quality_contract_impact" in text
     assert "uv run python scripts/check_versions.py" in text
     assert "bash scripts/quality-gate.sh --publish" in text
+    assert "modified Python code-size gate" in text
+    assert "uv run python scripts/check_code_size.py" in text
     assert text.index("canonical formatter/linter/security") < text.index(
-        "repository pytest suite (fail-fast)",
+        "modified Python code-size gate",
+    )
+    assert text.index("modified Python code-size gate") < text.index(
+        "quality-gate contract pytest (isolated fail-fast)",
     )
     assert "Working tree changed after tests" in text
     assert 'tail -n "${LOG_TAIL}"' in text
+    assert "LOG_TAIL=80" in text
 
 
 def test_pre_push_uses_agent_publication_gate() -> None:
@@ -41,6 +62,17 @@ def test_python_ci_gates_builds_behind_preflight() -> None:
     workflow = (ROOT / ".github/workflows/python.yml").read_text(encoding="utf-8")
 
     assert "\n  preflight:\n" in workflow
+    assert "Classify preflight dependency impact" in workflow
+    assert "--dependency-mode" in workflow
+    assert "steps.impact.outputs.mode == 'full'" in workflow
+    assert "steps.impact.outputs.mode != 'full'" in workflow
+    assert "Create minimal quality environment" in workflow
+    assert "uv venv --python" in workflow
+    assert "pre-commit==4.6.2" in workflow
+    assert "'pytest<10'" in workflow
+    assert "enable-cache: ${{ steps.impact.outputs.mode == 'full' }}" in workflow
+    assert "SKIP: ${{ steps.impact.outputs.mode == 'quality' && 'pytest-collect' || '' }}" in workflow
+    assert 'UV_NO_SYNC: "1"' in workflow
     assert "run: bash scripts/agent-quality-gate.sh --publish" in workflow
     assert "workflow_dispatch:" in workflow
     assert "format('origin/{0}', github.base_ref)" in workflow
@@ -53,6 +85,7 @@ def test_python_ci_gates_builds_behind_preflight() -> None:
     assert "steps.precommit-cache.outputs.cache-hit != 'true'" in workflow
     assert "path: ~/.cache/pre-commit" in workflow
     assert "uv run pytest --junit-xml=junit.xml" not in workflow
+    assert "Check modified Python file sizes" not in workflow
 
 
 def test_production_smoke_does_not_run_on_every_pr_synchronize() -> None:

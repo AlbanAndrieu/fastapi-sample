@@ -15,19 +15,25 @@ case "${1:-}" in
         PUBLISH=true
         shift
         ;;
+    --dependency-mode)
+        MODE="dependency"
+        shift
+        ;;
     -h | --help)
         cat <<'EOF'
 Usage:
-  bash scripts/agent-quality-gate.sh [--fix|--publish]
+  bash scripts/agent-quality-gate.sh [--fix|--publish|--dependency-mode]
 
 Modes:
-  default    strict validation gate
-  --fix      apply/check pre-commit hooks on the complete change set first
-  --publish  strict gate plus canonical clean-tree publication check
+  default            strict validation gate
+  --fix              converge deterministic pre-commit rewrites, then validate the editing tree
+  --publish          strict gate plus canonical clean-tree publication check
+  --dependency-mode  print full, quality, or none for CI dependency provisioning
 
 Environment:
   QUALITY_BASE_REF                 override comparison base
-  QUALITY_LOG_TAIL                 failure log lines to print (default: 80)
+  QUALITY_LOG_TAIL                 failure log lines to print (default: 50, capped at 80)
+  QUALITY_FIX_PASSES               maximum pre-commit convergence passes (default: 3)
   QUALITY_ALLOW_LARGE_DELETION=1   acknowledge an intentional large truncation/deletion
 EOF
         exit 0
@@ -45,7 +51,15 @@ if (($# > 0)); then
     exit 2
 fi
 
-LOG_TAIL="${QUALITY_LOG_TAIL:-80}"
+LOG_TAIL="${QUALITY_LOG_TAIL:-50}"
+if ((LOG_TAIL > 80)); then
+    LOG_TAIL=80
+fi
+FIX_PASSES="${QUALITY_FIX_PASSES:-3}"
+if ! [[ "${FIX_PASSES}" =~ ^[1-9][0-9]*$ ]]; then
+    printf '❌ QUALITY_FIX_PASSES must be a positive integer\n' >&2
+    exit 2
+fi
 
 resolve_base_ref() {
     if [[ -n "${QUALITY_BASE_REF:-}" ]]; then
@@ -114,6 +128,46 @@ collect_deleted_files() {
 
 mapfile -t DELETED_FILES < <(collect_deleted_files)
 
+full_pytest_impact=false
+quality_contract_impact=false
+classify_test_impact() {
+    local file
+    for file in "${CHANGED_FILES[@]}" "${DELETED_FILES[@]}"; do
+        case "${file}" in
+            tests/unit/test_agent_quality_gate_contract.py | scripts/agent-quality-gate.sh | scripts/quality-gate.sh | scripts/check_code_size.py | .github/workflows/* | .pre-commit* | mise.toml | AGENTS.md)
+                quality_contract_impact=true
+                ;;
+            nabla/* | tests/* | server_app.py | pyproject.toml | uv.lock | Pipfile | Pipfile.lock | scripts/*.py)
+                full_pytest_impact=true
+                return
+                ;;
+        esac
+    done
+}
+
+classify_test_impact
+if [[ "${MODE}" == "dependency" ]]; then
+    if [[ "${full_pytest_impact}" == true ]]; then
+        echo "full"
+    elif [[ "${quality_contract_impact}" == true ]]; then
+        echo "quality"
+    else
+        echo "none"
+    fi
+    exit 0
+fi
+
+worktree_fingerprint() {
+    {
+        git diff --no-ext-diff --binary
+        git diff --cached --no-ext-diff --binary
+        while IFS= read -r file; do
+            printf '%s\n' "${file}"
+            git hash-object -- "${file}"
+        done < <(git ls-files --others --exclude-standard | sort)
+    } | git hash-object --stdin
+}
+
 command -v uv >/dev/null 2>&1 || {
     echo "❌ uv is required" >&2
     exit 1
@@ -136,14 +190,57 @@ if [[ "${MODE}" != "fix" && "${agent_gate_changed}" == true ]]; then
         uv run pre-commit run bashate --files scripts/agent-quality-gate.sh
 fi
 
-if [[ "${MODE}" == "fix" ]]; then
-    if ((${#CHANGED_FILES[@]} > 0)); then
-        run_compact "apply/check pre-commit hooks on changed files" \
-            uv run pre-commit run --hook-stage pre-commit \
-            --files "${CHANGED_FILES[@]}" --show-diff-on-failure
+converge_precommit_fixes() {
+    if ((${#CHANGED_FILES[@]} == 0)); then
+        echo "✅ no changed files require deterministic fixes"
+        return 0
     fi
-    echo "ℹ️  review git diff/status, commit deterministic fixes, then run this gate and finally --publish"
-    exit 0
+
+    local pass rc log before after
+    for ((pass = 1; pass <= FIX_PASSES; pass++)); do
+        before="$(worktree_fingerprint)"
+        log="$(mktemp)"
+        set +e
+        uv run pre-commit run --hook-stage pre-commit \
+            --files "${CHANGED_FILES[@]}" --show-diff-on-failure >"${log}" 2>&1
+        rc=$?
+        set -e
+        after="$(worktree_fingerprint)"
+
+        if ((rc == 0)); then
+            rm -f "${log}"
+            printf '✅ deterministic pre-commit fix converged in %d pass(es)\n' "${pass}"
+            return 0
+        fi
+
+        if [[ "${before}" == "${after}" ]]; then
+            printf '❌ QG_FIX_NO_PROGRESS: pre-commit failed without changing the tree on pass %d\n' "${pass}" >&2
+            tail -n "${LOG_TAIL}" "${log}" >&2 || true
+            rm -f "${log}"
+            return "${rc}"
+        fi
+
+        printf '🔧 pre-commit pass %d/%d modified files; retrying on the rewritten tree\n' \
+            "${pass}" "${FIX_PASSES}"
+        if ((pass == FIX_PASSES)); then
+            printf '❌ QG_FIX_NOT_CONVERGED: deterministic fixes still change files after %d passes\n' \
+                "${FIX_PASSES}" >&2
+            tail -n "${LOG_TAIL}" "${log}" >&2 || true
+            rm -f "${log}"
+            return "${rc}"
+        fi
+        rm -f "${log}"
+        mapfile -t CHANGED_FILES < <(collect_changed_files)
+    done
+}
+
+if [[ "${MODE}" == "fix" ]]; then
+    converge_precommit_fixes
+    mapfile -t CHANGED_FILES < <(collect_changed_files)
+    mapfile -t DELETED_FILES < <(collect_deleted_files)
+    full_pytest_impact=false
+    quality_contract_impact=false
+    classify_test_impact
 fi
 
 if [[ "${BASE_REF}" != "HEAD" ]]; then
@@ -240,9 +337,29 @@ else
         bash scripts/quality-gate.sh
 fi
 
+CHANGED_PYTHON=()
+for file in "${CHANGED_FILES[@]}"; do
+    [[ "${file}" == *.py ]] && CHANGED_PYTHON+=("${file}")
+done
+if ((${#CHANGED_PYTHON[@]} > 0)); then
+    run_compact "modified Python code-size gate" \
+        uv run python scripts/check_code_size.py \
+        --baseline-ref "${BASE_REF}" "${CHANGED_PYTHON[@]}"
+fi
+
 run_compact "release/version contract" uv run python scripts/check_versions.py
-run_compact "repository pytest suite (fail-fast)" \
-    uv run pytest -q --disable-warnings --maxfail=1 --junit-xml=junit.xml
+
+if [[ "${full_pytest_impact}" == true ]]; then
+    run_compact "repository pytest suite (fail-fast)" \
+        uv run pytest -q --disable-warnings --maxfail=1 --junit-xml=junit.xml
+elif [[ "${quality_contract_impact}" == true ]]; then
+    run_compact "quality-gate contract pytest (isolated fail-fast)" \
+        env PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 uv run pytest -q --noconftest \
+        --disable-warnings --maxfail=1 \
+        tests/unit/test_agent_quality_gate_contract.py --junit-xml=junit.xml
+else
+    echo "✅ pytest skipped: no Python/runtime/test or quality-gate contract impact"
+fi
 
 if [[ "${PUBLISH}" == true ]]; then
     STATUS="$(git status --short)"
@@ -252,6 +369,8 @@ if [[ "${PUBLISH}" == true ]]; then
         exit 1
     fi
     echo "✅ Agent publication gate passed; repository is clean and safe to publish."
+elif [[ "${MODE}" == "fix" ]]; then
+    echo "✅ Agent fix + validation gate passed. Review the final diff, commit once, then run --publish."
 else
     echo "✅ Agent quality gate passed."
 fi

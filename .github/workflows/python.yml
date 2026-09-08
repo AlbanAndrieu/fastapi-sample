@@ -48,6 +48,15 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Classify preflight dependency impact
+        id: impact
+        env:
+          QUALITY_BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'origin/master' }}
+        run: |
+          mode="$(bash scripts/agent-quality-gate.sh --dependency-mode)"
+          echo "mode=${mode}" >> "${GITHUB_OUTPUT}"
+          echo "Preflight dependency mode: ${mode}"
+
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
@@ -56,7 +65,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
-          enable-cache: true
+          enable-cache: ${{ steps.impact.outputs.mode == 'full' }}
           python-version: ${{ env.PYTHON_VERSION }}
           version: "0.12.1"
 
@@ -69,16 +78,31 @@ jobs:
           restore-keys: |
             pre-commit-v1-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
 
-      - name: Install locked dependencies
+      - name: Install locked dependencies for application-impact changes
+        if: ${{ steps.impact.outputs.mode == 'full' }}
         run: uv sync --frozen
 
-      - name: Install pre-commit runner for the canonical gate
+      - name: Create minimal quality environment
+        if: ${{ steps.impact.outputs.mode != 'full' }}
+        env:
+          IMPACT_MODE: ${{ steps.impact.outputs.mode }}
+        run: |
+          uv venv --python "${PYTHON_VERSION}"
+          uv pip install --python .venv/bin/python pre-commit==4.6.2
+          if [[ "${IMPACT_MODE}" == "quality" ]]; then
+            uv pip install --python .venv/bin/python 'pytest<10'
+          fi
+
+      - name: Install pre-commit runner for full application gate
+        if: ${{ steps.impact.outputs.mode == 'full' }}
         run: uv pip install pre-commit==4.6.2
 
       - name: Run agent-first quality gate before builds
         env:
           QUALITY_BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'origin/master' }}
           QUALITY_LOG_TAIL: "120"
+          UV_NO_SYNC: "1"
+          SKIP: ${{ steps.impact.outputs.mode == 'quality' && 'pytest-collect' || '' }}
         run: bash scripts/agent-quality-gate.sh --publish
 
       - name: Save pre-commit environments
@@ -136,18 +160,6 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Check modified Python file sizes
-        shell: bash
-        run: |
-          mapfile -t changed_python < <(
-            git diff --name-only --diff-filter=ACMR "origin/${GITHUB_BASE_REF}...HEAD" -- '*.py'
-          )
-          if (( ${#changed_python[@]} )); then
-            python scripts/check_code_size.py \
-              --baseline-ref "origin/${GITHUB_BASE_REF}" \
-              "${changed_python[@]}"
-          fi
 
       - name: Install uv
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
