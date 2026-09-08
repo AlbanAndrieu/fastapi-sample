@@ -67,9 +67,7 @@ def _key(value: str | None) -> str:
 def _response_contains_cloudflare_default_deny(response: httpx.Response) -> bool:
     """Detect Cloudflare account-level Default-Deny from a bounded HTML/text body."""
     content_type = response.headers.get("content-type", "").casefold()
-    if content_type and not any(
-        marker in content_type for marker in ("text/", "html", "xhtml")
-    ):
+    if content_type and not any(marker in content_type for marker in ("text/", "html", "xhtml")):
         return False
     text = unescape(response.text[:_MAX_EDGE_BODY_CHARS])
     plain = re.sub(r"<[^>]+>", " ", text)
@@ -132,9 +130,7 @@ def _access_by_hostname(
                 decision = (policy.decision or "").lower()
                 if decision:
                     decisions.append(decision)
-                public = decision == "bypass" or (
-                    decision == "allow" and policy.includes_everyone
-                )
+                public = decision == "bypass" or (decision == "allow" and policy.includes_everyone)
                 if not public:
                     continue
                 if root_scope:
@@ -150,13 +146,7 @@ def _access_by_hostname(
             "cloudflare_access_policy_names": sorted(set(policy_labels)),
             "cloudflare_access_policy_decisions": sorted(set(decisions)),
             "cloudflare_access_public": bool(public_host_policies or public_path_policies),
-            "cloudflare_access_public_scope": (
-                "host"
-                if public_host_policies
-                else "path"
-                if public_path_policies
-                else None
-            ),
+            "cloudflare_access_public_scope": ("host" if public_host_policies else "path" if public_path_policies else None),
             "cloudflare_access_public_policies": public_host_policies + public_path_policies,
         }
     return out

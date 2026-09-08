@@ -295,9 +295,7 @@ async def _catalog_membership_drift(
             "services": [],
         }
 
-    presentation_by_id = {
-        service.service_id: service.name for service in presentation.services
-    }
+    presentation_by_id = {service.service_id: service.name for service in presentation.services}
     declared_by_id = {service.service_id: service.name for service in declared_services}
     topology_by_id = {node.id: node.name for node in topology.nodes}
     service_ids = sorted(
@@ -315,12 +313,7 @@ async def _catalog_membership_drift(
         drift.append(
             {
                 "id": service_id,
-                "name": (
-                    presentation_by_id.get(service_id)
-                    or declared_by_id.get(service_id)
-                    or topology_by_id.get(service_id)
-                    or service_id
-                ),
+                "name": (presentation_by_id.get(service_id) or declared_by_id.get(service_id) or topology_by_id.get(service_id) or service_id),
                 **membership,
             },
         )
@@ -387,9 +380,7 @@ async def build_homelab_status_payload() -> dict[str, Any]:
         "notObserved": reconciliation_counts["not_observed"],
         "observedOnly": len(observed_only),
         "hasDrift": bool(
-            reconciliation_counts["declared_only"]
-            or reconciliation_counts["binding_conflict"]
-            or observed_only,
+            reconciliation_counts["declared_only"] or reconciliation_counts["binding_conflict"] or observed_only,
         ),
     }
 
