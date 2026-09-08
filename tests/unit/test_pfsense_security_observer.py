@@ -83,6 +83,18 @@ def test_security_settings_allow_fully_dedicated_transport(monkeypatch) -> None:
     assert settings.verify_ssl is False
 
 
+def test_security_settings_load_out_of_band_control_path(monkeypatch) -> None:
+    _clear_security_env(monkeypatch)
+    monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example.test:10443")
+    monkeypatch.setenv("PFSENSE_SECURITY_API_KEY", "dedicated-key")
+    monkeypatch.setenv("PFSENSE_SECURITY_PATH_MODE", "out_of_band")
+
+    settings = observer.PfSenseSecuritySettings.from_environment()
+
+    assert settings is not None
+    assert settings.control_path_mode == "out_of_band"
+
+
 def test_security_settings_keep_legacy_fallback_when_explicitly_present(monkeypatch) -> None:
     _clear_security_env(monkeypatch)
     monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example.test:10443")
