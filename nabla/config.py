@@ -48,6 +48,15 @@ MCP_ALLOWED_ROUTES: frozenset[tuple[str, str]] = frozenset(
         ("GET", "/v1/runtime/metadata"),
         ("GET", "/v1/runtime/logs"),
         ("GET", "/v1/runtime/errors"),
+        # Read-only operational routes that are already public over HTTP.
+        ("GET", "/api/homelab/runtime"),
+        ("GET", "/api/homelab/status"),
+        ("GET", "/api/runtime/topology"),
+        ("GET", "/livez"),
+        ("GET", "/readyz"),
+        # Detailed /healthz, /sickz, homelab health/topology and metrics remain
+        # intentionally excluded because HTTP DIAGNOSTICS_ACCESS_KEY protection
+        # must not be bypassed through FastMCP's direct OpenAPI provider.
         ("GET", "/v2/version"),
         ("GET", "/v2/profile/search"),
         ("GET", "/demo/greet_user/{name}"),
