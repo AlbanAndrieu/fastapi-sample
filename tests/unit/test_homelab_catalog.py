@@ -363,6 +363,7 @@ def test_bootstrap_catalog_preserves_litellm_and_garage_exposure_policy() -> Non
     assert admin.internal_port == 3903
     assert admin.tunnel_url == "https://garage-admin.albandrieu.com"
 
+
 def test_bootstrap_catalog_routes_2fauth_to_healthz_and_policy_aware_sickz() -> None:
     services = list(homelab_catalog._load_bootstrap_catalog().services)
     by_name = {service.name: service for service in services}
