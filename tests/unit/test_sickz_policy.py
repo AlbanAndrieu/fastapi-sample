@@ -9,13 +9,15 @@ from nabla.api.cloudflare_tunnels import (
 )
 from nabla.api.homelab_models import HomelabService
 from nabla.api.homelab_runtime import ObservedApp, TrueNASRuntimeSnapshot
-from nabla.api.sickz_policy import (
+from nabla.api.sickz_cloudflare_edge import (
     _ANONYMOUS_EDGE_HEADERS,
+    _response_contains_cloudflare_default_deny,
+)
+from nabla.api.sickz_policy import (
     _access_by_hostname,
     _access_policy_result,
     _classify_service,
     _probe_http_edge_evidence,
-    _response_contains_cloudflare_default_deny,
     _runtime_evidence,
 )
 
