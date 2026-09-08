@@ -78,6 +78,13 @@ class HomelabTopologyNode(BaseModel):
         serialization_alias="sourcePath",
     )
     url: str | None = Field(default=None, min_length=1, max_length=2048)
+    internal_url: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=2048,
+        validation_alias=AliasChoices("internalUrl", "internal_url"),
+        serialization_alias="internalUrl",
+    )
     description: str | None = Field(default=None, max_length=1024)
     icon: str | None = Field(default=None, min_length=1, max_length=32)
 
