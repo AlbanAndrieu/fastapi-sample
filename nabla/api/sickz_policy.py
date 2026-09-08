@@ -232,7 +232,7 @@ async def _probe_http_edge_evidence(
                 "http_probe_auth_mode": "anonymous",
                 "http_evidence_skipped": True,
                 "http_evidence_skip_reason": "pfSense admin endpoint is not a Cloudflare edge target",
-                "cloudflare_service_token_attempted": False,
+                "cloudflare_service_auth_attempted": False,
             }
     except ValueError:
         pass
@@ -241,7 +241,7 @@ async def _probe_http_edge_evidence(
     token_metadata: dict[str, Any] = {
         "cloudflare_service_token_configured": token_status["configured"],
         "cloudflare_service_token_configuration_stage": token_status["configuration_stage"],
-        "cloudflare_service_token_attempted": False,
+        "cloudflare_service_auth_attempted": False,
     }
     if token_status["missing_variables"]:
         token_metadata["cloudflare_service_token_missing_variables"] = token_status["missing_variables"]
@@ -282,7 +282,7 @@ async def _probe_http_edge_evidence(
                     "",
                 ).strip(),
             }
-            evidence["cloudflare_service_token_attempted"] = True
+            evidence["cloudflare_service_auth_attempted"] = True
             try:
                 service_response = await client.get(url, headers=service_headers)
             except (httpx.HTTPError, OSError) as exc:
@@ -445,7 +445,7 @@ def _access_policy_result(
     default_deny = http_evidence.get("cloudflare_default_deny") is True
     access_signal = http_evidence.get("cloudflare_access_signal") is True
     blocked = default_deny or access_signal
-    service_auth_attempted = http_evidence.get("cloudflare_service_token_attempted") is True
+    service_auth_attempted = http_evidence.get("cloudflare_service_auth_attempted") is True
     service_auth_passed = http_evidence.get("cloudflare_service_token_access_passed") is True
 
     if access_evidence is not None:
