@@ -527,7 +527,7 @@ async def test_cloudflare_service_token_retries_after_default_deny(monkeypatch) 
     assert evidence["http_probe_auth_mode"] == "anonymous"
     assert evidence["cloudflare_default_deny"] is True
     assert evidence["cloudflare_service_token_configured"] is True
-    assert evidence["cloudflare_service_token_attempted"] is True
+    assert evidence["cloudflare_service_auth_attempted"] is True
     assert evidence["cloudflare_service_token_access_passed"] is True
     assert evidence["cloudflare_service_token_http_status"] == 200
     assert "client-secret-test" not in repr(evidence)
@@ -554,7 +554,7 @@ async def test_cloudflare_service_token_is_never_sent_to_untrusted_host(monkeypa
     )
 
     assert calls == 1
-    assert evidence["cloudflare_service_token_attempted"] is False
+    assert evidence["cloudflare_service_auth_attempted"] is False
     assert evidence["cloudflare_access_fallback_skip_reason"] == "outside_trusted_zone"
 
 
@@ -566,7 +566,7 @@ def test_access_policy_accepts_service_token_after_anonymous_block() -> None:
         http_evidence={
             "cloudflare_http_evidence": True,
             "cloudflare_default_deny": True,
-            "cloudflare_service_token_attempted": True,
+            "cloudflare_service_auth_attempted": True,
             "cloudflare_service_token_access_passed": True,
         },
     )
@@ -583,7 +583,7 @@ def test_access_policy_reports_service_token_denial_after_anonymous_block() -> N
         http_evidence={
             "cloudflare_http_evidence": True,
             "cloudflare_access_signal": True,
-            "cloudflare_service_token_attempted": True,
+            "cloudflare_service_auth_attempted": True,
             "cloudflare_service_token_access_passed": False,
         },
     )
@@ -618,4 +618,4 @@ async def test_cloudflare_service_token_is_not_used_when_anonymous_access_works(
     assert len(seen_headers) == 1
     assert "cf-access-client-id" not in seen_headers[0]
     assert "cf-access-client-secret" not in seen_headers[0]
-    assert evidence["cloudflare_service_token_attempted"] is False
+    assert evidence["cloudflare_service_auth_attempted"] is False
