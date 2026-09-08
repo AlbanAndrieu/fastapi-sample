@@ -125,18 +125,19 @@ uv run ruff format --check .
 
 For a focused change, run the closest relevant formatter/linter or test first.
 
-After an editing batch, use the repository-specific agent workflow before publishing:
+After one logical editing batch, use the repository-specific agent workflow before publishing:
 
 ```bash
 bash scripts/agent-quality-gate.sh --fix
-# Review deterministic formatter changes and commit them.
-bash scripts/agent-quality-gate.sh
+# Review the final converged diff and commit it once.
 bash scripts/agent-quality-gate.sh --publish
 ```
 
-The strict agent gate checks branch freshness, suspicious destructive truncations or complete large-file deletions, executable bits for shebang scripts, release/version consistency, and the complete pytest suite in quiet fail-fast mode. When the gate script itself changed, focused shfmt/ShellCheck/bashate hooks run before pytest so gate defects fail early.
+`--fix` is intentionally convergent: deterministic pre-commit rewrites are retried for a small bounded number of passes and the rewritten editing tree is then validated. Do not publish a formatter-generated intermediate commit merely to discover the next deterministic rewrite.
 
-The canonical gate remains the shared formatter/linter/security orchestrator. Normal mode is dirty-tree aware for iterative validation; `scripts/quality-gate.sh --publish` additionally requires a clean working tree. Keep expensive Docker, Sonar, MegaLinter and runtime/deployment checks in CI after the deterministic preflight. The Python workflow also exposes `workflow_dispatch` as a preflight-only remote execution path for environments that cannot obtain a local dependency-enabled checkout.
+The strict agent gate checks branch freshness, suspicious destructive truncations or complete large-file deletions, executable bits for shebang scripts, modified-Python code-size limits, release/version consistency, and the complete pytest suite when Python/runtime/test dependencies are affected. Non-Python documentation/configuration-only changes may skip the full pytest suite after the canonical gate has validated them. When the gate script itself changed, focused shfmt/ShellCheck/bashate hooks run before pytest so gate defects fail early.
+
+The canonical gate remains the shared formatter/linter/security orchestrator. Normal mode is dirty-tree aware for iterative validation; `scripts/quality-gate.sh --publish` additionally requires a clean working tree. Keep expensive Docker, Sonar, MegaLinter and runtime/deployment checks in CI after the deterministic preflight. The Python workflow also exposes `workflow_dispatch` as a preflight-only remote quality-gate execution path for environments that cannot obtain a local dependency-enabled checkout.
 
 ## Mandatory agent publish policy
 
@@ -150,9 +151,9 @@ Every remote mutation must explicitly target a non-default branch created from t
 
 Before every `git push`, GitHub API file update, or other remote repository mutation:
 
-1. Run `bash scripts/agent-quality-gate.sh --fix` after the editing batch whenever shell access is available.
-2. Review and commit deterministic formatter changes.
-3. Run `bash scripts/agent-quality-gate.sh` until validation is green, then run `bash scripts/agent-quality-gate.sh --publish` to require a clean working tree.
+1. Run `bash scripts/agent-quality-gate.sh --fix` after the complete logical editing batch whenever shell access is available; let deterministic rewrites converge instead of publishing each formatter pass.
+2. Review the final converged diff and commit the logical batch once.
+3. Run `bash scripts/agent-quality-gate.sh --publish` to require the strict gate and a clean working tree.
 4. Fix every formatter, linter, YAML, workflow, configuration, generated-file, lockfile, unit/contract-test, executable-bit, destructive-diff, or security-check failure caused by the change.
 5. Verify `git status --short` is empty.
 6. Only then publish the changes.
