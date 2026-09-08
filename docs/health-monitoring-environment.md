@@ -87,6 +87,22 @@ integration supports it.
 
 The health probe reads the Cloudflare control plane and reports API reachability separately from tunnel and Access policy state.
 
+For a second, live Cloudflare Access check, FastAPI can also use a dedicated
+Service Token:
+
+```text
+CF_ACCESS_CLIENT_ID=<Cloudflare Access Service Token client id>
+CF_ACCESS_CLIENT_SECRET=<Cloudflare Access Service Token client secret>
+```
+
+This pair is independent from `CLOUDFLARE_API_TOKEN`. The normal edge probe
+always runs anonymously first so Default-Deny and Access challenges remain
+observable. Only when that anonymous response is explicitly blocked by
+Cloudflare Access does FastAPI retry with the Service Token. The credentials are
+sent only to `albandrieu.com` or its subdomains and are never returned in
+health payloads. A successful retry proves the Service Auth identity path can
+cross Cloudflare Access; it does not replace application-level authentication.
+
 ## pfSense API
 
 Use separate pfSense identities for posture and Snort/PF security telemetry.
