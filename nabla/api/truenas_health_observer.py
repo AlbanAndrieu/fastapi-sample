@@ -16,6 +16,7 @@ from nabla.api.provider_probe_policies import (
 )
 from nabla.api.provider_credentials import inspect_environment_credentials
 from nabla.api.truenas_client import observe_truenas_api
+from nabla.integrations.truenas_client import TrueNASHealthProbeError
 from nabla.settings.homelab import TrueNASProviderSettings
 from nabla.utils.logger import logger
 
@@ -46,6 +47,8 @@ def _configured_username() -> str:
 
 def _failure_kind(exc: BaseException) -> tuple[str, str]:
     """Classify the failure without leaking credentials or transport internals."""
+    if isinstance(exc, TrueNASHealthProbeError):
+        return exc.phase, exc.stage
     message = str(exc).casefold()
     class_name = exc.__class__.__name__.casefold()
     if isinstance(exc, ConnectionResetError):
@@ -204,7 +207,11 @@ async def _probe_origin() -> dict[str, Any]:
             "stage": stage,
             "elapsed_ms": elapsed_ms,
             "error": _short_error(exc),
-            "exception_type": exc.__class__.__name__,
+            "exception_type": (
+                exc.exception_type
+                if isinstance(exc, TrueNASHealthProbeError)
+                else exc.__class__.__name__
+            ),
             "retry_after_seconds": int(_CACHE_POLICY.failure_ttl),
             "username_configured": True,
             "api_key_configured": True,

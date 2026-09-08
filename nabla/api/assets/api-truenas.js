@@ -35,11 +35,14 @@ function renderConnector(left, right) {
 function targetText(truenas) {
   const diagnostics = truenas?.diagnostics;
   const configuredTarget = diagnostics?.target || truenas?.public?.url || "TrueNAS";
+  if (diagnostics?.path_mode === "direct_lan") {
+    return `${configuredTarget} · TrueNAS HTTPS + WebSocket API endpoint · direct LAN`;
+  }
   const wan = diagnostics?.wan;
-  if (!wan?.ipv4) return configuredTarget;
+  if (!wan?.ipv4) return `${configuredTarget} · TrueNAS HTTPS + WebSocket API endpoint`;
   const provider = wan?.provider ? ` · ${wan.provider}` : "";
   const addressKind = wan?.static ? " static IPv4" : " IPv4";
-  return `${configuredTarget} · pfSense WAN / homelab public endpoint ${wan.ipv4}${provider}${addressKind}`;
+  return `${configuredTarget} · public API path via pfSense/HAProxy · ${wan.ipv4}${provider}${addressKind}`;
 }
 
 function filterIcon(filter) {
@@ -76,6 +79,9 @@ function ingressPolicyStage(data, measuredStages) {
 }
 
 function trafficStages(data, stages) {
+  const pathMode = data?.truenas?.diagnostics?.path_mode;
+  if (pathMode === "direct_lan") return stages;
+
   const output = [];
   let inserted = false;
   for (const stage of stages) {
@@ -121,6 +127,12 @@ function renderIngressBlock(data, target) {
   if (!container) return;
   const block = data?.pfsense?.dns?.ingress_block;
   const controlPath = block?.control_path;
+  if (data?.truenas?.diagnostics?.path_mode === "direct_lan") {
+    container.hidden = true;
+    container.innerHTML = "";
+    container.className = "truenas-ingress-block";
+    return;
+  }
 
   if (block?.state === "telemetry_unavailable") {
     const evidence = escapeText(block?.evidence || "snort2c cannot be queried");
@@ -188,6 +200,7 @@ function renderIngressBlock(data, target) {
 function apiFailureState(api) {
   const stale = api?.stale === true ? " · stale last-good available" : "";
   if (api?.stage === "source_allowlist") return `source IP blocked by TrueNAS allowlist${stale}`;
+  if (api?.stage === "access_denied") return `TrueNAS API access denied after connection${stale}`;
   if (api?.stage === "connection_reset") return `API connection reset${stale}`;
   if (api?.stage === "tls_handshake_timeout") return `TLS handshake timeout${stale}`;
   if (api?.stage === "api_call_timeout") return `API call timeout${stale}`;
@@ -273,8 +286,13 @@ function render(data) {
   } else if (api.stage === "source_allowlist") {
     error.hidden = false;
     error.textContent =
-      `TrueNAS API: ${String(api.error || "source IP is not allowlisted")} · ` +
+      `TrueNAS connection: ${String(api.error || "source IP is not allowlisted")} · ` +
       "verify System → Advanced Settings → Allowed IP Addresses for the observer source IP.";
+  } else if (api.stage === "access_denied") {
+    error.hidden = false;
+    error.textContent =
+      `TrueNAS API authorization: ${String(api.error || "authenticated identity lacks permission")} · ` +
+      "connection/authentication succeeded far enough to distinguish this from the HTTPS listener and source allowlist.";
   }
 }
 

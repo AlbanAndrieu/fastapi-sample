@@ -56,3 +56,20 @@ def test_truenas_platform_surfaces_transport_failure_stage() -> None:
     assert "TLS handshake timeout" in javascript
     assert 'api?.stage === "api_call_timeout"' in javascript
     assert "API call timeout" in javascript
+
+
+def test_truenas_platform_distinguishes_direct_lan_from_public_wan_path() -> None:
+    javascript = ASSET.read_text(encoding="utf-8")
+
+    assert 'diagnostics?.path_mode === "direct_lan"' in javascript
+    assert "TrueNAS HTTPS + WebSocket API endpoint · direct LAN" in javascript
+    assert "public API path via pfSense/HAProxy" in javascript
+    assert 'if (pathMode === "direct_lan") return stages;' in javascript
+
+
+def test_truenas_platform_distinguishes_listener_from_authenticated_api() -> None:
+    javascript = ASSET.read_text(encoding="utf-8")
+
+    assert "TrueNAS API access denied after connection" in javascript
+    assert "TrueNAS API authorization:" in javascript
+    assert "source IP blocked by TrueNAS allowlist" in javascript

@@ -1,6 +1,10 @@
 """Tests for the ordered TrueNAS diagnostic pipeline."""
 
-from nabla.api.truenas_diagnostics import append_truenas_api_stages, _haproxy_stage
+from nabla.api.truenas_diagnostics import (
+    _direct_lan_stage,
+    _haproxy_stage,
+    append_truenas_api_stages,
+)
 
 
 def _network_ok():
@@ -19,6 +23,14 @@ def _network_ok():
             {"id": "websocket", "label": "WebSocket upgrade", "state": "ok"},
         ],
     }
+
+
+def test_direct_lan_stage_documents_public_path_bypass() -> None:
+    stage = _direct_lan_stage(True, "truenas.albandrieu.com", 7000)
+
+    assert stage["id"] == "direct_lan"
+    assert stage["state"] == "ok"
+    assert "public pfSense WAN and HAProxy path bypassed" in stage["detail"]
 
 
 def test_haproxy_stage_documents_websocket_and_tls_reencryption() -> None:
@@ -48,7 +60,7 @@ def test_missing_api_key_marks_auth_failed_and_api_blocked() -> None:
     assert auth["failure_stage"] == "missing_api_key"
     assert api == {
         "id": "api",
-        "label": "TrueNAS API",
+        "label": "TrueNAS API · system.version + app.query",
         "state": "blocked",
         "detail": "Blocked by authentication",
     }

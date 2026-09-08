@@ -125,7 +125,7 @@ def _websocket_proxy_route(hostname: str | None) -> str:
     if _no_proxy_matches(hostname):
         return "bypass"
     proxy_configured = bool(
-        os.getenv("https_proxy", "").strip() or os.getenv("HTTPS_PROXY", "").strip()
+        os.getenv("https_proxy", "").strip() or os.getenv("HTTPS_PROXY", "").strip(),
     )
     return "proxy_candidate" if proxy_configured else "direct"
 
@@ -199,9 +199,19 @@ def _load_client_factory() -> Any:
         module = importlib.import_module("truenas_api_client")
     except ModuleNotFoundError as exc:
         raise RuntimeError(
-            "TrueNAS credentials are configured but truenas_api_client is not installed"
+            "TrueNAS credentials are configured but truenas_api_client is not installed",
         ) from exc
     return module.Client
+
+
+class TrueNASHealthProbeError(RuntimeError):
+    """Preserve the failing TrueNAS health phase without exposing credentials."""
+
+    def __init__(self, *, phase: str, stage: str, cause: BaseException) -> None:
+        super().__init__(str(cause).strip() or cause.__class__.__name__)
+        self.phase = phase
+        self.stage = stage
+        self.exception_type = cause.__class__.__name__
 
 
 class TrueNASReadOnlyAdapter:
@@ -293,6 +303,9 @@ class TrueNASReadOnlyAdapter:
                 apps = client.call(method)
         except Exception as exc:
             elapsed_ms = round((time.perf_counter() - started) * 1000)
+            failure_stage = _truenas_failure_stage(exc)
+            if phase == "call" and failure_stage == "source_allowlist":
+                failure_stage = "access_denied"
             logger.warning(
                 "TrueNAS API health probe failed method=%s uri=%s verify_ssl=%s proxy_route=%s phase=%s stage=%s exception=%s elapsed_ms=%s error=%s",
                 method,
@@ -300,12 +313,16 @@ class TrueNASReadOnlyAdapter:
                 self.settings.verify_ssl,
                 proxy_route,
                 phase,
-                _truenas_failure_stage(exc),
+                failure_stage,
                 exc.__class__.__name__,
                 elapsed_ms,
                 str(exc)[:500],
             )
-            raise
+            raise TrueNASHealthProbeError(
+                phase=phase,
+                stage=failure_stage,
+                cause=exc,
+            ) from exc
         logger.info(
             "TrueNAS API health probe succeeded uri=%s verify_ssl=%s proxy_route=%s elapsed_ms=%s",
             uri,

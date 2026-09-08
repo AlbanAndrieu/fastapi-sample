@@ -5,6 +5,7 @@ from unittest.mock import Mock
 import pytest
 
 from nabla.integrations.truenas_client import (
+    TrueNASHealthProbeError,
     TrueNASReadOnlyAdapter,
     TrueNASSettings,
     _truenas_failure_stage,
@@ -158,7 +159,7 @@ def test_failure_stage_classifies_client_websocket_close() -> None:
 def test_failure_stage_classifies_truenas_source_allowlist_denial() -> None:
     exc = RuntimeError(
         "WebSocket connection closed with code=1008, "
-        "reason='You are not allowed to access this resource'"
+        "reason='You are not allowed to access this resource'",
     )
 
     assert _truenas_failure_stage(exc) == "source_allowlist"
@@ -218,6 +219,32 @@ def test_health_snapshot_uses_system_version_and_app_query() -> None:
     assert clients[0].verify_ssl is True
     clients[0].login.assert_called_once_with("readonly", "1-secret")
     assert clients[0].calls == ["system.version", "app.query"]
+
+
+def test_health_snapshot_preserves_call_phase_for_rbac_denial() -> None:
+    class RbacDeniedClient(FakeClient):
+        def call(self, method: str, *params):
+            if method == "system.version":
+                return "26.0.0-BETA.2"
+            if method == "app.query":
+                raise RuntimeError("You are not allowed to access this resource")
+            return super().call(method, *params)
+
+    adapter = TrueNASReadOnlyAdapter(
+        TrueNASSettings(
+            url="https://truenas.example",
+            username="fastapi_observer",
+            api_key="1-secret",
+        ),
+        client_factory=lambda **kwargs: RbacDeniedClient(**kwargs),
+    )
+
+    with pytest.raises(TrueNASHealthProbeError) as exc_info:
+        adapter.health_snapshot()
+
+    assert exc_info.value.phase == "call"
+    assert exc_info.value.stage == "access_denied"
+    assert exc_info.value.exception_type == "RuntimeError"
 
 
 def test_custom_call_timeout_is_forwarded_to_official_client() -> None:

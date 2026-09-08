@@ -16,6 +16,7 @@ import httpx
 from nabla.api.health_probe_utils import is_textual_response, looks_like_tls_error
 from nabla.api.homelab_catalog import fetch_homelab_services
 from nabla.api.homelab_models import HomelabService
+from nabla.api.runtime_environment import homelab_runtime_detected
 from nabla.api.sickz_cloudflare_edge import _probe_http_edge_evidence
 from nabla.api.truenas_diagnostics import (
     append_truenas_api_stages,
@@ -331,7 +332,10 @@ async def _probe_truenas(
             websocket_uri=websocket_uri,
             verify_ssl=verify_ssl,
             public_result=public_result,
-        )
+            path_mode=(
+                "direct_lan" if homelab_runtime_detected() else "public_wan_haproxy"
+            ),
+        ),
     )
 
     pending: list[asyncio.Future[Any] | asyncio.Task[Any]] = [api_task, diagnostics_task]
