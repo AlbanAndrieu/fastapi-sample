@@ -1,3 +1,10 @@
+## [1.13.3](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.13.2...1.13.3) (2026-09-08)
+
+
+### Bug Fixes
+
+* **ui:** reconcile health board, Garage catalog and CI ([#220](https://github.com/AlbanAndrieu/fastapi-sample/issues/220)) ([fbf322b](https://github.com/AlbanAndrieu/fastapi-sample/commit/fbf322bd12fbdd9f9876b3abd8e798c7977aec97))
+
 ## [1.13.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.13.1...1.13.2) (2026-09-08)
 
 
