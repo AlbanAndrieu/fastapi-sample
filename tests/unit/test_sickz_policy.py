@@ -223,7 +223,7 @@ def test_cloudflare_http_evidence_degrades_when_observers_fail() -> None:
 def test_direct_int_external_service_is_always_warning_when_reachable() -> None:
     service = HomelabService(
         name="Garage",
-        tunnel_url="https://garage.int.albandrieu.com",
+        tunnel_url="https://s3.int.albandrieu.com",
         tunnel_secure=False,
         external=True,
     )
@@ -246,7 +246,7 @@ def test_direct_int_external_service_is_always_warning_when_reachable() -> None:
 def test_direct_int_external_service_stays_warning_when_probe_is_unreachable() -> None:
     service = HomelabService(
         name="Garage",
-        tunnel_url="https://garage.int.albandrieu.com",
+        tunnel_url="https://s3.int.albandrieu.com",
         tunnel_secure=False,
         external=True,
     )
@@ -267,7 +267,7 @@ def test_direct_int_external_service_stays_warning_when_probe_is_unreachable() -
 def test_direct_int_external_service_with_invalid_tls_is_failure() -> None:
     service = HomelabService(
         name="Garage",
-        tunnel_url="https://garage.int.albandrieu.com",
+        tunnel_url="https://s3.int.albandrieu.com",
         tunnel_secure=False,
         external=True,
     )
