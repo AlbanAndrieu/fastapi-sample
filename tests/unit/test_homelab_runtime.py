@@ -225,7 +225,9 @@ async def test_status_reports_unmanaged_truenas_apps(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_status_matches_stopped_app_by_exact_app_id_without_workloads(monkeypatch) -> None:
+async def test_status_matches_stopped_app_by_exact_app_id_without_workloads(
+    monkeypatch,
+) -> None:
     catalog = DeclaredServiceCatalog.model_validate(
         {
             "version": 1,
