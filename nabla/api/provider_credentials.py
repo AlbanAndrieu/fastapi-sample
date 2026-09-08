@@ -109,7 +109,7 @@ def infrastructure_provider_credentials() -> dict[str, dict[str, object]]:
     truenas["username_configured"] = bool(
         os.getenv("TRUENAS_API_USERNAME", "").strip()
         or os.getenv("TRUENAS_USERNAME", "").strip()
-        or os.getenv("TRUENAS_USER", "").strip()
+        or os.getenv("TRUENAS_USER", "").strip(),
     )
 
     posture_url_var, posture_key_var = pfsense_posture_environment_variables()
