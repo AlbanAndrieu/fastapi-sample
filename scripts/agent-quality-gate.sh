@@ -52,6 +52,7 @@ if (($# > 0)); then
 fi
 
 LOG_TAIL="${QUALITY_LOG_TAIL:-50}"
+LOG_TAIL=300  # temporary PR diagnostics; reverted after formatter convergence
 if ((LOG_TAIL > 200)); then
     LOG_TAIL=200
 fi
