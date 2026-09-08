@@ -6,17 +6,17 @@ import {
 
 const GROUPS = [
   {
-    key: "services",
-    label: "1 · Services & experiments",
+    key: "core-critical",
+    label: "1 · Critical core platform",
     description:
-      "User-facing and lab capabilities — the reason this homelab platform exists.",
+      "Foundations with broad blast radius: storage, runtime, network and orchestration.",
     openWhenHealthy: true,
   },
   {
-    key: "core-critical",
-    label: "2 · Critical core platform",
+    key: "services",
+    label: "2 · Services & experiments",
     description:
-      "Foundations with broad blast radius: storage, runtime, network and orchestration.",
+      "User-facing and lab capabilities — the reason this homelab platform exists.",
     openWhenHealthy: true,
   },
   {
@@ -429,8 +429,8 @@ function updateOverview(buckets, platformMetrics = null) {
   if (!target) return;
   const metrics = platformOverviewDetails(platformMetrics);
   target.innerHTML = [
-    overviewCard("Services", buckets.get("services") || []),
     overviewCard("Critical core", buckets.get("core-critical") || [], metrics.core),
+    overviewCard("Services", buckets.get("services") || []),
     overviewCard(
       "Security controls",
       buckets.get("security-controls") || [],
