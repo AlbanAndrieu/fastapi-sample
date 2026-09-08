@@ -16,6 +16,7 @@ import httpx
 from nabla.api.health_probe_utils import is_textual_response, looks_like_tls_error
 from nabla.api.homelab_catalog import fetch_homelab_services
 from nabla.api.homelab_models import HomelabService
+from nabla.api.sickz_cloudflare_edge import _probe_http_edge_evidence
 from nabla.api.truenas_diagnostics import (
     append_truenas_api_stages,
     collect_truenas_network_diagnostics,
@@ -180,13 +181,33 @@ async def _probe_public_service(
     url = service.public_https_probe_url
     if url is None:
         raise ValueError("service is not approved for public HTTPS probing")
-    return await _probe_http_endpoint(
+    result = await _probe_http_endpoint(
         client,
         semaphore,
         service_id=service.service_id,
         name=service.name,
         url=url,
     )
+    if (
+        not service.effective_cloudflare_access_required
+        or result.get("http_status") not in _WARNING_HTTP_STATUSES
+    ):
+        return result
+
+    edge_evidence = await _probe_http_edge_evidence(url)
+    result.update(edge_evidence)
+    if edge_evidence.get("cloudflare_service_token_access_passed") is not True:
+        return result
+
+    authenticated_status = int(
+        edge_evidence.get("cloudflare_service_token_http_status") or 0
+    )
+    result["anonymous_http_status"] = result["http_status"]
+    result["http_status"] = authenticated_status
+    result["state"] = classify_public_http_status(authenticated_status)
+    result["reachable"] = authenticated_status > 0
+    result["public_probe_auth_mode"] = "cloudflare_service_token"
+    return result
 
 
 async def _probe_internal_service(
