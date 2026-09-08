@@ -68,6 +68,7 @@ def test_settings_do_not_reuse_mcp_api_key(monkeypatch) -> None:
 
     assert TrueNASSettings.from_environment() is None
 
+
 def test_settings_do_not_accept_infrastructure_credentials(monkeypatch) -> None:
     monkeypatch.delenv("TRUENAS_API_USERNAME", raising=False)
     monkeypatch.delenv("TRUENAS_API_KEY", raising=False)
@@ -75,7 +76,6 @@ def test_settings_do_not_accept_infrastructure_credentials(monkeypatch) -> None:
     monkeypatch.setenv("TRUENAS_INFRA_API_KEY", "2-infra-key")
 
     assert TrueNASSettings.from_environment() is None
-
 
 
 def test_settings_use_canonical_api_verify_ssl(monkeypatch) -> None:
@@ -158,8 +158,7 @@ def test_failure_stage_classifies_client_websocket_close() -> None:
 
 def test_failure_stage_classifies_truenas_source_allowlist_denial() -> None:
     exc = RuntimeError(
-        "WebSocket connection closed with code=1008, "
-        "reason='You are not allowed to access this resource'",
+        "WebSocket connection closed with code=1008, reason='You are not allowed to access this resource'",
     )
 
     assert _truenas_failure_stage(exc) == "source_allowlist"
