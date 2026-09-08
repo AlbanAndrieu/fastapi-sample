@@ -48,7 +48,7 @@ class TrueNASSettings:
 
     @classmethod
     def from_environment(cls) -> TrueNASSettings | None:
-        """Load optional TrueNAS credentials from the supported environment names."""
+        """Load the canonical FastAPI TrueNAS observer credential pair."""
         environment = TrueNASProviderSettings()
         username = environment.adapter_username
         api_key = environment.adapter_api_key

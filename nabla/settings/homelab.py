@@ -16,29 +16,23 @@ _ALLOWED_TRUENAS_SCHEMES = frozenset({"http", "https", "ws", "wss"})
 
 
 class TrueNASProviderSettings(SettingsBase):
-    """Environment-backed TrueNAS settings with explicit compatibility aliases.
+    """Environment-backed TrueNAS settings for the FastAPI observer boundary.
 
-    The canonical health contract intentionally requires ``TRUENAS_API_KEY``.
-    The lower-level adapter may additionally reuse ``TRUENAS_MCP_API_KEY`` for
-    backwards compatibility. Keeping both values explicit prevents a fallback
-    secret from silently changing the health/configuration contract.
+    The application runtime uses exactly one credential pair:
+    ``TRUENAS_API_USERNAME`` + ``TRUENAS_API_KEY``.
+
+    Legacy usernames, MCP credentials and OpenTofu/Terragrunt
+    ``TRUENAS_INFRA_*`` credentials are diagnostic-only when present. They are
+    never selected as authentication fallbacks for FastAPI.
     """
 
     truenas_url: str = DEFAULT_TRUENAS_URL
     truenas_api_username: str | None = None
-    truenas_username: str | None = None
-    truenas_user: str | None = None
     truenas_api_key: SecretStr | None = None
-    truenas_mcp_api_key: SecretStr | None = None
     truenas_api_verify_ssl: bool = True
     truenas_ws_path: str = DEFAULT_TRUENAS_WS_PATH
 
-    @field_validator(
-        "truenas_api_username",
-        "truenas_username",
-        "truenas_user",
-        mode="before",
-    )
+    @field_validator("truenas_api_username", mode="before")
     @classmethod
     def _strip_optional_text(cls, value: object) -> object:
         if isinstance(value, str):
@@ -46,7 +40,7 @@ class TrueNASProviderSettings(SettingsBase):
             return stripped or None
         return value
 
-    @field_validator("truenas_api_key", "truenas_mcp_api_key", mode="before")
+    @field_validator("truenas_api_key", mode="before")
     @classmethod
     def _strip_optional_secret(cls, value: object) -> object:
         if isinstance(value, str):
@@ -96,61 +90,47 @@ class TrueNASProviderSettings(SettingsBase):
 
     @property
     def adapter_username(self) -> str:
-        """Return the supported username aliases in historical precedence order."""
-        return (
-            self.truenas_api_username
-            or self.truenas_username
-            or self.truenas_user
-            or ""
-        )
+        """Return only the canonical FastAPI observer username."""
+        return self.truenas_api_username or ""
 
     @property
     def adapter_username_environment(self) -> str:
-        """Return the selected username variable name without its value."""
-        if self.truenas_api_username:
-            return "TRUENAS_API_USERNAME"
-        if self.truenas_username:
-            return "TRUENAS_USERNAME"
-        if self.truenas_user:
-            return "TRUENAS_USER"
+        """Return the canonical observer username variable name."""
         return "TRUENAS_API_USERNAME"
 
     @property
     def shadowed_username_environments(self) -> tuple[str, ...]:
-        """Return configured lower-priority username aliases that are ignored."""
-        selected = self.adapter_username_environment
-        configured = (
-            ("TRUENAS_API_USERNAME", self.truenas_api_username),
-            ("TRUENAS_USERNAME", self.truenas_username),
-            ("TRUENAS_USER", self.truenas_user),
+        """Return configured non-observer username variables that are ignored."""
+        names = (
+            "TRUENAS_USERNAME",
+            "TRUENAS_USER",
+            "TRUENAS_INFRA_API_USERNAME",
         )
-        return tuple(name for name, value in configured if value and name != selected)
+        return tuple(name for name in names if os.getenv(name, "").strip())
 
     @property
     def canonical_api_key(self) -> str:
-        """Return only the canonical health API key."""
+        """Return only the canonical FastAPI observer API key."""
         return self._secret_value(self.truenas_api_key)
 
     @property
     def adapter_api_key(self) -> str:
-        """Return the adapter key with the legacy MCP fallback preserved."""
-        return self.canonical_api_key or self._secret_value(self.truenas_mcp_api_key)
+        """Return only the canonical FastAPI observer API key."""
+        return self.canonical_api_key
 
     @property
     def adapter_api_key_environment(self) -> str:
-        """Return the selected adapter key variable name without its value."""
-        if self.canonical_api_key:
-            return "TRUENAS_API_KEY"
-        if self._secret_value(self.truenas_mcp_api_key):
-            return "TRUENAS_MCP_API_KEY"
+        """Return the canonical observer API-key variable name."""
         return "TRUENAS_API_KEY"
 
     @property
     def shadowed_api_key_environments(self) -> tuple[str, ...]:
-        """Return configured lower-priority API-key aliases that are ignored."""
-        if self.canonical_api_key and self._secret_value(self.truenas_mcp_api_key):
-            return ("TRUENAS_MCP_API_KEY",)
-        return ()
+        """Return configured non-observer API-key variables that are ignored."""
+        names = (
+            "TRUENAS_MCP_API_KEY",
+            "TRUENAS_INFRA_API_KEY",
+        )
+        return tuple(name for name in names if os.getenv(name, "").strip())
 
     @property
     def url(self) -> str:
@@ -163,7 +143,6 @@ class TrueNASProviderSettings(SettingsBase):
     @property
     def websocket_path(self) -> str:
         return self.truenas_ws_path
-
 
 _ALLOWED_PFSENSE_SCHEMES = frozenset({"http", "https"})
 DEFAULT_PFSENSE_API_URL = "https://home.albandrieu.com:10443"

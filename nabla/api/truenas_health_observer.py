@@ -90,8 +90,8 @@ def truenas_api_configuration_failure() -> dict[str, Any] | None:
             "api_key_configured": bool(api_key),
         }
 
-    # The health contract intentionally requires the canonical TRUENAS_API_KEY.
-    # TRUENAS_MCP_API_KEY remains a lower-level adapter compatibility fallback only.
+    # The health contract requires the canonical FastAPI observer API key.
+    # MCP and infrastructure keys are intentionally ignored by this runtime.
     credential_status = inspect_environment_credentials(
         "truenas",
         "TRUENAS_API_KEY",

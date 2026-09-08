@@ -18,6 +18,19 @@ def _clear_pfsense_env(monkeypatch) -> None:
         monkeypatch.delenv(name, raising=False)
 
 
+def _clear_truenas_env(monkeypatch) -> None:
+    for name in (
+        "TRUENAS_API_USERNAME",
+        "TRUENAS_API_KEY",
+        "TRUENAS_USERNAME",
+        "TRUENAS_USER",
+        "TRUENAS_MCP_API_KEY",
+        "TRUENAS_INFRA_API_USERNAME",
+        "TRUENAS_INFRA_API_KEY",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+
 def test_missing_provider_secret_reports_variable_name(monkeypatch) -> None:
     monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example.test")
     monkeypatch.delenv("PFSENSE_API_KEY", raising=False)
@@ -48,7 +61,8 @@ def test_environment_variable_reference_is_rejected_without_echoing_secret(monke
 
 def test_inventory_tracks_split_pfsense_identities_without_secret_material(monkeypatch) -> None:
     _clear_pfsense_env(monkeypatch)
-    monkeypatch.setenv("TRUENAS_USER", "test-user")
+    _clear_truenas_env(monkeypatch)
+    monkeypatch.setenv("TRUENAS_API_USERNAME", "fastapi_observer")
     monkeypatch.setenv("TRUENAS_API_KEY", "7-test-placeholder")
     monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example.test")
     monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "posture-test-placeholder")
@@ -71,6 +85,7 @@ def test_inventory_tracks_split_pfsense_identities_without_secret_material(monke
     assert result["pfsense"]["credential_mode"] == "dedicated"
     assert result["pfsense_security"]["credential_mode"] == "dedicated"
     assert result["truenas"]["username_configured"] is True
+    assert result["truenas"]["credential_mode"] == "dedicated_observer"
     serialized = repr(result)
     for secret in (
         "7-test-placeholder",
@@ -81,6 +96,23 @@ def test_inventory_tracks_split_pfsense_identities_without_secret_material(monke
         "service-client-secret-placeholder",
     ):
         assert secret not in serialized
+
+
+def test_inventory_ignores_truenas_infrastructure_credentials(monkeypatch) -> None:
+    _clear_truenas_env(monkeypatch)
+    monkeypatch.setenv("TRUENAS_INFRA_API_USERNAME", "albandrieu")
+    monkeypatch.setenv("TRUENAS_INFRA_API_KEY", "infra-test-placeholder")
+
+    result = infrastructure_provider_credentials()["truenas"]
+
+    assert result["configured"] is False
+    assert result["username_configured"] is False
+    assert result["credential_mode"] == "dedicated_observer"
+    assert result["missing_variables"] == [
+        "TRUENAS_API_USERNAME",
+        "TRUENAS_API_KEY",
+    ]
+    assert "infra-test-placeholder" not in repr(result)
 
 
 def test_inventory_requests_dedicated_keys_when_generic_fallback_is_absent(monkeypatch) -> None:

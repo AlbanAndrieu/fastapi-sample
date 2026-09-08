@@ -54,8 +54,10 @@ async def test_health_payload_exposes_only_credential_variable_selection(monkeyp
     _valid_configuration(monkeypatch)
     monkeypatch.setenv("TRUENAS_API_USERNAME", "fastapi_observer")
     monkeypatch.setenv("TRUENAS_USER", "legacy-admin")
+    monkeypatch.setenv("TRUENAS_INFRA_API_USERNAME", "albandrieu")
     monkeypatch.setenv("TRUENAS_API_KEY", "8-secret-material")
     monkeypatch.setenv("TRUENAS_MCP_API_KEY", "7-legacy-secret")
+    monkeypatch.setenv("TRUENAS_INFRA_API_KEY", "6-infra-secret")
 
     monkeypatch.setattr(
         observer,
@@ -68,14 +70,22 @@ async def test_health_payload_exposes_only_credential_variable_selection(monkeyp
     assert result["credential_selection"] == {
         "username_variable": "TRUENAS_API_USERNAME",
         "api_key_variable": "TRUENAS_API_KEY",
-        "shadowed_username_variables": ["TRUENAS_USER"],
-        "shadowed_api_key_variables": ["TRUENAS_MCP_API_KEY"],
+        "shadowed_username_variables": [
+            "TRUENAS_USER",
+            "TRUENAS_INFRA_API_USERNAME",
+        ],
+        "shadowed_api_key_variables": [
+            "TRUENAS_MCP_API_KEY",
+            "TRUENAS_INFRA_API_KEY",
+        ],
     }
     rendered = repr(result)
     assert "fastapi_observer" not in rendered
     assert "legacy-admin" not in rendered
     assert "8-secret-material" not in rendered
     assert "7-legacy-secret" not in rendered
+    assert "albandrieu" not in rendered
+    assert "6-infra-secret" not in rendered
     await observer.reset_truenas_health_cache()
 
 

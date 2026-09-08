@@ -194,31 +194,26 @@ Do not replace the hostname with `https://172.17.0.24:7000` merely to avoid
 public DNS routing. The transport address and the TLS identity are separate
 concerns.
 
-The adapter also accepts these compatibility fallbacks:
+The FastAPI runtime no longer accepts username/key fallbacks. Its TrueNAS
+observer trust boundary is exactly:
 
-```text
-TRUENAS_USERNAME=<fallback username>
-TRUENAS_MCP_API_KEY=<fallback API key>
-```
+| Usage | Username variable | Secret variable |
+| --- | --- | --- |
+| FastAPI observer | `TRUENAS_API_USERNAME=fastapi_observer` | `TRUENAS_API_KEY` |
+| OpenTofu/Terragrunt | not consumed by this repository/runtime | `TRUENAS_INFRA_API_KEY` is not consumed |
+| TrueNAS MCP tooling | configured by the MCP launcher only | `TRUENAS_MCP_API_KEY` is not consumed by FastAPI |
 
-Prefer `TRUENAS_API_USERNAME` + `TRUENAS_API_KEY` for the FastAPI runtime so the application credential can be rotated independently of the agent/MCP credential.
+OpenTofu/Terragrunt uses the separate
+`TRUENAS_INFRA_API_USERNAME` + `TRUENAS_INFRA_API_KEY` pair in
+`nabla-compose`. Those variables must never configure the FastAPI observer,
+even when they are present in the same workstation shell.
 
-Username precedence is explicit:
-
-```text
-TRUENAS_API_USERNAME
-  -> TRUENAS_USERNAME
-  -> TRUENAS_USER
-```
-
-The canonical key `TRUENAS_API_KEY` wins over the legacy
-`TRUENAS_MCP_API_KEY` fallback. A lower-priority alias can therefore remain
-configured without changing the active credentials, but that is configuration
-debt: if the canonical username is later removed, the adapter can silently fall
-back to the old username while still using the canonical API key. The sanitized
-health payload reports only the selected variable names and shadowed aliases,
-never the credential values. Remove stale aliases from production runtimes once
-the dedicated service identity is proven.
+Likewise, `TRUENAS_USERNAME`, `TRUENAS_USER` and
+`TRUENAS_MCP_API_KEY` are no longer authentication fallbacks for the
+application. The sanitized health payload may report the *names* of these
+non-observer variables as configured-but-ignored drift, but never their values.
+This keeps operator, observer and MCP identities from being silently paired with
+the wrong API key.
 
 TrueNAS 26 uses the JSON-RPC WebSocket API at `/api/current`. The observer currently reads the system version and app inventory only; credentials must never be returned by health endpoints.
 

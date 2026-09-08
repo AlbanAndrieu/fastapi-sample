@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import os
 import re
 
 from nabla.settings.homelab import (
@@ -99,12 +98,14 @@ def infrastructure_provider_credentials() -> dict[str, dict[str, object]]:
     """Return sanitized credential presence for external homelab control planes."""
     truenas = inspect_environment_credentials(
         "truenas",
+        "TRUENAS_API_USERNAME",
         "TRUENAS_API_KEY",
         secret_variables=frozenset({"TRUENAS_API_KEY"}),
     ).as_dict()
-    truenas["username_configured"] = bool(
-        os.getenv("TRUENAS_API_USERNAME", "").strip() or os.getenv("TRUENAS_USERNAME", "").strip() or os.getenv("TRUENAS_USER", "").strip(),
+    truenas["username_configured"] = (
+        "TRUENAS_API_USERNAME" not in truenas["missing_variables"]
     )
+    truenas["credential_mode"] = "dedicated_observer"
 
     posture_url_var, posture_key_var = pfsense_posture_environment_variables()
     security_url_var, security_key_var = pfsense_security_environment_variables()
