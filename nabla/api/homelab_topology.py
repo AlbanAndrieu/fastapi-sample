@@ -89,7 +89,7 @@ class HomelabTopologyNode(BaseModel):
     icon: str | None = Field(default=None, min_length=1, max_length=32)
 
     @model_validator(mode="after")
-    def require_unique_security_functions(self) -> "HomelabTopologyNode":
+    def require_unique_security_functions(self) -> HomelabTopologyNode:
         """Reject ambiguous duplicate NIST CSF function metadata."""
         if self.security_functions is not None and len(self.security_functions) != len(
             set(self.security_functions),
