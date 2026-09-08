@@ -28,6 +28,7 @@ from nabla.settings.homelab import (
 ControlPathMode = Literal["shared_wan", "out_of_band"]
 _PFSENSE_CONNECT_TIMEOUT_SEC = 2.0
 _PFSENSE_READ_TIMEOUT_SEC = 6.0
+_PFSENSE_OUT_OF_BAND_READ_TIMEOUT_SEC = 20.0
 _PFSENSE_MAX_ATTEMPTS = 1
 _PFSENSE_RETRY_DELAY_SEC = 0.2
 _SNORT2C_PATH = "/api/v2/diagnostics/table?id=snort2c"
@@ -82,11 +83,7 @@ def security_configuration_status() -> dict[str, object]:
     status["invalid_configuration_variables"] = invalid_variables
     status["required_privilege"] = "api-v2-diagnostics-table-get"
     status["write_privileges_required"] = False
-    status["credential_mode"] = (
-        "dedicated_security"
-        if key_var == "PFSENSE_SECURITY_API_KEY"
-        else "legacy_shared"
-    )
+    status["credential_mode"] = "dedicated_security" if key_var == "PFSENSE_SECURITY_API_KEY" else "legacy_shared"
     return status
 
 
@@ -112,13 +109,18 @@ def _error_kind(exc: BaseException) -> str:
         if any(marker in message for marker in ("certificate", "ssl", "tls")):
             return "tls_error"
         return "connect_error"
-    if isinstance(exc, ssl.SSLError) or any(
-        marker in message for marker in ("certificate", "ssl", "tls")
-    ):
+    if isinstance(exc, ssl.SSLError) or any(marker in message for marker in ("certificate", "ssl", "tls")):
         return "tls_error"
     if isinstance(exc, OSError):
         return "os_error"
     return "unknown_error"
+
+
+def _read_timeout_seconds(settings: PfSenseSecuritySettings) -> float:
+    """Keep WAN diagnosis fail-fast while allowing slower trusted LAN pfREST reads."""
+    if settings.control_path_mode == "out_of_band":
+        return _PFSENSE_OUT_OF_BAND_READ_TIMEOUT_SEC
+    return _PFSENSE_READ_TIMEOUT_SEC
 
 
 def _failure_stage(error_kind: str) -> str:
@@ -142,11 +144,7 @@ def _response_data(payload: object) -> object:
 def _canonical_table_entries(table: object) -> frozenset[str]:
     candidate: object = table
     if isinstance(table, list):
-        matching = [
-            row
-            for row in table
-            if isinstance(row, dict) and str(row.get("name") or "") == "snort2c"
-        ]
+        matching = [row for row in table if isinstance(row, dict) and str(row.get("name") or "") == "snort2c"]
         candidate = matching[0] if matching else None
     if isinstance(candidate, dict):
         candidate = candidate.get("entries")
@@ -248,16 +246,14 @@ def _attribution_unavailable(
             "engine": "snort",
             "firewall": "pfSense/PF",
             "mechanism": "snort2c",
-            "source": {"ip": None, "role": "FastAPI Cloud egress (not observed)"},
+            "source": {"ip": None, "role": "Runtime public egress (not observed)"},
             "destination": {
                 "ip": wan["ipv4"],
                 "port": _TRUENAS_PUBLIC_PORT,
                 "role": "pfSense WAN / homelab public endpoint",
             },
             "table_entry_count": len(_canonical_table_entries(table)),
-            "evidence": (
-                "snort2c telemetry is reachable, but the runtime public egress IP could not be observed"
-            ),
+            "evidence": ("snort2c telemetry is reachable, but the runtime public egress IP could not be observed"),
             "control_path": _control_path(settings, blind_spot=False),
         },
         telemetry,
@@ -284,7 +280,7 @@ def _block_evidence(
             "mechanism": "snort2c",
             "source": {
                 "ip": observed_ip or None,
-                "role": "FastAPI Cloud egress (observed)",
+                "role": "Runtime public egress (observed)",
             },
             "destination": {
                 "ip": wan["ipv4"],
@@ -292,11 +288,7 @@ def _block_evidence(
                 "role": "pfSense WAN / homelab public endpoint",
             },
             "table_entry_count": len(_canonical_table_entries(table)),
-            "evidence": (
-                "Exact observed egress IP is present in pfSense table snort2c"
-                if blocked
-                else "Exact observed egress IP is not present in pfSense table snort2c"
-            ),
+            "evidence": ("Exact observed egress IP is present in pfSense table snort2c" if blocked else "Exact observed egress IP is not present in pfSense table snort2c"),
             "control_path": _control_path(settings),
         },
         telemetry,
@@ -331,11 +323,9 @@ def _stale_telemetry(
             },
             "table_entry_count": len(_canonical_table_entries(table)),
             "last_known_match": bool(
-                observed_ip and observed_ip in _canonical_table_entries(table)
+                observed_ip and observed_ip in _canonical_table_entries(table),
             ),
-            "evidence": (
-                "Last-known-good snort2c table retained after refresh failure; current block attribution is intentionally withheld"
-            ),
+            "evidence": ("Last-known-good snort2c table retained after refresh failure; current block attribution is intentionally withheld"),
             "control_path": _control_path(settings, blind_spot=False),
         },
         telemetry,
@@ -345,9 +335,10 @@ def _stale_telemetry(
 async def _fetch_snort2c(
     settings: PfSenseSecuritySettings,
 ) -> tuple[object | None, dict[str, Any]]:
+    read_timeout_sec = _read_timeout_seconds(settings)
     timeout = httpx.Timeout(
         connect=_PFSENSE_CONNECT_TIMEOUT_SEC,
-        read=_PFSENSE_READ_TIMEOUT_SEC,
+        read=read_timeout_sec,
         write=_PFSENSE_CONNECT_TIMEOUT_SEC,
         pool=_PFSENSE_CONNECT_TIMEOUT_SEC,
     )
@@ -371,6 +362,7 @@ async def _fetch_snort2c(
                     "attempts": attempt,
                     "elapsed_ms": round((time.monotonic() - started) * 1000),
                     "http_status": response.status_code,
+                    "read_timeout_sec": read_timeout_sec,
                 }
             except (httpx.HTTPError, OSError, ValueError) as exc:
                 last_error = exc
@@ -398,6 +390,7 @@ async def _fetch_snort2c(
         "failure_stage": _failure_stage(kind),
         "exception_type": type(error).__name__,
         "refresh_error": _safe_error(error),
+        "read_timeout_sec": read_timeout_sec,
     }
 
 
@@ -457,13 +450,9 @@ async def observe_pfsense_ingress_block(
     table, telemetry = table_result
     if table is None:
         blind_spot = configured.control_path_mode == "shared_wan" and telemetry.get(
-            "failure_stage"
+            "failure_stage",
         ) in {"connect", "response", "request", "client_pool"}
-        suffix = (
-            "; shared WAN control path cannot prove whether the telemetry request itself was filtered"
-            if blind_spot
-            else ""
-        )
+        suffix = "; shared WAN control path cannot prove whether the telemetry request itself was filtered" if blind_spot else ""
         return _unavailable(
             configured,
             f"snort2c telemetry unavailable: {telemetry.get('refresh_error', 'request failed')}{suffix}",

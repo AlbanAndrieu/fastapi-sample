@@ -83,6 +83,18 @@ def test_security_settings_allow_fully_dedicated_transport(monkeypatch) -> None:
     assert settings.verify_ssl is False
 
 
+def test_security_settings_load_out_of_band_control_path(monkeypatch) -> None:
+    _clear_security_env(monkeypatch)
+    monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example.test:10443")
+    monkeypatch.setenv("PFSENSE_SECURITY_API_KEY", "dedicated-key")
+    monkeypatch.setenv("PFSENSE_SECURITY_PATH_MODE", "out_of_band")
+
+    settings = observer.PfSenseSecuritySettings.from_environment()
+
+    assert settings is not None
+    assert settings.control_path_mode == "out_of_band"
+
+
 def test_security_settings_keep_legacy_fallback_when_explicitly_present(monkeypatch) -> None:
     _clear_security_env(monkeypatch)
     monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example.test:10443")
@@ -100,6 +112,9 @@ def test_security_settings_keep_legacy_fallback_when_explicitly_present(monkeypa
 def test_snort_probe_is_fail_fast_and_uses_failure_backoff() -> None:
     assert observer._PFSENSE_CONNECT_TIMEOUT_SEC == 2.0
     assert observer._PFSENSE_READ_TIMEOUT_SEC == 6.0
+    assert observer._PFSENSE_OUT_OF_BAND_READ_TIMEOUT_SEC == 20.0
+    assert observer._read_timeout_seconds(_settings()) == 6.0
+    assert observer._read_timeout_seconds(_settings("out_of_band")) == 20.0
     assert observer._PFSENSE_MAX_ATTEMPTS == 1
     assert observer._SNORT2C_CACHE_POLICY.success_ttl == 60.0
     assert observer._SNORT2C_CACHE_POLICY.failure_ttl == 120.0
