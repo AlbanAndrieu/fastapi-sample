@@ -136,6 +136,11 @@ class HomelabService(BaseModel):
         validation_alias=AliasChoices("securityException", "security_exception"),
         serialization_alias="securityException",
     )
+    health_note: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("healthNote", "health_note"),
+        serialization_alias="healthNote",
+    )
 
     # Secure default: discovery and incomplete JSON are private unless exposure
     # intent is explicitly present. The misspelled legacy field is accepted only
@@ -217,7 +222,7 @@ class HomelabService(BaseModel):
         if host.endswith(_DIRECT_EXTERNAL_DOMAIN_SUFFIX) and self.tunnel_secure is not False:
             raise ValueError(
                 "external *.int.albandrieu.com endpoints require tunnelSecure=false "
-                "to declare the direct non-Cloudflare exposure exception"
+                "to declare the direct non-Cloudflare exposure exception",
             )
 
         try:
@@ -268,7 +273,7 @@ class HomelabService(BaseModel):
                 "tunnel_url": url,
                 "external": True,
                 "endpoint_enabled": True,
-            }
+            },
         )
         return type(self).model_validate(payload)
 

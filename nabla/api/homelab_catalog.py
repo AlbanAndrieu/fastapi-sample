@@ -80,6 +80,7 @@ _OVERRIDE_FIELDS = (
     "tunnelTitle",
     "cloudflareAccessRequired",
     "securityException",
+    "healthNote",
 )
 
 
@@ -91,7 +92,7 @@ def _apply_exposure_overrides(
     if overrides_payload is None:
         try:
             overrides_payload = json.loads(
-                HOMELAB_EXPOSURE_OVERRIDES_PATH.read_text(encoding="utf-8")
+                HOMELAB_EXPOSURE_OVERRIDES_PATH.read_text(encoding="utf-8"),
             )
         except FileNotFoundError:
             return payload
@@ -172,7 +173,7 @@ async def _fetch_remote_catalog() -> HomelabCatalog:
         raise ValueError("authoritative homelab catalog payload must be a JSON object")
 
     catalog = HomelabCatalog.model_validate(
-        _apply_exposure_overrides(services_payload, overrides_payload)
+        _apply_exposure_overrides(services_payload, overrides_payload),
     )
     if not catalog.services:
         raise ValueError("authoritative homelab catalog contains no services")
@@ -260,7 +261,7 @@ async def homelab_healthz_probe_rows() -> list[tuple[str, str, str, str | None]]
     services = await fetch_homelab_services()
     configured_truenas_url = truenas_url().rstrip("/") + "/"
     rows: list[tuple[str, str, str, str | None]] = [
-        ("albandrieu_truenas", configured_truenas_url, "TrueNAS HTTPS", None)
+        ("albandrieu_truenas", configured_truenas_url, "TrueNAS HTTPS", None),
     ]
     used_keys: set[str] = {"albandrieu_truenas"}
     for service in services:

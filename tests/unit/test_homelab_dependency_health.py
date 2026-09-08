@@ -17,11 +17,7 @@ def _row(service_id: str, state: str, **extra: object) -> dict[str, object]:
 
 
 def _topology(*relations: dict[str, object]) -> HomelabTopology:
-    ids = {
-        str(value)
-        for relation in relations
-        for value in (relation["source"], relation["target"])
-    }
+    ids = {str(value) for relation in relations for value in (relation["source"], relation["target"])}
     return HomelabTopology.model_validate(
         {
             "nodes": [
@@ -34,7 +30,7 @@ def _topology(*relations: dict[str, object]) -> HomelabTopology:
                 for service_id in sorted(ids)
             ],
             "relations": list(relations),
-        }
+        },
     )
 
 
@@ -236,3 +232,29 @@ def test_service_without_required_dependencies_preserves_local_state() -> None:
     assert rows[0]["blocked_by"] == []
     assert rows[0]["dependency_cycle"] == []
     assert rows[0]["dependency_evidence"] == []
+
+
+def test_stale_failed_required_target_is_unknown_not_confirmed_failure() -> None:
+    topology = _topology(_relation("service", "database"))
+    rows = propagate_required_dependency_health(
+        [
+            _row("service", "ok"),
+            _row(
+                "database",
+                "fail",
+                observed_at="2000-01-01T00:00:00Z",
+                observation_age_seconds=120,
+                observation_stale=True,
+            ),
+        ],
+        topology,
+    )
+
+    service = rows[0]
+    evidence = service["dependency_evidence"][0]
+    assert service["dependency_state"] == "unknown"
+    assert service["effective_state"] == "warn"
+    assert service["blocked_by"] == ["database"]
+    assert evidence["target_state"] == "unknown"
+    assert evidence["target_effective_state"] == "fail"
+    assert evidence["target_observation_stale"] is True

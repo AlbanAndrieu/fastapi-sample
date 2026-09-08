@@ -4,6 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from nabla.settings.homelab import (
+    DEFAULT_PFSENSE_API_URL,
     DEFAULT_TRUENAS_URL,
     PfSensePostureProviderSettings,
     PfSenseSecurityProviderSettings,
@@ -158,6 +159,15 @@ def _clear_pfsense_env(monkeypatch: pytest.MonkeyPatch) -> None:
     for name in _PFSENSE_ENV:
         monkeypatch.delenv(name, raising=False)
 
+def test_pfsense_posture_defaults_to_home_api_endpoint(monkeypatch) -> None:
+    _clear_pfsense_env(monkeypatch)
+
+    settings = PfSensePostureProviderSettings()
+
+    assert settings.base_url == DEFAULT_PFSENSE_API_URL
+    assert settings.base_url == "https://home.albandrieu.com:10443"
+
+
 
 def test_pfsense_posture_prefers_dedicated_transport_and_masks_secrets(monkeypatch) -> None:
     _clear_pfsense_env(monkeypatch)
@@ -176,6 +186,18 @@ def test_pfsense_posture_prefers_dedicated_transport_and_masks_secrets(monkeypat
     assert settings.credential_mode == "dedicated_posture"
     assert "posture-secret" not in repr(settings)
     assert "shared-secret" not in repr(settings)
+
+
+def test_legacy_pfsense_api_hostname_normalizes_to_home(monkeypatch) -> None:
+    _clear_pfsense_env(monkeypatch)
+    monkeypatch.setenv(
+        "PFSENSE_API_URL",
+        "https://pfsense.albandrieu.com:10443",
+    )
+
+    settings = PfSensePostureProviderSettings()
+
+    assert settings.base_url == "https://home.albandrieu.com:10443"
 
 
 def test_pfsense_posture_blank_tls_override_falls_back_to_shared_policy(monkeypatch) -> None:

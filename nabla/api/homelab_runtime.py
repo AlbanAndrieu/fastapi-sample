@@ -202,18 +202,28 @@ async def fetch_truenas_runtime() -> TrueNASRuntimeSnapshot:
     return await asyncio.to_thread(_cached_truenas_runtime)
 
 
-def _matches_binding(
+def match_runtime_binding(
     app: ObservedApp,
     binding: RuntimeBinding,
 ) -> tuple[bool, ObservedContainer | None]:
-    if binding.app_id and app.app_id != binding.app_id and app.name != binding.app_id:
-        return False, None
+    app_identity_matched = False
+    if binding.app_id:
+        app_identity_matched = app.app_id == binding.app_id or app.name == binding.app_id
+        if not app_identity_matched:
+            return False, None
     if not binding.container_service:
         return True, None
+
     matches = [container for container in app.containers if container.service_name == binding.container_service]
-    if not matches:
-        return False, None
-    return True, matches[0]
+    if matches:
+        return True, matches[0]
+
+    # A stopped TrueNAS App may expose no active_workloads/container details.
+    # When appId already matched exactly, retain that stronger runtime identity
+    # rather than splitting one stopped App into declared_only + observed_only.
+    if app_identity_matched and not app.containers:
+        return True, None
+    return False, None
 
 
 def _reconcile_declared(
@@ -236,7 +246,7 @@ def _reconcile_declared(
 
     matches: list[tuple[ObservedApp, ObservedContainer | None]] = []
     for app in snapshot.apps:
-        matched, container = _matches_binding(app, binding)
+        matched, container = match_runtime_binding(app, binding)
         if matched:
             matches.append((app, container))
     if not matches:
