@@ -85,7 +85,7 @@ def truenas_api_configuration_failure() -> dict[str, Any] | None:
             "reachable": False,
             "phase": "authentication",
             "stage": "missing_username",
-            "error": "TrueNAS API username is missing; authentication cannot be attempted.",
+            "error": "TRUENAS_API_USERNAME is missing; authentication cannot be attempted.",
             "username_configured": False,
             "api_key_configured": bool(api_key),
         }
