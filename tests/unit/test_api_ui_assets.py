@@ -230,7 +230,8 @@ def test_sickz_surfaces_default_deny_and_catalog_icons() -> None:
     css = (_ASSET_DIR / "api-sickz.css").read_text(encoding="utf-8")
 
     assert "selfhstFilenameFromCatalogPath" in health_ui
-    assert "assets/selfh-icons" in health_ui
+    assert String.raw`assets\/selfh-icons\/` in health_ui
+    assert "SELFHST_ICON_CDN" in health_ui
     assert "cloudflarePolicyWarningHtml" in health_ui
     assert "cloudflare_default_deny" in health_ui
     assert "Cloudflare Default-Deny" in sickz
