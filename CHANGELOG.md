@@ -1,3 +1,10 @@
+# [1.13.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.12.1...1.13.0) (2026-09-08)
+
+
+### Features
+
+* **ui:** prioritize critical core platform health ([#217](https://github.com/AlbanAndrieu/fastapi-sample/issues/217)) ([4164ca2](https://github.com/AlbanAndrieu/fastapi-sample/commit/4164ca23261de7e38bb544b63b717f295a0c36cf))
+
 ## [1.12.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.12.0...1.12.1) (2026-09-08)
 
 
