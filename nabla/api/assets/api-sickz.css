@@ -110,3 +110,14 @@
 .sickz-pfsense-host {
   font-size: 0.85em;
 }
+
+
+.cloudflare-policy-warning {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.2rem;
+  margin-right: 0.2rem;
+  cursor: help;
+  line-height: 1;
+}

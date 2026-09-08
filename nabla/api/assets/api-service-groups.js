@@ -35,8 +35,7 @@ const GROUPS = [
   {
     key: "support",
     label: "5 · Observability & support",
-    description:
-      "Telemetry, dashboards, exporters and auxiliary components.",
+    description: "Telemetry, dashboards, exporters and auxiliary components.",
   },
 ];
 
@@ -121,17 +120,55 @@ function findTopologyNode(row, check, indexes) {
   return null;
 }
 
+function fetchJson(url) {
+  return fetch(url, {
+    cache: "no-store",
+    headers: { Accept: "application/json", "Cache-Control": "no-cache" },
+  }).then((response) => {
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response.json();
+  });
+}
+
+function topologyFromDeclaredServices(catalog) {
+  const services = Array.isArray(catalog?.services) ? catalog.services : [];
+  return {
+    nodes: services
+      .map((service) => {
+        const id = service?.id || service?.serviceId || service?.service_id;
+        if (!id) return null;
+        return {
+          id: String(id),
+          name: String(service?.name || id),
+          kind: String(service?.kind || "service"),
+          category: String(service?.category || "services"),
+          presentationRole:
+            service?.presentationRole || service?.presentation_role || null,
+          criticality: service?.criticality || null,
+          securityFunctions:
+            service?.securityFunctions || service?.security_functions || [],
+          url: service?.url || null,
+        };
+      })
+      .filter(Boolean),
+    relations: [],
+    source: "declared-services-fallback",
+  };
+}
+
 function topology() {
   if (!topologyPromise) {
-    topologyPromise = fetch("/api/homelab-topology", {
-      cache: "no-store",
-      headers: { Accept: "application/json", "Cache-Control": "no-cache" },
-    })
-      .then((response) => {
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return response.json();
-      })
-      .catch(() => ({ nodes: [], relations: [] }));
+    topologyPromise = fetchJson("/api/homelab-topology")
+      .catch(() =>
+        fetchJson("/api/homelab/declared-services").then(
+          topologyFromDeclaredServices,
+        ),
+      )
+      .catch(() => ({
+        nodes: [],
+        relations: [],
+        source: "classification-unavailable",
+      }));
   }
   return topologyPromise;
 }
@@ -145,7 +182,9 @@ function rowSeverity(row) {
 }
 
 function normalizedHealthState(value) {
-  const state = String(value || "").trim().toLowerCase();
+  const state = String(value || "")
+    .trim()
+    .toLowerCase();
   return ["ok", "warn", "fail", "unknown"].includes(state) ? state : "";
 }
 
@@ -204,7 +243,9 @@ function decorateRow(row, presentation, check) {
   row.dataset.localState = localState;
   row.dataset.dependencyState = dependencyState;
   row.dataset.downstreamCount = String(presentation.transitiveDependents || 0);
-  row.dataset.securityFunctions = (presentation.securityFunctions || []).join(" ");
+  row.dataset.securityFunctions = (presentation.securityFunctions || []).join(
+    " ",
+  );
 
   const tags = row.querySelector(".health-row-tags");
   if (!tags) return;
@@ -230,11 +271,7 @@ function decorateRow(row, presentation, check) {
   if (latency != null) addBadge(tags, `${latency} ms`, "metric");
 
   if (presentation.transitiveDependents > 0) {
-    addBadge(
-      tags,
-      `${presentation.transitiveDependents} downstream`,
-      "impact",
-    );
+    addBadge(tags, `${presentation.transitiveDependents} downstream`, "impact");
   }
   if (original) {
     const note = document.createElement("span");
@@ -317,7 +354,9 @@ function serviceGroupSection(definition, rows) {
           Number(left.dataset.downstreamCount || 0) ||
         (left.textContent || "").localeCompare(right.textContent || ""),
     )
-    .forEach((row) => list.appendChild(row));
+    .forEach((row) => {
+      list.appendChild(row);
+    });
   section.append(heading);
   if (definition.key === "security-controls") {
     section.appendChild(securityFrameworkReference(rows));
@@ -401,7 +440,9 @@ function platformOverviewDetails(platformMetrics) {
   const core = [
     cpu ? `TrueNAS CPU ${cpu}` : "",
     memory ? `memory ${memory} free` : "",
-  ].filter(Boolean).join(" · ");
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   const telemetryTotal = Number(summary.telemetry_total);
   const telemetryUp = Number(summary.telemetry_up);
@@ -424,12 +465,31 @@ function platformOverviewDetails(platformMetrics) {
   return { core, telemetry, security };
 }
 
-function updateOverview(buckets, platformMetrics = null) {
+function updateOverview(
+  buckets,
+  platformMetrics = null,
+  classificationAvailable = true,
+) {
   const target = document.getElementById("service-health-overview");
   if (!target) return;
+
+  if (!classificationAvailable) {
+    target.innerHTML =
+      '<div class="service-overview-card service-overview-card--neutral">' +
+      "<span>Service classification</span>" +
+      "<strong>Unavailable</strong>" +
+      "<small>Topology and declared-service catalog could not be loaded; raw health checks remain visible below.</small>" +
+      "</div>";
+    return;
+  }
+
   const metrics = platformOverviewDetails(platformMetrics);
   target.innerHTML = [
-    overviewCard("Critical core", buckets.get("core-critical") || [], metrics.core),
+    overviewCard(
+      "Critical core",
+      buckets.get("core-critical") || [],
+      metrics.core,
+    ),
     overviewCard("Services", buckets.get("services") || []),
     overviewCard(
       "Security controls",
@@ -437,21 +497,29 @@ function updateOverview(buckets, platformMetrics = null) {
       metrics.security,
     ),
     overviewCard("Shared platform", buckets.get("shared-core") || []),
-    overviewCard("Observability", buckets.get("support") || [], metrics.telemetry),
+    overviewCard(
+      "Observability",
+      buckets.get("support") || [],
+      metrics.telemetry,
+    ),
   ].join("");
 }
 
 function refreshFilter() {
   const tokens = normalize(activeFilter).split(/\s+/).filter(Boolean);
-  for (const target of document.querySelectorAll("[data-service-filter-target]")) {
-    const haystack = normalize(target.dataset.searchText || target.textContent || "");
+  for (const target of document.querySelectorAll(
+    "[data-service-filter-target]",
+  )) {
+    const haystack = normalize(
+      target.dataset.searchText || target.textContent || "",
+    );
     target.hidden =
       tokens.length > 0 && !tokens.every((token) => haystack.includes(token));
   }
   for (const group of document.querySelectorAll("[data-service-group]")) {
-    const visible = [...group.querySelectorAll("[data-service-filter-target]")].some(
-      (row) => !row.hidden,
-    );
+    const visible = [
+      ...group.querySelectorAll("[data-service-filter-target]"),
+    ].some((row) => !row.hidden);
     group.hidden = !visible;
     if (tokens.length > 0 && visible) group.open = true;
   }
@@ -461,13 +529,19 @@ export async function organizeHealthRows(data, platformMetrics = null) {
   const list = document.getElementById("health-checks");
   const target = document.getElementById("health-services-groups");
   if (!list || !target) return;
-  const rows = [...list.querySelectorAll(":scope > [data-service-filter-target]")];
+  const rows = [
+    ...list.querySelectorAll(":scope > [data-service-filter-target]"),
+  ];
   for (const row of rows) row.remove();
   target.innerHTML = "";
 
   const topologyData = await topology();
   const buckets = assignRows(rows, data?.checks || {}, topologyData);
-  updateOverview(buckets, platformMetrics);
+  updateOverview(
+    buckets,
+    platformMetrics,
+    Array.isArray(topologyData?.nodes) && topologyData.nodes.length > 0,
+  );
   for (const definition of [...GROUPS, EXTRA_GROUP]) {
     const groupRows = buckets.get(definition.key) || [];
     if (groupRows.length > 0) {
@@ -480,7 +554,9 @@ export async function organizeHealthRows(data, platformMetrics = null) {
 export async function organizeSickzRows(data, pfsenseKey) {
   const list = document.getElementById("sickz-checks");
   if (!list) return;
-  const rows = [...list.querySelectorAll(":scope > [data-service-filter-target]")];
+  const rows = [
+    ...list.querySelectorAll(":scope > [data-service-filter-target]"),
+  ];
   const topologyData = await topology();
   const checks = { ...(data?.checks || {}) };
   if (pfsenseKey) delete checks[pfsenseKey];

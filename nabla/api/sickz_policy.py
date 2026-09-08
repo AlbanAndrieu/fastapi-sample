@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 from collections import Counter
 from collections.abc import Iterable
+from html import unescape
 import re
 from typing import Any
 from urllib.parse import urlsplit
@@ -32,6 +33,9 @@ _DOWN_TUNNEL_STATES = frozenset({"DOWN", "FAILED", "INACTIVE"})
 _DOWN_APP_STATES = frozenset({"CRASHED", "DOWN", "ERROR", "FAILED", "STOPPED"})
 _GATEWAY_HTTP_STATUSES = frozenset({502, 503, 504})
 _KEY_RE = re.compile(r"[^a-z0-9]+")
+_MAX_EDGE_BODY_CHARS = 32_768
+_DEFAULT_DENY_FRAGMENT = "this resource is blocked by this account's default-deny policy"
+_ANONYMOUS_EDGE_HEADERS = {"User-Agent": "nabla-sickz-policy-probe/1.0"}
 _SKULL_ICON_SRC = "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f480.svg"
 
 
@@ -58,6 +62,20 @@ def _hostname(url: str | None) -> str | None:
 
 def _key(value: str | None) -> str:
     return _KEY_RE.sub("-", (value or "").strip().lower()).strip("-")
+
+
+def _response_contains_cloudflare_default_deny(response: httpx.Response) -> bool:
+    """Detect Cloudflare account-level Default-Deny from a bounded HTML/text body."""
+    content_type = response.headers.get("content-type", "").casefold()
+    if content_type and not any(
+        marker in content_type for marker in ("text/", "html", "xhtml")
+    ):
+        return False
+    text = unescape(response.text[:_MAX_EDGE_BODY_CHARS])
+    plain = re.sub(r"<[^>]+>", " ", text)
+    normalized = re.sub(r"\s+", " ", plain).strip().casefold()
+    normalized = normalized.replace("’", "'")
+    return _DEFAULT_DENY_FRAGMENT in normalized
 
 
 def _observed_http_status(check: dict[str, Any]) -> int | None:
@@ -102,10 +120,15 @@ def _access_by_hostname(
         public_path_policies: list[str] = []
         decisions: list[str] = []
         domains: list[str] = []
+        policy_labels: list[str] = []
+        policy_count = 0
         for application in applications:
             domains.append(application.domain)
             root_scope = application.path in {"", "/", "/*", "*"}
             for policy in application.policies:
+                policy_count += 1
+                label = policy.name or policy.policy_id
+                policy_labels.append(label)
                 decision = (policy.decision or "").lower()
                 if decision:
                     decisions.append(decision)
@@ -114,7 +137,6 @@ def _access_by_hostname(
                 )
                 if not public:
                     continue
-                label = policy.name or policy.policy_id
                 if root_scope:
                     public_host_policies.append(label)
                 else:
@@ -123,6 +145,9 @@ def _access_by_hostname(
         out[hostname] = {
             "cloudflare_access_observed": True,
             "cloudflare_access_domains": sorted(set(domains)),
+            "cloudflare_access_application_count": len(applications),
+            "cloudflare_access_policy_count": policy_count,
+            "cloudflare_access_policy_names": sorted(set(policy_labels)),
             "cloudflare_access_policy_decisions": sorted(set(decisions)),
             "cloudflare_access_public": bool(public_host_policies or public_path_policies),
             "cloudflare_access_public_scope": (
@@ -174,6 +199,7 @@ async def _probe_http_edge_evidence(url: str) -> dict[str, Any]:
             return {
                 "cloudflare_http_evidence": False,
                 "cloudflare_access_signal": False,
+                "http_probe_auth_mode": "anonymous",
                 "http_evidence_skipped": True,
                 "http_evidence_skip_reason": "pfSense admin endpoint is not a Cloudflare edge target",
             }
@@ -188,22 +214,25 @@ async def _probe_http_edge_evidence(url: str) -> dict[str, Any]:
         ) as client:
             response = await client.get(
                 url,
-                headers={"User-Agent": "nabla-sickz-policy-probe/1.0"},
+                headers=_ANONYMOUS_EDGE_HEADERS,
             )
     except (httpx.HTTPError, OSError):
         return {
             "cloudflare_http_evidence": False,
             "cloudflare_access_signal": False,
+            "http_probe_auth_mode": "anonymous",
         }
 
     server = response.headers.get("server", "").casefold()
     location = response.headers.get("location", "").casefold()
     cf_mitigated = response.headers.get("cf-mitigated", "").casefold()
+    default_deny = _response_contains_cloudflare_default_deny(response)
     cloudflare_edge = bool(
         response.headers.get("cf-ray")
         or response.headers.get("cf-cache-status")
         or "cloudflare" in server
         or cf_mitigated
+        or default_deny
     )
     access_signal = bool(
         "cloudflareaccess.com" in location
@@ -213,6 +242,9 @@ async def _probe_http_edge_evidence(url: str) -> dict[str, Any]:
     return {
         "cloudflare_http_evidence": cloudflare_edge,
         "cloudflare_access_signal": access_signal,
+        "http_probe_auth_mode": "anonymous",
+        "cloudflare_default_deny": default_deny,
+        "cloudflare_access_policy_missing_suspected": default_deny,
         "http_evidence_status": response.status_code,
     }
 
@@ -286,7 +318,19 @@ def _access_policy_result(
     if not access_required:
         return None
 
+    default_deny = http_evidence.get("cloudflare_default_deny") is True
+
     if access_evidence is not None:
+        raw_policy_count = access_evidence.get("cloudflare_access_policy_count")
+        policy_count = raw_policy_count if isinstance(raw_policy_count, int) else None
+        if policy_count == 0:
+            detail = (
+                "⚠️ Cloudflare Default-Deny blocked the anonymous request and the "
+                "observed Access application contains no policy."
+                if default_deny
+                else "Cloudflare Access application is observed but contains no policy."
+            )
+            return "fail", detail + " Add the intended Cloudflare Access policy."
         public_scope = access_evidence.get("cloudflare_access_public_scope")
         if public_scope == "host":
             policies = ", ".join(access_evidence.get("cloudflare_access_public_policies") or [])
@@ -304,8 +348,21 @@ def _access_policy_result(
                 + (f" ({policies})." if policies else ".")
                 + " Keep the exception minimal and prefer Service Auth when the caller supports it.",
             )
+        if default_deny:
+            return (
+                "warn",
+                "⚠️ Cloudflare Default-Deny blocked the anonymous probe even though "
+                f"{policy_count if policy_count is not None else 'one or more'} Access policy/policies are observed. "
+                "Verify policy selectors, precedence and the intended identity flow.",
+            )
         return "ok", "Cloudflare Access application/policies are observed without a public Everyone/bypass exception."
 
+    if default_deny:
+        return (
+            "fail",
+            "⚠️ Cloudflare Default-Deny blocked the hostname, but no matching Access "
+            "application/policy was observed. An Access policy is probably missing.",
+        )
     if http_evidence.get("cloudflare_access_signal") is True:
         return "ok", "Cloudflare Access enforcement is visible in the anonymous HTTP response."
     if access_observer_error:
@@ -532,7 +589,7 @@ async def enrich_sickz_policy(payload: dict[str, Any]) -> dict[str, Any]:
             matched.append((key, check, service))
 
     evidence_results = await asyncio.gather(
-        *(_probe_http_edge_evidence(service.tunnel_url or "") for _, _, service in matched)
+        *(_probe_http_edge_evidence(service.tunnel_url or "") for _, _, service in matched),
     )
 
     for (key, check, service), http_evidence in zip(
@@ -574,7 +631,7 @@ async def enrich_sickz_policy(payload: dict[str, Any]) -> dict[str, Any]:
                 "cloudflare_observer_configured": observer_configured,
                 **http_evidence,
                 **runtime_evidence,
-            }
+            },
         )
         if tunnel_evidence is not None:
             check.update(tunnel_evidence)

@@ -1,5 +1,6 @@
 import { fetchHealthBoard } from "./api-health-board.js";
 import {
+  cloudflarePolicyWarningHtml,
   escapeText,
   lockHtml,
   shortHostForDetail,
@@ -186,7 +187,15 @@ function exposureTags(check) {
     check.cloudflare_tunnel_observed === true
       ? "Cloudflare observed"
       : "Cloudflare not observed";
-  return `${external} · ${tunnel} · ${observed}`;
+  const access = [];
+  if (check.cloudflare_default_deny === true) {
+    access.push("Cloudflare Default-Deny");
+  }
+  const policyCount = Number(check.cloudflare_access_policy_count);
+  if (Number.isFinite(policyCount)) {
+    access.push(`${policyCount} Access polic${policyCount === 1 ? "y" : "ies"}`);
+  }
+  return [external, tunnel, observed, ...access].join(" · ");
 }
 
 function render(data) {
@@ -269,6 +278,7 @@ function render(data) {
       '<div class="health-row-main">' +
       `<div class="health-row-primary health-row-primary--${cls}">` +
       '<div class="health-row-name health-row-name--sickz">' +
+      cloudflarePolicyWarningHtml(check) +
       lockHtml(lockTls, lockHref) +
       titleInner +
       "</div>" +

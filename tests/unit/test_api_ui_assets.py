@@ -147,9 +147,11 @@ def test_health_board_explains_dependency_propagation() -> None:
     assert 'from "./api-health-board.js"' in health
     assert enrichment in health
     assert 'fetchJson("/api/homelab/health"' not in health
-    initial_render = "render(data, snapshot.platform_metrics);"
-    assert initial_render in health
-    assert health.index(initial_render) < health.index(enrichment)
+    merged_render = "render(merged, snapshot.platform_metrics);"
+    assert "const merged = homelab ? mergeHomelabEvidence(data, homelab) : data;" in health
+    assert merged_render in health
+    assert "render(data, snapshot.platform_metrics);" not in health
+    assert health.index(enrichment) < health.index(merged_render)
     assert "const dependencyClass = dependencyHealthClass(check);" in health
     assert 'parts.push("RUNNING but degraded")' in dependency
     assert 'parts.push(`blocked by ${blocked.join(", ")}`)' in dependency
@@ -211,3 +213,18 @@ def test_api_style_assets_stay_below_review_threshold() -> None:
 def test_optional_runtime_clients_are_installed() -> None:
     assert import_module("cloudflare").Cloudflare is not None
     assert import_module("truenas_api_client").Client is not None
+
+
+
+def test_sickz_surfaces_default_deny_and_catalog_icons() -> None:
+    health_ui = (_ASSET_DIR / "api-health-ui.js").read_text(encoding="utf-8")
+    sickz = (_ASSET_DIR / "api-sickz.js").read_text(encoding="utf-8")
+    css = (_ASSET_DIR / "api-sickz.css").read_text(encoding="utf-8")
+
+    assert "selfhstFilenameFromCatalogPath" in health_ui
+    assert "assets/selfh-icons" in health_ui
+    assert "cloudflarePolicyWarningHtml" in health_ui
+    assert "cloudflare_default_deny" in health_ui
+    assert "Cloudflare Default-Deny" in sickz
+    assert "cloudflare_access_policy_count" in sickz
+    assert "cloudflare-policy-warning" in css
