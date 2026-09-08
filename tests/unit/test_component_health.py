@@ -168,3 +168,43 @@ def test_unconfigured_unbound_observer_does_not_create_false_outage() -> None:
     assert component["critical"] is True
     assert component["skipped"] is True
     assert component["reachable"] is None
+
+
+
+def test_component_status_ignores_missing_unbound_component() -> None:
+    components = {
+        "postgres": {"reachable": True},
+        "redis": {"reachable": True},
+        "supabase": {"reachable": True},
+        "truenas": {"reachable": True, "state": "ok", "tls_trusted": True},
+        "cloudflare": {"reachable": True},
+        "pfsense": {"reachable": True},
+    }
+
+    assert component_health.component_status(components) == "healthy"
+
+
+def test_stale_unbound_failure_is_degraded_not_confirmed_unhealthy() -> None:
+    component = component_health.pfsense_unbound_component(
+        {
+            "pfsense": {
+                "dns": {
+                    "configured": True,
+                    "policy_state": "fail",
+                    "reason": "pfSense DNS Resolver is not running",
+                    "resolver": {"enabled": True, "running": False},
+                    "stale": True,
+                },
+            },
+        },
+    )
+
+    assert component["reachable"] is None
+    assert component["stale"] is True
+    components = {
+        "postgres": {"reachable": True},
+        "redis": {"reachable": True},
+        "supabase": {"reachable": True},
+        "unbound": component,
+    }
+    assert component_health.component_status(components) == "degraded"

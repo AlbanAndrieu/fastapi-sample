@@ -75,6 +75,8 @@ def pfsense_unbound_component(snapshot: dict[str, Any]) -> dict[str, Any]:
     if configured is not True:
         result["skipped"] = True
         return result
+    if result["stale"] is True:
+        return result
     if policy_state == "fail":
         result["reachable"] = False
     elif policy_state in {"ok", "warn"}:
@@ -119,12 +121,17 @@ def _critical_infra_status(components: dict[str, dict[str, Any]]) -> str | None:
     """Return the strongest status contributed by critical infrastructure."""
     degraded = False
     for key in CRITICAL_INFRA_COMPONENT_KEYS:
-        check = components.get(key, {})
+        if key not in components:
+            continue
+        check = components[key]
         if check.get("skipped") is True:
+            continue
+        if check.get("stale") is True:
+            degraded = True
             continue
         if check.get("reachable") is False or check.get("state") == "fail":
             return "unhealthy"
-        if check.get("reachable") is None or check.get("state") in {"warn", "unknown"} or check.get("stale") is True:
+        if check.get("reachable") is None or check.get("state") in {"warn", "unknown"}:
             degraded = True
     return "degraded" if degraded else None
 
