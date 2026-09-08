@@ -42,6 +42,24 @@
       "tunnelSecure": true,
       "cloudflareAccessRequired": true,
       "securityException": "n8n currently needs a public webhook path for integrations such as Slack. A broad Cloudflare Access bypass/Everyone policy is intentionally treated as a red security exception; narrow it to the webhook path or replace it with Service Auth."
+    },
+    {
+      "name": "PostgreSQL",
+      "external": false,
+      "tunnelUrl": null,
+      "tunnelSecure": false,
+      "endpointEnabled": false,
+      "cloudflareAccessRequired": false,
+      "healthNote": "⚠️ Internal-only database service. FastAPI Sample cloud uses Supabase instead of this PostgreSQL instance. PostgreSQL health is validated from the homelab with a TCP/5432 probe; lack of public reachability is intentional and must not degrade health."
+    },
+    {
+      "name": "ClamAV",
+      "external": false,
+      "tunnelUrl": null,
+      "tunnelSecure": false,
+      "endpointEnabled": false,
+      "cloudflareAccessRequired": false,
+      "healthNote": "⚠️ Internal-only antivirus engine. No Cloudflare Tunnel or public ingress is expected. Validate clamd from the homelab on TCP/3310; lack of public reachability is intentional and must not degrade health."
     }
   ]
 }
