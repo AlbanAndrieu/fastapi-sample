@@ -336,7 +336,7 @@ async def test_remote_refresh_failure_keeps_last_known_good(monkeypatch) -> None
         homelab_catalog.clear_homelab_catalog_cache()
 
 
-def test_bootstrap_catalog_preserves_litellm_exposure_policy() -> None:
+def test_bootstrap_catalog_preserves_litellm_and_garage_exposure_policy() -> None:
     catalog = homelab_catalog._load_bootstrap_catalog()
     by_name = {service.name: service for service in catalog.services}
 
@@ -347,18 +347,21 @@ def test_bootstrap_catalog_preserves_litellm_exposure_policy() -> None:
     assert by_name["Home"].tunnel_url == "https://home.albandrieu.com:10443"
     assert by_name["Home"].external is False
 
-    garage = by_name["Garage"]
-    assert garage.internal_host == "172.17.0.24"
-    assert garage.internal_port == 3900
-    assert garage.internal_secure is False
-    assert garage.tunnel_url == "https://s3.int.albandrieu.com"
+    s3 = by_name["Garage S3"]
+    assert s3.service_id == "garage"
+    assert s3.internal_host == "172.17.0.24"
+    assert s3.internal_port == 3900
+    assert s3.tunnel_url == "https://s3.int.albandrieu.com"
 
-    garage_webui = by_name["Garage WebUI"]
-    assert garage_webui.internal_host == "172.17.0.24"
-    assert garage_webui.internal_port == 3909
-    assert garage_webui.internal_secure is False
-    assert garage_webui.tunnel_url == "https://garage-admin.albandrieu.com"
+    webui = by_name["Garage"]
+    assert webui.service_id == "garage-webui"
+    assert webui.internal_port == 3909
+    assert webui.tunnel_url == "https://garage.albandrieu.com"
 
+    admin = by_name["Garage Admin"]
+    assert admin.service_id == "garage-admin"
+    assert admin.internal_port == 3903
+    assert admin.tunnel_url == "https://garage-admin.albandrieu.com"
 
 def test_bootstrap_catalog_routes_2fauth_to_healthz_and_policy_aware_sickz() -> None:
     services = list(homelab_catalog._load_bootstrap_catalog().services)
@@ -382,18 +385,24 @@ def test_bootstrap_catalog_applies_reviewed_exposure_overrides() -> None:
     assert truenas.external is True
     assert truenas.tunnel_secure is False
 
-    garage = by_name["Garage"]
-    assert garage.tunnel_url == "https://s3.int.albandrieu.com"
-    assert garage.external is True
-    assert garage.tunnel_secure is False
-    assert garage.effective_cloudflare_access_required is False
-    assert garage.security_exception is not None
+    s3 = by_name["Garage S3"]
+    assert s3.tunnel_url == "https://s3.int.albandrieu.com"
+    assert s3.external is True
+    assert s3.tunnel_secure is False
+    assert s3.effective_cloudflare_access_required is False
+    assert s3.security_exception is not None
 
-    garage_webui = by_name["Garage WebUI"]
-    assert garage_webui.tunnel_url == "https://garage-admin.albandrieu.com"
-    assert garage_webui.external is True
-    assert garage_webui.tunnel_secure is True
-    assert garage_webui.effective_cloudflare_access_required is True
+    webui = by_name["Garage"]
+    assert webui.tunnel_url == "https://garage.albandrieu.com"
+    assert webui.external is True
+    assert webui.tunnel_secure is True
+    assert webui.effective_cloudflare_access_required is True
+
+    admin = by_name["Garage Admin"]
+    assert admin.tunnel_url == "https://garage-admin.albandrieu.com"
+    assert admin.external is True
+    assert admin.tunnel_secure is True
+    assert admin.effective_cloudflare_access_required is True
 
     bichon = by_name["Bichon"]
     assert bichon.external is False
