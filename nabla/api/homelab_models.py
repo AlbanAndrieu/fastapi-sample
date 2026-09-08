@@ -136,6 +136,11 @@ class HomelabService(BaseModel):
         validation_alias=AliasChoices("securityException", "security_exception"),
         serialization_alias="securityException",
     )
+    health_note: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("healthNote", "health_note"),
+        serialization_alias="healthNote",
+    )
 
     # Secure default: discovery and incomplete JSON are private unless exposure
     # intent is explicitly present. The misspelled legacy field is accepted only
