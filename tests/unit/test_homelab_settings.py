@@ -4,6 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from nabla.settings.homelab import (
+    DEFAULT_PFSENSE_API_URL,
     DEFAULT_TRUENAS_URL,
     PfSensePostureProviderSettings,
     PfSenseSecurityProviderSettings,
@@ -157,6 +158,15 @@ _PFSENSE_ENV = (
 def _clear_pfsense_env(monkeypatch: pytest.MonkeyPatch) -> None:
     for name in _PFSENSE_ENV:
         monkeypatch.delenv(name, raising=False)
+
+def test_pfsense_posture_defaults_to_home_api_endpoint(monkeypatch) -> None:
+    _clear_pfsense_env(monkeypatch)
+
+    settings = PfSensePostureProviderSettings()
+
+    assert settings.base_url == DEFAULT_PFSENSE_API_URL
+    assert settings.base_url == "https://home.albandrieu.com:10443"
+
 
 
 def test_pfsense_posture_prefers_dedicated_transport_and_masks_secrets(monkeypatch) -> None:
