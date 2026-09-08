@@ -370,7 +370,7 @@ class PfSenseSecurityProviderSettings(_PfSenseSharedProviderSettings):
     @property
     def api_key(self) -> str:
         return _secret_value(self.pfsense_security_api_key) or _secret_value(
-            self.pfsense_api_key
+            self.pfsense_api_key,
         )
 
     @property
