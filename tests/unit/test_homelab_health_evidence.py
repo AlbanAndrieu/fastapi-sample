@@ -644,3 +644,70 @@ def test_exact_app_id_keeps_stopped_runtime_visible_without_container_details() 
     assert rows[0]["runtime_app"] == "openwebui"
     assert rows[0]["runtime_state"] == "STOPPED"
     assert rows[0]["state"] == "fail"
+
+
+def test_missing_declared_truenas_app_is_failure_even_with_healthy_tunnel() -> None:
+    service = HomelabService(
+        name="Keycloak",
+        tunnelUrl="https://keycloak.albandrieu.com",
+        external=True,
+    )
+    tunnel = CloudflareTunnelObservation(
+        tunnel_id="tunnel-1",
+        name="homelab",
+        status="healthy",
+        config_source="cloudflare",
+        ingress=(
+            CloudflareTunnelIngress(
+                tunnel_id="tunnel-1",
+                tunnel_name="homelab",
+                hostname="keycloak.albandrieu.com",
+                service="http://keycloak:8080",
+                status="healthy",
+            ),
+        ),
+    )
+    rows = build_reconciled_service_health(
+        [service],
+        public_results=[],
+        internal_results=[],
+        runtime=_runtime(),
+        tunnels=[tunnel],
+        runtime_bindings={
+            service.service_id: RuntimeBinding(
+                provider="truenas-app",
+                containerService="keycloak",
+            ),
+        },
+    )
+
+    assert rows[0]["state"] == "fail"
+    assert rows[0]["runtime_state"] is None
+    assert rows[0]["runtime_app"] is None
+    assert rows[0]["runtime_missing"] is True
+    assert rows[0]["tunnel_status"] == "healthy"
+
+
+def test_stale_runtime_does_not_claim_declared_app_is_missing() -> None:
+    service = HomelabService(
+        name="Keycloak",
+        tunnelUrl="https://keycloak.albandrieu.com",
+        external=True,
+    )
+    runtime = _runtime().model_copy(update={"stale": True})
+    rows = build_reconciled_service_health(
+        [service],
+        public_results=[],
+        internal_results=[],
+        runtime=runtime,
+        tunnels=[],
+        runtime_bindings={
+            service.service_id: RuntimeBinding(
+                provider="truenas-app",
+                containerService="keycloak",
+            ),
+        },
+    )
+
+    assert rows[0]["runtime_missing"] is False
+    assert rows[0]["state"] == "unknown"
