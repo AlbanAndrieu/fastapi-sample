@@ -208,6 +208,10 @@ def _configure_mcp(app: FastAPI) -> None:
     global mcp, mcp_app
     mcp = FastMCP.from_fastapi(app=app, name="mcp", route_map_fn=filter_route)
 
+    from nabla.mcp.resources import register_fastapi_resources
+
+    register_fastapi_resources(mcp)
+
     # FastMCP owns the complete `/mcp` transport path. Mounting an app whose
     # internal path is `/` below `/mcp` makes clients/proxies depend on slash
     # redirects. Open WebUI expects a canonical Streamable HTTP endpoint.
