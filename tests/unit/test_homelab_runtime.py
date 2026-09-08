@@ -28,7 +28,6 @@ async def _no_catalog_membership_drift(_services):
     }
 
 
-
 def test_runtime_binding_matcher_prefers_explicit_identity() -> None:
     running = _observed_app(
         {
@@ -376,7 +375,6 @@ async def test_status_matches_stopped_app_by_exact_app_id_without_workloads(
     assert payload["services"][0]["observed"]["appState"] == "STOPPED"
     assert "container" not in payload["services"][0]["observed"]
     assert payload["observedOnly"] == []
-
 
 
 @pytest.mark.asyncio

@@ -364,7 +364,10 @@ async def build_homelab_status_payload() -> dict[str, Any]:
                 "version": app.version,
                 "humanVersion": app.human_version,
                 "upgradeAvailable": app.upgrade_available,
-                "containers": [container.model_dump(exclude_none=True) for container in app.containers],
+                "containers": [
+                    container.model_dump(exclude_none=True)
+                    for container in app.containers
+                ],
             },
         }
         for app in runtime.apps

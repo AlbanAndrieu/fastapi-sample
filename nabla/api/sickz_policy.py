@@ -639,11 +639,7 @@ async def enrich_sickz_policy(payload: dict[str, Any]) -> dict[str, Any]:
             check.update(access_evidence)
         checks[key] = check
 
-    counts = Counter(
-        str(check.get("policy_status"))
-        for check in checks.values()
-        if isinstance(check, dict) and check.get("policy_status")
-    )
+    counts = Counter(str(check.get("policy_status")) for check in checks.values() if isinstance(check, dict) and check.get("policy_status"))
     return {
         **payload,
         "checks": checks,

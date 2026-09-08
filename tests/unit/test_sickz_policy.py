@@ -406,10 +406,7 @@ def test_cloudflare_default_deny_body_is_detected() -> None:
     response = httpx.Response(
         403,
         headers={"content-type": "text/html; charset=utf-8"},
-        text=(
-            "<html><h1>This resource is blocked by this account's "
-            "<strong>Default-Deny</strong>&nbsp;policy.</h1></html>"
-        ),
+        text=("<html><h1>This resource is blocked by this account's <strong>Default-Deny</strong>&nbsp;policy.</h1></html>"),
     )
 
     assert _response_contains_cloudflare_default_deny(response) is True
