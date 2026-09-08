@@ -69,9 +69,7 @@ def _failure_kind(exc: BaseException) -> tuple[str, str]:
         )
     ):
         return "connect", "source_allowlist"
-    if any(
-        marker in message for marker in ("unauthorized", "authentication", "api key")
-    ):
+    if any(marker in message for marker in ("unauthorized", "authentication", "api key")):
         return "authentication", "authentication"
     if "websocket" in message:
         return "connect", "websocket"
@@ -114,10 +112,7 @@ def truenas_api_configuration_failure() -> dict[str, Any] | None:
             "reachable": False,
             "phase": "authentication",
             "stage": "invalid_api_key_reference",
-            "error": (
-                "TRUENAS_API_KEY contains an environment-variable name instead of "
-                "raw TrueNAS API key material."
-            ),
+            "error": ("TRUENAS_API_KEY contains an environment-variable name instead of raw TrueNAS API key material."),
             "username_configured": True,
             "api_key_configured": True,
         }
@@ -126,10 +121,7 @@ def truenas_api_configuration_failure() -> dict[str, Any] | None:
             "reachable": False,
             "phase": "authentication",
             "stage": "invalid_api_key_format",
-            "error": (
-                "TRUENAS_API_KEY does not match the expected "
-                "<id>-<64-character-alphanumeric-key> format."
-            ),
+            "error": ("TRUENAS_API_KEY does not match the expected <id>-<64-character-alphanumeric-key> format."),
             "username_configured": True,
             "api_key_configured": True,
         }
@@ -139,10 +131,7 @@ def truenas_api_configuration_failure() -> dict[str, Any] | None:
 def _should_report_failure(signature: str) -> bool:
     global _last_failure_reported_at, _last_failure_signature
     now = time.monotonic()
-    should_report = (
-        signature != _last_failure_signature
-        or now - _last_failure_reported_at >= _SENTRY_FAILURE_COOLDOWN_SEC
-    )
+    should_report = signature != _last_failure_signature or now - _last_failure_reported_at >= _SENTRY_FAILURE_COOLDOWN_SEC
     if should_report:
         _last_failure_signature = signature
         _last_failure_reported_at = now
@@ -207,11 +196,7 @@ async def _probe_origin() -> dict[str, Any]:
             "stage": stage,
             "elapsed_ms": elapsed_ms,
             "error": _short_error(exc),
-            "exception_type": (
-                exc.exception_type
-                if isinstance(exc, TrueNASHealthProbeError)
-                else exc.__class__.__name__
-            ),
+            "exception_type": (exc.exception_type if isinstance(exc, TrueNASHealthProbeError) else exc.__class__.__name__),
             "retry_after_seconds": int(_CACHE_POLICY.failure_ttl),
             "username_configured": True,
             "api_key_configured": True,
