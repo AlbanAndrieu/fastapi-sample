@@ -1,16 +1,20 @@
 """MCP client helpers and in-process A2A Starlette app."""
 
+import json
 from types import SimpleNamespace
 
 import pytest
 from fastapi import FastAPI
+from fastmcp import Client, FastMCP
 from pydantic import SecretStr
 from starlette.testclient import TestClient
 
 from nabla.a2a_app import build_a2a_starlette_application
 from nabla.api import mcp_ops_route
+from nabla.config import MCP_ALLOWED_ROUTES
 from nabla.config_settings import McpServerConfig
 from nabla.mcp.client import mcp_call_tool
+from nabla.mcp.resources import register_fastapi_resources
 
 
 @pytest.mark.asyncio
@@ -68,3 +72,35 @@ def test_mcp_ops_requires_key_when_configured(monkeypatch: pytest.MonkeyPatch) -
     r2 = client.get("/v1/mcp/ops/servers", headers={"X-MCP-Ops-Key": "secret-ops"})
     assert r2.status_code == 200
     assert "servers" in r2.json()
+
+
+@pytest.mark.asyncio
+async def test_mcp_operations_resource_is_discoverable() -> None:
+    server = FastMCP("test")
+    register_fastapi_resources(server)
+
+    async with Client(server) as client:
+        resources = await client.list_resources()
+        assert any(
+            str(resource.uri) == "resource://fastapi/operations"
+            for resource in resources
+        )
+        content = await client.read_resource("resource://fastapi/operations")
+
+    payload = json.loads(content[0].text)
+    assert payload["service"] == "fastapi-sample"
+    assert payload["mcp_endpoint"] == "/mcp"
+    assert any(
+        item["endpoint"] == "/api/homelab/status"
+        for item in payload["operations"]
+    )
+
+
+def test_mcp_operational_tools_do_not_bypass_diagnostics_protection() -> None:
+    assert ("GET", "/api/homelab/status") in MCP_ALLOWED_ROUTES
+    assert ("GET", "/api/homelab/runtime") in MCP_ALLOWED_ROUTES
+    assert ("GET", "/api/runtime/topology") in MCP_ALLOWED_ROUTES
+    assert ("GET", "/api/homelab/health") not in MCP_ALLOWED_ROUTES
+    assert ("GET", "/api/homelab-topology") not in MCP_ALLOWED_ROUTES
+    assert ("GET", "/healthz") not in MCP_ALLOWED_ROUTES
+    assert ("GET", "/sickz") not in MCP_ALLOWED_ROUTES
