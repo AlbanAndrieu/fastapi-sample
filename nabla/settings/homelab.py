@@ -201,7 +201,14 @@ def _pfsense_url(value: str | None, *, variable: str) -> str | None:
     parsed = urlsplit(value)
     if parsed.scheme.casefold() not in _ALLOWED_PFSENSE_SCHEMES or not parsed.hostname:
         raise ValueError(f"{variable} must be an HTTP(S) URL with a host")
-    return value.rstrip("/")
+    normalized = value.rstrip("/")
+    if (
+        parsed.scheme.casefold() == "https"
+        and parsed.hostname.casefold() == "pfsense.albandrieu.com"
+        and parsed.port == 10443
+    ):
+        normalized = "https://home.albandrieu.com:10443"
+    return normalized
 
 
 def _secret_value(secret: SecretStr | None) -> str:
