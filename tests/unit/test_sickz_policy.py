@@ -491,3 +491,102 @@ def test_cloudflare_edge_probe_contract_is_anonymous() -> None:
     lowered = {key.casefold() for key in _ANONYMOUS_EDGE_HEADERS}
     assert "cf-access-client-id" not in lowered
     assert "cf-access-client-secret" not in lowered
+
+
+@pytest.mark.asyncio
+async def test_cloudflare_service_token_retries_after_default_deny(monkeypatch) -> None:
+    monkeypatch.setenv("CF_ACCESS_CLIENT_ID", "client-id-test")
+    monkeypatch.setenv("CF_ACCESS_CLIENT_SECRET", "client-secret-test")
+    seen_headers: list[dict[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        headers = {key.casefold(): value for key, value in request.headers.items()}
+        seen_headers.append(headers)
+        if "cf-access-client-id" not in headers:
+            return httpx.Response(
+                403,
+                headers={"cf-ray": "test-ray", "content-type": "text/html"},
+                text="This resource is blocked by this account's Default-Deny policy.",
+            )
+        return httpx.Response(
+            200,
+            headers={"cf-ray": "test-ray-2", "content-type": "text/html"},
+            text="<html>origin reached</html>",
+        )
+
+    evidence = await _probe_http_edge_evidence(
+        "https://uptime-kuma.albandrieu.com/",
+        transport=httpx.MockTransport(handler),
+    )
+
+    assert len(seen_headers) == 2
+    assert "cf-access-client-id" not in seen_headers[0]
+    assert "cf-access-client-secret" not in seen_headers[0]
+    assert seen_headers[1]["cf-access-client-id"] == "client-id-test"
+    assert seen_headers[1]["cf-access-client-secret"] == "client-secret-test"
+    assert evidence["http_probe_auth_mode"] == "anonymous"
+    assert evidence["cloudflare_default_deny"] is True
+    assert evidence["cloudflare_service_token_configured"] is True
+    assert evidence["cloudflare_service_token_attempted"] is True
+    assert evidence["cloudflare_service_token_access_passed"] is True
+    assert evidence["cloudflare_service_token_http_status"] == 200
+    assert "client-secret-test" not in repr(evidence)
+
+
+@pytest.mark.asyncio
+async def test_cloudflare_service_token_is_never_sent_to_untrusted_host(monkeypatch) -> None:
+    monkeypatch.setenv("CF_ACCESS_CLIENT_ID", "client-id-test")
+    monkeypatch.setenv("CF_ACCESS_CLIENT_SECRET", "client-secret-test")
+    calls = 0
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(
+            403,
+            headers={"cf-ray": "test-ray", "content-type": "text/html"},
+            text="This resource is blocked by this account's Default-Deny policy.",
+        )
+
+    evidence = await _probe_http_edge_evidence(
+        "https://example.test/",
+        transport=httpx.MockTransport(handler),
+    )
+
+    assert calls == 1
+    assert evidence["cloudflare_service_token_attempted"] is False
+    assert evidence["cloudflare_service_token_skip_reason"] == "untrusted_target"
+
+
+def test_access_policy_accepts_service_token_after_anonymous_block() -> None:
+    state, detail = _access_policy_result(
+        access_required=True,
+        access_evidence=None,
+        access_observer_error=None,
+        http_evidence={
+            "cloudflare_http_evidence": True,
+            "cloudflare_default_deny": True,
+            "cloudflare_service_token_attempted": True,
+            "cloudflare_service_token_access_passed": True,
+        },
+    )
+
+    assert state == "ok"
+    assert "Service Token passes" in detail
+
+
+def test_access_policy_reports_service_token_denial_after_anonymous_block() -> None:
+    state, detail = _access_policy_result(
+        access_required=True,
+        access_evidence=None,
+        access_observer_error=None,
+        http_evidence={
+            "cloudflare_http_evidence": True,
+            "cloudflare_access_signal": True,
+            "cloudflare_service_token_attempted": True,
+            "cloudflare_service_token_access_passed": False,
+        },
+    )
+
+    assert state == "fail"
+    assert "Service Token did not pass" in detail
