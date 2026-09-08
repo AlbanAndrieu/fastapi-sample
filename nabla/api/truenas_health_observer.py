@@ -140,10 +140,7 @@ def truenas_api_configuration_failure() -> dict[str, Any] | None:
 
 def _should_report_failure(signature: str) -> bool:
     now = time.monotonic()
-    should_report = (
-        signature != _failure_report_state.signature
-        or now - _failure_report_state.reported_at >= _SENTRY_FAILURE_COOLDOWN_SEC
-    )
+    should_report = signature != _failure_report_state.signature or now - _failure_report_state.reported_at >= _SENTRY_FAILURE_COOLDOWN_SEC
     if should_report:
         _failure_report_state.signature = signature
         _failure_report_state.reported_at = now
