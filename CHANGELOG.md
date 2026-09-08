@@ -1,3 +1,10 @@
+## [1.13.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.13.1...1.13.2) (2026-09-08)
+
+
+### Bug Fixes
+
+* **ui:** restore health-board grouping behind diagnostics protection ([#218](https://github.com/AlbanAndrieu/fastapi-sample/issues/218)) ([2b57a6a](https://github.com/AlbanAndrieu/fastapi-sample/commit/2b57a6af799ea8df516b27ab349de4fe3e3c722c))
+
 ## [1.13.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.13.0...1.13.1) (2026-09-08)
 
 
