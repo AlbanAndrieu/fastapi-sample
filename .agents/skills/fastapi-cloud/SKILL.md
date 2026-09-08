@@ -70,14 +70,21 @@ fastapi cloud env list .
 
 Do not copy secret values into issues, PRs, logs, or chat. When diagnosing configuration drift, compare variable **names and presence** whenever possible.
 
-Canonical infrastructure credentials used by the health observers are:
+Canonical application-observer credentials are intentionally separate from
+infrastructure automation credentials:
 
 ```text
+TRUENAS_API_USERNAME=fastapi_observer
 TRUENAS_API_KEY
 PFSENSE_POSTURE_API_KEY
 PFSENSE_SECURITY_API_KEY
 CLOUDFLARE_API_TOKEN
 ```
+
+Do not use `TRUENAS_INFRA_API_USERNAME` or `TRUENAS_INFRA_API_KEY` in the
+FastAPI runtime. Those names belong to OpenTofu/Terragrunt in
+`nabla-compose`. Likewise, `TRUENAS_MCP_API_KEY` belongs to the MCP launcher
+and is not a FastAPI fallback.
 
 The two pfSense identities intentionally share transport defaults while keeping credentials separate:
 
