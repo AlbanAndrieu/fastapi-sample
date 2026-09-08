@@ -105,6 +105,17 @@ jobs:
           SKIP: ${{ steps.impact.outputs.mode == 'quality' && 'pytest-collect' || '' }}
         run: bash scripts/agent-quality-gate.sh --publish
 
+      - name: Upload formatter-mutated frontend files
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: formatter-mutated-frontend
+          path: |
+            nabla/api/assets/api-health-ui.js
+            nabla/api/assets/api-sickz.css
+            nabla/api/assets/api-sickz.js
+            nabla/api/assets/api-truenas.js
+
       - name: Save pre-commit environments
         if: ${{ always() && steps.precommit-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
