@@ -202,7 +202,7 @@ async def fetch_truenas_runtime() -> TrueNASRuntimeSnapshot:
     return await asyncio.to_thread(_cached_truenas_runtime)
 
 
-def _matches_binding(
+def match_runtime_binding(
     app: ObservedApp,
     binding: RuntimeBinding,
 ) -> tuple[bool, ObservedContainer | None]:
@@ -246,7 +246,7 @@ def _reconcile_declared(
 
     matches: list[tuple[ObservedApp, ObservedContainer | None]] = []
     for app in snapshot.apps:
-        matched, container = _matches_binding(app, binding)
+        matched, container = match_runtime_binding(app, binding)
         if matched:
             matches.append((app, container))
     if not matches:

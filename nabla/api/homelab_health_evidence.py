@@ -14,7 +14,12 @@ from nabla.api.homelab_declared import RuntimeBinding, fetch_declared_service_ca
 from nabla.api.homelab_dependency_health import propagate_required_dependency_health
 from nabla.api.homelab_exposure import enrich_service_exposure, observe_cloudflare_exposure
 from nabla.api.homelab_models import HomelabService
-from nabla.api.homelab_runtime import ObservedApp, TrueNASRuntimeSnapshot, fetch_truenas_runtime
+from nabla.api.homelab_runtime import (
+    ObservedApp,
+    TrueNASRuntimeSnapshot,
+    fetch_truenas_runtime,
+    match_runtime_binding,
+)
 from nabla.api.homelab_topology import fetch_homelab_topology
 from nabla.api.pfsense_dns_observer import observe_pfsense_dns_posture
 
@@ -75,17 +80,11 @@ def _runtime_app_for_service(
         return None
 
     if binding is not None and binding.provider == "truenas-app":
-        matches: list[ObservedApp] = []
-        for app in runtime.apps:
-            app_identity_matched = False
-            if binding.app_id:
-                app_identity_matched = app.app_id == binding.app_id or app.name == binding.app_id
-                if not app_identity_matched:
-                    continue
-            if binding.container_service and not any(container.service_name == binding.container_service for container in app.containers):
-                if not (app_identity_matched and not app.containers):
-                    continue
-            matches.append(app)
+        matches = [
+            app
+            for app in runtime.apps
+            if match_runtime_binding(app, binding)[0]
+        ]
         return matches[0] if len(matches) == 1 else None
 
     # Legacy presentation-only entries retain the old bounded heuristic until

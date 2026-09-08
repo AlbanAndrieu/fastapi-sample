@@ -5,13 +5,69 @@ from __future__ import annotations
 import pytest
 
 import nabla.api.homelab_runtime as homelab_runtime
-from nabla.api.homelab_declared import DeclaredServiceCatalog
+from nabla.api.homelab_declared import DeclaredServiceCatalog, RuntimeBinding
 from nabla.api.homelab_runtime import (
     TrueNASRuntimeSnapshot,
     _observed_app,
     build_homelab_status_payload,
+    match_runtime_binding,
 )
 
+
+
+
+def test_runtime_binding_matcher_prefers_explicit_identity() -> None:
+    running = _observed_app(
+        {
+            "id": "openwebui",
+            "name": "openwebui",
+            "state": "RUNNING",
+            "active_workloads": {
+                "container_details": [
+                    {
+                        "service_name": "open-webui",
+                        "image": "ghcr.io/open-webui/open-webui:v0.11.0",
+                        "state": "running",
+                    },
+                ],
+            },
+        },
+    )
+    stopped = _observed_app(
+        {
+            "id": "openwebui",
+            "name": "openwebui",
+            "state": "STOPPED",
+            "active_workloads": {},
+        },
+    )
+    exact = RuntimeBinding(
+        provider="truenas-app",
+        appId="openwebui",
+        containerService="open-webui",
+    )
+
+    matched, container = match_runtime_binding(running, exact)
+    assert matched is True
+    assert container is not None
+    assert container.service_name == "open-webui"
+
+    matched, container = match_runtime_binding(stopped, exact)
+    assert matched is True
+    assert container is None
+
+    wrong_identity = RuntimeBinding(
+        provider="truenas-app",
+        appId="another-app",
+        containerService="open-webui",
+    )
+    assert match_runtime_binding(running, wrong_identity) == (False, None)
+
+    container_only = RuntimeBinding(
+        provider="truenas-app",
+        containerService="open-webui",
+    )
+    assert match_runtime_binding(stopped, container_only) == (False, None)
 
 def test_observed_app_preserves_truenas_container_service_name() -> None:
     app = _observed_app(
