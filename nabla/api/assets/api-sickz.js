@@ -32,8 +32,12 @@ function classifySick(check) {
 }
 
 function isTrueNasExposureCheck(check) {
-  const name = String(check?.name || check?.display_label || "").trim().toLowerCase();
-  const aliases = Array.isArray(check?.aliases_probed) ? check.aliases_probed : [];
+  const name = String(check?.name || check?.display_label || "")
+    .trim()
+    .toLowerCase();
+  const aliases = Array.isArray(check?.aliases_probed)
+    ? check.aliases_probed
+    : [];
   return (
     name === "truenas" ||
     aliases.some((url) => String(url).includes("truenas.albandrieu.com:7000"))
