@@ -24,34 +24,22 @@ def render_api_root_page(
         "fastapi_cloud": {
             "context": "FastAPI Cloud production",
             "title": "FastAPI Cloud runtime",
-            "description": (
-                "External production observer. Shared Redis heartbeats provide "
-                "cross-replica evidence when available."
-            ),
+            "description": ("External production observer. Shared Redis heartbeats provide cross-replica evidence when available."),
             "instance_label": "Observed instances",
             "replica_label": "FastAPI Cloud replicas",
             "replica_value": "control-plane only",
-            "note": (
-                "Observed runtime heartbeats are not the authoritative FastAPI "
-                "Cloud control-plane replica count."
-            ),
+            "note": ("Observed runtime heartbeats are not the authoritative FastAPI Cloud control-plane replica count."),
             "hero": "FastAPI Cloud",
             "badge": "status-badge--cloud",
         },
         "homelab": {
             "context": "TrueNAS homelab production",
             "title": "TrueNAS homelab runtime",
-            "description": (
-                "Trusted-LAN production observer for TrueNAS, pfSense and "
-                "Prometheus health and platform telemetry."
-            ),
+            "description": ("Trusted-LAN production observer for TrueNAS, pfSense and Prometheus health and platform telemetry."),
             "instance_label": "Observed instances",
             "replica_label": "Observer scope",
             "replica_value": "trusted LAN",
-            "note": (
-                "This production runtime observes private homelab dependencies "
-                "from the trusted LAN without exposing them to a cloud observer."
-            ),
+            "note": ("This production runtime observes private homelab dependencies from the trusted LAN without exposing them to a cloud observer."),
             "hero": "TrueNAS homelab",
             "badge": "status-badge--local",
         },
@@ -69,17 +57,11 @@ def render_api_root_page(
         "local": {
             "context": "Local workstation",
             "title": "Local workstation runtime",
-            "description": (
-                "Observed local runtime processes and outbound egress. Shared Redis "
-                "heartbeats may include sibling workstation processes."
-            ),
+            "description": ("Observed local runtime processes and outbound egress. Shared Redis heartbeats may include sibling workstation processes."),
             "instance_label": "Observed processes",
             "replica_label": "Runtime scope",
             "replica_value": "local process",
-            "note": (
-                "Local runtime heartbeats describe this workstation view; they are "
-                "not a cloud control-plane replica count."
-            ),
+            "note": ("Local runtime heartbeats describe this workstation view; they are not a cloud control-plane replica count."),
             "hero": "local workstation",
             "badge": "status-badge--local",
         },
