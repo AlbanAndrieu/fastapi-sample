@@ -176,12 +176,23 @@ async def build_homelab_snapshot(
     except TimeoutError:
         from nabla.api.provider_credentials import infrastructure_provider_credentials
 
+        error = "aggregate homelab diagnostic deadline exceeded"
         return {
             "schema_version": 2,
             "status": "degraded",
             "timed_out": True,
-            "error": "aggregate homelab diagnostic deadline exceeded",
+            "error": error,
             "error_kind": "deadline",
+            "truenas": {
+                "id": "truenas",
+                "state": "warn",
+                "diagnostics": {
+                    "stages": [],
+                    "unavailable": True,
+                    "error_kind": "deadline",
+                    "detail": error,
+                },
+            },
             "services": [],
             "internal_services": [],
             "components_status": "degraded",

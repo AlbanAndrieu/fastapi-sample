@@ -187,12 +187,27 @@ function renderIngressBlock(data, target) {
 
 function apiFailureState(api) {
   const stale = api?.stale === true ? " · stale last-good available" : "";
+  if (api?.stage === "source_allowlist") return `source IP blocked by TrueNAS allowlist${stale}`;
   if (api?.stage === "connection_reset") return `API connection reset${stale}`;
   if (api?.stage === "tls_handshake_timeout") return `TLS handshake timeout${stale}`;
   if (api?.stage === "api_call_timeout") return `API call timeout${stale}`;
   if (api?.stage === "connect_timeout") return `API connect timeout${stale}`;
   if (api?.stage === "tls_error") return `TLS error${stale}`;
   return null;
+}
+
+function diagnosticsUnavailable(data, truenas) {
+  const diagnostics = truenas?.diagnostics;
+  if (data?.timed_out === true || diagnostics?.error_kind === "deadline") {
+    return {
+      state: "homelab diagnostics timeout",
+      detail: diagnostics?.detail || data?.error || "aggregate homelab diagnostic deadline exceeded",
+    };
+  }
+  return {
+    state: "diagnostics unavailable",
+    detail: "TrueNAS diagnostics are missing from /api/homelab/health.",
+  };
 }
 
 function render(data) {
@@ -210,11 +225,12 @@ function render(data) {
   renderIngressBlock(data, target);
 
   if (!Array.isArray(measuredStages) || measuredStages.length === 0) {
+    const unavailable = diagnosticsUnavailable(data, truenas);
     pipeline.innerHTML = "";
     state.className = "truenas-platform-state truenas-platform-state--fail";
-    state.textContent = "diagnostics unavailable";
+    state.textContent = unavailable.state;
     error.hidden = false;
-    error.textContent = "TrueNAS diagnostics are missing from /api/homelab/health.";
+    error.textContent = unavailable.detail;
     return;
   }
 
@@ -254,6 +270,11 @@ function render(data) {
   if (runtimeError) {
     error.hidden = false;
     error.textContent = `TrueNAS runtime: ${String(runtimeError)}`;
+  } else if (api.stage === "source_allowlist") {
+    error.hidden = false;
+    error.textContent =
+      `TrueNAS API: ${String(api.error || "source IP is not allowlisted")} · ` +
+      "verify System → Advanced Settings → Allowed IP Addresses for the observer source IP.";
   }
 }
 

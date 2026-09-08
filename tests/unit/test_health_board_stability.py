@@ -123,6 +123,11 @@ async def test_homelab_snapshot_returns_degraded_timeout_payload(monkeypatch) ->
     assert payload["status"] == "degraded"
     assert payload["timed_out"] is True
     assert payload["error_kind"] == "deadline"
+    assert payload["truenas"]["state"] == "warn"
+    diagnostics = payload["truenas"]["diagnostics"]
+    assert diagnostics["unavailable"] is True
+    assert diagnostics["error_kind"] == "deadline"
+    assert diagnostics["detail"] == payload["error"]
 
 
 @pytest.mark.asyncio

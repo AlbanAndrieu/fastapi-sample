@@ -391,7 +391,7 @@ async def build_homelab_status_payload() -> dict[str, Any]:
         "hasDrift": bool(
             reconciliation_counts["declared_only"]
             or reconciliation_counts["binding_conflict"]
-            or observed_only
+            or observed_only,
         ),
     }
 

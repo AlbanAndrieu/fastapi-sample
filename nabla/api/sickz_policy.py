@@ -232,12 +232,12 @@ async def _probe_http_edge_evidence(url: str) -> dict[str, Any]:
         or response.headers.get("cf-cache-status")
         or "cloudflare" in server
         or cf_mitigated
-        or default_deny
+        or default_deny,
     )
     access_signal = bool(
         "cloudflareaccess.com" in location
         or "/cdn-cgi/access/" in location
-        or cf_mitigated in {"challenge", "managed_challenge"}
+        or cf_mitigated in {"challenge", "managed_challenge"},
     )
     return {
         "cloudflare_http_evidence": cloudflare_edge,
@@ -466,7 +466,7 @@ def _direct_external_policy(
         )
 
     bits = [
-        "⚠️ Direct external exposure without Cloudflare is explicitly allowed by policy but remains a security debt."
+        "⚠️ Direct external exposure without Cloudflare is explicitly allowed by policy but remains a security debt.",
     ]
     if host.endswith(_DIRECT_EXTERNAL_SUFFIX):
         bits.append("*.int.albandrieu.com is the intentional direct-Traefik exception.")

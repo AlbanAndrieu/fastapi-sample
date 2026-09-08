@@ -210,6 +210,16 @@ def test_api_style_assets_stay_below_review_threshold() -> None:
     assert len(mobile.splitlines()) < 400
 
 
+
+
+def test_truenas_ui_explains_timeout_and_source_allowlist() -> None:
+    script = (_ASSET_DIR / "api-truenas.js").read_text(encoding="utf-8")
+
+    assert "homelab diagnostics timeout" in script
+    assert "source IP blocked by TrueNAS allowlist" in script
+    assert "System → Advanced Settings → Allowed IP Addresses" in script
+    assert "diagnosticsUnavailable(data, truenas)" in script
+
 def test_optional_runtime_clients_are_installed() -> None:
     assert import_module("cloudflare").Cloudflare is not None
     assert import_module("truenas_api_client").Client is not None
