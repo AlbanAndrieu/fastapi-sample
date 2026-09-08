@@ -148,7 +148,7 @@
     },
     "esbuild": "^0.28.1",
     "ip-address": "^10.4.0",
-    "js-yaml": "^4.3.1",
+    "js-yaml": "^4.3.2",
     "mcp-remote": {
       "path-to-regexp": "^6.3.0"
     },
