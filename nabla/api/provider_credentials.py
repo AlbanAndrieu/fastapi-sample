@@ -87,6 +87,18 @@ def _pfsense_credential_status(
     return status
 
 
+def cloudflare_access_service_token_credentials() -> ProviderCredentialStatus:
+    """Return sanitized Cloudflare Access Service Token configuration state."""
+    return inspect_environment_credentials(
+        "cloudflare_access_service_token",
+        "CF_ACCESS_CLIENT_ID",
+        "CF_ACCESS_CLIENT_SECRET",
+        secret_variables=frozenset(
+            {"CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET"},
+        ),
+    )
+
+
 def infrastructure_provider_credentials() -> dict[str, dict[str, object]]:
     """Return sanitized credential presence for external homelab control planes."""
     truenas = inspect_environment_credentials(
@@ -123,4 +135,7 @@ def infrastructure_provider_credentials() -> dict[str, dict[str, object]]:
             "CLOUDFLARE_API_TOKEN",
             secret_variables=frozenset({"CLOUDFLARE_API_TOKEN"}),
         ).as_dict(),
+        "cloudflare_access_service_token": (
+            cloudflare_access_service_token_credentials().as_dict()
+        ),
     }
