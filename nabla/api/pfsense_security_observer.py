@@ -83,11 +83,7 @@ def security_configuration_status() -> dict[str, object]:
     status["invalid_configuration_variables"] = invalid_variables
     status["required_privilege"] = "api-v2-diagnostics-table-get"
     status["write_privileges_required"] = False
-    status["credential_mode"] = (
-        "dedicated_security"
-        if key_var == "PFSENSE_SECURITY_API_KEY"
-        else "legacy_shared"
-    )
+    status["credential_mode"] = "dedicated_security" if key_var == "PFSENSE_SECURITY_API_KEY" else "legacy_shared"
     return status
 
 
@@ -113,9 +109,7 @@ def _error_kind(exc: BaseException) -> str:
         if any(marker in message for marker in ("certificate", "ssl", "tls")):
             return "tls_error"
         return "connect_error"
-    if isinstance(exc, ssl.SSLError) or any(
-        marker in message for marker in ("certificate", "ssl", "tls")
-    ):
+    if isinstance(exc, ssl.SSLError) or any(marker in message for marker in ("certificate", "ssl", "tls")):
         return "tls_error"
     if isinstance(exc, OSError):
         return "os_error"
@@ -150,11 +144,7 @@ def _response_data(payload: object) -> object:
 def _canonical_table_entries(table: object) -> frozenset[str]:
     candidate: object = table
     if isinstance(table, list):
-        matching = [
-            row
-            for row in table
-            if isinstance(row, dict) and str(row.get("name") or "") == "snort2c"
-        ]
+        matching = [row for row in table if isinstance(row, dict) and str(row.get("name") or "") == "snort2c"]
         candidate = matching[0] if matching else None
     if isinstance(candidate, dict):
         candidate = candidate.get("entries")
@@ -263,9 +253,7 @@ def _attribution_unavailable(
                 "role": "pfSense WAN / homelab public endpoint",
             },
             "table_entry_count": len(_canonical_table_entries(table)),
-            "evidence": (
-                "snort2c telemetry is reachable, but the runtime public egress IP could not be observed"
-            ),
+            "evidence": ("snort2c telemetry is reachable, but the runtime public egress IP could not be observed"),
             "control_path": _control_path(settings, blind_spot=False),
         },
         telemetry,
@@ -300,11 +288,7 @@ def _block_evidence(
                 "role": "pfSense WAN / homelab public endpoint",
             },
             "table_entry_count": len(_canonical_table_entries(table)),
-            "evidence": (
-                "Exact observed egress IP is present in pfSense table snort2c"
-                if blocked
-                else "Exact observed egress IP is not present in pfSense table snort2c"
-            ),
+            "evidence": ("Exact observed egress IP is present in pfSense table snort2c" if blocked else "Exact observed egress IP is not present in pfSense table snort2c"),
             "control_path": _control_path(settings),
         },
         telemetry,
@@ -341,9 +325,7 @@ def _stale_telemetry(
             "last_known_match": bool(
                 observed_ip and observed_ip in _canonical_table_entries(table),
             ),
-            "evidence": (
-                "Last-known-good snort2c table retained after refresh failure; current block attribution is intentionally withheld"
-            ),
+            "evidence": ("Last-known-good snort2c table retained after refresh failure; current block attribution is intentionally withheld"),
             "control_path": _control_path(settings, blind_spot=False),
         },
         telemetry,
@@ -470,11 +452,7 @@ async def observe_pfsense_ingress_block(
         blind_spot = configured.control_path_mode == "shared_wan" and telemetry.get(
             "failure_stage",
         ) in {"connect", "response", "request", "client_pool"}
-        suffix = (
-            "; shared WAN control path cannot prove whether the telemetry request itself was filtered"
-            if blind_spot
-            else ""
-        )
+        suffix = "; shared WAN control path cannot prove whether the telemetry request itself was filtered" if blind_spot else ""
         return _unavailable(
             configured,
             f"snort2c telemetry unavailable: {telemetry.get('refresh_error', 'request failed')}{suffix}",
