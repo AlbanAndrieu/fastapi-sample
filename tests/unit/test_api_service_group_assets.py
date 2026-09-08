@@ -148,3 +148,11 @@ def test_service_overview_surfaces_bounded_platform_metrics() -> None:
     assert "Prometheus metrics not configured" in groups
     assert "Prometheus telemetry unavailable" in groups
     assert "snapshot.platform_metrics" in health
+
+
+def test_critical_core_group_is_first() -> None:
+    javascript = (ASSETS / "api-service-groups.js").read_text(encoding="utf-8")
+
+    core = javascript.index('label: "1 · Critical core platform"')
+    services = javascript.index('label: "2 · Services & experiments"')
+    assert core < services
