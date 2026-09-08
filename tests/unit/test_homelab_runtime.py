@@ -14,8 +14,6 @@ from nabla.api.homelab_runtime import (
 )
 
 
-
-
 def test_runtime_binding_matcher_prefers_explicit_identity() -> None:
     running = _observed_app(
         {
@@ -68,6 +66,7 @@ def test_runtime_binding_matcher_prefers_explicit_identity() -> None:
         containerService="open-webui",
     )
     assert match_runtime_binding(stopped, container_only) == (False, None)
+
 
 def test_observed_app_preserves_truenas_container_service_name() -> None:
     app = _observed_app(

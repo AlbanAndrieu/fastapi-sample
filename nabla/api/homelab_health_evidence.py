@@ -80,11 +80,7 @@ def _runtime_app_for_service(
         return None
 
     if binding is not None and binding.provider == "truenas-app":
-        matches = [
-            app
-            for app in runtime.apps
-            if match_runtime_binding(app, binding)[0]
-        ]
+        matches = [app for app in runtime.apps if match_runtime_binding(app, binding)[0]]
         return matches[0] if len(matches) == 1 else None
 
     # Legacy presentation-only entries retain the old bounded heuristic until
