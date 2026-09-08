@@ -81,9 +81,7 @@ def _pfsense_credential_status(
         key_var,
         secret_variables=frozenset({key_var}),
     ).as_dict()
-    status["credential_mode"] = (
-        "dedicated" if key_var == dedicated_key_var else "legacy_shared"
-    )
+    status["credential_mode"] = "dedicated" if key_var == dedicated_key_var else "legacy_shared"
     return status
 
 
@@ -93,9 +91,7 @@ def cloudflare_access_service_token_credentials() -> ProviderCredentialStatus:
         "cloudflare_access_service_token",
         "CF_ACCESS_CLIENT_ID",
         "CF_ACCESS_CLIENT_SECRET",
-        secret_variables=frozenset(
-            {"CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET"},
-        ),
+        secret_variables=frozenset({"CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET"}),
     )
 
 
@@ -135,7 +131,5 @@ def infrastructure_provider_credentials() -> dict[str, dict[str, object]]:
             "CLOUDFLARE_API_TOKEN",
             secret_variables=frozenset({"CLOUDFLARE_API_TOKEN"}),
         ).as_dict(),
-        "cloudflare_access_service_token": (
-            cloudflare_access_service_token_credentials().as_dict()
-        ),
+        "cloudflare_access_service_token": cloudflare_access_service_token_credentials().as_dict(),
     }
