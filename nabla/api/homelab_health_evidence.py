@@ -79,15 +79,10 @@ def _runtime_app_for_service(
         for app in runtime.apps:
             app_identity_matched = False
             if binding.app_id:
-                app_identity_matched = (
-                    app.app_id == binding.app_id or app.name == binding.app_id
-                )
+                app_identity_matched = app.app_id == binding.app_id or app.name == binding.app_id
                 if not app_identity_matched:
                     continue
-            if binding.container_service and not any(
-                container.service_name == binding.container_service
-                for container in app.containers
-            ):
+            if binding.container_service and not any(container.service_name == binding.container_service for container in app.containers):
                 if not (app_identity_matched and not app.containers):
                     continue
             matches.append(app)
@@ -106,11 +101,7 @@ def _runtime_app_for_service(
     }
     if not candidates:
         return None
-    matches = [
-        app
-        for app in runtime.apps
-        if candidates.intersection({_key(app.app_id), _key(app.name)})
-    ]
+    matches = [app for app in runtime.apps if candidates.intersection({_key(app.app_id), _key(app.name)})]
     return matches[0] if len(matches) == 1 else None
 
 
@@ -206,7 +197,15 @@ def _reconciled_state(
     return "unknown"
 
 
-def _observation_freshness(*, checked_at: str | None, direct_result: dict[str, Any] | None, internal_result: dict[str, Any] | None, runtime: TrueNASRuntimeSnapshot | None, app: ObservedApp | None, tunnel_evidence: dict[str, str | None] | None) -> tuple[str | None, int | None, bool]:
+def _observation_freshness(
+    *,
+    checked_at: str | None,
+    direct_result: dict[str, Any] | None,
+    internal_result: dict[str, Any] | None,
+    runtime: TrueNASRuntimeSnapshot | None,
+    app: ObservedApp | None,
+    tunnel_evidence: dict[str, str | None] | None,
+) -> tuple[str | None, int | None, bool]:
     has_fresh_probe = direct_result is not None or internal_result is not None or tunnel_evidence is not None
     if has_fresh_probe:
         return checked_at, _observation_age_seconds(checked_at), False
@@ -226,11 +225,7 @@ def build_reconciled_service_health(
     cloudflare_stale: bool = False,
     checked_at: str | None = None,
 ) -> list[dict[str, Any]]:
-    direct_by_url = {
-        normalized: result
-        for result in public_results
-        if (normalized := _normalized_url(str(result.get("url") or ""))) is not None
-    }
+    direct_by_url = {normalized: result for result in public_results if (normalized := _normalized_url(str(result.get("url") or ""))) is not None}
     internal_by_id = {str(result.get("id")): result for result in internal_results if result.get("id")}
     tunnels_by_host = _tunnel_by_hostname(tunnels)
     rows: list[dict[str, Any]] = []
@@ -249,22 +244,14 @@ def build_reconciled_service_health(
         tunnel_health = None if cloudflare_stale else _tunnel_state(tunnel_status)
         direct_health = str(direct_result.get("state")) if direct_result is not None else None
         internal_health = str(internal_result.get("state")) if internal_result is not None else None
-        application_error = (
-            str(direct_result.get("application_error"))
-            if direct_result is not None and direct_result.get("application_error")
-            else None
-        )
+        application_error = str(direct_result.get("application_error")) if direct_result is not None and direct_result.get("application_error") else None
         reconciled_state = _reconciled_state(
             direct=direct_health,
             internal=internal_health,
             runtime=runtime_health,
             tunnel=tunnel_health,
             external=service.external,
-            direct_http_status=(
-                int(direct_result.get("http_status", 0))
-                if direct_result is not None
-                else 0
-            ),
+            direct_http_status=(int(direct_result.get("http_status", 0)) if direct_result is not None else 0),
             application_error=application_error is not None,
         )
         observed_at, observation_age_seconds, observation_stale = _observation_freshness(
@@ -326,11 +313,7 @@ async def reconcile_homelab_health_payload(payload: dict[str, Any]) -> dict[str,
         topology_task,
         pfsense_dns_task,
     )
-    runtime_bindings = {
-        service.service_id: service.runtime
-        for service in declared.services
-        if service.runtime is not None
-    }
+    runtime_bindings = {service.service_id: service.runtime for service in declared.services if service.runtime is not None}
     public_results = [dict(row) for row in payload.get("services", []) if isinstance(row, dict)]
     internal_results = [dict(row) for row in payload.get("internal_services", []) if isinstance(row, dict)]
     checked_at = str(payload.get("checked_at") or "").strip() or None

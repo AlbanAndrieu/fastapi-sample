@@ -17,11 +17,7 @@ def _row(service_id: str, state: str, **extra: object) -> dict[str, object]:
 
 
 def _topology(*relations: dict[str, object]) -> HomelabTopology:
-    ids = {
-        str(value)
-        for relation in relations
-        for value in (relation["source"], relation["target"])
-    }
+    ids = {str(value) for relation in relations for value in (relation["source"], relation["target"])}
     return HomelabTopology.model_validate(
         {
             "nodes": [

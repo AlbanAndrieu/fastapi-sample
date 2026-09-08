@@ -208,19 +208,13 @@ def _matches_binding(
 ) -> tuple[bool, ObservedContainer | None]:
     app_identity_matched = False
     if binding.app_id:
-        app_identity_matched = (
-            app.app_id == binding.app_id or app.name == binding.app_id
-        )
+        app_identity_matched = app.app_id == binding.app_id or app.name == binding.app_id
         if not app_identity_matched:
             return False, None
     if not binding.container_service:
         return True, None
 
-    matches = [
-        container
-        for container in app.containers
-        if container.service_name == binding.container_service
-    ]
+    matches = [container for container in app.containers if container.service_name == binding.container_service]
     if matches:
         return True, matches[0]
 

@@ -167,18 +167,11 @@ def propagate_required_dependency_health(
     ``effective_state`` for the dependency-aware result.
     """
     enriched = [dict(row) for row in rows]
-    rows_by_id = {
-        str(row.get("id")): row
-        for row in enriched
-        if isinstance(row.get("id"), str) and row.get("id")
-    }
+    rows_by_id = {str(row.get("id")): row for row in enriched if isinstance(row.get("id"), str) and row.get("id")}
     required = _required_relations(topology)
     cycles = _required_dependency_cycles(required)
     node_names = {node.id: node.name for node in topology.nodes}
-    local_states = {
-        service_id: _health_state(row.get("state"))
-        for service_id, row in rows_by_id.items()
-    }
+    local_states = {service_id: _health_state(row.get("state")) for service_id, row in rows_by_id.items()}
     effective_states = dict(local_states)
 
     # Resolve dependency chains to a fixed point. Required cycles are handled by
@@ -212,9 +205,7 @@ def propagate_required_dependency_health(
         service_id = str(row.get("id") or "")
         local_state = _health_state(row.get("state"))
         relations = required.get(service_id, [])
-        target_effective_states = [
-            effective_states.get(relation.target, "unknown") for relation in relations
-        ]
+        target_effective_states = [effective_states.get(relation.target, "unknown") for relation in relations]
         target_states = [
             _dependency_target_state(
                 relation.target,
@@ -228,11 +219,7 @@ def propagate_required_dependency_health(
             service_id,
             _effective_state(local_state, dependency_state),
         )
-        blocked_by = [
-            relation.target
-            for relation, target_state in zip(relations, target_states, strict=True)
-            if target_state != "ok"
-        ]
+        blocked_by = [relation.target for relation, target_state in zip(relations, target_states, strict=True) if target_state != "ok"]
 
         row.update(
             {
