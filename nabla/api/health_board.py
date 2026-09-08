@@ -138,6 +138,7 @@ async def _build_homelab_snapshot(
     from nabla.api.component_health import (
         build_component_checks,
         component_status,
+        pfsense_unbound_component,
         truenas_component,
     )
     from nabla.api.db.database import engine
@@ -155,12 +156,10 @@ async def _build_homelab_snapshot(
         )
     else:
         homelab = await homelab_task
-        components = {
-            key: shared_checks.get(key, {"reachable": None, "skipped": True})
-            for key in ("postgres", "redis", "supabase", "cloudflare", "pfsense")
-        }
+        components = {key: shared_checks.get(key, {"reachable": None, "skipped": True}) for key in ("postgres", "redis", "supabase", "cloudflare", "pfsense")}
         components["truenas"] = truenas_component(homelab)
     payload = await reconcile_homelab_health_payload(await homelab_task)
+    components["unbound"] = pfsense_unbound_component(payload)
     payload["components_status"] = component_status(components)
     payload["components"] = components
     payload["provider_credentials"] = infrastructure_provider_credentials()
@@ -251,16 +250,8 @@ def _annotate_pfsense_ingress_policy(
     if not isinstance(raw, dict):
         return healthz
     pfsense = dict(raw)
-    if (
-        pfsense.get("reachable") is False
-        and pfsense.get("error_kind") == "connect_timeout"
-        and pfsense.get("failure_stage") == "connect"
-    ):
-        active_egress = [
-            str(value)
-            for value in runtime.get("active_egress_ips") or []
-            if isinstance(value, str) and value
-        ]
+    if pfsense.get("reachable") is False and pfsense.get("error_kind") == "connect_timeout" and pfsense.get("failure_stage") == "connect":
+        active_egress = [str(value) for value in runtime.get("active_egress_ips") or [] if isinstance(value, str) and value]
         pfsense["ingress_policy"] = {
             "state": "possible_ingress_policy_block",
             "access_policy": "trusted_sources_only",

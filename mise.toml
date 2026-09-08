@@ -56,8 +56,20 @@ pre-commit install --config .pre-commit-pre-push.yaml --install-hooks --hook-typ
 '''
 
 [tasks.quality]
-description = "Run the canonical publication quality gate"
+description = "Run the canonical local quality gate"
 run = "bash scripts/quality-gate.sh"
+
+[tasks.agent-quality]
+description = "Run the repo-specific agent-first validation gate"
+run = "bash scripts/agent-quality-gate.sh"
+
+[tasks.agent-fix]
+description = "Apply/check deterministic local fixes before the strict agent gate"
+run = "bash scripts/agent-quality-gate.sh --fix"
+
+[tasks.agent-publish]
+description = "Run the strict agent gate and clean-tree publication check"
+run = "bash scripts/agent-quality-gate.sh --publish"
 
 [tasks.install]
 description = "Install dependencies with uv (pyproject.toml and uv.lock)"

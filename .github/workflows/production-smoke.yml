@@ -3,6 +3,7 @@ name: Production Smoke
 
 on:
   pull_request:
+    types: [opened, ready_for_review]
   workflow_dispatch:
   workflow_call:
 
@@ -16,6 +17,7 @@ concurrency:
 jobs:
   production-smoke:
     name: Production API and UI smoke
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:

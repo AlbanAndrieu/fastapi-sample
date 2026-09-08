@@ -4,7 +4,8 @@ name: Python package
 on:
   pull_request:
     branches: [master]
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,7 +15,91 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  preflight:
+    name: Agent quality gate
+    runs-on: ubuntu-latest
+    env:
+      PYTHON_VERSION: "3.13"
+      TRUNK_API_TOKEN: ${{ secrets.TRUNK_API_TOKEN }}
+      KEYCLOAK_SERVER_URL: http://localhost:8080
+      KEYCLOAK_REALM: test
+      KEYCLOAK_CLIENT_ID: test
+      KEYCLOAK_CLIENT_SECRET: test-secret
+      OAUTH_TOKEN_SECRET: mocked-oauth-token-secret
+      METRICS_ENABLED: "false"
+      LOGFIRE_ENABLED: "false"
+      LOGFIRE_ENVIRONMENT: test
+      LOGFIRE_TOKEN: ""
+      SENTRY_ENABLED: "false"
+      SENTRY_DSN: ""
+      SENTRY_ENVIRONMENT: test
+      SENTRY_RELEASE: ci-${{ github.sha }}
+      DATADOG_ENABLED: "false"
+      DD_TRACE_ENABLED: "false"
+      DD_PROFILING_ENABLED: "false"
+      DD_LOGS_INJECTION: "false"
+      DD_APPSEC_ENABLED: "false"
+      DD_IAST_ENABLED: "false"
+      UNLEASH_ENABLED: "false"
+      STATSIG_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+          python-version: ${{ env.PYTHON_VERSION }}
+          version: "0.12.1"
+
+      - name: Restore pre-commit environments
+        id: precommit-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-v1-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: |
+            pre-commit-v1-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
+
+      - name: Install locked dependencies
+        run: uv sync --frozen
+
+      - name: Install pre-commit runner for the canonical gate
+        run: uv pip install pre-commit==4.6.2
+
+      - name: Run agent-first quality gate before builds
+        env:
+          QUALITY_BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'origin/master' }}
+          QUALITY_LOG_TAIL: "120"
+        run: bash scripts/agent-quality-gate.sh --publish
+
+      - name: Save pre-commit environments
+        if: ${{ always() && steps.precommit-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-v1-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - name: Upload test results to Trunk.io
+        if: ${{ !cancelled() && env.TRUNK_API_TOKEN != '' }}
+        continue-on-error: true
+        uses: trunk-io/analytics-uploader@385f1ccdf345b4532dc4b6c665dd432b702b8e28 # v2.1.2
+        with:
+          junit-paths: "**/junit.xml"
+          org-slug: alban
+          token: ${{ env.TRUNK_API_TOKEN }}
+
   build:
+    needs: preflight
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == false }}
     name: Test and build Python package
     runs-on: ubuntu-latest
     env:
@@ -113,23 +198,13 @@ jobs:
       - name: Bandit security report
         run: uv run bandit -r nabla server_app.py --exit-zero
 
-      - name: Run tests
-        run: uv run pytest --junit-xml=junit.xml
-
       - name: Build package
         run: uv build
 
-      - name: Upload test results to Trunk.io
-        if: ${{ !cancelled() && env.TRUNK_API_TOKEN != '' }}
-        continue-on-error: true
-        uses: trunk-io/analytics-uploader@385f1ccdf345b4532dc4b6c665dd432b702b8e28 # v2.1.2
-        with:
-          junit-paths: "**/junit.xml"
-          org-slug: alban
-          token: ${{ env.TRUNK_API_TOKEN }}
-
   redis-integration:
     name: Redis integration
+    needs: preflight
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     env:
       PYTHON_VERSION: "3.13"
@@ -229,9 +304,6 @@ jobs:
     needs: build
     if: github.actor != 'dependabot[bot]'
     permissions:
-      contents: write
-      pull-requests: write
-      issues: write
-      statuses: write
+      contents: read
       security-events: write
     uses: ./.github/workflows/mega-linter.yml

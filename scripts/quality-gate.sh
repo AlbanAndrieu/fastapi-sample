@@ -4,6 +4,16 @@ set -euo pipefail
 # Canonical agent/human quality gate. Keep behavior aligned across Nabla
 # repositories so local publication policy cannot drift by project.
 
+PUBLISH=false
+if [[ "${1:-}" == "--publish" ]]; then
+    PUBLISH=true
+    shift
+fi
+if (($# > 0)); then
+    echo "usage: $0 [--publish]" >&2
+    exit 2
+fi
+
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
     echo "❌ quality-gate.sh must run inside a Git working tree."
     exit 2
@@ -30,9 +40,6 @@ if [[ -f "${ROOT}/.editorconfig" ]]; then
     elif command -v editorconfig-checker >/dev/null 2>&1; then
         EDITORCONFIG_CMD=(editorconfig-checker)
     elif command -v uvx >/dev/null 2>&1; then
-        # Pin the same checker family used by MegaLinter so the local gate catches
-        # EditorConfig violations before push. editorconfig-checker validates; it
-        # does not rewrite arbitrary indentation errors automatically.
         EDITORCONFIG_CMD=(uvx --from editorconfig-checker==3.11.1 ec)
     else
         echo "❌ editorconfig-checker is required when .editorconfig is present."
@@ -108,7 +115,7 @@ mapfile -t CHANGED_FILES < <(
 )
 
 if ((${#CHANGED_FILES[@]} > 0)); then
-    echo "🔧 Running repository formatters and linters on changed files..."
+    echo "🔧 Running repository formatters and linters on ${#CHANGED_FILES[@]} changed file(s)..."
     if ! "${PRE_COMMIT_CMD[@]}" run \
         --hook-stage pre-commit \
         --files "${CHANGED_FILES[@]}" \
@@ -135,12 +142,15 @@ echo "🔍 Checking whitespace errors..."
 git diff --check
 git diff --cached --check
 
-STATUS="$(git status --short)"
-if [[ -n "${STATUS}" ]]; then
-    echo "❌ Working tree is not clean after quality validation."
-    echo "   Review and commit generated/fixed files, then run scripts/quality-gate.sh again."
-    printf '%s\n' "${STATUS}"
-    exit 1
+if [[ "${PUBLISH}" == true ]]; then
+    STATUS="$(git status --short)"
+    if [[ -n "${STATUS}" ]]; then
+        echo "❌ Working tree is not clean enough to publish."
+        echo "   Review and commit generated/fixed files, then run scripts/quality-gate.sh --publish again."
+        printf '%s\n' "${STATUS}"
+        exit 1
+    fi
+    echo "✅ Publication quality gate passed; repository is clean and ready to publish."
+else
+    echo "✅ Quality gate passed. Review and commit validated changes before publishing."
 fi
-
-echo "✅ Quality gate passed; repository is clean and ready to publish."
