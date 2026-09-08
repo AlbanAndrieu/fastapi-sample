@@ -95,5 +95,3 @@ def test_failure_kind_classifies_truenas_ui_allowlist_denial() -> None:
 
     assert phase == "connect"
     assert stage == "source_allowlist"
-
-
