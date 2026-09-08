@@ -138,6 +138,53 @@ def _tunnel_by_hostname(observations: Iterable[CloudflareTunnelObservation]) -> 
     return result
 
 
+def _state_from_direct_evidence(
+    *,
+    direct: HealthState | None,
+    internal: HealthState | None,
+    runtime: HealthState | None,
+    tunnel: HealthState | None,
+) -> HealthState | None:
+    if direct == "ok":
+        if tunnel == "fail":
+            return "warn" if "ok" in {internal, runtime} else "fail"
+        return "warn" if internal == "fail" else "ok"
+
+    if direct == "warn":
+        if tunnel == "fail":
+            return "warn" if "ok" in {internal, runtime} else "fail"
+        return "warn"
+
+    if direct == "fail":
+        # A running origin with a broken public path is degraded. Tunnel health
+        # alone must never rescue a failed application probe.
+        return "warn" if "ok" in {internal, runtime} else "fail"
+
+    return None
+
+
+def _state_without_direct_evidence(
+    *,
+    internal: HealthState | None,
+    runtime: HealthState | None,
+    tunnel: HealthState | None,
+) -> HealthState:
+    if internal == "ok":
+        return "ok"
+    if internal == "fail":
+        return "warn" if runtime == "ok" else "fail"
+    if runtime == "ok":
+        return "warn"
+
+    # Missing/down Cloudflare exposure is a configuration degradation when no
+    # stronger application failure has been observed.
+    if tunnel in {"ok", "fail", "warn"}:
+        return "warn"
+    if any(state is not None for state in (internal, runtime, tunnel)):
+        return "warn"
+    return "unknown"
+
+
 def _reconciled_state(
     *,
     direct: HealthState | None,
@@ -158,43 +205,23 @@ def _reconciled_state(
 
     if application_error:
         return "warn"
-
     if runtime == "fail":
         return "warn" if origin_proven_up else "fail"
 
-    if direct == "ok":
-        if tunnel == "fail":
-            return "warn" if "ok" in {internal, runtime} else "fail"
-        return "warn" if internal == "fail" else "ok"
+    direct_state = _state_from_direct_evidence(
+        direct=direct,
+        internal=internal,
+        runtime=runtime,
+        tunnel=tunnel,
+    )
+    if direct_state is not None:
+        return direct_state
 
-    if direct == "warn":
-        if tunnel == "fail":
-            return "warn" if "ok" in {internal, runtime} else "fail"
-        return "warn"
-
-    if direct == "fail":
-        # A running origin with a broken public path is degraded. Tunnel health
-        # alone must never rescue a failed application probe.
-        if "ok" in {internal, runtime}:
-            return "warn"
-        return "fail"
-
-    if internal == "ok":
-        return "ok"
-    if internal == "fail":
-        return "warn" if runtime == "ok" else "fail"
-
-    if runtime == "ok":
-        return "warn"
-
-    # Missing/down Cloudflare exposure is a configuration degradation when no
-    # stronger application failure has been observed.
-    if tunnel in {"ok", "fail", "warn"}:
-        return "warn"
-
-    if any(state is not None for state in (direct, internal, runtime, tunnel)):
-        return "warn"
-    return "unknown"
+    return _state_without_direct_evidence(
+        internal=internal,
+        runtime=runtime,
+        tunnel=tunnel,
+    )
 
 
 def _observation_freshness(
