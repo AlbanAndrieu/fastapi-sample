@@ -25,11 +25,7 @@ from nabla.api.cloudflare_tunnels import (
 from nabla.api.homelab_catalog import fetch_homelab_services
 from nabla.api.homelab_models import HomelabService
 from nabla.api.homelab_runtime import ObservedApp, TrueNASRuntimeSnapshot, fetch_truenas_runtime
-from nabla.api.sickz_cloudflare_edge import (
-    _ANONYMOUS_EDGE_HEADERS as _ANONYMOUS_EDGE_HEADERS,
-    _probe_http_edge_evidence,
-    _response_contains_cloudflare_default_deny as _response_contains_cloudflare_default_deny,
-)
+from nabla.api.sickz_cloudflare_edge import _probe_http_edge_evidence
 
 _DIRECT_EXTERNAL_SUFFIX = ".int.albandrieu.com"
 _DOWN_TUNNEL_STATES = frozenset({"DOWN", "FAILED", "INACTIVE"})
