@@ -163,13 +163,16 @@ def _state_without_direct_evidence(
     internal: HealthState | None,
     runtime: HealthState | None,
     tunnel: HealthState | None,
+    external: bool,
 ) -> HealthState:
     if internal == "ok":
         return "ok"
     if internal == "fail":
         return "warn" if runtime == "ok" else "fail"
     if runtime == "ok":
-        return "warn"
+        # A private service can be healthy even when the current observer cannot
+        # perform its functional LAN probe. Public reachability is not expected.
+        return "warn" if external else "ok"
 
     # Missing/down Cloudflare exposure is a configuration degradation when no
     # stronger application failure has been observed.
@@ -216,6 +219,7 @@ def _reconciled_state(
         internal=internal,
         runtime=runtime,
         tunnel=tunnel,
+        external=external,
     )
 
 
@@ -302,6 +306,8 @@ def build_reconciled_service_health(
             "observation_age_seconds": observation_age_seconds,
             "observation_stale": observation_stale,
         }
+        if service.health_note:
+            row["health_note"] = service.health_note
         if runtime is not None:
             row["runtime_stale"] = runtime.stale
         if tunnel_evidence is not None:
