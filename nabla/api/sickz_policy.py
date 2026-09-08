@@ -268,7 +268,6 @@ async def _probe_http_edge_evidence(
     try:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(5.0),
-            verify=False,  # noqa: S501 - TLS trust is checked separately by sickz
             follow_redirects=False,
             transport=transport,
         ) as client:
