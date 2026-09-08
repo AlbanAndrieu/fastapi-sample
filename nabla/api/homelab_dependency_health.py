@@ -118,7 +118,7 @@ def _dependency_target_state(
     effective_states: dict[str, HealthState],
     rows_by_id: dict[str, dict[str, Any]],
 ) -> HealthState:
-    """Treat stale non-failing evidence as unknown for required dependencies."""
+    """Treat stale evidence as unknown for current required-dependency health."""
     state = effective_states.get(target, "unknown")
     target_row = rows_by_id.get(target)
     if target_row is not None and target_row.get("observation_stale"):
