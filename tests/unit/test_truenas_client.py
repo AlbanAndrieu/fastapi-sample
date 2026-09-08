@@ -235,7 +235,7 @@ def test_health_snapshot_preserves_call_phase_for_rbac_denial() -> None:
             username="fastapi_observer",
             api_key="1-secret",
         ),
-        client_factory=lambda **kwargs: RbacDeniedClient(**kwargs),
+        client_factory=RbacDeniedClient,
     )
 
     with pytest.raises(TrueNASHealthProbeError) as exc_info:
