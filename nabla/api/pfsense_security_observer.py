@@ -256,7 +256,7 @@ def _attribution_unavailable(
             "engine": "snort",
             "firewall": "pfSense/PF",
             "mechanism": "snort2c",
-            "source": {"ip": None, "role": "FastAPI Cloud egress (not observed)"},
+            "source": {"ip": None, "role": "Runtime public egress (not observed)"},
             "destination": {
                 "ip": wan["ipv4"],
                 "port": _TRUENAS_PUBLIC_PORT,
@@ -292,7 +292,7 @@ def _block_evidence(
             "mechanism": "snort2c",
             "source": {
                 "ip": observed_ip or None,
-                "role": "FastAPI Cloud egress (observed)",
+                "role": "Runtime public egress (observed)",
             },
             "destination": {
                 "ip": wan["ipv4"],
