@@ -197,12 +197,12 @@ def _edge_response_evidence(response: httpx.Response) -> dict[str, Any]:
         or response.headers.get("cf-cache-status")
         or "cloudflare" in server
         or cf_mitigated
-        or default_deny
+        or default_deny,
     )
     access_signal = bool(
         "cloudflareaccess.com" in location
         or "/cdn-cgi/access/" in location
-        or cf_mitigated in {"challenge", "managed_challenge"}
+        or cf_mitigated in {"challenge", "managed_challenge"},
     )
     return {
         "cloudflare_http_evidence": cloudflare_edge,
@@ -324,7 +324,7 @@ async def _probe_http_edge_evidence(
                     "cloudflare_service_token_access_signal": service_evidence[
                         "cloudflare_access_signal"
                     ],
-                }
+                },
             )
             return evidence
     except (httpx.HTTPError, OSError):
@@ -723,7 +723,7 @@ async def enrich_sickz_policy(payload: dict[str, Any]) -> dict[str, Any]:
                     and (
                         service.tunnel_secure is True
                         or service.effective_cloudflare_access_required
-                    )
+                    ),
                 ),
             )
             for _, _, service in matched
