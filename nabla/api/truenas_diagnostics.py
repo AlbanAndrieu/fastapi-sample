@@ -88,11 +88,7 @@ def _https_stage(
         detail = str(public_result.get("error") or "HTTPS request failed")[:240]
     return _stage(
         "https",
-        (
-            "TrueNAS HTTPS listener"
-            if path_mode == "direct_lan"
-            else "HTTPS listener via HAProxy"
-        ),
+        ("TrueNAS HTTPS listener" if path_mode == "direct_lan" else "HTTPS listener via HAProxy"),
         state,
         elapsed_ms=public_result.get("latency_ms"),
         detail=detail,
@@ -114,10 +110,7 @@ def _haproxy_stage(tls_ok: bool) -> dict[str, Any]:
         "haproxy",
         "HAProxy :7000",
         "ok",
-        detail=(
-            "Public TLS termination · HTTP mode · native WebSocket upgrade forwarding · "
-            "TLS re-encryption to TrueNAS 172.17.0.24:7000"
-        ),
+        detail=("Public TLS termination · HTTP mode · native WebSocket upgrade forwarding · TLS re-encryption to TrueNAS 172.17.0.24:7000"),
         evidence="declared_topology",
         proxy_mode="http",
         websocket_upgrade="native",
@@ -138,10 +131,7 @@ def _direct_lan_stage(tls_ok: bool, host: str, port: int) -> dict[str, Any]:
         "direct_lan",
         "Direct LAN route",
         "ok",
-        detail=(
-            f"Split DNS/direct LAN to {host}:{port} · "
-            "public pfSense WAN and HAProxy path bypassed"
-        ),
+        detail=(f"Split DNS/direct LAN to {host}:{port} · public pfSense WAN and HAProxy path bypassed"),
         evidence="runtime_route",
     )
 
@@ -354,11 +344,7 @@ async def collect_truenas_network_diagnostics(
                 "websocket",
                 "WebSocket upgrade",
                 "blocked",
-                detail=(
-                    "Blocked before direct TrueNAS WebSocket validation"
-                    if path_mode == "direct_lan"
-                    else "Blocked before HAProxy/WebSocket validation"
-                ),
+                detail=("Blocked before direct TrueNAS WebSocket validation" if path_mode == "direct_lan" else "Blocked before HAProxy/WebSocket validation"),
             ),
         )
 
