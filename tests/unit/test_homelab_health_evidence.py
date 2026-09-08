@@ -23,13 +23,13 @@ def _runtime(*apps: ObservedApp) -> TrueNASRuntimeSnapshot:
     )
 
 
-def test_private_running_service_is_warning_without_direct_probe() -> None:
+def test_private_running_service_is_green_without_external_probe() -> None:
     service = HomelabService(
         name="Hello",
-        tunnelUrl="https://hello.int.albandrieu.com",
         internalHost="172.17.0.24",
         internalPort=8099,
         external=False,
+        healthNote="⚠️ Internal-only service; functional probe requires the homelab observer.",
     )
     rows = build_reconciled_service_health(
         [service],
@@ -39,7 +39,8 @@ def test_private_running_service_is_warning_without_direct_probe() -> None:
         tunnels=[],
     )
 
-    assert rows[0]["state"] == "warn"
+    assert rows[0]["state"] == "ok"
+    assert rows[0]["health_note"].startswith("⚠️ Internal-only")
     assert rows[0]["runtime_state"] == "RUNNING"
     assert rows[0]["runtime_app"] == "hello"
     assert rows[0]["http_status"] == 0
