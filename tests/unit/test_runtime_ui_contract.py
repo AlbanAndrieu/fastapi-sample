@@ -8,14 +8,14 @@ ROOT = Path(__file__).resolve().parents[2]
 ASSETS = ROOT / "nabla" / "api" / "assets"
 
 
-def test_local_runtime_topology_is_rendered_before_service_health_groups() -> None:
+def test_core_drilldown_precedes_runtime_topology() -> None:
     page = render_api_root_page(title_suffix="test", app_version="1.0.0")
 
     overview = page.index('id="service-health-overview"')
     groups = page.index('id="health-services-groups"')
     runtime = page.index('id="runtime-topology"')
     truenas = page.index('id="truenas-platform"')
-    assert overview < groups < runtime < truenas
+    assert overview < groups < truenas < runtime
     assert "Local workstation runtime" in page
     assert "Observed processes" in page
     assert "Observed instances" not in page
@@ -24,6 +24,7 @@ def test_local_runtime_topology_is_rendered_before_service_health_groups() -> No
     assert "FastAPI Cloud replicas" not in page
     assert "Vercel + FastAPI" not in page
     assert 'data-runtime-mode="local"' in page
+    assert '<details class="runtime-topology" id="runtime-topology" open' in page
     assert "Active egress IPs" in page
     assert "Recent egress IPs · 24 h" in page
     assert "Redis server memory" in page
@@ -99,6 +100,8 @@ def test_runtime_topology_does_not_claim_control_plane_replica_count() -> None:
     assert 'local_only: "local only"' in javascript
     assert 'local_fallback: "local fallback"' in javascript
     assert "renderRedisUsage(runtime.redis)" in javascript
+    assert "truenasApiHealthy" in javascript
+    assert "panel.open = degraded || !truenasApiHealthy" in javascript
     assert "memory_utilization_percent" in javascript
     assert "instantaneous_ops_per_sec" in javascript
     assert "keyspace_hit_rate_percent" in javascript
