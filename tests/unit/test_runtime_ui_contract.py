@@ -15,7 +15,7 @@ def test_core_drilldown_precedes_runtime_topology() -> None:
     groups = page.index('id="health-services-groups"')
     runtime = page.index('id="runtime-topology"')
     truenas = page.index('id="truenas-platform"')
-    assert overview < groups < truenas < runtime
+    assert truenas < runtime < overview < groups
     assert "Local workstation runtime" in page
     assert "Observed processes" in page
     assert "Observed instances" not in page
