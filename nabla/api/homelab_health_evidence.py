@@ -192,6 +192,7 @@ def _reconciled_state(
     external: bool,
     direct_http_status: int = 0,
     application_error: bool = False,
+    runtime_missing: bool = False,
 ) -> HealthState:
     """Classify service availability without letting edge evidence mask downtime.
 
@@ -201,6 +202,8 @@ def _reconciled_state(
     """
     origin_proven_up = internal == "ok" or 200 <= direct_http_status < 300
 
+    if runtime_missing:
+        return "fail"
     if application_error:
         return "warn"
     if runtime == "fail":
@@ -264,6 +267,14 @@ def build_reconciled_service_health(
         binding = (runtime_bindings or {}).get(service.service_id)
         app = _runtime_app_for_service(service, runtime, binding)
         runtime_health = None if runtime is not None and runtime.stale else _runtime_state(app)
+        runtime_missing = bool(
+            binding is not None
+            and binding.provider == "truenas-app"
+            and runtime is not None
+            and runtime.reachable
+            and not runtime.stale
+            and app is None
+        )
         host = _hostname(url)
         tunnel_evidence = tunnels_by_host.get(host or "")
         tunnel_status = str(tunnel_evidence.get("tunnel_status")) if tunnel_evidence and tunnel_evidence.get("tunnel_status") is not None else None
@@ -279,6 +290,7 @@ def build_reconciled_service_health(
             external=service.external,
             direct_http_status=(int(direct_result.get("http_status", 0)) if direct_result is not None else 0),
             application_error=application_error is not None,
+            runtime_missing=runtime_missing,
         )
         observed_at, observation_age_seconds, observation_stale = _observation_freshness(
             checked_at=checked_at,
@@ -302,6 +314,7 @@ def build_reconciled_service_health(
             "runtime_state": app.state if app is not None else None,
             "runtime_app": app.app_id if app is not None else None,
             "runtime_reachable": runtime.reachable if runtime is not None else None,
+            "runtime_missing": runtime_missing,
             "observed_at": observed_at,
             "observation_age_seconds": observation_age_seconds,
             "observation_stale": observation_stale,
