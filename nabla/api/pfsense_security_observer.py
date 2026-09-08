@@ -28,6 +28,7 @@ from nabla.settings.homelab import (
 ControlPathMode = Literal["shared_wan", "out_of_band"]
 _PFSENSE_CONNECT_TIMEOUT_SEC = 2.0
 _PFSENSE_READ_TIMEOUT_SEC = 6.0
+_PFSENSE_OUT_OF_BAND_READ_TIMEOUT_SEC = 20.0
 _PFSENSE_MAX_ATTEMPTS = 1
 _PFSENSE_RETRY_DELAY_SEC = 0.2
 _SNORT2C_PATH = "/api/v2/diagnostics/table?id=snort2c"
@@ -119,6 +120,13 @@ def _error_kind(exc: BaseException) -> str:
     if isinstance(exc, OSError):
         return "os_error"
     return "unknown_error"
+
+
+def _read_timeout_seconds(settings: PfSenseSecuritySettings) -> float:
+    """Keep WAN diagnosis fail-fast while allowing slower trusted LAN pfREST reads."""
+    if settings.control_path_mode == "out_of_band":
+        return _PFSENSE_OUT_OF_BAND_READ_TIMEOUT_SEC
+    return _PFSENSE_READ_TIMEOUT_SEC
 
 
 def _failure_stage(error_kind: str) -> str:
@@ -345,9 +353,10 @@ def _stale_telemetry(
 async def _fetch_snort2c(
     settings: PfSenseSecuritySettings,
 ) -> tuple[object | None, dict[str, Any]]:
+    read_timeout_sec = _read_timeout_seconds(settings)
     timeout = httpx.Timeout(
         connect=_PFSENSE_CONNECT_TIMEOUT_SEC,
-        read=_PFSENSE_READ_TIMEOUT_SEC,
+        read=read_timeout_sec,
         write=_PFSENSE_CONNECT_TIMEOUT_SEC,
         pool=_PFSENSE_CONNECT_TIMEOUT_SEC,
     )
@@ -371,6 +380,7 @@ async def _fetch_snort2c(
                     "attempts": attempt,
                     "elapsed_ms": round((time.monotonic() - started) * 1000),
                     "http_status": response.status_code,
+                    "read_timeout_sec": read_timeout_sec,
                 }
             except (httpx.HTTPError, OSError, ValueError) as exc:
                 last_error = exc
@@ -398,6 +408,7 @@ async def _fetch_snort2c(
         "failure_stage": _failure_stage(kind),
         "exception_type": type(error).__name__,
         "refresh_error": _safe_error(error),
+        "read_timeout_sec": read_timeout_sec,
     }
 
 
