@@ -15,6 +15,7 @@ from nabla.api.homelab_runtime import (
     ObservedContainer,
     TrueNASRuntimeSnapshot,
 )
+from nabla.api.homelab_topology import HomelabTopology
 
 
 def _runtime(*apps: ObservedApp) -> TrueNASRuntimeSnapshot:
@@ -754,7 +755,7 @@ def test_runtime_error_is_exposed_in_reconciled_payload(monkeypatch) -> None:
         return Cloudflare()
 
     async def _topology():
-        return {"nodes": [], "relations": []}
+        return HomelabTopology()
 
     async def _dns(**_kwargs):
         return {}
