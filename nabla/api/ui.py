@@ -149,6 +149,79 @@ def render_api_root_page(
                 </div>
             </div>
 
+            <section class="truenas-platform" id="truenas-platform" data-service-filter-target data-search-text="truenas core critical storage platform infrastructure https websocket api" aria-labelledby="truenas-platform-title">
+                <div class="truenas-platform-heading">
+                    <div>
+                        <h3 class="health-subboard-title truenas-platform-title" id="truenas-platform-title">Core drill-down · TrueNAS platform</h3>
+                        <p class="health-board-meta">Critical storage and VM host · detailed HTTPS and WebSocket API diagnostics.</p>
+                    </div>
+                    <span class="truenas-platform-state truenas-platform-state--neutral" id="truenas-platform-state">Loading…</span>
+                </div>
+                <div class="truenas-platform-target" id="truenas-platform-target">https://truenas.albandrieu.com:7000</div>
+                <div class="truenas-pipeline" id="truenas-pipeline" aria-live="polite"></div>
+                <p class="health-error" id="truenas-platform-error" hidden></p>
+            </section>
+
+
+            <details class="runtime-topology" id="runtime-topology" open data-runtime-mode="{mode}" aria-labelledby="runtime-topology-title">
+                <summary class="runtime-topology-heading">
+                    <div>
+                        <h3 id="runtime-topology-title">{runtime_title}</h3>
+                        <p class="health-board-meta">{runtime_description}</p>
+                    </div>
+                    <span class="runtime-topology-state runtime-topology-state--warn" id="runtime-topology-state">Loading…</span>
+                </summary>
+                <div class="runtime-topology-grid">
+                    <div class="runtime-topology-metric">
+                        <span id="runtime-instance-label">{instance_label}</span>
+                        <strong id="runtime-instance-count">—</strong>
+                    </div>
+                    <div class="runtime-topology-metric">
+                        <span id="runtime-replica-label">{replica_label}</span>
+                        <strong id="runtime-replica-count">{replica_value}</strong>
+                    </div>
+                    <div class="runtime-topology-metric">
+                        <span>Aggregation</span>
+                        <strong id="runtime-aggregation">—</strong>
+                    </div>
+                    <div class="runtime-topology-metric">
+                        <span>Redis server memory</span>
+                        <strong id="runtime-redis-memory">—</strong>
+                    </div>
+                    <div class="runtime-topology-metric">
+                        <span>Redis DB keys</span>
+                        <strong id="runtime-redis-keys">—</strong>
+                    </div>
+                    <div class="runtime-topology-metric">
+                        <span>Redis clients</span>
+                        <strong id="runtime-redis-clients">—</strong>
+                    </div>
+                    <div class="runtime-topology-metric">
+                        <span>Redis ops / sec</span>
+                        <strong id="runtime-redis-ops">—</strong>
+                    </div>
+                    <div class="runtime-topology-metric">
+                        <span>Redis hit rate</span>
+                        <strong id="runtime-redis-hit-rate">—</strong>
+                    </div>
+                    <div class="runtime-topology-metric">
+                        <span>Redis evictions</span>
+                        <strong id="runtime-redis-evictions">—</strong>
+                    </div>
+                </div>
+                <p class="runtime-topology-note" id="runtime-redis-scope">Application Redis backend · provider attribution pending telemetry.</p>
+                <div class="runtime-topology-egress">
+                    <span class="runtime-topology-label">Active egress IPs</span>
+                    <div class="runtime-topology-pills" id="runtime-active-egress">Loading…</div>
+                </div>
+                <div class="runtime-topology-egress">
+                    <span class="runtime-topology-label">Recent egress IPs · 24 h</span>
+                    <div class="runtime-topology-pills" id="runtime-recent-egress">Loading…</div>
+                </div>
+                <div class="runtime-instance-list" id="runtime-instance-list" aria-live="polite"></div>
+                <p class="runtime-topology-note" id="runtime-count-semantics">{runtime_note}</p>
+            </details>
+
             <section class="health-board" id="health-board" aria-labelledby="health-board-title">
                 <div class="health-board-heading-row">
                     <div>
@@ -183,79 +256,6 @@ def render_api_root_page(
                 <ul class="health-checks" id="health-checks"></ul>
                 <p class="health-error" id="health-fetch-error" hidden></p>
                 <div class="service-groups" id="health-services-groups" aria-live="polite"></div>
-
-                <section class="truenas-platform" id="truenas-platform" data-service-filter-target data-search-text="truenas core critical storage platform infrastructure https websocket api" aria-labelledby="truenas-platform-title">
-                    <div class="truenas-platform-heading">
-                        <div>
-                            <h3 class="health-subboard-title truenas-platform-title" id="truenas-platform-title">Core drill-down · TrueNAS platform</h3>
-                            <p class="health-board-meta">Critical storage and VM host · detailed HTTPS and WebSocket API diagnostics.</p>
-                        </div>
-                        <span class="truenas-platform-state truenas-platform-state--neutral" id="truenas-platform-state">Loading…</span>
-                    </div>
-                    <div class="truenas-platform-target" id="truenas-platform-target">https://truenas.albandrieu.com:7000</div>
-                    <div class="truenas-pipeline" id="truenas-pipeline" aria-live="polite"></div>
-                    <p class="health-error" id="truenas-platform-error" hidden></p>
-                </section>
-
-
-                <details class="runtime-topology" id="runtime-topology" open data-runtime-mode="{mode}" aria-labelledby="runtime-topology-title">
-                    <summary class="runtime-topology-heading">
-                        <div>
-                            <h3 id="runtime-topology-title">{runtime_title}</h3>
-                            <p class="health-board-meta">{runtime_description}</p>
-                        </div>
-                        <span class="runtime-topology-state runtime-topology-state--warn" id="runtime-topology-state">Loading…</span>
-                    </summary>
-                    <div class="runtime-topology-grid">
-                        <div class="runtime-topology-metric">
-                            <span id="runtime-instance-label">{instance_label}</span>
-                            <strong id="runtime-instance-count">—</strong>
-                        </div>
-                        <div class="runtime-topology-metric">
-                            <span id="runtime-replica-label">{replica_label}</span>
-                            <strong id="runtime-replica-count">{replica_value}</strong>
-                        </div>
-                        <div class="runtime-topology-metric">
-                            <span>Aggregation</span>
-                            <strong id="runtime-aggregation">—</strong>
-                        </div>
-                        <div class="runtime-topology-metric">
-                            <span>Redis server memory</span>
-                            <strong id="runtime-redis-memory">—</strong>
-                        </div>
-                        <div class="runtime-topology-metric">
-                            <span>Redis DB keys</span>
-                            <strong id="runtime-redis-keys">—</strong>
-                        </div>
-                        <div class="runtime-topology-metric">
-                            <span>Redis clients</span>
-                            <strong id="runtime-redis-clients">—</strong>
-                        </div>
-                        <div class="runtime-topology-metric">
-                            <span>Redis ops / sec</span>
-                            <strong id="runtime-redis-ops">—</strong>
-                        </div>
-                        <div class="runtime-topology-metric">
-                            <span>Redis hit rate</span>
-                            <strong id="runtime-redis-hit-rate">—</strong>
-                        </div>
-                        <div class="runtime-topology-metric">
-                            <span>Redis evictions</span>
-                            <strong id="runtime-redis-evictions">—</strong>
-                        </div>
-                    </div>
-                    <p class="runtime-topology-note" id="runtime-redis-scope">Application Redis backend · provider attribution pending telemetry.</p>
-                    <div class="runtime-topology-egress">
-                        <span class="runtime-topology-label">Active egress IPs</span>
-                        <div class="runtime-topology-pills" id="runtime-active-egress">Loading…</div>
-                    </div>
-                    <div class="runtime-topology-egress">
-                        <span class="runtime-topology-label">Recent egress IPs · 24 h</span>
-                        <div class="runtime-topology-pills" id="runtime-recent-egress">Loading…</div>
-                    </div>
-                    <div class="runtime-instance-list" id="runtime-instance-list" aria-live="polite"></div>
-                    <p class="runtime-topology-note" id="runtime-count-semantics">{runtime_note}</p>
-                </details>
 
                 <h3 class="health-subboard-title" id="sickz-board-title">Exposure security policy</h3>
                 <p class="health-board-meta">Live view of <a href="/sickz">/sickz</a>.
