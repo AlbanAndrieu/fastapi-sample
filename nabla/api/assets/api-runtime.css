@@ -14,6 +14,15 @@
   margin-bottom: 0.75rem;
 }
 
+.runtime-topology-heading {
+  cursor: pointer;
+  list-style: none;
+}
+
+.runtime-topology-heading::-webkit-details-marker {
+  display: none;
+}
+
 .runtime-topology-heading h3 {
   margin: 0;
 }
