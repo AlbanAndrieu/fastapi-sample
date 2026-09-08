@@ -100,7 +100,7 @@ jobs:
       - name: Run agent-first quality gate before builds
         env:
           QUALITY_BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'origin/master' }}
-          QUALITY_LOG_TAIL: "120"
+          QUALITY_LOG_TAIL: "900"
           UV_NO_SYNC: "1"
           SKIP: ${{ steps.impact.outputs.mode == 'quality' && 'pytest-collect' || '' }}
         run: bash scripts/agent-quality-gate.sh --publish
