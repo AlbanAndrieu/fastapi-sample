@@ -80,6 +80,7 @@ _OVERRIDE_FIELDS = (
     "tunnelTitle",
     "cloudflareAccessRequired",
     "securityException",
+    "healthNote",
 )
 
 
