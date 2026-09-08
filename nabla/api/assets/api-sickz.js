@@ -31,9 +31,20 @@ function classifySick(check) {
   return "gray";
 }
 
+function isTrueNasExposureCheck(check) {
+  const name = String(check?.name || check?.display_label || "").trim().toLowerCase();
+  const aliases = Array.isArray(check?.aliases_probed) ? check.aliases_probed : [];
+  return (
+    name === "truenas" ||
+    aliases.some((url) => String(url).includes("truenas.albandrieu.com:7000"))
+  );
+}
+
 function rawDetailSickText(check) {
   if (check.skipped === true) {
-    const intro = check.reason || "Not probed (LAN skip).";
+    const intro = isTrueNasExposureCheck(check)
+      ? "HTTPS exposure check skipped on trusted LAN. This is not the authenticated TrueNAS API probe; see Core drill-down · TrueNAS platform."
+      : check.reason || "Not probed (LAN skip).";
     if (check.aliases_probed?.length) {
       return `${intro} Targets: ${check.aliases_probed.map(shortHostForDetail).join(" · ")}`;
     }
@@ -264,6 +275,9 @@ function render(data) {
     else if (check.display_label != null)
       rowTitle = String(check.display_label);
     else rowTitle = key;
+    if (isTrueNasExposureCheck(check)) {
+      rowTitle = "TrueNAS HTTPS listener · exposure policy";
+    }
     if (check.policy_status === "warn") rowTitle = `⚠️ ${rowTitle}`;
     item.dataset.serviceName = rowTitle.replace(/^⚠️\s*/, "");
     item.dataset.serviceUrl = hrefRaw;

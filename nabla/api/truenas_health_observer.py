@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import asyncio
 from copy import deepcopy
+from dataclasses import dataclass
 from datetime import UTC, datetime
 import re
 import ssl
 import time
 from typing import Any
+
+import sentry_sdk
 
 from nabla.api.external_probe_cache import get_or_refresh_probe, reset_probe_cache
 from nabla.api.provider_probe_policies import (
@@ -16,14 +19,22 @@ from nabla.api.provider_probe_policies import (
 )
 from nabla.api.provider_credentials import inspect_environment_credentials
 from nabla.api.truenas_client import observe_truenas_api
+from nabla.integrations.truenas_client import TrueNASHealthProbeError
 from nabla.settings.homelab import TrueNASProviderSettings
 from nabla.utils.logger import logger
 
 _CACHE_KEY = "truenas:api"
 _TRUENAS_PROBE_DEADLINE_SEC = 8.0
 _SENTRY_FAILURE_COOLDOWN_SEC = 900.0
-_last_failure_signature: str | None = None
-_last_failure_reported_at = 0.0
+
+
+@dataclass(slots=True)
+class _FailureReportState:
+    signature: str | None = None
+    reported_at: float = 0.0
+
+
+_failure_report_state = _FailureReportState()
 
 
 def truenas_http_verify_ssl() -> bool:
@@ -46,6 +57,8 @@ def _configured_username() -> str:
 
 def _failure_kind(exc: BaseException) -> tuple[str, str]:
     """Classify the failure without leaking credentials or transport internals."""
+    if isinstance(exc, TrueNASHealthProbeError):
+        return exc.phase, exc.stage
     message = str(exc).casefold()
     class_name = exc.__class__.__name__.casefold()
     if isinstance(exc, ConnectionResetError):
@@ -66,9 +79,7 @@ def _failure_kind(exc: BaseException) -> tuple[str, str]:
         )
     ):
         return "connect", "source_allowlist"
-    if any(
-        marker in message for marker in ("unauthorized", "authentication", "api key")
-    ):
+    if any(marker in message for marker in ("unauthorized", "authentication", "api key")):
         return "authentication", "authentication"
     if "websocket" in message:
         return "connect", "websocket"
@@ -111,10 +122,7 @@ def truenas_api_configuration_failure() -> dict[str, Any] | None:
             "reachable": False,
             "phase": "authentication",
             "stage": "invalid_api_key_reference",
-            "error": (
-                "TRUENAS_API_KEY contains an environment-variable name instead of "
-                "raw TrueNAS API key material."
-            ),
+            "error": ("TRUENAS_API_KEY contains an environment-variable name instead of raw TrueNAS API key material."),
             "username_configured": True,
             "api_key_configured": True,
         }
@@ -123,10 +131,7 @@ def truenas_api_configuration_failure() -> dict[str, Any] | None:
             "reachable": False,
             "phase": "authentication",
             "stage": "invalid_api_key_format",
-            "error": (
-                "TRUENAS_API_KEY does not match the expected "
-                "<id>-<64-character-alphanumeric-key> format."
-            ),
+            "error": ("TRUENAS_API_KEY does not match the expected <id>-<64-character-alphanumeric-key> format."),
             "username_configured": True,
             "api_key_configured": True,
         }
@@ -134,15 +139,11 @@ def truenas_api_configuration_failure() -> dict[str, Any] | None:
 
 
 def _should_report_failure(signature: str) -> bool:
-    global _last_failure_reported_at, _last_failure_signature
     now = time.monotonic()
-    should_report = (
-        signature != _last_failure_signature
-        or now - _last_failure_reported_at >= _SENTRY_FAILURE_COOLDOWN_SEC
-    )
+    should_report = signature != _failure_report_state.signature or now - _failure_report_state.reported_at >= _SENTRY_FAILURE_COOLDOWN_SEC
     if should_report:
-        _last_failure_signature = signature
-        _last_failure_reported_at = now
+        _failure_report_state.signature = signature
+        _failure_report_state.reported_at = now
     return should_report
 
 
@@ -150,8 +151,6 @@ def _report_failure_to_sentry(exc: BaseException, signature: str) -> None:
     if not _should_report_failure(signature):
         return
     try:
-        import sentry_sdk
-
         sentry_sdk.capture_exception(exc)
     except Exception as report_exc:  # pragma: no cover - observability must not break health.
         logger.warning(
@@ -204,7 +203,7 @@ async def _probe_origin() -> dict[str, Any]:
             "stage": stage,
             "elapsed_ms": elapsed_ms,
             "error": _short_error(exc),
-            "exception_type": exc.__class__.__name__,
+            "exception_type": (exc.exception_type if isinstance(exc, TrueNASHealthProbeError) else exc.__class__.__name__),
             "retry_after_seconds": int(_CACHE_POLICY.failure_ttl),
             "username_configured": True,
             "api_key_configured": True,
@@ -278,7 +277,6 @@ async def observe_truenas_health_api() -> dict[str, Any]:
 
 async def reset_truenas_health_cache() -> None:
     """Reset process-local probe cache/reporting state for deterministic tests."""
-    global _last_failure_reported_at, _last_failure_signature
     await reset_probe_cache(_CACHE_KEY)
-    _last_failure_signature = None
-    _last_failure_reported_at = 0.0
+    _failure_report_state.signature = None
+    _failure_report_state.reported_at = 0.0

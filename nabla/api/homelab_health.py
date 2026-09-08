@@ -16,6 +16,7 @@ import httpx
 from nabla.api.health_probe_utils import is_textual_response, looks_like_tls_error
 from nabla.api.homelab_catalog import fetch_homelab_services
 from nabla.api.homelab_models import HomelabService
+from nabla.api.runtime_environment import homelab_runtime_detected
 from nabla.api.sickz_cloudflare_edge import _probe_http_edge_evidence
 from nabla.api.truenas_diagnostics import (
     append_truenas_api_stages,
@@ -132,9 +133,7 @@ async def _probe_http_endpoint(
                 url,
                 headers={"User-Agent": "nabla-homelab-health/1.0"},
             )
-            should_get = response.status_code in {405, 501} or (
-                200 <= response.status_code <= 299 and is_textual_response(response)
-            )
+            should_get = response.status_code in {405, 501} or (200 <= response.status_code <= 299 and is_textual_response(response))
             if should_get:
                 response = await client.get(
                     url,
@@ -188,10 +187,7 @@ async def _probe_public_service(
         name=service.name,
         url=url,
     )
-    if (
-        not service.effective_cloudflare_access_required
-        or result.get("http_status") not in _WARNING_HTTP_STATUSES
-    ):
+    if not service.effective_cloudflare_access_required or result.get("http_status") not in _WARNING_HTTP_STATUSES:
         return result
 
     edge_evidence = await _probe_http_edge_evidence(url)
@@ -200,7 +196,7 @@ async def _probe_public_service(
         return result
 
     authenticated_status = int(
-        edge_evidence.get("cloudflare_service_token_http_status") or 0
+        edge_evidence.get("cloudflare_service_token_http_status") or 0,
     )
     result["anonymous_http_status"] = result["http_status"]
     result["http_status"] = authenticated_status
@@ -224,7 +220,8 @@ async def _probe_internal_service(
     try:
         async with semaphore:
             _, writer = await asyncio.wait_for(
-                asyncio.open_connection(host, port), timeout=_PROBE_TIMEOUT_SEC
+                asyncio.open_connection(host, port),
+                timeout=_PROBE_TIMEOUT_SEC,
             )
         result: dict[str, Any] = {
             "id": service.service_id,
@@ -300,7 +297,7 @@ async def _probe_truenas(
                     internalPort=port,
                     external=False,
                 ),
-            )
+            ),
         )
 
     async with httpx.AsyncClient(
@@ -331,7 +328,8 @@ async def _probe_truenas(
             websocket_uri=websocket_uri,
             verify_ssl=verify_ssl,
             public_result=public_result,
-        )
+            path_mode=("direct_lan" if homelab_runtime_detected() else "public_wan_haproxy"),
+        ),
     )
 
     pending: list[asyncio.Future[Any] | asyncio.Task[Any]] = [api_task, diagnostics_task]
@@ -386,35 +384,19 @@ async def build_homelab_health_payload() -> dict[str, Any]:
 
         refresh_started = time.perf_counter()
         catalog_services = await fetch_homelab_services()
-        public_services = [
-            service
-            for service in catalog_services
-            if service.public_https_probe_url is not None
-        ]
+        public_services = [service for service in catalog_services if service.public_https_probe_url is not None]
         internal_enabled = internal_probes_enabled()
-        internal_services = [
-            service
-            for service in catalog_services
-            if internal_enabled
-            and service.internal_host
-            and service.internal_port is not None
-        ]
+        internal_services = [service for service in catalog_services if internal_enabled and service.internal_host and service.internal_port is not None]
 
         semaphore = asyncio.Semaphore(_MAX_PROBE_CONCURRENCY)
         timeout = httpx.Timeout(_PROBE_TIMEOUT_SEC)
         internal_results_future = asyncio.gather(
-            *(
-                _probe_internal_service(semaphore, service)
-                for service in internal_services
-            )
+            *(_probe_internal_service(semaphore, service) for service in internal_services),
         )
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
             public_results, truenas, internal_results = await asyncio.gather(
                 asyncio.gather(
-                    *(
-                        _probe_public_service(client, semaphore, service)
-                        for service in public_services
-                    )
+                    *(_probe_public_service(client, semaphore, service) for service in public_services),
                 ),
                 _probe_truenas(semaphore, internal_enabled=internal_enabled),
                 internal_results_future,
