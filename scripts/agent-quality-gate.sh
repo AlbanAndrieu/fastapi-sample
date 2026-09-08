@@ -240,6 +240,16 @@ else
         bash scripts/quality-gate.sh
 fi
 
+CHANGED_PYTHON=()
+for file in "${CHANGED_FILES[@]}"; do
+    [[ "${file}" == *.py ]] && CHANGED_PYTHON+=("${file}")
+done
+if ((${#CHANGED_PYTHON[@]} > 0)); then
+    run_compact "modified Python code-size gate" \
+        uv run python scripts/check_code_size.py \
+        --baseline-ref "${BASE_REF}" "${CHANGED_PYTHON[@]}"
+fi
+
 run_compact "release/version contract" uv run python scripts/check_versions.py
 run_compact "repository pytest suite (fail-fast)" \
     uv run pytest -q --disable-warnings --maxfail=1 --junit-xml=junit.xml
