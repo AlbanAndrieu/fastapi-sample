@@ -77,13 +77,19 @@ def _runtime_app_for_service(
     if binding is not None and binding.provider == "truenas-app":
         matches: list[ObservedApp] = []
         for app in runtime.apps:
-            if binding.app_id and app.app_id != binding.app_id and app.name != binding.app_id:
-                continue
+            app_identity_matched = False
+            if binding.app_id:
+                app_identity_matched = (
+                    app.app_id == binding.app_id or app.name == binding.app_id
+                )
+                if not app_identity_matched:
+                    continue
             if binding.container_service and not any(
                 container.service_name == binding.container_service
                 for container in app.containers
             ):
-                continue
+                if not (app_identity_matched and not app.containers):
+                    continue
             matches.append(app)
         return matches[0] if len(matches) == 1 else None
 

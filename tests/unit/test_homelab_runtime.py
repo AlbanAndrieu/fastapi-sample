@@ -222,3 +222,62 @@ async def test_status_reports_unmanaged_truenas_apps(monkeypatch) -> None:
 
     assert payload["observedOnly"][0]["reconciliation"] == "observed_only"
     assert payload["observedOnly"][0]["observed"]["appId"] == "legacy-app"
+
+
+@pytest.mark.asyncio
+async def test_status_matches_stopped_app_by_exact_app_id_without_workloads(monkeypatch) -> None:
+    catalog = DeclaredServiceCatalog.model_validate(
+        {
+            "version": 1,
+            "catalogRevision": "sha256:test",
+            "topologyVersion": 1,
+            "name": "test",
+            "services": [
+                {
+                    "id": "openwebui",
+                    "name": "Open WebUI",
+                    "kind": "ui",
+                    "category": "ai",
+                    "sourcePath": "apps/openwebui/compose.yml",
+                    "composeService": "open-webui",
+                    "runtime": {
+                        "provider": "truenas-app",
+                        "appId": "openwebui",
+                        "containerService": "open-webui",
+                    },
+                },
+            ],
+        },
+    )
+    runtime = TrueNASRuntimeSnapshot(
+        observed_at="2026-09-08T01:00:00Z",
+        configured=True,
+        reachable=True,
+        apps=[
+            _observed_app(
+                {
+                    "id": "openwebui",
+                    "name": "openwebui",
+                    "state": "STOPPED",
+                    "active_workloads": {},
+                },
+            ),
+        ],
+    )
+
+    async def fake_catalog():
+        return catalog
+
+    async def fake_runtime():
+        return runtime
+
+    monkeypatch.setattr("nabla.api.homelab_runtime.fetch_declared_service_catalog", fake_catalog)
+    monkeypatch.setattr("nabla.api.homelab_runtime.fetch_truenas_runtime", fake_runtime)
+
+    payload = await build_homelab_status_payload()
+
+    assert payload["services"][0]["reconciliation"] == "in_sync"
+    assert payload["services"][0]["observed"]["appId"] == "openwebui"
+    assert payload["services"][0]["observed"]["appState"] == "STOPPED"
+    assert "container" not in payload["services"][0]["observed"]
+    assert payload["observedOnly"] == []

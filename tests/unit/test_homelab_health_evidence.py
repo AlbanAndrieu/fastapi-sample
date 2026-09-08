@@ -609,3 +609,37 @@ def test_deploying_runtime_is_degraded_when_origin_is_proven_up() -> None:
     )
 
     assert rows[0]["state"] == "warn"
+
+
+def test_exact_app_id_keeps_stopped_runtime_visible_without_container_details() -> None:
+    service = HomelabService(
+        name="Open WebUI",
+        tunnelUrl="https://open-webui.albandrieu.com",
+        external=True,
+    )
+    runtime = _runtime(
+        ObservedApp(
+            app_id="openwebui",
+            name="openwebui",
+            state="STOPPED",
+            containers=[],
+        )
+    )
+    rows = build_reconciled_service_health(
+        [service],
+        public_results=[],
+        internal_results=[],
+        runtime=runtime,
+        tunnels=[],
+        runtime_bindings={
+            service.service_id: RuntimeBinding(
+                provider="truenas-app",
+                appId="openwebui",
+                containerService="open-webui",
+            )
+        },
+    )
+
+    assert rows[0]["runtime_app"] == "openwebui"
+    assert rows[0]["runtime_state"] == "STOPPED"
+    assert rows[0]["state"] == "fail"

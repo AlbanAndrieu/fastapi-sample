@@ -121,7 +121,7 @@ def _dependency_target_state(
     """Treat stale non-failing evidence as unknown for required dependencies."""
     state = effective_states.get(target, "unknown")
     target_row = rows_by_id.get(target)
-    if state != "fail" and target_row is not None and target_row.get("observation_stale"):
+    if target_row is not None and target_row.get("observation_stale"):
         return "unknown"
     return state
 
