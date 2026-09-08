@@ -571,7 +571,9 @@ export async function organizeSickzRows(data, pfsenseKey) {
   list.innerHTML = "";
   for (const definition of [...GROUPS, EXTRA_GROUP]) {
     const groupRows = buckets.get(definition.key) || [];
-    sortRows(groupRows).forEach((row) => list.appendChild(row));
+    sortRows(groupRows).forEach((row) => {
+      list.appendChild(row);
+    });
   }
   refreshFilter();
 }
