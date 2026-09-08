@@ -322,6 +322,18 @@ function securityFrameworkReference(rows) {
   return reference;
 }
 
+function sortRows(rows) {
+  return rows.sort(
+    (left, right) =>
+      rowSeverity(left) - rowSeverity(right) ||
+      (CRITICALITY_WEIGHT[left.dataset.criticality] ?? 9) -
+        (CRITICALITY_WEIGHT[right.dataset.criticality] ?? 9) ||
+      Number(right.dataset.downstreamCount || 0) -
+        Number(left.dataset.downstreamCount || 0) ||
+      (left.textContent || "").localeCompare(right.textContent || ""),
+  );
+}
+
 function serviceGroupSection(definition, rows) {
   const issueCount = rows.filter((row) => rowSeverity(row) < 4).length;
   const criticalIssues = rows.filter(
@@ -344,19 +356,9 @@ function serviceGroupSection(definition, rows) {
 
   const list = document.createElement("ul");
   list.className = "health-checks service-group-list";
-  rows
-    .sort(
-      (left, right) =>
-        rowSeverity(left) - rowSeverity(right) ||
-        (CRITICALITY_WEIGHT[left.dataset.criticality] ?? 9) -
-          (CRITICALITY_WEIGHT[right.dataset.criticality] ?? 9) ||
-        Number(right.dataset.downstreamCount || 0) -
-          Number(left.dataset.downstreamCount || 0) ||
-        (left.textContent || "").localeCompare(right.textContent || ""),
-    )
-    .forEach((row) => {
-      list.appendChild(row);
-    });
+  sortRows(rows).forEach((row) => {
+    list.appendChild(row);
+  });
   section.append(heading);
   if (definition.key === "security-controls") {
     section.appendChild(securityFrameworkReference(rows));
@@ -395,6 +397,7 @@ function assignRows(rows, checks, topologyData) {
 
 function overviewCard(label, rows, metricDetail = "") {
   const total = rows.length;
+  if (total === 0) return "";
   const operational = rows.filter(rowOutcomeOperational).length;
   const atRisk = rows.filter(
     (row) => row.dataset.semanticStatus === "at-risk",
@@ -484,7 +487,7 @@ function updateOverview(
   }
 
   const metrics = platformOverviewDetails(platformMetrics);
-  target.innerHTML = [
+  const cards = [
     overviewCard(
       "Critical core",
       buckets.get("core-critical") || [],
@@ -502,7 +505,11 @@ function updateOverview(
       buckets.get("support") || [],
       metrics.telemetry,
     ),
-  ].join("");
+    overviewCard("Other / optional", buckets.get("external") || []),
+  ].filter(Boolean);
+  target.innerHTML =
+    cards.join("") ||
+    '<div class="service-overview-card service-overview-card--neutral"><span>Service health</span><strong>No classified rows</strong><small>No health rows are currently available for the service overview.</small></div>';
 }
 
 function refreshFilter() {
@@ -564,11 +571,7 @@ export async function organizeSickzRows(data, pfsenseKey) {
   list.innerHTML = "";
   for (const definition of [...GROUPS, EXTRA_GROUP]) {
     const groupRows = buckets.get(definition.key) || [];
-    if (groupRows.length === 0) continue;
-    const shell = document.createElement("li");
-    shell.className = "service-group-shell";
-    shell.appendChild(serviceGroupSection(definition, groupRows));
-    list.appendChild(shell);
+    sortRows(groupRows).forEach((row) => list.appendChild(row));
   }
   refreshFilter();
 }
