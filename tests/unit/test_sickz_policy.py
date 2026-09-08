@@ -555,7 +555,7 @@ async def test_cloudflare_service_token_is_never_sent_to_untrusted_host(monkeypa
 
     assert calls == 1
     assert evidence["cloudflare_service_token_attempted"] is False
-    assert evidence["cloudflare_service_token_skip_reason"] == "untrusted_target"
+    assert evidence["cloudflare_access_fallback_skip_reason"] == "outside_trusted_zone"
 
 
 def test_access_policy_accepts_service_token_after_anonymous_block() -> None:
