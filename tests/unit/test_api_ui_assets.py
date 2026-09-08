@@ -235,6 +235,6 @@ def test_sickz_surfaces_default_deny_and_catalog_icons() -> None:
     assert "cloudflare_default_deny" in health_ui
     assert "Cloudflare Default-Deny" in sickz
     assert "cloudflare_access_policy_count" in sickz
-    assert "cloudflare_service_token_attempted" in sickz
+    assert "cloudflare_service_auth_attempted" in sickz
     assert "Service token Access OK" in sickz
     assert "cloudflare-policy-warning" in css

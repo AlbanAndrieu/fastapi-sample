@@ -31,7 +31,7 @@ def test_legacy_catalog_derives_id_from_public_hostname() -> None:
             "name": "Langfuse",
             "tunnelUrl": "https://langfuse.albandrieu.com",
             "external": True,
-        }
+        },
     )
 
     payload = service.model_dump(mode="json", by_alias=True, exclude_none=True)
@@ -48,7 +48,7 @@ def test_legacy_private_service_derives_id_from_name() -> None:
             "internalHost": "172.17.0.24",
             "internalPort": 30117,
             "external": False,
-        }
+        },
     )
 
     assert service.service_id == "open-speedtest"
@@ -60,7 +60,7 @@ def test_explicit_service_id_is_preserved() -> None:
             "id": "langfuse-worker",
             "name": "Langfuse UI",
             "external": False,
-        }
+        },
     )
 
     assert service.service_id == "langfuse-worker"
@@ -88,7 +88,7 @@ def test_legacy_exposure_alias_is_accepted_but_not_emitted() -> None:
             "name": "Vaultwarden",
             "tunnelUrl": "https://vaultwarden.albandrieu.com",
             "reacheableFromOutside": True,
-        }
+        },
     )
 
     payload = service.model_dump(mode="json", by_alias=True, exclude_none=True)
@@ -107,7 +107,7 @@ def test_conflicting_old_and_new_exposure_flags_fail_closed() -> None:
                 "tunnelUrl": "https://example.com",
                 "external": False,
                 "reacheableFromOutside": True,
-            }
+            },
         )
 
 
@@ -138,15 +138,15 @@ def test_int_external_exception_requires_explicit_direct_security_posture() -> N
     service = HomelabService.model_validate(
         {
             "name": "Garage",
-            "tunnelUrl": "https://garage.int.albandrieu.com",
+            "tunnelUrl": "https://s3.int.albandrieu.com",
             "external": True,
             "tunnelSecure": False,
-        }
+        },
     )
 
     assert service.external is True
     assert service.tunnel_secure is False
-    assert service.public_https_probe_url == "https://garage.int.albandrieu.com/"
+    assert service.public_https_probe_url == "https://s3.int.albandrieu.com/"
 
 
 def test_secure_external_service_requires_cloudflare_access_by_default() -> None:
@@ -163,7 +163,7 @@ def test_secure_external_service_requires_cloudflare_access_by_default() -> None
 def test_direct_external_service_does_not_require_access_by_default() -> None:
     service = HomelabService(
         name="Garage",
-        tunnel_url="https://garage.int.albandrieu.com",
+        tunnel_url="https://s3.int.albandrieu.com",
         tunnel_secure=False,
         external=True,
     )
@@ -208,17 +208,15 @@ def test_sickz_metadata_keeps_names_for_policy_targets() -> None:
     )
 
     assert homelab_catalog.homelab_tunnel_url_to_service_name([private]) == {
-        "https://sabnzbd.albandrieu.com/": "SABnzbd"
+        "https://sabnzbd.albandrieu.com/": "SABnzbd",
     }
     assert homelab_catalog.homelab_tunnel_url_to_resolved_icon_src([private]) == {
-        "https://sabnzbd.albandrieu.com/": "assets/selfh-icons/sabnzbd.png"
+        "https://sabnzbd.albandrieu.com/": "assets/selfh-icons/sabnzbd.png",
     }
 
 
 def test_healthz_key_uses_stable_service_id() -> None:
-    assert homelab_catalog._healthz_check_key("langfuse-worker") == (
-        "albandrieu_langfuse_worker"
-    )
+    assert homelab_catalog._healthz_check_key("langfuse-worker") == ("albandrieu_langfuse_worker")
 
 
 def test_catalog_rejects_duplicate_service_names_case_insensitively() -> None:
@@ -227,7 +225,7 @@ def test_catalog_rejects_duplicate_service_names_case_insensitively() -> None:
             services=[
                 HomelabService(name="Grafana"),
                 HomelabService(name="grafana"),
-            ]
+            ],
         )
 
 
@@ -237,17 +235,13 @@ def test_catalog_rejects_duplicate_service_ids() -> None:
             services=[
                 HomelabService(id="langfuse", name="Langfuse UI"),
                 HomelabService(id="langfuse", name="Langfuse Worker"),
-            ]
+            ],
         )
 
 
 def test_exposure_catalog_uses_nabla_compose_as_authority_with_bootstrap_cache() -> None:
-    assert "AlbanAndrieu/nabla-compose/master/catalog/homelab-services.json" in (
-        homelab_catalog.HOMELAB_SERVICES_CATALOG_URL
-    )
-    assert "AlbanAndrieu/nabla-compose/master/catalog/homelab-exposure-overrides.json" in (
-        homelab_catalog.HOMELAB_EXPOSURE_OVERRIDES_URL
-    )
+    assert "AlbanAndrieu/nabla-compose/master/catalog/homelab-services.json" in (homelab_catalog.HOMELAB_SERVICES_CATALOG_URL)
+    assert "AlbanAndrieu/nabla-compose/master/catalog/homelab-exposure-overrides.json" in (homelab_catalog.HOMELAB_EXPOSURE_OVERRIDES_URL)
     assert homelab_catalog.HOMELAB_SERVICES_CATALOG_PATH.is_file()
     assert homelab_catalog.HOMELAB_EXPOSURE_OVERRIDES_PATH.is_file()
 
@@ -260,8 +254,8 @@ async def test_remote_catalog_is_authoritative(monkeypatch) -> None:
                 name="Remote only",
                 tunnel_url="https://remote-only.albandrieu.com",
                 external=True,
-            )
-        ]
+            ),
+        ],
     )
 
     async def fetch_remote() -> HomelabCatalog:
@@ -285,8 +279,8 @@ async def test_concurrent_catalog_requests_share_one_remote_refresh(monkeypatch)
                 name="Remote only",
                 tunnel_url="https://remote-only.albandrieu.com",
                 external=True,
-            )
-        ]
+            ),
+        ],
     )
     attempts = 0
 
@@ -318,8 +312,8 @@ async def test_remote_refresh_failure_keeps_last_known_good(monkeypatch) -> None
                 name="Remote only",
                 tunnel_url="https://remote-only.albandrieu.com",
                 external=True,
-            )
-        ]
+            ),
+        ],
     )
     attempts = 0
 
@@ -355,8 +349,15 @@ def test_bootstrap_catalog_preserves_litellm_exposure_policy() -> None:
 
     garage = by_name["Garage"]
     assert garage.internal_host == "172.17.0.24"
-    assert garage.internal_port == 3909
+    assert garage.internal_port == 3900
     assert garage.internal_secure is False
+    assert garage.tunnel_url == "https://s3.int.albandrieu.com"
+
+    garage_webui = by_name["Garage WebUI"]
+    assert garage_webui.internal_host == "172.17.0.24"
+    assert garage_webui.internal_port == 3909
+    assert garage_webui.internal_secure is False
+    assert garage_webui.tunnel_url == "https://garage-admin.albandrieu.com"
 
 
 def test_bootstrap_catalog_routes_2fauth_to_healthz_and_policy_aware_sickz() -> None:
@@ -382,11 +383,17 @@ def test_bootstrap_catalog_applies_reviewed_exposure_overrides() -> None:
     assert truenas.tunnel_secure is False
 
     garage = by_name["Garage"]
-    assert garage.tunnel_url == "https://garage.int.albandrieu.com"
+    assert garage.tunnel_url == "https://s3.int.albandrieu.com"
     assert garage.external is True
     assert garage.tunnel_secure is False
     assert garage.effective_cloudflare_access_required is False
     assert garage.security_exception is not None
+
+    garage_webui = by_name["Garage WebUI"]
+    assert garage_webui.tunnel_url == "https://garage-admin.albandrieu.com"
+    assert garage_webui.external is True
+    assert garage_webui.tunnel_secure is True
+    assert garage_webui.effective_cloudflare_access_required is True
 
     bichon = by_name["Bichon"]
     assert bichon.external is False
