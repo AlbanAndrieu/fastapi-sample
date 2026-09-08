@@ -1,3 +1,10 @@
+## [1.13.5](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.13.4...1.13.5) (2026-09-08)
+
+
+### Bug Fixes
+
+* **pfsense:** tolerate slow LAN snort2c telemetry ([#222](https://github.com/AlbanAndrieu/fastapi-sample/issues/222)) ([3c2d26c](https://github.com/AlbanAndrieu/fastapi-sample/commit/3c2d26c280ca7337584a6b4dad2c6522ab239af0))
+
 ## [1.13.4](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.13.3...1.13.4) (2026-09-08)
 
 
