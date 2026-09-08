@@ -183,10 +183,7 @@ def _truenas_failure_stage(exc: BaseException) -> str:
         )
     ):
         return "source_allowlist"
-    if any(
-        marker in message
-        for marker in ("unauthorized", "authentication", "invalid credentials", "api key")
-    ):
+    if any(marker in message for marker in ("unauthorized", "authentication", "invalid credentials", "api key")):
         return "authentication"
     if "websocket" in message or any("websocket" in name for name in class_names):
         return "websocket"
