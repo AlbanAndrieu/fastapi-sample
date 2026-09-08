@@ -229,6 +229,7 @@ function render(data) {
   const ingressBlock = data?.pfsense?.dns?.ingress_block;
   const overall = truenas?.state || "fail";
   const api = truenas?.api || {};
+  const runtimeError = data?.truenas_runtime_error;
   if (ingressBlock?.state === "blocked") {
     state.className = "truenas-platform-state truenas-platform-state--fail";
     state.textContent = "blocked by Snort/PF";
@@ -248,6 +249,11 @@ function render(data) {
     } else {
       state.textContent = overall;
     }
+  }
+
+  if (runtimeError) {
+    error.hidden = false;
+    error.textContent = `TrueNAS runtime: ${String(runtimeError)}`;
   }
 }
 
