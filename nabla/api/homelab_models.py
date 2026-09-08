@@ -222,7 +222,7 @@ class HomelabService(BaseModel):
         if host.endswith(_DIRECT_EXTERNAL_DOMAIN_SUFFIX) and self.tunnel_secure is not False:
             raise ValueError(
                 "external *.int.albandrieu.com endpoints require tunnelSecure=false "
-                "to declare the direct non-Cloudflare exposure exception"
+                "to declare the direct non-Cloudflare exposure exception",
             )
 
         try:
@@ -273,7 +273,7 @@ class HomelabService(BaseModel):
                 "tunnel_url": url,
                 "external": True,
                 "endpoint_enabled": True,
-            }
+            },
         )
         return type(self).model_validate(payload)
 
