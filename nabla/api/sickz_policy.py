@@ -227,18 +227,8 @@ async def _probe_http_edge_evidence(url: str) -> dict[str, Any]:
     location = response.headers.get("location", "").casefold()
     cf_mitigated = response.headers.get("cf-mitigated", "").casefold()
     default_deny = _response_contains_cloudflare_default_deny(response)
-    cloudflare_edge = bool(
-        response.headers.get("cf-ray")
-        or response.headers.get("cf-cache-status")
-        or "cloudflare" in server
-        or cf_mitigated
-        or default_deny,
-    )
-    access_signal = bool(
-        "cloudflareaccess.com" in location
-        or "/cdn-cgi/access/" in location
-        or cf_mitigated in {"challenge", "managed_challenge"},
-    )
+    cloudflare_edge = bool(response.headers.get("cf-ray") or response.headers.get("cf-cache-status") or "cloudflare" in server or cf_mitigated or default_deny)
+    access_signal = bool("cloudflareaccess.com" in location or "/cdn-cgi/access/" in location or cf_mitigated in {"challenge", "managed_challenge"})
     return {
         "cloudflare_http_evidence": cloudflare_edge,
         "cloudflare_access_signal": access_signal,
@@ -264,11 +254,7 @@ def _runtime_app_for_service(
         )
         if candidate
     }
-    matches = [
-        app
-        for app in runtime.apps
-        if candidates.intersection({_key(app.app_id), _key(app.name)})
-    ]
+    matches = [app for app in runtime.apps if candidates.intersection({_key(app.app_id), _key(app.name)})]
     return matches[0] if len(matches) == 1 else None
 
 
@@ -298,13 +284,10 @@ def _runtime_evidence(
         out["icon_src"] = _SKULL_ICON_SRC
         if http_status in _GATEWAY_HTTP_STATUSES:
             out["failure_detail"] = (
-                f"💀 HTTP {http_status} Bad Gateway/upstream failure matches TrueNAS app state {app.state}; "
-                "the public edge is alive but the service workload is not running."
+                f"💀 HTTP {http_status} Bad Gateway/upstream failure matches TrueNAS app state {app.state}; the public edge is alive but the service workload is not running."
             )
         else:
-            out["failure_detail"] = (
-                f"💀 TrueNAS reports app state {app.state}; the service workload is not running."
-            )
+            out["failure_detail"] = f"💀 TrueNAS reports app state {app.state}; the service workload is not running."
     return out
 
 
@@ -325,8 +308,7 @@ def _access_policy_result(
         policy_count = raw_policy_count if isinstance(raw_policy_count, int) else None
         if policy_count == 0:
             detail = (
-                "⚠️ Cloudflare Default-Deny blocked the anonymous request and the "
-                "observed Access application contains no policy."
+                "⚠️ Cloudflare Default-Deny blocked the anonymous request and the observed Access application contains no policy."
                 if default_deny
                 else "Cloudflare Access application is observed but contains no policy."
             )
@@ -360,8 +342,7 @@ def _access_policy_result(
     if default_deny:
         return (
             "fail",
-            "⚠️ Cloudflare Default-Deny blocked the hostname, but no matching Access "
-            "application/policy was observed. An Access policy is probably missing.",
+            "⚠️ Cloudflare Default-Deny blocked the hostname, but no matching Access application/policy was observed. An Access policy is probably missing.",
         )
     if http_evidence.get("cloudflare_access_signal") is True:
         return "ok", "Cloudflare Access enforcement is visible in the anonymous HTTP response."
@@ -567,18 +548,11 @@ async def enrich_sickz_policy(payload: dict[str, Any]) -> dict[str, Any]:
         access_observer_error,
     ) = cloudflare_result
 
-    services_by_url = {
-        normalized: service
-        for service in services
-        if (normalized := _normalized_url(service.tunnel_url)) is not None
-    }
+    services_by_url = {normalized: service for service in services if (normalized := _normalized_url(service.tunnel_url)) is not None}
     tunnels_by_host = _tunnels_by_hostname(tunnel_observations)
     access_by_host = _access_by_hostname(access_observations)
 
-    checks = {
-        key: dict(value) if isinstance(value, dict) else value
-        for key, value in payload.get("checks", {}).items()
-    }
+    checks = {key: dict(value) if isinstance(value, dict) else value for key, value in payload.get("checks", {}).items()}
     matched: list[tuple[str, dict[str, Any], HomelabService]] = []
     for key, check in checks.items():
         if not isinstance(check, dict):

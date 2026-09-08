@@ -298,9 +298,7 @@ async def _catalog_membership_drift(
     presentation_by_id = {
         service.service_id: service.name for service in presentation.services
     }
-    declared_by_id = {
-        service.service_id: service.name for service in declared_services
-    }
+    declared_by_id = {service.service_id: service.name for service in declared_services}
     topology_by_id = {node.id: node.name for node in topology.nodes}
     service_ids = sorted(
         set(presentation_by_id) | set(declared_by_id) | set(topology_by_id),
@@ -364,10 +362,7 @@ async def build_homelab_status_payload() -> dict[str, Any]:
                 "version": app.version,
                 "humanVersion": app.human_version,
                 "upgradeAvailable": app.upgrade_available,
-                "containers": [
-                    container.model_dump(exclude_none=True)
-                    for container in app.containers
-                ],
+                "containers": [container.model_dump(exclude_none=True) for container in app.containers],
             },
         }
         for app in runtime.apps
