@@ -126,6 +126,59 @@ jobs:
         shell: bash
         run: gh release upload "${RELEASE_TAG}" dist/* --clobber --repo "${GITHUB_REPOSITORY}"
 
+  publish_container:
+    name: Publish immutable GHCR image
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout immutable release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ needs.build.outputs.tag }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare immutable image tags and build secret
+        id: container_meta
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          READ_PACKAGE_TOKEN: ${{ secrets.CI_PIP_GITLABNABLA_TOKEN }}
+        run: |
+          set -euo pipefail
+          owner_lc="${GITHUB_REPOSITORY_OWNER,,}"
+          repository="ghcr.io/${owner_lc}/fastapi-sample"
+          echo "version_tag=${repository}:${RELEASE_TAG}" >> "${GITHUB_OUTPUT}"
+          echo "latest_tag=${repository}:latest" >> "${GITHUB_OUTPUT}"
+          printf '%s' "${READ_PACKAGE_TOKEN:-not-configured}" > /tmp/read-package-token
+
+      - name: Build and push release image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          target: production
+          push: true
+          tags: |
+            ${{ steps.container_meta.outputs.version_tag }}
+            ${{ steps.container_meta.outputs.latest_tag }}
+          secret-files: |
+            read-package-token=/tmp/read-package-token
+          cache-from: type=gha,scope=production
+          cache-to: type=gha,mode=max,scope=production
+
   publish_testpypi:
     name: Publish to TestPyPI
     needs: build

@@ -249,7 +249,10 @@ function probeRows(data) {
     ? data.internal_services.map((row) => ({ ...row, probe_scope: "internal" }))
     : [];
   const publicRows = Array.isArray(data?.public_probe_results)
-    ? data.public_probe_results.map((row) => ({ ...row, probe_scope: "public" }))
+    ? data.public_probe_results.map((row) => ({
+        ...row,
+        probe_scope: "public",
+      }))
     : [];
   return [...internal, ...publicRows].sort((left, right) => {
     const severity = probeSeverity(left) - probeSeverity(right);
@@ -278,13 +281,13 @@ function renderProbeFanout(data) {
     internalEnabled === false
       ? "⏸ LAN probes disabled"
       : `● LAN probes enabled · ${internal.scheduled ?? "?"} targets · ${internal.completed ?? 0} completed · ${internal.timed_out ?? 0} deadline`;
-  const publicText =
-    `🌐 public probes · ${publicSummary.scheduled ?? "?"} targets · ${publicSummary.completed ?? 0} completed · ${publicSummary.timed_out ?? 0} deadline`;
+  const publicText = `🌐 public probes · ${publicSummary.scheduled ?? "?"} targets · ${publicSummary.completed ?? 0} completed · ${publicSummary.timed_out ?? 0} deadline`;
   const budget =
     internal.budget_seconds ?? publicSummary.budget_seconds ?? "unknown";
   const concurrency =
     internal.max_concurrency ?? publicSummary.max_concurrency ?? "unknown";
-  const catalog = catalogCount != null ? `catalog ${catalogCount} · ` : "";
+  const catalog =
+    catalogCount != null ? `declared service catalog ${catalogCount} · ` : "";
   const pathMode = data?.truenas?.diagnostics?.path_mode;
   const runtimeMode =
     pathMode === "direct_lan" ? "🏠 local/direct LAN" : "☁ external/public WAN";
@@ -296,9 +299,14 @@ function renderProbeFanout(data) {
         ? "⚠ TLS verify off"
         : "🔐 TLS verify unknown";
   const api = data?.truenas?.api || {};
+  const appInventoryCount = Array.isArray(api?.apps) ? api.apps.length : null;
+  const appInventory =
+    appInventoryCount != null
+      ? ` · TrueNAS app inventory ${appInventoryCount}`
+      : "";
   const apiMode =
     api.reachable === true
-      ? `🔌 TrueNAS API healthy${api.version ? ` · ${api.version}` : ""}`
+      ? `🔌 TrueNAS API healthy${api.version ? ` · ${api.version}` : ""}${appInventory}`
       : api.reachable === false
         ? `⚠ TrueNAS API ${api.stage || "unreachable"}`
         : "◌ TrueNAS API not measured";
@@ -310,8 +318,7 @@ function renderProbeFanout(data) {
         ? "⚠ TrueNAS HTTPS unreachable"
         : "◌ TrueNAS HTTPS not measured";
 
-  summary.textContent =
-    `${runtimeMode} · ${httpsMode} · ${apiMode} · ${internalText} · ${publicText} · ${catalog}fan-out budget ${budget}s · concurrency ${concurrency} · ${tlsMode}`;
+  summary.textContent = `${runtimeMode} · ${httpsMode} · ${apiMode} · ${internalText} · ${publicText} · ${catalog}fan-out budget ${budget}s · concurrency ${concurrency} · ${tlsMode}`;
   detailsSummary.textContent = `Homelab probe fan-out · ${rows.length} observed/scheduled rows`;
 
   list.innerHTML = rows

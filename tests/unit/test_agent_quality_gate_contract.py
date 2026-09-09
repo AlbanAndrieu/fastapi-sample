@@ -131,3 +131,17 @@ def test_megalinter_caller_keeps_least_privilege_permissions() -> None:
     assert "pull-requests: write" not in caller
     assert "issues: write" not in caller
     assert "statuses: write" not in caller
+
+
+def test_release_publishes_immutable_ghcr_image() -> None:
+    workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+
+    assert "\n  publish_container:\n" in workflow
+    assert "Publish immutable GHCR image" in workflow
+    assert "packages: write" in workflow
+    assert "ghcr.io/${owner_lc}/fastapi-sample" in workflow
+    assert "version_tag=${repository}:${RELEASE_TAG}" in workflow
+    assert "latest_tag=${repository}:latest" in workflow
+    assert "push: true" in workflow
+    assert "cache-from: type=gha,scope=production" in workflow
+    assert "cache-to: type=gha,mode=max,scope=production" in workflow

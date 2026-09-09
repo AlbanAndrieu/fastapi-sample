@@ -259,23 +259,17 @@ def build_reconciled_service_health(
     tunnels_by_host = _tunnel_by_hostname(tunnels)
     rows: list[dict[str, Any]] = []
     for service in services:
-        url = _normalized_url(service.effective_endpoint_url)
-        if url is None:
-            continue
-        direct_result = direct_by_url.get(url)
+        endpoint_url = service.effective_endpoint_url
+        url = _normalized_url(endpoint_url)
+        direct_result = direct_by_url.get(url) if url is not None else None
         internal_result = internal_by_id.get(service.service_id)
         binding = (runtime_bindings or {}).get(service.service_id)
         app = _runtime_app_for_service(service, runtime, binding)
         runtime_health = None if runtime is not None and runtime.stale else _runtime_state(app)
         runtime_missing = bool(
-            binding is not None
-            and binding.provider == "truenas-app"
-            and runtime is not None
-            and runtime.reachable
-            and not runtime.stale
-            and app is None,
+            binding is not None and binding.provider == "truenas-app" and runtime is not None and runtime.reachable and not runtime.stale and app is None,
         )
-        host = _hostname(url)
+        host = _hostname(endpoint_url)
         tunnel_evidence = tunnels_by_host.get(host or "")
         tunnel_status = str(tunnel_evidence.get("tunnel_status")) if tunnel_evidence and tunnel_evidence.get("tunnel_status") is not None else None
         tunnel_health = None if cloudflare_stale else _tunnel_state(tunnel_status)
@@ -303,7 +297,7 @@ def build_reconciled_service_health(
         row: dict[str, Any] = {
             "id": service.service_id,
             "name": service.name,
-            "url": url,
+            "url": url or endpoint_url,
             "url_derived": service.tunnel_url is None,
             "reachable": bool(direct_result and direct_result.get("reachable")),
             "http_status": int(direct_result.get("http_status", 0)) if direct_result else 0,
