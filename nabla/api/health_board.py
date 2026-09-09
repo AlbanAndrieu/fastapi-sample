@@ -169,6 +169,27 @@ async def _build_homelab_snapshot(
     return payload
 
 
+def _planned_truenas_timeout_stages(path_mode: str, error: str) -> list[dict[str, Any]]:
+    """Preserve the expected request path even when aggregate evidence is lost."""
+    detail = f"Not measured: {error}"
+    route_label = "Direct LAN route" if path_mode == "direct_lan" else "HAProxy public route"
+    return [
+        {"id": "dns", "label": "DNS resolution", "state": "blocked", "detail": detail},
+        {"id": "socket", "label": "TCP :7000", "state": "blocked", "detail": detail},
+        {"id": "tls", "label": "TLS handshake", "state": "blocked", "detail": detail},
+        {"id": "route", "label": route_label, "state": "blocked", "detail": detail},
+        {"id": "https", "label": "TrueNAS HTTPS listener", "state": "blocked", "detail": detail},
+        {"id": "websocket", "label": "WebSocket /api/current", "state": "blocked", "detail": detail},
+        {"id": "authentication", "label": "API authentication", "state": "blocked", "detail": detail},
+        {
+            "id": "api",
+            "label": "TrueNAS API · system.version + app.query",
+            "state": "blocked",
+            "detail": detail,
+        },
+    ]
+
+
 async def build_homelab_snapshot(
     shared_checks: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -192,7 +213,7 @@ async def build_homelab_snapshot(
                 "id": "truenas",
                 "state": "warn",
                 "diagnostics": {
-                    "stages": [],
+                    "stages": _planned_truenas_timeout_stages(path_mode, error),
                     "unavailable": True,
                     "error_kind": "deadline",
                     "detail": error,
