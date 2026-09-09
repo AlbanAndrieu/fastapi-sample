@@ -508,7 +508,7 @@ def test_public_homelab_routes(monkeypatch) -> None:
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-            health_response = client.get("/api/homelab/health")
+        health_response = client.get("/api/homelab/health")
         probes_response = client.get("/api/homelab/probes")
         catalog_response = client.get("/api/homelab-services")
 
