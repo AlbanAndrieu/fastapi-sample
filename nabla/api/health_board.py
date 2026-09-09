@@ -166,10 +166,7 @@ async def _build_homelab_snapshot(
         )
     else:
         homelab = await homelab_task
-        components = {
-            key: shared_checks.get(key, {"reachable": None, "skipped": True})
-            for key in ("postgres", "redis", "supabase", "cloudflare", "pfsense")
-        }
+        components = {key: shared_checks.get(key, {"reachable": None, "skipped": True}) for key in ("postgres", "redis", "supabase", "cloudflare", "pfsense")}
         components["truenas"] = truenas_component(homelab)
     homelab = await homelab_task
     reconciliation_context = await reconciliation_task
