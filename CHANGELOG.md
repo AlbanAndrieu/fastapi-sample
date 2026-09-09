@@ -1,3 +1,10 @@
+## [1.13.11](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.13.10...1.13.11) (2026-09-09)
+
+
+### Performance Improvements
+
+* **health:** bound homelab diagnostics and stabilize Docker cache ([#231](https://github.com/AlbanAndrieu/fastapi-sample/issues/231)) ([7a900a0](https://github.com/AlbanAndrieu/fastapi-sample/commit/7a900a0c4cfe90e463ff814fa45e85cbf1c2f06b))
+
 ## [1.13.10](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.13.9...1.13.10) (2026-09-09)
 
 
