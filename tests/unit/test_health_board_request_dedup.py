@@ -23,3 +23,12 @@ def test_health_board_reuses_one_aggregate_request_per_refresh() -> None:
     assert 'fetch("/sickz"' not in bootstrap
     assert 'fetch("/api/homelab/health"' not in health
     assert 'fetch("/api/homelab/health"' not in truenas
+
+
+def test_truenas_uses_probe_matrix_only_as_diagnostic_fallback() -> None:
+    shared = (ASSETS / "api-homelab-health.js").read_text(encoding="utf-8")
+    truenas = (ASSETS / "api-truenas.js").read_text(encoding="utf-8")
+
+    assert 'fetch("/api/homelab/probes"' in shared
+    assert "needsBoundedProbeFallback" in truenas
+    assert "fetchHomelabProbeMatrix" in truenas
