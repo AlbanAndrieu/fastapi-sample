@@ -1,3 +1,10 @@
+## [1.13.12](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.13.11...1.13.12) (2026-09-09)
+
+
+### Bug Fixes
+
+* **ui:** render TrueNAS probe flow before aggregate health ([#232](https://github.com/AlbanAndrieu/fastapi-sample/issues/232)) ([548ec80](https://github.com/AlbanAndrieu/fastapi-sample/commit/548ec803944f15cbf199ea5f43d0514258c0cdb1))
+
 ## [1.13.11](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.13.10...1.13.11) (2026-09-09)
 
 
