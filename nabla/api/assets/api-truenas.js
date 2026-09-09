@@ -42,11 +42,11 @@ function targetText(truenas) {
   const configuredTarget =
     diagnostics?.target || truenas?.public?.url || "TrueNAS";
   if (diagnostics?.path_mode === "direct_lan") {
-    return `${configuredTarget} · TrueNAS HTTPS + WebSocket API endpoint · direct LAN`;
+    return `${configuredTarget} · TrueNAS HTTPS listener + TrueNAS API (WebSocket /api/current) · direct LAN`;
   }
   const wan = diagnostics?.wan;
   if (!wan?.ipv4)
-    return `${configuredTarget} · TrueNAS HTTPS + WebSocket API endpoint`;
+    return `${configuredTarget} · TrueNAS HTTPS listener + TrueNAS API (WebSocket /api/current)`;
   const provider = wan?.provider ? ` · ${wan.provider}` : "";
   const addressKind = wan?.static ? " static IPv4" : " IPv4";
   return `${configuredTarget} · public API path via pfSense/HAProxy · ${wan.ipv4}${provider}${addressKind}`;
@@ -272,19 +272,46 @@ function renderProbeFanout(data) {
   const rows = probeRows(data);
   const catalogCount = probeSummary.catalog_service_count;
 
+  const internalEnabled =
+    data?.internal_probes_enabled ?? internal.enabled ?? false;
   const internalText =
-    internal.enabled === false
-      ? "LAN disabled"
-      : `LAN ${internal.completed ?? 0}/${internal.scheduled ?? 0} completed · ${internal.timed_out ?? 0} deadline`;
-  const publicText = `public ${publicSummary.completed ?? 0}/${publicSummary.scheduled ?? 0} completed · ${publicSummary.timed_out ?? 0} deadline`;
+    internalEnabled === false
+      ? "⏸ LAN probes disabled"
+      : `● LAN probes enabled · ${internal.scheduled ?? "?"} targets · ${internal.completed ?? 0} completed · ${internal.timed_out ?? 0} deadline`;
+  const publicText =
+    `🌐 public probes · ${publicSummary.scheduled ?? "?"} targets · ${publicSummary.completed ?? 0} completed · ${publicSummary.timed_out ?? 0} deadline`;
   const budget =
     internal.budget_seconds ?? publicSummary.budget_seconds ?? "unknown";
   const concurrency =
     internal.max_concurrency ?? publicSummary.max_concurrency ?? "unknown";
   const catalog = catalogCount != null ? `catalog ${catalogCount} · ` : "";
+  const pathMode = data?.truenas?.diagnostics?.path_mode;
+  const runtimeMode =
+    pathMode === "direct_lan" ? "🏠 local/direct LAN" : "☁ external/public WAN";
+  const verifySsl = data?.truenas?.verify_ssl;
+  const tlsMode =
+    verifySsl === true
+      ? "🔐 TLS verify on"
+      : verifySsl === false
+        ? "⚠ TLS verify off"
+        : "🔐 TLS verify unknown";
+  const api = data?.truenas?.api || {};
+  const apiMode =
+    api.reachable === true
+      ? `🔌 TrueNAS API healthy${api.version ? ` · ${api.version}` : ""}`
+      : api.reachable === false
+        ? `⚠ TrueNAS API ${api.stage || "unreachable"}`
+        : "◌ TrueNAS API not measured";
+  const https = data?.truenas?.public || {};
+  const httpsMode =
+    https.reachable === true
+      ? `🔒 TrueNAS HTTPS HTTP ${https.http_status ?? "?"}`
+      : https.reachable === false
+        ? "⚠ TrueNAS HTTPS unreachable"
+        : "◌ TrueNAS HTTPS not measured";
 
   summary.textContent =
-    `Probe matrix · ${catalog}${internalText} · ${publicText} · fan-out budget ${budget}s · concurrency ${concurrency}`;
+    `${runtimeMode} · ${httpsMode} · ${apiMode} · ${internalText} · ${publicText} · ${catalog}fan-out budget ${budget}s · concurrency ${concurrency} · ${tlsMode}`;
   detailsSummary.textContent = `Homelab probe fan-out · ${rows.length} observed/scheduled rows`;
 
   list.innerHTML = rows
@@ -381,10 +408,11 @@ function render(data) {
       state.textContent = "authentication failed · invalid secret reference";
     } else if (failureState) {
       state.textContent = failureState;
-    } else if (overall === "ok") {
+    } else if (api.reachable === true) {
       const version = api.version ? ` · ${api.version}` : "";
       const cached = api.cached === true ? " · cached" : "";
-      state.textContent = `healthy${version}${cached}`;
+      const platform = overall === "ok" ? "" : ` · platform ${overall}`;
+      state.textContent = `TrueNAS API healthy${version}${cached}${platform}`;
     } else {
       state.textContent = overall;
     }
