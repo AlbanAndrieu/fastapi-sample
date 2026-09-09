@@ -10,7 +10,7 @@ def test_truenas_platform_displays_public_wan_metadata() -> None:
     javascript = ASSET.read_text(encoding="utf-8")
 
     assert "diagnostics?.wan" in javascript
-    assert "pfSense WAN / homelab public endpoint ${wan.ipv4}" in javascript
+    assert "public API path via pfSense/HAProxy" in javascript
     assert "static IPv4" in javascript
 
 
@@ -73,3 +73,22 @@ def test_truenas_platform_distinguishes_listener_from_authenticated_api() -> Non
     assert "TrueNAS API access denied after connection" in javascript
     assert "TrueNAS API authorization:" in javascript
     assert "source IP blocked by TrueNAS allowlist" in javascript
+
+
+def test_truenas_platform_recovers_flow_from_bounded_probe_fallback() -> None:
+    javascript = ASSET.read_text(encoding="utf-8")
+
+    assert "fetchHomelabProbeMatrix" in javascript
+    assert "needsBoundedProbeFallback" in javascript
+    assert "_bounded_probe_fallback" in javascript
+    assert "Aggregate homelab diagnostics exceeded their deadline" in javascript
+
+
+def test_truenas_platform_displays_probe_fanout_matrix() -> None:
+    javascript = ASSET.read_text(encoding="utf-8")
+
+    assert "renderProbeFanout" in javascript
+    assert "probe_summary" in javascript
+    assert "internal_services" in javascript
+    assert "public_probe_results" in javascript
+    assert "fan-out budget" in javascript
