@@ -502,15 +502,19 @@ async def build_homelab_health_payload() -> dict[str, Any]:
         internal_enabled = internal_probes_enabled()
         internal_services = [service for service in catalog_services if internal_enabled and service.internal_host and service.internal_port is not None]
 
-        semaphore = asyncio.Semaphore(_MAX_PROBE_CONCURRENCY)
+        service_semaphore = asyncio.Semaphore(_MAX_PROBE_CONCURRENCY)
+        truenas_semaphore = asyncio.Semaphore(2)
         timeout = httpx.Timeout(_PROBE_TIMEOUT_SEC)
         truenas_task = asyncio.create_task(
-            _probe_truenas(semaphore, internal_enabled=internal_enabled),
+            _probe_truenas(
+                truenas_semaphore,
+                internal_enabled=internal_enabled,
+            ),
         )
         internal_probe_tasks = [
             (
                 service,
-                asyncio.create_task(_probe_internal_service(semaphore, service)),
+                asyncio.create_task(_probe_internal_service(service_semaphore, service)),
             )
             for service in internal_services
         ]
@@ -527,7 +531,7 @@ async def build_homelab_health_payload() -> dict[str, Any]:
                 (
                     service,
                     asyncio.create_task(
-                        _probe_public_service(client, semaphore, service),
+                        _probe_public_service(client, service_semaphore, service),
                     ),
                 )
                 for service in public_services
