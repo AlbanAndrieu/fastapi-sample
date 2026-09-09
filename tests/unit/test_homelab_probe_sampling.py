@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from nabla.api import homelab_health
+from nabla.api import homelab_probe_policy
 from nabla.api.homelab_models import HomelabService
 
 
@@ -25,11 +26,16 @@ def test_probe_subset_keeps_priority_services_and_rotates_remainder(
         *[_service(f"service-{index}", 20000 + index) for index in range(20)],
     ]
 
-    monkeypatch.setattr(homelab_health.time, "monotonic", lambda: 0.0)
-    first = homelab_health._select_probe_subset(services, limit=12)
-
-    monkeypatch.setattr(homelab_health.time, "monotonic", lambda: 31.0)
-    second = homelab_health._select_probe_subset(services, limit=12)
+    first = homelab_probe_policy.select_probe_subset(
+        services,
+        limit=12,
+        now=0.0,
+    )
+    second = homelab_probe_policy.select_probe_subset(
+        services,
+        limit=12,
+        now=31.0,
+    )
 
     first_ids = {service.service_id for service in first}
     second_ids = {service.service_id for service in second}
@@ -64,9 +70,9 @@ def test_probe_cache_metadata_exposes_source_age_and_ttl() -> None:
 
 
 def test_probe_limits_keep_one_refresh_bounded() -> None:
-    assert homelab_health._MAX_PROBE_CONCURRENCY == 4
-    assert homelab_health._MAX_INTERNAL_PROBES_PER_REFRESH == 12
-    assert homelab_health._MAX_PUBLIC_PROBES_PER_REFRESH == 12
-    assert homelab_health._INTERNAL_PROBE_TIMEOUT_SEC == 1.0
-    assert homelab_health._PUBLIC_PROBE_TIMEOUT_SEC == 3.0
-    assert homelab_health._SERVICE_FANOUT_BUDGET_SEC == 4.0
+    assert homelab_probe_policy.MAX_PROBE_CONCURRENCY == 4
+    assert homelab_probe_policy.MAX_INTERNAL_PROBES_PER_REFRESH == 12
+    assert homelab_probe_policy.MAX_PUBLIC_PROBES_PER_REFRESH == 12
+    assert homelab_probe_policy.INTERNAL_PROBE_TIMEOUT_SEC == 1.0
+    assert homelab_probe_policy.PUBLIC_PROBE_TIMEOUT_SEC == 3.0
+    assert homelab_probe_policy.SERVICE_FANOUT_BUDGET_SEC == 4.0
