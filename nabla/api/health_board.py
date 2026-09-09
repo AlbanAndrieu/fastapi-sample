@@ -198,11 +198,13 @@ async def build_homelab_snapshot(
         async with asyncio.timeout(_HOMELAB_SNAPSHOT_DEADLINE_SEC):
             return await _build_homelab_snapshot(shared_checks)
     except TimeoutError:
+        from nabla.api.homelab_health import internal_probes_enabled
         from nabla.api.provider_credentials import infrastructure_provider_credentials
         from nabla.api.runtime_environment import homelab_runtime_detected
 
         error = "aggregate homelab diagnostic deadline exceeded"
         path_mode = "direct_lan" if homelab_runtime_detected() else "public_wan_haproxy"
+        lan_probes_enabled = internal_probes_enabled()
         return {
             "schema_version": 2,
             "status": "degraded",
@@ -221,7 +223,12 @@ async def build_homelab_snapshot(
                 },
             },
             "services": [],
+            "internal_probes_enabled": lan_probes_enabled,
             "internal_services": [],
+            "probe_summary": {
+                "public": {},
+                "internal": {"enabled": lan_probes_enabled},
+            },
             "components_status": "degraded",
             "components": {},
             "provider_credentials": infrastructure_provider_credentials(),
