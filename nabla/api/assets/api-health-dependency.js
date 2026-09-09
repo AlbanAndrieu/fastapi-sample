@@ -11,6 +11,14 @@ const HOMELAB_EVIDENCE_FIELDS = [
   "observation_stale",
   "direct_state",
   "internal_state",
+  "direct_probe_source",
+  "direct_probe_observed_at",
+  "direct_probe_age_seconds",
+  "direct_probe_refresh_error",
+  "internal_probe_source",
+  "internal_probe_observed_at",
+  "internal_probe_age_seconds",
+  "internal_probe_refresh_error",
   "runtime_state",
   "runtime_app",
   "runtime_reachable",
@@ -102,10 +110,43 @@ function dependencyBlockedLabels(check) {
   });
 }
 
+function probeEvidenceLabel(label, source, ageSeconds, refreshError) {
+  if (!source) return label;
+  const age = Number(ageSeconds);
+  const suffix =
+    source === "memory"
+      ? `cached${Number.isFinite(age) ? ` ${Math.round(age)}s` : ""}`
+      : source === "deadline"
+        ? "deadline"
+        : "fresh";
+  return [
+    `${label} (${suffix})`,
+    refreshError ? `refresh: ${String(refreshError)}` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
 function evidenceSources(check) {
   const sources = [];
-  if (check.direct_state) sources.push("HTTP");
-  if (check.internal_state) sources.push("internal probe");
+  if (check.direct_state)
+    sources.push(
+      probeEvidenceLabel(
+        "HTTP",
+        check.direct_probe_source,
+        check.direct_probe_age_seconds,
+        check.direct_probe_refresh_error,
+      ),
+    );
+  if (check.internal_state)
+    sources.push(
+      probeEvidenceLabel(
+        "internal probe",
+        check.internal_probe_source,
+        check.internal_probe_age_seconds,
+        check.internal_probe_refresh_error,
+      ),
+    );
   if (check.runtime_state) sources.push("TrueNAS runtime");
   if (check.tunnel_status) sources.push("Cloudflare tunnel");
   return sources;
