@@ -15,6 +15,7 @@ def test_health_routes_keep_public_paths_once() -> None:
         "/api/homelab-services",
         "/api/homelab-topology",
         "/api/homelab/health",
+        "/api/homelab/probes",
         "/api/health-board",
         "/livez",
         "/readyz",
@@ -40,6 +41,7 @@ def test_health_routes_keep_openapi_tags() -> None:
             "/api/homelab-services",
             "/api/homelab-topology",
             "/api/homelab/health",
+            "/api/homelab/probes",
             "/api/health-board",
             "/livez",
             "/readyz",
@@ -51,6 +53,7 @@ def test_health_routes_keep_openapi_tags() -> None:
     assert tagged["/api/homelab-services"] == {"Homelab"}
     assert tagged["/api/homelab-topology"] == {"Homelab"}
     assert tagged["/api/homelab/health"] == {"Homelab", "Health"}
+    assert tagged["/api/homelab/probes"] == {"Homelab", "Health", "TrueNAS"}
     assert tagged["/api/health-board"] == {"Health"}
     assert tagged["/livez"] == {"Health"}
     assert tagged["/readyz"] == {"Health"}
@@ -87,6 +90,7 @@ def test_application_openapi_includes_homelab_routes(test_app) -> None:
     assert "/api/homelab-services" in paths
     assert "/api/homelab-topology" in paths
     assert "/api/homelab/health" in paths
+    assert "/api/homelab/probes" in paths
 
 
 def test_application_serves_packaged_homelab_catalog(test_app) -> None:

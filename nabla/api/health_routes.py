@@ -105,6 +105,18 @@ def register_health_routes(app: FastAPI) -> None:
         return await build_homelab_snapshot()
 
     @app.get(
+        "/api/homelab/probes",
+        tags=["Homelab", "Health", "TrueNAS"],
+        summary="Bounded low-level homelab probe matrix",
+    )
+    async def get_homelab_probes(response: Response) -> dict[str, Any]:
+        """Expose bounded raw probes without waiting for aggregate reconciliation."""
+        from nabla.api.homelab_health import build_homelab_health_payload
+
+        response.headers.update(_NO_STORE_HEADERS)
+        return await build_homelab_health_payload()
+
+    @app.get(
         "/api/runtime/topology",
         tags=["Health", "Runtime"],
         summary="Observed application runtimes and public egress",

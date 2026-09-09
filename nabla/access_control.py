@@ -21,11 +21,12 @@ _DIAGNOSTIC_PATHS = frozenset(
         "/api/homelab-services",
         "/api/homelab-topology",
         "/api/homelab/health",
+        "/api/homelab/probes",
         "/healthz",
         "/metrics",
         "/sentry-debug",
         "/sickz",
-    }
+    },
 )
 
 

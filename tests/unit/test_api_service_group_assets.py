@@ -23,7 +23,7 @@ def test_api_page_places_core_runtime_drilldowns_immediately_after_hero() -> Non
     groups = html.index('id="health-services-groups"')
     exposure = html.index('id="sickz-board-title"')
     assert hero < truenas < runtime < health < overview < groups < exposure
-    assert "Core drill-down · TrueNAS platform" in html
+    assert "Core drill-down · TrueNAS platform + API" in html
     assert "FastAPI Cloud runtime" in html
     assert 'id="service-filter"' in html
     assert 'id="service-expand-issues"' in html
@@ -89,7 +89,7 @@ def test_true_nas_keeps_summary_row_and_separate_api_drilldown() -> None:
     assert 'key !== "truenas_api"' in source
     assert 'key !== "albandrieu_truenas"' not in source
     assert "truenasApiCheck" not in source
-    assert "Core drill-down · TrueNAS platform" in page
+    assert "Core drill-down · TrueNAS platform + API" in page
 
 
 def test_service_classification_supports_explicit_role_and_criticality() -> None:
@@ -216,4 +216,4 @@ def test_sickz_labels_truenas_as_https_exposure_not_api_health() -> None:
 
     assert "TrueNAS HTTPS listener · exposure policy" in source
     assert "This is not the authenticated TrueNAS API probe" in source
-    assert "Core drill-down · TrueNAS platform" in source
+    assert "Core drill-down · TrueNAS platform + API" in source

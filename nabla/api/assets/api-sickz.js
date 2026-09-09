@@ -47,7 +47,7 @@ function isTrueNasExposureCheck(check) {
 function rawDetailSickText(check) {
   if (check.skipped === true) {
     const intro = isTrueNasExposureCheck(check)
-      ? "HTTPS exposure check skipped on trusted LAN. This is not the authenticated TrueNAS API probe; see Core drill-down · TrueNAS platform."
+      ? "HTTPS exposure check skipped on trusted LAN. This is not the authenticated TrueNAS API probe; see Core drill-down · TrueNAS platform + API."
       : check.reason || "Not probed (LAN skip).";
     if (check.aliases_probed?.length) {
       return `${intro} Targets: ${check.aliases_probed.map(shortHostForDetail).join(" · ")}`;

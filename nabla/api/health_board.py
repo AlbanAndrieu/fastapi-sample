@@ -156,7 +156,10 @@ async def _build_homelab_snapshot(
         )
     else:
         homelab = await homelab_task
-        components = {key: shared_checks.get(key, {"reachable": None, "skipped": True}) for key in ("postgres", "redis", "supabase", "cloudflare", "pfsense")}
+        components = {
+            key: shared_checks.get(key, {"reachable": None, "skipped": True})
+            for key in ("postgres", "redis", "supabase", "cloudflare", "pfsense")
+        }
         components["truenas"] = truenas_component(homelab)
     payload = await reconcile_homelab_health_payload(await homelab_task)
     components["unbound"] = pfsense_unbound_component(payload)
@@ -164,6 +167,27 @@ async def _build_homelab_snapshot(
     payload["components"] = components
     payload["provider_credentials"] = infrastructure_provider_credentials()
     return payload
+
+
+def _planned_truenas_timeout_stages(path_mode: str, error: str) -> list[dict[str, Any]]:
+    """Preserve the expected request path even when aggregate evidence is lost."""
+    detail = f"Not measured: {error}"
+    route_label = "Direct LAN route" if path_mode == "direct_lan" else "HAProxy public route"
+    return [
+        {"id": "dns", "label": "DNS resolution", "state": "blocked", "detail": detail},
+        {"id": "socket", "label": "TCP :7000", "state": "blocked", "detail": detail},
+        {"id": "tls", "label": "TLS handshake", "state": "blocked", "detail": detail},
+        {"id": "route", "label": route_label, "state": "blocked", "detail": detail},
+        {"id": "https", "label": "TrueNAS HTTPS listener", "state": "blocked", "detail": detail},
+        {"id": "websocket", "label": "WebSocket /api/current", "state": "blocked", "detail": detail},
+        {"id": "authentication", "label": "API authentication", "state": "blocked", "detail": detail},
+        {
+            "id": "api",
+            "label": "TrueNAS API · system.version + app.query",
+            "state": "blocked",
+            "detail": detail,
+        },
+    ]
 
 
 async def build_homelab_snapshot(
@@ -174,9 +198,13 @@ async def build_homelab_snapshot(
         async with asyncio.timeout(_HOMELAB_SNAPSHOT_DEADLINE_SEC):
             return await _build_homelab_snapshot(shared_checks)
     except TimeoutError:
+        from nabla.api.homelab_health import internal_probes_enabled
         from nabla.api.provider_credentials import infrastructure_provider_credentials
+        from nabla.api.runtime_environment import homelab_runtime_detected
 
         error = "aggregate homelab diagnostic deadline exceeded"
+        path_mode = "direct_lan" if homelab_runtime_detected() else "public_wan_haproxy"
+        lan_probes_enabled = internal_probes_enabled()
         return {
             "schema_version": 2,
             "status": "degraded",
@@ -187,14 +215,20 @@ async def build_homelab_snapshot(
                 "id": "truenas",
                 "state": "warn",
                 "diagnostics": {
-                    "stages": [],
+                    "stages": _planned_truenas_timeout_stages(path_mode, error),
                     "unavailable": True,
                     "error_kind": "deadline",
                     "detail": error,
+                    "path_mode": path_mode,
                 },
             },
             "services": [],
+            "internal_probes_enabled": lan_probes_enabled,
             "internal_services": [],
+            "probe_summary": {
+                "public": {},
+                "internal": {"enabled": lan_probes_enabled},
+            },
             "components_status": "degraded",
             "components": {},
             "provider_credentials": infrastructure_provider_credentials(),

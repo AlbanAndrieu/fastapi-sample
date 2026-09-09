@@ -128,6 +128,19 @@ async def test_homelab_snapshot_returns_degraded_timeout_payload(monkeypatch) ->
     assert diagnostics["unavailable"] is True
     assert diagnostics["error_kind"] == "deadline"
     assert diagnostics["detail"] == payload["error"]
+    assert diagnostics["path_mode"] in {"direct_lan", "public_wan_haproxy"}
+    assert [stage["label"] for stage in diagnostics["stages"]] == [
+        "DNS resolution",
+        "TCP :7000",
+        "TLS handshake",
+        "Direct LAN route" if diagnostics["path_mode"] == "direct_lan" else "HAProxy public route",
+        "TrueNAS HTTPS listener",
+        "WebSocket /api/current",
+        "API authentication",
+        "TrueNAS API · system.version + app.query",
+    ]
+    assert all(stage["state"] == "blocked" for stage in diagnostics["stages"])
+    assert all("Not measured" in stage["detail"] for stage in diagnostics["stages"])
 
 
 @pytest.mark.asyncio

@@ -14,7 +14,7 @@ def _catalog(service: dict[str, object]) -> DeclaredServiceCatalog:
             "topologyVersion": 1,
             "name": "test",
             "services": [service],
-        }
+        },
     )
 
 
@@ -34,7 +34,7 @@ def test_declared_service_preserves_presentation_and_security_metadata() -> None
                 "provider": "truenas-app",
                 "containerService": "wazuh",
             },
-        }
+        },
     )
 
     service = catalog.services[0]
@@ -96,7 +96,7 @@ def test_declared_service_rejects_duplicate_security_functions() -> None:
                 "securityFunctions": ["detect", "detect"],
                 "sourcePath": "apps/wazuh/compose.yml",
                 "composeService": "wazuh",
-            }
+            },
         )
 
 
@@ -109,8 +109,39 @@ def test_declared_service_omits_absent_security_functions() -> None:
             "category": "data",
             "sourcePath": "apps/redis/compose.yml",
             "composeService": "redis",
-        }
+        },
     )
 
     payload = catalog.model_dump(mode="json", by_alias=True, exclude_none=True)
     assert "securityFunctions" not in payload["services"][0]
+
+
+def test_declared_service_accepts_named_deployment_environments() -> None:
+    catalog = _catalog(
+        {
+            "id": "fastapi-sample",
+            "name": "FastAPI Sample",
+            "kind": "api",
+            "category": "development",
+            "sourcePath": "apps/sample/compose.yml",
+            "composeService": "fastapi-sample",
+            "environments": [
+                {
+                    "name": "production",
+                    "url": "https://fastapi-sample.fastapicloud.dev",
+                    "external": False,
+                    "cloudflareTunnel": False,
+                },
+                {
+                    "name": "staging",
+                    "url": "https://sample.albandrieu.com",
+                    "external": False,
+                    "cloudflareTunnel": False,
+                },
+            ],
+        },
+    )
+
+    payload = catalog.model_dump(mode="json", by_alias=True, exclude_none=True)
+    assert payload["services"][0]["environments"][0]["name"] == "production"
+    assert payload["services"][0]["environments"][1]["cloudflareTunnel"] is False

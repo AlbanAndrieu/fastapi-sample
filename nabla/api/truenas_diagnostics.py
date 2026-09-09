@@ -136,6 +136,38 @@ def _direct_lan_stage(tls_ok: bool, host: str, port: int) -> dict[str, Any]:
     )
 
 
+def unmeasured_truenas_network_diagnostics(
+    *,
+    host: str,
+    port: int,
+    websocket_uri: str,
+    verify_ssl: bool,
+    path_mode: str,
+    budget_seconds: float,
+) -> dict[str, Any]:
+    """Return the declared transport path when detailed measurement exceeds its budget."""
+    detail = f"Not measured within {budget_seconds:g}s TrueNAS transport diagnostics budget"
+    route_id = "direct_lan" if path_mode == "direct_lan" else "haproxy"
+    route_label = "Direct LAN route" if path_mode == "direct_lan" else "HAProxy :7000"
+    return {
+        "target": f"{host}:{port}",
+        "path_mode": path_mode,
+        "wan": None if path_mode == "direct_lan" else homelab_wan_metadata(),
+        "websocket_uri": websocket_uri,
+        "verify_ssl": verify_ssl,
+        "timed_out": True,
+        "error_kind": "deadline",
+        "stages": [
+            _stage("dns", "DNS resolution", "blocked", detail=detail),
+            _stage("socket", "TCP :7000", "blocked", detail=detail),
+            _stage("tls", "TLS handshake", "blocked", detail=detail),
+            _stage(route_id, route_label, "blocked", detail=detail),
+            _stage("https", "TrueNAS HTTPS listener", "blocked", detail=detail),
+            _stage("websocket", "WebSocket /api/current", "blocked", detail=detail),
+        ],
+    }
+
+
 async def _websocket_stage(
     websocket_uri: str,
     verify_ssl: bool,
@@ -187,8 +219,12 @@ def append_truenas_api_stages(
     stages = [dict(stage) for stage in diagnostics.get("stages", [])]
     websocket = next((stage for stage in stages if stage.get("id") == "websocket"), None)
     websocket_ok = websocket is not None and websocket.get("state") == "ok"
+    api_reachable = isinstance(api_result, dict) and api_result.get("reachable") is True
 
-    if not websocket_ok:
+    # The authenticated API probe itself proves WebSocket transport + authentication.
+    # Do not let the auxiliary credential-free WebSocket diagnostic override stronger
+    # evidence when its own bounded measurement failed or timed out.
+    if not websocket_ok and not api_reachable:
         stages.append(
             _stage(
                 "authentication",

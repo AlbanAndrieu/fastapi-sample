@@ -95,6 +95,7 @@ def test_mcp_operational_tools_do_not_bypass_diagnostics_protection() -> None:
     assert ("GET", "/api/homelab/runtime") in MCP_ALLOWED_ROUTES
     assert ("GET", "/api/runtime/topology") in MCP_ALLOWED_ROUTES
     assert ("GET", "/api/homelab/health") not in MCP_ALLOWED_ROUTES
+    assert ("GET", "/api/homelab/probes") not in MCP_ALLOWED_ROUTES
     assert ("GET", "/api/homelab-topology") not in MCP_ALLOWED_ROUTES
     assert ("GET", "/healthz") not in MCP_ALLOWED_ROUTES
     assert ("GET", "/sickz") not in MCP_ALLOWED_ROUTES

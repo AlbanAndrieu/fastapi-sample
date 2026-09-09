@@ -1,5 +1,8 @@
 import { escapeText } from "./api-health-ui.js";
-import { fetchHomelabHealth } from "./api-homelab-health.js";
+import {
+  fetchHomelabHealth,
+  fetchHomelabProbeMatrix,
+} from "./api-homelab-health.js";
 
 function stageClass(stage) {
   if (stage?.state === "ok") return "ok";
@@ -39,11 +42,11 @@ function targetText(truenas) {
   const configuredTarget =
     diagnostics?.target || truenas?.public?.url || "TrueNAS";
   if (diagnostics?.path_mode === "direct_lan") {
-    return `${configuredTarget} · TrueNAS HTTPS + WebSocket API endpoint · direct LAN`;
+    return `${configuredTarget} · TrueNAS HTTPS listener + TrueNAS API (WebSocket /api/current) · direct LAN`;
   }
   const wan = diagnostics?.wan;
   if (!wan?.ipv4)
-    return `${configuredTarget} · TrueNAS HTTPS + WebSocket API endpoint`;
+    return `${configuredTarget} · TrueNAS HTTPS listener + TrueNAS API (WebSocket /api/current)`;
   const provider = wan?.provider ? ` · ${wan.provider}` : "";
   const addressKind = wan?.static ? " static IPv4" : " IPv4";
   return `${configuredTarget} · public API path via pfSense/HAProxy · ${wan.ipv4}${provider}${addressKind}`;
@@ -225,6 +228,120 @@ function apiFailureState(api) {
   return null;
 }
 
+function probeTarget(row, scope) {
+  if (scope === "internal") {
+    return row?.host && row?.port != null
+      ? `${row.host}:${row.port}`
+      : "internal target unavailable";
+  }
+  return row?.url || "public target unavailable";
+}
+
+function probeSeverity(row) {
+  if (row?.timed_out === true) return 0;
+  if (row?.state === "fail") return 1;
+  if (row?.state === "warn") return 2;
+  return 3;
+}
+
+function probeRows(data) {
+  const internal = Array.isArray(data?.internal_services)
+    ? data.internal_services.map((row) => ({ ...row, probe_scope: "internal" }))
+    : [];
+  const publicRows = Array.isArray(data?.public_probe_results)
+    ? data.public_probe_results.map((row) => ({ ...row, probe_scope: "public" }))
+    : [];
+  return [...internal, ...publicRows].sort((left, right) => {
+    const severity = probeSeverity(left) - probeSeverity(right);
+    if (severity !== 0) return severity;
+    return Number(right?.latency_ms || 0) - Number(left?.latency_ms || 0);
+  });
+}
+
+function renderProbeFanout(data) {
+  const summary = document.getElementById("truenas-probe-summary");
+  const detailsSummary = document.getElementById(
+    "truenas-probe-details-summary",
+  );
+  const list = document.getElementById("truenas-probe-list");
+  if (!summary || !detailsSummary || !list) return;
+
+  const probeSummary = data?.probe_summary || {};
+  const internal = probeSummary.internal || {};
+  const publicSummary = probeSummary.public || {};
+  const rows = probeRows(data);
+  const catalogCount = probeSummary.catalog_service_count;
+
+  const internalEnabled =
+    data?.internal_probes_enabled ?? internal.enabled ?? false;
+  const internalText =
+    internalEnabled === false
+      ? "⏸ LAN probes disabled"
+      : `● LAN probes enabled · ${internal.scheduled ?? "?"} targets · ${internal.completed ?? 0} completed · ${internal.timed_out ?? 0} deadline`;
+  const publicText =
+    `🌐 public probes · ${publicSummary.scheduled ?? "?"} targets · ${publicSummary.completed ?? 0} completed · ${publicSummary.timed_out ?? 0} deadline`;
+  const budget =
+    internal.budget_seconds ?? publicSummary.budget_seconds ?? "unknown";
+  const concurrency =
+    internal.max_concurrency ?? publicSummary.max_concurrency ?? "unknown";
+  const catalog = catalogCount != null ? `catalog ${catalogCount} · ` : "";
+  const pathMode = data?.truenas?.diagnostics?.path_mode;
+  const runtimeMode =
+    pathMode === "direct_lan" ? "🏠 local/direct LAN" : "☁ external/public WAN";
+  const verifySsl = data?.truenas?.verify_ssl;
+  const tlsMode =
+    verifySsl === true
+      ? "🔐 TLS verify on"
+      : verifySsl === false
+        ? "⚠ TLS verify off"
+        : "🔐 TLS verify unknown";
+  const api = data?.truenas?.api || {};
+  const apiMode =
+    api.reachable === true
+      ? `🔌 TrueNAS API healthy${api.version ? ` · ${api.version}` : ""}`
+      : api.reachable === false
+        ? `⚠ TrueNAS API ${api.stage || "unreachable"}`
+        : "◌ TrueNAS API not measured";
+  const https = data?.truenas?.public || {};
+  const httpsMode =
+    https.reachable === true
+      ? `🔒 TrueNAS HTTPS HTTP ${https.http_status ?? "?"}`
+      : https.reachable === false
+        ? "⚠ TrueNAS HTTPS unreachable"
+        : "◌ TrueNAS HTTPS not measured";
+
+  summary.textContent =
+    `${runtimeMode} · ${httpsMode} · ${apiMode} · ${internalText} · ${publicText} · ${catalog}fan-out budget ${budget}s · concurrency ${concurrency} · ${tlsMode}`;
+  detailsSummary.textContent = `Homelab probe fan-out · ${rows.length} observed/scheduled rows`;
+
+  list.innerHTML = rows
+    .map((row) => {
+      const state = row?.timed_out === true ? "warn" : row?.state || "warn";
+      const scope = row?.probe_scope || "unknown";
+      const latency =
+        row?.latency_ms != null
+          ? `${row.latency_ms} ms`
+          : row?.timed_out === true
+            ? "deadline"
+            : "—";
+      const stateText =
+        row?.timed_out === true
+          ? `deadline · ${row?.error || "fan-out budget exceeded"}`
+          : row?.error_kind
+            ? `${row.error_kind} · ${row?.error || state}`
+            : row?.error || state;
+      return (
+        `<div class="truenas-probe-row truenas-probe-row--${escapeText(state)}">` +
+        `<span class="truenas-probe-name">${escapeText(row?.name || row?.id || "probe")} · ${escapeText(scope)}</span>` +
+        `<span class="truenas-probe-target">${escapeText(probeTarget(row, scope))}</span>` +
+        `<span class="truenas-probe-state">${escapeText(stateText)}</span>` +
+        `<span class="truenas-probe-latency">${escapeText(latency)}</span>` +
+        "</div>"
+      );
+    })
+    .join("");
+}
+
 function diagnosticsUnavailable(data, truenas) {
   const diagnostics = truenas?.diagnostics;
   if (data?.timed_out === true || diagnostics?.error_kind === "deadline") {
@@ -251,6 +368,7 @@ function render(data) {
   const error = document.getElementById("truenas-platform-error");
   if (!pipeline || !state || !target || !error) return;
 
+  renderProbeFanout(data);
   error.hidden = true;
   error.textContent = "";
   target.textContent = targetText(truenas);
@@ -290,46 +408,97 @@ function render(data) {
       state.textContent = "authentication failed · invalid secret reference";
     } else if (failureState) {
       state.textContent = failureState;
-    } else if (overall === "ok") {
+    } else if (api.reachable === true) {
       const version = api.version ? ` · ${api.version}` : "";
       const cached = api.cached === true ? " · cached" : "";
-      state.textContent = `healthy${version}${cached}`;
+      const platform = overall === "ok" ? "" : ` · platform ${overall}`;
+      state.textContent = `TrueNAS API healthy${version}${cached}${platform}`;
     } else {
       state.textContent = overall;
     }
   }
 
+  const notes = [];
+  if (data?._bounded_probe_fallback === true) {
+    notes.push(
+      "Aggregate homelab diagnostics exceeded their deadline; TrueNAS flow and probe fan-out were recovered from bounded /api/homelab/probes.",
+    );
+  }
+  if (data?._probe_fallback_error) {
+    notes.push(`Bounded probe fallback failed: ${data._probe_fallback_error}`);
+  }
   if (runtimeError) {
-    error.hidden = false;
-    error.textContent = `TrueNAS runtime: ${String(runtimeError)}`;
+    notes.push(`TrueNAS runtime: ${String(runtimeError)}`);
   } else if (api.stage === "source_allowlist") {
-    error.hidden = false;
-    error.textContent =
-      `TrueNAS connection: ${String(api.error || "source IP is not allowlisted")} · ` +
-      "verify System → Advanced Settings → Allowed IP Addresses for the observer source IP.";
+    notes.push(
+      `TrueNAS connection: ${String(api.error || "source IP is not allowlisted")} · verify System → Advanced Settings → Allowed IP Addresses for the observer source IP.`,
+    );
   } else if (api.stage === "access_denied") {
+    notes.push(
+      `TrueNAS API authorization: ${String(api.error || "authenticated identity lacks permission")} · connection/authentication succeeded far enough to distinguish this from the HTTPS listener and source allowlist.`,
+    );
+  }
+  if (notes.length > 0) {
     error.hidden = false;
-    error.textContent =
-      `TrueNAS API authorization: ${String(api.error || "authenticated identity lacks permission")} · ` +
-      "connection/authentication succeeded far enough to distinguish this from the HTTPS listener and source allowlist.";
+    error.textContent = notes.join(" · ");
   }
 }
 
-export function loadTrueNas() {
-  fetchHomelabHealth()
-    .then(render)
-    .catch((err) => {
-      const state = document.getElementById("truenas-platform-state");
-      const error = document.getElementById("truenas-platform-error");
-      const pipeline = document.getElementById("truenas-pipeline");
-      if (state) {
-        state.className = "truenas-platform-state truenas-platform-state--fail";
-        state.textContent = "health fetch failed";
-      }
-      if (pipeline) pipeline.innerHTML = "";
-      if (error) {
-        error.hidden = false;
-        error.textContent = String(err?.message || err);
-      }
-    });
+function needsBoundedProbeFallback(data) {
+  const stages = data?.truenas?.diagnostics?.stages;
+  return (
+    data?.timed_out === true ||
+    !Array.isArray(stages) ||
+    stages.length === 0 ||
+    !data?.probe_summary
+  );
+}
+
+function mergeBoundedProbeFallback(aggregate, probes) {
+  return {
+    ...aggregate,
+    truenas: probes?.truenas || aggregate?.truenas,
+    probe_summary: probes?.probe_summary || aggregate?.probe_summary,
+    internal_services:
+      probes?.internal_services || aggregate?.internal_services || [],
+    public_probe_results:
+      probes?.public_probe_results ||
+      probes?.services ||
+      aggregate?.public_probe_results ||
+      [],
+    _bounded_probe_fallback: true,
+  };
+}
+
+export async function loadTrueNas() {
+  try {
+    const aggregate = await fetchHomelabHealth();
+    if (!needsBoundedProbeFallback(aggregate)) {
+      render(aggregate);
+      return;
+    }
+
+    try {
+      const probes = await fetchHomelabProbeMatrix();
+      render(mergeBoundedProbeFallback(aggregate, probes));
+    } catch (probeError) {
+      render({
+        ...aggregate,
+        _probe_fallback_error: String(probeError?.message || probeError),
+      });
+    }
+  } catch (err) {
+    const state = document.getElementById("truenas-platform-state");
+    const error = document.getElementById("truenas-platform-error");
+    const pipeline = document.getElementById("truenas-pipeline");
+    if (state) {
+      state.className = "truenas-platform-state truenas-platform-state--fail";
+      state.textContent = "health fetch failed";
+    }
+    if (pipeline) pipeline.innerHTML = "";
+    if (error) {
+      error.hidden = false;
+      error.textContent = String(err?.message || err);
+    }
+  }
 }

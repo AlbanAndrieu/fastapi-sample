@@ -66,6 +66,29 @@ def test_explicit_service_id_is_preserved() -> None:
     assert service.service_id == "langfuse-worker"
 
 
+
+def test_environment_defaults_to_production_and_preserves_dev() -> None:
+    production = HomelabService.model_validate(
+        {"name": "AnythingLLM", "external": False},
+    )
+    development = HomelabService.model_validate(
+        {
+            "name": "AnythingLLM - albandrieu",
+            "environment": "dev",
+            "external": False,
+        },
+    )
+
+    production_payload = production.model_dump(mode="json", by_alias=True, exclude_none=True)
+    development_payload = development.model_dump(mode="json", by_alias=True, exclude_none=True)
+
+    assert production.environment == "production"
+    assert production_payload["environment"] == "production"
+    assert development.environment == "dev"
+    assert development_payload["environment"] == "dev"
+
+
+
 def test_external_access_requires_explicit_validated_opt_in() -> None:
     discovered = HomelabService.from_truenas_discovery(
         name="Open WebUI",

@@ -73,3 +73,23 @@ def test_websocket_failure_blocks_authentication() -> None:
 
     assert result["stages"][-2]["state"] == "blocked"
     assert result["stages"][-1]["state"] == "blocked"
+
+
+def test_authenticated_api_success_overrides_auxiliary_websocket_failure() -> None:
+    network = _network_ok()
+    network["stages"][-1]["state"] = "fail"
+    result = append_truenas_api_stages(
+        network,
+        {
+            "reachable": True,
+            "version": "TrueNAS-26.0.0-BETA.2",
+            "apps": [{"id": "sample"}],
+        },
+    )
+
+    auth, api = result["stages"][-2:]
+    assert auth["id"] == "authentication"
+    assert auth["state"] == "ok"
+    assert api["id"] == "api"
+    assert api["state"] == "ok"
+    assert "1 apps" in api["detail"]

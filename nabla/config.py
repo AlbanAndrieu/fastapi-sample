@@ -70,6 +70,7 @@ MCP_ALLOWED_ROUTES: frozenset[tuple[str, str]] = frozenset(
 NOISY_SUCCESS_PATHS = {
     "/api/homelab-services",
     "/api/homelab/health",
+    "/api/homelab/probes",
     "/api/health-board",
     "/docs",
     "/docs/oauth2-redirect",
