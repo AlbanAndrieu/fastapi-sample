@@ -26,7 +26,7 @@ _DIAGNOSTIC_PATHS = frozenset(
         "/metrics",
         "/sentry-debug",
         "/sickz",
-    }
+    },
 )
 
 
