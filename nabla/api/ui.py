@@ -141,6 +141,11 @@ def render_api_root_page(
                 </div>
                 <div class="truenas-platform-target" id="truenas-platform-target">https://truenas.albandrieu.com:7000</div>
                 <div class="truenas-pipeline" id="truenas-pipeline" aria-live="polite"></div>
+                <div class="truenas-probe-summary" id="truenas-probe-summary">Loading homelab probe fan-out…</div>
+                <details class="truenas-probe-details" id="truenas-probe-details">
+                    <summary id="truenas-probe-details-summary">Homelab probe fan-out</summary>
+                    <div class="truenas-probe-list" id="truenas-probe-list" aria-live="polite"></div>
+                </details>
                 <p class="health-error" id="truenas-platform-error" hidden></p>
             </section>
 
