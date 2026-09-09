@@ -56,9 +56,11 @@ def test_release_image_version_is_injected_without_rewriting_dockerfile() -> Non
         encoding="utf-8"
     )
     semantic_release = (ROOT / ".releaserc.yaml").read_text(encoding="utf-8")
+    dockerignore = (ROOT / ".dockerignore").read_text(encoding="utf-8")
 
     assert "FROM python:3.13-slim-trixie AS dependency-metadata" in dockerfile
     assert "COPY --from=dependency-metadata" in dockerfile
+    assert "!scripts/docker/normalize_dependency_metadata.py" in dockerignore
     assert 'ARG APP_VERSION="dev"' in dockerfile
     assert "APP_VERSION=${{ needs.build.outputs.tag }}" in release_workflow
     assert "ARG APP_VERSION" not in semantic_release
