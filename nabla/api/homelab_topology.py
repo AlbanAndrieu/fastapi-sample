@@ -40,6 +40,20 @@ class HomelabRelationStrength(StrEnum):
     OPTIONAL = "optional"
 
 
+class HomelabTopologyEnvironment(BaseModel):
+    """Named deployment environment attached to a logical topology node."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True)
+
+    name: str = Field(min_length=1, max_length=64)
+    url: str = Field(min_length=1, max_length=2048)
+    external: bool
+    cloudflare_tunnel: bool = Field(
+        validation_alias=AliasChoices("cloudflareTunnel", "cloudflare_tunnel"),
+        serialization_alias="cloudflareTunnel",
+    )
+
+
 class HomelabTopologyNode(BaseModel):
     """One component participating in the declared topology."""
 
@@ -82,6 +96,10 @@ class HomelabTopologyNode(BaseModel):
     )
     description: str | None = Field(default=None, max_length=1024)
     icon: str | None = Field(default=None, min_length=1, max_length=32)
+    environments: list[HomelabTopologyEnvironment] | None = Field(
+        default=None,
+        min_length=1,
+    )
 
     @model_validator(mode="after")
     def require_unique_security_functions(self) -> HomelabTopologyNode:
@@ -90,6 +108,10 @@ class HomelabTopologyNode(BaseModel):
             set(self.security_functions),
         ):
             raise ValueError("securityFunctions must not contain duplicates")
+        if self.environments is not None:
+            names = [environment.name for environment in self.environments]
+            if len(names) != len(set(names)):
+                raise ValueError("environments must not contain duplicate names")
         return self
 
 
