@@ -36,6 +36,9 @@ target/
 report/
 node_modules/
 scripts/
+!scripts/docker/
+scripts/docker/*
+!scripts/docker/normalize_dependency_metadata.py
 docker/
 megalinter-reports/
 #roles/
