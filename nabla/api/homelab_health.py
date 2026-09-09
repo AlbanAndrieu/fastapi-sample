@@ -16,6 +16,10 @@ import httpx
 from nabla.api.health_probe_utils import is_textual_response, looks_like_tls_error
 from nabla.api.homelab_catalog import fetch_homelab_services
 from nabla.api.homelab_models import HomelabService
+from nabla.api.homelab_probe_evidence import (
+    evidence_summary,
+    merge_probe_evidence,
+)
 from nabla.api.homelab_probe_policy import (
     HEALTH_CACHE_TTL_SEC as _HEALTH_CACHE_TTL_SEC,
     INTERNAL_PROBE_TIMEOUT_SEC as _INTERNAL_PROBE_TIMEOUT_SEC,
@@ -641,11 +645,39 @@ async def build_homelab_health_payload(
                 internal_results_task,
             )
 
+        checked_at = (
+            datetime.now(timezone.utc)
+            .isoformat()
+            .replace("+00:00", "Z")
+        )
+        public_results = merge_probe_evidence(
+            "public",
+            current_results=public_results,
+            eligible_services=public_candidates,
+            checked_at=checked_at,
+        )
+        internal_results = (
+            merge_probe_evidence(
+                "internal",
+                current_results=internal_results,
+                eligible_services=internal_candidates,
+                checked_at=checked_at,
+            )
+            if internal_enabled
+            else []
+        )
+        public_summary["evidence"] = evidence_summary(
+            public_results,
+            eligible_count=len(public_candidates),
+        )
+        internal_summary["evidence"] = evidence_summary(
+            internal_results,
+            eligible_count=len(internal_candidates),
+        )
+
         payload: dict[str, Any] = {
             "schema_version": 3,
-            "checked_at": datetime.now(timezone.utc)
-            .isoformat()
-            .replace("+00:00", "Z"),
+            "checked_at": checked_at,
             "refresh_elapsed_ms": max(
                 0,
                 round((time.perf_counter() - refresh_started) * 1000),
