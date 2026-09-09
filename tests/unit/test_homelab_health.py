@@ -508,7 +508,8 @@ def test_public_homelab_routes(monkeypatch) -> None:
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        health_response = client.get("/api/homelab/health")
+            health_response = client.get("/api/homelab/health")
+        probes_response = client.get("/api/homelab/probes")
         catalog_response = client.get("/api/homelab-services")
 
     assert health_response.status_code == 200
@@ -523,6 +524,8 @@ def test_public_homelab_routes(monkeypatch) -> None:
     assert service_health["url"] == "https://langfuse.albandrieu.com/"
     assert service_health["url_derived"] is False
     assert service_health["state"] == "unknown"
+    assert probes_response.status_code == 200
+    assert probes_response.json()["schema_version"] == 2
     assert catalog_response.status_code == 200
     assert catalog_response.json()["version"] == 2
     assert catalog_response.json()["services"][0]["external"] is True
@@ -533,3 +536,58 @@ def test_cors_origins_include_public_site_and_fastapi_cloud() -> None:
     assert "https://www.albanandrieu.com" in CORS_ORIGINS
     assert "https://fastapi-sample.fastapicloud.dev" in CORS_ORIGINS
     assert all(not origin.endswith("/") for origin in CORS_ORIGINS)
+
+
+@pytest.mark.asyncio
+async def test_probe_fanout_budget_returns_partial_results(monkeypatch) -> None:
+    fast = HomelabService(
+        name="Fast internal",
+        internalHost="192.0.2.10",
+        internalPort=8080,
+        external=False,
+    )
+    slow = HomelabService(
+        name="Slow internal",
+        internalHost="192.0.2.11",
+        internalPort=8081,
+        external=False,
+    )
+
+    async def fast_probe():
+        return {
+            "id": fast.service_id,
+            "name": fast.name,
+            "host": fast.internal_host,
+            "port": fast.internal_port,
+            "reachable": True,
+            "state": "ok",
+            "latency_ms": 1,
+        }
+
+    async def slow_probe():
+        await asyncio.sleep(1)
+        return {
+            "id": slow.service_id,
+            "name": slow.name,
+            "host": slow.internal_host,
+            "port": slow.internal_port,
+            "reachable": True,
+            "state": "ok",
+            "latency_ms": 1000,
+        }
+
+    monkeypatch.setattr(homelab_health, "_SERVICE_FANOUT_BUDGET_SEC", 0.01)
+    results, summary = await homelab_health._collect_bounded_probe_batch(
+        [
+            (fast, asyncio.create_task(fast_probe())),
+            (slow, asyncio.create_task(slow_probe())),
+        ],
+        scope="internal",
+    )
+
+    assert summary["scheduled"] == 2
+    assert summary["completed"] == 1
+    assert summary["timed_out"] == 1
+    assert results[0]["state"] == "ok"
+    assert results[1]["timed_out"] is True
+    assert results[1]["error_kind"] == "deadline"
