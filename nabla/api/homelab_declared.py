@@ -18,7 +18,7 @@ _CACHE_TTL_SEC = 300.0
 _log = logging.getLogger(__name__)
 _cache_lock = asyncio.Lock()
 _cached_at = 0.0
-_cached_catalog: "DeclaredServiceCatalog | None" = None
+_cached_catalog: DeclaredServiceCatalog | None = None
 
 
 class RuntimeBinding(BaseModel):
@@ -39,7 +39,7 @@ class RuntimeBinding(BaseModel):
     )
 
     @model_validator(mode="after")
-    def require_truenas_identity(self) -> "RuntimeBinding":
+    def require_truenas_identity(self) -> RuntimeBinding:
         """TrueNAS bindings must provide deterministic app or Compose-service identity."""
         if self.provider == "truenas-app" and not (
             self.app_id or self.container_service
@@ -110,7 +110,7 @@ class DeclaredService(BaseModel):
     runtime: RuntimeBinding | None = None
 
     @model_validator(mode="after")
-    def require_unique_security_functions(self) -> "DeclaredService":
+    def require_unique_security_functions(self) -> DeclaredService:
         """Reject ambiguous duplicate NIST CSF function metadata."""
         if self.security_functions is not None and len(self.security_functions) != len(
             set(self.security_functions),
@@ -143,7 +143,7 @@ class DeclaredServiceCatalog(BaseModel):
     services: list[DeclaredService] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def require_unique_ids(self) -> "DeclaredServiceCatalog":
+    def require_unique_ids(self) -> DeclaredServiceCatalog:
         ids = [service.service_id for service in self.services]
         if len(ids) != len(set(ids)):
             raise ValueError("duplicate declared service id")
