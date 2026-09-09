@@ -39,6 +39,7 @@ _WARNING_HTTP_STATUSES = frozenset({401, 403, 407, 429})
 _HEALTH_CACHE_TTL_SEC = 30.0
 _MAX_PROBE_CONCURRENCY = 4
 _PROBE_TIMEOUT_SEC = 5.0
+_SERVICE_FANOUT_BUDGET_SEC = 4.0
 _INTERNAL_PROBE_ENV = "HOMELAB_INTERNAL_PROBES_ENABLED"
 _MAX_APPLICATION_BODY_BYTES = 16_384
 _APPLICATION_ERROR_PREFIXES = (
@@ -249,6 +250,113 @@ async def _probe_internal_service(
     return result
 
 
+def _probe_deadline_result(
+    service: HomelabService,
+    *,
+    scope: Literal["public", "internal"],
+) -> dict[str, Any]:
+    """Represent an uncompleted fan-out probe without claiming the service is down."""
+    result: dict[str, Any] = {
+        "id": service.service_id,
+        "name": service.name,
+        "reachable": False,
+        "state": "warn",
+        "timed_out": True,
+        "error_kind": "deadline",
+        "error": "service probe fan-out budget exceeded",
+    }
+    if scope == "internal":
+        result["host"] = service.internal_host
+        result["port"] = service.internal_port
+    else:
+        result["url"] = service.public_https_probe_url
+        result["http_status"] = 0
+        result["tls_trusted"] = None
+    return result
+
+
+def _probe_exception_result(
+    service: HomelabService,
+    exc: BaseException,
+    *,
+    scope: Literal["public", "internal"],
+) -> dict[str, Any]:
+    """Convert an unexpected probe task failure into diagnostic data."""
+    result = _probe_deadline_result(service, scope=scope)
+    result.update(
+        {
+            "timed_out": False,
+            "error_kind": "probe_error",
+            "error": _short_error(exc),
+            "exception_type": type(exc).__name__,
+        }
+    )
+    return result
+
+
+async def _collect_bounded_probe_batch(
+    probes: list[tuple[HomelabService, asyncio.Task[dict[str, Any]]]],
+    *,
+    scope: Literal["public", "internal"],
+    enabled: bool = True,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Collect a large service fan-out without allowing it to consume core health."""
+    started = time.perf_counter()
+    if not probes:
+        return [], {
+            "scope": scope,
+            "enabled": enabled,
+            "scheduled": 0,
+            "completed": 0,
+            "timed_out": 0,
+            "budget_seconds": _SERVICE_FANOUT_BUDGET_SEC,
+            "per_probe_timeout_seconds": _PROBE_TIMEOUT_SEC,
+            "max_concurrency": _MAX_PROBE_CONCURRENCY,
+            "elapsed_ms": 0,
+            "states": {"ok": 0, "warn": 0, "fail": 0},
+        }
+
+    tasks = [task for _, task in probes]
+    done, pending = await asyncio.wait(
+        tasks,
+        timeout=_SERVICE_FANOUT_BUDGET_SEC,
+    )
+
+    results: list[dict[str, Any]] = []
+    for service, task in probes:
+        if task in done:
+            try:
+                results.append(task.result())
+            except Exception as exc:
+                results.append(
+                    _probe_exception_result(service, exc, scope=scope),
+                )
+        else:
+            results.append(_probe_deadline_result(service, scope=scope))
+
+    for task in pending:
+        task.cancel()
+    if pending:
+        await asyncio.gather(*pending, return_exceptions=True)
+
+    states = {
+        state: sum(result.get("state") == state for result in results)
+        for state in ("ok", "warn", "fail")
+    }
+    return results, {
+        "scope": scope,
+        "enabled": enabled,
+        "scheduled": len(probes),
+        "completed": len(done),
+        "timed_out": len(pending),
+        "budget_seconds": _SERVICE_FANOUT_BUDGET_SEC,
+        "per_probe_timeout_seconds": _PROBE_TIMEOUT_SEC,
+        "max_concurrency": _MAX_PROBE_CONCURRENCY,
+        "elapsed_ms": max(0, round((time.perf_counter() - started) * 1000)),
+        "states": states,
+    }
+
+
 def _truenas_internal_target(
     _services: list[HomelabService] | None = None,
 ) -> tuple[str, int]:
@@ -390,16 +498,47 @@ async def build_homelab_health_payload() -> dict[str, Any]:
 
         semaphore = asyncio.Semaphore(_MAX_PROBE_CONCURRENCY)
         timeout = httpx.Timeout(_PROBE_TIMEOUT_SEC)
-        internal_results_future = asyncio.gather(
-            *(_probe_internal_service(semaphore, service) for service in internal_services),
+        truenas_task = asyncio.create_task(
+            _probe_truenas(semaphore, internal_enabled=internal_enabled),
         )
+        internal_probe_tasks = [
+            (
+                service,
+                asyncio.create_task(_probe_internal_service(semaphore, service)),
+            )
+            for service in internal_services
+        ]
+        internal_results_task = asyncio.create_task(
+            _collect_bounded_probe_batch(
+                internal_probe_tasks,
+                scope="internal",
+                enabled=internal_enabled,
+            ),
+        )
+
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
-            public_results, truenas, internal_results = await asyncio.gather(
-                asyncio.gather(
-                    *(_probe_public_service(client, semaphore, service) for service in public_services),
+            public_probe_tasks = [
+                (
+                    service,
+                    asyncio.create_task(
+                        _probe_public_service(client, semaphore, service),
+                    ),
+                )
+                for service in public_services
+            ]
+            public_results_task = asyncio.create_task(
+                _collect_bounded_probe_batch(
+                    public_probe_tasks,
+                    scope="public",
                 ),
-                _probe_truenas(semaphore, internal_enabled=internal_enabled),
-                internal_results_future,
+            )
+            (public_results, public_summary), truenas, (
+                internal_results,
+                internal_summary,
+            ) = await asyncio.gather(
+                public_results_task,
+                truenas_task,
+                internal_results_task,
             )
 
         payload: dict[str, Any] = {
@@ -413,6 +552,11 @@ async def build_homelab_health_payload() -> dict[str, Any]:
             "services": public_results,
             "internal_probes_enabled": internal_enabled,
             "internal_services": internal_results,
+            "probe_summary": {
+                "public": public_summary,
+                "internal": internal_summary,
+                "catalog_service_count": len(catalog_services),
+            },
         }
         _cached_payload = payload
         _cached_at = time.monotonic()
