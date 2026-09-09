@@ -35,4 +35,6 @@ def test_truenas_uses_probe_matrix_as_fast_primary_render_path() -> None:
     assert "needsBoundedProbeFallback" in truenas
     assert "fetchHomelabProbeMatrix" in truenas
     assert 'cache: "no-store"' in shared
-    assert truenas.index("fetchHomelabProbeMatrix()") < truenas.index("fetchHomelabHealth()")
+    assert truenas.index("probes = await fetchHomelabProbeMatrix()") < truenas.index(
+        "const aggregate = await fetchHomelabHealth()"
+    )
