@@ -143,11 +143,21 @@ async def _build_homelab_snapshot(
     )
     from nabla.api.db.database import engine
     from nabla.api.demo.socket.redis import redis
+    from nabla.api.homelab_catalog import fetch_homelab_services
     from nabla.api.homelab_health import build_homelab_health_payload
-    from nabla.api.homelab_health_evidence import reconcile_homelab_health_payload
+    from nabla.api.homelab_health_evidence import (
+        prepare_homelab_reconciliation_context,
+        reconcile_homelab_health_payload,
+    )
     from nabla.api.provider_credentials import infrastructure_provider_credentials
 
-    homelab_task = asyncio.create_task(build_homelab_health_payload())
+    services = await fetch_homelab_services()
+    homelab_task = asyncio.create_task(
+        build_homelab_health_payload(catalog_services=services),
+    )
+    reconciliation_task = asyncio.create_task(
+        prepare_homelab_reconciliation_context(services),
+    )
     if shared_checks is None:
         components = await build_component_checks(
             redis_client=redis,
@@ -161,7 +171,12 @@ async def _build_homelab_snapshot(
             for key in ("postgres", "redis", "supabase", "cloudflare", "pfsense")
         }
         components["truenas"] = truenas_component(homelab)
-    payload = await reconcile_homelab_health_payload(await homelab_task)
+    homelab = await homelab_task
+    reconciliation_context = await reconciliation_task
+    payload = await reconcile_homelab_health_payload(
+        homelab,
+        context=reconciliation_context,
+    )
     components["unbound"] = pfsense_unbound_component(payload)
     payload["components_status"] = component_status(components)
     payload["components"] = components
