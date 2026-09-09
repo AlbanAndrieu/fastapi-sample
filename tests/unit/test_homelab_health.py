@@ -593,7 +593,6 @@ async def test_probe_fanout_budget_returns_partial_results(monkeypatch) -> None:
     assert results[1]["error_kind"] == "deadline"
 
 
-
 @pytest.mark.asyncio
 async def test_truenas_transport_diagnostics_timeout_keeps_api_health(monkeypatch) -> None:
     async def api_ok():
