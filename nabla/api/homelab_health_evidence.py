@@ -267,12 +267,7 @@ def build_reconciled_service_health(
         app = _runtime_app_for_service(service, runtime, binding)
         runtime_health = None if runtime is not None and runtime.stale else _runtime_state(app)
         runtime_missing = bool(
-            binding is not None
-            and binding.provider == "truenas-app"
-            and runtime is not None
-            and runtime.reachable
-            and not runtime.stale
-            and app is None,
+            binding is not None and binding.provider == "truenas-app" and runtime is not None and runtime.reachable and not runtime.stale and app is None,
         )
         host = _hostname(endpoint_url)
         tunnel_evidence = tunnels_by_host.get(host or "")
