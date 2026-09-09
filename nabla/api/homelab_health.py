@@ -477,7 +477,13 @@ def _copy_payload(payload: dict[str, Any]) -> dict[str, Any]:
         **payload,
         "truenas": truenas_copy,
         "services": [dict(service) for service in payload.get("services", [])],
-        "internal_services": [dict(service) for service in payload.get("internal_services", [])],
+        "public_probe_results": [
+            dict(service) for service in payload.get("public_probe_results", [])
+        ],
+        "internal_services": [
+            dict(service) for service in payload.get("internal_services", [])
+        ],
+        "probe_summary": dict(payload.get("probe_summary") or {}),
     }
 
 
@@ -550,6 +556,7 @@ async def build_homelab_health_payload() -> dict[str, Any]:
             ),
             "truenas": truenas,
             "services": public_results,
+            "public_probe_results": public_results,
             "internal_probes_enabled": internal_enabled,
             "internal_services": internal_results,
             "probe_summary": {
