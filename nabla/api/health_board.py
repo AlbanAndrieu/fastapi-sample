@@ -156,7 +156,10 @@ async def _build_homelab_snapshot(
         )
     else:
         homelab = await homelab_task
-        components = {key: shared_checks.get(key, {"reachable": None, "skipped": True}) for key in ("postgres", "redis", "supabase", "cloudflare", "pfsense")}
+        components = {
+            key: shared_checks.get(key, {"reachable": None, "skipped": True})
+            for key in ("postgres", "redis", "supabase", "cloudflare", "pfsense")
+        }
         components["truenas"] = truenas_component(homelab)
     payload = await reconcile_homelab_health_payload(await homelab_task)
     components["unbound"] = pfsense_unbound_component(payload)
@@ -175,8 +178,10 @@ async def build_homelab_snapshot(
             return await _build_homelab_snapshot(shared_checks)
     except TimeoutError:
         from nabla.api.provider_credentials import infrastructure_provider_credentials
+        from nabla.api.runtime_environment import homelab_runtime_detected
 
         error = "aggregate homelab diagnostic deadline exceeded"
+        path_mode = "direct_lan" if homelab_runtime_detected() else "public_wan_haproxy"
         return {
             "schema_version": 2,
             "status": "degraded",
@@ -191,6 +196,7 @@ async def build_homelab_snapshot(
                     "unavailable": True,
                     "error_kind": "deadline",
                     "detail": error,
+                    "path_mode": path_mode,
                 },
             },
             "services": [],
