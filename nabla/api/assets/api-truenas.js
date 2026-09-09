@@ -249,7 +249,10 @@ function probeRows(data) {
     ? data.internal_services.map((row) => ({ ...row, probe_scope: "internal" }))
     : [];
   const publicRows = Array.isArray(data?.public_probe_results)
-    ? data.public_probe_results.map((row) => ({\n        ...row,\n        probe_scope: "public",\n      }))
+    ? data.public_probe_results.map((row) => ({
+        ...row,
+        probe_scope: "public",
+      }))
     : [];
   return [...internal, ...publicRows].sort((left, right) => {
     const severity = probeSeverity(left) - probeSeverity(right);
