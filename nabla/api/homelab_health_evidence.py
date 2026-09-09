@@ -385,8 +385,10 @@ async def reconcile_homelab_health_payload(
         api_result if isinstance(api_result, dict) else None,
         observed_at=checked_at,
     )
+    runtime_source = "health_api"
     if runtime is None:
         runtime = await fetch_truenas_runtime()
+        runtime_source = "runtime_fallback"
 
     runtime_bindings = {
         service.service_id: service.runtime
@@ -432,15 +434,7 @@ async def reconcile_homelab_health_payload(
         "pfsense": {"dns": pfsense_dns},
         "reconciliation": {
             "provider_reads_reused": True,
-            "truenas_runtime_source": (
-                "health_api"
-                if runtime_snapshot_from_health_api(
-                    api_result if isinstance(api_result, dict) else None,
-                    observed_at=checked_at,
-                )
-                is not None
-                else "runtime_fallback"
-            ),
+            "truenas_runtime_source": runtime_source,
         },
     }
 
