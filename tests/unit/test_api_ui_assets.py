@@ -35,8 +35,8 @@ def test_api_page_serves_external_assets() -> None:
     open_graph = client.get("/api/assets/open-graph.png")
 
     assert page.status_code == 200
-    assert 'href="/api/assets/api.css"' in page.text
-    assert 'type="module" src="/api/assets/api-health.js"' in page.text
+    assert 'href="/api/assets/api.css?v=test-version"' in page.text
+    assert 'type="module" src="/api/assets/api-health.js?v=test-version"' in page.text
     assert "function computeOverall" not in page.text
     assert 'property="og:type" content="website"' in page.text
     assert 'property="og:image" content="https://fastapi-sample.fastapicloud.dev/api/assets/open-graph.png"' in page.text
@@ -49,6 +49,8 @@ def test_api_page_serves_external_assets() -> None:
     for asset in (bootstrap, board, health, dependency, ui, sickz, sickz_policy, sickz_ports):
         assert asset.status_code == 200
         assert "javascript" in asset.headers["content-type"]
+        assert asset.headers["cache-control"] == "no-store, max-age=0"
+        assert asset.headers["pragma"] == "no-cache"
 
     assert 'from "./api-health-core.js"' in bootstrap.text
     assert 'from "./api-health-board.js"' in bootstrap.text
@@ -70,6 +72,7 @@ def test_api_page_serves_external_assets() -> None:
     for asset in (styles, base_styles, health_styles, sickz_styles, mobile_styles):
         assert asset.status_code == 200
         assert "text/css" in asset.headers["content-type"]
+        assert asset.headers["cache-control"] == "no-store, max-age=0"
 
     assert '@import url("./api-base.css")' in styles.text
     assert '@import url("./api-health.css")' in styles.text
