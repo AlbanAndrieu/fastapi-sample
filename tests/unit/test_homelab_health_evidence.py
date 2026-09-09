@@ -718,7 +718,7 @@ def test_missing_runtime_binding_with_fresh_origin_is_drift_not_outage() -> None
                 "http_status": 200,
                 "state": "ok",
                 "tls_trusted": True,
-            }
+            },
         ],
         internal_results=[],
         runtime=_runtime(),

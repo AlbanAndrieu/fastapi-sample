@@ -25,9 +25,9 @@ def test_runtime_snapshot_reuses_true_nas_health_app_inventory() -> None:
                     "name": "n8n",
                     "state": "RUNNING",
                     "upgrade_available": True,
-                }
+                },
             ],
-        }
+        },
     )
 
     assert snapshot is not None
@@ -54,12 +54,12 @@ def test_runtime_snapshot_reuses_container_service_identity() -> None:
                                 "service_name": "vaultwarden",
                                 "image": "vaultwarden/server:latest",
                                 "state": "running",
-                            }
-                        ]
+                            },
+                        ],
                     },
-                }
+                },
             ],
-        }
+        },
     )
 
     assert snapshot is not None
@@ -85,7 +85,7 @@ def test_runtime_snapshot_uses_stale_last_good_inventory() -> None:
                 "last_success_at": "2026-09-09T14:20:00Z",
                 "apps": [{"id": "redis", "name": "redis", "state": "RUNNING"}],
             },
-        }
+        },
     )
 
     assert snapshot is not None
@@ -106,10 +106,10 @@ def test_health_board_overlaps_reconciliation_with_probe_collection() -> None:
 def test_health_ui_exposes_snapshot_and_probe_freshness() -> None:
     ui = (ROOT / "nabla/api/ui.py").read_text(encoding="utf-8")
     health = (ROOT / "nabla/api/assets/api-health-core.js").read_text(
-        encoding="utf-8"
+        encoding="utf-8",
     )
     truenas = (ROOT / "nabla/api/assets/api-truenas.js").read_text(
-        encoding="utf-8"
+        encoding="utf-8",
     )
 
     assert 'id="health-board-freshness"' in ui

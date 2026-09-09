@@ -51,8 +51,8 @@ class FakeClient:
                                 "image": "ghcr.io/open-webui/open-webui:v0.11.0",
                                 "state": "running",
                                 "mounts": ["/secret/path"],
-                            }
-                        ]
+                            },
+                        ],
                     },
                     "config": {"admin_password": "must-not-leak"},
                 },
@@ -241,8 +241,8 @@ def test_health_snapshot_uses_system_version_and_app_query() -> None:
                             "service_name": "open-webui",
                             "image": "ghcr.io/open-webui/open-webui:v0.11.0",
                             "state": "running",
-                        }
-                    ]
+                        },
+                    ],
                 },
             },
             {
