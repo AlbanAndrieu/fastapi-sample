@@ -1,3 +1,10 @@
+## [1.13.10](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.13.9...1.13.10) (2026-09-09)
+
+
+### Bug Fixes
+
+* **deploy:** restore production validation and publish release image ([#230](https://github.com/AlbanAndrieu/fastapi-sample/issues/230)) ([51504f6](https://github.com/AlbanAndrieu/fastapi-sample/commit/51504f6d96ba0a574f292b94e00d7b9059a5520a))
+
 ## [1.13.9](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.13.8...1.13.9) (2026-09-09)
 
 
