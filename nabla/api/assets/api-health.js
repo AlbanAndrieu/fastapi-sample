@@ -28,12 +28,12 @@ function loadHealthBoards({ forceRefresh = false } = {}) {
   resetHealthBoardRequest({ forceRefresh });
   markHealthBoardsPending();
   loadRuntimeTopology();
-  const healthRequest = loadHealth();
+  loadTrueNas();
+  loadHealth();
   loadSickz();
   fetchHealthBoard()
     .then((snapshot) => decorateCloudflareTunnelStatuses(snapshot.sickz))
     .catch(() => {});
-  Promise.resolve(healthRequest).finally(() => loadTrueNas());
 }
 
 document.querySelectorAll(".health-refresh").forEach((button) => {
