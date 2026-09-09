@@ -16,6 +16,16 @@ import httpx
 from nabla.api.health_probe_utils import is_textual_response, looks_like_tls_error
 from nabla.api.homelab_catalog import fetch_homelab_services
 from nabla.api.homelab_models import HomelabService
+from nabla.api.homelab_probe_policy import (
+    HEALTH_CACHE_TTL_SEC as _HEALTH_CACHE_TTL_SEC,
+    INTERNAL_PROBE_TIMEOUT_SEC as _INTERNAL_PROBE_TIMEOUT_SEC,
+    MAX_INTERNAL_PROBES_PER_REFRESH as _MAX_INTERNAL_PROBES_PER_REFRESH,
+    MAX_PROBE_CONCURRENCY as _MAX_PROBE_CONCURRENCY,
+    MAX_PUBLIC_PROBES_PER_REFRESH as _MAX_PUBLIC_PROBES_PER_REFRESH,
+    PUBLIC_PROBE_TIMEOUT_SEC as _PUBLIC_PROBE_TIMEOUT_SEC,
+    SERVICE_FANOUT_BUDGET_SEC as _SERVICE_FANOUT_BUDGET_SEC,
+    select_probe_subset as _select_probe_subset,
+)
 from nabla.api.runtime_environment import homelab_runtime_detected
 from nabla.api.sickz_cloudflare_edge import _probe_http_edge_evidence
 from nabla.api.truenas_diagnostics import (
@@ -37,29 +47,8 @@ from nabla.utils.environment import env_bool
 HealthState = Literal["ok", "warn", "fail"]
 
 _WARNING_HTTP_STATUSES = frozenset({401, 403, 407, 429})
-_HEALTH_CACHE_TTL_SEC = 30.0
-_MAX_PROBE_CONCURRENCY = 4
 _PROBE_TIMEOUT_SEC = 5.0
-_PUBLIC_PROBE_TIMEOUT_SEC = 3.0
-_INTERNAL_PROBE_TIMEOUT_SEC = 1.0
-_SERVICE_FANOUT_BUDGET_SEC = 4.0
 _TRUENAS_DIAGNOSTICS_BUDGET_SEC = 3.0
-_MAX_INTERNAL_PROBES_PER_REFRESH = 12
-_MAX_PUBLIC_PROBES_PER_REFRESH = 12
-_PRIORITY_PROBE_SERVICE_IDS = frozenset(
-    {
-        "postgresql",
-        "redis",
-        "n8n",
-        "prometheus",
-        "grafana",
-        "sentry",
-        "pyroscope",
-        "cloudflared",
-        "garage-admin",
-        "vaultwarden",
-    },
-)
 _INTERNAL_PROBE_ENV = "HOMELAB_INTERNAL_PROBES_ENABLED"
 _MAX_APPLICATION_BODY_BYTES = 16_384
 _APPLICATION_ERROR_PREFIXES = (
@@ -93,41 +82,6 @@ def classify_public_http_status(status: int) -> HealthState:
 def internal_probes_enabled() -> bool:
     """Return whether internal TCP probes are explicitly enabled for this runtime."""
     return env_bool(_INTERNAL_PROBE_ENV)
-
-
-def _select_probe_subset(
-    services: list[HomelabService],
-    *,
-    limit: int,
-) -> list[HomelabService]:
-    """Keep priority services in every refresh and rotate the remaining sample."""
-    if len(services) <= limit:
-        return list(services)
-
-    priority = [
-        service
-        for service in services
-        if service.service_id in _PRIORITY_PROBE_SERVICE_IDS
-    ]
-    if len(priority) >= limit:
-        return priority[:limit]
-
-    remainder = [
-        service
-        for service in services
-        if service.service_id not in _PRIORITY_PROBE_SERVICE_IDS
-    ]
-    slots = limit - len(priority)
-    if not remainder or slots <= 0:
-        return priority
-
-    bucket = int(time.monotonic() // _HEALTH_CACHE_TTL_SEC)
-    start = (bucket * slots) % len(remainder)
-    rotating = [
-        remainder[(start + offset) % len(remainder)]
-        for offset in range(min(slots, len(remainder)))
-    ]
-    return [*priority, *rotating]
 
 
 def _short_error(exc: BaseException) -> str:
