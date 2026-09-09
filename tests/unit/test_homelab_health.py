@@ -115,6 +115,7 @@ async def test_health_snapshot_only_probes_approved_public_services(monkeypatch)
     ]
     probe = AsyncMock(
         return_value={
+            "id": services[0].service_id,
             "name": "Langfuse",
             "url": "https://langfuse.albandrieu.com/",
             "reachable": True,
@@ -146,7 +147,7 @@ async def test_health_snapshot_only_probes_approved_public_services(monkeypatch)
 
     payload = await homelab_health.build_homelab_health_payload()
 
-    assert payload["schema_version"] == 2
+    assert payload["schema_version"] == 3
     assert payload["truenas"]["state"] == "ok"
     assert len(payload["services"]) == 1
     assert payload["services"][0]["url"] == "https://langfuse.albandrieu.com/"
@@ -177,6 +178,7 @@ async def test_internal_probes_cover_private_and_external_services(monkeypatch) 
     internal_probe = AsyncMock(
         side_effect=[
             {
+                "id": services[0].service_id,
                 "name": "Private service",
                 "host": "192.168.1.20",
                 "port": 8080,
@@ -185,6 +187,7 @@ async def test_internal_probes_cover_private_and_external_services(monkeypatch) 
                 "latency_ms": 1,
             },
             {
+                "id": services[1].service_id,
                 "name": "Exposed service",
                 "host": "192.168.1.21",
                 "port": 3000,
@@ -207,6 +210,7 @@ async def test_internal_probes_cover_private_and_external_services(monkeypatch) 
         "_probe_public_service",
         AsyncMock(
             return_value={
+                "id": services[1].service_id,
                 "name": "Exposed service",
                 "url": "https://service.albandrieu.com/",
                 "reachable": True,
@@ -514,7 +518,7 @@ def test_public_homelab_routes(monkeypatch) -> None:
 
     assert health_response.status_code == 200
     health_body = health_response.json()
-    assert health_body["schema_version"] == 5
+    assert health_body["schema_version"] == 6
     assert health_body["checked_at"] == health_payload["checked_at"]
     assert health_body["truenas"] == health_payload["truenas"]
     assert len(health_body["services"]) == 1
@@ -591,7 +595,6 @@ async def test_probe_fanout_budget_returns_partial_results(monkeypatch) -> None:
     assert results[0]["state"] == "ok"
     assert results[1]["timed_out"] is True
     assert results[1]["error_kind"] == "deadline"
-
 
 
 @pytest.mark.asyncio

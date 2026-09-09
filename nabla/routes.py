@@ -30,6 +30,16 @@ templates = Jinja2Templates(directory="templates")
 _API_ASSETS_DIR = Path(__file__).resolve().parent / "api" / "assets"
 
 
+class NoStoreStaticFiles(StaticFiles):
+    """Static assets that must reflect the currently deployed application release."""
+
+    async def get_response(self, path: str, scope: dict) -> Response:
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-store, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        return response
+
+
 def _move_root_mounts_last(app: FastAPI) -> None:
     """Keep catch-all root mounts behind concrete FastAPI routes."""
     root_mounts = [route for route in app.routes if isinstance(route, Mount) and getattr(route, "path", None) in ("", "/")]
@@ -42,7 +52,7 @@ def register_routes(app: FastAPI) -> None:
     """Register all application routes."""
     app.mount(
         "/api/assets",
-        StaticFiles(directory=_API_ASSETS_DIR),
+        NoStoreStaticFiles(directory=_API_ASSETS_DIR),
         name="api-assets",
     )
 
@@ -81,11 +91,17 @@ def register_routes(app: FastAPI) -> None:
         }
 
     @app.get("/api", response_class=HTMLResponse)
-    async def read_root(request: Request):
-        return render_api_root_page(
-            title_suffix=os.getenv("TITLE_SUFFIX"),
-            app_version=html.escape(str(request.app.version)),
-            runtime_mode=runtime_mode(request.url.hostname),
+    async def read_root(request: Request) -> HTMLResponse:
+        return HTMLResponse(
+            render_api_root_page(
+                title_suffix=os.getenv("TITLE_SUFFIX"),
+                app_version=html.escape(str(request.app.version)),
+                runtime_mode=runtime_mode(request.url.hostname),
+            ),
+            headers={
+                "Cache-Control": "no-store, max-age=0",
+                "Pragma": "no-cache",
+            },
         )
 
     register_health_routes(app)

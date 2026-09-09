@@ -99,7 +99,7 @@ def render_api_root_page(
         <meta name="twitter:description" content="{description}">
         <meta name="twitter:image" content="{_OPEN_GRAPH_IMAGE_URL}">
         <link rel="icon" type="image/x-icon" href="/favicon.ico">
-        <link rel="stylesheet" href="/api/assets/api.css">
+        <link rel="stylesheet" href="/api/assets/api.css?v={app_version}">
     </head>
     <body>
         <header>
@@ -280,7 +280,7 @@ def render_api_root_page(
                 </div>
             </div>
         </main>
-        <script type="module" src="/api/assets/api-health.js"></script>
+        <script type="module" src="/api/assets/api-health.js?v={app_version}"></script>
     </body>
     </html>
     """

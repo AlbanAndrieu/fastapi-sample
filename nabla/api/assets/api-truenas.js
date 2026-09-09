@@ -278,7 +278,6 @@ function probeFreshnessText(data) {
   return parts.join(" · ");
 }
 
-
 function renderProbeFanout(data) {
   const summary = document.getElementById("truenas-probe-summary");
   const detailsSummary = document.getElementById(
@@ -299,8 +298,7 @@ function renderProbeFanout(data) {
   const internalSampled = internal.sampled ?? internal.scheduled ?? 0;
   const publicEligible =
     publicSummary.eligible ?? publicSummary.scheduled ?? "?";
-  const publicSampled =
-    publicSummary.sampled ?? publicSummary.scheduled ?? 0;
+  const publicSampled = publicSummary.sampled ?? publicSummary.scheduled ?? 0;
   const internalEvidence = internal.evidence || {};
   const publicEvidence = publicSummary.evidence || {};
   const internalCoverage =
@@ -315,8 +313,7 @@ function renderProbeFanout(data) {
     internalEnabled === false
       ? `⏸ LAN probes disabled · 0/${internalEligible} sampled`
       : `● LAN probes enabled · ${internalSampled}/${internalEligible} sampled · ${internal.completed ?? 0} completed · ${internal.timed_out ?? 0} deadline${internalCoverage}`;
-  const publicText =
-    `🌐 public probes · ${publicSampled}/${publicEligible} sampled · ${publicSummary.completed ?? 0} completed · ${publicSummary.timed_out ?? 0} deadline${publicCoverage}`;
+  const publicText = `🌐 public probes · ${publicSampled}/${publicEligible} sampled · ${publicSummary.completed ?? 0} completed · ${publicSummary.timed_out ?? 0} deadline${publicCoverage}`;
   const budget =
     internal.budget_seconds ?? publicSummary.budget_seconds ?? "unknown";
   const concurrency =
@@ -355,8 +352,7 @@ function renderProbeFanout(data) {
 
   const freshness = probeFreshnessText(data);
   summary.textContent = `${freshness} · ${runtimeMode} · ${httpsMode} · ${apiMode} · ${internalText} · ${publicText} · ${catalog}fan-out budget ${budget}s · concurrency ${concurrency} · ${tlsMode}`;
-  detailsSummary.textContent =
-    `Homelab probe fan-out · ${rows.length} observed rows · LAN ${internalSampled}/${internalEligible} · public ${publicSampled}/${publicEligible}`;
+  detailsSummary.textContent = `Homelab probe fan-out · ${rows.length} observed rows · LAN ${internalSampled}/${internalEligible} · public ${publicSampled}/${publicEligible}`;
 
   list.innerHTML = rows
     .map((row) => {
@@ -476,6 +472,11 @@ function render(data) {
   }
 
   const notes = [];
+  if (data?._probe_first === true) {
+    notes.push(
+      "TrueNAS flow rendered from bounded /api/homelab/probes first; aggregate health enriches the view when available.",
+    );
+  }
   if (data?._bounded_probe_fallback === true) {
     notes.push(
       "Aggregate homelab diagnostics exceeded their deadline; TrueNAS flow and probe fan-out were recovered from bounded /api/homelab/probes.",
@@ -483,6 +484,11 @@ function render(data) {
   }
   if (data?._probe_fallback_error) {
     notes.push(`Bounded probe fallback failed: ${data._probe_fallback_error}`);
+  }
+  if (data?._aggregate_enrichment_error) {
+    notes.push(
+      `Aggregate enrichment unavailable: ${data._aggregate_enrichment_error}`,
+    );
   }
   if (runtimeError) {
     notes.push(`TrueNAS runtime: ${String(runtimeError)}`);
@@ -527,39 +533,63 @@ function mergeBoundedProbeFallback(aggregate, probes) {
       probes?.services ||
       aggregate?.public_probe_results ||
       [],
-    _bounded_probe_fallback: true,
+    _probe_first: true,
+    _bounded_probe_fallback: needsBoundedProbeFallback(aggregate),
   };
 }
 
+function renderFetchFailure(errorValue) {
+  const state = document.getElementById("truenas-platform-state");
+  const error = document.getElementById("truenas-platform-error");
+  const pipeline = document.getElementById("truenas-pipeline");
+  if (state) {
+    state.className = "truenas-platform-state truenas-platform-state--fail";
+    state.textContent = "health fetch failed";
+  }
+  if (pipeline) pipeline.innerHTML = "";
+  if (error) {
+    error.hidden = false;
+    error.textContent = String(errorValue?.message || errorValue);
+  }
+}
+
 export async function loadTrueNas() {
+  let probes = null;
+  let probeError = null;
+
+  try {
+    probes = await fetchHomelabProbeMatrix();
+    render({
+      ...probes,
+      _probe_first: true,
+    });
+  } catch (err) {
+    probeError = err;
+  }
+
   try {
     const aggregate = await fetchHomelabHealth();
-    if (!needsBoundedProbeFallback(aggregate)) {
-      render(aggregate);
+    if (probes) {
+      render(mergeBoundedProbeFallback(aggregate, probes));
       return;
     }
-
-    try {
-      const probes = await fetchHomelabProbeMatrix();
-      render(mergeBoundedProbeFallback(aggregate, probes));
-    } catch (probeError) {
+    render({
+      ...aggregate,
+      _probe_fallback_error: probeError
+        ? String(probeError?.message || probeError)
+        : null,
+    });
+  } catch (aggregateError) {
+    if (probes) {
       render({
-        ...aggregate,
-        _probe_fallback_error: String(probeError?.message || probeError),
+        ...probes,
+        _probe_first: true,
+        _aggregate_enrichment_error: String(
+          aggregateError?.message || aggregateError,
+        ),
       });
+      return;
     }
-  } catch (err) {
-    const state = document.getElementById("truenas-platform-state");
-    const error = document.getElementById("truenas-platform-error");
-    const pipeline = document.getElementById("truenas-pipeline");
-    if (state) {
-      state.className = "truenas-platform-state truenas-platform-state--fail";
-      state.textContent = "health fetch failed";
-    }
-    if (pipeline) pipeline.innerHTML = "";
-    if (error) {
-      error.hidden = false;
-      error.textContent = String(err?.message || err);
-    }
+    renderFetchFailure(aggregateError);
   }
 }

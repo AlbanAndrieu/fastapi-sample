@@ -13,7 +13,8 @@ export function fetchHomelabHealth() {
 
 export function fetchHomelabProbeMatrix() {
   return fetch("/api/homelab/probes", {
-    headers: { Accept: "application/json" },
+    cache: "no-store",
+    headers: { Accept: "application/json", "Cache-Control": "no-cache" },
   }).then(async (response) => {
     if (!response.ok) {
       throw new Error(

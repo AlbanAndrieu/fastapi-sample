@@ -91,6 +91,30 @@ degraded conditions.
 - [ ] Add production acceptance checks: appliance degradation must not increase
       API error rate, exhaust worker threads, or create sustained request bursts
       against TrueNAS/pfSense.
+- [ ] Reduce remaining homelab aggregate latency without relaxing the 12-second
+      circuit breaker. Current TrueNAS evidence shows the bounded raw probe matrix
+      completing in about 1.4-2.4 seconds while `/api/homelab/health` can still
+      approach 11-12 seconds, so the remaining cost is in aggregate provider
+      reconciliation rather than service fan-out.
+  - [ ] Publish fixed-cardinality phase timings for declared catalog, topology,
+        Cloudflare exposure, pfSense DNS/posture, TrueNAS runtime reuse,
+        reconciliation and total aggregate duration. Do not include URLs, IPs,
+        credentials or exception text in metric labels.
+  - [ ] Use those timings to identify the dominant cold provider before changing
+        budgets. Keep every provider timeout strictly below the 12-second aggregate
+        deadline and avoid increasing that deadline to hide slow reconciliation.
+  - [ ] Reuse request-scoped/catalog/provider observations end-to-end so a single
+        aggregate request cannot repeat TrueNAS, Cloudflare, topology or pfSense
+        reads already completed by the same health refresh.
+  - [ ] Prefer stale-while-revalidate/provider caches for non-critical enrichment;
+        keep the bounded `/api/homelab/probes` path independent so the TrueNAS UI
+        can render from low-level evidence before aggregate enrichment finishes.
+  - [ ] Add deterministic performance-regression tests with a production-scale
+        synthetic catalog proving bounded fan-out, no late queued burst, and no
+        duplicate provider reads. Target raw probe completion below 4 seconds and
+        aggregate health comfortably below the 12-second deadline under healthy
+        cached conditions, with a documented p95 target after production timing
+        telemetry is available.
 - [x] Classify FastAPI Cloud pfSense connect-stage timeouts as a possible ingress
       policy block when current cloud egress evidence is available. Keep attribution
       explicitly unavailable because either trusted-source drift or PF/Snort

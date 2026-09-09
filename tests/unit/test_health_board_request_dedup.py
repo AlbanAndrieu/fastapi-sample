@@ -16,6 +16,8 @@ def test_health_board_reuses_one_aggregate_request_per_refresh() -> None:
     assert '/api/health-board${force ? "?refresh=true" : ""}' in board
     assert "let healthBoardRequest = null" in board
     assert "resetHealthBoardRequest({ forceRefresh });" in bootstrap
+    assert "loadTrueNas();" in bootstrap
+    assert "finally(() => loadTrueNas())" not in bootstrap
     assert 'from "./api-health-board.js"' in health
     assert 'from "./api-homelab-health.js"' in truenas
     assert 'from "./api-health-board.js"' in shared
@@ -25,10 +27,14 @@ def test_health_board_reuses_one_aggregate_request_per_refresh() -> None:
     assert 'fetch("/api/homelab/health"' not in truenas
 
 
-def test_truenas_uses_probe_matrix_only_as_diagnostic_fallback() -> None:
+def test_truenas_uses_probe_matrix_as_fast_primary_render_path() -> None:
     shared = (ASSETS / "api-homelab-health.js").read_text(encoding="utf-8")
     truenas = (ASSETS / "api-truenas.js").read_text(encoding="utf-8")
 
     assert 'fetch("/api/homelab/probes"' in shared
     assert "needsBoundedProbeFallback" in truenas
     assert "fetchHomelabProbeMatrix" in truenas
+    assert 'cache: "no-store"' in shared
+    assert truenas.index("probes = await fetchHomelabProbeMatrix()") < truenas.index(
+        "const aggregate = await fetchHomelabHealth()",
+    )

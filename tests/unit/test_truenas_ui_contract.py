@@ -75,12 +75,18 @@ def test_truenas_platform_distinguishes_listener_from_authenticated_api() -> Non
     assert "source IP blocked by TrueNAS allowlist" in javascript
 
 
-def test_truenas_platform_recovers_flow_from_bounded_probe_fallback() -> None:
+def test_truenas_platform_renders_bounded_probes_before_aggregate_enrichment() -> None:
     javascript = ASSET.read_text(encoding="utf-8")
 
-    assert "fetchHomelabProbeMatrix" in javascript
+    probe_fetch = javascript.index("probes = await fetchHomelabProbeMatrix()")
+    probe_render = javascript.index("_probe_first: true", probe_fetch)
+    aggregate_fetch = javascript.index("const aggregate = await fetchHomelabHealth()")
+
+    assert probe_fetch < probe_render < aggregate_fetch
     assert "needsBoundedProbeFallback" in javascript
     assert "_bounded_probe_fallback" in javascript
+    assert "_aggregate_enrichment_error" in javascript
+    assert "TrueNAS flow rendered from bounded /api/homelab/probes first" in javascript
     assert "Aggregate homelab diagnostics exceeded their deadline" in javascript
 
 
