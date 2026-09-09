@@ -114,3 +114,34 @@ def test_declared_service_omits_absent_security_functions() -> None:
 
     payload = catalog.model_dump(mode="json", by_alias=True, exclude_none=True)
     assert "securityFunctions" not in payload["services"][0]
+
+
+def test_declared_service_accepts_named_deployment_environments() -> None:
+    catalog = _catalog(
+        {
+            "id": "fastapi-sample",
+            "name": "FastAPI Sample",
+            "kind": "api",
+            "category": "development",
+            "sourcePath": "apps/sample/compose.yml",
+            "composeService": "fastapi-sample",
+            "environments": [
+                {
+                    "name": "production",
+                    "url": "https://fastapi-sample.fastapicloud.dev",
+                    "external": False,
+                    "cloudflareTunnel": False,
+                },
+                {
+                    "name": "staging",
+                    "url": "https://sample.albandrieu.com",
+                    "external": False,
+                    "cloudflareTunnel": False,
+                },
+            ],
+        }
+    )
+
+    payload = catalog.model_dump(mode="json", by_alias=True, exclude_none=True)
+    assert payload["services"][0]["environments"][0]["name"] == "production"
+    assert payload["services"][0]["environments"][1]["cloudflareTunnel"] is False
