@@ -91,11 +91,17 @@ def register_routes(app: FastAPI) -> None:
         }
 
     @app.get("/api", response_class=HTMLResponse)
-    async def read_root(request: Request):
-        return render_api_root_page(
-            title_suffix=os.getenv("TITLE_SUFFIX"),
-            app_version=html.escape(str(request.app.version)),
-            runtime_mode=runtime_mode(request.url.hostname),
+    async def read_root(request: Request) -> HTMLResponse:
+        return HTMLResponse(
+            render_api_root_page(
+                title_suffix=os.getenv("TITLE_SUFFIX"),
+                app_version=html.escape(str(request.app.version)),
+                runtime_mode=runtime_mode(request.url.hostname),
+            ),
+            headers={
+                "Cache-Control": "no-store, max-age=0",
+                "Pragma": "no-cache",
+            },
         )
 
     register_health_routes(app)
