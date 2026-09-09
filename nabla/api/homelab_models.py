@@ -6,6 +6,7 @@ from datetime import datetime
 from enum import StrEnum
 from ipaddress import ip_address
 import re
+from typing import Literal
 from urllib.parse import urlsplit
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
@@ -65,6 +66,7 @@ class HomelabService(BaseModel):
         serialization_alias="id",
     )
     name: str = Field(min_length=1, max_length=128)
+    environment: Literal["production", "staging", "dev"] = "production"
     description: str | None = None
     icons: list[str] = Field(default_factory=list)
     icon_src: str | None = Field(
