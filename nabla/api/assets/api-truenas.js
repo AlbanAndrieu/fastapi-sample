@@ -261,6 +261,24 @@ function probeRows(data) {
   });
 }
 
+function probeFreshnessText(data) {
+  const cache = data?.probe_cache || {};
+  const source = cache.source;
+  const age = Number(cache.age_seconds);
+  const checkedAt = data?.checked_at;
+  const parts = [];
+
+  if (source === "origin") parts.push("🟢 probes from origin");
+  else if (source === "memory") parts.push("🧊 probes from memory cache");
+  else parts.push("◌ probe source unknown");
+
+  if (Number.isFinite(age)) parts.push(`${Math.round(age)}s old`);
+  if (checkedAt) parts.push(`checked ${String(checkedAt)}`);
+  if (cache.stale === true) parts.push("stale");
+  return parts.join(" · ");
+}
+
+
 function renderProbeFanout(data) {
   const summary = document.getElementById("truenas-probe-summary");
   const detailsSummary = document.getElementById(
@@ -277,11 +295,28 @@ function renderProbeFanout(data) {
 
   const internalEnabled =
     data?.internal_probes_enabled ?? internal.enabled ?? false;
+  const internalEligible = internal.eligible ?? internal.scheduled ?? "?";
+  const internalSampled = internal.sampled ?? internal.scheduled ?? 0;
+  const publicEligible =
+    publicSummary.eligible ?? publicSummary.scheduled ?? "?";
+  const publicSampled =
+    publicSummary.sampled ?? publicSummary.scheduled ?? 0;
+  const internalEvidence = internal.evidence || {};
+  const publicEvidence = publicSummary.evidence || {};
+  const internalCoverage =
+    internalEvidence.known != null
+      ? ` · evidence ${internalEvidence.known}/${internalEligible} (${internalEvidence.fresh ?? 0} fresh · ${internalEvidence.cached ?? 0} cached)`
+      : "";
+  const publicCoverage =
+    publicEvidence.known != null
+      ? ` · evidence ${publicEvidence.known}/${publicEligible} (${publicEvidence.fresh ?? 0} fresh · ${publicEvidence.cached ?? 0} cached)`
+      : "";
   const internalText =
     internalEnabled === false
-      ? "⏸ LAN probes disabled"
-      : `● LAN probes enabled · ${internal.scheduled ?? "?"} targets · ${internal.completed ?? 0} completed · ${internal.timed_out ?? 0} deadline`;
-  const publicText = `🌐 public probes · ${publicSummary.scheduled ?? "?"} targets · ${publicSummary.completed ?? 0} completed · ${publicSummary.timed_out ?? 0} deadline`;
+      ? `⏸ LAN probes disabled · 0/${internalEligible} sampled`
+      : `● LAN probes enabled · ${internalSampled}/${internalEligible} sampled · ${internal.completed ?? 0} completed · ${internal.timed_out ?? 0} deadline${internalCoverage}`;
+  const publicText =
+    `🌐 public probes · ${publicSampled}/${publicEligible} sampled · ${publicSummary.completed ?? 0} completed · ${publicSummary.timed_out ?? 0} deadline${publicCoverage}`;
   const budget =
     internal.budget_seconds ?? publicSummary.budget_seconds ?? "unknown";
   const concurrency =
@@ -318,8 +353,10 @@ function renderProbeFanout(data) {
         ? "⚠ TrueNAS HTTPS unreachable"
         : "◌ TrueNAS HTTPS not measured";
 
-  summary.textContent = `${runtimeMode} · ${httpsMode} · ${apiMode} · ${internalText} · ${publicText} · ${catalog}fan-out budget ${budget}s · concurrency ${concurrency} · ${tlsMode}`;
-  detailsSummary.textContent = `Homelab probe fan-out · ${rows.length} observed/scheduled rows`;
+  const freshness = probeFreshnessText(data);
+  summary.textContent = `${freshness} · ${runtimeMode} · ${httpsMode} · ${apiMode} · ${internalText} · ${publicText} · ${catalog}fan-out budget ${budget}s · concurrency ${concurrency} · ${tlsMode}`;
+  detailsSummary.textContent =
+    `Homelab probe fan-out · ${rows.length} observed rows · LAN ${internalSampled}/${internalEligible} · public ${publicSampled}/${publicEligible}`;
 
   list.innerHTML = rows
     .map((row) => {
@@ -331,17 +368,30 @@ function renderProbeFanout(data) {
           : row?.timed_out === true
             ? "deadline"
             : "—";
+      const source = row?.probe_source;
+      const age = Number(row?.probe_age_seconds);
+      const provenance =
+        source === "memory"
+          ? `cache${Number.isFinite(age) ? ` ${Math.round(age)}s` : ""}`
+          : source === "origin"
+            ? "fresh"
+            : source === "deadline"
+              ? "deadline"
+              : "";
       const stateText =
         row?.timed_out === true
           ? `deadline · ${row?.error || "fan-out budget exceeded"}`
           : row?.error_kind
             ? `${row.error_kind} · ${row?.error || state}`
             : row?.error || state;
+      const stateWithProvenance = [stateText, provenance]
+        .filter(Boolean)
+        .join(" · ");
       return (
         `<div class="truenas-probe-row truenas-probe-row--${escapeText(state)}">` +
         `<span class="truenas-probe-name">${escapeText(row?.name || row?.id || "probe")} · ${escapeText(scope)}</span>` +
         `<span class="truenas-probe-target">${escapeText(probeTarget(row, scope))}</span>` +
-        `<span class="truenas-probe-state">${escapeText(stateText)}</span>` +
+        `<span class="truenas-probe-state">${escapeText(stateWithProvenance)}</span>` +
         `<span class="truenas-probe-latency">${escapeText(latency)}</span>` +
         "</div>"
       );
@@ -465,6 +515,10 @@ function mergeBoundedProbeFallback(aggregate, probes) {
   return {
     ...aggregate,
     truenas: probes?.truenas || aggregate?.truenas,
+    checked_at: probes?.checked_at || aggregate?.checked_at,
+    refresh_elapsed_ms:
+      probes?.refresh_elapsed_ms ?? aggregate?.refresh_elapsed_ms,
+    probe_cache: probes?.probe_cache || aggregate?.probe_cache,
     probe_summary: probes?.probe_summary || aggregate?.probe_summary,
     internal_services:
       probes?.internal_services || aggregate?.internal_services || [],

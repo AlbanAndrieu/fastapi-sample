@@ -170,6 +170,8 @@ jobs:
         with:
           context: .
           target: production
+          build-args: |
+            APP_VERSION=${{ needs.build.outputs.tag }}
           push: true
           tags: |
             ${{ steps.container_meta.outputs.version_tag }}

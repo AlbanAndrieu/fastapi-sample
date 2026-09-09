@@ -2,7 +2,6 @@
 """Fail when Python, npm, Docker, and generated runtime versions diverge."""
 
 import json
-import re
 import sys
 import tomllib
 from pathlib import Path
@@ -33,20 +32,11 @@ def main() -> int:
         package["version"] for package in uv_packages if package["name"] == "fastapi-sample"
     )
 
-    dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
-    docker_match = re.search(
-        r'^ARG APP_VERSION="([0-9]+\.[0-9]+\.[0-9]+)"$', dockerfile, re.MULTILINE
-    )
-    if docker_match is None:
-        print("Unable to find ARG APP_VERSION in Dockerfile", file=sys.stderr)
-        return 1
-
     versions = {
         "pyproject.toml [project]": python_version,
         "package.json": npm_version,
         "uv.lock": uv_version,
         "nabla/_release.py": runtime_version,
-        "Dockerfile": docker_match.group(1),
     }
     if npm_lock_version is not None:
         versions["package-lock.json"] = npm_lock_version

@@ -116,6 +116,47 @@ def _observed_app(raw: dict[str, Any]) -> ObservedApp:
     )
 
 
+def runtime_snapshot_from_health_api(
+    api_result: dict[str, Any] | None,
+    *,
+    observed_at: str | None = None,
+) -> TrueNASRuntimeSnapshot | None:
+    """Reuse app.query evidence already collected by the TrueNAS health probe."""
+    if not isinstance(api_result, dict):
+        return None
+
+    source = api_result
+    apps = source.get("apps")
+    stale = api_result.get("stale") is True
+    if not isinstance(apps, list):
+        last_good = api_result.get("last_good")
+        if isinstance(last_good, dict) and isinstance(last_good.get("apps"), list):
+            source = last_good
+            apps = last_good["apps"]
+            stale = True
+    if not isinstance(apps, list):
+        return None
+
+    timestamp = (
+        str(source.get("last_success_at") or "").strip()
+        or str(api_result.get("last_success_at") or "").strip()
+        or str(observed_at or "").strip()
+        or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    )
+    return TrueNASRuntimeSnapshot(
+        observed_at=timestamp,
+        configured=True,
+        reachable=True,
+        stale=stale,
+        apps=[_observed_app(app) for app in apps if isinstance(app, dict)],
+        error=(
+            str(api_result.get("error") or "").strip() or None
+            if stale
+            else None
+        ),
+    )
+
+
 def _list_apps_with_reset_retry(adapter: Any) -> list[dict[str, Any]]:
     """Retry bounded transient peer resets without hiding persistent failures."""
     for attempt in range(1, _TRUENAS_MAX_ATTEMPTS + 1):

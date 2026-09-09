@@ -58,12 +58,6 @@ def set_release_version(version: str) -> None:
                 f'version = "{version}"',
             ),
         ),
-        ROOT / "Dockerfile": (
-            (
-                r'^ARG APP_VERSION="[0-9]+\.[0-9]+\.[0-9]+"$',
-                f'ARG APP_VERSION="{version}"',
-            ),
-        ),
     }
 
     rendered = {

@@ -246,6 +246,29 @@ function computeOverall(data) {
   };
 }
 
+function renderSnapshotFreshness(snapshot) {
+  const element = document.getElementById("health-board-freshness");
+  if (!element) return;
+
+  const state = String(snapshot?.state || "unknown");
+  const age = Number(snapshot?.age_seconds);
+  const generatedAt = snapshot?.generated_at;
+  const refreshing = snapshot?.refreshing === true;
+  const parts = [];
+
+  if (state === "fresh") parts.push("● fresh snapshot");
+  else if (state === "stale") parts.push("◐ cached snapshot");
+  else parts.push(`◌ ${state} snapshot`);
+
+  if (Number.isFinite(age)) parts.push(`${Math.round(age)}s old`);
+  if (generatedAt) parts.push(`generated ${String(generatedAt)}`);
+  if (refreshing) parts.push("refresh in progress");
+  if (snapshot?.error) parts.push(`last refresh error: ${String(snapshot.error)}`);
+
+  element.textContent = parts.join(" · ");
+}
+
+
 function render(data, platformMetrics = null) {
   const listEl = document.getElementById("health-checks");
   const summaryEl = document.getElementById("health-summary");
@@ -322,6 +345,7 @@ function showFetchError(message) {
 export function loadHealth() {
   return fetchHealthBoard()
     .then((snapshot) => {
+      renderSnapshotFreshness(snapshot);
       const data = snapshot.healthz;
       if (!data) throw new Error("health snapshot is missing /healthz data");
       const homelab = snapshot.homelab;

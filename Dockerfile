@@ -1,5 +1,12 @@
 # syntax=docker/dockerfile:1
 
+FROM python:3.13-slim-trixie AS dependency-metadata
+
+WORKDIR /dependency
+COPY scripts/docker/normalize_dependency_metadata.py /usr/local/bin/normalize-dependency-metadata
+COPY pyproject.toml uv.lock ./
+RUN python /usr/local/bin/normalize-dependency-metadata pyproject.toml uv.lock
+
 FROM python:3.13-slim-trixie AS builder
 
 ENV PYTHONUNBUFFERED=1 \
@@ -22,7 +29,9 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=ghcr.io/astral-sh/uv:0.8.14 /uv /usr/local/bin/uv
-COPY pyproject.toml uv.lock ./
+# The normalized files differ only when dependency metadata changes. A semantic
+# release version bump therefore no longer invalidates the expensive uv layer.
+COPY --from=dependency-metadata /dependency/pyproject.toml /dependency/uv.lock ./
 
 # Install only runtime groups. The package-read secret is optional so a normal
 # `docker compose build` works for the public dependency graph. Environments
@@ -51,7 +60,7 @@ RUN --mount=type=secret,id=read-package-token,required=false \
 
 FROM python:3.13-slim-trixie AS production
 
-ARG APP_VERSION="1.13.10"
+ARG APP_VERSION="dev"
 
 LABEL name="fastapi-sample" \
       vendor="sample" \

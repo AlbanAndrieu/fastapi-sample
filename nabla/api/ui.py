@@ -226,6 +226,7 @@ def render_api_root_page(
                     </div>
                 </div>
                 <p class="health-board-meta">Live view of <a href="/healthz">/healthz</a>.
+                    <span id="health-board-freshness">Snapshot freshness unknown.</span>
                     <button type="button" class="health-refresh">Refresh</button>
                 </p>
                 <div class="health-summary health-summary--neutral" id="health-summary">
