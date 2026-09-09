@@ -134,8 +134,8 @@ def render_api_root_page(
             <section class="truenas-platform" id="truenas-platform" data-service-filter-target data-search-text="truenas core critical storage platform infrastructure https websocket api" aria-labelledby="truenas-platform-title">
                 <div class="truenas-platform-heading">
                     <div>
-                        <h3 class="health-subboard-title truenas-platform-title" id="truenas-platform-title">Core drill-down · TrueNAS platform</h3>
-                        <p class="health-board-meta">Critical storage and VM host · detailed HTTPS and WebSocket API diagnostics.</p>
+                        <h3 class="health-subboard-title truenas-platform-title" id="truenas-platform-title">Core drill-down · TrueNAS platform + API</h3>
+                        <p class="health-board-meta">Critical storage and VM host · separates TrueNAS HTTPS listener health from the authenticated TrueNAS WebSocket API.</p>
                     </div>
                     <span class="truenas-platform-state truenas-platform-state--neutral" id="truenas-platform-state">Loading…</span>
                 </div>
