@@ -346,11 +346,7 @@ class TrueNASReadOnlyAdapter:
                 containers = workloads.get("container_details")
                 if isinstance(containers, list):
                     sanitized = [
-                        {
-                            key: str(container[key])
-                            for key in ("service_name", "image", "state")
-                            if container.get(key) is not None
-                        }
+                        {key: str(container[key]) for key in ("service_name", "image", "state") if container.get(key) is not None}
                         for container in containers
                         if isinstance(container, dict)
                     ]

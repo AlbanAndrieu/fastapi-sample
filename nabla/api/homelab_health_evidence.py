@@ -306,46 +306,14 @@ def build_reconciled_service_health(
             "tls_trusted": direct_result.get("tls_trusted") if direct_result else None,
             "direct_state": direct_health,
             "internal_state": internal_health,
-            "direct_probe_source": (
-                direct_result.get("probe_source")
-                if direct_result is not None
-                else None
-            ),
-            "direct_probe_observed_at": (
-                direct_result.get("probe_observed_at")
-                if direct_result is not None
-                else None
-            ),
-            "direct_probe_age_seconds": (
-                direct_result.get("probe_age_seconds")
-                if direct_result is not None
-                else None
-            ),
-            "direct_probe_refresh_error": (
-                direct_result.get("probe_refresh_error")
-                if direct_result is not None
-                else None
-            ),
-            "internal_probe_source": (
-                internal_result.get("probe_source")
-                if internal_result is not None
-                else None
-            ),
-            "internal_probe_observed_at": (
-                internal_result.get("probe_observed_at")
-                if internal_result is not None
-                else None
-            ),
-            "internal_probe_age_seconds": (
-                internal_result.get("probe_age_seconds")
-                if internal_result is not None
-                else None
-            ),
-            "internal_probe_refresh_error": (
-                internal_result.get("probe_refresh_error")
-                if internal_result is not None
-                else None
-            ),
+            "direct_probe_source": (direct_result.get("probe_source") if direct_result is not None else None),
+            "direct_probe_observed_at": (direct_result.get("probe_observed_at") if direct_result is not None else None),
+            "direct_probe_age_seconds": (direct_result.get("probe_age_seconds") if direct_result is not None else None),
+            "direct_probe_refresh_error": (direct_result.get("probe_refresh_error") if direct_result is not None else None),
+            "internal_probe_source": (internal_result.get("probe_source") if internal_result is not None else None),
+            "internal_probe_observed_at": (internal_result.get("probe_observed_at") if internal_result is not None else None),
+            "internal_probe_age_seconds": (internal_result.get("probe_age_seconds") if internal_result is not None else None),
+            "internal_probe_refresh_error": (internal_result.get("probe_refresh_error") if internal_result is not None else None),
             "runtime_state": app.state if app is not None else None,
             "runtime_app": app.app_id if app is not None else None,
             "runtime_reachable": runtime.reachable if runtime is not None else None,
@@ -430,21 +398,9 @@ async def reconcile_homelab_health_payload(
         runtime = await fetch_truenas_runtime()
         runtime_source = "runtime_fallback"
 
-    runtime_bindings = {
-        service.service_id: service.runtime
-        for service in declared.services
-        if service.runtime is not None
-    }
-    public_results = [
-        dict(row)
-        for row in payload.get("services", [])
-        if isinstance(row, dict)
-    ]
-    internal_results = [
-        dict(row)
-        for row in payload.get("internal_services", [])
-        if isinstance(row, dict)
-    ]
+    runtime_bindings = {service.service_id: service.runtime for service in declared.services if service.runtime is not None}
+    public_results = [dict(row) for row in payload.get("services", []) if isinstance(row, dict)]
+    internal_results = [dict(row) for row in payload.get("internal_services", []) if isinstance(row, dict)]
     reconciled = build_reconciled_service_health(
         services,
         public_results=public_results,
