@@ -591,3 +591,65 @@ async def test_probe_fanout_budget_returns_partial_results(monkeypatch) -> None:
     assert results[0]["state"] == "ok"
     assert results[1]["timed_out"] is True
     assert results[1]["error_kind"] == "deadline"
+
+
+
+@pytest.mark.asyncio
+async def test_truenas_transport_diagnostics_timeout_keeps_api_health(monkeypatch) -> None:
+    async def api_ok():
+        return {
+            "reachable": True,
+            "version": "TrueNAS-26.0.0-BETA.2",
+            "apps": [{"id": "sample"}],
+        }
+
+    async def http_ok(*_args, **_kwargs):
+        return {
+            "name": "TrueNAS HTTPS",
+            "url": "https://truenas.albandrieu.com:7000/",
+            "reachable": True,
+            "http_status": 200,
+            "state": "ok",
+            "tls_trusted": True,
+            "latency_ms": 1,
+        }
+
+    async def slow_diagnostics(**_kwargs):
+        await asyncio.sleep(1)
+        return {"stages": []}
+
+    monkeypatch.setattr(homelab_health, "_observe_truenas_api", api_ok)
+    monkeypatch.setattr(homelab_health, "_probe_http_endpoint", http_ok)
+    monkeypatch.setattr(
+        homelab_health,
+        "collect_truenas_network_diagnostics",
+        slow_diagnostics,
+    )
+    monkeypatch.setattr(homelab_health, "_TRUENAS_DIAGNOSTICS_BUDGET_SEC", 0.01)
+    monkeypatch.setattr(
+        homelab_health,
+        "truenas_url",
+        lambda: "https://truenas.albandrieu.com:7000",
+    )
+    monkeypatch.setattr(
+        homelab_health,
+        "truenas_host_port",
+        lambda: ("truenas.albandrieu.com", 7000),
+    )
+    monkeypatch.setattr(homelab_health, "truenas_http_verify_ssl", lambda: True)
+    monkeypatch.setattr(homelab_health, "homelab_runtime_detected", lambda: True)
+
+    result = await homelab_health._probe_truenas(
+        asyncio.Semaphore(2),
+        internal_enabled=False,
+    )
+
+    assert result["state"] == "ok"
+    assert result["public"]["name"] == "TrueNAS HTTPS"
+    assert result["api"]["reachable"] is True
+    assert result["diagnostics"]["timed_out"] is True
+    assert result["diagnostics"]["error_kind"] == "deadline"
+    assert result["diagnostics"]["stages"][-2]["id"] == "authentication"
+    assert result["diagnostics"]["stages"][-2]["state"] == "ok"
+    assert result["diagnostics"]["stages"][-1]["id"] == "api"
+    assert result["diagnostics"]["stages"][-1]["state"] == "ok"
