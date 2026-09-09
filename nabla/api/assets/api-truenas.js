@@ -284,7 +284,8 @@ function renderProbeFanout(data) {
     internal.budget_seconds ?? publicSummary.budget_seconds ?? "unknown";
   const concurrency =
     internal.max_concurrency ?? publicSummary.max_concurrency ?? "unknown";
-  const catalog = catalogCount != null ? `catalog ${catalogCount} · ` : "";
+  const catalog =
+    catalogCount != null ? `declared service catalog ${catalogCount} · ` : "";
   const pathMode = data?.truenas?.diagnostics?.path_mode;
   const runtimeMode =
     pathMode === "direct_lan" ? "🏠 local/direct LAN" : "☁ external/public WAN";
@@ -296,9 +297,12 @@ function renderProbeFanout(data) {
         ? "⚠ TLS verify off"
         : "🔐 TLS verify unknown";
   const api = data?.truenas?.api || {};
+  const appInventoryCount = Array.isArray(api?.apps) ? api.apps.length : null;
+  const appInventory =
+    appInventoryCount != null ? ` · TrueNAS app inventory ${appInventoryCount}` : "";
   const apiMode =
     api.reachable === true
-      ? `🔌 TrueNAS API healthy${api.version ? ` · ${api.version}` : ""}`
+      ? `🔌 TrueNAS API healthy${api.version ? ` · ${api.version}` : ""}${appInventory}`
       : api.reachable === false
         ? `⚠ TrueNAS API ${api.stage || "unreachable"}`
         : "◌ TrueNAS API not measured";
