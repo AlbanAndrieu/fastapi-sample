@@ -211,7 +211,13 @@ async def build_homelab_snapshot(
     """Build homelab diagnostics without allowing a provider hang to hold the route."""
     try:
         async with asyncio.timeout(_HOMELAB_SNAPSHOT_DEADLINE_SEC):
-            return await _build_homelab_snapshot(shared_checks)
+            payload = await _build_homelab_snapshot(shared_checks)
+        return {
+            **payload,
+            "status": payload.get("components_status", "healthy"),
+            "timed_out": False,
+            "error": None,
+        }
     except TimeoutError:
         from nabla.api.homelab_health import internal_probes_enabled
         from nabla.api.provider_credentials import infrastructure_provider_credentials
