@@ -113,7 +113,7 @@ class DeclaredService(BaseModel):
     def require_unique_security_functions(self) -> "DeclaredService":
         """Reject ambiguous duplicate NIST CSF function metadata."""
         if self.security_functions is not None and len(self.security_functions) != len(
-            set(self.security_functions)
+            set(self.security_functions),
         ):
             raise ValueError("securityFunctions must not contain duplicates")
         if self.environments is not None:
