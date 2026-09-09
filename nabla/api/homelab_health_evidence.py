@@ -204,7 +204,7 @@ def _reconciled_state(
     origin_proven_up = internal == "ok" or 200 <= direct_http_status < 300
 
     if runtime_missing:
-        return "fail"
+        return "warn" if origin_proven_up else "fail"
     if application_error:
         return "warn"
     if runtime == "fail":

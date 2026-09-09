@@ -39,8 +39,29 @@ class FakeClient:
             return "26.0.0-BETA.2"
         if method == "app.query":
             return [
-                {"name": "open-webui", "state": "RUNNING", "upgrade_available": False},
-                {"name": "litellm", "state": "CRASHED", "upgrade_available": True},
+                {
+                    "id": "openwebui",
+                    "name": "open-webui",
+                    "state": "RUNNING",
+                    "upgrade_available": False,
+                    "active_workloads": {
+                        "container_details": [
+                            {
+                                "service_name": "open-webui",
+                                "image": "ghcr.io/open-webui/open-webui:v0.11.0",
+                                "state": "running",
+                                "mounts": ["/secret/path"],
+                            }
+                        ]
+                    },
+                    "config": {"admin_password": "must-not-leak"},
+                },
+                {
+                    "id": "litellm",
+                    "name": "litellm",
+                    "state": "CRASHED",
+                    "upgrade_available": True,
+                },
             ]
         raise AssertionError(f"unexpected TrueNAS method: {method}")
 
@@ -209,8 +230,27 @@ def test_health_snapshot_uses_system_version_and_app_query() -> None:
         "reachable": True,
         "version": "26.0.0-BETA.2",
         "apps": [
-            {"name": "open-webui", "state": "RUNNING", "upgrade_available": False},
-            {"name": "litellm", "state": "CRASHED", "upgrade_available": True},
+            {
+                "id": "openwebui",
+                "name": "open-webui",
+                "state": "RUNNING",
+                "upgrade_available": False,
+                "active_workloads": {
+                    "container_details": [
+                        {
+                            "service_name": "open-webui",
+                            "image": "ghcr.io/open-webui/open-webui:v0.11.0",
+                            "state": "running",
+                        }
+                    ]
+                },
+            },
+            {
+                "id": "litellm",
+                "name": "litellm",
+                "state": "CRASHED",
+                "upgrade_available": True,
+            },
         ],
     }
     assert clients[0].uri == "wss://truenas.example/api/current"
@@ -218,6 +258,8 @@ def test_health_snapshot_uses_system_version_and_app_query() -> None:
     assert clients[0].verify_ssl is True
     clients[0].login.assert_called_once_with("readonly", "1-secret")
     assert clients[0].calls == ["system.version", "app.query"]
+    assert "config" not in snapshot["apps"][0]
+    assert "mounts" not in snapshot["apps"][0]["active_workloads"]["container_details"][0]
 
 
 def test_health_snapshot_preserves_call_phase_for_rbac_denial() -> None:

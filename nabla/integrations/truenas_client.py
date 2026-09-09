@@ -330,15 +330,33 @@ class TrueNASReadOnlyAdapter:
         if not isinstance(version, str) or not isinstance(apps, list):
             raise RuntimeError("TrueNAS API returned an unexpected health payload")
 
-        app_rows = [
-            {
-                "name": str(app.get("name") or app.get("id") or "unknown"),
+        app_rows: list[dict[str, Any]] = []
+        for app in apps:
+            if not isinstance(app, dict):
+                continue
+            app_id = str(app.get("id") or app.get("name") or "unknown")
+            row: dict[str, Any] = {
+                "id": app_id,
+                "name": str(app.get("name") or app_id),
                 "state": str(app.get("state") or "UNKNOWN"),
                 "upgrade_available": bool(app.get("upgrade_available", False)),
             }
-            for app in apps
-            if isinstance(app, dict)
-        ]
+            workloads = app.get("active_workloads")
+            if isinstance(workloads, dict):
+                containers = workloads.get("container_details")
+                if isinstance(containers, list):
+                    sanitized = [
+                        {
+                            key: str(container[key])
+                            for key in ("service_name", "image", "state")
+                            if container.get(key) is not None
+                        }
+                        for container in containers
+                        if isinstance(container, dict)
+                    ]
+                    if sanitized:
+                        row["active_workloads"] = {"container_details": sanitized}
+            app_rows.append(row)
         return {"reachable": True, "version": version, "apps": app_rows}
 
 

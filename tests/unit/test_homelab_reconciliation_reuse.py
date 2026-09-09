@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from nabla.api.homelab_runtime import runtime_snapshot_from_health_api
+from nabla.api.homelab_declared import RuntimeBinding
+from nabla.api.homelab_runtime import (
+    match_runtime_binding,
+    runtime_snapshot_from_health_api,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -31,6 +35,44 @@ def test_runtime_snapshot_reuses_true_nas_health_app_inventory() -> None:
     assert snapshot.stale is False
     assert snapshot.observed_at == "2026-09-09T14:21:06Z"
     assert [app.app_id for app in snapshot.apps] == ["n8n"]
+
+
+def test_runtime_snapshot_reuses_container_service_identity() -> None:
+    snapshot = runtime_snapshot_from_health_api(
+        {
+            "reachable": True,
+            "stale": False,
+            "last_success_at": "2026-09-09T16:00:00Z",
+            "apps": [
+                {
+                    "id": "vaultwarden",
+                    "name": "vaultwarden",
+                    "state": "RUNNING",
+                    "active_workloads": {
+                        "container_details": [
+                            {
+                                "service_name": "vaultwarden",
+                                "image": "vaultwarden/server:latest",
+                                "state": "running",
+                            }
+                        ]
+                    },
+                }
+            ],
+        }
+    )
+
+    assert snapshot is not None
+    matched, container = match_runtime_binding(
+        snapshot.apps[0],
+        RuntimeBinding(
+            provider="truenas-app",
+            containerService="vaultwarden",
+        ),
+    )
+    assert matched is True
+    assert container is not None
+    assert container.service_name == "vaultwarden"
 
 
 def test_runtime_snapshot_uses_stale_last_good_inventory() -> None:
