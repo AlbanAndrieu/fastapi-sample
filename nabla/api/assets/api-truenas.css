@@ -144,8 +144,62 @@
   border-top: 2px dashed #ff6666;
 }
 
+.truenas-probe-summary {
+  margin-top: 0.65rem;
+  color: #9ca3af;
+  font-size: 0.68rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.truenas-probe-details {
+  margin-top: 0.55rem;
+  border-top: 1px solid #222;
+  padding-top: 0.5rem;
+}
+
+.truenas-probe-details > summary {
+  cursor: pointer;
+  color: #c7c7c7;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.truenas-probe-list {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.truenas-probe-row {
+  display: grid;
+  grid-template-columns: minmax(130px, 1.5fr) minmax(150px, 1.4fr) auto auto;
+  gap: 0.5rem;
+  align-items: baseline;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #292929;
+  border-radius: 7px;
+  font-size: 0.64rem;
+}
+
+.truenas-probe-row--ok { border-color: rgba(0, 255, 136, 0.25); }
+.truenas-probe-row--warn { border-color: rgba(255, 200, 50, 0.32); }
+.truenas-probe-row--fail { border-color: rgba(255, 80, 80, 0.4); }
+
+.truenas-probe-name { color: #d4d4d4; font-weight: 600; }
+.truenas-probe-target {
+  color: #8f8f8f;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  overflow-wrap: anywhere;
+}
+.truenas-probe-state { color: #b5b5b5; }
+.truenas-probe-latency {
+  color: #8f8f8f;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
 @media (max-width: 700px) {
   .truenas-platform-heading { flex-direction: column; }
   .truenas-platform-state { align-self: flex-start; }
   .truenas-security-filters { align-items: flex-start; }
+  .truenas-probe-row { grid-template-columns: 1fr; }
 }
