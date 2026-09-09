@@ -62,7 +62,7 @@ def test_truenas_platform_distinguishes_direct_lan_from_public_wan_path() -> Non
     javascript = ASSET.read_text(encoding="utf-8")
 
     assert 'diagnostics?.path_mode === "direct_lan"' in javascript
-    assert "TrueNAS HTTPS + WebSocket API endpoint · direct LAN" in javascript
+    assert "TrueNAS HTTPS listener + TrueNAS API (WebSocket /api/current) · direct LAN" in javascript
     assert "public API path via pfSense/HAProxy" in javascript
     assert 'if (pathMode === "direct_lan") return stages;' in javascript
 
@@ -91,4 +91,10 @@ def test_truenas_platform_displays_probe_fanout_matrix() -> None:
     assert "probe_summary" in javascript
     assert "internal_services" in javascript
     assert "public_probe_results" in javascript
+    assert "⏸ LAN probes disabled" in javascript
+    assert "● LAN probes enabled" in javascript
+    assert "TrueNAS HTTPS" in javascript
+    assert "TrueNAS API healthy" in javascript
+    assert "local/direct LAN" in javascript
+    assert "external/public WAN" in javascript
     assert "fan-out budget" in javascript
