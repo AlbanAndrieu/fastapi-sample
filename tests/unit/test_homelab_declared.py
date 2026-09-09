@@ -14,7 +14,7 @@ def _catalog(service: dict[str, object]) -> DeclaredServiceCatalog:
             "topologyVersion": 1,
             "name": "test",
             "services": [service],
-        }
+        },
     )
 
 
@@ -34,7 +34,7 @@ def test_declared_service_preserves_presentation_and_security_metadata() -> None
                 "provider": "truenas-app",
                 "containerService": "wazuh",
             },
-        }
+        },
     )
 
     service = catalog.services[0]
@@ -96,7 +96,7 @@ def test_declared_service_rejects_duplicate_security_functions() -> None:
                 "securityFunctions": ["detect", "detect"],
                 "sourcePath": "apps/wazuh/compose.yml",
                 "composeService": "wazuh",
-            }
+            },
         )
 
 
@@ -109,7 +109,7 @@ def test_declared_service_omits_absent_security_functions() -> None:
             "category": "data",
             "sourcePath": "apps/redis/compose.yml",
             "composeService": "redis",
-        }
+        },
     )
 
     payload = catalog.model_dump(mode="json", by_alias=True, exclude_none=True)
@@ -139,7 +139,7 @@ def test_declared_service_accepts_named_deployment_environments() -> None:
                     "cloudflareTunnel": False,
                 },
             ],
-        }
+        },
     )
 
     payload = catalog.model_dump(mode="json", by_alias=True, exclude_none=True)
