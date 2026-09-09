@@ -278,7 +278,6 @@ function probeFreshnessText(data) {
   return parts.join(" · ");
 }
 
-
 function renderProbeFanout(data) {
   const summary = document.getElementById("truenas-probe-summary");
   const detailsSummary = document.getElementById(
@@ -299,8 +298,7 @@ function renderProbeFanout(data) {
   const internalSampled = internal.sampled ?? internal.scheduled ?? 0;
   const publicEligible =
     publicSummary.eligible ?? publicSummary.scheduled ?? "?";
-  const publicSampled =
-    publicSummary.sampled ?? publicSummary.scheduled ?? 0;
+  const publicSampled = publicSummary.sampled ?? publicSummary.scheduled ?? 0;
   const internalEvidence = internal.evidence || {};
   const publicEvidence = publicSummary.evidence || {};
   const internalCoverage =
@@ -315,8 +313,7 @@ function renderProbeFanout(data) {
     internalEnabled === false
       ? `⏸ LAN probes disabled · 0/${internalEligible} sampled`
       : `● LAN probes enabled · ${internalSampled}/${internalEligible} sampled · ${internal.completed ?? 0} completed · ${internal.timed_out ?? 0} deadline${internalCoverage}`;
-  const publicText =
-    `🌐 public probes · ${publicSampled}/${publicEligible} sampled · ${publicSummary.completed ?? 0} completed · ${publicSummary.timed_out ?? 0} deadline${publicCoverage}`;
+  const publicText = `🌐 public probes · ${publicSampled}/${publicEligible} sampled · ${publicSummary.completed ?? 0} completed · ${publicSummary.timed_out ?? 0} deadline${publicCoverage}`;
   const budget =
     internal.budget_seconds ?? publicSummary.budget_seconds ?? "unknown";
   const concurrency =
@@ -355,8 +352,7 @@ function renderProbeFanout(data) {
 
   const freshness = probeFreshnessText(data);
   summary.textContent = `${freshness} · ${runtimeMode} · ${httpsMode} · ${apiMode} · ${internalText} · ${publicText} · ${catalog}fan-out budget ${budget}s · concurrency ${concurrency} · ${tlsMode}`;
-  detailsSummary.textContent =
-    `Homelab probe fan-out · ${rows.length} observed rows · LAN ${internalSampled}/${internalEligible} · public ${publicSampled}/${publicEligible}`;
+  detailsSummary.textContent = `Homelab probe fan-out · ${rows.length} observed rows · LAN ${internalSampled}/${internalEligible} · public ${publicSampled}/${publicEligible}`;
 
   list.innerHTML = rows
     .map((row) => {
