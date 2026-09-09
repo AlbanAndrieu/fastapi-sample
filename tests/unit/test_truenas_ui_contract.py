@@ -95,6 +95,8 @@ def test_truenas_platform_displays_probe_fanout_matrix() -> None:
     assert "● LAN probes enabled" in javascript
     assert "TrueNAS HTTPS" in javascript
     assert "TrueNAS API healthy" in javascript
+    assert "declared service catalog" in javascript
+    assert "TrueNAS app inventory" in javascript
     assert "local/direct LAN" in javascript
     assert "external/public WAN" in javascript
     assert "fan-out budget" in javascript
