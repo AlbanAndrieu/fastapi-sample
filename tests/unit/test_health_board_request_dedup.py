@@ -36,5 +36,5 @@ def test_truenas_uses_probe_matrix_as_fast_primary_render_path() -> None:
     assert "fetchHomelabProbeMatrix" in truenas
     assert 'cache: "no-store"' in shared
     assert truenas.index("probes = await fetchHomelabProbeMatrix()") < truenas.index(
-        "const aggregate = await fetchHomelabHealth()"
+        "const aggregate = await fetchHomelabHealth()",
     )
