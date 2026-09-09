@@ -21,6 +21,7 @@ from nabla.api.sickz_cloudflare_edge import _probe_http_edge_evidence
 from nabla.api.truenas_diagnostics import (
     append_truenas_api_stages,
     collect_truenas_network_diagnostics,
+    unmeasured_truenas_network_diagnostics,
 )
 from nabla.api.truenas_health_observer import (
     observe_truenas_health_api as _observe_truenas_api,
@@ -40,6 +41,7 @@ _HEALTH_CACHE_TTL_SEC = 30.0
 _MAX_PROBE_CONCURRENCY = 4
 _PROBE_TIMEOUT_SEC = 5.0
 _SERVICE_FANOUT_BUDGET_SEC = 4.0
+_TRUENAS_DIAGNOSTICS_BUDGET_SEC = 3.0
 _INTERNAL_PROBE_ENV = "HOMELAB_INTERNAL_PROBES_ENABLED"
 _MAX_APPLICATION_BODY_BYTES = 16_384
 _APPLICATION_ERROR_PREFIXES = (
@@ -400,7 +402,7 @@ async def _probe_truenas(
             _probe_internal_service(
                 semaphore,
                 HomelabService(
-                    name="TrueNAS",
+                    name="TrueNAS TCP",
                     internalHost=host,
                     internalPort=port,
                     external=False,
@@ -417,7 +419,7 @@ async def _probe_truenas(
             truenas_client,
             semaphore,
             service_id="truenas",
-            name="TrueNAS",
+            name="TrueNAS HTTPS",
             url=configured_url,
         )
 
@@ -440,13 +442,26 @@ async def _probe_truenas(
         ),
     )
 
-    pending: list[asyncio.Future[Any] | asyncio.Task[Any]] = [api_task, diagnostics_task]
-    if internal_task is not None:
-        pending.append(internal_task)
-    completed = await asyncio.gather(*pending)
-    api_result = completed[0]
-    diagnostics = completed[1]
-    internal_result = completed[2] if internal_task is not None else None
+    api_result = await api_task
+    internal_result = await internal_task if internal_task is not None else None
+    try:
+        diagnostics = await asyncio.wait_for(
+            diagnostics_task,
+            timeout=_TRUENAS_DIAGNOSTICS_BUDGET_SEC,
+        )
+    except TimeoutError:
+        diagnostics_task.cancel()
+        await asyncio.gather(diagnostics_task, return_exceptions=True)
+        diagnostics = unmeasured_truenas_network_diagnostics(
+            host=host,
+            port=port,
+            websocket_uri=websocket_uri,
+            verify_ssl=verify_ssl,
+            path_mode=(
+                "direct_lan" if homelab_runtime_detected() else "public_wan_haproxy"
+            ),
+            budget_seconds=_TRUENAS_DIAGNOSTICS_BUDGET_SEC,
+        )
     diagnostics = append_truenas_api_stages(diagnostics, api_result)
     return {
         "id": "truenas",
