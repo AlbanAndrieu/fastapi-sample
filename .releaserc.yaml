@@ -78,22 +78,10 @@ plugins:
               numMatches: 1
               numReplacements: 1
           countMatches: true
-        - files:
-            - Dockerfile
-          from:
-            - 'ARG APP_VERSION="\d+\.\d+\.\d+"'
-          to: 'ARG APP_VERSION="${nextRelease.version}"'
-          results:
-            - file: Dockerfile
-              hasChanged: true
-              numMatches: 1
-              numReplacements: 1
-          countMatches: true
   # Commit the generated changelog and synchronized version files.
   - - "@semantic-release/git"
     - assets:
         - "CHANGELOG.md"
-        - "Dockerfile"
         - "pyproject.toml"
         - "package.json"
         - "package-lock.json"
