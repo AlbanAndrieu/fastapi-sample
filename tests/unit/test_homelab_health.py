@@ -146,7 +146,7 @@ async def test_health_snapshot_only_probes_approved_public_services(monkeypatch)
 
     payload = await homelab_health.build_homelab_health_payload()
 
-    assert payload["schema_version"] == 2
+    assert payload["schema_version"] == 3
     assert payload["truenas"]["state"] == "ok"
     assert len(payload["services"]) == 1
     assert payload["services"][0]["url"] == "https://langfuse.albandrieu.com/"
@@ -525,7 +525,7 @@ def test_public_homelab_routes(monkeypatch) -> None:
     assert service_health["url_derived"] is False
     assert service_health["state"] == "unknown"
     assert probes_response.status_code == 200
-    assert probes_response.json()["schema_version"] == 2
+    assert probes_response.json()["schema_version"] == 3
     assert catalog_response.status_code == 200
     assert catalog_response.json()["version"] == 2
     assert catalog_response.json()["services"][0]["external"] is True
