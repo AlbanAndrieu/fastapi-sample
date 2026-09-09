@@ -115,6 +115,7 @@ async def test_health_snapshot_only_probes_approved_public_services(monkeypatch)
     ]
     probe = AsyncMock(
         return_value={
+            "id": services[0].service_id,
             "name": "Langfuse",
             "url": "https://langfuse.albandrieu.com/",
             "reachable": True,
@@ -177,6 +178,7 @@ async def test_internal_probes_cover_private_and_external_services(monkeypatch) 
     internal_probe = AsyncMock(
         side_effect=[
             {
+                "id": services[0].service_id,
                 "name": "Private service",
                 "host": "192.168.1.20",
                 "port": 8080,
@@ -185,6 +187,7 @@ async def test_internal_probes_cover_private_and_external_services(monkeypatch) 
                 "latency_ms": 1,
             },
             {
+                "id": services[1].service_id,
                 "name": "Exposed service",
                 "host": "192.168.1.21",
                 "port": 3000,
@@ -207,6 +210,7 @@ async def test_internal_probes_cover_private_and_external_services(monkeypatch) 
         "_probe_public_service",
         AsyncMock(
             return_value={
+                "id": services[1].service_id,
                 "name": "Exposed service",
                 "url": "https://service.albandrieu.com/",
                 "reachable": True,
