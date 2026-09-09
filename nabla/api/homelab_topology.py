@@ -13,6 +13,7 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 HOMELAB_TOPOLOGY_URL = "https://raw.githubusercontent.com/AlbanAndrieu/nabla-compose/master/catalog/service-topology.json"
 _CACHE_TTL_SEC = 300.0
+_FETCH_TIMEOUT_SEC = 4.0
 _log = logging.getLogger(__name__)
 _cache_lock = asyncio.Lock()
 
@@ -197,7 +198,7 @@ async def fetch_homelab_topology() -> HomelabTopology:
             return _topology_cache.topology
 
         try:
-            async with httpx.AsyncClient(timeout=httpx.Timeout(15.0)) as client:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(_FETCH_TIMEOUT_SEC)) as client:
                 response = await client.get(
                     HOMELAB_TOPOLOGY_URL,
                     headers={"User-Agent": "nabla-homelab-topology/1.0"},
