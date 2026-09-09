@@ -35,6 +35,8 @@ def test_api_page_serves_external_assets() -> None:
     open_graph = client.get("/api/assets/open-graph.png")
 
     assert page.status_code == 200
+    assert page.headers["cache-control"] == "no-store, max-age=0"
+    assert page.headers["pragma"] == "no-cache"
     assert 'href="/api/assets/api.css?v=test-version"' in page.text
     assert 'type="module" src="/api/assets/api-health.js?v=test-version"' in page.text
     assert "function computeOverall" not in page.text
