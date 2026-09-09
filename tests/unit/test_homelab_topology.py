@@ -143,3 +143,27 @@ def test_topology_rejects_duplicate_security_functions() -> None:
 
     with pytest.raises(ValidationError, match="securityFunctions must not contain duplicates"):
         HomelabTopology.model_validate(payload)
+
+
+def test_topology_accepts_named_deployment_environments() -> None:
+    payload = _topology_payload()
+    payload["nodes"][0]["environments"] = [
+        {
+            "name": "production",
+            "url": "https://fastapi-sample.fastapicloud.dev",
+            "external": False,
+            "cloudflareTunnel": False,
+        },
+        {
+            "name": "staging",
+            "url": "https://sample.albandrieu.com",
+            "external": False,
+            "cloudflareTunnel": False,
+        },
+    ]
+
+    topology = HomelabTopology.model_validate(payload)
+    wire = topology.model_dump(mode="json", by_alias=True, exclude_none=True)
+
+    assert wire["nodes"][0]["environments"][0]["name"] == "production"
+    assert wire["nodes"][0]["environments"][1]["cloudflareTunnel"] is False
