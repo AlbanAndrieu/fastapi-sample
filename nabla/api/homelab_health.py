@@ -289,7 +289,7 @@ def _probe_exception_result(
             "error_kind": "probe_error",
             "error": _short_error(exc),
             "exception_type": type(exc).__name__,
-        }
+        },
     )
     return result
 
