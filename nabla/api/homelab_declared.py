@@ -15,6 +15,7 @@ DECLARED_SERVICES_URL = (
     "master/catalog/services.json"
 )
 _CACHE_TTL_SEC = 300.0
+_FETCH_TIMEOUT_SEC = 4.0
 _log = logging.getLogger(__name__)
 _cache_lock = asyncio.Lock()
 _cached_at = 0.0
@@ -159,7 +160,7 @@ async def fetch_declared_service_catalog() -> DeclaredServiceCatalog:
         if _cached_catalog is not None and now - _cached_at < _CACHE_TTL_SEC:
             return _cached_catalog
         try:
-            async with httpx.AsyncClient(timeout=httpx.Timeout(15.0)) as client:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(_FETCH_TIMEOUT_SEC)) as client:
                 response = await client.get(
                     DECLARED_SERVICES_URL,
                     headers={"User-Agent": "nabla-declared-services/1.0"},
