@@ -28,7 +28,7 @@ _evidence: dict[Scope, dict[str, _ProbeEvidence]] = {
 def _annotated(
     entry: _ProbeEvidence,
     *,
-    source: Literal["origin", "memory"],
+    source: Literal["origin", "memory", "deadline"],
     now: float,
     refresh_error: str | None = None,
 ) -> dict[str, Any]:
@@ -72,15 +72,28 @@ def merge_probe_evidence(
 
     for service_id, row in current_by_id.items():
         previous = store.get(service_id)
-        if row.get("timed_out") is True and previous is not None:
-            merged[service_id] = _annotated(
-                previous,
-                source="memory",
-                now=clock,
-                refresh_error=str(
-                    row.get("error") or "service probe fan-out budget exceeded"
-                ),
-            )
+        if row.get("timed_out") is True:
+            if previous is not None:
+                merged[service_id] = _annotated(
+                    previous,
+                    source="memory",
+                    now=clock,
+                    refresh_error=str(
+                        row.get("error")
+                        or "service probe fan-out budget exceeded"
+                    ),
+                )
+            else:
+                transient = _ProbeEvidence(
+                    row=dict(row),
+                    observed_at=checked_at,
+                    recorded_at=clock,
+                )
+                merged[service_id] = _annotated(
+                    transient,
+                    source="deadline",
+                    now=clock,
+                )
             continue
 
         entry = _ProbeEvidence(
@@ -114,7 +127,7 @@ def evidence_summary(
     """Describe rolling evidence coverage independently from this cycle's sample."""
     fresh = sum(row.get("probe_source") == "origin" for row in results)
     cached = sum(row.get("probe_source") == "memory" for row in results)
-    known = len(results)
+    known = fresh + cached
     return {
         "known": known,
         "fresh": fresh,
