@@ -16,7 +16,7 @@ export function fetchHomelabProbeMatrix() {
     headers: { Accept: "application/json" },
   }).then(async (response) => {
     if (!response.ok) {
-      throw new Error(`homelab probe matrix request failed: HTTP ${response.status}`);
+      throw new Error(\n        `homelab probe matrix request failed: HTTP ${response.status}`,\n      );
     }
     return response.json();
   });
