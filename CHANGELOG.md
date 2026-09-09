@@ -1,3 +1,10 @@
+## [1.13.9](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.13.8...1.13.9) (2026-09-09)
+
+
+### Bug Fixes
+
+* **health:** preserve TrueNAS diagnostics under homelab probe fan-out ([#229](https://github.com/AlbanAndrieu/fastapi-sample/issues/229)) ([e98c0fe](https://github.com/AlbanAndrieu/fastapi-sample/commit/e98c0fecea95ee6535df0354d82edab3c226f22b))
+
 ## [1.13.8](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.13.7...1.13.8) (2026-09-08)
 
 
