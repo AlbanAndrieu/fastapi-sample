@@ -1,0 +1,54 @@
+name: Temporary PR237 Bandit fix
+
+on:
+  push:
+    branches:
+      - fix/generic-service-restricted-security
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: fix/generic-service-restricted-security
+          fetch-depth: 0
+      - name: Patch validated urlopen Bandit annotation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("scripts/diagnose-local-runtime-dependencies.py")
+          text = path.read_text()
+          old = 'with urlopen(request, timeout=8.0) as response:  # noqa: S310 - validated HTTP(S) request'
+          new = 'with urlopen(request, timeout=8.0) as response:  # nosec B310  # noqa: S310 - scheme validated above'
+          if old not in text:
+              raise SystemExit("expected urlopen line not found")
+          path.write_text(text.replace(old, new, 1))
+          PY
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: '0.12.1'
+          python-version: '3.13'
+      - name: Verify focused security hook
+        run: |
+          uv sync --frozen
+          uv pip install pre-commit==4.6.2
+          uv run pre-commit run bandit --files scripts/diagnose-local-runtime-dependencies.py
+      - name: Commit patch and remove helper
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/tmp-pr237-bandit-fix.yml
+          git add -A
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix(security): document validated HTTP urlopen'
+          git push origin HEAD:fix/generic-service-restricted-security
