@@ -1,0 +1,155 @@
+const AGE_TICK_MS = 1000;
+const ROW_DECORATION_RETRY_MS = 50;
+const ROW_DECORATION_ATTEMPTS = 20;
+
+let lastSnapshot = null;
+let ticker = null;
+
+const TIER_HELP = {
+  "Required infra (albandrieu.com)":
+    "Required infrastructure for the albandrieu.com application/homelab view. A confirmed failure can affect the overall health summary. This is an availability tier, not the same thing as the canonical topology group or blast-radius criticality.",
+  "Required health check":
+    "Dependency required by the application health contract. A confirmed failure makes the deep diagnostic unhealthy.",
+  "Optional health check":
+    "Non-blocking integration or supporting service. A confirmed failure can raise attention, but it does not make the application unavailable. Missing or timed-out evidence is reported as a warning/unknown state rather than downtime.",
+};
+
+function parseObservedAt(value) {
+  if (!value) return null;
+  const timestamp = Date.parse(String(value));
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function observedAtForCheck(check, snapshot) {
+  const candidates = [
+    check?.probe_observed_at,
+    check?.direct_probe_observed_at,
+    check?.internal_probe_observed_at,
+    check?.observed_at,
+  ]
+    .map(parseObservedAt)
+    .filter((value) => value != null);
+  if (candidates.length > 0) return Math.max(...candidates);
+  return parseObservedAt(snapshot?.generated_at);
+}
+
+function ageSeconds(observedAt) {
+  if (observedAt == null) return null;
+  return Math.max(0, Math.floor((Date.now() - observedAt) / 1000));
+}
+
+function ensureAgeBadge(row) {
+  const tags = row.querySelector(".health-row-tags");
+  if (!tags) return null;
+  let badge = tags.querySelector(".health-meta-badge--probe-age");
+  if (badge) return badge;
+  badge = document.createElement("span");
+  badge.className = "health-meta-badge health-meta-badge--probe-age";
+  const latency = tags.querySelector(".health-meta-badge--metric");
+  if (latency?.nextSibling) tags.insertBefore(badge, latency.nextSibling);
+  else if (latency) tags.appendChild(badge);
+  else tags.prepend(badge);
+  return badge;
+}
+
+function ensureProbingBadge(row) {
+  const tags = row.querySelector(".health-row-tags");
+  if (!tags) return null;
+  let badge = tags.querySelector(".health-meta-badge--probing");
+  if (!badge) {
+    badge = document.createElement("span");
+    badge.className = "health-meta-badge health-meta-badge--probing";
+    badge.textContent = "probing…";
+    tags.appendChild(badge);
+  }
+  return badge;
+}
+
+function checkIsDue(check, observedAt) {
+  const interval = Number(check?.probe_interval_seconds);
+  if (!Number.isFinite(interval) || interval <= 0) return true;
+  const age = ageSeconds(observedAt);
+  return age == null || age >= Math.max(0, interval - 2);
+}
+
+function decorateTierHelp(row) {
+  const note = row.querySelector(".health-meta-note");
+  if (!note) return;
+  const label = String(note.textContent || "").trim();
+  const help = TIER_HELP[label];
+  if (!help) return;
+  note.classList.add("health-tier-help");
+  note.title = help;
+  note.setAttribute("aria-label", `${label}. ${help}`);
+}
+
+function updateRow(row, check, snapshot) {
+  decorateTierHelp(row);
+  const observedAt = observedAtForCheck(check, snapshot);
+  const age = ageSeconds(observedAt);
+  const badge = ensureAgeBadge(row);
+  if (badge) {
+    badge.textContent = age == null ? "probe age unknown" : `${age}s ago`;
+    const interval = Number(check?.probe_interval_seconds);
+    const cadence = Number.isFinite(interval) && interval > 0 ? ` · cadence ${Math.round(interval)}s` : "";
+    badge.title = observedAt == null
+      ? `Last probe time unavailable${cadence}`
+      : `Last probe ${new Date(observedAt).toISOString()}${cadence}`;
+  }
+
+  const probing = snapshot?.refreshing === true && checkIsDue(check, observedAt);
+  const probingBadge = row.querySelector(".health-meta-badge--probing");
+  if (probing) ensureProbingBadge(row);
+  else probingBadge?.remove();
+}
+
+function checksForSnapshot(snapshot) {
+  return snapshot?.healthz?.checks || {};
+}
+
+function decorateRows(snapshot, attempt = 0) {
+  const rows = [...document.querySelectorAll(".health-row[data-service-key]")];
+  if (rows.length === 0 && attempt < ROW_DECORATION_ATTEMPTS) {
+    window.setTimeout(() => decorateRows(snapshot, attempt + 1), ROW_DECORATION_RETRY_MS);
+    return;
+  }
+  const checks = checksForSnapshot(snapshot);
+  for (const row of rows) {
+    const key = row.dataset.serviceKey || "";
+    const check = checks[key] || {};
+    updateRow(row, check, snapshot);
+  }
+}
+
+function installTierLegend() {
+  if (document.getElementById("health-tier-legend")) return;
+  const groups = document.getElementById("health-services-groups");
+  if (!groups) return;
+  const legend = document.createElement("div");
+  legend.id = "health-tier-legend";
+  legend.className = "health-tier-legend";
+  legend.innerHTML =
+    '<strong>Health-check tiers</strong>' +
+    '<span><b>Required infra (albandrieu.com)</b> — availability requirement for the homelab/domain view; confirmed failures may affect the overall summary.</span>' +
+    '<span><b>Optional health check</b> — non-blocking integration/support probe; an unconfirmed timeout is a warning, not downtime.</span>';
+  groups.before(legend);
+}
+
+export function decorateProbeTelemetry(snapshot) {
+  lastSnapshot = snapshot;
+  installTierLegend();
+  decorateRows(snapshot);
+}
+
+export function markVisibleProbeRowsPending() {
+  for (const row of document.querySelectorAll(".health-row[data-service-key]")) {
+    ensureProbingBadge(row);
+  }
+}
+
+export function startProbeAgeTicker() {
+  if (ticker) return;
+  ticker = window.setInterval(() => {
+    if (lastSnapshot) decorateRows(lastSnapshot);
+  }, AGE_TICK_MS);
+}

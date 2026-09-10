@@ -19,6 +19,8 @@ const HOMELAB_EVIDENCE_FIELDS = [
   "internal_probe_observed_at",
   "internal_probe_age_seconds",
   "internal_probe_refresh_error",
+  "probe_interval_seconds",
+  "next_probe_in_seconds",
   "runtime_state",
   "runtime_app",
   "runtime_reachable",
