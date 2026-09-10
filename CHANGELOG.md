@@ -1,3 +1,10 @@
+## [1.13.13](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.13.12...1.13.13) (2026-09-10)
+
+
+### Bug Fixes
+
+* **truenas:** preserve app.query runtime binding evidence ([#233](https://github.com/AlbanAndrieu/fastapi-sample/issues/233)) ([2c07529](https://github.com/AlbanAndrieu/fastapi-sample/commit/2c075292b2b82dfcdc27dbeb9f295aaf0accb469))
+
 ## [1.13.12](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.13.11...1.13.12) (2026-09-09)
 
 
