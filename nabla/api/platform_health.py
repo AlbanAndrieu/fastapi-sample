@@ -82,6 +82,29 @@ def _cloudflare_api_error(response: httpx.Response) -> dict[str, Any]:
     return result
 
 
+def _cloudflare_unconfirmed(
+    reason: str,
+    *,
+    error_kind: str,
+    api_reachable: bool | None,
+    http_status: int | None = None,
+) -> dict[str, Any]:
+    """Return non-degrading provider uncertainty with an explicit warning."""
+    result: dict[str, Any] = {
+        "reachable": None,
+        "api_reachable": api_reachable,
+        "state": "unknown",
+        "status_confirmed": False,
+        "warning": f"⚠️ Cloudflare global status could not be confirmed: {reason}",
+        "error": reason,
+        "error_kind": error_kind,
+        "probe": "cloudflare_tunnel_api",
+    }
+    if http_status is not None:
+        result["http_status"] = http_status
+    return result
+
+
 async def check_cloudflare_tunnels() -> dict[str, Any]:
     """Check Cloudflare Tunnel control-plane and tunnel health read-only."""
     settings = CloudflareTunnelSettings.from_environment()
@@ -105,36 +128,41 @@ async def check_cloudflare_tunnels() -> dict[str, Any]:
                 params={"is_deleted": "false"},
             )
     except (httpx.HTTPError, OSError) as exc:
-        return {
-            "reachable": False,
-            "api_reachable": False,
-            "error": _short_error(exc),
-            "probe": "cloudflare_tunnel_api",
-        }
+        return _cloudflare_unconfirmed(
+            _short_error(exc),
+            error_kind=_http_error_kind(exc),
+            api_reachable=False,
+        )
 
     if response.status_code >= 400:
         return _cloudflare_api_error(response)
     try:
         payload = response.json()
-    except ValueError as exc:
-        return {
-            "reachable": False,
-            "api_reachable": True,
-            "http_status": response.status_code,
-            "error": _short_error(exc),
-            "probe": "cloudflare_tunnel_api",
-        }
+    except ValueError:
+        return _cloudflare_unconfirmed(
+            "Cloudflare Tunnel API returned invalid JSON",
+            error_kind="invalid_response",
+            api_reachable=True,
+            http_status=response.status_code,
+        )
 
     tunnels = payload.get("result") if isinstance(payload, dict) else None
     if not isinstance(tunnels, list):
-        return {
-            "reachable": False,
-            "api_reachable": True,
-            "error": "Cloudflare Tunnel API returned an unexpected payload",
-            "probe": "cloudflare_tunnel_api",
-        }
+        return _cloudflare_unconfirmed(
+            "Cloudflare Tunnel API returned an unexpected payload",
+            error_kind="invalid_response",
+            api_reachable=True,
+            http_status=response.status_code,
+        )
 
     statuses = [str(tunnel.get("status") or "unknown").lower() for tunnel in tunnels if isinstance(tunnel, dict)]
+    if not statuses:
+        return _cloudflare_unconfirmed(
+            "Cloudflare Tunnel API returned no tunnel inventory",
+            error_kind="empty_inventory",
+            api_reachable=True,
+            http_status=response.status_code,
+        )
     unhealthy = [status for status in statuses if status in {"inactive", "degraded", "down"}]
     healthy = sum(status == "healthy" for status in statuses)
     return {
@@ -142,6 +170,8 @@ async def check_cloudflare_tunnels() -> dict[str, Any]:
         "api_reachable": True,
         "http_status": response.status_code,
         "probe": "cloudflare_tunnel_api",
+        "state": "warn" if unhealthy else "ok",
+        "status_confirmed": True,
         "tunnel_count": len(statuses),
         "healthy_tunnels": healthy,
         "unhealthy_tunnels": len(unhealthy),
@@ -322,14 +352,32 @@ async def get_pfsense_api_snapshot() -> dict[str, Any]:
 
 
 async def get_cloudflare_tunnels_snapshot() -> dict[str, Any]:
-    """Use L1/Redis L2 cache for the Cloudflare control-plane query."""
+    """Use L1/Redis L2 cache without turning refresh uncertainty into downtime."""
     cached = await get_or_refresh_probe(
         _CLOUDFLARE_CACHE_KEY,
         check_cloudflare_tunnels,
-        is_success=lambda value: value.get("api_reachable") is True,
+        is_success=lambda value: value.get("status_confirmed") is True,
         policy=_CLOUDFLARE_CACHE_POLICY,
     )
-    return _cache_with_stale_evidence(cached)
+    result = _cache_with_stale_evidence(cached)
+    current = cached.value
+    if current.get("status_confirmed") is False:
+        last_known_reachable = result.get("reachable")
+        result.update(
+            {
+                "reachable": None,
+                "api_reachable": current.get("api_reachable"),
+                "state": "unknown",
+                "status_confirmed": False,
+                "warning": current.get("warning")
+                or "⚠️ Cloudflare global status could not be confirmed",
+                "error": current.get("error"),
+                "error_kind": current.get("error_kind"),
+            }
+        )
+        if last_known_reachable is not None:
+            result["last_known_reachable"] = last_known_reachable
+    return result
 
 
 async def reset_pfsense_api_cache() -> None:

@@ -21,6 +21,7 @@ from nabla.api.provider_probe_policies import (
 )
 
 _CLOUDFLARE_EXPOSURE_CACHE_KEY = "cloudflare:exposure"
+_CLOUDFLARE_OBSERVER_TIMEOUT_SEC = 4.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,7 +38,20 @@ class CloudflareExposureSnapshot:
     cache: dict[str, Any] | None = None
 
     def summary(self) -> dict[str, Any]:
+        status_confirmed = bool(
+            self.configured
+            and not self.tunnel_error
+            and not self.access_error
+            and not self.stale
+        )
+        warning = (
+            None
+            if status_confirmed or not self.configured
+            else "⚠️ Cloudflare global status could not be confirmed"
+        )
         return {
+            "status_confirmed": status_confirmed,
+            "warning": warning,
             "configured": self.configured,
             "tunnels_observed": len(self.tunnels),
             "access_applications_observed": len(self.access_applications),
@@ -115,7 +129,11 @@ def _short_provider_error(exc: BaseException) -> str:
 async def _observe_cloudflare_exposure_origin() -> dict[str, Any]:
     async def tunnels() -> tuple[tuple[CloudflareTunnelObservation, ...], str | None]:
         try:
-            return tuple(await asyncio.to_thread(observe_cloudflare_tunnels)), None
+            observed = await asyncio.wait_for(
+                asyncio.to_thread(observe_cloudflare_tunnels),
+                timeout=_CLOUDFLARE_OBSERVER_TIMEOUT_SEC,
+            )
+            return tuple(observed), None
         except Exception as exc:  # pragma: no cover - provider/network dependent
             return (), _short_provider_error(exc)
 
@@ -123,7 +141,10 @@ async def _observe_cloudflare_exposure_origin() -> dict[str, Any]:
         tuple[CloudflareAccessApplicationObservation, ...], str | None
     ]:
         try:
-            observed = await asyncio.to_thread(observe_cloudflare_access_applications)
+            observed = await asyncio.wait_for(
+                asyncio.to_thread(observe_cloudflare_access_applications),
+                timeout=_CLOUDFLARE_OBSERVER_TIMEOUT_SEC,
+            )
             return tuple(observed), None
         except Exception as exc:  # pragma: no cover - provider/network/permissions dependent
             return (), _short_provider_error(exc)

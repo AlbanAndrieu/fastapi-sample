@@ -58,6 +58,25 @@ def _deadline_check(probe: str) -> dict[str, Any]:
     }
 
 
+def _cloudflare_unconfirmed_check(
+    *,
+    error: str,
+    error_kind: str,
+    timed_out: bool = False,
+) -> dict[str, Any]:
+    return {
+        "reachable": None,
+        "api_reachable": None,
+        "state": "unknown",
+        "status_confirmed": False,
+        "warning": f"⚠️ Cloudflare global status could not be confirmed: {error}",
+        "timed_out": timed_out,
+        "error": error,
+        "error_kind": error_kind,
+        "probe": "cloudflare",
+    }
+
+
 def _failed_optional_check(
     probe: str,
     exc: BaseException | None = None,
@@ -89,7 +108,11 @@ async def build_extended_healthz(request: Request) -> dict[str, Any]:
                 enriched = await enrich_optional_platform_checks(payload)
         except TimeoutError:
             return {
-                "cloudflare": _deadline_check("cloudflare"),
+                "cloudflare": _cloudflare_unconfirmed_check(
+                    error="optional diagnostic enrichment deadline exceeded",
+                    error_kind="deadline",
+                    timed_out=True,
+                ),
                 "pfsense": _deadline_check("pfsense"),
             }
         except Exception as exc:
@@ -98,7 +121,10 @@ async def build_extended_healthz(request: Request) -> dict[str, Any]:
                 type(exc).__name__,
             )
             return {
-                "cloudflare": _failed_optional_check("cloudflare", exc),
+                "cloudflare": _cloudflare_unconfirmed_check(
+                    error="optional diagnostic enrichment failed",
+                    error_kind="probe_error",
+                ),
                 "pfsense": _failed_optional_check("pfsense", exc),
             }
         checks = enriched.get("checks") or {}

@@ -110,6 +110,7 @@ function mandatoryFailed(key, check) {
 function baseDetailText(key, check) {
   if (check.skipped)
     return check.reason || "Not configured (intentionally disabled).";
+  if (check.warning) return String(check.warning);
   if (isExpectedSentryDebugFailure(key, check)) {
     return "HTTP 500 · Expected: the test error was intentionally triggered and captured by Sentry.";
   }

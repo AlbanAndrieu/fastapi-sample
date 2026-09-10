@@ -153,6 +153,8 @@ def component_status(components: dict[str, dict[str, Any]]) -> str:
         check = components.get(key, {})
         if check.get("skipped") is True:
             continue
+        if key == "cloudflare" and check.get("status_confirmed") is False:
+            continue
         if check.get("reachable") is False or check.get("state") == "warn" or check.get("stale") is True or check.get("tls_trusted") is False:
             return "degraded"
     return critical_status or "healthy"
