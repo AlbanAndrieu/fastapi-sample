@@ -19,9 +19,11 @@ def test_live_probe_ui_refreshes_age_without_network_each_second() -> None:
 def test_health_board_poll_is_cached_and_pauses_when_tab_is_hidden() -> None:
     javascript = (ASSETS / "api-health.js").read_text(encoding="utf-8")
 
-    assert "const HEALTH_BOARD_POLL_MS = 5000;" in javascript
+    assert "const HEALTH_BOARD_IDLE_POLL_MS = 5000;" in javascript
+    assert "const HEALTH_BOARD_REFRESHING_POLL_MS = 1000;" in javascript
     assert "document.hidden" in javascript
     assert "loadHealthBoards({ showPending: false })" in javascript
+    assert "snapshot?.refreshing === true" in javascript
     assert "startProbeAgeTicker();" in javascript
 
 
