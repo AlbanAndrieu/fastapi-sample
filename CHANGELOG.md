@@ -1,3 +1,10 @@
+# [1.15.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.14.0...1.15.0) (2026-09-10)
+
+
+### Features
+
+* **kubernetes:** harden generic-service for Restricted PSS ([#237](https://github.com/AlbanAndrieu/fastapi-sample/issues/237)) ([dd54ab9](https://github.com/AlbanAndrieu/fastapi-sample/commit/dd54ab927a73db7a2873bd91f896e25928069786))
+
 # [1.14.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.13.15...1.14.0) (2026-09-10)
 
 
