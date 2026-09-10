@@ -77,22 +77,35 @@ def _normalize_optional_uncertainty(
     """Keep missing optional evidence distinct from an observed outage.
 
     A deadline only proves that the observer did not finish. Likewise, a
-    Cloudflare control-plane retrieval failure without tunnel inventory cannot
-    establish global Cloudflare health. Preserve the diagnostic error, add an
-    explicit warning, and mark reachability unknown instead of degraded/down.
+    Cloudflare control-plane retrieval failure, skipped observer, or stale
+    last-known-good inventory cannot establish current global Cloudflare health.
+    Preserve diagnostic context, add an explicit warning, and mark current
+    reachability unknown instead of degraded/down.
     """
     normalized = dict(check)
     timed_out = check.get("timed_out") is True or check.get("error_kind") == "deadline"
     cloudflare_inventory_observed = any(field in check for field in _CLOUDFLARE_INVENTORY_FIELDS)
-    cloudflare_unconfirmed = (
-        name == "cloudflare"
-        and check.get("reachable") is False
-        and not cloudflare_inventory_observed
+    cloudflare_refresh_unconfirmed = name == "cloudflare" and (
+        check.get("stale") is True or bool(str(check.get("refresh_error") or "").strip())
+    )
+    cloudflare_unconfirmed = name == "cloudflare" and (
+        cloudflare_refresh_unconfirmed
+        or (
+            check.get("reachable") is not True
+            and not cloudflare_inventory_observed
+        )
     )
     if not timed_out and not cloudflare_unconfirmed:
         return normalized
 
-    original_error = str(check.get("error") or "").strip()
+    original_error = str(
+        check.get("refresh_error")
+        or check.get("error")
+        or check.get("reason")
+        or ""
+    ).strip()
+    if name == "cloudflare" and cloudflare_inventory_observed:
+        normalized["last_known_reachable"] = check.get("reachable")
     normalized["reachable"] = None
     normalized["degraded"] = False
     normalized["status_confirmed"] = False
@@ -100,7 +113,7 @@ def _normalize_optional_uncertainty(
     normalized["effective_state"] = "warn"
     if name == "cloudflare":
         warning = (
-            "⚠️ Cloudflare status could not be confirmed; control-plane data is unavailable or the probe timed out."
+            "⚠️ Cloudflare global status could not be confirmed; control-plane data is unavailable, stale, or the probe timed out."
         )
     else:
         warning = (
@@ -108,6 +121,8 @@ def _normalize_optional_uncertainty(
         )
     normalized["warning"] = warning
     normalized["error"] = f"{warning} {original_error}".strip()
+    if check.get("skipped") is True:
+        normalized["reason"] = normalized["error"]
     return normalized
 
 
