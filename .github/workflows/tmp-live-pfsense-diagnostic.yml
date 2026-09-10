@@ -1,0 +1,42 @@
+name: Temporary live pfSense diagnostic
+
+on:
+  push:
+    branches:
+      - fix/functional-probe-runtime-ui
+
+permissions:
+  contents: write
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: fix/functional-probe-runtime-ui
+          fetch-depth: 0
+      - name: Inspect current FastAPI Cloud health evidence
+        shell: bash
+        run: |
+          set +e
+          echo '=== /healthz ==='
+          curl -sS --max-time 20 -o /tmp/healthz.json -w 'HTTP %{http_code}\n' https://fastapi-sample.fastapicloud.dev/healthz
+          jq '{version, status, pfsense: .checks.pfsense}' /tmp/healthz.json 2>/dev/null || head -c 4000 /tmp/healthz.json
+          echo
+          echo '=== /api/homelab/health ==='
+          curl -sS --max-time 20 -o /tmp/homelab.json -w 'HTTP %{http_code}\n' https://fastapi-sample.fastapicloud.dev/api/homelab/health
+          jq '{status, timed_out, pfsense: .pfsense, components: {pfsense: .components.pfsense, unbound: .components.unbound}, truenas: {path_mode: .truenas.diagnostics.path_mode, target: .truenas.diagnostics.target}}' /tmp/homelab.json 2>/dev/null || head -c 6000 /tmp/homelab.json
+          echo
+          echo '=== /livez ==='
+          curl -sS --max-time 10 https://fastapi-sample.fastapicloud.dev/livez | jq . || true
+          exit 0
+      - name: Remove temporary workflow
+        shell: bash
+        run: |
+          rm -f .github/workflows/tmp-live-pfsense-diagnostic.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m 'chore(ci): remove temporary live pfSense diagnostic' || exit 0
+          git push
