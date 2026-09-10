@@ -226,6 +226,55 @@ def _declared_edge_mode(service: HomelabService) -> str:
     return "unspecified"
 
 
+def _edge_reconciliation_reasons(
+    edge_mode: str,
+    tunnel: dict[str, Any] | None,
+    snapshot: CloudflareExposureSnapshot,
+) -> tuple[list[str], list[str]]:
+    """Return edge-mode mismatches and evidence gaps without changing service health."""
+    mismatches: list[str] = []
+    incomplete: list[str] = []
+    if edge_mode == "unspecified":
+        incomplete.append("External service has no explicit edge-mode declaration")
+    elif edge_mode == "cloudflare":
+        if not snapshot.configured:
+            incomplete.append("Cloudflare observation is not configured")
+        elif snapshot.tunnel_error:
+            incomplete.append("Cloudflare Tunnel observation failed")
+        elif not tunnel:
+            mismatches.append("Cloudflare edge is declared but no matching Tunnel ingress was observed")
+    elif tunnel:
+        mismatches.append("Direct exposure is declared but a matching Cloudflare Tunnel ingress was observed")
+    return mismatches, incomplete
+
+
+def _access_reconciliation_reasons(
+    *,
+    access_required: bool,
+    edge_mode: str,
+    access: dict[str, Any] | None,
+    snapshot: CloudflareExposureSnapshot,
+) -> tuple[list[str], list[str]]:
+    """Return Access mismatches and evidence gaps independently of provider availability."""
+    if not access_required:
+        return [], []
+
+    mismatches: list[str] = []
+    incomplete: list[str] = []
+    if edge_mode == "direct":
+        mismatches.append("Cloudflare Access is required while the declared edge mode is direct")
+    if not snapshot.configured:
+        incomplete.append("Cloudflare Access observation is not configured")
+    elif snapshot.access_error:
+        incomplete.append("Cloudflare Access observation failed")
+    elif not access:
+        mismatches.append("Cloudflare Access is required but no matching Access application was observed")
+    elif access.get("cloudflare_access_public") is True:
+        scope = access.get("cloudflare_access_public_scope") or "unknown"
+        mismatches.append(f"Cloudflare Access has a broad public/bypass policy at {scope} scope")
+    return mismatches, incomplete
+
+
 def _service_exposure(
     service: HomelabService,
     row: dict[str, Any],
@@ -265,33 +314,15 @@ def _service_exposure(
             "observed": observed,
         }
 
-    mismatches: list[str] = []
-    incomplete: list[str] = []
-    if edge_mode == "unspecified":
-        incomplete.append("External service has no explicit edge-mode declaration")
-    elif edge_mode == "cloudflare":
-        if not snapshot.configured:
-            incomplete.append("Cloudflare observation is not configured")
-        elif snapshot.tunnel_error:
-            incomplete.append("Cloudflare Tunnel observation failed")
-        elif not tunnel:
-            mismatches.append("Cloudflare edge is declared but no matching Tunnel ingress was observed")
-    elif edge_mode == "direct" and tunnel:
-        mismatches.append("Direct exposure is declared but a matching Cloudflare Tunnel ingress was observed")
-
-    if access_required:
-        if edge_mode == "direct":
-            mismatches.append("Cloudflare Access is required while the declared edge mode is direct")
-        if not snapshot.configured:
-            incomplete.append("Cloudflare Access observation is not configured")
-        elif snapshot.access_error:
-            incomplete.append("Cloudflare Access observation failed")
-        elif not access:
-            mismatches.append("Cloudflare Access is required but no matching Access application was observed")
-        elif access.get("cloudflare_access_public") is True:
-            scope = access.get("cloudflare_access_public_scope") or "unknown"
-            mismatches.append(f"Cloudflare Access has a broad public/bypass policy at {scope} scope")
-
+    edge_mismatches, edge_incomplete = _edge_reconciliation_reasons(edge_mode, tunnel, snapshot)
+    access_mismatches, access_incomplete = _access_reconciliation_reasons(
+        access_required=access_required,
+        edge_mode=edge_mode,
+        access=access,
+        snapshot=snapshot,
+    )
+    mismatches = edge_mismatches + access_mismatches
+    incomplete = edge_incomplete + access_incomplete
     state = "mismatch" if mismatches else "incomplete" if incomplete else "match"
     return {
         "state": state,
