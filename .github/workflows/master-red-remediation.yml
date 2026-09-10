@@ -1,0 +1,234 @@
+---
+name: Master red remediation
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: master-red-remediation
+  cancel-in-progress: false
+
+jobs:
+  assess:
+    name: Re-run critical master gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      actions: write
+      contents: read
+    outputs:
+      red: ${{ steps.assess.outputs.red }}
+      evidence_b64: ${{ steps.assess.outputs.evidence_b64 }}
+    steps:
+      - name: Dispatch and assess critical master gates
+        id: assess
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          TARGET_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          workflows=(python.yml production-smoke.yml)
+          failures=0
+          evidence_file="${RUNNER_TEMP}/master-gate-evidence.txt"
+          : >"${evidence_file}"
+
+          for workflow in "${workflows[@]}"; do
+            echo "Dispatching ${workflow} for master@${TARGET_SHA}"
+            gh workflow run "${workflow}" --repo "${REPOSITORY}" --ref master
+
+            run_id=""
+            for _ in $(seq 1 30); do
+              run_id="$(
+                gh run list \
+                  --repo "${REPOSITORY}" \
+                  --workflow "${workflow}" \
+                  --branch master \
+                  --event workflow_dispatch \
+                  --limit 30 \
+                  --json databaseId,headSha \
+                  --jq ".[] | select(.headSha == \"${TARGET_SHA}\") | .databaseId" \
+                  | head -n1
+              )"
+              [[ -n "${run_id}" ]] && break
+              sleep 2
+            done
+
+            if [[ -z "${run_id}" ]]; then
+              echo "${workflow} run=missing conclusion=dispatch_lookup_failed" | tee -a "${evidence_file}"
+              failures=$((failures + 1))
+              continue
+            fi
+
+            if gh run watch "${run_id}" --repo "${REPOSITORY}" --exit-status; then
+              conclusion="success"
+            else
+              conclusion="$(
+                gh run view "${run_id}" --repo "${REPOSITORY}" \
+                  --json conclusion --jq '.conclusion // "failure"'
+              )"
+              failures=$((failures + 1))
+            fi
+
+            run_url="$(
+              gh run view "${run_id}" --repo "${REPOSITORY}" \
+                --json url --jq '.url'
+            )"
+            echo "${workflow} run=${run_id} conclusion=${conclusion} url=${run_url}" \
+              | tee -a "${evidence_file}"
+          done
+
+          if ((failures > 0)); then
+            echo "red=true" >>"${GITHUB_OUTPUT}"
+          else
+            echo "red=false" >>"${GITHUB_OUTPUT}"
+          fi
+          echo "evidence_b64=$(base64 -w0 <"${evidence_file}")" >>"${GITHUB_OUTPUT}"
+
+  remediate:
+    name: Open remediation issue and PR
+    needs: assess
+    if: ${{ needs.assess.outputs.red == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ secrets.MASTER_REMEDIATION_TOKEN || github.token }}
+      REPOSITORY: ${{ github.repository }}
+      TARGET_SHA: ${{ github.sha }}
+      EVIDENCE_B64: ${{ needs.assess.outputs.evidence_b64 }}
+    steps:
+      - name: Checkout master
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: master
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Create or reuse remediation issue and PR
+        run: |
+          set -euo pipefail
+
+          short_sha="${TARGET_SHA:0:12}"
+          branch="remediation/master-red-${short_sha}"
+          issue_title="[master-red:${short_sha}] Critical post-merge gates failed"
+          pr_title="fix(ci): remediate red master ${short_sha}"
+          evidence="$(printf '%s' "${EVIDENCE_B64}" | base64 -d)"
+
+          export ISSUE_TITLE="${issue_title}"
+          issue_number="$(
+            gh issue list --repo "${REPOSITORY}" --state all --limit 200 \
+              --json number,title \
+              --jq '.[] | select(.title == env.ISSUE_TITLE) | .number' \
+              | head -n1
+          )"
+
+          if [[ -z "${issue_number}" ]]; then
+            issue_body="${RUNNER_TEMP}/master-red-issue.md"
+            cat >"${issue_body}" <<EOF
+          ## Automated master-red detection
+
+          The post-merge master gate detected a failure for commit \`${TARGET_SHA}\`.
+
+          ### Failing/observed gates
+
+          \`\`\`text
+          ${evidence}
+          \`\`\`
+
+          ### Remediation contract
+
+          - diagnose the first failing gate from its linked run;
+          - fix root cause rather than weakening/skipping the gate;
+          - run the canonical quality gate after edits;
+          - record any residual work in \`docs/engineering-roadmap.md\` before declaring remediation complete;
+          - close this issue only after the current \`master\` post-merge gate is green.
+
+          Generated by \`Master red remediation\`.
+          EOF
+            issue_url="$(gh issue create --repo "${REPOSITORY}" --title "${issue_title}" --body-file "${issue_body}")"
+            issue_number="${issue_url##*/}"
+          fi
+
+          existing_pr="$(
+            gh pr list --repo "${REPOSITORY}" --state all --head "${branch}" \
+              --json number --jq '.[0].number // empty'
+          )"
+          if [[ -n "${existing_pr}" ]]; then
+            echo "Remediation PR #${existing_pr} already exists."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "${branch}"
+
+          mkdir -p docs/remediation
+          remediation_file="docs/remediation/master-red-${short_sha}.md"
+          cat >"${remediation_file}" <<EOF
+          # Master red remediation — ${short_sha}
+
+          Source master commit: \`${TARGET_SHA}\`
+          Tracking issue: #${issue_number}
+
+          ## Gate evidence
+
+          \`\`\`text
+          ${evidence}
+          \`\`\`
+
+          ## Required outcome
+
+          Replace this tracking-only remediation scaffold with the actual root-cause
+          fix. Do not merge this PR while it only contains this evidence file.
+          Re-run \`scripts/quality-gate.sh --publish\` after the implementation and
+          keep every remaining follow-up in \`docs/engineering-roadmap.md\`.
+          EOF
+
+          git add "${remediation_file}"
+          git commit -m "chore(ci): scaffold master red remediation ${short_sha}"
+          gh auth setup-git
+          git push origin "${branch}"
+
+          pr_body="${RUNNER_TEMP}/master-red-pr.md"
+          cat >"${pr_body}" <<EOF
+          ## Automated remediation scaffold
+
+          Tracks #${issue_number} for red master commit \`${TARGET_SHA}\`.
+
+          \`\`\`text
+          ${evidence}
+          \`\`\`
+
+          This PR is intentionally **not merge-ready** until the tracking-only file
+          is replaced or accompanied by the root-cause fix. Do not weaken a failing
+          gate to make it green. Record residual work in \`docs/engineering-roadmap.md\`.
+          EOF
+
+          if ! gh pr create \
+            --repo "${REPOSITORY}" \
+            --base master \
+            --head "${branch}" \
+            --title "${pr_title}" \
+            --body-file "${pr_body}"; then
+            gh issue comment "${issue_number}" --repo "${REPOSITORY}" \
+              --body "The remediation branch was pushed, but automatic PR creation failed. Ensure **Settings → Actions → General → Workflow permissions → Allow GitHub Actions to create and approve pull requests** is enabled, or configure MASTER_REMEDIATION_TOKEN with an authorized GitHub App/PAT."
+            exit 1
+          fi
+
+  keep-master-red-visible:
+    name: Keep red master visible until remediation
+    needs: [assess, remediate]
+    if: ${{ always() && needs.assess.outputs.red == 'true' }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Fail while critical master gates are red
+        run: |
+          echo "Critical post-merge master gates are red; remediation was opened."
+          exit 1
