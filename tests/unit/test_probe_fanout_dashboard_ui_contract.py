@@ -36,13 +36,15 @@ def test_probe_dashboard_separates_latest_and_retained_evidence() -> None:
     assert "next_probe_in_seconds" in javascript
 
 
-def test_probe_dashboard_exposes_coverage_health_and_warmup() -> None:
+def test_probe_dashboard_exposes_coverage_health_and_runtime_warmup() -> None:
     javascript = DASHBOARD.read_text(encoding="utf-8")
 
     assert "evidence coverage" in javascript
     assert "healthy coverage" in javascript
-    assert "Cold-start / evidence warm-up" in javascript
-    assert "theoretical minimum" in javascript
+    assert "Evidence warm-up" in javascript
+    assert "probe_runtime" in javascript
+    assert "scheduler uptime" in javascript
+    assert "longest priority-aware cadence" in javascript
     assert "Excluded from coverage denominator" in javascript
     assert "eligible probe slots" in javascript
     assert "probe-coverage-segment--ok" in javascript
