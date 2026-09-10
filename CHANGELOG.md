@@ -1,3 +1,10 @@
+# [1.14.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.13.15...1.14.0) (2026-09-10)
+
+
+### Features
+
+* **health:** report local runtime dependency evidence ([#236](https://github.com/AlbanAndrieu/fastapi-sample/issues/236)) ([020a372](https://github.com/AlbanAndrieu/fastapi-sample/commit/020a372750a8a9e026a988ee83ea74119d9f3b91))
+
 ## [1.13.15](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.13.14...1.13.15) (2026-09-10)
 
 
