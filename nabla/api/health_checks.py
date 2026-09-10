@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable, Callable
 import logging
 import time
 from typing import Any
@@ -14,6 +15,11 @@ from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
 from nabla.api.auth.openstack import probe_ovh_me_reachable
+from nabla.api.health_probe_cadence import (
+    annotate_required_probe,
+    probe_cadence_contract,
+    run_cadenced_optional_probe,
+)
 from nabla.api.health_probe_utils import (
     normalize_probe_error as _normalize_probe_error,
     normalize_probe_result_errors as _normalize_probe_result_errors,
@@ -41,6 +47,7 @@ _HEALTHZ_PROBE_DEADLINE_SEC = 8.0
 _HEALTHZ_MAX_CONCURRENCY = 4
 _HEALTHZ_DEPENDENCY_MAX_CONCURRENCY = 2
 _HEALTHZ_HOMELAB_MAX_CONCURRENCY = 2
+_REQUIRED_DEPENDENCY_KEYS = frozenset({"redis", "postgres", "supabase"})
 _DEPENDENCY_KEYS = (
     "redis",
     "postgres",
@@ -263,6 +270,24 @@ def _deadline_probe_result(
     return result
 
 
+async def _run_dependency_probe(
+    name: str,
+    factory: Callable[[], Awaitable[dict[str, Any]]],
+    budget: ProbeBudget,
+) -> dict[str, Any]:
+    """Run one dependency according to required/optional probe cadence."""
+
+    async def run_origin() -> dict[str, Any]:
+        return await budget.run(
+            factory,
+            timeout_value=lambda: _deadline_probe_result(name),
+        )
+
+    if name in _REQUIRED_DEPENDENCY_KEYS:
+        return annotate_required_probe(name, await run_origin())
+    return await run_cadenced_optional_probe(name, run_origin)
+
+
 async def _run_dependency_probes(
     redis_client: Any,
     engine: Engine,
@@ -287,10 +312,7 @@ async def _run_dependency_probes(
     )
     results = await asyncio.gather(
         *(
-            budget.run(
-                factory,
-                timeout_value=lambda name=name: _deadline_probe_result(name),
-            )
+            _run_dependency_probe(name, factory, budget)
             for name, factory in zip(_DEPENDENCY_KEYS, factories, strict=True)
         ),
     )
@@ -392,5 +414,6 @@ async def build_healthz_payload(
             "dependency_max_concurrency": _HEALTHZ_DEPENDENCY_MAX_CONCURRENCY,
             "homelab_max_concurrency": _HEALTHZ_HOMELAB_MAX_CONCURRENCY,
             "queues": "isolated",
+            "cadence": probe_cadence_contract(),
         },
     }
