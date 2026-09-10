@@ -39,6 +39,8 @@ logger = logging.getLogger(__name__)
 
 _HEALTHZ_PROBE_DEADLINE_SEC = 8.0
 _HEALTHZ_MAX_CONCURRENCY = 4
+_HEALTHZ_DEPENDENCY_MAX_CONCURRENCY = 2
+_HEALTHZ_HOMELAB_MAX_CONCURRENCY = 2
 _DEPENDENCY_KEYS = (
     "redis",
     "postgres",
@@ -333,22 +335,31 @@ async def build_healthz_payload(
 ) -> dict[str, Any]:
     """Build the deep dependency-health payload used by ``/healthz``."""
     base = await fetch_base_health(request)
-    budget = ProbeBudget(
+
+    # Keep homelab service probes isolated from optional integration probes so
+    # a slow SaaS/provider cannot consume the whole queue before LAN/edge
+    # service checks get a chance to run. The two queues together retain the
+    # previous maximum of four active probes.
+    homelab_budget = ProbeBudget(
         deadline_seconds=_HEALTHZ_PROBE_DEADLINE_SEC,
-        max_concurrency=_HEALTHZ_MAX_CONCURRENCY,
+        max_concurrency=_HEALTHZ_HOMELAB_MAX_CONCURRENCY,
     )
-    homelab_rows = await budget.run(
+    homelab_rows = await homelab_budget.run(
         homelab_healthz_probe_rows,
         timeout_value=lambda: None,
     )
     catalog_timed_out = homelab_rows is None
     rows = homelab_rows or []
 
+    dependency_budget = ProbeBudget(
+        deadline_seconds=_HEALTHZ_PROBE_DEADLINE_SEC,
+        max_concurrency=_HEALTHZ_DEPENDENCY_MAX_CONCURRENCY,
+    )
     dependency_results, homelab_results = await asyncio.gather(
-        _run_dependency_probes(redis_client, engine, budget),
+        _run_dependency_probes(redis_client, engine, dependency_budget),
         asyncio.gather(
             *(
-                budget.run(
+                homelab_budget.run(
                     lambda url=url, display_label=display_label: probe_https_get_reachable(
                         url,
                         probe_name=display_label,
@@ -367,7 +378,7 @@ async def build_healthz_payload(
     if catalog_timed_out:
         checks["homelab_catalog"] = _deadline_probe_result("homelab_catalog")
     checks = {name: _normalize_probe_result_errors(check) for name, check in checks.items()}
-    await budget.run(
+    await dependency_budget.run(
         lambda: enrich_integration_metadata(checks),
         timeout_value=lambda: None,
     )
@@ -378,5 +389,8 @@ async def build_healthz_payload(
         "probe_budget": {
             "deadline_seconds": _HEALTHZ_PROBE_DEADLINE_SEC,
             "max_concurrency": _HEALTHZ_MAX_CONCURRENCY,
+            "dependency_max_concurrency": _HEALTHZ_DEPENDENCY_MAX_CONCURRENCY,
+            "homelab_max_concurrency": _HEALTHZ_HOMELAB_MAX_CONCURRENCY,
+            "queues": "isolated",
         },
     }
