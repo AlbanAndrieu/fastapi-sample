@@ -11,7 +11,10 @@ function renderPills(values) {
     return '<span class="runtime-topology-empty">none observed</span>';
   }
   return values
-    .map((value) => `<code class="runtime-topology-pill">${escapeText(value)}</code>`)
+    .map(
+      (value) =>
+        `<code class="runtime-topology-pill">${escapeText(value)}</code>`,
+    )
     .join("");
 }
 
@@ -27,13 +30,19 @@ function clearRedisMetrics(memoryText) {
 function renderRedisUsage(redis) {
   if (!redis || redis.configured === false) {
     clearRedisMetrics("not configured");
-    setText("runtime-redis-scope", "Application Redis backend is not configured.");
+    setText(
+      "runtime-redis-scope",
+      "Application Redis backend is not configured.",
+    );
     return;
   }
 
   if (redis.available === false) {
     clearRedisMetrics("Redis unreachable");
-    setText("runtime-redis-scope", "Application Redis backend is configured but unreachable.");
+    setText(
+      "runtime-redis-scope",
+      "Application Redis backend is configured but unreachable.",
+    );
     return;
   }
 
@@ -49,9 +58,10 @@ function renderRedisUsage(redis) {
   const used = redis.used_memory_human || "—";
   const max = redis.maxmemory_human;
   const utilization = Number(redis.memory_utilization_percent);
-  const memory = max && Number(redis.maxmemory_bytes) > 0
-    ? `${used} / ${max}${Number.isFinite(utilization) ? ` · ${utilization}%` : ""}`
-    : `${used} · no max limit`;
+  const memory =
+    max && Number(redis.maxmemory_bytes) > 0
+      ? `${used} / ${max}${Number.isFinite(utilization) ? ` · ${utilization}%` : ""}`
+      : `${used} · no max limit`;
   const hitRate = Number(redis.keyspace_hit_rate_percent);
 
   setText("runtime-redis-memory", memory);
@@ -73,7 +83,8 @@ function renderInstances(instances) {
   const target = document.getElementById("runtime-instance-list");
   if (!target) return;
   if (!Array.isArray(instances) || instances.length === 0) {
-    target.innerHTML = '<span class="runtime-topology-empty">No active runtime heartbeat observed.</span>';
+    target.innerHTML =
+      '<span class="runtime-topology-empty">No active runtime heartbeat observed.</span>';
     return;
   }
   target.innerHTML = instances
@@ -107,7 +118,8 @@ function render(snapshot) {
   }
 
   const count = Number(runtime.observed_instance_count);
-  const runtimeMode = runtime.runtime_mode || panel.dataset.runtimeMode || "local";
+  const runtimeMode =
+    runtime.runtime_mode || panel.dataset.runtimeMode || "local";
   const isFastapiCloud = runtimeMode === "fastapi_cloud";
   const isHomelab = runtimeMode === "homelab";
   const isProduction = runtime.environment_class === "production";
@@ -115,10 +127,17 @@ function render(snapshot) {
     "runtime-instance-label",
     isProduction ? "Observed instances" : "Observed processes",
   );
-  setText("runtime-instance-count", Number.isFinite(count) ? String(count) : "—");
+  setText(
+    "runtime-instance-count",
+    Number.isFinite(count) ? String(count) : "—",
+  );
   setText(
     "runtime-replica-label",
-    isFastapiCloud ? "FastAPI Cloud replicas" : isHomelab ? "Observer scope" : "Runtime scope",
+    isFastapiCloud
+      ? "FastAPI Cloud replicas"
+      : isHomelab
+        ? "Observer scope"
+        : "Runtime scope",
   );
   setText(
     "runtime-replica-count",
@@ -132,7 +151,10 @@ function render(snapshot) {
           ? `${count} observed processes`
           : "local process",
   );
-  setText("runtime-count-semantics", runtime.count_semantics || "Observed runtime heartbeats.");
+  setText(
+    "runtime-count-semantics",
+    runtime.count_semantics || "Observed runtime heartbeats.",
+  );
   const aggregationLabels = {
     redis_heartbeat: "shared Redis",
     local_only: "local only",
@@ -152,7 +174,9 @@ function render(snapshot) {
   const degraded = runtime.degraded === true;
   state.className = `runtime-topology-state runtime-topology-state--${degraded ? "warn" : "ok"}`;
   if (isFastapiCloud) {
-    state.textContent = degraded ? "local observation only" : `${count} active observed`;
+    state.textContent = degraded
+      ? "local observation only"
+      : `${count} active observed`;
   } else if (isHomelab) {
     state.textContent = degraded
       ? "homelab telemetry degraded"

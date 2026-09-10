@@ -33,7 +33,10 @@ function probeRows(data) {
     ? data.internal_services.map((row) => ({ ...row, probe_scope: "LAN" }))
     : [];
   const publicRows = Array.isArray(data?.public_probe_results)
-    ? data.public_probe_results.map((row) => ({ ...row, probe_scope: "public" }))
+    ? data.public_probe_results.map((row) => ({
+        ...row,
+        probe_scope: "public",
+      }))
     : [];
   return [...internal, ...publicRows];
 }
@@ -95,8 +98,7 @@ function progressModel(data) {
   const eligible = publicScope.eligible + internalScope.eligible;
   const known = publicScope.known + internalScope.known;
   const unknown = Math.max(0, eligible - known);
-  const coverage =
-    eligible > 0 ? clampPercent((known / eligible) * 100) : 100;
+  const coverage = eligible > 0 ? clampPercent((known / eligible) * 100) : 100;
   const healthy = counts.ok;
   const healthyCoverage =
     eligible > 0 ? clampPercent((healthy / eligible) * 100) : 100;
@@ -141,12 +143,7 @@ function progressBar(model) {
     progressSegment(counts.ok, eligible, "ok", `${counts.ok} healthy`) +
     progressSegment(counts.warn, eligible, "warn", `${counts.warn} warning`) +
     progressSegment(counts.fail, eligible, "fail", `${counts.fail} failed`) +
-    progressSegment(
-      counts.stale,
-      eligible,
-      "stale",
-      `${counts.stale} stale`,
-    ) +
+    progressSegment(counts.stale, eligible, "stale", `${counts.stale} stale`) +
     progressSegment(
       unknown,
       eligible,
@@ -265,9 +262,7 @@ function observationText(row) {
     parts.push(`cadence ≈${humanSeconds(interval)}`);
   }
   if (Number.isFinite(next)) parts.push(`next ≈${humanSeconds(next)}`);
-  return parts.length
-    ? parts.join(" · ")
-    : "observation timing unavailable";
+  return parts.length ? parts.join(" · ") : "observation timing unavailable";
 }
 
 function rowDetail(row) {
@@ -287,11 +282,7 @@ function probeRow(row) {
   const kind = stateClass(row);
   const source = row?.probe_source || "unknown";
   const sourceLabel =
-    source === "origin"
-      ? "latest"
-      : source === "memory"
-        ? "retained"
-        : source;
+    source === "origin" ? "latest" : source === "memory" ? "retained" : source;
   return (
     `<div class="probe-dashboard-row probe-dashboard-row--${kind}">` +
     '<div class="probe-dashboard-row-main">' +

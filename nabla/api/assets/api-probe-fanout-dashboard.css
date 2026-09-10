@@ -122,11 +122,21 @@
   height: 100%;
 }
 
-.probe-coverage-segment--ok { background: rgba(0, 255, 136, 0.72); }
-.probe-coverage-segment--warn { background: rgba(255, 200, 50, 0.75); }
-.probe-coverage-segment--fail { background: rgba(255, 80, 80, 0.78); }
-.probe-coverage-segment--stale { background: rgba(160, 160, 160, 0.7); }
-.probe-coverage-segment--unknown { background: #242424; }
+.probe-coverage-segment--ok {
+  background: rgba(0, 255, 136, 0.72);
+}
+.probe-coverage-segment--warn {
+  background: rgba(255, 200, 50, 0.75);
+}
+.probe-coverage-segment--fail {
+  background: rgba(255, 80, 80, 0.78);
+}
+.probe-coverage-segment--stale {
+  background: rgba(160, 160, 160, 0.7);
+}
+.probe-coverage-segment--unknown {
+  background: #242424;
+}
 
 .probe-dashboard-scopes {
   display: grid;
@@ -145,8 +155,12 @@
   font-size: 0.66rem;
 }
 
-.probe-scope-card > span { color: #bcbcbc; }
-.probe-scope-card > strong { color: #e5e5e5; }
+.probe-scope-card > span {
+  color: #bcbcbc;
+}
+.probe-scope-card > strong {
+  color: #e5e5e5;
+}
 .probe-scope-card > small {
   grid-column: 1 / -1;
   color: #858585;
@@ -180,7 +194,10 @@
 
 .probe-dashboard-row {
   display: grid;
-  grid-template-columns: minmax(180px, 1.2fr) minmax(200px, 1.6fr) minmax(180px, 1fr) minmax(150px, 1fr);
+  grid-template-columns: minmax(180px, 1.2fr) minmax(200px, 1.6fr) minmax(
+      180px,
+      1fr
+    ) minmax(150px, 1fr);
   gap: 0.55rem;
   align-items: center;
   padding: 0.48rem 0.55rem;
@@ -189,10 +206,18 @@
   font-size: 0.63rem;
 }
 
-.probe-dashboard-row--ok { border-color: rgba(0, 255, 136, 0.24); }
-.probe-dashboard-row--warn { border-color: rgba(255, 200, 50, 0.34); }
-.probe-dashboard-row--fail { border-color: rgba(255, 80, 80, 0.45); }
-.probe-dashboard-row--unknown { border-style: dashed; }
+.probe-dashboard-row--ok {
+  border-color: rgba(0, 255, 136, 0.24);
+}
+.probe-dashboard-row--warn {
+  border-color: rgba(255, 200, 50, 0.34);
+}
+.probe-dashboard-row--fail {
+  border-color: rgba(255, 80, 80, 0.45);
+}
+.probe-dashboard-row--unknown {
+  border-style: dashed;
+}
 
 .probe-dashboard-row-main {
   display: flex;
@@ -219,9 +244,18 @@
   line-height: 1.1;
 }
 
-.probe-state-badge--ok { color: #7dffc4; border-color: rgba(0, 255, 136, 0.35); }
-.probe-state-badge--warn { color: #ffd966; border-color: rgba(255, 200, 50, 0.4); }
-.probe-state-badge--fail { color: #ff9999; border-color: rgba(255, 80, 80, 0.45); }
+.probe-state-badge--ok {
+  color: #7dffc4;
+  border-color: rgba(0, 255, 136, 0.35);
+}
+.probe-state-badge--warn {
+  color: #ffd966;
+  border-color: rgba(255, 200, 50, 0.4);
+}
+.probe-state-badge--fail {
+  color: #ff9999;
+  border-color: rgba(255, 80, 80, 0.45);
+}
 
 .probe-dashboard-target,
 .probe-dashboard-timing,
