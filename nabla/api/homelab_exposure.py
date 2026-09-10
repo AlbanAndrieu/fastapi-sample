@@ -38,37 +38,16 @@ class CloudflareExposureSnapshot:
     cache: dict[str, Any] | None = None
 
     def summary(self) -> dict[str, Any]:
-        status_confirmed = bool(
-            self.configured
-            and not self.tunnel_error
-            and not self.access_error
-            and not self.stale
-        )
-        warning = (
-            None
-            if status_confirmed or not self.configured
-            else "⚠️ Cloudflare global status could not be confirmed"
-        )
+        status_confirmed = bool(self.configured and not self.tunnel_error and not self.access_error and not self.stale)
+        warning = None if status_confirmed or not self.configured else "⚠️ Cloudflare global status could not be confirmed"
         return {
             "status_confirmed": status_confirmed,
             "warning": warning,
             "configured": self.configured,
             "tunnels_observed": len(self.tunnels),
             "access_applications_observed": len(self.access_applications),
-            "tunnel_observer_state": (
-                "unconfigured"
-                if not self.configured
-                else "error"
-                if self.tunnel_error
-                else "ok"
-            ),
-            "access_observer_state": (
-                "unconfigured"
-                if not self.configured
-                else "error"
-                if self.access_error
-                else "ok"
-            ),
+            "tunnel_observer_state": ("unconfigured" if not self.configured else "error" if self.tunnel_error else "ok"),
+            "access_observer_state": ("unconfigured" if not self.configured else "error" if self.access_error else "ok"),
             "tunnel_error": self.tunnel_error,
             "access_error": self.access_error,
             "stale": self.stale,
@@ -81,9 +60,7 @@ class CloudflareExposureSnapshot:
         return {
             "configured": self.configured,
             "tunnels": [item.model_dump(mode="json") for item in self.tunnels],
-            "access_applications": [
-                item.model_dump(mode="json") for item in self.access_applications
-            ],
+            "access_applications": [item.model_dump(mode="json") for item in self.access_applications],
             "tunnel_error": self.tunnel_error,
             "access_error": self.access_error,
         }
@@ -99,22 +76,10 @@ class CloudflareExposureSnapshot:
     ) -> CloudflareExposureSnapshot:
         return cls(
             configured=bool(payload.get("configured")),
-            tunnels=tuple(
-                CloudflareTunnelObservation.model_validate(item)
-                for item in payload.get("tunnels", [])
-                if isinstance(item, dict)
-            ),
-            access_applications=tuple(
-                CloudflareAccessApplicationObservation.model_validate(item)
-                for item in payload.get("access_applications", [])
-                if isinstance(item, dict)
-            ),
-            tunnel_error=(
-                str(payload["tunnel_error"]) if payload.get("tunnel_error") else None
-            ),
-            access_error=(
-                str(payload["access_error"]) if payload.get("access_error") else None
-            ),
+            tunnels=tuple(CloudflareTunnelObservation.model_validate(item) for item in payload.get("tunnels", []) if isinstance(item, dict)),
+            access_applications=tuple(CloudflareAccessApplicationObservation.model_validate(item) for item in payload.get("access_applications", []) if isinstance(item, dict)),
+            tunnel_error=(str(payload["tunnel_error"]) if payload.get("tunnel_error") else None),
+            access_error=(str(payload["access_error"]) if payload.get("access_error") else None),
             stale=stale,
             refresh_error=refresh_error,
             cache=cache,
@@ -137,9 +102,7 @@ async def _observe_cloudflare_exposure_origin() -> dict[str, Any]:
         except Exception as exc:  # pragma: no cover - provider/network dependent
             return (), _short_provider_error(exc)
 
-    async def access() -> tuple[
-        tuple[CloudflareAccessApplicationObservation, ...], str | None
-    ]:
+    async def access() -> tuple[tuple[CloudflareAccessApplicationObservation, ...], str | None]:
         try:
             observed = await asyncio.wait_for(
                 asyncio.to_thread(observe_cloudflare_access_applications),
@@ -166,11 +129,7 @@ def _cloudflare_exposure_success(payload: dict[str, Any]) -> bool:
 
 
 def _refresh_error(payload: dict[str, Any]) -> str | None:
-    errors = [
-        str(value)
-        for value in (payload.get("tunnel_error"), payload.get("access_error"))
-        if value
-    ]
+    errors = [str(value) for value in (payload.get("tunnel_error"), payload.get("access_error")) if value]
     return ", ".join(errors) or None
 
 
@@ -242,9 +201,7 @@ def _access_by_hostname(
                 decision = (policy.decision or "").strip().lower()
                 if decision:
                     decisions.add(decision)
-                public = decision == "bypass" or (
-                    decision == "allow" and policy.includes_everyone
-                )
+                public = decision == "bypass" or (decision == "allow" and policy.includes_everyone)
                 if public:
                     public_policy_count += 1
                     public_scopes.add("host" if root_scope else "path")
@@ -256,13 +213,7 @@ def _access_by_hostname(
             "cloudflare_access_policy_decisions": sorted(decisions),
             "cloudflare_access_public": public_policy_count > 0,
             "cloudflare_access_public_policy_count": public_policy_count,
-            "cloudflare_access_public_scope": (
-                "host"
-                if "host" in public_scopes
-                else "path"
-                if "path" in public_scopes
-                else None
-            ),
+            "cloudflare_access_public_scope": ("host" if "host" in public_scopes else "path" if "path" in public_scopes else None),
         }
     return result
 
@@ -293,31 +244,17 @@ def _service_exposure(
         "security_exception_declared": bool(service.security_exception),
     }
     observed = {
-        "public_https_reachable": bool(row.get("reachable"))
-        if row.get("http_status", 0) or row.get("reachable")
-        else None,
+        "public_https_reachable": bool(row.get("reachable")) if row.get("http_status", 0) or row.get("reachable") else None,
         "cloudflare_tunnel_observed": bool(tunnel),
         "cloudflare_tunnel_name": tunnel.get("cloudflare_tunnel_name") if tunnel else None,
         "cloudflare_tunnel_status": tunnel.get("cloudflare_tunnel_status") if tunnel else None,
         "cloudflare_access_observed": bool(access),
-        "cloudflare_access_application_count": (
-            access.get("cloudflare_access_application_count") if access else 0
-        ),
-        "cloudflare_access_policy_count": (
-            access.get("cloudflare_access_policy_count") if access else 0
-        ),
-        "cloudflare_access_policy_decisions": (
-            access.get("cloudflare_access_policy_decisions") if access else []
-        ),
-        "cloudflare_access_public": (
-            access.get("cloudflare_access_public") if access else None
-        ),
-        "cloudflare_access_public_scope": (
-            access.get("cloudflare_access_public_scope") if access else None
-        ),
-        "cloudflare_access_public_policy_count": (
-            access.get("cloudflare_access_public_policy_count") if access else 0
-        ),
+        "cloudflare_access_application_count": (access.get("cloudflare_access_application_count") if access else 0),
+        "cloudflare_access_policy_count": (access.get("cloudflare_access_policy_count") if access else 0),
+        "cloudflare_access_policy_decisions": (access.get("cloudflare_access_policy_decisions") if access else []),
+        "cloudflare_access_public": (access.get("cloudflare_access_public") if access else None),
+        "cloudflare_access_public_scope": (access.get("cloudflare_access_public_scope") if access else None),
+        "cloudflare_access_public_policy_count": (access.get("cloudflare_access_public_policy_count") if access else 0),
     }
 
     if not service.external or service.endpoint_enabled is False:
@@ -338,32 +275,22 @@ def _service_exposure(
         elif snapshot.tunnel_error:
             incomplete.append("Cloudflare Tunnel observation failed")
         elif not tunnel:
-            mismatches.append(
-                "Cloudflare edge is declared but no matching Tunnel ingress was observed"
-            )
+            mismatches.append("Cloudflare edge is declared but no matching Tunnel ingress was observed")
     elif edge_mode == "direct" and tunnel:
-        mismatches.append(
-            "Direct exposure is declared but a matching Cloudflare Tunnel ingress was observed"
-        )
+        mismatches.append("Direct exposure is declared but a matching Cloudflare Tunnel ingress was observed")
 
     if access_required:
         if edge_mode == "direct":
-            mismatches.append(
-                "Cloudflare Access is required while the declared edge mode is direct"
-            )
+            mismatches.append("Cloudflare Access is required while the declared edge mode is direct")
         if not snapshot.configured:
             incomplete.append("Cloudflare Access observation is not configured")
         elif snapshot.access_error:
             incomplete.append("Cloudflare Access observation failed")
         elif not access:
-            mismatches.append(
-                "Cloudflare Access is required but no matching Access application was observed"
-            )
+            mismatches.append("Cloudflare Access is required but no matching Access application was observed")
         elif access.get("cloudflare_access_public") is True:
             scope = access.get("cloudflare_access_public_scope") or "unknown"
-            mismatches.append(
-                f"Cloudflare Access has a broad public/bypass policy at {scope} scope"
-            )
+            mismatches.append(f"Cloudflare Access has a broad public/bypass policy at {scope} scope")
 
     state = "mismatch" if mismatches else "incomplete" if incomplete else "match"
     return {

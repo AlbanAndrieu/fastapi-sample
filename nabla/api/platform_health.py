@@ -369,8 +369,7 @@ async def get_cloudflare_tunnels_snapshot() -> dict[str, Any]:
                 "api_reachable": current.get("api_reachable"),
                 "state": "unknown",
                 "status_confirmed": False,
-                "warning": current.get("warning")
-                or "⚠️ Cloudflare global status could not be confirmed",
+                "warning": current.get("warning") or "⚠️ Cloudflare global status could not be confirmed",
                 "error": current.get("error"),
                 "error_kind": current.get("error_kind"),
             }
