@@ -16,6 +16,11 @@ def test_zap_scans_web_and_openapi_on_ephemeral_local_runtime() -> None:
     assert "${{ env.BASE_URL }}/openapi.json" in workflow
     assert "format: openapi" in workflow
     assert "127.0.0.1:8080" in workflow
+    assert "--lifespan off" in workflow
+    assert 'curl --fail --silent --show-error "$BASE_URL/api"' in workflow
+    assert 'curl --fail --silent --show-error "$BASE_URL/openapi.json"' in workflow
+    assert "uv sync --frozen --no-default-groups" in workflow
+    assert "workflow_call:" in workflow
     assert "fastapi-sample.fastapicloud.dev/openapi.json" not in workflow
     assert "home.albandrieu.com:10443" not in workflow
 
@@ -27,3 +32,4 @@ def test_zap_policy_distinguishes_web_and_api_findings() -> None:
     assert "zap-web-report" in workflow
     assert "zap-api-report" in workflow
     assert "WEB_OUTCOME" in workflow and "API_OUTCOME" in workflow
+    assert "no production/TrueNAS/pfSense target is attacked" in workflow
