@@ -15,6 +15,7 @@ import sys
 import time
 from typing import Any
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 _DEFAULT_BASE_URL = "http://172.17.0.24:8091"
@@ -226,12 +227,15 @@ def build_report(snapshot: dict[str, Any]) -> dict[str, Any]:
 
 
 def _fetch_json(url: str, diagnostics_key: str | None) -> dict[str, Any]:
+    parsed = urlsplit(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise RuntimeError("health-board URL must use http:// or https:// with a hostname")
     headers = {"Accept": "application/json", "Cache-Control": "no-cache"}
     if diagnostics_key:
         headers["X-Diagnostics-Key"] = diagnostics_key
-    request = Request(url, headers=headers)
+    request = Request(url, headers=headers)  # noqa: S310 - URL restricted to HTTP(S) above
     try:
-        with urlopen(request, timeout=8.0) as response:  # noqa: S310 - operator-selected HTTP endpoint
+        with urlopen(request, timeout=8.0) as response:  # noqa: S310 - validated HTTP(S) request
             payload = json.load(response)
     except HTTPError as exc:
         raise RuntimeError(f"health-board returned HTTP {exc.code}") from exc
