@@ -22,8 +22,8 @@ def test_zap_scans_web_and_openapi_on_ephemeral_local_runtime() -> None:
 
 def test_zap_policy_distinguishes_web_and_api_findings() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
-    assert '.zap/web-rules.tsv' in workflow
-    assert '.zap/api-rules.tsv' in workflow
+    assert ".zap/web-rules.tsv" in workflow
+    assert ".zap/api-rules.tsv" in workflow
     assert "zap-web-report" in workflow
     assert "zap-api-report" in workflow
     assert "WEB_OUTCOME" in workflow and "API_OUTCOME" in workflow
