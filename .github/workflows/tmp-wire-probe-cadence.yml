@@ -53,15 +53,15 @@ jobs:
 
           old = '''            budget.run(\n                factory,\n                timeout_value=lambda name=name: _deadline_probe_result(name),\n            )\n            for name, factory in zip(_DEPENDENCY_KEYS, factories, strict=True)'''
           new = '''            _run_dependency_probe(name, factory, budget)\n            for name, factory in zip(_DEPENDENCY_KEYS, factories, strict=True)'''
-          if old not in text:
-              raise SystemExit("dependency gather pattern not found")
-          text = text.replace(old, new, 1)
+          if old in text:
+              text = text.replace(old, new, 1)
 
-          text = text.replace(
-              '            "queues": "isolated",\n',
-              '            "queues": "isolated",\n            "cadence": probe_cadence_contract(),\n',
-              1,
-          )
+          if '            "cadence": probe_cadence_contract(),\n' not in text:
+              text = text.replace(
+                  '            "queues": "isolated",\n',
+                  '            "queues": "isolated",\n            "cadence": probe_cadence_contract(),\n',
+                  1,
+              )
           path.write_text(text)
           PY
       - name: Remove temporary workflow
@@ -70,6 +70,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add nabla/api/health_checks.py .github/workflows/tmp-wire-probe-cadence.yml
+          git add -A
           git commit -m "feat(health): schedule optional probes by cadence"
           git push
