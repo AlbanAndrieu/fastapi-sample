@@ -25,9 +25,7 @@ _log = logging.getLogger(__name__)
 # bootstrap/last-known-good snapshot so health endpoints remain useful during a
 # transient GitHub outage; they are no longer the authoritative source.
 HOMELAB_SERVICES_CATALOG_PATH = Path(__file__).with_name("data") / "homelab-services.json"
-HOMELAB_EXPOSURE_OVERRIDES_PATH = (
-    Path(__file__).with_name("data") / "homelab-exposure-overrides.json"
-)
+HOMELAB_EXPOSURE_OVERRIDES_PATH = Path(__file__).with_name("data") / "homelab-exposure-overrides.json"
 HOMELAB_SERVICES_CATALOG_URL = os.getenv(
     "HOMELAB_SERVICES_CATALOG_URL",
     "https://raw.githubusercontent.com/AlbanAndrieu/nabla-compose/master/catalog/homelab-services.json",
@@ -111,11 +109,7 @@ def _apply_exposure_overrides(
 
     merged = dict(payload)
     merged_services = [dict(item) if isinstance(item, dict) else item for item in services]
-    by_name = {
-        str(item.get("name") or "").casefold(): item
-        for item in merged_services
-        if isinstance(item, dict) and item.get("name")
-    }
+    by_name = {str(item.get("name") or "").casefold(): item for item in merged_services if isinstance(item, dict) and item.get("name")}
 
     for override in overrides:
         if not isinstance(override, dict):
