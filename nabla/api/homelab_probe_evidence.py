@@ -52,12 +52,13 @@ def _annotated(
 ) -> dict[str, Any]:
     age = max(0.0, now - entry.recorded_at)
     stale_after = _stale_after_seconds(entry)
+    stale = age >= stale_after
     row = {
         **entry.row,
         "probe_source": source,
         "probe_observed_at": entry.observed_at,
         "probe_age_seconds": round(age, 3),
-        "probe_stale": age >= stale_after,
+        "probe_stale": stale,
         "probe_stale_after_seconds": round(stale_after, 3),
     }
     if entry.interval_seconds is not None:
@@ -65,6 +66,15 @@ def _annotated(
         row["next_probe_in_seconds"] = round(max(0.0, entry.interval_seconds - age), 3)
     if refresh_error:
         row["probe_refresh_error"] = refresh_error
+    if stale:
+        row["last_known_state"] = entry.row.get("state")
+        row["last_known_reachable"] = entry.row.get("reachable")
+        if "http_status" in entry.row:
+            row["last_known_http_status"] = entry.row.get("http_status")
+            row["http_status"] = 0
+        row["state"] = "warn"
+        row["reachable"] = None
+        row["warning"] = "⚠️ Last probe evidence is stale; current service reachability is not confirmed."
     return row
 
 
