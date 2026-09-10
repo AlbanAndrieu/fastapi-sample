@@ -107,11 +107,11 @@ def _edge_reasons(
             incomplete.append("⚠️ Cloudflare global status could not be confirmed")
         elif not tunnel:
             mismatches.append(
-                "Cloudflare edge is declared but no matching Tunnel ingress was observed"
+                "Cloudflare edge is declared but no matching Tunnel ingress was observed",
             )
     elif tunnel:
         mismatches.append(
-            "Direct exposure is declared but a matching Cloudflare Tunnel ingress was observed"
+            "Direct exposure is declared but a matching Cloudflare Tunnel ingress was observed",
         )
     return mismatches, incomplete
 
@@ -129,7 +129,7 @@ def _access_reasons(
     incomplete: list[str] = []
     if edge_mode == "direct":
         mismatches.append(
-            "Cloudflare Access is required while the declared edge mode is direct"
+            "Cloudflare Access is required while the declared edge mode is direct",
         )
     if not snapshot.configured:
         incomplete.append("Cloudflare Access observation is not configured")
@@ -137,12 +137,12 @@ def _access_reasons(
         incomplete.append("⚠️ Cloudflare Access status could not be confirmed")
     elif not access:
         mismatches.append(
-            "Cloudflare Access is required but no matching Access application was observed"
+            "Cloudflare Access is required but no matching Access application was observed",
         )
     elif access.get("cloudflare_access_public") is True:
         scope = access.get("cloudflare_access_public_scope") or "unknown"
         mismatches.append(
-            f"Cloudflare Access has a broad public/bypass policy at {scope} scope"
+            f"Cloudflare Access has a broad public/bypass policy at {scope} scope",
         )
     return mismatches, incomplete
 
