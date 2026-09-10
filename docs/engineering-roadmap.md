@@ -106,6 +106,60 @@ from the TrueNAS-hosted FastAPI runtime.
       dependency gate has converged or any intentionally deferred exception is
       explicitly documented here with its acceptance boundary.
 
+### pfSense WebGUI/PHP-FPM recovery recurrence — 2026-09-10
+
+Current evidence from both vantage points shows a working network transport but
+an application-side webConfigurator failure. The public workstation path reaches
+`82.66.4.247:10443` with successful TLS verification, while the TrueNAS FastAPI
+container resolves `home.albandrieu.com` to `172.17.0.1`; both receive the native
+pfSense nginx `HTTP 502` crash page. An unauthenticated TrueNAS request receives
+the same response, so API authentication cannot yet be evaluated.
+
+Represent the appliance as independent signals instead of collapsing it to DOWN:
+
+```text
+pfSense platform
+  ⚠️ API control-plane       application error (HTTP 502)
+  ✅ Prometheus telemetry    exporter up
+  ✅ network transport       reachable
+  ? API authentication      not evaluated
+```
+
+- [ ] Recover webConfigurator/PHP-FPM without rebooting the firewall. Capture
+      nginx/PHP-FPM socket/process state, memory/CPU pressure, kernel OOM evidence,
+      Unbound state and bounded system logs before restarting services; then use
+      the pfSense-native GUI/PHP-FPM restart path and require WebGUI plus the
+      authenticated lightweight version endpoint to recover.
+- [ ] Compare the current recurrence with the documented 2026-09-08 incident,
+      where nginx remained bound to `:10443` while PHP-FPM stopped accepting on
+      `/var/run/php-fpm.socket`, CPU was saturated and kernel memory pressure also
+      killed Unbound. Do not declare Unbound causal for the current `502` unless
+      current logs/OOM evidence prove that relationship.
+- [ ] Make **FastAPI TrueNAS → pfSense LAN** the authoritative control-plane
+      observation path. Require a dedicated least-privilege posture identity and
+      an authenticated `GET /api/v2/system/version` `2xx` result through the LAN
+      path, with existing bounded timeout/cache/circuit-breaker protection.
+- [ ] Keep direct **FastAPI Cloud → pfSense WAN `:10443`** diagnostic-only. The
+      durable cloud architecture must consume a sanitized LAN-side observer state
+      over an outbound authenticated channel rather than requiring broad public
+      access to the pfSense management API.
+- [ ] Verify the live Prometheus/pfSense-exporter runtime has actually reconciled
+      to the repository safety contract: one scrape every 300 seconds, Prometheus
+      scrape timeout 30 seconds, exporter target timeout 8 seconds, collector
+      concurrency 1, and only the `system`, `gateways` and `service` collectors in
+      steady state.
+- [ ] Inventory live Uptime Kuma/Gatus/AutoKuma checks and prove none performs a
+      direct pfSense REST deep-status call or invokes exporter `/metrics`; automatic
+      health monitors should use only low-frequency lightweight HTTP/TCP evidence.
+- [ ] Correlate request source/count, PHP-FPM RSS/worker count, CPU run queue and
+      OOM events around the next failure before attributing recurrence to FastAPI,
+      Prometheus, Uptime Kuma or another monitor. Temporal overlap alone is not
+      sufficient attribution.
+- [ ] If current resource evidence again shows PHP-FPM pressure on the Netgate
+      1100, move toward the supported persistent configuration source rather than
+      relying on the temporary generated `php-fpm.conf` 4/2 worker edit from the
+      previous incident.
+
 ### UI refresh stability + dual ZAP DAST follow-up (PR #237)
 
 - [x] Prioritize service outcomes before TrueNAS/runtime drill-downs and collapse FastAPI Cloud runtime plus homelab fan-out details by default.
@@ -434,6 +488,21 @@ acceptance criterion.
       not require a local Docker daemon.
 - [x] Remove the duplicate standalone Pylint workflow and keep the Python
       package workflow as the authoritative Pylint quality gate.
+- [x] Add `Master red remediation`, a post-merge `master` workflow which reruns
+      the critical `Python package` and `Production Smoke` workflows for the exact
+      merged SHA and, when either is red, opens/reuses a deduplicated remediation
+      issue and creates a remediation PR carrying the failing run evidence. Keep
+      the master-red workflow itself red until remediation so the regression stays
+      visible.
+- [ ] Validate the new master-red automation with an intentional non-production
+      drill: exactly one failing master SHA must create exactly one issue and one
+      remediation PR, while repeat evaluation of the same SHA must not create
+      duplicates. Verify repository Actions policy permits workflow-created PRs;
+      otherwise configure least-privilege `MASTER_REMEDIATION_TOKEN`.
+- [ ] Measure cost/noise/stability before adding CodeQL or passive ZAP to the
+      automatic post-merge rerun. Active OpenAPI DAST remains restricted to an
+      isolated disposable target and must never attack pfSense/TrueNAS production
+      APIs automatically.
 - [ ] Make relevant Trivy findings blocking once the current vulnerability
       baseline has been triaged.
 - [ ] Reduce the current Trivy dependency baseline below 48 findings and lower
@@ -728,7 +797,7 @@ import and had no application-owned shutdown.
       default.
 - [x] Keep Sentry PII disabled and make trace, profile and error sampling
       configurable with conservative defaults.
-- [x] Verify that disabled Datadog paths do not import the SDK.
+- [x] Verify that disabled Datadog instrumentation has no SDK import-time side effect.
 
 #### Datadog and observability isolation acceptance criteria
 
