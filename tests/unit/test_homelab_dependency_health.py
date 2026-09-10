@@ -34,11 +34,7 @@ def _relation(
 
 
 def _topology(*relations: dict[str, object]) -> HomelabTopology:
-    ids = {
-        str(value)
-        for relation in relations
-        for value in (relation["source"], relation["target"])
-    }
+    ids = {str(value) for relation in relations for value in (relation["source"], relation["target"])}
     return HomelabTopology.model_validate(
         {
             "nodes": [

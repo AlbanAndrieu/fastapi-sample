@@ -44,14 +44,17 @@ def test_service_state_evidence_matrix(
     http: int,
     expected: str,
 ) -> None:
-    assert reconcile_service_state(
-        direct=direct,
-        internal=internal,
-        runtime=runtime,
-        tunnel=tunnel,
-        external=external,
-        direct_http_status=http,
-    ) == expected
+    assert (
+        reconcile_service_state(
+            direct=direct,
+            internal=internal,
+            runtime=runtime,
+            tunnel=tunnel,
+            external=external,
+            direct_http_status=http,
+        )
+        == expected
+    )
 
 
 def test_runtime_missing_with_http_200_is_drift_not_outage() -> None:

@@ -31,10 +31,7 @@ def _api_error(response: httpx.Response) -> tuple[str, int | str | None]:
                 message = provider_message[:240]
             error_code = first.get("code")
     if response.status_code == 404:
-        message = (
-            f"{message}; verify CLOUDFLARE_ACCOUNT_ID is the Cloudflare Account ID "
-            "and CLOUDFLARE_API_TOKEN is scoped to that account"
-        )
+        message = f"{message}; verify CLOUDFLARE_ACCOUNT_ID is the Cloudflare Account ID and CLOUDFLARE_API_TOKEN is scoped to that account"
     return message[:480], error_code
 
 
@@ -125,11 +122,7 @@ async def check_cloudflare_tunnels() -> dict[str, Any]:
             http_status=response.status_code,
         )
 
-    statuses = [
-        str(tunnel.get("status") or "unknown").lower()
-        for tunnel in tunnels
-        if isinstance(tunnel, dict)
-    ]
+    statuses = [str(tunnel.get("status") or "unknown").lower() for tunnel in tunnels if isinstance(tunnel, dict)]
     if not statuses:
         return cloudflare_unconfirmed(
             "Cloudflare Tunnel API returned no tunnel inventory",
@@ -177,10 +170,7 @@ async def get_cloudflare_tunnels_snapshot() -> dict[str, Any]:
         return current
 
     reason = str(
-        current.get("refresh_error")
-        or current.get("error")
-        or current.get("reason")
-        or "Cloudflare control-plane evidence is stale or unavailable",
+        current.get("refresh_error") or current.get("error") or current.get("reason") or "Cloudflare control-plane evidence is stale or unavailable",
     )
     result = cloudflare_unconfirmed(
         reason,

@@ -59,9 +59,7 @@ def _access_by_hostname(
                 decision = (policy.decision or "").strip().lower()
                 if decision:
                     decisions.add(decision)
-                public = decision == "bypass" or (
-                    decision == "allow" and policy.includes_everyone
-                )
+                public = decision == "bypass" or (decision == "allow" and policy.includes_everyone)
                 if public:
                     public_policy_count += 1
                     public_scopes.add("host" if root_scope else "path")
@@ -72,13 +70,7 @@ def _access_by_hostname(
             "cloudflare_access_policy_decisions": sorted(decisions),
             "cloudflare_access_public": public_policy_count > 0,
             "cloudflare_access_public_policy_count": public_policy_count,
-            "cloudflare_access_public_scope": (
-                "host"
-                if "host" in public_scopes
-                else "path"
-                if "path" in public_scopes
-                else None
-            ),
+            "cloudflare_access_public_scope": ("host" if "host" in public_scopes else "path" if "path" in public_scopes else None),
         }
     return result
 
@@ -158,33 +150,17 @@ def _service_exposure(
     edge_mode = _declared_edge_mode(service)
     access_required = service.effective_cloudflare_access_required
     observed = {
-        "public_https_reachable": (
-            bool(row.get("reachable"))
-            if row.get("http_status", 0) or row.get("reachable")
-            else None
-        ),
+        "public_https_reachable": (bool(row.get("reachable")) if row.get("http_status", 0) or row.get("reachable") else None),
         "cloudflare_tunnel_observed": bool(tunnel),
         "cloudflare_tunnel_name": tunnel.get("cloudflare_tunnel_name") if tunnel else None,
         "cloudflare_tunnel_status": tunnel.get("cloudflare_tunnel_status") if tunnel else None,
         "cloudflare_access_observed": bool(access),
-        "cloudflare_access_application_count": (
-            access.get("cloudflare_access_application_count") if access else 0
-        ),
-        "cloudflare_access_policy_count": (
-            access.get("cloudflare_access_policy_count") if access else 0
-        ),
-        "cloudflare_access_policy_decisions": (
-            access.get("cloudflare_access_policy_decisions") if access else []
-        ),
-        "cloudflare_access_public": (
-            access.get("cloudflare_access_public") if access else None
-        ),
-        "cloudflare_access_public_scope": (
-            access.get("cloudflare_access_public_scope") if access else None
-        ),
-        "cloudflare_access_public_policy_count": (
-            access.get("cloudflare_access_public_policy_count") if access else 0
-        ),
+        "cloudflare_access_application_count": (access.get("cloudflare_access_application_count") if access else 0),
+        "cloudflare_access_policy_count": (access.get("cloudflare_access_policy_count") if access else 0),
+        "cloudflare_access_policy_decisions": (access.get("cloudflare_access_policy_decisions") if access else []),
+        "cloudflare_access_public": (access.get("cloudflare_access_public") if access else None),
+        "cloudflare_access_public_scope": (access.get("cloudflare_access_public_scope") if access else None),
+        "cloudflare_access_public_policy_count": (access.get("cloudflare_access_public_policy_count") if access else 0),
     }
     declared = {
         "external": service.external,

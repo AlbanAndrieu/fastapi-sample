@@ -17,7 +17,7 @@ def test_probe_dashboard_reuses_existing_probe_fetch_events() -> None:
     assert '"homelab-probes:loading"' in shared
     assert '"homelab-probes:error"' in shared
     assert "installProbeFanoutDashboard" in bootstrap
-    assert "fetchHomelabProbeMatrix({ reason: \"manual\" })" in DASHBOARD.read_text(
+    assert 'fetchHomelabProbeMatrix({ reason: "manual" })' in DASHBOARD.read_text(
         encoding="utf-8",
     )
 

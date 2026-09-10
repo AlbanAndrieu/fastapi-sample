@@ -17,11 +17,7 @@ from nabla.api.pfsense_dns_observer import observe_pfsense_dns_posture
 
 
 def _truenas_internal_hosts(services: Iterable[HomelabService]) -> frozenset[str]:
-    return frozenset(
-        service.internal_host
-        for service in services
-        if service.service_id == "truenas" and service.internal_host
-    )
+    return frozenset(service.internal_host for service in services if service.service_id == "truenas" and service.internal_host)
 
 
 async def prepare_homelab_reconciliation_context(
@@ -81,19 +77,9 @@ async def reconcile_homelab_health_payload(
         runtime = await fetch_truenas_runtime()
         runtime_source = "runtime_fallback"
 
-    runtime_bindings = {
-        service.service_id: service.runtime
-        for service in declared.services
-        if service.runtime is not None
-    }
-    public_results = [
-        dict(row) for row in payload.get("services", []) if isinstance(row, dict)
-    ]
-    internal_results = [
-        dict(row)
-        for row in payload.get("internal_services", [])
-        if isinstance(row, dict)
-    ]
+    runtime_bindings = {service.service_id: service.runtime for service in declared.services if service.runtime is not None}
+    public_results = [dict(row) for row in payload.get("services", []) if isinstance(row, dict)]
+    internal_results = [dict(row) for row in payload.get("internal_services", []) if isinstance(row, dict)]
     reconciled = build_reconciled_service_health(
         services,
         public_results=public_results,

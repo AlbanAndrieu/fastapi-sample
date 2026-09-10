@@ -121,10 +121,7 @@ async def check_pfsense_api() -> dict[str, Any]:
         error_kind = _http_error_kind(exc)
         error = _short_error(exc)
         if error_kind == "read_timeout":
-            error = (
-                "pfSense accepted the connection but did not return the REST API "
-                f"response within {_PFSENSE_READ_TIMEOUT_SEC:.0f}s"
-            )
+            error = f"pfSense accepted the connection but did not return the REST API response within {_PFSENSE_READ_TIMEOUT_SEC:.0f}s"
         failure_stage = _pfsense_failure_stage(error_kind)
         logger.warning(
             "pfSense API liveness probe failed error_kind=%s failure_stage=%s exception_type=%s elapsed_ms=%s attempts=%s",

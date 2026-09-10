@@ -82,9 +82,7 @@ def _probe_runtime_metadata(payload: dict[str, Any]) -> dict[str, Any]:
         "eligible_probe_slots": eligible,
         "known_probe_slots": known,
         "coverage_percent": coverage,
-        "estimated_full_cycle_seconds": (
-            round(max(cadence_values), 3) if cadence_values else None
-        ),
+        "estimated_full_cycle_seconds": (round(max(cadence_values), 3) if cadence_values else None),
     }
 
 

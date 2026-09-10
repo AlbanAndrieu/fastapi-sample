@@ -35,11 +35,7 @@ class CloudflareExposureSnapshot:
 
     def summary(self) -> dict[str, Any]:
         confirmed = bool(
-            self.configured
-            and self.tunnels
-            and not self.tunnel_error
-            and not self.access_error
-            and not self.stale,
+            self.configured and self.tunnels and not self.tunnel_error and not self.access_error and not self.stale,
         )
         warning = None
         if self.configured and not confirmed:
@@ -54,22 +50,8 @@ class CloudflareExposureSnapshot:
             "configured": self.configured,
             "tunnels_observed": len(self.tunnels),
             "access_applications_observed": len(self.access_applications),
-            "tunnel_observer_state": (
-                "unconfigured"
-                if not self.configured
-                else "error"
-                if self.tunnel_error
-                else "empty"
-                if not self.tunnels
-                else "ok"
-            ),
-            "access_observer_state": (
-                "unconfigured"
-                if not self.configured
-                else "error"
-                if self.access_error
-                else "ok"
-            ),
+            "tunnel_observer_state": ("unconfigured" if not self.configured else "error" if self.tunnel_error else "empty" if not self.tunnels else "ok"),
+            "access_observer_state": ("unconfigured" if not self.configured else "error" if self.access_error else "ok"),
             "tunnel_error": self.tunnel_error,
             "access_error": self.access_error,
             "stale": self.stale,
@@ -84,9 +66,7 @@ class CloudflareExposureSnapshot:
         return {
             "configured": self.configured,
             "tunnels": [item.model_dump(mode="json") for item in self.tunnels],
-            "access_applications": [
-                item.model_dump(mode="json") for item in self.access_applications
-            ],
+            "access_applications": [item.model_dump(mode="json") for item in self.access_applications],
             "tunnel_error": tunnel_error,
             "access_error": self.access_error,
         }
@@ -102,16 +82,8 @@ class CloudflareExposureSnapshot:
     ) -> CloudflareExposureSnapshot:
         return cls(
             configured=bool(payload.get("configured")),
-            tunnels=tuple(
-                CloudflareTunnelObservation.model_validate(item)
-                for item in payload.get("tunnels", [])
-                if isinstance(item, dict)
-            ),
-            access_applications=tuple(
-                CloudflareAccessApplicationObservation.model_validate(item)
-                for item in payload.get("access_applications", [])
-                if isinstance(item, dict)
-            ),
+            tunnels=tuple(CloudflareTunnelObservation.model_validate(item) for item in payload.get("tunnels", []) if isinstance(item, dict)),
+            access_applications=tuple(CloudflareAccessApplicationObservation.model_validate(item) for item in payload.get("access_applications", []) if isinstance(item, dict)),
             tunnel_error=str(payload["tunnel_error"]) if payload.get("tunnel_error") else None,
             access_error=str(payload["access_error"]) if payload.get("access_error") else None,
             stale=stale,
@@ -147,7 +119,8 @@ async def _origin() -> dict[str, Any]:
             return (), _short_error(exc)
 
     (tunnel_items, tunnel_error), (access_items, access_error) = await asyncio.gather(
-        tunnels(), access(),
+        tunnels(),
+        access(),
     )
     return CloudflareExposureSnapshot(
         configured=True,
@@ -160,18 +133,12 @@ async def _origin() -> dict[str, Any]:
 
 def _success(payload: dict[str, Any]) -> bool:
     return bool(
-        payload.get("tunnels")
-        and not payload.get("tunnel_error")
-        and not payload.get("access_error"),
+        payload.get("tunnels") and not payload.get("tunnel_error") and not payload.get("access_error"),
     )
 
 
 def _refresh_error(payload: dict[str, Any]) -> str | None:
-    errors = [
-        str(value)
-        for value in (payload.get("tunnel_error"), payload.get("access_error"))
-        if value
-    ]
+    errors = [str(value) for value in (payload.get("tunnel_error"), payload.get("access_error")) if value]
     return ", ".join(errors) or None
 
 

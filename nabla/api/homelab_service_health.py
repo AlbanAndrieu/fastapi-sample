@@ -68,16 +68,8 @@ def _runtime_app_for_service(
     if binding is not None and binding.provider == "truenas-app":
         matches = [app for app in runtime.apps if match_runtime_binding(app, binding)[0]]
         return matches[0] if len(matches) == 1 else None
-    candidates = {
-        candidate
-        for candidate in (_key(service.source_id), _key(service.service_id), _key(service.name))
-        if candidate
-    }
-    matches = [
-        app
-        for app in runtime.apps
-        if candidates.intersection({_key(app.app_id), _key(app.name)})
-    ]
+    candidates = {candidate for candidate in (_key(service.source_id), _key(service.service_id), _key(service.name)) if candidate}
+    matches = [app for app in runtime.apps if candidates.intersection({_key(app.app_id), _key(app.name)})]
     return matches[0] if len(matches) == 1 else None
 
 
@@ -199,16 +191,8 @@ def build_reconciled_service_health(
     checked_at: str | None = None,
 ) -> list[dict[str, Any]]:
     """Reconcile runtime, direct/LAN and edge evidence for each declared service."""
-    direct_by_url = {
-        normalized: result
-        for result in public_results
-        if (normalized := _normalized_url(str(result.get("url") or ""))) is not None
-    }
-    internal_by_id = {
-        str(result.get("id")): result
-        for result in internal_results
-        if result.get("id")
-    }
+    direct_by_url = {normalized: result for result in public_results if (normalized := _normalized_url(str(result.get("url") or ""))) is not None}
+    internal_by_id = {str(result.get("id")): result for result in internal_results if result.get("id")}
     tunnels_by_host = _tunnel_by_hostname(tunnels)
     rows: list[dict[str, Any]] = []
     for service in services:
@@ -220,19 +204,10 @@ def build_reconciled_service_health(
         app = _runtime_app_for_service(service, runtime, binding)
         runtime_health = None if runtime is not None and runtime.stale else _runtime_state(app)
         runtime_missing = bool(
-            binding is not None
-            and binding.provider == "truenas-app"
-            and runtime is not None
-            and runtime.reachable
-            and not runtime.stale
-            and app is None,
+            binding is not None and binding.provider == "truenas-app" and runtime is not None and runtime.reachable and not runtime.stale and app is None,
         )
         tunnel_evidence = tunnels_by_host.get(_hostname(endpoint_url) or "")
-        tunnel_status = (
-            str(tunnel_evidence.get("tunnel_status"))
-            if tunnel_evidence and tunnel_evidence.get("tunnel_status") is not None
-            else None
-        )
+        tunnel_status = str(tunnel_evidence.get("tunnel_status")) if tunnel_evidence and tunnel_evidence.get("tunnel_status") is not None else None
         tunnel_health = None if cloudflare_stale else _tunnel_state(tunnel_status)
         direct_health = str(direct_result.get("state")) if direct_result else None
         internal_health = str(internal_result.get("state")) if internal_result else None

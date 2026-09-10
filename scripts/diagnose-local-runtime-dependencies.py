@@ -103,12 +103,7 @@ def _truenas(snapshot: dict[str, Any]) -> dict[str, Any]:
     }
     row["stale"] = row["stale"] or _mapping(homelab.get("probe_cache")).get("stale") is True
     row["evidence_complete"] = bool(
-        row["configured"] is True
-        and row["reachable"] is True
-        and row["authenticated"] is True
-        and app_count is not None
-        and app_count > 0
-        and not row["stale"],
+        row["configured"] is True and row["reachable"] is True and row["authenticated"] is True and app_count is not None and app_count > 0 and not row["stale"],
     )
     return row
 
@@ -129,10 +124,7 @@ def _pfsense(snapshot: dict[str, Any]) -> dict[str, Any]:
         "credential_mode": check.get("credential_mode"),
     }
     row["evidence_complete"] = bool(
-        row["configured"] is True
-        and row["reachable"] is True
-        and row["authenticated"] is True
-        and not row["stale"],
+        row["configured"] is True and row["reachable"] is True and row["authenticated"] is True and not row["stale"],
     )
     return row
 
@@ -152,11 +144,7 @@ def _cloudflare(snapshot: dict[str, Any]) -> dict[str, Any]:
         "unhealthy_tunnels": check.get("unhealthy_tunnels"),
     }
     row["evidence_complete"] = bool(
-        row["configured"] is True
-        and row["reachable"] is True
-        and row["authenticated"] is True
-        and check.get("status_confirmed") is True
-        and not row["stale"],
+        row["configured"] is True and row["reachable"] is True and row["authenticated"] is True and check.get("status_confirmed") is True and not row["stale"],
     )
     return row
 
@@ -184,10 +172,7 @@ def _prometheus(snapshot: dict[str, Any]) -> dict[str, Any]:
     }
     row["error_stage"] = "query" if metrics.get("error_kind") == "query_failed" else row["error_stage"]
     row["evidence_complete"] = bool(
-        configured is True
-        and row["reachable"] is True
-        and isinstance(summary.get("signals_available"), int)
-        and summary.get("signals_available", 0) > 0,
+        configured is True and row["reachable"] is True and isinstance(summary.get("signals_available"), int) and summary.get("signals_available", 0) > 0,
     )
     return row
 
@@ -285,9 +270,7 @@ def print_table(report: dict[str, Any]) -> None:
     dependencies = _mapping(report.get("dependencies"))
     print("FastAPI local runtime dependency evidence")
     print(
-        f"snapshot={report.get('snapshot_state')} "
-        f"age={report.get('snapshot_age_seconds')}s "
-        f"generated_at={report.get('snapshot_generated_at')}",
+        f"snapshot={report.get('snapshot_state')} age={report.get('snapshot_age_seconds')}s generated_at={report.get('snapshot_generated_at')}",
     )
     print()
     print(f"{'dependency':<12} {'configured':<10} {'reachable':<10} {'auth':<6} {'stale':<6} {'complete':<9} error_stage")
