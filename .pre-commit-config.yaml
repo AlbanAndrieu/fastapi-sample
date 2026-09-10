@@ -53,6 +53,9 @@ repos:
     rev: v0.9.0
     hooks:
       - id: pre-commit-update
+        # Dependency updates rewrite this config and conflict with Prettier.
+        # Run maintenance explicitly; validation must use the pinned revisions.
+        stages: [manual]
 
     # ---------------------------- 📁 Filesystem Tools --------------------------- #
   - repo: https://github.com/pre-commit/pre-commit-hooks.git

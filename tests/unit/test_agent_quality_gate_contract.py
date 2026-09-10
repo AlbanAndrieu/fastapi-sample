@@ -5,7 +5,19 @@ from __future__ import annotations
 import stat
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_dependency_updates_are_explicit_maintenance_not_validation() -> None:
+    config = yaml.safe_load((ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8"))
+    hooks = [hook for repo in config["repos"] for hook in repo["hooks"]]
+    updater = next(hook for hook in hooks if hook["id"] == "pre-commit-update")
+    assert updater["stages"] == ["manual"]
+    for hook_id in ("prettier", "yamllint", "ruff-check", "bandit"):
+        hook = next(hook for hook in hooks if hook["id"] == hook_id)
+        assert "stages" not in hook or "pre-commit" in hook["stages"]
 
 
 def test_agent_quality_gate_wraps_tests_and_canonical_gate() -> None:

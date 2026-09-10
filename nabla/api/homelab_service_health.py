@@ -125,7 +125,7 @@ def _from_direct(
 ) -> HealthState | None:
     if direct == "ok":
         if tunnel == "fail":
-            return "warn" if "ok" in {internal, runtime} else "fail"
+            return "warn"
         return "warn" if internal == "fail" else "ok"
     if direct == "warn":
         if tunnel == "fail":
@@ -245,7 +245,7 @@ def build_reconciled_service_health(
         runtime_missing = _runtime_binding_missing(binding, runtime, app)
         tunnel_evidence = tunnels_by_host.get(_hostname(endpoint_url) or "")
         tunnel_status = str(tunnel_evidence.get("tunnel_status")) if tunnel_evidence and tunnel_evidence.get("tunnel_status") is not None else None
-        tunnel_health = None if cloudflare_stale else _tunnel_state(tunnel_status)
+        tunnel_health = None if cloudflare_stale or cloudflare_status_confirmed is False else _tunnel_state(tunnel_status)
         direct_health = str(direct_result.get("state")) if direct_result else None
         internal_health = str(internal_result.get("state")) if internal_result else None
         application_error = bool(direct_result and direct_result.get("application_error"))
