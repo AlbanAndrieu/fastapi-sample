@@ -91,12 +91,7 @@ def _runtime_binding_missing(
 ) -> bool:
     """Return whether a declared TrueNAS app binding is absent from fresh runtime evidence."""
     return bool(
-        binding is not None
-        and binding.provider == "truenas-app"
-        and runtime is not None
-        and runtime.reachable
-        and not runtime.stale
-        and app is None,
+        binding is not None and binding.provider == "truenas-app" and runtime is not None and runtime.reachable and not runtime.stale and app is None,
     )
 
 
