@@ -84,6 +84,22 @@ def _runtime_state(app: ObservedApp | None) -> HealthState | None:
     return "warn"
 
 
+def _runtime_binding_missing(
+    binding: RuntimeBinding | None,
+    runtime: TrueNASRuntimeSnapshot | None,
+    app: ObservedApp | None,
+) -> bool:
+    """Return whether a declared TrueNAS app binding is absent from fresh runtime evidence."""
+    return bool(
+        binding is not None
+        and binding.provider == "truenas-app"
+        and runtime is not None
+        and runtime.reachable
+        and not runtime.stale
+        and app is None,
+    )
+
+
 def _tunnel_state(status: str | None) -> HealthState | None:
     normalized = (status or "").strip().upper()
     if normalized in _HEALTHY_TUNNEL_STATES:
@@ -203,9 +219,7 @@ def build_reconciled_service_health(
         binding = (runtime_bindings or {}).get(service.service_id)
         app = _runtime_app_for_service(service, runtime, binding)
         runtime_health = None if runtime is not None and runtime.stale else _runtime_state(app)
-        runtime_missing = bool(
-            binding is not None and binding.provider == "truenas-app" and runtime is not None and runtime.reachable and not runtime.stale and app is None,
-        )
+        runtime_missing = _runtime_binding_missing(binding, runtime, app)
         tunnel_evidence = tunnels_by_host.get(_hostname(endpoint_url) or "")
         tunnel_status = str(tunnel_evidence.get("tunnel_status")) if tunnel_evidence and tunnel_evidence.get("tunnel_status") is not None else None
         tunnel_health = None if cloudflare_stale else _tunnel_state(tunnel_status)
