@@ -7,6 +7,11 @@ import time
 from typing import Any, Literal
 
 from nabla.api.homelab_models import HomelabService
+from nabla.api.homelab_probe_policy import (
+    MAX_INTERNAL_PROBES_PER_REFRESH,
+    MAX_PUBLIC_PROBES_PER_REFRESH,
+    estimated_probe_interval_seconds,
+)
 
 Scope = Literal["public", "internal"]
 PROBE_EVIDENCE_TTL_SEC = 300.0
@@ -17,6 +22,7 @@ class _ProbeEvidence:
     row: dict[str, Any]
     observed_at: str
     recorded_at: float
+    interval_seconds: float | None
 
 
 _evidence: dict[Scope, dict[str, _ProbeEvidence]] = {
@@ -40,9 +46,34 @@ def _annotated(
         "probe_age_seconds": round(age, 3),
         "probe_stale": age >= PROBE_EVIDENCE_TTL_SEC,
     }
+    if entry.interval_seconds is not None:
+        row["probe_interval_seconds"] = round(entry.interval_seconds, 3)
+        row["next_probe_in_seconds"] = round(
+            max(0.0, entry.interval_seconds - age),
+            3,
+        )
     if refresh_error:
         row["probe_refresh_error"] = refresh_error
     return row
+
+
+def _cadence_by_service(
+    scope: Scope,
+    eligible_services: list[HomelabService],
+) -> dict[str, float | None]:
+    limit = (
+        MAX_PUBLIC_PROBES_PER_REFRESH
+        if scope == "public"
+        else MAX_INTERNAL_PROBES_PER_REFRESH
+    )
+    return {
+        service.service_id: estimated_probe_interval_seconds(
+            service,
+            eligible_services=eligible_services,
+            limit=limit,
+        )
+        for service in eligible_services
+    }
 
 
 def merge_probe_evidence(
@@ -57,11 +88,14 @@ def merge_probe_evidence(
     clock = time.monotonic() if now is None else now
     store = _evidence[scope]
     eligible_ids = {service.service_id for service in eligible_services}
+    cadence_by_id = _cadence_by_service(scope, eligible_services)
 
     for service_id, entry in list(store.items()):
         expired = clock - entry.recorded_at >= PROBE_EVIDENCE_TTL_SEC
         if service_id not in eligible_ids or expired:
             del store[service_id]
+            continue
+        entry.interval_seconds = cadence_by_id.get(service_id)
 
     current_by_id = {
         str(row.get("id")): row
@@ -88,6 +122,7 @@ def merge_probe_evidence(
                     row=dict(row),
                     observed_at=checked_at,
                     recorded_at=clock,
+                    interval_seconds=cadence_by_id.get(service_id),
                 )
                 merged[service_id] = _annotated(
                     transient,
@@ -100,6 +135,7 @@ def merge_probe_evidence(
             row=dict(row),
             observed_at=checked_at,
             recorded_at=clock,
+            interval_seconds=cadence_by_id.get(service_id),
         )
         store[service_id] = entry
         merged[service_id] = _annotated(
