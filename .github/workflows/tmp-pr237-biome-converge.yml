@@ -1,0 +1,46 @@
+---
+name: Temporary PR237 Biome convergence
+
+on:
+  push:
+    branches: [fix/generic-service-restricted-security]
+    paths: [.github/workflows/tmp-pr237-biome-converge.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  converge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: fix/generic-service-restricted-security
+          fetch-depth: 0
+
+      - name: Apply canonical Biome formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check pre-commit==4.6.2
+          pre-commit run biome-check --files \
+            nabla/api/assets/api-probe-fanout-dashboard.css \
+            nabla/api/assets/api-probe-fanout-dashboard.js \
+            nabla/api/assets/api-runtime.js \
+            nabla/api/assets/api-sickz.js || true
+          git diff --check
+          git config user.name openai-agent
+          git config user.email openai-agent@users.noreply.github.com
+          git add \
+            nabla/api/assets/api-probe-fanout-dashboard.css \
+            nabla/api/assets/api-probe-fanout-dashboard.js \
+            nabla/api/assets/api-runtime.js \
+            nabla/api/assets/api-sickz.js
+          if git diff --cached --quiet; then
+            echo "Biome output already converged."
+            exit 0
+          fi
+          git commit -m "style(ui): converge Biome formatting"
+          git pull --rebase origin fix/generic-service-restricted-security
+          git push origin HEAD:fix/generic-service-restricted-security
