@@ -145,3 +145,27 @@ def test_release_publishes_immutable_ghcr_image() -> None:
     assert "push: true" in workflow
     assert "cache-from: type=gha,scope=production" in workflow
     assert "cache-to: type=gha,mode=max,scope=production" in workflow
+
+
+def test_agent_completion_policy_requires_roadmap_accounting() -> None:
+    guide = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    roadmap = (ROOT / "docs" / "engineering-roadmap.md").read_text(encoding="utf-8")
+    fastapi_cloud_skill = (ROOT / ".agents" / "skills" / "fastapi-cloud" / "SKILL.md").read_text(encoding="utf-8")
+    homelab_skill = next((ROOT / ".agents" / "skills" / "homelab-runtime-status").glob("SKILL.md*")).read_text(encoding="utf-8")
+
+    assert "must not declare work complete" in guide.lower()
+    assert "docs/engineering-roadmap.md" in guide
+    assert "known residual" in guide.lower()
+    assert "next acceptance proof" in guide.lower()
+
+    assert "completion gate" in fastapi_cloud_skill.lower()
+    assert "docs/engineering-roadmap.md" in fastapi_cloud_skill
+    assert "completion gate" in homelab_skill.lower()
+    assert "docs/engineering-roadmap.md" in homelab_skill
+
+    assert "P0 — TrueNAS-local dependency convergence" in roadmap
+    assert "pfSense posture API" in roadmap
+    assert "Prometheus runtime configuration" in roadmap
+    assert "Cloudflare control-plane evidence" in roadmap
+    assert "Sentry application acceptance" in roadmap
+    assert "Pyroscope application acceptance" in roadmap
