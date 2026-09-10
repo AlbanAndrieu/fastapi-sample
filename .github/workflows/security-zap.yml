@@ -11,13 +11,14 @@ on:
       - "templates/**"
       - ".zap/**"
       - ".github/workflows/security-zap.yml"
+  workflow_call:
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: zap-${{ github.workflow }}-${{ github.ref }}
+  group: zap-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name == 'pull_request' && 'pr' || github.sha }}
   cancel-in-progress: true
 
 jobs:
@@ -52,7 +53,7 @@ jobs:
       STATSIG_ENABLED: "false"
 
     steps:
-      - name: Checkout exact PR SHA
+      - name: Checkout exact source SHA
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 1
@@ -70,25 +71,38 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           version: "0.12.1"
 
-      - name: Install locked application dependencies
-        run: uv sync --frozen
+      - name: Install locked runtime dependencies
+        run: uv sync --frozen --no-default-groups
 
       - name: Start isolated FastAPI runtime
         shell: bash
         run: |
           set -euo pipefail
-          nohup uv run uvicorn server_all:app --host 127.0.0.1 --port 8080 > /tmp/fastapi-zap.log 2>&1 &
-          echo "$!" > /tmp/fastapi-zap.pid
+          nohup uv run --no-sync uvicorn server_all:app \
+            --host 127.0.0.1 \
+            --port 8080 \
+            --lifespan off \
+            > /tmp/fastapi-zap.log 2>&1 &
+          pid="$!"
+          echo "${pid}" > /tmp/fastapi-zap.pid
+
           for attempt in $(seq 1 60); do
-            if curl --fail --silent --show-error "$BASE_URL/health" >/dev/null; then
-              echo "FastAPI DAST target ready after ${attempt}s."
-              curl --fail --silent --show-error "$BASE_URL/openapi.json" >/dev/null
+            if ! kill -0 "${pid}" 2>/dev/null; then
+              cat /tmp/fastapi-zap.log
+              echo "::error::FastAPI DAST target exited before becoming ready."
+              exit 1
+            fi
+
+            if curl --fail --silent --show-error "$BASE_URL/api" >/dev/null \
+              && curl --fail --silent --show-error "$BASE_URL/openapi.json" >/dev/null; then
+              echo "FastAPI DAST targets ready after ${attempt}s."
               exit 0
             fi
             sleep 1
           done
+
           cat /tmp/fastapi-zap.log
-          echo "::error::FastAPI DAST target did not become ready."
+          echo "::error::FastAPI DAST targets did not become ready."
           exit 1
 
       - name: OWASP ZAP Web baseline
@@ -132,6 +146,7 @@ jobs:
             echo "- Web baseline: **${WEB_OUTCOME:-not-run}** · /api"
             echo "- OpenAPI active scan: **${API_OUTCOME:-not-run}** · /openapi.json"
             echo "- Target: isolated runner-local FastAPI process; no production/TrueNAS/pfSense target is attacked."
+            echo "- Lifespan: disabled so DAST surface validation is independent from PostgreSQL/Redis/MCP startup."
             echo "- Artifacts: zap-web-report, zap-api-report"
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -151,3 +166,11 @@ jobs:
         if: failure()
         shell: bash
         run: cat /tmp/fastapi-zap.log || true
+
+      - name: Stop isolated FastAPI runtime
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f /tmp/fastapi-zap.pid ]]; then
+            kill "$(cat /tmp/fastapi-zap.pid)" 2>/dev/null || true
+          fi
