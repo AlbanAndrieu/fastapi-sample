@@ -372,7 +372,7 @@ async def get_cloudflare_tunnels_snapshot() -> dict[str, Any]:
                 "warning": current.get("warning") or "⚠️ Cloudflare global status could not be confirmed",
                 "error": current.get("error"),
                 "error_kind": current.get("error_kind"),
-            }
+            },
         )
         if last_known_reachable is not None:
             result["last_known_reachable"] = last_known_reachable

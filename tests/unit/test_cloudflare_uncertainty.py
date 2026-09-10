@@ -110,5 +110,5 @@ async def test_legacy_healthz_homelab_rows_only_probe_primary_truenas(monkeypatc
             "https://truenas.albandrieu.com:7000/",
             "TrueNAS HTTPS",
             None,
-        )
+        ),
     ]
