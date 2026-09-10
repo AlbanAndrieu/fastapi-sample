@@ -5,6 +5,7 @@ on:
   pull_request:
     branches: [master]
     types: [opened, synchronize, reopened, ready_for_review]
+  workflow_call:
   workflow_dispatch:
 
 permissions:
@@ -123,7 +124,7 @@ jobs:
 
   build:
     needs: preflight
-    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == false }}
+    if: ${{ (github.event_name == 'pull_request' && github.event.pull_request.draft == false) || github.event_name == 'workflow_call' }}
     name: Test and build Python package
     runs-on: ubuntu-latest
     env:
@@ -216,7 +217,7 @@ jobs:
   redis-integration:
     name: Redis integration
     needs: preflight
-    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == false }}
+    if: ${{ (github.event_name == 'pull_request' && github.event.pull_request.draft == false) || github.event_name == 'workflow_call' }}
     runs-on: ubuntu-latest
     env:
       PYTHON_VERSION: "3.13"
