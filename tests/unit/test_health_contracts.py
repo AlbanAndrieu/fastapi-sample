@@ -54,3 +54,79 @@ def test_deep_diagnostic_distinguishes_optional_degradation() -> None:
 
     assert payload["contract"] == "deep_diagnostic"
     assert payload["status"] == "degraded"
+
+
+def test_optional_deadline_is_unknown_warning_not_degradation() -> None:
+    payload = health_contracts.apply_diagnostic_status(
+        {
+            "checks": {
+                "postgres": {"reachable": True},
+                "redis": {"reachable": True},
+                "supabase": {"reachable": True},
+                "garage": {
+                    "reachable": False,
+                    "timed_out": True,
+                    "error_kind": "deadline",
+                    "error": "aggregate health probe deadline exceeded",
+                },
+            },
+        },
+    )
+
+    assert payload["status"] == "healthy"
+    assert payload["checks"]["garage"]["reachable"] is None
+    assert payload["checks"]["garage"]["status_confirmed"] is False
+    assert payload["checks"]["garage"]["severity"] == "warning"
+    assert payload["checks"]["garage"]["warning"].startswith("⚠️")
+
+
+def test_cloudflare_retrieval_failure_is_unconfirmed_not_degraded() -> None:
+    payload = health_contracts.apply_diagnostic_status(
+        {
+            "checks": {
+                "postgres": {"reachable": True},
+                "redis": {"reachable": True},
+                "supabase": {"reachable": True},
+                "cloudflare": {
+                    "reachable": False,
+                    "api_reachable": False,
+                    "error_kind": "connect_timeout",
+                    "error": "connection timed out",
+                    "probe": "cloudflare_tunnel_api",
+                },
+            },
+        },
+    )
+
+    cloudflare = payload["checks"]["cloudflare"]
+    assert payload["status"] == "healthy"
+    assert cloudflare["reachable"] is None
+    assert cloudflare["degraded"] is False
+    assert cloudflare["status_confirmed"] is False
+    assert "Cloudflare status could not be confirmed" in cloudflare["warning"]
+    assert cloudflare["error"] == "connection timed out"
+
+
+def test_confirmed_unhealthy_cloudflare_inventory_still_degrades() -> None:
+    payload = health_contracts.apply_diagnostic_status(
+        {
+            "checks": {
+                "postgres": {"reachable": True},
+                "redis": {"reachable": True},
+                "supabase": {"reachable": True},
+                "cloudflare": {
+                    "reachable": False,
+                    "api_reachable": True,
+                    "tunnel_count": 2,
+                    "healthy_tunnels": 1,
+                    "unhealthy_tunnels": 1,
+                    "tunnel_statuses": ["healthy", "down"],
+                    "degraded": True,
+                },
+            },
+        },
+    )
+
+    assert payload["status"] == "degraded"
+    assert payload["checks"]["cloudflare"]["reachable"] is False
+    assert payload["checks"]["cloudflare"]["degraded"] is True
