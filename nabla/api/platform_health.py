@@ -10,35 +10,30 @@ from typing import Any
 import httpx
 from pydantic import ValidationError
 
-from nabla.api.cloudflare_tunnels import CloudflareTunnelSettings
-from nabla.api.external_probe_cache import (
-    ProbeCacheResult,
-    get_or_refresh_probe,
-    reset_probe_cache,
+from nabla.api.cloudflare_health import (
+    check_cloudflare_tunnels,
+    get_cloudflare_tunnels_snapshot,
+    reset_cloudflare_api_cache,
 )
-from nabla.api.provider_probe_policies import (
-    CLOUDFLARE_TUNNELS_CACHE_POLICY as _CLOUDFLARE_CACHE_POLICY,
-    PFSENSE_LIVENESS_CACHE_POLICY as _PFSENSE_CACHE_POLICY,
-)
+from nabla.api.external_probe_cache import ProbeCacheResult, get_or_refresh_probe, reset_probe_cache
 from nabla.api.platform_health_diagnostics import (
     http_error_kind as _http_error_kind,
     pfsense_failure_stage as _pfsense_failure_stage,
     short_error as _short_error,
     utc_now as _utc_now,
 )
+from nabla.api.provider_probe_policies import PFSENSE_LIVENESS_CACHE_POLICY as _PFSENSE_CACHE_POLICY
 from nabla.settings.homelab import (
     PfSensePostureProviderSettings,
     pfsense_invalid_configuration_variables,
 )
 
-_CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4"
 _PFSENSE_LIVENESS_PATH = "/api/v2/system/version"
 _PFSENSE_CONNECT_TIMEOUT_SEC = 2.0
 _PFSENSE_READ_TIMEOUT_SEC = 4.0
 _PFSENSE_MAX_ATTEMPTS = 1
 _PFSENSE_RETRY_DELAY_SEC = 0.2
 _PFSENSE_CACHE_KEY = "pfsense:liveness"
-_CLOUDFLARE_CACHE_KEY = "cloudflare:tunnels"
 logger = logging.getLogger(__name__)
 
 
@@ -51,134 +46,6 @@ def _pfsense_posture_transport() -> tuple[str, str, bool, str]:
         provider.verify_ssl,
         provider.credential_mode,
     )
-
-
-def _cloudflare_api_error(response: httpx.Response) -> dict[str, Any]:
-    result: dict[str, Any] = {
-        "reachable": False,
-        "api_reachable": True,
-        "http_status": response.status_code,
-        "probe": "cloudflare_tunnel_api",
-    }
-    message = f"Cloudflare Tunnel API returned HTTP {response.status_code}"
-    error_code: int | str | None = None
-    try:
-        payload = response.json()
-    except ValueError:
-        payload = None
-    if isinstance(payload, dict):
-        errors = payload.get("errors")
-        if isinstance(errors, list) and errors and isinstance(errors[0], dict):
-            first = errors[0]
-            cloudflare_message = str(first.get("message") or "").strip()
-            if cloudflare_message:
-                message = cloudflare_message[:240]
-            error_code = first.get("code")
-    if response.status_code == 404:
-        message = f"{message}; verify CLOUDFLARE_ACCOUNT_ID is the Cloudflare Account ID and CLOUDFLARE_API_TOKEN is scoped to that account"
-    result["error"] = message[:480]
-    if error_code is not None:
-        result["cloudflare_error_code"] = error_code
-    return result
-
-
-def _cloudflare_unconfirmed(
-    reason: str,
-    *,
-    error_kind: str,
-    api_reachable: bool | None,
-    http_status: int | None = None,
-) -> dict[str, Any]:
-    """Return non-degrading provider uncertainty with an explicit warning."""
-    result: dict[str, Any] = {
-        "reachable": None,
-        "api_reachable": api_reachable,
-        "state": "unknown",
-        "status_confirmed": False,
-        "warning": f"⚠️ Cloudflare global status could not be confirmed: {reason}",
-        "error": reason,
-        "error_kind": error_kind,
-        "probe": "cloudflare_tunnel_api",
-    }
-    if http_status is not None:
-        result["http_status"] = http_status
-    return result
-
-
-async def check_cloudflare_tunnels() -> dict[str, Any]:
-    """Check Cloudflare Tunnel control-plane and tunnel health read-only."""
-    settings = CloudflareTunnelSettings.from_environment()
-    if settings is None:
-        return {
-            "reachable": None,
-            "skipped": True,
-            "reason": "CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN are not configured",
-            "probe": "cloudflare_tunnel_api",
-        }
-
-    url = f"{_CLOUDFLARE_API_BASE}/accounts/{settings.account_id}/cfd_tunnel"
-    try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(5.0)) as client:
-            response = await client.get(
-                url,
-                headers={
-                    "Authorization": f"Bearer {settings.api_token}",
-                    "Accept": "application/json",
-                },
-                params={"is_deleted": "false"},
-            )
-    except (httpx.HTTPError, OSError) as exc:
-        return _cloudflare_unconfirmed(
-            _short_error(exc),
-            error_kind=_http_error_kind(exc),
-            api_reachable=False,
-        )
-
-    if response.status_code >= 400:
-        return _cloudflare_api_error(response)
-    try:
-        payload = response.json()
-    except ValueError:
-        return _cloudflare_unconfirmed(
-            "Cloudflare Tunnel API returned invalid JSON",
-            error_kind="invalid_response",
-            api_reachable=True,
-            http_status=response.status_code,
-        )
-
-    tunnels = payload.get("result") if isinstance(payload, dict) else None
-    if not isinstance(tunnels, list):
-        return _cloudflare_unconfirmed(
-            "Cloudflare Tunnel API returned an unexpected payload",
-            error_kind="invalid_response",
-            api_reachable=True,
-            http_status=response.status_code,
-        )
-
-    statuses = [str(tunnel.get("status") or "unknown").lower() for tunnel in tunnels if isinstance(tunnel, dict)]
-    if not statuses:
-        return _cloudflare_unconfirmed(
-            "Cloudflare Tunnel API returned no tunnel inventory",
-            error_kind="empty_inventory",
-            api_reachable=True,
-            http_status=response.status_code,
-        )
-    unhealthy = [status for status in statuses if status in {"inactive", "degraded", "down"}]
-    healthy = sum(status == "healthy" for status in statuses)
-    return {
-        "reachable": not unhealthy,
-        "api_reachable": True,
-        "http_status": response.status_code,
-        "probe": "cloudflare_tunnel_api",
-        "state": "warn" if unhealthy else "ok",
-        "status_confirmed": True,
-        "tunnel_count": len(statuses),
-        "healthy_tunnels": healthy,
-        "unhealthy_tunnels": len(unhealthy),
-        "tunnel_statuses": statuses,
-        "degraded": bool(unhealthy),
-        "last_success_at": _utc_now(),
-    }
 
 
 async def check_pfsense_api() -> dict[str, Any]:
@@ -217,13 +84,6 @@ async def check_pfsense_api() -> dict[str, Any]:
         pool=_PFSENSE_CONNECT_TIMEOUT_SEC,
     )
     started = time.monotonic()
-    logger.debug(
-        "pfSense API liveness probe started url=%s verify_ssl=%s connect_timeout_s=%s read_timeout_s=%s",
-        url,
-        verify_ssl,
-        _PFSENSE_CONNECT_TIMEOUT_SEC,
-        _PFSENSE_READ_TIMEOUT_SEC,
-    )
     response: httpx.Response | None = None
     last_error: BaseException | None = None
     attempts = 0
@@ -261,12 +121,13 @@ async def check_pfsense_api() -> dict[str, Any]:
         error_kind = _http_error_kind(exc)
         error = _short_error(exc)
         if error_kind == "read_timeout":
-            error = f"pfSense accepted the connection but did not return the REST API response within {_PFSENSE_READ_TIMEOUT_SEC:.0f}s"
+            error = (
+                "pfSense accepted the connection but did not return the REST API "
+                f"response within {_PFSENSE_READ_TIMEOUT_SEC:.0f}s"
+            )
         failure_stage = _pfsense_failure_stage(error_kind)
         logger.warning(
-            "pfSense API liveness probe failed url=%s verify_ssl=%s error_kind=%s failure_stage=%s exception_type=%s elapsed_ms=%s attempts=%s",
-            url,
-            verify_ssl,
+            "pfSense API liveness probe failed error_kind=%s failure_stage=%s exception_type=%s elapsed_ms=%s attempts=%s",
             error_kind,
             failure_stage,
             type(exc).__name__,
@@ -290,15 +151,6 @@ async def check_pfsense_api() -> dict[str, Any]:
         }
 
     healthy = 200 <= response.status_code < 400
-    logger.debug(
-        "pfSense API liveness probe completed url=%s verify_ssl=%s http_status=%s elapsed_ms=%s attempts=%s reachable=%s",
-        url,
-        verify_ssl,
-        response.status_code,
-        elapsed_ms,
-        attempts,
-        healthy,
-    )
     result: dict[str, Any] = {
         "reachable": healthy,
         "http_status": response.status_code,
@@ -326,14 +178,13 @@ async def check_pfsense_api() -> dict[str, Any]:
 
 def _cache_with_stale_evidence(cached: ProbeCacheResult) -> dict[str, Any]:
     value = dict(cached.value)
-    current_failure = value.get("reachable") is False or value.get("api_reachable") is False
+    current_failure = value.get("reachable") is False
     stale_refresh = cached.metadata.get("stale") is True
     use_last_good = (current_failure or stale_refresh) and cached.last_good is not None
     if use_last_good:
-        error = value.get("error") or "probe refresh is in progress"
         value = {
             **cached.last_good,
-            "refresh_error": error,
+            "refresh_error": value.get("error") or "probe refresh is in progress",
         }
     value.update(cached.metadata)
     value["stale"] = bool(use_last_good or stale_refresh)
@@ -351,40 +202,9 @@ async def get_pfsense_api_snapshot() -> dict[str, Any]:
     return _cache_with_stale_evidence(cached)
 
 
-async def get_cloudflare_tunnels_snapshot() -> dict[str, Any]:
-    """Use L1/Redis L2 cache without turning refresh uncertainty into downtime."""
-    cached = await get_or_refresh_probe(
-        _CLOUDFLARE_CACHE_KEY,
-        check_cloudflare_tunnels,
-        is_success=lambda value: value.get("status_confirmed") is True,
-        policy=_CLOUDFLARE_CACHE_POLICY,
-    )
-    result = _cache_with_stale_evidence(cached)
-    current = cached.value
-    if current.get("status_confirmed") is False:
-        last_known_reachable = result.get("reachable")
-        result.update(
-            {
-                "reachable": None,
-                "api_reachable": current.get("api_reachable"),
-                "state": "unknown",
-                "status_confirmed": False,
-                "warning": current.get("warning") or "⚠️ Cloudflare global status could not be confirmed",
-                "error": current.get("error"),
-                "error_kind": current.get("error_kind"),
-            },
-        )
-        if last_known_reachable is not None:
-            result["last_known_reachable"] = last_known_reachable
-    return result
-
-
 async def reset_pfsense_api_cache() -> None:
+    """Reset pfSense provider cache for deterministic tests."""
     await reset_probe_cache(_PFSENSE_CACHE_KEY)
-
-
-async def reset_cloudflare_api_cache() -> None:
-    await reset_probe_cache(_CLOUDFLARE_CACHE_KEY)
 
 
 async def enrich_optional_platform_checks(payload: dict[str, Any]) -> dict[str, Any]:
@@ -397,3 +217,14 @@ async def enrich_optional_platform_checks(payload: dict[str, Any]) -> dict[str, 
     checks["cloudflare"] = cloudflare
     checks["pfsense"] = pfsense
     return {**payload, "checks": checks}
+
+
+__all__ = [
+    "check_cloudflare_tunnels",
+    "check_pfsense_api",
+    "enrich_optional_platform_checks",
+    "get_cloudflare_tunnels_snapshot",
+    "get_pfsense_api_snapshot",
+    "reset_cloudflare_api_cache",
+    "reset_pfsense_api_cache",
+]
