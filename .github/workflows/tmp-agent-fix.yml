@@ -1,0 +1,44 @@
+name: Temporary agent fix
+
+on:
+  push:
+    branches:
+      - fix/truenas-runtime-binding-evidence
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.12.1"
+          enable-cache: true
+      - name: Install locked dependencies
+        run: uv sync --frozen
+      - name: Install pre-commit runner
+        run: uv pip install pre-commit==4.6.2
+      - name: Converge deterministic fixes
+        env:
+          QUALITY_BASE_REF: origin/master
+          UV_NO_SYNC: "1"
+        run: bash scripts/agent-quality-gate.sh --fix
+      - name: Commit fixes
+        run: |
+          if git diff --quiet; then
+            echo "No deterministic fixes required"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "style: converge agent quality gate"
+          git push
