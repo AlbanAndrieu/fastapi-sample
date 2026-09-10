@@ -1,3 +1,10 @@
+## [1.15.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.15.0...1.15.1) (2026-09-10)
+
+
+### Bug Fixes
+
+* **health:** preserve availability when Cloudflare evidence is unconfirmed ([#239](https://github.com/AlbanAndrieu/fastapi-sample/issues/239)) ([b63a389](https://github.com/AlbanAndrieu/fastapi-sample/commit/b63a389d275e51205660fb4729644a9a2ea081f6))
+
 # [1.15.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.14.0...1.15.0) (2026-09-10)
 
 
