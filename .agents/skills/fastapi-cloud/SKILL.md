@@ -1,8 +1,10 @@
 ---
 name: fastapi-cloud
-description: Operate and diagnose the fastapi-sample FastAPI Cloud deployment. Use for FastAPI Cloud authentication, deploy tokens, environment-variable inventory, deployments, runtime logs, and production-vs-local homelab health diagnostics.
+description: >-
+  Operate and diagnose the fastapi-sample FastAPI Cloud deployment. Use for
+  FastAPI Cloud authentication, deploy tokens, environment-variable inventory,
+  deployments, runtime logs, and production-vs-local homelab health diagnostics.
 ---
-
 # FastAPI Cloud operations
 
 Use this skill for FastAPI Cloud runtime and deployment operations. It complements the `fastapi` coding skill; it is not a replacement for FastAPI framework guidance.
