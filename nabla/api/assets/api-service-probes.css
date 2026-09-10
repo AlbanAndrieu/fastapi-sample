@@ -1,0 +1,70 @@
+.service-runtime-badge,
+.service-probe-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  min-height: 1.15rem;
+  padding: 0.08rem 0.35rem;
+  border: 1px solid #343434;
+  border-radius: 999px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.service-runtime-badge {
+  margin-left: 0.35rem;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.service-runtime-badge--ok,
+.service-probe-chip--ok {
+  border-color: rgba(0, 255, 136, 0.42);
+  background: rgba(0, 255, 136, 0.07);
+  color: #72f5b5;
+}
+
+.service-runtime-badge--starting,
+.service-probe-chip--stale {
+  border-color: rgba(255, 204, 51, 0.48);
+  background: rgba(255, 204, 51, 0.07);
+  color: #ffd966;
+}
+
+.service-runtime-badge--error,
+.service-probe-chip--error {
+  border-color: rgba(255, 68, 68, 0.55);
+  background: rgba(255, 68, 68, 0.08);
+  color: #ff8b8b;
+}
+
+.service-runtime-badge--unknown,
+.service-probe-chip--disabled {
+  border-color: #3c3c3c;
+  background: rgba(156, 163, 175, 0.05);
+  color: #8d949e;
+}
+
+.service-probe-strip {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.28rem;
+}
+
+.service-probe-chip-icon {
+  font-size: 0.68rem;
+  line-height: 1;
+}
+
+@media (max-width: 640px) {
+  .service-runtime-badge {
+    margin-left: 0;
+  }
+
+  .service-probe-strip {
+    flex-basis: 100%;
+  }
+}
