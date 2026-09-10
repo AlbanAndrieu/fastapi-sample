@@ -15,6 +15,10 @@ from nabla.api.homelab_topology import (
 HealthState = str
 
 _HEALTH_STATES = frozenset({"ok", "warn", "fail", "unknown"})
+# Only relations that are required for the application to function participate in
+# service-health propagation. ``exposedBy`` is an ingress/topology relationship:
+# it is reported by the exposure diagnostics but must not make a healthy origin
+# look degraded merely because the proxy is absent from the current probe sample.
 _HEALTH_BEARING_RELATION_TYPES = frozenset(
     {
         HomelabRelationType.DEPENDS_ON,
@@ -22,7 +26,6 @@ _HEALTH_BEARING_RELATION_TYPES = frozenset(
         HomelabRelationType.ROUTES_TO,
         HomelabRelationType.STORES_IN,
         HomelabRelationType.AUTHENTICATES_VIA,
-        HomelabRelationType.EXPOSED_BY,
     },
 )
 
@@ -49,10 +52,15 @@ def _effective_state(
     local_state: HealthState,
     dependency_state: HealthState | None,
 ) -> HealthState:
-    """Keep direct failures red and dependency failures visibly degraded."""
+    """Keep local evidence authoritative and degrade only on confirmed risk.
+
+    Missing/stale dependency evidence is diagnostic uncertainty, not proof that a
+    dependency is unavailable. It is surfaced through ``unconfirmed_dependencies``
+    without changing an otherwise healthy service to ``warn``.
+    """
     if local_state == "fail":
         return "fail"
-    if dependency_state in {"fail", "warn", "unknown"}:
+    if dependency_state in {"fail", "warn"}:
         return "warn"
     return local_state
 
@@ -164,14 +172,22 @@ def propagate_required_dependency_health(
 
     ``state`` remains the backwards-compatible final state. New clients can use
     ``local_state`` to preserve the service's own HTTP/runtime outcome and
-    ``effective_state`` for the dependency-aware result.
+    ``effective_state`` for the dependency-aware result. Unknown/stale dependency
+    evidence is kept visible but does not downgrade a positively observed service.
     """
     enriched = [dict(row) for row in rows]
-    rows_by_id = {str(row.get("id")): row for row in enriched if isinstance(row.get("id"), str) and row.get("id")}
+    rows_by_id = {
+        str(row.get("id")): row
+        for row in enriched
+        if isinstance(row.get("id"), str) and row.get("id")
+    }
     required = _required_relations(topology)
     cycles = _required_dependency_cycles(required)
     node_names = {node.id: node.name for node in topology.nodes}
-    local_states = {service_id: _health_state(row.get("state")) for service_id, row in rows_by_id.items()}
+    local_states = {
+        service_id: _health_state(row.get("state"))
+        for service_id, row in rows_by_id.items()
+    }
     effective_states = dict(local_states)
 
     # Resolve dependency chains to a fixed point. Required cycles are handled by
@@ -205,7 +221,9 @@ def propagate_required_dependency_health(
         service_id = str(row.get("id") or "")
         local_state = _health_state(row.get("state"))
         relations = required.get(service_id, [])
-        target_effective_states = [effective_states.get(relation.target, "unknown") for relation in relations]
+        target_effective_states = [
+            effective_states.get(relation.target, "unknown") for relation in relations
+        ]
         target_states = [
             _dependency_target_state(
                 relation.target,
@@ -219,7 +237,21 @@ def propagate_required_dependency_health(
             service_id,
             _effective_state(local_state, dependency_state),
         )
-        blocked_by = [relation.target for relation, target_state in zip(relations, target_states, strict=True) if target_state != "ok"]
+        blocked_by = [
+            relation.target
+            for relation, target_state in zip(relations, target_states, strict=True)
+            if target_state == "fail"
+        ]
+        degraded_by = [
+            relation.target
+            for relation, target_state in zip(relations, target_states, strict=True)
+            if target_state == "warn"
+        ]
+        unconfirmed_dependencies = [
+            relation.target
+            for relation, target_state in zip(relations, target_states, strict=True)
+            if target_state == "unknown"
+        ]
 
         row.update(
             {
@@ -229,6 +261,8 @@ def propagate_required_dependency_health(
                 "effective_state": effective_state,
                 "required_dependencies": [relation.target for relation in relations],
                 "blocked_by": blocked_by,
+                "degraded_by": degraded_by,
+                "unconfirmed_dependencies": unconfirmed_dependencies,
                 "dependency_cycle": cycles.get(service_id, []),
                 "dependency_evidence": [
                     _dependency_evidence(
