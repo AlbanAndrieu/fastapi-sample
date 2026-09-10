@@ -20,6 +20,173 @@ def _truenas_internal_hosts(services: Iterable[HomelabService]) -> frozenset[str
     return frozenset(service.internal_host for service in services if service.service_id == "truenas" and service.internal_host)
 
 
+def _selected_truenas_endpoint_stage(payload: dict[str, Any]) -> dict[str, Any]:
+    truenas = payload.get("truenas") if isinstance(payload.get("truenas"), dict) else {}
+    diagnostics = truenas.get("diagnostics") if isinstance(truenas.get("diagnostics"), dict) else {}
+    public = truenas.get("public") if isinstance(truenas.get("public"), dict) else {}
+    configured_url = str(public.get("url") or diagnostics.get("target") or "TrueNAS")
+    dns_stage = next(
+        (
+            stage
+            for stage in diagnostics.get("stages", [])
+            if isinstance(stage, dict) and stage.get("id") == "dns"
+        ),
+        {},
+    )
+    resolved = [str(value) for value in dns_stage.get("resolved", []) if value]
+    path_mode = str(diagnostics.get("path_mode") or "public_wan")
+    detail_parts = [f"selected endpoint {configured_url}"]
+    if resolved:
+        detail_parts.append(f"resolved to {', '.join(resolved)}")
+    if path_mode == "direct_lan":
+        detail_parts.append("direct LAN; hostname retained for TLS/SNI verification")
+    else:
+        detail_parts.append("public/WAN path")
+    return {
+        "id": "selected_endpoint",
+        "label": "TrueNAS target URL",
+        "state": "ok",
+        "detail": " · ".join(detail_parts),
+        "target_url": configured_url,
+        "resolved": resolved,
+        "evidence": "runtime_route",
+    }
+
+
+def _pfsense_posture_stage(pfsense_dns: dict[str, Any]) -> dict[str, Any]:
+    resolver = pfsense_dns.get("resolver") if isinstance(pfsense_dns.get("resolver"), dict) else {}
+    resolver_running = resolver.get("running")
+    policy_state = str(pfsense_dns.get("policy_state") or "unknown")
+    state = "fail" if policy_state == "fail" or resolver_running is False else "ok" if policy_state == "ok" else "warn"
+    if resolver_running is True:
+        unbound = "running"
+    elif resolver_running is False:
+        unbound = "stopped"
+    else:
+        unbound = "unknown"
+
+    summary = pfsense_dns.get("service_summary") if isinstance(pfsense_dns.get("service_summary"), dict) else {}
+    services = pfsense_dns.get("services") if isinstance(pfsense_dns.get("services"), list) else []
+    stopped = [
+        str(service.get("identity") or "service")
+        for service in services
+        if isinstance(service, dict) and service.get("runtime_state") == "stopped"
+    ]
+    unknown = [
+        str(service.get("identity") or "service")
+        for service in services
+        if isinstance(service, dict) and service.get("runtime_state") == "unknown"
+    ]
+    filters = pfsense_dns.get("security_filters") if isinstance(pfsense_dns.get("security_filters"), list) else []
+    filter_text = ", ".join(
+        f"{row.get('label') or row.get('id')}={row.get('state', 'unknown')}"
+        for row in filters
+        if isinstance(row, dict)
+    )
+
+    details = [
+        "out-of-band posture; pfSense is not on the direct TrueNAS LAN data path",
+        f"Unbound={unbound}",
+    ]
+    if summary:
+        details.append(
+            "services "
+            f"running={summary.get('running', 0)} "
+            f"stopped={summary.get('stopped', 0)} "
+            f"unknown={summary.get('unknown', 0)} "
+            f"total={summary.get('total', 0)}",
+        )
+    if stopped:
+        details.append(f"stopped: {', '.join(stopped[:8])}")
+    if unknown:
+        details.append(f"unknown: {', '.join(unknown[:8])}")
+    if filter_text:
+        details.append(filter_text)
+    if pfsense_dns.get("error_stage"):
+        details.append(
+            f"partial API evidence: {pfsense_dns['error_stage']} {pfsense_dns.get('error', 'unknown')}",
+        )
+    return {
+        "id": "pfsense_lan_posture",
+        "label": "pfSense LAN / DNS posture",
+        "state": state,
+        "detail": " · ".join(details),
+        "evidence": "read_only_pfsense_api",
+    }
+
+
+def _cloudflare_posture_stage(
+    cloudflare: dict[str, Any],
+    *,
+    path_mode: str,
+) -> dict[str, Any]:
+    confirmed = cloudflare.get("status_confirmed") is True
+    configured = cloudflare.get("configured") is True
+    tunnels = cloudflare.get("tunnels_observed")
+    if confirmed:
+        detail = f"Cloudflare inventory confirmed · {tunnels or 0} tunnel(s) observed"
+        state = "ok"
+    elif not configured:
+        detail = "Cloudflare observer not configured; tunnel state is unknown"
+        state = "warn"
+    else:
+        detail = str(
+            cloudflare.get("warning")
+            or "Cloudflare tunnel inventory could not be confirmed",
+        )
+        state = "warn"
+    if path_mode == "direct_lan":
+        detail += " · observational only; Cloudflare is not on the direct LAN data path"
+    return {
+        "id": "cloudflare_tunnel_observation",
+        "label": "Cloudflare Tunnel observation",
+        "state": state,
+        "detail": detail,
+        "evidence": "cloudflare_control_plane",
+    }
+
+
+def _enrich_truenas_flow(
+    payload: dict[str, Any],
+    *,
+    pfsense_dns: dict[str, Any],
+    cloudflare: dict[str, Any],
+) -> dict[str, Any]:
+    truenas = payload.get("truenas")
+    if not isinstance(truenas, dict):
+        return payload
+    diagnostics = truenas.get("diagnostics")
+    if not isinstance(diagnostics, dict):
+        return payload
+
+    stages = [dict(stage) for stage in diagnostics.get("stages", []) if isinstance(stage, dict)]
+    stages = [
+        stage
+        for stage in stages
+        if stage.get("id")
+        not in {
+            "selected_endpoint",
+            "pfsense_lan_posture",
+            "cloudflare_tunnel_observation",
+        }
+    ]
+    stages.insert(0, _selected_truenas_endpoint_stage(payload))
+
+    path_mode = str(diagnostics.get("path_mode") or "public_wan")
+    if path_mode == "direct_lan":
+        pfsense_stage = _pfsense_posture_stage(pfsense_dns)
+        dns_index = next(
+            (index for index, stage in enumerate(stages) if stage.get("id") == "dns"),
+            0,
+        )
+        stages.insert(dns_index + 1, pfsense_stage)
+    stages.append(_cloudflare_posture_stage(cloudflare, path_mode=path_mode))
+
+    enriched_diagnostics = {**diagnostics, "stages": stages}
+    enriched_truenas = {**truenas, "diagnostics": enriched_diagnostics}
+    return {**payload, "truenas": enriched_truenas}
+
+
 async def prepare_homelab_reconciliation_context(
     services: list[HomelabService],
 ) -> dict[str, Any]:
@@ -64,6 +231,11 @@ async def reconcile_homelab_health_payload(
     topology = context["topology"]
     pfsense_dns = context["pfsense_dns"]
     cloudflare_summary = cloudflare.summary()
+    payload = _enrich_truenas_flow(
+        payload,
+        pfsense_dns=pfsense_dns,
+        cloudflare=cloudflare_summary,
+    )
 
     checked_at = str(payload.get("checked_at") or "").strip() or None
     truenas = payload.get("truenas")
