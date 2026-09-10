@@ -1,0 +1,46 @@
+.health-tier-legend {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.7rem 0 1rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  border-radius: 0.65rem;
+  font-size: 0.82rem;
+  opacity: 0.9;
+}
+
+.health-tier-legend > span {
+  display: block;
+}
+
+.health-tier-help {
+  cursor: help;
+  text-decoration: underline dotted;
+  text-underline-offset: 0.15em;
+}
+
+.health-meta-badge--probe-age {
+  font-variant-numeric: tabular-nums;
+}
+
+.health-meta-badge--probing {
+  animation: health-probe-pulse 1.2s ease-in-out infinite;
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes health-probe-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .health-meta-badge--probing {
+    animation: none;
+  }
+}
