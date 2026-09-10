@@ -338,7 +338,7 @@ def _fetch_json(url: str, diagnostics_key: str | None) -> dict[str, Any]:
         headers["X-Diagnostics-Key"] = diagnostics_key
     request = Request(url, headers=headers)  # noqa: S310 - URL restricted to HTTP(S) above
     try:
-        with urlopen(request, timeout=8.0) as response:  # noqa: S310 - validated HTTP(S) request
+        with urlopen(request, timeout=8.0) as response:  # nosec B310  # noqa: S310 - scheme validated above
             payload = json.load(response)
     except HTTPError as exc:
         raise RuntimeError(f"health-board returned HTTP {exc.code}") from exc
