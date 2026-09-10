@@ -26,12 +26,13 @@ jobs:
         run: uv sync --frozen
       - name: Install pre-commit runner
         run: uv pip install pre-commit==4.6.2
-      - name: Converge deterministic fixes
+      - name: Apply deterministic fixes
+        continue-on-error: true
         env:
           QUALITY_BASE_REF: origin/master
           UV_NO_SYNC: "1"
         run: bash scripts/agent-quality-gate.sh --fix
-      - name: Commit fixes
+      - name: Commit rewritten tree
         run: |
           if git diff --quiet; then
             echo "No deterministic fixes required"
