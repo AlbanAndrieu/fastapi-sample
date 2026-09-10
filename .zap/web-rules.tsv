@@ -1,0 +1,8 @@
+10020	FAIL	(Anti-clickjacking header must be present and valid)
+10021	FAIL	(X-Content-Type-Options must be nosniff)
+10033	FAIL	(Directory browsing must not be exposed)
+10015	WARN	(Cache-control findings are visible but not blocking on the local HTTP DAST target)
+10023	WARN	(Debug error disclosure requires triage)
+10035	WARN	(HSTS is not expected on the intentionally HTTP-only ephemeral CI target)
+10036	WARN	(Server header information disclosure requires triage)
+10038	WARN	(CSP findings remain visible while the API landing page policy is hardened)

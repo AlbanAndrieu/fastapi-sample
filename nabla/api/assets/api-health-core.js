@@ -13,6 +13,8 @@ import {
 } from "./api-health-ui.js";
 import { organizeHealthRows } from "./api-service-groups.js";
 
+let lastHealthRowsSignature = null;
+
 const LABELS = {
   redis: "Redis",
   postgres: "PostgreSQL",
@@ -270,6 +272,38 @@ function renderSnapshotFreshness(snapshot) {
   element.textContent = parts.join(" · ");
 }
 
+function healthRowsSignature(checks) {
+  return JSON.stringify(
+    Object.keys(checks)
+      .sort()
+      .map((key) => {
+        const check = checks[key] || {};
+        return [
+          key,
+          check.name,
+          check.display_label,
+          check.service_id,
+          check.reachable,
+          check.local_state,
+          check.dependency_state,
+          check.effective_state,
+          check.http_status,
+          check.skipped,
+          check.warning,
+          check.error_kind,
+          check.stage,
+          check.error,
+          check.path,
+          check.host,
+          check.port,
+          check.url,
+          check.tls_trusted,
+          check.dependency_detail,
+        ];
+      }),
+  );
+}
+
 function render(data, platformMetrics = null) {
   const listEl = document.getElementById("health-checks");
   const summaryEl = document.getElementById("health-summary");
@@ -283,6 +317,9 @@ function render(data, platformMetrics = null) {
   summaryLed.className = `health-led health-led--${overall.cls}`;
   summaryText.textContent = overall.text;
   const checks = data.checks || {};
+  const signature = healthRowsSignature(checks);
+  if (signature === lastHealthRowsSignature) return;
+  lastHealthRowsSignature = signature;
   const keys = sortKeys(Object.keys(checks)).filter(
     (key) => key !== "truenas_api",
   );
@@ -329,6 +366,7 @@ function render(data, platformMetrics = null) {
 }
 
 function showFetchError(message) {
+  lastHealthRowsSignature = null;
   const summaryEl = document.getElementById("health-summary");
   const summaryText = document.getElementById("health-summary-text");
   const summaryLed = document.getElementById("health-summary-led");

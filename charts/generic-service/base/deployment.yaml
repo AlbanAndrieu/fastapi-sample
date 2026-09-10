@@ -12,18 +12,26 @@ spec:
       labels:
         app: fastapi-sample
     spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      hostNetwork: false
+      hostPID: false
+      hostIPC: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
         runAsGroup: 10001
         fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
           type: RuntimeDefault
       containers:
         - name: fastapi-sample
           image: registry.gitlab.com/AlbanAndrieu/fastapi-sample:1.2.3
           securityContext:
+            privileged: false
             allowPrivilegeEscalation: false
+            runAsNonRoot: true
             readOnlyRootFilesystem: true
             capabilities:
               drop:
@@ -43,4 +51,5 @@ spec:
               mountPath: /tmp
       volumes:
         - name: tmp
-          emptyDir: {}
+          emptyDir:
+            sizeLimit: 256Mi

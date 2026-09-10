@@ -20,10 +20,10 @@ provider probes / runtime inventory
             |
             v
     FastAPI health-board
-       stale-while-revalidate
+        stale-while-revalidate
             |
             v
- diagnose-local-runtime-dependencies.py
+  diagnose-local-runtime-dependencies.py
 ```
 
 A diagnostic run must not multiply TrueNAS, pfSense, Cloudflare, Prometheus, Sentry or Pyroscope traffic.
@@ -33,23 +33,31 @@ A diagnostic run must not multiply TrueNAS, pfSense, Cloudflare, Prometheus, Sen
 Each dependency reports:
 
 - `configured` — the required runtime setting/credential is present;
-- `reachable` — the intended transport/application endpoint responded;
+- `reachable` — **transport reachability**. Receiving an HTTP response proves this even when the response is `4xx`/`5xx`;
 - `authenticated` — true/false only when the existing evidence actually proves authentication; otherwise `null`;
+- `application_ok` — whether the strongest observed application-level operation succeeded;
 - `application_result` — the strongest application-level evidence already collected;
+- `operational_state` — normalized `ok`, `warning`, `configuration_required`, `unreachable`, `application_error`, or `evidence_incomplete`;
 - `stale` — whether last-known-good/cache evidence is being served;
 - `error_stage` / `error_kind` — the closest known failure phase;
 - `evidence_complete` — whether the current probe reaches the depth required for this P0 gate.
 
-Do not infer authentication merely from TCP reachability.
+Do not infer authentication merely from TCP reachability. Likewise, do not turn an HTTP `404`/`502` into a transport failure: the server path responded, while application acceptance failed or remains unconfirmed.
 
-## Current expected gaps
+## Staging evidence — 2026-09-10
 
-The existing implementation is intentionally expected to report two depth gaps even when the services are up:
+Observed from `http://172.17.0.24:8091` using one fresh health-board refresh:
 
-- **Sentry** currently uses `probe=dsn_socket`; this proves the selected DSN endpoint is reachable but does not prove API authentication or event ingestion. Final acceptance requires a bounded synthetic event with an event id and downstream evidence.
-- **Pyroscope** currently checks `/ready`, `/health` or `/`; this proves service readiness but not that profiling data for `service_name=fastapi-sample` can be queried. Final acceptance requires a bounded read query for the runtime's own profile series.
+| Dependency | Transport/config evidence | Current interpretation | Remaining acceptance |
+| --- | --- | --- | --- |
+| TrueNAS | configured, reachable and authenticated; 96 apps; `direct_lan` | accepted | none for this P0 gate |
+| pfSense | `/api/v2/system/version` returned HTTP `502` with `dedicated_posture` | HTTP transport responded, but application result failed; authentication is unproven for the `502` | compare workstation and TrueNAS-container path, then require authenticated `2xx` from staging runtime |
+| Cloudflare | API reachable and authenticated, but tunnel inventory empty | warning / status unconfirmed; **not DOWN and not degraded solely for this reason** | verify account/token scope with a bounded on-demand inventory check |
+| Prometheus | `configured=false`, `state=not_configured` | deployment configuration gap, not a reachability failure | set `HOMELAB_PROMETHEUS_URL`, redeploy, then require recording-rule evidence |
+| Sentry | `dsn_socket` reachable | transport-only evidence | bounded synthetic event id plus downstream ingestion proof |
+| Pyroscope | HTTP `404` on `/health` | HTTP transport responded, but readiness was not proven | real readiness `2xx` plus bounded recent profile query for `service_name=fastapi-sample` |
 
-TrueNAS, pfSense, Cloudflare and Prometheus can already expose stronger application-level evidence through the health-board, but the actual TrueNAS-hosted deployment must be measured before those items are marked complete.
+The corresponding open work is tracked in the P0 TrueNAS-local dependency section of `docs/engineering-roadmap.md`. Do not report this convergence task complete while any of those roadmap items remains unresolved.
 
 ## Operator usage
 
@@ -72,16 +80,80 @@ python scripts/diagnose-local-runtime-dependencies.py \
 
 The helper requests one refresh and polls the FastAPI stale-while-revalidate snapshot until the background refresh converges or the bounded wait expires. It does not bypass the application's probe budgets.
 
+## A/B path checks: workstation versus TrueNAS runtime
+
+Workstation reachability is useful because both pfSense and Prometheus are expected to be reachable from the trusted LAN, but it is a **different observer scope** from the FastAPI container. Compare them rather than using workstation success to overwrite staging-runtime evidence.
+
+### pfSense from the workstation
+
+Use the already-exported dedicated posture key; do not print it:
+
+```bash
+curl -sS -o /dev/null \
+  -w 'pfsense http=%{http_code} peer=%{remote_ip} tls=%{ssl_verify_result} time=%{time_total}\n' \
+  -H "X-API-Key: ${PFSENSE_POSTURE_API_KEY}" \
+  -H 'Accept: application/json' \
+  https://home.albandrieu.com:10443/api/v2/system/version
+```
+
+A `2xx` response proves the workstation path and posture credential work. It does not by itself prove the TrueNAS FastAPI-container path.
+
+On TrueNAS, inspect the container's selected peer without exposing a key:
+
+```bash
+sudo docker exec fastapi-sample getent hosts home.albandrieu.com
+```
+
+```bash
+sudo docker exec fastapi-sample \
+  curl -ksS -o /dev/null \
+  -w 'pfsense unauth http=%{http_code} peer=%{remote_ip} time=%{time_total}\n' \
+  https://home.albandrieu.com:10443/api/v2/system/version
+```
+
+An unauthenticated `401`/`403` is still useful transport/path evidence. Do not weaken pfSense authentication merely to make this diagnostic green.
+
+### Prometheus from the workstation
+
+First prove the server itself is ready:
+
+```bash
+curl -fsS http://172.17.0.24:9090/-/ready
+```
+
+Then prove its query API responds:
+
+```bash
+curl -fsS -G http://172.17.0.24:9090/api/v1/query \
+  --data-urlencode 'query=up'
+```
+
+On TrueNAS, verify the FastAPI container actually received the deployment setting:
+
+```bash
+sudo docker exec fastapi-sample sh -lc \
+  'printf "HOMELAB_PROMETHEUS_URL=%s\n" "${HOMELAB_PROMETHEUS_URL:-<unset>}"'
+```
+
+The URL is non-secret. If it is `<unset>`, fix the authoritative TrueNAS deployment configuration in `nabla-compose`, redeploy FastAPI Sample, and then rerun the health-board diagnostic. Do not hard-code a homelab-specific Prometheus address as an application-library default.
+
+## Current expected depth gaps
+
+Even after pfSense, Cloudflare and Prometheus converge, Sentry and Pyroscope still require deeper application evidence:
+
+- **Sentry** currently uses `probe=dsn_socket`; this proves the selected DSN endpoint is reachable but does not prove API authentication or event ingestion. Final acceptance requires a bounded synthetic event with an event id and downstream evidence.
+- **Pyroscope** transport/readiness evidence does not prove that profiling data for `service_name=fastapi-sample` can be queried. Final acceptance requires a bounded read query for the runtime's own profile series.
+
 ## Execution order after the first matrix
 
-Use the first TrueNAS-local report to resolve gaps in this order:
+Resolve gaps in this order:
 
-1. TrueNAS API parity and app inventory;
+1. TrueNAS API parity and app inventory — currently accepted;
 2. pfSense low-impact REST API path;
-3. Cloudflare tunnel/Access inventory;
-4. Prometheus fixed recording-rule query;
+3. Prometheus deployment configuration and fixed recording-rule query;
+4. Cloudflare tunnel/Access inventory confidence without converting uncertainty into DOWN;
 5. Sentry synthetic event path;
-6. Pyroscope `fastapi-sample` profile query;
+6. Pyroscope readiness and `fastapi-sample` profile query;
 7. local-versus-FastAPI-Cloud A/B report;
 8. bounded runtime integration/security/performance baseline;
 9. resume TrueNAS NFS + Kubernetes CSI acceptance.

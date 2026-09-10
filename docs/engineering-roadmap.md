@@ -22,6 +22,9 @@ exceptions here rather than creating additional todo or refactoring documents.
   liveness dependency or be overloaded by diagnostics.
 - Configure GitHub branch protection only after the application and CI changes
   are stable; do not change `master` protection in the current implementation.
+- Do not declare work complete while a known residual, deferred validation,
+  limitation, cross-repository follow-up, or unresolved risk is absent from this
+  roadmap. Each residual must retain a concrete next acceptance proof.
 
 ## Production audit — 2026-08-26
 
@@ -54,6 +57,116 @@ exceptions here rather than creating additional todo or refactoring documents.
       profile source files, tests and API/MCP responses.
 - [x] Use a dedicated public profile response model that never includes a
       password.
+
+## P0 — TrueNAS-local dependency convergence — 2026-09-10
+
+The authoritative staging observation is the cached FastAPI health-board served
+from `http://172.17.0.24:8091`. Keep observer vantage points explicit: a direct
+workstation probe is useful comparative evidence, but it does not replace proof
+from the TrueNAS-hosted FastAPI runtime.
+
+- [x] **TrueNAS API** — accepted from the staging runtime with
+      `configured=true`, transport/authentication successful, `path_mode=direct_lan`
+      and an application inventory containing 96 apps.
+- [ ] **pfSense posture API** — the staging runtime receives HTTP `502` from
+      `GET /api/v2/system/version` using the dedicated posture identity. Treat an
+      HTTP response as transport evidence, not application success. Compare the
+      same lightweight endpoint from the workstation and from the FastAPI
+      container, including DNS/peer selection, then require an authenticated
+      `2xx` response from the intended TrueNAS runtime path before closing.
+- [ ] **Prometheus runtime configuration** — the staging health-board currently
+      reports `configured=false`, `state=not_configured`, so this is not yet a
+      network-reachability failure. Set `HOMELAB_PROMETHEUS_URL` in the
+      authoritative TrueNAS FastAPI deployment configuration owned by
+      `nabla-compose` (target currently `http://172.17.0.24:9090`), redeploy, and
+      require the fixed recording-rule query to return at least one available
+      signal. Preserve direct workstation reachability as separate A/B evidence.
+- [ ] **Cloudflare control-plane evidence** — API transport and authentication
+      are successful, but `GET /accounts/{account_id}/cfd_tunnel` returned an
+      empty inventory, so global tunnel status is unconfirmed. Keep this state as
+      warning/unknown and never reclassify the service DOWN or degraded solely
+      because inventory could not be confirmed. Verify account/token scope with a
+      bounded on-demand inventory check before changing the automatic probe.
+- [ ] **Sentry application acceptance** — the current `dsn_socket` probe proves
+      only that the selected intake socket is reachable. Add a bounded synthetic
+      event acceptance path that returns an event id and verify downstream
+      ingestion without creating periodic incident noise.
+- [ ] **Pyroscope application acceptance** — the current staging observation is
+      HTTP `404` on `/health`; that proves HTTP transport but not readiness. First
+      require a real readiness endpoint to return `2xx`, then add a bounded query
+      proving recent profile data exists for `service_name=fastapi-sample`.
+- [ ] Add an explicit workstation-vs-TrueNAS A/B diagnostic for pfSense and
+      Prometheus so differences in DNS, peer address, TLS, routing or deployment
+      configuration are visible without adding provider fan-out to the FastAPI
+      health-board itself.
+- [ ] Re-run `scripts/diagnose-local-runtime-dependencies.py` after each fix and
+      require all six dependency evidence contracts to be complete without
+      weakening cache, timeout, circuit-breaker or optional-dependency semantics.
+- [ ] Resume TrueNAS NFS + Kubernetes CSI acceptance only after this local
+      dependency gate has converged or any intentionally deferred exception is
+      explicitly documented here with its acceptance boundary.
+
+### pfSense WebGUI/PHP-FPM recovery recurrence — 2026-09-10
+
+Current evidence from both vantage points shows a working network transport but
+an application-side webConfigurator failure. The public workstation path reaches
+`82.66.4.247:10443` with successful TLS verification, while the TrueNAS FastAPI
+container resolves `home.albandrieu.com` to `172.17.0.1`; both receive the native
+pfSense nginx `HTTP 502` crash page. An unauthenticated TrueNAS request receives
+the same response, so API authentication cannot yet be evaluated.
+
+Represent the appliance as independent signals instead of collapsing it to DOWN:
+
+```text
+pfSense platform
+  ⚠️ API control-plane       application error (HTTP 502)
+  ✅ Prometheus telemetry    exporter up
+  ✅ network transport       reachable
+  ? API authentication      not evaluated
+```
+
+- [ ] Recover webConfigurator/PHP-FPM without rebooting the firewall. Capture
+      nginx/PHP-FPM socket/process state, memory/CPU pressure, kernel OOM evidence,
+      Unbound state and bounded system logs before restarting services; then use
+      the pfSense-native GUI/PHP-FPM restart path and require WebGUI plus the
+      authenticated lightweight version endpoint to recover.
+- [ ] Compare the current recurrence with the documented 2026-09-08 incident,
+      where nginx remained bound to `:10443` while PHP-FPM stopped accepting on
+      `/var/run/php-fpm.socket`, CPU was saturated and kernel memory pressure also
+      killed Unbound. Do not declare Unbound causal for the current `502` unless
+      current logs/OOM evidence prove that relationship.
+- [ ] Make **FastAPI TrueNAS → pfSense LAN** the authoritative control-plane
+      observation path. Require a dedicated least-privilege posture identity and
+      an authenticated `GET /api/v2/system/version` `2xx` result through the LAN
+      path, with existing bounded timeout/cache/circuit-breaker protection.
+- [ ] Keep direct **FastAPI Cloud → pfSense WAN `:10443`** diagnostic-only. The
+      durable cloud architecture must consume a sanitized LAN-side observer state
+      over an outbound authenticated channel rather than requiring broad public
+      access to the pfSense management API.
+- [ ] Verify the live Prometheus/pfSense-exporter runtime has actually reconciled
+      to the repository safety contract: one scrape every 300 seconds, Prometheus
+      scrape timeout 30 seconds, exporter target timeout 8 seconds, collector
+      concurrency 1, and only the `system`, `gateways` and `service` collectors in
+      steady state.
+- [ ] Inventory live Uptime Kuma/Gatus/AutoKuma checks and prove none performs a
+      direct pfSense REST deep-status call or invokes exporter `/metrics`; automatic
+      health monitors should use only low-frequency lightweight HTTP/TCP evidence.
+- [ ] Correlate request source/count, PHP-FPM RSS/worker count, CPU run queue and
+      OOM events around the next failure before attributing recurrence to FastAPI,
+      Prometheus, Uptime Kuma or another monitor. Temporal overlap alone is not
+      sufficient attribution.
+- [ ] If current resource evidence again shows PHP-FPM pressure on the Netgate
+      1100, move toward the supported persistent configuration source rather than
+      relying on the temporary generated `php-fpm.conf` 4/2 worker edit from the
+      previous incident.
+
+### UI refresh stability + dual ZAP DAST follow-up (PR #237)
+
+- [x] Prioritize service outcomes before TrueNAS/runtime drill-downs and collapse FastAPI Cloud runtime plus homelab fan-out details by default.
+- [x] Decouple high-frequency service polling from TrueNAS/runtime technical refresh and skip destructive service/exposure DOM rebuilds when semantic state is unchanged.
+- [x] Run OWASP ZAP Web baseline and OpenAPI active DAST against an isolated runner-local FastAPI instance for PR application changes; never active-scan pfSense/TrueNAS production APIs from this job.
+- [ ] After the first successful PR ZAP execution, review the Web/API artifacts and tune only documented false positives in `.zap/web-rules.tsv` / `.zap/api-rules.tsv`; scanner/configuration failures must remain distinct from zero findings.
+- [ ] Consider a post-deploy **passive Web baseline** against FastAPI Cloud once the production deployment gate is healthy. Keep active OpenAPI attacks on isolated disposable targets unless an explicit non-production remote DAST environment is introduced.
 
 ## P1 — Runtime stability and appliance protection
 
@@ -375,6 +488,21 @@ acceptance criterion.
       not require a local Docker daemon.
 - [x] Remove the duplicate standalone Pylint workflow and keep the Python
       package workflow as the authoritative Pylint quality gate.
+- [x] Add `Master red remediation`, a post-merge `master` workflow which reruns
+      the critical `Python package` and `Production Smoke` workflows for the exact
+      merged SHA and, when either is red, opens/reuses a deduplicated remediation
+      issue and creates a remediation PR carrying the failing run evidence. Keep
+      the master-red workflow itself red until remediation so the regression stays
+      visible.
+- [ ] Validate the new master-red automation with an intentional non-production
+      drill: exactly one failing master SHA must create exactly one issue and one
+      remediation PR, while repeat evaluation of the same SHA must not create
+      duplicates. Verify repository Actions policy permits workflow-created PRs;
+      otherwise configure least-privilege `MASTER_REMEDIATION_TOKEN`.
+- [ ] Measure cost/noise/stability before adding CodeQL or passive ZAP to the
+      automatic post-merge rerun. Active OpenAPI DAST remains restricted to an
+      isolated disposable target and must never attack pfSense/TrueNAS production
+      APIs automatically.
 - [ ] Make relevant Trivy findings blocking once the current vulnerability
       baseline has been triaged.
 - [ ] Reduce the current Trivy dependency baseline below 48 findings and lower
@@ -669,7 +797,7 @@ import and had no application-owned shutdown.
       default.
 - [x] Keep Sentry PII disabled and make trace, profile and error sampling
       configurable with conservative defaults.
-- [x] Verify that disabled Datadog paths do not import the SDK.
+- [x] Verify that disabled Datadog instrumentation has no SDK import-time side effect.
 
 #### Datadog and observability isolation acceptance criteria
 

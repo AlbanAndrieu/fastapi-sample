@@ -190,6 +190,12 @@ Run the repository generators/checks and verify Homarr, Gatus and AutoKuma remai
 - Do not use `/sickz` to justify exposing an internal service.
 - When runtime evidence is stale/unreachable, report uncertainty instead of guessing.
 
+## Completion gate
+
+An agent must not declare a homelab migration, remediation, diagnostic, deployment, or validation complete while a known residual, deferred validation, limitation, cross-repository follow-up, or unresolved risk has not been recorded in `docs/engineering-roadmap.md`.
+
+Before claiming completion, reconcile the observed evidence with the roadmap and ensure every remaining item includes the next acceptance proof. A partial success such as container `RUNNING`, TCP reachability, HTTP response, or dashboard green is not sufficient to discard an unresolved application-level or observer-level gap.
+
 ## Current API source
 
 The endpoint contracts are registered in the `fastapi-sample` repository under `nabla/api/health_routes.py`; TrueNAS reconciliation is implemented in `nabla/api/homelab_runtime.py`.

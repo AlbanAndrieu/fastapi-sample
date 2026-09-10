@@ -69,16 +69,56 @@ def _auth_from_http(check: dict[str, Any]) -> bool | None:
     return None
 
 
+def _application_ok_from_http(check: dict[str, Any]) -> bool | None:
+    explicit = _bool_or_none(check.get("application_ok"))
+    if explicit is not None:
+        return explicit
+    status = check.get("http_status")
+    if not isinstance(status, int):
+        return None
+    return 200 <= status < 400
+
+
+def _transport_reachable(check: dict[str, Any]) -> bool | None:
+    """An HTTP response proves transport even when the application returns 4xx/5xx."""
+    if isinstance(check.get("http_status"), int):
+        return True
+    return _bool_or_none(check.get("reachable"))
+
+
+def _state(
+    *,
+    configured: bool | None,
+    reachable: bool | None,
+    application_ok: bool | None,
+    complete: bool,
+    warning: bool = False,
+) -> str:
+    if configured is False:
+        return "configuration_required"
+    if warning:
+        return "warning"
+    if reachable is False:
+        return "unreachable"
+    if application_ok is False:
+        return "application_error"
+    if complete:
+        return "ok"
+    return "evidence_incomplete"
+
+
 def _common(check: dict[str, Any]) -> dict[str, Any]:
     return {
         "configured": _configured(check),
-        "reachable": _bool_or_none(check.get("reachable")),
+        "reachable": _transport_reachable(check),
         "authenticated": None,
+        "application_ok": _application_ok_from_http(check),
         "application_result": None,
         "stale": check.get("stale") is True,
         "error_stage": _error_stage(check),
         "error_kind": str(check.get("error_kind") or "").strip() or None,
         "error": str(check.get("error") or check.get("reason") or "").strip() or None,
+        "operational_state": "evidence_incomplete",
         "evidence_complete": False,
     }
 
@@ -96,6 +136,7 @@ def _truenas(snapshot: dict[str, Any]) -> dict[str, Any]:
         row["authenticated"] = True
     elif row["error_stage"] == "authentication":
         row["authenticated"] = False
+    row["application_ok"] = bool(row["reachable"] is True and app_count is not None and app_count > 0)
     row["application_result"] = {
         "kind": "truenas_app_inventory",
         "app_count": app_count,
@@ -104,7 +145,13 @@ def _truenas(snapshot: dict[str, Any]) -> dict[str, Any]:
     }
     row["stale"] = row["stale"] or _mapping(homelab.get("probe_cache")).get("stale") is True
     row["evidence_complete"] = bool(
-        row["configured"] is True and row["reachable"] is True and row["authenticated"] is True and app_count is not None and app_count > 0 and not row["stale"],
+        row["configured"] is True and row["reachable"] is True and row["authenticated"] is True and row["application_ok"] is True and not row["stale"],
+    )
+    row["operational_state"] = _state(
+        configured=row["configured"],
+        reachable=row["reachable"],
+        application_ok=row["application_ok"],
+        complete=row["evidence_complete"],
     )
     return row
 
@@ -117,15 +164,26 @@ def _healthz_check(snapshot: dict[str, Any], name: str) -> dict[str, Any]:
 def _pfsense(snapshot: dict[str, Any]) -> dict[str, Any]:
     check = _healthz_check(snapshot, "pfsense")
     row = _common(check)
-    row["authenticated"] = _auth_from_http(check)
+    row["reachable"] = _transport_reachable(check)
+    row["authenticated"] = _bool_or_none(check.get("authenticated"))
+    if row["authenticated"] is None:
+        row["authenticated"] = _auth_from_http(check)
+    row["application_ok"] = _application_ok_from_http(check)
     row["application_result"] = {
         "kind": "pfsense_version_api",
         "path": check.get("path"),
         "http_status": check.get("http_status"),
         "credential_mode": check.get("credential_mode"),
+        "application_ok": row["application_ok"],
     }
     row["evidence_complete"] = bool(
-        row["configured"] is True and row["reachable"] is True and row["authenticated"] is True and not row["stale"],
+        row["configured"] is True and row["reachable"] is True and row["authenticated"] is True and row["application_ok"] is True and not row["stale"],
+    )
+    row["operational_state"] = _state(
+        configured=row["configured"],
+        reachable=row["reachable"],
+        application_ok=row["application_ok"],
+        complete=row["evidence_complete"],
     )
     return row
 
@@ -137,6 +195,8 @@ def _cloudflare(snapshot: dict[str, Any]) -> dict[str, Any]:
     row["authenticated"] = _auth_from_http(check)
     if row["authenticated"] is None and check.get("status_confirmed") is True and row["reachable"] is True:
         row["authenticated"] = True
+    status_confirmed = check.get("status_confirmed") is True
+    row["application_ok"] = status_confirmed if row["reachable"] is True else None
     row["application_result"] = {
         "kind": "cloudflare_tunnel_inventory",
         "status_confirmed": check.get("status_confirmed"),
@@ -145,7 +205,17 @@ def _cloudflare(snapshot: dict[str, Any]) -> dict[str, Any]:
         "unhealthy_tunnels": check.get("unhealthy_tunnels"),
     }
     row["evidence_complete"] = bool(
-        row["configured"] is True and row["reachable"] is True and row["authenticated"] is True and check.get("status_confirmed") is True and not row["stale"],
+        row["configured"] is True and row["reachable"] is True and row["authenticated"] is True and status_confirmed and not row["stale"],
+    )
+    unconfirmed_warning = bool(
+        row["reachable"] is True and row["authenticated"] is True and not status_confirmed,
+    )
+    row["operational_state"] = _state(
+        configured=row["configured"],
+        reachable=row["reachable"],
+        application_ok=row["application_ok"],
+        complete=row["evidence_complete"],
+        warning=unconfirmed_warning,
     )
     return row
 
@@ -158,14 +228,21 @@ def _prometheus(snapshot: dict[str, Any]) -> dict[str, Any]:
     row["configured"] = configured
     if configured is False:
         row["reachable"] = None
+        row["application_ok"] = None
+        row["error_stage"] = "configuration"
+        row["error_kind"] = "not_configured"
+        row["error"] = "HOMELAB_PROMETHEUS_URL is not configured in this FastAPI runtime"
     elif state == "telemetry_unavailable":
         row["reachable"] = False
+        row["application_ok"] = False
     elif state in {"healthy", "degraded"}:
         row["reachable"] = True
+        row["application_ok"] = True
     summary = _mapping(metrics.get("summary"))
     row["application_result"] = {
         "kind": "prometheus_recording_rules",
         "state": state,
+        "required_setting": "HOMELAB_PROMETHEUS_URL",
         "signals_available": summary.get("signals_available"),
         "signals_total": summary.get("signals_total"),
         "telemetry_up": summary.get("telemetry_up"),
@@ -173,7 +250,17 @@ def _prometheus(snapshot: dict[str, Any]) -> dict[str, Any]:
     }
     row["error_stage"] = "query" if metrics.get("error_kind") == "query_failed" else row["error_stage"]
     row["evidence_complete"] = bool(
-        configured is True and row["reachable"] is True and isinstance(summary.get("signals_available"), int) and summary.get("signals_available", 0) > 0,
+        configured is True
+        and row["reachable"] is True
+        and row["application_ok"] is True
+        and isinstance(summary.get("signals_available"), int)
+        and summary.get("signals_available", 0) > 0,
+    )
+    row["operational_state"] = _state(
+        configured=row["configured"],
+        reachable=row["reachable"],
+        application_ok=row["application_ok"],
+        complete=row["evidence_complete"],
     )
     return row
 
@@ -181,27 +268,43 @@ def _prometheus(snapshot: dict[str, Any]) -> dict[str, Any]:
 def _sentry(snapshot: dict[str, Any]) -> dict[str, Any]:
     check = _healthz_check(snapshot, "sentry")
     row = _common(check)
+    row["application_ok"] = None
     row["application_result"] = {
         "kind": "dsn_socket_only",
         "probe": check.get("probe"),
         "target": check.get("target"),
     }
-    # A socket probe does not prove Sentry API auth or event ingestion.
     row["evidence_complete"] = False
+    row["operational_state"] = _state(
+        configured=row["configured"],
+        reachable=row["reachable"],
+        application_ok=None,
+        complete=False,
+    )
     return row
 
 
 def _pyroscope(snapshot: dict[str, Any]) -> dict[str, Any]:
     check = _healthz_check(snapshot, "pyroscope")
     row = _common(check)
+    status = check.get("http_status")
+    readiness_ok = isinstance(status, int) and 200 <= status < 300 and check.get("path") in {"/ready", "/health"}
+    row["reachable"] = _transport_reachable(check)
+    row["application_ok"] = readiness_ok if isinstance(status, int) else None
     row["application_result"] = {
         "kind": "readiness_only",
         "path": check.get("path"),
-        "http_status": check.get("http_status"),
+        "http_status": status,
         "url": check.get("url"),
+        "readiness_ok": row["application_ok"],
     }
-    # Readiness alone does not prove fastapi-sample profile data can be queried.
     row["evidence_complete"] = False
+    row["operational_state"] = _state(
+        configured=row["configured"],
+        reachable=row["reachable"],
+        application_ok=row["application_ok"],
+        complete=False,
+    )
     return row
 
 
@@ -216,7 +319,7 @@ def build_report(snapshot: dict[str, Any]) -> dict[str, Any]:
     }
     gaps = [name for name in _DEPENDENCY_ORDER if not dependencies[name]["evidence_complete"]]
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "snapshot_state": snapshot.get("state"),
         "snapshot_generated_at": snapshot.get("generated_at"),
         "snapshot_age_seconds": snapshot.get("age_seconds"),
@@ -235,7 +338,7 @@ def _fetch_json(url: str, diagnostics_key: str | None) -> dict[str, Any]:
         headers["X-Diagnostics-Key"] = diagnostics_key
     request = Request(url, headers=headers)  # noqa: S310 - URL restricted to HTTP(S) above
     try:
-        with urlopen(request, timeout=8.0) as response:  # noqa: S310 - validated HTTP(S) request
+        with urlopen(request, timeout=8.0) as response:  # nosec B310  # noqa: S310 - scheme validated above
             payload = json.load(response)
     except HTTPError as exc:
         raise RuntimeError(f"health-board returned HTTP {exc.code}") from exc
@@ -277,14 +380,16 @@ def print_table(report: dict[str, Any]) -> None:
         f"snapshot={report.get('snapshot_state')} age={report.get('snapshot_age_seconds')}s generated_at={report.get('snapshot_generated_at')}",
     )
     print()
-    print(f"{'dependency':<12} {'configured':<10} {'reachable':<10} {'auth':<6} {'stale':<6} {'complete':<9} error_stage")
+    print(
+        f"{'dependency':<12} {'configured':<10} {'transport':<10} {'auth':<6} {'app':<6} {'stale':<6} {'state':<22} error_stage",
+    )
     for name in _DEPENDENCY_ORDER:
         row = _mapping(dependencies.get(name))
         print(
             f"{name:<12} {_fmt(row.get('configured')):<10} "
             f"{_fmt(row.get('reachable')):<10} {_fmt(row.get('authenticated')):<6} "
-            f"{_fmt(row.get('stale')):<6} {_fmt(row.get('evidence_complete')):<9} "
-            f"{_fmt(row.get('error_stage'))}",
+            f"{_fmt(row.get('application_ok')):<6} {_fmt(row.get('stale')):<6} "
+            f"{_fmt(row.get('operational_state')):<22} {_fmt(row.get('error_stage'))}",
         )
     gaps = report.get("evidence_gaps") or []
     print()

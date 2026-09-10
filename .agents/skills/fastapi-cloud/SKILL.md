@@ -1,8 +1,10 @@
 ---
 name: fastapi-cloud
-description: Operate and diagnose the fastapi-sample FastAPI Cloud deployment. Use for FastAPI Cloud authentication, deploy tokens, environment-variable inventory, deployments, runtime logs, and production-vs-local homelab health diagnostics.
+description: >-
+  Operate and diagnose the fastapi-sample FastAPI Cloud deployment. Use for
+  FastAPI Cloud authentication, deploy tokens, environment-variable inventory,
+  deployments, runtime logs, and production-vs-local homelab health diagnostics.
 ---
-
 # FastAPI Cloud operations
 
 Use this skill for FastAPI Cloud runtime and deployment operations. It complements the `fastapi` coding skill; it is not a replacement for FastAPI framework guidance.
@@ -172,3 +174,9 @@ A successful public HTTP `/api` response does not prove WebSocket JSON-RPC healt
 The FastAPI application is the preferred read-only abstraction for TrueNAS runtime checks. Current TrueNAS v26 JSON-RPC uses `/api/current`; do not add REST fallbacks or legacy `/websocket` assumptions.
 
 For direct appliance debugging, use the TrueNAS client/version that matches the server release and keep credentials outside the repository.
+
+## Completion gate
+
+An agent must not declare FastAPI Cloud, homelab-runtime, deployment, or diagnostic work complete while a known residual, deferred validation, limitation, cross-repository follow-up, or unresolved risk is not recorded in `docs/engineering-roadmap.md`.
+
+Before reporting completion, reconcile the observed runtime evidence with the roadmap and record the next acceptance proof for every remaining item. CI green or basic reachability alone does not waive this requirement. Keep transport reachability, authentication, application acceptance, freshness, and observer confidence distinct when they differ.

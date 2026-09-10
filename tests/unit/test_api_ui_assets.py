@@ -20,6 +20,7 @@ def test_api_page_serves_external_assets() -> None:
 
     page = client.get("/api")
     bootstrap = client.get("/api/assets/api-health.js")
+    controller = client.get("/api/assets/api-health-controller.js")
     health = client.get("/api/assets/api-health-core.js")
     board = client.get("/api/assets/api-health-board.js")
     dependency = client.get("/api/assets/api-health-dependency.js")
@@ -48,16 +49,27 @@ def test_api_page_serves_external_assets() -> None:
     assert open_graph.headers["content-type"] == "image/png"
     assert unpack(">II", open_graph.content[16:24]) == (1200, 630)
 
-    for asset in (bootstrap, board, health, dependency, ui, sickz, sickz_policy, sickz_ports):
+    for asset in (
+        bootstrap,
+        controller,
+        board,
+        health,
+        dependency,
+        ui,
+        sickz,
+        sickz_policy,
+        sickz_ports,
+    ):
         assert asset.status_code == 200
         assert "javascript" in asset.headers["content-type"]
         assert asset.headers["cache-control"] == "no-store, max-age=0"
         assert asset.headers["pragma"] == "no-cache"
 
-    assert 'from "./api-health-core.js"' in bootstrap.text
-    assert 'from "./api-health-board.js"' in bootstrap.text
-    assert 'from "./api-sickz.js"' in bootstrap.text
+    assert 'from "./api-health-controller.js"' in bootstrap.text
     assert 'from "./api-sickz-port-labels.js"' in bootstrap.text
+    assert 'from "./api-health-core.js"' in controller.text
+    assert 'from "./api-health-board.js"' in controller.text
+    assert 'from "./api-sickz.js"' in controller.text
     assert 'from "./api-health-dependency.js"' in health.text
     assert 'from "./api-health-ui.js"' in health.text
     assert 'from "./api-health-ui.js"' in sickz.text
@@ -137,10 +149,10 @@ def test_refresh_event_is_logged_and_health_responses_are_not_cached() -> None:
     assert refresh.status_code == 204
     assert refresh.headers["cache-control"] == "no-store, max-age=0"
 
-    bootstrap = (_ASSET_DIR / "api-health.js").read_text(encoding="utf-8")
+    controller = (_ASSET_DIR / "api-health-controller.js").read_text(encoding="utf-8")
     board = (_ASSET_DIR / "api-health-board.js").read_text(encoding="utf-8")
-    assert 'fetch("/api/health-board/refresh-event"' in bootstrap
-    assert 'cache: "no-store"' in bootstrap
+    assert 'fetch("/api/health-board/refresh-event"' in controller
+    assert 'cache: "no-store"' in controller
     assert 'cache: "no-store"' in board
 
 
@@ -161,7 +173,8 @@ def test_health_board_explains_dependency_propagation() -> None:
     assert 'parts.push("RUNNING but degraded")' in dependency
     assert 'parts.push(`blocked by ${blocked.join(", ")}`)' in dependency
     assert 'parts.push(`evidence: ${sources.join(" + ")}`)' in dependency
-    assert "parts.push(Number.isFinite(age) ? `stale evidence (${Math.round(age)}s old)`" in dependency
+    assert "check.observation_stale === true" in dependency
+    assert "`stale evidence (${Math.round(age)}s old)`" in dependency
     assert 'parts.push(`dependency cycle: ${cycle.join(" ↔ ")}`)' in dependency
     assert '"local_state"' in dependency
     assert '"effective_state"' in dependency
@@ -197,7 +210,7 @@ def test_health_assets_stay_within_refactoring_thresholds() -> None:
     assert len(sickz.splitlines()) < 400
     assert len(sickz_policy.splitlines()) < 100
     assert len(sickz_ports.splitlines()) < 150
-    assert "loadHealthBoards" in bootstrap
+    assert "installHealthBoardController" in bootstrap
     assert "computeOverall" not in bootstrap
 
 

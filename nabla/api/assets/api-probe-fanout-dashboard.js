@@ -33,7 +33,10 @@ function probeRows(data) {
     ? data.internal_services.map((row) => ({ ...row, probe_scope: "LAN" }))
     : [];
   const publicRows = Array.isArray(data?.public_probe_results)
-    ? data.public_probe_results.map((row) => ({ ...row, probe_scope: "public" }))
+    ? data.public_probe_results.map((row) => ({
+        ...row,
+        probe_scope: "public",
+      }))
     : [];
   return [...internal, ...publicRows];
 }
@@ -95,8 +98,7 @@ function progressModel(data) {
   const eligible = publicScope.eligible + internalScope.eligible;
   const known = publicScope.known + internalScope.known;
   const unknown = Math.max(0, eligible - known);
-  const coverage =
-    eligible > 0 ? clampPercent((known / eligible) * 100) : 100;
+  const coverage = eligible > 0 ? clampPercent((known / eligible) * 100) : 100;
   const healthy = counts.ok;
   const healthyCoverage =
     eligible > 0 ? clampPercent((healthy / eligible) * 100) : 100;
@@ -141,12 +143,7 @@ function progressBar(model) {
     progressSegment(counts.ok, eligible, "ok", `${counts.ok} healthy`) +
     progressSegment(counts.warn, eligible, "warn", `${counts.warn} warning`) +
     progressSegment(counts.fail, eligible, "fail", `${counts.fail} failed`) +
-    progressSegment(
-      counts.stale,
-      eligible,
-      "stale",
-      `${counts.stale} stale`,
-    ) +
+    progressSegment(counts.stale, eligible, "stale", `${counts.stale} stale`) +
     progressSegment(
       unknown,
       eligible,
@@ -265,9 +262,7 @@ function observationText(row) {
     parts.push(`cadence ≈${humanSeconds(interval)}`);
   }
   if (Number.isFinite(next)) parts.push(`next ≈${humanSeconds(next)}`);
-  return parts.length
-    ? parts.join(" · ")
-    : "observation timing unavailable";
+  return parts.length ? parts.join(" · ") : "observation timing unavailable";
 }
 
 function rowDetail(row) {
@@ -287,11 +282,7 @@ function probeRow(row) {
   const kind = stateClass(row);
   const source = row?.probe_source || "unknown";
   const sourceLabel =
-    source === "origin"
-      ? "latest"
-      : source === "memory"
-        ? "retained"
-        : source;
+    source === "origin" ? "latest" : source === "memory" ? "retained" : source;
   return (
     `<div class="probe-dashboard-row probe-dashboard-row--${kind}">` +
     '<div class="probe-dashboard-row-main">' +
@@ -351,17 +342,21 @@ function ensureDashboard() {
 
   let root = document.getElementById(DASHBOARD_ID);
   if (root) return root;
-  root = document.createElement("section");
+  root = document.createElement("details");
   root.id = DASHBOARD_ID;
   root.className = "probe-dashboard";
   root.innerHTML = `
-    <div class="probe-dashboard-heading">
+    <summary class="probe-dashboard-heading">
       <div>
         <h4>Homelab probe fan-out</h4>
         <p id="probe-dashboard-activity">Waiting for the first bounded probe snapshot…</p>
       </div>
-      <button type="button" id="probe-dashboard-refresh" class="probe-dashboard-refresh">Refresh view</button>
-    </div>
+      <span class="probe-dashboard-collapsed-hint">Details</span>
+    </summary>
+    <div class="probe-dashboard-body">
+      <div class="probe-dashboard-actions">
+        <button type="button" id="probe-dashboard-refresh" class="probe-dashboard-refresh">Refresh details</button>
+      </div>
     <div class="probe-dashboard-progress" aria-live="polite">
       <div class="probe-dashboard-progress-copy">
         <strong id="probe-dashboard-coverage">0% evidence coverage</strong>
@@ -377,8 +372,13 @@ function ensureDashboard() {
     <div id="probe-dashboard-latest"></div>
     <div id="probe-dashboard-previous"></div>
     <p class="probe-dashboard-note">Coverage counts eligible probe slots, not catalog services: one service may have both a public and LAN probe. Disabled or unconfigured targets are excluded from the eligible denominator. The server keeps the 12-per-scope bounded scheduler and 30-second snapshot cache.</p>
+    </div>
   `;
   legacySummary.insertAdjacentElement("beforebegin", root);
+
+  root.addEventListener("toggle", () => {
+    if (root.open && lastPayload) renderDashboard(lastPayload);
+  });
 
   const button = root.querySelector("#probe-dashboard-refresh");
   button?.addEventListener("click", async () => {
@@ -396,7 +396,7 @@ function ensureDashboard() {
     } finally {
       refreshInFlight = false;
       button.disabled = false;
-      button.textContent = "Refresh view";
+      button.textContent = "Refresh details";
     }
   });
   return root;
@@ -421,9 +421,17 @@ function clarifyRuntimeTimeout(data) {
 }
 
 function renderDashboard(data) {
-  if (!ensureDashboard()) return;
+  const root = ensureDashboard();
+  if (!root) return;
   lastPayload = data;
   const model = progressModel(data);
+  renderActivity(
+    `${model.coverage.toFixed(1)}% evidence · ${model.healthyCoverage.toFixed(1)}% healthy · ${model.counts.fail} failed · ${model.counts.warn} warning`,
+  );
+  if (!root.open) {
+    clarifyRuntimeTimeout(data);
+    return;
+  }
   const coverage = document.getElementById("probe-dashboard-coverage");
   const health = document.getElementById("probe-dashboard-health");
   const bar = document.getElementById("probe-dashboard-progress-bar");

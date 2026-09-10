@@ -145,3 +145,54 @@ def test_release_publishes_immutable_ghcr_image() -> None:
     assert "push: true" in workflow
     assert "cache-from: type=gha,scope=production" in workflow
     assert "cache-to: type=gha,mode=max,scope=production" in workflow
+
+
+def test_agent_completion_policy_requires_roadmap_accounting() -> None:
+    guide = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    roadmap = (ROOT / "docs" / "engineering-roadmap.md").read_text(encoding="utf-8")
+    fastapi_cloud_skill = (ROOT / ".agents" / "skills" / "fastapi-cloud" / "SKILL.md").read_text(encoding="utf-8")
+    homelab_skill = next((ROOT / ".agents" / "skills" / "homelab-runtime-status").glob("SKILL.md*")).read_text(encoding="utf-8")
+
+    assert "must not declare work complete" in guide.lower()
+    assert "docs/engineering-roadmap.md" in guide
+    assert "known residual" in guide.lower()
+    assert "next acceptance proof" in guide.lower()
+
+    assert "completion gate" in fastapi_cloud_skill.lower()
+    assert "docs/engineering-roadmap.md" in fastapi_cloud_skill
+    assert "completion gate" in homelab_skill.lower()
+    assert "docs/engineering-roadmap.md" in homelab_skill
+
+    assert "P0 — TrueNAS-local dependency convergence" in roadmap
+    assert "pfSense posture API" in roadmap
+    assert "Prometheus runtime configuration" in roadmap
+    assert "Cloudflare control-plane evidence" in roadmap
+    assert "Sentry application acceptance" in roadmap
+    assert "Pyroscope application acceptance" in roadmap
+
+
+def test_master_red_remediation_is_post_merge_and_deduplicated() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "master-red-remediation.yml").read_text(
+        encoding="utf-8",
+    )
+
+    assert "name: Master red remediation" in workflow
+    assert "branches: [master]" in workflow
+    assert "workflow_dispatch:" in workflow
+    assert "uses: ./.github/workflows/python.yml" in workflow
+    assert "uses: ./.github/workflows/production-smoke.yml" in workflow
+    assert "uses: ./.github/workflows/codeql.yml" in workflow
+    assert "uses: ./.github/workflows/security-zap.yml" in workflow
+    assert "needs: [classify, python, production-smoke, codeql, zap]" in workflow
+    assert "needs.python.result != 'success'" in workflow
+    assert "needs.production-smoke.result != 'success'" in workflow
+    assert "MASTER_REMEDIATION_TOKEN" in workflow
+    assert "issues: write" in workflow
+    assert "pull-requests: write" in workflow
+    assert "contents: write" in workflow
+    assert "[master-red:${short_sha}]" in workflow
+    assert "remediation/master-red-${short_sha}" in workflow
+    assert "docs/remediation/master-red-${short_sha}.md" in workflow
+    assert "Do not merge this PR while it only contains this evidence file" in workflow
+    assert "docs/engineering-roadmap.md" in workflow
+    assert "Keep red master visible until remediation" in workflow

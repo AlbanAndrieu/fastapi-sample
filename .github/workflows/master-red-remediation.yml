@@ -1,0 +1,325 @@
+---
+name: Master red remediation
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+# Only the newest master SHA matters operationally. Superseded post-merge runs are
+# cancelled and must never create remediation noise for a commit that is no longer
+# at the tip of master.
+concurrency:
+  group: master-red-remediation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  classify:
+    name: Classify post-merge security impact
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      base_sha: ${{ steps.impact.outputs.base_sha }}
+      changed_count: ${{ steps.impact.outputs.changed_count }}
+      run_codeql: ${{ steps.impact.outputs.run_codeql }}
+      run_zap: ${{ steps.impact.outputs.run_zap }}
+    steps:
+      - name: Checkout current master SHA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Classify changed surface
+        id: impact
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_BEFORE: ${{ github.event.before }}
+          TARGET_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          base_sha="${EVENT_BEFORE:-}"
+          if [[ -z "${base_sha}" || "${base_sha}" =~ ^0+$ ]] \
+            || ! git cat-file -e "${base_sha}^{commit}" 2>/dev/null; then
+            base_sha="$(git rev-parse "${TARGET_SHA}^" 2>/dev/null || printf '%s' "${TARGET_SHA}")"
+          fi
+
+          mapfile -t changed < <(git diff --name-only "${base_sha}" "${TARGET_SHA}")
+          run_codeql=false
+          run_zap=false
+
+          # A manual run is an explicit full post-merge verification request.
+          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
+            run_codeql=true
+            run_zap=true
+          fi
+
+          for path in "${changed[@]}"; do
+            case "${path}" in
+              *.py|pyproject.toml|uv.lock|.github/workflows/codeql.yml)
+                run_codeql=true
+                ;;
+            esac
+            case "${path}" in
+              nabla/*|server_all.py|server_app.py|templates/*|.zap/*|.github/workflows/security-zap.yml)
+                run_zap=true
+                ;;
+            esac
+          done
+
+          {
+            echo "base_sha=${base_sha}"
+            echo "changed_count=${#changed[@]}"
+            echo "run_codeql=${run_codeql}"
+            echo "run_zap=${run_zap}"
+          } >> "${GITHUB_OUTPUT}"
+
+          {
+            echo "## Post-merge impact"
+            echo
+            echo "- Base: \`${base_sha}\`"
+            echo "- Target: \`${TARGET_SHA}\`"
+            echo "- Changed files: **${#changed[@]}**"
+            echo "- CodeQL: **${run_codeql}**"
+            echo "- ZAP Web/OpenAPI: **${run_zap}**"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+  python:
+    name: Re-run canonical Python/package gates
+    needs: classify
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+    uses: ./.github/workflows/python.yml
+    secrets: inherit
+
+  production-smoke:
+    name: Re-run Production Smoke after merge
+    needs: classify
+    permissions:
+      contents: read
+    uses: ./.github/workflows/production-smoke.yml
+    secrets: inherit
+
+  codeql:
+    name: Re-run CodeQL for security-impacting merge
+    needs: classify
+    if: ${{ needs.classify.outputs.run_codeql == 'true' }}
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    uses: ./.github/workflows/codeql.yml
+
+  zap:
+    name: Re-run ZAP Web and OpenAPI for HTTP-surface merge
+    needs: classify
+    if: ${{ needs.classify.outputs.run_zap == 'true' }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/security-zap.yml
+
+  remediate:
+    name: Open remediation issue and draft PR
+    needs: [classify, python, production-smoke, codeql, zap]
+    if: >-
+      ${{ always() && !cancelled() && (
+        needs.classify.result != 'success' ||
+        needs.python.result != 'success' ||
+        needs.production-smoke.result != 'success' ||
+        (needs.codeql.result != 'success' && needs.codeql.result != 'skipped') ||
+        (needs.zap.result != 'success' && needs.zap.result != 'skipped')
+      ) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ secrets.MASTER_REMEDIATION_TOKEN || github.token }}
+      REPOSITORY: ${{ github.repository }}
+      TARGET_SHA: ${{ github.sha }}
+      BASE_SHA: ${{ needs.classify.outputs.base_sha }}
+      CHANGED_COUNT: ${{ needs.classify.outputs.changed_count }}
+      CLASSIFY_RESULT: ${{ needs.classify.result }}
+      PYTHON_RESULT: ${{ needs.python.result }}
+      PRODUCTION_SMOKE_RESULT: ${{ needs.production-smoke.result }}
+      CODEQL_RESULT: ${{ needs.codeql.result }}
+      ZAP_RESULT: ${{ needs.zap.result }}
+      SOURCE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Checkout failed master SHA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Create or reuse remediation issue and draft PR
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          short_sha="${TARGET_SHA:0:12}"
+          branch="remediation/master-red-${short_sha}"
+          issue_title="[master-red:${short_sha}] Critical post-merge gates failed"
+          pr_title="fix(ci): remediate red master ${short_sha}"
+
+          evidence="$(cat <<EOF
+          Classification=${CLASSIFY_RESULT}
+          Python package=${PYTHON_RESULT}
+          Production Smoke=${PRODUCTION_SMOKE_RESULT}
+          CodeQL=${CODEQL_RESULT}
+          ZAP Web/OpenAPI=${ZAP_RESULT}
+          Changed files=${CHANGED_COUNT:-unknown}
+          Base SHA=${BASE_SHA:-unknown}
+          Target SHA=${TARGET_SHA}
+          Source workflow=${SOURCE_RUN_URL}
+          EOF
+          )"
+
+          export ISSUE_TITLE="${issue_title}"
+          issue_number="$(
+            gh issue list --repo "${REPOSITORY}" --state all --limit 200 \
+              --json number,title \
+              --jq '.[] | select(.title == env.ISSUE_TITLE) | .number' \
+              | head -n1
+          )"
+
+          if [[ -z "${issue_number}" ]]; then
+            issue_body="${RUNNER_TEMP}/master-red-issue.md"
+            cat >"${issue_body}" <<EOF
+          ## Automated master-red detection
+
+          The post-merge master gate detected a failure for commit \`${TARGET_SHA}\`.
+
+          ### Gate evidence
+
+          \`\`\`text
+          ${evidence}
+          \`\`\`
+
+          ### Remediation contract
+
+          - diagnose the failing job from the linked source workflow;
+          - fix root cause rather than weakening/skipping the gate;
+          - run the canonical quality gate after edits;
+          - review ZAP/CodeQL artifacts when those gates were scheduled;
+          - record any residual work in \`docs/engineering-roadmap.md\` before declaring remediation complete;
+          - close this issue only after the current \`master\` post-merge gate is green.
+
+          Generated by \`Master red remediation\`.
+          EOF
+            issue_url="$(
+              gh issue create \
+                --repo "${REPOSITORY}" \
+                --title "${issue_title}" \
+                --body-file "${issue_body}"
+            )"
+            issue_number="${issue_url##*/}"
+          else
+            gh issue reopen "${issue_number}" --repo "${REPOSITORY}" >/dev/null 2>&1 || true
+            gh issue comment "${issue_number}" --repo "${REPOSITORY}" \
+              --body "Re-observed red master \`${TARGET_SHA}\` from ${SOURCE_RUN_URL}. Python=${PYTHON_RESULT}; Production Smoke=${PRODUCTION_SMOKE_RESULT}; CodeQL=${CODEQL_RESULT}; ZAP=${ZAP_RESULT}."
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          gh auth setup-git
+
+          if git ls-remote --exit-code --heads origin "${branch}" >/dev/null 2>&1; then
+            git fetch origin "${branch}:${branch}"
+            git switch "${branch}"
+          else
+            git switch -c "${branch}"
+          fi
+
+          mkdir -p docs/remediation
+          remediation_file="docs/remediation/master-red-${short_sha}.md"
+          cat >"${remediation_file}" <<EOF
+          # Master red remediation — ${short_sha}
+
+          Source master commit: \`${TARGET_SHA}\`
+          Tracking issue: #${issue_number}
+          Source workflow: ${SOURCE_RUN_URL}
+
+          ## Gate evidence
+
+          \`\`\`text
+          ${evidence}
+          \`\`\`
+
+          ## Required outcome
+
+          Replace this tracking-only remediation scaffold with the actual root-cause
+          fix. Do not merge this PR while it only contains this evidence file.
+          Re-run the canonical agent quality gate after implementation and keep every
+          remaining follow-up in \`docs/engineering-roadmap.md\`.
+          EOF
+
+          git add "${remediation_file}"
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(ci): update master red remediation ${short_sha}"
+          fi
+          git push --set-upstream origin "${branch}"
+
+          existing_pr="$(
+            gh pr list --repo "${REPOSITORY}" --state open --head "${branch}" \
+              --json number --jq '.[0].number // empty'
+          )"
+          if [[ -n "${existing_pr}" ]]; then
+            echo "Remediation PR #${existing_pr} already exists."
+            exit 0
+          fi
+
+          pr_body="${RUNNER_TEMP}/master-red-pr.md"
+          cat >"${pr_body}" <<EOF
+          ## Automated remediation scaffold
+
+          Tracks issue #${issue_number} for red master commit \`${TARGET_SHA}\`.
+
+          \`\`\`text
+          ${evidence}
+          \`\`\`
+
+          This PR is intentionally **draft** and **not merge-ready** until the
+          tracking-only file is replaced or accompanied by the root-cause fix.
+          Do not weaken a failing gate to make it green. Record residual work in
+          \`docs/engineering-roadmap.md\`.
+          EOF
+
+          if ! gh pr create \
+            --repo "${REPOSITORY}" \
+            --base master \
+            --head "${branch}" \
+            --draft \
+            --title "${pr_title}" \
+            --body-file "${pr_body}"; then
+            gh issue comment "${issue_number}" --repo "${REPOSITORY}" \
+              --body "The remediation branch was pushed, but automatic draft PR creation failed. Enable **Settings → Actions → General → Workflow permissions → Allow GitHub Actions to create and approve pull requests**, or configure MASTER_REMEDIATION_TOKEN with an authorized GitHub App/PAT."
+            exit 1
+          fi
+
+  keep-master-red-visible:
+    name: Keep red master visible until remediation
+    needs: [classify, python, production-smoke, codeql, zap, remediate]
+    if: >-
+      ${{ always() && !cancelled() && (
+        needs.classify.result != 'success' ||
+        needs.python.result != 'success' ||
+        needs.production-smoke.result != 'success' ||
+        (needs.codeql.result != 'success' && needs.codeql.result != 'skipped') ||
+        (needs.zap.result != 'success' && needs.zap.result != 'skipped')
+      ) }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Fail while critical master gates are red
+        run: |
+          echo "Critical post-merge master gates are red; remediation was opened."
+          exit 1

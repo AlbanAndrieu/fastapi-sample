@@ -84,6 +84,7 @@ def test_report_reuses_existing_snapshot_and_exposes_depth_gaps() -> None:
 
     report = module.build_report(sample_snapshot())
 
+    assert report["schema_version"] == 2
     assert report["snapshot_state"] == "fresh"
     assert report["evidence_complete"] is False
     assert report["evidence_gaps"] == ["sentry", "pyroscope"]
@@ -93,17 +94,69 @@ def test_report_reuses_existing_snapshot_and_exposes_depth_gaps() -> None:
     assert dependencies["truenas"]["authenticated"] is True
     assert dependencies["truenas"]["application_result"]["app_count"] == 2
     assert dependencies["pfsense"]["authenticated"] is True
+    assert dependencies["pfsense"]["application_ok"] is True
+    assert dependencies["pfsense"]["operational_state"] == "ok"
     assert dependencies["cloudflare"]["authenticated"] is True
     assert dependencies["prometheus"]["evidence_complete"] is True
 
     assert dependencies["sentry"]["reachable"] is True
     assert dependencies["sentry"]["authenticated"] is None
     assert dependencies["sentry"]["application_result"]["kind"] == "dsn_socket_only"
+    assert dependencies["sentry"]["operational_state"] == "evidence_incomplete"
     assert dependencies["sentry"]["evidence_complete"] is False
 
     assert dependencies["pyroscope"]["reachable"] is True
+    assert dependencies["pyroscope"]["application_ok"] is True
     assert dependencies["pyroscope"]["application_result"]["kind"] == "readiness_only"
     assert dependencies["pyroscope"]["evidence_complete"] is False
+
+
+def test_pfsense_http_response_proves_transport_not_application_success() -> None:
+    module = load_module()
+    snapshot = sample_snapshot()
+    snapshot["healthz"]["checks"]["pfsense"] = {
+        "reachable": False,
+        "http_status": 502,
+        "path": "/api/v2/system/version",
+        "credential_mode": "dedicated_posture",
+        "error": "pfSense API returned HTTP 502",
+        "error_kind": "http_502",
+        "failure_stage": "http_response",
+        "stale": False,
+    }
+
+    row = module.build_report(snapshot)["dependencies"]["pfsense"]
+
+    assert row["configured"] is True
+    assert row["reachable"] is True
+    assert row["authenticated"] is None
+    assert row["application_ok"] is False
+    assert row["operational_state"] == "application_error"
+    assert row["evidence_complete"] is False
+
+
+def test_cloudflare_empty_inventory_is_warning_not_outage() -> None:
+    module = load_module()
+    snapshot = sample_snapshot()
+    snapshot["healthz"]["checks"]["cloudflare"] = {
+        "reachable": None,
+        "api_reachable": True,
+        "http_status": 200,
+        "status_confirmed": False,
+        "state": "unknown",
+        "warning": "Cloudflare global status could not be confirmed",
+        "error": "Cloudflare Tunnel API returned no tunnel inventory",
+        "error_kind": "empty_inventory",
+        "stale": False,
+    }
+
+    row = module.build_report(snapshot)["dependencies"]["cloudflare"]
+
+    assert row["reachable"] is True
+    assert row["authenticated"] is True
+    assert row["application_ok"] is False
+    assert row["operational_state"] == "warning"
+    assert row["evidence_complete"] is False
 
 
 def test_cloudflare_uncertainty_stays_unknown_not_authenticated() -> None:
@@ -124,8 +177,34 @@ def test_cloudflare_uncertainty_stays_unknown_not_authenticated() -> None:
     assert row["reachable"] is False
     assert row["authenticated"] is None
     assert row["stale"] is True
+    assert row["operational_state"] == "unreachable"
     assert row["evidence_complete"] is False
     assert row["error_stage"] == "connect_timeout"
+
+
+def test_prometheus_not_configured_names_required_runtime_setting() -> None:
+    module = load_module()
+    snapshot = sample_snapshot()
+    snapshot["platform_metrics"] = {
+        "configured": False,
+        "state": "not_configured",
+        "summary": {
+            "signals_available": 0,
+            "signals_total": 6,
+            "telemetry_up": 0,
+            "telemetry_total": 4,
+        },
+    }
+
+    row = module.build_report(snapshot)["dependencies"]["prometheus"]
+
+    assert row["configured"] is False
+    assert row["reachable"] is None
+    assert row["application_ok"] is None
+    assert row["error_stage"] == "configuration"
+    assert row["error_kind"] == "not_configured"
+    assert row["application_result"]["required_setting"] == "HOMELAB_PROMETHEUS_URL"
+    assert row["operational_state"] == "configuration_required"
 
 
 def test_prometheus_query_failure_is_classified_as_query_stage() -> None:
@@ -147,7 +226,27 @@ def test_prometheus_query_failure_is_classified_as_query_stage() -> None:
 
     assert row["configured"] is True
     assert row["reachable"] is False
+    assert row["application_ok"] is False
     assert row["error_stage"] == "query"
+    assert row["evidence_complete"] is False
+
+
+def test_pyroscope_404_proves_http_transport_but_not_readiness() -> None:
+    module = load_module()
+    snapshot = sample_snapshot()
+    snapshot["healthz"]["checks"]["pyroscope"] = {
+        "reachable": True,
+        "http_status": 404,
+        "path": "/health",
+        "url": "http://pyroscope.example/health",
+    }
+
+    row = module.build_report(snapshot)["dependencies"]["pyroscope"]
+
+    assert row["reachable"] is True
+    assert row["application_ok"] is False
+    assert row["application_result"]["readiness_ok"] is False
+    assert row["operational_state"] == "application_error"
     assert row["evidence_complete"] is False
 
 

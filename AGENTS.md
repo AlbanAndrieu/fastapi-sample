@@ -186,8 +186,19 @@ When behavior depends on a third-party API, framework, or library version, verif
 
 ## Completion
 
+An agent must not declare work complete while any known residual, deferred validation, limitation, cross-repository follow-up, or unresolved risk has not been recorded in the canonical `docs/engineering-roadmap.md`.
+
+Before reporting completion:
+
+1. reconcile the final implementation and runtime evidence with `docs/engineering-roadmap.md`;
+2. add or update a roadmap item for every known residual, including work intentionally deferred to another repository or deployment environment;
+3. record the next acceptance proof needed to close each residual;
+4. only then distinguish completed scope from remaining work.
+
+CI green, a successful deployment, container `RUNNING`, TCP/HTTP reachability, or a partial functional check never waives this accounting requirement. If the roadmap cannot be updated, report the task as **not complete** and identify the missing roadmap entry.
+
 Report:
 
 1. what changed;
 2. checks executed;
-3. unresolved failures or risks.
+3. unresolved failures or risks and their corresponding roadmap entries.
