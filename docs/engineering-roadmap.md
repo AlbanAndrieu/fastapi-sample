@@ -22,6 +22,9 @@ exceptions here rather than creating additional todo or refactoring documents.
   liveness dependency or be overloaded by diagnostics.
 - Configure GitHub branch protection only after the application and CI changes
   are stable; do not change `master` protection in the current implementation.
+- Do not declare work complete while a known residual, deferred validation,
+  limitation, cross-repository follow-up, or unresolved risk is absent from this
+  roadmap. Each residual must retain a concrete next acceptance proof.
 
 ## Production audit — 2026-08-26
 
@@ -54,6 +57,54 @@ exceptions here rather than creating additional todo or refactoring documents.
       profile source files, tests and API/MCP responses.
 - [x] Use a dedicated public profile response model that never includes a
       password.
+
+## P0 — TrueNAS-local dependency convergence — 2026-09-10
+
+The authoritative staging observation is the cached FastAPI health-board served
+from `http://172.17.0.24:8091`. Keep observer vantage points explicit: a direct
+workstation probe is useful comparative evidence, but it does not replace proof
+from the TrueNAS-hosted FastAPI runtime.
+
+- [x] **TrueNAS API** — accepted from the staging runtime with
+      `configured=true`, transport/authentication successful, `path_mode=direct_lan`
+      and an application inventory containing 96 apps.
+- [ ] **pfSense posture API** — the staging runtime receives HTTP `502` from
+      `GET /api/v2/system/version` using the dedicated posture identity. Treat an
+      HTTP response as transport evidence, not application success. Compare the
+      same lightweight endpoint from the workstation and from the FastAPI
+      container, including DNS/peer selection, then require an authenticated
+      `2xx` response from the intended TrueNAS runtime path before closing.
+- [ ] **Prometheus runtime configuration** — the staging health-board currently
+      reports `configured=false`, `state=not_configured`, so this is not yet a
+      network-reachability failure. Set `HOMELAB_PROMETHEUS_URL` in the
+      authoritative TrueNAS FastAPI deployment configuration owned by
+      `nabla-compose` (target currently `http://172.17.0.24:9090`), redeploy, and
+      require the fixed recording-rule query to return at least one available
+      signal. Preserve direct workstation reachability as separate A/B evidence.
+- [ ] **Cloudflare control-plane evidence** — API transport and authentication
+      are successful, but `GET /accounts/{account_id}/cfd_tunnel` returned an
+      empty inventory, so global tunnel status is unconfirmed. Keep this state as
+      warning/unknown and never reclassify the service DOWN or degraded solely
+      because inventory could not be confirmed. Verify account/token scope with a
+      bounded on-demand inventory check before changing the automatic probe.
+- [ ] **Sentry application acceptance** — the current `dsn_socket` probe proves
+      only that the selected intake socket is reachable. Add a bounded synthetic
+      event acceptance path that returns an event id and verify downstream
+      ingestion without creating periodic incident noise.
+- [ ] **Pyroscope application acceptance** — the current staging observation is
+      HTTP `404` on `/health`; that proves HTTP transport but not readiness. First
+      require a real readiness endpoint to return `2xx`, then add a bounded query
+      proving recent profile data exists for `service_name=fastapi-sample`.
+- [ ] Add an explicit workstation-vs-TrueNAS A/B diagnostic for pfSense and
+      Prometheus so differences in DNS, peer address, TLS, routing or deployment
+      configuration are visible without adding provider fan-out to the FastAPI
+      health-board itself.
+- [ ] Re-run `scripts/diagnose-local-runtime-dependencies.py` after each fix and
+      require all six dependency evidence contracts to be complete without
+      weakening cache, timeout, circuit-breaker or optional-dependency semantics.
+- [ ] Resume TrueNAS NFS + Kubernetes CSI acceptance only after this local
+      dependency gate has converged or any intentionally deferred exception is
+      explicitly documented here with its acceptance boundary.
 
 ## P1 — Runtime stability and appliance protection
 
