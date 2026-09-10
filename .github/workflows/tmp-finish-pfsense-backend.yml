@@ -1,0 +1,284 @@
+name: Temporary finish pfSense backend
+
+on:
+  push:
+    branches:
+      - fix/functional-probe-runtime-ui
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: fix/functional-probe-runtime-ui
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.12.1"
+          enable-cache: true
+      - name: Patch pfSense observer and bounded probe payload
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace(path: str, old: str, new: str, count: int = 1) -> None:
+              target = Path(path)
+              text = target.read_text()
+              assert old in text, f"missing anchor in {path}: {old[:120]!r}"
+              target.write_text(text.replace(old, new, count))
+
+          # pfSense: query endpoints independently so /system/version cannot hide service status.
+          path = Path("nabla/api/pfsense_dns_observer.py")
+          text = path.read_text()
+          start = text.index("async def _observe_posture_origin_bounded(")
+          end = text.index("\n\nasync def _observe_posture_origin(", start)
+          replacement = '''async def _observe_posture_origin_bounded(\n    settings: PfSenseDNSSettings,\n) -> dict[str, Any]:\n    \"\"\"Observe independent pfSense posture endpoints with a bounded fan-out.\n\n    The system/version endpoint is useful liveness metadata but it must not gate\n    service, Unbound or system-DNS observations. A reverse-proxy failure on one\n    path therefore no longer turns every other control into ``not_observed``.\n    \"\"\"\n    paths = {\n        "system": "/api/v2/system/version",\n        "services": "/api/v2/status/services",\n        "resolver": "/api/v2/services/dns_resolver/settings",\n        "system_dns": "/api/v2/system/dns",\n    }\n    timeout = httpx.Timeout(\n        connect=_PFSENSE_CONNECT_TIMEOUT_SEC,\n        read=_PFSENSE_READ_TIMEOUT_SEC,\n        write=_PFSENSE_CONNECT_TIMEOUT_SEC,\n        pool=_PFSENSE_CONNECT_TIMEOUT_SEC,\n    )\n    async with httpx.AsyncClient(\n        base_url=settings.base_url,\n        headers={"X-API-Key": settings.api_key, "Accept": "application/json"},\n        timeout=timeout,\n        follow_redirects=False,\n        verify=settings.verify_ssl,\n    ) as client:\n        observations = await _bounded_observations(client, paths)\n\n    failures = {\n        name: value\n        for name, value in observations.items()\n        if isinstance(value, BaseException)\n    }\n    successful = {\n        name: value\n        for name, value in observations.items()\n        if not isinstance(value, BaseException)\n    }\n    services = observations.get("services")\n    resolver = observations.get("resolver")\n    system_dns = observations.get("system_dns")\n    system = observations.get("system")\n    required_policy_paths = ("services", "resolver", "system_dns")\n    policy_complete = all(name in successful for name in required_policy_paths)\n\n    system_version = None\n    if isinstance(system, dict):\n        for key in ("version", "base_version", "installed_version"):\n            raw = system.get(key)\n            if raw is not None and str(raw).strip():\n                system_version = str(raw).strip()[:80]\n                break\n\n    result: dict[str, Any] = {\n        "reachable": bool(successful),\n        "liveness_reachable": "system" in successful,\n        "complete": not failures,\n        "policy_complete": policy_complete,\n        "system_version": system_version,\n        "services": _sanitize_services(\n            None if isinstance(services, BaseException) else services\n        ),\n        "resolver": _resolver_payload(\n            None if isinstance(resolver, BaseException) else resolver\n        ),\n        "upstreams": list(\n            _dns_upstreams(\n                None if isinstance(system_dns, BaseException) else system_dns\n            )\n        ),\n        "endpoint_status": {\n            name: {\n                "reachable": not isinstance(value, BaseException),\n                **(\n                    {"error": _safe_error(value)}\n                    if isinstance(value, BaseException)\n                    else {}\n                ),\n            }\n            for name, value in observations.items()\n        },\n    }\n    if failures:\n        stage, error = next(iter(failures.items()))\n        result["error_stage"] = stage\n        result["error"] = _safe_error(error)\n        result["errors"] = {\n            name: _safe_error(value) for name, value in failures.items()\n        }\n    return result\n'''
+          path.write_text(text[:start] + replacement + text[end:])
+
+          replace(
+              str(path),
+              '    return value.get("reachable") is True and not value.get("error_stage")\n',
+              '    return value.get("reachable") is True and value.get("policy_complete") is True\n',
+          )
+          replace(
+              str(path),
+              '    current_failure = current.get("reachable") is False or bool(current.get("error_stage"))\n',
+              '    current_failure = current.get("reachable") is False or current.get("policy_complete") is False\n',
+          )
+          replace(
+              str(path),
+              '            detail = "Not exposed by /api/v2/status/services"\n',
+              '            detail = "No matching row observed in /api/v2/status/services; absence of observation is not proof that the service is stopped"\n',
+          )
+
+          # Replace high-level posture composition so partial endpoint success stays useful.
+          text = path.read_text()
+          start = text.index("async def observe_pfsense_dns_posture(")
+          replacement = '''async def observe_pfsense_dns_posture(\n    *,\n    truenas_hosts: frozenset[str] = frozenset(),\n    settings: PfSenseDNSSettings | None = None,\n) -> dict[str, Any]:\n    \"\"\"Return cached pfSense service/DNS posture plus Snort/PF evidence.\"\"\"\n    configuration = pfsense_api_configuration_status() if settings is None else None\n    configured = settings or PfSenseDNSSettings.from_environment()\n    if configured is None:\n        ingress = await observe_pfsense_ingress_block()\n        return {\n            **(configuration or {}),\n            "configured": False,\n            "reachable": None,\n            "policy_state": "unknown",\n            "reason": "pfSense posture observation is not configured",\n            "services": [],\n            "security_filters": _security_filter_observations(None, ingress_block=ingress),\n            "ingress_block": ingress,\n        }\n\n    posture_task = asyncio.create_task(\n        _observe_posture_origin(configured)\n        if settings is not None\n        else _cached_posture(configured)\n    )\n    ingress_task = asyncio.create_task(observe_pfsense_ingress_block())\n    posture, ingress = await asyncio.gather(posture_task, ingress_task)\n\n    services = posture.get("services", [])\n    filters = _security_filter_observations(services, ingress_block=ingress)\n    common: dict[str, Any] = {\n        "configured": True,\n        "target": configured.base_url,\n        "system_version": posture.get("system_version"),\n        "liveness_reachable": posture.get("liveness_reachable"),\n        "services": services,\n        "endpoint_status": posture.get("endpoint_status", {}),\n        "security_filters": filters,\n        "ingress_block": ingress,\n    }\n    if "cache" in posture:\n        common["cache"] = posture["cache"]\n\n    if posture.get("reachable") is not True:\n        return {\n            **common,\n            "reachable": False,\n            "policy_state": "unknown",\n            "reason": "pfSense posture API is unreachable from this runtime",\n            "error_stage": posture.get("error_stage", "system"),\n            "error": posture.get("error", "unknown"),\n            "errors": posture.get("errors", {}),\n        }\n\n    if posture.get("policy_complete") is not True:\n        return {\n            **common,\n            "reachable": True,\n            "policy_state": "unknown",\n            "reason": "pfSense DNS policy evidence is incomplete",\n            "error_stage": posture.get("error_stage", "partial"),\n            "error": posture.get("error", "one or more policy endpoints failed"),\n            "errors": posture.get("errors", {}),\n            "resolver": posture.get("resolver", {}),\n        }\n\n    resolver = posture.get("resolver") if isinstance(posture.get("resolver"), dict) else {}\n    forwarding = _optional_bool(resolver.get("forwarding"))\n    upstreams = tuple(str(value) for value in posture.get("upstreams", []))\n    independent, truenas_only = _independent_from_truenas(\n        forwarding=forwarding,\n        upstreams=upstreams,\n        truenas_hosts=truenas_hosts,\n    )\n    resolver_running = _service_running(services)\n    policy_state, reason = _policy_state(\n        resolver_enabled=_optional_bool(resolver.get("enabled")),\n        resolver_running=resolver_running,\n        independent_from_truenas=independent,\n    )\n    result: dict[str, Any] = {\n        **common,\n        "reachable": True,\n        "policy_state": policy_state,\n        "reason": reason,\n        "resolver": {\n            **resolver,\n            "running": resolver_running,\n        },\n        "upstream": {\n            "count": len(upstreams),\n            "independent_from_truenas": independent,\n            "truenas_only": truenas_only,\n        },\n    }\n    if posture.get("error_stage"):\n        result["warning"] = (\n            f"pfSense endpoint {posture['error_stage']} could not be observed: "\n            f"{posture.get('error', 'unknown')}"\n        )\n        result["errors"] = posture.get("errors", {})\n    if posture.get("stale") is True:\n        result["stale"] = True\n        result["refresh_error"] = posture.get("refresh_error")\n        result["refresh_error_stage"] = posture.get("refresh_error_stage")\n    return result\n'''
+          path.write_text(text[:start] + replacement)
+
+          # Include the pfSense control-plane read in the bounded low-level snapshot.
+          path = "nabla/api/homelab_health.py"
+          replace(
+              path,
+              "from nabla.api.runtime_environment import homelab_runtime_detected\n",
+              "from nabla.api.pfsense_dns_observer import observe_pfsense_dns_posture\nfrom nabla.api.runtime_environment import homelab_runtime_detected\n",
+          )
+          replace(
+              path,
+              "_TRUENAS_DIAGNOSTICS_BUDGET_SEC = 3.0\n",
+              "_TRUENAS_DIAGNOSTICS_BUDGET_SEC = 3.0\n_PFSENSE_CONTROL_PLANE_BUDGET_SEC = 5.0\n",
+          )
+          anchor = "\ndef _copy_payload(\n"
+          helper = '''\nasync def _bounded_pfsense_posture(\n    services: list[HomelabService],\n) -> dict[str, Any]:\n    truenas_hosts = frozenset(\n        service.internal_host\n        for service in services\n        if service.service_id == "truenas" and service.internal_host\n    )\n    try:\n        async with asyncio.timeout(_PFSENSE_CONTROL_PLANE_BUDGET_SEC):\n            return await observe_pfsense_dns_posture(truenas_hosts=truenas_hosts)\n    except TimeoutError:\n        return {\n            "configured": True,\n            "reachable": None,\n            "policy_state": "unknown",\n            "warning": "⚠️ pfSense control-plane observation exceeded its bounded probe budget",\n            "error_stage": "deadline",\n            "error": "timeout",\n            "services": [],\n        }\n    except Exception as exc:  # pragma: no cover - provider/runtime dependent\n        return {\n            "configured": True,\n            "reachable": None,\n            "policy_state": "unknown",\n            "warning": "⚠️ pfSense control-plane observation failed",\n            "error_stage": "probe_error",\n            "error": type(exc).__name__,\n            "services": [],\n        }\n\n'''
+          replace(path, anchor, helper + anchor)
+          replace(
+              path,
+              "        truenas_task = asyncio.create_task(\n            _probe_truenas(\n                truenas_semaphore,\n                internal_enabled=internal_enabled,\n            ),\n        )\n",
+              "        truenas_task = asyncio.create_task(\n            _probe_truenas(\n                truenas_semaphore,\n                internal_enabled=internal_enabled,\n            ),\n        )\n        pfsense_task = asyncio.create_task(_bounded_pfsense_posture(services))\n",
+          )
+          old = '''            (public_results, public_summary), truenas, (\n                internal_results,\n                internal_summary,\n            ) = await asyncio.gather(\n                public_results_task,\n                truenas_task,\n                internal_results_task,\n            )\n'''
+          new = '''            (public_results, public_summary), truenas, (\n                internal_results,\n                internal_summary,\n            ), pfsense_dns = await asyncio.gather(\n                public_results_task,\n                truenas_task,\n                internal_results_task,\n                pfsense_task,\n            )\n'''
+          replace(path, old, new)
+          replace(
+              path,
+              '            "truenas": truenas,\n            "services": public_results,\n',
+              '            "truenas": truenas,\n            "pfsense": {"dns": pfsense_dns},\n            "services": public_results,\n',
+          )
+          PY
+
+          cat > nabla/api/runtime_version.py <<'PY'
+          """Non-blocking comparison of the local runtime and FastAPI Cloud versions."""
+
+          from __future__ import annotations
+
+          import os
+          import re
+          from typing import Any
+
+          import httpx
+          from packaging.version import InvalidVersion, Version
+
+          _DEFAULT_CLOUD_LIVEZ = "https://fastapi-sample.fastapicloud.dev/livez"
+          _VERSION_RE = re.compile(r"(?P<version>\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)")
+          _VERSION_TIMEOUT_SEC = 2.5
+
+
+          def normalized_version(value: object) -> str | None:
+              raw = str(value or "").strip()
+              match = _VERSION_RE.search(raw)
+              return match.group("version") if match else None
+
+
+          def version_is_behind(local: object, remote: object) -> bool | None:
+              local_value = normalized_version(local)
+              remote_value = normalized_version(remote)
+              if local_value is None or remote_value is None:
+                  return None
+              try:
+                  return Version(local_value) < Version(remote_value)
+              except InvalidVersion:
+                  return None
+
+
+          async def fetch_cloud_version_status(local_version: object) -> dict[str, Any]:
+              target = os.getenv("FASTAPI_CLOUD_LIVEZ_URL", _DEFAULT_CLOUD_LIVEZ).strip() or _DEFAULT_CLOUD_LIVEZ
+              local = normalized_version(local_version) or str(local_version)
+              try:
+                  async with httpx.AsyncClient(timeout=httpx.Timeout(_VERSION_TIMEOUT_SEC)) as client:
+                      response = await client.get(target, headers={"Accept": "application/json"})
+                      response.raise_for_status()
+                      payload = response.json()
+              except (httpx.HTTPError, OSError, ValueError) as exc:
+                  return {
+                      "local_version": local,
+                      "cloud_version": None,
+                      "behind": None,
+                      "status_confirmed": False,
+                      "warning": "FastAPI Cloud version could not be confirmed",
+                      "error_kind": type(exc).__name__,
+                  }
+
+              cloud_raw = payload.get("version") if isinstance(payload, dict) else None
+              cloud = normalized_version(cloud_raw)
+              behind = version_is_behind(local, cloud)
+              return {
+                  "local_version": local,
+                  "cloud_version": cloud,
+                  "behind": behind,
+                  "status_confirmed": cloud is not None and behind is not None,
+                  "update_recommended": behind is True,
+              }
+          PY
+
+          # Same-origin endpoint avoids CORS and never changes health semantics.
+          path = "nabla/api/health_routes.py"
+          replace(
+              path,
+              '    @app.get(\n        "/api/runtime/topology",\n',
+              '''    @app.get(\n        "/api/runtime/version-status",\n        tags=["Health", "Runtime"],\n        summary="Compare this runtime with FastAPI Cloud",\n    )\n    async def get_runtime_version_status(request: Request, response: Response) -> dict[str, Any]:\n        from nabla.api.runtime_version import fetch_cloud_version_status\n\n        response.headers.update(_NO_STORE_HEADERS)\n        return await fetch_cloud_version_status(request.app.version)\n\n    @app.get(\n        "/api/runtime/topology",\n''',
+          )
+          PY
+      - name: Add backend regression tests
+        shell: bash
+        run: |
+          cat >> tests/unit/test_pfsense_dns_observer.py <<'PY'
+
+
+          @pytest.mark.asyncio
+          async def test_system_version_failure_does_not_hide_service_or_unbound_state(monkeypatch, settings) -> None:
+              async def fake_get_data(_client, path: str):
+                  if path == "/api/v2/system/version":
+                      request = httpx.Request("GET", "https://pfsense.example.test/api/v2/system/version")
+                      response = httpx.Response(502, request=request)
+                      raise httpx.HTTPStatusError("bad gateway", request=request, response=response)
+                  return {
+                      "/api/v2/status/services": [
+                          {"name": "unbound", "description": "DNS Resolver", "status": "running"},
+                          {"name": "snort_wan", "description": "Snort IDS", "status": "running"},
+                          {"name": "crowdsec", "description": "CrowdSec", "status": "stopped"},
+                      ],
+                      "/api/v2/services/dns_resolver/settings": {
+                          "enable": True,
+                          "forwarding": False,
+                          "port": 53,
+                      },
+                      "/api/v2/system/dns": {"dnsserver": []},
+                  }[path]
+
+              monkeypatch.setattr(pfsense_dns_observer, "_get_data", fake_get_data)
+              monkeypatch.setattr(pfsense_dns_observer, "observe_pfsense_ingress_block", _security_unavailable)
+
+              result = await pfsense_dns_observer.observe_pfsense_dns_posture(settings=settings)
+
+              assert result["reachable"] is True
+              assert result["liveness_reachable"] is False
+              assert result["policy_state"] == "ok"
+              assert result["resolver"]["running"] is True
+              assert result["endpoint_status"]["system"]["error"] == "HTTP 502"
+              assert "system" in result["warning"]
+              services = {row["identity"]: row["runtime_state"] for row in result["services"]}
+              assert any("unbound" in name and state == "running" for name, state in services.items())
+              assert any("crowdsec" in name and state == "stopped" for name, state in services.items())
+
+
+          def test_not_observed_is_explicitly_not_a_stopped_verdict() -> None:
+              filters = pfsense_dns_observer._security_filter_observations([], ingress_block={"state": "telemetry_unavailable"})
+              pfblocker = next(row for row in filters if row["id"] == "pfblockerng")
+              assert pfblocker["state"] == "not_observed"
+              assert "not proof" in pfblocker["detail"]
+          PY
+
+          cat > tests/unit/test_runtime_version.py <<'PY'
+          import httpx
+          import pytest
+
+          from nabla.api import runtime_version
+
+
+          def test_version_comparison_normalizes_runtime_prefix() -> None:
+              assert runtime_version.normalized_version("v0+1.13.15") == "1.13.15"
+              assert runtime_version.version_is_behind("1.13.12", "v0+1.13.15") is True
+              assert runtime_version.version_is_behind("1.13.15", "v0+1.13.15") is False
+
+
+          @pytest.mark.asyncio
+          async def test_cloud_version_failure_is_non_blocking(monkeypatch) -> None:
+              class Client:
+                  async def __aenter__(self):
+                      return self
+
+                  async def __aexit__(self, *_args):
+                      return None
+
+                  async def get(self, *_args, **_kwargs):
+                      raise httpx.ConnectTimeout("timeout")
+
+              monkeypatch.setattr(runtime_version.httpx, "AsyncClient", lambda **_kwargs: Client())
+              result = await runtime_version.fetch_cloud_version_status("1.13.12")
+              assert result["behind"] is None
+              assert result["status_confirmed"] is False
+              assert result["warning"]
+          PY
+      - name: Format and test backend changes
+        shell: bash
+        run: |
+          uv sync --frozen
+          uv pip install pre-commit==4.6.2
+          uv run pre-commit run --files \
+            nabla/api/pfsense_dns_observer.py \
+            nabla/api/homelab_health.py \
+            nabla/api/health_routes.py \
+            nabla/api/runtime_version.py \
+            tests/unit/test_pfsense_dns_observer.py \
+            tests/unit/test_runtime_version.py || true
+          uv run pre-commit run --files \
+            nabla/api/pfsense_dns_observer.py \
+            nabla/api/homelab_health.py \
+            nabla/api/health_routes.py \
+            nabla/api/runtime_version.py \
+            tests/unit/test_pfsense_dns_observer.py \
+            tests/unit/test_runtime_version.py
+          uv run pytest -q \
+            tests/unit/test_pfsense_dns_observer.py \
+            tests/unit/test_runtime_version.py \
+            tests/unit/test_homelab_health.py \
+            tests/unit/test_health_routes.py
+      - name: Remove temporary workflow and commit
+        shell: bash
+        run: |
+          rm -f .github/workflows/tmp-finish-pfsense-backend.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m "feat(health): expose bounded pfSense service posture"
+          git push
