@@ -103,6 +103,29 @@ def test_service_classification_supports_explicit_role_and_criticality() -> None
         assert f'"{value}"' in source
 
 
+def test_operator_group_overrides_preserve_semantics_and_requested_layout() -> None:
+    source = (ASSETS / "api-service-classification.js").read_text(encoding="utf-8")
+
+    assert "PRESENTATION_GROUP_OVERRIDES" in source
+    for service_id, group in (
+        ("keycloak", "security-controls"),
+        ("scrutiny", "support"),
+        ("langfuse", "support"),
+        ("homarr", "support"),
+        ("heimdall", "support"),
+        ("prometheus", "support"),
+        ("grafana", "support"),
+        ("fastapi-sample", "support"),
+    ):
+        assert f'["{service_id}", "{group}"]' in source
+
+    presentation_group = source.split("function presentationGroup", maxsplit=1)[1]
+    assert presentation_group.index("PRESENTATION_GROUP_OVERRIDES") < presentation_group.index(
+        'if (criticality === "critical") return "core-critical";'
+    )
+    assert "must not rewrite dependency edges, criticality or blast-radius semantics" in source
+
+
 def test_structural_hosting_affects_blast_radius_not_functional_dependency() -> None:
     source = (ASSETS / "api-service-classification.js").read_text(encoding="utf-8")
 
