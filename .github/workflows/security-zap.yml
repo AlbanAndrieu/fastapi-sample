@@ -16,15 +16,93 @@ on:
 
 permissions:
   contents: read
+  statuses: read
 
 concurrency:
   group: zap-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name == 'pull_request' && 'pr' || github.sha }}
   cancel-in-progress: true
 
 jobs:
+  preview-gate:
+    name: Require successful Vercel preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    outputs:
+      ready: ${{ steps.preview.outputs.ready }}
+      reason: ${{ steps.preview.outputs.reason }}
+    steps:
+      - name: Check Vercel deployment status before starting DAST
+        id: preview
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          script: |
+            if (context.eventName !== "pull_request") {
+              core.setOutput("ready", "true");
+              core.setOutput("reason", "non-PR invocation");
+              return;
+            }
+
+            const sha = context.payload.pull_request?.head?.sha;
+            if (!sha) {
+              core.setOutput("ready", "false");
+              core.setOutput("reason", "pull request head SHA unavailable");
+              return;
+            }
+
+            const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+            const terminalFailure = new Set(["failure", "error"]);
+            for (let attempt = 1; attempt <= 24; attempt += 1) {
+              const response = await github.rest.repos.getCombinedStatusForRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: sha,
+              });
+              const vercel = response.data.statuses.find(
+                (status) => String(status.context || "").toLowerCase() === "vercel",
+              );
+
+              if (vercel?.state === "success") {
+                core.info(`Vercel preview succeeded for ${sha}. DAST may start.`);
+                core.setOutput("ready", "true");
+                core.setOutput("reason", "Vercel preview succeeded");
+                return;
+              }
+              if (vercel && terminalFailure.has(vercel.state)) {
+                core.warning(`Vercel preview is ${vercel.state}; ZAP will not start.`);
+                core.setOutput("ready", "false");
+                core.setOutput("reason", `Vercel preview ${vercel.state}`);
+                return;
+              }
+
+              core.info(
+                `Vercel preview not successful yet (${vercel?.state || "not reported"}); attempt ${attempt}/24.`,
+              );
+              if (attempt < 24) await sleep(10000);
+            }
+
+            core.warning("Vercel preview did not reach success within the preview gate window; ZAP will not start.");
+            core.setOutput("ready", "false");
+            core.setOutput("reason", "Vercel preview not confirmed successful");
+
+      - name: Summarize preview gate
+        if: always()
+        env:
+          READY: ${{ steps.preview.outputs.ready }}
+          REASON: ${{ steps.preview.outputs.reason }}
+        shell: bash
+        run: |
+          {
+            echo "## Vercel preview gate"
+            echo
+            echo "- DAST allowed: **${READY:-false}**"
+            echo "- Reason: ${REASON:-unknown}"
+            echo "- ZAP is never started for a PR until the Vercel status context is successful."
+          } >> "$GITHUB_STEP_SUMMARY"
+
   dast:
     name: ZAP Web + OpenAPI on ephemeral runtime
-    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
+    needs: preview-gate
+    if: ${{ needs.preview-gate.outputs.ready == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false) }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
