@@ -99,7 +99,7 @@ class CloudflareExposureSnapshot:
         stale: bool = False,
         refresh_error: str | None = None,
         cache: dict[str, Any] | None = None,
-    ) -> "CloudflareExposureSnapshot":
+    ) -> CloudflareExposureSnapshot:
         return cls(
             configured=bool(payload.get("configured")),
             tunnels=tuple(
