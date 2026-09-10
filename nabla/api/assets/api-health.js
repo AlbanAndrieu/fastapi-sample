@@ -9,7 +9,6 @@ import {
 import { loadHealth } from "./api-health-core.js";
 import {
   decorateProbeTelemetry,
-  markVisibleProbeRowsPending,
   startProbeAgeTicker,
 } from "./api-probe-live.js";
 import { loadRuntimeTopology } from "./api-runtime.js";
@@ -18,8 +17,10 @@ import { loadSickz } from "./api-sickz.js";
 import { installPfsensePortLabels } from "./api-sickz-port-labels.js";
 import { loadTrueNas } from "./api-truenas.js";
 
-const HEALTH_BOARD_POLL_MS = 5000;
+const HEALTH_BOARD_IDLE_POLL_MS = 5000;
+const HEALTH_BOARD_REFRESHING_POLL_MS = 1000;
 let automaticRefreshInFlight = false;
+let automaticRefreshTimer = null;
 
 function logRefreshClick() {
   fetch("/api/health-board/refresh-event", {
@@ -34,10 +35,7 @@ function logRefreshClick() {
 
 function loadHealthBoards({ forceRefresh = false, showPending = true } = {}) {
   resetHealthBoardRequest({ forceRefresh });
-  if (showPending) {
-    markHealthBoardsPending();
-    if (forceRefresh) markVisibleProbeRowsPending();
-  }
+  if (showPending) markHealthBoardsPending();
   loadRuntimeTopology();
   loadTrueNas();
   loadHealth();
@@ -51,21 +49,29 @@ function loadHealthBoards({ forceRefresh = false, showPending = true } = {}) {
     .catch(() => null);
 }
 
-function installAutomaticRefresh() {
-  window.setInterval(() => {
-    if (document.hidden || automaticRefreshInFlight) return;
+function scheduleAutomaticRefresh(delayMs = HEALTH_BOARD_IDLE_POLL_MS) {
+  if (automaticRefreshTimer) window.clearTimeout(automaticRefreshTimer);
+  automaticRefreshTimer = window.setTimeout(async () => {
+    if (document.hidden || automaticRefreshInFlight) {
+      scheduleAutomaticRefresh();
+      return;
+    }
     automaticRefreshInFlight = true;
-    loadHealthBoards({ showPending: false }).finally(() => {
-      automaticRefreshInFlight = false;
-    });
-  }, HEALTH_BOARD_POLL_MS);
+    const snapshot = await loadHealthBoards({ showPending: false });
+    automaticRefreshInFlight = false;
+    scheduleAutomaticRefresh(
+      snapshot?.refreshing === true
+        ? HEALTH_BOARD_REFRESHING_POLL_MS
+        : HEALTH_BOARD_IDLE_POLL_MS,
+    );
+  }, delayMs);
+}
 
+function installAutomaticRefresh() {
+  scheduleAutomaticRefresh();
   document.addEventListener("visibilitychange", () => {
     if (document.hidden || automaticRefreshInFlight) return;
-    automaticRefreshInFlight = true;
-    loadHealthBoards({ showPending: false }).finally(() => {
-      automaticRefreshInFlight = false;
-    });
+    scheduleAutomaticRefresh(0);
   });
 }
 
