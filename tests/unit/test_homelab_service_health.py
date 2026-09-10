@@ -27,7 +27,7 @@ def _runtime(*apps: ObservedApp, stale: bool = False) -> TrueNASRuntimeSnapshot:
         ("fail", "ok", None, None, True, 0, "warn"),
         ("fail", None, "ok", None, True, 0, "warn"),
         ("fail", None, None, "ok", True, 0, "fail"),
-        ("ok", None, None, "fail", True, 200, "fail"),
+        ("ok", None, None, "fail", True, 200, "warn"),
         ("ok", "ok", None, "fail", True, 200, "warn"),
         (None, "ok", None, None, False, 0, "ok"),
         (None, None, "ok", None, False, 0, "ok"),
@@ -121,7 +121,8 @@ def test_stale_runtime_never_claims_missing_app() -> None:
     assert rows[0]["state"] == "unknown"
 
 
-def test_cloudflare_unconfirmed_warns_without_changing_healthy_origin() -> None:
+@pytest.mark.parametrize("tunnel_status", ["healthy", "down", "degraded"])
+def test_cloudflare_unconfirmed_warns_without_changing_healthy_origin(tunnel_status: str) -> None:
     service = HomelabService(
         name="n8n",
         tunnelUrl="https://n8n.albandrieu.com",
@@ -140,7 +141,21 @@ def test_cloudflare_unconfirmed_warns_without_changing_healthy_origin() -> None:
         ],
         internal_results=[],
         runtime=None,
-        tunnels=[],
+        tunnels=[
+            CloudflareTunnelObservation(
+                tunnel_id="test-tunnel",
+                name="test",
+                status=tunnel_status,
+                ingress=[
+                    CloudflareTunnelIngress(
+                        tunnel_id="test-tunnel",
+                        tunnel_name="test",
+                        hostname="n8n.albandrieu.com",
+                        service="http://origin:5678",
+                    ),
+                ],
+            ),
+        ],
         cloudflare_status_confirmed=False,
         cloudflare_warning="⚠️ Cloudflare global status could not be confirmed: timeout",
     )

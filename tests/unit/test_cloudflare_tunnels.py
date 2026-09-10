@@ -1,5 +1,6 @@
 """Tests for the read-only Cloudflare Tunnel and Access observer."""
 
+import secrets
 from types import SimpleNamespace
 
 from nabla.api.cloudflare_tunnels import (
@@ -9,6 +10,9 @@ from nabla.api.cloudflare_tunnels import (
     observe_cloudflare_access_applications,
     observe_cloudflare_tunnels,
 )
+
+
+TEST_API_TOKEN = secrets.token_urlsafe(16)
 
 
 class _Configurations:
@@ -77,6 +81,21 @@ def _client(
     )
 
 
+def test_observer_bounds_sdk_requests() -> None:
+    calls = []
+
+    def factory(**kwargs):
+        calls.append(kwargs)
+        return _client(tunnels=[], configurations={})
+
+    observer = CloudflareTunnelObserver(
+        CloudflareTunnelSettings(account_id="test-account", api_token=TEST_API_TOKEN),
+        client_factory=factory,
+    )
+    assert observer.list_tunnels() == []
+    assert calls == [{"api_token": TEST_API_TOKEN, "timeout": 5.0, "max_retries": 0}]
+
+
 def test_settings_are_disabled_when_credentials_are_incomplete(monkeypatch) -> None:
     monkeypatch.delenv("CLOUDFLARE_ACCOUNT_ID", raising=False)
     monkeypatch.delenv("CLOUDFLARE_API_TOKEN", raising=False)
@@ -125,7 +144,7 @@ def test_observer_reads_remote_tunnel_public_hostnames() -> None:
     )
 
     observer = CloudflareTunnelObserver(
-        CloudflareTunnelSettings(account_id="account", api_token="test-token"),
+        CloudflareTunnelSettings(account_id="account", api_token=TEST_API_TOKEN),
         client=client,
     )
 
@@ -153,7 +172,7 @@ def test_local_tunnel_is_reported_without_guessing_its_ingress() -> None:
     )
 
     observer = CloudflareTunnelObserver(
-        CloudflareTunnelSettings(account_id="account", api_token="test-token"),
+        CloudflareTunnelSettings(account_id="account", api_token=TEST_API_TOKEN),
         client=client,
     )
 
@@ -169,7 +188,7 @@ def test_local_tunnel_is_reported_without_guessing_its_ingress() -> None:
 def test_observer_excludes_deleted_tunnels() -> None:
     client = _client(tunnels=[], configurations={})
     observer = CloudflareTunnelObserver(
-        CloudflareTunnelSettings(account_id="account", api_token="test-token"),
+        CloudflareTunnelSettings(account_id="account", api_token=TEST_API_TOKEN),
         client=client,
     )
 
@@ -201,7 +220,7 @@ def test_observer_reads_access_bypass_everyone_policy() -> None:
         },
     )
     observer = CloudflareTunnelObserver(
-        CloudflareTunnelSettings(account_id="account", api_token="test-token"),
+        CloudflareTunnelSettings(account_id="account", api_token=TEST_API_TOKEN),
         client=client,
     )
 
@@ -212,9 +231,7 @@ def test_observer_reads_access_bypass_everyone_policy() -> None:
     assert observations[0].path == "/"
     assert observations[0].policies[0].decision == "bypass"
     assert observations[0].policies[0].includes_everyone is True
-    assert client.zero_trust.access.applications.policies.calls == [
-        ("app-n8n", "account")
-    ]
+    assert client.zero_trust.access.applications.policies.calls == [("app-n8n", "account")]
 
 
 def test_observer_preserves_path_scoped_access_application() -> None:
@@ -238,7 +255,7 @@ def test_observer_preserves_path_scoped_access_application() -> None:
         ],
     )
     observer = CloudflareTunnelObserver(
-        CloudflareTunnelSettings(account_id="account", api_token="test-token"),
+        CloudflareTunnelSettings(account_id="account", api_token=TEST_API_TOKEN),
         client=client,
     )
 

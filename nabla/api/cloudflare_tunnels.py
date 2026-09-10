@@ -90,7 +90,7 @@ class CloudflareTunnelSettings:
 
 
 class _CloudflareClientFactory(Protocol):
-    def __call__(self, *, api_token: str) -> Any: ...
+    def __call__(self, *, api_token: str, timeout: float, max_retries: int) -> Any: ...
 
 
 def _load_cloudflare_client() -> _CloudflareClientFactory:
@@ -98,9 +98,7 @@ def _load_cloudflare_client() -> _CloudflareClientFactory:
     try:
         module = importlib.import_module("cloudflare")
     except ImportError as exc:
-        raise RuntimeError(
-            "Cloudflare observation requires the official 'cloudflare' Python SDK"
-        ) from exc
+        raise RuntimeError("Cloudflare observation requires the official 'cloudflare' Python SDK") from exc
     return module.Cloudflare
 
 
@@ -141,7 +139,7 @@ class CloudflareTunnelObserver:
             self._client = client
             return
         factory = client_factory or _load_cloudflare_client()
-        self._client = factory(api_token=settings.api_token)
+        self._client = factory(api_token=settings.api_token, timeout=5.0, max_retries=0)
 
     def list_tunnels(self) -> list[CloudflareTunnelObservation]:
         """Return active Cloudflared tunnels and Cloudflare-managed public hostnames."""
@@ -242,19 +240,9 @@ class CloudflareTunnelObserver:
                 policies.append(
                     CloudflareAccessPolicyObservation(
                         policy_id=policy_id,
-                        name=(
-                            str(_value(policy, "name"))
-                            if _value(policy, "name") is not None
-                            else None
-                        ),
-                        decision=(
-                            str(_value(policy, "decision")).lower()
-                            if _value(policy, "decision") is not None
-                            else None
-                        ),
-                        includes_everyone=any(
-                            _rule_includes_everyone(rule) for rule in include_rules
-                        ),
+                        name=(str(_value(policy, "name")) if _value(policy, "name") is not None else None),
+                        decision=(str(_value(policy, "decision")).lower() if _value(policy, "decision") is not None else None),
+                        includes_everyone=any(_rule_includes_everyone(rule) for rule in include_rules),
                     )
                 )
 
