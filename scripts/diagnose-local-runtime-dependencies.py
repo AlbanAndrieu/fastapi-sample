@@ -149,7 +149,7 @@ def _truenas(snapshot: dict[str, Any]) -> dict[str, Any]:
         and row["reachable"] is True
         and row["authenticated"] is True
         and row["application_ok"] is True
-        and not row["stale"]
+        and not row["stale"],
     )
     row["operational_state"] = _state(
         configured=row["configured"],
@@ -185,7 +185,7 @@ def _pfsense(snapshot: dict[str, Any]) -> dict[str, Any]:
         and row["reachable"] is True
         and row["authenticated"] is True
         and row["application_ok"] is True
-        and not row["stale"]
+        and not row["stale"],
     )
     row["operational_state"] = _state(
         configured=row["configured"],
@@ -217,12 +217,12 @@ def _cloudflare(snapshot: dict[str, Any]) -> dict[str, Any]:
         and row["reachable"] is True
         and row["authenticated"] is True
         and status_confirmed
-        and not row["stale"]
+        and not row["stale"],
     )
     unconfirmed_warning = bool(
         row["reachable"] is True
         and row["authenticated"] is True
-        and not status_confirmed
+        and not status_confirmed,
     )
     row["operational_state"] = _state(
         configured=row["configured"],
@@ -268,7 +268,7 @@ def _prometheus(snapshot: dict[str, Any]) -> dict[str, Any]:
         and row["reachable"] is True
         and row["application_ok"] is True
         and isinstance(summary.get("signals_available"), int)
-        and summary.get("signals_available", 0) > 0
+        and summary.get("signals_available", 0) > 0,
     )
     row["operational_state"] = _state(
         configured=row["configured"],
@@ -396,7 +396,7 @@ def print_table(report: dict[str, Any]) -> None:
     print()
     print(
         f"{'dependency':<12} {'configured':<10} {'transport':<10} {'auth':<6} "
-        f"{'app':<6} {'stale':<6} {'state':<22} error_stage"
+        f"{'app':<6} {'stale':<6} {'state':<22} error_stage",
     )
     for name in _DEPENDENCY_ORDER:
         row = _mapping(dependencies.get(name))
@@ -404,7 +404,7 @@ def print_table(report: dict[str, Any]) -> None:
             f"{name:<12} {_fmt(row.get('configured')):<10} "
             f"{_fmt(row.get('reachable')):<10} {_fmt(row.get('authenticated')):<6} "
             f"{_fmt(row.get('application_ok')):<6} {_fmt(row.get('stale')):<6} "
-            f"{_fmt(row.get('operational_state')):<22} {_fmt(row.get('error_stage'))}"
+            f"{_fmt(row.get('operational_state')):<22} {_fmt(row.get('error_stage'))}",
         )
     gaps = report.get("evidence_gaps") or []
     print()
