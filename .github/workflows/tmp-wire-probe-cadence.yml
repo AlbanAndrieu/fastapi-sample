@@ -1,0 +1,75 @@
+name: Temporary wire probe cadence
+
+on:
+  push:
+    branches:
+      - fix/homelab-probe-budget-cloudflare-unknown
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: fix/homelab-probe-budget-cloudflare-unknown
+      - name: Patch health orchestration
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("nabla/api/health_checks.py")
+          text = path.read_text()
+
+          text = text.replace(
+              "import asyncio\nimport logging\nimport time\nfrom typing import Any\n",
+              "import asyncio\nfrom collections.abc import Awaitable, Callable\nimport logging\nimport time\nfrom typing import Any\n",
+              1,
+          )
+          text = text.replace(
+              "from nabla.api.health_probe_utils import (\n",
+              "from nabla.api.health_probe_cadence import (\n"
+              "    annotate_required_probe,\n"
+              "    probe_cadence_contract,\n"
+              "    run_cadenced_optional_probe,\n"
+              ")\n"
+              "from nabla.api.health_probe_utils import (\n",
+              1,
+          )
+          text = text.replace(
+              "_HEALTHZ_HOMELAB_MAX_CONCURRENCY = 2\n_DEPENDENCY_KEYS = (\n",
+              "_HEALTHZ_HOMELAB_MAX_CONCURRENCY = 2\n"
+              "_REQUIRED_DEPENDENCY_KEYS = frozenset({\"redis\", \"postgres\", \"supabase\"})\n"
+              "_DEPENDENCY_KEYS = (\n",
+              1,
+          )
+
+          marker = "\n\nasync def _run_dependency_probes(\n"
+          helper = '''\n\nasync def _run_dependency_probe(\n    name: str,\n    factory: Callable[[], Awaitable[dict[str, Any]]],\n    budget: ProbeBudget,\n) -> dict[str, Any]:\n    \"\"\"Run one dependency according to required/optional probe cadence.\"\"\"\n\n    async def run_origin() -> dict[str, Any]:\n        return await budget.run(\n            factory,\n            timeout_value=lambda: _deadline_probe_result(name),\n        )\n\n    if name in _REQUIRED_DEPENDENCY_KEYS:\n        return annotate_required_probe(name, await run_origin())\n    return await run_cadenced_optional_probe(name, run_origin)\n'''
+          if helper.strip() not in text:
+              text = text.replace(marker, helper + marker, 1)
+
+          old = '''            budget.run(\n                factory,\n                timeout_value=lambda name=name: _deadline_probe_result(name),\n            )\n            for name, factory in zip(_DEPENDENCY_KEYS, factories, strict=True)'''
+          new = '''            _run_dependency_probe(name, factory, budget)\n            for name, factory in zip(_DEPENDENCY_KEYS, factories, strict=True)'''
+          if old not in text:
+              raise SystemExit("dependency gather pattern not found")
+          text = text.replace(old, new, 1)
+
+          text = text.replace(
+              '            "queues": "isolated",\n',
+              '            "queues": "isolated",\n            "cadence": probe_cadence_contract(),\n',
+              1,
+          )
+          path.write_text(text)
+          PY
+      - name: Remove temporary workflow
+        run: git rm .github/workflows/tmp-wire-probe-cadence.yml
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add nabla/api/health_checks.py .github/workflows/tmp-wire-probe-cadence.yml
+          git commit -m "feat(health): schedule optional probes by cadence"
+          git push
