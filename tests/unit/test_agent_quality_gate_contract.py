@@ -178,9 +178,14 @@ def test_master_red_remediation_is_post_merge_and_deduplicated() -> None:
 
     assert "name: Master red remediation" in workflow
     assert "branches: [master]" in workflow
-    assert "workflows=(python.yml production-smoke.yml)" in workflow
-    assert "gh workflow run" in workflow
-    assert "--event workflow_dispatch" in workflow
+    assert "workflow_dispatch:" in workflow
+    assert "uses: ./.github/workflows/python.yml" in workflow
+    assert "uses: ./.github/workflows/production-smoke.yml" in workflow
+    assert "uses: ./.github/workflows/codeql.yml" in workflow
+    assert "uses: ./.github/workflows/security-zap.yml" in workflow
+    assert "needs: [classify, python, production-smoke, codeql, zap]" in workflow
+    assert "needs.python.result != 'success'" in workflow
+    assert "needs.production-smoke.result != 'success'" in workflow
     assert "MASTER_REMEDIATION_TOKEN" in workflow
     assert "issues: write" in workflow
     assert "pull-requests: write" in workflow
