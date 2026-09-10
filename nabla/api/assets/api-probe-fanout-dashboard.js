@@ -7,8 +7,8 @@ const ERROR_EVENT = "homelab-probes:error";
 const DASHBOARD_ID = "truenas-probe-dashboard";
 
 let lastPayload = null;
-let warmupObservedAt = null;
-let warmupCompletedInSeconds = null;
+let browserWarmupObservedAt = null;
+let browserWarmupCompletedInSeconds = null;
 let refreshInFlight = false;
 
 function finiteNumber(value, fallback = 0) {
@@ -18,10 +18,6 @@ function finiteNumber(value, fallback = 0) {
 
 function clampPercent(value) {
   return Math.max(0, Math.min(100, finiteNumber(value)));
-}
-
-function plural(value, singular, pluralValue = `${singular}s`) {
-  return `${value} ${value === 1 ? singular : pluralValue}`;
 }
 
 function humanSeconds(value) {
@@ -45,7 +41,9 @@ function probeRows(data) {
 function scopeMetrics(summary, enabled = true) {
   const evidence = summary?.evidence || {};
   const eligible = enabled ? finiteNumber(summary?.eligible) : 0;
-  const sampled = enabled ? finiteNumber(summary?.sampled ?? summary?.scheduled) : 0;
+  const sampled = enabled
+    ? finiteNumber(summary?.sampled ?? summary?.scheduled)
+    : 0;
   const known = enabled ? finiteNumber(evidence?.known) : 0;
   const fresh = enabled ? finiteNumber(evidence?.fresh) : 0;
   const cached = enabled ? finiteNumber(evidence?.cached) : 0;
@@ -69,21 +67,27 @@ function classifyKnownRows(rows) {
       counts.deadline += 1;
       continue;
     }
-    if (row?.probe_source !== "origin" && row?.probe_source !== "memory") continue;
+    if (row?.probe_source !== "origin" && row?.probe_source !== "memory") {
+      continue;
+    }
     if (row?.probe_stale === true) {
       counts.stale += 1;
       continue;
     }
     const state = row?.state;
-    if (state === "ok" || state === "warn" || state === "fail") counts[state] += 1;
-    else counts.warn += 1;
+    if (state === "ok" || state === "warn" || state === "fail") {
+      counts[state] += 1;
+    } else {
+      counts.warn += 1;
+    }
   }
   return counts;
 }
 
 function progressModel(data) {
   const summary = data?.probe_summary || {};
-  const internalEnabled = data?.internal_probes_enabled ?? summary?.internal?.enabled ?? false;
+  const internalEnabled =
+    data?.internal_probes_enabled ?? summary?.internal?.enabled ?? false;
   const publicScope = scopeMetrics(summary.public || {}, true);
   const internalScope = scopeMetrics(summary.internal || {}, internalEnabled);
   const rows = probeRows(data);
@@ -91,9 +95,11 @@ function progressModel(data) {
   const eligible = publicScope.eligible + internalScope.eligible;
   const known = publicScope.known + internalScope.known;
   const unknown = Math.max(0, eligible - known);
-  const coverage = eligible > 0 ? clampPercent((known / eligible) * 100) : 100;
+  const coverage =
+    eligible > 0 ? clampPercent((known / eligible) * 100) : 100;
   const healthy = counts.ok;
-  const healthyCoverage = eligible > 0 ? clampPercent((healthy / eligible) * 100) : 100;
+  const healthyCoverage =
+    eligible > 0 ? clampPercent((healthy / eligible) * 100) : 100;
   return {
     publicScope,
     internalScope,
@@ -108,12 +114,18 @@ function progressModel(data) {
   };
 }
 
-function theoreticalWarmupSeconds(data, model) {
-  const ttl = finiteNumber(data?.probe_summary?.sampling?.cache_ttl_seconds, 30);
-  const windows = [model.publicScope, model.internalScope]
-    .filter((scope) => scope.enabled && scope.eligible > 0)
-    .map((scope) => Math.ceil(scope.eligible / Math.max(1, scope.sampled)));
-  return (windows.length ? Math.max(...windows) : 1) * ttl;
+function estimatedWarmupSeconds(data, model) {
+  const runtimeEstimate = finiteNumber(
+    data?.probe_runtime?.estimated_full_cycle_seconds,
+    Number.NaN,
+  );
+  if (Number.isFinite(runtimeEstimate) && runtimeEstimate > 0) {
+    return runtimeEstimate;
+  }
+  const cadences = model.rows
+    .map((row) => finiteNumber(row?.probe_interval_seconds, Number.NaN))
+    .filter((value) => Number.isFinite(value) && value > 0);
+  return cadences.length ? Math.max(...cadences) : null;
 }
 
 function progressSegment(count, eligible, kind, label) {
@@ -129,8 +141,18 @@ function progressBar(model) {
     progressSegment(counts.ok, eligible, "ok", `${counts.ok} healthy`) +
     progressSegment(counts.warn, eligible, "warn", `${counts.warn} warning`) +
     progressSegment(counts.fail, eligible, "fail", `${counts.fail} failed`) +
-    progressSegment(counts.stale, eligible, "stale", `${counts.stale} stale`) +
-    progressSegment(unknown, eligible, "unknown", `${unknown} not yet observed`) +
+    progressSegment(
+      counts.stale,
+      eligible,
+      "stale",
+      `${counts.stale} stale`,
+    ) +
+    progressSegment(
+      unknown,
+      eligible,
+      "unknown",
+      `${unknown} not yet observed`,
+    ) +
     "</div>"
   );
 }
@@ -148,19 +170,42 @@ function scopeCard(label, icon, scope) {
   );
 }
 
-function warmupText(data, model) {
-  if (model.coverage < 100 && warmupObservedAt == null) warmupObservedAt = Date.now();
-  if (model.coverage >= 100 && warmupObservedAt != null && warmupCompletedInSeconds == null) {
-    warmupCompletedInSeconds = Math.max(0, Math.round((Date.now() - warmupObservedAt) / 1000));
+function runtimeWarmupDetail(data) {
+  const runtime = data?.probe_runtime || {};
+  const uptime = finiteNumber(runtime?.uptime_seconds, Number.NaN);
+  if (Number.isFinite(uptime)) {
+    const startedAt = String(runtime?.started_at || "").trim();
+    return `scheduler uptime ${humanSeconds(uptime)}${startedAt ? ` · started ${startedAt}` : ""}`;
   }
 
-  const estimate = theoreticalWarmupSeconds(data, model);
-  if (model.coverage >= 100) {
-    const duration = warmupCompletedInSeconds == null ? "" : ` · observed warm-up ${humanSeconds(warmupCompletedInSeconds)}`;
-    return `✅ Full rolling evidence coverage${duration}`;
+  if (browserWarmupObservedAt == null) browserWarmupObservedAt = Date.now();
+  return `visible in this tab for ${humanSeconds((Date.now() - browserWarmupObservedAt) / 1000)}`;
+}
+
+function warmupText(data, model) {
+  if (model.coverage < 100 && browserWarmupObservedAt == null) {
+    browserWarmupObservedAt = Date.now();
   }
-  const observed = warmupObservedAt == null ? 0 : Math.max(0, Math.round((Date.now() - warmupObservedAt) / 1000));
-  return `🧊 Cold-start / evidence warm-up · ${model.known}/${model.eligible} probe slots observed · ${humanSeconds(observed)} visible in this tab · theoretical minimum ≈${humanSeconds(estimate)} from an empty evidence cache`;
+  if (
+    model.coverage >= 100 &&
+    browserWarmupObservedAt != null &&
+    browserWarmupCompletedInSeconds == null
+  ) {
+    browserWarmupCompletedInSeconds = Math.max(
+      0,
+      Math.round((Date.now() - browserWarmupObservedAt) / 1000),
+    );
+  }
+
+  const estimate = estimatedWarmupSeconds(data, model);
+  const estimateText = estimate
+    ? ` · longest priority-aware cadence ≈${humanSeconds(estimate)}`
+    : "";
+  const runtimeDetail = runtimeWarmupDetail(data);
+  if (model.coverage >= 100) {
+    return `✅ Full rolling evidence coverage · ${runtimeDetail}${estimateText}`;
+  }
+  return `🧊 Evidence warm-up · ${model.known}/${model.eligible} probe slots observed · ${runtimeDetail}${estimateText}`;
 }
 
 function cacheText(data) {
@@ -168,13 +213,19 @@ function cacheText(data) {
   const age = finiteNumber(cache.age_seconds);
   const ttl = finiteNumber(cache.ttl_seconds, 30);
   const next = Math.max(0, ttl - age);
-  if (cache.source === "origin") return `Latest rotating wave completed · next window due in ≈${humanSeconds(next)}`;
-  if (cache.source === "memory") return `Cached snapshot ${humanSeconds(age)} old · next rotating window due in ≈${humanSeconds(next)}`;
+  if (cache.source === "origin") {
+    return `Latest rotating wave completed · next window due in ≈${humanSeconds(next)}`;
+  }
+  if (cache.source === "memory") {
+    return `Cached snapshot ${humanSeconds(age)} old · next rotating window due in ≈${humanSeconds(next)}`;
+  }
   return "Probe cache state unknown";
 }
 
 function stateLabel(row) {
-  if (row?.probe_source === "deadline" || row?.timed_out === true) return "deadline";
+  if (row?.probe_source === "deadline" || row?.timed_out === true) {
+    return "deadline";
+  }
   if (row?.probe_stale === true) return "stale";
   return row?.state || "unknown";
 }
@@ -183,13 +234,18 @@ function stateClass(row) {
   const state = stateLabel(row);
   if (state === "ok") return "ok";
   if (state === "fail") return "fail";
-  if (state === "warn" || state === "deadline" || state === "stale") return "warn";
+  if (state === "warn" || state === "deadline" || state === "stale") {
+    return "warn";
+  }
   return "unknown";
 }
 
 function targetHtml(row) {
   if (row?.probe_scope === "LAN") {
-    const target = row?.host && row?.port != null ? `${row.host}:${row.port}` : "target unavailable";
+    const target =
+      row?.host && row?.port != null
+        ? `${row.host}:${row.port}`
+        : "target unavailable";
     return `<code>${escapeText(target)}</code>`;
   }
   const target = String(row?.url || "public target unavailable");
@@ -200,14 +256,18 @@ function targetHtml(row) {
 }
 
 function observationText(row) {
-  const age = finiteNumber(row?.probe_age_seconds, NaN);
-  const interval = finiteNumber(row?.probe_interval_seconds, NaN);
-  const next = finiteNumber(row?.next_probe_in_seconds, NaN);
+  const age = finiteNumber(row?.probe_age_seconds, Number.NaN);
+  const interval = finiteNumber(row?.probe_interval_seconds, Number.NaN);
+  const next = finiteNumber(row?.next_probe_in_seconds, Number.NaN);
   const parts = [];
   if (Number.isFinite(age)) parts.push(`${humanSeconds(age)} ago`);
-  if (Number.isFinite(interval)) parts.push(`cadence ≈${humanSeconds(interval)}`);
+  if (Number.isFinite(interval)) {
+    parts.push(`cadence ≈${humanSeconds(interval)}`);
+  }
   if (Number.isFinite(next)) parts.push(`next ≈${humanSeconds(next)}`);
-  return parts.length ? parts.join(" · ") : "observation timing unavailable";
+  return parts.length
+    ? parts.join(" · ")
+    : "observation timing unavailable";
 }
 
 function rowDetail(row) {
@@ -215,15 +275,23 @@ function rowDetail(row) {
   if (row?.http_status) parts.push(`HTTP ${row.http_status}`);
   if (row?.latency_ms != null) parts.push(`${row.latency_ms} ms`);
   if (row?.error_kind) parts.push(row.error_kind);
-  if (row?.probe_refresh_error) parts.push(`refresh: ${row.probe_refresh_error}`);
-  else if (row?.error) parts.push(row.error);
+  if (row?.probe_refresh_error) {
+    parts.push(`refresh: ${row.probe_refresh_error}`);
+  } else if (row?.error) {
+    parts.push(row.error);
+  }
   return parts.join(" · ") || "no error detail";
 }
 
 function probeRow(row) {
   const kind = stateClass(row);
   const source = row?.probe_source || "unknown";
-  const sourceLabel = source === "origin" ? "latest" : source === "memory" ? "retained" : source;
+  const sourceLabel =
+    source === "origin"
+      ? "latest"
+      : source === "memory"
+        ? "retained"
+        : source;
   return (
     `<div class="probe-dashboard-row probe-dashboard-row--${kind}">` +
     '<div class="probe-dashboard-row-main">' +
@@ -249,7 +317,12 @@ function severity(row) {
 
 function sortedRows(rows, previous = false) {
   return [...rows].sort((left, right) => {
-    if (previous) return finiteNumber(left?.probe_age_seconds) - finiteNumber(right?.probe_age_seconds);
+    if (previous) {
+      return (
+        finiteNumber(left?.probe_age_seconds) -
+        finiteNumber(right?.probe_age_seconds)
+      );
+    }
     const stateOrder = severity(left) - severity(right);
     if (stateOrder !== 0) return stateOrder;
     return finiteNumber(right?.latency_ms) - finiteNumber(left?.latency_ms);
@@ -316,7 +389,10 @@ function ensureDashboard() {
     try {
       await fetchHomelabProbeMatrix({ reason: "manual" });
     } catch (error) {
-      renderActivity(`⚠ Refresh failed: ${String(error?.message || error)}`, true);
+      renderActivity(
+        `⚠ Refresh failed: ${String(error?.message || error)}`,
+        true,
+      );
     } finally {
       refreshInFlight = false;
       button.disabled = false;
@@ -355,7 +431,17 @@ function renderDashboard(data) {
   const scopes = document.getElementById("probe-dashboard-scopes");
   const latest = document.getElementById("probe-dashboard-latest");
   const previous = document.getElementById("probe-dashboard-previous");
-  if (!coverage || !health || !bar || !warmup || !scopes || !latest || !previous) return;
+  if (
+    !coverage ||
+    !health ||
+    !bar ||
+    !warmup ||
+    !scopes ||
+    !latest ||
+    !previous
+  ) {
+    return;
+  }
 
   coverage.textContent = `${model.coverage.toFixed(1)}% evidence coverage · ${model.known}/${model.eligible} eligible probe slots`;
   health.textContent = `${model.healthyCoverage.toFixed(1)}% healthy coverage · ${model.healthy} healthy · ${model.counts.warn} warning · ${model.counts.fail} failed · ${model.counts.stale} stale · ${model.counts.deadline} latest deadlines`;
@@ -365,8 +451,12 @@ function renderDashboard(data) {
     scopeCard("public HTTPS", "🌐", model.publicScope) +
     scopeCard("LAN/TCP", "🏠", model.internalScope);
 
-  const latestRows = model.rows.filter((row) => row?.probe_source === "origin" || row?.probe_source === "deadline");
-  const previousRows = model.rows.filter((row) => row?.probe_source === "memory");
+  const latestRows = model.rows.filter(
+    (row) => row?.probe_source === "origin" || row?.probe_source === "deadline",
+  );
+  const previousRows = model.rows.filter(
+    (row) => row?.probe_source === "memory",
+  );
   latest.innerHTML = groupHtml(
     "Latest rotating wave",
     "Rows sampled by the most recent bounded window; deadlines are attempts without current evidence.",
@@ -378,7 +468,9 @@ function renderDashboard(data) {
     previousRows,
     true,
   );
-  renderActivity(`${cacheText(data)} · refresh ${finiteNumber(data?.refresh_elapsed_ms)} ms`);
+  renderActivity(
+    `${cacheText(data)} · refresh ${finiteNumber(data?.refresh_elapsed_ms)} ms`,
+  );
   clarifyRuntimeTimeout(data);
 }
 
@@ -388,13 +480,19 @@ function installRuntimeTimeoutObserver() {
   const observer = new MutationObserver(() => {
     if (lastPayload) clarifyRuntimeTimeout(lastPayload);
   });
-  observer.observe(error, { childList: true, characterData: true, subtree: true });
+  observer.observe(error, {
+    childList: true,
+    characterData: true,
+    subtree: true,
+  });
 }
 
 export function installProbeFanoutDashboard() {
   ensureDashboard();
   installRuntimeTimeoutObserver();
-  window.addEventListener(UPDATE_EVENT, (event) => renderDashboard(event.detail || {}));
+  window.addEventListener(UPDATE_EVENT, (event) =>
+    renderDashboard(event.detail || {}),
+  );
   window.addEventListener(LOADING_EVENT, (event) => {
     const reason = event.detail?.reason;
     renderActivity(
@@ -404,6 +502,9 @@ export function installProbeFanoutDashboard() {
     );
   });
   window.addEventListener(ERROR_EVENT, (event) => {
-    renderActivity(`⚠ Probe snapshot request failed: ${String(event.detail?.message || "unknown error")}`, true);
+    renderActivity(
+      `⚠ Probe snapshot request failed: ${String(event.detail?.message || "unknown error")}`,
+      true,
+    );
   });
 }
