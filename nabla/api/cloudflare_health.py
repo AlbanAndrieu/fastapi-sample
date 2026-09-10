@@ -180,7 +180,7 @@ async def get_cloudflare_tunnels_snapshot() -> dict[str, Any]:
         current.get("refresh_error")
         or current.get("error")
         or current.get("reason")
-        or "Cloudflare control-plane evidence is stale or unavailable"
+        or "Cloudflare control-plane evidence is stale or unavailable",
     )
     result = cloudflare_unconfirmed(
         reason,
