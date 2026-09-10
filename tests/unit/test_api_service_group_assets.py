@@ -8,7 +8,7 @@ from nabla.api.ui import render_api_root_page
 ASSETS = Path(__file__).parents[2] / "nabla" / "api" / "assets"
 
 
-def test_api_page_places_core_runtime_drilldowns_immediately_after_hero() -> None:
+def test_api_page_prioritizes_service_board_before_technical_drilldowns() -> None:
     html = render_api_root_page(
         title_suffix="test",
         app_version="test",
@@ -22,7 +22,7 @@ def test_api_page_places_core_runtime_drilldowns_immediately_after_hero() -> Non
     overview = html.index('id="service-health-overview"')
     groups = html.index('id="health-services-groups"')
     exposure = html.index('id="sickz-board-title"')
-    assert hero < truenas < runtime < health < overview < groups < exposure
+    assert hero < health < overview < groups < exposure < truenas < runtime
     assert "Core drill-down · TrueNAS platform + API" in html
     assert "FastAPI Cloud runtime" in html
     assert 'id="service-filter"' in html
