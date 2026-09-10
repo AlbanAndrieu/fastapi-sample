@@ -12,6 +12,73 @@ Reference:
 - Kubernetes Pod Security Standards / Pod Security Admission documentation
 - Talos default hardening and CIS guidance
 
+## Hardening strategy
+
+The design principle is **deny implicit privilege, make every trust transition
+explicit, and preserve a functional recovery path**. `generic-service` models a
+normal application workload, not a privileged infrastructure component. It must
+therefore remain compatible with PSS `Restricted` without per-workload
+exceptions. CSI, CNI, eBPF/runtime-security agents or other node-level workloads
+that genuinely require privilege belong in dedicated infrastructure namespaces
+with their own purpose-built manifests, RBAC and documented exception.
+
+Hardening is applied in layers so a failure in one control does not silently
+become a full-cluster compromise:
+
+1. **Reduce the starting attack surface** — run as non-root, remove Linux
+   capabilities, deny privilege escalation, use `RuntimeDefault` seccomp, make
+   the root filesystem read-only, bound writable scratch space, and prevent host
+   namespace access.
+2. **Reduce identity exposure** — do not mount a ServiceAccount token unless the
+   application actually calls the Kubernetes API; separate human, CI/CD,
+   observer and workload identities rather than sharing broad credentials.
+3. **Reduce network reachability** — expose only a `ClusterIP` by default and
+   make Ingress an explicit environment decision. Once CNI enforcement is
+   proven, move application namespaces to default-deny ingress/egress and allow
+   only DNS plus required ingress, storage, observability, database and external
+   API flows.
+4. **Make unsafe manifests fail before deployment** — keep Helm security
+   invariants fail-closed and exercise rendered manifests through server-side
+   dry-run so the real API-server PSA and policy-as-code admission chain is
+   tested, not just YAML syntax.
+5. **Control what is allowed to enter the cluster** — introduce Kyverno first
+   in audit/report mode, or Gatekeeper where Rego reuse is justified, then move
+   proven policies to enforcement. Add immutable-image, resource, PSS,
+   NetworkPolicy and later signature/provenance controls.
+6. **Protect the software supply chain** — prefer digest-pinned production
+   images, generate SBOMs, scan code/dependencies/images/IaC, and sign/verify
+   artifacts with Sigstore/Cosign before admission-time provenance becomes a
+   blocking control.
+7. **Assume prevention can fail** — use Kubernetes audit/admission evidence and
+   runtime detection such as Falco. If a later Cilium migration is justified,
+   use Hubble for network-flow evidence and evaluate Tetragon for eBPF runtime
+   visibility/selective enforcement.
+8. **Continuously prove the posture** — keep Restricted rendering, admission,
+   network isolation, runtime signals and rollback/recovery paths in automated
+   regression tests. A control is not considered effective merely because its
+   object exists; for example, a NetworkPolicy is only a security boundary once
+   the selected CNI has been proven to enforce it.
+
+The intended defense model is:
+
+```text
+Prevent / minimize
+  Talos + RBAC + PSS/PSA + NetworkPolicy + Kyverno/Gatekeeper + supply chain
+                                |
+                                v
+Detect
+  Kubernetes audit/admission + Falco (+ Tetragon if Cilium is adopted)
+                                |
+                                v
+Observe / respond / recover
+  Prometheus/Grafana + network-flow evidence + SIEM + tested rollback
+```
+
+This sequencing deliberately avoids installing many security products before
+basic isolation is proven. Every additional component must close a documented
+capability gap and produce actionable evidence rather than only increasing tool
+count or cluster privilege.
+
 ## Security-first deployment contract
 
 - [x] default application containers to non-root execution;
