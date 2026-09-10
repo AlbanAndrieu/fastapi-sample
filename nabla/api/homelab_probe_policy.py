@@ -41,19 +41,11 @@ def select_probe_subset(
     if len(services) <= limit:
         return list(services)
 
-    priority = [
-        service
-        for service in services
-        if service.service_id in _PRIORITY_SERVICE_IDS
-    ]
+    priority = [service for service in services if service.service_id in _PRIORITY_SERVICE_IDS]
     if len(priority) >= limit:
         return priority[:limit]
 
-    remainder = [
-        service
-        for service in services
-        if service.service_id not in _PRIORITY_SERVICE_IDS
-    ]
+    remainder = [service for service in services if service.service_id not in _PRIORITY_SERVICE_IDS]
     slots = limit - len(priority)
     if not remainder or slots <= 0:
         return priority
@@ -61,10 +53,7 @@ def select_probe_subset(
     clock = time.monotonic() if now is None else now
     bucket = int(clock // HEALTH_CACHE_TTL_SEC)
     start = (bucket * slots) % len(remainder)
-    rotating = [
-        remainder[(start + offset) % len(remainder)]
-        for offset in range(min(slots, len(remainder)))
-    ]
+    rotating = [remainder[(start + offset) % len(remainder)] for offset in range(min(slots, len(remainder)))]
     return [*priority, *rotating]
 
 
@@ -78,20 +67,13 @@ def estimated_probe_interval_seconds(
     if len(eligible_services) <= limit:
         return HEALTH_CACHE_TTL_SEC
 
-    priority = [
-        candidate
-        for candidate in eligible_services
-        if candidate.service_id in _PRIORITY_SERVICE_IDS
-    ]
+    priority = [candidate for candidate in eligible_services if candidate.service_id in _PRIORITY_SERVICE_IDS]
     if service.service_id in _PRIORITY_SERVICE_IDS:
         return HEALTH_CACHE_TTL_SEC if service in priority[:limit] else None
 
     slots = limit - min(len(priority), limit)
     if slots <= 0:
         return None
-    remainder_count = sum(
-        candidate.service_id not in _PRIORITY_SERVICE_IDS
-        for candidate in eligible_services
-    )
+    remainder_count = sum(candidate.service_id not in _PRIORITY_SERVICE_IDS for candidate in eligible_services)
     rounds = max(1, math.ceil(remainder_count / slots))
     return HEALTH_CACHE_TTL_SEC * rounds

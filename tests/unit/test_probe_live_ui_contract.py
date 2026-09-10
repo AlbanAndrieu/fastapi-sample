@@ -10,7 +10,7 @@ def test_live_probe_ui_refreshes_age_without_network_each_second() -> None:
     javascript = (ASSETS / "api-probe-live.js").read_text(encoding="utf-8")
 
     assert "const AGE_TICK_MS = 1000;" in javascript
-    assert '`${age}s ago`' in javascript
+    assert "`${age}s ago`" in javascript
     assert 'badge.textContent = "probing…";' in javascript
     assert "probe_interval_seconds" in javascript
     assert "next_probe_in_seconds" not in javascript  # rendered from age/interval, not a stale countdown

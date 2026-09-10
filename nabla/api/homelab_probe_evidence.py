@@ -61,11 +61,7 @@ def _cadence_by_service(
     scope: Scope,
     eligible_services: list[HomelabService],
 ) -> dict[str, float | None]:
-    limit = (
-        MAX_PUBLIC_PROBES_PER_REFRESH
-        if scope == "public"
-        else MAX_INTERNAL_PROBES_PER_REFRESH
-    )
+    limit = MAX_PUBLIC_PROBES_PER_REFRESH if scope == "public" else MAX_INTERNAL_PROBES_PER_REFRESH
     return {
         service.service_id: estimated_probe_interval_seconds(
             service,
@@ -97,11 +93,7 @@ def merge_probe_evidence(
             continue
         entry.interval_seconds = cadence_by_id.get(service_id)
 
-    current_by_id = {
-        str(row.get("id")): row
-        for row in current_results
-        if row.get("id")
-    }
+    current_by_id = {str(row.get("id")): row for row in current_results if row.get("id")}
     merged: dict[str, dict[str, Any]] = {}
 
     for service_id, row in current_by_id.items():
@@ -113,8 +105,7 @@ def merge_probe_evidence(
                     source="memory",
                     now=clock,
                     refresh_error=str(
-                        row.get("error")
-                        or "service probe fan-out budget exceeded",
+                        row.get("error") or "service probe fan-out budget exceeded",
                     ),
                 )
             else:
@@ -168,11 +159,7 @@ def evidence_summary(
         "known": known,
         "fresh": fresh,
         "cached": cached,
-        "coverage_percent": (
-            round((known / eligible_count) * 100, 1)
-            if eligible_count > 0
-            else 100.0
-        ),
+        "coverage_percent": (round((known / eligible_count) * 100, 1) if eligible_count > 0 else 100.0),
         "evidence_ttl_seconds": PROBE_EVIDENCE_TTL_SEC,
     }
 

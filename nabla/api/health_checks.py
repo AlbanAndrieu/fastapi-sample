@@ -311,10 +311,7 @@ async def _run_dependency_probes(
         lambda: run_in_threadpool(probe_litellm_public_proxy),
     )
     results = await asyncio.gather(
-        *(
-            _run_dependency_probe(name, factory, budget)
-            for name, factory in zip(_DEPENDENCY_KEYS, factories, strict=True)
-        ),
+        *(_run_dependency_probe(name, factory, budget) for name, factory in zip(_DEPENDENCY_KEYS, factories, strict=True)),
     )
     return tuple(results)
 
