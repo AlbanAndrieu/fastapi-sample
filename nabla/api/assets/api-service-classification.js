@@ -88,6 +88,19 @@ const OBSERVABILITY_KINDS = new Set([
 const VALID_PRESENTATION_ROLES = new Set(["service", "core", "support"]);
 const VALID_CRITICALITIES = new Set(["critical", "high", "medium", "low"]);
 
+// Operator-facing grouping overrides are intentionally presentation-only.
+// They must not rewrite dependency edges, criticality or blast-radius semantics.
+const PRESENTATION_GROUP_OVERRIDES = new Map([
+  ["keycloak", "security-controls"],
+  ["scrutiny", "support"],
+  ["langfuse", "support"],
+  ["homarr", "support"],
+  ["heimdall", "support"],
+  ["prometheus", "support"],
+  ["grafana", "support"],
+  ["fastapi-sample", "support"],
+]);
+
 export const NIST_CSF_FUNCTIONS = [
   {
     key: "govern",
@@ -191,6 +204,8 @@ function declaredSecurityFunctions(node) {
 }
 
 function presentationGroup(node, role, criticality, transitiveDependents) {
+  const override = PRESENTATION_GROUP_OVERRIDES.get(String(node?.id || ""));
+  if (override) return override;
   if (criticality === "critical") return "core-critical";
   if (
     declaredSecurityFunctions(node).length > 0 ||
