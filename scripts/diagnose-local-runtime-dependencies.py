@@ -145,11 +145,7 @@ def _truenas(snapshot: dict[str, Any]) -> dict[str, Any]:
     }
     row["stale"] = row["stale"] or _mapping(homelab.get("probe_cache")).get("stale") is True
     row["evidence_complete"] = bool(
-        row["configured"] is True
-        and row["reachable"] is True
-        and row["authenticated"] is True
-        and row["application_ok"] is True
-        and not row["stale"],
+        row["configured"] is True and row["reachable"] is True and row["authenticated"] is True and row["application_ok"] is True and not row["stale"],
     )
     row["operational_state"] = _state(
         configured=row["configured"],
@@ -181,11 +177,7 @@ def _pfsense(snapshot: dict[str, Any]) -> dict[str, Any]:
         "application_ok": row["application_ok"],
     }
     row["evidence_complete"] = bool(
-        row["configured"] is True
-        and row["reachable"] is True
-        and row["authenticated"] is True
-        and row["application_ok"] is True
-        and not row["stale"],
+        row["configured"] is True and row["reachable"] is True and row["authenticated"] is True and row["application_ok"] is True and not row["stale"],
     )
     row["operational_state"] = _state(
         configured=row["configured"],
@@ -213,16 +205,10 @@ def _cloudflare(snapshot: dict[str, Any]) -> dict[str, Any]:
         "unhealthy_tunnels": check.get("unhealthy_tunnels"),
     }
     row["evidence_complete"] = bool(
-        row["configured"] is True
-        and row["reachable"] is True
-        and row["authenticated"] is True
-        and status_confirmed
-        and not row["stale"],
+        row["configured"] is True and row["reachable"] is True and row["authenticated"] is True and status_confirmed and not row["stale"],
     )
     unconfirmed_warning = bool(
-        row["reachable"] is True
-        and row["authenticated"] is True
-        and not status_confirmed,
+        row["reachable"] is True and row["authenticated"] is True and not status_confirmed,
     )
     row["operational_state"] = _state(
         configured=row["configured"],
@@ -395,8 +381,7 @@ def print_table(report: dict[str, Any]) -> None:
     )
     print()
     print(
-        f"{'dependency':<12} {'configured':<10} {'transport':<10} {'auth':<6} "
-        f"{'app':<6} {'stale':<6} {'state':<22} error_stage",
+        f"{'dependency':<12} {'configured':<10} {'transport':<10} {'auth':<6} {'app':<6} {'stale':<6} {'state':<22} error_stage",
     )
     for name in _DEPENDENCY_ORDER:
         row = _mapping(dependencies.get(name))
