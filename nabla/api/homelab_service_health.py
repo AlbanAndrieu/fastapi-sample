@@ -225,7 +225,7 @@ def build_reconciled_service_health(
             and runtime is not None
             and runtime.reachable
             and not runtime.stale
-            and app is None
+            and app is None,
         )
         tunnel_evidence = tunnels_by_host.get(_hostname(endpoint_url) or "")
         tunnel_status = (
