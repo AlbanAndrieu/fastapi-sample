@@ -177,13 +177,26 @@ def _service_running(services: object) -> bool | None:
     return None
 
 
+def _service_summary(services: list[dict[str, str]]) -> dict[str, int]:
+    summary = {"running": 0, "stopped": 0, "unknown": 0}
+    for service in services:
+        state = service.get("runtime_state", "unknown")
+        summary[state if state in summary else "unknown"] += 1
+    summary["total"] = len(services)
+    return summary
+
+
 def _security_filter_observations(
     services: object,
     *,
     ingress_block: dict[str, Any] | None = None,
+    services_observed: bool | None = None,
 ) -> list[dict[str, str]]:
     ingress_state = str((ingress_block or {}).get("state") or "unknown")
     snort_blocked = ingress_state == "blocked"
+    inventory_observed = (
+        isinstance(services, list) if services_observed is None else services_observed
+    )
     filters: list[dict[str, str]] = [
         {
             "id": "firewall",
@@ -192,13 +205,15 @@ def _security_filter_observations(
             "detail": (
                 "PF is enforcing the snort2c block for the observed FastAPI egress"
                 if snort_blocked
-                else "PF is on the WAN ingress path; the exact matching rule is not attributed"
+                else "PF policy is active; the exact matching rule is not attributed by this read-only observer"
             ),
         }
     ]
-    service_rows = [
-        row for row in services if isinstance(row, dict)
-    ] if isinstance(services, list) else []
+    service_rows = (
+        [row for row in services if isinstance(row, dict)]
+        if isinstance(services, list)
+        else []
+    )
     for filter_id, matchers in _SECURITY_SERVICE_MATCHERS.items():
         matches = [
             row
@@ -229,9 +244,12 @@ def _security_filter_observations(
         elif filter_id == "snort" and ingress_state == "telemetry_unavailable":
             state = "unknown"
             detail = "snort2c telemetry is unavailable"
+        elif not inventory_observed:
+            state = "unknown"
+            detail = "Service inventory was not observed because /api/v2/status/services did not succeed"
         else:
             state = "not_observed"
-            detail = "Not exposed by /api/v2/status/services"
+            detail = "Not present in the successful /api/v2/status/services inventory"
         filters.append(
             {
                 "id": filter_id,
@@ -322,6 +340,19 @@ def _resolver_payload(value: object) -> dict[str, Any]:
     }
 
 
+def _endpoint_status(
+    observations: dict[str, object | BaseException],
+) -> dict[str, dict[str, object]]:
+    return {
+        name: (
+            {"observed": False, "error": _safe_error(value)}
+            if isinstance(value, BaseException)
+            else {"observed": True}
+        )
+        for name, value in observations.items()
+    }
+
+
 async def _observe_posture_origin_bounded(
     settings: PfSenseDNSSettings,
 ) -> dict[str, Any]:
@@ -344,38 +375,32 @@ async def _observe_posture_origin_bounded(
         follow_redirects=False,
         verify=settings.verify_ssl,
     ) as client:
-        try:
-            await _get_data(client, paths["system"])
-        except (httpx.HTTPError, ValueError) as exc:
-            return {
-                "reachable": False,
-                "error_stage": "system",
-                "error": _safe_error(exc),
-                "services": [],
-                "resolver": {},
-                "upstreams": [],
-            }
-        remaining = await _bounded_observations(
-            client,
-            {name: path for name, path in paths.items() if name != "system"},
-        )
+        observations = await _bounded_observations(client, paths)
 
-    failure = next(
-        (
-            (name, value)
-            for name, value in remaining.items()
-            if isinstance(value, BaseException)
-        ),
-        None,
+    endpoint_status = _endpoint_status(observations)
+    failures = [
+        (name, value)
+        for name, value in observations.items()
+        if isinstance(value, BaseException)
+    ]
+    services = observations.get("services")
+    resolver = observations.get("resolver")
+    system_dns = observations.get("system_dns")
+    sanitized_services = _sanitize_services(
+        None if isinstance(services, BaseException) else services
     )
-    services = remaining.get("services")
-    resolver = remaining.get("resolver")
-    system_dns = remaining.get("system_dns")
+    successful_reads = sum(
+        1 for value in observations.values() if not isinstance(value, BaseException)
+    )
     result: dict[str, Any] = {
-        "reachable": True,
-        "services": _sanitize_services(
-            None if isinstance(services, BaseException) else services
-        ),
+        "reachable": successful_reads > 0,
+        "api_evidence_state": "complete" if not failures else "partial",
+        "successful_endpoint_count": successful_reads,
+        "endpoint_count": len(paths),
+        "endpoint_status": endpoint_status,
+        "services_observed": endpoint_status["services"]["observed"] is True,
+        "services": sanitized_services,
+        "service_summary": _service_summary(sanitized_services),
         "resolver": _resolver_payload(
             None if isinstance(resolver, BaseException) else resolver
         ),
@@ -385,8 +410,8 @@ async def _observe_posture_origin_bounded(
             )
         ),
     }
-    if failure is not None:
-        stage, error = failure
+    if failures:
+        stage, error = failures[0]
         result["error_stage"] = stage
         result["error"] = _safe_error(error)
     return result
@@ -399,9 +424,13 @@ async def _observe_posture_origin(settings: PfSenseDNSSettings) -> dict[str, Any
     except TimeoutError:
         return {
             "reachable": False,
+            "api_evidence_state": "unavailable",
             "error_stage": "deadline",
             "error": "timeout",
+            "endpoint_status": {},
+            "services_observed": False,
             "services": [],
+            "service_summary": {"running": 0, "stopped": 0, "unknown": 0, "total": 0},
             "resolver": {},
             "upstreams": [],
         }
@@ -419,15 +448,19 @@ async def _cached_posture(settings: PfSenseDNSSettings) -> dict[str, Any]:
         policy=_PFSENSE_POSTURE_CACHE_POLICY,
     )
     current = dict(cached.value)
-    current_failure = current.get("reachable") is False or bool(current.get("error_stage"))
-    if (current_failure or cached.metadata.get("stale") is True) and cached.last_good:
+    current_failure = current.get("reachable") is False
+    if current_failure and cached.last_good:
         result = dict(cached.last_good)
         result["stale"] = True
         result["refresh_error_stage"] = current.get("error_stage")
         result["refresh_error"] = current.get("error") or "posture refresh in progress"
     else:
+        # Partial current observations are more useful than hiding them behind an
+        # older complete snapshot. Individual endpoint status makes uncertainty explicit.
         result = current
         result["stale"] = False
+        if cached.last_good and current.get("api_evidence_state") == "partial":
+            result["last_good_available"] = True
     result["cache"] = cached.metadata
     return result
 
@@ -446,9 +479,17 @@ async def observe_pfsense_dns_posture(
             **(configuration or {}),
             "configured": False,
             "reachable": None,
+            "api_evidence_state": "unavailable",
             "policy_state": "unknown",
             "reason": "pfSense posture observation is not configured",
-            "security_filters": _security_filter_observations(None, ingress_block=ingress),
+            "services_observed": False,
+            "services": [],
+            "service_summary": {"running": 0, "stopped": 0, "unknown": 0, "total": 0},
+            "security_filters": _security_filter_observations(
+                None,
+                ingress_block=ingress,
+                services_observed=False,
+            ),
             "ingress_block": ingress,
         }
 
@@ -460,29 +501,31 @@ async def observe_pfsense_dns_posture(
     posture, ingress = await asyncio.gather(posture_task, ingress_task)
 
     services = posture.get("services", [])
-    filters = _security_filter_observations(services, ingress_block=ingress)
+    services_observed = posture.get("services_observed") is True
+    filters = _security_filter_observations(
+        services,
+        ingress_block=ingress,
+        services_observed=services_observed,
+    )
+    common = {
+        "configured": True,
+        "api_evidence_state": posture.get("api_evidence_state", "unknown"),
+        "endpoint_status": posture.get("endpoint_status", {}),
+        "services_observed": services_observed,
+        "services": services,
+        "service_summary": posture.get("service_summary", {}),
+        "security_filters": filters,
+        "ingress_block": ingress,
+    }
     if posture.get("reachable") is not True:
         return {
-            "configured": True,
+            **common,
             "reachable": False,
             "policy_state": "unknown",
             "reason": "pfSense posture API is unreachable from this runtime",
             "error_stage": posture.get("error_stage", "system"),
             "error": posture.get("error", "unknown"),
-            "security_filters": filters,
-            "ingress_block": ingress,
             **({"cache": posture["cache"]} if "cache" in posture else {}),
-        }
-    if posture.get("error_stage"):
-        return {
-            "configured": True,
-            "reachable": True,
-            "policy_state": "unknown",
-            "reason": "pfSense DNS policy evidence is incomplete",
-            "error_stage": posture["error_stage"],
-            "error": posture.get("error", "unknown"),
-            "security_filters": filters,
-            "ingress_block": ingress,
         }
 
     resolver = posture.get("resolver") if isinstance(posture.get("resolver"), dict) else {}
@@ -493,14 +536,19 @@ async def observe_pfsense_dns_posture(
         upstreams=upstreams,
         truenas_hosts=truenas_hosts,
     )
-    resolver_running = _service_running(services)
+    resolver_running = _service_running(services) if services_observed else None
     policy_state, reason = _policy_state(
         resolver_enabled=_optional_bool(resolver.get("enabled")),
         resolver_running=resolver_running,
         independent_from_truenas=independent,
     )
+    if posture.get("error_stage"):
+        reason = (
+            f"{reason} · partial pfSense API evidence: "
+            f"{posture['error_stage']} {posture.get('error', 'unknown')}"
+        )
     result: dict[str, Any] = {
-        "configured": True,
+        **common,
         "reachable": True,
         "policy_state": policy_state,
         "reason": reason,
@@ -513,9 +561,10 @@ async def observe_pfsense_dns_posture(
             "independent_from_truenas": independent,
             "truenas_only": truenas_only,
         },
-        "security_filters": filters,
-        "ingress_block": ingress,
     }
+    if posture.get("error_stage"):
+        result["error_stage"] = posture["error_stage"]
+        result["error"] = posture.get("error", "unknown")
     if posture.get("stale") is True:
         result["stale"] = True
         result["refresh_error"] = posture.get("refresh_error")
