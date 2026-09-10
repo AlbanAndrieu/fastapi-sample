@@ -7,6 +7,7 @@ import {
   resetHealthBoardRequest,
 } from "./api-health-board.js";
 import { loadHealth } from "./api-health-core.js";
+import { installProbeFanoutDashboard } from "./api-probe-fanout-dashboard.js";
 import {
   decorateProbeTelemetry,
   startProbeAgeTicker,
@@ -84,6 +85,7 @@ document.querySelectorAll(".health-refresh").forEach((button) => {
 
 installPfsensePortLabels();
 installServiceFilter();
+installProbeFanoutDashboard();
 startProbeAgeTicker();
 loadHealthBoards();
 installAutomaticRefresh();
