@@ -110,6 +110,7 @@ function mandatoryFailed(key, check) {
 function baseDetailText(key, check) {
   if (check.skipped)
     return check.reason || "Not configured (intentionally disabled).";
+  if (check.warning) return String(check.warning);
   if (isExpectedSentryDebugFailure(key, check)) {
     return "HTTP 500 · Expected: the test error was intentionally triggered and captured by Sentry.";
   }
@@ -263,11 +264,11 @@ function renderSnapshotFreshness(snapshot) {
   if (Number.isFinite(age)) parts.push(`${Math.round(age)}s old`);
   if (generatedAt) parts.push(`generated ${String(generatedAt)}`);
   if (refreshing) parts.push("refresh in progress");
-  if (snapshot?.error) parts.push(`last refresh error: ${String(snapshot.error)}`);
+  if (snapshot?.error)
+    parts.push(`last refresh error: ${String(snapshot.error)}`);
 
   element.textContent = parts.join(" · ");
 }
-
 
 function render(data, platformMetrics = null) {
   const listEl = document.getElementById("health-checks");
