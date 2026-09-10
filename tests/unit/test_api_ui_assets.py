@@ -161,7 +161,8 @@ def test_health_board_explains_dependency_propagation() -> None:
     assert 'parts.push("RUNNING but degraded")' in dependency
     assert 'parts.push(`blocked by ${blocked.join(", ")}`)' in dependency
     assert 'parts.push(`evidence: ${sources.join(" + ")}`)' in dependency
-    assert "parts.push(Number.isFinite(age) ? `stale evidence (${Math.round(age)}s old)`" in dependency
+    assert "check.observation_stale === true" in dependency
+    assert "`stale evidence (${Math.round(age)}s old)`" in dependency
     assert 'parts.push(`dependency cycle: ${cycle.join(" ↔ ")}`)' in dependency
     assert '"local_state"' in dependency
     assert '"effective_state"' in dependency
