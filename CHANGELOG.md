@@ -1,3 +1,10 @@
+## [1.13.14](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.13.13...1.13.14) (2026-09-10)
+
+
+### Bug Fixes
+
+* **health:** avoid false homelab deadlines and neutralize Cloudflare uncertainty ([#234](https://github.com/AlbanAndrieu/fastapi-sample/issues/234)) ([845bc62](https://github.com/AlbanAndrieu/fastapi-sample/commit/845bc62c0d1d9c70ccb9341cbf787ae05d3346eb))
+
 ## [1.13.13](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.13.12...1.13.13) (2026-09-10)
 
 
