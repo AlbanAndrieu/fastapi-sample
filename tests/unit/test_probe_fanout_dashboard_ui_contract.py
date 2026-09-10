@@ -47,9 +47,10 @@ def test_probe_dashboard_exposes_coverage_health_and_runtime_warmup() -> None:
     assert "longest priority-aware cadence" in javascript
     assert "Excluded from coverage denominator" in javascript
     assert "eligible probe slots" in javascript
-    assert "probe-coverage-segment--ok" in javascript
-    assert "probe-coverage-segment--fail" in javascript
-    assert "probe-coverage-segment--unknown" in javascript
+    assert "probe-coverage-segment--${kind}" in javascript
+    assert 'progressSegment(counts.ok, eligible, "ok"' in javascript
+    assert 'progressSegment(counts.fail, eligible, "fail"' in javascript
+    assert 'progressSegment(unknown, eligible, "unknown"' in javascript
 
 
 def test_probe_dashboard_keeps_targets_and_states_in_separate_cells() -> None:
@@ -74,3 +75,20 @@ def test_probe_dashboard_styles_are_loaded() -> None:
     styles = STYLES.read_text(encoding="utf-8")
 
     assert '@import url("./api-probe-fanout-dashboard.css");' in styles
+
+
+def test_probe_dashboard_exposes_operator_triage_without_new_fanout() -> None:
+    javascript = DASHBOARD.read_text(encoding="utf-8")
+
+    assert "Problems only" in javascript
+    assert "All scopes" in javascript
+    assert "Copy diagnostics" in javascript
+    assert "matchesOperatorFilter" in javascript
+    assert "captureStateChanges" in javascript
+    assert "errorCategory" in javascript
+    assert 'state !== "ok" && (row?.http_status || kind.includes("http"))' in javascript
+    assert "freshness ${(age / interval).toFixed(1)}x cadence" in javascript
+    assert "phase 4/4 · rolling evidence ready" in javascript
+    assert "sanitizedDiagnostics" in javascript
+    assert 'fetchHomelabProbeMatrix({ reason: "manual" })' in javascript
+    assert "fetch(" not in javascript

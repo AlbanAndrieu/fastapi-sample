@@ -1,0 +1,156 @@
+name: PR238 workflow-safe convergence
+
+on:
+  push:
+    branches:
+      - fix/production-gate-ui-operator
+
+permissions:
+  contents: write
+
+jobs:
+  converge:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Rebuild useful delta on current master
+        shell: bash
+        run: |
+          set -euo pipefail
+          initial_head="$(git rev-parse HEAD)"
+          original_parent="d40eda0034205228f04b885d37ffe2554a192c7a"
+          original_commit="47aa2b29d7ff9a7742f7a6b309e32fc948ae8377"
+          mkdir -p /tmp/pr238-workflows
+          cp .github/workflows/pr238-rebase-check.yml /tmp/pr238-workflows/
+          cp .github/workflows/pr238-convergence-fix.yml /tmp/pr238-workflows/
+          cp .github/workflows/pr238-converge-v2.yml /tmp/pr238-workflows/
+          git fetch origin master
+          git diff --binary "$original_parent" "$original_commit" -- \
+            nabla/api/assets/api-probe-fanout-dashboard.css \
+            nabla/api/health_checks.py \
+            nabla/api/health_http_errors.py \
+            nabla/api/platform_health.py \
+            tests/unit/test_platform_health.py \
+            tests/unit/test_probe_fanout_dashboard_ui_contract.py \
+            > /tmp/pr238-clean.patch
+          git reset --hard origin/master
+          mkdir -p .github/workflows
+          cp /tmp/pr238-workflows/* .github/workflows/
+          git apply --3way --index /tmp/pr238-clean.patch
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("nabla/api/assets/api-probe-fanout-dashboard.js")
+          text = path.read_text()
+
+          def replace_once(old: str, new: str, label: str) -> None:
+              global text
+              if new in text:
+                  return
+              if old not in text:
+                  raise SystemExit(f"dashboard marker not found: {label}")
+              text = text.replace(old, new, 1)
+
+          replace_once(
+              "let refreshInFlight = false;\n",
+              '''let refreshInFlight = false;\nlet previousStateByKey = new Map();\nlet lastChangeByKey = new Map();\nconst operatorFilter = { query: "", scope: "all", state: "all" };\n''',
+              "operator state",
+          )
+          replace_once(
+              '''function warmupText(data, model) {\n''',
+              '''function warmupPhase(model) {\n  if (model.coverage >= 100) return "phase 4/4 · rolling evidence ready";\n  if (model.publicScope.coverage >= 100 && model.internalScope.enabled) {\n    return "phase 3/4 · public ready, LAN converging";\n  }\n  if (model.known > 0) return "phase 2/4 · rotating evidence accumulating";\n  return "phase 1/4 · awaiting first bounded wave";\n}\n\nfunction warmupText(data, model) {\n''',
+              "warmup phase",
+          )
+          text = text.replace(
+              'return `✅ Full rolling evidence coverage · ${runtimeDetail}${estimateText}`;',
+              'return `✅ Full rolling evidence coverage · ${warmupPhase(model)} · ${runtimeDetail}${estimateText}`;',
+          )
+          text = text.replace(
+              'return `🧊 Evidence warm-up · ${model.known}/${model.eligible} probe slots observed · ${runtimeDetail}${estimateText}`;',
+              'return `🧊 Evidence warm-up · ${warmupPhase(model)} · ${model.known}/${model.eligible} probe slots observed · ${runtimeDetail}${estimateText}`;',
+          )
+          replace_once(
+              '''function targetHtml(row) {\n''',
+              '''function rowKey(row) {\n  return `${row?.id || row?.name || "probe"}:${row?.probe_scope || "scope"}`;\n}\n\nfunction captureStateChanges(rows) {\n  const changes = new Map();\n  const nextStates = new Map();\n  for (const row of rows) {\n    const key = rowKey(row);\n    const after = stateLabel(row);\n    const before = previousStateByKey.get(key);\n    nextStates.set(key, after);\n    if (before && before !== after) changes.set(key, `${before} → ${after}`);\n  }\n  previousStateByKey = nextStates;\n  lastChangeByKey = changes;\n}\n\nfunction errorCategory(row) {\n  const state = stateLabel(row);\n  const kind = String(\n    row?.error_kind || row?.probe_refresh_error || row?.error || "",\n  ).toLowerCase();\n  if (state === "deadline" || row?.timed_out === true) return "DEADLINE";\n  if (kind.includes("dns") || kind.includes("getaddrinfo")) return "DNS";\n  if (\n    kind.includes("tls") ||\n    kind.includes("ssl") ||\n    kind.includes("certificate")\n  )\n    return "TLS";\n  if (\n    kind.includes("connect") ||\n    kind.includes("socket") ||\n    kind.includes("refused")\n  )\n    return "TCP";\n  if (row?.application_error === true || kind.includes("application"))\n    return "APP";\n  if (\n    kind.includes("config") ||\n    kind.includes("missing") ||\n    kind.includes("not_configured")\n  )\n    return "CONFIG";\n  if (state !== "ok" && (row?.http_status || kind.includes("http")))\n    return "HTTP";\n  if (row?.probe_refresh_error) return "REFRESH";\n  return "";\n}\n\nfunction stateChangeLabel(row) {\n  return lastChangeByKey.get(rowKey(row)) || "";\n}\n\nfunction matchesOperatorFilter(row) {\n  const query = operatorFilter.query.trim().toLowerCase();\n  const scope = String(row?.probe_scope || "");\n  const state = stateLabel(row);\n  if (operatorFilter.scope !== "all" && scope !== operatorFilter.scope)\n    return false;\n  if (operatorFilter.state === "problems" && state === "ok") return false;\n  if (\n    !["all", "problems"].includes(operatorFilter.state) &&\n    state !== operatorFilter.state\n  )\n    return false;\n  if (!query) return true;\n  return [\n    row?.name,\n    row?.id,\n    row?.url,\n    row?.host,\n    row?.error_kind,\n    errorCategory(row),\n  ]\n    .filter(Boolean)\n    .some((value) => String(value).toLowerCase().includes(query));\n}\n\nfunction sanitizedDiagnostics(data, model) {\n  return {\n    checked_at: data?.checked_at || null,\n    refresh_elapsed_ms: finiteNumber(data?.refresh_elapsed_ms),\n    evidence_coverage: Number(model.coverage.toFixed(1)),\n    healthy_coverage: Number(model.healthyCoverage.toFixed(1)),\n    eligible_slots: model.eligible,\n    known_slots: model.known,\n    public: model.publicScope,\n    lan: model.internalScope,\n    probe_runtime: data?.probe_runtime || null,\n    issues: model.rows\n      .filter((row) => stateLabel(row) !== "ok")\n      .map((row) => ({\n        id: row?.id || null,\n        name: row?.name || null,\n        scope: row?.probe_scope || null,\n        state: stateLabel(row),\n        source: row?.probe_source || null,\n        error_category: errorCategory(row) || null,\n        error_kind: row?.error_kind || null,\n        age_seconds: row?.probe_age_seconds ?? null,\n        interval_seconds: row?.probe_interval_seconds ?? null,\n      })),\n  };\n}\n\nfunction targetHtml(row) {\n''',
+              "operator helpers",
+          )
+          replace_once(
+              '''  if (Number.isFinite(next)) parts.push(`next ≈${humanSeconds(next)}`);\n  return parts.length ? parts.join(" · ") : "observation timing unavailable";\n''',
+              '''  if (Number.isFinite(next)) parts.push(`next ≈${humanSeconds(next)}`);\n  if (Number.isFinite(age) && Number.isFinite(interval) && interval > 0) {\n    parts.push(`freshness ${(age / interval).toFixed(1)}x cadence`);\n  }\n  return parts.length ? parts.join(" · ") : "observation timing unavailable";\n''',
+              "freshness",
+          )
+          replace_once(
+              '''  const source = row?.probe_source || "unknown";\n  const sourceLabel =\n''',
+              '''  const source = row?.probe_source || "unknown";\n  const category = errorCategory(row);\n  const changed = stateChangeLabel(row);\n  const sourceLabel =\n''',
+              "row badges state",
+          )
+          replace_once(
+              '''    `<span class="probe-source-badge">${escapeText(sourceLabel)}</span>` +\n    "</div>" +\n''',
+              '''    `<span class="probe-source-badge">${escapeText(sourceLabel)}</span>` +\n    (category\n      ? `<span class="probe-error-badge">${escapeText(category)}</span>`\n      : "") +\n    (changed\n      ? `<span class="probe-change-badge">${escapeText(changed)}</span>`\n      : "") +\n    "</div>" +\n''',
+              "row badge markup",
+          )
+          old_group = '''function groupHtml(title, description, rows, previous = false) {\n  if (rows.length === 0) {\n    return `<section class="probe-dashboard-group"><h5>${escapeText(title)} · 0</h5><p>${escapeText(description)}</p><div class="probe-dashboard-empty">No rows in this group.</div></section>`;\n  }\n  return (\n    '<section class="probe-dashboard-group">' +\n    `<h5>${escapeText(title)} · ${rows.length}</h5>` +\n    `<p>${escapeText(description)}</p>` +\n    `<div class="probe-dashboard-rows">${sortedRows(rows, previous).map(probeRow).join("")}</div>` +\n    "</section>"\n  );\n}\n'''
+          new_group = '''function groupHtml(\n  title,\n  description,\n  rows,\n  previous = false,\n  collapsed = false,\n) {\n  const open = collapsed ? "" : " open";\n  const body =\n    rows.length === 0\n      ? '<div class="probe-dashboard-empty">No rows in this group.</div>'\n      : `<div class="probe-dashboard-rows">${sortedRows(rows, previous).map(probeRow).join("")}</div>`;\n  return (\n    `<details class="probe-dashboard-group"${open}>` +\n    `<summary>${escapeText(title)} · ${rows.length}</summary>` +\n    `<p>${escapeText(description)}</p>` +\n    body +\n    "</details>"\n  );\n}\n'''
+          replace_once(old_group, new_group, "collapsible groups")
+          replace_once(
+              '''      <div class="probe-dashboard-actions">\n        <button type="button" id="probe-dashboard-refresh" class="probe-dashboard-refresh">Refresh details</button>\n      </div>\n    <div class="probe-dashboard-progress" aria-live="polite">\n''',
+              '''      <div class="probe-dashboard-actions">\n        <button type="button" id="probe-dashboard-refresh" class="probe-dashboard-refresh">Refresh details</button>\n      </div>\n      <div class="probe-dashboard-controls" aria-label="Probe operator filters">\n        <input id="probe-dashboard-filter" type="search" placeholder="Filter service, target or error…" aria-label="Filter probes" />\n        <select id="probe-dashboard-scope" aria-label="Probe scope">\n          <option value="all">All scopes</option>\n          <option value="public">Public</option>\n          <option value="LAN">LAN</option>\n        </select>\n        <select id="probe-dashboard-state" aria-label="Probe state">\n          <option value="all">All states</option>\n          <option value="problems">Problems only</option>\n          <option value="fail">Failed</option>\n          <option value="warn">Warning</option>\n          <option value="deadline">Deadline</option>\n          <option value="stale">Stale</option>\n          <option value="unknown">Not observed / unknown</option>\n          <option value="ok">Healthy</option>\n        </select>\n        <button type="button" id="probe-dashboard-copy" class="probe-dashboard-refresh">Copy diagnostics</button>\n      </div>\n    <div class="probe-dashboard-progress" aria-live="polite">\n''',
+              "controls",
+          )
+          replace_once(
+              '''  });\n  return root;\n}\n\nfunction renderActivity''',
+              '''  });\n  const filterInput = root.querySelector("#probe-dashboard-filter");\n  const scopeSelect = root.querySelector("#probe-dashboard-scope");\n  const stateSelect = root.querySelector("#probe-dashboard-state");\n  const copyButton = root.querySelector("#probe-dashboard-copy");\n  filterInput?.addEventListener("input", () => {\n    operatorFilter.query = filterInput.value;\n    if (lastPayload) renderDashboard(lastPayload);\n  });\n  scopeSelect?.addEventListener("change", () => {\n    operatorFilter.scope = scopeSelect.value;\n    if (lastPayload) renderDashboard(lastPayload);\n  });\n  stateSelect?.addEventListener("change", () => {\n    operatorFilter.state = stateSelect.value;\n    if (lastPayload) renderDashboard(lastPayload);\n  });\n  copyButton?.addEventListener("click", async () => {\n    if (!lastPayload || !navigator.clipboard?.writeText) {\n      renderActivity(\n        "⚠ Clipboard diagnostics are unavailable in this browser context.",\n        true,\n      );\n      return;\n    }\n    const model = progressModel(lastPayload);\n    await navigator.clipboard.writeText(\n      JSON.stringify(sanitizedDiagnostics(lastPayload, model), null, 2),\n    );\n    renderActivity(\n      "✓ Sanitized probe diagnostics copied without URLs or credential material.",\n    );\n  });\n  return root;\n}\n\nfunction renderActivity''',
+              "control listeners",
+          )
+          replace_once(
+              '''  if (!root) return;\n  lastPayload = data;\n  const model = progressModel(data);\n  renderActivity(\n''',
+              '''  if (!root) return;\n  const model = progressModel(data);\n  if (data !== lastPayload) captureStateChanges(model.rows);\n  lastPayload = data;\n  renderActivity(\n''',
+              "state transitions",
+          )
+          replace_once(
+              '''  const latestRows = model.rows.filter(\n    (row) => row?.probe_source === "origin" || row?.probe_source === "deadline",\n  );\n  const previousRows = model.rows.filter(\n    (row) => row?.probe_source === "memory",\n  );\n''',
+              '''  const visibleRows = model.rows.filter(matchesOperatorFilter);\n  const latestRows = visibleRows.filter(\n    (row) => row?.probe_source === "origin" || row?.probe_source === "deadline",\n  );\n  const previousRows = visibleRows.filter(\n    (row) => row?.probe_source === "memory",\n  );\n''',
+              "visible rows",
+          )
+          replace_once(
+              '''    previousRows,\n    true,\n  );\n  renderActivity(\n    `${cacheText(data)} · refresh ${finiteNumber(data?.refresh_elapsed_ms)} ms`,\n  );\n''',
+              '''    previousRows,\n    true,\n    true,\n  );\n  renderActivity(\n    `${cacheText(data)} · refresh ${finiteNumber(data?.refresh_elapsed_ms)} ms · showing ${visibleRows.length}/${model.rows.length} rows`,\n  );\n''',
+              "retained collapse and activity",
+          )
+          path.write_text(text)
+          PY
+          sed -i 's/×/x/g' tests/unit/test_probe_fanout_dashboard_ui_contract.py
+          python -m pip install --disable-pip-version-check ruff==0.16.3
+          ruff format \
+            nabla/api/health_checks.py \
+            nabla/api/health_http_errors.py \
+            nabla/api/platform_health.py \
+            tests/unit/test_platform_health.py \
+            tests/unit/test_probe_fanout_dashboard_ui_contract.py
+          ruff check --fix \
+            nabla/api/health_checks.py \
+            nabla/api/health_http_errors.py \
+            nabla/api/platform_health.py \
+            tests/unit/test_platform_health.py \
+            tests/unit/test_probe_fanout_dashboard_ui_contract.py
+          npx --yes @biomejs/biome@2.2.6 check --write \
+            nabla/api/assets/api-probe-fanout-dashboard.js \
+            nabla/api/assets/api-probe-fanout-dashboard.css
+          git add .github/workflows/pr238-rebase-check.yml \
+            .github/workflows/pr238-convergence-fix.yml \
+            .github/workflows/pr238-converge-v2.yml \
+            nabla/api/assets/api-probe-fanout-dashboard.js \
+            nabla/api/assets/api-probe-fanout-dashboard.css \
+            nabla/api/health_checks.py \
+            nabla/api/health_http_errors.py \
+            nabla/api/platform_health.py \
+            tests/unit/test_platform_health.py \
+            tests/unit/test_probe_fanout_dashboard_ui_contract.py
+          git diff --cached --check
+          git config user.name "AlbanAndrieu"
+          git config user.email "alban.andrieu@free.fr"
+          git commit -m "feat(api): improve homelab probe operator diagnostics"
+          git push --force-with-lease=refs/heads/fix/production-gate-ui-operator:"$initial_head" origin HEAD:fix/production-gate-ui-operator

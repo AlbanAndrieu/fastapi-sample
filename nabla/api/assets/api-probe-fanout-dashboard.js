@@ -10,6 +10,9 @@ let lastPayload = null;
 let browserWarmupObservedAt = null;
 let browserWarmupCompletedInSeconds = null;
 let refreshInFlight = false;
+let previousStateByKey = new Map();
+let lastChangeByKey = new Map();
+const operatorFilter = { query: "", scope: "all", state: "all" };
 
 function finiteNumber(value, fallback = 0) {
   const number = Number(value);
@@ -179,6 +182,15 @@ function runtimeWarmupDetail(data) {
   return `visible in this tab for ${humanSeconds((Date.now() - browserWarmupObservedAt) / 1000)}`;
 }
 
+function warmupPhase(model) {
+  if (model.coverage >= 100) return "phase 4/4 · rolling evidence ready";
+  if (model.publicScope.coverage >= 100 && model.internalScope.enabled) {
+    return "phase 3/4 · public ready, LAN converging";
+  }
+  if (model.known > 0) return "phase 2/4 · rotating evidence accumulating";
+  return "phase 1/4 · awaiting first bounded wave";
+}
+
 function warmupText(data, model) {
   if (model.coverage < 100 && browserWarmupObservedAt == null) {
     browserWarmupObservedAt = Date.now();
@@ -200,9 +212,9 @@ function warmupText(data, model) {
     : "";
   const runtimeDetail = runtimeWarmupDetail(data);
   if (model.coverage >= 100) {
-    return `✅ Full rolling evidence coverage · ${runtimeDetail}${estimateText}`;
+    return `✅ Full rolling evidence coverage · ${warmupPhase(model)} · ${runtimeDetail}${estimateText}`;
   }
-  return `🧊 Evidence warm-up · ${model.known}/${model.eligible} probe slots observed · ${runtimeDetail}${estimateText}`;
+  return `🧊 Evidence warm-up · ${warmupPhase(model)} · ${model.known}/${model.eligible} probe slots observed · ${runtimeDetail}${estimateText}`;
 }
 
 function cacheText(data) {
@@ -237,6 +249,113 @@ function stateClass(row) {
   return "unknown";
 }
 
+function rowKey(row) {
+  return `${row?.id || row?.name || "probe"}:${row?.probe_scope || "scope"}`;
+}
+
+function captureStateChanges(rows) {
+  const changes = new Map();
+  const nextStates = new Map();
+  for (const row of rows) {
+    const key = rowKey(row);
+    const after = stateLabel(row);
+    const before = previousStateByKey.get(key);
+    nextStates.set(key, after);
+    if (before && before !== after) changes.set(key, `${before} → ${after}`);
+  }
+  previousStateByKey = nextStates;
+  lastChangeByKey = changes;
+}
+
+function errorCategory(row) {
+  const state = stateLabel(row);
+  const kind = String(
+    row?.error_kind || row?.probe_refresh_error || row?.error || "",
+  ).toLowerCase();
+  if (state === "deadline" || row?.timed_out === true) return "DEADLINE";
+  if (kind.includes("dns") || kind.includes("getaddrinfo")) return "DNS";
+  if (
+    kind.includes("tls") ||
+    kind.includes("ssl") ||
+    kind.includes("certificate")
+  )
+    return "TLS";
+  if (
+    kind.includes("connect") ||
+    kind.includes("socket") ||
+    kind.includes("refused")
+  )
+    return "TCP";
+  if (row?.application_error === true || kind.includes("application"))
+    return "APP";
+  if (
+    kind.includes("config") ||
+    kind.includes("missing") ||
+    kind.includes("not_configured")
+  )
+    return "CONFIG";
+  if (state !== "ok" && (row?.http_status || kind.includes("http")))
+    return "HTTP";
+  if (row?.probe_refresh_error) return "REFRESH";
+  return "";
+}
+
+function stateChangeLabel(row) {
+  return lastChangeByKey.get(rowKey(row)) || "";
+}
+
+function matchesOperatorFilter(row) {
+  const query = operatorFilter.query.trim().toLowerCase();
+  const scope = String(row?.probe_scope || "");
+  const state = stateLabel(row);
+  if (operatorFilter.scope !== "all" && scope !== operatorFilter.scope)
+    return false;
+  if (operatorFilter.state === "problems" && state === "ok") return false;
+  if (
+    !["all", "problems"].includes(operatorFilter.state) &&
+    state !== operatorFilter.state
+  )
+    return false;
+  if (!query) return true;
+  return [
+    row?.name,
+    row?.id,
+    row?.url,
+    row?.host,
+    row?.error_kind,
+    errorCategory(row),
+  ]
+    .filter(Boolean)
+    .some((value) => String(value).toLowerCase().includes(query));
+}
+
+function sanitizedDiagnostics(data, model) {
+  return {
+    checked_at: data?.checked_at || null,
+    refresh_elapsed_ms: finiteNumber(data?.refresh_elapsed_ms),
+    evidence_coverage: Number(model.coverage.toFixed(1)),
+    healthy_coverage: Number(model.healthyCoverage.toFixed(1)),
+    eligible_slots: model.eligible,
+    known_slots: model.known,
+    public: model.publicScope,
+    lan: model.internalScope,
+    probe_runtime: data?.probe_runtime || null,
+    issues: model.rows
+      .filter((row) => stateLabel(row) !== "ok")
+      .map((row) => ({
+        id: row?.id || null,
+        name: row?.name || null,
+        scope: row?.probe_scope || null,
+        state: stateLabel(row),
+        source: row?.probe_source || null,
+        error_category: errorCategory(row) || null,
+        error_kind: row?.error_kind || null,
+        age_seconds: row?.probe_age_seconds ?? null,
+        interval_seconds: row?.probe_interval_seconds ?? null,
+      })),
+  };
+}
+
 function targetHtml(row) {
   if (row?.probe_scope === "LAN") {
     const target =
@@ -262,6 +381,9 @@ function observationText(row) {
     parts.push(`cadence ≈${humanSeconds(interval)}`);
   }
   if (Number.isFinite(next)) parts.push(`next ≈${humanSeconds(next)}`);
+  if (Number.isFinite(age) && Number.isFinite(interval) && interval > 0) {
+    parts.push(`freshness ${(age / interval).toFixed(1)}x cadence`);
+  }
   return parts.length ? parts.join(" · ") : "observation timing unavailable";
 }
 
@@ -281,6 +403,8 @@ function rowDetail(row) {
 function probeRow(row) {
   const kind = stateClass(row);
   const source = row?.probe_source || "unknown";
+  const category = errorCategory(row);
+  const changed = stateChangeLabel(row);
   const sourceLabel =
     source === "origin" ? "latest" : source === "memory" ? "retained" : source;
   return (
@@ -290,6 +414,12 @@ function probeRow(row) {
     `<span class="probe-scope-badge">${escapeText(row?.probe_scope || "scope")}</span>` +
     `<span class="probe-state-badge probe-state-badge--${kind}">${escapeText(stateLabel(row))}</span>` +
     `<span class="probe-source-badge">${escapeText(sourceLabel)}</span>` +
+    (category
+      ? `<span class="probe-error-badge">${escapeText(category)}</span>`
+      : "") +
+    (changed
+      ? `<span class="probe-change-badge">${escapeText(changed)}</span>`
+      : "") +
     "</div>" +
     `<div class="probe-dashboard-target">${targetHtml(row)}</div>` +
     `<div class="probe-dashboard-timing">${escapeText(observationText(row))}</div>` +
@@ -320,16 +450,24 @@ function sortedRows(rows, previous = false) {
   });
 }
 
-function groupHtml(title, description, rows, previous = false) {
-  if (rows.length === 0) {
-    return `<section class="probe-dashboard-group"><h5>${escapeText(title)} · 0</h5><p>${escapeText(description)}</p><div class="probe-dashboard-empty">No rows in this group.</div></section>`;
-  }
+function groupHtml(
+  title,
+  description,
+  rows,
+  previous = false,
+  collapsed = false,
+) {
+  const open = collapsed ? "" : " open";
+  const body =
+    rows.length === 0
+      ? '<div class="probe-dashboard-empty">No rows in this group.</div>'
+      : `<div class="probe-dashboard-rows">${sortedRows(rows, previous).map(probeRow).join("")}</div>`;
   return (
-    '<section class="probe-dashboard-group">' +
-    `<h5>${escapeText(title)} · ${rows.length}</h5>` +
+    `<details class="probe-dashboard-group"${open}>` +
+    `<summary>${escapeText(title)} · ${rows.length}</summary>` +
     `<p>${escapeText(description)}</p>` +
-    `<div class="probe-dashboard-rows">${sortedRows(rows, previous).map(probeRow).join("")}</div>` +
-    "</section>"
+    body +
+    "</details>"
   );
 }
 
@@ -356,6 +494,25 @@ function ensureDashboard() {
     <div class="probe-dashboard-body">
       <div class="probe-dashboard-actions">
         <button type="button" id="probe-dashboard-refresh" class="probe-dashboard-refresh">Refresh details</button>
+      </div>
+      <div class="probe-dashboard-controls" aria-label="Probe operator filters">
+        <input id="probe-dashboard-filter" type="search" placeholder="Filter service, target or error…" aria-label="Filter probes" />
+        <select id="probe-dashboard-scope" aria-label="Probe scope">
+          <option value="all">All scopes</option>
+          <option value="public">Public</option>
+          <option value="LAN">LAN</option>
+        </select>
+        <select id="probe-dashboard-state" aria-label="Probe state">
+          <option value="all">All states</option>
+          <option value="problems">Problems only</option>
+          <option value="fail">Failed</option>
+          <option value="warn">Warning</option>
+          <option value="deadline">Deadline</option>
+          <option value="stale">Stale</option>
+          <option value="unknown">Not observed / unknown</option>
+          <option value="ok">Healthy</option>
+        </select>
+        <button type="button" id="probe-dashboard-copy" class="probe-dashboard-refresh">Copy diagnostics</button>
       </div>
     <div class="probe-dashboard-progress" aria-live="polite">
       <div class="probe-dashboard-progress-copy">
@@ -399,6 +556,38 @@ function ensureDashboard() {
       button.textContent = "Refresh details";
     }
   });
+  const filterInput = root.querySelector("#probe-dashboard-filter");
+  const scopeSelect = root.querySelector("#probe-dashboard-scope");
+  const stateSelect = root.querySelector("#probe-dashboard-state");
+  const copyButton = root.querySelector("#probe-dashboard-copy");
+  filterInput?.addEventListener("input", () => {
+    operatorFilter.query = filterInput.value;
+    if (lastPayload) renderDashboard(lastPayload);
+  });
+  scopeSelect?.addEventListener("change", () => {
+    operatorFilter.scope = scopeSelect.value;
+    if (lastPayload) renderDashboard(lastPayload);
+  });
+  stateSelect?.addEventListener("change", () => {
+    operatorFilter.state = stateSelect.value;
+    if (lastPayload) renderDashboard(lastPayload);
+  });
+  copyButton?.addEventListener("click", async () => {
+    if (!lastPayload || !navigator.clipboard?.writeText) {
+      renderActivity(
+        "⚠ Clipboard diagnostics are unavailable in this browser context.",
+        true,
+      );
+      return;
+    }
+    const model = progressModel(lastPayload);
+    await navigator.clipboard.writeText(
+      JSON.stringify(sanitizedDiagnostics(lastPayload, model), null, 2),
+    );
+    renderActivity(
+      "✓ Sanitized probe diagnostics copied without URLs or credential material.",
+    );
+  });
   return root;
 }
 
@@ -423,8 +612,9 @@ function clarifyRuntimeTimeout(data) {
 function renderDashboard(data) {
   const root = ensureDashboard();
   if (!root) return;
-  lastPayload = data;
   const model = progressModel(data);
+  if (data !== lastPayload) captureStateChanges(model.rows);
+  lastPayload = data;
   renderActivity(
     `${model.coverage.toFixed(1)}% evidence · ${model.healthyCoverage.toFixed(1)}% healthy · ${model.counts.fail} failed · ${model.counts.warn} warning`,
   );
@@ -459,10 +649,11 @@ function renderDashboard(data) {
     scopeCard("public HTTPS", "🌐", model.publicScope) +
     scopeCard("LAN/TCP", "🏠", model.internalScope);
 
-  const latestRows = model.rows.filter(
+  const visibleRows = model.rows.filter(matchesOperatorFilter);
+  const latestRows = visibleRows.filter(
     (row) => row?.probe_source === "origin" || row?.probe_source === "deadline",
   );
-  const previousRows = model.rows.filter(
+  const previousRows = visibleRows.filter(
     (row) => row?.probe_source === "memory",
   );
   latest.innerHTML = groupHtml(
@@ -475,9 +666,10 @@ function renderDashboard(data) {
     "Last-known observations kept across rotating windows until cadence/staleness rules expire.",
     previousRows,
     true,
+    true,
   );
   renderActivity(
-    `${cacheText(data)} · refresh ${finiteNumber(data?.refresh_elapsed_ms)} ms`,
+    `${cacheText(data)} · refresh ${finiteNumber(data?.refresh_elapsed_ms)} ms · showing ${visibleRows.length}/${model.rows.length} rows`,
   );
   clarifyRuntimeTimeout(data);
 }

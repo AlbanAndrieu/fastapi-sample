@@ -80,6 +80,24 @@
   cursor: progress;
 }
 
+.probe-dashboard-controls {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto auto auto;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+}
+
+.probe-dashboard-controls input,
+.probe-dashboard-controls select {
+  min-width: 0;
+  padding: 0.32rem 0.45rem;
+  border: 1px solid #333;
+  border-radius: 7px;
+  color: #d7d7d7;
+  background: #111;
+  font-size: 0.63rem;
+}
+
 .probe-dashboard-progress {
   margin-top: 0.7rem;
   padding: 0.65rem;
@@ -232,7 +250,9 @@
 
 .probe-scope-badge,
 .probe-state-badge,
-.probe-source-badge {
+.probe-source-badge,
+.probe-error-badge,
+.probe-change-badge {
   display: inline-flex;
   align-items: center;
   min-height: 1.2rem;
@@ -320,6 +340,29 @@
 
   .probe-dashboard-scopes,
   .probe-dashboard-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.probe-error-badge {
+  color: #ffd966;
+  border-color: rgba(255, 200, 50, 0.36);
+}
+
+.probe-change-badge {
+  color: #9fc8ff;
+  border-color: rgba(120, 180, 255, 0.36);
+}
+
+.probe-dashboard-group > summary {
+  cursor: pointer;
+  color: #d0d0d0;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+@media (max-width: 700px) {
+  .probe-dashboard-controls {
     grid-template-columns: 1fr;
   }
 }
