@@ -35,7 +35,7 @@ async def test_cloudflare_transport_failure_is_unknown_warning(monkeypatch) -> N
     assert result["state"] == "unknown"
     assert result["status_confirmed"] is False
     assert result["warning"].startswith(
-        "⚠️ Cloudflare global status could not be confirmed"
+        "⚠️ Cloudflare global status could not be confirmed",
     )
 
 
