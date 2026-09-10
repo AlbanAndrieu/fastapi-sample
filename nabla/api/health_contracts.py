@@ -92,18 +92,22 @@ def _normalize_optional_uncertainty(
     if not timed_out and not cloudflare_unconfirmed:
         return normalized
 
+    original_error = str(check.get("error") or "").strip()
     normalized["reachable"] = None
     normalized["degraded"] = False
     normalized["status_confirmed"] = False
     normalized["severity"] = "warning"
+    normalized["effective_state"] = "warn"
     if name == "cloudflare":
-        normalized["warning"] = (
+        warning = (
             "⚠️ Cloudflare status could not be confirmed; control-plane data is unavailable or the probe timed out."
         )
     else:
-        normalized["warning"] = (
+        warning = (
             "⚠️ Probe result is unknown because the optional diagnostic deadline was exceeded."
         )
+    normalized["warning"] = warning
+    normalized["error"] = f"{warning} {original_error}".strip()
     return normalized
 
 
