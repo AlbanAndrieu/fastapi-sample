@@ -8,14 +8,15 @@ ROOT = Path(__file__).resolve().parents[2]
 ASSETS = ROOT / "nabla" / "api" / "assets"
 
 
-def test_core_drilldown_precedes_runtime_topology() -> None:
+def test_service_board_precedes_core_and_runtime_drilldowns() -> None:
     page = render_api_root_page(title_suffix="test", app_version="1.0.0")
 
+    health = page.index('id="health-board"')
     overview = page.index('id="service-health-overview"')
     groups = page.index('id="health-services-groups"')
-    runtime = page.index('id="runtime-topology"')
     truenas = page.index('id="truenas-platform"')
-    assert truenas < runtime < overview < groups
+    runtime = page.index('id="runtime-topology"')
+    assert health < overview < groups < truenas < runtime
     assert "Local workstation runtime" in page
     assert "Observed processes" in page
     assert "Observed instances" not in page
@@ -24,7 +25,8 @@ def test_core_drilldown_precedes_runtime_topology() -> None:
     assert "FastAPI Cloud replicas" not in page
     assert "Vercel + FastAPI" not in page
     assert 'data-runtime-mode="local"' in page
-    assert '<details class="runtime-topology" id="runtime-topology" open' in page
+    assert '<details class="runtime-topology" id="runtime-topology" open' not in page
+    assert '<details class="runtime-topology" id="runtime-topology"' in page
     assert "Active egress IPs" in page
     assert "Recent egress IPs · 24 h" in page
     assert "Redis server memory" in page
@@ -50,6 +52,7 @@ def test_fastapi_cloud_runtime_keeps_production_context() -> None:
     assert "Observed instances" in page
     assert "FastAPI Cloud replicas" in page
     assert 'data-runtime-mode="fastapi_cloud"' in page
+    assert '<details class="runtime-topology" id="runtime-topology" open' not in page
 
 
 def test_homelab_runtime_has_distinct_production_context() -> None:
@@ -81,7 +84,7 @@ def test_runtime_topology_uses_shared_health_board_request() -> None:
     assert '@import url("./api-runtime.css")' in styles
 
 
-def test_runtime_topology_does_not_claim_control_plane_replica_count() -> None:
+def test_runtime_refresh_preserves_operator_expansion_state() -> None:
     javascript = (ASSETS / "api-runtime.js").read_text(encoding="utf-8")
 
     assert "platform_replica_count" in javascript
@@ -100,11 +103,11 @@ def test_runtime_topology_does_not_claim_control_plane_replica_count() -> None:
     assert 'local_only: "local only"' in javascript
     assert 'local_fallback: "local fallback"' in javascript
     assert "renderRedisUsage(runtime.redis)" in javascript
-    assert "truenasApiHealthy" in javascript
-    assert "panel.open = degraded || !truenasApiHealthy" in javascript
     assert "memory_utilization_percent" in javascript
     assert "instantaneous_ops_per_sec" in javascript
     assert "keyspace_hit_rate_percent" in javascript
     assert "evicted_keys" in javascript
     assert "provider not attributed" in javascript
     assert "server memory and selected DB totals" in javascript
+    assert "panel.open =" not in javascript
+    assert "Never change <details>.open from telemetry" in javascript
