@@ -13,6 +13,14 @@ from nabla.api.health_checks import check_postgres_sql, check_redis_ping
 
 _READINESS_TIMEOUT_SECONDS = 3.0
 _REQUIRED_DIAGNOSTIC_CHECKS = frozenset({"postgres", "redis", "supabase"})
+_CLOUDFLARE_INVENTORY_FIELDS = frozenset(
+    {
+        "tunnel_count",
+        "healthy_tunnels",
+        "unhealthy_tunnels",
+        "tunnel_statuses",
+    },
+)
 
 
 def _timestamp() -> str:
@@ -62,14 +70,67 @@ async def build_readiness_payload(
     )
 
 
+def _normalize_optional_uncertainty(
+    name: str,
+    check: dict[str, Any],
+) -> dict[str, Any]:
+    """Keep missing optional evidence distinct from an observed outage.
+
+    A deadline only proves that the observer did not finish. Likewise, a
+    Cloudflare control-plane retrieval failure without tunnel inventory cannot
+    establish global Cloudflare health. Preserve the diagnostic error, add an
+    explicit warning, and mark reachability unknown instead of degraded/down.
+    """
+    normalized = dict(check)
+    timed_out = check.get("timed_out") is True or check.get("error_kind") == "deadline"
+    cloudflare_inventory_observed = any(field in check for field in _CLOUDFLARE_INVENTORY_FIELDS)
+    cloudflare_unconfirmed = (
+        name == "cloudflare"
+        and check.get("reachable") is False
+        and not cloudflare_inventory_observed
+    )
+    if not timed_out and not cloudflare_unconfirmed:
+        return normalized
+
+    normalized["reachable"] = None
+    normalized["degraded"] = False
+    normalized["status_confirmed"] = False
+    normalized["severity"] = "warning"
+    if name == "cloudflare":
+        normalized["warning"] = (
+            "⚠️ Cloudflare status could not be confirmed; control-plane data is unavailable or the probe timed out."
+        )
+    else:
+        normalized["warning"] = (
+            "⚠️ Probe result is unknown because the optional diagnostic deadline was exceeded."
+        )
+    return normalized
+
+
 def apply_diagnostic_status(payload: dict[str, Any]) -> dict[str, Any]:
     """Make deep-diagnostic state explicit without changing its HTTP contract."""
-    checks = payload.get("checks") if isinstance(payload.get("checks"), dict) else {}
-    required_failed = any(isinstance(checks.get(key), dict) and checks[key].get("reachable") is False for key in _REQUIRED_DIAGNOSTIC_CHECKS)
-    optional_failed = any(check.get("reachable") is False for key, check in checks.items() if key not in _REQUIRED_DIAGNOSTIC_CHECKS and isinstance(check, dict))
+    raw_checks = payload.get("checks") if isinstance(payload.get("checks"), dict) else {}
+    checks = {
+        key: (
+            value
+            if key in _REQUIRED_DIAGNOSTIC_CHECKS or not isinstance(value, dict)
+            else _normalize_optional_uncertainty(key, value)
+        )
+        for key, value in raw_checks.items()
+    }
+    required_failed = any(
+        isinstance(checks.get(key), dict) and checks[key].get("reachable") is False
+        for key in _REQUIRED_DIAGNOSTIC_CHECKS
+    )
+    optional_failed = any(
+        check.get("reachable") is False
+        for key, check in checks.items()
+        if key not in _REQUIRED_DIAGNOSTIC_CHECKS and isinstance(check, dict)
+    )
     status = "unhealthy" if required_failed else "degraded" if optional_failed else "healthy"
     return {
         **payload,
+        "checks": checks,
         "contract": "deep_diagnostic",
         "status": status,
     }
