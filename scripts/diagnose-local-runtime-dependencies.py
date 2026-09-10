@@ -108,7 +108,7 @@ def _truenas(snapshot: dict[str, Any]) -> dict[str, Any]:
         and row["authenticated"] is True
         and app_count is not None
         and app_count > 0
-        and not row["stale"]
+        and not row["stale"],
     )
     return row
 
@@ -132,7 +132,7 @@ def _pfsense(snapshot: dict[str, Any]) -> dict[str, Any]:
         row["configured"] is True
         and row["reachable"] is True
         and row["authenticated"] is True
-        and not row["stale"]
+        and not row["stale"],
     )
     return row
 
@@ -156,7 +156,7 @@ def _cloudflare(snapshot: dict[str, Any]) -> dict[str, Any]:
         and row["reachable"] is True
         and row["authenticated"] is True
         and check.get("status_confirmed") is True
-        and not row["stale"]
+        and not row["stale"],
     )
     return row
 
@@ -187,7 +187,7 @@ def _prometheus(snapshot: dict[str, Any]) -> dict[str, Any]:
         configured is True
         and row["reachable"] is True
         and isinstance(summary.get("signals_available"), int)
-        and summary.get("signals_available", 0) > 0
+        and summary.get("signals_available", 0) > 0,
     )
     return row
 
@@ -287,7 +287,7 @@ def print_table(report: dict[str, Any]) -> None:
     print(
         f"snapshot={report.get('snapshot_state')} "
         f"age={report.get('snapshot_age_seconds')}s "
-        f"generated_at={report.get('snapshot_generated_at')}"
+        f"generated_at={report.get('snapshot_generated_at')}",
     )
     print()
     print(f"{'dependency':<12} {'configured':<10} {'reachable':<10} {'auth':<6} {'stale':<6} {'complete':<9} error_stage")
@@ -297,7 +297,7 @@ def print_table(report: dict[str, Any]) -> None:
             f"{name:<12} {_fmt(row.get('configured')):<10} "
             f"{_fmt(row.get('reachable')):<10} {_fmt(row.get('authenticated')):<6} "
             f"{_fmt(row.get('stale')):<6} {_fmt(row.get('evidence_complete')):<9} "
-            f"{_fmt(row.get('error_stage'))}"
+            f"{_fmt(row.get('error_stage'))}",
         )
     gaps = report.get("evidence_gaps") or []
     print()
