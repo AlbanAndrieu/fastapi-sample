@@ -4,6 +4,8 @@ const HOMELAB_EVIDENCE_FIELDS = [
   "effective_state",
   "required_dependencies",
   "blocked_by",
+  "degraded_by",
+  "unconfirmed_dependencies",
   "dependency_evidence",
   "dependency_cycle",
   "observed_at",
@@ -26,6 +28,8 @@ const HOMELAB_EVIDENCE_FIELDS = [
   "runtime_reachable",
   "tunnel_status",
   "tunnel_name",
+  "cloudflare_status_confirmed",
+  "cloudflare_warning",
 ];
 
 function normalize(value) {
@@ -57,7 +61,8 @@ function evidenceIndexes(rows) {
 
 function candidateServiceIds(key, check) {
   const ids = [check?.service_id, check?.id, key];
-  if (String(key).startsWith("albandrieu_")) ids.push(String(key).slice("albandrieu_".length));
+  if (String(key).startsWith("albandrieu_"))
+    ids.push(String(key).slice("albandrieu_".length));
   return ids.filter(Boolean).map((value) => String(value).replaceAll("_", "-"));
 }
 
@@ -65,8 +70,7 @@ function evidenceForCheck(key, check, indexes) {
   for (const candidate of candidateServiceIds(key, check)) {
     if (indexes.byId.has(candidate)) return indexes.byId.get(candidate);
   }
-  const urls = [check?.url, check?.tunnel_url, check?.tunnelUrl, check?.href];
-  for (const value of urls) {
+  for (const value of [check?.url, check?.tunnel_url, check?.tunnelUrl, check?.href]) {
     const host = hostOf(value);
     if (host && indexes.byHost.has(host)) return indexes.byHost.get(host);
   }
@@ -95,18 +99,15 @@ export function dependencyHealthClass(check) {
   if (check.effective_state === "ok") return "green";
   if (check.effective_state === "warn") return "yellow";
   if (check.effective_state === "fail") return "red";
-  // Unknown dependency-graph evidence must not erase a fresh successful direct probe.
-  // Keep the direct HTTP/API result authoritative for reachability while still
-  // rendering the unknown dependency evidence in the detail text.
   if (check.reachable === true) return null;
   return "gray";
 }
 
-function dependencyBlockedLabels(check) {
-  const blocked = new Set(Array.isArray(check.blocked_by) ? check.blocked_by : []);
-  if (blocked.size === 0) return [];
+function dependencyLabels(check, field) {
+  const targets = new Set(Array.isArray(check?.[field]) ? check[field] : []);
+  if (targets.size === 0) return [];
   const evidence = Array.isArray(check.dependency_evidence) ? check.dependency_evidence : [];
-  return [...blocked].map((target) => {
+  return [...targets].map((target) => {
     const item = evidence.find((entry) => entry?.target === target);
     return String(item?.target_name || target);
   });
@@ -162,16 +163,25 @@ export function dependencyDetailText(check) {
   if (check.local_state && check.local_state !== check.effective_state) {
     parts.push(`local ${check.local_state} → effective ${check.effective_state}`);
   }
-  if (check.effective_state === "unknown" && check.reachable === true) {
-    parts.push("dependency evidence unknown; direct probe reachable");
-  }
-  const blocked = dependencyBlockedLabels(check);
+  const blocked = dependencyLabels(check, "blocked_by");
   if (blocked.length > 0) parts.push(`blocked by ${blocked.join(", ")}`);
+  const degraded = dependencyLabels(check, "degraded_by");
+  if (degraded.length > 0) parts.push(`degraded by ${degraded.join(", ")}`);
+  const unconfirmed = dependencyLabels(check, "unconfirmed_dependencies");
+  if (unconfirmed.length > 0)
+    parts.push(`dependency status unconfirmed: ${unconfirmed.join(", ")}`);
   const sources = evidenceSources(check);
   if (sources.length > 0) parts.push(`evidence: ${sources.join(" + ")}`);
+  if (check.cloudflare_status_confirmed === false && check.cloudflare_warning) {
+    parts.push(String(check.cloudflare_warning));
+  }
   if (check.observation_stale === true) {
     const age = Number(check.observation_age_seconds);
-    parts.push(Number.isFinite(age) ? `stale evidence (${Math.round(age)}s old)` : "stale evidence");
+    parts.push(
+      Number.isFinite(age)
+        ? `stale evidence (${Math.round(age)}s old)`
+        : "stale evidence",
+    );
   } else if (check.observation_age_seconds != null) {
     const age = Number(check.observation_age_seconds);
     if (Number.isFinite(age)) parts.push(`observed ${Math.round(age)}s ago`);

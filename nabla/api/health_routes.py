@@ -8,6 +8,8 @@ route module. The public paths and response contracts intentionally remain uncha
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+import time
 from typing import Annotated, Any
 
 import pyroscope
@@ -22,6 +24,66 @@ from nabla.utils.logger import logger
 
 
 _NO_STORE_HEADERS = {"Cache-Control": "no-store, max-age=0", "Pragma": "no-cache"}
+_PROBE_RUNTIME_STARTED_AT = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+_PROBE_RUNTIME_STARTED_MONOTONIC = time.monotonic()
+
+
+def _nonnegative_int(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        return 0
+    return max(0, value)
+
+
+def _probe_scope_progress(summary: dict[str, Any], scope: str) -> tuple[int, int]:
+    scope_summary = summary.get(scope)
+    if not isinstance(scope_summary, dict):
+        return 0, 0
+    if scope_summary.get("enabled") is False:
+        return 0, 0
+    evidence = scope_summary.get("evidence")
+    evidence = evidence if isinstance(evidence, dict) else {}
+    return (
+        _nonnegative_int(scope_summary.get("eligible")),
+        _nonnegative_int(evidence.get("known")),
+    )
+
+
+def _probe_runtime_metadata(payload: dict[str, Any]) -> dict[str, Any]:
+    """Summarize rolling probe warm-up without scheduling any additional work."""
+    summary = payload.get("probe_summary")
+    summary = summary if isinstance(summary, dict) else {}
+    public_eligible, public_known = _probe_scope_progress(summary, "public")
+    internal_eligible, internal_known = _probe_scope_progress(summary, "internal")
+    eligible = public_eligible + internal_eligible
+    known = min(eligible, public_known + internal_known)
+    coverage = 100.0 if eligible == 0 else round((known / eligible) * 100, 1)
+
+    cadence_values: list[float] = []
+    for field in ("public_probe_results", "internal_services"):
+        rows = payload.get(field)
+        if not isinstance(rows, list):
+            continue
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            interval = row.get("probe_interval_seconds")
+            if isinstance(interval, bool) or not isinstance(interval, (int, float)):
+                continue
+            if interval > 0:
+                cadence_values.append(float(interval))
+
+    return {
+        "started_at": _PROBE_RUNTIME_STARTED_AT,
+        "uptime_seconds": round(
+            max(0.0, time.monotonic() - _PROBE_RUNTIME_STARTED_MONOTONIC),
+            3,
+        ),
+        "state": "ready" if known >= eligible else "warming",
+        "eligible_probe_slots": eligible,
+        "known_probe_slots": known,
+        "coverage_percent": coverage,
+        "estimated_full_cycle_seconds": (round(max(cadence_values), 3) if cadence_values else None),
+    }
 
 
 def register_health_routes(app: FastAPI) -> None:
@@ -114,7 +176,9 @@ def register_health_routes(app: FastAPI) -> None:
         from nabla.api.homelab_health import build_homelab_health_payload
 
         response.headers.update(_NO_STORE_HEADERS)
-        return await build_homelab_health_payload()
+        payload = dict(await build_homelab_health_payload())
+        payload["probe_runtime"] = _probe_runtime_metadata(payload)
+        return payload
 
     @app.get(
         "/api/runtime/topology",

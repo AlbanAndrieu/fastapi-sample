@@ -34,7 +34,8 @@ Environment:
   QUALITY_BASE_REF                 override comparison base
   QUALITY_LOG_TAIL                 failure log lines to print (default: 50, capped at 80)
   QUALITY_FIX_PASSES               maximum pre-commit convergence passes (default: 3)
-  QUALITY_ALLOW_LARGE_DELETION=1   acknowledge an intentional large truncation/deletion
+  QUALITY_ALLOW_LARGE_DELETION=1   acknowledge all intentional large truncations/deletions
+  QUALITY_LARGE_DELETION_ACK_FILE  reviewed-path acknowledgement file (default: .quality-gate-large-deletions)
 EOF
         exit 0
         ;;
@@ -255,8 +256,27 @@ if [[ "${BASE_REF}" != "HEAD" ]]; then
     printf '✅ branch contains comparison base %s\n' "${BASE_REF}"
 fi
 
+LARGE_DELETION_ACK_FILE="${QUALITY_LARGE_DELETION_ACK_FILE:-.quality-gate-large-deletions}"
+large_deletion_ack_file_changed=false
+if [[ "${BASE_REF}" != "HEAD" && -f "${LARGE_DELETION_ACK_FILE}" ]]; then
+    if ! git diff --quiet "${BASE_REF}...HEAD" -- "${LARGE_DELETION_ACK_FILE}"; then
+        large_deletion_ack_file_changed=true
+    fi
+fi
+
+is_large_deletion_acknowledged() {
+    local file="$1"
+    if [[ "${QUALITY_ALLOW_LARGE_DELETION:-0}" == "1" ]]; then
+        return 0
+    fi
+    if [[ "${large_deletion_ack_file_changed}" != true ]]; then
+        return 1
+    fi
+    grep -Fxq -- "${file}" "${LARGE_DELETION_ACK_FILE}"
+}
+
 large_deletion_failed=0
-if [[ "${QUALITY_ALLOW_LARGE_DELETION:-0}" != "1" && "${BASE_REF}" != "HEAD" ]]; then
+if [[ "${BASE_REF}" != "HEAD" ]]; then
     for file in "${CHANGED_FILES[@]}"; do
         case "${file}" in
             uv.lock | Pipfile.lock | package-lock.json | trivy-sbom.json)
@@ -277,9 +297,14 @@ if [[ "${QUALITY_ALLOW_LARGE_DELETION:-0}" != "1" && "${BASE_REF}" != "HEAD" ]];
         deleted_lines=$((base_lines - current_lines))
         deleted_percent=$((deleted_lines * 100 / base_lines))
         if ((deleted_lines >= 100 && deleted_percent >= 40)); then
-            printf '❌ QG_LARGE_DELETION: %s lost %d/%d lines (%d%%); set QUALITY_ALLOW_LARGE_DELETION=1 only after explicit review\n' \
-                "${file}" "${deleted_lines}" "${base_lines}" "${deleted_percent}" >&2
-            large_deletion_failed=1
+            if is_large_deletion_acknowledged "${file}"; then
+                printf '⚠️ QG_LARGE_DELETION_ACK: %s lost %d/%d lines (%d%%); reviewed path acknowledged by %s\n' \
+                    "${file}" "${deleted_lines}" "${base_lines}" "${deleted_percent}" "${LARGE_DELETION_ACK_FILE}"
+            else
+                printf '❌ QG_LARGE_DELETION: %s lost %d/%d lines (%d%%); review it and add the exact path to a changed %s, or set QUALITY_ALLOW_LARGE_DELETION=1 for an explicit global override\n' \
+                    "${file}" "${deleted_lines}" "${base_lines}" "${deleted_percent}" "${LARGE_DELETION_ACK_FILE}" >&2
+                large_deletion_failed=1
+            fi
         fi
     done
 
@@ -297,9 +322,14 @@ if [[ "${QUALITY_ALLOW_LARGE_DELETION:-0}" != "1" && "${BASE_REF}" != "HEAD" ]];
         git cat-file -e "${BASE_REF}:${file}" 2>/dev/null || continue
         base_lines="$(git show "${BASE_REF}:${file}" | wc -l | tr -d ' ')"
         if ((base_lines >= 200)); then
-            printf '❌ QG_LARGE_DELETION: %s was deleted (%d lines); set QUALITY_ALLOW_LARGE_DELETION=1 only after explicit review\n' \
-                "${file}" "${base_lines}" >&2
-            large_deletion_failed=1
+            if is_large_deletion_acknowledged "${file}"; then
+                printf '⚠️ QG_LARGE_DELETION_ACK: %s was deleted (%d lines); reviewed path acknowledged by %s\n' \
+                    "${file}" "${base_lines}" "${LARGE_DELETION_ACK_FILE}"
+            else
+                printf '❌ QG_LARGE_DELETION: %s was deleted (%d lines); review it and add the exact path to a changed %s, or set QUALITY_ALLOW_LARGE_DELETION=1 for an explicit global override\n' \
+                    "${file}" "${base_lines}" "${LARGE_DELETION_ACK_FILE}" >&2
+                large_deletion_failed=1
+            fi
         fi
     done
 fi
