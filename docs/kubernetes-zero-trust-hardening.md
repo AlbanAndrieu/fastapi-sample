@@ -1,6 +1,6 @@
 # Kubernetes Zero Trust deployment hardening roadmap
 
-Last updated: 2026-09-10.
+Last updated: 2026-09-11.
 
 Target: make `charts/generic-service` and the Kubernetes deployment examples
 **PSS Restricted-compatible by default**, while keeping explicit documented
