@@ -20,10 +20,10 @@ provider probes / runtime inventory
             |
             v
     FastAPI health-board
-       stale-while-revalidate
+        stale-while-revalidate
             |
             v
- diagnose-local-runtime-dependencies.py
+  diagnose-local-runtime-dependencies.py
 ```
 
 A diagnostic run must not multiply TrueNAS, pfSense, Cloudflare, Prometheus, Sentry or Pyroscope traffic.

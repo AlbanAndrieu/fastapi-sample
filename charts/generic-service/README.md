@@ -87,7 +87,7 @@ To inject SOPS-decrypted secrets from `secrets-enc.yaml` into the application:
 1. Install [helm-secrets](https://github.com/jkroepke/helm-secrets).
 2. Set `sopsSecrets.enabled: true` and adjust `sopsSecrets.keys`.
 3. Install/upgrade with the encrypted file:
-   `helm secrets upgrade --install <release> . -f values.yaml -f secrets-enc.yaml`.
+    `helm secrets upgrade --install <release> . -f values.yaml -f secrets-enc.yaml`.
 
 The chart creates a Secret from those values and the Deployment loads it via
 `envFrom`.

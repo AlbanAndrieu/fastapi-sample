@@ -181,12 +181,12 @@ The durable architecture is LAN-side observation with sanitized publication:
 
 ```text
 pfSense
-   | read-only REST API over LAN
-   v
+    | read-only REST API over LAN
+    v
 FastAPI TrueNAS observer
-   | normalized/sanitized state
-   +--> FastAPI health board / private diagnostics
-   +--> optional outbound authenticated projection for FastAPI Cloud
+    | normalized/sanitized state
+    +--> FastAPI health board / private diagnostics
+    +--> optional outbound authenticated projection for FastAPI Cloud
 
 pfSense --> pfsense_exporter --> Prometheus --> runtime telemetry
 ```
@@ -205,14 +205,14 @@ Do not close the pfSense runtime work until all of the following are proven:
 
 1. webConfigurator and PHP-FPM recover without a firewall reboot;
 2. the bounded authenticated `/api/v2/system/version` call returns `2xx` from
-   the FastAPI TrueNAS runtime path;
+    the FastAPI TrueNAS runtime path;
 3. Unbound state is independently known and no DNS dependency loop through
-   TrueNAS/Pi-hole can make LAN clients lose resolution when an app host fails;
+    TrueNAS/Pi-hole can make LAN clients lose resolution when an app host fails;
 4. Prometheus `pfsense_exporter` remains operational and is treated as telemetry,
-   not a replacement for authoritative REST control-plane state;
+    not a replacement for authoritative REST control-plane state;
 5. FastAPI/Uptime Kuma/Prometheus polling frequencies are inventoried and proven
-   not to create synchronized pressure against pfSense;
+    not to create synchronized pressure against pfSense;
 6. a recurrence captures nginx/PHP-FPM/Unbound/process/log evidence before
-   service restarts;
+    service restarts;
 7. any remaining risk or deferred hardening remains recorded in
-   `docs/engineering-roadmap.md`.
+    `docs/engineering-roadmap.md`.
