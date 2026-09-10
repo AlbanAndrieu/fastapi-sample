@@ -169,3 +169,25 @@ def test_agent_completion_policy_requires_roadmap_accounting() -> None:
     assert "Cloudflare control-plane evidence" in roadmap
     assert "Sentry application acceptance" in roadmap
     assert "Pyroscope application acceptance" in roadmap
+
+
+def test_master_red_remediation_is_post_merge_and_deduplicated() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "master-red-remediation.yml").read_text(
+        encoding="utf-8",
+    )
+
+    assert "name: Master red remediation" in workflow
+    assert "branches: [master]" in workflow
+    assert "workflows=(python.yml production-smoke.yml)" in workflow
+    assert "gh workflow run" in workflow
+    assert "--event workflow_dispatch" in workflow
+    assert "MASTER_REMEDIATION_TOKEN" in workflow
+    assert "issues: write" in workflow
+    assert "pull-requests: write" in workflow
+    assert "contents: write" in workflow
+    assert "[master-red:${short_sha}]" in workflow
+    assert "remediation/master-red-${short_sha}" in workflow
+    assert "docs/remediation/master-red-${short_sha}.md" in workflow
+    assert "Do not merge this PR while it only contains this evidence file" in workflow
+    assert "docs/engineering-roadmap.md" in workflow
+    assert "Keep red master visible until remediation" in workflow
