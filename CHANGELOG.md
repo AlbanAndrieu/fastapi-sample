@@ -1,3 +1,10 @@
+## [1.13.15](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.13.14...1.13.15) (2026-09-10)
+
+
+### Bug Fixes
+
+* **health:** keep probe deadlines and Cloudflare uncertainty non-degrading ([#235](https://github.com/AlbanAndrieu/fastapi-sample/issues/235)) ([025a760](https://github.com/AlbanAndrieu/fastapi-sample/commit/025a76077f60dc0f8e4318ff14bf24dc16fe170a))
+
 ## [1.13.14](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.13.13...1.13.14) (2026-09-10)
 
 
