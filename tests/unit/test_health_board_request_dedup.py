@@ -10,19 +10,21 @@ def test_health_board_reuses_one_aggregate_request_per_refresh() -> None:
     shared = (ASSETS / "api-homelab-health.js").read_text(encoding="utf-8")
     board = (ASSETS / "api-health-board.js").read_text(encoding="utf-8")
     bootstrap = (ASSETS / "api-health.js").read_text(encoding="utf-8")
+    controller = (ASSETS / "api-health-controller.js").read_text(encoding="utf-8")
     health = (ASSETS / "api-health-core.js").read_text(encoding="utf-8")
     truenas = (ASSETS / "api-truenas.js").read_text(encoding="utf-8")
 
     assert '/api/health-board${force ? "?refresh=true" : ""}' in board
     assert "let healthBoardRequest = null" in board
-    assert "resetHealthBoardRequest({ forceRefresh });" in bootstrap
-    assert "loadTrueNas();" in bootstrap
-    assert "finally(() => loadTrueNas())" not in bootstrap
+    assert "resetHealthBoardRequest({ forceRefresh });" in controller
+    assert "loadTrueNas();" in controller
+    assert "finally(() => loadTrueNas())" not in controller
+    assert "installHealthBoardController();" in bootstrap
     assert 'from "./api-health-board.js"' in health
     assert 'from "./api-homelab-health.js"' in truenas
     assert 'from "./api-health-board.js"' in shared
     assert 'fetch("/healthz"' not in health
-    assert 'fetch("/sickz"' not in bootstrap
+    assert 'fetch("/sickz"' not in controller
     assert 'fetch("/api/homelab/health"' not in health
     assert 'fetch("/api/homelab/health"' not in truenas
 
