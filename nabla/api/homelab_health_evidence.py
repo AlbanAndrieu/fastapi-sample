@@ -6,7 +6,10 @@ import asyncio
 from typing import Any, Iterable
 
 from nabla.api.homelab_catalog import fetch_homelab_services
-from nabla.api.homelab_declared import fetch_declared_service_catalog
+from nabla.api.homelab_declared import (
+    DeclaredServiceCatalog,
+    fetch_declared_service_catalog,
+)
 from nabla.api.homelab_dependency_health import propagate_required_dependency_health
 from nabla.api.homelab_exposure import enrich_service_exposure, observe_cloudflare_exposure
 from nabla.api.homelab_models import HomelabService
@@ -29,6 +32,42 @@ def _truenas_internal_hosts(services: Iterable[HomelabService]) -> frozenset[str
     )
 
 
+def _supplement_declared_runtime_services(
+    services: list[HomelabService],
+    declared: DeclaredServiceCatalog,
+) -> list[HomelabService]:
+    """Add code-owned TrueNAS workloads missing from the legacy probe catalog.
+
+    The generated x-nabla catalog is authoritative for workload identity. Added
+    rows are runtime-only here: endpoint probing still requires explicit health
+    targets in the probe catalog, so discovering a URL can never create exposure.
+    """
+    supplemented = list(services)
+    existing = {service.service_id for service in supplemented}
+    for item in declared.services:
+        runtime = item.runtime
+        if item.service_id in existing or runtime is None:
+            continue
+        if runtime.provider != "truenas-app" or item.presentation_role is None:
+            continue
+        supplemented.append(
+            HomelabService(
+                id=item.service_id,
+                name=item.name,
+                description=item.description,
+                tunnelUrl=item.url,
+                external=False,
+                sourceId=item.compose_service,
+                healthNote=(
+                    "Runtime discovered from generated x-nabla catalog; "
+                    "functional endpoint probe not declared."
+                ),
+            )
+        )
+        existing.add(item.service_id)
+    return supplemented
+
+
 async def prepare_homelab_reconciliation_context(
     services: list[HomelabService],
 ) -> dict[str, Any]:
@@ -39,7 +78,7 @@ async def prepare_homelab_reconciliation_context(
     pfsense_dns_task = asyncio.create_task(
         observe_pfsense_dns_posture(
             truenas_hosts=_truenas_internal_hosts(services),
-        ),
+        )
     )
     declared, cloudflare, topology, pfsense_dns = await asyncio.gather(
         declared_task,
@@ -72,12 +111,13 @@ async def reconcile_homelab_health_payload(
         services = await fetch_homelab_services()
         context = await prepare_homelab_reconciliation_context(services)
     else:
-        services = context["services"]
+        services = list(context["services"])
 
     declared = context["declared"]
     cloudflare = context["cloudflare"]
     topology = context["topology"]
     pfsense_dns = context["pfsense_dns"]
+    services = _supplement_declared_runtime_services(services, declared)
 
     checked_at = str(payload.get("checked_at") or "").strip() or None
     truenas = payload.get("truenas")
@@ -134,6 +174,8 @@ async def reconcile_homelab_health_payload(
         "reconciliation": {
             "provider_reads_reused": True,
             "truenas_runtime_source": runtime_source,
+            "legacy_probe_services": len(context["services"]),
+            "reconciled_services": len(services),
             "evidence_precedence": [
                 "truenas-runtime",
                 "http-https-tcp",
