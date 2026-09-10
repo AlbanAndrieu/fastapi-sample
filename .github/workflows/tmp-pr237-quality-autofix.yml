@@ -1,0 +1,58 @@
+name: Temporary PR237 quality autofix
+
+on:
+  push:
+    branches:
+      - fix/generic-service-restricted-security
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tmp-pr237-quality-autofix
+  cancel-in-progress: false
+
+jobs:
+  converge:
+    if: github.actor != 'github-actions[bot]' || contains(github.event.head_commit.message, 'temporary quality autofix')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: fix/generic-service-restricted-security
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: '0.12.1'
+          python-version: '3.13'
+      - name: Install locked environment
+        run: |
+          uv sync --frozen
+          uv pip install pre-commit==4.6.2
+      - name: Converge pre-commit config
+        shell: bash
+        run: |
+          set -u
+          for pass in 1 2 3 4; do
+            echo "pre-commit convergence pass ${pass}"
+            if uv run pre-commit run --files .pre-commit-config.yaml; then
+              break
+            fi
+          done
+      - name: Commit canonical formatting and remove helper
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/tmp-pr237-quality-autofix.yml
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'No changes to commit.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'style(ci): converge quality gate formatting'
+          git push origin HEAD:fix/generic-service-restricted-security
