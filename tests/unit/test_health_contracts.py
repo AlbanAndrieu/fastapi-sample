@@ -77,6 +77,7 @@ def test_optional_deadline_is_unknown_warning_not_degradation() -> None:
     assert payload["checks"]["garage"]["reachable"] is None
     assert payload["checks"]["garage"]["status_confirmed"] is False
     assert payload["checks"]["garage"]["severity"] == "warning"
+    assert payload["checks"]["garage"]["effective_state"] == "warn"
     assert payload["checks"]["garage"]["warning"].startswith("⚠️")
 
 
@@ -103,8 +104,66 @@ def test_cloudflare_retrieval_failure_is_unconfirmed_not_degraded() -> None:
     assert cloudflare["reachable"] is None
     assert cloudflare["degraded"] is False
     assert cloudflare["status_confirmed"] is False
-    assert "Cloudflare status could not be confirmed" in cloudflare["warning"]
-    assert cloudflare["error"] == "connection timed out"
+    assert cloudflare["effective_state"] == "warn"
+    assert "Cloudflare global status could not be confirmed" in cloudflare["warning"]
+    assert "connection timed out" in cloudflare["error"]
+
+
+def test_stale_cloudflare_inventory_is_context_not_current_health() -> None:
+    payload = health_contracts.apply_diagnostic_status(
+        {
+            "checks": {
+                "postgres": {"reachable": True},
+                "redis": {"reachable": True},
+                "supabase": {"reachable": True},
+                "cloudflare": {
+                    "reachable": True,
+                    "api_reachable": True,
+                    "tunnel_count": 2,
+                    "healthy_tunnels": 2,
+                    "unhealthy_tunnels": 0,
+                    "tunnel_statuses": ["healthy", "healthy"],
+                    "stale": True,
+                    "refresh_error": "read timeout",
+                },
+            },
+        },
+    )
+
+    cloudflare = payload["checks"]["cloudflare"]
+    assert payload["status"] == "healthy"
+    assert cloudflare["reachable"] is None
+    assert cloudflare["last_known_reachable"] is True
+    assert cloudflare["status_confirmed"] is False
+    assert cloudflare["degraded"] is False
+    assert cloudflare["effective_state"] == "warn"
+    assert "Cloudflare global status could not be confirmed" in cloudflare["error"]
+    assert "read timeout" in cloudflare["error"]
+
+
+def test_unconfigured_cloudflare_is_warning_not_degradation() -> None:
+    payload = health_contracts.apply_diagnostic_status(
+        {
+            "checks": {
+                "postgres": {"reachable": True},
+                "redis": {"reachable": True},
+                "supabase": {"reachable": True},
+                "cloudflare": {
+                    "reachable": None,
+                    "skipped": True,
+                    "reason": "Cloudflare credentials are not configured",
+                    "probe": "cloudflare_tunnel_api",
+                },
+            },
+        },
+    )
+
+    cloudflare = payload["checks"]["cloudflare"]
+    assert payload["status"] == "healthy"
+    assert cloudflare["reachable"] is None
+    assert cloudflare["status_confirmed"] is False
+    assert cloudflare["effective_state"] == "warn"
+    assert cloudflare["reason"].startswith("⚠️ Cloudflare global status could not be confirmed")
 
 
 def test_confirmed_unhealthy_cloudflare_inventory_still_degrades() -> None:
