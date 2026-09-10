@@ -147,12 +147,9 @@ function render(snapshot) {
   recentEgress.innerHTML = renderPills(runtime.recent_egress_ips);
   renderInstances(runtime.instances);
 
+  // Never change <details>.open from telemetry. A refresh must update evidence
+  // without stealing the operator's explicit expand/collapse choice.
   const degraded = runtime.degraded === true;
-  const truenasApi = snapshot?.healthz?.checks?.truenas_api;
-  const truenasApiHealthy = truenasApi?.reachable === true;
-  if (panel instanceof HTMLDetailsElement) {
-    panel.open = degraded || !truenasApiHealthy;
-  }
   state.className = `runtime-topology-state runtime-topology-state--${degraded ? "warn" : "ok"}`;
   if (isFastapiCloud) {
     state.textContent = degraded ? "local observation only" : `${count} active observed`;
