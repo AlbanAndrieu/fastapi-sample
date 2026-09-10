@@ -27,10 +27,13 @@ jobs:
         run: |
           set -euo pipefail
           python scripts/tmp-pr237-ui-zap-followup.py
+          # GitHub's workflow GITHUB_TOKEN may not create another workflow.
+          # The connector writes security-zap.yml immediately after this patch.
+          rm -f .github/workflows/security-zap.yml
           git diff --check
           git config user.name openai-agent
           git config user.email openai-agent@users.noreply.github.com
           git add -A
-          git rm scripts/tmp-pr237-ui-zap-followup.py .github/workflows/tmp-pr237-ui-zap-followup.yml
-          git commit -m "fix(ui): stabilize health refresh and add dual ZAP DAST"
+          git rm scripts/tmp-pr237-ui-zap-followup.py
+          git commit -m "fix(ui): stabilize health refresh and prepare dual ZAP DAST"
           git push origin HEAD:fix/generic-service-restricted-security
