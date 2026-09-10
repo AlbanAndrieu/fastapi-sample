@@ -106,6 +106,14 @@ from the TrueNAS-hosted FastAPI runtime.
       dependency gate has converged or any intentionally deferred exception is
       explicitly documented here with its acceptance boundary.
 
+### UI refresh stability + dual ZAP DAST follow-up (PR #237)
+
+- [x] Prioritize service outcomes before TrueNAS/runtime drill-downs and collapse FastAPI Cloud runtime plus homelab fan-out details by default.
+- [x] Decouple high-frequency service polling from TrueNAS/runtime technical refresh and skip destructive service/exposure DOM rebuilds when semantic state is unchanged.
+- [x] Run OWASP ZAP Web baseline and OpenAPI active DAST against an isolated runner-local FastAPI instance for PR application changes; never active-scan pfSense/TrueNAS production APIs from this job.
+- [ ] After the first successful PR ZAP execution, review the Web/API artifacts and tune only documented false positives in `.zap/web-rules.tsv` / `.zap/api-rules.tsv`; scanner/configuration failures must remain distinct from zero findings.
+- [ ] Consider a post-deploy **passive Web baseline** against FastAPI Cloud once the production deployment gate is healthy. Keep active OpenAPI attacks on isolated disposable targets unless an explicit non-production remote DAST environment is introduced.
+
 ## P1 — Runtime stability and appliance protection
 
 Treat this section as the near-term stability gate. Do not add broad new

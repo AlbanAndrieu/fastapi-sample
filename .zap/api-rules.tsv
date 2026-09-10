@@ -1,0 +1,8 @@
+10020	WARN	(Anti-clickjacking is a Web UI concern; API responses remain reported)
+10021	FAIL	(X-Content-Type-Options must be nosniff)
+10023	FAIL	(API debug/error disclosure is blocking)
+10035	WARN	(HSTS is not expected on the intentionally HTTP-only ephemeral CI target)
+10036	WARN	(Server header information disclosure requires triage)
+10038	WARN	(CSP is not an API-response blocking criterion)
+40018	FAIL	(SQL Injection)
+90020	FAIL	(Remote OS Command Injection)

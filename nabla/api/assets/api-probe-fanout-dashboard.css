@@ -6,6 +6,34 @@
   background: #0d0d0d;
 }
 
+.probe-dashboard > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.probe-dashboard > summary::-webkit-details-marker {
+  display: none;
+}
+
+.probe-dashboard-collapsed-hint {
+  flex-shrink: 0;
+  color: #8f8f8f;
+  font-size: 0.66rem;
+}
+
+.probe-dashboard[open] .probe-dashboard-collapsed-hint {
+  color: #d7d7d7;
+}
+
+.probe-dashboard-body {
+  margin-top: 0.65rem;
+}
+
+.probe-dashboard-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .probe-dashboard-heading {
   display: flex;
   align-items: flex-start;

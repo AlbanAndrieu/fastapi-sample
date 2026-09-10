@@ -351,17 +351,21 @@ function ensureDashboard() {
 
   let root = document.getElementById(DASHBOARD_ID);
   if (root) return root;
-  root = document.createElement("section");
+  root = document.createElement("details");
   root.id = DASHBOARD_ID;
   root.className = "probe-dashboard";
   root.innerHTML = `
-    <div class="probe-dashboard-heading">
+    <summary class="probe-dashboard-heading">
       <div>
         <h4>Homelab probe fan-out</h4>
         <p id="probe-dashboard-activity">Waiting for the first bounded probe snapshot…</p>
       </div>
-      <button type="button" id="probe-dashboard-refresh" class="probe-dashboard-refresh">Refresh view</button>
-    </div>
+      <span class="probe-dashboard-collapsed-hint">Details</span>
+    </summary>
+    <div class="probe-dashboard-body">
+      <div class="probe-dashboard-actions">
+        <button type="button" id="probe-dashboard-refresh" class="probe-dashboard-refresh">Refresh details</button>
+      </div>
     <div class="probe-dashboard-progress" aria-live="polite">
       <div class="probe-dashboard-progress-copy">
         <strong id="probe-dashboard-coverage">0% evidence coverage</strong>
@@ -377,8 +381,13 @@ function ensureDashboard() {
     <div id="probe-dashboard-latest"></div>
     <div id="probe-dashboard-previous"></div>
     <p class="probe-dashboard-note">Coverage counts eligible probe slots, not catalog services: one service may have both a public and LAN probe. Disabled or unconfigured targets are excluded from the eligible denominator. The server keeps the 12-per-scope bounded scheduler and 30-second snapshot cache.</p>
+    </div>
   `;
   legacySummary.insertAdjacentElement("beforebegin", root);
+
+  root.addEventListener("toggle", () => {
+    if (root.open && lastPayload) renderDashboard(lastPayload);
+  });
 
   const button = root.querySelector("#probe-dashboard-refresh");
   button?.addEventListener("click", async () => {
@@ -396,7 +405,7 @@ function ensureDashboard() {
     } finally {
       refreshInFlight = false;
       button.disabled = false;
-      button.textContent = "Refresh view";
+      button.textContent = "Refresh details";
     }
   });
   return root;
@@ -421,9 +430,17 @@ function clarifyRuntimeTimeout(data) {
 }
 
 function renderDashboard(data) {
-  if (!ensureDashboard()) return;
+  const root = ensureDashboard();
+  if (!root) return;
   lastPayload = data;
   const model = progressModel(data);
+  renderActivity(
+    `${model.coverage.toFixed(1)}% evidence · ${model.healthyCoverage.toFixed(1)}% healthy · ${model.counts.fail} failed · ${model.counts.warn} warning`,
+  );
+  if (!root.open) {
+    clarifyRuntimeTimeout(data);
+    return;
+  }
   const coverage = document.getElementById("probe-dashboard-coverage");
   const health = document.getElementById("probe-dashboard-health");
   const bar = document.getElementById("probe-dashboard-progress-bar");

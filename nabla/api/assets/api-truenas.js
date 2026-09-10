@@ -105,7 +105,7 @@ function trafficStages(data, stages) {
 function ensureIngressBlock(target) {
   let container = document.getElementById("truenas-ingress-block");
   if (container || !target) return container;
-  container = document.createElement("div");
+  container = document.createElement("details");
   container.id = "truenas-ingress-block";
   container.className = "truenas-ingress-block";
   target.insertAdjacentElement("afterend", container);
@@ -136,8 +136,10 @@ function renderIngressBlock(data, target) {
   if (!container) return;
   const block = data?.pfsense?.dns?.ingress_block;
   const controlPath = block?.control_path;
+  const wasOpen = container.open === true;
   if (data?.truenas?.diagnostics?.path_mode === "direct_lan") {
     container.hidden = true;
+    container.open = false;
     container.innerHTML = "";
     container.className = "truenas-ingress-block";
     return;
@@ -154,11 +156,14 @@ function renderIngressBlock(data, target) {
     container.className =
       "truenas-ingress-block truenas-ingress-block--warning";
     container.hidden = false;
+    container.open = wasOpen;
     container.innerHTML =
-      "<strong>⚠ pfSense security telemetry temporarily unavailable</strong>" +
+      "<summary><strong>⚠ pfSense security telemetry temporarily unavailable</strong></summary>" +
+      '<div class="truenas-ingress-detail">' +
       `<span>${evidence}</span>` +
       (timing ? `<span>${timing}</span>` : "") +
-      `<span>Control path: ${path} · ${escapeText(independence)}</span>`;
+      `<span>Control path: ${path} · ${escapeText(independence)}</span>` +
+      "</div>";
     return;
   }
 
@@ -174,11 +179,14 @@ function renderIngressBlock(data, target) {
     container.className =
       "truenas-ingress-block truenas-ingress-block--warning";
     container.hidden = false;
+    container.open = wasOpen;
     container.innerHTML =
-      "<strong>⚠ Snort telemetry stale · last-known-good table retained</strong>" +
+      "<summary><strong>⚠ Snort telemetry stale · last-known-good table retained</strong></summary>" +
+      '<div class="truenas-ingress-detail">' +
       `<span>${evidence}</span>` +
       (timing ? `<span>${timing}</span>` : "") +
-      `<span>${escapeText(match)}</span>`;
+      `<span>${escapeText(match)}</span>` +
+      "</div>";
     return;
   }
 
@@ -186,14 +194,18 @@ function renderIngressBlock(data, target) {
     container.className =
       "truenas-ingress-block truenas-ingress-block--warning";
     container.hidden = false;
+    container.open = wasOpen;
     container.innerHTML =
-      "<strong>⚠ Snort telemetry available · egress attribution unavailable</strong>" +
-      `<span>${escapeText(block?.evidence || "Runtime public egress IP was not observed")}</span>`;
+      "<summary><strong>⚠ Snort telemetry available · egress attribution unavailable</strong></summary>" +
+      '<div class="truenas-ingress-detail">' +
+      `<span>${escapeText(block?.evidence || "Runtime public egress IP was not observed")}</span>` +
+      "</div>";
     return;
   }
 
   if (block?.state !== "blocked") {
     container.hidden = true;
+    container.open = false;
     container.innerHTML = "";
     container.className = "truenas-ingress-block";
     return;
@@ -207,10 +219,13 @@ function renderIngressBlock(data, target) {
   const evidence = escapeText(block?.evidence || "");
   container.className = "truenas-ingress-block";
   container.hidden = false;
+  container.open = true;
   container.innerHTML =
-    `<strong>💀 Ingress blocked by ${engine} → ${firewall}</strong>` +
+    `<summary><strong>💀 Ingress blocked by ${engine} → ${firewall}</strong></summary>` +
+    '<div class="truenas-ingress-detail">' +
     `<span>${source} → ${destination}</span>` +
-    `<span>Evidence: ${mechanism} · ${evidence}</span>`;
+    `<span>Evidence: ${mechanism} · ${evidence}</span>` +
+    "</div>";
 }
 
 function apiFailureState(api) {

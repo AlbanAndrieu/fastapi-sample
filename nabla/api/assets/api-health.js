@@ -34,13 +34,19 @@ function logRefreshClick() {
   });
 }
 
-function loadHealthBoards({ forceRefresh = false, showPending = true } = {}) {
+function loadHealthBoards({
+  forceRefresh = false,
+  showPending = true,
+  includeTechnical = false,
+} = {}) {
   resetHealthBoardRequest({ forceRefresh });
   if (showPending) markHealthBoardsPending();
-  loadRuntimeTopology();
-  loadTrueNas();
   loadHealth();
   loadSickz();
+  if (includeTechnical) {
+    loadRuntimeTopology();
+    loadTrueNas();
+  }
   return fetchHealthBoard()
     .then((snapshot) => {
       decorateCloudflareTunnelStatuses(snapshot.sickz);
@@ -68,6 +74,25 @@ function scheduleAutomaticRefresh(delayMs = HEALTH_BOARD_IDLE_POLL_MS) {
   }, delayMs);
 }
 
+function technicalDetailsOpen() {
+  return (
+    document.getElementById("runtime-topology")?.open === true ||
+    document.getElementById("truenas-probe-dashboard")?.open === true
+  );
+}
+
+function installTechnicalDetailRefresh() {
+  const runtime = document.getElementById("runtime-topology");
+  runtime?.addEventListener("toggle", () => {
+    if (runtime.open) loadRuntimeTopology();
+  });
+
+  const fanout = document.getElementById("truenas-probe-dashboard");
+  fanout?.addEventListener("toggle", () => {
+    if (fanout.open) loadTrueNas();
+  });
+}
+
 function installAutomaticRefresh() {
   scheduleAutomaticRefresh();
   document.addEventListener("visibilitychange", () => {
@@ -79,13 +104,17 @@ function installAutomaticRefresh() {
 document.querySelectorAll(".health-refresh").forEach((button) => {
   button.addEventListener("click", () => {
     logRefreshClick();
-    loadHealthBoards({ forceRefresh: true });
+    loadHealthBoards({
+      forceRefresh: true,
+      includeTechnical: technicalDetailsOpen(),
+    });
   });
 });
 
 installPfsensePortLabels();
 installServiceFilter();
 installProbeFanoutDashboard();
+installTechnicalDetailRefresh();
 startProbeAgeTicker();
-loadHealthBoards();
+loadHealthBoards({ includeTechnical: true });
 installAutomaticRefresh();
