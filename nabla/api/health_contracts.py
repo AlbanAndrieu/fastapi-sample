@@ -102,7 +102,7 @@ def _normalize_optional_uncertainty(
         check.get("refresh_error")
         or check.get("error")
         or check.get("reason")
-        or ""
+        or "",
     ).strip()
     if name == "cloudflare" and cloudflare_inventory_observed:
         normalized["last_known_reachable"] = check.get("reachable")
