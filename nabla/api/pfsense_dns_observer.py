@@ -62,9 +62,7 @@ def pfsense_api_configuration_status() -> dict[str, object]:
         status["configured"] = False
         status["configuration_stage"] = "invalid_configuration"
     status["invalid_configuration_variables"] = invalid_variables
-    status["credential_mode"] = (
-        "dedicated_posture" if key_var == "PFSENSE_POSTURE_API_KEY" else "legacy_shared"
-    )
+    status["credential_mode"] = "dedicated_posture" if key_var == "PFSENSE_POSTURE_API_KEY" else "legacy_shared"
     return status
 
 
@@ -124,10 +122,7 @@ def _service_identity(row: dict[str, Any]) -> str:
     normalized = str(row.get("identity") or "").strip().casefold()
     if normalized:
         return normalized
-    return " ".join(
-        str(row.get(key) or "")
-        for key in ("name", "service", "description", "title")
-    ).casefold()
+    return " ".join(str(row.get(key) or "") for key in ("name", "service", "description", "title")).casefold()
 
 
 def _service_runtime_state(row: dict[str, Any]) -> str:
@@ -190,21 +185,13 @@ def _security_filter_observations(
             "label": "pfSense/PF firewall",
             "state": "blocked" if snort_blocked else "in_path",
             "detail": (
-                "PF is enforcing the snort2c block for the observed FastAPI egress"
-                if snort_blocked
-                else "PF is on the WAN ingress path; the exact matching rule is not attributed"
+                "PF is enforcing the snort2c block for the observed FastAPI egress" if snort_blocked else "PF is on the WAN ingress path; the exact matching rule is not attributed"
             ),
         }
     ]
-    service_rows = [
-        row for row in services if isinstance(row, dict)
-    ] if isinstance(services, list) else []
+    service_rows = [row for row in services if isinstance(row, dict)] if isinstance(services, list) else []
     for filter_id, matchers in _SECURITY_SERVICE_MATCHERS.items():
-        matches = [
-            row
-            for row in service_rows
-            if any(matcher in _service_identity(row) for matcher in matchers)
-        ]
+        matches = [row for row in service_rows if any(matcher in _service_identity(row) for matcher in matchers)]
         if filter_id == "snort" and snort_blocked:
             state = "blocked"
             detail = "Observed FastAPI egress is present in the Snort snort2c PF table"
@@ -231,7 +218,7 @@ def _security_filter_observations(
             detail = "snort2c telemetry is unavailable"
         else:
             state = "not_observed"
-            detail = "Not exposed by /api/v2/status/services"
+            detail = "No matching row observed in /api/v2/status/services; absence of observation is not proof that the service is stopped"
         filters.append(
             {
                 "id": filter_id,
@@ -325,6 +312,7 @@ def _resolver_payload(value: object) -> dict[str, Any]:
 async def _observe_posture_origin_bounded(
     settings: PfSenseDNSSettings,
 ) -> dict[str, Any]:
+    """Observe pfSense liveness and policy endpoints independently."""
     paths = {
         "system": "/api/v2/system/version",
         "services": "/api/v2/status/services",
@@ -344,51 +332,45 @@ async def _observe_posture_origin_bounded(
         follow_redirects=False,
         verify=settings.verify_ssl,
     ) as client:
-        try:
-            await _get_data(client, paths["system"])
-        except (httpx.HTTPError, ValueError) as exc:
-            return {
-                "reachable": False,
-                "error_stage": "system",
-                "error": _safe_error(exc),
-                "services": [],
-                "resolver": {},
-                "upstreams": [],
-            }
-        remaining = await _bounded_observations(
-            client,
-            {name: path for name, path in paths.items() if name != "system"},
-        )
+        observations = await _bounded_observations(client, paths)
 
-    failure = next(
-        (
-            (name, value)
-            for name, value in remaining.items()
-            if isinstance(value, BaseException)
-        ),
-        None,
-    )
-    services = remaining.get("services")
-    resolver = remaining.get("resolver")
-    system_dns = remaining.get("system_dns")
+    failures = {name: value for name, value in observations.items() if isinstance(value, BaseException)}
+    successful = {name: value for name, value in observations.items() if not isinstance(value, BaseException)}
+    services = observations.get("services")
+    resolver = observations.get("resolver")
+    system_dns = observations.get("system_dns")
+    system = observations.get("system")
+    policy_complete = all(name in successful for name in ("services", "resolver", "system_dns"))
+    system_version = None
+    if isinstance(system, dict):
+        for key in ("version", "base_version", "installed_version"):
+            value = system.get(key)
+            if value is not None and str(value).strip():
+                system_version = str(value).strip()[:80]
+                break
+
     result: dict[str, Any] = {
-        "reachable": True,
-        "services": _sanitize_services(
-            None if isinstance(services, BaseException) else services
-        ),
-        "resolver": _resolver_payload(
-            None if isinstance(resolver, BaseException) else resolver
-        ),
-        "upstreams": list(
-            _dns_upstreams(
-                None if isinstance(system_dns, BaseException) else system_dns
-            )
-        ),
+        "reachable": "system" in successful,
+        "liveness_reachable": "system" in successful,
+        "complete": not failures,
+        "policy_complete": policy_complete,
+        "system_version": system_version,
+        "services": _sanitize_services(None if isinstance(services, BaseException) else services),
+        "resolver": _resolver_payload(None if isinstance(resolver, BaseException) else resolver),
+        "upstreams": list(_dns_upstreams(None if isinstance(system_dns, BaseException) else system_dns)),
+        "endpoint_status": {
+            name: {
+                "reachable": not isinstance(value, BaseException),
+                **({"error": _safe_error(value)} if isinstance(value, BaseException) else {}),
+            }
+            for name, value in observations.items()
+        },
     }
-    if failure is not None:
-        stage, error = failure
+    if failures:
+        stage, error = next(iter(failures.items()))
         result["error_stage"] = stage
         result["error"] = _safe_error(error)
+        result["errors"] = {name: _safe_error(value) for name, value in failures.items()}
     return result
 
 
@@ -408,7 +390,7 @@ async def _observe_posture_origin(settings: PfSenseDNSSettings) -> dict[str, Any
 
 
 def _posture_success(value: dict[str, Any]) -> bool:
-    return value.get("reachable") is True and not value.get("error_stage")
+    return value.get("policy_complete") is True
 
 
 async def _cached_posture(settings: PfSenseDNSSettings) -> dict[str, Any]:
@@ -419,7 +401,7 @@ async def _cached_posture(settings: PfSenseDNSSettings) -> dict[str, Any]:
         policy=_PFSENSE_POSTURE_CACHE_POLICY,
     )
     current = dict(cached.value)
-    current_failure = current.get("reachable") is False or bool(current.get("error_stage"))
+    current_failure = current.get("policy_complete") is False
     if (current_failure or cached.metadata.get("stale") is True) and cached.last_good:
         result = dict(cached.last_good)
         result["stale"] = True
@@ -437,7 +419,7 @@ async def observe_pfsense_dns_posture(
     truenas_hosts: frozenset[str] = frozenset(),
     settings: PfSenseDNSSettings | None = None,
 ) -> dict[str, Any]:
-    """Return cached posture plus egress-specific Snort/PF evidence."""
+    """Return service/DNS posture plus independent Snort/PF evidence."""
     configuration = pfsense_api_configuration_status() if settings is None else None
     configured = settings or PfSenseDNSSettings.from_environment()
     if configured is None:
@@ -448,41 +430,42 @@ async def observe_pfsense_dns_posture(
             "reachable": None,
             "policy_state": "unknown",
             "reason": "pfSense posture observation is not configured",
-            "security_filters": _security_filter_observations(None, ingress_block=ingress),
+            "services": [],
+            "security_filters": _security_filter_observations(
+                None,
+                ingress_block=ingress,
+            ),
             "ingress_block": ingress,
         }
 
-    if settings is not None:
-        posture_task = asyncio.create_task(_observe_posture_origin(configured))
-    else:
-        posture_task = asyncio.create_task(_cached_posture(configured))
+    posture_task = asyncio.create_task(_observe_posture_origin(configured) if settings is not None else _cached_posture(configured))
     ingress_task = asyncio.create_task(observe_pfsense_ingress_block())
     posture, ingress = await asyncio.gather(posture_task, ingress_task)
-
     services = posture.get("services", [])
     filters = _security_filter_observations(services, ingress_block=ingress)
-    if posture.get("reachable") is not True:
+    common: dict[str, Any] = {
+        "configured": True,
+        "target": configured.base_url,
+        "system_version": posture.get("system_version"),
+        "liveness_reachable": posture.get("liveness_reachable"),
+        "services": services,
+        "endpoint_status": posture.get("endpoint_status", {}),
+        "security_filters": filters,
+        "ingress_block": ingress,
+    }
+    if "cache" in posture:
+        common["cache"] = posture["cache"]
+
+    if posture.get("policy_complete") is not True:
         return {
-            "configured": True,
-            "reachable": False,
-            "policy_state": "unknown",
-            "reason": "pfSense posture API is unreachable from this runtime",
-            "error_stage": posture.get("error_stage", "system"),
-            "error": posture.get("error", "unknown"),
-            "security_filters": filters,
-            "ingress_block": ingress,
-            **({"cache": posture["cache"]} if "cache" in posture else {}),
-        }
-    if posture.get("error_stage"):
-        return {
-            "configured": True,
-            "reachable": True,
+            **common,
+            "reachable": posture.get("reachable") is True,
             "policy_state": "unknown",
             "reason": "pfSense DNS policy evidence is incomplete",
-            "error_stage": posture["error_stage"],
-            "error": posture.get("error", "unknown"),
-            "security_filters": filters,
-            "ingress_block": ingress,
+            "error_stage": posture.get("error_stage", "partial"),
+            "error": posture.get("error", "one or more policy endpoints failed"),
+            "errors": posture.get("errors", {}),
+            "resolver": posture.get("resolver", {}),
         }
 
     resolver = posture.get("resolver") if isinstance(posture.get("resolver"), dict) else {}
@@ -500,26 +483,22 @@ async def observe_pfsense_dns_posture(
         independent_from_truenas=independent,
     )
     result: dict[str, Any] = {
-        "configured": True,
-        "reachable": True,
+        **common,
+        "reachable": posture.get("reachable") is True,
         "policy_state": policy_state,
         "reason": reason,
-        "resolver": {
-            **resolver,
-            "running": resolver_running,
-        },
+        "resolver": {**resolver, "running": resolver_running},
         "upstream": {
             "count": len(upstreams),
             "independent_from_truenas": independent,
             "truenas_only": truenas_only,
         },
-        "security_filters": filters,
-        "ingress_block": ingress,
     }
+    if posture.get("error_stage"):
+        result["warning"] = f"pfSense endpoint {posture['error_stage']} could not be observed: {posture.get('error', 'unknown')}"
+        result["errors"] = posture.get("errors", {})
     if posture.get("stale") is True:
         result["stale"] = True
         result["refresh_error"] = posture.get("refresh_error")
         result["refresh_error_stage"] = posture.get("refresh_error_stage")
-    if "cache" in posture:
-        result["cache"] = posture["cache"]
     return result

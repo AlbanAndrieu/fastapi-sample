@@ -32,6 +32,7 @@ from nabla.api.homelab_probe_policy import (
     SERVICE_FANOUT_BUDGET_SEC as _SERVICE_FANOUT_BUDGET_SEC,
     select_probe_subset as _select_probe_subset,
 )
+from nabla.api.pfsense_dns_observer import observe_pfsense_dns_posture
 from nabla.api.runtime_environment import homelab_runtime_detected
 from nabla.api.sickz_cloudflare_edge import _probe_http_edge_evidence
 from nabla.api.truenas_diagnostics import (
@@ -55,6 +56,7 @@ HealthState = Literal["ok", "warn", "fail"]
 _WARNING_HTTP_STATUSES = frozenset({401, 403, 407, 429})
 _PROBE_TIMEOUT_SEC = 5.0
 _TRUENAS_DIAGNOSTICS_BUDGET_SEC = 3.0
+_PFSENSE_CONTROL_PLANE_BUDGET_SEC = 5.0
 _INTERNAL_PROBE_ENV = "HOMELAB_INTERNAL_PROBES_ENABLED"
 _MAX_APPLICATION_BODY_BYTES = 16_384
 _APPLICATION_ERROR_PREFIXES = (
@@ -184,13 +186,7 @@ async def _probe_http_endpoint(
             "state": "fail",
             "tls_trusted": False if looks_like_tls_error(error) else None,
             "error": error,
-            "error_kind": (
-                "timeout"
-                if isinstance(exc, (httpx.TimeoutException, TimeoutError))
-                else "tls"
-                if looks_like_tls_error(error)
-                else "transport"
-            ),
+            "error_kind": ("timeout" if isinstance(exc, (httpx.TimeoutException, TimeoutError)) else "tls" if looks_like_tls_error(error) else "transport"),
             "probe_kind": "https" if url.lower().startswith("https://") else "http",
         }
     result["latency_ms"] = max(0, round((time.perf_counter() - started) * 1000))
@@ -374,10 +370,7 @@ async def _collect_bounded_probe_batch(
     if pending:
         await asyncio.gather(*pending, return_exceptions=True)
 
-    states = {
-        state: sum(result.get("state") == state for result in results)
-        for state in ("ok", "warn", "fail")
-    }
+    states = {state: sum(result.get("state") == state for result in results) for state in ("ok", "warn", "fail")}
     return results, {
         "scope": scope,
         "enabled": enabled,
@@ -493,9 +486,7 @@ async def _probe_truenas(
             port=port,
             websocket_uri=websocket_uri,
             verify_ssl=verify_ssl,
-            path_mode=(
-                "direct_lan" if homelab_runtime_detected() else "public_wan_haproxy"
-            ),
+            path_mode=("direct_lan" if homelab_runtime_detected() else "public_wan_haproxy"),
             budget_seconds=_TRUENAS_DIAGNOSTICS_BUDGET_SEC,
         )
     diagnostics = append_truenas_api_stages(diagnostics, api_result)
@@ -509,6 +500,33 @@ async def _probe_truenas(
         "internal_probe_enabled": internal_enabled,
         "verify_ssl": verify_ssl,
     }
+
+
+async def _bounded_pfsense_posture(services: list[HomelabService]) -> dict[str, Any]:
+    truenas_hosts = frozenset(service.internal_host for service in services if service.service_id == "truenas" and service.internal_host)
+    try:
+        async with asyncio.timeout(_PFSENSE_CONTROL_PLANE_BUDGET_SEC):
+            return await observe_pfsense_dns_posture(truenas_hosts=truenas_hosts)
+    except TimeoutError:
+        return {
+            "configured": True,
+            "reachable": None,
+            "policy_state": "unknown",
+            "warning": "⚠️ pfSense control-plane observation exceeded its bounded probe budget",
+            "error_stage": "deadline",
+            "error": "timeout",
+            "services": [],
+        }
+    except Exception as exc:  # pragma: no cover - provider/runtime dependent
+        return {
+            "configured": True,
+            "reachable": None,
+            "policy_state": "unknown",
+            "warning": "⚠️ pfSense control-plane observation failed",
+            "error_stage": "probe_error",
+            "error": type(exc).__name__,
+            "services": [],
+        }
 
 
 def _copy_payload(
@@ -541,12 +559,8 @@ def _copy_payload(
         **payload,
         "truenas": truenas_copy,
         "services": [dict(service) for service in payload.get("services", [])],
-        "public_probe_results": [
-            dict(service) for service in payload.get("public_probe_results", [])
-        ],
-        "internal_services": [
-            dict(service) for service in payload.get("internal_services", [])
-        ],
+        "public_probe_results": [dict(service) for service in payload.get("public_probe_results", [])],
+        "internal_services": [dict(service) for service in payload.get("internal_services", [])],
         "probe_summary": probe_summary,
         "probe_cache": {
             "source": cache_source,
@@ -582,19 +596,9 @@ async def build_homelab_health_payload(
                 fetch_homelab_services(),
                 fetch_declared_service_catalog(),
             )
-        declared_by_id = {
-            item.service_id: item for item in declared_catalog.services
-        }
-        public_candidates = [
-            service
-            for service in services
-            if service.public_https_probe_url is not None
-        ]
-        internal_candidates = [
-            service
-            for service in services
-            if service.internal_host and service.internal_port is not None
-        ]
+        declared_by_id = {item.service_id: item for item in declared_catalog.services}
+        public_candidates = [service for service in services if service.public_https_probe_url is not None]
+        internal_candidates = [service for service in services if service.internal_host and service.internal_port is not None]
         internal_enabled = internal_probes_enabled()
         public_services = _select_probe_subset(
             public_candidates,
@@ -617,6 +621,7 @@ async def build_homelab_health_payload(
                 internal_enabled=internal_enabled,
             ),
         )
+        pfsense_task = asyncio.create_task(_bounded_pfsense_posture(services))
         internal_probe_tasks = [
             (
                 service,
@@ -663,20 +668,22 @@ async def build_homelab_health_payload(
                     per_probe_timeout_seconds=_PUBLIC_PROBE_TIMEOUT_SEC,
                 ),
             )
-            (public_results, public_summary), truenas, (
-                internal_results,
-                internal_summary,
+            (
+                (public_results, public_summary),
+                truenas,
+                (
+                    internal_results,
+                    internal_summary,
+                ),
+                pfsense_dns,
             ) = await asyncio.gather(
                 public_results_task,
                 truenas_task,
                 internal_results_task,
+                pfsense_task,
             )
 
-        checked_at = (
-            datetime.now(timezone.utc)
-            .isoformat()
-            .replace("+00:00", "Z")
-        )
+        checked_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         public_results = merge_probe_evidence(
             "public",
             current_results=public_results,
@@ -710,6 +717,7 @@ async def build_homelab_health_payload(
                 round((time.perf_counter() - refresh_started) * 1000),
             ),
             "truenas": truenas,
+            "pfsense": {"dns": pfsense_dns},
             "services": public_results,
             "public_probe_results": public_results,
             "internal_probes_enabled": internal_enabled,
