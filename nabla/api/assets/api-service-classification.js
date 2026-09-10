@@ -112,7 +112,8 @@ export const NIST_CSF_FUNCTIONS = [
   {
     key: "respond",
     label: "Respond",
-    description: "Incident management, containment, mitigation and communication.",
+    description:
+      "Incident management, containment, mitigation and communication.",
   },
   {
     key: "recover",
@@ -150,14 +151,17 @@ function inferredRole(node, directDependencies, transitiveDependents) {
   const explicit = String(node?.presentationRole || "");
   if (VALID_PRESENTATION_ROLES.has(explicit)) return explicit;
 
-  if (FOUNDATION_IDS.has(node.id) || FOUNDATION_KINDS.has(node.kind)) return "core";
+  if (FOUNDATION_IDS.has(node.id) || FOUNDATION_KINDS.has(node.kind))
+    return "core";
   if (SECURITY_CONTROL_KINDS.has(node.kind)) return "core";
   if (SERVICE_KINDS.has(node.kind)) return "service";
 
   if (
     directDependencies > 0 &&
     transitiveDependents === 0 &&
-    !["infrastructure", "network", "data", "observability"].includes(node.category)
+    !["infrastructure", "network", "data", "observability"].includes(
+      node.category,
+    )
   ) {
     return "service";
   }
@@ -169,7 +173,8 @@ function inferredCriticality(node, role, transitiveDependents) {
   const explicit = String(node?.criticality || "");
   if (VALID_CRITICALITIES.has(explicit)) return explicit;
 
-  if (FOUNDATION_IDS.has(node.id) || FOUNDATION_KINDS.has(node.kind)) return "critical";
+  if (FOUNDATION_IDS.has(node.id) || FOUNDATION_KINDS.has(node.kind))
+    return "critical";
   if (role === "core" && SECURITY_CONTROL_KINDS.has(node.kind)) return "high";
   if (
     role === "core" &&

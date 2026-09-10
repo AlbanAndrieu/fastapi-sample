@@ -111,10 +111,10 @@ def test_grouping_uses_canonical_topology_metadata_without_id_overrides() -> Non
 
     security = presentation_group.index('node?.category === "security"')
     critical = presentation_group.index(
-        'if (criticality === "critical") return "core-critical";'
+        'if (criticality === "critical") return "core-critical";',
     )
     explicit_support = presentation_group.index(
-        'if (explicitRole === "support") return "support";'
+        'if (explicitRole === "support") return "support";',
     )
     observability = presentation_group.index("OBSERVABILITY_KINDS.has(node.kind)")
     shared_core = presentation_group.index('return "shared-core";')
