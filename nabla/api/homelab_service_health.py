@@ -188,6 +188,34 @@ def _freshness(
     return None, None, False
 
 
+def _enrich_service_row(
+    row: dict[str, Any],
+    *,
+    service: HomelabService,
+    runtime: TrueNASRuntimeSnapshot | None,
+    cloudflare_stale: bool,
+    cloudflare_status_confirmed: bool | None,
+    cloudflare_warning: str | None,
+    tunnel_evidence: dict[str, str | None] | None,
+    direct_result: dict[str, Any] | None,
+) -> None:
+    """Attach optional notes/provider fields without inflating reconciliation complexity."""
+    if service.health_note:
+        row["health_note"] = service.health_note
+    if runtime is not None:
+        row["runtime_stale"] = runtime.stale
+    if service.external and cloudflare_status_confirmed is False:
+        row["cloudflare_status_confirmed"] = False
+        row["cloudflare_warning"] = cloudflare_warning or "⚠️ Cloudflare global status could not be confirmed"
+    if tunnel_evidence is not None:
+        row["tunnel_stale"] = cloudflare_stale
+        row.update(tunnel_evidence)
+    if direct_result is not None:
+        for key in ("latency_ms", "error", "application_error"):
+            if key in direct_result:
+                row[key] = direct_result[key]
+
+
 def build_reconciled_service_health(
     services: list[HomelabService],
     *,
@@ -266,19 +294,15 @@ def build_reconciled_service_health(
                 ("probe_refresh_error", f"{prefix}_probe_refresh_error"),
             ):
                 row[target_key] = result.get(source_key) if result else None
-        if service.health_note:
-            row["health_note"] = service.health_note
-        if runtime is not None:
-            row["runtime_stale"] = runtime.stale
-        if service.external and cloudflare_status_confirmed is False:
-            row["cloudflare_status_confirmed"] = False
-            row["cloudflare_warning"] = cloudflare_warning or "⚠️ Cloudflare global status could not be confirmed"
-        if tunnel_evidence is not None:
-            row["tunnel_stale"] = cloudflare_stale
-            row.update(tunnel_evidence)
-        if direct_result is not None:
-            for key in ("latency_ms", "error", "application_error"):
-                if key in direct_result:
-                    row[key] = direct_result[key]
+        _enrich_service_row(
+            row,
+            service=service,
+            runtime=runtime,
+            cloudflare_stale=cloudflare_stale,
+            cloudflare_status_confirmed=cloudflare_status_confirmed,
+            cloudflare_warning=cloudflare_warning,
+            tunnel_evidence=tunnel_evidence,
+            direct_result=direct_result,
+        )
         rows.append(row)
     return rows
