@@ -203,3 +203,43 @@
   .truenas-security-filters { align-items: flex-start; }
   .truenas-probe-row { grid-template-columns: 1fr; }
 }
+
+.truenas-stage--warn {
+  border-color: rgba(255, 204, 51, 0.5);
+  background: rgba(255, 204, 51, 0.05);
+}
+
+.truenas-stage--warn .truenas-stage-icon,
+.truenas-stage--warn .truenas-stage-label {
+  color: #ffd966;
+}
+
+.truenas-pfsense-services {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0.65rem 0;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #303030;
+  border-radius: 8px;
+  background: #0b0b0b;
+  font-size: 0.65rem;
+}
+
+.truenas-pfsense-service-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.truenas-pfsense-service {
+  padding: 0.1rem 0.35rem;
+  border: 1px solid #3b3b3b;
+  border-radius: 999px;
+}
+
+.truenas-pfsense-service--ok { color: #72f5b5; border-color: rgba(0, 255, 136, 0.42); }
+.truenas-pfsense-service--warn { color: #ffd966; border-color: rgba(255, 204, 51, 0.48); }
+.truenas-pfsense-service--fail { color: #ff8b8b; border-color: rgba(255, 68, 68, 0.55); }
+.truenas-pfsense-service-warning { flex-basis: 100%; color: #ffd966; }

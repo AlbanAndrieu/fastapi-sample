@@ -117,6 +117,17 @@ def register_health_routes(app: FastAPI) -> None:
         return await build_homelab_health_payload()
 
     @app.get(
+        "/api/runtime/version-status",
+        tags=["Health", "Runtime"],
+        summary="Compare this runtime with FastAPI Cloud",
+    )
+    async def get_runtime_version_status(response: Response) -> dict[str, Any]:
+        from nabla.api.runtime_version import fetch_cloud_version_status
+
+        response.headers.update(_NO_STORE_HEADERS)
+        return await fetch_cloud_version_status(app.version)
+
+    @app.get(
         "/api/runtime/topology",
         tags=["Health", "Runtime"],
         summary="Observed application runtimes and public egress",

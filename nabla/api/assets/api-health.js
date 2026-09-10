@@ -12,6 +12,7 @@ import {
   startProbeAgeTicker,
 } from "./api-probe-live.js";
 import { loadRuntimeTopology } from "./api-runtime.js";
+import { startRuntimeVersionMonitor } from "./api-runtime-version.js";
 import { installServiceFilter } from "./api-service-groups.js";
 import { loadSickz } from "./api-sickz.js";
 import { installPfsensePortLabels } from "./api-sickz-port-labels.js";
@@ -85,5 +86,6 @@ document.querySelectorAll(".health-refresh").forEach((button) => {
 installPfsensePortLabels();
 installServiceFilter();
 startProbeAgeTicker();
+startRuntimeVersionMonitor();
 loadHealthBoards();
 installAutomaticRefresh();

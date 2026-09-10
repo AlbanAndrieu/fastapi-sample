@@ -38,3 +38,9 @@ def test_probe_styles_are_loaded() -> None:
     assert ".service-probe-chip--ok" in styles
     assert ".service-probe-chip--error" in styles
     assert ".service-probe-chip--stale" in styles
+
+
+def test_service_grouping_wires_probe_evidence_decorator() -> None:
+    javascript = Path("nabla/api/assets/api-service-groups.js").read_text()
+    assert "decorateServiceProbeEvidence" in javascript
+    assert "platformMetrics" in javascript

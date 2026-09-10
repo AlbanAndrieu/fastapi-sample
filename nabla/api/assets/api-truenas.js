@@ -7,12 +7,14 @@ import {
 function stageClass(stage) {
   if (stage?.state === "ok") return "ok";
   if (stage?.state === "fail") return "fail";
+  if (stage?.state === "warn") return "warn";
   return "blocked";
 }
 
 function stageIcon(stage) {
   if (stage?.state === "ok") return "●";
   if (stage?.state === "fail") return "💀";
+  if (stage?.state === "warn") return "⚠";
   return "⊘";
 }
 
@@ -33,24 +35,129 @@ function renderStage(stage) {
 }
 
 function renderConnector(left, right) {
-  const broken = left?.state !== "ok" || right?.state !== "ok";
+  const broken = [left?.state, right?.state].some((state) => state === "fail" || state === "blocked");
   return `<div class="truenas-connector${broken ? " truenas-connector--broken" : ""}" aria-hidden="true"></div>`;
+}
+
+function normalizedTarget(value) {
+  const target = String(value || "").trim();
+  if (!target) return "";
+  return /^https?:\/\//i.test(target) ? target : `https://${target}`;
+}
+
+function dnsResolved(diagnostics) {
+  const dns = Array.isArray(diagnostics?.stages)
+    ? diagnostics.stages.find((stage) => stage?.id === "dns")
+    : null;
+  return Array.isArray(dns?.resolved) ? dns.resolved.filter(Boolean) : [];
 }
 
 function targetText(truenas) {
   const diagnostics = truenas?.diagnostics;
-  const configuredTarget =
-    diagnostics?.target || truenas?.public?.url || "TrueNAS";
+  const configuredTarget = normalizedTarget(
+    diagnostics?.target || truenas?.public?.url || "TrueNAS",
+  );
+  const resolved = dnsResolved(diagnostics);
+  const resolution = resolved.length ? ` → ${resolved.join(", ")}` : "";
   if (diagnostics?.path_mode === "direct_lan") {
-    return `${configuredTarget} · TrueNAS HTTPS listener + TrueNAS API (WebSocket /api/current) · direct LAN`;
+    return `${configuredTarget}${resolution} · direct LAN / runtime host resolution · hostname retained for TLS/SNI`;
   }
   const wan = diagnostics?.wan;
   if (!wan?.ipv4)
-    return `${configuredTarget} · TrueNAS HTTPS listener + TrueNAS API (WebSocket /api/current)`;
+    return `${configuredTarget}${resolution} · TrueNAS HTTPS listener + TrueNAS API (WebSocket /api/current)`;
   const provider = wan?.provider ? ` · ${wan.provider}` : "";
   const addressKind = wan?.static ? " static IPv4" : " IPv4";
-  return `${configuredTarget} · public API path via pfSense/HAProxy · ${wan.ipv4}${provider}${addressKind}`;
+  return `${configuredTarget}${resolution} · public API path via pfSense/HAProxy · ${wan.ipv4}${provider}${addressKind}`;
 }
+
+function targetStage(data, measuredStages) {
+  const diagnostics = data?.truenas?.diagnostics || {};
+  const configuredTarget = normalizedTarget(
+    diagnostics?.target || data?.truenas?.public?.url || "",
+  );
+  const dns = measuredStages.find((stage) => stage?.id === "dns");
+  const resolved = Array.isArray(dns?.resolved) ? dns.resolved.filter(Boolean) : [];
+  const direct = diagnostics?.path_mode === "direct_lan";
+  return {
+    id: "target_url",
+    label: "TrueNAS target URL",
+    state: configuredTarget ? (dns?.state === "fail" ? "fail" : "ok") : "warn",
+    detail: [
+      configuredTarget || "target not configured",
+      resolved.length ? `resolved ${resolved.join(", ")}` : "resolution not confirmed",
+      direct
+        ? "direct LAN/runtime host resolution; no Cloudflare DNS or pfSense WAN hop"
+        : "public WAN path",
+    ].join(" · "),
+  };
+}
+
+function pfsenseControlStage(data) {
+  const posture = data?.pfsense?.dns || {};
+  const services = Array.isArray(posture?.services) ? posture.services : [];
+  const resolver = posture?.resolver || {};
+  const serviceSummary = services
+    .slice(0, 8)
+    .map((row) => `${row?.identity || "service"} ${row?.runtime_state || "unknown"}`)
+    .join(", ");
+  const hasPolicyEvidence =
+    posture?.policy_state && posture.policy_state !== "unknown";
+  const state =
+    posture?.reachable === true
+      ? "ok"
+      : hasPolicyEvidence || services.length > 0 || resolver?.running != null
+        ? "warn"
+        : "warn";
+  const liveness =
+    posture?.reachable === true
+      ? "API liveness reachable"
+      : posture?.reachable === false
+        ? `API liveness failed${posture?.error ? `: ${posture.error}` : ""}`
+        : "API liveness not confirmed";
+  const unbound =
+    resolver?.running === true
+      ? "Unbound running"
+      : resolver?.running === false
+        ? "Unbound stopped"
+        : "Unbound unknown";
+  return {
+    id: "pfsense_lan_control",
+    label: "pfSense LAN control + DNS",
+    state,
+    detail: [
+      posture?.target || "pfSense target unavailable",
+      liveness,
+      unbound,
+      serviceSummary,
+      "out of path for direct TrueNAS LAN traffic",
+    ]
+      .filter(Boolean)
+      .join(" · "),
+  };
+}
+
+function cloudflareTunnelStage(data) {
+  const rows = Array.isArray(data?.services) ? data.services : [];
+  const truenas = rows.find((row) => {
+    const id = String(row?.id || "").toLowerCase();
+    const name = String(row?.name || "").toLowerCase();
+    return id === "truenas" || name === "truenas";
+  });
+  const status = String(truenas?.tunnel_status || "").trim();
+  const normalized = status.toUpperCase();
+  const healthy = ["HEALTHY", "ACTIVE", "UP", "CONNECTED", "RUNNING"].includes(normalized);
+  const down = ["DOWN", "INACTIVE", "STOPPED", "FAILED", "UNHEALTHY"].includes(normalized);
+  const stale = truenas?.tunnel_stale === true;
+  return {
+    id: "cloudflare_tunnel",
+    label: "Cloudflare Tunnel",
+    state: stale || !status ? "warn" : healthy ? "ok" : down ? "fail" : "warn",
+    detail: !status
+      ? "Cloudflare tunnel status not confirmed; optional observation, no TrueNAS downgrade"
+      : `${truenas?.tunnel_name || "tunnel"} · ${status}${stale ? " · stale" : ""}${data?.truenas?.diagnostics?.path_mode === "direct_lan" ? " · out of path for direct LAN" : ""}`,
+  };
+}
+
 
 function filterIcon(filter) {
   if (filter?.state === "blocked") return "💀";
@@ -87,9 +194,14 @@ function ingressPolicyStage(data, measuredStages) {
 
 function trafficStages(data, stages) {
   const pathMode = data?.truenas?.diagnostics?.path_mode;
-  if (pathMode === "direct_lan") return stages;
+  const output = [targetStage(data, stages)];
+  if (pathMode === "direct_lan") {
+    output.push(...stages);
+    output.push(pfsenseControlStage(data));
+    output.push(cloudflareTunnelStage(data));
+    return output;
+  }
 
-  const output = [];
   let inserted = false;
   for (const stage of stages) {
     output.push(stage);
@@ -98,9 +210,11 @@ function trafficStages(data, stages) {
       inserted = true;
     }
   }
-  if (!inserted) output.unshift(ingressPolicyStage(data, stages));
+  if (!inserted) output.splice(1, 0, ingressPolicyStage(data, stages));
+  output.push(cloudflareTunnelStage(data));
   return output;
 }
+
 
 function ensureIngressBlock(target) {
   let container = document.getElementById("truenas-ingress-block");
@@ -412,6 +526,61 @@ function diagnosticsUnavailable(data, truenas) {
   };
 }
 
+function pfsenseServiceTone(state) {
+  const value = String(state || "").toLowerCase();
+  if (["running", "up", "active", "healthy"].includes(value)) return "ok";
+  if (["stopped", "down", "failed", "unhealthy"].includes(value)) return "fail";
+  return "warn";
+}
+
+function ensurePfsenseServices(pipeline) {
+  let container = document.getElementById("truenas-pfsense-services");
+  if (container || !pipeline) return container;
+  container = document.createElement("div");
+  container.id = "truenas-pfsense-services";
+  container.className = "truenas-pfsense-services";
+  pipeline.insertAdjacentElement("afterend", container);
+  return container;
+}
+
+function renderPfsenseServices(data, pipeline) {
+  const container = ensurePfsenseServices(pipeline);
+  if (!container) return;
+  const posture = data?.pfsense?.dns || {};
+  const services = Array.isArray(posture?.services) ? posture.services : [];
+  const resolver = posture?.resolver || {};
+  const rows = [...services];
+  if (!rows.some((row) => String(row?.identity || "").toLowerCase().includes("unbound"))) {
+    rows.unshift({
+      identity: "Unbound / DNS Resolver",
+      runtime_state:
+        resolver?.running === true
+          ? "running"
+          : resolver?.running === false
+            ? "stopped"
+            : "unknown",
+    });
+  }
+  if (rows.length === 0 && posture?.configured !== true) {
+    container.hidden = true;
+    container.innerHTML = "";
+    return;
+  }
+  container.hidden = false;
+  const chips = rows
+    .map((row) => {
+      const value = row?.runtime_state || "unknown";
+      const tone = pfsenseServiceTone(value);
+      return `<span class="truenas-pfsense-service truenas-pfsense-service--${tone}">${escapeText(row?.identity || "service")} · ${escapeText(value)}</span>`;
+    })
+    .join("");
+  const warning = posture?.warning || posture?.error;
+  container.innerHTML =
+    `<strong>🧱 pfSense services / DNS</strong>` +
+    `<div class="truenas-pfsense-service-list">${chips}</div>` +
+    (warning ? `<span class="truenas-pfsense-service-warning">⚠ ${escapeText(warning)}</span>` : "");
+}
+
 function render(data) {
   const truenas = data?.truenas;
   const measuredStages = truenas?.diagnostics?.stages;
@@ -422,6 +591,7 @@ function render(data) {
   if (!pipeline || !state || !target || !error) return;
 
   renderProbeFanout(data);
+  renderPfsenseServices(data, pipeline);
   error.hidden = true;
   error.textContent = "";
   target.textContent = targetText(truenas);
@@ -449,7 +619,8 @@ function render(data) {
   const overall = truenas?.state || "fail";
   const api = truenas?.api || {};
   const runtimeError = data?.truenas_runtime_error;
-  if (ingressBlock?.state === "blocked") {
+  const ingressIsInline = truenas?.diagnostics?.path_mode !== "direct_lan";
+  if (ingressIsInline && ingressBlock?.state === "blocked") {
     state.className = "truenas-platform-state truenas-platform-state--fail";
     state.textContent = "blocked by Snort/PF";
   } else {
@@ -526,6 +697,10 @@ function mergeBoundedProbeFallback(aggregate, probes) {
       probes?.refresh_elapsed_ms ?? aggregate?.refresh_elapsed_ms,
     probe_cache: probes?.probe_cache || aggregate?.probe_cache,
     probe_summary: probes?.probe_summary || aggregate?.probe_summary,
+    pfsense:
+      aggregate?.pfsense?.dns != null
+        ? aggregate.pfsense
+        : probes?.pfsense || aggregate?.pfsense,
     internal_services:
       probes?.internal_services || aggregate?.internal_services || [],
     public_probe_results:

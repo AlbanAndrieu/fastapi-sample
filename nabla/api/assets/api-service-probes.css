@@ -68,3 +68,13 @@
     flex-basis: 100%;
   }
 }
+
+.runtime-version-warning {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.2rem;
+  cursor: help;
+  color: #ffd966;
+  font-size: 0.9em;
+  vertical-align: baseline;
+}

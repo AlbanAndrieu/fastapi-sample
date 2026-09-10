@@ -119,7 +119,7 @@ def render_api_root_page(
                     <span>{runtime_context}</span>
                 </div>
                 <h1>{title}</h1>
-                <p class="subtitle">FastAPI runtime · version <strong>{app_version}</strong></p>
+                <p class="subtitle">FastAPI runtime · version <strong id="runtime-version-value">{app_version}</strong> <span class="runtime-version-warning" id="runtime-version-warning" hidden>⚠️</span></p>
                 <div class="hero-code">
                     <pre><code><span class="keyword">from</span> <span class="module">fastapi</span> <span class="keyword">import</span> <span class="class">FastAPI</span>
 

@@ -3,6 +3,7 @@ import {
   CRITICALITY_WEIGHT,
   NIST_CSF_FUNCTIONS,
 } from "./api-service-classification.js";
+import { decorateServiceProbeEvidence } from "./api-service-probes.js";
 
 const GROUPS = [
   {
@@ -367,7 +368,7 @@ function serviceGroupSection(definition, rows) {
   return section;
 }
 
-function assignRows(rows, checks, topologyData) {
+function assignRows(rows, checks, topologyData, platformMetrics = null) {
   const indexes = topologyIndexes(topologyData);
   const analysis = analyzeTopology(topologyData);
   const buckets = new Map(
@@ -386,6 +387,10 @@ function assignRows(rows, checks, topologyData) {
         }
       : { role: "support", criticality: "low", group: "external" };
     decorateRow(row, presentation, check);
+    decorateServiceProbeEvidence(row, check, {
+      serviceId: node?.id || candidateIdFromKey(key),
+      platformMetrics,
+    });
     const group =
       GROUPS.find((item) => item.key === presentation.group) || EXTRA_GROUP;
     row.dataset.searchText =
@@ -543,7 +548,12 @@ export async function organizeHealthRows(data, platformMetrics = null) {
   target.innerHTML = "";
 
   const topologyData = await topology();
-  const buckets = assignRows(rows, data?.checks || {}, topologyData);
+  const buckets = assignRows(
+    rows,
+    data?.checks || {},
+    topologyData,
+    platformMetrics,
+  );
   updateOverview(
     buckets,
     platformMetrics,
