@@ -104,6 +104,21 @@ def register_routes(app: FastAPI) -> None:
             },
         )
 
+    @app.get("/api/runtime-version", include_in_schema=False)
+    async def api_runtime_version(request: Request) -> JSONResponse:
+        """Expose only the deployed version/runtime mode for cross-runtime drift UI."""
+        return JSONResponse(
+            {
+                "version": str(request.app.version),
+                "runtime_mode": runtime_mode(request.url.hostname),
+            },
+            headers={
+                "Cache-Control": "no-store, max-age=0",
+                "Pragma": "no-cache",
+                "Access-Control-Allow-Origin": "*",
+            },
+        )
+
     register_health_routes(app)
 
     @app.exception_handler(Exception)
