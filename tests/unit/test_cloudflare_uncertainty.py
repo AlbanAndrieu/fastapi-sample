@@ -1,4 +1,7 @@
-"""Regression tests for non-degrading Cloudflare uncertainty."""
+"""Regression tests for non-degrading Cloudflare uncertainty.
+
+Provider observation failures are evidence gaps, not service outages.
+"""
 
 import asyncio
 
