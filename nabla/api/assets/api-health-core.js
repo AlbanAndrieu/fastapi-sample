@@ -264,11 +264,11 @@ function renderSnapshotFreshness(snapshot) {
   if (Number.isFinite(age)) parts.push(`${Math.round(age)}s old`);
   if (generatedAt) parts.push(`generated ${String(generatedAt)}`);
   if (refreshing) parts.push("refresh in progress");
-  if (snapshot?.error) parts.push(`last refresh error: ${String(snapshot.error)}`);
+  if (snapshot?.error)
+    parts.push(`last refresh error: ${String(snapshot.error)}`);
 
   element.textContent = parts.join(" · ");
 }
-
 
 function render(data, platformMetrics = null) {
   const listEl = document.getElementById("health-checks");
