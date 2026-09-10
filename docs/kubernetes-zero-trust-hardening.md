@@ -6,6 +6,9 @@ Target: make `charts/generic-service` and the Kubernetes deployment examples
 **PSS Restricted-compatible by default**, while keeping explicit documented
 exceptions for infrastructure workloads that cannot satisfy Restricted.
 
+Publication acceptance follows `scripts/agent-quality-gate.sh`; formatter or
+linter rewrites must be committed and the gate rerun until a clean pass.
+
 Reference:
 
 - <https://blog.stephane-robert.info/docs/securiser/kubernetes/>
