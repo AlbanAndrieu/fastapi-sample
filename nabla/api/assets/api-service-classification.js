@@ -88,19 +88,6 @@ const OBSERVABILITY_KINDS = new Set([
 const VALID_PRESENTATION_ROLES = new Set(["service", "core", "support"]);
 const VALID_CRITICALITIES = new Set(["critical", "high", "medium", "low"]);
 
-// Operator-facing grouping overrides are intentionally presentation-only.
-// They must not rewrite dependency edges, criticality or blast-radius semantics.
-const PRESENTATION_GROUP_OVERRIDES = new Map([
-  ["keycloak", "security-controls"],
-  ["scrutiny", "support"],
-  ["langfuse", "support"],
-  ["homarr", "support"],
-  ["heimdall", "support"],
-  ["prometheus", "support"],
-  ["grafana", "support"],
-  ["fastapi-sample", "support"],
-]);
-
 export const NIST_CSF_FUNCTIONS = [
   {
     key: "govern",
@@ -204,8 +191,13 @@ function declaredSecurityFunctions(node) {
 }
 
 function presentationGroup(node, role, criticality, transitiveDependents) {
-  const override = PRESENTATION_GROUP_OVERRIDES.get(String(node?.id || ""));
-  if (override) return override;
+  const explicitRole = String(node?.presentationRole || "");
+
+  // Canonical nabla-compose metadata decides presentation. Security-category
+  // components belong with controls unless they are explicit platform foundations.
+  if (node?.category === "security" && !FOUNDATION_IDS.has(node.id)) {
+    return "security-controls";
+  }
   if (criticality === "critical") return "core-critical";
   if (
     declaredSecurityFunctions(node).length > 0 ||
@@ -213,6 +205,15 @@ function presentationGroup(node, role, criticality, transitiveDependents) {
   ) {
     return "security-controls";
   }
+
+  // An explicit support/service role from x-nabla must win over blast-radius
+  // inference. This keeps operator layout independent from dependency impact.
+  if (explicitRole === "support") return "support";
+  if (explicitRole === "service") return "services";
+
+  // Canonical observability kinds are support components unless x-nabla
+  // explicitly classifies them as a user-facing service above.
+  if (OBSERVABILITY_KINDS.has(node.kind)) return "support";
   if (role === "service") return "services";
   if (
     role === "core" ||
@@ -221,7 +222,6 @@ function presentationGroup(node, role, criticality, transitiveDependents) {
   ) {
     return "shared-core";
   }
-  if (OBSERVABILITY_KINDS.has(node.kind) || role === "support") return "support";
   return "support";
 }
 
