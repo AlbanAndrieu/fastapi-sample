@@ -7,7 +7,9 @@ Target: make `charts/generic-service` and the Kubernetes deployment examples
 exceptions for infrastructure workloads that cannot satisfy Restricted.
 
 Publication acceptance follows `scripts/agent-quality-gate.sh`; formatter or
-linter rewrites must be committed and the gate rerun until a clean pass.
+linter rewrites must be committed and the gate rerun until a clean pass. Static-
+analysis suppressions must be narrowly scoped and justified only after the code
+has enforced the relevant safety invariant.
 
 Reference:
 
