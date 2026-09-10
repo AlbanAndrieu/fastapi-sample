@@ -39,5 +39,10 @@ jobs:
           git config user.name openai-agent
           git config user.email openai-agent@users.noreply.github.com
           git add scripts/diagnose-local-runtime-dependencies.py
+          if git diff --cached --quiet; then
+            echo 'Already converged.'
+            exit 0
+          fi
           git commit -m 'chore(ci): converge diagnostic trailing commas'
+          git pull --rebase origin fix/generic-service-restricted-security
           git push origin HEAD:fix/generic-service-restricted-security
