@@ -114,7 +114,7 @@ def merge_probe_evidence(
                     now=clock,
                     refresh_error=str(
                         row.get("error")
-                        or "service probe fan-out budget exceeded"
+                        or "service probe fan-out budget exceeded",
                     ),
                 )
             else:
