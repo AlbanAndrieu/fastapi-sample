@@ -701,6 +701,41 @@ def test_missing_declared_truenas_app_is_failure_even_with_healthy_tunnel() -> N
     assert rows[0]["tunnel_status"] == "healthy"
 
 
+def test_missing_runtime_binding_with_fresh_origin_is_drift_not_outage() -> None:
+    service = HomelabService(
+        name="Vaultwarden",
+        tunnelUrl="https://vaultwarden.albandrieu.com",
+        external=True,
+    )
+    rows = build_reconciled_service_health(
+        [service],
+        public_results=[
+            {
+                "id": service.service_id,
+                "name": "Vaultwarden",
+                "url": "https://vaultwarden.albandrieu.com/",
+                "reachable": True,
+                "http_status": 200,
+                "state": "ok",
+                "tls_trusted": True,
+            },
+        ],
+        internal_results=[],
+        runtime=_runtime(),
+        tunnels=[],
+        runtime_bindings={
+            service.service_id: RuntimeBinding(
+                provider="truenas-app",
+                containerService="vaultwarden",
+            ),
+        },
+    )
+
+    assert rows[0]["runtime_missing"] is True
+    assert rows[0]["direct_state"] == "ok"
+    assert rows[0]["state"] == "warn"
+
+
 def test_stale_runtime_does_not_claim_declared_app_is_missing() -> None:
     service = HomelabService(
         name="Keycloak",

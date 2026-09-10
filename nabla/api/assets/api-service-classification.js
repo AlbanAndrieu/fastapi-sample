@@ -112,7 +112,8 @@ export const NIST_CSF_FUNCTIONS = [
   {
     key: "respond",
     label: "Respond",
-    description: "Incident management, containment, mitigation and communication.",
+    description:
+      "Incident management, containment, mitigation and communication.",
   },
   {
     key: "recover",
@@ -150,14 +151,17 @@ function inferredRole(node, directDependencies, transitiveDependents) {
   const explicit = String(node?.presentationRole || "");
   if (VALID_PRESENTATION_ROLES.has(explicit)) return explicit;
 
-  if (FOUNDATION_IDS.has(node.id) || FOUNDATION_KINDS.has(node.kind)) return "core";
+  if (FOUNDATION_IDS.has(node.id) || FOUNDATION_KINDS.has(node.kind))
+    return "core";
   if (SECURITY_CONTROL_KINDS.has(node.kind)) return "core";
   if (SERVICE_KINDS.has(node.kind)) return "service";
 
   if (
     directDependencies > 0 &&
     transitiveDependents === 0 &&
-    !["infrastructure", "network", "data", "observability"].includes(node.category)
+    !["infrastructure", "network", "data", "observability"].includes(
+      node.category,
+    )
   ) {
     return "service";
   }
@@ -169,7 +173,8 @@ function inferredCriticality(node, role, transitiveDependents) {
   const explicit = String(node?.criticality || "");
   if (VALID_CRITICALITIES.has(explicit)) return explicit;
 
-  if (FOUNDATION_IDS.has(node.id) || FOUNDATION_KINDS.has(node.kind)) return "critical";
+  if (FOUNDATION_IDS.has(node.id) || FOUNDATION_KINDS.has(node.kind))
+    return "critical";
   if (role === "core" && SECURITY_CONTROL_KINDS.has(node.kind)) return "high";
   if (
     role === "core" &&
@@ -191,6 +196,13 @@ function declaredSecurityFunctions(node) {
 }
 
 function presentationGroup(node, role, criticality, transitiveDependents) {
+  const explicitRole = String(node?.presentationRole || "");
+
+  // Canonical nabla-compose metadata decides presentation. Security-category
+  // components belong with controls unless they are explicit platform foundations.
+  if (node?.category === "security" && !FOUNDATION_IDS.has(node.id)) {
+    return "security-controls";
+  }
   if (criticality === "critical") return "core-critical";
   if (
     declaredSecurityFunctions(node).length > 0 ||
@@ -198,6 +210,15 @@ function presentationGroup(node, role, criticality, transitiveDependents) {
   ) {
     return "security-controls";
   }
+
+  // An explicit support/service role from x-nabla must win over blast-radius
+  // inference. This keeps operator layout independent from dependency impact.
+  if (explicitRole === "support") return "support";
+  if (explicitRole === "service") return "services";
+
+  // Canonical observability kinds are support components unless x-nabla
+  // explicitly classifies them as a user-facing service above.
+  if (OBSERVABILITY_KINDS.has(node.kind)) return "support";
   if (role === "service") return "services";
   if (
     role === "core" ||
@@ -206,7 +227,6 @@ function presentationGroup(node, role, criticality, transitiveDependents) {
   ) {
     return "shared-core";
   }
-  if (OBSERVABILITY_KINDS.has(node.kind) || role === "support") return "support";
   return "support";
 }
 

@@ -103,6 +103,29 @@ def test_service_classification_supports_explicit_role_and_criticality() -> None
         assert f'"{value}"' in source
 
 
+def test_grouping_uses_canonical_topology_metadata_without_id_overrides() -> None:
+    source = (ASSETS / "api-service-classification.js").read_text(encoding="utf-8")
+
+    assert "PRESENTATION_GROUP_OVERRIDES" not in source
+    presentation_group = source.split("function presentationGroup", maxsplit=1)[1]
+
+    security = presentation_group.index('node?.category === "security"')
+    critical = presentation_group.index(
+        'if (criticality === "critical") return "core-critical";',
+    )
+    explicit_support = presentation_group.index(
+        'if (explicitRole === "support") return "support";',
+    )
+    observability = presentation_group.index("OBSERVABILITY_KINDS.has(node.kind)")
+    shared_core = presentation_group.index('return "shared-core";')
+
+    assert security < critical
+    assert "!FOUNDATION_IDS.has(node.id)" in presentation_group
+    assert explicit_support < shared_core
+    assert observability < shared_core
+    assert "Canonical nabla-compose metadata decides presentation" in source
+
+
 def test_structural_hosting_affects_blast_radius_not_functional_dependency() -> None:
     source = (ASSETS / "api-service-classification.js").read_text(encoding="utf-8")
 
