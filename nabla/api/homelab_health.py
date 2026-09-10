@@ -15,6 +15,8 @@ import httpx
 
 from nabla.api.health_probe_utils import is_textual_response, looks_like_tls_error
 from nabla.api.homelab_catalog import fetch_homelab_services
+from nabla.api.homelab_declared import DeclaredService, fetch_declared_service_catalog
+from nabla.api.homelab_monitoring import public_monitoring_url
 from nabla.api.homelab_models import HomelabService
 from nabla.api.homelab_probe_evidence import (
     evidence_summary,
@@ -167,6 +169,7 @@ async def _probe_http_endpoint(
             "http_status": status,
             "state": "fail" if application_error else classify_public_http_status(status),
             "tls_trusted": True,
+            "probe_kind": "https" if url.lower().startswith("https://") else "http",
         }
         if application_error:
             result["application_error"] = application_error
@@ -181,6 +184,14 @@ async def _probe_http_endpoint(
             "state": "fail",
             "tls_trusted": False if looks_like_tls_error(error) else None,
             "error": error,
+            "error_kind": (
+                "timeout"
+                if isinstance(exc, (httpx.TimeoutException, TimeoutError))
+                else "tls"
+                if looks_like_tls_error(error)
+                else "transport"
+            ),
+            "probe_kind": "https" if url.lower().startswith("https://") else "http",
         }
     result["latency_ms"] = max(0, round((time.perf_counter() - started) * 1000))
     return result
@@ -190,8 +201,9 @@ async def _probe_public_service(
     client: httpx.AsyncClient,
     semaphore: asyncio.Semaphore,
     service: HomelabService,
+    declared: DeclaredService | None = None,
 ) -> dict[str, Any]:
-    url = service.public_https_probe_url
+    url = public_monitoring_url(service, declared)
     if url is None:
         raise ValueError("service is not approved for public HTTPS probing")
     result = await _probe_http_endpoint(
@@ -201,6 +213,7 @@ async def _probe_public_service(
         name=service.name,
         url=url,
     )
+    result["probe_kind"] = "public_https"
     if not service.effective_cloudflare_access_required or result.get("http_status") not in _WARNING_HTTP_STATUSES:
         return result
 
@@ -244,6 +257,7 @@ async def _probe_internal_service(
             "port": port,
             "reachable": True,
             "state": "ok",
+            "probe_kind": "tcp",
         }
     except (OSError, TimeoutError) as exc:
         result = {
@@ -254,6 +268,8 @@ async def _probe_internal_service(
             "reachable": False,
             "state": "fail",
             "error": _short_error(exc),
+            "error_kind": "timeout" if isinstance(exc, TimeoutError) else "connect_failed",
+            "probe_kind": "tcp",
         }
     finally:
         if writer is not None:
@@ -558,11 +574,17 @@ async def build_homelab_health_payload(
             )
 
         refresh_started = time.perf_counter()
-        services = (
-            list(catalog_services)
-            if catalog_services is not None
-            else await fetch_homelab_services()
-        )
+        if catalog_services is not None:
+            services = list(catalog_services)
+            declared_catalog = await fetch_declared_service_catalog()
+        else:
+            services, declared_catalog = await asyncio.gather(
+                fetch_homelab_services(),
+                fetch_declared_service_catalog(),
+            )
+        declared_by_id = {
+            item.service_id: item for item in declared_catalog.services
+        }
         public_candidates = [
             service
             for service in services
@@ -623,7 +645,12 @@ async def build_homelab_health_payload(
                 (
                     service,
                     asyncio.create_task(
-                        _probe_public_service(client, service_semaphore, service),
+                        _probe_public_service(
+                            client,
+                            service_semaphore,
+                            service,
+                            declared_by_id.get(service.service_id),
+                        ),
                     ),
                 )
                 for service in public_services
@@ -704,4 +731,3 @@ async def build_homelab_health_payload(
             cache_source="origin",
             cache_age_seconds=0.0,
         )
-

@@ -255,6 +255,7 @@ def build_reconciled_service_health(
     cloudflare_stale: bool = False,
     checked_at: str | None = None,
 ) -> list[dict[str, Any]]:
+    direct_by_id = {str(result.get("id")): result for result in public_results if result.get("id")}
     direct_by_url = {normalized: result for result in public_results if (normalized := _normalized_url(str(result.get("url") or ""))) is not None}
     internal_by_id = {str(result.get("id")): result for result in internal_results if result.get("id")}
     tunnels_by_host = _tunnel_by_hostname(tunnels)
@@ -262,10 +263,27 @@ def build_reconciled_service_health(
     for service in services:
         endpoint_url = service.effective_endpoint_url
         url = _normalized_url(endpoint_url)
-        direct_result = direct_by_url.get(url) if url is not None else None
+        direct_result = direct_by_id.get(service.service_id)
+        if direct_result is None and url is not None:
+            direct_result = direct_by_url.get(url)
         internal_result = internal_by_id.get(service.service_id)
         binding = (runtime_bindings or {}).get(service.service_id)
         app = _runtime_app_for_service(service, runtime, binding)
+        runtime_containers: list[dict[str, Any]] = []
+        if app is not None:
+            containers = app.containers
+            if binding is not None and binding.container_service:
+                matching = [
+                    container
+                    for container in containers
+                    if (container.service_name or "").casefold()
+                    == binding.container_service.casefold()
+                ]
+                if matching:
+                    containers = matching
+            runtime_containers = [
+                container.model_dump(exclude_none=True) for container in containers
+            ]
         runtime_health = None if runtime is not None and runtime.stale else _runtime_state(app)
         runtime_missing = bool(
             binding is not None and binding.provider == "truenas-app" and runtime is not None and runtime.reachable and not runtime.stale and app is None,
@@ -322,6 +340,15 @@ def build_reconciled_service_health(
             "observation_age_seconds": observation_age_seconds,
             "observation_stale": observation_stale,
         }
+        if direct_result is not None:
+            row["direct_probe_kind"] = direct_result.get("probe_kind")
+            row["direct_probe_error_kind"] = direct_result.get("error_kind")
+            row["direct_probe_url"] = direct_result.get("url")
+        if internal_result is not None:
+            row["internal_probe_kind"] = internal_result.get("probe_kind")
+            row["internal_probe_error_kind"] = internal_result.get("error_kind")
+        if runtime_containers:
+            row["runtime_containers"] = runtime_containers
         if service.health_note:
             row["health_note"] = service.health_note
         if runtime is not None:
@@ -329,9 +356,19 @@ def build_reconciled_service_health(
         if tunnel_evidence is not None:
             row["tunnel_stale"] = cloudflare_stale
         if direct_result is not None:
-            for key in ("latency_ms", "error", "application_error"):
+            for key in (
+                "latency_ms",
+                "error",
+                "error_kind",
+                "application_error",
+                "probe_kind",
+                "public_probe_auth_mode",
+            ):
                 if key in direct_result:
                     row[key] = direct_result[key]
+            for key, value in direct_result.items():
+                if key.startswith("cloudflare_"):
+                    row[key] = value
         if tunnel_evidence is not None:
             row.update(tunnel_evidence)
         rows.append(row)

@@ -63,6 +63,22 @@ class DeploymentEnvironment(BaseModel):
     )
 
 
+class MonitoringContract(BaseModel):
+    """Canonical functional probe declaration exported from ``x-nabla.monitoring``."""
+
+    model_config = ConfigDict(extra="ignore", frozen=True, populate_by_name=True)
+
+    probe_type: Literal["http", "port"] = Field(
+        validation_alias=AliasChoices("type", "probe_type"),
+        serialization_alias="type",
+    )
+    target: str | None = Field(default=None, min_length=1, max_length=2048)
+    url: str | None = Field(default=None, min_length=1, max_length=2048)
+    host: str | None = Field(default=None, min_length=1, max_length=255)
+    port: int | None = Field(default=None, ge=1, le=65535)
+    conditions: list[str] | None = None
+
+
 class DeclaredService(BaseModel):
     """One code-owned service declaration from nabla-compose."""
 
@@ -109,6 +125,7 @@ class DeclaredService(BaseModel):
         min_length=1,
     )
     runtime: RuntimeBinding | None = None
+    monitoring: MonitoringContract | None = None
 
     @model_validator(mode="after")
     def require_unique_security_functions(self) -> DeclaredService:

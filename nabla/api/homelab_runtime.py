@@ -46,6 +46,7 @@ class ObservedContainer(BaseModel):
     service_name: str | None = None
     image: str | None = None
     state: str | None = None
+    health: str | None = None
 
 
 class ObservedApp(BaseModel):
@@ -92,6 +93,16 @@ def _runtime_cache_ttl_seconds() -> float:
     return max(5.0, min(value, 300.0))
 
 
+def _container_health(raw: dict[str, Any]) -> str | None:
+    """Return Docker health when TrueNAS exposes it; otherwise keep it unknown."""
+    value = raw.get("health_status")
+    if value is None:
+        value = raw.get("health")
+    if isinstance(value, dict):
+        value = value.get("status") or value.get("state")
+    return str(value) if value is not None else None
+
+
 def _observed_app(raw: dict[str, Any]) -> ObservedApp:
     workloads = raw.get("active_workloads") or {}
     raw_containers = workloads.get("container_details") or []
@@ -100,6 +111,7 @@ def _observed_app(raw: dict[str, Any]) -> ObservedApp:
             service_name=(str(container.get("service_name")) if container.get("service_name") is not None else None),
             image=(str(container.get("image")) if container.get("image") is not None else None),
             state=(str(container.get("state")) if container.get("state") is not None else None),
+            health=_container_health(container),
         )
         for container in raw_containers
         if isinstance(container, dict)
