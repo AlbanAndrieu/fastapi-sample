@@ -1,0 +1,69 @@
+name: Temporary PR237 EditorConfig fix
+
+on:
+  push:
+    branches:
+      - fix/generic-service-restricted-security
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: fix/generic-service-restricted-security
+          fetch-depth: 0
+      - name: Normalize only reported Markdown indentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          flagged = {
+              "charts/generic-service/README.md": {90},
+              "docs/kubernetes-zero-trust-hardening.md": {
+                  34, 35, 36, 38, 39, 41, 42, 43, 44, 46, 47, 48,
+                  50, 51, 52, 54, 55, 56, 58, 59, 60, 62, 63, 64, 65, 174,
+              },
+              "docs/local-runtime-dependency-report.md": {23, 26},
+              "docs/pfsense-webconfigurator-recovery.md": {
+                  184, 185, 187, 188, 189, 208, 210, 212, 214, 216, 218,
+              },
+          }
+          for name, numbers in flagged.items():
+              path = Path(name)
+              lines = path.read_text().splitlines(keepends=True)
+              for number in sorted(numbers):
+                  idx = number - 1
+                  line = lines[idx]
+                  leading = len(line) - len(line.lstrip(" "))
+                  if leading % 2:
+                      lines[idx] = " " + line
+              path.write_text("".join(lines))
+          PY
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: '0.12.1'
+      - name: Verify EditorConfig on corrected files
+        shell: bash
+        run: |
+          set -euo pipefail
+          uvx --from editorconfig-checker==3.11.1 ec \
+            charts/generic-service/README.md \
+            docs/kubernetes-zero-trust-hardening.md \
+            docs/local-runtime-dependency-report.md \
+            docs/pfsense-webconfigurator-recovery.md
+      - name: Commit corrections and remove helper
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/tmp-pr237-editorconfig-fix.yml
+          git add -A
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'style(docs): satisfy EditorConfig indentation'
+          git push origin HEAD:fix/generic-service-restricted-security
