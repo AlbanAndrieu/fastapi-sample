@@ -39,7 +39,7 @@ class CloudflareExposureSnapshot:
             and self.tunnels
             and not self.tunnel_error
             and not self.access_error
-            and not self.stale
+            and not self.stale,
         )
         warning = None
         if self.configured and not confirmed:
@@ -147,7 +147,7 @@ async def _origin() -> dict[str, Any]:
             return (), _short_error(exc)
 
     (tunnel_items, tunnel_error), (access_items, access_error) = await asyncio.gather(
-        tunnels(), access()
+        tunnels(), access(),
     )
     return CloudflareExposureSnapshot(
         configured=True,
@@ -162,7 +162,7 @@ def _success(payload: dict[str, Any]) -> bool:
     return bool(
         payload.get("tunnels")
         and not payload.get("tunnel_error")
-        and not payload.get("access_error")
+        and not payload.get("access_error"),
     )
 
 
