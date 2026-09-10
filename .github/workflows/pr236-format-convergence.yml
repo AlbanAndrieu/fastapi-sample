@@ -1,0 +1,70 @@
+name: PR 236 formatter convergence
+
+on:
+  pull_request:
+    types: [synchronize]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pr236-format-convergence
+  cancel-in-progress: true
+
+jobs:
+  converge:
+    if: github.event.pull_request.number == 236 && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+        with:
+          version: "0.12.1"
+
+      - name: Create formatter environment
+        run: |
+          uv venv --python 3.13
+          uv pip install pre-commit==4.6.2
+
+      - name: Converge deterministic pre-commit rewrites
+        env:
+          UV_NO_SYNC: "1"
+        run: |
+          mapfile -t files < <(git diff --name-only --diff-filter=ACMR origin/master...HEAD | awk 'NF')
+          for pass in {1..8}; do
+            before="$(git diff --no-ext-diff | git hash-object --stdin)"
+            set +e
+            .venv/bin/pre-commit run --hook-stage pre-commit --files "${files[@]}" --show-diff-on-failure
+            rc=$?
+            set -e
+            after="$(git diff --no-ext-diff | git hash-object --stdin)"
+            if [[ "${before}" == "${after}" ]]; then
+              echo "Formatter tree converged on pass ${pass} (hook rc=${rc})."
+              break
+            fi
+            echo "Formatter pass ${pass} rewrote the tree; continuing."
+          done
+
+      - name: Commit formatter rewrites
+        run: |
+          if git diff --quiet; then
+            echo "No formatter rewrite remains."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -u
+          git add .github/workflows/pr236-format-convergence.yml
+          git commit -m "style: converge PR 236 formatters"
+          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
