@@ -130,10 +130,6 @@
   font-weight: 700;
 }
 
-.service-filter-legend-details .service-probe-legend {
-  margin-top: 0.4rem;
-}
-
 .service-filter-facets {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -185,6 +181,10 @@
   color: #9ca3af;
   font-size: 0.58rem;
   line-height: 1.35;
+}
+
+.service-filter-legend-details .service-probe-legend {
+  margin-top: 0.4rem;
 }
 
 .service-probe-legend strong {
