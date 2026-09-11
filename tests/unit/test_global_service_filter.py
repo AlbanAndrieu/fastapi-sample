@@ -43,6 +43,25 @@ def test_global_filter_stays_visible_and_compacts_secondary_help() -> None:
     assert "Probe evidence legend" in shell
     assert "max-height: calc(100vh" in stylesheet
     assert "focus-visible" in stylesheet
+    assert 'new IntersectionObserver(' in shell
+    assert 'host.classList.toggle("service-filter--compact", compact);' in shell
+    assert 'id="service-filter-density-toggle"' in shell
+    assert ".service-filter--compact .service-filter-facets" in stylesheet
+    assert ".service-filter--compact .service-filter-health-summary" in stylesheet
+
+
+def test_active_filter_chips_remove_individual_filters() -> None:
+    shell = (ASSETS / "api-global-service-filter.js").read_text(encoding="utf-8")
+    stylesheet = (ASSETS / "api-service-diagnostics.css").read_text(encoding="utf-8")
+
+    assert "service-filter-active" in shell
+    assert "service-filter-active-chip" in shell
+    assert 'document.addEventListener("service-filter-changed"' in shell
+    assert 'control.dispatchEvent(' in shell
+    assert 'key === "query" ? "input" : "change"' in shell
+    assert 'remove.textContent = "×";' in shell
+    assert ".service-filter-active-chip" in stylesheet
+    assert ".service-filter-active[hidden]" in stylesheet
 
 
 def test_global_filter_supports_keyboard_and_truenas_status_sync() -> None:
