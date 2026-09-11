@@ -12,8 +12,8 @@ import { loadRuntimeTopology } from "./api-runtime.js";
 import { loadSickz } from "./api-sickz.js";
 import { loadTrueNas } from "./api-truenas.js";
 
-const HEALTH_BOARD_IDLE_POLL_MS = 5000;
-const HEALTH_BOARD_REFRESHING_POLL_MS = 1000;
+const HEALTH_BOARD_IDLE_POLL_MS = 10000;
+const HEALTH_BOARD_REFRESHING_POLL_MS = 2000;
 let automaticRefreshInFlight = false;
 let automaticRefreshTimer = null;
 
