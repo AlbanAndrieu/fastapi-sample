@@ -215,10 +215,7 @@ def _cache_with_stale_evidence(cached: ProbeCacheResult) -> dict[str, Any]:
     current_failure = value.get("reachable") is False
     current_unconfirmed = value.get("status_confirmed") is False
     stale_refresh = cached.metadata.get("stale") is True
-    use_last_good = (
-        (current_failure or current_unconfirmed or stale_refresh)
-        and cached.last_good is not None
-    )
+    use_last_good = (current_failure or current_unconfirmed or stale_refresh) and cached.last_good is not None
     if use_last_good:
         current_warning = value.get("warning")
         value = {
