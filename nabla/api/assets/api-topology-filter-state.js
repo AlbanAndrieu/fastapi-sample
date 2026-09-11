@@ -14,6 +14,7 @@ const DEFAULTS = {
   relation: "all",
   strength: "all",
   phase: "all",
+  health: "off",
   layout: "cose",
 };
 
@@ -23,6 +24,7 @@ const PARAMS = {
   relation: "relation",
   strength: "strength",
   phase: "phase",
+  health: "health",
   layout: "layout",
 };
 
@@ -97,6 +99,11 @@ export function hydrateTopologyControlsFromUrl() {
     DEFAULTS.phase,
   );
   setValidSelectValue(
+    "topology-health-overlay",
+    params.get(PARAMS.health),
+    DEFAULTS.health,
+  );
+  setValidSelectValue(
     "topology-layout",
     params.get(PARAMS.layout),
     DEFAULTS.layout,
@@ -116,6 +123,7 @@ export function syncTopologyControlsToUrl() {
   const relation = selectValue("topology-relation-filter", DEFAULTS.relation);
   const strength = selectValue("topology-strength-filter", DEFAULTS.strength);
   const phase = selectValue("topology-lifecycle-filter", DEFAULTS.phase);
+  const health = selectValue("topology-health-overlay", DEFAULTS.health);
   const layout = selectValue("topology-layout", DEFAULTS.layout);
 
   setOrDelete(params, PARAMS.search, search);
@@ -123,6 +131,7 @@ export function syncTopologyControlsToUrl() {
   setOrDelete(params, PARAMS.relation, relation, DEFAULTS.relation);
   setOrDelete(params, PARAMS.strength, strength, DEFAULTS.strength);
   setOrDelete(params, PARAMS.phase, phase, DEFAULTS.phase);
+  setOrDelete(params, PARAMS.health, health, DEFAULTS.health);
   setOrDelete(params, PARAMS.layout, layout, DEFAULTS.layout);
 
   window.history.replaceState(
@@ -138,6 +147,7 @@ export function resetTopologyControls() {
   const relation = document.getElementById("topology-relation-filter");
   const strength = document.getElementById("topology-strength-filter");
   const phase = document.getElementById("topology-lifecycle-filter");
+  const health = document.getElementById("topology-health-overlay");
   const layout = document.getElementById("topology-layout");
 
   if (search) search.value = "";
@@ -145,5 +155,6 @@ export function resetTopologyControls() {
   if (relation) relation.value = DEFAULTS.relation;
   if (strength) strength.value = DEFAULTS.strength;
   if (phase) phase.value = DEFAULTS.phase;
+  if (health) health.value = DEFAULTS.health;
   if (layout) layout.value = DEFAULTS.layout;
 }
