@@ -2,6 +2,7 @@ import {
   decorateCloudflareTunnelStatuses,
   markHealthBoardsPending,
 } from "./api-cloudflare-status.js";
+import { decorateDnsStatuses } from "./api-dns-status.js";
 import {
   fetchHealthBoard,
   resetHealthBoardRequest,
@@ -71,6 +72,7 @@ function loadHealthBoards({
         snapshot?.homelab?.cloudflare,
       );
       decorateProbeTelemetry(snapshot);
+      decorateDnsStatuses(snapshot);
       announceRefreshComplete(snapshot, { forceRefresh, includeTechnical });
       return snapshot;
     })
