@@ -9,6 +9,12 @@ import {
   syncTopologyControlsToUrl,
   topologyPresetLabel,
 } from "./api-topology-filter-state.js";
+import {
+  applyTopologyHealthOverlay,
+  clearTopologyHealthOverlay,
+  loadTopologyHealthOverlay,
+  topologyHealthSummary,
+} from "./api-topology-health.js";
 
 const RELATION_LABELS = {
   dependsOn: "depends on",
@@ -38,6 +44,7 @@ const state = {
   graph: null,
   topology: null,
   analysis: null,
+  healthOverlaySummary: "",
 };
 
 function normalize(value) {
@@ -172,6 +179,38 @@ function graphStyle() {
       },
     },
     {
+      selector: 'node[healthOverlay = "on"][healthEffectiveState = "ok"]',
+      style: { "background-color": "#235f49" },
+    },
+    {
+      selector: 'node[healthOverlay = "on"][healthEffectiveState = "warn"]',
+      style: { "background-color": "#745125" },
+    },
+    {
+      selector: 'node[healthOverlay = "on"][healthEffectiveState = "fail"]',
+      style: { "background-color": "#7c2e2e" },
+    },
+    {
+      selector: 'node[healthOverlay = "on"][healthEffectiveState = "unknown"]',
+      style: { "background-color": "#3a3f45" },
+    },
+    {
+      selector: 'node[healthOverlay = "on"][healthLocalState = "ok"]',
+      style: { "border-color": "#55ad85", "border-width": 4 },
+    },
+    {
+      selector: 'node[healthOverlay = "on"][healthLocalState = "warn"]',
+      style: { "border-color": "#d39a4c", "border-width": 4 },
+    },
+    {
+      selector: 'node[healthOverlay = "on"][healthLocalState = "fail"]',
+      style: { "border-color": "#d66868", "border-width": 4 },
+    },
+    {
+      selector: 'node[healthOverlay = "on"][healthLocalState = "unknown"]',
+      style: { "border-color": "#777f88", "border-width": 4 },
+    },
+    {
       selector: "edge",
       style: {
         width: 1.5,
@@ -202,6 +241,26 @@ function graphStyle() {
         "line-style": "dashed",
         opacity: 0.58,
       },
+    },
+    {
+      selector:
+        'edge[healthOverlay = "on"][strength = "required"][healthEdgeState = "ok"]',
+      style: { "line-color": "#55ad85", "target-arrow-color": "#55ad85" },
+    },
+    {
+      selector:
+        'edge[healthOverlay = "on"][strength = "required"][healthEdgeState = "warn"]',
+      style: { "line-color": "#d39a4c", "target-arrow-color": "#d39a4c" },
+    },
+    {
+      selector:
+        'edge[healthOverlay = "on"][strength = "required"][healthEdgeState = "fail"]',
+      style: { "line-color": "#d66868", "target-arrow-color": "#d66868" },
+    },
+    {
+      selector:
+        'edge[healthOverlay = "on"][strength = "required"][healthEdgeState = "unknown"]',
+      style: { "line-color": "#777f88", "target-arrow-color": "#777f88" },
     },
     {
       selector: ".is-filtered",
@@ -290,6 +349,8 @@ function updateStatus() {
     document.getElementById("topology-relation-filter")?.value || "all";
   const lifecycle =
     document.getElementById("topology-lifecycle-filter")?.value || "all";
+  const health =
+    document.getElementById("topology-health-overlay")?.value || "off";
   const relationDetail =
     relation === "all"
       ? topologyPresetLabel(preset)
@@ -298,7 +359,11 @@ function updateStatus() {
     lifecycle === "all"
       ? ""
       : ` · Lifecycle: ${LIFECYCLE_LABELS[lifecycle] || lifecycle}`;
-  status.textContent = `Source: ${state.topology.source || "homelab-topology"} · View: ${relationDetail}${lifecycleDetail} · select a node to inspect dependencies, runtime ownership and blast radius.`;
+  const healthDetail =
+    health === "on"
+      ? ` · Observed: ${state.healthOverlaySummary || "loading…"}`
+      : " · Observed: off";
+  status.textContent = `Source: ${state.topology.source || "homelab-topology"} · View: ${relationDetail}${lifecycleDetail}${healthDetail} · select a node to inspect dependencies, runtime ownership and blast radius.`;
 }
 
 function clearFocus() {
@@ -334,6 +399,31 @@ function addDetail(list, label, value, href = "") {
   list.append(term, description);
 }
 
+function addNodeHealthDetails(list, element) {
+  const overlay = element.data("healthOverlay");
+  if (overlay === "missing") {
+    addDetail(list, "Observed health", "No matching server evidence");
+    return;
+  }
+  if (overlay !== "on") return;
+  addDetail(list, "Observed effective", element.data("healthEffectiveState"));
+  addDetail(list, "Observed local", element.data("healthLocalState"));
+  addDetail(list, "Dependency state", element.data("healthDependencyState"));
+  addDetail(list, "Blocked by", element.data("healthBlockedBy"));
+  addDetail(list, "Degraded by", element.data("healthDegradedBy"));
+  addDetail(
+    list,
+    "Unconfirmed deps",
+    element.data("healthUnconfirmedDependencies"),
+  );
+  addDetail(list, "Evidence age (s)", element.data("healthObservationAge"));
+  addDetail(list, "Stale evidence", element.data("healthObservationStale"));
+  addDetail(list, "Runtime state", element.data("healthRuntimeState"));
+  addDetail(list, "Direct state", element.data("healthDirectState"));
+  addDetail(list, "Internal state", element.data("healthInternalState"));
+  addDetail(list, "Health evidence", element.data("healthDetail"));
+}
+
 function showDetails(element) {
   const empty = document.getElementById("topology-details-empty");
   const list = document.getElementById("topology-details-list");
@@ -361,6 +451,7 @@ function showDetails(element) {
       "Container service",
       element.data("runtimeContainerService"),
     );
+    addNodeHealthDetails(list, element);
     addDetail(list, "Required deps", element.data("directDependencies"));
     addDetail(list, "Blast radius", element.data("transitiveDependents"));
     addDetail(list, "NIST CSF", element.data("securityFunctions"));
@@ -382,6 +473,12 @@ function showDetails(element) {
     );
     addDetail(list, "Type", element.data("relationType"));
     addDetail(list, "Strength", element.data("strength"));
+    if (
+      element.data("healthOverlay") === "on" &&
+      element.data("strength") === "required"
+    ) {
+      addDetail(list, "Observed dependency", element.data("healthEdgeState"));
+    }
     addDetail(list, "Source", element.data("source"));
     addDetail(list, "Target", element.data("target"));
     addDetail(list, "Description", element.data("description"));
@@ -470,16 +567,43 @@ function runLayout() {
   state.graph.fit(visible, 36);
 }
 
+async function syncHealthOverlay() {
+  const graph = state.graph;
+  if (!graph) return;
+  const enabled =
+    document.getElementById("topology-health-overlay")?.value === "on";
+  resetDetails();
+  if (!enabled) {
+    clearTopologyHealthOverlay(graph);
+    state.healthOverlaySummary = "";
+    updateStatus();
+    return;
+  }
+
+  state.healthOverlaySummary = "loading…";
+  updateStatus();
+  try {
+    const overlay = await loadTopologyHealthOverlay();
+    const matchedNodes = applyTopologyHealthOverlay(graph, overlay);
+    state.healthOverlaySummary = topologyHealthSummary(overlay, matchedNodes);
+  } catch (caught) {
+    clearTopologyHealthOverlay(graph);
+    state.healthOverlaySummary = `unavailable: ${String(caught?.message || caught)}`;
+  }
+  updateStatus();
+}
+
 function applyAndSync({ relayout = false } = {}) {
   applyFilters();
   if (relayout) runLayout();
   syncTopologyControlsToUrl();
 }
 
-function resetView() {
+async function resetView() {
   resetTopologyControls();
   state.graph?.elements().unselect();
   resetDetails();
+  await syncHealthOverlay();
   applyFilters();
   runLayout();
   syncTopologyControlsToUrl();
@@ -510,6 +634,12 @@ function installControls() {
     ?.addEventListener("change", () => {
       applyAndSync({ relayout: true });
     });
+  document
+    .getElementById("topology-health-overlay")
+    ?.addEventListener("change", async () => {
+      await syncHealthOverlay();
+      syncTopologyControlsToUrl();
+    });
   document.getElementById("topology-layout")?.addEventListener("change", () => {
     runLayout();
     syncTopologyControlsToUrl();
@@ -519,13 +649,18 @@ function installControls() {
   });
   document
     .getElementById("topology-reset")
-    ?.addEventListener("click", resetView);
+    ?.addEventListener("click", () => {
+      void resetView();
+    });
   window.addEventListener("popstate", () => {
-    hydrateTopologyControlsFromUrl();
-    state.graph?.elements().unselect();
-    resetDetails();
-    applyFilters();
-    runLayout();
+    void (async () => {
+      hydrateTopologyControlsFromUrl();
+      state.graph?.elements().unselect();
+      resetDetails();
+      await syncHealthOverlay();
+      applyFilters();
+      runLayout();
+    })();
   });
 }
 
@@ -594,6 +729,7 @@ async function start() {
   hydrateTopologyControlsFromUrl();
   installControls();
   installGraphEvents();
+  await syncHealthOverlay();
   applyFilters();
   runLayout();
   syncTopologyControlsToUrl();
