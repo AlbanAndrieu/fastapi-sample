@@ -77,7 +77,7 @@ def test_topology_health_overlay_reuses_server_authoritative_evidence() -> None:
     assert 'from "./api-health-board.js"' in overlay
     assert 'from "./api-health-dependency.js"' in overlay
     assert "fetchHealthBoard()" in overlay
-    assert 'snapshot?.homelab?.services' in overlay
+    assert "snapshot?.homelab?.services" in overlay
     assert "effective_state" in overlay
     assert "local_state" in overlay
     assert "dependency_evidence" in overlay
@@ -120,9 +120,9 @@ def test_shared_topology_loader_keeps_existing_fallback_contract() -> None:
     assert 'fetchJson("/api/homelab/declared-services")' in script
     assert 'source: "declared-services-fallback"' in script
     assert 'source: "classification-unavailable"' in script
-    assert 'runtime: service?.runtime || null' in script
-    assert 'lifecycle: service?.lifecycle || null' in script
-    assert 'sourcePath: service?.sourcePath || service?.source_path || null' in script
+    assert "runtime: service?.runtime || null" in script
+    assert "lifecycle: service?.lifecycle || null" in script
+    assert "sourcePath: service?.sourcePath || service?.source_path || null" in script
     assert 'cache: "no-store"' in script
 
 
