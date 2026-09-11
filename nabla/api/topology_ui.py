@@ -5,14 +5,8 @@ from __future__ import annotations
 from html import escape
 
 _CYTOSCAPE_VERSION = "3.33.1"
-_CYTOSCAPE_URL = (
-    "https://cdnjs.cloudflare.com/ajax/libs/cytoscape/"
-    f"{_CYTOSCAPE_VERSION}/cytoscape.min.js"
-)
-_CYTOSCAPE_INTEGRITY = (
-    "sha512-kHAY8XzRfLVMcLuowdk91552RD+Nb2/1uHamfHMdLejNqlZnbEJLl1wYnsNnqIFCEZ++"
-    "WaOcOlfokC6p9JWrLw=="
-)
+_CYTOSCAPE_URL = f"https://cdnjs.cloudflare.com/ajax/libs/cytoscape/{_CYTOSCAPE_VERSION}/cytoscape.min.js"
+_CYTOSCAPE_INTEGRITY = "sha512-kHAY8XzRfLVMcLuowdk91552RD+Nb2/1uHamfHMdLejNqlZnbEJLl1wYnsNnqIFCEZ++WaOcOlfokC6p9JWrLw=="
 
 
 def render_topology_page(*, title_suffix: str | None, app_version: str) -> str:
