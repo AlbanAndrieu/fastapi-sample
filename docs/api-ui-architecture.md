@@ -11,6 +11,26 @@ The canonical declared topology still comes from `nabla-compose`. FastAPI may
 classify, observe and present that topology, but presentation code must not become
 a second source of infrastructure truth.
 
+## Global service filter
+
+`/api` has one page-wide service filter. Its visual scope must match its functional
+scope: health results, exposure-policy rows and technical service drill-downs such
+as TrueNAS are filtered through the same operator control.
+
+The filter presentation follows the same interaction model as the homelab view on
+`albanandrieu.com`: health-state summary buttons, explicit search/facets, reset and
+expand/collapse controls, and a visible match count. FastAPI-specific probe and
+exposure facets remain available because they represent evidence that the site
+projection does not currently expose at the same depth.
+
+The global filter is sticky while the operator scrolls. Secondary explanatory
+content such as the probe legend must remain collapsible so the sticky surface does
+not obscure the diagnostic results it controls, especially on mobile displays.
+
+Filtering remains a single engine. Presentation helpers may synchronize controls,
+move the filter shell or expose shortcuts, but they must not independently hide or
+show service rows.
+
 ## Topology screen
 
 The first standalone topology screen uses Cytoscape.js because it provides a
@@ -33,67 +53,125 @@ Current constraints:
 
 The current browser UI is deliberately framework-light, but repeated
 `document.createElement()`, attribute mutation and append operations are becoming
-a maintenance cost. The next refactor should reduce code before adding more
-interactive health components.
+a maintenance cost. Refactoring must remove maintained code or reduce measurable
+complexity rather than only move boilerplate between modules.
 
-### Preferred experiment: standalone `lit-html`
+### Candidate: standalone `lit-html`
 
-Pilot `lit-html` in one high-churn renderer rather than introducing a complete
-frontend framework. Good candidates are the service-group summary renderer and
-the diagnostic probe-badge renderer.
+`lit-html` is a credible candidate, but it is not yet an architectural decision.
+The official Lit documentation explicitly supports using the template renderer
+standalone, outside LitElement, with the small `html` and `render` API. That matches
+this application better than introducing a component framework because the health
+screen already has explicit JSON contracts and imperative data-fetching logic.
 
-Do not add a new CDN availability dependency to the health view. The current
-`/api/assets` modules are served locally without a frontend bundle, so a Lit pilot
-must first provide a deterministic build-time bundle or vendored local artifact.
-The topology screen may tolerate an optional external renderer because `/api`
-remains independent and the machine-readable topology link remains usable.
+Research baseline as of 2026-09-11:
 
-Acceptance criteria for the pilot:
+- current npm `lit-html` is 3.3.3, BSD-3-Clause, maintained in the `lit/lit`
+  repository and widely depended upon;
+- official standalone documentation supports installing `lit-html` separately and
+  rendering into ordinary DOM containers without LitElement;
+- Lit templates treat ordinary interpolated strings as text rather than parsing
+  them as HTML, which provides a useful XSS-resistant default;
+- Lit has supported Trusted Types integration since the 1.3 line;
+- `unsafeHTML` and equivalent unsafe/static directives remain explicit trust
+  boundaries and must never receive query strings, runtime service metadata or any
+  other untrusted value;
+- official production guidance recommends normal module bundling/minification and
+  asset hashing. Rollup is the documented recommendation, although Lit does not
+  require a specific bundler;
+- the current `/api/assets` path has no frontend bundle step, so bare npm imports
+  cannot simply be introduced into production browser modules without resolving
+  or bundling them first.
 
-- reduce imperative DOM/rendering lines in the selected module by at least 25%;
-- preserve the existing JSON contracts and health semantics;
-- keep data fetching, topology analysis and status policy outside templates;
-- introduce no application-global mutable state;
-- keep accessibility attributes and safe text interpolation;
-- keep the current deterministic Biome and unit-test gates;
-- remove more maintained application code than the integration adds.
+Primary references:
 
-Only adopt full Lit Web Components if the standalone-template pilot demonstrates
-clear reuse across several independent screens.
+- <https://lit.dev/docs/libraries/standalone-templates/>
+- <https://lit.dev/docs/tools/production/>
+- <https://lit.dev/docs/templates/directives/>
+- <https://lit.dev/docs/v2/releases/release-notes/1.3.0/>
+- <https://www.npmjs.com/package/lit-html>
+
+### Pilot constraints and acceptance criteria
+
+Do not add a public-CDN availability dependency to the `/api` health view. A pilot
+must pin the npm dependency and produce a deterministic local asset at build time,
+or use an equivalently reviewable vendoring mechanism. The optional Cytoscape
+renderer is a different risk boundary because failure of `/api/topology` does not
+remove the primary health operator screen.
+
+A `lit-html` pilot should target exactly one high-churn renderer first, preferably
+the probe-evidence strip or service-group summary. Accept it only when all of these
+conditions hold:
+
+- reduce maintained imperative DOM/rendering lines in the selected module by at
+  least 25%;
+- reduce or hold cyclomatic/cognitive complexity rather than hiding it in template
+  callbacks;
+- preserve existing JSON contracts, service-health semantics and topology
+  classification;
+- keep fetching, reconciliation, status policy and topology analysis outside the
+  template layer;
+- pin the exact dependency in the lockfile and keep dependency/SBOM/security
+  scanning enabled;
+- bundle or vendor the runtime locally; `/api` must still render when Internet/CDN
+  access is unavailable;
+- do not use `unsafeHTML`, `unsafeSVG`, `unsafeStatic` or equivalent directives for
+  runtime/untrusted data;
+- validate the resulting page under the existing CSP/Trusted Types direction and
+  preserve safe text interpolation;
+- preserve keyboard navigation, focus visibility, ARIA state and reduced-motion
+  behavior;
+- measure initial render plus refresh/update cost before and after the pilot;
+- remove more maintained application code than the integration/build plumbing
+  adds.
+
+If the pilot does not meet these criteria, keep the current browser-native module
+architecture and continue extracting pure data/policy helpers instead. Only
+consider LitElement/Web Components after standalone templates demonstrate reuse
+across several independent screens.
 
 ### Existing library to exploit: Jinja2
 
 Jinja2 is already part of the application stack. Page shells that are mostly
-static HTML should progressively move out of large Python f-strings and into
-Jinja templates. This reduces Python module complexity without adding another
-runtime dependency. Dynamic health and topology data should continue to arrive
-through explicit API contracts.
+static HTML should progressively move out of large Python f-strings and into Jinja
+templates. This reduces Python module complexity without adding another runtime
+dependency. Dynamic health and topology data should continue to arrive through
+explicit API contracts.
 
-### Alternatives not selected for the first refactor
+### Alternatives considered
 
-- **React / React Flow:** excellent for a React application, but would introduce a
-  second frontend runtime solely for FastAPI diagnostics.
-- **htmx:** small and dependency-free, but its HTML-over-the-wire model would
-  require replacing several established JSON rendering paths with server-rendered
-  fragments. Re-evaluate only for server-owned forms or CRUD screens.
-- **Alpine.js:** useful for lightweight local state, but does not address the
-  largest repeated rendering blocks as directly as declarative templates; its
-  standard expression model also needs separate CSP consideration.
+- **React / React Flow:** strong ecosystem, but it would introduce a second
+  frontend application/runtime solely for diagnostics and duplicate capabilities
+  now isolated to the optional Cytoscape topology view.
+- **htmx:** small and effective for HTML-over-the-wire forms/CRUD, but using it for
+  the current live health UI would require replacing established JSON rendering
+  paths with server-rendered fragments. Re-evaluate for future server-owned forms.
+- **Alpine.js:** useful for lightweight local state, but it addresses the large
+  repeated rendering blocks less directly than declarative templates and adds CSP
+  considerations for its expression evaluation model.
+- **Preact:** substantially smaller than React, but still introduces a component
+  runtime and state model that is unnecessary for a first rendering-only pilot.
+- **smaller template libraries:** bundle size alone is not sufficient. Prefer the
+  maintenance history, security documentation, Trusted Types support and ecosystem
+  of Lit unless a measured payload budget proves that difference material.
 
 ## Follow-up presentation roadmap
 
-1. Add topology presets for **Dependencies** and **Network paths** so functional
-   dependencies and transport/ingress paths are not mixed by default.
-2. Add compound trust/network zones when the topology contract can identify them
-   without UI-side inference: Internet/Cloudflare, pfSense/LAN, TrueNAS/Docker,
-   Talos/Kubernetes and external providers.
-3. Add an optional health overlay to `/api/topology` using the same status/evidence
-   contract as `/api`; declared state and observed state must remain visibly
-   distinct.
-4. Add URL-backed topology filters so focused views can be shared without storing
-   UI state server-side.
-5. Keep quantitative traffic/latency flow visualisation separate from dependency
-   topology; use the existing Plotly dependency only when measurements justify a
-   Sankey or time-series view.
-6. Measure maintained JS/CSS/Python UI source size after each presentation change;
-   refactors that only move boilerplate between files do not count as reductions.
+1. Keep the page-wide sticky health filter consistent with the homelab site and
+  add presentation-group/environment facets only from canonical topology/catalog
+  metadata.
+2. Add topology presets for **Dependencies** and **Network paths** so functional
+  dependencies and transport/ingress paths are not mixed by default.
+3. Add compound trust/network zones when the topology contract can identify them
+  without UI-side inference: Internet/Cloudflare, pfSense/LAN, TrueNAS/Docker,
+  Talos/Kubernetes and external providers.
+4. Add an optional health overlay to `/api/topology` using the same status/evidence
+  contract as `/api`; declared state and observed state must remain visibly
+  distinct.
+5. Add URL-backed filters so focused health/topology views can be shared without
+  storing operator state server-side.
+6. Keep quantitative traffic/latency flow visualisation separate from dependency
+  topology; use Plotly only when measurements justify a Sankey or time-series
+  view.
+7. Measure maintained JS/CSS/Python UI source size after each presentation change;
+  refactors that only move boilerplate between files do not count as reductions.
