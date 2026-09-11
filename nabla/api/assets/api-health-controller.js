@@ -65,7 +65,10 @@ function loadHealthBoards({
   }
   return fetchHealthBoard()
     .then((snapshot) => {
-      decorateCloudflareTunnelStatuses(snapshot.sickz);
+      decorateCloudflareTunnelStatuses(
+        snapshot.sickz,
+        snapshot?.healthz?.checks?.cloudflare,
+      );
       decorateProbeTelemetry(snapshot);
       announceRefreshComplete(snapshot, { forceRefresh, includeTechnical });
       return snapshot;
