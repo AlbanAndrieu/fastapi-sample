@@ -1,7 +1,9 @@
 import { installGlobalServiceFilter } from "./api-global-service-filter.js";
 import { installHealthBoardController } from "./api-health-controller.js";
+import { installHealthOperatorUx } from "./api-health-operator-ux.js";
 import { installProbeFanoutDashboard } from "./api-probe-fanout-dashboard.js";
 import { startProbeAgeTicker } from "./api-probe-live.js";
+import { installServiceDetailDrawer } from "./api-service-detail-drawer.js";
 import { installServiceDiagnostics } from "./api-service-diagnostics.js";
 import { installPfsensePortLabels } from "./api-sickz-port-labels.js";
 import { installRuntimeVersionDriftWarning } from "./api-version-drift.js";
@@ -9,6 +11,8 @@ import { installRuntimeVersionDriftWarning } from "./api-version-drift.js";
 installPfsensePortLabels();
 installServiceDiagnostics();
 installGlobalServiceFilter();
+installHealthOperatorUx();
+installServiceDetailDrawer();
 installProbeFanoutDashboard();
 startProbeAgeTicker();
 installHealthBoardController();
