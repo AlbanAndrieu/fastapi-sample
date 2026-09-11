@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 from nabla.api.cloudflare_tunnels import (
     CloudflareAccessApplicationObservation,
@@ -18,6 +19,74 @@ from nabla.api.provider_probe_policies import CLOUDFLARE_EXPOSURE_CACHE_POLICY
 
 _CACHE_KEY = "cloudflare:exposure"
 _OBSERVER_TIMEOUT_SEC = 4.0
+
+
+def _safe_service_target(value: str) -> str:
+    """Return an operator-useful Tunnel origin without credentials/query material."""
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    if "://" not in raw:
+        return raw[:256]
+    try:
+        parsed = urlsplit(raw)
+    except ValueError:
+        return "configured origin"
+    hostname = parsed.hostname or ""
+    if not hostname:
+        return "configured origin"
+    try:
+        port = parsed.port
+    except ValueError:
+        port = None
+    netloc = hostname if port is None else f"{hostname}:{port}"
+    return urlunsplit((parsed.scheme, netloc, parsed.path or "", "", ""))[:256]
+
+
+def _tunnel_summary(tunnel: CloudflareTunnelObservation) -> dict[str, Any]:
+    management = str(tunnel.config_source or "unknown")
+    ingress = [
+        {
+            "hostname": item.hostname,
+            "service": _safe_service_target(item.service),
+            "status": item.status,
+        }
+        for item in tunnel.ingress
+    ]
+    return {
+        "name": tunnel.name,
+        "status": tunnel.status,
+        "management": management,
+        "ingress_count": len(ingress),
+        "ingress_visibility": (
+            "remote_api"
+            if management == "cloudflare"
+            else "local_yaml_unavailable_via_api"
+            if management == "local"
+            else "unknown"
+        ),
+        "ingress": ingress,
+    }
+
+
+def _access_application_summary(
+    application: CloudflareAccessApplicationObservation,
+) -> dict[str, Any]:
+    policies = [
+        {
+            "name": policy.name or "unnamed policy",
+            "decision": policy.decision or "unknown",
+            "includes_everyone": policy.includes_everyone,
+        }
+        for policy in application.policies
+    ]
+    return {
+        "name": application.name,
+        "domain": application.domain,
+        "path": application.path,
+        "policy_count": len(policies),
+        "policies": policies,
+    }
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,7 +125,12 @@ class CloudflareExposureSnapshot:
             "cloudflare_managed_tunnels": remote_managed,
             "unknown_management_tunnels": len(config_sources) - local_managed - remote_managed,
             "tunnel_config_sources": sorted(set(config_sources)),
+            "tunnels": [_tunnel_summary(tunnel) for tunnel in self.tunnels],
             "access_applications_observed": len(self.access_applications),
+            "access_applications": [
+                _access_application_summary(application)
+                for application in self.access_applications
+            ],
             "tunnel_observer_state": ("unconfigured" if not self.configured else "error" if self.tunnel_error else "empty" if not self.tunnels else "ok"),
             "access_observer_state": ("unconfigured" if not self.configured else "error" if self.access_error else "ok"),
             "tunnel_error": self.tunnel_error,
