@@ -81,8 +81,10 @@ async def test_cloudflare_404_reports_account_scope_diagnostic(monkeypatch) -> N
 
     result = await platform_health.check_cloudflare_tunnels()
 
-    assert result["reachable"] is False
+    assert result["reachable"] is None
     assert result["api_reachable"] is True
+    assert result["status_confirmed"] is False
+    assert result["effective_state"] == "warn"
     assert result["http_status"] == 404
     assert "CLOUDFLARE_ACCOUNT_ID" in result["error"]
 

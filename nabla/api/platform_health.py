@@ -83,6 +83,12 @@ async def check_pfsense_api() -> dict[str, Any]:
         write=_PFSENSE_CONNECT_TIMEOUT_SEC,
         pool=_PFSENSE_CONNECT_TIMEOUT_SEC,
     )
+    logger.debug(
+        "pfSense API liveness probe started path=%s verify_ssl=%s credential_mode=%s",
+        _PFSENSE_LIVENESS_PATH,
+        verify_ssl,
+        credential_mode,
+    )
     started = time.monotonic()
     response: httpx.Response | None = None
     last_error: BaseException | None = None
@@ -170,6 +176,13 @@ async def check_pfsense_api() -> dict[str, Any]:
                 "failure_stage": "http_response",
             },
         )
+    logger.debug(
+        "pfSense API liveness probe completed http_status=%s elapsed_ms=%s attempts=%s verify_ssl=%s",
+        response.status_code,
+        elapsed_ms,
+        attempts,
+        verify_ssl,
+    )
     return result
 
 

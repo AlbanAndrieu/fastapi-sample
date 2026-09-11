@@ -15,6 +15,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
 from nabla.api.auth.openstack import probe_ovh_me_reachable
+from nabla.api.health_http_errors import http_probe_error_kind as _http_probe_error_kind
 from nabla.api.health_probe_cadence import (
     annotate_required_probe,
     probe_cadence_contract,
@@ -64,28 +65,6 @@ _DEPENDENCY_KEYS = (
     "pyroscope",
     "litellm",
 )
-
-
-def _http_probe_error_kind(exc: Exception) -> str:
-    """Classify outbound HTTP failures without exposing implementation details."""
-    message = str(exc).lower()
-    if isinstance(exc, httpx.ConnectTimeout):
-        return "connect_timeout"
-    if isinstance(exc, httpx.ReadTimeout):
-        return "read_timeout"
-    if isinstance(exc, httpx.TimeoutException):
-        return "timeout"
-    if any(marker in message for marker in ("certificate", "ssl", "tls")):
-        return "tls_error"
-    if any(marker in message for marker in ("name or service not known", "nodename nor servname", "temporary failure in name resolution", "getaddrinfo")):
-        return "dns_error"
-    if isinstance(exc, httpx.ConnectError):
-        return "connect_error"
-    if isinstance(exc, httpx.HTTPError):
-        return "http_error"
-    if isinstance(exc, OSError):
-        return "os_error"
-    return "unknown_error"
 
 
 async def probe_https_get_reachable(
