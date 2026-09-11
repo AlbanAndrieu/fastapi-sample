@@ -41,6 +41,7 @@ def test_health_tier_help_explains_required_and_optional_semantics() -> None:
 
 def test_cloudflare_uncertainty_is_visible_next_to_ingress_diagnostics() -> None:
     javascript = (ASSETS / "api-cloudflare-status.js").read_text(encoding="utf-8")
+    controller = (ASSETS / "api-health-controller.js").read_text(encoding="utf-8")
 
     assert 'id = "cloudflare-tunnel-warning"' not in javascript
     assert 'container.id = "cloudflare-tunnel-warning";' in javascript
@@ -48,6 +49,11 @@ def test_cloudflare_uncertainty_is_visible_next_to_ingress_diagnostics() -> None
     assert "not proof that the service or Cloudflare Tunnel is down" in javascript
     assert "remote-vs-local tunnel management" in javascript
     assert 'document.getElementById("truenas-ingress-block")' in javascript
+    assert "platformCloudflareDetail" in javascript
+    assert "status_confirmed" in javascript
+    assert "api_reachable" in javascript
+    assert "error_kind" in javascript
+    assert "snapshot?.healthz?.checks?.cloudflare" in controller
 
 
 def test_pfsense_security_controls_have_explicit_icons() -> None:
