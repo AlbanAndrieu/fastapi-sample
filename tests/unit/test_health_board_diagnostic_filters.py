@@ -33,6 +33,7 @@ def test_diagnostic_filters_cover_status_exposure_and_probe_type() -> None:
         "Policy compliant",
         "Policy warning",
         "Policy violation",
+        "No exposure evidence",
         "External services",
         "Internal-only services",
         "Cloudflare protected",
@@ -59,8 +60,10 @@ def test_probe_evidence_uses_independent_colored_states() -> None:
     stylesheet = (ASSETS / "api-service-diagnostics.css").read_text(encoding="utf-8")
 
     assert "cloudflare_service_token_access_passed" in javascript
+    assert "cloudflare_service_token_http_status" in javascript
     assert "cloudflare_tunnel_observed" in javascript
     assert "cloudflare_access_policy_count" in javascript
+    assert "cloudflare_default_deny" in javascript
     assert "tls_trusted" in javascript
     assert 'probeBadge("tls"' in javascript
     assert 'probeBadge("cloudflare"' in javascript
@@ -86,3 +89,12 @@ def test_filters_are_reapplied_after_live_health_board_updates() -> None:
     assert "observer.observe(board, { childList: true, subtree: true });" in javascript
     assert "latestSnapshot = await fetchHealthBoard()" in javascript
     assert "applyFilters();" in javascript
+
+
+def test_issues_button_tracks_status_filter_and_clear_state() -> None:
+    javascript = (ASSETS / "api-service-diagnostics.js").read_text(encoding="utf-8")
+
+    assert "function syncIssuesButton()" in javascript
+    assert 'button.textContent = active ? "All" : "Issues";' in javascript
+    assert 'button.setAttribute("aria-pressed", String(active));' in javascript
+    assert "syncIssuesButton();" in javascript
