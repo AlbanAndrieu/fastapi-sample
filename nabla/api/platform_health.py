@@ -64,6 +64,59 @@ def _cloud_transport_unconfirmed(error_kind: str) -> bool:
     return fastapi_cloud_runtime_detected() and error_kind in _PFSENSE_TRANSIENT_ERROR_KINDS
 
 
+def _pfsense_transport_failure_result(
+    exc: BaseException,
+    *,
+    elapsed_ms: int,
+    attempts: int,
+    url: str,
+    verify_ssl: bool,
+    credential_mode: str,
+) -> dict[str, Any]:
+    """Map transport failure into runtime-aware pfSense evidence."""
+    error_kind = _http_error_kind(exc)
+    error = _short_error(exc)
+    if error_kind == "read_timeout":
+        error = f"pfSense accepted the connection but did not return the REST API response within {_PFSENSE_READ_TIMEOUT_SEC:.0f}s"
+    failure_stage = _pfsense_failure_stage(error_kind)
+    cloud_unconfirmed = _cloud_transport_unconfirmed(error_kind)
+    logger.warning(
+        "pfSense API liveness probe failed error_kind=%s failure_stage=%s exception_type=%s elapsed_ms=%s attempts=%s cloud_unconfirmed=%s",
+        error_kind,
+        failure_stage,
+        type(exc).__name__,
+        elapsed_ms,
+        attempts,
+        cloud_unconfirmed,
+    )
+    result: dict[str, Any] = {
+        "reachable": None if cloud_unconfirmed else False,
+        "error": error,
+        "error_kind": error_kind,
+        "failure_stage": failure_stage,
+        "exception_type": type(exc).__name__,
+        "elapsed_ms": elapsed_ms,
+        "attempts": attempts,
+        "probe": "pfsense_rest_api_v2",
+        "path": _PFSENSE_LIVENESS_PATH,
+        "url": url,
+        "verify_ssl": verify_ssl,
+        "credential_mode": credential_mode,
+        "tls_trusted": False if not verify_ssl else None,
+    }
+    if cloud_unconfirmed:
+        result.update(
+            {
+                "state": "unknown",
+                "status_confirmed": False,
+                "degraded": False,
+                "vantage_point": "fastapi_cloud",
+                "warning": f"⚠️ pfSense status could not be confirmed from FastAPI Cloud: {error}",
+            },
+        )
+    return result
+
+
 async def check_pfsense_api() -> dict[str, Any]:
     """Check pfSense REST API liveness with the posture read-only identity."""
     try:
@@ -132,48 +185,14 @@ async def check_pfsense_api() -> dict[str, Any]:
 
     elapsed_ms = round((time.monotonic() - started) * 1000)
     if response is None:
-        exc = last_error or RuntimeError("pfSense API request failed")
-        error_kind = _http_error_kind(exc)
-        error = _short_error(exc)
-        if error_kind == "read_timeout":
-            error = f"pfSense accepted the connection but did not return the REST API response within {_PFSENSE_READ_TIMEOUT_SEC:.0f}s"
-        failure_stage = _pfsense_failure_stage(error_kind)
-        cloud_unconfirmed = _cloud_transport_unconfirmed(error_kind)
-        logger.warning(
-            "pfSense API liveness probe failed error_kind=%s failure_stage=%s exception_type=%s elapsed_ms=%s attempts=%s cloud_unconfirmed=%s",
-            error_kind,
-            failure_stage,
-            type(exc).__name__,
-            elapsed_ms,
-            attempts,
-            cloud_unconfirmed,
+        return _pfsense_transport_failure_result(
+            last_error or RuntimeError("pfSense API request failed"),
+            elapsed_ms=elapsed_ms,
+            attempts=attempts,
+            url=url,
+            verify_ssl=verify_ssl,
+            credential_mode=credential_mode,
         )
-        result: dict[str, Any] = {
-            "reachable": None if cloud_unconfirmed else False,
-            "error": error,
-            "error_kind": error_kind,
-            "failure_stage": failure_stage,
-            "exception_type": type(exc).__name__,
-            "elapsed_ms": elapsed_ms,
-            "attempts": attempts,
-            "probe": "pfsense_rest_api_v2",
-            "path": _PFSENSE_LIVENESS_PATH,
-            "url": url,
-            "verify_ssl": verify_ssl,
-            "credential_mode": credential_mode,
-            "tls_trusted": False if not verify_ssl else None,
-        }
-        if cloud_unconfirmed:
-            result.update(
-                {
-                    "state": "unknown",
-                    "status_confirmed": False,
-                    "degraded": False,
-                    "vantage_point": "fastapi_cloud",
-                    "warning": f"⚠️ pfSense status could not be confirmed from FastAPI Cloud: {error}",
-                },
-            )
-        return result
 
     healthy = 200 <= response.status_code < 400
     result = {
