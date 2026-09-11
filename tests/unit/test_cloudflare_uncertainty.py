@@ -166,14 +166,7 @@ def test_exposure_summary_reports_local_vs_dashboard_managed_tunnels() -> None:
 
 
 def test_exposure_summary_includes_sanitized_routes_and_access_policies() -> None:
-    credential_like_origin = (
-        "http://"
-        + "fixture-user"
-        + ":"
-        + "fixture-password"
-        + "@"
-        + "172.17.0.24:8091/api?token=fixture-token"
-    )
+    credential_like_origin = "http://" + "fixture-user" + ":" + "fixture-password" + "@" + "172.17.0.24:8091/api?token=fixture-token"
     snapshot = cloudflare_exposure_observer.CloudflareExposureSnapshot(
         configured=True,
         tunnels=(
