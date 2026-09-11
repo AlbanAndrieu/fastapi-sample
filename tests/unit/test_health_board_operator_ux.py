@@ -65,7 +65,7 @@ def test_refresh_delta_tracks_regressions_and_recoveries_without_unknown_noise()
     assert 'previous === "unknown" || current === "unknown"' in source
     assert 'return "recovered";' in source
     assert 'return "regressed";' in source
-    assert 'value.row.dataset.healthChange = kind;' in source
+    assert "value.row.dataset.healthChange = kind;" in source
     assert 'document.addEventListener("health-board-refreshed"' in source
     assert "baselineStatuses === null" in source
 
