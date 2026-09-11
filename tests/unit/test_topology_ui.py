@@ -92,7 +92,7 @@ def test_required_edge_overlay_uses_dependency_evidence_only() -> None:
     assert 'edge.data("strength") !== "required"' in overlay
     assert 'String(entry?.target || "") === String(target)' in overlay
     assert 'String(entry?.relation_type || "") === String(relationType)' in overlay
-    assert "entry.target_state" in overlay
+    assert "match.target_state" in overlay
     assert "hostname" not in overlay.lower()
     assert "url.includes(" not in overlay
 
