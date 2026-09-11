@@ -153,7 +153,7 @@ function appendTunnelBadge(row, state) {
   tags.appendChild(badge);
 }
 
-function ensureTunnelWarningBlock() {
+function ensureTunnelStatusBlock() {
   let container = document.getElementById("cloudflare-tunnel-warning");
   if (container) return container;
 
@@ -163,7 +163,7 @@ function ensureTunnelWarningBlock() {
 
   container = document.createElement("details");
   container.id = "cloudflare-tunnel-warning";
-  container.className = "truenas-ingress-block truenas-ingress-block--warning";
+  container.className = "truenas-ingress-block";
   target.insertAdjacentElement("afterend", container);
   return container;
 }
@@ -199,7 +199,52 @@ function exposureManagementDetail(exposureSummary) {
   return null;
 }
 
-function renderTunnelWarning(checks, platformCheck, exposureSummary) {
+function tunnelInventoryDetails(exposureSummary) {
+  if (!Array.isArray(exposureSummary?.tunnels)) return [];
+  return exposureSummary.tunnels.map((tunnel) => {
+    const name = String(tunnel?.name || "unnamed tunnel");
+    const status = String(tunnel?.status || "unknown");
+    const management = String(tunnel?.management || "unknown");
+    const ingress = Array.isArray(tunnel?.ingress) ? tunnel.ingress : [];
+    if (ingress.length === 0) {
+      const visibility =
+        tunnel?.ingress_visibility === "local_yaml_unavailable_via_api"
+          ? "ingress owned by local cloudflared YAML; remote API cannot enumerate hostnames"
+          : "no ingress hostname observed";
+      return `Tunnel ${name} · ${status} · management=${management} · ${visibility}.`;
+    }
+    const routes = ingress
+      .map((route) => {
+        const routeStatus = route?.status ? ` · ${route.status}` : "";
+        return `${route?.hostname || "hostname unknown"} → ${route?.service || "origin unknown"}${routeStatus}`;
+      })
+      .join("; ");
+    return `Tunnel ${name} · ${status} · management=${management} · ${routes}.`;
+  });
+}
+
+function accessInventoryDetails(exposureSummary) {
+  if (!Array.isArray(exposureSummary?.access_applications)) return [];
+  return exposureSummary.access_applications.map((application) => {
+    const name = String(application?.name || "unnamed Access application");
+    const domain = String(application?.domain || "domain unknown");
+    const policies = Array.isArray(application?.policies)
+      ? application.policies
+      : [];
+    const policyText = policies.length
+      ? policies
+          .map((policy) => {
+            const everyone =
+              policy?.includes_everyone === true ? " · everyone" : "";
+            return `${policy?.name || "unnamed"}=${policy?.decision || "unknown"}${everyone}`;
+          })
+          .join(", ")
+      : "no policy observed";
+    return `Access ${name} · ${domain}${application?.path && application.path !== "/" ? application.path : ""} · policies: ${policyText}.`;
+  });
+}
+
+function renderTunnelStatus(checks, platformCheck, exposureSummary) {
   const protectedChecks = Object.values(checks).filter(
     (check) => check?.tunnel_secure === true,
   );
@@ -208,16 +253,25 @@ function renderTunnelWarning(checks, platformCheck, exposureSummary) {
     .filter(({ state }) => state && state.cls !== "green");
   const platformDetail = platformCloudflareDetail(platformCheck);
   const managementDetail = exposureManagementDetail(exposureSummary);
-  const container = ensureTunnelWarningBlock();
+  const tunnelDetails = tunnelInventoryDetails(exposureSummary);
+  const accessDetails = accessInventoryDetails(exposureSummary);
+  const container = ensureTunnelStatusBlock();
   if (!container) return;
 
-  if (unresolved.length === 0 && !platformDetail && !managementDetail) {
+  const hasInventory = tunnelDetails.length > 0 || accessDetails.length > 0;
+  if (
+    unresolved.length === 0 &&
+    !platformDetail &&
+    !managementDetail &&
+    !hasInventory
+  ) {
     container.hidden = true;
     container.open = false;
     container.innerHTML = "";
     return;
   }
 
+  const warningState = unresolved.length > 0 || Boolean(platformDetail);
   const wasOpen = container.open === true;
   const observerErrors = [
     ...new Set(
@@ -237,6 +291,7 @@ function renderTunnelWarning(checks, platformCheck, exposureSummary) {
   const details = [];
   if (platformDetail) details.push(platformDetail);
   if (managementDetail) details.push(managementDetail);
+  details.push(...tunnelDetails, ...accessDetails);
   if (observerErrors.length > 0) {
     details.push(
       `Tunnel inventory observer error: ${observerErrors.join(", ")}.`,
@@ -252,16 +307,26 @@ function renderTunnelWarning(checks, platformCheck, exposureSummary) {
       `${unresolved.length} tunnel-protected hostname(s) are not confirmed by the current Tunnel ingress inventory.`,
     );
   }
-  details.push(
-    "This is verification uncertainty, not proof that the service or Cloudflare Tunnel is down; check account/token scope and remote-vs-local tunnel management.",
-  );
+  if (warningState) {
+    details.push(
+      "This is verification uncertainty, not proof that the service or Cloudflare Tunnel is down; check account/token scope and remote-vs-local tunnel management.",
+    );
+  }
 
   container.hidden = false;
   container.open = wasOpen;
+  container.className = warningState
+    ? "truenas-ingress-block truenas-ingress-block--warning"
+    : "truenas-ingress-block";
+  const heading = warningState
+    ? "⚠ Cloudflare Tunnel verification temporarily unavailable"
+    : "✓ Cloudflare Tunnel & Access status";
   container.innerHTML =
     '<summary><strong><img src="' +
     CLOUDFLARE_ICON +
-    '" alt="" width="18" height="18" loading="lazy"> ⚠ Cloudflare Tunnel verification temporarily unavailable</strong></summary>' +
+    '" alt="" width="18" height="18" loading="lazy"> ' +
+    escapeText(heading) +
+    "</strong></summary>" +
     '<div class="truenas-ingress-detail">' +
     details.map((detail) => `<span>${escapeText(detail)}</span>`).join("") +
     "</div>";
@@ -280,6 +345,6 @@ export function decorateCloudflareTunnelStatuses(
       replaceDirectProbeWording(row, check);
       appendTunnelBadge(row, normalizeTunnelStatus(check));
     });
-    renderTunnelWarning(checks, platformCheck, exposureSummary);
+    renderTunnelStatus(checks, platformCheck, exposureSummary);
   }, 0);
 }
