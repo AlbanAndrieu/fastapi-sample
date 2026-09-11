@@ -42,6 +42,12 @@ Pilot `lit-html` in one high-churn renderer rather than introducing a complete
 frontend framework. Good candidates are the service-group summary renderer and
 the diagnostic probe-badge renderer.
 
+Do not add a new CDN availability dependency to the health view. The current
+`/api/assets` modules are served locally without a frontend bundle, so a Lit pilot
+must first provide a deterministic build-time bundle or vendored local artifact.
+The topology screen may tolerate an optional external renderer because `/api`
+remains independent and the machine-readable topology link remains usable.
+
 Acceptance criteria for the pilot:
 
 - reduce imperative DOM/rendering lines in the selected module by at least 25%;
