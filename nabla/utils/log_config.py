@@ -223,7 +223,17 @@ class JMGunicornLogger(glogging.Logger):
         )
 
 
-_QUIET_HEALTH_PATHS = frozenset({"/health", "/healthz", "/livez", "/readyz", "/sickz"})
+_QUIET_HEALTH_PATHS = frozenset(
+    {
+        "/api/health-board",
+        "/api/homelab/probes",
+        "/health",
+        "/healthz",
+        "/livez",
+        "/readyz",
+        "/sickz",
+    }
+)
 _ACCESS_PATH_PATTERN = re.compile(r'"[A-Z]+ (?P<path>[^ ?"]+)')
 
 
@@ -256,6 +266,7 @@ def configure_library_log_levels() -> None:
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("apscheduler.executors").setLevel(logging.WARNING)
     logging.getLogger("apscheduler.scheduler").setLevel(logging.WARNING)
+    logging.getLogger("websocket").setLevel(logging.WARNING)
 
 
 def setup_logging() -> None:
