@@ -54,8 +54,14 @@ Current constraints:
   **All relations** for structural, observability and automation edges as well;
 - let an explicit relation filter override the preset rather than silently creating
   contradictory filters;
+- expose canonical `runtime.provider`, `runtime.appId`,
+  `runtime.containerService`, `lifecycle.phase` and `lifecycle.priority` as
+  declared node context only. A lifecycle phase filter may select those declared
+  nodes, but FastAPI must not derive or claim the operational TrueNAS start order;
+  that ordering remains owned by the `nabla-compose` lifecycle planner, where
+  required topology relations are authoritative over phase/priority;
 - keep topology controls shareable through URL state (`q`, `view`, `relation`,
-  `strength`, `layout`) without storing operator state server-side;
+  `strength`, `phase`, `layout`) without storing operator state server-side;
 - preserve unrelated query parameters and the URL hash while updating topology
   state;
 - never infer trust/network zones from hostnames, URLs, service display names or
@@ -174,23 +180,29 @@ Planning status belongs in `docs/engineering-roadmap.md`; this list records the 
 architecture sequence and acceptance boundaries.
 
 1. Keep the page-wide sticky health filter consistent with the homelab site and
-  add presentation-group/environment facets only from canonical topology/catalog
-  metadata. Implemented by the health-filter work through PR #247.
+   add presentation-group/environment facets only from canonical topology/catalog
+   metadata. Implemented by the health-filter work through PR #247.
 2. Separate topology **Dependencies** and **Network paths** presets so functional
-  dependencies and transport/ingress paths are not mixed by default. The focused
-  presets must use declared relation types only; structural/observability relations
-  remain available through **All relations**.
-3. Add compound trust/network zones only when the topology contract can identify
-  them without UI-side inference: Internet/Cloudflare, pfSense/LAN,
-  TrueNAS/Docker, Talos/Kubernetes and external providers.
-4. Add an optional health overlay to `/api/topology` using the same status/evidence
-  contract as `/api`; declared state and observed state must remain visibly
-  distinct.
-5. Keep focused health and topology views shareable with URL-backed filters and no
-  server-side operator session state. Health state is implemented through PR #247;
-  topology state includes search, preset, relation, strength and layout.
-6. Keep quantitative traffic/latency flow visualisation separate from dependency
-  topology; use Plotly only when measurements justify a Sankey or time-series
-  view.
-7. Measure maintained JS/CSS/Python UI source size after each presentation change;
-  refactors that only move boilerplate between files do not count as reductions.
+   dependencies and transport/ingress paths are not mixed by default. The focused
+   presets use declared relation types only; structural/observability relations
+   remain available through **All relations**. Implemented by PR #250.
+3. Surface canonical runtime ownership and lifecycle phase/priority as declared
+   node context, including a shareable lifecycle phase filter. Do not derive the
+   canonical TrueNAS planner order in FastAPI. Implemented by PR #250 after
+   `nabla-compose#191` merged.
+4. Add compound trust/network zones only when the topology contract can identify
+   them without UI-side inference: Internet/Cloudflare, pfSense/LAN,
+   TrueNAS/Docker, Talos/Kubernetes and external providers. This remains blocked
+   on canonical zone metadata.
+5. Add an optional health overlay to `/api/topology` using the same status/evidence
+   contract as `/api`; declared state and observed state must remain visibly
+   distinct.
+6. Keep focused health and topology views shareable with URL-backed filters and no
+   server-side operator session state. Health state is implemented through PR #247;
+   topology state includes search, preset, relation, strength, lifecycle phase and
+   layout through PR #250.
+7. Keep quantitative traffic/latency flow visualisation separate from dependency
+   topology; use Plotly only when measurements justify a Sankey or time-series
+   view.
+8. Measure maintained JS/CSS/Python UI source size after each presentation change;
+   refactors that only move boilerplate between files do not count as reductions.
