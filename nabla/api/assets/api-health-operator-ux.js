@@ -67,7 +67,7 @@ function ensureSectionNavigation() {
   nav.id = "service-section-navigation";
   nav.className = "service-filter-health-summary";
   nav.setAttribute("aria-label", "Health board sections");
-  nav.style.gridTemplateColumns = "repeat(4, minmax(0, 1fr))";
+  nav.style.gridTemplateColumns = "repeat(auto-fit, minmax(6rem, 1fr))";
 
   for (const section of SECTION_DEFINITIONS) {
     const button = document.createElement("button");
