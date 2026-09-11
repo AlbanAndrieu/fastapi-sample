@@ -161,8 +161,7 @@ function ensureTunnelWarningBlock() {
 
   container = document.createElement("details");
   container.id = "cloudflare-tunnel-warning";
-  container.className =
-    "truenas-ingress-block truenas-ingress-block--warning";
+  container.className = "truenas-ingress-block truenas-ingress-block--warning";
   target.insertAdjacentElement("afterend", container);
   return container;
 }
