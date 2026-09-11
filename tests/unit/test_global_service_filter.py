@@ -21,14 +21,16 @@ def test_health_entrypoint_installs_one_global_filter_shell() -> None:
 
 def test_global_filter_mirrors_site_health_summary_without_second_engine() -> None:
     shell = (ASSETS / "api-global-service-filter.js").read_text(encoding="utf-8")
+    engine = (ASSETS / "api-service-filter.js").read_text(encoding="utf-8")
     diagnostics = (ASSETS / "api-service-diagnostics.js").read_text(encoding="utf-8")
 
     for status in ("Operational", "At risk", "Degraded", "Down", "Unknown"):
         assert status in shell
     assert 'select.dispatchEvent(new Event("change", { bubbles: true }));' in shell
     assert "service-status-filter" in shell
-    assert "function applyFilters()" not in shell
-    assert "function applyFilters()" in diagnostics
+    assert "function refreshServiceFilter()" not in shell
+    assert "export function refreshServiceFilter()" in engine
+    assert "refreshServiceFilter();" in diagnostics
 
 
 def test_global_filter_stays_visible_and_compacts_secondary_help() -> None:
@@ -40,6 +42,7 @@ def test_global_filter_stays_visible_and_compacts_secondary_help() -> None:
     assert "service-filter-legend-details" in stylesheet
     assert "Probe evidence legend" in shell
     assert "max-height: calc(100vh" in stylesheet
+    assert "focus-visible" in stylesheet
 
 
 def test_global_filter_supports_keyboard_and_truenas_status_sync() -> None:
@@ -49,6 +52,8 @@ def test_global_filter_supports_keyboard_and_truenas_status_sync() -> None:
     assert 'event.key === "Escape"' in shell
     assert 'document.getElementById("truenas-platform")' in shell
     assert 'panel.dataset.presentationGroup = "core-critical";' in shell
+    assert 'panel.dataset.environments = "production";' in shell
+    assert 'panel.dataset.environmentSource = "runtime";' in shell
     assert 'panel.dataset.semanticStatus = "operational";' in shell
     assert 'panel.dataset.semanticStatus = "degraded";' in shell
     assert 'panel.dataset.semanticStatus = "down";' in shell
