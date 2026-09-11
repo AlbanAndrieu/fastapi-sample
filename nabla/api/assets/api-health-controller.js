@@ -9,6 +9,7 @@ import {
   resetHealthBoardRequest,
 } from "./api-health-board.js";
 import { loadHealth } from "./api-health-core.js";
+import { decorateHttpProbeStatuses } from "./api-http-probe-status.js";
 import { decorateProbeTelemetry } from "./api-probe-live.js";
 import { loadRuntimeTopology } from "./api-runtime.js";
 import { installSecurityControlIcons } from "./api-security-control-icons.js";
@@ -75,6 +76,7 @@ function loadHealthBoards({
       decorateCloudflareProbeStatuses(snapshot.sickz);
       decorateProbeTelemetry(snapshot);
       decorateDnsStatuses(snapshot);
+      decorateHttpProbeStatuses(snapshot);
       announceRefreshComplete(snapshot, { forceRefresh, includeTechnical });
       return snapshot;
     })
