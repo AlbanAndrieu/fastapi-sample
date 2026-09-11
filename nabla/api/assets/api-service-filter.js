@@ -65,6 +65,31 @@ const LEGEND_ITEMS = [
   ["📈", "Prometheus / metrics"],
 ];
 
+const FILTER_URL_PARAMS = {
+  status: "health",
+  environment: "environment",
+  group: "group",
+  exposure: "exposure",
+  probe: "probe",
+};
+
+const FILTER_OPTION_VALUES = {
+  status: new Set(STATUS_OPTIONS.map(([value]) => value)),
+  environment: new Set(ENVIRONMENT_OPTIONS.map(([value]) => value)),
+  group: new Set(GROUP_OPTIONS.map(([value]) => value)),
+  exposure: new Set(EXPOSURE_OPTIONS.map(([value]) => value)),
+  probe: new Set(PROBE_OPTIONS.map(([value]) => value)),
+};
+
+const FILTER_CONTROLS = {
+  query: "service-filter",
+  status: "service-status-filter",
+  environment: "service-environment-filter",
+  group: "service-group-filter",
+  exposure: "service-exposure-filter",
+  probe: "service-probe-filter",
+};
+
 const filters = {
   query: "",
   status: "all",
@@ -163,6 +188,37 @@ function ensureFilterControls() {
   result.setAttribute("aria-live", "polite");
   host.appendChild(result);
   appendLegend(host);
+}
+
+function hydrateFiltersFromUrl() {
+  const params = new URL(window.location.href).searchParams;
+  filters.query = params.get("q") || "";
+  for (const [key, parameter] of Object.entries(FILTER_URL_PARAMS)) {
+    const value = params.get(parameter);
+    filters[key] = FILTER_OPTION_VALUES[key].has(value) ? value : "all";
+  }
+}
+
+function syncControlsFromFilters() {
+  for (const [key, id] of Object.entries(FILTER_CONTROLS)) {
+    const control = document.getElementById(id);
+    if (control) control.value = filters[key];
+  }
+}
+
+function syncFilterStateToUrl() {
+  const url = new URL(window.location.href);
+  if (filters.query) url.searchParams.set("q", filters.query);
+  else url.searchParams.delete("q");
+
+  for (const [key, parameter] of Object.entries(FILTER_URL_PARAMS)) {
+    if (filters[key] === "all") url.searchParams.delete(parameter);
+    else url.searchParams.set(parameter, filters[key]);
+  }
+
+  const next = `${url.pathname}${url.search}${url.hash}`;
+  const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (next !== current) window.history.replaceState(window.history.state, "", next);
 }
 
 function statusMatches(row) {
@@ -292,6 +348,14 @@ function syncIssuesButton() {
   button.setAttribute("aria-pressed", String(active));
 }
 
+function notifyFilterChanged() {
+  document.dispatchEvent(
+    new CustomEvent("service-filter-changed", {
+      detail: { ...filters },
+    }),
+  );
+}
+
 export function refreshServiceFilter() {
   const rows = [...document.querySelectorAll("[data-service-filter-target]")];
   for (const row of rows) {
@@ -308,6 +372,7 @@ export function refreshServiceFilter() {
   updateFilterResult(rows);
   updateCollapseButton();
   syncIssuesButton();
+  notifyFilterChanged();
 }
 
 function clearFilters() {
@@ -317,18 +382,8 @@ function clearFilters() {
   filters.group = "all";
   filters.exposure = "all";
   filters.probe = "all";
-
-  for (const [id, value] of [
-    ["service-filter", ""],
-    ["service-status-filter", "all"],
-    ["service-environment-filter", "all"],
-    ["service-group-filter", "all"],
-    ["service-exposure-filter", "all"],
-    ["service-probe-filter", "all"],
-  ]) {
-    const control = document.getElementById(id);
-    if (control) control.value = value;
-  }
+  syncControlsFromFilters();
+  syncFilterStateToUrl();
   refreshServiceFilter();
 }
 
@@ -336,6 +391,7 @@ function bindSelect(id, key) {
   const select = document.getElementById(id);
   select?.addEventListener("change", () => {
     filters[key] = select.value;
+    syncFilterStateToUrl();
     refreshServiceFilter();
   });
 }
@@ -348,6 +404,7 @@ function installFilterEvents() {
 
   input?.addEventListener("input", () => {
     filters.query = input.value;
+    syncFilterStateToUrl();
     refreshServiceFilter();
   });
   bindSelect("service-status-filter", "status");
@@ -364,6 +421,7 @@ function installFilterEvents() {
     filters.status = filters.status === "issues" ? "all" : "issues";
     const status = document.getElementById("service-status-filter");
     if (status) status.value = filters.status;
+    syncFilterStateToUrl();
     refreshServiceFilter();
   });
   collapse?.addEventListener("click", () => {
@@ -383,10 +441,18 @@ function installFilterEvents() {
     },
     true,
   );
+  window.addEventListener("popstate", () => {
+    hydrateFiltersFromUrl();
+    syncControlsFromFilters();
+    refreshServiceFilter();
+  });
 }
 
 export function installServiceFilter() {
   ensureFilterControls();
+  hydrateFiltersFromUrl();
+  syncControlsFromFilters();
   installFilterEvents();
+  syncFilterStateToUrl();
   refreshServiceFilter();
 }
