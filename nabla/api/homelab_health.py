@@ -564,21 +564,9 @@ async def build_homelab_health_payload(
             )
 
         refresh_started = time.perf_counter()
-        services = (
-            list(catalog_services)
-            if catalog_services is not None
-            else await fetch_homelab_services()
-        )
-        public_candidates = [
-            service
-            for service in services
-            if service.public_https_probe_url is not None
-        ]
-        internal_candidates = [
-            service
-            for service in services
-            if service.internal_host and service.internal_port is not None
-        ]
+        services = list(catalog_services) if catalog_services is not None else await fetch_homelab_services()
+        public_candidates = [service for service in services if service.public_https_probe_url is not None]
+        internal_candidates = [service for service in services if service.internal_host and service.internal_port is not None]
         internal_enabled = internal_probes_enabled()
         public_services = _select_probe_subset(
             public_candidates,
@@ -642,20 +630,20 @@ async def build_homelab_health_payload(
                     per_probe_timeout_seconds=_PUBLIC_PROBE_TIMEOUT_SEC,
                 ),
             )
-            (public_results, public_summary), truenas, (
-                internal_results,
-                internal_summary,
+            (
+                (public_results, public_summary),
+                truenas,
+                (
+                    internal_results,
+                    internal_summary,
+                ),
             ) = await asyncio.gather(
                 public_results_task,
                 truenas_task,
                 internal_results_task,
             )
 
-        checked_at = (
-            datetime.now(timezone.utc)
-            .isoformat()
-            .replace("+00:00", "Z")
-        )
+        checked_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         public_results = merge_probe_evidence(
             "public",
             current_results=public_results,
