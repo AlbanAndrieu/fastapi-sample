@@ -227,7 +227,12 @@ function addHttpEvidence(target, check, kinds) {
   const label = Number.isFinite(status) ? `HTTP ${status}` : "HTTP";
   const suffix = Number.isFinite(status) ? ` with status ${status}` : "";
   target.appendChild(
-    probeBadge("http", reachabilityTone(check), label, httpDetail(check, suffix)),
+    probeBadge(
+      "http",
+      reachabilityTone(check),
+      label,
+      httpDetail(check, suffix),
+    ),
   );
   kinds.add("http");
 }
@@ -295,9 +300,7 @@ function addApiEvidence(target, key, check, kinds) {
   if (!hasApi) return;
 
   const detail = `Authenticated/read-only API evidence${path ? ` via ${path}` : ""}`;
-  target.appendChild(
-    probeBadge("api", reachabilityTone(check), "API", detail),
-  );
+  target.appendChild(probeBadge("api", reachabilityTone(check), "API", detail));
   kinds.add("api");
 
   const hasWebsocket =
@@ -344,10 +347,7 @@ function accessEvidence(exposure) {
   let tone = "unknown";
   if (exposure.cloudflare_default_deny === true && policyCount > 0) {
     tone = "ok";
-  } else if (
-    exposure.cloudflare_default_deny === true &&
-    policyCount === 0
-  ) {
+  } else if (exposure.cloudflare_default_deny === true && policyCount === 0) {
     tone = "fail";
   } else if (hasCount) {
     tone = policyCount > 0 ? "ok" : "warn";
@@ -435,7 +435,8 @@ function addMetricEvidence(target, check, kinds) {
   const tone = metricTone(check);
   if (!tone) return;
 
-  let detail = "Prometheus/metrics source is declared but current evidence is unknown";
+  let detail =
+    "Prometheus/metrics source is declared but current evidence is unknown";
   if (tone === "ok") detail = "Prometheus/metrics evidence is available";
   else if (tone === "fail") {
     detail = "Prometheus/metrics evidence reports unavailable";
