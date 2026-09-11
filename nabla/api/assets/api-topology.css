@@ -1,0 +1,256 @@
+.topology-page {
+  width: min(1600px, 100%);
+  max-width: none;
+  align-items: stretch;
+  gap: 1rem;
+  padding-top: 2rem;
+  text-align: left;
+}
+
+.topology-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 2rem;
+  width: 100%;
+}
+
+.topology-heading h1 {
+  margin-bottom: 0.5rem;
+}
+
+.topology-heading .subtitle {
+  max-width: 850px;
+  margin-bottom: 0;
+}
+
+.topology-kicker,
+.topology-status,
+.topology-details p {
+  color: #888888;
+}
+
+.topology-kicker {
+  margin-bottom: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.topology-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.topology-stats span,
+.topology-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid #333333;
+  border-radius: 999px;
+  background: #0b0b0b;
+  padding: 0.35rem 0.7rem;
+  color: #aaaaaa;
+  font-size: 0.78rem;
+}
+
+.topology-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: minmax(240px, 2fr) repeat(3, minmax(150px, 1fr)) auto;
+  gap: 0.75rem;
+  width: 100%;
+  border: 1px solid #2c2c2c;
+  border-radius: 10px;
+  background: rgba(5, 5, 5, 0.96);
+  padding: 0.85rem;
+  backdrop-filter: blur(8px);
+}
+
+.topology-toolbar label {
+  display: grid;
+  gap: 0.25rem;
+  color: #8e8e8e;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.topology-toolbar input,
+.topology-toolbar select,
+.topology-toolbar button {
+  min-height: 2.45rem;
+  border: 1px solid #383838;
+  border-radius: 7px;
+  background: #101010;
+  color: #f5f5f5;
+  padding: 0.5rem 0.7rem;
+  font: inherit;
+  text-transform: none;
+}
+
+.topology-toolbar input:focus,
+.topology-toolbar select:focus,
+.topology-toolbar button:focus-visible {
+  outline: 2px solid #4f9dff;
+  outline-offset: 1px;
+}
+
+.topology-actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.topology-toolbar button {
+  cursor: pointer;
+}
+
+.topology-toolbar button:hover {
+  border-color: #666666;
+  background: #1a1a1a;
+}
+
+.topology-status {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.topology-error {
+  border: 1px solid #7b3030;
+  border-radius: 8px;
+  background: #240d0d;
+  padding: 0.75rem 1rem;
+  color: #ffb3b3;
+}
+
+.topology-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 330px);
+  gap: 1rem;
+  width: 100%;
+  min-height: 68vh;
+}
+
+.topology-graph,
+.topology-details {
+  border: 1px solid #292929;
+  border-radius: 10px;
+  background: #080808;
+}
+
+.topology-graph {
+  min-height: 68vh;
+  overflow: hidden;
+}
+
+.topology-details {
+  align-self: stretch;
+  padding: 1rem;
+  overflow: auto;
+}
+
+.topology-details h2 {
+  margin-bottom: 0.75rem;
+  font-size: 1rem;
+}
+
+.topology-details dl {
+  display: grid;
+  grid-template-columns: minmax(90px, auto) 1fr;
+  gap: 0.45rem 0.75rem;
+  font-size: 0.78rem;
+}
+
+.topology-details dt {
+  color: #777777;
+  font-weight: 600;
+}
+
+.topology-details dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #d9d9d9;
+}
+
+.topology-details a {
+  color: #8fc4ff;
+}
+
+.topology-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.topology-swatch {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  background: #4c79a8;
+}
+
+.topology-swatch--critical {
+  background: #c34c4c;
+}
+
+.topology-swatch--high {
+  background: #c48b35;
+}
+
+.topology-swatch--service {
+  background: #2e8b62;
+}
+
+.topology-line {
+  width: 1.3rem;
+  border-top: 2px solid #777777;
+}
+
+.topology-line--optional {
+  border-top-style: dashed;
+}
+
+@media (max-width: 1000px) {
+  .topology-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .topology-actions {
+    align-items: stretch;
+  }
+
+  .topology-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .topology-details {
+    min-height: 12rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .topology-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .topology-stats {
+    justify-content: flex-start;
+  }
+
+  .topology-toolbar {
+    position: static;
+    grid-template-columns: 1fr;
+  }
+
+  .topology-graph {
+    min-height: 62vh;
+  }
+}
