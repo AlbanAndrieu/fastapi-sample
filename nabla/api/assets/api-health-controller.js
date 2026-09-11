@@ -1,3 +1,4 @@
+import { decorateCloudflareProbeStatuses } from "./api-cloudflare-probe.js";
 import {
   decorateCloudflareTunnelStatuses,
   markHealthBoardsPending,
@@ -71,6 +72,7 @@ function loadHealthBoards({
         snapshot?.healthz?.checks?.cloudflare,
         snapshot?.homelab?.cloudflare,
       );
+      decorateCloudflareProbeStatuses(snapshot.sickz);
       decorateProbeTelemetry(snapshot);
       decorateDnsStatuses(snapshot);
       announceRefreshComplete(snapshot, { forceRefresh, includeTechnical });
