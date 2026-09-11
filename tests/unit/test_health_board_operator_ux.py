@@ -55,7 +55,10 @@ def test_refresh_controller_announces_only_completed_snapshot_cycles() -> None:
     assert "includeTechnical," in controller
     assert "refreshing: snapshot?.refreshing === true" in controller
     decorate = controller.index("decorateProbeTelemetry(snapshot);")
-    announce = controller.index("announceRefreshComplete(snapshot")
+    announce = controller.index(
+        "announceRefreshComplete(snapshot, { forceRefresh, includeTechnical });",
+        decorate,
+    )
     assert decorate < announce
 
 
