@@ -117,12 +117,13 @@ jobs:
     uses: ./.github/workflows/codeql.yml
 
   zap:
-    name: Re-run ZAP Web and OpenAPI for HTTP-surface merge
-    needs: classify
-    if: ${{ needs.classify.outputs.run_zap == 'true' }}
+    name: Run ZAP Web and OpenAPI after production smoke
+    needs: [classify, production-smoke]
+    if: ${{ needs.classify.outputs.run_zap == 'true' && needs.production-smoke.result == 'success' }}
     permissions:
       contents: read
     uses: ./.github/workflows/security-zap.yml
+    secrets: inherit
 
   remediate:
     name: Open remediation issue and draft PR
