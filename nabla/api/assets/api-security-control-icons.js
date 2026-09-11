@@ -25,7 +25,9 @@ export function installSecurityControlIcons() {
   if (!pipeline) return;
 
   decorateSecurityControls(pipeline);
-  const observer = new MutationObserver(() => decorateSecurityControls(pipeline));
+  const observer = new MutationObserver(() =>
+    decorateSecurityControls(pipeline),
+  );
   observer.observe(pipeline, {
     childList: true,
     subtree: true,
