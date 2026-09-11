@@ -232,7 +232,7 @@ def test_master_red_remediation_is_post_merge_and_deduplicated() -> None:
     assert "uses: ./.github/workflows/security-zap.yml" in workflow
     assert "needs: [classify, production-smoke]" in workflow
     assert "needs.production-smoke.result == 'success'" in workflow
-    assert "secrets: inherit" in workflow
+    assert "secrets: inherit" not in workflow
     assert "needs: [classify, python, production-smoke, codeql, zap]" in workflow
     assert "needs.python.result != 'success'" in workflow
     assert "needs.production-smoke.result != 'success'" in workflow
