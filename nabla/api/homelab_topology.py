@@ -111,9 +111,7 @@ class HomelabTopologyNode(BaseModel):
         serialization_alias="presentationRole",
     )
     criticality: Literal["critical", "high", "medium", "low"] | None = None
-    security_functions: list[
-        Literal["govern", "identify", "protect", "detect", "respond", "recover"]
-    ] | None = Field(
+    security_functions: list[Literal["govern", "identify", "protect", "detect", "respond", "recover"]] | None = Field(
         default=None,
         min_length=1,
         validation_alias=AliasChoices("securityFunctions", "security_functions"),
