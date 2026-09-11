@@ -55,6 +55,43 @@ class HomelabTopologyEnvironment(BaseModel):
     )
 
 
+class HomelabTopologyRuntime(BaseModel):
+    """Runtime ownership metadata exported by the canonical service catalog."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True)
+
+    provider: Literal["truenas-app", "logical", "external", "host"]
+    app_id: str | None = Field(
+        default=None,
+        min_length=1,
+        validation_alias=AliasChoices("appId", "app_id"),
+        serialization_alias="appId",
+    )
+    container_service: str | None = Field(
+        default=None,
+        min_length=1,
+        validation_alias=AliasChoices("containerService", "container_service"),
+        serialization_alias="containerService",
+    )
+
+
+class HomelabTopologyLifecycle(BaseModel):
+    """Declarative TrueNAS lifecycle phase and priority from nabla-compose."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    phase: Literal[
+        "bootstrap-runtime",
+        "foundation",
+        "network-edge",
+        "primary-data",
+        "secondary-data",
+        "platform-services",
+        "applications",
+    ]
+    priority: int = Field(ge=0, le=1000)
+
+
 class HomelabTopologyNode(BaseModel):
     """One component participating in the declared topology."""
 
@@ -74,7 +111,9 @@ class HomelabTopologyNode(BaseModel):
         serialization_alias="presentationRole",
     )
     criticality: Literal["critical", "high", "medium", "low"] | None = None
-    security_functions: list[Literal["govern", "identify", "protect", "detect", "respond", "recover"]] | None = Field(
+    security_functions: list[
+        Literal["govern", "identify", "protect", "detect", "respond", "recover"]
+    ] | None = Field(
         default=None,
         min_length=1,
         validation_alias=AliasChoices("securityFunctions", "security_functions"),
@@ -101,6 +140,8 @@ class HomelabTopologyNode(BaseModel):
         default=None,
         min_length=1,
     )
+    runtime: HomelabTopologyRuntime | None = None
+    lifecycle: HomelabTopologyLifecycle | None = None
 
     @model_validator(mode="after")
     def require_unique_security_functions(self) -> HomelabTopologyNode:
