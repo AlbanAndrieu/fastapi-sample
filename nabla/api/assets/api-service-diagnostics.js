@@ -182,37 +182,12 @@ function policyTone(policy) {
   return "unknown";
 }
 
-function evidenceMetadata(check) {
-  if (!check || typeof check !== "object") return "";
-  const parts = [];
-  if (check.elapsed_ms != null && Number.isFinite(Number(check.elapsed_ms))) {
-    parts.push(`latency=${Math.round(Number(check.elapsed_ms))}ms`);
-  }
-  const age = check.cache_age_seconds ?? check.age_seconds;
-  if (age != null && Number.isFinite(Number(age))) {
-    parts.push(`age=${Math.round(Number(age))}s`);
-  }
-  if (check.cached === true) {
-    parts.push(`cache=${check.cache_layer || "yes"}`);
-  }
-  if (check.stale === true) parts.push("stale");
-  if (check.refresh_in_progress === true) parts.push("refreshing");
-  if (check.status_confirmed === false) parts.push("status=unconfirmed");
-  if (check.vantage_point) parts.push(`vantage=${check.vantage_point}`);
-  if (check.failure_stage) parts.push(`stage=${check.failure_stage}`);
-  if (check.error_kind) parts.push(`error=${check.error_kind}`);
-  if (check.credential_mode) parts.push(`credential=${check.credential_mode}`);
-  if (check.last_success_at) parts.push(`last-success=${check.last_success_at}`);
-  return parts.length > 0 ? ` · ${parts.join(" · ")}` : "";
-}
-
-function probeBadge(kind, tone, label, detail, evidence = null) {
+function probeBadge(kind, tone, label, detail) {
   const badge = document.createElement("span");
   badge.className = `service-probe service-probe--${tone}`;
   badge.dataset.probeKind = kind;
-  const description = `${detail || label}${evidenceMetadata(evidence)}`;
-  badge.title = description;
-  badge.setAttribute("aria-label", description);
+  badge.title = detail || label;
+  badge.setAttribute("aria-label", detail || label);
 
   const icon = document.createElement("span");
   icon.className = "service-probe-icon";
@@ -257,7 +232,6 @@ function addHttpEvidence(target, check, kinds) {
       reachabilityTone(check),
       label,
       httpDetail(check, suffix),
-      check,
     ),
   );
   kinds.add("http");
@@ -286,7 +260,7 @@ function addTlsEvidence(target, check, kinds) {
     detail = "HTTPS certificate validation failed";
   }
 
-  target.appendChild(probeBadge("tls", tone, "TLS", detail, check));
+  target.appendChild(probeBadge("tls", tone, "TLS", detail));
   kinds.add("tls");
 }
 
@@ -310,7 +284,6 @@ function addTcpEvidence(target, check, kinds) {
       reachabilityTone(check),
       "TCP",
       `TCP connectivity probe${endpoint}${error}`,
-      check,
     ),
   );
   kinds.add("tcp");
@@ -327,9 +300,7 @@ function addApiEvidence(target, key, check, kinds) {
   if (!hasApi) return;
 
   const detail = `Authenticated/read-only API evidence${path ? ` via ${path}` : ""}`;
-  target.appendChild(
-    probeBadge("api", reachabilityTone(check), "API", detail, check),
-  );
+  target.appendChild(probeBadge("api", reachabilityTone(check), "API", detail));
   kinds.add("api");
 
   const hasWebsocket =
@@ -341,7 +312,6 @@ function addApiEvidence(target, key, check, kinds) {
       reachabilityTone(check),
       "WS",
       "WebSocket API connectivity evidence",
-      check,
     ),
   );
   kinds.add("websocket");
@@ -403,13 +373,7 @@ function addCloudflareEvidence(target, exposure, kinds) {
 
   const [tunnelTone, tunnelDetail] = tunnelEvidence(exposure);
   target.appendChild(
-    probeBadge(
-      "cloudflare",
-      tunnelTone,
-      "Tunnel",
-      tunnelDetail,
-      exposure,
-    ),
+    probeBadge("cloudflare", tunnelTone, "Tunnel", tunnelDetail),
   );
   kinds.add("cloudflare");
 
@@ -419,7 +383,7 @@ function addCloudflareEvidence(target, exposure, kinds) {
   if (hasAccess) {
     const [accessTone, accessDetail] = accessEvidence(exposure);
     target.appendChild(
-      probeBadge("access", accessTone, "Access", accessDetail, exposure),
+      probeBadge("access", accessTone, "Access", accessDetail),
     );
     kinds.add("access");
   }
@@ -444,7 +408,6 @@ function addCloudflareEvidence(target, exposure, kinds) {
       tone,
       `Token${statusLabel}`,
       `Cloudflare Access Service Token ${result}${statusLabel ? ` · HTTP${statusLabel}` : ""}`,
-      exposure,
     ),
   );
   kinds.add("service-token");
@@ -478,7 +441,7 @@ function addMetricEvidence(target, check, kinds) {
   else if (tone === "fail") {
     detail = "Prometheus/metrics evidence reports unavailable";
   }
-  target.appendChild(probeBadge("metrics", tone, "Metrics", detail, check));
+  target.appendChild(probeBadge("metrics", tone, "Metrics", detail));
   kinds.add("metrics");
 }
 
@@ -534,7 +497,7 @@ function decorateRow(row, snapshot) {
     const detail =
       exposure.policy_detail || `Exposure security policy: ${policy}`;
     strip.appendChild(
-      probeBadge("policy", policyTone(policy), "Policy", detail, exposure),
+      probeBadge("policy", policyTone(policy), "Policy", detail),
     );
   }
 
