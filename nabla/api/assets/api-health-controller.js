@@ -35,6 +35,20 @@ function technicalDetailsOpen() {
   );
 }
 
+function announceRefreshComplete(snapshot, { forceRefresh, includeTechnical }) {
+  window.requestAnimationFrame(() => {
+    document.dispatchEvent(
+      new CustomEvent("health-board-refreshed", {
+        detail: {
+          forceRefresh,
+          includeTechnical,
+          refreshing: snapshot?.refreshing === true,
+        },
+      }),
+    );
+  });
+}
+
 function loadHealthBoards({
   forceRefresh = false,
   showPending = true,
@@ -52,6 +66,7 @@ function loadHealthBoards({
     .then((snapshot) => {
       decorateCloudflareTunnelStatuses(snapshot.sickz);
       decorateProbeTelemetry(snapshot);
+      announceRefreshComplete(snapshot, { forceRefresh, includeTechnical });
       return snapshot;
     })
     .catch(() => null);
