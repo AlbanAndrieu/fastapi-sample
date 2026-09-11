@@ -27,6 +27,7 @@ const PARAMS = {
 const PRESET_LABELS = {
   dependencies: "Dependencies",
   "network-paths": "Network paths",
+  architecture: "Architecture / support",
   all: "All relations",
 };
 
