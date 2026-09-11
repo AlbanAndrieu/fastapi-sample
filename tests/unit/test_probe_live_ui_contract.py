@@ -39,6 +39,31 @@ def test_health_tier_help_explains_required_and_optional_semantics() -> None:
     assert "warning/unknown state rather than downtime" in javascript
 
 
+def test_cloudflare_uncertainty_is_visible_next_to_ingress_diagnostics() -> None:
+    javascript = (ASSETS / "api-cloudflare-status.js").read_text(encoding="utf-8")
+
+    assert 'id = "cloudflare-tunnel-warning"' not in javascript
+    assert 'container.id = "cloudflare-tunnel-warning";' in javascript
+    assert "Cloudflare Tunnel verification temporarily unavailable" in javascript
+    assert "not proof that the service or Cloudflare Tunnel is down" in javascript
+    assert "remote-vs-local tunnel management" in javascript
+    assert 'document.getElementById("truenas-ingress-block")' in javascript
+
+
+def test_pfsense_security_controls_have_explicit_icons() -> None:
+    javascript = (ASSETS / "api-security-control-icons.js").read_text(
+        encoding="utf-8",
+    )
+    controller = (ASSETS / "api-health-controller.js").read_text(encoding="utf-8")
+
+    assert '["Snort", "🛡️"]' in javascript
+    assert '["pfBlockerNG", "🚫"]' in javascript
+    assert '["Unbound", "🌐"]' in javascript
+    assert "MutationObserver" in javascript
+    assert 'from "./api-security-control-icons.js"' in controller
+    assert "installSecurityControlIcons();" in controller
+
+
 def test_live_probe_styles_are_loaded() -> None:
     styles = (ASSETS / "api.css").read_text(encoding="utf-8")
 
