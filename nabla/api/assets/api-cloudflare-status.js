@@ -185,7 +185,21 @@ function platformCloudflareDetail(platformCheck) {
   return `${apiState} · ${kind} · ${warning}`;
 }
 
-function renderTunnelWarning(checks, platformCheck) {
+function exposureManagementDetail(exposureSummary) {
+  if (!exposureSummary) return null;
+  const local = Number(exposureSummary.local_managed_tunnels || 0);
+  const remote = Number(exposureSummary.cloudflare_managed_tunnels || 0);
+  const unknown = Number(exposureSummary.unknown_management_tunnels || 0);
+  if (local > 0) {
+    return `${local} local-managed tunnel(s) observed${remote > 0 ? ` · ${remote} dashboard-managed` : ""}${unknown > 0 ? ` · ${unknown} management mode unknown` : ""}. Local YAML ingress hostnames are not exposed by the remote Tunnel configuration API, so service-level tunnel verification can remain unverified even while cloudflared is healthy.`;
+  }
+  if (remote > 0 || unknown > 0) {
+    return `${remote} dashboard-managed tunnel(s) · ${unknown} management mode unknown.`;
+  }
+  return null;
+}
+
+function renderTunnelWarning(checks, platformCheck, exposureSummary) {
   const protectedChecks = Object.values(checks).filter(
     (check) => check?.tunnel_secure === true,
   );
@@ -193,10 +207,11 @@ function renderTunnelWarning(checks, platformCheck) {
     .map((check) => ({ check, state: normalizeTunnelStatus(check) }))
     .filter(({ state }) => state && state.cls !== "green");
   const platformDetail = platformCloudflareDetail(platformCheck);
+  const managementDetail = exposureManagementDetail(exposureSummary);
   const container = ensureTunnelWarningBlock();
   if (!container) return;
 
-  if (unresolved.length === 0 && !platformDetail) {
+  if (unresolved.length === 0 && !platformDetail && !managementDetail) {
     container.hidden = true;
     container.open = false;
     container.innerHTML = "";
@@ -221,6 +236,7 @@ function renderTunnelWarning(checks, platformCheck) {
   ).length;
   const details = [];
   if (platformDetail) details.push(platformDetail);
+  if (managementDetail) details.push(managementDetail);
   if (observerErrors.length > 0) {
     details.push(
       `Tunnel inventory observer error: ${observerErrors.join(", ")}.`,
@@ -251,7 +267,11 @@ function renderTunnelWarning(checks, platformCheck) {
     "</div>";
 }
 
-export function decorateCloudflareTunnelStatuses(data, platformCheck = null) {
+export function decorateCloudflareTunnelStatuses(
+  data,
+  platformCheck = null,
+  exposureSummary = null,
+) {
   const checks = data?.checks || {};
   // api-sickz.js renders from the same snapshot. Defer one task so its rows exist.
   window.setTimeout(() => {
@@ -260,6 +280,6 @@ export function decorateCloudflareTunnelStatuses(data, platformCheck = null) {
       replaceDirectProbeWording(row, check);
       appendTunnelBadge(row, normalizeTunnelStatus(check));
     });
-    renderTunnelWarning(checks, platformCheck);
+    renderTunnelWarning(checks, platformCheck, exposureSummary);
   }, 0);
 }
