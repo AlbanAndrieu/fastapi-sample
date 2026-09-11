@@ -83,6 +83,6 @@ def test_filters_are_reapplied_after_live_health_board_updates() -> None:
     javascript = (ASSETS / "api-service-diagnostics.js").read_text(encoding="utf-8")
 
     assert "new MutationObserver(scheduleRefresh)" in javascript
-    assert 'observer.observe(board, { childList: true, subtree: true });' in javascript
+    assert "observer.observe(board, { childList: true, subtree: true });" in javascript
     assert "latestSnapshot = await fetchHealthBoard()" in javascript
     assert "applyFilters();" in javascript
