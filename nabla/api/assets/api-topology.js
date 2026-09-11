@@ -1,5 +1,20 @@
 import { analyzeTopology } from "./api-service-classification.js";
 import { fetchTopology } from "./api-topology-data.js";
+import {
+  DEFAULT_TOPOLOGY_PRESET,
+  hydrateTopologyControlsFromUrl,
+  presetAllowsRelation,
+  relationFamily,
+  resetTopologyControls,
+  syncTopologyControlsToUrl,
+  topologyPresetLabel,
+} from "./api-topology-filter-state.js";
+import {
+  applyTopologyHealthOverlay,
+  clearTopologyHealthOverlay,
+  loadTopologyHealthOverlay,
+  topologyHealthSummary,
+} from "./api-topology-health.js";
 
 const RELATION_LABELS = {
   dependsOn: "depends on",
@@ -15,10 +30,21 @@ const RELATION_LABELS = {
   automates: "automates",
 };
 
+const LIFECYCLE_LABELS = {
+  "bootstrap-runtime": "Bootstrap runtime",
+  foundation: "Foundation",
+  "network-edge": "Network / edge",
+  "primary-data": "Primary data",
+  "secondary-data": "Secondary data",
+  "platform-services": "Platform services",
+  applications: "Applications",
+};
+
 const state = {
   graph: null,
   topology: null,
   analysis: null,
+  healthOverlaySummary: "",
 };
 
 function normalize(value) {
@@ -32,6 +58,11 @@ function normalize(value) {
 function nodeElements(topology, analysis) {
   return (topology.nodes || []).map((node) => {
     const presentation = analysis.get(node.id) || {};
+    const runtime = node.runtime || {};
+    const lifecycle = node.lifecycle || {};
+    const lifecyclePriority = Number.isFinite(lifecycle.priority)
+      ? lifecycle.priority
+      : "";
     return {
       data: {
         id: node.id,
@@ -49,6 +80,12 @@ function nodeElements(topology, analysis) {
         internalUrl: node.internalUrl || "",
         sourcePath: node.sourcePath || "",
         securityFunctions: (presentation.securityFunctions || []).join(", "),
+        runtimeProvider: runtime.provider || "",
+        runtimeAppId: runtime.appId || runtime.app_id || "",
+        runtimeContainerService:
+          runtime.containerService || runtime.container_service || "",
+        lifecyclePhase: lifecycle.phase || "",
+        lifecyclePriority,
         searchText: normalize(
           [
             node.id,
@@ -59,6 +96,13 @@ function nodeElements(topology, analysis) {
             presentation.role,
             presentation.criticality,
             presentation.group,
+            runtime.provider,
+            runtime.appId,
+            runtime.app_id,
+            runtime.containerService,
+            runtime.container_service,
+            lifecycle.phase,
+            lifecyclePriority,
           ].join(" "),
         ),
       },
@@ -74,6 +118,7 @@ function edgeElements(topology) {
       target: relation.target,
       relationType: relation.type,
       relationLabel: RELATION_LABELS[relation.type] || relation.type,
+      relationFamily: relationFamily(relation.type),
       strength: relation.strength,
       description: relation.description || "",
       evidence: Array.isArray(relation.evidence)
@@ -134,6 +179,38 @@ function graphStyle() {
       },
     },
     {
+      selector: 'node[healthOverlay = "on"][healthEffectiveState = "ok"]',
+      style: { "background-color": "#235f49" },
+    },
+    {
+      selector: 'node[healthOverlay = "on"][healthEffectiveState = "warn"]',
+      style: { "background-color": "#745125" },
+    },
+    {
+      selector: 'node[healthOverlay = "on"][healthEffectiveState = "fail"]',
+      style: { "background-color": "#7c2e2e" },
+    },
+    {
+      selector: 'node[healthOverlay = "on"][healthEffectiveState = "unknown"]',
+      style: { "background-color": "#3a3f45" },
+    },
+    {
+      selector: 'node[healthOverlay = "on"][healthLocalState = "ok"]',
+      style: { "border-color": "#55ad85", "border-width": 4 },
+    },
+    {
+      selector: 'node[healthOverlay = "on"][healthLocalState = "warn"]',
+      style: { "border-color": "#d39a4c", "border-width": 4 },
+    },
+    {
+      selector: 'node[healthOverlay = "on"][healthLocalState = "fail"]',
+      style: { "border-color": "#d66868", "border-width": 4 },
+    },
+    {
+      selector: 'node[healthOverlay = "on"][healthLocalState = "unknown"]',
+      style: { "border-color": "#777f88", "border-width": 4 },
+    },
+    {
       selector: "edge",
       style: {
         width: 1.5,
@@ -151,11 +228,39 @@ function graphStyle() {
       },
     },
     {
+      selector: 'edge[relationFamily = "network-paths"]',
+      style: {
+        width: 2.2,
+        "line-color": "#4f9dff",
+        "target-arrow-color": "#4f9dff",
+      },
+    },
+    {
       selector: 'edge[strength = "optional"]',
       style: {
         "line-style": "dashed",
         opacity: 0.58,
       },
+    },
+    {
+      selector:
+        'edge[healthOverlay = "on"][strength = "required"][healthEdgeState = "ok"]',
+      style: { "line-color": "#55ad85", "target-arrow-color": "#55ad85" },
+    },
+    {
+      selector:
+        'edge[healthOverlay = "on"][strength = "required"][healthEdgeState = "warn"]',
+      style: { "line-color": "#d39a4c", "target-arrow-color": "#d39a4c" },
+    },
+    {
+      selector:
+        'edge[healthOverlay = "on"][strength = "required"][healthEdgeState = "fail"]',
+      style: { "line-color": "#d66868", "target-arrow-color": "#d66868" },
+    },
+    {
+      selector:
+        'edge[healthOverlay = "on"][strength = "required"][healthEdgeState = "unknown"]',
+      style: { "line-color": "#777f88", "target-arrow-color": "#777f88" },
     },
     {
       selector: ".is-filtered",
@@ -234,6 +339,33 @@ function updateCounts() {
     `${visibleNodes} / ${visibleEdges}`;
 }
 
+function updateStatus() {
+  const status = document.getElementById("topology-status");
+  if (!status || !state.topology) return;
+  const preset =
+    document.getElementById("topology-view-preset")?.value ||
+    DEFAULT_TOPOLOGY_PRESET;
+  const relation =
+    document.getElementById("topology-relation-filter")?.value || "all";
+  const lifecycle =
+    document.getElementById("topology-lifecycle-filter")?.value || "all";
+  const health =
+    document.getElementById("topology-health-overlay")?.value || "off";
+  const relationDetail =
+    relation === "all"
+      ? topologyPresetLabel(preset)
+      : RELATION_LABELS[relation] || relation;
+  const lifecycleDetail =
+    lifecycle === "all"
+      ? ""
+      : ` · Lifecycle: ${LIFECYCLE_LABELS[lifecycle] || lifecycle}`;
+  const healthDetail =
+    health === "on"
+      ? ` · Observed: ${state.healthOverlaySummary || "loading…"}`
+      : " · Observed: off";
+  status.textContent = `Source: ${state.topology.source || "homelab-topology"} · View: ${relationDetail}${lifecycleDetail}${healthDetail} · select a node to inspect dependencies, runtime ownership and blast radius.`;
+}
+
 function clearFocus() {
   if (!state.graph) return;
   state.graph.elements().removeClass("is-muted");
@@ -267,6 +399,31 @@ function addDetail(list, label, value, href = "") {
   list.append(term, description);
 }
 
+function addNodeHealthDetails(list, element) {
+  const overlay = element.data("healthOverlay");
+  if (overlay === "missing") {
+    addDetail(list, "Observed health", "No matching server evidence");
+    return;
+  }
+  if (overlay !== "on") return;
+  addDetail(list, "Observed effective", element.data("healthEffectiveState"));
+  addDetail(list, "Observed local", element.data("healthLocalState"));
+  addDetail(list, "Dependency state", element.data("healthDependencyState"));
+  addDetail(list, "Blocked by", element.data("healthBlockedBy"));
+  addDetail(list, "Degraded by", element.data("healthDegradedBy"));
+  addDetail(
+    list,
+    "Unconfirmed deps",
+    element.data("healthUnconfirmedDependencies"),
+  );
+  addDetail(list, "Evidence age (s)", element.data("healthObservationAge"));
+  addDetail(list, "Stale evidence", element.data("healthObservationStale"));
+  addDetail(list, "Runtime state", element.data("healthRuntimeState"));
+  addDetail(list, "Direct state", element.data("healthDirectState"));
+  addDetail(list, "Internal state", element.data("healthInternalState"));
+  addDetail(list, "Health evidence", element.data("healthDetail"));
+}
+
 function showDetails(element) {
   const empty = document.getElementById("topology-details-empty");
   const list = document.getElementById("topology-details-list");
@@ -280,6 +437,21 @@ function showDetails(element) {
     addDetail(list, "Category", element.data("category"));
     addDetail(list, "Role", element.data("role"));
     addDetail(list, "Criticality", element.data("criticality"));
+    addDetail(
+      list,
+      "Lifecycle phase",
+      LIFECYCLE_LABELS[element.data("lifecyclePhase")] ||
+        element.data("lifecyclePhase"),
+    );
+    addDetail(list, "Lifecycle priority", element.data("lifecyclePriority"));
+    addDetail(list, "Runtime provider", element.data("runtimeProvider"));
+    addDetail(list, "TrueNAS App", element.data("runtimeAppId"));
+    addDetail(
+      list,
+      "Container service",
+      element.data("runtimeContainerService"),
+    );
+    addNodeHealthDetails(list, element);
     addDetail(list, "Required deps", element.data("directDependencies"));
     addDetail(list, "Blast radius", element.data("transitiveDependents"));
     addDetail(list, "NIST CSF", element.data("securityFunctions"));
@@ -294,8 +466,19 @@ function showDetails(element) {
     addDetail(list, "Source", element.data("sourcePath"));
   } else {
     addDetail(list, "Relation", element.data("relationLabel"));
+    addDetail(
+      list,
+      "View family",
+      topologyPresetLabel(element.data("relationFamily")),
+    );
     addDetail(list, "Type", element.data("relationType"));
     addDetail(list, "Strength", element.data("strength"));
+    if (
+      element.data("healthOverlay") === "on" &&
+      element.data("strength") === "required"
+    ) {
+      addDetail(list, "Observed dependency", element.data("healthEdgeState"));
+    }
     addDetail(list, "Source", element.data("source"));
     addDetail(list, "Target", element.data("target"));
     addDetail(list, "Description", element.data("description"));
@@ -320,74 +503,163 @@ function applyFilters() {
   const graph = state.graph;
   if (!graph) return;
   const query = normalize(document.getElementById("topology-search")?.value);
+  const preset =
+    document.getElementById("topology-view-preset")?.value ||
+    DEFAULT_TOPOLOGY_PRESET;
   const relation =
     document.getElementById("topology-relation-filter")?.value || "all";
   const strength =
     document.getElementById("topology-strength-filter")?.value || "all";
+  const lifecycle =
+    document.getElementById("topology-lifecycle-filter")?.value || "all";
+  const focusedRelations =
+    preset !== "all" || relation !== "all" || strength !== "all";
 
   graph.batch(() => {
     clearFocus();
     graph.elements().removeClass("is-filtered");
     graph.nodes().forEach((node) => {
-      if (query && !String(node.data("searchText")).includes(query)) {
-        node.addClass("is-filtered");
-      }
+      const queryMismatch =
+        query && !String(node.data("searchText")).includes(query);
+      const lifecycleMismatch =
+        lifecycle !== "all" && node.data("lifecyclePhase") !== lifecycle;
+      if (queryMismatch || lifecycleMismatch) node.addClass("is-filtered");
     });
     graph.edges().forEach((edge) => {
-      const typeMismatch =
-        relation !== "all" && edge.data("relationType") !== relation;
+      const type = edge.data("relationType");
+      const presetMismatch =
+        relation === "all" && !presetAllowsRelation(type, preset);
+      const typeMismatch = relation !== "all" && type !== relation;
       const strengthMismatch =
         strength !== "all" && edge.data("strength") !== strength;
       const hiddenEndpoint = edge
         .connectedNodes()
         .some((node) => node.hasClass("is-filtered"));
-      if (typeMismatch || strengthMismatch || hiddenEndpoint) {
+      if (
+        presetMismatch ||
+        typeMismatch ||
+        strengthMismatch ||
+        hiddenEndpoint
+      ) {
         edge.addClass("is-filtered");
       }
     });
+
+    if (!query && lifecycle === "all" && focusedRelations) {
+      graph
+        .nodes()
+        .not(".is-filtered")
+        .forEach((node) => {
+          const visibleEdges = node.connectedEdges().not(".is-filtered");
+          if (visibleEdges.length === 0) node.addClass("is-filtered");
+        });
+    }
   });
   updateCounts();
+  updateStatus();
 }
 
 function runLayout() {
   if (!state.graph) return;
   const name = document.getElementById("topology-layout")?.value || "cose";
-  state.graph.elements().not(".is-filtered").layout(layoutOptions(name)).run();
-  state.graph.fit(state.graph.elements().not(".is-filtered"), 36);
+  const visible = state.graph.elements().not(".is-filtered");
+  visible.layout(layoutOptions(name)).run();
+  state.graph.fit(visible, 36);
 }
 
-function resetView() {
-  const search = document.getElementById("topology-search");
-  const relation = document.getElementById("topology-relation-filter");
-  const strength = document.getElementById("topology-strength-filter");
-  if (search) search.value = "";
-  if (relation) relation.value = "all";
-  if (strength) strength.value = "all";
+async function syncHealthOverlay() {
+  const graph = state.graph;
+  if (!graph) return;
+  const enabled =
+    document.getElementById("topology-health-overlay")?.value === "on";
+  resetDetails();
+  if (!enabled) {
+    clearTopologyHealthOverlay(graph);
+    state.healthOverlaySummary = "";
+    updateStatus();
+    return;
+  }
+
+  state.healthOverlaySummary = "loading…";
+  updateStatus();
+  try {
+    const overlay = await loadTopologyHealthOverlay();
+    const matchedNodes = applyTopologyHealthOverlay(graph, overlay);
+    state.healthOverlaySummary = topologyHealthSummary(overlay, matchedNodes);
+  } catch (caught) {
+    clearTopologyHealthOverlay(graph);
+    state.healthOverlaySummary = `unavailable: ${String(caught?.message || caught)}`;
+  }
+  updateStatus();
+}
+
+function applyAndSync({ relayout = false } = {}) {
+  applyFilters();
+  if (relayout) runLayout();
+  syncTopologyControlsToUrl();
+}
+
+async function resetView() {
+  resetTopologyControls();
   state.graph?.elements().unselect();
   resetDetails();
+  await syncHealthOverlay();
   applyFilters();
   runLayout();
+  syncTopologyControlsToUrl();
 }
 
 function installControls() {
-  document
-    .getElementById("topology-search")
-    ?.addEventListener("input", applyFilters);
-  document
-    .getElementById("topology-relation-filter")
-    ?.addEventListener("change", applyFilters);
+  const preset = document.getElementById("topology-view-preset");
+  const relation = document.getElementById("topology-relation-filter");
+
+  document.getElementById("topology-search")?.addEventListener("input", () => {
+    applyAndSync();
+  });
+  preset?.addEventListener("change", () => {
+    if (relation) relation.value = "all";
+    applyAndSync({ relayout: true });
+  });
+  relation?.addEventListener("change", () => {
+    if (relation.value !== "all" && preset) preset.value = "all";
+    applyAndSync({ relayout: true });
+  });
   document
     .getElementById("topology-strength-filter")
-    ?.addEventListener("change", applyFilters);
+    ?.addEventListener("change", () => {
+      applyAndSync({ relayout: true });
+    });
   document
-    .getElementById("topology-layout")
-    ?.addEventListener("change", runLayout);
+    .getElementById("topology-lifecycle-filter")
+    ?.addEventListener("change", () => {
+      applyAndSync({ relayout: true });
+    });
+  document
+    .getElementById("topology-health-overlay")
+    ?.addEventListener("change", async () => {
+      await syncHealthOverlay();
+      syncTopologyControlsToUrl();
+    });
+  document.getElementById("topology-layout")?.addEventListener("change", () => {
+    runLayout();
+    syncTopologyControlsToUrl();
+  });
   document.getElementById("topology-fit")?.addEventListener("click", () => {
     state.graph?.fit(state.graph.elements().not(".is-filtered"), 36);
   });
-  document
-    .getElementById("topology-reset")
-    ?.addEventListener("click", resetView);
+  document.getElementById("topology-reset")?.addEventListener("click", () => {
+    void resetView();
+  });
+  window.addEventListener("popstate", () => {
+    void (async () => {
+      hydrateTopologyControlsFromUrl();
+      state.graph?.elements().unselect();
+      resetDetails();
+      await syncHealthOverlay();
+      applyFilters();
+      runLayout();
+    })();
+  });
 }
 
 function installGraphEvents() {
@@ -452,12 +724,13 @@ async function start() {
     maxZoom: 3,
     wheelSensitivity: 0.22,
   });
+  hydrateTopologyControlsFromUrl();
   installControls();
   installGraphEvents();
-  updateCounts();
-  if (status) {
-    status.textContent = `Source: ${topology.source || "homelab-topology"} · select a node to inspect dependencies and blast radius.`;
-  }
+  await syncHealthOverlay();
+  applyFilters();
+  runLayout();
+  syncTopologyControlsToUrl();
 }
 
 start().catch((caught) => {

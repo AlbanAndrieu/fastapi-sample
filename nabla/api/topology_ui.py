@@ -44,7 +44,7 @@ def render_topology_page(*, title_suffix: str | None, app_version: str) -> str:
             <div>
                 <p class="topology-kicker">Declared architecture · version {version}</p>
                 <h1 id="topology-title">Homelab topology</h1>
-                <p class="subtitle">Dependencies and network/service relations from the canonical <code>nabla-compose</code> topology contract. This view does not infer live health.</p>
+                <p class="subtitle">Dependencies and network/service relations from the canonical <code>nabla-compose</code> topology contract. Runtime ownership and lifecycle metadata are declarative context only and do not reproduce the operational start planner. The optional health overlay consumes the same server-authoritative homelab evidence as <code>/api</code>; it never probes services from the browser.</p>
             </div>
             <div class="topology-stats" aria-live="polite">
                 <span><strong id="topology-node-count">—</strong> nodes</span>
@@ -54,17 +54,42 @@ def render_topology_page(*, title_suffix: str | None, app_version: str) -> str:
         </section>
 
         <section class="topology-toolbar" aria-label="Topology controls">
+            <label>View
+                <select id="topology-view-preset">
+                    <option value="dependencies" selected>Dependencies</option>
+                    <option value="network-paths">Network paths</option>
+                    <option value="all">All relations</option>
+                </select>
+            </label>
             <label>Search
-                <input id="topology-search" type="search" autocomplete="off" placeholder="Service, kind, category…">
+                <input id="topology-search" type="search" autocomplete="off" placeholder="Service, kind, lifecycle…">
             </label>
             <label>Relation
-                <select id="topology-relation-filter"><option value="all">All relations</option></select>
+                <select id="topology-relation-filter"><option value="all">All relations in view</option></select>
             </label>
             <label>Strength
                 <select id="topology-strength-filter">
                     <option value="all">Required + optional</option>
                     <option value="required">Required</option>
                     <option value="optional">Optional</option>
+                </select>
+            </label>
+            <label>Lifecycle
+                <select id="topology-lifecycle-filter">
+                    <option value="all">All lifecycle phases</option>
+                    <option value="bootstrap-runtime">Bootstrap runtime</option>
+                    <option value="foundation">Foundation</option>
+                    <option value="network-edge">Network / edge</option>
+                    <option value="primary-data">Primary data</option>
+                    <option value="secondary-data">Secondary data</option>
+                    <option value="platform-services">Platform services</option>
+                    <option value="applications">Applications</option>
+                </select>
+            </label>
+            <label>Observed health
+                <select id="topology-health-overlay">
+                    <option value="off">Declared only</option>
+                    <option value="on">Overlay health</option>
                 </select>
             </label>
             <label>Layout
@@ -88,7 +113,7 @@ def render_topology_page(*, title_suffix: str | None, app_version: str) -> str:
             <div id="topology-graph" class="topology-graph" role="img" aria-label="Interactive homelab dependency graph"></div>
             <aside class="topology-details" aria-labelledby="topology-details-title">
                 <h2 id="topology-details-title">Selection</h2>
-                <p id="topology-details-empty">Select a node or relation to inspect its declared metadata and blast radius.</p>
+                <p id="topology-details-empty">Select a node or relation to inspect its declared metadata, observed evidence and blast radius.</p>
                 <dl id="topology-details-list" hidden></dl>
             </aside>
         </section>
@@ -99,6 +124,8 @@ def render_topology_page(*, title_suffix: str | None, app_version: str) -> str:
             <span><i class="topology-swatch topology-swatch--service"></i>service</span>
             <span><i class="topology-line"></i>required relation</span>
             <span><i class="topology-line topology-line--optional"></i>optional relation</span>
+            <span><i class="topology-line topology-line--network"></i>network path</span>
+            <span>Health overlay: fill = effective state · ring = local state</span>
         </section>
     </main>
 </body>
