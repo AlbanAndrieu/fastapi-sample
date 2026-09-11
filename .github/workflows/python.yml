@@ -70,7 +70,7 @@ jobs:
 
   build:
     needs: preflight
-    if: ${{ (github.event_name == 'pull_request' && github.event.pull_request.draft == false) || github.event_name == 'workflow_call' }}
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     name: Test and build Python package
     runs-on: ubuntu-latest
     env:
@@ -166,7 +166,7 @@ jobs:
   redis-integration:
     name: Redis integration
     needs: build
-    if: ${{ (github.event_name == 'pull_request' && github.event.pull_request.draft == false) || github.event_name == 'workflow_call' }}
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     env:
       PYTHON_VERSION: "3.13"
