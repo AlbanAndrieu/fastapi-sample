@@ -59,7 +59,8 @@ def test_active_filter_chips_remove_individual_filters() -> None:
     assert 'document.addEventListener("service-filter-changed"' in shell
     assert "control.dispatchEvent(" in shell
     assert 'key === "query" ? "input" : "change"' in shell
-    assert 'remove.textContent = "×";' in shell
+    remove_symbol = chr(0x00D7)
+    assert f'remove.textContent = "{remove_symbol}";' in shell
     assert ".service-filter-active-chip" in stylesheet
     assert ".service-filter-active[hidden]" in stylesheet
 
