@@ -41,6 +41,9 @@ class CloudflareExposureSnapshot:
         if self.configured and not confirmed:
             reason = self.refresh_error or self.tunnel_error or self.access_error or "Cloudflare inventory is empty"
             warning = f"⚠️ Cloudflare global status could not be confirmed: {reason}"
+        config_sources = [str(tunnel.config_source or "unknown") for tunnel in self.tunnels]
+        local_managed = sum(source == "local" for source in config_sources)
+        remote_managed = sum(source == "cloudflare" for source in config_sources)
         return {
             "status_confirmed": confirmed,
             "state": "ok" if confirmed else "unknown",
@@ -49,6 +52,10 @@ class CloudflareExposureSnapshot:
             "warning": warning,
             "configured": self.configured,
             "tunnels_observed": len(self.tunnels),
+            "local_managed_tunnels": local_managed,
+            "cloudflare_managed_tunnels": remote_managed,
+            "unknown_management_tunnels": len(config_sources) - local_managed - remote_managed,
+            "tunnel_config_sources": sorted(set(config_sources)),
             "access_applications_observed": len(self.access_applications),
             "tunnel_observer_state": ("unconfigured" if not self.configured else "error" if self.tunnel_error else "empty" if not self.tunnels else "ok"),
             "access_observer_state": ("unconfigured" if not self.configured else "error" if self.access_error else "ok"),
