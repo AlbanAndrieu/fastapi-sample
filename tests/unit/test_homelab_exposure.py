@@ -28,6 +28,15 @@ def _tunnel(hostname: str) -> CloudflareTunnelObservation:
     )
 
 
+def _local_tunnel() -> CloudflareTunnelObservation:
+    return CloudflareTunnelObservation(
+        tunnel_id="tunnel-local",
+        name="homelab-local",
+        status="healthy",
+        config_source="local",
+    )
+
+
 def _access(hostname: str, *, public: bool = False) -> CloudflareAccessApplicationObservation:
     return CloudflareAccessApplicationObservation(
         app_id="access-1",
@@ -78,6 +87,27 @@ def test_cloudflare_tunnel_and_protected_access_match_declaration() -> None:
     assert result["observed"]["cloudflare_tunnel_observed"] is True
     assert result["observed"]["cloudflare_access_observed"] is True
     assert result["observed"]["cloudflare_access_public"] is False
+
+
+def test_local_managed_tunnel_without_remote_ingress_is_incomplete() -> None:
+    service = HomelabService(
+        name="Garage",
+        tunnelUrl="https://garage-admin.albandrieu.com",
+        tunnelSecure=True,
+        cloudflareAccessRequired=False,
+        external=True,
+    )
+    snapshot = CloudflareExposureSnapshot(
+        configured=True,
+        tunnels=(_local_tunnel(),),
+    )
+
+    result = enrich_service_exposure([_row(service)], [service], snapshot)[0]["exposure"]
+
+    assert result["state"] == "incomplete"
+    assert result["observed"]["cloudflare_tunnel_observed"] is False
+    assert any("local configuration" in reason for reason in result["reasons"])
+    assert not any("no matching Tunnel ingress" in reason for reason in result["reasons"])
 
 
 def test_broad_cloudflare_access_bypass_is_mismatch() -> None:
