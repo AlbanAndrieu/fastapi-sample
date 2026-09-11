@@ -19,9 +19,8 @@ def test_health_entrypoint_installs_service_detail_drawer() -> None:
 def test_detail_drawer_reuses_existing_row_metadata_and_probe_evidence() -> None:
     source = (ASSETS / "api-service-detail-drawer.js").read_text(encoding="utf-8")
 
-    for dataset_field in (
+    direct_dataset_fields = (
         "serviceKey",
-        "serviceName",
         "serviceUrl",
         "presentationGroup",
         "environments",
@@ -29,9 +28,11 @@ def test_detail_drawer_reuses_existing_row_metadata_and_probe_evidence() -> None
         "exposureMode",
         "exposurePolicy",
         "healthChange",
-        "semanticStatus",
-    ):
+    )
+    for dataset_field in direct_dataset_fields:
         assert f"dataset.{dataset_field}" in source
+    assert "dataset?.serviceName" in source
+    assert "dataset?.semanticStatus" in source
     assert 'row.querySelectorAll(".service-probe")' in source
     assert 'probe.getAttribute("aria-label") || probe.title' in source
     assert "data-service-filter-target" in source
