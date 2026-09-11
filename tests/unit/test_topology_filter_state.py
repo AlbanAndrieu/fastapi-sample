@@ -41,8 +41,9 @@ def test_topology_filter_state_is_shareable_without_server_side_session() -> Non
 
     assert "new URLSearchParams(window.location.search)" in source
     assert "new URL(window.location.href)" in source
-    for param in ("q", "view", "relation", "strength", "layout"):
+    for param in ("q", "view", "relation", "strength", "phase", "layout"):
         assert f'"{param}"' in source
+    assert '"topology-lifecycle-filter"' in source
     assert "window.history.replaceState(" in source
     assert "${url.pathname}${url.search}${url.hash}" in source
     assert "sessionStorage" not in source
@@ -64,7 +65,19 @@ def test_focused_topology_views_remove_unrelated_orphan_nodes() -> None:
     assert 'preset !== "all" || relation !== "all" || strength !== "all"' in source
     assert 'node.connectedEdges().not(".is-filtered")' in source
     assert "visibleEdges.length === 0" in source
-    assert "if (!query && focusedRelations)" in source
+    assert 'if (!query && lifecycle === "all" && focusedRelations)' in source
+
+
+def test_lifecycle_filter_uses_declared_node_metadata_only() -> None:
+    source = (ASSETS / "api-topology.js").read_text(encoding="utf-8")
+
+    assert 'node.data("lifecyclePhase") !== lifecycle' in source
+    assert 'document.getElementById("topology-lifecycle-filter")' in source
+    assert "lifecycle.phase" in source
+    assert "lifecyclePriority" in source
+    assert "runtimeAppId" in source
+    assert "startOrder" not in source
+    assert "startupOrder" not in source
 
 
 def test_reset_returns_to_canonical_default_and_cleans_url_state() -> None:
@@ -76,4 +89,5 @@ def test_reset_returns_to_canonical_default_and_cleans_url_state() -> None:
     assert "resetTopologyControls" in topology_source
     assert "syncTopologyControlsToUrl();" in topology_source
     assert "preset.value = DEFAULT_TOPOLOGY_PRESET;" in state_source
+    assert "phase.value = DEFAULTS.phase;" in state_source
     assert "params.delete(key);" in state_source
