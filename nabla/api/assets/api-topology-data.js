@@ -30,6 +30,9 @@ function topologyFromDeclaredServices(catalog) {
             ? service.environments
             : null,
           environment: service?.environment || null,
+          runtime: service?.runtime || null,
+          lifecycle: service?.lifecycle || null,
+          sourcePath: service?.sourcePath || service?.source_path || null,
           url: service?.url || null,
         };
       })
