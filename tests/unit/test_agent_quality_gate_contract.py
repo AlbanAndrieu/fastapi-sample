@@ -194,28 +194,30 @@ def test_agent_completion_policy_requires_roadmap_accounting() -> None:
 
 
 def test_zap_runs_only_post_merge_or_manually_against_production_surfaces() -> None:
-    workflow = (ROOT / ".github/workflows/security-zap.yml").read_text(encoding="utf-8")
-    triggers = workflow.split("jobs:", maxsplit=1)[0]
+    workflow_text = (ROOT / ".github/workflows/security-zap.yml").read_text(encoding="utf-8")
+    workflow = yaml.safe_load(workflow_text)
+    triggers = workflow_text.split("jobs:", maxsplit=1)[0]
+    dast_env = workflow["jobs"]["dast"]["env"]
 
     assert "pull_request:" not in triggers
     assert "workflow_call:" in triggers
     assert "workflow_dispatch:" in triggers
-    assert "127.0.0.1" not in workflow
-    assert "uvicorn" not in workflow
-    assert "https://sample.albandrieu.com/" in workflow
-    assert "https://sample.albandrieu.com/api" in workflow
-    assert "https://sample.albandrieu.com/openapi.json" in workflow
-    assert "https://fastapi-sample.fastapicloud.dev/api" in workflow
-    assert "https://fastapi-sample.fastapicloud.dev/openapi.json" in workflow
-    assert "CF-Access-Client-Id" in workflow
-    assert "CF-Access-Client-Secret" in workflow
-    assert "Management APIs for pfSense and TrueNAS are intentionally excluded" in workflow
-    assert workflow.count("fail_action: true") == 5
-    assert "zap-web-truenas-root" in workflow
-    assert "zap-web-truenas-api" in workflow
-    assert "zap-web-fastapi-cloud-api" in workflow
-    assert "zap-api-truenas" in workflow
-    assert "zap-api-fastapi-cloud" in workflow
+    assert "127.0.0.1" not in workflow_text
+    assert "uvicorn" not in workflow_text
+    assert dast_env["TRUENAS_ROOT_URL"] == "https://sample.albandrieu.com/"
+    assert dast_env["TRUENAS_API_URL"] == "https://sample.albandrieu.com/api"
+    assert dast_env["TRUENAS_OPENAPI_URL"] == "https://sample.albandrieu.com/openapi.json"
+    assert dast_env["CLOUD_API_URL"] == "https://fastapi-sample.fastapicloud.dev/api"
+    assert dast_env["CLOUD_OPENAPI_URL"] == "https://fastapi-sample.fastapicloud.dev/openapi.json"
+    assert "CF-Access-Client-Id" in workflow_text
+    assert "CF-Access-Client-Secret" in workflow_text
+    assert "Management APIs for pfSense and TrueNAS are intentionally excluded" in workflow_text
+    assert workflow_text.count("fail_action: true") == 5
+    assert "zap-web-truenas-root" in workflow_text
+    assert "zap-web-truenas-api" in workflow_text
+    assert "zap-web-fastapi-cloud-api" in workflow_text
+    assert "zap-api-truenas" in workflow_text
+    assert "zap-api-fastapi-cloud" in workflow_text
 
 
 def test_master_red_remediation_is_post_merge_and_deduplicated() -> None:
