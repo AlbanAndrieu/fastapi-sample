@@ -109,6 +109,7 @@ def render_api_root_page(
                     <a href="/docs">API Docs</a>
                     <a href="/api/data">API</a>
                     <a href="#health-board">Health</a>
+                    <a href="/api/topology">Topology</a>
                 </div>
             </nav>
         </header>

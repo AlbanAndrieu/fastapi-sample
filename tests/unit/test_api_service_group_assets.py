@@ -190,16 +190,19 @@ def test_critical_core_group_is_first() -> None:
     assert core < services
 
 
-def test_health_grouping_falls_back_to_public_declared_catalog() -> None:
+def test_health_grouping_reuses_shared_topology_loader() -> None:
     groups = (ASSETS / "api-service-groups.js").read_text(encoding="utf-8")
+    loader = (ASSETS / "api-topology-data.js").read_text(encoding="utf-8")
 
-    assert 'fetchJson("/api/homelab-topology")' in groups
-    assert 'fetchJson("/api/homelab/declared-services")' in groups
-    assert "topologyFromDeclaredServices" in groups
-    assert '"declared-services-fallback"' in groups
-    assert "presentationRole" in groups
-    assert "securityFunctions" in groups
-    assert "classification-unavailable" in groups
+    assert 'from "./api-topology-data.js"' in groups
+    assert "await fetchTopology()" in groups
+    assert 'fetchJson("/api/homelab-topology")' in loader
+    assert 'fetchJson("/api/homelab/declared-services")' in loader
+    assert "topologyFromDeclaredServices" in loader
+    assert 'source: "declared-services-fallback"' in loader
+    assert "presentationRole" in loader
+    assert "securityFunctions" in loader
+    assert "classification-unavailable" in loader
     assert "Service classification" in groups
     assert "Topology and declared-service catalog could not be loaded" in groups
 
@@ -225,13 +228,14 @@ def test_sickz_keeps_one_exposure_section_without_duplicate_service_groups() -> 
     groups = (ASSETS / "api-service-groups.js").read_text(encoding="utf-8")
 
     start = groups.index("export async function organizeSickzRows")
-    end = groups.index("export function installServiceFilter", start)
-    sickz = groups[start:end]
+    sickz = groups[start:]
 
     assert "serviceGroupSection(" not in sickz
     assert 'document.createElement("details")' not in sickz
     assert "sortRows(groupRows)" in sickz
     assert groups.count('label: "External / optional integrations"') == 1
+    assert "installServiceFilter" not in groups
+    assert "activeFilter" not in groups
 
 
 def test_sickz_labels_truenas_as_https_exposure_not_api_health() -> None:

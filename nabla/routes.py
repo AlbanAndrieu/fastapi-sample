@@ -21,6 +21,7 @@ from nabla.api.db.database import SessionLocal
 from nabla.api.health_routes import register_health_routes
 from nabla.api.notes.models import Note
 from nabla.api.runtime_environment import runtime_mode
+from nabla.api.topology_ui import render_topology_page
 from nabla.api.ui import render_api_root_page
 from nabla.rate_limit import limiter
 from nabla.utils.logger import logger
@@ -46,6 +47,23 @@ def _move_root_mounts_last(app: FastAPI) -> None:
     for route in root_mounts:
         app.routes.remove(route)
         app.routes.append(route)
+
+
+def _register_topology_dashboard(app: FastAPI) -> None:
+    """Register the standalone declared-topology visualization screen."""
+
+    @app.get("/api/topology", response_class=HTMLResponse, include_in_schema=False)
+    async def topology_dashboard(request: Request) -> HTMLResponse:
+        return HTMLResponse(
+            render_topology_page(
+                title_suffix=os.getenv("TITLE_SUFFIX"),
+                app_version=html.escape(str(request.app.version)),
+            ),
+            headers={
+                "Cache-Control": "no-store, max-age=0",
+                "Pragma": "no-cache",
+            },
+        )
 
 
 def register_routes(app: FastAPI) -> None:
@@ -103,6 +121,8 @@ def register_routes(app: FastAPI) -> None:
                 "Pragma": "no-cache",
             },
         )
+
+    _register_topology_dashboard(app)
 
     @app.get("/api/runtime-version", include_in_schema=False)
     async def api_runtime_version(request: Request) -> JSONResponse:
