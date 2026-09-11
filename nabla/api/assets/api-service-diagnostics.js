@@ -16,6 +16,7 @@ const EXPOSURE_OPTIONS = [
   ["warn", "Policy warning"],
   ["fail", "Policy violation"],
   ["unknown", "Policy unknown"],
+  ["unobserved", "No exposure evidence"],
   ["external", "External services"],
   ["internal", "Internal-only services"],
   ["cloudflare", "Cloudflare protected"],
@@ -48,6 +49,18 @@ const PROBE_ICONS = {
   policy: "🛡️",
 };
 
+const LEGEND_ITEMS = [
+  ["🌐", "HTTP"],
+  ["🔒", "TLS certificate"],
+  ["🔌", "TCP"],
+  ["⚙️", "REST API"],
+  ["↔️", "WebSocket"],
+  ["☁️", "Cloudflare Tunnel"],
+  ["🛡️", "Access / policy"],
+  ["🔑", "Service Token"],
+  ["📈", "Prometheus / metrics"],
+];
+
 const filters = {
   query: "",
   status: "all",
@@ -77,13 +90,17 @@ function hostOf(value) {
 }
 
 function urlOf(check) {
-  for (const value of [
+  const aliases = Array.isArray(check?.aliases_probed)
+    ? check.aliases_probed
+    : [];
+  const candidates = [
     check?.tunnel_url,
     check?.tunnelUrl,
     check?.href,
     check?.url,
-    ...(Array.isArray(check?.aliases_probed) ? check.aliases_probed : []),
-  ]) {
+    ...aliases,
+  ];
+  for (const value of candidates) {
     if (value && String(value).trim()) return String(value).trim();
   }
   return "";
@@ -91,34 +108,33 @@ function urlOf(check) {
 
 function checkMatchesRow(check, row) {
   if (!check || !row) return false;
+
   const key = normalize(row.dataset.serviceKey);
   const name = normalize(row.dataset.serviceName);
-  const urlHost = hostOf(row.dataset.serviceUrl);
-  const checkIds = [check.service_id, check.serviceId, check.id]
+  const rowHost = hostOf(row.dataset.serviceUrl);
+  const ids = [check.service_id, check.serviceId, check.id]
     .map(normalize)
     .filter(Boolean);
-  const checkNames = [check.name, check.display_label]
+  const names = [check.name, check.display_label]
     .map(normalize)
     .filter(Boolean);
-  const checkHosts = [
-    check.url,
-    check.tunnel_url,
-    check.tunnelUrl,
-    ...(Array.isArray(check.aliases_probed) ? check.aliases_probed : []),
-  ]
+  const aliases = Array.isArray(check.aliases_probed)
+    ? check.aliases_probed
+    : [];
+  const hosts = [check.url, check.tunnel_url, check.tunnelUrl, ...aliases]
     .map(hostOf)
     .filter(Boolean);
 
   return (
-    checkIds.includes(key) ||
-    checkNames.includes(name) ||
-    (urlHost && checkHosts.includes(urlHost))
+    ids.includes(key) ||
+    names.includes(name) ||
+    Boolean(rowHost && hosts.includes(rowHost))
   );
 }
 
 function findCheck(checks, row) {
-  const key = row?.dataset?.serviceKey;
   if (!checks || !row) return null;
+  const key = row.dataset.serviceKey;
   if (key && checks[key]) return checks[key];
   for (const check of Object.values(checks)) {
     if (checkMatchesRow(check, row)) return check;
@@ -127,18 +143,18 @@ function findCheck(checks, row) {
 }
 
 function normalizedPolicy(check) {
-  const value = normalize(check?.policy_status);
-  return ["ok", "warn", "fail", "unknown"].includes(value)
-    ? value
-    : "unknown";
+  const policy = normalize(check?.policy_status);
+  if (["ok", "warn", "fail", "unknown"].includes(policy)) return policy;
+  return "unknown";
 }
 
 function normalizedStatus(row) {
   const explicit = normalize(row.dataset.semanticStatus);
   if (explicit) return explicit;
   if (row.querySelector(".health-led--red")) return "down";
-  if (row.querySelector(".health-led--yellow, .health-led--blue"))
+  if (row.querySelector(".health-led--yellow, .health-led--blue")) {
     return "degraded";
+  }
   if (row.querySelector(".health-led--gray")) return "unknown";
   if (row.querySelector(".health-led--green")) return "operational";
   return "unknown";
@@ -149,13 +165,14 @@ function reachabilityTone(check) {
   if (check.skipped === true) return "neutral";
   if (check.reachable === false) return "fail";
   if (check.reachable == null) return "unknown";
+
   const status = Number(check.http_status);
-  if (Number.isFinite(status)) {
-    if (status >= 200 && status < 400) return "ok";
-    if (status >= 500) return "fail";
-    return "warn";
+  if (!Number.isFinite(status)) {
+    return check.reachable === true ? "ok" : "unknown";
   }
-  return check.reachable === true ? "ok" : "unknown";
+  if (status >= 200 && status < 400) return "ok";
+  if (status >= 500) return "fail";
+  return "warn";
 }
 
 function policyTone(policy) {
@@ -166,82 +183,83 @@ function policyTone(policy) {
 }
 
 function probeBadge(kind, tone, label, detail) {
-  const icon = PROBE_ICONS[kind] || "•";
-  const title = detail || label;
   const badge = document.createElement("span");
   badge.className = `service-probe service-probe--${tone}`;
   badge.dataset.probeKind = kind;
-  badge.title = title;
-  badge.setAttribute("aria-label", title);
+  badge.title = detail || label;
+  badge.setAttribute("aria-label", detail || label);
 
-  const iconEl = document.createElement("span");
-  iconEl.className = "service-probe-icon";
-  iconEl.setAttribute("aria-hidden", "true");
-  iconEl.textContent = icon;
+  const icon = document.createElement("span");
+  icon.className = "service-probe-icon";
+  icon.setAttribute("aria-hidden", "true");
+  icon.textContent = PROBE_ICONS[kind] || "•";
 
-  const labelEl = document.createElement("span");
-  labelEl.className = "service-probe-label";
-  labelEl.textContent = label;
-  badge.append(iconEl, labelEl);
+  const text = document.createElement("span");
+  text.className = "service-probe-label";
+  text.textContent = label;
+  badge.append(icon, text);
   return badge;
 }
 
-function addHttpEvidence(target, check, probeKinds) {
+function httpDetail(check, suffix) {
+  if (check.reachable === true) {
+    return `HTTP probe reached the target${suffix}`;
+  }
+  if (check.reachable === false) {
+    const error = check.error ? `: ${check.error}` : "";
+    return `HTTP probe could not reach the target${error}`;
+  }
+  const warning = check.warning ? `: ${check.warning}` : "";
+  return `HTTP probe result is not confirmed${warning}`;
+}
+
+function addHttpEvidence(target, check, kinds) {
   if (!check) return;
   const url = urlOf(check);
+  const probe = normalize(check.probe);
   const hasHttp =
     /^https?:\/\//i.test(url) ||
     check.http_status != null ||
-    String(check.probe || "").toLowerCase().includes("http");
+    probe.includes("http");
   if (!hasHttp) return;
 
   const status = Number(check.http_status);
-  const suffix = Number.isFinite(status) ? ` ${status}` : "";
+  const label = Number.isFinite(status) ? `HTTP ${status}` : "HTTP";
+  const suffix = Number.isFinite(status) ? ` with status ${status}` : "";
   target.appendChild(
-    probeBadge(
-      "http",
-      reachabilityTone(check),
-      `HTTP${suffix}`,
-      check.reachable === true
-        ? `HTTP probe reached the target${suffix ? ` with status${suffix}` : ""}`
-        : check.reachable === false
-          ? `HTTP probe could not reach the target${check.error ? `: ${check.error}` : ""}`
-          : `HTTP probe result is not confirmed${check.warning ? `: ${check.warning}` : ""}`,
-    ),
+    probeBadge("http", reachabilityTone(check), label, httpDetail(check, suffix)),
   );
-  probeKinds.add("http");
+  kinds.add("http");
 }
 
-function addTlsEvidence(target, check, probeKinds) {
+function addTlsEvidence(target, check, kinds) {
   if (!check) return;
-  const url = urlOf(check);
+  const aliases = Array.isArray(check.aliases_probed)
+    ? check.aliases_probed
+    : [];
   const hasHttps =
-    /^https:\/\//i.test(url) ||
-    (Array.isArray(check.aliases_probed) &&
-      check.aliases_probed.some((value) => /^https:\/\//i.test(String(value))));
+    /^https:\/\//i.test(urlOf(check)) ||
+    aliases.some((value) => /^https:\/\//i.test(String(value)));
   if (!hasHttps) return;
 
-  const tone =
-    check.skipped === true
-      ? "neutral"
-      : check.tls_trusted === true
-        ? "ok"
-        : check.tls_trusted === false
-          ? "fail"
-          : "unknown";
-  const detail =
-    check.tls_trusted === true
-      ? "HTTPS certificate chain and hostname were validated"
-      : check.tls_trusted === false
-        ? "HTTPS certificate validation failed"
-        : check.skipped === true
-          ? "TLS validation was intentionally skipped from this vantage point"
-          : "HTTPS target exists but TLS trust was not confirmed";
+  let tone = "unknown";
+  let detail = "HTTPS target exists but TLS trust was not confirmed";
+  if (check.skipped === true) {
+    tone = "neutral";
+    detail = "TLS validation was intentionally skipped from this vantage point";
+  } else if (check.tls_trusted === true) {
+    tone = "ok";
+    detail = "HTTPS certificate chain and hostname were validated";
+  } else if (check.tls_trusted === false) {
+    tone = "fail";
+    detail = "HTTPS certificate validation failed";
+  }
+
   target.appendChild(probeBadge("tls", tone, "TLS", detail));
-  probeKinds.add("tls");
+  kinds.add("tls");
 }
 
-function addTcpEvidence(target, check, probeKinds) {
+function addTcpEvidence(target, check, kinds) {
   if (!check) return;
   const probe = normalize(check.probe);
   const protocol = normalize(check.protocol);
@@ -249,23 +267,24 @@ function addTcpEvidence(target, check, probeKinds) {
   const hasTcp =
     probe.includes("tcp") ||
     protocol === "tcp" ||
-    (check.host && check.port != null && !/^https?:\/\//i.test(url));
+    Boolean(check.host && check.port != null && !/^https?:\/\//i.test(url));
   if (!hasTcp) return;
 
   const endpoint =
     check.host && check.port != null ? ` ${check.host}:${check.port}` : "";
+  const error = check.error ? `: ${check.error}` : "";
   target.appendChild(
     probeBadge(
       "tcp",
       reachabilityTone(check),
       "TCP",
-      `TCP connectivity probe${endpoint}${check.error ? `: ${check.error}` : ""}`,
+      `TCP connectivity probe${endpoint}${error}`,
     ),
   );
-  probeKinds.add("tcp");
+  kinds.add("tcp");
 }
 
-function addApiEvidence(target, key, check, probeKinds) {
+function addApiEvidence(target, key, check, kinds) {
   if (!check) return;
   const probe = normalize(check.probe);
   const path = String(check.path || "");
@@ -275,102 +294,126 @@ function addApiEvidence(target, key, check, probeKinds) {
     ["pfsense", "truenas_api"].includes(String(key || ""));
   if (!hasApi) return;
 
+  const detail = `Authenticated/read-only API evidence${path ? ` via ${path}` : ""}`;
+  target.appendChild(
+    probeBadge("api", reachabilityTone(check), "API", detail),
+  );
+  kinds.add("api");
+
+  const hasWebsocket =
+    probe.includes("websocket") || String(key || "") === "truenas_api";
+  if (!hasWebsocket) return;
   target.appendChild(
     probeBadge(
-      "api",
+      "websocket",
       reachabilityTone(check),
-      "API",
-      `Authenticated/read-only API evidence${path ? ` via ${path}` : ""}`,
+      "WS",
+      "WebSocket API connectivity evidence",
     ),
   );
-  probeKinds.add("api");
-
-  if (probe.includes("websocket") || String(key || "") === "truenas_api") {
-    target.appendChild(
-      probeBadge(
-        "websocket",
-        reachabilityTone(check),
-        "WS",
-        "WebSocket API connectivity evidence",
-      ),
-    );
-    probeKinds.add("websocket");
-  }
+  kinds.add("websocket");
 }
 
-function addCloudflareEvidence(target, exposure, probeKinds) {
-  if (!exposure) return;
+function tunnelEvidence(exposure) {
   const expected = exposure.tunnel_secure === true;
   const observed = exposure.cloudflare_tunnel_observed;
-  const hasTunnelEvidence =
+  if (expected && observed === true) {
+    return ["ok", "Cloudflare Tunnel is expected and observed"];
+  }
+  if (expected && observed === false) {
+    return ["fail", "Cloudflare Tunnel is expected but was not observed"];
+  }
+  if (!expected && observed === true) {
+    return [
+      "warn",
+      "Cloudflare Tunnel was observed although direct exposure is declared",
+    ];
+  }
+  if (exposure.tunnel_secure === false) {
+    return [
+      "neutral",
+      "Cloudflare Tunnel is not required by the declared exposure policy",
+    ];
+  }
+  return ["unknown", "Cloudflare Tunnel evidence is not confirmed"];
+}
+
+function accessEvidence(exposure) {
+  const policyCount = Number(exposure.cloudflare_access_policy_count);
+  const hasCount = Number.isFinite(policyCount);
+  let tone = "unknown";
+  if (exposure.cloudflare_default_deny === true && policyCount > 0) {
+    tone = "ok";
+  } else if (
+    exposure.cloudflare_default_deny === true &&
+    policyCount === 0
+  ) {
+    tone = "fail";
+  } else if (hasCount) {
+    tone = policyCount > 0 ? "ok" : "warn";
+  }
+
+  const countDetail = hasCount
+    ? ` · ${policyCount} ${policyCount === 1 ? "policy" : "policies"}`
+    : "";
+  return [
+    tone,
+    `Cloudflare Access Default-Deny=${String(exposure.cloudflare_default_deny)}${countDetail}`,
+  ];
+}
+
+function addCloudflareEvidence(target, exposure, kinds) {
+  if (!exposure) return;
+  const hasTunnel =
     exposure.tunnel_secure != null ||
-    observed != null ||
+    exposure.cloudflare_tunnel_observed != null ||
     exposure.cloudflare_default_deny != null ||
     exposure.cloudflare_access_policy_count != null;
-  if (!hasTunnelEvidence) return;
+  if (!hasTunnel) return;
 
-  let tunnelTone = "unknown";
-  let tunnelDetail = "Cloudflare Tunnel evidence is not confirmed";
-  if (expected && observed === true) {
-    tunnelTone = "ok";
-    tunnelDetail = "Cloudflare Tunnel is expected and observed";
-  } else if (expected && observed === false) {
-    tunnelTone = "fail";
-    tunnelDetail = "Cloudflare Tunnel is expected but was not observed";
-  } else if (!expected && observed === true) {
-    tunnelTone = "warn";
-    tunnelDetail = "Cloudflare Tunnel was observed although direct exposure is declared";
-  } else if (exposure.tunnel_secure === false) {
-    tunnelTone = "neutral";
-    tunnelDetail = "Cloudflare Tunnel is not required by the declared exposure policy";
-  }
+  const [tunnelTone, tunnelDetail] = tunnelEvidence(exposure);
   target.appendChild(
     probeBadge("cloudflare", tunnelTone, "Tunnel", tunnelDetail),
   );
-  probeKinds.add("cloudflare");
+  kinds.add("cloudflare");
 
-  const policyCount = Number(exposure.cloudflare_access_policy_count);
-  if (
+  const hasAccess =
     exposure.cloudflare_default_deny != null ||
-    Number.isFinite(policyCount)
-  ) {
-    let accessTone = "unknown";
-    if (exposure.cloudflare_default_deny === true && policyCount > 0)
-      accessTone = "ok";
-    else if (exposure.cloudflare_default_deny === true && policyCount === 0)
-      accessTone = "fail";
-    else if (Number.isFinite(policyCount)) accessTone = policyCount > 0 ? "ok" : "warn";
-
+    Number.isFinite(Number(exposure.cloudflare_access_policy_count));
+  if (hasAccess) {
+    const [accessTone, accessDetail] = accessEvidence(exposure);
     target.appendChild(
-      probeBadge(
-        "access",
-        accessTone,
-        "Access",
-        `Cloudflare Access Default-Deny=${String(exposure.cloudflare_default_deny)}${Number.isFinite(policyCount) ? ` · ${policyCount} policy${policyCount === 1 ? "" : "ies"}` : ""}`,
-      ),
+      probeBadge("access", accessTone, "Access", accessDetail),
     );
-    probeKinds.add("access");
+    kinds.add("access");
   }
 
-  if (exposure.cloudflare_service_auth_attempted === true) {
-    const passed = exposure.cloudflare_service_token_access_passed;
-    target.appendChild(
-      probeBadge(
-        "service-token",
-        passed === true ? "ok" : passed === false ? "fail" : "unknown",
-        "Token",
-        passed === true
-          ? "Cloudflare Access Service Token authenticated successfully"
-          : passed === false
-            ? "Cloudflare Access Service Token authentication failed"
-            : "Cloudflare Access Service Token result is unknown",
-      ),
-    );
-    probeKinds.add("service-token");
-  }
+  if (exposure.cloudflare_service_auth_attempted !== true) return;
+  const passed = exposure.cloudflare_service_token_access_passed;
+  const httpStatus = Number(exposure.cloudflare_service_token_http_status);
+  const statusLabel = Number.isFinite(httpStatus) ? ` ${httpStatus}` : "";
+  let tone = "unknown";
+  if (passed === true) tone = "ok";
+  else if (passed === false) tone = "fail";
+
+  const result =
+    passed === true
+      ? "authenticated successfully"
+      : passed === false
+        ? "authentication failed"
+        : "result is unknown";
+  target.appendChild(
+    probeBadge(
+      "service-token",
+      tone,
+      `Token${statusLabel}`,
+      `Cloudflare Access Service Token ${result}${statusLabel ? ` · HTTP${statusLabel}` : ""}`,
+    ),
+  );
+  kinds.add("service-token");
 }
 
-function metricEvidence(check) {
+function metricTone(check) {
   if (!check) return null;
   const values = [
     check.prometheus_up,
@@ -381,49 +424,46 @@ function metricEvidence(check) {
   if (values.some((value) => value === true)) return "ok";
   if (values.some((value) => value === false)) return "fail";
   const source = normalize(
-    [check.source, check.metric_source, check.telemetry_source].filter(Boolean).join(" "),
+    [check.source, check.metric_source, check.telemetry_source]
+      .filter(Boolean)
+      .join(" "),
   );
   return source.includes("prometheus") ? "unknown" : null;
 }
 
-function addMetricEvidence(target, check, probeKinds) {
-  const tone = metricEvidence(check);
+function addMetricEvidence(target, check, kinds) {
+  const tone = metricTone(check);
   if (!tone) return;
-  target.appendChild(
-    probeBadge(
-      "metrics",
-      tone,
-      "Metrics",
-      tone === "ok"
-        ? "Prometheus/metrics evidence is available"
-        : tone === "fail"
-          ? "Prometheus/metrics evidence reports unavailable"
-          : "Prometheus/metrics source is declared but current evidence is unknown",
-    ),
-  );
-  probeKinds.add("metrics");
+
+  let detail = "Prometheus/metrics source is declared but current evidence is unknown";
+  if (tone === "ok") detail = "Prometheus/metrics evidence is available";
+  else if (tone === "fail") {
+    detail = "Prometheus/metrics evidence reports unavailable";
+  }
+  target.appendChild(probeBadge("metrics", tone, "Metrics", detail));
+  kinds.add("metrics");
 }
 
-function exposureMetadata(row, exposure) {
+function setExposureMetadata(row, exposure) {
   if (!exposure) {
     row.dataset.exposurePolicy = "unobserved";
     row.dataset.exposureScope = "unobserved";
     row.dataset.exposureMode = "unobserved";
     return;
   }
+
   row.dataset.exposurePolicy = normalizedPolicy(exposure);
-  row.dataset.exposureScope =
-    exposure.external === true
-      ? "external"
-      : exposure.external === false
-        ? "internal"
-        : "unknown";
-  row.dataset.exposureMode =
-    exposure.tunnel_secure === true
-      ? "cloudflare"
-      : exposure.tunnel_secure === false
-        ? "direct"
-        : "unknown";
+  if (exposure.external === true) row.dataset.exposureScope = "external";
+  else if (exposure.external === false) row.dataset.exposureScope = "internal";
+  else row.dataset.exposureScope = "unknown";
+
+  if (exposure.tunnel_secure === true) {
+    row.dataset.exposureMode = "cloudflare";
+  } else if (exposure.tunnel_secure === false) {
+    row.dataset.exposureMode = "direct";
+  } else {
+    row.dataset.exposureMode = "unknown";
+  }
 }
 
 function decorateRow(row, snapshot) {
@@ -433,38 +473,35 @@ function decorateRow(row, snapshot) {
   const key = row.dataset.serviceKey || "";
   const health =
     findCheck(healthChecks, row) || findCheck(homelabChecks, row) || null;
-  const exposure = findCheck(sickzChecks, row) || null;
+  const exposure = findCheck(sickzChecks, row);
   const primary = row.querySelector(".health-row-primary");
   if (!primary) return;
 
-  exposureMetadata(row, exposure);
-  const probeKinds = new Set();
+  setExposureMetadata(row, exposure);
+  const kinds = new Set();
   const strip = document.createElement("div");
   strip.className = "service-probe-strip";
   strip.setAttribute("aria-label", "Probe evidence");
 
   const mainEvidence = health || exposure;
-  addHttpEvidence(strip, mainEvidence, probeKinds);
-  addTlsEvidence(strip, exposure || mainEvidence, probeKinds);
-  addTcpEvidence(strip, mainEvidence, probeKinds);
-  addApiEvidence(strip, key, mainEvidence, probeKinds);
-  addCloudflareEvidence(strip, exposure, probeKinds);
-  addMetricEvidence(strip, health, probeKinds);
+  addHttpEvidence(strip, mainEvidence, kinds);
+  addTlsEvidence(strip, exposure || mainEvidence, kinds);
+  addTcpEvidence(strip, mainEvidence, kinds);
+  addApiEvidence(strip, key, mainEvidence, kinds);
+  addCloudflareEvidence(strip, exposure, kinds);
+  addMetricEvidence(strip, health, kinds);
 
   if (exposure?.policy_status) {
     const policy = normalizedPolicy(exposure);
+    const detail =
+      exposure.policy_detail || `Exposure security policy: ${policy}`;
     strip.appendChild(
-      probeBadge(
-        "policy",
-        policyTone(policy),
-        "Policy",
-        exposure.policy_detail || `Exposure security policy: ${policy}`,
-      ),
+      probeBadge("policy", policyTone(policy), "Policy", detail),
     );
   }
 
-  row.dataset.probeKinds = [...probeKinds].join(" ");
-  const signature = strip.innerHTML;
+  row.dataset.probeKinds = [...kinds].join(" ");
+  const signature = strip.textContent + strip.innerHTML;
   const existing = primary.querySelector(":scope > .service-probe-strip");
   if (existing?.dataset.signature === signature) return;
   if (existing) existing.remove();
@@ -491,6 +528,26 @@ function selectControl(id, label, options) {
   return wrapper;
 }
 
+function appendLegend(host) {
+  const legend = document.createElement("div");
+  legend.id = "service-probe-legend";
+  legend.className = "service-probe-legend";
+
+  const title = document.createElement("strong");
+  title.textContent = "Probe evidence";
+  legend.appendChild(title);
+  for (const [icon, label] of LEGEND_ITEMS) {
+    const item = document.createElement("span");
+    item.textContent = `${icon} ${label}`;
+    legend.appendChild(item);
+  }
+  const help = document.createElement("small");
+  help.textContent =
+    "green = operational · amber = warning · red = failed · gray = unknown / not confirmed";
+  legend.appendChild(help);
+  host.appendChild(legend);
+}
+
 function ensureFilterControls() {
   const host = document.querySelector(".service-filter");
   if (!host || document.getElementById("service-filter-facets")) return;
@@ -507,31 +564,30 @@ function ensureFilterControls() {
     ),
     selectControl("service-probe-filter", "Probe", PROBE_OPTIONS),
   );
+  host.appendChild(facets);
 
   const result = document.createElement("div");
   result.id = "service-filter-result";
   result.className = "service-filter-result";
   result.setAttribute("aria-live", "polite");
-
-  const legend = document.createElement("div");
-  legend.id = "service-probe-legend";
-  legend.className = "service-probe-legend";
-  legend.innerHTML =
-    '<strong>Probe evidence</strong><span>🌐 HTTP</span><span>🔒 TLS</span><span>🔌 TCP</span><span>⚙️ API</span><span>↔️ WebSocket</span><span>☁️ Tunnel</span><span>🛡️ Access / policy</span><span>🔑 Service Token</span><span>📈 Metrics</span><small>green = operational · amber = warning · red = failed · gray = unknown / not confirmed</small>';
-
-  host.append(facets, result, legend);
+  host.appendChild(result);
+  appendLegend(host);
 }
 
 function exposureMatches(row) {
   if (filters.exposure === "all") return true;
-  if (filters.exposure === "external")
+  if (filters.exposure === "external") {
     return row.dataset.exposureScope === "external";
-  if (filters.exposure === "internal")
+  }
+  if (filters.exposure === "internal") {
     return row.dataset.exposureScope === "internal";
-  if (filters.exposure === "cloudflare")
+  }
+  if (filters.exposure === "cloudflare") {
     return row.dataset.exposureMode === "cloudflare";
-  if (filters.exposure === "direct")
+  }
+  if (filters.exposure === "direct") {
     return row.dataset.exposureMode === "direct";
+  }
   return row.dataset.exposurePolicy === filters.exposure;
 }
 
@@ -565,17 +621,21 @@ function probeMatches(row) {
     .includes(filters.probe);
 }
 
-function updateGroupVisibility() {
-  const filtering =
+function isFiltering() {
+  return (
     Boolean(filters.query) ||
     filters.status !== "all" ||
     filters.exposure !== "all" ||
-    filters.probe !== "all";
+    filters.probe !== "all"
+  );
+}
+
+function updateGroupVisibility() {
   for (const group of document.querySelectorAll("[data-service-group]")) {
     const rows = [...group.querySelectorAll("[data-service-filter-target]")];
     const visible = rows.some((row) => !row.hidden);
     group.hidden = !visible;
-    if (filtering && visible) group.open = true;
+    if (isFiltering() && visible) group.open = true;
   }
 }
 
@@ -585,17 +645,37 @@ function updateFilterResult(rows) {
   const visible = rows.filter((row) => !row.hidden).length;
   const active = [];
   if (filters.status !== "all") active.push(`status=${filters.status}`);
-  if (filters.exposure !== "all")
-    active.push(`exposure=${filters.exposure}`);
+  if (filters.exposure !== "all") active.push(`exposure=${filters.exposure}`);
   if (filters.probe !== "all") active.push(`probe=${filters.probe}`);
   if (filters.query) active.push(`search=“${filters.query}”`);
-  result.textContent = `${visible}/${rows.length} diagnostic rows visible${active.length ? ` · ${active.join(" · ")}` : ""}`;
+  const details = active.length ? ` · ${active.join(" · ")}` : "";
+  result.textContent = `${visible}/${rows.length} diagnostic rows visible${details}`;
+}
+
+function updateCollapseButton() {
+  const button = document.getElementById("service-collapse-all");
+  if (!button) return;
+  const groups = [
+    ...document.querySelectorAll("[data-service-group]:not([hidden])"),
+  ];
+  const anyOpen = groups.some((group) => group.open);
+  button.textContent = anyOpen ? "Collapse" : "Expand";
+  button.setAttribute("aria-expanded", String(anyOpen));
+  button.title = anyOpen
+    ? "Collapse all visible service groups"
+    : "Expand all visible service groups";
+}
+
+function syncIssuesButton() {
+  const button = document.getElementById("service-expand-issues");
+  if (!button) return;
+  const active = filters.status === "issues";
+  button.textContent = active ? "All" : "Issues";
+  button.setAttribute("aria-pressed", String(active));
 }
 
 function applyFilters() {
-  const rows = [
-    ...document.querySelectorAll("[data-service-filter-target]"),
-  ];
+  const rows = [...document.querySelectorAll("[data-service-filter-target]")];
   for (const row of rows) {
     row.hidden = !(
       queryMatches(row) &&
@@ -607,20 +687,7 @@ function applyFilters() {
   updateGroupVisibility();
   updateFilterResult(rows);
   updateCollapseButton();
-}
-
-function updateCollapseButton() {
-  const button = document.getElementById("service-collapse-all");
-  if (!button) return;
-  const visibleGroups = [
-    ...document.querySelectorAll("[data-service-group]:not([hidden])"),
-  ];
-  const anyOpen = visibleGroups.some((group) => group.open);
-  button.textContent = anyOpen ? "Collapse" : "Expand";
-  button.setAttribute("aria-expanded", String(anyOpen));
-  button.title = anyOpen
-    ? "Collapse all visible service groups"
-    : "Expand all visible service groups";
+  syncIssuesButton();
 }
 
 function clearFilters() {
@@ -628,6 +695,7 @@ function clearFilters() {
   filters.status = "all";
   filters.exposure = "all";
   filters.probe = "all";
+
   const input = document.getElementById("service-filter");
   const status = document.getElementById("service-status-filter");
   const exposure = document.getElementById("service-exposure-filter");
@@ -671,11 +739,6 @@ function installFilterEvents() {
   issues?.addEventListener("click", () => {
     filters.status = filters.status === "issues" ? "all" : "issues";
     if (status) status.value = filters.status;
-    issues.textContent = filters.status === "issues" ? "All" : "Issues";
-    issues.setAttribute(
-      "aria-pressed",
-      String(filters.status === "issues"),
-    );
     applyFilters();
   });
   collapse?.addEventListener("click", () => {
@@ -689,8 +752,9 @@ function installFilterEvents() {
   document.addEventListener(
     "toggle",
     (event) => {
-      if (event.target?.matches?.("[data-service-group]"))
+      if (event.target?.matches?.("[data-service-group]")) {
         updateCollapseButton();
+      }
     },
     true,
   );
@@ -702,11 +766,10 @@ async function decorateRows() {
   try {
     latestSnapshot = await fetchHealthBoard().catch(() => latestSnapshot);
     if (latestSnapshot) {
-      for (const row of document.querySelectorAll(
+      const rows = document.querySelectorAll(
         ".health-row[data-service-filter-target]",
-      )) {
-        decorateRow(row, latestSnapshot);
-      }
+      );
+      for (const row of rows) decorateRow(row, latestSnapshot);
     }
     applyFilters();
   } finally {
