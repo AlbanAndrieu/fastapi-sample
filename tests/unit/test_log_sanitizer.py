@@ -43,10 +43,11 @@ def test_log_filter_scrubs_structured_request_and_bearer_token() -> None:
     assert record.req["authorization"] == "[REDACTED]"
 
 
-def test_library_log_levels_suppress_unleash_polling_info() -> None:
+def test_library_log_levels_suppress_routine_third_party_info() -> None:
     configure_library_log_levels()
 
     assert logging.getLogger("UnleashClient").getEffectiveLevel() >= logging.WARNING
+    assert logging.getLogger("websocket").getEffectiveLevel() >= logging.WARNING
 
 
 def test_structured_log_identity_defaults_to_anonymous() -> None:
@@ -97,7 +98,15 @@ def test_metrics_filter_drops_scrapes_but_keeps_application_requests() -> None:
 def test_health_filter_drops_operational_probes_but_keeps_api_requests() -> None:
     access_filter = HealthCheckFilter()
 
-    for path in ("/health", "/healthz", "/livez", "/readyz", "/sickz"):
+    for path in (
+        "/api/health-board",
+        "/api/homelab/probes",
+        "/health",
+        "/healthz",
+        "/livez",
+        "/readyz",
+        "/sickz",
+    ):
         assert access_filter.filter(
             _access_record(f'127.0.0.1 - "GET {path} HTTP/1.1" 200')
         ) is False
@@ -107,7 +116,7 @@ def test_health_filter_drops_operational_probes_but_keeps_api_requests() -> None
     )
     assert (
         access_filter.filter(
-            _access_record('127.0.0.1 - "GET /api/health-board HTTP/1.1" 200')
+            _access_record('127.0.0.1 - "GET /api/homelab-topology HTTP/1.1" 200')
         )
         is True
     )
