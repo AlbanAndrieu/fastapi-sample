@@ -153,7 +153,9 @@ jobs:
           # the candidate head. The current production probe can report a 5xx
           # with an error string before this PR's error_kind/failure_stage fix is
           # deployed. Accept that legacy evidence only for PR validation.
-          # Post-deploy smoke remains strict and requires complete classification.
+          # Post-deploy smoke accepts a successful probe, a classified failure,
+          # or explicit FastAPI Cloud transport uncertainty. The latter must be
+          # unknown/unconfirmed and non-degrading; it is not proof pfSense is down.
           if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
             jq -e '
               .checks.pfsense.credential_mode == "dedicated_posture" and
@@ -182,10 +184,23 @@ jobs:
               (
                 (
                   .checks.pfsense.reachable == true and
+                  .checks.pfsense.status_confirmed == true and
                   (.checks.pfsense.http_status >= 200 and .checks.pfsense.http_status < 300)
                 ) or
                 (
                   .checks.pfsense.reachable == false and
+                  .checks.pfsense.status_confirmed == true and
+                  (.checks.pfsense.error_kind | type == "string" and length > 0) and
+                  (.checks.pfsense.failure_stage | type == "string" and length > 0) and
+                  (.checks.pfsense.attempts | type == "number" and . >= 1)
+                ) or
+                (
+                  .checks.pfsense.reachable == null and
+                  .checks.pfsense.state == "unknown" and
+                  .checks.pfsense.status_confirmed == false and
+                  .checks.pfsense.degraded == false and
+                  .checks.pfsense.vantage_point == "fastapi_cloud" and
+                  (.checks.pfsense.warning | type == "string" and startswith("⚠️")) and
                   (.checks.pfsense.error_kind | type == "string" and length > 0) and
                   (.checks.pfsense.failure_stage | type == "string" and length > 0) and
                   (.checks.pfsense.attempts | type == "number" and . >= 1)
