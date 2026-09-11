@@ -109,6 +109,7 @@ def render_api_root_page(
                     <a href="/docs">API Docs</a>
                     <a href="/api/data">API</a>
                     <a href="#health-board">Health</a>
+                    <a href="/api/topology">Topology</a>
                 </div>
             </nav>
         </header>
@@ -118,168 +119,63 @@ def render_api_root_page(
                     <span class="status-dot" aria-hidden="true"></span>
                     <span>{runtime_context}</span>
                 </div>
-                <h1>{title}</h1>
-                <p class="subtitle">FastAPI runtime · version <strong>{app_version}</strong></p>
-                <div class="hero-code">
-                    <pre><code><span class="keyword">from</span> <span class="module">fastapi</span> <span class="keyword">import</span> <span class="class">FastAPI</span>
-
-<span class="variable">app</span> = <span class="class">FastAPI</span>()
-
-<span class="decorator">@app.get</span>(<span class="string">"/"</span>)
-<span class="keyword">def</span> <span class="function">read_root</span>():
-    <span class="keyword">return</span> {{<span class="string">"runtime"</span>: <span class="string">"{hero_runtime}"</span>, <span class="string">"status"</span>: <span class="string">"ready"</span>}}</code></pre>
-                </div>
+                <h1>FastAPI sample</h1>
+                <p class="subtitle">Runtime-aware diagnostics for {hero_runtime}.</p>
+                <div class="hero-code"><code>GET /api</code></div>
             </div>
 
             <section class="health-board" id="health-board" aria-labelledby="health-board-title">
                 <div class="health-board-heading-row">
                     <div>
-                        <h2 class="health-board-title" id="health-board-title">Homelab service health</h2>
-                        <p class="health-board-meta">Service outcomes first. <strong>Operational</strong> describes the current service result; <strong>At risk</strong> means the service still works while a required dependency is degraded. Critical core and security controls explain blast radius and likely causes.</p>
+                        <h2 id="health-board-title">Service health</h2>
+                        <p class="health-board-subtitle">Operational outcome, dependency risk, security posture and probe evidence from this runtime.</p>
                     </div>
                     <div class="service-filter">
                         <label for="service-filter">Filter services</label>
                         <div class="service-filter-control">
-                            <input id="service-filter" type="search" autocomplete="off" placeholder="Name, role, criticality or status">
+                            <input id="service-filter" type="search" autocomplete="off" placeholder="Search service, status, role…">
                             <button type="button" id="service-filter-clear">Clear</button>
-                            <button type="button" id="service-expand-issues">Issues</button>
-                            <button type="button" id="service-collapse-all">Collapse</button>
+                            <button type="button" id="service-expand-issues" aria-pressed="false">Issues</button>
+                            <button type="button" id="service-collapse-all" aria-expanded="true">Collapse</button>
                         </div>
                     </div>
                 </div>
-                <p class="health-board-meta">Live view of <a href="/healthz">/healthz</a>.
-                    <span id="health-board-freshness">Snapshot freshness unknown.</span>
-                    <button type="button" class="health-refresh">Refresh</button>
-                </p>
-                <div class="health-summary health-summary--neutral" id="health-summary">
-                    <span class="health-led health-led--gray" id="health-summary-led" aria-hidden="true"></span>
-                    <span id="health-summary-text">Loading health checks…</span>
-                </div>
-                <div class="service-health-overview" id="service-health-overview" aria-live="polite">
-                    <div class="service-overview-card service-overview-card--neutral"><span>Services</span><strong>Loading…</strong><small>User / experiment outcomes</small></div>
-                    <div class="service-overview-card service-overview-card--neutral"><span>Critical core</span><strong>Loading…</strong><small>Shared failure foundations</small></div>
-                    <div class="service-overview-card service-overview-card--neutral"><span>Security controls</span><strong>Loading…</strong><small>Control health & posture</small></div>
-                    <div class="service-overview-card service-overview-card--neutral"><span>Shared platform</span><strong>Loading…</strong><small>Data & shared capabilities</small></div>
-                    <div class="service-overview-card service-overview-card--neutral"><span>Observability</span><strong>Loading…</strong><small>Telemetry coverage</small></div>
-                </div>
-
+                <div class="service-health-overview" id="service-health-overview" aria-live="polite"></div>
                 <ul class="health-checks" id="health-checks"></ul>
-                <p class="health-error" id="health-fetch-error" hidden></p>
-                <div class="service-groups" id="health-services-groups" aria-live="polite"></div>
+                <div class="service-groups" id="health-services-groups"></div>
+            </section>
 
-                <h3 class="health-subboard-title" id="sickz-board-title">Exposure security policy</h3>
-                <p class="health-board-meta">Live view of <a href="/sickz">/sickz</a>.
-                    <button type="button" class="health-refresh">Refresh</button>
-                </p>
-                <p class="health-board-meta"><code>/sickz</code> compares declared exposure intent with
-                    external HTTP/TLS and read-only Cloudflare Tunnel evidence. Services with
-                    <code>external=false</code> must stay unreachable from outside the home LAN. Services with
-                    <code>external=true</code> must be reachable; when <code>tunnelSecure=true</code>, Cloudflare
-                    protection is expected and verified. Direct <code>*.int.albandrieu.com</code> exposure is an
-                    explicit weaker-security exception only with <code>tunnelSecure=false</code> and is shown as
-                    an orange warning. Probes are skipped on the internal network unless a cloud/PaaS runtime is
-                    detected. TLS trust is checked separately so certificate failures remain visible.</p>
-                <div class="health-summary health-summary--neutral" id="sickz-summary">
-                    <span class="health-led health-led--gray" id="sickz-summary-led" aria-hidden="true"></span>
-                    <span id="sickz-summary-text">Loading sickz checks…</span>
+            <section class="sickz-board" aria-labelledby="sickz-board-title">
+                <div class="health-board-heading-row">
+                    <div>
+                        <h2 id="sickz-board-title">Exposure security posture</h2>
+                        <p class="health-board-subtitle">Expected exposure policy and externally observed reachability remain separate from functional health.</p>
+                    </div>
                 </div>
-                <p class="health-board-meta" id="sickz-lan-hint" hidden style="margin-top: 0.35rem"></p>
-                <div id="sickz-pfsense-wrap" class="sickz-pfsense-wrap" hidden></div>
                 <ul class="health-checks" id="sickz-checks"></ul>
-                <p class="health-error" id="sickz-fetch-error" hidden></p>
             </section>
 
-
-            <section class="truenas-platform" id="truenas-platform" data-service-filter-target data-search-text="truenas core critical storage platform infrastructure https websocket api" aria-labelledby="truenas-platform-title">
-                <div class="truenas-platform-heading">
-                    <div>
-                        <h3 class="health-subboard-title truenas-platform-title" id="truenas-platform-title">Core drill-down · TrueNAS platform + API</h3>
-                        <p class="health-board-meta">Critical storage and VM host · separates TrueNAS HTTPS listener health from the authenticated TrueNAS WebSocket API.</p>
-                    </div>
-                    <span class="truenas-platform-state truenas-platform-state--neutral" id="truenas-platform-state">Loading…</span>
-                </div>
-                <div class="truenas-platform-target" id="truenas-platform-target">https://truenas.albandrieu.com:7000</div>
-                <div class="truenas-pipeline" id="truenas-pipeline" aria-live="polite"></div>
-                <div class="truenas-probe-summary" id="truenas-probe-summary">Loading homelab probe fan-out…</div>
-                <details class="truenas-probe-details" id="truenas-probe-details">
-                    <summary id="truenas-probe-details-summary">Homelab probe fan-out</summary>
-                    <div class="truenas-probe-list" id="truenas-probe-list" aria-live="polite"></div>
-                </details>
-                <p class="health-error" id="truenas-platform-error" hidden></p>
+            <section class="truenas-platform" id="truenas-platform" aria-labelledby="truenas-platform-title">
+                <h2 id="truenas-platform-title">Core drill-down · TrueNAS platform + API</h2>
+                <p class="health-board-subtitle">Authoritative storage-platform evidence and authenticated API diagnostics from the current observer.</p>
+                <div id="truenas-pipeline"></div>
             </section>
 
-
-            <details class="runtime-topology" id="runtime-topology" data-runtime-mode="{mode}" aria-labelledby="runtime-topology-title">
-                <summary class="runtime-topology-heading">
-                    <div>
-                        <h3 id="runtime-topology-title">{runtime_title}</h3>
-                        <p class="health-board-meta">{runtime_description}</p>
-                    </div>
-                    <span class="runtime-topology-state runtime-topology-state--warn" id="runtime-topology-state">Loading…</span>
-                </summary>
+            <section class="runtime-topology" id="runtime-topology" aria-labelledby="runtime-topology-title">
+                <h2 id="runtime-topology-title">{runtime_title}</h2>
+                <p class="health-board-subtitle">{runtime_description}</p>
                 <div class="runtime-topology-grid">
-                    <div class="runtime-topology-metric">
-                        <span id="runtime-instance-label">{instance_label}</span>
+                    <div>
+                        <span>{instance_label}</span>
                         <strong id="runtime-instance-count">—</strong>
                     </div>
-                    <div class="runtime-topology-metric">
-                        <span id="runtime-replica-label">{replica_label}</span>
-                        <strong id="runtime-replica-count">{replica_value}</strong>
-                    </div>
-                    <div class="runtime-topology-metric">
-                        <span>Aggregation</span>
-                        <strong id="runtime-aggregation">—</strong>
-                    </div>
-                    <div class="runtime-topology-metric">
-                        <span>Redis server memory</span>
-                        <strong id="runtime-redis-memory">—</strong>
-                    </div>
-                    <div class="runtime-topology-metric">
-                        <span>Redis DB keys</span>
-                        <strong id="runtime-redis-keys">—</strong>
-                    </div>
-                    <div class="runtime-topology-metric">
-                        <span>Redis clients</span>
-                        <strong id="runtime-redis-clients">—</strong>
-                    </div>
-                    <div class="runtime-topology-metric">
-                        <span>Redis ops / sec</span>
-                        <strong id="runtime-redis-ops">—</strong>
-                    </div>
-                    <div class="runtime-topology-metric">
-                        <span>Redis hit rate</span>
-                        <strong id="runtime-redis-hit-rate">—</strong>
-                    </div>
-                    <div class="runtime-topology-metric">
-                        <span>Redis evictions</span>
-                        <strong id="runtime-redis-evictions">—</strong>
+                    <div>
+                        <span>{replica_label}</span>
+                        <strong>{replica_value}</strong>
                     </div>
                 </div>
-                <p class="runtime-topology-note" id="runtime-redis-scope">Application Redis backend · provider attribution pending telemetry.</p>
-                <div class="runtime-topology-egress">
-                    <span class="runtime-topology-label">Active egress IPs</span>
-                    <div class="runtime-topology-pills" id="runtime-active-egress">Loading…</div>
-                </div>
-                <div class="runtime-topology-egress">
-                    <span class="runtime-topology-label">Recent egress IPs · 24 h</span>
-                    <div class="runtime-topology-pills" id="runtime-recent-egress">Loading…</div>
-                </div>
-                <div class="runtime-instance-list" id="runtime-instance-list" aria-live="polite"></div>
-                <p class="runtime-topology-note" id="runtime-count-semantics">{runtime_note}</p>
-            </details>
-
-            <div class="cards">
-                <div class="card">
-                    <h3>Interactive API Docs</h3>
-                    <p>Explore this API's endpoints with the interactive Swagger UI. Test requests and view response schemas in real-time.</p>
-                    <a href="/docs">Open Swagger UI →</a>
-                </div>
-                <div class="card">
-                    <h3>Sample Data</h3>
-                    <p>Access sample JSON data through our REST API. Perfect for testing and development purposes.</p>
-                    <a href="/api/data">Get Data →</a>
-                </div>
-            </div>
+                <p class="runtime-topology-note">{runtime_note}</p>
+            </section>
         </main>
         <script type="module" src="/api/assets/api-health.js?v={app_version}"></script>
     </body>
