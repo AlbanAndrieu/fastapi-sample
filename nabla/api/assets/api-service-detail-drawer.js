@@ -57,10 +57,12 @@ function metadataEntries(row) {
 function probeEntries(row) {
   return [...row.querySelectorAll(".service-probe")].map((probe) => ({
     kind: probe.dataset.probeKind || "probe",
-    label: probe.querySelector(".service-probe-label")?.textContent?.trim() ||
+    label:
+      probe.querySelector(".service-probe-label")?.textContent?.trim() ||
       probe.dataset.probeKind ||
       "Probe",
-    detail: probe.getAttribute("aria-label") || probe.title || "No detail available",
+    detail:
+      probe.getAttribute("aria-label") || probe.title || "No detail available",
     tone:
       [...probe.classList]
         .find((name) => name.startsWith("service-probe--"))
@@ -97,9 +99,11 @@ function ensureDrawer() {
       </section>
     </div>`;
 
-  drawer.querySelector(".service-detail-close")?.addEventListener("click", () => {
-    closeDrawer();
-  });
+  drawer
+    .querySelector(".service-detail-close")
+    ?.addEventListener("click", () => {
+      closeDrawer();
+    });
   document.body.appendChild(drawer);
   return drawer;
 }
@@ -192,7 +196,8 @@ function closeDrawer({ restoreFocus = true } = {}) {
   const trigger = activeTrigger;
   activeRow = null;
   activeTrigger = null;
-  if (restoreFocus && trigger?.isConnected) trigger.focus({ preventScroll: true });
+  if (restoreFocus && trigger?.isConnected)
+    trigger.focus({ preventScroll: true });
 }
 
 function ensureDetailTrigger(row) {
@@ -203,7 +208,10 @@ function ensureDetailTrigger(row) {
   trigger.className = "service-detail-trigger";
   trigger.textContent = "Details";
   trigger.setAttribute("aria-haspopup", "dialog");
-  trigger.setAttribute("aria-label", `Open diagnostics for ${displayName(row)}`);
+  trigger.setAttribute(
+    "aria-label",
+    `Open diagnostics for ${displayName(row)}`,
+  );
   trigger.addEventListener("click", (event) => {
     event.stopPropagation();
     openDrawer(row, trigger);
