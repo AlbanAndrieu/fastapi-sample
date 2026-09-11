@@ -1,4 +1,5 @@
 import { analyzeTopology } from "./api-service-classification.js";
+import { fetchTopology } from "./api-topology-data.js";
 import {
   DEFAULT_TOPOLOGY_PRESET,
   hydrateTopologyControlsFromUrl,
@@ -8,7 +9,6 @@ import {
   syncTopologyControlsToUrl,
   topologyPresetLabel,
 } from "./api-topology-filter-state.js";
-import { fetchTopology } from "./api-topology-data.js";
 
 const RELATION_LABELS = {
   dependsOn: "depends on",
@@ -327,7 +327,11 @@ function showDetails(element) {
     addDetail(list, "Source", element.data("sourcePath"));
   } else {
     addDetail(list, "Relation", element.data("relationLabel"));
-    addDetail(list, "View family", topologyPresetLabel(element.data("relationFamily")));
+    addDetail(
+      list,
+      "View family",
+      topologyPresetLabel(element.data("relationFamily")),
+    );
     addDetail(list, "Type", element.data("relationType"));
     addDetail(list, "Strength", element.data("strength"));
     addDetail(list, "Source", element.data("source"));
