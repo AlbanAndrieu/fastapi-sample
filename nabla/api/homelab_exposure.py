@@ -83,6 +83,11 @@ def _declared_edge_mode(service: HomelabService) -> str:
     return "unspecified"
 
 
+def _has_local_managed_tunnels(snapshot: CloudflareExposureSnapshot) -> bool:
+    """Return whether remote API ingress matching is incomplete by construction."""
+    return any(tunnel.config_source == "local" for tunnel in snapshot.tunnels)
+
+
 def _edge_reasons(
     edge_mode: str,
     tunnel: dict[str, Any] | None,
@@ -97,6 +102,10 @@ def _edge_reasons(
             incomplete.append("Cloudflare observation is not configured")
         elif snapshot.tunnel_error or snapshot.stale:
             incomplete.append("⚠️ Cloudflare global status could not be confirmed")
+        elif not tunnel and _has_local_managed_tunnels(snapshot):
+            incomplete.append(
+                "Cloudflare Tunnel uses local configuration; matching ingress cannot be verified through the remote configuration API",
+            )
         elif not tunnel:
             mismatches.append(
                 "Cloudflare edge is declared but no matching Tunnel ingress was observed",
