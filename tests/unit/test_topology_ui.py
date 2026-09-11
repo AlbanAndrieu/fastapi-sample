@@ -29,14 +29,28 @@ def test_topology_page_pins_cytoscape_with_subresource_integrity() -> None:
     assert "latest" not in page
 
 
+def test_topology_page_separates_dependency_and_network_path_views() -> None:
+    page = render_topology_page(title_suffix="test", app_version="1.2.3")
+
+    assert 'id="topology-view-preset"' in page
+    assert '<option value="dependencies" selected>Dependencies</option>' in page
+    assert '<option value="network-paths">Network paths</option>' in page
+    assert '<option value="all">All relations</option>' in page
+    assert "Start with functional dependencies" in page
+    assert "network path" in page
+
+
 def test_topology_client_reuses_declared_contract_and_classification() -> None:
     script = (ASSETS / "api-topology.js").read_text(encoding="utf-8")
 
     assert 'from "./api-service-classification.js"' in script
     assert 'from "./api-topology-data.js"' in script
+    assert 'from "./api-topology-filter-state.js"' in script
     assert "analyzeTopology(topology)" in script
     assert "transitiveDependents" in script
     assert "directDependencies" in script
+    assert "relationFamily(relation.type)" in script
+    assert "presetAllowsRelation(type, preset)" in script
     assert "window.cytoscape" in script
     assert 'strength = "optional"' in script
     assert 'name: "cose"' in script
