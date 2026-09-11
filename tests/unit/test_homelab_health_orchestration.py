@@ -118,3 +118,65 @@ def test_context_reads_independent_providers_once(monkeypatch) -> None:
         "pfsense_posture",
     }
     assert calls == {"declared": 1, "cloudflare": 1, "topology": 1, "pfsense": 1}
+
+
+def test_reconciliation_reuses_prepared_provider_context(monkeypatch) -> None:
+    class Catalog:
+        services = []
+
+    class Cloudflare:
+        tunnels = []
+        access_applications = []
+        stale = False
+        configured = True
+
+        def summary(self):
+            return {
+                "configured": True,
+                "status_confirmed": True,
+                "warning": None,
+            }
+
+    async def unexpected_provider_read(*_args, **_kwargs):
+        raise AssertionError("prepared provider context must be reused")
+
+    context = {
+        "services": [],
+        "declared": Catalog(),
+        "cloudflare": Cloudflare(),
+        "topology": HomelabTopology(),
+        "pfsense_dns": {},
+        "performance_phases_ms": {
+            "declared_catalog": 1.0,
+            "cloudflare_exposure": 2.0,
+            "topology": 3.0,
+            "pfsense_posture": 4.0,
+        },
+    }
+    payload = {
+        "checked_at": "2026-09-11T20:00:00Z",
+        "services": [],
+        "internal_services": [],
+        "truenas": {
+            "api": {
+                "reachable": True,
+                "stale": False,
+                "last_success_at": "2026-09-11T20:00:00Z",
+                "apps": [],
+            },
+        },
+    }
+
+    monkeypatch.setattr(module, "fetch_declared_service_catalog", unexpected_provider_read)
+    monkeypatch.setattr(module, "observe_cloudflare_exposure", unexpected_provider_read)
+    monkeypatch.setattr(module, "fetch_homelab_topology", unexpected_provider_read)
+    monkeypatch.setattr(module, "observe_pfsense_dns_posture", unexpected_provider_read)
+    monkeypatch.setattr(module, "fetch_truenas_runtime", unexpected_provider_read)
+
+    result = asyncio.run(
+        module.reconcile_homelab_health_payload(payload, context=context),
+    )
+
+    assert result["reconciliation"]["provider_reads_reused"] is True
+    assert result["reconciliation"]["truenas_runtime_source"] == "health_api"
+    assert result["performance"]["phases_ms"]["truenas_runtime"] >= 0
