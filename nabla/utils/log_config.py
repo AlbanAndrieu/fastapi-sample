@@ -232,7 +232,7 @@ _QUIET_HEALTH_PATHS = frozenset(
         "/livez",
         "/readyz",
         "/sickz",
-    }
+    },
 )
 _ACCESS_PATH_PATTERN = re.compile(r'"[A-Z]+ (?P<path>[^ ?"]+)')
 
