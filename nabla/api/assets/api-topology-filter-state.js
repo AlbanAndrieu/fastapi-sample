@@ -39,7 +39,9 @@ function setValidSelectValue(id, value, fallback) {
   const select = document.getElementById(id);
   if (!select) return fallback;
   const candidate = value || fallback;
-  const valid = [...select.options].some((option) => option.value === candidate);
+  const valid = [...select.options].some(
+    (option) => option.value === candidate,
+  );
   select.value = valid ? candidate : fallback;
   return select.value;
 }
