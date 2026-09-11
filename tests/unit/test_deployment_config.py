@@ -17,7 +17,7 @@ def test_vercel_is_a_lightweight_fastapi_cloud_proxy() -> None:
         {
             "source": "/:path*",
             "destination": "https://fastapi-sample.fastapicloud.dev/:path*",
-        }
+        },
     ]
 
     ignored = (ROOT / ".vercelignore").read_text(encoding="utf-8")
@@ -30,7 +30,7 @@ def test_production_branch_and_release_branch_are_master() -> None:
     python_ci = (ROOT / ".github/workflows/python.yml").read_text(encoding="utf-8")
     codeql = (ROOT / ".github/workflows/codeql.yml").read_text(encoding="utf-8")
     semantic_release = (ROOT / ".github/workflows/semantic-release.yml").read_text(
-        encoding="utf-8"
+        encoding="utf-8",
     )
     release = (ROOT / ".releaserc.yaml").read_text(encoding="utf-8")
 
@@ -177,7 +177,7 @@ def test_package_publication_respects_private_classifier_and_least_privilege() -
     assert "pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33" in workflow
     assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in workflow
     assert workflow.count(
-        "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c"
+        "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
     ) == 3
     assert "repository-url: https://test.pypi.org/legacy/" in workflow
     assert "skip-existing: true" in workflow
