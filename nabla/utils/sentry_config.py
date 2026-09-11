@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import socket
+import ssl
 from collections.abc import Mapping
 from copy import deepcopy
 from typing import Any
@@ -52,13 +53,18 @@ def _env_float(env: Mapping[str, str], name: str, default: float) -> float:
 
 
 def sentry_dsn_is_reachable(dsn: str, *, timeout: float = 0.25) -> bool:
+    """Validate the DSN socket and, for HTTPS, complete a real TLS handshake."""
     try:
         parsed = urlsplit(dsn)
-        if not parsed.hostname:
+        if not parsed.hostname or parsed.scheme not in {"http", "https"}:
             return False
         port = parsed.port or (443 if parsed.scheme == "https" else 80)
-        with socket.create_connection((parsed.hostname, port), timeout=timeout):
-            return True
+        with socket.create_connection((parsed.hostname, port), timeout=timeout) as connection:
+            if parsed.scheme == "https":
+                context = ssl.create_default_context()
+                with context.wrap_socket(connection, server_hostname=parsed.hostname):
+                    pass
+        return True
     except (OSError, ValueError):
         return False
 
@@ -70,8 +76,9 @@ def select_sentry_dsn(env: Mapping[str, str] | None = None) -> tuple[str, str]:
     local_dsn = values.get("SENTRY_LOCAL_DSN", "").strip()
 
     # A self-hosted Sentry deployment has its own project IDs and public keys.
-    # Never derive those credentials from a Sentry SaaS DSN: a TCP-only probe can
-    # otherwise select a reachable endpoint whose project/key pair is invalid.
+    # Never derive those credentials from a Sentry SaaS DSN. Validate the DSN's
+    # configured transport too, so HTTPS cannot be selected merely because an
+    # HTTP-only local listener accepted the TCP connection.
     if local_dsn and sentry_dsn_is_reachable(local_dsn):
         return local_dsn, "local"
     if cloud_dsn:
@@ -146,6 +153,12 @@ def configure_sentry(env: Mapping[str, str] | None = None) -> bool:
         _logger.info("Sentry is disabled by SENTRY_ENABLED")
         return False
     dsn, target = select_sentry_dsn(values)
+    local_dsn = values.get("SENTRY_LOCAL_DSN", "").strip()
+    if local_dsn and target != "local":
+        _logger.warning(
+            "Local Sentry DSN is unreachable using its configured transport; falling back to %s target",
+            target,
+        )
     if not dsn:
         _logger.info("Sentry is disabled: no DSN configured")
         return False
