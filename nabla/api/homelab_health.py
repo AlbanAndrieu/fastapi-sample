@@ -364,10 +364,7 @@ async def _collect_bounded_probe_batch(
     if pending:
         await asyncio.gather(*pending, return_exceptions=True)
 
-    states = {
-        state: sum(result.get("state") == state for result in results)
-        for state in ("ok", "warn", "fail")
-    }
+    states = {state: sum(result.get("state") == state for result in results) for state in ("ok", "warn", "fail")}
     return results, {
         "scope": scope,
         "enabled": enabled,
@@ -483,9 +480,7 @@ async def _probe_truenas(
             port=port,
             websocket_uri=websocket_uri,
             verify_ssl=verify_ssl,
-            path_mode=(
-                "direct_lan" if homelab_runtime_detected() else "public_wan_haproxy"
-            ),
+            path_mode=("direct_lan" if homelab_runtime_detected() else "public_wan_haproxy"),
             budget_seconds=_TRUENAS_DIAGNOSTICS_BUDGET_SEC,
         )
     diagnostics = append_truenas_api_stages(diagnostics, api_result)
@@ -531,12 +526,8 @@ def _copy_payload(
         **payload,
         "truenas": truenas_copy,
         "services": [dict(service) for service in payload.get("services", [])],
-        "public_probe_results": [
-            dict(service) for service in payload.get("public_probe_results", [])
-        ],
-        "internal_services": [
-            dict(service) for service in payload.get("internal_services", [])
-        ],
+        "public_probe_results": [dict(service) for service in payload.get("public_probe_results", [])],
+        "internal_services": [dict(service) for service in payload.get("internal_services", [])],
         "probe_summary": probe_summary,
         "probe_cache": {
             "source": cache_source,
