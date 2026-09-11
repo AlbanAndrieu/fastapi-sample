@@ -1,4 +1,13 @@
 import { analyzeTopology } from "./api-service-classification.js";
+import {
+  DEFAULT_TOPOLOGY_PRESET,
+  hydrateTopologyControlsFromUrl,
+  presetAllowsRelation,
+  relationFamily,
+  resetTopologyControls,
+  syncTopologyControlsToUrl,
+  topologyPresetLabel,
+} from "./api-topology-filter-state.js";
 import { fetchTopology } from "./api-topology-data.js";
 
 const RELATION_LABELS = {
@@ -74,6 +83,7 @@ function edgeElements(topology) {
       target: relation.target,
       relationType: relation.type,
       relationLabel: RELATION_LABELS[relation.type] || relation.type,
+      relationFamily: relationFamily(relation.type),
       strength: relation.strength,
       description: relation.description || "",
       evidence: Array.isArray(relation.evidence)
@@ -148,6 +158,14 @@ function graphStyle() {
         "text-background-opacity": 0.8,
         "text-background-padding": 2,
         "text-rotation": "autorotate",
+      },
+    },
+    {
+      selector: 'edge[relationFamily = "network-paths"]',
+      style: {
+        width: 2.2,
+        "line-color": "#4f9dff",
+        "target-arrow-color": "#4f9dff",
       },
     },
     {
@@ -234,6 +252,21 @@ function updateCounts() {
     `${visibleNodes} / ${visibleEdges}`;
 }
 
+function updateStatus() {
+  const status = document.getElementById("topology-status");
+  if (!status || !state.topology) return;
+  const preset =
+    document.getElementById("topology-view-preset")?.value ||
+    DEFAULT_TOPOLOGY_PRESET;
+  const relation =
+    document.getElementById("topology-relation-filter")?.value || "all";
+  const relationDetail =
+    relation === "all"
+      ? topologyPresetLabel(preset)
+      : RELATION_LABELS[relation] || relation;
+  status.textContent = `Source: ${state.topology.source || "homelab-topology"} · View: ${relationDetail} · select a node to inspect dependencies and blast radius.`;
+}
+
 function clearFocus() {
   if (!state.graph) return;
   state.graph.elements().removeClass("is-muted");
@@ -294,6 +327,7 @@ function showDetails(element) {
     addDetail(list, "Source", element.data("sourcePath"));
   } else {
     addDetail(list, "Relation", element.data("relationLabel"));
+    addDetail(list, "View family", topologyPresetLabel(element.data("relationFamily")));
     addDetail(list, "Type", element.data("relationType"));
     addDetail(list, "Strength", element.data("strength"));
     addDetail(list, "Source", element.data("source"));
@@ -320,10 +354,15 @@ function applyFilters() {
   const graph = state.graph;
   if (!graph) return;
   const query = normalize(document.getElementById("topology-search")?.value);
+  const preset =
+    document.getElementById("topology-view-preset")?.value ||
+    DEFAULT_TOPOLOGY_PRESET;
   const relation =
     document.getElementById("topology-relation-filter")?.value || "all";
   const strength =
     document.getElementById("topology-strength-filter")?.value || "all";
+  const focusedRelations =
+    preset !== "all" || relation !== "all" || strength !== "all";
 
   graph.batch(() => {
     clearFocus();
@@ -334,60 +373,99 @@ function applyFilters() {
       }
     });
     graph.edges().forEach((edge) => {
-      const typeMismatch =
-        relation !== "all" && edge.data("relationType") !== relation;
+      const type = edge.data("relationType");
+      const presetMismatch =
+        relation === "all" && !presetAllowsRelation(type, preset);
+      const typeMismatch = relation !== "all" && type !== relation;
       const strengthMismatch =
         strength !== "all" && edge.data("strength") !== strength;
       const hiddenEndpoint = edge
         .connectedNodes()
         .some((node) => node.hasClass("is-filtered"));
-      if (typeMismatch || strengthMismatch || hiddenEndpoint) {
+      if (
+        presetMismatch ||
+        typeMismatch ||
+        strengthMismatch ||
+        hiddenEndpoint
+      ) {
         edge.addClass("is-filtered");
       }
     });
+
+    if (!query && focusedRelations) {
+      graph
+        .nodes()
+        .not(".is-filtered")
+        .forEach((node) => {
+          const visibleEdges = node.connectedEdges().not(".is-filtered");
+          if (visibleEdges.length === 0) node.addClass("is-filtered");
+        });
+    }
   });
   updateCounts();
+  updateStatus();
 }
 
 function runLayout() {
   if (!state.graph) return;
   const name = document.getElementById("topology-layout")?.value || "cose";
-  state.graph.elements().not(".is-filtered").layout(layoutOptions(name)).run();
-  state.graph.fit(state.graph.elements().not(".is-filtered"), 36);
+  const visible = state.graph.elements().not(".is-filtered");
+  visible.layout(layoutOptions(name)).run();
+  state.graph.fit(visible, 36);
+}
+
+function applyAndSync({ relayout = false } = {}) {
+  applyFilters();
+  if (relayout) runLayout();
+  syncTopologyControlsToUrl();
 }
 
 function resetView() {
-  const search = document.getElementById("topology-search");
-  const relation = document.getElementById("topology-relation-filter");
-  const strength = document.getElementById("topology-strength-filter");
-  if (search) search.value = "";
-  if (relation) relation.value = "all";
-  if (strength) strength.value = "all";
+  resetTopologyControls();
   state.graph?.elements().unselect();
   resetDetails();
   applyFilters();
   runLayout();
+  syncTopologyControlsToUrl();
 }
 
 function installControls() {
-  document
-    .getElementById("topology-search")
-    ?.addEventListener("input", applyFilters);
-  document
-    .getElementById("topology-relation-filter")
-    ?.addEventListener("change", applyFilters);
+  const preset = document.getElementById("topology-view-preset");
+  const relation = document.getElementById("topology-relation-filter");
+
+  document.getElementById("topology-search")?.addEventListener("input", () => {
+    applyAndSync();
+  });
+  preset?.addEventListener("change", () => {
+    if (relation) relation.value = "all";
+    applyAndSync({ relayout: true });
+  });
+  relation?.addEventListener("change", () => {
+    if (relation.value !== "all" && preset) preset.value = "all";
+    applyAndSync({ relayout: true });
+  });
   document
     .getElementById("topology-strength-filter")
-    ?.addEventListener("change", applyFilters);
-  document
-    .getElementById("topology-layout")
-    ?.addEventListener("change", runLayout);
+    ?.addEventListener("change", () => {
+      applyAndSync({ relayout: true });
+    });
+  document.getElementById("topology-layout")?.addEventListener("change", () => {
+    runLayout();
+    syncTopologyControlsToUrl();
+  });
   document.getElementById("topology-fit")?.addEventListener("click", () => {
     state.graph?.fit(state.graph.elements().not(".is-filtered"), 36);
   });
   document
     .getElementById("topology-reset")
     ?.addEventListener("click", resetView);
+  window.addEventListener("popstate", () => {
+    hydrateTopologyControlsFromUrl();
+    state.graph?.elements().unselect();
+    resetDetails();
+    applyFilters();
+    runLayout();
+  });
 }
 
 function installGraphEvents() {
@@ -452,12 +530,12 @@ async function start() {
     maxZoom: 3,
     wheelSensitivity: 0.22,
   });
+  hydrateTopologyControlsFromUrl();
   installControls();
   installGraphEvents();
-  updateCounts();
-  if (status) {
-    status.textContent = `Source: ${topology.source || "homelab-topology"} · select a node to inspect dependencies and blast radius.`;
-  }
+  applyFilters();
+  runLayout();
+  syncTopologyControlsToUrl();
 }
 
 start().catch((caught) => {
