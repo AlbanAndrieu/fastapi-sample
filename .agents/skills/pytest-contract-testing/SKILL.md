@@ -1,8 +1,11 @@
 ---
 name: pytest-contract-testing
-description: Pytest test-design rules for stable structured contracts, security-sensitive URL assertions, diagnostics, API payloads, and regression tests. Use whenever creating or modifying Python tests under tests/, especially health, topology, provider, URL, security, or observability tests.
+description: >-
+  Pytest test-design rules for stable structured contracts, security-sensitive
+  URL assertions, diagnostics, API payloads, and regression tests. Use whenever
+  creating or modifying Python tests under tests/, especially health, topology,
+  provider, URL, security, or observability tests.
 ---
-
 # Pytest contract testing
 
 Use pytest assertions to validate the strongest available contract, not a convenient rendering of that contract.
