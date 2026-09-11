@@ -24,6 +24,16 @@ const RELATION_LABELS = {
   automates: "automates",
 };
 
+const LIFECYCLE_LABELS = {
+  "bootstrap-runtime": "Bootstrap runtime",
+  foundation: "Foundation",
+  "network-edge": "Network / edge",
+  "primary-data": "Primary data",
+  "secondary-data": "Secondary data",
+  "platform-services": "Platform services",
+  applications: "Applications",
+};
+
 const state = {
   graph: null,
   topology: null,
@@ -41,6 +51,11 @@ function normalize(value) {
 function nodeElements(topology, analysis) {
   return (topology.nodes || []).map((node) => {
     const presentation = analysis.get(node.id) || {};
+    const runtime = node.runtime || {};
+    const lifecycle = node.lifecycle || {};
+    const lifecyclePriority = Number.isFinite(lifecycle.priority)
+      ? lifecycle.priority
+      : "";
     return {
       data: {
         id: node.id,
@@ -58,6 +73,12 @@ function nodeElements(topology, analysis) {
         internalUrl: node.internalUrl || "",
         sourcePath: node.sourcePath || "",
         securityFunctions: (presentation.securityFunctions || []).join(", "),
+        runtimeProvider: runtime.provider || "",
+        runtimeAppId: runtime.appId || runtime.app_id || "",
+        runtimeContainerService:
+          runtime.containerService || runtime.container_service || "",
+        lifecyclePhase: lifecycle.phase || "",
+        lifecyclePriority,
         searchText: normalize(
           [
             node.id,
@@ -68,6 +89,13 @@ function nodeElements(topology, analysis) {
             presentation.role,
             presentation.criticality,
             presentation.group,
+            runtime.provider,
+            runtime.appId,
+            runtime.app_id,
+            runtime.containerService,
+            runtime.container_service,
+            lifecycle.phase,
+            lifecyclePriority,
           ].join(" "),
         ),
       },
@@ -260,11 +288,17 @@ function updateStatus() {
     DEFAULT_TOPOLOGY_PRESET;
   const relation =
     document.getElementById("topology-relation-filter")?.value || "all";
+  const lifecycle =
+    document.getElementById("topology-lifecycle-filter")?.value || "all";
   const relationDetail =
     relation === "all"
       ? topologyPresetLabel(preset)
       : RELATION_LABELS[relation] || relation;
-  status.textContent = `Source: ${state.topology.source || "homelab-topology"} · View: ${relationDetail} · select a node to inspect dependencies and blast radius.`;
+  const lifecycleDetail =
+    lifecycle === "all"
+      ? ""
+      : ` · Lifecycle: ${LIFECYCLE_LABELS[lifecycle] || lifecycle}`;
+  status.textContent = `Source: ${state.topology.source || "homelab-topology"} · View: ${relationDetail}${lifecycleDetail} · select a node to inspect dependencies, runtime ownership and blast radius.`;
 }
 
 function clearFocus() {
@@ -313,6 +347,20 @@ function showDetails(element) {
     addDetail(list, "Category", element.data("category"));
     addDetail(list, "Role", element.data("role"));
     addDetail(list, "Criticality", element.data("criticality"));
+    addDetail(
+      list,
+      "Lifecycle phase",
+      LIFECYCLE_LABELS[element.data("lifecyclePhase")] ||
+        element.data("lifecyclePhase"),
+    );
+    addDetail(list, "Lifecycle priority", element.data("lifecyclePriority"));
+    addDetail(list, "Runtime provider", element.data("runtimeProvider"));
+    addDetail(list, "TrueNAS App", element.data("runtimeAppId"));
+    addDetail(
+      list,
+      "Container service",
+      element.data("runtimeContainerService"),
+    );
     addDetail(list, "Required deps", element.data("directDependencies"));
     addDetail(list, "Blast radius", element.data("transitiveDependents"));
     addDetail(list, "NIST CSF", element.data("securityFunctions"));
@@ -365,6 +413,8 @@ function applyFilters() {
     document.getElementById("topology-relation-filter")?.value || "all";
   const strength =
     document.getElementById("topology-strength-filter")?.value || "all";
+  const lifecycle =
+    document.getElementById("topology-lifecycle-filter")?.value || "all";
   const focusedRelations =
     preset !== "all" || relation !== "all" || strength !== "all";
 
@@ -372,9 +422,11 @@ function applyFilters() {
     clearFocus();
     graph.elements().removeClass("is-filtered");
     graph.nodes().forEach((node) => {
-      if (query && !String(node.data("searchText")).includes(query)) {
-        node.addClass("is-filtered");
-      }
+      const queryMismatch =
+        query && !String(node.data("searchText")).includes(query);
+      const lifecycleMismatch =
+        lifecycle !== "all" && node.data("lifecyclePhase") !== lifecycle;
+      if (queryMismatch || lifecycleMismatch) node.addClass("is-filtered");
     });
     graph.edges().forEach((edge) => {
       const type = edge.data("relationType");
@@ -396,7 +448,7 @@ function applyFilters() {
       }
     });
 
-    if (!query && focusedRelations) {
+    if (!query && lifecycle === "all" && focusedRelations) {
       graph
         .nodes()
         .not(".is-filtered")
@@ -450,6 +502,11 @@ function installControls() {
   });
   document
     .getElementById("topology-strength-filter")
+    ?.addEventListener("change", () => {
+      applyAndSync({ relayout: true });
+    });
+  document
+    .getElementById("topology-lifecycle-filter")
     ?.addEventListener("change", () => {
       applyAndSync({ relayout: true });
     });
