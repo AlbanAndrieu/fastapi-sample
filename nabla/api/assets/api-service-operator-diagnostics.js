@@ -215,9 +215,9 @@ function addRuntimeBadge(tags, text, tone, detail) {
 function decorateRuntime(row, snapshot, evidence, node) {
   const tags = row.querySelector(".health-row-tags");
   if (!tags) return;
-  tags
-    .querySelectorAll("[data-runtime-badge]")
-    .forEach((badge) => badge.remove());
+  tags.querySelectorAll("[data-runtime-badge]").forEach((badge) => {
+    badge.remove();
+  });
 
   const app = findRuntimeApp(snapshot, evidence, node);
   const runtimeState = app?.state || evidence.homelab?.runtime_state;
@@ -344,9 +344,9 @@ function decorateExposureAndMetrics(row, evidence, node) {
     if (metrics.values.some((value) => value === true)) tone = "ok";
     else if (metrics.values.some((value) => value === false)) tone = "fail";
 
-    strip
-      .querySelectorAll('[data-probe-kind="metrics"]')
-      .forEach((badge) => badge.remove());
+    strip.querySelectorAll('[data-probe-kind="metrics"]').forEach((badge) => {
+      badge.remove();
+    });
     replaceOperatorProbe(
       strip,
       "prometheus",
@@ -636,7 +636,9 @@ function renderRuntimeSection(body, runtimeApp, evidence) {
     metricItem("Runtime stale", evidence.homelab?.runtime_stale),
   ]
     .filter(Boolean)
-    .forEach((item) => grid.appendChild(item));
+    .forEach((item) => {
+      grid.appendChild(item);
+    });
   runtime.appendChild(grid);
 
   const containers = containerRows(runtimeApp);
@@ -739,7 +741,9 @@ function renderPerformanceSection(body, evidence, node) {
       metricEvidence(evidence, node).target || null,
     ),
   ].filter(Boolean);
-  metrics.forEach((item) => grid.appendChild(item));
+  metrics.forEach((item) => {
+    grid.appendChild(item);
+  });
   section.appendChild(grid);
   if (metrics.length === 0) {
     const empty = document.createElement("p");
@@ -754,9 +758,9 @@ function renderEnhancedDrawer(row, snapshot, topology, indexes, anchors) {
   const drawer = document.getElementById("service-detail-drawer");
   const body = drawer?.querySelector(".service-detail-body");
   if (!body || !row) return;
-  body
-    .querySelectorAll("[data-operator-section]")
-    .forEach((section) => section.remove());
+  body.querySelectorAll("[data-operator-section]").forEach((section) => {
+    section.remove();
+  });
 
   const node = findNode(row, indexes);
   const evidence = serviceEvidence(snapshot, row, node);
