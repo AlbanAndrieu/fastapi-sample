@@ -9,6 +9,7 @@ import {
 import { loadHealth } from "./api-health-core.js";
 import { decorateProbeTelemetry } from "./api-probe-live.js";
 import { loadRuntimeTopology } from "./api-runtime.js";
+import { installSecurityControlIcons } from "./api-security-control-icons.js";
 import { loadSickz } from "./api-sickz.js";
 import { loadTrueNas } from "./api-truenas.js";
 
@@ -121,6 +122,7 @@ export function installHealthBoardController() {
     });
   });
 
+  installSecurityControlIcons();
   installTechnicalDetailRefresh();
   loadHealthBoards({ includeTechnical: true });
   installAutomaticRefresh();
