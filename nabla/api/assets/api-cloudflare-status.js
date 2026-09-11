@@ -151,6 +151,84 @@ function appendTunnelBadge(row, state) {
   tags.appendChild(badge);
 }
 
+function ensureTunnelWarningBlock() {
+  let container = document.getElementById("cloudflare-tunnel-warning");
+  if (container) return container;
+
+  const ingress = document.getElementById("truenas-ingress-block");
+  const target = ingress || document.getElementById("truenas-platform-target");
+  if (!target) return null;
+
+  container = document.createElement("details");
+  container.id = "cloudflare-tunnel-warning";
+  container.className =
+    "truenas-ingress-block truenas-ingress-block--warning";
+  target.insertAdjacentElement("afterend", container);
+  return container;
+}
+
+function renderTunnelWarning(checks) {
+  const protectedChecks = Object.values(checks).filter(
+    (check) => check?.tunnel_secure === true,
+  );
+  const unresolved = protectedChecks
+    .map((check) => ({ check, state: normalizeTunnelStatus(check) }))
+    .filter(({ state }) => state && state.cls !== "green");
+  const container = ensureTunnelWarningBlock();
+  if (!container) return;
+
+  if (unresolved.length === 0) {
+    container.hidden = true;
+    container.open = false;
+    container.innerHTML = "";
+    return;
+  }
+
+  const wasOpen = container.open === true;
+  const observerErrors = [
+    ...new Set(
+      unresolved
+        .map(({ check }) =>
+          String(check.cloudflare_tunnel_observer_error || "").trim(),
+        )
+        .filter(Boolean),
+    ),
+  ];
+  const edgeObserved = unresolved.filter(
+    ({ check }) =>
+      check.cloudflare_http_evidence === true ||
+      check.cloudflare_edge_observed === true ||
+      check.cloudflare_edge_headers_observed === true,
+  ).length;
+  const details = [];
+  if (observerErrors.length > 0) {
+    details.push(
+      `Tunnel inventory observer error: ${observerErrors.join(", ")}.`,
+    );
+  }
+  if (edgeObserved > 0) {
+    details.push(
+      `${edgeObserved}/${unresolved.length} unresolved protected hostname(s) still show Cloudflare edge evidence.`,
+    );
+  }
+  details.push(
+    `${unresolved.length} tunnel-protected hostname(s) are not confirmed by the current Tunnel ingress inventory.`,
+  );
+  details.push(
+    "This is verification uncertainty, not proof that the service or Cloudflare Tunnel is down; check account/token scope and remote-vs-local tunnel management.",
+  );
+
+  container.hidden = false;
+  container.open = wasOpen;
+  container.innerHTML =
+    '<summary><strong><img src="' +
+    CLOUDFLARE_ICON +
+    '" alt="" width="18" height="18" loading="lazy"> ⚠ Cloudflare Tunnel verification temporarily unavailable</strong></summary>' +
+    '<div class="truenas-ingress-detail">' +
+    details.map((detail) => `<span>${detail}</span>`).join("") +
+    "</div>";
+}
+
 export function decorateCloudflareTunnelStatuses(data) {
   const checks = data?.checks || {};
   // api-sickz.js renders from the same snapshot. Defer one task so its rows exist.
@@ -160,5 +238,6 @@ export function decorateCloudflareTunnelStatuses(data) {
       replaceDirectProbeWording(row, check);
       appendTunnelBadge(row, normalizeTunnelStatus(check));
     });
+    renderTunnelWarning(checks);
   }, 0);
 }
