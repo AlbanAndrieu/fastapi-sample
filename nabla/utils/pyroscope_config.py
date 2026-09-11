@@ -25,7 +25,11 @@ def start_pyroscope(
             application_name=application_name,
             server_address=server_address,
             sample_rate=100,
-            enable_logging=True,
+            # The SDK emits a routine "Sending Session" message every 10 seconds
+            # when its internal logger is enabled. Application lifecycle logs plus
+            # health evidence are sufficient at INFO; enable SDK logging only in a
+            # dedicated troubleshooting session by changing this deliberately.
+            enable_logging=False,
         )
     except Exception:
         logger.exception(
