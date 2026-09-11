@@ -79,8 +79,9 @@ function topologyIndexes(topology) {
 
 function candidateIdFromKey(key) {
   const raw = String(key || "");
-  if (raw.startsWith("albandrieu_"))
+  if (raw.startsWith("albandrieu_")) {
     return raw.slice("albandrieu_".length).replaceAll("_", "-");
+  }
   return raw.replaceAll("_", "-");
 }
 
@@ -92,8 +93,9 @@ function findTopologyNode(row, check, indexes) {
     candidateIdFromKey(row?.dataset?.serviceKey),
   ];
   for (const candidate of idCandidates) {
-    if (candidate && indexes.byId.has(String(candidate)))
+    if (candidate && indexes.byId.has(String(candidate))) {
       return indexes.byId.get(String(candidate));
+    }
   }
 
   for (const candidate of [
@@ -116,6 +118,24 @@ function findTopologyNode(row, check, indexes) {
     if (host && indexes.byHost.has(host)) return indexes.byHost.get(host);
   }
   return null;
+}
+
+function resolvedEnvironments(node) {
+  const declared = Array.isArray(node?.environments)
+    ? node.environments
+        .map((environment) =>
+          normalize(
+            typeof environment === "string" ? environment : environment?.name,
+          ),
+        )
+        .filter(Boolean)
+    : [];
+  if (declared.length > 0) {
+    return { names: [...new Set(declared)], source: "topology" };
+  }
+  const catalog = normalize(node?.environment);
+  if (catalog) return { names: [catalog], source: "catalog" };
+  return { names: ["production"], source: "default" };
 }
 
 function rowSeverity(row) {
@@ -175,11 +195,12 @@ function addBadge(target, text, kind) {
   target.appendChild(badge);
 }
 
-function decorateRow(row, presentation, check) {
+function decorateRow(row, presentation, check, node) {
   const status = rowStatus(row, check);
   const statusKind = status.toLowerCase().replaceAll(" ", "-");
   const localState = normalizedHealthState(check?.local_state);
   const dependencyState = normalizedHealthState(check?.dependency_state);
+  const environments = resolvedEnvironments(node);
 
   row.dataset.presentationRole = presentation.role;
   row.dataset.criticality = presentation.criticality;
@@ -191,6 +212,8 @@ function decorateRow(row, presentation, check) {
   row.dataset.securityFunctions = (presentation.securityFunctions || []).join(
     " ",
   );
+  row.dataset.environments = environments.names.join(" ");
+  row.dataset.environmentSource = environments.source;
 
   const tags = row.querySelector(".health-row-tags");
   if (!tags) return;
@@ -330,11 +353,11 @@ function assignRows(rows, checks, topologyData) {
           group: "support",
         }
       : { role: "support", criticality: "low", group: "external" };
-    decorateRow(row, presentation, check);
+    decorateRow(row, presentation, check, node);
     const group =
       GROUPS.find((item) => item.key === presentation.group) || EXTRA_GROUP;
     row.dataset.searchText =
-      `${row.dataset.searchText || ""} ${group.label} ${group.description} ${presentation.role} ${presentation.criticality} ${(presentation.securityFunctions || []).join(" ")} ${rowStatus(row, check)}`.toLowerCase();
+      `${row.dataset.searchText || ""} ${group.label} ${group.description} ${presentation.role} ${presentation.criticality} ${row.dataset.environments} ${(presentation.securityFunctions || []).join(" ")} ${rowStatus(row, check)}`.toLowerCase();
     buckets.get(group.key).push(row);
   }
   return buckets;
