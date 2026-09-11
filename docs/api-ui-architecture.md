@@ -46,8 +46,7 @@ Current constraints:
   semantics instead of duplicating them in the renderer;
 - reuse the same topology loader/fallback in the health grouping and topology
   screen;
-- keep live health separate from declared topology until the declared view is
-  stable;
+- keep declared topology and observed health as visibly distinct layers;
 - start with the **Dependencies** preset so functional dependencies are not mixed
   with routing/ingress edges by default;
 - provide **Network paths** for canonical `routesTo` and `exposedBy` relations and
@@ -60,8 +59,15 @@ Current constraints:
   nodes, but FastAPI must not derive or claim the operational TrueNAS start order;
   that ordering remains owned by the `nabla-compose` lifecycle planner, where
   required topology relations are authoritative over phase/priority;
+- keep observed health optional. When enabled, consume `/api/health-board` through
+  the existing shared loader, index exact canonical service IDs, use
+  `effective_state` for node fill, `local_state` for the local-state ring and
+  `dependency_evidence.target_state` for required-edge state. Missing health data
+  leaves declared topology usable and does not trigger browser-side probes;
+- optional relations remain visually secondary and never create a health failure;
 - keep topology controls shareable through URL state (`q`, `view`, `relation`,
-  `strength`, `phase`, `layout`) without storing operator state server-side;
+  `strength`, `phase`, `health`, `layout`) without storing operator state
+  server-side;
 - preserve unrelated query parameters and the URL hash while updating topology
   state;
 - never infer trust/network zones from hostnames, URLs, service display names or
@@ -190,17 +196,18 @@ architecture sequence and acceptance boundaries.
    node context, including a shareable lifecycle phase filter. Do not derive the
    canonical TrueNAS planner order in FastAPI. Implemented by PR #250 after
    `nabla-compose#191` merged.
-4. Add compound trust/network zones only when the topology contract can identify
+4. Add an optional health overlay to `/api/topology` using the same
+   server-authoritative status/evidence contract as `/api`. Declared and observed
+   state remain visibly distinct; failures to obtain observed evidence do not make
+   the declared graph unavailable. Implemented by PR #250.
+5. Keep focused health and topology views shareable with URL-backed filters and no
+   server-side operator session state. Health state is implemented through PR #247;
+   topology state includes search, preset, relation, strength, lifecycle phase,
+   health overlay and layout through PR #250.
+6. Add compound trust/network zones only when the topology contract can identify
    them without UI-side inference: Internet/Cloudflare, pfSense/LAN,
    TrueNAS/Docker, Talos/Kubernetes and external providers. This remains blocked
    on canonical zone metadata.
-5. Add an optional health overlay to `/api/topology` using the same status/evidence
-   contract as `/api`; declared state and observed state must remain visibly
-   distinct.
-6. Keep focused health and topology views shareable with URL-backed filters and no
-   server-side operator session state. Health state is implemented through PR #247;
-   topology state includes search, preset, relation, strength, lifecycle phase and
-   layout through PR #250.
 7. Keep quantitative traffic/latency flow visualisation separate from dependency
    topology; use Plotly only when measurements justify a Sankey or time-series
    view.
