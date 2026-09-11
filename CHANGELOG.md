@@ -1,3 +1,10 @@
+# [1.18.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.17.0...1.18.0) (2026-09-11)
+
+
+### Features
+
+* **ui:** make health filters shareable and compact ([#247](https://github.com/AlbanAndrieu/fastapi-sample/issues/247)) ([f61a06f](https://github.com/AlbanAndrieu/fastapi-sample/commit/f61a06f62de844a611c8629128ca0a7f7a82de8b))
+
 # [1.17.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.16.1...1.17.0) (2026-09-11)
 
 
