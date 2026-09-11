@@ -2,3 +2,4 @@
 # The quality gate only honors this file when it is changed relative to the comparison base.
 nabla/api/homelab_health_evidence.py
 nabla/api/platform_health.py
+scripts/pfsense/diagnose-recover.sh

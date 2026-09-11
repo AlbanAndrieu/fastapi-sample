@@ -23,17 +23,28 @@ from nabla.api.platform_health_diagnostics import (
     utc_now as _utc_now,
 )
 from nabla.api.provider_probe_policies import PFSENSE_LIVENESS_CACHE_POLICY as _PFSENSE_CACHE_POLICY
+from nabla.api.runtime_environment import fastapi_cloud_runtime_detected
 from nabla.settings.homelab import (
     PfSensePostureProviderSettings,
     pfsense_invalid_configuration_variables,
 )
 
 _PFSENSE_LIVENESS_PATH = "/api/v2/system/version"
-_PFSENSE_CONNECT_TIMEOUT_SEC = 2.0
-_PFSENSE_READ_TIMEOUT_SEC = 4.0
+_PFSENSE_CONNECT_TIMEOUT_SEC = 3.0
+_PFSENSE_READ_TIMEOUT_SEC = 5.0
 _PFSENSE_MAX_ATTEMPTS = 1
 _PFSENSE_RETRY_DELAY_SEC = 0.2
 _PFSENSE_CACHE_KEY = "pfsense:liveness"
+_PFSENSE_TRANSIENT_ERROR_KINDS = frozenset(
+    {
+        "connect_timeout",
+        "read_timeout",
+        "pool_timeout",
+        "timeout",
+        "connect_error",
+        "os_error",
+    },
+)
 logger = logging.getLogger(__name__)
 
 
@@ -46,6 +57,64 @@ def _pfsense_posture_transport() -> tuple[str, str, bool, str]:
         provider.verify_ssl,
         provider.credential_mode,
     )
+
+
+def _cloud_transport_unconfirmed(error_kind: str) -> bool:
+    """Return whether a transport failure is only cloud-vantage uncertainty."""
+    return fastapi_cloud_runtime_detected() and error_kind in _PFSENSE_TRANSIENT_ERROR_KINDS
+
+
+def _pfsense_transport_failure_result(
+    exc: BaseException,
+    *,
+    elapsed_ms: int,
+    attempts: int,
+    url: str,
+    verify_ssl: bool,
+    credential_mode: str,
+) -> dict[str, Any]:
+    """Map transport failure into runtime-aware pfSense evidence."""
+    error_kind = _http_error_kind(exc)
+    error = _short_error(exc)
+    if error_kind == "read_timeout":
+        error = f"pfSense accepted the connection but did not return the REST API response within {_PFSENSE_READ_TIMEOUT_SEC:.0f}s"
+    failure_stage = _pfsense_failure_stage(error_kind)
+    cloud_unconfirmed = _cloud_transport_unconfirmed(error_kind)
+    logger.warning(
+        "pfSense API liveness probe failed error_kind=%s failure_stage=%s exception_type=%s elapsed_ms=%s attempts=%s cloud_unconfirmed=%s",
+        error_kind,
+        failure_stage,
+        type(exc).__name__,
+        elapsed_ms,
+        attempts,
+        cloud_unconfirmed,
+    )
+    result: dict[str, Any] = {
+        "reachable": None if cloud_unconfirmed else False,
+        "error": error,
+        "error_kind": error_kind,
+        "failure_stage": failure_stage,
+        "exception_type": type(exc).__name__,
+        "elapsed_ms": elapsed_ms,
+        "attempts": attempts,
+        "probe": "pfsense_rest_api_v2",
+        "path": _PFSENSE_LIVENESS_PATH,
+        "url": url,
+        "verify_ssl": verify_ssl,
+        "credential_mode": credential_mode,
+        "tls_trusted": False if not verify_ssl else None,
+    }
+    if cloud_unconfirmed:
+        result.update(
+            {
+                "state": "unknown",
+                "status_confirmed": False,
+                "degraded": False,
+                "vantage_point": "fastapi_cloud",
+                "warning": f"⚠️ pfSense status could not be confirmed from FastAPI Cloud: {error}",
+            },
+        )
+    return result
 
 
 async def check_pfsense_api() -> dict[str, Any]:
@@ -108,14 +177,7 @@ async def check_pfsense_api() -> dict[str, Any]:
                 break
             except (httpx.HTTPError, OSError) as exc:
                 last_error = exc
-                retryable = _http_error_kind(exc) in {
-                    "connect_timeout",
-                    "read_timeout",
-                    "pool_timeout",
-                    "timeout",
-                    "connect_error",
-                    "os_error",
-                }
+                retryable = _http_error_kind(exc) in _PFSENSE_TRANSIENT_ERROR_KINDS
                 if attempt < _PFSENSE_MAX_ATTEMPTS and retryable:
                     await asyncio.sleep(_PFSENSE_RETRY_DELAY_SEC)
                     continue
@@ -123,39 +185,20 @@ async def check_pfsense_api() -> dict[str, Any]:
 
     elapsed_ms = round((time.monotonic() - started) * 1000)
     if response is None:
-        exc = last_error or RuntimeError("pfSense API request failed")
-        error_kind = _http_error_kind(exc)
-        error = _short_error(exc)
-        if error_kind == "read_timeout":
-            error = f"pfSense accepted the connection but did not return the REST API response within {_PFSENSE_READ_TIMEOUT_SEC:.0f}s"
-        failure_stage = _pfsense_failure_stage(error_kind)
-        logger.warning(
-            "pfSense API liveness probe failed error_kind=%s failure_stage=%s exception_type=%s elapsed_ms=%s attempts=%s",
-            error_kind,
-            failure_stage,
-            type(exc).__name__,
-            elapsed_ms,
-            attempts,
+        return _pfsense_transport_failure_result(
+            last_error or RuntimeError("pfSense API request failed"),
+            elapsed_ms=elapsed_ms,
+            attempts=attempts,
+            url=url,
+            verify_ssl=verify_ssl,
+            credential_mode=credential_mode,
         )
-        return {
-            "reachable": False,
-            "error": error,
-            "error_kind": error_kind,
-            "failure_stage": failure_stage,
-            "exception_type": type(exc).__name__,
-            "elapsed_ms": elapsed_ms,
-            "attempts": attempts,
-            "probe": "pfsense_rest_api_v2",
-            "path": _PFSENSE_LIVENESS_PATH,
-            "url": url,
-            "verify_ssl": verify_ssl,
-            "credential_mode": credential_mode,
-            "tls_trusted": False if not verify_ssl else None,
-        }
 
     healthy = 200 <= response.status_code < 400
-    result: dict[str, Any] = {
+    result = {
         "reachable": healthy,
+        "status_confirmed": True,
+        "state": "ok" if healthy else "fail",
         "http_status": response.status_code,
         "elapsed_ms": elapsed_ms,
         "probe": "pfsense_rest_api_v2",
@@ -189,13 +232,17 @@ async def check_pfsense_api() -> dict[str, Any]:
 def _cache_with_stale_evidence(cached: ProbeCacheResult) -> dict[str, Any]:
     value = dict(cached.value)
     current_failure = value.get("reachable") is False
+    current_unconfirmed = value.get("status_confirmed") is False
     stale_refresh = cached.metadata.get("stale") is True
-    use_last_good = (current_failure or stale_refresh) and cached.last_good is not None
+    use_last_good = (current_failure or current_unconfirmed or stale_refresh) and cached.last_good is not None
     if use_last_good:
+        current_warning = value.get("warning")
         value = {
             **cached.last_good,
             "refresh_error": value.get("error") or "probe refresh is in progress",
         }
+        if current_warning:
+            value["refresh_warning"] = current_warning
     value.update(cached.metadata)
     value["stale"] = bool(use_last_good or stale_refresh)
     return value
