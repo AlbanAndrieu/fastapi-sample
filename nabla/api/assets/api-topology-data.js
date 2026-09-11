@@ -26,6 +26,10 @@ function topologyFromDeclaredServices(catalog) {
           criticality: service?.criticality || null,
           securityFunctions:
             service?.securityFunctions || service?.security_functions || [],
+          environments: Array.isArray(service?.environments)
+            ? service.environments
+            : null,
+          environment: service?.environment || null,
           url: service?.url || null,
         };
       })
