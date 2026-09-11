@@ -160,13 +160,14 @@ pfSense platform
       relying on the temporary generated `php-fpm.conf` 4/2 worker edit from the
       previous incident.
 
-### UI refresh stability + dual ZAP DAST follow-up (PR #237)
+### UI refresh stability + post-deployment ZAP DAST follow-up (PR #237/#240)
 
 - [x] Prioritize service outcomes before TrueNAS/runtime drill-downs and collapse FastAPI Cloud runtime plus homelab fan-out details by default.
 - [x] Decouple high-frequency service polling from TrueNAS/runtime technical refresh and skip destructive service/exposure DOM rebuilds when semantic state is unchanged.
-- [x] Run OWASP ZAP Web baseline and OpenAPI active DAST against an isolated runner-local FastAPI instance for PR application changes; never active-scan pfSense/TrueNAS production APIs from this job.
-- [ ] After the first successful PR ZAP execution, review the Web/API artifacts and tune only documented false positives in `.zap/web-rules.tsv` / `.zap/api-rules.tsv`; scanner/configuration failures must remain distinct from zero findings.
-- [ ] Consider a post-deploy **passive Web baseline** against FastAPI Cloud once the production deployment gate is healthy. Keep active OpenAPI attacks on isolated disposable targets unless an explicit non-production remote DAST environment is introduced.
+- [x] Remove ZAP from pull-request execution and remove the runner-local ephemeral `uvicorn --lifespan off` bootstrap from the primary DAST workflow.
+- [x] Run OWASP ZAP Web baseline plus OpenAPI DAST only after deployment on `master` or explicit manual dispatch against the authorized FastAPI application surfaces. Use the Cloudflare Access service token for `sample.albandrieu.com` and never scan pfSense or TrueNAS management APIs.
+- [x] Feed post-deployment ZAP failures into `Master red remediation` only after Production Smoke succeeds so a failed deployment cannot trigger misleading DAST load.
+- [ ] After the first successful post-deployment master ZAP execution, review all per-surface Web/OpenAPI artifacts and tune only documented false positives in `.zap/web-rules.tsv` / `.zap/api-rules.tsv`; scanner/configuration failures must remain distinct from zero findings.
 
 ## P1 — Runtime stability and appliance protection
 
@@ -209,10 +210,12 @@ degraded conditions.
       completing in about 1.4-2.4 seconds while `/api/homelab/health` can still
       approach 11-12 seconds, so the remaining cost is in aggregate provider
       reconciliation rather than service fan-out.
-  - [ ] Publish fixed-cardinality phase timings for declared catalog, topology,
-        Cloudflare exposure, pfSense DNS/posture, TrueNAS runtime reuse,
-        reconciliation and total aggregate duration. Do not include URLs, IPs,
-        credentials or exception text in metric labels.
+  - [x] Publish fixed-cardinality phase timings through `performance.phases_ms`
+        and `fastapi_homelab_health_phase_duration_seconds{phase="..."}` for exactly
+        `declared_catalog`, `topology`, `cloudflare_exposure`, `pfsense_posture`,
+        `truenas_runtime`, `reconciliation` and `total`. Dynamic phase labels are
+        rejected; instrumentation adds no probe and the aggregate deadline remains
+        12 seconds.
   - [ ] Use those timings to identify the dominant cold provider before changing
         budgets. Keep every provider timeout strictly below the 12-second aggregate
         deadline and avoid increasing that deadline to hide slow reconciliation.
@@ -488,21 +491,32 @@ acceptance criterion.
       not require a local Docker daemon.
 - [x] Remove the duplicate standalone Pylint workflow and keep the Python
       package workflow as the authoritative Pylint quality gate.
+- [x] Run a deterministic agent CI preflight before the full dependency sync so formatting/lint/security convergence is checked before installing the complete project environment. Defer only dependency-backed hooks (`uv-sync`, `uv-lock`, `uv-export`, `pytest-collect`) to the subsequent locked sync/test stage; keep local pre-push `--publish` complete.
 - [x] Add `Master red remediation`, a post-merge `master` workflow which reruns
       the critical `Python package` and `Production Smoke` workflows for the exact
-      merged SHA and, when either is red, opens/reuses a deduplicated remediation
-      issue and creates a remediation PR carrying the failing run evidence. Keep
-      the master-red workflow itself red until remediation so the regression stays
-      visible.
+      merged SHA, conditionally reruns CodeQL for security-impacting changes and
+      runs post-deployment ZAP only after a successful Production Smoke for
+      application-surface changes. When any scheduled critical gate is red, open
+      or reuse a deduplicated remediation issue and draft PR carrying failing-run
+      evidence, and keep the master-red workflow itself red until remediation.
+- [x] Pass only explicitly declared reusable-workflow secrets from master-red;
+      never use `secrets: inherit` for Python, Production Smoke or ZAP callers.
 - [ ] Validate the new master-red automation with an intentional non-production
       drill: exactly one failing master SHA must create exactly one issue and one
       remediation PR, while repeat evaluation of the same SHA must not create
       duplicates. Verify repository Actions policy permits workflow-created PRs;
       otherwise configure least-privilege `MASTER_REMEDIATION_TOKEN`.
-- [ ] Measure cost/noise/stability before adding CodeQL or passive ZAP to the
-      automatic post-merge rerun. Active OpenAPI DAST remains restricted to an
-      isolated disposable target and must never attack pfSense/TrueNAS production
-      APIs automatically.
+- [x] Keep CodeQL and post-deployment ZAP impact-gated. ZAP is never executed on
+      pull requests, starts only after Production Smoke succeeds, targets only the
+      authorized FastAPI application surfaces and excludes pfSense/TrueNAS
+      management APIs from active DAST.
+- [ ] After the first successful post-deployment master ZAP run, measure
+      cost/noise/stability and review the Web/OpenAPI artifacts before changing
+      policies or thresholds.
+- [ ] Upgrade transitive `smol-toml` from `1.6.1` to `>=1.7.1`
+      (`CVE-2026-34027`) by regenerating `package-lock.json` with the repository's
+      pinned Node/npm toolchain. Acceptance: `npm ci` succeeds and Trivy no longer
+      reports `CVE-2026-34027`; do not hand-edit or partially regenerate the lock.
 - [ ] Make relevant Trivy findings blocking once the current vulnerability
       baseline has been triaged.
 - [ ] Reduce the current Trivy dependency baseline below 48 findings and lower

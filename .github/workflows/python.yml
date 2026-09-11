@@ -6,6 +6,17 @@ on:
     branches: [master]
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_call:
+    secrets:
+      TRUNK_API_TOKEN:
+        required: false
+      SONAR_TOKEN:
+        required: false
+      DOCKER_USERNAME:
+        required: false
+      DOCKER_PASSWORD:
+        required: false
+      CI_PIP_GITLABNABLA_TOKEN:
+        required: false
   workflow_dispatch:
 
 permissions:
@@ -17,56 +28,25 @@ concurrency:
 
 jobs:
   preflight:
-    name: Agent quality gate
+    name: Fast deterministic quality gate
     runs-on: ubuntu-latest
     env:
       PYTHON_VERSION: "3.13"
-      TRUNK_API_TOKEN: ${{ secrets.TRUNK_API_TOKEN }}
-      KEYCLOAK_SERVER_URL: http://localhost:8080
-      KEYCLOAK_REALM: test
-      KEYCLOAK_CLIENT_ID: test
-      KEYCLOAK_CLIENT_SECRET: test-secret
-      OAUTH_TOKEN_SECRET: mocked-oauth-token-secret
-      METRICS_ENABLED: "false"
-      LOGFIRE_ENABLED: "false"
-      LOGFIRE_ENVIRONMENT: test
-      LOGFIRE_TOKEN: ""
-      SENTRY_ENABLED: "false"
-      SENTRY_DSN: ""
-      SENTRY_ENVIRONMENT: test
-      SENTRY_RELEASE: ci-${{ github.sha }}
-      DATADOG_ENABLED: "false"
-      DD_TRACE_ENABLED: "false"
-      DD_PROFILING_ENABLED: "false"
-      DD_LOGS_INJECTION: "false"
-      DD_APPSEC_ENABLED: "false"
-      DD_IAST_ENABLED: "false"
-      UNLEASH_ENABLED: "false"
-      STATSIG_ENABLED: "false"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Classify preflight dependency impact
-        id: impact
-        env:
-          QUALITY_BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'origin/master' }}
-        run: |
-          mode="$(bash scripts/agent-quality-gate.sh --dependency-mode)"
-          echo "mode=${mode}" >> "${GITHUB_OUTPUT}"
-          echo "Preflight dependency mode: ${mode}"
-
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install uv
+      - name: Install uv without project dependency cache
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
-          enable-cache: ${{ steps.impact.outputs.mode == 'full' }}
+          enable-cache: false
           python-version: ${{ env.PYTHON_VERSION }}
           version: "0.12.1"
 
@@ -79,32 +59,18 @@ jobs:
           restore-keys: |
             pre-commit-v1-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
 
-      - name: Install locked dependencies for application-impact changes
-        if: ${{ steps.impact.outputs.mode == 'full' }}
-        run: uv sync --frozen
-
       - name: Create minimal quality environment
-        if: ${{ steps.impact.outputs.mode != 'full' }}
-        env:
-          IMPACT_MODE: ${{ steps.impact.outputs.mode }}
         run: |
           uv venv --python "${PYTHON_VERSION}"
           uv pip install --python .venv/bin/python pre-commit==4.6.2
-          if [[ "${IMPACT_MODE}" == "quality" ]]; then
-            uv pip install --python .venv/bin/python 'pytest<10'
-          fi
 
-      - name: Install pre-commit runner for full application gate
-        if: ${{ steps.impact.outputs.mode == 'full' }}
-        run: uv pip install pre-commit==4.6.2
-
-      - name: Run agent-first quality gate before builds
+      - name: Run agent CI preflight before project dependency sync
         env:
           QUALITY_BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'origin/master' }}
-          QUALITY_LOG_TAIL: "120"
+          QUALITY_LOG_TAIL: "80"
           UV_NO_SYNC: "1"
-          SKIP: ${{ steps.impact.outputs.mode == 'quality' && 'pytest-collect' || '' }}
-        run: bash scripts/agent-quality-gate.sh --publish
+          SKIP: "uv-sync,uv-lock,uv-export,pytest-collect"
+        run: bash scripts/agent-quality-gate.sh --ci-preflight
 
       - name: Save pre-commit environments
         if: ${{ always() && steps.precommit-cache.outputs.cache-hit != 'true' }}
@@ -113,18 +79,9 @@ jobs:
           path: ~/.cache/pre-commit
           key: pre-commit-v1-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
-      - name: Upload test results to Trunk.io
-        if: ${{ !cancelled() && env.TRUNK_API_TOKEN != '' }}
-        continue-on-error: true
-        uses: trunk-io/analytics-uploader@385f1ccdf345b4532dc4b6c665dd432b702b8e28 # v2.1.2
-        with:
-          junit-paths: "**/junit.xml"
-          org-slug: alban
-          token: ${{ env.TRUNK_API_TOKEN }}
-
   build:
     needs: preflight
-    if: ${{ (github.event_name == 'pull_request' && github.event.pull_request.draft == false) || github.event_name == 'workflow_call' }}
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     name: Test and build Python package
     runs-on: ubuntu-latest
     env:
@@ -177,15 +134,24 @@ jobs:
           .venv-runtime/bin/python -c "import nabla.main; assert nabla.main.app is not None"
           rm -rf .venv-runtime
 
-      - name: Resolve and install project dependencies
-        run: uv sync
+      - name: Resolve and install locked project dependencies
+        run: uv sync --frozen
 
-      - name: Check release version consistency
-        run: uv run python scripts/check_versions.py
+      - name: Run repository pytest suite after dependency sync
+        run: uv run --no-sync pytest -q --disable-warnings --maxfail=1 --junit-xml=junit.xml
+
+      - name: Upload test results to Trunk.io
+        if: ${{ !cancelled() && env.TRUNK_API_TOKEN != '' }}
+        continue-on-error: true
+        uses: trunk-io/analytics-uploader@385f1ccdf345b4532dc4b6c665dd432b702b8e28 # v2.1.2
+        with:
+          junit-paths: "**/junit.xml"
+          org-slug: alban
+          token: ${{ env.TRUNK_API_TOKEN }}
 
       - name: FastAPI startup smoke test
         run: |
-          uv run python - <<'PY'
+          uv run --no-sync python - <<'PY'
           from fastapi.testclient import TestClient
           from nabla.main import app
 
@@ -198,26 +164,20 @@ jobs:
           assert any(getattr(route, "path", None) == "/mcp" or getattr(route, "path", None) == "/" for route in app.routes)
           PY
 
-      - name: Ruff critical checks
-        run: uv run ruff check server_app.py nabla --select=E9,F63,F7,F82
-
       - name: Pylint quality gate
         run: >-
-          uv run pylint
+          uv run --no-sync pylint
           --fail-under=9.5
           --disable=E1701,E0102,E1003
           server_app.py nabla
-
-      - name: Bandit security report
-        run: uv run bandit -r nabla server_app.py --exit-zero
 
       - name: Build package
         run: uv build
 
   redis-integration:
     name: Redis integration
-    needs: preflight
-    if: ${{ (github.event_name == 'pull_request' && github.event.pull_request.draft == false) || github.event_name == 'workflow_call' }}
+    needs: build
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     env:
       PYTHON_VERSION: "3.13"
@@ -276,7 +236,7 @@ jobs:
 
       - name: Run Redis integration tests
         run: >-
-          uv run pytest
+          uv run --no-sync pytest
           -m integration
           tests/integration/test_external_probe_cache_redis.py
 

@@ -36,6 +36,7 @@ def test_agent_quality_gate_wraps_tests_and_canonical_gate() -> None:
     assert "worktree_fingerprint" in text
     assert "git hash-object --stdin" in text
     assert "--dependency-mode" in text
+    assert "--ci-preflight" in text
     assert 'echo "full"' in text
     assert 'echo "quality"' in text
     assert 'echo "none"' in text
@@ -47,6 +48,7 @@ def test_agent_quality_gate_wraps_tests_and_canonical_gate() -> None:
     assert "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1" in text
     assert "uv run pytest -q --noconftest" in text
     assert "tests/unit/test_agent_quality_gate_contract.py --junit-xml=junit.xml" in text
+    assert "dependency-backed tests are still required" in text
     assert "full_pytest_impact" in text
     assert "quality_contract_impact" in text
     assert "uv run python scripts/check_versions.py" in text
@@ -70,34 +72,42 @@ def test_pre_push_uses_agent_publication_gate() -> None:
     assert "entry: bash scripts/agent-quality-gate.sh --publish" in config
 
 
-def test_python_ci_gates_builds_behind_preflight() -> None:
+def test_python_ci_runs_fast_gate_before_heavy_dependency_sync() -> None:
     workflow = (ROOT / ".github/workflows/python.yml").read_text(encoding="utf-8")
 
     assert "\n  preflight:\n" in workflow
-    assert "Classify preflight dependency impact" in workflow
-    assert "--dependency-mode" in workflow
-    assert "steps.impact.outputs.mode == 'full'" in workflow
-    assert "steps.impact.outputs.mode != 'full'" in workflow
+    assert "Fast deterministic quality gate" in workflow
     assert "Create minimal quality environment" in workflow
     assert "uv venv --python" in workflow
     assert "pre-commit==4.6.2" in workflow
-    assert "'pytest<10'" in workflow
-    assert "enable-cache: ${{ steps.impact.outputs.mode == 'full' }}" in workflow
-    assert "SKIP: ${{ steps.impact.outputs.mode == 'quality' && 'pytest-collect' || '' }}" in workflow
+    assert "enable-cache: false" in workflow
     assert 'UV_NO_SYNC: "1"' in workflow
-    assert "run: bash scripts/agent-quality-gate.sh --publish" in workflow
+    assert 'SKIP: "uv-sync,uv-lock,uv-export,pytest-collect"' in workflow
+    assert "run: bash scripts/agent-quality-gate.sh --ci-preflight" in workflow
+    assert "Resolve and install locked project dependencies" in workflow
+    assert "run: uv sync --frozen" in workflow
+    assert "Run repository pytest suite after dependency sync" in workflow
+    assert "uv run --no-sync pytest -q --disable-warnings --maxfail=1" in workflow
+    assert workflow.index("Run agent CI preflight before project dependency sync") < workflow.index(
+        "Resolve and install locked project dependencies",
+    )
+    assert workflow.index("Resolve and install locked project dependencies") < workflow.index(
+        "Run repository pytest suite after dependency sync",
+    )
     assert "workflow_dispatch:" in workflow
     assert "format('origin/{0}', github.base_ref)" in workflow
     assert "'origin/master'" in workflow
     assert "\n    needs: preflight\n" in workflow
-    assert "github.event_name == 'pull_request' && github.event.pull_request.draft == false" in workflow
+    assert "\n    needs: build\n" in workflow
+    reusable_condition = "github.event_name != 'pull_request' || github.event.pull_request.draft == false"
+    assert workflow.count(reusable_condition) == 2
     assert workflow.count("Upload test results to Trunk.io") == 1
     assert "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" in workflow
     assert "actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" in workflow
     assert "steps.precommit-cache.outputs.cache-hit != 'true'" in workflow
     assert "path: ~/.cache/pre-commit" in workflow
-    assert "uv run pytest --junit-xml=junit.xml" not in workflow
-    assert "Check modified Python file sizes" not in workflow
+    assert "Ruff critical checks" not in workflow
+    assert "Bandit security report" not in workflow
 
 
 def test_production_smoke_does_not_run_on_every_pr_synchronize() -> None:
@@ -183,6 +193,33 @@ def test_agent_completion_policy_requires_roadmap_accounting() -> None:
     assert "Pyroscope application acceptance" in roadmap
 
 
+def test_zap_runs_only_post_merge_or_manually_against_production_surfaces() -> None:
+    workflow_text = (ROOT / ".github/workflows/security-zap.yml").read_text(encoding="utf-8")
+    workflow = yaml.safe_load(workflow_text)
+    triggers = workflow_text.split("jobs:", maxsplit=1)[0]
+    dast_env = workflow["jobs"]["dast"]["env"]
+
+    assert "pull_request:" not in triggers
+    assert "workflow_call:" in triggers
+    assert "workflow_dispatch:" in triggers
+    assert "127.0.0.1" not in workflow_text
+    assert "uvicorn" not in workflow_text
+    assert dast_env["TRUENAS_ROOT_URL"] == "https://sample.albandrieu.com/"
+    assert dast_env["TRUENAS_API_URL"] == "https://sample.albandrieu.com/api"
+    assert dast_env["TRUENAS_OPENAPI_URL"] == "https://sample.albandrieu.com/openapi.json"
+    assert dast_env["CLOUD_API_URL"] == "https://fastapi-sample.fastapicloud.dev/api"
+    assert dast_env["CLOUD_OPENAPI_URL"] == "https://fastapi-sample.fastapicloud.dev/openapi.json"
+    assert "CF-Access-Client-Id" in workflow_text
+    assert "CF-Access-Client-Secret" in workflow_text
+    assert "Management APIs for pfSense and TrueNAS are intentionally excluded" in workflow_text
+    assert workflow_text.count("fail_action: true") == 5
+    assert "zap-web-truenas-root" in workflow_text
+    assert "zap-web-truenas-api" in workflow_text
+    assert "zap-web-fastapi-cloud-api" in workflow_text
+    assert "zap-api-truenas" in workflow_text
+    assert "zap-api-fastapi-cloud" in workflow_text
+
+
 def test_master_red_remediation_is_post_merge_and_deduplicated() -> None:
     workflow = (ROOT / ".github" / "workflows" / "master-red-remediation.yml").read_text(
         encoding="utf-8",
@@ -195,6 +232,9 @@ def test_master_red_remediation_is_post_merge_and_deduplicated() -> None:
     assert "uses: ./.github/workflows/production-smoke.yml" in workflow
     assert "uses: ./.github/workflows/codeql.yml" in workflow
     assert "uses: ./.github/workflows/security-zap.yml" in workflow
+    assert "needs: [classify, production-smoke]" in workflow
+    assert "needs.production-smoke.result == 'success'" in workflow
+    assert "secrets: inherit" not in workflow
     assert "needs: [classify, python, production-smoke, codeql, zap]" in workflow
     assert "needs.python.result != 'success'" in workflow
     assert "needs.production-smoke.result != 'success'" in workflow

@@ -139,4 +139,6 @@ def test_access_observer_failure_is_incomplete_not_mismatch() -> None:
 
     assert result["state"] == "incomplete"
     assert result["observed"]["cloudflare_access_observed"] is False
-    assert any("observation failed" in reason for reason in result["reasons"])
+    assert any("status could not be confirmed" in reason for reason in result["reasons"])
+    assert result["provider_status_confirmed"] is False
+    assert result["provider_warning"]

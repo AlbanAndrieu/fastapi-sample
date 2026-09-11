@@ -164,7 +164,15 @@ async def test_independent_security_evidence_survives_posture_failure(monkeypatc
 
     result = await pfsense_dns_observer.observe_pfsense_dns_posture(settings=settings)
 
-    assert result["reachable"] is False
+    assert result["reachable"] is True
+    assert result["api_evidence_state"] == "partial"
+    assert result["error_stage"] == "system"
+    assert result["error"] == "timeout"
+    assert result["endpoint_status"]["system"] == {
+        "observed": False,
+        "error": "timeout",
+    }
+    assert result["endpoint_status"]["services"] == {"observed": True}
     assert result["ingress_block"]["state"] == "blocked"
     assert result["ingress_block"]["control_path"]["mode"] == "out_of_band"
     filters = {row["id"]: row for row in result["security_filters"]}

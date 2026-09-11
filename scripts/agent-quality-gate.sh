@@ -6,6 +6,7 @@ cd "${ROOT}"
 
 MODE="check"
 PUBLISH=false
+CI_PREFLIGHT=false
 case "${1:-}" in
     --fix)
         MODE="fix"
@@ -15,19 +16,25 @@ case "${1:-}" in
         PUBLISH=true
         shift
         ;;
+    --ci-preflight)
+        PUBLISH=true
+        CI_PREFLIGHT=true
+        shift
+        ;;
     --dependency-mode)
         MODE="dependency"
         shift
         ;;
     -h | --help)
-        cat <<'EOF'
+        cat <<'EOF_HELP'
 Usage:
-  bash scripts/agent-quality-gate.sh [--fix|--publish|--dependency-mode]
+  bash scripts/agent-quality-gate.sh [--fix|--publish|--ci-preflight|--dependency-mode]
 
 Modes:
   default            strict validation gate
   --fix              converge deterministic pre-commit rewrites, then validate the editing tree
   --publish          strict gate plus canonical clean-tree publication check
+  --ci-preflight     CI-only formatter/linter/security + structural gate before dependency sync
   --dependency-mode  print full, quality, or none for CI dependency provisioning
 
 Environment:
@@ -36,7 +43,7 @@ Environment:
   QUALITY_FIX_PASSES               maximum pre-commit convergence passes (default: 3)
   QUALITY_ALLOW_LARGE_DELETION=1   acknowledge all intentional large truncations/deletions
   QUALITY_LARGE_DELETION_ACK_FILE  reviewed-path acknowledgement file (default: .quality-gate-large-deletions)
-EOF
+EOF_HELP
         exit 0
         ;;
     "")
@@ -49,6 +56,11 @@ esac
 
 if (($# > 0)); then
     printf '❌ unexpected argument: %s\n' "$1" >&2
+    exit 2
+fi
+
+if [[ "${CI_PREFLIGHT}" == true && "${CI:-}" != "true" ]]; then
+    echo "❌ --ci-preflight is reserved for CI; use --fix or --publish locally." >&2
     exit 2
 fi
 
@@ -379,7 +391,9 @@ fi
 
 run_compact "release/version contract" uv run python scripts/check_versions.py
 
-if [[ "${full_pytest_impact}" == true ]]; then
+if [[ "${CI_PREFLIGHT}" == true ]]; then
+    echo "✅ pytest deferred by CI preflight; dependency-backed tests are still required."
+elif [[ "${full_pytest_impact}" == true ]]; then
     run_compact "repository pytest suite (fail-fast)" \
         uv run pytest -q --disable-warnings --maxfail=1 --junit-xml=junit.xml
 elif [[ "${quality_contract_impact}" == true ]]; then
@@ -391,7 +405,15 @@ else
     echo "✅ pytest skipped: no Python/runtime/test or quality-gate contract impact"
 fi
 
-if [[ "${PUBLISH}" == true ]]; then
+if [[ "${CI_PREFLIGHT}" == true ]]; then
+    STATUS="$(git status --short)"
+    if [[ -n "${STATUS}" ]]; then
+        echo "❌ Working tree changed during CI preflight; commit deterministic fixes before pushing." >&2
+        printf '%s\n' "${STATUS}" >&2
+        exit 1
+    fi
+    echo "✅ Agent CI preflight passed; dependency-backed tests are still required before merge."
+elif [[ "${PUBLISH}" == true ]]; then
     STATUS="$(git status --short)"
     if [[ -n "${STATUS}" ]]; then
         echo "❌ Working tree changed after tests; review generated output before publishing." >&2

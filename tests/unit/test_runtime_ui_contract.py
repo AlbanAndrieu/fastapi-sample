@@ -74,13 +74,16 @@ def test_homelab_runtime_has_distinct_production_context() -> None:
 
 def test_runtime_topology_uses_shared_health_board_request() -> None:
     javascript = (ASSETS / "api-runtime.js").read_text(encoding="utf-8")
+    controller = (ASSETS / "api-health-controller.js").read_text(encoding="utf-8")
     bootstrap = (ASSETS / "api-health.js").read_text(encoding="utf-8")
     styles = (ASSETS / "api.css").read_text(encoding="utf-8")
 
     assert 'from "./api-health-board.js"' in javascript
     assert "fetchHealthBoard()" in javascript
-    assert 'from "./api-runtime.js"' in bootstrap
-    assert "loadRuntimeTopology();" in bootstrap
+    assert 'from "./api-runtime.js"' in controller
+    assert "loadRuntimeTopology();" in controller
+    assert 'from "./api-runtime.js"' not in bootstrap
+    assert "installHealthBoardController();" in bootstrap
     assert '@import url("./api-runtime.css")' in styles
 
 

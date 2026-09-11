@@ -50,7 +50,8 @@ def test_probe_dashboard_exposes_coverage_health_and_runtime_warmup() -> None:
     assert "probe-coverage-segment--${kind}" in javascript
     assert 'progressSegment(counts.ok, eligible, "ok"' in javascript
     assert 'progressSegment(counts.fail, eligible, "fail"' in javascript
-    assert 'progressSegment(unknown, eligible, "unknown"' in javascript
+    assert "const { counts, eligible, unknown } = model;" in javascript
+    assert "`${unknown} not yet observed`" in javascript
 
 
 def test_probe_dashboard_keeps_targets_and_states_in_separate_cells() -> None:

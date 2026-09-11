@@ -61,6 +61,12 @@ INFLIGHT_REQUESTS = Gauge(
     "fastapi_inflight_requests",
     "Number of HTTP requests currently being processed (for HPA custom metric).",
 )
+HOMELAB_HEALTH_PHASE_DURATION_SECONDS = Histogram(
+    "fastapi_homelab_health_phase_duration_seconds",
+    "Duration of fixed homelab health orchestration phases.",
+    ["phase"],
+    buckets=(0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 4, 8, 12),
+)
 
 # Define a counter metric
 
