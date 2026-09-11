@@ -31,7 +31,9 @@ function healthRows() {
 }
 
 function statusCounts() {
-  const counts = Object.fromEntries(STATUS_CHIPS.map(([status]) => [status, 0]));
+  const counts = Object.fromEntries(
+    STATUS_CHIPS.map(([status]) => [status, 0]),
+  );
   for (const row of healthRows()) {
     const status = normalizedStatus(row);
     if (Object.hasOwn(counts, status)) counts[status] += 1;
@@ -114,7 +116,8 @@ function mapTrueNasStatus() {
   panel.dataset.probeKinds = "http tls api websocket";
   const className = state.className;
   if (className.includes("--ok")) panel.dataset.semanticStatus = "operational";
-  else if (className.includes("--warn")) panel.dataset.semanticStatus = "degraded";
+  else if (className.includes("--warn"))
+    panel.dataset.semanticStatus = "degraded";
   else if (className.includes("--fail")) panel.dataset.semanticStatus = "down";
   else panel.dataset.semanticStatus = "unknown";
 }
@@ -148,7 +151,10 @@ function installKeyboardShortcuts() {
       document.getElementById("service-filter")?.focus();
       return;
     }
-    if (event.key === "Escape" && document.activeElement?.id === "service-filter") {
+    if (
+      event.key === "Escape" &&
+      document.activeElement?.id === "service-filter"
+    ) {
       document.getElementById("service-filter-clear")?.click();
     }
   });
