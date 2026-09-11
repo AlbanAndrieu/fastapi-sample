@@ -128,28 +128,32 @@
   color: #77808c;
 }
 
-#sickz-checks .health-row[data-exposure-policy="ok"]
+#sickz-checks
+  .health-row[data-exposure-policy="ok"]
   .service-probe[data-probe-kind="http"] {
   border-color: rgba(0, 255, 136, 0.38);
   background: rgba(0, 255, 136, 0.065);
   color: #7dffc4;
 }
 
-#sickz-checks .health-row[data-exposure-policy="warn"]
+#sickz-checks
+  .health-row[data-exposure-policy="warn"]
   .service-probe[data-probe-kind="http"] {
   border-color: rgba(255, 204, 51, 0.42);
   background: rgba(255, 204, 51, 0.06);
   color: #ffd966;
 }
 
-#sickz-checks .health-row[data-exposure-policy="fail"]
+#sickz-checks
+  .health-row[data-exposure-policy="fail"]
   .service-probe[data-probe-kind="http"] {
   border-color: rgba(255, 68, 68, 0.48);
   background: rgba(255, 68, 68, 0.075);
   color: #ff9999;
 }
 
-#sickz-checks .health-row[data-exposure-policy="unknown"]
+#sickz-checks
+  .health-row[data-exposure-policy="unknown"]
   .service-probe[data-probe-kind="http"] {
   border-color: #3a3a3a;
   background: #111111;
