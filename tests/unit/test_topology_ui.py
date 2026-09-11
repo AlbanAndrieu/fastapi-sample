@@ -57,5 +57,7 @@ def test_topology_route_is_registered_without_changing_api_page() -> None:
     api_page = (ROOT / "nabla" / "api" / "ui.py").read_text(encoding="utf-8")
 
     assert 'app.get("/api/topology"' in routes
+    assert "_register_topology_dashboard(app)" in routes
     assert "render_topology_page(" in routes
+    assert 'href="/api/topology">Topology</a>' in api_page
     assert "cytoscape" not in api_page.lower()
