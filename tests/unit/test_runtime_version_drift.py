@@ -1,5 +1,6 @@
 """Regression coverage for homelab-to-cloud runtime version drift UI."""
 
+import re
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -25,8 +26,13 @@ def test_runtime_version_endpoint_is_public_sanitized_and_cross_origin() -> None
 def test_homelab_version_warning_compares_against_fastapi_cloud() -> None:
     script = (ASSETS / "api-version-drift.js").read_text(encoding="utf-8")
     bootstrap = (ASSETS / "api-health.js").read_text(encoding="utf-8")
+    cloud_url = re.search(
+        r'const FASTAPI_CLOUD_VERSION_URL\s*=\s*"([^"]+)";',
+        script,
+    )
 
-    assert "https://fastapi-sample.fastapicloud.dev/api/runtime-version" in script
+    assert cloud_url is not None
+    assert cloud_url.group(1) == "https://fastapi-sample.fastapicloud.dev/api/runtime-version"
     assert 'runtime?.dataset?.runtimeMode !== "homelab"' in script
     assert 'warning.textContent = "⚠️";' in script
     assert "compareVersions(localVersion, cloudVersion) !== -1" in script
