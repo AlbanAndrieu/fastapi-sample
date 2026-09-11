@@ -96,7 +96,12 @@ jobs:
       packages: write
       security-events: write
     uses: ./.github/workflows/python.yml
-    secrets: inherit
+    secrets:
+      TRUNK_API_TOKEN: ${{ secrets.TRUNK_API_TOKEN }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      CI_PIP_GITLABNABLA_TOKEN: ${{ secrets.CI_PIP_GITLABNABLA_TOKEN }}
 
   production-smoke:
     name: Re-run Production Smoke after merge
@@ -104,7 +109,6 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/production-smoke.yml
-    secrets: inherit
 
   codeql:
     name: Re-run CodeQL for security-impacting merge
@@ -123,7 +127,9 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/security-zap.yml
-    secrets: inherit
+    secrets:
+      CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+      CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
 
   remediate:
     name: Open remediation issue and draft PR

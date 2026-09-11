@@ -6,6 +6,17 @@ on:
     branches: [master]
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_call:
+    secrets:
+      TRUNK_API_TOKEN:
+        required: false
+      SONAR_TOKEN:
+        required: false
+      DOCKER_USERNAME:
+        required: false
+      DOCKER_PASSWORD:
+        required: false
+      CI_PIP_GITLABNABLA_TOKEN:
+        required: false
   workflow_dispatch:
 
 permissions:
