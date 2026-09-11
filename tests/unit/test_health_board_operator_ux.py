@@ -42,7 +42,8 @@ def test_operator_navigation_counters_follow_visible_service_rows() -> None:
     assert "#sickz-checks > [data-service-filter-target]" in source
     assert "#truenas-probe-list .truenas-probe-row" in source
     assert 'getElementById("runtime-instance-count")' in source
-    assert 'document.addEventListener("service-filter-changed"' in source
+    assert '"service-filter-changed"' in source
+    assert "scheduleNavigationRefresh," in source
 
 
 def test_refresh_controller_announces_only_completed_snapshot_cycles() -> None:
