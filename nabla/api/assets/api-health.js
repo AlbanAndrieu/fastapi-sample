@@ -1,6 +1,7 @@
 import { installGlobalServiceFilter } from "./api-global-service-filter.js";
 import { installHealthBoardController } from "./api-health-controller.js";
 import { installHealthOperatorUx } from "./api-health-operator-ux.js";
+import { installHttpProbeStatuses } from "./api-http-probe-status.js";
 import { installProbeFanoutDashboard } from "./api-probe-fanout-dashboard.js";
 import { startProbeAgeTicker } from "./api-probe-live.js";
 import { installServiceDetailDrawer } from "./api-service-detail-drawer.js";
@@ -17,6 +18,7 @@ installHealthOperatorUx();
 installServiceDetailDrawer();
 installProbeFanoutDashboard();
 startProbeAgeTicker();
+installHttpProbeStatuses();
 installHealthBoardController();
 installServiceOperatorDiagnostics();
 installServiceProbeDetails();
