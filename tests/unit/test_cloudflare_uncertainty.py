@@ -140,6 +140,25 @@ def test_empty_exposure_summary_is_warning_not_degraded() -> None:
     assert summary["warning"].startswith("⚠️")
 
 
+def test_exposure_summary_reports_local_vs_dashboard_managed_tunnels() -> None:
+    tunnel = cloudflare_exposure_observer.CloudflareTunnelObservation
+    snapshot = cloudflare_exposure_observer.CloudflareExposureSnapshot(
+        configured=True,
+        tunnels=(
+            tunnel(tunnel_id="local", name="local", config_source="local"),
+            tunnel(tunnel_id="remote", name="remote", config_source="cloudflare"),
+            tunnel(tunnel_id="unknown", name="unknown"),
+        ),
+    )
+
+    summary = snapshot.summary()
+
+    assert summary["local_managed_tunnels"] == 1
+    assert summary["cloudflare_managed_tunnels"] == 1
+    assert summary["unknown_management_tunnels"] == 1
+    assert summary["tunnel_config_sources"] == ["cloudflare", "local", "unknown"]
+
+
 @pytest.mark.asyncio
 async def test_legacy_healthz_homelab_rows_only_probe_primary_truenas(monkeypatch) -> None:
     async def should_not_fetch_services():
