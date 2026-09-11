@@ -647,11 +647,9 @@ function installControls() {
   document.getElementById("topology-fit")?.addEventListener("click", () => {
     state.graph?.fit(state.graph.elements().not(".is-filtered"), 36);
   });
-  document
-    .getElementById("topology-reset")
-    ?.addEventListener("click", () => {
-      void resetView();
-    });
+  document.getElementById("topology-reset")?.addEventListener("click", () => {
+    void resetView();
+  });
   window.addEventListener("popstate", () => {
     void (async () => {
       hydrateTopologyControlsFromUrl();
