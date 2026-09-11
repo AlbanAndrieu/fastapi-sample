@@ -1,3 +1,10 @@
+# [1.19.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.18.0...1.19.0) (2026-09-11)
+
+
+### Features
+
+* **ui:** separate topology dependency and network views ([#250](https://github.com/AlbanAndrieu/fastapi-sample/issues/250)) ([6c4dd8e](https://github.com/AlbanAndrieu/fastapi-sample/commit/6c4dd8e8013b4d9237a256525b5b89fb7bedba96))
+
 # [1.18.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.17.0...1.18.0) (2026-09-11)
 
 
