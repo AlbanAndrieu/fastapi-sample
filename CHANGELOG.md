@@ -1,3 +1,10 @@
+# [1.17.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.16.1...1.17.0) (2026-09-11)
+
+
+### Features
+
+* **ui:** add diagnostic health filters and probe evidence ([#246](https://github.com/AlbanAndrieu/fastapi-sample/issues/246)) ([5117ca8](https://github.com/AlbanAndrieu/fastapi-sample/commit/5117ca81edab6010c08c8b8d6be713bf233dc42f))
+
 ## [1.16.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.16.0...1.16.1) (2026-09-11)
 
 
