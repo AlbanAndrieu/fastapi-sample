@@ -13,6 +13,7 @@ from typing import Any, Literal
 
 import httpx
 
+from nabla.api.dns_probe import probe_dns_hostname
 from nabla.api.health_probe_utils import is_textual_response, looks_like_tls_error
 from nabla.api.homelab_catalog import fetch_homelab_services
 from nabla.api.homelab_models import HomelabService
@@ -139,10 +140,14 @@ async def _probe_http_endpoint(
     name: str,
     url: str,
 ) -> dict[str, Any]:
-    """Probe one HTTP endpoint and preserve status, TLS and application outcome."""
+    """Probe one HTTP endpoint and preserve DNS, status, TLS and application outcome."""
     started = time.perf_counter()
+    dns_evidence: dict[str, Any] = {}
     try:
         async with semaphore:
+            hostname = httpx.URL(url).host
+            if hostname:
+                dns_evidence = await probe_dns_hostname(hostname)
             response = await client.head(
                 url,
                 headers={"User-Agent": "nabla-homelab-health/1.0"},
@@ -182,6 +187,7 @@ async def _probe_http_endpoint(
             "tls_trusted": False if looks_like_tls_error(error) else None,
             "error": error,
         }
+    result.update(dns_evidence)
     result["latency_ms"] = max(0, round((time.perf_counter() - started) * 1000))
     return result
 
@@ -704,4 +710,3 @@ async def build_homelab_health_payload(
             cache_source="origin",
             cache_age_seconds=0.0,
         )
-
