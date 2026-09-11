@@ -1,3 +1,10 @@
+# [1.16.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.15.1...1.16.0) (2026-09-11)
+
+
+### Features
+
+* **api:** improve homelab probe operator diagnostics ([#238](https://github.com/AlbanAndrieu/fastapi-sample/issues/238)) ([05376ed](https://github.com/AlbanAndrieu/fastapi-sample/commit/05376ed4ef01211322f7961297dcbbe70cea2037))
+
 ## [1.15.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.15.0...1.15.1) (2026-09-10)
 
 
