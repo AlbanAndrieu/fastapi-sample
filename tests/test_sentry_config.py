@@ -1,6 +1,6 @@
 """Tests for local-first, Logfire-aware Sentry configuration."""
 
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock
 
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
@@ -39,6 +39,47 @@ def test_selects_reachable_local_sentry(monkeypatch) -> None:
 
     assert dsn == local_dsn
     assert target == "local"
+
+
+def test_https_sentry_reachability_requires_tls_handshake(monkeypatch) -> None:
+    connection = MagicMock()
+    connection.__enter__.return_value = connection
+    tls_socket = MagicMock()
+    tls_socket.__enter__.return_value = tls_socket
+    context = Mock()
+    context.wrap_socket.return_value = tls_socket
+    create_connection = Mock(return_value=connection)
+    monkeypatch.setattr(sentry_config.socket, "create_connection", create_connection)
+    monkeypatch.setattr(sentry_config.ssl, "create_default_context", lambda: context)
+
+    assert sentry_config.sentry_dsn_is_reachable(
+        "https://public@sentry.example.test:9005/2"
+    )
+    create_connection.assert_called_once_with(("sentry.example.test", 9005), timeout=0.25)
+    context.wrap_socket.assert_called_once_with(
+        connection,
+        server_hostname="sentry.example.test",
+    )
+
+
+def test_https_sentry_reachability_rejects_plain_http_listener(monkeypatch) -> None:
+    connection = MagicMock()
+    connection.__enter__.return_value = connection
+    context = Mock()
+    context.wrap_socket.side_effect = sentry_config.ssl.SSLError(
+        1,
+        "wrong version number",
+    )
+    monkeypatch.setattr(
+        sentry_config.socket,
+        "create_connection",
+        Mock(return_value=connection),
+    )
+    monkeypatch.setattr(sentry_config.ssl, "create_default_context", lambda: context)
+
+    assert not sentry_config.sentry_dsn_is_reachable(
+        "https://public@172.17.0.24:9005/2"
+    )
 
 
 def test_does_not_derive_self_hosted_credentials_from_cloud_dsn(monkeypatch) -> None:
