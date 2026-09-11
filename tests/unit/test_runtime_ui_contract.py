@@ -99,6 +99,10 @@ def test_runtime_refresh_preserves_operator_expansion_state() -> None:
     assert "homelab telemetry degraded" in javascript
     assert 'runtimeMode === "homelab"' in javascript
     assert '"trusted LAN"' in javascript
+    assert 'return "FastAPI runtime";' in javascript
+    assert 'return "FastAPI runtime · TrueNAS";' in javascript
+    assert 'return "FastAPI runtime · workstation";' in javascript
+    assert 'setText("runtime-topology-title", runtimeTitle(runtimeMode));' in javascript
     assert "observed_instance_count" in javascript
     assert "active_egress_ips" in javascript
     assert "recent_egress_ips" in javascript
