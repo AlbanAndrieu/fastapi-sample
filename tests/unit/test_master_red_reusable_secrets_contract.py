@@ -23,7 +23,8 @@ def test_master_red_passes_only_named_reusable_workflow_secrets() -> None:
         assert mapping in workflow
 
     production_smoke = workflow.split("  production-smoke:", maxsplit=1)[1].split(
-        "  codeql:", maxsplit=1,
+        "  codeql:",
+        maxsplit=1,
     )[0]
     assert "secrets:" not in production_smoke
 
@@ -31,7 +32,8 @@ def test_master_red_passes_only_named_reusable_workflow_secrets() -> None:
 def test_python_reusable_workflow_declares_every_forwarded_secret() -> None:
     workflow = PYTHON.read_text(encoding="utf-8")
     workflow_call = workflow.split("  workflow_call:", maxsplit=1)[1].split(
-        "  workflow_dispatch:", maxsplit=1,
+        "  workflow_dispatch:",
+        maxsplit=1,
     )[0]
 
     for secret_name in (
