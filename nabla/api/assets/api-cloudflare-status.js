@@ -1,3 +1,5 @@
+import { escapeText } from "./api-health-ui.js";
+
 const CLOUDFLARE_ICON =
   "https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/cloudflare.svg";
 
@@ -166,17 +168,33 @@ function ensureTunnelWarningBlock() {
   return container;
 }
 
-function renderTunnelWarning(checks) {
+function platformCloudflareDetail(platformCheck) {
+  if (!platformCheck || platformCheck.status_confirmed === true) return null;
+  const kind = String(platformCheck.error_kind || "unconfirmed").trim();
+  const warning = String(
+    platformCheck.warning || platformCheck.error || "Cloudflare control-plane status is unconfirmed",
+  ).trim();
+  const apiState =
+    platformCheck.api_reachable === true
+      ? "API reachable"
+      : platformCheck.api_reachable === false
+        ? "API unreachable"
+        : "API reachability unknown";
+  return `${apiState} · ${kind} · ${warning}`;
+}
+
+function renderTunnelWarning(checks, platformCheck) {
   const protectedChecks = Object.values(checks).filter(
     (check) => check?.tunnel_secure === true,
   );
   const unresolved = protectedChecks
     .map((check) => ({ check, state: normalizeTunnelStatus(check) }))
     .filter(({ state }) => state && state.cls !== "green");
+  const platformDetail = platformCloudflareDetail(platformCheck);
   const container = ensureTunnelWarningBlock();
   if (!container) return;
 
-  if (unresolved.length === 0) {
+  if (unresolved.length === 0 && !platformDetail) {
     container.hidden = true;
     container.open = false;
     container.innerHTML = "";
@@ -200,6 +218,7 @@ function renderTunnelWarning(checks) {
       check.cloudflare_edge_headers_observed === true,
   ).length;
   const details = [];
+  if (platformDetail) details.push(platformDetail);
   if (observerErrors.length > 0) {
     details.push(
       `Tunnel inventory observer error: ${observerErrors.join(", ")}.`,
@@ -210,9 +229,11 @@ function renderTunnelWarning(checks) {
       `${edgeObserved}/${unresolved.length} unresolved protected hostname(s) still show Cloudflare edge evidence.`,
     );
   }
-  details.push(
-    `${unresolved.length} tunnel-protected hostname(s) are not confirmed by the current Tunnel ingress inventory.`,
-  );
+  if (unresolved.length > 0) {
+    details.push(
+      `${unresolved.length} tunnel-protected hostname(s) are not confirmed by the current Tunnel ingress inventory.`,
+    );
+  }
   details.push(
     "This is verification uncertainty, not proof that the service or Cloudflare Tunnel is down; check account/token scope and remote-vs-local tunnel management.",
   );
@@ -224,11 +245,11 @@ function renderTunnelWarning(checks) {
     CLOUDFLARE_ICON +
     '" alt="" width="18" height="18" loading="lazy"> ⚠ Cloudflare Tunnel verification temporarily unavailable</strong></summary>' +
     '<div class="truenas-ingress-detail">' +
-    details.map((detail) => `<span>${detail}</span>`).join("") +
+    details.map((detail) => `<span>${escapeText(detail)}</span>`).join("") +
     "</div>";
 }
 
-export function decorateCloudflareTunnelStatuses(data) {
+export function decorateCloudflareTunnelStatuses(data, platformCheck = null) {
   const checks = data?.checks || {};
   // api-sickz.js renders from the same snapshot. Defer one task so its rows exist.
   window.setTimeout(() => {
@@ -237,6 +258,6 @@ export function decorateCloudflareTunnelStatuses(data) {
       replaceDirectProbeWording(row, check);
       appendTunnelBadge(row, normalizeTunnelStatus(check));
     });
-    renderTunnelWarning(checks);
+    renderTunnelWarning(checks, platformCheck);
   }, 0);
 }
