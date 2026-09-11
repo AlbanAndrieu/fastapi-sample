@@ -1,40 +1,8 @@
 import { fetchHealthBoard } from "./api-health-board.js";
-
-const STATUS_OPTIONS = [
-  ["all", "All statuses"],
-  ["operational", "Operational"],
-  ["at-risk", "At risk"],
-  ["degraded", "Degraded"],
-  ["down", "Down"],
-  ["unknown", "Unknown"],
-  ["issues", "Issues only"],
-];
-
-const EXPOSURE_OPTIONS = [
-  ["all", "All exposure policies"],
-  ["ok", "Policy compliant"],
-  ["warn", "Policy warning"],
-  ["fail", "Policy violation"],
-  ["unknown", "Policy unknown"],
-  ["unobserved", "No exposure evidence"],
-  ["external", "External services"],
-  ["internal", "Internal-only services"],
-  ["cloudflare", "Cloudflare protected"],
-  ["direct", "Direct / no tunnel"],
-];
-
-const PROBE_OPTIONS = [
-  ["all", "All probe types"],
-  ["http", "HTTP"],
-  ["tls", "HTTPS / TLS"],
-  ["tcp", "TCP"],
-  ["api", "REST API"],
-  ["websocket", "WebSocket"],
-  ["cloudflare", "Cloudflare Tunnel"],
-  ["access", "Cloudflare Access"],
-  ["service-token", "Service Token"],
-  ["metrics", "Prometheus / metrics"],
-];
+import {
+  installServiceFilter,
+  refreshServiceFilter,
+} from "./api-service-filter.js";
 
 const PROBE_ICONS = {
   http: "🌐",
@@ -47,25 +15,6 @@ const PROBE_ICONS = {
   "service-token": "🔑",
   metrics: "📈",
   policy: "🛡️",
-};
-
-const LEGEND_ITEMS = [
-  ["🌐", "HTTP"],
-  ["🔒", "TLS certificate"],
-  ["🔌", "TCP"],
-  ["⚙️", "REST API"],
-  ["↔️", "WebSocket"],
-  ["☁️", "Cloudflare Tunnel"],
-  ["🛡️", "Access / policy"],
-  ["🔑", "Service Token"],
-  ["📈", "Prometheus / metrics"],
-];
-
-const filters = {
-  query: "",
-  status: "all",
-  exposure: "all",
-  probe: "all",
 };
 
 let latestSnapshot = null;
@@ -148,18 +97,6 @@ function normalizedPolicy(check) {
   return "unknown";
 }
 
-function normalizedStatus(row) {
-  const explicit = normalize(row.dataset.semanticStatus);
-  if (explicit) return explicit;
-  if (row.querySelector(".health-led--red")) return "down";
-  if (row.querySelector(".health-led--yellow, .health-led--blue")) {
-    return "degraded";
-  }
-  if (row.querySelector(".health-led--gray")) return "unknown";
-  if (row.querySelector(".health-led--green")) return "operational";
-  return "unknown";
-}
-
 function reachabilityTone(check) {
   if (!check) return "unknown";
   if (check.skipped === true) return "neutral";
@@ -182,12 +119,34 @@ function policyTone(policy) {
   return "unknown";
 }
 
-function probeBadge(kind, tone, label, detail) {
+function evidenceMetadata(check) {
+  if (!check) return "";
+  const parts = [];
+  if (check.elapsed_ms != null) parts.push(`latency=${check.elapsed_ms}ms`);
+  const age = check.cache_age_seconds ?? check.age_seconds;
+  if (age != null) parts.push(`age=${age}s`);
+  const cache = check.cache_layer ?? (check.cached === true ? "yes" : null);
+  if (cache) parts.push(`cache=${cache}`);
+  if (check.stale === true) parts.push("stale");
+  if (check.refreshing === true) parts.push("refreshing");
+  if (check.confirmed === false || check.unconfirmed === true) {
+    parts.push("status=unconfirmed");
+  }
+  if (check.vantage_point) parts.push(`vantage=${check.vantage_point}`);
+  if (check.failure_stage) parts.push(`stage=${check.failure_stage}`);
+  if (check.error_kind) parts.push(`error=${check.error_kind}`);
+  if (check.credential_mode) parts.push(`credential=${check.credential_mode}`);
+  if (check.last_success_at) parts.push(`last-success=${check.last_success_at}`);
+  return parts.length ? ` · ${parts.join(" · ")}` : "";
+}
+
+function probeBadge(kind, tone, label, detail, evidence = null) {
   const badge = document.createElement("span");
   badge.className = `service-probe service-probe--${tone}`;
   badge.dataset.probeKind = kind;
-  badge.title = detail || label;
-  badge.setAttribute("aria-label", detail || label);
+  const description = `${detail || label}${evidenceMetadata(evidence)}`;
+  badge.title = description;
+  badge.setAttribute("aria-label", description);
 
   const icon = document.createElement("span");
   icon.className = "service-probe-icon";
@@ -232,6 +191,7 @@ function addHttpEvidence(target, check, kinds) {
       reachabilityTone(check),
       label,
       httpDetail(check, suffix),
+      check,
     ),
   );
   kinds.add("http");
@@ -260,7 +220,7 @@ function addTlsEvidence(target, check, kinds) {
     detail = "HTTPS certificate validation failed";
   }
 
-  target.appendChild(probeBadge("tls", tone, "TLS", detail));
+  target.appendChild(probeBadge("tls", tone, "TLS", detail, check));
   kinds.add("tls");
 }
 
@@ -284,6 +244,7 @@ function addTcpEvidence(target, check, kinds) {
       reachabilityTone(check),
       "TCP",
       `TCP connectivity probe${endpoint}${error}`,
+      check,
     ),
   );
   kinds.add("tcp");
@@ -300,7 +261,9 @@ function addApiEvidence(target, key, check, kinds) {
   if (!hasApi) return;
 
   const detail = `Authenticated/read-only API evidence${path ? ` via ${path}` : ""}`;
-  target.appendChild(probeBadge("api", reachabilityTone(check), "API", detail));
+  target.appendChild(
+    probeBadge("api", reachabilityTone(check), "API", detail, check),
+  );
   kinds.add("api");
 
   const hasWebsocket =
@@ -312,6 +275,7 @@ function addApiEvidence(target, key, check, kinds) {
       reachabilityTone(check),
       "WS",
       "WebSocket API connectivity evidence",
+      check,
     ),
   );
   kinds.add("websocket");
@@ -373,7 +337,7 @@ function addCloudflareEvidence(target, exposure, kinds) {
 
   const [tunnelTone, tunnelDetail] = tunnelEvidence(exposure);
   target.appendChild(
-    probeBadge("cloudflare", tunnelTone, "Tunnel", tunnelDetail),
+    probeBadge("cloudflare", tunnelTone, "Tunnel", tunnelDetail, exposure),
   );
   kinds.add("cloudflare");
 
@@ -383,7 +347,7 @@ function addCloudflareEvidence(target, exposure, kinds) {
   if (hasAccess) {
     const [accessTone, accessDetail] = accessEvidence(exposure);
     target.appendChild(
-      probeBadge("access", accessTone, "Access", accessDetail),
+      probeBadge("access", accessTone, "Access", accessDetail, exposure),
     );
     kinds.add("access");
   }
@@ -408,6 +372,7 @@ function addCloudflareEvidence(target, exposure, kinds) {
       tone,
       `Token${statusLabel}`,
       `Cloudflare Access Service Token ${result}${statusLabel ? ` · HTTP${statusLabel}` : ""}`,
+      exposure,
     ),
   );
   kinds.add("service-token");
@@ -441,7 +406,7 @@ function addMetricEvidence(target, check, kinds) {
   else if (tone === "fail") {
     detail = "Prometheus/metrics evidence reports unavailable";
   }
-  target.appendChild(probeBadge("metrics", tone, "Metrics", detail));
+  target.appendChild(probeBadge("metrics", tone, "Metrics", detail, check));
   kinds.add("metrics");
 }
 
@@ -497,7 +462,7 @@ function decorateRow(row, snapshot) {
     const detail =
       exposure.policy_detail || `Exposure security policy: ${policy}`;
     strip.appendChild(
-      probeBadge("policy", policyTone(policy), "Policy", detail),
+      probeBadge("policy", policyTone(policy), "Policy", detail, exposure),
     );
   }
 
@@ -508,257 +473,6 @@ function decorateRow(row, snapshot) {
   if (existing) existing.remove();
   strip.dataset.signature = signature;
   if (strip.children.length > 0) primary.appendChild(strip);
-}
-
-function selectControl(id, label, options) {
-  const wrapper = document.createElement("label");
-  wrapper.className = "service-filter-facet";
-  wrapper.htmlFor = id;
-
-  const caption = document.createElement("span");
-  caption.textContent = label;
-  const select = document.createElement("select");
-  select.id = id;
-  for (const [value, text] of options) {
-    const option = document.createElement("option");
-    option.value = value;
-    option.textContent = text;
-    select.appendChild(option);
-  }
-  wrapper.append(caption, select);
-  return wrapper;
-}
-
-function appendLegend(host) {
-  const legend = document.createElement("div");
-  legend.id = "service-probe-legend";
-  legend.className = "service-probe-legend";
-
-  const title = document.createElement("strong");
-  title.textContent = "Probe evidence";
-  legend.appendChild(title);
-  for (const [icon, label] of LEGEND_ITEMS) {
-    const item = document.createElement("span");
-    item.textContent = `${icon} ${label}`;
-    legend.appendChild(item);
-  }
-  const help = document.createElement("small");
-  help.textContent =
-    "green = operational · amber = warning · red = failed · gray = unknown / not confirmed";
-  legend.appendChild(help);
-  host.appendChild(legend);
-}
-
-function ensureFilterControls() {
-  const host = document.querySelector(".service-filter");
-  if (!host || document.getElementById("service-filter-facets")) return;
-
-  const facets = document.createElement("div");
-  facets.id = "service-filter-facets";
-  facets.className = "service-filter-facets";
-  facets.append(
-    selectControl("service-status-filter", "Status", STATUS_OPTIONS),
-    selectControl(
-      "service-exposure-filter",
-      "Exposure security policy",
-      EXPOSURE_OPTIONS,
-    ),
-    selectControl("service-probe-filter", "Probe", PROBE_OPTIONS),
-  );
-  host.appendChild(facets);
-
-  const result = document.createElement("div");
-  result.id = "service-filter-result";
-  result.className = "service-filter-result";
-  result.setAttribute("aria-live", "polite");
-  host.appendChild(result);
-  appendLegend(host);
-}
-
-function exposureMatches(row) {
-  if (filters.exposure === "all") return true;
-  if (filters.exposure === "external") {
-    return row.dataset.exposureScope === "external";
-  }
-  if (filters.exposure === "internal") {
-    return row.dataset.exposureScope === "internal";
-  }
-  if (filters.exposure === "cloudflare") {
-    return row.dataset.exposureMode === "cloudflare";
-  }
-  if (filters.exposure === "direct") {
-    return row.dataset.exposureMode === "direct";
-  }
-  return row.dataset.exposurePolicy === filters.exposure;
-}
-
-function statusMatches(row) {
-  if (filters.status === "all") return true;
-  const status = normalizedStatus(row);
-  if (filters.status === "issues") return status !== "operational";
-  return status === filters.status;
-}
-
-function queryMatches(row) {
-  const tokens = normalize(filters.query).split(/\s+/).filter(Boolean);
-  if (tokens.length === 0) return true;
-  const haystack = normalize(
-    [
-      row.dataset.searchText,
-      row.textContent,
-      row.dataset.probeKinds,
-      row.dataset.exposurePolicy,
-      row.dataset.exposureScope,
-      row.dataset.exposureMode,
-    ].join(" "),
-  );
-  return tokens.every((token) => haystack.includes(token));
-}
-
-function probeMatches(row) {
-  if (filters.probe === "all") return true;
-  return String(row.dataset.probeKinds || "")
-    .split(/\s+/)
-    .includes(filters.probe);
-}
-
-function isFiltering() {
-  return (
-    Boolean(filters.query) ||
-    filters.status !== "all" ||
-    filters.exposure !== "all" ||
-    filters.probe !== "all"
-  );
-}
-
-function updateGroupVisibility() {
-  for (const group of document.querySelectorAll("[data-service-group]")) {
-    const rows = [...group.querySelectorAll("[data-service-filter-target]")];
-    const visible = rows.some((row) => !row.hidden);
-    group.hidden = !visible;
-    if (isFiltering() && visible) group.open = true;
-  }
-}
-
-function updateFilterResult(rows) {
-  const result = document.getElementById("service-filter-result");
-  if (!result) return;
-  const visible = rows.filter((row) => !row.hidden).length;
-  const active = [];
-  if (filters.status !== "all") active.push(`status=${filters.status}`);
-  if (filters.exposure !== "all") active.push(`exposure=${filters.exposure}`);
-  if (filters.probe !== "all") active.push(`probe=${filters.probe}`);
-  if (filters.query) active.push(`search=“${filters.query}”`);
-  const details = active.length ? ` · ${active.join(" · ")}` : "";
-  result.textContent = `${visible}/${rows.length} diagnostic rows visible${details}`;
-}
-
-function updateCollapseButton() {
-  const button = document.getElementById("service-collapse-all");
-  if (!button) return;
-  const groups = [
-    ...document.querySelectorAll("[data-service-group]:not([hidden])"),
-  ];
-  const anyOpen = groups.some((group) => group.open);
-  button.textContent = anyOpen ? "Collapse" : "Expand";
-  button.setAttribute("aria-expanded", String(anyOpen));
-  button.title = anyOpen
-    ? "Collapse all visible service groups"
-    : "Expand all visible service groups";
-}
-
-function syncIssuesButton() {
-  const button = document.getElementById("service-expand-issues");
-  if (!button) return;
-  const active = filters.status === "issues";
-  button.textContent = active ? "All" : "Issues";
-  button.setAttribute("aria-pressed", String(active));
-}
-
-function applyFilters() {
-  const rows = [...document.querySelectorAll("[data-service-filter-target]")];
-  for (const row of rows) {
-    row.hidden = !(
-      queryMatches(row) &&
-      statusMatches(row) &&
-      exposureMatches(row) &&
-      probeMatches(row)
-    );
-  }
-  updateGroupVisibility();
-  updateFilterResult(rows);
-  updateCollapseButton();
-  syncIssuesButton();
-}
-
-function clearFilters() {
-  filters.query = "";
-  filters.status = "all";
-  filters.exposure = "all";
-  filters.probe = "all";
-
-  const input = document.getElementById("service-filter");
-  const status = document.getElementById("service-status-filter");
-  const exposure = document.getElementById("service-exposure-filter");
-  const probe = document.getElementById("service-probe-filter");
-  if (input) input.value = "";
-  if (status) status.value = "all";
-  if (exposure) exposure.value = "all";
-  if (probe) probe.value = "all";
-  applyFilters();
-}
-
-function installFilterEvents() {
-  const input = document.getElementById("service-filter");
-  const clear = document.getElementById("service-filter-clear");
-  const issues = document.getElementById("service-expand-issues");
-  const collapse = document.getElementById("service-collapse-all");
-  const status = document.getElementById("service-status-filter");
-  const exposure = document.getElementById("service-exposure-filter");
-  const probe = document.getElementById("service-probe-filter");
-
-  input?.addEventListener("input", () => {
-    filters.query = input.value;
-    applyFilters();
-  });
-  status?.addEventListener("change", () => {
-    filters.status = status.value;
-    applyFilters();
-  });
-  exposure?.addEventListener("change", () => {
-    filters.exposure = exposure.value;
-    applyFilters();
-  });
-  probe?.addEventListener("change", () => {
-    filters.probe = probe.value;
-    applyFilters();
-  });
-  clear?.addEventListener("click", () => {
-    clearFilters();
-    input?.focus();
-  });
-  issues?.addEventListener("click", () => {
-    filters.status = filters.status === "issues" ? "all" : "issues";
-    if (status) status.value = filters.status;
-    applyFilters();
-  });
-  collapse?.addEventListener("click", () => {
-    const groups = [
-      ...document.querySelectorAll("[data-service-group]:not([hidden])"),
-    ];
-    const shouldOpen = !groups.some((group) => group.open);
-    for (const group of groups) group.open = shouldOpen;
-    updateCollapseButton();
-  });
-  document.addEventListener(
-    "toggle",
-    (event) => {
-      if (event.target?.matches?.("[data-service-group]")) {
-        updateCollapseButton();
-      }
-    },
-    true,
-  );
 }
 
 async function decorateRows() {
@@ -772,7 +486,7 @@ async function decorateRows() {
       );
       for (const row of rows) decorateRow(row, latestSnapshot);
     }
-    applyFilters();
+    refreshServiceFilter();
   } finally {
     decorating = false;
   }
@@ -788,8 +502,7 @@ function scheduleRefresh() {
 }
 
 export function installServiceDiagnostics() {
-  ensureFilterControls();
-  installFilterEvents();
+  installServiceFilter();
   const board = document.getElementById("health-board");
   if (board) {
     const observer = new MutationObserver(scheduleRefresh);
