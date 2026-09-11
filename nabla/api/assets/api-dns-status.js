@@ -1,3 +1,7 @@
+let latestSnapshot = null;
+let installed = false;
+let scheduled = false;
+
 function normalize(value) {
   return String(value || "")
     .normalize("NFKD")
@@ -112,8 +116,10 @@ function badgeFor(check) {
   return badge;
 }
 
-export function decorateDnsStatuses(snapshot) {
-  const checks = dnsChecks(snapshot);
+function apply() {
+  scheduled = false;
+  if (!latestSnapshot) return;
+  const checks = dnsChecks(latestSnapshot);
   for (const row of document.querySelectorAll(
     ".health-row[data-service-filter-target]",
   )) {
@@ -124,4 +130,19 @@ export function decorateDnsStatuses(snapshot) {
     if (!check) continue;
     strip.prepend(badgeFor(check));
   }
+}
+
+function schedule() {
+  if (scheduled) return;
+  scheduled = true;
+  window.setTimeout(() => window.requestAnimationFrame(apply), 0);
+}
+
+export function decorateDnsStatuses(snapshot) {
+  latestSnapshot = snapshot;
+  if (!installed) {
+    installed = true;
+    document.addEventListener("health-board-refreshed", schedule);
+  }
+  schedule();
 }
