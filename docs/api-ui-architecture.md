@@ -33,9 +33,9 @@ show service rows.
 
 ## Topology screen
 
-The first standalone topology screen uses Cytoscape.js because it provides a
-purpose-built graph model, selectors, layouts, viewport interactions and graph
-algorithms without introducing React.
+The standalone topology screen uses Cytoscape.js because it provides a purpose-built
+graph model, selectors, layouts, viewport interactions and graph algorithms without
+introducing React.
 
 Current constraints:
 
@@ -47,7 +47,20 @@ Current constraints:
 - reuse the same topology loader/fallback in the health grouping and topology
   screen;
 - keep live health separate from declared topology until the declared view is
-  stable.
+  stable;
+- start with the **Dependencies** preset so functional dependencies are not mixed
+  with routing/ingress edges by default;
+- provide **Network paths** for canonical `routesTo` and `exposedBy` relations and
+  **All relations** for structural, observability and automation edges as well;
+- let an explicit relation filter override the preset rather than silently creating
+  contradictory filters;
+- keep topology controls shareable through URL state (`q`, `view`, `relation`,
+  `strength`, `layout`) without storing operator state server-side;
+- preserve unrelated query parameters and the URL hash while updating topology
+  state;
+- never infer trust/network zones from hostnames, URLs, service display names or
+  categories. Add zones only after the canonical topology contract exposes
+  reviewed zone metadata.
 
 ## Controlling frontend code growth
 
@@ -155,23 +168,29 @@ explicit API contracts.
   maintenance history, security documentation, Trusted Types support and ecosystem
   of Lit unless a measured payload budget proves that difference material.
 
-## Follow-up presentation roadmap
+## Presentation design sequence
+
+Planning status belongs in `docs/engineering-roadmap.md`; this list records the UI
+architecture sequence and acceptance boundaries.
 
 1. Keep the page-wide sticky health filter consistent with the homelab site and
-  add presentation-group/environment facets only from canonical topology/catalog
-  metadata.
-2. Add topology presets for **Dependencies** and **Network paths** so functional
-  dependencies and transport/ingress paths are not mixed by default.
-3. Add compound trust/network zones when the topology contract can identify them
-  without UI-side inference: Internet/Cloudflare, pfSense/LAN, TrueNAS/Docker,
-  Talos/Kubernetes and external providers.
+   add presentation-group/environment facets only from canonical topology/catalog
+   metadata. Implemented by the health-filter work through PR #247.
+2. Separate topology **Dependencies** and **Network paths** presets so functional
+   dependencies and transport/ingress paths are not mixed by default. The focused
+   presets must use declared relation types only; structural/observability relations
+   remain available through **All relations**.
+3. Add compound trust/network zones only when the topology contract can identify
+   them without UI-side inference: Internet/Cloudflare, pfSense/LAN,
+   TrueNAS/Docker, Talos/Kubernetes and external providers.
 4. Add an optional health overlay to `/api/topology` using the same status/evidence
-  contract as `/api`; declared state and observed state must remain visibly
-  distinct.
-5. Add URL-backed filters so focused health/topology views can be shared without
-  storing operator state server-side.
+   contract as `/api`; declared state and observed state must remain visibly
+   distinct.
+5. Keep focused health and topology views shareable with URL-backed filters and no
+   server-side operator session state. Health state is implemented through PR #247;
+   topology state includes search, preset, relation, strength and layout.
 6. Keep quantitative traffic/latency flow visualisation separate from dependency
-  topology; use Plotly only when measurements justify a Sankey or time-series
-  view.
+   topology; use Plotly only when measurements justify a Sankey or time-series
+   view.
 7. Measure maintained JS/CSS/Python UI source size after each presentation change;
-  refactors that only move boilerplate between files do not count as reductions.
+   refactors that only move boilerplate between files do not count as reductions.
