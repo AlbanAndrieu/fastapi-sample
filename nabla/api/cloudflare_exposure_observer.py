@@ -58,13 +58,7 @@ def _tunnel_summary(tunnel: CloudflareTunnelObservation) -> dict[str, Any]:
         "status": tunnel.status,
         "management": management,
         "ingress_count": len(ingress),
-        "ingress_visibility": (
-            "remote_api"
-            if management == "cloudflare"
-            else "local_yaml_unavailable_via_api"
-            if management == "local"
-            else "unknown"
-        ),
+        "ingress_visibility": ("remote_api" if management == "cloudflare" else "local_yaml_unavailable_via_api" if management == "local" else "unknown"),
         "ingress": ingress,
     }
 
@@ -127,10 +121,7 @@ class CloudflareExposureSnapshot:
             "tunnel_config_sources": sorted(set(config_sources)),
             "tunnels": [_tunnel_summary(tunnel) for tunnel in self.tunnels],
             "access_applications_observed": len(self.access_applications),
-            "access_applications": [
-                _access_application_summary(application)
-                for application in self.access_applications
-            ],
+            "access_applications": [_access_application_summary(application) for application in self.access_applications],
             "tunnel_observer_state": ("unconfigured" if not self.configured else "error" if self.tunnel_error else "empty" if not self.tunnels else "ok"),
             "access_observer_state": ("unconfigured" if not self.configured else "error" if self.access_error else "ok"),
             "tunnel_error": self.tunnel_error,
