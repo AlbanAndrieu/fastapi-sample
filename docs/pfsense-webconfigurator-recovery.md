@@ -52,6 +52,66 @@ A HTTP `502` from pfSense nginx is transport evidence plus an application
 failure. It is not a connect failure and must not be treated as proof that the
 API credential is invalid.
 
+## Workstation recovery helper
+
+The canonical operator entrypoint is now:
+
+```bash
+scripts/pfsense/diagnose-recover.sh --check
+```
+
+It runs from the workstation, connects to pfSense over SSH (default
+`root@172.17.0.1`), saves a bounded local report under `/tmp`, and keeps the
+`PFSENSE_POSTURE_API_KEY` on the workstation. The key is never sent through SSH
+or printed in the report.
+
+The read-only pass captures:
+
+- nginx/PHP-FPM/webConfigurator listeners, processes and bounded logs;
+- filesystem, swap, top RSS and kernel OOM/reclaim evidence;
+- Unbound process, port 53, `unbound-control status`, memory counters and
+  pfBlockerNG DNSBL configuration hints;
+- Snort/pfBlockerNG processes and relevant PF tables;
+- exact block attribution for the default FastAPI/diagnostic sources
+  `172.17.0.24` (TrueNAS) and `172.17.0.57` (workstation);
+- PF rules/states involving management port `10443`;
+- workstation-side WebUI and authenticated REST probes after the SSH phase.
+
+Use an explicit apply only after reviewing the first report:
+
+```bash
+scripts/pfsense/diagnose-recover.sh --apply
+```
+
+`--apply` restarts PHP-FPM and webConfigurator/nginx using the supported pfSense
+rc helpers. It restarts Unbound only when the read-only control/status check did
+not prove it healthy. It does **not** restart Snort or rebuild pfBlockerNG by
+default because those actions can create substantial memory pressure on the
+Netgate 1100.
+
+If the report proves one of the explicit host IPs is present as an exact entry
+in `snort2c` or a pfBlockerNG dynamic PF table, removal requires an additional
+operator opt-in:
+
+```bash
+scripts/pfsense/diagnose-recover.sh --apply --unblock-sources
+```
+
+This mode only issues `pfctl -t <table> -T delete <exact-ip>` for the exact host
+entries supplied through `--probe-sources`. It never flushes a table, never
+removes CIDRs/aliases, and never edits persistent Snort, pfBlockerNG or firewall
+configuration. If a source immediately reappears, diagnose the generating rule
+or package instead of repeatedly deleting the runtime entry.
+
+Useful overrides:
+
+```bash
+scripts/pfsense/diagnose-recover.sh \
+  --target root@172.17.0.1 \
+  --probe-sources "172.17.0.24 172.17.0.57" \
+  --api-url https://home.albandrieu.com:10443
+```
+
 ## Immediate recovery — preserve evidence first
 
 Prefer console or SSH access to pfSense itself. Before restarting anything,
@@ -214,5 +274,7 @@ Do not close the pfSense runtime work until all of the following are proven:
     not to create synchronized pressure against pfSense;
 6. a recurrence captures nginx/PHP-FPM/Unbound/process/log evidence before
     service restarts;
-7. any remaining risk or deferred hardening remains recorded in
+7. the workstation recovery helper has been validated first in `--check`, then
+    in reviewed `--apply` mode if recovery is required;
+8. any remaining risk or deferred hardening remains recorded in
     `docs/engineering-roadmap.md`.

@@ -161,6 +161,7 @@ async def build_extended_healthz(request: Request) -> dict[str, Any]:
 async def _build_homelab_snapshot(
     shared_checks: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    started = time.perf_counter()
     from nabla.api.component_health import (
         build_component_checks,
         component_status,
@@ -175,6 +176,7 @@ async def _build_homelab_snapshot(
         prepare_homelab_reconciliation_context,
         reconcile_homelab_health_payload,
     )
+    from nabla.api.homelab_performance import finalize_homelab_performance
     from nabla.api.provider_credentials import infrastructure_provider_credentials
 
     services = await fetch_homelab_services()
@@ -204,7 +206,10 @@ async def _build_homelab_snapshot(
     payload["components_status"] = component_status(components)
     payload["components"] = components
     payload["provider_credentials"] = infrastructure_provider_credentials()
-    return payload
+    return finalize_homelab_performance(
+        payload,
+        total_seconds=time.perf_counter() - started,
+    )
 
 
 def _planned_truenas_timeout_stages(path_mode: str, error: str) -> list[dict[str, Any]]:

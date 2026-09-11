@@ -103,5 +103,18 @@ def test_context_reads_independent_providers_once(monkeypatch) -> None:
 
     context = asyncio.run(module.prepare_homelab_reconciliation_context([]))
 
-    assert set(context) == {"services", "declared", "cloudflare", "topology", "pfsense_dns"}
+    assert set(context) == {
+        "services",
+        "declared",
+        "cloudflare",
+        "topology",
+        "pfsense_dns",
+        "performance_phases_ms",
+    }
+    assert set(context["performance_phases_ms"]) == {
+        "declared_catalog",
+        "cloudflare_exposure",
+        "topology",
+        "pfsense_posture",
+    }
     assert calls == {"declared": 1, "cloudflare": 1, "topology": 1, "pfsense": 1}
