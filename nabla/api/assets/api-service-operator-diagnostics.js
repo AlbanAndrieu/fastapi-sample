@@ -102,7 +102,9 @@ function checkMatchesRow(check, row, node = null) {
     .filter(Boolean);
   if (rowIds.some((value) => ids.includes(value))) return true;
 
-  const names = [check.name, check.display_label].map(normalize).filter(Boolean);
+  const names = [check.name, check.display_label]
+    .map(normalize)
+    .filter(Boolean);
   if (names.includes(normalize(row.dataset.serviceName))) return true;
 
   const rowHost = hostOf(row.dataset.serviceUrl);
@@ -298,7 +300,9 @@ function metricEvidence(evidence, node) {
     health.url,
     health.path,
   ].filter(Boolean);
-  const target = candidates.find((value) => /\/metrics(?:$|[?#])/i.test(String(value))) || "";
+  const target =
+    candidates.find((value) => /\/metrics(?:$|[?#])/i.test(String(value))) ||
+    "";
   const values = [
     health.prometheus_up,
     health.metrics_up,
@@ -383,10 +387,7 @@ function cleanDuplicatedExposureNote(row) {
     .split(" · ")
     .map((part) => part.trim())
     .filter(Boolean)
-    .filter(
-      (part) =>
-        !duplicatePatterns.some((pattern) => pattern.test(part)),
-    );
+    .filter((part) => !duplicatePatterns.some((pattern) => pattern.test(part)));
   if (remaining.length === 0) note.remove();
   else note.textContent = remaining.join(" · ");
 }
@@ -569,13 +570,7 @@ function relationData(topology, nodeId) {
   return { dependencies, downstream };
 }
 
-function drawerRelationSection(
-  title,
-  relations,
-  direction,
-  indexes,
-  anchors,
-) {
+function drawerRelationSection(title, relations, direction, indexes, anchors) {
   const block = document.createElement("div");
   block.className = "service-detail-relation-block";
   const heading = document.createElement("strong");
@@ -628,11 +623,7 @@ function addDrawerSection(host, title, id) {
 }
 
 function renderRuntimeSection(body, runtimeApp, evidence) {
-  const runtime = addDrawerSection(
-    body,
-    "TrueNAS / Docker runtime",
-    "runtime",
-  );
+  const runtime = addDrawerSection(body, "TrueNAS / Docker runtime", "runtime");
   const grid = document.createElement("div");
   grid.className = "service-detail-metrics";
   [
@@ -694,12 +685,7 @@ function renderRelationsSection(body, topology, node, indexes, anchors) {
     reverseImpactAdjacency(topology),
   );
   grid.appendChild(
-    createLinkedList(
-      "Transitive downstream",
-      allDownstream,
-      indexes,
-      anchors,
-    ),
+    createLinkedList("Transitive downstream", allDownstream, indexes, anchors),
   );
   section.appendChild(grid);
 }
