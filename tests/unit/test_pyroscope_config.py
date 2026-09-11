@@ -34,7 +34,7 @@ def test_start_pyroscope_configures_worker_profiler(monkeypatch) -> None:
         application_name="fastapi-sample",
         server_address="http://172.17.0.24:4040",
         sample_rate=100,
-        enable_logging=True,
+        enable_logging=False,
     )
 
 
