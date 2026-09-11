@@ -1,5 +1,6 @@
 """Contracts for health-board diagnostic filters and probe evidence."""
 
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -65,10 +66,8 @@ def test_probe_evidence_uses_independent_colored_states() -> None:
     assert "cloudflare_access_policy_count" in javascript
     assert "cloudflare_default_deny" in javascript
     assert "tls_trusted" in javascript
-    assert 'probeBadge("tls"' in javascript
-    assert 'probeBadge("cloudflare"' in javascript
-    assert 'probeBadge("service-token"' in javascript
-    assert 'probeBadge("metrics"' in javascript
+    for probe_kind in ["tls", "cloudflare", "service-token", "metrics"]:
+        assert re.search(rf'probeBadge\(\s*"{re.escape(probe_kind)}"', javascript)
 
     for tone in ["ok", "warn", "fail", "unknown", "neutral"]:
         assert f".service-probe--{tone}" in stylesheet
