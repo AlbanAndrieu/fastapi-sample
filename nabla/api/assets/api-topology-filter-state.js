@@ -13,6 +13,7 @@ export const NETWORK_PATH_RELATIONS = new Set(["routesTo", "exposedBy"]);
 const DEFAULTS = {
   relation: "all",
   strength: "all",
+  phase: "all",
   layout: "cose",
 };
 
@@ -21,6 +22,7 @@ const PARAMS = {
   preset: "view",
   relation: "relation",
   strength: "strength",
+  phase: "phase",
   layout: "layout",
 };
 
@@ -90,6 +92,11 @@ export function hydrateTopologyControlsFromUrl() {
     DEFAULTS.strength,
   );
   setValidSelectValue(
+    "topology-lifecycle-filter",
+    params.get(PARAMS.phase),
+    DEFAULTS.phase,
+  );
+  setValidSelectValue(
     "topology-layout",
     params.get(PARAMS.layout),
     DEFAULTS.layout,
@@ -108,12 +115,14 @@ export function syncTopologyControlsToUrl() {
   const preset = selectValue("topology-view-preset", DEFAULT_TOPOLOGY_PRESET);
   const relation = selectValue("topology-relation-filter", DEFAULTS.relation);
   const strength = selectValue("topology-strength-filter", DEFAULTS.strength);
+  const phase = selectValue("topology-lifecycle-filter", DEFAULTS.phase);
   const layout = selectValue("topology-layout", DEFAULTS.layout);
 
   setOrDelete(params, PARAMS.search, search);
   setOrDelete(params, PARAMS.preset, preset, DEFAULT_TOPOLOGY_PRESET);
   setOrDelete(params, PARAMS.relation, relation, DEFAULTS.relation);
   setOrDelete(params, PARAMS.strength, strength, DEFAULTS.strength);
+  setOrDelete(params, PARAMS.phase, phase, DEFAULTS.phase);
   setOrDelete(params, PARAMS.layout, layout, DEFAULTS.layout);
 
   window.history.replaceState(
@@ -128,11 +137,13 @@ export function resetTopologyControls() {
   const preset = document.getElementById("topology-view-preset");
   const relation = document.getElementById("topology-relation-filter");
   const strength = document.getElementById("topology-strength-filter");
+  const phase = document.getElementById("topology-lifecycle-filter");
   const layout = document.getElementById("topology-layout");
 
   if (search) search.value = "";
   if (preset) preset.value = DEFAULT_TOPOLOGY_PRESET;
   if (relation) relation.value = DEFAULTS.relation;
   if (strength) strength.value = DEFAULTS.strength;
+  if (phase) phase.value = DEFAULTS.phase;
   if (layout) layout.value = DEFAULTS.layout;
 }
