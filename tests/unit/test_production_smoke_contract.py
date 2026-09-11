@@ -17,7 +17,11 @@ def test_production_smoke_accepts_classified_transient_pfsense_failures() -> Non
     assert 'if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then' in smoke
     assert ".checks.pfsense.http_status >= 500" in smoke
     assert '.checks.pfsense.error | type == "string"' in smoke
-    assert "Post-deploy smoke remains strict" in smoke
+    assert ".checks.pfsense.reachable == null" in smoke
+    assert '.checks.pfsense.state == "unknown"' in smoke
+    assert ".checks.pfsense.status_confirmed == false" in smoke
+    assert ".checks.pfsense.degraded == false" in smoke
+    assert '.checks.pfsense.vantage_point == "fastapi_cloud"' in smoke
     assert '"telemetry_stale"' in smoke
     assert '"telemetry_unavailable"' in smoke
     assert ".pfsense.dns.ingress_block.last_success_at" in smoke
