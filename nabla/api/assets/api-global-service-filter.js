@@ -191,7 +191,10 @@ function renderActiveFilters(host, state = currentFilterState()) {
     button.className = "service-filter-active-chip";
     button.dataset.filterKey = key;
     button.title = `Remove ${label.toLowerCase()} filter`;
-    button.setAttribute("aria-label", `Remove ${label.toLowerCase()} filter: ${value}`);
+    button.setAttribute(
+      "aria-label",
+      `Remove ${label.toLowerCase()} filter: ${value}`,
+    );
     const text = document.createElement("span");
     text.textContent = `${label}: ${value}`;
     const remove = document.createElement("strong");
@@ -262,8 +265,7 @@ function installCompactStickyMode(host) {
 
   const toggle = document.getElementById("service-filter-density-toggle");
   toggle?.addEventListener("click", () => {
-    host.dataset.expanded =
-      host.dataset.expanded === "true" ? "false" : "true";
+    host.dataset.expanded = host.dataset.expanded === "true" ? "false" : "true";
     syncCompactState(host);
   });
 
