@@ -5,6 +5,7 @@ import { installProbeFanoutDashboard } from "./api-probe-fanout-dashboard.js";
 import { startProbeAgeTicker } from "./api-probe-live.js";
 import { installServiceDetailDrawer } from "./api-service-detail-drawer.js";
 import { installServiceDiagnostics } from "./api-service-diagnostics.js";
+import { installServiceOperatorDiagnostics } from "./api-service-operator-diagnostics.js";
 import { installPfsensePortLabels } from "./api-sickz-port-labels.js";
 import { installRuntimeVersionDriftWarning } from "./api-version-drift.js";
 
@@ -16,4 +17,5 @@ installServiceDetailDrawer();
 installProbeFanoutDashboard();
 startProbeAgeTicker();
 installHealthBoardController();
+installServiceOperatorDiagnostics();
 installRuntimeVersionDriftWarning();
