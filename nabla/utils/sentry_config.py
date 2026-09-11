@@ -132,7 +132,7 @@ def _integrations(*, include_logging: bool, include_ai: bool = False) -> list[An
 
     integrations.extend(
         [
-            FastApiIntegration(transaction_style="endpoint"),
+            FastApiIntegration(transaction_style="url"),
             SqlalchemyIntegration(),
         ],
     )
