@@ -210,6 +210,14 @@
   border-color: rgba(255, 68, 68, 0.4);
 }
 
+@media (max-width: 768px) {
+  .health-row > .service-detail-trigger {
+    grid-column: 3;
+    justify-self: end;
+    margin-left: 0;
+  }
+}
+
 @media (max-width: 720px) {
   .service-detail-drawer {
     top: auto;
