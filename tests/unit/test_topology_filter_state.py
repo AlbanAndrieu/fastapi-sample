@@ -41,9 +41,18 @@ def test_topology_filter_state_is_shareable_without_server_side_session() -> Non
 
     assert "new URLSearchParams(window.location.search)" in source
     assert "new URL(window.location.href)" in source
-    for param in ("q", "view", "relation", "strength", "phase", "layout"):
+    for param in (
+        "q",
+        "view",
+        "relation",
+        "strength",
+        "phase",
+        "health",
+        "layout",
+    ):
         assert f'"{param}"' in source
     assert '"topology-lifecycle-filter"' in source
+    assert '"topology-health-overlay"' in source
     assert "window.history.replaceState(" in source
     assert "${url.pathname}${url.search}${url.hash}" in source
     assert "sessionStorage" not in source
@@ -55,6 +64,7 @@ def test_topology_history_navigation_rehydrates_the_same_controls() -> None:
 
     assert 'window.addEventListener("popstate"' in source
     assert "hydrateTopologyControlsFromUrl();" in source
+    assert "syncHealthOverlay();" in source
     assert "applyFilters();" in source
     assert "runLayout();" in source
 
@@ -90,4 +100,5 @@ def test_reset_returns_to_canonical_default_and_cleans_url_state() -> None:
     assert "syncTopologyControlsToUrl();" in topology_source
     assert "preset.value = DEFAULT_TOPOLOGY_PRESET;" in state_source
     assert "phase.value = DEFAULTS.phase;" in state_source
+    assert "health.value = DEFAULTS.health;" in state_source
     assert "params.delete(key);" in state_source
