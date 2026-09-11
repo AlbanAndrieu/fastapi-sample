@@ -186,30 +186,30 @@ Planning status belongs in `docs/engineering-roadmap.md`; this list records the 
 architecture sequence and acceptance boundaries.
 
 1. Keep the page-wide sticky health filter consistent with the homelab site and
-   add presentation-group/environment facets only from canonical topology/catalog
-   metadata. Implemented by the health-filter work through PR #247.
+  add presentation-group/environment facets only from canonical topology/catalog
+  metadata. Implemented by the health-filter work through PR #247.
 2. Separate topology **Dependencies** and **Network paths** presets so functional
-   dependencies and transport/ingress paths are not mixed by default. The focused
-   presets use declared relation types only; structural/observability relations
-   remain available through **All relations**. Implemented by PR #250.
+  dependencies and transport/ingress paths are not mixed by default. The focused
+  presets use declared relation types only; structural/observability relations
+  remain available through **All relations**. Implemented by PR #250.
 3. Surface canonical runtime ownership and lifecycle phase/priority as declared
-   node context, including a shareable lifecycle phase filter. Do not derive the
-   canonical TrueNAS planner order in FastAPI. Implemented by PR #250 after
-   `nabla-compose#191` merged.
+  node context, including a shareable lifecycle phase filter. Do not derive the
+  canonical TrueNAS planner order in FastAPI. Implemented by PR #250 after
+  `nabla-compose#191` merged.
 4. Add an optional health overlay to `/api/topology` using the same
-   server-authoritative status/evidence contract as `/api`. Declared and observed
-   state remain visibly distinct; failures to obtain observed evidence do not make
-   the declared graph unavailable. Implemented by PR #250.
+  server-authoritative status/evidence contract as `/api`. Declared and observed
+  state remain visibly distinct; failures to obtain observed evidence do not make
+  the declared graph unavailable. Implemented by PR #250.
 5. Keep focused health and topology views shareable with URL-backed filters and no
-   server-side operator session state. Health state is implemented through PR #247;
-   topology state includes search, preset, relation, strength, lifecycle phase,
-   health overlay and layout through PR #250.
+  server-side operator session state. Health state is implemented through PR #247;
+  topology state includes search, preset, relation, strength, lifecycle phase,
+  health overlay and layout through PR #250.
 6. Add compound trust/network zones only when the topology contract can identify
-   them without UI-side inference: Internet/Cloudflare, pfSense/LAN,
-   TrueNAS/Docker, Talos/Kubernetes and external providers. This remains blocked
-   on canonical zone metadata.
+  them without UI-side inference: Internet/Cloudflare, pfSense/LAN,
+  TrueNAS/Docker, Talos/Kubernetes and external providers. This remains blocked
+  on canonical zone metadata.
 7. Keep quantitative traffic/latency flow visualisation separate from dependency
-   topology; use Plotly only when measurements justify a Sankey or time-series
-   view.
+  topology; use Plotly only when measurements justify a Sankey or time-series
+  view.
 8. Measure maintained JS/CSS/Python UI source size after each presentation change;
-   refactors that only move boilerplate between files do not count as reductions.
+  refactors that only move boilerplate between files do not count as reductions.
