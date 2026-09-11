@@ -97,7 +97,9 @@ function cloudflarePolicyDetail(check) {
   const policyNames = Array.isArray(check.cloudflare_access_policy_names)
     ? check.cloudflare_access_policy_names.filter(Boolean)
     : [];
-  const policyDecisions = Array.isArray(check.cloudflare_access_policy_decisions)
+  const policyDecisions = Array.isArray(
+    check.cloudflare_access_policy_decisions,
+  )
     ? check.cloudflare_access_policy_decisions.filter(Boolean)
     : [];
   const policyCount = Number(check.cloudflare_access_policy_count);
@@ -118,7 +120,9 @@ function cloudflarePolicyDetail(check) {
   if (check.cloudflare_service_auth_attempted === true) {
     const tokenStatus = Number(check.cloudflare_service_token_http_status);
     const tokenOutcome =
-      check.cloudflare_service_token_access_passed === true ? "passed" : "blocked";
+      check.cloudflare_service_token_access_passed === true
+        ? "passed"
+        : "blocked";
     parts.push(
       `Service token ${tokenOutcome}${Number.isFinite(tokenStatus) ? ` (HTTP ${tokenStatus})` : ""}`,
     );
@@ -181,7 +185,9 @@ function appendTunnelBadge(row, state, check) {
   const badge = document.createElement("span");
   badge.className = `cloudflare-tunnel-badge cloudflare-tunnel-badge--${state.cls}`;
   const policyDetail = cloudflarePolicyDetail(check);
-  const hover = [state.label, state.detail, policyDetail].filter(Boolean).join(" · ");
+  const hover = [state.label, state.detail, policyDetail]
+    .filter(Boolean)
+    .join(" · ");
   badge.title = hover;
   badge.setAttribute("role", "img");
   badge.setAttribute("aria-label", hover);
