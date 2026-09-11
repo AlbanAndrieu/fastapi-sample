@@ -172,7 +172,9 @@ function platformCloudflareDetail(platformCheck) {
   if (!platformCheck || platformCheck.status_confirmed === true) return null;
   const kind = String(platformCheck.error_kind || "unconfirmed").trim();
   const warning = String(
-    platformCheck.warning || platformCheck.error || "Cloudflare control-plane status is unconfirmed",
+    platformCheck.warning ||
+      platformCheck.error ||
+      "Cloudflare control-plane status is unconfirmed",
   ).trim();
   const apiState =
     platformCheck.api_reachable === true
