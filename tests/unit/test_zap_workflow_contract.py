@@ -2,29 +2,33 @@
 
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github/workflows/security-zap.yml"
 
 
 def test_zap_scans_authorized_production_web_and_openapi_surfaces() -> None:
-    workflow = WORKFLOW.read_text(encoding="utf-8")
-    triggers = workflow.split("jobs:", maxsplit=1)[0]
+    workflow_text = WORKFLOW.read_text(encoding="utf-8")
+    workflow = yaml.safe_load(workflow_text)
+    triggers = workflow_text.split("jobs:", maxsplit=1)[0]
+    dast_env = workflow["jobs"]["dast"]["env"]
 
     assert "pull_request:" not in triggers
     assert "workflow_call:" in triggers
     assert "workflow_dispatch:" in triggers
-    assert "127.0.0.1" not in workflow
-    assert "uvicorn" not in workflow
-    assert "--lifespan off" not in workflow
+    assert "127.0.0.1" not in workflow_text
+    assert "uvicorn" not in workflow_text
+    assert "--lifespan off" not in workflow_text
 
-    assert "zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25" in workflow
-    assert "zaproxy/action-api-scan@5158fe4d9d8fcc75ea204db81317cce7f9e5453d" in workflow
-    assert "https://sample.albandrieu.com/" in workflow
-    assert "https://sample.albandrieu.com/api" in workflow
-    assert "https://sample.albandrieu.com/openapi.json" in workflow
-    assert "https://fastapi-sample.fastapicloud.dev/api" in workflow
-    assert "https://fastapi-sample.fastapicloud.dev/openapi.json" in workflow
-    assert workflow.count("format: openapi") == 2
+    assert "zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25" in workflow_text
+    assert "zaproxy/action-api-scan@5158fe4d9d8fcc75ea204db81317cce7f9e5453d" in workflow_text
+    assert dast_env["TRUENAS_ROOT_URL"] == "https://sample.albandrieu.com/"
+    assert dast_env["TRUENAS_API_URL"] == "https://sample.albandrieu.com/api"
+    assert dast_env["TRUENAS_OPENAPI_URL"] == "https://sample.albandrieu.com/openapi.json"
+    assert dast_env["CLOUD_API_URL"] == "https://fastapi-sample.fastapicloud.dev/api"
+    assert dast_env["CLOUD_OPENAPI_URL"] == "https://fastapi-sample.fastapicloud.dev/openapi.json"
+    assert workflow_text.count("format: openapi") == 2
 
 
 def test_zap_policy_keeps_auth_findings_and_management_boundaries_explicit() -> None:

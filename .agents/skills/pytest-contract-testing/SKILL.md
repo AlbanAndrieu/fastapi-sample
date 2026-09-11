@@ -53,6 +53,27 @@ assert result["port"] == 443
 
 If the production behavior itself is validating an untrusted URL, parse it first and test scheme, hostname, port and path as separate semantic fields rather than relying on string containment.
 
+## Configuration and workflow contracts
+
+When pytest validates YAML, JSON, TOML, or another structured configuration file, parse the configuration and assert semantic fields instead of searching raw file text for URLs or endpoint identities.
+
+For a GitHub Actions workflow, prefer:
+
+```python
+workflow = yaml.safe_load(path.read_text(encoding="utf-8"))
+env = workflow["jobs"]["dast"]["env"]
+assert env["TARGET_URL"] == "https://trusted.example/api"
+```
+
+Do not use:
+
+```python
+text = path.read_text(encoding="utf-8")
+assert "https://trusted.example/api" in text
+```
+
+Raw-text assertions are still appropriate for syntax or prose that has no structured representation, but endpoint identity and security-relevant configuration should use parsed values.
+
 ## When text containment is appropriate
 
 Substring assertions remain appropriate when the text itself is the contract and no structured equivalent exists, for example a human-facing warning or diagnostic explanation:
@@ -70,10 +91,17 @@ For every new or modified pytest test:
 - identify the semantic field being validated;
 - prefer exact equality for structured scalar/list/dict values;
 - use set/list membership only when collection membership is the actual contract;
-- avoid URL/host/IP substring assertions against `detail`, `message`, `warning`, `reason`, `error`, HTML or logs when a structured field exists;
+- avoid URL/host/IP substring assertions against `detail`, `message`, `warning`, `reason`, `error`, HTML, logs, or raw configuration files when a structured field exists;
+- parse YAML/JSON/TOML workflow or configuration files before asserting URLs, hosts, ports, permissions, or security policy values;
 - assert status/state separately from explanatory prose;
 - keep tests deterministic and independent of external network state unless explicitly marked integration tests;
 - when CodeQL reports incomplete URL substring sanitization in a test, do not suppress it automatically: first replace weak rendered-text assertions with structured assertions where possible.
+
+## Static-analysis follow-up scope
+
+When fixing a CodeQL or other SAST finding pattern in pytest, audit every test file changed by the current pull request for the same anti-pattern before declaring the finding resolved. Do not rely only on repository code search because it may index the default branch rather than PR-only changes.
+
+For API-only/remote work, enumerate PR changed filenames or inspect the PR patch and explicitly read relevant files from the PR branch. Search for the semantic pattern, not only the first reported literal. For incomplete URL substring sanitization, review all URL/host/IP membership assertions in changed tests, including workflow/configuration contract tests.
 
 ## Agent workflow
 
