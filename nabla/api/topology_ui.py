@@ -44,7 +44,7 @@ def render_topology_page(*, title_suffix: str | None, app_version: str) -> str:
             <div>
                 <p class="topology-kicker">Declared architecture · version {version}</p>
                 <h1 id="topology-title">Homelab topology</h1>
-                <p class="subtitle">Dependencies and network/service relations from the canonical <code>nabla-compose</code> topology contract. Start with functional dependencies, switch to network paths for routing/ingress, or use all relations for the complete declared graph. This view does not infer live health.</p>
+                <p class="subtitle">Dependencies and network/service relations from the canonical <code>nabla-compose</code> topology contract. Start with functional dependencies, switch to network paths for routing/ingress, or use all relations for the complete declared graph. Runtime ownership and lifecycle phase metadata are declarative context only: this view does not infer live health or operational start order.</p>
             </div>
             <div class="topology-stats" aria-live="polite">
                 <span><strong id="topology-node-count">—</strong> nodes</span>
@@ -62,7 +62,7 @@ def render_topology_page(*, title_suffix: str | None, app_version: str) -> str:
                 </select>
             </label>
             <label>Search
-                <input id="topology-search" type="search" autocomplete="off" placeholder="Service, kind, category…">
+                <input id="topology-search" type="search" autocomplete="off" placeholder="Service, kind, lifecycle…">
             </label>
             <label>Relation
                 <select id="topology-relation-filter"><option value="all">All relations in view</option></select>
@@ -72,6 +72,18 @@ def render_topology_page(*, title_suffix: str | None, app_version: str) -> str:
                     <option value="all">Required + optional</option>
                     <option value="required">Required</option>
                     <option value="optional">Optional</option>
+                </select>
+            </label>
+            <label>Lifecycle
+                <select id="topology-lifecycle-filter">
+                    <option value="all">All lifecycle phases</option>
+                    <option value="bootstrap-runtime">Bootstrap runtime</option>
+                    <option value="foundation">Foundation</option>
+                    <option value="network-edge">Network / edge</option>
+                    <option value="primary-data">Primary data</option>
+                    <option value="secondary-data">Secondary data</option>
+                    <option value="platform-services">Platform services</option>
+                    <option value="applications">Applications</option>
                 </select>
             </label>
             <label>Layout
