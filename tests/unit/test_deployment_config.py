@@ -103,11 +103,11 @@ def test_production_smoke_bounds_browser_cost_without_losing_post_deploy_ui_chec
     assert "--connect-timeout 10" in smoke
     assert "--max-time 30" in smoke
     assert "fetch-depth: 0" not in smoke
-    assert "EXPECTED_VERSION=\"${expected}\" node scripts/check-production-api-ui.mjs" in smoke
+    assert 'EXPECTED_VERSION="${expected}" node scripts/check-production-api-ui.mjs' in smoke
     assert 'if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]' in smoke
     assert ".pfsense.dns.ingress_block.refresh_error" in smoke
     assert '"snort2c refresh is in progress"' in smoke
-    assert ".pfsense.dns.ingress_block.cache_layer == \"redis\"" in smoke
+    assert '.pfsense.dns.ingress_block.cache_layer == "redis"' in smoke
 
 
 def test_semantic_release_has_bounded_1_5_8_recovery_then_normal_flow() -> None:
@@ -176,9 +176,12 @@ def test_package_publication_respects_private_classifier_and_least_privilege() -
     assert workflow.count("pypa/gh-action-pypi-publish@") == 2
     assert "pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33" in workflow
     assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in workflow
-    assert workflow.count(
-        "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
-    ) == 3
+    assert (
+        workflow.count(
+            "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+        )
+        == 3
+    )
     assert "repository-url: https://test.pypi.org/legacy/" in workflow
     assert "skip-existing: true" in workflow
     assert "repository_url:" not in workflow
@@ -192,8 +195,5 @@ def test_dockerfile_hadolint_hardening_is_explicit() -> None:
     assert "# hadolint ignore=DL3008" in dockerfile
     assert "USER 999:999" in dockerfile
     assert "USER jm-python" not in dockerfile
-    assert (
-        'CMD ["curl", "--fail", "--silent", "--show-error", '
-        '"http://localhost:8080/health"]'
-    ) in dockerfile
+    assert ('CMD ["curl", "--fail", "--silent", "--show-error", "http://localhost:8080/health"]') in dockerfile
     assert "CMD curl --fail" not in dockerfile
