@@ -65,7 +65,7 @@
   display: grid;
   grid-template-columns:
     minmax(150px, 1fr) minmax(240px, 2fr)
-    repeat(3, minmax(145px, 1fr)) auto;
+    repeat(4, minmax(145px, 1fr)) auto;
   gap: 0.75rem;
   width: 100%;
   border: 1px solid #2c2c2c;
