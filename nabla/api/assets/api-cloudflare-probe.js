@@ -63,7 +63,9 @@ function tunnelState(check) {
     return [
       "ok",
       "Cloudflare Tunnel configured",
-      status ? `Tunnel ingress observed (${status})` : "Tunnel ingress observed",
+      status
+        ? `Tunnel ingress observed (${status})`
+        : "Tunnel ingress observed",
     ];
   }
   if (observed === true) {
@@ -116,7 +118,9 @@ function policyDetail(check) {
   if (check.cloudflare_service_auth_attempted === true) {
     const status = Number(check.cloudflare_service_token_http_status);
     const result =
-      check.cloudflare_service_token_access_passed === true ? "passed" : "blocked";
+      check.cloudflare_service_token_access_passed === true
+        ? "passed"
+        : "blocked";
     parts.push(
       `Service token ${result}${Number.isFinite(status) ? ` (HTTP ${status})` : ""}`,
     );
