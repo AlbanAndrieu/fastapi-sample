@@ -109,6 +109,8 @@ function mapTrueNasStatus() {
   const state = document.getElementById("truenas-platform-state");
   if (!panel || !state) return;
   panel.dataset.presentationGroup = "core-critical";
+  panel.dataset.environments = "production";
+  panel.dataset.environmentSource = "runtime";
   panel.dataset.probeKinds = "http tls api websocket";
   const className = state.className;
   if (className.includes("--ok")) panel.dataset.semanticStatus = "operational";
