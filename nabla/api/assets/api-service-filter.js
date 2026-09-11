@@ -218,7 +218,8 @@ function syncFilterStateToUrl() {
 
   const next = `${url.pathname}${url.search}${url.hash}`;
   const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-  if (next !== current) window.history.replaceState(window.history.state, "", next);
+  if (next !== current)
+    window.history.replaceState(window.history.state, "", next);
 }
 
 function statusMatches(row) {
