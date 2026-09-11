@@ -16,12 +16,17 @@ const SECTION_DEFINITIONS = [
     id: "truenas-platform",
     label: "TrueNAS",
     metric: () =>
-      String(document.querySelectorAll("#truenas-probe-list .truenas-probe-row").length || "—"),
+      String(
+        document.querySelectorAll("#truenas-probe-list .truenas-probe-row")
+          .length || "—",
+      ),
   },
   {
     id: "runtime-topology",
     label: "Runtime",
-    metric: () => document.getElementById("runtime-instance-count")?.textContent?.trim() || "—",
+    metric: () =>
+      document.getElementById("runtime-instance-count")?.textContent?.trim() ||
+      "—",
   },
 ];
 
@@ -44,13 +49,17 @@ function visibleRatio(selector) {
   const rows = uniqueElements(selector);
   if (rows.length === 0) return "—";
   const visible = rows.filter((row) => !row.hidden).length;
-  return visible === rows.length ? String(rows.length) : `${visible}/${rows.length}`;
+  return visible === rows.length
+    ? String(rows.length)
+    : `${visible}/${rows.length}`;
 }
 
 function scrollToSection(id) {
   const target = document.getElementById(id);
   if (!target) return;
-  const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  const reducedMotion = window.matchMedia?.(
+    "(prefers-reduced-motion: reduce)",
+  )?.matches;
   target.scrollIntoView({
     behavior: reducedMotion ? "auto" : "smooth",
     block: "start",
@@ -185,8 +194,13 @@ function ensureChangeSummary() {
 function focusFirstChange(kind) {
   const row = document.querySelector(`[data-health-change="${kind}"]`);
   if (!row) return;
-  const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-  row.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "center" });
+  const reducedMotion = window.matchMedia?.(
+    "(prefers-reduced-motion: reduce)",
+  )?.matches;
+  row.scrollIntoView({
+    behavior: reducedMotion ? "auto" : "smooth",
+    block: "center",
+  });
 }
 
 function changeChip(kind, count) {
@@ -212,8 +226,10 @@ function renderChanges(changes) {
     return;
   }
   summary.hidden = false;
-  if (regressions.length) summary.appendChild(changeChip("regressed", regressions.length));
-  if (recoveries.length) summary.appendChild(changeChip("recovered", recoveries.length));
+  if (regressions.length)
+    summary.appendChild(changeChip("regressed", regressions.length));
+  if (recoveries.length)
+    summary.appendChild(changeChip("recovered", recoveries.length));
 }
 
 function compareRefreshStatuses() {
@@ -269,7 +285,10 @@ function observeSectionMetrics() {
       attributeFilter: ["hidden", "class", "data-semantic-status"],
     });
   }
-  document.addEventListener("service-filter-changed", scheduleNavigationRefresh);
+  document.addEventListener(
+    "service-filter-changed",
+    scheduleNavigationRefresh,
+  );
 }
 
 export function installHealthOperatorUx() {
