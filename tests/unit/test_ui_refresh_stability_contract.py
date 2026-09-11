@@ -14,12 +14,14 @@ def test_service_board_precedes_technical_drilldowns_and_runtime_is_collapsed() 
 
 
 def test_automatic_refresh_does_not_reload_collapsed_technical_drilldowns() -> None:
-    javascript = (ROOT / "nabla/api/assets/api-health.js").read_text(encoding="utf-8")
-    assert "includeTechnical = false" in javascript
-    assert "loadHealthBoards({ includeTechnical: true })" in javascript
-    assert "technicalDetailsOpen()" in javascript
-    assert 'id="runtime-topology"' in javascript
-    assert 'id="truenas-probe-dashboard"' in javascript
+    controller = (ROOT / "nabla/api/assets/api-health-controller.js").read_text(
+        encoding="utf-8",
+    )
+    assert "includeTechnical = false" in controller
+    assert "loadHealthBoards({ includeTechnical: true })" in controller
+    assert "technicalDetailsOpen()" in controller
+    assert 'getElementById("runtime-topology")' in controller
+    assert 'getElementById("truenas-probe-dashboard")' in controller
 
 
 def test_fanout_and_advisory_pfsense_telemetry_are_collapsible() -> None:
