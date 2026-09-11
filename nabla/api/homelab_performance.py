@@ -75,9 +75,7 @@ def finalize_homelab_performance(
     raw_timings = performance.get("phases_ms")
     timings = dict(raw_timings) if isinstance(raw_timings, dict) else {}
     record_homelab_phase(timings, "total", total_seconds)
-    normalized_timings = {
-        phase: timings.get(phase) for phase in HOMELAB_HEALTH_PERF_PHASES
-    }
+    normalized_timings = {phase: timings.get(phase) for phase in HOMELAB_HEALTH_PERF_PHASES}
     dominant_phase, dominant_phase_ms = dominant_homelab_phase(normalized_timings)
     performance["phases_ms"] = normalized_timings
     performance["dominant_phase"] = dominant_phase
