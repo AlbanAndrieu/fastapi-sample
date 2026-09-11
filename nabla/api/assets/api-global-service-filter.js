@@ -6,6 +6,14 @@ const STATUS_CHIPS = [
   ["unknown", "Unknown"],
 ];
 
+const ACTIVE_FILTERS = [
+  ["status", "Health", "service-status-filter"],
+  ["environment", "Environment", "service-environment-filter"],
+  ["group", "Group", "service-group-filter"],
+  ["exposure", "Exposure", "service-exposure-filter"],
+  ["probe", "Probe", "service-probe-filter"],
+];
+
 let refreshScheduled = false;
 
 function normalizedStatus(row) {
@@ -74,7 +82,8 @@ function ensureHeader(host) {
   header.innerHTML =
     '<div><h2 id="service-filter-global-heading">Service health and filters</h2>' +
     "<p>Services remain the primary outcome; critical core, security, exposure and support evidence share one operator filter.</p></div>" +
-    '<span class="service-filter-scope">Global view</span>';
+    '<div class="service-filter-heading-actions"><span class="service-filter-scope">Global view</span>' +
+    '<button type="button" class="service-filter-density-toggle" id="service-filter-density-toggle" aria-expanded="false">More filters</button></div>';
   host.prepend(header);
 }
 
@@ -122,11 +131,84 @@ function mapTrueNasStatus() {
   else panel.dataset.semanticStatus = "unknown";
 }
 
-function refreshGlobalFilter() {
+function currentFilterState() {
+  return {
+    query: document.getElementById("service-filter")?.value || "",
+    status: document.getElementById("service-status-filter")?.value || "all",
+    environment:
+      document.getElementById("service-environment-filter")?.value || "all",
+    group: document.getElementById("service-group-filter")?.value || "all",
+    exposure:
+      document.getElementById("service-exposure-filter")?.value || "all",
+    probe: document.getElementById("service-probe-filter")?.value || "all",
+  };
+}
+
+function activeFilterLabel(id, value) {
+  const select = document.getElementById(id);
+  return select?.selectedOptions?.[0]?.textContent || value;
+}
+
+function clearActiveFilter(key, id) {
+  const control = document.getElementById(id);
+  if (!control) return;
+  control.value = key === "query" ? "" : "all";
+  control.dispatchEvent(
+    new Event(key === "query" ? "input" : "change", { bubbles: true }),
+  );
+}
+
+function ensureActiveFilters(host) {
+  let active = document.getElementById("service-filter-active");
+  if (active) return active;
+  active = document.createElement("div");
+  active.id = "service-filter-active";
+  active.className = "service-filter-active";
+  active.setAttribute("aria-label", "Active service filters");
+  const result = document.getElementById("service-filter-result");
+  result?.insertAdjacentElement("beforebegin", active);
+  if (!active.isConnected) host.appendChild(active);
+  return active;
+}
+
+function renderActiveFilters(host, state = currentFilterState()) {
+  const active = ensureActiveFilters(host);
+  active.replaceChildren();
+  const entries = [];
+  if (state.query) {
+    entries.push(["query", "Search", "service-filter", state.query]);
+  }
+  for (const [key, label, id] of ACTIVE_FILTERS) {
+    if (state[key] && state[key] !== "all") {
+      entries.push([key, label, id, activeFilterLabel(id, state[key])]);
+    }
+  }
+
+  active.hidden = entries.length === 0;
+  for (const [key, label, id, value] of entries) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "service-filter-active-chip";
+    button.dataset.filterKey = key;
+    button.title = `Remove ${label.toLowerCase()} filter`;
+    button.setAttribute("aria-label", `Remove ${label.toLowerCase()} filter: ${value}`);
+    const text = document.createElement("span");
+    text.textContent = `${label}: ${value}`;
+    const remove = document.createElement("strong");
+    remove.setAttribute("aria-hidden", "true");
+    remove.textContent = "×";
+    button.append(text, remove);
+    button.addEventListener("click", () => clearActiveFilter(key, id));
+    active.appendChild(button);
+  }
+}
+
+function refreshGlobalFilter(state) {
   const host = document.querySelector(".service-filter--global");
   if (!host) return;
   mapTrueNasStatus();
   ensureStatusSummary(host);
+  renderActiveFilters(host, state || currentFilterState());
 }
 
 function scheduleRefresh() {
@@ -160,6 +242,43 @@ function installKeyboardShortcuts() {
   });
 }
 
+function syncCompactState(host) {
+  const stuck = host.dataset.stuck === "true";
+  const expanded = host.dataset.expanded === "true";
+  const compact = stuck && !expanded;
+  host.classList.toggle("service-filter--compact", compact);
+  const button = document.getElementById("service-filter-density-toggle");
+  if (button) {
+    button.textContent = compact ? "More filters" : "Compact filters";
+    button.setAttribute("aria-expanded", String(stuck && expanded));
+  }
+}
+
+function installCompactStickyMode(host) {
+  const sentinel = document.createElement("div");
+  sentinel.className = "service-filter-sticky-sentinel";
+  sentinel.setAttribute("aria-hidden", "true");
+  host.insertAdjacentElement("beforebegin", sentinel);
+
+  const toggle = document.getElementById("service-filter-density-toggle");
+  toggle?.addEventListener("click", () => {
+    host.dataset.expanded =
+      host.dataset.expanded === "true" ? "false" : "true";
+    syncCompactState(host);
+  });
+
+  if (!("IntersectionObserver" in window)) return;
+  new IntersectionObserver(
+    ([entry]) => {
+      const stuck = !entry.isIntersecting && entry.boundingClientRect.top < 0;
+      host.dataset.stuck = String(stuck);
+      if (!stuck) host.dataset.expanded = "false";
+      syncCompactState(host);
+    },
+    { threshold: 0 },
+  ).observe(sentinel);
+}
+
 export function installGlobalServiceFilter() {
   const host = document.querySelector(".service-filter");
   const board = document.getElementById("health-board");
@@ -171,9 +290,17 @@ export function installGlobalServiceFilter() {
 
   const searchLabel = host.querySelector('label[for="service-filter"]');
   if (searchLabel) searchLabel.textContent = "Search services";
+  const reset = document.getElementById("service-filter-clear");
+  if (reset) reset.textContent = "Reset";
   ensureHeader(host);
   ensureStatusSummary(host);
+  ensureActiveFilters(host);
   compactProbeLegend(host);
+  installCompactStickyMode(host);
+
+  document.addEventListener("service-filter-changed", (event) => {
+    refreshGlobalFilter(event.detail);
+  });
 
   const status = document.getElementById("service-status-filter");
   status?.addEventListener("change", scheduleRefresh);
