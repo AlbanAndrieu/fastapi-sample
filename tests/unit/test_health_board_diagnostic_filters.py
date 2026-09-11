@@ -56,6 +56,20 @@ def test_global_filters_cover_site_aligned_environment_group_and_status() -> Non
     assert "row.dataset.presentationGroup === filters.group" in javascript
 
 
+def test_filter_state_is_shareable_without_creating_a_second_state_engine() -> None:
+    javascript = (ASSETS / "api-service-filter.js").read_text(encoding="utf-8")
+
+    for parameter in ["health", "environment", "group", "exposure", "probe"]:
+        assert f'"{parameter}"' in javascript
+    assert 'params.get("q")' in javascript
+    assert "new URL(window.location.href)" in javascript
+    assert "window.history.replaceState" in javascript
+    assert 'window.addEventListener("popstate"' in javascript
+    assert 'new CustomEvent("service-filter-changed"' in javascript
+    assert "syncControlsFromFilters();" in javascript
+    assert "syncFilterStateToUrl();" in javascript
+
+
 def test_diagnostic_filters_cover_exposure_and_probe_type() -> None:
     javascript = (ASSETS / "api-service-filter.js").read_text(encoding="utf-8")
 
