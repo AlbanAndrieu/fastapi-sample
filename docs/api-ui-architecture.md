@@ -174,23 +174,23 @@ Planning status belongs in `docs/engineering-roadmap.md`; this list records the 
 architecture sequence and acceptance boundaries.
 
 1. Keep the page-wide sticky health filter consistent with the homelab site and
-   add presentation-group/environment facets only from canonical topology/catalog
-   metadata. Implemented by the health-filter work through PR #247.
+  add presentation-group/environment facets only from canonical topology/catalog
+  metadata. Implemented by the health-filter work through PR #247.
 2. Separate topology **Dependencies** and **Network paths** presets so functional
-   dependencies and transport/ingress paths are not mixed by default. The focused
-   presets must use declared relation types only; structural/observability relations
-   remain available through **All relations**.
+  dependencies and transport/ingress paths are not mixed by default. The focused
+  presets must use declared relation types only; structural/observability relations
+  remain available through **All relations**.
 3. Add compound trust/network zones only when the topology contract can identify
-   them without UI-side inference: Internet/Cloudflare, pfSense/LAN,
-   TrueNAS/Docker, Talos/Kubernetes and external providers.
+  them without UI-side inference: Internet/Cloudflare, pfSense/LAN,
+  TrueNAS/Docker, Talos/Kubernetes and external providers.
 4. Add an optional health overlay to `/api/topology` using the same status/evidence
-   contract as `/api`; declared state and observed state must remain visibly
-   distinct.
+  contract as `/api`; declared state and observed state must remain visibly
+  distinct.
 5. Keep focused health and topology views shareable with URL-backed filters and no
-   server-side operator session state. Health state is implemented through PR #247;
-   topology state includes search, preset, relation, strength and layout.
+  server-side operator session state. Health state is implemented through PR #247;
+  topology state includes search, preset, relation, strength and layout.
 6. Keep quantitative traffic/latency flow visualisation separate from dependency
-   topology; use Plotly only when measurements justify a Sankey or time-series
-   view.
+  topology; use Plotly only when measurements justify a Sankey or time-series
+  view.
 7. Measure maintained JS/CSS/Python UI source size after each presentation change;
-   refactors that only move boilerplate between files do not count as reductions.
+  refactors that only move boilerplate between files do not count as reductions.
