@@ -136,7 +136,8 @@ function evidenceMetadata(check) {
   if (check.failure_stage) parts.push(`stage=${check.failure_stage}`);
   if (check.error_kind) parts.push(`error=${check.error_kind}`);
   if (check.credential_mode) parts.push(`credential=${check.credential_mode}`);
-  if (check.last_success_at) parts.push(`last-success=${check.last_success_at}`);
+  if (check.last_success_at)
+    parts.push(`last-success=${check.last_success_at}`);
   return parts.length ? ` · ${parts.join(" · ")}` : "";
 }
 
