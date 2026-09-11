@@ -1,3 +1,10 @@
+## [1.16.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.16.0...1.16.1) (2026-09-11)
+
+
+### Bug Fixes
+
+* **health:** complete pfSense and provider flow observability ([#240](https://github.com/AlbanAndrieu/fastapi-sample/issues/240)) ([54c9bad](https://github.com/AlbanAndrieu/fastapi-sample/commit/54c9bada2f37378368339289e0a02da8576f2ff1))
+
 # [1.16.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.15.1...1.16.0) (2026-09-11)
 
 
