@@ -4,7 +4,9 @@ import { dependencyDetailText } from "./api-health-dependency.js";
 const HEALTH_STATES = new Set(["ok", "warn", "fail", "unknown"]);
 
 function healthState(value) {
-  const state = String(value || "unknown").trim().toLowerCase();
+  const state = String(value || "unknown")
+    .trim()
+    .toLowerCase();
   return HEALTH_STATES.has(state) ? state : "unknown";
 }
 
@@ -46,7 +48,10 @@ function requiredEdgeState(sourceRow, target, relationType) {
 function setNodeHealth(node, row) {
   const available = Boolean(row);
   node.data("healthOverlay", available ? "on" : "missing");
-  node.data("healthEffectiveState", healthState(row?.effective_state || row?.state));
+  node.data(
+    "healthEffectiveState",
+    healthState(row?.effective_state || row?.state),
+  );
   node.data("healthLocalState", healthState(row?.local_state));
   node.data("healthDependencyState", healthState(row?.dependency_state));
   node.data("healthBlockedBy", listText(row?.blocked_by));
@@ -56,7 +61,10 @@ function setNodeHealth(node, row) {
     listText(row?.unconfirmed_dependencies),
   );
   node.data("healthObservationAge", observationAge(row));
-  node.data("healthObservationStale", row?.observation_stale === true ? "yes" : "no");
+  node.data(
+    "healthObservationStale",
+    row?.observation_stale === true ? "yes" : "no",
+  );
   node.data("healthRuntimeState", row?.runtime_state || "");
   node.data("healthDirectState", row?.direct_state || "");
   node.data("healthInternalState", row?.internal_state || "");
@@ -91,7 +99,8 @@ export async function loadTopologyHealthOverlay() {
 }
 
 export function applyTopologyHealthOverlay(graph, overlay) {
-  const services = overlay?.services instanceof Map ? overlay.services : new Map();
+  const services =
+    overlay?.services instanceof Map ? overlay.services : new Map();
   let matchedNodes = 0;
   graph.batch(() => {
     graph.nodes().forEach((node) => {
