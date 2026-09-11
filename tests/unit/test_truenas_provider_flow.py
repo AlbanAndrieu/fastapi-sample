@@ -52,11 +52,13 @@ def test_direct_lan_flow_starts_with_actual_target_and_keeps_pfsense_out_of_band
         },
     )
 
-    stages = enriched["truenas"]["diagnostics"]["stages"]
-    assert stages[0]["id"] == "selected_endpoint"
-    assert "https://truenas.albandrieu.com:7000" in stages[0]["detail"]
-    assert "172.17.0.24" in stages[0]["detail"]
-    assert "TLS/SNI" in stages[0]["detail"]
+    diagnostics = enriched["truenas"]["diagnostics"]
+    stages = diagnostics["stages"]
+    selected_endpoint = stages[0]
+    assert selected_endpoint["id"] == "selected_endpoint"
+    assert selected_endpoint["target_url"] == "https://truenas.albandrieu.com:7000"
+    assert selected_endpoint["resolved"] == ["172.17.0.24"]
+    assert diagnostics["path_mode"] == "direct_lan"
 
     ids = [stage["id"] for stage in stages]
     assert ids.index("pfsense_lan_posture") == ids.index("dns") + 1
@@ -95,7 +97,9 @@ def test_public_wan_flow_does_not_invent_lan_pfsense_stage() -> None:
         cloudflare={"configured": False, "status_confirmed": False},
     )
 
-    ids = [stage["id"] for stage in enriched["truenas"]["diagnostics"]["stages"]]
+    diagnostics = enriched["truenas"]["diagnostics"]
+    ids = [stage["id"] for stage in diagnostics["stages"]]
+    assert diagnostics["path_mode"] == "public_wan"
     assert "pfsense_lan_posture" not in ids
     assert ids[0] == "selected_endpoint"
     assert ids[-1] == "cloudflare_tunnel_observation"
