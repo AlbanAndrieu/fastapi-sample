@@ -53,7 +53,7 @@ def test_https_sentry_reachability_requires_tls_handshake(monkeypatch) -> None:
     monkeypatch.setattr(sentry_config.ssl, "create_default_context", lambda: context)
 
     assert sentry_config.sentry_dsn_is_reachable(
-        "https://public@sentry.example.test:9005/2"
+        "https://public@sentry.example.test:9005/2",
     )
     create_connection.assert_called_once_with(("sentry.example.test", 9005), timeout=0.25)
     context.wrap_socket.assert_called_once_with(
@@ -78,7 +78,7 @@ def test_https_sentry_reachability_rejects_plain_http_listener(monkeypatch) -> N
     monkeypatch.setattr(sentry_config.ssl, "create_default_context", lambda: context)
 
     assert not sentry_config.sentry_dsn_is_reachable(
-        "https://public@172.17.0.24:9005/2"
+        "https://public@172.17.0.24:9005/2",
     )
 
 
