@@ -20,8 +20,8 @@ def test_health_board_poll_is_cached_and_pauses_when_tab_is_hidden() -> None:
     controller = (ASSETS / "api-health-controller.js").read_text(encoding="utf-8")
     bootstrap = (ASSETS / "api-health.js").read_text(encoding="utf-8")
 
-    assert "const HEALTH_BOARD_IDLE_POLL_MS = 5000;" in controller
-    assert "const HEALTH_BOARD_REFRESHING_POLL_MS = 1000;" in controller
+    assert "const HEALTH_BOARD_IDLE_POLL_MS = 10000;" in controller
+    assert "const HEALTH_BOARD_REFRESHING_POLL_MS = 2000;" in controller
     assert "document.hidden" in controller
     assert "loadHealthBoards({ showPending: false })" in controller
     assert "snapshot?.refreshing === true" in controller
