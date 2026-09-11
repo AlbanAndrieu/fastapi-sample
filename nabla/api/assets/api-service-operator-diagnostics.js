@@ -78,7 +78,9 @@ function findNode(row, indexes) {
     row.dataset.serviceKey,
     candidateIdFromKey(row.dataset.serviceKey),
   ]) {
-    if (value && indexes.byId.has(String(value))) return indexes.byId.get(String(value));
+    if (value && indexes.byId.has(String(value))) {
+      return indexes.byId.get(String(value));
+    }
   }
   const name = normalize(row.dataset.serviceName);
   if (name && indexes.byName.has(name)) return indexes.byName.get(name);
@@ -89,14 +91,14 @@ function findNode(row, indexes) {
 function checkMatchesRow(check, row, node = null) {
   if (!check) return false;
   const ids = [check.id, check.service_id, check.serviceId]
-    .map((value) => slug(value))
+    .map(slug)
     .filter(Boolean);
   const rowIds = [
     row.dataset.serviceKey,
     candidateIdFromKey(row.dataset.serviceKey),
     node?.id,
   ]
-    .map((value) => slug(value))
+    .map(slug)
     .filter(Boolean);
   if (rowIds.some((value) => ids.includes(value))) return true;
 
@@ -105,7 +107,9 @@ function checkMatchesRow(check, row, node = null) {
 
   const rowHost = hostOf(row.dataset.serviceUrl);
   if (!rowHost) return false;
-  const aliases = Array.isArray(check.aliases_probed) ? check.aliases_probed : [];
+  const aliases = Array.isArray(check.aliases_probed)
+    ? check.aliases_probed
+    : [];
   return [check.url, check.tunnel_url, check.tunnelUrl, ...aliases]
     .map(hostOf)
     .filter(Boolean)
@@ -116,7 +120,9 @@ function findCheck(collection, row, node = null) {
   if (!collection) return null;
   const direct = collection[row.dataset.serviceKey];
   if (direct) return direct;
-  const values = Array.isArray(collection) ? collection : Object.values(collection);
+  const values = Array.isArray(collection)
+    ? collection
+    : Object.values(collection);
   return values.find((check) => checkMatchesRow(check, row, node)) || null;
 }
 
@@ -138,7 +144,9 @@ function truenasApps(snapshot) {
 
 function containerRows(app) {
   const workloads = app?.active_workloads || {};
-  if (Array.isArray(workloads.container_details)) return workloads.container_details;
+  if (Array.isArray(workloads.container_details)) {
+    return workloads.container_details;
+  }
   return Array.isArray(app?.containers) ? app.containers : [];
 }
 
@@ -157,7 +165,9 @@ function findRuntimeApp(snapshot, evidence, node) {
       .filter(Boolean),
   );
   const matches = apps.filter((app) => {
-    const identities = new Set([app.id, app.app_id, app.name].map(slug).filter(Boolean));
+    const identities = new Set(
+      [app.id, app.app_id, app.name].map(slug).filter(Boolean),
+    );
     for (const container of containerRows(app)) {
       if (container?.service_name) identities.add(slug(container.service_name));
     }
@@ -168,9 +178,23 @@ function findRuntimeApp(snapshot, evidence, node) {
 
 function runtimeTone(value) {
   const state = normalize(value);
-  if (["active", "healthy", "running", "started", "up"].includes(state)) return "ok";
-  if (["deploying", "starting", "restarting", "stopping"].includes(state)) return "warn";
-  if (["crashed", "dead", "down", "error", "exited", "failed", "stopped"].includes(state)) {
+  if (["active", "healthy", "running", "started", "up"].includes(state)) {
+    return "ok";
+  }
+  if (["deploying", "starting", "restarting", "stopping"].includes(state)) {
+    return "warn";
+  }
+  if (
+    [
+      "crashed",
+      "dead",
+      "down",
+      "error",
+      "exited",
+      "failed",
+      "stopped",
+    ].includes(state)
+  ) {
     return "fail";
   }
   return "unknown";
@@ -189,7 +213,9 @@ function addRuntimeBadge(tags, text, tone, detail) {
 function decorateRuntime(row, snapshot, evidence, node) {
   const tags = row.querySelector(".health-row-tags");
   if (!tags) return;
-  tags.querySelectorAll("[data-runtime-badge]").forEach((badge) => badge.remove());
+  tags
+    .querySelectorAll("[data-runtime-badge]")
+    .forEach((badge) => badge.remove());
 
   const app = findRuntimeApp(snapshot, evidence, node);
   const runtimeState = app?.state || evidence.homelab?.runtime_state;
@@ -205,7 +231,8 @@ function decorateRuntime(row, snapshot, evidence, node) {
 
   const containers = containerRows(app);
   for (const container of containers.slice(0, 8)) {
-    const state = container?.health || container?.state || container?.status || "unknown";
+    const state =
+      container?.health || container?.state || container?.status || "unknown";
     const name = container?.service_name || "container";
     const image = container?.image ? ` · image ${container.image}` : "";
     addRuntimeBadge(
@@ -262,6 +289,30 @@ function replaceOperatorProbe(strip, kind, badge) {
   strip.appendChild(badge);
 }
 
+function metricEvidence(evidence, node) {
+  const health = evidence.health || evidence.homelab || {};
+  const monitoring = node?.monitoring || {};
+  const candidates = [
+    monitoring.url,
+    monitoring.target,
+    health.url,
+    health.path,
+  ].filter(Boolean);
+  const target = candidates.find((value) => /\/metrics(?:$|[?#])/i.test(String(value))) || "";
+  const values = [
+    health.prometheus_up,
+    health.metrics_up,
+    health.telemetry_available,
+    health.metrics_available,
+  ];
+  return {
+    declared: Boolean(target),
+    target: String(target),
+    values,
+    observed: values.some((value) => value === true || value === false),
+  };
+}
+
 function decorateExposureAndMetrics(row, evidence, node) {
   const strip = ensureProbeStrip(row);
   if (!strip) return;
@@ -283,21 +334,15 @@ function decorateExposureAndMetrics(row, evidence, node) {
     );
   }
 
-  const monitoring = node?.monitoring || {};
-  const metricTarget = String(monitoring.url || monitoring.target || "");
-  const metricDeclared = /\/metrics(?:$|[?#])/i.test(metricTarget);
-  const health = evidence.health || evidence.homelab || {};
-  const metricValues = [
-    health.prometheus_up,
-    health.metrics_up,
-    health.telemetry_available,
-    health.metrics_available,
-  ];
-  const metricObserved = metricValues.some((value) => value === true || value === false);
-  if (metricDeclared || metricObserved) {
+  const metrics = metricEvidence(evidence, node);
+  if (metrics.declared || metrics.observed) {
     let tone = "unknown";
-    if (metricValues.some((value) => value === true)) tone = "ok";
-    else if (metricValues.some((value) => value === false)) tone = "fail";
+    if (metrics.values.some((value) => value === true)) tone = "ok";
+    else if (metrics.values.some((value) => value === false)) tone = "fail";
+
+    strip
+      .querySelectorAll('[data-probe-kind="metrics"]')
+      .forEach((badge) => badge.remove());
     replaceOperatorProbe(
       strip,
       "prometheus",
@@ -307,7 +352,9 @@ function decorateExposureAndMetrics(row, evidence, node) {
         "📈",
         "Prometheus",
         [
-          metricDeclared ? `Declared metrics endpoint: ${metricTarget}` : "Prometheus/metrics evidence is present.",
+          metrics.declared
+            ? `Declared metrics endpoint: ${metrics.target}`
+            : "Prometheus/metrics evidence is present.",
           tone === "ok"
             ? "Metrics evidence is available."
             : tone === "fail"
@@ -336,7 +383,10 @@ function cleanDuplicatedExposureNote(row) {
     .split(" · ")
     .map((part) => part.trim())
     .filter(Boolean)
-    .filter((part) => !duplicatePatterns.some((pattern) => pattern.test(part)));
+    .filter(
+      (part) =>
+        !duplicatePatterns.some((pattern) => pattern.test(part)),
+    );
   if (remaining.length === 0) note.remove();
   else note.textContent = remaining.join(" · ");
 }
@@ -344,8 +394,15 @@ function cleanDuplicatedExposureNote(row) {
 function reverseImpactAdjacency(topology) {
   const adjacency = new Map();
   for (const relation of topology?.relations || []) {
-    if (relation?.strength !== "required" || !IMPACT_RELATION_TYPES.has(relation?.type)) continue;
-    if (!adjacency.has(relation.target)) adjacency.set(relation.target, new Set());
+    if (
+      relation?.strength !== "required" ||
+      !IMPACT_RELATION_TYPES.has(relation?.type)
+    ) {
+      continue;
+    }
+    if (!adjacency.has(relation.target)) {
+      adjacency.set(relation.target, new Set());
+    }
     adjacency.get(relation.target).add(relation.source);
   }
   return adjacency;
@@ -372,9 +429,13 @@ function assignAnchors(rows, indexes) {
     if (!node) continue;
     row.dataset.topologyId = node.id;
     const exposureRow = Boolean(row.closest("#sickz-checks"));
-    const preferredId = exposureRow ? `service-exposure-${node.id}` : `service-${node.id}`;
+    const preferredId = exposureRow
+      ? `service-exposure-${node.id}`
+      : `service-${node.id}`;
     row.id = preferredId;
-    if (!exposureRow || !canonical.has(node.id)) canonical.set(node.id, preferredId);
+    if (!exposureRow || !canonical.has(node.id)) {
+      canonical.set(node.id, preferredId);
+    }
   }
   return canonical;
 }
@@ -405,7 +466,10 @@ function createLinkedList(title, ids, indexes, anchors) {
 function decorateDownstream(row, node, topology, indexes, anchors) {
   const tags = row.querySelector(".health-row-tags");
   if (!tags || !node) return;
-  const downstream = collectReachable(node.id, reverseImpactAdjacency(topology));
+  const downstream = collectReachable(
+    node.id,
+    reverseImpactAdjacency(topology),
+  );
   let badge = tags.querySelector(".health-meta-badge--impact");
   if (downstream.length === 0) {
     badge?.querySelector(".service-hover-popover")?.remove();
@@ -419,27 +483,41 @@ function decorateDownstream(row, node, topology, indexes, anchors) {
   badge.classList.add("health-downstream-badge");
   badge.textContent = `${downstream.length} downstream`;
   badge.tabIndex = 0;
-  badge.setAttribute("aria-label", `${downstream.length} downstream dependent services; hover or focus for links`);
+  badge.setAttribute(
+    "aria-label",
+    `${downstream.length} downstream dependent services; hover or focus for links`,
+  );
   const popover = document.createElement("span");
   popover.className = "service-hover-popover";
-  popover.appendChild(createLinkedList("Downstream impact", downstream, indexes, anchors));
+  popover.appendChild(
+    createLinkedList("Downstream impact", downstream, indexes, anchors),
+  );
   badge.appendChild(popover);
 }
 
-function helpSummary(row, evidence, node, runtimeApp) {
+function helpSummary(evidence, node, runtimeApp) {
   const lines = [
     "Runtime, reachability, dependencies and edge security are independent evidence layers.",
   ];
   const runtimeState = runtimeApp?.state || evidence.homelab?.runtime_state;
   if (runtimeState) lines.push(`TrueNAS app: ${runtimeState}`);
-  if (evidence.homelab?.local_state) lines.push(`Local health: ${evidence.homelab.local_state}`);
-  if (evidence.homelab?.effective_state) lines.push(`Effective health: ${evidence.homelab.effective_state}`);
+  if (evidence.homelab?.local_state) {
+    lines.push(`Local health: ${evidence.homelab.local_state}`);
+  }
+  if (evidence.homelab?.effective_state) {
+    lines.push(`Effective health: ${evidence.homelab.effective_state}`);
+  }
   if (typeof evidence.exposure?.external === "boolean") {
     lines.push(`Exposure: external=${String(evidence.exposure.external)}`);
   }
   if (node?.monitoring) {
-    const target = node.monitoring.url || node.monitoring.target || [node.monitoring.host, node.monitoring.port].filter(Boolean).join(":");
-    lines.push(`Monitoring: ${node.monitoring.type}${target ? ` · ${target}` : ""}`);
+    const target =
+      node.monitoring.url ||
+      node.monitoring.target ||
+      [node.monitoring.host, node.monitoring.port].filter(Boolean).join(":");
+    lines.push(
+      `Monitoring: ${node.monitoring.type}${target ? ` · ${target}` : ""}`,
+    );
   }
   return lines;
 }
@@ -453,13 +531,16 @@ function decorateHelp(row, evidence, node, runtimeApp) {
   badge.tabIndex = 0;
   badge.textContent = "?";
   badge.setAttribute("role", "note");
-  badge.setAttribute("aria-label", `How to read diagnostics for ${row.dataset.serviceName || node?.name || "service"}`);
+  badge.setAttribute(
+    "aria-label",
+    `How to read diagnostics for ${row.dataset.serviceName || node?.name || "service"}`,
+  );
   const popover = document.createElement("span");
   popover.className = "service-hover-popover service-help-popover";
   const heading = document.createElement("strong");
   heading.textContent = "How to read this service";
   popover.appendChild(heading);
-  for (const line of helpSummary(row, evidence, node, runtimeApp)) {
+  for (const line of helpSummary(evidence, node, runtimeApp)) {
     const detail = document.createElement("span");
     detail.textContent = line;
     popover.appendChild(detail);
@@ -472,13 +553,29 @@ function relationData(topology, nodeId) {
   const dependencies = [];
   const downstream = [];
   for (const relation of topology?.relations || []) {
-    if (relation.source === nodeId && FUNCTIONAL_RELATION_TYPES.has(relation.type)) dependencies.push(relation);
-    if (relation.target === nodeId && IMPACT_RELATION_TYPES.has(relation.type)) downstream.push(relation);
+    if (
+      relation.source === nodeId &&
+      FUNCTIONAL_RELATION_TYPES.has(relation.type)
+    ) {
+      dependencies.push(relation);
+    }
+    if (
+      relation.target === nodeId &&
+      IMPACT_RELATION_TYPES.has(relation.type)
+    ) {
+      downstream.push(relation);
+    }
   }
   return { dependencies, downstream };
 }
 
-function drawerRelationSection(title, relations, direction, indexes, anchors) {
+function drawerRelationSection(
+  title,
+  relations,
+  direction,
+  indexes,
+  anchors,
+) {
   const block = document.createElement("div");
   block.className = "service-detail-relation-block";
   const heading = document.createElement("strong");
@@ -530,76 +627,157 @@ function addDrawerSection(host, title, id) {
   return section;
 }
 
+function renderRuntimeSection(body, runtimeApp, evidence) {
+  const runtime = addDrawerSection(
+    body,
+    "TrueNAS / Docker runtime",
+    "runtime",
+  );
+  const grid = document.createElement("div");
+  grid.className = "service-detail-metrics";
+  [
+    metricItem("App", runtimeApp?.name || evidence.homelab?.runtime_app),
+    metricItem(
+      "App state",
+      runtimeApp?.state || evidence.homelab?.runtime_state,
+    ),
+    metricItem("Runtime reachable", evidence.homelab?.runtime_reachable),
+    metricItem("Runtime stale", evidence.homelab?.runtime_stale),
+  ]
+    .filter(Boolean)
+    .forEach((item) => grid.appendChild(item));
+  runtime.appendChild(grid);
+
+  const containers = containerRows(runtimeApp);
+  if (containers.length === 0) return;
+  const list = document.createElement("ul");
+  list.className = "service-detail-container-list";
+  for (const container of containers) {
+    const item = document.createElement("li");
+    const state =
+      container?.health || container?.state || container?.status || "unknown";
+    const name = container?.service_name || "container";
+    item.textContent = `${name} · ${state}${container?.image ? ` · ${container.image}` : ""}`;
+    list.appendChild(item);
+  }
+  runtime.appendChild(list);
+}
+
+function renderRelationsSection(body, topology, node, indexes, anchors) {
+  if (!node) return;
+  const relations = relationData(topology, node.id);
+  const section = addDrawerSection(
+    body,
+    "Dependencies & downstream",
+    "dependencies",
+  );
+  const grid = document.createElement("div");
+  grid.className = "service-detail-relations";
+  grid.append(
+    drawerRelationSection(
+      "Depends on",
+      relations.dependencies,
+      "target",
+      indexes,
+      anchors,
+    ),
+    drawerRelationSection(
+      "Direct downstream",
+      relations.downstream,
+      "source",
+      indexes,
+      anchors,
+    ),
+  );
+  const allDownstream = collectReachable(
+    node.id,
+    reverseImpactAdjacency(topology),
+  );
+  grid.appendChild(
+    createLinkedList(
+      "Transitive downstream",
+      allDownstream,
+      indexes,
+      anchors,
+    ),
+  );
+  section.appendChild(grid);
+}
+
+function renderPerformanceSection(body, evidence, node) {
+  const section = addDrawerSection(body, "Service performance", "performance");
+  const grid = document.createElement("div");
+  grid.className = "service-detail-metrics";
+  const health = evidence.homelab || evidence.health || {};
+  const metrics = [
+    metricItem(
+      "Probe latency",
+      health.latency_ms != null
+        ? `${health.latency_ms} ms`
+        : health.elapsed_ms != null
+          ? `${health.elapsed_ms} ms`
+          : null,
+    ),
+    metricItem(
+      "Evidence age",
+      health.observation_age_seconds != null
+        ? `${health.observation_age_seconds} s`
+        : null,
+    ),
+    metricItem(
+      "Direct probe age",
+      health.direct_probe_age_seconds != null
+        ? `${health.direct_probe_age_seconds} s`
+        : null,
+    ),
+    metricItem(
+      "Internal probe age",
+      health.internal_probe_age_seconds != null
+        ? `${health.internal_probe_age_seconds} s`
+        : null,
+    ),
+    metricItem(
+      "Probe interval",
+      health.probe_interval_seconds != null
+        ? `${health.probe_interval_seconds} s`
+        : null,
+    ),
+    metricItem(
+      "Next probe",
+      health.next_probe_in_seconds != null
+        ? `${health.next_probe_in_seconds} s`
+        : null,
+    ),
+    metricItem(
+      "Prometheus target",
+      metricEvidence(evidence, node).target || null,
+    ),
+  ].filter(Boolean);
+  metrics.forEach((item) => grid.appendChild(item));
+  section.appendChild(grid);
+  if (metrics.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "service-detail-empty";
+    empty.textContent =
+      "No per-service timing/metrics evidence is currently attached to this row.";
+    section.appendChild(empty);
+  }
+}
+
 function renderEnhancedDrawer(row, snapshot, topology, indexes, anchors) {
   const drawer = document.getElementById("service-detail-drawer");
   const body = drawer?.querySelector(".service-detail-body");
   if (!body || !row) return;
-  body.querySelectorAll("[data-operator-section]").forEach((section) => section.remove());
+  body
+    .querySelectorAll("[data-operator-section]")
+    .forEach((section) => section.remove());
 
   const node = findNode(row, indexes);
   const evidence = serviceEvidence(snapshot, row, node);
   const runtimeApp = findRuntimeApp(snapshot, evidence, node);
-
-  const runtime = addDrawerSection(body, "TrueNAS / Docker runtime", "runtime");
-  const runtimeGrid = document.createElement("div");
-  runtimeGrid.className = "service-detail-metrics";
-  const runtimeItems = [
-    metricItem("App", runtimeApp?.name || evidence.homelab?.runtime_app),
-    metricItem("App state", runtimeApp?.state || evidence.homelab?.runtime_state),
-    metricItem("Runtime reachable", evidence.homelab?.runtime_reachable),
-    metricItem("Runtime stale", evidence.homelab?.runtime_stale),
-  ].filter(Boolean);
-  runtimeItems.forEach((item) => runtimeGrid.appendChild(item));
-  runtime.appendChild(runtimeGrid);
-  const containers = containerRows(runtimeApp);
-  if (containers.length > 0) {
-    const list = document.createElement("ul");
-    list.className = "service-detail-container-list";
-    for (const container of containers) {
-      const item = document.createElement("li");
-      const state = container?.health || container?.state || container?.status || "unknown";
-      const name = container?.service_name || "container";
-      item.textContent = `${name} · ${state}${container?.image ? ` · ${container.image}` : ""}`;
-      list.appendChild(item);
-    }
-    runtime.appendChild(list);
-  }
-
-  if (node) {
-    const relations = relationData(topology, node.id);
-    const dependencies = addDrawerSection(body, "Dependencies & downstream", "dependencies");
-    const relationGrid = document.createElement("div");
-    relationGrid.className = "service-detail-relations";
-    relationGrid.append(
-      drawerRelationSection("Depends on", relations.dependencies, "target", indexes, anchors),
-      drawerRelationSection("Direct downstream", relations.downstream, "source", indexes, anchors),
-    );
-    const allDownstream = collectReachable(node.id, reverseImpactAdjacency(topology));
-    relationGrid.appendChild(createLinkedList("Transitive downstream", allDownstream, indexes, anchors));
-    dependencies.appendChild(relationGrid);
-  }
-
-  const performance = addDrawerSection(body, "Service performance", "performance");
-  const perfGrid = document.createElement("div");
-  perfGrid.className = "service-detail-metrics";
-  const health = evidence.homelab || evidence.health || {};
-  const metrics = [
-    metricItem("Probe latency", health.latency_ms != null ? `${health.latency_ms} ms` : health.elapsed_ms != null ? `${health.elapsed_ms} ms` : null),
-    metricItem("Evidence age", health.observation_age_seconds != null ? `${health.observation_age_seconds} s` : null),
-    metricItem("Direct probe age", health.direct_probe_age_seconds != null ? `${health.direct_probe_age_seconds} s` : null),
-    metricItem("Internal probe age", health.internal_probe_age_seconds != null ? `${health.internal_probe_age_seconds} s` : null),
-    metricItem("Probe interval", health.probe_interval_seconds != null ? `${health.probe_interval_seconds} s` : null),
-    metricItem("Next probe", health.next_probe_in_seconds != null ? `${health.next_probe_in_seconds} s` : null),
-    metricItem("Prometheus target", node?.monitoring?.url || node?.monitoring?.target),
-  ].filter(Boolean);
-  metrics.forEach((item) => perfGrid.appendChild(item));
-  performance.appendChild(perfGrid);
-  if (metrics.length === 0) {
-    const empty = document.createElement("p");
-    empty.className = "service-detail-empty";
-    empty.textContent = "No per-service timing/metrics evidence is currently attached to this row.";
-    performance.appendChild(empty);
-  }
+  renderRuntimeSection(body, runtimeApp, evidence);
+  renderRelationsSection(body, topology, node, indexes, anchors);
+  renderPerformanceSection(body, evidence, node);
 }
 
 function decorateRows(snapshot, topology) {
@@ -619,13 +797,20 @@ function decorateRows(snapshot, topology) {
     decorateHelp(row, evidence, node, runtimeApp);
   }
 
-  const selected = document.querySelector(`${ROW_SELECTOR}[data-detail-selected="true"]`);
-  if (selected) renderEnhancedDrawer(selected, snapshot, topology, indexes, anchors);
+  const selected = document.querySelector(
+    `${ROW_SELECTOR}[data-detail-selected="true"]`,
+  );
+  if (selected) {
+    renderEnhancedDrawer(selected, snapshot, topology, indexes, anchors);
+  }
 }
 
 async function refreshDiagnostics() {
   try {
-    const [snapshot, topology] = await Promise.all([fetchHealthBoard(), fetchTopology()]);
+    const [snapshot, topology] = await Promise.all([
+      fetchHealthBoard(),
+      fetchTopology(),
+    ]);
     latestSnapshot = snapshot;
     latestTopology = topology;
     decorateRows(snapshot, topology);
@@ -639,41 +824,54 @@ function scheduleRefresh() {
   refreshScheduled = true;
   window.requestAnimationFrame(() => {
     refreshScheduled = false;
-    if (latestSnapshot && latestTopology) decorateRows(latestSnapshot, latestTopology);
-    else refreshDiagnostics();
+    if (latestSnapshot && latestTopology) {
+      decorateRows(latestSnapshot, latestTopology);
+    } else {
+      refreshDiagnostics();
+    }
   });
+}
+
+function schedulePostRenderPasses() {
+  scheduleRefresh();
+  window.setTimeout(scheduleRefresh, 120);
+  window.setTimeout(scheduleRefresh, 500);
 }
 
 function installDrawerEnhancement() {
   document.addEventListener(
     "click",
     (event) => {
-      const trigger = event.target instanceof Element ? event.target.closest(".service-detail-trigger") : null;
+      const trigger =
+        event.target instanceof Element
+          ? event.target.closest(".service-detail-trigger")
+          : null;
       const row = trigger?.closest(ROW_SELECTOR);
       if (!row) return;
       window.setTimeout(() => {
         if (!latestSnapshot || !latestTopology) return;
         const indexes = nodeIndexes(latestTopology);
-        const anchors = assignAnchors([...document.querySelectorAll(ROW_SELECTOR)], indexes);
-        renderEnhancedDrawer(row, latestSnapshot, latestTopology, indexes, anchors);
+        const anchors = assignAnchors(
+          [...document.querySelectorAll(ROW_SELECTOR)],
+          indexes,
+        );
+        renderEnhancedDrawer(
+          row,
+          latestSnapshot,
+          latestTopology,
+          indexes,
+          anchors,
+        );
       }, 0);
     },
     true,
   );
 }
 
-function installMutationRefresh() {
-  const board = document.getElementById("health-board");
-  if (!board) return;
-  const observer = new MutationObserver(scheduleRefresh);
-  observer.observe(board, { childList: true, subtree: true });
-}
-
 export function installServiceOperatorDiagnostics() {
   installDrawerEnhancement();
-  installMutationRefresh();
   document.addEventListener("health-board-refreshed", () => {
-    refreshDiagnostics();
+    refreshDiagnostics().then(schedulePostRenderPasses);
   });
-  scheduleRefresh();
+  schedulePostRenderPasses();
 }
