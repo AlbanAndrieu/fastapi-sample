@@ -33,7 +33,7 @@ def start_pyroscope(
         )
     except Exception:
         logger.exception(
-            "Pyroscope profiler initialization failed; application startup will continue"
+            "Pyroscope profiler initialization failed; application startup will continue",
         )
         return False
 
