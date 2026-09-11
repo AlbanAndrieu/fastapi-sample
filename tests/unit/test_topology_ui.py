@@ -14,8 +14,8 @@ def test_topology_page_is_separate_from_health_dashboard() -> None:
     assert "Homelab topology" in page
     assert 'href="/api"' in page
     assert 'href="/api/homelab-topology"' in page
-    assert '/api/assets/api-topology.css?v=1.2.3' in page
-    assert '/api/assets/api-topology.js?v=1.2.3' in page
+    assert "/api/assets/api-topology.css?v=1.2.3" in page
+    assert "/api/assets/api-topology.js?v=1.2.3" in page
     assert 'id="health-board"' not in page
 
 
