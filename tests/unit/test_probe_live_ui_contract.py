@@ -50,10 +50,14 @@ def test_cloudflare_uncertainty_is_visible_next_to_ingress_diagnostics() -> None
     assert "remote-vs-local tunnel management" in javascript
     assert 'document.getElementById("truenas-ingress-block")' in javascript
     assert "platformCloudflareDetail" in javascript
+    assert "exposureManagementDetail" in javascript
+    assert "local-managed tunnel(s) observed" in javascript
+    assert "Local YAML ingress hostnames are not exposed" in javascript
     assert "status_confirmed" in javascript
     assert "api_reachable" in javascript
     assert "error_kind" in javascript
     assert "snapshot?.healthz?.checks?.cloudflare" in controller
+    assert "snapshot?.homelab?.cloudflare" in controller
 
 
 def test_pfsense_security_controls_have_explicit_icons() -> None:
