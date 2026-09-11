@@ -92,6 +92,40 @@ function normalizeTunnelStatus(check) {
   };
 }
 
+function cloudflarePolicyDetail(check) {
+  const parts = [];
+  const policyNames = Array.isArray(check.cloudflare_access_policy_names)
+    ? check.cloudflare_access_policy_names.filter(Boolean)
+    : [];
+  const policyDecisions = Array.isArray(check.cloudflare_access_policy_decisions)
+    ? check.cloudflare_access_policy_decisions.filter(Boolean)
+    : [];
+  const policyCount = Number(check.cloudflare_access_policy_count);
+
+  if (policyNames.length > 0) {
+    parts.push(`Access policies: ${policyNames.join(", ")}`);
+  } else if (Number.isFinite(policyCount)) {
+    parts.push(
+      `${policyCount} Access polic${policyCount === 1 ? "y" : "ies"} observed`,
+    );
+  }
+  if (policyDecisions.length > 0) {
+    parts.push(`decisions=${policyDecisions.join(", ")}`);
+  }
+  if (check.cloudflare_default_deny === true) {
+    parts.push("Default-Deny observed");
+  }
+  if (check.cloudflare_service_auth_attempted === true) {
+    const tokenStatus = Number(check.cloudflare_service_token_http_status);
+    const tokenOutcome =
+      check.cloudflare_service_token_access_passed === true ? "passed" : "blocked";
+    parts.push(
+      `Service token ${tokenOutcome}${Number.isFinite(tokenStatus) ? ` (HTTP ${tokenStatus})` : ""}`,
+    );
+  }
+  return parts.join(" · ");
+}
+
 function findRow(check) {
   const href = String(
     check.tunnel_url || check.tunnelUrl || check.href || "",
@@ -138,7 +172,7 @@ function replaceDirectProbeWording(row, check) {
   row.classList.add("health-row--probe-inconclusive");
 }
 
-function appendTunnelBadge(row, state) {
+function appendTunnelBadge(row, state, check) {
   if (!row || !state || row.querySelector(".cloudflare-tunnel-badge")) return;
   const tags =
     row.querySelector(".health-row-tags") ||
@@ -146,10 +180,12 @@ function appendTunnelBadge(row, state) {
   if (!tags) return;
   const badge = document.createElement("span");
   badge.className = `cloudflare-tunnel-badge cloudflare-tunnel-badge--${state.cls}`;
-  badge.title = `${state.label}: ${state.detail}`;
+  const policyDetail = cloudflarePolicyDetail(check);
+  const hover = [state.label, state.detail, policyDetail].filter(Boolean).join(" · ");
+  badge.title = hover;
   badge.setAttribute("role", "img");
-  badge.setAttribute("aria-label", `${state.label}. ${state.detail}`);
-  badge.innerHTML = `<img src="${CLOUDFLARE_ICON}" alt="" width="18" height="18" loading="lazy"> <span>${state.label}</span>`;
+  badge.setAttribute("aria-label", hover);
+  badge.innerHTML = `<img src="${CLOUDFLARE_ICON}" alt="" width="18" height="18" loading="lazy"> <span>Tunnel</span>`;
   tags.appendChild(badge);
 }
 
@@ -257,7 +293,6 @@ function renderTunnelStatus(checks, platformCheck, exposureSummary) {
   const accessDetails = accessInventoryDetails(exposureSummary);
   const container = ensureTunnelStatusBlock();
   if (!container) return;
-
   const hasInventory = tunnelDetails.length > 0 || accessDetails.length > 0;
   if (
     unresolved.length === 0 &&
@@ -343,7 +378,7 @@ export function decorateCloudflareTunnelStatuses(
     Object.values(checks).forEach((check) => {
       const row = findRow(check);
       replaceDirectProbeWording(row, check);
-      appendTunnelBadge(row, normalizeTunnelStatus(check));
+      appendTunnelBadge(row, normalizeTunnelStatus(check), check);
     });
     renderTunnelStatus(checks, platformCheck, exposureSummary);
   }, 0);
