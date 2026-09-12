@@ -28,7 +28,7 @@ from nabla.api.cloudflare_tunnels import (
 _API_ROOT = "https://api.cloudflare.com/client/v4"
 _TIMEOUT_SECONDS = 5.0
 _DEFAULT_PROJECT_POLICY = "fastapi-sample-monitor"
-_DEFAULT_PROJECT_SERVICE_TOKEN_NAME = "fastapi-sample-monitor"
+_DEFAULT_PROJECT_SERVICE_AUTH_LABEL = "fastapi-sample-monitor"
 
 
 def _project_policy_name() -> str:
@@ -36,7 +36,7 @@ def _project_policy_name() -> str:
 
 
 def _project_service_token_name() -> str:
-    return os.getenv("CLOUDFLARE_PROJECT_SERVICE_TOKEN_NAME", "").strip() or _DEFAULT_PROJECT_SERVICE_TOKEN_NAME
+    return os.getenv("CLOUDFLARE_PROJECT_SERVICE_TOKEN_NAME", "").strip() or _DEFAULT_PROJECT_SERVICE_AUTH_LABEL
 
 
 def _safe_error(exc: BaseException) -> str:
