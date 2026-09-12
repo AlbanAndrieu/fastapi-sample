@@ -61,13 +61,7 @@ def _tunnel_summary(tunnel: CloudflareTunnelObservation) -> dict[str, Any]:
         "status": tunnel.status,
         "management": management,
         "ingress_count": len(ingress),
-        "ingress_visibility": (
-            "remote_api"
-            if management == "cloudflare"
-            else "local_yaml_unavailable_via_api"
-            if management == "local"
-            else "unknown"
-        ),
+        "ingress_visibility": ("remote_api" if management == "cloudflare" else "local_yaml_unavailable_via_api" if management == "local" else "unknown"),
         "ingress": ingress,
     }
 
