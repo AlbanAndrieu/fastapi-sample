@@ -191,6 +191,19 @@ class HomelabService(BaseModel):
             raise ValueError("external conflicts with legacy reacheableFromOutside")
         return data
 
+    def _validate_int_external_edge(self, host: str) -> None:
+        """Validate explicit routing policy for externally exposed ``*.int`` hosts."""
+        if not host.endswith(_DIRECT_EXTERNAL_DOMAIN_SUFFIX):
+            return
+        if self.tunnel_secure is None:
+            raise ValueError(
+                "external *.int.albandrieu.com endpoints require an explicit tunnelSecure edge classification",
+            )
+        if self.tunnel_secure is True and self.cloudflare_access_required is False:
+            raise ValueError(
+                "secure external *.int.albandrieu.com endpoints cannot disable Cloudflare Access without a reviewed direct-ingress declaration",
+            )
+
     @model_validator(mode="after")
     def validate_external_exposure(self) -> HomelabService:
         """Require an explicit, plausibly public endpoint for external access.
@@ -222,15 +235,7 @@ class HomelabService(BaseModel):
             raise ValueError("external HTTP endpoints must use HTTPS")
         if host in {"localhost", "localhost.localdomain"} or host.endswith(".local"):
             raise ValueError("external tunnelUrl must not target a local hostname")
-        if host.endswith(_DIRECT_EXTERNAL_DOMAIN_SUFFIX):
-            if self.tunnel_secure is None:
-                raise ValueError(
-                    "external *.int.albandrieu.com endpoints require an explicit tunnelSecure edge classification",
-                )
-            if self.tunnel_secure is True and self.cloudflare_access_required is False:
-                raise ValueError(
-                    "secure external *.int.albandrieu.com endpoints cannot disable Cloudflare Access without a reviewed direct-ingress declaration",
-                )
+        self._validate_int_external_edge(host)
 
         try:
             address = ip_address(host)
