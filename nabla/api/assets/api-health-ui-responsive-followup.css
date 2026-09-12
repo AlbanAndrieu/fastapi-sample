@@ -1,3 +1,16 @@
+.health-legend-section,
+.health-legend-section > span,
+.health-legend-item,
+.health-legend-item small {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.health-legend-item small {
+  white-space: normal;
+}
+
 .service-detail-status-reason {
   padding: 0.55rem 0.6rem;
   border: 1px solid #303030;
@@ -190,6 +203,13 @@
   font-variant-numeric: tabular-nums;
 }
 
+@media (min-width: 1121px) {
+  body.health-ui--workstation:not(.health-ui-filter-docked)
+    .service-health-layout {
+    grid-template-columns: minmax(340px, 400px) minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 480px) {
   .service-filter--global .service-filter-control {
     grid-template-columns: minmax(0, 1fr) auto;
@@ -341,5 +361,9 @@
     .service-filter--global
     .service-filter-facets {
     grid-template-columns: 1fr;
+  }
+
+  body.health-ui--workstation.health-ui-filter-docked .service-health-layout {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
