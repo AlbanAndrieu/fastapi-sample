@@ -17,7 +17,7 @@ def test_cloudflare_badge_is_provider_named_and_exposes_control_plane_counts() -
     assert "status=${tunnel.status" in javascript
     assert "Access apps" in javascript
     assert "Reusable policies" in javascript
-    assert "Service tokens" in javascript
+    assert "Service Tokens" in javascript
     assert "Service Token ${tokenOutcome}" in javascript
 
 
