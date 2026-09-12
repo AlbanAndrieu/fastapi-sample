@@ -1,5 +1,5 @@
-import { decorateCloudflareProbeStatuses } from "./api-cloudflare-probe.js";
 import { decorateLocalManagedTunnelWording } from "./api-cloudflare-local-managed.js";
+import { decorateCloudflareProbeStatuses } from "./api-cloudflare-probe.js";
 import {
   decorateCloudflareTunnelStatuses,
   markHealthBoardsPending,
