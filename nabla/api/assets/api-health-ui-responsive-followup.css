@@ -200,65 +200,6 @@
   }
 }
 
-@media (min-width: 1500px) {
-  body.health-ui--workstation.health-ui-filter-docked main {
-    width: calc(100vw - 470px);
-    max-width: min(1200px, calc(100vw - 470px));
-    margin-right: auto;
-    margin-left: 450px;
-  }
-
-  body.health-ui--workstation.health-ui-filter-docked
-    .service-filter-sticky-sentinel {
-    display: none;
-  }
-
-  body.health-ui--workstation.health-ui-filter-docked .service-filter--global {
-    position: fixed;
-    z-index: 70;
-    top: 0.75rem;
-    right: auto;
-    bottom: 0.75rem;
-    left: 0.75rem;
-    width: 420px;
-    max-width: 420px;
-    max-height: none;
-    margin: 0;
-    overflow: auto;
-    overscroll-behavior: contain;
-  }
-
-  body.health-ui--workstation.health-ui-filter-docked
-    .service-filter--global[data-stuck="true"][data-expanded="true"] {
-    max-height: none;
-  }
-
-  body.health-ui--workstation.health-ui-filter-docked
-    .service-filter--global
-    .service-filter-health-summary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  body.health-ui--workstation.health-ui-filter-docked
-    .service-filter--global
-    .service-filter-control {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  body.health-ui--workstation.health-ui-filter-docked
-    .service-filter--global
-    .service-filter-control
-    input {
-    grid-column: 1 / -1;
-  }
-
-  body.health-ui--workstation.health-ui-filter-docked
-    .service-filter--global
-    .service-filter-facets {
-    grid-template-columns: 1fr;
-  }
-}
-
 @media (min-width: 721px) and (max-width: 1100px) {
   .service-filter-health-summary {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -341,5 +282,64 @@
   .pfsense-security-posture-history li {
     grid-template-columns: 1fr;
     gap: 0.1rem;
+  }
+}
+
+@media (min-width: 1500px) {
+  body.health-ui--workstation.health-ui-filter-docked main {
+    width: calc(100vw - 470px);
+    max-width: min(1200px, calc(100vw - 470px));
+    margin-right: auto;
+    margin-left: 450px;
+  }
+
+  body.health-ui--workstation.health-ui-filter-docked
+    .service-filter-sticky-sentinel {
+    display: none;
+  }
+
+  body.health-ui--workstation.health-ui-filter-docked .service-filter--global {
+    position: fixed;
+    z-index: 70;
+    top: 0.75rem;
+    right: auto;
+    bottom: 0.75rem;
+    left: 0.75rem;
+    width: 420px;
+    max-width: 420px;
+    max-height: none;
+    margin: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  body.health-ui--workstation.health-ui-filter-docked
+    .service-filter--global[data-stuck="true"][data-expanded="true"] {
+    max-height: none;
+  }
+
+  body.health-ui--workstation.health-ui-filter-docked
+    .service-filter--global
+    .service-filter-health-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.health-ui--workstation.health-ui-filter-docked
+    .service-filter--global
+    .service-filter-control {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  body.health-ui--workstation.health-ui-filter-docked
+    .service-filter--global
+    .service-filter-control
+    input {
+    grid-column: 1 / -1;
+  }
+
+  body.health-ui--workstation.health-ui-filter-docked
+    .service-filter--global
+    .service-filter-facets {
+    grid-template-columns: 1fr;
   }
 }
