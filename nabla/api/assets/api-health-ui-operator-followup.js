@@ -355,7 +355,7 @@ async function detectRuntimeDiagnostics() {
     headers: { Accept: "application/json" },
   }).catch(() => null);
   if (!response) return;
-  runtimeDiagnosticsState = response.status === 404 ? false : true;
+  runtimeDiagnosticsState = response.status !== 404;
 }
 
 function apply() {
