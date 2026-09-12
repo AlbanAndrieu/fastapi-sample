@@ -8,6 +8,7 @@ const OBSERVED_CONTAINERS = [
 
 let activeRow = null;
 let activeTrigger = null;
+let activeIdentity = null;
 let refreshScheduled = false;
 
 function normalizedStatus(row) {
@@ -38,6 +39,32 @@ function safeHttpUrl(value) {
   } catch {
     return null;
   }
+}
+
+function rowIdentity(row) {
+  if (!row) return null;
+  return {
+    topologyId: String(row.dataset.topologyId || "").trim(),
+    serviceKey: String(row.dataset.serviceKey || "").trim(),
+    serviceName: String(row.dataset.serviceName || "").trim(),
+    serviceUrl: safeHttpUrl(row.dataset.serviceUrl) || "",
+  };
+}
+
+function sameIdentity(row, identity) {
+  if (!row || !identity) return false;
+  const candidate = rowIdentity(row);
+  for (const key of ["topologyId", "serviceKey", "serviceName", "serviceUrl"]) {
+    if (identity[key] && candidate?.[key] === identity[key]) return true;
+  }
+  return false;
+}
+
+function replacementRow(identity) {
+  if (!identity) return null;
+  return [...document.querySelectorAll(ROW_SELECTOR)].find((row) =>
+    sameIdentity(row, identity),
+  );
 }
 
 function metadataEntries(row) {
@@ -205,7 +232,9 @@ function renderEvidence(drawer, row) {
 function renderDrawer(row, { force = false } = {}) {
   const drawer = ensureDrawer();
   const signature = drawerSignature(row);
-  const serviceKey = String(row.dataset.serviceKey || row.dataset.serviceName || "");
+  const serviceKey = String(
+    row.dataset.serviceKey || row.dataset.serviceName || "",
+  );
   if (
     !force &&
     drawer.dataset.serviceKey === serviceKey &&
@@ -226,6 +255,7 @@ function openDrawer(row, trigger) {
   if (!row) return;
   if (activeRow && activeRow !== row) delete activeRow.dataset.detailSelected;
   activeRow = row;
+  activeIdentity = rowIdentity(row);
   activeTrigger = trigger || null;
   activeRow.dataset.detailSelected = "true";
   renderDrawer(row, { force: true });
@@ -241,8 +271,10 @@ function closeDrawer({ restoreFocus = true } = {}) {
   const trigger = activeTrigger;
   activeRow = null;
   activeTrigger = null;
-  if (restoreFocus && trigger?.isConnected)
+  activeIdentity = null;
+  if (restoreFocus && trigger?.isConnected) {
     trigger.focus({ preventScroll: true });
+  }
 }
 
 function ensureDetailTrigger(row) {
@@ -271,13 +303,23 @@ function decorateRows(root = document) {
   root.querySelectorAll?.(ROW_SELECTOR).forEach(ensureDetailTrigger);
 }
 
+function reattachActiveRow() {
+  if (activeRow?.isConnected) return true;
+  const replacement = replacementRow(activeIdentity);
+  if (!replacement) return false;
+  activeRow = replacement;
+  activeRow.dataset.detailSelected = "true";
+  activeTrigger =
+    activeRow.querySelector(":scope > .service-detail-trigger") || activeTrigger;
+  return true;
+}
+
 function scheduleActiveRefresh() {
   if (!activeRow || refreshScheduled) return;
   refreshScheduled = true;
   window.requestAnimationFrame(() => {
     refreshScheduled = false;
-    if (!activeRow?.isConnected) {
-      closeDrawer({ restoreFocus: false });
+    if (!reattachActiveRow()) {
       return;
     }
     renderDrawer(activeRow);
