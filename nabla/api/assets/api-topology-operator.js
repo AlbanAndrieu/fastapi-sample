@@ -71,7 +71,9 @@ function hideDocker() {
 function removeGroups() {
   if (!graph) return;
   const children = graph.nodes().filter((node) => node.parent().nonempty());
-  children.forEach((node) => node.move({ parent: null }));
+  children.forEach((node) => {
+    node.move({ parent: null });
+  });
   graph.nodes(".operator-group").remove();
 }
 
@@ -235,7 +237,9 @@ function applyResourceSizing() {
 
 function resetEdgeSizing() {
   if (!graph) return;
-  graph.edges().forEach((edge) => edge.removeStyle("width"));
+  graph.edges().forEach((edge) => {
+    edge.removeStyle("width");
+  });
 }
 
 function edgeBandwidth(edge) {
