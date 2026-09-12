@@ -1,5 +1,6 @@
 """Regression contracts for Cloudflare Access redirect and sticky-filter evidence."""
 
+import asyncio
 from pathlib import Path
 from unittest.mock import AsyncMock
 
@@ -138,7 +139,7 @@ async def test_homelab_health_reprobes_access_redirect_with_service_token(
     ) as client:
         result = await homelab_health._probe_public_service(
             client,
-            __import__("asyncio").Semaphore(1),
+            asyncio.Semaphore(1),
             service,
         )
 
