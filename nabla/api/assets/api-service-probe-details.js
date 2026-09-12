@@ -120,6 +120,11 @@ function metricItem(label, value) {
   return item;
 }
 
+function httpStatusMetric(check, key) {
+  const value = Number(check?.[key]);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
 function layerMetrics(check, snapshot) {
   const elapsed = Number(check?.elapsed_ms ?? check?.latency_ms);
   const dnsElapsed = Number(check?.dns_latency_ms);
@@ -149,6 +154,25 @@ function layerMetrics(check, snapshot) {
       "HTTP status",
       Number.isFinite(Number(check?.http_status)) ? check.http_status : null,
     ),
+    metricItem(
+      "Anonymous initial HTTP",
+      httpStatusMetric(check, "anonymous_initial_http_status"),
+    ),
+    metricItem(
+      "Anonymous final HTTP",
+      httpStatusMetric(check, "anonymous_final_http_status"),
+    ),
+    metricItem(
+      "Authenticated HTTP",
+      httpStatusMetric(check, "authenticated_http_status"),
+    ),
+    metricItem(
+      "Origin reached",
+      typeof check?.origin_reached === "boolean"
+        ? String(check.origin_reached)
+        : null,
+    ),
+    metricItem("Auth mode", check?.public_probe_auth_mode),
     metricItem(
       "Reachable",
       typeof check?.reachable === "boolean" ? String(check.reachable) : null,
