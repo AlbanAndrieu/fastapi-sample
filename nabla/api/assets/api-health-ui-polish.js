@@ -90,7 +90,11 @@ function enrichLegend() {
       "Amber",
       "Warning, incomplete evidence or at-risk state; not necessarily downtime.",
     ),
-    legendItem("health-legend--red", "Red", "Confirmed failure / down evidence."),
+    legendItem(
+      "health-legend--red",
+      "Red",
+      "Confirmed failure / down evidence.",
+    ),
     legendItem(
       "health-legend--gray",
       "Gray",
@@ -112,24 +116,63 @@ function enrichLegend() {
     ),
     "</div>",
     '<div class="health-legend-section"><b>Card probes</b>',
-    hoverLabel("🌐 HTTP", "Latest public HTTP response evidence, such as HTTP 200/302."),
-    hoverLabel("🔒 TLS", "TLS certificate validation for the public HTTPS endpoint."),
+    hoverLabel(
+      "🌐 HTTP",
+      "Latest public HTTP response evidence, such as HTTP 200/302.",
+    ),
+    hoverLabel(
+      "🔒 TLS",
+      "TLS certificate validation for the public HTTPS endpoint.",
+    ),
     hoverLabel("🔌 TCP", "Latest LAN/internal TCP reachability evidence."),
-    hoverLabel("⚙️ API", "REST/API control-plane evidence; separate from raw listener reachability."),
-    hoverLabel("↔️ WS", "WebSocket/API transport evidence where applicable."),
-    hoverLabel("☁️ Tunnel", "Cloudflare Tunnel route/connectivity evidence; it does not authorize users."),
+    hoverLabel(
+      "⚙️ API",
+      "REST/API control-plane evidence; separate from raw listener reachability.",
+    ),
+    hoverLabel(
+      "↔️ WS",
+      "WebSocket/API transport evidence where applicable.",
+    ),
+    hoverLabel(
+      "☁️ Tunnel",
+      "Cloudflare Tunnel route/connectivity evidence; it does not authorize users.",
+    ),
     hoverLabel("🛡️ Access", "Cloudflare Access/policy authorization evidence."),
-    hoverLabel("🔑 Token", "Cloudflare Access Service Token machine-identity evidence."),
-    hoverLabel("📈 Metrics", "Prometheus/runtime metrics evidence when configured."),
-    hoverLabel("Public", "Externally published service endpoint; the label links to that endpoint."),
-    hoverLabel("LAN", "Internal IP/port endpoint observed from the homelab/workstation runtime."),
+    hoverLabel(
+      "🔑 Token",
+      "Cloudflare Access Service Token machine-identity evidence.",
+    ),
+    hoverLabel(
+      "📈 Metrics",
+      "Prometheus/runtime metrics evidence when configured.",
+    ),
+    hoverLabel(
+      "Public",
+      "Externally published service endpoint; the label links to that endpoint.",
+    ),
+    hoverLabel(
+      "LAN",
+      "Internal IP/port endpoint observed from the homelab/workstation runtime.",
+    ),
     "</div>",
     '<div class="health-legend-section"><b>Card metadata</b>',
-    hoverLabel("critical/high", "Blast-radius criticality from the topology, not a live health result."),
-    hoverLabel("downstream", "Number of declared services that depend on this service."),
-    hoverLabel("age", "Time since the latest probe observation used by this Card."),
+    hoverLabel(
+      "critical/high",
+      "Blast-radius criticality from the topology, not a live health result.",
+    ),
+    hoverLabel(
+      "downstream",
+      "Number of declared services that depend on this service.",
+    ),
+    hoverLabel(
+      "age",
+      "Time since the latest probe observation used by this Card.",
+    ),
     hoverLabel("latency", "Duration of the latest sampled probe."),
-    hoverLabel("probing", "A refresh is currently due/running; this indicator does not change health by itself."),
+    hoverLabel(
+      "probing",
+      "A refresh is currently due/running; this indicator does not change health by itself.",
+    ),
     "</div>",
   ].join("");
 }
@@ -141,7 +184,10 @@ function consolidateTelemetry(row) {
     column.className = "health-row-telemetry";
     row.appendChild(column);
   }
-  column.setAttribute("aria-label", "Probe freshness, latency and refresh state");
+  column.setAttribute(
+    "aria-label",
+    "Probe freshness, latency and refresh state",
+  );
   column.title =
     "Probe telemetry: freshness/age, latest latency and whether a refresh is currently probing.";
 
