@@ -111,12 +111,7 @@ def select_sentry_dsn(env: Mapping[str, str] | None = None) -> tuple[str, str]:
 def _scrub_sensitive(value: Any) -> Any:
     """Return a copy with common credential fields removed."""
     if isinstance(value, dict):
-        return {
-            key: _FILTERED_VALUE
-            if str(key).lower() in _SENSITIVE_KEYS
-            else _scrub_sensitive(item)
-            for key, item in value.items()
-        }
+        return {key: _FILTERED_VALUE if str(key).lower() in _SENSITIVE_KEYS else _scrub_sensitive(item) for key, item in value.items()}
     if isinstance(value, list):
         return [_scrub_sensitive(item) for item in value]
     if isinstance(value, tuple):
@@ -142,8 +137,7 @@ def _websocket_timeout_context(event: dict[str, Any]) -> dict[str, Any]:
         "library": "websocket-client",
         "failure_stage": "transport_timeout",
         "diagnostic_hint": (
-            "Correlate this timestamp with integration-specific warnings; the TrueNAS "
-            "observer logs method, URI, proxy route, phase, failure stage and elapsed time."
+            "Correlate this timestamp with integration-specific warnings; the TrueNAS observer logs method, URI, proxy route, phase, failure stage and elapsed time."
         ),
     }
     event["contexts"] = contexts
@@ -237,16 +231,8 @@ def configure_sentry(env: Mapping[str, str] | None = None) -> bool:
         sentry_sdk.init(
             dsn=dsn,
             enable_logs=not logfire_enabled,
-            traces_sample_rate=(
-                None
-                if logfire_enabled
-                else _env_float(values, "SENTRY_TRACES_SAMPLE_RATE", 0.1)
-            ),
-            profiles_sample_rate=(
-                0.0
-                if logfire_enabled
-                else _env_float(values, "SENTRY_PROFILES_SAMPLE_RATE", 0.0)
-            ),
+            traces_sample_rate=(None if logfire_enabled else _env_float(values, "SENTRY_TRACES_SAMPLE_RATE", 0.1)),
+            profiles_sample_rate=(0.0 if logfire_enabled else _env_float(values, "SENTRY_PROFILES_SAMPLE_RATE", 0.0)),
             sample_rate=_env_float(values, "SENTRY_ERROR_SAMPLE_RATE", 1.0),
             send_default_pii=False,
             before_send=_before_send,
@@ -255,16 +241,11 @@ def configure_sentry(env: Mapping[str, str] | None = None) -> bool:
             ignore_errors=[BrokenPipeError, ConnectionResetError, TimeoutError],
             max_breadcrumbs=int(values.get("SENTRY_MAX_BREADCRUMBS", "50")),
             shutdown_timeout=float(values.get("SENTRY_SHUTDOWN_TIMEOUT", "2")),
-            environment=(
-                values.get("SENTRY_ENVIRONMENT") or values.get("ENV") or "development"
-            ),
+            environment=(values.get("SENTRY_ENVIRONMENT") or values.get("ENV") or "development"),
             release=values.get("SENTRY_RELEASE") or app_version,
             integrations=_integrations(
                 include_logging=not logfire_enabled,
-                include_ai=values.get("SENTRY_AI_INTEGRATIONS_ENABLED", "false")
-                .strip()
-                .lower()
-                in {"1", "true", "yes", "on"},
+                include_ai=values.get("SENTRY_AI_INTEGRATIONS_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"},
             ),
             server_name=app_name,
         )
