@@ -26,30 +26,23 @@ _SERVICE_LABEL = "container_label_com_docker_compose_service"
 _RESOURCE_QUERIES = {
     "cpu_cores": (
         "sum by (container_label_com_docker_compose_service) "
-        "(rate(container_cpu_usage_seconds_total{job=\"truenas_cadvisor\","
-        "container_label_com_docker_compose_service!=\"\"}[2m]))"
+        "(rate(container_cpu_usage_seconds_total{job=\"truenas_cadvisor\",container_label_com_docker_compose_service!=\"\"}[2m]))"
     ),
     "memory_bytes": (
         "sum by (container_label_com_docker_compose_service) "
-        "(container_memory_working_set_bytes{job=\"truenas_cadvisor\","
-        "container_label_com_docker_compose_service!=\"\"})"
+        "(container_memory_working_set_bytes{job=\"truenas_cadvisor\",container_label_com_docker_compose_service!=\"\"})"
     ),
     "rx_bytes_per_second": (
         "sum by (container_label_com_docker_compose_service) "
-        "(rate(container_network_receive_bytes_total{job=\"truenas_cadvisor\","
-        "container_label_com_docker_compose_service!=\"\"}[2m]))"
+        "(rate(container_network_receive_bytes_total{job=\"truenas_cadvisor\",container_label_com_docker_compose_service!=\"\"}[2m]))"
     ),
     "tx_bytes_per_second": (
         "sum by (container_label_com_docker_compose_service) "
-        "(rate(container_network_transmit_bytes_total{job=\"truenas_cadvisor\","
-        "container_label_com_docker_compose_service!=\"\"}[2m]))"
+        "(rate(container_network_transmit_bytes_total{job=\"truenas_cadvisor\",container_label_com_docker_compose_service!=\"\"}[2m]))"
     ),
 }
 _FLOW_QUERY = (
-    "nabla:network_flow:pfsense_bytes_per_second or "
-    "nabla:network_flow:pfsense_packets_per_second or "
-    "nabla:telemetry:akvorado_inlet_up or "
-    "nabla:telemetry:akvorado_outlet_up"
+    "nabla:network_flow:pfsense_bytes_per_second or nabla:network_flow:pfsense_packets_per_second or nabla:telemetry:akvorado_inlet_up or nabla:telemetry:akvorado_outlet_up"
 )
 
 
@@ -108,8 +101,7 @@ def _resource_values(
             resources.setdefault(service, {})[field] = round(max(0.0, value), 6)
     for service, values in resources.items():
         values["network_bytes_per_second"] = round(
-            values.get("rx_bytes_per_second", 0.0)
-            + values.get("tx_bytes_per_second", 0.0),
+            values.get("rx_bytes_per_second", 0.0) + values.get("tx_bytes_per_second", 0.0),
             6,
         )
     return resources
@@ -151,10 +143,7 @@ async def _fetch_origin(
         trust_env=False,
     )
     try:
-        tasks = {
-            field: asyncio.create_task(_query(query_client, expression))
-            for field, expression in _RESOURCE_QUERIES.items()
-        }
+        tasks = {field: asyncio.create_task(_query(query_client, expression)) for field, expression in _RESOURCE_QUERIES.items()}
         flow_task = asyncio.create_task(_query(query_client, _FLOW_QUERY))
         results: dict[str, list[dict[str, Any]]] = {}
         errors: dict[str, str] = {}
@@ -189,9 +178,7 @@ async def _fetch_origin(
         "network_flow": flow,
         "edge_bandwidth": {},
         "edge_bandwidth_state": "unattributed",
-        "edge_bandwidth_detail": (
-            "Akvorado confirms aggregate pfSense flow throughput, but no source-to-target topology edge attribution is exported yet."
-        ),
+        "edge_bandwidth_detail": ("Akvorado confirms aggregate pfSense flow throughput, but no source-to-target topology edge attribution is exported yet."),
         "query_errors": errors,
         "signals_available": signals,
         "signals_total": total,
