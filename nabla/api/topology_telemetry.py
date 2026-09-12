@@ -25,20 +25,18 @@ _cache_stored_at = 0.0
 _SERVICE_LABEL = "container_label_com_docker_compose_service"
 _RESOURCE_QUERIES = {
     "cpu_cores": (
-        "sum by (container_label_com_docker_compose_service) "
-        "(rate(container_cpu_usage_seconds_total{job=\"truenas_cadvisor\",container_label_com_docker_compose_service!=\"\"}[2m]))"
+        'sum by (container_label_com_docker_compose_service) (rate(container_cpu_usage_seconds_total{job="truenas_cadvisor",container_label_com_docker_compose_service!=""}[2m]))'
     ),
     "memory_bytes": (
-        "sum by (container_label_com_docker_compose_service) "
-        "(container_memory_working_set_bytes{job=\"truenas_cadvisor\",container_label_com_docker_compose_service!=\"\"})"
+        'sum by (container_label_com_docker_compose_service) (container_memory_working_set_bytes{job="truenas_cadvisor",container_label_com_docker_compose_service!=""})'
     ),
     "rx_bytes_per_second": (
         "sum by (container_label_com_docker_compose_service) "
-        "(rate(container_network_receive_bytes_total{job=\"truenas_cadvisor\",container_label_com_docker_compose_service!=\"\"}[2m]))"
+        '(rate(container_network_receive_bytes_total{job="truenas_cadvisor",container_label_com_docker_compose_service!=""}[2m]))'
     ),
     "tx_bytes_per_second": (
         "sum by (container_label_com_docker_compose_service) "
-        "(rate(container_network_transmit_bytes_total{job=\"truenas_cadvisor\",container_label_com_docker_compose_service!=\"\"}[2m]))"
+        '(rate(container_network_transmit_bytes_total{job="truenas_cadvisor",container_label_com_docker_compose_service!=""}[2m]))'
     ),
 }
 _FLOW_QUERY = (
