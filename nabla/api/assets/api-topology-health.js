@@ -45,7 +45,9 @@ function hostOf(value) {
   const raw = String(value || "").trim();
   if (!raw) return "";
   try {
-    return new URL(raw, window.location.href).hostname.toLowerCase().replace(/\.$/, "");
+    return new URL(raw, window.location.href).hostname
+      .toLowerCase()
+      .replace(/\.$/, "");
   } catch {
     return "";
   }
