@@ -20,12 +20,13 @@
 }
 
 .topology-heading .subtitle {
-  max-width: 850px;
+  max-width: 980px;
   margin-bottom: 0;
 }
 
 .topology-kicker,
 .topology-status,
+.topology-operator-status,
 .topology-details p {
   color: #888888;
 }
@@ -63,9 +64,7 @@
   top: 0;
   z-index: 10;
   display: grid;
-  grid-template-columns:
-    minmax(150px, 1fr) minmax(240px, 2fr)
-    repeat(5, minmax(145px, 1fr)) auto;
+  grid-template-columns: repeat(6, minmax(145px, 1fr));
   gap: 0.75rem;
   width: 100%;
   border: 1px solid #2c2c2c;
@@ -86,7 +85,8 @@
 
 .topology-toolbar input,
 .topology-toolbar select,
-.topology-toolbar button {
+.topology-toolbar button,
+.topology-check-control {
   min-height: 2.45rem;
   border: 1px solid #383838;
   border-radius: 7px;
@@ -104,6 +104,23 @@
   outline-offset: 1px;
 }
 
+.topology-check-control {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #d9d9d9;
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.topology-check-control input {
+  width: 1rem;
+  min-height: 0;
+  height: 1rem;
+  margin: 0;
+  padding: 0;
+}
+
 .topology-actions {
   display: flex;
   align-items: flex-end;
@@ -119,9 +136,18 @@
   background: #1a1a1a;
 }
 
-.topology-status {
+.topology-status,
+.topology-operator-status {
   margin: 0;
   font-size: 0.82rem;
+}
+
+.topology-operator-status[data-tone="ok"] {
+  color: #7dffc4;
+}
+
+.topology-operator-status[data-tone="warn"] {
+  color: #f0bd6b;
 }
 
 .topology-error {
@@ -191,11 +217,28 @@
   gap: 0.5rem;
 }
 
+.topology-shape,
 .topology-swatch {
   width: 0.65rem;
   height: 0.65rem;
-  border-radius: 50%;
   background: #4c79a8;
+}
+
+.topology-shape--node,
+.topology-swatch {
+  border-radius: 50%;
+}
+
+.topology-shape--security {
+  clip-path: polygon(25% 5%, 75% 5%, 100% 50%, 75% 95%, 25% 95%, 0 50%);
+  background: #5d6a78;
+}
+
+.topology-shape--group {
+  width: 0.8rem;
+  border: 1px dashed #777f88;
+  border-radius: 0.2rem;
+  background: transparent;
 }
 
 .topology-swatch--critical {
@@ -224,7 +267,13 @@
   border-top-width: 3px;
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1400px) {
+  .topology-toolbar {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1100px) {
   .topology-toolbar {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
