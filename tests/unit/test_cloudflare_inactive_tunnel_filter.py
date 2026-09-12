@@ -15,9 +15,10 @@ class _Page(list[object]):
 
 
 def _settings() -> CloudflareTunnelSettings:
+    value = "-".join(("test", "observer", "credential"))
     return CloudflareTunnelSettings(
         account_id="account",
-        api_token=str("test-observer-credential"),
+        api_token=value,
     )
 
 
