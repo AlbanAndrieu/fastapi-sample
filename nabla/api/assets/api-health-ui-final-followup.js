@@ -298,7 +298,9 @@ function stabilizeProbeSlots(row) {
           (order.get(left.dataset.probeKind) ?? 99) -
           (order.get(right.dataset.probeKind) ?? 99),
       )
-      .forEach((probe) => strip.appendChild(probe));
+      .forEach((probe) => {
+        strip.appendChild(probe);
+      });
   }
 }
 
@@ -398,7 +400,9 @@ function cleanExposureCardInlineDetails(row) {
     .querySelectorAll(
       ".health-downstream-badge .service-hover-popover, .service-help-badge",
     )
-    .forEach((node) => node.remove());
+    .forEach((node) => {
+      node.remove();
+    });
   const note = row.querySelector(".health-meta-note");
   if (
     note &&
