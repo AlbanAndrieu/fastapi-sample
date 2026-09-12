@@ -8,6 +8,7 @@ import { installServiceDetailDrawer } from "./api-service-detail-drawer.js";
 import { installServiceDiagnostics } from "./api-service-diagnostics.js";
 import { installServiceOperatorDiagnostics } from "./api-service-operator-diagnostics.js";
 import { installServiceProbeDetails } from "./api-service-probe-details.js";
+import { installServiceProbeHelp } from "./api-service-probe-help.js";
 import { installPfsensePortLabels } from "./api-sickz-port-labels.js";
 import { installRuntimeVersionDriftWarning } from "./api-version-drift.js";
 
@@ -22,4 +23,5 @@ installHttpProbeStatuses();
 installHealthBoardController();
 installServiceOperatorDiagnostics();
 installServiceProbeDetails();
+installServiceProbeHelp();
 installRuntimeVersionDriftWarning();
