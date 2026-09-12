@@ -42,7 +42,7 @@ function stateMeaning(filter, posture) {
   const state = filter.state;
   if (filter.id === "firewall" && state === "in_path") {
     return posture.pathMode === "direct_lan"
-      ? "pfSense/PF is present on the observed security/control path. This is path evidence, not a block or failure; the current direct-LAN TrueNAS probe can bypass that WAN firewall path."
+      ? "pfSense/PF is present on the read-only pfSense control path, while the current TrueNAS traffic probe uses direct LAN. This is path evidence, not a block or failure; direct-LAN traffic can bypass the WAN firewall path."
       : "pfSense/PF is present on the observed ingress/security path. This is expected path evidence, not a block or degraded state.";
   }
   if (state === "running") {
@@ -191,7 +191,7 @@ function render() {
     ? "pfSense security posture · out-of-band from current LAN probe"
     : "pfSense WAN ingress security posture";
   heading.title = directLan
-    ? "The workstation/TrueNAS probe is currently using a direct LAN path. pfSense security state is still useful control-plane evidence, but it is not necessarily inline for that direct IP connection."
+    ? "The current traffic probe uses direct LAN. The separate read-only pfSense control path still reports firewall/DNS/security service state, but it is not evidence that this direct IP connection traversed the WAN firewall rules."
     : "Security-control state observed on the pfSense ingress path.";
   container.appendChild(heading);
   appendChips(container, posture);
