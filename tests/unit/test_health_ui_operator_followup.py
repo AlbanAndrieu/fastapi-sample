@@ -23,10 +23,12 @@ def test_truenas_core_drilldown_is_pinned_outside_service_filter_results() -> No
     assert 'getElementById("truenas-platform")' in source
     assert "panel.hidden = false" in source
     assert 'panel.dataset.filterPinned = "true"' in source
+    assert "group.hidden = false" in source
+    assert "if (filterIsActive()) group.open = true" in source
     assert 'document.addEventListener("service-filter-changed", schedule)' in source
 
 
-def test_pfsense_posture_renders_latest_and_keeps_bounded_history() -> None:
+def test_pfsense_posture_renders_latest_and_keeps_bounded_open_history() -> None:
     source = (ASSETS / "api-pfsense-security-posture.js").read_text(
         encoding="utf-8",
     )
@@ -35,6 +37,11 @@ def test_pfsense_posture_renders_latest_and_keeps_bounded_history() -> None:
     assert "container.replaceChildren()" in source
     assert "pfsense-security-posture-history" in source
     assert "postureHistory.splice(HISTORY_LIMIT)" in source
+    assert "let historyOpen = false" in source
+    assert "details.open = historyOpen" in source
+    assert "historyOpen = details.open" in source
+    assert 'state === "in_path"' in source
+    assert "path evidence, not a block or failure" in source
 
 
 def test_flow_links_public_dns_cloudflare_and_truenas_api_diagnostics() -> None:
@@ -47,6 +54,19 @@ def test_flow_links_public_dns_cloudflare_and_truenas_api_diagnostics() -> None:
     assert '"cloudflare"' in source
     assert 'label.includes("truenas api")' in source
     assert "openTrueNasDiagnostics" in source
+
+
+def test_local_flow_keeps_pfsense_as_dns_and_haproxy_dependency() -> None:
+    source = (ASSETS / "api-health-ui-operator-followup.js").read_text(
+        encoding="utf-8",
+    )
+
+    assert "ensureLocalPfSenseFlowStage" in source
+    assert 'pathMode !== "direct_lan"' in source
+    assert '"pfSense LAN services"' in source
+    assert "internal DNS/Unbound + HAProxy" in source
+    assert "does not claim every direct-LAN packet traverses PF/WAN rules" in source
+    assert 'observeTrueNasPipeline()' in source
 
 
 def test_legacy_sickz_label_uses_authoritative_catalog_description() -> None:
@@ -79,25 +99,28 @@ def test_local_runtime_notices_and_pfsense_evidence_are_reconciled() -> None:
     assert "HOMELAB_INTERNAL_PROBES_ENABLED=false" in source
     assert "RUNTIME_DIAGNOSTICS_ENABLED=false" in source
     assert 'fetch("/v1/runtime/metadata"' in source
-    assert 'runtime_mode !== "local"' in source
+    assert "['local', 'homelab'].includes" in source
     assert "pfSense REST/API reachability is independently confirmed" in source
     assert 'led.className = "health-led health-led--blue"' in source
 
 
-def test_probe_evidence_and_plane_links_are_deduplicated() -> None:
+def test_probe_evidence_plane_links_and_truenas_lan_target_are_reconciled() -> None:
     source = (ASSETS / "api-health-ui-operator-followup.js").read_text(
         encoding="utf-8",
     )
 
-    assert 'querySelectorAll("[data-probe-kind]")' in source
+    assert 'querySelectorAll(".service-probe-strip [data-probe-kind]")' in source
     assert "badges.reverse()" in source
     assert 'querySelectorAll(":scope > .health-row-telemetry")' in source
     assert ".service-probe-plane-label--public" in source
     assert ".service-probe-plane-label--lan" in source
     assert "strong.replaceChildren(link)" in source
+    assert "trueNasLanUrl" in source
+    assert "reconcileTrueNasLanTarget" in source
+    assert "https://${internal.host}:${internal.port}/" in source
 
 
-def test_responsive_css_stabilizes_metrics_and_widens_desktop_filter() -> None:
+def test_responsive_css_stabilizes_metrics_and_uses_full_desktop_width() -> None:
     stylesheet = (ASSETS / "api-health-ui-responsive-followup.css").read_text(
         encoding="utf-8",
     )
@@ -108,5 +131,7 @@ def test_responsive_css_stabilizes_metrics_and_widens_desktop_filter() -> None:
     assert ".service-provider-item > div > span" in stylesheet
     assert "width: 420px" in stylesheet
     assert "margin-left: 450px" in stylesheet
-    assert ".service-probe-legend" in stylesheet
-    assert "flex-wrap: wrap" in stylesheet
+    assert "body.health-ui--workstation main" in stylesheet
+    assert "max-width: none" in stylesheet
+    assert "grid-template-columns: minmax(360px, 440px) minmax(0, 1fr)" in stylesheet
+    assert ".health-legend-hover" in stylesheet
