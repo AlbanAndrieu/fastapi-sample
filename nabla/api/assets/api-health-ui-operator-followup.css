@@ -1,5 +1,6 @@
 @media (min-width: 1121px) {
-  body.health-ui--workstation:not(.health-ui-filter-docked) .service-health-layout {
+  body.health-ui--workstation:not(.health-ui-filter-docked)
+    .service-health-layout {
     grid-template-columns: minmax(340px, 400px) minmax(0, 1fr);
   }
 }
