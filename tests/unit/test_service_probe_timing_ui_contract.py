@@ -55,7 +55,7 @@ def test_service_drawer_exposes_probe_timing_and_freshness_layers() -> None:
 
 def test_dependency_lists_use_canonical_lifecycle_priority() -> None:
     javascript = (ASSETS / "api-service-dependency-priority.js").read_text(
-        encoding="utf-8"
+        encoding="utf-8",
     )
     entrypoint = (ASSETS / "api-health.js").read_text(encoding="utf-8")
 
