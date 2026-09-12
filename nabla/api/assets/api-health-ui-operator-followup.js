@@ -228,7 +228,7 @@ function updateProviderItem(section, label, text, warn = false) {
   );
   const detail = item?.querySelector("div > span");
   if (!item || !detail) return;
-  detail.textContent = text;
+  if (detail.textContent !== text) detail.textContent = text;
   item.title = text;
   item.classList.toggle("service-provider-item--warn", warn);
 }
@@ -310,20 +310,27 @@ function ensureRuntimeNotices() {
     notices.className = "runtime-feature-notices";
     host.appendChild(notices);
   }
-  notices.replaceChildren();
+  const messages = [];
   if (latestSnapshot?.homelab?.internal_probes_enabled === false) {
-    const note = document.createElement("p");
-    note.textContent =
-      "HOMELAB_INTERNAL_PROBES_ENABLED=false — LAN/TCP fan-out is disabled; internal reachability remains unknown and is excluded from probe coverage.";
-    notices.appendChild(note);
+    messages.push(
+      "HOMELAB_INTERNAL_PROBES_ENABLED=false — LAN/TCP fan-out is disabled; internal reachability remains unknown and is excluded from probe coverage.",
+    );
   }
   if (runtimeDiagnosticsState === false) {
+    messages.push(
+      "RUNTIME_DIAGNOSTICS_ENABLED=false — local /v1/runtime metadata, logs and error-buffer endpoints are not registered.",
+    );
+  }
+  const signature = messages.join("\n");
+  if (notices.dataset.signature === signature) return;
+  notices.dataset.signature = signature;
+  notices.replaceChildren();
+  for (const message of messages) {
     const note = document.createElement("p");
-    note.textContent =
-      "RUNTIME_DIAGNOSTICS_ENABLED=false — local /v1/runtime metadata, logs and error-buffer endpoints are not registered.";
+    note.textContent = message;
     notices.appendChild(note);
   }
-  notices.hidden = notices.childElementCount === 0;
+  notices.hidden = messages.length === 0;
 }
 
 async function detectRuntimeDiagnostics() {
@@ -381,12 +388,5 @@ export function installHealthUiOperatorFollowup() {
     },
     true,
   );
-  const board = document.getElementById("health-board");
-  if (board) {
-    new MutationObserver(schedule).observe(board, {
-      childList: true,
-      subtree: true,
-    });
-  }
   refresh();
 }
