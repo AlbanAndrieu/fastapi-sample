@@ -267,7 +267,7 @@
   min-width: 4.8rem;
 }
 
-.service-probe[data-probe-placeholder="true"] {
+.service-probe[data-probe-placeholder="true"].service-probe--neutral {
   border-color: #303641;
   background: #0f1216;
   color: #707986;
