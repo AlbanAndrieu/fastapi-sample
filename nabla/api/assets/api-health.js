@@ -6,6 +6,7 @@ import { installHealthUiFinalFollowup } from "./api-health-ui-final-followup.js"
 import { installHealthUiOperatorFollowup } from "./api-health-ui-operator-followup.js";
 import { installHealthUiPolish } from "./api-health-ui-polish.js";
 import { installHealthUiProbeExplanations } from "./api-health-ui-probe-explanations.js";
+import { installHealthUiProbeGrid } from "./api-health-ui-probe-grid.js";
 import { installHealthUiResponsiveFollowup } from "./api-health-ui-responsive-followup.js";
 import { installHttpProbeStatuses } from "./api-http-probe-status.js";
 import { installPfsenseSecurityPosture } from "./api-pfsense-security-posture.js";
@@ -46,4 +47,5 @@ installHealthUiResponsiveFollowup();
 installHealthUiProbeExplanations();
 installHealthUiOperatorFollowup();
 installHealthUiConsistencyFollowup();
+installHealthUiProbeGrid();
 installHealthUiFinalFollowup();
