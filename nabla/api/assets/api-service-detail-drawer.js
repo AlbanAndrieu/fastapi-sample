@@ -61,6 +61,9 @@ function probeEntries(row) {
       probe.querySelector(".service-probe-label")?.textContent?.trim() ||
       probe.dataset.probeKind ||
       "Probe",
+    icon:
+      probe.querySelector(".service-probe-icon")?.textContent?.trim() || "•",
+    href: probe instanceof HTMLAnchorElement ? safeHttpUrl(probe.href) : null,
     detail:
       probe.getAttribute("aria-label") || probe.title || "No detail available",
     tone:
@@ -69,6 +72,15 @@ function probeEntries(row) {
         ?.replace("service-probe--", "") || "unknown",
     disabled: probe.dataset.probeDisabled === "true",
   }));
+}
+
+function drawerSignature(row) {
+  return JSON.stringify({
+    name: displayName(row),
+    url: safeHttpUrl(row.dataset.serviceUrl),
+    metadata: metadataEntries(row),
+    probes: probeEntries(row),
+  });
 }
 
 function ensureDrawer() {
@@ -158,9 +170,24 @@ function renderEvidence(drawer, row) {
     if (probe.disabled) item.dataset.disabled = "true";
     const heading = document.createElement("div");
     heading.className = "service-detail-probe-heading";
-    const label = document.createElement("strong");
+    const icon = document.createElement("span");
+    icon.className = "service-detail-probe-icon";
+    icon.dataset.tone = probe.disabled ? "neutral" : probe.tone;
+    icon.setAttribute("aria-hidden", "true");
+    icon.textContent = probe.icon;
+    const label = document.createElement(probe.href ? "a" : "strong");
+    label.className = "service-detail-probe-label";
     label.textContent = probe.label;
-    heading.appendChild(label);
+    if (label instanceof HTMLAnchorElement && probe.href) {
+      label.href = probe.href;
+      label.target = "_blank";
+      label.rel = "noopener noreferrer";
+      label.title = `Open ${probe.label} diagnostics`;
+    }
+    const labelWrap = document.createElement("span");
+    labelWrap.className = "service-detail-probe-name";
+    labelWrap.append(icon, label);
+    heading.appendChild(labelWrap);
     const normalizedLabel = probe.label.trim().toLowerCase();
     const normalizedKind = probe.kind.trim().toLowerCase();
     if (normalizedKind && normalizedKind !== normalizedLabel) {
@@ -175,13 +202,24 @@ function renderEvidence(drawer, row) {
   }
 }
 
-function renderDrawer(row) {
+function renderDrawer(row, { force = false } = {}) {
   const drawer = ensureDrawer();
+  const signature = drawerSignature(row);
+  const serviceKey = String(row.dataset.serviceKey || row.dataset.serviceName || "");
+  if (
+    !force &&
+    drawer.dataset.serviceKey === serviceKey &&
+    drawer.dataset.renderSignature === signature
+  ) {
+    return;
+  }
   const title = drawer.querySelector("#service-detail-title");
   if (title) title.textContent = displayName(row);
   renderMetadata(drawer, row);
   renderLink(drawer, row);
   renderEvidence(drawer, row);
+  drawer.dataset.serviceKey = serviceKey;
+  drawer.dataset.renderSignature = signature;
 }
 
 function openDrawer(row, trigger) {
@@ -190,7 +228,7 @@ function openDrawer(row, trigger) {
   activeRow = row;
   activeTrigger = trigger || null;
   activeRow.dataset.detailSelected = "true";
-  renderDrawer(row);
+  renderDrawer(row, { force: true });
   const drawer = ensureDrawer();
   drawer.hidden = false;
   drawer.focus({ preventScroll: true });
