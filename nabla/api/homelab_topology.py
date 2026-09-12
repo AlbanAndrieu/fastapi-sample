@@ -73,6 +73,14 @@ class HomelabTopologyRuntime(BaseModel):
         validation_alias=AliasChoices("containerService", "container_service"),
         serialization_alias="containerService",
     )
+    networks: list[str] | None = Field(default=None, min_length=1)
+
+    @model_validator(mode="after")
+    def require_unique_networks(self) -> HomelabTopologyRuntime:
+        """A runtime network is an identity set, not an ordered duplicate list."""
+        if self.networks is not None and len(self.networks) != len(set(self.networks)):
+            raise ValueError("runtime.networks must not contain duplicates")
+        return self
 
 
 class HomelabTopologyLifecycle(BaseModel):
