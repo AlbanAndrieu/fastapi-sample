@@ -1,0 +1,98 @@
+name: Temporary PR255 reconciliation
+
+on:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  reconcile:
+    if: contains(github.event.head_commit.message, '[reconcile-255]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+        with:
+          enable-cache: false
+          python-version: "3.13"
+
+      - name: Rebuild #255 on current master
+        shell: bash
+        env:
+          SOURCE_SHA: e61bf8bf6b148986808e9a30d47b9bb5d8bd82dd
+        run: |
+          git fetch origin master
+          git reset --hard origin/master
+          for path in \
+            nabla/api/assets/api-pfsense-security-posture.js \
+            nabla/api/assets/api-probe-live.js \
+            nabla/api/assets/api-service-probe-planes.css \
+            nabla/api/assets/api-service-probe-planes.js \
+            tests/unit/test_service_probe_planes_ui_contract.py; do
+            git show "${SOURCE_SHA}:${path}" > "${path}"
+          done
+          python - <<'PY'
+          from pathlib import Path
+
+          health = Path("nabla/api/assets/api-health.js")
+          text = health.read_text()
+          text = text.replace(
+              'import { installHttpProbeStatuses } from "./api-http-probe-status.js";\n',
+              'import { installHttpProbeStatuses } from "./api-http-probe-status.js";\nimport { installPfsenseSecurityPosture } from "./api-pfsense-security-posture.js";\n',
+          )
+          text = text.replace(
+              'import { installServiceProbeHelp } from "./api-service-probe-help.js";\n',
+              'import { installServiceProbeHelp } from "./api-service-probe-help.js";\nimport { installServiceProbePlanes } from "./api-service-probe-planes.js";\n',
+          )
+          text = text.replace(
+              'installServiceProbeHelp();\n',
+              'installServiceProbeHelp();\ninstallServiceProbePlanes();\ninstallPfsenseSecurityPosture();\n',
+          )
+          health.write_text(text)
+
+          css = Path("nabla/api/assets/api.css")
+          text = css.read_text()
+          anchor = '@import url("./api-service-detail-drawer.css");\n'
+          text = text.replace(anchor, '@import url("./api-service-probe-planes.css");\n' + anchor)
+          css.write_text(text)
+          PY
+
+      - name: Apply canonical Biome formatting
+        shell: bash
+        env:
+          UV_NO_SYNC: "1"
+        run: |
+          uv venv --python 3.13
+          uv pip install --python .venv/bin/python pre-commit==4.6.2
+          uv run pre-commit run biome-check --files \
+            nabla/api/assets/api-health.js \
+            nabla/api/assets/api-pfsense-security-posture.js \
+            nabla/api/assets/api-probe-live.js \
+            nabla/api/assets/api-service-probe-planes.js || rc=$?
+          if [[ ${rc:-0} -ne 0 ]]; then
+            uv run pre-commit run biome-check --files \
+              nabla/api/assets/api-health.js \
+              nabla/api/assets/api-pfsense-security-posture.js \
+              nabla/api/assets/api-probe-live.js \
+              nabla/api/assets/api-service-probe-planes.js
+          fi
+
+      - name: Publish clean rebased state
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(ui): reconcile public and LAN probe evidence with 1.20.0"
+          git push --force-with-lease origin "HEAD:${GITHUB_REF_NAME}"

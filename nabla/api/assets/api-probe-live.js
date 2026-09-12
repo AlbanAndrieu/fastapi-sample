@@ -14,6 +14,23 @@ const TIER_HELP = {
     "Non-blocking integration or supporting service. A confirmed failure can raise attention, but it does not make the application unavailable. Missing or timed-out evidence is reported as a warning/unknown state rather than downtime.",
 };
 
+function normalize(value) {
+  return String(value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function hostOf(value) {
+  if (!value) return "";
+  try {
+    return new URL(String(value), window.location.href).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
 function parseObservedAt(value) {
   if (!value) return null;
   const timestamp = Date.parse(String(value));
@@ -26,6 +43,8 @@ function observedAtForCheck(check, snapshot) {
     check?.direct_probe_observed_at,
     check?.internal_probe_observed_at,
     check?.observed_at,
+    check?.last_success_at,
+    snapshot?.homelab?.checked_at,
   ]
     .map(parseObservedAt)
     .filter((value) => value != null);
@@ -38,30 +57,87 @@ function ageSeconds(observedAt) {
   return Math.max(0, Math.floor((Date.now() - observedAt) / 1000));
 }
 
-function ensureAgeBadge(row) {
-  const tags = row.querySelector(".health-row-tags");
-  if (!tags) return null;
-  let badge = tags.querySelector(".health-meta-badge--probe-age");
+function collectionValues(collection) {
+  if (Array.isArray(collection)) return collection;
+  if (collection && typeof collection === "object") {
+    return Object.values(collection);
+  }
+  return [];
+}
+
+function checkMatchesRow(check, row) {
+  if (!check || !row) return false;
+  const key = normalize(row.dataset.serviceKey);
+  const name = normalize(row.dataset.serviceName);
+  const ids = [check.id, check.service_id, check.serviceId]
+    .map(normalize)
+    .filter(Boolean);
+  if (key && ids.includes(key)) return true;
+  const names = [check.name, check.display_label]
+    .map(normalize)
+    .filter(Boolean);
+  if (name && names.includes(name)) return true;
+  const rowHost = hostOf(row.dataset.serviceUrl);
+  const aliases = Array.isArray(check.aliases_probed)
+    ? check.aliases_probed
+    : [];
+  return [check.url, check.tunnel_url, check.tunnelUrl, check.href, ...aliases]
+    .map(hostOf)
+    .filter(Boolean)
+    .includes(rowHost);
+}
+
+function findCheck(collection, row) {
+  return (
+    collectionValues(collection).find((check) => checkMatchesRow(check, row)) ||
+    null
+  );
+}
+
+function checkForRow(snapshot, row) {
+  const healthChecks = snapshot?.healthz?.checks || {};
+  const direct = healthChecks[row.dataset.serviceKey];
+  if (direct) return direct;
+  return (
+    findCheck(snapshot?.homelab?.public_probe_results, row) ||
+    findCheck(snapshot?.homelab?.services, row) ||
+    findCheck(snapshot?.sickz?.checks, row) ||
+    findCheck(healthChecks, row) ||
+    null
+  );
+}
+
+function ensureTelemetryColumn(row) {
+  let column = row.querySelector(":scope > .health-row-telemetry");
+  if (column) return column;
+  column = document.createElement("div");
+  column.className = "health-row-telemetry";
+  column.setAttribute("aria-label", "Probe timing and freshness");
+  row.appendChild(column);
+  return column;
+}
+
+function ensureTelemetryBadge(row, className) {
+  const column = ensureTelemetryColumn(row);
+  let badge = column.querySelector(`.${className}`);
   if (badge) return badge;
   badge = document.createElement("span");
-  badge.className = "health-meta-badge health-meta-badge--probe-age";
-  const latency = tags.querySelector(".health-meta-badge--metric");
-  if (latency?.nextSibling) tags.insertBefore(badge, latency.nextSibling);
-  else if (latency) tags.appendChild(badge);
-  else tags.prepend(badge);
+  badge.className = `health-meta-badge ${className}`;
+  column.appendChild(badge);
   return badge;
 }
 
+function ensureAgeBadge(row) {
+  return ensureTelemetryBadge(row, "health-meta-badge--probe-age");
+}
+
+function ensureLatencyBadge(row) {
+  return ensureTelemetryBadge(row, "health-meta-badge--probe-latency");
+}
+
 function ensureProbingBadge(row) {
-  const tags = row.querySelector(".health-row-tags");
-  if (!tags) return null;
-  let badge = tags.querySelector(".health-meta-badge--probing");
-  if (!badge) {
-    badge = document.createElement("span");
-    badge.className = "health-meta-badge health-meta-badge--probing";
-    badge.textContent = "probing…";
-    tags.appendChild(badge);
-  }
+  const badge = ensureTelemetryBadge(row, "health-meta-badge--probing");
+  badge.textContent = "probing…";
   return badge;
 }
 
@@ -88,36 +164,48 @@ function updateRow(row, check, snapshot) {
   const observedAt = observedAtForCheck(check, snapshot);
   const age = ageSeconds(observedAt);
   const badge = ensureAgeBadge(row);
-  if (badge) {
-    badge.textContent = age == null ? "probe age unknown" : `${age}s ago`;
-    const interval = Number(check?.probe_interval_seconds);
-    const cadence = Number.isFinite(interval) && interval > 0 ? ` · cadence ${Math.round(interval)}s` : "";
-    badge.title = observedAt == null
+  badge.textContent = age == null ? "age unknown" : `${age}s ago`;
+  const interval = Number(check?.probe_interval_seconds);
+  const cadence =
+    Number.isFinite(interval) && interval > 0
+      ? ` · cadence ${Math.round(interval)}s`
+      : "";
+  badge.title =
+    observedAt == null
       ? `Last probe time unavailable${cadence}`
       : `Last probe ${new Date(observedAt).toISOString()}${cadence}`;
+
+  const latency = Number(check?.elapsed_ms ?? check?.latency_ms);
+  const latencyBadge = ensureLatencyBadge(row);
+  if (Number.isFinite(latency)) {
+    latencyBadge.hidden = false;
+    latencyBadge.textContent = `${latency} ms`;
+    latencyBadge.title = `Latest probe latency: ${latency} ms`;
+  } else {
+    latencyBadge.hidden = true;
+    latencyBadge.textContent = "";
   }
 
-  const probing = snapshot?.refreshing === true && checkIsDue(check, observedAt);
-  const probingBadge = row.querySelector(".health-meta-badge--probing");
+  const probing =
+    snapshot?.refreshing === true && checkIsDue(check, observedAt);
+  const probingBadge = row.querySelector(
+    ":scope > .health-row-telemetry .health-meta-badge--probing",
+  );
   if (probing) ensureProbingBadge(row);
   else probingBadge?.remove();
-}
-
-function checksForSnapshot(snapshot) {
-  return snapshot?.healthz?.checks || {};
 }
 
 function decorateRows(snapshot, attempt = 0) {
   const rows = [...document.querySelectorAll(".health-row[data-service-key]")];
   if (rows.length === 0 && attempt < ROW_DECORATION_ATTEMPTS) {
-    window.setTimeout(() => decorateRows(snapshot, attempt + 1), ROW_DECORATION_RETRY_MS);
+    window.setTimeout(
+      () => decorateRows(snapshot, attempt + 1),
+      ROW_DECORATION_RETRY_MS,
+    );
     return;
   }
-  const checks = checksForSnapshot(snapshot);
   for (const row of rows) {
-    const key = row.dataset.serviceKey || "";
-    const check = checks[key] || {};
-    updateRow(row, check, snapshot);
+    updateRow(row, checkForRow(snapshot, row) || {}, snapshot);
   }
 }
 
@@ -129,9 +217,9 @@ function installTierLegend() {
   legend.id = "health-tier-legend";
   legend.className = "health-tier-legend";
   legend.innerHTML =
-    '<strong>Health-check tiers</strong>' +
-    '<span><b>Required infra (albandrieu.com)</b> — availability requirement for the homelab/domain view; confirmed failures may affect the overall summary.</span>' +
-    '<span><b>Optional health check</b> — non-blocking integration/support probe; an unconfirmed timeout is a warning, not downtime.</span>';
+    "<strong>Health-check tiers</strong>" +
+    "<span><b>Required infra (albandrieu.com)</b> — availability requirement for the homelab/domain view; confirmed failures may affect the overall summary.</span>" +
+    "<span><b>Optional health check</b> — non-blocking integration/support probe; an unconfirmed timeout is a warning, not downtime.</span>";
   groups.before(legend);
 }
 
@@ -142,7 +230,9 @@ export function decorateProbeTelemetry(snapshot) {
 }
 
 export function markVisibleProbeRowsPending() {
-  for (const row of document.querySelectorAll(".health-row[data-service-key]")) {
+  for (const row of document.querySelectorAll(
+    ".health-row[data-service-key]",
+  )) {
     ensureProbingBadge(row);
   }
 }
