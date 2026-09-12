@@ -21,6 +21,7 @@ from nabla.api.db.database import SessionLocal
 from nabla.api.health_routes import register_health_routes
 from nabla.api.notes.models import Note
 from nabla.api.runtime_environment import runtime_mode
+from nabla.api.topology_telemetry import fetch_topology_telemetry
 from nabla.api.topology_ui import render_topology_page
 from nabla.api.ui import render_api_root_page
 from nabla.rate_limit import limiter
@@ -59,6 +60,16 @@ def _register_topology_dashboard(app: FastAPI) -> None:
                 title_suffix=os.getenv("TITLE_SUFFIX"),
                 app_version=html.escape(str(request.app.version)),
             ),
+            headers={
+                "Cache-Control": "no-store, max-age=0",
+                "Pragma": "no-cache",
+            },
+        )
+
+    @app.get("/api/topology-telemetry", include_in_schema=False)
+    async def topology_telemetry() -> JSONResponse:
+        return JSONResponse(
+            await fetch_topology_telemetry(),
             headers={
                 "Cache-Control": "no-store, max-age=0",
                 "Pragma": "no-cache",
