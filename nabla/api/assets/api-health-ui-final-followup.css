@@ -90,10 +90,14 @@ main {
 
 .service-detail-evidence[data-probe-grid-ready="true"] {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(11, minmax(9rem, 1fr));
   gap: 0.42rem;
   align-content: start;
-  min-height: 24rem;
+  width: 100%;
+  min-height: 6rem;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-gutter: stable;
 }
 
 .service-detail-evidence[data-probe-grid-ready="true"] .service-detail-probe {
@@ -183,7 +187,7 @@ main {
 
 @media (max-width: 720px) {
   .service-detail-evidence[data-probe-grid-ready="true"] {
-    grid-template-columns: 1fr;
-    min-height: 0;
+    grid-template-columns: repeat(11, minmax(7rem, 1fr));
+    min-height: 6rem;
   }
 }
