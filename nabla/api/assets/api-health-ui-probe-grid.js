@@ -167,7 +167,9 @@ function makeDrawerCell(kind, icon, label, source) {
 }
 
 function renderDrawerGrid() {
-  const row = document.querySelector(`${ROW_SELECTOR}[data-detail-selected="true"]`);
+  const row = document.querySelector(
+    `${ROW_SELECTOR}[data-detail-selected="true"]`,
+  );
   const host = document.getElementById("service-detail-evidence");
   if (!row || !host) return;
   const sources = sourceProbes(row);
@@ -190,7 +192,8 @@ function renderDrawerGrid() {
 
 function render() {
   scheduled = false;
-  for (const row of document.querySelectorAll(ROW_SELECTOR)) renderCardGrid(row);
+  for (const row of document.querySelectorAll(ROW_SELECTOR))
+    renderCardGrid(row);
   renderDrawerGrid();
 }
 
