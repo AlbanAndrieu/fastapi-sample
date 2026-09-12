@@ -29,7 +29,7 @@ def test_runtime_serializes_all_canonical_network_memberships() -> None:
 
 
 def test_runtime_rejects_duplicate_network_memberships() -> None:
-    with pytest.raises(ValidationError, match="runtime.networks must not contain duplicates"):
+    with pytest.raises(ValidationError, match=r"runtime.networks must not contain duplicates"):
         HomelabTopologyRuntime.model_validate(
             {
                 "provider": "truenas-app",
