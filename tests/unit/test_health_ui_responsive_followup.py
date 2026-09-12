@@ -41,9 +41,7 @@ def test_sickz_lan_skip_is_explained_without_duplicate_target_name() -> None:
         encoding="utf-8",
     )
 
-    assert (
-        "External exposure policy probe skipped from trusted LAN; LAN/TCP probes are independent."
-    ) in javascript
+    assert ("External exposure policy probe skipped from trusted LAN; LAN/TCP probes are independent.") in javascript
     assert "text.match(/\\s+Targets:" in javascript
     assert "targets.every((target) => names.has(target))" in javascript
 
