@@ -69,6 +69,21 @@
   opacity: 0.96;
 }
 
+.service-detail-evidence {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  min-height: 8.8rem;
+}
+
+.service-detail-probe {
+  min-width: 0;
+  min-height: 4rem;
+}
+
+.service-detail-probe-heading {
+  min-height: 1.2rem;
+}
+
 .service-detail-metrics {
   grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
   align-items: stretch;
@@ -101,6 +116,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.health-overflow-safe,
+.health-overflow-safe * {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .truenas-platform {
@@ -218,6 +240,44 @@
   white-space: nowrap;
 }
 
+.service-filter-heading-actions {
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.service-filter--global .service-filter-control button {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.service-probe-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(4.8rem, max-content));
+  align-items: center;
+  min-height: 1.55rem;
+}
+
+.service-probe-strip .service-probe {
+  justify-content: center;
+  min-width: 4.8rem;
+}
+
+.service-probe[data-probe-placeholder="true"] {
+  border-color: #303641;
+  background: #0f1216;
+  color: #707986;
+}
+
+.health-meta-badge--probe-latency-unavailable {
+  border-color: rgba(255, 204, 51, 0.3);
+  color: #d8bd63;
+}
+
 .health-row {
   padding-right: 9.4rem;
 }
@@ -308,6 +368,19 @@
   .service-detail-drawer {
     max-height: min(82dvh, 720px);
   }
+
+  .service-detail-evidence {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .service-probe-strip {
+    grid-template-columns: repeat(auto-fit, minmax(3.8rem, max-content));
+  }
+
+  .service-probe-strip .service-probe {
+    min-width: 3.8rem;
+  }
 }
 
 @media (max-width: 480px) {
@@ -342,10 +415,10 @@
 
 @media (min-width: 1500px) {
   body.health-ui--workstation.health-ui-filter-docked main {
-    width: calc(100vw - 450px);
+    width: calc(100vw - 410px);
     max-width: none;
     margin-right: 0;
-    margin-left: 450px;
+    margin-left: 410px;
     padding-right: clamp(1rem, 2vw, 2rem);
     padding-left: 1rem;
   }
@@ -358,16 +431,19 @@
   body.health-ui--workstation.health-ui-filter-docked .service-filter--global {
     position: fixed;
     z-index: 70;
-    top: 0.75rem;
+    top: 0.65rem;
     right: auto;
-    bottom: 0.75rem;
-    left: 0.75rem;
-    width: 420px;
-    max-width: 420px;
+    bottom: 0.65rem;
+    left: 0;
+    width: 430px;
+    max-width: 430px;
     max-height: none;
     margin: 0;
     overflow: auto;
     overscroll-behavior: contain;
+    border-left: 0;
+    border-radius: 0 12px 12px 0;
+    box-shadow: 16px 0 34px rgba(0, 0, 0, 0.24);
   }
 
   body.health-ui--workstation.health-ui-filter-docked
@@ -384,7 +460,7 @@
   body.health-ui--workstation.health-ui-filter-docked
     .service-filter--global
     .service-filter-control {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   body.health-ui--workstation.health-ui-filter-docked
