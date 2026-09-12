@@ -1,6 +1,7 @@
 (() => {
   const original = window.cytoscape;
-  if (typeof original !== "function" || original.__nablaWrapped === true) return;
+  if (typeof original !== "function" || original.__nablaWrapped === true)
+    return;
 
   function wrapped(options) {
     const graph = original(options);
