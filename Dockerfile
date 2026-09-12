@@ -24,9 +24,10 @@ WORKDIR /code
 # build tools intentionally track the security-updated packages from the pinned
 # Debian release instead of coupling the build to repository snapshot versions.
 # hadolint ignore=DL3008
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends git ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update \
+    && apt-get install -y --no-install-recommends git ca-certificates
 
 COPY --from=ghcr.io/astral-sh/uv:0.8.14 /uv /usr/local/bin/uv
 # The normalized files differ only when dependency metadata changes. A semantic
@@ -83,13 +84,15 @@ ENV FASTAPI_ENV=production \
     DD_IAST_ENABLED=false
 
 # Runtime libraries only. Compiler toolchain, Node/npm, editors, network tools,
-# pytest and Ansible deliberately stay out of the production image. Versions are
-# pinned to Debian 13 (trixie) packages so the image remains reproducible.
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        curl=8.14.1-2+deb13u4 \
-        libpq5=17.10-0+deb13u1 \
-    && rm -rf /var/lib/apt/lists/* \
+# pytest and Ansible deliberately stay out of the production image. The Debian
+# suite is pinned by the base image; exact package revisions are intentionally
+# not pinned because security revisions expire from the live trixie mirrors.
+# BuildKit caches package indexes/downloads across local TrueNAS rebuilds.
+# hadolint ignore=DL3008
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update \
+    && apt-get install -y --no-install-recommends curl libpq5 \
     && groupadd --system --gid 999 jm-python \
     && useradd --system --uid 999 --gid jm-python --home-dir /code jm-python \
     && mkdir -p /code/jm-python/var \
