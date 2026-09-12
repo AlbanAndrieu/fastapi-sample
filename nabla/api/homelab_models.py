@@ -195,10 +195,11 @@ class HomelabService(BaseModel):
     def validate_external_exposure(self) -> HomelabService:
         """Require an explicit, plausibly public endpoint for external access.
 
-        ``*.int.albandrieu.com`` is an intentional legacy/direct-ingress exception:
-        it may be externally reachable through Traefik rather than Cloudflare, but
-        only when ``tunnelSecure=false`` makes that weaker security posture explicit.
-        Sickz then reports the exception as a warning instead of treating it as secure.
+        ``*.int.albandrieu.com`` needs an explicit edge classification. A
+        ``tunnelSecure=true`` declaration represents a Cloudflare Tunnel/Access
+        route, while ``tunnelSecure=false`` represents the reviewed legacy direct
+        ingress exception. Omitting the flag is rejected so a private-looking
+        hostname can never become public through an implicit default.
         """
         if not self.external:
             return self
@@ -221,11 +222,17 @@ class HomelabService(BaseModel):
             raise ValueError("external HTTP endpoints must use HTTPS")
         if host in {"localhost", "localhost.localdomain"} or host.endswith(".local"):
             raise ValueError("external tunnelUrl must not target a local hostname")
-        if host.endswith(_DIRECT_EXTERNAL_DOMAIN_SUFFIX) and self.tunnel_secure is not False:
-            raise ValueError(
-                "external *.int.albandrieu.com endpoints require tunnelSecure=false "
-                "to declare the direct non-Cloudflare exposure exception",
-            )
+        if host.endswith(_DIRECT_EXTERNAL_DOMAIN_SUFFIX):
+            if self.tunnel_secure is None:
+                raise ValueError(
+                    "external *.int.albandrieu.com endpoints require an explicit "
+                    "tunnelSecure edge classification",
+                )
+            if self.tunnel_secure is True and self.cloudflare_access_required is False:
+                raise ValueError(
+                    "secure external *.int.albandrieu.com endpoints cannot disable "
+                    "Cloudflare Access without a reviewed direct-ingress declaration",
+                )
 
         try:
             address = ip_address(host)
