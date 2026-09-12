@@ -133,11 +133,7 @@ class CloudflareExposureSnapshot:
 
     def summary(self) -> dict[str, Any]:
         confirmed = bool(
-            self.configured
-            and self.tunnels
-            and not self.tunnel_error
-            and not self.access_error
-            and not self.stale,
+            self.configured and self.tunnels and not self.tunnel_error and not self.access_error and not self.stale,
         )
         warning = None
         if self.configured and not confirmed:
@@ -192,18 +188,8 @@ class CloudflareExposureSnapshot:
             "access_applications_observed": len(self.access_applications),
             "access_applications": [_access_application_summary(application) for application in self.access_applications],
             "control_plane": control_plane,
-            "tunnel_observer_state": (
-                "unconfigured"
-                if not self.configured
-                else "error"
-                if self.tunnel_error
-                else "empty"
-                if not self.tunnels
-                else "ok"
-            ),
-            "access_observer_state": (
-                "unconfigured" if not self.configured else "error" if self.access_error else "ok"
-            ),
+            "tunnel_observer_state": ("unconfigured" if not self.configured else "error" if self.tunnel_error else "empty" if not self.tunnels else "ok"),
+            "access_observer_state": ("unconfigured" if not self.configured else "error" if self.access_error else "ok"),
             "tunnel_error": self.tunnel_error,
             "access_error": self.access_error,
             "stale": self.stale,
@@ -227,11 +213,7 @@ class CloudflareExposureSnapshot:
             "tunnel_total_count": self.tunnel_total_count,
             "access_result_count": self.access_result_count,
             "access_total_count": self.access_total_count,
-            "access_control_plane": (
-                self.access_control_plane.model_dump(mode="json")
-                if self.access_control_plane is not None
-                else None
-            ),
+            "access_control_plane": (self.access_control_plane.model_dump(mode="json") if self.access_control_plane is not None else None),
         }
 
     @classmethod
@@ -246,16 +228,8 @@ class CloudflareExposureSnapshot:
         raw_control = payload.get("access_control_plane")
         return cls(
             configured=bool(payload.get("configured")),
-            tunnels=tuple(
-                CloudflareTunnelObservation.model_validate(item)
-                for item in payload.get("tunnels", [])
-                if isinstance(item, dict)
-            ),
-            access_applications=tuple(
-                CloudflareAccessApplicationObservation.model_validate(item)
-                for item in payload.get("access_applications", [])
-                if isinstance(item, dict)
-            ),
+            tunnels=tuple(CloudflareTunnelObservation.model_validate(item) for item in payload.get("tunnels", []) if isinstance(item, dict)),
+            access_applications=tuple(CloudflareAccessApplicationObservation.model_validate(item) for item in payload.get("access_applications", []) if isinstance(item, dict)),
             tunnel_error=str(payload["tunnel_error"]) if payload.get("tunnel_error") else None,
             access_error=str(payload["access_error"]) if payload.get("access_error") else None,
             tunnel_elapsed_ms=payload.get("tunnel_elapsed_ms"),
@@ -264,11 +238,7 @@ class CloudflareExposureSnapshot:
             tunnel_total_count=payload.get("tunnel_total_count"),
             access_result_count=payload.get("access_result_count"),
             access_total_count=payload.get("access_total_count"),
-            access_control_plane=(
-                CloudflareAccessControlPlaneObservation.model_validate(raw_control)
-                if isinstance(raw_control, dict)
-                else None
-            ),
+            access_control_plane=(CloudflareAccessControlPlaneObservation.model_validate(raw_control) if isinstance(raw_control, dict) else None),
             stale=stale,
             refresh_error=refresh_error,
             cache=cache,
