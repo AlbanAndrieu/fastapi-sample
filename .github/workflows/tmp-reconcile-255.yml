@@ -30,7 +30,7 @@ jobs:
       - name: Rebuild #255 on current master
         shell: bash
         env:
-          SOURCE_SHA: e61bf8bf6b148986808e9a30d47b9bb5d8bd82dd
+          SOURCE_SHA: aef6ad8a1a203e7417f6ce577189f38c0aab9c0d
         run: |
           git fetch origin master
           git reset --hard origin/master
