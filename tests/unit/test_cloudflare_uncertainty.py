@@ -123,6 +123,8 @@ def test_cloudflare_optional_deadline_is_non_degrading_unknown() -> None:
 
 @pytest.mark.asyncio
 async def test_cloudflare_exposure_observers_have_independent_timeout(monkeypatch) -> None:
+    monkeypatch.setenv("CLOUDFLARE_ACCOUNT_ID", "account")
+    monkeypatch.setenv("CLOUDFLARE_API_TOKEN", "token")
     monkeypatch.setattr(cloudflare_exposure_observer, "_OBSERVER_TIMEOUT_SEC", 0.01)
 
     async def slow_to_thread(*_args, **_kwargs):

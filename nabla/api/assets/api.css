@@ -6,9 +6,7 @@
 @import url("./api-probe-live.css");
 @import url("./api-probe-fanout-dashboard.css");
 @import url("./api-health-ui-polish.css");
-
 @import url("./api-truenas.css");
-
 @import url("./api-service-groups.css");
 @import url("./api-service-diagnostics.css");
 @import url("./api-service-probe-planes.css");
@@ -16,3 +14,5 @@
 @import url("./api-service-operator-diagnostics.css");
 @import url("./api-mobile.css");
 @import url("./api-platform-diagnostics.css");
+@import url("./api-health-ui-responsive-followup.css");
+@import url("./api-health-ui-final-followup.css");

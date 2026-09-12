@@ -88,13 +88,16 @@ def test_topology_health_overlay_reuses_server_authoritative_evidence() -> None:
 
 def test_required_edge_overlay_uses_dependency_evidence_only() -> None:
     overlay = (ASSETS / "api-topology-health.js").read_text(encoding="utf-8")
+    start = overlay.index("function requiredEdgeState(")
+    end = overlay.index("function setNodeHealth(", start)
+    required_edge = overlay[start:end]
 
+    assert 'String(entry?.target || "") === String(target)' in required_edge
+    assert 'String(entry?.relation_type || "") === String(relationType)' in required_edge
+    assert "match.target_state" in required_edge
+    assert "hostname" not in required_edge.lower()
+    assert "url.includes(" not in required_edge
     assert 'edge.data("strength") !== "required"' in overlay
-    assert 'String(entry?.target || "") === String(target)' in overlay
-    assert 'String(entry?.relation_type || "") === String(relationType)' in overlay
-    assert "match.target_state" in overlay
-    assert "hostname" not in overlay.lower()
-    assert "url.includes(" not in overlay
 
 
 def test_topology_client_reuses_declared_contract_and_classification() -> None:

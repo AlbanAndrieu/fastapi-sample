@@ -15,36 +15,41 @@ def test_health_ui_polish_is_wired_into_the_api_page() -> None:
     assert '@import url("./api-health-ui-polish.css");' in stylesheet
 
 
-def test_health_legend_combines_status_tiers_and_probe_meanings() -> None:
+def test_health_legend_combines_status_tiers_and_probe_meanings_compactly() -> None:
     javascript = (ASSETS / "api-health-ui-polish.js").read_text(encoding="utf-8")
     stylesheet = (ASSETS / "api-health-ui-polish.css").read_text(encoding="utf-8")
 
-    assert "details.open = true" in javascript
+    assert "details.open = false" in javascript
     assert "Legend · health, tiers & probe evidence" in javascript
-    assert "Required infra (albandrieu.com)" in javascript
-    assert "Required health check" in javascript
-    assert "Optional health check" in javascript
+    assert "Hover labels for details" in javascript
+    assert "Required infra" in javascript
+    assert "Required check" in javascript
+    assert "Optional check" in javascript
     assert "Evidence colors" in javascript
-    assert "Cloudflare Tunnel" in javascript
-    assert "Service Token" in javascript
-    assert "Prometheus / metrics" in javascript
+    assert "Cloudflare Tunnel route/connectivity evidence" in javascript
+    assert "Cloudflare Access Service Token" in javascript
+    assert "Prometheus/runtime metrics evidence" in javascript
+    assert "Card metadata" in javascript
+    assert "Time since the latest probe observation" in javascript
     assert ".health-legend--green i" in stylesheet
     assert ".health-legend--amber i" in stylesheet
     assert ".health-legend--red i" in stylesheet
     assert ".health-legend--gray i" in stylesheet
 
 
-def test_desktop_filter_rail_and_probe_timing_are_stable_and_responsive() -> None:
+def test_desktop_filter_rail_and_probe_telemetry_are_stable_and_responsive() -> None:
     javascript = (ASSETS / "api-health-ui-polish.js").read_text(encoding="utf-8")
     stylesheet = (ASSETS / "api-health-ui-polish.css").read_text(encoding="utf-8")
 
     assert 'layout.className = "service-health-layout"' in javascript
-    assert 'column.className = "health-probe-timing-column"' in javascript
+    assert "function consolidateTelemetry(row)" in javascript
+    assert 'row.querySelector(":scope > .health-row-telemetry")' in javascript
+    assert ".health-meta-badge--probe-age" in javascript
+    assert ".health-meta-badge--probe-latency" in javascript
+    assert ".health-meta-badge--probing" in javascript
     assert ".service-health-layout" in stylesheet
     assert "grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);" in stylesheet
     assert "@media (max-width: 1120px)" in stylesheet
-    assert ".health-probe-timing-column .health-meta-badge--probing" in stylesheet
-    assert "animation: none;" in stylesheet
     assert "font-variant-numeric: tabular-nums;" in stylesheet
     assert ".service-overview-card" in stylesheet
     assert "height: 5.65rem;" in stylesheet
