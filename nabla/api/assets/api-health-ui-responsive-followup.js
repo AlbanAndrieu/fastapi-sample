@@ -106,10 +106,7 @@ function ensureDrawerReason() {
     return;
   }
   const status = rowStatus(row);
-  if (
-    section?.dataset.status === status &&
-    section.dataset.reason === reason
-  ) {
+  if (section?.dataset.status === status && section.dataset.reason === reason) {
     return;
   }
   if (!section) {
@@ -267,7 +264,9 @@ function applyRuntimeLayout() {
 function syncBoard() {
   document
     .querySelectorAll("[data-service-filter-target]")
-    .forEach((row) => annotateStatus(row));
+    .forEach((row) => {
+      annotateStatus(row);
+    });
   ensureTrueNasInfo();
   applyRuntimeLayout();
   scheduleDrawerSync();
