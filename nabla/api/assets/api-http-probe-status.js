@@ -116,14 +116,16 @@ function hoverFor(check, snapshot) {
   if (Number.isFinite(elapsed)) parts.push(`latency=${elapsed}ms`);
 
   const observed = observedAt(check);
-  if (observed != null) parts.push(`last-run=${new Date(observed).toISOString()}`);
+  if (observed != null)
+    parts.push(`last-run=${new Date(observed).toISOString()}`);
   const age = ageSeconds(check);
   if (age != null) parts.push(`age=${Math.round(age)}s`);
 
   const interval = Number(check?.probe_interval_seconds);
   if (Number.isFinite(interval) && interval > 0) {
     parts.push(`cadence=${Math.round(interval)}s`);
-    if (age != null) parts.push(`next-due=${Math.max(0, Math.round(interval - age))}s`);
+    if (age != null)
+      parts.push(`next-due=${Math.max(0, Math.round(interval - age))}s`);
   }
   if (pending(check, snapshot)) parts.push("PENDING / probing…");
   if (check?.stale === true) parts.push("stale");
