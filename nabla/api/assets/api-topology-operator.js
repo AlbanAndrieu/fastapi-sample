@@ -50,7 +50,8 @@ function installStyles() {
 
 function hideDocker() {
   if (!graph) return;
-  const hidden = document.getElementById("topology-hide-docker")?.checked === true;
+  const hidden =
+    document.getElementById("topology-hide-docker")?.checked === true;
   graph.batch(() => {
     graph.elements().removeClass("operator-hidden");
     if (!hidden) return;
@@ -85,7 +86,8 @@ function groupLabel(value, mode) {
 }
 
 function networkMembership(nodeId) {
-  const source = (topology?.nodes || []).find((node) => node.id === nodeId) || {};
+  const source =
+    (topology?.nodes || []).find((node) => node.id === nodeId) || {};
   const runtime = source.runtime || {};
   const candidates = source.dockerNetworks || runtime.networks || [];
   return Array.isArray(candidates)
@@ -227,10 +229,7 @@ function applyResourceSizing() {
     node.style({ width: size, height: size });
     node.data("operatorCpuCores", finite(resource.cpu_cores));
     node.data("operatorMemoryBytes", finite(resource.memory_bytes));
-    node.data(
-      "operatorNetworkBps",
-      finite(resource.network_bytes_per_second),
-    );
+    node.data("operatorNetworkBps", finite(resource.network_bytes_per_second));
   }
 }
 
@@ -266,10 +265,11 @@ function applyBandwidthSizing() {
     return;
   }
 
-  const p95 = percentile(
-    rows.map((row) => row.bytesPerSecond),
-    0.95,
-  ) || 1;
+  const p95 =
+    percentile(
+      rows.map((row) => row.bytesPerSecond),
+      0.95,
+    ) || 1;
   for (const { edge, bytesPerSecond } of rows) {
     const ratio = Math.min(1, Math.max(0, bytesPerSecond / p95));
     edge.style("width", 1.5 + 8.5 * Math.sqrt(ratio));
@@ -279,10 +279,7 @@ function applyBandwidthSizing() {
 
 function fitAndLayout() {
   if (!graph) return;
-  const visible = graph
-    .elements()
-    .not(".is-filtered")
-    .not(".operator-hidden");
+  const visible = graph.elements().not(".is-filtered").not(".operator-hidden");
   visible
     .layout({
       name: "cose",
