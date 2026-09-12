@@ -1,10 +1,7 @@
 import { fetchHealthBoard } from "./api-health-board.js";
 
 const ROW_SELECTOR = ".health-row[data-service-filter-target]";
-const CLOUDFLARE_ACCOUNT_ID = "bdfe00eeee5845782ab91adfbff71ee1";
-const CLOUDFLARE_TUNNEL_ID = "1d98bede-6fa0-42a8-971c-cd390d74d7f6";
-const CLOUDFLARE_SERVICE_TOKEN_ID = "a9acdf2f-9ab3-42c6-924c-87543075cca7";
-const CLOUDFLARE_ONE_BASE = `https://dash.cloudflare.com/${CLOUDFLARE_ACCOUNT_ID}/one`;
+const CLOUDFLARE_DASHBOARD = "https://one.dash.cloudflare.com/";
 
 let latestSnapshot = null;
 let scheduled = false;
@@ -284,8 +281,7 @@ function decorateCloudflare(strip, summary, exposure, hostname) {
   tunnel.title = tunnelDetail;
   tunnel.setAttribute("aria-label", tunnelDetail);
   if (hostname) {
-    const href = `${CLOUDFLARE_ONE_BASE}/networks/connectors/cloudflare-tunnels/${CLOUDFLARE_TUNNEL_ID}/public-hostname/${encodeURIComponent(hostname)}/1`;
-    tunnel = linkedBadge(tunnel, href);
+    tunnel = linkedBadge(tunnel, CLOUDFLARE_DASHBOARD);
   }
 
   const app = accessApplication(summary, hostname);
@@ -304,7 +300,7 @@ function decorateCloudflare(strip, summary, exposure, hostname) {
     const accessDetail = `Cloudflare Access application: authorization layer for ${hostname || "this hostname"}${Number.isFinite(policyCount) ? ` · ${policyCount} polic${policyCount === 1 ? "y" : "ies"}` : ""}${policies.length ? ` · ${policies.map((policy) => `${policy.name} (${policy.decision})`).join(", ")}` : ""}. Access decides who may enter; the Tunnel decides where authorized traffic is routed.`;
     access.title = accessDetail;
     access.setAttribute("aria-label", accessDetail);
-    access = linkedBadge(access, `${CLOUDFLARE_ONE_BASE}/access-controls/apps`);
+    access = linkedBadge(access, CLOUDFLARE_DASHBOARD);
   }
 
   const control = summary?.control_plane?.access_service_tokens || {};
@@ -327,10 +323,7 @@ function decorateCloudflare(strip, summary, exposure, hostname) {
       : `Configured Cloudflare Access Service Token ${control.configured_client_id_present === true ? "is present" : "is not confirmed"} in the read-only inventory. No per-service live Service Auth result is available in this snapshot.`;
     token.title = tokenDetail;
     token.setAttribute("aria-label", tokenDetail);
-    token = linkedBadge(
-      token,
-      `${CLOUDFLARE_ONE_BASE}/access-controls/service-credentials/service-tokens/${CLOUDFLARE_SERVICE_TOKEN_ID}`,
-    );
+    token = linkedBadge(token, CLOUDFLARE_DASHBOARD);
   }
 }
 
