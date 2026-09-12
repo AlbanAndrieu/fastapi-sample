@@ -1,3 +1,10 @@
+## [1.19.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.19.0...1.19.1) (2026-09-12)
+
+
+### Bug Fixes
+
+* **observability:** reduce local runtime log noise ([#251](https://github.com/AlbanAndrieu/fastapi-sample/issues/251)) ([c0682f0](https://github.com/AlbanAndrieu/fastapi-sample/commit/c0682f013913dc6151b71c95290aaed05f34dbb7))
+
 # [1.19.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.18.0...1.19.0) (2026-09-11)
 
 
