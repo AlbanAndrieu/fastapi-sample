@@ -20,7 +20,8 @@ function apply(summary) {
   if (localManagedCount(summary) <= 0) return;
   for (const row of document.querySelectorAll("#sickz-checks .health-row")) {
     const detail = row.querySelector(".health-row-detail");
-    if (detail) detail.textContent = replaceLocalManagedWording(detail.textContent);
+    if (detail)
+      detail.textContent = replaceLocalManagedWording(detail.textContent);
 
     for (const badge of row.querySelectorAll(
       ".cloudflare-tunnel-badge, .service-probe",
@@ -28,11 +29,15 @@ function apply(summary) {
       const title = replaceLocalManagedWording(badge.title);
       if (title !== badge.title) badge.title = title;
       const aria = badge.getAttribute("aria-label");
-      if (aria) badge.setAttribute("aria-label", replaceLocalManagedWording(aria));
+      if (aria)
+        badge.setAttribute("aria-label", replaceLocalManagedWording(aria));
     }
   }
 }
 
 export function decorateLocalManagedTunnelWording(summary) {
-  window.setTimeout(() => window.requestAnimationFrame(() => apply(summary)), 0);
+  window.setTimeout(
+    () => window.requestAnimationFrame(() => apply(summary)),
+    0,
+  );
 }
