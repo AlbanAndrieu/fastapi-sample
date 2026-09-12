@@ -1,4 +1,5 @@
 import { decorateCloudflareProbeStatuses } from "./api-cloudflare-probe.js";
+import { decorateLocalManagedTunnelWording } from "./api-cloudflare-local-managed.js";
 import {
   decorateCloudflareTunnelStatuses,
   markHealthBoardsPending,
@@ -74,6 +75,7 @@ function loadHealthBoards({
         snapshot?.homelab?.cloudflare,
       );
       decorateCloudflareProbeStatuses(snapshot.sickz);
+      decorateLocalManagedTunnelWording(snapshot?.homelab?.cloudflare);
       decorateProbeTelemetry(snapshot);
       decorateDnsStatuses(snapshot);
       decorateHttpProbeStatuses(snapshot);
