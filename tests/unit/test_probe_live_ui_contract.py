@@ -44,7 +44,7 @@ def test_cloudflare_uncertainty_is_visible_next_to_ingress_diagnostics() -> None
     controller = (ASSETS / "api-health-controller.js").read_text(encoding="utf-8")
 
     assert 'container.id = "cloudflare-tunnel-warning";' in javascript
-    assert "Cloudflare Tunnel verification temporarily unavailable" in javascript
+    assert "Cloudflare verification temporarily unavailable" in javascript
     assert "not proof that the service or Cloudflare Tunnel is down" in javascript
     assert "remote-vs-local tunnel management" in javascript
     assert 'document.getElementById("truenas-ingress-block")' in javascript
