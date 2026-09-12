@@ -1,7 +1,21 @@
 import { fetchHealthBoard } from "./api-health-board.js";
 
 const PROBE_RETAIN_MS = 90000;
+const PROBE_SLOT_DEFINITIONS = new Map([
+  ["dns", ["🧭", "DNS"]],
+  ["http", ["🌐", "HTTP"]],
+  ["tls", ["🔒", "TLS"]],
+  ["cloudflare", ["☁️", "Tunnel"]],
+  ["access", ["🛡️", "Access"]],
+  ["service-token", ["🔑", "Token"]],
+  ["tcp", ["🔌", "TCP"]],
+  ["api", ["⚙️", "API"]],
+  ["websocket", ["↔", "WebSocket"]],
+  ["metrics", ["📈", "Prometheus"]],
+]);
+const PROBE_SLOT_ORDER = [...PROBE_SLOT_DEFINITIONS.keys()];
 const probeEvidenceCache = new Map();
+const knownProbeSlots = new Map();
 const planeLabelCache = new Map();
 let latestSnapshot = null;
 let scheduled = false;
@@ -18,7 +32,9 @@ function hostOf(value) {
   const raw = String(value || "").trim();
   if (!raw) return "";
   try {
-    return new URL(raw, window.location.href).hostname.toLowerCase().replace(/\.$/, "");
+    return new URL(raw, window.location.href).hostname
+      .toLowerCase()
+      .replace(/\.$/, "");
   } catch {
     return "";
   }
@@ -78,7 +94,7 @@ function probeCacheKey(row, kind) {
 
 function rememberProbe(row, probe) {
   const kind = String(probe?.dataset?.probeKind || "").trim();
-  if (!kind) return;
+  if (!kind || probe?.dataset?.probePlaceholder === "true") return;
   probeEvidenceCache.set(probeCacheKey(row, kind), {
     html: probe.outerHTML,
     observedAt: Date.now(),
@@ -165,7 +181,10 @@ function ensureStableCloudflareTunnel(row) {
     return;
   }
 
-  if (!key.includes("cloudflare") && row.dataset.exposureMode !== "cloudflare") {
+  if (
+    !key.includes("cloudflare") &&
+    row.dataset.exposureMode !== "cloudflare"
+  ) {
     return;
   }
   const badge = makeProbe(
@@ -175,7 +194,7 @@ function ensureStableCloudflareTunnel(row) {
     "Tunnel",
     "Cloudflare Tunnel evidence is currently unavailable. The Tunnel capability remains visible in gray so unavailable control-plane evidence is not confused with a removed route.",
   );
-  badge.dataset.probeDisabled = "true";
+  badge.dataset.probePlaceholder = "true";
   strip.appendChild(badge);
 }
 
@@ -184,6 +203,93 @@ function rememberAndRestoreProbes(row) {
   const probes = [...row.querySelectorAll(".service-probe[data-probe-kind]")];
   for (const probe of probes) rememberProbe(row, probe);
   ensureStableCloudflareTunnel(row);
+}
+
+function slotKey(row, strip) {
+  return `${rowKey(row)}:slots:${strip.dataset.probePlane || "public"}`;
+}
+
+function inferredProbeKinds(row, strip) {
+  const kinds = new Set(
+    [...strip.querySelectorAll(":scope > .service-probe[data-probe-kind]")]
+      .map((probe) => probe.dataset.probeKind)
+      .filter(Boolean),
+  );
+  const plane = strip.dataset.probePlane || "public";
+  if (plane === "lan") {
+    kinds.add("tcp");
+    return kinds;
+  }
+
+  const evidence = evidenceForRow(row);
+  const url = String(
+    evidence?.url ||
+      evidence?.tunnel_url ||
+      evidence?.tunnelUrl ||
+      row.dataset.serviceUrl ||
+      "",
+  ).trim();
+  if (hostOf(url)) kinds.add("dns");
+  if (/^https?:\/\//i.test(url)) kinds.add("http");
+  if (/^https:\/\//i.test(url)) kinds.add("tls");
+
+  const declared = String(row.dataset.probeKinds || "")
+    .split(/[\s,]+/)
+    .map((kind) => kind.trim().toLowerCase())
+    .filter((kind) => PROBE_SLOT_DEFINITIONS.has(kind));
+  for (const kind of declared) kinds.add(kind);
+
+  const identity = normalize(`${row.dataset.serviceKey} ${row.dataset.serviceName}`);
+  const cloudflareRelevant =
+    row.dataset.exposureMode === "cloudflare" ||
+    identity.includes("cloudflare") ||
+    kinds.has("cloudflare") ||
+    kinds.has("access") ||
+    kinds.has("service-token");
+  if (cloudflareRelevant) {
+    kinds.add("cloudflare");
+    kinds.add("access");
+    kinds.add("service-token");
+  }
+  return kinds;
+}
+
+function ensureProbePlaceholder(strip, kind) {
+  if (strip.querySelector(`:scope > .service-probe[data-probe-kind="${kind}"]`)) {
+    return;
+  }
+  const [icon, label] = PROBE_SLOT_DEFINITIONS.get(kind) || ["•", kind];
+  const badge = makeProbe(
+    kind,
+    "neutral",
+    icon,
+    label,
+    `${label} evidence is not available in the current snapshot. The slot remains visible to keep the operational layout stable.`,
+  );
+  badge.dataset.probePlaceholder = "true";
+  strip.appendChild(badge);
+}
+
+function stabilizeProbeSlots(row) {
+  for (const strip of row.querySelectorAll(":scope .service-probe-strip")) {
+    const key = slotKey(row, strip);
+    const known = knownProbeSlots.get(key) || new Set();
+    for (const kind of inferredProbeKinds(row, strip)) known.add(kind);
+    knownProbeSlots.set(key, known);
+    for (const kind of known) ensureProbePlaceholder(strip, kind);
+
+    const order = new Map(PROBE_SLOT_ORDER.map((kind, index) => [kind, index]));
+    const probes = [
+      ...strip.querySelectorAll(":scope > .service-probe[data-probe-kind]"),
+    ];
+    probes
+      .sort(
+        (left, right) =>
+          (order.get(left.dataset.probeKind) ?? 99) -
+          (order.get(right.dataset.probeKind) ?? 99),
+      )
+      .forEach((probe) => strip.appendChild(probe));
+  }
 }
 
 function planeCacheKey(row, plane) {
@@ -196,7 +302,10 @@ function stabilizePlaneLabels(row) {
     const label = row.querySelector(selector);
     const key = planeCacheKey(row, plane);
     if (label) {
-      planeLabelCache.set(key, { html: label.outerHTML, observedAt: Date.now() });
+      planeLabelCache.set(key, {
+        html: label.outerHTML,
+        observedAt: Date.now(),
+      });
       continue;
     }
     const cached = planeLabelCache.get(key);
@@ -239,29 +348,37 @@ function normalizeTelemetry(row) {
     column.appendChild(legacy);
   }
 
-  const key = normalize(`${row.dataset.serviceKey} ${row.dataset.serviceName}`);
-  const latency = column.querySelector(".health-meta-badge--probe-latency");
-  if (key.includes("cloudflare") && (!latency || latency.hidden)) {
-    const unavailable = latency || document.createElement("span");
-    unavailable.hidden = false;
-    unavailable.className =
+  let latency = column.querySelector(".health-meta-badge--probe-latency");
+  if (!latency) {
+    latency = document.createElement("span");
+    latency.className =
       "health-meta-badge health-meta-badge--probe-latency health-meta-badge--probe-latency-unavailable";
-    unavailable.textContent = "-";
-    unavailable.title = "Latest probe latency unavailable in the current snapshot";
-    unavailable.setAttribute("aria-label", unavailable.title);
-    const probing = column.querySelector(".health-meta-badge--probing");
-    if (probing) column.insertBefore(unavailable, probing);
-    else column.appendChild(unavailable);
+    column.prepend(latency);
+  }
+  if (latency.hidden || !latency.textContent?.trim()) {
+    latency.hidden = false;
+    latency.classList.add("health-meta-badge--probe-latency-unavailable");
+    latency.textContent = "—";
+    latency.title = "Latest probe latency unavailable";
+    latency.setAttribute("aria-label", latency.title);
+  } else {
+    latency.classList.toggle(
+      "health-meta-badge--probe-latency-unavailable",
+      latency.textContent.trim() === "—",
+    );
+    latency.title =
+      latency.textContent.trim() === "—"
+        ? "Latest probe latency unavailable"
+        : `Latest probe latency: ${latency.textContent.trim()}`;
+    latency.setAttribute("aria-label", latency.title);
   }
 
   const age = column.querySelector(".health-meta-badge--probe-age");
-  if (age?.title?.startsWith("Last probe ")) {
-    age.title = age.title.replace("Last probe ", "Latest probe observation: ");
+  if (age) {
+    const value = String(age.textContent || "").trim() || "age unknown";
+    age.textContent = value;
+    age.title = `Latest probe age: ${value}`;
     age.setAttribute("aria-label", age.title);
-  }
-  if (latency && !latency.hidden && latency.textContent?.trim()) {
-    latency.title = `Latest probe latency: ${latency.textContent.trim()}`;
-    latency.setAttribute("aria-label", latency.title);
   }
 }
 
@@ -282,15 +399,18 @@ function cleanExposureCardInlineDetails(row) {
 }
 
 function constrainLongMessages(row) {
-  row.querySelectorAll(".health-row-detail, .service-provider-item").forEach((node) => {
-    node.classList.add("health-overflow-safe");
-  });
+  row
+    .querySelectorAll(".health-row-detail, .service-provider-item")
+    .forEach((node) => {
+      node.classList.add("health-overflow-safe");
+    });
 }
 
 function decorateRows() {
   for (const row of document.querySelectorAll("[data-service-filter-target]")) {
     normalizeTelemetry(row);
     rememberAndRestoreProbes(row);
+    stabilizeProbeSlots(row);
     stabilizePlaneLabels(row);
     cleanExposureCardInlineDetails(row);
     constrainLongMessages(row);
