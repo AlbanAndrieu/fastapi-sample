@@ -1,6 +1,7 @@
 import { installGlobalServiceFilter } from "./api-global-service-filter.js";
 import { installHealthBoardController } from "./api-health-controller.js";
 import { installHealthOperatorUx } from "./api-health-operator-ux.js";
+import { installHealthUiOperatorFollowup } from "./api-health-ui-operator-followup.js";
 import { installHealthUiPolish } from "./api-health-ui-polish.js";
 import { installHealthUiProbeExplanations } from "./api-health-ui-probe-explanations.js";
 import { installHealthUiResponsiveFollowup } from "./api-health-ui-responsive-followup.js";
@@ -41,3 +42,4 @@ void installServiceDependencyPriority();
 installRuntimeVersionDriftWarning();
 installHealthUiResponsiveFollowup();
 installHealthUiProbeExplanations();
+installHealthUiOperatorFollowup();
