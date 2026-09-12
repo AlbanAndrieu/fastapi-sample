@@ -36,6 +36,40 @@
   opacity: 0.96;
 }
 
+.service-detail-metrics {
+  grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+  align-items: stretch;
+}
+
+.service-detail-metric {
+  min-width: 0;
+}
+
+.service-detail-metric strong {
+  display: block;
+  min-height: 1.2rem;
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.service-provider-item {
+  min-width: 0;
+}
+
+.service-provider-item > div {
+  min-width: 0;
+}
+
+.service-provider-item > div > span {
+  display: block;
+  min-height: 1.25rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .truenas-platform {
   position: relative;
 }
@@ -64,8 +98,96 @@
   text-align: left;
 }
 
+.truenas-stage-diagnostic-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.truenas-stage-diagnostic-link img {
+  flex: 0 0 auto;
+}
+
+.pfsense-security-posture-history {
+  flex: 1 0 100%;
+  min-width: 0;
+}
+
+.pfsense-security-posture-history summary {
+  cursor: pointer;
+  color: #9ca3af;
+  font-size: 0.58rem;
+}
+
+.pfsense-security-posture-history ol {
+  max-height: 14rem;
+  margin: 0.4rem 0 0;
+  padding-left: 1.35rem;
+  overflow: auto;
+}
+
+.pfsense-security-posture-history li {
+  display: grid;
+  grid-template-columns: minmax(10rem, auto) minmax(0, 1fr);
+  gap: 0.5rem;
+  padding: 0.16rem 0;
+  font-size: 0.56rem;
+}
+
+.pfsense-security-posture-history time {
+  color: #7d8590;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.runtime-feature-notices {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+}
+
+.runtime-feature-notices p {
+  margin: 0;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid rgba(255, 204, 51, 0.32);
+  border-radius: 7px;
+  background: rgba(255, 204, 51, 0.04);
+  color: #c9b96a;
+  font-size: 0.61rem;
+  line-height: 1.4;
+}
+
+.service-filter-legend-details,
+.service-probe-legend {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.service-probe-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.55rem;
+  overflow-wrap: anywhere;
+}
+
+.service-probe-legend small {
+  flex: 1 0 100%;
+  min-width: 0;
+}
+
 .service-filter-dock-toggle {
   white-space: nowrap;
+}
+
+.health-row {
+  padding-right: 8.8rem;
+}
+
+.health-row-telemetry {
+  width: 7.4rem;
+  min-height: 3rem;
+  align-content: start;
+  font-variant-numeric: tabular-nums;
 }
 
 @media (max-width: 480px) {
@@ -80,10 +202,10 @@
 
 @media (min-width: 1500px) {
   body.health-ui--workstation.health-ui-filter-docked main {
-    width: calc(100vw - 390px);
-    max-width: min(1200px, calc(100vw - 390px));
+    width: calc(100vw - 470px);
+    max-width: min(1200px, calc(100vw - 470px));
     margin-right: auto;
-    margin-left: 370px;
+    margin-left: 450px;
   }
 
   body.health-ui--workstation.health-ui-filter-docked
@@ -98,8 +220,8 @@
     right: auto;
     bottom: 0.75rem;
     left: 0.75rem;
-    width: 340px;
-    max-width: 340px;
+    width: 420px;
+    max-width: 420px;
     max-height: none;
     margin: 0;
     overflow: auto;
@@ -178,6 +300,15 @@
     min-height: 3.2rem;
   }
 
+  .health-row {
+    padding-right: 0.65rem;
+  }
+
+  .health-row-telemetry {
+    width: auto;
+    min-height: 0;
+  }
+
   .service-detail-drawer {
     max-height: min(82dvh, 720px);
   }
@@ -205,5 +336,10 @@
 
   .service-detail-body {
     padding-inline: 0.7rem;
+  }
+
+  .pfsense-security-posture-history li {
+    grid-template-columns: 1fr;
+    gap: 0.1rem;
   }
 }
