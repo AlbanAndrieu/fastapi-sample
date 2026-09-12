@@ -18,9 +18,10 @@ def test_followup_assets_are_loaded_after_base_health_ui() -> None:
     assert entrypoint.index("installHealthUiProbeExplanations();") > entrypoint.index(
         "installServiceProbePlanes();",
     )
-    assert stylesheet.rstrip().endswith(
+    assert '@import url("./api-health-ui-responsive-followup.css");' in stylesheet
+    assert stylesheet.index(
         '@import url("./api-health-ui-responsive-followup.css");',
-    )
+    ) < stylesheet.index('@import url("./api-health-ui-final-followup.css");')
 
 
 def test_drawer_keeps_runtime_and_dependency_sections_stable() -> None:
@@ -40,7 +41,9 @@ def test_sickz_lan_skip_is_explained_without_duplicate_target_name() -> None:
         encoding="utf-8",
     )
 
-    assert ("External exposure policy probe skipped from trusted LAN; LAN/TCP probes are independent.") in javascript
+    assert (
+        "External exposure policy probe skipped from trusted LAN; LAN/TCP probes are independent."
+    ) in javascript
     assert "text.match(/\\s+Targets:" in javascript
     assert "targets.every((target) => names.has(target))" in javascript
 
