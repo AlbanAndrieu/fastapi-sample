@@ -1,9 +1,12 @@
 import { fetchHealthBoard } from "./api-health-board.js";
 import {
-  dependencyDetailText,
   dependencyHealthClass,
   mergeHomelabEvidence,
 } from "./api-health-dependency.js";
+import {
+  detailText,
+  isExpectedSentryDebugFailure,
+} from "./api-health-detail.js";
 import {
   escapeText,
   httpStatusIsSuccess2xx,
@@ -74,16 +77,16 @@ function healthRowTitleHtml(check, key) {
   return `<div class="health-row-name health-row-name--sickz">${lock}${inner}</div>`;
 }
 
-function isExpectedSentryDebugFailure(key, check) {
-  return (
-    key === "sentry" &&
-    check.reachable === true &&
-    Number(check.http_status) === 500 &&
-    (check.via === "/sentry-debug" || check.path === "/sentry-debug")
-  );
-}
-
 function classify(key, check) {
+  if (key === "cloudflare") {
+    if (check.skipped === true) return "gray";
+    if (check.api_reachable === true && check.status_confirmed === true) {
+      return check.state === "warn" ? "yellow" : "green";
+    }
+    // Cloudflare control-plane uncertainty is not a provider outage. Keep the
+    // Card neutral/unknown and disable API-derived policy controls elsewhere.
+    return "gray";
+  }
   if (check.skipped === true) return "yellow";
   if (
     key === "pfsense" &&
@@ -107,65 +110,6 @@ function mandatoryFailed(key, check) {
   if (check.skipped === true) return false;
   if (check.effective_state) return check.effective_state === "fail";
   return check.reachable === false;
-}
-
-function baseDetailText(key, check) {
-  if (check.skipped)
-    return check.reason || "Not configured (intentionally disabled).";
-  if (check.warning) return String(check.warning);
-  if (isExpectedSentryDebugFailure(key, check)) {
-    return "HTTP 500 · Expected: the test error was intentionally triggered and captured by Sentry.";
-  }
-  if (key === "truenas_api" && check.reachable === true) {
-    const parts = ["WebSocket API connected"];
-    if (check.version) parts.push(String(check.version));
-    if (check.app_count != null) parts.push(`${check.app_count} apps`);
-    return parts.join(" · ");
-  }
-  if (check.reachable === true) {
-    const parts = [];
-    if (check.http_status != null) parts.push(`HTTP ${check.http_status}`);
-    if (check.path) parts.push(check.path);
-    if (check.host != null && check.port != null)
-      parts.push(`${check.host}:${check.port}`);
-    if (check.url) parts.push(String(check.url).replace(/^https?:\/\//i, ""));
-    return parts.length ? parts.join(" · ") : "Connected.";
-  }
-  if (check.error_kind) {
-    const stage = String(check.error_kind).replaceAll("_", " ");
-    return check.error ? `${stage}: ${check.error}` : stage;
-  }
-  if (check.error) return check.error;
-  return "Unreachable.";
-}
-
-function sourcePolicyDetailText(key, check) {
-  if (
-    key !== "pfsense" ||
-    check?.ingress_policy?.state !== "possible_ingress_policy_block"
-  )
-    return "";
-  const egress = Array.isArray(check.ingress_policy.active_egress_ips)
-    ? check.ingress_policy.active_egress_ips.filter(Boolean).join(", ")
-    : "";
-  return [
-    "possible pfSense ingress-policy block",
-    egress ? `active cloud egress ${egress}` : "",
-    "possible trusted-source drift or PF/Snort filtering",
-    "direct WAN probe is diagnostic only",
-    "prefer out-of-band observer",
-  ]
-    .filter(Boolean)
-    .join(" · ");
-}
-
-function detailText(key, check) {
-  const details = [
-    baseDetailText(key, check),
-    sourcePolicyDetailText(key, check),
-    dependencyDetailText(check),
-  ].filter(Boolean);
-  return details.join(" · ");
 }
 
 function sortKeys(keys) {
@@ -284,6 +228,13 @@ function healthRowsSignature(checks) {
           check.display_label,
           check.service_id,
           check.reachable,
+          check.api_reachable,
+          check.status_confirmed,
+          check.state,
+          check.tunnel_count,
+          check.healthy_tunnels,
+          check.inactive_tunnels,
+          check.degraded_or_down_tunnels,
           check.local_state,
           check.dependency_state,
           check.effective_state,

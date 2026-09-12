@@ -1,0 +1,224 @@
+.service-probe[data-probe-disabled="true"],
+.cloudflare-tunnel-badge[data-probe-disabled="true"] {
+  opacity: 0.55;
+  border-style: dashed;
+  filter: grayscale(0.8);
+  cursor: not-allowed;
+}
+
+.service-detail-probe[data-disabled="true"] {
+  opacity: 0.7;
+  border-style: dashed;
+}
+
+.service-detail-metric--empty strong {
+  color: #5f6670;
+  font-weight: 500;
+}
+
+/* Only a proven ingress block remains prominent in the Flow. Telemetry
+  unavailable/stale detail belongs to the pfSense Service diagnostics Card. */
+#truenas-ingress-block.truenas-ingress-block--warning {
+  display: none !important;
+}
+
+.service-provider-summary {
+  margin: 0.55rem 0;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #343434;
+  border-radius: 8px;
+  background: #0d0d0d;
+  color: #b7bec8;
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
+.service-provider-summary--ok {
+  border-color: rgba(0, 255, 136, 0.35);
+  background: rgba(0, 255, 136, 0.055);
+  color: #7dffc4;
+}
+
+.service-provider-summary--warn {
+  border-color: rgba(255, 204, 51, 0.38);
+  background: rgba(255, 204, 51, 0.055);
+  color: #ffd966;
+}
+
+.service-provider-summary--fail {
+  border-color: rgba(255, 80, 80, 0.45);
+  background: rgba(255, 80, 80, 0.065);
+  color: #ff9999;
+}
+
+.service-provider-group {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.65rem;
+}
+
+.service-provider-group > strong {
+  color: #d6d9de;
+  font-size: 0.7rem;
+}
+
+.service-provider-item {
+  display: grid;
+  grid-template-columns: 1.4rem minmax(0, 1fr);
+  gap: 0.45rem;
+  align-items: start;
+  padding: 0.45rem 0.5rem;
+  border: 1px solid #292929;
+  border-radius: 7px;
+  background: #0b0b0b;
+}
+
+.service-provider-item-icon {
+  font-size: 0.85rem;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.service-provider-item > div {
+  display: grid;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.service-provider-item strong {
+  color: #d7dbe1;
+  font-size: 0.66rem;
+}
+
+.service-provider-item span:not(.service-provider-item-icon) {
+  color: #89919c;
+  font-size: 0.62rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.service-provider-item--ok {
+  border-color: rgba(0, 255, 136, 0.26);
+}
+
+.service-provider-item--warn {
+  border-color: rgba(255, 204, 51, 0.32);
+}
+
+.service-provider-item--fail {
+  border-color: rgba(255, 80, 80, 0.4);
+}
+
+.truenas-stage--warn {
+  border-color: rgba(255, 204, 51, 0.4);
+  color: #ffd966;
+}
+
+.truenas-stage-service-link {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: rgba(156, 199, 255, 0.38);
+  text-underline-offset: 0.14em;
+}
+
+.truenas-stage-service-link:hover,
+.truenas-stage-service-link:focus-visible {
+  color: #9cc7ff;
+  text-decoration-color: currentColor;
+}
+
+.truenas-stage-security-badges {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-top: 0.12rem;
+}
+
+.truenas-stage-security-badge {
+  display: block;
+  padding: 0.12rem 0.25rem;
+  border: 1px solid #343434;
+  border-radius: 5px;
+  color: #9ca3af;
+  font-size: 0.56rem;
+  line-height: 1.3;
+}
+
+.truenas-stage-security-badge--ok {
+  border-color: rgba(0, 255, 136, 0.3);
+  color: #7dffc4;
+}
+
+.truenas-stage-security-badge--warn {
+  border-color: rgba(255, 204, 51, 0.35);
+  color: #ffd966;
+}
+
+.truenas-stage-security-badge--fail {
+  border-color: rgba(255, 80, 80, 0.42);
+  color: #ff9999;
+}
+
+/* The health filter can always be collapsed by the operator, not only after it
+  becomes sticky. The legend summary remains discoverable in compact mode. */
+.service-filter--global .service-filter-density-toggle {
+  display: inline-flex;
+}
+
+.service-filter--compact .service-filter-legend-details {
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.service-filter--compact .service-filter-legend-details > summary {
+  padding-top: 0.25rem;
+}
+
+.service-filter--compact
+  .service-filter-legend-details:not([open])
+  .service-probe-legend {
+  display: none;
+}
+
+@media (min-width: 721px) {
+  .service-filter--global {
+    max-width: min(100%, 1180px);
+    margin-inline: auto;
+  }
+
+  .service-filter--compact {
+    max-height: min(14rem, calc(100vh - 1.5rem));
+  }
+}
+
+@media (max-width: 700px) {
+  .service-provider-item {
+    grid-template-columns: 1.25rem minmax(0, 1fr);
+  }
+
+  .truenas-stage {
+    width: 126px;
+    min-width: 126px;
+  }
+
+  .service-filter--global:not(.service-filter--compact) {
+    max-height: min(72vh, 38rem);
+  }
+
+  .service-filter--compact {
+    max-height: min(12rem, calc(100vh - 0.7rem));
+  }
+
+  .service-filter--compact .service-filter-global-heading {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}

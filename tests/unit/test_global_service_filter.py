@@ -17,6 +17,7 @@ def test_health_entrypoint_installs_one_global_filter_shell() -> None:
     assert 'host.classList.add("service-filter--global")' in shell
     assert "Service health and filters" in shell
     assert "Global view" in shell
+    assert "Cards are the canonical operational view" in shell
 
 
 def test_global_filter_mirrors_site_health_summary_without_second_engine() -> None:
@@ -40,7 +41,7 @@ def test_global_filter_stays_visible_and_compacts_secondary_help() -> None:
     assert "position: sticky" in stylesheet
     assert "service-filter-health-summary" in stylesheet
     assert "service-filter-legend-details" in stylesheet
-    assert "Probe evidence legend" in shell
+    assert "Legend / how to read" in shell
     assert '.service-filter--global[data-stuck="true"][data-expanded="true"]' in stylesheet
     assert "max-height: calc(100dvh" in stylesheet
     assert "focus-visible" in stylesheet
@@ -49,7 +50,7 @@ def test_global_filter_stays_visible_and_compacts_secondary_help() -> None:
     assert "new IntersectionObserver(" not in shell
     assert 'host.classList.toggle("service-filter--compact", compact);' in shell
     assert 'id="service-filter-density-toggle"' in shell
-    assert "Compact filters" in shell
+    assert "Collapse" in shell
     assert ".service-filter--compact .service-filter-facets" in stylesheet
     assert ".service-filter--compact .service-filter-health-summary" in stylesheet
 
@@ -81,3 +82,18 @@ def test_global_filter_supports_keyboard_and_truenas_status_sync() -> None:
     assert 'panel.dataset.semanticStatus = "operational";' in shell
     assert 'panel.dataset.semanticStatus = "degraded";' in shell
     assert 'panel.dataset.semanticStatus = "down";' in shell
+
+
+def test_health_legend_explains_card_flow_and_security_icons() -> None:
+    bootstrap = (ASSETS / "api-health.js").read_text(encoding="utf-8")
+    legend = (ASSETS / "api-platform-legend.js").read_text(encoding="utf-8")
+
+    assert 'from "./api-platform-legend.js"' in bootstrap
+    assert "installPlatformLegend();" in bootstrap
+    assert "Cards = canonical operational state" in legend
+    assert "Flow = path/dependency context" in legend
+    assert '"🧱", "pfSense / PF path"' in legend
+    assert '"🛡️", "Snort"' in legend
+    assert '"🚫", "pfBlockerNG"' in legend
+    assert '"👥", "CrowdSec"' in legend
+    assert "gray = unavailable/unconfirmed" in legend

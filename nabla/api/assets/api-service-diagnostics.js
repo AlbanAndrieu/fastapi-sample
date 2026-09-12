@@ -141,13 +141,26 @@ function evidenceMetadata(check) {
   return parts.length ? ` · ${parts.join(" · ")}` : "";
 }
 
-function probeBadge(kind, tone, label, detail, evidence = null) {
+function probeBadge(
+  kind,
+  tone,
+  label,
+  detail,
+  evidence = null,
+  { disabled = false } = {},
+) {
   const metricsHref =
-    kind === "metrics" ? String(evidence?.metrics_url || "").trim() : "";
+    !disabled && kind === "metrics"
+      ? String(evidence?.metrics_url || "").trim()
+      : "";
   const linkedMetrics = /^https?:\/\//i.test(metricsHref);
   const badge = document.createElement(linkedMetrics ? "a" : "span");
-  badge.className = `service-probe service-probe--${tone}`;
+  badge.className = `service-probe service-probe--${disabled ? "neutral" : tone}`;
   badge.dataset.probeKind = kind;
+  if (disabled) {
+    badge.dataset.probeDisabled = "true";
+    badge.setAttribute("aria-disabled", "true");
+  }
   const description = `${detail || label}${evidenceMetadata(evidence)}`;
   badge.title = description;
   badge.setAttribute("aria-label", description);
@@ -268,7 +281,7 @@ function addApiEvidence(target, key, check, kinds) {
   const hasApi =
     probe.includes("api") ||
     path.startsWith("/api/") ||
-    ["pfsense", "truenas_api"].includes(String(key || ""));
+    ["pfsense", "truenas_api", "cloudflare"].includes(String(key || ""));
   if (!hasApi) return;
 
   const detail = `Authenticated/read-only API evidence${path ? ` via ${path}` : ""}`;
@@ -290,6 +303,15 @@ function addApiEvidence(target, key, check, kinds) {
     ),
   );
   kinds.add("websocket");
+}
+
+function cloudflareControlPlane(snapshot) {
+  const check = snapshot?.healthz?.checks?.cloudflare || null;
+  return {
+    check,
+    confirmed:
+      check?.api_reachable === true && check?.status_confirmed === true,
+  };
 }
 
 function tunnelEvidence(exposure) {
@@ -337,7 +359,7 @@ function accessEvidence(exposure) {
   ];
 }
 
-function addCloudflareEvidence(target, exposure, kinds) {
+function addCloudflareEvidence(target, exposure, kinds, snapshot) {
   if (!exposure) return;
   const hasTunnel =
     exposure.tunnel_secure != null ||
@@ -346,23 +368,62 @@ function addCloudflareEvidence(target, exposure, kinds) {
     exposure.cloudflare_access_policy_count != null;
   if (!hasTunnel) return;
 
-  const [tunnelTone, tunnelDetail] = tunnelEvidence(exposure);
-  target.appendChild(
-    probeBadge("cloudflare", tunnelTone, "Tunnel", tunnelDetail, exposure),
-  );
-  kinds.add("cloudflare");
+  const control = cloudflareControlPlane(snapshot);
+  const controlReason =
+    control.check?.error ||
+    control.check?.warning ||
+    "Cloudflare read-only control-plane API is not currently confirmed";
 
-  const hasAccess =
-    exposure.cloudflare_default_deny != null ||
-    Number.isFinite(Number(exposure.cloudflare_access_policy_count));
-  if (hasAccess) {
-    const [accessTone, accessDetail] = accessEvidence(exposure);
+  if (!control.confirmed) {
     target.appendChild(
-      probeBadge("access", accessTone, "Access", accessDetail, exposure),
+      probeBadge(
+        "cloudflare",
+        "neutral",
+        "Tunnel",
+        `Disabled: Tunnel inventory cannot be verified because the Cloudflare API control plane is unavailable or unconfirmed. ${controlReason}`,
+        control.check,
+        { disabled: true },
+      ),
     );
-    kinds.add("access");
+    kinds.add("cloudflare");
+
+    if (
+      exposure.cloudflare_default_deny != null ||
+      Number.isFinite(Number(exposure.cloudflare_access_policy_count))
+    ) {
+      target.appendChild(
+        probeBadge(
+          "access",
+          "neutral",
+          "Access",
+          `Disabled: Access application/policy inventory requires confirmed Cloudflare API evidence. ${controlReason}`,
+          control.check,
+          { disabled: true },
+        ),
+      );
+      kinds.add("access");
+    }
+  } else {
+    const [tunnelTone, tunnelDetail] = tunnelEvidence(exposure);
+    target.appendChild(
+      probeBadge("cloudflare", tunnelTone, "Tunnel", tunnelDetail, exposure),
+    );
+    kinds.add("cloudflare");
+
+    const hasAccess =
+      exposure.cloudflare_default_deny != null ||
+      Number.isFinite(Number(exposure.cloudflare_access_policy_count));
+    if (hasAccess) {
+      const [accessTone, accessDetail] = accessEvidence(exposure);
+      target.appendChild(
+        probeBadge("access", accessTone, "Access", accessDetail, exposure),
+      );
+      kinds.add("access");
+    }
   }
 
+  // Service Auth is an independent live edge proof. Keep it visible even when
+  // read-only control-plane inventory is temporarily unavailable.
   if (exposure.cloudflare_service_auth_attempted !== true) return;
   const passed = exposure.cloudflare_service_token_access_passed;
   const httpStatus = Number(exposure.cloudflare_service_token_http_status);
@@ -467,16 +528,28 @@ function decorateRow(row, snapshot) {
   addTlsEvidence(strip, exposure || mainEvidence, kinds);
   addTcpEvidence(strip, mainEvidence, kinds);
   addApiEvidence(strip, key, mainEvidence, kinds);
-  addCloudflareEvidence(strip, exposure, kinds);
+  addCloudflareEvidence(strip, exposure, kinds, snapshot);
   addMetricEvidence(strip, health, kinds);
 
   if (exposure?.policy_status) {
     const policy = normalizedPolicy(exposure);
-    const detail =
-      exposure.policy_detail || `Exposure security policy: ${policy}`;
+    const control = cloudflareControlPlane(snapshot);
+    const cloudflareDependent = exposure.tunnel_secure === true;
+    const disabled = cloudflareDependent && !control.confirmed;
+    const detail = disabled
+      ? `Disabled: exposure-policy verification depends on Cloudflare API inventory that is currently unavailable or unconfirmed. ${control.check?.error || control.check?.warning || ""}`.trim()
+      : exposure.policy_detail || `Exposure security policy: ${policy}`;
     strip.appendChild(
-      probeBadge("policy", policyTone(policy), "Policy", detail, exposure),
+      probeBadge(
+        "policy",
+        disabled ? "neutral" : policyTone(policy),
+        "Policy",
+        detail,
+        disabled ? control.check : exposure,
+        { disabled },
+      ),
     );
+    kinds.add("policy");
   }
 
   row.dataset.probeKinds = [...kinds].join(" ");

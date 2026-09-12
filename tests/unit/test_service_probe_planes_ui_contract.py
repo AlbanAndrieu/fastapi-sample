@@ -34,9 +34,12 @@ def test_cloudflare_badges_have_distinct_routing_and_authorization_meanings() ->
     assert "authorization layer" in source
     assert '"Token"' in source
     assert "machine identity used by an Access Service Auth policy" in source
-    assert "/networks/connectors/cloudflare-tunnels/" in source
-    assert "/access-controls/apps" in source
-    assert "/access-controls/service-credentials/service-tokens/" in source
+    assert 'CLOUDFLARE_DASHBOARD = "https://one.dash.cloudflare.com/"' in source
+    assert "linkedBadge(tunnel, CLOUDFLARE_DASHBOARD)" in source
+    assert "linkedBadge(access, CLOUDFLARE_DASHBOARD)" in source
+    assert "linkedBadge(token, CLOUDFLARE_DASHBOARD)" in source
+    assert "/networks/connectors/cloudflare-tunnels/" not in source
+    assert "/access-controls/service-credentials/service-tokens/" not in source
 
 
 def test_external_and_token_badges_keep_stable_visible_width() -> None:
