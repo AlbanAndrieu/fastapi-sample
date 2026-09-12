@@ -17,7 +17,9 @@ function normalize(value) {
 }
 
 function identity(value) {
-  return normalize(value).replace(/^albandrieu[-_]/, "").replace(/[^a-z0-9]+/g, "");
+  return normalize(value)
+    .replace(/^albandrieu[-_]/, "")
+    .replace(/[^a-z0-9]+/g, "");
 }
 
 function healthRow(serviceKey) {
@@ -50,7 +52,8 @@ function pinTrueNasPlatform() {
 
 function stageByLabel(predicate) {
   return [...document.querySelectorAll("#truenas-pipeline .truenas-stage")].find(
-    (stage) => predicate(normalize(stage.querySelector(".truenas-stage-label")?.textContent)),
+    (stage) =>
+      predicate(normalize(stage.querySelector(".truenas-stage-label")?.textContent)),
   );
 }
 
@@ -82,16 +85,18 @@ function decoratePublicDns() {
   if (!stage || !label || label.dataset.cloudflareLinked === "true") return;
   label.dataset.cloudflareLinked = "true";
   label.replaceChildren(
+    document.createTextNode("Public DNS · "),
     serviceButton(
-      "Cloudflare DNS",
+      "Cloudflare",
       "cloudflare",
-      "Open Cloudflare service diagnostics",
+      "Open Cloudflare DNS and provider diagnostics",
       CLOUDFLARE_ICON,
     ),
   );
   const detail = stage.querySelector(".truenas-stage-detail");
   if (detail && !normalize(detail.textContent).includes("cloudflare")) {
-    detail.textContent = `${detail.textContent || "Public hostname resolution"} · authoritative public DNS is primarily managed in Cloudflare`;
+    const base = detail.textContent || "Public hostname resolution";
+    detail.textContent = `${base} · public DNS is primarily managed in Cloudflare`;
   }
 }
 
@@ -111,7 +116,8 @@ function decorateTrueNasApiStage() {
 }
 
 function deduplicateProbeEvidence() {
-  for (const row of document.querySelectorAll(".health-row[data-service-filter-target]")) {
+  const rows = document.querySelectorAll(".health-row[data-service-filter-target]");
+  for (const row of rows) {
     for (const strip of row.querySelectorAll(".service-probe-strip")) {
       const seen = new Set();
       const badges = [...strip.querySelectorAll("[data-probe-kind]")];
@@ -133,7 +139,9 @@ function makePlaneLabelLink(label) {
   const strong = label.querySelector(":scope > strong");
   if (!strong || strong.querySelector("a")) return;
   const target = label.querySelector(":scope > a, :scope > span");
-  const raw = String(target?.getAttribute?.("href") || target?.textContent || "").trim();
+  const raw = String(
+    target?.getAttribute?.("href") || target?.textContent || "",
+  ).trim();
   if (!raw || raw === "LAN target unavailable") return;
   const href = /^https?:\/\//i.test(raw) ? raw : `http://${raw}`;
   const link = document.createElement("a");
@@ -146,11 +154,10 @@ function makePlaneLabelLink(label) {
 }
 
 function linkProbePlanes() {
-  document
-    .querySelectorAll(
-      ".service-probe-plane-label--public, .service-probe-plane-label--lan",
-    )
-    .forEach(makePlaneLabelLink);
+  const labels = document.querySelectorAll(
+    ".service-probe-plane-label--public, .service-probe-plane-label--lan",
+  );
+  labels.forEach(makePlaneLabelLink);
 }
 
 async function loadCatalog() {
@@ -176,14 +183,21 @@ async function replaceLegacyExposureLabels() {
   for (const service of services) {
     const description = String(service?.description || "").trim();
     if (!description) continue;
-    for (const value of [service?.id, service?.name, service?.tunnelUrl, service?.url]) {
+    for (const value of [
+      service?.id,
+      service?.name,
+      service?.tunnelUrl,
+      service?.url,
+    ]) {
       const key = identity(value);
       if (key) byIdentity.set(key, description);
     }
   }
   for (const row of document.querySelectorAll("#sickz-checks .health-row")) {
     const tags = row.querySelector(".health-row-tags");
-    if (!tags || !tags.textContent?.includes("Legacy inverse-reachability target")) continue;
+    if (!tags?.textContent?.includes("Legacy inverse-reachability target")) {
+      continue;
+    }
     const candidates = [
       row.dataset.serviceKey,
       row.dataset.serviceName,
@@ -209,7 +223,8 @@ function familyMessage(family, successText, permission) {
 
 function updateProviderItem(section, label, text, warn = false) {
   const item = [...section.querySelectorAll(".service-provider-item")].find(
-    (candidate) => normalize(candidate.querySelector("strong")?.textContent) === normalize(label),
+    (candidate) =>
+      normalize(candidate.querySelector("strong")?.textContent) === normalize(label),
   );
   const detail = item?.querySelector("div > span");
   if (!item || !detail) return;
@@ -231,19 +246,31 @@ function reconcileCloudflareDrawer() {
   updateProviderItem(
     section,
     "Access applications",
-    familyMessage(apps, (count) => `${count} application(s) visible`, "Access Apps and Policies Read"),
+    familyMessage(
+      apps,
+      (count) => `${count} application(s) visible`,
+      "Access Apps and Policies Read",
+    ),
     apps?.success === false,
   );
   updateProviderItem(
     section,
     "Reusable policies",
-    familyMessage(policies, (count) => `${count} policy object(s) visible`, "Access Apps and Policies Read"),
+    familyMessage(
+      policies,
+      (count) => `${count} policy object(s) visible`,
+      "Access Apps and Policies Read",
+    ),
     policies?.success === false,
   );
   updateProviderItem(
     section,
     "Service Tokens",
-    familyMessage(tokens, (count) => `${count} Service Token(s) visible`, "Access Service Tokens Read"),
+    familyMessage(
+      tokens,
+      (count) => `${count} Service Token(s) visible`,
+      "Access Service Tokens Read",
+    ),
     tokens?.success === false,
   );
 }
@@ -260,7 +287,8 @@ function reconcileLocalPfSense() {
   detail.textContent =
     "External exposure-policy probe skipped from the trusted workstation/LAN vantage point; pfSense REST/API reachability is independently confirmed from this runtime.";
   led.className = "health-led health-led--blue";
-  led.title = "Partial evidence: pfSense API reachable; external exposure policy intentionally not probed from LAN";
+  led.title =
+    "Partial evidence: pfSense API reachable; external exposure policy intentionally not probed from LAN";
 }
 
 function clearLegacySickzHint() {
@@ -299,7 +327,12 @@ function ensureRuntimeNotices() {
 }
 
 async function detectRuntimeDiagnostics() {
-  if (runtimeDiagnosticsState != null || latestSnapshot?.runtime?.runtime_mode !== "local") return;
+  if (
+    runtimeDiagnosticsState != null ||
+    latestSnapshot?.runtime?.runtime_mode !== "local"
+  ) {
+    return;
+  }
   const response = await fetch("/v1/runtime/metadata", {
     headers: { Accept: "application/json" },
   }).catch(() => null);
@@ -336,14 +369,24 @@ async function refresh() {
 export function installHealthUiOperatorFollowup() {
   document.addEventListener("service-filter-changed", schedule);
   document.addEventListener("health-board-refreshed", refresh);
-  document.addEventListener("click", (event) => {
-    if (event.target instanceof Element && event.target.closest(".service-detail-trigger")) {
-      window.setTimeout(schedule, 0);
-    }
-  });
+  document.addEventListener(
+    "click",
+    (event) => {
+      if (
+        event.target instanceof Element &&
+        event.target.closest(".service-detail-trigger")
+      ) {
+        window.setTimeout(schedule, 0);
+      }
+    },
+    true,
+  );
   const board = document.getElementById("health-board");
   if (board) {
-    new MutationObserver(schedule).observe(board, { childList: true, subtree: true });
+    new MutationObserver(schedule).observe(board, {
+      childList: true,
+      subtree: true,
+    });
   }
   refresh();
 }
