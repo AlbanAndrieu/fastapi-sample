@@ -1,3 +1,10 @@
+## [1.20.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.1...1.20.2) (2026-09-12)
+
+
+### Bug Fixes
+
+* **health-ui:** clarify Cloudflare and pfSense diagnostics ([#256](https://github.com/AlbanAndrieu/fastapi-sample/issues/256)) ([54d92ab](https://github.com/AlbanAndrieu/fastapi-sample/commit/54d92abde995681bad73a46cf24960cc1f05ba37))
+
 ## [1.20.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.0...1.20.1) (2026-09-12)
 
 
