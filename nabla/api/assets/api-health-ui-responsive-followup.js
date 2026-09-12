@@ -262,11 +262,9 @@ function applyRuntimeLayout() {
 }
 
 function syncBoard() {
-  document
-    .querySelectorAll("[data-service-filter-target]")
-    .forEach((row) => {
-      annotateStatus(row);
-    });
+  document.querySelectorAll("[data-service-filter-target]").forEach((row) => {
+    annotateStatus(row);
+  });
   ensureTrueNasInfo();
   applyRuntimeLayout();
   scheduleDrawerSync();
