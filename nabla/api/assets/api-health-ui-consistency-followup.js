@@ -1,8 +1,5 @@
 import { fetchHealthBoard } from "./api-health-board.js";
 
-const PROJECT_ACCESS_POLICY = "fastapi-sample-monitor";
-const PROJECT_SERVICE_AUTH = "fastapi-sample-monitor";
-
 let latestSnapshot = null;
 let scheduled = false;
 
@@ -44,6 +41,10 @@ function familyError(family) {
   return "";
 }
 
+function familySelection(family, fallback) {
+  return String(family?.selection || "").trim() || fallback;
+}
+
 function setProviderDetail(item, detail, tone = "ok") {
   if (!item) return;
   const text = item.querySelector(":scope > div > span");
@@ -71,6 +72,11 @@ function removeDuplicateProviderItems(section) {
   }
 }
 
+function metricValue(node) {
+  const strong = node.querySelector(":scope > strong");
+  return normalize(strong?.textContent || node.textContent);
+}
+
 function isLegacyCloudflareSummary(text) {
   const value = normalize(text);
   return (
@@ -86,7 +92,7 @@ function removeCloudflareSummaryDuplicates(drawer) {
   for (const node of drawer.querySelectorAll(
     ".service-detail-metric, .service-provider-summary",
   )) {
-    if (isLegacyCloudflareSummary(node.textContent)) node.remove();
+    if (isLegacyCloudflareSummary(metricValue(node))) node.remove();
   }
 }
 
@@ -95,6 +101,8 @@ function reconcileCloudflare(section, drawer) {
   const apps = control.access_applications;
   const policies = control.access_reusable_policies;
   const tokens = control.access_service_tokens;
+
+  removeCloudflareSummaryDuplicates(drawer);
 
   const accessItem = providerItem(section, "Access applications");
   const appError = familyError(apps);
@@ -108,7 +116,7 @@ function reconcileCloudflare(section, drawer) {
   const policyError = familyError(policies);
   setProviderDetail(
     policyItem,
-    policyError || PROJECT_ACCESS_POLICY,
+    policyError || familySelection(policies, "project-scoped policy"),
     policyError ? "warn" : policies ? "ok" : "neutral",
   );
 
@@ -121,14 +129,14 @@ function reconcileCloudflare(section, drawer) {
       : present === false
         ? "configured Service Auth not found"
         : "Service Auth correlation not confirmed";
+  const tokenSelection = familySelection(tokens, "project-scoped Service Token");
   setProviderDetail(
     tokenItem,
-    tokenError || `${PROJECT_SERVICE_AUTH} · ${tokenPresence}`,
+    tokenError || `${tokenSelection} · ${tokenPresence}`,
     tokenError || present === false ? "warn" : tokens ? "ok" : "neutral",
   );
 
   removeDuplicateProviderItems(section);
-  removeCloudflareSummaryDuplicates(drawer);
 }
 
 function reconcileDrawer() {
