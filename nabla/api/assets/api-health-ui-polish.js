@@ -129,10 +129,7 @@ function enrichLegend() {
       "⚙️ API",
       "REST/API control-plane evidence; separate from raw listener reachability.",
     ),
-    hoverLabel(
-      "↔️ WS",
-      "WebSocket/API transport evidence where applicable.",
-    ),
+    hoverLabel("↔️ WS", "WebSocket/API transport evidence where applicable."),
     hoverLabel(
       "☁️ Tunnel",
       "Cloudflare Tunnel route/connectivity evidence; it does not authorize users.",
