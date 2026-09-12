@@ -83,9 +83,9 @@ function ensureHeader(host) {
   header.className = "service-filter-global-heading";
   header.innerHTML =
     '<div><h2 id="service-filter-global-heading">Service health and filters</h2>' +
-    "<p>Services remain the primary outcome; critical core, security, exposure and support evidence share one operator filter.</p></div>" +
+    "<p>Cards are the canonical operational view; critical core, security, exposure and support evidence share one operator filter.</p></div>" +
     '<div class="service-filter-heading-actions"><span class="service-filter-scope">Global view</span>' +
-    '<button type="button" class="service-filter-density-toggle" id="service-filter-density-toggle" aria-expanded="true">Compact filters</button></div>';
+    '<button type="button" class="service-filter-density-toggle" id="service-filter-density-toggle" aria-expanded="true">Collapse</button></div>';
   host.prepend(header);
 }
 
@@ -112,7 +112,7 @@ function compactProbeLegend(host) {
   const details = document.createElement("details");
   details.className = "service-filter-legend-details";
   const summary = document.createElement("summary");
-  summary.textContent = "Probe evidence legend";
+  summary.textContent = "Legend / how to read";
   details.append(summary, legend);
   host.appendChild(details);
 }
@@ -256,7 +256,7 @@ function syncCompactState(host) {
   host.dataset.expanded = String(!compact);
   const button = document.getElementById("service-filter-density-toggle");
   if (button) {
-    button.textContent = compact ? "More filters" : "Compact filters";
+    button.textContent = compact ? "Expand" : "Collapse";
     button.setAttribute("aria-expanded", String(!compact));
   }
 }

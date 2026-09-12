@@ -67,6 +67,7 @@ function probeEntries(row) {
       [...probe.classList]
         .find((name) => name.startsWith("service-probe--"))
         ?.replace("service-probe--", "") || "unknown",
+    disabled: probe.dataset.probeDisabled === "true",
   }));
 }
 
@@ -154,13 +155,19 @@ function renderEvidence(drawer, row) {
   for (const probe of probes) {
     const item = document.createElement("article");
     item.className = `service-detail-probe service-detail-probe--${probe.tone}`;
+    if (probe.disabled) item.dataset.disabled = "true";
     const heading = document.createElement("div");
     heading.className = "service-detail-probe-heading";
     const label = document.createElement("strong");
     label.textContent = probe.label;
-    const kind = document.createElement("span");
-    kind.textContent = probe.kind;
-    heading.append(label, kind);
+    heading.appendChild(label);
+    const normalizedLabel = probe.label.trim().toLowerCase();
+    const normalizedKind = probe.kind.trim().toLowerCase();
+    if (normalizedKind && normalizedKind !== normalizedLabel) {
+      const kind = document.createElement("span");
+      kind.textContent = probe.kind;
+      heading.appendChild(kind);
+    }
     const detail = document.createElement("p");
     detail.textContent = probe.detail;
     item.append(heading, detail);

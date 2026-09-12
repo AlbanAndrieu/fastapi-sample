@@ -24,7 +24,9 @@ async def test_cloudflare_check_is_skipped_without_credentials(monkeypatch) -> N
 
 
 @pytest.mark.asyncio
-async def test_cloudflare_check_reports_unhealthy_tunnel(monkeypatch) -> None:
+async def test_cloudflare_check_keeps_api_reachable_when_one_tunnel_needs_attention(
+    monkeypatch,
+) -> None:
     monkeypatch.setenv("CLOUDFLARE_ACCOUNT_ID", "account")
     monkeypatch.setenv("CLOUDFLARE_API_TOKEN", "token")
 
@@ -37,7 +39,7 @@ async def test_cloudflare_check_reports_unhealthy_tunnel(monkeypatch) -> None:
                 "success": True,
                 "result": [
                     {"name": "homelab", "status": "healthy"},
-                    {"name": "backup", "status": "down"},
+                    {"name": "backup", "status": "inactive"},
                 ],
             },
         )
@@ -52,9 +54,49 @@ async def test_cloudflare_check_reports_unhealthy_tunnel(monkeypatch) -> None:
     result = await platform_health.check_cloudflare_tunnels()
 
     assert result["api_reachable"] is True
-    assert result["reachable"] is False
+    assert result["reachable"] is True
+    assert result["state"] == "ok"
+    assert result["degraded"] is False
     assert result["healthy_tunnels"] == 1
+    assert result["inactive_tunnels"] == 1
     assert result["unhealthy_tunnels"] == 1
+    assert result["inventory_attention"] is True
+
+
+@pytest.mark.asyncio
+async def test_cloudflare_check_warns_when_all_tunnels_are_unhealthy(monkeypatch) -> None:
+    monkeypatch.setenv("CLOUDFLARE_ACCOUNT_ID", "account")
+    monkeypatch.setenv("CLOUDFLARE_API_TOKEN", "token")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            request=request,
+            json={
+                "success": True,
+                "result": [
+                    {"name": "legacy", "status": "inactive"},
+                    {"name": "broken", "status": "down"},
+                ],
+            },
+        )
+
+    class FakeAsyncClient(httpx.AsyncClient):
+        def __init__(self, *args, **kwargs) -> None:
+            kwargs["transport"] = httpx.MockTransport(handler)
+            super().__init__(*args, **kwargs)
+
+    monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
+
+    result = await platform_health.check_cloudflare_tunnels()
+
+    assert result["api_reachable"] is True
+    assert result["reachable"] is True
+    assert result["state"] == "warn"
+    assert result["degraded"] is True
+    assert result["healthy_tunnels"] == 0
+    assert result["inactive_tunnels"] == 1
+    assert result["degraded_or_down_tunnels"] == 1
 
 
 @pytest.mark.asyncio

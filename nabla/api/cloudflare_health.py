@@ -66,7 +66,7 @@ def cloudflare_unconfirmed(
 
 
 async def check_cloudflare_tunnels() -> dict[str, Any]:
-    """Check Tunnel inventory; only observed tunnel states may confirm health."""
+    """Check Cloudflare API reachability and report Tunnel inventory separately."""
     settings = CloudflareTunnelSettings.from_environment()
     if settings is None:
         return cloudflare_unconfirmed(
@@ -131,20 +131,29 @@ async def check_cloudflare_tunnels() -> dict[str, Any]:
             http_status=response.status_code,
         )
 
-    unhealthy = [status for status in statuses if status in {"inactive", "degraded", "down"}]
     healthy = sum(status == "healthy" for status in statuses)
+    inactive = sum(status == "inactive" for status in statuses)
+    degraded_or_down = sum(status in {"degraded", "down"} for status in statuses)
+    attention = inactive + degraded_or_down
+    all_unhealthy = healthy == 0 and attention > 0
     return {
-        "reachable": not unhealthy,
+        # `reachable` describes the observed Cloudflare control-plane endpoint.
+        # Individual Tunnel lifecycle states are reported below and must not turn
+        # the provider/API Card red when at least one unrelated/retired Tunnel is inactive.
+        "reachable": True,
         "api_reachable": True,
         "http_status": response.status_code,
         "probe": "cloudflare_tunnel_api",
-        "state": "warn" if unhealthy else "ok",
+        "state": "warn" if all_unhealthy else "ok",
         "status_confirmed": True,
         "tunnel_count": len(statuses),
         "healthy_tunnels": healthy,
-        "unhealthy_tunnels": len(unhealthy),
+        "inactive_tunnels": inactive,
+        "degraded_or_down_tunnels": degraded_or_down,
+        "unhealthy_tunnels": attention,
         "tunnel_statuses": statuses,
-        "degraded": bool(unhealthy),
+        "inventory_attention": attention > 0,
+        "degraded": all_unhealthy,
         "last_success_at": utc_now(),
     }
 

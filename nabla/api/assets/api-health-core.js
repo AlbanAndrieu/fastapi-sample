@@ -84,6 +84,15 @@ function isExpectedSentryDebugFailure(key, check) {
 }
 
 function classify(key, check) {
+  if (key === "cloudflare") {
+    if (check.skipped === true) return "gray";
+    if (check.api_reachable === true && check.status_confirmed === true) {
+      return check.state === "warn" ? "yellow" : "green";
+    }
+    // Cloudflare control-plane uncertainty is not a provider outage. Keep the
+    // Card neutral/unknown and disable API-derived policy controls elsewhere.
+    return "gray";
+  }
   if (check.skipped === true) return "yellow";
   if (
     key === "pfsense" &&
@@ -109,9 +118,65 @@ function mandatoryFailed(key, check) {
   return check.reachable === false;
 }
 
+function cloudflareDetailText(check) {
+  const status = Number(check.http_status);
+  if (check.api_reachable === true && check.status_confirmed === true) {
+    const parts = [
+      Number.isFinite(status)
+        ? `Cloudflare API HTTP ${status}`
+        : "Cloudflare API reachable",
+    ];
+    const total = Number(check.tunnel_count);
+    const healthy = Number(check.healthy_tunnels);
+    const inactive = Number(check.inactive_tunnels);
+    const degradedOrDown = Number(check.degraded_or_down_tunnels);
+    if (Number.isFinite(total) && Number.isFinite(healthy)) {
+      parts.push(`${healthy}/${total} tunnels healthy`);
+    }
+    if (Number.isFinite(inactive) && inactive > 0) {
+      parts.push(
+        `${inactive} inactive tunnel${inactive === 1 ? "" : "s"} in inventory`,
+      );
+    }
+    if (Number.isFinite(degradedOrDown) && degradedOrDown > 0) {
+      parts.push(
+        `${degradedOrDown} degraded/down tunnel${degradedOrDown === 1 ? "" : "s"}`,
+      );
+    }
+    return parts.join(" · ");
+  }
+  if (check.api_reachable === true) {
+    return [
+      Number.isFinite(status)
+        ? `Cloudflare API HTTP ${status}`
+        : "Cloudflare API reachable",
+      "control-plane inventory unconfirmed",
+      check.error || check.warning || "read-only verification is incomplete",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }
+  if (check.api_reachable === false) {
+    return [
+      "Cloudflare API unavailable",
+      "control-plane verification paused",
+      check.error || check.warning,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }
+  return [
+    "Cloudflare control-plane verification unavailable",
+    check.error || check.warning,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
 function baseDetailText(key, check) {
   if (check.skipped)
     return check.reason || "Not configured (intentionally disabled).";
+  if (key === "cloudflare") return cloudflareDetailText(check);
   if (check.warning) return String(check.warning);
   if (isExpectedSentryDebugFailure(key, check)) {
     return "HTTP 500 · Expected: the test error was intentionally triggered and captured by Sentry.";
@@ -284,6 +349,13 @@ function healthRowsSignature(checks) {
           check.display_label,
           check.service_id,
           check.reachable,
+          check.api_reachable,
+          check.status_confirmed,
+          check.state,
+          check.tunnel_count,
+          check.healthy_tunnels,
+          check.inactive_tunnels,
+          check.degraded_or_down_tunnels,
           check.local_state,
           check.dependency_state,
           check.effective_state,

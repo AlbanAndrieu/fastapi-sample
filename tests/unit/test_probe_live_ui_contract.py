@@ -39,22 +39,25 @@ def test_health_tier_help_explains_required_and_optional_semantics() -> None:
     assert "warning/unknown state rather than downtime" in javascript
 
 
-def test_cloudflare_uncertainty_is_visible_next_to_ingress_diagnostics() -> None:
-    javascript = (ASSETS / "api-cloudflare-status.js").read_text(encoding="utf-8")
+def test_cloudflare_uncertainty_moves_to_card_and_disables_api_derived_controls() -> None:
+    cloudflare = (ASSETS / "api-cloudflare-status.js").read_text(encoding="utf-8")
+    diagnostics = (ASSETS / "api-service-diagnostics.js").read_text(encoding="utf-8")
+    provider = (ASSETS / "api-service-probe-details.js").read_text(encoding="utf-8")
     controller = (ASSETS / "api-health-controller.js").read_text(encoding="utf-8")
 
-    assert 'container.id = "cloudflare-tunnel-warning";' in javascript
-    assert "Cloudflare verification temporarily unavailable" in javascript
-    assert "not proof that the service or Cloudflare Tunnel is down" in javascript
-    assert "remote-vs-local tunnel management" in javascript
-    assert 'document.getElementById("truenas-ingress-block")' in javascript
-    assert "platformCloudflareDetail" in javascript
-    assert "exposureManagementDetail" in javascript
-    assert "local-managed tunnel(s) observed" in javascript
-    assert "Local YAML ingress hostnames are not exposed" in javascript
-    assert "status_confirmed" in javascript
-    assert "api_reachable" in javascript
-    assert "error_kind" in javascript
+    assert "retireLegacyTunnelStatusBlock" in cloudflare
+    assert "Cloudflare verification unavailable" in cloudflare
+    assert 'cls: "gray"' in cloudflare
+    assert "state.disabled" in cloudflare
+    assert "controlPlaneConfirmed" in cloudflare
+    assert "cloudflareControlPlane" in diagnostics
+    assert "data.probeDisabled" not in diagnostics  # dataset is assigned directly on the badge
+    assert 'badge.dataset.probeDisabled = "true"' in diagnostics
+    assert "Tunnel inventory cannot be verified" in diagnostics
+    assert "Service Auth is an independent live edge proof" in diagnostics
+    assert "Cloudflare diagnostics" in provider
+    assert "Access & Service Auth" in provider
+    assert "not a Cloudflare outage" in provider
     assert "snapshot?.healthz?.checks?.cloudflare" in controller
     assert "snapshot?.homelab?.cloudflare" in controller
 
@@ -63,17 +66,39 @@ def test_pfsense_security_controls_have_explicit_icons() -> None:
     javascript = (ASSETS / "api-security-control-icons.js").read_text(
         encoding="utf-8",
     )
+    provider = (ASSETS / "api-service-probe-details.js").read_text(encoding="utf-8")
+    flow = (ASSETS / "api-platform-flow-ui.js").read_text(encoding="utf-8")
     controller = (ASSETS / "api-health-controller.js").read_text(encoding="utf-8")
 
     assert '["Snort", "🛡️"]' in javascript
     assert '["pfBlockerNG", "🚫"]' in javascript
     assert '["Unbound", "🌐"]' in javascript
+    assert 'return "🚫"' in provider
+    assert 'return "🛡️"' in provider
+    assert 'return "👥"' in provider
+    assert "snort2c evidence unavailable" in provider
+    assert "does not mean Snort or pfBlockerNG is stopped" in provider
+    assert "truenas-stage-security-badge" in flow
     assert "MutationObserver" in javascript
     assert 'from "./api-security-control-icons.js"' in controller
     assert "installSecurityControlIcons();" in controller
+
+
+def test_probe_detail_ticker_updates_only_dynamic_fields() -> None:
+    javascript = (ASSETS / "api-service-probe-details.js").read_text(
+        encoding="utf-8",
+    )
+
+    assert '"probe-state"' in javascript
+    assert '"probe-age"' in javascript
+    assert '"next-due"' in javascript
+    assert 'const rendered = value == null || value === "" ? "—"' in javascript
+    assert "window.setInterval(refreshDynamicTiming, TICK_MS);" in javascript
+    assert "window.setInterval(scheduleRender, TICK_MS);" not in javascript
 
 
 def test_live_probe_styles_are_loaded() -> None:
     styles = (ASSETS / "api.css").read_text(encoding="utf-8")
 
     assert '@import url("./api-probe-live.css");' in styles
+    assert '@import url("./api-platform-diagnostics.css");' in styles

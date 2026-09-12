@@ -4,6 +4,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 ASSET = ROOT / "nabla" / "api" / "assets" / "api-truenas.js"
+FLOW_ASSET = ROOT / "nabla" / "api" / "assets" / "api-platform-flow-ui.js"
+PROVIDER_ASSET = ROOT / "nabla" / "api" / "assets" / "api-service-probe-details.js"
 
 
 def test_truenas_platform_displays_public_wan_metadata() -> None:
@@ -16,6 +18,7 @@ def test_truenas_platform_displays_public_wan_metadata() -> None:
 
 def test_truenas_platform_puts_ingress_filters_in_traffic_pipeline() -> None:
     javascript = ASSET.read_text(encoding="utf-8")
+    flow = FLOW_ASSET.read_text(encoding="utf-8")
 
     assert "security_filters" in javascript
     assert "ingressPolicyStage" in javascript
@@ -23,10 +26,17 @@ def test_truenas_platform_puts_ingress_filters_in_traffic_pipeline() -> None:
     assert 'label: "pfSense WAN ingress"' in javascript
     assert "trafficStages" in javascript
     assert 'stage?.id === "dns"' in javascript
+    assert '"pfSense WAN ingress"' in flow
+    assert '"pfSense DNS / Unbound"' in flow
+    assert '"Public DNS"' in flow
+    assert "DNS provider attribution is not inferred" in flow
+    assert '"pfsense"' in flow
+    assert "truenas-stage-service-link" in flow
 
 
 def test_truenas_platform_displays_proven_snort_pf_block() -> None:
     javascript = ASSET.read_text(encoding="utf-8")
+    flow = FLOW_ASSET.read_text(encoding="utf-8")
 
     assert "ingress_block" in javascript
     assert "truenas-ingress-block" in javascript
@@ -34,17 +44,18 @@ def test_truenas_platform_displays_proven_snort_pf_block() -> None:
     assert "FastAPI Cloud egress" not in javascript  # role comes from sanitized API evidence
     assert 'ingressBlock?.state === "blocked"' in javascript
     assert "blocked by Snort/PF" in javascript
+    assert 'if (state === "blocked") return;' in flow
 
 
-def test_truenas_platform_distinguishes_unavailable_and_stale_snort_telemetry() -> None:
-    javascript = ASSET.read_text(encoding="utf-8")
+def test_unavailable_snort_telemetry_moves_to_pfsense_service_diagnostics() -> None:
+    provider = PROVIDER_ASSET.read_text(encoding="utf-8")
+    flow = FLOW_ASSET.read_text(encoding="utf-8")
 
-    assert 'block?.state === "telemetry_unavailable"' in javascript
-    assert "pfSense security telemetry temporarily unavailable" in javascript
-    assert "Control path:" in javascript
-    assert 'block?.state === "telemetry_stale"' in javascript
-    assert "Snort telemetry stale · last-known-good table retained" in javascript
-    assert "No current clear/blocked verdict is emitted from stale data." in javascript
+    assert "snort2c evidence unavailable" in provider
+    assert "Snort/PF attribution telemetry" in provider
+    assert "does not mean Snort or pfBlockerNG is stopped" in provider
+    assert "hideUnprovenIngressBanner" in flow
+    assert 'if (state === "blocked") return;' in flow
 
 
 def test_truenas_platform_surfaces_transport_failure_stage() -> None:
@@ -77,6 +88,7 @@ def test_truenas_platform_distinguishes_listener_from_authenticated_api() -> Non
 
 def test_truenas_platform_renders_bounded_probes_before_aggregate_enrichment() -> None:
     javascript = ASSET.read_text(encoding="utf-8")
+    flow = FLOW_ASSET.read_text(encoding="utf-8")
 
     probe_fetch = javascript.index("probes = await fetchHomelabProbeMatrix()")
     probe_render = javascript.index("_probe_first: true", probe_fetch)
@@ -86,8 +98,9 @@ def test_truenas_platform_renders_bounded_probes_before_aggregate_enrichment() -
     assert "needsBoundedProbeFallback" in javascript
     assert "_bounded_probe_fallback" in javascript
     assert "_aggregate_enrichment_error" in javascript
-    assert "TrueNAS flow rendered from bounded /api/homelab/probes first" in javascript
     assert "Aggregate homelab diagnostics exceeded their deadline" in javascript
+    assert "removeImplementationNote" in flow
+    assert "TrueNAS flow rendered from bounded /api/homelab/probes first" in flow
 
 
 def test_truenas_platform_displays_probe_fanout_matrix() -> None:
