@@ -138,7 +138,21 @@ jobs:
         run: uv sync --frozen
 
       - name: Run repository pytest suite after dependency sync
-        run: uv run --no-sync pytest -q --disable-warnings --maxfail=1 --junit-xml=junit.xml
+        shell: bash
+        run: |
+          set +e
+          uv run --no-sync pytest -q --disable-warnings --maxfail=1 --tb=short --junit-xml=junit.xml >pytest.log 2>&1
+          rc=$?
+          set -e
+          if ((rc != 0)); then
+            echo "::group::pytest failure · last 180 lines"
+            tail -n 180 pytest.log
+            echo "::endgroup::"
+            exit "${rc}"
+          fi
+          summary="$(tail -n 1 pytest.log)"
+          printf '%s\n' "${summary}"
+          printf '### pytest\n`%s`\n' "${summary}" >>"${GITHUB_STEP_SUMMARY}"
 
       - name: Upload test results to Trunk.io
         if: ${{ !cancelled() && env.TRUNK_API_TOKEN != '' }}

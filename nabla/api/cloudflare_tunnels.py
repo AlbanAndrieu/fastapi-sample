@@ -164,6 +164,11 @@ def _short_error(exc: BaseException) -> str:
     return exc.__class__.__name__[:80]
 
 
+def _tunnel_is_inactive(tunnel: object) -> bool:
+    """Return true only for explicit inactive provider state."""
+    return str(_value(tunnel, "status", "") or "").strip().lower() == "inactive"
+
+
 class CloudflareTunnelObserver:
     """Inspect Cloudflare-managed tunnels and Access without mutating state."""
 
@@ -193,13 +198,19 @@ class CloudflareTunnelObserver:
             is_deleted=False,
         )
         observations: list[CloudflareTunnelObservation] = []
+        inactive_filtered = 0
 
         for tunnel in page:
+            if _tunnel_is_inactive(tunnel):
+                inactive_filtered += 1
+                continue
+
             tunnel_id = str(_value(tunnel, "id", "") or "")
             if not tunnel_id:
                 continue
 
             tunnel_name = str(_value(tunnel, "name", "") or tunnel_id)
+            tunnel_status = _value(tunnel, "status")
             config_source = _value(tunnel, "config_src")
             ingress: tuple[CloudflareTunnelIngress, ...] = ()
 
@@ -209,20 +220,23 @@ class CloudflareTunnelObserver:
                 ingress = self._read_ingress(
                     tunnel_id=tunnel_id,
                     tunnel_name=tunnel_name,
-                    status=_value(tunnel, "status"),
+                    status=tunnel_status,
                 )
 
             observations.append(
                 CloudflareTunnelObservation(
                     tunnel_id=tunnel_id,
                     name=tunnel_name,
-                    status=_value(tunnel, "status"),
+                    status=tunnel_status,
                     config_source=config_source,
                     ingress=ingress,
                 ),
             )
 
-        return observations, _pagination(page, len(observations))
+        metadata = _pagination(page, len(observations))
+        metadata["result_count"] = len(observations)
+        metadata["inactive_filtered"] = inactive_filtered
+        return observations, metadata
 
     def list_tunnels(self) -> list[CloudflareTunnelObservation]:
         """Return active cloudflared tunnels and Cloudflare-managed public hostnames."""
