@@ -310,7 +310,8 @@ function reattachActiveRow() {
   activeRow = replacement;
   activeRow.dataset.detailSelected = "true";
   activeTrigger =
-    activeRow.querySelector(":scope > .service-detail-trigger") || activeTrigger;
+    activeRow.querySelector(":scope > .service-detail-trigger") ||
+    activeTrigger;
   return true;
 }
 
