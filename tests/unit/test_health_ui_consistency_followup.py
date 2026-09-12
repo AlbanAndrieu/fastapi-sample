@@ -99,9 +99,7 @@ def test_filter_and_drawer_reserve_fixed_visual_space() -> None:
 
     assert ".service-detail-evidence" in stylesheet
     assert "left: 0" in stylesheet
-    assert "width: 470px" in stylesheet or "width: 470px" in (
-        ASSETS / "api-health-ui-responsive-followup.js"
-    ).read_text(encoding="utf-8")
+    assert "width: 470px" in stylesheet or "width: 470px" in (ASSETS / "api-health-ui-responsive-followup.js").read_text(encoding="utf-8")
     assert ".service-probe-table" in final_stylesheet
     assert "min-width: 52rem" in final_stylesheet
     assert "grid-template-columns: repeat(11, minmax(9rem, 1fr));" in final_stylesheet
