@@ -18,6 +18,17 @@ def test_http_200_is_transport_green_and_hover_has_timing() -> None:
     assert "badge.classList.add(`service-probe--${toneFor(check)}`)" in javascript
 
 
+def test_question_help_reuses_http_probe_timing() -> None:
+    javascript = (ASSETS / "api-service-probe-help.js").read_text(encoding="utf-8")
+    entrypoint = (ASSETS / "api-health.js").read_text(encoding="utf-8")
+
+    assert 'row.querySelector(\'[data-probe-kind="http"]\')' in javascript
+    assert "HTTP probe:" in javascript
+    assert "aria-label" in javascript
+    assert 'from "./api-service-probe-help.js"' in entrypoint
+    assert "installServiceProbeHelp();" in entrypoint
+
+
 def test_service_drawer_exposes_probe_timing_and_freshness_layers() -> None:
     javascript = (ASSETS / "api-service-probe-details.js").read_text(encoding="utf-8")
 
@@ -42,12 +53,28 @@ def test_service_drawer_exposes_probe_timing_and_freshness_layers() -> None:
     assert "snapshot?.refreshing" in javascript
 
 
+def test_dependency_lists_use_canonical_lifecycle_priority() -> None:
+    javascript = (ASSETS / "api-service-dependency-priority.js").read_text(
+        encoding="utf-8"
+    )
+    entrypoint = (ASSETS / "api-health.js").read_text(encoding="utf-8")
+
+    assert '"bootstrap-runtime", 0' in javascript
+    assert '"applications", 6' in javascript
+    assert "lifecycle.priority" in javascript
+    assert "leftOptional" in javascript
+    assert "criticality" in javascript
+    assert 'from "./api-service-dependency-priority.js"' in entrypoint
+    assert "installServiceDependencyPriority" in entrypoint
+
+
 def test_local_managed_tunnel_wording_does_not_claim_missing_ingress() -> None:
     javascript = (ASSETS / "api-cloudflare-local-managed.js").read_text(encoding="utf-8")
 
     assert "local_managed_tunnels" in javascript
     assert "per-host ingress cannot be verified through the remote Cloudflare API" in javascript
     assert "Cloudflare edge headers are present" in javascript
+    assert ".cloudflare-tunnel-badge, .service-probe" in javascript
 
 
 def test_health_entrypoints_wire_probe_enhancements() -> None:
