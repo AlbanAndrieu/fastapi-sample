@@ -13,6 +13,7 @@ import httpx
 from nabla.api.provider_credentials import cloudflare_access_service_token_credentials
 
 _MAX_EDGE_BODY_CHARS = 32_768
+_MAX_ANONYMOUS_REDIRECTS = 4
 _DEFAULT_DENY_FRAGMENT = "this resource is blocked by this account's default-deny policy"
 _ANONYMOUS_EDGE_HEADERS = {"User-Agent": "nabla-sickz-policy-probe/1.0"}
 _CF_ACCESS_CLIENT_ID_HEADER = "CF-Access-Client-Id"
@@ -71,6 +72,34 @@ def _service_token_fallback_needed(evidence: dict[str, Any]) -> bool:
     return evidence.get("cloudflare_default_deny") is True or evidence.get("cloudflare_access_signal") is True
 
 
+async def _follow_anonymous_redirects(
+    client: httpx.AsyncClient,
+    response: httpx.Response,
+) -> tuple[httpx.Response, int]:
+    """Follow a bounded anonymous redirect chain without ever forwarding credentials."""
+    current = response
+    redirects = 0
+    seen = {str(response.request.url)}
+    while current.is_redirect and redirects < _MAX_ANONYMOUS_REDIRECTS:
+        location = current.headers.get("location")
+        if not location:
+            break
+        try:
+            target = current.request.url.join(location)
+        except (TypeError, ValueError):
+            break
+        target_text = str(target)
+        if target_text in seen:
+            break
+        seen.add(target_text)
+        try:
+            current = await client.get(target, headers=_ANONYMOUS_EDGE_HEADERS)
+        except (httpx.HTTPError, OSError):
+            break
+        redirects += 1
+    return current, redirects
+
+
 async def _probe_http_edge_evidence(
     url: str,
     *,
@@ -96,6 +125,7 @@ async def _probe_http_edge_evidence(
         "cloudflare_service_token_configured": token_status["configured"],
         "cloudflare_service_token_configuration_stage": token_status["configuration_stage"],
         "cloudflare_service_auth_attempted": False,
+        "authenticated_http_status": None,
     }
     if token_status["missing_variables"]:
         token_metadata["cloudflare_service_token_missing_variables"] = token_status["missing_variables"]
@@ -110,9 +140,15 @@ async def _probe_http_edge_evidence(
         ) as client:
             response = await client.get(url, headers=_ANONYMOUS_EDGE_HEADERS)
             anonymous_evidence = _edge_response_evidence(response)
+            anonymous_final, anonymous_redirect_count = await _follow_anonymous_redirects(client, response)
+            anonymous_blocked = anonymous_evidence["cloudflare_default_deny"] or anonymous_evidence["cloudflare_access_signal"]
             evidence = {
                 **anonymous_evidence,
                 "http_probe_auth_mode": "anonymous",
+                "anonymous_initial_http_status": response.status_code,
+                "anonymous_final_http_status": anonymous_final.status_code,
+                "anonymous_redirect_count": anonymous_redirect_count,
+                "origin_reached": not anonymous_blocked,
                 "cloudflare_access_policy_missing_suspected": anonymous_evidence["cloudflare_default_deny"],
                 **token_metadata,
             }
@@ -144,11 +180,14 @@ async def _probe_http_edge_evidence(
                 return evidence
 
             service_evidence = _edge_response_evidence(service_response)
-            access_passed = not (service_evidence["cloudflare_default_deny"] or service_evidence["cloudflare_access_signal"])
+            access_blocked = service_evidence["cloudflare_default_deny"] or service_evidence["cloudflare_access_signal"]
+            access_passed = not access_blocked
             evidence.update(
                 {
                     "cloudflare_service_token_access_passed": access_passed,
                     "cloudflare_service_token_http_status": service_response.status_code,
+                    "authenticated_http_status": service_response.status_code,
+                    "origin_reached": access_passed,
                     "cloudflare_service_token_default_deny": service_evidence["cloudflare_default_deny"],
                     "cloudflare_service_token_access_signal": service_evidence["cloudflare_access_signal"],
                 },

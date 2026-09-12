@@ -14,7 +14,9 @@ const ACTIVE_FILTERS = [
   ["probe", "Probe", "service-probe-filter"],
 ];
 
+const STICKY_HYSTERESIS_PX = 8;
 let refreshScheduled = false;
+let stickyRefreshScheduled = false;
 
 function normalizedStatus(row) {
   const explicit = String(row?.dataset?.semanticStatus || "").trim();
@@ -83,7 +85,7 @@ function ensureHeader(host) {
     '<div><h2 id="service-filter-global-heading">Service health and filters</h2>' +
     "<p>Services remain the primary outcome; critical core, security, exposure and support evidence share one operator filter.</p></div>" +
     '<div class="service-filter-heading-actions"><span class="service-filter-scope">Global view</span>' +
-    '<button type="button" class="service-filter-density-toggle" id="service-filter-density-toggle" aria-expanded="false">More filters</button></div>';
+    '<button type="button" class="service-filter-density-toggle" id="service-filter-density-toggle" aria-expanded="true">Compact filters</button></div>';
   host.prepend(header);
 }
 
@@ -247,14 +249,39 @@ function installKeyboardShortcuts() {
 
 function syncCompactState(host) {
   const stuck = host.dataset.stuck === "true";
-  const expanded = host.dataset.expanded === "true";
-  const compact = stuck && !expanded;
+  const userCompact = host.dataset.userCompact === "true";
+  const stuckExpanded = host.dataset.stuckExpanded === "true";
+  const compact = userCompact || (stuck && !stuckExpanded);
   host.classList.toggle("service-filter--compact", compact);
+  host.dataset.expanded = String(!compact);
   const button = document.getElementById("service-filter-density-toggle");
   if (button) {
     button.textContent = compact ? "More filters" : "Compact filters";
-    button.setAttribute("aria-expanded", String(stuck && expanded));
+    button.setAttribute("aria-expanded", String(!compact));
   }
+}
+
+function refreshStickyState(host, sentinel) {
+  const parsedTop = Number.parseFloat(window.getComputedStyle(host).top);
+  const stickyTop = Number.isFinite(parsedTop) ? parsedTop : 0;
+  const sentinelTop = sentinel.getBoundingClientRect().top;
+  const wasStuck = host.dataset.stuck === "true";
+  const stuck = wasStuck
+    ? sentinelTop <= stickyTop + STICKY_HYSTERESIS_PX
+    : sentinelTop < stickyTop - STICKY_HYSTERESIS_PX;
+  if (stuck === wasStuck) return;
+  host.dataset.stuck = String(stuck);
+  if (!stuck) host.dataset.stuckExpanded = "false";
+  syncCompactState(host);
+}
+
+function scheduleStickyRefresh(host, sentinel) {
+  if (stickyRefreshScheduled) return;
+  stickyRefreshScheduled = true;
+  window.requestAnimationFrame(() => {
+    stickyRefreshScheduled = false;
+    refreshStickyState(host, sentinel);
+  });
 }
 
 function installCompactStickyMode(host) {
@@ -262,23 +289,30 @@ function installCompactStickyMode(host) {
   sentinel.className = "service-filter-sticky-sentinel";
   sentinel.setAttribute("aria-hidden", "true");
   host.insertAdjacentElement("beforebegin", sentinel);
+  host.dataset.stuck = "false";
+  host.dataset.userCompact = "false";
+  host.dataset.stuckExpanded = "false";
 
   const toggle = document.getElementById("service-filter-density-toggle");
   toggle?.addEventListener("click", () => {
-    host.dataset.expanded = host.dataset.expanded === "true" ? "false" : "true";
+    const compact = host.classList.contains("service-filter--compact");
+    if (compact) {
+      host.dataset.userCompact = "false";
+      host.dataset.stuckExpanded =
+        host.dataset.stuck === "true" ? "true" : "false";
+    } else {
+      host.dataset.userCompact = "true";
+      host.dataset.stuckExpanded = "false";
+    }
     syncCompactState(host);
   });
 
-  if (!("IntersectionObserver" in window)) return;
-  new IntersectionObserver(
-    ([entry]) => {
-      const stuck = !entry.isIntersecting && entry.boundingClientRect.top < 0;
-      host.dataset.stuck = String(stuck);
-      if (!stuck) host.dataset.expanded = "false";
-      syncCompactState(host);
-    },
-    { threshold: 0 },
-  ).observe(sentinel);
+  const refreshSticky = () => scheduleStickyRefresh(host, sentinel);
+  window.addEventListener("scroll", refreshSticky, { passive: true });
+  window.addEventListener("resize", refreshSticky, { passive: true });
+  window.addEventListener("pageshow", refreshSticky);
+  syncCompactState(host);
+  refreshSticky();
 }
 
 export function installGlobalServiceFilter() {

@@ -41,11 +41,15 @@ def test_global_filter_stays_visible_and_compacts_secondary_help() -> None:
     assert "service-filter-health-summary" in stylesheet
     assert "service-filter-legend-details" in stylesheet
     assert "Probe evidence legend" in shell
-    assert "max-height: calc(100vh" in stylesheet
+    assert '.service-filter--global[data-stuck="true"][data-expanded="true"]' in stylesheet
+    assert "max-height: calc(100dvh" in stylesheet
     assert "focus-visible" in stylesheet
-    assert "new IntersectionObserver(" in shell
+    assert 'window.addEventListener("scroll", refreshSticky' in shell
+    assert "STICKY_HYSTERESIS_PX" in shell
+    assert "new IntersectionObserver(" not in shell
     assert 'host.classList.toggle("service-filter--compact", compact);' in shell
     assert 'id="service-filter-density-toggle"' in shell
+    assert "Compact filters" in shell
     assert ".service-filter--compact .service-filter-facets" in stylesheet
     assert ".service-filter--compact .service-filter-health-summary" in stylesheet
 

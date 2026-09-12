@@ -125,6 +125,8 @@ function installAutomaticRefresh() {
 
 export function installHealthBoardController() {
   document.querySelectorAll(".health-refresh").forEach((button) => {
+    button.textContent = "↻ Refresh evidence";
+    button.setAttribute("aria-label", "Refresh health and probe evidence");
     button.addEventListener("click", () => {
       logRefreshClick();
       loadHealthBoards({

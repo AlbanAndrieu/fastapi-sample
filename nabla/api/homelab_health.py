@@ -52,6 +52,7 @@ from nabla.utils.environment import env_bool
 HealthState = Literal["ok", "warn", "fail"]
 
 _WARNING_HTTP_STATUSES = frozenset({401, 403, 407, 429})
+_ACCESS_EDGE_HTTP_STATUSES = _WARNING_HTTP_STATUSES | frozenset({301, 302, 303, 307, 308})
 _PROBE_TIMEOUT_SEC = 5.0
 _TRUENAS_DIAGNOSTICS_BUDGET_SEC = 3.0
 _INTERNAL_PROBE_ENV = "HOMELAB_INTERNAL_PROBES_ENABLED"
@@ -207,21 +208,31 @@ async def _probe_public_service(
         name=service.name,
         url=url,
     )
-    if not service.effective_cloudflare_access_required or result.get("http_status") not in _WARNING_HTTP_STATUSES:
+    initial_status = int(result.get("http_status") or 0)
+    if not service.effective_cloudflare_access_required or initial_status not in _ACCESS_EDGE_HTTP_STATUSES:
         return result
 
     edge_evidence = await _probe_http_edge_evidence(url)
     result.update(edge_evidence)
+    result["anonymous_http_status"] = int(
+        edge_evidence.get("anonymous_initial_http_status") or initial_status,
+    )
     if edge_evidence.get("cloudflare_service_token_access_passed") is not True:
+        if edge_evidence.get("cloudflare_access_signal") is True or edge_evidence.get("cloudflare_default_deny") is True:
+            result["state"] = "warn"
+            result["origin_reached"] = False
+            result["public_probe_auth_mode"] = "cloudflare_access_blocked"
         return result
 
     authenticated_status = int(
-        edge_evidence.get("cloudflare_service_token_http_status") or 0,
+        edge_evidence.get("authenticated_http_status")
+        or edge_evidence.get("cloudflare_service_token_http_status")
+        or 0,
     )
-    result["anonymous_http_status"] = result["http_status"]
     result["http_status"] = authenticated_status
     result["state"] = classify_public_http_status(authenticated_status)
     result["reachable"] = authenticated_status > 0
+    result["origin_reached"] = edge_evidence.get("origin_reached") is True
     result["public_probe_auth_mode"] = "cloudflare_service_token"
     return result
 
