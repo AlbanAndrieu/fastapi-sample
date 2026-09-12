@@ -51,9 +51,12 @@ function pinTrueNasPlatform() {
 }
 
 function stageByLabel(predicate) {
-  return [...document.querySelectorAll("#truenas-pipeline .truenas-stage")].find(
-    (stage) =>
-      predicate(normalize(stage.querySelector(".truenas-stage-label")?.textContent)),
+  return [
+    ...document.querySelectorAll("#truenas-pipeline .truenas-stage"),
+  ].find((stage) =>
+    predicate(
+      normalize(stage.querySelector(".truenas-stage-label")?.textContent),
+    ),
   );
 }
 
@@ -103,7 +106,8 @@ function decoratePublicDns() {
 function decorateTrueNasApiStage() {
   const stage = stageByLabel((label) => label.includes("truenas api"));
   const label = stage?.querySelector(".truenas-stage-label");
-  if (!stage || !label || label.dataset.coreDiagnosticsLinked === "true") return;
+  if (!stage || !label || label.dataset.coreDiagnosticsLinked === "true")
+    return;
   const text = label.textContent?.trim() || "TrueNAS API";
   label.dataset.coreDiagnosticsLinked = "true";
   const button = document.createElement("button");
@@ -116,7 +120,9 @@ function decorateTrueNasApiStage() {
 }
 
 function deduplicateProbeEvidence() {
-  const rows = document.querySelectorAll(".health-row[data-service-filter-target]");
+  const rows = document.querySelectorAll(
+    ".health-row[data-service-filter-target]",
+  );
   for (const row of rows) {
     for (const strip of row.querySelectorAll(".service-probe-strip")) {
       const seen = new Set();
@@ -130,7 +136,9 @@ function deduplicateProbeEvidence() {
         badge.remove();
       }
     }
-    const telemetry = [...row.querySelectorAll(":scope > .health-row-telemetry")];
+    const telemetry = [
+      ...row.querySelectorAll(":scope > .health-row-telemetry"),
+    ];
     for (const duplicate of telemetry.slice(0, -1)) duplicate.remove();
   }
 }
@@ -218,13 +226,16 @@ function familyMessage(family, successText, permission) {
     return `inventory unavailable${error} · verify ${permission}`;
   }
   const count = Number(family.total_count ?? family.result_count);
-  return Number.isFinite(count) ? successText(count) : "inventory not confirmed";
+  return Number.isFinite(count)
+    ? successText(count)
+    : "inventory not confirmed";
 }
 
 function updateProviderItem(section, label, text, warn = false) {
   const item = [...section.querySelectorAll(".service-provider-item")].find(
     (candidate) =>
-      normalize(candidate.querySelector("strong")?.textContent) === normalize(label),
+      normalize(candidate.querySelector("strong")?.textContent) ===
+      normalize(label),
   );
   const detail = item?.querySelector("div > span");
   if (!item || !detail) return;
