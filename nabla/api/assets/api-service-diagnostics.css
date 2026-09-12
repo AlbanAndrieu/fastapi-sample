@@ -4,16 +4,23 @@
   z-index: 50;
   width: 100%;
   min-width: 0;
-  max-height: calc(100vh - 1.5rem);
+  max-height: none;
   margin: 0 0 1.25rem;
   padding: 0.85rem;
-  overflow: auto;
+  overflow: visible;
   border: 1px solid #343434;
   border-radius: 10px;
   background: rgba(10, 10, 10, 0.96);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.32);
   text-align: left;
   backdrop-filter: blur(12px);
+}
+
+.service-filter--global[data-stuck="true"][data-expanded="true"] {
+  max-height: calc(100vh - 1.5rem);
+  max-height: calc(100dvh - 1.5rem);
+  overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .service-filter-sticky-sentinel {
@@ -63,7 +70,8 @@
 }
 
 .service-filter-density-toggle {
-  display: none;
+  display: inline-flex;
+  align-items: center;
   padding: 0.22rem 0.48rem;
   border: 1px solid #3a3a3a;
   border-radius: 999px;
@@ -72,10 +80,6 @@
   cursor: pointer;
   font-size: 0.6rem;
   font-weight: 700;
-}
-
-.service-filter--global[data-stuck="true"] .service-filter-density-toggle {
-  display: inline-flex;
 }
 
 .service-filter-health-summary {
@@ -394,16 +398,16 @@
 }
 
 .service-filter--compact {
-  padding: 0.55rem 0.65rem;
+  padding: 0.5rem 0.6rem;
 }
 
 .service-filter--compact .service-filter-global-heading {
   align-items: center;
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.28rem;
 }
 
 .service-filter--compact .service-filter-global-heading h2 {
-  font-size: 0.78rem;
+  font-size: 0.76rem;
 }
 
 .service-filter--compact .service-filter-global-heading p,
@@ -418,20 +422,34 @@
 }
 
 .service-filter--compact .service-filter-health-summary {
-  gap: 0.25rem;
-  margin-bottom: 0.35rem;
+  display: flex;
+  gap: 0.22rem;
+  margin-bottom: 0.28rem;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
 }
 
 .service-filter--compact .service-filter-health-chip {
-  padding: 0.24rem 0.38rem;
+  flex: 0 0 auto;
+  min-width: 0;
+  padding: 0.18rem 0.34rem;
+  white-space: nowrap;
+}
+
+.service-filter--compact .service-filter-health-chip strong,
+.service-filter--compact .service-filter-health-chip span {
+  display: inline;
 }
 
 .service-filter--compact .service-filter-health-chip strong {
-  font-size: 0.72rem;
+  margin-right: 0.2rem;
+  font-size: 0.7rem;
 }
 
 .service-filter--compact .service-filter-health-chip span {
-  font-size: 0.5rem;
+  margin-top: 0;
+  font-size: 0.49rem;
 }
 
 .service-filter--compact .service-filter-control {
@@ -439,13 +457,17 @@
 }
 
 .service-filter--compact .service-filter-active {
-  margin-top: 0.35rem;
+  margin-top: 0.28rem;
 }
 
 @media (max-width: 720px) {
   .service-filter--global {
     top: 0.35rem;
+  }
+
+  .service-filter--global[data-stuck="true"][data-expanded="true"] {
     max-height: calc(100vh - 0.7rem);
+    max-height: calc(100dvh - 0.7rem);
   }
 
   .service-filter-global-heading,
@@ -477,16 +499,8 @@
     min-height: 2.35rem;
   }
 
-  .service-filter--compact .service-filter-health-summary {
-    display: flex;
-    overflow-x: auto;
-    overscroll-behavior-inline: contain;
-    scrollbar-width: thin;
-  }
-
   .service-filter--compact .service-filter-health-chip {
-    flex: 0 0 auto;
-    min-width: 6rem;
+    min-width: 0;
   }
 
   .service-filter--compact .service-filter-control {
