@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from dataclasses import dataclass
 from typing import Literal
 
 import httpx
@@ -23,8 +24,6 @@ _FETCH_TIMEOUT_SEC = 4.0
 _VALIDATION_LOG_SAMPLE = 6
 _log = logging.getLogger(__name__)
 _cache_lock = asyncio.Lock()
-_cached_at = 0.0
-_cached_catalog: DeclaredServiceCatalog | None = None
 
 
 class RuntimeBinding(BaseModel):
@@ -187,6 +186,17 @@ class DeclaredServiceCatalog(BaseModel):
         return self
 
 
+@dataclass(slots=True)
+class _CatalogCache:
+    """Mutable cache state without module-level global reassignment."""
+
+    at: float = 0.0
+    catalog: DeclaredServiceCatalog | None = None
+
+
+_cache = _CatalogCache()
+
+
 def _validation_error_summary(exc: ValidationError) -> str:
     """Keep schema-drift logs useful without dumping hundreds of Pydantic lines."""
     errors = exc.errors(include_url=False, include_input=False)
@@ -201,12 +211,10 @@ def _validation_error_summary(exc: ValidationError) -> str:
 
 async def fetch_declared_service_catalog() -> DeclaredServiceCatalog:
     """Fetch the code-owned catalog, retaining the last known good copy."""
-    global _cached_at, _cached_catalog
-
     async with _cache_lock:
         now = time.monotonic()
-        if _cached_catalog is not None and now - _cached_at < _CACHE_TTL_SEC:
-            return _cached_catalog
+        if _cache.catalog is not None and now - _cache.at < _CACHE_TTL_SEC:
+            return _cache.catalog
         try:
             async with httpx.AsyncClient(timeout=httpx.Timeout(_FETCH_TIMEOUT_SEC)) as client:
                 response = await client.get(
@@ -221,8 +229,8 @@ async def fetch_declared_service_catalog() -> DeclaredServiceCatalog:
                 DECLARED_SERVICES_URL,
                 _validation_error_summary(exc),
             )
-            if _cached_catalog is not None:
-                return _cached_catalog
+            if _cache.catalog is not None:
+                return _cache.catalog
             return DeclaredServiceCatalog(
                 version=1,
                 catalogRevision="unavailable",
@@ -236,14 +244,14 @@ async def fetch_declared_service_catalog() -> DeclaredServiceCatalog:
                 exc.__class__.__name__,
                 str(exc).strip()[:240] or "no detail",
             )
-            if _cached_catalog is not None:
-                return _cached_catalog
+            if _cache.catalog is not None:
+                return _cache.catalog
             return DeclaredServiceCatalog(
                 version=1,
                 catalogRevision="unavailable",
                 topologyVersion=1,
                 name="Nabla homelab declared services",
             )
-        _cached_catalog = catalog
-        _cached_at = time.monotonic()
+        _cache.catalog = catalog
+        _cache.at = time.monotonic()
         return catalog
