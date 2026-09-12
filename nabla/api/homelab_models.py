@@ -225,13 +225,11 @@ class HomelabService(BaseModel):
         if host.endswith(_DIRECT_EXTERNAL_DOMAIN_SUFFIX):
             if self.tunnel_secure is None:
                 raise ValueError(
-                    "external *.int.albandrieu.com endpoints require an explicit "
-                    "tunnelSecure edge classification",
+                    "external *.int.albandrieu.com endpoints require an explicit tunnelSecure edge classification",
                 )
             if self.tunnel_secure is True and self.cloudflare_access_required is False:
                 raise ValueError(
-                    "secure external *.int.albandrieu.com endpoints cannot disable "
-                    "Cloudflare Access without a reviewed direct-ingress declaration",
+                    "secure external *.int.albandrieu.com endpoints cannot disable Cloudflare Access without a reviewed direct-ingress declaration",
                 )
 
         try:
