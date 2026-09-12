@@ -73,6 +73,14 @@ class HomelabTopologyRuntime(BaseModel):
         validation_alias=AliasChoices("containerService", "container_service"),
         serialization_alias="containerService",
     )
+    networks: list[str] | None = Field(default=None, min_length=1)
+
+    @model_validator(mode="after")
+    def require_unique_networks(self) -> HomelabTopologyRuntime:
+        """A runtime network is an identity set, not an ordered duplicate list."""
+        if self.networks is not None and len(self.networks) != len(set(self.networks)):
+            raise ValueError("runtime.networks must not contain duplicates")
+        return self
 
 
 class HomelabTopologyLifecycle(BaseModel):
@@ -90,6 +98,26 @@ class HomelabTopologyLifecycle(BaseModel):
         "applications",
     ]
     priority: int = Field(ge=0, le=1000)
+
+
+class HomelabTopologyMonitoring(BaseModel):
+    """Declared service protocol/health capability exported by nabla-compose."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    type: Literal["http", "port"]
+    target: str | None = Field(default=None, min_length=1, max_length=2048)
+    url: str | None = Field(default=None, min_length=1, max_length=2048)
+    host: str | None = Field(default=None, min_length=1, max_length=512)
+    port: int | None = Field(default=None, ge=1, le=65535)
+    conditions: list[str] | None = Field(default=None, min_length=1)
+
+    @model_validator(mode="after")
+    def require_probe_target(self) -> HomelabTopologyMonitoring:
+        """Monitoring metadata must identify the declared protocol endpoint."""
+        if self.target or self.url or (self.host and self.port):
+            return self
+        raise ValueError("monitoring requires target/url or host+port")
 
 
 class HomelabTopologyNode(BaseModel):
@@ -140,6 +168,7 @@ class HomelabTopologyNode(BaseModel):
     )
     runtime: HomelabTopologyRuntime | None = None
     lifecycle: HomelabTopologyLifecycle | None = None
+    monitoring: HomelabTopologyMonitoring | None = None
 
     @model_validator(mode="after")
     def require_unique_security_functions(self) -> HomelabTopologyNode:

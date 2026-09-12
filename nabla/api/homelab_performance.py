@@ -20,6 +20,7 @@ HOMELAB_HEALTH_PERF_PHASES = (
     "total",
 )
 _PHASE_SET = frozenset(HOMELAB_HEALTH_PERF_PHASES)
+_PROVIDER_PHASES = tuple(phase for phase in HOMELAB_HEALTH_PERF_PHASES if phase != "total")
 
 
 def record_homelab_phase(
@@ -48,6 +49,21 @@ async def timed_homelab_phase(
         record_homelab_phase(timings_ms, phase, time.perf_counter() - started)
 
 
+def dominant_homelab_phase(
+    timings_ms: dict[str, object],
+) -> tuple[str | None, float | None]:
+    """Return the slowest fixed provider phase without creating dynamic labels."""
+    observed: list[tuple[str, float]] = []
+    for phase in _PROVIDER_PHASES:
+        value = timings_ms.get(phase)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            continue
+        observed.append((phase, max(0.0, float(value))))
+    if not observed:
+        return None, None
+    return max(observed, key=lambda item: item[1])
+
+
 def finalize_homelab_performance(
     payload: dict[str, object],
     *,
@@ -59,7 +75,11 @@ def finalize_homelab_performance(
     raw_timings = performance.get("phases_ms")
     timings = dict(raw_timings) if isinstance(raw_timings, dict) else {}
     record_homelab_phase(timings, "total", total_seconds)
-    performance["phases_ms"] = {phase: timings.get(phase) for phase in HOMELAB_HEALTH_PERF_PHASES}
+    normalized_timings = {phase: timings.get(phase) for phase in HOMELAB_HEALTH_PERF_PHASES}
+    dominant_phase, dominant_phase_ms = dominant_homelab_phase(normalized_timings)
+    performance["phases_ms"] = normalized_timings
+    performance["dominant_phase"] = dominant_phase
+    performance["dominant_phase_ms"] = dominant_phase_ms
     performance["fixed_cardinality"] = True
     performance["phase_count"] = len(HOMELAB_HEALTH_PERF_PHASES)
     return {**payload, "performance": performance}
@@ -67,6 +87,7 @@ def finalize_homelab_performance(
 
 __all__ = [
     "HOMELAB_HEALTH_PERF_PHASES",
+    "dominant_homelab_phase",
     "finalize_homelab_performance",
     "record_homelab_phase",
     "timed_homelab_phase",

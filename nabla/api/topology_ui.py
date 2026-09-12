@@ -26,7 +26,9 @@ def render_topology_page(*, title_suffix: str | None, app_version: str) -> str:
     <script defer src="{_CYTOSCAPE_URL}"
         integrity="{_CYTOSCAPE_INTEGRITY}"
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script defer src="/api/assets/api-topology-capture.js?v={version}"></script>
     <script type="module" src="/api/assets/api-topology.js?v={version}"></script>
+    <script type="module" src="/api/assets/api-topology-operator.js?v={version}"></script>
 </head>
 <body>
     <header>
@@ -44,7 +46,7 @@ def render_topology_page(*, title_suffix: str | None, app_version: str) -> str:
             <div>
                 <p class="topology-kicker">Declared architecture · version {version}</p>
                 <h1 id="topology-title">Homelab topology</h1>
-                <p class="subtitle">Dependencies and network/service relations from the canonical <code>nabla-compose</code> topology contract. Runtime ownership and lifecycle metadata are declarative context only and do not reproduce the operational start planner. The optional health overlay consumes the same server-authoritative homelab evidence as <code>/api</code>; it never probes services from the browser.</p>
+                <p class="subtitle">Dependencies and network/service relations from the canonical <code>nabla-compose</code> topology contract. Runtime ownership and lifecycle metadata are declarative context only and do not reproduce the operational start planner. The optional health overlay consumes the same server-authoritative homelab evidence as <code>/api</code>; it never probes services from the browser. Resource and traffic scaling consume bounded Prometheus/Akvorado-derived telemetry when available and otherwise keep the declared graph unchanged.</p>
             </div>
             <div class="topology-stats" aria-live="polite">
                 <span><strong id="topology-node-count">—</strong> nodes</span>
@@ -86,6 +88,25 @@ def render_topology_page(*, title_suffix: str | None, app_version: str) -> str:
                     <option value="applications">Applications</option>
                 </select>
             </label>
+            <label>Group by
+                <select id="topology-group-by">
+                    <option value="none">No grouping</option>
+                    <option value="lifecycle">Lifecycle</option>
+                    <option value="docker-network">Docker network</option>
+                </select>
+            </label>
+            <label>Node sizing
+                <select id="topology-node-sizing">
+                    <option value="declared">Declared criticality</option>
+                    <option value="resources">CPU + RAM telemetry</option>
+                </select>
+            </label>
+            <label>Relation width
+                <select id="topology-edge-sizing">
+                    <option value="declared">Declared relation</option>
+                    <option value="bandwidth">Observed bandwidth</option>
+                </select>
+            </label>
             <label>Observed health
                 <select id="topology-health-overlay">
                     <option value="off">Declared only</option>
@@ -100,6 +121,9 @@ def render_topology_page(*, title_suffix: str | None, app_version: str) -> str:
                     <option value="grid">Grid</option>
                 </select>
             </label>
+            <label class="topology-check-label">Noise
+                <span class="topology-check-control"><input id="topology-hide-docker" type="checkbox"> Hide Docker runtime/placement</span>
+            </label>
             <div class="topology-actions">
                 <button type="button" id="topology-fit">Fit</button>
                 <button type="button" id="topology-reset">Reset</button>
@@ -107,6 +131,7 @@ def render_topology_page(*, title_suffix: str | None, app_version: str) -> str:
         </section>
 
         <p class="topology-status" id="topology-status">Loading declared topology…</p>
+        <p class="topology-operator-status" id="topology-operator-status" data-tone="neutral">Loading topology telemetry…</p>
         <p class="topology-error" id="topology-error" hidden></p>
 
         <section class="topology-workspace">
@@ -119,6 +144,9 @@ def render_topology_page(*, title_suffix: str | None, app_version: str) -> str:
         </section>
 
         <section class="topology-legend" aria-label="Topology legend">
+            <span><i class="topology-shape topology-shape--node"></i>standard node</span>
+            <span><i class="topology-shape topology-shape--security"></i>security control</span>
+            <span><i class="topology-shape topology-shape--group"></i>operator group</span>
             <span><i class="topology-swatch topology-swatch--critical"></i>critical</span>
             <span><i class="topology-swatch topology-swatch--high"></i>high</span>
             <span><i class="topology-swatch topology-swatch--service"></i>service</span>
@@ -126,6 +154,8 @@ def render_topology_page(*, title_suffix: str | None, app_version: str) -> str:
             <span><i class="topology-line topology-line--optional"></i>optional relation</span>
             <span><i class="topology-line topology-line--network"></i>network path</span>
             <span>Health overlay: fill = effective state · ring = local state</span>
+            <span>Resource sizing: node area reflects normalized CPU/RAM when cAdvisor telemetry is available</span>
+            <span>Bandwidth sizing: edge width changes only with attributed source→target flow evidence</span>
         </section>
     </main>
 </body>

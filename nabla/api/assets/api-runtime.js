@@ -6,6 +6,13 @@ function setText(id, value) {
   if (element) element.textContent = value;
 }
 
+function runtimeTitle(runtimeMode) {
+  if (runtimeMode === "homelab") return "FastAPI runtime · TrueNAS";
+  if (runtimeMode === "local") return "FastAPI runtime · workstation";
+  if (runtimeMode === "cloud_paas") return "FastAPI runtime · PaaS";
+  return "FastAPI runtime";
+}
+
 function renderPills(values) {
   if (!Array.isArray(values) || values.length === 0) {
     return '<span class="runtime-topology-empty">none observed</span>';
@@ -123,6 +130,7 @@ function render(snapshot) {
   const isFastapiCloud = runtimeMode === "fastapi_cloud";
   const isHomelab = runtimeMode === "homelab";
   const isProduction = runtime.environment_class === "production";
+  setText("runtime-topology-title", runtimeTitle(runtimeMode));
   setText(
     "runtime-instance-label",
     isProduction ? "Observed instances" : "Observed processes",

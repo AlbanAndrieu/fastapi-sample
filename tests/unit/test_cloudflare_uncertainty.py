@@ -12,6 +12,12 @@ from nabla.api import (
     homelab_catalog,
     platform_health,
 )
+from nabla.api.cloudflare_tunnels import (
+    CloudflareAccessApplicationObservation,
+    CloudflareAccessPolicyObservation,
+    CloudflareTunnelIngress,
+    CloudflareTunnelObservation,
+)
 
 
 @pytest.mark.asyncio
@@ -138,6 +144,104 @@ def test_empty_exposure_summary_is_warning_not_degraded() -> None:
     assert summary["degraded"] is False
     assert summary["effective_state"] == "warn"
     assert summary["warning"].startswith("⚠️")
+
+
+def test_exposure_summary_reports_local_vs_dashboard_managed_tunnels() -> None:
+    tunnel = cloudflare_exposure_observer.CloudflareTunnelObservation
+    snapshot = cloudflare_exposure_observer.CloudflareExposureSnapshot(
+        configured=True,
+        tunnels=(
+            tunnel(tunnel_id="local", name="local", config_source="local"),
+            tunnel(tunnel_id="remote", name="remote", config_source="cloudflare"),
+            tunnel(tunnel_id="unknown", name="unknown"),
+        ),
+    )
+
+    summary = snapshot.summary()
+
+    assert summary["local_managed_tunnels"] == 1
+    assert summary["cloudflare_managed_tunnels"] == 1
+    assert summary["unknown_management_tunnels"] == 1
+    assert summary["tunnel_config_sources"] == ["cloudflare", "local", "unknown"]
+
+
+def test_exposure_summary_includes_sanitized_routes_and_access_policies() -> None:
+    credential_like_origin = "http://" + "fixture-user" + ":" + "fixture-password" + "@" + "172.17.0.24:8091/api?token=fixture-token"
+    snapshot = cloudflare_exposure_observer.CloudflareExposureSnapshot(
+        configured=True,
+        tunnels=(
+            CloudflareTunnelObservation(
+                tunnel_id="tunnel-id",
+                name="homelab",
+                status="healthy",
+                config_source="cloudflare",
+                ingress=(
+                    CloudflareTunnelIngress(
+                        tunnel_id="tunnel-id",
+                        tunnel_name="homelab",
+                        hostname="sample.albandrieu.com",
+                        service=credential_like_origin,
+                        status="healthy",
+                    ),
+                ),
+            ),
+        ),
+        access_applications=(
+            CloudflareAccessApplicationObservation(
+                app_id="app-id",
+                name="FastAPI Sample",
+                domain="sample.albandrieu.com",
+                hostname="sample.albandrieu.com",
+                policies=(
+                    CloudflareAccessPolicyObservation(
+                        policy_id="policy-id",
+                        name="Service Token",
+                        decision="non_identity",
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    summary = snapshot.summary()
+
+    assert summary["tunnels"] == [
+        {
+            "name": "homelab",
+            "status": "healthy",
+            "management": "cloudflare",
+            "ingress_count": 1,
+            "ingress_visibility": "remote_api",
+            "ingress": [
+                {
+                    "hostname": "sample.albandrieu.com",
+                    "service": "http://172.17.0.24:8091/api",
+                    "status": "healthy",
+                },
+            ],
+        },
+    ]
+    assert summary["access_applications"] == [
+        {
+            "name": "FastAPI Sample",
+            "domain": "sample.albandrieu.com",
+            "path": "/",
+            "policy_count": 1,
+            "policies": [
+                {
+                    "name": "Service Token",
+                    "decision": "non_identity",
+                    "includes_everyone": False,
+                },
+            ],
+        },
+    ]
+    serialized = str(summary)
+    assert "fixture-password" not in serialized
+    assert "fixture-token" not in serialized
+    assert "policy-id" not in serialized
+    assert "app-id" not in serialized
+    assert "tunnel-id" not in serialized
 
 
 @pytest.mark.asyncio

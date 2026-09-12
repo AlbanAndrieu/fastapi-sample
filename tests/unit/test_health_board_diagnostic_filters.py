@@ -116,6 +116,17 @@ def test_probe_evidence_uses_independent_colored_states() -> None:
         assert f".service-probe--{tone}" in stylesheet
 
 
+def test_prometheus_probe_badge_links_to_declared_metrics_endpoint() -> None:
+    javascript = (ASSETS / "api-service-diagnostics.js").read_text(encoding="utf-8")
+
+    assert 'metrics: "📊"' in javascript
+    assert 'String(evidence?.metrics_url || "").trim()' in javascript
+    assert 'badge = document.createElement(linkedMetrics ? "a" : "span")' in javascript
+    assert 'badge.target = "_blank"' in javascript
+    assert 'badge.rel = "noopener noreferrer"' in javascript
+    assert 'probeBadge("metrics", tone, "Prometheus", detail, check)' in javascript
+
+
 def test_probe_tooltips_keep_diagnostic_provenance() -> None:
     javascript = (ASSETS / "api-service-diagnostics.js").read_text(encoding="utf-8")
 

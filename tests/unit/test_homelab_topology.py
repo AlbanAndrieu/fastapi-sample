@@ -26,6 +26,11 @@ def _topology_payload() -> dict:
                 "sourcePath": "apps/openwebui/compose.yml",
                 "internalUrl": "https://openwebui.int.albandrieu.com",
                 "icon": "💬",
+                "monitoring": {
+                    "type": "http",
+                    "target": "https://openwebui.int.albandrieu.com/health",
+                    "conditions": ["[STATUS] == 200"],
+                },
             },
             {
                 "id": "litellm",
@@ -57,12 +62,16 @@ def test_topology_accepts_declared_relation_and_preserves_wire_aliases() -> None
     assert topology.nodes[0].source_path == "apps/openwebui/compose.yml"
     assert topology.nodes[0].internal_url == "https://openwebui.int.albandrieu.com"
     assert topology.nodes[0].icon == "💬"
+    assert topology.nodes[0].monitoring is not None
+    assert topology.nodes[0].monitoring.type == "http"
     assert payload["nodes"][0]["presentationRole"] == "service"
     assert payload["nodes"][0]["criticality"] == "high"
     assert payload["nodes"][0]["securityFunctions"] == ["identify", "protect", "detect"]
     assert payload["nodes"][0]["sourcePath"] == "apps/openwebui/compose.yml"
     assert payload["nodes"][0]["internalUrl"] == "https://openwebui.int.albandrieu.com"
     assert payload["nodes"][0]["icon"] == "💬"
+    assert payload["nodes"][0]["monitoring"]["type"] == "http"
+    assert payload["nodes"][0]["monitoring"]["target"].endswith("/health")
     assert "securityFunctions" not in payload["nodes"][1]
     assert payload["relations"][0]["type"] == "consumesApi"
 
@@ -110,7 +119,16 @@ def test_topology_endpoint_returns_validated_service_graph(monkeypatch) -> None:
     payload = response.json()
     assert payload["nodes"][0]["sourcePath"] == "apps/openwebui/compose.yml"
     assert payload["nodes"][0]["icon"] == "💬"
+    assert payload["nodes"][0]["monitoring"]["type"] == "http"
     assert payload["relations"][0]["type"] == "consumesApi"
+
+
+def test_topology_rejects_monitoring_without_target() -> None:
+    payload = _topology_payload()
+    payload["nodes"][0]["monitoring"] = {"type": "port"}
+
+    with pytest.raises(ValidationError, match="monitoring requires target"):
+        HomelabTopology.model_validate(payload)
 
 
 def test_topology_rejects_unknown_relation_target() -> None:
@@ -157,8 +175,8 @@ def test_topology_accepts_named_deployment_environments() -> None:
         {
             "name": "staging",
             "url": "https://sample.albandrieu.com",
-            "external": False,
-            "cloudflareTunnel": False,
+            "external": True,
+            "cloudflareTunnel": True,
         },
     ]
 
@@ -166,4 +184,4 @@ def test_topology_accepts_named_deployment_environments() -> None:
     wire = topology.model_dump(mode="json", by_alias=True, exclude_none=True)
 
     assert wire["nodes"][0]["environments"][0]["name"] == "production"
-    assert wire["nodes"][0]["environments"][1]["cloudflareTunnel"] is False
+    assert wire["nodes"][0]["environments"][1]["cloudflareTunnel"] is True

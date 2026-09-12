@@ -7,6 +7,7 @@ import pytest
 from nabla.api import homelab_health_evidence as evidence
 from nabla.api.homelab_performance import (
     HOMELAB_HEALTH_PERF_PHASES,
+    dominant_homelab_phase,
     finalize_homelab_performance,
     record_homelab_phase,
     timed_homelab_phase,
@@ -30,6 +31,22 @@ def test_unknown_phase_is_rejected() -> None:
         record_homelab_phase({}, "service:https://example.invalid", 0.1)
 
 
+def test_dominant_phase_ignores_total_and_missing_values() -> None:
+    phase, duration_ms = dominant_homelab_phase(
+        {
+            "declared_catalog": 12.3,
+            "topology": None,
+            "cloudflare_exposure": 8.1,
+            "reconciliation": 18.4,
+            "total": 500.0,
+        },
+    )
+
+    assert phase == "reconciliation"
+    assert duration_ms == 18.4
+    assert dominant_homelab_phase({"total": 10.0}) == (None, None)
+
+
 def test_finalize_exposes_all_fixed_phases_without_dynamic_labels() -> None:
     payload = {
         "performance": {
@@ -46,6 +63,8 @@ def test_finalize_exposes_all_fixed_phases_without_dynamic_labels() -> None:
     assert tuple(performance["phases_ms"]) == HOMELAB_HEALTH_PERF_PHASES
     assert performance["phases_ms"]["total"] == 123.0
     assert performance["phases_ms"]["topology"] is None
+    assert performance["dominant_phase"] == "declared_catalog"
+    assert performance["dominant_phase_ms"] == 12.3
 
 
 def test_timed_phase_preserves_result_and_records_duration() -> None:

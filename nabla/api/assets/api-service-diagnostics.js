@@ -13,7 +13,7 @@ const PROBE_ICONS = {
   cloudflare: "☁️",
   access: "🛡️",
   "service-token": "🔑",
-  metrics: "📈",
+  metrics: "📊",
   policy: "🛡️",
 };
 
@@ -142,12 +142,22 @@ function evidenceMetadata(check) {
 }
 
 function probeBadge(kind, tone, label, detail, evidence = null) {
-  const badge = document.createElement("span");
+  const metricsHref =
+    kind === "metrics" ? String(evidence?.metrics_url || "").trim() : "";
+  const linkedMetrics = /^https?:\/\//i.test(metricsHref);
+  const badge = document.createElement(linkedMetrics ? "a" : "span");
   badge.className = `service-probe service-probe--${tone}`;
   badge.dataset.probeKind = kind;
   const description = `${detail || label}${evidenceMetadata(evidence)}`;
   badge.title = description;
   badge.setAttribute("aria-label", description);
+  if (linkedMetrics) {
+    badge.href = metricsHref;
+    badge.target = "_blank";
+    badge.rel = "noopener noreferrer";
+    badge.style.cursor = "pointer";
+    badge.style.textDecoration = "none";
+  }
 
   const icon = document.createElement("span");
   icon.className = "service-probe-icon";
@@ -402,12 +412,14 @@ function addMetricEvidence(target, check, kinds) {
   if (!tone) return;
 
   let detail =
-    "Prometheus/metrics source is declared but current evidence is unknown";
-  if (tone === "ok") detail = "Prometheus/metrics evidence is available";
+    "Prometheus metrics source is declared but current evidence is unknown";
+  if (tone === "ok") detail = "Prometheus metrics endpoint is available";
   else if (tone === "fail") {
-    detail = "Prometheus/metrics evidence reports unavailable";
+    detail = "Prometheus metrics endpoint reports unavailable";
   }
-  target.appendChild(probeBadge("metrics", tone, "Metrics", detail, check));
+  const metricsStatus = Number(check?.metrics_http_status);
+  if (Number.isFinite(metricsStatus)) detail += ` · HTTP ${metricsStatus}`;
+  target.appendChild(probeBadge("metrics", tone, "Prometheus", detail, check));
   kinds.add("metrics");
 }
 

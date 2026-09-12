@@ -55,14 +55,47 @@ function normalize(value) {
     .toLowerCase();
 }
 
+function monitoringTarget(monitoring) {
+  if (!monitoring) return "";
+  if (monitoring.target) return String(monitoring.target);
+  if (monitoring.url) return String(monitoring.url);
+  if (monitoring.host && monitoring.port)
+    return `${monitoring.host}:${monitoring.port}`;
+  return "";
+}
+
+function serviceCapabilities(node, monitoring) {
+  const capabilities = [];
+  const kind = String(node.kind || "");
+  const target = monitoringTarget(monitoring).toLowerCase();
+
+  if (kind === "dns-resolver") capabilities.push("DNS", "TCP/UDP");
+  if (kind === "metrics-exporter") capabilities.push("metrics");
+  if (monitoring?.type === "http") {
+    capabilities.push(target.startsWith("https://") ? "HTTPS" : "HTTP");
+    if (kind === "firewall") capabilities.push("API");
+  }
+  if (monitoring?.type === "port" && kind !== "dns-resolver") {
+    capabilities.push("TCP");
+  }
+  if (kind === "reverse-proxy" && Number(monitoring?.port) === 443) {
+    capabilities.push("HTTPS ingress");
+  }
+
+  return [...new Set(capabilities)].join(" · ");
+}
+
 function nodeElements(topology, analysis) {
   return (topology.nodes || []).map((node) => {
     const presentation = analysis.get(node.id) || {};
     const runtime = node.runtime || {};
     const lifecycle = node.lifecycle || {};
+    const monitoring = node.monitoring || {};
     const lifecyclePriority = Number.isFinite(lifecycle.priority)
       ? lifecycle.priority
       : "";
+    const monitorTarget = monitoringTarget(monitoring);
+    const capabilities = serviceCapabilities(node, monitoring);
     return {
       data: {
         id: node.id,
@@ -86,6 +119,12 @@ function nodeElements(topology, analysis) {
           runtime.containerService || runtime.container_service || "",
         lifecyclePhase: lifecycle.phase || "",
         lifecyclePriority,
+        monitoringType: monitoring.type || "",
+        monitoringTarget: monitorTarget,
+        monitoringConditions: Array.isArray(monitoring.conditions)
+          ? monitoring.conditions.join(" · ")
+          : "",
+        capabilities,
         searchText: normalize(
           [
             node.id,
@@ -103,6 +142,9 @@ function nodeElements(topology, analysis) {
             runtime.container_service,
             lifecycle.phase,
             lifecyclePriority,
+            monitoring.type,
+            monitorTarget,
+            capabilities,
           ].join(" "),
         ),
       },
@@ -363,7 +405,7 @@ function updateStatus() {
     health === "on"
       ? ` · Observed: ${state.healthOverlaySummary || "loading…"}`
       : " · Observed: off";
-  status.textContent = `Source: ${state.topology.source || "homelab-topology"} · View: ${relationDetail}${lifecycleDetail}${healthDetail} · select a node to inspect dependencies, runtime ownership and blast radius.`;
+  status.textContent = `Source: ${state.topology.source || "homelab-topology"} · View: ${relationDetail}${lifecycleDetail}${healthDetail} · select a node to inspect dependencies, runtime ownership, protocol capabilities and blast radius.`;
 }
 
 function clearFocus() {
@@ -437,6 +479,10 @@ function showDetails(element) {
     addDetail(list, "Category", element.data("category"));
     addDetail(list, "Role", element.data("role"));
     addDetail(list, "Criticality", element.data("criticality"));
+    addDetail(list, "Capabilities", element.data("capabilities"));
+    addDetail(list, "Monitoring type", element.data("monitoringType"));
+    addDetail(list, "Monitoring target", element.data("monitoringTarget"));
+    addDetail(list, "Probe conditions", element.data("monitoringConditions"));
     addDetail(
       list,
       "Lifecycle phase",

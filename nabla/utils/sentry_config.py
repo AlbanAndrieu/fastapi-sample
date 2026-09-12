@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import socket
+import ssl
 from collections.abc import Mapping
 from copy import deepcopy
 from typing import Any
@@ -52,15 +53,42 @@ def _env_float(env: Mapping[str, str], name: str, default: float) -> float:
 
 
 def sentry_dsn_is_reachable(dsn: str, *, timeout: float = 0.25) -> bool:
+    """Validate the DSN socket and, for HTTPS, complete a real TLS handshake."""
     try:
         parsed = urlsplit(dsn)
-        if not parsed.hostname:
+        if not parsed.hostname or parsed.scheme not in {"http", "https"}:
             return False
         port = parsed.port or (443 if parsed.scheme == "https" else 80)
-        with socket.create_connection((parsed.hostname, port), timeout=timeout):
-            return True
+        with socket.create_connection((parsed.hostname, port), timeout=timeout) as connection:
+            if parsed.scheme == "https":
+                context = ssl.create_default_context()
+                context.minimum_version = ssl.TLSVersion.TLSv1_2
+                with context.wrap_socket(connection, server_hostname=parsed.hostname):
+                    pass
+        return True
     except (OSError, ValueError):
         return False
+
+
+def sentry_destination(dsn: str, target: str) -> dict[str, Any]:
+    """Return non-secret destination metadata suitable for health/debug output."""
+    if not dsn:
+        return {"target": target, "configured": False}
+    try:
+        parsed = urlsplit(dsn)
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    except ValueError:
+        return {"target": target, "configured": True, "valid": False}
+    project_id = parsed.path.rstrip("/").rsplit("/", 1)[-1] or None
+    return {
+        "target": target,
+        "configured": True,
+        "valid": bool(parsed.hostname and parsed.scheme in {"http", "https"}),
+        "scheme": parsed.scheme or None,
+        "host": parsed.hostname,
+        "port": port,
+        "project_id": project_id,
+    }
 
 
 def select_sentry_dsn(env: Mapping[str, str] | None = None) -> tuple[str, str]:
@@ -70,8 +98,9 @@ def select_sentry_dsn(env: Mapping[str, str] | None = None) -> tuple[str, str]:
     local_dsn = values.get("SENTRY_LOCAL_DSN", "").strip()
 
     # A self-hosted Sentry deployment has its own project IDs and public keys.
-    # Never derive those credentials from a Sentry SaaS DSN: a TCP-only probe can
-    # otherwise select a reachable endpoint whose project/key pair is invalid.
+    # Never derive those credentials from a Sentry SaaS DSN. Validate the DSN's
+    # configured transport too, so HTTPS cannot be selected merely because an
+    # HTTP-only local listener accepted the TCP connection.
     if local_dsn and sentry_dsn_is_reachable(local_dsn):
         return local_dsn, "local"
     if cloud_dsn:
@@ -90,15 +119,44 @@ def _scrub_sensitive(value: Any) -> Any:
     return value
 
 
+def _websocket_timeout_context(event: dict[str, Any]) -> dict[str, Any]:
+    """Annotate websocket-client transport timeouts without guessing their target."""
+    logger_name = str(event.get("logger") or "")
+    logentry = event.get("logentry")
+    message = ""
+    if isinstance(logentry, dict):
+        message = str(logentry.get("formatted") or logentry.get("message") or "")
+    if logger_name != "websocket" or "timed out" not in message.casefold():
+        return event
+    tags = dict(event.get("tags") or {})
+    tags["event_origin"] = "websocket-client"
+    tags["transport_failure"] = "timeout"
+    event["tags"] = tags
+    contexts = dict(event.get("contexts") or {})
+    contexts["websocket_transport"] = {
+        "library": "websocket-client",
+        "failure_stage": "transport_timeout",
+        "diagnostic_hint": (
+            "Correlate this timestamp with integration-specific warnings; the TrueNAS observer logs method, URI, proxy route, phase, failure stage and elapsed time."
+        ),
+    }
+    event["contexts"] = contexts
+    return event
+
+
 def _before_send(event: dict[str, Any], _hint: dict[str, Any]) -> dict[str, Any]:
-    return _scrub_sensitive(deepcopy(event))
+    scrubbed = _scrub_sensitive(deepcopy(event))
+    return _websocket_timeout_context(scrubbed)
 
 
 def _before_send_log(log: dict[str, Any], _hint: dict[str, Any]) -> dict[str, Any]:
     return _scrub_sensitive(deepcopy(log))
 
 
-def _before_send_transaction(event: dict[str, Any], _hint: dict[str, Any]) -> dict[str, Any] | None:
+def _before_send_transaction(
+    event: dict[str, Any],
+    _hint: dict[str, Any],
+) -> dict[str, Any] | None:
     request_url = str(event.get("request", {}).get("url", ""))
     path = urlsplit(request_url).path
     transaction = str(event.get("transaction", ""))
@@ -121,11 +179,16 @@ def _integrations(*, include_logging: bool, include_ai: bool = False) -> list[An
                 module = __import__(module_name, fromlist=[class_name])
                 integrations.append(getattr(module, class_name)())
             except Exception as exc:
-                _logger.debug("Skipping Sentry integration %s.%s: %s", module_name, class_name, exc)
+                _logger.debug(
+                    "Skipping Sentry integration %s.%s: %s",
+                    module_name,
+                    class_name,
+                    exc,
+                )
 
     integrations.extend(
         [
-            FastApiIntegration(transaction_style="endpoint"),
+            FastApiIntegration(transaction_style="url"),
             SqlalchemyIntegration(),
         ],
     )
@@ -146,6 +209,12 @@ def configure_sentry(env: Mapping[str, str] | None = None) -> bool:
         _logger.info("Sentry is disabled by SENTRY_ENABLED")
         return False
     dsn, target = select_sentry_dsn(values)
+    local_dsn = values.get("SENTRY_LOCAL_DSN", "").strip()
+    if local_dsn and target != "local":
+        _logger.warning(
+            "Local Sentry DSN is unreachable using its configured transport; falling back to %s target",
+            target,
+        )
     if not dsn:
         _logger.info("Sentry is disabled: no DSN configured")
         return False
@@ -172,7 +241,7 @@ def configure_sentry(env: Mapping[str, str] | None = None) -> bool:
             ignore_errors=[BrokenPipeError, ConnectionResetError, TimeoutError],
             max_breadcrumbs=int(values.get("SENTRY_MAX_BREADCRUMBS", "50")),
             shutdown_timeout=float(values.get("SENTRY_SHUTDOWN_TIMEOUT", "2")),
-            environment=values.get("SENTRY_ENVIRONMENT") or values.get("ENV") or "development",
+            environment=(values.get("SENTRY_ENVIRONMENT") or values.get("ENV") or "development"),
             release=values.get("SENTRY_RELEASE") or app_version,
             integrations=_integrations(
                 include_logging=not logfire_enabled,
@@ -184,9 +253,14 @@ def configure_sentry(env: Mapping[str, str] | None = None) -> bool:
         _logger.exception("Sentry initialization failed; application will continue")
         return False
 
+    destination = sentry_destination(dsn, target)
     _logger.info(
-        "Sentry initialized with %s target; logs and tracing are %s",
+        "Sentry initialized target=%s scheme=%s host=%s port=%s project_id=%s; logs and tracing are %s",
         target,
+        destination.get("scheme"),
+        destination.get("host"),
+        destination.get("port"),
+        destination.get("project_id"),
         "disabled because Logfire is enabled" if logfire_enabled else "enabled",
     )
     return True

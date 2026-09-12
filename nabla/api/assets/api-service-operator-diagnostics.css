@@ -1,0 +1,210 @@
+.health-runtime-badge,
+.health-downstream-badge,
+.service-help-badge {
+  position: relative;
+}
+
+.health-runtime-badge--ok {
+  border-color: rgba(0, 255, 136, 0.38);
+  background: rgba(0, 255, 136, 0.065);
+  color: #7dffc4;
+}
+
+.health-runtime-badge--warn {
+  border-color: rgba(255, 204, 51, 0.42);
+  background: rgba(255, 204, 51, 0.06);
+  color: #ffd966;
+}
+
+.health-runtime-badge--fail {
+  border-color: rgba(255, 68, 68, 0.48);
+  background: rgba(255, 68, 68, 0.075);
+  color: #ff9999;
+}
+
+.health-runtime-badge--unknown {
+  border-color: #3a3a3a;
+  background: #111111;
+  color: #9ca3af;
+}
+
+.service-help-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  border: 1px solid rgba(96, 165, 250, 0.46);
+  border-radius: 999px;
+  background: rgba(96, 165, 250, 0.08);
+  color: #9cc7ff;
+  cursor: help;
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.service-help-badge:focus-visible,
+.health-downstream-badge:focus-visible {
+  outline: 2px solid #9cc7ff;
+  outline-offset: 2px;
+}
+
+.service-hover-popover {
+  position: absolute;
+  z-index: 120;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  display: none;
+  width: min(330px, calc(100vw - 2rem));
+  padding: 0.55rem 0.6rem;
+  border: 1px solid #3a3a3a;
+  border-radius: 8px;
+  background: rgba(9, 9, 10, 0.985);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.48);
+  color: #c9cfd7;
+  font-size: 0.61rem;
+  font-weight: 500;
+  line-height: 1.4;
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: normal;
+}
+
+.health-downstream-badge:hover > .service-hover-popover,
+.health-downstream-badge:focus-within > .service-hover-popover,
+.service-help-badge:hover > .service-hover-popover,
+.service-help-badge:focus-within > .service-hover-popover {
+  display: grid;
+  gap: 0.32rem;
+}
+
+.service-help-popover > strong,
+.service-hover-list > strong {
+  color: #f3f4f6;
+  font-size: 0.63rem;
+}
+
+.service-help-popover > span {
+  color: #9ca3af;
+}
+
+.service-hover-list {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.service-hover-list a,
+.service-detail-relation-block a {
+  color: #9cc7ff;
+  text-decoration: none;
+}
+
+.service-hover-list a:hover,
+.service-hover-list a:focus-visible,
+.service-detail-relation-block a:hover,
+.service-detail-relation-block a:focus-visible {
+  text-decoration: underline;
+}
+
+.health-row[id^="service-"] {
+  scroll-margin-top: 7rem;
+}
+
+.service-detail-relations {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.service-detail-relation-block,
+.service-detail-relations .service-hover-list {
+  display: grid;
+  gap: 0.28rem;
+  padding: 0.5rem 0.55rem;
+  border: 1px solid #2d2d2d;
+  border-radius: 8px;
+  background: #101010;
+}
+
+.service-detail-relation-block > strong,
+.service-detail-relations .service-hover-list > strong {
+  color: #d1d5db;
+  font-size: 0.62rem;
+}
+
+.service-detail-relation-block ul,
+.service-detail-container-list {
+  display: grid;
+  gap: 0.24rem;
+  margin: 0;
+  padding-left: 1rem;
+}
+
+.service-detail-relation-block li {
+  color: #8d949e;
+  font-size: 0.61rem;
+}
+
+.service-detail-relation-block li span {
+  margin-left: 0.35rem;
+  color: #727b86;
+  font-size: 0.55rem;
+}
+
+.service-detail-container-list {
+  margin-top: 0.45rem;
+  color: #9ca3af;
+  font-size: 0.61rem;
+  overflow-wrap: anywhere;
+}
+
+.service-detail-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.service-detail-metric {
+  min-width: 0;
+  padding: 0.42rem 0.48rem;
+  border: 1px solid #292929;
+  border-radius: 7px;
+  background: #101010;
+}
+
+.service-detail-metric span,
+.service-detail-metric strong {
+  display: block;
+}
+
+.service-detail-metric span {
+  color: #747d88;
+  font-size: 0.53rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.service-detail-metric strong {
+  margin-top: 0.12rem;
+  overflow-wrap: anywhere;
+  color: #d1d5db;
+  font-size: 0.64rem;
+}
+
+@media (max-width: 720px) {
+  .service-hover-popover {
+    position: fixed;
+    top: auto;
+    right: 0.5rem;
+    bottom: 0.5rem;
+    left: 0.5rem;
+    width: auto;
+    max-height: 50vh;
+    overflow: auto;
+  }
+
+  .service-detail-metrics {
+    grid-template-columns: 1fr;
+  }
+}

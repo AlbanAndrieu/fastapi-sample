@@ -13,6 +13,7 @@ from typing import Any, Literal
 
 import httpx
 
+from nabla.api.dns_probe import probe_dns_hostname
 from nabla.api.health_probe_utils import is_textual_response, looks_like_tls_error
 from nabla.api.homelab_catalog import fetch_homelab_services
 from nabla.api.homelab_models import HomelabService
@@ -139,10 +140,14 @@ async def _probe_http_endpoint(
     name: str,
     url: str,
 ) -> dict[str, Any]:
-    """Probe one HTTP endpoint and preserve status, TLS and application outcome."""
+    """Probe one HTTP endpoint and preserve DNS, status, TLS and application outcome."""
     started = time.perf_counter()
+    dns_evidence: dict[str, Any] = {}
     try:
         async with semaphore:
+            hostname = httpx.URL(url).host
+            if hostname:
+                dns_evidence = await probe_dns_hostname(hostname)
             response = await client.head(
                 url,
                 headers={"User-Agent": "nabla-homelab-health/1.0"},
@@ -182,6 +187,7 @@ async def _probe_http_endpoint(
             "tls_trusted": False if looks_like_tls_error(error) else None,
             "error": error,
         }
+    result.update(dns_evidence)
     result["latency_ms"] = max(0, round((time.perf_counter() - started) * 1000))
     return result
 
@@ -358,10 +364,7 @@ async def _collect_bounded_probe_batch(
     if pending:
         await asyncio.gather(*pending, return_exceptions=True)
 
-    states = {
-        state: sum(result.get("state") == state for result in results)
-        for state in ("ok", "warn", "fail")
-    }
+    states = {state: sum(result.get("state") == state for result in results) for state in ("ok", "warn", "fail")}
     return results, {
         "scope": scope,
         "enabled": enabled,
@@ -477,9 +480,7 @@ async def _probe_truenas(
             port=port,
             websocket_uri=websocket_uri,
             verify_ssl=verify_ssl,
-            path_mode=(
-                "direct_lan" if homelab_runtime_detected() else "public_wan_haproxy"
-            ),
+            path_mode=("direct_lan" if homelab_runtime_detected() else "public_wan_haproxy"),
             budget_seconds=_TRUENAS_DIAGNOSTICS_BUDGET_SEC,
         )
     diagnostics = append_truenas_api_stages(diagnostics, api_result)
@@ -525,12 +526,8 @@ def _copy_payload(
         **payload,
         "truenas": truenas_copy,
         "services": [dict(service) for service in payload.get("services", [])],
-        "public_probe_results": [
-            dict(service) for service in payload.get("public_probe_results", [])
-        ],
-        "internal_services": [
-            dict(service) for service in payload.get("internal_services", [])
-        ],
+        "public_probe_results": [dict(service) for service in payload.get("public_probe_results", [])],
+        "internal_services": [dict(service) for service in payload.get("internal_services", [])],
         "probe_summary": probe_summary,
         "probe_cache": {
             "source": cache_source,
@@ -558,21 +555,9 @@ async def build_homelab_health_payload(
             )
 
         refresh_started = time.perf_counter()
-        services = (
-            list(catalog_services)
-            if catalog_services is not None
-            else await fetch_homelab_services()
-        )
-        public_candidates = [
-            service
-            for service in services
-            if service.public_https_probe_url is not None
-        ]
-        internal_candidates = [
-            service
-            for service in services
-            if service.internal_host and service.internal_port is not None
-        ]
+        services = list(catalog_services) if catalog_services is not None else await fetch_homelab_services()
+        public_candidates = [service for service in services if service.public_https_probe_url is not None]
+        internal_candidates = [service for service in services if service.internal_host and service.internal_port is not None]
         internal_enabled = internal_probes_enabled()
         public_services = _select_probe_subset(
             public_candidates,
@@ -636,20 +621,20 @@ async def build_homelab_health_payload(
                     per_probe_timeout_seconds=_PUBLIC_PROBE_TIMEOUT_SEC,
                 ),
             )
-            (public_results, public_summary), truenas, (
-                internal_results,
-                internal_summary,
+            (
+                (public_results, public_summary),
+                truenas,
+                (
+                    internal_results,
+                    internal_summary,
+                ),
             ) = await asyncio.gather(
                 public_results_task,
                 truenas_task,
                 internal_results_task,
             )
 
-        checked_at = (
-            datetime.now(timezone.utc)
-            .isoformat()
-            .replace("+00:00", "Z")
-        )
+        checked_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         public_results = merge_probe_evidence(
             "public",
             current_results=public_results,
@@ -704,4 +689,3 @@ async def build_homelab_health_payload(
             cache_source="origin",
             cache_age_seconds=0.0,
         )
-

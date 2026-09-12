@@ -1,19 +1,24 @@
+import { decorateLocalManagedTunnelWording } from "./api-cloudflare-local-managed.js";
+import { decorateCloudflareProbeStatuses } from "./api-cloudflare-probe.js";
 import {
   decorateCloudflareTunnelStatuses,
   markHealthBoardsPending,
 } from "./api-cloudflare-status.js";
+import { decorateDnsStatuses } from "./api-dns-status.js";
 import {
   fetchHealthBoard,
   resetHealthBoardRequest,
 } from "./api-health-board.js";
 import { loadHealth } from "./api-health-core.js";
+import { decorateHttpProbeStatuses } from "./api-http-probe-status.js";
 import { decorateProbeTelemetry } from "./api-probe-live.js";
 import { loadRuntimeTopology } from "./api-runtime.js";
+import { installSecurityControlIcons } from "./api-security-control-icons.js";
 import { loadSickz } from "./api-sickz.js";
 import { loadTrueNas } from "./api-truenas.js";
 
-const HEALTH_BOARD_IDLE_POLL_MS = 5000;
-const HEALTH_BOARD_REFRESHING_POLL_MS = 1000;
+const HEALTH_BOARD_IDLE_POLL_MS = 10000;
+const HEALTH_BOARD_REFRESHING_POLL_MS = 2000;
 let automaticRefreshInFlight = false;
 let automaticRefreshTimer = null;
 
@@ -64,8 +69,16 @@ function loadHealthBoards({
   }
   return fetchHealthBoard()
     .then((snapshot) => {
-      decorateCloudflareTunnelStatuses(snapshot.sickz);
+      decorateCloudflareTunnelStatuses(
+        snapshot.sickz,
+        snapshot?.healthz?.checks?.cloudflare,
+        snapshot?.homelab?.cloudflare,
+      );
+      decorateCloudflareProbeStatuses(snapshot.sickz);
+      decorateLocalManagedTunnelWording(snapshot?.homelab?.cloudflare);
       decorateProbeTelemetry(snapshot);
+      decorateDnsStatuses(snapshot);
+      decorateHttpProbeStatuses(snapshot);
       announceRefreshComplete(snapshot, { forceRefresh, includeTechnical });
       return snapshot;
     })
@@ -121,6 +134,7 @@ export function installHealthBoardController() {
     });
   });
 
+  installSecurityControlIcons();
   installTechnicalDetailRefresh();
   loadHealthBoards({ includeTechnical: true });
   installAutomaticRefresh();

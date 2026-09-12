@@ -252,6 +252,7 @@ def probe_litellm_public_proxy() -> dict[str, Any]:
 
 
 def probe_pyroscope_server() -> dict[str, Any]:
+    """Probe the Pyroscope UI root independently from its Prometheus endpoint."""
     if not PYROSCOPE_ENABLED:
         return {
             "reachable": None,
@@ -265,29 +266,66 @@ def probe_pyroscope_server() -> dict[str, Any]:
             "skipped": True,
             "reason": "PYROSCOPE_ENDPOINT not configured",
         }
-    last_error = ""
-    for path in ("/ready", "/health", "/"):
-        url = f"{base}{path}"
-        try:
-            with httpx.Client(timeout=3.0) as http_client:
-                response = http_client.get(url)
-        except httpx.HTTPError as exc:
-            last_error = _normalize_probe_error(str(exc))
-            continue
-        except Exception as exc:
-            return {"reachable": False, "error": _normalize_probe_error(str(exc))}
-        if response.status_code < 500:
-            return {
-                "reachable": True,
-                "http_status": response.status_code,
-                "path": path,
-                "url": url,
-            }
-        last_error = f"http_status={response.status_code}"
-    return {
-        "reachable": False,
-        "error": _normalize_probe_error(last_error or "no response"),
+
+    health_url = f"{base}/"
+    metrics_url = f"{base}/metrics"
+    try:
+        with httpx.Client(timeout=3.0, follow_redirects=True) as http_client:
+            response = http_client.get(health_url)
+    except httpx.HTTPError as exc:
+        return {
+            "reachable": False,
+            "error": _normalize_probe_error(str(exc)),
+            "url": health_url,
+            "path": "/",
+            "metrics_url": metrics_url,
+            "metric_source": "prometheus",
+        }
+    except Exception as exc:
+        return {
+            "reachable": False,
+            "error": _normalize_probe_error(str(exc)),
+            "url": health_url,
+            "path": "/",
+            "metrics_url": metrics_url,
+            "metric_source": "prometheus",
+        }
+
+    result: dict[str, Any] = {
+        "reachable": response.is_success,
+        "http_status": response.status_code,
+        "path": "/",
+        "url": health_url,
+        "metrics_url": metrics_url,
+        "metric_source": "prometheus",
     }
+    if not response.is_success:
+        result["error"] = _normalize_probe_error(
+            f"Pyroscope root returned http_status={response.status_code}",
+        )
+        return result
+
+    try:
+        with httpx.Client(timeout=3.0, follow_redirects=True) as http_client:
+            metrics_response = http_client.get(metrics_url)
+    except httpx.HTTPError as exc:
+        result["metrics_available"] = False
+        result["metrics_error"] = _normalize_probe_error(str(exc))
+        return result
+    except Exception as exc:
+        result["metrics_available"] = False
+        result["metrics_error"] = _normalize_probe_error(str(exc))
+        return result
+
+    result["metrics_http_status"] = metrics_response.status_code
+    result["metrics_available"] = metrics_response.is_success and bool(
+        metrics_response.text.strip(),
+    )
+    if not result["metrics_available"]:
+        result["metrics_error"] = _normalize_probe_error(
+            f"Pyroscope metrics returned http_status={metrics_response.status_code}",
+        )
+    return result
 
 
 async def enrich_integration_metadata(checks: dict[str, Any]) -> None:

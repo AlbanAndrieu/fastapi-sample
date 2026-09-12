@@ -1,10 +1,15 @@
 import { installGlobalServiceFilter } from "./api-global-service-filter.js";
 import { installHealthBoardController } from "./api-health-controller.js";
 import { installHealthOperatorUx } from "./api-health-operator-ux.js";
+import { installHttpProbeStatuses } from "./api-http-probe-status.js";
 import { installProbeFanoutDashboard } from "./api-probe-fanout-dashboard.js";
 import { startProbeAgeTicker } from "./api-probe-live.js";
+import { installServiceDependencyPriority } from "./api-service-dependency-priority.js";
 import { installServiceDetailDrawer } from "./api-service-detail-drawer.js";
 import { installServiceDiagnostics } from "./api-service-diagnostics.js";
+import { installServiceOperatorDiagnostics } from "./api-service-operator-diagnostics.js";
+import { installServiceProbeDetails } from "./api-service-probe-details.js";
+import { installServiceProbeHelp } from "./api-service-probe-help.js";
 import { installPfsensePortLabels } from "./api-sickz-port-labels.js";
 import { installRuntimeVersionDriftWarning } from "./api-version-drift.js";
 
@@ -15,5 +20,10 @@ installHealthOperatorUx();
 installServiceDetailDrawer();
 installProbeFanoutDashboard();
 startProbeAgeTicker();
+installHttpProbeStatuses();
 installHealthBoardController();
+installServiceOperatorDiagnostics();
+installServiceProbeDetails();
+installServiceProbeHelp();
+void installServiceDependencyPriority();
 installRuntimeVersionDriftWarning();

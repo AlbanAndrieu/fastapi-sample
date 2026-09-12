@@ -25,11 +25,15 @@ def start_pyroscope(
             application_name=application_name,
             server_address=server_address,
             sample_rate=100,
-            enable_logging=True,
+            # The SDK emits routine "Sending Session" messages every 10 seconds
+            # when its internal logger is enabled. Application lifecycle logs plus
+            # health evidence are sufficient at INFO; keep SDK transport chatter
+            # disabled during normal operation.
+            enable_logging=False,
         )
     except Exception:
         logger.exception(
-            "Pyroscope profiler initialization failed; application startup will continue"
+            "Pyroscope profiler initialization failed; application startup will continue",
         )
         return False
 

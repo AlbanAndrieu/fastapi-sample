@@ -20,8 +20,8 @@ def test_health_board_poll_is_cached_and_pauses_when_tab_is_hidden() -> None:
     controller = (ASSETS / "api-health-controller.js").read_text(encoding="utf-8")
     bootstrap = (ASSETS / "api-health.js").read_text(encoding="utf-8")
 
-    assert "const HEALTH_BOARD_IDLE_POLL_MS = 5000;" in controller
-    assert "const HEALTH_BOARD_REFRESHING_POLL_MS = 1000;" in controller
+    assert "const HEALTH_BOARD_IDLE_POLL_MS = 10000;" in controller
+    assert "const HEALTH_BOARD_REFRESHING_POLL_MS = 2000;" in controller
     assert "document.hidden" in controller
     assert "loadHealthBoards({ showPending: false })" in controller
     assert "snapshot?.refreshing === true" in controller
@@ -37,6 +37,40 @@ def test_health_tier_help_explains_required_and_optional_semantics() -> None:
     assert "availability tier" in javascript
     assert "non-blocking integration" in javascript
     assert "warning/unknown state rather than downtime" in javascript
+
+
+def test_cloudflare_uncertainty_is_visible_next_to_ingress_diagnostics() -> None:
+    javascript = (ASSETS / "api-cloudflare-status.js").read_text(encoding="utf-8")
+    controller = (ASSETS / "api-health-controller.js").read_text(encoding="utf-8")
+
+    assert 'container.id = "cloudflare-tunnel-warning";' in javascript
+    assert "Cloudflare verification temporarily unavailable" in javascript
+    assert "not proof that the service or Cloudflare Tunnel is down" in javascript
+    assert "remote-vs-local tunnel management" in javascript
+    assert 'document.getElementById("truenas-ingress-block")' in javascript
+    assert "platformCloudflareDetail" in javascript
+    assert "exposureManagementDetail" in javascript
+    assert "local-managed tunnel(s) observed" in javascript
+    assert "Local YAML ingress hostnames are not exposed" in javascript
+    assert "status_confirmed" in javascript
+    assert "api_reachable" in javascript
+    assert "error_kind" in javascript
+    assert "snapshot?.healthz?.checks?.cloudflare" in controller
+    assert "snapshot?.homelab?.cloudflare" in controller
+
+
+def test_pfsense_security_controls_have_explicit_icons() -> None:
+    javascript = (ASSETS / "api-security-control-icons.js").read_text(
+        encoding="utf-8",
+    )
+    controller = (ASSETS / "api-health-controller.js").read_text(encoding="utf-8")
+
+    assert '["Snort", "🛡️"]' in javascript
+    assert '["pfBlockerNG", "🚫"]' in javascript
+    assert '["Unbound", "🌐"]' in javascript
+    assert "MutationObserver" in javascript
+    assert 'from "./api-security-control-icons.js"' in controller
+    assert "installSecurityControlIcons();" in controller
 
 
 def test_live_probe_styles_are_loaded() -> None:
