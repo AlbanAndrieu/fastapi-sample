@@ -152,40 +152,20 @@ class CloudflareExposureSnapshot:
                 or "Cloudflare inventory is empty"
             )
             warning = f"⚠️ Cloudflare global status could not be confirmed: {reason}"
-        config_sources = [
-            str(tunnel.config_source or "unknown") for tunnel in self.tunnels
-        ]
+        config_sources = [str(tunnel.config_source or "unknown") for tunnel in self.tunnels]
         local_managed = sum(source == "local" for source in config_sources)
         remote_managed = sum(source == "cloudflare" for source in config_sources)
-        control = (
-            self.access_control_plane or CloudflareAccessControlPlaneObservation()
-        )
+        control = self.access_control_plane or CloudflareAccessControlPlaneObservation()
         control_plane = {
             "tunnels": _api_family(
-                result_count=(
-                    self.tunnel_result_count
-                    if self.tunnel_result_count is not None
-                    else len(self.tunnels)
-                ),
-                total_count=(
-                    self.tunnel_total_count
-                    if self.tunnel_total_count is not None
-                    else len(self.tunnels)
-                ),
+                result_count=(self.tunnel_result_count if self.tunnel_result_count is not None else len(self.tunnels)),
+                total_count=(self.tunnel_total_count if self.tunnel_total_count is not None else len(self.tunnels)),
                 elapsed_ms=self.tunnel_elapsed_ms,
                 error=self.tunnel_error,
             ),
             "access_applications": _api_family(
-                result_count=(
-                    self.access_result_count
-                    if self.access_result_count is not None
-                    else len(self.access_applications)
-                ),
-                total_count=(
-                    self.access_total_count
-                    if self.access_total_count is not None
-                    else len(self.access_applications)
-                ),
+                result_count=(self.access_result_count if self.access_result_count is not None else len(self.access_applications)),
+                total_count=(self.access_total_count if self.access_total_count is not None else len(self.access_applications)),
                 elapsed_ms=self.access_elapsed_ms,
                 error=self.access_error,
             ),
@@ -203,9 +183,7 @@ class CloudflareExposureSnapshot:
                 elapsed_ms=control.service_token_elapsed_ms,
                 error=control.service_token_error,
                 enabled_count=control.service_token_enabled_count,
-                configured_client_id_present=(
-                    control.configured_service_token_present
-                ),
+                configured_client_id_present=(control.configured_service_token_present),
                 selection="fastapi-sample-monitor",
             ),
         }
@@ -219,33 +197,14 @@ class CloudflareExposureSnapshot:
             "tunnels_observed": len(self.tunnels),
             "local_managed_tunnels": local_managed,
             "cloudflare_managed_tunnels": remote_managed,
-            "unknown_management_tunnels": (
-                len(config_sources) - local_managed - remote_managed
-            ),
+            "unknown_management_tunnels": (len(config_sources) - local_managed - remote_managed),
             "tunnel_config_sources": sorted(set(config_sources)),
             "tunnels": [_tunnel_summary(tunnel) for tunnel in self.tunnels],
             "access_applications_observed": len(self.access_applications),
-            "access_applications": [
-                _access_application_summary(application)
-                for application in self.access_applications
-            ],
+            "access_applications": [_access_application_summary(application) for application in self.access_applications],
             "control_plane": control_plane,
-            "tunnel_observer_state": (
-                "unconfigured"
-                if not self.configured
-                else "error"
-                if self.tunnel_error
-                else "empty"
-                if not self.tunnels
-                else "ok"
-            ),
-            "access_observer_state": (
-                "unconfigured"
-                if not self.configured
-                else "error"
-                if self.access_error
-                else "ok"
-            ),
+            "tunnel_observer_state": ("unconfigured" if not self.configured else "error" if self.tunnel_error else "empty" if not self.tunnels else "ok"),
+            "access_observer_state": ("unconfigured" if not self.configured else "error" if self.access_error else "ok"),
             "tunnel_error": self.tunnel_error,
             "access_error": self.access_error,
             "stale": self.stale,
@@ -269,11 +228,7 @@ class CloudflareExposureSnapshot:
             "tunnel_total_count": self.tunnel_total_count,
             "access_result_count": self.access_result_count,
             "access_total_count": self.access_total_count,
-            "access_control_plane": (
-                self.access_control_plane.model_dump(mode="json")
-                if self.access_control_plane is not None
-                else None
-            ),
+            "access_control_plane": (self.access_control_plane.model_dump(mode="json") if self.access_control_plane is not None else None),
         }
 
     @classmethod
