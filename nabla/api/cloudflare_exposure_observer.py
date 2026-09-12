@@ -249,110 +249,93 @@ def _short_error(exc: BaseException) -> str:
     return exc.__class__.__name__[:80]
 
 
+def _elapsed_ms(started: float) -> int:
+    return round((time.perf_counter() - started) * 1000)
+
+
+async def _observe_tunnels(
+    settings: CloudflareTunnelSettings,
+) -> tuple[
+    tuple[CloudflareTunnelObservation, ...],
+    str | None,
+    int,
+    dict[str, int],
+]:
+    started = time.perf_counter()
+    try:
+        observed, metadata = await asyncio.wait_for(
+            asyncio.to_thread(observe_cloudflare_tunnels_with_metadata),
+            timeout=_OBSERVER_TIMEOUT_SEC,
+        )
+    except TimeoutError as exc:
+        return (), _short_error(exc), _elapsed_ms(started), {}
+    except Exception:  # pragma: no cover - provider/SDK dependent
+        try:
+            observed, metadata = await asyncio.wait_for(
+                asyncio.to_thread(observe_tunnels_rest, settings),
+                timeout=_OBSERVER_TIMEOUT_SEC,
+            )
+        except Exception as fallback_exc:  # pragma: no cover - provider/network dependent
+            return (), _short_error(fallback_exc), _elapsed_ms(started), {}
+    result = tuple(observed)
+    return result, None if result else "empty_inventory", _elapsed_ms(started), metadata
+
+
+async def _observe_access_applications(
+    settings: CloudflareTunnelSettings,
+) -> tuple[
+    tuple[CloudflareAccessApplicationObservation, ...],
+    str | None,
+    int,
+    dict[str, int],
+]:
+    started = time.perf_counter()
+    try:
+        observed, metadata = await asyncio.wait_for(
+            asyncio.to_thread(observe_cloudflare_access_applications_with_metadata),
+            timeout=_OBSERVER_TIMEOUT_SEC,
+        )
+    except TimeoutError as exc:
+        return (), _short_error(exc), _elapsed_ms(started), {}
+    except Exception:  # pragma: no cover - provider/SDK/permissions dependent
+        try:
+            observed, metadata = await asyncio.wait_for(
+                asyncio.to_thread(observe_access_applications_rest, settings),
+                timeout=_OBSERVER_TIMEOUT_SEC,
+            )
+        except Exception as fallback_exc:  # pragma: no cover - provider/network dependent
+            return (), _short_error(fallback_exc), _elapsed_ms(started), {}
+    return tuple(observed), None, _elapsed_ms(started), metadata
+
+
+async def _observe_access_control_plane(
+    settings: CloudflareTunnelSettings,
+) -> CloudflareAccessControlPlaneObservation:
+    try:
+        return await asyncio.wait_for(
+            asyncio.to_thread(
+                observe_project_access_control_plane_rest,
+                settings,
+            ),
+            timeout=_OBSERVER_TIMEOUT_SEC,
+        )
+    except Exception as exc:  # pragma: no cover - provider/network/permissions dependent
+        error = _short_error(exc)
+        return CloudflareAccessControlPlaneObservation(
+            reusable_policy_error=error,
+            service_token_error=error,
+        )
+
+
 async def _origin() -> dict[str, Any]:
     settings = CloudflareTunnelSettings.from_environment()
     if settings is None:
         return CloudflareExposureSnapshot(configured=False).cache_payload()
 
-    async def tunnels() -> tuple[
-        tuple[CloudflareTunnelObservation, ...],
-        str | None,
-        int,
-        dict[str, int],
-    ]:
-        started = time.perf_counter()
-        try:
-            observed, metadata = await asyncio.wait_for(
-                asyncio.to_thread(observe_cloudflare_tunnels_with_metadata),
-                timeout=_OBSERVER_TIMEOUT_SEC,
-            )
-        except TimeoutError as exc:
-            return (
-                (),
-                _short_error(exc),
-                round((time.perf_counter() - started) * 1000),
-                {},
-            )
-        except Exception:  # pragma: no cover - provider/SDK dependent
-            try:
-                observed, metadata = await asyncio.wait_for(
-                    asyncio.to_thread(observe_tunnels_rest, settings),
-                    timeout=_OBSERVER_TIMEOUT_SEC,
-                )
-            except Exception as fallback_exc:  # pragma: no cover - provider/network dependent
-                return (
-                    (),
-                    _short_error(fallback_exc),
-                    round((time.perf_counter() - started) * 1000),
-                    {},
-                )
-        result = tuple(observed)
-        return (
-            result,
-            None if result else "empty_inventory",
-            round((time.perf_counter() - started) * 1000),
-            metadata,
-        )
-
-    async def access() -> tuple[
-        tuple[CloudflareAccessApplicationObservation, ...],
-        str | None,
-        int,
-        dict[str, int],
-    ]:
-        started = time.perf_counter()
-        try:
-            observed, metadata = await asyncio.wait_for(
-                asyncio.to_thread(observe_cloudflare_access_applications_with_metadata),
-                timeout=_OBSERVER_TIMEOUT_SEC,
-            )
-        except TimeoutError as exc:
-            return (
-                (),
-                _short_error(exc),
-                round((time.perf_counter() - started) * 1000),
-                {},
-            )
-        except Exception:  # pragma: no cover - provider/SDK/permissions dependent
-            try:
-                observed, metadata = await asyncio.wait_for(
-                    asyncio.to_thread(observe_access_applications_rest, settings),
-                    timeout=_OBSERVER_TIMEOUT_SEC,
-                )
-            except Exception as fallback_exc:  # pragma: no cover - provider/network dependent
-                return (
-                    (),
-                    _short_error(fallback_exc),
-                    round((time.perf_counter() - started) * 1000),
-                    {},
-                )
-        return (
-            tuple(observed),
-            None,
-            round((time.perf_counter() - started) * 1000),
-            metadata,
-        )
-
-    async def control_plane() -> CloudflareAccessControlPlaneObservation:
-        try:
-            return await asyncio.wait_for(
-                asyncio.to_thread(
-                    observe_project_access_control_plane_rest,
-                    settings,
-                ),
-                timeout=_OBSERVER_TIMEOUT_SEC,
-            )
-        except Exception as exc:  # pragma: no cover - provider/network/permissions dependent
-            error = _short_error(exc)
-            return CloudflareAccessControlPlaneObservation(
-                reusable_policy_error=error,
-                service_token_error=error,
-            )
-
     tunnel_result, access_result, control = await asyncio.gather(
-        tunnels(),
-        access(),
-        control_plane(),
+        _observe_tunnels(settings),
+        _observe_access_applications(settings),
+        _observe_access_control_plane(settings),
     )
     tunnel_items, tunnel_error, tunnel_elapsed_ms, tunnel_metadata = tunnel_result
     access_items, access_error, access_elapsed_ms, access_metadata = access_result
