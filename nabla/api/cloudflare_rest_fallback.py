@@ -13,7 +13,7 @@ import os
 import time
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 from urllib.request import Request, urlopen
 
 from nabla.api.cloudflare_tunnels import (
@@ -32,17 +32,11 @@ _DEFAULT_PROJECT_SERVICE_TOKEN = "fastapi-sample-monitor"
 
 
 def _project_policy_name() -> str:
-    return (
-        os.getenv("CLOUDFLARE_PROJECT_ACCESS_POLICY_NAME", "").strip()
-        or _DEFAULT_PROJECT_POLICY
-    )
+    return os.getenv("CLOUDFLARE_PROJECT_ACCESS_POLICY_NAME", "").strip() or _DEFAULT_PROJECT_POLICY
 
 
 def _project_service_token_name() -> str:
-    return (
-        os.getenv("CLOUDFLARE_PROJECT_SERVICE_TOKEN_NAME", "").strip()
-        or _DEFAULT_PROJECT_SERVICE_TOKEN
-    )
+    return os.getenv("CLOUDFLARE_PROJECT_SERVICE_TOKEN_NAME", "").strip() or _DEFAULT_PROJECT_SERVICE_TOKEN
 
 
 def _safe_error(exc: BaseException) -> str:
@@ -50,6 +44,8 @@ def _safe_error(exc: BaseException) -> str:
         return f"HTTP {exc.code}"
     if isinstance(exc, URLError):
         return "transport_error"
+    if isinstance(exc, RuntimeError) and str(exc).strip():
+        return str(exc).strip()[:80]
     return exc.__class__.__name__[:80]
 
 
@@ -168,17 +164,11 @@ def _policy_observation(item: dict[str, Any]) -> CloudflareAccessPolicyObservati
     include = item.get("include")
     includes_everyone = False
     if isinstance(include, list):
-        includes_everyone = any(
-            isinstance(rule, dict) and "everyone" in rule for rule in include
-        )
+        includes_everyone = any(isinstance(rule, dict) and "everyone" in rule for rule in include)
     return CloudflareAccessPolicyObservation(
         policy_id=policy_id,
         name=str(item.get("name")) if item.get("name") is not None else None,
-        decision=(
-            str(item.get("decision")).lower()
-            if item.get("decision") is not None
-            else None
-        ),
+        decision=(str(item.get("decision")).lower() if item.get("decision") is not None else None),
         includes_everyone=includes_everyone,
     )
 
@@ -196,8 +186,6 @@ def observe_access_applications_rest(
         if not app_id or not domain:
             continue
         candidate = domain if "://" in domain else f"https://{domain}"
-        from urllib.parse import urlsplit
-
         parsed = urlsplit(candidate)
         hostname = (parsed.hostname or "").lower().rstrip(".")
         if not hostname:
@@ -239,15 +227,9 @@ def observe_project_access_control_plane_rest(
     started = time.perf_counter()
     try:
         payload = _get(settings, f"/accounts/{account}/access/policies")
-        policies = [
-            item
-            for item in _items(payload)
-            if str(item.get("name") or "").strip() == policy_name
-        ]
+        policies = [item for item in _items(payload) if str(item.get("name") or "").strip() == policy_name]
         reusable_policy_count = len(policies)
-        reusable_policy_app_count = sum(
-            max(0, int(item.get("app_count") or 0)) for item in policies
-        )
+        reusable_policy_app_count = sum(max(0, int(item.get("app_count") or 0)) for item in policies)
     except (RuntimeError, TypeError, ValueError) as exc:
         reusable_policy_error = _safe_error(exc)
     reusable_policy_elapsed_ms = round((time.perf_counter() - started) * 1000)
@@ -260,15 +242,9 @@ def observe_project_access_control_plane_rest(
     started = time.perf_counter()
     try:
         payload = _get(settings, f"/accounts/{account}/access/service_tokens")
-        tokens = [
-            item
-            for item in _items(payload)
-            if str(item.get("name") or "").strip() == token_name
-        ]
+        tokens = [item for item in _items(payload) if str(item.get("name") or "").strip() == token_name]
         service_token_count = len(tokens)
-        service_token_enabled_count = sum(
-            item.get("enabled", True) is not False for item in tokens
-        )
+        service_token_enabled_count = sum(item.get("enabled", True) is not False for item in tokens)
         configured_client_id = os.getenv("CF_ACCESS_CLIENT_ID", "").strip()
         if configured_client_id:
             ids = {str(item.get("client_id") or "").strip() for item in tokens}
