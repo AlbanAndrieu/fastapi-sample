@@ -88,13 +88,21 @@ function networkMembership(nodeId) {
   const source = (topology?.nodes || []).find((node) => node.id === nodeId) || {};
   const runtime = source.runtime || {};
   const candidates = source.dockerNetworks || runtime.networks || [];
-  return Array.isArray(candidates) ? candidates.filter(Boolean).map(String) : [];
+  return Array.isArray(candidates)
+    ? [...new Set(candidates.filter(Boolean).map(String))].sort((left, right) =>
+        left.localeCompare(right),
+      )
+    : [];
 }
 
 function groupKeyForNode(node, mode) {
   if (node.hasClass("operator-group") || node.id() === "docker") return "";
-  if (mode === "lifecycle") return String(node.data("lifecyclePhase") || "unclassified");
-  if (mode === "docker-network") return networkMembership(node.id())[0] || "";
+  if (mode === "lifecycle")
+    return String(node.data("lifecyclePhase") || "unclassified");
+  if (mode === "docker-network") {
+    const networks = networkMembership(node.id());
+    return networks.length > 0 ? networks.join(" + ") : "";
+  }
   return "";
 }
 
@@ -131,19 +139,31 @@ function applyGrouping() {
           label: groupLabel(key, mode),
           operatorGroup: true,
           searchText: key,
-          lifecyclePhase: mode === "lifecycle" && key !== "unclassified" ? key : "",
+          lifecyclePhase:
+            mode === "lifecycle" && key !== "unclassified" ? key : "",
         },
         classes: "operator-group",
       });
       for (const node of nodes) node.move({ parent: id });
     }
   });
+  if (mode === "docker-network") {
+    operatorStatus(
+      "Docker network groups use the complete canonical Compose membership set; multi-network services are never assigned to an arbitrary first network.",
+      "ok",
+    );
+  }
 }
 
 function percentile(values, fraction) {
-  const sorted = values.filter((value) => value != null && value >= 0).sort((a, b) => a - b);
+  const sorted = values
+    .filter((value) => value != null && value >= 0)
+    .sort((a, b) => a - b);
   if (sorted.length === 0) return null;
-  const index = Math.min(sorted.length - 1, Math.max(0, Math.floor((sorted.length - 1) * fraction)));
+  const index = Math.min(
+    sorted.length - 1,
+    Math.max(0, Math.floor((sorted.length - 1) * fraction)),
+  );
   return sorted[index];
 }
 
@@ -154,15 +174,19 @@ function resourceForNode(node) {
 
 function resetNodeSizing() {
   if (!graph) return;
-  graph.nodes().not(".operator-group").forEach((node) => {
-    node.removeStyle("width");
-    node.removeStyle("height");
-  });
+  graph
+    .nodes()
+    .not(".operator-group")
+    .forEach((node) => {
+      node.removeStyle("width");
+      node.removeStyle("height");
+    });
 }
 
 function applyResourceSizing() {
   if (!graph) return;
-  const mode = document.getElementById("topology-node-sizing")?.value || "declared";
+  const mode =
+    document.getElementById("topology-node-sizing")?.value || "declared";
   resetNodeSizing();
   if (mode !== "resources") return;
 
@@ -179,17 +203,34 @@ function applyResourceSizing() {
     return;
   }
 
-  const cpuP95 = percentile(rows.map((row) => finite(row.resource.cpu_cores)), 0.95) || 1;
-  const memoryP95 = percentile(rows.map((row) => finite(row.resource.memory_bytes)), 0.95) || 1;
+  const cpuP95 =
+    percentile(
+      rows.map((row) => finite(row.resource.cpu_cores)),
+      0.95,
+    ) || 1;
+  const memoryP95 =
+    percentile(
+      rows.map((row) => finite(row.resource.memory_bytes)),
+      0.95,
+    ) || 1;
   for (const { node, resource } of rows) {
-    const cpu = Math.min(1, Math.max(0, (finite(resource.cpu_cores) || 0) / cpuP95));
-    const memory = Math.min(1, Math.max(0, (finite(resource.memory_bytes) || 0) / memoryP95));
+    const cpu = Math.min(
+      1,
+      Math.max(0, (finite(resource.cpu_cores) || 0) / cpuP95),
+    );
+    const memory = Math.min(
+      1,
+      Math.max(0, (finite(resource.memory_bytes) || 0) / memoryP95),
+    );
     const pressure = Math.max(cpu, memory);
     const size = Math.round(32 + 56 * Math.sqrt(pressure));
     node.style({ width: size, height: size });
     node.data("operatorCpuCores", finite(resource.cpu_cores));
     node.data("operatorMemoryBytes", finite(resource.memory_bytes));
-    node.data("operatorNetworkBps", finite(resource.network_bytes_per_second));
+    node.data(
+      "operatorNetworkBps",
+      finite(resource.network_bytes_per_second),
+    );
   }
 }
 
@@ -207,7 +248,8 @@ function edgeBandwidth(edge) {
 
 function applyBandwidthSizing() {
   if (!graph) return;
-  const mode = document.getElementById("topology-edge-sizing")?.value || "declared";
+  const mode =
+    document.getElementById("topology-edge-sizing")?.value || "declared";
   resetEdgeSizing();
   if (mode !== "bandwidth") return;
 
@@ -224,7 +266,10 @@ function applyBandwidthSizing() {
     return;
   }
 
-  const p95 = percentile(rows.map((row) => row.bytesPerSecond), 0.95) || 1;
+  const p95 = percentile(
+    rows.map((row) => row.bytesPerSecond),
+    0.95,
+  ) || 1;
   for (const { edge, bytesPerSecond } of rows) {
     const ratio = Math.min(1, Math.max(0, bytesPerSecond / p95));
     edge.style("width", 1.5 + 8.5 * Math.sqrt(ratio));
@@ -234,8 +279,19 @@ function applyBandwidthSizing() {
 
 function fitAndLayout() {
   if (!graph) return;
-  const visible = graph.elements().not(".is-filtered").not(".operator-hidden");
-  visible.layout({ name: "cose", padding: 32, nodeRepulsion: 8500, idealEdgeLength: 100, animate: false }).run();
+  const visible = graph
+    .elements()
+    .not(".is-filtered")
+    .not(".operator-hidden");
+  visible
+    .layout({
+      name: "cose",
+      padding: 32,
+      nodeRepulsion: 8500,
+      idealEdgeLength: 100,
+      animate: false,
+    })
+    .run();
   graph.fit(visible, 36);
 }
 
@@ -274,18 +330,26 @@ async function loadTopologyMetadata() {
 }
 
 function installControls() {
-  document.getElementById("topology-hide-docker")?.addEventListener("change", () => {
-    applyOperatorView({ relayout: true });
-  });
-  document.getElementById("topology-group-by")?.addEventListener("change", () => {
-    applyOperatorView({ relayout: true });
-  });
-  document.getElementById("topology-node-sizing")?.addEventListener("change", () => {
-    applyResourceSizing();
-  });
-  document.getElementById("topology-edge-sizing")?.addEventListener("change", () => {
-    applyBandwidthSizing();
-  });
+  document
+    .getElementById("topology-hide-docker")
+    ?.addEventListener("change", () => {
+      applyOperatorView({ relayout: true });
+    });
+  document
+    .getElementById("topology-group-by")
+    ?.addEventListener("change", () => {
+      applyOperatorView({ relayout: true });
+    });
+  document
+    .getElementById("topology-node-sizing")
+    ?.addEventListener("change", () => {
+      applyResourceSizing();
+    });
+  document
+    .getElementById("topology-edge-sizing")
+    ?.addEventListener("change", () => {
+      applyBandwidthSizing();
+    });
 }
 
 async function initialize(capturedGraph) {
