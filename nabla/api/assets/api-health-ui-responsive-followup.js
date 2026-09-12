@@ -230,11 +230,22 @@ function ensureTrueNasInfo() {
     "Probe-first rendering: bounded /api/homelab/probes paints the TrueNAS flow quickly; aggregate health only enriches it. This is an information/freshness note, not an error.";
 }
 
+function isWorkstationBrowser() {
+  const hostname = String(window.location.hostname || "")
+    .trim()
+    .toLowerCase();
+  return (
+    ["0.0.0.0", "127.0.0.1", "localhost", "::1", "[::1]"].includes(
+      hostname,
+    ) || window.location.port === "8080"
+  );
+}
+
 function applyRuntimeLayout() {
   const mode = String(
     document.getElementById("runtime-topology")?.dataset?.runtimeMode || "",
   ).toLowerCase();
-  const workstation = mode === "local";
+  const workstation = mode === "local" || isWorkstationBrowser();
   document.body.classList.toggle("health-ui--workstation", workstation);
   if (!workstation) return;
 
@@ -244,8 +255,9 @@ function applyRuntimeLayout() {
   button.type = "button";
   button.id = "service-filter-dock-toggle";
   button.className = "service-filter-density-toggle service-filter-dock-toggle";
-  const stored = window.localStorage.getItem("fastapi-health-filter-docked");
-  const defaultDocked = window.matchMedia("(min-width: 1500px)").matches;
+  const storageKey = "fastapi-health-filter-docked-v2";
+  const stored = window.localStorage.getItem(storageKey);
+  const defaultDocked = window.matchMedia("(min-width: 1121px)").matches;
   let docked = stored == null ? defaultDocked : stored === "true";
   const sync = () => {
     document.body.classList.toggle("health-ui-filter-docked", docked);
@@ -254,7 +266,7 @@ function applyRuntimeLayout() {
   };
   button.addEventListener("click", () => {
     docked = !docked;
-    window.localStorage.setItem("fastapi-health-filter-docked", String(docked));
+    window.localStorage.setItem(storageKey, String(docked));
     sync();
   });
   actions.appendChild(button);
