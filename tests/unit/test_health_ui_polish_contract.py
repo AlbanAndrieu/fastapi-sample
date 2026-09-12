@@ -43,8 +43,8 @@ def test_desktop_filter_rail_and_probe_timing_are_stable_and_responsive() -> Non
     assert ".service-health-layout" in stylesheet
     assert "grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);" in stylesheet
     assert "@media (max-width: 1120px)" in stylesheet
-    assert ".health-meta-badge--probing" in stylesheet
-    assert "animation: none !important;" in stylesheet
+    assert ".health-probe-timing-column .health-meta-badge--probing" in stylesheet
+    assert "animation: none;" in stylesheet
     assert "font-variant-numeric: tabular-nums;" in stylesheet
     assert ".service-overview-card" in stylesheet
     assert "height: 5.65rem;" in stylesheet
