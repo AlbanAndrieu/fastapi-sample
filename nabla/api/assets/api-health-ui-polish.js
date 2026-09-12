@@ -55,7 +55,11 @@ function ensureLayout() {
 }
 
 function legendItem(className, label, detail) {
-  return `<span class="health-legend-item ${className}"><i aria-hidden="true"></i><b>${label}</b><small>${detail}</small></span>`;
+  return `<span class="health-legend-item ${className}" title="${detail}"><i aria-hidden="true"></i><b>${label}</b></span>`;
+}
+
+function hoverLabel(label, detail) {
+  return `<span class="health-legend-hover" title="${detail}" aria-label="${label}. ${detail}"><b>${label}</b><i aria-hidden="true">ⓘ</i></span>`;
 }
 
 function enrichLegend() {
@@ -64,56 +68,144 @@ function enrichLegend() {
   const legend = document.getElementById("service-probe-legend");
   if (!details || !legend) return;
 
-  details.open = true;
+  if (details.dataset.operatorLegendInitialized !== "true") {
+    details.dataset.operatorLegendInitialized = "true";
+    details.open = false;
+  }
   const summary = details.querySelector(":scope > summary");
   if (summary) summary.textContent = "Legend · health, tiers & probe evidence";
   if (legend.dataset.healthLegendComplete === "true") return;
 
   legend.dataset.healthLegendComplete = "true";
   legend.innerHTML = [
-    '<strong class="health-legend-title">How to read this screen</strong>',
+    '<strong class="health-legend-title">Hover labels for details</strong>',
     '<div class="health-legend-section"><b>Evidence colors</b>',
     legendItem(
       "health-legend--green",
       "Green",
-      "confirmed healthy / operational",
+      "Confirmed healthy / operational evidence.",
     ),
     legendItem(
       "health-legend--amber",
       "Amber",
-      "warning, incomplete evidence or at risk",
+      "Warning, incomplete evidence or at-risk state; not necessarily downtime.",
     ),
-    legendItem("health-legend--red", "Red", "confirmed failure / down"),
+    legendItem(
+      "health-legend--red",
+      "Red",
+      "Confirmed failure / down evidence.",
+    ),
     legendItem(
       "health-legend--gray",
       "Gray",
-      "unknown, unobserved or not confirmed",
+      "Unknown, unobserved or not confirmed from this observer.",
     ),
     "</div>",
     '<div class="health-legend-section"><b>Health tiers</b>',
-    "<span><b>Required infra (albandrieu.com)</b> — availability requirement for the homelab/domain view; confirmed failures may affect the overall summary.</span>",
-    "<span><b>Required health check</b> — required dependency for the deep application health contract; confirmed failure is blocking.</span>",
-    "<span><b>Optional health check</b> — non-blocking integration/support probe; timeout or unavailable evidence is warning/unknown, not downtime.</span>",
+    hoverLabel(
+      "Required infra",
+      "Availability requirement for the albandrieu.com homelab/domain view; confirmed failures may affect the overall summary.",
+    ),
+    hoverLabel(
+      "Required check",
+      "Required dependency for the deep application health contract; confirmed failure is blocking.",
+    ),
+    hoverLabel(
+      "Optional check",
+      "Non-blocking integration/support probe; unavailable evidence is warning/unknown, not downtime.",
+    ),
     "</div>",
-    '<div class="health-legend-section"><b>Probe evidence</b><span>🌐 HTTP</span><span>🔒 TLS certificate</span><span>🔌 TCP</span><span>⚙️ REST API</span><span>↔️ WebSocket</span><span>☁️ Cloudflare Tunnel</span><span>🛡️ Access / policy</span><span>🔑 Service Token</span><span>📈 Prometheus / metrics</span></div>',
-    '<div class="health-legend-section"><b>Card metadata</b><span><b>critical/high</b> = blast-radius criticality</span><span><b>downstream</b> = declared dependents</span><span><b>probing</b> = refresh currently due/running; it does not change status by itself</span></div>',
+    '<div class="health-legend-section"><b>Card probes</b>',
+    hoverLabel(
+      "🌐 HTTP",
+      "Latest public HTTP response evidence, such as HTTP 200/302.",
+    ),
+    hoverLabel(
+      "🔒 TLS",
+      "TLS certificate validation for the public HTTPS endpoint.",
+    ),
+    hoverLabel("🔌 TCP", "Latest LAN/internal TCP reachability evidence."),
+    hoverLabel(
+      "⚙️ API",
+      "REST/API control-plane evidence; separate from raw listener reachability.",
+    ),
+    hoverLabel("↔️ WS", "WebSocket/API transport evidence where applicable."),
+    hoverLabel(
+      "☁️ Tunnel",
+      "Cloudflare Tunnel route/connectivity evidence; it does not authorize users.",
+    ),
+    hoverLabel("🛡️ Access", "Cloudflare Access/policy authorization evidence."),
+    hoverLabel(
+      "🔑 Token",
+      "Cloudflare Access Service Token machine-identity evidence.",
+    ),
+    hoverLabel(
+      "📈 Metrics",
+      "Prometheus/runtime metrics evidence when configured.",
+    ),
+    hoverLabel(
+      "Public",
+      "Externally published service endpoint; the label links to that endpoint.",
+    ),
+    hoverLabel(
+      "LAN",
+      "Internal IP/port endpoint observed from the homelab/workstation runtime.",
+    ),
+    "</div>",
+    '<div class="health-legend-section"><b>Card metadata</b>',
+    hoverLabel(
+      "critical/high",
+      "Blast-radius criticality from the topology, not a live health result.",
+    ),
+    hoverLabel(
+      "downstream",
+      "Number of declared services that depend on this service.",
+    ),
+    hoverLabel(
+      "age",
+      "Time since the latest probe observation used by this Card.",
+    ),
+    hoverLabel("latency", "Duration of the latest sampled probe."),
+    hoverLabel(
+      "probing",
+      "A refresh is currently due/running; this indicator does not change health by itself.",
+    ),
+    "</div>",
   ].join("");
 }
 
-function ensureTimingColumn(row) {
-  const main = row.querySelector(".health-row-main");
-  if (!main) return null;
-  let column = main.querySelector(":scope > .health-probe-timing-column");
+function consolidateTelemetry(row) {
+  let column = row.querySelector(":scope > .health-row-telemetry");
   if (!column) {
     column = document.createElement("div");
-    column.className = "health-probe-timing-column";
-    column.setAttribute("aria-label", "Probe timing");
-    main.appendChild(column);
+    column.className = "health-row-telemetry";
+    row.appendChild(column);
   }
-  const age = row.querySelector(".health-meta-badge--probe-age");
-  const probing = row.querySelector(".health-meta-badge--probing");
-  if (age && age.parentElement !== column) column.appendChild(age);
-  if (probing && probing.parentElement !== column) column.appendChild(probing);
+  column.setAttribute(
+    "aria-label",
+    "Probe freshness, latency and refresh state",
+  );
+  column.title =
+    "Probe telemetry: freshness/age, latest latency and whether a refresh is currently probing.";
+
+  const badges = [
+    ...row.querySelectorAll(
+      ".health-meta-badge--probe-age, .health-meta-badge--probe-latency, .health-meta-badge--probing",
+    ),
+  ];
+  for (const badge of badges) {
+    if (badge.parentElement !== column) column.appendChild(badge);
+    if (badge.classList.contains("health-meta-badge--probing")) {
+      const help =
+        "Probe refresh is currently due/running. This is activity evidence only and does not degrade the service by itself.";
+      badge.title = help;
+      badge.setAttribute("aria-label", help);
+    }
+  }
+
+  for (const legacy of row.querySelectorAll(".health-probe-timing-column")) {
+    if (!legacy.children.length) legacy.remove();
+  }
   return column;
 }
 
@@ -154,7 +246,7 @@ function decorateRows() {
   for (const row of document.querySelectorAll(ROW_SELECTOR)) {
     moveTierNextToName(row);
     ensureDescriptionHelp(row);
-    ensureTimingColumn(row);
+    consolidateTelemetry(row);
   }
 }
 

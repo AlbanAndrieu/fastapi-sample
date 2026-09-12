@@ -8,6 +8,7 @@ const OBSERVED_CONTAINERS = [
 
 let activeRow = null;
 let activeTrigger = null;
+let activeIdentity = null;
 let refreshScheduled = false;
 
 function normalizedStatus(row) {
@@ -40,6 +41,32 @@ function safeHttpUrl(value) {
   }
 }
 
+function rowIdentity(row) {
+  if (!row) return null;
+  return {
+    topologyId: String(row.dataset.topologyId || "").trim(),
+    serviceKey: String(row.dataset.serviceKey || "").trim(),
+    serviceName: String(row.dataset.serviceName || "").trim(),
+    serviceUrl: safeHttpUrl(row.dataset.serviceUrl) || "",
+  };
+}
+
+function sameIdentity(row, identity) {
+  if (!row || !identity) return false;
+  const candidate = rowIdentity(row);
+  for (const key of ["topologyId", "serviceKey", "serviceName", "serviceUrl"]) {
+    if (identity[key] && candidate?.[key] === identity[key]) return true;
+  }
+  return false;
+}
+
+function replacementRow(identity) {
+  if (!identity) return null;
+  return [...document.querySelectorAll(ROW_SELECTOR)].find((row) =>
+    sameIdentity(row, identity),
+  );
+}
+
 function metadataEntries(row) {
   const entries = [
     ["Status", normalizedStatus(row)],
@@ -61,6 +88,9 @@ function probeEntries(row) {
       probe.querySelector(".service-probe-label")?.textContent?.trim() ||
       probe.dataset.probeKind ||
       "Probe",
+    icon:
+      probe.querySelector(".service-probe-icon")?.textContent?.trim() || "•",
+    href: probe instanceof HTMLAnchorElement ? safeHttpUrl(probe.href) : null,
     detail:
       probe.getAttribute("aria-label") || probe.title || "No detail available",
     tone:
@@ -69,6 +99,15 @@ function probeEntries(row) {
         ?.replace("service-probe--", "") || "unknown",
     disabled: probe.dataset.probeDisabled === "true",
   }));
+}
+
+function drawerSignature(row) {
+  return JSON.stringify({
+    name: displayName(row),
+    url: safeHttpUrl(row.dataset.serviceUrl),
+    metadata: metadataEntries(row),
+    probes: probeEntries(row),
+  });
 }
 
 function ensureDrawer() {
@@ -158,9 +197,24 @@ function renderEvidence(drawer, row) {
     if (probe.disabled) item.dataset.disabled = "true";
     const heading = document.createElement("div");
     heading.className = "service-detail-probe-heading";
-    const label = document.createElement("strong");
+    const icon = document.createElement("span");
+    icon.className = "service-detail-probe-icon";
+    icon.dataset.tone = probe.disabled ? "neutral" : probe.tone;
+    icon.setAttribute("aria-hidden", "true");
+    icon.textContent = probe.icon;
+    const label = document.createElement(probe.href ? "a" : "strong");
+    label.className = "service-detail-probe-label";
     label.textContent = probe.label;
-    heading.appendChild(label);
+    if (label instanceof HTMLAnchorElement && probe.href) {
+      label.href = probe.href;
+      label.target = "_blank";
+      label.rel = "noopener noreferrer";
+      label.title = `Open ${probe.label} diagnostics`;
+    }
+    const labelWrap = document.createElement("span");
+    labelWrap.className = "service-detail-probe-name";
+    labelWrap.append(icon, label);
+    heading.appendChild(labelWrap);
     const normalizedLabel = probe.label.trim().toLowerCase();
     const normalizedKind = probe.kind.trim().toLowerCase();
     if (normalizedKind && normalizedKind !== normalizedLabel) {
@@ -175,22 +229,36 @@ function renderEvidence(drawer, row) {
   }
 }
 
-function renderDrawer(row) {
+function renderDrawer(row, { force = false } = {}) {
   const drawer = ensureDrawer();
+  const signature = drawerSignature(row);
+  const serviceKey = String(
+    row.dataset.serviceKey || row.dataset.serviceName || "",
+  );
+  if (
+    !force &&
+    drawer.dataset.serviceKey === serviceKey &&
+    drawer.dataset.renderSignature === signature
+  ) {
+    return;
+  }
   const title = drawer.querySelector("#service-detail-title");
   if (title) title.textContent = displayName(row);
   renderMetadata(drawer, row);
   renderLink(drawer, row);
   renderEvidence(drawer, row);
+  drawer.dataset.serviceKey = serviceKey;
+  drawer.dataset.renderSignature = signature;
 }
 
 function openDrawer(row, trigger) {
   if (!row) return;
   if (activeRow && activeRow !== row) delete activeRow.dataset.detailSelected;
   activeRow = row;
+  activeIdentity = rowIdentity(row);
   activeTrigger = trigger || null;
   activeRow.dataset.detailSelected = "true";
-  renderDrawer(row);
+  renderDrawer(row, { force: true });
   const drawer = ensureDrawer();
   drawer.hidden = false;
   drawer.focus({ preventScroll: true });
@@ -203,8 +271,10 @@ function closeDrawer({ restoreFocus = true } = {}) {
   const trigger = activeTrigger;
   activeRow = null;
   activeTrigger = null;
-  if (restoreFocus && trigger?.isConnected)
+  activeIdentity = null;
+  if (restoreFocus && trigger?.isConnected) {
     trigger.focus({ preventScroll: true });
+  }
 }
 
 function ensureDetailTrigger(row) {
@@ -233,13 +303,23 @@ function decorateRows(root = document) {
   root.querySelectorAll?.(ROW_SELECTOR).forEach(ensureDetailTrigger);
 }
 
+function reattachActiveRow() {
+  if (activeRow?.isConnected) return true;
+  const replacement = replacementRow(activeIdentity);
+  if (!replacement) return false;
+  activeRow = replacement;
+  activeRow.dataset.detailSelected = "true";
+  activeTrigger =
+    activeRow.querySelector(":scope > .service-detail-trigger") || activeTrigger;
+  return true;
+}
+
 function scheduleActiveRefresh() {
   if (!activeRow || refreshScheduled) return;
   refreshScheduled = true;
   window.requestAnimationFrame(() => {
     refreshScheduled = false;
-    if (!activeRow?.isConnected) {
-      closeDrawer({ restoreFocus: false });
+    if (!reattachActiveRow()) {
       return;
     }
     renderDrawer(activeRow);

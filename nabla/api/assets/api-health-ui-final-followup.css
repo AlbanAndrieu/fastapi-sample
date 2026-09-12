@@ -1,0 +1,198 @@
+/* Final health-board polish: keep the main API/root surface as wide as topology. */
+nav,
+main {
+  width: min(1600px, 100%);
+  max-width: none;
+}
+
+.cards,
+.hero-code {
+  width: 100%;
+  max-width: none;
+}
+
+.service-health-layout,
+#health-board,
+.health-board,
+.health-section,
+.service-groups,
+#health-services-groups {
+  min-width: 0;
+  max-width: none;
+}
+
+/* Drawer evidence uses the same semantic tones as Cards. */
+.service-detail-probe-name {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  gap: 0.38rem;
+}
+
+.service-detail-probe-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.4rem;
+  height: 1.4rem;
+  border: 1px solid #3a3a3a;
+  border-radius: 999px;
+  background: #151515;
+  color: #9ca3af;
+  font-size: 0.72rem;
+}
+
+.service-detail-probe-icon[data-tone="ok"] {
+  border-color: rgba(0, 255, 136, 0.38);
+  background: rgba(0, 255, 136, 0.08);
+  color: #7dffc4;
+}
+
+.service-detail-probe-icon[data-tone="warn"] {
+  border-color: rgba(255, 204, 51, 0.42);
+  background: rgba(255, 204, 51, 0.08);
+  color: #ffd966;
+}
+
+.service-detail-probe-icon[data-tone="fail"] {
+  border-color: rgba(255, 68, 68, 0.45);
+  background: rgba(255, 68, 68, 0.08);
+  color: #ff9999;
+}
+
+.service-detail-probe-icon[data-tone="neutral"],
+.service-detail-probe-icon[data-tone="unknown"] {
+  border-color: #3a3f45;
+  background: #111317;
+  color: #8d98a6;
+}
+
+.service-detail-probe-label,
+.service-detail-probe-label:visited,
+.service-detail-link a,
+.service-detail-relation-block a,
+.service-detail-relations .service-hover-list a {
+  color: #9cc7ff;
+  text-decoration: none;
+}
+
+.service-detail-probe--ok .service-detail-probe-label {
+  color: #7dffc4;
+}
+
+.service-detail-probe--warn .service-detail-probe-label {
+  color: #ffd966;
+}
+
+.service-detail-probe--fail .service-detail-probe-label {
+  color: #ff9999;
+}
+
+.service-detail-probe[data-disabled="true"] .service-detail-probe-label {
+  color: #9ca3af;
+}
+
+.service-detail-probe-label:hover,
+.service-detail-probe-label:focus-visible,
+.service-detail-link a:hover,
+.service-detail-link a:focus-visible,
+.service-detail-relation-block a:hover,
+.service-detail-relation-block a:focus-visible,
+.service-detail-relations .service-hover-list a:hover,
+.service-detail-relations .service-hover-list a:focus-visible {
+  text-decoration: underline;
+}
+
+/* Direct and transitive downstream share the same bullet/list typography. */
+.service-detail-relations .service-hover-list a {
+  display: list-item;
+  margin-left: 1rem;
+  color: #9cc7ff;
+  font-size: 0.61rem;
+  list-style-position: outside;
+  list-style-type: disc;
+}
+
+.service-detail-relations .service-hover-list {
+  align-content: start;
+}
+
+/* Reserve space so legitimate live refreshes do not make the drawer jump. */
+.service-detail-body {
+  scrollbar-gutter: stable;
+}
+
+.service-detail-evidence {
+  min-height: 4.2rem;
+}
+
+.service-detail-probe {
+  min-height: 4rem;
+  contain: layout;
+}
+
+.service-detail-relations,
+[data-operator-section="runtime"],
+[data-operator-section="dependencies"],
+[data-operator-section="performance"] {
+  min-height: 4rem;
+}
+
+/* Provider errors must wrap inside their Card/drawer instead of escaping it. */
+.health-overflow-safe,
+.health-overflow-safe *,
+.service-provider-item,
+.service-provider-item > div,
+.service-provider-item > div > span,
+.health-row-detail {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.service-provider-item > div > span {
+  white-space: normal;
+}
+
+/* Unavailable timing is information, not a failure. */
+.health-meta-badge--probe-latency-unavailable {
+  border-color: rgba(255, 204, 51, 0.38);
+  background: rgba(255, 204, 51, 0.07);
+  color: #ffd966;
+}
+
+/* Retained probe/plane UI prevents evidence flicker while the next snapshot paints. */
+.service-probe[data-retained-during-refresh="true"],
+.service-probe-plane-label[data-retained-during-refresh="true"] {
+  opacity: 0.82;
+}
+
+/* The Sickz card stays compact; verbose dependency/help content belongs in Details. */
+#sickz-checks .health-row-tags .service-hover-popover,
+#sickz-checks .health-row-tags .service-help-badge {
+  display: none !important;
+}
+
+@media (min-width: 1121px) {
+  main {
+    padding-right: clamp(1rem, 2.5vw, 2.5rem);
+    padding-left: clamp(1rem, 2.5vw, 2.5rem);
+  }
+
+  .service-health-layout {
+    width: 100%;
+  }
+}
+
+@media (max-width: 720px) {
+  nav,
+  main {
+    width: 100%;
+  }
+
+  .service-detail-probe {
+    min-height: 3.5rem;
+  }
+}

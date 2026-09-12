@@ -171,20 +171,26 @@ function updateRow(row, check, snapshot) {
       ? ` · cadence ${Math.round(interval)}s`
       : "";
   badge.title =
-    observedAt == null
-      ? `Last probe time unavailable${cadence}`
-      : `Last probe ${new Date(observedAt).toISOString()}${cadence}`;
+    age == null
+      ? `Latest probe age unavailable${cadence}`
+      : `Latest probe age: ${age}s${cadence}`;
+  badge.setAttribute("aria-label", badge.title);
 
   const latency = Number(check?.elapsed_ms ?? check?.latency_ms);
   const latencyBadge = ensureLatencyBadge(row);
+  latencyBadge.hidden = false;
+  latencyBadge.classList.toggle(
+    "health-meta-badge--probe-latency-unavailable",
+    !Number.isFinite(latency),
+  );
   if (Number.isFinite(latency)) {
-    latencyBadge.hidden = false;
     latencyBadge.textContent = `${latency} ms`;
     latencyBadge.title = `Latest probe latency: ${latency} ms`;
   } else {
-    latencyBadge.hidden = true;
-    latencyBadge.textContent = "";
+    latencyBadge.textContent = "—";
+    latencyBadge.title = "Latest probe latency unavailable";
   }
+  latencyBadge.setAttribute("aria-label", latencyBadge.title);
 
   const probing =
     snapshot?.refreshing === true && checkIsDue(check, observedAt);

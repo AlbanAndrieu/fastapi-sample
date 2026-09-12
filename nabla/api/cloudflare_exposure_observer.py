@@ -8,13 +8,17 @@ import time
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
+from nabla.api.cloudflare_rest_fallback import (
+    observe_access_applications_rest,
+    observe_project_access_control_plane_rest,
+    observe_tunnels_rest,
+)
 from nabla.api.cloudflare_tunnels import (
     CloudflareAccessApplicationObservation,
     CloudflareAccessControlPlaneObservation,
     CloudflareTunnelObservation,
     CloudflareTunnelSettings,
     observe_cloudflare_access_applications_with_metadata,
-    observe_cloudflare_access_control_plane,
     observe_cloudflare_tunnels_with_metadata,
 )
 from nabla.api.external_probe_cache import get_or_refresh_probe
@@ -139,14 +143,14 @@ class CloudflareExposureSnapshot:
         control = self.access_control_plane or CloudflareAccessControlPlaneObservation()
         control_plane = {
             "tunnels": _api_family(
-                result_count=self.tunnel_result_count if self.tunnel_result_count is not None else len(self.tunnels),
-                total_count=self.tunnel_total_count if self.tunnel_total_count is not None else len(self.tunnels),
+                result_count=(self.tunnel_result_count if self.tunnel_result_count is not None else len(self.tunnels)),
+                total_count=(self.tunnel_total_count if self.tunnel_total_count is not None else len(self.tunnels)),
                 elapsed_ms=self.tunnel_elapsed_ms,
                 error=self.tunnel_error,
             ),
             "access_applications": _api_family(
-                result_count=self.access_result_count if self.access_result_count is not None else len(self.access_applications),
-                total_count=self.access_total_count if self.access_total_count is not None else len(self.access_applications),
+                result_count=(self.access_result_count if self.access_result_count is not None else len(self.access_applications)),
+                total_count=(self.access_total_count if self.access_total_count is not None else len(self.access_applications)),
                 elapsed_ms=self.access_elapsed_ms,
                 error=self.access_error,
             ),
@@ -156,6 +160,7 @@ class CloudflareExposureSnapshot:
                 elapsed_ms=control.reusable_policy_elapsed_ms,
                 error=control.reusable_policy_error,
                 application_assignments=control.reusable_policy_app_count,
+                selection="fastapi-sample-monitor",
             ),
             "access_service_tokens": _api_family(
                 result_count=control.service_token_count,
@@ -163,7 +168,8 @@ class CloudflareExposureSnapshot:
                 elapsed_ms=control.service_token_elapsed_ms,
                 error=control.service_token_error,
                 enabled_count=control.service_token_enabled_count,
-                configured_client_id_present=control.configured_service_token_present,
+                configured_client_id_present=(control.configured_service_token_present),
+                selection="fastapi-sample-monitor",
             ),
         }
         return {
@@ -176,7 +182,7 @@ class CloudflareExposureSnapshot:
             "tunnels_observed": len(self.tunnels),
             "local_managed_tunnels": local_managed,
             "cloudflare_managed_tunnels": remote_managed,
-            "unknown_management_tunnels": len(config_sources) - local_managed - remote_managed,
+            "unknown_management_tunnels": (len(config_sources) - local_managed - remote_managed),
             "tunnel_config_sources": sorted(set(config_sources)),
             "tunnels": [_tunnel_summary(tunnel) for tunnel in self.tunnels],
             "access_applications_observed": len(self.access_applications),
@@ -224,8 +230,8 @@ class CloudflareExposureSnapshot:
             configured=bool(payload.get("configured")),
             tunnels=tuple(CloudflareTunnelObservation.model_validate(item) for item in payload.get("tunnels", []) if isinstance(item, dict)),
             access_applications=tuple(CloudflareAccessApplicationObservation.model_validate(item) for item in payload.get("access_applications", []) if isinstance(item, dict)),
-            tunnel_error=str(payload["tunnel_error"]) if payload.get("tunnel_error") else None,
-            access_error=str(payload["access_error"]) if payload.get("access_error") else None,
+            tunnel_error=(str(payload["tunnel_error"]) if payload.get("tunnel_error") else None),
+            access_error=(str(payload["access_error"]) if payload.get("access_error") else None),
             tunnel_elapsed_ms=payload.get("tunnel_elapsed_ms"),
             access_elapsed_ms=payload.get("access_elapsed_ms"),
             tunnel_result_count=payload.get("tunnel_result_count"),
@@ -244,6 +250,10 @@ def _short_error(exc: BaseException) -> str:
 
 
 async def _origin() -> dict[str, Any]:
+    settings = CloudflareTunnelSettings.from_environment()
+    if settings is None:
+        return CloudflareExposureSnapshot(configured=False).cache_payload()
+
     async def tunnels() -> tuple[
         tuple[CloudflareTunnelObservation, ...],
         str | None,
@@ -256,10 +266,26 @@ async def _origin() -> dict[str, Any]:
                 asyncio.to_thread(observe_cloudflare_tunnels_with_metadata),
                 timeout=_OBSERVER_TIMEOUT_SEC,
             )
-            result = tuple(observed)
-            return result, None if result else "empty_inventory", round((time.perf_counter() - started) * 1000), metadata
-        except Exception as exc:  # pragma: no cover - provider/network dependent
-            return (), _short_error(exc), round((time.perf_counter() - started) * 1000), {}
+        except Exception:  # pragma: no cover - provider/SDK dependent
+            try:
+                observed, metadata = await asyncio.wait_for(
+                    asyncio.to_thread(observe_tunnels_rest, settings),
+                    timeout=_OBSERVER_TIMEOUT_SEC,
+                )
+            except Exception as fallback_exc:  # pragma: no cover - provider/network dependent
+                return (
+                    (),
+                    _short_error(fallback_exc),
+                    round((time.perf_counter() - started) * 1000),
+                    {},
+                )
+        result = tuple(observed)
+        return (
+            result,
+            None if result else "empty_inventory",
+            round((time.perf_counter() - started) * 1000),
+            metadata,
+        )
 
     async def access() -> tuple[
         tuple[CloudflareAccessApplicationObservation, ...],
@@ -273,14 +299,33 @@ async def _origin() -> dict[str, Any]:
                 asyncio.to_thread(observe_cloudflare_access_applications_with_metadata),
                 timeout=_OBSERVER_TIMEOUT_SEC,
             )
-            return tuple(observed), None, round((time.perf_counter() - started) * 1000), metadata
-        except Exception as exc:  # pragma: no cover - provider/network/permissions dependent
-            return (), _short_error(exc), round((time.perf_counter() - started) * 1000), {}
+        except Exception:  # pragma: no cover - provider/SDK/permissions dependent
+            try:
+                observed, metadata = await asyncio.wait_for(
+                    asyncio.to_thread(observe_access_applications_rest, settings),
+                    timeout=_OBSERVER_TIMEOUT_SEC,
+                )
+            except Exception as fallback_exc:  # pragma: no cover - provider/network dependent
+                return (
+                    (),
+                    _short_error(fallback_exc),
+                    round((time.perf_counter() - started) * 1000),
+                    {},
+                )
+        return (
+            tuple(observed),
+            None,
+            round((time.perf_counter() - started) * 1000),
+            metadata,
+        )
 
     async def control_plane() -> CloudflareAccessControlPlaneObservation:
         try:
             return await asyncio.wait_for(
-                asyncio.to_thread(observe_cloudflare_access_control_plane),
+                asyncio.to_thread(
+                    observe_project_access_control_plane_rest,
+                    settings,
+                ),
                 timeout=_OBSERVER_TIMEOUT_SEC,
             )
         except Exception as exc:  # pragma: no cover - provider/network/permissions dependent
