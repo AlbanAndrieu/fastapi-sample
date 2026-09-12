@@ -104,7 +104,7 @@ def _client(
                 policies=_ReusablePolicies(reusable_policies or []),
                 service_tokens=_ServiceTokens(service_tokens or []),
             ),
-        )
+        ),
     )
 
 
@@ -154,7 +154,7 @@ def test_observer_reads_remote_tunnel_public_hostnames() -> None:
                 name="homelab",
                 status="healthy",
                 config_src="cloudflare",
-            )
+            ),
         ],
         configurations={
             "tunnel-1": SimpleNamespace(
@@ -165,9 +165,9 @@ def test_observer_reads_remote_tunnel_public_hostnames() -> None:
                             service="http://192.0.2.10:3000",
                         ),
                         SimpleNamespace(hostname="", service="http_status:404"),
-                    ]
-                )
-            )
+                    ],
+                ),
+            ),
         },
     )
 
@@ -194,7 +194,7 @@ def test_local_tunnel_is_reported_without_guessing_its_ingress() -> None:
                 name="locally-managed",
                 status="healthy",
                 config_src="local",
-            )
+            ),
         ],
         configurations={},
     )
@@ -234,7 +234,7 @@ def test_observer_reads_access_bypass_everyone_policy() -> None:
                 name="n8n",
                 domain="n8n.albandrieu.com",
                 policies=None,
-            )
+            ),
         ],
         access_policies={
             "app-n8n": [
@@ -243,8 +243,8 @@ def test_observer_reads_access_bypass_everyone_policy() -> None:
                     name="Public webhook workaround",
                     decision="bypass",
                     include=[SimpleNamespace(everyone=SimpleNamespace())],
-                )
-            ]
+                ),
+            ],
         },
     )
     observer = CloudflareTunnelObserver(
@@ -277,9 +277,9 @@ def test_observer_preserves_path_scoped_access_application() -> None:
                         name="Webhook bypass",
                         decision="bypass",
                         include=[{"everyone": {}}],
-                    )
+                    ),
                 ],
-            )
+            ),
         ],
     )
     observer = CloudflareTunnelObserver(

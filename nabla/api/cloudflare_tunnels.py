@@ -117,7 +117,9 @@ def _load_cloudflare_client() -> _CloudflareClientFactory:
     try:
         module = importlib.import_module("cloudflare")
     except ImportError as exc:
-        raise RuntimeError("Cloudflare observation requires the official 'cloudflare' Python SDK") from exc
+        raise RuntimeError(
+            "Cloudflare observation requires the official 'cloudflare' Python SDK",
+        ) from exc
     return module.Cloudflare
 
 
@@ -177,9 +179,15 @@ class CloudflareTunnelObserver:
             self._client = client
             return
         factory = client_factory or _load_cloudflare_client()
-        self._client = factory(api_token=settings.api_token, timeout=5.0, max_retries=0)
+        self._client = factory(
+            api_token=settings.api_token,
+            timeout=5.0,
+            max_retries=0,
+        )
 
-    def _list_tunnels(self) -> tuple[list[CloudflareTunnelObservation], dict[str, int]]:
+    def _list_tunnels(
+        self,
+    ) -> tuple[list[CloudflareTunnelObservation], dict[str, int]]:
         page = self._client.zero_trust.tunnels.cloudflared.list(
             account_id=self._settings.account_id,
             is_deleted=False,
@@ -211,7 +219,7 @@ class CloudflareTunnelObserver:
                     status=_value(tunnel, "status"),
                     config_source=config_source,
                     ingress=ingress,
-                )
+                ),
             )
 
         return observations, _pagination(page, len(observations))
@@ -220,7 +228,9 @@ class CloudflareTunnelObserver:
         """Return active cloudflared tunnels and Cloudflare-managed public hostnames."""
         return self._list_tunnels()[0]
 
-    def list_tunnels_with_metadata(self) -> tuple[list[CloudflareTunnelObservation], dict[str, int]]:
+    def list_tunnels_with_metadata(
+        self,
+    ) -> tuple[list[CloudflareTunnelObservation], dict[str, int]]:
         """Return tunnels plus sanitized API pagination metadata."""
         return self._list_tunnels()
 
@@ -251,7 +261,7 @@ class CloudflareTunnelObserver:
                     hostname=hostname.rstrip("."),
                     service=service,
                     status=status,
-                )
+                ),
             )
 
         return tuple(observed)
@@ -286,10 +296,20 @@ class CloudflareTunnelObserver:
                 policies.append(
                     CloudflareAccessPolicyObservation(
                         policy_id=policy_id,
-                        name=(str(_value(policy, "name")) if _value(policy, "name") is not None else None),
-                        decision=(str(_value(policy, "decision")).lower() if _value(policy, "decision") is not None else None),
-                        includes_everyone=any(_rule_includes_everyone(rule) for rule in include_rules),
-                    )
+                        name=(
+                            str(_value(policy, "name"))
+                            if _value(policy, "name") is not None
+                            else None
+                        ),
+                        decision=(
+                            str(_value(policy, "decision")).lower()
+                            if _value(policy, "decision") is not None
+                            else None
+                        ),
+                        includes_everyone=any(
+                            _rule_includes_everyone(rule) for rule in include_rules
+                        ),
+                    ),
                 )
 
             observations.append(
@@ -300,12 +320,14 @@ class CloudflareTunnelObserver:
                     hostname=hostname,
                     path=path,
                     policies=tuple(policies),
-                )
+                ),
             )
 
         return observations, _pagination(page, len(observations))
 
-    def list_access_applications(self) -> list[CloudflareAccessApplicationObservation]:
+    def list_access_applications(
+        self,
+    ) -> list[CloudflareAccessApplicationObservation]:
         """Return Access apps and policies using read-only Apps/Policies permissions."""
         return self._list_access_applications()[0]
 
@@ -339,7 +361,8 @@ class CloudflareTunnelObserver:
             reusable_policy_count = pagination["result_count"]
             reusable_policy_total_count = pagination["total_count"]
             reusable_policy_app_count = sum(
-                max(0, int(_value(policy, "app_count", 0) or 0)) for policy in policies
+                max(0, int(_value(policy, "app_count", 0) or 0))
+                for policy in policies
             )
         except Exception as exc:  # pragma: no cover - provider/network/permissions dependent
             reusable_policy_error = _short_error(exc)
@@ -360,7 +383,8 @@ class CloudflareTunnelObserver:
             configured_client_id = os.getenv("CF_ACCESS_CLIENT_ID", "").strip()
             if configured_client_id:
                 configured_service_token_present = any(
-                    str(_value(token, "client_id", "") or "") == configured_client_id
+                    str(_value(token, "client_id", "") or "")
+                    == configured_client_id
                     for token in tokens
                 )
         except Exception as exc:  # pragma: no cover - provider/network/permissions dependent
@@ -390,7 +414,10 @@ def observe_cloudflare_tunnels() -> list[CloudflareTunnelObservation]:
     return CloudflareTunnelObserver(settings).list_tunnels()
 
 
-def observe_cloudflare_tunnels_with_metadata() -> tuple[list[CloudflareTunnelObservation], dict[str, int]]:
+def observe_cloudflare_tunnels_with_metadata() -> tuple[
+    list[CloudflareTunnelObservation],
+    dict[str, int],
+]:
     """Observe tunnels and sanitized list-result counts."""
     settings = CloudflareTunnelSettings.from_environment()
     if settings is None:
