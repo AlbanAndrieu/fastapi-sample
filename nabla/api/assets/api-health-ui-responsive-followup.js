@@ -235,9 +235,8 @@ function isWorkstationBrowser() {
     .trim()
     .toLowerCase();
   return (
-    ["0.0.0.0", "127.0.0.1", "localhost", "::1", "[::1]"].includes(
-      hostname,
-    ) || window.location.port === "8080"
+    ["0.0.0.0", "127.0.0.1", "localhost", "::1", "[::1]"].includes(hostname) ||
+    window.location.port === "8080"
   );
 }
 
