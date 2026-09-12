@@ -45,5 +45,5 @@ installRuntimeVersionDriftWarning();
 installHealthUiResponsiveFollowup();
 installHealthUiProbeExplanations();
 installHealthUiOperatorFollowup();
-installHealthUiFinalFollowup();
 installHealthUiConsistencyFollowup();
+installHealthUiFinalFollowup();
