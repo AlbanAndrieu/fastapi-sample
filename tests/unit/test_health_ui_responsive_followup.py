@@ -70,7 +70,19 @@ def test_truenas_probe_first_note_is_neutralized_and_details_are_aligned() -> No
     assert "#truenas-platform > .service-detail-trigger" in stylesheet
 
 
-def test_workstation_filter_can_dock_left_and_layout_has_breakpoints() -> None:
+def test_workstation_filter_docks_from_local_browser_even_in_homelab_mode() -> None:
+    javascript = (ASSETS / "api-health-ui-responsive-followup.js").read_text(
+        encoding="utf-8",
+    )
+
+    assert "function isWorkstationBrowser()" in javascript
+    assert 'window.location.port === "8080"' in javascript
+    assert 'mode === "local" || isWorkstationBrowser()' in javascript
+    assert '"fastapi-health-filter-docked-v2"' in javascript
+    assert 'window.matchMedia("(min-width: 1121px)")' in javascript
+
+
+def test_workstation_filter_touches_left_edge_and_overlaps_content_slightly() -> None:
     javascript = (ASSETS / "api-health-ui-responsive-followup.js").read_text(
         encoding="utf-8",
     )
@@ -78,11 +90,13 @@ def test_workstation_filter_can_dock_left_and_layout_has_breakpoints() -> None:
         encoding="utf-8",
     )
 
-    assert 'mode === "local"' in javascript
-    assert "fastapi-health-filter-docked" in javascript
-    assert '"Dock left"' in javascript
-    assert "@media (min-width: 1500px)" in stylesheet
-    assert "health-ui--workstation.health-ui-filter-docked" in stylesheet
+    assert "ensureWorkstationDockStyles" in javascript
+    assert "@media (min-width: 1121px)" in javascript
+    assert "left: 0;" in javascript
+    assert "width: 470px;" in javascript
+    assert "max-width: 470px;" in javascript
+    assert "margin-left: 450px;" in javascript
+    assert "grid-template-columns: repeat(3, minmax(0, 1fr));" in javascript
     assert "@media (min-width: 721px) and (max-width: 1100px)" in stylesheet
     assert "@media (max-width: 720px)" in stylesheet
     assert "@media (max-width: 480px)" in stylesheet
