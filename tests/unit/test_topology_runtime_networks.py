@@ -17,7 +17,7 @@ def test_runtime_serializes_all_canonical_network_memberships() -> None:
             "provider": "truenas-app",
             "containerService": "fastapi-sample",
             "networks": ["intranet", "sample-observer", "traefik_network"],
-        }
+        },
     )
 
     assert runtime.networks == ["intranet", "sample-observer", "traefik_network"]
@@ -35,7 +35,7 @@ def test_runtime_rejects_duplicate_network_memberships() -> None:
                 "provider": "truenas-app",
                 "containerService": "fastapi-sample",
                 "networks": ["intranet", "intranet"],
-            }
+            },
         )
 
 
