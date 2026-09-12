@@ -18,7 +18,7 @@ def test_cloudflare_badge_is_provider_named_and_exposes_control_plane_counts() -
     assert "Access apps" in javascript
     assert "Reusable policies" in javascript
     assert "Service tokens" in javascript
-    assert "configured Service Token found in inventory" in javascript
+    assert "Service Token ${tokenOutcome}" in javascript
 
 
 def test_successful_demo_tasks_do_not_emit_error_events() -> None:
