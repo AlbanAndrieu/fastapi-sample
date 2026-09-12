@@ -15,7 +15,7 @@ def test_http_200_is_transport_green_and_hover_has_timing() -> None:
     assert "cadence=" in javascript
     assert "next-due=" in javascript
     assert "PENDING / probing…" in javascript
-    assert 'badge.classList.add(`service-probe--${toneFor(check)}`)' in javascript
+    assert "badge.classList.add(`service-probe--${toneFor(check)}`)" in javascript
 
 
 def test_service_drawer_exposes_probe_timing_and_freshness_layers() -> None:
