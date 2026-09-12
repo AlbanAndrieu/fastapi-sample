@@ -164,6 +164,11 @@ def _short_error(exc: BaseException) -> str:
     return exc.__class__.__name__[:80]
 
 
+def _tunnel_is_inactive(tunnel: object) -> bool:
+    """Return true only for explicit inactive provider state."""
+    return str(_value(tunnel, "status", "") or "").strip().lower() == "inactive"
+
+
 class CloudflareTunnelObserver:
     """Inspect Cloudflare-managed tunnels and Access without mutating state."""
 
@@ -193,13 +198,19 @@ class CloudflareTunnelObserver:
             is_deleted=False,
         )
         observations: list[CloudflareTunnelObservation] = []
+        inactive_filtered = 0
 
         for tunnel in page:
+            if _tunnel_is_inactive(tunnel):
+                inactive_filtered += 1
+                continue
+
             tunnel_id = str(_value(tunnel, "id", "") or "")
             if not tunnel_id:
                 continue
 
             tunnel_name = str(_value(tunnel, "name", "") or tunnel_id)
+            tunnel_status = _value(tunnel, "status")
             config_source = _value(tunnel, "config_src")
             ingress: tuple[CloudflareTunnelIngress, ...] = ()
 
@@ -209,20 +220,23 @@ class CloudflareTunnelObserver:
                 ingress = self._read_ingress(
                     tunnel_id=tunnel_id,
                     tunnel_name=tunnel_name,
-                    status=_value(tunnel, "status"),
+                    status=tunnel_status,
                 )
 
             observations.append(
                 CloudflareTunnelObservation(
                     tunnel_id=tunnel_id,
                     name=tunnel_name,
-                    status=_value(tunnel, "status"),
+                    status=tunnel_status,
                     config_source=config_source,
                     ingress=ingress,
                 ),
             )
 
-        return observations, _pagination(page, len(observations))
+        metadata = _pagination(page, len(observations))
+        metadata["result_count"] = len(observations)
+        metadata["inactive_filtered"] = inactive_filtered
+        return observations, metadata
 
     def list_tunnels(self) -> list[CloudflareTunnelObservation]:
         """Return active cloudflared tunnels and Cloudflare-managed public hostnames."""
@@ -296,9 +310,19 @@ class CloudflareTunnelObserver:
                 policies.append(
                     CloudflareAccessPolicyObservation(
                         policy_id=policy_id,
-                        name=(str(_value(policy, "name")) if _value(policy, "name") is not None else None),
-                        decision=(str(_value(policy, "decision")).lower() if _value(policy, "decision") is not None else None),
-                        includes_everyone=any(_rule_includes_everyone(rule) for rule in include_rules),
+                        name=(
+                            str(_value(policy, "name"))
+                            if _value(policy, "name") is not None
+                            else None
+                        ),
+                        decision=(
+                            str(_value(policy, "decision")).lower()
+                            if _value(policy, "decision") is not None
+                            else None
+                        ),
+                        includes_everyone=any(
+                            _rule_includes_everyone(rule) for rule in include_rules
+                        ),
                     ),
                 )
 
@@ -350,7 +374,10 @@ class CloudflareTunnelObserver:
             pagination = _pagination(page, len(policies))
             reusable_policy_count = pagination["result_count"]
             reusable_policy_total_count = pagination["total_count"]
-            reusable_policy_app_count = sum(max(0, int(_value(policy, "app_count", 0) or 0)) for policy in policies)
+            reusable_policy_app_count = sum(
+                max(0, int(_value(policy, "app_count", 0) or 0))
+                for policy in policies
+            )
         except Exception as exc:  # pragma: no cover - provider/network/permissions dependent
             reusable_policy_error = _short_error(exc)
         reusable_policy_elapsed_ms = round((time.perf_counter() - started) * 1000)
@@ -364,10 +391,15 @@ class CloudflareTunnelObserver:
             pagination = _pagination(page, len(tokens))
             service_token_count = pagination["result_count"]
             service_token_total_count = pagination["total_count"]
-            service_token_enabled_count = sum(_value(token, "enabled", True) is not False for token in tokens)
+            service_token_enabled_count = sum(
+                _value(token, "enabled", True) is not False for token in tokens
+            )
             configured_client_id = os.getenv("CF_ACCESS_CLIENT_ID", "").strip()
             if configured_client_id:
-                configured_service_token_present = any(str(_value(token, "client_id", "") or "") == configured_client_id for token in tokens)
+                configured_service_token_present = any(
+                    str(_value(token, "client_id", "") or "") == configured_client_id
+                    for token in tokens
+                )
         except Exception as exc:  # pragma: no cover - provider/network/permissions dependent
             service_token_error = _short_error(exc)
         service_token_elapsed_ms = round((time.perf_counter() - started) * 1000)
@@ -406,7 +438,9 @@ def observe_cloudflare_tunnels_with_metadata() -> tuple[
     return CloudflareTunnelObserver(settings).list_tunnels_with_metadata()
 
 
-def observe_cloudflare_access_applications() -> list[CloudflareAccessApplicationObservation]:
+def observe_cloudflare_access_applications() -> list[
+    CloudflareAccessApplicationObservation
+]:
     """Observe Access apps/policies when the read-only token has the required scope."""
     settings = CloudflareTunnelSettings.from_environment()
     if settings is None:
