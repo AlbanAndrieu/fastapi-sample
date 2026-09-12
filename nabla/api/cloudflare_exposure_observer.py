@@ -65,13 +65,7 @@ def _tunnel_summary(tunnel: CloudflareTunnelObservation) -> dict[str, Any]:
         "status": tunnel.status,
         "management": management,
         "ingress_count": len(ingress),
-        "ingress_visibility": (
-            "remote_api"
-            if management == "cloudflare"
-            else "local_yaml_unavailable_via_api"
-            if management == "local"
-            else "unknown"
-        ),
+        "ingress_visibility": ("remote_api" if management == "cloudflare" else "local_yaml_unavailable_via_api" if management == "local" else "unknown"),
         "ingress": ingress,
     }
 
@@ -137,20 +131,11 @@ class CloudflareExposureSnapshot:
 
     def summary(self) -> dict[str, Any]:
         confirmed = bool(
-            self.configured
-            and self.tunnels
-            and not self.tunnel_error
-            and not self.access_error
-            and not self.stale,
+            self.configured and self.tunnels and not self.tunnel_error and not self.access_error and not self.stale,
         )
         warning = None
         if self.configured and not confirmed:
-            reason = (
-                self.refresh_error
-                or self.tunnel_error
-                or self.access_error
-                or "Cloudflare inventory is empty"
-            )
+            reason = self.refresh_error or self.tunnel_error or self.access_error or "Cloudflare inventory is empty"
             warning = f"⚠️ Cloudflare global status could not be confirmed: {reason}"
         config_sources = [str(tunnel.config_source or "unknown") for tunnel in self.tunnels]
         local_managed = sum(source == "local" for source in config_sources)
