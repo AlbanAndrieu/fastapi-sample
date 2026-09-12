@@ -36,11 +36,6 @@ function providerItem(section, label) {
   );
 }
 
-function familyCount(family) {
-  const value = Number(family?.total_count ?? family?.result_count);
-  return Number.isFinite(value) ? value : null;
-}
-
 function familyError(family) {
   if (!family) return "inventory not confirmed";
   if (family.success === false || family.state === "error") {
@@ -76,17 +71,22 @@ function removeDuplicateProviderItems(section) {
   }
 }
 
-function removeCloudflareSummaryDuplicates(drawer, accessItem) {
-  const canonicalText = normalize(
-    accessItem?.querySelector(":scope > div > span")?.textContent,
+function isLegacyCloudflareSummary(text) {
+  const value = normalize(text);
+  return (
+    /^\d+ application\(s\) visible$/.test(value) ||
+    /^\d+ policy object\(s\) visible$/.test(value) ||
+    /^\d+ service token\(s\) visible$/.test(value) ||
+    value.includes("project service token") ||
+    value.includes("project policy visible")
   );
-  if (!canonicalText) return;
+}
+
+function removeCloudflareSummaryDuplicates(drawer) {
   for (const node of drawer.querySelectorAll(
     ".service-detail-metric, .service-provider-summary",
   )) {
-    if (node.closest(".service-provider-item") === accessItem) continue;
-    const text = normalize(node.textContent);
-    if (text === canonicalText || text.endsWith(canonicalText)) node.remove();
+    if (isLegacyCloudflareSummary(node.textContent)) node.remove();
   }
 }
 
@@ -98,32 +98,22 @@ function reconcileCloudflare(section, drawer) {
 
   const accessItem = providerItem(section, "Access applications");
   const appError = familyError(apps);
-  const appCount = familyCount(apps);
   setProviderDetail(
     accessItem,
-    appError ||
-      (appCount == null
-        ? "inventory not confirmed"
-        : `${appCount} application(s) visible`),
-    appError ? "warn" : appCount == null ? "neutral" : "ok",
+    appError || "inventory confirmed",
+    appError ? "warn" : apps ? "ok" : "neutral",
   );
 
   const policyItem = providerItem(section, "Reusable policies");
   const policyError = familyError(policies);
-  const policyCount = familyCount(policies);
-  const policyLabel = policyCount === 1 ? "project policy" : "project policies";
   setProviderDetail(
     policyItem,
-    policyError ||
-      (policyCount == null
-        ? `${PROJECT_ACCESS_POLICY} · inventory not confirmed`
-        : `${policyCount} ${policyLabel} visible · ${PROJECT_ACCESS_POLICY}`),
-    policyError ? "warn" : policyCount == null ? "neutral" : "ok",
+    policyError || PROJECT_ACCESS_POLICY,
+    policyError ? "warn" : policies ? "ok" : "neutral",
   );
 
   const tokenItem = providerItem(section, "Service Tokens");
   const tokenError = familyError(tokens);
-  const tokenCount = familyCount(tokens);
   const present = tokens?.configured_client_id_present;
   const tokenPresence =
     present === true
@@ -133,19 +123,16 @@ function reconcileCloudflare(section, drawer) {
         : "Service Auth correlation not confirmed";
   setProviderDetail(
     tokenItem,
-    tokenError ||
-      (tokenCount == null
-        ? `${PROJECT_SERVICE_AUTH} · ${tokenPresence}`
-        : `${tokenCount} project Service Token${tokenCount === 1 ? "" : "s"} visible · ${PROJECT_SERVICE_AUTH} · ${tokenPresence}`),
+    tokenError || `${PROJECT_SERVICE_AUTH} · ${tokenPresence}`,
     tokenError || present === false
       ? "warn"
-      : tokenCount == null
-        ? "neutral"
-        : "ok",
+      : tokens
+        ? "ok"
+        : "neutral",
   );
 
   removeDuplicateProviderItems(section);
-  removeCloudflareSummaryDuplicates(drawer, accessItem);
+  removeCloudflareSummaryDuplicates(drawer);
 }
 
 function reconcileDrawer() {
