@@ -1,3 +1,10 @@
+## [1.19.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.19.1...1.19.2) (2026-09-12)
+
+
+### Bug Fixes
+
+* **health:** stabilize service filters and Access evidence ([#254](https://github.com/AlbanAndrieu/fastapi-sample/issues/254)) ([e10ceb5](https://github.com/AlbanAndrieu/fastapi-sample/commit/e10ceb5e0172878becf816877b69b6504adbeae1))
+
 ## [1.19.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.19.0...1.19.1) (2026-09-12)
 
 
