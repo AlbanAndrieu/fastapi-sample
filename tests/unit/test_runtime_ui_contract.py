@@ -87,6 +87,20 @@ def test_runtime_topology_uses_shared_health_board_request() -> None:
     assert '@import url("./api-runtime.css")' in styles
 
 
+def test_runtime_title_uses_visible_hostname_then_runtime_mode() -> None:
+    javascript = (ASSETS / "api-runtime.js").read_text(encoding="utf-8")
+
+    assert "function runtimeContext(runtimeMode)" in javascript
+    assert "window.location.hostname" in javascript
+    assert '"0.0.0.0"' in javascript
+    assert '"127.0.0.1"' in javascript
+    assert '"localhost"' in javascript
+    assert 'runtimeMode || "local"' in javascript
+    assert 'return `FastAPI runtime · ${runtimeContext(runtimeMode)}`;' in javascript
+    assert "FastAPI runtime · TrueNAS" not in javascript
+    assert "FastAPI runtime · workstation" not in javascript
+
+
 def test_runtime_refresh_preserves_operator_expansion_state() -> None:
     javascript = (ASSETS / "api-runtime.js").read_text(encoding="utf-8")
 
@@ -99,9 +113,6 @@ def test_runtime_refresh_preserves_operator_expansion_state() -> None:
     assert "homelab telemetry degraded" in javascript
     assert 'runtimeMode === "homelab"' in javascript
     assert '"trusted LAN"' in javascript
-    assert 'return "FastAPI runtime";' in javascript
-    assert 'return "FastAPI runtime · TrueNAS";' in javascript
-    assert 'return "FastAPI runtime · workstation";' in javascript
     assert 'setText("runtime-topology-title", runtimeTitle(runtimeMode));' in javascript
     assert "observed_instance_count" in javascript
     assert "active_egress_ips" in javascript
