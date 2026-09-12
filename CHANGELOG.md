@@ -1,3 +1,10 @@
+## [1.20.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.0...1.20.1) (2026-09-12)
+
+
+### Bug Fixes
+
+* **ui:** separate public and LAN service probe evidence ([#255](https://github.com/AlbanAndrieu/fastapi-sample/issues/255)) ([e7f782e](https://github.com/AlbanAndrieu/fastapi-sample/commit/e7f782eea3fc4c4d6083f75bca54e15205be950b))
+
 # [1.20.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.19.2...1.20.0) (2026-09-12)
 
 
