@@ -12,7 +12,9 @@ def test_cloudflare_badge_is_provider_named_and_exposes_control_plane_counts() -
     )
 
     assert "<span>Cloudflare</span>" in javascript
-    assert "config_src=" in javascript
+    assert "config_src=" not in javascript
+    assert "Tunnel ${tunnel.name" in javascript
+    assert "status=${tunnel.status" in javascript
     assert "Access apps" in javascript
     assert "Reusable policies" in javascript
     assert "Service tokens" in javascript
