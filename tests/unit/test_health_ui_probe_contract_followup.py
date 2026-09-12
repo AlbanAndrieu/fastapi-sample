@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from nabla.api import homelab_catalog
 from nabla.api.homelab_models import HomelabService
