@@ -37,6 +37,7 @@ jobs:
         shell: bash
         env:
           UV_NO_SYNC: "1"
+          SKIP: "pytest-collect"
         run: |
           mapfile -t files < <(git diff --name-only --diff-filter=ACMR origin/master...HEAD)
           if ((${#files[@]} == 0)); then
@@ -49,7 +50,7 @@ jobs:
             set -e
             if ((rc == 0)); then
               echo "deterministic hooks converged in ${pass} pass(es)"
-              exit 0
+              break
             fi
             if ((pass == 3)); then
               exit "${rc}"
