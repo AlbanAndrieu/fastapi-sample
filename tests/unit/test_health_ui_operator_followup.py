@@ -66,7 +66,7 @@ def test_local_flow_keeps_pfsense_as_dns_and_haproxy_dependency() -> None:
     assert '"pfSense LAN services"' in source
     assert "internal DNS/Unbound + HAProxy" in source
     assert "does not claim every direct-LAN packet traverses PF/WAN rules" in source
-    assert 'observeTrueNasPipeline()' in source
+    assert "observeTrueNasPipeline()" in source
 
 
 def test_legacy_sickz_label_uses_authoritative_catalog_description() -> None:
