@@ -169,7 +169,6 @@
   }
 
   .service-detail-drawer {
-    max-height: min(82vh, 720px);
     max-height: min(82dvh, 720px);
   }
 }
@@ -195,7 +194,6 @@
     right: 0.2rem;
     bottom: 0.2rem;
     left: 0.2rem;
-    max-height: 86vh;
     max-height: 86dvh;
   }
 
