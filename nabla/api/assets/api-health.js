@@ -1,6 +1,7 @@
 import { installGlobalServiceFilter } from "./api-global-service-filter.js";
 import { installHealthBoardController } from "./api-health-controller.js";
 import { installHealthOperatorUx } from "./api-health-operator-ux.js";
+import { installHealthUiConsistencyFollowup } from "./api-health-ui-consistency-followup.js";
 import { installHealthUiFinalFollowup } from "./api-health-ui-final-followup.js";
 import { installHealthUiOperatorFollowup } from "./api-health-ui-operator-followup.js";
 import { installHealthUiPolish } from "./api-health-ui-polish.js";
@@ -45,3 +46,4 @@ installHealthUiResponsiveFollowup();
 installHealthUiProbeExplanations();
 installHealthUiOperatorFollowup();
 installHealthUiFinalFollowup();
+installHealthUiConsistencyFollowup();
