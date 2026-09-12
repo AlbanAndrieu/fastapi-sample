@@ -6,11 +6,24 @@ function setText(id, value) {
   if (element) element.textContent = value;
 }
 
+function runtimeContext(runtimeMode) {
+  const hostname = String(window.location.hostname || "")
+    .trim()
+    .toLowerCase();
+  const localBindings = new Set([
+    "",
+    "0.0.0.0",
+    "127.0.0.1",
+    "localhost",
+    "::",
+    "::1",
+    "[::1]",
+  ]);
+  return localBindings.has(hostname) ? runtimeMode || "local" : hostname;
+}
+
 function runtimeTitle(runtimeMode) {
-  if (runtimeMode === "homelab") return "FastAPI runtime · TrueNAS";
-  if (runtimeMode === "local") return "FastAPI runtime · workstation";
-  if (runtimeMode === "cloud_paas") return "FastAPI runtime · PaaS";
-  return "FastAPI runtime";
+  return `FastAPI runtime · ${runtimeContext(runtimeMode)}`;
 }
 
 function renderPills(values) {
