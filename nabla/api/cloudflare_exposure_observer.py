@@ -259,13 +259,8 @@ class CloudflareExposureSnapshot:
             tunnel_error = "empty_inventory"
         return {
             "configured": self.configured,
-            "tunnels": [
-                item.model_dump(mode="json") for item in self.tunnels
-            ],
-            "access_applications": [
-                item.model_dump(mode="json")
-                for item in self.access_applications
-            ],
+            "tunnels": [item.model_dump(mode="json") for item in self.tunnels],
+            "access_applications": [item.model_dump(mode="json") for item in self.access_applications],
             "tunnel_error": tunnel_error,
             "access_error": self.access_error,
             "tunnel_elapsed_ms": self.tunnel_elapsed_ms,
@@ -293,37 +288,17 @@ class CloudflareExposureSnapshot:
         raw_control = payload.get("access_control_plane")
         return cls(
             configured=bool(payload.get("configured")),
-            tunnels=tuple(
-                CloudflareTunnelObservation.model_validate(item)
-                for item in payload.get("tunnels", [])
-                if isinstance(item, dict)
-            ),
-            access_applications=tuple(
-                CloudflareAccessApplicationObservation.model_validate(item)
-                for item in payload.get("access_applications", [])
-                if isinstance(item, dict)
-            ),
-            tunnel_error=(
-                str(payload["tunnel_error"])
-                if payload.get("tunnel_error")
-                else None
-            ),
-            access_error=(
-                str(payload["access_error"])
-                if payload.get("access_error")
-                else None
-            ),
+            tunnels=tuple(CloudflareTunnelObservation.model_validate(item) for item in payload.get("tunnels", []) if isinstance(item, dict)),
+            access_applications=tuple(CloudflareAccessApplicationObservation.model_validate(item) for item in payload.get("access_applications", []) if isinstance(item, dict)),
+            tunnel_error=(str(payload["tunnel_error"]) if payload.get("tunnel_error") else None),
+            access_error=(str(payload["access_error"]) if payload.get("access_error") else None),
             tunnel_elapsed_ms=payload.get("tunnel_elapsed_ms"),
             access_elapsed_ms=payload.get("access_elapsed_ms"),
             tunnel_result_count=payload.get("tunnel_result_count"),
             tunnel_total_count=payload.get("tunnel_total_count"),
             access_result_count=payload.get("access_result_count"),
             access_total_count=payload.get("access_total_count"),
-            access_control_plane=(
-                CloudflareAccessControlPlaneObservation.model_validate(raw_control)
-                if isinstance(raw_control, dict)
-                else None
-            ),
+            access_control_plane=(CloudflareAccessControlPlaneObservation.model_validate(raw_control) if isinstance(raw_control, dict) else None),
             stale=stale,
             refresh_error=refresh_error,
             cache=cache,
@@ -445,18 +420,12 @@ async def _origin() -> dict[str, Any]:
 
 def _success(payload: dict[str, Any]) -> bool:
     return bool(
-        payload.get("tunnels")
-        and not payload.get("tunnel_error")
-        and not payload.get("access_error"),
+        payload.get("tunnels") and not payload.get("tunnel_error") and not payload.get("access_error"),
     )
 
 
 def _refresh_error(payload: dict[str, Any]) -> str | None:
-    errors = [
-        str(value)
-        for value in (payload.get("tunnel_error"), payload.get("access_error"))
-        if value
-    ]
+    errors = [str(value) for value in (payload.get("tunnel_error"), payload.get("access_error")) if value]
     return ", ".join(errors) or None
 
 
@@ -471,9 +440,7 @@ async def observe_cloudflare_exposure() -> CloudflareExposureSnapshot:
         policy=CLOUDFLARE_EXPOSURE_CACHE_POLICY,
     )
     current_error = _refresh_error(cached.value)
-    if (
-        current_error or cached.metadata.get("stale") is True
-    ) and cached.last_good:
+    if (current_error or cached.metadata.get("stale") is True) and cached.last_good:
         return CloudflareExposureSnapshot.from_cache_payload(
             cached.last_good,
             stale=True,
