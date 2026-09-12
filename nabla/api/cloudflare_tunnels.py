@@ -296,19 +296,9 @@ class CloudflareTunnelObserver:
                 policies.append(
                     CloudflareAccessPolicyObservation(
                         policy_id=policy_id,
-                        name=(
-                            str(_value(policy, "name"))
-                            if _value(policy, "name") is not None
-                            else None
-                        ),
-                        decision=(
-                            str(_value(policy, "decision")).lower()
-                            if _value(policy, "decision") is not None
-                            else None
-                        ),
-                        includes_everyone=any(
-                            _rule_includes_everyone(rule) for rule in include_rules
-                        ),
+                        name=(str(_value(policy, "name")) if _value(policy, "name") is not None else None),
+                        decision=(str(_value(policy, "decision")).lower() if _value(policy, "decision") is not None else None),
+                        includes_everyone=any(_rule_includes_everyone(rule) for rule in include_rules),
                     ),
                 )
 
@@ -360,10 +350,7 @@ class CloudflareTunnelObserver:
             pagination = _pagination(page, len(policies))
             reusable_policy_count = pagination["result_count"]
             reusable_policy_total_count = pagination["total_count"]
-            reusable_policy_app_count = sum(
-                max(0, int(_value(policy, "app_count", 0) or 0))
-                for policy in policies
-            )
+            reusable_policy_app_count = sum(max(0, int(_value(policy, "app_count", 0) or 0)) for policy in policies)
         except Exception as exc:  # pragma: no cover - provider/network/permissions dependent
             reusable_policy_error = _short_error(exc)
         reusable_policy_elapsed_ms = round((time.perf_counter() - started) * 1000)
@@ -377,16 +364,10 @@ class CloudflareTunnelObserver:
             pagination = _pagination(page, len(tokens))
             service_token_count = pagination["result_count"]
             service_token_total_count = pagination["total_count"]
-            service_token_enabled_count = sum(
-                _value(token, "enabled", True) is not False for token in tokens
-            )
+            service_token_enabled_count = sum(_value(token, "enabled", True) is not False for token in tokens)
             configured_client_id = os.getenv("CF_ACCESS_CLIENT_ID", "").strip()
             if configured_client_id:
-                configured_service_token_present = any(
-                    str(_value(token, "client_id", "") or "")
-                    == configured_client_id
-                    for token in tokens
-                )
+                configured_service_token_present = any(str(_value(token, "client_id", "") or "") == configured_client_id for token in tokens)
         except Exception as exc:  # pragma: no cover - provider/network/permissions dependent
             service_token_error = _short_error(exc)
         service_token_elapsed_ms = round((time.perf_counter() - started) * 1000)
