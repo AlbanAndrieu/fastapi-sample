@@ -99,7 +99,7 @@ def test_local_runtime_notices_and_pfsense_evidence_are_reconciled() -> None:
     assert "HOMELAB_INTERNAL_PROBES_ENABLED=false" in source
     assert "RUNTIME_DIAGNOSTICS_ENABLED=false" in source
     assert 'fetch("/v1/runtime/metadata"' in source
-    assert "['local', 'homelab'].includes" in source
+    assert '["local", "homelab"].includes' in source
     assert "pfSense REST/API reachability is independently confirmed" in source
     assert 'led.className = "health-led health-led--blue"' in source
 
