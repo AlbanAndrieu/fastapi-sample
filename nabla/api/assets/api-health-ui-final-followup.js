@@ -14,6 +14,16 @@ function normalize(value) {
     .toLowerCase();
 }
 
+function hostOf(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  try {
+    return new URL(raw, window.location.href).hostname.toLowerCase().replace(/\.$/, "");
+  } catch {
+    return "";
+  }
+}
+
 function rowKey(row) {
   return String(
     row?.dataset?.topologyId ||
@@ -22,6 +32,44 @@ function rowKey(row) {
       row?.id ||
       "service",
   );
+}
+
+function collectionValues(collection) {
+  if (Array.isArray(collection)) return collection;
+  if (collection && typeof collection === "object") return Object.values(collection);
+  return [];
+}
+
+function checkMatchesRow(check, row) {
+  if (!check || !row) return false;
+  const key = normalize(row.dataset.serviceKey);
+  const name = normalize(row.dataset.serviceName);
+  const ids = [check.id, check.service_id, check.serviceId]
+    .map(normalize)
+    .filter(Boolean);
+  if (key && ids.includes(key)) return true;
+  const names = [check.name, check.display_label]
+    .map(normalize)
+    .filter(Boolean);
+  if (name && names.includes(name)) return true;
+  const rowHost = hostOf(row.dataset.serviceUrl);
+  return rowHost && hostOf(check.url || check.tunnel_url || check.tunnelUrl) === rowHost;
+}
+
+function evidenceForRow(row) {
+  if (!latestSnapshot) return null;
+  for (const collection of [
+    latestSnapshot?.homelab?.public_probe_results,
+    latestSnapshot?.homelab?.services,
+    latestSnapshot?.healthz?.checks,
+    latestSnapshot?.sickz?.checks,
+  ]) {
+    const match = collectionValues(collection).find((check) =>
+      checkMatchesRow(check, row),
+    );
+    if (match) return match;
+  }
+  return null;
 }
 
 function probeCacheKey(row, kind) {
@@ -57,6 +105,49 @@ function publicStrip(row) {
   );
 }
 
+function makeProbe(kind, tone, iconText, labelText, detail) {
+  const badge = document.createElement("span");
+  badge.className = `service-probe service-probe--${tone}`;
+  badge.dataset.probeKind = kind;
+  badge.title = detail;
+  badge.setAttribute("aria-label", detail);
+  const icon = document.createElement("span");
+  icon.className = "service-probe-icon";
+  icon.setAttribute("aria-hidden", "true");
+  icon.textContent = iconText;
+  const label = document.createElement("span");
+  label.className = "service-probe-label";
+  label.textContent = labelText;
+  badge.append(icon, label);
+  return badge;
+}
+
+function ensureDnsEvidence(row) {
+  const strip = publicStrip(row);
+  if (!strip || strip.querySelector('[data-probe-kind="dns"]')) return;
+  const evidence = evidenceForRow(row);
+  if (!evidence?.dns_hostname) return;
+  const state = normalize(evidence.dns_state);
+  const resolved = Array.isArray(evidence.dns_resolved)
+    ? evidence.dns_resolved.filter(Boolean)
+    : [];
+  const resolvers = Array.isArray(evidence.dns_resolvers)
+    ? evidence.dns_resolvers.filter(Boolean)
+    : [];
+  const tone = state === "ok" ? "ok" : state === "fail" ? "fail" : "unknown";
+  const latency = Number(evidence.dns_latency_ms);
+  const detail = [
+    `DNS ${evidence.dns_hostname}`,
+    resolved.length ? `resolved=${resolved.join(", ")}` : "no resolved address",
+    resolvers.length ? `resolver=${resolvers.join(", ")}` : "resolver unavailable",
+    Number.isFinite(latency) ? `${latency} ms` : "",
+    evidence.dns_probe ? `probe=${evidence.dns_probe}` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  strip.prepend(makeProbe("dns", tone, "🧭", "DNS", detail));
+}
+
 function ensureStableCloudflareTunnel(row) {
   const key = normalize(`${row.dataset.serviceKey} ${row.dataset.serviceName}`);
   const exposureRow = Boolean(row.closest("#sickz-checks"));
@@ -77,25 +168,19 @@ function ensureStableCloudflareTunnel(row) {
   if (!key.includes("cloudflare") && row.dataset.exposureMode !== "cloudflare") {
     return;
   }
-  const badge = document.createElement("span");
-  badge.className = "service-probe service-probe--neutral";
-  badge.dataset.probeKind = "cloudflare";
+  const badge = makeProbe(
+    "cloudflare",
+    "neutral",
+    "☁️",
+    "Tunnel",
+    "Cloudflare Tunnel evidence is currently unavailable. The Tunnel capability remains visible in gray so unavailable control-plane evidence is not confused with a removed route.",
+  );
   badge.dataset.probeDisabled = "true";
-  badge.title =
-    "Cloudflare Tunnel evidence is currently unavailable. The Tunnel capability remains visible in gray so unavailable control-plane evidence is not confused with a removed route.";
-  badge.setAttribute("aria-label", badge.title);
-  const icon = document.createElement("span");
-  icon.className = "service-probe-icon";
-  icon.setAttribute("aria-hidden", "true");
-  icon.textContent = "☁️";
-  const label = document.createElement("span");
-  label.className = "service-probe-label";
-  label.textContent = "Tunnel";
-  badge.append(icon, label);
   strip.appendChild(badge);
 }
 
 function rememberAndRestoreProbes(row) {
+  ensureDnsEvidence(row);
   const probes = [...row.querySelectorAll(".service-probe[data-probe-kind]")];
   for (const probe of probes) rememberProbe(row, probe);
   ensureStableCloudflareTunnel(row);
@@ -234,7 +319,6 @@ function observeBoard() {
 
 async function refresh() {
   latestSnapshot = await fetchHealthBoard().catch(() => latestSnapshot);
-  void latestSnapshot;
   schedule();
 }
 
