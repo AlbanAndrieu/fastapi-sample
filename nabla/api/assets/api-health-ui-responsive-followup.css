@@ -1,0 +1,209 @@
+.service-detail-status-reason {
+  padding: 0.55rem 0.6rem;
+  border: 1px solid #303030;
+  border-radius: 8px;
+  background: #101010;
+}
+
+.service-detail-status-reason p {
+  margin: 0;
+  color: #aeb4be;
+  font-size: 0.64rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.service-detail-status-reason[data-tone="degraded"],
+.service-detail-status-reason[data-tone="at-risk"] {
+  border-color: rgba(255, 204, 51, 0.34);
+}
+
+.service-detail-status-reason[data-tone="down"] {
+  border-color: rgba(255, 68, 68, 0.4);
+}
+
+.service-detail-status-reason[data-tone="operational"] {
+  border-color: rgba(0, 255, 136, 0.3);
+}
+
+[data-operator-section="runtime"],
+[data-operator-section="dependencies"] {
+  min-height: 4.1rem;
+  contain: layout;
+}
+
+.service-detail-section--retained {
+  opacity: 0.96;
+}
+
+.truenas-platform {
+  position: relative;
+}
+
+#truenas-platform > .service-detail-trigger {
+  position: absolute;
+  top: 0.82rem;
+  right: 0.9rem;
+  z-index: 2;
+  margin: 0;
+}
+
+.truenas-platform-heading {
+  padding-right: 5.5rem;
+}
+
+.truenas-platform-info {
+  margin: 0.4rem 0 0;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #2b3440;
+  border-radius: 7px;
+  background: #0e1217;
+  color: #8995a3;
+  font-size: 0.61rem;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.service-filter-dock-toggle {
+  white-space: nowrap;
+}
+
+@media (min-width: 1500px) {
+  body.health-ui--workstation.health-ui-filter-docked main {
+    width: calc(100vw - 390px);
+    max-width: min(1200px, calc(100vw - 390px));
+    margin-right: auto;
+    margin-left: 370px;
+  }
+
+  body.health-ui--workstation.health-ui-filter-docked
+    .service-filter-sticky-sentinel {
+    display: none;
+  }
+
+  body.health-ui--workstation.health-ui-filter-docked .service-filter--global {
+    position: fixed;
+    z-index: 70;
+    top: 0.75rem;
+    right: auto;
+    bottom: 0.75rem;
+    left: 0.75rem;
+    width: 340px;
+    max-width: 340px;
+    max-height: none;
+    margin: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  body.health-ui--workstation.health-ui-filter-docked
+    .service-filter--global[data-stuck="true"][data-expanded="true"] {
+    max-height: none;
+  }
+
+  body.health-ui--workstation.health-ui-filter-docked
+    .service-filter--global
+    .service-filter-health-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.health-ui--workstation.health-ui-filter-docked
+    .service-filter--global
+    .service-filter-control {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  body.health-ui--workstation.health-ui-filter-docked
+    .service-filter--global
+    .service-filter-control
+    input {
+    grid-column: 1 / -1;
+  }
+
+  body.health-ui--workstation.health-ui-filter-docked
+    .service-filter--global
+    .service-filter-facets {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 721px) and (max-width: 1100px) {
+  .service-filter-health-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .service-filter--global .service-filter-control {
+    grid-template-columns: minmax(180px, 1fr) repeat(3, auto);
+  }
+
+  .service-detail-drawer {
+    width: min(400px, 46vw);
+  }
+
+  .service-detail-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .service-filter-dock-toggle {
+    display: none;
+  }
+
+  #truenas-platform > .service-detail-trigger {
+    top: 0.55rem;
+    right: 0.55rem;
+  }
+
+  .truenas-platform-heading {
+    padding-right: 4.9rem;
+  }
+
+  .truenas-platform-info {
+    font-size: 0.59rem;
+  }
+
+  [data-operator-section="runtime"],
+  [data-operator-section="dependencies"] {
+    min-height: 3.2rem;
+  }
+
+  .service-detail-drawer {
+    max-height: min(82vh, 720px);
+    max-height: min(82dvh, 720px);
+  }
+}
+
+@media (max-width: 480px) {
+  .service-filter-heading-actions {
+    flex-wrap: wrap;
+  }
+
+  .service-filter-health-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .service-filter--global .service-filter-control {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .service-filter--global .service-filter-control input {
+    grid-column: 1 / -1;
+  }
+
+  .service-detail-drawer {
+    right: 0.2rem;
+    bottom: 0.2rem;
+    left: 0.2rem;
+    max-height: 86vh;
+    max-height: 86dvh;
+  }
+
+  .service-detail-header {
+    padding-inline: 0.7rem;
+  }
+
+  .service-detail-body {
+    padding-inline: 0.7rem;
+  }
+}
