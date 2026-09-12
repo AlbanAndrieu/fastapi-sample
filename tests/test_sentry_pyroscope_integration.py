@@ -48,11 +48,7 @@ def test_sentry_tracing_and_pyroscope_profiling_can_run_together(monkeypatch) ->
     assert sentry_kwargs["environment"] == "homelab"
     assert sentry_kwargs["server_name"] == "fastapi-sample"
 
-    fastapi_integration = next(
-        integration
-        for integration in sentry_kwargs["integrations"]
-        if isinstance(integration, FastApiIntegration)
-    )
+    fastapi_integration = next(integration for integration in sentry_kwargs["integrations"] if isinstance(integration, FastApiIntegration))
     assert fastapi_integration.transaction_style == "url"
 
     pyroscope_configure.assert_called_once_with(
