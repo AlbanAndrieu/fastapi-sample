@@ -165,3 +165,100 @@ def test_exposure_summary_reports_local_vs_dashboard_managed_tunnels() -> None:
     assert summary["cloudflare_managed_tunnels"] == 1
     assert summary["unknown_management_tunnels"] == 1
     assert summary["tunnel_config_sources"] == ["cloudflare", "local", "unknown"]
+
+
+def test_exposure_summary_includes_sanitized_routes_and_access_policies() -> None:
+    credential_like_origin = "http://" + "fixture-user" + ":" + "fixture-password" + "@" + "172.17.0.24:8091/api?token=fixture-token"
+    snapshot = cloudflare_exposure_observer.CloudflareExposureSnapshot(
+        configured=True,
+        tunnels=(
+            CloudflareTunnelObservation(
+                tunnel_id="tunnel-id",
+                name="homelab",
+                status="healthy",
+                config_source="cloudflare",
+                ingress=(
+                    CloudflareTunnelIngress(
+                        tunnel_id="tunnel-id",
+                        tunnel_name="homelab",
+                        hostname="sample.albandrieu.com",
+                        service=credential_like_origin,
+                        status="healthy",
+                    ),
+                ),
+            ),
+        ),
+        access_applications=(
+            CloudflareAccessApplicationObservation(
+                app_id="app-id",
+                name="FastAPI Sample",
+                domain="sample.albandrieu.com",
+                hostname="sample.albandrieu.com",
+                policies=(
+                    CloudflareAccessPolicyObservation(
+                        policy_id="policy-id",
+                        name="Service Token",
+                        decision="non_identity",
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    summary = snapshot.summary()
+
+    assert summary["tunnels"] == [
+        {
+            "name": "homelab",
+            "status": "healthy",
+            "management": "cloudflare",
+            "ingress_count": 1,
+            "ingress_visibility": "remote_api",
+            "ingress": [
+                {
+                    "hostname": "sample.albandrieu.com",
+                    "service": "http://172.17.0.24:8091/api",
+                    "status": "healthy",
+                },
+            ],
+        },
+    ]
+    assert summary["access_applications"] == [
+        {
+            "name": "FastAPI Sample",
+            "domain": "sample.albandrieu.com",
+            "path": "/",
+            "policy_count": 1,
+            "policies": [
+                {
+                    "name": "Service Token",
+                    "decision": "non_identity",
+                    "includes_everyone": False,
+                },
+            ],
+        },
+    ]
+    serialized = str(summary)
+    assert "fixture-password" not in serialized
+    assert "fixture-token" not in serialized
+    assert "policy-id" not in serialized
+    assert "app-id" not in serialized
+    assert "tunnel-id" not in serialized
+
+
+@pytest.mark.asyncio
+async def test_legacy_healthz_homelab_rows_only_probe_primary_truenas(monkeypatch) -> None:
+    async def should_not_fetch_services():
+        raise AssertionError("global /healthz must not enumerate homelab services")
+
+    monkeypatch.setattr(homelab_catalog, "fetch_homelab_services", should_not_fetch_services)
+    rows = await homelab_catalog.homelab_healthz_probe_rows()
+
+    assert rows == [
+        (
+            "albandrieu_truenas",
+            "https://truenas.albandrieu.com:7000/",
+            "TrueNAS HTTPS",
+            None,
+        ),
+    ]
