@@ -81,12 +81,15 @@ from the TrueNAS-hosted FastAPI runtime.
       `nabla-compose` (target currently `http://172.17.0.24:9090`), redeploy, and
       require the fixed recording-rule query to return at least one available
       signal. Preserve direct workstation reachability as separate A/B evidence.
-- [ ] **Cloudflare control-plane evidence** — API transport and authentication
-      are successful, but `GET /accounts/{account_id}/cfd_tunnel` returned an
-      empty inventory, so global tunnel status is unconfirmed. Keep this state as
-      warning/unknown and never reclassify the service DOWN or degraded solely
-      because inventory could not be confirmed. Verify account/token scope with a
-      bounded on-demand inventory check before changing the automatic probe.
+- [x] **Cloudflare control-plane evidence** — after correcting the account-scoped
+      API-token permissions, authoritative TrueNAS-host and FastAPI-container
+      diagnostics observe 3 Tunnels, healthy `nabla-truescale`
+      (`config_src=cloudflare`), 70 Tunnel ingress hostnames including
+      `2fauth.albandrieu.com -> http://172.17.0.24:30081`, 68 Access Applications,
+      7 reusable policies and 3 Service Tokens. Anonymous `2fauth` traffic is
+      challenged with HTTP 302 while the configured Service Token receives HTTP
+      200. Preserve provider API timeout/authorization failure as warning/unknown;
+      it must never make an otherwise healthy application DOWN or degraded.
 - [ ] **Sentry application acceptance** — the current `dsn_socket` probe proves
       only that the selected intake socket is reachable. Add a bounded synthetic
       event acceptance path that returns an event id and verify downstream
@@ -259,6 +262,21 @@ degraded conditions.
       `asyncio` cancellation can bound the API response but cannot terminate an
       already-running synchronous client thread; prefer an upstream configurable
       connect timeout or stronger isolation before tightening this further.
+- [ ] Attribute `websocket-client` transport timeout errors to the business call
+      that opened the socket when evidence is available. Keep
+      `event_origin=websocket-client` as the technical origin, but add bounded,
+      sanitized caller context at the integration boundary: `component`, operation
+      or JSON-RPC method, target host/path, proxy route, phase, timeout budget,
+      elapsed time and a bounded correlation/operation id. Never infer TrueNAS from
+      the generic `websocket` logger alone; report `caller=uncorrelated` when no
+      caller evidence survives. Verify whether timeout logging stays in the
+      integration worker thread before relying on `ContextVar` propagation.
+- [ ] Add deterministic WebSocket-attribution tests covering a generic
+      uncorrelated timeout, a correlated TrueNAS timeout, two concurrent operations
+      without context leakage, worker-thread context propagation, URI/credential
+      sanitization, a non-TrueNAS WebSocket caller and a successful call producing
+      no ERROR incident. Keep timeout ERRORs visible and keep correlation ids out
+      of Prometheus labels to avoid cardinality growth.
 
 ### Stability gate acceptance criteria
 
@@ -267,6 +285,9 @@ degraded conditions.
   and is not retried immediately.
 - A failed TrueNAS health observation returns within the 8-second application
   budget; subsequent requests use failure/stale cache evidence for 120 seconds.
+- A generic `websocket-client` timeout without caller context remains explicitly
+  uncorrelated; a correlated TrueNAS timeout carries only sanitized component,
+  operation, target, route, phase/stage, elapsed and bounded correlation evidence.
 - Concurrent callers cannot multiply origin probes in one worker or across
   replicas while Redis is available.
 - Repeated provider failures open a shared circuit and suppress origin refreshes
