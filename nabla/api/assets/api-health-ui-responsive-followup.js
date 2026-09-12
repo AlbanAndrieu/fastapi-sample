@@ -241,6 +241,64 @@ function isWorkstationBrowser() {
   );
 }
 
+function ensureWorkstationDockStyles() {
+  if (document.getElementById("health-ui-workstation-dock-styles")) return;
+  const style = document.createElement("style");
+  style.id = "health-ui-workstation-dock-styles";
+  style.textContent = `
+    @media (min-width: 1121px) {
+      body.health-ui--workstation.health-ui-filter-docked main {
+        width: calc(100vw - 450px);
+        max-width: none;
+        margin-right: 0;
+        margin-left: 450px;
+        padding-right: clamp(1rem, 2vw, 2rem);
+        padding-left: 1rem;
+      }
+      body.health-ui--workstation.health-ui-filter-docked .service-filter-sticky-sentinel {
+        display: none;
+      }
+      body.health-ui--workstation.health-ui-filter-docked .service-filter--global {
+        position: fixed;
+        z-index: 70;
+        top: 0;
+        right: auto;
+        bottom: 0;
+        left: 0;
+        width: 470px;
+        max-width: 470px;
+        max-height: none;
+        margin: 0;
+        overflow: auto;
+        overscroll-behavior: contain;
+        border-left: 0;
+        border-radius: 0 12px 12px 0;
+        box-shadow: 16px 0 34px rgba(0, 0, 0, 0.24);
+      }
+      body.health-ui--workstation.health-ui-filter-docked .service-filter--global[data-stuck="true"][data-expanded="true"] {
+        max-height: none;
+      }
+      body.health-ui--workstation.health-ui-filter-docked .service-filter--global .service-filter-health-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      body.health-ui--workstation.health-ui-filter-docked .service-filter--global .service-filter-control {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+      body.health-ui--workstation.health-ui-filter-docked .service-filter--global .service-filter-control input {
+        grid-column: 1 / -1;
+      }
+      body.health-ui--workstation.health-ui-filter-docked .service-filter--global .service-filter-facets {
+        grid-template-columns: 1fr;
+      }
+      body.health-ui--workstation.health-ui-filter-docked .service-health-layout {
+        width: 100%;
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 function applyRuntimeLayout() {
   const mode = String(
     document.getElementById("runtime-topology")?.dataset?.runtimeMode || "",
@@ -248,6 +306,7 @@ function applyRuntimeLayout() {
   const workstation = mode === "local" || isWorkstationBrowser();
   document.body.classList.toggle("health-ui--workstation", workstation);
   if (!workstation) return;
+  ensureWorkstationDockStyles();
 
   const actions = document.querySelector(".service-filter-heading-actions");
   if (!actions || document.getElementById("service-filter-dock-toggle")) return;
