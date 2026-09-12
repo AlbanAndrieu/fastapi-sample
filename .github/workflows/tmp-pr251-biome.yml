@@ -1,0 +1,33 @@
+---
+name: PR251 Biome capture
+
+on:
+  pull_request:
+    branches: [master]
+    types: [synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  biome:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+      - name: Apply canonical Biome rewrite
+        run: >-
+          npx --yes @biomejs/biome@2.2.6 check --write
+          nabla/api/assets/api-cloudflare-local-managed.js
+          nabla/api/assets/api-health-controller.js
+          nabla/api/assets/api-http-probe-status.js
+          nabla/api/assets/api-service-dependency-priority.js
+          nabla/api/assets/api-service-probe-details.js
+          nabla/api/assets/api-service-probe-help.js
+          nabla/api/assets/api-topology-capture.js
+          nabla/api/assets/api-topology-operator.js
+      - name: Print canonical diff
+        if: always()
+        run: git diff -- nabla/api/assets
