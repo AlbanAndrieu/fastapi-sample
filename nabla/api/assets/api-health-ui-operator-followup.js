@@ -154,7 +154,7 @@ function ensureLocalPfSenseFlowStage() {
   const pathMode = normalize(
     latestSnapshot?.homelab?.truenas?.diagnostics?.path_mode,
   );
-  if (!['local', 'homelab'].includes(runtime) || pathMode !== "direct_lan") {
+  if (!["local", "homelab"].includes(runtime) || pathMode !== "direct_lan") {
     return;
   }
   if (
@@ -452,7 +452,7 @@ function reconcileCloudflareDrawer() {
 
 function reconcileLocalPfSense() {
   const mode = normalize(latestSnapshot?.runtime?.runtime_mode);
-  if (!['local', 'homelab'].includes(mode)) return;
+  if (!["local", "homelab"].includes(mode)) return;
   const platform = latestSnapshot?.healthz?.checks?.pfsense || {};
   if (platform.reachable !== true) return;
   const row = document.querySelector("#sickz-pfsense-wrap .sickz-pfsense-row");
@@ -512,7 +512,7 @@ function ensureRuntimeNotices() {
 async function detectRuntimeDiagnostics() {
   if (
     runtimeDiagnosticsState != null ||
-    !['local', 'homelab'].includes(
+    !["local", "homelab"].includes(
       normalize(latestSnapshot?.runtime?.runtime_mode),
     )
   ) {
@@ -522,7 +522,7 @@ async function detectRuntimeDiagnostics() {
     headers: { Accept: "application/json" },
   }).catch(() => null);
   if (!response) return;
-  runtimeDiagnosticsState = response.status === 404 ? false : true;
+  runtimeDiagnosticsState = response.status !== 404;
 }
 
 function apply() {
