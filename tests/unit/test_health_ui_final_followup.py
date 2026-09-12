@@ -40,15 +40,19 @@ def test_drawer_avoids_noop_rerenders_and_preserves_probe_links() -> None:
     assert 'label.className = "service-detail-probe-label"' in source
 
 
-def test_telemetry_moves_legacy_latency_and_shows_cloudflare_unknown() -> None:
+def test_telemetry_moves_legacy_latency_and_keeps_unavailable_slot_visible() -> None:
     source = (ASSETS / "api-health-ui-final-followup.js").read_text(
         encoding="utf-8",
     )
+    live = (ASSETS / "api-probe-live.js").read_text(encoding="utf-8")
 
     assert 'querySelectorAll(".health-meta-badge--metric")' in source
     assert "Latest probe latency" in source
-    assert 'unavailable.textContent = "-"' in source
+    assert 'latency.textContent = "—"' in source
     assert "health-meta-badge--probe-latency-unavailable" in source
+    assert 'latencyBadge.textContent = "—"' in live
+    assert "Latest probe latency unavailable" in live
+    assert "latencyBadge.hidden = false" in live
 
 
 def test_transitive_downstream_matches_direct_list_typography() -> None:
@@ -81,8 +85,11 @@ def test_cloudflare_tunnel_capability_is_retained_when_inventory_flaps() -> None
     )
 
     assert "ensureStableCloudflareTunnel" in source
-    assert 'badge.dataset.probeKind = "cloudflare"' in source
-    assert 'badge.className = "service-probe service-probe--neutral"' in source
+    assert '"cloudflare",' in source
+    assert '"neutral",' in source
+    assert '"☁️",' in source
+    assert '"Tunnel",' in source
+    assert 'badge.dataset.probePlaceholder = "true"' in source
     assert "Cloudflare Tunnel evidence is currently unavailable" in source
 
 
