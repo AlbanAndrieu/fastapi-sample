@@ -75,9 +75,7 @@ def _access_by_hostname(
                 decision = (policy.decision or "").strip().lower()
                 if decision:
                     decisions.add(decision)
-                public = decision == "bypass" or (
-                    decision == "allow" and policy.includes_everyone
-                )
+                public = decision == "bypass" or (decision == "allow" and policy.includes_everyone)
                 if public:
                     public_policy_count += 1
                     public_scopes.add("host" if root_scope else "path")
@@ -88,13 +86,7 @@ def _access_by_hostname(
             "cloudflare_access_policy_decisions": sorted(decisions),
             "cloudflare_access_public": public_policy_count > 0,
             "cloudflare_access_public_policy_count": public_policy_count,
-            "cloudflare_access_public_scope": (
-                "host"
-                if "host" in public_scopes
-                else "path"
-                if "path" in public_scopes
-                else None
-            ),
+            "cloudflare_access_public_scope": ("host" if "host" in public_scopes else "path" if "path" in public_scopes else None),
         }
     return result
 
@@ -181,11 +173,7 @@ def _origin_reconciliation(
     observed_service = str(tunnel.get("cloudflare_origin_service") or "") if tunnel else ""
     observed_host, observed_port = _origin_host_port(observed_service)
     comparable = bool(expected_host and expected_port and observed_host and observed_port)
-    matches = (
-        expected_host == observed_host and expected_port == observed_port
-        if comparable
-        else None
-    )
+    matches = expected_host == observed_host and expected_port == observed_port if comparable else None
     detail = {
         "cloudflare_origin_service": observed_service or None,
         "cloudflare_origin_host": observed_host,
@@ -195,11 +183,7 @@ def _origin_reconciliation(
         "cloudflare_origin_matches_topology": matches,
     }
     if matches is False:
-        warning = (
-            "⚠️ Cloudflare origin "
-            f"{observed_host}:{observed_port} does not match topology "
-            f"{expected_host}:{expected_port}"
-        )
+        warning = f"⚠️ Cloudflare origin {observed_host}:{observed_port} does not match topology {expected_host}:{expected_port}"
         return detail, warning
     return detail, None
 
@@ -216,22 +200,14 @@ def _service_exposure(
     access_required = service.effective_cloudflare_access_required
     origin, origin_warning = _origin_reconciliation(service, tunnel)
     observed = {
-        "public_https_reachable": (
-            bool(row.get("reachable"))
-            if row.get("http_status", 0) or row.get("reachable")
-            else None
-        ),
+        "public_https_reachable": (bool(row.get("reachable")) if row.get("http_status", 0) or row.get("reachable") else None),
         "cloudflare_tunnel_observed": bool(tunnel),
         "cloudflare_tunnel_name": tunnel.get("cloudflare_tunnel_name") if tunnel else None,
         "cloudflare_tunnel_status": tunnel.get("cloudflare_tunnel_status") if tunnel else None,
-        "cloudflare_tunnel_config_source": (
-            tunnel.get("cloudflare_tunnel_config_source") if tunnel else None
-        ),
+        "cloudflare_tunnel_config_source": (tunnel.get("cloudflare_tunnel_config_source") if tunnel else None),
         **origin,
         "cloudflare_access_observed": bool(access),
-        "cloudflare_access_application_count": (
-            access.get("cloudflare_access_application_count") if access else 0
-        ),
+        "cloudflare_access_application_count": (access.get("cloudflare_access_application_count") if access else 0),
         "cloudflare_access_policy_count": (access.get("cloudflare_access_policy_count") if access else 0),
         "cloudflare_access_policy_decisions": (access.get("cloudflare_access_policy_decisions") if access else []),
         "cloudflare_access_public": (access.get("cloudflare_access_public") if access else None),
