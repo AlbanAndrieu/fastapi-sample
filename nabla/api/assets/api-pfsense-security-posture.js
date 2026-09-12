@@ -43,7 +43,7 @@ function stateMeaning(filter, posture) {
   if (filter.id === "firewall" && state === "in_path") {
     return posture.pathMode === "direct_lan"
       ? "pfSense/PF is present on the observed security/control path. This is path evidence, not a block or failure; the current direct-LAN TrueNAS probe can bypass that WAN firewall path."
-      : "pfSense/PF is present on the observed ingress/security path. This is expected path evidence, not a block or degraded state."
+      : "pfSense/PF is present on the observed ingress/security path. This is expected path evidence, not a block or degraded state.";
   }
   if (state === "running") {
     return `${filter.label} is reported running by the read-only pfSense service-state observation.`;
