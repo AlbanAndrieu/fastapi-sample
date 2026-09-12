@@ -8,6 +8,7 @@ it is never promoted to service downtime.
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass
 from datetime import UTC, datetime
 import math
 import time
@@ -19,8 +20,17 @@ from nabla.settings.observability import HomelabPrometheusSettings
 
 _CACHE_TTL_SECONDS = 15.0
 _cache_lock = asyncio.Lock()
-_cache_value: dict[str, Any] | None = None
-_cache_stored_at = 0.0
+
+
+@dataclass
+class _TopologyTelemetryCache:
+    """Mutable cache state without module-level global rebinding."""
+
+    value: dict[str, Any] | None = None
+    stored_at: float = 0.0
+
+
+_cache = _TopologyTelemetryCache()
 
 _SERVICE_LABEL = "container_label_com_docker_compose_service"
 _RESOURCE_QUERIES = {
@@ -97,7 +107,7 @@ def _resource_values(
             if not service or value is None:
                 continue
             resources.setdefault(service, {})[field] = round(max(0.0, value), 6)
-    for service, values in resources.items():
+    for _service, values in resources.items():
         values["network_bytes_per_second"] = round(
             values.get("rx_bytes_per_second", 0.0) + values.get("tx_bytes_per_second", 0.0),
             6,
@@ -189,8 +199,6 @@ async def fetch_topology_telemetry(
     client: httpx.AsyncClient | None = None,
 ) -> dict[str, Any]:
     """Return cached topology telemetry without turning blind spots into outages."""
-    global _cache_stored_at, _cache_value
-
     effective = settings or HomelabPrometheusSettings()
     if not effective.configured:
         return {
@@ -209,13 +217,13 @@ async def fetch_topology_telemetry(
         }
 
     now = time.monotonic()
-    if client is None and _cache_value is not None and now - _cache_stored_at < _CACHE_TTL_SECONDS:
-        return {**_cache_value, "cached": True, "cache_age_seconds": round(now - _cache_stored_at, 3)}
+    if client is None and _cache.value is not None and now - _cache.stored_at < _CACHE_TTL_SECONDS:
+        return {**_cache.value, "cached": True, "cache_age_seconds": round(now - _cache.stored_at, 3)}
 
     async with _cache_lock:
         now = time.monotonic()
-        if client is None and _cache_value is not None and now - _cache_stored_at < _CACHE_TTL_SECONDS:
-            return {**_cache_value, "cached": True, "cache_age_seconds": round(now - _cache_stored_at, 3)}
+        if client is None and _cache.value is not None and now - _cache.stored_at < _CACHE_TTL_SECONDS:
+            return {**_cache.value, "cached": True, "cache_age_seconds": round(now - _cache.stored_at, 3)}
         try:
             value = await _fetch_origin(effective, client)
         except (httpx.HTTPError, ValueError) as exc:
@@ -236,6 +244,6 @@ async def fetch_topology_telemetry(
                 "exception_type": type(exc).__name__,
             }
         if client is None:
-            _cache_value = value
-            _cache_stored_at = time.monotonic()
+            _cache.value = value
+            _cache.stored_at = time.monotonic()
         return {**value, "cached": False, "cache_age_seconds": 0.0}
