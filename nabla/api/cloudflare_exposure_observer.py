@@ -351,18 +351,12 @@ async def _origin() -> dict[str, Any]:
 
 def _success(payload: dict[str, Any]) -> bool:
     return bool(
-        payload.get("tunnels")
-        and not payload.get("tunnel_error")
-        and not payload.get("access_error"),
+        payload.get("tunnels") and not payload.get("tunnel_error") and not payload.get("access_error"),
     )
 
 
 def _refresh_error(payload: dict[str, Any]) -> str | None:
-    errors = [
-        str(value)
-        for value in (payload.get("tunnel_error"), payload.get("access_error"))
-        if value
-    ]
+    errors = [str(value) for value in (payload.get("tunnel_error"), payload.get("access_error")) if value]
     return ", ".join(errors) or None
 
 
