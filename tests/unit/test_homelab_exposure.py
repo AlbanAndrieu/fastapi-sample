@@ -10,7 +10,11 @@ from nabla.api.homelab_exposure import CloudflareExposureSnapshot, enrich_servic
 from nabla.api.homelab_models import HomelabService
 
 
-def _tunnel(hostname: str) -> CloudflareTunnelObservation:
+def _tunnel(
+    hostname: str,
+    *,
+    origin: str = "http://service:8080",
+) -> CloudflareTunnelObservation:
     return CloudflareTunnelObservation(
         tunnel_id="tunnel-1",
         name="homelab",
@@ -21,7 +25,7 @@ def _tunnel(hostname: str) -> CloudflareTunnelObservation:
                 tunnel_id="tunnel-1",
                 tunnel_name="homelab",
                 hostname=hostname,
-                service="http://service:8080",
+                service=origin,
                 status="healthy",
             ),
         ),
@@ -37,7 +41,11 @@ def _local_tunnel() -> CloudflareTunnelObservation:
     )
 
 
-def _access(hostname: str, *, public: bool = False) -> CloudflareAccessApplicationObservation:
+def _access(
+    hostname: str,
+    *,
+    public: bool = False,
+) -> CloudflareAccessApplicationObservation:
     return CloudflareAccessApplicationObservation(
         app_id="access-1",
         name="service",
@@ -87,6 +95,64 @@ def test_cloudflare_tunnel_and_protected_access_match_declaration() -> None:
     assert result["observed"]["cloudflare_tunnel_observed"] is True
     assert result["observed"]["cloudflare_access_observed"] is True
     assert result["observed"]["cloudflare_access_public"] is False
+
+
+def test_cloudflare_origin_matches_topology_host_and_port() -> None:
+    service = HomelabService(
+        name="2FAuth",
+        internalHost="172.17.0.24",
+        internalPort=30081,
+        tunnelUrl="https://2fauth.albandrieu.com",
+        tunnelSecure=True,
+        cloudflareAccessRequired=False,
+        external=True,
+    )
+    snapshot = CloudflareExposureSnapshot(
+        configured=True,
+        tunnels=(
+            _tunnel(
+                "2fauth.albandrieu.com",
+                origin="http://172.17.0.24:30081",
+            ),
+        ),
+    )
+
+    result = enrich_service_exposure([_row(service)], [service], snapshot)[0]["exposure"]
+
+    assert result["state"] == "match"
+    assert result["observed"]["cloudflare_origin_service"] == "http://172.17.0.24:30081"
+    assert result["observed"]["cloudflare_origin_matches_topology"] is True
+    assert result["observed"]["cloudflare_tunnel_config_source"] == "cloudflare"
+
+
+def test_cloudflare_origin_mismatch_warns_without_changing_runtime_health() -> None:
+    service = HomelabService(
+        name="2FAuth",
+        internalHost="172.17.0.24",
+        internalPort=30081,
+        tunnelUrl="https://2fauth.albandrieu.com",
+        tunnelSecure=True,
+        cloudflareAccessRequired=False,
+        external=True,
+    )
+    row = _row(service)
+    snapshot = CloudflareExposureSnapshot(
+        configured=True,
+        tunnels=(
+            _tunnel(
+                "2fauth.albandrieu.com",
+                origin="http://172.17.0.24:30082",
+            ),
+        ),
+    )
+
+    enriched = enrich_service_exposure([row], [service], snapshot)[0]
+    result = enriched["exposure"]
+
+    assert enriched["state"] == "ok"
+    assert result["state"] == "mismatch"
+    assert result["observed"]["cloudflare_origin_matches_topology"] is False
+    assert any("does not match topology" in reason for reason in result["reasons"])
 
 
 def test_local_managed_tunnel_without_remote_ingress_is_incomplete() -> None:

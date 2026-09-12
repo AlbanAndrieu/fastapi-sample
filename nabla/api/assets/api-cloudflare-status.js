@@ -35,9 +35,12 @@ function normalizeTunnelStatus(check) {
   const observed = check.cloudflare_tunnel_observed;
   const status = String(check.cloudflare_tunnel_status || "").toUpperCase();
   const observerConfigured =
-    check.cloudflare_tunnel_observer_configured === true;
+    check.cloudflare_tunnel_observer_configured === true ||
+    check.cloudflare_observer_configured === true;
   const observerError = String(
-    check.cloudflare_tunnel_observer_error || "",
+    check.cloudflare_tunnel_observer_error ||
+      check.cloudflare_observer_error ||
+      "",
   ).trim();
   const edgeObserved =
     check.cloudflare_http_evidence === true ||
@@ -50,7 +53,7 @@ function normalizeTunnelStatus(check) {
   ) {
     return {
       cls: "green",
-      label: "Cloudflare Tunnel configured",
+      label: "Cloudflare configured",
       detail: status
         ? `Tunnel ingress observed (${status}).`
         : "Tunnel ingress hostname observed.",
@@ -60,7 +63,7 @@ function normalizeTunnelStatus(check) {
   if (observed === true) {
     return {
       cls: "yellow",
-      label: "Cloudflare Tunnel degraded",
+      label: "Cloudflare degraded",
       detail: `Tunnel ingress exists but reports ${status || "an uncertain state"}.`,
     };
   }
@@ -68,7 +71,7 @@ function normalizeTunnelStatus(check) {
   if (observerConfigured && !observerError && !edgeObserved) {
     return {
       cls: "red",
-      label: "Cloudflare Tunnel missing",
+      label: "Cloudflare missing",
       detail:
         "tunnelSecure=true but the hostname is absent from the authoritative Tunnel ingress inventory.",
     };
@@ -77,15 +80,15 @@ function normalizeTunnelStatus(check) {
   if (edgeObserved) {
     return {
       cls: "yellow",
-      label: "Cloudflare Tunnel unverified",
+      label: "Cloudflare unverified",
       detail:
-        "Cloudflare edge traffic is observed, but the hostname is absent from the Tunnel ingress inventory. Check remote/local-managed tunnel configuration.",
+        "Cloudflare edge traffic is observed, but the hostname is not confirmed by the current Tunnel ingress inventory.",
     };
   }
 
   return {
     cls: "yellow",
-    label: "Cloudflare Tunnel unverified",
+    label: "Cloudflare unverified",
     detail: observerError
       ? `Tunnel inventory could not be verified (${observerError}).`
       : "Tunnel inventory is unavailable or inconclusive.",
@@ -103,7 +106,11 @@ function cloudflarePolicyDetail(check) {
     ? check.cloudflare_access_policy_decisions.filter(Boolean)
     : [];
   const policyCount = Number(check.cloudflare_access_policy_count);
+  const appCount = Number(check.cloudflare_access_application_count);
 
+  if (Number.isFinite(appCount)) {
+    parts.push(`${appCount} Access app${appCount === 1 ? "" : "s"}`);
+  }
   if (policyNames.length > 0) {
     parts.push(`Access policies: ${policyNames.join(", ")}`);
   } else if (Number.isFinite(policyCount)) {
@@ -128,6 +135,69 @@ function cloudflarePolicyDetail(check) {
     );
   }
   return parts.join(" · ");
+}
+
+function controlPlaneDetail(exposureSummary) {
+  const control = exposureSummary?.control_plane || {};
+  const labels = [
+    ["Tunnels", control.tunnels],
+    ["Access apps", control.access_applications],
+    ["Reusable policies", control.access_reusable_policies],
+    ["Service tokens", control.access_service_tokens],
+  ];
+  const parts = [];
+  for (const [label, family] of labels) {
+    if (!family) continue;
+    const count = Number(family.total_count ?? family.result_count);
+    const elapsed = Number(family.elapsed_ms);
+    const state = family.success === false ? "error" : "ok";
+    const bits = [label];
+    if (Number.isFinite(count)) bits.push(`count=${count}`);
+    if (Number.isFinite(elapsed)) bits.push(`${elapsed}ms`);
+    if (state === "error") bits.push(`error=${family.error || "unknown"}`);
+    parts.push(bits.join(" "));
+  }
+  const token = control.access_service_tokens;
+  if (token?.configured_client_id_present === true) {
+    parts.push("configured Service Token found in inventory");
+  } else if (token?.configured_client_id_present === false) {
+    parts.push("configured Service Token missing from inventory");
+  }
+  return parts.join(" · ");
+}
+
+function hostnameOf(value) {
+  try {
+    return new URL(String(value || ""), window.location.href).hostname
+      .toLowerCase()
+      .replace(/\.$/, "");
+  } catch {
+    return "";
+  }
+}
+
+function routeDetail(check, exposureSummary) {
+  const hostname = hostnameOf(
+    check.tunnel_url || check.tunnelUrl || check.href || "",
+  );
+  if (!hostname) return "";
+  for (const tunnel of exposureSummary?.tunnels || []) {
+    const route = (tunnel?.ingress || []).find(
+      (candidate) =>
+        String(candidate?.hostname || "").toLowerCase() === hostname,
+    );
+    if (!route) continue;
+    return [
+      `${hostname} → ${route.service || "origin unknown"}`,
+      `tunnel=${tunnel.name || "unknown"}`,
+      `status=${tunnel.status || "unknown"}`,
+      `config_src=${tunnel.management || "unknown"}`,
+    ].join(" · ");
+  }
+  if (check.cloudflare_origin_service) {
+    return `${hostname} → ${check.cloudflare_origin_service}`;
+  }
+  return "";
 }
 
 function findRow(check) {
@@ -176,7 +246,7 @@ function replaceDirectProbeWording(row, check) {
   row.classList.add("health-row--probe-inconclusive");
 }
 
-function appendTunnelBadge(row, state, check) {
+function appendTunnelBadge(row, state, check, exposureSummary) {
   if (!row || !state || row.querySelector(".cloudflare-tunnel-badge")) return;
   const tags =
     row.querySelector(".health-row-tags") ||
@@ -184,14 +254,19 @@ function appendTunnelBadge(row, state, check) {
   if (!tags) return;
   const badge = document.createElement("span");
   badge.className = `cloudflare-tunnel-badge cloudflare-tunnel-badge--${state.cls}`;
-  const policyDetail = cloudflarePolicyDetail(check);
-  const hover = [state.label, state.detail, policyDetail]
+  const hover = [
+    state.label,
+    state.detail,
+    routeDetail(check, exposureSummary),
+    cloudflarePolicyDetail(check),
+    controlPlaneDetail(exposureSummary),
+  ]
     .filter(Boolean)
     .join(" · ");
   badge.title = hover;
   badge.setAttribute("role", "img");
   badge.setAttribute("aria-label", hover);
-  badge.innerHTML = `<img src="${CLOUDFLARE_ICON}" alt="" width="18" height="18" loading="lazy"> <span>Tunnel</span>`;
+  badge.innerHTML = `<img src="${CLOUDFLARE_ICON}" alt="" width="18" height="18" loading="lazy"> <span>Cloudflare</span>`;
   tags.appendChild(badge);
 }
 
@@ -248,42 +323,19 @@ function tunnelInventoryDetails(exposureSummary) {
     const status = String(tunnel?.status || "unknown");
     const management = String(tunnel?.management || "unknown");
     const ingress = Array.isArray(tunnel?.ingress) ? tunnel.ingress : [];
-    if (ingress.length === 0) {
-      const visibility =
-        tunnel?.ingress_visibility === "local_yaml_unavailable_via_api"
-          ? "ingress owned by local cloudflared YAML; remote API cannot enumerate hostnames"
-          : "no ingress hostname observed";
-      return `Tunnel ${name} · ${status} · management=${management} · ${visibility}.`;
-    }
-    const routes = ingress
-      .map((route) => {
-        const routeStatus = route?.status ? ` · ${route.status}` : "";
-        return `${route?.hostname || "hostname unknown"} → ${route?.service || "origin unknown"}${routeStatus}`;
-      })
-      .join("; ");
-    return `Tunnel ${name} · ${status} · management=${management} · ${routes}.`;
+    const visibility =
+      tunnel?.ingress_visibility === "local_yaml_unavailable_via_api"
+        ? "local ingress unavailable through remote API"
+        : `${ingress.length} public hostname${ingress.length === 1 ? "" : "s"}`;
+    return `Tunnel ${name} · status=${status} · config_src=${management} · ${visibility}.`;
   });
 }
 
 function accessInventoryDetails(exposureSummary) {
   if (!Array.isArray(exposureSummary?.access_applications)) return [];
-  return exposureSummary.access_applications.map((application) => {
-    const name = String(application?.name || "unnamed Access application");
-    const domain = String(application?.domain || "domain unknown");
-    const policies = Array.isArray(application?.policies)
-      ? application.policies
-      : [];
-    const policyText = policies.length
-      ? policies
-          .map((policy) => {
-            const everyone =
-              policy?.includes_everyone === true ? " · everyone" : "";
-            return `${policy?.name || "unnamed"}=${policy?.decision || "unknown"}${everyone}`;
-          })
-          .join(", ")
-      : "no policy observed";
-    return `Access ${name} · ${domain}${application?.path && application.path !== "/" ? application.path : ""} · policies: ${policyText}.`;
-  });
+  const control = controlPlaneDetail(exposureSummary);
+  const detail = `${exposureSummary.access_applications.length} sanitized Access application(s) rendered`;
+  return [control ? `${detail} · ${control}.` : `${detail}.`];
 }
 
 function renderTunnelStatus(checks, platformCheck, exposureSummary) {
@@ -360,8 +412,8 @@ function renderTunnelStatus(checks, platformCheck, exposureSummary) {
     ? "truenas-ingress-block truenas-ingress-block--warning"
     : "truenas-ingress-block";
   const heading = warningState
-    ? "⚠ Cloudflare Tunnel verification temporarily unavailable"
-    : "✓ Cloudflare Tunnel & Access status";
+    ? "⚠ Cloudflare verification temporarily unavailable"
+    : "✓ Cloudflare & Access status";
   container.innerHTML =
     '<summary><strong><img src="' +
     CLOUDFLARE_ICON +
@@ -384,7 +436,12 @@ export function decorateCloudflareTunnelStatuses(
     Object.values(checks).forEach((check) => {
       const row = findRow(check);
       replaceDirectProbeWording(row, check);
-      appendTunnelBadge(row, normalizeTunnelStatus(check), check);
+      appendTunnelBadge(
+        row,
+        normalizeTunnelStatus(check),
+        check,
+        exposureSummary,
+      );
     });
     renderTunnelStatus(checks, platformCheck, exposureSummary);
   }, 0);

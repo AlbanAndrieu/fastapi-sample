@@ -4,7 +4,6 @@ const ROW_SELECTOR = ".health-row[data-service-filter-target]";
 const TICK_MS = 1000;
 
 let latestSnapshot = null;
-let ticker = null;
 let scheduled = false;
 
 function normalize(value) {
@@ -277,5 +276,5 @@ export function installServiceProbeDetails() {
   );
   document.addEventListener("health-board-refreshed", refreshSnapshot);
   refreshSnapshot();
-  ticker = window.setInterval(scheduleRender, TICK_MS);
+  window.setInterval(scheduleRender, TICK_MS);
 }

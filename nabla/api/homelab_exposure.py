@@ -25,6 +25,20 @@ def _hostname(url: str | None) -> str | None:
         return None
 
 
+def _origin_host_port(url: str | None) -> tuple[str | None, int | None]:
+    if not url:
+        return None, None
+    try:
+        parsed = urlsplit(url)
+        host = (parsed.hostname or "").lower().rstrip(".") or None
+        port = parsed.port
+    except ValueError:
+        return None, None
+    if port is None:
+        port = {"http": 80, "https": 443}.get(parsed.scheme.lower())
+    return host, port
+
+
 def _tunnels_by_hostname(
     observations: Iterable[CloudflareTunnelObservation],
 ) -> dict[str, dict[str, Any]]:
@@ -35,6 +49,8 @@ def _tunnels_by_hostname(
                 "cloudflare_tunnel_observed": True,
                 "cloudflare_tunnel_name": ingress.tunnel_name or tunnel.name,
                 "cloudflare_tunnel_status": ingress.status or tunnel.status,
+                "cloudflare_tunnel_config_source": tunnel.config_source,
+                "cloudflare_origin_service": ingress.service,
             }
     return result
 
@@ -59,7 +75,9 @@ def _access_by_hostname(
                 decision = (policy.decision or "").strip().lower()
                 if decision:
                     decisions.add(decision)
-                public = decision == "bypass" or (decision == "allow" and policy.includes_everyone)
+                public = decision == "bypass" or (
+                    decision == "allow" and policy.includes_everyone
+                )
                 if public:
                     public_policy_count += 1
                     public_scopes.add("host" if root_scope else "path")
@@ -70,7 +88,13 @@ def _access_by_hostname(
             "cloudflare_access_policy_decisions": sorted(decisions),
             "cloudflare_access_public": public_policy_count > 0,
             "cloudflare_access_public_policy_count": public_policy_count,
-            "cloudflare_access_public_scope": ("host" if "host" in public_scopes else "path" if "path" in public_scopes else None),
+            "cloudflare_access_public_scope": (
+                "host"
+                if "host" in public_scopes
+                else "path"
+                if "path" in public_scopes
+                else None
+            ),
         }
     return result
 
@@ -148,6 +172,38 @@ def _access_reasons(
     return mismatches, incomplete
 
 
+def _origin_reconciliation(
+    service: HomelabService,
+    tunnel: dict[str, Any] | None,
+) -> tuple[dict[str, Any], str | None]:
+    expected_host = (service.internal_host or "").lower().rstrip(".") or None
+    expected_port = service.internal_port
+    observed_service = str(tunnel.get("cloudflare_origin_service") or "") if tunnel else ""
+    observed_host, observed_port = _origin_host_port(observed_service)
+    comparable = bool(expected_host and expected_port and observed_host and observed_port)
+    matches = (
+        expected_host == observed_host and expected_port == observed_port
+        if comparable
+        else None
+    )
+    detail = {
+        "cloudflare_origin_service": observed_service or None,
+        "cloudflare_origin_host": observed_host,
+        "cloudflare_origin_port": observed_port,
+        "topology_internal_host": expected_host,
+        "topology_internal_port": expected_port,
+        "cloudflare_origin_matches_topology": matches,
+    }
+    if matches is False:
+        warning = (
+            "⚠️ Cloudflare origin "
+            f"{observed_host}:{observed_port} does not match topology "
+            f"{expected_host}:{expected_port}"
+        )
+        return detail, warning
+    return detail, None
+
+
 def _service_exposure(
     service: HomelabService,
     row: dict[str, Any],
@@ -158,18 +214,39 @@ def _service_exposure(
 ) -> dict[str, Any]:
     edge_mode = _declared_edge_mode(service)
     access_required = service.effective_cloudflare_access_required
+    origin, origin_warning = _origin_reconciliation(service, tunnel)
     observed = {
-        "public_https_reachable": (bool(row.get("reachable")) if row.get("http_status", 0) or row.get("reachable") else None),
+        "public_https_reachable": (
+            bool(row.get("reachable"))
+            if row.get("http_status", 0) or row.get("reachable")
+            else None
+        ),
         "cloudflare_tunnel_observed": bool(tunnel),
         "cloudflare_tunnel_name": tunnel.get("cloudflare_tunnel_name") if tunnel else None,
         "cloudflare_tunnel_status": tunnel.get("cloudflare_tunnel_status") if tunnel else None,
+        "cloudflare_tunnel_config_source": (
+            tunnel.get("cloudflare_tunnel_config_source") if tunnel else None
+        ),
+        **origin,
         "cloudflare_access_observed": bool(access),
-        "cloudflare_access_application_count": (access.get("cloudflare_access_application_count") if access else 0),
-        "cloudflare_access_policy_count": (access.get("cloudflare_access_policy_count") if access else 0),
-        "cloudflare_access_policy_decisions": (access.get("cloudflare_access_policy_decisions") if access else []),
-        "cloudflare_access_public": (access.get("cloudflare_access_public") if access else None),
-        "cloudflare_access_public_scope": (access.get("cloudflare_access_public_scope") if access else None),
-        "cloudflare_access_public_policy_count": (access.get("cloudflare_access_public_policy_count") if access else 0),
+        "cloudflare_access_application_count": (
+            access.get("cloudflare_access_application_count") if access else 0
+        ),
+        "cloudflare_access_policy_count": (
+            access.get("cloudflare_access_policy_count") if access else 0
+        ),
+        "cloudflare_access_policy_decisions": (
+            access.get("cloudflare_access_policy_decisions") if access else []
+        ),
+        "cloudflare_access_public": (
+            access.get("cloudflare_access_public") if access else None
+        ),
+        "cloudflare_access_public_scope": (
+            access.get("cloudflare_access_public_scope") if access else None
+        ),
+        "cloudflare_access_public_policy_count": (
+            access.get("cloudflare_access_public_policy_count") if access else 0
+        ),
     }
     declared = {
         "external": service.external,
@@ -177,6 +254,8 @@ def _service_exposure(
         "edge_mode": edge_mode,
         "cloudflare_access_required": access_required,
         "security_exception_declared": bool(service.security_exception),
+        "internal_host": service.internal_host,
+        "internal_port": service.internal_port,
     }
     if not service.external or service.endpoint_enabled is False:
         return {
@@ -194,6 +273,8 @@ def _service_exposure(
         snapshot=snapshot,
     )
     mismatches = edge_mismatch + access_mismatch
+    if origin_warning:
+        mismatches.append(origin_warning)
     incomplete = edge_incomplete + access_incomplete
     return {
         "state": "mismatch" if mismatches else "incomplete" if incomplete else "match",

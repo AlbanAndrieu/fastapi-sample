@@ -41,7 +41,7 @@ def test_selects_reachable_local_sentry(monkeypatch) -> None:
     assert target == "local"
 
 
-def test_https_sentry_reachability_requires_tls_handshake(monkeypatch) -> None:
+def test_https_sentry_reachability_requires_tls12_or_newer(monkeypatch) -> None:
     connection = MagicMock()
     connection.__enter__.return_value = connection
     tls_socket = MagicMock()
@@ -56,6 +56,7 @@ def test_https_sentry_reachability_requires_tls_handshake(monkeypatch) -> None:
         "https://public@sentry.example.test:9005/2",
     )
     create_connection.assert_called_once_with(("sentry.example.test", 9005), timeout=0.25)
+    assert context.minimum_version == sentry_config.ssl.TLSVersion.TLSv1_2
     context.wrap_socket.assert_called_once_with(
         connection,
         server_hostname="sentry.example.test",
@@ -82,6 +83,24 @@ def test_https_sentry_reachability_rejects_plain_http_listener(monkeypatch) -> N
     )
 
 
+def test_sentry_destination_never_exposes_public_key() -> None:
+    destination = sentry_config.sentry_destination(
+        "https://public-secret@example.ingest.sentry.io/42",
+        "cloud",
+    )
+
+    assert destination == {
+        "target": "cloud",
+        "configured": True,
+        "valid": True,
+        "scheme": "https",
+        "host": "example.ingest.sentry.io",
+        "port": 443,
+        "project_id": "42",
+    }
+    assert "public-secret" not in repr(destination)
+
+
 def test_does_not_derive_self_hosted_credentials_from_cloud_dsn(monkeypatch) -> None:
     reachable = Mock(return_value=True)
     monkeypatch.setattr(sentry_config, "sentry_dsn_is_reachable", reachable)
@@ -106,7 +125,11 @@ def test_falls_back_to_cloud_sentry(monkeypatch) -> None:
 
 def test_logfire_disables_sentry_logs_traces_and_profiles(monkeypatch) -> None:
     init = Mock()
-    monkeypatch.setattr(sentry_config, "select_sentry_dsn", lambda _env: ("https://public@example.com/1", "cloud"))
+    monkeypatch.setattr(
+        sentry_config,
+        "select_sentry_dsn",
+        lambda _env: ("https://public@example.com/1", "cloud"),
+    )
     monkeypatch.setattr(sentry_config, "_integrations", lambda **_kwargs: [])
     monkeypatch.setattr(sentry_sdk, "init", init)
 
@@ -127,7 +150,11 @@ def test_logfire_disables_sentry_logs_traces_and_profiles(monkeypatch) -> None:
 
 def test_sentry_enables_logs_without_logfire(monkeypatch) -> None:
     init = Mock()
-    monkeypatch.setattr(sentry_config, "select_sentry_dsn", lambda _env: ("https://public@example.com/1", "cloud"))
+    monkeypatch.setattr(
+        sentry_config,
+        "select_sentry_dsn",
+        lambda _env: ("https://public@example.com/1", "cloud"),
+    )
     monkeypatch.setattr(sentry_config, "_integrations", lambda **_kwargs: [])
     monkeypatch.setattr(sentry_sdk, "init", init)
 
@@ -168,7 +195,10 @@ def test_disabled_logfire_token_does_not_disable_sentry_logs(monkeypatch) -> Non
 def test_scrubs_sensitive_fields() -> None:
     event = {
         "request": {
-            "headers": {"Authorization": "Bearer secret", "accept": "application/json"},
+            "headers": {
+                "Authorization": "Bearer secret",
+                "accept": "application/json",
+            },
             "cookies": {"token": "secret"},
         },
     }
@@ -178,6 +208,20 @@ def test_scrubs_sensitive_fields() -> None:
     assert scrubbed["request"]["headers"]["Authorization"] == sentry_config._FILTERED_VALUE
     assert scrubbed["request"]["cookies"]["token"] == sentry_config._FILTERED_VALUE
     assert event["request"]["headers"]["Authorization"] == "Bearer secret"
+
+
+def test_websocket_timeout_event_gets_diagnostic_origin_without_being_suppressed() -> None:
+    event = {
+        "logger": "websocket",
+        "logentry": {"formatted": "Connection timed out - goodbye"},
+    }
+
+    enriched = sentry_config._before_send(event, {})
+
+    assert enriched["tags"]["event_origin"] == "websocket-client"
+    assert enriched["tags"]["transport_failure"] == "timeout"
+    assert enriched["contexts"]["websocket_transport"]["failure_stage"] == "transport_timeout"
+    assert event.get("tags") is None
 
 
 def test_filters_technical_transactions() -> None:

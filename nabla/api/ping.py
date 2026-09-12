@@ -7,6 +7,7 @@ import pyroscope
 from fastapi import APIRouter, Response
 from fastapi.concurrency import run_in_threadpool
 from opentelemetry.propagate import inject
+
 from nabla.config_settings import DD_TRACE_ENABLED
 from nabla.utils.datadog_config import datadog_trace
 from nabla.utils.logger import logger
@@ -44,7 +45,7 @@ async def io_task():
         service="ping_io_task_helper",
     ):
         time.sleep(1)
-        logger.error("io task")
+        logger.info("io task completed")
         # If you must call sync code:
         return {"IO bound task finish": await run_in_threadpool(time.sleep, 1)}
 
@@ -58,7 +59,7 @@ def work(n):
 async def cpu_task():
     with pyroscope.tag_wrapper({"function": "fast"}):
         work(1000)
-    logger.error("cpu task")
+    logger.info("cpu task completed")
 
     return "CPU bound task finish!"
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import os
+import time
 from dataclasses import dataclass
 from typing import Any, Protocol
 from urllib.parse import urlsplit
@@ -59,6 +60,24 @@ class CloudflareAccessApplicationObservation(BaseModel):
     hostname: str
     path: str = "/"
     policies: tuple[CloudflareAccessPolicyObservation, ...] = ()
+
+
+class CloudflareAccessControlPlaneObservation(BaseModel):
+    """Sanitized counts/timing for account-level Access control-plane inventory."""
+
+    model_config = ConfigDict(frozen=True)
+
+    reusable_policy_count: int | None = None
+    reusable_policy_total_count: int | None = None
+    reusable_policy_app_count: int | None = None
+    reusable_policy_elapsed_ms: int | None = None
+    reusable_policy_error: str | None = None
+    service_token_count: int | None = None
+    service_token_total_count: int | None = None
+    service_token_enabled_count: int | None = None
+    service_token_elapsed_ms: int | None = None
+    service_token_error: str | None = None
+    configured_service_token_present: bool | None = None
 
 
 def cloudflare_api_configuration_status() -> dict[str, object]:
@@ -124,6 +143,25 @@ def _application_host_and_path(domain: str) -> tuple[str, str]:
     return hostname, path
 
 
+def _pagination(page: object, observed_count: int) -> dict[str, int]:
+    result_info = _value(page, "result_info")
+    count = _value(result_info, "count", observed_count)
+    total_count = _value(result_info, "total_count", count)
+    try:
+        normalized_count = int(count)
+    except (TypeError, ValueError):
+        normalized_count = observed_count
+    try:
+        normalized_total = int(total_count)
+    except (TypeError, ValueError):
+        normalized_total = normalized_count
+    return {"result_count": normalized_count, "total_count": normalized_total}
+
+
+def _short_error(exc: BaseException) -> str:
+    return exc.__class__.__name__[:80]
+
+
 class CloudflareTunnelObserver:
     """Inspect Cloudflare-managed tunnels and Access without mutating state."""
 
@@ -141,8 +179,7 @@ class CloudflareTunnelObserver:
         factory = client_factory or _load_cloudflare_client()
         self._client = factory(api_token=settings.api_token, timeout=5.0, max_retries=0)
 
-    def list_tunnels(self) -> list[CloudflareTunnelObservation]:
-        """Return active Cloudflared tunnels and Cloudflare-managed public hostnames."""
+    def _list_tunnels(self) -> tuple[list[CloudflareTunnelObservation], dict[str, int]]:
         page = self._client.zero_trust.tunnels.cloudflared.list(
             account_id=self._settings.account_id,
             is_deleted=False,
@@ -177,7 +214,15 @@ class CloudflareTunnelObserver:
                 )
             )
 
-        return observations
+        return observations, _pagination(page, len(observations))
+
+    def list_tunnels(self) -> list[CloudflareTunnelObservation]:
+        """Return active cloudflared tunnels and Cloudflare-managed public hostnames."""
+        return self._list_tunnels()[0]
+
+    def list_tunnels_with_metadata(self) -> tuple[list[CloudflareTunnelObservation], dict[str, int]]:
+        """Return tunnels plus sanitized API pagination metadata."""
+        return self._list_tunnels()
 
     def _read_ingress(
         self,
@@ -211,8 +256,9 @@ class CloudflareTunnelObserver:
 
         return tuple(observed)
 
-    def list_access_applications(self) -> list[CloudflareAccessApplicationObservation]:
-        """Return Access apps and policies using read-only Apps/Policies permissions."""
+    def _list_access_applications(
+        self,
+    ) -> tuple[list[CloudflareAccessApplicationObservation], dict[str, int]]:
         applications_api = self._client.zero_trust.access.applications
         page = applications_api.list(account_id=self._settings.account_id)
         observations: list[CloudflareAccessApplicationObservation] = []
@@ -257,7 +303,83 @@ class CloudflareTunnelObserver:
                 )
             )
 
-        return observations
+        return observations, _pagination(page, len(observations))
+
+    def list_access_applications(self) -> list[CloudflareAccessApplicationObservation]:
+        """Return Access apps and policies using read-only Apps/Policies permissions."""
+        return self._list_access_applications()[0]
+
+    def list_access_applications_with_metadata(
+        self,
+    ) -> tuple[list[CloudflareAccessApplicationObservation], dict[str, int]]:
+        """Return Access applications plus sanitized API pagination metadata."""
+        return self._list_access_applications()
+
+    def access_control_plane(self) -> CloudflareAccessControlPlaneObservation:
+        """Return bounded reusable-policy/service-token inventory without secrets."""
+        reusable_policy_count: int | None = None
+        reusable_policy_total_count: int | None = None
+        reusable_policy_app_count: int | None = None
+        reusable_policy_elapsed_ms: int | None = None
+        reusable_policy_error: str | None = None
+        service_token_count: int | None = None
+        service_token_total_count: int | None = None
+        service_token_enabled_count: int | None = None
+        service_token_elapsed_ms: int | None = None
+        service_token_error: str | None = None
+        configured_service_token_present: bool | None = None
+
+        started = time.perf_counter()
+        try:
+            page = self._client.zero_trust.access.policies.list(
+                account_id=self._settings.account_id,
+            )
+            policies = list(page)
+            pagination = _pagination(page, len(policies))
+            reusable_policy_count = pagination["result_count"]
+            reusable_policy_total_count = pagination["total_count"]
+            reusable_policy_app_count = sum(
+                max(0, int(_value(policy, "app_count", 0) or 0)) for policy in policies
+            )
+        except Exception as exc:  # pragma: no cover - provider/network/permissions dependent
+            reusable_policy_error = _short_error(exc)
+        reusable_policy_elapsed_ms = round((time.perf_counter() - started) * 1000)
+
+        started = time.perf_counter()
+        try:
+            page = self._client.zero_trust.access.service_tokens.list(
+                account_id=self._settings.account_id,
+            )
+            tokens = list(page)
+            pagination = _pagination(page, len(tokens))
+            service_token_count = pagination["result_count"]
+            service_token_total_count = pagination["total_count"]
+            service_token_enabled_count = sum(
+                _value(token, "enabled", True) is not False for token in tokens
+            )
+            configured_client_id = os.getenv("CF_ACCESS_CLIENT_ID", "").strip()
+            if configured_client_id:
+                configured_service_token_present = any(
+                    str(_value(token, "client_id", "") or "") == configured_client_id
+                    for token in tokens
+                )
+        except Exception as exc:  # pragma: no cover - provider/network/permissions dependent
+            service_token_error = _short_error(exc)
+        service_token_elapsed_ms = round((time.perf_counter() - started) * 1000)
+
+        return CloudflareAccessControlPlaneObservation(
+            reusable_policy_count=reusable_policy_count,
+            reusable_policy_total_count=reusable_policy_total_count,
+            reusable_policy_app_count=reusable_policy_app_count,
+            reusable_policy_elapsed_ms=reusable_policy_elapsed_ms,
+            reusable_policy_error=reusable_policy_error,
+            service_token_count=service_token_count,
+            service_token_total_count=service_token_total_count,
+            service_token_enabled_count=service_token_enabled_count,
+            service_token_elapsed_ms=service_token_elapsed_ms,
+            service_token_error=service_token_error,
+            configured_service_token_present=configured_service_token_present,
+        )
 
 
 def observe_cloudflare_tunnels() -> list[CloudflareTunnelObservation]:
@@ -268,9 +390,36 @@ def observe_cloudflare_tunnels() -> list[CloudflareTunnelObservation]:
     return CloudflareTunnelObserver(settings).list_tunnels()
 
 
+def observe_cloudflare_tunnels_with_metadata() -> tuple[list[CloudflareTunnelObservation], dict[str, int]]:
+    """Observe tunnels and sanitized list-result counts."""
+    settings = CloudflareTunnelSettings.from_environment()
+    if settings is None:
+        return [], {"result_count": 0, "total_count": 0}
+    return CloudflareTunnelObserver(settings).list_tunnels_with_metadata()
+
+
 def observe_cloudflare_access_applications() -> list[CloudflareAccessApplicationObservation]:
     """Observe Access apps/policies when the read-only token has the required scope."""
     settings = CloudflareTunnelSettings.from_environment()
     if settings is None:
         return []
     return CloudflareTunnelObserver(settings).list_access_applications()
+
+
+def observe_cloudflare_access_applications_with_metadata() -> tuple[
+    list[CloudflareAccessApplicationObservation],
+    dict[str, int],
+]:
+    """Observe Access applications and sanitized list-result counts."""
+    settings = CloudflareTunnelSettings.from_environment()
+    if settings is None:
+        return [], {"result_count": 0, "total_count": 0}
+    return CloudflareTunnelObserver(settings).list_access_applications_with_metadata()
+
+
+def observe_cloudflare_access_control_plane() -> CloudflareAccessControlPlaneObservation:
+    """Observe reusable policies and Service Tokens without exposing credentials."""
+    settings = CloudflareTunnelSettings.from_environment()
+    if settings is None:
+        return CloudflareAccessControlPlaneObservation()
+    return CloudflareTunnelObserver(settings).access_control_plane()

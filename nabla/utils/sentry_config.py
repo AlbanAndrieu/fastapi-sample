@@ -62,11 +62,33 @@ def sentry_dsn_is_reachable(dsn: str, *, timeout: float = 0.25) -> bool:
         with socket.create_connection((parsed.hostname, port), timeout=timeout) as connection:
             if parsed.scheme == "https":
                 context = ssl.create_default_context()
+                context.minimum_version = ssl.TLSVersion.TLSv1_2
                 with context.wrap_socket(connection, server_hostname=parsed.hostname):
                     pass
         return True
     except (OSError, ValueError):
         return False
+
+
+def sentry_destination(dsn: str, target: str) -> dict[str, Any]:
+    """Return non-secret destination metadata suitable for health/debug output."""
+    if not dsn:
+        return {"target": target, "configured": False}
+    try:
+        parsed = urlsplit(dsn)
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    except ValueError:
+        return {"target": target, "configured": True, "valid": False}
+    project_id = parsed.path.rstrip("/").rsplit("/", 1)[-1] or None
+    return {
+        "target": target,
+        "configured": True,
+        "valid": bool(parsed.hostname and parsed.scheme in {"http", "https"}),
+        "scheme": parsed.scheme or None,
+        "host": parsed.hostname,
+        "port": port,
+        "project_id": project_id,
+    }
 
 
 def select_sentry_dsn(env: Mapping[str, str] | None = None) -> tuple[str, str]:
@@ -89,7 +111,12 @@ def select_sentry_dsn(env: Mapping[str, str] | None = None) -> tuple[str, str]:
 def _scrub_sensitive(value: Any) -> Any:
     """Return a copy with common credential fields removed."""
     if isinstance(value, dict):
-        return {key: _FILTERED_VALUE if str(key).lower() in _SENSITIVE_KEYS else _scrub_sensitive(item) for key, item in value.items()}
+        return {
+            key: _FILTERED_VALUE
+            if str(key).lower() in _SENSITIVE_KEYS
+            else _scrub_sensitive(item)
+            for key, item in value.items()
+        }
     if isinstance(value, list):
         return [_scrub_sensitive(item) for item in value]
     if isinstance(value, tuple):
@@ -97,15 +124,45 @@ def _scrub_sensitive(value: Any) -> Any:
     return value
 
 
+def _websocket_timeout_context(event: dict[str, Any]) -> dict[str, Any]:
+    """Annotate websocket-client transport timeouts without guessing their target."""
+    logger_name = str(event.get("logger") or "")
+    logentry = event.get("logentry")
+    message = ""
+    if isinstance(logentry, dict):
+        message = str(logentry.get("formatted") or logentry.get("message") or "")
+    if logger_name != "websocket" or "timed out" not in message.casefold():
+        return event
+    tags = dict(event.get("tags") or {})
+    tags["event_origin"] = "websocket-client"
+    tags["transport_failure"] = "timeout"
+    event["tags"] = tags
+    contexts = dict(event.get("contexts") or {})
+    contexts["websocket_transport"] = {
+        "library": "websocket-client",
+        "failure_stage": "transport_timeout",
+        "diagnostic_hint": (
+            "Correlate this timestamp with integration-specific warnings; the TrueNAS "
+            "observer logs method, URI, proxy route, phase, failure stage and elapsed time."
+        ),
+    }
+    event["contexts"] = contexts
+    return event
+
+
 def _before_send(event: dict[str, Any], _hint: dict[str, Any]) -> dict[str, Any]:
-    return _scrub_sensitive(deepcopy(event))
+    scrubbed = _scrub_sensitive(deepcopy(event))
+    return _websocket_timeout_context(scrubbed)
 
 
 def _before_send_log(log: dict[str, Any], _hint: dict[str, Any]) -> dict[str, Any]:
     return _scrub_sensitive(deepcopy(log))
 
 
-def _before_send_transaction(event: dict[str, Any], _hint: dict[str, Any]) -> dict[str, Any] | None:
+def _before_send_transaction(
+    event: dict[str, Any],
+    _hint: dict[str, Any],
+) -> dict[str, Any] | None:
     request_url = str(event.get("request", {}).get("url", ""))
     path = urlsplit(request_url).path
     transaction = str(event.get("transaction", ""))
@@ -128,7 +185,12 @@ def _integrations(*, include_logging: bool, include_ai: bool = False) -> list[An
                 module = __import__(module_name, fromlist=[class_name])
                 integrations.append(getattr(module, class_name)())
             except Exception as exc:
-                _logger.debug("Skipping Sentry integration %s.%s: %s", module_name, class_name, exc)
+                _logger.debug(
+                    "Skipping Sentry integration %s.%s: %s",
+                    module_name,
+                    class_name,
+                    exc,
+                )
 
     integrations.extend(
         [
@@ -175,8 +237,16 @@ def configure_sentry(env: Mapping[str, str] | None = None) -> bool:
         sentry_sdk.init(
             dsn=dsn,
             enable_logs=not logfire_enabled,
-            traces_sample_rate=(None if logfire_enabled else _env_float(values, "SENTRY_TRACES_SAMPLE_RATE", 0.1)),
-            profiles_sample_rate=(0.0 if logfire_enabled else _env_float(values, "SENTRY_PROFILES_SAMPLE_RATE", 0.0)),
+            traces_sample_rate=(
+                None
+                if logfire_enabled
+                else _env_float(values, "SENTRY_TRACES_SAMPLE_RATE", 0.1)
+            ),
+            profiles_sample_rate=(
+                0.0
+                if logfire_enabled
+                else _env_float(values, "SENTRY_PROFILES_SAMPLE_RATE", 0.0)
+            ),
             sample_rate=_env_float(values, "SENTRY_ERROR_SAMPLE_RATE", 1.0),
             send_default_pii=False,
             before_send=_before_send,
@@ -185,11 +255,16 @@ def configure_sentry(env: Mapping[str, str] | None = None) -> bool:
             ignore_errors=[BrokenPipeError, ConnectionResetError, TimeoutError],
             max_breadcrumbs=int(values.get("SENTRY_MAX_BREADCRUMBS", "50")),
             shutdown_timeout=float(values.get("SENTRY_SHUTDOWN_TIMEOUT", "2")),
-            environment=values.get("SENTRY_ENVIRONMENT") or values.get("ENV") or "development",
+            environment=(
+                values.get("SENTRY_ENVIRONMENT") or values.get("ENV") or "development"
+            ),
             release=values.get("SENTRY_RELEASE") or app_version,
             integrations=_integrations(
                 include_logging=not logfire_enabled,
-                include_ai=values.get("SENTRY_AI_INTEGRATIONS_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"},
+                include_ai=values.get("SENTRY_AI_INTEGRATIONS_ENABLED", "false")
+                .strip()
+                .lower()
+                in {"1", "true", "yes", "on"},
             ),
             server_name=app_name,
         )
@@ -197,9 +272,14 @@ def configure_sentry(env: Mapping[str, str] | None = None) -> bool:
         _logger.exception("Sentry initialization failed; application will continue")
         return False
 
+    destination = sentry_destination(dsn, target)
     _logger.info(
-        "Sentry initialized with %s target; logs and tracing are %s",
+        "Sentry initialized target=%s scheme=%s host=%s port=%s project_id=%s; logs and tracing are %s",
         target,
+        destination.get("scheme"),
+        destination.get("host"),
+        destination.get("port"),
+        destination.get("project_id"),
         "disabled because Logfire is enabled" if logfire_enabled else "enabled",
     )
     return True

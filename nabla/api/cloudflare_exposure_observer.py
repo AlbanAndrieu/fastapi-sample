@@ -4,15 +4,18 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+import time
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 from nabla.api.cloudflare_tunnels import (
     CloudflareAccessApplicationObservation,
+    CloudflareAccessControlPlaneObservation,
     CloudflareTunnelObservation,
     CloudflareTunnelSettings,
-    observe_cloudflare_access_applications,
-    observe_cloudflare_tunnels,
+    observe_cloudflare_access_applications_with_metadata,
+    observe_cloudflare_access_control_plane,
+    observe_cloudflare_tunnels_with_metadata,
 )
 from nabla.api.external_probe_cache import get_or_refresh_probe
 from nabla.api.provider_probe_policies import CLOUDFLARE_EXPOSURE_CACHE_POLICY
@@ -58,7 +61,13 @@ def _tunnel_summary(tunnel: CloudflareTunnelObservation) -> dict[str, Any]:
         "status": tunnel.status,
         "management": management,
         "ingress_count": len(ingress),
-        "ingress_visibility": ("remote_api" if management == "cloudflare" else "local_yaml_unavailable_via_api" if management == "local" else "unknown"),
+        "ingress_visibility": (
+            "remote_api"
+            if management == "cloudflare"
+            else "local_yaml_unavailable_via_api"
+            if management == "local"
+            else "unknown"
+        ),
         "ingress": ingress,
     }
 
@@ -83,6 +92,25 @@ def _access_application_summary(
     }
 
 
+def _api_family(
+    *,
+    result_count: int | None,
+    total_count: int | None,
+    elapsed_ms: int | None,
+    error: str | None,
+    **extra: Any,
+) -> dict[str, Any]:
+    return {
+        "state": "error" if error else "ok",
+        "success": error is None,
+        "result_count": result_count,
+        "total_count": total_count,
+        "elapsed_ms": elapsed_ms,
+        "error": error,
+        **extra,
+    }
+
+
 @dataclass(frozen=True, slots=True)
 class CloudflareExposureSnapshot:
     """Provider observations plus explicit partial-failure/cache state."""
@@ -92,13 +120,24 @@ class CloudflareExposureSnapshot:
     access_applications: tuple[CloudflareAccessApplicationObservation, ...] = ()
     tunnel_error: str | None = None
     access_error: str | None = None
+    tunnel_elapsed_ms: int | None = None
+    access_elapsed_ms: int | None = None
+    tunnel_result_count: int | None = None
+    tunnel_total_count: int | None = None
+    access_result_count: int | None = None
+    access_total_count: int | None = None
+    access_control_plane: CloudflareAccessControlPlaneObservation | None = None
     stale: bool = False
     refresh_error: str | None = None
     cache: dict[str, Any] | None = None
 
     def summary(self) -> dict[str, Any]:
         confirmed = bool(
-            self.configured and self.tunnels and not self.tunnel_error and not self.access_error and not self.stale,
+            self.configured
+            and self.tunnels
+            and not self.tunnel_error
+            and not self.access_error
+            and not self.stale,
         )
         warning = None
         if self.configured and not confirmed:
@@ -107,6 +146,36 @@ class CloudflareExposureSnapshot:
         config_sources = [str(tunnel.config_source or "unknown") for tunnel in self.tunnels]
         local_managed = sum(source == "local" for source in config_sources)
         remote_managed = sum(source == "cloudflare" for source in config_sources)
+        control = self.access_control_plane or CloudflareAccessControlPlaneObservation()
+        control_plane = {
+            "tunnels": _api_family(
+                result_count=self.tunnel_result_count if self.tunnel_result_count is not None else len(self.tunnels),
+                total_count=self.tunnel_total_count if self.tunnel_total_count is not None else len(self.tunnels),
+                elapsed_ms=self.tunnel_elapsed_ms,
+                error=self.tunnel_error,
+            ),
+            "access_applications": _api_family(
+                result_count=self.access_result_count if self.access_result_count is not None else len(self.access_applications),
+                total_count=self.access_total_count if self.access_total_count is not None else len(self.access_applications),
+                elapsed_ms=self.access_elapsed_ms,
+                error=self.access_error,
+            ),
+            "access_reusable_policies": _api_family(
+                result_count=control.reusable_policy_count,
+                total_count=control.reusable_policy_total_count,
+                elapsed_ms=control.reusable_policy_elapsed_ms,
+                error=control.reusable_policy_error,
+                application_assignments=control.reusable_policy_app_count,
+            ),
+            "access_service_tokens": _api_family(
+                result_count=control.service_token_count,
+                total_count=control.service_token_total_count,
+                elapsed_ms=control.service_token_elapsed_ms,
+                error=control.service_token_error,
+                enabled_count=control.service_token_enabled_count,
+                configured_client_id_present=control.configured_service_token_present,
+            ),
+        }
         return {
             "status_confirmed": confirmed,
             "state": "ok" if confirmed else "unknown",
@@ -122,8 +191,19 @@ class CloudflareExposureSnapshot:
             "tunnels": [_tunnel_summary(tunnel) for tunnel in self.tunnels],
             "access_applications_observed": len(self.access_applications),
             "access_applications": [_access_application_summary(application) for application in self.access_applications],
-            "tunnel_observer_state": ("unconfigured" if not self.configured else "error" if self.tunnel_error else "empty" if not self.tunnels else "ok"),
-            "access_observer_state": ("unconfigured" if not self.configured else "error" if self.access_error else "ok"),
+            "control_plane": control_plane,
+            "tunnel_observer_state": (
+                "unconfigured"
+                if not self.configured
+                else "error"
+                if self.tunnel_error
+                else "empty"
+                if not self.tunnels
+                else "ok"
+            ),
+            "access_observer_state": (
+                "unconfigured" if not self.configured else "error" if self.access_error else "ok"
+            ),
             "tunnel_error": self.tunnel_error,
             "access_error": self.access_error,
             "stale": self.stale,
@@ -141,6 +221,17 @@ class CloudflareExposureSnapshot:
             "access_applications": [item.model_dump(mode="json") for item in self.access_applications],
             "tunnel_error": tunnel_error,
             "access_error": self.access_error,
+            "tunnel_elapsed_ms": self.tunnel_elapsed_ms,
+            "access_elapsed_ms": self.access_elapsed_ms,
+            "tunnel_result_count": self.tunnel_result_count,
+            "tunnel_total_count": self.tunnel_total_count,
+            "access_result_count": self.access_result_count,
+            "access_total_count": self.access_total_count,
+            "access_control_plane": (
+                self.access_control_plane.model_dump(mode="json")
+                if self.access_control_plane is not None
+                else None
+            ),
         }
 
     @classmethod
@@ -152,12 +243,32 @@ class CloudflareExposureSnapshot:
         refresh_error: str | None = None,
         cache: dict[str, Any] | None = None,
     ) -> CloudflareExposureSnapshot:
+        raw_control = payload.get("access_control_plane")
         return cls(
             configured=bool(payload.get("configured")),
-            tunnels=tuple(CloudflareTunnelObservation.model_validate(item) for item in payload.get("tunnels", []) if isinstance(item, dict)),
-            access_applications=tuple(CloudflareAccessApplicationObservation.model_validate(item) for item in payload.get("access_applications", []) if isinstance(item, dict)),
+            tunnels=tuple(
+                CloudflareTunnelObservation.model_validate(item)
+                for item in payload.get("tunnels", [])
+                if isinstance(item, dict)
+            ),
+            access_applications=tuple(
+                CloudflareAccessApplicationObservation.model_validate(item)
+                for item in payload.get("access_applications", [])
+                if isinstance(item, dict)
+            ),
             tunnel_error=str(payload["tunnel_error"]) if payload.get("tunnel_error") else None,
             access_error=str(payload["access_error"]) if payload.get("access_error") else None,
+            tunnel_elapsed_ms=payload.get("tunnel_elapsed_ms"),
+            access_elapsed_ms=payload.get("access_elapsed_ms"),
+            tunnel_result_count=payload.get("tunnel_result_count"),
+            tunnel_total_count=payload.get("tunnel_total_count"),
+            access_result_count=payload.get("access_result_count"),
+            access_total_count=payload.get("access_total_count"),
+            access_control_plane=(
+                CloudflareAccessControlPlaneObservation.model_validate(raw_control)
+                if isinstance(raw_control, dict)
+                else None
+            ),
             stale=stale,
             refresh_error=refresh_error,
             cache=cache,
@@ -169,48 +280,89 @@ def _short_error(exc: BaseException) -> str:
 
 
 async def _origin() -> dict[str, Any]:
-    async def tunnels() -> tuple[tuple[CloudflareTunnelObservation, ...], str | None]:
+    async def tunnels() -> tuple[
+        tuple[CloudflareTunnelObservation, ...],
+        str | None,
+        int,
+        dict[str, int],
+    ]:
+        started = time.perf_counter()
         try:
-            observed = await asyncio.wait_for(
-                asyncio.to_thread(observe_cloudflare_tunnels),
+            observed, metadata = await asyncio.wait_for(
+                asyncio.to_thread(observe_cloudflare_tunnels_with_metadata),
                 timeout=_OBSERVER_TIMEOUT_SEC,
             )
             result = tuple(observed)
-            return result, None if result else "empty_inventory"
+            return result, None if result else "empty_inventory", round((time.perf_counter() - started) * 1000), metadata
         except Exception as exc:  # pragma: no cover - provider/network dependent
-            return (), _short_error(exc)
+            return (), _short_error(exc), round((time.perf_counter() - started) * 1000), {}
 
-    async def access() -> tuple[tuple[CloudflareAccessApplicationObservation, ...], str | None]:
+    async def access() -> tuple[
+        tuple[CloudflareAccessApplicationObservation, ...],
+        str | None,
+        int,
+        dict[str, int],
+    ]:
+        started = time.perf_counter()
         try:
-            observed = await asyncio.wait_for(
-                asyncio.to_thread(observe_cloudflare_access_applications),
+            observed, metadata = await asyncio.wait_for(
+                asyncio.to_thread(observe_cloudflare_access_applications_with_metadata),
                 timeout=_OBSERVER_TIMEOUT_SEC,
             )
-            return tuple(observed), None
+            return tuple(observed), None, round((time.perf_counter() - started) * 1000), metadata
         except Exception as exc:  # pragma: no cover - provider/network/permissions dependent
-            return (), _short_error(exc)
+            return (), _short_error(exc), round((time.perf_counter() - started) * 1000), {}
 
-    (tunnel_items, tunnel_error), (access_items, access_error) = await asyncio.gather(
+    async def control_plane() -> CloudflareAccessControlPlaneObservation:
+        try:
+            return await asyncio.wait_for(
+                asyncio.to_thread(observe_cloudflare_access_control_plane),
+                timeout=_OBSERVER_TIMEOUT_SEC,
+            )
+        except Exception as exc:  # pragma: no cover - provider/network/permissions dependent
+            error = _short_error(exc)
+            return CloudflareAccessControlPlaneObservation(
+                reusable_policy_error=error,
+                service_token_error=error,
+            )
+
+    tunnel_result, access_result, control = await asyncio.gather(
         tunnels(),
         access(),
+        control_plane(),
     )
+    tunnel_items, tunnel_error, tunnel_elapsed_ms, tunnel_metadata = tunnel_result
+    access_items, access_error, access_elapsed_ms, access_metadata = access_result
     return CloudflareExposureSnapshot(
         configured=True,
         tunnels=tunnel_items,
         access_applications=access_items,
         tunnel_error=tunnel_error,
         access_error=access_error,
+        tunnel_elapsed_ms=tunnel_elapsed_ms,
+        access_elapsed_ms=access_elapsed_ms,
+        tunnel_result_count=tunnel_metadata.get("result_count"),
+        tunnel_total_count=tunnel_metadata.get("total_count"),
+        access_result_count=access_metadata.get("result_count"),
+        access_total_count=access_metadata.get("total_count"),
+        access_control_plane=control,
     ).cache_payload()
 
 
 def _success(payload: dict[str, Any]) -> bool:
     return bool(
-        payload.get("tunnels") and not payload.get("tunnel_error") and not payload.get("access_error"),
+        payload.get("tunnels")
+        and not payload.get("tunnel_error")
+        and not payload.get("access_error"),
     )
 
 
 def _refresh_error(payload: dict[str, Any]) -> str | None:
-    errors = [str(value) for value in (payload.get("tunnel_error"), payload.get("access_error")) if value]
+    errors = [
+        str(value)
+        for value in (payload.get("tunnel_error"), payload.get("access_error"))
+        if value
+    ]
     return ", ".join(errors) or None
 
 
