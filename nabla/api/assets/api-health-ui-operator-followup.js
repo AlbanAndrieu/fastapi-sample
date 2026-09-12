@@ -22,6 +22,14 @@ function identity(value) {
     .replace(/[^a-z0-9]+/g, "");
 }
 
+function collectionValues(collection) {
+  if (Array.isArray(collection)) return collection;
+  if (collection && typeof collection === "object") {
+    return Object.values(collection);
+  }
+  return [];
+}
+
 function healthRow(serviceKey) {
   const wanted = identity(serviceKey);
   return [...document.querySelectorAll(".health-row[data-service-key]")].find(
@@ -43,11 +51,23 @@ function openTrueNasDiagnostics() {
   panel?.querySelector(".service-detail-trigger")?.click();
 }
 
+function filterIsActive() {
+  const params = new URL(window.location.href).searchParams;
+  return ["q", "health", "environment", "group", "exposure", "probe"].some(
+    (key) => params.has(key),
+  );
+}
+
 function pinTrueNasPlatform() {
   const panel = document.getElementById("truenas-platform");
   if (!panel) return;
   panel.hidden = false;
   panel.dataset.filterPinned = "true";
+  const group = panel.closest("[data-service-group]");
+  if (group) {
+    group.hidden = false;
+    if (filterIsActive()) group.open = true;
+  }
 }
 
 function stageByLabel(predicate) {
@@ -106,8 +126,9 @@ function decoratePublicDns() {
 function decorateTrueNasApiStage() {
   const stage = stageByLabel((label) => label.includes("truenas api"));
   const label = stage?.querySelector(".truenas-stage-label");
-  if (!stage || !label || label.dataset.coreDiagnosticsLinked === "true")
+  if (!stage || !label || label.dataset.coreDiagnosticsLinked === "true") {
     return;
+  }
   const text = label.textContent?.trim() || "TrueNAS API";
   label.dataset.coreDiagnosticsLinked = "true";
   const button = document.createElement("button");
@@ -119,21 +140,97 @@ function decorateTrueNasApiStage() {
   label.replaceChildren(button);
 }
 
+function localPfSenseStageState() {
+  const check = latestSnapshot?.healthz?.checks?.pfsense || {};
+  if (check.reachable === false) return "fail";
+  if (check.reachable === true) return "ok";
+  return "blocked";
+}
+
+function ensureLocalPfSenseFlowStage() {
+  const pipeline = document.getElementById("truenas-pipeline");
+  if (!pipeline || !latestSnapshot) return;
+  const runtime = normalize(latestSnapshot?.runtime?.runtime_mode);
+  const pathMode = normalize(
+    latestSnapshot?.homelab?.truenas?.diagnostics?.path_mode,
+  );
+  if (!['local', 'homelab'].includes(runtime) || pathMode !== "direct_lan") {
+    return;
+  }
+  if (
+    pipeline.querySelector('[data-followup-pfsense-stage="true"]') ||
+    stageByLabel((label) => label.includes("pfsense"))
+  ) {
+    return;
+  }
+
+  const anchor = stageByLabel((label) => label.includes("dns"));
+  if (!anchor) return;
+  const state = localPfSenseStageState();
+  const stage = document.createElement("div");
+  stage.className = `truenas-stage truenas-stage--${state}`;
+  stage.dataset.followupPfsenseStage = "true";
+  stage.title =
+    "pfSense remains a LAN infrastructure dependency for DNS/Unbound and HAProxy even when this TrueNAS probe uses a direct LAN IP path. This stage does not claim every direct-LAN packet traverses PF/WAN rules.";
+
+  const icon = document.createElement("span");
+  icon.className = "truenas-stage-icon";
+  icon.setAttribute("aria-hidden", "true");
+  icon.textContent = state === "ok" ? "●" : state === "fail" ? "💀" : "⊘";
+  const label = document.createElement("span");
+  label.className = "truenas-stage-label";
+  label.appendChild(
+    serviceButton(
+      "pfSense LAN services",
+      "pfsense",
+      "Open pfSense diagnostics · LAN DNS/Unbound and HAProxy dependency",
+    ),
+  );
+  const time = document.createElement("span");
+  time.className = "truenas-stage-time";
+  const elapsed = Number(latestSnapshot?.healthz?.checks?.pfsense?.elapsed_ms);
+  time.textContent = Number.isFinite(elapsed) ? `${elapsed} ms` : "—";
+  const detail = document.createElement("span");
+  detail.className = "truenas-stage-detail";
+  detail.textContent =
+    "LAN infrastructure: internal DNS/Unbound + HAProxy for selected *.int.albandrieu.com routes and TrueNAS :7000";
+  stage.append(icon, label, time, detail);
+
+  const connector = document.createElement("div");
+  connector.className =
+    state === "ok"
+      ? "truenas-connector"
+      : "truenas-connector truenas-connector--broken";
+  connector.dataset.followupPfsenseConnector = "true";
+  connector.setAttribute("aria-hidden", "true");
+  anchor.insertAdjacentElement("afterend", connector);
+  connector.insertAdjacentElement("afterend", stage);
+}
+
 function deduplicateProbeEvidence() {
   const rows = document.querySelectorAll(
     ".health-row[data-service-filter-target]",
   );
   for (const row of rows) {
+    const seen = new Set();
+    const badges = [
+      ...row.querySelectorAll(".service-probe-strip [data-probe-kind]"),
+    ];
+    for (const badge of badges.reverse()) {
+      const key = badge.dataset.probeKind || "";
+      if (!key || !seen.has(key)) {
+        seen.add(key);
+        continue;
+      }
+      badge.remove();
+    }
     for (const strip of row.querySelectorAll(".service-probe-strip")) {
-      const seen = new Set();
-      const badges = [...strip.querySelectorAll("[data-probe-kind]")];
-      for (const badge of badges.reverse()) {
-        const key = badge.dataset.probeKind || "";
-        if (!key || !seen.has(key)) {
-          seen.add(key);
-          continue;
-        }
-        badge.remove();
+      if (
+        strip.dataset.probePlane &&
+        !strip.querySelector("[data-probe-kind]") &&
+        !strip.textContent?.trim()
+      ) {
+        strip.remove();
       }
     }
     const telemetry = [
@@ -161,11 +258,78 @@ function makePlaneLabelLink(label) {
   strong.replaceChildren(link);
 }
 
+function trueNasLanUrl() {
+  const internal = collectionValues(
+    latestSnapshot?.homelab?.internal_services,
+  ).find((check) => {
+    const candidate = normalize(`${check?.name || ""} ${check?.id || ""}`);
+    return candidate.includes("truenas") && candidate.includes("https");
+  });
+  if (internal?.host && internal?.port != null) {
+    return `https://${internal.host}:${internal.port}/`;
+  }
+  const configured = String(
+    latestSnapshot?.homelab?.truenas?.diagnostics?.target ||
+      latestSnapshot?.homelab?.truenas?.public?.url ||
+      "",
+  ).trim();
+  return /^https?:\/\//i.test(configured) ? configured : "";
+}
+
+function reconcileTrueNasLanTarget() {
+  const url = trueNasLanUrl();
+  if (!url) return;
+  const row = [...document.querySelectorAll(".health-row")].find((candidate) =>
+    normalize(
+      `${candidate.dataset.serviceName || ""} ${candidate.dataset.serviceKey || ""}`,
+    ).includes("truenas https"),
+  );
+  const label = row?.querySelector(".service-probe-plane-label--lan");
+  if (!label) return;
+  let target = label.querySelector(":scope > a, :scope > span");
+  if (!target || target.tagName !== "A") {
+    target?.remove();
+    target = document.createElement("a");
+    label.appendChild(target);
+  }
+  target.href = url;
+  target.target = "_blank";
+  target.rel = "noopener noreferrer";
+  target.textContent = url;
+  target.title = `Open TrueNAS HTTPS listener on LAN: ${url}`;
+}
+
 function linkProbePlanes() {
   const labels = document.querySelectorAll(
     ".service-probe-plane-label--public, .service-probe-plane-label--lan",
   );
   labels.forEach(makePlaneLabelLink);
+}
+
+function annotateProbeTelemetry() {
+  for (const row of document.querySelectorAll(".health-row")) {
+    let column = row.querySelector(":scope > .health-row-telemetry");
+    const badges = [
+      ...row.querySelectorAll(
+        ".health-meta-badge--probe-age, .health-meta-badge--probe-latency, .health-meta-badge--probing",
+      ),
+    ];
+    if (badges.length === 0) continue;
+    if (!column) {
+      column = document.createElement("div");
+      column.className = "health-row-telemetry";
+      row.appendChild(column);
+    }
+    for (const badge of badges) {
+      if (badge.parentElement !== column) column.appendChild(badge);
+      if (badge.classList.contains("health-meta-badge--probing")) {
+        const help =
+          "Probe refresh is currently due/running. This activity indicator does not change service health by itself.";
+        badge.title = help;
+        badge.setAttribute("aria-label", help);
+      }
+    }
+  }
 }
 
 async function loadCatalog() {
@@ -287,7 +451,8 @@ function reconcileCloudflareDrawer() {
 }
 
 function reconcileLocalPfSense() {
-  if (latestSnapshot?.runtime?.runtime_mode !== "local") return;
+  const mode = normalize(latestSnapshot?.runtime?.runtime_mode);
+  if (!['local', 'homelab'].includes(mode)) return;
   const platform = latestSnapshot?.healthz?.checks?.pfsense || {};
   if (platform.reachable !== true) return;
   const row = document.querySelector("#sickz-pfsense-wrap .sickz-pfsense-row");
@@ -296,10 +461,10 @@ function reconcileLocalPfSense() {
   if (!row || !detail || !led) return;
   if (!normalize(detail.textContent).includes("not probed")) return;
   detail.textContent =
-    "External exposure-policy probe skipped from the trusted workstation/LAN vantage point; pfSense REST/API reachability is independently confirmed from this runtime.";
+    "External exposure-policy probe skipped from this LAN observer; pfSense REST/API reachability is independently confirmed. Configure/validate a WAN or hairpin path separately when you want to exercise external firewall policy from the workstation.";
   led.className = "health-led health-led--blue";
   led.title =
-    "Partial evidence: pfSense API reachable; external exposure policy intentionally not probed from LAN";
+    "Partial evidence: pfSense API reachable; external exposure policy was not independently exercised by this observation";
 }
 
 function clearLegacySickzHint() {
@@ -347,7 +512,9 @@ function ensureRuntimeNotices() {
 async function detectRuntimeDiagnostics() {
   if (
     runtimeDiagnosticsState != null ||
-    latestSnapshot?.runtime?.runtime_mode !== "local"
+    !['local', 'homelab'].includes(
+      normalize(latestSnapshot?.runtime?.runtime_mode),
+    )
   ) {
     return;
   }
@@ -355,7 +522,7 @@ async function detectRuntimeDiagnostics() {
     headers: { Accept: "application/json" },
   }).catch(() => null);
   if (!response) return;
-  runtimeDiagnosticsState = response.status !== 404;
+  runtimeDiagnosticsState = response.status === 404 ? false : true;
 }
 
 function apply() {
@@ -363,8 +530,11 @@ function apply() {
   pinTrueNasPlatform();
   decoratePublicDns();
   decorateTrueNasApiStage();
+  ensureLocalPfSenseFlowStage();
   deduplicateProbeEvidence();
+  reconcileTrueNasLanTarget();
   linkProbePlanes();
+  annotateProbeTelemetry();
   clearLegacySickzHint();
   reconcileCloudflareDrawer();
   reconcileLocalPfSense();
@@ -384,6 +554,15 @@ async function refresh() {
   schedule();
 }
 
+function observeTrueNasPipeline() {
+  const pipeline = document.getElementById("truenas-pipeline");
+  if (!pipeline) return;
+  new MutationObserver(schedule).observe(pipeline, {
+    childList: true,
+    subtree: true,
+  });
+}
+
 export function installHealthUiOperatorFollowup() {
   document.addEventListener("service-filter-changed", schedule);
   document.addEventListener("health-board-refreshed", refresh);
@@ -399,5 +578,6 @@ export function installHealthUiOperatorFollowup() {
     },
     true,
   );
+  observeTrueNasPipeline();
   refresh();
 }
