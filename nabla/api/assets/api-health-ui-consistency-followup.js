@@ -129,7 +129,10 @@ function reconcileCloudflare(section, drawer) {
       : present === false
         ? "configured Service Auth not found"
         : "Service Auth correlation not confirmed";
-  const tokenSelection = familySelection(tokens, "project-scoped Service Token");
+  const tokenSelection = familySelection(
+    tokens,
+    "project-scoped Service Token",
+  );
   setProviderDetail(
     tokenItem,
     tokenError || `${tokenSelection} · ${tokenPresence}`,
