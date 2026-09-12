@@ -419,9 +419,7 @@ function addMetricEvidence(target, check, kinds) {
   }
   const metricsStatus = Number(check?.metrics_http_status);
   if (Number.isFinite(metricsStatus)) detail += ` · HTTP ${metricsStatus}`;
-  target.appendChild(
-    probeBadge("metrics", tone, "Prometheus", detail, check),
-  );
+  target.appendChild(probeBadge("metrics", tone, "Prometheus", detail, check));
   kinds.add("metrics");
 }
 
