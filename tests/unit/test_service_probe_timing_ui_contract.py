@@ -22,7 +22,7 @@ def test_question_help_reuses_http_probe_timing() -> None:
     javascript = (ASSETS / "api-service-probe-help.js").read_text(encoding="utf-8")
     entrypoint = (ASSETS / "api-health.js").read_text(encoding="utf-8")
 
-    assert 'row.querySelector(\'[data-probe-kind="http"]\')' in javascript
+    assert "row.querySelector('[data-probe-kind=\"http\"]')" in javascript
     assert "HTTP probe:" in javascript
     assert "aria-label" in javascript
     assert 'from "./api-service-probe-help.js"' in entrypoint
