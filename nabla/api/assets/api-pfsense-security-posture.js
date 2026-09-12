@@ -4,16 +4,23 @@ const HISTORY_LIMIT = 50;
 
 let latestSnapshot = null;
 let scheduled = false;
+let historyOpen = false;
 const postureHistory = [];
 
 function stateClass(state) {
-  if (state === "running" || state === "clear" || state === "ok") return "ok";
+  if (
+    state === "running" ||
+    state === "clear" ||
+    state === "ok" ||
+    state === "in_path" ||
+    state === "observed"
+  ) {
+    return "ok";
+  }
   if (state === "blocked" || state === "stopped" || state === "fail") {
     return "fail";
   }
-  if (state === "in_path" || state === "observed" || state === "warn") {
-    return "warn";
-  }
+  if (state === "warn") return "warn";
   return "unknown";
 }
 
@@ -23,6 +30,37 @@ function stateIcon(state) {
   if (tone === "fail") return "💀";
   if (tone === "warn") return "◐";
   return "?";
+}
+
+function displayState(state) {
+  if (state === "in_path") return "in path";
+  if (state === "not_observed") return "not observed";
+  return state.replaceAll("_", " ");
+}
+
+function stateMeaning(filter, posture) {
+  const state = filter.state;
+  if (filter.id === "firewall" && state === "in_path") {
+    return posture.pathMode === "direct_lan"
+      ? "pfSense/PF is present on the observed security/control path. This is path evidence, not a block or failure; the current direct-LAN TrueNAS probe can bypass that WAN firewall path."
+      : "pfSense/PF is present on the observed ingress/security path. This is expected path evidence, not a block or degraded state."
+  }
+  if (state === "running") {
+    return `${filter.label} is reported running by the read-only pfSense service-state observation.`;
+  }
+  if (state === "clear") {
+    return `${filter.label} telemetry is clear for the observed request/source; this does not prove the service is running unless runtime state is also observed.`;
+  }
+  if (state === "blocked") {
+    return `${filter.label} has explicit block evidence for the observed path/source.`;
+  }
+  if (state === "stopped") {
+    return `${filter.label} is explicitly reported stopped.`;
+  }
+  if (state === "unknown" || state === "not_observed") {
+    return `${filter.label} state is not confirmed by the current read-only observation.`;
+  }
+  return `${filter.label}: ${displayState(state)}.`;
 }
 
 function ensureContainer() {
@@ -57,8 +95,22 @@ function postureFromSnapshot(snapshot) {
   };
 }
 
+function historyLabel(posture) {
+  const summary = posture.filters
+    .map((filter) => `${filter.label}=${displayState(filter.state)}`)
+    .join(" · ");
+  return summary || `pfSense=${displayState(posture.policyState)}`;
+}
+
 function recordPosture(snapshot) {
   const posture = postureFromSnapshot(snapshot);
+  const previous = postureHistory[0];
+  if (
+    previous?.observedAt === posture.observedAt &&
+    historyLabel(previous) === historyLabel(posture)
+  ) {
+    return;
+  }
   postureHistory.unshift(posture);
   postureHistory.splice(HISTORY_LIMIT);
 }
@@ -70,34 +122,30 @@ function appendChips(container, posture) {
     const chip = document.createElement("span");
     const state = filter.state;
     chip.className = `pfsense-security-posture-chip pfsense-security-posture-chip--${stateClass(state)}`;
-    chip.textContent = `${stateIcon(state)} ${filter.label} ${state}`;
-    const directLan = posture.pathMode === "direct_lan";
-    chip.title = directLan
-      ? `${filter.label}: ${state}. Observed through the read-only pfSense control path; this control is not on the current direct-LAN TrueNAS probe path.`
-      : `${filter.label}: ${state}. This posture is observed on the pfSense WAN/security path.`;
+    chip.textContent = `${stateIcon(state)} ${filter.label} ${displayState(state)}`;
+    chip.title = stateMeaning(filter, posture);
+    chip.setAttribute("aria-label", stateMeaning(filter, posture));
     chips.appendChild(chip);
   }
 
   if (posture.filters.length === 0) {
     const chip = document.createElement("span");
     chip.className = `pfsense-security-posture-chip pfsense-security-posture-chip--${stateClass(posture.policyState)}`;
-    chip.textContent = `${stateIcon(posture.policyState)} pfSense ${posture.policyState}`;
+    chip.textContent = `${stateIcon(posture.policyState)} pfSense ${displayState(posture.policyState)}`;
+    chip.title = "pfSense policy state from the latest read-only observation.";
     chips.appendChild(chip);
   }
   container.appendChild(chips);
-}
-
-function historyLabel(posture) {
-  const summary = posture.filters
-    .map((filter) => `${filter.label}=${filter.state}`)
-    .join(" · ");
-  return summary || `pfSense=${posture.policyState}`;
 }
 
 function appendHistory(container) {
   if (postureHistory.length === 0) return;
   const details = document.createElement("details");
   details.className = "pfsense-security-posture-history";
+  details.open = historyOpen;
+  details.addEventListener("toggle", () => {
+    historyOpen = details.open;
+  });
   const summary = document.createElement("summary");
   summary.textContent = `History · ${postureHistory.length}/${HISTORY_LIMIT} observations`;
   details.appendChild(summary);
@@ -130,6 +178,10 @@ function render() {
   }
 
   const directLan = posture.pathMode === "direct_lan";
+  const existingHistory = container.querySelector(
+    ".pfsense-security-posture-history",
+  );
+  if (existingHistory) historyOpen = existingHistory.open;
   container.hidden = false;
   container.dataset.pathMode = posture.pathMode;
   container.replaceChildren();
@@ -138,6 +190,9 @@ function render() {
   heading.textContent = directLan
     ? "pfSense security posture · out-of-band from current LAN probe"
     : "pfSense WAN ingress security posture";
+  heading.title = directLan
+    ? "The workstation/TrueNAS probe is currently using a direct LAN path. pfSense security state is still useful control-plane evidence, but it is not necessarily inline for that direct IP connection."
+    : "Security-control state observed on the pfSense ingress path.";
   container.appendChild(heading);
   appendChips(container, posture);
   appendHistory(container);
