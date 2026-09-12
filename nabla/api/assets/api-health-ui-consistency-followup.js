@@ -124,11 +124,7 @@ function reconcileCloudflare(section, drawer) {
   setProviderDetail(
     tokenItem,
     tokenError || `${PROJECT_SERVICE_AUTH} · ${tokenPresence}`,
-    tokenError || present === false
-      ? "warn"
-      : tokens
-        ? "ok"
-        : "neutral",
+    tokenError || present === false ? "warn" : tokens ? "ok" : "neutral",
   );
 
   removeDuplicateProviderItems(section);
