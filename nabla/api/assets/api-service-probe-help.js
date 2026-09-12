@@ -7,7 +7,9 @@ function decorateRow(row) {
 
   const httpProbe = row.querySelector('[data-probe-kind="http"]');
   if (!httpProbe) return;
-  const detail = String(httpProbe.getAttribute("aria-label") || httpProbe.title || "").trim();
+  const detail = String(
+    httpProbe.getAttribute("aria-label") || httpProbe.title || "",
+  ).trim();
   if (!detail) return;
 
   const timing = document.createElement("span");
