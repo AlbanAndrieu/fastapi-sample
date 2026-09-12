@@ -1,3 +1,4 @@
+import { MANDATORY } from "./api-health-core.js";
 import { fetchTopology } from "./api-topology-data.js";
 
 const ROW_SELECTOR = ".health-row[data-service-key]";
@@ -72,10 +73,22 @@ function enrichLegend() {
   legend.innerHTML = [
     '<strong class="health-legend-title">How to read this screen</strong>',
     '<div class="health-legend-section"><b>Evidence colors</b>',
-    legendItem("health-legend--green", "Green", "confirmed healthy / operational"),
-    legendItem("health-legend--amber", "Amber", "warning, incomplete evidence or at risk"),
+    legendItem(
+      "health-legend--green",
+      "Green",
+      "confirmed healthy / operational",
+    ),
+    legendItem(
+      "health-legend--amber",
+      "Amber",
+      "warning, incomplete evidence or at risk",
+    ),
     legendItem("health-legend--red", "Red", "confirmed failure / down"),
-    legendItem("health-legend--gray", "Gray", "unknown, unobserved or not confirmed"),
+    legendItem(
+      "health-legend--gray",
+      "Gray",
+      "unknown, unobserved or not confirmed",
+    ),
     "</div>",
     '<div class="health-legend-section"><b>Health tiers</b>',
     '<span><b>Required infra (albandrieu.com)</b> — availability requirement for the homelab/domain view; confirmed failures may affect the overall summary.</span>',
@@ -166,6 +179,7 @@ function observeHealthBoard() {
 }
 
 export function installHealthUiPolish() {
+  MANDATORY.add(PFSENSE_KEY);
   ensureLayout();
   enrichLegend();
   decorateRows();
