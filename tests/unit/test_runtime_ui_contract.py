@@ -96,7 +96,7 @@ def test_runtime_title_uses_visible_hostname_then_runtime_mode() -> None:
     assert '"127.0.0.1"' in javascript
     assert '"localhost"' in javascript
     assert 'runtimeMode || "local"' in javascript
-    assert 'return `FastAPI runtime · ${runtimeContext(runtimeMode)}`;' in javascript
+    assert "return `FastAPI runtime · ${runtimeContext(runtimeMode)}`;" in javascript
     assert "FastAPI runtime · TrueNAS" not in javascript
     assert "FastAPI runtime · workstation" not in javascript
 
