@@ -126,8 +126,8 @@
   white-space: nowrap;
 }
 
-.health-meta-badge--probing {
-  animation: none !important;
+.health-probe-timing-column .health-meta-badge--probing {
+  animation: none;
 }
 
 .service-description-help {
