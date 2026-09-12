@@ -111,12 +111,13 @@ function reconcileCloudflare(section, drawer) {
   const policyItem = providerItem(section, "Reusable policies");
   const policyError = familyError(policies);
   const policyCount = familyCount(policies);
+  const policyLabel = policyCount === 1 ? "project policy" : "project policies";
   setProviderDetail(
     policyItem,
     policyError ||
       (policyCount == null
         ? `${PROJECT_ACCESS_POLICY} · inventory not confirmed`
-        : `${policyCount} project polic${policyCount === 1 ? "y" : "ies"} visible · ${PROJECT_ACCESS_POLICY}`),
+        : `${policyCount} ${policyLabel} visible · ${PROJECT_ACCESS_POLICY}`),
     policyError ? "warn" : policyCount == null ? "neutral" : "ok",
   );
 
