@@ -129,9 +129,11 @@ def test_responsive_css_stabilizes_metrics_and_uses_full_desktop_width() -> None
     assert ".service-detail-metric strong" in stylesheet
     assert "min-height: 1.2rem" in stylesheet
     assert ".service-provider-item > div > span" in stylesheet
-    assert "width: 420px" in stylesheet
-    assert "margin-left: 450px" in stylesheet
+    assert "width: 430px" in stylesheet
+    assert "left: 0" in stylesheet
+    assert "margin-left: 410px" in stylesheet
     assert "body.health-ui--workstation main" in stylesheet
     assert "max-width: none" in stylesheet
     assert "grid-template-columns: minmax(360px, 440px) minmax(0, 1fr)" in stylesheet
+    assert "grid-template-columns: repeat(3, minmax(0, 1fr))" in stylesheet
     assert ".health-legend-hover" in stylesheet
