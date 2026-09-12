@@ -16,8 +16,8 @@ function normalize(value) {
 
 function selectedServiceKey() {
   return String(
-    document.querySelector('[data-detail-selected="true"]')?.dataset?.serviceKey ||
-      "",
+    document.querySelector('[data-detail-selected="true"]')?.dataset
+      ?.serviceKey || "",
   ).trim();
 }
 
@@ -62,7 +62,9 @@ function setProviderDetail(item, detail, tone = "ok") {
 
 function removeDuplicateProviderItems(section) {
   const seen = new Set();
-  for (const item of [...section.querySelectorAll(".service-provider-item")].reverse()) {
+  for (const item of [
+    ...section.querySelectorAll(".service-provider-item"),
+  ].reverse()) {
     const label = normalize(
       item.querySelector(":scope > div > strong")?.textContent,
     );
@@ -184,7 +186,10 @@ export function installHealthUiConsistencyFollowup() {
   document.addEventListener("health-board-refreshed", refresh);
   document.addEventListener("service-filter-changed", schedule);
   document.addEventListener("click", (event) => {
-    if (event.target instanceof Element && event.target.closest(".service-detail-trigger")) {
+    if (
+      event.target instanceof Element &&
+      event.target.closest(".service-detail-trigger")
+    ) {
       window.setTimeout(schedule, 0);
     }
   });
