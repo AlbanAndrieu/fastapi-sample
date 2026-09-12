@@ -1,0 +1,189 @@
+nav,
+main {
+  width: min(1600px, 100%);
+  max-width: none;
+}
+
+.cards,
+.hero-code {
+  width: 100%;
+  max-width: none;
+}
+
+.health-row[data-probe-grid-ready="true"] .service-probe-strip,
+.health-row[data-probe-grid-ready="true"] .service-probe-plane-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.service-probe-table {
+  display: grid;
+  grid-template-columns: repeat(11, minmax(4.6rem, 1fr));
+  gap: 0.24rem;
+  width: 100%;
+  min-width: 52rem;
+  margin-top: 0.28rem;
+  overflow: visible;
+}
+
+.health-row-primary {
+  overflow-x: auto;
+  scrollbar-gutter: stable;
+}
+
+.service-probe-table-cell {
+  display: grid;
+  grid-template-rows: 1.15rem auto;
+  place-items: center;
+  min-width: 0;
+  min-height: 2.55rem;
+  padding: 0.2rem 0.16rem;
+  border: 1px solid #303641;
+  border-radius: 6px;
+  background: #0f1216;
+  color: #707986;
+  font-size: 0.56rem;
+  text-align: center;
+}
+
+.service-probe-table-icon {
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
+.service-probe-table-label {
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.service-probe-table-cell--ok {
+  border-color: rgba(0, 255, 136, 0.34);
+  background: rgba(0, 255, 136, 0.06);
+  color: #7dffc4;
+}
+
+.service-probe-table-cell--warn {
+  border-color: rgba(255, 204, 51, 0.38);
+  background: rgba(255, 204, 51, 0.07);
+  color: #ffd966;
+}
+
+.service-probe-table-cell--fail {
+  border-color: rgba(255, 68, 68, 0.4);
+  background: rgba(255, 68, 68, 0.07);
+  color: #ff9999;
+}
+
+.service-probe-table-cell--unknown,
+.service-probe-table-cell--neutral {
+  border-color: #303641;
+  background: #0f1216;
+  color: #707986;
+}
+
+.service-detail-evidence[data-probe-grid-ready="true"] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.42rem;
+  align-content: start;
+  min-height: 24rem;
+}
+
+.service-detail-evidence[data-probe-grid-ready="true"] .service-detail-probe {
+  min-width: 0;
+  min-height: 5.2rem;
+}
+
+.service-detail-probe-name {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  gap: 0.38rem;
+}
+
+.service-detail-probe-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.4rem;
+  height: 1.4rem;
+  border: 1px solid #3a3f45;
+  border-radius: 999px;
+  background: #111317;
+  color: #8d98a6;
+  font-size: 0.72rem;
+}
+
+.service-detail-probe-icon[data-tone="ok"] {
+  border-color: rgba(0, 255, 136, 0.38);
+  background: rgba(0, 255, 136, 0.08);
+  color: #7dffc4;
+}
+
+.service-detail-probe-icon[data-tone="warn"] {
+  border-color: rgba(255, 204, 51, 0.42);
+  background: rgba(255, 204, 51, 0.08);
+  color: #ffd966;
+}
+
+.service-detail-probe-icon[data-tone="fail"] {
+  border-color: rgba(255, 68, 68, 0.45);
+  background: rgba(255, 68, 68, 0.08);
+  color: #ff9999;
+}
+
+.service-detail-probe-icon[data-tone="neutral"],
+.service-detail-probe-icon[data-tone="unknown"] {
+  border-color: #3a3f45;
+  background: #111317;
+  color: #8d98a6;
+}
+
+.service-detail-probe-label,
+.service-detail-probe-label:visited,
+.service-detail-link a,
+.service-detail-relation-block a,
+.service-detail-relations .service-hover-list a {
+  color: #9cc7ff;
+  text-decoration: none;
+}
+
+.service-detail-probe--ok .service-detail-probe-label {
+  color: #7dffc4;
+}
+
+.service-detail-probe--warn .service-detail-probe-label {
+  color: #ffd966;
+}
+
+.service-detail-probe--fail .service-detail-probe-label {
+  color: #ff9999;
+}
+
+.service-detail-relations .service-hover-list a {
+  display: list-item;
+  margin-left: 1rem;
+  font-size: 0.61rem;
+  list-style-position: outside;
+  list-style-type: disc;
+}
+
+#sickz-checks .health-row-tags .service-hover-popover,
+#sickz-checks .health-row-tags .service-help-badge {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .service-detail-evidence[data-probe-grid-ready="true"] {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+}
