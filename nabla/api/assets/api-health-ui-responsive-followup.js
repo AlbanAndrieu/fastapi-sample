@@ -42,10 +42,15 @@ function statusLabel(status) {
 }
 
 function rowReason(row) {
-  const detail = row?.querySelector?.(".health-row-detail")?.textContent?.trim();
+  const detail = row
+    ?.querySelector?.(".health-row-detail")
+    ?.textContent?.trim();
   if (detail) return detail;
   if (row?.id === "truenas-platform") {
-    return document.getElementById("truenas-platform-state")?.textContent?.trim() || "";
+    return (
+      document.getElementById("truenas-platform-state")?.textContent?.trim() ||
+      ""
+    );
   }
   return "";
 }
@@ -67,10 +72,7 @@ function stripRedundantTargets(row) {
         .map(identity)
         .filter(Boolean),
     );
-    const targets = match[1]
-      .split(" · ")
-      .map(identity)
-      .filter(Boolean);
+    const targets = match[1].split(" · ").map(identity).filter(Boolean);
     if (targets.length > 0 && targets.every((target) => names.has(target))) {
       text = text.slice(0, match.index).trim();
     }
@@ -107,7 +109,9 @@ function ensureDrawerReason() {
     section = document.createElement("section");
     section.dataset.followupSection = "status-reason";
     section.className = "service-detail-status-reason";
-    const evidence = body.querySelector("#service-detail-evidence")?.closest("section");
+    const evidence = body
+      .querySelector("#service-detail-evidence")
+      ?.closest("section");
     if (evidence) evidence.insertAdjacentElement("beforebegin", section);
     else body.appendChild(section);
   }
@@ -134,7 +138,10 @@ function operatorSectionMeaning(section, id) {
 
 function cacheKey(row, sectionId) {
   const service =
-    row?.dataset?.serviceKey || row?.dataset?.serviceName || row?.id || "service";
+    row?.dataset?.serviceKey ||
+    row?.dataset?.serviceName ||
+    row?.id ||
+    "service";
   return `${service}:${sectionId}`;
 }
 
@@ -164,7 +171,9 @@ function restoreSection(body, row, sectionId) {
     section.replaceWith(restored);
     return;
   }
-  const performance = body.querySelector('[data-operator-section="performance"]');
+  const performance = body.querySelector(
+    '[data-operator-section="performance"]',
+  );
   if (performance) performance.insertAdjacentElement("beforebegin", restored);
   else body.appendChild(restored);
 }
@@ -296,7 +305,10 @@ export function installHealthUiResponsiveFollowup() {
   document.addEventListener("health-board-refreshed", scheduleBoardSync);
   document.addEventListener("service-filter-changed", scheduleBoardSync);
   document.addEventListener("click", (event) => {
-    if (event.target instanceof Element && event.target.closest(".service-detail-trigger")) {
+    if (
+      event.target instanceof Element &&
+      event.target.closest(".service-detail-trigger")
+    ) {
       window.setTimeout(scheduleDrawerSync, 0);
     }
   });
