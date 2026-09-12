@@ -11,6 +11,26 @@
   white-space: normal;
 }
 
+.health-legend-hover {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  max-width: 100%;
+  padding: 0.12rem 0.3rem;
+  border: 1px solid #2d3440;
+  border-radius: 999px;
+  color: #aeb7c4;
+  cursor: help;
+  font-size: 0.58rem;
+  white-space: nowrap;
+}
+
+.health-legend-hover i {
+  color: #6f9bd1;
+  font-size: 0.56rem;
+  font-style: normal;
+}
+
 .service-detail-status-reason {
   padding: 0.55rem 0.6rem;
   border: 1px solid #303030;
@@ -176,6 +196,12 @@
   max-width: 100%;
 }
 
+.service-filter-legend-details > summary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .service-probe-legend {
   display: flex;
   flex-wrap: wrap;
@@ -193,20 +219,29 @@
 }
 
 .health-row {
-  padding-right: 8.8rem;
+  padding-right: 9.4rem;
 }
 
 .health-row-telemetry {
-  width: 7.4rem;
+  width: 8rem;
   min-height: 3rem;
   align-content: start;
   font-variant-numeric: tabular-nums;
 }
 
 @media (min-width: 1121px) {
+  body.health-ui--workstation main {
+    width: 100%;
+    max-width: none;
+    padding-right: clamp(1rem, 2vw, 2rem);
+    padding-left: clamp(1rem, 2vw, 2rem);
+    align-items: stretch;
+  }
+
   body.health-ui--workstation:not(.health-ui-filter-docked)
     .service-health-layout {
-    grid-template-columns: minmax(340px, 400px) minmax(0, 1fr);
+    width: 100%;
+    grid-template-columns: minmax(360px, 440px) minmax(0, 1fr);
   }
 }
 
@@ -307,10 +342,12 @@
 
 @media (min-width: 1500px) {
   body.health-ui--workstation.health-ui-filter-docked main {
-    width: calc(100vw - 470px);
-    max-width: min(1200px, calc(100vw - 470px));
-    margin-right: auto;
+    width: calc(100vw - 450px);
+    max-width: none;
+    margin-right: 0;
     margin-left: 450px;
+    padding-right: clamp(1rem, 2vw, 2rem);
+    padding-left: 1rem;
   }
 
   body.health-ui--workstation.health-ui-filter-docked
@@ -364,6 +401,7 @@
   }
 
   body.health-ui--workstation.health-ui-filter-docked .service-health-layout {
+    width: 100%;
     grid-template-columns: minmax(0, 1fr);
   }
 }
