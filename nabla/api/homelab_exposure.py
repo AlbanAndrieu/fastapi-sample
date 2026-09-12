@@ -232,21 +232,11 @@ def _service_exposure(
         "cloudflare_access_application_count": (
             access.get("cloudflare_access_application_count") if access else 0
         ),
-        "cloudflare_access_policy_count": (
-            access.get("cloudflare_access_policy_count") if access else 0
-        ),
-        "cloudflare_access_policy_decisions": (
-            access.get("cloudflare_access_policy_decisions") if access else []
-        ),
-        "cloudflare_access_public": (
-            access.get("cloudflare_access_public") if access else None
-        ),
-        "cloudflare_access_public_scope": (
-            access.get("cloudflare_access_public_scope") if access else None
-        ),
-        "cloudflare_access_public_policy_count": (
-            access.get("cloudflare_access_public_policy_count") if access else 0
-        ),
+        "cloudflare_access_policy_count": (access.get("cloudflare_access_policy_count") if access else 0),
+        "cloudflare_access_policy_decisions": (access.get("cloudflare_access_policy_decisions") if access else []),
+        "cloudflare_access_public": (access.get("cloudflare_access_public") if access else None),
+        "cloudflare_access_public_scope": (access.get("cloudflare_access_public_scope") if access else None),
+        "cloudflare_access_public_policy_count": (access.get("cloudflare_access_public_policy_count") if access else 0),
     }
     declared = {
         "external": service.external,
