@@ -1,3 +1,10 @@
+# [1.20.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.19.2...1.20.0) (2026-09-12)
+
+
+### Features
+
+* **ui:** stabilize homelab health board diagnostics ([#257](https://github.com/AlbanAndrieu/fastapi-sample/issues/257)) ([8a63a52](https://github.com/AlbanAndrieu/fastapi-sample/commit/8a63a5266166d027c1dd618b73f6f63b0164ea07))
+
 ## [1.19.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.19.1...1.19.2) (2026-09-12)
 
 
