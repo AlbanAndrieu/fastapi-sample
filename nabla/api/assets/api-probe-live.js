@@ -88,7 +88,10 @@ function checkMatchesRow(check, row) {
 }
 
 function findCheck(collection, row) {
-  return collectionValues(collection).find((check) => checkMatchesRow(check, row)) || null;
+  return (
+    collectionValues(collection).find((check) => checkMatchesRow(check, row)) ||
+    null
+  );
 }
 
 function checkForRow(snapshot, row) {
@@ -183,7 +186,8 @@ function updateRow(row, check, snapshot) {
     latencyBadge.textContent = "";
   }
 
-  const probing = snapshot?.refreshing === true && checkIsDue(check, observedAt);
+  const probing =
+    snapshot?.refreshing === true && checkIsDue(check, observedAt);
   const probingBadge = row.querySelector(
     ":scope > .health-row-telemetry .health-meta-badge--probing",
   );
@@ -213,9 +217,9 @@ function installTierLegend() {
   legend.id = "health-tier-legend";
   legend.className = "health-tier-legend";
   legend.innerHTML =
-    '<strong>Health-check tiers</strong>' +
-    '<span><b>Required infra (albandrieu.com)</b> — availability requirement for the homelab/domain view; confirmed failures may affect the overall summary.</span>' +
-    '<span><b>Optional health check</b> — non-blocking integration/support probe; an unconfirmed timeout is a warning, not downtime.</span>';
+    "<strong>Health-check tiers</strong>" +
+    "<span><b>Required infra (albandrieu.com)</b> — availability requirement for the homelab/domain view; confirmed failures may affect the overall summary.</span>" +
+    "<span><b>Optional health check</b> — non-blocking integration/support probe; an unconfirmed timeout is a warning, not downtime.</span>";
   groups.before(legend);
 }
 
@@ -226,7 +230,9 @@ export function decorateProbeTelemetry(snapshot) {
 }
 
 export function markVisibleProbeRowsPending() {
-  for (const row of document.querySelectorAll(".health-row[data-service-key]")) {
+  for (const row of document.querySelectorAll(
+    ".health-row[data-service-key]",
+  )) {
     ensureProbingBadge(row);
   }
 }

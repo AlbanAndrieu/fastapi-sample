@@ -5,8 +5,10 @@ let scheduled = false;
 
 function stateClass(state) {
   if (state === "running" || state === "clear" || state === "ok") return "ok";
-  if (state === "blocked" || state === "stopped" || state === "fail") return "fail";
-  if (state === "in_path" || state === "observed" || state === "warn") return "warn";
+  if (state === "blocked" || state === "stopped" || state === "fail")
+    return "fail";
+  if (state === "in_path" || state === "observed" || state === "warn")
+    return "warn";
   return "unknown";
 }
 
@@ -38,7 +40,9 @@ function render() {
   const homelab = latestSnapshot.homelab || {};
   const pathMode = homelab?.truenas?.diagnostics?.path_mode || "unknown";
   const dns = homelab?.pfsense?.dns || {};
-  const filters = Array.isArray(dns.security_filters) ? dns.security_filters : [];
+  const filters = Array.isArray(dns.security_filters)
+    ? dns.security_filters
+    : [];
   const directLan = pathMode === "direct_lan";
 
   if (filters.length === 0 && !dns.policy_state) {

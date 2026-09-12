@@ -20,7 +20,9 @@ function normalize(value) {
 function hostOf(value) {
   const raw = String(value || "").trim();
   if (!raw) return "";
-  const candidate = raw.includes("://") ? raw : `https://${raw.replace(/^\/+/, "")}`;
+  const candidate = raw.includes("://")
+    ? raw
+    : `https://${raw.replace(/^\/+/, "")}`;
   try {
     return new URL(candidate).hostname.toLowerCase().replace(/\.$/, "");
   } catch {
@@ -60,7 +62,10 @@ function checkMatchesRow(check, row) {
 }
 
 function findCheck(collection, row) {
-  return collectionValues(collection).find((check) => checkMatchesRow(check, row)) || null;
+  return (
+    collectionValues(collection).find((check) => checkMatchesRow(check, row)) ||
+    null
+  );
 }
 
 function exposureForRow(snapshot, row) {
@@ -175,7 +180,9 @@ function ensureProbe(strip, kind, icon, label) {
 }
 
 function ensurePlaneLabel(primary, strip, plane, label, href, detail) {
-  let node = primary.querySelector(`:scope > .service-probe-plane-label--${plane}`);
+  let node = primary.querySelector(
+    `:scope > .service-probe-plane-label--${plane}`,
+  );
   if (!node) {
     node = document.createElement("div");
     node.className = `service-probe-plane-label service-probe-plane-label--${plane}`;
@@ -252,7 +259,9 @@ function decoratePublicEvidence(strip, check, url) {
 function decorateCloudflare(strip, summary, exposure, hostname) {
   const matchedRoute = cloudflareRoute(summary, hostname);
   const tunnelState =
-    matchedRoute?.tunnel?.status || exposure?.cloudflare_tunnel_status || "unknown";
+    matchedRoute?.tunnel?.status ||
+    exposure?.cloudflare_tunnel_status ||
+    "unknown";
   const tunnelObserved = Boolean(
     matchedRoute || exposure?.cloudflare_tunnel_observed === true,
   );
@@ -371,7 +380,9 @@ function decorateLan(primary, check, exposure) {
 function cleanLegacyText(row, exposure) {
   const tags = row.querySelector(".health-row-tags");
   if (!tags) return;
-  for (const badge of tags.querySelectorAll("[data-operator-probe='external']")) {
+  for (const badge of tags.querySelectorAll(
+    "[data-operator-probe='external']",
+  )) {
     badgeLabel(badge, "external");
     toneClass(badge, exposure?.external === false ? "neutral" : "ok");
   }
