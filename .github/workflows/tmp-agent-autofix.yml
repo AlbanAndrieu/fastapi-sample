@@ -1,0 +1,70 @@
+name: Temporary deterministic autofix
+
+on:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  autofix:
+    if: contains(github.event.head_commit.message, '[agent-autofix]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+        with:
+          enable-cache: false
+          python-version: "3.13"
+
+      - name: Install minimal pre-commit runtime
+        shell: bash
+        run: |
+          uv venv --python 3.13
+          uv pip install --python .venv/bin/python pre-commit==4.6.2
+
+      - name: Converge deterministic hooks
+        shell: bash
+        env:
+          UV_NO_SYNC: "1"
+        run: |
+          mapfile -t files < <(git diff --name-only --diff-filter=ACMR origin/master...HEAD)
+          if ((${#files[@]} == 0)); then
+            exit 0
+          fi
+          for pass in 1 2 3; do
+            set +e
+            uv run pre-commit run --hook-stage pre-commit --files "${files[@]}" --show-diff-on-failure
+            rc=$?
+            set -e
+            if ((rc == 0)); then
+              echo "deterministic hooks converged in ${pass} pass(es)"
+              exit 0
+            fi
+            if ((pass == 3)); then
+              exit "${rc}"
+            fi
+          done
+
+      - name: Commit deterministic rewrites
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No deterministic rewrite required"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "style: apply deterministic quality autofix"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
