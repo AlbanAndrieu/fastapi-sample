@@ -138,7 +138,11 @@ function layerMetrics(check, snapshot) {
       : "complete";
   const cache =
     check?.cache_layer ??
-    (check?.cached === true ? "cached" : check?.cached === false ? "live" : null);
+    (check?.cached === true
+      ? "cached"
+      : check?.cached === false
+        ? "live"
+        : null);
 
   return [
     metricItem("Probe state", status),
@@ -152,7 +156,9 @@ function layerMetrics(check, snapshot) {
     ),
     metricItem(
       "TLS trusted",
-      typeof check?.tls_trusted === "boolean" ? String(check.tls_trusted) : null,
+      typeof check?.tls_trusted === "boolean"
+        ? String(check.tls_trusted)
+        : null,
     ),
     metricItem(
       "Probe latency",
@@ -180,7 +186,10 @@ function layerMetrics(check, snapshot) {
     metricItem("Vantage point", check?.vantage_point),
     metricItem("Probe", check?.probe),
     metricItem("Failure stage", check?.failure_stage),
-    metricItem("Refresh error", check?.probe_refresh_error ?? check?.refresh_error),
+    metricItem(
+      "Refresh error",
+      check?.probe_refresh_error ?? check?.refresh_error,
+    ),
     metricItem("Error kind", check?.error_kind),
   ].filter(Boolean);
 }
@@ -201,7 +210,9 @@ function appendLayer(section, label, check, snapshot) {
 }
 
 function renderSelected(snapshot) {
-  const row = document.querySelector(`${ROW_SELECTOR}[data-detail-selected="true"]`);
+  const row = document.querySelector(
+    `${ROW_SELECTOR}[data-detail-selected="true"]`,
+  );
   const body = document
     .getElementById("service-detail-drawer")
     ?.querySelector(".service-detail-body");
@@ -227,7 +238,8 @@ function renderSelected(snapshot) {
   if (!rendered) {
     const empty = document.createElement("p");
     empty.className = "service-detail-empty";
-    empty.textContent = "No per-service probe timing evidence is available yet.";
+    empty.textContent =
+      "No per-service probe timing evidence is available yet.";
     section.appendChild(empty);
   }
   body.appendChild(section);
