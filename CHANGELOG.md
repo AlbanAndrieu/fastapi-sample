@@ -1,3 +1,10 @@
+## [1.20.3](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.2...1.20.3) (2026-09-12)
+
+
+### Bug Fixes
+
+* **health-ui:** stabilize TrueNAS diagnostics and responsive layout ([#262](https://github.com/AlbanAndrieu/fastapi-sample/issues/262)) ([617ba9a](https://github.com/AlbanAndrieu/fastapi-sample/commit/617ba9a182ae670043ee2f377e6925b17e49da95))
+
 ## [1.20.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.1...1.20.2) (2026-09-12)
 
 
