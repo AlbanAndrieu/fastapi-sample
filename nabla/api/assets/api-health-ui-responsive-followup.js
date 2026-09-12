@@ -105,6 +105,13 @@ function ensureDrawerReason() {
     section?.remove();
     return;
   }
+  const status = rowStatus(row);
+  if (
+    section?.dataset.status === status &&
+    section.dataset.reason === reason
+  ) {
+    return;
+  }
   if (!section) {
     section = document.createElement("section");
     section.dataset.followupSection = "status-reason";
@@ -115,8 +122,9 @@ function ensureDrawerReason() {
     if (evidence) evidence.insertAdjacentElement("beforebegin", section);
     else body.appendChild(section);
   }
-  const status = rowStatus(row);
   section.dataset.tone = status;
+  section.dataset.status = status;
+  section.dataset.reason = reason;
   section.replaceChildren();
   const heading = document.createElement("h3");
   heading.textContent = "Current status reason";
