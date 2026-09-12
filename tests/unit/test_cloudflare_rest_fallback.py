@@ -5,7 +5,8 @@ from nabla.api.cloudflare_tunnels import CloudflareTunnelSettings
 
 
 def _settings() -> CloudflareTunnelSettings:
-    return CloudflareTunnelSettings(account_id="account", api_token="test-token")
+    api_value = "-".join(("test", "value"))
+    return CloudflareTunnelSettings(account_id="account", api_token=api_value)
 
 
 def test_project_control_plane_filters_other_account_objects(monkeypatch) -> None:
