@@ -141,7 +141,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          uv run --no-sync pytest -q --tb=short --disable-warnings --maxfail=1 --junit-xml=junit.xml >pytest.log 2>&1
+          uv run --no-sync pytest -q --disable-warnings --maxfail=1 --tb=short --junit-xml=junit.xml >pytest.log 2>&1
           rc=$?
           set -e
           if ((rc != 0)); then
