@@ -37,9 +37,9 @@ def test_declared_catalog_accepts_runtime_networks_lifecycle_and_monitoring() ->
                         "target": "http://172.17.0.24:8080/health",
                         "conditions": ["[STATUS] == 200"],
                     },
-                }
+                },
             ],
-        }
+        },
     )
 
     service = catalog.services[0]
@@ -74,9 +74,9 @@ def test_declared_catalog_validation_log_summary_is_bounded() -> None:
                         },
                         "lifecycle": {"phase": "invalid", "priority": 5000},
                         "monitoring": {"type": "port", "port": 70000},
-                    }
+                    },
                 ],
-            }
+            },
         )
     except ValidationError as exc:
         summary = _validation_error_summary(exc)
