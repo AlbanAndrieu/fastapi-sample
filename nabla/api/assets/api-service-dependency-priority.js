@@ -66,14 +66,19 @@ function annotateLink(link) {
 }
 
 function sortRelationList(list) {
-  const items = [...list.children].filter((item) => item instanceof HTMLElement);
+  const items = [...list.children].filter(
+    (item) => item instanceof HTMLElement,
+  );
   items.sort((left, right) => {
     const leftOptional = /\boptional\b/i.test(left.textContent || "") ? 1 : 0;
     const rightOptional = /\boptional\b/i.test(right.textContent || "") ? 1 : 0;
     if (leftOptional !== rightOptional) return leftOptional - rightOptional;
     const leftLink = left.querySelector("a[href^='#service-']");
     const rightLink = right.querySelector("a[href^='#service-']");
-    return compareRank(rank(nodeForLink(leftLink)), rank(nodeForLink(rightLink)));
+    return compareRank(
+      rank(nodeForLink(leftLink)),
+      rank(nodeForLink(rightLink)),
+    );
   });
   items.forEach((item) => {
     const link = item.querySelector("a[href^='#service-']");
@@ -112,7 +117,9 @@ function schedule() {
 export async function installServiceDependencyPriority() {
   try {
     const topology = await fetchTopology();
-    nodes = new Map((topology?.nodes || []).map((node) => [String(node.id), node]));
+    nodes = new Map(
+      (topology?.nodes || []).map((node) => [String(node.id), node]),
+    );
   } catch {
     nodes = new Map();
   }
