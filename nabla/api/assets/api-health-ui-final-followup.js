@@ -52,7 +52,8 @@ function rowKey(row) {
 
 function collectionValues(collection) {
   if (Array.isArray(collection)) return collection;
-  if (collection && typeof collection === "object") return Object.values(collection);
+  if (collection && typeof collection === "object")
+    return Object.values(collection);
   return [];
 }
 
@@ -69,7 +70,10 @@ function checkMatchesRow(check, row) {
     .filter(Boolean);
   if (name && names.includes(name)) return true;
   const rowHost = hostOf(row.dataset.serviceUrl);
-  return rowHost && hostOf(check.url || check.tunnel_url || check.tunnelUrl) === rowHost;
+  return (
+    rowHost &&
+    hostOf(check.url || check.tunnel_url || check.tunnelUrl) === rowHost
+  );
 }
 
 function evidenceForRow(row) {
@@ -155,7 +159,9 @@ function ensureDnsEvidence(row) {
   const detail = [
     `DNS ${evidence.dns_hostname}`,
     resolved.length ? `resolved=${resolved.join(", ")}` : "no resolved address",
-    resolvers.length ? `resolver=${resolvers.join(", ")}` : "resolver unavailable",
+    resolvers.length
+      ? `resolver=${resolvers.join(", ")}`
+      : "resolver unavailable",
     Number.isFinite(latency) ? `${latency} ms` : "",
     evidence.dns_probe ? `probe=${evidence.dns_probe}` : "",
   ]
@@ -239,7 +245,9 @@ function inferredProbeKinds(row, strip) {
     .filter((kind) => PROBE_SLOT_DEFINITIONS.has(kind));
   for (const kind of declared) kinds.add(kind);
 
-  const identity = normalize(`${row.dataset.serviceKey} ${row.dataset.serviceName}`);
+  const identity = normalize(
+    `${row.dataset.serviceKey} ${row.dataset.serviceName}`,
+  );
   const cloudflareRelevant =
     row.dataset.exposureMode === "cloudflare" ||
     identity.includes("cloudflare") ||
@@ -255,7 +263,9 @@ function inferredProbeKinds(row, strip) {
 }
 
 function ensureProbePlaceholder(strip, kind) {
-  if (strip.querySelector(`:scope > .service-probe[data-probe-kind="${kind}"]`)) {
+  if (
+    strip.querySelector(`:scope > .service-probe[data-probe-kind="${kind}"]`)
+  ) {
     return;
   }
   const [icon, label] = PROBE_SLOT_DEFINITIONS.get(kind) || ["•", kind];
