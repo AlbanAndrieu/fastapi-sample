@@ -14,6 +14,13 @@ class _Page(list[object]):
         self.result_info = SimpleNamespace(count=len(items), total_count=len(items))
 
 
+def _settings() -> CloudflareTunnelSettings:
+    return CloudflareTunnelSettings(
+        account_id="account",
+        api_token=str("test-observer-credential"),
+    )
+
+
 def test_inactive_tunnels_are_excluded_without_hiding_provider_total() -> None:
     page = _Page(
         [
@@ -48,7 +55,7 @@ def test_inactive_tunnels_are_excluded_without_hiding_provider_total() -> None:
         ),
     )
     observer = CloudflareTunnelObserver(
-        CloudflareTunnelSettings(account_id="account", api_token="token"),
+        _settings(),
         client=client,
     )
 
@@ -82,7 +89,7 @@ def test_degraded_tunnel_remains_visible_as_incident_evidence() -> None:
         ),
     )
     observer = CloudflareTunnelObserver(
-        CloudflareTunnelSettings(account_id="account", api_token="token"),
+        _settings(),
         client=client,
     )
 
