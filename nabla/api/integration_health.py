@@ -301,7 +301,7 @@ def probe_pyroscope_server() -> dict[str, Any]:
     }
     if not response.is_success:
         result["error"] = _normalize_probe_error(
-            f"Pyroscope root returned http_status={response.status_code}"
+            f"Pyroscope root returned http_status={response.status_code}",
         )
         return result
 
@@ -319,11 +319,11 @@ def probe_pyroscope_server() -> dict[str, Any]:
 
     result["metrics_http_status"] = metrics_response.status_code
     result["metrics_available"] = metrics_response.is_success and bool(
-        metrics_response.text.strip()
+        metrics_response.text.strip(),
     )
     if not result["metrics_available"]:
         result["metrics_error"] = _normalize_probe_error(
-            f"Pyroscope metrics returned http_status={metrics_response.status_code}"
+            f"Pyroscope metrics returned http_status={metrics_response.status_code}",
         )
     return result
 
