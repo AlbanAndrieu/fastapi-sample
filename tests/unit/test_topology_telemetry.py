@@ -28,7 +28,7 @@ def test_resource_values_join_cadvisor_dimensions_by_compose_service() -> None:
             "memory_bytes": [_sample("memory", "104857600", **{label: "fastapi-sample"})],
             "rx_bytes_per_second": [_sample("rx", "1200", **{label: "fastapi-sample"})],
             "tx_bytes_per_second": [_sample("tx", "800", **{label: "fastapi-sample"})],
-        }
+        },
     )
 
     assert result["fastapi-sample"]["cpu_cores"] == 0.25
@@ -43,7 +43,7 @@ def test_flow_values_keep_akvorado_pipeline_evidence_separate_from_edges() -> No
             _sample("nabla:network_flow:pfsense_packets_per_second", "32"),
             _sample("nabla:telemetry:akvorado_inlet_up", "1"),
             _sample("nabla:telemetry:akvorado_outlet_up", "1"),
-        ]
+        ],
     )
 
     assert result["pfsense_bytes_per_second"] == 4096.0
@@ -95,7 +95,7 @@ async def test_topology_telemetry_queries_prometheus_without_inventing_edge_band
         transport=httpx.MockTransport(handler),
     )
     settings = HomelabPrometheusSettings(
-        homelab_prometheus_url="http://prometheus.test"
+        homelab_prometheus_url="http://prometheus.test",
     )
     try:
         result = await fetch_topology_telemetry(settings=settings, client=client)
