@@ -40,11 +40,8 @@ def test_sickz_lan_skip_is_explained_without_duplicate_target_name() -> None:
         encoding="utf-8",
     )
 
-    assert (
-        "External exposure policy probe skipped from trusted LAN; "
-        "LAN/TCP probes are independent."
-    ) in javascript
-    assert 'text.match(/\\s+Targets:' in javascript
+    assert ("External exposure policy probe skipped from trusted LAN; LAN/TCP probes are independent.") in javascript
+    assert "text.match(/\\s+Targets:" in javascript
     assert "targets.every((target) => names.has(target))" in javascript
 
 
@@ -70,7 +67,7 @@ def test_truenas_probe_first_note_is_neutralized_and_details_are_aligned() -> No
     assert "TrueNAS flow rendered from bounded /api/homelab/probes first" in javascript
     assert "truenas-platform-info" in javascript
     assert "information/freshness note, not an error" in javascript
-    assert '#truenas-platform > .service-detail-trigger' in stylesheet
+    assert "#truenas-platform > .service-detail-trigger" in stylesheet
 
 
 def test_workstation_filter_can_dock_left_and_layout_has_breakpoints() -> None:
