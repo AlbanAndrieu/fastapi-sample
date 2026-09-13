@@ -7,7 +7,9 @@ import pytest
 from nabla.api import homelab_health_evidence as evidence
 from nabla.api.homelab_performance import (
     HOMELAB_HEALTH_PERF_PHASES,
+    HOMELAB_HEALTH_PROVIDER_PHASES,
     dominant_homelab_phase,
+    dominant_homelab_provider_phase,
     finalize_homelab_performance,
     record_homelab_phase,
     timed_homelab_phase,
@@ -15,12 +17,15 @@ from nabla.api.homelab_performance import (
 
 
 def test_phase_labels_are_fixed_and_operator_facing() -> None:
-    assert HOMELAB_HEALTH_PERF_PHASES == (
+    assert HOMELAB_HEALTH_PROVIDER_PHASES == (
         "declared_catalog",
         "topology",
         "cloudflare_exposure",
         "pfsense_posture",
         "truenas_runtime",
+    )
+    assert HOMELAB_HEALTH_PERF_PHASES == (
+        *HOMELAB_HEALTH_PROVIDER_PHASES,
         "reconciliation",
         "total",
     )
@@ -47,12 +52,29 @@ def test_dominant_phase_ignores_total_and_missing_values() -> None:
     assert dominant_homelab_phase({"total": 10.0}) == (None, None)
 
 
+def test_dominant_provider_excludes_reconciliation_orchestration() -> None:
+    phase, duration_ms = dominant_homelab_provider_phase(
+        {
+            "declared_catalog": 12.3,
+            "cloudflare_exposure": 81.2,
+            "pfsense_posture": 42.0,
+            "reconciliation": 180.0,
+            "total": 500.0,
+        },
+    )
+
+    assert phase == "cloudflare_exposure"
+    assert duration_ms == 81.2
+    assert dominant_homelab_provider_phase({"reconciliation": 10.0}) == (None, None)
+
+
 def test_finalize_exposes_all_fixed_phases_without_dynamic_labels() -> None:
     payload = {
         "performance": {
             "phases_ms": {
                 "declared_catalog": 12.3,
-                "reconciliation": 4.2,
+                "cloudflare_exposure": 9.1,
+                "reconciliation": 44.2,
             },
         },
     }
@@ -63,8 +85,10 @@ def test_finalize_exposes_all_fixed_phases_without_dynamic_labels() -> None:
     assert tuple(performance["phases_ms"]) == HOMELAB_HEALTH_PERF_PHASES
     assert performance["phases_ms"]["total"] == 123.0
     assert performance["phases_ms"]["topology"] is None
-    assert performance["dominant_phase"] == "declared_catalog"
-    assert performance["dominant_phase_ms"] == 12.3
+    assert performance["dominant_phase"] == "reconciliation"
+    assert performance["dominant_phase_ms"] == 44.2
+    assert performance["dominant_provider_phase"] == "declared_catalog"
+    assert performance["dominant_provider_phase_ms"] == 12.3
 
 
 def test_timed_phase_preserves_result_and_records_duration() -> None:
