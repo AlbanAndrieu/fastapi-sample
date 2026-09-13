@@ -66,9 +66,7 @@ function candidateServiceIds(key, check) {
   const ids = [check?.service_id, check?.id, key];
   if (String(key).startsWith("albandrieu_"))
     ids.push(String(key).slice("albandrieu_".length));
-  return ids
-    .filter(Boolean)
-    .map((value) => String(value).replaceAll("_", "-"));
+  return ids.filter(Boolean).map((value) => String(value).replaceAll("_", "-"));
 }
 
 function evidenceForCheck(key, check, indexes) {
@@ -98,8 +96,7 @@ export function mergeHomelabEvidence(data, homelab) {
     const evidence = evidenceForCheck(key, check, indexes);
     if (!evidence) continue;
     for (const field of HOMELAB_EVIDENCE_FIELDS) {
-      if (Object.prototype.hasOwnProperty.call(evidence, field))
-        check[field] = evidence[field];
+      if (Object.hasOwn(evidence, field)) check[field] = evidence[field];
     }
   }
   return data;
@@ -197,13 +194,14 @@ export function dependencyDetailText(check) {
   if (runtimeRunning && check.effective_state !== "ok")
     parts.push("RUNNING but degraded");
   if (check.local_state && check.local_state !== check.effective_state) {
-    parts.push(`local ${check.local_state} → effective ${check.effective_state}`);
+    parts.push(
+      `local ${check.local_state} → effective ${check.effective_state}`,
+    );
   }
   const blocked = dependencyLabels(check, "blocked_by");
   if (blocked.length > 0) parts.push(`blocked by ${blocked.join(", ")}`);
   const degraded = dependencyLabels(check, "degraded_by");
-  if (degraded.length > 0)
-    parts.push(`degraded by ${degraded.join(", ")}`);
+  if (degraded.length > 0) parts.push(`degraded by ${degraded.join(", ")}`);
   const unconfirmed = dependencyLabels(check, "unconfirmed_dependencies");
   if (unconfirmed.length > 0)
     parts.push(`dependency status unconfirmed: ${unconfirmed.join(", ")}`);
@@ -211,10 +209,7 @@ export function dependencyDetailText(check) {
   if (risk) parts.push(risk);
   const sources = evidenceSources(check);
   if (sources.length > 0) parts.push(`evidence: ${sources.join(" + ")}`);
-  if (
-    check.cloudflare_status_confirmed === false &&
-    check.cloudflare_warning
-  ) {
+  if (check.cloudflare_status_confirmed === false && check.cloudflare_warning) {
     parts.push(String(check.cloudflare_warning));
   }
   if (check.observation_stale === true) {
@@ -231,7 +226,6 @@ export function dependencyDetailText(check) {
   const cycle = Array.isArray(check.dependency_cycle)
     ? check.dependency_cycle
     : [];
-  if (cycle.length > 1)
-    parts.push(`dependency cycle: ${cycle.join(" ↔ ")}`);
+  if (cycle.length > 1) parts.push(`dependency cycle: ${cycle.join(" ↔ ")}`);
   return parts.join(" · ");
 }
