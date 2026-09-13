@@ -1,3 +1,10 @@
+## [1.20.7](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.6...1.20.7) (2026-09-13)
+
+
+### Performance Improvements
+
+* **health:** harden post-264 probe fanout and provider reuse ([#270](https://github.com/AlbanAndrieu/fastapi-sample/issues/270)) ([f23684b](https://github.com/AlbanAndrieu/fastapi-sample/commit/f23684be03d91d1c0c22661ea03eff3733cf3d58))
+
 ## [1.20.6](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.5...1.20.6) (2026-09-13)
 
 
