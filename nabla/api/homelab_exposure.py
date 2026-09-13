@@ -184,7 +184,9 @@ def _origin_reconciliation(
 ) -> tuple[dict[str, Any], str | None]:
     expected_host = (service.internal_host or "").lower().rstrip(".") or None
     expected_port = service.internal_port
-    observed_service = str(tunnel.get("cloudflare_origin_service") or "") if tunnel else ""
+    observed_service = (
+        str(tunnel.get("cloudflare_origin_service") or "") if tunnel else ""
+    )
     observed_host, observed_port = _origin_host_port(observed_service)
     comparable = bool(expected_host and expected_port and observed_host and observed_port)
     matches = (
@@ -240,7 +242,10 @@ def _declared_risk_reasons(
             reasons.append(
                 "Direct external exposure bypasses Cloudflare Tunnel/Access",
             )
-    if service.tunnel_secure is True and not service.effective_cloudflare_access_required:
+    if (
+        service.tunnel_secure is True
+        and not service.effective_cloudflare_access_required
+    ):
         suffix = " with an observed Tunnel ingress" if tunnel else ""
         reasons.append(
             "external=true declares a Cloudflare edge"
@@ -361,24 +366,12 @@ def _service_exposure(
         ),
         **origin,
         "cloudflare_access_observed": bool(access),
-        "cloudflare_access_application_count": (
-            access.get("cloudflare_access_application_count") if access else 0
-        ),
-        "cloudflare_access_policy_count": (
-            access.get("cloudflare_access_policy_count") if access else 0
-        ),
-        "cloudflare_access_policy_decisions": (
-            access.get("cloudflare_access_policy_decisions") if access else []
-        ),
-        "cloudflare_access_public": (
-            access.get("cloudflare_access_public") if access else None
-        ),
-        "cloudflare_access_public_scope": (
-            access.get("cloudflare_access_public_scope") if access else None
-        ),
-        "cloudflare_access_public_policy_count": (
-            access.get("cloudflare_access_public_policy_count") if access else 0
-        ),
+        "cloudflare_access_application_count": (access.get("cloudflare_access_application_count") if access else 0),
+        "cloudflare_access_policy_count": (access.get("cloudflare_access_policy_count") if access else 0),
+        "cloudflare_access_policy_decisions": (access.get("cloudflare_access_policy_decisions") if access else []),
+        "cloudflare_access_public": (access.get("cloudflare_access_public") if access else None),
+        "cloudflare_access_public_scope": (access.get("cloudflare_access_public_scope") if access else None),
+        "cloudflare_access_public_policy_count": (access.get("cloudflare_access_public_policy_count") if access else 0),
     }
     declared = {
         "external": service.external,
@@ -424,9 +417,7 @@ def _service_exposure(
     risk_reasons = _unique_reasons(confirmed_risk, unconfirmed_risk)
 
     return {
-        "state": (
-            "mismatch" if mismatches else "incomplete" if incomplete else "match"
-        ),
+        "state": ("mismatch" if mismatches else "incomplete" if incomplete else "match"),
         "reasons": mismatches + incomplete,
         "risk_state": _risk_state(
             confirmed=confirmed_risk,
