@@ -114,7 +114,7 @@ async def build_extended_healthz(
         try:
             async with asyncio.timeout(_HEALTHZ_OPTIONAL_ENRICHMENT_DEADLINE_SEC):
                 if reconciliation_context is not None:
-                    context = await reconciliation_context
+                    context = await asyncio.shield(reconciliation_context)
                     return await platform_checks_from_reconciliation_context(context)
                 enriched = await enrich_optional_platform_checks(payload)
         except TimeoutError:
