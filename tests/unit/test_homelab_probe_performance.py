@@ -129,10 +129,7 @@ async def test_fanout_deadline_cancels_queued_probes_without_late_burst(
         }
 
     monkeypatch.setattr(homelab_health, "_SERVICE_FANOUT_BUDGET_SEC", 0.01)
-    probes = [
-        (service, asyncio.create_task(blocked_probe(service)))
-        for service in services
-    ]
+    probes = [(service, asyncio.create_task(blocked_probe(service))) for service in services]
 
     results, summary = await homelab_health._collect_bounded_probe_batch(
         probes,
