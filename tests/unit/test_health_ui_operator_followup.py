@@ -137,3 +137,18 @@ def test_responsive_css_stabilizes_metrics_and_uses_full_desktop_width() -> None
     assert "grid-template-columns: minmax(360px, 440px) minmax(0, 1fr)" in stylesheet
     assert "grid-template-columns: repeat(3, minmax(0, 1fr))" in stylesheet
     assert ".health-legend-hover" in stylesheet
+
+
+def test_mobile_filter_navigation_is_compact_and_truenas_flow_is_centered() -> None:
+    stylesheet = (ASSETS / "api-health-ui-final-followup.css").read_text(
+        encoding="utf-8",
+    )
+
+    assert "#service-section-navigation.service-filter-health-summary" in stylesheet
+    assert "grid-template-columns: repeat(4, minmax(0, 1fr));" in stylesheet
+    assert "!important" not in stylesheet
+    assert ".service-filter-global-heading p" in stylesheet
+    assert "#service-section-navigation .service-filter-health-chip" in stylesheet
+    assert "min-height: 44px" in stylesheet
+    assert ".truenas-pipeline" in stylesheet
+    assert "justify-content: safe center" in stylesheet

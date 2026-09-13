@@ -1,4 +1,4 @@
-const PROBE_COLUMNS = [
+export const PROBE_COLUMNS = [
   ["dns", "🧭", "DNS"],
   ["http", "🌐", "HTTP"],
   ["tls", "🔒", "TLS"],
@@ -81,7 +81,14 @@ function probeSignature(byKind) {
   );
 }
 
-function makeCardCell(kind, icon, label, source) {
+function pinColumn(cell, columnIndex) {
+  const column = columnIndex + 1;
+  cell.dataset.probeColumn = String(column);
+  cell.style.gridColumn = String(column);
+  cell.setAttribute("role", "cell");
+}
+
+function makeCardCell(kind, icon, label, source, columnIndex) {
   const tone = probeTone(source);
   const cell = document.createElement("div");
   cell.className = `service-probe-table-cell service-probe-table-cell--${tone}`;
@@ -89,6 +96,7 @@ function makeCardCell(kind, icon, label, source) {
   cell.dataset.probeGridCopy = "true";
   cell.title = probeDetail(source, label);
   cell.setAttribute("aria-label", cell.title);
+  pinColumn(cell, columnIndex);
 
   const iconNode = document.createElement("span");
   iconNode.className = "service-probe-table-icon";
@@ -115,6 +123,7 @@ function renderCardGrid(row) {
     grid.dataset.probeGrid = "card";
     grid.setAttribute("role", "table");
     grid.setAttribute("aria-label", "Stable probe evidence");
+    grid.setAttribute("aria-colcount", String(PROBE_COLUMNS.length));
     primary.appendChild(grid);
   }
   if (grid.dataset.signature === signature) {
@@ -123,20 +132,23 @@ function renderCardGrid(row) {
   }
 
   const fragment = document.createDocumentFragment();
-  for (const [kind, icon, label] of PROBE_COLUMNS) {
-    fragment.appendChild(makeCardCell(kind, icon, label, sources.get(kind)));
+  for (const [columnIndex, [kind, icon, label]] of PROBE_COLUMNS.entries()) {
+    fragment.appendChild(
+      makeCardCell(kind, icon, label, sources.get(kind), columnIndex),
+    );
   }
   grid.replaceChildren(fragment);
   grid.dataset.signature = signature;
   row.dataset.probeGridReady = "true";
 }
 
-function makeDrawerCell(kind, icon, label, source) {
+function makeDrawerCell(kind, icon, label, source, columnIndex) {
   const tone = probeTone(source);
   const item = document.createElement("article");
   item.className = `service-detail-probe service-detail-probe--${tone}`;
   item.dataset.probeKind = kind;
   item.dataset.probeGridCopy = "true";
+  pinColumn(item, columnIndex);
 
   const heading = document.createElement("div");
   heading.className = "service-detail-probe-heading";
@@ -182,12 +194,17 @@ function renderDrawerGrid() {
   }
 
   const fragment = document.createDocumentFragment();
-  for (const [kind, icon, label] of PROBE_COLUMNS) {
-    fragment.appendChild(makeDrawerCell(kind, icon, label, sources.get(kind)));
+  for (const [columnIndex, [kind, icon, label]] of PROBE_COLUMNS.entries()) {
+    fragment.appendChild(
+      makeDrawerCell(kind, icon, label, sources.get(kind), columnIndex),
+    );
   }
   host.replaceChildren(fragment);
   host.dataset.probeGridReady = "true";
   host.dataset.signature = signature;
+  host.setAttribute("role", "table");
+  host.setAttribute("aria-label", "Stable probe evidence details");
+  host.setAttribute("aria-colcount", String(PROBE_COLUMNS.length));
 }
 
 function render() {

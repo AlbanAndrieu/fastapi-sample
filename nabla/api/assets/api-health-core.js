@@ -77,6 +77,13 @@ function healthRowTitleHtml(check, key) {
   return `<div class="health-row-name health-row-name--sickz">${lock}${inner}</div>`;
 }
 
+function postureAtRisk(check) {
+  const state = String(check?.risk_state || check?.exposure?.risk_state || "")
+    .trim()
+    .toLowerCase();
+  return state === "at_risk" || state === "at-risk";
+}
+
 function classify(key, check) {
   if (key === "cloudflare") {
     if (check.skipped === true) return "gray";
@@ -95,7 +102,11 @@ function classify(key, check) {
     return "yellow";
   if (isExpectedSentryDebugFailure(key, check)) return "green";
   const dependencyClass = dependencyHealthClass(check);
-  if (dependencyClass) return dependencyClass;
+  if (dependencyClass) {
+    if (dependencyClass === "green" && postureAtRisk(check)) return "yellow";
+    return dependencyClass;
+  }
+  if (postureAtRisk(check)) return "yellow";
   if (check.reachable === true) {
     if (key === "truenas_api") return "green";
     if (!httpStatusIsSuccess2xx(check.http_status)) return "blue";
@@ -184,7 +195,7 @@ function computeOverall(data) {
   if (anyYellow) {
     return {
       cls: "yellow",
-      text: "One or more checks are degraded, intentionally skipped, or waiting for complete evidence.",
+      text: "One or more services are at risk, degraded, intentionally skipped, or waiting for complete evidence.",
     };
   }
   return {
@@ -238,6 +249,10 @@ function healthRowsSignature(checks) {
           check.local_state,
           check.dependency_state,
           check.effective_state,
+          check.risk_state,
+          check.risk_reasons,
+          check.exposure?.state,
+          check.exposure?.risk_state,
           check.http_status,
           check.skipped,
           check.warning,

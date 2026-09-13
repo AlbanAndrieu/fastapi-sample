@@ -31,6 +31,24 @@
       "tunnelUrl": "https://s3.int.albandrieu.com"
     },
     {
+      "name": "Garage",
+      "external": true,
+      "tunnelSecure": true,
+      "cloudflareAccessRequired": true,
+      "tunnelUrl": "https://garage.albandrieu.com",
+      "endpointEnabled": true,
+      "healthNote": "Garage WebUI is exposed through Cloudflare Tunnel at https://garage.albandrieu.com and forwards directly to 172.17.0.24:3909 without Traefik."
+    },
+    {
+      "name": "Garage Admin",
+      "external": true,
+      "tunnelSecure": true,
+      "cloudflareAccessRequired": true,
+      "tunnelUrl": "https://garage-admin.albandrieu.com",
+      "endpointEnabled": true,
+      "healthNote": "Garage Admin API is exposed through Cloudflare Tunnel at https://garage-admin.albandrieu.com and forwards directly to 172.17.0.24:3903 without Traefik."
+    },
+    {
       "name": "Bichon",
       "external": false,
       "tunnelSecure": false,
@@ -45,13 +63,20 @@
       "securityException": "n8n currently needs a public webhook path for integrations such as Slack. A broad Cloudflare Access bypass/Everyone policy is intentionally treated as a red security exception; narrow it to the webhook path or replace it with Service Auth."
     },
     {
+      "name": "Scrutiny",
+      "external": true,
+      "tunnelUrl": "https://scrutiny.albandrieu.com",
+      "tunnelSecure": true,
+      "cloudflareAccessRequired": true
+    },
+    {
       "name": "PostgreSQL",
       "external": false,
       "tunnelUrl": "postgres://postgres.albandrieu.com:5432/",
       "tunnelSecure": false,
       "endpointEnabled": true,
       "cloudflareAccessRequired": false,
-      "healthNote": "⚠️ Internal-only database service. FastAPI Sample cloud uses Supabase instead of this PostgreSQL instance. The canonical endpoint is retained for identity/presentation but is not probed externally while external=false. Internal health uses TCP/5432."
+      "healthNote": "⚠️ Internal-only database service. FastAPI Sample cloud uses Supabase instead of this PostgreSQL instance. The canonical endpoint is retained for identity/presentation but must not be probed externally while external=false. Internal health uses TCP/5432."
     },
     {
       "name": "ClamAV",
@@ -60,7 +85,7 @@
       "tunnelSecure": true,
       "endpointEnabled": true,
       "cloudflareAccessRequired": false,
-      "healthNote": "⚠️ Internal-only antivirus engine. The canonical URL is retained for identity/presentation but is not probed externally while external=false. Internal health uses TCP/3310; private DNS identity is https://clamav.int.albandrieu.com."
+      "healthNote": "⚠️ Internal-only antivirus engine. The canonical URL is retained for identity/presentation but must not be probed externally while external=false. Internal health uses TCP/3310; internal DNS identity is https://clamav.int.albandrieu.com."
     },
     {
       "name": "Reactive Resume",
@@ -70,24 +95,6 @@
       "endpointEnabled": true,
       "cloudflareAccessRequired": false,
       "healthNote": "Reactive Resume is intentionally exposed at https://reactive.albandrieu.com. Runtime, public HTTPS reachability and tunnel/edge evidence should reconcile to green when healthy."
-    },
-    {
-      "name": "Garage",
-      "external": true,
-      "tunnelUrl": "https://garage.albandrieu.com",
-      "tunnelSecure": true,
-      "endpointEnabled": true,
-      "cloudflareAccessRequired": true,
-      "healthNote": "Garage WebUI is exposed through Cloudflare Tunnel at https://garage.albandrieu.com and forwards directly to 172.17.0.24:3909 without Traefik."
-    },
-    {
-      "name": "Garage Admin",
-      "external": true,
-      "tunnelSecure": true,
-      "cloudflareAccessRequired": true,
-      "tunnelUrl": "https://garage-admin.albandrieu.com",
-      "endpointEnabled": true,
-      "healthNote": "Garage Admin API is exposed through Cloudflare Tunnel at https://garage-admin.albandrieu.com and forwards directly to 172.17.0.24:3903 without Traefik."
     }
   ]
 }

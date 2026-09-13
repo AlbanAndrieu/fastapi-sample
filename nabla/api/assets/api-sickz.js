@@ -22,7 +22,7 @@ import {
 function classifySick(check) {
   if (check.policy_status === "ok") return "green";
   if (check.policy_status === "warn") return "yellow";
-  if (check.policy_status === "fail") return "red";
+  if (check.policy_status === "fail") return "yellow";
   if (check.policy_status === "unknown") return "gray";
   if (check.skipped === true) return "yellow";
   if (check.reachable === true) {
@@ -95,7 +95,7 @@ function detailSickText(check) {
   const raw = rawDetailSickText(check);
   if (!check.policy_detail) return raw;
   const warning =
-    check.policy_status === "warn" &&
+    ["warn", "fail"].includes(check.policy_status) &&
     !String(check.policy_detail).startsWith("⚠️")
       ? "⚠️ "
       : "";
@@ -148,8 +148,8 @@ function computeOverall(data) {
   }
   if (anyPolicyFail) {
     return {
-      cls: "red",
-      text: `From network ${network}, at least one service violates its declared exposure/Cloudflare policy.`,
+      cls: "yellow",
+      text: `From network ${network}, at least one service is At risk because its declared exposure/Cloudflare policy is violated; service availability is evaluated separately.`,
     };
   }
   if (anyTcpPolicyViolation) {
@@ -329,7 +329,8 @@ function render(data) {
     if (isTrueNasExposureCheck(check)) {
       rowTitle = "TrueNAS HTTPS listener · exposure policy";
     }
-    if (check.policy_status === "warn") rowTitle = `⚠️ ${rowTitle}`;
+    if (["warn", "fail"].includes(check.policy_status))
+      rowTitle = `⚠️ ${rowTitle}`;
     item.dataset.serviceName = rowTitle.replace(/^⚠️\s*/, "");
     item.dataset.serviceUrl = hrefRaw;
     item.dataset.searchText = [

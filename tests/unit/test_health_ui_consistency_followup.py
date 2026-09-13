@@ -72,8 +72,9 @@ def test_cloudflare_provider_reconciliation_is_project_scoped_and_deduplicated()
         encoding="utf-8",
     )
 
-    assert 'PROJECT_ACCESS_POLICY = "fastapi-sample-monitor"' in source
-    assert 'PROJECT_SERVICE_AUTH = "fastapi-sample-monitor"' in source
+    assert "PROJECT_ACCESS_POLICY" not in source
+    assert "PROJECT_SERVICE_AUTH" not in source
+    assert "family?.selection" in source
     assert "removeDuplicateProviderItems" in source
     assert "removeCloudflareSummaryDuplicates" in source
     assert 'providerItem(section, "Access applications")' in source
@@ -83,8 +84,9 @@ def test_cloudflare_provider_reconciliation_is_project_scoped_and_deduplicated()
     assert "policy object\\(s\\) visible" in source
     assert "service token\\(s\\) visible" in source
     assert 'appError || "inventory confirmed"' in source
-    assert "policyError || PROJECT_ACCESS_POLICY" in source
-    assert "`${PROJECT_SERVICE_AUTH} · ${tokenPresence}`" in source
+    assert 'familySelection(policies, "project-scoped policy")' in source
+    assert 'familySelection(\n    tokens,\n    "project-scoped Service Token",\n  )' in source
+    assert "`${tokenSelection} · ${tokenPresence}`" in source
 
 
 def test_filter_and_drawer_reserve_fixed_visual_space() -> None:
@@ -100,4 +102,5 @@ def test_filter_and_drawer_reserve_fixed_visual_space() -> None:
     assert "width: 470px" in stylesheet or "width: 470px" in (ASSETS / "api-health-ui-responsive-followup.js").read_text(encoding="utf-8")
     assert ".service-probe-table" in final_stylesheet
     assert "min-width: 52rem" in final_stylesheet
-    assert "grid-template-columns: repeat(2" in final_stylesheet
+    assert "grid-template-columns: repeat(11, minmax(9rem, 1fr));" in final_stylesheet
+    assert "grid-template-columns: 1fr;" not in final_stylesheet
