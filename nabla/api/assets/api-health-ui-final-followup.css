@@ -10,8 +10,8 @@ main {
   max-width: none;
 }
 
-#service-section-navigation {
-  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+#service-section-navigation.service-filter-health-summary {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .truenas-pipeline {
