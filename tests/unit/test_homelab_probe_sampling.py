@@ -46,6 +46,27 @@ def test_probe_subset_keeps_priority_services_and_rotates_remainder(
     assert first_ids != second_ids
 
 
+def test_probe_subset_deduplicates_service_ids_before_sampling() -> None:
+    first = _service("duplicate", 20001)
+    duplicate = _service("duplicate", 29999)
+    services = [
+        first,
+        duplicate,
+        *[_service(f"service-{index}", 21000 + index) for index in range(20)],
+    ]
+
+    selected = homelab_probe_policy.select_probe_subset(
+        services,
+        limit=12,
+        now=0.0,
+    )
+
+    selected_ids = [service.service_id for service in selected]
+    assert len(selected_ids) == len(set(selected_ids)) == 12
+    chosen = next(service for service in selected if service.service_id == "duplicate")
+    assert chosen.internal_port == first.internal_port
+
+
 def test_probe_cache_metadata_exposes_source_age_and_ttl() -> None:
     payload = {
         "truenas": {},
