@@ -194,11 +194,7 @@ async def _build_homelab_snapshot(
     from nabla.api.homelab_performance import finalize_homelab_performance
     from nabla.api.provider_credentials import infrastructure_provider_credentials
 
-    services = (
-        list(catalog_services)
-        if catalog_services is not None
-        else await fetch_homelab_services()
-    )
+    services = list(catalog_services) if catalog_services is not None else await fetch_homelab_services()
     homelab_task = (
         homelab_payload
         if homelab_payload is not None
@@ -206,11 +202,7 @@ async def _build_homelab_snapshot(
             build_homelab_health_payload(catalog_services=services),
         )
     )
-    context_awaitable = (
-        reconciliation_context
-        if reconciliation_context is not None
-        else asyncio.create_task(prepare_homelab_reconciliation_context(services))
-    )
+    context_awaitable = reconciliation_context if reconciliation_context is not None else asyncio.create_task(prepare_homelab_reconciliation_context(services))
     if shared_checks is None:
         components = await build_component_checks(
             redis_client=redis,
@@ -219,17 +211,10 @@ async def _build_homelab_snapshot(
         )
     else:
         homelab = await homelab_task
-        components = {
-            key: shared_checks.get(key, {"reachable": None, "skipped": True})
-            for key in ("postgres", "redis", "supabase", "cloudflare", "pfsense")
-        }
+        components = {key: shared_checks.get(key, {"reachable": None, "skipped": True}) for key in ("postgres", "redis", "supabase", "cloudflare", "pfsense")}
         components["truenas"] = truenas_component(homelab)
     homelab = await homelab_task
-    reconciliation_context_value = (
-        context_awaitable
-        if isinstance(context_awaitable, dict)
-        else await context_awaitable
-    )
+    reconciliation_context_value = context_awaitable if isinstance(context_awaitable, dict) else await context_awaitable
     payload = await reconcile_homelab_health_payload(
         homelab,
         context=reconciliation_context_value,
