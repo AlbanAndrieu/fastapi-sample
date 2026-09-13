@@ -1,3 +1,10 @@
+## [1.20.4](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.3...1.20.4) (2026-09-13)
+
+
+### Bug Fixes
+
+* **health-ui:** pin probe columns and sync homelab fallback ([#264](https://github.com/AlbanAndrieu/fastapi-sample/issues/264)) ([efc0b0e](https://github.com/AlbanAndrieu/fastapi-sample/commit/efc0b0e35bf52458338c6df8f91a7b819b3c4c59))
+
 ## [1.20.3](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.2...1.20.3) (2026-09-12)
 
 
