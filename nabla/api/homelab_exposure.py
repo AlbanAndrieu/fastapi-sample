@@ -242,14 +242,10 @@ def _declared_risk_reasons(
             reasons.append(
                 "Direct external exposure bypasses Cloudflare Tunnel/Access",
             )
-    if (
-        service.tunnel_secure is True
-        and not service.effective_cloudflare_access_required
-    ):
+    if service.tunnel_secure is True and not service.effective_cloudflare_access_required:
         suffix = " with an observed Tunnel ingress" if tunnel else ""
         reasons.append(
-            "external=true declares a Cloudflare edge"
-            f"{suffix} but Cloudflare Access is disabled; anonymous exposure may be possible",
+            f"external=true declares a Cloudflare edge{suffix} but Cloudflare Access is disabled; anonymous exposure may be possible",
         )
     return reasons
 
@@ -351,19 +347,11 @@ def _service_exposure(
     access_required = service.effective_cloudflare_access_required
     origin, origin_warning = _origin_reconciliation(service, tunnel)
     observed = {
-        "public_https_reachable": (
-            bool(row.get("reachable"))
-            if row.get("http_status", 0) or row.get("reachable")
-            else None
-        ),
+        "public_https_reachable": (bool(row.get("reachable")) if row.get("http_status", 0) or row.get("reachable") else None),
         "cloudflare_tunnel_observed": bool(tunnel),
         "cloudflare_tunnel_name": tunnel.get("cloudflare_tunnel_name") if tunnel else None,
-        "cloudflare_tunnel_status": (
-            tunnel.get("cloudflare_tunnel_status") if tunnel else None
-        ),
-        "cloudflare_tunnel_config_source": (
-            tunnel.get("cloudflare_tunnel_config_source") if tunnel else None
-        ),
+        "cloudflare_tunnel_status": (tunnel.get("cloudflare_tunnel_status") if tunnel else None),
+        "cloudflare_tunnel_config_source": (tunnel.get("cloudflare_tunnel_config_source") if tunnel else None),
         **origin,
         "cloudflare_access_observed": bool(access),
         "cloudflare_access_application_count": (access.get("cloudflare_access_application_count") if access else 0),
