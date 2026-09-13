@@ -36,7 +36,9 @@ const HOMELAB_EVIDENCE_FIELDS = [
 ];
 
 function normalize(value) {
-  return String(value || "").trim().toLowerCase();
+  return String(value || "")
+    .trim()
+    .toLowerCase();
 }
 
 function hostOf(value) {
