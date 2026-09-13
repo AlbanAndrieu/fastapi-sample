@@ -1,3 +1,13 @@
+## [1.20.5](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.4...1.20.5) (2026-09-13)
+
+
+### Bug Fixes
+
+* **deps-dev:** bump @commitlint/cli from 20.4.1 to 21.2.2 ([#269](https://github.com/AlbanAndrieu/fastapi-sample/issues/269)) ([8ef32d8](https://github.com/AlbanAndrieu/fastapi-sample/commit/8ef32d88ebf89a0286db4a5a4354554716c8aeb9))
+* **deps-dev:** bump @commitlint/cz-commitlint from 20.3.1 to 21.2.2 ([#265](https://github.com/AlbanAndrieu/fastapi-sample/issues/265)) ([cd38c3f](https://github.com/AlbanAndrieu/fastapi-sample/commit/cd38c3fc77c9273b55d6685688943436c6009f77))
+* **deps-dev:** bump globals from 17.11.0 to 17.12.0 ([#266](https://github.com/AlbanAndrieu/fastapi-sample/issues/266)) ([c4b412a](https://github.com/AlbanAndrieu/fastapi-sample/commit/c4b412a2f87fab442f87a7b822d42edfa47d5e10))
+* **deps-dev:** bump prettier from 3.7.4 to 3.9.6 ([#268](https://github.com/AlbanAndrieu/fastapi-sample/issues/268)) ([ad82768](https://github.com/AlbanAndrieu/fastapi-sample/commit/ad82768c50a61d489b9f9130bc91ed4f505f1269))
+
 ## [1.20.4](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.3...1.20.4) (2026-09-13)
 
 
