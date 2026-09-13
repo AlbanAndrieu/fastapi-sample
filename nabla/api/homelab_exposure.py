@@ -11,6 +11,7 @@ from nabla.api.cloudflare_exposure_observer import (
 )
 from nabla.api.cloudflare_tunnels import (
     CloudflareAccessApplicationObservation,
+    CloudflareAccessControlPlaneObservation,
     CloudflareTunnelObservation,
 )
 from nabla.api.homelab_models import HomelabService
@@ -233,6 +234,47 @@ def _declared_risk_reasons(
     return reasons
 
 
+def _reusable_policy_risk_reasons(
+    control: CloudflareAccessControlPlaneObservation,
+) -> tuple[list[str], list[str]]:
+    confirmed: list[str] = []
+    unconfirmed: list[str] = []
+    if control.reusable_policy_error:
+        unconfirmed.append(
+            "Project-scoped reusable Access policy inventory could not be confirmed",
+        )
+    elif control.reusable_policy_count == 0:
+        confirmed.append("Project-scoped reusable Access policy is missing")
+    elif control.reusable_policy_app_count == 0:
+        confirmed.append(
+            "Project-scoped reusable Access policy exists but is not assigned to an Access application",
+        )
+    return confirmed, unconfirmed
+
+
+def _service_token_risk_reasons(
+    control: CloudflareAccessControlPlaneObservation,
+) -> tuple[list[str], list[str]]:
+    confirmed: list[str] = []
+    unconfirmed: list[str] = []
+    if control.service_token_error:
+        unconfirmed.append(
+            "Project-scoped Cloudflare Service Token inventory could not be confirmed",
+        )
+    else:
+        if control.service_token_count == 0:
+            confirmed.append("Project-scoped Cloudflare Service Token is missing")
+        elif control.service_token_enabled_count == 0:
+            confirmed.append(
+                "Project-scoped Cloudflare Service Token exists but no token is enabled",
+            )
+        if control.configured_service_token_present is False:
+            confirmed.append(
+                "Configured Service Auth client does not match the project-scoped Cloudflare Service Token",
+            )
+    return confirmed, unconfirmed
+
+
 def _control_plane_risk_reasons(
     service: HomelabService,
     snapshot: CloudflareExposureSnapshot,
@@ -254,36 +296,9 @@ def _control_plane_risk_reasons(
             "Project-scoped Cloudflare Access policy and Service Token inventory is unavailable",
         ]
 
-    confirmed: list[str] = []
-    unconfirmed: list[str] = []
-    if control.reusable_policy_error:
-        unconfirmed.append(
-            "Project-scoped reusable Access policy inventory could not be confirmed",
-        )
-    else:
-        if control.reusable_policy_count == 0:
-            confirmed.append("Project-scoped reusable Access policy is missing")
-        elif control.reusable_policy_app_count == 0:
-            confirmed.append(
-                "Project-scoped reusable Access policy exists but is not assigned to an Access application",
-            )
-
-    if control.service_token_error:
-        unconfirmed.append(
-            "Project-scoped Cloudflare Service Token inventory could not be confirmed",
-        )
-    else:
-        if control.service_token_count == 0:
-            confirmed.append("Project-scoped Cloudflare Service Token is missing")
-        elif control.service_token_enabled_count == 0:
-            confirmed.append(
-                "Project-scoped Cloudflare Service Token exists but no token is enabled",
-            )
-        if control.configured_service_token_present is False:
-            confirmed.append(
-                "Configured Service Auth client does not match the project-scoped Cloudflare Service Token",
-            )
-    return confirmed, unconfirmed
+    policy_confirmed, policy_unconfirmed = _reusable_policy_risk_reasons(control)
+    token_confirmed, token_unconfirmed = _service_token_risk_reasons(control)
+    return policy_confirmed + token_confirmed, policy_unconfirmed + token_unconfirmed
 
 
 def _unexpected_private_exposure_reasons(
