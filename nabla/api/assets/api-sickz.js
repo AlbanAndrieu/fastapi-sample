@@ -329,7 +329,8 @@ function render(data) {
     if (isTrueNasExposureCheck(check)) {
       rowTitle = "TrueNAS HTTPS listener · exposure policy";
     }
-    if (["warn", "fail"].includes(check.policy_status)) rowTitle = `⚠️ ${rowTitle}`;
+    if (["warn", "fail"].includes(check.policy_status))
+      rowTitle = `⚠️ ${rowTitle}`;
     item.dataset.serviceName = rowTitle.replace(/^⚠️\s*/, "");
     item.dataset.serviceUrl = hrefRaw;
     item.dataset.searchText = [
