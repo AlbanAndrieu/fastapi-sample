@@ -10,6 +10,14 @@ main {
   max-width: none;
 }
 
+#service-section-navigation {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+
+.truenas-pipeline {
+  justify-content: safe center;
+}
+
 .health-row[data-probe-grid-ready="true"] .service-probe-strip,
 .health-row[data-probe-grid-ready="true"] .service-probe-plane-label {
   position: absolute;
@@ -186,6 +194,54 @@ main {
 }
 
 @media (max-width: 720px) {
+  .service-filter--global {
+    top: 0.3rem;
+    margin-bottom: 0.65rem;
+    padding: 0.55rem;
+  }
+
+  .service-filter-global-heading {
+    align-items: center;
+    gap: 0.45rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .service-filter-global-heading p {
+    display: none;
+  }
+
+  #service-section-navigation {
+    gap: 0.24rem;
+    margin-bottom: 0.35rem;
+  }
+
+  #service-section-navigation .service-filter-health-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+    min-height: 44px;
+    padding: 0.3rem 0.24rem;
+    text-align: center;
+  }
+
+  #service-section-navigation .service-filter-health-chip strong,
+  #service-section-navigation .service-filter-health-chip span {
+    display: inline;
+    margin: 0;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  #service-section-navigation .service-filter-health-chip strong {
+    font-size: 0.7rem;
+  }
+
+  #service-section-navigation .service-filter-health-chip span {
+    font-size: 0.5rem;
+    letter-spacing: 0.015em;
+  }
+
   .service-detail-evidence[data-probe-grid-ready="true"] {
     grid-template-columns: repeat(11, minmax(7rem, 1fr));
     min-height: 6rem;
