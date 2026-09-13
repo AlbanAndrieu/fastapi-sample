@@ -36,13 +36,17 @@ def _access(
     with_policy: bool = True,
 ) -> CloudflareAccessApplicationObservation:
     policies = (
-        CloudflareAccessPolicyObservation(
-            policy_id="policy-1",
-            name="fastapi-sample-monitor",
-            decision="non_identity",
-            includes_everyone=False,
-        ),
-    ) if with_policy else ()
+        (
+            CloudflareAccessPolicyObservation(
+                policy_id="policy-1",
+                name="fastapi-sample-monitor",
+                decision="non_identity",
+                includes_everyone=False,
+            ),
+        )
+        if with_policy
+        else ()
+    )
     return CloudflareAccessApplicationObservation(
         app_id="app-1",
         name="service",
@@ -127,7 +131,9 @@ def test_missing_access_application_is_at_risk_without_marking_service_down() ->
     assert row["state"] == "ok"
     assert row["local_state"] == "ok"
     assert row["risk_state"] == "at_risk"
-    assert any("no matching Access application" in reason for reason in row["risk_reasons"])
+    assert any(
+        "no matching Access application" in reason for reason in row["risk_reasons"]
+    )
 
 
 def test_access_application_without_policy_is_at_risk() -> None:
@@ -135,9 +141,7 @@ def test_access_application_without_policy_is_at_risk() -> None:
     snapshot = CloudflareExposureSnapshot(
         configured=True,
         tunnels=(_tunnel("openwebui.albandrieu.com"),),
-        access_applications=(
-            _access("openwebui.albandrieu.com", with_policy=False),
-        ),
+        access_applications=(_access("openwebui.albandrieu.com", with_policy=False),),
         access_control_plane=_control_plane(),
     )
 
@@ -165,7 +169,9 @@ def test_missing_project_policy_and_service_token_are_at_risk() -> None:
     row = enrich_service_exposure([_row(service)], [service], snapshot)[0]
 
     assert row["risk_state"] == "at_risk"
-    assert any("reusable Access policy is missing" in reason for reason in row["risk_reasons"])
+    assert any(
+        "reusable Access policy is missing" in reason for reason in row["risk_reasons"]
+    )
     assert any("Service Token is missing" in reason for reason in row["risk_reasons"])
     assert any("does not match" in reason for reason in row["risk_reasons"])
 
@@ -264,7 +270,9 @@ def test_provider_timeout_or_stale_inventory_is_unknown_not_at_risk() -> None:
     assert row["state"] == "ok"
     assert row["risk_state"] == "unknown"
     assert row["risk_state"] != "at_risk"
-    assert any("could not be confirmed" in reason for reason in row["risk_reasons"])
+    assert any(
+        "could not be confirmed" in reason for reason in row["risk_reasons"]
+    )
 
 
 def test_service_auth_failure_remains_policy_failure_for_at_risk_projection() -> None:
