@@ -1,3 +1,10 @@
+## [1.20.6](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.5...1.20.6) (2026-09-13)
+
+
+### Bug Fixes
+
+* **deps-dev:** bump cz-emoji-conventional from 1.0.1 to 1.3.0 ([#267](https://github.com/AlbanAndrieu/fastapi-sample/issues/267)) ([bdfb0d3](https://github.com/AlbanAndrieu/fastapi-sample/commit/bdfb0d32998def0f0b96959c1905b39b5bc6ff1e))
+
 ## [1.20.5](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.4...1.20.5) (2026-09-13)
 
 
