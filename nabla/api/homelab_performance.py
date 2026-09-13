@@ -10,17 +10,20 @@ from nabla.utils.prometheus import HOMELAB_HEALTH_PHASE_DURATION_SECONDS
 
 _T = TypeVar("_T")
 
-HOMELAB_HEALTH_PERF_PHASES = (
+HOMELAB_HEALTH_PROVIDER_PHASES = (
     "declared_catalog",
     "topology",
     "cloudflare_exposure",
     "pfsense_posture",
     "truenas_runtime",
+)
+HOMELAB_HEALTH_PERF_PHASES = (
+    *HOMELAB_HEALTH_PROVIDER_PHASES,
     "reconciliation",
     "total",
 )
 _PHASE_SET = frozenset(HOMELAB_HEALTH_PERF_PHASES)
-_PROVIDER_PHASES = tuple(phase for phase in HOMELAB_HEALTH_PERF_PHASES if phase != "total")
+_NON_TOTAL_PHASES = tuple(phase for phase in HOMELAB_HEALTH_PERF_PHASES if phase != "total")
 
 
 def record_homelab_phase(
@@ -49,12 +52,12 @@ async def timed_homelab_phase(
         record_homelab_phase(timings_ms, phase, time.perf_counter() - started)
 
 
-def dominant_homelab_phase(
+def _dominant_phase(
     timings_ms: dict[str, object],
+    phases: tuple[str, ...],
 ) -> tuple[str | None, float | None]:
-    """Return the slowest fixed provider phase without creating dynamic labels."""
     observed: list[tuple[str, float]] = []
-    for phase in _PROVIDER_PHASES:
+    for phase in phases:
         value = timings_ms.get(phase)
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             continue
@@ -62,6 +65,20 @@ def dominant_homelab_phase(
     if not observed:
         return None, None
     return max(observed, key=lambda item: item[1])
+
+
+def dominant_homelab_phase(
+    timings_ms: dict[str, object],
+) -> tuple[str | None, float | None]:
+    """Return the slowest fixed non-total phase for backward compatibility."""
+    return _dominant_phase(timings_ms, _NON_TOTAL_PHASES)
+
+
+def dominant_homelab_provider_phase(
+    timings_ms: dict[str, object],
+) -> tuple[str | None, float | None]:
+    """Return the slowest provider read, excluding reconciliation orchestration."""
+    return _dominant_phase(timings_ms, HOMELAB_HEALTH_PROVIDER_PHASES)
 
 
 def finalize_homelab_performance(
@@ -77,9 +94,12 @@ def finalize_homelab_performance(
     record_homelab_phase(timings, "total", total_seconds)
     normalized_timings = {phase: timings.get(phase) for phase in HOMELAB_HEALTH_PERF_PHASES}
     dominant_phase, dominant_phase_ms = dominant_homelab_phase(normalized_timings)
+    dominant_provider_phase, dominant_provider_phase_ms = dominant_homelab_provider_phase(normalized_timings)
     performance["phases_ms"] = normalized_timings
     performance["dominant_phase"] = dominant_phase
     performance["dominant_phase_ms"] = dominant_phase_ms
+    performance["dominant_provider_phase"] = dominant_provider_phase
+    performance["dominant_provider_phase_ms"] = dominant_provider_phase_ms
     performance["fixed_cardinality"] = True
     performance["phase_count"] = len(HOMELAB_HEALTH_PERF_PHASES)
     return {**payload, "performance": performance}
@@ -87,7 +107,9 @@ def finalize_homelab_performance(
 
 __all__ = [
     "HOMELAB_HEALTH_PERF_PHASES",
+    "HOMELAB_HEALTH_PROVIDER_PHASES",
     "dominant_homelab_phase",
+    "dominant_homelab_provider_phase",
     "finalize_homelab_performance",
     "record_homelab_phase",
     "timed_homelab_phase",
