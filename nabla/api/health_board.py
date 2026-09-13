@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable
 from copy import deepcopy
 from datetime import UTC, datetime
 import logging
@@ -92,11 +93,18 @@ def _failed_optional_check(
     return result
 
 
-async def build_extended_healthz(request: Request) -> dict[str, Any]:
-    """Build the backward-compatible deep diagnostic payload."""
+async def build_extended_healthz(
+    request: Request,
+    *,
+    reconciliation_context: Awaitable[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Build deep diagnostics, optionally reusing one aggregate provider context."""
     from nabla.api.db.database import engine
     from nabla.api.demo.socket.redis import redis
     from nabla.api.health_checks import build_healthz_payload
+    from nabla.api.homelab_provider_reuse import (
+        platform_checks_from_reconciliation_context,
+    )
     from nabla.api.observability_health import enrich_optional_observability_checks
     from nabla.api.platform_health import enrich_optional_platform_checks
 
@@ -105,6 +113,9 @@ async def build_extended_healthz(request: Request) -> dict[str, Any]:
     async def platform_checks() -> dict[str, Any]:
         try:
             async with asyncio.timeout(_HEALTHZ_OPTIONAL_ENRICHMENT_DEADLINE_SEC):
+                if reconciliation_context is not None:
+                    context = await asyncio.shield(reconciliation_context)
+                    return await platform_checks_from_reconciliation_context(context)
                 enriched = await enrich_optional_platform_checks(payload)
         except TimeoutError:
             return {
@@ -160,6 +171,10 @@ async def build_extended_healthz(request: Request) -> dict[str, Any]:
 
 async def _build_homelab_snapshot(
     shared_checks: dict[str, Any] | None = None,
+    *,
+    catalog_services: list[Any] | None = None,
+    reconciliation_context: Awaitable[dict[str, Any]] | dict[str, Any] | None = None,
+    homelab_payload: Awaitable[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     started = time.perf_counter()
     from nabla.api.component_health import (
@@ -179,13 +194,15 @@ async def _build_homelab_snapshot(
     from nabla.api.homelab_performance import finalize_homelab_performance
     from nabla.api.provider_credentials import infrastructure_provider_credentials
 
-    services = await fetch_homelab_services()
-    homelab_task = asyncio.create_task(
-        build_homelab_health_payload(catalog_services=services),
+    services = list(catalog_services) if catalog_services is not None else await fetch_homelab_services()
+    homelab_task = (
+        homelab_payload
+        if homelab_payload is not None
+        else asyncio.create_task(
+            build_homelab_health_payload(catalog_services=services),
+        )
     )
-    reconciliation_task = asyncio.create_task(
-        prepare_homelab_reconciliation_context(services),
-    )
+    context_awaitable = reconciliation_context if reconciliation_context is not None else asyncio.create_task(prepare_homelab_reconciliation_context(services))
     if shared_checks is None:
         components = await build_component_checks(
             redis_client=redis,
@@ -197,10 +214,10 @@ async def _build_homelab_snapshot(
         components = {key: shared_checks.get(key, {"reachable": None, "skipped": True}) for key in ("postgres", "redis", "supabase", "cloudflare", "pfsense")}
         components["truenas"] = truenas_component(homelab)
     homelab = await homelab_task
-    reconciliation_context = await reconciliation_task
+    reconciliation_context_value = context_awaitable if isinstance(context_awaitable, dict) else await context_awaitable
     payload = await reconcile_homelab_health_payload(
         homelab,
-        context=reconciliation_context,
+        context=reconciliation_context_value,
     )
     components["unbound"] = pfsense_unbound_component(payload)
     payload["components_status"] = component_status(components)
@@ -235,11 +252,20 @@ def _planned_truenas_timeout_stages(path_mode: str, error: str) -> list[dict[str
 
 async def build_homelab_snapshot(
     shared_checks: dict[str, Any] | None = None,
+    *,
+    catalog_services: list[Any] | None = None,
+    reconciliation_context: Awaitable[dict[str, Any]] | dict[str, Any] | None = None,
+    homelab_payload: Awaitable[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Build homelab diagnostics without allowing a provider hang to hold the route."""
     try:
         async with asyncio.timeout(_HOMELAB_SNAPSHOT_DEADLINE_SEC):
-            payload = await _build_homelab_snapshot(shared_checks)
+            payload = await _build_homelab_snapshot(
+                shared_checks,
+                catalog_services=catalog_services,
+                reconciliation_context=reconciliation_context,
+                homelab_payload=homelab_payload,
+            )
         return {
             **payload,
             "status": payload.get("components_status", "healthy"),
@@ -370,13 +396,34 @@ def _annotate_pfsense_ingress_policy(
 
 
 async def build_health_board_snapshot(request: Request) -> dict[str, Any]:
-    """Collect expensive views sequentially so one UI load cannot amplify fan-out."""
-    healthz = await build_extended_healthz(request)
-    runtime = await build_runtime_snapshot(request)
-    healthz = _annotate_pfsense_ingress_policy(healthz, runtime)
-    homelab = await build_homelab_snapshot(healthz.get("checks"))
+    """Reuse one provider context while keeping standalone health endpoints independent."""
+    from nabla.api.homelab_catalog import fetch_homelab_services
+    from nabla.api.homelab_health import build_homelab_health_payload
+    from nabla.api.homelab_health_evidence import prepare_homelab_reconciliation_context
     from nabla.api.platform_metrics import fetch_platform_metrics
 
+    services = await fetch_homelab_services()
+    reconciliation_task = asyncio.create_task(
+        prepare_homelab_reconciliation_context(services),
+    )
+    homelab_payload_task = asyncio.create_task(
+        build_homelab_health_payload(catalog_services=services),
+    )
+    healthz_task = asyncio.create_task(
+        build_extended_healthz(
+            request,
+            reconciliation_context=reconciliation_task,
+        ),
+    )
+    runtime_task = asyncio.create_task(build_runtime_snapshot(request))
+    healthz, runtime = await asyncio.gather(healthz_task, runtime_task)
+    healthz = _annotate_pfsense_ingress_policy(healthz, runtime)
+    homelab = await build_homelab_snapshot(
+        healthz.get("checks"),
+        catalog_services=services,
+        reconciliation_context=reconciliation_task,
+        homelab_payload=homelab_payload_task,
+    )
     platform_metrics = await fetch_platform_metrics()
     sickz = await build_sickz_snapshot(request)
     return {

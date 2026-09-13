@@ -31,6 +31,19 @@ _PRIORITY_SERVICE_IDS = frozenset(
 )
 
 
+def _unique_services(services: list[HomelabService]) -> list[HomelabService]:
+    """Keep the first declaration for each service id to avoid duplicate probes."""
+    unique: list[HomelabService] = []
+    seen: set[str] = set()
+    for service in services:
+        service_id = service.service_id
+        if service_id in seen:
+            continue
+        seen.add(service_id)
+        unique.append(service)
+    return unique
+
+
 def select_probe_subset(
     services: list[HomelabService],
     *,
@@ -38,6 +51,7 @@ def select_probe_subset(
     now: float | None = None,
 ) -> list[HomelabService]:
     """Keep priority services in every refresh and rotate remaining targets."""
+    services = _unique_services(services)
     if len(services) <= limit:
         return list(services)
 
@@ -64,6 +78,7 @@ def estimated_probe_interval_seconds(
     limit: int,
 ) -> float | None:
     """Estimate how often one eligible service is selected by the rotating window."""
+    eligible_services = _unique_services(eligible_services)
     if len(eligible_services) <= limit:
         return HEALTH_CACHE_TTL_SEC
 
