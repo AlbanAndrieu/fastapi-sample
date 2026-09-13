@@ -77,9 +77,7 @@ def _access_by_hostname(
                 decision = (policy.decision or "").strip().lower()
                 if decision:
                     decisions.add(decision)
-                public = decision == "bypass" or (
-                    decision == "allow" and policy.includes_everyone
-                )
+                public = decision == "bypass" or (decision == "allow" and policy.includes_everyone)
                 if public:
                     public_policy_count += 1
                     public_scopes.add("host" if root_scope else "path")
@@ -90,13 +88,7 @@ def _access_by_hostname(
             "cloudflare_access_policy_decisions": sorted(decisions),
             "cloudflare_access_public": public_policy_count > 0,
             "cloudflare_access_public_policy_count": public_policy_count,
-            "cloudflare_access_public_scope": (
-                "host"
-                if "host" in public_scopes
-                else "path"
-                if "path" in public_scopes
-                else None
-            ),
+            "cloudflare_access_public_scope": ("host" if "host" in public_scopes else "path" if "path" in public_scopes else None),
         }
     return result
 
@@ -184,16 +176,10 @@ def _origin_reconciliation(
 ) -> tuple[dict[str, Any], str | None]:
     expected_host = (service.internal_host or "").lower().rstrip(".") or None
     expected_port = service.internal_port
-    observed_service = (
-        str(tunnel.get("cloudflare_origin_service") or "") if tunnel else ""
-    )
+    observed_service = str(tunnel.get("cloudflare_origin_service") or "") if tunnel else ""
     observed_host, observed_port = _origin_host_port(observed_service)
     comparable = bool(expected_host and expected_port and observed_host and observed_port)
-    matches = (
-        expected_host == observed_host and expected_port == observed_port
-        if comparable
-        else None
-    )
+    matches = expected_host == observed_host and expected_port == observed_port if comparable else None
     detail = {
         "cloudflare_origin_service": observed_service or None,
         "cloudflare_origin_host": observed_host,
@@ -203,10 +189,7 @@ def _origin_reconciliation(
         "cloudflare_origin_matches_topology": matches,
     }
     if matches is False:
-        warning = (
-            f"⚠️ Cloudflare origin {observed_host}:{observed_port} does not match "
-            f"topology {expected_host}:{expected_port}"
-        )
+        warning = f"⚠️ Cloudflare origin {observed_host}:{observed_port} does not match topology {expected_host}:{expected_port}"
         return detail, warning
     return detail, None
 
