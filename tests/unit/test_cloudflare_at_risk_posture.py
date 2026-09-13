@@ -131,9 +131,7 @@ def test_missing_access_application_is_at_risk_without_marking_service_down() ->
     assert row["state"] == "ok"
     assert row["local_state"] == "ok"
     assert row["risk_state"] == "at_risk"
-    assert any(
-        "no matching Access application" in reason for reason in row["risk_reasons"]
-    )
+    assert any("no matching Access application" in reason for reason in row["risk_reasons"])
 
 
 def test_access_application_without_policy_is_at_risk() -> None:
@@ -169,9 +167,7 @@ def test_missing_project_policy_and_service_token_are_at_risk() -> None:
     row = enrich_service_exposure([_row(service)], [service], snapshot)[0]
 
     assert row["risk_state"] == "at_risk"
-    assert any(
-        "reusable Access policy is missing" in reason for reason in row["risk_reasons"]
-    )
+    assert any("reusable Access policy is missing" in reason for reason in row["risk_reasons"])
     assert any("Service Token is missing" in reason for reason in row["risk_reasons"])
     assert any("does not match" in reason for reason in row["risk_reasons"])
 
@@ -270,9 +266,7 @@ def test_provider_timeout_or_stale_inventory_is_unknown_not_at_risk() -> None:
     assert row["state"] == "ok"
     assert row["risk_state"] == "unknown"
     assert row["risk_state"] != "at_risk"
-    assert any(
-        "could not be confirmed" in reason for reason in row["risk_reasons"]
-    )
+    assert any("could not be confirmed" in reason for reason in row["risk_reasons"])
 
 
 def test_service_auth_failure_remains_policy_failure_for_at_risk_projection() -> None:
