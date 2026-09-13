@@ -111,7 +111,7 @@ async def test_sickz_snapshot_uses_local_request_scope_for_pfsense_policy(
 
 @pytest.mark.asyncio
 async def test_homelab_snapshot_success_has_explicit_status_contract(monkeypatch) -> None:
-    async def successful_snapshot(_shared_checks=None):
+    async def successful_snapshot(_shared_checks=None, **_kwargs):
         return {"components_status": "healthy", "truenas": {"state": "ok"}}
 
     monkeypatch.setattr(
@@ -130,7 +130,7 @@ async def test_homelab_snapshot_success_has_explicit_status_contract(monkeypatch
 
 @pytest.mark.asyncio
 async def test_homelab_snapshot_returns_degraded_timeout_payload(monkeypatch) -> None:
-    async def slow_snapshot(_shared_checks=None):
+    async def slow_snapshot(_shared_checks=None, **_kwargs):
         await asyncio.sleep(1.0)
         return {"status": "ok"}
 
