@@ -139,6 +139,10 @@ function resolvedEnvironments(node) {
 }
 
 function rowSeverity(row) {
+  const semantic = row.dataset.semanticStatus || "";
+  if (semantic === "down") return 0;
+  if (semantic === "at-risk" || semantic === "degraded") return 1;
+  if (semantic === "unknown") return 3;
   if (row.querySelector(".health-led--red")) return 0;
   if (row.querySelector(".health-led--yellow")) return 1;
   if (row.querySelector(".health-led--blue")) return 2;
@@ -153,20 +157,29 @@ function normalizedHealthState(value) {
   return ["ok", "warn", "fail", "unknown"].includes(state) ? state : "";
 }
 
+function postureAtRisk(check) {
+  const risk = normalize(check?.risk_state || check?.exposure?.risk_state);
+  if (risk === "at_risk" || risk === "at-risk") return true;
+  const policy = normalize(check?.policy_status);
+  return policy === "warn" || policy === "fail";
+}
+
 function rowStatus(row, check = {}) {
   const localState = normalizedHealthState(check?.local_state);
   const dependencyState = normalizedHealthState(check?.dependency_state);
+  const atRisk = postureAtRisk(check);
 
   if (localState === "fail") return "Down";
   if (localState === "warn") return "Degraded";
   if (localState === "unknown") return "Unknown";
   if (
     localState === "ok" &&
-    ["fail", "warn", "unknown"].includes(dependencyState)
+    (["fail", "warn", "unknown"].includes(dependencyState) || atRisk)
   ) {
     return "At risk";
   }
   if (localState === "ok") return "Operational";
+  if (atRisk) return "At risk";
 
   const severity = rowSeverity(row);
   if (severity === 0) return "Down";
@@ -200,6 +213,7 @@ function decorateRow(row, presentation, check, node) {
   const statusKind = status.toLowerCase().replaceAll(" ", "-");
   const localState = normalizedHealthState(check?.local_state);
   const dependencyState = normalizedHealthState(check?.dependency_state);
+  const riskState = normalize(check?.risk_state || check?.exposure?.risk_state);
   const environments = resolvedEnvironments(node);
 
   row.dataset.presentationRole = presentation.role;
@@ -208,6 +222,7 @@ function decorateRow(row, presentation, check, node) {
   row.dataset.semanticStatus = statusKind;
   row.dataset.localState = localState;
   row.dataset.dependencyState = dependencyState;
+  row.dataset.riskState = riskState;
   row.dataset.downstreamCount = String(presentation.transitiveDependents || 0);
   row.dataset.securityFunctions = (presentation.securityFunctions || []).join(
     " ",
@@ -356,8 +371,11 @@ function assignRows(rows, checks, topologyData) {
     decorateRow(row, presentation, check, node);
     const group =
       GROUPS.find((item) => item.key === presentation.group) || EXTRA_GROUP;
+    const riskText = Array.isArray(check?.risk_reasons)
+      ? check.risk_reasons.join(" ")
+      : "";
     row.dataset.searchText =
-      `${row.dataset.searchText || ""} ${group.label} ${group.description} ${presentation.role} ${presentation.criticality} ${row.dataset.environments} ${(presentation.securityFunctions || []).join(" ")} ${rowStatus(row, check)}`.toLowerCase();
+      `${row.dataset.searchText || ""} ${group.label} ${group.description} ${presentation.role} ${presentation.criticality} ${row.dataset.environments} ${(presentation.securityFunctions || []).join(" ")} ${rowStatus(row, check)} ${riskText}`.toLowerCase();
     buckets.get(group.key).push(row);
   }
   return buckets;
