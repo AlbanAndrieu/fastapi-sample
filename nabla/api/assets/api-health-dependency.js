@@ -30,6 +30,9 @@ const HOMELAB_EVIDENCE_FIELDS = [
   "tunnel_name",
   "cloudflare_status_confirmed",
   "cloudflare_warning",
+  "risk_state",
+  "risk_reasons",
+  "exposure",
 ];
 
 function normalize(value) {
@@ -63,14 +66,21 @@ function candidateServiceIds(key, check) {
   const ids = [check?.service_id, check?.id, key];
   if (String(key).startsWith("albandrieu_"))
     ids.push(String(key).slice("albandrieu_".length));
-  return ids.filter(Boolean).map((value) => String(value).replaceAll("_", "-"));
+  return ids
+    .filter(Boolean)
+    .map((value) => String(value).replaceAll("_", "-"));
 }
 
 function evidenceForCheck(key, check, indexes) {
   for (const candidate of candidateServiceIds(key, check)) {
     if (indexes.byId.has(candidate)) return indexes.byId.get(candidate);
   }
-  for (const value of [check?.url, check?.tunnel_url, check?.tunnelUrl, check?.href]) {
+  for (const value of [
+    check?.url,
+    check?.tunnel_url,
+    check?.tunnelUrl,
+    check?.href,
+  ]) {
     const host = hostOf(value);
     if (host && indexes.byHost.has(host)) return indexes.byHost.get(host);
   }
@@ -88,7 +98,8 @@ export function mergeHomelabEvidence(data, homelab) {
     const evidence = evidenceForCheck(key, check, indexes);
     if (!evidence) continue;
     for (const field of HOMELAB_EVIDENCE_FIELDS) {
-      if (Object.prototype.hasOwnProperty.call(evidence, field)) check[field] = evidence[field];
+      if (Object.prototype.hasOwnProperty.call(evidence, field))
+        check[field] = evidence[field];
     }
   }
   return data;
@@ -106,7 +117,9 @@ export function dependencyHealthClass(check) {
 function dependencyLabels(check, field) {
   const targets = new Set(Array.isArray(check?.[field]) ? check[field] : []);
   if (targets.size === 0) return [];
-  const evidence = Array.isArray(check.dependency_evidence) ? check.dependency_evidence : [];
+  const evidence = Array.isArray(check.dependency_evidence)
+    ? check.dependency_evidence
+    : [];
   return [...targets].map((target) => {
     const item = evidence.find((entry) => entry?.target === target);
     return String(item?.target_name || target);
@@ -155,24 +168,53 @@ function evidenceSources(check) {
   return sources;
 }
 
+function riskDetailText(check) {
+  const state = normalize(check?.risk_state || check?.exposure?.risk_state);
+  const reasons = Array.isArray(check?.risk_reasons)
+    ? check.risk_reasons
+    : Array.isArray(check?.exposure?.risk_reasons)
+      ? check.exposure.risk_reasons
+      : [];
+  if (state === "at_risk" || state === "at-risk") {
+    return reasons.length > 0
+      ? `at risk: ${reasons.join(" · ")}`
+      : "at risk: exposure/security posture needs attention";
+  }
+  if (state === "unknown") {
+    return reasons.length > 0
+      ? `risk unverified: ${reasons.join(" · ")}`
+      : "risk posture is unverified";
+  }
+  return "";
+}
+
 export function dependencyDetailText(check) {
-  if (!check?.effective_state) return "";
+  if (!check?.effective_state && !check?.risk_state && !check?.exposure)
+    return "";
   const parts = [];
-  const runtimeRunning = String(check.runtime_state || "").toUpperCase() === "RUNNING";
-  if (runtimeRunning && check.effective_state !== "ok") parts.push("RUNNING but degraded");
+  const runtimeRunning =
+    String(check.runtime_state || "").toUpperCase() === "RUNNING";
+  if (runtimeRunning && check.effective_state !== "ok")
+    parts.push("RUNNING but degraded");
   if (check.local_state && check.local_state !== check.effective_state) {
     parts.push(`local ${check.local_state} → effective ${check.effective_state}`);
   }
   const blocked = dependencyLabels(check, "blocked_by");
   if (blocked.length > 0) parts.push(`blocked by ${blocked.join(", ")}`);
   const degraded = dependencyLabels(check, "degraded_by");
-  if (degraded.length > 0) parts.push(`degraded by ${degraded.join(", ")}`);
+  if (degraded.length > 0)
+    parts.push(`degraded by ${degraded.join(", ")}`);
   const unconfirmed = dependencyLabels(check, "unconfirmed_dependencies");
   if (unconfirmed.length > 0)
     parts.push(`dependency status unconfirmed: ${unconfirmed.join(", ")}`);
+  const risk = riskDetailText(check);
+  if (risk) parts.push(risk);
   const sources = evidenceSources(check);
   if (sources.length > 0) parts.push(`evidence: ${sources.join(" + ")}`);
-  if (check.cloudflare_status_confirmed === false && check.cloudflare_warning) {
+  if (
+    check.cloudflare_status_confirmed === false &&
+    check.cloudflare_warning
+  ) {
     parts.push(String(check.cloudflare_warning));
   }
   if (check.observation_stale === true) {
@@ -186,7 +228,10 @@ export function dependencyDetailText(check) {
     const age = Number(check.observation_age_seconds);
     if (Number.isFinite(age)) parts.push(`observed ${Math.round(age)}s ago`);
   }
-  const cycle = Array.isArray(check.dependency_cycle) ? check.dependency_cycle : [];
-  if (cycle.length > 1) parts.push(`dependency cycle: ${cycle.join(" ↔ ")}`);
+  const cycle = Array.isArray(check.dependency_cycle)
+    ? check.dependency_cycle
+    : [];
+  if (cycle.length > 1)
+    parts.push(`dependency cycle: ${cycle.join(" ↔ ")}`);
   return parts.join(" · ");
 }
