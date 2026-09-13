@@ -144,8 +144,9 @@ def test_mobile_filter_navigation_is_compact_and_truenas_flow_is_centered() -> N
         encoding="utf-8",
     )
 
-    assert "#service-section-navigation" in stylesheet
-    assert "grid-template-columns: repeat(4, minmax(0, 1fr)) !important" in stylesheet
+    assert "#service-section-navigation.service-filter-health-summary" in stylesheet
+    assert "grid-template-columns: repeat(4, minmax(0, 1fr));" in stylesheet
+    assert "!important" not in stylesheet
     assert ".service-filter-global-heading p" in stylesheet
     assert "#service-section-navigation .service-filter-health-chip" in stylesheet
     assert "min-height: 44px" in stylesheet
