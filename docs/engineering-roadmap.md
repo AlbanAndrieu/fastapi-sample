@@ -690,6 +690,32 @@ in reviewable batches; never overwrite newer fixes with the old blob wholesale.
 “Deferred semantic port” means that the capability remains planned, but the old
 file must not be copied into the current application unchanged.
 
+## Local Nabla control-plane prerequisite
+
+The TrueNAS-hosted `fastapi-sample` runtime is the preferred candidate for the
+future local **Nabla Service** API/UI/MCP facade. Reuse the existing service
+instead of creating another always-on daemon.
+
+This does **not** make FastAPI part of the minimum boot dependency chain:
+TrueNAS reboot/resume and already-materialized runtime secrets must remain usable
+when FastAPI, Redis, Vaultwarden or external providers are unavailable.
+
+Before adding any privileged TrueNAS or secret-management mutation route:
+
+- require `FASTAPI_RUNTIME_MODE=homelab`;
+- require an explicit local control-plane feature flag;
+- require `MCP_OPS_REQUIRE_KEY=true` and a configured `MCP_OPS_KEY`, then
+  replace the shared key with stronger local identity when available;
+- keep FastAPI Cloud and public/staging routes read-only;
+- keep the current `fastapi_observer` TrueNAS credential read-only and use a
+  separate least-privilege execution identity for bounded mutations;
+- expose plans/state first, then reviewed idempotent operations; never expose a
+  generic shell or unrestricted `midclt` passthrough;
+- prove negative route/exposure tests before enabling the controller profile.
+
+The current change only repairs the documented `MCP_OPS_REQUIRE_KEY` fail-closed
+contract. It does not add privileged Nabla Service operations.
+
 ## Suggested future pull requests
 
 1. `perf(stability): bound aggregate health fan-out and deadlines`

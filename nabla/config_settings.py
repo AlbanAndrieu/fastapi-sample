@@ -150,6 +150,10 @@ class _Settings(DatabaseSettings):
         Optional[SecretStr],
         Field(default=None, validation_alias=AliasChoices("MCP_OPS_KEY")),
     ]
+    mcp_ops_require_key: Annotated[
+        bool,
+        Field(default=False, validation_alias=AliasChoices("MCP_OPS_REQUIRE_KEY")),
+    ]
     admin_access_key: Annotated[
         Optional[SecretStr],
         BeforeValidator(_unset_empty_env),

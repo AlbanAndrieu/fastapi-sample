@@ -61,6 +61,7 @@ def test_a2a_agent_card_json() -> None:
 def test_mcp_ops_requires_key_when_configured(monkeypatch: pytest.MonkeyPatch) -> None:
     fake = SimpleNamespace(
         mcp_ops_key=SecretStr("secret-ops"),
+        mcp_ops_require_key=False,
         mcp_clients=[],
     )
     monkeypatch.setattr("nabla.api.mcp_ops_route.get_settings", lambda: fake)
@@ -72,6 +73,43 @@ def test_mcp_ops_requires_key_when_configured(monkeypatch: pytest.MonkeyPatch) -
     r2 = client.get("/v1/mcp/ops/servers", headers={"X-MCP-Ops-Key": "secret-ops"})
     assert r2.status_code == 200
     assert "servers" in r2.json()
+
+
+def test_mcp_ops_fail_closed_when_required_key_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = SimpleNamespace(
+        mcp_ops_key=None,
+        mcp_ops_require_key=True,
+        mcp_clients=[],
+    )
+    monkeypatch.setattr("nabla.api.mcp_ops_route.get_settings", lambda: fake)
+    mini = FastAPI()
+    mini.include_router(mcp_ops_route.router)
+
+    response = TestClient(mini).get("/v1/mcp/ops/servers")
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "detail": "MCP Ops is disabled until MCP_OPS_KEY is configured"
+    }
+
+
+def test_mcp_ops_keeps_legacy_open_mode_when_key_is_not_required(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = SimpleNamespace(
+        mcp_ops_key=None,
+        mcp_ops_require_key=False,
+        mcp_clients=[],
+    )
+    monkeypatch.setattr("nabla.api.mcp_ops_route.get_settings", lambda: fake)
+    mini = FastAPI()
+    mini.include_router(mcp_ops_route.router)
+
+    response = TestClient(mini).get("/v1/mcp/ops/servers")
+
+    assert response.status_code == 200
 
 
 @pytest.mark.asyncio
