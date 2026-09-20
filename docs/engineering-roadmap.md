@@ -222,18 +222,24 @@ degraded conditions.
   - [ ] Use those timings to identify the dominant cold provider before changing
         budgets. Keep every provider timeout strictly below the 12-second aggregate
         deadline and avoid increasing that deadline to hide slow reconciliation.
-  - [ ] Reuse request-scoped/catalog/provider observations end-to-end so a single
+  - [x] Reuse request-scoped/catalog/provider observations end-to-end so a single
         aggregate request cannot repeat TrueNAS, Cloudflare, topology or pfSense
-        reads already completed by the same health refresh.
-  - [ ] Prefer stale-while-revalidate/provider caches for non-critical enrichment;
-        keep the bounded `/api/homelab/probes` path independent so the TrueNAS UI
+        reads already completed by the same health refresh. Implemented by #270,
+        including shared Cloudflare/pfSense projection and shielded context reuse.
+  - [x] Prefer stale-while-revalidate/provider caches for non-critical enrichment.
+        Declared services and topology now serve the last known good snapshot
+        immediately after TTL expiry while one background refresh runs; existing
+        Cloudflare/pfSense provider caches retain their bounded stale/failure paths.
+        Keep the bounded `/api/homelab/probes` path independent so the TrueNAS UI
         can render from low-level evidence before aggregate enrichment finishes.
-  - [ ] Add deterministic performance-regression tests with a production-scale
+  - [x] Add deterministic performance-regression tests with a production-scale
         synthetic catalog proving bounded fan-out, no late queued burst, and no
-        duplicate provider reads. Target raw probe completion below 4 seconds and
-        aggregate health comfortably below the 12-second deadline under healthy
-        cached conditions, with a documented p95 target after production timing
-        telemetry is available.
+        duplicate provider reads. #270 covers 96 services, 12+12 sampled probes,
+        concurrency 4, warm-cache reuse and late-queue cancellation.
+  - [ ] Establish and document a production p95 target from actual fixed-cardinality
+        phase timing telemetry before changing any provider budget. Keep raw probe
+        completion below 4 seconds and aggregate health comfortably below the
+        12-second deadline under healthy cached conditions.
 - [x] Classify FastAPI Cloud pfSense connect-stage timeouts as a possible ingress
       policy block when current cloud egress evidence is available. Keep attribution
       explicitly unavailable because either trusted-source drift or PF/Snort
