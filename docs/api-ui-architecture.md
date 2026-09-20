@@ -11,6 +11,23 @@ The canonical declared topology still comes from `nabla-compose`. FastAPI may
 classify, observe and present that topology, but presentation code must not become
 a second source of infrastructure truth.
 
+### Future canonical-catalog cutover
+
+The planned catalog/security-graph migration will be performed as a **direct
+breaking cutover**. FastAPI will switch its declared catalog/topology consumption
+to the new `nabla-compose` contract in one coordinated migration rather than
+serving v1 and v2 simultaneously.
+
+The migration must therefore avoid dual readers, dual writes and old-schema API
+fallbacks. Update the loader, reconciliation model and exposed catalog/topology
+representation together, remove obsolete compatibility overlays once their
+remaining intent has a canonical home, and accept a short operator-UI interruption
+during deployment. A last-known-good snapshot is still valid as resilience only
+when it is encoded with the new schema. Keep a pre-cutover rollback commit/tag and
+validate stable IDs, relation closure, exposure-policy coverage and
+`catalogRevision` before switching consumers.
+
+
 ## Global service filter
 
 `/api` has one page-wide service filter. Its visual scope must match its functional

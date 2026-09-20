@@ -26,6 +26,32 @@ exceptions here rather than creating additional todo or refactoring documents.
   limitation, cross-repository follow-up, or unresolved risk is absent from this
   roadmap. Each residual must retain a concrete next acceptance proof.
 
+## Catalog/security-graph migration decision — direct cutover
+
+The future Nabla catalog migration is intentionally a **coordinated breaking
+cutover**, not a long-lived v1/v2 compatibility programme. The homelab catalog is
+non-critical and a short diagnostic/UI interruption is acceptable if it removes
+duplicate schemas and shortens the migration.
+
+- Consume the new canonical contract from `nabla-compose` directly once its
+  Backstage/Compose/minimal-`x-nabla` model and generated projections are ready.
+- Do **not** add a parallel v2 reader, dual-write path, old-schema fallback, or
+  permanent compatibility translation layer in FastAPI.
+- Migrate the declared catalog/topology loaders, reconciliation and API projection
+  in the same migration window, then remove obsolete v1-only parsing and overlays.
+- `homelab-services.json` and `homelab-exposure-overrides.json` must not survive
+  as independent authorities. Preserve only explicit policy exceptions that still
+  lack a canonical home, and move them into the new declared model before deletion.
+- A last-known-good cache/snapshot may remain for availability only when it uses
+  the **new schema**; it must never be an old-schema compatibility fallback.
+- Before cutover, pin a rollback commit/tag and require deterministic contract
+  checks for stable service IDs, resolved relation endpoints, declared exposure
+  intent and `catalogRevision`. Rollback is repository/deployment rollback, not
+  runtime support for two schemas.
+- Coordinate the same cutover window with `nabla-site-alban`; temporary loss of
+  catalog/topology presentation is preferable to maintaining duplicate contracts.
+
+
 ## Production audit — 2026-08-26
 
 - `/api`, `/health`, `/openapi.json`, `/api/homelab-topology`,
@@ -222,18 +248,24 @@ degraded conditions.
   - [ ] Use those timings to identify the dominant cold provider before changing
         budgets. Keep every provider timeout strictly below the 12-second aggregate
         deadline and avoid increasing that deadline to hide slow reconciliation.
-  - [ ] Reuse request-scoped/catalog/provider observations end-to-end so a single
+  - [x] Reuse request-scoped/catalog/provider observations end-to-end so a single
         aggregate request cannot repeat TrueNAS, Cloudflare, topology or pfSense
-        reads already completed by the same health refresh.
-  - [ ] Prefer stale-while-revalidate/provider caches for non-critical enrichment;
-        keep the bounded `/api/homelab/probes` path independent so the TrueNAS UI
+        reads already completed by the same health refresh. Implemented by #270,
+        including shared Cloudflare/pfSense projection and shielded context reuse.
+  - [x] Prefer stale-while-revalidate/provider caches for non-critical enrichment.
+        Declared services and topology now serve the last known good snapshot
+        immediately after TTL expiry while one background refresh runs; existing
+        Cloudflare/pfSense provider caches retain their bounded stale/failure paths.
+        Keep the bounded `/api/homelab/probes` path independent so the TrueNAS UI
         can render from low-level evidence before aggregate enrichment finishes.
-  - [ ] Add deterministic performance-regression tests with a production-scale
+  - [x] Add deterministic performance-regression tests with a production-scale
         synthetic catalog proving bounded fan-out, no late queued burst, and no
-        duplicate provider reads. Target raw probe completion below 4 seconds and
-        aggregate health comfortably below the 12-second deadline under healthy
-        cached conditions, with a documented p95 target after production timing
-        telemetry is available.
+        duplicate provider reads. #270 covers 96 services, 12+12 sampled probes,
+        concurrency 4, warm-cache reuse and late-queue cancellation.
+  - [ ] Establish and document a production p95 target from actual fixed-cardinality
+        phase timing telemetry before changing any provider budget. Keep raw probe
+        completion below 4 seconds and aggregate health comfortably below the
+        12-second deadline under healthy cached conditions.
 - [x] Classify FastAPI Cloud pfSense connect-stage timeouts as a possible ingress
       policy block when current cloud egress evidence is available. Keep attribution
       explicitly unavailable because either trusted-source drift or PF/Snort

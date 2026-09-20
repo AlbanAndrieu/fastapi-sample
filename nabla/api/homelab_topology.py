@@ -248,41 +248,64 @@ class HomelabTopology(BaseModel):
 class _TopologyCache:
     """Last-known-good topology plus monotonic cache timestamp."""
 
-    __slots__ = ("cached_at", "topology")
+    __slots__ = ("cached_at", "refresh_task", "topology")
 
     def __init__(self) -> None:
         self.topology: HomelabTopology | None = None
         self.cached_at = 0.0
+        self.refresh_task: asyncio.Task[HomelabTopology] | None = None
 
 
 _topology_cache = _TopologyCache()
 
 
-async def fetch_homelab_topology() -> HomelabTopology:
-    """Fetch declared topology, retaining the last valid graph on transient failure."""
+async def _fetch_homelab_topology_origin() -> HomelabTopology:
+    async with httpx.AsyncClient(timeout=httpx.Timeout(_FETCH_TIMEOUT_SEC)) as client:
+        response = await client.get(
+            HOMELAB_TOPOLOGY_URL,
+            headers={"User-Agent": "nabla-homelab-topology/1.0"},
+        )
+        response.raise_for_status()
+        return HomelabTopology.model_validate(response.json())
+
+
+async def _refresh_homelab_topology() -> HomelabTopology:
+    """Refresh the remote topology while retaining the last known good graph."""
+    try:
+        topology = await _fetch_homelab_topology_origin()
+    except Exception as exc:
+        _log.warning(
+            "Homelab topology fetch/validation failed (%s): %s",
+            HOMELAB_TOPOLOGY_URL,
+            exc,
+        )
+        async with _cache_lock:
+            return _topology_cache.topology or HomelabTopology()
+
     async with _cache_lock:
-        now = time.monotonic()
-        if _topology_cache.topology is not None and (now - _topology_cache.cached_at) < _CACHE_TTL_SEC:
-            return _topology_cache.topology
-
-        try:
-            async with httpx.AsyncClient(timeout=httpx.Timeout(_FETCH_TIMEOUT_SEC)) as client:
-                response = await client.get(
-                    HOMELAB_TOPOLOGY_URL,
-                    headers={"User-Agent": "nabla-homelab-topology/1.0"},
-                )
-                response.raise_for_status()
-                topology = HomelabTopology.model_validate(response.json())
-        except Exception as exc:
-            _log.warning(
-                "Homelab topology fetch/validation failed (%s): %s",
-                HOMELAB_TOPOLOGY_URL,
-                exc,
-            )
-            if _topology_cache.topology is not None:
-                return _topology_cache.topology
-            return HomelabTopology()
-
         _topology_cache.topology = topology
         _topology_cache.cached_at = time.monotonic()
-        return topology
+    return topology
+
+
+async def fetch_homelab_topology() -> HomelabTopology:
+    """Serve cached topology immediately and refresh expired data in background."""
+    async with _cache_lock:
+        now = time.monotonic()
+        if (
+            _topology_cache.topology is not None
+            and (now - _topology_cache.cached_at) < _CACHE_TTL_SEC
+        ):
+            return _topology_cache.topology
+
+        if _topology_cache.refresh_task is None or _topology_cache.refresh_task.done():
+            _topology_cache.refresh_task = asyncio.create_task(
+                _refresh_homelab_topology(),
+                name="homelab-topology-refresh",
+            )
+        refresh_task = _topology_cache.refresh_task
+        stale_topology = _topology_cache.topology
+
+    if stale_topology is not None:
+        return stale_topology
+    return await asyncio.shield(refresh_task)

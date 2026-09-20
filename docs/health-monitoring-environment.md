@@ -308,6 +308,55 @@ The health check verifies DNS/TCP/TLS connectivity to the configured Logfire ing
 
 `LOGFIRE_ENABLE` is accepted as a historical compatibility alias by the health probe, but new deployments should use the canonical `LOGFIRE_ENABLED` variable used by the application instrumentation.
 
+## Homelab aggregate latency p95
+
+`/api/homelab/health` publishes fixed-cardinality duration observations through
+`fastapi_homelab_health_phase_duration_seconds`. The only allowed `phase`
+values are `declared_catalog`, `topology`, `cloudflare_exposure`,
+`pfsense_posture`, `truenas_runtime`, `reconciliation` and `total`.
+The histogram buckets extend through the 12-second aggregate deadline, so use
+this metric rather than adding request-specific or provider-specific labels.
+
+Measure the rolling p95 per phase with:
+
+```promql
+histogram_quantile(
+  0.95,
+  sum by (le, phase) (
+    rate(fastapi_homelab_health_phase_duration_seconds_bucket[30m])
+  )
+)
+```
+
+Measure aggregate p95 independently:
+
+```promql
+histogram_quantile(
+  0.95,
+  sum by (le) (
+    rate(
+      fastapi_homelab_health_phase_duration_seconds_bucket{phase="total"}[30m]
+    )
+  )
+)
+```
+
+Always inspect the observation volume beside the percentile:
+
+```promql
+sum by (phase) (
+  increase(fastapi_homelab_health_phase_duration_seconds_count[30m])
+)
+```
+
+Do not establish or relax a latency target from a single request or a sparse
+window. Record the p95 window, sample counts and dominant provider phase under
+both healthy cached conditions and a controlled provider-degradation window.
+The raw probe objective remains below 4 seconds and the aggregate circuit
+breaker remains 12 seconds. Choose a production p95 target only after the
+fixed-cardinality telemetry shows a stable baseline; do not increase provider
+timeouts merely to make the percentile green.
+
 ## CI / pytest
 
 External observability integrations should remain disabled in CI unless a test explicitly mocks them. In particular:

@@ -192,6 +192,7 @@ class _CatalogCache:
 
     at: float = 0.0
     catalog: DeclaredServiceCatalog | None = None
+    refresh_task: asyncio.Task[DeclaredServiceCatalog] | None = None
 
 
 _cache = _CatalogCache()
@@ -209,49 +210,68 @@ def _validation_error_summary(exc: ValidationError) -> str:
     return f"errors={len(errors)} sample={', '.join(samples)}{suffix}"
 
 
+def _unavailable_catalog() -> DeclaredServiceCatalog:
+    return DeclaredServiceCatalog(
+        version=1,
+        catalogRevision="unavailable",
+        topologyVersion=1,
+        name="Nabla homelab declared services",
+    )
+
+
+async def _fetch_declared_service_catalog_origin() -> DeclaredServiceCatalog:
+    async with httpx.AsyncClient(timeout=httpx.Timeout(_FETCH_TIMEOUT_SEC)) as client:
+        response = await client.get(
+            DECLARED_SERVICES_URL,
+            headers={"User-Agent": "nabla-declared-services/1.0"},
+        )
+        response.raise_for_status()
+        return DeclaredServiceCatalog.model_validate(response.json())
+
+
+async def _refresh_declared_service_catalog() -> DeclaredServiceCatalog:
+    """Refresh the remote declaration while retaining the last known good copy."""
+    try:
+        catalog = await _fetch_declared_service_catalog_origin()
+    except ValidationError as exc:
+        _log.warning(
+            "Declared service catalog schema mismatch (%s): %s",
+            DECLARED_SERVICES_URL,
+            _validation_error_summary(exc),
+        )
+        async with _cache_lock:
+            return _cache.catalog or _unavailable_catalog()
+    except Exception as exc:
+        _log.warning(
+            "Declared service catalog fetch failed (%s): %s: %s",
+            DECLARED_SERVICES_URL,
+            exc.__class__.__name__,
+            str(exc).strip()[:240] or "no detail",
+        )
+        async with _cache_lock:
+            return _cache.catalog or _unavailable_catalog()
+
+    async with _cache_lock:
+        _cache.catalog = catalog
+        _cache.at = time.monotonic()
+    return catalog
+
+
 async def fetch_declared_service_catalog() -> DeclaredServiceCatalog:
-    """Fetch the code-owned catalog, retaining the last known good copy."""
+    """Serve cached declarations immediately and refresh expired data in background."""
     async with _cache_lock:
         now = time.monotonic()
         if _cache.catalog is not None and now - _cache.at < _CACHE_TTL_SEC:
             return _cache.catalog
-        try:
-            async with httpx.AsyncClient(timeout=httpx.Timeout(_FETCH_TIMEOUT_SEC)) as client:
-                response = await client.get(
-                    DECLARED_SERVICES_URL,
-                    headers={"User-Agent": "nabla-declared-services/1.0"},
-                )
-                response.raise_for_status()
-                catalog = DeclaredServiceCatalog.model_validate(response.json())
-        except ValidationError as exc:
-            _log.warning(
-                "Declared service catalog schema mismatch (%s): %s",
-                DECLARED_SERVICES_URL,
-                _validation_error_summary(exc),
+
+        if _cache.refresh_task is None or _cache.refresh_task.done():
+            _cache.refresh_task = asyncio.create_task(
+                _refresh_declared_service_catalog(),
+                name="declared-service-catalog-refresh",
             )
-            if _cache.catalog is not None:
-                return _cache.catalog
-            return DeclaredServiceCatalog(
-                version=1,
-                catalogRevision="unavailable",
-                topologyVersion=1,
-                name="Nabla homelab declared services",
-            )
-        except Exception as exc:
-            _log.warning(
-                "Declared service catalog fetch failed (%s): %s: %s",
-                DECLARED_SERVICES_URL,
-                exc.__class__.__name__,
-                str(exc).strip()[:240] or "no detail",
-            )
-            if _cache.catalog is not None:
-                return _cache.catalog
-            return DeclaredServiceCatalog(
-                version=1,
-                catalogRevision="unavailable",
-                topologyVersion=1,
-                name="Nabla homelab declared services",
-            )
-        _cache.catalog = catalog
-        _cache.at = time.monotonic()
-        return catalog
+        refresh_task = _cache.refresh_task
+        stale_catalog = _cache.catalog
+
+    if stale_catalog is not None:
+        return stale_catalog
+    return await asyncio.shield(refresh_task)
