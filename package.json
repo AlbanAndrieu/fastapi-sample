@@ -50,7 +50,7 @@
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.43",
-    "@astrojs/vercel": "^11.0.4",
+    "@astrojs/vercel": "^11.0.10",
     "@dotenvx/dotenvx": "^2.23.0",
     "@supabase/supabase-js": "^2.101.1",
     "@vercel/analytics": "^2.0.1",
