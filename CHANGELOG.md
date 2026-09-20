@@ -1,3 +1,12 @@
+## [1.20.8](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.7...1.20.8) (2026-09-20)
+
+
+### Bug Fixes
+
+* **deps-dev:** bump prisma from 6.19.3 to 7.10.0 ([#275](https://github.com/AlbanAndrieu/fastapi-sample/issues/275)) ([8be0a7e](https://github.com/AlbanAndrieu/fastapi-sample/commit/8be0a7e2d7899a2fe61537af0de78bc4a78018c3))
+* **deps:** bump @astrojs/vercel from 11.0.7 to 11.0.10 ([#277](https://github.com/AlbanAndrieu/fastapi-sample/issues/277)) ([c2b47d8](https://github.com/AlbanAndrieu/fastapi-sample/commit/c2b47d8421513cb14146cb108ca2662c892e901a))
+* **security:** fail closed MCP ops for local control plane [skip ci] ([#274](https://github.com/AlbanAndrieu/fastapi-sample/issues/274)) ([c710485](https://github.com/AlbanAndrieu/fastapi-sample/commit/c7104855d2788ef39205d1542624abbf636367af))
+
 ## [1.20.7](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.6...1.20.7) (2026-09-13)
 
 
