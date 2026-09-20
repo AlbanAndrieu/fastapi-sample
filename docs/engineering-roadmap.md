@@ -26,6 +26,32 @@ exceptions here rather than creating additional todo or refactoring documents.
   limitation, cross-repository follow-up, or unresolved risk is absent from this
   roadmap. Each residual must retain a concrete next acceptance proof.
 
+## Catalog/security-graph migration decision — direct cutover
+
+The future Nabla catalog migration is intentionally a **coordinated breaking
+cutover**, not a long-lived v1/v2 compatibility programme. The homelab catalog is
+non-critical and a short diagnostic/UI interruption is acceptable if it removes
+duplicate schemas and shortens the migration.
+
+- Consume the new canonical contract from `nabla-compose` directly once its
+  Backstage/Compose/minimal-`x-nabla` model and generated projections are ready.
+- Do **not** add a parallel v2 reader, dual-write path, old-schema fallback, or
+  permanent compatibility translation layer in FastAPI.
+- Migrate the declared catalog/topology loaders, reconciliation and API projection
+  in the same migration window, then remove obsolete v1-only parsing and overlays.
+- `homelab-services.json` and `homelab-exposure-overrides.json` must not survive
+  as independent authorities. Preserve only explicit policy exceptions that still
+  lack a canonical home, and move them into the new declared model before deletion.
+- A last-known-good cache/snapshot may remain for availability only when it uses
+  the **new schema**; it must never be an old-schema compatibility fallback.
+- Before cutover, pin a rollback commit/tag and require deterministic contract
+  checks for stable service IDs, resolved relation endpoints, declared exposure
+  intent and `catalogRevision`. Rollback is repository/deployment rollback, not
+  runtime support for two schemas.
+- Coordinate the same cutover window with `nabla-site-alban`; temporary loss of
+  catalog/topology presentation is preferable to maintaining duplicate contracts.
+
+
 ## Production audit — 2026-08-26
 
 - `/api`, `/health`, `/openapi.json`, `/api/homelab-topology`,
