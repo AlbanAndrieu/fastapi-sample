@@ -49,7 +49,7 @@
     "defaultSeverity": "warning"
   },
   "dependencies": {
-    "@ai-sdk/openai-compatible": "^3.0.43",
+    "@ai-sdk/openai-compatible": "^3.0.51",
     "@astrojs/vercel": "^11.0.4",
     "@dotenvx/dotenvx": "^2.23.0",
     "@supabase/supabase-js": "^2.101.1",
