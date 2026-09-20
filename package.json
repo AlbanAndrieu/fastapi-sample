@@ -89,7 +89,7 @@
     "markdown-toc": "^1.2.0",
     "opencommit": "^3.3.10",
     "prettier": "^3.9.6",
-    "prisma": "^6.19.3",
+    "prisma": "^7.10.0",
     "secretlint": "^13.0.5",
     "semantic-release": "^25.0.8",
     "semantic-release-replace-plugin": "^1.2.7",
