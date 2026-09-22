@@ -40,7 +40,9 @@ def _dependency_mode(cwd: Path, base: str) -> str:
     return _run(cwd, "bash", str(SCRIPT), "--dependency-mode", env=env)
 
 
-def test_dependency_mode_keeps_quality_contract_changes_isolated(tmp_path: Path) -> None:
+def test_dependency_mode_keeps_quality_contract_changes_isolated(
+    tmp_path: Path,
+) -> None:
     _git(tmp_path, "init")
     _git(tmp_path, "config", "user.email", "scope@example.invalid")
     _git(tmp_path, "config", "user.name", "Scope Test")
