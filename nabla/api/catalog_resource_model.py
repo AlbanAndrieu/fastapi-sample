@@ -26,8 +26,9 @@ ReconciliationState = Literal[
 ]
 
 _ENTITY_REF_PATTERN = re.compile(
-    r"^(component|resource|api|system|domain|group|user):"
-    r"[a-z0-9][a-z0-9._-]*/[a-z0-9]+(?:-[a-z0-9]+)*$",
+    r"^(?P<kind>[a-z][a-z0-9]*):"
+    r"(?P<namespace>[a-z0-9]+(?:-[a-z0-9]+)*)/"
+    r"(?P<name>[a-z0-9]+(?:[-_.][a-z0-9]+)*)$",
 )
 _ISO8601_DURATION_PATTERN = re.compile(
     r"^P(?:(?P<days>\d+)D)?(?:T(?:(?P<hours>\d+)H)?"
@@ -44,11 +45,14 @@ class BackstageEntityRef(RootModel[str]):
     @classmethod
     def validate_full_ref(cls, value: str) -> str:
         """Require an explicit kind, namespace and stable kebab-case name."""
-        if _ENTITY_REF_PATTERN.fullmatch(value) is None:
+        match = _ENTITY_REF_PATTERN.fullmatch(value)
+        if match is None:
             raise ValueError(
                 "entity ref must be a full lowercase Backstage ref "
-                "(<kind>:<namespace>/<kebab-name>)",
+                "(<kind>:<namespace>/<name>)",
             )
+        if len(match.group("namespace")) > 63 or len(match.group("name")) > 63:
+            raise ValueError("entity ref namespace and name must be at most 63 characters")
         return value
 
     @property
