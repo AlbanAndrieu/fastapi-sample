@@ -19,6 +19,9 @@ from nabla.api.catalog_resource_model import (
         "resource:default/neo4j-security",
         "api:default/fastapi-sample",
         "system:default/nabla-homelab",
+        "component:default/cartography_ui",
+        "component:default/scorecard.v2",
+        "template:default/service-template",
     ],
 )
 def test_backstage_entity_ref_accepts_canonical_full_refs(value: str) -> None:
@@ -38,7 +41,10 @@ def test_backstage_entity_ref_accepts_canonical_full_refs(value: str) -> None:
         "component:cartography",
         "Component:default/cartography",
         "component:default/Cartography",
-        "component:default/cartography_ui",
+        "component:default_/cartography",
+        "component:default.namespace/cartography",
+        "component:default/cartography__ui",
+        "component:default/cartography..ui",
     ],
 )
 def test_backstage_entity_ref_rejects_ambiguous_or_noncanonical_refs(
@@ -46,6 +52,14 @@ def test_backstage_entity_ref_rejects_ambiguous_or_noncanonical_refs(
 ) -> None:
     with pytest.raises(ValidationError):
         BackstageEntityRef.model_validate(value)
+
+
+
+def test_backstage_entity_ref_rejects_oversized_namespace_or_name() -> None:
+    with pytest.raises(ValidationError):
+        BackstageEntityRef.model_validate(f"component:{'n' * 64}/service")
+    with pytest.raises(ValidationError):
+        BackstageEntityRef.model_validate(f"component:default/{'n' * 64}")
 
 
 @pytest.mark.parametrize(
