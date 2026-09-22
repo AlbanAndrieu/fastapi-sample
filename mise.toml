@@ -68,8 +68,8 @@ description = "Apply/check deterministic local fixes before the strict agent gat
 run = "bash scripts/agent-quality-gate.sh --fix"
 
 [tasks.agent-publish]
-description = "Run the strict agent gate and clean-tree publication check"
-run = "bash scripts/agent-quality-gate.sh --publish"
+description = "Reuse or create the exact local publication proof for this HEAD/base/toolchain"
+run = "bash scripts/agent-publish.sh"
 
 [tasks.install]
 description = "Install dependencies with uv (pyproject.toml and uv.lock)"
