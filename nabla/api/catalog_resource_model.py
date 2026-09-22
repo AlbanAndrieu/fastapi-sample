@@ -52,7 +52,9 @@ class BackstageEntityRef(RootModel[str]):
                 "(<kind>:<namespace>/<name>)",
             )
         if len(match.group("namespace")) > 63 or len(match.group("name")) > 63:
-            raise ValueError("entity ref namespace and name must be at most 63 characters")
+            raise ValueError(
+                "entity ref namespace and name must be at most 63 characters",
+            )
         return value
 
     @property
