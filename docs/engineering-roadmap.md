@@ -66,9 +66,14 @@ duplicate schemas and shortens the migration.
   scoring policy into FastAPI: calculated/declared business criticality,
   DMTP/MTPD, RTO, optional RPO, MBCO/OMCA, recovery margin, assessment status,
   drivers and effective dependency criticality all retain full entity refs.
-- [ ] Expose operational criticality separately from BIA-derived business
-  criticality (DMTP/MTPD, RTO, applicable RPO, recovery margin and assessment
-  status). Never infer business criticality from runtime health or exposure.
+- [x] Expose the current declared-catalog `criticality` explicitly as
+  `operationalCriticality` in the runtime reconciliation payload; do not emit a
+  synthetic `businessCriticality` before the authoritative BIA projection is
+  consumed.
+- [ ] At cutover, add the authoritative BIA-derived business criticality
+  (DMTP/MTPD, RTO, applicable RPO, recovery margin and assessment status)
+  alongside `operationalCriticality`. Never infer business criticality from
+  runtime health or exposure.
 
 
 ## Production audit — 2026-08-26
