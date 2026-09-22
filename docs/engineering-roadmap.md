@@ -571,7 +571,7 @@ acceptance criterion.
       not require a local Docker daemon.
 - [x] Remove the duplicate standalone Pylint workflow and keep the Python
       package workflow as the authoritative Pylint quality gate.
-- [x] Run a deterministic agent CI preflight before the full dependency sync so formatting/lint/security convergence is checked before installing the complete project environment. Defer only dependency-backed hooks (`uv-sync`, `uv-lock`, `uv-export`, `pytest-collect`) to the subsequent locked sync/test stage; keep local pre-push `--publish` complete.
+- [x] Run a deterministic agent CI preflight before the full dependency sync so formatting/lint/security convergence is checked before installing the complete project environment. Defer only dependency-backed hooks (`uv-sync`, `uv-lock`, `uv-export`, `pytest-collect`) to the subsequent locked sync/test stage; keep local pre-push `--publish` complete. Local `--fix` now defaults to six deterministic convergence passes so repeated formatter rewrites do not require a manual `QUALITY_FIX_PASSES` override.
 - [x] Add `Master red remediation`, a post-merge `master` workflow which reruns
       the critical `Python package` and `Production Smoke` workflows for the exact
       merged SHA, conditionally reruns CodeQL for security-impacting changes and
