@@ -17,13 +17,13 @@ async def test_declared_catalog_serves_stale_while_single_refresh_runs(
 ) -> None:
     stale = DeclaredServiceCatalog(
         version=1,
-        catalogRevision="stale",
+        catalogRevision="sha256:" + "a" * 64,
         topologyVersion=1,
         name="stale",
     )
     fresh = DeclaredServiceCatalog(
         version=1,
-        catalogRevision="fresh",
+        catalogRevision="sha256:" + "b" * 64,
         topologyVersion=1,
         name="fresh",
     )

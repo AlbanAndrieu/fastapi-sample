@@ -37,6 +37,11 @@ duplicate schemas and shortens the migration.
   Backstage/Compose/minimal-`x-nabla` model and generated projections are ready.
 - Do **not** add a parallel v2 reader, dual-write path, old-schema fallback, or
   permanent compatibility translation layer in FastAPI.
+- [x] Keep the pre-cutover FastAPI v1 declared-catalog reader fail-closed:
+  accept only version 1, validate canonical sha256 `catalogRevision` values,
+  allow only explicit `$schema` metadata at the catalog root, and reject
+  unknown top-level fields. Future schema drift must use last-known-good v1
+  evidence until the coordinated breaking cutover replaces this contract.
 - Migrate the declared catalog/topology loaders, reconciliation and API projection
   in the same migration window, then remove obsolete v1-only parsing and overlays.
 - `homelab-services.json` and `homelab-exposure-overrides.json` must not survive

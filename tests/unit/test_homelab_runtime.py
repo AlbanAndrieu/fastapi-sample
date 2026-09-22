@@ -209,7 +209,7 @@ async def test_status_matches_declared_service_by_container_service(monkeypatch)
     catalog = DeclaredServiceCatalog.model_validate(
         {
             "version": 1,
-            "catalogRevision": "sha256:test",
+            "catalogRevision": "sha256:" + "a" * 64,
             "topologyVersion": 1,
             "name": "test",
             "services": [
@@ -278,7 +278,7 @@ async def test_status_reports_unmanaged_truenas_apps(monkeypatch) -> None:
     catalog = DeclaredServiceCatalog.model_validate(
         {
             "version": 1,
-            "catalogRevision": "sha256:test",
+            "catalogRevision": "sha256:" + "a" * 64,
             "topologyVersion": 1,
             "name": "test",
             "services": [],
@@ -319,7 +319,7 @@ async def test_status_matches_stopped_app_by_exact_app_id_without_workloads(
     catalog = DeclaredServiceCatalog.model_validate(
         {
             "version": 1,
-            "catalogRevision": "sha256:test",
+            "catalogRevision": "sha256:" + "a" * 64,
             "topologyVersion": 1,
             "name": "test",
             "services": [

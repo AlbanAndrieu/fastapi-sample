@@ -22,6 +22,7 @@ DECLARED_SERVICES_URL = "https://raw.githubusercontent.com/AlbanAndrieu/nabla-co
 _CACHE_TTL_SEC = 300.0
 _FETCH_TIMEOUT_SEC = 4.0
 _VALIDATION_LOG_SAMPLE = 6
+_CATALOG_REVISION_PATTERN = r"^(?:unavailable|sha256:[0-9a-f]{64})$"
 _log = logging.getLogger(__name__)
 _cache_lock = asyncio.Lock()
 
@@ -162,11 +163,18 @@ class DeclaredService(BaseModel):
 class DeclaredServiceCatalog(BaseModel):
     """Versioned declared inventory generated with the topology catalog."""
 
-    model_config = ConfigDict(extra="ignore", frozen=True, populate_by_name=True)
+    model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True)
 
-    version: int = Field(ge=1)
+    schema_uri: str | None = Field(
+        default=None,
+        min_length=1,
+        validation_alias=AliasChoices("$schema", "schema_uri"),
+        exclude=True,
+    )
+    version: Literal[1]
     catalog_revision: str = Field(
         min_length=1,
+        pattern=_CATALOG_REVISION_PATTERN,
         validation_alias=AliasChoices("catalogRevision", "catalog_revision"),
         serialization_alias="catalogRevision",
     )
