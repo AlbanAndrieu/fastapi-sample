@@ -62,6 +62,10 @@ duplicate schemas and shortens the migration.
 - [ ] At cutover, replace all service-id/display-name joins and the current
   presentation/declared/topology three-way drift check with canonical full
   entity-ref joins from the new generated resources.
+- [x] Type the authoritative `nabla-compose` BIA projections without copying its
+  scoring policy into FastAPI: calculated/declared business criticality,
+  DMTP/MTPD, RTO, optional RPO, MBCO/OMCA, recovery margin, assessment status,
+  drivers and effective dependency criticality all retain full entity refs.
 - [ ] Expose operational criticality separately from BIA-derived business
   criticality (DMTP/MTPD, RTO, applicable RPO, recovery margin and assessment
   status). Never infer business criticality from runtime health or exposure.

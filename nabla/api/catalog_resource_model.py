@@ -7,13 +7,15 @@ of the legacy flat catalog with Backstage/provider-native resources.
 
 from __future__ import annotations
 
-from datetime import datetime
 import re
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, RootModel, field_validator
 
 ConditionStatus = Literal["True", "False", "Unknown"]
+CriticalityLevel = Literal["low", "medium", "high", "critical"]
+BiaAssessmentStatus = Literal["provisional", "validated"]
 ReconciliationState = Literal[
     "in_sync",
     "declared_only",
@@ -26,6 +28,10 @@ ReconciliationState = Literal[
 _ENTITY_REF_PATTERN = re.compile(
     r"^(component|resource|api|system|domain|group|user):"
     r"[a-z0-9][a-z0-9._-]*/[a-z0-9]+(?:-[a-z0-9]+)*$",
+)
+_ISO8601_DURATION_PATTERN = re.compile(
+    r"^P(?:(?P<days>\d+)D)?(?:T(?:(?P<hours>\d+)H)?"
+    r"(?:(?P<minutes>\d+)M)?(?:(?P<seconds>\d+)S)?)?$",
 )
 
 
@@ -73,12 +79,95 @@ class CatalogCondition(BaseModel):
 
     type: str = Field(min_length=1, max_length=80)
     status: ConditionStatus
-    reason: str = Field(min_length=1, max_length=80, pattern=r"^[A-Z][A-Za-z0-9]*$")
+    reason: str = Field(
+        min_length=1,
+        max_length=80,
+        pattern=r"^[A-Z][A-Za-z0-9]*$",
+    )
     message: str | None = Field(default=None, max_length=512)
     last_transition_time: datetime | None = Field(
         default=None,
         validation_alias="lastTransitionTime",
         serialization_alias="lastTransitionTime",
+    )
+
+
+class BusinessCriticalityDriver(BaseModel):
+    """One authoritative driver emitted by the nabla-compose BIA policy."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    driver: str = Field(min_length=1, max_length=80)
+    level: CriticalityLevel
+    value: str = Field(min_length=1, max_length=128)
+
+
+class BusinessCriticalityProjection(BaseModel):
+    """Calculated BIA projection consumed from nabla-compose without recomputation."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True)
+
+    entity_ref: BackstageEntityRef = Field(
+        validation_alias="entityRef",
+        serialization_alias="entityRef",
+    )
+    calculated: CriticalityLevel
+    declared: CriticalityLevel | None = None
+    status: BiaAssessmentStatus
+    mtpd: str = Field(min_length=1, max_length=32)
+    rto: str = Field(min_length=1, max_length=32)
+    rpo: str | None = Field(default=None, min_length=1, max_length=32)
+    mbco: str = Field(min_length=1, max_length=512)
+    recovery_margin_seconds: int = Field(
+        gt=0,
+        validation_alias="recoveryMarginSeconds",
+        serialization_alias="recoveryMarginSeconds",
+    )
+    drivers: list[BusinessCriticalityDriver] = Field(min_length=1)
+
+    @field_validator("mtpd", "rto", "rpo")
+    @classmethod
+    def validate_duration_shape(cls, value: str | None) -> str | None:
+        """Fail closed on malformed projected durations without recalculating tiers."""
+        if value is None:
+            return None
+        match = _ISO8601_DURATION_PATTERN.fullmatch(value)
+        if match is None or not any(match.groupdict().values()):
+            raise ValueError("BIA duration must use the bounded ISO-8601 syntax")
+        if "T" in value and not any(
+            match.group(key) for key in ("hours", "minutes", "seconds")
+        ):
+            raise ValueError("BIA duration must use the bounded ISO-8601 syntax")
+        return value
+
+
+class DependencyCriticalityProjection(BaseModel):
+    """Derived dependency amplification kept separate from an entity's own BIA."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True)
+
+    entity_ref: BackstageEntityRef = Field(
+        validation_alias="entityRef",
+        serialization_alias="entityRef",
+    )
+    own_business_criticality: CriticalityLevel | None = Field(
+        default=None,
+        validation_alias="ownBusinessCriticality",
+        serialization_alias="ownBusinessCriticality",
+    )
+    effective_dependency_criticality: CriticalityLevel | None = Field(
+        default=None,
+        validation_alias="effectiveDependencyCriticality",
+        serialization_alias="effectiveDependencyCriticality",
+    )
+    elevated_by_dependencies: bool = Field(
+        validation_alias="elevatedByDependencies",
+        serialization_alias="elevatedByDependencies",
+    )
+    inherited_from: list[BackstageEntityRef] = Field(
+        default_factory=list,
+        validation_alias="inheritedFrom",
+        serialization_alias="inheritedFrom",
     )
 
 

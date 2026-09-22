@@ -1,10 +1,12 @@
-"""Contract tests for catalog cutover identity and condition primitives."""
+"""Contract tests for catalog cutover identity, conditions and BIA projections."""
 
 import pytest
 from pydantic import ValidationError
 
 from nabla.api.catalog_resource_model import (
     BackstageEntityRef,
+    BusinessCriticalityProjection,
+    DependencyCriticalityProjection,
     ReconciliationState,
     reconciliation_condition,
 )
@@ -69,3 +71,69 @@ def test_reconciliation_condition_is_kubernetes_style(
     assert payload["status"] == status
     assert payload["reason"] == reason
     assert "lastTransitionTime" not in payload
+
+
+def test_business_criticality_projection_matches_nabla_compose_contract() -> None:
+    projection = BusinessCriticalityProjection.model_validate(
+        {
+            "entityRef": "component:default/fastapi-sample",
+            "calculated": "high",
+            "declared": "high",
+            "status": "provisional",
+            "mtpd": "P1D",
+            "rto": "PT4H",
+            "rpo": "PT1H",
+            "mbco": "minimum-service-description",
+            "recoveryMarginSeconds": 72000,
+            "drivers": [
+                {"driver": "mtpd", "level": "high", "value": "P1D"},
+                {
+                    "driver": "impact:integrity",
+                    "level": "high",
+                    "value": "high",
+                },
+            ],
+        },
+    )
+
+    payload = projection.model_dump(mode="json", by_alias=True, exclude_none=True)
+    assert payload["entityRef"] == "component:default/fastapi-sample"
+    assert payload["calculated"] == "high"
+    assert payload["recoveryMarginSeconds"] == 72000
+
+
+@pytest.mark.parametrize("duration", ["1h", "PT", "P", "tomorrow"])
+def test_business_criticality_projection_rejects_invalid_duration_shape(
+    duration: str,
+) -> None:
+    with pytest.raises(ValidationError):
+        BusinessCriticalityProjection.model_validate(
+            {
+                "entityRef": "component:default/fastapi-sample",
+                "calculated": "high",
+                "declared": "high",
+                "status": "provisional",
+                "mtpd": duration,
+                "rto": "PT4H",
+                "mbco": "minimum-service-description",
+                "recoveryMarginSeconds": 1,
+                "drivers": [{"driver": "rto", "level": "high", "value": "PT4H"}],
+            },
+        )
+
+
+def test_dependency_criticality_keeps_inherited_signal_separate() -> None:
+    projection = DependencyCriticalityProjection.model_validate(
+        {
+            "entityRef": "resource:default/postgresql",
+            "ownBusinessCriticality": None,
+            "effectiveDependencyCriticality": "critical",
+            "elevatedByDependencies": True,
+            "inheritedFrom": ["component:default/fastapi-sample"],
+        },
+    )
+
+    payload = projection.model_dump(mode="json", by_alias=True, exclude_none=True)
+    assert "ownBusinessCriticality" not in payload
+    assert payload["effectiveDependencyCriticality"] == "critical"
+    assert payload["inheritedFrom"] == ["component:default/fastapi-sample"]
