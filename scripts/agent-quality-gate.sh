@@ -147,8 +147,18 @@ classify_test_impact() {
     local file
     for file in "${CHANGED_FILES[@]}" "${DELETED_FILES[@]}"; do
         case "${file}" in
-            tests/unit/test_agent_quality_gate_contract.py | scripts/agent-quality-gate.sh | scripts/quality-gate.sh | scripts/check_code_size.py | .github/workflows/* | .pre-commit* | mise.toml | AGENTS.md)
+            tests/unit/test_agent_quality_gate_contract.py | \
+                tests/unit/test_agent_publication_proof.py | \
+                scripts/agent-quality-gate.sh | \
+                scripts/agent-publish.sh | \
+                scripts/quality-gate.sh | \
+                scripts/check_code_size.py | \
+                .github/workflows/* | \
+                .pre-commit* | \
+                mise.toml | \
+                AGENTS.md)
                 quality_contract_impact=true
+                continue
                 ;;
             nabla/* | tests/* | server_app.py | pyproject.toml | uv.lock | Pipfile | Pipfile.lock | scripts/*.py)
                 full_pytest_impact=true
