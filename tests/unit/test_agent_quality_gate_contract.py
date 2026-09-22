@@ -71,7 +71,7 @@ def test_agent_quality_gate_wraps_tests_and_canonical_gate() -> None:
 def test_pre_push_uses_agent_publication_gate() -> None:
     config = (ROOT / ".pre-commit-pre-push.yaml").read_text(encoding="utf-8")
 
-    assert "entry: bash scripts/agent-quality-gate.sh --publish" in config
+    assert "entry: bash scripts/agent-publish.sh" in config
 
 
 def test_python_ci_runs_fast_gate_before_heavy_dependency_sync() -> None:
@@ -143,7 +143,7 @@ def test_mise_exposes_agent_fix_check_and_publish_tasks() -> None:
     assert "[tasks.agent-fix]" in config
     assert "[tasks.agent-quality]" in config
     assert "[tasks.agent-publish]" in config
-    assert 'run = "bash scripts/agent-quality-gate.sh --publish"' in config
+    assert 'run = "bash scripts/agent-publish.sh"' in config
 
 
 def test_megalinter_caller_keeps_least_privilege_permissions() -> None:
