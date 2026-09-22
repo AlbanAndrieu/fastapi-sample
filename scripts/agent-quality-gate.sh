@@ -109,6 +109,26 @@ run_compact() {
     return "${rc}"
 }
 
+run_compact_report() {
+    local label="$1"
+    shift
+    local log
+    local rc
+    log="$(mktemp)"
+    if "$@" >"${log}" 2>&1; then
+        grep -E '^(WARNING |Code-size gate:)' "${log}" || true
+        rm -f "${log}"
+        printf '✅ %s\n' "${label}"
+        return 0
+    else
+        rc=$?
+    fi
+    printf '❌ %s\n' "${label}" >&2
+    tail -n "${LOG_TAIL}" "${log}" >&2 || true
+    rm -f "${log}"
+    return "${rc}"
+}
+
 collect_changed_files() {
     {
         if [[ "${BASE_REF}" != "HEAD" ]] && git rev-parse --verify "${BASE_REF}^{commit}" >/dev/null 2>&1; then
@@ -395,7 +415,7 @@ for file in "${CHANGED_FILES[@]}"; do
     [[ "${file}" == *.py ]] && CHANGED_PYTHON+=("${file}")
 done
 if ((${#CHANGED_PYTHON[@]} > 0)); then
-    run_compact "modified Python code-size gate" \
+    run_compact_report "modified Python code-size gate" \
         uv run python scripts/check_code_size.py \
         --baseline-ref "${BASE_REF}" "${CHANGED_PYTHON[@]}"
 fi
