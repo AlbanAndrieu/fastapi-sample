@@ -40,7 +40,7 @@ Modes:
 Environment:
   QUALITY_BASE_REF                 override comparison base
   QUALITY_LOG_TAIL                 failure log lines to print (default: 50, capped at 80)
-  QUALITY_FIX_PASSES               maximum pre-commit convergence passes (default: 3)
+  QUALITY_FIX_PASSES               maximum pre-commit convergence passes (default: 6)
   QUALITY_ALLOW_LARGE_DELETION=1   acknowledge all intentional large truncations/deletions
   QUALITY_LARGE_DELETION_ACK_FILE  reviewed-path acknowledgement file (default: .quality-gate-large-deletions)
 EOF_HELP
@@ -68,7 +68,7 @@ LOG_TAIL="${QUALITY_LOG_TAIL:-50}"
 if ((LOG_TAIL > 80)); then
     LOG_TAIL=80
 fi
-FIX_PASSES="${QUALITY_FIX_PASSES:-3}"
+FIX_PASSES="${QUALITY_FIX_PASSES:-6}"
 if ! [[ "${FIX_PASSES}" =~ ^[1-9][0-9]*$ ]]; then
     printf '❌ QUALITY_FIX_PASSES must be a positive integer\n' >&2
     exit 2
