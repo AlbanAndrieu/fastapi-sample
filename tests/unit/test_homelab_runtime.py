@@ -260,6 +260,16 @@ async def test_status_matches_declared_service_by_container_service(monkeypatch)
     payload = await build_homelab_status_payload()
 
     assert payload["services"][0]["reconciliation"] == "in_sync"
+    assert payload["services"][0]["conditions"] == [
+        {
+            "type": "Reconciled",
+            "status": "True",
+            "reason": "InSync",
+            "message": (
+                "Declared runtime identity matches one observed provider resource."
+            ),
+        },
+    ]
     assert payload["services"][0]["observed"]["appId"] == "litellm-albandrieu"
     assert payload["observedOnly"] == []
     assert payload["driftSummary"] == {
@@ -307,6 +317,12 @@ async def test_status_reports_unmanaged_truenas_apps(monkeypatch) -> None:
     payload = await build_homelab_status_payload()
 
     assert payload["observedOnly"][0]["reconciliation"] == "observed_only"
+    assert payload["observedOnly"][0]["conditions"][0] == {
+        "type": "Reconciled",
+        "status": "False",
+        "reason": "ObservedOnly",
+        "message": "Observed provider resource has no declared catalog identity.",
+    }
     assert payload["observedOnly"][0]["observed"]["appId"] == "legacy-app"
     assert payload["driftSummary"]["observedOnly"] == 1
     assert payload["driftSummary"]["hasDrift"] is True

@@ -55,6 +55,16 @@ duplicate schemas and shortens the migration.
   runtime support for two schemas.
 - Coordinate the same cutover window with `nabla-site-alban`; temporary loss of
   catalog/topology presentation is preferable to maintaining duplicate contracts.
+- [x] Prepare the consumer boundary without adding a second reader: introduce
+  canonical full Backstage entity-ref validation plus Kubernetes-style resource
+  conditions, and expose reconciliation conditions additively from the existing
+  v1 status payload. This is read-model preparation, not schema translation.
+- [ ] At cutover, replace all service-id/display-name joins and the current
+  presentation/declared/topology three-way drift check with canonical full
+  entity-ref joins from the new generated resources.
+- [ ] Expose operational criticality separately from BIA-derived business
+  criticality (DMTP/MTPD, RTO, applicable RPO, recovery margin and assessment
+  status). Never infer business criticality from runtime health or exposure.
 
 
 ## Production audit — 2026-08-26
