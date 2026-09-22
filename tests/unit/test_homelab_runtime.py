@@ -218,6 +218,7 @@ async def test_status_matches_declared_service_by_container_service(monkeypatch)
                     "name": "LiteLLM",
                     "kind": "gateway",
                     "category": "ai",
+                    "criticality": "high",
                     "sourcePath": "apps/litellm/compose.yml",
                     "composeService": "litellm",
                     "runtime": {
@@ -260,6 +261,8 @@ async def test_status_matches_declared_service_by_container_service(monkeypatch)
     payload = await build_homelab_status_payload()
 
     assert payload["services"][0]["reconciliation"] == "in_sync"
+    assert payload["services"][0]["operationalCriticality"] == "high"
+    assert "businessCriticality" not in payload["services"][0]
     assert payload["services"][0]["conditions"] == [
         {
             "type": "Reconciled",
