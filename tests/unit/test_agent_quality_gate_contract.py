@@ -56,6 +56,8 @@ def test_agent_quality_gate_wraps_tests_and_canonical_gate() -> None:
     assert "uv run python scripts/check_versions.py" in text
     assert "bash scripts/quality-gate.sh --publish" in text
     assert "modified Python code-size gate" in text
+    assert 'run_compact_report "modified Python code-size gate"' in text
+    assert "WARNING |Code-size gate:" in text
     assert "uv run python scripts/check_code_size.py" in text
     assert text.index("canonical formatter/linter/security") < text.index(
         "modified Python code-size gate",
