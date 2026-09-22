@@ -144,6 +144,18 @@ class BusinessCriticalityProjection(BaseModel):
             match.group(key) for key in ("hours", "minutes", "seconds")
         ):
             raise ValueError("BIA duration must use the bounded ISO-8601 syntax")
+        parts = {
+            key: int(raw or 0)
+            for key, raw in match.groupdict().items()
+        }
+        total_seconds = (
+            parts["days"] * 86400
+            + parts["hours"] * 3600
+            + parts["minutes"] * 60
+            + parts["seconds"]
+        )
+        if total_seconds <= 0:
+            raise ValueError("BIA duration must be greater than zero")
         return value
 
 

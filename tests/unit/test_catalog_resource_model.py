@@ -116,7 +116,10 @@ def test_business_criticality_projection_matches_nabla_compose_contract() -> Non
     assert payload["recoveryMarginSeconds"] == 72000
 
 
-@pytest.mark.parametrize("duration", ["1h", "PT", "P", "tomorrow"])
+@pytest.mark.parametrize(
+    "duration",
+    ["1h", "PT", "P", "tomorrow", "P0D", "PT0H", "PT0M", "PT0S", "P0DT0H"],
+)
 def test_business_criticality_projection_rejects_invalid_duration_shape(
     duration: str,
 ) -> None:
