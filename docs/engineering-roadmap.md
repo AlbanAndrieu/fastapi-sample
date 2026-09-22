@@ -801,6 +801,31 @@ The remaining sections preserve the quality roadmap introduced separately on
 
 The following improvements have already been implemented:
 
+- [x] Reuse a strict local publication proof keyed by exact HEAD, comparison
+  base and Python toolchain fingerprint (uv, Python, pre-commit and `uv.lock`).
+  Pre-push now reuses that proof instead of rerunning Pylint, pytest and package
+  build for an unchanged publication candidate.
+- [x] Keep agent/quality-only contract changes on the isolated quality-test
+  dependency scope instead of accidentally promoting them to the full pytest
+  dependency path merely because the contract itself lives under `tests/`.
+- [x] Surface non-blocking baseline-aware code-size warnings from the compact
+  agent gate instead of hiding successful warning output.
+- [ ] Centralize the remaining CI scope policy in one tested classifier before
+  wiring it into GitHub Actions. When Actions credits are available again, use
+  that scope to skip Docker, Redis integration, SonarCloud and MegaLinter for
+  docs/agent-maintenance-only changes while keeping application/security changes
+  fail-closed.
+- [ ] Factor shared shell mechanics (base resolution, changed/deleted file
+  collection, compact reporting and workspace fingerprinting) out of
+  `agent-quality-gate.sh` once the current local gate is green; keep policy in
+  the repository-specific gate rather than in the helper.
+- [ ] Re-enable a PR CI-skip policy only when GitHub Actions can enforce it on
+  every candidate HEAD. Until credits return, explicit `[skip ci]` commits are
+  intentional and the local publication proof is the merge evidence.
+- [ ] If FastAPI later gates a PR on live production health before build, keep
+  the **current PR diff base SHA** separate from the **current production/default
+  branch SHA**; do not reuse an event-time base SHA as production evidence.
+
 - Ruff lint and formatting pass on `nabla/` and `tests/`.
 - The active FastAPI, settings, Redis, Notes, and RAG modules pass targeted
   Pyright checks.
