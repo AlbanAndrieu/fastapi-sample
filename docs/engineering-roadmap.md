@@ -58,7 +58,10 @@ duplicate schemas and shortens the migration.
 - [x] Prepare the consumer boundary without adding a second reader: introduce
   canonical full Backstage entity-ref validation plus Kubernetes-style resource
   conditions, and expose reconciliation conditions additively from the existing
-  v1 status payload. This is read-model preparation, not schema translation.
+  v1 status payload. Entity refs follow Backstage default lowercase interchange
+  semantics, including `-_.` in entity names, hyphen-only namespaces and
+  63-character namespace/name bounds. This is read-model preparation, not schema
+  translation.
 - [ ] At cutover, replace all service-id/display-name joins and the current
   presentation/declared/topology three-way drift check with canonical full
   entity-ref joins from the new generated resources.
