@@ -286,7 +286,12 @@ def _reconcile_declared(
         "declared": True,
         "sourcePath": service.source_path,
         "composeService": service.compose_service,
-        "runtimeBinding": (binding.model_dump(mode="json", by_alias=True, exclude_none=True) if binding is not None else None),
+        "operationalCriticality": service.criticality,
+        "runtimeBinding": (
+            binding.model_dump(mode="json", by_alias=True, exclude_none=True)
+            if binding is not None
+            else None
+        ),
     }
     if binding is None or binding.provider != "truenas-app":
         return {**base, **_reconciliation_fields("not_observed")}, set()
