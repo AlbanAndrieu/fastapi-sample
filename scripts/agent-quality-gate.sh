@@ -148,6 +148,7 @@ classify_test_impact() {
     for file in "${CHANGED_FILES[@]}" "${DELETED_FILES[@]}"; do
         case "${file}" in
             tests/unit/test_agent_quality_gate_contract.py | \
+                tests/unit/test_agent_dependency_mode.py | \
                 tests/unit/test_agent_publication_proof.py | \
                 scripts/agent-quality-gate.sh | \
                 scripts/agent-publish.sh | \
