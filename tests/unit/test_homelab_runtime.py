@@ -390,6 +390,7 @@ async def test_status_matches_stopped_app_by_exact_app_id_without_workloads(
     payload = await build_homelab_status_payload()
 
     assert payload["services"][0]["reconciliation"] == "in_sync"
+    assert "operationalCriticality" not in payload["services"][0]
     assert payload["services"][0]["observed"]["appId"] == "openwebui"
     assert payload["services"][0]["observed"]["appState"] == "STOPPED"
     assert "container" not in payload["services"][0]["observed"]
