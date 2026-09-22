@@ -33,6 +33,8 @@ def test_agent_quality_gate_wraps_tests_and_canonical_gate() -> None:
     assert "QG_FIX_NO_PROGRESS" in text
     assert "QG_FIX_NOT_CONVERGED" in text
     assert "QUALITY_FIX_PASSES" in text
+    assert 'FIX_PASSES="${QUALITY_FIX_PASSES:-6}"' in text
+    assert "maximum pre-commit convergence passes (default: 6)" in text
     assert "worktree_fingerprint" in text
     assert "git hash-object --stdin" in text
     assert "--dependency-mode" in text
