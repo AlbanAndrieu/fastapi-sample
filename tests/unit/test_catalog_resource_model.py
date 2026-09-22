@@ -139,6 +139,41 @@ def test_business_criticality_projection_rejects_invalid_duration_shape(
         )
 
 
+def _bia_projection_payload(**overrides: object) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "entityRef": "component:default/fastapi-sample",
+        "calculated": "high",
+        "declared": "high",
+        "status": "provisional",
+        "mtpd": "P1D",
+        "rto": "PT4H",
+        "rpo": "PT1H",
+        "mbco": "minimum-service-description",
+        "recoveryMarginSeconds": 72000,
+        "drivers": [{"driver": "rto", "level": "high", "value": "PT4H"}],
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_business_criticality_projection_rejects_invalid_recovery_window() -> None:
+    with pytest.raises(ValidationError, match="RTO must be lower than MTPD/DMTP"):
+        BusinessCriticalityProjection.model_validate(
+            _bia_projection_payload(
+                mtpd="PT4H",
+                rto="PT4H",
+                recoveryMarginSeconds=1,
+            ),
+        )
+
+
+def test_business_criticality_projection_rejects_inconsistent_margin() -> None:
+    with pytest.raises(ValidationError, match="recoveryMarginSeconds"):
+        BusinessCriticalityProjection.model_validate(
+            _bia_projection_payload(recoveryMarginSeconds=71999),
+        )
+
+
 def test_dependency_criticality_keeps_inherited_signal_separate() -> None:
     projection = DependencyCriticalityProjection.model_validate(
         {

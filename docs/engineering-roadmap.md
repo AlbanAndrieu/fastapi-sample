@@ -69,9 +69,10 @@ duplicate schemas and shortens the migration.
   scoring policy into FastAPI: calculated/declared business criticality,
   DMTP/MTPD, RTO, optional RPO, MBCO/OMCA, recovery margin, assessment status,
   drivers and effective dependency criticality all retain full entity refs.
-- [x] Keep projected BIA duration validation fail-closed with the authoritative
-  producer: accept only the bounded ISO-8601 subset used by `nabla-compose` and
-  reject zero-duration MTPD/DMTP, RTO or RPO values before the direct cutover.
+- [x] Keep projected BIA continuity validation fail-closed with the authoritative
+  producer: accept only its bounded positive ISO-8601 duration subset, require
+  RTO < MTPD/DMTP, and require `recoveryMarginSeconds` to equal MTPD/DMTP minus
+  RTO before the direct cutover.
 - [x] Expose the current declared-catalog `criticality` explicitly as
   `operationalCriticality` in the runtime reconciliation payload; do not emit a
   synthetic `businessCriticality` before the authoritative BIA projection is

@@ -11,7 +11,14 @@ import re
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, RootModel, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    RootModel,
+    field_validator,
+    model_validator,
+)
 
 ConditionStatus = Literal["True", "False", "Unknown"]
 CriticalityLevel = Literal["low", "medium", "high", "critical"]
@@ -34,6 +41,28 @@ _ISO8601_DURATION_PATTERN = re.compile(
     r"^P(?:(?P<days>\d+)D)?(?:T(?:(?P<hours>\d+)H)?"
     r"(?:(?P<minutes>\d+)M)?(?:(?P<seconds>\d+)S)?)?$",
 )
+
+
+def _bia_duration_seconds(value: str) -> int:
+    """Parse the bounded positive ISO-8601 duration subset produced by Nabla."""
+
+    match = _ISO8601_DURATION_PATTERN.fullmatch(value)
+    if match is None or not any(match.groupdict().values()):
+        raise ValueError("BIA duration must use the bounded ISO-8601 syntax")
+    if "T" in value and not any(
+        match.group(key) for key in ("hours", "minutes", "seconds")
+    ):
+        raise ValueError("BIA duration must use the bounded ISO-8601 syntax")
+    parts = {key: int(raw or 0) for key, raw in match.groupdict().items()}
+    total_seconds = (
+        parts["days"] * 86400
+        + parts["hours"] * 3600
+        + parts["minutes"] * 60
+        + parts["seconds"]
+    )
+    if total_seconds <= 0:
+        raise ValueError("BIA duration must be greater than zero")
+    return total_seconds
 
 
 class BackstageEntityRef(RootModel[str]):
@@ -137,26 +166,22 @@ class BusinessCriticalityProjection(BaseModel):
         """Fail closed on malformed projected durations without recalculating tiers."""
         if value is None:
             return None
-        match = _ISO8601_DURATION_PATTERN.fullmatch(value)
-        if match is None or not any(match.groupdict().values()):
-            raise ValueError("BIA duration must use the bounded ISO-8601 syntax")
-        if "T" in value and not any(
-            match.group(key) for key in ("hours", "minutes", "seconds")
-        ):
-            raise ValueError("BIA duration must use the bounded ISO-8601 syntax")
-        parts = {
-            key: int(raw or 0)
-            for key, raw in match.groupdict().items()
-        }
-        total_seconds = (
-            parts["days"] * 86400
-            + parts["hours"] * 3600
-            + parts["minutes"] * 60
-            + parts["seconds"]
-        )
-        if total_seconds <= 0:
-            raise ValueError("BIA duration must be greater than zero")
+        _bia_duration_seconds(value)
         return value
+
+    @model_validator(mode="after")
+    def validate_recovery_window(self) -> BusinessCriticalityProjection:
+        """Reject internally inconsistent authoritative BIA projections."""
+        mtpd_seconds = _bia_duration_seconds(self.mtpd)
+        rto_seconds = _bia_duration_seconds(self.rto)
+        if rto_seconds >= mtpd_seconds:
+            raise ValueError("RTO must be lower than MTPD/DMTP")
+        expected_margin = mtpd_seconds - rto_seconds
+        if self.recovery_margin_seconds != expected_margin:
+            raise ValueError(
+                "recoveryMarginSeconds must equal MTPD/DMTP minus RTO",
+            )
+        return self
 
 
 class DependencyCriticalityProjection(BaseModel):
