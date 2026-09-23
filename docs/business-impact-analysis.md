@@ -33,16 +33,34 @@ TrueNAS/pfSense.
 | Measure | Initial value | Rationale |
 | --- | --- | --- |
 | Business criticality | **Low — provisional** | Service outage reduces monitoring and exposure assurance but does not stop the homelab or its core controls. |
-| RTO | **7 days / `P7D`** | Automated monitoring can be unavailable for several days while checks are performed manually. |
+| RTO | **7 days / `P7D` — owner-confirmed** | The homelab can be operated safely for seven days without FastAPI because important exposure checks can be performed manually. |
 | MTPD / DIMA | **14 days / `P14D`** | More than two weeks without automated exposure/security drift visibility becomes an unacceptable blind spot. |
 | Recovery margin | **7 days / 604800 s** | Difference between MTPD and RTO; preserves time for safe validation before the maximum tolerated disruption is reached. |
-| RPO | **N/A / null** | No recovery of the runtime database is required. Runtime/cache/monitoring state is considered disposable and reconstructible. |
+| RPO | **N/A / null — owner-confirmed** | No recovery of the runtime database is required. Runtime/cache/monitoring state is considered disposable and reconstructible. |
 | MBCO / OMCA | **0% automated service is acceptable during recovery** | Manual checks of critical exposure/security controls are the fallback. The homelab must not depend on this service to continue operating safely. |
-| BIA status | **Provisional** | Values must be reviewed after observing outage handling, manual-check effort and probe resource consumption. |
+| BIA status | **Provisional** | RTO and no-database-backup assumptions are owner-confirmed; MTPD and safe probe-capacity thresholds still require operating evidence. |
 
 The RTO remains deliberately lower than MTPD/DIMA. NIST contingency guidance
 uses the same principle: recovery must be completed early enough that the
 maximum tolerable downtime is not exceeded.
+
+
+### Owner validation — 2026-09-23
+
+The current operating assumptions have been reviewed with the service owner:
+
+- **seven days without FastAPI is acceptable** because the important exposure
+  checks can be performed manually;
+- once the homelab is stabilized, **exposure changes are expected roughly once
+  per week**, which is consistent with the current seven-day recovery target;
+- the safe request capacity of **pfSense and TrueNAS is not yet known** and must
+  not be inferred from the current protective rate limits;
+- probe capacity must therefore be measured through Prometheus by correlating
+  FastAPI origin-probe rate/latency/concurrency with TrueNAS and pfSense
+  saturation/resource signals.
+
+The BIA remains provisional because MTPD/DIMA and the safe probe envelope still
+need measured operating evidence.
 
 ## 3. Data and backup position
 
@@ -250,16 +268,16 @@ The service is considered recovered only when all of the following are true:
 
 ## 10. How to validate the current BIA values
 
-### RTO — currently 7 days
+### RTO — 7 days, owner-confirmed
 
-Ask:
+The service owner confirms that the homelab can be operated safely for seven
+days without this dashboard because important exposure checks can be performed
+manually. Exposure changes are expected approximately weekly once the homelab
+is stabilized.
 
-- Can the homelab be operated safely for seven days without this dashboard?
-- How much manual work is required to check public exposure after a change?
-- Is there any incident-response workflow that truly requires this API sooner?
-
-If seven days is easy to tolerate, keep the RTO. If important exposure drift
-would routinely go unnoticed, reduce it.
+Reassess this RTO if the exposure-change cadence increases, manual verification
+becomes materially harder, or fastapi-sample becomes the only source of a
+critical security signal.
 
 ### MTPD / DIMA — proposed 14 days
 
@@ -300,11 +318,15 @@ Record these for several weeks:
 - time needed to perform the manual exposure checklist;
 - number of meaningful security/exposure findings produced by the service;
 - maximum period between meaningful exposure/configuration changes;
-- request rate and concurrency generated toward TrueNAS and pfSense;
-- p95/p99 probe latency;
+- provider-specific origin-probe rate and concurrency generated toward TrueNAS
+  and pfSense;
+- provider-specific origin-probe duration distribution and p95/p99 latency;
+- provider rate-budget utilization and rejection count;
 - timeout/retry counts;
 - TrueNAS CPU/memory/load change attributable to probes;
 - pfSense CPU/PHP-FPM/request pressure attributable to probes;
+- correlation between FastAPI probe volume/latency and TrueNAS/pfSense
+  saturation, with Prometheus used to determine the safe operating envelope;
 - number of false-positive or redundant probes;
 - number of external/public endpoints whose posture is only visible through this
   service.
