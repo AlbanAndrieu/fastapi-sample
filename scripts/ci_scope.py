@@ -27,14 +27,17 @@ QUALITY_MAINTENANCE_PATHS = {
     "scripts/agent-publish.sh",
     "scripts/agent-quality-gate.sh",
     "scripts/check_code_size.py",
+    "scripts/ci-performance-budget.sh",
     "scripts/quality-gate.sh",
     "tests/unit/test_agent_dependency_mode.py",
     "tests/unit/test_agent_publication_proof.py",
     "tests/unit/test_agent_quality_gate_contract.py",
+    "tests/unit/test_ci_performance_budget.py",
     "tests/unit/test_ci_scope.py",
 }
 
 SECURITY_NON_DEPLOYABLE_PATHS = {
+    "scripts/ci-scope.sh",
     "scripts/ci_scope.py",
 }
 
