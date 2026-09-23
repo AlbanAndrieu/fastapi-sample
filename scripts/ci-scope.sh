@@ -92,7 +92,7 @@ mapfile -t CHANGED_FILES < <(collect_changed_files)
 
 dependency_mode="none"
 quality_change=false
-if (("${#CHANGED_FILES[@]}" == 0)) && [[ "${CI:-}" == "true" ]]; then
+if ((${#CHANGED_FILES[@]} == 0)) && [[ "${CI:-}" == "true" ]]; then
     dependency_mode="full"
 fi
 for file in "${CHANGED_FILES[@]}"; do
