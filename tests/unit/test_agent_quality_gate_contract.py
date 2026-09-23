@@ -13,7 +13,10 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def test_external_github_actions_are_pinned_to_commit_sha() -> None:
     workflow_dir = ROOT / ".github" / "workflows"
-    action_ref = re.compile(r"uses:\s*([^\s#]+)")
+    action_ref = re.compile(
+        r"^\s*(?:-\s*)?uses:\s*([^\s#]+)",
+        re.MULTILINE,
+    )
     external_action_count = 0
 
     for workflow_path in sorted(workflow_dir.glob("*.y*ml")):
