@@ -605,7 +605,11 @@ acceptance criterion.
       baseline has been triaged.
 - [ ] Reduce the current Trivy dependency baseline below 48 findings and lower
       its temporary regression ceiling of 55 as vulnerabilities are remediated.
-- [ ] Pin every reusable GitHub Action to a verified immutable commit SHA.
+- [x] Pin every reusable GitHub Action to a verified immutable commit SHA.
+      The current audit covers all 15 workflow files, and a contract test rejects
+      future external `uses:` references that are unversioned or not pinned to a
+      full 40-character commit SHA; repository-local reusable workflows remain
+      exempt.
 - [ ] Protect `master`, require reviewed pull requests and enforce the final
       mandatory test/security checks after the current refactoring stabilizes.
 
