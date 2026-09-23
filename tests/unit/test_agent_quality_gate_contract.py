@@ -88,6 +88,14 @@ def test_python_ci_runs_fast_gate_before_heavy_dependency_sync() -> None:
     assert 'UV_NO_SYNC: "1"' in workflow
     assert 'SKIP: "uv-sync,uv-lock,uv-export,pytest-collect"' in workflow
     assert "run: bash scripts/agent-quality-gate.sh --ci-preflight" in workflow
+    assert "Classify Python CI scope before dependency bootstrap" in workflow
+    assert "bash scripts/agent-quality-gate.sh --dependency-mode" in workflow
+    assert "dependency_mode: ${{ steps.ci-scope.outputs.dependency_mode }}" in workflow
+    assert 'steps.ci-scope.outputs.dependency_mode == \'quality\'' in workflow
+    assert '"pytest<10" "PyYAML>=6.0"' in workflow
+    assert "tests/unit/test_agent_dependency_mode.py" in workflow
+    assert "tests/unit/test_agent_publication_proof.py" in workflow
+    assert "needs.preflight.outputs.dependency_mode == 'full'" in workflow
     assert "Resolve and install locked project dependencies" in workflow
     assert "run: uv sync --frozen" in workflow
     assert "Run repository pytest suite after dependency sync" in workflow
