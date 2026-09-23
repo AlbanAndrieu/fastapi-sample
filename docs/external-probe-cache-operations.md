@@ -131,6 +131,7 @@ signal:
 - `nabla_external_provider_rate_budget_utilization_ratio{provider}`;
 - `nabla_external_provider_origin_duration_seconds{provider,outcome}`
   (histogram with bounded `success|failure` outcomes);
+- `nabla_external_provider_origins_in_flight{provider}`;
 - `nabla_external_provider_circuit_state{provider,state}`;
 - `nabla_external_probe_timeouts_total{phase}`;
 - `nabla_external_probes_in_flight`.
@@ -173,6 +174,16 @@ histogram_quantile(
 
 This tracks provider p95 origin latency. Rising latency at the same time as
 increasing probe volume is a pressure signal, not proof by itself of causation.
+
+
+Track concurrent origin work as well:
+
+```promql
+max_over_time(nabla_external_provider_origins_in_flight[15m])
+```
+
+A latency increase that appears only when provider concurrency rises is a strong
+signal to reduce fan-out before considering a higher request-rate budget.
 
 ```promql
 max_over_time(nabla_external_provider_rate_budget_utilization_ratio[15m])
