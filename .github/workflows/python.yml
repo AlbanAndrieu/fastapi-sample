@@ -139,9 +139,11 @@ jobs:
 
   build:
     needs: preflight
-    if: ${{ (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && needs.preflight.outputs.dependency_mode == 'full' }}
-    name: Test and build Python package
+    if: ${{ (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && needs.preflight.outputs.dependencies == 'true' }}
+    name: Test dependencies and optionally build Python package
     runs-on: ubuntu-latest
+    outputs:
+      application_build_required: ${{ needs.preflight.outputs.build }}
     env:
       PYTHON_VERSION: "3.13"
       TRUNK_API_TOKEN: ${{ secrets.TRUNK_API_TOKEN }}
@@ -185,6 +187,7 @@ jobs:
           version: "0.12.1"
 
       - name: Validate minimal FastAPI Cloud runtime
+        if: needs.preflight.outputs.build == 'true'
         env:
           UV_PROJECT_ENVIRONMENT: .venv-runtime
         run: |
@@ -231,6 +234,7 @@ jobs:
           token: ${{ env.TRUNK_API_TOKEN }}
 
       - name: FastAPI startup smoke test
+        if: needs.preflight.outputs.build == 'true'
         run: |
           uv run --no-sync python - <<'PY'
           from fastapi.testclient import TestClient
@@ -246,6 +250,7 @@ jobs:
           PY
 
       - name: Pylint quality gate
+        if: needs.preflight.outputs.build == 'true'
         run: >-
           uv run --no-sync pylint
           --fail-under=9.5
@@ -254,6 +259,7 @@ jobs:
 
       - name: Build package
         id: package_build
+        if: needs.preflight.outputs.build == 'true'
         shell: bash
         run: |
           started="${SECONDS}"
@@ -342,7 +348,7 @@ jobs:
   sonarcloud:
     name: Scan with SonarCloud
     needs: build
-    if: github.actor != 'dependabot[bot]'
+    if: ${{ github.actor != 'dependabot[bot]' && needs.build.outputs.application_build_required == 'true' }}
     runs-on: ubuntu-latest
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -361,6 +367,7 @@ jobs:
   docker:
     name: Docker CI
     needs: build
+    if: ${{ needs.build.outputs.application_build_required == 'true' }}
     permissions:
       contents: read
       packages: write
@@ -374,7 +381,7 @@ jobs:
   mega-linter:
     name: MegaLinter
     needs: build
-    if: github.actor != 'dependabot[bot]'
+    if: ${{ github.actor != 'dependabot[bot]' && needs.build.outputs.application_build_required == 'true' }}
     permissions:
       contents: read
       security-events: write
