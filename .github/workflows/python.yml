@@ -31,7 +31,7 @@ jobs:
     name: Fast deterministic quality gate
     runs-on: ubuntu-latest
     outputs:
-      dependency_mode: ${{ steps.ci-scope.outputs.dependency_mode }}
+      dependency_mode: ${{ steps.ci_scope.outputs.dependency_mode }}
     env:
       PYTHON_VERSION: "3.13"
     steps:
@@ -41,7 +41,7 @@ jobs:
           persist-credentials: false
 
       - name: Classify Python CI scope before dependency bootstrap
-        id: ci-scope
+        id: ci_scope
         shell: bash
         run: |
           set -euo pipefail
@@ -88,11 +88,16 @@ jobs:
         run: bash scripts/agent-quality-gate.sh --ci-preflight
 
       - name: Run isolated quality-contract tests
-        if: steps.ci-scope.outputs.dependency_mode == 'quality'
+        if: steps.ci_scope.outputs.dependency_mode == 'quality'
         shell: bash
         run: |
           uv pip install --python .venv/bin/python "pytest<10" "PyYAML>=6.0"
-          env PYTEST_DISABLE_PLUGIN_AUTOLOAD=1             uv run --no-sync pytest -q --noconftest             --disable-warnings --maxfail=1             tests/unit/test_agent_quality_gate_contract.py             tests/unit/test_agent_dependency_mode.py             tests/unit/test_agent_publication_proof.py
+          env PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \\
+            uv run --no-sync pytest -q --noconftest \\
+            --disable-warnings --maxfail=1 \\
+            tests/unit/test_agent_quality_gate_contract.py \\
+            tests/unit/test_agent_dependency_mode.py \\
+            tests/unit/test_agent_publication_proof.py
 
       - name: Save pre-commit environments
         if: ${{ always() && steps.precommit-cache.outputs.cache-hit != 'true' }}
