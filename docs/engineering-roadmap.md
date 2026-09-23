@@ -865,8 +865,13 @@ The following improvements have already been implemented:
   `quality`, and application/runtime or unknown paths fail closed to `full`;
   an empty diff also fails closed to `full`. The Python workflow consumes the
   derived dependency mode before dependency bootstrap.
-- [x] Keep Docker, Redis integration, SonarCloud and MegaLinter downstream of the
-  full build job, so `none`/quality scopes do not bootstrap those expensive jobs.
+- [x] Separate dependency-backed validation from application packaging:
+  `dependencies=true` installs the locked environment and runs pytest, while
+  `build=true` additionally enables the FastAPI runtime smoke, Pylint,
+  `uv build`, Docker, SonarCloud and MegaLinter. Redis integration remains
+  downstream of dependency-backed testing so test changes can still exercise the
+  real cache integration; documentation/quality-only scopes bootstrap none of
+  these jobs.
 - [ ] When normal Actions capacity is restored, evaluate using the detailed
   `sast`, `build`, `dependencies` and `application` outputs in a future
   changed-source Semgrep job and reusable callers where that removes additional
