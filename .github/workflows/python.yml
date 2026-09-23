@@ -32,6 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       dependency_mode: ${{ steps.ci_scope.outputs.dependency_mode }}
+      agent_gate_seconds: ${{ steps.agent_preflight.outputs.seconds }}
     env:
       PYTHON_VERSION: "3.13"
     steps:
@@ -82,12 +83,17 @@ jobs:
           uv pip install --python .venv/bin/python pre-commit==4.6.2
 
       - name: Run agent CI preflight before project dependency sync
+        id: agent_preflight
         env:
           QUALITY_BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'origin/master' }}
           QUALITY_LOG_TAIL: "80"
           UV_NO_SYNC: "1"
           SKIP: "uv-sync,uv-lock,uv-export,pytest-collect"
-        run: bash scripts/agent-quality-gate.sh --ci-preflight
+        shell: bash
+        run: |
+          started="${SECONDS}"
+          bash scripts/agent-quality-gate.sh --ci-preflight
+          printf 'seconds=%d\n' "$((SECONDS - started))" >> "${GITHUB_OUTPUT}"
 
       - name: Run isolated quality-contract tests
         if: steps.ci_scope.outputs.dependency_mode == 'quality'
@@ -109,6 +115,13 @@ jobs:
         with:
           path: ~/.cache/pre-commit
           key: pre-commit-v1-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - name: Record preflight performance baseline
+        if: always()
+        env:
+          CI_DEPENDENCY_MODE: ${{ steps.ci_scope.outputs.dependency_mode }}
+          AGENT_GATE_SECONDS: ${{ steps.agent_preflight.outputs.seconds }}
+        run: bash scripts/ci-performance-budget.sh
 
   build:
     needs: preflight
@@ -166,15 +179,24 @@ jobs:
           rm -rf .venv-runtime
 
       - name: Resolve and install locked project dependencies
-        run: uv sync --frozen
-
-      - name: Run repository pytest suite after dependency sync
+        id: dependency_sync
         shell: bash
         run: |
+          started="${SECONDS}"
+          uv sync --frozen
+          printf 'seconds=%d\n' "$((SECONDS - started))" >> "${GITHUB_OUTPUT}"
+          printf 'venv_mb=%s\n' "$(du -sm .venv | awk '{print $1}')" >> "${GITHUB_OUTPUT}"
+
+      - name: Run repository pytest suite after dependency sync
+        id: pytest_suite
+        shell: bash
+        run: |
+          started="${SECONDS}"
           set +e
           uv run --no-sync pytest -q --disable-warnings --maxfail=1 --tb=short --junit-xml=junit.xml >pytest.log 2>&1
           rc=$?
           set -e
+          printf 'seconds=%d\n' "$((SECONDS - started))" >> "${GITHUB_OUTPUT}"
           if ((rc != 0)); then
             echo "::group::pytest failure · last 180 lines"
             tail -n 180 pytest.log
@@ -217,7 +239,25 @@ jobs:
           server_app.py nabla
 
       - name: Build package
-        run: uv build
+        id: package_build
+        shell: bash
+        run: |
+          started="${SECONDS}"
+          uv build
+          printf 'seconds=%d\n' "$((SECONDS - started))" >> "${GITHUB_OUTPUT}"
+          printf 'dist_mb=%s\n' "$(du -sm dist | awk '{print $1}')" >> "${GITHUB_OUTPUT}"
+
+      - name: Record full Python CI performance baseline
+        if: always()
+        env:
+          CI_DEPENDENCY_MODE: ${{ needs.preflight.outputs.dependency_mode }}
+          AGENT_GATE_SECONDS: ${{ needs.preflight.outputs.agent_gate_seconds }}
+          UV_SYNC_SECONDS: ${{ steps.dependency_sync.outputs.seconds }}
+          PYTEST_SECONDS: ${{ steps.pytest_suite.outputs.seconds }}
+          UV_BUILD_SECONDS: ${{ steps.package_build.outputs.seconds }}
+          VENV_MB: ${{ steps.dependency_sync.outputs.venv_mb }}
+          DIST_MB: ${{ steps.package_build.outputs.dist_mb }}
+        run: bash scripts/ci-performance-budget.sh
 
   redis-integration:
     name: Redis integration
