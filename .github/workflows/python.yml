@@ -97,7 +97,8 @@ jobs:
             tests/unit/test_agent_dependency_mode.py
             tests/unit/test_agent_publication_proof.py
           )
-          env PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 uv run --no-sync pytest             -q --noconftest --disable-warnings --maxfail=1 "${quality_tests[@]}"
+          pytest_args=(-q --noconftest --disable-warnings --maxfail=1)
+          env PYTEST_DISABLE_PLUGIN_AUTOLOAD=1             uv run --no-sync pytest "${pytest_args[@]}" "${quality_tests[@]}"
 
       - name: Save pre-commit environments
         if: ${{ always() && steps.precommit-cache.outputs.cache-hit != 'true' }}
