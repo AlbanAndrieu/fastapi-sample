@@ -1,8 +1,11 @@
 # Business Impact Analysis — fastapi-sample
 
-Status: **provisional / to validate with operating evidence**  
-Assessment date: **2026-09-23**  
-Service: `fastapi-sample`  
+Status: **provisional / to validate with operating evidence**
+
+Assessment date: **2026-09-23**
+
+Service: `fastapi-sample`
+
 Canonical entity target: `component:default/fastapi-sample`
 
 ## 1. Purpose and business role
