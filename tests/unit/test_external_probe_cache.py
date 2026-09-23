@@ -452,6 +452,8 @@ async def test_provider_rate_budget_serves_retained_stale_evidence(
     class Denied:
         allowed = False
         provider = "truenas"
+        count = 3
+        max_requests = 2
 
         @staticmethod
         def metadata(*, origin_suppressed: bool):
