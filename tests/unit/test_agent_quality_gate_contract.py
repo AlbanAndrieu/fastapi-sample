@@ -48,7 +48,12 @@ def test_agent_quality_gate_wraps_tests_and_canonical_gate() -> None:
     assert "quality-gate contract pytest (isolated fail-fast)" in text
     assert "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1" in text
     assert "uv run pytest -q --noconftest" in text
-    assert "tests/unit/test_agent_quality_gate_contract.py --junit-xml=junit.xml" in text
+    assert '"${QUALITY_CONTRACT_TESTS[@]}"' in text
+    assert "tests/unit/test_agent_quality_gate_contract.py" in text
+    assert "tests/unit/test_agent_dependency_mode.py" in text
+    assert "tests/unit/test_agent_publication_proof.py" in text
+    assert "tests/unit/test_ci_scope.py" in text
+    assert "tests/unit/test_ci_performance_budget.py" in text
     assert "dependency-backed tests are still required" in text
     assert "full_pytest_impact" in text
     assert "quality_contract_impact" in text
@@ -86,18 +91,22 @@ def test_python_ci_runs_fast_gate_before_heavy_dependency_sync() -> None:
     assert "enable-cache: false" in workflow
     assert 'UV_NO_SYNC: "1"' in workflow
     assert 'SKIP: "uv-sync,uv-lock,uv-export,pytest-collect"' in workflow
-    assert "run: bash scripts/agent-quality-gate.sh --ci-preflight" in workflow
+    assert "bash scripts/agent-quality-gate.sh --ci-preflight" in workflow
     assert "Classify Python CI scope before dependency bootstrap" in workflow
-    assert "bash scripts/agent-quality-gate.sh --dependency-mode" in workflow
+    assert "bash scripts/ci-scope.sh" in workflow
     assert "dependency_mode: ${{ steps.ci_scope.outputs.dependency_mode }}" in workflow
     assert 'steps.ci_scope.outputs.dependency_mode == \'quality\'' in workflow
     assert '"pytest<10" "PyYAML>=6.0"' in workflow
     assert "tests/unit/test_agent_dependency_mode.py" in workflow
     assert "tests/unit/test_agent_publication_proof.py" in workflow
     assert "tests/unit/test_ci_scope.py" in workflow
+    assert "tests/unit/test_ci_performance_budget.py" in workflow
+    assert "Record preflight performance baseline" in workflow
+    assert "Record full Python CI performance baseline" in workflow
+    assert "bash scripts/ci-performance-budget.sh" in workflow
     assert "needs.preflight.outputs.dependency_mode == 'full'" in workflow
     assert "Resolve and install locked project dependencies" in workflow
-    assert "run: uv sync --frozen" in workflow
+    assert "uv sync --frozen" in workflow
     assert "Run repository pytest suite after dependency sync" in workflow
     assert "uv run --no-sync pytest -q --disable-warnings --maxfail=1" in workflow
     assert workflow.index("Run agent CI preflight before project dependency sync") < workflow.index(
