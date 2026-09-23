@@ -2,12 +2,30 @@
 
 from __future__ import annotations
 
+import re
 import stat
 from pathlib import Path
 
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_external_github_actions_are_pinned_to_commit_sha() -> None:
+    workflow_dir = ROOT / ".github" / "workflows"
+    action_ref = re.compile(r"uses:\\s*([^\\s#]+)")
+
+    for workflow_path in sorted(workflow_dir.glob("*.y*ml")):
+        text = workflow_path.read_text(encoding="utf-8")
+        for match in action_ref.finditer(text):
+            action = match.group(1)
+            if action.startswith("./"):
+                continue
+            assert "@" in action, f"{workflow_path}: unversioned action {action}"
+            ref = action.rsplit("@", maxsplit=1)[1]
+            assert re.fullmatch(r"[0-9a-f]{40}", ref), (
+                f"{workflow_path}: action must use immutable SHA: {action}"
+            )
 
 
 def test_dependency_updates_are_explicit_maintenance_not_validation() -> None:
