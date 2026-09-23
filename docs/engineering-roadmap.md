@@ -826,10 +826,11 @@ Next.js, Playwright-visual and Vercel-specific behavior is intentionally exclude
   does. Do not enable that policy while the explicit local-first/no-credit mode
   relies on `[skip ci]`; require the local publication proof and keep such PRs
   Draft instead.
-- [ ] Evaluate a Python-specific SAST scope classifier so Semgrep/CodeQL or other
-  expensive security jobs can distinguish application/security-source changes
-  from documentation/quality-only changes without weakening scans for Python,
-  Docker, dependency manifests or workflow changes.
+- [x] Add a Python-specific fail-closed CI/SAST scope classifier. It exposes
+  `maintenance_only`, `application`, `sast`, `build`, `dependencies`
+  and the derived `dependency_mode`; workflow/security-policy changes retain
+  SAST, test-only application changes retain dependency-backed tests without
+  forcing an application build, and unknown or empty diffs take the full path.
 
 ## Consolidated quality and refactoring backlog
 
