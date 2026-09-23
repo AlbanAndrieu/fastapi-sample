@@ -111,7 +111,10 @@ def test_python_ci_runs_fast_gate_before_heavy_dependency_sync() -> None:
     assert "Record preflight performance baseline" in workflow
     assert "Record full Python CI performance baseline" in workflow
     assert "bash scripts/ci-performance-budget.sh" in workflow
-    assert "needs.preflight.outputs.dependency_mode == 'full'" in workflow
+    assert "needs.preflight.outputs.dependencies == 'true'" in workflow
+    assert "application_build_required: ${{ needs.preflight.outputs.build }}" in workflow
+    assert workflow.count("if: needs.preflight.outputs.build == 'true'") == 4
+    assert "needs.build.outputs.application_build_required == 'true'" in workflow
     assert "Resolve and install locked project dependencies" in workflow
     assert "uv sync --frozen" in workflow
     assert "Run repository pytest suite after dependency sync" in workflow
