@@ -27,6 +27,8 @@ from nabla.api.external_probe_cache_redis import (
 from nabla.api.external_probe_cache_types import ProbeCachePolicy, ProbeCacheResult
 from nabla.api.probe_metrics import (
     observe_provider_origin_duration,
+    provider_origin_finished,
+    provider_origin_started,
     record_cache_outcome,
     record_origin_refresh,
     record_provider_budget_rejection,
@@ -438,29 +440,33 @@ async def get_or_refresh_probe(
 
             record_origin_refresh()
             origin_started = time.monotonic()
+            provider_origin_started(rate_decision.provider)
             try:
-                value = await loader()
-            except Exception:
+                try:
+                    value = await loader()
+                except Exception:
+                    observe_provider_origin_duration(
+                        rate_decision.provider,
+                        outcome="failure",
+                        duration_seconds=time.monotonic() - origin_started,
+                    )
+                    await record_provider_probe_outcome(
+                        circuit_decision,
+                        success=False,
+                    )
+                    raise
+                success = bool(is_success(value))
                 observe_provider_origin_duration(
                     rate_decision.provider,
-                    outcome="failure",
+                    outcome="success" if success else "failure",
                     duration_seconds=time.monotonic() - origin_started,
                 )
-                await record_provider_probe_outcome(
+                circuit_metadata = await record_provider_probe_outcome(
                     circuit_decision,
-                    success=False,
+                    success=success,
                 )
-                raise
-            success = bool(is_success(value))
-            observe_provider_origin_duration(
-                rate_decision.provider,
-                outcome="success" if success else "failure",
-                duration_seconds=time.monotonic() - origin_started,
-            )
-            circuit_metadata = await record_provider_probe_outcome(
-                circuit_decision,
-                success=success,
-            )
+            finally:
+                provider_origin_finished(rate_decision.provider)
             fetched_at = time.time()
             previous_good = _valid_last_good(
                 last_envelope,
