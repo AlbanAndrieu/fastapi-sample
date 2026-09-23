@@ -831,6 +831,10 @@ Next.js, Playwright-visual and Vercel-specific behavior is intentionally exclude
   and the derived `dependency_mode`; workflow/security-policy changes retain
   SAST, test-only application changes retain dependency-backed tests without
   forcing an application build, and unknown or empty diffs take the full path.
+  Keep CodeQL independently path-scoped to Python sources plus its own workflow
+  so documentation-only PRs do not start it; a future changed-source Semgrep job
+  can consume the centralized `sast` signal without forcing an application
+  build.
 
 ## Consolidated quality and refactoring backlog
 
