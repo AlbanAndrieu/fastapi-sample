@@ -413,6 +413,14 @@ fi
 
 run_compact "release/version contract" uv run python scripts/check_versions.py
 
+QUALITY_CONTRACT_TESTS=(
+    tests/unit/test_agent_quality_gate_contract.py
+    tests/unit/test_agent_dependency_mode.py
+    tests/unit/test_agent_publication_proof.py
+    tests/unit/test_ci_scope.py
+    tests/unit/test_ci_performance_budget.py
+)
+
 if [[ "${CI_PREFLIGHT}" == true ]]; then
     echo "✅ pytest deferred by CI preflight; dependency-backed tests are still required."
 elif [[ "${full_pytest_impact}" == true ]]; then
@@ -421,8 +429,8 @@ elif [[ "${full_pytest_impact}" == true ]]; then
 elif [[ "${quality_contract_impact}" == true ]]; then
     run_compact "quality-gate contract pytest (isolated fail-fast)" \
         env PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 uv run pytest -q --noconftest \
-        --disable-warnings --maxfail=1 \
-        tests/unit/test_agent_quality_gate_contract.py --junit-xml=junit.xml
+        --disable-warnings --maxfail=1 --junit-xml=junit.xml \
+        "${QUALITY_CONTRACT_TESTS[@]}"
 else
     echo "✅ pytest skipped: no Python/runtime/test or quality-gate contract impact"
 fi
