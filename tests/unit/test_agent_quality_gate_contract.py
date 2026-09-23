@@ -39,7 +39,8 @@ def test_agent_quality_gate_wraps_tests_and_canonical_gate() -> None:
     assert "git hash-object --stdin" in text
     assert "--dependency-mode" in text
     assert "--ci-preflight" in text
-    assert "scripts/ci-scope.sh --mode-only" in text
+    assert 'CI_SCOPE_SCRIPT="${SCRIPT_DIR}/ci-scope.sh"' in text
+    assert 'bash "${CI_SCOPE_SCRIPT}" --mode-only' in text
     assert "QG_SCOPE_INVALID" in text
     assert "uv run pre-commit run shfmt" in text
     assert "uv run pre-commit run shell-lint" in text
@@ -94,7 +95,13 @@ def test_python_ci_runs_fast_gate_before_heavy_dependency_sync() -> None:
     assert "bash scripts/agent-quality-gate.sh --ci-preflight" in workflow
     assert "Classify Python CI scope before dependency bootstrap" in workflow
     assert "bash scripts/ci-scope.sh" in workflow
+    assert "maintenance_only: ${{ steps.ci_scope.outputs.maintenance_only }}" in workflow
+    assert "application: ${{ steps.ci_scope.outputs.application }}" in workflow
+    assert "sast: ${{ steps.ci_scope.outputs.sast }}" in workflow
+    assert "build: ${{ steps.ci_scope.outputs.build }}" in workflow
+    assert "dependencies: ${{ steps.ci_scope.outputs.dependencies }}" in workflow
     assert "dependency_mode: ${{ steps.ci_scope.outputs.dependency_mode }}" in workflow
+    assert "changed_count: ${{ steps.ci_scope.outputs.changed_count }}" in workflow
     assert 'steps.ci_scope.outputs.dependency_mode == \'quality\'' in workflow
     assert '"pytest<10" "PyYAML>=6.0"' in workflow
     assert "tests/unit/test_agent_dependency_mode.py" in workflow
