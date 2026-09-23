@@ -815,11 +815,12 @@ Next.js, Playwright-visual and Vercel-specific behavior is intentionally exclude
   environments and no project dependency cache in the lightweight stage.
 - [x] Keep local deterministic autofix convergence multi-pass and publication
   validation clean-tree-only.
-- [ ] Add warning-only Python CI performance baselines, adapted from
+- [x] Add warning-only Python CI performance baselines, adapted from
   `nabla-site-alban#195`: measure agent-gate duration, locked `uv sync`
   duration, pytest duration, `uv build` duration and environment/artifact size.
-  Establish several exact-checkout baselines before choosing thresholds; do not
-  make these budgets blocking initially.
+  Thresholds remain unset by default until several exact-checkout baselines have
+  been collected; the recorder never turns a performance warning into a quality
+  failure.
 - [ ] Once GitHub Actions credits and normal PR CI are restored, decide whether to
   prohibit `[skip ci]` on merge-candidate commits as `nabla-site-alban#192`
   does. Do not enable that policy while the explicit local-first/no-credit mode
@@ -848,11 +849,13 @@ The following improvements have already been implemented:
   dependency path merely because the contract itself lives under `tests/`.
 - [x] Surface non-blocking baseline-aware code-size warnings from the compact
   agent gate instead of hiding successful warning output.
-- [ ] Centralize the remaining CI scope policy in one tested classifier before
-  wiring it into GitHub Actions. When Actions credits are available again, use
-  that scope to skip Docker, Redis integration, SonarCloud and MegaLinter for
-  docs/agent-maintenance-only changes while keeping application/security changes
-  fail-closed.
+- [x] Centralize the CI dependency scope policy in tested
+  `scripts/ci-scope.sh` and wire it into the Python workflow. Documentation-only
+  PRs use `none`, explicit quality-infrastructure changes use `quality`, and
+  application/runtime or unknown paths fail closed to `full`; an empty CI diff
+  also fails closed to `full`. Since Docker, Redis integration, SonarCloud and
+  MegaLinter depend on the full build job, quality/docs scopes no longer bootstrap
+  those expensive jobs.
 - [ ] Factor shared shell mechanics (base resolution, changed/deleted file
   collection, compact reporting and workspace fingerprinting) out of
   `agent-quality-gate.sh` once the current local gate is green; keep policy in
