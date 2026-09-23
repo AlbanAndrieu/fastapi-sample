@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
-from prometheus_client import Counter, Gauge
+import math
+
+from prometheus_client import Counter, Gauge, Histogram
 
 _PROVIDERS = frozenset({"truenas", "pfsense", "cloudflare"})
 _PROVIDER_OUTCOMES = frozenset({"success", "failure", "suppressed"})
+_ORIGIN_OUTCOMES = frozenset({"success", "failure"})
 _CIRCUIT_STATES = ("closed", "open", "half_open")
 _CACHE_OUTCOMES = frozenset(
     {"l1_hit", "redis_hit", "local_hit", "miss", "stale", "redis_degraded"}
@@ -21,6 +24,17 @@ PROVIDER_BUDGET_REJECTIONS = Counter(
     "nabla_external_provider_rate_budget_rejections_total",
     "External provider origin attempts suppressed by the rate budget.",
     ("provider",),
+)
+PROVIDER_RATE_BUDGET_UTILIZATION = Gauge(
+    "nabla_external_provider_rate_budget_utilization_ratio",
+    "Observed provider attempts divided by the configured fixed-window rate budget.",
+    ("provider",),
+)
+PROVIDER_ORIGIN_DURATION = Histogram(
+    "nabla_external_provider_origin_duration_seconds",
+    "External provider origin probe duration.",
+    ("provider", "outcome"),
+    buckets=(0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0),
 )
 CIRCUIT_STATE = Gauge(
     "nabla_external_provider_circuit_state",
@@ -57,6 +71,36 @@ def record_provider_budget_rejection(provider: str | None) -> None:
     """Record only bounded provider labels for rate-budget suppression."""
     if provider in _PROVIDERS:
         PROVIDER_BUDGET_REJECTIONS.labels(provider=provider).inc()
+
+
+def record_provider_rate_budget_utilization(
+    provider: str | None,
+    *,
+    count: int,
+    max_requests: int,
+) -> None:
+    """Expose fixed-cardinality budget pressure without claiming a safe capacity."""
+    if provider not in _PROVIDERS or count < 0 or max_requests < 1:
+        return
+    PROVIDER_RATE_BUDGET_UTILIZATION.labels(provider=provider).set(
+        count / max_requests
+    )
+
+
+def observe_provider_origin_duration(
+    provider: str | None,
+    *,
+    outcome: str,
+    duration_seconds: float,
+) -> None:
+    """Observe bounded provider origin latency for capacity correlation."""
+    if provider not in _PROVIDERS or outcome not in _ORIGIN_OUTCOMES:
+        return
+    if not math.isfinite(duration_seconds) or duration_seconds < 0:
+        return
+    PROVIDER_ORIGIN_DURATION.labels(provider=provider, outcome=outcome).observe(
+        duration_seconds
+    )
 
 
 def record_circuit_state(provider: str | None, state: str) -> None:
