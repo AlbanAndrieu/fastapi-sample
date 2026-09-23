@@ -49,6 +49,15 @@ def _repo(tmp_path: Path) -> str:
     return _commit_file(tmp_path, "README.md", "base\n", "base")
 
 
+def test_empty_diff_fails_closed_in_ci(tmp_path: Path) -> None:
+    base = _repo(tmp_path)
+    env = {**os.environ, "CI": "true", "QUALITY_BASE_REF": base}
+
+    result = _run(tmp_path, "bash", str(SCRIPT), "--mode-only", env=env)
+
+    assert result.stdout.strip() == "full"
+
+
 def test_docs_only_scope_is_none(tmp_path: Path) -> None:
     base = _repo(tmp_path)
     _commit_file(tmp_path, "docs/quality.md", "docs\n", "docs")
