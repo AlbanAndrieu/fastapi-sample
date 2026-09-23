@@ -850,6 +850,11 @@ The following improvements have already been implemented:
   dependency path merely because the contract itself lives under `tests/`.
 - [x] Surface non-blocking baseline-aware code-size warnings from the compact
   agent gate instead of hiding successful warning output.
+- [x] Make local publication scope-aware: always run the strict agent gate,
+  but run Pylint, the minimal FastAPI import smoke and `uv build` only when the
+  centralized classifier reports `build=true`. Documentation/quality-only
+  publication therefore avoids irrelevant application build work without
+  weakening unknown/application/dependency changes.
 - [x] Centralize the CI dependency scope policy in tested
   `scripts/ci-scope.sh` and wire it into the Python workflow. Documentation-only
   PRs use `none`, explicit quality-infrastructure changes use `quality`, and
