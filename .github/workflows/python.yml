@@ -92,12 +92,12 @@ jobs:
         shell: bash
         run: |
           uv pip install --python .venv/bin/python "pytest<10" "PyYAML>=6.0"
-          env PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \\
-            uv run --no-sync pytest -q --noconftest \\
-            --disable-warnings --maxfail=1 \\
-            tests/unit/test_agent_quality_gate_contract.py \\
-            tests/unit/test_agent_dependency_mode.py \\
+          quality_tests=(
+            tests/unit/test_agent_quality_gate_contract.py
+            tests/unit/test_agent_dependency_mode.py
             tests/unit/test_agent_publication_proof.py
+          )
+          env PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 uv run --no-sync pytest             -q --noconftest --disable-warnings --maxfail=1 "${quality_tests[@]}"
 
       - name: Save pre-commit environments
         if: ${{ always() && steps.precommit-cache.outputs.cache-hit != 'true' }}
