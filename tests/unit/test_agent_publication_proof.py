@@ -140,6 +140,50 @@ printf '1\\n' >> "${QUALITY_TEST_COUNTER}"
     assert counter.read_text(encoding="utf-8").splitlines() == ["1", "1", "1"]
 
 
+def test_docs_only_publication_skips_application_build(tmp_path: Path) -> None:
+    _git(tmp_path, "init")
+    _git(tmp_path, "config", "user.email", "quality@example.invalid")
+    _git(tmp_path, "config", "user.name", "Quality Proof")
+
+    (tmp_path / "README.md").write_text("base\n", encoding="utf-8")
+    _git(tmp_path, "add", "README.md")
+    _git(tmp_path, "commit", "-m", "base")
+
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    counter = tmp_path / ".git" / "gate-count.txt"
+    build_counter = tmp_path / ".git" / "build-count.txt"
+    _write_executable(
+        scripts / "agent-quality-gate.sh",
+        """#!/usr/bin/env bash
+set -euo pipefail
+printf '1\\n' >> "${QUALITY_TEST_COUNTER}"
+""",
+    )
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "quality.md").write_text("docs only\n", encoding="utf-8")
+    _git(tmp_path, "add", "scripts/agent-quality-gate.sh", "docs/quality.md")
+    _git(tmp_path, "commit", "-m", "docs")
+
+    fake_bin = tmp_path / ".git" / "fake-bin"
+    fake_bin.mkdir()
+    _write_executable(fake_bin / "uv", _fake_uv("0.12.1"))
+    env = {
+        **os.environ,
+        "PATH": f"{fake_bin}:{os.environ.get('PATH', '')}",
+        "QUALITY_TEST_COUNTER": str(counter),
+        "QUALITY_TEST_BUILD_COUNTER": str(build_counter),
+    }
+
+    result = _run(tmp_path, "bash", str(SCRIPT), env=env)
+
+    assert "QG_PUBLISH_BUILD_SKIPPED" in result.stdout
+    assert "build=false" in result.stdout
+    assert counter.read_text(encoding="utf-8").splitlines() == ["1"]
+    assert not build_counter.exists()
+
+
 def test_publication_script_is_executable() -> None:
     assert SCRIPT.stat().st_mode & stat.S_IXUSR
 
@@ -151,6 +195,8 @@ def test_publication_script_is_executable() -> None:
         "QG_PUBLISH_DIRTY",
         "QG_PUBLISH_PROOF_REUSED",
         "QG_PUBLISH_PROOF_WRITTEN",
+        "QG_PUBLISH_BUILD_SKIPPED",
+        "QG_PUBLISH_SCOPE_INVALID",
         "uv run --no-sync pylint",
         "uv build",
     ],
