@@ -43,15 +43,17 @@ jobs:
       - name: Classify Python CI scope before dependency bootstrap
         id: ci_scope
         shell: bash
+        env:
+          QUALITY_BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'origin/master' }}
         run: |
           set -euo pipefail
           if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
-            mode="$(bash scripts/agent-quality-gate.sh --dependency-mode)"
+            bash scripts/ci-scope.sh
           else
-            mode="full"
+            printf 'dependency_mode=full\n' >> "${GITHUB_OUTPUT}"
+            printf 'changed_count=0\n' >> "${GITHUB_OUTPUT}"
+            echo "ℹ️ CI scope: explicit/manual/reusable execution; full dependency path required."
           fi
-          printf 'dependency_mode=%s\n' "${mode}" >> "${GITHUB_OUTPUT}"
-          printf 'CI dependency mode: %s\n' "${mode}"
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
@@ -96,6 +98,7 @@ jobs:
             tests/unit/test_agent_quality_gate_contract.py
             tests/unit/test_agent_dependency_mode.py
             tests/unit/test_agent_publication_proof.py
+            tests/unit/test_ci_scope.py
           )
           pytest_args=(-q --noconftest --disable-warnings --maxfail=1)
           env PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 uv run --no-sync pytest "${pytest_args[@]}" "${quality_tests[@]}"
