@@ -31,7 +31,13 @@ jobs:
     name: Fast deterministic quality gate
     runs-on: ubuntu-latest
     outputs:
+      maintenance_only: ${{ steps.ci_scope.outputs.maintenance_only }}
+      application: ${{ steps.ci_scope.outputs.application }}
+      sast: ${{ steps.ci_scope.outputs.sast }}
+      build: ${{ steps.ci_scope.outputs.build }}
+      dependencies: ${{ steps.ci_scope.outputs.dependencies }}
       dependency_mode: ${{ steps.ci_scope.outputs.dependency_mode }}
+      changed_count: ${{ steps.ci_scope.outputs.changed_count }}
       agent_gate_seconds: ${{ steps.agent_preflight.outputs.seconds }}
     env:
       PYTHON_VERSION: "3.13"
@@ -51,8 +57,15 @@ jobs:
           if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
             bash scripts/ci-scope.sh
           else
-            printf 'dependency_mode=full\n' >> "${GITHUB_OUTPUT}"
-            printf 'changed_count=0\n' >> "${GITHUB_OUTPUT}"
+            {
+              printf 'maintenance_only=false\n'
+              printf 'application=true\n'
+              printf 'sast=true\n'
+              printf 'build=true\n'
+              printf 'dependencies=true\n'
+              printf 'dependency_mode=full\n'
+              printf 'changed_count=0\n'
+            } >> "${GITHUB_OUTPUT}"
             echo "ℹ️ CI scope: explicit/manual/reusable execution; full dependency path required."
           fi
 
