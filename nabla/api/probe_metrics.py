@@ -36,6 +36,11 @@ PROVIDER_ORIGIN_DURATION = Histogram(
     ("provider", "outcome"),
     buckets=(0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0),
 )
+PROVIDER_ORIGINS_IN_FLIGHT = Gauge(
+    "nabla_external_provider_origins_in_flight",
+    "External provider origin probes currently executing.",
+    ("provider",),
+)
 CIRCUIT_STATE = Gauge(
     "nabla_external_provider_circuit_state",
     "Current provider circuit state as a one-hot gauge.",
@@ -101,6 +106,18 @@ def observe_provider_origin_duration(
     PROVIDER_ORIGIN_DURATION.labels(provider=provider, outcome=outcome).observe(
         duration_seconds
     )
+
+
+def provider_origin_started(provider: str | None) -> None:
+    """Increment current origin work for one bounded provider."""
+    if provider in _PROVIDERS:
+        PROVIDER_ORIGINS_IN_FLIGHT.labels(provider=provider).inc()
+
+
+def provider_origin_finished(provider: str | None) -> None:
+    """Decrement current origin work for one bounded provider."""
+    if provider in _PROVIDERS:
+        PROVIDER_ORIGINS_IN_FLIGHT.labels(provider=provider).dec()
 
 
 def record_circuit_state(provider: str | None, state: str) -> None:
