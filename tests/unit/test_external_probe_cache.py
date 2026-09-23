@@ -481,3 +481,108 @@ async def test_provider_rate_budget_serves_retained_stale_evidence(
     assert second.metadata["stale"] is True
     assert second.metadata["provider_rate_budget"]["origin_suppressed"] is True
     await cache.reset_probe_cache(key)
+
+@pytest.mark.asyncio
+async def test_origin_capacity_metrics_wrap_only_real_provider_io(
+    policy,
+    monkeypatch,
+) -> None:
+    key = "truenas:api"
+    await cache.reset_probe_cache(key)
+    monkeypatch.setattr(cache, "_redis_client", lambda: None)
+
+    class CircuitDecision:
+        allowed = True
+
+        @staticmethod
+        def metadata(*, origin_suppressed: bool = False):
+            return {"origin_suppressed": origin_suppressed}
+
+    class RateDecision:
+        provider = "truenas"
+        allowed = True
+        count = 1
+        max_requests = 2
+
+        @staticmethod
+        def metadata(*, origin_suppressed: bool = False):
+            return {"origin_suppressed": origin_suppressed}
+
+    async def before_probe(*_args, **_kwargs):
+        return CircuitDecision()
+
+    async def admit_probe(*_args, **_kwargs):
+        return RateDecision()
+
+    async def record_outcome(*_args, **_kwargs):
+        return {}
+
+    async def release_probe(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(cache, "before_provider_probe", before_probe)
+    monkeypatch.setattr(cache, "admit_provider_probe", admit_probe)
+    monkeypatch.setattr(cache, "record_provider_probe_outcome", record_outcome)
+    monkeypatch.setattr(cache, "release_provider_probe", release_probe)
+
+    events: list[tuple[str, object]] = []
+    monkeypatch.setattr(
+        cache,
+        "record_provider_rate_budget_utilization",
+        lambda provider, **values: events.append(
+            ("budget", (provider, values["count"], values["max_requests"]))
+        ),
+    )
+    monkeypatch.setattr(
+        cache,
+        "provider_origin_started",
+        lambda provider: events.append(("start", provider)),
+    )
+    monkeypatch.setattr(
+        cache,
+        "provider_origin_finished",
+        lambda provider: events.append(("finish", provider)),
+    )
+    monkeypatch.setattr(
+        cache,
+        "observe_provider_origin_duration",
+        lambda provider, **values: events.append(
+            ("duration", (provider, values["outcome"], values["duration_seconds"]))
+        ),
+    )
+
+    calls = 0
+
+    async def loader():
+        nonlocal calls
+        calls += 1
+        return {"reachable": True}
+
+    first = await cache.get_or_refresh_probe(
+        key,
+        loader,
+        is_success=lambda value: value["reachable"] is True,
+        policy=policy,
+    )
+    after_origin = list(events)
+    second = await cache.get_or_refresh_probe(
+        key,
+        loader,
+        is_success=lambda value: value["reachable"] is True,
+        policy=policy,
+    )
+
+    assert first.value == second.value == {"reachable": True}
+    assert calls == 1
+    assert events == after_origin
+    assert events[0] == ("budget", ("truenas", 1, 2))
+    assert events[1] == ("start", "truenas")
+    assert events[2][0] == "duration"
+    provider, outcome, duration = events[2][1]
+    assert provider == "truenas"
+    assert outcome == "success"
+    assert duration >= 0
+    assert events[3] == ("finish", "truenas")
+
+    await cache.reset_probe_cache(key)
+
