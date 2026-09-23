@@ -33,6 +33,7 @@ def test_unknown_labels_do_not_create_metric_series() -> None:
     budget_series = _series(probe_metrics.PROVIDER_BUDGET_REJECTIONS)
     utilization_series = _series(probe_metrics.PROVIDER_RATE_BUDGET_UTILIZATION)
     duration_series = _series(probe_metrics.PROVIDER_ORIGIN_DURATION)
+    in_flight_series = _series(probe_metrics.PROVIDER_ORIGINS_IN_FLIGHT)
     cache_series = _series(probe_metrics.CACHE_OUTCOMES)
     timeout_series = _series(probe_metrics.PROBE_TIMEOUTS)
 
@@ -48,6 +49,8 @@ def test_unknown_labels_do_not_create_metric_series() -> None:
         outcome="failure",
         duration_seconds=1.0,
     )
+    probe_metrics.provider_origin_started("https://dynamic.example")
+    probe_metrics.provider_origin_finished("https://dynamic.example")
     probe_metrics.record_cache_outcome("cache-key:user-controlled")
     probe_metrics.record_probe_timeout("https://dynamic.example")
 
@@ -55,6 +58,7 @@ def test_unknown_labels_do_not_create_metric_series() -> None:
     assert _series(probe_metrics.PROVIDER_BUDGET_REJECTIONS) == budget_series
     assert _series(probe_metrics.PROVIDER_RATE_BUDGET_UTILIZATION) == utilization_series
     assert _series(probe_metrics.PROVIDER_ORIGIN_DURATION) == duration_series
+    assert _series(probe_metrics.PROVIDER_ORIGINS_IN_FLIGHT) == in_flight_series
     assert _series(probe_metrics.CACHE_OUTCOMES) == cache_series
     assert _series(probe_metrics.PROBE_TIMEOUTS) == timeout_series
 
@@ -138,6 +142,30 @@ def test_provider_capacity_metrics_use_bounded_labels() -> None:
         if sample.name.endswith("_count")
     )
     assert after_count == before_count + 1
+
+
+def test_provider_origin_in_flight_gauge_balances() -> None:
+    before = _gauge_value(
+        probe_metrics.PROVIDER_ORIGINS_IN_FLIGHT,
+        provider="truenas",
+    )
+
+    probe_metrics.provider_origin_started("truenas")
+    assert (
+        _gauge_value(
+            probe_metrics.PROVIDER_ORIGINS_IN_FLIGHT,
+            provider="truenas",
+        )
+        == before + 1
+    )
+    probe_metrics.provider_origin_finished("truenas")
+    assert (
+        _gauge_value(
+            probe_metrics.PROVIDER_ORIGINS_IN_FLIGHT,
+            provider="truenas",
+        )
+        == before
+    )
 
 
 def test_invalid_capacity_measurements_do_not_create_series() -> None:
