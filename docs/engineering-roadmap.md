@@ -430,10 +430,11 @@ degraded conditions.
       passes per provider and use Redis for cross-replica coordination when
       available, with process-local fallback otherwise.
 - [x] Add fixed-cardinality Prometheus capacity evidence for provider origin
-      probes: per-provider budget-utilization ratio, budget rejections and
-      success/failure origin-duration histograms. Cache hits never count as origin
-      load, so this telemetry can be correlated with TrueNAS/pfSense resource
-      pressure without dynamic endpoint labels.
+      probes: per-provider budget-utilization ratio, budget rejections,
+      in-flight origin concurrency and success/failure origin-duration
+      histograms. Cache hits never count as origin load, so this telemetry can be
+      correlated with TrueNAS/pfSense resource pressure without dynamic endpoint
+      labels.
 - [ ] Establish the safe TrueNAS/pfSense probe operating envelope from measured
       Prometheus evidence before relaxing any rate/concurrency limit. Correlate
       FastAPI origin rate/p95 latency/timeouts with TrueNAS CPU/memory and
