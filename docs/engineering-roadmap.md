@@ -69,6 +69,12 @@ duplicate schemas and shortens the migration.
   scoring policy into FastAPI: calculated/declared business criticality,
   DMTP/MTPD, RTO, optional RPO, MBCO/OMCA, recovery margin, assessment status,
   drivers and effective dependency criticality all retain full entity refs.
+- [x] Document the provisional service BIA in
+  `docs/business-impact-analysis.md`: RTO `P7D`, MTPD/DIMA `P14D`,
+  no runtime-database recovery requirement (`RPO=null`), and MBCO/OMCA that
+  permits 0% automated service during recovery when manual exposure checks are
+  available. Keep low availability/business criticality separate from the
+  service's high inherent security-exposure and probe-induced DoS risk.
 - [x] Keep projected BIA continuity validation fail-closed with the authoritative
   producer: accept only its bounded positive ISO-8601 duration subset, require
   RTO < MTPD/DMTP, and require `recoveryMarginSeconds` to equal MTPD/DMTP minus
