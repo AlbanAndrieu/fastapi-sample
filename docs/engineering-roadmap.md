@@ -389,8 +389,10 @@ degraded conditions.
       management endpoints once the desired access flow is defined.
 - [ ] Publish a dedicated public homelab projection that excludes internal host
       names, ports and infrastructure details without breaking existing dashboards.
-- [ ] Add explicit request budgets/rate limits to expensive dependency probes;
-      shared response/probe caching is tracked in the dedicated cache section below.
+- [x] Add explicit request budgets/rate limits to expensive dependency probes.
+      Request-scoped concurrency/deadline budgets plus provider-level fixed-window
+      admission limits now sit above cache/single-flight/circuit breaking; the
+      provider limits are protective ceilings, not measured capacity claims.
 
 ## P1 — Redis and external-probe caching
 
@@ -427,6 +429,17 @@ degraded conditions.
       Fixed 60-second admission windows allow two complete declared cold-start
       passes per provider and use Redis for cross-replica coordination when
       available, with process-local fallback otherwise.
+- [x] Add fixed-cardinality Prometheus capacity evidence for provider origin
+      probes: per-provider budget-utilization ratio, budget rejections and
+      success/failure origin-duration histograms. Cache hits never count as origin
+      load, so this telemetry can be correlated with TrueNAS/pfSense resource
+      pressure without dynamic endpoint labels.
+- [ ] Establish the safe TrueNAS/pfSense probe operating envelope from measured
+      Prometheus evidence before relaxing any rate/concurrency limit. Correlate
+      FastAPI origin rate/p95 latency/timeouts with TrueNAS CPU/memory and
+      pfSense CPU/load/PHP-FPM pressure. The latter still needs a bounded
+      Prometheus recording-rule contract; `pfsense_metrics_up` alone is not a
+      capacity signal.
 - [x] Document cache schema-bump/invalidation and production diagnostics, including
       the expected degraded behavior when Redis is unavailable. See
       `docs/external-probe-cache-operations.md`.
