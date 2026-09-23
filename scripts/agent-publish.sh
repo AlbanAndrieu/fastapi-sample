@@ -3,6 +3,8 @@ set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
 cd "${ROOT}"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+CI_SCOPE_SCRIPT="${SCRIPT_DIR}/ci-scope.sh"
 
 resolve_base_ref() {
     if [[ -n "${QUALITY_BASE_REF:-}" ]]; then
@@ -100,15 +102,31 @@ fi
 
 QUALITY_BASE_REF="${BASE_SHA}" bash scripts/agent-quality-gate.sh --publish
 
-uv run --no-sync pylint \
-    --fail-under=9.5 \
-    --disable=E1701,E0102,E1003 \
-    server_app.py nabla
+scope_output="$(QUALITY_BASE_REF="${BASE_SHA}" bash "${CI_SCOPE_SCRIPT}")"
+printf '%s\n' "${scope_output}"
+build="$(awk -F= '$1 == "build" { print $2; exit }' <<<"${scope_output}")"
 
-uv run --no-sync python -c \
-    "import nabla.main; assert nabla.main.app is not None"
+case "${build}" in
+    true)
+        uv run --no-sync pylint \
+            --fail-under=9.5 \
+            --disable=E1701,E0102,E1003 \
+            server_app.py nabla
 
-uv build
+        uv run --no-sync python -c \
+            "import nabla.main; assert nabla.main.app is not None"
+
+        uv build
+        ;;
+    false)
+        echo "✅ QG_PUBLISH_BUILD_SKIPPED: no application build impact in this publication scope."
+        ;;
+    *)
+        printf '❌ QG_PUBLISH_SCOPE_INVALID: ci-scope returned build=%s\n' \
+            "${build:-missing}" >&2
+        exit 1
+        ;;
+esac
 
 STATUS="$(git status --short)"
 if [[ -n "${STATUS}" ]]; then
