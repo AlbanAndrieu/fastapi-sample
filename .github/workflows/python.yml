@@ -30,6 +30,8 @@ jobs:
   preflight:
     name: Fast deterministic quality gate
     runs-on: ubuntu-latest
+    outputs:
+      dependency_mode: ${{ steps.ci-scope.outputs.dependency_mode }}
     env:
       PYTHON_VERSION: "3.13"
     steps:
@@ -37,6 +39,19 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Classify Python CI scope before dependency bootstrap
+        id: ci-scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            mode="$(bash scripts/agent-quality-gate.sh --dependency-mode)"
+          else
+            mode="full"
+          fi
+          printf 'dependency_mode=%s\n' "${mode}" >> "${GITHUB_OUTPUT}"
+          printf 'CI dependency mode: %s\n' "${mode}"
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
@@ -72,6 +87,13 @@ jobs:
           SKIP: "uv-sync,uv-lock,uv-export,pytest-collect"
         run: bash scripts/agent-quality-gate.sh --ci-preflight
 
+      - name: Run isolated quality-contract tests
+        if: steps.ci-scope.outputs.dependency_mode == 'quality'
+        shell: bash
+        run: |
+          uv pip install --python .venv/bin/python "pytest<10" "PyYAML>=6.0"
+          env PYTEST_DISABLE_PLUGIN_AUTOLOAD=1             uv run --no-sync pytest -q --noconftest             --disable-warnings --maxfail=1             tests/unit/test_agent_quality_gate_contract.py             tests/unit/test_agent_dependency_mode.py             tests/unit/test_agent_publication_proof.py
+
       - name: Save pre-commit environments
         if: ${{ always() && steps.precommit-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -81,7 +103,7 @@ jobs:
 
   build:
     needs: preflight
-    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
+    if: ${{ (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && needs.preflight.outputs.dependency_mode == 'full' }}
     name: Test and build Python package
     runs-on: ubuntu-latest
     env:
