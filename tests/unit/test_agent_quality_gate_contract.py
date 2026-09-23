@@ -148,10 +148,13 @@ def test_production_smoke_does_not_run_on_every_pr_synchronize() -> None:
     assert "github.event.pull_request.draft == false" in workflow
 
 
-def test_codeql_waits_until_draft_is_ready() -> None:
+def test_codeql_waits_until_draft_is_ready_and_scopes_python_changes() -> None:
     workflow = (ROOT / ".github/workflows/codeql.yml").read_text(encoding="utf-8")
 
     assert "types: [opened, synchronize, reopened, ready_for_review]" in workflow
+    assert '      - "**/*.py"' in workflow
+    assert '      - ".github/workflows/codeql.yml"' in workflow
+    assert "docs/**" not in workflow
     assert "github.event.pull_request.draft == false" in workflow
 
 
