@@ -2,10 +2,10 @@
 set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
-cd "\${ROOT}"
+cd "${ROOT}"
 
 MODE_ONLY=false
-if [[ "\${1:-}" == "--mode-only" ]]; then
+if [[ "${1:-}" == "--mode-only" ]]; then
     MODE_ONLY=true
     shift
 fi
@@ -15,8 +15,8 @@ if (($# > 2)); then
 fi
 
 resolve_base_ref() {
-    if [[ -n "\${QUALITY_BASE_REF:-}" ]]; then
-        printf '%s\n' "\${QUALITY_BASE_REF}"
+    if [[ -n "${QUALITY_BASE_REF:-}" ]]; then
+        printf '%s\n' "${QUALITY_BASE_REF}"
     elif git symbolic-ref --quiet refs/remotes/origin/HEAD >/dev/null 2>&1; then
         git symbolic-ref --quiet --short refs/remotes/origin/HEAD
     elif git rev-parse --verify origin/master >/dev/null 2>&1; then
@@ -28,22 +28,22 @@ resolve_base_ref() {
     fi
 }
 
-BASE_REF="\${1:-$(resolve_base_ref)}"
-HEAD_REF="\${2:-HEAD}"
+BASE_REF="${1:-$(resolve_base_ref)}"
+HEAD_REF="${2:-HEAD}"
 
-for ref in "\${BASE_REF}" "\${HEAD_REF}"; do
-    if ! git rev-parse --verify "\${ref}^{commit}" >/dev/null 2>&1; then
-        printf '❌ CI_SCOPE_REF_MISSING: %s\n' "\${ref}" >&2
+for ref in "${BASE_REF}" "${HEAD_REF}"; do
+    if ! git rev-parse --verify "${ref}^{commit}" >/dev/null 2>&1; then
+        printf '❌ CI_SCOPE_REF_MISSING: %s\n' "${ref}" >&2
         exit 1
     fi
 done
 
 collect_changed_files() {
     {
-        if [[ "\${BASE_REF}" != "\${HEAD_REF}" ]]; then
-            git diff --name-only --diff-filter=ACMRD "\${BASE_REF}...\${HEAD_REF}"
+        if [[ "${BASE_REF}" != "${HEAD_REF}" ]]; then
+            git diff --name-only --diff-filter=ACMRD "${BASE_REF}...${HEAD_REF}"
         fi
-        if [[ "\${HEAD_REF}" == "HEAD" ]]; then
+        if [[ "${HEAD_REF}" == "HEAD" ]]; then
             git diff --name-only --diff-filter=ACMRD
             git diff --cached --name-only --diff-filter=ACMRD
             git ls-files --others --exclude-standard
@@ -92,11 +92,11 @@ mapfile -t CHANGED_FILES < <(collect_changed_files)
 
 dependency_mode="none"
 quality_change=false
-for file in "\${CHANGED_FILES[@]}"; do
-    if is_docs_only_path "\${file}"; then
+for file in "${CHANGED_FILES[@]}"; do
+    if is_docs_only_path "${file}"; then
         continue
     fi
-    if is_quality_only_path "\${file}"; then
+    if is_quality_only_path "${file}"; then
         quality_change=true
         continue
     fi
@@ -104,26 +104,26 @@ for file in "\${CHANGED_FILES[@]}"; do
     break
 done
 
-if [[ "\${dependency_mode}" != "full" && "\${quality_change}" == true ]]; then
+if [[ "${dependency_mode}" != "full" && "${quality_change}" == true ]]; then
     dependency_mode="quality"
 fi
 
-if [[ "\${MODE_ONLY}" == true ]]; then
-    printf '%s\n' "\${dependency_mode}"
+if [[ "${MODE_ONLY}" == true ]]; then
+    printf '%s\n' "${dependency_mode}"
     exit 0
 fi
 
-printf 'dependency_mode=%s\n' "\${dependency_mode}"
-printf 'changed_count=%d\n' "\${#CHANGED_FILES[@]}"
+printf 'dependency_mode=%s\n' "${dependency_mode}"
+printf 'changed_count=%d\n' "${#CHANGED_FILES[@]}"
 
-if [[ -n "\${GITHUB_OUTPUT:-}" ]]; then
+if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
     {
-        printf 'dependency_mode=%s\n' "\${dependency_mode}"
-        printf 'changed_count=%d\n' "\${#CHANGED_FILES[@]}"
-    } >>"\${GITHUB_OUTPUT}"
+        printf 'dependency_mode=%s\n' "${dependency_mode}"
+        printf 'changed_count=%d\n' "${#CHANGED_FILES[@]}"
+    } >>"${GITHUB_OUTPUT}"
 fi
 
-case "\${dependency_mode}" in
+case "${dependency_mode}" in
     full)
         echo "ℹ️ CI scope: application/runtime/security-capable change; full dependency path required."
         ;;
