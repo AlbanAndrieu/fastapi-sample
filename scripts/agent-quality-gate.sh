@@ -3,6 +3,8 @@ set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
 cd "${ROOT}"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+CI_SCOPE_SCRIPT="${SCRIPT_DIR}/ci-scope.sh"
 
 MODE="check"
 PUBLISH=false
@@ -166,7 +168,7 @@ quality_contract_impact=false
 dependency_mode="none"
 classify_test_impact() {
     dependency_mode="$(
-        QUALITY_BASE_REF="${BASE_REF}" bash scripts/ci-scope.sh --mode-only
+        QUALITY_BASE_REF="${BASE_REF}" bash "${CI_SCOPE_SCRIPT}" --mode-only
     )"
     full_pytest_impact=false
     quality_contract_impact=false
@@ -180,7 +182,8 @@ classify_test_impact() {
         none)
             ;;
         *)
-            printf '❌ QG_SCOPE_INVALID: unexpected CI scope %s\n'                 "${dependency_mode}" >&2
+            printf '❌ QG_SCOPE_INVALID: unexpected CI scope %s\n' \
+                "${dependency_mode}" >&2
             return 1
             ;;
     esac
