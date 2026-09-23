@@ -105,6 +105,7 @@ jobs:
             tests/unit/test_agent_dependency_mode.py
             tests/unit/test_agent_publication_proof.py
             tests/unit/test_ci_scope.py
+            tests/unit/test_ci_performance_budget.py
           )
           pytest_args=(-q --noconftest --disable-warnings --maxfail=1)
           env PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 uv run --no-sync pytest "${pytest_args[@]}" "${quality_tests[@]}"
