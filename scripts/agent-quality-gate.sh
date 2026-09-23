@@ -163,41 +163,32 @@ mapfile -t DELETED_FILES < <(collect_deleted_files)
 
 full_pytest_impact=false
 quality_contract_impact=false
+dependency_mode="none"
 classify_test_impact() {
-    local file
-    for file in "${CHANGED_FILES[@]}" "${DELETED_FILES[@]}"; do
-        case "${file}" in
-            tests/unit/test_agent_quality_gate_contract.py | \
-                tests/unit/test_agent_dependency_mode.py | \
-                tests/unit/test_agent_publication_proof.py | \
-                scripts/agent-quality-gate.sh | \
-                scripts/agent-publish.sh | \
-                scripts/quality-gate.sh | \
-                scripts/check_code_size.py | \
-                .github/workflows/* | \
-                .pre-commit* | \
-                mise.toml | \
-                AGENTS.md)
-                quality_contract_impact=true
-                continue
-                ;;
-            nabla/* | tests/* | server_app.py | pyproject.toml | uv.lock | Pipfile | Pipfile.lock | scripts/*.py)
-                full_pytest_impact=true
-                return
-                ;;
-        esac
-    done
+    dependency_mode="$(
+        QUALITY_BASE_REF="${BASE_REF}" bash scripts/ci-scope.sh --mode-only
+    )"
+    full_pytest_impact=false
+    quality_contract_impact=false
+    case "${dependency_mode}" in
+        full)
+            full_pytest_impact=true
+            ;;
+        quality)
+            quality_contract_impact=true
+            ;;
+        none)
+            ;;
+        *)
+            printf '❌ QG_SCOPE_INVALID: unexpected CI scope %s\n'                 "${dependency_mode}" >&2
+            return 1
+            ;;
+    esac
 }
 
 classify_test_impact
 if [[ "${MODE}" == "dependency" ]]; then
-    if [[ "${full_pytest_impact}" == true ]]; then
-        echo "full"
-    elif [[ "${quality_contract_impact}" == true ]]; then
-        echo "quality"
-    else
-        echo "none"
-    fi
+    printf '%s\n' "${dependency_mode}"
     exit 0
 fi
 
