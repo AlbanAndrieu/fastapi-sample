@@ -13,7 +13,8 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def test_external_github_actions_are_pinned_to_commit_sha() -> None:
     workflow_dir = ROOT / ".github" / "workflows"
-    action_ref = re.compile(r"uses:\\s*([^\\s#]+)")
+    action_ref = re.compile(r"uses:\s*([^\s#]+)")
+    external_action_count = 0
 
     for workflow_path in sorted(workflow_dir.glob("*.y*ml")):
         text = workflow_path.read_text(encoding="utf-8")
@@ -21,11 +22,14 @@ def test_external_github_actions_are_pinned_to_commit_sha() -> None:
             action = match.group(1)
             if action.startswith("./"):
                 continue
+            external_action_count += 1
             assert "@" in action, f"{workflow_path}: unversioned action {action}"
             ref = action.rsplit("@", maxsplit=1)[1]
             assert re.fullmatch(r"[0-9a-f]{40}", ref), (
                 f"{workflow_path}: action must use immutable SHA: {action}"
             )
+
+    assert external_action_count > 0
 
 
 def test_dependency_updates_are_explicit_maintenance_not_validation() -> None:
