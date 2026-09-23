@@ -855,13 +855,18 @@ The following improvements have already been implemented:
   centralized classifier reports `build=true`. Documentation/quality-only
   publication therefore avoids irrelevant application build work without
   weakening unknown/application/dependency changes.
-- [x] Centralize the CI dependency scope policy in tested
-  `scripts/ci-scope.sh` and wire it into the Python workflow. Documentation-only
-  PRs use `none`, explicit quality-infrastructure changes use `quality`, and
-  application/runtime or unknown paths fail closed to `full`; an empty CI diff
-  also fails closed to `full`. Since Docker, Redis integration, SonarCloud and
-  MegaLinter depend on the full build job, quality/docs scopes no longer bootstrap
-  those expensive jobs.
+- [x] Centralize CI scope policy in tested `scripts/ci_scope.py`, with
+  `scripts/ci-scope.sh` retained only as its shell compatibility entrypoint.
+  Documentation-only PRs use `none`, explicit quality-infrastructure changes use
+  `quality`, and application/runtime or unknown paths fail closed to `full`;
+  an empty diff also fails closed to `full`. The Python workflow consumes the
+  derived dependency mode before dependency bootstrap.
+- [x] Keep Docker, Redis integration, SonarCloud and MegaLinter downstream of the
+  full build job, so `none`/quality scopes do not bootstrap those expensive jobs.
+- [ ] When normal Actions capacity is restored, evaluate using the detailed
+  `sast`, `build`, `dependencies` and `application` outputs directly in
+  CodeQL/Semgrep and reusable callers where that removes additional work without
+  weakening fail-closed security coverage.
 - [ ] Factor shared shell mechanics (base resolution, changed/deleted file
   collection, compact reporting and workspace fingerprinting) out of
   `agent-quality-gate.sh` once the current local gate is green; keep policy in
