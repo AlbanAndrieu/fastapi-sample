@@ -39,9 +39,8 @@ def test_agent_quality_gate_wraps_tests_and_canonical_gate() -> None:
     assert "git hash-object --stdin" in text
     assert "--dependency-mode" in text
     assert "--ci-preflight" in text
-    assert 'echo "full"' in text
-    assert 'echo "quality"' in text
-    assert 'echo "none"' in text
+    assert "scripts/ci-scope.sh --mode-only" in text
+    assert "QG_SCOPE_INVALID" in text
     assert "uv run pre-commit run shfmt" in text
     assert "uv run pre-commit run shell-lint" in text
     assert "uv run pre-commit run bashate" in text
@@ -95,6 +94,7 @@ def test_python_ci_runs_fast_gate_before_heavy_dependency_sync() -> None:
     assert '"pytest<10" "PyYAML>=6.0"' in workflow
     assert "tests/unit/test_agent_dependency_mode.py" in workflow
     assert "tests/unit/test_agent_publication_proof.py" in workflow
+    assert "tests/unit/test_ci_scope.py" in workflow
     assert "needs.preflight.outputs.dependency_mode == 'full'" in workflow
     assert "Resolve and install locked project dependencies" in workflow
     assert "run: uv sync --frozen" in workflow
