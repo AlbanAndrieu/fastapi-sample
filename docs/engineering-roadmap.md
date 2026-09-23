@@ -868,9 +868,10 @@ The following improvements have already been implemented:
 - [x] Keep Docker, Redis integration, SonarCloud and MegaLinter downstream of the
   full build job, so `none`/quality scopes do not bootstrap those expensive jobs.
 - [ ] When normal Actions capacity is restored, evaluate using the detailed
-  `sast`, `build`, `dependencies` and `application` outputs directly in
-  CodeQL/Semgrep and reusable callers where that removes additional work without
-  weakening fail-closed security coverage.
+  `sast`, `build`, `dependencies` and `application` outputs in a future
+  changed-source Semgrep job and reusable callers where that removes additional
+  work. Keep CodeQL's independent conservative Python-path scope unless replacing
+  it is demonstrably simpler and equally fail-closed.
 - [ ] Factor shared shell mechanics (base resolution, changed/deleted file
   collection, compact reporting and workspace fingerprinting) out of
   `agent-quality-gate.sh` once the current local gate is green; keep policy in
