@@ -792,6 +792,44 @@ contract. It does not add privileged Nabla Service operations.
 9. `ci(security): enforce branch protection and mandatory security checks`
 10. `docs(dev): standardize uv onboarding and shared agent instructions`
 
+## Cross-repository CI lessons from nabla-site-alban PRs #180-#195
+
+The latest 15 `nabla-site-alban` pull requests were reviewed for CI/quality
+patterns that transfer cleanly to this Python/FastAPI repository. Front-end,
+Next.js, Playwright-visual and Vercel-specific behavior is intentionally excluded.
+
+- [x] Reuse exact publication proofs keyed by HEAD, comparison base and local
+  toolchain. `scripts/agent-publish.sh` already fingerprints `uv`, Python,
+  pre-commit and `uv.lock`, rejects stale/dirty publication and reuses a prior
+  strict pass only when that proof remains exact.
+- [x] Keep diff-aware destructive-change and executable-bit guards before expensive
+  validation.
+- [x] Keep code-size enforcement baseline-aware so legacy oversized Python modules
+  are grandfathered while new growth remains controlled.
+- [x] Classify CI impact before dependency bootstrap as `full`, `quality` or
+  `none`. Pull-request application/runtime changes retain the full locked
+  dependency sync/test/build path; quality-infrastructure changes run isolated
+  quality-contract tests; documentation-only changes stop after the lightweight
+  gate. Manual/reusable workflow execution always remains `full`.
+- [x] Keep the agent preflight before the full `uv sync`, with cached pre-commit
+  environments and no project dependency cache in the lightweight stage.
+- [x] Keep local deterministic autofix convergence multi-pass and publication
+  validation clean-tree-only.
+- [ ] Add warning-only Python CI performance baselines, adapted from
+  `nabla-site-alban#195`: measure agent-gate duration, locked `uv sync`
+  duration, pytest duration, `uv build` duration and environment/artifact size.
+  Establish several exact-checkout baselines before choosing thresholds; do not
+  make these budgets blocking initially.
+- [ ] Once GitHub Actions credits and normal PR CI are restored, decide whether to
+  prohibit `[skip ci]` on merge-candidate commits as `nabla-site-alban#192`
+  does. Do not enable that policy while the explicit local-first/no-credit mode
+  relies on `[skip ci]`; require the local publication proof and keep such PRs
+  Draft instead.
+- [ ] Evaluate a Python-specific SAST scope classifier so Semgrep/CodeQL or other
+  expensive security jobs can distinguish application/security-source changes
+  from documentation/quality-only changes without weakening scans for Python,
+  Docker, dependency manifests or workflow changes.
+
 ## Consolidated quality and refactoring backlog
 
 The remaining sections preserve the quality roadmap introduced separately on
