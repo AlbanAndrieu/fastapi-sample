@@ -501,6 +501,13 @@ acceptance criterion.
       domain-specific `pydantic-settings` models. Keep secrets as `SecretStr`,
       validate bounds/URLs at construction, preserve environment-name compatibility
       during migration, and keep settings construction free of network side effects.
+  - [x] Move `HEALTH_BOARD_CACHE_TTL_SECONDS` and
+        `TRUENAS_RUNTIME_CACHE_TTL_SECONDS` into
+        `HealthRuntimeSettings`. Preserve the existing defaults and bounded
+        fallback semantics while removing duplicate runtime parsing from
+        `health_board.py` and `homelab_runtime.py`.
+  - [ ] Continue domain-by-domain with remaining runtime/environment reads; avoid
+        one global settings object that would couple unrelated provider secrets.
 - [ ] Create a small set of lifespan-owned `httpx.AsyncClient` instances using the
       existing `AsyncExitStack`, with explicit connection limits, connect/read/
       write/pool timeouts and intentional `trust_env` behavior. Keep provider
