@@ -352,8 +352,8 @@ async def collect_bounded_probe_batch(
             "timed_out": 0,
             "rotating_sample": eligible > 0,
             "budget_seconds": limits.fanout_budget_seconds,
-            "limits.per_probe_timeout_seconds": limits.per_probe_timeout_seconds,
-            "limits.max_concurrency": limits.max_concurrency,
+            "per_probe_timeout_seconds": limits.per_probe_timeout_seconds,
+            "max_concurrency": limits.max_concurrency,
             "elapsed_ms": 0,
             "states": {"ok": 0, "warn": 0, "fail": 0},
         }
@@ -395,8 +395,8 @@ async def collect_bounded_probe_batch(
         "timed_out": len(pending),
         "rotating_sample": eligible > len(probes),
         "budget_seconds": limits.fanout_budget_seconds,
-        "limits.per_probe_timeout_seconds": limits.per_probe_timeout_seconds,
-        "limits.max_concurrency": limits.max_concurrency,
+        "per_probe_timeout_seconds": limits.per_probe_timeout_seconds,
+        "max_concurrency": limits.max_concurrency,
         "elapsed_ms": max(
             0,
             round((time.perf_counter() - started) * 1000),
