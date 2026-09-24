@@ -888,6 +888,13 @@ The following improvements have already been implemented:
   dependency path merely because the contract itself lives under `tests/`.
 - [x] Surface non-blocking baseline-aware code-size warnings from the compact
   agent gate instead of hiding successful warning output.
+- [x] Refactor `nabla/api/homelab_health.py` below the 400-line
+  maintainability warning threshold without changing its public/test seams.
+  Low-level bounded HTTP/TCP execution now lives in
+  `homelab_probe_runner.py`, defensive cache copying in
+  `homelab_health_cache.py`, and pure TrueNAS target/state reconciliation in
+  `truenas_probe_health.py`. The façade remains responsible for orchestration,
+  provider dependency injection and the process-local snapshot cache.
 - [x] Make local publication scope-aware: always run the strict agent gate,
   but run Pylint, the minimal FastAPI import smoke and `uv build` only when the
   centralized classifier reports `build=true`. Documentation/quality-only
