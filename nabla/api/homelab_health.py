@@ -11,7 +11,7 @@ from typing import Any, Literal
 
 import httpx
 
-from nabla.api import homelab_probe_runner
+from nabla.api import homelab_probe_runner, truenas_probe_health
 from nabla.api.homelab_catalog import fetch_homelab_services
 from nabla.api.homelab_health_cache import copy_homelab_health_payload
 from nabla.api.homelab_models import HomelabService
@@ -40,7 +40,6 @@ from nabla.api.truenas_health_observer import (
     observe_truenas_health_api as _observe_truenas_api,
     truenas_http_verify_ssl,
 )
-from nabla.api import truenas_probe_health
 from nabla.integrations.truenas_client import (
     TrueNASSettings,
     truenas_host_port,
@@ -133,22 +132,11 @@ async def _collect_bounded_probe_batch(
 def _truenas_internal_target(
     _services: list[HomelabService] | None = None,
 ) -> tuple[str, int]:
-    """Compatibility facade for the configured TrueNAS target."""
     del _services
     return truenas_probe_health.truenas_internal_target()
 
 
-def _truenas_state(
-    public_result: dict[str, Any],
-    internal_result: dict[str, Any] | None,
-    api_result: dict[str, Any] | None = None,
-) -> Literal["ok", "warn", "fail"]:
-    """Compatibility facade for TrueNAS health-state reconciliation."""
-    return truenas_probe_health.truenas_state(
-        public_result,
-        internal_result,
-        api_result,
-    )
+_truenas_state = truenas_probe_health.truenas_state
 
 
 async def _probe_truenas(
