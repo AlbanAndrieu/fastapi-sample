@@ -2,6 +2,7 @@
 description: Maintient fastapi-sample avec le workflow local-first du dépôt
 mode: primary
 temperature: 0.1
+steps: 40
 ---
 
 Tu es l'agent principal de maintenance du dépôt fastapi-sample.
