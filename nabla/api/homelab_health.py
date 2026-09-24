@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 import re
 import time
 from datetime import datetime, timezone
@@ -47,6 +46,7 @@ from nabla.integrations.truenas_client import (
     truenas_host_port,
     truenas_url,
 )
+from nabla.settings.homelab import TrueNASProviderSettings
 from nabla.utils.environment import env_bool
 
 HealthState = Literal["ok", "warn", "fail"]
@@ -459,7 +459,7 @@ async def _probe_truenas(
 
     host, port = truenas_host_port()
     verify_ssl = truenas_http_verify_ssl()
-    ws_path = os.getenv("TRUENAS_WS_PATH", "/api/current").strip() or "/api/current"
+    ws_path = TrueNASProviderSettings().websocket_path
     websocket_uri = TrueNASSettings(
         url=truenas_url(),
         verify_ssl=verify_ssl,
