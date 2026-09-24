@@ -121,13 +121,11 @@ async def _collect_bounded_probe_batch(
     return await homelab_probe_runner.collect_bounded_probe_batch(
         probes,
         scope=scope,
-        limits=homelab_probe_runner.ProbeBatchLimits(
-            per_probe_timeout_seconds=per_probe_timeout_seconds,
-            fanout_budget_seconds=_SERVICE_FANOUT_BUDGET_SEC,
-            max_concurrency=_MAX_PROBE_CONCURRENCY,
-        ),
         enabled=enabled,
         eligible_count=eligible_count,
+        per_probe_timeout_seconds=per_probe_timeout_seconds,
+        fanout_budget_seconds=_SERVICE_FANOUT_BUDGET_SEC,
+        max_concurrency=_MAX_PROBE_CONCURRENCY,
     )
 
 
