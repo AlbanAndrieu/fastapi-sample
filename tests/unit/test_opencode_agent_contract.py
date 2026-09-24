@@ -45,7 +45,11 @@ def test_opencode_reviewer_is_read_only() -> None:
     assert "mode: subagent" in reviewer
     assert "steps: 12" in reviewer
     assert "edit: deny" in reviewer
-    assert "bash: deny" in reviewer
+    assert '"*": deny' in reviewer
+    assert '"git status*": allow' in reviewer
+    assert '"git diff*": allow' in reviewer
+    assert '"git log*": allow' in reviewer
+    assert '"git show*": allow' in reviewer
 
 
 def test_opencode_commands_cover_local_agent_workflow() -> None:
