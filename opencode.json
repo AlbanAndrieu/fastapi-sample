@@ -64,5 +64,14 @@
     "skill": {
       "*": "allow"
     }
+  },
+  "tool_output": {
+    "max_lines": 600,
+    "max_bytes": 32000
+  },
+  "compaction": {
+    "auto": true,
+    "prune": true,
+    "tail_turns": 6
   }
 }
