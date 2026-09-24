@@ -39,12 +39,8 @@ def _bounded_float(
 class HealthRuntimeSettings(SettingsBase):
     """Environment-backed cache settings for health/runtime snapshots."""
 
-    health_board_cache_ttl_seconds: float = (
-        _DEFAULT_HEALTH_BOARD_CACHE_TTL_SECONDS
-    )
-    truenas_runtime_cache_ttl_seconds: float = (
-        _DEFAULT_TRUENAS_RUNTIME_CACHE_TTL_SECONDS
-    )
+    health_board_cache_ttl_seconds: float = _DEFAULT_HEALTH_BOARD_CACHE_TTL_SECONDS
+    truenas_runtime_cache_ttl_seconds: float = _DEFAULT_TRUENAS_RUNTIME_CACHE_TTL_SECONDS
 
     @field_validator("health_board_cache_ttl_seconds", mode="before")
     @classmethod
