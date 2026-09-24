@@ -14,7 +14,14 @@ workflow does **not** depend on that field: OpenCode also discovers project
 The project configuration sets `fastapi-maintainer` as the default agent
 without forcing a model. The agent therefore inherits the model selected by the
 workstation/global OpenCode configuration while adding a deterministic
-repository workflow suitable for smaller models.
+repository workflow suitable for smaller models. The maintainer has a bounded
+40-step agent loop; the read-only reviewer uses 12 steps.
+
+To reduce context flooding on the workstation model, project config truncates
+tool previews at 600 lines / 32 KiB and enables automatic compaction with old
+tool-output pruning while retaining the six most recent turns. This changes
+context presentation only; it must never be used as a reason to skip a required
+test, artifact or diagnostic.
 
 Repository skills remain under `.agents/skills/<name>/SKILL.md`. OpenCode
 discovers that layout natively and `opencode.json` explicitly allows the
