@@ -592,6 +592,9 @@ async def test_probe_fanout_budget_returns_partial_results(monkeypatch) -> None:
     assert summary["scheduled"] == 2
     assert summary["completed"] == 1
     assert summary["timed_out"] == 1
+    assert summary["budget_seconds"] == 0.01
+    assert summary["per_probe_timeout_seconds"] == 5.0
+    assert summary["max_concurrency"] == 4
     assert results[0]["state"] == "ok"
     assert results[1]["timed_out"] is True
     assert results[1]["error_kind"] == "deadline"
