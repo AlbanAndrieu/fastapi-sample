@@ -506,6 +506,9 @@ acceptance criterion.
         `HealthRuntimeSettings`. Preserve the existing defaults and bounded
         fallback semantics while removing duplicate runtime parsing from
         `health_board.py` and `homelab_runtime.py`.
+  - [x] Remove the remaining direct `TRUENAS_WS_PATH` read from
+        `homelab_health.py` and reuse the already validated
+        `TrueNASProviderSettings.websocket_path` contract.
   - [ ] Continue domain-by-domain with remaining runtime/environment reads; avoid
         one global settings object that would couple unrelated provider secrets.
 - [ ] Create a small set of lifespan-owned `httpx.AsyncClient` instances using the
