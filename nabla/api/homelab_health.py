@@ -40,6 +40,7 @@ from nabla.api.truenas_health_observer import (
     observe_truenas_health_api as _observe_truenas_api,
     truenas_http_verify_ssl,
 )
+from nabla.api import truenas_probe_health
 from nabla.integrations.truenas_client import (
     TrueNASSettings,
     truenas_host_port,
@@ -47,8 +48,6 @@ from nabla.integrations.truenas_client import (
 )
 from nabla.settings.homelab import TrueNASProviderSettings
 from nabla.utils.environment import env_bool
-
-HealthState = Literal["ok", "warn", "fail"]
 
 _PROBE_TIMEOUT_SEC = 5.0
 _TRUENAS_DIAGNOSTICS_BUDGET_SEC = 3.0
@@ -134,28 +133,22 @@ async def _collect_bounded_probe_batch(
 def _truenas_internal_target(
     _services: list[HomelabService] | None = None,
 ) -> tuple[str, int]:
-    return truenas_host_port()
+    """Compatibility facade for the configured TrueNAS target."""
+    del _services
+    return truenas_probe_health.truenas_internal_target()
 
 
 def _truenas_state(
     public_result: dict[str, Any],
     internal_result: dict[str, Any] | None,
     api_result: dict[str, Any] | None = None,
-) -> HealthState:
-    public_state = public_result.get("state")
-    internal_state = internal_result.get("state") if internal_result else None
-    api_reachable = api_result.get("reachable") if api_result else None
-    if api_reachable is False:
-        return "fail"
-    if public_state == "fail" and (internal_state == "ok" or api_reachable is True):
-        return "warn"
-    if public_state == "fail":
-        return "fail"
-    if internal_state == "fail":
-        return "warn"
-    if public_state == "warn":
-        return "warn"
-    return "ok"
+) -> Literal["ok", "warn", "fail"]:
+    """Compatibility facade for TrueNAS health-state reconciliation."""
+    return truenas_probe_health.truenas_state(
+        public_result,
+        internal_result,
+        api_result,
+    )
 
 
 async def _probe_truenas(
