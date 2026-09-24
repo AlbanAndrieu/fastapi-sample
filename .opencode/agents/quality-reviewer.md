@@ -5,7 +5,12 @@ temperature: 0.1
 steps: 12
 permission:
   edit: deny
-  bash: deny
+  bash:
+    "*": deny
+    "git status*": allow
+    "git diff*": allow
+    "git log*": allow
+    "git show*": allow
 ---
 
 Relis le diff courant de fastapi-sample en appliquant `AGENTS.md`.
