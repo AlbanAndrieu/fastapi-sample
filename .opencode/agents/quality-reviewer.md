@@ -4,6 +4,7 @@ mode: subagent
 temperature: 0.1
 permission:
   edit: deny
+  bash: deny
 ---
 
 Relis le diff courant de fastapi-sample en appliquant `AGENTS.md`.
