@@ -39,9 +39,11 @@ Project-local helpers:
 - `/publish-local` — require a clean committed HEAD and run the canonical
   `scripts/agent-publish.sh` proof.
 
-The GitHub MCP remains deliberately read-only. OpenCode should modify the
-working tree with normal local tools and publish through Git only after the
-repository quality flow has passed. During an explicitly requested
+The GitHub MCP remains deliberately read-only. The `quality-reviewer` also
+blocks edits and all shell commands except read-only Git inspection
+(`status`, `diff`, `log`, `show`). OpenCode should modify the working tree with
+normal local tools and publish through Git only after the repository quality
+flow has passed. During an explicitly requested
 no-GitHub-Actions/no-credit period, keep PRs Draft, commit with `[skip ci]`,
 and do not dispatch or rerun remote workflows.
 
