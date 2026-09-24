@@ -169,7 +169,9 @@ def test_runtime_cache_reuses_one_observation(monkeypatch) -> None:
     assert calls == 1
 
 
-def test_runtime_cache_serves_last_known_good_after_refresh_failure(monkeypatch) -> None:
+def test_runtime_cache_serves_last_known_good_after_refresh_failure(
+    monkeypatch,
+) -> None:
     homelab_runtime._reset_runtime_cache()
     good = TrueNASRuntimeSnapshot(
         observed_at="2026-08-25T20:00:00Z",
@@ -205,11 +207,13 @@ def test_runtime_cache_serves_last_known_good_after_refresh_failure(monkeypatch)
 
 
 @pytest.mark.asyncio
-async def test_status_matches_declared_service_by_container_service(monkeypatch) -> None:
+async def test_status_matches_declared_service_by_container_service(
+    monkeypatch,
+) -> None:
     catalog = DeclaredServiceCatalog.model_validate(
         {
             "version": 1,
-            "catalogRevision": "sha256:test",
+            "catalogRevision": "sha256:" + "a" * 64,
             "topologyVersion": 1,
             "name": "test",
             "services": [
@@ -218,6 +222,7 @@ async def test_status_matches_declared_service_by_container_service(monkeypatch)
                     "name": "LiteLLM",
                     "kind": "gateway",
                     "category": "ai",
+                    "criticality": "high",
                     "sourcePath": "apps/litellm/compose.yml",
                     "composeService": "litellm",
                     "runtime": {
@@ -238,7 +243,14 @@ async def test_status_matches_declared_service_by_container_service(monkeypatch)
                     "id": "litellm-albandrieu",
                     "name": "litellm-albandrieu",
                     "state": "RUNNING",
-                    "active_workloads": {"container_details": [{"service_name": "litellm", "state": "running"}]},
+                    "active_workloads": {
+                        "container_details": [
+                            {
+                                "service_name": "litellm",
+                                "state": "running",
+                            },
+                        ],
+                    },
                 },
             ),
         ],
@@ -250,7 +262,10 @@ async def test_status_matches_declared_service_by_container_service(monkeypatch)
     async def fake_runtime():
         return runtime
 
-    monkeypatch.setattr("nabla.api.homelab_runtime.fetch_declared_service_catalog", fake_catalog)
+    monkeypatch.setattr(
+        "nabla.api.homelab_runtime.fetch_declared_service_catalog",
+        fake_catalog,
+    )
     monkeypatch.setattr("nabla.api.homelab_runtime.fetch_truenas_runtime", fake_runtime)
     monkeypatch.setattr(
         "nabla.api.homelab_runtime._catalog_membership_drift",
@@ -260,6 +275,18 @@ async def test_status_matches_declared_service_by_container_service(monkeypatch)
     payload = await build_homelab_status_payload()
 
     assert payload["services"][0]["reconciliation"] == "in_sync"
+    assert payload["services"][0]["operationalCriticality"] == "high"
+    assert "businessCriticality" not in payload["services"][0]
+    assert payload["services"][0]["conditions"] == [
+        {
+            "type": "Reconciled",
+            "status": "True",
+            "reason": "InSync",
+            "message": (
+                "Declared runtime identity matches one observed provider resource."
+            ),
+        },
+    ]
     assert payload["services"][0]["observed"]["appId"] == "litellm-albandrieu"
     assert payload["observedOnly"] == []
     assert payload["driftSummary"] == {
@@ -278,7 +305,7 @@ async def test_status_reports_unmanaged_truenas_apps(monkeypatch) -> None:
     catalog = DeclaredServiceCatalog.model_validate(
         {
             "version": 1,
-            "catalogRevision": "sha256:test",
+            "catalogRevision": "sha256:" + "a" * 64,
             "topologyVersion": 1,
             "name": "test",
             "services": [],
@@ -297,7 +324,10 @@ async def test_status_reports_unmanaged_truenas_apps(monkeypatch) -> None:
     async def fake_runtime():
         return runtime
 
-    monkeypatch.setattr("nabla.api.homelab_runtime.fetch_declared_service_catalog", fake_catalog)
+    monkeypatch.setattr(
+        "nabla.api.homelab_runtime.fetch_declared_service_catalog",
+        fake_catalog,
+    )
     monkeypatch.setattr("nabla.api.homelab_runtime.fetch_truenas_runtime", fake_runtime)
     monkeypatch.setattr(
         "nabla.api.homelab_runtime._catalog_membership_drift",
@@ -307,6 +337,12 @@ async def test_status_reports_unmanaged_truenas_apps(monkeypatch) -> None:
     payload = await build_homelab_status_payload()
 
     assert payload["observedOnly"][0]["reconciliation"] == "observed_only"
+    assert payload["observedOnly"][0]["conditions"][0] == {
+        "type": "Reconciled",
+        "status": "False",
+        "reason": "ObservedOnly",
+        "message": "Observed provider resource has no declared catalog identity.",
+    }
     assert payload["observedOnly"][0]["observed"]["appId"] == "legacy-app"
     assert payload["driftSummary"]["observedOnly"] == 1
     assert payload["driftSummary"]["hasDrift"] is True
@@ -319,7 +355,7 @@ async def test_status_matches_stopped_app_by_exact_app_id_without_workloads(
     catalog = DeclaredServiceCatalog.model_validate(
         {
             "version": 1,
-            "catalogRevision": "sha256:test",
+            "catalogRevision": "sha256:" + "a" * 64,
             "topologyVersion": 1,
             "name": "test",
             "services": [
@@ -361,7 +397,10 @@ async def test_status_matches_stopped_app_by_exact_app_id_without_workloads(
     async def fake_runtime():
         return runtime
 
-    monkeypatch.setattr("nabla.api.homelab_runtime.fetch_declared_service_catalog", fake_catalog)
+    monkeypatch.setattr(
+        "nabla.api.homelab_runtime.fetch_declared_service_catalog",
+        fake_catalog,
+    )
     monkeypatch.setattr("nabla.api.homelab_runtime.fetch_truenas_runtime", fake_runtime)
     monkeypatch.setattr(
         "nabla.api.homelab_runtime._catalog_membership_drift",
@@ -371,6 +410,7 @@ async def test_status_matches_stopped_app_by_exact_app_id_without_workloads(
     payload = await build_homelab_status_payload()
 
     assert payload["services"][0]["reconciliation"] == "in_sync"
+    assert "operationalCriticality" not in payload["services"][0]
     assert payload["services"][0]["observed"]["appId"] == "openwebui"
     assert payload["services"][0]["observed"]["appState"] == "STOPPED"
     assert "container" not in payload["services"][0]["observed"]

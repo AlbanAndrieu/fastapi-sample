@@ -1,11 +1,25 @@
 """Regression coverage for the current nabla-compose declared-service schema."""
 
+import pytest
 from pydantic import ValidationError
 
 from nabla.api.homelab_declared import (
     DeclaredServiceCatalog,
     _validation_error_summary,
 )
+
+
+def _catalog_payload(**updates: object) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "$schema": "./services.schema.json",
+        "version": 1,
+        "catalogRevision": "sha256:" + "a" * 64,
+        "topologyVersion": 1,
+        "name": "Nabla homelab declared services",
+        "services": [],
+    }
+    payload.update(updates)
+    return payload
 
 
 def test_declared_catalog_accepts_runtime_networks_lifecycle_and_monitoring() -> None:
@@ -88,3 +102,40 @@ def test_declared_catalog_validation_log_summary_is_bounded() -> None:
     assert "https://errors.pydantic.dev" not in summary
     assert "input_value=" not in summary
     assert len(summary) < 700
+
+
+def test_declared_catalog_v1_schema_metadata_is_validation_only() -> None:
+    catalog = DeclaredServiceCatalog.model_validate(_catalog_payload())
+
+    assert catalog.schema_uri == "./services.schema.json"
+    assert "$schema" not in catalog.model_dump(mode="json", by_alias=True)
+
+
+def test_declared_catalog_v1_contract_rejects_future_version() -> None:
+    with pytest.raises(ValidationError):
+        DeclaredServiceCatalog.model_validate(_catalog_payload(version=2))
+
+
+def test_declared_catalog_v1_contract_rejects_unknown_top_level_fields() -> None:
+    with pytest.raises(ValidationError):
+        DeclaredServiceCatalog.model_validate(_catalog_payload(newV2Field=True))
+
+
+@pytest.mark.parametrize(
+    "revision",
+    [
+        "sha256:test",
+        "main",
+        "sha256:" + "g" * 64,
+    ],
+)
+def test_declared_catalog_revision_must_be_canonical_sha256(revision: str) -> None:
+    with pytest.raises(ValidationError):
+        DeclaredServiceCatalog.model_validate(
+            _catalog_payload(catalogRevision=revision),
+        )
+
+    fallback = DeclaredServiceCatalog.model_validate(
+        _catalog_payload(catalogRevision="unavailable"),
+    )
+    assert fallback.catalog_revision == "unavailable"

@@ -2,12 +2,37 @@
 
 from __future__ import annotations
 
+import re
 import stat
 from pathlib import Path
 
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_external_github_actions_are_pinned_to_commit_sha() -> None:
+    workflow_dir = ROOT / ".github" / "workflows"
+    action_ref = re.compile(
+        r"^\s*(?:-\s*)?uses:\s*([^\s#]+)",
+        re.MULTILINE,
+    )
+    external_action_count = 0
+
+    for workflow_path in sorted(workflow_dir.glob("*.y*ml")):
+        text = workflow_path.read_text(encoding="utf-8")
+        for match in action_ref.finditer(text):
+            action = match.group(1)
+            if action.startswith("./"):
+                continue
+            external_action_count += 1
+            assert "@" in action, f"{workflow_path}: unversioned action {action}"
+            ref = action.rsplit("@", maxsplit=1)[1]
+            assert re.fullmatch(r"[0-9a-f]{40}", ref), (
+                f"{workflow_path}: action must use immutable SHA: {action}"
+            )
+
+    assert external_action_count > 0
 
 
 def test_dependency_updates_are_explicit_maintenance_not_validation() -> None:
@@ -33,13 +58,15 @@ def test_agent_quality_gate_wraps_tests_and_canonical_gate() -> None:
     assert "QG_FIX_NO_PROGRESS" in text
     assert "QG_FIX_NOT_CONVERGED" in text
     assert "QUALITY_FIX_PASSES" in text
+    assert 'FIX_PASSES="${QUALITY_FIX_PASSES:-6}"' in text
+    assert "maximum pre-commit convergence passes (default: 6)" in text
     assert "worktree_fingerprint" in text
     assert "git hash-object --stdin" in text
     assert "--dependency-mode" in text
     assert "--ci-preflight" in text
-    assert 'echo "full"' in text
-    assert 'echo "quality"' in text
-    assert 'echo "none"' in text
+    assert 'CI_SCOPE_SCRIPT="${SCRIPT_DIR}/ci-scope.sh"' in text
+    assert 'bash "${CI_SCOPE_SCRIPT}" --mode-only' in text
+    assert "QG_SCOPE_INVALID" in text
     assert "uv run pre-commit run shfmt" in text
     assert "uv run pre-commit run shell-lint" in text
     assert "uv run pre-commit run bashate" in text
@@ -47,13 +74,20 @@ def test_agent_quality_gate_wraps_tests_and_canonical_gate() -> None:
     assert "quality-gate contract pytest (isolated fail-fast)" in text
     assert "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1" in text
     assert "uv run pytest -q --noconftest" in text
-    assert "tests/unit/test_agent_quality_gate_contract.py --junit-xml=junit.xml" in text
+    assert '"${QUALITY_CONTRACT_TESTS[@]}"' in text
+    assert "tests/unit/test_agent_quality_gate_contract.py" in text
+    assert "tests/unit/test_agent_dependency_mode.py" in text
+    assert "tests/unit/test_agent_publication_proof.py" in text
+    assert "tests/unit/test_ci_scope.py" in text
+    assert "tests/unit/test_ci_performance_budget.py" in text
     assert "dependency-backed tests are still required" in text
     assert "full_pytest_impact" in text
     assert "quality_contract_impact" in text
     assert "uv run python scripts/check_versions.py" in text
     assert "bash scripts/quality-gate.sh --publish" in text
     assert "modified Python code-size gate" in text
+    assert 'run_compact_report "modified Python code-size gate"' in text
+    assert "WARNING |Code-size gate:" in text
     assert "uv run python scripts/check_code_size.py" in text
     assert text.index("canonical formatter/linter/security") < text.index(
         "modified Python code-size gate",
@@ -69,7 +103,7 @@ def test_agent_quality_gate_wraps_tests_and_canonical_gate() -> None:
 def test_pre_push_uses_agent_publication_gate() -> None:
     config = (ROOT / ".pre-commit-pre-push.yaml").read_text(encoding="utf-8")
 
-    assert "entry: bash scripts/agent-quality-gate.sh --publish" in config
+    assert "entry: bash scripts/agent-publish.sh" in config
 
 
 def test_python_ci_runs_fast_gate_before_heavy_dependency_sync() -> None:
@@ -83,9 +117,31 @@ def test_python_ci_runs_fast_gate_before_heavy_dependency_sync() -> None:
     assert "enable-cache: false" in workflow
     assert 'UV_NO_SYNC: "1"' in workflow
     assert 'SKIP: "uv-sync,uv-lock,uv-export,pytest-collect"' in workflow
-    assert "run: bash scripts/agent-quality-gate.sh --ci-preflight" in workflow
+    assert "bash scripts/agent-quality-gate.sh --ci-preflight" in workflow
+    assert "Classify Python CI scope before dependency bootstrap" in workflow
+    assert "bash scripts/ci-scope.sh" in workflow
+    assert "maintenance_only: ${{ steps.ci_scope.outputs.maintenance_only }}" in workflow
+    assert "application: ${{ steps.ci_scope.outputs.application }}" in workflow
+    assert "sast: ${{ steps.ci_scope.outputs.sast }}" in workflow
+    assert "build: ${{ steps.ci_scope.outputs.build }}" in workflow
+    assert "dependencies: ${{ steps.ci_scope.outputs.dependencies }}" in workflow
+    assert "dependency_mode: ${{ steps.ci_scope.outputs.dependency_mode }}" in workflow
+    assert "changed_count: ${{ steps.ci_scope.outputs.changed_count }}" in workflow
+    assert 'steps.ci_scope.outputs.dependency_mode == \'quality\'' in workflow
+    assert '"pytest<10" "PyYAML>=6.0"' in workflow
+    assert "tests/unit/test_agent_dependency_mode.py" in workflow
+    assert "tests/unit/test_agent_publication_proof.py" in workflow
+    assert "tests/unit/test_ci_scope.py" in workflow
+    assert "tests/unit/test_ci_performance_budget.py" in workflow
+    assert "Record preflight performance baseline" in workflow
+    assert "Record full Python CI performance baseline" in workflow
+    assert "bash scripts/ci-performance-budget.sh" in workflow
+    assert "needs.preflight.outputs.dependencies == 'true'" in workflow
+    assert "application_build_required: ${{ needs.preflight.outputs.build }}" in workflow
+    assert workflow.count("if: needs.preflight.outputs.build == 'true'") == 4
+    assert "needs.build.outputs.application_build_required == 'true'" in workflow
     assert "Resolve and install locked project dependencies" in workflow
-    assert "run: uv sync --frozen" in workflow
+    assert "uv sync --frozen" in workflow
     assert "Run repository pytest suite after dependency sync" in workflow
     assert "uv run --no-sync pytest -q --disable-warnings --maxfail=1" in workflow
     assert workflow.index("Run agent CI preflight before project dependency sync") < workflow.index(
@@ -120,10 +176,13 @@ def test_production_smoke_does_not_run_on_every_pr_synchronize() -> None:
     assert "github.event.pull_request.draft == false" in workflow
 
 
-def test_codeql_waits_until_draft_is_ready() -> None:
+def test_codeql_waits_until_draft_is_ready_and_scopes_python_changes() -> None:
     workflow = (ROOT / ".github/workflows/codeql.yml").read_text(encoding="utf-8")
 
     assert "types: [opened, synchronize, reopened, ready_for_review]" in workflow
+    assert '      - "**/*.py"' in workflow
+    assert '      - ".github/workflows/codeql.yml"' in workflow
+    assert "docs/**" not in workflow
     assert "github.event.pull_request.draft == false" in workflow
 
 
@@ -141,7 +200,7 @@ def test_mise_exposes_agent_fix_check_and_publish_tasks() -> None:
     assert "[tasks.agent-fix]" in config
     assert "[tasks.agent-quality]" in config
     assert "[tasks.agent-publish]" in config
-    assert 'run = "bash scripts/agent-quality-gate.sh --publish"' in config
+    assert 'run = "bash scripts/agent-publish.sh"' in config
 
 
 def test_megalinter_caller_keeps_least_privilege_permissions() -> None:

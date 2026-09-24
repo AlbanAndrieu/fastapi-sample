@@ -3,6 +3,8 @@ set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
 cd "${ROOT}"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+CI_SCOPE_SCRIPT="${SCRIPT_DIR}/ci-scope.sh"
 
 MODE="check"
 PUBLISH=false
@@ -40,7 +42,7 @@ Modes:
 Environment:
   QUALITY_BASE_REF                 override comparison base
   QUALITY_LOG_TAIL                 failure log lines to print (default: 50, capped at 80)
-  QUALITY_FIX_PASSES               maximum pre-commit convergence passes (default: 3)
+  QUALITY_FIX_PASSES               maximum pre-commit convergence passes (default: 6)
   QUALITY_ALLOW_LARGE_DELETION=1   acknowledge all intentional large truncations/deletions
   QUALITY_LARGE_DELETION_ACK_FILE  reviewed-path acknowledgement file (default: .quality-gate-large-deletions)
 EOF_HELP
@@ -68,7 +70,7 @@ LOG_TAIL="${QUALITY_LOG_TAIL:-50}"
 if ((LOG_TAIL > 80)); then
     LOG_TAIL=80
 fi
-FIX_PASSES="${QUALITY_FIX_PASSES:-3}"
+FIX_PASSES="${QUALITY_FIX_PASSES:-6}"
 if ! [[ "${FIX_PASSES}" =~ ^[1-9][0-9]*$ ]]; then
     printf '❌ QUALITY_FIX_PASSES must be a positive integer\n' >&2
     exit 2
@@ -97,6 +99,26 @@ run_compact() {
     local rc
     log="$(mktemp)"
     if "$@" >"${log}" 2>&1; then
+        rm -f "${log}"
+        printf '✅ %s\n' "${label}"
+        return 0
+    else
+        rc=$?
+    fi
+    printf '❌ %s\n' "${label}" >&2
+    tail -n "${LOG_TAIL}" "${log}" >&2 || true
+    rm -f "${log}"
+    return "${rc}"
+}
+
+run_compact_report() {
+    local label="$1"
+    shift
+    local log
+    local rc
+    log="$(mktemp)"
+    if "$@" >"${log}" 2>&1; then
+        grep -E '^(WARNING |Code-size gate:)' "${log}" || true
         rm -f "${log}"
         printf '✅ %s\n' "${label}"
         return 0
@@ -143,30 +165,33 @@ mapfile -t DELETED_FILES < <(collect_deleted_files)
 
 full_pytest_impact=false
 quality_contract_impact=false
+dependency_mode="none"
 classify_test_impact() {
-    local file
-    for file in "${CHANGED_FILES[@]}" "${DELETED_FILES[@]}"; do
-        case "${file}" in
-            tests/unit/test_agent_quality_gate_contract.py | scripts/agent-quality-gate.sh | scripts/quality-gate.sh | scripts/check_code_size.py | .github/workflows/* | .pre-commit* | mise.toml | AGENTS.md)
-                quality_contract_impact=true
-                ;;
-            nabla/* | tests/* | server_app.py | pyproject.toml | uv.lock | Pipfile | Pipfile.lock | scripts/*.py)
-                full_pytest_impact=true
-                return
-                ;;
-        esac
-    done
+    dependency_mode="$(
+        QUALITY_BASE_REF="${BASE_REF}" bash "${CI_SCOPE_SCRIPT}" --mode-only
+    )"
+    full_pytest_impact=false
+    quality_contract_impact=false
+    case "${dependency_mode}" in
+        full)
+            full_pytest_impact=true
+            ;;
+        quality)
+            quality_contract_impact=true
+            ;;
+        none)
+            ;;
+        *)
+            printf '❌ QG_SCOPE_INVALID: unexpected CI scope %s\n' \
+                "${dependency_mode}" >&2
+            return 1
+            ;;
+    esac
 }
 
 classify_test_impact
 if [[ "${MODE}" == "dependency" ]]; then
-    if [[ "${full_pytest_impact}" == true ]]; then
-        echo "full"
-    elif [[ "${quality_contract_impact}" == true ]]; then
-        echo "quality"
-    else
-        echo "none"
-    fi
+    printf '%s\n' "${dependency_mode}"
     exit 0
 fi
 
@@ -384,12 +409,20 @@ for file in "${CHANGED_FILES[@]}"; do
     [[ "${file}" == *.py ]] && CHANGED_PYTHON+=("${file}")
 done
 if ((${#CHANGED_PYTHON[@]} > 0)); then
-    run_compact "modified Python code-size gate" \
+    run_compact_report "modified Python code-size gate" \
         uv run python scripts/check_code_size.py \
         --baseline-ref "${BASE_REF}" "${CHANGED_PYTHON[@]}"
 fi
 
 run_compact "release/version contract" uv run python scripts/check_versions.py
+
+QUALITY_CONTRACT_TESTS=(
+    tests/unit/test_agent_quality_gate_contract.py
+    tests/unit/test_agent_dependency_mode.py
+    tests/unit/test_agent_publication_proof.py
+    tests/unit/test_ci_scope.py
+    tests/unit/test_ci_performance_budget.py
+)
 
 if [[ "${CI_PREFLIGHT}" == true ]]; then
     echo "✅ pytest deferred by CI preflight; dependency-backed tests are still required."
@@ -399,8 +432,8 @@ elif [[ "${full_pytest_impact}" == true ]]; then
 elif [[ "${quality_contract_impact}" == true ]]; then
     run_compact "quality-gate contract pytest (isolated fail-fast)" \
         env PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 uv run pytest -q --noconftest \
-        --disable-warnings --maxfail=1 \
-        tests/unit/test_agent_quality_gate_contract.py --junit-xml=junit.xml
+        --disable-warnings --maxfail=1 --junit-xml=junit.xml \
+        "${QUALITY_CONTRACT_TESTS[@]}"
 else
     echo "✅ pytest skipped: no Python/runtime/test or quality-gate contract impact"
 fi

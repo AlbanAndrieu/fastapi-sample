@@ -37,6 +37,11 @@ duplicate schemas and shortens the migration.
   Backstage/Compose/minimal-`x-nabla` model and generated projections are ready.
 - Do **not** add a parallel v2 reader, dual-write path, old-schema fallback, or
   permanent compatibility translation layer in FastAPI.
+- [x] Keep the pre-cutover FastAPI v1 declared-catalog reader fail-closed:
+  accept only version 1, validate canonical sha256 `catalogRevision` values,
+  allow only explicit `$schema` metadata at the catalog root, and reject
+  unknown top-level fields. Future schema drift must use last-known-good v1
+  evidence until the coordinated breaking cutover replaces this contract.
 - Migrate the declared catalog/topology loaders, reconciliation and API projection
   in the same migration window, then remove obsolete v1-only parsing and overlays.
 - `homelab-services.json` and `homelab-exposure-overrides.json` must not survive
@@ -50,6 +55,38 @@ duplicate schemas and shortens the migration.
   runtime support for two schemas.
 - Coordinate the same cutover window with `nabla-site-alban`; temporary loss of
   catalog/topology presentation is preferable to maintaining duplicate contracts.
+- [x] Prepare the consumer boundary without adding a second reader: introduce
+  canonical full Backstage entity-ref validation plus Kubernetes-style resource
+  conditions, and expose reconciliation conditions additively from the existing
+  v1 status payload. Entity refs follow Backstage default lowercase interchange
+  semantics, including `-_.` in entity names, hyphen-only namespaces and
+  63-character namespace/name bounds. This is read-model preparation, not schema
+  translation.
+- [ ] At cutover, replace all service-id/display-name joins and the current
+  presentation/declared/topology three-way drift check with canonical full
+  entity-ref joins from the new generated resources.
+- [x] Type the authoritative `nabla-compose` BIA projections without copying its
+  scoring policy into FastAPI: calculated/declared business criticality,
+  DMTP/MTPD, RTO, optional RPO, MBCO/OMCA, recovery margin, assessment status,
+  drivers and effective dependency criticality all retain full entity refs.
+- [x] Document the provisional service BIA in
+  `docs/business-impact-analysis.md`: RTO `P7D`, MTPD/DIMA `P14D`,
+  no runtime-database recovery requirement (`RPO=null`), and MBCO/OMCA that
+  permits 0% automated service during recovery when manual exposure checks are
+  available. Keep low availability/business criticality separate from the
+  service's high inherent security-exposure and probe-induced DoS risk.
+- [x] Keep projected BIA continuity validation fail-closed with the authoritative
+  producer: accept only its bounded positive ISO-8601 duration subset, require
+  RTO < MTPD/DMTP, and require `recoveryMarginSeconds` to equal MTPD/DMTP minus
+  RTO before the direct cutover.
+- [x] Expose the current declared-catalog `criticality` explicitly as
+  `operationalCriticality` in the runtime reconciliation payload; do not emit a
+  synthetic `businessCriticality` before the authoritative BIA projection is
+  consumed.
+- [ ] At cutover, add the authoritative BIA-derived business criticality
+  (DMTP/MTPD, RTO, applicable RPO, recovery margin and assessment status)
+  alongside `operationalCriticality`. Never infer business criticality from
+  runtime health or exposure.
 
 
 ## Production audit — 2026-08-26
@@ -352,8 +389,10 @@ degraded conditions.
       management endpoints once the desired access flow is defined.
 - [ ] Publish a dedicated public homelab projection that excludes internal host
       names, ports and infrastructure details without breaking existing dashboards.
-- [ ] Add explicit request budgets/rate limits to expensive dependency probes;
-      shared response/probe caching is tracked in the dedicated cache section below.
+- [x] Add explicit request budgets/rate limits to expensive dependency probes.
+      Request-scoped concurrency/deadline budgets plus provider-level fixed-window
+      admission limits now sit above cache/single-flight/circuit breaking; the
+      provider limits are protective ceilings, not measured capacity claims.
 
 ## P1 — Redis and external-probe caching
 
@@ -390,6 +429,18 @@ degraded conditions.
       Fixed 60-second admission windows allow two complete declared cold-start
       passes per provider and use Redis for cross-replica coordination when
       available, with process-local fallback otherwise.
+- [x] Add fixed-cardinality Prometheus capacity evidence for provider origin
+      probes: per-provider budget-utilization ratio, budget rejections,
+      in-flight origin concurrency and success/failure origin-duration
+      histograms. Cache hits never count as origin load, so this telemetry can be
+      correlated with TrueNAS/pfSense resource pressure without dynamic endpoint
+      labels.
+- [ ] Establish the safe TrueNAS/pfSense probe operating envelope from measured
+      Prometheus evidence before relaxing any rate/concurrency limit. Correlate
+      FastAPI origin rate/p95 latency/timeouts with TrueNAS CPU/memory and
+      pfSense CPU/load/PHP-FPM pressure. The latter still needs a bounded
+      Prometheus recording-rule contract; `pfsense_metrics_up` alone is not a
+      capacity signal.
 - [x] Document cache schema-bump/invalidation and production diagnostics, including
       the expected degraded behavior when Redis is unavailable. See
       `docs/external-probe-cache-operations.md`.
@@ -544,7 +595,7 @@ acceptance criterion.
       not require a local Docker daemon.
 - [x] Remove the duplicate standalone Pylint workflow and keep the Python
       package workflow as the authoritative Pylint quality gate.
-- [x] Run a deterministic agent CI preflight before the full dependency sync so formatting/lint/security convergence is checked before installing the complete project environment. Defer only dependency-backed hooks (`uv-sync`, `uv-lock`, `uv-export`, `pytest-collect`) to the subsequent locked sync/test stage; keep local pre-push `--publish` complete.
+- [x] Run a deterministic agent CI preflight before the full dependency sync so formatting/lint/security convergence is checked before installing the complete project environment. Defer only dependency-backed hooks (`uv-sync`, `uv-lock`, `uv-export`, `pytest-collect`) to the subsequent locked sync/test stage; keep local pre-push `--publish` complete. Local `--fix` now defaults to six deterministic convergence passes so repeated formatter rewrites do not require a manual `QUALITY_FIX_PASSES` override.
 - [x] Add `Master red remediation`, a post-merge `master` workflow which reruns
       the critical `Python package` and `Production Smoke` workflows for the exact
       merged SHA, conditionally reruns CodeQL for security-impacting changes and
@@ -574,7 +625,11 @@ acceptance criterion.
       baseline has been triaged.
 - [ ] Reduce the current Trivy dependency baseline below 48 findings and lower
       its temporary regression ceiling of 55 as vulnerabilities are remediated.
-- [ ] Pin every reusable GitHub Action to a verified immutable commit SHA.
+- [x] Pin every reusable GitHub Action to a verified immutable commit SHA.
+      The current audit covers all 15 workflow files, and a contract test rejects
+      future external `uses:` references that are unversioned or not pinned to a
+      full 40-character commit SHA; repository-local reusable workflows remain
+      exempt.
 - [ ] Protect `master`, require reviewed pull requests and enforce the final
       mandatory test/security checks after the current refactoring stabilizes.
 
@@ -761,6 +816,50 @@ contract. It does not add privileged Nabla Service operations.
 9. `ci(security): enforce branch protection and mandatory security checks`
 10. `docs(dev): standardize uv onboarding and shared agent instructions`
 
+## Cross-repository CI lessons from nabla-site-alban PRs #180-#195
+
+The latest 15 `nabla-site-alban` pull requests were reviewed for CI/quality
+patterns that transfer cleanly to this Python/FastAPI repository. Front-end,
+Next.js, Playwright-visual and Vercel-specific behavior is intentionally excluded.
+
+- [x] Reuse exact publication proofs keyed by HEAD, comparison base and local
+  toolchain. `scripts/agent-publish.sh` already fingerprints `uv`, Python,
+  pre-commit and `uv.lock`, rejects stale/dirty publication and reuses a prior
+  strict pass only when that proof remains exact.
+- [x] Keep diff-aware destructive-change and executable-bit guards before expensive
+  validation.
+- [x] Keep code-size enforcement baseline-aware so legacy oversized Python modules
+  are grandfathered while new growth remains controlled.
+- [x] Classify CI impact before dependency bootstrap as `full`, `quality` or
+  `none`. Pull-request application/runtime changes retain the full locked
+  dependency sync/test/build path; quality-infrastructure changes run isolated
+  quality-contract tests; documentation-only changes stop after the lightweight
+  gate. Manual/reusable workflow execution always remains `full`.
+- [x] Keep the agent preflight before the full `uv sync`, with cached pre-commit
+  environments and no project dependency cache in the lightweight stage.
+- [x] Keep local deterministic autofix convergence multi-pass and publication
+  validation clean-tree-only.
+- [x] Add warning-only Python CI performance baselines, adapted from
+  `nabla-site-alban#195`: measure agent-gate duration, locked `uv sync`
+  duration, pytest duration, `uv build` duration and environment/artifact size.
+  Thresholds remain unset by default until several exact-checkout baselines have
+  been collected; the recorder never turns a performance warning into a quality
+  failure.
+- [ ] Once GitHub Actions credits and normal PR CI are restored, decide whether to
+  prohibit `[skip ci]` on merge-candidate commits as `nabla-site-alban#192`
+  does. Do not enable that policy while the explicit local-first/no-credit mode
+  relies on `[skip ci]`; require the local publication proof and keep such PRs
+  Draft instead.
+- [x] Add a Python-specific fail-closed CI/SAST scope classifier. It exposes
+  `maintenance_only`, `application`, `sast`, `build`, `dependencies`
+  and the derived `dependency_mode`; workflow/security-policy changes retain
+  SAST, test-only application changes retain dependency-backed tests without
+  forcing an application build, and unknown or empty diffs take the full path.
+  Keep CodeQL independently path-scoped to Python sources plus its own workflow
+  so documentation-only PRs do not start it; a future changed-source Semgrep job
+  can consume the centralized `sast` signal without forcing an application
+  build.
+
 ## Consolidated quality and refactoring backlog
 
 The remaining sections preserve the quality roadmap introduced separately on
@@ -769,6 +868,49 @@ The remaining sections preserve the quality roadmap introduced separately on
 ### Quality baseline and future work
 
 The following improvements have already been implemented:
+
+- [x] Reuse a strict local publication proof keyed by exact HEAD, comparison
+  base and Python toolchain fingerprint (uv, Python, pre-commit and `uv.lock`).
+  Pre-push now reuses that proof instead of rerunning Pylint, pytest and package
+  build for an unchanged publication candidate.
+- [x] Keep agent/quality-only contract changes on the isolated quality-test
+  dependency scope instead of accidentally promoting them to the full pytest
+  dependency path merely because the contract itself lives under `tests/`.
+- [x] Surface non-blocking baseline-aware code-size warnings from the compact
+  agent gate instead of hiding successful warning output.
+- [x] Make local publication scope-aware: always run the strict agent gate,
+  but run Pylint, the minimal FastAPI import smoke and `uv build` only when the
+  centralized classifier reports `build=true`. Documentation/quality-only
+  publication therefore avoids irrelevant application build work without
+  weakening unknown/application/dependency changes.
+- [x] Centralize CI scope policy in tested `scripts/ci_scope.py`, with
+  `scripts/ci-scope.sh` retained only as its shell compatibility entrypoint.
+  Documentation-only PRs use `none`, explicit quality-infrastructure changes use
+  `quality`, and application/runtime or unknown paths fail closed to `full`;
+  an empty diff also fails closed to `full`. The Python workflow consumes the
+  derived dependency mode before dependency bootstrap.
+- [x] Separate dependency-backed validation from application packaging:
+  `dependencies=true` installs the locked environment and runs pytest, while
+  `build=true` additionally enables the FastAPI runtime smoke, Pylint,
+  `uv build`, Docker, SonarCloud and MegaLinter. Redis integration remains
+  downstream of dependency-backed testing so test changes can still exercise the
+  real cache integration; documentation/quality-only scopes bootstrap none of
+  these jobs.
+- [ ] When normal Actions capacity is restored, evaluate using the detailed
+  `sast`, `build`, `dependencies` and `application` outputs in a future
+  changed-source Semgrep job and reusable callers where that removes additional
+  work. Keep CodeQL's independent conservative Python-path scope unless replacing
+  it is demonstrably simpler and equally fail-closed.
+- [ ] Factor shared shell mechanics (base resolution, changed/deleted file
+  collection, compact reporting and workspace fingerprinting) out of
+  `agent-quality-gate.sh` once the current local gate is green; keep policy in
+  the repository-specific gate rather than in the helper.
+- [ ] Re-enable a PR CI-skip policy only when GitHub Actions can enforce it on
+  every candidate HEAD. Until credits return, explicit `[skip ci]` commits are
+  intentional and the local publication proof is the merge evidence.
+- [ ] If FastAPI later gates a PR on live production health before build, keep
+  the **current PR diff base SHA** separate from the **current production/default
+  branch SHA**; do not reuse an event-time base SHA as production evidence.
 
 - Ruff lint and formatting pass on `nabla/` and `tests/`.
 - The active FastAPI, settings, Redis, Notes, and RAG modules pass targeted

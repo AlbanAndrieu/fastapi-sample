@@ -30,6 +30,15 @@ jobs:
   preflight:
     name: Fast deterministic quality gate
     runs-on: ubuntu-latest
+    outputs:
+      maintenance_only: ${{ steps.ci_scope.outputs.maintenance_only }}
+      application: ${{ steps.ci_scope.outputs.application }}
+      sast: ${{ steps.ci_scope.outputs.sast }}
+      build: ${{ steps.ci_scope.outputs.build }}
+      dependencies: ${{ steps.ci_scope.outputs.dependencies }}
+      dependency_mode: ${{ steps.ci_scope.outputs.dependency_mode }}
+      changed_count: ${{ steps.ci_scope.outputs.changed_count }}
+      agent_gate_seconds: ${{ steps.agent_preflight.outputs.seconds }}
     env:
       PYTHON_VERSION: "3.13"
     steps:
@@ -37,6 +46,28 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Classify Python CI scope before dependency bootstrap
+        id: ci_scope
+        shell: bash
+        env:
+          QUALITY_BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'origin/master' }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            bash scripts/ci-scope.sh
+          else
+            {
+              printf 'maintenance_only=false\n'
+              printf 'application=true\n'
+              printf 'sast=true\n'
+              printf 'build=true\n'
+              printf 'dependencies=true\n'
+              printf 'dependency_mode=full\n'
+              printf 'changed_count=0\n'
+            } >> "${GITHUB_OUTPUT}"
+            echo "ℹ️ CI scope: explicit/manual/reusable execution; full dependency path required."
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
@@ -65,12 +96,32 @@ jobs:
           uv pip install --python .venv/bin/python pre-commit==4.6.2
 
       - name: Run agent CI preflight before project dependency sync
+        id: agent_preflight
         env:
           QUALITY_BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'origin/master' }}
           QUALITY_LOG_TAIL: "80"
           UV_NO_SYNC: "1"
           SKIP: "uv-sync,uv-lock,uv-export,pytest-collect"
-        run: bash scripts/agent-quality-gate.sh --ci-preflight
+        shell: bash
+        run: |
+          started="${SECONDS}"
+          bash scripts/agent-quality-gate.sh --ci-preflight
+          printf 'seconds=%d\n' "$((SECONDS - started))" >> "${GITHUB_OUTPUT}"
+
+      - name: Run isolated quality-contract tests
+        if: steps.ci_scope.outputs.dependency_mode == 'quality'
+        shell: bash
+        run: |
+          uv pip install --python .venv/bin/python "pytest<10" "PyYAML>=6.0"
+          quality_tests=(
+            tests/unit/test_agent_quality_gate_contract.py
+            tests/unit/test_agent_dependency_mode.py
+            tests/unit/test_agent_publication_proof.py
+            tests/unit/test_ci_scope.py
+            tests/unit/test_ci_performance_budget.py
+          )
+          pytest_args=(-q --noconftest --disable-warnings --maxfail=1)
+          env PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 uv run --no-sync pytest "${pytest_args[@]}" "${quality_tests[@]}"
 
       - name: Save pre-commit environments
         if: ${{ always() && steps.precommit-cache.outputs.cache-hit != 'true' }}
@@ -79,11 +130,20 @@ jobs:
           path: ~/.cache/pre-commit
           key: pre-commit-v1-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
+      - name: Record preflight performance baseline
+        if: always()
+        env:
+          CI_DEPENDENCY_MODE: ${{ steps.ci_scope.outputs.dependency_mode }}
+          AGENT_GATE_SECONDS: ${{ steps.agent_preflight.outputs.seconds }}
+        run: bash scripts/ci-performance-budget.sh
+
   build:
     needs: preflight
-    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
-    name: Test and build Python package
+    if: ${{ (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && needs.preflight.outputs.dependencies == 'true' }}
+    name: Test dependencies and optionally build Python package
     runs-on: ubuntu-latest
+    outputs:
+      application_build_required: ${{ needs.preflight.outputs.build }}
     env:
       PYTHON_VERSION: "3.13"
       TRUNK_API_TOKEN: ${{ secrets.TRUNK_API_TOKEN }}
@@ -127,6 +187,7 @@ jobs:
           version: "0.12.1"
 
       - name: Validate minimal FastAPI Cloud runtime
+        if: needs.preflight.outputs.build == 'true'
         env:
           UV_PROJECT_ENVIRONMENT: .venv-runtime
         run: |
@@ -135,15 +196,24 @@ jobs:
           rm -rf .venv-runtime
 
       - name: Resolve and install locked project dependencies
-        run: uv sync --frozen
-
-      - name: Run repository pytest suite after dependency sync
+        id: dependency_sync
         shell: bash
         run: |
+          started="${SECONDS}"
+          uv sync --frozen
+          printf 'seconds=%d\n' "$((SECONDS - started))" >> "${GITHUB_OUTPUT}"
+          printf 'venv_mb=%s\n' "$(du -sm .venv | awk '{print $1}')" >> "${GITHUB_OUTPUT}"
+
+      - name: Run repository pytest suite after dependency sync
+        id: pytest_suite
+        shell: bash
+        run: |
+          started="${SECONDS}"
           set +e
           uv run --no-sync pytest -q --disable-warnings --maxfail=1 --tb=short --junit-xml=junit.xml >pytest.log 2>&1
           rc=$?
           set -e
+          printf 'seconds=%d\n' "$((SECONDS - started))" >> "${GITHUB_OUTPUT}"
           if ((rc != 0)); then
             echo "::group::pytest failure · last 180 lines"
             tail -n 180 pytest.log
@@ -164,6 +234,7 @@ jobs:
           token: ${{ env.TRUNK_API_TOKEN }}
 
       - name: FastAPI startup smoke test
+        if: needs.preflight.outputs.build == 'true'
         run: |
           uv run --no-sync python - <<'PY'
           from fastapi.testclient import TestClient
@@ -179,6 +250,7 @@ jobs:
           PY
 
       - name: Pylint quality gate
+        if: needs.preflight.outputs.build == 'true'
         run: >-
           uv run --no-sync pylint
           --fail-under=9.5
@@ -186,7 +258,26 @@ jobs:
           server_app.py nabla
 
       - name: Build package
-        run: uv build
+        id: package_build
+        if: needs.preflight.outputs.build == 'true'
+        shell: bash
+        run: |
+          started="${SECONDS}"
+          uv build
+          printf 'seconds=%d\n' "$((SECONDS - started))" >> "${GITHUB_OUTPUT}"
+          printf 'dist_mb=%s\n' "$(du -sm dist | awk '{print $1}')" >> "${GITHUB_OUTPUT}"
+
+      - name: Record full Python CI performance baseline
+        if: always()
+        env:
+          CI_DEPENDENCY_MODE: ${{ needs.preflight.outputs.dependency_mode }}
+          AGENT_GATE_SECONDS: ${{ needs.preflight.outputs.agent_gate_seconds }}
+          UV_SYNC_SECONDS: ${{ steps.dependency_sync.outputs.seconds }}
+          PYTEST_SECONDS: ${{ steps.pytest_suite.outputs.seconds }}
+          UV_BUILD_SECONDS: ${{ steps.package_build.outputs.seconds }}
+          VENV_MB: ${{ steps.dependency_sync.outputs.venv_mb }}
+          DIST_MB: ${{ steps.package_build.outputs.dist_mb }}
+        run: bash scripts/ci-performance-budget.sh
 
   redis-integration:
     name: Redis integration
@@ -257,7 +348,7 @@ jobs:
   sonarcloud:
     name: Scan with SonarCloud
     needs: build
-    if: github.actor != 'dependabot[bot]'
+    if: ${{ github.actor != 'dependabot[bot]' && needs.build.outputs.application_build_required == 'true' }}
     runs-on: ubuntu-latest
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -276,6 +367,7 @@ jobs:
   docker:
     name: Docker CI
     needs: build
+    if: ${{ needs.build.outputs.application_build_required == 'true' }}
     permissions:
       contents: read
       packages: write
@@ -289,7 +381,7 @@ jobs:
   mega-linter:
     name: MegaLinter
     needs: build
-    if: github.actor != 'dependabot[bot]'
+    if: ${{ github.actor != 'dependabot[bot]' && needs.build.outputs.application_build_required == 'true' }}
     permissions:
       contents: read
       security-events: write

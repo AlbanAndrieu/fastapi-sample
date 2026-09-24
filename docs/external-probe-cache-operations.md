@@ -128,6 +128,10 @@ signal:
 - `nabla_external_probe_origin_refreshes_total`;
 - `nabla_external_provider_outcomes_total{provider,outcome}`;
 - `nabla_external_provider_rate_budget_rejections_total{provider}`;
+- `nabla_external_provider_rate_budget_utilization_ratio{provider}`;
+- `nabla_external_provider_origin_duration_seconds{provider,outcome}`
+  (histogram with bounded `success|failure` outcomes);
+- `nabla_external_provider_origins_in_flight{provider}`;
 - `nabla_external_provider_circuit_state{provider,state}`;
 - `nabla_external_probe_timeouts_total{phase}`;
 - `nabla_external_probes_in_flight`.
@@ -140,6 +144,72 @@ A sustained rise in `redis_degraded` together with normal API liveness means
 the fallback is working but shared coordination is unavailable. A simultaneous
 rise in origin refreshes, provider failures, open circuits or timeouts warrants
 investigation of both Redis and the affected provider.
+
+
+### Calibrating the safe probe envelope
+
+The configured provider budgets are **protective admission limits**, not a
+measured capacity claim for TrueNAS or pfSense. Keep them conservative until
+Prometheus evidence shows a safe operating envelope.
+
+Useful PromQL starting points:
+
+```promql
+sum by (provider) (
+  rate(nabla_external_provider_outcomes_total{outcome=~"success|failure"}[5m])
+)
+```
+
+This is the rate of completed origin probes by provider; cache hits do not enter
+this series.
+
+```promql
+histogram_quantile(
+  0.95,
+  sum by (le, provider) (
+    rate(nabla_external_provider_origin_duration_seconds_bucket[15m])
+  )
+)
+```
+
+This tracks provider p95 origin latency. Rising latency at the same time as
+increasing probe volume is a pressure signal, not proof by itself of causation.
+
+
+Track concurrent origin work as well:
+
+```promql
+max_over_time(nabla_external_provider_origins_in_flight[15m])
+```
+
+A latency increase that appears only when provider concurrency rises is a strong
+signal to reduce fan-out before considering a higher request-rate budget.
+
+```promql
+max_over_time(nabla_external_provider_rate_budget_utilization_ratio[15m])
+```
+
+Values above `1` mean attempts reached the configured admission ceiling and
+were subject to suppression. Confirm with:
+
+```promql
+increase(nabla_external_provider_rate_budget_rejections_total[15m])
+```
+
+For TrueNAS, correlate these FastAPI series with the existing normalized
+`nabla:core:truenas_cpu_busy_ratio` and
+`nabla:core:truenas_memory_available_ratio` recording rules.
+
+For pfSense, do **not** invent a request-per-second capacity from
+`nabla:telemetry:pfsense_metrics_up`: that signal proves exporter availability,
+not firewall/webConfigurator headroom. Add or consume bounded Prometheus
+recording rules for pfSense CPU/load and PHP-FPM/webConfigurator pressure before
+raising the current pfSense rate budget.
+
+A proposed budget increase is acceptable only when repeated windows show no
+material increase in provider p95 latency, error/timeout rate or platform
+resource pressure. Any correlation with TrueNAS/pfSense degradation should
+instead reduce cadence/concurrency or increase caching.
 
 Debug logs intentionally record only the cache key and exception type for Redis
 read/lock/write/release failures; they must not include credentials or raw

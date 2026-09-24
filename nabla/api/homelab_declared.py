@@ -18,10 +18,14 @@ from pydantic import (
     model_validator,
 )
 
-DECLARED_SERVICES_URL = "https://raw.githubusercontent.com/AlbanAndrieu/nabla-compose/master/catalog/services.json"
+DECLARED_SERVICES_URL = (
+    "https://raw.githubusercontent.com/AlbanAndrieu/nabla-compose/master/"
+    "catalog/services.json"
+)
 _CACHE_TTL_SEC = 300.0
 _FETCH_TIMEOUT_SEC = 4.0
 _VALIDATION_LOG_SAMPLE = 6
+_CATALOG_REVISION_PATTERN = r"^(?:unavailable|sha256:[0-9a-f]{64})$"
 _log = logging.getLogger(__name__)
 _cache_lock = asyncio.Lock()
 
@@ -47,7 +51,9 @@ class RuntimeBinding(BaseModel):
     @model_validator(mode="after")
     def require_runtime_identity(self) -> RuntimeBinding:
         """Keep runtime identity and generated network membership deterministic."""
-        if self.provider == "truenas-app" and not (self.app_id or self.container_service):
+        if self.provider == "truenas-app" and not (
+            self.app_id or self.container_service
+        ):
             raise ValueError("truenas-app runtime requires appId or containerService")
         if self.networks is not None and len(self.networks) != len(set(self.networks)):
             raise ValueError("runtime.networks must not contain duplicates")
@@ -128,7 +134,19 @@ class DeclaredService(BaseModel):
         serialization_alias="presentationRole",
     )
     criticality: Literal["critical", "high", "medium", "low"] | None = None
-    security_functions: list[Literal["govern", "identify", "protect", "detect", "respond", "recover"]] | None = Field(
+    security_functions: (
+        list[
+            Literal[
+                "govern",
+                "identify",
+                "protect",
+                "detect",
+                "respond",
+                "recover",
+            ]
+        ]
+        | None
+    ) = Field(
         default=None,
         min_length=1,
         validation_alias=AliasChoices("securityFunctions", "security_functions"),
@@ -162,11 +180,18 @@ class DeclaredService(BaseModel):
 class DeclaredServiceCatalog(BaseModel):
     """Versioned declared inventory generated with the topology catalog."""
 
-    model_config = ConfigDict(extra="ignore", frozen=True, populate_by_name=True)
+    model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True)
 
-    version: int = Field(ge=1)
+    schema_uri: str | None = Field(
+        default=None,
+        min_length=1,
+        validation_alias=AliasChoices("$schema", "schema_uri"),
+        exclude=True,
+    )
+    version: Literal[1]
     catalog_revision: str = Field(
         min_length=1,
+        pattern=_CATALOG_REVISION_PATTERN,
         validation_alias=AliasChoices("catalogRevision", "catalog_revision"),
         serialization_alias="catalogRevision",
     )

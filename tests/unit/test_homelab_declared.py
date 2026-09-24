@@ -10,7 +10,7 @@ def _catalog(service: dict[str, object]) -> DeclaredServiceCatalog:
     return DeclaredServiceCatalog.model_validate(
         {
             "version": 1,
-            "catalogRevision": "sha256:test",
+            "catalogRevision": "sha256:" + "a" * 64,
             "topologyVersion": 1,
             "name": "test",
             "services": [service],

@@ -26,9 +26,13 @@ from nabla.api.external_probe_cache_redis import (
 )
 from nabla.api.external_probe_cache_types import ProbeCachePolicy, ProbeCacheResult
 from nabla.api.probe_metrics import (
+    observe_provider_origin_duration,
+    provider_origin_finished,
+    provider_origin_started,
     record_cache_outcome,
     record_origin_refresh,
     record_provider_budget_rejection,
+    record_provider_rate_budget_utilization,
 )
 from nabla.api.provider_probe_budget import (
     admit_provider_probe,
@@ -404,6 +408,11 @@ async def get_or_refresh_probe(
                 redis_client=client,
                 redis_available=redis_available,
             )
+            record_provider_rate_budget_utilization(
+                rate_decision.provider,
+                count=rate_decision.count,
+                max_requests=rate_decision.max_requests,
+            )
             if not rate_decision.allowed:
                 has_last_good = (
                     _valid_last_good(
@@ -430,19 +439,34 @@ async def get_or_refresh_probe(
                     return _observe_cache_result(suppressed)
 
             record_origin_refresh()
+            origin_started = time.monotonic()
+            provider_origin_started(rate_decision.provider)
             try:
-                value = await loader()
-            except Exception:
-                await record_provider_probe_outcome(
-                    circuit_decision,
-                    success=False,
+                try:
+                    value = await loader()
+                except Exception:
+                    observe_provider_origin_duration(
+                        rate_decision.provider,
+                        outcome="failure",
+                        duration_seconds=time.monotonic() - origin_started,
+                    )
+                    await record_provider_probe_outcome(
+                        circuit_decision,
+                        success=False,
+                    )
+                    raise
+                success = bool(is_success(value))
+                observe_provider_origin_duration(
+                    rate_decision.provider,
+                    outcome="success" if success else "failure",
+                    duration_seconds=time.monotonic() - origin_started,
                 )
-                raise
-            success = bool(is_success(value))
-            circuit_metadata = await record_provider_probe_outcome(
-                circuit_decision,
-                success=success,
-            )
+                circuit_metadata = await record_provider_probe_outcome(
+                    circuit_decision,
+                    success=success,
+                )
+            finally:
+                provider_origin_finished(rate_decision.provider)
             fetched_at = time.time()
             previous_good = _valid_last_good(
                 last_envelope,

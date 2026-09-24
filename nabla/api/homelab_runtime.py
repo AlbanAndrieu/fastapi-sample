@@ -12,6 +12,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from nabla.api.catalog_resource_model import (
+    ReconciliationState,
+    reconciliation_condition,
+)
 from nabla.api.homelab_catalog import fetch_homelab_catalog
 from nabla.api.homelab_declared import (
     DeclaredService,
@@ -20,15 +24,6 @@ from nabla.api.homelab_declared import (
 )
 from nabla.api.homelab_topology import fetch_homelab_topology
 from nabla.integrations.truenas_client import build_truenas_adapter
-
-ReconciliationState = Literal[
-    "in_sync",
-    "declared_only",
-    "observed_only",
-    "binding_conflict",
-    "runtime_unknown",
-    "not_observed",
-]
 
 _DEFAULT_RUNTIME_CACHE_TTL_SECONDS = 30.0
 _TRUENAS_RESET_RETRY_DELAY_SECONDS = 0.2
@@ -269,6 +264,17 @@ def match_runtime_binding(
     return False, None
 
 
+def _reconciliation_fields(state: ReconciliationState) -> dict[str, Any]:
+    """Expose legacy reconciliation as an additive Kubernetes-style condition."""
+    condition = reconciliation_condition(state)
+    return {
+        "reconciliation": state,
+        "conditions": [
+            condition.model_dump(mode="json", by_alias=True, exclude_none=True),
+        ],
+    }
+
+
 def _reconcile_declared(
     service: DeclaredService,
     snapshot: TrueNASRuntimeSnapshot,
@@ -280,12 +286,18 @@ def _reconcile_declared(
         "declared": True,
         "sourcePath": service.source_path,
         "composeService": service.compose_service,
-        "runtimeBinding": (binding.model_dump(mode="json", by_alias=True, exclude_none=True) if binding is not None else None),
+        "runtimeBinding": (
+            binding.model_dump(mode="json", by_alias=True, exclude_none=True)
+            if binding is not None
+            else None
+        ),
     }
+    if service.criticality is not None:
+        base["operationalCriticality"] = service.criticality
     if binding is None or binding.provider != "truenas-app":
-        return {**base, "reconciliation": "not_observed"}, set()
+        return {**base, **_reconciliation_fields("not_observed")}, set()
     if not snapshot.reachable:
-        return {**base, "reconciliation": "runtime_unknown"}, set()
+        return {**base, **_reconciliation_fields("runtime_unknown")}, set()
 
     matches: list[tuple[ObservedApp, ObservedContainer | None]] = []
     for app in snapshot.apps:
@@ -293,11 +305,11 @@ def _reconcile_declared(
         if matched:
             matches.append((app, container))
     if not matches:
-        return {**base, "reconciliation": "declared_only"}, set()
+        return {**base, **_reconciliation_fields("declared_only")}, set()
     if len(matches) > 1:
         return {
             **base,
-            "reconciliation": "binding_conflict",
+            **_reconciliation_fields("binding_conflict"),
             "matchingApps": [app.app_id for app, _ in matches],
         }, {app.app_id for app, _ in matches}
 
@@ -314,7 +326,7 @@ def _reconcile_declared(
         observed["container"] = container.model_dump(exclude_none=True)
     return {
         **base,
-        "reconciliation": "in_sync",
+        **_reconciliation_fields("in_sync"),
         "observed": observed,
     }, {app.app_id}
 
@@ -387,7 +399,7 @@ async def build_homelab_status_payload() -> dict[str, Any]:
             "id": f"truenas:{app.app_id}",
             "name": app.name,
             "declared": False,
-            "reconciliation": "observed_only",
+            **_reconciliation_fields("observed_only"),
             "observed": {
                 "appId": app.app_id,
                 "appName": app.name,
