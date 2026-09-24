@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 import re
 import time
 from typing import Any, Literal
@@ -18,6 +19,16 @@ HealthState = Literal["ok", "warn", "fail"]
 ProbeScope = Literal["public", "internal"]
 HttpProbe = Callable[..., Awaitable[dict[str, Any]]]
 EdgeProbe = Callable[[str], Awaitable[dict[str, Any]]]
+
+
+@dataclass(frozen=True, slots=True)
+class ProbeBatchLimits:
+    """Execution limits applied to one sampled public/internal probe batch."""
+
+    per_probe_timeout_seconds: float
+    fanout_budget_seconds: float
+    max_concurrency: int
+
 
 _WARNING_HTTP_STATUSES = frozenset({401, 403, 407, 429})
 _ACCESS_EDGE_HTTP_STATUSES = _WARNING_HTTP_STATUSES | frozenset(
@@ -323,11 +334,9 @@ async def collect_bounded_probe_batch(
     probes: list[tuple[HomelabService, asyncio.Task[dict[str, Any]]]],
     *,
     scope: ProbeScope,
+    limits: ProbeBatchLimits,
     enabled: bool = True,
     eligible_count: int | None = None,
-    per_probe_timeout_seconds: float,
-    fanout_budget_seconds: float,
-    max_concurrency: int,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Collect sampled fan-out without allowing it to consume core health."""
     started = time.perf_counter()
@@ -342,9 +351,9 @@ async def collect_bounded_probe_batch(
             "completed": 0,
             "timed_out": 0,
             "rotating_sample": eligible > 0,
-            "budget_seconds": fanout_budget_seconds,
-            "per_probe_timeout_seconds": per_probe_timeout_seconds,
-            "max_concurrency": max_concurrency,
+            "budget_seconds": limits.fanout_budget_seconds,
+            "limits.per_probe_timeout_seconds": limits.per_probe_timeout_seconds,
+            "limits.max_concurrency": limits.max_concurrency,
             "elapsed_ms": 0,
             "states": {"ok": 0, "warn": 0, "fail": 0},
         }
@@ -352,7 +361,7 @@ async def collect_bounded_probe_batch(
     tasks = [task for _, task in probes]
     done, pending = await asyncio.wait(
         tasks,
-        timeout=fanout_budget_seconds,
+        timeout=limits.fanout_budget_seconds,
     )
 
     results: list[dict[str, Any]] = []
@@ -385,9 +394,9 @@ async def collect_bounded_probe_batch(
         "completed": len(done),
         "timed_out": len(pending),
         "rotating_sample": eligible > len(probes),
-        "budget_seconds": fanout_budget_seconds,
-        "per_probe_timeout_seconds": per_probe_timeout_seconds,
-        "max_concurrency": max_concurrency,
+        "budget_seconds": limits.fanout_budget_seconds,
+        "limits.per_probe_timeout_seconds": limits.per_probe_timeout_seconds,
+        "limits.max_concurrency": limits.max_concurrency,
         "elapsed_ms": max(
             0,
             round((time.perf_counter() - started) * 1000),
