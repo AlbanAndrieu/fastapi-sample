@@ -8,19 +8,16 @@ from collections.abc import Awaitable
 from copy import deepcopy
 from datetime import UTC, datetime
 import logging
-import os
 import time
 from typing import Any
 
 from fastapi import Request
 
 from nabla.api.health_contracts import apply_diagnostic_status
+from nabla.settings.health_runtime import HealthRuntimeSettings
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_TTL_SECONDS = 30.0
-_MIN_TTL_SECONDS = 10.0
-_MAX_TTL_SECONDS = 300.0
 _HEALTHZ_OPTIONAL_ENRICHMENT_DEADLINE_SEC = 5.0
 _SICKZ_POLICY_DEADLINE_SEC = 6.0
 _HOMELAB_SNAPSHOT_DEADLINE_SEC = 12.0
@@ -37,12 +34,8 @@ def _utc_now() -> str:
 
 
 def _ttl_seconds() -> float:
-    raw = os.getenv("HEALTH_BOARD_CACHE_TTL_SECONDS", "").strip()
-    try:
-        configured = float(raw) if raw else _DEFAULT_TTL_SECONDS
-    except ValueError:
-        configured = _DEFAULT_TTL_SECONDS
-    return max(_MIN_TTL_SECONDS, min(configured, _MAX_TTL_SECONDS))
+    """Read the bounded cache TTL through the typed settings boundary."""
+    return HealthRuntimeSettings().health_board_cache_ttl_seconds
 
 
 def _short_error(exc: BaseException) -> str:
