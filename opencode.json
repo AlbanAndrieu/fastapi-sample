@@ -58,5 +58,11 @@
       ],
       "enabled": false
     }
+  },
+  "default_agent": "fastapi-maintainer",
+  "permission": {
+    "skill": {
+      "*": "allow"
+    }
   }
 }
