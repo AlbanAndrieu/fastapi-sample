@@ -2,6 +2,7 @@
 description: Relit le diff courant pour détecter régressions, sécurité et tests manquants
 mode: subagent
 temperature: 0.1
+steps: 12
 permission:
   edit: deny
   bash: deny
