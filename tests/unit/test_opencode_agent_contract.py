@@ -14,6 +14,8 @@ def test_opencode_uses_repository_maintainer_and_native_skills() -> None:
     assert config["default_agent"] == "fastapi-maintainer"
     assert config["permission"]["skill"]["*"] == "allow"
     assert config["instructions"] == ["AGENTS.md"]
+    assert config["tool_output"] == {"max_lines": 600, "max_bytes": 32000}
+    assert config["compaction"] == {"auto": True, "prune": True, "tail_turns": 6}
 
     github = config["mcp"]["github"]
     assert github["type"] == "local"
@@ -26,6 +28,7 @@ def test_opencode_maintainer_uses_canonical_local_gates() -> None:
     ).read_text(encoding="utf-8")
 
     assert "mode: primary" in agent
+    assert "steps: 40" in agent
     assert "scripts/agent-quality-gate.sh --fix" in agent
     assert "scripts/agent-publish.sh" in agent
     assert "docs/engineering-roadmap.md" in agent
@@ -39,6 +42,7 @@ def test_opencode_reviewer_is_read_only() -> None:
     ).read_text(encoding="utf-8")
 
     assert "mode: subagent" in reviewer
+    assert "steps: 12" in reviewer
     assert "edit: deny" in reviewer
     assert "bash: deny" in reviewer
 
@@ -57,3 +61,14 @@ def test_opencode_commands_cover_local_agent_workflow() -> None:
     assert "scripts/agent-publish.sh" in publish
     assert "agent: quality-reviewer" in review
     assert "git diff --check" in review
+
+
+def test_all_repository_skills_use_exact_discovery_filename() -> None:
+    skills = ROOT / ".agents" / "skills"
+    malformed = [
+        path
+        for path in skills.rglob("SKILL*")
+        if path.is_file() and path.name != "SKILL.md"
+    ]
+
+    assert malformed == []
