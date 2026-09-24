@@ -707,6 +707,16 @@ acceptance criterion.
       skip pull-request preview builds that would exceed the function-size limit.
 - [ ] Deduplicate Cursor, Codex, OpenCode and Copilot instructions while keeping
       `AGENTS.md` as the concise shared policy.
+  - [x] Make OpenCode consume that shared policy deterministically for the
+        workstation's smaller model: add an explicit execution protocol and skill
+        routing table to `AGENTS.md`, use a model-inheriting
+        `fastapi-maintainer` primary agent, allow native `.agents/skills`
+        loading, add local roadmap/quality/review/publication commands and keep
+        the GitHub MCP read-only so repository mutations still pass through the
+        local checkout and quality gates.
+  - [ ] Audit the legacy Cursor rule set and remaining tool-specific adapters for
+        policy duplicated from `AGENTS.md`; keep only genuinely tool/path-specific
+        rules before closing this parent item.
 - [ ] Store generated SBOM reports as CI artifacts instead of tracking large
       generated files.
 - [ ] Continue the MCP SDK integration review:
