@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 import threading
 import time
 from datetime import datetime, timezone
@@ -24,8 +23,8 @@ from nabla.api.homelab_declared import (
 )
 from nabla.api.homelab_topology import fetch_homelab_topology
 from nabla.integrations.truenas_client import build_truenas_adapter
+from nabla.settings.health_runtime import HealthRuntimeSettings
 
-_DEFAULT_RUNTIME_CACHE_TTL_SECONDS = 30.0
 _TRUENAS_RESET_RETRY_DELAY_SECONDS = 0.2
 _TRUENAS_MAX_ATTEMPTS = 3
 _RUNTIME_CACHE_LOCK = threading.Lock()
@@ -76,15 +75,8 @@ def _short_error(exc: BaseException) -> str:
 
 
 def _runtime_cache_ttl_seconds() -> float:
-    """Return a bounded cache TTL so configuration mistakes cannot cache indefinitely."""
-    raw = os.getenv("TRUENAS_RUNTIME_CACHE_TTL_SECONDS", "").strip()
-    if not raw:
-        return _DEFAULT_RUNTIME_CACHE_TTL_SECONDS
-    try:
-        value = float(raw)
-    except ValueError:
-        return _DEFAULT_RUNTIME_CACHE_TTL_SECONDS
-    return max(5.0, min(value, 300.0))
+    """Read the bounded runtime cache TTL through typed settings."""
+    return HealthRuntimeSettings().truenas_runtime_cache_ttl_seconds
 
 
 def _observed_app(raw: dict[str, Any]) -> ObservedApp:
