@@ -11,9 +11,10 @@ from typing import Any, Literal
 
 import httpx
 
-from nabla.api.homelab_catalog import fetch_homelab_services
-from nabla.api.homelab_models import HomelabService
 from nabla.api import homelab_probe_runner
+from nabla.api.homelab_catalog import fetch_homelab_services
+from nabla.api.homelab_health_cache import copy_homelab_health_payload
+from nabla.api.homelab_models import HomelabService
 from nabla.api.homelab_probe_evidence import (
     evidence_summary,
     merge_probe_evidence,
@@ -49,26 +50,9 @@ from nabla.utils.environment import env_bool
 
 HealthState = Literal["ok", "warn", "fail"]
 
-_WARNING_HTTP_STATUSES = frozenset({401, 403, 407, 429})
-_ACCESS_EDGE_HTTP_STATUSES = _WARNING_HTTP_STATUSES | frozenset({301, 302, 303, 307, 308})
 _PROBE_TIMEOUT_SEC = 5.0
 _TRUENAS_DIAGNOSTICS_BUDGET_SEC = 3.0
 _INTERNAL_PROBE_ENV = "HOMELAB_INTERNAL_PROBES_ENABLED"
-_MAX_APPLICATION_BODY_BYTES = 16_384
-_APPLICATION_ERROR_PREFIXES = (
-    "error:",
-    "fatal:",
-    "exception:",
-    "application error",
-    "internal server error",
-    "bad gateway",
-    "service unavailable",
-)
-_APPLICATION_ERROR_MARKERS = (
-    "traceback (most recent call last)",
-    "uncaught exception",
-    "unhandled exception",
-)
 _cache_lock = asyncio.Lock()
 _cached_at = 0.0
 _cached_payload: dict[str, Any] | None = None
@@ -267,40 +251,13 @@ def _copy_payload(
     cache_source: Literal["origin", "memory"],
     cache_age_seconds: float,
 ) -> dict[str, Any]:
-    truenas = payload.get("truenas")
-    truenas_copy = None
-    if isinstance(truenas, dict):
-        public = truenas.get("public")
-        internal = truenas.get("internal")
-        api = truenas.get("api")
-        truenas_copy = {
-            **truenas,
-            "public": dict(public) if isinstance(public, dict) else public,
-            "internal": dict(internal) if isinstance(internal, dict) else internal,
-            "api": dict(api) if isinstance(api, dict) else api,
-        }
-
-    raw_summary = payload.get("probe_summary") or {}
-    probe_summary = dict(raw_summary)
-    for scope in ("public", "internal"):
-        if isinstance(raw_summary.get(scope), dict):
-            probe_summary[scope] = dict(raw_summary[scope])
-
-    age = max(0.0, cache_age_seconds)
-    return {
-        **payload,
-        "truenas": truenas_copy,
-        "services": [dict(service) for service in payload.get("services", [])],
-        "public_probe_results": [dict(service) for service in payload.get("public_probe_results", [])],
-        "internal_services": [dict(service) for service in payload.get("internal_services", [])],
-        "probe_summary": probe_summary,
-        "probe_cache": {
-            "source": cache_source,
-            "age_seconds": round(age, 3),
-            "ttl_seconds": _HEALTH_CACHE_TTL_SEC,
-            "stale": age >= _HEALTH_CACHE_TTL_SEC,
-        },
-    }
+    """Compatibility facade for detached cached payloads."""
+    return copy_homelab_health_payload(
+        payload,
+        cache_source=cache_source,
+        cache_age_seconds=cache_age_seconds,
+        cache_ttl_seconds=_HEALTH_CACHE_TTL_SEC,
+    )
 
 
 async def build_homelab_health_payload(
