@@ -29,6 +29,7 @@ def test_opencode_maintainer_uses_canonical_local_gates() -> None:
 
     assert "mode: primary" in agent
     assert "steps: 40" in agent
+    assert "model:" not in agent.split("---", 2)[1]
     assert "scripts/agent-quality-gate.sh --fix" in agent
     assert "scripts/agent-publish.sh" in agent
     assert "docs/engineering-roadmap.md" in agent
@@ -72,3 +73,15 @@ def test_all_repository_skills_use_exact_discovery_filename() -> None:
     ]
 
     assert malformed == []
+
+
+def test_agents_policy_exposes_deterministic_small_model_protocol() -> None:
+    policy = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+
+    assert "## Mandatory execution protocol" in policy
+    assert "### Skill routing" in policy
+    assert "scripts/agent-quality-gate.sh --fix" in policy
+    assert "scripts/agent-publish.sh" in policy
+    assert "scripts/quality-gate.sh --publish" not in policy
+    assert "no-GitHub-Actions/no-credit mode" in policy
+
