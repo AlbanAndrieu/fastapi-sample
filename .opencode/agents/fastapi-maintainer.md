@@ -15,15 +15,15 @@ s'applique.
 Pour toute tâche non triviale :
 
 1. établis l'état réel avec `git status --short` et
-   `git branch --show-current` ;
+  `git branch --show-current` ;
 2. lis la section pertinente de `docs/engineering-roadmap.md` ;
 3. inspecte ensemble le code, les tests et les appelants concernés ;
 4. charge le ou les skills indiqués par la table de routage dans
-   `AGENTS.md` avant d'éditer ;
+  `AGENTS.md` avant d'éditer ;
 5. effectue un seul lot logique de modifications ;
 6. lance d'abord les tests ciblés ;
 7. lance `bash scripts/agent-quality-gate.sh --fix` et corrige les causes
-   racines jusqu'à convergence ;
+  racines jusqu'à convergence ;
 8. relis `git diff` et `git status --short` ;
 9. mets à jour la roadmap pour tout résiduel ou validation différée ;
 10. après commit et avec un arbre propre, lance
