@@ -42,6 +42,15 @@ duplicate schemas and shortens the migration.
   allow only explicit `$schema` metadata at the catalog root, and reject
   unknown top-level fields. Future schema drift must use last-known-good v1
   evidence until the coordinated breaking cutover replaces this contract.
+- [x] Align the explicit pre-cutover v1 consumer with metadata now emitted by
+  `nabla-compose/master`: service/node `status` (`active|planned|disabled`),
+  `lifecycle.blocksLaterWaves`, and declared-service `internalUrl`. Keep
+  `extra="forbid"`; this is an explicit contract update, not permissive fallback.
+- [ ] Fix the producer-side `nabla-compose/catalog/services.schema.json` contract:
+  current generated `services.json` and `x-nabla` metadata contain
+  `internalUrl`, while the services JSON schema still omits that property.
+  Reconcile the producer schema/generator before treating schema validation as
+  authoritative for this field.
 - Migrate the declared catalog/topology loaders, reconciliation and API projection
   in the same migration window, then remove obsolete v1-only parsing and overlays.
 - `homelab-services.json` and `homelab-exposure-overrides.json` must not survive
@@ -690,6 +699,20 @@ acceptance criterion.
 - [ ] Add a provider orchestrator above the adapters with per-provider budgets,
       timeouts, circuit breakers, deduplication and fallback policy. Do not make
       SearXNG a mandatory dependency for every search request.
+
+## Local unit-test hermeticity — 2026-09-25
+
+- [x] Keep public homelab route tests hermetic: mock
+  `health_board.build_homelab_snapshot` separately from raw
+  `homelab_health.build_homelab_health_payload` so unit tests never use the
+  current LAN merely because it is reachable.
+- [x] Force Sentry, Datadog/ddtrace, Logfire and other external telemetry off
+  during `tests/unit` collection even when the developer shell enables them.
+  Integration/acceptance tests must opt in explicitly outside the unit suite.
+- [ ] Re-run intentional LAN acceptance after the unit gate is green: confirm
+  TrueNAS, pfSense and Prometheus through dedicated read-only checks, then assess
+  Cloudflare and Sentry independently instead of interpreting accidental unit-test
+  network traffic as acceptance evidence.
 
 ## P2 — Local development and documentation
 
