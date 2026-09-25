@@ -22,10 +22,16 @@ def _topology_payload() -> dict:
                 "category": "ai",
                 "presentationRole": "service",
                 "criticality": "high",
+                "status": "planned",
                 "securityFunctions": ["identify", "protect", "detect"],
                 "sourcePath": "apps/openwebui/compose.yml",
                 "internalUrl": "https://openwebui.int.albandrieu.com",
                 "icon": "💬",
+                "lifecycle": {
+                    "phase": "platform-services",
+                    "priority": 40,
+                    "blocksLaterWaves": False,
+                },
                 "monitoring": {
                     "type": "http",
                     "target": "https://openwebui.int.albandrieu.com/health",
@@ -58,20 +64,25 @@ def test_topology_accepts_declared_relation_and_preserves_wire_aliases() -> None
 
     assert topology.nodes[0].presentation_role == "service"
     assert topology.nodes[0].criticality == "high"
+    assert topology.nodes[0].status == "planned"
     assert topology.nodes[0].security_functions == ["identify", "protect", "detect"]
     assert topology.nodes[0].source_path == "apps/openwebui/compose.yml"
     assert topology.nodes[0].internal_url == "https://openwebui.int.albandrieu.com"
     assert topology.nodes[0].icon == "💬"
     assert topology.nodes[0].monitoring is not None
     assert topology.nodes[0].monitoring.type == "http"
+    assert topology.nodes[0].lifecycle is not None
+    assert topology.nodes[0].lifecycle.blocks_later_waves is False
     assert payload["nodes"][0]["presentationRole"] == "service"
     assert payload["nodes"][0]["criticality"] == "high"
+    assert payload["nodes"][0]["status"] == "planned"
     assert payload["nodes"][0]["securityFunctions"] == ["identify", "protect", "detect"]
     assert payload["nodes"][0]["sourcePath"] == "apps/openwebui/compose.yml"
     assert payload["nodes"][0]["internalUrl"] == "https://openwebui.int.albandrieu.com"
     assert payload["nodes"][0]["icon"] == "💬"
     assert payload["nodes"][0]["monitoring"]["type"] == "http"
     assert payload["nodes"][0]["monitoring"]["target"].endswith("/health")
+    assert payload["nodes"][0]["lifecycle"]["blocksLaterWaves"] is False
     assert "securityFunctions" not in payload["nodes"][1]
     assert payload["relations"][0]["type"] == "consumesApi"
 
