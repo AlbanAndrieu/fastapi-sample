@@ -9,7 +9,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from nabla.api import homelab_catalog, homelab_health
+from nabla.api import health_board, homelab_catalog, homelab_health
 from nabla.api.homelab_models import HomelabCatalog, HomelabService
 from nabla.config import CORS_ORIGINS
 from nabla.routes import register_routes
@@ -494,6 +494,25 @@ def test_public_homelab_routes(monkeypatch) -> None:
                 external=True,
             ),
         ],
+    )
+    health_snapshot = {
+        "schema_version": 6,
+        "checked_at": health_payload["checked_at"],
+        "truenas": health_payload["truenas"],
+        "services": [
+            {
+                "id": "langfuse",
+                "name": "Langfuse",
+                "url": "https://langfuse.albandrieu.com/",
+                "url_derived": False,
+                "state": "unknown",
+            },
+        ],
+    }
+    monkeypatch.setattr(
+        health_board,
+        "build_homelab_snapshot",
+        AsyncMock(return_value=health_snapshot),
     )
     monkeypatch.setattr(
         homelab_health,
