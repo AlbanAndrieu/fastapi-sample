@@ -446,6 +446,9 @@ if [[ "${CI_PREFLIGHT}" == true ]]; then
     echo "✅ pytest deferred by CI preflight; dependency-backed tests are still required."
 elif [[ "${full_pytest_impact}" == true ]]; then
     run_compact "repository pytest suite (fail-fast)" \
+        env DD_TRACE_ENABLED=false DD_PROFILING_ENABLED=false \
+        SENTRY_ENABLED=false SENTRY_DSN= SENTRY_LOCAL_DSN= \
+        LOGFIRE_ENABLED=false LOGFIRE_TOKEN= DATADOG_ENABLED=false \
         uv run pytest -q --disable-warnings --maxfail=1 --junit-xml=junit.xml
 elif [[ "${quality_contract_impact}" == true ]]; then
     run_compact "quality-gate contract pytest (isolated fail-fast)" \
