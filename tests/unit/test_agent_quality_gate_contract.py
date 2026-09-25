@@ -56,6 +56,9 @@ def test_agent_quality_gate_wraps_tests_and_canonical_gate() -> None:
     assert "diff-filter=D" in text
     assert "QG_EXEC_BIT" in text
     assert "QG_FIX_NO_PROGRESS" in text
+    assert "print_precommit_failure" in text
+    assert "Deterministic rewrites are stable" in text
+    assert "--show-diff-on-failure" not in text
     assert "QG_FIX_NOT_CONVERGED" in text
     assert "QUALITY_FIX_PASSES" in text
     assert 'FIX_PASSES="${QUALITY_FIX_PASSES:-6}"' in text
@@ -96,6 +99,7 @@ def test_agent_quality_gate_wraps_tests_and_canonical_gate() -> None:
         "quality-gate contract pytest (isolated fail-fast)",
     )
     assert "Working tree changed after tests" in text
+    assert "then run scripts/agent-publish.sh" in text
     assert 'tail -n "${LOG_TAIL}"' in text
     assert "LOG_TAIL=80" in text
 
