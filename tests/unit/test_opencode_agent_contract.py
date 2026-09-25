@@ -23,9 +23,7 @@ def test_opencode_uses_repository_maintainer_and_native_skills() -> None:
 
 
 def test_opencode_maintainer_uses_canonical_local_gates() -> None:
-    agent = (
-        ROOT / ".opencode" / "agents" / "fastapi-maintainer.md"
-    ).read_text(encoding="utf-8")
+    agent = (ROOT / ".opencode" / "agents" / "fastapi-maintainer.md").read_text(encoding="utf-8")
 
     assert "mode: primary" in agent
     assert "steps: 40" in agent
@@ -38,9 +36,7 @@ def test_opencode_maintainer_uses_canonical_local_gates() -> None:
 
 
 def test_opencode_reviewer_is_read_only() -> None:
-    reviewer = (
-        ROOT / ".opencode" / "agents" / "quality-reviewer.md"
-    ).read_text(encoding="utf-8")
+    reviewer = (ROOT / ".opencode" / "agents" / "quality-reviewer.md").read_text(encoding="utf-8")
 
     assert "mode: subagent" in reviewer
     assert "steps: 12" in reviewer
@@ -70,11 +66,7 @@ def test_opencode_commands_cover_local_agent_workflow() -> None:
 
 def test_all_repository_skills_use_exact_discovery_filename() -> None:
     skills = ROOT / ".agents" / "skills"
-    malformed = [
-        path
-        for path in skills.rglob("SKILL*")
-        if path.is_file() and path.name != "SKILL.md"
-    ]
+    malformed = [path for path in skills.rglob("SKILL*") if path.is_file() and path.name != "SKILL.md"]
 
     assert malformed == []
 
@@ -88,4 +80,3 @@ def test_agents_policy_exposes_deterministic_small_model_protocol() -> None:
     assert "scripts/agent-publish.sh" in policy
     assert "scripts/quality-gate.sh --publish" not in policy
     assert "no-GitHub-Actions/no-credit mode" in policy
-
