@@ -3,7 +3,6 @@ description: Relire le diff local avec le subagent read-only
 agent: quality-reviewer
 subtask: true
 ---
-
 Relis le diff local ci-dessous sans modifier le dépôt.
 
 Branche :

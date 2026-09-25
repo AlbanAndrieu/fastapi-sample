@@ -2,7 +2,6 @@
 description: Valider localement un HEAD propre avant publication
 agent: fastapi-maintainer
 ---
-
 Prépare le HEAD courant à une publication locale sûre.
 
 Commence par vérifier :

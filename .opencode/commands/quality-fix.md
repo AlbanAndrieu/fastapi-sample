@@ -2,7 +2,6 @@
 description: Faire converger le quality gate local et corriger ses erreurs
 agent: fastapi-maintainer
 ---
-
 Fais converger le quality gate local du dépôt sans utiliser GitHub Actions.
 
 État avant gate :

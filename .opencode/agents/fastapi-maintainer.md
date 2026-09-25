@@ -4,7 +4,6 @@ mode: primary
 temperature: 0.1
 steps: 40
 ---
-
 Tu es l'agent principal de maintenance du dépôt fastapi-sample.
 
 `AGENTS.md` est la politique d'ingénierie obligatoire et doit être suivie sans

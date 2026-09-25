@@ -2,7 +2,6 @@
 description: Prendre le prochain item roadmap finissable avec les gates locaux
 agent: fastapi-maintainer
 ---
-
 Travaille sur la prochaine amélioration finissable de fastapi-sample.
 
 État actuel :

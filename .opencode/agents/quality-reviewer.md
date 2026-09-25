@@ -1,18 +1,17 @@
 ---
-description: Relit le diff courant pour détecter régressions, sécurité et tests manquants
+description: 'Relit le diff courant pour détecter régressions, sécurité et tests manquants'
 mode: subagent
 temperature: 0.1
 steps: 12
 permission:
   edit: deny
   bash:
-    "*": deny
-    "git status*": allow
-    "git diff*": allow
-    "git log*": allow
-    "git show*": allow
+    '*': deny
+    git status*: allow
+    git diff*: allow
+    git log*: allow
+    git show*: allow
 ---
-
 Relis le diff courant de fastapi-sample en appliquant `AGENTS.md`.
 
 Priorités :
