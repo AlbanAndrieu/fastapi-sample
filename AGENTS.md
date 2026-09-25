@@ -15,34 +15,34 @@ or silently skip these steps.
 For every non-trivial repository task:
 
 1. **Establish state before editing.** Run `git status --short`,
-  `git branch --show-current`, and inspect the smallest relevant diff/files.
-  Never assume a branch, PR, CI result, deployment state, or prior edit is still
-  current.
+    `git branch --show-current`, and inspect the smallest relevant diff/files.
+    Never assume a branch, PR, CI result, deployment state, or prior edit is still
+    current.
 2. **Protect `master`.** Never mutate the default branch. If the active PR was
-  already merged or the requested branch no longer exists, create a new branch
-  from current `master` before changing files.
+    already merged or the requested branch no longer exists, create a new branch
+    from current `master` before changing files.
 3. **Read the plan.** Inspect the relevant section of
-  `docs/engineering-roadmap.md`. Keep work inside the requested PR scope and
-  record newly discovered residual work there.
+    `docs/engineering-roadmap.md`. Keep work inside the requested PR scope and
+    record newly discovered residual work there.
 4. **Load the task-specific skill before implementation.** Use OpenCode's
-  `skill` tool for the matching entry in the skill-routing table below. Do not
-  rely on remembered instructions when a repository skill exists.
+    `skill` tool for the matching entry in the skill-routing table below. Do not
+    rely on remembered instructions when a repository skill exists.
 5. **Inspect implementation and tests together.** Find the production code,
-  closest tests, configuration, and callers before editing. For files above the
-  maintainability thresholds, extract a cohesive responsibility rather than
-  adding more unrelated code.
+    closest tests, configuration, and callers before editing. For files above the
+    maintainability thresholds, extract a cohesive responsibility rather than
+    adding more unrelated code.
 6. **Make one logical batch.** Prefer the smallest safe change. Preserve existing
-  contracts unless the task explicitly requests a breaking change.
+    contracts unless the task explicitly requests a breaking change.
 7. **Run focused validation first.** Execute the closest tests or static checks
-  for the changed behavior before the repository-wide gate.
+    for the changed behavior before the repository-wide gate.
 8. **Converge the deterministic local gate.** Run
-  `bash scripts/agent-quality-gate.sh --fix`. Fix root causes; never weaken,
-  skip, or disable a formatter, lint, test, security, workflow, or size rule just
-  to get green.
+    `bash scripts/agent-quality-gate.sh --fix`. Fix root causes; never weaken,
+    skip, or disable a formatter, lint, test, security, workflow, or size rule just
+    to get green.
 9. **Review before publication.** Inspect `git status --short`, `git diff`,
-  and the staged/committed diff. Commit only the intended logical batch. In an
-  explicitly requested no-GitHub-Actions/no-credit mode, use `[skip ci]`, keep
-  the PR Draft, and do not dispatch or re-run remote workflows.
+    and the staged/committed diff. Commit only the intended logical batch. In an
+    explicitly requested no-GitHub-Actions/no-credit mode, use `[skip ci]`, keep
+    the PR Draft, and do not dispatch or re-run remote workflows.
 10. **Prove publishability locally.** With a clean committed tree, run
     `bash scripts/agent-publish.sh`. This is the canonical publication command;
     it invokes the strict quality gate and the scope-aware build checks. Never
@@ -238,15 +238,15 @@ Every remote mutation must explicitly target a non-default branch created from t
 Before every `git push` or other publication of a completed local batch:
 
 1. Run `bash scripts/agent-quality-gate.sh --fix` after the complete logical
-  editing batch; let deterministic rewrites converge instead of publishing each
-  formatter pass.
+    editing batch; let deterministic rewrites converge instead of publishing each
+    formatter pass.
 2. Review the final converged diff and commit the logical batch once.
 3. Verify `git status --short` is empty.
 4. Run `bash scripts/agent-publish.sh`. Do not call lower-level publication
-  checks instead unless debugging the wrapper itself.
+    checks instead unless debugging the wrapper itself.
 5. Fix every formatter, linter, YAML, workflow, configuration, generated-file,
-  lockfile, unit/contract-test, executable-bit, destructive-diff, build, or
-  security-check failure caused by the change, then repeat from step 1.
+    lockfile, unit/contract-test, executable-bit, destructive-diff, build, or
+    security-check failure caused by the change, then repeat from step 1.
 6. Only publish after `agent-publish.sh` succeeds for the exact committed HEAD.
 
 GitHub API file writes are an emergency/API-only fallback, not the preferred
