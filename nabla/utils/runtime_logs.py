@@ -6,7 +6,6 @@ from collections import deque
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from itertools import count
-from nabla.utils.logger import _redact_value
 import json
 import logging
 import os
@@ -60,6 +59,7 @@ def _mask_bearer(value: Any) -> Any:
 
 def _redact(value: Any) -> Any:
     """Mask bearer credentials before applying the generic application redactor."""
+    from nabla.utils.logger import _redact_value  # noqa: PLC0415, PLC2701
 
     return _redact_value(_mask_bearer(value))
 
