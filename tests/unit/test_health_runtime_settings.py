@@ -42,6 +42,7 @@ def test_health_runtime_settings_preserve_bounded_legacy_semantics(
 
     assert getattr(settings, field) == expected
 
+
 def test_runtime_modules_do_not_reparse_migrated_environment_variables() -> None:
     import inspect
 
@@ -49,7 +50,6 @@ def test_runtime_modules_do_not_reparse_migrated_environment_variables() -> None
 
     assert "HEALTH_BOARD_CACHE_TTL_SECONDS" not in inspect.getsource(health_board)
     assert "TRUENAS_RUNTIME_CACHE_TTL_SECONDS" not in inspect.getsource(
-        homelab_runtime
+        homelab_runtime,
     )
     assert "TRUENAS_WS_PATH" not in inspect.getsource(homelab_health)
-
