@@ -78,6 +78,8 @@ async def test_sickz_policy_timeout_keeps_low_level_payload(monkeypatch) -> None
 async def test_sickz_snapshot_uses_local_request_scope_for_pfsense_policy(
     monkeypatch,
 ) -> None:
+    monkeypatch.delenv("FASTAPI_RUNTIME_MODE", raising=False)
+
     async def low_level(_request):
         return {
             "checks": {

@@ -46,7 +46,7 @@ def _safe_float(value: object) -> float | None:
 
 
 def _vector_values(payload: dict[str, Any]) -> dict[str, float | None]:
-    values = {key: None for key in _METRICS}
+    values = dict.fromkeys(_METRICS)
     if payload.get("status") != "success":
         return values
     data = payload.get("data")
@@ -81,7 +81,7 @@ async def _query_fixed_metrics(client: httpx.AsyncClient) -> dict[str, float | N
     response.raise_for_status()
     payload = response.json()
     if not isinstance(payload, dict):
-        return {key: None for key in _METRICS}
+        return dict.fromkeys(_METRICS)
     return _vector_values(payload)
 
 
@@ -94,7 +94,7 @@ def _summary(values: dict[str, float | None]) -> dict[str, Any]:
         "telemetry_up": up,
         "telemetry_total": len(_UP_SIGNALS),
         "truenas_memory_available_ratio": values.get(
-            "truenas_memory_available_ratio"
+            "truenas_memory_available_ratio",
         ),
         "truenas_cpu_busy_ratio": values.get("truenas_cpu_busy_ratio"),
         "pfsense_metrics_up": values.get("pfsense_metrics_up"),

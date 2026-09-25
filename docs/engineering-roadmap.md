@@ -702,6 +702,7 @@ acceptance criterion.
 
 ## Local unit-test hermeticity — 2026-09-25
 
+- [x] Keep external-probe cache unit tests independent from an inherited `REDIS_URL` by disabling implicit Redis resolution for that unit-test module. Explicit `FakeRedis` coverage and real Redis integration tests remain available without coupling unit tests to the developer runtime.
 - [x] Keep public homelab route tests hermetic: mock
   `health_board.build_homelab_snapshot` separately from raw
   `homelab_health.build_homelab_health_payload` so unit tests never use the
@@ -932,6 +933,17 @@ The following improvements have already been implemented:
   `homelab_health_cache.py`, and pure TrueNAS target/state reconciliation in
   `truenas_probe_health.py`. The façade remains responsible for orchestration,
   provider dependency injection and the process-local snapshot cache.
+- [x] Refactor `nabla/api/health_board.py` below the 400-line warning
+      threshold by extracting optional health/sickz/runtime diagnostic builders
+      into `health_board_diagnostics.py`; keep deadline values and monkeypatch
+      seams owned by the historical façade.
+- [x] Refactor `nabla/api/homelab_runtime.py` below the 400-line warning
+      threshold by extracting sanitized TrueNAS runtime models and raw
+      `app.query` normalization into `homelab_runtime_models.py`.
+- [x] Split `tests/unit/test_homelab_health.py` by the extracted production
+      responsibilities into probe-runner and TrueNAS target/state contract
+      suites. The intentional >40% reduction is explicitly acknowledged in
+      `.quality-gate-large-deletions`.
 - [x] Make local publication scope-aware: always run the strict agent gate,
   but run Pylint, the minimal FastAPI import smoke and `uv build` only when the
   centralized classifier reports `build=true`. Documentation/quality-only

@@ -7,15 +7,19 @@ import asyncio
 import threading
 import time
 from datetime import datetime, timezone
-from typing import Any, Literal
-
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Any
 
 from nabla.api.catalog_resource_model import (
     ReconciliationState,
     reconciliation_condition,
 )
 from nabla.api.homelab_catalog import fetch_homelab_catalog
+from nabla.api.homelab_runtime_models import (
+    ObservedApp,
+    ObservedContainer,
+    TrueNASRuntimeSnapshot,
+    observed_app as _observed_app,
+)
 from nabla.api.homelab_declared import (
     DeclaredService,
     RuntimeBinding,
@@ -32,75 +36,14 @@ _RUNTIME_CACHE: TrueNASRuntimeSnapshot | None = None
 _RUNTIME_CACHE_EXPIRES_AT = 0.0
 
 
-class ObservedContainer(BaseModel):
-    """One container reported by TrueNAS active_workloads."""
-
-    model_config = ConfigDict(extra="ignore", frozen=True)
-
-    service_name: str | None = None
-    image: str | None = None
-    state: str | None = None
-
-
-class ObservedApp(BaseModel):
-    """One installed TrueNAS App with the runtime facts needed for reconciliation."""
-
-    model_config = ConfigDict(extra="ignore", frozen=True)
-
-    app_id: str
-    name: str
-    state: str = "UNKNOWN"
-    version: str | None = None
-    human_version: str | None = None
-    upgrade_available: bool = False
-    containers: list[ObservedContainer] = Field(default_factory=list)
-
-
-class TrueNASRuntimeSnapshot(BaseModel):
-    """Read-only sanitized snapshot returned to homelab consumers."""
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    provider: Literal["truenas"] = "truenas"
-    observed_at: str
-    configured: bool
-    reachable: bool
-    stale: bool = False
-    apps: list[ObservedApp] = Field(default_factory=list)
-    error: str | None = None
-
-
 def _short_error(exc: BaseException) -> str:
+    """Return a bounded error suitable for the sanitized runtime snapshot."""
     return (str(exc).strip() or exc.__class__.__name__)[:240]
 
 
 def _runtime_cache_ttl_seconds() -> float:
     """Read the bounded runtime cache TTL through typed settings."""
     return HealthRuntimeSettings().truenas_runtime_cache_ttl_seconds
-
-
-def _observed_app(raw: dict[str, Any]) -> ObservedApp:
-    workloads = raw.get("active_workloads") or {}
-    raw_containers = workloads.get("container_details") or []
-    containers = [
-        ObservedContainer(
-            service_name=(str(container.get("service_name")) if container.get("service_name") is not None else None),
-            image=(str(container.get("image")) if container.get("image") is not None else None),
-            state=(str(container.get("state")) if container.get("state") is not None else None),
-        )
-        for container in raw_containers
-        if isinstance(container, dict)
-    ]
-    app_id = str(raw.get("id") or raw.get("name") or "unknown")
-    return ObservedApp(
-        app_id=app_id,
-        name=str(raw.get("name") or app_id),
-        state=str(raw.get("state") or raw.get("status") or "UNKNOWN"),
-        version=str(raw["version"]) if raw.get("version") is not None else None,
-        human_version=(str(raw["human_version"]) if raw.get("human_version") is not None else None),
-        upgrade_available=bool(raw.get("upgrade_available", False)),
-        containers=containers,
-    )
 
 
 def runtime_snapshot_from_health_api(

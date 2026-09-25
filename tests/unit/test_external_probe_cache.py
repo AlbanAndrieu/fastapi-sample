@@ -46,6 +46,12 @@ class FailingRedis(FakeRedis):
         raise ConnectionError("redis unavailable")
 
 
+@pytest.fixture(autouse=True)
+def disable_implicit_redis(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep cache unit tests independent from a developer REDIS_URL."""
+    monkeypatch.delenv("REDIS_URL", raising=False)
+
+
 @pytest.fixture
 def policy() -> ProbeCachePolicy:
     return ProbeCachePolicy(
@@ -126,10 +132,7 @@ def test_l1_hot_ttl_caps_long_ttl_at_local_window() -> None:
         stale_ttl=120.0,
     )
 
-    assert (
-        cache._l1_hot_ttl({"current": {"success": True}}, policy)
-        == cache._L1_HOT_TTL_SEC
-    )
+    assert cache._l1_hot_ttl({"current": {"success": True}}, policy) == cache._L1_HOT_TTL_SEC
 
 
 @pytest.mark.asyncio
@@ -251,7 +254,7 @@ async def test_failed_refresh_keeps_current_error_and_marks_last_good_stale(poli
         [
             {"reachable": True, "generation": 1},
             {"reachable": False, "error": "read timeout"},
-        ]
+        ],
     )
 
     async def loader():
@@ -351,7 +354,7 @@ async def test_failure_window_bounds_concurrent_origin_refreshes(
                 is_success=lambda value: value["reachable"] is True,
                 policy=policy,
                 redis_client=redis,
-            )
+            ),
         )
         for _ in range(12)
     ]
@@ -398,7 +401,7 @@ async def test_local_singleflight_prevents_stampede_when_redis_fails(policy) -> 
             is_success=lambda value: value["reachable"] is True,
             policy=policy,
             redis_client=redis,
-        )
+        ),
     )
     await loader_started.wait()
     second_task = asyncio.create_task(
@@ -408,7 +411,7 @@ async def test_local_singleflight_prevents_stampede_when_redis_fails(policy) -> 
             is_success=lambda value: value["reachable"] is True,
             policy=policy,
             redis_client=redis,
-        )
+        ),
     )
     await asyncio.sleep(0)
     release_loader.set()
@@ -482,6 +485,7 @@ async def test_provider_rate_budget_serves_retained_stale_evidence(
     assert second.metadata["provider_rate_budget"]["origin_suppressed"] is True
     await cache.reset_probe_cache(key)
 
+
 @pytest.mark.asyncio
 async def test_origin_capacity_metrics_wrap_only_real_provider_io(
     policy,
@@ -530,7 +534,7 @@ async def test_origin_capacity_metrics_wrap_only_real_provider_io(
         cache,
         "record_provider_rate_budget_utilization",
         lambda provider, **values: events.append(
-            ("budget", (provider, values["count"], values["max_requests"]))
+            ("budget", (provider, values["count"], values["max_requests"])),
         ),
     )
     monkeypatch.setattr(
@@ -547,7 +551,7 @@ async def test_origin_capacity_metrics_wrap_only_real_provider_io(
         cache,
         "observe_provider_origin_duration",
         lambda provider, **values: events.append(
-            ("duration", (provider, values["outcome"], values["duration_seconds"]))
+            ("duration", (provider, values["outcome"], values["duration_seconds"])),
         ),
     )
 
@@ -585,4 +589,3 @@ async def test_origin_capacity_metrics_wrap_only_real_provider_io(
     assert events[3] == ("finish", "truenas")
 
     await cache.reset_probe_cache(key)
-

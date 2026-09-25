@@ -4,3 +4,4 @@ nabla/api/homelab_health_evidence.py
 nabla/api/platform_health.py
 scripts/pfsense/diagnose-recover.sh
 nabla/api/homelab_health.py
+tests/unit/test_homelab_health.py

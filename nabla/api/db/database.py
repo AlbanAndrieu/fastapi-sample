@@ -1,4 +1,3 @@
-import os
 from functools import lru_cache
 from typing import Annotated, AsyncGenerator, Final
 
@@ -30,6 +29,7 @@ logger.info(
     _settings.postgres_migration_host or _settings.postgres_host,
 )
 logger.debug("Postgres driver=%s", _settings.postgres_driver)
+
 
 def orjson_serializer(obj):
     """
