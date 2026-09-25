@@ -473,7 +473,7 @@ async def test_global_health_rows_always_include_truenas(monkeypatch) -> None:
 
 def test_public_homelab_routes(monkeypatch) -> None:
     health_payload = {
-        "schema_version": 2,
+        "schema_version": 3,
         "checked_at": "2026-08-23T00:00:00Z",
         "truenas": {
             "state": "fail",
@@ -548,7 +548,7 @@ def test_public_homelab_routes(monkeypatch) -> None:
     assert service_health["url_derived"] is False
     assert service_health["state"] == "unknown"
     assert probes_response.status_code == 200
-    assert probes_response.json()["schema_version"] == 2
+    assert probes_response.json()["schema_version"] == 3
     assert catalog_response.status_code == 200
     assert catalog_response.json()["version"] == 2
     assert catalog_response.json()["services"][0]["external"] is True
