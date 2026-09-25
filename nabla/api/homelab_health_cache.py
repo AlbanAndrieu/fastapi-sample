@@ -36,18 +36,9 @@ def copy_homelab_health_payload(
     return {
         **payload,
         "truenas": truenas_copy,
-        "services": [
-            dict(service)
-            for service in payload.get("services", [])
-        ],
-        "public_probe_results": [
-            dict(service)
-            for service in payload.get("public_probe_results", [])
-        ],
-        "internal_services": [
-            dict(service)
-            for service in payload.get("internal_services", [])
-        ],
+        "services": [dict(service) for service in payload.get("services", [])],
+        "public_probe_results": [dict(service) for service in payload.get("public_probe_results", [])],
+        "internal_services": [dict(service) for service in payload.get("internal_services", [])],
         "probe_summary": probe_summary,
         "probe_cache": {
             "source": cache_source,

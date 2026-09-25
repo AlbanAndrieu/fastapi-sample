@@ -136,11 +136,7 @@ def runtime_snapshot_from_health_api(
         reachable=True,
         stale=stale,
         apps=[_observed_app(app) for app in apps if isinstance(app, dict)],
-        error=(
-            str(api_result.get("error") or "").strip() or None
-            if stale
-            else None
-        ),
+        error=(str(api_result.get("error") or "").strip() or None if stale else None),
     )
 
 
@@ -278,11 +274,7 @@ def _reconcile_declared(
         "declared": True,
         "sourcePath": service.source_path,
         "composeService": service.compose_service,
-        "runtimeBinding": (
-            binding.model_dump(mode="json", by_alias=True, exclude_none=True)
-            if binding is not None
-            else None
-        ),
+        "runtimeBinding": (binding.model_dump(mode="json", by_alias=True, exclude_none=True) if binding is not None else None),
     }
     if service.criticality is not None:
         base["operationalCriticality"] = service.criticality

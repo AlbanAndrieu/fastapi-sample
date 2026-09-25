@@ -22,7 +22,7 @@ EdgeProbe = Callable[[str], Awaitable[dict[str, Any]]]
 
 _WARNING_HTTP_STATUSES = frozenset({401, 403, 407, 429})
 _ACCESS_EDGE_HTTP_STATUSES = _WARNING_HTTP_STATUSES | frozenset(
-    {301, 302, 303, 307, 308}
+    {301, 302, 303, 307, 308},
 )
 _MAX_APPLICATION_BODY_BYTES = 16_384
 _APPLICATION_ERROR_PREFIXES = (
@@ -67,11 +67,7 @@ def _application_error_from_response(response: httpx.Response) -> str | None:
         except ValueError:
             payload = None
         if isinstance(payload, dict):
-            value = (
-                payload.get("error")
-                or payload.get("errors")
-                or payload.get("exception")
-            )
+            value = payload.get("error") or payload.get("errors") or payload.get("exception")
             if value:
                 message = re.sub(r"\s+", " ", str(value)).strip()
                 return message[:240] or "Application error"
@@ -84,10 +80,7 @@ def _application_error_from_response(response: httpx.Response) -> str | None:
     plain = re.sub(r"<[^>]+>", " ", text)
     plain = re.sub(r"\s+", " ", plain).strip()
     lowered_plain = plain.casefold()
-    if any(
-        lowered_plain.startswith(prefix)
-        for prefix in _APPLICATION_ERROR_PREFIXES
-    ):
+    if any(lowered_plain.startswith(prefix) for prefix in _APPLICATION_ERROR_PREFIXES):
         return plain[:240]
     if any(marker in lowered_raw for marker in _APPLICATION_ERROR_MARKERS):
         return plain[:240]
@@ -121,19 +114,14 @@ async def probe_http_endpoint(
                 url,
                 headers={"User-Agent": "nabla-homelab-health/1.0"},
             )
-            should_get = response.status_code in {405, 501} or (
-                200 <= response.status_code <= 299
-                and is_textual_response(response)
-            )
+            should_get = response.status_code in {405, 501} or (200 <= response.status_code <= 299 and is_textual_response(response))
             if should_get:
                 response = await client.get(
                     url,
                     headers={
                         "User-Agent": "nabla-homelab-health/1.0",
                         "Range": f"bytes=0-{_MAX_APPLICATION_BODY_BYTES - 1}",
-                        "Accept": (
-                            "text/html,text/plain,application/json,*/*;q=0.1"
-                        ),
+                        "Accept": ("text/html,text/plain,application/json,*/*;q=0.1"),
                     },
                 )
         status = response.status_code
@@ -144,11 +132,7 @@ async def probe_http_endpoint(
             "url": url,
             "reachable": True,
             "http_status": status,
-            "state": (
-                "fail"
-                if application_error
-                else classify_public_http_status(status)
-            ),
+            "state": ("fail" if application_error else classify_public_http_status(status)),
             "tls_trusted": True,
         }
         if application_error:
@@ -193,10 +177,7 @@ async def probe_public_service(
         url=url,
     )
     initial_status = int(result.get("http_status") or 0)
-    needs_edge_probe = (
-        service.effective_cloudflare_access_required
-        and initial_status in _ACCESS_EDGE_HTTP_STATUSES
-    )
+    needs_edge_probe = service.effective_cloudflare_access_required and initial_status in _ACCESS_EDGE_HTTP_STATUSES
     if not needs_edge_probe:
         return result
 
@@ -215,9 +196,7 @@ async def probe_public_service(
         return result
 
     authenticated_status = int(
-        edge_evidence.get("authenticated_http_status")
-        or edge_evidence.get("cloudflare_service_token_http_status")
-        or 0,
+        edge_evidence.get("authenticated_http_status") or edge_evidence.get("cloudflare_service_token_http_status") or 0,
     )
     result["http_status"] = authenticated_status
     result["state"] = classify_public_http_status(authenticated_status)
@@ -373,10 +352,7 @@ async def collect_bounded_probe_batch(
     if pending:
         await asyncio.gather(*pending, return_exceptions=True)
 
-    states = {
-        state: sum(result.get("state") == state for result in results)
-        for state in ("ok", "warn", "fail")
-    }
+    states = {state: sum(result.get("state") == state for result in results) for state in ("ok", "warn", "fail")}
     return results, {
         "scope": scope,
         "enabled": enabled,

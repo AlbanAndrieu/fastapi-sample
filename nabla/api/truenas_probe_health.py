@@ -25,9 +25,7 @@ def truenas_state(
     api_reachable = api_result.get("reachable") if api_result else None
     if api_reachable is False:
         return "fail"
-    if public_state == "fail" and (
-        internal_state == "ok" or api_reachable is True
-    ):
+    if public_state == "fail" and (internal_state == "ok" or api_reachable is True):
         return "warn"
     if public_state == "fail":
         return "fail"
