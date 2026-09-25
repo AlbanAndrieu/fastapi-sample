@@ -89,6 +89,11 @@ class ServiceLifecycle(BaseModel):
         "applications",
     ]
     priority: int = Field(ge=0, le=1000)
+    blocks_later_waves: bool | None = Field(
+        default=None,
+        validation_alias=AliasChoices("blocksLaterWaves", "blocks_later_waves"),
+        serialization_alias="blocksLaterWaves",
+    )
 
 
 class MonitoringTarget(BaseModel):
@@ -134,6 +139,7 @@ class DeclaredService(BaseModel):
         serialization_alias="presentationRole",
     )
     criticality: Literal["critical", "high", "medium", "low"] | None = None
+    status: Literal["active", "planned", "disabled"] | None = None
     security_functions: (
         list[
             Literal[
@@ -153,6 +159,11 @@ class DeclaredService(BaseModel):
         serialization_alias="securityFunctions",
     )
     url: str | None = None
+    internal_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("internalUrl", "internal_url"),
+        serialization_alias="internalUrl",
+    )
     description: str | None = None
     icon: str | None = Field(default=None, min_length=1, max_length=32)
     environments: list[DeploymentEnvironment] | None = Field(
