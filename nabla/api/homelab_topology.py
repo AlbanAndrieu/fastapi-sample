@@ -98,6 +98,11 @@ class HomelabTopologyLifecycle(BaseModel):
         "applications",
     ]
     priority: int = Field(ge=0, le=1000)
+    blocks_later_waves: bool | None = Field(
+        default=None,
+        validation_alias=AliasChoices("blocksLaterWaves", "blocks_later_waves"),
+        serialization_alias="blocksLaterWaves",
+    )
 
 
 class HomelabTopologyMonitoring(BaseModel):
@@ -139,6 +144,7 @@ class HomelabTopologyNode(BaseModel):
         serialization_alias="presentationRole",
     )
     criticality: Literal["critical", "high", "medium", "low"] | None = None
+    status: Literal["active", "planned", "disabled"] | None = None
     security_functions: list[Literal["govern", "identify", "protect", "detect", "respond", "recover"]] | None = Field(
         default=None,
         min_length=1,
