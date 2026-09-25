@@ -4,19 +4,30 @@ import pytest
 from starlette.testclient import TestClient
 
 # Unit tests import ``server_app`` at collection time. Keep that import hermetic by
-# providing the same non-secret defaults as the Python CI workflow while preserving
-# any explicit environment supplied by a test or runner.
+# providing the same non-secret defaults as the Python CI workflow.
 os.environ.setdefault("KEYCLOAK_SERVER_URL", "http://localhost:8080")
 os.environ.setdefault("KEYCLOAK_REALM", "test")
 os.environ.setdefault("KEYCLOAK_CLIENT_ID", "test")
 os.environ.setdefault("KEYCLOAK_CLIENT_SECRET", "test-secret")
 os.environ.setdefault("OAUTH_TOKEN_SECRET", "mocked-oauth-token-secret")
-os.environ.setdefault("METRICS_ENABLED", "false")
-os.environ.setdefault("LOGFIRE_ENABLED", "false")
-os.environ.setdefault("SENTRY_ENABLED", "false")
-os.environ.setdefault("DATADOG_ENABLED", "false")
-os.environ.setdefault("UNLEASH_ENABLED", "false")
-os.environ.setdefault("STATSIG_ENABLED", "false")
+
+# Never let a developer's shell/runtime telemetry configuration leak into unit
+# tests. Tests that exercise telemetry configuration can still monkeypatch these
+# variables explicitly after collection.
+for key in (
+    "METRICS_ENABLED",
+    "LOGFIRE_ENABLED",
+    "SENTRY_ENABLED",
+    "DATADOG_ENABLED",
+    "UNLEASH_ENABLED",
+    "STATSIG_ENABLED",
+    "DD_TRACE_ENABLED",
+    "DD_PROFILING_ENABLED",
+):
+    os.environ[key] = "false"
+os.environ["LOGFIRE_TOKEN"] = ""
+os.environ["SENTRY_DSN"] = ""
+os.environ["SENTRY_LOCAL_DSN"] = ""
 
 from server_app import app  # noqa: E402
 
