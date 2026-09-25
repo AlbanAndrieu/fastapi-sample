@@ -709,6 +709,10 @@ acceptance criterion.
 - [x] Force Sentry, Datadog/ddtrace, Logfire and other external telemetry off
   during `tests/unit` collection even when the developer shell enables them.
   Integration/acceptance tests must opt in explicitly outside the unit suite.
+  Block the pytest `ddtrace` plugin from `pytest.toml` before collection so
+  its tracer/atexit worker cannot survive long enough to emit post-test logging
+  errors; the environment flags in `tests/unit/conftest.py` remain a second
+  layer for application telemetry code.
 - [ ] Re-run intentional LAN acceptance after the unit gate is green: confirm
   TrueNAS, pfSense and Prometheus through dedicated read-only checks, then assess
   Cloudflare and Sentry independently instead of interpreting accidental unit-test
