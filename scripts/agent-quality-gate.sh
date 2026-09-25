@@ -140,6 +140,8 @@ print_precommit_failure() {
     )"
     if [[ -n "${summary}" ]]; then
         printf '%s\n' "${summary}" >&2
+        echo "   Last hook diagnostic lines:" >&2
+        tail -n 20 "${log}" >&2 || true
         return 0
     fi
 
