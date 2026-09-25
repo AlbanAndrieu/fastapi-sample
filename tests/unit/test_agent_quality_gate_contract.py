@@ -58,6 +58,7 @@ def test_agent_quality_gate_wraps_tests_and_canonical_gate() -> None:
     assert "QG_FIX_NO_PROGRESS" in text
     assert "print_precommit_failure" in text
     assert "Deterministic rewrites are stable" in text
+    assert "Last hook diagnostic lines" in text
     assert "--show-diff-on-failure" not in text
     assert "QG_FIX_NOT_CONVERGED" in text
     assert "QUALITY_FIX_PASSES" in text
