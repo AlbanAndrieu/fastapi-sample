@@ -298,10 +298,7 @@ async def fetch_homelab_topology() -> HomelabTopology:
     """Serve cached topology immediately and refresh expired data in background."""
     async with _cache_lock:
         now = time.monotonic()
-        if (
-            _topology_cache.topology is not None
-            and (now - _topology_cache.cached_at) < _CACHE_TTL_SEC
-        ):
+        if _topology_cache.topology is not None and (now - _topology_cache.cached_at) < _CACHE_TTL_SEC:
             return _topology_cache.topology
 
         if _topology_cache.refresh_task is None or _topology_cache.refresh_task.done():

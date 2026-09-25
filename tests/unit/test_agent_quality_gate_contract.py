@@ -28,9 +28,7 @@ def test_external_github_actions_are_pinned_to_commit_sha() -> None:
             external_action_count += 1
             assert "@" in action, f"{workflow_path}: unversioned action {action}"
             ref = action.rsplit("@", maxsplit=1)[1]
-            assert re.fullmatch(r"[0-9a-f]{40}", ref), (
-                f"{workflow_path}: action must use immutable SHA: {action}"
-            )
+            assert re.fullmatch(r"[0-9a-f]{40}", ref), f"{workflow_path}: action must use immutable SHA: {action}"
 
     assert external_action_count > 0
 
@@ -136,7 +134,7 @@ def test_python_ci_runs_fast_gate_before_heavy_dependency_sync() -> None:
     assert "dependencies: ${{ steps.ci_scope.outputs.dependencies }}" in workflow
     assert "dependency_mode: ${{ steps.ci_scope.outputs.dependency_mode }}" in workflow
     assert "changed_count: ${{ steps.ci_scope.outputs.changed_count }}" in workflow
-    assert 'steps.ci_scope.outputs.dependency_mode == \'quality\'' in workflow
+    assert "steps.ci_scope.outputs.dependency_mode == 'quality'" in workflow
     assert '"pytest<10" "PyYAML>=6.0"' in workflow
     assert "tests/unit/test_agent_dependency_mode.py" in workflow
     assert "tests/unit/test_agent_publication_proof.py" in workflow
