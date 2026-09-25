@@ -1,8 +1,10 @@
 """Tests for typed health/runtime cache settings."""
 
+import inspect
+
 import pytest
 
-from nabla.api import health_board, homelab_runtime
+from nabla.api import health_board, homelab_health, homelab_runtime
 from nabla.settings.health_runtime import HealthRuntimeSettings
 
 
@@ -44,10 +46,6 @@ def test_health_runtime_settings_preserve_bounded_legacy_semantics(
 
 
 def test_runtime_modules_do_not_reparse_migrated_environment_variables() -> None:
-    import inspect
-
-    from nabla.api import homelab_health
-
     assert "HEALTH_BOARD_CACHE_TTL_SECONDS" not in inspect.getsource(health_board)
     assert "TRUENAS_RUNTIME_CACHE_TTL_SECONDS" not in inspect.getsource(
         homelab_runtime,
