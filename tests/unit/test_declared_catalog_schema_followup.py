@@ -70,6 +70,11 @@ def test_declared_catalog_accepts_runtime_networks_lifecycle_and_monitoring() ->
     assert service.monitoring is not None
     assert service.monitoring.type == "http"
 
+    wire = catalog.model_dump(mode="json", by_alias=True, exclude_none=True)
+    assert wire["services"][0]["status"] == "planned"
+    assert wire["services"][0]["internalUrl"] == "http://example:8080"
+    assert wire["services"][0]["lifecycle"]["blocksLaterWaves"] is False
+
 
 def test_declared_catalog_validation_log_summary_is_bounded() -> None:
     try:
