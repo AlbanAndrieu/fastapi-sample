@@ -130,6 +130,21 @@ run_compact_report() {
     rm -f "${log}"
     return "${rc}"
 }
+print_precommit_failure() {
+    local log="$1"
+    local summary
+
+    summary="$(
+        grep -E '(^.*\.{2,}(Failed|Skipped)$|^- hook id:|^- exit code:|^- files were modified by this hook)' "${log}" |
+            tail -n 20 || true
+    )"
+    if [[ -n "${summary}" ]]; then
+        printf '%s\n' "${summary}" >&2
+        return 0
+    fi
+
+    tail -n "${LOG_TAIL}" "${log}" >&2 || true
+}
 
 collect_changed_files() {
     {
@@ -239,8 +254,8 @@ converge_precommit_fixes() {
         before="$(worktree_fingerprint)"
         log="$(mktemp)"
         set +e
-        uv run pre-commit run --hook-stage pre-commit \
-            --files "${CHANGED_FILES[@]}" --show-diff-on-failure >"${log}" 2>&1
+        PRE_COMMIT_COLOR=never uv run pre-commit run --hook-stage pre-commit \
+            --files "${CHANGED_FILES[@]}" >"${log}" 2>&1
         rc=$?
         set -e
         after="$(worktree_fingerprint)"
@@ -253,7 +268,8 @@ converge_precommit_fixes() {
 
         if [[ "${before}" == "${after}" ]]; then
             printf '❌ QG_FIX_NO_PROGRESS: pre-commit failed without changing the tree on pass %d\n' "${pass}" >&2
-            tail -n "${LOG_TAIL}" "${log}" >&2 || true
+            echo "   Deterministic rewrites are stable; a non-fixing validation hook still fails." >&2
+            print_precommit_failure "${log}"
             rm -f "${log}"
             return "${rc}"
         fi
@@ -263,7 +279,7 @@ converge_precommit_fixes() {
         if ((pass == FIX_PASSES)); then
             printf '❌ QG_FIX_NOT_CONVERGED: deterministic fixes still change files after %d passes\n' \
                 "${FIX_PASSES}" >&2
-            tail -n "${LOG_TAIL}" "${log}" >&2 || true
+            print_precommit_failure "${log}"
             rm -f "${log}"
             return "${rc}"
         fi
@@ -455,7 +471,7 @@ elif [[ "${PUBLISH}" == true ]]; then
     fi
     echo "✅ Agent publication gate passed; repository is clean and safe to publish."
 elif [[ "${MODE}" == "fix" ]]; then
-    echo "✅ Agent fix + validation gate passed. Review the final diff, commit once, then run --publish."
+    echo "✅ Agent fix + validation gate passed. Review the final diff, commit once, then run scripts/agent-publish.sh."
 else
     echo "✅ Agent quality gate passed."
 fi
