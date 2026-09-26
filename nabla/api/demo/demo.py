@@ -11,7 +11,6 @@ from fastapi_cache.decorator import cache
 from fastapi_featureflags import FeatureFlags, feature_enabled, feature_flag
 
 # from fastapi_mail import FastMail, MessageSchema, MessageType
-from fastmcp import FastMCP
 from opentelemetry import trace
 from opentelemetry.trace.status import Status, StatusCode
 from redis.exceptions import RedisError
@@ -23,8 +22,6 @@ from nabla.utils.misc import timed_operation
 from nabla.utils.prometheus import API_REQUEST_COUNTER, API_REQUEST_SUMMARY
 
 router = APIRouter(prefix="/demo")
-
-mcp = FastMCP(name="Demo 🚀")
 
 _DEMO_FEATURE_FLAGS = {
     "web_only": False,
