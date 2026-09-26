@@ -20,9 +20,9 @@ Si le gate échoue ou réécrit des fichiers :
 2. corrige la cause racine, sans désactiver ni assouplir le contrôle ;
 3. relance les tests ciblés concernés ;
 4. relance la commande ci-dessus jusqu'à réussite ou jusqu'à rencontrer une
-  dépendance réellement indisponible ;
+    dépendance réellement indisponible ;
 5. vérifie `git diff --check`, `git diff` et
-  `git status --short` ;
+    `git status --short` ;
 6. documente dans la roadmap toute validation impossible.
 
 Ne lance aucun workflow GitHub. Ne prétends pas que le gate est vert si la
