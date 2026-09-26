@@ -27,6 +27,22 @@ def test_uses_default_cloud_sentry_dsn(monkeypatch) -> None:
     )
 
 
+def test_health_target_keeps_configured_local_sentry_even_when_runtime_would_fallback() -> None:
+    local_dsn = "http://self-hosted-public@172.17.0.24:9005/2"
+    cloud_dsn = "https://cloud-public@example.ingest.sentry.io/42"
+
+    assert sentry_config.select_sentry_health_dsn(
+        {
+            "SENTRY_LOCAL_DSN": local_dsn,
+            "SENTRY_DSN": cloud_dsn,
+        },
+    ) == (local_dsn, "local")
+
+
+def test_health_target_does_not_use_implicit_default_cloud_dsn() -> None:
+    assert sentry_config.select_sentry_health_dsn({}) == ("", "disabled")
+
+
 def test_selects_reachable_local_sentry(monkeypatch) -> None:
     monkeypatch.setattr(sentry_config, "sentry_dsn_is_reachable", lambda _dsn: True)
 
