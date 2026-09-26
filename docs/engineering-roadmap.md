@@ -1034,6 +1034,11 @@ git diff --check
 
 #### application factory and import safety work
 
+- [x] Defer demo `SensorData` history generation and `ChartFactory`
+  construction until application startup or first endpoint use. Importing
+  `nabla.api.demo.sensor` no longer creates the 50-reading history or chart
+  helper, while normal lifespan startup preserves the existing dashboard state.
+
 - Introduce `create_app(settings)` instead of constructing the application at
   module import time.
 - Move router registration into a dedicated function or module.
