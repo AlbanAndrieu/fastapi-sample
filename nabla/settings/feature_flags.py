@@ -11,7 +11,7 @@ from nabla.settings.base import SettingsBase
 UNLEASH_DEFAULT_API_URL = (
     "https://gitlab.com/api/v4/feature_flags/unleash/46788175"
 )
-_UNLEASH_PLACEHOLDER_CREDENTIALS = frozenset(
+_FEATURE_FLAG_PLACEHOLDER_CREDENTIALS = frozenset(
     {"", "xxx", "changeme", "change-me"},
 )
 _FALSE_VALUES = frozenset({"0", "false", "no", "off"})
@@ -107,9 +107,45 @@ class UnleashSettings(SettingsBase):
     def configured(self) -> bool:
         return (
             self.instance_id.casefold()
-            not in _UNLEASH_PLACEHOLDER_CREDENTIALS
+            not in _FEATURE_FLAG_PLACEHOLDER_CREDENTIALS
         )
 
     @property
     def api_url(self) -> str:
         return self.unleash_api_url.rstrip("/")
+
+
+class StatsigSettings(SettingsBase):
+    """Typed Statsig configuration without import-time credential decisions."""
+
+    statsig_api_key: SecretStr | None = None
+    statsig_environment: str = "development"
+
+    @field_validator("statsig_api_key", mode="before")
+    @classmethod
+    def _normalize_api_key(cls, value: object) -> object:
+        return _optional_secret(value)
+
+    @classmethod
+    def from_mapping(cls, values: Mapping[str, str]) -> "StatsigSettings":
+        """Build only from the supplied mapping, never from dotenv fallbacks."""
+        return cls(
+            statsig_api_key=values.get("STATSIG_API_KEY", ""),
+            statsig_environment=values.get(
+                "STATSIG_ENVIRONMENT",
+                "development",
+            ),
+        )
+
+    @property
+    def api_key(self) -> str:
+        if self.statsig_api_key is None:
+            return ""
+        return self.statsig_api_key.get_secret_value().strip()
+
+    @property
+    def configured(self) -> bool:
+        return (
+            self.api_key.casefold()
+            not in _FEATURE_FLAG_PLACEHOLDER_CREDENTIALS
+        )
