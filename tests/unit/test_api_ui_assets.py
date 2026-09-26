@@ -136,6 +136,14 @@ def test_platform_labels_are_owned_by_health_module() -> None:
     assert 'logfire: "Pydantic Logfire"' in script
 
 
+def test_health_detail_identifies_talos_vm_runtime_evidence() -> None:
+    script = (_ASSET_DIR / "api-health-detail.js").read_text(encoding="utf-8")
+
+    assert 'key === "talos" && check.probe === "truenas_vm_query"' in script
+    assert "TrueNAS VMs running" in script
+    assert "evidence: vm.query" in script
+
+
 def test_refresh_event_is_logged_and_health_responses_are_not_cached() -> None:
     app = FastAPI(version="test-version")
     register_routes(app)
