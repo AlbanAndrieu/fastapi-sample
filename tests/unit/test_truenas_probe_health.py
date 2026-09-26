@@ -50,3 +50,25 @@ def test_truenas_state_distinguishes_host_and_ingress_failures(
     internal = {"state": internal_state} if internal_state is not None else None
 
     assert homelab_health._truenas_state(public, internal) == expected
+
+
+def test_truenas_api_failure_degrades_but_does_not_hide_https_liveness() -> None:
+    assert (
+        homelab_health._truenas_state(
+            {"state": "ok"},
+            None,
+            {"reachable": False},
+        )
+        == "warn"
+    )
+
+
+def test_truenas_api_failure_remains_failure_when_https_is_down() -> None:
+    assert (
+        homelab_health._truenas_state(
+            {"state": "fail"},
+            None,
+            {"reachable": False},
+        )
+        == "fail"
+    )
