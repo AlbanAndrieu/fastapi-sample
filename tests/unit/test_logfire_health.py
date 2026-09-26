@@ -26,6 +26,17 @@ def test_logfire_check_is_skipped_when_disabled(monkeypatch) -> None:
     assert result["reachable"] is None
 
 
+def test_logfire_check_honors_legacy_probe_disable(monkeypatch) -> None:
+    monkeypatch.delenv("LOGFIRE_ENABLED", raising=False)
+    monkeypatch.setenv("LOGFIRE_ENABLE", "false")
+    monkeypatch.setenv("LOGFIRE_TOKEN", "unused")
+
+    result = observability_health.check_logfire_connectivity()
+
+    assert result["skipped"] is True
+    assert result["reachable"] is None
+
+
 def test_logfire_check_fails_when_enabled_without_token(monkeypatch) -> None:
     monkeypatch.setenv("LOGFIRE_ENABLED", "true")
     monkeypatch.delenv("LOGFIRE_TOKEN", raising=False)
@@ -34,6 +45,17 @@ def test_logfire_check_fails_when_enabled_without_token(monkeypatch) -> None:
 
     assert result["reachable"] is False
     assert "LOGFIRE_TOKEN" in result["error"]
+
+
+def test_logfire_check_rejects_invalid_base_url(monkeypatch) -> None:
+    monkeypatch.setenv("LOGFIRE_ENABLED", "true")
+    monkeypatch.setenv("LOGFIRE_TOKEN", "test-write-token")
+    monkeypatch.setenv("LOGFIRE_BASE_URL", "http://logfire.example")
+
+    result = observability_health.check_logfire_connectivity()
+
+    assert result["reachable"] is False
+    assert result["error"] == "LOGFIRE_BASE_URL must be a valid HTTPS URL"
 
 
 def test_logfire_check_verifies_tls_ingestion_connectivity(monkeypatch) -> None:
@@ -63,7 +85,10 @@ def test_logfire_check_verifies_tls_ingestion_connectivity(monkeypatch) -> None:
     result = observability_health.check_logfire_connectivity()
 
     create_connection.assert_called_once_with(("logfire.example", 443), timeout=3.0)
-    context.wrap_socket.assert_called_once_with(raw_socket, server_hostname="logfire.example")
+    context.wrap_socket.assert_called_once_with(
+        raw_socket,
+        server_hostname="logfire.example",
+    )
     assert result["reachable"] is True
     assert result["tls_trusted"] is True
     assert result["probe"] == "ingest_tls_socket"

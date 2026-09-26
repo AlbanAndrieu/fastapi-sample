@@ -78,6 +78,17 @@ function baseDetailText(key, check) {
     if (check.app_count != null) parts.push(`${check.app_count} apps`);
     return parts.join(" · ");
   }
+  if (key === "talos" && check.probe === "truenas_vm_query") {
+    const running = Number(check.running_vms);
+    const expected = Number(check.expected_vms);
+    const parts = [
+      Number.isFinite(running) && Number.isFinite(expected)
+        ? `${running}/${expected} TrueNAS VMs running`
+        : "TrueNAS VM runtime observed",
+      "evidence: vm.query",
+    ];
+    return parts.join(" · ");
+  }
   if (check.reachable === true) {
     const parts = [];
     if (check.http_status != null) parts.push(`HTTP ${check.http_status}`);

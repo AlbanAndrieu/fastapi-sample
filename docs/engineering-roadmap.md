@@ -140,6 +140,25 @@ from the TrueNAS-hosted FastAPI runtime.
 - [x] **TrueNAS API** — accepted from the staging runtime with
       `configured=true`, transport/authentication successful, `path_mode=direct_lan`
       and an application inventory containing 96 apps.
+- [x] **Reboot health semantics** — keep TrueNAS host liveness separate from the
+      authenticated API/WebSocket capability. If HTTPS remains reachable while
+      the API observer fails, report TrueNAS as degraded rather than fully down;
+      preserve the API failure as explicit diagnostic evidence.
+- [x] **Sentry local health target** — when `SENTRY_LOCAL_DSN` is explicitly
+      configured, keep that self-hosted endpoint as the health-board target even
+      if telemetry delivery falls back to Sentry SaaS. A local Sentry outage must
+      therefore remain visible instead of being masked by a reachable SaaS DSN.
+- [x] **Talos VM observer evidence** — project the three expected Talos VM runtime
+      states from the read-only TrueNAS `vm.query` result. Treat missing
+      `VM_READ` as `unknown/skipped` without turning TrueNAS itself down, and
+      label the health-board evidence explicitly as VM runtime rather than cluster
+      health.
+- [ ] **Post-reboot Talos acceptance** — after the TrueNAS observer credential has
+      `VM_READ` and the appliance stack is restored, require the staging
+      health-board to show the expected 3/3 Talos VMs running. Then validate
+      actual cluster health independently with `talosctl health` and
+      `kubectl get nodes`; `vm.query` alone must never close Kubernetes/Talos
+      acceptance.
 - [ ] **pfSense posture API** — the staging runtime receives HTTP `502` from
       `GET /api/v2/system/version` using the dedicated posture identity. Treat an
       HTTP response as transport evidence, not application success. Compare the
@@ -518,6 +537,25 @@ acceptance criterion.
   - [x] Remove the remaining direct `TRUENAS_WS_PATH` read from
         `homelab_health.py` and reuse the already validated
         `TrueNASProviderSettings.websocket_path` contract.
+  - [x] Move Logfire instrumentation/probe environment reads into
+        `LogfireSettings` / `LogfireProbeSettings`: keep `LOGFIRE_TOKEN` as
+        `SecretStr`, preserve historical `LOGFIRE_ENABLED` parsing, retain
+        probe-only `LOGFIRE_ENABLE` compatibility, validate the probe HTTPS
+        base URL without coupling that URL to application startup, and reuse the
+        same typed activation contract when Sentry decides whether duplicate
+        logs/traces/profiles should remain enabled.
+  - [x] Move Unleash runtime/probe configuration into `UnleashSettings`.
+        Runtime decisions now use the current environment rather than credentials
+        captured at module import, while legacy module constants remain only as
+        compatibility exports.
+  - [x] Move Statsig API-key/environment reads into `StatsigSettings`: keep the
+        API key as `SecretStr`, reject empty/placeholder credentials before SDK
+        initialization, and use the current process mapping instead of the
+        import-time compatibility constant.
+  - [x] Keep unit-test feature-flag imports hermetic by clearing
+        `UNLEASH_INSTANCE_ID` and `STATSIG_API_KEY` before `server_app`
+        collection; tests that exercise these integrations must opt in with
+        explicit monkeypatch values.
   - [ ] Continue domain-by-domain with remaining runtime/environment reads; avoid
         one global settings object that would couple unrelated provider secrets.
 - [ ] Create a small set of lifespan-owned `httpx.AsyncClient` instances using the
@@ -1014,6 +1052,18 @@ git diff --check
 ### Priority 1: application factory and import safety
 
 #### application factory and import safety work
+
+- [x] Defer demo `SensorData` history generation and `ChartFactory`
+  construction until application startup or first endpoint use. Importing
+  `nabla.api.demo.sensor` no longer creates the 50-reading history or chart
+  helper, while normal lifespan startup preserves the existing dashboard state.
+- [x] Move the demo `fastapi-featureflags` configuration/reload out of module
+  import and into application lifespan startup. Importing `demo.py` no longer
+  mutates global feature-flag state or prints enabled flags during test
+  collection.
+- [x] Remove the unused demo-local `FastMCP` instance. The application-level
+  MCP server in `main.py` remains the only mounted MCP surface for these
+  FastAPI routes.
 
 - Introduce `create_app(settings)` instead of constructing the application at
   module import time.

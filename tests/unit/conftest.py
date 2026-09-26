@@ -28,6 +28,8 @@ for key in (
 os.environ["LOGFIRE_TOKEN"] = ""
 os.environ["SENTRY_DSN"] = ""
 os.environ["SENTRY_LOCAL_DSN"] = ""
+os.environ["UNLEASH_INSTANCE_ID"] = ""
+os.environ["STATSIG_API_KEY"] = ""
 
 from server_app import app  # noqa: E402
 

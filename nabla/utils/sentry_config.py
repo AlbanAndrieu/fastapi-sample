@@ -17,6 +17,7 @@ from sentry_sdk.integrations.logging import LoggingIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
 from nabla._version import get_versions
+from nabla.settings.observability import LogfireSettings
 
 _logger = logging.getLogger(__name__)
 DEFAULT_SENTRY_DSN = "https://11c5d815632831d3274c830441885207@o4505783360356352.ingest.us.sentry.io/4505783364681728"
@@ -89,6 +90,26 @@ def sentry_destination(dsn: str, target: str) -> dict[str, Any]:
         "port": port,
         "project_id": project_id,
     }
+
+
+def select_sentry_health_dsn(
+    env: Mapping[str, str] | None = None,
+) -> tuple[str, str]:
+    """Select the configured endpoint whose health the board should report.
+
+    Runtime delivery may fall back from a failed self-hosted Sentry endpoint to
+    Sentry SaaS. Health reporting must not reuse that fallback decision: when a
+    local DSN is configured it represents the homelab service and must remain
+    the observed target even while it is down.
+    """
+    values = os.environ if env is None else env
+    local_dsn = values.get("SENTRY_LOCAL_DSN", "").strip()
+    if local_dsn:
+        return local_dsn, "local"
+    cloud_dsn = values.get("SENTRY_DSN", "").strip()
+    if cloud_dsn:
+        return cloud_dsn, "cloud"
+    return "", "disabled"
 
 
 def select_sentry_dsn(env: Mapping[str, str] | None = None) -> tuple[str, str]:
@@ -219,12 +240,7 @@ def configure_sentry(env: Mapping[str, str] | None = None) -> bool:
         _logger.info("Sentry is disabled: no DSN configured")
         return False
 
-    logfire_enabled = values.get("LOGFIRE_ENABLED", "false").strip().lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    } and bool(values.get("LOGFIRE_TOKEN", "").strip())
+    logfire_enabled = LogfireSettings.from_mapping(values).instrumentation_active
     app_name = values.get("APP_NAME", "fastapi-sample")
     app_version = get_versions()["version"]
     try:

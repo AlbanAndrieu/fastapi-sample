@@ -40,6 +40,13 @@ Per-application Access policy decisions and path scope are also valuable: a host
 2. otherwise use `SENTRY_DSN` (or the repository cloud default);
 3. never derive self-hosted credentials from a SaaS DSN.
 
+This fallback applies to **telemetry delivery only**. The health board uses a
+different fail-closed rule: when `SENTRY_LOCAL_DSN` is explicitly configured,
+that local endpoint remains the health target even if telemetry delivery falls
+back to SaaS. A local Sentry outage must therefore be visible as an outage and
+must never become green merely because the SaaS intake is reachable.
+
+
 The intended staging DSN is HTTP because the current internal Sentry listener is plain HTTP on `172.17.0.24:9005`:
 
 ```env

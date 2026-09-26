@@ -21,6 +21,35 @@ from nabla.settings.homelab import (
 _DEFAULT_API_PATH = DEFAULT_TRUENAS_WS_PATH
 _DEFAULT_CALL_TIMEOUT_SEC = 5.0
 logger = logging.getLogger(__name__)
+_TALOS_VM_NAMES = ("taloscp01", "taloswk01", "taloswk02")
+
+
+def _talos_vm_snapshot(vms: list[dict[str, Any]]) -> dict[str, Any]:
+    """Summarize only the expected Talos VM runtime without exposing VM config."""
+    by_name = {
+        str(vm.get("name") or ""): vm
+        for vm in vms
+        if isinstance(vm, dict) and str(vm.get("name") or "") in _TALOS_VM_NAMES
+    }
+    rows: list[dict[str, str]] = []
+    running = 0
+    for name in _TALOS_VM_NAMES:
+        vm = by_name.get(name)
+        status = vm.get("status") if isinstance(vm, dict) else None
+        state = str(status.get("state") or "MISSING") if isinstance(status, dict) else "MISSING"
+        if state.upper() == "RUNNING":
+            running += 1
+        rows.append({"name": name, "state": state})
+    healthy = running == len(_TALOS_VM_NAMES)
+    return {
+        "reachable": healthy,
+        "state": "ok" if healthy else "fail",
+        "probe": "truenas_vm_query",
+        "evidence": "vm_runtime",
+        "expected_vms": len(_TALOS_VM_NAMES),
+        "running_vms": running,
+        "vms": rows,
+    }
 
 
 class TrueNASClientProtocol(Protocol):
@@ -298,6 +327,21 @@ class TrueNASReadOnlyAdapter:
                 version = client.call(method)
                 method = "app.query"
                 apps = client.call(method)
+                vm_error_type: str | None = None
+                method = "vm.query"
+                try:
+                    vms = client.call(method)
+                except Exception as vm_exc:
+                    # VM_READ is deliberately optional during the RBAC rollout.
+                    # A missing VM capability must not invalidate proven TrueNAS
+                    # liveness or the application inventory.
+                    vms = None
+                    vm_error_type = vm_exc.__class__.__name__
+                    logger.warning(
+                        "TrueNAS optional Talos VM observation unavailable uri=%s exception=%s",
+                        uri,
+                        vm_error_type,
+                    )
         except Exception as exc:
             elapsed_ms = round((time.perf_counter() - started) * 1000)
             failure_stage = _truenas_failure_stage(exc)
@@ -353,7 +397,24 @@ class TrueNASReadOnlyAdapter:
                     if sanitized:
                         row["active_workloads"] = {"container_details": sanitized}
             app_rows.append(row)
-        return {"reachable": True, "version": version, "apps": app_rows}
+        if isinstance(vms, list):
+            talos = _talos_vm_snapshot([item for item in vms if isinstance(item, dict)])
+        else:
+            talos = {
+                "reachable": None,
+                "state": "unknown",
+                "skipped": True,
+                "reason": "TrueNAS vm.query unavailable; VM_READ is required",
+                "probe": "truenas_vm_query",
+                "evidence": "vm_runtime",
+                "error_type": vm_error_type,
+            }
+        return {
+            "reachable": True,
+            "version": version,
+            "apps": app_rows,
+            "talos": talos,
+        }
 
 
 def build_truenas_adapter() -> TrueNASReadOnlyAdapter | None:

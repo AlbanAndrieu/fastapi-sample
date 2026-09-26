@@ -23,13 +23,14 @@ def truenas_state(
     public_state = public_result.get("state")
     internal_state = internal_result.get("state") if internal_result else None
     api_reachable = api_result.get("reachable") if api_result else None
-    if api_reachable is False:
-        return "fail"
+    # Host liveness and authenticated management capability are separate
+    # signals. A failed API/WebSocket probe must not claim the appliance itself
+    # is down while the HTTPS listener is still reachable.
     if public_state == "fail" and (internal_state == "ok" or api_reachable is True):
         return "warn"
     if public_state == "fail":
         return "fail"
-    if internal_state == "fail":
+    if api_reachable is False or internal_state == "fail":
         return "warn"
     if public_state == "warn":
         return "warn"

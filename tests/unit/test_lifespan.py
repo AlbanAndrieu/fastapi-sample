@@ -38,6 +38,8 @@ def _configure_lifecycle(monkeypatch) -> tuple[SimpleNamespace, dict[str, object
     monkeypatch.setattr(lifecycle.FastAPICache, "init", Mock())
     monkeypatch.setattr(lifecycle, "init_db", AsyncMock())
     monkeypatch.setattr(lifecycle, "init_db_sensor_reading", AsyncMock())
+    monkeypatch.setattr(lifecycle, "initialize_demo_feature_flags", Mock())
+    monkeypatch.setattr(lifecycle, "initialize_sensor_demo", Mock())
     monkeypatch.setattr(lifecycle, "initialize_mcp_clients", AsyncMock())
     monkeypatch.setattr(lifecycle, "close_mcp_clients", AsyncMock())
     monkeypatch.setattr(
@@ -90,6 +92,8 @@ async def test_lifespan_releases_resources_after_normal_shutdown(monkeypatch) ->
     resources["database"].disconnect.assert_awaited_once()
     resources["redis"].aclose.assert_awaited_once()
     resources["db_pool"].close.assert_called_once()
+    lifecycle.initialize_demo_feature_flags.assert_called_once_with()
+    lifecycle.initialize_sensor_demo.assert_called_once_with()
     lifecycle.close_mcp_clients.assert_awaited_once()
     assert resources["stopped"] == {"system-metrics", "redis-event-listener"}
 
