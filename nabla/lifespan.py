@@ -12,6 +12,7 @@ from fastapi_cache import FastAPICache
 from fastapi_cache.backends.inmemory import InMemoryBackend
 
 from nabla.api.db.database import database, db_pool, init_db
+from nabla.api.demo.demo import initialize_demo_feature_flags
 from nabla.api.demo.models import init_db as init_db_sensor_reading
 from nabla.api.demo.models import recent_readings
 from nabla.api.demo.sensor import initialize_sensor_demo, metrics
@@ -79,6 +80,7 @@ async def lifespan(app: FastAPI):
         await init_db_note()
         await init_db_user()
         await init_db_sensor_reading()
+        initialize_demo_feature_flags()
         initialize_sensor_demo()
         resources.push_async_callback(close_mcp_clients)
         await initialize_mcp_clients()
