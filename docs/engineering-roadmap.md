@@ -140,6 +140,25 @@ from the TrueNAS-hosted FastAPI runtime.
 - [x] **TrueNAS API** — accepted from the staging runtime with
       `configured=true`, transport/authentication successful, `path_mode=direct_lan`
       and an application inventory containing 96 apps.
+- [x] **Reboot health semantics** — keep TrueNAS host liveness separate from the
+      authenticated API/WebSocket capability. If HTTPS remains reachable while
+      the API observer fails, report TrueNAS as degraded rather than fully down;
+      preserve the API failure as explicit diagnostic evidence.
+- [x] **Sentry local health target** — when `SENTRY_LOCAL_DSN` is explicitly
+      configured, keep that self-hosted endpoint as the health-board target even
+      if telemetry delivery falls back to Sentry SaaS. A local Sentry outage must
+      therefore remain visible instead of being masked by a reachable SaaS DSN.
+- [x] **Talos VM observer evidence** — project the three expected Talos VM runtime
+      states from the read-only TrueNAS `vm.query` result. Treat missing
+      `VM_READ` as `unknown/skipped` without turning TrueNAS itself down, and
+      label the health-board evidence explicitly as VM runtime rather than cluster
+      health.
+- [ ] **Post-reboot Talos acceptance** — after the TrueNAS observer credential has
+      `VM_READ` and the appliance stack is restored, require the staging
+      health-board to show the expected 3/3 Talos VMs running. Then validate
+      actual cluster health independently with `talosctl health` and
+      `kubectl get nodes`; `vm.query` alone must never close Kubernetes/Talos
+      acceptance.
 - [ ] **pfSense posture API** — the staging runtime receives HTTP `502` from
       `GET /api/v2/system/version` using the dedicated posture identity. Treat an
       HTTP response as transport evidence, not application success. Compare the
