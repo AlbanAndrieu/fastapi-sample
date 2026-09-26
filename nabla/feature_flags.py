@@ -13,38 +13,39 @@ import urllib3
 from statsig_python_core import Statsig, StatsigOptions
 from UnleashClient import UnleashClient
 
-from nabla.utils.environment import env_bool
+from nabla.settings.feature_flags import StatsigSettings, UnleashSettings
 
-UNLEASH_API_URL = os.environ.get(
-    "UNLEASH_API_URL",
-    "https://gitlab.com/api/v4/feature_flags/unleash/46788175",
-)
-UNLEASH_APP_NAME = os.environ.get("UNLEASH_APP_NAME", "staging")
-UNLEASH_INSTANCE_ID = os.environ.get("UNLEASH_INSTANCE_ID", "")
-STATSIG_API_KEY = os.environ.get("STATSIG_API_KEY", "XXX")
+_IMPORT_UNLEASH_SETTINGS = UnleashSettings.from_mapping(os.environ)
+UNLEASH_API_URL = _IMPORT_UNLEASH_SETTINGS.api_url
+UNLEASH_APP_NAME = _IMPORT_UNLEASH_SETTINGS.unleash_app_name
+UNLEASH_INSTANCE_ID = _IMPORT_UNLEASH_SETTINGS.instance_id
+_IMPORT_STATSIG_SETTINGS = StatsigSettings.from_mapping(os.environ)
+STATSIG_API_KEY = _IMPORT_STATSIG_SETTINGS.api_key or "XXX"
 
-_PLACEHOLDER_CREDENTIALS = frozenset({"", "xxx", "changeme", "change-me"})
+
+def get_unleash_settings() -> UnleashSettings:
+    """Return Unleash settings from the current process environment."""
+    return UnleashSettings.from_mapping(os.environ)
+
+
+def get_statsig_settings() -> StatsigSettings:
+    """Return Statsig settings from the current process environment."""
+    return StatsigSettings.from_mapping(os.environ)
 
 
 def unleash_ssl_verify_enabled() -> bool:
     """Return whether Unleash HTTP clients should verify TLS certificates."""
-    raw = os.environ.get("UNLEASH_SSL_VERIFY")
-    if raw is None:
-        return True
-    stripped = raw.strip().lower()
-    if stripped in ("", "true", "1", "yes", "on"):
-        return True
-    if stripped in ("false", "0", "no", "off"):
-        return False
-    return True
+    return get_unleash_settings().unleash_ssl_verify
 
 
-def unleash_requests_kwargs() -> dict[str, bool | str]:
+def unleash_requests_kwargs(
+    settings: UnleashSettings | None = None,
+) -> dict[str, bool | str]:
     """Build requests options used by UnleashClient."""
-    ca_bundle = (os.environ.get("UNLEASH_CA_BUNDLE") or "").strip()
-    if ca_bundle:
-        return {"verify": ca_bundle}
-    if unleash_ssl_verify_enabled():
+    current = settings or get_unleash_settings()
+    if current.unleash_ca_bundle:
+        return {"verify": current.unleash_ca_bundle}
+    if current.unleash_ssl_verify:
         return {"verify": True}
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     warnings.filterwarnings(
@@ -56,31 +57,33 @@ def unleash_requests_kwargs() -> dict[str, bool | str]:
 
 def unleash_timeout_seconds() -> int:
     """Return the configured Unleash request timeout."""
-    return int(os.environ.get("UNLEASH_REQUEST_TIMEOUT", "45"))
+    return get_unleash_settings().unleash_request_timeout
 
 
 def unleash_is_configured() -> bool:
-    """Return whether Unleash has a non-placeholder client instance ID."""
-    instance_id = os.environ.get("UNLEASH_INSTANCE_ID", UNLEASH_INSTANCE_ID)
-    return instance_id.strip().lower() not in _PLACEHOLDER_CREDENTIALS
+    """Return whether current Unleash credentials are usable."""
+    return get_unleash_settings().configured
 
 
 @lru_cache(maxsize=1)
 def get_unleash_client() -> UnleashClient:
     """Create and initialize the Unleash client on first use only."""
-    if not unleash_is_configured():
-        raise RuntimeError("UNLEASH_INSTANCE_ID must be configured when UNLEASH_ENABLED=true")
+    settings = get_unleash_settings()
+    if not settings.configured:
+        raise RuntimeError(
+            "UNLEASH_INSTANCE_ID must be configured when UNLEASH_ENABLED=true",
+        )
 
     client = UnleashClient(
-        url=UNLEASH_API_URL.rstrip("/"),
-        app_name=UNLEASH_APP_NAME,
-        instance_id=os.environ.get("UNLEASH_INSTANCE_ID", UNLEASH_INSTANCE_ID),
-        refresh_interval=int(os.environ.get("UNLEASH_REFRESH_INTERVAL", "60")),
-        metrics_interval=int(os.environ.get("UNLEASH_METRICS_INTERVAL", "90")),
-        request_timeout=unleash_timeout_seconds(),
-        request_retries=int(os.environ.get("UNLEASH_REQUEST_RETRIES", "4")),
-        custom_options=unleash_requests_kwargs(),
-        disable_metrics=env_bool("UNLEASH_DISABLE_METRICS", False),
+        url=settings.api_url,
+        app_name=settings.unleash_app_name,
+        instance_id=settings.instance_id,
+        refresh_interval=settings.unleash_refresh_interval,
+        metrics_interval=settings.unleash_metrics_interval,
+        request_timeout=settings.unleash_request_timeout,
+        request_retries=settings.unleash_request_retries,
+        custom_options=unleash_requests_kwargs(settings),
+        disable_metrics=settings.unleash_disable_metrics,
     )
     client.initialize_client()
     return client
@@ -99,8 +102,14 @@ unleash_client = LazyUnleashClient()
 @lru_cache(maxsize=1)
 def get_statsig_client() -> Statsig:
     """Create and initialize Statsig on first explicit use only."""
+    settings = get_statsig_settings()
+    if not settings.configured:
+        raise RuntimeError(
+            "STATSIG_API_KEY must be configured before Statsig startup",
+        )
+
     options = StatsigOptions()
-    options.environment = os.environ.get("STATSIG_ENVIRONMENT", "development")
-    statsig = Statsig(STATSIG_API_KEY, options)
+    options.environment = settings.statsig_environment
+    statsig = Statsig(settings.api_key, options)
     statsig.initialize().wait()
     return statsig

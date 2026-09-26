@@ -7,6 +7,7 @@ from typing import Any
 
 from fastapi import FastAPI, Request, WebSocket
 
+from nabla.settings.observability import LogfireSettings
 from nabla.utils.logger import enable_logfire_processor, logger
 
 _EXCLUDED_URLS = (
@@ -14,7 +15,6 @@ _EXCLUDED_URLS = (
     r"openapi\.json|ping|redoc|sickz|stream(?:/.*)?|llm(?:/.*)?|"
     r"v1/mcp(?:/.*)?)(?:\?.*)?$"
 )
-_FALSE_VALUES = {"0", "false", "no", "off"}
 
 
 def _discard_request_attributes(
@@ -32,12 +32,12 @@ def configure_logfire(
     service_version: str,
 ) -> bool:
     """Configure Logfire when a write token is present without blocking startup."""
-    enabled = os.getenv("LOGFIRE_ENABLED", "true").strip().lower()
-    if enabled in _FALSE_VALUES:
+    settings = LogfireSettings()
+    if not settings.instrumentation_enabled:
         logger.info("Logfire disabled by LOGFIRE_ENABLED")
         return False
 
-    token = os.getenv("LOGFIRE_TOKEN", "").strip()
+    token = settings.token
     if not token:
         logger.warning("Logfire disabled: LOGFIRE_TOKEN is not configured")
         return False
@@ -56,7 +56,7 @@ def configure_logfire(
             send_to_logfire=True,
             service_name=service_name,
             service_version=service_version,
-            environment=os.getenv("LOGFIRE_ENVIRONMENT"),
+            environment=settings.logfire_environment,
         )
         logfire.instrument_system_metrics()
         logfire.instrument_fastapi(
@@ -77,7 +77,7 @@ def configure_logfire(
         "Logfire instrumentation enabled",
         service_name=service_name,
         service_version=service_version,
-        environment=os.getenv("LOGFIRE_ENVIRONMENT"),
+        environment=settings.logfire_environment,
         token_present=True,
         system_metrics=True,
         genai_content_capture=False,

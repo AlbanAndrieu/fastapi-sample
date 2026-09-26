@@ -17,8 +17,11 @@ from nabla.api.health_board_diagnostics import (
     build_extended_healthz as _build_extended_healthz,
     build_runtime_snapshot,
     build_sickz_snapshot as _build_sickz_snapshot,
+    cloudflare_unconfirmed_check,
 )
 from nabla.settings.health_runtime import HealthRuntimeSettings
+
+_cloudflare_unconfirmed_check = cloudflare_unconfirmed_check
 
 logger = logging.getLogger(__name__)
 
@@ -206,6 +209,27 @@ async def build_sickz_snapshot(request: Request) -> dict[str, Any]:
     )
 
 
+def _annotate_talos_vm_health(
+    healthz: dict[str, Any],
+    homelab: dict[str, Any],
+) -> dict[str, Any]:
+    """Expose Talos VM runtime evidence obtained through the TrueNAS observer."""
+    truenas = homelab.get("truenas")
+    api = truenas.get("api") if isinstance(truenas, dict) else None
+    talos = api.get("talos") if isinstance(api, dict) else None
+    if not isinstance(talos, dict):
+        return healthz
+
+    checks = dict(healthz.get("checks") or {})
+    checks["talos"] = {
+        **talos,
+        "id": "talos",
+        "service_id": "talos",
+        "display_label": "Talos Linux · VM runtime",
+    }
+    return {**healthz, "checks": checks}
+
+
 def _annotate_pfsense_ingress_policy(
     healthz: dict[str, Any],
     runtime: dict[str, Any],
@@ -273,6 +297,7 @@ async def build_health_board_snapshot(request: Request) -> dict[str, Any]:
         reconciliation_context=reconciliation_task,
         homelab_payload=homelab_payload_task,
     )
+    healthz = _annotate_talos_vm_health(healthz, homelab)
     platform_metrics = await fetch_platform_metrics()
     sickz = await build_sickz_snapshot(request)
     return {

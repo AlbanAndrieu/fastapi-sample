@@ -178,3 +178,36 @@ async def test_health_board_refresh_deadline_does_not_pin_task(monkeypatch) -> N
 
     assert health_board._last_refresh_error == "health board refresh deadline exceeded"
     await health_board.reset_health_board_cache()
+
+
+
+def test_talos_vm_runtime_is_exposed_as_a_distinct_health_check() -> None:
+    healthz = {"checks": {"sentry": {"reachable": False}}}
+    homelab = {
+        "truenas": {
+            "api": {
+                "reachable": True,
+                "talos": {
+                    "reachable": True,
+                    "state": "ok",
+                    "probe": "truenas_vm_query",
+                    "expected_vms": 3,
+                    "running_vms": 3,
+                },
+            },
+        },
+    }
+
+    result = health_board._annotate_talos_vm_health(healthz, homelab)
+
+    assert result["checks"]["talos"] == {
+        "reachable": True,
+        "state": "ok",
+        "probe": "truenas_vm_query",
+        "expected_vms": 3,
+        "running_vms": 3,
+        "id": "talos",
+        "service_id": "talos",
+        "display_label": "Talos Linux · VM runtime",
+    }
+    assert result["checks"]["sentry"]["reachable"] is False

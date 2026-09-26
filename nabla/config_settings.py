@@ -81,9 +81,6 @@ def _default_sickz_targets_value() -> str:
     return "https://home.albandrieu.com:10443/|https://172.17.0.1:10443/"
 
 
-_unleash_timeout_s = unleash_timeout_seconds()
-
-
 class _Settings(DatabaseSettings):
     """Non-database application settings."""
 

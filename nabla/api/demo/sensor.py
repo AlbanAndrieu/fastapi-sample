@@ -4,6 +4,7 @@ import os
 import time
 import weakref
 from datetime import datetime
+from functools import lru_cache
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
@@ -35,10 +36,26 @@ from nabla.utils.logger import logger
 router = APIRouter()
 
 templates = Jinja2Templates(directory="templates")
-sensor = SensorData()
-chart_factory = ChartFactory()
 
 active_connections: weakref.WeakSet[Any] = weakref.WeakSet()
+
+
+@lru_cache(maxsize=1)
+def _sensor_source() -> SensorData:
+    """Return the process-local demo sensor state on first real use."""
+    return SensorData()
+
+
+@lru_cache(maxsize=1)
+def _charts() -> ChartFactory:
+    """Return the process-local chart helper on first real use."""
+    return ChartFactory()
+
+
+def initialize_sensor_demo() -> None:
+    """Initialize demo-only in-memory state outside module import."""
+    _sensor_source()
+    _charts()
 
 
 def _bounded_env_int(name: str, default: int, minimum: int, maximum: int) -> int:
@@ -124,6 +141,7 @@ async def post_sensor_event(event: SensorEvent, request: Request):
 # @limiter.limit("100/second")
 async def stream_sensor_data(interval: int = SSE_STREAM_INTERVAL_SECONDS):
     """Stream live sensor data via SSE"""
+    sensor = _sensor_source()
     metrics.track_connection()
     logger.info("Starting SSE stream for sensor data")
 
@@ -177,6 +195,7 @@ async def stream_sensor_data(interval: int = SSE_STREAM_INTERVAL_SECONDS):
 @limiter.limit("100/second")
 async def get_chart_data(request: Request):
     """Get chart data for the dashboard"""
+    _sensor_source()
 
     start_time = time.time()
     logger.debug("Starting old chart generation")
@@ -209,6 +228,8 @@ async def get_chart_data(request: Request):
 async def get_charts(request: Request):
     """Prepare data for Chart.js visualization"""
     """Generate all Plotly charts as HTML"""
+    _sensor_source()
+    chart_factory = _charts()
     start_time = time.time()
     metrics.track_request()
 
@@ -252,6 +273,7 @@ async def get_charts(request: Request):
 @limiter.limit("100/second")
 async def get_sensor_data(request: Request):
     """Get current sensor reading for display"""
+    _sensor_source()
     metrics.track_request()
 
     if recent_readings:
@@ -274,6 +296,7 @@ async def get_sensor_data(request: Request):
 @router.get("/health")
 async def health_check():
     """Return lightweight runtime health without probing external dependencies."""
+    _sensor_source()
     metrics.track_request()
 
     health_data = {

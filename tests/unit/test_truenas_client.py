@@ -63,6 +63,13 @@ class FakeClient:
                     "upgrade_available": True,
                 },
             ]
+        if method == "vm.query":
+            return [
+                {"name": "taloscp01", "status": {"state": "RUNNING"}, "memory": 4096},
+                {"name": "taloswk01", "status": {"state": "RUNNING"}, "memory": 4096},
+                {"name": "taloswk02", "status": {"state": "RUNNING"}, "memory": 4096},
+                {"name": "other-vm", "status": {"state": "RUNNING"}},
+            ]
         raise AssertionError(f"unexpected TrueNAS method: {method}")
 
 
@@ -252,12 +259,25 @@ def test_health_snapshot_uses_system_version_and_app_query() -> None:
                 "upgrade_available": True,
             },
         ],
+        "talos": {
+            "reachable": True,
+            "state": "ok",
+            "probe": "truenas_vm_query",
+            "evidence": "vm_runtime",
+            "expected_vms": 3,
+            "running_vms": 3,
+            "vms": [
+                {"name": "taloscp01", "state": "RUNNING"},
+                {"name": "taloswk01", "state": "RUNNING"},
+                {"name": "taloswk02", "state": "RUNNING"},
+            ],
+        },
     }
     assert clients[0].uri == "wss://truenas.example/api/current"
     assert clients[0].call_timeout == 5.0
     assert clients[0].verify_ssl is True
     clients[0].login.assert_called_once_with("readonly", "1-secret")
-    assert clients[0].calls == ["system.version", "app.query"]
+    assert clients[0].calls == ["system.version", "app.query", "vm.query"]
     assert "config" not in snapshot["apps"][0]
     assert "mounts" not in snapshot["apps"][0]["active_workloads"]["container_details"][0]
 
@@ -314,3 +334,29 @@ def test_invalid_truenas_url_is_rejected() -> None:
 
     with pytest.raises(ValueError, match="TRUENAS_URL"):
         _ = settings.websocket_uri
+
+
+def test_health_snapshot_keeps_truenas_reachable_when_vm_read_is_denied() -> None:
+    class VmReadDeniedClient(FakeClient):
+        def call(self, method: str, *params):
+            if method == "vm.query":
+                self.calls.append(method)
+                raise RuntimeError("You are not allowed to access this resource")
+            return super().call(method, *params)
+
+    adapter = TrueNASReadOnlyAdapter(
+        TrueNASSettings(
+            url="https://truenas.example",
+            username="fastapi_observer",
+            api_key="1-secret",
+        ),
+        client_factory=VmReadDeniedClient,
+    )
+
+    snapshot = adapter.health_snapshot()
+
+    assert snapshot["reachable"] is True
+    assert snapshot["talos"]["reachable"] is None
+    assert snapshot["talos"]["state"] == "unknown"
+    assert snapshot["talos"]["skipped"] is True
+    assert snapshot["talos"]["probe"] == "truenas_vm_query"
