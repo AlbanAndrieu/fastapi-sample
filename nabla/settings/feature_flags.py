@@ -10,7 +10,7 @@ from nabla.settings.base import SettingsBase
 
 
 UNLEASH_DEFAULT_API_URL = "https://gitlab.com/api/v4/feature_flags/unleash/46788175"
-_UNLEASH_PLACEHOLDER_CREDENTIALS = frozenset(
+_FEATURE_FLAG_PLACEHOLDER_CREDENTIALS = frozenset(
     {"", "xxx", "changeme", "change-me"},
 )
 _FALSE_VALUES = frozenset({"0", "false", "no", "off"})
@@ -104,14 +104,10 @@ class UnleashSettings(SettingsBase):
 
     @property
     def configured(self) -> bool:
-<<<<<<< HEAD
         return (
             self.instance_id.casefold()
             not in _FEATURE_FLAG_PLACEHOLDER_CREDENTIALS
         )
-=======
-        return self.instance_id.casefold() not in _UNLEASH_PLACEHOLDER_CREDENTIALS
->>>>>>> 826fd02d (refactor: format [skip ci])
 
     @property
     def api_url(self) -> str:
