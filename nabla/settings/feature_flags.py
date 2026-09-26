@@ -8,10 +8,9 @@ from pydantic import Field, SecretStr, field_validator
 
 from nabla.settings.base import SettingsBase
 
-UNLEASH_DEFAULT_API_URL = (
-    "https://gitlab.com/api/v4/feature_flags/unleash/46788175"
-)
-_FEATURE_FLAG_PLACEHOLDER_CREDENTIALS = frozenset(
+
+UNLEASH_DEFAULT_API_URL = "https://gitlab.com/api/v4/feature_flags/unleash/46788175"
+_UNLEASH_PLACEHOLDER_CREDENTIALS = frozenset(
     {"", "xxx", "changeme", "change-me"},
 )
 _FALSE_VALUES = frozenset({"0", "false", "no", "off"})
@@ -76,7 +75,7 @@ class UnleashSettings(SettingsBase):
         return _legacy_ssl_verify(value)
 
     @classmethod
-    def from_mapping(cls, values: Mapping[str, str]) -> "UnleashSettings":
+    def from_mapping(cls, values: Mapping[str, str]) -> UnleashSettings:
         """Build only from the supplied mapping, never from dotenv fallbacks."""
         return cls(
             unleash_api_url=values.get(
@@ -105,10 +104,14 @@ class UnleashSettings(SettingsBase):
 
     @property
     def configured(self) -> bool:
+<<<<<<< HEAD
         return (
             self.instance_id.casefold()
             not in _FEATURE_FLAG_PLACEHOLDER_CREDENTIALS
         )
+=======
+        return self.instance_id.casefold() not in _UNLEASH_PLACEHOLDER_CREDENTIALS
+>>>>>>> 826fd02d (refactor: format [skip ci])
 
     @property
     def api_url(self) -> str:

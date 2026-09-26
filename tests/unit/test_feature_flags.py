@@ -62,9 +62,7 @@ def test_unleash_settings_from_mapping_are_hermetic() -> None:
 
     assert settings.configured is False
     assert settings.instance_id == ""
-    assert settings.api_url == (
-        "https://gitlab.com/api/v4/feature_flags/unleash/46788175"
-    )
+    assert settings.api_url == ("https://gitlab.com/api/v4/feature_flags/unleash/46788175")
     assert settings.unleash_request_timeout == 45
 
 

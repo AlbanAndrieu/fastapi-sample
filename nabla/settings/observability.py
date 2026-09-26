@@ -50,16 +50,13 @@ class HomelabPrometheusSettings(SettingsBase):
         if value is None:
             return None
         parsed = urlsplit(value)
-        if (
-            parsed.scheme.casefold() not in _ALLOWED_PROMETHEUS_SCHEMES
-            or not parsed.hostname
-        ):
+        if parsed.scheme.casefold() not in _ALLOWED_PROMETHEUS_SCHEMES or not parsed.hostname:
             raise ValueError(
-                "HOMELAB_PROMETHEUS_URL must be an HTTP(S) URL with a host"
+                "HOMELAB_PROMETHEUS_URL must be an HTTP(S) URL with a host",
             )
         if parsed.username or parsed.password or parsed.query or parsed.fragment:
             raise ValueError(
-                "HOMELAB_PROMETHEUS_URL must not contain credentials, query or fragment"
+                "HOMELAB_PROMETHEUS_URL must not contain credentials, query or fragment",
             )
         if parsed.path not in ("", "/"):
             raise ValueError("HOMELAB_PROMETHEUS_URL must not contain a path")
