@@ -1042,6 +1042,9 @@ git diff --check
   import and into application lifespan startup. Importing `demo.py` no longer
   mutates global feature-flag state or prints enabled flags during test
   collection.
+- [x] Remove the unused demo-local `FastMCP` instance. The application-level
+  MCP server in `main.py` remains the only mounted MCP surface for these
+  FastAPI routes.
 
 - Introduce `create_app(settings)` instead of constructing the application at
   module import time.
