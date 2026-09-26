@@ -24,6 +24,8 @@ def test_unit_suite_disables_external_telemetry() -> None:
     assert os.environ["LOGFIRE_TOKEN"] == ""
     assert os.environ["SENTRY_DSN"] == ""
     assert os.environ["SENTRY_LOCAL_DSN"] == ""
+    assert os.environ["UNLEASH_INSTANCE_ID"] == ""
+    assert os.environ["STATSIG_API_KEY"] == ""
 
 
 def test_pytest_blocks_ddtrace_plugin_before_collection() -> None:
