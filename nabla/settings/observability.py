@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from urllib.parse import urlsplit
 
 from pydantic import Field, SecretStr, field_validator
@@ -90,10 +91,24 @@ class LogfireSettings(SettingsBase):
     def _normalize_token(cls, value: object) -> object:
         return _optional_secret(value)
 
+    @classmethod
+    def from_mapping(cls, values: Mapping[str, str]) -> LogfireSettings:
+        """Build the Logfire contract from an explicit environment mapping."""
+        return cls(
+            logfire_enabled=values.get("LOGFIRE_ENABLED"),
+            logfire_token=values.get("LOGFIRE_TOKEN"),
+            logfire_environment=values.get("LOGFIRE_ENVIRONMENT"),
+        )
+
     @property
     def instrumentation_enabled(self) -> bool:
         """Match historical startup behavior: enabled unless explicitly false."""
         return self.logfire_enabled is not False
+
+    @property
+    def instrumentation_active(self) -> bool:
+        """Return whether Logfire will actually emit telemetry."""
+        return self.instrumentation_enabled and bool(self.token)
 
     @property
     def token(self) -> str:

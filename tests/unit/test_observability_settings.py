@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from nabla.api import observability_health
 from nabla.settings.observability import LogfireProbeSettings, LogfireSettings
-from nabla.utils import logfire_config
+from nabla.utils import logfire_config, sentry_config
 
 
 @pytest.mark.parametrize(
@@ -64,6 +64,25 @@ def test_logfire_probe_validates_https_base_url(monkeypatch) -> None:
         LogfireProbeSettings()
 
 
+def test_logfire_settings_from_mapping_ignore_process_logfire_values(monkeypatch) -> None:
+    monkeypatch.setenv("LOGFIRE_ENABLED", "true")
+    monkeypatch.setenv("LOGFIRE_TOKEN", "process-token")
+
+    settings = LogfireSettings.from_mapping(
+        {
+            "LOGFIRE_ENABLED": "false",
+            "LOGFIRE_TOKEN": "  mapped-token  ",
+        },
+    )
+
+    assert settings.instrumentation_enabled is False
+    assert settings.instrumentation_active is False
+    assert settings.token == "mapped-token"
+
+
 def test_runtime_modules_do_not_reparse_migrated_logfire_environment() -> None:
-    assert "os.getenv" not in inspect.getsource(logfire_config)
-    assert "os.getenv" not in inspect.getsource(observability_health)
+    for module in (logfire_config, observability_health, sentry_config):
+        source = inspect.getsource(module)
+        assert "os.getenv" not in source
+    assert "LOGFIRE_ENABLED" not in inspect.getsource(sentry_config)
+    assert "LOGFIRE_TOKEN" not in inspect.getsource(sentry_config)

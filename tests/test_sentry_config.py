@@ -2,6 +2,7 @@
 
 from unittest.mock import MagicMock, Mock
 
+import pytest
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
@@ -146,6 +147,35 @@ def test_logfire_disables_sentry_logs_traces_and_profiles(monkeypatch) -> None:
     assert kwargs["traces_sample_rate"] is None
     assert kwargs["profiles_sample_rate"] == 0.0
     assert kwargs["send_default_pii"] is False
+
+
+@pytest.mark.parametrize("enabled", [None, "unexpected"])
+def test_sentry_uses_logfire_startup_activation_contract(
+    monkeypatch,
+    enabled: str | None,
+) -> None:
+    init = Mock()
+    monkeypatch.setattr(
+        sentry_config,
+        "select_sentry_dsn",
+        lambda _env: ("https://public@example.com/1", "cloud"),
+    )
+    monkeypatch.setattr(sentry_config, "_integrations", lambda **_kwargs: [])
+    monkeypatch.setattr(sentry_sdk, "init", init)
+
+    env = {
+        "SENTRY_DSN": "https://public@example.com/1",
+        "LOGFIRE_TOKEN": "token",
+    }
+    if enabled is not None:
+        env["LOGFIRE_ENABLED"] = enabled
+
+    assert sentry_config.configure_sentry(env)
+
+    kwargs = init.call_args.kwargs
+    assert kwargs["enable_logs"] is False
+    assert kwargs["traces_sample_rate"] is None
+    assert kwargs["profiles_sample_rate"] == 0.0
 
 
 def test_sentry_enables_logs_without_logfire(monkeypatch) -> None:
