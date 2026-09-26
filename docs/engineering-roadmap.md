@@ -518,6 +518,11 @@ acceptance criterion.
   - [x] Remove the remaining direct `TRUENAS_WS_PATH` read from
         `homelab_health.py` and reuse the already validated
         `TrueNASProviderSettings.websocket_path` contract.
+  - [x] Move Logfire instrumentation/probe environment reads into
+        `LogfireSettings` / `LogfireProbeSettings`: keep `LOGFIRE_TOKEN` as
+        `SecretStr`, preserve historical `LOGFIRE_ENABLED` parsing, retain
+        probe-only `LOGFIRE_ENABLE` compatibility, and validate the probe HTTPS
+        base URL without coupling that URL to application startup.
   - [ ] Continue domain-by-domain with remaining runtime/environment reads; avoid
         one global settings object that would couple unrelated provider secrets.
 - [ ] Create a small set of lifespan-owned `httpx.AsyncClient` instances using the

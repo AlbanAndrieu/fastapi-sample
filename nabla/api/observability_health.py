@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-import os
 import socket
 import ssl
 from typing import Any
-from urllib.parse import urlparse
 
-_LOGFIRE_DEFAULT_BASE_URL = "https://logfire-api.pydantic.dev"
-_FALSE_VALUES = frozenset({"0", "false", "no", "off"})
+from pydantic import ValidationError
+
+from nabla.settings.observability import LogfireProbeSettings
 
 
 def _short_error(exc: BaseException) -> str:
@@ -18,19 +17,18 @@ def _short_error(exc: BaseException) -> str:
     return message[:240]
 
 
-def _logfire_enabled() -> bool:
-    """Enable the probe only when configured or explicitly requested."""
-    raw = os.getenv("LOGFIRE_ENABLED")
-    if raw is None:
-        raw = os.getenv("LOGFIRE_ENABLE")
-    if raw is None:
-        return bool(os.getenv("LOGFIRE_TOKEN", "").strip())
-    return raw.strip().lower() not in _FALSE_VALUES
-
-
 def check_logfire_connectivity() -> dict[str, Any]:
     """Verify Logfire ingestion DNS/TCP/TLS connectivity without emitting telemetry."""
-    if not _logfire_enabled():
+    try:
+        settings = LogfireProbeSettings()
+    except ValidationError:
+        return {
+            "reachable": False,
+            "error": "LOGFIRE_BASE_URL must be a valid HTTPS URL",
+            "probe": "ingest_tls_socket",
+        }
+
+    if not settings.probe_enabled:
         return {
             "reachable": None,
             "skipped": True,
@@ -38,25 +36,15 @@ def check_logfire_connectivity() -> dict[str, Any]:
             "probe": "ingest_tls_socket",
         }
 
-    token = os.getenv("LOGFIRE_TOKEN", "").strip()
-    if not token:
+    if not settings.token:
         return {
             "reachable": False,
             "error": "Logfire is enabled but LOGFIRE_TOKEN is not configured",
             "probe": "ingest_tls_socket",
         }
 
-    base_url = os.getenv("LOGFIRE_BASE_URL", _LOGFIRE_DEFAULT_BASE_URL).strip()
-    parsed = urlparse(base_url)
-    if parsed.scheme != "https" or not parsed.hostname:
-        return {
-            "reachable": False,
-            "error": "LOGFIRE_BASE_URL must be a valid HTTPS URL",
-            "probe": "ingest_tls_socket",
-        }
-
-    host = parsed.hostname
-    port = parsed.port or 443
+    host = settings.probe_host
+    port = settings.probe_port
     try:
         with socket.create_connection((host, port), timeout=3.0) as raw_socket:
             context = ssl.create_default_context()

@@ -8,11 +8,14 @@ from nabla.settings.homelab import (
     TrueNASProviderSettings,
 )
 from nabla.settings.models import AzureOpenAiInstance, McpServerConfig
+from nabla.settings.observability import LogfireProbeSettings, LogfireSettings
 
 __all__ = [
     "AzureOpenAiInstance",
     "DatabaseSettings",
     "HealthRuntimeSettings",
+    "LogfireProbeSettings",
+    "LogfireSettings",
     "McpServerConfig",
     "PfSensePostureProviderSettings",
     "PfSenseSecurityProviderSettings",
