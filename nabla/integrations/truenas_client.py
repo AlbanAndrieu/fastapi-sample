@@ -52,8 +52,6 @@ def _talos_vm_snapshot(vms: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-
-
 class TrueNASClientProtocol(Protocol):
     """Subset of the official TrueNAS client used by this adapter."""
 
