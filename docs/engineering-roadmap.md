@@ -528,7 +528,11 @@ acceptance criterion.
   - [x] Move Unleash runtime/probe configuration into `UnleashSettings`.
         Runtime decisions now use the current environment rather than credentials
         captured at module import, while legacy module constants remain only as
-        compatibility exports. Keep Statsig as a separate future domain.
+        compatibility exports.
+  - [x] Move Statsig API-key/environment reads into `StatsigSettings`: keep the
+        API key as `SecretStr`, reject empty/placeholder credentials before SDK
+        initialization, and use the current process mapping instead of the
+        import-time compatibility constant.
   - [ ] Continue domain-by-domain with remaining runtime/environment reads; avoid
         one global settings object that would couple unrelated provider secrets.
 - [ ] Create a small set of lifespan-owned `httpx.AsyncClient` instances using the
