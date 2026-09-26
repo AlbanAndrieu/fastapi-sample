@@ -92,6 +92,26 @@ def sentry_destination(dsn: str, target: str) -> dict[str, Any]:
     }
 
 
+def select_sentry_health_dsn(
+    env: Mapping[str, str] | None = None,
+) -> tuple[str, str]:
+    """Select the configured endpoint whose health the board should report.
+
+    Runtime delivery may fall back from a failed self-hosted Sentry endpoint to
+    Sentry SaaS. Health reporting must not reuse that fallback decision: when a
+    local DSN is configured it represents the homelab service and must remain
+    the observed target even while it is down.
+    """
+    values = os.environ if env is None else env
+    local_dsn = values.get("SENTRY_LOCAL_DSN", "").strip()
+    if local_dsn:
+        return local_dsn, "local"
+    cloud_dsn = values.get("SENTRY_DSN", "").strip()
+    if cloud_dsn:
+        return cloud_dsn, "cloud"
+    return "", "disabled"
+
+
 def select_sentry_dsn(env: Mapping[str, str] | None = None) -> tuple[str, str]:
     """Prefer reachable self-hosted Sentry, then fall back to the cloud DSN."""
     values = os.environ if env is None else env
