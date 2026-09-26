@@ -4,6 +4,7 @@ import os
 import time
 import weakref
 from datetime import datetime
+from functools import lru_cache
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
@@ -35,31 +36,26 @@ from nabla.utils.logger import logger
 router = APIRouter()
 
 templates = Jinja2Templates(directory="templates")
-_sensor_data: SensorData | None = None
-_chart_factory: ChartFactory | None = None
 
 active_connections: weakref.WeakSet[Any] = weakref.WeakSet()
 
 
-def initialize_sensor_demo() -> None:
-    """Initialize demo-only in-memory sensor/chart state outside module import."""
-    global _chart_factory, _sensor_data
-    if _sensor_data is None:
-        _sensor_data = SensorData()
-    if _chart_factory is None:
-        _chart_factory = ChartFactory()
-
-
+@lru_cache(maxsize=1)
 def _sensor_source() -> SensorData:
-    initialize_sensor_demo()
-    assert _sensor_data is not None
-    return _sensor_data
+    """Return the process-local demo sensor state on first real use."""
+    return SensorData()
 
 
+@lru_cache(maxsize=1)
 def _charts() -> ChartFactory:
-    initialize_sensor_demo()
-    assert _chart_factory is not None
-    return _chart_factory
+    """Return the process-local chart helper on first real use."""
+    return ChartFactory()
+
+
+def initialize_sensor_demo() -> None:
+    """Initialize demo-only in-memory state outside module import."""
+    _sensor_source()
+    _charts()
 
 
 def _bounded_env_int(name: str, default: int, minimum: int, maximum: int) -> int:
