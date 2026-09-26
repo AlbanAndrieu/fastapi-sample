@@ -65,7 +65,7 @@ def check_logfire_connectivity() -> dict[str, Any]:
         "host": host,
         "port": port,
         "tls_trusted": True,
-        "token_present": True,
+        "token_present": bool(settings.token),
     }
 
 
