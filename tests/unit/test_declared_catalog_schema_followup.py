@@ -35,6 +35,7 @@ def test_declared_catalog_accepts_runtime_networks_lifecycle_and_monitoring() ->
                     "name": "Example service",
                     "kind": "application",
                     "category": "operations",
+                    "status": "planned",
                     "sourcePath": "apps/example/compose.yml",
                     "composeService": "example",
                     "runtime": {
@@ -45,7 +46,9 @@ def test_declared_catalog_accepts_runtime_networks_lifecycle_and_monitoring() ->
                     "lifecycle": {
                         "phase": "platform-services",
                         "priority": 40,
+                        "blocksLaterWaves": False,
                     },
+                    "internalUrl": "http://example:8080",
                     "monitoring": {
                         "type": "http",
                         "target": "http://172.17.0.24:8080/health",
@@ -60,9 +63,17 @@ def test_declared_catalog_accepts_runtime_networks_lifecycle_and_monitoring() ->
     assert service.runtime is not None
     assert service.runtime.networks == ["intranet", "traefik_network"]
     assert service.lifecycle is not None
+    assert service.status == "planned"
+    assert service.internal_url == "http://example:8080"
     assert service.lifecycle.phase == "platform-services"
+    assert service.lifecycle.blocks_later_waves is False
     assert service.monitoring is not None
     assert service.monitoring.type == "http"
+
+    wire = catalog.model_dump(mode="json", by_alias=True, exclude_none=True)
+    assert wire["services"][0]["status"] == "planned"
+    assert wire["services"][0]["internalUrl"] == "http://example:8080"
+    assert wire["services"][0]["lifecycle"]["blocksLaterWaves"] is False
 
 
 def test_declared_catalog_validation_log_summary_is_bounded() -> None:

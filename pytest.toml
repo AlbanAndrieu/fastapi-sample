@@ -1,5 +1,6 @@
 # content of pytest.toml
 [pytest]
+addopts = ["-p", "no:ddtrace"]
 markers = [
     "webtest: mark a test as a webtest.",
     "slow: mark test as slow.",

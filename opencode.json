@@ -1,8 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "instructions": [
-    "AGENTS.md"
-  ],
+  "instructions": ["AGENTS.md"],
   "mcp": {
     "fastapi-sample": {
       "type": "remote",
@@ -58,5 +56,20 @@
       ],
       "enabled": false
     }
+  },
+  "default_agent": "fastapi-maintainer",
+  "permission": {
+    "skill": {
+      "*": "allow"
+    }
+  },
+  "tool_output": {
+    "max_lines": 600,
+    "max_bytes": 32000
+  },
+  "compaction": {
+    "auto": true,
+    "prune": true,
+    "tail_turns": 6
   }
 }

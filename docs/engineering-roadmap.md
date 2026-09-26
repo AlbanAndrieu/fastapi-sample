@@ -42,6 +42,15 @@ duplicate schemas and shortens the migration.
   allow only explicit `$schema` metadata at the catalog root, and reject
   unknown top-level fields. Future schema drift must use last-known-good v1
   evidence until the coordinated breaking cutover replaces this contract.
+- [x] Align the explicit pre-cutover v1 consumer with metadata now emitted by
+  `nabla-compose/master`: service/node `status` (`active|planned|disabled`),
+  `lifecycle.blocksLaterWaves`, and declared-service `internalUrl`. Keep
+  `extra="forbid"`; this is an explicit contract update, not permissive fallback.
+- [ ] Fix the producer-side `nabla-compose/catalog/services.schema.json` contract:
+  current generated `services.json` and `x-nabla` metadata contain
+  `internalUrl`, while the services JSON schema still omits that property.
+  Reconcile the producer schema/generator before treating schema validation as
+  authoritative for this field.
 - Migrate the declared catalog/topology loaders, reconciliation and API projection
   in the same migration window, then remove obsolete v1-only parsing and overlays.
 - `homelab-services.json` and `homelab-exposure-overrides.json` must not survive
@@ -501,6 +510,16 @@ acceptance criterion.
       domain-specific `pydantic-settings` models. Keep secrets as `SecretStr`,
       validate bounds/URLs at construction, preserve environment-name compatibility
       during migration, and keep settings construction free of network side effects.
+  - [x] Move `HEALTH_BOARD_CACHE_TTL_SECONDS` and
+        `TRUENAS_RUNTIME_CACHE_TTL_SECONDS` into
+        `HealthRuntimeSettings`. Preserve the existing defaults and bounded
+        fallback semantics while removing duplicate runtime parsing from
+        `health_board.py` and `homelab_runtime.py`.
+  - [x] Remove the remaining direct `TRUENAS_WS_PATH` read from
+        `homelab_health.py` and reuse the already validated
+        `TrueNASProviderSettings.websocket_path` contract.
+  - [ ] Continue domain-by-domain with remaining runtime/environment reads; avoid
+        one global settings object that would couple unrelated provider secrets.
 - [ ] Create a small set of lifespan-owned `httpx.AsyncClient` instances using the
       existing `AsyncExitStack`, with explicit connection limits, connect/read/
       write/pool timeouts and intentional `trust_env` behavior. Keep provider
@@ -681,6 +700,25 @@ acceptance criterion.
       timeouts, circuit breakers, deduplication and fallback policy. Do not make
       SearXNG a mandatory dependency for every search request.
 
+## Local unit-test hermeticity — 2026-09-25
+
+- [x] Keep external-probe cache unit tests independent from an inherited `REDIS_URL` by disabling implicit Redis resolution for that unit-test module. Explicit `FakeRedis` coverage and real Redis integration tests remain available without coupling unit tests to the developer runtime.
+- [x] Keep public homelab route tests hermetic: mock
+  `health_board.build_homelab_snapshot` separately from raw
+  `homelab_health.build_homelab_health_payload` so unit tests never use the
+  current LAN merely because it is reachable.
+- [x] Force Sentry, Datadog/ddtrace, Logfire and other external telemetry off
+  during `tests/unit` collection even when the developer shell enables them.
+  Integration/acceptance tests must opt in explicitly outside the unit suite.
+  Block the pytest `ddtrace` plugin from `pytest.toml` before collection so
+  its tracer/atexit worker cannot survive long enough to emit post-test logging
+  errors; the environment flags in `tests/unit/conftest.py` remain a second
+  layer for application telemetry code.
+- [ ] Re-run intentional LAN acceptance after the unit gate is green: confirm
+  TrueNAS, pfSense and Prometheus through dedicated read-only checks, then assess
+  Cloudflare and Sentry independently instead of interpreting accidental unit-test
+  network traffic as acceptance evidence.
+
 ## P2 — Local development and documentation
 
 - [x] Make Docker Compose use the real `server_all:app` entrypoint and port 8080.
@@ -697,6 +735,16 @@ acceptance criterion.
       skip pull-request preview builds that would exceed the function-size limit.
 - [ ] Deduplicate Cursor, Codex, OpenCode and Copilot instructions while keeping
       `AGENTS.md` as the concise shared policy.
+  - [x] Make OpenCode consume that shared policy deterministically for the
+        workstation's smaller model: add an explicit execution protocol and skill
+        routing table to `AGENTS.md`, use a model-inheriting
+        `fastapi-maintainer` primary agent, allow native `.agents/skills`
+        loading, add local roadmap/quality/review/publication commands and keep
+        the GitHub MCP read-only so repository mutations still pass through the
+        local checkout and quality gates.
+  - [ ] Audit the legacy Cursor rule set and remaining tool-specific adapters for
+        policy duplicated from `AGENTS.md`; keep only genuinely tool/path-specific
+        rules before closing this parent item.
 - [ ] Store generated SBOM reports as CI artifacts instead of tracking large
       generated files.
 - [ ] Continue the MCP SDK integration review:
@@ -878,6 +926,24 @@ The following improvements have already been implemented:
   dependency path merely because the contract itself lives under `tests/`.
 - [x] Surface non-blocking baseline-aware code-size warnings from the compact
   agent gate instead of hiding successful warning output.
+- [x] Refactor `nabla/api/homelab_health.py` below the 400-line
+  maintainability warning threshold without changing its public/test seams.
+  Low-level bounded HTTP/TCP execution now lives in
+  `homelab_probe_runner.py`, defensive cache copying in
+  `homelab_health_cache.py`, and pure TrueNAS target/state reconciliation in
+  `truenas_probe_health.py`. The façade remains responsible for orchestration,
+  provider dependency injection and the process-local snapshot cache.
+- [x] Refactor `nabla/api/health_board.py` below the 400-line warning
+      threshold by extracting optional health/sickz/runtime diagnostic builders
+      into `health_board_diagnostics.py`; keep deadline values and monkeypatch
+      seams owned by the historical façade.
+- [x] Refactor `nabla/api/homelab_runtime.py` below the 400-line warning
+      threshold by extracting sanitized TrueNAS runtime models and raw
+      `app.query` normalization into `homelab_runtime_models.py`.
+- [x] Split `tests/unit/test_homelab_health.py` by the extracted production
+      responsibilities into probe-runner and TrueNAS target/state contract
+      suites. The intentional >40% reduction is explicitly acknowledged in
+      `.quality-gate-large-deletions`.
 - [x] Make local publication scope-aware: always run the strict agent gate,
   but run Pylint, the minimal FastAPI import smoke and `uv build` only when the
   centralized classifier reports `build=true`. Documentation/quality-only

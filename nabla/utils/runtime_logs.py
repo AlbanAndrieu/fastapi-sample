@@ -59,7 +59,7 @@ def _mask_bearer(value: Any) -> Any:
 
 def _redact(value: Any) -> Any:
     """Mask bearer credentials before applying the generic application redactor."""
-    from nabla.utils.logger import _redact_value  # noqa: PLC2701
+    from nabla.utils.logger import _redact_value  # noqa: PLC0415, PLC2701
 
     return _redact_value(_mask_bearer(value))
 

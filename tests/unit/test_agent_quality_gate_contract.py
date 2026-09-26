@@ -28,9 +28,7 @@ def test_external_github_actions_are_pinned_to_commit_sha() -> None:
             external_action_count += 1
             assert "@" in action, f"{workflow_path}: unversioned action {action}"
             ref = action.rsplit("@", maxsplit=1)[1]
-            assert re.fullmatch(r"[0-9a-f]{40}", ref), (
-                f"{workflow_path}: action must use immutable SHA: {action}"
-            )
+            assert re.fullmatch(r"[0-9a-f]{40}", ref), f"{workflow_path}: action must use immutable SHA: {action}"
 
     assert external_action_count > 0
 
@@ -56,6 +54,14 @@ def test_agent_quality_gate_wraps_tests_and_canonical_gate() -> None:
     assert "diff-filter=D" in text
     assert "QG_EXEC_BIT" in text
     assert "QG_FIX_NO_PROGRESS" in text
+    assert "print_precommit_failure" in text
+    assert "Deterministic rewrites are stable" in text
+    assert "Last hook diagnostic lines" in text
+    assert "DD_TRACE_ENABLED=false" in text
+    assert "DD_PROFILING_ENABLED=false" in text
+    assert "SENTRY_ENABLED=false" in text
+    assert "LOGFIRE_ENABLED=false" in text
+    assert "--show-diff-on-failure" not in text
     assert "QG_FIX_NOT_CONVERGED" in text
     assert "QUALITY_FIX_PASSES" in text
     assert 'FIX_PASSES="${QUALITY_FIX_PASSES:-6}"' in text
@@ -96,6 +102,7 @@ def test_agent_quality_gate_wraps_tests_and_canonical_gate() -> None:
         "quality-gate contract pytest (isolated fail-fast)",
     )
     assert "Working tree changed after tests" in text
+    assert "then run scripts/agent-publish.sh" in text
     assert 'tail -n "${LOG_TAIL}"' in text
     assert "LOG_TAIL=80" in text
 
@@ -127,7 +134,7 @@ def test_python_ci_runs_fast_gate_before_heavy_dependency_sync() -> None:
     assert "dependencies: ${{ steps.ci_scope.outputs.dependencies }}" in workflow
     assert "dependency_mode: ${{ steps.ci_scope.outputs.dependency_mode }}" in workflow
     assert "changed_count: ${{ steps.ci_scope.outputs.changed_count }}" in workflow
-    assert 'steps.ci_scope.outputs.dependency_mode == \'quality\'' in workflow
+    assert "steps.ci_scope.outputs.dependency_mode == 'quality'" in workflow
     assert '"pytest<10" "PyYAML>=6.0"' in workflow
     assert "tests/unit/test_agent_dependency_mode.py" in workflow
     assert "tests/unit/test_agent_publication_proof.py" in workflow

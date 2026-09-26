@@ -1,8 +1,9 @@
 ---
 name: homelab-runtime-status
-description: Inspect Nabla homelab runtime, health, exposure and declaration state before and after infrastructure or application changes.
+description: >-
+  Inspect Nabla homelab runtime, health, exposure and declaration state before
+  and after infrastructure or application changes.
 ---
-
 # Homelab runtime status
 
 Use this skill whenever a task asks whether a homelab service is running, healthy, exposed, migrated, reachable, synchronized with the catalog, or safe to cut over.

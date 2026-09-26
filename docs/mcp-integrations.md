@@ -2,6 +2,51 @@
 
 This repository keeps MCP integrations least-privileged by default. Secrets must stay outside the repository.
 
+
+## OpenCode workstation workflow
+
+OpenCode uses the repository root `AGENTS.md` as the authoritative project
+policy. The `instructions: ["AGENTS.md"]` entry remains in `opencode.json`
+for compatibility with OpenCode versions that resolve it explicitly, but the
+workflow does **not** depend on that field: OpenCode also discovers project
+`AGENTS.md` files natively.
+
+The project configuration sets `fastapi-maintainer` as the default agent
+without forcing a model. The agent therefore inherits the model selected by the
+workstation/global OpenCode configuration while adding a deterministic
+repository workflow suitable for smaller models. The maintainer has a bounded
+40-step agent loop; the read-only reviewer uses 12 steps.
+
+To reduce context flooding on the workstation model, project config truncates
+tool previews at 600 lines / 32 KiB and enables automatic compaction with old
+tool-output pruning while retaining the six most recent turns. This changes
+context presentation only; it must never be used as a reason to skip a required
+test, artifact or diagnostic.
+
+Repository skills remain under `.agents/skills/<name>/SKILL.md`. OpenCode
+discovers that layout natively and `opencode.json` explicitly allows the
+`skill` tool. The maintainer must load only the task-relevant skills using the
+routing table in `AGENTS.md`.
+
+Project-local helpers:
+
+- `/roadmap-next` — choose and implement one finishable roadmap item using the
+  relevant skills and local gates;
+- `/quality-fix` — run the deterministic convergent quality gate and fix its
+  root-cause failures;
+- `/review-local` — send the current diff to the read-only
+  `quality-reviewer` subagent;
+- `/publish-local` — require a clean committed HEAD and run the canonical
+  `scripts/agent-publish.sh` proof.
+
+The GitHub MCP remains deliberately read-only. The `quality-reviewer` also
+blocks edits and all shell commands except read-only Git inspection
+(`status`, `diff`, `log`, `show`). OpenCode should modify the working tree with
+normal local tools and publish through Git only after the repository quality
+flow has passed. During an explicitly requested
+no-GitHub-Actions/no-credit period, keep PRs Draft, commit with `[skip ci]`,
+and do not dispatch or rerun remote workflows.
+
 ## FastAPI sample
 
 The application exposes the project-local MCP server at:

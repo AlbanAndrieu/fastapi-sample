@@ -18,10 +18,7 @@ from pydantic import (
     model_validator,
 )
 
-DECLARED_SERVICES_URL = (
-    "https://raw.githubusercontent.com/AlbanAndrieu/nabla-compose/master/"
-    "catalog/services.json"
-)
+DECLARED_SERVICES_URL = "https://raw.githubusercontent.com/AlbanAndrieu/nabla-compose/master/catalog/services.json"
 _CACHE_TTL_SEC = 300.0
 _FETCH_TIMEOUT_SEC = 4.0
 _VALIDATION_LOG_SAMPLE = 6
@@ -51,9 +48,7 @@ class RuntimeBinding(BaseModel):
     @model_validator(mode="after")
     def require_runtime_identity(self) -> RuntimeBinding:
         """Keep runtime identity and generated network membership deterministic."""
-        if self.provider == "truenas-app" and not (
-            self.app_id or self.container_service
-        ):
+        if self.provider == "truenas-app" and not (self.app_id or self.container_service):
             raise ValueError("truenas-app runtime requires appId or containerService")
         if self.networks is not None and len(self.networks) != len(set(self.networks)):
             raise ValueError("runtime.networks must not contain duplicates")
@@ -89,6 +84,11 @@ class ServiceLifecycle(BaseModel):
         "applications",
     ]
     priority: int = Field(ge=0, le=1000)
+    blocks_later_waves: bool | None = Field(
+        default=None,
+        validation_alias=AliasChoices("blocksLaterWaves", "blocks_later_waves"),
+        serialization_alias="blocksLaterWaves",
+    )
 
 
 class MonitoringTarget(BaseModel):
@@ -134,6 +134,7 @@ class DeclaredService(BaseModel):
         serialization_alias="presentationRole",
     )
     criticality: Literal["critical", "high", "medium", "low"] | None = None
+    status: Literal["active", "planned", "disabled"] | None = None
     security_functions: (
         list[
             Literal[
@@ -153,6 +154,11 @@ class DeclaredService(BaseModel):
         serialization_alias="securityFunctions",
     )
     url: str | None = None
+    internal_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("internalUrl", "internal_url"),
+        serialization_alias="internalUrl",
+    )
     description: str | None = None
     icon: str | None = Field(default=None, min_length=1, max_length=32)
     environments: list[DeploymentEnvironment] | None = Field(
