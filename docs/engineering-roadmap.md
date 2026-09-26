@@ -1038,6 +1038,10 @@ git diff --check
   construction until application startup or first endpoint use. Importing
   `nabla.api.demo.sensor` no longer creates the 50-reading history or chart
   helper, while normal lifespan startup preserves the existing dashboard state.
+- [x] Move the demo `fastapi-featureflags` configuration/reload out of module
+  import and into application lifespan startup. Importing `demo.py` no longer
+  mutates global feature-flag state or prints enabled flags during test
+  collection.
 
 - Introduce `create_app(settings)` instead of constructing the application at
   module import time.
