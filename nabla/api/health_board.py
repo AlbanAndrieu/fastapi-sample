@@ -17,8 +17,10 @@ from nabla.api.health_board_diagnostics import (
     build_extended_healthz as _build_extended_healthz,
     build_runtime_snapshot,
     build_sickz_snapshot as _build_sickz_snapshot,
-    cloudflare_unconfirmed_check as _cloudflare_unconfirmed_check,
+    cloudflare_unconfirmed_check,
 )
+
+_cloudflare_unconfirmed_check = cloudflare_unconfirmed_check
 from nabla.settings.health_runtime import HealthRuntimeSettings
 
 logger = logging.getLogger(__name__)
