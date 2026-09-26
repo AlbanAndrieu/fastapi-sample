@@ -26,4 +26,5 @@ def test_current_refactor_acknowledges_only_reviewed_extractions_and_migrations(
         "nabla/api/homelab_health_evidence.py",
         "nabla/api/platform_health.py",
         "scripts/pfsense/diagnose-recover.sh",
+        "tests/unit/test_homelab_health.py",
     }
