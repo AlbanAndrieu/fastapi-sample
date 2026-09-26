@@ -13,18 +13,24 @@ import urllib3
 from statsig_python_core import Statsig, StatsigOptions
 from UnleashClient import UnleashClient
 
-from nabla.settings.feature_flags import UnleashSettings
+from nabla.settings.feature_flags import StatsigSettings, UnleashSettings
 
 _IMPORT_UNLEASH_SETTINGS = UnleashSettings.from_mapping(os.environ)
 UNLEASH_API_URL = _IMPORT_UNLEASH_SETTINGS.api_url
 UNLEASH_APP_NAME = _IMPORT_UNLEASH_SETTINGS.unleash_app_name
 UNLEASH_INSTANCE_ID = _IMPORT_UNLEASH_SETTINGS.instance_id
-STATSIG_API_KEY = os.environ.get("STATSIG_API_KEY", "XXX")
+_IMPORT_STATSIG_SETTINGS = StatsigSettings.from_mapping(os.environ)
+STATSIG_API_KEY = _IMPORT_STATSIG_SETTINGS.api_key or "XXX"
 
 
 def get_unleash_settings() -> UnleashSettings:
     """Return Unleash settings from the current process environment."""
     return UnleashSettings.from_mapping(os.environ)
+
+
+def get_statsig_settings() -> StatsigSettings:
+    """Return Statsig settings from the current process environment."""
+    return StatsigSettings.from_mapping(os.environ)
 
 
 def unleash_ssl_verify_enabled() -> bool:
@@ -96,8 +102,14 @@ unleash_client = LazyUnleashClient()
 @lru_cache(maxsize=1)
 def get_statsig_client() -> Statsig:
     """Create and initialize Statsig on first explicit use only."""
+    settings = get_statsig_settings()
+    if not settings.configured:
+        raise RuntimeError(
+            "STATSIG_API_KEY must be configured before Statsig startup",
+        )
+
     options = StatsigOptions()
-    options.environment = os.environ.get("STATSIG_ENVIRONMENT", "development")
-    statsig = Statsig(STATSIG_API_KEY, options)
+    options.environment = settings.statsig_environment
+    statsig = Statsig(settings.api_key, options)
     statsig.initialize().wait()
     return statsig
