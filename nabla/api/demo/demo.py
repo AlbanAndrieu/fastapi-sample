@@ -1,9 +1,9 @@
 import os
 import random
 import secrets
+from datetime import datetime
 from typing import Optional
 from uuid import uuid4
-from datetime import datetime
 
 import requests
 from fastapi import APIRouter, HTTPException, status
