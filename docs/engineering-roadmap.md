@@ -533,6 +533,10 @@ acceptance criterion.
         API key as `SecretStr`, reject empty/placeholder credentials before SDK
         initialization, and use the current process mapping instead of the
         import-time compatibility constant.
+  - [x] Keep unit-test feature-flag imports hermetic by clearing
+        `UNLEASH_INSTANCE_ID` and `STATSIG_API_KEY` before `server_app`
+        collection; tests that exercise these integrations must opt in with
+        explicit monkeypatch values.
   - [ ] Continue domain-by-domain with remaining runtime/environment reads; avoid
         one global settings object that would couple unrelated provider secrets.
 - [ ] Create a small set of lifespan-owned `httpx.AsyncClient` instances using the
