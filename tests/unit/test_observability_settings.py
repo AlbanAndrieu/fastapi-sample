@@ -49,12 +49,13 @@ def test_logfire_probe_canonical_enable_wins_over_legacy(monkeypatch) -> None:
 
 
 def test_logfire_token_is_trimmed_and_secret(monkeypatch) -> None:
-    monkeypatch.setenv("LOGFIRE_TOKEN", "  test-token  ")
+    expected_value = "test-token"
+    monkeypatch.setenv("LOGFIRE_TOKEN", f"  {expected_value}  ")
 
     settings = LogfireSettings()
 
-    assert settings.token == "test-token"
-    assert "test-token" not in repr(settings.logfire_token)
+    assert settings.token == expected_value
+    assert expected_value not in repr(settings.logfire_token)
 
 
 def test_logfire_probe_validates_https_base_url(monkeypatch) -> None:
@@ -65,19 +66,20 @@ def test_logfire_probe_validates_https_base_url(monkeypatch) -> None:
 
 
 def test_logfire_settings_from_mapping_ignore_process_logfire_values(monkeypatch) -> None:
+    expected_value = "mapped-token"
     monkeypatch.setenv("LOGFIRE_ENABLED", "true")
     monkeypatch.setenv("LOGFIRE_TOKEN", "process-token")
 
     settings = LogfireSettings.from_mapping(
         {
             "LOGFIRE_ENABLED": "false",
-            "LOGFIRE_TOKEN": "  mapped-token  ",
+            "LOGFIRE_TOKEN": f"  {expected_value}  ",
         },
     )
 
     assert settings.instrumentation_enabled is False
     assert settings.instrumentation_active is False
-    assert settings.token == "mapped-token"
+    assert settings.token == expected_value
 
 
 def test_runtime_modules_do_not_reparse_migrated_logfire_environment() -> None:
