@@ -1,6 +1,7 @@
 """Composable application settings domains."""
 
 from nabla.settings.database import DatabaseSettings
+from nabla.settings.feature_flags import UnleashSettings
 from nabla.settings.health_runtime import HealthRuntimeSettings
 from nabla.settings.homelab import (
     PfSensePostureProviderSettings,
@@ -20,4 +21,5 @@ __all__ = [
     "PfSensePostureProviderSettings",
     "PfSenseSecurityProviderSettings",
     "TrueNASProviderSettings",
+    "UnleashSettings",
 ]

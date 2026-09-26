@@ -17,15 +17,11 @@ from nabla.config_settings import (
     DD_TRACE_AGENT_URL,
     PYROSCOPE_ENABLED,
     PYROSCOPE_ENDPOINT,
-    _unleash_timeout_s,
     get_openid_config,
     get_settings,
 )
 from nabla.feature_flags import (
-    UNLEASH_API_URL,
-    UNLEASH_APP_NAME,
-    UNLEASH_INSTANCE_ID,
-    unleash_is_configured,
+    get_unleash_settings,
     unleash_requests_kwargs as _unleash_requests_kwargs,
 )
 from nabla.integrations.appwrite_client import appwrite_health
@@ -149,24 +145,25 @@ def probe_keycloak_well_known() -> dict[str, Any]:
 
 
 def probe_unleash_client_features() -> dict[str, Any]:
-    if not unleash_is_configured():
+    settings = get_unleash_settings()
+    if not settings.configured:
         return {
             "reachable": None,
             "skipped": True,
             "reason": "UNLEASH_INSTANCE_ID is not configured",
         }
-    url = f"{UNLEASH_API_URL.rstrip('/')}/client/features"
-    verify = _unleash_requests_kwargs().get("verify", True)
+    url = f"{settings.api_url}/client/features"
+    verify = _unleash_requests_kwargs(settings).get("verify", True)
     try:
         with httpx.Client(
-            timeout=float(_unleash_timeout_s),
+            timeout=float(settings.unleash_request_timeout),
             verify=verify,
         ) as http_client:
             response = http_client.get(
                 url,
                 headers={
-                    "UNLEASH-APPNAME": UNLEASH_APP_NAME,
-                    "UNLEASH-INSTANCEID": UNLEASH_INSTANCE_ID,
+                    "UNLEASH-APPNAME": settings.unleash_app_name,
+                    "UNLEASH-INSTANCEID": settings.instance_id,
                 },
             )
     except Exception as exc:

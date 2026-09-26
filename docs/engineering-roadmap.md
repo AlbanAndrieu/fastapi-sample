@@ -525,6 +525,10 @@ acceptance criterion.
         base URL without coupling that URL to application startup, and reuse the
         same typed activation contract when Sentry decides whether duplicate
         logs/traces/profiles should remain enabled.
+  - [x] Move Unleash runtime/probe configuration into `UnleashSettings`.
+        Runtime decisions now use the current environment rather than credentials
+        captured at module import, while legacy module constants remain only as
+        compatibility exports. Keep Statsig as a separate future domain.
   - [ ] Continue domain-by-domain with remaining runtime/environment reads; avoid
         one global settings object that would couple unrelated provider secrets.
 - [ ] Create a small set of lifespan-owned `httpx.AsyncClient` instances using the
