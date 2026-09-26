@@ -23,6 +23,7 @@ def test_demo_feature_flags_are_not_initialized_at_module_import() -> None:
 
     assert top_level_feature_flag_calls == []
     assert 'print("Enabled Features:"' not in source
+    assert "FastMCP(" not in source
     assert "def initialize_demo_feature_flags()" in source
 
 
