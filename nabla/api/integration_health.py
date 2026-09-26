@@ -28,7 +28,7 @@ from nabla.integrations.appwrite_client import appwrite_health
 from nabla.integrations.brave_search import _BRAVE_WEB_SEARCH_URL
 from nabla.integrations.google_search import _GOOGLE_CSE_URL
 from nabla.integrations.tavily_search import get_tavily_client
-from nabla.utils.sentry_config import select_sentry_dsn, sentry_dsn_is_reachable
+from nabla.utils.sentry_config import select_sentry_health_dsn, sentry_dsn_is_reachable
 
 
 def probe_tavily_search() -> dict[str, Any]:
@@ -175,8 +175,8 @@ def probe_unleash_client_features() -> dict[str, Any]:
 
 
 def probe_sentry_reachable() -> dict[str, Any]:
-    """Check the selected Sentry intake without generating an error event."""
-    dsn, target = select_sentry_dsn()
+    """Check the configured Sentry health target without masking local outages."""
+    dsn, target = select_sentry_health_dsn()
     if not dsn:
         return {
             "reachable": None,
