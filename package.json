@@ -54,7 +54,7 @@
     "@dotenvx/dotenvx": "^2.23.0",
     "@supabase/supabase-js": "^2.101.1",
     "@vercel/analytics": "^2.0.1",
-    "dd-trace": "^5.100.0",
+    "dd-trace": "^6.16.0",
     "mcp-remote": "^0.1.38",
     "vercel": "^55.0.0"
   },
