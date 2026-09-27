@@ -56,7 +56,7 @@
     "@vercel/analytics": "^2.0.1",
     "dd-trace": "^5.100.0",
     "mcp-remote": "^0.1.38",
-    "vercel": "^55.0.0"
+    "vercel": "^59.26.0"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.11",
