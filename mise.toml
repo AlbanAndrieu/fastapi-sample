@@ -1,8 +1,10 @@
 min_version = "2024.9.5"
 
 [tools]
-# python = "{{ get_env(name='PYTHON_VERSION', default='3.13') }}"
-python = "system"
+# Python is intentionally supplied by the workstation/CI runtime.
+# Do not declare python="system": recent mise versions deprecate the
+# system_tool_version compatibility path. uv remains the project package/runtime
+# manager and the repository currently targets Python 3.13.
 ruff = "latest"
 awscli = { version = "latest", symlink_bins = "true" }
 k9s = "latest"

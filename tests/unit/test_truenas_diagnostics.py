@@ -3,6 +3,7 @@
 from nabla.api.truenas_diagnostics import (
     _direct_lan_stage,
     _haproxy_stage,
+    _https_stage,
     append_truenas_api_stages,
 )
 
@@ -93,3 +94,53 @@ def test_authenticated_api_success_overrides_auxiliary_websocket_failure() -> No
     assert api["id"] == "api"
     assert api["state"] == "ok"
     assert "1 apps" in api["detail"]
+
+
+def test_https_stage_preserves_probe_warning_for_deadline() -> None:
+    stage = _https_stage(
+        {
+            "reachable": False,
+            "state": "warn",
+            "timed_out": True,
+            "error_kind": "deadline",
+            "error": "service probe fan-out budget exceeded",
+            "http_status": 0,
+            "tls_trusted": None,
+        },
+        path_mode="public_wan_haproxy",
+    )
+
+    assert stage["state"] == "warn"
+    assert "budget exceeded" in stage["detail"]
+
+
+def test_https_stage_keeps_redirect_operational() -> None:
+    stage = _https_stage(
+        {
+            "reachable": True,
+            "state": "ok",
+            "http_status": 302,
+            "tls_trusted": True,
+        },
+        path_mode="public_wan_haproxy",
+    )
+
+    assert stage["state"] == "ok"
+    assert stage["http_status"] == 302
+    assert stage["detail"] == "HTTP 302"
+
+
+def test_https_stage_keeps_transport_failure_failed() -> None:
+    stage = _https_stage(
+        {
+            "reachable": False,
+            "state": "fail",
+            "error": "Connection refused",
+            "http_status": 0,
+            "tls_trusted": None,
+        },
+        path_mode="public_wan_haproxy",
+    )
+
+    assert stage["state"] == "fail"
+    assert stage["detail"] == "Connection refused"
