@@ -1,3 +1,19 @@
+## [1.20.9](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.8...1.20.9) (2026-09-27)
+
+
+### Bug Fixes
+
+* **catalog:** fail closed on pre-cutover v1 schema ([#281](https://github.com/AlbanAndrieu/fastapi-sample/issues/281)) ([08c0c88](https://github.com/AlbanAndrieu/fastapi-sample/commit/08c0c8870e3f291e3c8fddb7b0fe4e072a5bd650))
+* **deps-dev:** bump @semantic-release/npm from 13.1.5 to 13.2.0 ([#288](https://github.com/AlbanAndrieu/fastapi-sample/issues/288)) ([6b7dc48](https://github.com/AlbanAndrieu/fastapi-sample/commit/6b7dc4803ed9e9985a48be5b7bef9bead1f332f4))
+* **deps:** bump @astrojs/vercel from 11.0.10 to 11.0.11 ([#285](https://github.com/AlbanAndrieu/fastapi-sample/issues/285)) ([b973763](https://github.com/AlbanAndrieu/fastapi-sample/commit/b973763dc566cb7f023327074c528523df20caf4))
+* **deps:** bump @supabase/supabase-js from 2.101.1 to 2.117.1 ([#287](https://github.com/AlbanAndrieu/fastapi-sample/issues/287)) ([f8b9624](https://github.com/AlbanAndrieu/fastapi-sample/commit/f8b9624aba526c13bdc10c5e8540112a2dbe0208))
+* **deps:** bump vercel from 55.0.0 to 59.26.0 ([#284](https://github.com/AlbanAndrieu/fastapi-sample/issues/284)) ([d783801](https://github.com/AlbanAndrieu/fastapi-sample/commit/d783801b58a76247859a3723dc693872e2c7245d))
+
+
+### Performance Improvements
+
+* **health:** stale-refresh static homelab catalogs ([#280](https://github.com/AlbanAndrieu/fastapi-sample/issues/280)) ([f3079e6](https://github.com/AlbanAndrieu/fastapi-sample/commit/f3079e6a0909e77d71b245f776039338cf98bf2d))
+
 ## [1.20.8](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.7...1.20.8) (2026-09-20)
 
 
