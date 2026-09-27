@@ -81,9 +81,24 @@ def _https_stage(
     path_mode: str,
 ) -> dict[str, Any]:
     reachable = public_result.get("reachable") is True
-    state = "ok" if reachable and public_result.get("state") == "ok" else "fail"
+    public_state = str(public_result.get("state") or "").strip().lower()
+    timed_out = public_result.get("timed_out") is True
+    error_kind = str(public_result.get("error_kind") or "").strip().lower()
+
+    if timed_out or error_kind == "deadline" or public_state == "warn":
+        state = "warn"
+    elif reachable and public_state == "ok":
+        state = "ok"
+    else:
+        state = "fail"
+
     if reachable:
         detail = f"HTTP {public_result.get('http_status', '?')}"
+    elif state == "warn":
+        detail = str(
+            public_result.get("error")
+            or "HTTPS probe inconclusive; endpoint availability was not disproved"
+        )[:240]
     else:
         detail = str(public_result.get("error") or "HTTPS request failed")[:240]
     return _stage(
