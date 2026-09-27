@@ -96,8 +96,7 @@ def _https_stage(
         detail = f"HTTP {public_result.get('http_status', '?')}"
     elif state == "warn":
         detail = str(
-            public_result.get("error")
-            or "HTTPS probe inconclusive; endpoint availability was not disproved"
+            public_result.get("error") or "HTTPS probe inconclusive; endpoint availability was not disproved",
         )[:240]
     else:
         detail = str(public_result.get("error") or "HTTPS request failed")[:240]
