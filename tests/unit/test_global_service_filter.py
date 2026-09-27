@@ -97,3 +97,22 @@ def test_health_legend_explains_card_flow_and_security_icons() -> None:
     assert '"🚫", "pfBlockerNG"' in legend
     assert '"👥", "CrowdSec"' in legend
     assert "gray = unavailable/unconfirmed" in legend
+
+def test_mobile_filter_uses_horizontal_rails_and_one_row_actions() -> None:
+    stylesheet = (ASSETS / "api-service-diagnostics.css").read_text(
+        encoding="utf-8",
+    )
+    responsive = (ASSETS / "api-health-ui-responsive-followup.css").read_text(
+        encoding="utf-8",
+    )
+    mobile = (ASSETS / "api-mobile.css").read_text(encoding="utf-8")
+
+    assert "scroll-snap-type: x proximity;" in stylesheet
+    assert "flex: 0 0 min(72vw, 11.5rem);" in stylesheet
+    assert "min-width: 6.5rem;" in stylesheet
+    assert "min-height: 44px;" in stylesheet
+    assert "overscroll-behavior-inline: contain;" in stylesheet
+    assert ".service-filter--global:not(.service-filter--compact)" in responsive
+    assert "grid-template-columns: repeat(3, minmax(0, 1fr));" in responsive
+    assert "  .service-filter-control,\n  .runtime-topology-grid" not in mobile
+
