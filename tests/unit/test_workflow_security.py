@@ -1,5 +1,6 @@
 """Security regression tests for GitHub Actions workflow references."""
 
+import json
 import re
 from pathlib import Path
 
@@ -79,12 +80,33 @@ def test_renovate_app_token_is_least_privilege_and_checkout_is_hardened() -> Non
     assert "persist-credentials: false" in checkout
 
 
-def test_dependabot_groups_codeql_subactions_atomically() -> None:
-    dependabot = (ROOT / ".github" / "dependabot.yml").read_text(encoding="utf-8")
-    github_actions = dependabot.split(
-        '- package-ecosystem: "github-actions"', maxsplit=1
-    )[1].split('# Enable version updates for npm', maxsplit=1)[0]
+def test_dependency_version_updates_are_renovate_only_and_grouped() -> None:
+    assert not (ROOT / ".github" / "dependabot.yml").exists()
 
-    assert "groups:" in github_actions
-    assert "codeql-action:" in github_actions
-    assert '- "github/codeql-action/*"' in github_actions
+    renovate = json.loads((ROOT / "renovate.json").read_text(encoding="utf-8"))
+
+    assert renovate["prConcurrentLimit"] == 2
+    assert renovate["branchConcurrentLimit"] == 2
+    assert renovate["rebaseWhen"] == "auto"
+
+    rules = renovate["packageRules"]
+
+    dev_rule = next(
+        rule for rule in rules if rule.get("groupName") == "npm devDependencies"
+    )
+    assert dev_rule["matchDepTypes"] == ["devDependencies"]
+    assert dev_rule["matchUpdateTypes"] == ["minor", "patch"]
+    assert dev_rule["schedule"] == ["* 0-8 1-7 * 1"]
+    assert dev_rule["minimumReleaseAge"] == "7 days"
+
+    actions_rule = next(
+        rule for rule in rules if rule.get("groupName") == "GitHub Actions"
+    )
+    assert actions_rule["schedule"] == ["* 0-8 1-7 * 1"]
+
+    major_rule = next(
+        rule
+        for rule in rules
+        if rule.get("description") == "Require dashboard approval for major updates"
+    )
+    assert major_rule["dependencyDashboardApproval"] is True
