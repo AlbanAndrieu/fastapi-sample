@@ -32,7 +32,7 @@ lightweight HTTP compatibility proxy.
     - [Database demo](#database-demo)
 - [Create PostgreSQL postgres on pg-gra.albandrieu.com with Alembic](#create-postgresql-postgres-on-pg-graalbandrieucom-with-alembic)
   - [Create PostgreSQL fastapi_sample_gitlab on pg-gra.albandrieu.com by hand](#create-postgresql-fastapi_sample_gitlab-on-pg-graalbandrieucom-by-hand)
-    - [Vercel compatibility proxy](#vercel-compatibility-proxy)
+    - [Vercel integration](#vercel-integration)
     - [Temporal demo](#temporal-demo)
     - [Defect Dojo Parameters](#defect-dojo-parameters)
   - [Quality check](#quality-check)
@@ -271,7 +271,7 @@ npm run dev
 
 ## [Test JWT](#table-of-contents)
 
-Get the public key from [keycloak](https://account-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/realms/nabla) \[keycloak-uat\]((http://account.int.albandrieu.com/realms/nabla)
+Get the public key from [keycloak](https://account-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/realms/nabla) or [keycloak-uat](http://account.int.albandrieu.com/realms/nabla)
 
 or [keycloak-dev](http://account.int.albandrieu.com/realms/nabla) [keycloak-admin](http://keycloak-admin.albandrieu.com/realms/nabla/)
 
