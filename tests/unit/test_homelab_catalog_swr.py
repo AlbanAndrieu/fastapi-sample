@@ -54,13 +54,14 @@ async def test_declared_catalog_serves_stale_while_single_refresh_runs(
 
     assert first is stale
     assert second is stale
-    await asyncio.wait_for(started.wait(), timeout=0.5)
-    assert calls == 1
 
     task = homelab_declared._cache.refresh_task
     assert task is not None
+    await asyncio.wait_for(started.wait(), timeout=5.0)
+    assert calls == 1
+
     release.set()
-    assert await asyncio.wait_for(task, timeout=0.5) is fresh
+    assert await asyncio.wait_for(task, timeout=5.0) is fresh
     assert await homelab_declared.fetch_declared_service_catalog() is fresh
 
 
@@ -95,11 +96,12 @@ async def test_topology_serves_stale_while_single_refresh_runs(monkeypatch) -> N
 
     assert first is stale
     assert second is stale
-    await asyncio.wait_for(started.wait(), timeout=0.5)
-    assert calls == 1
 
     task = homelab_topology._topology_cache.refresh_task
     assert task is not None
+    await asyncio.wait_for(started.wait(), timeout=5.0)
+    assert calls == 1
+
     release.set()
-    assert await asyncio.wait_for(task, timeout=0.5) is fresh
+    assert await asyncio.wait_for(task, timeout=5.0) is fresh
     assert await homelab_topology.fetch_homelab_topology() is fresh

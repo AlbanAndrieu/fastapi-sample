@@ -5,3 +5,6 @@ nabla/api/platform_health.py
 scripts/pfsense/diagnose-recover.sh
 nabla/api/homelab_health.py
 tests/unit/test_homelab_health.py
+docs/engineering-roadmap.md
+docs/homelab-security-roadmap.md
+docs/pfsense-webconfigurator-recovery.md

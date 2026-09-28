@@ -4,8 +4,9 @@
 
 FastAPI reference service for REST APIs, MCP/A2A, search integrations and
 homelab observability. The canonical runtime is deployed on
-[FastAPI Cloud](https://fastapi-sample.fastapicloud.dev); Vercel provides a
-lightweight HTTP compatibility proxy.
+[FastAPI Cloud](https://fastapi-sample.fastapicloud.dev).
+
+Documentation map: [docs/README.md](docs/README.md).
 
 # Table of contents
 
@@ -32,7 +33,7 @@ lightweight HTTP compatibility proxy.
     - [Database demo](#database-demo)
 - [Create PostgreSQL postgres on pg-gra.albandrieu.com with Alembic](#create-postgresql-postgres-on-pg-graalbandrieucom-with-alembic)
   - [Create PostgreSQL fastapi_sample_gitlab on pg-gra.albandrieu.com by hand](#create-postgresql-fastapi_sample_gitlab-on-pg-graalbandrieucom-by-hand)
-    - [Vercel compatibility proxy](#vercel-compatibility-proxy)
+    - [Vercel integration](#vercel-integration)
     - [Temporal demo](#temporal-demo)
     - [Defect Dojo Parameters](#defect-dojo-parameters)
   - [Quality check](#quality-check)
@@ -271,7 +272,7 @@ npm run dev
 
 ## [Test JWT](#table-of-contents)
 
-Get the public key from [keycloak](https://account-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/realms/nabla) \[keycloak-uat\]((http://account.int.albandrieu.com/realms/nabla)
+Get the public key from [keycloak](https://account-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/realms/nabla) or [keycloak-uat](http://account.int.albandrieu.com/realms/nabla)
 
 or [keycloak-dev](http://account.int.albandrieu.com/realms/nabla) [keycloak-admin](http://keycloak-admin.albandrieu.com/realms/nabla/)
 
@@ -376,23 +377,21 @@ DB_URL="postgresql://postgres:password-reset-XXX@127.0.0.1:5432/fastapi_sample_d
 DB_URL="postgresql://fastapisample:password-reset-XXX@127.0.0.1:5432/fastapi_sample_dev" # nosec
 ```
 
-### Vercel compatibility proxy
+### Vercel integration
 
-The Python application is deployed on
-[FastAPI Cloud](https://fastapi-sample.fastapicloud.dev). Vercel is configured
-as a lightweight external rewrite to that canonical runtime; it must not bundle
-the full Python dependency graph, which exceeds Vercel's function-size limit.
+FastAPI Cloud is the canonical Python runtime:
+<https://fastapi-sample.fastapicloud.dev>.
 
-The Vercel project follows this GitHub repository. Only `main` is built: the
-`ignoreCommand` in `vercel.json` skips branch and pull-request previews, which
-would otherwise try to package an application that exceeds the function-size
-limit. Pull requests remain validated by GitHub Actions. Use the FastAPI Cloud
-URL directly for WebSockets and MCP streaming instead of relying on the HTTP
-compatibility proxy.
+Automatic Vercel Git deployments are currently disabled because the full Python
+dependency graph is not an appropriate Vercel deployment target. The repository
+enforces `git.deploymentEnabled=false` in `vercel.json`; GitHub Actions also
+contain no Vercel build/deploy step.
 
-The `/api` landing page publishes Open Graph and Twitter Card metadata. Its
-1200×630 image is served at `/api/assets/open-graph.png` by FastAPI Cloud and
-through the Vercel rewrite.
+The remaining project-side Git connection must be disconnected in Vercel before
+the external Vercel GitHub App can be considered fully disabled. See
+[the engineering roadmap](docs/engineering-roadmap.md) for the acceptance proof.
+
+Use FastAPI Cloud directly for API, WebSocket and MCP streaming behavior.
 
 ### Temporal demo
 

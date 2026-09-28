@@ -5,13 +5,14 @@
     "helpers:pinGitHubActionDigests",
     ":preserveSemverRanges",
     ":dependencyDashboard",
-    ":enableVulnerabilityAlertsWithLabel('security')",
+    ":combinePatchMinorReleases",
+    ":enablePreCommit",
     "group:recommended"
   ],
   "timezone": "Europe/Paris",
   "prConcurrentLimit": 2,
   "branchConcurrentLimit": 2,
-  "rebaseWhen": "auto",
+  "rebaseWhen": "conflicted",
   "minimumReleaseAge": "7 days",
   "customManagers": [
     {
@@ -83,15 +84,24 @@
       "automerge": false
     },
     {
-      "description": "Batch GitHub Actions monthly",
+      "description": "Batch GitHub Actions and pre-commit maintenance monthly",
       "matchManagers": [
-        "github-actions"
+        "github-actions",
+        "pre-commit"
       ],
-      "groupName": "GitHub Actions",
+      "groupName": "automation toolchain",
       "schedule": [
         "* 0-8 1-7 * 1"
       ],
-      "automerge": false
+      "automerge": false,
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest",
+        "pin",
+        "pinDigest"
+      ],
+      "groupSlug": "automation-toolchain"
     },
     {
       "description": "Batch Docker non-major updates weekly",
@@ -113,7 +123,8 @@
     {
       "description": "Require dashboard approval for major updates",
       "matchUpdateTypes": [
-        "major"
+        "major",
+        "replacement"
       ],
       "dependencyDashboardApproval": true,
       "automerge": false
@@ -123,21 +134,22 @@
         "/^jira.*/"
       ],
       "groupName": "jira",
-      "automerge": true
+      "automerge": false
     },
     {
       "matchPackageNames": [
         "/^cryptography.*/"
       ],
       "groupName": "cryptography",
-      "automerge": true
+      "automerge": false
     }
   ],
   "lockFileMaintenance": {
     "enabled": true,
     "schedule": [
       "* 0-8 1-7 * 1"
-    ]
+    ],
+    "automerge": false
   },
   "rangeStrategy": "bump",
   "ignoreDeps": [
@@ -148,5 +160,13 @@
     "tests/**"
   ],
   "minimumReleaseAgeBehaviour": "timestamp-optional",
-  "internalChecksFilter": "strict"
+  "internalChecksFilter": "strict",
+  "automerge": false,
+  "prHourlyLimit": 1,
+  "commitHourlyLimit": 1,
+  "rebaseLabel": "rebase",
+  "osvVulnerabilityAlerts": false,
+  "vulnerabilityAlerts": {
+    "enabled": false
+  }
 }

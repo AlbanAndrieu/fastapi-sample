@@ -80,19 +80,40 @@ def test_renovate_app_token_is_least_privilege_and_checkout_is_hardened() -> Non
     assert "persist-credentials: false" in checkout
 
 
+def test_vercel_git_deployments_are_repository_disabled() -> None:
+    vercel = json.loads((ROOT / "vercel.json").read_text(encoding="utf-8"))
+
+    assert vercel["git"]["deploymentEnabled"] is False
+    assert not any("vercel" in text.lower() for _, text in _workflow_texts())
+
+
 def test_dependency_version_updates_are_renovate_only_and_grouped() -> None:
     assert not (ROOT / ".github" / "dependabot.yml").exists()
 
     renovate = json.loads((ROOT / "renovate.json").read_text(encoding="utf-8"))
 
+    assert renovate["automerge"] is False
     assert renovate["prConcurrentLimit"] == 2
     assert renovate["branchConcurrentLimit"] == 2
-    assert renovate["rebaseWhen"] == "auto"
+    assert renovate["prHourlyLimit"] == 1
+    assert renovate["commitHourlyLimit"] == 1
+    assert renovate["rebaseWhen"] == "conflicted"
+    assert renovate["rebaseLabel"] == "rebase"
     assert renovate["minimumReleaseAge"] == "7 days"
     assert renovate["minimumReleaseAgeBehaviour"] == "timestamp-optional"
     assert renovate["internalChecksFilter"] == "strict"
+    assert renovate["osvVulnerabilityAlerts"] is False
+    assert renovate["vulnerabilityAlerts"]["enabled"] is False
+    assert "pre-commit" not in renovate
+    assert ":combinePatchMinorReleases" in renovate["extends"]
+    assert ":enablePreCommit" in renovate["extends"]
+    assert not any(
+        preset.startswith(":enableVulnerabilityAlerts")
+        for preset in renovate["extends"]
+    )
 
     rules = renovate["packageRules"]
+    assert not any(rule.get("automerge") is True for rule in rules)
 
     dev_rule = next(
         rule for rule in rules if rule.get("groupName") == "npm devDependencies"
@@ -102,14 +123,21 @@ def test_dependency_version_updates_are_renovate_only_and_grouped() -> None:
     assert dev_rule["schedule"] == ["* 0-8 1-7 * 1"]
     assert dev_rule["minimumReleaseAge"] == "7 days"
 
-    actions_rule = next(
-        rule for rule in rules if rule.get("groupName") == "GitHub Actions"
+    automation_rule = next(
+        rule for rule in rules if rule.get("groupName") == "automation toolchain"
     )
-    assert actions_rule["schedule"] == ["* 0-8 1-7 * 1"]
+    assert automation_rule["matchManagers"] == ["github-actions", "pre-commit"]
+    assert automation_rule["schedule"] == ["* 0-8 1-7 * 1"]
 
     major_rule = next(
         rule
         for rule in rules
         if rule.get("description") == "Require dashboard approval for major updates"
     )
+    assert major_rule["matchUpdateTypes"] == ["major", "replacement"]
     assert major_rule["dependencyDashboardApproval"] is True
+
+    lock_maintenance = renovate["lockFileMaintenance"]
+    assert lock_maintenance["enabled"] is True
+    assert lock_maintenance["automerge"] is False
+    assert lock_maintenance["schedule"] == ["* 0-8 1-7 * 1"]

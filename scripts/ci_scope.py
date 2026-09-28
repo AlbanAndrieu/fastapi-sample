@@ -22,7 +22,10 @@ class Scope:
 QUALITY_MAINTENANCE_PATHS = {
     ".pre-commit-config.yaml",
     ".pre-commit-pre-push.yaml",
+    ".vercelignore",
     "AGENTS.md",
+    "renovate.json",
+    "vercel.json",
     "mise.toml",
     "scripts/agent-publish.sh",
     "scripts/agent-quality-gate.sh",
@@ -34,6 +37,7 @@ QUALITY_MAINTENANCE_PATHS = {
     "tests/unit/test_agent_quality_gate_contract.py",
     "tests/unit/test_ci_performance_budget.py",
     "tests/unit/test_ci_scope.py",
+    "tests/unit/test_workflow_security.py",
 }
 
 SECURITY_NON_DEPLOYABLE_PATHS = {

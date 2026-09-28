@@ -102,7 +102,10 @@ Before changing behavior, inspect the relevant files:
 - `tests/` — expected behavior
 - `scripts/` — repository quality and maintenance commands
 - `.github/workflows/` — CI behavior
-- `docs/` — detailed documentation
+- `docs/README.md` — documentation map and canonical navigation
+- `docs/incidents.md` — reusable incident evidence and recurrence rules
+- `docs/engineering-roadmap.md` — canonical active roadmap
+- `docs/` — focused architecture and operational runbooks
 
 Do not duplicate information from these files into code or agent instructions.
 

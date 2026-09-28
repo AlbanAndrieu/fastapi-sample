@@ -1,1344 +1,205 @@
 # Engineering and security roadmap
 
-This document is the single planning source for future `fastapi-sample` pull
-requests. Keep completed work, open follow-ups and intentional compatibility
-exceptions here rather than creating additional todo or refactoring documents.
+This is the **single prioritized roadmap** for `fastapi-sample`.
+
+Operational evidence and recovery commands belong in focused runbooks. Dated
+failures belong in [incidents.md](incidents.md). Completed implementation is
+represented here only as compact guardrails; tests and Git history remain the
+detailed implementation record.
 
 ## Operating constraints
 
-- Keep Python 3.13 and `uv` consistent across local development, CI, Docker and
-  FastAPI Cloud.
-- Preserve existing public endpoint behavior until an identity provider is ready.
-- Stage Keycloak/OIDC integration with the homelab deployment tracked in
-  [nabla-compose#33](https://github.com/AlbanAndrieu/nabla-compose/pull/33).
-  That pull request does not yet provide Keycloak; authentication remains a
-  follow-up.
-- Keep the existing size policy: warn above 400 Python lines and fail above
-  700 lines, with explicit generated-code and migration exceptions.
-- Grandfather oversized modules already present on `master` until they can be
-  split without losing recently integrated functionality.
-- Stabilize dependency probes and production rollout before starting broad new
-  feature or architecture work. Optional homelab appliances must never become a
-  liveness dependency or be overloaded by diagnostics.
-- Configure GitHub branch protection only after the application and CI changes
-  are stable; do not change `master` protection in the current implementation.
-- Do not declare work complete while a known residual, deferred validation,
-  limitation, cross-repository follow-up, or unresolved risk is absent from this
-  roadmap. Each residual must retain a concrete next acceptance proof.
-
-## Dependency automation — Renovate / Mend
-
-- [x] Make Renovate the single producer of routine dependency-version PRs; remove
-  `.github/dependabot.yml` so Dependabot version updates no longer compete for
-  the same manifests and lockfiles. Keep GitHub Dependabot Alerts enabled as the
-  vulnerability-detection source.
-- [x] Bound Renovate noise with `prConcurrentLimit=2`,
-  `branchConcurrentLimit=2`, grouped runtime updates, monthly grouped
-  `devDependencies`, monthly GitHub Actions updates and `rebaseWhen=auto`.
-- [x] Use a seven-day dependency cooldown for ordinary releases with
-  `minimumReleaseAge=7 days`, `internalChecksFilter=strict` and
-  `minimumReleaseAgeBehaviour=timestamp-optional` so registries without release
-  timestamps do not deadlock indefinitely. Renovate security updates bypass this
-  cooldown and remain immediate.
-- [ ] Install the hosted Mend Renovate GitHub App for this repository and
-  `nabla-compose`, using selected-repository access. Keep the current self-hosted
-  GitHub Actions workflow only until the hosted app has successfully parsed the
-  existing `renovate.json` and produced a normal dry operational cycle.
-- [ ] Grant the hosted Renovate identity read access to Dependabot alerts and
-  prove one vulnerability-alert reconciliation path. Only after that proof,
-  disable Dependabot Security Updates so security-remediation PR ownership also
-  becomes Renovate-only while Dependabot Alerts remain enabled.
-- [ ] After hosted-app acceptance, remove `.github/workflows/renovate.yml` so
-  Renovate maintenance consumes no GitHub Actions runner credits.
-- [ ] Re-enable selective automerge only after required quality checks and branch
-  protection are authoritative again: runtime patch updates may automerge after
-  green required checks; grouped `devDependencies` patch/minor updates may also
-  automerge after the seven-day cooldown and green checks. Keep runtime minor,
-  major, Docker and GitHub Actions updates manual unless a narrower policy is
-  explicitly accepted.
-- [ ] Acceptance: no duplicate Dependabot/Renovate version PRs, no dependency-bot
-  GitHub Actions runner consumption, security PRs are not delayed by the
-  seven-day cooldown, and automerge never bypasses required validation.
-
-## Catalog/security-graph migration decision — direct cutover
-
-The future Nabla catalog migration is intentionally a **coordinated breaking
-cutover**, not a long-lived v1/v2 compatibility programme. The homelab catalog is
-non-critical and a short diagnostic/UI interruption is acceptable if it removes
-duplicate schemas and shortens the migration.
-
-- Consume the new canonical contract from `nabla-compose` directly once its
-  Backstage/Compose/minimal-`x-nabla` model and generated projections are ready.
-- Do **not** add a parallel v2 reader, dual-write path, old-schema fallback, or
-  permanent compatibility translation layer in FastAPI.
-- [x] Keep the pre-cutover FastAPI v1 declared-catalog reader fail-closed:
-  accept only version 1, validate canonical sha256 `catalogRevision` values,
-  allow only explicit `$schema` metadata at the catalog root, and reject
-  unknown top-level fields. Future schema drift must use last-known-good v1
-  evidence until the coordinated breaking cutover replaces this contract.
-- [x] Align the explicit pre-cutover v1 consumer with metadata now emitted by
-  `nabla-compose/master`: service/node `status` (`active|planned|disabled`),
-  `lifecycle.blocksLaterWaves`, and declared-service `internalUrl`. Keep
-  `extra="forbid"`; this is an explicit contract update, not permissive fallback.
-- [ ] Fix the producer-side `nabla-compose/catalog/services.schema.json` contract:
-  current generated `services.json` and `x-nabla` metadata contain
-  `internalUrl`, while the services JSON schema still omits that property.
-  Reconcile the producer schema/generator before treating schema validation as
-  authoritative for this field.
-- Migrate the declared catalog/topology loaders, reconciliation and API projection
-  in the same migration window, then remove obsolete v1-only parsing and overlays.
-- `homelab-services.json` and `homelab-exposure-overrides.json` must not survive
-  as independent authorities. Preserve only explicit policy exceptions that still
-  lack a canonical home, and move them into the new declared model before deletion.
-- A last-known-good cache/snapshot may remain for availability only when it uses
-  the **new schema**; it must never be an old-schema compatibility fallback.
-- Before cutover, pin a rollback commit/tag and require deterministic contract
-  checks for stable service IDs, resolved relation endpoints, declared exposure
-  intent and `catalogRevision`. Rollback is repository/deployment rollback, not
-  runtime support for two schemas.
-- Coordinate the same cutover window with `nabla-site-alban`; temporary loss of
-  catalog/topology presentation is preferable to maintaining duplicate contracts.
-- [x] Prepare the consumer boundary without adding a second reader: introduce
-  canonical full Backstage entity-ref validation plus Kubernetes-style resource
-  conditions, and expose reconciliation conditions additively from the existing
-  v1 status payload. Entity refs follow Backstage default lowercase interchange
-  semantics, including `-_.` in entity names, hyphen-only namespaces and
-  63-character namespace/name bounds. This is read-model preparation, not schema
-  translation.
-- [ ] At cutover, replace all service-id/display-name joins and the current
-  presentation/declared/topology three-way drift check with canonical full
-  entity-ref joins from the new generated resources.
-- [x] Type the authoritative `nabla-compose` BIA projections without copying its
-  scoring policy into FastAPI: calculated/declared business criticality,
-  DMTP/MTPD, RTO, optional RPO, MBCO/OMCA, recovery margin, assessment status,
-  drivers and effective dependency criticality all retain full entity refs.
-- [x] Document the provisional service BIA in
-  `docs/business-impact-analysis.md`: RTO `P7D`, MTPD/DIMA `P14D`,
-  no runtime-database recovery requirement (`RPO=null`), and MBCO/OMCA that
-  permits 0% automated service during recovery when manual exposure checks are
-  available. Keep low availability/business criticality separate from the
-  service's high inherent security-exposure and probe-induced DoS risk.
-- [x] Keep projected BIA continuity validation fail-closed with the authoritative
-  producer: accept only its bounded positive ISO-8601 duration subset, require
-  RTO < MTPD/DMTP, and require `recoveryMarginSeconds` to equal MTPD/DMTP minus
-  RTO before the direct cutover.
-- [x] Expose the current declared-catalog `criticality` explicitly as
-  `operationalCriticality` in the runtime reconciliation payload; do not emit a
-  synthetic `businessCriticality` before the authoritative BIA projection is
-  consumed.
-- [ ] At cutover, add the authoritative BIA-derived business criticality
-  (DMTP/MTPD, RTO, applicable RPO, recovery margin and assessment status)
-  alongside `operationalCriticality`. Never infer business criticality from
-  runtime health or exposure.
-
-
-## Production audit — 2026-08-26
-
-- `/api`, `/health`, `/openapi.json`, `/api/homelab-topology`,
-  `/api/homelab/runtime` and `/mcp` remained reachable in FastAPI Cloud.
-- `/healthz`, `/api/homelab-services` and `/api/homelab/health` returned 500
-  because a merge retained the obsolete remote-cache implementation after its
-  imports and state had been removed. The packaged catalog is now the only
-  source and the production deployment smoke test exercises it.
-- The Python workflow for PR #87 detected the resulting 15 Ruff errors but the
-  red merge was accepted. Branch protection remains the final safeguard planned
-  after CI stabilizes.
-- FastAPI Cloud returned application tracebacks to public clients, which proves
-  that `DEBUG` is enabled in the production environment. Set it to `false` in
-  FastAPI Cloud; application code now parses all debug consumers consistently.
-
-## P0 — Credentials and private data
-
-- [ ] Set `DEBUG=false` in the FastAPI Cloud production environment and verify
-      that unexpected exceptions no longer expose application tracebacks.
-- [ ] Rotate PostgreSQL credentials if historical application logs contain them.
-- [ ] Audit retained FastAPI Cloud, Sentry, Logfire and centralized logs for
-      connection strings, reset tokens, verification tokens and other credentials.
-- [ ] Assess whether historical GitHub commits containing private contact data
-      require history cleanup or repository-specific secret/privacy remediation.
-- [x] Stop logging PostgreSQL credentials and complete connection strings.
-- [x] Recognize short `pass=` and `pass:` labels in structured-log redaction.
-- [x] Stop writing password-reset and account-verification tokens to logs.
-- [x] Keep private telephone numbers and precise home addresses out of public
-      profile source files, tests and API/MCP responses.
-- [x] Use a dedicated public profile response model that never includes a
-      password.
-
-## P0 — TrueNAS-local dependency convergence — 2026-09-10
-
-The authoritative staging observation is the cached FastAPI health-board served
-from `http://172.17.0.24:8091`. Keep observer vantage points explicit: a direct
-workstation probe is useful comparative evidence, but it does not replace proof
-from the TrueNAS-hosted FastAPI runtime.
-
-- [x] **TrueNAS API** — accepted from the staging runtime with
-      `configured=true`, transport/authentication successful, `path_mode=direct_lan`
-      and an application inventory containing 96 apps.
-- [x] **Reboot health semantics** — keep TrueNAS host liveness separate from the
-      authenticated API/WebSocket capability. If HTTPS remains reachable while
-      the API observer fails, report TrueNAS as degraded rather than fully down;
-      preserve the API failure as explicit diagnostic evidence.
-- [x] **Sentry local health target** — when `SENTRY_LOCAL_DSN` is explicitly
-      configured, keep that self-hosted endpoint as the health-board target even
-      if telemetry delivery falls back to Sentry SaaS. A local Sentry outage must
-      therefore remain visible instead of being masked by a reachable SaaS DSN.
-- [x] **Talos VM observer evidence** — project the three expected Talos VM runtime
-      states from the read-only TrueNAS `vm.query` result. Treat missing
-      `VM_READ` as `unknown/skipped` without turning TrueNAS itself down, and
-      label the health-board evidence explicitly as VM runtime rather than cluster
-      health.
-- [ ] **Post-reboot Talos acceptance** — after the TrueNAS observer credential has
-      `VM_READ` and the appliance stack is restored, require the staging
-      health-board to show the expected 3/3 Talos VMs running. Then validate
-      actual cluster health independently with `talosctl health` and
-      `kubectl get nodes`; `vm.query` alone must never close Kubernetes/Talos
-      acceptance.
-- [ ] **pfSense posture API** — the staging runtime receives HTTP `502` from
-      `GET /api/v2/system/version` using the dedicated posture identity. Treat an
-      HTTP response as transport evidence, not application success. Compare the
-      same lightweight endpoint from the workstation and from the FastAPI
-      container, including DNS/peer selection, then require an authenticated
-      `2xx` response from the intended TrueNAS runtime path before closing.
-- [ ] **Prometheus runtime configuration** — the staging health-board currently
-      reports `configured=false`, `state=not_configured`, so this is not yet a
-      network-reachability failure. Set `HOMELAB_PROMETHEUS_URL` in the
-      authoritative TrueNAS FastAPI deployment configuration owned by
-      `nabla-compose` (target currently `http://172.17.0.24:9090`), redeploy, and
-      require the fixed recording-rule query to return at least one available
-      signal. Preserve direct workstation reachability as separate A/B evidence.
-- [x] **Cloudflare control-plane evidence** — after correcting the account-scoped
-      API-token permissions, authoritative TrueNAS-host and FastAPI-container
-      diagnostics observe 3 Tunnels, healthy `nabla-truescale`
-      (`config_src=cloudflare`), 70 Tunnel ingress hostnames including
-      `2fauth.albandrieu.com -> http://172.17.0.24:30081`, 68 Access Applications,
-      7 reusable policies and 3 Service Tokens. Anonymous `2fauth` traffic is
-      challenged with HTTP 302 while the configured Service Token receives HTTP
-      200. Preserve provider API timeout/authorization failure as warning/unknown;
-      it must never make an otherwise healthy application DOWN or degraded.
-- [ ] **Sentry application acceptance** — the current `dsn_socket` probe proves
-      only that the selected intake socket is reachable. Add a bounded synthetic
-      event acceptance path that returns an event id and verify downstream
-      ingestion without creating periodic incident noise.
-- [ ] **Pyroscope application acceptance** — the current staging observation is
-      HTTP `404` on `/health`; that proves HTTP transport but not readiness. First
-      require a real readiness endpoint to return `2xx`, then add a bounded query
-      proving recent profile data exists for `service_name=fastapi-sample`.
-- [ ] Add an explicit workstation-vs-TrueNAS A/B diagnostic for pfSense and
-      Prometheus so differences in DNS, peer address, TLS, routing or deployment
-      configuration are visible without adding provider fan-out to the FastAPI
-      health-board itself.
-- [ ] Re-run `scripts/diagnose-local-runtime-dependencies.py` after each fix and
-      require all six dependency evidence contracts to be complete without
-      weakening cache, timeout, circuit-breaker or optional-dependency semantics.
-- [ ] Resume TrueNAS NFS + Kubernetes CSI acceptance only after this local
-      dependency gate has converged or any intentionally deferred exception is
-      explicitly documented here with its acceptance boundary.
-
-### pfSense WebGUI/PHP-FPM recovery recurrence — 2026-09-10
-
-Current evidence from both vantage points shows a working network transport but
-an application-side webConfigurator failure. The public workstation path reaches
-`82.66.4.247:10443` with successful TLS verification, while the TrueNAS FastAPI
-container resolves `home.albandrieu.com` to `172.17.0.1`; both receive the native
-pfSense nginx `HTTP 502` crash page. An unauthenticated TrueNAS request receives
-the same response, so API authentication cannot yet be evaluated.
-
-Represent the appliance as independent signals instead of collapsing it to DOWN:
-
-```text
-pfSense platform
-  ⚠️ API control-plane       application error (HTTP 502)
-  ✅ Prometheus telemetry    exporter up
-  ✅ network transport       reachable
-  ? API authentication      not evaluated
-```
-
-- [ ] Recover webConfigurator/PHP-FPM without rebooting the firewall. Capture
-      nginx/PHP-FPM socket/process state, memory/CPU pressure, kernel OOM evidence,
-      Unbound state and bounded system logs before restarting services; then use
-      the pfSense-native GUI/PHP-FPM restart path and require WebGUI plus the
-      authenticated lightweight version endpoint to recover.
-- [ ] Compare the current recurrence with the documented 2026-09-08 incident,
-      where nginx remained bound to `:10443` while PHP-FPM stopped accepting on
-      `/var/run/php-fpm.socket`, CPU was saturated and kernel memory pressure also
-      killed Unbound. Do not declare Unbound causal for the current `502` unless
-      current logs/OOM evidence prove that relationship.
-- [ ] Make **FastAPI TrueNAS → pfSense LAN** the authoritative control-plane
-      observation path. Require a dedicated least-privilege posture identity and
-      an authenticated `GET /api/v2/system/version` `2xx` result through the LAN
-      path, with existing bounded timeout/cache/circuit-breaker protection.
-- [ ] Keep direct **FastAPI Cloud → pfSense WAN `:10443`** diagnostic-only. The
-      durable cloud architecture must consume a sanitized LAN-side observer state
-      over an outbound authenticated channel rather than requiring broad public
-      access to the pfSense management API.
-- [ ] Verify the live Prometheus/pfSense-exporter runtime has actually reconciled
-      to the repository safety contract: one scrape every 300 seconds, Prometheus
-      scrape timeout 30 seconds, exporter target timeout 8 seconds, collector
-      concurrency 1, and only the `system`, `gateways` and `service` collectors in
-      steady state.
-- [ ] Inventory live Uptime Kuma/Gatus/AutoKuma checks and prove none performs a
-      direct pfSense REST deep-status call or invokes exporter `/metrics`; automatic
-      health monitors should use only low-frequency lightweight HTTP/TCP evidence.
-- [ ] Correlate request source/count, PHP-FPM RSS/worker count, CPU run queue and
-      OOM events around the next failure before attributing recurrence to FastAPI,
-      Prometheus, Uptime Kuma or another monitor. Temporal overlap alone is not
-      sufficient attribution.
-- [ ] If current resource evidence again shows PHP-FPM pressure on the Netgate
-      1100, move toward the supported persistent configuration source rather than
-      relying on the temporary generated `php-fpm.conf` 4/2 worker edit from the
-      previous incident.
-
-### UI refresh stability + post-deployment ZAP DAST follow-up (PR #237/#240)
-
-- [x] Prioritize service outcomes before TrueNAS/runtime drill-downs and collapse FastAPI Cloud runtime plus homelab fan-out details by default.
-- [x] Decouple high-frequency service polling from TrueNAS/runtime technical refresh and skip destructive service/exposure DOM rebuilds when semantic state is unchanged.
-- [x] Remove ZAP from pull-request execution and remove the runner-local ephemeral `uvicorn --lifespan off` bootstrap from the primary DAST workflow.
-- [x] Run OWASP ZAP Web baseline plus OpenAPI DAST only after deployment on `master` or explicit manual dispatch against the authorized FastAPI application surfaces. Use the Cloudflare Access service token for `sample.albandrieu.com` and never scan pfSense or TrueNAS management APIs.
-- [x] Feed post-deployment ZAP failures into `Master red remediation` only after Production Smoke succeeds so a failed deployment cannot trigger misleading DAST load.
-- [ ] After the first successful post-deployment master ZAP execution, review all per-surface Web/OpenAPI artifacts and tune only documented false positives in `.zap/web-rules.tsv` / `.zap/api-rules.tsv`; scanner/configuration failures must remain distinct from zero findings.
-
-## P1 — Runtime stability and appliance protection
-
-Treat this section as the near-term stability gate. Do not add broad new
-integrations until the dependency-observation path is bounded under normal and
-degraded conditions.
-
-- [x] Keep TrueNAS and pfSense optional: failures are diagnostic evidence and do
-      not make application liveness depend on either appliance.
-- [x] Bound TrueNAS JSON-RPC calls through the official client to 5 seconds and
-      cap the asynchronous health probe at 8 seconds. A failed refresh is cached
-      for 120 seconds and may serve explicit stale-last-good evidence.
-- [x] Bound pfSense posture requests to 2-second connect and 4-second read
-      timeouts, cap the complete posture origin probe at 8 seconds, retain at
-      most two concurrent posture requests, and use a 120-second failure cache.
-- [x] Remove the immediate second Snort `snort2c` request during pfSense failure;
-      use one bounded attempt plus the cache/stale path instead, with a
-      120-second failure window.
-- [x] Add provider-level circuit breakers with bounded exponential backoff and
-      jitter for repeated TrueNAS, pfSense and Cloudflare failures. Share only
-      coarse breaker state through Redis and use one distributed half-open probe
-      so replicas do not stampede an appliance when its cooldown expires.
-- [x] Bound aggregate `/healthz`, `/sickz` and homelab diagnostics: use a
-      request-scoped maximum of four active fan-out probes, an 8-second low-level
-      health/sickz probe budget, bounded optional/policy enrichment, a 12-second
-      homelab snapshot deadline and a 40-second background health-board refresh
-      deadline. Expired queued probes never start and completed partial evidence is
-      retained with explicit deadline markers.
-- [x] Add fixed-cardinality metrics for provider outcome, timeout, breaker state,
-      origin refresh count and in-flight probe count. Never label metrics with
-      URLs, hostnames, cache keys, IP addresses, exception text or credentials.
-- [x] Add deterministic load/concurrency tests proving that repeated callers
-      create at most one origin refresh per cache key and failure window, both
-      with Redis healthy and Redis unavailable.
-- [ ] Add production acceptance checks: appliance degradation must not increase
-      API error rate, exhaust worker threads, or create sustained request bursts
-      against TrueNAS/pfSense.
-- [ ] Reduce remaining homelab aggregate latency without relaxing the 12-second
-      circuit breaker. Current TrueNAS evidence shows the bounded raw probe matrix
-      completing in about 1.4-2.4 seconds while `/api/homelab/health` can still
-      approach 11-12 seconds, so the remaining cost is in aggregate provider
-      reconciliation rather than service fan-out.
-  - [x] Publish fixed-cardinality phase timings through `performance.phases_ms`
-        and `fastapi_homelab_health_phase_duration_seconds{phase="..."}` for exactly
-        `declared_catalog`, `topology`, `cloudflare_exposure`, `pfsense_posture`,
-        `truenas_runtime`, `reconciliation` and `total`. Dynamic phase labels are
-        rejected; instrumentation adds no probe and the aggregate deadline remains
-        12 seconds.
-  - [ ] Use those timings to identify the dominant cold provider before changing
-        budgets. Keep every provider timeout strictly below the 12-second aggregate
-        deadline and avoid increasing that deadline to hide slow reconciliation.
-  - [x] Reuse request-scoped/catalog/provider observations end-to-end so a single
-        aggregate request cannot repeat TrueNAS, Cloudflare, topology or pfSense
-        reads already completed by the same health refresh. Implemented by #270,
-        including shared Cloudflare/pfSense projection and shielded context reuse.
-  - [x] Prefer stale-while-revalidate/provider caches for non-critical enrichment.
-        Declared services and topology now serve the last known good snapshot
-        immediately after TTL expiry while one background refresh runs; existing
-        Cloudflare/pfSense provider caches retain their bounded stale/failure paths.
-        Keep the bounded `/api/homelab/probes` path independent so the TrueNAS UI
-        can render from low-level evidence before aggregate enrichment finishes.
-  - [x] Add deterministic performance-regression tests with a production-scale
-        synthetic catalog proving bounded fan-out, no late queued burst, and no
-        duplicate provider reads. #270 covers 96 services, 12+12 sampled probes,
-        concurrency 4, warm-cache reuse and late-queue cancellation.
-  - [ ] Establish and document a production p95 target from actual fixed-cardinality
-        phase timing telemetry before changing any provider budget. Keep raw probe
-        completion below 4 seconds and aggregate health comfortably below the
-        12-second deadline under healthy cached conditions.
-- [x] Classify FastAPI Cloud pfSense connect-stage timeouts as a possible ingress
-      policy block when current cloud egress evidence is available. Keep attribution
-      explicitly unavailable because either trusted-source drift or PF/Snort
-      filtering can produce the same pre-HTTP timeout on the shared WAN path; never
-      reinterpret it as an API/authentication failure or broaden WAN `:10443`.
-- [x] Treat the direct FastAPI Cloud -> pfSense WAN `:10443` probe as diagnostic
-      only while the platform lacks a stable application-controlled egress
-      identity; surface the out-of-band observer as the durable control path.
-- [ ] Remove the Snort self-diagnostic blind spot before treating telemetry loss as
-      authoritative block evidence. While FastAPI Cloud reaches pfSense security
-      telemetry through the same WAN/Snort/PF path, keep
-      `PFSENSE_SECURITY_PATH_MODE=shared_wan` and report transport failure as
-      unknown/unavailable. Prefer a small LAN-side, read-only observer that
-      publishes only sanitized `snort2c` evidence over an outbound authenticated
-      channel; set `out_of_band` only after independence from WAN filtering is
-      proven.
-- [ ] Add a production acceptance test that correlates a forced shared-WAN Snort
-      telemetry timeout with pfSense firewall/Snort evidence from an independent
-      vantage point, so a connect timeout can be distinguished from API auth, TLS,
-      listener and routing failures without weakening the firewall. Until an
-      out-of-band observer exists, compare the active/recent FastAPI Cloud egress
-      set with the source policy protecting WAN `:10443`; treat source drift as a
-      diagnostic condition and never widen the management listener to unrestricted
-      Internet access merely to make telemetry green.
-- [ ] Investigate the official TrueNAS client's fixed WebSocket connect timeout.
-      `asyncio` cancellation can bound the API response but cannot terminate an
-      already-running synchronous client thread; prefer an upstream configurable
-      connect timeout or stronger isolation before tightening this further.
-- [ ] Attribute `websocket-client` transport timeout errors to the business call
-      that opened the socket when evidence is available. Keep
-      `event_origin=websocket-client` as the technical origin, but add bounded,
-      sanitized caller context at the integration boundary: `component`, operation
-      or JSON-RPC method, target host/path, proxy route, phase, timeout budget,
-      elapsed time and a bounded correlation/operation id. Never infer TrueNAS from
-      the generic `websocket` logger alone; report `caller=uncorrelated` when no
-      caller evidence survives. Verify whether timeout logging stays in the
-      integration worker thread before relying on `ContextVar` propagation.
-- [ ] Add deterministic WebSocket-attribution tests covering a generic
-      uncorrelated timeout, a correlated TrueNAS timeout, two concurrent operations
-      without context leakage, worker-thread context propagation, URI/credential
-      sanitization, a non-TrueNAS WebSocket caller and a successful call producing
-      no ERROR incident. Keep timeout ERRORs visible and keep correlation ids out
-      of Prometheus labels to avoid cardinality growth.
-
-### Stability gate acceptance criteria
-
-- A healthy cached dependency observation completes without origin I/O.
-- A failed pfSense origin observation stops within the 8-second posture budget
-  and is not retried immediately.
-- A failed TrueNAS health observation returns within the 8-second application
-  budget; subsequent requests use failure/stale cache evidence for 120 seconds.
-- A generic `websocket-client` timeout without caller context remains explicitly
-  uncorrelated; a correlated TrueNAS timeout carries only sanitized component,
-  operation, target, route, phase/stage, elapsed and bounded correlation evidence.
-- Concurrent callers cannot multiply origin probes in one worker or across
-  replicas while Redis is available.
-- Repeated provider failures open a shared circuit and suppress origin refreshes
-  until a single half-open recovery probe is allowed after bounded backoff.
-- No optional dependency failure can indefinitely delay `/livez`, readiness or
-  the public health/dashboard endpoints.
-- A single deep diagnostic request starts at most four budgeted fan-out probes at
-  once; queued work is skipped after the aggregate deadline instead of creating a
-  late burst against recovering dependencies.
-- A health-board refresh that exceeds 40 seconds is cancelled and leaves the
-  previous stale snapshot available instead of pinning the refresh task forever.
-
-## P1 — Progressive endpoint protection
-
-- [x] Keep SQLAdmin and operational routes usable until an identity provider is
-      deployed.
-- [x] Allow an optional `ADMIN_ACCESS_KEY` for `/admin` and its descendants.
-- [x] Allow an optional `DIAGNOSTICS_ACCESS_KEY` for detailed health, homelab,
-      metrics and Sentry diagnostic endpoints while leaving `/health` public.
-- [x] Apply the same optional diagnostic-key protection to the declared homelab
-      topology endpoint without changing its open-by-default behavior.
-- [x] Preserve optional `MCP_OPS_KEY` compatibility and compare configured keys
-      in constant time.
-- [x] Provide `MCP_OPS_REQUIRE_KEY=true` for operators who explicitly want
-      missing MCP credentials to fail closed.
-- [x] Allow `ADMIN_ENABLED=false` without changing the current enabled default.
-- [ ] Replace shared operational keys with Keycloak/OIDC authentication and
-      explicit administration, diagnostics and MCP authorization scopes.
-- [ ] Add Cloudflare Access, reverse-proxy restrictions or private networking for
-      management endpoints once the desired access flow is defined.
-- [ ] Publish a dedicated public homelab projection that excludes internal host
-      names, ports and infrastructure details without breaking existing dashboards.
-- [x] Add explicit request budgets/rate limits to expensive dependency probes.
-      Request-scoped concurrency/deadline budgets plus provider-level fixed-window
-      admission limits now sit above cache/single-flight/circuit breaking; the
-      provider limits are protective ceilings, not measured capacity claims.
-
-## P1 — Redis and external-probe caching
-
-- [x] Use a short process-local L1 cache plus optional shared Redis L2 for
-      sanitized external health evidence; Redis remains best-effort and is not a
-      liveness dependency.
-- [x] Cache TrueNAS health, pfSense posture/liveness and `snort2c` evidence, and
-      Cloudflare Tunnel/Access control-plane observations with provider-specific
-      success, failure and stale-last-good windows.
-- [x] Keep current failures separate from last-known-good evidence so a transient
-      error remains visible while retained evidence is explicitly marked stale.
-- [x] Make L1 hot bypass TTL outcome-aware and retain envelopes for the full stale
-      evidence window without letting stale data masquerade as a fresh verdict.
-- [x] Use Redis `SET NX EX` distributed single-flight with token-safe lock release
-      so replicas do not duplicate expensive origin probes during refresh.
-- [x] Add process-local per-key single-flight before the Redis/origin slow path so
-      a Redis outage cannot trigger a same-worker probe stampede.
-- [x] Validate probe-cache policies at construction so negative/non-finite TTLs,
-      invalid lock TTLs and contradictory polling windows fail fast.
-- [x] Add shared provider circuit breakers above origin refresh, with bounded
-      backoff, coarse Redis state and distributed half-open ownership. Caching
-      reduces normal fan-out while the breaker supplies pressure relief during
-      repeated provider degradation.
-- [x] Add bounded cache observability for L1/L2 hit, miss, stale, origin refresh
-      and Redis-degraded outcomes using fixed-cardinality labels; never expose raw
-      dynamic cache keys or credentials as metric labels.
-- [x] Add real Redis integration coverage for key expiry, schema rejection,
-      distributed lock ownership/release and cross-replica reuse; keep unit tests
-      deterministic and network-disabled by default.
-- [x] Centralize provider probe-cache policies so stability budgets are reviewable
-      in one place instead of being distributed across observer modules.
-- [x] Add explicit per-provider request/rate budgets above caching and circuit
-      breaking where endpoint-level abuse or fan-out can still overload an origin.
-      Fixed 60-second admission windows allow two complete declared cold-start
-      passes per provider and use Redis for cross-replica coordination when
-      available, with process-local fallback otherwise.
-- [x] Add fixed-cardinality Prometheus capacity evidence for provider origin
-      probes: per-provider budget-utilization ratio, budget rejections,
-      in-flight origin concurrency and success/failure origin-duration
-      histograms. Cache hits never count as origin load, so this telemetry can be
-      correlated with TrueNAS/pfSense resource pressure without dynamic endpoint
-      labels.
-- [ ] Establish the safe TrueNAS/pfSense probe operating envelope from measured
-      Prometheus evidence before relaxing any rate/concurrency limit. Correlate
-      FastAPI origin rate/p95 latency/timeouts with TrueNAS CPU/memory and
-      pfSense CPU/load/PHP-FPM pressure. The latter still needs a bounded
-      Prometheus recording-rule contract; `pfsense_metrics_up` alone is not a
-      capacity signal.
-- [x] Document cache schema-bump/invalidation and production diagnostics, including
-      the expected degraded behavior when Redis is unavailable. See
-      `docs/external-probe-cache-operations.md`.
-- [x] Expose bounded, credential-free Redis capacity telemetry through the
-      runtime topology: used/RSS/peak memory, configured maxmemory and policy,
-      fragmentation, client/key counts, operations, hits/misses and eviction/
-      expiry counters. Keep the INFO calls optional and under a 1.5-second budget.
-- [x] Require the post-deploy smoke to prove FastAPI Cloud runtime identity and
-      Redis connectivity after the new release is actually deployed. Redis INFO
-      capacity telemetry remains best-effort because managed ACLs may legitimately
-      forbid INFO; a denied INFO must not turn an otherwise healthy Redis into a
-      deployment failure. PR smoke remains compatible with the previous release.
-
-## P1 — Runtime library consolidation and technical-debt reduction
-
-Prefer consolidating around dependencies already present in the runtime before
-adding another abstraction. Every migration must preserve production semantics,
-bounded failure behavior and observability; reducing line count alone is not an
-acceptance criterion.
-
-- [x] Consolidate SlowAPI around one shared `Limiter`, one application-level
-      `RateLimitExceeded` handler and explicit per-route decorators. Do not add a
-      global/default-limit middleware until the resolved FastAPI/SlowAPI pair has
-      a regression test proving router/default-limit behavior.
-- [x] Suppress routine Unleash SDK polling chatter at INFO while preserving
-      warnings/errors, so local logs remain diagnostic instead of being dominated
-      by repeated `Getting feature flag.` messages.
-- [x] Make the `/api` runtime card and hero deployment-aware: local workstation
-      runs must not present FastAPI Cloud replica/control-plane wording, while the
-      production runtime keeps explicit FastAPI Cloud context.
-- [x] Centralize runtime-provider detection instead of relying on an undocumented
-      `FASTAPI_CLOUD` environment variable. Detect this deployment from explicit
-      project markers/network label and the public `*.fastapicloud.dev` request
-      hostname while preserving generic cloud/PaaS and local modes.
-- [x] Isolate runtime heartbeat and egress Redis keys by runtime mode so a
-      workstation sharing Redis infrastructure with production cannot pollute the
-      FastAPI Cloud replica/egress view (or vice versa); give the scoped registry
-      keys finite TTLs so abandoned telemetry expires without manual cleanup.
-- [x] Correct Uvicorn access-log filtering so ordinary application requests remain
-      visible while `/metrics` and routine health/readiness probes are suppressed,
-      and retain `service_name` plus timestamp in JSON logs for useful provenance.
-- [ ] Define the trusted client-identity model for rate limiting behind FastAPI
-      Cloud/reverse proxies before using forwarded headers as limiter keys. If
-      cross-replica limiting moves to Redis, keep a bounded in-memory fallback so
-      Redis failure cannot turn rate limiting into an application outage.
-- [ ] Evaluate `cashews` in an isolated spike before replacing the external-probe
-      cache. A production migration is allowed only if it preserves all current
-      semantics: separately visible current failure and last-known-good evidence,
-      provider-wide cross-key circuit state, a single distributed half-open owner,
-      explicit Redis-degraded metadata, fixed-cardinality metrics and deterministic
-      reset/integration tests. Use `docs/cashews-evaluation.md` as the evaluation
-      matrix and rollback boundary.
-- [ ] Require JSON-safe, versioned and sanitized Redis values in any `cashews`
-      experiment; do not adopt its default pickle serialization for shared
-      production cache state. Do not use `cashews` rate limiting alongside
-      SlowAPI for HTTP request policy.
-- [ ] Consolidate remaining module-level `os.getenv` / ad-hoc boolean parsing into
-      domain-specific `pydantic-settings` models. Keep secrets as `SecretStr`,
-      validate bounds/URLs at construction, preserve environment-name compatibility
-      during migration, and keep settings construction free of network side effects.
-  - [x] Move `HEALTH_BOARD_CACHE_TTL_SECONDS` and
-        `TRUENAS_RUNTIME_CACHE_TTL_SECONDS` into
-        `HealthRuntimeSettings`. Preserve the existing defaults and bounded
-        fallback semantics while removing duplicate runtime parsing from
-        `health_board.py` and `homelab_runtime.py`.
-  - [x] Remove the remaining direct `TRUENAS_WS_PATH` read from
-        `homelab_health.py` and reuse the already validated
-        `TrueNASProviderSettings.websocket_path` contract.
-  - [x] Move Logfire instrumentation/probe environment reads into
-        `LogfireSettings` / `LogfireProbeSettings`: keep `LOGFIRE_TOKEN` as
-        `SecretStr`, preserve historical `LOGFIRE_ENABLED` parsing, retain
-        probe-only `LOGFIRE_ENABLE` compatibility, validate the probe HTTPS
-        base URL without coupling that URL to application startup, and reuse the
-        same typed activation contract when Sentry decides whether duplicate
-        logs/traces/profiles should remain enabled.
-  - [x] Move Unleash runtime/probe configuration into `UnleashSettings`.
-        Runtime decisions now use the current environment rather than credentials
-        captured at module import, while legacy module constants remain only as
-        compatibility exports.
-  - [x] Move Statsig API-key/environment reads into `StatsigSettings`: keep the
-        API key as `SecretStr`, reject empty/placeholder credentials before SDK
-        initialization, and use the current process mapping instead of the
-        import-time compatibility constant.
-  - [x] Keep unit-test feature-flag imports hermetic by clearing
-        `UNLEASH_INSTANCE_ID` and `STATSIG_API_KEY` before `server_app`
-        collection; tests that exercise these integrations must opt in with
-        explicit monkeypatch values.
-  - [ ] Continue domain-by-domain with remaining runtime/environment reads; avoid
-        one global settings object that would couple unrelated provider secrets.
-- [ ] Create a small set of lifespan-owned `httpx.AsyncClient` instances using the
-      existing `AsyncExitStack`, with explicit connection limits, connect/read/
-      write/pool timeouts and intentional `trust_env` behavior. Keep provider
-      credentials/TLS policies isolated rather than introducing one universal
-      privileged client.
-- [ ] Standardize legitimate retries with `tenacity` for idempotent control-plane
-      calls only, using explicit exception/status predicates, capped attempts,
-      exponential jitter and an enclosing overall deadline. Do not reintroduce
-      immediate retries on TrueNAS or pfSense health probes: those intentionally
-      remain fail-fast to protect appliances.
-- [ ] Consolidate logging through one `structlog` pipeline bridged to stdlib
-      logging. Bind bounded request/release/environment context, preserve secret/PII
-      redaction before rendering, test context cleanup across async requests and
-      avoid duplicate emission to Sentry, Logfire, Datadog and OpenTelemetry.
-
-### Library-consolidation acceptance criteria
-
-- There is exactly one application SlowAPI limiter configuration and every
-  decorated endpoint explicitly accepts `Request`.
-- A Redis/cache/rate-limit backend outage cannot make `/livez` fail or create a
-  new synchronous dependency for ordinary request handling.
-- Shared HTTP clients are created and closed by application lifespan and no
-  provider-specific credentials leak into unrelated requests.
-- Retry policies have finite attempt and wall-clock budgets and are absent from
-  appliance health paths where retries amplify load.
-- Structured logs remain redacted and fixed-cardinality where used for metrics or
-  incident grouping.
-- Local workstation runtime telemetry is a normal healthy state without shared
-  Redis; FastAPI Cloud reports missing shared aggregation as degraded, and the two
-  runtime modes never share heartbeat registry keys.
-- A `cashews` migration proceeds only if a focused benchmark/test matrix shows a
-  material net reduction in custom cache code without weakening the current
-  failure-visible, stale-last-good and cross-replica pressure-relief contract.
-
-## P1 — Release and production deployment
-
-- [x] Keep Vercel as a lightweight HTTP compatibility proxy to FastAPI Cloud
-      instead of bundling the full Python dependency graph beyond the 500 MB limit.
-- [x] Reconnect the Vercel project to GitHub; GitHub commits now receive the
-      project’s Vercel deployment status.
-- [ ] Trigger FastAPI Cloud deployment for the existing
-      `semantic-release-published` repository dispatch.
-- [ ] Check out the immutable release tag in validation and deployment jobs.
-- [x] Verify the deployed release through the public `/health` version field and
-      smoke-test the packaged homelab catalog after every workflow deployment.
-- [x] Restore semantic release progression; releases `1.6.1` and `1.7.0`
-      demonstrate that later `feat:` commits advance the project version.
-- [ ] Consolidate push and release-triggered deployment into a single production
-      rollout after observing the repaired release sequence.
-- [ ] Publish container images with both semantic-version and commit-SHA tags,
-      signed provenance and generated SBOM artifacts.
-
-## P1 — Observability and memory
-
-- [x] Normalize Prometheus labels to route templates instead of raw request
-      paths.
-- [x] Group unmatched request paths into one bounded-cardinality label.
-- [x] Respect `METRICS_ENABLED=false` for request instrumentation and periodic
-      system-metric collection.
-- [x] Keep Sentry logs and traces enabled when a Logfire token exists but
-      `LOGFIRE_ENABLED=false`.
-- [x] Disable external Sentry/Logfire exporters by default during pytest runs.
-- [ ] Finish the self-hosted Sentry integration at `sentry.albandrieu.com`:
-      create a dedicated `fastapi-sample` project in the `sentry` organization
-      instead of reusing the current `internal` project; configure its DSN through
-      `SENTRY_DSN` for local and FastAPI Cloud runtimes; verify environment and
-      release tagging, error capture and traces; create a separate least-privilege
-      `SENTRY_ACCESS_TOKEN` for the official Sentry MCP `inspect` skill; and verify
-      that MCP issue/event inspection works without granting project/team writes.
-- [ ] Benchmark resident memory and startup time with Logfire, Redis,
-      OpenTelemetry, Datadog and Prometheus independently enabled.
-- [ ] Remove duplicated instrumentation and make expensive system-metric
-      collection explicitly configurable.
-- [ ] Add bounded-memory and high-cardinality regression tests.
-
-## P1 — Continuous integration and repository governance
-
-- [x] Use GitHub-compatible `CODEOWNERS` syntax with a real repository owner.
-- [x] Run CodeQL against pull requests targeting `master`.
-- [x] Make high-confidence, high-severity Bandit findings block Python CI.
-- [x] Remove the unused Wrangler npm package, its worker-only scripts and
-      orphaned transitive dependencies from the npm lockfile.
-- [x] Align locked `esbuild` and `js-yaml` dependencies with existing secure npm
-      overrides instead of suppressing Trivy vulnerability findings.
-- [x] Exclude npm-generated `package-lock.json` from Prettier while retaining
-      JSON parsing and dependency/security validation.
-- [x] Keep the inverse `/sickz` certificate exception narrowly justified for
-      both Ruff and Bandit instead of disabling TLS findings globally.
-- [x] Align the Biome package, pre-commit hook and configuration schema on one
-      pinned version.
-- [x] Run Gitleaks through its native Go pre-commit hook so secret scanning does
-      not require a local Docker daemon.
-- [x] Remove the duplicate standalone Pylint workflow and keep the Python
-      package workflow as the authoritative Pylint quality gate.
-- [x] Run a deterministic agent CI preflight before the full dependency sync so formatting/lint/security convergence is checked before installing the complete project environment. Defer only dependency-backed hooks (`uv-sync`, `uv-lock`, `uv-export`, `pytest-collect`) to the subsequent locked sync/test stage; keep local pre-push `--publish` complete. Local `--fix` now defaults to six deterministic convergence passes so repeated formatter rewrites do not require a manual `QUALITY_FIX_PASSES` override.
-- [x] Add `Master red remediation`, a post-merge `master` workflow which reruns
-      the critical `Python package` and `Production Smoke` workflows for the exact
-      merged SHA, conditionally reruns CodeQL for security-impacting changes and
-      runs post-deployment ZAP only after a successful Production Smoke for
-      application-surface changes. When any scheduled critical gate is red, open
-      or reuse a deduplicated remediation issue and draft PR carrying failing-run
-      evidence, and keep the master-red workflow itself red until remediation.
-- [x] Pass only explicitly declared reusable-workflow secrets from master-red;
-      never use `secrets: inherit` for Python, Production Smoke or ZAP callers.
-- [ ] Validate the new master-red automation with an intentional non-production
-      drill: exactly one failing master SHA must create exactly one issue and one
-      remediation PR, while repeat evaluation of the same SHA must not create
-      duplicates. Verify repository Actions policy permits workflow-created PRs;
-      otherwise configure least-privilege `MASTER_REMEDIATION_TOKEN`.
-- [x] Keep CodeQL and post-deployment ZAP impact-gated. ZAP is never executed on
-      pull requests, starts only after Production Smoke succeeds, targets only the
-      authorized FastAPI application surfaces and excludes pfSense/TrueNAS
-      management APIs from active DAST.
-- [ ] After the first successful post-deployment master ZAP run, measure
-      cost/noise/stability and review the Web/OpenAPI artifacts before changing
-      policies or thresholds.
-- [ ] Upgrade transitive `smol-toml` from `1.6.1` to `>=1.7.1`
-      (`CVE-2026-34027`) by regenerating `package-lock.json` with the repository's
-      pinned Node/npm toolchain. Acceptance: `npm ci` succeeds and Trivy no longer
-      reports `CVE-2026-34027`; do not hand-edit or partially regenerate the lock.
-- [ ] Make relevant Trivy findings blocking once the current vulnerability
-      baseline has been triaged.
-- [ ] Reduce the current Trivy dependency baseline below 48 findings and lower
-      its temporary regression ceiling of 55 as vulnerabilities are remediated.
-- [x] Pin every reusable GitHub Action to a verified immutable commit SHA.
-      The current audit covers all 15 workflow files, and a contract test rejects
-      future external `uses:` references that are unversioned or not pinned to a
-      full 40-character commit SHA; repository-local reusable workflows remain
-      exempt.
-- [ ] Protect `master`, require reviewed pull requests and enforce the final
-      mandatory test/security checks after the current refactoring stabilizes.
-
-## P2 — Runtime and database architecture
-
-- [x] Avoid opening the auxiliary PostgreSQL connection pool during module
-      import and close it explicitly during application shutdown.
-- [x] Keep JSON log formatters safe while Python clears module globals at shutdown.
-- [x] Use one environment-boolean parser for application debug, feature flags,
-      telemetry and internal homelab probes.
-- [x] Remove obsolete `uv_build` settings after standardizing the package on
-      Hatchling, eliminating the conflicting-backend build warning.
-- [ ] Consolidate SQLAlchemy, `databases` and psycopg pools behind one explicit
-      application lifecycle.
-- [ ] Move schema creation out of worker startup and run Alembic migrations as
-      an explicit deployment step.
-- [ ] Split installation groups into `runtime`, `observability`, `homelab`,
-      `ai` and `dev`, then update the lockfile and test each supported deployment.
-- [ ] Replace the Git-tagged TrueNAS dependency with an immutable commit or a
-      maintained release package.
-- [x] Align Docker's `uv` version with GitHub Actions.
-- [x] Reduce `nabla/main.py` below 700 lines by extracting request middleware
-      and Sentry initialization without removing current routers or integrations.
-- [ ] Reduce production image size after runtime dependency groups are isolated.
-- [ ] Make Debian package pinning reproducible without depending on package
-      versions disappearing from the active repository.
-
-## P2 — Search provider architecture
-
-- [x] Group Tavily, Brave and Google routes under one `search` OpenAPI tag
-      without changing their public paths or provider-specific response contracts.
-- [ ] Add SearXNG to `nabla-compose`; it is not present on the current `master`
-      branch. Pin the container image, enable JSON output, keep it behind the private
-      network or an authenticated reverse proxy, and enable the limiter with Valkey
-      if it becomes internet-accessible.
-- [ ] Add an optional `/v1/searxng/search` adapter with a normalized response
-      model, bounded timeout and explicit provider provenance.
-- [ ] Enable SearXNG's official `braveapi` engine when a Brave API key is
-      configured. Evaluate its keyless Brave web engine separately because HTML
-      parsing has different reliability and provider-policy risks.
-- [ ] Evaluate Google through SearXNG as a transitional source only; its web
-      engine can encounter bot-protection responses, while Google's Custom Search
-      JSON API is closed to new customers and scheduled to end for existing
-      customers on 2027-01-01.
-- [ ] Keep Tavily as a direct provider until a separate experiment proves that a
-      SearXNG JSON/custom engine preserves its LLM-oriented scoring, content and
-      answer metadata without exposing its API key in source control.
-- [ ] Add a provider orchestrator above the adapters with per-provider budgets,
-      timeouts, circuit breakers, deduplication and fallback policy. Do not make
-      SearXNG a mandatory dependency for every search request.
-
-## Local unit-test hermeticity — 2026-09-25
-
-- [x] Keep external-probe cache unit tests independent from an inherited `REDIS_URL` by disabling implicit Redis resolution for that unit-test module. Explicit `FakeRedis` coverage and real Redis integration tests remain available without coupling unit tests to the developer runtime.
-- [x] Keep public homelab route tests hermetic: mock
-  `health_board.build_homelab_snapshot` separately from raw
-  `homelab_health.build_homelab_health_payload` so unit tests never use the
-  current LAN merely because it is reachable.
-- [x] Force Sentry, Datadog/ddtrace, Logfire and other external telemetry off
-  during `tests/unit` collection even when the developer shell enables them.
-  Integration/acceptance tests must opt in explicitly outside the unit suite.
-  Block the pytest `ddtrace` plugin from `pytest.toml` before collection so
-  its tracer/atexit worker cannot survive long enough to emit post-test logging
-  errors; the environment flags in `tests/unit/conftest.py` remain a second
-  layer for application telemetry code.
-- [ ] Re-run intentional LAN acceptance after the unit gate is green: confirm
-  TrueNAS, pfSense and Prometheus through dedicated read-only checks, then assess
-  Cloudflare and Sentry independently instead of interpreting accidental unit-test
-  network traffic as acceptance evidence.
-
-## P2 — Local development and documentation
-
-- [x] Make Docker Compose use the real `server_all:app` entrypoint and port 8080.
-- [x] Bind local PostgreSQL and Redis ports to loopback by default.
-- [x] Remove the notebook container's access to the host SSH directory.
-- [x] Register diagnostic routes before MCP captures OpenAPI so Homelab catalog,
-      topology and health endpoints remain visible in Swagger with typed schemas.
-- [ ] Merge the two Compose files into one documented configuration with
-      optional development, notebook and observability profiles.
-- [x] Replace legacy Pipenv/Poetry instructions with a Python 3.13 + `uv`
-      quickstart.
-- [ ] Archive obsolete Dockerfiles after confirming that no deployment uses them.
-- [x] Keep Vercel as a main-only HTTP compatibility rewrite to FastAPI Cloud;
-      skip pull-request preview builds that would exceed the function-size limit.
-- [ ] Deduplicate Cursor, Codex, OpenCode and Copilot instructions while keeping
-      `AGENTS.md` as the concise shared policy.
-  - [x] Make OpenCode consume that shared policy deterministically for the
-        workstation's smaller model: add an explicit execution protocol and skill
-        routing table to `AGENTS.md`, use a model-inheriting
-        `fastapi-maintainer` primary agent, allow native `.agents/skills`
-        loading, add local roadmap/quality/review/publication commands and keep
-        the GitHub MCP read-only so repository mutations still pass through the
-        local checkout and quality gates.
-  - [ ] Audit the legacy Cursor rule set and remaining tool-specific adapters for
-        policy duplicated from `AGENTS.md`; keep only genuinely tool/path-specific
-        rules before closing this parent item.
-- [ ] Store generated SBOM reports as CI artifacts instead of tracking large
-      generated files.
-- [ ] Continue the MCP SDK integration review:
-      <https://github.com/modelcontextprotocol/python-sdk>.
-- [ ] Evaluate a pfSense MCP server as a separate, private homelab service. Start
-      with [night4me/pfsense-mcp-server](https://github.com/night4me/pfsense-mcp-server)
-      in its default 95-tool read-only profile; compare
-      [gensecaihq/pfsense-mcp-server](https://github.com/gensecaihq/pfsense-mcp-server)
-      for guarded writes and
-      [abl030/pfsense-mcp](https://github.com/abl030/pfsense-mcp) only when full
-      OpenAPI-generated coverage is necessary.
-      Require strict TLS, a least-privilege API credential, audit logs and no public
-      exposure before enabling any mutating tool.
-
-## PR #63 recovery ledger
-
-The unmerged PR #63 changed 95 paths. Compared with the current PR branch,
-11 are byte-identical, 64 have since diverged and 20 are absent. Recover changes
-in reviewable batches; never overwrite newer fixes with the old blob wholesale.
-
-- [x] Restore the global TrueNAS SDK instruction; current runtime code already
-      follows it by lazily importing the official `truenas_api_client` package.
-- [x] Restore the FastAPI agent skill in its official directory layout, including
-      every referenced file, instead of the incomplete flat file from PR #63.
-- [x] Restore `.mcp.json` and `opencode.json` against the application’s real
-      Streamable HTTP endpoint at `http://127.0.0.1:8080/mcp`. The old PR #63
-      `python -m fastapi_radar` command is not restored because FastAPI Radar 0.3.4
-      exposes neither a module CLI nor an MCP server.
-- [ ] Evaluate FastAPI Radar as one coherent, optional local-development feature:
-      dependency and lock, ignored DuckDB file, application instrumentation,
-      dashboard discovery and accurate security documentation. Keep it disabled in
-      production because it records request/response bodies and headers.
-- [ ] Compare the three missing RAG modules and their tests with the newer
-      deep-agent/external integration architecture; port behavior, not stale files.
-- [ ] Compare the missing TrueNAS route/service modules and mapping tests with
-      the consolidated official-client adapter and Homelab response models.
-- [x] Rewrite `docs/entrypoints-and-dashboards.md` for the current application,
-      MCP transport and Compose services.
-- [x] Reconcile README startup examples and links with port 8080,
-      `server_all:app` and the canonical `/mcp` transport.
-- [ ] Rewrite `scripts/discover_dashboards.py` only if machine-readable dashboard
-      discovery is still useful; the PR #63 parser targets invalid OpenCode fields.
-- [ ] Review the missing SQL snapshot and `panda.py` separately for necessity,
-      generated-content policy and secret exposure before restoring either file.
-- [x] Restore the PR #63 Langfuse skill update as one locked bundle: prompt
-      engineering, v4 project migration, instrumentation self-audit and SDK upgrade
-      guidance.
-- [ ] Review every divergent workflow, dependency and application file against
-      current CI results; apply small semantic patches with focused tests.
-- [x] Record an explicit retained, superseded or restored decision for every one
-      of the 20 absent PR #63 paths before closing this recovery effort.
-
-### PR #63 absent-path disposition
-
-| PR #63 path                                                  | Decision               | Reason                                                                                               |
-| ------------------------------------------------------------ | ---------------------- | ---------------------------------------------------------------------------------------------------- |
-| `.agents/skills/fastapi-SKILL.md`                            | Adapted                | Restored as the complete official `.agents/skills/fastapi/` bundle so relative references resolve.   |
-| `.agents/skills/langfuse/references/prompt-engineering.md`   | Restored               | Part of the locked Langfuse skill update.                                                            |
-| `.agents/skills/langfuse/references/v4-project-migration.md` | Restored               | Part of the locked Langfuse skill update.                                                            |
-| `.github/instructions/memory.instruction.md`                 | Restored               | Preserves the official TrueNAS SDK rule.                                                             |
-| `.mcp.json`                                                  | Adapted                | Points clients at the application’s real Streamable HTTP `/mcp` endpoint.                            |
-| `TODO.md`                                                    | Retained deletion      | Its content is consolidated in this roadmap.                                                         |
-| `docs/entrypoints-and-dashboards.md`                         | Adapted                | Rewritten for the current ASGI entry point, port 8080, MCP mount and Compose dashboards.             |
-| `nabla/api/rag.py`                                           | Deferred semantic port | The old synchronous route depends on a blocking, process-global vector store.                        |
-| `nabla/api/services.py`                                      | Deferred semantic port | The old async route performs blocking `requests` and leaks raw integration errors.                   |
-| `nabla/api/truenas_apps_api.py`                              | Superseded             | Its router alias targets an object that no longer exists after TrueNAS consolidation.                |
-| `nabla/integrations/external_rag.py`                         | Deferred semantic port | Replace synchronous `requests`, import-time environment reads and swallowed exceptions.              |
-| `nabla/integrations/truenas_api_ws.py`                       | Superseded             | Current `nabla/integrations/truenas_client.py` owns the official SDK adapter and safer TLS defaults. |
-| `nabla/rag/ingest.py`                                        | Deferred redesign      | Avoid the mutable global store, duplicate ingestion and blocking parsing in request/lifespan paths.  |
-| `opencode.json`                                              | Adapted                | Uses OpenCode’s documented `mcp.remote` schema instead of fake command metadata.                     |
-| `panda.py`                                                   | Deferred               | Restore only through a validated CLI entry point with argument handling.                             |
-| `scripts/discover_dashboards.py`                             | Deferred rewrite       | Its parser relies on the invalid PR #63 OpenCode schema.                                             |
-| `sql/schema-2026-07-17.sql`                                  | Superseded             | Alembic is the migration source of truth; do not add a duplicate generated snapshot.                 |
-| `tests/unit/test_main_wiring.py`                             | Deferred semantic port | It asserts an old MCP resource function removed by the newer application wiring.                     |
-| `tests/unit/test_rag_ingest.py`                              | Deferred with RAG      | Its expectations encode the unsafe global vector-store implementation.                               |
-| `tests/unit/test_truenas_service_mapping.py`                 | Superseded             | Current TrueNAS tests cover the consolidated adapter and current keyword-only mapping API.           |
-
-“Deferred semantic port” means that the capability remains planned, but the old
-file must not be copied into the current application unchanged.
-
-## Local Nabla control-plane prerequisite
-
-The TrueNAS-hosted `fastapi-sample` runtime is the preferred candidate for the
-future local **Nabla Service** API/UI/MCP facade. Reuse the existing service
-instead of creating another always-on daemon.
-
-This does **not** make FastAPI part of the minimum boot dependency chain:
-TrueNAS reboot/resume and already-materialized runtime secrets must remain usable
-when FastAPI, Redis, Vaultwarden or external providers are unavailable.
-
-Before adding any privileged TrueNAS or secret-management mutation route:
-
-- require `FASTAPI_RUNTIME_MODE=homelab`;
-- require an explicit local control-plane feature flag;
-- require `MCP_OPS_REQUIRE_KEY=true` and a configured `MCP_OPS_KEY`, then
-  replace the shared key with stronger local identity when available;
-- keep FastAPI Cloud and public/staging routes read-only;
-- keep the current `fastapi_observer` TrueNAS credential read-only and use a
-  separate least-privilege execution identity for bounded mutations;
-- expose plans/state first, then reviewed idempotent operations; never expose a
-  generic shell or unrestricted `midclt` passthrough;
-- prove negative route/exposure tests before enabling the controller profile.
-
-The current change only repairs the documented `MCP_OPS_REQUIRE_KEY` fail-closed
-contract. It does not add privileged Nabla Service operations.
-
-## Suggested future pull requests
-
-1. `perf(stability): bound aggregate health fan-out and deadlines`
-2. `perf(cache): add bounded cache telemetry and Redis integration coverage`
-3. `fix(release): complete immutable release-to-production orchestration`
-4. `ci(stability): add degraded-dependency load and regression gates`
-5. `feat(security): introduce Keycloak-backed administrative access`
-6. `feat(homelab): separate public and authenticated service projections`
-7. `refactor(database): consolidate pools and deployment migrations`
-8. `refactor(dependencies): isolate lean runtime and optional integrations`
-9. `ci(security): enforce branch protection and mandatory security checks`
-10. `docs(dev): standardize uv onboarding and shared agent instructions`
-
-## Cross-repository CI lessons from nabla-site-alban PRs #180-#195
-
-The latest 15 `nabla-site-alban` pull requests were reviewed for CI/quality
-patterns that transfer cleanly to this Python/FastAPI repository. Front-end,
-Next.js, Playwright-visual and Vercel-specific behavior is intentionally excluded.
-
-- [x] Reuse exact publication proofs keyed by HEAD, comparison base and local
-  toolchain. `scripts/agent-publish.sh` already fingerprints `uv`, Python,
-  pre-commit and `uv.lock`, rejects stale/dirty publication and reuses a prior
-  strict pass only when that proof remains exact.
-- [x] Keep diff-aware destructive-change and executable-bit guards before expensive
-  validation.
-- [x] Keep code-size enforcement baseline-aware so legacy oversized Python modules
-  are grandfathered while new growth remains controlled.
-- [x] Classify CI impact before dependency bootstrap as `full`, `quality` or
-  `none`. Pull-request application/runtime changes retain the full locked
-  dependency sync/test/build path; quality-infrastructure changes run isolated
-  quality-contract tests; documentation-only changes stop after the lightweight
-  gate. Manual/reusable workflow execution always remains `full`.
-- [x] Keep the agent preflight before the full `uv sync`, with cached pre-commit
-  environments and no project dependency cache in the lightweight stage.
-- [x] Keep local deterministic autofix convergence multi-pass and publication
-  validation clean-tree-only.
-- [x] Add warning-only Python CI performance baselines, adapted from
-  `nabla-site-alban#195`: measure agent-gate duration, locked `uv sync`
-  duration, pytest duration, `uv build` duration and environment/artifact size.
-  Thresholds remain unset by default until several exact-checkout baselines have
-  been collected; the recorder never turns a performance warning into a quality
-  failure.
-- [ ] Once GitHub Actions credits and normal PR CI are restored, decide whether to
-  prohibit `[skip ci]` on merge-candidate commits as `nabla-site-alban#192`
-  does. Do not enable that policy while the explicit local-first/no-credit mode
-  relies on `[skip ci]`; require the local publication proof and keep such PRs
-  Draft instead.
-- [x] Add a Python-specific fail-closed CI/SAST scope classifier. It exposes
-  `maintenance_only`, `application`, `sast`, `build`, `dependencies`
-  and the derived `dependency_mode`; workflow/security-policy changes retain
-  SAST, test-only application changes retain dependency-backed tests without
-  forcing an application build, and unknown or empty diffs take the full path.
-  Keep CodeQL independently path-scoped to Python sources plus its own workflow
-  so documentation-only PRs do not start it; a future changed-source Semgrep job
-  can consume the centralized `sast` signal without forcing an application
-  build.
-
-## Consolidated quality and refactoring backlog
-
-The remaining sections preserve the quality roadmap introduced separately on
-`main`. Keep this file as the only planning source for future pull requests.
-
-### Quality baseline and future work
-
-The following improvements have already been implemented:
-
-- [x] Reuse a strict local publication proof keyed by exact HEAD, comparison
-  base and Python toolchain fingerprint (uv, Python, pre-commit and `uv.lock`).
-  Pre-push now reuses that proof instead of rerunning Pylint, pytest and package
-  build for an unchanged publication candidate.
-- [x] Keep agent/quality-only contract changes on the isolated quality-test
-  dependency scope instead of accidentally promoting them to the full pytest
-  dependency path merely because the contract itself lives under `tests/`.
-- [x] Surface non-blocking baseline-aware code-size warnings from the compact
-  agent gate instead of hiding successful warning output.
-- [x] Refactor `nabla/api/homelab_health.py` below the 400-line
-  maintainability warning threshold without changing its public/test seams.
-  Low-level bounded HTTP/TCP execution now lives in
-  `homelab_probe_runner.py`, defensive cache copying in
-  `homelab_health_cache.py`, and pure TrueNAS target/state reconciliation in
-  `truenas_probe_health.py`. The façade remains responsible for orchestration,
-  provider dependency injection and the process-local snapshot cache.
-- [x] Refactor `nabla/api/health_board.py` below the 400-line warning
-      threshold by extracting optional health/sickz/runtime diagnostic builders
-      into `health_board_diagnostics.py`; keep deadline values and monkeypatch
-      seams owned by the historical façade.
-- [x] Refactor `nabla/api/homelab_runtime.py` below the 400-line warning
-      threshold by extracting sanitized TrueNAS runtime models and raw
-      `app.query` normalization into `homelab_runtime_models.py`.
-- [x] Split `tests/unit/test_homelab_health.py` by the extracted production
-      responsibilities into probe-runner and TrueNAS target/state contract
-      suites. The intentional >40% reduction is explicitly acknowledged in
-      `.quality-gate-large-deletions`.
-- [x] Make local publication scope-aware: always run the strict agent gate,
-  but run Pylint, the minimal FastAPI import smoke and `uv build` only when the
-  centralized classifier reports `build=true`. Documentation/quality-only
-  publication therefore avoids irrelevant application build work without
-  weakening unknown/application/dependency changes.
-- [x] Centralize CI scope policy in tested `scripts/ci_scope.py`, with
-  `scripts/ci-scope.sh` retained only as its shell compatibility entrypoint.
-  Documentation-only PRs use `none`, explicit quality-infrastructure changes use
-  `quality`, and application/runtime or unknown paths fail closed to `full`;
-  an empty diff also fails closed to `full`. The Python workflow consumes the
-  derived dependency mode before dependency bootstrap.
-- [x] Separate dependency-backed validation from application packaging:
-  `dependencies=true` installs the locked environment and runs pytest, while
-  `build=true` additionally enables the FastAPI runtime smoke, Pylint,
-  `uv build`, Docker, SonarCloud and MegaLinter. Redis integration remains
-  downstream of dependency-backed testing so test changes can still exercise the
-  real cache integration; documentation/quality-only scopes bootstrap none of
-  these jobs.
-- [ ] When normal Actions capacity is restored, evaluate using the detailed
-  `sast`, `build`, `dependencies` and `application` outputs in a future
-  changed-source Semgrep job and reusable callers where that removes additional
-  work. Keep CodeQL's independent conservative Python-path scope unless replacing
-  it is demonstrably simpler and equally fail-closed.
-- [ ] Factor shared shell mechanics (base resolution, changed/deleted file
-  collection, compact reporting and workspace fingerprinting) out of
-  `agent-quality-gate.sh` once the current local gate is green; keep policy in
-  the repository-specific gate rather than in the helper.
-- [ ] Re-enable a PR CI-skip policy only when GitHub Actions can enforce it on
-  every candidate HEAD. Until credits return, explicit `[skip ci]` commits are
-  intentional and the local publication proof is the merge evidence.
-- [ ] If FastAPI later gates a PR on live production health before build, keep
-  the **current PR diff base SHA** separate from the **current production/default
-  branch SHA**; do not reuse an event-time base SHA as production evidence.
-
-- Ruff lint and formatting pass on `nabla/` and `tests/`.
-- The active FastAPI, settings, Redis, Notes, and RAG modules pass targeted
-  Pyright checks.
-- Unit tests are separated from tests that require the full application or
-  external services.
-- Unit test baseline: **55 passed, 1 skipped, 42 deselected**.
-- External observability and feature-flag clients are opt-in during tests.
-- Redis, Statsig, Unleash, RAG watchers, and observability integrations no
-  longer perform unnecessary network operations during ordinary imports.
-- RAG embedding responses are validated for shape, count, numeric values, and
-  consistent dimensions.
-- Notes persistence returns generated IDs, closes sessions, rolls back on
-  failure, and uses the correct note ID during updates.
-
-Run the current baseline with:
+- Python 3.13 + `uv` are the supported Python/tooling baseline.
+- FastAPI Cloud is the canonical production runtime.
+- Vercel Git deployment is disabled and must not be a merge gate.
+- GitHub Actions capacity is constrained: prefer deterministic local validation.
+- Optional homelab integrations must not become application liveness dependencies.
+- Never weaken TLS, authentication, timeouts, cache/circuit breakers or rate
+  limits merely to make health status appear green.
+- Close a roadmap item only with an explicit acceptance proof.
+
+## P0 — production security and privacy
+
+- [ ] Set `DEBUG=false` in FastAPI Cloud and prove unexpected exceptions no
+  longer expose tracebacks.
+- [ ] Audit retained FastAPI Cloud/Sentry/Logfire/centralized logs for credentials,
+  reset/verification tokens and connection strings; rotate affected credentials
+  if historical exposure is confirmed.
+- [ ] Review historical commits containing private contact data and decide whether
+  repository history cleanup is required.
+- [ ] Replace shared operational keys with Keycloak/OIDC identities and explicit
+  administration, diagnostics and MCP scopes.
+- [ ] Publish a public homelab projection that excludes internal hosts, ports and
+  privileged topology.
+- [ ] Apply the intended Cloudflare Access/private-network restriction to
+  management endpoints once the access flow is finalized.
+
+**Acceptance:** no public traceback/secret leakage, least-privilege operational
+identity, and public diagnostics expose only intentionally published topology.
+
+## P0 — homelab dependency convergence
+
+The authoritative observer is the FastAPI runtime on TrueNAS. Workstation probes
+are independent A/B evidence only.
+
+- [ ] **Talos:** obtain `VM_READ`, show the expected 3/3 VMs running, then prove
+  cluster health with `talosctl health` and `kubectl get nodes`.
+- [ ] **pfSense:** recover WebGUI/PHP-FPM and require authenticated
+  `GET /api/v2/system/version` 2xx from the TrueNAS/LAN observer.
+- [ ] **Prometheus:** configure `HOMELAB_PROMETHEUS_URL` in the authoritative
+  deployment and require usable query/recording-rule evidence.
+- [ ] **Sentry:** prove a bounded synthetic event ID and downstream ingestion;
+  socket reachability is insufficient.
+- [ ] **Pyroscope:** identify a real readiness endpoint and prove recent profile
+  data for `service_name=fastapi-sample`.
+- [ ] Add workstation-vs-TrueNAS diagnostics for pfSense and Prometheus without
+  adding provider fan-out to normal health requests.
+- [ ] Re-run `scripts/diagnose-local-runtime-dependencies.py` and require every
+  dependency contract to be complete or explicitly deferred.
+- [ ] Resume TrueNAS NFS/Kubernetes CSI acceptance after this gate converges.
+
+Runbook:
+[local-runtime-dependency-report.md](local-runtime-dependency-report.md).
+
+## P0 — appliance protection and health latency
+
+- [ ] Measure a safe TrueNAS/pfSense probe envelope: origin rate, concurrency,
+  p95/p99 latency, timeouts and host saturation.
+- [ ] Attribute remaining cold-path cost in `/api/homelab/health`; keep provider
+  budgets below the aggregate deadline rather than extending that deadline.
+- [ ] Define a fixed-cardinality production p95 latency target.
+- [ ] Prove appliance degradation cannot exhaust FastAPI workers or create probe
+  bursts.
+- [ ] Inventory Uptime Kuma/Gatus/AutoKuma so no monitor performs expensive
+  pfSense deep-status requests.
+- [ ] Remove the shared-WAN Snort attribution blind spot.
+- [ ] Improve TrueNAS WebSocket timeout attribution without leaking URI or
+  credential context.
+
+Runbook:
+[external-probe-cache-operations.md](external-probe-cache-operations.md).
+
+## P0 — canonical Nabla catalog cutover
+
+The migration remains a **direct coordinated cutover**, not a v1/v2 compatibility
+programme.
+
+- [ ] Fix `nabla-compose/catalog/services.schema.json` so `internalUrl` matches
+  generated services/x-nabla metadata.
+- [ ] Replace service-id/display-name joins and three-way drift checks with
+  canonical full entity refs.
+- [ ] Consume authoritative BIA-derived business criticality beside
+  `operationalCriticality`.
+- [ ] Remove `homelab-services.json` and `homelab-exposure-overrides.json` as
+  independent authorities after remaining exceptions have a canonical home.
+- [ ] Pin rollback evidence and validate stable entity refs, relation endpoints,
+  exposure intent and catalog revision before cutover.
+
+Reference:
+[business-impact-analysis.md](business-impact-analysis.md).
+
+## P1 — dependency automation and CI governance
+
+- [ ] Validate the hosted Mend Renovate GitHub App for this repository and
+  `nabla-compose`.
+- [ ] After acceptance, remove the self-hosted Renovate workflow.
+- [ ] If CVE ownership moves to Renovate, prove Dependabot Alert reconciliation
+  before disabling Dependabot Security Updates and enabling Renovate fixes.
+- [ ] Re-enable selective automerge only when required checks are authoritative
+  and current-base validation is guaranteed.
+- [ ] Validate master-red remediation with one controlled non-production drill.
+- [ ] Review the first successful post-deployment ZAP artifacts and suppress only
+  documented false positives.
+- [ ] Upgrade transitive `smol-toml` to a version fixing CVE-2026-34027 through
+  the pinned Node/npm toolchain.
+- [ ] Reduce the Trivy baseline and make relevant triaged findings blocking.
+- [ ] Protect `master` with reviewed PRs and final required checks once normal CI
+  capacity is restored.
+- [ ] Decide whether merge-candidate `[skip ci]` must then be prohibited.
+
+## P1 — release and deployment
+
+- [ ] Trigger FastAPI Cloud deployment from the existing
+  `semantic-release-published` repository dispatch.
+- [ ] Deploy immutable release tags instead of a moving branch.
+- [ ] Consolidate push/release rollout after the repaired release sequence is
+  observed.
+- [ ] Publish images with semantic-version and commit-SHA tags, signed provenance
+  and generated SBOM artifacts.
+- [ ] Keep generated SBOMs as artifacts rather than tracked large files.
+- [ ] Disconnect the Git provider from the Vercel project with an authorized
+  identity.
+- [ ] Prove a later PR push creates no Vercel deployment, status or comment.
+
+## P1 — runtime architecture
+
+- [ ] Introduce an application factory so tests can create a minimal app without
+  PostgreSQL, Redis, observability, MCP or RAG side effects.
+- [ ] Move remaining global DB/Redis resources behind lifecycle/state or injected
+  dependencies.
+- [ ] Consolidate SQLAlchemy/`databases`/psycopg lifecycle and move schema
+  creation to explicit Alembic deployment migrations.
+- [ ] Split dependency groups into runtime/observability/homelab/AI/dev boundaries
+  and reduce the production image.
+- [ ] Replace the Git-tagged TrueNAS client dependency with an immutable commit or
+  maintained release.
+- [ ] Create lifespan-owned shared `httpx.AsyncClient` pools with explicit
+  connect/read/write/pool budgets.
+- [ ] Keep unit tests hermetic; perform LAN acceptance only through explicit
+  integration/diagnostic commands.
+
+## P2 — application/domain backlog
+
+- [ ] Finish Notes normalization: boolean `completed`, timezone-aware timestamps,
+  read/delete response models and complete CRUD/integration coverage.
+- [ ] Replace mutable global RAG vector state with a concurrency-safe
+  `VectorStore` abstraction and persistent implementation.
+- [ ] Add SearXNG in `nabla-compose`, then evaluate a bounded optional adapter.
+- [ ] Continue MCP SDK review; keep any pfSense MCP service private and
+  least-privilege.
+- [ ] Evaluate FastAPI Radar only as opt-in local development tooling.
+- [ ] Finish semantic review of remaining PR #63 divergent/absent files.
+- [ ] Consolidate duplicate Compose/Docker development paths after proving them
+  unused.
+- [ ] Deduplicate Cursor/Codex/OpenCode/Copilot policy around `AGENTS.md`.
+
+## Implemented guardrails — compact baseline
+
+Do not expand these back into historical checklists unless a regression occurs:
+
+- bounded health probes, single-flight/SWR cache, circuit breakers and aggregate
+  deadlines;
+- separation of transport, application, auth and workload evidence;
+- optional provider failures do not automatically become global DOWN;
+- Cloudflare/Sentry/Prometheus are not core liveness dependencies;
+- lifecycle cleanup/rollback for application-owned resources;
+- Datadog/Sentry observability is opt-in with PII disabled by default;
+- service/topology/BIA projections are typed at the current contract boundary;
+- Renovate is low-churn, automerge is disabled and duplicate CVE PR ownership is
+  avoided;
+- CI scopes are `none`, `quality` and fail-closed `full`;
+- external GitHub Actions are pinned to immutable SHAs;
+- Vercel Git deployments are repository-disabled;
+- health-board modules already split for maintainability remain covered by tests.
+
+## Documentation policy
+
+1. This file contains **open work only**, plus the compact baseline above.
+2. Dated incidents belong in [incidents.md](incidents.md).
+3. Commands and recovery procedures belong in focused runbooks.
+4. Avoid copying the same observed state into roadmap + incident + runbook.
+5. A resolved incident contributes only a reusable rule/guardrail here.
+
+## Completion gate
+
+Before closing an item:
+
+1. run the smallest deterministic local proof;
+2. run the quality gate appropriate to its CI scope;
+3. record any missing external/runtime acceptance proof;
+4. update the incident register only if a reusable diagnostic rule was learned.
 
 ```bash
-ruff format --check nabla tests
-ruff check nabla tests
-pyright \
-  nabla/main.py \
-  nabla/config_settings.py \
-  nabla/api/demo/socket/redis.py \
-  nabla/api/notes/notes.py \
-  nabla/api/notes/crud.py \
-  nabla/api/notes/models.py \
-  nabla/api/rag.py \
-  nabla/rag/ingest.py
-pytest tests/unit
-python -m compileall -q nabla tests
-git diff --check
+bash scripts/agent-quality-gate.sh --fix
+bash scripts/agent-quality-gate.sh
 ```
-
-### Priority 1: application factory and import safety
-
-#### application factory and import safety work
-
-- [x] Defer demo `SensorData` history generation and `ChartFactory`
-  construction until application startup or first endpoint use. Importing
-  `nabla.api.demo.sensor` no longer creates the 50-reading history or chart
-  helper, while normal lifespan startup preserves the existing dashboard state.
-- [x] Move the demo `fastapi-featureflags` configuration/reload out of module
-  import and into application lifespan startup. Importing `demo.py` no longer
-  mutates global feature-flag state or prints enabled flags during test
-  collection.
-- [x] Remove the unused demo-local `FastMCP` instance. The application-level
-  MCP server in `main.py` remains the only mounted MCP surface for these
-  FastAPI routes.
-
-- Introduce `create_app(settings)` instead of constructing the application at
-  module import time.
-- Move router registration into a dedicated function or module.
-- Move middleware and observability configuration out of `nabla/main.py`.
-- Move MCP and A2A mounting into explicit application setup functions.
-- Ensure importing an API model, router, or test helper does not create pools,
-  threads, SDK clients, tracers, or network requests.
-- Replace the remaining global database and Redis clients with resources owned
-  by `app.state` or injected dependencies.
-
-#### application factory and import safety acceptance criteria
-
-- A unit test can create a minimal application without PostgreSQL, Redis,
-  Statsig, Unleash, Datadog, Sentry, MCP, or RAG.
-- `python -c "import nabla.main"` performs no external network request.
-- Two application instances can be created in one process without duplicate
-  middleware, routes, metrics, or background tasks.
-
-### Priority 2: lifecycle resilience
-
-#### lifecycle resilience work
-
-- [x] Use `contextlib.AsyncExitStack` to manage startup resources.
-- [x] Close Redis, PostgreSQL pools and MCP clients explicitly during shutdown.
-- [x] Align the locked redis-py version with the asynchronous `aclose()`
-      lifecycle API and validate the real installed client contract without mocks.
-- [x] Roll back partially completed startup when a later dependency fails.
-- [x] Add stable names to application-owned background tasks.
-- [x] Add structured error reporting to background tasks.
-- [x] Keep optional metrics and Redis listener failures isolated from request
-      handling; report their task name and exception type without automatic restart.
-- [x] Add startup and shutdown tests for success, partial failure, and cancellation.
-
-#### lifecycle resilience acceptance criteria
-
-- [x] Every acquired resource is released after normal shutdown and failed startup.
-- [x] No watcher, thread, pool, task, or client remains alive after lifecycle tests.
-- Shutdown completes within a documented timeout.
-
-### Priority 3: integration tests
-
-#### integration tests work
-
-- Migrate the remaining `TestClient` suites to `httpx.AsyncClient` and
-  `ASGITransport` where appropriate.
-- Provide containerized PostgreSQL and Redis fixtures for tests marked
-  `integration`.
-- Run web rendering tests separately with `pytest -m webtest`.
-- Remove environment-dependent skips where a deterministic fake or container
-  can be used.
-- Add a CI job for `pytest -m integration`.
-- Keep unit tests network-disabled by default.
-
-#### integration tests acceptance criteria
-
-- `pytest tests/unit` requires no external service and remains deterministic.
-- `pytest -m integration` either provisions its dependencies or fails with a
-  clear prerequisite message.
-- Tests never silently convert failures into successful exit codes.
-
-### Priority 4: Datadog and observability isolation
-
-### Current issue
-
-Direct Datadog imports previously loaded the SDK through database and route
-modules even when tracing was disabled. The profiler also started during module
-import and had no application-owned shutdown.
-
-#### Datadog and observability isolation work
-
-- [x] Load Datadog tracing modules only when `DD_TRACE_ENABLED=true`.
-- [x] Remove direct tracer imports from database and route modules.
-- [x] Own profiler startup and shutdown in the application lifespan.
-- [x] Configure profiling independently with `DD_PROFILING_ENABLED`.
-- [x] Replace the synthetic structured-log `user_id="12345"` with
-      `user_id="anonymous"` for unauthenticated/public work while preserving an
-      already-bound real principal instead of overwriting it.
-- [ ] Bind authenticated request identity into Structlog when Keycloak/FastAPI
-      Users provides a trustworthy request principal; FastAPI Cloud runtime
-      identity is not an end-user identity. Keep Datadog/Sentry PII disabled by
-      default.
-- [x] Keep Sentry PII disabled and make trace, profile and error sampling
-      configurable with conservative defaults.
-- [x] Verify that disabled Datadog instrumentation has no SDK import-time side effect.
-
-#### Datadog and observability isolation acceptance criteria
-
-- [x] Unit tests finish without Datadog warnings, five-second tracer waits, or
-      logging errors.
-- [x] Disabled Datadog instrumentation has no SDK import-time side effect.
-- [x] Production configuration documents tracing, profiling and PII choices.
-
-### Priority 5: Notes domain cleanup
-
-#### Notes domain cleanup work
-
-- Replace legacy SQLAlchemy declarative models and `databases.Record` with one
-  consistent SQLAlchemy 2 or SQLModel data-access approach.
-- [x] Replace synchronous note creation with asynchronous database queries and
-      return the persisted database identifier.
-- [x] Fix note updates to use the requested identifier and preserve the original
-      creation timestamp.
-- Change `Note.completed` from a string column to a boolean column through an
-  Alembic migration.
-- Store `created_date` as a timezone-aware timestamp and serialize it only at
-  the API boundary.
-- [x] Generate note response timestamps per instance instead of freezing them
-      when the models module is imported.
-- [x] Remove synchronous DB session work from asynchronous Notes request
-      handlers.
-- [x] Add response models for note creation and update operations.
-- Add response models for read and delete operations.
-- [x] Require Redis enqueue after persisting note updates; return HTTP 503 when
-      the update succeeded but background processing is unavailable.
-- [x] Restore the note-update regression test and cover asynchronous CRUD plus
-      Redis queue failure.
-
-#### Notes domain cleanup acceptance criteria
-
-- Database and API types agree for IDs, booleans, and timestamps.
-- Notes CRUD has unit and integration coverage for success, validation,
-  rollback, missing records, and queue failures.
-- No synchronous database call blocks the event loop.
-
-### Priority 6: RAG architecture
-
-#### RAG architecture work
-
-- Replace the mutable global `VECTOR_DB` with a `VectorStore` protocol.
-- Provide an in-memory implementation for tests and a persistent implementation
-  for production.
-- Protect ingestion and search from concurrent mutation.
-- Avoid duplicate ingestion when files change or the application restarts.
-- Validate embedding model and vector dimensions against stored vectors.
-- Add bounded concurrency, timeouts, and structured errors around embeddings.
-- Move document parsing dependencies behind optional integration boundaries.
-
-#### RAG architecture acceptance criteria
-
-- Search is deterministic under concurrent ingestion.
-- Restarting the application does not duplicate existing chunks.
-- Provider failures return a controlled API error rather than leaking raw
-  exceptions.
-
-### Priority 7: outbound HTTP and health checks
-
-#### outbound HTTP and health checks work
-
-- [ ] Create shared lifespan-owned `httpx.AsyncClient` instances and reuse
-      connection pools across compatible outbound calls.
-- [ ] Define consistent connect, read, write, pool, and overall timeouts, while
-      preserving stricter provider-specific budgets where required.
-- [x] Bound the current TrueNAS and pfSense health-observation paths with explicit
-      per-call/per-request budgets and provider failure-cache windows.
-- [x] Add shared provider circuit breakers so repeated TrueNAS, pfSense and
-      Cloudflare failures suppress origin refreshes during bounded cooldowns.
-- [x] Add bounded concurrency to `/healthz` and `/sickz` probes.
-- [x] Add an overall deadline for aggregated health responses.
-- Separate liveness, readiness, and detailed dependency diagnostics.
-- Validate configurable probe destinations to reduce SSRF risk.
-- Replace remaining synchronous `requests` calls in async routes.
-
-#### outbound HTTP and health checks acceptance criteria
-
-- `/livez` performs no dependency I/O.
-- `/readyz` checks only dependencies required to serve traffic.
-- One slow dependency cannot indefinitely delay a health response.
-- Repeated dependency failure does not cause immediate retries or unbounded
-  concurrent probe work against the affected appliance.
-
-### Priority 8: typing and dependency boundaries
-
-#### typing and dependency boundaries work
-
-- Expand Pyright coverage module by module until the full `nabla/` package is
-  checked within an acceptable runtime.
-- Replace legacy `Dict`, `List`, untyped dictionaries, and broad `Any` values.
-- Introduce `TypedDict`, Pydantic models, or protocols at external boundaries.
-- Add explicit return types to route handlers and lifecycle helpers.
-- Reduce optional dependencies imported by core modules.
-- Consolidate package management around UV and remove obsolete Poetry, Pipenv,
-  Conda, or duplicate Docker paths after confirming they are unused.
-
-#### typing and dependency boundaries acceptance criteria
-
-- `pyright nabla` completes in CI and reports zero errors.
-- Core application imports require only core runtime dependencies.
-- The lockfile and declared dependency groups agree with CI and production.
-
-### Priority 9: security and production hardening
-
-#### security and production hardening work
-
-- Remove or tightly isolate remaining `verify=False` HTTP calls.
-- Ensure operational endpoints never expose secrets or unredacted environment
-  values.
-- Review CORS origins, methods, credentials, and deployment-specific defaults.
-- Add request-size limits and explicit rate limits to expensive AI/RAG routes.
-- Normalize external errors before returning them to clients.
-- Confirm SOPS files and generated secrets cannot be committed accidentally.
-- Run dependency, container, and secret scans in CI.
-
-#### security and production hardening acceptance criteria
-
-- Security scans run on every merge request.
-- No endpoint returns credentials, tokens, DSNs, or raw provider payloads.
-- TLS verification can only be disabled through an explicit, documented local
-  development setting.
-
-### Suggested CI pipeline
-
-1. `ruff format --check nabla tests`
-2. `ruff check nabla tests`
-3. targeted Pyright, expanding toward `pyright nabla`
-4. `pytest tests/unit`
-5. `pytest -m integration` with PostgreSQL and Redis services
-6. coverage enforcement
-7. dependency and secret scanning
-8. container build and vulnerability scanning
-
-### Resume checklist
-
-Before starting another improvement session:
-
-1. Read this document and `AGENTS.md`.
-2. Run `git status --short` and preserve unrelated user changes.
-3. Do not edit `.env`, `.env.local`, `.env.secrets`, or SOPS material.
-4. Run the baseline checks before changing code.
-5. Select one priority and add tests that fail before applying its fix.
-6. Update this roadmap when an item is completed, deferred, or superseded.
-
-At the time this roadmap was created, `.pre-commit-config.yaml` already
-contained user changes and `.env.sops.secrets` / `secrets.env.sops` were
-untracked. They must not be overwritten, reformatted, deleted, or committed as
-part of unrelated quality work.
-
-
-## Observability log qualification debt
-
-- Revisit the DEBUG / INFO / WARNING / ERROR taxonomy across health and integration probes.
-- Treat failures of required infrastructure dependencies such as the TrueNAS API as ERROR, while keeping intentionally disabled optional integrations at WARNING/INFO.
-- Preserve sanitized failure phase/stage metadata for Sentry without logging credentials or secret values.
-- Add Sentry fingerprinting/rate limiting for periodic health failures so a 30-second probe cache cannot create duplicate incident noise.

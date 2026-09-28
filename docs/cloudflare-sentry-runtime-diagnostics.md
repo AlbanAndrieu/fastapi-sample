@@ -1,86 +1,86 @@
 # Cloudflare and Sentry runtime diagnostics
 
-This document records the read-only diagnostics used by `fastapi-sample` to separate application health from edge/control-plane observability.
+This reference defines how Cloudflare and Sentry evidence is interpreted.
+Historical observations and logging incidents belong in
+[incidents.md](incidents.md).
 
-## Cloudflare Zero Trust observer
+## Cloudflare observer
 
-The observer uses the canonical `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` pair. It never mutates Cloudflare state and never emits API tokens, Access Service Token secrets, or DSN credentials.
+The read-only observer uses `CLOUDFLARE_ACCOUNT_ID` and
+`CLOUDFLARE_API_TOKEN`. It never emits provider tokens, Access secrets or DSN
+credentials.
 
-For a dashboard-managed Cloudflare Tunnel (`config_src=cloudflare`), the API is authoritative for Public Hostname routes. A representative verified homelab observation is:
+For dashboard-managed Tunnels (`config_src=cloudflare`), Cloudflare API data is
+authoritative for Public Hostname routing. Reconcile the observed origin
+host/port against canonical topology `internalHost`/`internalPort`.
 
-```text
-Tunnel: name=nabla-truescale · status=healthy · config_src=cloudflare
-2fauth.albandrieu.com -> http://172.17.0.24:30081
-```
+A mismatch is exposure/configuration drift. It does **not** make an otherwise
+healthy application DOWN.
 
-The service-level reconciliation compares the observed Cloudflare origin host/port with the canonical topology `internalHost`/`internalPort`. A difference is configuration drift and is rendered as a warning/mismatch in exposure evidence. It does **not** make an otherwise healthy application DOWN.
+Useful bounded provider-level evidence includes:
 
-The cached Cloudflare summary also records bounded control-plane evidence for these API families:
+- Tunnel inventory and connector state;
+- Access Applications and reusable policy counts/assignments;
+- Service Token inventory and whether the configured client ID is present;
+- connector edge colo/version/start time/origin public IP when available.
 
-- Tunnel inventory: result/total count and request latency;
-- Access Applications: result/total count and request latency;
-- Access reusable policies: count, total count, aggregate application assignments and request latency;
-- Access Service Tokens: count, enabled count, request latency and a boolean indicating whether the configured `CF_ACCESS_CLIENT_ID` exists in the inventory.
+Provider API timeout, permission failure or incomplete inventory is
+**unknown/warning evidence**. It must not automatically mark the workload or
+global homelab platform DOWN/degraded.
 
-A verified diagnostic run on 2026-09-12 observed 3 tunnels, 68 Access applications, 7 reusable policies and 3 Service Tokens. The `2fauth.albandrieu.com` anonymous request was redirected/blocked by Access while the configured Service Token received HTTP 200. These values are observations, not hard-coded expectations.
+A live Service Token probe is stronger evidence than inventory alone because it
+proves the automated Access path.
 
-Cloudflare API/network/permission failures remain `unknown`/warning evidence. They must not, by themselves, mark the application or the global homelab platform DOWN or degraded.
+## Sentry routing
 
-### Additional useful Cloudflare evidence
+Telemetry delivery uses this selection:
 
-The Cloudflare API can also expose cloudflared connector/connection information such as connector count, edge colo, cloudflared version, connection start time and origin public IP. These are useful follow-ups for diagnosing a degraded Tunnel without exposing credentials. They should be sampled at provider level rather than once per service.
-
-Per-application Access policy decisions and path scope are also valuable: a host-wide `bypass`/Everyone policy is materially different from a narrowly scoped webhook exception. Reusable policies additionally expose how many applications use each policy.
-
-## Sentry routing: production versus homelab staging
-
-`fastapi-sample` selects Sentry using a local-first rule:
-
-1. if `SENTRY_LOCAL_DSN` is configured and reachable using its configured transport, use the local target;
-2. otherwise use `SENTRY_DSN` (or the repository cloud default);
+1. if `SENTRY_LOCAL_DSN` is configured and reachable, use it;
+2. otherwise use `SENTRY_DSN`;
 3. never derive self-hosted credentials from a SaaS DSN.
 
-This fallback applies to **telemetry delivery only**. The health board uses a
-different fail-closed rule: when `SENTRY_LOCAL_DSN` is explicitly configured,
-that local endpoint remains the health target even if telemetry delivery falls
-back to SaaS. A local Sentry outage must therefore be visible as an outage and
-must never become green merely because the SaaS intake is reachable.
+Health semantics are deliberately stricter: when `SENTRY_LOCAL_DSN` is
+configured, the local endpoint remains the health target even if telemetry falls
+back to SaaS. A local outage must not become green because SaaS is reachable.
 
-
-The intended staging DSN is HTTP because the current internal Sentry listener is plain HTTP on `172.17.0.24:9005`:
+Typical homelab configuration:
 
 ```env
 SENTRY_LOCAL_DSN=http://<local-public-key>@172.17.0.24:9005/<local-project-id>
+SENTRY_DSN=https://<cloud-public-key>@<cloud-ingest-host>/<cloud-project-id>
+SENTRY_ENVIRONMENT=homelab
+SENTRY_TRACES_SAMPLE_RATE=0.1
+SENTRY_PROFILES_SAMPLE_RATE=0.0
+SENTRY_ERROR_SAMPLE_RATE=1.0
+SENTRY_MAX_BREADCRUMBS=50
+SENTRY_SHUTDOWN_TIMEOUT=2
 ```
 
-Production should select the SaaS Sentry DSN. Startup logging emits only sanitized routing metadata (`target`, scheme, host, port and project ID), never the DSN public key or secret material. This makes it possible to confirm from FastAPI Cloud logs whether a deployment selected `cloud` or `local` without opening the Sentry project.
+Startup logs may expose only sanitized routing metadata: target, scheme, host,
+port and project ID. Never log DSN keys/secrets.
 
-For HTTPS DSNs, the reachability probe performs a real TLS handshake and enforces TLS 1.2 or newer. The local HTTP DSN does not enter this TLS branch.
+HTTPS DSN reachability performs real TLS verification; the internal HTTP DSN does
+not use that TLS branch.
 
-## Production log interpretation
+## Evidence depth
 
-### `io task` and `cpu task`
+- HTTP response proves transport/application response only.
+- Tunnel inventory proves a route is configured/observed.
+- Access policy evidence describes the authorization boundary.
+- Service Token live probe proves an automated identity path.
+- Topology-origin comparison detects drift.
+- Sentry DSN socket reachability proves transport only.
+- Sentry ingestion requires a controlled event ID plus downstream confirmation.
 
-These messages came from successful demonstration endpoints `/io_task` and `/cpu_task`. They were previously emitted with `logger.error(...)`, so Sentry's logging integration correctly promoted them to error events even though no failure occurred. Successful executions now log at INFO; real exceptions remain error events.
+Cloudflare and Sentry evidence remain independent from application availability.
 
-### `websocket: Connection timed out - goodbye`
+## WebSocket timeout correlation
 
-This exact message is emitted by the `websocket-client` library when its WebSocket application encounters a timeout and closes without a reconnect path. It is not a custom FastAPI message.
+A generic `websocket-client` timeout must not immediately be attributed to
+TrueNAS. Correlate its timestamp with integration-specific diagnostics containing
+method, sanitized WebSocket URI, TLS/proxy route, phase
+(`connect`/`authentication`/`call`), failure stage, exception type and
+elapsed time.
 
-In this repository the TrueNAS API adapter is the primary `websocket-client` consumer through `truenas_api_client`. The adapter already emits integration-specific diagnostics containing the method, sanitized WebSocket URI, TLS verification setting, proxy route, phase (`connect`, `authentication`, `call`), classified failure stage, exception type and elapsed time. Correlate those warnings by timestamp with a generic `websocket` timeout before concluding that the timeout was TrueNAS.
-
-Sentry events from logger `websocket` containing a timeout are retained rather than globally suppressed. `before_send` adds non-secret tags/context identifying `websocket-client` and the transport-timeout stage, with a hint to correlate the event with the integration-specific TrueNAS diagnostic. This preserves the production signal while making the issue actionable.
-
-The application cannot prove from the DSN socket probe alone that a particular event has been stored by Sentry. Confirmation of an individual event still requires querying the selected Sentry project or generating a controlled event and locating its event ID. The runtime logs and sanitized destination metadata do establish which Sentry intake/project the deployment selected.
-
-## Operator semantics
-
-Cloudflare, Sentry, TrueNAS and HTTP evidence are independent layers:
-
-- HTTP 2xx/3xx proves application transport response;
-- Cloudflare Tunnel evidence proves a route is configured/observed;
-- Access policy evidence describes the authorization boundary;
-- a Service Token live probe proves the automated identity path works;
-- topology-origin comparison detects configuration drift;
-- provider API timeout/permission failures mean “unverified”, not service DOWN;
-- Sentry transport health describes telemetry delivery, not application availability.
+Retain the generic Sentry event as transport evidence; tag/context enrichment
+should remain sanitized.
