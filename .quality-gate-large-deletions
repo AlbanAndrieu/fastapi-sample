@@ -1,10 +1,4 @@
-# Explicitly reviewed large refactors for this branch.
-# The quality gate only honors this file when it is changed relative to the comparison base.
-nabla/api/homelab_health_evidence.py
-nabla/api/platform_health.py
-scripts/pfsense/diagnose-recover.sh
-nabla/api/homelab_health.py
-tests/unit/test_homelab_health.py
-docs/engineering-roadmap.md
-docs/homelab-security-roadmap.md
-docs/pfsense-webconfigurator-recovery.md
+# One-shot acknowledgements for intentional large deletions.
+# Format: <exact-comparison-base-commit-sha> <repository-relative-path>
+# A stale entry cannot acknowledge a future branch based on another commit.
+22bf70ae2ea7a15485e97b7cb4c31e806c059131 README.md

@@ -86,7 +86,11 @@ def test_agent_quality_gate_wraps_tests_and_canonical_gate() -> None:
     assert "tests/unit/test_agent_publication_proof.py" in text
     assert "tests/unit/test_ci_scope.py" in text
     assert "tests/unit/test_ci_performance_budget.py" in text
+    assert "tests/unit/test_docs_contract.py" in text
+    assert "tests/unit/test_large_deletion_ack_contract.py" in text
     assert "tests/unit/test_workflow_security.py" in text
+    assert "documentation relative-link contract" in text
+    assert "python3 scripts/check_docs_links.py" in text
     assert "dependency-backed tests are still required" in text
     assert "full_pytest_impact" in text
     assert "quality_contract_impact" in text
