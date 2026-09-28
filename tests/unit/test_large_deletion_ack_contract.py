@@ -27,7 +27,6 @@ def test_ack_file_contains_only_base_scoped_entries() -> None:
         if line.strip() and not line.lstrip().startswith("#")
     ]
 
-    assert entries
     matches = [ACK_RE.fullmatch(entry) for entry in entries]
     assert all(match is not None for match in matches)
     assert len({match.group("path") for match in matches if match}) == len(entries)

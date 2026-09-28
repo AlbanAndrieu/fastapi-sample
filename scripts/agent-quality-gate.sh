@@ -44,7 +44,7 @@ Environment:
   QUALITY_LOG_TAIL                 failure log lines to print (default: 50, capped at 80)
   QUALITY_FIX_PASSES               maximum pre-commit convergence passes (default: 6)
   QUALITY_ALLOW_LARGE_DELETION=1   acknowledge all intentional large truncations/deletions
-  QUALITY_LARGE_DELETION_ACK_FILE  reviewed-path acknowledgement file (default: .quality-gate-large-deletions)
+  QUALITY_LARGE_DELETION_ACK_FILE  base-scoped acknowledgement file (default: .quality-gate-large-deletions)
 EOF_HELP
         exit 0
         ;;
