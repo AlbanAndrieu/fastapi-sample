@@ -470,33 +470,81 @@
     max-height: calc(100dvh - 0.7rem);
   }
 
-  .service-filter-global-heading,
-  .service-filter--global .service-filter-control {
-    grid-template-columns: 1fr;
-  }
-
   .service-filter-global-heading {
     display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
   }
 
   .service-filter-heading-actions {
-    justify-content: space-between;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
   }
 
   .service-filter-scope {
-    justify-self: start;
+    display: none;
+  }
+
+  .service-filter-density-toggle {
+    min-height: 44px;
+  }
+
+  .service-filter--global .service-filter-control {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .service-filter--global .service-filter-control input {
+    grid-column: 1 / -1;
   }
 
   .service-filter-health-summary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: flex;
+    gap: 0.3rem;
+    margin-bottom: 0.45rem;
+    padding-bottom: 0.15rem;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+  }
+
+  .service-filter-health-chip {
+    flex: 0 0 auto;
+    min-width: 6.5rem;
+    min-height: 44px;
+    scroll-snap-align: start;
   }
 
   .service-filter-facets {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.4rem;
+    padding-bottom: 0.15rem;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+  }
+
+  .service-filter-facet {
+    flex: 0 0 min(72vw, 11.5rem);
+    scroll-snap-align: start;
   }
 
   .service-filter-facet select {
-    min-height: 2.35rem;
+    min-height: 44px;
+  }
+
+  .service-filter-active {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: thin;
+  }
+
+  .service-filter-active-chip {
+    flex: 0 0 auto;
+    min-height: 44px;
   }
 
   .service-filter--compact .service-filter-health-chip {

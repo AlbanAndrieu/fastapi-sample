@@ -302,14 +302,9 @@
     border-radius: 8px;
   }
 
-  .service-filter-control,
   .runtime-topology-grid,
   .sickz-pfsense-ports {
     grid-template-columns: 1fr;
-  }
-
-  .service-filter input {
-    grid-column: auto;
   }
 
   .runtime-topology,

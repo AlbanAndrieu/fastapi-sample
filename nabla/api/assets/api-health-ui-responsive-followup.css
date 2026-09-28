@@ -455,8 +455,9 @@ main {
 }
 
 @media (max-width: 480px) {
-  .service-filter--global .service-filter-control {
-    grid-template-columns: minmax(0, 1fr) auto;
+  .service-filter--global:not(.service-filter--compact)
+    .service-filter-control {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .service-filter--global .service-filter-control input {
@@ -543,11 +544,11 @@ main {
 
 @media (max-width: 480px) {
   .service-filter-heading-actions {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
   }
 
   .service-filter-health-summary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.28rem;
   }
 
   .service-detail-drawer {
