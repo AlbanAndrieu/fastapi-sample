@@ -28,37 +28,51 @@ exceptions here rather than creating additional todo or refactoring documents.
 
 ## Dependency automation — Renovate / Mend
 
-- [x] Make Renovate the single producer of routine dependency-version PRs; remove
-  `.github/dependabot.yml` so Dependabot version updates no longer compete for
-  the same manifests and lockfiles. Keep GitHub Dependabot Alerts enabled as the
-  vulnerability-detection source.
+- [x] Make Renovate the single producer of routine dependency-version PRs; keep
+  `.github/dependabot.yml` absent so Dependabot version updates do not compete
+  for the same manifests and lockfiles.
+- [x] Keep GitHub Dependabot Alerts **and Dependabot Security Updates** as the
+  current CVE detection/remediation path. Disable Renovate
+  `vulnerabilityAlerts` and experimental `osvVulnerabilityAlerts` while
+  Dependabot owns security PRs, avoiding duplicate vulnerability-fix branches.
 - [x] Bound Renovate noise with `prConcurrentLimit=2`,
-  `branchConcurrentLimit=2`, grouped runtime updates, monthly grouped
-  `devDependencies`, monthly GitHub Actions updates and `rebaseWhen=auto`.
+  `branchConcurrentLimit=2`, `prHourlyLimit=1` and `commitHourlyLimit=1`.
+  The commit limit also caps automatic branch creation/rebases that would trigger
+  CI; manual rebase requests remain operator-controlled.
+- [x] Use `rebaseWhen=conflicted` so ordinary Renovate branches are regenerated
+  only when they actually conflict with `master`. Keep `rebaseLabel=rebase`
+  as the explicit escape hatch for an operator-requested rebase/retry.
+- [x] Combine patch/minor release proposals for the same dependency, group npm
+  runtime updates weekly, group `devDependencies` monthly, and group GitHub
+  Actions plus the opt-in pre-commit manager monthly. Keep lockfile maintenance
+  enabled monthly rather than disabling it so stale transitive locks still get a
+  periodic refresh.
 - [x] Use a seven-day dependency cooldown for ordinary releases with
   `minimumReleaseAge=7 days`, `internalChecksFilter=strict` and
   `minimumReleaseAgeBehaviour=timestamp-optional` so registries without release
-  timestamps do not deadlock indefinitely. Renovate security updates bypass this
-  cooldown and remain immediate.
-- [ ] Install the hosted Mend Renovate GitHub App for this repository and
-  `nabla-compose`, using selected-repository access. Keep the current self-hosted
-  GitHub Actions workflow only until the hosted app has successfully parsed the
-  existing `renovate.json` and produced a normal dry operational cycle.
-- [ ] Grant the hosted Renovate identity read access to Dependabot alerts and
-  prove one vulnerability-alert reconciliation path. Only after that proof,
-  disable Dependabot Security Updates so security-remediation PR ownership also
-  becomes Renovate-only while Dependabot Alerts remain enabled.
+  timestamps do not deadlock indefinitely.
+- [x] Keep automerge disabled while hosted Actions capacity/required checks are
+  not authoritative. Remove the historical Jira/cryptography automerge
+  exceptions so the policy has no hidden bypass.
+- [ ] Install/validate the hosted Mend Renovate GitHub App for this repository
+  and `nabla-compose`. The current self-hosted Renovate workflow has already
+  failed to mint its GitHub App installation token, so it is not accepted as an
+  operational security-remediation path.
 - [ ] After hosted-app acceptance, remove `.github/workflows/renovate.yml` so
-  Renovate maintenance consumes no GitHub Actions runner credits.
-- [ ] Re-enable selective automerge only after required quality checks and branch
-  protection are authoritative again: runtime patch updates may automerge after
-  green required checks; grouped `devDependencies` patch/minor updates may also
-  automerge after the seven-day cooldown and green checks. Keep runtime minor,
-  major, Docker and GitHub Actions updates manual unless a narrower policy is
-  explicitly accepted.
-- [ ] Acceptance: no duplicate Dependabot/Renovate version PRs, no dependency-bot
-  GitHub Actions runner consumption, security PRs are not delayed by the
-  seven-day cooldown, and automerge never bypasses required validation.
+  routine dependency maintenance consumes no GitHub Actions runner credits.
+- [ ] If security-remediation ownership is later moved from Dependabot to
+  Renovate, first grant the hosted Renovate identity read access to Dependabot
+  alerts, prove one vulnerability-alert reconciliation, then disable Dependabot
+  Security Updates and enable Renovate `vulnerabilityAlerts`. Do not enable
+  OSV-based PRs in parallel unless duplicate handling is intentionally accepted.
+- [ ] Re-enable selective automerge only after its merge evidence is trustworthy.
+  At that point use `rebaseWhen=auto` for the specific automerged rules (or
+  otherwise ensure they are tested against the current base); keep the global
+  low-churn policy at `conflicted` for manually reviewed dependency PRs.
+- [ ] Acceptance: no duplicate Dependabot/Renovate version or security PRs,
+  ordinary Renovate activity is limited to one bot commit/PR per hour, manual
+  rebase remains available through the `rebase` label, and monthly lockfile
+  maintenance does not create uncontrolled CI churn.
 
 ## Catalog/security-graph migration decision — direct cutover
 
