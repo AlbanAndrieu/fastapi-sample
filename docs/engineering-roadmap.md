@@ -178,6 +178,8 @@ Do not expand these back into historical checklists unless a regression occurs:
 - Renovate is low-churn, automerge is disabled and duplicate CVE PR ownership is
   avoided;
 - CI scopes are `none`, `quality` and fail-closed `full`;
+- changed Markdown links are validated locally without network access;
+- large-deletion acknowledgements are bound to the exact comparison-base SHA;
 - external GitHub Actions are pinned to immutable SHAs;
 - Vercel Git deployments are repository-disabled;
 - health-board modules already split for maintainability remain covered by tests.

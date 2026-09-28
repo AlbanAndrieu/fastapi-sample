@@ -95,7 +95,7 @@ must remain Draft until it is green.
 
 Before changing behavior, inspect the relevant files:
 
-- `README.md` — project usage and architecture
+- `README.md` — concise project quick start and canonical runtime entry points
 - `pyproject.toml` — Python version, dependencies, and tool configuration
 - `nabla/config_settings.py` — application settings
 - `nabla/main.py` — FastAPI application
@@ -218,7 +218,7 @@ checks when application packaging is required.
 
 `--fix` is intentionally convergent: deterministic pre-commit rewrites are retried for a small bounded number of passes and the rewritten editing tree is then validated. Do not publish a formatter-generated intermediate commit merely to discover the next deterministic rewrite.
 
-The strict agent gate checks branch freshness, suspicious destructive truncations or complete large-file deletions, executable bits for shebang scripts, modified-Python code-size limits, release/version consistency, and the complete pytest suite when Python/runtime/test dependencies are affected. Non-Python documentation/configuration-only changes may skip the full pytest suite after the canonical gate has validated them. When the gate script itself changed, focused shfmt/ShellCheck/bashate hooks run before pytest so gate defects fail early.
+The strict agent gate checks branch freshness, base-scoped acknowledgements for suspicious destructive truncations or complete large-file deletions, repository-local links in changed Markdown, executable bits for shebang scripts, modified-Python code-size limits, release/version consistency, and the complete pytest suite when Python/runtime/test dependencies are affected. Non-Python documentation/configuration-only changes may skip the full pytest suite after the canonical gate has validated them. When the gate script itself changed, focused shfmt/ShellCheck/bashate hooks run before pytest so gate defects fail early.
 
 The canonical gate remains the shared formatter/linter/security orchestrator.
 Normal mode is dirty-tree aware for iterative validation;

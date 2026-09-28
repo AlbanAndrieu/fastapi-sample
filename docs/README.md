@@ -1,6 +1,8 @@
 # Documentation
 
 Documentation is organized by **operator task**, not implementation history.
+The root [README](../README.md) is intentionally limited to quick start and
+canonical entry points.
 
 ## Canonical documents
 

@@ -1,549 +1,147 @@
-<!-- markdown-link-check-disable-next-line -->
+# fastapi-sample
 
-# [![Nabla](https://nabla.albandrieu.com/assets/nabla/nabla-4.png)](https://github.com/AlbanAndrieu/fastapi-sample) fastapi-sample
+FastAPI reference service for REST APIs, MCP/A2A integrations and homelab
+observability.
 
-FastAPI reference service for REST APIs, MCP/A2A, search integrations and
-homelab observability. The canonical runtime is deployed on
-[FastAPI Cloud](https://fastapi-sample.fastapicloud.dev).
+- **Production:** <https://fastapi-sample.fastapicloud.dev>
+- **Documentation:** [docs/README.md](docs/README.md)
+- **Active roadmap:** [docs/engineering-roadmap.md](docs/engineering-roadmap.md)
+- **Incident register:** [docs/incidents.md](docs/incidents.md)
 
-Documentation map: [docs/README.md](docs/README.md).
+FastAPI Cloud is the canonical production runtime. Automatic Vercel Git
+deployments are disabled.
 
-# Table of contents
+## Requirements
 
-<!-- markdown-link-check-disable -->
+- Python 3.13
+- [uv](https://docs.astral.sh/uv/)
+- Node.js 24 + npm 10 for repository tooling
+- Docker only for optional local infrastructure
 
-// spell-checker:disable
+Install repository hooks after cloning:
 
-<!-- toc -->
+```bash
+mise run hooks
+```
 
-- [Initialize](#initialize)
-  - [Requirements](#requirements)
-  - [Install fastapi-sample as a developer](#install-fastapi-sample-as-a-developer)
-    - [Using uv](#using-uv)
-    - [Cypher Uncypher env variable](#cypher-uncypher-env-variable)
-  - [Getting started](#getting-started)
-    - [Logfire observability](#logfire-observability)
-    - [MCP clients (e.g. OpenRAG) and A2A](#mcp-clients-eg-openrag-and-a2a)
-  - [Vite UI](#vite-ui)
-  - [Test JWT](#test-jwt)
-  - [Test](#test)
-  - [Jupiter](#jupiter)
-  - [User guide](#user-guide)
-    - [Installation and commands](#installation-and-commands)
-    - [Database demo](#database-demo)
-- [Create PostgreSQL postgres on pg-gra.albandrieu.com with Alembic](#create-postgresql-postgres-on-pg-graalbandrieucom-with-alembic)
-  - [Create PostgreSQL fastapi_sample_gitlab on pg-gra.albandrieu.com by hand](#create-postgresql-fastapi_sample_gitlab-on-pg-graalbandrieucom-by-hand)
-    - [Vercel integration](#vercel-integration)
-    - [Temporal demo](#temporal-demo)
-    - [Defect Dojo Parameters](#defect-dojo-parameters)
-  - [Quality check](#quality-check)
-    - [Sentry observability](#sentry-observability)
-  - [Utility scripts](#utility-scripts)
-  - [Installation and commands](#installation-and-commands-1)
-  - [Update README.md](#update-readmemd)
+## Local development
 
-<!-- tocstop -->
-
-// spell-checker:enable
-
-<!-- markdown-link-check-enable -->
-
-# [Initialize](#table-of-contents)
-
-## [Requirements](#table-of-contents)
-
-Required tooling:
-
-- Python 3.13;
-- [uv](https://docs.astral.sh/uv/) for dependency and virtual-environment
-  management;
-- Node.js 24 and npm 10 for repository tooling;
-- Docker only for optional local infrastructure.
-
-Install `pre-commit` through the locked Python environment; do not install a
-second global copy.
-
-<!-- markdown-link-check-disable-next-line -->
-
-- [pre-commit](http://pre-commit.com)
-
-## [Install fastapi-sample as a developer](#table-of-contents)
-
-### Using uv
-
-Install dependencies from the lockfile into `.venv`, then run CLI tools through `uv run` so they use that environment (avoids `ModuleNotFoundError` for packages like `pybreaker` when a global `fastapi` binary points at another Python).
+Install the locked environment and start the API:
 
 ```bash
 uv sync --frozen
-uv run pre-commit install
 uv run fastapi dev --port 8080
 ```
 
-Use the complete ASGI entrypoint when testing MCP and lifespan resources:
+Use the complete ASGI entrypoint when testing lifespan, MCP or A2A resources:
 
 ```bash
 uv run uvicorn server_all:app --reload --host 0.0.0.0 --port 8080
-uv run pytest --no-cov
 ```
 
-Keep `UNLEASH_ENABLED=false` for local development unless
-`UNLEASH_INSTANCE_ID`, `UNLEASH_API_URL` and `UNLEASH_APP_NAME` are configured
-from the GitLab feature-flag settings. Missing or placeholder credentials no
-longer start the Unleash polling thread.
+Useful local endpoints:
 
-### Cypher Uncypher env variable
+- API docs: <http://127.0.0.1:8080/docs>
+- OpenAPI: <http://127.0.0.1:8080/openapi.json>
+- health: <http://127.0.0.1:8080/health>
+- metrics: <http://127.0.0.1:8080/metrics>
+- MCP: <http://127.0.0.1:8080/mcp>
+
+Current entry points and dashboards are documented in
+[docs/entrypoints-and-dashboards.md](docs/entrypoints-and-dashboards.md).
+
+## Validation
+
+Run focused tests first, then converge the repository quality gate:
 
 ```bash
-# Cypher
-# DOTENV
-cp .env.secrets secrets.env.sops
-sops -e -i secrets.env.sops
+uv run --no-sync pytest -q tests/unit/<relevant-test>.py
+
+bash scripts/agent-quality-gate.sh --fix
+bash scripts/agent-quality-gate.sh
 ```
+
+Before publication, use the canonical clean-tree proof:
 
 ```bash
-# Uncypher
-# YAML
-sops -d secrets-enc.yaml
-# DOTENV
-sops -d secrets.env.sops > .env.sops.secrets
-
-If no mise
-source .env.secrets
+bash scripts/agent-publish.sh
 ```
 
-## [Getting started](#table-of-contents)
-
-```mermaid
-sequenceDiagram
-    actor User as User Client
-    participant HAProxy as HAProxy
-    participant Traefik as Traefik
-    participant KrakenD as KrakenD
-    participant API as sample API Service
-
-    autonumber
-    User ->> HAProxy: HTTP Request ( https://krakend.nabla.com/sample/threads)
-    HAProxy ->> Traefik: Forward Request (Add jm-client-ip)
-    Traefik ->> Traefik: Resolve (krakend.nabla.com -> kraken.service.gra.uat.consul -> IP and PORT)
-    Traefik ->>+ KrakenD: Forward Request (resolve kraken.service.gra.uat.consul)
-    alt is jwt
-    KrakenD ->> KrakenD: Check its Config (Get JWT public key URL)
-    KrakenD ->> Traefik: New Request : Get JWT public key (resolve keycloak.service.gra.uat.consul)
-    Traefik ->> Traefik: Resolve (keycloak.service.gra.uat.consul -> IP and PORT)
-    Traefik ->>+ Keycloak: Get JWT public key
-    Keycloak -->>- KrakenD: Forward Response (JWT public key)
-    KrakenD ->> KrakenD: Valid Token (using JWT public key)
-    end
-    KrakenD ->> KrakenD: Check its config  (sample/threads -> sample.service.gra.uat.consul/threads)
-    KrakenD ->>- Traefik: New Request (https://sample.service.gra.uat.consul/threads)
-    Traefik ->> Traefik: Resolve (sample.service.gra.uat.consul -> IP and PORT)
-    Traefik ->>+ API: Forward Request (https://sample.service.gra.uat.consul/threads)
-    API -->>- KrakenD: Response (A json)
-    KrakenD -->> Traefik: Forward Response
-    Traefik -->> HAProxy: Forward Response
-    HAProxy -->> User: HTTP Response
-
-```
-
-Fix redis cluster : All slots are not covered after query all startup_nodes
-
-```bash
-sudo service redis-server start
-
-redis-cli -c -h localhost -p 6379
-localhost:6379> PING
-PONG
-
-# cluster-enabled yes
-redis-cli --cluster fix 127.0.0.1:6379
-
-# export REDIS_HOST=localhost
-```
-
-```bash
-make up-uvicorn
-
-curl --request GET http://127.0.0.1:8080/ping
-curl --request GET http://127.0.0.1:8080/metrics
-
-curl --request GET http://127.0.0.1:8080/v1/external-api
-```
-
-### Logfire observability
-
-Pydantic Logfire tracing is enabled only when `LOGFIRE_TOKEN` is present. Create
-the write token in the `nabla/fastapi-sample` project and store it as a secret in
-FastAPI Cloud; never commit it. The optional `LOGFIRE_ENVIRONMENT` value makes
-production and local telemetry easier to filter.
-
-```bash
-export LOGFIRE_TOKEN="<write-token>"
-export LOGFIRE_ENVIRONMENT="production"
-```
-
-For local OAuth authentication against the EU region:
-
-```bash
-logfire --base-url='https://logfire-eu.pydantic.dev' auth
-logfire --base-url='https://logfire-eu.pydantic.dev' projects use \
-  --org 'nabla' 'fastapi-sample'
-```
-
-Request and response headers, parsed request values, health checks, and metrics
-are not sent to Logfire. Without a token, the application starts normally and
-uses its existing OpenTelemetry configuration.
-
-### MCP clients (e.g. OpenRAG) and A2A
+The agent gate selects the smallest safe dependency scope:
 
-See [Application entry points and local dashboards](docs/entrypoints-and-dashboards.md) for the current ASGI, OpenAPI, MCP and Compose URLs.
+- `none` for documentation-only changes;
+- `quality` for repository/CI contracts;
+- `full` for application, runtime, dependency-backed test or unknown changes.
 
-- **Outbound MCP**: set `MCP_CLIENTS` to a JSON array of stdio servers, for example:
+During the explicit no-GitHub-Actions/no-credit mode, local validation is the
+merge evidence. Do not dispatch remote workflows merely to replace a missing
+local proof.
 
-  ```json
-  [
-    {
-      "name": "openrag",
-      "command": "uvx",
-      "args": ["openrag-mcp"],
-      "env": {
-        "OPENRAG_API_KEY": "your-key",
-        "OPENRAG_URL": "http://localhost:3000"
-      }
-    }
-  ]
-  ```
+## Runtime and diagnostics
 
-  With a server named `openrag`, the deep agent gains LangChain tools `openrag_search` and `openrag_chat` that call MCP tools `openrag_search` / `openrag_chat`.
+Health evidence intentionally separates:
 
-- **Ops HTTP** (optional lock): set `MCP_OPS_KEY` and send header `X-MCP-Ops-Key` for `GET /v1/mcp/ops/servers`, `GET /v1/mcp/ops/servers/{name}/tools`, `POST /v1/mcp/ops/servers/{name}/call`.
+1. DNS/TCP/TLS transport;
+2. HTTP/API application acceptance;
+3. authentication/authorization;
+4. workload state;
+5. optional provider/telemetry evidence.
 
-- **A2A**: set `A2A_ENABLED=true` and install deps from the `api-ai` group. The app mounts JSON-RPC at `/a2a` and the agent card at `/a2a/.well-known/agent-card.json`. Set `A2A_PUBLIC_BASE_URL` so the card lists a public JSON-RPC URL (e.g. `https://api.example.com`).
+Do not infer a global outage from one missing layer.
 
-[docs](http://127.0.0.1:8080/docs)
-[metrics](http://127.0.0.1:8080/metrics)
-[openapi](http://127.0.0.1:8080/openapi.json)
-[mcp](http://127.0.0.1:8080/mcp)
+Start with:
 
-```bash
-export OTEL_SDK_DISABLED=true
+- [documentation index](docs/README.md)
+- [incident register](docs/incidents.md)
+- [platform diagnostics model](docs/platform-service-diagnostics-model.md)
+- [local runtime dependency diagnostic](docs/local-runtime-dependency-report.md)
+- [pfSense 502 recovery](docs/pfsense-webconfigurator-recovery.md)
+- [Cloudflare/Sentry diagnostics](docs/cloudflare-sentry-runtime-diagnostics.md)
 
-export DD_SERVICE="fastapi-sample"
-export DD_ENV="nabla"
-export DD_LOGS_INJECTION=true
-export DD_TRACE_ENABLED=true
-export DD_TRACE_SAMPLE_RATE="1"
-export DD_PROFILING_ENABLED=true
-export DD_APPSEC_ENABLED=true
-export DD_IAST_ENABLED=true
-export DD_APPSEC_SCA_ENABLED=true
-export DD_GIT_COMMIT_SHA="$(git rev-parse HEAD)"
-# git config --get remote.origin.url
-export DD_GIT_REPOSITORY_URL="$(git config --get remote.origin.url)"
+## Observability and integrations
 
-make up-gunicorn
+Detailed setup belongs in focused references rather than this README:
 
-DEBUG=1 uv run uvicorn server_all:app --reload --workers 1 --host 0.0.0.0 --port 8080
-```
+- MCP/A2A: [docs/mcp-integrations.md](docs/mcp-integrations.md)
+- Cloudflare/Sentry:
+  [docs/cloudflare-sentry-runtime-diagnostics.md](docs/cloudflare-sentry-runtime-diagnostics.md)
+- health environment:
+  [docs/health-monitoring-environment.md](docs/health-monitoring-environment.md)
+- public ingress:
+  [docs/truenas-public-ingress.md](docs/truenas-public-ingress.md)
+- Kubernetes hardening:
+  [docs/kubernetes-zero-trust-hardening.md](docs/kubernetes-zero-trust-hardening.md)
 
-`DD_TRACE_ENABLED` and `DD_PROFILING_ENABLED` are independent and default to
-`false`. The profiler is started and stopped with the FastAPI lifespan. The
-application does not set a global Datadog user or send PII; user context should
-only be attached later from an authenticated request identity.
+Observability integrations are optional. Missing Datadog, Sentry, Logfire,
+Cloudflare or Prometheus evidence must not become an application liveness
+dependency unless explicitly designed as such.
 
-```bash
-uv sync
-uv run fastapi dev --port 8080
-```
+## Secrets and local configuration
 
-[health](http://127.0.0.1:8080/health)
+Never commit credentials, tokens, DSNs or decrypted environment files.
 
-```bash
-sudo lsof -ni:8080 -sTCP:ESTABLISHED
-netstat -tlnp | grep 8080
-sudo lsof -i :8080
-```
+Repository agents must not edit `.env`, `.env.local` or `.env.secrets`
+unless explicitly requested. Keep SOPS/decrypted material outside commits and
+follow the repository policy in [AGENTS.md](AGENTS.md).
 
-## [Vite UI](#table-of-contents)
+## Deployment
 
-```bash
-cd vue-client/
-npm run dev
-```
+FastAPI Cloud is the supported production target. Release/deployment follow-up is
+tracked in the [engineering roadmap](docs/engineering-roadmap.md).
 
-## [Test JWT](#table-of-contents)
+Vercel is currently disabled for Git deployments because the Python dependency
+graph is not an appropriate Vercel deployment target. The remaining project-side
+Git connection is tracked as a roadmap item.
 
-Get the public key from [keycloak](https://account-ksdifu78gwc45gv1s0jshgtr764jnb79.lexsportiva.tech/realms/nabla) or [keycloak-uat](http://account.int.albandrieu.com/realms/nabla)
+## Documentation policy
 
-or [keycloak-dev](http://account.int.albandrieu.com/realms/nabla) [keycloak-admin](http://keycloak-admin.albandrieu.com/realms/nabla/)
+The root README is intentionally a quick start, not an operational archive.
 
-and put it to key.pem
+- open work → [engineering roadmap](docs/engineering-roadmap.md)
+- dated failures → [incident register](docs/incidents.md)
+- reusable commands → focused runbooks under `docs/`
+- stable architecture/security rules → focused reference documents
 
-Get the bearer token [valid-jwt](https://fastapi-sample.fastapicloud.dev/en/api/valid-jwt)
-
-Go on [back](https://back.albandrieu.com/welcome)
-
-Get from cookie, access_token
-
-Validate JWT [validate-jwt](https://jwt.io/)
-
-```bash
-# Go on back https://back.albandrieu.com/welcome
-# Get from cookie access_token
-# export JWT_TOKEN=$(curl -k "http://fastapi-sample.fastapicloud.dev/en/api/valid-jwt")
-# export JWT_TOKEN=$(curl -k "https://nabla.front.albandrieu.com/en/api/valid-jwt")
-
-# http://keycloak-admin.albandrieu.com/realms/nabla/
-
-export JWT_TOKEN="eyJhbGcXXX"
-
-curl -k -H "Authorization: Bearer $JWT_TOKEN" -X GET https://fastapi-sample.albandrieu.com/
-
-# token is expired
-#  {"Hello":"World"}
-
-curl -k -i -X POST -H "Origin: https://nabla.front.albandrieu.com" \
-    -H 'Content-Type: text/plain' \
-    -H "Authorization: Bearer $JWT_TOKEN" \
-    --data "{}" \
-    "https://authorization.albandrieu.com/v1/token/upgrade"
-```
-
-## [Test](#table-of-contents)
-
-```bash
-curl -k -fsSL https://fastapi-sample.albandrieu.com/
-curl -k -v -I -H "X-Demo: test" -X GET  https://fastapi-sample.albandrieu.com/
-curl -k -H "X-Demo: test" -X GET https://fastapi-sample.albandrieu.com/ | jq
-curl -k -verbose -I -H "X-Forwarded-For: 1.1.1.1" -H 'Content-Type: application/json' -X GET  http://fastapi-sample.albandrieu.com/
-```
-
-[io_task]\[http://0.0.0.0:8080/io_task)
-
-Result available on [pyroscope](http://localhost:4040/?query=process_cpu%3Acpu%3Ananoseconds%3Acpu%3Ananoseconds%7Bservice_name%3D%22fastapi-sample%22%7D&rightQuery=block%3Acontentions%3Acount%3A%3A%7Bservice_name%3D%22pyroscope%22%7D&leftQuery=block%3Acontentions%3Acount%3A%3A%7Bservice_name%3D%22pyroscope%22%7D&from=now-30m)
-
-## [Jupiter](#table-of-contents)
-
-[gitlab-data/data-science](https://gitlab.com/gitlab-data/data-science/-/tree/main?ref_type=heads)
-
-## User guide
-
-### Installation and commands
-
-**Python**
-
-```bash
-python3 ./nabla/tools/get_data.py
-
-python3 ./my-app/src/get_redis.py
-```
-
-### Database demo
-
-# Create PostgreSQL postgres on pg-gra.albandrieu.com with Alembic
-
-```bash
-# Create/Upgrade schema
-alembic upgrade head
-alembic downgrade -1
-```
-
-## Create PostgreSQL fastapi_sample_gitlab on pg-gra.albandrieu.com by hand
-
-```bash
-psql -h pg-gra.albandrieu.com -U postgres
-CREATE USER fastapisample WITH PASSWORD 'XXX';
-ALTER ROLE fastapisample WITH LOGIN;
-CREATE USER back WITH PASSWORD 'XXX';
-ALTER ROLE back WITH LOGIN;
--- create database fastapi_sample_gitlab with owner fastapisample encoding 'UTF8';
-create database fastapi_sample_dev with owner fastapisample encoding 'UTF8';
-# ALTER USER fastapisample PASSWORD 'XXX';
-GRANT ALL ON SCHEMA public TO fastapisample;
-GRANT ALL ON TABLE public.note TO fastapisample;
-GRANT ALL ON TABLE public.sensor_reading TO fastapisample;
-GRANT ALL ON TABLE public."user" TO fastapisample;
-GRANT SELECT, USAGE, UPDATE ON SEQUENCE public.sensor_reading_id_seq TO fastapisample;
--- GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.note TO fastapisample;
-
-```
-
-```
-# for alembic
-DB_USER="postgres"
-DB_PASS="password-reset-XXX" # nosec
-# otherwise classic connection
-DB_URL="postgresql://postgres:password-reset-XXX@127.0.0.1:5432/fastapi_sample_dev" # nosec
-# Remove asyncpg for alembic to be able to init DB as fastapisample
-DB_URL="postgresql://fastapisample:password-reset-XXX@127.0.0.1:5432/fastapi_sample_dev" # nosec
-```
-
-### Vercel integration
-
-FastAPI Cloud is the canonical Python runtime:
-<https://fastapi-sample.fastapicloud.dev>.
-
-Automatic Vercel Git deployments are currently disabled because the full Python
-dependency graph is not an appropriate Vercel deployment target. The repository
-enforces `git.deploymentEnabled=false` in `vercel.json`; GitHub Actions also
-contain no Vercel build/deploy step.
-
-The remaining project-side Git connection must be disconnected in Vercel before
-the external Vercel GitHub App can be considered fully disabled. See
-[the engineering roadmap](docs/engineering-roadmap.md) for the acceptance proof.
-
-Use FastAPI Cloud directly for API, WebSocket and MCP streaming behavior.
-
-### Temporal demo
-
-[Temporal](https://github.com/temporalio/samples-python/tree/main)
-
-```bash
-uv sync --group temporal
-uv run python nabla/temporalio/activities.py
-uv run python worker.py
-uv run python starter.py
-```
-
-### Defect Dojo Parameters
-
-[dd_product](http://defectdojo.service.gra.uat.consul/api/v2/products/)
-
-[dd_product_types](http://defectdojo.service.gra.uat.consul/api/v2/product_types/)
-
-All parameters need to be provided as environment variables:
-
-| Parameter                           | Re-import findings | Import languages | Remark                                                                                            |
-| ----------------------------------- | :----------------: | :--------------: | ------------------------------------------------------------------------------------------------- |
-| DD_URL                              |     Mandatory      |    Mandatory     | Base URL of the DefectDojo instance                                                               |
-| DD_API_KEY                          |     Mandatory      |    Mandatory     | Shall be defined as a secret, eg. a protected variable in GitLab or an encrypted secret in GitHub |
-| DD_PRODUCT_TYPE_NAME                |     Mandatory      |    Mandatory     | If a product type with this name does not exist, it will be created                               |
-| DD_PRODUCT_NAME                     |     Mandatory      |    Mandatory     | If a product with this name does not exist, it will be created                                    |
-| DD_ENGAGEMENT_NAME                  |     Mandatory      |        -         | If an engagement with this name does not exist for the given product, it will be created          |
-| DD_ENGAGEMENT_TARGET_START          |      Optional      |        -         | Format: YYYY-MM-DD, default: `today`. The target start date for a newly created engagement.       |
-| DD_ENGAGEMENT_TARGET_END            |      Optional      |        -         | Format: YYYY-MM-DD, default: `2999-12-31`. The target start date for a newly created engagement.  |
-| DD_TEST_NAME                        |     Mandatory      |        -         | If a test with this name does not exist for the given engagement, it will be created              |
-| DD_TEST_TYPE_NAME                   |     Mandatory      |        -         | From DefectDojo's list of test types, eg. `Trivy Scan`                                            |
-| DD_FILE_NAME                        |      Optional      |    Mandatory     |                                                                                                   |
-| DD_ACTIVE                           |      Optional      |        -         | Default: `true`                                                                                   |
-| DD_VERIFIED                         |      Optional      |        -         | Default: `true`                                                                                   |
-| DD_MINIMUM_SEVERITY                 |      Optional      |        -         |                                                                                                   |
-| DD_GROUP_BY                         |      Optional      |        -         | Group by file path, component name, component name + version                                      |
-| DD_PUSH_TO_JIRA                     |      Optional      |        -         | Default: `false`                                                                                  |
-| DD_CLOSE_OLD_FINDINGS               |      Optional      |        -         | Default: `true`                                                                                   |
-| DD_CLOSE_OLD_FINDINGS_PRODUCT_SCOPE |      Optional      |        -         | Default: `false`                                                                                  |
-| DD_DO_NOT_REACTIVATE                |      Optional      |        -         | Default: `false`                                                                                  |
-| DD_VERSION                          |      Optional      |        -         |                                                                                                   |
-| DD_ENDPOINT_ID                      |      Optional      |        -         |                                                                                                   |
-| DD_SERVICE                          |      Optional      |        -         |                                                                                                   |
-| DD_BUILD_ID                         |      Optional      |        -         |                                                                                                   |
-| DD_COMMIT_HASH                      |      Optional      |        -         |                                                                                                   |
-| DD_BRANCH_TAG                       |      Optional      |        -         |                                                                                                   |
-| DD_API_SCAN_CONFIGURATION_ID        |      Optional      |        -         | Id of the API scan configuration for API based parsers, e.g. SonarQube                            |
-| DD_SOURCE_CODE_MANAGEMENT_URI       |      Optional      |        -         |                                                                                                   |
-| DD_SSL_VERIFY                       |      Optional      |     Optional     | Disable SSL verification by setting to `false` or `0`. Default: `true`                            |
-| DD_EXTRA_HEADER_1                   |      Optional      |     Optional     | If extra header key is needed for auth in wafs or similar                                         |
-| DD_EXTRA_HEADER_1_VALUE             |      Optional      |     Optional     | The corresponding value for extra header key                                                      |
-| DD_EXTRA_HEADER_2                   |      Optional      |     Optional     | If extra header key is needed for auth in wafs or similar                                         |
-| DD_EXTRA_HEADER_2_VALUE             |      Optional      |     Optional     | The corresponding value for extra header key                                                      |
-
-## [Quality check](#table-of-contents)
-
-```bash
-python -m flake8  nabla --max-line-length=88 --max-complexity=30
-
-ruff check --output-format gitlab > report_ruff.json && ruff format --check
-
-pyright --outputjson > report_raw.json
-pyright-to-gitlab-ci --src report_raw.json --output report_pyright.json --base_path .
-```
-
-[trigger error in sentry-debug](http://0.0.0.0:8080/sentry-debug)
-[sentry](https://nabla-4f3768f61.sentry.io/profiling/)
-
-### Sentry observability
-
-The TrueNAS runtime can send errors to the self-hosted Sentry edge at
-`172.17.0.24:9005`, while FastAPI Cloud can continue using an independently
-configured Sentry Cloud DSN.
-
-Self-hosted and SaaS Sentry deployments have different project IDs and public
-keys. Therefore `SENTRY_LOCAL_DSN` must be configured explicitly; the
-application never derives self-hosted credentials from `SENTRY_DSN`.
-
-Create a dedicated `fastapi-sample` project in the self-hosted `sentry`
-organization, then configure its **public DSN** in the TrueNAS runtime:
-
-```bash
-sudo docker exec -it ix-sentry-sentry-web-1 \
-  sentry createproject \
-    --name fastapi-sample \
-    --platform python \
-    --organization sentry
-```
-
-The command prints the new project's public DSN. Store that value outside Git
-and use the TrueNAS host edge as the DSN host:
-
-```env
-SENTRY_LOCAL_DSN=http://<public-key>@172.17.0.24:9005/<project-id>
-SENTRY_DSN=https://<cloud-public-key>@<cloud-ingest-host>/<cloud-project-id>
-SENTRY_ENVIRONMENT=homelab
-SENTRY_TRACES_SAMPLE_RATE=0.1
-SENTRY_PROFILES_SAMPLE_RATE=0.0
-SENTRY_ERROR_SAMPLE_RATE=1.0
-SENTRY_MAX_BREADCRUMBS=50
-SENTRY_SHUTDOWN_TIMEOUT=2
-```
-
-Selection is intentionally local-first **only when `SENTRY_LOCAL_DSN` is
-explicitly configured and its host/port are reachable**. Otherwise the
-application falls back to `SENTRY_DSN`. Reachability is only a transport
-probe; valid project credentials are guaranteed by requiring a real
-self-hosted DSN rather than rewriting a SaaS DSN.
-
-When `LOGFIRE_TOKEN` is non-empty, Sentry continues to receive errors but its
-logs, traces, and profiles are disabled to avoid duplicate telemetry. Events
-and logs redact common secrets, and performance transactions for `/health`,
-`/healthz`, `/sickz`, and `/metrics` are discarded.
-
-Sentry's native Python SDK is the single exporter for logs and traces. Do not
-also point the application's legacy OTLP exporter at Sentry, because that would
-duplicate telemetry.
-
-## [Utility scripts](#table-of-contents)
-
-```
-python3 nabla/loki/influxdb.py
-
-# Create/Upgrade schema
-alembic upgrade head
-
-# Add header in file
-# user_id,email text,last_login,cgu_read_and_accepted,roles
-python3 scripts.py ~/Downloads/product-activity-2023-10-02.csv
-```
-
-## Installation and commands
-
-**GO**npm run dev
-
-```bash
-go version
-go mod init example.com/m/v2
-go mod tidy
-go run hello-world.go
-go build hello-world.go
-ls
-./hello-world
-```
-
-## [Update README.md](#table-of-contents)
-
-- [github-markdown-toc](https://github.com/jonschlinkert/markdown-toc)
-- With [github-markdown-toc](https://github.com/Lucas-C/pre-commit-hooks-nodejs)
-
-```bash
-npm install -g markdown-toc
-markdown-toc README.md -i
-markdown-toc CHANGELOG.md -i
-```
+Historical GitLab/KrakenD/DefectDojo/demo procedures removed from this README
+remain available through Git history if needed; they are not current operational
+sources of truth.
