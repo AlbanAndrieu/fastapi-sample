@@ -97,7 +97,7 @@ def test_dependency_version_updates_are_renovate_only_and_grouped() -> None:
     assert renovate["internalChecksFilter"] == "strict"
     assert renovate["osvVulnerabilityAlerts"] is False
     assert renovate["vulnerabilityAlerts"]["enabled"] is False
-    assert renovate["pre-commit"]["enabled"] is True
+    assert "pre-commit" not in renovate
     assert ":combinePatchMinorReleases" in renovate["extends"]
     assert ":enablePreCommit" in renovate["extends"]
     assert not any(

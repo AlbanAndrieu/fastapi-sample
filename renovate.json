@@ -168,8 +168,5 @@
   "osvVulnerabilityAlerts": false,
   "vulnerabilityAlerts": {
     "enabled": false
-  },
-  "pre-commit": {
-    "enabled": true
   }
 }
