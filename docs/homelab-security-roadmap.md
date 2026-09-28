@@ -1,176 +1,102 @@
-# Homelab security and resilience roadmap
+# Homelab security and resilience plan
 
-This roadmap turns `/sickz`, `/healthz`, the TrueNAS read-only runtime inventory, and the declared Nabla service topology into actionable security and availability controls.
+This is the domain-specific security plan for the homelab integration. The
+canonical cross-project priority order remains
+[engineering-roadmap.md](engineering-roadmap.md). Incident history is in
+[incidents.md](incidents.md).
 
-## P0 — Public exposure policy
+## P0 — public exposure policy
 
-- **pfSense administration/API (`10443/tcp`)**: FastAPI Cloud is **not** an approved administration source. Keep one canonical external negative exposure probe and require it to be blocked; any successful FastAPI Cloud connection is a policy failure. Keep the listener `trusted_sources_only` for genuinely stable approved administration sources and move posture/Snort telemetry to an independent out-of-band observer.
-- **TrueNAS HTTPS/API (`7000/tcp`)**: currently an intentional direct publication through pfSense HAProxy. The path is `Internet -> pfSense WAN:7000 -> HAProxy TLS termination -> TLS re-encryption -> TrueNAS 172.17.0.24:7000`. This path does **not** use Cloudflare Tunnel and must remain narrowly scoped to the dedicated HAProxy listener/rule.
-- **Source-identity constraint**: the current FastAPI Cloud deployment does not expose a user-controlled static egress gateway or outbound tunnel. Observed cloud source IPs are transient diagnostic evidence, not a stable workload identity. Do not automatically populate `FASTAPI_CLOUD_EGRESS`, allow an entire AWS allocation, or convert one observed address into a permanent firewall/Snort pass-list entry.
-- Prefer named pfSense aliases for genuinely stable approved administration sources such as office/VPN/DDNS egress. Add a FastAPI Cloud alias only if the platform later provides a stable, documented source contract or another controlled network identity.
-- **TrueNAS SSH (`9922/tcp`) and firewall SSH (`22/tcp`)**: external reachability is always a failure. Do not actively banner-probe these ports from recurring health checks: pfSense/SSH security tooling treats repeated pre-auth disconnects as hostile signals. Use firewall policy, passive telemetry or an explicitly scheduled independent exposure scan instead.
-- Remove broad WAN pass rules such as an Easy Rule that permits arbitrary inbound TCP. Every public listener must have an explicit port/service policy.
-- **2026-09-02 acceptance evidence**: the broad WAN Easy Rule created states from observed FastAPI Cloud sources to both `7000/tcp` and `10443/tcp`. Replacing that rule remains P0. The acceptance test keeps the intentional TrueNAS `7000` path source-aware, requires FastAPI Cloud `10443` to be denied, keeps `22` and `9922` blocked without disruptive recurring SSH banner probes, and forbids any broad WAN pass that bypasses explicit listener/source policy.
-- **2026-09-05 runtime evidence**: FastAPI Cloud egress `34.200.20.162` was temporarily blocked by pfSense `sshguard` after recurring SSH pre-auth probe connections. Removing that dynamic block immediately restored full TCP/TLS access to `10443`, proving the broad WAN Easy Rule still exposes the administration listener. The application must not depend on `sshguard` to enforce the intended WAN policy.
-- A successful FastAPI Cloud probe proves only the approved positive path. An HTTP `401` or `403` from an independent untrusted source still proves TCP/TLS reachability and does not satisfy an L3/L4 default-deny requirement.
-- Keep Cloudflare Tunnel evidence distinct from direct HAProxy/Traefik exposure. `tunnelSecure=true` means a Cloudflare-protected exposure is expected; direct exceptions must remain auditable and visible as security debt.
+- Keep management surfaces LAN/private by default.
+- Represent exposure mechanism explicitly: LAN-only, HAProxy direct, Cloudflare
+  Tunnel or other reviewed path.
+- Require explicit policy before exposing TrueNAS, pfSense, SSH, storage or other
+  administration endpoints.
+- Keep Cloudflare provider/API uncertainty as **unknown evidence**, not automatic
+  workload failure.
+- Never create firewall allowlists automatically from IP enrichment.
 
-## P0 — Health endpoint reliability
+**Acceptance:** expected and observed exposure agree, and a provider telemetry
+failure cannot create a false DOWN or false-green security result.
 
-- `/healthz` must not return an unhandled HTTP 500 because a probe implementation and its orchestration disagree on a function signature.
-- Keep an explicit regression test for the `probe_name=` contract used by the health orchestrator.
-- Optional/deep dependency failures must be represented as structured probe diagnostics (`reachable`, HTTP status, error kind, latency) rather than uncaught exceptions.
-- Production deployment remains gated by the full pytest suite and source-size refactoring thresholds; do not relax the `<400` health/Sickz JavaScript threshold to unblock a deployment.
+## P0 — health endpoint reliability and appliance protection
 
-## P1 — DNS architecture and resolver resilience
+- Keep `/livez` dependency-free.
+- Keep required dependency checks distinct from optional diagnostics.
+- Preserve bounded concurrency, stale-cache behavior, provider circuit breakers
+  and aggregate deadlines.
+- Measure the safe TrueNAS/pfSense probe envelope before relaxing any rate or
+  concurrency limit.
+- Ensure monitor duplication cannot overload pfSense WebGUI/API or TrueNAS.
+- Keep service-local state separate from dependency/effective state so
+  `RUNNING but degraded` remains visible.
 
-Current risk: making clients depend directly on Pi-hole or AdGuard Home running as a TrueNAS App turns a TrueNAS/Docker outage into a LAN-wide DNS outage even when routing and Wi-Fi are healthy.
+Operational detail:
+[external-probe-cache-operations.md](external-probe-cache-operations.md) and
+[platform-service-diagnostics-model.md](platform-service-diagnostics-model.md).
 
-Evaluate and document a resilient policy with these goals:
+## P1 — DNS resilience
 
-1. Keep **pfSense/Unbound** as a stable recursive/caching resolver and policy anchor available independently from TrueNAS Apps.
-2. Decide whether **Pi-hole**, **AdGuard Home**, or both provide filtering upstream/downstream of Unbound; avoid ambiguous client-side DNS ordering that lets clients bypass filtering unpredictably.
-3. If filtering resolvers remain client-facing, deploy at least two independent instances on different failure domains rather than two containers on the same TrueNAS host.
-4. Define DHCP DNS advertisements, local-zone ownership, DNSSEC behavior, conditional forwarding, and failover semantics explicitly.
-5. Add probes for resolver availability and policy correctness, not only TCP/UDP port reachability.
-6. Test failure scenarios: TrueNAS reboot, Docker stopped, Pi-hole stopped, AdGuard stopped, Unbound restart, WAN loss, and DNSSEC/upstream failure.
+A TrueNAS Apps outage must not remove basic LAN DNS.
 
-Target principle: a TrueNAS Apps outage may reduce filtering/telemetry but must not by itself remove basic LAN Internet name resolution.
+- Keep pfSense/Unbound as the resilient resolver foundation.
+- Use Pi-hole/AdGuard Home as explicit filtering layers rather than ambiguous
+  client-side resolver ordering.
+- Validate resolver behavior with TrueNAS Apps intentionally unavailable.
 
-## P1 — Runtime/topology reconciliation
+## P1 — runtime/topology reconciliation
 
-- Reconcile TrueNAS `app.query` state with `nabla-compose/catalog/services.json` and `service-topology.json`.
-- Highlight required dependency violations separately from a container-level `RUNNING` state. For example, a logical service must not be shown healthy when a required database/cache/object-store dependency is stopped.
-- Report unmanaged TrueNAS Apps explicitly; do not guess their dependency order until their Compose metadata is represented in the topology catalog.
-- Derive restart waves from **required** topology edges before optional observability/exposure edges.
+- Consume canonical service/node identity and dependency relations from
+  `nabla-compose`.
+- Propagate required/optional dependency semantics into the health projection.
+- Keep operational criticality separate from BIA/business criticality.
+- At direct catalog cutover, remove duplicated local authority files rather than
+  maintaining two schemas.
 
-### Next API contract: propagate `required` dependencies
+## P1 — UI and security evidence
 
-Prepare the health API around three distinct concepts instead of overloading one color/state:
-
-1. `local_state`: direct evidence for the service itself (HTTP/application probe, TrueNAS App/container runtime, internal probe, Cloudflare evidence).
-2. `dependency_state`: aggregation of outgoing topology relations whose `strength` is `required`; the relation direction is `source -> target`, so an unhealthy target degrades the source.
-3. `effective_state`: the final state consumed by FastAPI UI and `nabla-site-alban` after combining local and dependency evidence.
-
-Add structured fields such as:
-
-```json
-{
-  "local_state": "ok",
-  "dependency_state": "degraded",
-  "effective_state": "warn",
-  "required_dependencies": ["postgres", "clickhouse", "redis", "minio"],
-  "blocked_by": ["postgres", "clickhouse"],
-  "dependency_evidence": [
-    {"id": "postgres", "state": "fail", "relation": "dependsOn"},
-    {"id": "clickhouse", "state": "fail", "relation": "storesIn"}
-  ]
-}
-```
-
-Policy:
-
-- a direct/local failure remains `fail` regardless of dependency state;
-- a locally healthy/running service with at least one failed **required** dependency becomes `warn`/degraded unless its own application-level probe also proves functional failure, in which case it is `fail`;
-- unknown/stale required dependency evidence must not produce green; use `warn` with explicit uncertainty;
-- optional relations never downgrade `effective_state` by themselves;
-- evaluate propagation deterministically from a graph snapshot, detect required-edge cycles/SCCs, and surface the cycle instead of recursively looping;
-- keep both raw/local state and effective/propagated state in the payload so UIs can explain why a service changed color.
-
-Add contract tests for Langfuse (`postgres`, `clickhouse`, `redis`, `minio`), n8n/PostgreSQL, LiteLLM/Ollama, and OpenWebUI/LiteLLM, including stopped Apps with empty `active_workloads`.
-
-## P1 — UI and topology visualization contract
-
-Use one health/status vocabulary across the FastAPI operations UI and every React Flow diagram in `nabla-site-alban`:
-
-- node fill/border = `effective_state`;
-- a small inner/runtime indicator = `local_state` so `RUNNING but degraded` is visible rather than collapsed into one color;
-- required edge state = healthy/degraded/failed/unknown based on the target dependency evidence;
-- optional edges remain visually secondary and must not turn a node red;
-- tooltips/details show `blocked_by`, evidence source, observation age and stale status;
-- expose/publish edges must visually distinguish `HAProxy direct`, `Cloudflare Tunnel`, `LAN/VPN only`, and ordinary internal service dependencies;
-- keep ports visible for infrastructure edges (`7000`, `10443`, `9922`) instead of hiding them behind host labels;
-- avoid browser-side probing overriding server-authoritative FastAPI evidence; browser probing remains fallback only when no usable server evidence exists.
-
-FastAPI should remain lightweight: improve its existing health board/components rather than introducing React solely for React Flow. `nabla-site-alban` owns the richer React Flow views and consumes the same API contract.
-
-## P1 — Service-first monitoring and security experimentation view
-
-Keep the health board outcome-oriented as the catalog grows:
-
-1. **Services & experiments** answer whether the lab capabilities actually work.
-    Prefer direct/black-box evidence and RED/Golden Signals: availability, request
-    rate/traffic, errors and latency; add saturation only when it changes the
-    service outcome.
-2. **Critical core** explains broad platform causes. Prefer USE/capacity signals
-    and component-specific invariants such as TrueNAS memory/filesystem pressure,
-    Talos EPHEMERAL capacity, etcd leader/quota/latency and Kubernetes node
-    Ready/pressure state.
-3. **Security controls** keep runtime availability separate from security
-    posture. A firewall/IDS/SIEM being reachable does not prove that policy is
-    effective, and alert volume is not a service-health metric.
-4. **Observability/support** reports telemetry coverage separately. Loss of
-    Prometheus, an exporter or a collector is evidence loss and must not by itself
-    mark the observed platform or dependent services down.
-
-Presentation policy:
-
-- keep the service outcome as the primary status/card value;
-- attach only compact role-specific metrics to overview cards;
-- use hierarchical drill-downs for TrueNAS/Talos/Kubernetes/etcd and detailed
-  Prometheus/Grafana views rather than placing every infrastructure metric on the
-  main health page;
-- query only fixed server-side recording rules from FastAPI; never expose an
-  arbitrary PromQL proxy to the browser;
-- keep metric labels/results bounded and sanitized;
-- use catalog `presentationRole` and `criticality` for operator layout, not as
-  synthetic dependency edges;
-- preserve the NIST CSF 2.0 security-function lens as navigation/experiment
-  coverage only; component presence is not evidence of control effectiveness or
-  maturity.
-
-Initial fixed Prometheus contract from the trusted LAN:
-
-- `nabla:core:truenas_memory_available_ratio`;
-- `nabla:core:truenas_cpu_busy_ratio`;
-- `nabla:telemetry:truenas_node_up`;
-- `nabla:telemetry:truenas_cadvisor_up`;
-- `nabla:telemetry:pfsense_metrics_up`;
-- `nabla:observability:prometheus_up`.
-
-Extend this list only after new Talos/Kubernetes/etcd metrics are securely
-available and validated against real labels. Direct control-plane/API checks
-remain independently usable when Prometheus is unavailable.
+- Service Cards remain the canonical current-state view.
+- Flow/topology views provide dependency/path context, not a competing health
+  truth.
+- Preserve evidence provenance, observer path and freshness.
+- Show Cloudflare, pfSense, TrueNAS, Talos/Kubernetes and Prometheus evidence as
+  independent layers where appropriate.
+- Keep NIST CSF/security-function navigation descriptive; component presence is
+  not evidence of control effectiveness.
 
 ## P1 — TrueNAS host capacity guardrail
 
-A host with an AMD Ryzen 7 7700 must not proceed with mass application reconciliation when the operating system exposes only CPU 0. Add an operational check comparing expected hardware inventory with host-visible CPU count and Docker `NCPU`; block or warn before app redeploy when the counts are implausibly low.
+Before mass application reconciliation, compare expected hardware with
+host-visible CPU topology and Docker capacity.
 
-Evidence on TrueNAS 26.0.0-BETA.3:
+A prior TrueNAS 26.0.0-BETA.3 incident exposed only CPU0 on an AMD Ryzen 7 7700,
+while rollback to BETA.2 exposed CPUs 0-15. Treat recurrence as a host/kernel
+problem and block reconciliation; do not normalize application CPU limits down
+to one CPU.
 
-- `/proc/cmdline` contains no `maxcpus=1`, `nr_cpus=1`, or equivalent explicit one-CPU limit;
-- `kernel_extra_options` is empty;
-- `/sys/devices/system/cpu/{possible,present,online}` all contain only `0`;
-- only `/sys/devices/system/cpu/cpu0` exists;
-- SMBIOS still reports the AMD Ryzen 7 7700 as 8 enabled cores / 16 threads;
-- therefore this is upstream of Docker/cgroup CPU limits: the BETA.3 kernel has only identified/allocated CPU0.
+Incident evidence:
+[incidents.md](incidents.md#2026-09--truenas-2600-beta3-exposed-only-cpu0).
 
-Rollback validation on the previous TrueNAS 26.0.0-BETA.2 boot environment shows CPUs `0-15` online in `lscpu -e`. This makes the one-CPU condition specific to the BETA.3 boot environment on this host and is sufficient to **block the TrueNAS upgrade for now**. Do not normalize application CPU limits down to one CPU as a workaround.
+## P2 — exposure observability
 
-Upgrade policy:
+- Surface expected/observed state for reviewed public/admin ports.
+- Attribute filtering only from explicit PF/Snort/pfBlocker/CrowdSec evidence.
+- Add bounded cached source-IP enrichment (RDAP/ASN/PTR/provider metadata) as
+  informational evidence only.
+- Optionally observe FastAPI Cloud egress for correlation, but treat it as
+  transient unless the hosting platform documents a stable contract.
+- Never let enrichment failure affect liveness/readiness.
 
-- remain on the previous working boot environment until the BETA.3 CPU enumeration regression is explained/fixed;
-- preserve BETA.3 diagnostic evidence for upstream comparison;
-- before any future retry, validate host-visible CPU topology, Docker `NCPU`, Apps networking, and representative application startup before making the new boot environment default;
-- do not reintroduce the generic `PFSENSE_API_KEY`. Production uses separate `PFSENSE_POSTURE_API_KEY` and `PFSENSE_SECURITY_API_KEY`; rotate only the affected dedicated identity if future troubleshooting exposes or compromises it.
+## Completed baseline
 
-## P2 — Exposure observability
+The following capabilities are already implemented and should not be expanded
+back into historical checklists:
 
-- Surface the expected/observed state of `10443`, `7000`, `9922`, `4000`, `22`, and other reviewed ports in `/sickz`.
-- Include the exposure mechanism (`LAN-only`, `HAProxy direct`, `Cloudflare Tunnel`, `Traefik direct`) in diagnostics rather than inferring it only from the hostname.
-- Surface sanitized ingress-filter telemetry in the FastAPI operations UI: pfSense/PF as a possible filtering layer in the path, plus observed service state for Snort, pfBlockerNG and CrowdSec. A running service is **not** proof that it blocked a request; block attribution requires explicit table/rule/log evidence such as `snort2c`, PF logs, pfBlocker aliases or CrowdSec decisions.
-- Add bounded, cached **source-IP enrichment** for observed external addresses. The enrichment should combine RDAP/WHOIS ownership, BGP origin ASN/prefix, PTR/reverse DNS, and cloud-provider published prefix metadata when available; expose fields such as `ip`, `network`, `asn`, `asn_name`, `organization`, `country`, `rdns`, `cloud_provider`, `cloud_service`, `cloud_region`, `observed_at`, and `confidence`.
-- Add an optional bounded egress-IP observation from the FastAPI Cloud runtime so a request observed by pfSense can be correlated with the application's current public source address. Treat the result as transient evidence unless the hosting platform documents a stable egress contract.
-- Cache enrichment results and enforce strict timeouts/rate limits so `/healthz`, `/sickz`, and the operations UI cannot be degraded by external RDAP/ASN/echo services. Enrichment failures must remain informational and must not fail application health.
-- Never expose secrets or automatically mutate pfSense aliases/firewall rules from enrichment data. Human review is required before an address/CIDR becomes an allowlist entry.
-- Correlate Cloudflare Tunnel/Access evidence, TrueNAS runtime state, application-level HTTP checks, and pfSense port policy without treating any one signal as authoritative for every service.
+- service-first health UI with drill-downs;
+- explicit Cloudflare/pfSense/TrueNAS evidence semantics;
+- bounded provider timeouts, cache, circuit breakers and concurrency;
+- typed runtime/topology/BIA projections at the current contract boundary;
+- least-privilege split pfSense posture/security credentials;
+- immutable GitHub Action references and local-first quality scopes.
+
+Use Git history and focused tests for implementation detail.
