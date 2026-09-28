@@ -88,6 +88,29 @@ def test_quality_infrastructure_scope_is_quality(tmp_path: Path) -> None:
     assert scope["dependency_mode"] == "quality"
 
 
+def test_dependency_and_disabled_vercel_config_use_quality_scope(tmp_path: Path) -> None:
+    quality_only_paths = (
+        "renovate.json",
+        "vercel.json",
+        ".vercelignore",
+        "tests/unit/test_workflow_security.py",
+    )
+
+    for index, path in enumerate(quality_only_paths):
+        repo = tmp_path / str(index)
+        repo.mkdir()
+        base = _repo(repo)
+        _commit_file(repo, path, "{}\n", "quality config")
+
+        scope = _scope(repo, base)
+        assert scope["maintenance_only"] == "true"
+        assert scope["application"] == "false"
+        assert scope["sast"] == "false"
+        assert scope["build"] == "false"
+        assert scope["dependencies"] == "false"
+        assert scope["dependency_mode"] == "quality"
+
+
 def test_workflow_change_keeps_sast_without_application_build(tmp_path: Path) -> None:
     base = _repo(tmp_path)
     _commit_file(

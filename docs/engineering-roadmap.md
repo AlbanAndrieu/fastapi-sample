@@ -26,6 +26,30 @@ exceptions here rather than creating additional todo or refactoring documents.
   limitation, cross-repository follow-up, or unresolved risk is absent from this
   roadmap. Each residual must retain a concrete next acceptance proof.
 
+
+## Vercel Git integration — temporarily disabled
+
+The application production target is FastAPI Cloud. The current Python dependency
+footprint is intentionally too large for the Vercel deployment path, so Vercel
+must not be treated as CI or as a merge gate for this repository.
+
+- [x] Keep repository-side automatic Vercel Git deployments disabled with
+  `git.deploymentEnabled=false` in `vercel.json`.
+- [x] Keep GitHub Actions free of Vercel build/deploy steps and enforce that
+  contract in the lightweight workflow-security test.
+- [x] Classify `vercel.json`, `.vercelignore`, `renovate.json` and their
+  configuration contract as quality-only changes so they do not require a full
+  FastAPI dependency bootstrap or application build.
+- [ ] Disconnect the Git provider from the Vercel project so the external Vercel
+  GitHub App stops creating deployment checks/comments. Repository configuration
+  alone does not remove the external project connection. The connected Vercel
+  scope currently returns HTTP 403, so this project-side action still requires a
+  Vercel identity authorized for `albanandrieus-projects-95cd236b`.
+- [ ] Acceptance: push a later PR commit and confirm that no Vercel deployment,
+  status check or PR comment is created.
+- Re-enable Vercel Git integration only after the dependency footprint and
+  supported Python deployment model make it a deliberate target again.
+
 ## Dependency automation — Renovate / Mend
 
 - [x] Make Renovate the single producer of routine dependency-version PRs; keep

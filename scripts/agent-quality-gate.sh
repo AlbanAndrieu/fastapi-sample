@@ -440,6 +440,7 @@ QUALITY_CONTRACT_TESTS=(
     tests/unit/test_agent_publication_proof.py
     tests/unit/test_ci_scope.py
     tests/unit/test_ci_performance_budget.py
+    tests/unit/test_workflow_security.py
 )
 
 if [[ "${CI_PREFLIGHT}" == true ]]; then

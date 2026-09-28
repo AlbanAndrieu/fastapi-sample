@@ -80,6 +80,13 @@ def test_renovate_app_token_is_least_privilege_and_checkout_is_hardened() -> Non
     assert "persist-credentials: false" in checkout
 
 
+def test_vercel_git_deployments_are_repository_disabled() -> None:
+    vercel = json.loads((ROOT / "vercel.json").read_text(encoding="utf-8"))
+
+    assert vercel["git"]["deploymentEnabled"] is False
+    assert not any("vercel" in text.lower() for _, text in _workflow_texts())
+
+
 def test_dependency_version_updates_are_renovate_only_and_grouped() -> None:
     assert not (ROOT / ".github" / "dependabot.yml").exists()
 
