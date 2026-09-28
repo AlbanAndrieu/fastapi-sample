@@ -31,10 +31,12 @@ exceptions here rather than creating additional todo or refactoring documents.
 - [x] Make Renovate the single producer of routine dependency-version PRs; keep
   `.github/dependabot.yml` absent so Dependabot version updates do not compete
   for the same manifests and lockfiles.
-- [x] Keep GitHub Dependabot Alerts **and Dependabot Security Updates** as the
-  current CVE detection/remediation path. Disable Renovate
-  `vulnerabilityAlerts` and experimental `osvVulnerabilityAlerts` while
-  Dependabot owns security PRs, avoiding duplicate vulnerability-fix branches.
+- [x] Keep GitHub Dependabot Alerts as the vulnerability signal and designate
+  Dependabot Security Updates as the current intended CVE-remediation PR owner.
+  Disable Renovate `vulnerabilityAlerts` and experimental
+  `osvVulnerabilityAlerts` while that ownership is in place, avoiding duplicate
+  vulnerability-fix branches. Verify separately that repository Security Updates
+  are enabled and that each alert is mechanically fixable before expecting a PR.
 - [x] Bound Renovate noise with `prConcurrentLimit=2`,
   `branchConcurrentLimit=2`, `prHourlyLimit=1` and `commitHourlyLimit=1`.
   The commit limit also caps automatic branch creation/rebases that would trigger
