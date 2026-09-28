@@ -160,6 +160,31 @@ Do not treat:
 Detailed matrix and commands:
 [Local runtime dependency convergence](local-runtime-dependency-report.md).
 
+## 2026-09 — observability noise and generic WebSocket timeouts
+
+**Symptom**
+
+Successful demo `/io_task` and `/cpu_task` executions appeared as Sentry
+errors, while generic `websocket-client` timeout messages could be mistaken for
+proven TrueNAS failures.
+
+**Decisive evidence**
+
+- successful demo endpoints were logged at ERROR instead of INFO;
+- `websocket-client` emits generic timeout/close messages without identifying
+  the integration that owned the connection;
+- TrueNAS diagnostics already expose sanitized phase/stage/timing evidence.
+
+**Resolution / recurrence rule**
+
+- successful demo operations log at INFO; exceptions remain errors;
+- retain generic WebSocket timeout events, but correlate them by timestamp with
+  integration-specific phase/stage evidence before assigning cause;
+- never suppress all `websocket` timeout events globally.
+
+Reference:
+[Cloudflare and Sentry runtime diagnostics](cloudflare-sentry-runtime-diagnostics.md).
+
 ## Recurrence checklist
 
 For any new incident:

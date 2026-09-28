@@ -1,62 +1,52 @@
-# Documentation index
+# Documentation
 
-This directory is organized by **operator task**, not by implementation history.
-The goal is to make the shortest path to a diagnosis obvious while keeping
-detailed evidence available when it matters.
+Documentation is organized by **operator task**, not implementation history.
 
-## Start here
+## Canonical documents
 
-- [Engineering roadmap](engineering-roadmap.md) — active work, priorities,
-  acceptance criteria and compact completed baseline.
-- [Incident register](incidents.md) — known incidents, decisive evidence,
-  recovery path and links to detailed runbooks.
-- [Application entry points and dashboards](entrypoints-and-dashboards.md) —
-  current API, MCP and local dashboard entry points.
-- [Business Impact Analysis](business-impact-analysis.md) — RTO, MTPD/DIMA,
-  RPO and recovery assumptions.
+| Need | Document |
+| --- | --- |
+| What remains to do? | [Engineering roadmap](engineering-roadmap.md) |
+| Has this happened before? | [Incident register](incidents.md) |
+| How is health evidence interpreted? | [Platform diagnostics model](platform-service-diagnostics-model.md) |
+| How do I validate local runtime dependencies? | [Local runtime diagnostic](local-runtime-dependency-report.md) |
+| What are the stable homelab security rules? | [Homelab security guardrails](homelab-security-roadmap.md) |
+| What are the continuity targets? | [Business Impact Analysis](business-impact-analysis.md) |
+| Where are APIs/dashboards? | [Entry points and dashboards](entrypoints-and-dashboards.md) |
 
-## Operations and diagnostics
+## Runbooks
 
-Use these documents when the service or one of its dependencies is unhealthy.
+- [pfSense WebGUI/API 502 recovery](pfsense-webconfigurator-recovery.md)
+- [pfSense security observability](pfsense-security-observability.md)
+- [External probe cache operations](external-probe-cache-operations.md)
+- [TrueNAS public ingress](truenas-public-ingress.md)
+- [Cloudflare/Sentry runtime diagnostics](cloudflare-sentry-runtime-diagnostics.md)
+- [Cloudflare network contract](fastapi-sample-cloudflare-network-contract.md)
+- [Health monitoring environment](health-monitoring-environment.md)
+- [Kubernetes zero-trust hardening](kubernetes-zero-trust-hardening.md)
 
-| Area | Primary document | Purpose |
-| --- | --- | --- |
-| Runtime dependencies | [Local runtime dependency convergence](local-runtime-dependency-report.md) | TrueNAS/pfSense/Prometheus/Cloudflare/Sentry evidence matrix and A/B checks |
-| Health environment | [Health monitoring environment](health-monitoring-environment.md) | Runtime settings and endpoint responsibility |
-| Health semantics | [Platform service diagnostics model](platform-service-diagnostics-model.md) | How evidence becomes service state in the UI |
-| Probe protection | [External probe cache operations](external-probe-cache-operations.md) | Cache, rate, circuit-breaker and Redis-degraded behavior |
-| pfSense recovery | [pfSense webConfigurator recovery](pfsense-webconfigurator-recovery.md) | Preserve evidence and recover PHP-FPM/WebGUI 502 safely |
-| pfSense security | [pfSense security observability](pfsense-security-observability.md) | Read-only security and posture evidence |
-| Public ingress | [TrueNAS public ingress](truenas-public-ingress.md) | TCP/TLS/firewall attribution and Snort/pfBlocker/CrowdSec isolation |
-| Cloudflare/Sentry | [Cloudflare and Sentry runtime diagnostics](cloudflare-sentry-runtime-diagnostics.md) | Provider evidence and failure semantics |
-| Cloudflare path | [Cloudflare network contract](fastapi-sample-cloudflare-network-contract.md) | Expected network and Tunnel path |
-
-## Architecture and security
+## Architecture/reference
 
 - [API/UI architecture](api-ui-architecture.md)
-- [Homelab security and resilience plan](homelab-security-roadmap.md)
-- [Kubernetes zero-trust hardening](kubernetes-zero-trust-hardening.md)
 - [MCP integrations](mcp-integrations.md)
-- [TrueNAS public ingress diagnostics](truenas-public-ingress.md)
-
-## Historical and evaluation material
-
-These documents remain useful as evidence but are not active roadmaps:
-
-- [Cashews evaluation](cashews-evaluation.md)
 - [Cloudflare Tunnel audit](cloudflare-tunnel-audit.md)
-- [Release 1.4.0 reset](release-1.4.0-reset.md)
-- [Release 1.4.1](release-1.4.1.md)
-- [Release 1.5.8](release-1.5.8.md)
 - [Snort WAN validation](snort-wan-validation.md)
+- [Cashews evaluation](cashews-evaluation.md)
+
+Release notes under `docs/release-*.md` are historical records, not active
+roadmaps.
 
 ## Documentation rules
 
-1. **Roadmaps contain future work, not incident transcripts.**
-2. **Incidents live in the incident register** and link to detailed runbooks.
-3. **Runbooks preserve diagnostic evidence**: symptom, vantage point, command or
-   probe, decisive result, recovery and recurrence check.
-4. Completed roadmap work is compacted into a short baseline; Git history and
-   focused runbooks retain implementation detail.
-5. Do not duplicate the same operational fact in multiple files. Prefer one
-   canonical document plus links.
+1. **One roadmap:** `engineering-roadmap.md`.
+2. **One incident register:** dated symptom/cause/recognition evidence goes in
+   `incidents.md`.
+3. **Runbooks are timeless:** keep commands, safety constraints and acceptance
+   criteria; remove dated status snapshots once captured in the incident register.
+4. **Completed work is compacted:** keep only durable guardrails/capabilities in
+   the roadmap; tests and Git history hold implementation detail.
+5. **No duplicated truth:** link to the canonical document rather than copying a
+   state matrix or command sequence.
+6. **Diagnostic essentials are never removed:** observer vantage point, first
+   failing layer, decisive command/probe, expected result, recovery safety and
+   acceptance criteria must remain recoverable.

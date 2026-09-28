@@ -1,107 +1,58 @@
-# pfSense webConfigurator 502 recovery and probe safety
+# pfSense WebGUI/API 502 recovery
 
-## Incident signature — 2026-09-10
+Use this runbook when pfSense nginx is reachable but WebGUI or the lightweight
+REST endpoint returns HTTP 502. The dated 2026-09 recurrences and their evidence
+are recorded in [incidents.md](incidents.md).
 
-The pfSense management path is reachable from both the workstation and the
-TrueNAS-hosted FastAPI runtime, but the pfSense webConfigurator currently
-returns an application-side `502` for the lightweight REST liveness endpoint:
+## Interpretation
 
-```text
-GET https://home.albandrieu.com:10443/api/v2/system/version
-HTTP/2 502
-server: nginx
-content-type: text/html
-```
-
-The response body is the native pfSense `50x Error` page and explicitly points
-to `/crash_reporter.php`. This means DNS, TCP, TLS and the HTTP listener are not
-the current blocker: nginx accepted the request, but the pfSense web/PHP backend
-failed while processing it.
-
-Observed vantage points:
+A native nginx 502 means the network/HTTP listener responded but the
+webConfigurator/PHP backend failed. Authentication may not have been evaluated.
 
 ```text
-workstation:
-  home.albandrieu.com -> 82.66.4.247
-  TLS verification   -> success
-  HTTP               -> 502
-
-FastAPI on TrueNAS:
-  home.albandrieu.com -> 172.17.0.1
-  HTTP               -> 502
+pfSense
+  network transport        reachable
+  API/WebGUI control plane application error (HTTP 502)
+  authentication           unknown until evaluated
+  Prometheus/exporter      independent evidence
 ```
 
-The same `502` is returned without an API key from the TrueNAS container, so the
-current failure happens before API-key authentication can be evaluated. Keep
-authentication state `unknown`, not `failed`.
+Do not classify this as a TCP failure or invalid API key without separate proof.
 
-## Desired platform representation
+## Preferred helper
 
-Until the API backend is recovered, represent pfSense as multiple independent
-signals rather than collapsing the appliance to DOWN:
-
-```text
-pfSense platform
-  ⚠️ API control-plane       application error (HTTP 502)
-  ✅ Prometheus telemetry    exporter up
-  ✅ network transport       reachable
-  ? API authentication      not evaluated
-```
-
-A HTTP `502` from pfSense nginx is transport evidence plus an application
-failure. It is not a connect failure and must not be treated as proof that the
-API credential is invalid.
-
-## Workstation recovery helper
-
-The canonical operator entrypoint is now:
+Read-only collection:
 
 ```bash
 scripts/pfsense/diagnose-recover.sh --check
 ```
 
-It runs from the workstation, connects to pfSense over SSH (default
-`root@172.17.0.1`), saves a bounded local report under `/tmp`, and keeps the
-`PFSENSE_POSTURE_API_KEY` on the workstation. The key is never sent through SSH
-or printed in the report.
-
-The read-only pass captures:
-
-- nginx/PHP-FPM/webConfigurator listeners, processes and bounded logs;
-- filesystem, swap, top RSS and kernel OOM/reclaim evidence;
-- Unbound process, port 53, `unbound-control status`, memory counters and
-  pfBlockerNG DNSBL configuration hints;
-- Snort/pfBlockerNG processes and relevant PF tables;
-- exact block attribution for the default FastAPI/diagnostic sources
-  `172.17.0.24` (TrueNAS) and `172.17.0.57` (workstation);
-- PF rules/states involving management port `10443`;
-- workstation-side WebUI and authenticated REST probes after the SSH phase.
-
-Use an explicit apply only after reviewing the first report:
+Reviewed recovery:
 
 ```bash
 scripts/pfsense/diagnose-recover.sh --apply
 ```
 
-`--apply` restarts PHP-FPM and webConfigurator/nginx using the supported pfSense
-rc helpers. It restarts Unbound only when the read-only control/status check did
-not prove it healthy. It does **not** restart Snort or rebuild pfBlockerNG by
-default because those actions can create substantial memory pressure on the
-Netgate 1100.
+The helper keeps `PFSENSE_POSTURE_API_KEY` on the workstation and captures a
+bounded report containing:
 
-If the report proves one of the explicit host IPs is present as an exact entry
-in `snort2c` or a pfBlockerNG dynamic PF table, removal requires an additional
-operator opt-in:
+- nginx/PHP-FPM/webConfigurator listeners, processes and logs;
+- filesystem, swap, RSS and OOM/reclaim evidence;
+- Unbound process/port/status and memory evidence;
+- Snort/pfBlockerNG processes and relevant PF tables;
+- exact block attribution for configured probe sources;
+- PF rules/states involving management port `10443`;
+- workstation WebUI and authenticated REST probes.
+
+Only when a supplied host IP is an **exact** runtime table entry may the operator
+opt into removal:
 
 ```bash
 scripts/pfsense/diagnose-recover.sh --apply --unblock-sources
 ```
 
-This mode only issues `pfctl -t <table> -T delete <exact-ip>` for the exact host
-entries supplied through `--probe-sources`. It never flushes a table, never
-removes CIDRs/aliases, and never edits persistent Snort, pfBlockerNG or firewall
-configuration. If a source immediately reappears, diagnose the generating rule
-or package instead of repeatedly deleting the runtime entry.
+This deletes only exact supplied IP entries. It never flushes tables, removes
+CIDRs/aliases or edits persistent firewall/Snort/pfBlockerNG policy.
 
 Useful overrides:
 
@@ -112,10 +63,9 @@ scripts/pfsense/diagnose-recover.sh \
   --api-url https://home.albandrieu.com:10443
 ```
 
-## Immediate recovery — preserve evidence first
+## Preserve evidence before recovery
 
-Prefer console or SSH access to pfSense itself. Before restarting anything,
-capture a bounded diagnostic snapshot from console menu option **8) Shell**:
+From pfSense shell:
 
 ```sh
 date
@@ -128,45 +78,29 @@ swapinfo -h
 
 tail -n 250 /var/log/system.log | \
   egrep -i 'nginx|php|fpm|unbound|fatal|segfault|signal|killed|memory|out of memory|crash|error'
-```
 
-Recent pfSense releases use ordinary text logs under `/var/log`; inspect the
-system log before restarting services so the original failure evidence is not
-lost in later noise.
-
-Also inventory any web/PHP-specific logs that exist on the appliance without
-assuming a release-specific filename:
-
-```sh
 find /var/log -maxdepth 2 -type f | \
   egrep -i 'nginx|php|fpm|webgui|webconfig' | sort
 ```
 
-Then tail only the files that exist and are relevant.
+Capture this before restarts so socket/process/OOM evidence is not lost.
 
-### Recover webConfigurator without rebooting pfSense
+## Recover WebGUI/PHP-FPM without reboot
 
-Netgate documents console option **11) Restart GUI** to restart nginx and option
-**16) Restart PHP-FPM** when nginx is alive but PHP cannot execute requests.
-Use them together for this failure signature.
-
-From the shell, the equivalent supported rc scripts are:
+Prefer pfSense console options **11) Restart GUI** and **16) Restart PHP-FPM**,
+or the supported shell helpers:
 
 ```sh
-/etc/rc.restart_webgui
 /etc/rc.php-fpm_restart
-```
+/etc/rc.restart_webgui
 
-After both complete, verify listeners/processes:
-
-```sh
 sockstat | grep nginx
 pgrep -laf 'nginx|php-fpm'
 ```
 
-Then validate externally from the workstation:
+Validate from the workstation:
 
-```sh
+```bash
 curl -ksS -o /dev/null \
   -w 'ui http=%{http_code} peer=%{remote_ip} time=%{time_total}\n' \
   https://home.albandrieu.com:10443/
@@ -178,21 +112,12 @@ curl -sS -o /dev/null \
   https://home.albandrieu.com:10443/api/v2/system/version
 ```
 
-Expected recovery:
+Expected result: WebGUI 200/30x and authenticated version endpoint 2xx JSON.
+Review `/crash_reporter.php` for sensitive configuration before sharing it.
 
-```text
-webConfigurator root -> 200/30x
-/api/v2/system/version with posture key -> 2xx JSON
-```
+## Treat Unbound separately
 
-If the GUI is restored, inspect `/crash_reporter.php` before clearing anything.
-Do not publish the crash report verbatim without reviewing it for private
-configuration or network data.
-
-## Unbound is a separate failure domain
-
-A webConfigurator/PHP-FPM `502` does not by itself prove that Unbound caused the
-failure. Check DNS Resolver state independently:
+A WebGUI/PHP-FPM 502 does not prove an Unbound failure.
 
 ```sh
 pgrep -laf unbound
@@ -200,81 +125,34 @@ sockstat | grep ':53'
 unbound-control -c /var/unbound/unbound.conf status
 ```
 
-If Unbound alone is unhealthy, restart only the resolver or use the pfSense
-Status > Services control. Netgate documents a resolver restart to clear the
-cache, and also supports a lighter reload:
+If only Unbound is unhealthy, recover the resolver separately; a lighter reload
+is:
 
 ```sh
 unbound-control -c /var/unbound/unbound.conf reload
 ```
 
-Do not repeatedly restart the entire firewall merely because the resolver or
-webConfigurator is unhealthy.
+Do not reboot the firewall merely because one management/resolver service is
+unhealthy.
 
-## Protect pfSense from monitoring pressure
+## Probe safety
 
-The management API and webConfigurator are appliances, not high-throughput
-monitoring endpoints. FastAPI, Prometheus, Uptime Kuma and other monitoring must
-not create synchronized or high-frequency probes against them.
+- cache and single-flight FastAPI pfSense probes;
+- use one lightweight `/api/v2/system/version` attempt per failure window;
+- never use expensive deep status as synchronous liveness;
+- do not immediately retry 5xx responses;
+- use `pfsense_exporter` for periodic runtime telemetry;
+- keep Uptime Kuma/Gatus simple and low frequency;
+- avoid synchronized polling intervals across monitors;
+- during failure, prefer stale/unknown evidence over increased probe pressure.
 
-Required policy:
+## Acceptance
 
-- keep FastAPI pfSense probes cached, bounded and single-flight;
-- one lightweight `/api/v2/system/version` origin attempt per failure window;
-- do not use `/api/v2/status/system` as a synchronous liveness probe;
-- do not immediately retry a 5xx response;
-- use Prometheus `pfsense_exporter` for periodic runtime telemetry instead of
-  repeatedly querying expensive REST status endpoints;
-- keep Uptime Kuma on a simple low-frequency GUI/TCP/HTTP availability probe;
-- avoid placing FastAPI, Prometheus and Uptime Kuma on identical polling
-  intervals that can synchronize into bursts;
-- while pfSense returns 5xx, let caches/circuit breakers suppress origin calls
-  and expose stale/unknown evidence rather than increasing probe pressure.
+Close the pfSense runtime issue only when:
 
-Before attributing a future crash to monitoring, correlate the exact crash
-window with access logs/process resource evidence and per-client request counts.
-A temporal overlap is not sufficient by itself.
-
-## Preferred privilege architecture
-
-The durable architecture is LAN-side observation with sanitized publication:
-
-```text
-pfSense
-    | read-only REST API over LAN
-    v
-FastAPI TrueNAS observer
-    | normalized/sanitized state
-    +--> FastAPI health board / private diagnostics
-    +--> optional outbound authenticated projection for FastAPI Cloud
-
-pfSense --> pfsense_exporter --> Prometheus --> runtime telemetry
-```
-
-FastAPI Cloud must not require broad direct Internet access to the pfSense
-management API. Direct WAN `:10443` remains diagnostic only while there is no
-stable application-controlled egress identity.
-
-The first priority is therefore to make **FastAPI TrueNAS -> pfSense LAN** safe
-and reliable. Only after that path is accepted should FastAPI Cloud consume a
-sanitized out-of-band projection rather than raw privileged pfSense responses.
-
-## Acceptance criteria
-
-Do not close the pfSense runtime work until all of the following are proven:
-
-1. webConfigurator and PHP-FPM recover without a firewall reboot;
-2. the bounded authenticated `/api/v2/system/version` call returns `2xx` from
-    the FastAPI TrueNAS runtime path;
-3. Unbound state is independently known and no DNS dependency loop through
-    TrueNAS/Pi-hole can make LAN clients lose resolution when an app host fails;
-4. Prometheus `pfsense_exporter` remains operational and is treated as telemetry,
-    not a replacement for authoritative REST control-plane state;
-5. FastAPI/Uptime Kuma/Prometheus polling frequencies are inventoried and proven
-    not to create synchronized pressure against pfSense;
-6. a recurrence captures nginx/PHP-FPM/Unbound/process/log evidence before
-    service restarts;
-7. the workstation recovery helper has been validated first in `--check`, then
-    in reviewed `--apply` mode if recovery is required;
-8. any remaining risk or deferred hardening remains recorded in
-    `docs/engineering-roadmap.md`.
+1. WebGUI/PHP-FPM recover without firewall reboot;
+2. authenticated lightweight REST returns 2xx from the TrueNAS/LAN observer;
+3. Unbound state is independently known;
+4. exporter telemetry remains independent from REST control-plane evidence;
+5. monitor frequencies are inventoried and do not create synchronized pressure;
+6. recurrence capture preserves process/socket/log/OOM evidence before restart.

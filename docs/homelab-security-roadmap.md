@@ -1,102 +1,71 @@
-# Homelab security and resilience plan
+# Homelab security guardrails
 
-This is the domain-specific security plan for the homelab integration. The
-canonical cross-project priority order remains
-[engineering-roadmap.md](engineering-roadmap.md). Incident history is in
+This document contains **stable security and resilience rules**, not a second
+roadmap. Priorities and open implementation work live only in
+[engineering-roadmap.md](engineering-roadmap.md). Dated failures live in
 [incidents.md](incidents.md).
 
-## P0 — public exposure policy
+## Exposure
 
-- Keep management surfaces LAN/private by default.
-- Represent exposure mechanism explicitly: LAN-only, HAProxy direct, Cloudflare
-  Tunnel or other reviewed path.
-- Require explicit policy before exposing TrueNAS, pfSense, SSH, storage or other
-  administration endpoints.
-- Keep Cloudflare provider/API uncertainty as **unknown evidence**, not automatic
-  workload failure.
-- Never create firewall allowlists automatically from IP enrichment.
+- Management surfaces are LAN/private by default.
+- Exposure mechanism must be explicit: LAN-only, HAProxy, Cloudflare Tunnel or
+  another reviewed path.
+- TrueNAS, pfSense, SSH, storage and administration endpoints require explicit
+  policy before public exposure.
+- Cloudflare control-plane uncertainty is **unknown evidence**, not proof that a
+  workload is DOWN.
+- Never build firewall allowlists automatically from IP enrichment.
 
-**Acceptance:** expected and observed exposure agree, and a provider telemetry
-failure cannot create a false DOWN or false-green security result.
+## Health and appliance protection
 
-## P0 — health endpoint reliability and appliance protection
+- `/livez` performs no dependency I/O.
+- Required dependencies and optional diagnostics remain distinct.
+- Provider probes stay cached, bounded, single-flight and circuit-broken.
+- Service-local state remains separate from dependency/effective state.
+- Monitor duplication must not overload pfSense or TrueNAS.
+- Safe probe rate/concurrency is measured before limits are relaxed.
 
-- Keep `/livez` dependency-free.
-- Keep required dependency checks distinct from optional diagnostics.
-- Preserve bounded concurrency, stale-cache behavior, provider circuit breakers
-  and aggregate deadlines.
-- Measure the safe TrueNAS/pfSense probe envelope before relaxing any rate or
-  concurrency limit.
-- Ensure monitor duplication cannot overload pfSense WebGUI/API or TrueNAS.
-- Keep service-local state separate from dependency/effective state so
-  `RUNNING but degraded` remains visible.
-
-Operational detail:
+Operational details:
 [external-probe-cache-operations.md](external-probe-cache-operations.md) and
 [platform-service-diagnostics-model.md](platform-service-diagnostics-model.md).
 
-## P1 — DNS resilience
+## DNS resilience
 
-A TrueNAS Apps outage must not remove basic LAN DNS.
+- TrueNAS Apps failure must not remove basic LAN DNS.
+- pfSense/Unbound is the resilient resolver foundation.
+- Pi-hole/AdGuard Home are explicit filtering layers, not ambiguous client-side
+  resolver fallbacks.
+- Resolver behavior is validated with TrueNAS Apps intentionally unavailable.
 
-- Keep pfSense/Unbound as the resilient resolver foundation.
-- Use Pi-hole/AdGuard Home as explicit filtering layers rather than ambiguous
-  client-side resolver ordering.
-- Validate resolver behavior with TrueNAS Apps intentionally unavailable.
+## Canonical topology and criticality
 
-## P1 — runtime/topology reconciliation
+- Canonical service/node identity and relations come from `nabla-compose`.
+- Required/optional dependency semantics propagate into health projection.
+- Operational criticality remains distinct from BIA/business criticality.
+- Direct catalog cutover removes duplicate local authorities rather than keeping
+  parallel schemas.
 
-- Consume canonical service/node identity and dependency relations from
-  `nabla-compose`.
-- Propagate required/optional dependency semantics into the health projection.
-- Keep operational criticality separate from BIA/business criticality.
-- At direct catalog cutover, remove duplicated local authority files rather than
-  maintaining two schemas.
+## UI/security evidence
 
-## P1 — UI and security evidence
-
-- Service Cards remain the canonical current-state view.
-- Flow/topology views provide dependency/path context, not a competing health
-  truth.
+- Service Cards are the current-state view; topology/flow views add context only.
 - Preserve evidence provenance, observer path and freshness.
-- Show Cloudflare, pfSense, TrueNAS, Talos/Kubernetes and Prometheus evidence as
-  independent layers where appropriate.
-- Keep NIST CSF/security-function navigation descriptive; component presence is
-  not evidence of control effectiveness.
+- Cloudflare, pfSense, TrueNAS, Talos/Kubernetes and Prometheus evidence remain
+  independent when they represent different layers.
+- Security-framework labels describe control intent, not control effectiveness.
 
-## P1 — TrueNAS host capacity guardrail
+## Host capacity guardrail
 
-Before mass application reconciliation, compare expected hardware with
-host-visible CPU topology and Docker capacity.
+Before mass TrueNAS app reconciliation, compare expected hardware with visible
+CPU topology and Docker capacity. If host-visible topology is implausible, block
+reconciliation and investigate the host/kernel; never normalize all app CPU
+limits down to the broken observed capacity.
 
-A prior TrueNAS 26.0.0-BETA.3 incident exposed only CPU0 on an AMD Ryzen 7 7700,
-while rollback to BETA.2 exposed CPUs 0-15. Treat recurrence as a host/kernel
-problem and block reconciliation; do not normalize application CPU limits down
-to one CPU.
-
-Incident evidence:
+The 26.0.0-BETA.3 CPU0-only recurrence signature is documented in
 [incidents.md](incidents.md#2026-09--truenas-2600-beta3-exposed-only-cpu0).
 
-## P2 — exposure observability
+## Exposure telemetry
 
-- Surface expected/observed state for reviewed public/admin ports.
 - Attribute filtering only from explicit PF/Snort/pfBlocker/CrowdSec evidence.
-- Add bounded cached source-IP enrichment (RDAP/ASN/PTR/provider metadata) as
-  informational evidence only.
-- Optionally observe FastAPI Cloud egress for correlation, but treat it as
-  transient unless the hosting platform documents a stable contract.
-- Never let enrichment failure affect liveness/readiness.
-
-## Completed baseline
-
-The following capabilities are already implemented and should not be expanded
-back into historical checklists:
-
-- service-first health UI with drill-downs;
-- explicit Cloudflare/pfSense/TrueNAS evidence semantics;
-- bounded provider timeouts, cache, circuit breakers and concurrency;
-- typed runtime/topology/BIA projections at the current contract boundary;
-- least-privilege split pfSense posture/security credentials;
-- immutable GitHub Action references and local-first quality scopes.
-
-Use Git history and focused tests for implementation detail.
+- Source-IP enrichment is bounded, cached and informational only.
+- FastAPI Cloud egress is transient unless the platform documents otherwise.
+- Enrichment failure never changes liveness/readiness.
