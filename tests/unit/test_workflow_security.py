@@ -88,6 +88,9 @@ def test_dependency_version_updates_are_renovate_only_and_grouped() -> None:
     assert renovate["prConcurrentLimit"] == 2
     assert renovate["branchConcurrentLimit"] == 2
     assert renovate["rebaseWhen"] == "auto"
+    assert renovate["minimumReleaseAge"] == "7 days"
+    assert renovate["minimumReleaseAgeBehaviour"] == "timestamp-optional"
+    assert renovate["internalChecksFilter"] == "strict"
 
     rules = renovate["packageRules"]
 
