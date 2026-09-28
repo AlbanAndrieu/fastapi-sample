@@ -4,8 +4,7 @@ name: Renovate
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 7 * * 1"
-    - cron: "0 15 * * 5"
+    - cron: "17 5 * * 1"
 
 permissions:
   contents: read

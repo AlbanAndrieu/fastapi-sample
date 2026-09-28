@@ -26,6 +26,40 @@ exceptions here rather than creating additional todo or refactoring documents.
   limitation, cross-repository follow-up, or unresolved risk is absent from this
   roadmap. Each residual must retain a concrete next acceptance proof.
 
+## Dependency automation — Renovate / Mend
+
+- [x] Make Renovate the single producer of routine dependency-version PRs; remove
+  `.github/dependabot.yml` so Dependabot version updates no longer compete for
+  the same manifests and lockfiles. Keep GitHub Dependabot Alerts enabled as the
+  vulnerability-detection source.
+- [x] Bound Renovate noise with `prConcurrentLimit=2`,
+  `branchConcurrentLimit=2`, grouped runtime updates, monthly grouped
+  `devDependencies`, monthly GitHub Actions updates and `rebaseWhen=auto`.
+- [x] Use a seven-day dependency cooldown for ordinary releases with
+  `minimumReleaseAge=7 days`, `internalChecksFilter=strict` and
+  `minimumReleaseAgeBehaviour=timestamp-optional` so registries without release
+  timestamps do not deadlock indefinitely. Renovate security updates bypass this
+  cooldown and remain immediate.
+- [ ] Install the hosted Mend Renovate GitHub App for this repository and
+  `nabla-compose`, using selected-repository access. Keep the current self-hosted
+  GitHub Actions workflow only until the hosted app has successfully parsed the
+  existing `renovate.json` and produced a normal dry operational cycle.
+- [ ] Grant the hosted Renovate identity read access to Dependabot alerts and
+  prove one vulnerability-alert reconciliation path. Only after that proof,
+  disable Dependabot Security Updates so security-remediation PR ownership also
+  becomes Renovate-only while Dependabot Alerts remain enabled.
+- [ ] After hosted-app acceptance, remove `.github/workflows/renovate.yml` so
+  Renovate maintenance consumes no GitHub Actions runner credits.
+- [ ] Re-enable selective automerge only after required quality checks and branch
+  protection are authoritative again: runtime patch updates may automerge after
+  green required checks; grouped `devDependencies` patch/minor updates may also
+  automerge after the seven-day cooldown and green checks. Keep runtime minor,
+  major, Docker and GitHub Actions updates manual unless a narrower policy is
+  explicitly accepted.
+- [ ] Acceptance: no duplicate Dependabot/Renovate version PRs, no dependency-bot
+  GitHub Actions runner consumption, security PRs are not delayed by the
+  seven-day cooldown, and automerge never bypasses required validation.
+
 ## Catalog/security-graph migration decision — direct cutover
 
 The future Nabla catalog migration is intentionally a **coordinated breaking
