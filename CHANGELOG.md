@@ -1,3 +1,11 @@
+## [1.20.10](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.9...1.20.10) (2026-09-28)
+
+
+### Bug Fixes
+
+* **health:** préserver les warnings TrueNAS HTTPS ([#289](https://github.com/AlbanAndrieu/fastapi-sample/issues/289)) ([d4a3249](https://github.com/AlbanAndrieu/fastapi-sample/commit/d4a3249f70c576bb1bae6c9adeb7aecf5f59f050))
+* **ui:** compacter les filtres health sur mobile ([#291](https://github.com/AlbanAndrieu/fastapi-sample/issues/291)) ([8e08b2d](https://github.com/AlbanAndrieu/fastapi-sample/commit/8e08b2dc9b2a96dde096d521e548312ee621cbb9))
+
 ## [1.20.9](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.8...1.20.9) (2026-09-27)
 
 
