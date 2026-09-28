@@ -123,7 +123,6 @@ Optimize the amount of context needed to obtain reliable evidence, not the agent
 - GitHub repository/PR/Actions/code-security tooling, including the Python CI, pytest, Ruff, Pylint, Bandit, MegaLinter, CodeQL, Docker and Trivy gates;
 - the local `fastapi-sample` MCP/runtime diagnostics when the application is running;
 - FastAPI Cloud deployment, environment inventory, runtime logs and production validation;
-- Vercel deployment/status for the lightweight compatibility proxy;
 - Sentry issue/error/trace diagnostics when investigating production or observability behavior.
 
 **On-demand — keep available, but discover/load only for a relevant task:**
@@ -137,6 +136,7 @@ Optimize the amount of context needed to obtain reliable evidence, not the agent
 **Out-of-scope by default:**
 
 - AWS/EKS and Terraform operations for ordinary FastAPI application work; the current repository has no active EKS/Terraform implementation;
+- Vercel deployment operations while Git deployment remains intentionally disabled; use Vercel only for explicit teardown/status work tied to the remaining roadmap item;
 - any global connector, plugin, MCP or skill not referenced by the current task or by an active repository integration.
 
 Do not uninstall, disconnect, or remove a globally available integration merely to save context. An installed integration that is not discovered or invoked costs less project context while remaining available for other repositories and future tasks.

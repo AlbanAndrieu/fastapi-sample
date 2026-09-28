@@ -256,12 +256,10 @@ def test_agent_completion_policy_requires_roadmap_accounting() -> None:
     assert "completion gate" in homelab_skill.lower()
     assert "docs/engineering-roadmap.md" in homelab_skill
 
-    assert "P0 — TrueNAS-local dependency convergence" in roadmap
-    assert "pfSense posture API" in roadmap
-    assert "Prometheus runtime configuration" in roadmap
-    assert "Cloudflare control-plane evidence" in roadmap
-    assert "Sentry application acceptance" in roadmap
-    assert "Pyroscope application acceptance" in roadmap
+    assert "## P0 — homelab dependency convergence" in roadmap
+    for integration in ("Talos", "pfSense", "Prometheus", "Sentry", "Pyroscope"):
+        assert f"**{integration}:**" in roadmap
+    assert "scripts/diagnose-local-runtime-dependencies.py" in roadmap
 
 
 def test_zap_runs_only_post_merge_or_manually_against_production_surfaces() -> None:
