@@ -73,6 +73,9 @@ Runbook:
 - [ ] Inventory Uptime Kuma/Gatus/AutoKuma so no monitor performs expensive
   pfSense deep-status requests.
 - [ ] Remove the shared-WAN Snort attribution blind spot.
+- [ ] After an independent pfSense observer path is accepted, expand the
+  sanitized posture with interfaces/gateways, firewall/NAT and DNS policy;
+  query VPN, logs and private inventory only for explicit operational needs.
 - [ ] Improve TrueNAS WebSocket timeout attribution without leaking URI or
   credential context.
 
