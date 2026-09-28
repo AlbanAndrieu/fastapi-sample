@@ -4,8 +4,9 @@
 
 FastAPI reference service for REST APIs, MCP/A2A, search integrations and
 homelab observability. The canonical runtime is deployed on
-[FastAPI Cloud](https://fastapi-sample.fastapicloud.dev); Vercel provides a
-lightweight HTTP compatibility proxy.
+[FastAPI Cloud](https://fastapi-sample.fastapicloud.dev).
+
+Documentation map: [docs/README.md](docs/README.md).
 
 # Table of contents
 
