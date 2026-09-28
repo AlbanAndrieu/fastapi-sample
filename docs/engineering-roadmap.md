@@ -26,7 +26,6 @@ exceptions here rather than creating additional todo or refactoring documents.
   limitation, cross-repository follow-up, or unresolved risk is absent from this
   roadmap. Each residual must retain a concrete next acceptance proof.
 
-
 ## Vercel Git integration — temporarily disabled
 
 The application production target is FastAPI Cloud. The current Python dependency
