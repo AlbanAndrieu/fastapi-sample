@@ -116,3 +116,14 @@ def test_mobile_filter_uses_horizontal_rails_and_one_row_actions() -> None:
     assert "grid-template-columns: repeat(3, minmax(0, 1fr));" in responsive
     assert "  .service-filter-control,\n  .runtime-topology-grid" not in mobile
 
+
+def test_mobile_filter_is_compact_before_the_first_scroll() -> None:
+    shell = (ASSETS / "api-global-service-filter.js").read_text(encoding="utf-8")
+
+    assert 'window.matchMedia("(max-width: 720px)").matches' in shell
+    assert 'host.dataset.mobileExpanded = "false";' in shell
+    assert 'mobile && host.dataset.mobileExpanded !== "true"' in shell
+    assert 'button.textContent = mobile' in shell
+    assert '"Filters"' in shell
+    assert '"Hide filters"' in shell
+    assert "syncCompactState(host);" in shell

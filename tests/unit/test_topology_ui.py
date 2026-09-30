@@ -138,3 +138,17 @@ def test_topology_route_is_registered_without_changing_api_page() -> None:
     assert "render_topology_page(" in routes
     assert 'href="/api/topology">Topology</a>' in api_page
     assert "cytoscape" not in api_page.lower()
+
+
+def test_topology_keeps_declared_data_visible_when_cytoscape_is_unavailable() -> None:
+    script = (ASSETS / "api-topology.js").read_text(encoding="utf-8")
+    stylesheet = (ASSETS / "api-topology.css").read_text(encoding="utf-8")
+
+    assert script.index("const topology = await fetchTopology();") < script.index(
+        'if (typeof window.cytoscape !== "function")',
+    )
+    assert "renderDeclaredFallback(topology, container)" in script
+    assert "Declared topology loaded" in script
+    assert "interactive graph library is unavailable" in script
+    assert ".topology-graph--fallback" in stylesheet
+    assert ".topology-fallback-node" in stylesheet
