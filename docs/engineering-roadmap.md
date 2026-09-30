@@ -164,7 +164,6 @@ Reference:
 - [ ] Finish semantic review of remaining PR #63 divergent/absent files.
 - [ ] Consolidate duplicate Compose/Docker development paths after proving them
   unused.
-- [ ] Deduplicate Cursor/Codex/OpenCode/Copilot policy around `AGENTS.md`.
 
 ## Implemented guardrails — compact baseline
 
@@ -185,6 +184,8 @@ Do not expand these back into historical checklists unless a regression occurs:
 - large-deletion acknowledgements are bound to the exact comparison-base SHA;
 - external GitHub Actions are pinned to immutable SHAs;
 - Vercel Git deployments are repository-disabled;
+- `AGENTS.md` is the single global agent policy; Claude, Copilot, Cursor and
+  OpenCode use thin adapters and task-scoped rules instead of duplicated policy;
 - health-board modules already split for maintainability remain covered by tests.
 
 ## Documentation policy

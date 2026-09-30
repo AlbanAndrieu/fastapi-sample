@@ -1,7 +1,7 @@
 ---
 description: KaTeX math formatting standards
 globs: *.md
-alwaysApply: true
+alwaysApply: false
 ---
 
 # Math Formatting

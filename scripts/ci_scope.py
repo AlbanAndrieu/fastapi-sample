@@ -23,6 +23,14 @@ QUALITY_MAINTENANCE_PATHS = {
     ".pre-commit-config.yaml",
     ".pre-commit-pre-push.yaml",
     ".quality-gate-large-deletions",
+    ".cursor/rules/001_project-description.mdc",
+    ".cursor/rules/001_workspace.mdc",
+    ".cursor/rules/003_project-tooling.mdc",
+    ".cursor/rules/100_general-style.mdc",
+    ".cursor/rules/111_katex-math.mdc",
+    ".cursor/rules/130_version-control_git.mdc",
+    ".cursor/rules/301_memory.mdc",
+    ".cursor/rules/302_artifacts.mdc",
     ".vercelignore",
     "AGENTS.md",
     "renovate.json",
@@ -41,6 +49,7 @@ QUALITY_MAINTENANCE_PATHS = {
     "tests/unit/test_ci_scope.py",
     "tests/unit/test_docs_contract.py",
     "tests/unit/test_large_deletion_ack_contract.py",
+    "tests/unit/test_opencode_agent_contract.py",
     "tests/unit/test_workflow_security.py",
 }
 

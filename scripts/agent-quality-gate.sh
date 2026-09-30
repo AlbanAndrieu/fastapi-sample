@@ -452,6 +452,7 @@ QUALITY_CONTRACT_TESTS=(
     tests/unit/test_ci_performance_budget.py
     tests/unit/test_docs_contract.py
     tests/unit/test_large_deletion_ack_contract.py
+    tests/unit/test_opencode_agent_contract.py
     tests/unit/test_workflow_security.py
 )
 

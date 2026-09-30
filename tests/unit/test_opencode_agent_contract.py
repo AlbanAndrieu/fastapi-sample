@@ -22,17 +22,60 @@ def test_opencode_uses_repository_maintainer_and_native_skills() -> None:
     assert "--read-only" in github["command"]
 
 
-def test_opencode_maintainer_uses_canonical_local_gates() -> None:
-    agent = (ROOT / ".opencode" / "agents" / "fastapi-maintainer.md").read_text(encoding="utf-8")
+def test_opencode_maintainer_delegates_to_canonical_policy() -> None:
+    agent = (ROOT / ".opencode" / "agents" / "fastapi-maintainer.md").read_text(
+        encoding="utf-8",
+    )
 
     assert "mode: primary" in agent
     assert "steps: 40" in agent
     assert "model:" not in agent.split("---", 2)[1]
-    assert "scripts/agent-quality-gate.sh --fix" in agent
-    assert "scripts/agent-publish.sh" in agent
+    assert "AGENTS.md" in agent
     assert "docs/engineering-roadmap.md" in agent
-    assert "outil `skill`" in agent
+    assert ".opencode/commands/" in agent
     assert "[skip ci]" in agent
+    assert len(agent.splitlines()) <= 35
+
+
+
+def test_global_agent_adapters_are_thin_and_delegate_to_agents_policy() -> None:
+    adapters = (
+        ROOT / "CLAUDE.md",
+        ROOT / ".github" / "copilot-instructions.md",
+        ROOT / ".cursor" / "rules" / "001_project-description.mdc",
+        ROOT / ".opencode" / "agents" / "fastapi-maintainer.md",
+    )
+
+    for adapter in adapters:
+        text = adapter.read_text(encoding="utf-8")
+        assert "AGENTS.md" in text
+        assert len(text.splitlines()) <= 35
+
+    cursor_rules = ROOT / ".cursor" / "rules"
+    always_on = []
+    for rule in cursor_rules.glob("*.mdc"):
+        text = rule.read_text(encoding="utf-8")
+        if "alwaysApply: true" in text:
+            always_on.append(rule.name)
+
+    assert always_on == ["001_project-description.mdc"]
+
+
+def test_obsolete_global_cursor_rules_are_removed_or_scoped() -> None:
+    rules = ROOT / ".cursor" / "rules"
+
+    for removed in (
+        "001_workspace.mdc",
+        "003_project-tooling.mdc",
+        "100_general-style.mdc",
+        "130_version-control_git.mdc",
+        "301_memory.mdc",
+        "302_artifacts.mdc",
+    ):
+        assert not (rules / removed).exists()
+
+    katex = (rules / "111_katex-math.mdc").read_text(encoding="utf-8")
+    assert "alwaysApply: false" in katex
 
 
 def test_opencode_reviewer_is_read_only() -> None:
