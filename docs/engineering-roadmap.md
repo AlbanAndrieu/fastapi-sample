@@ -29,8 +29,10 @@ detailed implementation record.
   repository history cleanup is required.
 - [ ] Replace shared operational keys with Keycloak/OIDC identities and explicit
   administration, diagnostics and MCP scopes.
-- [ ] Publish a public homelab projection that excludes internal hosts, ports and
-  privileged topology.
+- [ ] Finish the public homelab projection beyond topology. The browser topology
+  now uses a sanitized relation graph without internal URLs, ports, runtime
+  networks, source paths or configuration evidence; apply the same least-data
+  boundary to remaining public diagnostics.
 - [ ] Apply the intended Cloudflare Access/private-network restriction to
   management endpoints once the access flow is finalized.
 

@@ -13,7 +13,7 @@ def test_topology_page_is_separate_from_health_dashboard() -> None:
 
     assert "Homelab topology" in page
     assert 'href="/api"' in page
-    assert 'href="/api/homelab-topology"' in page
+    assert 'href="/api/public-topology"' in page
     assert "/api/assets/api-topology.css?v=1.2.3" in page
     assert "/api/assets/api-topology.js?v=1.2.3" in page
     assert 'id="health-board"' not in page
@@ -152,3 +152,13 @@ def test_topology_keeps_declared_data_visible_when_cytoscape_is_unavailable() ->
     assert "interactive graph library is unavailable" in script
     assert ".topology-graph--fallback" in stylesheet
     assert ".topology-fallback-node" in stylesheet
+
+
+
+def test_shared_topology_loader_uses_public_sanitized_contract() -> None:
+    script = (ASSETS / "api-topology-data.js").read_text(encoding="utf-8")
+
+    assert 'fetchJson("/api/public-topology")' in script
+    assert "/api/homelab-topology" not in script
+    assert "/api/homelab/declared-services" not in script
+    assert 'source: "public-topology-unavailable"' in script

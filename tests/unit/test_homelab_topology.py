@@ -7,7 +7,7 @@ from starlette.testclient import TestClient
 
 from nabla.api import homelab_topology
 from nabla.api.health_routes import register_health_routes
-from nabla.api.homelab_topology import HomelabTopology
+from nabla.api.homelab_topology import HomelabTopology, public_topology_payload
 
 
 def _topology_payload() -> dict:
@@ -196,3 +196,21 @@ def test_topology_accepts_named_deployment_environments() -> None:
 
     assert wire["nodes"][0]["environments"][0]["name"] == "production"
     assert wire["nodes"][0]["environments"][1]["cloudflareTunnel"] is True
+
+
+def test_public_topology_projection_removes_privileged_endpoint_evidence() -> None:
+    topology = HomelabTopology.model_validate(_topology_payload())
+
+    payload = public_topology_payload(topology)
+    node = payload["nodes"][0]
+    relation = payload["relations"][0]
+
+    assert payload["projection"] == "public-sanitized"
+    assert node["id"] == "openwebui"
+    assert node["lifecycle"]["phase"] == "platform-services"
+    assert "internalUrl" not in node
+    assert "sourcePath" not in node
+    assert "monitoring" not in node
+    assert "environments" not in node
+    assert relation["type"] == "consumesApi"
+    assert "evidence" not in relation
