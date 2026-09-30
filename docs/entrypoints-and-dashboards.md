@@ -29,8 +29,11 @@ normal FastAPI startup path.
 | `/ff` | Feature flags UI | Only when `DEBUG` is enabled |
 | `/metrics` | Prometheus metrics | Always registered; operational access policy may require a key |
 | `/health`, `/healthz`, `/sickz` | Health and detailed diagnostics | Detailed routes may require `DIAGNOSTICS_ACCESS_KEY` |
-| `/api/homelab-services` | Public service catalog | Always |
-| `/api/homelab-topology` | Service topology | May require `DIAGNOSTICS_ACCESS_KEY` |
+| `/api/public-topology` | Sanitized browser topology (no internal URLs/ports/evidence) | Always |
+| `/api/homelab-services` | Full exposure/service catalog | May require `DIAGNOSTICS_ACCESS_KEY` |
+| `/api/homelab/declared-services` | Full declared service inventory | May require `DIAGNOSTICS_ACCESS_KEY` |
+| `/api/homelab-topology` | Full declared service topology | May require `DIAGNOSTICS_ACCESS_KEY` |
+| `/api/homelab/runtime`, `/api/homelab/status` | TrueNAS runtime/reconciliation evidence | May require `DIAGNOSTICS_ACCESS_KEY` |
 
 The project-level [`.mcp.json`](../.mcp.json) and
 [`opencode.json`](../opencode.json) both target

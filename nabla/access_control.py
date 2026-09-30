@@ -19,7 +19,10 @@ if TYPE_CHECKING:
 _DIAGNOSTIC_PATHS = frozenset(
     {
         "/api/homelab-services",
+        "/api/homelab/declared-services",
         "/api/homelab-topology",
+        "/api/homelab/runtime",
+        "/api/homelab/status",
         "/api/homelab/health",
         "/api/homelab/probes",
         "/healthz",

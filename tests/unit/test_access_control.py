@@ -26,7 +26,10 @@ def protected_app(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     @app.get("/health")
     @app.get("/healthz")
     @app.get("/api/public-topology")
+    @app.get("/api/homelab/declared-services")
     @app.get("/api/homelab-topology")
+    @app.get("/api/homelab/runtime")
+    @app.get("/api/homelab/status")
     @app.get("/api/homelab/health")
     @app.get("/api/homelab/probes")
     def success() -> dict[str, bool]:
@@ -72,7 +75,10 @@ def test_diagnostics_key_accepts_bearer_and_keeps_liveness_public(
 
     assert protected_app.get("/api/homelab/health").status_code == 401
     assert protected_app.get("/api/homelab/probes").status_code == 401
+    assert protected_app.get("/api/homelab/declared-services").status_code == 401
     assert protected_app.get("/api/homelab-topology").status_code == 401
+    assert protected_app.get("/api/homelab/runtime").status_code == 401
+    assert protected_app.get("/api/homelab/status").status_code == 401
     assert protected_app.get("/api/public-topology").status_code == 200
     assert protected_app.get("/health").status_code == 200
     assert (

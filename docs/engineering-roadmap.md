@@ -31,8 +31,9 @@ detailed implementation record.
   administration, diagnostics and MCP scopes.
 - [ ] Finish the public homelab projection beyond topology. The browser topology
   now uses a sanitized relation graph without internal URLs, ports, runtime
-  networks, source paths or configuration evidence; apply the same least-data
-  boundary to remaining public diagnostics.
+  networks, source paths or configuration evidence; full service, declared,
+  runtime and reconciliation endpoints are diagnostics-key protected. Apply the
+  same least-data boundary to any future public diagnostics.
 - [ ] Apply the intended Cloudflare Access/private-network restriction to
   management endpoints once the access flow is finalized.
 
