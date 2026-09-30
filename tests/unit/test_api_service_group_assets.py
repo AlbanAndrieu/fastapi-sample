@@ -196,15 +196,13 @@ def test_health_grouping_reuses_shared_topology_loader() -> None:
 
     assert 'from "./api-topology-data.js"' in groups
     assert "await fetchTopology()" in groups
-    assert 'fetchJson("/api/homelab-topology")' in loader
-    assert 'fetchJson("/api/homelab/declared-services")' in loader
-    assert "topologyFromDeclaredServices" in loader
-    assert 'source: "declared-services-fallback"' in loader
-    assert "presentationRole" in loader
-    assert "securityFunctions" in loader
-    assert "classification-unavailable" in loader
+    assert 'fetchJson("/api/public-topology")' in loader
+    assert "/api/homelab-topology" not in loader
+    assert "/api/homelab/declared-services" not in loader
+    assert "topologyFromDeclaredServices" not in loader
+    assert 'source: "public-topology-unavailable"' in loader
     assert "Service classification" in groups
-    assert "Topology and declared-service catalog could not be loaded" in groups
+    assert "Public topology could not be loaded" in groups
 
 
 def test_health_board_renders_merged_homelab_evidence_once() -> None:

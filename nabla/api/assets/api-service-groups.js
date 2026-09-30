@@ -468,7 +468,7 @@ function updateOverview(
       '<div class="service-overview-card service-overview-card--neutral">' +
       "<span>Service classification</span>" +
       "<strong>Unavailable</strong>" +
-      "<small>Topology and declared-service catalog could not be loaded; raw health checks remain visible below.</small>" +
+      "<small>Public topology could not be loaded; raw health checks remain visible below.</small>" +
       "</div>";
     return;
   }
