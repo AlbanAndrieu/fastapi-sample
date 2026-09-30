@@ -275,6 +275,11 @@ def public_topology_payload(topology: HomelabTopology) -> dict[str, object]:
             item["description"] = node.description
         if node.icon is not None:
             item["icon"] = node.icon
+        if node.environments is not None:
+            item["environments"] = [
+                {"name": environment.name}
+                for environment in node.environments
+            ]
         if node.lifecycle is not None:
             item["lifecycle"] = node.lifecycle.model_dump(
                 mode="json",

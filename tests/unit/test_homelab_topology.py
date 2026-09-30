@@ -214,3 +214,31 @@ def test_public_topology_projection_removes_privileged_endpoint_evidence() -> No
     assert "environments" not in node
     assert relation["type"] == "consumesApi"
     assert "evidence" not in relation
+
+
+def test_public_topology_keeps_environment_names_without_urls() -> None:
+    payload = _topology_payload()
+    payload["nodes"][0]["environments"] = [
+        {
+            "name": "production",
+            "url": "https://private.example.test",
+            "external": False,
+            "cloudflareTunnel": False,
+        },
+        {
+            "name": "staging",
+            "url": "https://public.example.test",
+            "external": True,
+            "cloudflareTunnel": True,
+        },
+    ]
+    topology = HomelabTopology.model_validate(payload)
+
+    public = public_topology_payload(topology)
+
+    assert public["nodes"][0]["environments"] == [
+        {"name": "production"},
+        {"name": "staging"},
+    ]
+    assert "private.example.test" not in str(public)
+    assert "public.example.test" not in str(public)
