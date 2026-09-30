@@ -1,8 +1,7 @@
 # Application entry points and local dashboards
 
-This document replaces the stale dashboard notes from pull request #63. The
-current application serves HTTP, OpenAPI and MCP from the same FastAPI process;
-FastAPI Radar is not installed and is not an MCP server.
+The application serves HTTP, OpenAPI and MCP from the same FastAPI process.
+FastAPI Radar is intentionally not installed and is not an MCP server.
 
 ## Application entry points
 
@@ -53,7 +52,6 @@ service endpoints, not browser dashboards.
 
 ## FastAPI Radar decision
 
-Pull request #63 attempted to launch `python -m fastapi_radar` on port 8091.
 FastAPI Radar 0.3.4 is middleware mounted inside an existing FastAPI
 application; it provides no module CLI and no MCP transport. Its dashboard can
 record request and response bodies, headers, SQL and exceptions.

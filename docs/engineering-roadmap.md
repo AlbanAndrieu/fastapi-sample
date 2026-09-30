@@ -190,10 +190,11 @@ Do not expand these back into historical checklists unless a regression occurs:
 - FastAPI Radar was evaluated and remains intentionally absent from runtime;
   any future adoption must be local-only, disabled by default, authenticated,
   redacted and covered by disabled-mode tests;
-- legacy PR #63 review is closed: current Pylint, TrueNAS, catalog and dashboard
-  implementations supersede its old paths; the removed login/Wrangler sub-app
-  and generated SQL snapshot are not restored; its mutable-global RAG prototype
-  remains rejected in favor of the open `VectorStore` item;
+- retired legacy branches are not replayed wholesale: current Pylint, TrueNAS,
+  catalog and dashboard implementations are authoritative; mutable-global RAG
+  prototypes remain rejected in favor of the open `VectorStore` item;
+- agent policy/skill changes use the isolated `quality` scope, and local/CI
+  quality gates execute the same contract-test set;
 - health-board modules already split for maintainability remain covered by tests.
 
 ## Documentation policy
