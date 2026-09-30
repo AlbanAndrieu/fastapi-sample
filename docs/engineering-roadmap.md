@@ -162,8 +162,11 @@ Reference:
   least-privilege.
 - [ ] Evaluate FastAPI Radar only as opt-in local development tooling.
 - [ ] Finish semantic review of remaining PR #63 divergent/absent files.
-- [ ] Consolidate duplicate Compose/Docker development paths after proving them
-  unused.
+- [ ] Consolidate duplicate Compose/Docker development paths: current repository
+  references show `Dockerfile-pipenv` and `Dockerfile-poetry` are orphaned, while
+  `docker-compose.yml` still backs legacy/dev PostgreSQL/Redis tooling. Prove the
+  canonical `Dockerfile` + `docker-compose.yaml` build/smoke locally, reconcile
+  remaining Makefile/mise/helm references, then remove only the unused paths.
 
 ## Implemented guardrails — compact baseline
 
