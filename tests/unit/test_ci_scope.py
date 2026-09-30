@@ -88,7 +88,9 @@ def test_quality_infrastructure_scope_is_quality(tmp_path: Path) -> None:
     assert scope["dependency_mode"] == "quality"
 
 
-def test_dependency_and_disabled_vercel_config_use_quality_scope(\n    tmp_path: Path,\n) -> None:
+def test_dependency_and_disabled_vercel_config_use_quality_scope(
+    tmp_path: Path,
+) -> None:
     quality_only_paths = (
         "renovate.json",
         "vercel.json",
