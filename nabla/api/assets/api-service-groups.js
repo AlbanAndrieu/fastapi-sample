@@ -167,11 +167,13 @@ function postureAtRisk(check) {
 function rowStatus(row, check = {}) {
   const localState = normalizedHealthState(check?.local_state);
   const dependencyState = normalizedHealthState(check?.dependency_state);
+  const directState = normalizedHealthState(check?.direct_state);
   const atRisk = postureAtRisk(check);
 
   if (localState === "fail") return "Down";
   if (localState === "warn") return "Degraded";
   if (localState === "unknown") return "Unknown";
+  if (localState === "ok" && directState === "fail") return "Degraded";
   if (
     localState === "ok" &&
     (["fail", "warn", "unknown"].includes(dependencyState) || atRisk)
@@ -197,7 +199,6 @@ function probeLatencyMs(check) {
 }
 
 function rowOutcomeOperational(row) {
-  if (row.dataset.localState) return row.dataset.localState === "ok";
   return row.dataset.semanticStatus === "operational";
 }
 

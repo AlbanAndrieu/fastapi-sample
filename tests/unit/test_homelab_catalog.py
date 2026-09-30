@@ -439,3 +439,54 @@ def test_bootstrap_catalog_applies_reviewed_exposure_overrides() -> None:
     assert n8n.tunnel_secure is True
     assert n8n.effective_cloudflare_access_required is True
     assert n8n.security_exception is not None
+
+
+def test_health_path_separates_navigation_and_readiness_probe() -> None:
+    service = HomelabService(
+        name="Reactive Resume",
+        tunnel_url="https://reactive.albandrieu.com",
+        health_path="/api/health",
+        external=True,
+        cloudflare_access_required=False,
+    )
+
+    assert service.effective_endpoint_url == "https://reactive.albandrieu.com"
+    assert service.public_https_probe_url == "https://reactive.albandrieu.com/api/health"
+
+
+def test_health_path_and_hostname_validation_fail_closed() -> None:
+    with pytest.raises(ValidationError, match="healthPath"):
+        HomelabService(
+            name="Bad health path",
+            tunnel_url="https://example.com",
+            health_path="https://other.example/health",
+            external=True,
+        )
+
+    with pytest.raises(ValidationError, match="whitespace"):
+        HomelabService(
+            name="Bad hostname",
+            tunnel_url="https://prometheus - albandrieu.albandrieu.com",
+            external=False,
+        )
+
+
+def test_bootstrap_catalog_uses_canonical_prometheus_reactive_and_traefik_targets() -> None:
+    services = {service.name: service for service in homelab_catalog._load_bootstrap_catalog().services}
+
+    assert "Prometheus - albandrieu" not in services
+
+    prometheus = services["Prometheus"]
+    assert prometheus.internal_host == "172.17.0.24"
+    assert prometheus.internal_port == 9090
+    assert prometheus.internal_path == "/-/ready"
+    assert prometheus.public_https_probe_url == "https://prometheus.albandrieu.com/-/ready"
+
+    reactive = services["Reactive Resume"]
+    assert reactive.public_https_probe_url == "https://reactive.albandrieu.com/api/health"
+
+    traefik = services["Traefik"]
+    assert traefik.internal_host == "172.17.0.24"
+    assert traefik.internal_port == 443
+    assert traefik.external is False
+    assert traefik.endpoint_enabled is False
