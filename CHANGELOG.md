@@ -1,3 +1,10 @@
+## [1.20.13](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.12...1.20.13) (2026-09-30)
+
+
+### Bug Fixes
+
+* **deps:** bump brace-expansion ([#300](https://github.com/AlbanAndrieu/fastapi-sample/issues/300)) ([30780ad](https://github.com/AlbanAndrieu/fastapi-sample/commit/30780ad015fe979339e8d17fe0d2a0692c72336e))
+
 ## [1.20.12](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.11...1.20.12) (2026-09-30)
 
 
