@@ -95,7 +95,7 @@ must remain Draft until it is green.
 
 Before changing behavior, inspect the relevant files:
 
-- `README.md` — project usage and architecture
+- `README.md` — concise project quick start and canonical runtime entry points
 - `pyproject.toml` — Python version, dependencies, and tool configuration
 - `nabla/config_settings.py` — application settings
 - `nabla/main.py` — FastAPI application
@@ -123,7 +123,6 @@ Optimize the amount of context needed to obtain reliable evidence, not the agent
 - GitHub repository/PR/Actions/code-security tooling, including the Python CI, pytest, Ruff, Pylint, Bandit, MegaLinter, CodeQL, Docker and Trivy gates;
 - the local `fastapi-sample` MCP/runtime diagnostics when the application is running;
 - FastAPI Cloud deployment, environment inventory, runtime logs and production validation;
-- Vercel deployment/status for the lightweight compatibility proxy;
 - Sentry issue/error/trace diagnostics when investigating production or observability behavior.
 
 **On-demand — keep available, but discover/load only for a relevant task:**
@@ -137,6 +136,7 @@ Optimize the amount of context needed to obtain reliable evidence, not the agent
 **Out-of-scope by default:**
 
 - AWS/EKS and Terraform operations for ordinary FastAPI application work; the current repository has no active EKS/Terraform implementation;
+- Vercel deployment operations while Git deployment remains intentionally disabled; use Vercel only for explicit teardown/status work tied to the remaining roadmap item;
 - any global connector, plugin, MCP or skill not referenced by the current task or by an active repository integration.
 
 Do not uninstall, disconnect, or remove a globally available integration merely to save context. An installed integration that is not discovered or invoked costs less project context while remaining available for other repositories and future tasks.
@@ -218,7 +218,7 @@ checks when application packaging is required.
 
 `--fix` is intentionally convergent: deterministic pre-commit rewrites are retried for a small bounded number of passes and the rewritten editing tree is then validated. Do not publish a formatter-generated intermediate commit merely to discover the next deterministic rewrite.
 
-The strict agent gate checks branch freshness, suspicious destructive truncations or complete large-file deletions, executable bits for shebang scripts, modified-Python code-size limits, release/version consistency, and the complete pytest suite when Python/runtime/test dependencies are affected. Non-Python documentation/configuration-only changes may skip the full pytest suite after the canonical gate has validated them. When the gate script itself changed, focused shfmt/ShellCheck/bashate hooks run before pytest so gate defects fail early.
+The strict agent gate checks branch freshness, base-scoped acknowledgements for suspicious destructive truncations or complete large-file deletions, repository-local links in changed Markdown, executable bits for shebang scripts, modified-Python code-size limits, release/version consistency, and the complete pytest suite when Python/runtime/test dependencies are affected. Non-Python documentation/configuration-only changes may skip the full pytest suite after the canonical gate has validated them. When the gate script itself changed, focused shfmt/ShellCheck/bashate hooks run before pytest so gate defects fail early.
 
 The canonical gate remains the shared formatter/linter/security orchestrator.
 Normal mode is dirty-tree aware for iterative validation;

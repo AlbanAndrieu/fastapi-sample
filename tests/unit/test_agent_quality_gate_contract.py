@@ -86,7 +86,12 @@ def test_agent_quality_gate_wraps_tests_and_canonical_gate() -> None:
     assert "tests/unit/test_agent_publication_proof.py" in text
     assert "tests/unit/test_ci_scope.py" in text
     assert "tests/unit/test_ci_performance_budget.py" in text
+    assert "tests/unit/test_docs_contract.py" in text
+    assert "tests/unit/test_large_deletion_ack_contract.py" in text
+    assert "tests/unit/test_opencode_agent_contract.py" in text
     assert "tests/unit/test_workflow_security.py" in text
+    assert "documentation relative-link contract" in text
+    assert "python3 scripts/check_docs_links.py" in text
     assert "dependency-backed tests are still required" in text
     assert "full_pytest_impact" in text
     assert "quality_contract_impact" in text
@@ -252,12 +257,10 @@ def test_agent_completion_policy_requires_roadmap_accounting() -> None:
     assert "completion gate" in homelab_skill.lower()
     assert "docs/engineering-roadmap.md" in homelab_skill
 
-    assert "P0 — TrueNAS-local dependency convergence" in roadmap
-    assert "pfSense posture API" in roadmap
-    assert "Prometheus runtime configuration" in roadmap
-    assert "Cloudflare control-plane evidence" in roadmap
-    assert "Sentry application acceptance" in roadmap
-    assert "Pyroscope application acceptance" in roadmap
+    assert "## P0 — homelab dependency convergence" in roadmap
+    for integration in ("Talos", "pfSense", "Prometheus", "Sentry", "Pyroscope"):
+        assert f"**{integration}:**" in roadmap
+    assert "scripts/diagnose-local-runtime-dependencies.py" in roadmap
 
 
 def test_zap_runs_only_post_merge_or_manually_against_production_surfaces() -> None:

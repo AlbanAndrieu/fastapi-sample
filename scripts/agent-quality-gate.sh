@@ -44,7 +44,7 @@ Environment:
   QUALITY_LOG_TAIL                 failure log lines to print (default: 50, capped at 80)
   QUALITY_FIX_PASSES               maximum pre-commit convergence passes (default: 6)
   QUALITY_ALLOW_LARGE_DELETION=1   acknowledge all intentional large truncations/deletions
-  QUALITY_LARGE_DELETION_ACK_FILE  reviewed-path acknowledgement file (default: .quality-gate-large-deletions)
+  QUALITY_LARGE_DELETION_ACK_FILE  base-scoped acknowledgement file (default: .quality-gate-large-deletions)
 EOF_HELP
         exit 0
         ;;
@@ -312,9 +312,13 @@ if [[ "${BASE_REF}" != "HEAD" ]]; then
 fi
 
 LARGE_DELETION_ACK_FILE="${QUALITY_LARGE_DELETION_ACK_FILE:-.quality-gate-large-deletions}"
+BASE_SHA=""
 large_deletion_ack_file_changed=false
-if [[ "${BASE_REF}" != "HEAD" && -f "${LARGE_DELETION_ACK_FILE}" ]]; then
-    if ! git diff --quiet "${BASE_REF}...HEAD" -- "${LARGE_DELETION_ACK_FILE}"; then
+if [[ "${BASE_REF}" != "HEAD" ]]; then
+    BASE_SHA="$(git rev-parse "${BASE_REF}^{commit}")"
+fi
+if [[ -n "${BASE_SHA}" && -f "${LARGE_DELETION_ACK_FILE}" ]]; then
+    if ! git diff --quiet "${BASE_REF}" -- "${LARGE_DELETION_ACK_FILE}"; then
         large_deletion_ack_file_changed=true
     fi
 fi
@@ -324,10 +328,10 @@ is_large_deletion_acknowledged() {
     if [[ "${QUALITY_ALLOW_LARGE_DELETION:-0}" == "1" ]]; then
         return 0
     fi
-    if [[ "${large_deletion_ack_file_changed}" != true ]]; then
+    if [[ "${large_deletion_ack_file_changed}" != true || -z "${BASE_SHA}" ]]; then
         return 1
     fi
-    grep -Fxq -- "${file}" "${LARGE_DELETION_ACK_FILE}"
+    grep -Fxq -- "${BASE_SHA} ${file}" "${LARGE_DELETION_ACK_FILE}"
 }
 
 large_deletion_failed=0
@@ -422,10 +426,16 @@ else
         bash scripts/quality-gate.sh
 fi
 
+CHANGED_MARKDOWN=()
 CHANGED_PYTHON=()
 for file in "${CHANGED_FILES[@]}"; do
+    [[ "${file}" == *.md ]] && CHANGED_MARKDOWN+=("${file}")
     [[ "${file}" == *.py ]] && CHANGED_PYTHON+=("${file}")
 done
+if ((${#CHANGED_MARKDOWN[@]} > 0)); then
+    run_compact "documentation relative-link contract" \
+        python3 scripts/check_docs_links.py "${CHANGED_MARKDOWN[@]}"
+fi
 if ((${#CHANGED_PYTHON[@]} > 0)); then
     run_compact_report "modified Python code-size gate" \
         uv run python scripts/check_code_size.py \
@@ -440,6 +450,9 @@ QUALITY_CONTRACT_TESTS=(
     tests/unit/test_agent_publication_proof.py
     tests/unit/test_ci_scope.py
     tests/unit/test_ci_performance_budget.py
+    tests/unit/test_docs_contract.py
+    tests/unit/test_large_deletion_ack_contract.py
+    tests/unit/test_opencode_agent_contract.py
     tests/unit/test_workflow_security.py
 )
 

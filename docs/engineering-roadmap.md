@@ -73,6 +73,9 @@ Runbook:
 - [ ] Inventory Uptime Kuma/Gatus/AutoKuma so no monitor performs expensive
   pfSense deep-status requests.
 - [ ] Remove the shared-WAN Snort attribution blind spot.
+- [ ] After an independent pfSense observer path is accepted, expand the
+  sanitized posture with interfaces/gateways, firewall/NAT and DNS policy;
+  query VPN, logs and private inventory only for explicit operational needs.
 - [ ] Improve TrueNAS WebSocket timeout attribution without leaking URI or
   credential context.
 
@@ -159,9 +162,11 @@ Reference:
   least-privilege.
 - [ ] Evaluate FastAPI Radar only as opt-in local development tooling.
 - [ ] Finish semantic review of remaining PR #63 divergent/absent files.
-- [ ] Consolidate duplicate Compose/Docker development paths after proving them
-  unused.
-- [ ] Deduplicate Cursor/Codex/OpenCode/Copilot policy around `AGENTS.md`.
+- [ ] Consolidate duplicate Compose/Docker development paths: current repository
+  references show `Dockerfile-pipenv` and `Dockerfile-poetry` are orphaned, while
+  `docker-compose.yml` still backs legacy/dev PostgreSQL/Redis tooling. Prove the
+  canonical `Dockerfile` + `docker-compose.yaml` build/smoke locally, reconcile
+  remaining Makefile/mise/helm references, then remove only the unused paths.
 
 ## Implemented guardrails — compact baseline
 
@@ -178,8 +183,12 @@ Do not expand these back into historical checklists unless a regression occurs:
 - Renovate is low-churn, automerge is disabled and duplicate CVE PR ownership is
   avoided;
 - CI scopes are `none`, `quality` and fail-closed `full`;
+- changed Markdown links are validated locally without network access;
+- large-deletion acknowledgements are bound to the exact comparison-base SHA;
 - external GitHub Actions are pinned to immutable SHAs;
 - Vercel Git deployments are repository-disabled;
+- `AGENTS.md` is the single global agent policy; Claude, Copilot, Cursor and
+  OpenCode use thin adapters and task-scoped rules instead of duplicated policy;
 - health-board modules already split for maintainability remain covered by tests.
 
 ## Documentation policy

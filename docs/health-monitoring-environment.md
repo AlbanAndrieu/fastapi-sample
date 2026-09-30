@@ -1,112 +1,100 @@
-# Health monitoring environment variables
+# Health monitoring configuration reference
 
-The health endpoints intentionally keep credentials out of source control. Create the following variables in the target runtime (for example FastAPI Cloud) when the corresponding optional integration should be monitored.
+This document defines the **configuration contract** for health and homelab
+observers. Recovery procedures and dated failures belong in focused runbooks and
+[incidents.md](incidents.md).
+
+Optional integrations must not become core liveness dependencies unless they are
+explicitly designed as required.
 
 ## Runtime observer scope
 
-The deployment runtime is explicit:
+Set the runtime identity explicitly:
 
 ```text
 FASTAPI_RUNTIME_MODE=homelab
 ```
 
-Use this only for the TrueNAS production deployment. It produces
-`runtime_mode=homelab`, `environment_class=production` and
-`observer_scope=trusted_lan`. The FastAPI Cloud deployment remains
-`runtime_mode=fastapi_cloud` / `observer_scope=external`, while developer
-workstations remain `runtime_mode=local`.
+Use `homelab` only for the trusted TrueNAS production observer. FastAPI Cloud
+uses its external runtime mode and developer workstations use local mode.
 
-Do not infer this scope from `SICKZ_INTERNAL_NETWORK`, private source
-addresses, or hostnames. Those signals describe probe policy or transport, not
-deployment identity.
+Do not infer deployment identity from private addresses,
+`SICKZ_INTERNAL_NETWORK` or hostnames. Those values describe transport/probe
+policy, not the runtime trust boundary.
 
 ## Endpoint responsibilities
 
-- `/health`: lightweight FastAPI/runtime liveness only; it must not depend on external homelab services.
-- `/healthz`: deep dependency diagnostics used by the `/api#health-board` UI.
-- `/sickz`: exposure-policy reconciliation. It compares catalog intent (`external`, `tunnelSecure`, Cloudflare Access requirements) with HTTP/TLS, Cloudflare Tunnel/Access and TrueNAS runtime evidence.
-- `/api/homelab-services`: validated service inventory and declared exposure settings.
-- `/api/homelab-topology`: validated design-time service graph, including nodes and directed relationships.
-- `/api/homelab/health`: detailed homelab/platform state, including external and optional internal service probes.
+| Endpoint | Responsibility |
+| --- | --- |
+| `/health` | lightweight FastAPI/runtime liveness; no homelab dependency I/O |
+| `/healthz` | deep dependency diagnostics used by the health board |
+| `/sickz` | exposure-policy reconciliation: HTTP/TLS, Cloudflare and runtime evidence |
+| `/api/homelab-services` | validated service inventory/exposure intent |
+| `/api/homelab-topology` | design-time nodes and directed relationships |
+| `/api/homelab/health` | detailed platform state and optional provider probes |
 
-Optional integrations must not make the required/core health red. Missing credentials should be reported as disabled/skipped unless the integration is explicitly enabled and its required credential is missing.
+Missing optional credentials are disabled/skipped unless the integration is
+explicitly enabled and requires them.
 
-The Homelab endpoints are documented under the `Homelab` section of `/docs` and
-in `/openapi.json`. They remain accessible by default. Configure
-`DIAGNOSTICS_ACCESS_KEY` to require `X-Diagnostics-Key` or an `Authorization:
-Bearer` token for the service catalog, topology, and detailed health endpoints.
+## Diagnostics access key
 
-Generate an opaque URL-safe value of at least 32 characters; it is compared as
-text and must not be decoded by the application:
+To protect service inventory, topology and detailed health endpoints, configure:
+
+```text
+DIAGNOSTICS_ACCESS_KEY=<opaque URL-safe secret, at least 32 characters>
+```
+
+Generate a value locally:
 
 ```bash
 python -c 'import secrets; print(secrets.token_urlsafe(32))'
 ```
 
-Store the value in the local untracked `.env.secrets` for local execution and
-as a secret environment variable in FastAPI Cloud for production. Authorized
-server-side consumers must receive the same value and send either:
+Authorized server-side consumers may send either:
 
 ```text
 X-Diagnostics-Key: <secret>
 Authorization: Bearer <secret>
 ```
 
-Never expose it through browser JavaScript or a `NEXT_PUBLIC_*` variable. A web
-application such as `nabla-site-alban` may store it only in its server-side
-deployment secrets and proxy requests from a protected server route. Public
-pages should instead consume the future redacted public Homelab projection.
+Never expose this value in browser JavaScript or `NEXT_PUBLIC_*`. A public site
+must use a protected server-side proxy or the redacted public homelab projection.
 
-## Cloudflare Tunnel and Access APIs
+## Cloudflare Tunnel and Access
 
-Create:
+Control-plane observation:
 
 ```text
-CLOUDFLARE_ACCOUNT_ID=<Cloudflare account id>
-CLOUDFLARE_API_TOKEN=<read-only Cloudflare API token>
+CLOUDFLARE_ACCOUNT_ID=<account id>
+CLOUDFLARE_API_TOKEN=<dedicated read-only token>
 ```
 
-Use a dedicated token and never reuse a global API key. For complete `/sickz`
-security posture, grant only the read permissions required for:
+Grant only the read permissions required for Tunnel state/configuration and
+Access applications/policies. Tunnel visibility without Access permission means
+Access protection is **unverified**, not secure and not workload DOWN.
 
-- Cloudflare Tunnel state/configuration;
-- `Access: Apps and Policies Read`.
+A Tunnel proves routing, not authorization. Broad `Bypass + Everyone` or
+equivalent host-wide access remains a security exception; narrow path-scoped
+exceptions must stay explicit.
 
-The observer reads Tunnel ingress and Cloudflare Access applications/policies
-independently. If the token can read Tunnel configuration but lacks the Access
-scope, `/sickz` reports Access protection as unverified rather than assuming a
-service is secure.
-
-A Cloudflare Tunnel by itself proves routing through Cloudflare, not Access
-authorization. For services whose policy requires Cloudflare Access,
-`Bypass + Everyone` or an `Allow` policy that includes Everyone is treated as a
-security exception. A host-wide exception is red. A narrowly path-scoped bypass
-(for example an incoming webhook endpoint) is orange and should remain as small
-as possible. Prefer Cloudflare Service Auth for automated callers when the
-integration supports it.
-
-The health probe reads the Cloudflare control plane and reports API reachability separately from tunnel and Access policy state.
-
-For a second, live Cloudflare Access check, FastAPI can also use a dedicated
-Service Token:
+Optional live Service Auth probe:
 
 ```text
-CF_ACCESS_CLIENT_ID=<Cloudflare Access Service Token client id>
-CF_ACCESS_CLIENT_SECRET=<Cloudflare Access Service Token client secret>
+CF_ACCESS_CLIENT_ID=<service-token client id>
+CF_ACCESS_CLIENT_SECRET=<service-token client secret>
 ```
 
-This pair is independent from `CLOUDFLARE_API_TOKEN`. The normal edge probe
-always runs anonymously first so Default-Deny and Access challenges remain
-observable. Only when that anonymous response is explicitly blocked by
-Cloudflare Access does FastAPI retry with the Service Token. The credentials are
-sent only to `albandrieu.com` or its subdomains and are never returned in
-health payloads. A successful retry proves the Service Auth identity path can
-cross Cloudflare Access; it does not replace application-level authentication.
+The normal edge probe runs anonymously first. Retry with the Service Token only
+when Cloudflare Access explicitly blocks the anonymous request. Send these
+headers only to the intended `albandrieu.com` host/subdomain and never return
+them in diagnostics.
+
+Detailed interpretation:
+[Cloudflare and Sentry runtime diagnostics](cloudflare-sentry-runtime-diagnostics.md).
 
 ## pfSense API
 
-Use separate pfSense identities for posture and Snort/PF security telemetry.
-The normal FastAPI Cloud configuration is:
+Use independent identities for posture and Snort/PF attribution:
 
 ```text
 PFSENSE_API_URL=https://<pfsense-host>:<https-port>
@@ -122,150 +110,87 @@ PFSENSE_SECURITY_API_VERIFY_SSL=true                             # optional
 PFSENSE_SECURITY_PATH_MODE=shared_wan
 ```
 
-When the dedicated URL variables are absent, both identities reuse
-`PFSENSE_API_URL`. When their dedicated TLS flags are absent, they reuse
-`PFSENSE_API_VERIFY_SSL`. Production completed the split on 2026-09-02 and no
-longer defines `PFSENSE_API_KEY`. Runtime code may temporarily keep the old
-shared-key name for migration/rollback compatibility, but it is not canonical
-configuration and must not be restored merely to satisfy a missing-key diagnostic.
+Dedicated URLs/TLS flags inherit the common values when omitted. The canonical
+deployment does not use the historical shared `PFSENSE_API_KEY`.
 
-Recommended pfSense service accounts:
+Least-privilege accounts:
 
-- `fastapi-pfsense-posture`: GET only for `/api/v2/system/version`,
-  `/api/v2/system/dns`, `/api/v2/status/services`, and
-  `/api/v2/services/dns_resolver/settings`;
-- `fastapi-pfsense-security`: GET only for
-  `/api/v2/diagnostics/table?id=snort2c`.
+- posture: GET-only version, DNS, service status and resolver policy required by
+  the observer;
+- security: GET-only diagnostics-table access for `snort2c`.
 
-Do not assign `WebCfg - All pages`, `page-all`, SSH shell access, write/apply,
-reboot, command-prompt, DELETE, PATCH, PUT, or POST privileges to either account.
-The pfSense user objects must remain enabled: the REST API rejects API-key
-authentication when the key owner is marked disabled (`This user cannot login`).
-API keys themselves do not grant webConfigurator or SSH authentication.
+Do not grant WebCfg-all, shell, reboot, apply, command, DELETE, PATCH, PUT or POST
+privileges. Keep the pfSense REST API globally read-only during normal operation.
 
-Keep the REST API globally in read-only mode during normal operation. It may be
-temporarily switched out of read-only mode to create/rotate an API key, then
-returned immediately to read-only mode. Runtime monitoring requires only GET.
+API-key transport must use HTTPS. Keep certificate verification enabled when the
+certificate is trusted; an explicit internal/self-signed endpoint may opt out
+with its matching `*_VERIFY_SSL=false` flag without changing other clients.
 
-`PFSENSE_API_URL` must use HTTPS when API-key authentication is enabled. Keep TLS verification enabled when the certificate is trusted. If the homelab uses a private/self-signed certificate, the matching `*_VERIFY_SSL=false` switch may be used explicitly, but the transport must still be HTTPS.
-
-The health-board liveness probe intentionally uses the lightweight read-only
-version endpoint:
+Normal synchronous liveness uses:
 
 ```text
 GET /api/v2/system/version
 ```
 
-Do not use `GET /api/v2/status/system` as the synchronous liveness gate. The
-pfSense REST package builds that response from live platform, BIOS, temperature,
-CPU/load, mbuf, memory, swap, and filesystem metrics, so a healthy firewall can
-exceed a short health-check read timeout. Keep `/api/v2/status/system` for
-on-demand or separately cached detailed observability.
+Do not substitute `GET /api/v2/status/system`; that endpoint collects deeper
+live platform data and belongs behind on-demand/separate caching.
 
-FastAPI Cloud currently uses direct reachability for the intentional TrueNAS
-`7000` path. The pfSense `10443` WAN probe is diagnostic-only while the
-platform lacks a stable application-controlled egress identity: keep it
-`trusted_sources_only`, do not chase rotating cloud IPs with permanent
-allowlists, and move posture/Snort telemetry to an independent out-of-band
-observer. Validate management-port denial from an independent untrusted vantage
-point.
+When security telemetry traverses the same WAN PF/Snort path it diagnoses, keep
+`PFSENSE_SECURITY_PATH_MODE=shared_wan`. Such failure is a diagnostic blind
+spot, not proof that the table is clear. Use `out_of_band` only after an
+independent LAN-side observer exists.
 
-## TrueNAS 26 API
+Reference:
+[pfSense security observer contract](pfsense-security-observability.md) and
+[pfSense 502 recovery](pfsense-webconfigurator-recovery.md).
 
-Create a dedicated local/API-only TrueNAS service account with the smallest read-only privilege set required by the observer, then create a dedicated API key for that account.
+## TrueNAS API
 
-Create:
+Configure only the dedicated observer identity:
 
 ```text
 TRUENAS_URL=https://truenas.albandrieu.com:7000/
-TRUENAS_API_USERNAME=<read-only service account>
-TRUENAS_API_KEY=<dedicated API key>
+TRUENAS_API_USERNAME=fastapi_observer
+TRUENAS_API_KEY=<dedicated observer API key>
 TRUENAS_API_VERIFY_SSL=true
 ```
 
-`TRUENAS_URL` is the single endpoint used by the public HTTP check, optional TCP
-probe and authenticated WebSocket adapter. Its production default is
-`https://truenas.albandrieu.com:7000/`. Keep that hostname on the internal
-TrueNAS runtime as well. Resolve it locally to `172.17.0.24` (for example with
-the Compose `extra_hosts` entry) so the observer stays on the LAN while
-preserving TLS SNI/hostname validation.
+`TRUENAS_URL` is shared by HTTP reachability, optional TCP diagnostics and the
+authenticated WebSocket adapter. Keep the hostname even for LAN routing so TLS
+SNI/hostname validation remains correct; route it locally to the TrueNAS address
+rather than replacing it with a bare IP.
 
-Do not replace the hostname with `https://172.17.0.24:7000` merely to avoid
-public DNS routing. The transport address and the TLS identity are separate
-concerns.
+Authentication boundaries are strict:
 
-The FastAPI runtime no longer accepts username/key fallbacks. Its TrueNAS
-observer trust boundary is exactly:
+| Consumer | Identity/secret |
+| --- | --- |
+| FastAPI observer | `TRUENAS_API_USERNAME` + `TRUENAS_API_KEY` |
+| infrastructure tooling | `TRUENAS_INFRA_API_USERNAME` + `TRUENAS_INFRA_API_KEY` in `nabla-compose` |
+| TrueNAS MCP | launcher identity + `TRUENAS_MCP_API_KEY` |
 
-| Usage | Username variable | Secret variable |
-| --- | --- | --- |
-| FastAPI observer | `TRUENAS_API_USERNAME=fastapi_observer` | `TRUENAS_API_KEY` |
-| OpenTofu/Terragrunt | `TRUENAS_INFRA_API_USERNAME=albandrieu` (in `nabla-compose`) | `TRUENAS_INFRA_API_KEY` (not consumed by FastAPI) |
-| TrueNAS MCP tooling | launcher-specific identity | `TRUENAS_MCP_API_KEY` (not consumed by FastAPI) |
+The application must not pair infrastructure/MCP credentials with the observer
+identity. Historical `TRUENAS_USERNAME` / `TRUENAS_USER` fallbacks are not
+canonical.
 
-OpenTofu/Terragrunt uses the separate
-`TRUENAS_INFRA_API_USERNAME` + `TRUENAS_INFRA_API_KEY` pair in
-`nabla-compose`. Those variables must never configure the FastAPI observer,
-even when they are present in the same workstation shell.
+TrueNAS 26 uses the JSON-RPC WebSocket API at `/api/current`. Validate API-key
+shape before transport/authentication so malformed credentials are reported as
+configuration errors.
 
-Likewise, `TRUENAS_USERNAME`, `TRUENAS_USER` and
-`TRUENAS_MCP_API_KEY` are no longer authentication fallbacks for the
-application. The sanitized health payload may report the *names* of these
-non-observer variables as configured-but-ignored drift, but never their values.
-This keeps operator, observer and MCP identities from being silently paired with
-the wrong API key.
+Keep the official TrueNAS client pinned to the **deployed appliance release**;
+do not independently advance client/server versions.
 
-TrueNAS 26 uses the JSON-RPC WebSocket API at `/api/current`. The observer currently reads the system version and app inventory only; credentials must never be returned by health endpoints.
+Transport and authorization remain distinct:
 
-The raw TrueNAS 26 API-key format is
-`{api_key_id}-{64_character_alphanumeric_string}`. FastAPI validates this
-shape before constructing the WebSocket client, so truncated, copied-as-variable
-or otherwise malformed values fail as configuration errors instead of being
-misdiagnosed as network/RBAC failures.
+- constructor/WebSocket failures before auth are transport/handshake failures;
+- a code-1008 `You are not allowed to access this resource` can indicate
+  `system.general.ui_allowlist` source denial before RBAC;
+- `GET /api/versions` proves HTTPS reachability only, not WebSocket permission.
 
-Keep the official `truenas/api_client` tag aligned with the deployed TrueNAS
-release. The current homelab appliance intentionally remains on
-TrueNAS 26.0.0-BETA.2, so the application pins `TS-26.0.0-BETA.2`.
-Do not upgrade the API client independently of the appliance: this homelab has
-already experienced TrueNAS client/server compatibility failures. TrueNAS 26
-API-key authentication uses SCRAM-SHA-512 and user-linked API keys.
+For bridge-networked containers, allow the stable source address TrueNAS
+actually observes, preferably a dedicated `/32`, rather than a whole shared
+Docker subnet.
 
-A WebSocket failure during the client constructor occurs before API-key
-authentication and must be diagnosed as transport/handshake failure rather than
-as an RBAC denial.
-
-TrueNAS also applies `system.general.ui_allowlist` to API/UI WebSocket source
-addresses before authentication. A Docker-hosted observer therefore reaches
-TrueNAS with its Docker bridge source address, not necessarily the LAN address
-of the TrueNAS host. A policy close with code 1008 and
-`You are not allowed to access this resource` is a source-allowlist denial,
-not an `APPS_READ` RBAC failure.
-
-`GET /api/versions` is useful for HTTPS reachability/version discovery but does
-not prove that `/api/current` WebSocket access is permitted. Prefer allowing a
-stable, dedicated observer address (`/32`) over allowing the whole shared
-Docker subnet. The address that matters is the source address observed by
-TrueNAS for the WebSocket connection; for a bridge-networked container this is
-normally the container address on the Docker network, not the TrueNAS host LAN
-address. Keep the UI allowlist change fail-safe with TrueNAS rollback / check-in
-semantics.
-
-A proven BETA.2 sequence is:
-
-```text
-GET /api/versions                         -> 200
-midclt on the TrueNAS host                -> system.version + app.query succeed
-container /api/current before allowlist   -> WebSocket policy close
-add container source /32 to ui_allowlist  -> system.version + app.query succeed
-system.general.checkin                    -> persist the change
-```
-
-This distinction is security-relevant: `ui_allowlist` protects both API and UI
-source addresses. Do not permit an entire shared Docker subnet merely to make a
-single observer work.
-
-When diagnosing from the production container, use the application virtual
-environment explicitly:
+Use the application venv when diagnosing from the production container:
 
 ```bash
 docker exec -i fastapi-sample /code/.venv/bin/python - <<'PY'
@@ -274,92 +199,51 @@ print(websocket.__version__)
 PY
 ```
 
-A login shell such as `docker exec ... sh -lc 'python ...'` can resolve a
-different system Python and falsely report that `websocket` is not installed,
-even while FastAPI's venv-backed TrueNAS adapter is functioning.
-
-`/sickz` also correlates HTTP failures with the observed TrueNAS app state. A
-reachable Cloudflare/DNS edge returning `502`, `503`, or `504` while the matching
-TrueNAS app is in a failed/down state is reported as a workload failure and the
-health board uses a skull icon to distinguish it from a simple exposure-policy
-violation.
-
-As with pfSense, do not make the TrueNAS management API public solely to satisfy FastAPI Cloud health checks. Direct checks require network reachability from the runtime to the private TrueNAS address.
+Reference:
+[local runtime dependency diagnostic](local-runtime-dependency-report.md) and
+[TrueNAS public ingress diagnostics](truenas-public-ingress.md).
 
 ## Pydantic Logfire
 
-Create when Logfire telemetry should be enabled:
+Enable only when telemetry is intentionally configured:
 
 ```text
 LOGFIRE_ENABLED=true
 LOGFIRE_TOKEN=<project write token>
 LOGFIRE_ENVIRONMENT=production
+LOGFIRE_BASE_URL=https://<custom-backend>   # optional
 ```
 
-Optional custom/self-hosted backend only:
+`LOGFIRE_ENABLED=false` means intentionally skipped. If enabled without a
+token, report configuration failure.
+
+The health probe verifies DNS/TCP/TLS reachability to the ingestion endpoint; it
+does not emit a synthetic telemetry event and never exposes the token.
+
+`LOGFIRE_ENABLE` remains a compatibility alias only. New deployments use
+`LOGFIRE_ENABLED`.
+
+## Homelab latency telemetry
+
+`/api/homelab/health` publishes fixed-cardinality observations through:
 
 ```text
-LOGFIRE_BASE_URL=https://<logfire-backend>
+fastapi_homelab_health_phase_duration_seconds
 ```
 
-`LOGFIRE_ENABLED=false` makes the health check intentionally skipped. If Logfire is explicitly enabled but `LOGFIRE_TOKEN` is missing, the optional check reports a configuration failure.
+Allowed phase labels remain bounded to the known aggregate phases. Do not add
+request-, hostname- or service-specific labels.
 
-The health check verifies DNS/TCP/TLS connectivity to the configured Logfire ingestion endpoint without sending a synthetic telemetry event. Token contents are never returned.
+Do not set or relax a production p95 target from a single request or sparse
+window. Measure p95, sample count and dominant phase under healthy cached and
+controlled-degradation windows.
 
-`LOGFIRE_ENABLE` is accepted as a historical compatibility alias by the health probe, but new deployments should use the canonical `LOGFIRE_ENABLED` variable used by the application instrumentation.
-
-## Homelab aggregate latency p95
-
-`/api/homelab/health` publishes fixed-cardinality duration observations through
-`fastapi_homelab_health_phase_duration_seconds`. The only allowed `phase`
-values are `declared_catalog`, `topology`, `cloudflare_exposure`,
-`pfsense_posture`, `truenas_runtime`, `reconciliation` and `total`.
-The histogram buckets extend through the 12-second aggregate deadline, so use
-this metric rather than adding request-specific or provider-specific labels.
-
-Measure the rolling p95 per phase with:
-
-```promql
-histogram_quantile(
-  0.95,
-  sum by (le, phase) (
-    rate(fastapi_homelab_health_phase_duration_seconds_bucket[30m])
-  )
-)
-```
-
-Measure aggregate p95 independently:
-
-```promql
-histogram_quantile(
-  0.95,
-  sum by (le) (
-    rate(
-      fastapi_homelab_health_phase_duration_seconds_bucket{phase="total"}[30m]
-    )
-  )
-)
-```
-
-Always inspect the observation volume beside the percentile:
-
-```promql
-sum by (phase) (
-  increase(fastapi_homelab_health_phase_duration_seconds_count[30m])
-)
-```
-
-Do not establish or relax a latency target from a single request or a sparse
-window. Record the p95 window, sample counts and dominant provider phase under
-both healthy cached conditions and a controlled provider-degradation window.
-The raw probe objective remains below 4 seconds and the aggregate circuit
-breaker remains 12 seconds. Choose a production p95 target only after the
-fixed-cardinality telemetry shows a stable baseline; do not increase provider
-timeouts merely to make the percentile green.
+PromQL examples and the safe-probe calibration procedure live in
+[external probe cache operations](external-probe-cache-operations.md).
 
 ## CI / pytest
 
-External observability integrations should remain disabled in CI unless a test explicitly mocks them. In particular:
+Disable external observability unless a test explicitly mocks it:
 
 ```text
 LOGFIRE_ENABLED=false
@@ -368,4 +252,15 @@ SENTRY_ENABLED=false
 SENTRY_DSN=
 ```
 
-Never put production API keys or write tokens in pull-request CI variables.
+Never place production API keys, DSNs or write tokens in pull-request CI
+variables.
+
+## Configuration invariants
+
+- explicit runtime identity; never infer trust from an IP alone;
+- core liveness independent from optional integrations;
+- dedicated least-privilege identities per control plane;
+- secrets never returned in health payloads;
+- HTTPS/TLS verification stays enabled by default;
+- transport, authentication and workload evidence remain separate;
+- detailed recovery/history belongs in runbooks/incidents, not this reference.

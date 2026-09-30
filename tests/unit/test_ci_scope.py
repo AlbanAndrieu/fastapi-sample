@@ -88,7 +88,9 @@ def test_quality_infrastructure_scope_is_quality(tmp_path: Path) -> None:
     assert scope["dependency_mode"] == "quality"
 
 
-def test_dependency_and_disabled_vercel_config_use_quality_scope(\n    tmp_path: Path,\n) -> None:
+def test_dependency_and_disabled_vercel_config_use_quality_scope(
+    tmp_path: Path,
+) -> None:
     quality_only_paths = (
         "renovate.json",
         "vercel.json",
@@ -107,6 +109,38 @@ def test_dependency_and_disabled_vercel_config_use_quality_scope(\n    tmp_path:
         assert scope["application"] == "false"
         assert scope["sast"] == "false"
         assert scope["build"] == "false"
+        assert scope["dependencies"] == "false"
+        assert scope["dependency_mode"] == "quality"
+
+
+def test_documentation_contract_infrastructure_uses_quality_scope(
+    tmp_path: Path,
+) -> None:
+    for index, path in enumerate(
+        (
+            ".quality-gate-large-deletions",
+            ".cursor/rules/001_project-description.mdc",
+            ".cursor/rules/001_workspace.mdc",
+            ".cursor/rules/003_project-tooling.mdc",
+            ".cursor/rules/100_general-style.mdc",
+            ".cursor/rules/111_katex-math.mdc",
+            ".cursor/rules/130_version-control_git.mdc",
+            ".cursor/rules/301_memory.mdc",
+            ".cursor/rules/302_artifacts.mdc",
+            "scripts/check_docs_links.py",
+            "tests/unit/test_docs_contract.py",
+            "tests/unit/test_large_deletion_ack_contract.py",
+            "tests/unit/test_opencode_agent_contract.py",
+        ),
+    ):
+        repo = tmp_path / str(index)
+        repo.mkdir()
+        base = _repo(repo)
+        _commit_file(repo, path, "# contract\n", "quality")
+
+        scope = _scope(repo, base)
+        assert scope["maintenance_only"] == "true"
+        assert scope["application"] == "false"
         assert scope["dependencies"] == "false"
         assert scope["dependency_mode"] == "quality"
 

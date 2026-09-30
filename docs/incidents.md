@@ -50,22 +50,30 @@ healthy, inspect catalog/cache initialization before investigating the network.
 
 **Symptom**
 
-FastAPI Cloud could not reach an intended public TrueNAS/pfSense ingress even
-though the service and listener were available.
+FastAPI Cloud could not reach the public TrueNAS HAProxy path on TCP 7000 even
+though HAProxy and its TrueNAS backend were healthy.
 
 **Decisive evidence**
 
-A controlled test correlated the observed cloud egress address with the
-`snort2c` table. Removing that temporary block restored the path. FastAPI Cloud
-egress addresses had already rotated, so a single-address permanent allowlist
-would not be reliable.
+- the current cloud egress address was an exact member of PF table `snort2c`;
+- WAN capture showed repeated SYN packets without SYN/ACK;
+- generated PF rules dropped traffic to/from `snort2c`;
+- Snort HTTP Inspect produced GID/SID `120:3` and `120:18` while TCP 7000
+  actually carried TLS to HAProxy;
+- disabling only Snort WAN and deleting only the observed test IP from
+  `snort2c` immediately restored SYN → SYN/ACK → ACK.
+
+This established the causal chain: TLS traffic was classified as clear-text HTTP,
+Snort `Block Offenders` inserted the source into `snort2c`, and PF then
+silently dropped subsequent connections before TLS started.
 
 **Resolution / prevention**
 
-- attribute blocks using PF/Snort evidence, not service state alone;
-- change one filtering engine at a time;
-- do not permanently allowlist a transient FastAPI Cloud egress address;
-- distinguish TCP reachability from TLS and application acceptance.
+- remove TCP 7000 from Snort HTTP Inspect clear-text server ports;
+- keep block attribution based on exact PF/Snort evidence, not service state;
+- change one filtering engine at a time during recurrence testing;
+- do not permanently allowlist transient FastAPI Cloud egress addresses;
+- distinguish TCP failure from TLS/application failure.
 
 Detailed runbook:
 [TrueNAS public ingress diagnostics](truenas-public-ingress.md).
