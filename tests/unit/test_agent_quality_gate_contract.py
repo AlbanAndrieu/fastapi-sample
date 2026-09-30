@@ -88,6 +88,7 @@ def test_agent_quality_gate_wraps_tests_and_canonical_gate() -> None:
     assert "tests/unit/test_ci_performance_budget.py" in text
     assert "tests/unit/test_docs_contract.py" in text
     assert "tests/unit/test_large_deletion_ack_contract.py" in text
+    assert "tests/unit/test_opencode_agent_contract.py" in text
     assert "tests/unit/test_workflow_security.py" in text
     assert "documentation relative-link contract" in text
     assert "python3 scripts/check_docs_links.py" in text
