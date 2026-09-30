@@ -160,8 +160,6 @@ Reference:
 - [ ] Add SearXNG in `nabla-compose`, then evaluate a bounded optional adapter.
 - [ ] Continue MCP SDK review; keep any pfSense MCP service private and
   least-privilege.
-- [ ] Evaluate FastAPI Radar only as opt-in local development tooling.
-- [ ] Finish semantic review of remaining PR #63 divergent/absent files.
 - [ ] Consolidate duplicate Compose/Docker development paths: current repository
   references show `Dockerfile-pipenv` and `Dockerfile-poetry` are orphaned, while
   `docker-compose.yml` still backs legacy/dev PostgreSQL/Redis tooling. Prove the
@@ -189,6 +187,13 @@ Do not expand these back into historical checklists unless a regression occurs:
 - Vercel Git deployments are repository-disabled;
 - `AGENTS.md` is the single global agent policy; Claude, Copilot, Cursor and
   OpenCode use thin adapters and task-scoped rules instead of duplicated policy;
+- FastAPI Radar was evaluated and remains intentionally absent from runtime;
+  any future adoption must be local-only, disabled by default, authenticated,
+  redacted and covered by disabled-mode tests;
+- legacy PR #63 review is closed: current Pylint, TrueNAS, catalog and dashboard
+  implementations supersede its old paths; the removed login/Wrangler sub-app
+  and generated SQL snapshot are not restored; its mutable-global RAG prototype
+  remains rejected in favor of the open `VectorStore` item;
 - health-board modules already split for maintainability remain covered by tests.
 
 ## Documentation policy
