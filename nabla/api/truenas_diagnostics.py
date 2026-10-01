@@ -13,7 +13,7 @@ from nabla.api.truenas_transport_diagnostics import (
     homelab_wan_metadata,
 )
 
-_DIAGNOSTIC_TIMEOUT_SEC = 5.0
+_DIAGNOSTIC_TIMEOUT_SEC = 2.5
 
 
 def _elapsed_ms(started: float) -> int:
@@ -453,101 +453,71 @@ async def collect_truenas_network_diagnostics(
     public_result: dict[str, Any],
     path_mode: str = "public_wan_haproxy",
 ) -> dict[str, Any]:
-    """Measure the actual runtime route to the TrueNAS HTTPS/WebSocket API endpoint."""
+    """Measure hostname and direct-WAN transport paths within one bounded window."""
     stages: list[dict[str, Any]] = []
-    dns, dns_ok = await _dns_stage(host)
-    stages.append(dns)
-
-    resolved = [str(value) for value in dns.get("resolved", []) if value]
     wan = None if path_mode == "direct_lan" else homelab_wan_metadata()
-    wan_tls_ok: bool | None = None
 
-    if dns_ok:
-        hostname_probe = asyncio.create_task(
-            collect_tcp_tls_stages(host, port, verify_ssl),
-        )
-        wan_probe = (
-            asyncio.create_task(
-                collect_tcp_tls_stages(
-                    host,
-                    port,
-                    verify_ssl,
-                    connect_host=str(wan["ipv4"]),
-                    server_hostname=host,
-                ),
-            )
-            if wan is not None
-            else None
-        )
-        socket_stage, tls_stage, tls_ok = await hostname_probe
-        if public_result.get("reachable") is True and tls_stage.get("state") == "fail":
-            tls_stage = {
-                **tls_stage,
-                "state": "warn",
-                "detail": (
-                    f"{tls_stage.get('detail', 'auxiliary TLS probe failed')} · "
-                    "HTTPS request succeeded on the same configured hostname; "
-                    "treat this as contradictory auxiliary evidence, not listener DOWN."
-                ),
-                "contradicted_by": "https_probe_success",
-            }
-        stages.extend((socket_stage, tls_stage))
-
-        if wan_probe is not None:
-            wan_socket, wan_tls, wan_tls_ok = await wan_probe
-            wan_socket = _retag_wan_transport_stage(
-                wan_socket,
-                stage_id="wan_socket",
-                label="WAN TCP :7000",
-            )
-            wan_tls = _retag_wan_transport_stage(
-                wan_tls,
-                stage_id="wan_tls",
-                label="WAN TLS + SNI",
-            )
-            stages.extend((wan_socket, wan_tls))
-            stages.append(
-                _public_path_comparison_stage(
-                    resolved=resolved,
-                    wan_ipv4=str(wan["ipv4"]),
-                    hostname_tls_ok=tls_ok,
-                    wan_tls_ok=wan_tls_ok,
-                ),
-            )
-    else:
-        tls_ok = False
-        stages.append(_stage("socket", "TCP connect", "blocked", detail="Blocked by DNS failure"))
-        stages.append(_stage("tls", "TLS handshake", "blocked", detail="Blocked by DNS failure"))
-        if wan is not None:
-            wan_socket, wan_tls, wan_tls_ok = await collect_tcp_tls_stages(
+    dns_task = asyncio.create_task(_dns_stage(host))
+    hostname_probe = asyncio.create_task(
+        collect_tcp_tls_stages(host, port, verify_ssl),
+    )
+    wan_probe = (
+        asyncio.create_task(
+            collect_tcp_tls_stages(
                 host,
                 port,
                 verify_ssl,
                 connect_host=str(wan["ipv4"]),
                 server_hostname=host,
-            )
-            stages.extend(
-                (
-                    _retag_wan_transport_stage(
-                        wan_socket,
-                        stage_id="wan_socket",
-                        label="WAN TCP :7000",
-                    ),
-                    _retag_wan_transport_stage(
-                        wan_tls,
-                        stage_id="wan_tls",
-                        label="WAN TLS + SNI",
-                    ),
+            ),
+        )
+        if wan is not None
+        else None
+    )
+
+    dns, _dns_ok = await dns_task
+    socket_stage, tls_stage, tls_ok = await hostname_probe
+    resolved = [str(value) for value in dns.get("resolved", []) if value]
+    stages.append(dns)
+
+    if public_result.get("reachable") is True and tls_stage.get("state") == "fail":
+        tls_stage = {
+            **tls_stage,
+            "state": "warn",
+            "detail": (
+                f"{tls_stage.get('detail', 'auxiliary TLS probe failed')} · "
+                "HTTPS request succeeded on the same configured hostname; "
+                "treat this as contradictory auxiliary evidence, not listener DOWN."
+            ),
+            "contradicted_by": "https_probe_success",
+        }
+    stages.extend((socket_stage, tls_stage))
+
+    wan_tls_ok: bool | None = None
+    if wan_probe is not None:
+        wan_socket, wan_tls, wan_tls_ok = await wan_probe
+        stages.extend(
+            (
+                _retag_wan_transport_stage(
+                    wan_socket,
+                    stage_id="wan_socket",
+                    label="WAN TCP :7000",
                 ),
-            )
-            stages.append(
-                _public_path_comparison_stage(
-                    resolved=[],
-                    wan_ipv4=str(wan["ipv4"]),
-                    hostname_tls_ok=False,
-                    wan_tls_ok=wan_tls_ok,
+                _retag_wan_transport_stage(
+                    wan_tls,
+                    stage_id="wan_tls",
+                    label="WAN TLS + SNI",
                 ),
-            )
+            ),
+        )
+        stages.append(
+            _public_path_comparison_stage(
+                resolved=resolved,
+                wan_ipv4=str(wan["ipv4"]),
+                hostname_tls_ok=tls_ok,
+                wan_tls_ok=wan_tls_ok,
+            ),
+        )
 
     if path_mode == "direct_lan":
         stages.append(_direct_lan_stage(tls_ok, host, port))
@@ -559,12 +529,17 @@ async def collect_truenas_network_diagnostics(
         websocket, _ = await _websocket_stage(websocket_uri, verify_ssl)
         stages.append(websocket)
     else:
+        blocked_detail = (
+            "Blocked before direct TrueNAS WebSocket validation"
+            if path_mode == "direct_lan"
+            else "Blocked before hostname WebSocket validation"
+        )
         stages.append(
             _stage(
                 "websocket",
                 "WebSocket upgrade",
                 "blocked",
-                detail=("Blocked before direct TrueNAS WebSocket validation" if path_mode == "direct_lan" else "Blocked before hostname WebSocket validation"),
+                detail=blocked_detail,
             ),
         )
 
