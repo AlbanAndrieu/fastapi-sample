@@ -192,7 +192,7 @@ function render() {
     : "pfSense WAN ingress security posture";
   heading.title = directLan
     ? "The current traffic probe uses direct LAN. The separate read-only pfSense control path still reports firewall/DNS/security service state, but it is not evidence that this direct IP connection traversed the WAN firewall rules."
-    : "Security-control state observed on the pfSense ingress path.";
+    : "Security-control state observed on the pfSense ingress path. A healthy pfSense control plane does not by itself prove the TrueNAS appliance or TLS backend is healthy, and a TrueNAS appliance can stay healthy while this WAN ingress is degraded.";
   container.appendChild(heading);
   appendChips(container, posture);
   appendHistory(container);

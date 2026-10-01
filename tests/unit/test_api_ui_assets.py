@@ -311,3 +311,15 @@ def test_truenas_ui_separates_appliance_and_wan_ingress_verdicts() -> None:
     assert "WAN ingress" in script
     assert "TCP connected, but no TLS ServerHello" in script
     assert "pfSense/HAProxy/Snort" in script
+
+
+def test_truenas_ui_explains_cloudflare_and_pfsense_path_independence() -> None:
+    truenas = (_ASSET_DIR / "api-truenas.js").read_text(encoding="utf-8")
+    pfsense = (
+        _ASSET_DIR / "api-pfsense-security-posture.js"
+    ).read_text(encoding="utf-8")
+
+    assert "Cloudflare Tunnel is not on the TrueNAS :7000" in truenas
+    assert "hostname HTTPS" in truenas
+    assert "healthy pfSense control plane does not by itself prove" in pfsense
+    assert "WAN ingress is degraded" in pfsense

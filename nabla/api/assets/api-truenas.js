@@ -369,13 +369,15 @@ function renderProbeFanout(data) {
   const https = data?.truenas?.public || {};
   const httpsMode =
     https.reachable === true
-      ? `🔒 TrueNAS HTTPS HTTP ${https.http_status ?? "?"}`
+      ? `🔒 hostname HTTPS HTTP ${https.http_status ?? "?"}`
       : https.reachable === false
-        ? "⚠ TrueNAS HTTPS unreachable"
-        : "◌ TrueNAS HTTPS not measured";
+        ? "⚠ hostname HTTPS unreachable"
+        : "◌ hostname HTTPS not measured";
+  const cloudflareMode =
+    "☁ Cloudflare Tunnel is not on the TrueNAS :7000 pfSense/HAProxy path";
 
   const freshness = probeFreshnessText(data);
-  summary.textContent = `${freshness} · ${runtimeMode} · ${httpsMode} · ${apiMode} · ${internalText} · ${publicText} · ${catalog}fan-out budget ${budget}s · concurrency ${concurrency} · ${tlsMode}`;
+  summary.textContent = `${freshness} · ${runtimeMode} · ${httpsMode} · ${apiMode} · ${cloudflareMode} · ${internalText} · ${publicText} · ${catalog}fan-out budget ${budget}s · concurrency ${concurrency} · ${tlsMode}`;
   detailsSummary.textContent = `Homelab probe fan-out · ${rows.length} observed rows · LAN ${internalSampled}/${internalEligible} · public ${publicSampled}/${publicEligible}`;
 
   list.innerHTML = rows

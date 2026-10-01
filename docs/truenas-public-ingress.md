@@ -196,3 +196,21 @@ For recovery, require:
 - no recurrence of the known HTTP-Inspect-on-TLS signature;
 - healthy HAProxy→TrueNAS backend evidence;
 - no permanent allowlist created from transient cloud egress.
+
+
+## Evidence model
+
+Do not collapse the following into one health light:
+
+- **appliance/API** — TrueNAS itself and authenticated management capability;
+- **hostname HTTPS** — application request through the configured hostname;
+- **WAN raw transport** — direct `HOMELAB_WAN_IPV4:7000` TCP/TLS with SNI
+  `truenas.albandrieu.com`;
+- **pfSense control plane** — firewall/DNS/security service posture;
+- **Cloudflare** — independent for Tunnel-backed services and not part of the
+  TrueNAS :7000 path.
+
+A healthy appliance with failed WAN TLS is a valid state: report appliance green
+and WAN ingress failed/degraded. A healthy Cloudflare Tunnel must never repair
+that WAN verdict, and stopping cloudflared must never make the appliance itself
+down.
