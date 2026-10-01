@@ -2,16 +2,26 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any, Literal
 
-from nabla.integrations.truenas_client import truenas_host_port
-
 HealthState = Literal["ok", "warn", "fail"]
+_DEFAULT_TRUENAS_LAN_HOST = "172.17.0.24"
+_DEFAULT_TRUENAS_LAN_PORT = 7000
 
 
 def truenas_internal_target() -> tuple[str, int]:
-    """Return the configured TrueNAS host/port used for internal reachability."""
-    return truenas_host_port()
+    """Return the explicit LAN address used for appliance liveness."""
+    host = os.getenv("TRUENAS_LAN_HOST", _DEFAULT_TRUENAS_LAN_HOST).strip()
+    raw_port = os.getenv(
+        "TRUENAS_LAN_PORT",
+        str(_DEFAULT_TRUENAS_LAN_PORT),
+    ).strip()
+    try:
+        port = int(raw_port)
+    except ValueError:
+        port = _DEFAULT_TRUENAS_LAN_PORT
+    return host or _DEFAULT_TRUENAS_LAN_HOST, port
 
 
 def truenas_state(

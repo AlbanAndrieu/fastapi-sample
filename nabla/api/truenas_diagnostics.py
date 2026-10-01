@@ -362,6 +362,7 @@ async def collect_truenas_network_diagnostics(
     host: str,
     port: int,
     websocket_uri: str,
+    connect_host: str | None = None,
     verify_ssl: bool,
     public_result: dict[str, Any],
     path_mode: str = "public_wan_haproxy",
@@ -371,13 +372,34 @@ async def collect_truenas_network_diagnostics(
     dns, dns_ok = await _dns_stage(host)
     stages.append(dns)
 
-    if dns_ok:
-        socket_stage, tls_stage, tls_ok = await collect_tcp_tls_stages(host, port, verify_ssl)
+    socket_target = connect_host or host
+    can_probe_socket = dns_ok or socket_target != host
+    if can_probe_socket:
+        socket_stage, tls_stage, tls_ok = await collect_tcp_tls_stages(
+            socket_target,
+            port,
+            verify_ssl,
+            server_name=host,
+        )
         stages.extend((socket_stage, tls_stage))
     else:
         tls_ok = False
-        stages.append(_stage("socket", "TCP connect", "blocked", detail="Blocked by DNS failure"))
-        stages.append(_stage("tls", "TLS handshake", "blocked", detail="Blocked by DNS failure"))
+        stages.append(
+            _stage(
+                "socket",
+                "TCP connect",
+                "blocked",
+                detail="Blocked by DNS failure",
+            ),
+        )
+        stages.append(
+            _stage(
+                "tls",
+                "TLS handshake",
+                "blocked",
+                detail="Blocked by DNS failure",
+            ),
+        )
 
     if path_mode == "direct_lan":
         stages.append(_direct_lan_stage(tls_ok, host, port))
@@ -400,6 +422,8 @@ async def collect_truenas_network_diagnostics(
 
     return {
         "target": f"{host}:{port}",
+        "connect_target": f"{socket_target}:{port}",
+        "server_name": host,
         "path_mode": path_mode,
         "wan": None if path_mode == "direct_lan" else homelab_wan_metadata(),
         "websocket_uri": websocket_uri,
