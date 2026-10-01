@@ -127,3 +127,14 @@ def test_mobile_filter_is_compact_before_the_first_scroll() -> None:
     assert '"Filters"' in shell
     assert '"Hide filters"' in shell
     assert "syncCompactState(host);" in shell
+
+def test_section_navigation_stays_horizontal_on_mobile() -> None:
+    operator = (ASSETS / "api-health-operator-ux.js").read_text(encoding="utf-8")
+    stylesheet = (ASSETS / "api-service-diagnostics.css").read_text(encoding="utf-8")
+
+    assert 'nav.className = "service-section-navigation";' in operator
+    assert 'nav.style.gridTemplateColumns' not in operator
+    assert "#service-section-navigation.service-section-navigation" in stylesheet
+    assert "flex-direction: row;" in stylesheet
+    assert "overflow-x: auto;" in stylesheet
+    assert "scroll-snap-type: x proximity;" in stylesheet
