@@ -93,6 +93,12 @@ function rawDetailSickText(check) {
 
 function detailSickText(check) {
   const raw = rawDetailSickText(check);
+  if (isTrueNasExposureCheck(check) && check.tunnel_secure === false) {
+    const policy =
+      check.policy_detail ||
+      "Direct pfSense/HAProxy exposure policy is evaluated separately from TrueNAS appliance health.";
+    return `Direct exposure policy only — ${policy} Probe evidence: ${raw}`;
+  }
   if (
     check.policy_status === "ok" &&
     check.external === false &&

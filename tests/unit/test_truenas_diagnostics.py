@@ -171,3 +171,31 @@ def test_authenticated_api_downgrades_auxiliary_raw_tls_failure() -> None:
     assert tls["state"] == "warn"
     assert tls["superseded_by"] == "authenticated_api"
     assert "raw-socket and application egress paths may differ" in tls["detail"]
+
+
+def test_authenticated_api_downgrades_blocked_route_stages() -> None:
+    network = _network_ok()
+    for stage in network["stages"][:-1]:
+        if stage["id"] in {"socket", "tls", "haproxy", "https"}:
+            stage["state"] = "blocked"
+            stage["detail"] = "auxiliary path blocked"
+
+    result = append_truenas_api_stages(
+        network,
+        {
+            "reachable": True,
+            "version": "TrueNAS-26.0.0",
+            "apps": [],
+        },
+    )
+
+    reconciled = {
+        stage["id"]: stage
+        for stage in result["stages"]
+        if stage["id"] in {"socket", "tls", "haproxy", "https"}
+    }
+    assert all(stage["state"] == "warn" for stage in reconciled.values())
+    assert all(
+        stage["evidence_conflict"] is True
+        for stage in reconciled.values()
+    )

@@ -294,3 +294,10 @@ def test_truenas_ui_distinguishes_raw_tls_warning_from_api_health() -> None:
     assert "direct LAN" in script
     assert "diagnostics?.connect_target" in script
     assert "auxiliary raw TLS warning" in script
+
+
+def test_truenas_exposure_policy_is_labeled_separately_from_health() -> None:
+    script = (_ASSET_DIR / "api-sickz.js").read_text(encoding="utf-8")
+
+    assert "Direct exposure policy only" in script
+    assert "separately from TrueNAS appliance health" in script

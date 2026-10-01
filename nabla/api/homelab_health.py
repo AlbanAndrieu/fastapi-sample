@@ -173,7 +173,7 @@ async def _probe_truenas(
             truenas_client,
             semaphore,
             service_id="truenas",
-            name="TrueNAS HTTPS",
+            name="TrueNAS public ingress HTTPS",
             url=configured_url,
         )
 

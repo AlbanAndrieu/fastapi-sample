@@ -238,11 +238,21 @@ def append_truenas_api_stages(
     if api_reachable:
         for stage in stages:
             if (
-                stage.get("id") in {"socket", "tls", "websocket"}
-                and stage.get("state") == "fail"
+                stage.get("id")
+                in {
+                    "dns",
+                    "socket",
+                    "tls",
+                    "haproxy",
+                    "direct_lan",
+                    "https",
+                    "websocket",
+                }
+                and stage.get("state") in {"fail", "blocked"}
             ):
                 stage["state"] = "warn"
                 stage["superseded_by"] = "authenticated_api"
+                stage["evidence_conflict"] = True
                 original = str(
                     stage.get("detail")
                     or "auxiliary transport probe failed"
