@@ -227,10 +227,21 @@ async def _probe_truenas(
         )
         diagnostics["connect_target"] = f"{connect_host}:{connect_port}"
         diagnostics["server_name"] = host
+    public_ingress_state = truenas_probe_health.truenas_public_ingress_state(
+        public_result,
+        diagnostics,
+    )
+    appliance_state = truenas_probe_health.truenas_appliance_state(
+        public_result,
+        internal_result,
+        api_result,
+    )
     diagnostics = append_truenas_api_stages(diagnostics, api_result)
     return {
         "id": "truenas",
         "state": _truenas_state(public_result, internal_result, api_result),
+        "appliance_state": appliance_state,
+        "public_ingress_state": public_ingress_state,
         "public": public_result,
         "internal": internal_result,
         "api": api_result,

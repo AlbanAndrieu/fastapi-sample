@@ -22,12 +22,18 @@ function stageTime(stage) {
 
 function renderStage(stage) {
   const cls = stageClass(stage);
+  const detail =
+    stage?.id === "tls" &&
+    stage?.failure_stage === "tls_handshake" &&
+    /timed out/i.test(String(stage?.detail || ""))
+      ? `${stage.detail} · TCP connected, but no TLS ServerHello completed within the bounded timeout; investigate pfSense/HAProxy/Snort or client-path differences, not appliance liveness alone.`
+      : stage?.detail || "";
   return (
-    `<div class="truenas-stage truenas-stage--${cls}" title="${escapeText(stage?.detail || "")}">` +
+    `<div class="truenas-stage truenas-stage--${cls}" title="${escapeText(detail)}">` +
     `<span class="truenas-stage-icon" aria-hidden="true">${stageIcon(stage)}</span>` +
     `<span class="truenas-stage-label">${escapeText(stage?.label || stage?.id || "stage")}</span>` +
     `<span class="truenas-stage-time">${escapeText(stageTime(stage))}</span>` +
-    `<span class="truenas-stage-detail">${escapeText(stage?.detail || "")}</span>` +
+    `<span class="truenas-stage-detail">${escapeText(detail)}</span>` +
     `</div>`
   );
 }
@@ -473,6 +479,8 @@ function render(data) {
 
   const ingressBlock = data?.pfsense?.dns?.ingress_block;
   const overall = truenas?.state || "fail";
+  const applianceState = truenas?.appliance_state || overall;
+  const ingressState = truenas?.public_ingress_state || overall;
   const api = truenas?.api || {};
   const rawTls = measuredStages?.find?.((stage) => stage?.id === "tls");
   const runtimeError = data?.truenas_runtime_error;
@@ -480,7 +488,8 @@ function render(data) {
     state.className = "truenas-platform-state truenas-platform-state--fail";
     state.textContent = "blocked by Snort/PF";
   } else {
-    state.className = `truenas-platform-state truenas-platform-state--${overall}`;
+    state.className =
+      `truenas-platform-state truenas-platform-state--${applianceState}`;
     const failureState = apiFailureState(api);
     if (api.stage === "missing_api_key") {
       state.textContent = "authentication blocked · API key missing";
@@ -491,15 +500,19 @@ function render(data) {
     } else if (api.reachable === true) {
       const version = api.version ? ` · ${api.version}` : "";
       const cached = api.cached === true ? " · cached" : "";
-      const platform = overall === "ok" ? "" : ` · platform ${overall}`;
+      const platform =
+        applianceState === "ok" ? "" : ` · appliance ${applianceState}`;
+      const ingress =
+        ` · WAN ingress ${ingressState}`;
       const transport =
         rawTls?.state === "warn"
-          ? " · auxiliary raw TLS warning"
+          ? " · raw TLS evidence conflict"
           : "";
       state.textContent =
-        `TrueNAS API healthy${version}${cached}${platform}${transport}`;
+        `TrueNAS API healthy${version}${cached}${platform}${ingress}${transport}`;
     } else {
-      state.textContent = overall;
+      state.textContent =
+        `appliance ${applianceState} · WAN ingress ${ingressState}`;
     }
   }
 

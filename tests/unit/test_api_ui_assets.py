@@ -301,3 +301,13 @@ def test_truenas_exposure_policy_is_labeled_separately_from_health() -> None:
 
     assert "Direct exposure policy only" in script
     assert "separately from TrueNAS appliance health" in script
+
+
+def test_truenas_ui_separates_appliance_and_wan_ingress_verdicts() -> None:
+    script = (_ASSET_DIR / "api-truenas.js").read_text(encoding="utf-8")
+
+    assert "truenas?.appliance_state" in script
+    assert "truenas?.public_ingress_state" in script
+    assert "WAN ingress" in script
+    assert "TCP connected, but no TLS ServerHello" in script
+    assert "pfSense/HAProxy/Snort" in script

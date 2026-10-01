@@ -462,3 +462,62 @@ async def test_homelab_runtime_uses_lan_ip_for_raw_tls(monkeypatch) -> None:
     assert captured["port"] == 7000
     assert captured["path_mode"] == "direct_lan"
     assert result["connect_host"] == "172.17.0.24"
+
+
+@pytest.mark.asyncio
+async def test_truenas_payload_separates_appliance_and_public_ingress(monkeypatch) -> None:
+    monkeypatch.setattr(
+        homelab_health,
+        "_observe_truenas_api",
+        AsyncMock(return_value={"reachable": True, "version": "TrueNAS-26"}),
+    )
+    monkeypatch.setattr(
+        homelab_health,
+        "_probe_http_endpoint",
+        AsyncMock(
+            return_value={
+                "state": "fail",
+                "reachable": False,
+                "error_kind": "connect_timeout",
+                "error": "connect timed out",
+            },
+        ),
+    )
+    monkeypatch.setattr(
+        homelab_health,
+        "collect_truenas_network_diagnostics",
+        AsyncMock(
+            return_value={
+                "stages": [
+                    {"id": "socket", "state": "ok"},
+                    {
+                        "id": "tls",
+                        "state": "fail",
+                        "failure_stage": "tls_handshake",
+                        "detail": "handshake timed out",
+                    },
+                ],
+            },
+        ),
+    )
+    monkeypatch.setattr(
+        homelab_health,
+        "truenas_host_port",
+        lambda: ("truenas.albandrieu.com", 7000),
+    )
+    monkeypatch.setattr(
+        homelab_health,
+        "truenas_url",
+        lambda: "https://truenas.albandrieu.com:7000",
+    )
+    monkeypatch.setattr(homelab_health, "truenas_http_verify_ssl", lambda: True)
+    monkeypatch.setattr(homelab_health, "homelab_runtime_detected", lambda: False)
+
+    result = await homelab_health._probe_truenas(
+        asyncio.Semaphore(2),
+        internal_enabled=False,
+    )
+
+    assert result["appliance_state"] == "ok"
+    assert result["public_ingress_state"] == "fail"
+    assert result["api"]["reachable"] is True

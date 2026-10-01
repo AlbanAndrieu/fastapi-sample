@@ -69,3 +69,38 @@ def test_truenas_api_failure_remains_failure_when_https_is_down() -> None:
         )
         == "fail"
     )
+
+
+def test_appliance_can_be_healthy_while_public_ingress_is_down() -> None:
+    public = {"state": "fail"}
+    api = {"reachable": True}
+    diagnostics = {
+        "stages": [
+            {"id": "socket", "state": "ok"},
+            {"id": "tls", "state": "fail"},
+        ],
+    }
+
+    assert homelab_health.truenas_probe_health.truenas_appliance_state(
+        public,
+        None,
+        api,
+    ) == "ok"
+    assert homelab_health.truenas_probe_health.truenas_public_ingress_state(
+        public,
+        diagnostics,
+    ) == "fail"
+
+
+def test_public_ingress_conflict_is_warning_when_http_and_raw_tls_disagree() -> None:
+    diagnostics = {
+        "stages": [
+            {"id": "socket", "state": "ok"},
+            {"id": "tls", "state": "fail"},
+        ],
+    }
+
+    assert homelab_health.truenas_probe_health.truenas_public_ingress_state(
+        {"state": "ok"},
+        diagnostics,
+    ) == "warn"

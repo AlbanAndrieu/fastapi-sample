@@ -45,3 +45,49 @@ def truenas_state(
     if public_state == "warn":
         return "warn"
     return "ok"
+
+
+
+def truenas_appliance_state(
+    public_result: dict[str, Any],
+    internal_result: dict[str, Any] | None,
+    api_result: dict[str, Any] | None = None,
+) -> HealthState:
+    """Rate appliance liveness independently from the public WAN ingress."""
+    internal_state = internal_result.get("state") if internal_result else None
+    api_reachable = api_result.get("reachable") if api_result else None
+    public_state = public_result.get("state")
+
+    if api_reachable is True or internal_state == "ok":
+        return "ok"
+    if api_reachable is False and internal_state == "fail":
+        return "fail"
+    if public_state == "ok":
+        return "warn" if api_reachable is False or internal_state == "fail" else "ok"
+    return "warn" if api_reachable is False or internal_state == "fail" else "fail"
+
+
+def truenas_public_ingress_state(
+    public_result: dict[str, Any],
+    diagnostics: dict[str, Any] | None,
+) -> HealthState:
+    """Rate the pfSense/HAProxy :7000 ingress without using API success."""
+    public_state = str(public_result.get("state") or "").strip().lower()
+    stages = diagnostics.get("stages", []) if isinstance(diagnostics, dict) else []
+    socket_stage = next((stage for stage in stages if stage.get("id") == "socket"), None)
+    tls_stage = next((stage for stage in stages if stage.get("id") == "tls"), None)
+
+    transport_states = {
+        str(stage.get("state") or "")
+        for stage in (socket_stage, tls_stage)
+        if isinstance(stage, dict)
+    }
+    if public_state == "ok" and transport_states <= {"", "ok"}:
+        return "ok"
+    if public_state == "fail" and (
+        "fail" in transport_states or "blocked" in transport_states
+    ):
+        return "fail"
+    if public_state == "fail" and not transport_states:
+        return "fail"
+    return "warn"
