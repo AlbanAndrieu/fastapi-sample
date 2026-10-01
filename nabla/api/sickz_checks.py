@@ -162,6 +162,7 @@ async def _probe_alias_group(
     urls: list[str],
     homelab_icon_by_tunnel: dict[str, str] | None = None,
     homelab_name_by_tunnel: dict[str, str] | None = None,
+    homelab_policy_by_tunnel: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Probe one logical target; any reachable alias makes the group reachable."""
     href = row_href(urls)
@@ -225,6 +226,7 @@ async def _probe_alias_group(
             urls,
             homelab_icon_by_tunnel,
             homelab_name_by_tunnel,
+            homelab_policy_by_tunnel,
         ),
     }
     if tcp_reachable is not None:
@@ -252,6 +254,7 @@ def _deadline_group_result(
     urls: list[str],
     homelab_icon_by_tunnel: dict[str, str] | None,
     homelab_name_by_tunnel: dict[str, str] | None,
+    homelab_policy_by_tunnel: dict[str, dict[str, Any]] | None,
 ) -> dict[str, Any]:
     """Return unknown exposure evidence when the aggregate sickz budget expires."""
     return {
@@ -273,6 +276,7 @@ def _deadline_group_result(
             urls,
             homelab_icon_by_tunnel,
             homelab_name_by_tunnel,
+            homelab_policy_by_tunnel,
         ),
     }
 
@@ -288,6 +292,7 @@ async def build_sickz_payload(request: Request) -> dict[str, Any]:
     )
     homelab_icon_by_tunnel: dict[str, str] | None = None
     homelab_name_by_tunnel: dict[str, str] | None = None
+    homelab_policy_by_tunnel: dict[str, dict[str, Any]] | None = None
     homelab_groups: list[list[str]] = []
     catalog_timed_out = False
     if _targets_equal_default_catalog_mode(settings.sickz_targets):
@@ -302,6 +307,7 @@ async def build_sickz_payload(request: Request) -> dict[str, Any]:
                 homelab_groups,
                 homelab_icon_by_tunnel,
                 homelab_name_by_tunnel,
+                homelab_policy_by_tunnel,
             ) = catalog
 
     if known_paas_runtime_detected() and (
@@ -329,6 +335,7 @@ async def build_sickz_payload(request: Request) -> dict[str, Any]:
                     group,
                     homelab_icon_by_tunnel,
                     homelab_name_by_tunnel,
+                    homelab_policy_by_tunnel,
                 ),
                 **pfsense_tcp_skip_payload(group),
             }
@@ -365,11 +372,13 @@ async def build_sickz_payload(request: Request) -> dict[str, Any]:
                     group,
                     homelab_icon_by_tunnel,
                     homelab_name_by_tunnel,
+                    homelab_policy_by_tunnel,
                 ),
                 timeout_value=lambda group=group: _deadline_group_result(
                     group,
                     homelab_icon_by_tunnel,
                     homelab_name_by_tunnel,
+                    homelab_policy_by_tunnel,
                 ),
             )
             for group in groups

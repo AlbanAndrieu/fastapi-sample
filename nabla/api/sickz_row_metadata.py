@@ -111,6 +111,7 @@ def row_ui_metadata(
     urls: list[str],
     homelab_icon_by_tunnel: dict[str, str] | None = None,
     homelab_name_by_tunnel: dict[str, str] | None = None,
+    homelab_policy_by_tunnel: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Build stable UI metadata without mixing it with network probing."""
     pf_href = pfsense_canonical_href(urls)
@@ -139,4 +140,12 @@ def row_ui_metadata(
         base["name"] = catalog_name
     if icon_src:
         base["icon_src"] = icon_src
+    if homelab_policy_by_tunnel:
+        for raw in urls:
+            policy = homelab_policy_by_tunnel.get(
+                _canonical_https_tunnel_key(raw),
+            )
+            if policy:
+                base.update(policy)
+                break
     return base

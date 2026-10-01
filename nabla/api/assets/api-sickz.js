@@ -25,12 +25,21 @@ function classifySick(check) {
   if (check.policy_status === "fail") return "yellow";
   if (check.policy_status === "unknown") return "gray";
   if (check.skipped === true) return "yellow";
+
+  if (typeof check.expected_reachable === "boolean") {
+    if (check.reachable == null) return "gray";
+    if (check.reachable !== check.expected_reachable) {
+      return check.expected_reachable ? "yellow" : "red";
+    }
+    if (check.tls_trusted === false) return "yellow";
+    return "gray";
+  }
+
   if (check.reachable === true) {
     if (isForbiddenOnlyReachable(check)) return "yellow";
     if (hasReachableNon2xxHttp(check)) return "blue";
     return "red";
   }
-  if (check.reachable === false) return "green";
   return "gray";
 }
 
@@ -93,6 +102,15 @@ function rawDetailSickText(check) {
 
 function detailSickText(check) {
   const raw = rawDetailSickText(check);
+  if (
+    !check.policy_status &&
+    typeof check.expected_reachable === "boolean"
+  ) {
+    const expectation = check.expected_reachable
+      ? "expected reachable from this external observer"
+      : "expected blocked from this external observer";
+    return `Policy enrichment unavailable · ${expectation}. Raw evidence: ${raw}`;
+  }
   if (
     check.policy_status === "ok" &&
     check.external === false &&

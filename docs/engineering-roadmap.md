@@ -79,6 +79,8 @@ Runbook:
 - [ ] After an independent pfSense observer path is accepted, expand the
   sanitized posture with interfaces/gateways, firewall/NAT and DNS policy;
   query VPN, logs and private inventory only for explicit operational needs.
+- [x] Preserve expected exposure reachability in low-level `/sickz` rows so
+  policy-enrichment timeouts cannot turn a required positive probe green.
 - [ ] Improve TrueNAS WebSocket timeout attribution without leaking URI or
   credential context.
 

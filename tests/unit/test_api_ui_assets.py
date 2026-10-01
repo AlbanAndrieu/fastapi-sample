@@ -285,3 +285,13 @@ def test_truenas_diagnostics_timeout_preserves_confirmed_https_liveness() -> Non
     assert '"diagnostics timeout · HTTPS up"' in script
     assert '"warn" : "fail"' in script
     assert "Appliance liveness remains confirmed" in script
+
+
+
+def test_sickz_fallback_does_not_infer_green_without_policy_enrichment() -> None:
+    script = (_ASSET_DIR / "api-sickz.js").read_text(encoding="utf-8")
+
+    assert 'typeof check.expected_reachable === "boolean"' in script
+    assert 'return check.expected_reachable ? "yellow" : "red";' in script
+    assert "Policy enrichment unavailable" in script
+    assert 'if (check.reachable === false) return "green";' not in script
