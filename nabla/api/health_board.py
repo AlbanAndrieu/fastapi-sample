@@ -125,10 +125,26 @@ def _planned_truenas_timeout_stages(path_mode: str, error: str) -> list[dict[str
     """Preserve the expected request path even when aggregate evidence is lost."""
     detail = f"Not measured: {error}"
     route_label = "Direct LAN route" if path_mode == "direct_lan" else "HAProxy public route"
-    return [
+    stages = [
         {"id": "dns", "label": "DNS resolution", "state": "blocked", "detail": detail},
         {"id": "socket", "label": "TCP :7000", "state": "blocked", "detail": detail},
         {"id": "tls", "label": "TLS handshake", "state": "blocked", "detail": detail},
+    ]
+    if path_mode != "direct_lan":
+        stages.extend(
+            [
+                {"id": "wan_socket", "label": "WAN TCP :7000", "state": "blocked", "detail": detail},
+                {"id": "wan_tls", "label": "WAN TLS + SNI", "state": "blocked", "detail": detail},
+                {
+                    "id": "wan_path_comparison",
+                    "label": "Hostname ↔ WAN :7000",
+                    "state": "blocked",
+                    "detail": detail,
+                },
+            ],
+        )
+    stages.extend(
+        [
         {"id": "route", "label": route_label, "state": "blocked", "detail": detail},
         {"id": "https", "label": "TrueNAS HTTPS listener", "state": "blocked", "detail": detail},
         {"id": "websocket", "label": "WebSocket /api/current", "state": "blocked", "detail": detail},
@@ -139,7 +155,9 @@ def _planned_truenas_timeout_stages(path_mode: str, error: str) -> list[dict[str
             "state": "blocked",
             "detail": detail,
         },
-    ]
+        ],
+    )
+    return stages
 
 
 async def build_homelab_snapshot(

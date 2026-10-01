@@ -4,6 +4,7 @@ from nabla.api.truenas_diagnostics import (
     _direct_lan_stage,
     _haproxy_stage,
     _https_stage,
+    _public_path_comparison_stage,
     append_truenas_api_stages,
 )
 
@@ -144,3 +145,32 @@ def test_https_stage_keeps_transport_failure_failed() -> None:
 
     assert stage["state"] == "fail"
     assert stage["detail"] == "Connection refused"
+
+
+
+def test_wan_path_comparison_identifies_hostname_edge_mismatch() -> None:
+    stage = _public_path_comparison_stage(
+        resolved=["104.16.1.1"],
+        wan_ipv4="82.66.4.247",
+        hostname_tls_ok=False,
+        wan_tls_ok=True,
+    )
+
+    assert stage["state"] == "warn"
+    assert stage["dns_matches_wan"] is False
+    assert "DNS/proxy/edge" in stage["detail"]
+
+
+def test_authenticated_api_success_downgrades_auxiliary_websocket_failure() -> None:
+    network = _network_ok()
+    network["stages"][-1]["state"] = "fail"
+    network["stages"][-1]["detail"] = "timed out"
+
+    result = append_truenas_api_stages(
+        network,
+        {"reachable": True, "version": "TrueNAS-26", "apps": []},
+    )
+
+    websocket = next(stage for stage in result["stages"] if stage["id"] == "websocket")
+    assert websocket["state"] == "warn"
+    assert websocket["contradicted_by"] == "authenticated_api_success"

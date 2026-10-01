@@ -103,3 +103,37 @@ def test_wan_metadata_defaults_to_free_static_ipv4(monkeypatch) -> None:
         "provider": "Free",
         "static": True,
     }
+
+
+
+@pytest.mark.asyncio
+async def test_direct_wan_probe_connects_to_ip_but_keeps_hostname_sni(
+    monkeypatch,
+) -> None:
+    seen = {}
+
+    def connect(target, **_kwargs):
+        seen["target"] = target
+        return _RawSocket()
+
+    class RecordingContext(_TlsContext):
+        def wrap_socket(self, _socket, **kwargs):
+            seen["server_hostname"] = kwargs["server_hostname"]
+            return _TlsSocket()
+
+    monkeypatch.setattr(transport.socket, "create_connection", connect)
+    monkeypatch.setattr(transport.ssl, "create_default_context", RecordingContext)
+
+    tcp, tls, reachable = await transport.collect_tcp_tls_stages(
+        "truenas.albandrieu.com",
+        7000,
+        True,
+        connect_host="82.66.4.247",
+        server_hostname="truenas.albandrieu.com",
+    )
+
+    assert reachable is True
+    assert seen["target"] == ("82.66.4.247", 7000)
+    assert seen["server_hostname"] == "truenas.albandrieu.com"
+    assert tcp["connect_host"] == "82.66.4.247"
+    assert tls["server_hostname"] == "truenas.albandrieu.com"

@@ -20,6 +20,13 @@ The current WAN address can be overridden with `HOMELAB_WAN_IPV4` and
 `HOMELAB_WAN_PROVIDER`; do not encode an ISP address as immutable application
 identity.
 
+This `:7000` path is **not a Cloudflare Tunnel datapath**. `cloudflared`
+health is useful control-plane evidence for other published hostnames, but
+starting/stopping `cloudflared` should not determine whether the direct
+FastAPI Cloud → pfSense/HAProxy listener is reachable. If it appears correlated,
+compare the hostname probe with the direct WAN-IP+SNI probe before attributing
+causality.
+
 ## Cloud source identity is observational
 
 FastAPI Cloud egress addresses can rotate. Treat a captured source IP as
@@ -67,7 +74,24 @@ Repeated SYN with no SYN/ACK or RST means traffic is being silently dropped or
 lost **before TLS**. Certificate settings cannot fix that state.
 
 When TCP succeeds, inspect TLS separately. Keep
-`TRUENAS_API_VERIFY_SSL=true` for the public HAProxy path. The TLS diagnostic
+`TRUENAS_API_VERIFY_SSL=true` for the public HAProxy path.
+
+The health drill-down performs two parallel TLS measurements for the public
+path:
+
+1. `truenas.albandrieu.com:7000` through normal DNS;
+2. `HOMELAB_WAN_IPV4:7000` while still sending SNI
+   `truenas.albandrieu.com`.
+
+Interpretation:
+
+- WAN+SNI succeeds, hostname TLS fails → DNS/proxy/edge mismatch;
+- hostname succeeds, WAN+SNI fails → hostname reaches another path and the
+  declared pfSense/HAProxy ingress is not confirmed;
+- both fail after TCP → inspect PF/Snort/pfBlockerNG/HAProxy TLS handling;
+- HTTP/API succeeds while the auxiliary TLS socket probe fails → keep the
+  auxiliary stage as warning; stronger application evidence proves the listener
+  was usable. The TLS diagnostic
 requires TLS 1.2+ and may expose only non-secret metadata such as version, cipher,
 certificate subject/issuer and expiry.
 
