@@ -93,6 +93,16 @@ function rawDetailSickText(check) {
 
 function detailSickText(check) {
   const raw = rawDetailSickText(check);
+  if (
+    check.policy_status === "ok" &&
+    check.external === false &&
+    check.reachable === false
+  ) {
+    const policy =
+      check.policy_detail ||
+      "external=false and the endpoint is not reachable from the external probe.";
+    return `Policy compliant private exposure — ${policy} Evidence: ${raw}`;
+  }
   if (!check.policy_detail) return raw;
   const warning =
     ["warn", "fail"].includes(check.policy_status) &&

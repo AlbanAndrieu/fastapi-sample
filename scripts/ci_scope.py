@@ -23,16 +23,12 @@ QUALITY_MAINTENANCE_PATHS = {
     ".pre-commit-config.yaml",
     ".pre-commit-pre-push.yaml",
     ".quality-gate-large-deletions",
-    ".cursor/rules/001_project-description.mdc",
-    ".cursor/rules/001_workspace.mdc",
-    ".cursor/rules/003_project-tooling.mdc",
-    ".cursor/rules/100_general-style.mdc",
-    ".cursor/rules/111_katex-math.mdc",
-    ".cursor/rules/130_version-control_git.mdc",
-    ".cursor/rules/301_memory.mdc",
-    ".cursor/rules/302_artifacts.mdc",
+    ".github/copilot-instructions.md",
+    ".mcp.json",
     ".vercelignore",
     "AGENTS.md",
+    "CLAUDE.md",
+    "opencode.json",
     "renovate.json",
     "vercel.json",
     "mise.toml",
@@ -52,6 +48,13 @@ QUALITY_MAINTENANCE_PATHS = {
     "tests/unit/test_opencode_agent_contract.py",
     "tests/unit/test_workflow_security.py",
 }
+
+QUALITY_MAINTENANCE_PREFIXES = (
+    ".agents/skills/",
+    ".cursor/rules/",
+    ".github/instructions/",
+    ".opencode/",
+)
 
 SECURITY_NON_DEPLOYABLE_PATHS = {
     "scripts/ci-scope.sh",
@@ -130,7 +133,9 @@ def _is_docs_path(path: str) -> bool:
 
 
 def _is_quality_maintenance_path(path: str) -> bool:
-    return path in QUALITY_MAINTENANCE_PATHS
+    return path in QUALITY_MAINTENANCE_PATHS or path.startswith(
+        QUALITY_MAINTENANCE_PREFIXES,
+    )
 
 
 def _is_security_non_deployable_path(path: str) -> bool:

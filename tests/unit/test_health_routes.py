@@ -13,6 +13,7 @@ def test_health_routes_keep_public_paths_once() -> None:
     paths = [getattr(route, "path", None) for route in app.routes]
     expected = {
         "/api/homelab-services",
+        "/api/public-topology",
         "/api/homelab-topology",
         "/api/homelab/health",
         "/api/homelab/probes",

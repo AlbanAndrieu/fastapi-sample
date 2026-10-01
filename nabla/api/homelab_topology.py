@@ -251,6 +251,68 @@ class HomelabTopology(BaseModel):
         return self
 
 
+
+
+def public_topology_payload(topology: HomelabTopology) -> dict[str, object]:
+    """Return a browser-safe declared graph without privileged endpoint evidence."""
+    nodes: list[dict[str, object]] = []
+    for node in topology.nodes:
+        item: dict[str, object] = {
+            "id": node.id,
+            "name": node.name,
+            "kind": node.kind,
+            "category": node.category,
+        }
+        if node.presentation_role is not None:
+            item["presentationRole"] = node.presentation_role
+        if node.criticality is not None:
+            item["criticality"] = node.criticality
+        if node.status is not None:
+            item["status"] = node.status
+        if node.security_functions is not None:
+            item["securityFunctions"] = list(node.security_functions)
+        if node.description is not None:
+            item["description"] = node.description
+        if node.icon is not None:
+            item["icon"] = node.icon
+        if node.environments is not None:
+            item["environments"] = [
+                {"name": environment.name}
+                for environment in node.environments
+            ]
+        if node.lifecycle is not None:
+            item["lifecycle"] = node.lifecycle.model_dump(
+                mode="json",
+                by_alias=True,
+                exclude_none=True,
+            )
+        if node.runtime is not None:
+            item["runtime"] = {"provider": node.runtime.provider}
+        nodes.append(item)
+
+    relations = [
+        {
+            "source": relation.source,
+            "target": relation.target,
+            "type": relation.type.value,
+            "strength": relation.strength.value,
+            **(
+                {"description": relation.description}
+                if relation.description is not None
+                else {}
+            ),
+        }
+        for relation in topology.relations
+    ]
+    return {
+        "version": topology.version,
+        "name": topology.name,
+        "projection": "public-sanitized",
+        "nodes": nodes,
+        "relations": relations,
+    }
+
+
 class _TopologyCache:
     """Last-known-good topology plus monotonic cache timestamp."""
 

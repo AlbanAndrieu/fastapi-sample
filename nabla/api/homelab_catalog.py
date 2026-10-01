@@ -73,6 +73,7 @@ _catalog_refresh_lock = asyncio.Lock()
 _OVERRIDE_FIELDS = (
     "external",
     "tunnelUrl",
+    "healthPath",
     "tunnelSecure",
     "endpointEnabled",
     "tunnelTitle",

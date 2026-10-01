@@ -179,6 +179,41 @@ def test_python_ci_runs_fast_gate_before_heavy_dependency_sync() -> None:
     assert "Bandit security report" not in workflow
 
 
+def test_python_ci_quality_contract_list_matches_agent_gate() -> None:
+    gate = (ROOT / "scripts" / "agent-quality-gate.sh").read_text(
+        encoding="utf-8",
+    )
+    workflow = (ROOT / ".github/workflows/python.yml").read_text(
+        encoding="utf-8",
+    )
+
+    gate_match = re.search(
+        r"QUALITY_CONTRACT_TESTS=\(\n(?P<body>.*?)\n\)",
+        gate,
+        re.DOTALL,
+    )
+    workflow_match = re.search(
+        r"quality_tests=\(\n(?P<body>.*?)\n\s*\)",
+        workflow,
+        re.DOTALL,
+    )
+
+    assert gate_match is not None
+    assert workflow_match is not None
+
+    gate_tests = {
+        line.strip()
+        for line in gate_match.group("body").splitlines()
+        if line.strip()
+    }
+    workflow_tests = {
+        line.strip()
+        for line in workflow_match.group("body").splitlines()
+        if line.strip()
+    }
+    assert workflow_tests == gate_tests
+
+
 def test_production_smoke_does_not_run_on_every_pr_synchronize() -> None:
     workflow = (ROOT / ".github/workflows/production-smoke.yml").read_text(
         encoding="utf-8",

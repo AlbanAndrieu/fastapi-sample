@@ -247,16 +247,30 @@ function installKeyboardShortcuts() {
   });
 }
 
+function mobileFilterViewport() {
+  return window.matchMedia("(max-width: 720px)").matches;
+}
+
 function syncCompactState(host) {
   const stuck = host.dataset.stuck === "true";
   const userCompact = host.dataset.userCompact === "true";
   const stuckExpanded = host.dataset.stuckExpanded === "true";
-  const compact = userCompact || (stuck && !stuckExpanded);
+  const mobile = mobileFilterViewport();
+  const mobileCompact =
+    mobile && host.dataset.mobileExpanded !== "true";
+  const compact =
+    userCompact || mobileCompact || (stuck && !stuckExpanded);
   host.classList.toggle("service-filter--compact", compact);
   host.dataset.expanded = String(!compact);
   const button = document.getElementById("service-filter-density-toggle");
   if (button) {
-    button.textContent = compact ? "Expand" : "Collapse";
+    button.textContent = mobile
+      ? compact
+        ? "Filters"
+        : "Hide filters"
+      : compact
+        ? "Expand"
+        : "Collapse";
     button.setAttribute("aria-expanded", String(!compact));
   }
 }
@@ -269,9 +283,10 @@ function refreshStickyState(host, sentinel) {
   const stuck = wasStuck
     ? sentinelTop <= stickyTop + STICKY_HYSTERESIS_PX
     : sentinelTop < stickyTop - STICKY_HYSTERESIS_PX;
-  if (stuck === wasStuck) return;
-  host.dataset.stuck = String(stuck);
-  if (!stuck) host.dataset.stuckExpanded = "false";
+  if (stuck !== wasStuck) {
+    host.dataset.stuck = String(stuck);
+    if (!stuck) host.dataset.stuckExpanded = "false";
+  }
   syncCompactState(host);
 }
 
@@ -292,10 +307,20 @@ function installCompactStickyMode(host) {
   host.dataset.stuck = "false";
   host.dataset.userCompact = "false";
   host.dataset.stuckExpanded = "false";
+  host.dataset.mobileExpanded = "false";
 
   const toggle = document.getElementById("service-filter-density-toggle");
   toggle?.addEventListener("click", () => {
     const compact = host.classList.contains("service-filter--compact");
+    if (mobileFilterViewport()) {
+      host.dataset.mobileExpanded = String(compact);
+      host.dataset.userCompact = "false";
+      host.dataset.stuckExpanded = String(
+        compact && host.dataset.stuck === "true",
+      );
+      syncCompactState(host);
+      return;
+    }
     if (compact) {
       host.dataset.userCompact = "false";
       host.dataset.stuckExpanded =

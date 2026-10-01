@@ -110,6 +110,11 @@ class HomelabService(BaseModel):
         validation_alias=AliasChoices("tunnelUrl", "tunnel_url"),
         serialization_alias="tunnelUrl",
     )
+    health_path: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("healthPath", "health_path"),
+        serialization_alias="healthPath",
+    )
     tunnel_secure: bool | None = Field(
         default=None,
         validation_alias=AliasChoices("tunnelSecure", "tunnel_secure"),
@@ -203,6 +208,27 @@ class HomelabService(BaseModel):
             raise ValueError(
                 "secure external *.int.albandrieu.com endpoints cannot disable Cloudflare Access without a reviewed direct-ingress declaration",
             )
+
+    @model_validator(mode="after")
+    def validate_endpoint_contract(self) -> HomelabService:
+        """Reject malformed endpoint identity and health-probe paths."""
+        if self.tunnel_url:
+            try:
+                host = urlsplit(self.tunnel_url).hostname or ""
+            except ValueError as exc:
+                raise ValueError("tunnelUrl is invalid") from exc
+            if any(character.isspace() for character in host):
+                raise ValueError("tunnelUrl hostname must not contain whitespace")
+        if self.health_path:
+            parsed = urlsplit(self.health_path)
+            if (
+                not self.health_path.startswith("/")
+                or self.health_path.startswith("//")
+                or parsed.scheme
+                or parsed.netloc
+            ):
+                raise ValueError("healthPath must be a repository-relative URL path")
+        return self
 
     @model_validator(mode="after")
     def validate_external_exposure(self) -> HomelabService:
@@ -319,7 +345,10 @@ class HomelabService(BaseModel):
             return None
         if not self.tunnel_url.lower().startswith("https://"):
             return None
-        return self.tunnel_url.rstrip("/") + "/"
+        base = self.tunnel_url.rstrip("/")
+        if self.health_path:
+            return f"{base}{self.health_path}"
+        return f"{base}/"
 
 
 class HomelabCatalog(BaseModel):

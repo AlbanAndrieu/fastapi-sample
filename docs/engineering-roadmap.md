@@ -29,8 +29,11 @@ detailed implementation record.
   repository history cleanup is required.
 - [ ] Replace shared operational keys with Keycloak/OIDC identities and explicit
   administration, diagnostics and MCP scopes.
-- [ ] Publish a public homelab projection that excludes internal hosts, ports and
-  privileged topology.
+- [ ] Finish the public homelab projection beyond topology. The browser topology
+  now uses a sanitized relation graph without internal URLs, ports, runtime
+  networks, source paths or configuration evidence; full service, declared,
+  runtime and reconciliation endpoints are diagnostics-key protected. Apply the
+  same least-data boundary to any future public diagnostics.
 - [ ] Apply the intended Cloudflare Access/private-network restriction to
   management endpoints once the access flow is finalized.
 
@@ -160,8 +163,6 @@ Reference:
 - [ ] Add SearXNG in `nabla-compose`, then evaluate a bounded optional adapter.
 - [ ] Continue MCP SDK review; keep any pfSense MCP service private and
   least-privilege.
-- [ ] Evaluate FastAPI Radar only as opt-in local development tooling.
-- [ ] Finish semantic review of remaining PR #63 divergent/absent files.
 - [ ] Consolidate duplicate Compose/Docker development paths: current repository
   references show `Dockerfile-pipenv` and `Dockerfile-poetry` are orphaned, while
   `docker-compose.yml` still backs legacy/dev PostgreSQL/Redis tooling. Prove the
@@ -189,6 +190,14 @@ Do not expand these back into historical checklists unless a regression occurs:
 - Vercel Git deployments are repository-disabled;
 - `AGENTS.md` is the single global agent policy; Claude, Copilot, Cursor and
   OpenCode use thin adapters and task-scoped rules instead of duplicated policy;
+- FastAPI Radar was evaluated and remains intentionally absent from runtime;
+  any future adoption must be local-only, disabled by default, authenticated,
+  redacted and covered by disabled-mode tests;
+- retired legacy branches are not replayed wholesale: current Pylint, TrueNAS,
+  catalog and dashboard implementations are authoritative; mutable-global RAG
+  prototypes remain rejected in favor of the open `VectorStore` item;
+- agent policy/skill changes use the isolated `quality` scope, and local/CI
+  quality gates execute the same contract-test set;
 - health-board modules already split for maintainability remain covered by tests.
 
 ## Documentation policy

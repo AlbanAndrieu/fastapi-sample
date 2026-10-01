@@ -1,8 +1,7 @@
 # Application entry points and local dashboards
 
-This document replaces the stale dashboard notes from pull request #63. The
-current application serves HTTP, OpenAPI and MCP from the same FastAPI process;
-FastAPI Radar is not installed and is not an MCP server.
+The application serves HTTP, OpenAPI and MCP from the same FastAPI process.
+FastAPI Radar is intentionally not installed and is not an MCP server.
 
 ## Application entry points
 
@@ -30,8 +29,11 @@ normal FastAPI startup path.
 | `/ff` | Feature flags UI | Only when `DEBUG` is enabled |
 | `/metrics` | Prometheus metrics | Always registered; operational access policy may require a key |
 | `/health`, `/healthz`, `/sickz` | Health and detailed diagnostics | Detailed routes may require `DIAGNOSTICS_ACCESS_KEY` |
-| `/api/homelab-services` | Public service catalog | Always |
-| `/api/homelab-topology` | Service topology | May require `DIAGNOSTICS_ACCESS_KEY` |
+| `/api/public-topology` | Sanitized browser topology (no internal URLs/ports/evidence) | Always |
+| `/api/homelab-services` | Full exposure/service catalog | May require `DIAGNOSTICS_ACCESS_KEY` |
+| `/api/homelab/declared-services` | Full declared service inventory | May require `DIAGNOSTICS_ACCESS_KEY` |
+| `/api/homelab-topology` | Full declared service topology | May require `DIAGNOSTICS_ACCESS_KEY` |
+| `/api/homelab/runtime`, `/api/homelab/status` | TrueNAS runtime/reconciliation evidence | May require `DIAGNOSTICS_ACCESS_KEY` |
 
 The project-level [`.mcp.json`](../.mcp.json) and
 [`opencode.json`](../opencode.json) both target
@@ -53,7 +55,6 @@ service endpoints, not browser dashboards.
 
 ## FastAPI Radar decision
 
-Pull request #63 attempted to launch `python -m fastapi_radar` on port 8091.
 FastAPI Radar 0.3.4 is middleware mounted inside an existing FastAPI
 application; it provides no module CLI and no MCP transport. Its dashboard can
 record request and response bodies, headers, SQL and exceptions.

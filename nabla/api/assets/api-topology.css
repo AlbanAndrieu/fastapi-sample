@@ -316,3 +316,35 @@
     min-height: 62vh;
   }
 }
+
+
+.topology-graph--fallback {
+  overflow: auto;
+  padding: 0.75rem;
+}
+
+.topology-fallback-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr));
+  gap: 0.5rem;
+}
+
+.topology-fallback-node {
+  min-width: 0;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #303641;
+  border-radius: 8px;
+  background: #0f1216;
+}
+
+.topology-fallback-node strong,
+.topology-fallback-node small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.topology-fallback-node small {
+  margin-top: 0.2rem;
+  color: #8d98a6;
+  font-size: 0.68rem;
+}

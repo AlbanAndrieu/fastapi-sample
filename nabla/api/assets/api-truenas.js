@@ -412,18 +412,26 @@ function renderProbeFanout(data) {
 
 function diagnosticsUnavailable(data, truenas) {
   const diagnostics = truenas?.diagnostics;
+  const httpsUp = truenas?.public?.reachable === true;
   if (data?.timed_out === true || diagnostics?.error_kind === "deadline") {
     return {
-      state: "homelab diagnostics timeout",
-      detail:
-        diagnostics?.detail ||
-        data?.error ||
-        "aggregate homelab diagnostic deadline exceeded",
+      tone: httpsUp ? "warn" : "fail",
+      state: httpsUp
+        ? "diagnostics timeout · HTTPS up"
+        : "homelab diagnostics timeout",
+      detail: httpsUp
+        ? "Aggregate TrueNAS diagnostics exceeded their deadline, but the bounded HTTPS listener probe succeeded. Appliance liveness remains confirmed; authenticated API status is unconfirmed."
+        : diagnostics?.detail ||
+          data?.error ||
+          "aggregate homelab diagnostic deadline exceeded",
     };
   }
   return {
-    state: "diagnostics unavailable",
-    detail: "TrueNAS diagnostics are missing from /api/homelab/health.",
+    tone: httpsUp ? "warn" : "fail",
+    state: httpsUp ? "diagnostics unavailable · HTTPS up" : "diagnostics unavailable",
+    detail: httpsUp
+      ? "TrueNAS HTTPS is reachable, but detailed diagnostics are missing from /api/homelab/health."
+      : "TrueNAS diagnostics are missing from /api/homelab/health.",
   };
 }
 
@@ -445,7 +453,7 @@ function render(data) {
   if (!Array.isArray(measuredStages) || measuredStages.length === 0) {
     const unavailable = diagnosticsUnavailable(data, truenas);
     pipeline.innerHTML = "";
-    state.className = "truenas-platform-state truenas-platform-state--fail";
+    state.className = `truenas-platform-state truenas-platform-state--${unavailable.tone}`;
     state.textContent = unavailable.state;
     error.hidden = false;
     error.textContent = unavailable.detail;

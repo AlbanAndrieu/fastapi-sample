@@ -116,6 +116,22 @@ def register_health_routes(app: FastAPI) -> None:
         return await fetch_declared_service_catalog()
 
     @app.get(
+        "/api/public-topology",
+        tags=["Homelab"],
+        summary="Sanitized public homelab topology",
+        include_in_schema=False,
+    )
+    async def get_public_homelab_topology(response: Response) -> dict[str, object]:
+        """Expose logical topology without internal URLs, ports or source evidence."""
+        from nabla.api.homelab_topology import (
+            fetch_homelab_topology,
+            public_topology_payload,
+        )
+
+        response.headers.update(_NO_STORE_HEADERS)
+        return public_topology_payload(await fetch_homelab_topology())
+
+    @app.get(
         "/api/homelab-topology",
         response_model=HomelabTopology,
         response_model_exclude_none=True,

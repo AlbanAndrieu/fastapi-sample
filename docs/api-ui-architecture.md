@@ -4,8 +4,9 @@
 
 The `/api` page remains the health-first operator view. It must not embed a network
 or dependency graph. Interactive topology is a separate concern exposed through
-`/api/topology`, with `/api/homelab-topology` remaining the machine-readable
-contract.
+`/api/topology`. Browser code consumes the sanitized `/api/public-topology`
+projection; the full `/api/homelab-topology` contract remains an operator
+diagnostic surface and may require `DIAGNOSTICS_ACCESS_KEY`.
 
 The canonical declared topology still comes from `nabla-compose`. FastAPI may
 classify, observe and present that topology, but presentation code must not become
@@ -58,7 +59,10 @@ Current constraints:
 
 - load Cytoscape only on `/api/topology`;
 - pin the external version and require Subresource Integrity;
-- keep a visible link to the JSON topology if the optional renderer cannot load;
+- fetch declared data before checking the optional renderer and show a textual
+  node fallback when Cytoscape/CDN loading fails;
+- consume only `/api/public-topology` in browser code; never expose a
+  diagnostics key or fall back to privileged/raw declared-service endpoints;
 - reuse `analyzeTopology()` for role, criticality, dependency and blast-radius
   semantics instead of duplicating them in the renderer;
 - reuse the same topology loader/fallback in the health grouping and topology

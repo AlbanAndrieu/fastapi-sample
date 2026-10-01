@@ -106,6 +106,8 @@ export function mergeHomelabEvidence(data, homelab) {
 
 export function dependencyHealthClass(check) {
   if (!check?.effective_state) return null;
+  if (check.direct_state === "fail" && check.effective_state === "ok")
+    return "yellow";
   if (check.effective_state === "ok") return "green";
   if (check.effective_state === "warn") return "yellow";
   if (check.effective_state === "fail") return "red";
@@ -198,6 +200,11 @@ export function dependencyDetailText(check) {
   if (check.local_state && check.local_state !== check.effective_state) {
     parts.push(
       `local ${check.local_state} → effective ${check.effective_state}`,
+    );
+  }
+  if (check.direct_state === "fail" && check.effective_state === "ok") {
+    parts.push(
+      "direct probe failed; alternate internal/runtime evidence reports operational",
     );
   }
   const blocked = dependencyLabels(check, "blocked_by");

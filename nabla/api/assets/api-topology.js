@@ -723,20 +723,33 @@ function installGraphEvents() {
   });
 }
 
+function renderDeclaredFallback(topology, container) {
+  container.classList.add("topology-graph--fallback");
+  const list = document.createElement("div");
+  list.className = "topology-fallback-list";
+  for (const node of [...(topology.nodes || [])].sort((left, right) =>
+    String(left.name || left.id).localeCompare(String(right.name || right.id)),
+  )) {
+    const card = document.createElement("article");
+    card.className = "topology-fallback-node";
+    const title = document.createElement("strong");
+    title.textContent = `${node.icon ? `${node.icon} ` : ""}${node.name || node.id}`;
+    const meta = document.createElement("small");
+    const runtime = node.runtime?.containerService
+      ? ` · runtime ${node.runtime.containerService}`
+      : "";
+    meta.textContent = `${node.kind || "service"} · ${node.category || "services"}${runtime}`;
+    card.append(title, meta);
+    list.appendChild(card);
+  }
+  container.replaceChildren(list);
+}
+
 async function start() {
   const error = document.getElementById("topology-error");
   const status = document.getElementById("topology-status");
   const container = document.getElementById("topology-graph");
   if (!container) return;
-
-  if (typeof window.cytoscape !== "function") {
-    if (error) {
-      error.hidden = false;
-      error.textContent =
-        "Cytoscape.js could not be loaded. The topology JSON remains available from the navigation link.";
-    }
-    return;
-  }
 
   const topology = await fetchTopology();
   state.topology = topology;
@@ -754,6 +767,23 @@ async function start() {
       error.textContent = `Topology unavailable${topology.error ? `: ${topology.error}` : "."}`;
     }
     if (status) status.textContent = "No declared topology could be loaded.";
+    return;
+  }
+
+  if (typeof window.cytoscape !== "function") {
+    renderDeclaredFallback(topology, container);
+    document.getElementById("topology-visible-count").textContent = String(
+      topology.nodes.length,
+    );
+    if (status) {
+      status.textContent =
+        `Declared topology loaded (${topology.nodes.length} nodes), but the interactive graph library is unavailable.`;
+    }
+    if (error) {
+      error.hidden = false;
+      error.textContent =
+        "Interactive Cytoscape rendering could not be loaded from the external CDN. Declared topology data is still shown below and remains available as JSON.";
+    }
     return;
   }
 

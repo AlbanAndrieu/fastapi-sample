@@ -36,7 +36,7 @@ def render_topology_page(*, title_suffix: str | None, app_version: str) -> str:
             <a href="/api/topology" class="logo">FastAPI Sample · Topology</a>
             <div class="nav-links">
                 <a href="/api">Health</a>
-                <a href="/api/homelab-topology">Topology JSON</a>
+                <a href="/api/public-topology">Public topology JSON</a>
                 <a href="/docs">API Docs</a>
             </div>
         </nav>
