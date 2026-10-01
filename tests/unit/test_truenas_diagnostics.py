@@ -174,3 +174,22 @@ def test_authenticated_api_success_downgrades_auxiliary_websocket_failure() -> N
     websocket = next(stage for stage in result["stages"] if stage["id"] == "websocket")
     assert websocket["state"] == "warn"
     assert websocket["contradicted_by"] == "authenticated_api_success"
+
+
+
+def test_authenticated_api_success_downgrades_auxiliary_tcp_tls_failures() -> None:
+    network = _network_ok()
+    network["stages"][1].update({"state": "fail", "detail": "connect timed out"})
+    network["stages"][2].update({"state": "fail", "detail": "TLS timed out"})
+
+    result = append_truenas_api_stages(
+        network,
+        {"reachable": True, "version": "TrueNAS-26", "apps": []},
+    )
+
+    socket = next(stage for stage in result["stages"] if stage["id"] == "socket")
+    tls = next(stage for stage in result["stages"] if stage["id"] == "tls")
+    assert socket["state"] == "warn"
+    assert tls["state"] == "warn"
+    assert socket["contradicted_by"] == "authenticated_api_success"
+    assert tls["contradicted_by"] == "authenticated_api_success"

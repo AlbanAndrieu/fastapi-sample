@@ -363,14 +363,20 @@ def append_truenas_api_stages(
     error = str(api_result.get("error") or "").strip()
 
     if reachable:
-        if websocket is not None and websocket.get("state") == "fail":
-            websocket["state"] = "warn"
-            websocket["detail"] = (
-                f"{websocket.get('detail', 'auxiliary WebSocket probe failed')} · "
-                "authenticated TrueNAS API probe succeeded; transport/API liveness "
-                "is confirmed by stronger evidence."
+        for transport_id in ("socket", "tls", "websocket"):
+            auxiliary = next(
+                (stage for stage in stages if stage.get("id") == transport_id),
+                None,
             )
-            websocket["contradicted_by"] = "authenticated_api_success"
+            if auxiliary is None or auxiliary.get("state") != "fail":
+                continue
+            auxiliary["state"] = "warn"
+            auxiliary["detail"] = (
+                f"{auxiliary.get('detail', 'auxiliary transport probe failed')} · "
+                "authenticated TrueNAS API probe succeeded; this auxiliary failure "
+                "is contradicted by stronger end-to-end evidence."
+            )
+            auxiliary["contradicted_by"] = "authenticated_api_success"
         stages.append(
             _stage(
                 "authentication",
