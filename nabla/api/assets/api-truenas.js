@@ -336,8 +336,11 @@ function renderProbeFanout(data) {
   const catalog =
     catalogCount != null ? `declared service catalog ${catalogCount} · ` : "";
   const pathMode = data?.truenas?.diagnostics?.path_mode;
+  const connectTarget = data?.truenas?.diagnostics?.connect_target;
   const runtimeMode =
-    pathMode === "direct_lan" ? "🏠 local/direct LAN" : "☁ external/public WAN";
+    pathMode === "direct_lan"
+      ? `🏠 direct LAN${connectTarget ? ` · ${connectTarget}` : ""}`
+      : `☁ WAN pfSense/HAProxy${connectTarget ? ` · ${connectTarget}` : ""}`;
   const verifySsl = data?.truenas?.verify_ssl;
   const tlsMode =
     verifySsl === true
@@ -471,6 +474,7 @@ function render(data) {
   const ingressBlock = data?.pfsense?.dns?.ingress_block;
   const overall = truenas?.state || "fail";
   const api = truenas?.api || {};
+  const rawTls = measuredStages?.find?.((stage) => stage?.id === "tls");
   const runtimeError = data?.truenas_runtime_error;
   if (ingressBlock?.state === "blocked") {
     state.className = "truenas-platform-state truenas-platform-state--fail";
@@ -488,7 +492,12 @@ function render(data) {
       const version = api.version ? ` · ${api.version}` : "";
       const cached = api.cached === true ? " · cached" : "";
       const platform = overall === "ok" ? "" : ` · platform ${overall}`;
-      state.textContent = `TrueNAS API healthy${version}${cached}${platform}`;
+      const transport =
+        rawTls?.state === "warn"
+          ? " · auxiliary raw TLS warning"
+          : "";
+      state.textContent =
+        `TrueNAS API healthy${version}${cached}${platform}${transport}`;
     } else {
       state.textContent = overall;
     }

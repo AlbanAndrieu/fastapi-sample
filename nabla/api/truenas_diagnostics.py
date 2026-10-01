@@ -235,6 +235,23 @@ def append_truenas_api_stages(
     websocket_ok = websocket is not None and websocket.get("state") == "ok"
     api_reachable = isinstance(api_result, dict) and api_result.get("reachable") is True
 
+    if api_reachable:
+        for stage in stages:
+            if (
+                stage.get("id") in {"socket", "tls", "websocket"}
+                and stage.get("state") == "fail"
+            ):
+                stage["state"] = "warn"
+                stage["superseded_by"] = "authenticated_api"
+                original = str(
+                    stage.get("detail")
+                    or "auxiliary transport probe failed"
+                )
+                stage["detail"] = (
+                    f"{original} · authenticated TrueNAS API succeeded; "
+                    "raw-socket and application egress paths may differ"
+                )
+
     # The authenticated API probe itself proves WebSocket transport + authentication.
     # Do not let the auxiliary credential-free WebSocket diagnostic override stronger
     # evidence when its own bounded measurement failed or timed out.

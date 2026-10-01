@@ -285,3 +285,12 @@ def test_truenas_diagnostics_timeout_preserves_confirmed_https_liveness() -> Non
     assert '"diagnostics timeout · HTTPS up"' in script
     assert '"warn" : "fail"' in script
     assert "Appliance liveness remains confirmed" in script
+
+
+def test_truenas_ui_distinguishes_raw_tls_warning_from_api_health() -> None:
+    script = (_ASSET_DIR / "api-truenas.js").read_text(encoding="utf-8")
+
+    assert "WAN pfSense/HAProxy" in script
+    assert "direct LAN" in script
+    assert "diagnostics?.connect_target" in script
+    assert "auxiliary raw TLS warning" in script
