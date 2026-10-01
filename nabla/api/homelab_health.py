@@ -214,9 +214,12 @@ async def _probe_truenas(
             budget_seconds=_TRUENAS_DIAGNOSTICS_BUDGET_SEC,
         )
     diagnostics = append_truenas_api_stages(diagnostics, api_result)
-    state = _truenas_state(public_result, internal_result, api_result)
-    if state == "fail" and diagnostics.get("wan_tls_reachable") is True:
-        state = "warn"
+    state = _truenas_state(
+        public_result,
+        internal_result,
+        api_result,
+        wan_tls_reachable=diagnostics.get("wan_tls_reachable"),
+    )
     return {
         "id": "truenas",
         "state": state,

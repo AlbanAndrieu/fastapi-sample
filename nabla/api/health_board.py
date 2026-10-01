@@ -145,16 +145,36 @@ def _planned_truenas_timeout_stages(path_mode: str, error: str) -> list[dict[str
         )
     stages.extend(
         [
-        {"id": "route", "label": route_label, "state": "blocked", "detail": detail},
-        {"id": "https", "label": "TrueNAS HTTPS listener", "state": "blocked", "detail": detail},
-        {"id": "websocket", "label": "WebSocket /api/current", "state": "blocked", "detail": detail},
-        {"id": "authentication", "label": "API authentication", "state": "blocked", "detail": detail},
-        {
-            "id": "api",
-            "label": "TrueNAS API · system.version + app.query",
-            "state": "blocked",
-            "detail": detail,
-        },
+            {
+                "id": "route",
+                "label": route_label,
+                "state": "blocked",
+                "detail": detail,
+            },
+            {
+                "id": "https",
+                "label": "TrueNAS HTTPS listener",
+                "state": "blocked",
+                "detail": detail,
+            },
+            {
+                "id": "websocket",
+                "label": "WebSocket /api/current",
+                "state": "blocked",
+                "detail": detail,
+            },
+            {
+                "id": "authentication",
+                "label": "API authentication",
+                "state": "blocked",
+                "detail": detail,
+            },
+            {
+                "id": "api",
+                "label": "TrueNAS API · system.version + app.query",
+                "state": "blocked",
+                "detail": detail,
+            },
         ],
     )
     return stages

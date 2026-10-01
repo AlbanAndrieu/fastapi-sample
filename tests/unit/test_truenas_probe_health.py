@@ -77,6 +77,22 @@ def test_truenas_api_failure_remains_failure_when_https_is_down() -> None:
 
 def test_wan_tls_can_degrade_http_failure_without_claiming_appliance_down() -> None:
     public = {"state": "fail"}
-    assert homelab_health._truenas_state(public, None, {"reachable": False}) == "fail"
-    # The orchestrator upgrades this to warn only when diagnostics independently
-    # prove the public WAN TLS listener; the pure helper intentionally remains strict.
+
+    assert (
+        homelab_health._truenas_state(
+            public,
+            None,
+            {"reachable": False},
+            wan_tls_reachable=True,
+        )
+        == "warn"
+    )
+    assert (
+        homelab_health._truenas_state(
+            public,
+            None,
+            {"reachable": False},
+            wan_tls_reachable=False,
+        )
+        == "fail"
+    )

@@ -150,16 +150,33 @@ async def test_homelab_snapshot_returns_degraded_timeout_payload(monkeypatch) ->
     assert diagnostics["error_kind"] == "deadline"
     assert diagnostics["detail"] == payload["error"]
     assert diagnostics["path_mode"] in {"direct_lan", "public_wan_haproxy"}
-    assert [stage["label"] for stage in diagnostics["stages"]] == [
+    expected_labels = [
         "DNS resolution",
         "TCP :7000",
         "TLS handshake",
-        "Direct LAN route" if diagnostics["path_mode"] == "direct_lan" else "HAProxy public route",
-        "TrueNAS HTTPS listener",
-        "WebSocket /api/current",
-        "API authentication",
-        "TrueNAS API · system.version + app.query",
     ]
+    if diagnostics["path_mode"] != "direct_lan":
+        expected_labels.extend(
+            [
+                "WAN TCP :7000",
+                "WAN TLS + SNI",
+                "Hostname ↔ WAN :7000",
+            ],
+        )
+    expected_labels.extend(
+        [
+            (
+                "Direct LAN route"
+                if diagnostics["path_mode"] == "direct_lan"
+                else "HAProxy public route"
+            ),
+            "TrueNAS HTTPS listener",
+            "WebSocket /api/current",
+            "API authentication",
+            "TrueNAS API · system.version + app.query",
+        ],
+    )
+    assert [stage["label"] for stage in diagnostics["stages"]] == expected_labels
     assert all(stage["state"] == "blocked" for stage in diagnostics["stages"])
     assert all("Not measured" in stage["detail"] for stage in diagnostics["stages"])
 
