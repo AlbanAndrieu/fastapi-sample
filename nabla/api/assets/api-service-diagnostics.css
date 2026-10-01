@@ -576,3 +576,42 @@
     max-width: calc(100vw - 2rem);
   }
 }
+
+
+.service-section-navigation {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.35rem;
+  width: 100%;
+  margin: 0 0 0.55rem;
+  padding: 0;
+}
+
+.service-section-navigation .service-filter-health-chip {
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  #service-section-navigation.service-section-navigation {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 0.3rem;
+    width: 100%;
+    max-width: 100%;
+    margin: 0 0 0.45rem;
+    padding: 0 0 0.15rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+  }
+
+  #service-section-navigation .service-filter-health-chip {
+    flex: 0 0 auto;
+    min-width: 6.5rem;
+    min-height: 44px;
+    scroll-snap-align: start;
+  }
+}
