@@ -1,3 +1,12 @@
+## [1.20.14](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.13...1.20.14) (2026-10-01)
+
+
+### Bug Fixes
+
+* **deps:** bump devalue ([#303](https://github.com/AlbanAndrieu/fastapi-sample/issues/303)) ([900bc1d](https://github.com/AlbanAndrieu/fastapi-sample/commit/900bc1df9c30a4b571d67c0a6f2ad97b9b7eb033))
+* **deps:** bump virtualenv ([#304](https://github.com/AlbanAndrieu/fastapi-sample/issues/304)) ([da64c65](https://github.com/AlbanAndrieu/fastapi-sample/commit/da64c65390a667f0a05ac039ea9cb155e1be7982))
+* **health:** fiabiliser les probes, Topology et l’UX mobile ([#302](https://github.com/AlbanAndrieu/fastapi-sample/issues/302)) ([de90467](https://github.com/AlbanAndrieu/fastapi-sample/commit/de9046794ae7b5416d17376fffde4e2fed5ed3fe))
+
 ## [1.20.13](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.12...1.20.13) (2026-09-30)
 
 
