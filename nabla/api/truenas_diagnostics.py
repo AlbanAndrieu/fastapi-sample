@@ -467,6 +467,9 @@ async def collect_truenas_network_diagnostics(
     hostname_probe = asyncio.create_task(
         collect_tcp_tls_stages(host, port, verify_ssl),
     )
+    websocket_probe = asyncio.create_task(
+        _websocket_stage(websocket_uri, verify_ssl),
+    )
     wan_probe = (
         asyncio.create_task(
             collect_tcp_tls_stages(
@@ -531,23 +534,16 @@ async def collect_truenas_network_diagnostics(
         stages.append(_haproxy_stage(wan_tls_ok is True))
     stages.append(_https_stage(public_result, path_mode=path_mode))
 
-    if tls_ok:
-        websocket, _ = await _websocket_stage(websocket_uri, verify_ssl)
-        stages.append(websocket)
-    else:
-        blocked_detail = (
-            "Blocked before direct TrueNAS WebSocket validation"
-            if path_mode == "direct_lan"
-            else "Blocked before hostname WebSocket validation"
+    websocket, websocket_ok = await websocket_probe
+    if websocket_ok and tls_stage.get("state") == "fail":
+        tls_stage["state"] = "warn"
+        tls_stage["detail"] = (
+            f"{tls_stage.get('detail', 'auxiliary TLS probe failed')} · "
+            "credential-free WebSocket connected on the same hostname; "
+            "the isolated TLS result is contradictory auxiliary evidence."
         )
-        stages.append(
-            _stage(
-                "websocket",
-                "WebSocket upgrade",
-                "blocked",
-                detail=blocked_detail,
-            ),
-        )
+        tls_stage["contradicted_by"] = "websocket_success"
+    stages.append(websocket)
 
     return {
         "target": f"{host}:{port}",

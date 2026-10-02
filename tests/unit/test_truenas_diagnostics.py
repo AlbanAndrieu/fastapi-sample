@@ -193,3 +193,129 @@ def test_authenticated_api_success_downgrades_auxiliary_tcp_tls_failures() -> No
     assert tls["state"] == "warn"
     assert socket["contradicted_by"] == "authenticated_api_success"
     assert tls["contradicted_by"] == "authenticated_api_success"
+
+
+
+@pytest.mark.asyncio
+async def test_transport_and_websocket_diagnostics_start_concurrently(monkeypatch) -> None:
+    from nabla.api import truenas_diagnostics as diagnostics
+
+    started: set[str] = set()
+    release = __import__("asyncio").Event()
+
+    async def dns(_host: str):
+        started.add("dns")
+        await release.wait()
+        return (
+            {
+                "id": "dns",
+                "label": "DNS",
+                "state": "ok",
+                "resolved": ["82.66.4.247"],
+            },
+            True,
+        )
+
+    async def transport(*_args, connect_host=None, **_kwargs):
+        started.add("wan" if connect_host else "hostname")
+        await release.wait()
+        return (
+            {"id": "socket", "label": "TCP", "state": "ok"},
+            {"id": "tls", "label": "TLS", "state": "ok"},
+            True,
+        )
+
+    async def websocket(*_args, **_kwargs):
+        started.add("websocket")
+        await release.wait()
+        return (
+            {"id": "websocket", "label": "WebSocket", "state": "ok"},
+            True,
+        )
+
+    monkeypatch.setattr(diagnostics, "_dns_stage", dns)
+    monkeypatch.setattr(diagnostics, "collect_tcp_tls_stages", transport)
+    monkeypatch.setattr(diagnostics, "_websocket_stage", websocket)
+    monkeypatch.setattr(
+        diagnostics,
+        "homelab_wan_metadata",
+        lambda: {"ipv4": "82.66.4.247", "provider": "Free", "static": True},
+    )
+
+    task = __import__("asyncio").create_task(
+        diagnostics.collect_truenas_network_diagnostics(
+            host="truenas.albandrieu.com",
+            port=7000,
+            websocket_uri="wss://truenas.albandrieu.com:7000/api/current",
+            verify_ssl=True,
+            public_result={"reachable": True, "state": "ok", "http_status": 200},
+        ),
+    )
+    await __import__("asyncio").sleep(0)
+    assert started == {"dns", "hostname", "wan", "websocket"}
+    release.set()
+    result = await task
+
+    assert result["wan_tls_reachable"] is True
+    assert any(stage["id"] == "websocket" for stage in result["stages"])
+
+
+@pytest.mark.asyncio
+async def test_websocket_success_downgrades_contradictory_tls_failure(monkeypatch) -> None:
+    from nabla.api import truenas_diagnostics as diagnostics
+
+    async def dns(_host: str):
+        return (
+            {
+                "id": "dns",
+                "label": "DNS",
+                "state": "ok",
+                "resolved": ["82.66.4.247"],
+            },
+            True,
+        )
+
+    async def transport(*_args, connect_host=None, **_kwargs):
+        if connect_host:
+            return (
+                {"id": "socket", "label": "TCP", "state": "ok"},
+                {"id": "tls", "label": "TLS", "state": "ok"},
+                True,
+            )
+        return (
+            {"id": "socket", "label": "TCP", "state": "ok"},
+            {
+                "id": "tls",
+                "label": "TLS",
+                "state": "fail",
+                "detail": "handshake timed out",
+            },
+            False,
+        )
+
+    async def websocket(*_args, **_kwargs):
+        return (
+            {"id": "websocket", "label": "WebSocket", "state": "ok"},
+            True,
+        )
+
+    monkeypatch.setattr(diagnostics, "_dns_stage", dns)
+    monkeypatch.setattr(diagnostics, "collect_tcp_tls_stages", transport)
+    monkeypatch.setattr(diagnostics, "_websocket_stage", websocket)
+    monkeypatch.setattr(
+        diagnostics,
+        "homelab_wan_metadata",
+        lambda: {"ipv4": "82.66.4.247", "provider": "Free", "static": True},
+    )
+
+    result = await diagnostics.collect_truenas_network_diagnostics(
+        host="truenas.albandrieu.com",
+        port=7000,
+        websocket_uri="wss://truenas.albandrieu.com:7000/api/current",
+        verify_ssl=True,
+        public_result={"reachable": False, "state": "fail"},
+    )
+
+    tls = next(stage for stage in result["stages"] if stage["id"] == "tls")
+    assert tls["state"] == "warn"
+    assert tls["contradicted_by"] == "websocket_success"
