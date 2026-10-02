@@ -1,5 +1,9 @@
 """Tests for the ordered TrueNAS diagnostic pipeline."""
 
+import asyncio
+
+import pytest
+
 from nabla.api.truenas_diagnostics import (
     _direct_lan_stage,
     _haproxy_stage,
@@ -201,7 +205,7 @@ async def test_transport_and_websocket_diagnostics_start_concurrently(monkeypatc
     from nabla.api import truenas_diagnostics as diagnostics
 
     started: set[str] = set()
-    release = __import__("asyncio").Event()
+    release = asyncio.Event()
 
     async def dns(_host: str):
         started.add("dns")
@@ -242,7 +246,7 @@ async def test_transport_and_websocket_diagnostics_start_concurrently(monkeypatc
         lambda: {"ipv4": "82.66.4.247", "provider": "Free", "static": True},
     )
 
-    task = __import__("asyncio").create_task(
+    task = asyncio.create_task(
         diagnostics.collect_truenas_network_diagnostics(
             host="truenas.albandrieu.com",
             port=7000,
@@ -251,7 +255,7 @@ async def test_transport_and_websocket_diagnostics_start_concurrently(monkeypatc
             public_result={"reachable": True, "state": "ok", "http_status": 200},
         ),
     )
-    await __import__("asyncio").sleep(0)
+    await asyncio.sleep(0)
     assert started == {"dns", "hostname", "wan", "websocket"}
     release.set()
     result = await task
