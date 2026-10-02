@@ -10,6 +10,7 @@ from nabla.api.truenas_diagnostics import (
     _https_stage,
     _public_path_comparison_stage,
     append_truenas_api_stages,
+    append_truenas_http_stage,
 )
 
 
@@ -329,3 +330,32 @@ async def test_websocket_success_downgrades_contradictory_tls_failure(monkeypatc
     tls = next(stage for stage in result["stages"] if stage["id"] == "tls")
     assert tls["state"] == "warn"
     assert tls["contradicted_by"] == "websocket_success"
+
+
+
+def test_http_stage_replaces_timeout_placeholder_with_measured_evidence() -> None:
+    diagnostics = {
+        "path_mode": "public_wan_haproxy",
+        "stages": [
+            {"id": "route", "label": "HAProxy", "state": "blocked"},
+            {"id": "https", "label": "HTTPS", "state": "blocked"},
+            {"id": "websocket", "label": "WebSocket", "state": "blocked"},
+        ],
+    }
+
+    result = append_truenas_http_stage(
+        diagnostics,
+        {
+            "reachable": True,
+            "state": "ok",
+            "http_status": 200,
+            "latency_ms": 42,
+            "tls_trusted": True,
+        },
+    )
+
+    https = next(stage for stage in result["stages"] if stage["id"] == "https")
+    assert https["state"] == "ok"
+    assert https["detail"] == "HTTP 200"
+    assert https["elapsed_ms"] == 42
+    assert [stage["id"] for stage in result["stages"]].count("https") == 1

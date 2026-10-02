@@ -197,6 +197,32 @@ def _haproxy_stage(tls_ok: bool) -> dict[str, Any]:
     )
 
 
+def append_truenas_http_stage(
+    diagnostics: dict[str, Any],
+    public_result: dict[str, Any],
+) -> dict[str, Any]:
+    """Merge bounded HTTP evidence into transport diagnostics without re-probing."""
+    out = dict(diagnostics)
+    path_mode = str(out.get("path_mode") or "public_wan_haproxy")
+    https_stage = _https_stage(public_result, path_mode=path_mode)
+    stages = [
+        dict(stage)
+        for stage in out.get("stages", [])
+        if isinstance(stage, dict) and stage.get("id") != "https"
+    ]
+    insert_at = next(
+        (
+            index
+            for index, stage in enumerate(stages)
+            if stage.get("id") in {"websocket", "authentication", "api"}
+        ),
+        len(stages),
+    )
+    stages.insert(insert_at, https_stage)
+    out["stages"] = stages
+    return out
+
+
 def _direct_lan_stage(tls_ok: bool, host: str, port: int) -> dict[str, Any]:
     """Describe the trusted-LAN route used by the TrueNAS-hosted runtime."""
     if not tls_ok:
@@ -456,7 +482,6 @@ async def collect_truenas_network_diagnostics(
     port: int,
     websocket_uri: str,
     verify_ssl: bool,
-    public_result: dict[str, Any],
     path_mode: str = "public_wan_haproxy",
 ) -> dict[str, Any]:
     """Measure hostname and direct-WAN transport paths within one bounded window."""
@@ -487,17 +512,6 @@ async def collect_truenas_network_diagnostics(
     resolved = [str(value) for value in dns.get("resolved", []) if value]
     stages.append(dns)
 
-    if public_result.get("reachable") is True and tls_stage.get("state") == "fail":
-        tls_stage = {
-            **tls_stage,
-            "state": "warn",
-            "detail": (
-                f"{tls_stage.get('detail', 'auxiliary TLS probe failed')} · "
-                "HTTPS request succeeded on the same configured hostname; "
-                "treat this as contradictory auxiliary evidence, not listener DOWN."
-            ),
-            "contradicted_by": "https_probe_success",
-        }
     stages.extend((socket_stage, tls_stage))
 
     wan_tls_ok: bool | None = None
@@ -530,7 +544,6 @@ async def collect_truenas_network_diagnostics(
         stages.append(_direct_lan_stage(tls_ok, host, port))
     else:
         stages.append(_haproxy_stage(wan_tls_ok is True))
-    stages.append(_https_stage(public_result, path_mode=path_mode))
 
     if websocket_ok and tls_stage.get("state") == "fail":
         tls_stage["state"] = "warn"

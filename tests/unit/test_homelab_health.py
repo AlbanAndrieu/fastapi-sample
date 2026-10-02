@@ -329,6 +329,13 @@ async def test_truenas_transport_diagnostics_timeout_keeps_api_health(monkeypatc
     assert result["api"]["reachable"] is True
     assert result["diagnostics"]["timed_out"] is True
     assert result["diagnostics"]["error_kind"] == "deadline"
+    https = next(
+        stage
+        for stage in result["diagnostics"]["stages"]
+        if stage["id"] == "https"
+    )
+    assert https["state"] == "ok"
+    assert https["detail"] == "HTTP 200"
     assert result["diagnostics"]["stages"][-2]["id"] == "authentication"
     assert result["diagnostics"]["stages"][-2]["state"] == "ok"
     assert result["diagnostics"]["stages"][-1]["id"] == "api"

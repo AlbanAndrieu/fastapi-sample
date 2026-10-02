@@ -33,6 +33,7 @@ from nabla.api.runtime_environment import homelab_runtime_detected
 from nabla.api.sickz_cloudflare_edge import _probe_http_edge_evidence
 from nabla.api.truenas_diagnostics import (
     append_truenas_api_stages,
+    append_truenas_http_stage,
     collect_truenas_network_diagnostics,
     unmeasured_truenas_network_diagnostics,
 )
@@ -139,36 +140,19 @@ def _truenas_internal_target(
 _truenas_state = truenas_probe_health.truenas_state
 
 
-async def _probe_truenas(
+async def _probe_truenas_public_https(
     semaphore: asyncio.Semaphore,
     *,
-    internal_enabled: bool,
+    configured_url: str,
+    verify_ssl: bool,
 ) -> dict[str, Any]:
-    """Probe TrueNAS with its own TLS policy while overlapping independent stages."""
-    configured_url = truenas_url().rstrip("/") + "/"
     timeout = httpx.Timeout(_PROBE_TIMEOUT_SEC)
-    api_task = asyncio.create_task(_observe_truenas_api())
-    internal_task: asyncio.Task[dict[str, Any]] | None = None
-    if internal_enabled:
-        host, port = _truenas_internal_target()
-        internal_task = asyncio.create_task(
-            _probe_internal_service(
-                semaphore,
-                HomelabService(
-                    name="TrueNAS TCP",
-                    internalHost=host,
-                    internalPort=port,
-                    external=False,
-                ),
-            ),
-        )
-
     async with httpx.AsyncClient(
         timeout=timeout,
         follow_redirects=False,
-        verify=truenas_http_verify_ssl(),
+        verify=verify_ssl,
     ) as truenas_client:
-        public_result = await _probe_http_endpoint(
+        return await _probe_http_endpoint(
             truenas_client,
             semaphore,
             service_id="truenas",
@@ -176,43 +160,95 @@ async def _probe_truenas(
             url=configured_url,
         )
 
+
+async def _probe_truenas(
+    semaphore: asyncio.Semaphore,
+    *,
+    internal_enabled: bool,
+) -> dict[str, Any]:
+    """Probe TrueNAS with its own TLS policy while overlapping independent stages."""
+    configured_url = truenas_url().rstrip("/") + "/"
     host, port = truenas_host_port()
     verify_ssl = truenas_http_verify_ssl()
+    path_mode = (
+        "direct_lan"
+        if homelab_runtime_detected()
+        else "public_wan_haproxy"
+    )
     ws_path = TrueNASProviderSettings().websocket_path
     websocket_uri = TrueNASSettings(
         url=truenas_url(),
         verify_ssl=verify_ssl,
         websocket_path=ws_path,
     ).websocket_uri
-    diagnostics_task = asyncio.create_task(
-        collect_truenas_network_diagnostics(
-            host=host,
-            port=port,
-            websocket_uri=websocket_uri,
+
+    api_task = asyncio.create_task(_observe_truenas_api())
+    public_task = asyncio.create_task(
+        _probe_truenas_public_https(
+            semaphore,
+            configured_url=configured_url,
             verify_ssl=verify_ssl,
-            public_result=public_result,
-            path_mode=("direct_lan" if homelab_runtime_detected() else "public_wan_haproxy"),
         ),
     )
-
-    api_result = await api_task
-    internal_result = await internal_task if internal_task is not None else None
-    try:
-        diagnostics = await asyncio.wait_for(
-            diagnostics_task,
+    diagnostics_task = asyncio.create_task(
+        asyncio.wait_for(
+            collect_truenas_network_diagnostics(
+                host=host,
+                port=port,
+                websocket_uri=websocket_uri,
+                verify_ssl=verify_ssl,
+                path_mode=path_mode,
+            ),
             timeout=_TRUENAS_DIAGNOSTICS_BUDGET_SEC,
+        ),
+    )
+    internal_task: asyncio.Task[dict[str, Any]] | None = None
+    if internal_enabled:
+        internal_host, internal_port = _truenas_internal_target()
+        internal_task = asyncio.create_task(
+            _probe_internal_service(
+                semaphore,
+                HomelabService(
+                    name="TrueNAS TCP",
+                    internalHost=internal_host,
+                    internalPort=internal_port,
+                    external=False,
+                ),
+            ),
         )
-    except TimeoutError:
-        diagnostics_task.cancel()
-        await asyncio.gather(diagnostics_task, return_exceptions=True)
-        diagnostics = unmeasured_truenas_network_diagnostics(
-            host=host,
-            port=port,
-            websocket_uri=websocket_uri,
-            verify_ssl=verify_ssl,
-            path_mode=("direct_lan" if homelab_runtime_detected() else "public_wan_haproxy"),
-            budget_seconds=_TRUENAS_DIAGNOSTICS_BUDGET_SEC,
+
+    managed_tasks = [api_task, public_task, diagnostics_task]
+    if internal_task is not None:
+        managed_tasks.append(internal_task)
+
+    try:
+        api_result, public_result = await asyncio.gather(
+            api_task,
+            public_task,
         )
+        internal_result = (
+            await internal_task
+            if internal_task is not None
+            else None
+        )
+        try:
+            diagnostics = await diagnostics_task
+        except TimeoutError:
+            diagnostics = unmeasured_truenas_network_diagnostics(
+                host=host,
+                port=port,
+                websocket_uri=websocket_uri,
+                verify_ssl=verify_ssl,
+                path_mode=path_mode,
+                budget_seconds=_TRUENAS_DIAGNOSTICS_BUDGET_SEC,
+            )
+    finally:
+        for task in managed_tasks:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*managed_tasks, return_exceptions=True)
+
+    diagnostics = append_truenas_http_stage(diagnostics, public_result)
     diagnostics = append_truenas_api_stages(diagnostics, api_result)
     state = _truenas_state(
         public_result,
