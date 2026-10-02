@@ -463,15 +463,13 @@ async def collect_truenas_network_diagnostics(
     stages: list[dict[str, Any]] = []
     wan = None if path_mode == "direct_lan" else homelab_wan_metadata()
 
-    dns_task = asyncio.create_task(_dns_stage(host))
-    hostname_probe = asyncio.create_task(
+    probes: list[Any] = [
+        _dns_stage(host),
         collect_tcp_tls_stages(host, port, verify_ssl),
-    )
-    websocket_probe = asyncio.create_task(
         _websocket_stage(websocket_uri, verify_ssl),
-    )
-    wan_probe = (
-        asyncio.create_task(
+    ]
+    if wan is not None:
+        probes.append(
             collect_tcp_tls_stages(
                 host,
                 port,
@@ -480,12 +478,12 @@ async def collect_truenas_network_diagnostics(
                 server_hostname=host,
             ),
         )
-        if wan is not None
-        else None
-    )
 
-    dns, _dns_ok = await dns_task
-    socket_stage, tls_stage, tls_ok = await hostname_probe
+    results = await asyncio.gather(*probes)
+    dns, _dns_ok = results[0]
+    socket_stage, tls_stage, tls_ok = results[1]
+    websocket, websocket_ok = results[2]
+    wan_result = results[3] if len(results) > 3 else None
     resolved = [str(value) for value in dns.get("resolved", []) if value]
     stages.append(dns)
 
@@ -503,8 +501,8 @@ async def collect_truenas_network_diagnostics(
     stages.extend((socket_stage, tls_stage))
 
     wan_tls_ok: bool | None = None
-    if wan_probe is not None:
-        wan_socket, wan_tls, wan_tls_ok = await wan_probe
+    if wan_result is not None:
+        wan_socket, wan_tls, wan_tls_ok = wan_result
         stages.extend(
             (
                 _retag_wan_transport_stage(
@@ -534,7 +532,6 @@ async def collect_truenas_network_diagnostics(
         stages.append(_haproxy_stage(wan_tls_ok is True))
     stages.append(_https_stage(public_result, path_mode=path_mode))
 
-    websocket, websocket_ok = await websocket_probe
     if websocket_ok and tls_stage.get("state") == "fail":
         tls_stage["state"] = "warn"
         tls_stage["detail"] = (

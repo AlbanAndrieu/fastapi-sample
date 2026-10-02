@@ -205,10 +205,16 @@ async def test_transport_and_websocket_diagnostics_start_concurrently(monkeypatc
     from nabla.api import truenas_diagnostics as diagnostics
 
     started: set[str] = set()
+    all_started = asyncio.Event()
     release = asyncio.Event()
 
+    def mark_started(label: str) -> None:
+        started.add(label)
+        if len(started) == 4:
+            all_started.set()
+
     async def dns(_host: str):
-        started.add("dns")
+        mark_started("dns")
         await release.wait()
         return (
             {
@@ -221,7 +227,7 @@ async def test_transport_and_websocket_diagnostics_start_concurrently(monkeypatc
         )
 
     async def transport(*_args, connect_host=None, **_kwargs):
-        started.add("wan" if connect_host else "hostname")
+        mark_started("wan" if connect_host else "hostname")
         await release.wait()
         return (
             {"id": "socket", "label": "TCP", "state": "ok"},
@@ -230,7 +236,7 @@ async def test_transport_and_websocket_diagnostics_start_concurrently(monkeypatc
         )
 
     async def websocket(*_args, **_kwargs):
-        started.add("websocket")
+        mark_started("websocket")
         await release.wait()
         return (
             {"id": "websocket", "label": "WebSocket", "state": "ok"},
@@ -255,7 +261,7 @@ async def test_transport_and_websocket_diagnostics_start_concurrently(monkeypatc
             public_result={"reachable": True, "state": "ok", "http_status": 200},
         ),
     )
-    await asyncio.sleep(0)
+    await asyncio.wait_for(all_started.wait(), timeout=1.0)
     assert started == {"dns", "hostname", "wan", "websocket"}
     release.set()
     result = await task
