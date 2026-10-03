@@ -80,22 +80,27 @@ def truenas_public_ingress_state(
     """Rate the pfSense/HAProxy :7000 ingress without using API success."""
     public_state = str(public_result.get("state") or "").strip().lower()
     stages = diagnostics.get("stages", []) if isinstance(diagnostics, dict) else []
-    preferred_ids = (
-        ("wan_socket", "wan_tls")
+    tls_id = (
+        "wan_tls"
         if any(stage.get("id") == "wan_tls" for stage in stages)
-        else ("socket", "tls")
+        else "tls"
     )
-    transport_states = {
-        str(stage.get("state") or "")
-        for stage in stages
-        if stage.get("id") in preferred_ids
-    }
-    if public_state == "ok" and transport_states <= {"", "ok"}:
+    tls_stage = next(
+        (stage for stage in stages if stage.get("id") == tls_id),
+        None,
+    )
+    tls_state = (
+        str(tls_stage.get("state") or "")
+        if isinstance(tls_stage, dict)
+        else ""
+    )
+
+    if public_state == "ok" and tls_state in {"", "ok"}:
         return "ok"
-    if public_state == "fail" and "ok" in transport_states:
+    if public_state == "fail" and tls_state == "ok":
         return "warn"
     if public_state == "fail":
         return "fail"
-    if "fail" in transport_states or "blocked" in transport_states:
+    if tls_state in {"fail", "blocked"}:
         return "warn"
     return "warn"
