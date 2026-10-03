@@ -48,3 +48,16 @@ def test_sickz_policy_failure_is_at_risk_not_a_service_outage() -> None:
     assert "at least one service is At risk" in sickz
     assert "service availability is evaluated separately" in sickz
     assert '["warn", "fail"].includes(check.policy_status)' in row_state
+
+def test_truenas_drilldown_exposes_transport_contract_and_timeout_budgets() -> None:
+    details = (ASSETS / "api-service-probe-details.js").read_text(encoding="utf-8")
+
+    assert '"truenas"' in details
+    assert "TrueNAS transport diagnostics" in details
+    assert "Diagnostic contract" in details
+    assert "Raw TCP/TLS timeout" in details
+    assert "HTTP timeout" in details
+    assert "API observer deadline" in details
+    assert "TLS SNI / server name" in details
+    assert "WebSocket endpoint" in details
+
