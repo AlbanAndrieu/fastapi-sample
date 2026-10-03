@@ -143,6 +143,10 @@ Treat `env set` and runtime deployment as two distinct steps. A successful `env 
 
 For a negative credential test, temporarily remove the canonical variable, deploy, and require an explicit sanitized result such as `phase=authentication stage=missing_api_key`. Restore the secret with `env set --secret`, redeploy, then require Authentication and API stages to recover. Never paste the secret into test fixtures, logs, PR descriptions, or diagnostic output.
 
+## Optional integrations
+
+Unleash/GitLab is an optional feature-flag control plane. DNS, TLS, timeout, registration, or availability failures from Unleash must never block application construction or the FastAPI Cloud startup/verification path. Keep remote flag evaluation off the critical startup path and report failures as warning/observability evidence only.
+
 ## Runtime logs
 
 Recent logs:
@@ -189,6 +193,8 @@ mise exec -- uv run fastapi cloud logs . \\
 ```
 
 A public `live` response proves the current replica serves traffic. It does not retroactively turn the original deployment verification into success.
+
+FastAPI Cloud also injects `FASTAPICLOUD_DEPLOYMENT_ID` automatically. Use it to correlate replicas and logs. This project additionally stamps the checked-out Git SHA as `BUILD_REVISION`; `/v2/version` exposes it as `build_revision` so production acceptance can prove the exact immutable revision rather than only the semantic release version.
 
 ## Deployment workflow
 
