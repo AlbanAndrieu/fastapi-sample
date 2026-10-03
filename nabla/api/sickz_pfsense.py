@@ -219,7 +219,7 @@ async def _probe_http_port(
     try:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(timeout_s),
-            verify=False,  # noqa: S501  # nosec B501
+            verify=secure,
             follow_redirects=False,
         ) as client:
             await client.get(
