@@ -46,7 +46,12 @@ def _configure_lifecycle(monkeypatch) -> tuple[SimpleNamespace, dict[str, object
     monkeypatch.setattr(
         lifecycle,
         "get_settings",
-        lambda: SimpleNamespace(metrics_enabled=True),
+        lambda: SimpleNamespace(
+            metrics_enabled=True,
+            postgres_host="postgres.example.test",
+            postgres_port=5432,
+            postgres_db="postgres",
+        ),
     )
     monkeypatch.setattr(
         lifecycle,
