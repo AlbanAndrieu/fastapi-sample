@@ -274,7 +274,7 @@ def test_health_snapshot_uses_system_version_and_app_query() -> None:
         },
     }
     assert clients[0].uri == "wss://truenas.example/api/current"
-    assert clients[0].call_timeout == 5.0
+    assert clients[0].call_timeout == 3.0
     assert clients[0].verify_ssl is True
     clients[0].login.assert_called_once_with("readonly", "1-secret")
     assert clients[0].calls == ["system.version", "app.query", "vm.query"]
@@ -306,6 +306,33 @@ def test_health_snapshot_preserves_call_phase_for_rbac_denial() -> None:
     assert exc_info.value.phase == "call"
     assert exc_info.value.stage == "access_denied"
     assert exc_info.value.exception_type == "RuntimeError"
+
+
+def test_health_snapshot_preserves_method_and_authenticated_evidence() -> None:
+    class AppQueryTimeoutClient(FakeClient):
+        def call(self, method: str, *params):
+            if method == "system.version":
+                return "26.0.0"
+            if method == "app.query":
+                raise TimeoutError("app.query timed out")
+            return super().call(method, *params)
+
+    adapter = TrueNASReadOnlyAdapter(
+        TrueNASSettings(
+            url="https://truenas.example",
+            username="fastapi_observer",
+            api_key="1-secret",
+        ),
+        client_factory=AppQueryTimeoutClient,
+    )
+
+    with pytest.raises(TrueNASHealthProbeError) as exc_info:
+        adapter.health_snapshot()
+
+    assert exc_info.value.phase == "call"
+    assert exc_info.value.stage == "connect_timeout"
+    assert exc_info.value.method == "app.query"
+    assert exc_info.value.authenticated is True
 
 
 def test_custom_call_timeout_is_forwarded_to_official_client() -> None:
