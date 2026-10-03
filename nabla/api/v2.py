@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request
 from starlette.responses import JSONResponse
 
 from nabla.api.users.me import search_alban_profile_context
-from nabla.version import API_VERSION, RELEASE_VERSION
+from nabla.version import API_VERSION, BUILD_REVISION, RELEASE_VERSION
 
 router = APIRouter(prefix="/v2")
 
@@ -14,6 +14,7 @@ def api_version(request: Request) -> dict[str, object]:
         "version": request.app.version,
         "api_version": API_VERSION,
         "release_version": RELEASE_VERSION,
+        "build_revision": BUILD_REVISION or None,
         "service": "fastapi-sample",
         "mcp": {
             "transport": "streamable-http",
