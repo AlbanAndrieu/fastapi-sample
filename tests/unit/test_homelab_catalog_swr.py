@@ -128,4 +128,3 @@ async def test_topology_uses_packaged_snapshot_on_cold_start_failure(monkeypatch
     monkeypatch.setattr(homelab_topology, "_load_packaged_topology", lambda: packaged)
 
     assert await homelab_topology.fetch_homelab_topology() is packaged
-
