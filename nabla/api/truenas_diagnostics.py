@@ -256,6 +256,8 @@ def unmeasured_truenas_network_diagnostics(
     route_label = "Direct LAN route" if path_mode == "direct_lan" else "HAProxy :7000"
     return {
         "target": f"{host}:{port}",
+        "connect_target": f"{socket_target}:{port}",
+        "server_name": host,
         "path_mode": path_mode,
         "wan": None if path_mode == "direct_lan" else homelab_wan_metadata(),
         "websocket_uri": websocket_uri,
@@ -403,6 +405,8 @@ def append_truenas_api_stages(
                 "is contradicted by stronger end-to-end evidence."
             )
             auxiliary["contradicted_by"] = "authenticated_api_success"
+            auxiliary["superseded_by"] = "authenticated_api"
+            auxiliary["evidence_conflict"] = True
         stages.append(
             _stage(
                 "authentication",
@@ -481,6 +485,7 @@ async def collect_truenas_network_diagnostics(
     host: str,
     port: int,
     websocket_uri: str,
+    connect_host: str | None = None,
     verify_ssl: bool,
     path_mode: str = "public_wan_haproxy",
 ) -> dict[str, Any]:
@@ -488,19 +493,36 @@ async def collect_truenas_network_diagnostics(
     stages: list[dict[str, Any]] = []
     wan = None if path_mode == "direct_lan" else homelab_wan_metadata()
 
-    probes: list[Any] = [
-        _dns_stage(host),
-        collect_tcp_tls_stages(host, port, verify_ssl),
-        _websocket_stage(websocket_uri, verify_ssl),
-    ]
+    socket_target = connect_host or host
+    probes: list[Any] = [_dns_stage(host)]
+    if path_mode == "direct_lan":
+        probes.append(
+            collect_tcp_tls_stages(
+                host,
+                port,
+                verify_ssl,
+                connect_host=socket_target,
+                server_name=host,
+            ),
+        )
+    else:
+        probes.append(
+            collect_tcp_tls_stages(
+                host,
+                port,
+                verify_ssl,
+                server_name=host,
+            ),
+        )
+    probes.append(_websocket_stage(websocket_uri, verify_ssl))
     if wan is not None:
         probes.append(
             collect_tcp_tls_stages(
                 host,
                 port,
                 verify_ssl,
-                connect_host=str(wan["ipv4"]),
-                server_hostname=host,
+                connect_host=socket_target,
+                server_name=host,
             ),
         )
 
@@ -541,7 +563,7 @@ async def collect_truenas_network_diagnostics(
         )
 
     if path_mode == "direct_lan":
-        stages.append(_direct_lan_stage(tls_ok, host, port))
+        stages.append(_direct_lan_stage(tls_ok, socket_target, port))
     else:
         stages.append(_haproxy_stage(wan_tls_ok is True))
 
@@ -553,6 +575,8 @@ async def collect_truenas_network_diagnostics(
             "the isolated TLS result is contradictory auxiliary evidence."
         )
         tls_stage["contradicted_by"] = "websocket_success"
+        tls_stage["superseded_by"] = "websocket_success"
+        tls_stage["evidence_conflict"] = True
     stages.append(websocket)
 
     return {
