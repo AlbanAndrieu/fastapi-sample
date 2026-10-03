@@ -33,6 +33,7 @@ def resolve_release_version() -> str:
 
 API_VERSION = os.getenv("API_VERSION", os.getenv("APP_PREFIX_VERSION", "v0"))
 RELEASE_VERSION = resolve_release_version()
+BUILD_REVISION = os.getenv("BUILD_REVISION", os.getenv("GIT_SHA", "")).strip()
 RUNTIME_VERSION = f"{API_VERSION}+{RELEASE_VERSION}"
 
-__all__ = ("API_VERSION", "RELEASE_VERSION", "RUNTIME_VERSION", "resolve_release_version")
+__all__ = ("API_VERSION", "BUILD_REVISION", "RELEASE_VERSION", "RUNTIME_VERSION", "resolve_release_version")
