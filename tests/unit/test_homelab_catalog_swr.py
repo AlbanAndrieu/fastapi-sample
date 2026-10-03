@@ -105,3 +105,27 @@ async def test_topology_serves_stale_while_single_refresh_runs(monkeypatch) -> N
     release.set()
     assert await asyncio.wait_for(task, timeout=5.0) is fresh
     assert await homelab_topology.fetch_homelab_topology() is fresh
+
+@pytest.mark.asyncio
+async def test_topology_uses_packaged_snapshot_on_cold_start_failure(monkeypatch) -> None:
+    packaged = HomelabTopology(
+        name="packaged",
+        nodes=[],
+        relations=[],
+    )
+
+    async def failing_origin() -> HomelabTopology:
+        raise RuntimeError("origin unavailable")
+
+    monkeypatch.setattr(homelab_topology._topology_cache, "topology", None)
+    monkeypatch.setattr(homelab_topology._topology_cache, "cached_at", 0.0)
+    monkeypatch.setattr(homelab_topology._topology_cache, "refresh_task", None)
+    monkeypatch.setattr(
+        homelab_topology,
+        "_fetch_homelab_topology_origin",
+        failing_origin,
+    )
+    monkeypatch.setattr(homelab_topology, "_load_packaged_topology", lambda: packaged)
+
+    assert await homelab_topology.fetch_homelab_topology() is packaged
+
