@@ -8,8 +8,8 @@ import {
 } from "./api-health-ui.js";
 import { organizeSickzRows } from "./api-service-groups.js";
 import { renderPfsenseSection } from "./api-sickz-pfsense.js";
-import { sickzRowsSignature } from "./api-sickz-signature.js";
 import { classifySick, detailSickText } from "./api-sickz-row-state.js";
+import { sickzRowsSignature } from "./api-sickz-signature.js";
 
 let lastSickzRowsSignature = null;
 

@@ -97,10 +97,7 @@ export function detailSickText(check) {
     const policy = check.policy_detail || fallback;
     return `Direct exposure policy only — ${policy} Probe evidence: ${raw}`;
   }
-  if (
-    !check.policy_status &&
-    typeof check.expected_reachable === "boolean"
-  ) {
+  if (!check.policy_status && typeof check.expected_reachable === "boolean") {
     const expectation = check.expected_reachable
       ? "expected reachable from this external observer"
       : "expected blocked from this external observer";
@@ -124,4 +121,3 @@ export function detailSickText(check) {
       : "";
   return `${raw} — ${warning}${check.policy_detail}`;
 }
-
