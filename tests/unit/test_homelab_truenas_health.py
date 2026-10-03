@@ -295,8 +295,8 @@ async def test_truenas_http_and_transport_probes_start_in_parallel(monkeypatch) 
 
     monkeypatch.setattr(homelab_truenas_probe, "observe_truenas_health_api", api_ok)
     monkeypatch.setattr(
-        homelab_health,
-        "_probe_truenas_public_https",
+        homelab_truenas_probe,
+        "probe_truenas_public_https",
         public_https,
     )
     monkeypatch.setattr(
