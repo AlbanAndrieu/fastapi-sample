@@ -387,6 +387,21 @@ def test_bootstrap_catalog_preserves_litellm_and_garage_exposure_policy() -> Non
     assert admin.tunnel_url == "https://garage-admin.albandrieu.com"
 
 
+def test_bootstrap_catalog_keeps_canonical_languagetool_private_http_probe() -> None:
+    services = list(homelab_catalog._load_bootstrap_catalog().services)
+    matches = [service for service in services if service.service_id == "languagetool"]
+
+    assert len(matches) == 1
+    languagetool = matches[0]
+    assert languagetool.name == "LanguageTool"
+    assert languagetool.internal_host == "172.17.0.24"
+    assert languagetool.internal_port == 8010
+    assert languagetool.internal_secure is False
+    assert languagetool.internal_path == "/v2/check?language=en-US&text=healthcheck"
+    assert languagetool.external is False
+    assert languagetool.tunnel_url is None
+
+
 def test_bootstrap_catalog_routes_2fauth_to_healthz_and_policy_aware_sickz() -> None:
     services = list(homelab_catalog._load_bootstrap_catalog().services)
     by_name = {service.name: service for service in services}
