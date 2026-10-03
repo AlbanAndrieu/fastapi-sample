@@ -6,6 +6,7 @@ from nabla.api.truenas_diagnostics import (
     _https_stage,
     _public_path_comparison_stage,
     append_truenas_api_stages,
+    unmeasured_truenas_network_diagnostics,
 )
 
 
@@ -216,8 +217,6 @@ def test_wan_path_comparison_identifies_hostname_edge_mismatch() -> None:
 
 
 def test_unmeasured_diagnostics_use_declared_host_as_connect_target() -> None:
-    from nabla.api.truenas_diagnostics import unmeasured_truenas_network_diagnostics
-
     result = unmeasured_truenas_network_diagnostics(
         host="truenas.albandrieu.com",
         port=7000,
