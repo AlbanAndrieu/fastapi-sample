@@ -1,3 +1,10 @@
+## [1.20.18](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.17...1.20.18) (2026-10-03)
+
+
+### Bug Fixes
+
+* **truenas:** ne plus afficher l’authentification verte sur timeout API ([#314](https://github.com/AlbanAndrieu/fastapi-sample/issues/314)) ([c2ade3b](https://github.com/AlbanAndrieu/fastapi-sample/commit/c2ade3b1c153acf97d25bbaf57d86a3430938f5d))
+
 ## [1.20.17](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.16...1.20.17) (2026-10-03)
 
 
