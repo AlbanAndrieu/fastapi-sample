@@ -13,6 +13,10 @@ import httpx
 
 from nabla.api import homelab_probe_runner, truenas_probe_health
 from nabla.api.homelab_catalog import fetch_homelab_services
+from nabla.api.homelab_truenas_probe import (
+    probe_truenas,
+    probe_truenas_public_https,
+)
 from nabla.api.homelab_health_cache import copy_homelab_health_payload
 from nabla.api.homelab_models import HomelabService
 from nabla.api.homelab_probe_evidence import (
@@ -32,6 +36,7 @@ from nabla.api.homelab_probe_policy import (
 from nabla.api.sickz_cloudflare_edge import _probe_http_edge_evidence
 from nabla.utils.environment import env_bool
 
+_PROBE_TIMEOUT_SEC = 5.0
 _INTERNAL_PROBE_ENV = "HOMELAB_INTERNAL_PROBES_ENABLED"
 _cache_lock = asyncio.Lock()
 _cached_at = 0.0
@@ -127,8 +132,6 @@ async def _probe_truenas_public_https(
     configured_url: str,
     verify_ssl: bool,
 ) -> dict[str, Any]:
-    from nabla.api.homelab_truenas_probe import probe_truenas_public_https
-
     return await probe_truenas_public_https(
         semaphore,
         configured_url=configured_url,
@@ -142,8 +145,6 @@ async def _probe_truenas(
     *,
     internal_enabled: bool,
 ) -> dict[str, Any]:
-    from nabla.api.homelab_truenas_probe import probe_truenas
-
     return await probe_truenas(
         semaphore,
         internal_enabled=internal_enabled,
