@@ -162,7 +162,11 @@ def test_service_filter_sticky_mode_avoids_default_nested_scroll() -> None:
     assert 'window.addEventListener("scroll", refreshSticky' in javascript
     assert "new IntersectionObserver(" not in javascript
     assert 'host.dataset.userCompact = "false";' in javascript
-    assert 'button.textContent = compact ? "Expand" : "Collapse";' in javascript
+    assert "mobileFilterViewport()" in javascript
+    assert '? "Filters"' in javascript
+    assert ': "Hide filters"' in javascript
+    assert '? "Expand"' in javascript
+    assert ': "Collapse";' in javascript
     assert "max-height: none;" in stylesheet
     assert "overflow: visible;" in stylesheet
     assert '.service-filter--global[data-stuck="true"][data-expanded="true"]' in stylesheet
