@@ -66,7 +66,6 @@ def test_explicit_service_id_is_preserved() -> None:
     assert service.service_id == "langfuse-worker"
 
 
-
 def test_environment_defaults_to_production_and_preserves_dev() -> None:
     production = HomelabService.model_validate(
         {"name": "AnythingLLM", "external": False},
@@ -86,7 +85,6 @@ def test_environment_defaults_to_production_and_preserves_dev() -> None:
     assert production_payload["environment"] == "production"
     assert development.environment == "dev"
     assert development_payload["environment"] == "dev"
-
 
 
 def test_external_access_requires_explicit_validated_opt_in() -> None:
