@@ -20,13 +20,6 @@ The current WAN address can be overridden with `HOMELAB_WAN_IPV4` and
 `HOMELAB_WAN_PROVIDER`; do not encode an ISP address as immutable application
 identity.
 
-This `:7000` path is **not a Cloudflare Tunnel datapath**. `cloudflared`
-health is useful control-plane evidence for other published hostnames, but
-starting/stopping `cloudflared` should not determine whether the direct
-FastAPI Cloud → pfSense/HAProxy listener is reachable. If it appears correlated,
-compare the hostname probe with the direct WAN-IP+SNI probe before attributing
-causality.
-
 ## Cloud source identity is observational
 
 FastAPI Cloud egress addresses can rotate. Treat a captured source IP as
@@ -76,22 +69,40 @@ lost **before TLS**. Certificate settings cannot fix that state.
 When TCP succeeds, inspect TLS separately. Keep
 `TRUENAS_API_VERIFY_SSL=true` for the public HAProxy path.
 
-The health drill-down performs two parallel TLS measurements for the public
-path:
+The observer separates the logical TLS hostname from the socket destination:
 
-1. `truenas.albandrieu.com:7000` through normal DNS;
-2. `HOMELAB_WAN_IPV4:7000` while still sending SNI
-   `truenas.albandrieu.com`.
+- cloud runtime: connect directly to `HOMELAB_WAN_IPV4:7000` while sending
+  SNI/hostname `truenas.albandrieu.com`; this bypasses DNS and isolates
+  pfSense/HAProxy/TLS;
+- homelab runtime: connect directly to
+  `TRUENAS_LAN_HOST:TRUENAS_LAN_PORT` (defaults
+  `172.17.0.24:7000`) with the same hostname SNI;
+- the normal HTTP/API probe keeps the configured hostname URL.
+
+For the public runtime, keep both transport measurements in the drill-down:
+
+- normal hostname TLS on `truenas.albandrieu.com:7000`;
+- direct `HOMELAB_WAN_IPV4:7000` with SNI
+  `truenas.albandrieu.com`.
 
 Interpretation:
 
-- WAN+SNI succeeds, hostname TLS fails → DNS/proxy/edge mismatch;
-- hostname succeeds, WAN+SNI fails → hostname reaches another path and the
-  declared pfSense/HAProxy ingress is not confirmed;
-- both fail after TCP → inspect PF/Snort/pfBlockerNG/HAProxy TLS handling;
-- HTTP/API succeeds while the auxiliary TLS socket probe fails → keep the
-  auxiliary stage as warning; stronger application evidence proves the listener
-  was usable. The TLS diagnostic
+- WAN+SNI OK / hostname TLS KO → investigate DNS/proxy/edge routing;
+- hostname TLS OK / WAN+SNI KO → the hostname reaches another path and direct
+  pfSense/HAProxy ingress is not confirmed;
+- both KO after TCP → inspect PF/Snort/pfBlockerNG/HAProxy TLS handling;
+- both OK → the declared WAN transport is confirmed independently from the
+  application-level HTTP/API probe.
+
+Cloudflare Tunnel is not on either TrueNAS `:7000` path. Its state is
+observational evidence for other tunneled services and must not decide TrueNAS
+appliance liveness.
+
+A raw-socket TLS timeout is auxiliary evidence. If the authenticated TrueNAS API
+succeeds at the same time, the raw-socket failure is downgraded to a warning
+because cloud runtimes may route raw sockets and application HTTPS differently.
+
+The TLS diagnostic
 requires TLS 1.2+ and may expose only non-secret metadata such as version, cipher,
 certificate subject/issuer and expiry.
 
@@ -200,3 +211,21 @@ For recovery, require:
 - no recurrence of the known HTTP-Inspect-on-TLS signature;
 - healthy HAProxy→TrueNAS backend evidence;
 - no permanent allowlist created from transient cloud egress.
+
+
+## Evidence model
+
+Do not collapse the following into one health light:
+
+- **appliance/API** — TrueNAS itself and authenticated management capability;
+- **hostname HTTPS** — application request through the configured hostname;
+- **WAN raw transport** — direct `HOMELAB_WAN_IPV4:7000` TCP/TLS with SNI
+  `truenas.albandrieu.com`;
+- **pfSense control plane** — firewall/DNS/security service posture;
+- **Cloudflare** — independent for Tunnel-backed services and not part of the
+  TrueNAS :7000 path.
+
+A healthy appliance with failed WAN TLS is a valid state: report appliance green
+and WAN ingress failed/degraded. A healthy Cloudflare Tunnel must never repair
+that WAN verdict, and stopping cloudflared must never make the appliance itself
+down.
