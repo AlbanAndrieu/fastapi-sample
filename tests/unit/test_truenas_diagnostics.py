@@ -113,6 +113,25 @@ def test_api_failure_exposes_failing_rpc_method() -> None:
     assert api["detail"].startswith("app.query:")
 
 
+def test_connect_method_is_not_exposed_as_rpc_metadata() -> None:
+    result = append_truenas_api_stages(
+        _network_ok(),
+        {
+            "reachable": False,
+            "phase": "connect",
+            "stage": "connect_timeout",
+            "method": "connect",
+            "elapsed_ms": 3000,
+            "error": "TimeoutError",
+        },
+    )
+
+    api = result["stages"][-1]
+    assert api["label"] == "TrueNAS API · system.version + app.query"
+    assert "rpc_method" not in api
+    assert api["detail"] == "TimeoutError"
+
+
 def test_api_timeout_before_auth_confirmation_marks_auth_unconfirmed() -> None:
     result = append_truenas_api_stages(
         _network_ok(),
