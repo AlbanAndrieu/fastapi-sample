@@ -62,11 +62,7 @@ def test_bootstrap_catalog_keeps_nexus_private_with_presentation_metadata() -> N
 def test_bootstrap_catalog_services_have_presentation_icons() -> None:
     services = list(homelab_catalog._load_bootstrap_catalog().services)
 
-    missing = [
-        service.service_id
-        for service in services
-        if not service.icon_src and not service.icons
-    ]
+    missing = [service.service_id for service in services if not service.icon_src and not service.icons]
 
     assert missing == []
 
