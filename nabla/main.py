@@ -13,7 +13,6 @@ from fastmcp.server.providers.openapi.routing import MCPType
 from pybreaker import CircuitBreaker
 from prometheus_fastapi_instrumentator import Instrumentator
 from sqladmin import Admin
-from starlette.middleware.cors import CORSMiddleware
 
 from nabla.access_control import operations_access_middleware
 from nabla.api import (
@@ -65,7 +64,7 @@ from nabla.utils.environment import env_bool
 from nabla.utils.log_config import setup_logging
 from nabla.utils.logger import logger
 from nabla.utils.logfire_config import configure_logfire
-from nabla.utils.prometheus import PrometheusMiddleware, setting_otlp
+from nabla.utils.prometheus import setting_otlp
 from nabla.utils.pyroscope_config import start_pyroscope, stop_pyroscope
 from nabla.utils.sentry_config import configure_sentry
 
