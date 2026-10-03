@@ -31,6 +31,25 @@ global homelab platform DOWN/degraded.
 A live Service Token probe is stronger evidence than inventory alone because it
 proves the automated Access path.
 
+## Production route diagnostic
+
+The default production/homelab Tunnel is `nabla-truescale`. Compare its
+dashboard-managed Public Hostnames with the canonical service topology. For
+example, the expected 2FAuth mapping is:
+
+```text
+2fauth.albandrieu.com -> http://172.17.0.24:30081
+```
+
+When a WebSocket client reports `Connection timed out - goodbye`, treat that
+message as transport evidence rather than proof that the origin application is
+down. Correlate DNS, TCP, TLS, Tunnel/HAProxy routing and the application/API
+probe before assigning availability.
+
+For HTTPS origins and diagnostic probes, require **TLS 1.2 or newer** and retain
+certificate verification unless an explicitly documented internal exception
+applies.
+
 ## Sentry routing
 
 Telemetry delivery uses this selection:
