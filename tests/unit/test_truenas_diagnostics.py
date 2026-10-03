@@ -1,5 +1,8 @@
 """Tests for the ordered TrueNAS diagnostic pipeline."""
 
+import pytest
+
+from nabla.api import truenas_diagnostics
 from nabla.api.truenas_diagnostics import (
     _direct_lan_stage,
     _haproxy_stage,
@@ -249,3 +252,55 @@ def test_unmeasured_diagnostics_use_declared_host_as_connect_target() -> None:
     assert result["connect_target"] == "truenas.albandrieu.com:7000"
     assert result["timed_out"] is True
     assert result["error_kind"] == "deadline"
+
+
+@pytest.mark.asyncio
+async def test_public_diagnostics_reuse_hostname_tls_when_dns_matches_wan(
+    monkeypatch,
+) -> None:
+    async def dns_ok(_host):
+        return (
+            {
+                "id": "dns",
+                "label": "DNS",
+                "state": "ok",
+                "resolved": ["82.66.4.247"],
+            },
+            True,
+        )
+
+    calls = []
+
+    async def transport_ok(host, port, verify_ssl, **kwargs):
+        calls.append((host, port, verify_ssl, kwargs))
+        return (
+            {"id": "socket", "label": "TCP connect", "state": "ok"},
+            {"id": "tls", "label": "TLS handshake", "state": "ok"},
+            True,
+        )
+
+    monkeypatch.setattr(truenas_diagnostics, "_dns_stage", dns_ok)
+    monkeypatch.setattr(
+        truenas_diagnostics,
+        "collect_tcp_tls_stages",
+        transport_ok,
+    )
+    monkeypatch.setattr(
+        truenas_diagnostics,
+        "homelab_wan_metadata",
+        lambda: {"ipv4": "82.66.4.247", "provider": "Free", "static": True},
+    )
+
+    result = await truenas_diagnostics.collect_truenas_network_diagnostics(
+        host="truenas.albandrieu.com",
+        port=7000,
+        websocket_uri="wss://truenas.albandrieu.com:7000/api/current",
+        connect_host="82.66.4.247",
+        verify_ssl=True,
+    )
+
+    assert len(calls) == 1
+    wan_tls = next(stage for stage in result["stages"] if stage["id"] == "wan_tls")
+    assert wan_tls["state"] == "ok"
+    assert wan_tls["evidence"] == "reused_hostname_transport"
+    assert result["probe_reuse"]["anonymous_websocket"].startswith("omitted")
