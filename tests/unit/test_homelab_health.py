@@ -1,6 +1,5 @@
 """Tests for the public homelab catalog and health API."""
 
-import asyncio
 import warnings
 from unittest.mock import AsyncMock
 
