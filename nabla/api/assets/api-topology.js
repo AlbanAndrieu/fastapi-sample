@@ -764,9 +764,9 @@ async function start() {
   if (!topology.nodes?.length) {
     if (error) {
       error.hidden = false;
-      error.textContent = `Topology unavailable${topology.error ? `: ${topology.error}` : "."}`;
+      error.textContent = `Topology unavailable${topology.endpoint ? ` from ${topology.endpoint}` : ""}${topology.error ? `: ${topology.error}` : "."}`;
     }
-    if (status) status.textContent = "No declared topology could be loaded.";
+    if (status) status.textContent = `No declared topology could be loaded · source=${topology.source || "unknown"}.`;
     return;
   }
 
