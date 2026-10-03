@@ -19,7 +19,7 @@ from nabla.settings.homelab import (
 )
 
 _DEFAULT_API_PATH = DEFAULT_TRUENAS_WS_PATH
-_DEFAULT_CALL_TIMEOUT_SEC = 5.0
+_DEFAULT_CALL_TIMEOUT_SEC = 3.0
 logger = logging.getLogger(__name__)
 _TALOS_VM_NAMES = ("taloscp01", "taloswk01", "taloswk02")
 
@@ -233,10 +233,20 @@ def _load_client_factory() -> Any:
 class TrueNASHealthProbeError(RuntimeError):
     """Preserve the failing TrueNAS health phase without exposing credentials."""
 
-    def __init__(self, *, phase: str, stage: str, cause: BaseException) -> None:
+    def __init__(
+        self,
+        *,
+        phase: str,
+        stage: str,
+        cause: BaseException,
+        method: str,
+        authenticated: bool,
+    ) -> None:
         super().__init__(str(cause).strip() or cause.__class__.__name__)
         self.phase = phase
         self.stage = stage
+        self.method = method
+        self.authenticated = authenticated
         self.exception_type = cause.__class__.__name__
 
 
@@ -269,6 +279,7 @@ class TrueNASReadOnlyAdapter:
             with self._connect() as client:
                 phase = "authentication"
                 client.login_with_api_key(self.settings.username, self.settings.api_key)
+                authenticated = True
                 phase = "call"
                 result = client.call(method, *params)
         except Exception as exc:
@@ -317,6 +328,7 @@ class TrueNASReadOnlyAdapter:
         proxy_route = _websocket_proxy_route(self.settings.hostname)
         phase = "connect"
         method = "connect"
+        authenticated = False
         try:
             with self._connect() as client:
                 phase = "authentication"
@@ -363,6 +375,8 @@ class TrueNASReadOnlyAdapter:
                 phase=phase,
                 stage=failure_stage,
                 cause=exc,
+                method=method,
+                authenticated=authenticated,
             ) from exc
         logger.info(
             "TrueNAS API health probe succeeded uri=%s verify_ssl=%s proxy_route=%s elapsed_ms=%s",
