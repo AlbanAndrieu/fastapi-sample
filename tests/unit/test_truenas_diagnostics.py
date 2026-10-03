@@ -213,3 +213,20 @@ def test_wan_path_comparison_identifies_hostname_edge_mismatch() -> None:
     assert stage["state"] == "warn"
     assert stage["dns_matches_wan"] is False
     assert "DNS/proxy/edge" in stage["detail"]
+
+
+def test_unmeasured_diagnostics_use_declared_host_as_connect_target() -> None:
+    from nabla.api.truenas_diagnostics import unmeasured_truenas_network_diagnostics
+
+    result = unmeasured_truenas_network_diagnostics(
+        host="truenas.albandrieu.com",
+        port=7000,
+        websocket_uri="wss://truenas.albandrieu.com:7000/api/current",
+        verify_ssl=True,
+        path_mode="public_wan_haproxy",
+        budget_seconds=3.0,
+    )
+
+    assert result["connect_target"] == "truenas.albandrieu.com:7000"
+    assert result["timed_out"] is True
+    assert result["error_kind"] == "deadline"
