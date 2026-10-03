@@ -46,6 +46,31 @@ def test_bootstrap_catalog_keeps_canonical_languagetool_private_http_probe() -> 
     assert languagetool.tunnel_url is None
 
 
+def test_bootstrap_catalog_keeps_nexus_private_with_presentation_metadata() -> None:
+    services = list(homelab_catalog._load_bootstrap_catalog().services)
+    nexus = next(service for service in services if service.service_id == "nexus")
+
+    assert nexus.name == "Nexus Repository"
+    assert nexus.internal_host == "172.17.0.24"
+    assert nexus.internal_port == 8081
+    assert nexus.external is False
+    assert nexus.tunnel_url == "https://nexus.albandrieu.com"
+    assert nexus.icon_src == "assets/selfh-icons/sonatype-nexus-repository.png"
+    assert nexus.icons == ["fas fa-cubes"]
+
+
+def test_bootstrap_catalog_services_have_presentation_icons() -> None:
+    services = list(homelab_catalog._load_bootstrap_catalog().services)
+
+    missing = [
+        service.service_id
+        for service in services
+        if not service.icon_src and not service.icons
+    ]
+
+    assert missing == []
+
+
 def test_bootstrap_catalog_routes_2fauth_to_healthz_and_policy_aware_sickz() -> None:
     services = list(homelab_catalog._load_bootstrap_catalog().services)
     by_name = {service.name: service for service in services}
