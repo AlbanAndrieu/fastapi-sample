@@ -22,6 +22,7 @@ from nabla.api.health_board_diagnostics import (
 from nabla.api.health_board_enrichment import (
     annotate_pfsense_ingress_policy as _annotate_pfsense_ingress_policy,
     annotate_talos_vm_health as _annotate_talos_vm_health,
+    annotate_truenas_ingress_policy as _annotate_truenas_ingress_policy,
 )
 from nabla.settings.health_runtime import HealthRuntimeSettings
 
@@ -280,6 +281,7 @@ async def build_health_board_snapshot(request: Request) -> dict[str, Any]:
         reconciliation_context=reconciliation_task,
         homelab_payload=homelab_payload_task,
     )
+    homelab = _annotate_truenas_ingress_policy(homelab, runtime)
     healthz = _annotate_talos_vm_health(healthz, homelab)
     platform_metrics = await fetch_platform_metrics()
     sickz = await build_sickz_snapshot(request)
