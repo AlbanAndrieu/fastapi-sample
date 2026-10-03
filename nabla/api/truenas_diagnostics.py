@@ -256,7 +256,7 @@ def unmeasured_truenas_network_diagnostics(
     route_label = "Direct LAN route" if path_mode == "direct_lan" else "HAProxy :7000"
     return {
         "target": f"{host}:{port}",
-        "connect_target": f"{socket_target}:{port}",
+        "connect_target": f"{host}:{port}",
         "server_name": host,
         "path_mode": path_mode,
         "wan": None if path_mode == "direct_lan" else homelab_wan_metadata(),
