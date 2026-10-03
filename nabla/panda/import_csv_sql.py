@@ -16,7 +16,7 @@ from nabla.utils.logger import logger
 db_params = {
     "database": "notes",
     "user": "fastapisample",
-    "password": "password-reset-XXX",
+    "password": "",
     "host": "127.0.0.1",  # Change this to your PostgreSQL server host
     "port": "5432",  # Change this to your PostgreSQL server port
 }
