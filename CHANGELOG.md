@@ -1,3 +1,10 @@
+## [1.20.16](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.15...1.20.16) (2026-10-03)
+
+
+### Bug Fixes
+
+* **quality:** corriger le gate post-[#309](https://github.com/AlbanAndrieu/fastapi-sample/issues/309) et poursuivre les diagnostics catalogue ([#311](https://github.com/AlbanAndrieu/fastapi-sample/issues/311)) ([8629c77](https://github.com/AlbanAndrieu/fastapi-sample/commit/8629c77657ca2da1167a3ca56451c4b381939c6c))
+
 ## [1.20.15](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.14...1.20.15) (2026-10-03)
 
 
