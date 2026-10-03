@@ -41,9 +41,12 @@ host <observed-egress-ip>
 tcpdump -nnvi mvneta0.4090   'host <observed-egress-ip> and tcp port 7000'
 ```
 
-FastAPI may expose a bounded/cached observed public egress IP. That value is
-informational only and must never rewrite firewall aliases, suppressions or pass
-rules.
+FastAPI exposes the bounded/cached runtime egress view at
+`GET /api/runtime/topology`. Use `active_egress_ips` for synchronized
+diagnostics and `recent_egress_ips` only as historical context. These values
+are informational only and must never rewrite firewall aliases, suppressions or
+pass rules. The same runtime evidence is reused by the health-board diagnostics;
+do not duplicate it into version metadata.
 
 ## Diagnose in protocol order
 
