@@ -147,8 +147,6 @@ def append_truenas_api_stages(
     out = dict(diagnostics)
     stages = [dict(stage) for stage in diagnostics.get("stages", [])]
     websocket = next((stage for stage in stages if stage.get("id") == "websocket"), None)
-    api_reachable = isinstance(api_result, dict) and api_result.get("reachable") is True
-
     if not isinstance(api_result, dict):
         stages.append(
             _stage(
