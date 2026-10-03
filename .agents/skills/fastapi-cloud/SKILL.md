@@ -36,21 +36,32 @@ same probes externally.
 Do not treat failure of one runtime as proof that another runtime is unhealthy.
 Record the runtime mode and observer scope actually tested.
 
+## CLI execution contract
+
+Always execute the project-pinned FastAPI/FastAPI Cloud CLI through the repository toolchain:
+
+```bash
+mise exec -- uv run which fastapi
+mise exec -- uv run fastapi --version
+```
+
+Do not call a system/global `fastapi` binary and do not install the CLI globally. The expected executable is the repository `.venv/bin/fastapi`. This keeps the CLI version reproducible with `mise`, `uv.lock`, and the project virtual environment.
+
 ## Authentication
 
 Interactive user login:
 
 ```bash
-fastapi login
-fastapi cloud whoami
+mise exec -- uv run fastapi cloud login
+mise exec -- uv run fastapi cloud whoami
 ```
 
-`fastapi login` stores an interactive user session. It does **not** create `FASTAPI_CLOUD_TOKEN`.
+`mise exec -- uv run fastapi cloud login` stores an interactive user session. It does **not** create `FASTAPI_CLOUD_TOKEN`.
 
 For automation/CI, use a FastAPI Cloud **Deploy Token**. Create it in the FastAPI Cloud dashboard under the app's **Deploy Tokens**, or use:
 
 ```bash
-fastapi cloud setup-ci --secrets-only
+mise exec -- uv run fastapi cloud setup-ci --secrets-only
 ```
 
 The deploy token is shown only when created/regenerated. Never commit it. Prefer GitHub Actions secrets, a password manager, or another local secret store.
@@ -67,7 +78,7 @@ FASTAPI_CLOUD_APP_ID
 List application environment variables after authenticating/linking the project:
 
 ```bash
-fastapi cloud env list .
+mise exec -- uv run fastapi cloud env list .
 ```
 
 Do not copy secret values into issues, PRs, logs, or chat. When diagnosing configuration drift, compare variable **names and presence** whenever possible.
@@ -119,13 +130,13 @@ GET /api/v2/diagnostics/table?id=snort2c
 Set or replace a secret interactively without putting its value on the command line:
 
 ```bash
-uv run fastapi cloud env set --secret TRUENAS_API_KEY
+mise exec -- uv run fastapi cloud env set --secret TRUENAS_API_KEY
 ```
 
 After changing an application environment variable, redeploy before validating the running application:
 
 ```bash
-uv run fastapi deploy
+mise exec -- uv run fastapi deploy
 ```
 
 Treat `env set` and runtime deployment as two distinct steps. A successful `env set` proves only that the application configuration was updated; the runtime check is authoritative only after the new deployment is ready.
@@ -137,13 +148,13 @@ For a negative credential test, temporarily remove the canonical variable, deplo
 Recent logs:
 
 ```bash
-fastapi cloud logs . --tail 200 --since 2h --no-follow
+mise exec -- uv run fastapi cloud logs . --tail 200 --since 2h --no-follow
 ```
 
 TrueNAS diagnostics:
 
 ```bash
-fastapi cloud logs . --tail 500 --since 2h --no-follow \
+mise exec -- uv run fastapi cloud logs . --tail 500 --since 2h --no-follow \
   | grep -E 'TrueNAS (API|runtime)|proxy_route=|phase=|stage='
 ```
 
@@ -157,6 +168,27 @@ Interpret the TrueNAS fields independently:
 - `proxy_route=bypass`: a proxy exists but `NO_PROXY` bypasses it for TrueNAS.
 
 Never log API keys, proxy URLs containing credentials, or token values.
+
+## Deployment verification diagnostics
+
+FastAPI Cloud can report a deployment as `verification failed` while a later replica restart is live. Treat these as separate facts, not a contradiction.
+
+When this occurs:
+
+1. capture the deployment ID from bounded JSON logs;
+2. find the first `Application startup failed` and its root traceback;
+3. find any later `Application startup complete` for the same deployment ID;
+4. distinguish a transient startup dependency failure (DNS/database/provider) from an application build failure;
+5. compare the runtime release version with `pyproject.toml`, but do not claim an exact Git SHA is deployed unless the runtime exposes immutable revision evidence.
+
+Useful command:
+
+```bash
+mise exec -- uv run fastapi cloud logs . \\
+  --no-follow --tail 500 --since 2h --json
+```
+
+A public `live` response proves the current replica serves traffic. It does not retroactively turn the original deployment verification into success.
 
 ## Deployment workflow
 
