@@ -301,5 +301,6 @@ async def collect_truenas_network_diagnostics(
     }
 
 # Compatibility aliases retained for callers and tests that import these helpers here.
+_https_stage = _diagnostic_enrichment._https_stage
 append_truenas_api_stages = _diagnostic_enrichment.append_truenas_api_stages
 append_truenas_http_stage = _diagnostic_enrichment.append_truenas_http_stage
