@@ -135,8 +135,20 @@ async def lifespan(app: FastAPI):
         resources.push_async_callback(database.disconnect)
 
         logger.info("startup_stage_begin stage=database_schema critical=true")
-        await init_db()
-        logger.info("startup_stage_ready stage=database_schema critical=true")
+        schema_started = time.perf_counter()
+        try:
+            await init_db()
+        except Exception as exc:
+            logger.error(
+                "startup_stage_failed stage=database_schema critical=true exception=%s elapsed_ms=%s",
+                exc.__class__.__name__,
+                round((time.perf_counter() - schema_started) * 1000),
+            )
+            raise
+        logger.info(
+            "startup_stage_ready stage=database_schema critical=true elapsed_ms=%s",
+            round((time.perf_counter() - schema_started) * 1000),
+        )
         from nabla.api.notes.models import init_db as init_db_note
         from nabla.api.users.models import init_db as init_db_user
 
