@@ -329,18 +329,198 @@ async def test_truenas_transport_diagnostics_timeout_keeps_api_health(monkeypatc
     assert result["api"]["reachable"] is True
     assert result["diagnostics"]["timed_out"] is True
     assert result["diagnostics"]["error_kind"] == "deadline"
-    https = next(
-        stage
-        for stage in result["diagnostics"]["stages"]
-        if stage["id"] == "https"
-    )
-    assert https["state"] == "ok"
-    assert https["detail"] == "HTTP 200"
     assert result["diagnostics"]["stages"][-2]["id"] == "authentication"
     assert result["diagnostics"]["stages"][-2]["state"] == "ok"
     assert result["diagnostics"]["stages"][-1]["id"] == "api"
     assert result["diagnostics"]["stages"][-1]["state"] == "ok"
 
+
+@pytest.mark.asyncio
+async def test_cloud_runtime_uses_wan_ip_for_raw_tls(monkeypatch) -> None:
+    captured = {}
+
+    async def diagnostics(**kwargs):
+        captured.update(kwargs)
+        return {"stages": []}
+
+    monkeypatch.setattr(
+        homelab_health,
+        "_observe_truenas_api",
+        AsyncMock(return_value={"reachable": True}),
+    )
+    monkeypatch.setattr(
+        homelab_health,
+        "_probe_http_endpoint",
+        AsyncMock(
+            return_value={
+                "state": "ok",
+                "reachable": True,
+                "http_status": 200,
+            },
+        ),
+    )
+    monkeypatch.setattr(
+        homelab_health,
+        "collect_truenas_network_diagnostics",
+        diagnostics,
+    )
+    monkeypatch.setattr(
+        homelab_health,
+        "truenas_host_port",
+        lambda: ("truenas.albandrieu.com", 7000),
+    )
+    monkeypatch.setattr(
+        homelab_health,
+        "truenas_url",
+        lambda: "https://truenas.albandrieu.com:7000",
+    )
+    monkeypatch.setattr(
+        homelab_health,
+        "truenas_http_verify_ssl",
+        lambda: True,
+    )
+    monkeypatch.setattr(
+        homelab_health,
+        "homelab_runtime_detected",
+        lambda: False,
+    )
+
+    result = await homelab_health._probe_truenas(
+        asyncio.Semaphore(2),
+        internal_enabled=False,
+    )
+
+    assert captured["host"] == "truenas.albandrieu.com"
+    assert captured["connect_host"] == "82.66.4.247"
+    assert captured["port"] == 7000
+    assert captured["path_mode"] == "public_wan_haproxy"
+    assert result["connect_host"] == "82.66.4.247"
+
+
+@pytest.mark.asyncio
+async def test_homelab_runtime_uses_lan_ip_for_raw_tls(monkeypatch) -> None:
+    captured = {}
+
+    async def diagnostics(**kwargs):
+        captured.update(kwargs)
+        return {"stages": []}
+
+    monkeypatch.setattr(
+        homelab_health,
+        "_observe_truenas_api",
+        AsyncMock(return_value={"reachable": True}),
+    )
+    monkeypatch.setattr(
+        homelab_health,
+        "_probe_http_endpoint",
+        AsyncMock(
+            return_value={
+                "state": "ok",
+                "reachable": True,
+                "http_status": 200,
+            },
+        ),
+    )
+    monkeypatch.setattr(
+        homelab_health,
+        "collect_truenas_network_diagnostics",
+        diagnostics,
+    )
+    monkeypatch.setattr(
+        homelab_health,
+        "truenas_host_port",
+        lambda: ("truenas.albandrieu.com", 7000),
+    )
+    monkeypatch.setattr(
+        homelab_health,
+        "truenas_url",
+        lambda: "https://truenas.albandrieu.com:7000",
+    )
+    monkeypatch.setattr(
+        homelab_health,
+        "truenas_http_verify_ssl",
+        lambda: True,
+    )
+    monkeypatch.setattr(
+        homelab_health,
+        "homelab_runtime_detected",
+        lambda: True,
+    )
+    monkeypatch.setattr(
+        homelab_health,
+        "_truenas_internal_target",
+        lambda: ("172.17.0.24", 7000),
+    )
+
+    result = await homelab_health._probe_truenas(
+        asyncio.Semaphore(2),
+        internal_enabled=False,
+    )
+
+    assert captured["host"] == "truenas.albandrieu.com"
+    assert captured["connect_host"] == "172.17.0.24"
+    assert captured["port"] == 7000
+    assert captured["path_mode"] == "direct_lan"
+    assert result["connect_host"] == "172.17.0.24"
+
+
+@pytest.mark.asyncio
+async def test_truenas_payload_separates_appliance_and_public_ingress(monkeypatch) -> None:
+    monkeypatch.setattr(
+        homelab_health,
+        "_observe_truenas_api",
+        AsyncMock(return_value={"reachable": True, "version": "TrueNAS-26"}),
+    )
+    monkeypatch.setattr(
+        homelab_health,
+        "_probe_http_endpoint",
+        AsyncMock(
+            return_value={
+                "state": "fail",
+                "reachable": False,
+                "error_kind": "connect_timeout",
+                "error": "connect timed out",
+            },
+        ),
+    )
+    monkeypatch.setattr(
+        homelab_health,
+        "collect_truenas_network_diagnostics",
+        AsyncMock(
+            return_value={
+                "stages": [
+                    {"id": "socket", "state": "ok"},
+                    {
+                        "id": "tls",
+                        "state": "fail",
+                        "failure_stage": "tls_handshake",
+                        "detail": "handshake timed out",
+                    },
+                ],
+            },
+        ),
+    )
+    monkeypatch.setattr(
+        homelab_health,
+        "truenas_host_port",
+        lambda: ("truenas.albandrieu.com", 7000),
+    )
+    monkeypatch.setattr(
+        homelab_health,
+        "truenas_url",
+        lambda: "https://truenas.albandrieu.com:7000",
+    )
+    monkeypatch.setattr(homelab_health, "truenas_http_verify_ssl", lambda: True)
+    monkeypatch.setattr(homelab_health, "homelab_runtime_detected", lambda: False)
+
+    result = await homelab_health._probe_truenas(
+        asyncio.Semaphore(2),
+        internal_enabled=False,
+    )
+
+    assert result["appliance_state"] == "ok"
+    assert result["public_ingress_state"] == "fail"
+    assert result["api"]["reachable"] is True
 
 
 @pytest.mark.asyncio
@@ -350,17 +530,13 @@ async def test_truenas_http_and_transport_probes_start_in_parallel(monkeypatch) 
     release = asyncio.Event()
 
     async def api_ok():
-        return {
-            "reachable": True,
-            "version": "TrueNAS-26",
-            "apps": [],
-        }
+        return {"reachable": True, "version": "TrueNAS-26", "apps": []}
 
     async def public_https(*_args, **_kwargs):
         http_started.set()
         await release.wait()
         return {
-            "name": "TrueNAS HTTPS",
+            "name": "TrueNAS public ingress HTTPS",
             "url": "https://truenas.albandrieu.com:7000/",
             "reachable": True,
             "http_status": 200,
@@ -369,7 +545,7 @@ async def test_truenas_http_and_transport_probes_start_in_parallel(monkeypatch) 
             "latency_ms": 10,
         }
 
-    async def diagnostics(**_kwargs):
+    async def transport(**_kwargs):
         diagnostics_started.set()
         await release.wait()
         return {
@@ -378,6 +554,8 @@ async def test_truenas_http_and_transport_probes_start_in_parallel(monkeypatch) 
             "stages": [
                 {"id": "socket", "label": "TCP", "state": "ok"},
                 {"id": "tls", "label": "TLS", "state": "ok"},
+                {"id": "wan_socket", "label": "WAN TCP", "state": "ok"},
+                {"id": "wan_tls", "label": "WAN TLS", "state": "ok"},
                 {"id": "websocket", "label": "WebSocket", "state": "ok"},
             ],
         }
@@ -391,7 +569,7 @@ async def test_truenas_http_and_transport_probes_start_in_parallel(monkeypatch) 
     monkeypatch.setattr(
         homelab_health,
         "collect_truenas_network_diagnostics",
-        diagnostics,
+        transport,
     )
     monkeypatch.setattr(
         homelab_health,
@@ -420,5 +598,6 @@ async def test_truenas_http_and_transport_probes_start_in_parallel(monkeypatch) 
     result = await task
 
     assert result["state"] == "ok"
-    assert result["public"]["http_status"] == 200
+    assert result["appliance_state"] == "ok"
+    assert result["public_ingress_state"] == "ok"
     assert result["diagnostics"]["wan_tls_reachable"] is True
