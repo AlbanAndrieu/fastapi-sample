@@ -358,13 +358,21 @@ def append_truenas_api_stages(
             ),
         )
     else:
-        auth_accepted = api_result.get("authenticated") is True or api_result.get("authentication_succeeded") is True
+        auth_accepted = (
+            api_result.get("authenticated") is True
+            or api_result.get("authentication_succeeded") is True
+        )
         if auth_accepted:
             authentication_state = "ok"
-            authentication_detail = "API key accepted; failure occurred after authentication"
+            authentication_detail = (
+                "API key accepted; failure occurred after authentication"
+            )
         else:
             authentication_state = "warn"
-            authentication_detail = "Credentials configured, but authentication was not confirmed before the API probe failed"
+            authentication_detail = (
+                "Credentials configured, but authentication was not confirmed "
+                "before the API probe failed"
+            )
         stages.append(
             _stage(
                 "authentication",

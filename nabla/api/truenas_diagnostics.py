@@ -94,7 +94,10 @@ def _direct_lan_stage(tls_ok: bool, host: str, port: int) -> dict[str, Any]:
         "direct_lan",
         "Direct LAN route",
         "ok",
-        detail=(f"Split DNS/direct LAN to {host}:{port} · public pfSense WAN and HAProxy path bypassed"),
+        detail=(
+            f"Split DNS/direct LAN to {host}:{port} · "
+            "public pfSense WAN and HAProxy path bypassed"
+        ),
         evidence="runtime_route",
     )
 
@@ -108,8 +111,11 @@ def unmeasured_truenas_network_diagnostics(
     path_mode: str,
     budget_seconds: float,
 ) -> dict[str, Any]:
-    """Return the declared transport path when detailed measurement exceeds its budget."""
-    detail = f"Not measured within {budget_seconds:g}s TrueNAS transport diagnostics budget"
+    """Return the declared path when measurement exceeds its budget."""
+    detail = (
+        f"Not measured within {budget_seconds:g}s "
+        "TrueNAS transport diagnostics budget"
+    )
     route_id = "direct_lan" if path_mode == "direct_lan" else "haproxy"
     route_label = "Direct LAN route" if path_mode == "direct_lan" else "HAProxy :7000"
     return {

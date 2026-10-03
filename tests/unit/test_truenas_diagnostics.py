@@ -198,7 +198,11 @@ def test_api_failure_preserves_explicit_auxiliary_websocket_evidence() -> None:
 
 def test_authenticated_api_supplies_websocket_evidence_without_extra_probe() -> None:
     network = _network_ok()
-    network["stages"] = [stage for stage in network["stages"] if stage["id"] != "websocket"]
+    network["stages"] = [
+        stage
+        for stage in network["stages"]
+        if stage["id"] != "websocket"
+    ]
 
     result = append_truenas_api_stages(
         network,
@@ -324,7 +328,11 @@ def test_authenticated_api_downgrades_blocked_route_stages() -> None:
         },
     )
 
-    reconciled = {stage["id"]: stage for stage in result["stages"] if stage["id"] in {"socket", "tls", "haproxy", "https"}}
+    reconciled = {
+        stage["id"]: stage
+        for stage in result["stages"]
+        if stage["id"] in {"socket", "tls", "haproxy", "https"}
+    }
     assert all(stage["state"] == "warn" for stage in reconciled.values())
     assert all(stage["evidence_conflict"] is True for stage in reconciled.values())
 
