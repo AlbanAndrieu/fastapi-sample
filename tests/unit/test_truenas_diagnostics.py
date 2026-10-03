@@ -72,6 +72,26 @@ def test_missing_api_key_marks_auth_failed_and_api_blocked() -> None:
     }
 
 
+def test_api_call_failure_proves_websocket_was_established() -> None:
+    result = append_truenas_api_stages(
+        _network_ok(),
+        {
+            "reachable": False,
+            "authenticated": True,
+            "phase": "call",
+            "stage": "api_call_timeout",
+            "method": "app.query",
+            "elapsed_ms": 3000,
+            "error": "TimeoutError",
+        },
+    )
+
+    websocket = next(stage for stage in result["stages"] if stage["id"] == "websocket")
+    assert websocket["state"] == "ok"
+    assert websocket["confirmation"] == "established"
+    assert websocket.get("failure_stage") is None
+
+
 def test_api_timeout_before_auth_confirmation_marks_auth_unconfirmed() -> None:
     result = append_truenas_api_stages(
         _network_ok(),
