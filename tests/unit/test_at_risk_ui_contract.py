@@ -60,4 +60,3 @@ def test_truenas_drilldown_exposes_transport_contract_and_timeout_budgets() -> N
     assert "API observer deadline" in details
     assert "TLS SNI / server name" in details
     assert "WebSocket endpoint" in details
-
