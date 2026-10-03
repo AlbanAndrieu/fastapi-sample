@@ -3,6 +3,8 @@
 """Application lifecycle management (startup/shutdown)."""
 
 import asyncio
+import socket
+import time
 from collections.abc import Coroutine
 from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Any
@@ -61,6 +63,65 @@ def _start_background_task(
 
 
 @asynccontextmanager
+def _startup_database_failure(exc: BaseException) -> tuple[str, str]:
+    """Classify critical PostgreSQL startup failures without leaking connection data."""
+    chain: list[BaseException] = []
+    current: BaseException | None = exc
+    seen: set[int] = set()
+    while current is not None and id(current) not in seen:
+        chain.append(current)
+        seen.add(id(current))
+        current = current.__cause__ or current.__context__
+
+    message = " ".join(str(item) for item in chain).casefold()
+    if any(isinstance(item, socket.gaierror) for item in chain) or any(
+        marker in message
+        for marker in (
+            "temporary failure in name resolution",
+            "name or service not known",
+            "getaddrinfo failed",
+        )
+    ):
+        return "dns", "name_resolution"
+    if "password authentication failed" in message or "authentication failed" in message:
+        return "authentication", "credentials"
+    if "connection refused" in message:
+        return "connect", "connection_refused"
+    if "timeout" in message:
+        return "connect", "timeout"
+    if "ssl" in message or "certificate" in message:
+        return "tls", "tls_error"
+    return "database", "connect_failed"
+
+
+async def _connect_critical_database() -> None:
+    """Connect PostgreSQL and emit bounded startup evidence for cloud diagnostics."""
+    settings = get_settings()
+    started = time.perf_counter()
+    logger.info(
+        "startup_dependency_begin dependency=postgres critical=true host=%s port=%s db=%s",
+        settings.postgres_host,
+        settings.postgres_port,
+        settings.postgres_db,
+    )
+    try:
+        await database.connect()
+    except Exception as exc:
+        phase, stage = _startup_database_failure(exc)
+        logger.error(
+            "startup_dependency_failed dependency=postgres critical=true phase=%s stage=%s exception=%s elapsed_ms=%s",
+            phase,
+            stage,
+            exc.__class__.__name__,
+            round((time.perf_counter() - started) * 1000),
+        )
+        raise
+    logger.info(
+        "startup_dependency_ready dependency=postgres critical=true elapsed_ms=%s",
+        round((time.perf_counter() - started) * 1000),
+    )
+
+
 async def lifespan(app: FastAPI):
     """Acquire application resources safely and unwind partial startup failures."""
     async with AsyncExitStack() as resources:
@@ -70,10 +131,12 @@ async def lifespan(app: FastAPI):
         if redis is not None:
             resources.push_async_callback(redis.aclose)
 
-        await database.connect()
+        await _connect_critical_database()
         resources.push_async_callback(database.disconnect)
 
+        logger.info("startup_stage_begin stage=database_schema critical=true")
         await init_db()
+        logger.info("startup_stage_ready stage=database_schema critical=true")
         from nabla.api.notes.models import init_db as init_db_note
         from nabla.api.users.models import init_db as init_db_user
 
