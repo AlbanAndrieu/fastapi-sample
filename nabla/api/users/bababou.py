@@ -68,7 +68,7 @@ def _fetch_public_page_text(url: str) -> str:
             "Only HTTPS URLs on the configured public website are allowed",
         )
 
-    req = urllib.request.Request(
+    req = urllib.request.Request(  # noqa: S310  # nosec B310
         url,
         headers={"User-Agent": f"nabla-ai-workflow/1.0 (+{url})"},
     )
