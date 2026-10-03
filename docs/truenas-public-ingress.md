@@ -170,7 +170,7 @@ A recurrence test should change one component only:
 2. record current `snort2c`, PF and security-engine state;
 3. trigger one uncached health refresh;
 4. inspect the same source immediately in `snort2c`, Snort alerts, WAN capture
-   and `pflog0`;
+  and `pflog0`;
 5. alter only the suspected engine/rule;
 6. repeat the identical probe and compare.
 
