@@ -357,8 +357,11 @@ class TrueNASReadOnlyAdapter:
         except Exception as exc:
             elapsed_ms = round((time.perf_counter() - started) * 1000)
             failure_stage = _truenas_failure_stage(exc)
-            if phase == "call" and failure_stage == "source_allowlist":
-                failure_stage = "access_denied"
+            if phase == "call":
+                if failure_stage == "source_allowlist":
+                    failure_stage = "access_denied"
+                elif failure_stage == "connect_timeout":
+                    failure_stage = "api_call_timeout"
             logger.warning(
                 "TrueNAS API health probe failed method=%s uri=%s verify_ssl=%s proxy_route=%s phase=%s stage=%s exception=%s elapsed_ms=%s error=%s",
                 method,
