@@ -165,11 +165,7 @@ async def test_homelab_snapshot_returns_degraded_timeout_payload(monkeypatch) ->
         )
     expected_labels.extend(
         [
-            (
-                "Direct LAN route"
-                if diagnostics["path_mode"] == "direct_lan"
-                else "HAProxy public route"
-            ),
+            ("Direct LAN route" if diagnostics["path_mode"] == "direct_lan" else "HAProxy public route"),
             "TrueNAS HTTPS listener",
             "WebSocket /api/current",
             "API authentication",
@@ -195,7 +191,6 @@ async def test_health_board_refresh_deadline_does_not_pin_task(monkeypatch) -> N
 
     assert health_board._last_refresh_error == "health board refresh deadline exceeded"
     await health_board.reset_health_board_cache()
-
 
 
 def test_talos_vm_runtime_is_exposed_as_a_distinct_health_check() -> None:

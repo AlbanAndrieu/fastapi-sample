@@ -91,11 +91,9 @@ _PFSENSE_TCP_PORT_POLICY: dict[int, dict[str, Any]] = {
     },
 }
 
+
 def pfsense_tcp_port_policy_payload() -> dict[str, dict[str, Any]]:
-    return {
-        str(port): dict(policy)
-        for port, policy in _PFSENSE_TCP_PORT_POLICY.items()
-    }
+    return {str(port): dict(policy) for port, policy in _PFSENSE_TCP_PORT_POLICY.items()}
 
 
 def pfsense_canonical_href(urls: list[str]) -> str | None:
@@ -123,11 +121,7 @@ def pfsense_canonical_tcp_host(urls: list[str]) -> str | None:
 
 def canonical_pfsense_alias_urls(default_targets: str) -> list[str]:
     first_segment = default_targets.replace("\n", ",").split(",")[0].strip()
-    aliases = [
-        alias.strip()
-        for alias in first_segment.split("|")
-        if alias.strip()
-    ]
+    aliases = [alias.strip() for alias in first_segment.split("|") if alias.strip()]
     if aliases and pfsense_canonical_href(aliases) is not None:
         return aliases
     return [
@@ -156,9 +150,7 @@ def pfsense_tcp_skip_payload(urls: list[str]) -> dict[str, Any]:
     if not pfsense_canonical_tcp_host(urls):
         return {}
     return {
-        "pfsense_tcp_ports": {
-            str(port): None for port in PFSENSE_EXTRA_TCP_PORTS
-        },
+        "pfsense_tcp_ports": {str(port): None for port in PFSENSE_EXTRA_TCP_PORTS},
         "pfsense_tcp_port_policy": pfsense_tcp_port_policy_payload(),
         "pfsense_tcp_ports_skipped": True,
     }
@@ -227,7 +219,7 @@ async def _probe_http_port(
     try:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(timeout_s),
-            verify=False,  # nosec B501 -- reachability-only protocol probe; certificate trust is not the verdict here
+            verify=False,  # noqa: S501  # nosec B501 -- reachability-only protocol probe; certificate trust is not the verdict here
             follow_redirects=False,
         ) as client:
             await client.get(

@@ -75,7 +75,7 @@ def _certificate_metadata(
             "certificate_issuer_cn": _common_name(certificate.get("issuer")),
             "certificate_not_after": not_after,
             "certificate_days_remaining": days_remaining,
-        }
+        },
     )
     return {key: value for key, value in metadata.items() if value is not None}
 

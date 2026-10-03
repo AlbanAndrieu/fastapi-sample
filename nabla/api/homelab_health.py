@@ -171,11 +171,7 @@ async def _probe_truenas(
     configured_url = truenas_url().rstrip("/") + "/"
     host, port = truenas_host_port()
     verify_ssl = truenas_http_verify_ssl()
-    path_mode = (
-        "direct_lan"
-        if homelab_runtime_detected()
-        else "public_wan_haproxy"
-    )
+    path_mode = "direct_lan" if homelab_runtime_detected() else "public_wan_haproxy"
     if path_mode == "direct_lan":
         connect_host, connect_port = _truenas_internal_target()
     else:
@@ -234,11 +230,7 @@ async def _probe_truenas(
             api_task,
             public_task,
         )
-        internal_result = (
-            await internal_task
-            if internal_task is not None
-            else None
-        )
+        internal_result = await internal_task if internal_task is not None else None
         try:
             diagnostics = await diagnostics_task
         except TimeoutError:

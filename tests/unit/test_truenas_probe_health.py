@@ -4,6 +4,7 @@ import pytest
 
 from nabla.api import homelab_health
 
+
 def test_truenas_internal_target_uses_explicit_lan_configuration(
     monkeypatch,
 ) -> None:
@@ -81,15 +82,21 @@ def test_appliance_can_be_healthy_while_public_ingress_is_down() -> None:
         ],
     }
 
-    assert homelab_health.truenas_probe_health.truenas_appliance_state(
-        public,
-        None,
-        api,
-    ) == "ok"
-    assert homelab_health.truenas_probe_health.truenas_public_ingress_state(
-        public,
-        diagnostics,
-    ) == "fail"
+    assert (
+        homelab_health.truenas_probe_health.truenas_appliance_state(
+            public,
+            None,
+            api,
+        )
+        == "ok"
+    )
+    assert (
+        homelab_health.truenas_probe_health.truenas_public_ingress_state(
+            public,
+            diagnostics,
+        )
+        == "fail"
+    )
 
 
 def test_public_ingress_conflict_is_warning_when_http_and_raw_tls_disagree() -> None:
@@ -100,10 +107,13 @@ def test_public_ingress_conflict_is_warning_when_http_and_raw_tls_disagree() -> 
         ],
     }
 
-    assert homelab_health.truenas_probe_health.truenas_public_ingress_state(
-        {"state": "ok"},
-        diagnostics,
-    ) == "warn"
+    assert (
+        homelab_health.truenas_probe_health.truenas_public_ingress_state(
+            {"state": "ok"},
+            diagnostics,
+        )
+        == "warn"
+    )
 
 
 def test_wan_tls_keeps_overall_state_degraded_when_http_fails() -> None:

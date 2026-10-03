@@ -281,7 +281,7 @@ def test_health_ui_does_not_render_explicit_direct_failure_as_green() -> None:
 def test_truenas_diagnostics_timeout_preserves_confirmed_https_liveness() -> None:
     script = (_ASSET_DIR / "api-truenas.js").read_text(encoding="utf-8")
 
-    assert 'const httpsUp = truenas?.public?.reachable === true;' in script
+    assert "const httpsUp = truenas?.public?.reachable === true;" in script
     assert '"diagnostics timeout · HTTPS up"' in script
     assert '"warn" : "fail"' in script
     assert "Appliance liveness remains confirmed" in script
@@ -315,9 +315,7 @@ def test_truenas_ui_separates_appliance_and_wan_ingress_verdicts() -> None:
 
 def test_truenas_ui_explains_cloudflare_and_pfsense_path_independence() -> None:
     truenas = (_ASSET_DIR / "api-truenas.js").read_text(encoding="utf-8")
-    pfsense = (
-        _ASSET_DIR / "api-pfsense-security-posture.js"
-    ).read_text(encoding="utf-8")
+    pfsense = (_ASSET_DIR / "api-pfsense-security-posture.js").read_text(encoding="utf-8")
 
     assert "Cloudflare Tunnel is not on the TrueNAS :7000" in truenas
     assert "hostname HTTPS" in truenas

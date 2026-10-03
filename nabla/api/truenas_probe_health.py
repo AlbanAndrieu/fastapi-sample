@@ -38,11 +38,7 @@ def truenas_state(
     # Host liveness and authenticated management capability are separate
     # signals. A failed API/WebSocket probe must not claim the appliance itself
     # is down while the HTTPS listener is still reachable.
-    if public_state == "fail" and (
-        internal_state == "ok"
-        or api_reachable is True
-        or wan_tls_reachable is True
-    ):
+    if public_state == "fail" and (internal_state == "ok" or api_reachable is True or wan_tls_reachable is True):
         return "warn"
     if public_state == "fail":
         return "fail"
@@ -51,7 +47,6 @@ def truenas_state(
     if public_state == "warn":
         return "warn"
     return "ok"
-
 
 
 def truenas_appliance_state(
@@ -80,20 +75,12 @@ def truenas_public_ingress_state(
     """Rate the pfSense/HAProxy :7000 ingress without using API success."""
     public_state = str(public_result.get("state") or "").strip().lower()
     stages = diagnostics.get("stages", []) if isinstance(diagnostics, dict) else []
-    tls_id = (
-        "wan_tls"
-        if any(stage.get("id") == "wan_tls" for stage in stages)
-        else "tls"
-    )
+    tls_id = "wan_tls" if any(stage.get("id") == "wan_tls" for stage in stages) else "tls"
     tls_stage = next(
         (stage for stage in stages if stage.get("id") == tls_id),
         None,
     )
-    tls_state = (
-        str(tls_stage.get("state") or "")
-        if isinstance(tls_stage, dict)
-        else ""
-    )
+    tls_state = str(tls_stage.get("state") or "") if isinstance(tls_stage, dict) else ""
 
     if public_state == "ok" and tls_state in {"", "ok"}:
         return "ok"

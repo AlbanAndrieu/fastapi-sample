@@ -32,7 +32,7 @@ def _settings(*, internal: bool = False, label: str = "") -> SimpleNamespace:
 
 def test_parse_sickz_target_groups_preserves_aliases() -> None:
     assert sc.parse_sickz_target_groups(
-        "https://one.example|https://two.example, https://three.example\n"
+        "https://one.example|https://two.example, https://three.example\n",
     ) == [
         ["https://one.example", "https://two.example"],
         ["https://three.example"],
@@ -75,7 +75,8 @@ def test_pfsense_group_is_always_present() -> None:
 def test_pfsense_group_is_not_duplicated() -> None:
     existing = sp.canonical_pfsense_alias_urls(_default_sickz_targets_value())
     groups = sp.ensure_pfsense_group(
-        [existing], default_targets=_default_sickz_targets_value()
+        [existing],
+        default_targets=_default_sickz_targets_value(),
     )
     assert groups == [existing]
 
@@ -185,7 +186,6 @@ async def test_paas_pfsense_group_uses_one_canonical_admin_probe(
     assert result["aliases_configured"] == urls
     assert result["tls_trusted"] is None
     assert result["alias_results"]["https://172.17.0.1:10443/"]["skipped"] is True
-
 
 
 def test_catalog_reachability_intent_marks_truenas_as_positive_external_probe() -> None:

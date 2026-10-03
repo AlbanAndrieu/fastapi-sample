@@ -135,35 +135,19 @@ def _public_path_comparison_stage(
     dns_matches_wan = wan_ipv4 in resolved
     if hostname_tls_ok and wan_tls_ok and dns_matches_wan:
         state = "ok"
-        detail = (
-            f"Hostname and direct WAN+SNI TLS both succeed; DNS includes {wan_ipv4}."
-        )
+        detail = f"Hostname and direct WAN+SNI TLS both succeed; DNS includes {wan_ipv4}."
     elif wan_tls_ok and not hostname_tls_ok:
         state = "warn"
-        detail = (
-            "Direct WAN+SNI TLS succeeds while the hostname TLS probe fails. "
-            "Investigate DNS/proxy/edge routing before pfSense or TrueNAS."
-        )
+        detail = "Direct WAN+SNI TLS succeeds while the hostname TLS probe fails. Investigate DNS/proxy/edge routing before pfSense or TrueNAS."
     elif hostname_tls_ok and not wan_tls_ok:
         state = "warn"
-        detail = (
-            "Hostname TLS succeeds while the configured WAN IP TLS probe fails. "
-            "The hostname is reaching another path; direct pfSense/HAProxy ingress "
-            "is not confirmed."
-        )
+        detail = "Hostname TLS succeeds while the configured WAN IP TLS probe fails. The hostname is reaching another path; direct pfSense/HAProxy ingress is not confirmed."
     elif not dns_matches_wan:
         state = "warn"
-        detail = (
-            f"DNS resolves to {', '.join(resolved) or 'no address'}, not configured "
-            f"WAN IPv4 {wan_ipv4}; the hostname path is not the declared direct "
-            "pfSense/HAProxy route."
-        )
+        detail = f"DNS resolves to {', '.join(resolved) or 'no address'}, not configured WAN IPv4 {wan_ipv4}; the hostname path is not the declared direct pfSense/HAProxy route."
     else:
         state = "fail"
-        detail = (
-            "Neither hostname TLS nor direct WAN+SNI TLS completed. "
-            "Inspect pfSense WAN policy, Snort/pfBlockerNG and HAProxy :7000."
-        )
+        detail = "Neither hostname TLS nor direct WAN+SNI TLS completed. Inspect pfSense WAN policy, Snort/pfBlockerNG and HAProxy :7000."
     return _stage(
         "wan_path_comparison",
         "Hostname ↔ WAN :7000",
@@ -205,17 +189,9 @@ def append_truenas_http_stage(
     out = dict(diagnostics)
     path_mode = str(out.get("path_mode") or "public_wan_haproxy")
     https_stage = _https_stage(public_result, path_mode=path_mode)
-    stages = [
-        dict(stage)
-        for stage in out.get("stages", [])
-        if isinstance(stage, dict) and stage.get("id") != "https"
-    ]
+    stages = [dict(stage) for stage in out.get("stages", []) if isinstance(stage, dict) and stage.get("id") != "https"]
     insert_at = next(
-        (
-            index
-            for index, stage in enumerate(stages)
-            if stage.get("id") in {"websocket", "authentication", "api"}
-        ),
+        (index for index, stage in enumerate(stages) if stage.get("id") in {"websocket", "authentication", "api"}),
         len(stages),
     )
     stages.insert(insert_at, https_stage)
@@ -392,28 +368,20 @@ def append_truenas_api_stages(
 
     if reachable:
         for auxiliary in stages:
-            if (
-                auxiliary.get("id")
-                not in {
-                    "socket",
-                    "tls",
-                    "haproxy",
-                    "direct_lan",
-                    "https",
-                    "websocket",
-                }
-                or auxiliary.get("state") not in {"fail", "blocked"}
-            ):
+            if auxiliary.get("id") not in {
+                "socket",
+                "tls",
+                "haproxy",
+                "direct_lan",
+                "https",
+                "websocket",
+            } or auxiliary.get("state") not in {"fail", "blocked"}:
                 continue
             original = str(
-                auxiliary.get("detail")
-                or "auxiliary transport probe failed"
+                auxiliary.get("detail") or "auxiliary transport probe failed",
             )
             auxiliary["state"] = "warn"
-            auxiliary["detail"] = (
-                f"{original} · authenticated TrueNAS API succeeded; "
-                "raw-socket and application egress paths may differ"
-            )
+            auxiliary["detail"] = f"{original} · authenticated TrueNAS API succeeded; raw-socket and application egress paths may differ"
             auxiliary["contradicted_by"] = "authenticated_api_success"
             auxiliary["superseded_by"] = "authenticated_api"
             auxiliary["evidence_conflict"] = True
