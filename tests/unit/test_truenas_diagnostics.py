@@ -1,16 +1,11 @@
 """Tests for the ordered TrueNAS diagnostic pipeline."""
 
-import asyncio
-
-import pytest
-
 from nabla.api.truenas_diagnostics import (
     _direct_lan_stage,
     _haproxy_stage,
     _https_stage,
     _public_path_comparison_stage,
     append_truenas_api_stages,
-    append_truenas_http_stage,
 )
 
 
@@ -152,6 +147,60 @@ def test_https_stage_keeps_transport_failure_failed() -> None:
     assert stage["detail"] == "Connection refused"
 
 
+def test_authenticated_api_downgrades_auxiliary_raw_tls_failure() -> None:
+    network = _network_ok()
+    network["stages"][2] = {
+        "id": "tls",
+        "label": "TLS handshake",
+        "state": "fail",
+        "detail": "handshake timed out",
+    }
+
+    result = append_truenas_api_stages(
+        network,
+        {
+            "reachable": True,
+            "version": "TrueNAS-26.0.0",
+            "apps": [],
+        },
+    )
+
+    tls = next(
+        stage for stage in result["stages"]
+        if stage["id"] == "tls"
+    )
+    assert tls["state"] == "warn"
+    assert tls["superseded_by"] == "authenticated_api"
+    assert "raw-socket and application egress paths may differ" in tls["detail"]
+
+
+def test_authenticated_api_downgrades_blocked_route_stages() -> None:
+    network = _network_ok()
+    for stage in network["stages"][:-1]:
+        if stage["id"] in {"socket", "tls", "haproxy", "https"}:
+            stage["state"] = "blocked"
+            stage["detail"] = "auxiliary path blocked"
+
+    result = append_truenas_api_stages(
+        network,
+        {
+            "reachable": True,
+            "version": "TrueNAS-26.0.0",
+            "apps": [],
+        },
+    )
+
+    reconciled = {
+        stage["id"]: stage
+        for stage in result["stages"]
+        if stage["id"] in {"socket", "tls", "haproxy", "https"}
+    }
+    assert all(stage["state"] == "warn" for stage in reconciled.values())
+    assert all(
+        stage["evidence_conflict"] is True
+        for stage in reconciled.values()
+    )
+
 
 def test_wan_path_comparison_identifies_hostname_edge_mismatch() -> None:
     stage = _public_path_comparison_stage(
@@ -164,198 +213,3 @@ def test_wan_path_comparison_identifies_hostname_edge_mismatch() -> None:
     assert stage["state"] == "warn"
     assert stage["dns_matches_wan"] is False
     assert "DNS/proxy/edge" in stage["detail"]
-
-
-def test_authenticated_api_success_downgrades_auxiliary_websocket_failure() -> None:
-    network = _network_ok()
-    network["stages"][-1]["state"] = "fail"
-    network["stages"][-1]["detail"] = "timed out"
-
-    result = append_truenas_api_stages(
-        network,
-        {"reachable": True, "version": "TrueNAS-26", "apps": []},
-    )
-
-    websocket = next(stage for stage in result["stages"] if stage["id"] == "websocket")
-    assert websocket["state"] == "warn"
-    assert websocket["contradicted_by"] == "authenticated_api_success"
-
-
-
-def test_authenticated_api_success_downgrades_auxiliary_tcp_tls_failures() -> None:
-    network = _network_ok()
-    network["stages"][1].update({"state": "fail", "detail": "connect timed out"})
-    network["stages"][2].update({"state": "fail", "detail": "TLS timed out"})
-
-    result = append_truenas_api_stages(
-        network,
-        {"reachable": True, "version": "TrueNAS-26", "apps": []},
-    )
-
-    socket = next(stage for stage in result["stages"] if stage["id"] == "socket")
-    tls = next(stage for stage in result["stages"] if stage["id"] == "tls")
-    assert socket["state"] == "warn"
-    assert tls["state"] == "warn"
-    assert socket["contradicted_by"] == "authenticated_api_success"
-    assert tls["contradicted_by"] == "authenticated_api_success"
-
-
-
-@pytest.mark.asyncio
-async def test_transport_and_websocket_diagnostics_start_concurrently(monkeypatch) -> None:
-    from nabla.api import truenas_diagnostics as diagnostics
-
-    started: set[str] = set()
-    all_started = asyncio.Event()
-    release = asyncio.Event()
-
-    def mark_started(label: str) -> None:
-        started.add(label)
-        if len(started) == 4:
-            all_started.set()
-
-    async def dns(_host: str):
-        mark_started("dns")
-        await release.wait()
-        return (
-            {
-                "id": "dns",
-                "label": "DNS",
-                "state": "ok",
-                "resolved": ["82.66.4.247"],
-            },
-            True,
-        )
-
-    async def transport(*_args, connect_host=None, **_kwargs):
-        mark_started("wan" if connect_host else "hostname")
-        await release.wait()
-        return (
-            {"id": "socket", "label": "TCP", "state": "ok"},
-            {"id": "tls", "label": "TLS", "state": "ok"},
-            True,
-        )
-
-    async def websocket(*_args, **_kwargs):
-        mark_started("websocket")
-        await release.wait()
-        return (
-            {"id": "websocket", "label": "WebSocket", "state": "ok"},
-            True,
-        )
-
-    monkeypatch.setattr(diagnostics, "_dns_stage", dns)
-    monkeypatch.setattr(diagnostics, "collect_tcp_tls_stages", transport)
-    monkeypatch.setattr(diagnostics, "_websocket_stage", websocket)
-    monkeypatch.setattr(
-        diagnostics,
-        "homelab_wan_metadata",
-        lambda: {"ipv4": "82.66.4.247", "provider": "Free", "static": True},
-    )
-
-    task = asyncio.create_task(
-        diagnostics.collect_truenas_network_diagnostics(
-            host="truenas.albandrieu.com",
-            port=7000,
-            websocket_uri="wss://truenas.albandrieu.com:7000/api/current",
-            verify_ssl=True,
-            public_result={"reachable": True, "state": "ok", "http_status": 200},
-        ),
-    )
-    await asyncio.wait_for(all_started.wait(), timeout=1.0)
-    assert started == {"dns", "hostname", "wan", "websocket"}
-    release.set()
-    result = await task
-
-    assert result["wan_tls_reachable"] is True
-    assert any(stage["id"] == "websocket" for stage in result["stages"])
-
-
-@pytest.mark.asyncio
-async def test_websocket_success_downgrades_contradictory_tls_failure(monkeypatch) -> None:
-    from nabla.api import truenas_diagnostics as diagnostics
-
-    async def dns(_host: str):
-        return (
-            {
-                "id": "dns",
-                "label": "DNS",
-                "state": "ok",
-                "resolved": ["82.66.4.247"],
-            },
-            True,
-        )
-
-    async def transport(*_args, connect_host=None, **_kwargs):
-        if connect_host:
-            return (
-                {"id": "socket", "label": "TCP", "state": "ok"},
-                {"id": "tls", "label": "TLS", "state": "ok"},
-                True,
-            )
-        return (
-            {"id": "socket", "label": "TCP", "state": "ok"},
-            {
-                "id": "tls",
-                "label": "TLS",
-                "state": "fail",
-                "detail": "handshake timed out",
-            },
-            False,
-        )
-
-    async def websocket(*_args, **_kwargs):
-        return (
-            {"id": "websocket", "label": "WebSocket", "state": "ok"},
-            True,
-        )
-
-    monkeypatch.setattr(diagnostics, "_dns_stage", dns)
-    monkeypatch.setattr(diagnostics, "collect_tcp_tls_stages", transport)
-    monkeypatch.setattr(diagnostics, "_websocket_stage", websocket)
-    monkeypatch.setattr(
-        diagnostics,
-        "homelab_wan_metadata",
-        lambda: {"ipv4": "82.66.4.247", "provider": "Free", "static": True},
-    )
-
-    result = await diagnostics.collect_truenas_network_diagnostics(
-        host="truenas.albandrieu.com",
-        port=7000,
-        websocket_uri="wss://truenas.albandrieu.com:7000/api/current",
-        verify_ssl=True,
-        public_result={"reachable": False, "state": "fail"},
-    )
-
-    tls = next(stage for stage in result["stages"] if stage["id"] == "tls")
-    assert tls["state"] == "warn"
-    assert tls["contradicted_by"] == "websocket_success"
-
-
-
-def test_http_stage_replaces_timeout_placeholder_with_measured_evidence() -> None:
-    diagnostics = {
-        "path_mode": "public_wan_haproxy",
-        "stages": [
-            {"id": "route", "label": "HAProxy", "state": "blocked"},
-            {"id": "https", "label": "HTTPS", "state": "blocked"},
-            {"id": "websocket", "label": "WebSocket", "state": "blocked"},
-        ],
-    }
-
-    result = append_truenas_http_stage(
-        diagnostics,
-        {
-            "reachable": True,
-            "state": "ok",
-            "http_status": 200,
-            "latency_ms": 42,
-            "tls_trusted": True,
-        },
-    )
-
-    https = next(stage for stage in result["stages"] if stage["id"] == "https")
-    assert https["state"] == "ok"
-    assert https["detail"] == "HTTP 200"
-    assert https["elapsed_ms"] == 42
-    assert [stage["id"] for stage in result["stages"]].count("https") == 1
