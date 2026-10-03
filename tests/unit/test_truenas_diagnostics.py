@@ -92,6 +92,27 @@ def test_api_call_failure_proves_websocket_was_established() -> None:
     assert websocket.get("failure_stage") is None
 
 
+def test_api_failure_exposes_failing_rpc_method() -> None:
+    result = append_truenas_api_stages(
+        _network_ok(),
+        {
+            "reachable": False,
+            "authenticated": True,
+            "phase": "call",
+            "stage": "api_call_timeout",
+            "method": "app.query",
+            "elapsed_ms": 3000,
+            "error": "TimeoutError",
+        },
+    )
+
+    api = result["stages"][-1]
+    assert api["label"] == "TrueNAS API · app.query"
+    assert api["rpc_method"] == "app.query"
+    assert api["failure_stage"] == "api_call_timeout"
+    assert api["detail"].startswith("app.query:")
+
+
 def test_api_timeout_before_auth_confirmation_marks_auth_unconfirmed() -> None:
     result = append_truenas_api_stages(
         _network_ok(),
