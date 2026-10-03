@@ -27,6 +27,7 @@ def test_version_endpoint_exposes_api_release_and_mcp_metadata():
     assert payload["version"] == f"{API_VERSION}+{__version__}"
     assert payload["api_version"] == API_VERSION
     assert payload["release_version"] == __version__
+    assert "build_revision" in payload
     assert payload["service"] == "fastapi-sample"
     assert payload["mcp"]["transport"] == "streamable-http"
     assert payload["mcp"]["endpoint"] == "/mcp"
