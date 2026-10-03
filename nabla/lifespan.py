@@ -188,5 +188,5 @@ async def lifespan(app: FastAPI):
 
         logger.info("📊 Sensor Dashboard shutting down")
         logger.info(
-            f"Final metrics - Connections: {metrics.connection_count}, Requests: {metrics.total_requests}"
+            f"Final metrics - Connections: {metrics.connection_count}, Requests: {metrics.total_requests}",
         )
