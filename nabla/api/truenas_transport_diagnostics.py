@@ -96,8 +96,11 @@ def _tcp_tls_probe(
     host: str,
     port: int,
     verify_ssl: bool,
+    *,
+    server_name: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], bool]:
-    """Measure TCP connect and TLS handshake separately on the same socket."""
+    """Measure TCP/TLS while allowing direct-IP connect with hostname SNI."""
+    tls_server_name = server_name or host
     raw_socket: socket.socket | None = None
     tls_socket: ssl.SSLSocket | None = None
 
@@ -134,6 +137,8 @@ def _tcp_tls_probe(
         "state": "ok",
         "elapsed_ms": _elapsed_ms(tcp_started),
         "detail": f"Connected to {host}:{port}",
+        "connect_host": host,
+        "server_name": tls_server_name,
     }
 
     context = ssl.create_default_context()
@@ -147,7 +152,7 @@ def _tcp_tls_probe(
     try:
         tls_socket = context.wrap_socket(
             raw_socket,
-            server_hostname=host,
+            server_hostname=tls_server_name,
             do_handshake_on_connect=False,
         )
         raw_socket = None
@@ -164,6 +169,8 @@ def _tcp_tls_probe(
             "verify_ssl": verify_ssl,
             "tls_version": tls_socket.version(),
             "cipher": cipher_info[0] if cipher_info else None,
+            "connect_host": host,
+            "server_name": tls_server_name,
             **metadata,
         }
         return tcp_stage, tls_stage, True
@@ -179,6 +186,8 @@ def _tcp_tls_probe(
                 "detail": error,
                 "verify_ssl": verify_ssl,
                 "failure_stage": "tls_handshake",
+                "connect_host": host,
+                "server_name": tls_server_name,
             },
             False,
         )
@@ -193,6 +202,14 @@ async def collect_tcp_tls_stages(
     host: str,
     port: int,
     verify_ssl: bool,
+    *,
+    server_name: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], bool]:
     """Run the blocking socket/TLS probe away from the event loop."""
-    return await asyncio.to_thread(_tcp_tls_probe, host, port, verify_ssl)
+    return await asyncio.to_thread(
+        _tcp_tls_probe,
+        host,
+        port,
+        verify_ssl,
+        server_name=server_name,
+    )

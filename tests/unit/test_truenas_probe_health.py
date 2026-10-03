@@ -3,28 +3,25 @@
 import pytest
 
 from nabla.api import homelab_health
-from nabla.api.homelab_models import HomelabService
 
+def test_truenas_internal_target_uses_explicit_lan_configuration(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("TRUENAS_LAN_HOST", "192.168.1.24")
+    monkeypatch.setenv("TRUENAS_LAN_PORT", "8443")
 
-def test_truenas_internal_target_prefers_explicit_configuration(monkeypatch) -> None:
-    services = [HomelabService(name="App", internalHost="172.17.0.24", internalPort=80)]
-    monkeypatch.setenv("TRUENAS_URL", "https://192.168.1.24:8443")
-
-    assert homelab_health._truenas_internal_target(services) == (
+    assert homelab_health._truenas_internal_target() == (
         "192.168.1.24",
         8443,
     )
 
 
-def test_truenas_internal_target_uses_public_default(monkeypatch) -> None:
-    services = [
-        HomelabService(name="Other", internalHost="172.17.0.20", internalPort=80),
-        HomelabService(name="App", internalHost="172.17.0.24", internalPort=8080),
-    ]
-    monkeypatch.delenv("TRUENAS_URL", raising=False)
+def test_truenas_internal_target_defaults_to_lan_listener(monkeypatch) -> None:
+    monkeypatch.delenv("TRUENAS_LAN_HOST", raising=False)
+    monkeypatch.delenv("TRUENAS_LAN_PORT", raising=False)
 
-    assert homelab_health._truenas_internal_target(services) == (
-        "truenas.albandrieu.com",
+    assert homelab_health._truenas_internal_target() == (
+        "172.17.0.24",
         7000,
     )
 
@@ -72,3 +69,38 @@ def test_truenas_api_failure_remains_failure_when_https_is_down() -> None:
         )
         == "fail"
     )
+
+
+def test_appliance_can_be_healthy_while_public_ingress_is_down() -> None:
+    public = {"state": "fail"}
+    api = {"reachable": True}
+    diagnostics = {
+        "stages": [
+            {"id": "socket", "state": "ok"},
+            {"id": "tls", "state": "fail"},
+        ],
+    }
+
+    assert homelab_health.truenas_probe_health.truenas_appliance_state(
+        public,
+        None,
+        api,
+    ) == "ok"
+    assert homelab_health.truenas_probe_health.truenas_public_ingress_state(
+        public,
+        diagnostics,
+    ) == "fail"
+
+
+def test_public_ingress_conflict_is_warning_when_http_and_raw_tls_disagree() -> None:
+    diagnostics = {
+        "stages": [
+            {"id": "socket", "state": "ok"},
+            {"id": "tls", "state": "fail"},
+        ],
+    }
+
+    assert homelab_health.truenas_probe_health.truenas_public_ingress_state(
+        {"state": "ok"},
+        diagnostics,
+    ) == "warn"

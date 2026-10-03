@@ -67,7 +67,27 @@ Repeated SYN with no SYN/ACK or RST means traffic is being silently dropped or
 lost **before TLS**. Certificate settings cannot fix that state.
 
 When TCP succeeds, inspect TLS separately. Keep
-`TRUENAS_API_VERIFY_SSL=true` for the public HAProxy path. The TLS diagnostic
+`TRUENAS_API_VERIFY_SSL=true` for the public HAProxy path.
+
+The observer separates the logical TLS hostname from the socket destination:
+
+- cloud runtime: connect directly to `HOMELAB_WAN_IPV4:7000` while sending
+  SNI/hostname `truenas.albandrieu.com`; this bypasses DNS and isolates
+  pfSense/HAProxy/TLS;
+- homelab runtime: connect directly to
+  `TRUENAS_LAN_HOST:TRUENAS_LAN_PORT` (defaults
+  `172.17.0.24:7000`) with the same hostname SNI;
+- the normal HTTP/API probe keeps the configured hostname URL.
+
+Cloudflare Tunnel is not on either TrueNAS `:7000` path. Its state is
+observational evidence for other tunneled services and must not decide TrueNAS
+appliance liveness.
+
+A raw-socket TLS timeout is auxiliary evidence. If the authenticated TrueNAS API
+succeeds at the same time, the raw-socket failure is downgraded to a warning
+because cloud runtimes may route raw sockets and application HTTPS differently.
+
+The TLS diagnostic
 requires TLS 1.2+ and may expose only non-secret metadata such as version, cipher,
 certificate subject/issuer and expiry.
 
@@ -176,3 +196,21 @@ For recovery, require:
 - no recurrence of the known HTTP-Inspect-on-TLS signature;
 - healthy HAProxy→TrueNAS backend evidence;
 - no permanent allowlist created from transient cloud egress.
+
+
+## Evidence model
+
+Do not collapse the following into one health light:
+
+- **appliance/API** — TrueNAS itself and authenticated management capability;
+- **hostname HTTPS** — application request through the configured hostname;
+- **WAN raw transport** — direct `HOMELAB_WAN_IPV4:7000` TCP/TLS with SNI
+  `truenas.albandrieu.com`;
+- **pfSense control plane** — firewall/DNS/security service posture;
+- **Cloudflare** — independent for Tunnel-backed services and not part of the
+  TrueNAS :7000 path.
+
+A healthy appliance with failed WAN TLS is a valid state: report appliance green
+and WAN ingress failed/degraded. A healthy Cloudflare Tunnel must never repair
+that WAN verdict, and stopping cloudflared must never make the appliance itself
+down.

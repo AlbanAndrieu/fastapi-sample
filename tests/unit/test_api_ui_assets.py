@@ -285,3 +285,41 @@ def test_truenas_diagnostics_timeout_preserves_confirmed_https_liveness() -> Non
     assert '"diagnostics timeout · HTTPS up"' in script
     assert '"warn" : "fail"' in script
     assert "Appliance liveness remains confirmed" in script
+
+
+def test_truenas_ui_distinguishes_raw_tls_warning_from_api_health() -> None:
+    script = (_ASSET_DIR / "api-truenas.js").read_text(encoding="utf-8")
+
+    assert "WAN pfSense/HAProxy" in script
+    assert "direct LAN" in script
+    assert "diagnostics?.connect_target" in script
+    assert "auxiliary raw TLS warning" in script
+
+
+def test_truenas_exposure_policy_is_labeled_separately_from_health() -> None:
+    script = (_ASSET_DIR / "api-sickz.js").read_text(encoding="utf-8")
+
+    assert "Direct exposure policy only" in script
+    assert "separately from TrueNAS appliance health" in script
+
+
+def test_truenas_ui_separates_appliance_and_wan_ingress_verdicts() -> None:
+    script = (_ASSET_DIR / "api-truenas.js").read_text(encoding="utf-8")
+
+    assert "truenas?.appliance_state" in script
+    assert "truenas?.public_ingress_state" in script
+    assert "WAN ingress" in script
+    assert "TCP connected, but no TLS ServerHello" in script
+    assert "pfSense/HAProxy/Snort" in script
+
+
+def test_truenas_ui_explains_cloudflare_and_pfsense_path_independence() -> None:
+    truenas = (_ASSET_DIR / "api-truenas.js").read_text(encoding="utf-8")
+    pfsense = (
+        _ASSET_DIR / "api-pfsense-security-posture.js"
+    ).read_text(encoding="utf-8")
+
+    assert "Cloudflare Tunnel is not on the TrueNAS :7000" in truenas
+    assert "hostname HTTPS" in truenas
+    assert "healthy pfSense control plane does not by itself prove" in pfsense
+    assert "WAN ingress is degraded" in pfsense

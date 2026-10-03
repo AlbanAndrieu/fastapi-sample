@@ -36,6 +36,7 @@ from nabla.api.truenas_diagnostics import (
     collect_truenas_network_diagnostics,
     unmeasured_truenas_network_diagnostics,
 )
+from nabla.api.truenas_transport_diagnostics import homelab_wan_metadata
 from nabla.api.truenas_health_observer import (
     observe_truenas_health_api as _observe_truenas_api,
     truenas_http_verify_ssl,
@@ -172,12 +173,22 @@ async def _probe_truenas(
             truenas_client,
             semaphore,
             service_id="truenas",
-            name="TrueNAS HTTPS",
+            name="TrueNAS public ingress HTTPS",
             url=configured_url,
         )
 
     host, port = truenas_host_port()
     verify_ssl = truenas_http_verify_ssl()
+    path_mode = (
+        "direct_lan"
+        if homelab_runtime_detected()
+        else "public_wan_haproxy"
+    )
+    if path_mode == "direct_lan":
+        connect_host, connect_port = _truenas_internal_target()
+    else:
+        connect_host = str(homelab_wan_metadata()["ipv4"])
+        connect_port = port
     ws_path = TrueNASProviderSettings().websocket_path
     websocket_uri = TrueNASSettings(
         url=truenas_url(),
@@ -187,11 +198,12 @@ async def _probe_truenas(
     diagnostics_task = asyncio.create_task(
         collect_truenas_network_diagnostics(
             host=host,
-            port=port,
+            port=connect_port,
             websocket_uri=websocket_uri,
+            connect_host=connect_host,
             verify_ssl=verify_ssl,
             public_result=public_result,
-            path_mode=("direct_lan" if homelab_runtime_detected() else "public_wan_haproxy"),
+            path_mode=path_mode,
         ),
     )
 
@@ -207,22 +219,38 @@ async def _probe_truenas(
         await asyncio.gather(diagnostics_task, return_exceptions=True)
         diagnostics = unmeasured_truenas_network_diagnostics(
             host=host,
-            port=port,
+            port=connect_port,
             websocket_uri=websocket_uri,
             verify_ssl=verify_ssl,
-            path_mode=("direct_lan" if homelab_runtime_detected() else "public_wan_haproxy"),
+            path_mode=path_mode,
             budget_seconds=_TRUENAS_DIAGNOSTICS_BUDGET_SEC,
         )
+        diagnostics["connect_target"] = f"{connect_host}:{connect_port}"
+        diagnostics["server_name"] = host
+    public_ingress_state = truenas_probe_health.truenas_public_ingress_state(
+        public_result,
+        diagnostics,
+    )
+    appliance_state = truenas_probe_health.truenas_appliance_state(
+        public_result,
+        internal_result,
+        api_result,
+    )
     diagnostics = append_truenas_api_stages(diagnostics, api_result)
     return {
         "id": "truenas",
         "state": _truenas_state(public_result, internal_result, api_result),
+        "appliance_state": appliance_state,
+        "public_ingress_state": public_ingress_state,
         "public": public_result,
         "internal": internal_result,
         "api": api_result,
         "diagnostics": diagnostics,
         "internal_probe_enabled": internal_enabled,
         "verify_ssl": verify_ssl,
+        "path_mode": path_mode,
+        "connect_host": connect_host,
+        "connect_port": connect_port,
     }
 
 
