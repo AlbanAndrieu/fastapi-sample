@@ -174,11 +174,7 @@ def append_truenas_api_stages(
 
     if websocket is None:
         websocket_state = "ok" if reachable else "fail"
-        websocket_detail = (
-            "Authenticated /api/current connection established"
-            if reachable
-            else error or "Authenticated /api/current connection failed"
-        )
+        websocket_detail = "Authenticated /api/current connection established" if reachable else error or "Authenticated /api/current connection failed"
         stages.append(
             _stage(
                 "websocket",
