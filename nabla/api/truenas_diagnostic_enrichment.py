@@ -170,6 +170,7 @@ def append_truenas_api_stages(
     reachable = api_result.get("reachable") is True
     phase = str(api_result.get("phase") or "")
     stage = str(api_result.get("stage") or "")
+    method = str(api_result.get("method") or "").strip()
     error = str(api_result.get("error") or "").strip()
 
     if websocket is None:
@@ -279,14 +280,19 @@ def append_truenas_api_stages(
                 confirmation="accepted" if auth_accepted else "unconfirmed",
             ),
         )
+        api_label = f"TrueNAS API · {method}" if method and method not in {"connect", "auth.login_with_api_key"} else "TrueNAS API · system.version + app.query"
+        api_detail = error or "TrueNAS API call failed"
+        if method:
+            api_detail = f"{method}: {api_detail}"
         stages.append(
             _stage(
                 "api",
-                "TrueNAS API · system.version + app.query",
+                api_label,
                 "fail",
                 elapsed_ms=api_result.get("elapsed_ms"),
-                detail=error or "TrueNAS API call failed",
+                detail=api_detail,
                 failure_stage=stage or phase or "api",
+                rpc_method=method or None,
             ),
         )
 
