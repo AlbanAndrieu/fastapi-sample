@@ -180,7 +180,7 @@ async def collect_truenas_network_diagnostics(
     wan_tls_ok: bool | None = None
     if wan is not None:
         wan_ipv4 = str(wan["ipv4"])
-        if wan_ipv4 in resolved and socket_target == wan_ipv4:
+        if resolved == [wan_ipv4] and socket_target == wan_ipv4:
             wan_tls_ok = tls_ok
             stages.extend(
                 (
