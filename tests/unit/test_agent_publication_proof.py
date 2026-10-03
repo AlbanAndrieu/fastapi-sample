@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import stat
 import subprocess
 from pathlib import Path
@@ -132,8 +133,10 @@ printf '1\\n' >> "${QUALITY_TEST_COUNTER}"
     assert build_counter.read_text(encoding="utf-8").splitlines() == ["1"]
 
     (tmp_path / "README.md").write_text("dirty\n", encoding="utf-8")
+    bash = shutil.which("bash")
+    assert bash is not None
     dirty = subprocess.run(  # noqa: S603
-        ["/usr/bin/env", "bash", str(SCRIPT)],  # noqa: S607
+        [bash, str(SCRIPT)],
         cwd=tmp_path,
         env=env,
         check=False,
