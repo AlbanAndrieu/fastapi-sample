@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from nabla.api import homelab_health
+from nabla.api import homelab_health, homelab_truenas_probe
 
 @pytest.mark.asyncio
 async def test_truenas_transport_diagnostics_timeout_keeps_api_health(monkeypatch) -> None:
@@ -31,26 +31,26 @@ async def test_truenas_transport_diagnostics_timeout_keeps_api_health(monkeypatc
         await asyncio.sleep(1)
         return {"stages": []}
 
-    monkeypatch.setattr(homelab_health, "_observe_truenas_api", api_ok)
+    monkeypatch.setattr(homelab_truenas_probe, "observe_truenas_health_api", api_ok)
     monkeypatch.setattr(homelab_health, "_probe_http_endpoint", http_ok)
     monkeypatch.setattr(
-        homelab_health,
+        homelab_truenas_probe,
         "collect_truenas_network_diagnostics",
         slow_diagnostics,
     )
-    monkeypatch.setattr(homelab_health, "_TRUENAS_DIAGNOSTICS_BUDGET_SEC", 0.01)
+    monkeypatch.setattr(homelab_truenas_probe, "DIAGNOSTICS_BUDGET_SEC", 0.01)
     monkeypatch.setattr(
-        homelab_health,
+        homelab_truenas_probe,
         "truenas_url",
         lambda: "https://truenas.albandrieu.com:7000",
     )
     monkeypatch.setattr(
-        homelab_health,
+        homelab_truenas_probe,
         "truenas_host_port",
         lambda: ("truenas.albandrieu.com", 7000),
     )
-    monkeypatch.setattr(homelab_health, "truenas_http_verify_ssl", lambda: True)
-    monkeypatch.setattr(homelab_health, "homelab_runtime_detected", lambda: True)
+    monkeypatch.setattr(homelab_truenas_probe, "truenas_http_verify_ssl", lambda: True)
+    monkeypatch.setattr(homelab_truenas_probe, "homelab_runtime_detected", lambda: True)
 
     result = await homelab_health._probe_truenas(
         asyncio.Semaphore(2),
@@ -77,8 +77,8 @@ async def test_cloud_runtime_uses_wan_ip_for_raw_tls(monkeypatch) -> None:
         return {"stages": []}
 
     monkeypatch.setattr(
-        homelab_health,
-        "_observe_truenas_api",
+        homelab_truenas_probe,
+        "observe_truenas_health_api",
         AsyncMock(return_value={"reachable": True}),
     )
     monkeypatch.setattr(
@@ -93,27 +93,27 @@ async def test_cloud_runtime_uses_wan_ip_for_raw_tls(monkeypatch) -> None:
         ),
     )
     monkeypatch.setattr(
-        homelab_health,
+        homelab_truenas_probe,
         "collect_truenas_network_diagnostics",
         diagnostics,
     )
     monkeypatch.setattr(
-        homelab_health,
+        homelab_truenas_probe,
         "truenas_host_port",
         lambda: ("truenas.albandrieu.com", 7000),
     )
     monkeypatch.setattr(
-        homelab_health,
+        homelab_truenas_probe,
         "truenas_url",
         lambda: "https://truenas.albandrieu.com:7000",
     )
     monkeypatch.setattr(
-        homelab_health,
+        homelab_truenas_probe,
         "truenas_http_verify_ssl",
         lambda: True,
     )
     monkeypatch.setattr(
-        homelab_health,
+        homelab_truenas_probe,
         "homelab_runtime_detected",
         lambda: False,
     )
@@ -139,8 +139,8 @@ async def test_homelab_runtime_uses_lan_ip_for_raw_tls(monkeypatch) -> None:
         return {"stages": []}
 
     monkeypatch.setattr(
-        homelab_health,
-        "_observe_truenas_api",
+        homelab_truenas_probe,
+        "observe_truenas_health_api",
         AsyncMock(return_value={"reachable": True}),
     )
     monkeypatch.setattr(
@@ -155,33 +155,33 @@ async def test_homelab_runtime_uses_lan_ip_for_raw_tls(monkeypatch) -> None:
         ),
     )
     monkeypatch.setattr(
-        homelab_health,
+        homelab_truenas_probe,
         "collect_truenas_network_diagnostics",
         diagnostics,
     )
     monkeypatch.setattr(
-        homelab_health,
+        homelab_truenas_probe,
         "truenas_host_port",
         lambda: ("truenas.albandrieu.com", 7000),
     )
     monkeypatch.setattr(
-        homelab_health,
+        homelab_truenas_probe,
         "truenas_url",
         lambda: "https://truenas.albandrieu.com:7000",
     )
     monkeypatch.setattr(
-        homelab_health,
+        homelab_truenas_probe,
         "truenas_http_verify_ssl",
         lambda: True,
     )
     monkeypatch.setattr(
-        homelab_health,
+        homelab_truenas_probe,
         "homelab_runtime_detected",
         lambda: True,
     )
     monkeypatch.setattr(
-        homelab_health,
-        "_truenas_internal_target",
+        homelab_truenas_probe,
+        "truenas_probe_health.truenas_internal_target",
         lambda: ("172.17.0.24", 7000),
     )
 
@@ -200,8 +200,8 @@ async def test_homelab_runtime_uses_lan_ip_for_raw_tls(monkeypatch) -> None:
 @pytest.mark.asyncio
 async def test_truenas_payload_separates_appliance_and_public_ingress(monkeypatch) -> None:
     monkeypatch.setattr(
-        homelab_health,
-        "_observe_truenas_api",
+        homelab_truenas_probe,
+        "observe_truenas_health_api",
         AsyncMock(return_value={"reachable": True, "version": "TrueNAS-26"}),
     )
     monkeypatch.setattr(
@@ -217,7 +217,7 @@ async def test_truenas_payload_separates_appliance_and_public_ingress(monkeypatc
         ),
     )
     monkeypatch.setattr(
-        homelab_health,
+        homelab_truenas_probe,
         "collect_truenas_network_diagnostics",
         AsyncMock(
             return_value={
@@ -234,17 +234,17 @@ async def test_truenas_payload_separates_appliance_and_public_ingress(monkeypatc
         ),
     )
     monkeypatch.setattr(
-        homelab_health,
+        homelab_truenas_probe,
         "truenas_host_port",
         lambda: ("truenas.albandrieu.com", 7000),
     )
     monkeypatch.setattr(
-        homelab_health,
+        homelab_truenas_probe,
         "truenas_url",
         lambda: "https://truenas.albandrieu.com:7000",
     )
-    monkeypatch.setattr(homelab_health, "truenas_http_verify_ssl", lambda: True)
-    monkeypatch.setattr(homelab_health, "homelab_runtime_detected", lambda: False)
+    monkeypatch.setattr(homelab_truenas_probe, "truenas_http_verify_ssl", lambda: True)
+    monkeypatch.setattr(homelab_truenas_probe, "homelab_runtime_detected", lambda: False)
 
     result = await homelab_health._probe_truenas(
         asyncio.Semaphore(2),
@@ -293,29 +293,29 @@ async def test_truenas_http_and_transport_probes_start_in_parallel(monkeypatch) 
             ],
         }
 
-    monkeypatch.setattr(homelab_health, "_observe_truenas_api", api_ok)
+    monkeypatch.setattr(homelab_truenas_probe, "observe_truenas_health_api", api_ok)
     monkeypatch.setattr(
         homelab_health,
         "_probe_truenas_public_https",
         public_https,
     )
     monkeypatch.setattr(
-        homelab_health,
+        homelab_truenas_probe,
         "collect_truenas_network_diagnostics",
         transport,
     )
     monkeypatch.setattr(
-        homelab_health,
+        homelab_truenas_probe,
         "truenas_url",
         lambda: "https://truenas.albandrieu.com:7000",
     )
     monkeypatch.setattr(
-        homelab_health,
+        homelab_truenas_probe,
         "truenas_host_port",
         lambda: ("truenas.albandrieu.com", 7000),
     )
-    monkeypatch.setattr(homelab_health, "truenas_http_verify_ssl", lambda: True)
-    monkeypatch.setattr(homelab_health, "homelab_runtime_detected", lambda: False)
+    monkeypatch.setattr(homelab_truenas_probe, "truenas_http_verify_ssl", lambda: True)
+    monkeypatch.setattr(homelab_truenas_probe, "homelab_runtime_detected", lambda: False)
 
     task = asyncio.create_task(
         homelab_health._probe_truenas(
