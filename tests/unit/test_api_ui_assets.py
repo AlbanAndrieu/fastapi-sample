@@ -332,3 +332,10 @@ def test_sickz_fallback_does_not_infer_green_without_policy_enrichment() -> None
     assert 'return check.expected_reachable ? "yellow" : "red";' in script
     assert "Policy enrichment unavailable" in script
     assert 'if (check.reachable === false) return "green";' not in script
+
+
+def test_sickz_summary_cannot_be_green_when_policy_enrichment_is_missing() -> None:
+    script = (_ASSET_DIR / "api-sickz.js").read_text(encoding="utf-8")
+
+    assert "anyExpectedIntentWithoutPolicy" in script
+    assert "full exposure policy enrichment is unavailable" in script
