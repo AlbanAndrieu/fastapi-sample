@@ -67,6 +67,7 @@ def test_truenas_platform_surfaces_transport_failure_stage() -> None:
     assert "TLS handshake timeout" in javascript
     assert 'api?.stage === "api_call_timeout"' in javascript
     assert "API call timeout" in javascript
+    assert 'api?.method ? ` · ${api.method}` : ""' in javascript
 
 
 def test_truenas_platform_distinguishes_direct_lan_from_public_wan_path() -> None:

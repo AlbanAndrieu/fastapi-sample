@@ -1,5 +1,7 @@
 """Tests for the ordered TrueNAS diagnostic pipeline."""
 
+import asyncio
+
 import pytest
 
 from nabla.api import truenas_diagnostics
@@ -92,6 +94,46 @@ def test_api_call_failure_proves_websocket_was_established() -> None:
     assert websocket.get("failure_stage") is None
 
 
+def test_api_failure_exposes_failing_rpc_method() -> None:
+    result = append_truenas_api_stages(
+        _network_ok(),
+        {
+            "reachable": False,
+            "authenticated": True,
+            "phase": "call",
+            "stage": "api_call_timeout",
+            "method": "app.query",
+            "elapsed_ms": 3000,
+            "error": "TimeoutError",
+        },
+    )
+
+    api = result["stages"][-1]
+    assert api["label"] == "TrueNAS API · app.query"
+    assert api["rpc_method"] == "app.query"
+    assert api["failure_stage"] == "api_call_timeout"
+    assert api["detail"].startswith("app.query:")
+
+
+def test_connect_method_is_not_exposed_as_rpc_metadata() -> None:
+    result = append_truenas_api_stages(
+        _network_ok(),
+        {
+            "reachable": False,
+            "phase": "connect",
+            "stage": "connect_timeout",
+            "method": "connect",
+            "elapsed_ms": 3000,
+            "error": "TimeoutError",
+        },
+    )
+
+    api = result["stages"][-1]
+    assert api["label"] == "TrueNAS API · system.version + app.query"
+    assert "rpc_method" not in api
+    assert api["detail"] == "TimeoutError"
+
+
 def test_api_timeout_before_auth_confirmation_marks_auth_unconfirmed() -> None:
     result = append_truenas_api_stages(
         _network_ok(),
@@ -156,7 +198,11 @@ def test_api_failure_preserves_explicit_auxiliary_websocket_evidence() -> None:
 
 def test_authenticated_api_supplies_websocket_evidence_without_extra_probe() -> None:
     network = _network_ok()
-    network["stages"] = [stage for stage in network["stages"] if stage["id"] != "websocket"]
+    network["stages"] = [
+        stage
+        for stage in network["stages"]
+        if stage["id"] != "websocket"
+    ]
 
     result = append_truenas_api_stages(
         network,
@@ -282,7 +328,11 @@ def test_authenticated_api_downgrades_blocked_route_stages() -> None:
         },
     )
 
-    reconciled = {stage["id"]: stage for stage in result["stages"] if stage["id"] in {"socket", "tls", "haproxy", "https"}}
+    reconciled = {
+        stage["id"]: stage
+        for stage in result["stages"]
+        if stage["id"] in {"socket", "tls", "haproxy", "https"}
+    }
     assert all(stage["state"] == "warn" for stage in reconciled.values())
     assert all(stage["evidence_conflict"] is True for stage in reconciled.values())
 
@@ -365,3 +415,114 @@ async def test_public_diagnostics_reuse_hostname_tls_when_dns_matches_wan(
     assert wan_tls["state"] == "ok"
     assert wan_tls["evidence"] == "reused_hostname_transport"
     assert result["probe_reuse"]["anonymous_websocket"].startswith("omitted")
+
+
+
+@pytest.mark.asyncio
+async def test_dns_and_hostname_transport_start_concurrently(monkeypatch) -> None:
+    dns_started = asyncio.Event()
+    transport_started = asyncio.Event()
+    release = asyncio.Event()
+
+    async def dns_ok(_host):
+        dns_started.set()
+        await release.wait()
+        return (
+            {
+                "id": "dns",
+                "label": "DNS",
+                "state": "ok",
+                "resolved": ["82.66.4.247"],
+            },
+            True,
+        )
+
+    async def transport_ok(host, port, verify_ssl, **kwargs):
+        transport_started.set()
+        await release.wait()
+        return (
+            {"id": "socket", "label": "TCP connect", "state": "ok"},
+            {"id": "tls", "label": "TLS handshake", "state": "ok"},
+            True,
+        )
+
+    monkeypatch.setattr(truenas_diagnostics, "_dns_stage", dns_ok)
+    monkeypatch.setattr(
+        truenas_diagnostics,
+        "collect_tcp_tls_stages",
+        transport_ok,
+    )
+    monkeypatch.setattr(
+        truenas_diagnostics,
+        "homelab_wan_metadata",
+        lambda: {"ipv4": "82.66.4.247", "provider": "Free", "static": True},
+    )
+
+    task = asyncio.create_task(
+        truenas_diagnostics.collect_truenas_network_diagnostics(
+            host="truenas.albandrieu.com",
+            port=7000,
+            websocket_uri="wss://truenas.albandrieu.com:7000/api/current",
+            connect_host="82.66.4.247",
+            verify_ssl=True,
+        ),
+    )
+    await asyncio.wait_for(
+        asyncio.gather(dns_started.wait(), transport_started.wait()),
+        timeout=1.0,
+    )
+    release.set()
+    result = await task
+
+    assert result["probe_reuse"]["dns_and_hostname_transport"] == (
+        "started concurrently"
+    )
+
+
+
+@pytest.mark.asyncio
+async def test_public_diagnostics_default_direct_target_is_configured_wan(
+    monkeypatch,
+) -> None:
+    calls = []
+
+    async def dns_mismatch(_host):
+        return (
+            {
+                "id": "dns",
+                "label": "DNS",
+                "state": "ok",
+                "resolved": ["104.16.1.1"],
+            },
+            True,
+        )
+
+    async def transport_ok(host, port, verify_ssl, **kwargs):
+        calls.append(kwargs.get("connect_host"))
+        return (
+            {"id": "socket", "label": "TCP connect", "state": "ok"},
+            {"id": "tls", "label": "TLS handshake", "state": "ok"},
+            True,
+        )
+
+    monkeypatch.setattr(truenas_diagnostics, "_dns_stage", dns_mismatch)
+    monkeypatch.setattr(
+        truenas_diagnostics,
+        "collect_tcp_tls_stages",
+        transport_ok,
+    )
+    monkeypatch.setattr(
+        truenas_diagnostics,
+        "homelab_wan_metadata",
+        lambda: {"ipv4": "82.66.4.247", "provider": "Free", "static": True},
+    )
+
+    result = await truenas_diagnostics.collect_truenas_network_diagnostics(
+        host="truenas.albandrieu.com",
+        port=7000,
+        websocket_uri="wss://truenas.albandrieu.com:7000/api/current",
+        verify_ssl=True,
+    )
+
+    assert calls == [None, "82.66.4.247"]
+    assert result["connect_target"] == "82.66.4.247:7000"
