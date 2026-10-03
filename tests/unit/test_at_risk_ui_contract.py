@@ -60,3 +60,12 @@ def test_truenas_drilldown_exposes_transport_contract_and_timeout_budgets() -> N
     assert "API observer deadline" in details
     assert "TLS SNI / server name" in details
     assert "WebSocket endpoint" in details
+
+
+def test_topology_unavailable_ui_names_public_endpoint() -> None:
+    data = (ASSETS / "api-topology-data.js").read_text(encoding="utf-8")
+    ui = (ASSETS / "api-topology.js").read_text(encoding="utf-8")
+
+    assert 'endpoint: "/api/public-topology"' in data
+    assert "Topology unavailable" in ui
+    assert "topology.endpoint" in ui
