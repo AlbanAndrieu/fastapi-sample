@@ -70,6 +70,11 @@ Runbook:
   p95/p99 latency, timeouts and host saturation.
 - [ ] Attribute remaining cold-path cost in `/api/homelab/health`; keep provider
   budgets below the aggregate deadline rather than extending that deadline.
+  - [x] Run TrueNAS HTTP/API/LAN/transport evidence concurrently; keep the
+    transport diagnostic deadline at 3 s and preserve measured HTTP evidence
+    when auxiliary diagnostics time out.
+  - [x] Compare hostname TLS with direct WAN-IP+SNI on port 7000 so DNS/edge
+    drift is distinguishable from pfSense/HAProxy failure.
 - [ ] Define a fixed-cardinality production p95 latency target.
 - [ ] Prove appliance degradation cannot exhaust FastAPI workers or create probe
   bursts.
@@ -79,6 +84,8 @@ Runbook:
 - [ ] After an independent pfSense observer path is accepted, expand the
   sanitized posture with interfaces/gateways, firewall/NAT and DNS policy;
   query VPN, logs and private inventory only for explicit operational needs.
+- [x] Preserve expected exposure reachability in low-level `/sickz` rows so
+  policy-enrichment timeouts cannot turn a required positive probe green.
 - [ ] Improve TrueNAS WebSocket timeout attribution without leaking URI or
   credential context.
 

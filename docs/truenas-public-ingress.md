@@ -79,6 +79,21 @@ The observer separates the logical TLS hostname from the socket destination:
   `172.17.0.24:7000`) with the same hostname SNI;
 - the normal HTTP/API probe keeps the configured hostname URL.
 
+For the public runtime, keep both transport measurements in the drill-down:
+
+- normal hostname TLS on `truenas.albandrieu.com:7000`;
+- direct `HOMELAB_WAN_IPV4:7000` with SNI
+  `truenas.albandrieu.com`.
+
+Interpretation:
+
+- WAN+SNI OK / hostname TLS KO → investigate DNS/proxy/edge routing;
+- hostname TLS OK / WAN+SNI KO → the hostname reaches another path and direct
+  pfSense/HAProxy ingress is not confirmed;
+- both KO after TCP → inspect PF/Snort/pfBlockerNG/HAProxy TLS handling;
+- both OK → the declared WAN transport is confirmed independently from the
+  application-level HTTP/API probe.
+
 Cloudflare Tunnel is not on either TrueNAS `:7000` path. Its state is
 observational evidence for other tunneled services and must not decide TrueNAS
 appliance liveness.
@@ -155,7 +170,7 @@ A recurrence test should change one component only:
 2. record current `snort2c`, PF and security-engine state;
 3. trigger one uncached health refresh;
 4. inspect the same source immediately in `snort2c`, Snort alerts, WAN capture
-   and `pflog0`;
+  and `pflog0`;
 5. alter only the suspected engine/rule;
 6. repeat the identical probe and compare.
 

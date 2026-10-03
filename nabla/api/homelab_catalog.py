@@ -311,6 +311,22 @@ def homelab_tunnel_url_to_service_name(
     return out
 
 
+def homelab_tunnel_url_to_probe_expectation(
+    services: Sequence[HomelabService],
+) -> dict[str, dict[str, Any]]:
+    """Map HTTPS targets to low-level reachability intent for fail-closed UI fallback."""
+    out: dict[str, dict[str, Any]] = {}
+    for service in services:
+        if not service.tunnel_url or not service.tunnel_url.lower().startswith("https://"):
+            continue
+        out[_homelab_https_tunnel_key(service.tunnel_url)] = {
+            "external": service.external,
+            "tunnel_secure": service.tunnel_secure,
+            "expected_reachable": bool(service.external),
+        }
+    return out
+
+
 def _homelab_sickz_https_groups_from_services(
     services: Sequence[HomelabService],
 ) -> list[list[str]]:
@@ -333,13 +349,19 @@ def _homelab_sickz_https_groups_from_services(
     return groups
 
 
-async def homelab_sickz_catalog_for_sickz() -> tuple[list[list[str]], dict[str, str], dict[str, str]]:
-    """Return policy targets plus icon/name metadata for all catalog HTTPS URLs."""
+async def homelab_sickz_catalog_for_sickz() -> tuple[
+    list[list[str]],
+    dict[str, str],
+    dict[str, str],
+    dict[str, dict[str, Any]],
+]:
+    """Return policy targets plus stable UI and reachability-intent metadata."""
     services = await fetch_homelab_services()
     return (
         _homelab_sickz_https_groups_from_services(services),
         homelab_tunnel_url_to_resolved_icon_src(services),
         homelab_tunnel_url_to_service_name(services),
+        homelab_tunnel_url_to_probe_expectation(services),
     )
 
 

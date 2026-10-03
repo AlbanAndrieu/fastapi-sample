@@ -112,15 +112,9 @@ def _internal_network_effective(settings: APIDeploymentSettings) -> bool:
 
 def _skip_detail(settings: APIDeploymentSettings) -> str:
     if bool(settings.sickz_internal_network):
-        return (
-            "Sickz probes are disabled (SICKZ_INTERNAL_NETWORK). This instance "
-            "is treated as running on your home LAN where pfSense may be reachable."
-        )
+        return "Sickz probes are disabled (SICKZ_INTERNAL_NETWORK). This instance is treated as running on your home LAN where pfSense may be reachable."
     if (settings.sickz_network_label or "").strip().lower() == "nabla":
-        return (
-            "Sickz probes are disabled: SICKZ_NETWORK_LABEL is 'nabla', so this "
-            "instance is treated as on your home LAN."
-        )
+        return "Sickz probes are disabled: SICKZ_NETWORK_LABEL is 'nabla', so this instance is treated as on your home LAN."
     return "Sickz probes are disabled."
 
 
@@ -139,7 +133,7 @@ async def _probe_url(url: str) -> dict[str, Any]:
     try:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(5.0),
-            verify=False,  # noqa: S501 — sickz must detect hosts with invalid certs
+            verify=False,  # noqa: S501  # nosec B501
             follow_redirects=True,
         ) as client:
             response = await client.get(
@@ -162,6 +156,7 @@ async def _probe_alias_group(
     urls: list[str],
     homelab_icon_by_tunnel: dict[str, str] | None = None,
     homelab_name_by_tunnel: dict[str, str] | None = None,
+    homelab_policy_by_tunnel: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Probe one logical target; any reachable alias makes the group reachable."""
     href = row_href(urls)
@@ -173,18 +168,11 @@ async def _probe_alias_group(
         tls_coro = _async_none()
     else:
         probe_urls = list(urls)
-        tls_coro = (
-            probe_https_tls_trusted(href)
-            if href.lower().startswith("https:")
-            else _async_none()
-        )
+        tls_coro = probe_https_tls_trusted(href) if href.lower().startswith("https:") else _async_none()
 
     if pf_tcp_host:
         tcp_coro = asyncio.gather(
-            *(
-                probe_pfsense_tcp_port(pf_tcp_host, port)
-                for port in PFSENSE_EXTRA_TCP_PORTS
-            ),
+            *(probe_pfsense_tcp_port(pf_tcp_host, port) for port in PFSENSE_EXTRA_TCP_PORTS),
         )
         results, tls_trusted, tcp_reachable = await asyncio.gather(
             asyncio.gather(*(_probe_url(url) for url in probe_urls)),
@@ -208,15 +196,10 @@ async def _probe_alias_group(
         if url not in probe_urls
     }
     by_url.update(
-        {
-            url: normalize_probe_result_errors(result)
-            for url, result in zip(probe_urls, results, strict=True)
-        }
+        {url: normalize_probe_result_errors(result) for url, result in zip(probe_urls, results, strict=True)},
     )
     out: dict[str, Any] = {
-        "reachable": any(
-            result.get("reachable") is True for result in results
-        ),
+        "reachable": any(result.get("reachable") is True for result in results),
         "aliases_probed": probe_urls,
         "aliases_configured": urls,
         "alias_results": by_url,
@@ -225,6 +208,7 @@ async def _probe_alias_group(
             urls,
             homelab_icon_by_tunnel,
             homelab_name_by_tunnel,
+            homelab_policy_by_tunnel,
         ),
     }
     if tcp_reachable is not None:
@@ -239,10 +223,7 @@ async def _probe_alias_group(
         out["pfsense_tcp_port_policy"] = pfsense_tcp_port_policy_payload()
         out["pfsense_tcp_ports_protocol_validated"] = True
     for result in results:
-        if (
-            result.get("reachable") is True
-            and result.get("http_status") is not None
-        ):
+        if result.get("reachable") is True and result.get("http_status") is not None:
             out["http_status"] = result["http_status"]
             break
     return out
@@ -252,6 +233,7 @@ def _deadline_group_result(
     urls: list[str],
     homelab_icon_by_tunnel: dict[str, str] | None,
     homelab_name_by_tunnel: dict[str, str] | None,
+    homelab_policy_by_tunnel: dict[str, dict[str, Any]] | None,
 ) -> dict[str, Any]:
     """Return unknown exposure evidence when the aggregate sickz budget expires."""
     return {
@@ -273,6 +255,7 @@ def _deadline_group_result(
             urls,
             homelab_icon_by_tunnel,
             homelab_name_by_tunnel,
+            homelab_policy_by_tunnel,
         ),
     }
 
@@ -288,6 +271,7 @@ async def build_sickz_payload(request: Request) -> dict[str, Any]:
     )
     homelab_icon_by_tunnel: dict[str, str] | None = None
     homelab_name_by_tunnel: dict[str, str] | None = None
+    homelab_policy_by_tunnel: dict[str, dict[str, Any]] | None = None
     homelab_groups: list[list[str]] = []
     catalog_timed_out = False
     if _targets_equal_default_catalog_mode(settings.sickz_targets):
@@ -302,15 +286,12 @@ async def build_sickz_payload(request: Request) -> dict[str, Any]:
                 homelab_groups,
                 homelab_icon_by_tunnel,
                 homelab_name_by_tunnel,
+                homelab_policy_by_tunnel,
             ) = catalog
 
-    if known_paas_runtime_detected() and (
-        settings.sickz_internal_network
-        or _implicit_internal_network(settings)
-    ):
+    if known_paas_runtime_detected() and (settings.sickz_internal_network or _implicit_internal_network(settings)):
         _log.debug(
-            "Home LAN skip would apply but a cloud/PaaS runtime was detected; "
-            "sickz probes still run.",
+            "Home LAN skip would apply but a cloud/PaaS runtime was detected; sickz probes still run.",
         )
 
     groups = ensure_pfsense_group(
@@ -329,6 +310,7 @@ async def build_sickz_payload(request: Request) -> dict[str, Any]:
                     group,
                     homelab_icon_by_tunnel,
                     homelab_name_by_tunnel,
+                    homelab_policy_by_tunnel,
                 ),
                 **pfsense_tcp_skip_payload(group),
             }
@@ -350,10 +332,7 @@ async def build_sickz_payload(request: Request) -> dict[str, Any]:
             "status": "no_targets",
             "network_label": network_label,
             "runtime": runtime,
-            "detail": (
-                "SICKZ_TARGETS is empty; add comma- or newline-separated "
-                "URL groups to probe."
-            ),
+            "detail": ("SICKZ_TARGETS is empty; add comma- or newline-separated URL groups to probe."),
         }
 
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -365,11 +344,13 @@ async def build_sickz_payload(request: Request) -> dict[str, Any]:
                     group,
                     homelab_icon_by_tunnel,
                     homelab_name_by_tunnel,
+                    homelab_policy_by_tunnel,
                 ),
                 timeout_value=lambda group=group: _deadline_group_result(
                     group,
                     homelab_icon_by_tunnel,
                     homelab_name_by_tunnel,
+                    homelab_policy_by_tunnel,
                 ),
             )
             for group in groups

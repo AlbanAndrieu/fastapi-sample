@@ -5,6 +5,8 @@ from types import SimpleNamespace
 import pytest
 
 from nabla.api import runtime_environment as runtime_env
+from nabla.api.homelab_catalog import homelab_tunnel_url_to_probe_expectation
+from nabla.api.homelab_models import HomelabService
 from nabla.api import sickz_checks as sc
 from nabla.api import sickz_pfsense as sp
 from nabla.config_settings import _default_sickz_targets_value
@@ -30,7 +32,7 @@ def _settings(*, internal: bool = False, label: str = "") -> SimpleNamespace:
 
 def test_parse_sickz_target_groups_preserves_aliases() -> None:
     assert sc.parse_sickz_target_groups(
-        "https://one.example|https://two.example, https://three.example\n"
+        "https://one.example|https://two.example, https://three.example\n",
     ) == [
         ["https://one.example", "https://two.example"],
         ["https://three.example"],
@@ -73,7 +75,8 @@ def test_pfsense_group_is_always_present() -> None:
 def test_pfsense_group_is_not_duplicated() -> None:
     existing = sp.canonical_pfsense_alias_urls(_default_sickz_targets_value())
     groups = sp.ensure_pfsense_group(
-        [existing], default_targets=_default_sickz_targets_value()
+        [existing],
+        default_targets=_default_sickz_targets_value(),
     )
     assert groups == [existing]
 
@@ -183,3 +186,48 @@ async def test_paas_pfsense_group_uses_one_canonical_admin_probe(
     assert result["aliases_configured"] == urls
     assert result["tls_trusted"] is None
     assert result["alias_results"]["https://172.17.0.1:10443/"]["skipped"] is True
+
+
+def test_catalog_reachability_intent_marks_truenas_as_positive_external_probe() -> None:
+    service = HomelabService(
+        name="TrueNAS",
+        tunnel_url="https://truenas.albandrieu.com:7000",
+        external=True,
+        tunnel_secure=False,
+    )
+
+    metadata = homelab_tunnel_url_to_probe_expectation([service])
+
+    assert metadata["https://truenas.albandrieu.com:7000/"] == {
+        "external": True,
+        "tunnel_secure": False,
+        "expected_reachable": True,
+    }
+
+
+@pytest.mark.asyncio
+async def test_probe_alias_group_preserves_expected_reachability(monkeypatch) -> None:
+    async def unreachable(_url: str) -> dict[str, object]:
+        return {"reachable": False, "error": "timeout"}
+
+    async def no_tls(_url: str) -> None:
+        return None
+
+    monkeypatch.setattr(sc, "_probe_url", unreachable)
+    monkeypatch.setattr(sc, "probe_https_tls_trusted", no_tls)
+    url = "https://truenas.albandrieu.com:7000/"
+
+    result = await sc._probe_alias_group(
+        [url],
+        homelab_policy_by_tunnel={
+            url: {
+                "external": True,
+                "tunnel_secure": False,
+                "expected_reachable": True,
+            },
+        },
+    )
+
+    assert result["reachable"] is False
+    assert result["expected_reachable"] is True
+    assert result["external"] is True

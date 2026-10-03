@@ -11,7 +11,7 @@ from contextlib import suppress
 from datetime import datetime, timezone
 from typing import Any
 
-_DIAGNOSTIC_TIMEOUT_SEC = 5.0
+_DIAGNOSTIC_TIMEOUT_SEC = 2.5
 _DEFAULT_HOMELAB_WAN_IPV4 = "82.66.4.247"
 _DEFAULT_HOMELAB_WAN_PROVIDER = "Free"
 
@@ -75,7 +75,7 @@ def _certificate_metadata(
             "certificate_issuer_cn": _common_name(certificate.get("issuer")),
             "certificate_not_after": not_after,
             "certificate_days_remaining": days_remaining,
-        }
+        },
     )
     return {key: value for key, value in metadata.items() if value is not None}
 
@@ -97,17 +97,20 @@ def _tcp_tls_probe(
     port: int,
     verify_ssl: bool,
     *,
+    connect_host: str | None = None,
     server_name: str | None = None,
+    server_hostname: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], bool]:
-    """Measure TCP/TLS while allowing direct-IP connect with hostname SNI."""
-    tls_server_name = server_name or host
+    """Measure TCP/TLS while separating socket destination from TLS identity."""
     raw_socket: socket.socket | None = None
     tls_socket: ssl.SSLSocket | None = None
+    connect_target = (connect_host or host).strip()
+    sni_hostname = (server_hostname or server_name or host).strip()
 
     tcp_started = time.perf_counter()
     try:
         raw_socket = socket.create_connection(
-            (host, port),
+            (connect_target, port),
             timeout=_DIAGNOSTIC_TIMEOUT_SEC,
         )
     except (OSError, TimeoutError) as exc:
@@ -136,9 +139,10 @@ def _tcp_tls_probe(
         "label": "TCP connect",
         "state": "ok",
         "elapsed_ms": _elapsed_ms(tcp_started),
-        "detail": f"Connected to {host}:{port}",
-        "connect_host": host,
-        "server_name": tls_server_name,
+        "detail": f"Connected to {connect_target}:{port}",
+        "connect_host": connect_target,
+        "server_name": sni_hostname,
+        "server_hostname": sni_hostname,
     }
 
     context = ssl.create_default_context()
@@ -152,7 +156,7 @@ def _tcp_tls_probe(
     try:
         tls_socket = context.wrap_socket(
             raw_socket,
-            server_hostname=tls_server_name,
+            server_hostname=sni_hostname,
             do_handshake_on_connect=False,
         )
         raw_socket = None
@@ -169,8 +173,9 @@ def _tcp_tls_probe(
             "verify_ssl": verify_ssl,
             "tls_version": tls_socket.version(),
             "cipher": cipher_info[0] if cipher_info else None,
-            "connect_host": host,
-            "server_name": tls_server_name,
+            "connect_host": connect_target,
+            "server_name": sni_hostname,
+            "server_hostname": sni_hostname,
             **metadata,
         }
         return tcp_stage, tls_stage, True
@@ -185,9 +190,10 @@ def _tcp_tls_probe(
                 "elapsed_ms": _elapsed_ms(tls_started),
                 "detail": error,
                 "verify_ssl": verify_ssl,
+                "connect_host": connect_target,
+                "server_name": sni_hostname,
+                "server_hostname": sni_hostname,
                 "failure_stage": "tls_handshake",
-                "connect_host": host,
-                "server_name": tls_server_name,
             },
             False,
         )
@@ -203,7 +209,9 @@ async def collect_tcp_tls_stages(
     port: int,
     verify_ssl: bool,
     *,
+    connect_host: str | None = None,
     server_name: str | None = None,
+    server_hostname: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], bool]:
     """Run the blocking socket/TLS probe away from the event loop."""
     return await asyncio.to_thread(
@@ -211,5 +219,7 @@ async def collect_tcp_tls_stages(
         host,
         port,
         verify_ssl,
+        connect_host=connect_host,
         server_name=server_name,
+        server_hostname=server_hostname,
     )

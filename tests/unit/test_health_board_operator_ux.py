@@ -26,8 +26,12 @@ def test_operator_navigation_targets_existing_health_sections() -> None:
     ):
         assert f'id: "{target}"' in source
     assert 'id = "service-section-navigation"' in source
-    assert 'className = "service-filter-health-summary"' in source
-    assert 'className = "service-filter-health-chip"' in source
+    global_filter = (ASSETS / "api-global-service-filter.js").read_text(
+        encoding="utf-8",
+    )
+    assert 'getElementById("service-filter-health-summary")' in source
+    assert 'summary.className = "service-filter-health-summary"' in global_filter
+    assert 'button.className = "service-filter-health-chip"' in source
     assert "scrollIntoView" in source
     assert "prefers-reduced-motion: reduce" in source
 

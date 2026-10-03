@@ -120,13 +120,13 @@ def _cloudflare_posture_stage(
             cloudflare.get("warning") or "Cloudflare tunnel inventory could not be confirmed",
         )
         state = "warn"
-    detail += (
-        " · observational only; Cloudflare Tunnel is not on the "
-        "truenas.albandrieu.com:7000 pfSense/HAProxy or direct-LAN path"
-    )
+    if path_mode == "direct_lan":
+        detail += " · observational only; Cloudflare is not on the direct LAN data path"
+    else:
+        detail += " · observational only; cloudflared is not on the declared FastAPI Cloud → pfSense/HAProxy :7000 data path"
     return {
         "id": "cloudflare_tunnel_observation",
-        "label": "Cloudflare Tunnel observation",
+        "label": "Cloudflare Tunnel observation · not :7000 datapath",
         "state": state,
         "detail": detail,
         "evidence": "cloudflare_control_plane",

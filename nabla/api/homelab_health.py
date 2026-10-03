@@ -13,6 +13,10 @@ import httpx
 
 from nabla.api import homelab_probe_runner, truenas_probe_health
 from nabla.api.homelab_catalog import fetch_homelab_services
+from nabla.api.homelab_truenas_probe import (
+    probe_truenas,
+    probe_truenas_public_https,
+)
 from nabla.api.homelab_health_cache import copy_homelab_health_payload
 from nabla.api.homelab_models import HomelabService
 from nabla.api.homelab_probe_evidence import (
@@ -29,28 +33,10 @@ from nabla.api.homelab_probe_policy import (
     SERVICE_FANOUT_BUDGET_SEC as _SERVICE_FANOUT_BUDGET_SEC,
     select_probe_subset as _select_probe_subset,
 )
-from nabla.api.runtime_environment import homelab_runtime_detected
 from nabla.api.sickz_cloudflare_edge import _probe_http_edge_evidence
-from nabla.api.truenas_diagnostics import (
-    append_truenas_api_stages,
-    collect_truenas_network_diagnostics,
-    unmeasured_truenas_network_diagnostics,
-)
-from nabla.api.truenas_transport_diagnostics import homelab_wan_metadata
-from nabla.api.truenas_health_observer import (
-    observe_truenas_health_api as _observe_truenas_api,
-    truenas_http_verify_ssl,
-)
-from nabla.integrations.truenas_client import (
-    TrueNASSettings,
-    truenas_host_port,
-    truenas_url,
-)
-from nabla.settings.homelab import TrueNASProviderSettings
 from nabla.utils.environment import env_bool
 
 _PROBE_TIMEOUT_SEC = 5.0
-_TRUENAS_DIAGNOSTICS_BUDGET_SEC = 3.0
 _INTERNAL_PROBE_ENV = "HOMELAB_INTERNAL_PROBES_ENABLED"
 _cache_lock = asyncio.Lock()
 _cached_at = 0.0
@@ -140,118 +126,31 @@ def _truenas_internal_target(
 _truenas_state = truenas_probe_health.truenas_state
 
 
+async def _probe_truenas_public_https(
+    semaphore: asyncio.Semaphore,
+    *,
+    configured_url: str,
+    verify_ssl: bool,
+) -> dict[str, Any]:
+    return await probe_truenas_public_https(
+        semaphore,
+        configured_url=configured_url,
+        verify_ssl=verify_ssl,
+        http_probe=_probe_http_endpoint,
+    )
+
+
 async def _probe_truenas(
     semaphore: asyncio.Semaphore,
     *,
     internal_enabled: bool,
 ) -> dict[str, Any]:
-    """Probe TrueNAS with its own TLS policy while overlapping independent stages."""
-    configured_url = truenas_url().rstrip("/") + "/"
-    timeout = httpx.Timeout(_PROBE_TIMEOUT_SEC)
-    api_task = asyncio.create_task(_observe_truenas_api())
-    internal_task: asyncio.Task[dict[str, Any]] | None = None
-    if internal_enabled:
-        host, port = _truenas_internal_target()
-        internal_task = asyncio.create_task(
-            _probe_internal_service(
-                semaphore,
-                HomelabService(
-                    name="TrueNAS TCP",
-                    internalHost=host,
-                    internalPort=port,
-                    external=False,
-                ),
-            ),
-        )
-
-    async with httpx.AsyncClient(
-        timeout=timeout,
-        follow_redirects=False,
-        verify=truenas_http_verify_ssl(),
-    ) as truenas_client:
-        public_result = await _probe_http_endpoint(
-            truenas_client,
-            semaphore,
-            service_id="truenas",
-            name="TrueNAS public ingress HTTPS",
-            url=configured_url,
-        )
-
-    host, port = truenas_host_port()
-    verify_ssl = truenas_http_verify_ssl()
-    path_mode = (
-        "direct_lan"
-        if homelab_runtime_detected()
-        else "public_wan_haproxy"
+    return await probe_truenas(
+        semaphore,
+        internal_enabled=internal_enabled,
+        http_probe=_probe_http_endpoint,
+        internal_probe=_probe_internal_service,
     )
-    if path_mode == "direct_lan":
-        connect_host, connect_port = _truenas_internal_target()
-    else:
-        connect_host = str(homelab_wan_metadata()["ipv4"])
-        connect_port = port
-    ws_path = TrueNASProviderSettings().websocket_path
-    websocket_uri = TrueNASSettings(
-        url=truenas_url(),
-        verify_ssl=verify_ssl,
-        websocket_path=ws_path,
-    ).websocket_uri
-    diagnostics_task = asyncio.create_task(
-        collect_truenas_network_diagnostics(
-            host=host,
-            port=connect_port,
-            websocket_uri=websocket_uri,
-            connect_host=connect_host,
-            verify_ssl=verify_ssl,
-            public_result=public_result,
-            path_mode=path_mode,
-        ),
-    )
-
-    api_result = await api_task
-    internal_result = await internal_task if internal_task is not None else None
-    try:
-        diagnostics = await asyncio.wait_for(
-            diagnostics_task,
-            timeout=_TRUENAS_DIAGNOSTICS_BUDGET_SEC,
-        )
-    except TimeoutError:
-        diagnostics_task.cancel()
-        await asyncio.gather(diagnostics_task, return_exceptions=True)
-        diagnostics = unmeasured_truenas_network_diagnostics(
-            host=host,
-            port=connect_port,
-            websocket_uri=websocket_uri,
-            verify_ssl=verify_ssl,
-            path_mode=path_mode,
-            budget_seconds=_TRUENAS_DIAGNOSTICS_BUDGET_SEC,
-        )
-        diagnostics["connect_target"] = f"{connect_host}:{connect_port}"
-        diagnostics["server_name"] = host
-    public_ingress_state = truenas_probe_health.truenas_public_ingress_state(
-        public_result,
-        diagnostics,
-    )
-    appliance_state = truenas_probe_health.truenas_appliance_state(
-        public_result,
-        internal_result,
-        api_result,
-    )
-    diagnostics = append_truenas_api_stages(diagnostics, api_result)
-    return {
-        "id": "truenas",
-        "state": _truenas_state(public_result, internal_result, api_result),
-        "appliance_state": appliance_state,
-        "public_ingress_state": public_ingress_state,
-        "public": public_result,
-        "internal": internal_result,
-        "api": api_result,
-        "diagnostics": diagnostics,
-        "internal_probe_enabled": internal_enabled,
-        "verify_ssl": verify_ssl,
-        "path_mode": path_mode,
-        "connect_host": connect_host,
-        "connect_port": connect_port,
-    }
 
 
 def _copy_payload(

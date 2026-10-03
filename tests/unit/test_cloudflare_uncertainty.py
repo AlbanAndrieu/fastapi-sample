@@ -12,6 +12,7 @@ from nabla.api import (
     homelab_catalog,
     platform_health,
 )
+from nabla.api.homelab_health_evidence import _cloudflare_posture_stage
 from nabla.api.cloudflare_tunnels import (
     CloudflareAccessApplicationObservation,
     CloudflareAccessPolicyObservation,
@@ -262,3 +263,14 @@ async def test_legacy_healthz_homelab_rows_only_probe_primary_truenas(monkeypatc
             None,
         ),
     ]
+
+
+def test_truenas_cloudflare_stage_is_explicitly_out_of_band_for_public_wan() -> None:
+    stage = _cloudflare_posture_stage(
+        {"configured": True, "status_confirmed": True, "tunnels_observed": 1},
+        path_mode="public_wan_haproxy",
+    )
+
+    assert stage["state"] == "ok"
+    assert "not :7000 datapath" in stage["label"]
+    assert "cloudflared is not on" in stage["detail"]

@@ -2,7 +2,7 @@
 
 import pytest
 
-from nabla.api import homelab_health
+from nabla.api import truenas_health_observer
 
 
 def _set_username(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -19,7 +19,7 @@ async def test_missing_canonical_api_key_is_explicit_authentication_failure(monk
     monkeypatch.setenv("TRUENAS_MCP_API_KEY", "unused-mcp-placeholder")
     monkeypatch.setenv("TRUENAS_INFRA_API_KEY", "unused-infra-placeholder")
 
-    result = await homelab_health._observe_truenas_api()
+    result = await truenas_health_observer.observe_truenas_health_api()
 
     assert result["reachable"] is False
     assert result["phase"] == "authentication"
@@ -36,7 +36,7 @@ async def test_infrastructure_pair_does_not_configure_fastapi_observer(monkeypat
     monkeypatch.setenv("TRUENAS_INFRA_API_USERNAME", "albandrieu")
     monkeypatch.setenv("TRUENAS_INFRA_API_KEY", "8-" + ("B" * 64))
 
-    result = await homelab_health._observe_truenas_api()
+    result = await truenas_health_observer.observe_truenas_health_api()
 
     assert result["reachable"] is False
     assert result["phase"] == "authentication"
@@ -50,7 +50,7 @@ async def test_variable_name_in_api_key_is_rejected_without_echoing_value(monkey
     _set_username(monkeypatch)
     monkeypatch.setenv("TRUENAS_API_KEY", "PFSENSE_API_KEY")
 
-    result = await homelab_health._observe_truenas_api()
+    result = await truenas_health_observer.observe_truenas_health_api()
 
     assert result["reachable"] is False
     assert result["phase"] == "authentication"
@@ -65,7 +65,7 @@ async def test_malformed_raw_api_key_is_rejected_before_official_client(monkeypa
     _set_username(monkeypatch)
     monkeypatch.setenv("TRUENAS_API_KEY", "not-a-truenas-key")
 
-    result = await homelab_health._observe_truenas_api()
+    result = await truenas_health_observer.observe_truenas_health_api()
 
     assert result["stage"] == "invalid_api_key_format"
     assert result["reachable"] is False
@@ -73,8 +73,6 @@ async def test_malformed_raw_api_key_is_rejected_before_official_client(monkeypa
 
 
 def test_canonical_api_key_accepts_truenas_26_raw_key_format(monkeypatch) -> None:
-    from nabla.api import truenas_health_observer
-
     monkeypatch.setenv("TRUENAS_API_USERNAME", "fastapi_observer")
     monkeypatch.delenv("TRUENAS_USERNAME", raising=False)
     monkeypatch.delenv("TRUENAS_USER", raising=False)
@@ -84,13 +82,10 @@ def test_canonical_api_key_accepts_truenas_26_raw_key_format(monkeypatch) -> Non
 
 
 def test_failure_kind_classifies_truenas_ui_allowlist_denial() -> None:
-    from nabla.api import truenas_health_observer
-
     phase, stage = truenas_health_observer._failure_kind(
         RuntimeError(
-            "WebSocket connection closed with code=1008, "
-            "reason='You are not allowed to access this resource'"
-        )
+            "WebSocket connection closed with code=1008, reason='You are not allowed to access this resource'",
+        ),
     )
 
     assert phase == "connect"

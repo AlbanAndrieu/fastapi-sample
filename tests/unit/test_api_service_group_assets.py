@@ -238,7 +238,8 @@ def test_sickz_keeps_one_exposure_section_without_duplicate_service_groups() -> 
 
 def test_sickz_labels_truenas_as_https_exposure_not_api_health() -> None:
     source = (ASSETS / "api-sickz.js").read_text(encoding="utf-8")
+    row_state = (ASSETS / "api-sickz-row-state.js").read_text(encoding="utf-8")
 
     assert "TrueNAS HTTPS listener · exposure policy" in source
-    assert "This is not the authenticated TrueNAS API probe" in source
-    assert "Core drill-down · TrueNAS platform + API" in source
+    assert "This is not the authenticated TrueNAS API probe" in row_state
+    assert "Core drill-down · TrueNAS platform + API" in row_state

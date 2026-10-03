@@ -50,7 +50,10 @@
       "external": false,
       "internalHost": "172.17.0.24",
       "internalPort": 9002,
-      "internalSecure": false
+      "internalSecure": false,
+      "icons": [
+        "fas fa-database"
+      ]
     },
     {
       "name": "AnythingLLM",
@@ -130,7 +133,10 @@
       "internalHost": "172.17.0.24",
       "internalPort": 8443,
       "internalSecure": false,
-      "internalPath": "/healthz"
+      "internalPath": "/healthz",
+      "icons": [
+        "fas fa-code"
+      ]
     },
     {
       "name": "ConvertX",
@@ -153,7 +159,10 @@
       "external": false,
       "internalHost": "172.17.0.24",
       "internalPort": 5100,
-      "internalSecure": false
+      "internalSecure": false,
+      "icons": [
+        "fas fa-shield-halved"
+      ]
     },
     {
       "name": "DDNS Updater",
@@ -176,7 +185,10 @@
       "external": false,
       "internalHost": "172.17.0.24",
       "internalPort": 31085,
-      "internalSecure": false
+      "internalSecure": false,
+      "icons": [
+        "fas fa-bug"
+      ]
     },
     {
       "id": "dependency-track",
@@ -185,7 +197,10 @@
       "external": false,
       "internalHost": "172.17.0.24",
       "internalPort": 31084,
-      "internalSecure": false
+      "internalSecure": false,
+      "icons": [
+        "fas fa-cubes-stacked"
+      ]
     },
     {
       "id": "dockhand",
@@ -194,7 +209,10 @@
       "external": false,
       "internalHost": "172.17.0.24",
       "internalPort": 3050,
-      "internalSecure": false
+      "internalSecure": false,
+      "icons": [
+        "fab fa-docker"
+      ]
     },
     {
       "id": "docling",
@@ -204,7 +222,10 @@
       "internalHost": "172.17.0.24",
       "internalPort": 5001,
       "internalSecure": false,
-      "internalPath": "/ready"
+      "internalPath": "/ready",
+      "icons": [
+        "fas fa-file-lines"
+      ]
     },
     {
       "name": "Domain Watchdog",
@@ -227,7 +248,10 @@
       "external": false,
       "internalHost": "172.17.0.24",
       "internalPort": 8888,
-      "internalSecure": false
+      "internalSecure": false,
+      "icons": [
+        "fas fa-terminal"
+      ]
     },
     {
       "id": "drawio",
@@ -236,7 +260,10 @@
       "external": false,
       "internalHost": "172.17.0.24",
       "internalPort": 9080,
-      "internalSecure": false
+      "internalSecure": false,
+      "icons": [
+        "fas fa-diagram-project"
+      ]
     },
     {
       "name": "FreshRSS",
@@ -401,7 +428,10 @@
       "description": "Home automation control plane exposed through the dedicated IoT network.",
       "external": false,
       "endpointEnabled": false,
-      "healthNote": "Runtime-only TrueNAS service; reconcile via homeassistant."
+      "healthNote": "Runtime-only TrueNAS service; reconcile via homeassistant.",
+      "icons": [
+        "fas fa-house-signal"
+      ]
     },
     {
       "name": "IT Tools",
@@ -475,20 +505,6 @@
       "external": true
     },
     {
-      "name": "Language Tool",
-      "icons": [
-        "fas fa-screwdriver-wrench"
-      ],
-      "description": "languagetool",
-      "internalHost": "172.17.0.24",
-      "internalPort": 8010,
-      "internalSecure": true,
-      "tunnelUrl": "https://languagetool.albandrieu.com",
-      "tunnelSecure": true,
-      "iconSrc": "assets/selfh-icons/languagetool.png",
-      "external": true
-    },
-    {
       "id": "languagetool",
       "name": "LanguageTool",
       "description": "Self-hosted grammar and style checking API.",
@@ -496,7 +512,11 @@
       "internalHost": "172.17.0.24",
       "internalPort": 8010,
       "internalSecure": false,
-      "internalPath": "/v2/check?language=en-US&text=healthcheck"
+      "internalPath": "/v2/check?language=en-US&text=healthcheck",
+      "icons": [
+        "fas fa-language"
+      ],
+      "iconSrc": "assets/selfh-icons/languagetool.png"
     },
     {
       "name": "Lidarr",
@@ -631,21 +651,10 @@
       "external": false,
       "internalHost": "172.17.0.24",
       "internalPort": 31082,
-      "internalSecure": false
-    },
-    {
-      "name": "Nexus",
+      "internalSecure": false,
       "icons": [
-        "fas fa-cubes"
-      ],
-      "description": "Sonatype Nexus Repository",
-      "internalHost": "172.17.0.57",
-      "internalPort": 8081,
-      "internalSecure": true,
-      "tunnelUrl": "https://nexus.albandrieu.com",
-      "tunnelSecure": true,
-      "iconSrc": "assets/selfh-icons/sonatype-nexus-repository.png",
-      "external": true
+        "fas fa-network-wired"
+      ]
     },
     {
       "id": "nexus",
@@ -654,7 +663,13 @@
       "external": false,
       "internalHost": "172.17.0.24",
       "internalPort": 8081,
-      "internalSecure": false
+      "internalSecure": false,
+      "icons": [
+        "fas fa-cubes"
+      ],
+      "tunnelUrl": "https://nexus.albandrieu.com",
+      "tunnelSecure": true,
+      "iconSrc": "assets/selfh-icons/sonatype-nexus-repository.png"
     },
     {
       "name": "ntopng",
@@ -761,7 +776,10 @@
       "external": false,
       "internalHost": "172.17.0.24",
       "internalPort": 3010,
-      "internalSecure": false
+      "internalSecure": false,
+      "icons": [
+        "fas fa-robot"
+      ]
     },
     {
       "name": "Paperless AI",
@@ -830,7 +848,10 @@
       "internalHost": "172.17.0.24",
       "internalPort": 20720,
       "internalSecure": false,
-      "internalPath": "/admin/"
+      "internalPath": "/admin/",
+      "icons": [
+        "fas fa-shield-virus"
+      ]
     },
     {
       "name": "Plumber",
@@ -1016,7 +1037,10 @@
       "external": false,
       "internalHost": "172.17.0.24",
       "internalPort": 60072,
-      "internalSecure": false
+      "internalSecure": false,
+      "icons": [
+        "fas fa-radar"
+      ]
     },
     {
       "name": "Scrutiny",
@@ -1069,7 +1093,10 @@
       "internalHost": "172.17.0.24",
       "internalPort": 9005,
       "internalSecure": false,
-      "internalPath": "/_health/"
+      "internalPath": "/_health/",
+      "icons": [
+        "fas fa-triangle-exclamation"
+      ]
     },
     {
       "name": "Sonarr",
@@ -1205,7 +1232,10 @@
       "description": "Lab WordPress deployment backed by PostgreSQL through PG4WP.",
       "external": false,
       "endpointEnabled": false,
-      "healthNote": "Runtime-only TrueNAS service; reconcile via wordpress."
+      "healthNote": "Runtime-only TrueNAS service; reconcile via wordpress.",
+      "icons": [
+        "fab fa-wordpress"
+      ]
     }
   ]
 }

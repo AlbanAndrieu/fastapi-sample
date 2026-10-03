@@ -61,11 +61,21 @@ def _html_to_visible_text(html: str, *, max_chars: int = 14_000) -> str:
 
 
 def _fetch_public_page_text(url: str) -> str:
-    req = urllib.request.Request(  # noqa: S310 — HTTPS fixed URL from callers only
+    parsed = urlparse(url)
+    allowed_host = urlparse(PUBLIC_WEBSITE_URL).hostname
+    if parsed.scheme != "https" or parsed.hostname != allowed_host:
+        raise ValueError(
+            "Only HTTPS URLs on the configured public website are allowed",
+        )
+
+    req = urllib.request.Request(  # noqa: S310  # nosec B310
         url,
         headers={"User-Agent": f"nabla-ai-workflow/1.0 (+{url})"},
     )
-    with urllib.request.urlopen(req, timeout=20) as resp:  # noqa: S310
+    with urllib.request.urlopen(  # noqa: S310  # nosec B310
+        req,
+        timeout=20,
+    ) as resp:
         return resp.read().decode(
             resp.headers.get_content_charset() or "utf-8",
             errors="replace",

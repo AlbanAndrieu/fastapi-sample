@@ -8,7 +8,7 @@ import httpx
 import pytest
 
 from nabla.api.health_checks import _http_probe_error_kind, probe_https_get_reachable
-from nabla.api.homelab_health import truenas_http_verify_ssl
+from nabla.api.truenas_health_observer import truenas_http_verify_ssl
 from nabla.integrations.truenas_client import (
     TrueNASReadOnlyAdapter,
     TrueNASSettings,

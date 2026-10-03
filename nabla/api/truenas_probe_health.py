@@ -28,6 +28,8 @@ def truenas_state(
     public_result: dict[str, Any],
     internal_result: dict[str, Any] | None,
     api_result: dict[str, Any] | None = None,
+    *,
+    wan_tls_reachable: bool | None = None,
 ) -> HealthState:
     """Combine public, internal and API evidence into one TrueNAS health state."""
     public_state = public_result.get("state")
@@ -36,7 +38,7 @@ def truenas_state(
     # Host liveness and authenticated management capability are separate
     # signals. A failed API/WebSocket probe must not claim the appliance itself
     # is down while the HTTPS listener is still reachable.
-    if public_state == "fail" and (internal_state == "ok" or api_reachable is True):
+    if public_state == "fail" and (internal_state == "ok" or api_reachable is True or wan_tls_reachable is True):
         return "warn"
     if public_state == "fail":
         return "fail"
@@ -45,7 +47,6 @@ def truenas_state(
     if public_state == "warn":
         return "warn"
     return "ok"
-
 
 
 def truenas_appliance_state(
@@ -74,20 +75,19 @@ def truenas_public_ingress_state(
     """Rate the pfSense/HAProxy :7000 ingress without using API success."""
     public_state = str(public_result.get("state") or "").strip().lower()
     stages = diagnostics.get("stages", []) if isinstance(diagnostics, dict) else []
-    socket_stage = next((stage for stage in stages if stage.get("id") == "socket"), None)
-    tls_stage = next((stage for stage in stages if stage.get("id") == "tls"), None)
+    tls_id = "wan_tls" if any(stage.get("id") == "wan_tls" for stage in stages) else "tls"
+    tls_stage = next(
+        (stage for stage in stages if stage.get("id") == tls_id),
+        None,
+    )
+    tls_state = str(tls_stage.get("state") or "") if isinstance(tls_stage, dict) else ""
 
-    transport_states = {
-        str(stage.get("state") or "")
-        for stage in (socket_stage, tls_stage)
-        if isinstance(stage, dict)
-    }
-    if public_state == "ok" and transport_states <= {"", "ok"}:
+    if public_state == "ok" and tls_state in {"", "ok"}:
         return "ok"
-    if public_state == "fail" and (
-        "fail" in transport_states or "blocked" in transport_states
-    ):
+    if public_state == "fail" and tls_state == "ok":
+        return "warn"
+    if public_state == "fail":
         return "fail"
-    if public_state == "fail" and not transport_states:
-        return "fail"
+    if tls_state in {"fail", "blocked"}:
+        return "warn"
     return "warn"

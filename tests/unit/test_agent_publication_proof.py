@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import stat
 import subprocess
 from pathlib import Path
@@ -18,7 +19,7 @@ def _run(
     *args: str,
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
+    return subprocess.run(  # noqa: S603
         list(args),
         cwd=cwd,
         env=env,
@@ -91,7 +92,23 @@ printf '1\\n' >> "${QUALITY_TEST_COUNTER}"
     )
     (tmp_path / "uv.lock").write_text("version = 1\n", encoding="utf-8")
     (tmp_path / "server_app.py").write_text("app = object()\n", encoding="utf-8")
-    _git(tmp_path, "add", "scripts/agent-quality-gate.sh", "uv.lock", "server_app.py")
+    (scripts / "ci-scope.sh").write_text(
+        (ROOT / "scripts" / "ci-scope.sh").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    (scripts / "ci_scope.py").write_text(
+        (ROOT / "scripts" / "ci_scope.py").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    _git(
+        tmp_path,
+        "add",
+        "scripts/agent-quality-gate.sh",
+        "scripts/ci-scope.sh",
+        "scripts/ci_scope.py",
+        "uv.lock",
+        "server_app.py",
+    )
     _git(tmp_path, "commit", "-m", "head")
 
     fake_bin = tmp_path / ".git" / "fake-bin"
@@ -116,8 +133,10 @@ printf '1\\n' >> "${QUALITY_TEST_COUNTER}"
     assert build_counter.read_text(encoding="utf-8").splitlines() == ["1"]
 
     (tmp_path / "README.md").write_text("dirty\n", encoding="utf-8")
-    dirty = subprocess.run(
-        ["bash", str(SCRIPT)],
+    bash = shutil.which("bash")
+    assert bash is not None
+    dirty = subprocess.run(  # noqa: S603
+        [bash, str(SCRIPT)],
         cwd=tmp_path,
         env=env,
         check=False,

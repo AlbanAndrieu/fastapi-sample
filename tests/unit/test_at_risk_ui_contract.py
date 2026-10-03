@@ -42,8 +42,9 @@ def test_main_health_led_uses_amber_for_confirmed_posture_risk() -> None:
 
 def test_sickz_policy_failure_is_at_risk_not_a_service_outage() -> None:
     sickz = (ASSETS / "api-sickz.js").read_text(encoding="utf-8")
+    row_state = (ASSETS / "api-sickz-row-state.js").read_text(encoding="utf-8")
 
-    assert 'if (check.policy_status === "fail") return "yellow";' in sickz
+    assert 'if (check.policy_status === "fail") return "yellow";' in row_state
     assert "at least one service is At risk" in sickz
     assert "service availability is evaluated separately" in sickz
-    assert '["warn", "fail"].includes(check.policy_status)' in sickz
+    assert '["warn", "fail"].includes(check.policy_status)' in row_state

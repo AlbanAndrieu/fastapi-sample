@@ -19,6 +19,10 @@ from nabla.api.health_board_diagnostics import (
     build_sickz_snapshot as _build_sickz_snapshot,
     cloudflare_unconfirmed_check,
 )
+from nabla.api.health_board_enrichment import (
+    annotate_pfsense_ingress_policy as _annotate_pfsense_ingress_policy,
+    annotate_talos_vm_health as _annotate_talos_vm_health,
+)
 from nabla.settings.health_runtime import HealthRuntimeSettings
 
 _cloudflare_unconfirmed_check = cloudflare_unconfirmed_check
@@ -125,21 +129,59 @@ def _planned_truenas_timeout_stages(path_mode: str, error: str) -> list[dict[str
     """Preserve the expected request path even when aggregate evidence is lost."""
     detail = f"Not measured: {error}"
     route_label = "Direct LAN route" if path_mode == "direct_lan" else "HAProxy public route"
-    return [
+    stages = [
         {"id": "dns", "label": "DNS resolution", "state": "blocked", "detail": detail},
         {"id": "socket", "label": "TCP :7000", "state": "blocked", "detail": detail},
         {"id": "tls", "label": "TLS handshake", "state": "blocked", "detail": detail},
-        {"id": "route", "label": route_label, "state": "blocked", "detail": detail},
-        {"id": "https", "label": "TrueNAS HTTPS listener", "state": "blocked", "detail": detail},
-        {"id": "websocket", "label": "WebSocket /api/current", "state": "blocked", "detail": detail},
-        {"id": "authentication", "label": "API authentication", "state": "blocked", "detail": detail},
-        {
-            "id": "api",
-            "label": "TrueNAS API · system.version + app.query",
-            "state": "blocked",
-            "detail": detail,
-        },
     ]
+    if path_mode != "direct_lan":
+        stages.extend(
+            [
+                {"id": "wan_socket", "label": "WAN TCP :7000", "state": "blocked", "detail": detail},
+                {"id": "wan_tls", "label": "WAN TLS + SNI", "state": "blocked", "detail": detail},
+                {
+                    "id": "wan_path_comparison",
+                    "label": "Hostname ↔ WAN :7000",
+                    "state": "blocked",
+                    "detail": detail,
+                },
+            ],
+        )
+    stages.extend(
+        [
+            {
+                "id": "route",
+                "label": route_label,
+                "state": "blocked",
+                "detail": detail,
+            },
+            {
+                "id": "https",
+                "label": "TrueNAS HTTPS listener",
+                "state": "blocked",
+                "detail": detail,
+            },
+            {
+                "id": "websocket",
+                "label": "WebSocket /api/current",
+                "state": "blocked",
+                "detail": detail,
+            },
+            {
+                "id": "authentication",
+                "label": "API authentication",
+                "state": "blocked",
+                "detail": detail,
+            },
+            {
+                "id": "api",
+                "label": "TrueNAS API · system.version + app.query",
+                "state": "blocked",
+                "detail": detail,
+            },
+        ],
+    )
+    return stages
 
 
 async def build_homelab_snapshot(
@@ -207,65 +249,6 @@ async def build_sickz_snapshot(request: Request) -> dict[str, Any]:
         request,
         deadline_seconds=_SICKZ_POLICY_DEADLINE_SEC,
     )
-
-
-def _annotate_talos_vm_health(
-    healthz: dict[str, Any],
-    homelab: dict[str, Any],
-) -> dict[str, Any]:
-    """Expose Talos VM runtime evidence obtained through the TrueNAS observer."""
-    truenas = homelab.get("truenas")
-    api = truenas.get("api") if isinstance(truenas, dict) else None
-    talos = api.get("talos") if isinstance(api, dict) else None
-    if not isinstance(talos, dict):
-        return healthz
-
-    checks = dict(healthz.get("checks") or {})
-    checks["talos"] = {
-        **talos,
-        "id": "talos",
-        "service_id": "talos",
-        "display_label": "Talos Linux · VM runtime",
-    }
-    return {**healthz, "checks": checks}
-
-
-def _annotate_pfsense_ingress_policy(
-    healthz: dict[str, Any],
-    runtime: dict[str, Any],
-) -> dict[str, Any]:
-    """Make FastAPI Cloud connect-timeout evidence actionable without over-attribution."""
-    if runtime.get("runtime_mode") != "fastapi_cloud":
-        return healthz
-
-    checks = dict(healthz.get("checks") or {})
-    raw = checks.get("pfsense")
-    if not isinstance(raw, dict):
-        return healthz
-    pfsense = dict(raw)
-    if pfsense.get("reachable") is False and pfsense.get("error_kind") == "connect_timeout" and pfsense.get("failure_stage") == "connect":
-        active_egress = [str(value) for value in runtime.get("active_egress_ips") or [] if isinstance(value, str) and value]
-        pfsense["ingress_policy"] = {
-            "state": "possible_ingress_policy_block",
-            "access_policy": "trusted_sources_only",
-            "active_egress_ips": active_egress,
-            "possible_causes": [
-                "trusted_source_policy_drift",
-                "pf_or_snort_filter",
-            ],
-            "attribution_available": False,
-            "detail": (
-                "TCP/TLS connection did not complete before the 2s connect budget. "
-                "The direct control path crosses the same pfSense WAN PF/Snort policy it "
-                "tries to observe, so either trusted-source drift or a PF/Snort block can "
-                "produce this timeout. This is pre-HTTP evidence, not an API credential "
-                "failure."
-            ),
-            "recommended_control_path": "out_of_band",
-        }
-        checks["pfsense"] = pfsense
-        return {**healthz, "checks": checks}
-    return healthz
 
 
 async def build_health_board_snapshot(request: Request) -> dict[str, Any]:

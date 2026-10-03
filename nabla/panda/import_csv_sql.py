@@ -5,7 +5,7 @@ import urllib.request
 
 import pandas as pd
 import psycopg2
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 
 from nabla.api.demo.models import engine
 from nabla.config_settings import get_settings
@@ -16,7 +16,6 @@ from nabla.utils.logger import logger
 db_params = {
     "database": "notes",
     "user": "fastapisample",
-    "password": "password-reset-XXX",
     "host": "127.0.0.1",  # Change this to your PostgreSQL server host
     "port": "5432",  # Change this to your PostgreSQL server port
 }
@@ -61,9 +60,11 @@ def get_database_params() -> dict:
         db_params["database"] = settings.db_name
         db_params["user"] = settings.db_user
         db_params["password"] = settings.db_password
-    except AttributeError as e:
+    except AttributeError as exc:
         logger.error("Elements from the configuration settings are missing")
-        raise AttributeError(f"ENV information is missing from the settings: {e}")
+        raise AttributeError(
+            f"ENV information is missing from the settings: {exc}",
+        ) from exc
 
     # for k, v in db_params.items():
     #     print(k, v)

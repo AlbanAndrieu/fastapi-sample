@@ -8,12 +8,18 @@ import socket
 import time
 from typing import Any
 
+from nabla.api.truenas_diagnostic_enrichment import (
+    _haproxy_stage,
+    _public_path_comparison_stage,
+    _retag_wan_transport_stage,
+)
+from nabla.api import truenas_diagnostic_enrichment as _diagnostic_enrichment
 from nabla.api.truenas_transport_diagnostics import (
     collect_tcp_tls_stages,
     homelab_wan_metadata,
 )
 
-_DIAGNOSTIC_TIMEOUT_SEC = 5.0
+_DIAGNOSTIC_TIMEOUT_SEC = 2.5
 
 
 def _elapsed_ms(started: float) -> int:
@@ -75,63 +81,6 @@ async def _dns_stage(host: str) -> tuple[dict[str, Any], bool]:
     )
 
 
-def _https_stage(
-    public_result: dict[str, Any],
-    *,
-    path_mode: str,
-) -> dict[str, Any]:
-    reachable = public_result.get("reachable") is True
-    public_state = str(public_result.get("state") or "").strip().lower()
-    timed_out = public_result.get("timed_out") is True
-    error_kind = str(public_result.get("error_kind") or "").strip().lower()
-
-    if timed_out or error_kind == "deadline" or public_state == "warn":
-        state = "warn"
-    elif reachable and public_state == "ok":
-        state = "ok"
-    else:
-        state = "fail"
-
-    if reachable:
-        detail = f"HTTP {public_result.get('http_status', '?')}"
-    elif state == "warn":
-        detail = str(
-            public_result.get("error") or "HTTPS probe inconclusive; endpoint availability was not disproved",
-        )[:240]
-    else:
-        detail = str(public_result.get("error") or "HTTPS request failed")[:240]
-    return _stage(
-        "https",
-        ("TrueNAS HTTPS listener" if path_mode == "direct_lan" else "HTTPS listener via HAProxy"),
-        state,
-        elapsed_ms=public_result.get("latency_ms"),
-        detail=detail,
-        http_status=public_result.get("http_status"),
-        tls_trusted=public_result.get("tls_trusted"),
-    )
-
-
-def _haproxy_stage(tls_ok: bool) -> dict[str, Any]:
-    """Describe the declared HAProxy hop without claiming a config API probe."""
-    if not tls_ok:
-        return _stage(
-            "haproxy",
-            "HAProxy :7000",
-            "blocked",
-            detail="Blocked before the public HAProxy TLS listener could be validated",
-        )
-    return _stage(
-        "haproxy",
-        "HAProxy :7000",
-        "ok",
-        detail=("Public TLS termination · HTTP mode · native WebSocket upgrade forwarding · TLS re-encryption to TrueNAS 172.17.0.24:7000"),
-        evidence="declared_topology",
-        proxy_mode="http",
-        websocket_upgrade="native",
-        backend_tls="re-encryption",
-    )
-
-
 def _direct_lan_stage(tls_ok: bool, host: str, port: int) -> dict[str, Any]:
     """Describe the trusted-LAN route used by the TrueNAS-hosted runtime."""
     if not tls_ok:
@@ -165,6 +114,8 @@ def unmeasured_truenas_network_diagnostics(
     route_label = "Direct LAN route" if path_mode == "direct_lan" else "HAProxy :7000"
     return {
         "target": f"{host}:{port}",
+        "connect_target": f"{host}:{port}",
+        "server_name": host,
         "path_mode": path_mode,
         "wan": None if path_mode == "direct_lan" else homelab_wan_metadata(),
         "websocket_uri": websocket_uri,
@@ -175,6 +126,20 @@ def unmeasured_truenas_network_diagnostics(
             _stage("dns", "DNS resolution", "blocked", detail=detail),
             _stage("socket", "TCP :7000", "blocked", detail=detail),
             _stage("tls", "TLS handshake", "blocked", detail=detail),
+            *(
+                []
+                if path_mode == "direct_lan"
+                else [
+                    _stage("wan_socket", "WAN TCP :7000", "blocked", detail=detail),
+                    _stage("wan_tls", "WAN TLS + SNI", "blocked", detail=detail),
+                    _stage(
+                        "wan_path_comparison",
+                        "Hostname ↔ WAN :7000",
+                        "blocked",
+                        detail=detail,
+                    ),
+                ]
+            ),
             _stage(route_id, route_label, "blocked", detail=detail),
             _stage("https", "TrueNAS HTTPS listener", "blocked", detail=detail),
             _stage("websocket", "WebSocket /api/current", "blocked", detail=detail),
@@ -224,166 +189,6 @@ async def _websocket_stage(
     )
 
 
-def append_truenas_api_stages(
-    diagnostics: dict[str, Any],
-    api_result: dict[str, Any] | None,
-) -> dict[str, Any]:
-    """Append authentication and API stages without exposing credential material."""
-    out = dict(diagnostics)
-    stages = [dict(stage) for stage in diagnostics.get("stages", [])]
-    websocket = next((stage for stage in stages if stage.get("id") == "websocket"), None)
-    websocket_ok = websocket is not None and websocket.get("state") == "ok"
-    api_reachable = isinstance(api_result, dict) and api_result.get("reachable") is True
-
-    if api_reachable:
-        for stage in stages:
-            if (
-                stage.get("id")
-                in {
-                    "dns",
-                    "socket",
-                    "tls",
-                    "haproxy",
-                    "direct_lan",
-                    "https",
-                    "websocket",
-                }
-                and stage.get("state") in {"fail", "blocked"}
-            ):
-                stage["state"] = "warn"
-                stage["superseded_by"] = "authenticated_api"
-                stage["evidence_conflict"] = True
-                original = str(
-                    stage.get("detail")
-                    or "auxiliary transport probe failed"
-                )
-                stage["detail"] = (
-                    f"{original} · authenticated TrueNAS API succeeded; "
-                    "raw-socket and application egress paths may differ"
-                )
-
-    # The authenticated API probe itself proves WebSocket transport + authentication.
-    # Do not let the auxiliary credential-free WebSocket diagnostic override stronger
-    # evidence when its own bounded measurement failed or timed out.
-    if not websocket_ok and not api_reachable:
-        stages.append(
-            _stage(
-                "authentication",
-                "API authentication",
-                "blocked",
-                detail="Blocked by WebSocket failure",
-            ),
-        )
-        stages.append(
-            _stage(
-                "api",
-                "TrueNAS API · system.version + app.query",
-                "blocked",
-                detail="Blocked by authentication",
-            ),
-        )
-        out["stages"] = stages
-        return out
-
-    if not isinstance(api_result, dict):
-        stages.append(
-            _stage(
-                "authentication",
-                "API authentication",
-                "fail",
-                detail="TrueNAS API credentials are not configured",
-            ),
-        )
-        stages.append(
-            _stage(
-                "api",
-                "TrueNAS API · system.version + app.query",
-                "blocked",
-                detail="Blocked by authentication",
-            ),
-        )
-        out["stages"] = stages
-        return out
-
-    reachable = api_result.get("reachable") is True
-    phase = str(api_result.get("phase") or "")
-    stage = str(api_result.get("stage") or "")
-    error = str(api_result.get("error") or "").strip()
-
-    if reachable:
-        stages.append(
-            _stage(
-                "authentication",
-                "API authentication",
-                "ok",
-                elapsed_ms=api_result.get("authentication_elapsed_ms"),
-                detail="API key accepted",
-            ),
-        )
-        api_detail_parts = []
-        if api_result.get("version"):
-            api_detail_parts.append(str(api_result["version"]))
-        apps = api_result.get("apps")
-        if isinstance(apps, list):
-            api_detail_parts.append(f"{len(apps)} apps")
-        stages.append(
-            _stage(
-                "api",
-                "TrueNAS API · system.version + app.query",
-                "ok",
-                elapsed_ms=api_result.get("api_elapsed_ms"),
-                detail=" · ".join(api_detail_parts) or "system.version and app.query succeeded",
-            ),
-        )
-    elif phase == "authentication" or stage in {
-        "missing_api_key",
-        "missing_username",
-        "invalid_api_key_reference",
-        "invalid_api_key_format",
-        "authentication",
-    }:
-        stages.append(
-            _stage(
-                "authentication",
-                "API authentication",
-                "fail",
-                elapsed_ms=api_result.get("elapsed_ms"),
-                detail=error or "TrueNAS authentication failed",
-                failure_stage=stage or "authentication",
-            ),
-        )
-        stages.append(
-            _stage(
-                "api",
-                "TrueNAS API · system.version + app.query",
-                "blocked",
-                detail="Blocked by authentication",
-            ),
-        )
-    else:
-        stages.append(
-            _stage(
-                "authentication",
-                "API authentication",
-                "ok",
-                detail="Credentials configured; failure occurred after authentication",
-            ),
-        )
-        stages.append(
-            _stage(
-                "api",
-                "TrueNAS API · system.version + app.query",
-                "fail",
-                elapsed_ms=api_result.get("elapsed_ms"),
-                detail=error or "TrueNAS API call failed",
-                failure_stage=stage or phase or "api",
-            ),
-        )
-
-    out["stages"] = stages
-    return out
-
-
 async def collect_truenas_network_diagnostics(
     *,
     host: str,
@@ -391,69 +196,112 @@ async def collect_truenas_network_diagnostics(
     websocket_uri: str,
     connect_host: str | None = None,
     verify_ssl: bool,
-    public_result: dict[str, Any],
     path_mode: str = "public_wan_haproxy",
 ) -> dict[str, Any]:
-    """Measure the actual runtime route to the TrueNAS HTTPS/WebSocket API endpoint."""
+    """Measure hostname and direct-WAN transport paths within one bounded window."""
     stages: list[dict[str, Any]] = []
-    dns, dns_ok = await _dns_stage(host)
-    stages.append(dns)
+    wan = None if path_mode == "direct_lan" else homelab_wan_metadata()
 
     socket_target = connect_host or host
-    can_probe_socket = dns_ok or socket_target != host
-    if can_probe_socket:
-        socket_stage, tls_stage, tls_ok = await collect_tcp_tls_stages(
-            socket_target,
-            port,
-            verify_ssl,
-            server_name=host,
+    probes: list[Any] = [_dns_stage(host)]
+    if path_mode == "direct_lan":
+        probes.append(
+            collect_tcp_tls_stages(
+                host,
+                port,
+                verify_ssl,
+                connect_host=socket_target,
+                server_name=host,
+            ),
         )
-        stages.extend((socket_stage, tls_stage))
     else:
-        tls_ok = False
-        stages.append(
-            _stage(
-                "socket",
-                "TCP connect",
-                "blocked",
-                detail="Blocked by DNS failure",
+        probes.append(
+            collect_tcp_tls_stages(
+                host,
+                port,
+                verify_ssl,
+                server_name=host,
+            ),
+        )
+    probes.append(_websocket_stage(websocket_uri, verify_ssl))
+    if wan is not None:
+        probes.append(
+            collect_tcp_tls_stages(
+                host,
+                port,
+                verify_ssl,
+                connect_host=socket_target,
+                server_name=host,
+            ),
+        )
+
+    results = await asyncio.gather(*probes)
+    dns, _dns_ok = results[0]
+    socket_stage, tls_stage, tls_ok = results[1]
+    websocket, websocket_ok = results[2]
+    wan_result = results[3] if len(results) > 3 else None
+    resolved = [str(value) for value in dns.get("resolved", []) if value]
+    stages.append(dns)
+
+    stages.extend((socket_stage, tls_stage))
+
+    wan_tls_ok: bool | None = None
+    if wan_result is not None:
+        wan_socket, wan_tls, wan_tls_ok = wan_result
+        stages.extend(
+            (
+                _retag_wan_transport_stage(
+                    wan_socket,
+                    stage_id="wan_socket",
+                    label="WAN TCP :7000",
+                ),
+                _retag_wan_transport_stage(
+                    wan_tls,
+                    stage_id="wan_tls",
+                    label="WAN TLS + SNI",
+                ),
             ),
         )
         stages.append(
-            _stage(
-                "tls",
-                "TLS handshake",
-                "blocked",
-                detail="Blocked by DNS failure",
+            _public_path_comparison_stage(
+                resolved=resolved,
+                wan_ipv4=str(wan["ipv4"]),
+                hostname_tls_ok=tls_ok,
+                wan_tls_ok=wan_tls_ok,
             ),
         )
 
     if path_mode == "direct_lan":
-        stages.append(_direct_lan_stage(tls_ok, host, port))
+        stages.append(_direct_lan_stage(tls_ok, socket_target, port))
     else:
-        stages.append(_haproxy_stage(tls_ok))
-    stages.append(_https_stage(public_result, path_mode=path_mode))
+        stages.append(_haproxy_stage(wan_tls_ok is True))
 
-    if tls_ok:
-        websocket, _ = await _websocket_stage(websocket_uri, verify_ssl)
-        stages.append(websocket)
-    else:
-        stages.append(
-            _stage(
-                "websocket",
-                "WebSocket upgrade",
-                "blocked",
-                detail=("Blocked before direct TrueNAS WebSocket validation" if path_mode == "direct_lan" else "Blocked before HAProxy/WebSocket validation"),
-            ),
+    if websocket_ok and tls_stage.get("state") == "fail":
+        tls_stage["state"] = "warn"
+        tls_stage["detail"] = (
+            f"{tls_stage.get('detail', 'auxiliary TLS probe failed')} · "
+            "credential-free WebSocket connected on the same hostname; "
+            "the isolated TLS result is contradictory auxiliary evidence."
         )
+        tls_stage["contradicted_by"] = "websocket_success"
+        tls_stage["superseded_by"] = "websocket_success"
+        tls_stage["evidence_conflict"] = True
+    stages.append(websocket)
 
     return {
         "target": f"{host}:{port}",
         "connect_target": f"{socket_target}:{port}",
         "server_name": host,
         "path_mode": path_mode,
-        "wan": None if path_mode == "direct_lan" else homelab_wan_metadata(),
+        "wan": wan,
+        "wan_tls_reachable": wan_tls_ok,
         "websocket_uri": websocket_uri,
         "verify_ssl": verify_ssl,
         "stages": stages,
     }
+
+
+# Compatibility aliases retained for callers and tests that import these helpers here.
+_https_stage = _diagnostic_enrichment._https_stage
+append_truenas_api_stages = _diagnostic_enrichment.append_truenas_api_stages
+append_truenas_http_stage = _diagnostic_enrichment.append_truenas_http_stage

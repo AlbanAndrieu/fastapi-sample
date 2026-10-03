@@ -4,7 +4,9 @@ from nabla.api.truenas_diagnostics import (
     _direct_lan_stage,
     _haproxy_stage,
     _https_stage,
+    _public_path_comparison_stage,
     append_truenas_api_stages,
+    unmeasured_truenas_network_diagnostics,
 )
 
 
@@ -164,10 +166,7 @@ def test_authenticated_api_downgrades_auxiliary_raw_tls_failure() -> None:
         },
     )
 
-    tls = next(
-        stage for stage in result["stages"]
-        if stage["id"] == "tls"
-    )
+    tls = next(stage for stage in result["stages"] if stage["id"] == "tls")
     assert tls["state"] == "warn"
     assert tls["superseded_by"] == "authenticated_api"
     assert "raw-socket and application egress paths may differ" in tls["detail"]
@@ -189,13 +188,34 @@ def test_authenticated_api_downgrades_blocked_route_stages() -> None:
         },
     )
 
-    reconciled = {
-        stage["id"]: stage
-        for stage in result["stages"]
-        if stage["id"] in {"socket", "tls", "haproxy", "https"}
-    }
+    reconciled = {stage["id"]: stage for stage in result["stages"] if stage["id"] in {"socket", "tls", "haproxy", "https"}}
     assert all(stage["state"] == "warn" for stage in reconciled.values())
-    assert all(
-        stage["evidence_conflict"] is True
-        for stage in reconciled.values()
+    assert all(stage["evidence_conflict"] is True for stage in reconciled.values())
+
+
+def test_wan_path_comparison_identifies_hostname_edge_mismatch() -> None:
+    stage = _public_path_comparison_stage(
+        resolved=["104.16.1.1"],
+        wan_ipv4="82.66.4.247",
+        hostname_tls_ok=False,
+        wan_tls_ok=True,
     )
+
+    assert stage["state"] == "warn"
+    assert stage["dns_matches_wan"] is False
+    assert "DNS/proxy/edge" in stage["detail"]
+
+
+def test_unmeasured_diagnostics_use_declared_host_as_connect_target() -> None:
+    result = unmeasured_truenas_network_diagnostics(
+        host="truenas.albandrieu.com",
+        port=7000,
+        websocket_uri="wss://truenas.albandrieu.com:7000/api/current",
+        verify_ssl=True,
+        path_mode="public_wan_haproxy",
+        budget_seconds=3.0,
+    )
+
+    assert result["connect_target"] == "truenas.albandrieu.com:7000"
+    assert result["timed_out"] is True
+    assert result["error_kind"] == "deadline"

@@ -3,12 +3,13 @@ import {
   cloudflarePolicyWarningHtml,
   escapeText,
   lockHtml,
-  shortHostForDetail,
   sickzRowIcon,
   tunnelHref,
 } from "./api-health-ui.js";
 import { organizeSickzRows } from "./api-service-groups.js";
 import { renderPfsenseSection } from "./api-sickz-pfsense.js";
+import { classifySick, detailSickText } from "./api-sickz-row-state.js";
+import { sickzRowsSignature } from "./api-sickz-signature.js";
 
 let lastSickzRowsSignature = null;
 
@@ -18,105 +19,6 @@ import {
   networkPhrase,
   tcpPolicyViolation,
 } from "./api-sickz-policy.js";
-
-function classifySick(check) {
-  if (check.policy_status === "ok") return "green";
-  if (check.policy_status === "warn") return "yellow";
-  if (check.policy_status === "fail") return "yellow";
-  if (check.policy_status === "unknown") return "gray";
-  if (check.skipped === true) return "yellow";
-  if (check.reachable === true) {
-    if (isForbiddenOnlyReachable(check)) return "yellow";
-    if (hasReachableNon2xxHttp(check)) return "blue";
-    return "red";
-  }
-  if (check.reachable === false) return "green";
-  return "gray";
-}
-
-function isTrueNasExposureCheck(check) {
-  const name = String(check?.name || check?.display_label || "")
-    .trim()
-    .toLowerCase();
-  const aliases = Array.isArray(check?.aliases_probed)
-    ? check.aliases_probed
-    : [];
-  return (
-    name === "truenas" ||
-    aliases.some((url) => String(url).includes("truenas.albandrieu.com:7000"))
-  );
-}
-
-function rawDetailSickText(check) {
-  if (check.skipped === true) {
-    const intro = isTrueNasExposureCheck(check)
-      ? "HTTPS exposure check skipped on trusted LAN. This is not the authenticated TrueNAS API probe; see Core drill-down · TrueNAS platform + API."
-      : check.reason || "Not probed (LAN skip).";
-    if (check.aliases_probed?.length) {
-      return `${intro} Targets: ${check.aliases_probed.map(shortHostForDetail).join(" · ")}`;
-    }
-    return intro;
-  }
-  if (check.alias_results && check.aliases_probed) {
-    const bits = [];
-    check.aliases_probed.forEach((url) => {
-      const result = check.alias_results[url];
-      const tail = shortHostForDetail(url);
-      if (!result) return;
-      if (result.reachable === true) {
-        bits.push(
-          `${tail} → reachable${result.http_status != null ? ` (HTTP ${result.http_status})` : ""}`,
-        );
-      } else if (result.error) {
-        bits.push(`${tail} → unreachable (${result.error})`);
-      } else {
-        bits.push(`${tail} → unreachable`);
-      }
-    });
-    const line = bits.join(" · ");
-    if (isForbiddenOnlyReachable(check)) {
-      return `${line} — HTTP 403 only: host responded but access is forbidden.`;
-    }
-    return line;
-  }
-  if (check.reachable === true) {
-    const parts = ["Reachable."];
-    if (check.http_status != null) parts.push(`HTTP ${check.http_status}`);
-    return parts.join(" ");
-  }
-  if (check.reachable === false) {
-    if (check.error) return `Unreachable. ${check.error}`;
-    return "Unreachable.";
-  }
-  return "Unknown reachability state.";
-}
-
-function detailSickText(check) {
-  const raw = rawDetailSickText(check);
-  if (isTrueNasExposureCheck(check) && check.tunnel_secure === false) {
-    const policy =
-      check.policy_detail ||
-      "Direct pfSense/HAProxy exposure policy is evaluated separately from TrueNAS appliance health.";
-    return `Direct exposure policy only — ${policy} Probe evidence: ${raw}`;
-  }
-  if (
-    check.policy_status === "ok" &&
-    check.external === false &&
-    check.reachable === false
-  ) {
-    const policy =
-      check.policy_detail ||
-      "external=false and the endpoint is not reachable from the external probe.";
-    return `Policy compliant private exposure — ${policy} Evidence: ${raw}`;
-  }
-  if (!check.policy_detail) return raw;
-  const warning =
-    ["warn", "fail"].includes(check.policy_status) &&
-    !String(check.policy_detail).startsWith("⚠️")
-      ? "⚠️ "
-      : "";
-  return `${raw} — ${warning}${check.policy_detail}`;
-}
 
 function computeOverall(data) {
   const network = networkPhrase(data);
@@ -139,6 +41,7 @@ function computeOverall(data) {
   const checks = data.checks || {};
   let anyPolicyFail = false;
   let anyPolicyWarn = false;
+  let anyExpectedIntentWithoutPolicy = false;
   let anyTcpPolicyViolation = false;
   let anyOpenReach2xx = false;
   let anyOpenReachNon2xx = false;
@@ -155,6 +58,17 @@ function computeOverall(data) {
       continue;
     }
     if (check.policy_status === "ok") continue;
+    if (typeof check.expected_reachable === "boolean") {
+      anyExpectedIntentWithoutPolicy = true;
+      if (
+        check.reachable == null ||
+        check.reachable !== check.expected_reachable ||
+        check.tls_trusted === false
+      ) {
+        anyPolicyWarn = true;
+      }
+      continue;
+    }
     if (tcpPolicyViolation(check)) anyTcpPolicyViolation = true;
     if (check.reachable === true) {
       if (isForbiddenOnlyReachable(check)) anyForbiddenOnly = true;
@@ -198,6 +112,12 @@ function computeOverall(data) {
       text: `From network ${network}, at least one target responded with HTTP 403 (Forbidden) only.`,
     };
   }
+  if (anyExpectedIntentWithoutPolicy) {
+    return {
+      cls: "yellow",
+      text: `From network ${network}, low-level reachability matches declared intent but full exposure policy enrichment is unavailable.`,
+    };
+  }
   return {
     cls: "green",
     text: `From network ${network}, all listed targets satisfy the configured exposure policy.`,
@@ -239,47 +159,6 @@ function exposureTags(check) {
     );
   }
   return [external, tunnel, observed, ...access].join(" · ");
-}
-
-function sickzRowsSignature(checks) {
-  return JSON.stringify(
-    Object.keys(checks)
-      .sort()
-      .map((key) => {
-        const check = checks[key] || {};
-        const aliases = Object.entries(check.alias_results || {})
-          .sort(([left], [right]) => left.localeCompare(right))
-          .map(([url, value]) => [
-            url,
-            value?.reachable,
-            value?.http_status,
-            value?.error_kind,
-            value?.error,
-          ]);
-        return [
-          key,
-          check.name,
-          check.display_label,
-          check.policy_status,
-          check.policy_detail,
-          check.reachable,
-          check.http_status,
-          check.skipped,
-          check.reason,
-          check.error_kind,
-          check.error,
-          check.external,
-          check.tunnel_secure,
-          check.cloudflare_tunnel_observed,
-          check.cloudflare_default_deny,
-          check.cloudflare_service_auth_attempted,
-          check.cloudflare_service_token_access_passed,
-          check.cloudflare_access_policy_count,
-          check.tls_trusted,
-          aliases,
-        ];
-      }),
-  );
 }
 
 function render(data) {

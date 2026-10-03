@@ -209,6 +209,8 @@ def test_health_assets_stay_within_refactoring_thresholds() -> None:
     ui = (_ASSET_DIR / "api-health-ui.js").read_text(encoding="utf-8")
     sickz = (_ASSET_DIR / "api-sickz.js").read_text(encoding="utf-8")
     sickz_policy = (_ASSET_DIR / "api-sickz-policy.js").read_text(encoding="utf-8")
+    sickz_row_state = (_ASSET_DIR / "api-sickz-row-state.js").read_text(encoding="utf-8")
+    sickz_signature = (_ASSET_DIR / "api-sickz-signature.js").read_text(encoding="utf-8")
     sickz_ports = (_ASSET_DIR / "api-sickz-port-labels.js").read_text(encoding="utf-8")
 
     assert len(bootstrap.splitlines()) < 60
@@ -217,6 +219,8 @@ def test_health_assets_stay_within_refactoring_thresholds() -> None:
     assert len(ui.splitlines()) < 250
     assert len(sickz.splitlines()) < 400
     assert len(sickz_policy.splitlines()) < 100
+    assert len(sickz_row_state.splitlines()) < 150
+    assert len(sickz_signature.splitlines()) < 100
     assert len(sickz_ports.splitlines()) < 150
     assert "installHealthBoardController" in bootstrap
     assert "computeOverall" not in bootstrap
@@ -270,18 +274,18 @@ def test_sickz_surfaces_default_deny_and_catalog_icons() -> None:
 def test_health_ui_does_not_render_explicit_direct_failure_as_green() -> None:
     dependency = (_ASSET_DIR / "api-health-dependency.js").read_text(encoding="utf-8")
     groups = (_ASSET_DIR / "api-service-groups.js").read_text(encoding="utf-8")
-    sickz = (_ASSET_DIR / "api-sickz.js").read_text(encoding="utf-8")
+    sickz_row_state = (_ASSET_DIR / "api-sickz-row-state.js").read_text(encoding="utf-8")
 
     assert 'check.direct_state === "fail" && check.effective_state === "ok"' in dependency
     assert 'localState === "ok" && directState === "fail"' in groups
     assert 'return row.dataset.semanticStatus === "operational";' in groups
-    assert "Policy compliant private exposure" in sickz
+    assert "Policy compliant private exposure" in sickz_row_state
 
 
 def test_truenas_diagnostics_timeout_preserves_confirmed_https_liveness() -> None:
     script = (_ASSET_DIR / "api-truenas.js").read_text(encoding="utf-8")
 
-    assert 'const httpsUp = truenas?.public?.reachable === true;' in script
+    assert "const httpsUp = truenas?.public?.reachable === true;" in script
     assert '"diagnostics timeout · HTTPS up"' in script
     assert '"warn" : "fail"' in script
     assert "Appliance liveness remains confirmed" in script
@@ -293,11 +297,11 @@ def test_truenas_ui_distinguishes_raw_tls_warning_from_api_health() -> None:
     assert "WAN pfSense/HAProxy" in script
     assert "direct LAN" in script
     assert "diagnostics?.connect_target" in script
-    assert "auxiliary raw TLS warning" in script
+    assert "raw TLS evidence conflict" in script
 
 
 def test_truenas_exposure_policy_is_labeled_separately_from_health() -> None:
-    script = (_ASSET_DIR / "api-sickz.js").read_text(encoding="utf-8")
+    script = (_ASSET_DIR / "api-sickz-row-state.js").read_text(encoding="utf-8")
 
     assert "Direct exposure policy only" in script
     assert "separately from TrueNAS appliance health" in script
@@ -315,11 +319,25 @@ def test_truenas_ui_separates_appliance_and_wan_ingress_verdicts() -> None:
 
 def test_truenas_ui_explains_cloudflare_and_pfsense_path_independence() -> None:
     truenas = (_ASSET_DIR / "api-truenas.js").read_text(encoding="utf-8")
-    pfsense = (
-        _ASSET_DIR / "api-pfsense-security-posture.js"
-    ).read_text(encoding="utf-8")
+    pfsense = (_ASSET_DIR / "api-pfsense-security-posture.js").read_text(encoding="utf-8")
 
     assert "Cloudflare Tunnel is not on the TrueNAS :7000" in truenas
     assert "hostname HTTPS" in truenas
     assert "healthy pfSense control plane does not by itself prove" in pfsense
     assert "WAN ingress is degraded" in pfsense
+
+
+def test_sickz_fallback_does_not_infer_green_without_policy_enrichment() -> None:
+    script = (_ASSET_DIR / "api-sickz-row-state.js").read_text(encoding="utf-8")
+
+    assert 'typeof check.expected_reachable === "boolean"' in script
+    assert 'return check.expected_reachable ? "yellow" : "red";' in script
+    assert "Policy enrichment unavailable" in script
+    assert 'if (check.reachable === false) return "green";' not in script
+
+
+def test_sickz_summary_cannot_be_green_when_policy_enrichment_is_missing() -> None:
+    script = (_ASSET_DIR / "api-sickz.js").read_text(encoding="utf-8")
+
+    assert "anyExpectedIntentWithoutPolicy" in script
+    assert "full exposure policy enrichment is unavailable" in script
