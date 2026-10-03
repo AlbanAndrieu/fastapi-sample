@@ -17,9 +17,13 @@ def _settings() -> PfSenseSecuritySettings:
 
 
 def _expire_current_value(key: str) -> None:
-    envelope, stored_at = external_probe_cache._l1[key]
+    """Expire both freshness clocks so the next call exercises an origin refresh."""
+    envelope, _stored_at = external_probe_cache._l1[key]
     envelope["current"]["fetched_at"] = 0.0
-    external_probe_cache._l1[key] = (envelope, stored_at)
+    external_probe_cache._l1[key] = (
+        envelope,
+        0.0,
+    )
 
 
 @pytest.mark.asyncio

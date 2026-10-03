@@ -78,6 +78,42 @@ silently dropped subsequent connections before TLS started.
 Detailed runbook:
 [TrueNAS public ingress diagnostics](truenas-public-ingress.md).
 
+## 2026-10-03 — recurrence: FastAPI Cloud egress blocked before TrueNAS :7000
+
+**Symptom**
+
+FastAPI Cloud reported a connect timeout for the public TrueNAS HTTPS probe even
+though the TrueNAS appliance and HAProxy backend were operational.
+
+**Decisive evidence**
+
+- `/api/runtime/topology` exposed the active FastAPI Cloud egress
+  `34.200.20.162`;
+- `pfctl -t snort2c -T test 34.200.20.162` returned `1/1 addresses match`;
+- WAN capture on `mvneta0.4090` showed repeated SYN packets from that exact
+  source to `82.66.4.247:7000` with no SYN/ACK;
+- `pflog0` recorded `block in on mvneta0.4090` for the same source,
+  destination and port under PF rule identifier `1000000118`;
+- HAProxy simultaneously reported `freenas_ipvANY/freenas` `UP` with
+  `L7OK 200` against `172.17.0.24:7000`.
+
+**Conclusion**
+
+The first failing layer was PF ingress before TLS/HTTP. The public timeout did
+not demonstrate a TrueNAS appliance or HAProxy-backend outage. Exact
+`snort2c` membership plus synchronized `pflog0` block evidence established
+the PF/Snort attribution for this occurrence.
+
+Do not permanently allowlist `34.200.20.162`: FastAPI Cloud egress is
+observational and can rotate. Use `/api/runtime/topology`
+`active_egress_ips` for the current source and correlate that exact address
+with `snort2c`, `pflog0` and WAN capture.
+
+**Operator safety note**
+
+`pfctl -t snort2c -T test` accepts an IP address or network, not a URL. Passing
+a URL is invalid input; do not use a service URL as the table-test operand.
+
 ## 2026-09-08 / 2026-09-10 — pfSense WebGUI/API HTTP 502
 
 **Symptom**
