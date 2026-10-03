@@ -12,9 +12,8 @@ from nabla.api.truenas_diagnostic_enrichment import (
     _haproxy_stage,
     _public_path_comparison_stage,
     _retag_wan_transport_stage,
-    append_truenas_api_stages,
-    append_truenas_http_stage,
 )
+from nabla.api import truenas_diagnostic_enrichment as _diagnostic_enrichment
 from nabla.api.truenas_transport_diagnostics import (
     collect_tcp_tls_stages,
     homelab_wan_metadata,
@@ -300,3 +299,7 @@ async def collect_truenas_network_diagnostics(
         "verify_ssl": verify_ssl,
         "stages": stages,
     }
+
+# Compatibility aliases retained for callers and tests that import these helpers here.
+append_truenas_api_stages = _diagnostic_enrichment.append_truenas_api_stages
+append_truenas_http_stage = _diagnostic_enrichment.append_truenas_http_stage
