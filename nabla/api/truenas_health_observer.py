@@ -24,7 +24,7 @@ from nabla.settings.homelab import TrueNASProviderSettings
 from nabla.utils.logger import logger
 
 _CACHE_KEY = "truenas:api"
-_TRUENAS_PROBE_DEADLINE_SEC = 4.0
+TRUENAS_PROBE_DEADLINE_SEC = 4.0
 _SENTRY_FAILURE_COOLDOWN_SEC = 900.0
 
 
@@ -172,7 +172,7 @@ async def _probe_origin() -> dict[str, Any]:
     try:
         result = await asyncio.wait_for(
             asyncio.to_thread(observe_truenas_api),
-            timeout=_TRUENAS_PROBE_DEADLINE_SEC,
+            timeout=TRUENAS_PROBE_DEADLINE_SEC,
         )
         if not isinstance(result, dict):
             raise RuntimeError("TrueNAS API probe returned no health payload")
