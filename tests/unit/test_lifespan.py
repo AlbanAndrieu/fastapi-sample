@@ -1,6 +1,7 @@
 """Deterministic lifecycle coverage without external services."""
 
 import asyncio
+import socket
 import sys
 from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock, Mock
@@ -164,3 +165,36 @@ async def test_failed_background_task_is_reported_and_does_not_break_cleanup(
         task_name="redis-event-listener",
         exception_type="ConnectionError",
     )
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        (socket.gaierror(-3, "Temporary failure in name resolution"), ("dns", "name_resolution")),
+        (ConnectionRefusedError("connection refused"), ("connect", "connection_refused")),
+        (TimeoutError("connection timeout"), ("connect", "timeout")),
+        (RuntimeError("password authentication failed"), ("authentication", "credentials")),
+    ],
+)
+def test_startup_database_failure_classification(error, expected) -> None:
+    assert lifecycle._startup_database_failure(error) == expected
+
+
+async def test_database_dns_failure_remains_startup_fatal(monkeypatch) -> None:
+    app, resources = _configure_lifecycle(monkeypatch)
+    resources["database"].connect.side_effect = socket.gaierror(
+        -3,
+        "Temporary failure in name resolution",
+    )
+    logger = Mock()
+    monkeypatch.setattr(lifecycle, "logger", logger)
+
+    with pytest.raises(socket.gaierror):
+        async with lifecycle.lifespan(app):
+            pytest.fail("critical PostgreSQL failure must prevent readiness")
+
+    logger.error.assert_called_once()
+    assert "phase=%s stage=%s" in logger.error.call_args.args[0]
+    assert logger.error.call_args.args[3:5] == ("dns", "name_resolution")
+    resources["database"].disconnect.assert_not_awaited()
+    resources["db_pool"].close.assert_called_once()
