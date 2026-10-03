@@ -113,7 +113,10 @@ jobs:
         env:
           FASTAPI_CLOUD_APP_ID: ${{ secrets.FASTAPI_CLOUD_APP_ID }}
           FASTAPI_CLOUD_TOKEN: ${{ secrets.FASTAPI_CLOUD_TOKEN }}
-        run: uv run fastapi deploy
+        run: |
+          BUILD_REVISION="$(git rev-parse HEAD)"
+          uv run fastapi cloud env set BUILD_REVISION "${BUILD_REVISION}" .
+          uv run fastapi deploy
 
       - name: Verify production release and catalog
         run: |
@@ -129,8 +132,15 @@ jobs:
             --retry-all-errors \
             --output /tmp/homelab-services.json \
             https://fastapi-sample.fastapicloud.dev/api/homelab-services
-          python - <<'PY'
+          curl --fail --show-error --silent \
+            --retry 10 \
+            --retry-delay 10 \
+            --retry-all-errors \
+            --output /tmp/runtime-version.json \
+            https://fastapi-sample.fastapicloud.dev/v2/version
+          EXPECTED_BUILD_REVISION="$(git rev-parse HEAD)" python - <<'PY'
           import json
+          import os
           from pathlib import Path
           import tomllib
 
@@ -139,6 +149,14 @@ jobs:
           actual = str(health.get("version", ""))
           if expected not in actual:
               raise SystemExit(f"deployed version {actual!r} does not contain {expected!r}")
+
+          runtime = json.loads(Path("/tmp/runtime-version.json").read_text())
+          expected_revision = os.environ["EXPECTED_BUILD_REVISION"]
+          actual_revision = runtime.get("build_revision")
+          if actual_revision != expected_revision:
+              raise SystemExit(
+                  f"deployed build revision {actual_revision!r} != {expected_revision!r}"
+              )
 
           catalog = json.loads(Path("/tmp/homelab-services.json").read_text())
           if not catalog.get("services"):

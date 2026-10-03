@@ -107,6 +107,12 @@ programme.
   independent authorities after remaining exceptions have a canonical home.
 - [ ] Pin rollback evidence and validate stable entity refs, relation endpoints,
   exposure intent and catalog revision before cutover.
+  - [x] Keep a validated packaged topology snapshot for cold-start resilience;
+    `nabla-compose` remains authoritative and stale runtime data remains preferred.
+  - [x] Align the topology consumer with canonical Talos `truenas-vm`,
+    `runtime.instances` and provider-monitoring metadata.
+  - [ ] Add an explicit catalog revision/provenance field so deployed runtime,
+    remote origin and packaged fallback can be compared without log inference.
 
 Reference:
 [business-impact-analysis.md](business-impact-analysis.md).

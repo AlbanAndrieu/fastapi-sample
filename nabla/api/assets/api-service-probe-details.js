@@ -342,6 +342,51 @@ function tunnelTone(status) {
   return ["◌", "neutral"];
 }
 
+function renderTrueNasDiagnostics(section, snapshot) {
+  const check =
+    snapshot?.homelab?.checks?.truenas ||
+    snapshot?.homelab?.services?.truenas ||
+    snapshot?.healthz?.checks?.truenas ||
+    {};
+  const diagnostics = check?.diagnostics || {};
+  const api = check?.api || {};
+  const group = providerGroup(section, "Public path contract");
+  const wan = diagnostics?.wan?.ipv4;
+  const values = [
+    ["🧭", "Path mode", diagnostics.path_mode || check.path_mode],
+    ["🔌", "Connect target", diagnostics.connect_target || (check.connect_host && check.connect_port ? `${check.connect_host}:${check.connect_port}` : null)],
+    ["🔐", "TLS SNI / server name", diagnostics.server_name],
+    ["🧾", "Diagnostic contract", diagnostics.diagnostic_contract],
+    ["⏱️", "Raw TCP/TLS timeout", diagnostics.transport_timeout_seconds != null ? `${diagnostics.transport_timeout_seconds} s` : null],
+    ["⏱️", "Diagnostics budget", diagnostics.diagnostics_budget_seconds != null ? `${diagnostics.diagnostics_budget_seconds} s` : "3 s"],
+    ["🌐", "HTTP timeout", diagnostics.http_timeout_seconds != null ? `${diagnostics.http_timeout_seconds} s` : null],
+    ["⚙️", "API observer deadline", diagnostics.api_probe_deadline_seconds != null ? `${diagnostics.api_probe_deadline_seconds} s` : null],
+    ["🌍", "Configured WAN IPv4", wan],
+    ["↔️", "WebSocket endpoint", diagnostics.websocket_uri],
+  ];
+  for (const [icon, label, value] of values) {
+    if (value != null && String(value).trim()) {
+      providerItem(group, icon, label, String(value), "neutral");
+    }
+  }
+
+  const apiGroup = providerGroup(section, "TrueNAS API / WebSocket");
+  const apiDetail = [
+    api.phase ? `phase=${api.phase}` : null,
+    api.stage ? `stage=${api.stage}` : null,
+    api.exception_type ? `exception=${api.exception_type}` : null,
+    api.elapsed_ms != null ? `${api.elapsed_ms} ms` : null,
+    api.error,
+  ].filter(Boolean).join(" · ");
+  providerItem(
+    apiGroup,
+    api.reachable === true ? "🟢" : api.reachable === false ? "⚠️" : "◌",
+    "Authenticated API",
+    apiDetail || "No authenticated API evidence",
+    api.reachable === true ? "ok" : api.reachable === false ? "warn" : "neutral",
+  );
+}
+
 function renderCloudflareDiagnostics(section, snapshot) {
   const platform = snapshot?.healthz?.checks?.cloudflare || {};
   const exposure = snapshot?.homelab?.cloudflare || {};
@@ -592,15 +637,20 @@ function renderPfSenseDiagnostics(section, snapshot) {
 function renderProviderDiagnostics(snapshot, row, body) {
   body.querySelector("[data-provider-diagnostics-section]")?.remove();
   const key = String(row.dataset.serviceKey || "");
-  if (!["cloudflare", "pfsense"].includes(key)) return;
+  if (!["cloudflare", "pfsense", "truenas"].includes(key)) return;
 
   const section = document.createElement("section");
   section.dataset.providerDiagnosticsSection = "true";
   const heading = document.createElement("h3");
   heading.textContent =
-    key === "cloudflare" ? "Cloudflare diagnostics" : "pfSense diagnostics";
+    key === "cloudflare"
+      ? "Cloudflare diagnostics"
+      : key === "truenas"
+        ? "TrueNAS transport diagnostics"
+        : "pfSense diagnostics";
   section.appendChild(heading);
   if (key === "cloudflare") renderCloudflareDiagnostics(section, snapshot);
+  else if (key === "truenas") renderTrueNasDiagnostics(section, snapshot);
   else renderPfSenseDiagnostics(section, snapshot);
   body.appendChild(section);
 }

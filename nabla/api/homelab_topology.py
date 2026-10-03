@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import asyncio
 from enum import StrEnum
+import json
 import logging
+from pathlib import Path
 import time
 from typing import Literal
 
@@ -12,6 +14,7 @@ import httpx
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 HOMELAB_TOPOLOGY_URL = "https://raw.githubusercontent.com/AlbanAndrieu/nabla-compose/master/catalog/service-topology.json"
+HOMELAB_TOPOLOGY_SNAPSHOT_PATH = Path(__file__).with_name("data") / "service-topology.json"
 _CACHE_TTL_SEC = 300.0
 _FETCH_TIMEOUT_SEC = 4.0
 _log = logging.getLogger(__name__)
@@ -60,7 +63,7 @@ class HomelabTopologyRuntime(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True)
 
-    provider: Literal["truenas-app", "logical", "external", "host"]
+    provider: Literal["truenas-app", "truenas-vm", "logical", "external", "host"]
     app_id: str | None = Field(
         default=None,
         min_length=1,
@@ -74,12 +77,15 @@ class HomelabTopologyRuntime(BaseModel):
         serialization_alias="containerService",
     )
     networks: list[str] | None = Field(default=None, min_length=1)
+    instances: list[str] | None = Field(default=None, min_length=1)
 
     @model_validator(mode="after")
     def require_unique_networks(self) -> HomelabTopologyRuntime:
         """A runtime network is an identity set, not an ordered duplicate list."""
         if self.networks is not None and len(self.networks) != len(set(self.networks)):
             raise ValueError("runtime.networks must not contain duplicates")
+        if self.instances is not None and len(self.instances) != len(set(self.instances)):
+            raise ValueError("runtime.instances must not contain duplicates")
         return self
 
 
@@ -110,7 +116,7 @@ class HomelabTopologyMonitoring(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    type: Literal["http", "port"]
+    type: Literal["http", "port", "provider"]
     target: str | None = Field(default=None, min_length=1, max_length=2048)
     url: str | None = Field(default=None, min_length=1, max_length=2048)
     host: str | None = Field(default=None, min_length=1, max_length=512)
@@ -313,6 +319,21 @@ def public_topology_payload(topology: HomelabTopology) -> dict[str, object]:
     }
 
 
+def _load_packaged_topology() -> HomelabTopology:
+    """Load the packaged canonical topology snapshot for cold-start fallback."""
+    try:
+        payload = json.loads(HOMELAB_TOPOLOGY_SNAPSHOT_PATH.read_text(encoding="utf-8"))
+        topology = HomelabTopology.model_validate(payload)
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        _log.error(
+            "Packaged homelab topology load/validation failed (%s): %s",
+            HOMELAB_TOPOLOGY_SNAPSHOT_PATH,
+            exc,
+        )
+        return HomelabTopology()
+    return topology
+
+
 class _TopologyCache:
     """Last-known-good topology plus monotonic cache timestamp."""
 
@@ -341,6 +362,11 @@ async def _refresh_homelab_topology() -> HomelabTopology:
     """Refresh the remote topology while retaining the last known good graph."""
     try:
         topology = await _fetch_homelab_topology_origin()
+        _log.info(
+            "Homelab topology origin validated nodes=%d relations=%d",
+            len(topology.nodes),
+            len(topology.relations),
+        )
     except Exception as exc:
         _log.warning(
             "Homelab topology fetch/validation failed (%s): %s",
@@ -348,7 +374,15 @@ async def _refresh_homelab_topology() -> HomelabTopology:
             exc,
         )
         async with _cache_lock:
-            return _topology_cache.topology or HomelabTopology()
+            if _topology_cache.topology is not None:
+                return _topology_cache.topology
+            packaged = _load_packaged_topology()
+            _log.warning(
+                "Homelab topology cold-start fallback selected nodes=%d relations=%d",
+                len(packaged.nodes),
+                len(packaged.relations),
+            )
+            return packaged
 
     async with _cache_lock:
         _topology_cache.topology = topology

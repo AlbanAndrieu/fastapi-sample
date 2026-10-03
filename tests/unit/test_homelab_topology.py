@@ -242,3 +242,44 @@ def test_public_topology_keeps_environment_names_without_urls() -> None:
     ]
     assert "private.example.test" not in str(public)
     assert "public.example.test" not in str(public)
+
+def test_topology_accepts_canonical_talos_vm_provider_contract() -> None:
+    payload = _topology_payload()
+    payload["nodes"].append(
+        {
+            "id": "talos",
+            "name": "Talos Linux",
+            "kind": "kubernetes-os",
+            "category": "infrastructure",
+            "runtime": {
+                "provider": "truenas-vm",
+                "instances": ["taloscp01", "taloswk01", "taloswk02"],
+            },
+            "monitoring": {
+                "type": "provider",
+                "target": "truenas:vm.query",
+                "conditions": [
+                    "taloscp01=RUNNING",
+                    "taloswk01=RUNNING",
+                    "taloswk02=RUNNING",
+                ],
+            },
+        },
+    )
+
+    topology = HomelabTopology.model_validate(payload)
+    talos = topology.nodes[-1]
+
+    assert talos.runtime is not None
+    assert talos.runtime.provider == "truenas-vm"
+    assert talos.runtime.instances == ["taloscp01", "taloswk01", "taloswk02"]
+    assert talos.monitoring is not None
+    assert talos.monitoring.type == "provider"
+
+
+def test_packaged_topology_snapshot_matches_current_consumer_contract() -> None:
+    topology = homelab_topology._load_packaged_topology()
+
+    assert len(topology.nodes) >= 100
+    assert len(topology.relations) >= 200
+    assert any(node.id == "talos" for node in topology.nodes)

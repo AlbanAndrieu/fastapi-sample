@@ -189,3 +189,31 @@ def test_confirmed_unhealthy_cloudflare_inventory_still_degrades() -> None:
     assert payload["status"] == "degraded"
     assert payload["checks"]["cloudflare"]["reachable"] is False
     assert payload["checks"]["cloudflare"]["degraded"] is True
+
+
+@pytest.mark.asyncio
+async def test_readiness_classifies_postgres_dns_failure(monkeypatch) -> None:
+    monkeypatch.setattr(
+        health_contracts,
+        "check_postgres_sql",
+        Mock(
+            return_value={
+                "reachable": False,
+                "error": "Temporary failure in name resolution",
+            },
+        ),
+    )
+
+    async def redis_ok(_client):
+        return {"reachable": True}
+
+    monkeypatch.setattr(health_contracts, "check_redis_ping", redis_ok)
+
+    payload, ready = await health_contracts.build_readiness_payload(
+        redis_client=Mock(),
+        engine=Mock(),
+        version="test",
+    )
+
+    assert ready is False
+    assert payload["checks"]["postgres"]["failure_stage"] == "dns"
