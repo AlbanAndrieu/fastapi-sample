@@ -139,7 +139,7 @@ async def _probe_url(url: str) -> dict[str, Any]:
     try:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(5.0),
-            verify=False,  # nosec B501 -- intentional reachability-only probe; TLS trust is measured separately
+            verify=False,  # noqa: S501  # nosec B501
             follow_redirects=True,
         ) as client:
             response = await client.get(
