@@ -5,7 +5,7 @@ import urllib.request
 
 import pandas as pd
 import psycopg2
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 
 from nabla.api.demo.models import engine
 from nabla.config_settings import get_settings
