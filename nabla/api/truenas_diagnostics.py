@@ -20,6 +20,7 @@ from nabla.api.truenas_transport_diagnostics import (
 )
 
 _DIAGNOSTIC_TIMEOUT_SEC = 2.5
+_DIAGNOSTIC_CONTRACT = "truenas-public-path-v2"
 
 
 def _elapsed_ms(started: float) -> int:
@@ -120,6 +121,9 @@ def unmeasured_truenas_network_diagnostics(
         "wan": None if path_mode == "direct_lan" else homelab_wan_metadata(),
         "websocket_uri": websocket_uri,
         "verify_ssl": verify_ssl,
+        "diagnostic_contract": _DIAGNOSTIC_CONTRACT,
+        "transport_timeout_seconds": _DIAGNOSTIC_TIMEOUT_SEC,
+        "diagnostics_budget_seconds": budget_seconds,
         "timed_out": True,
         "error_kind": "deadline",
         "stages": [
@@ -297,6 +301,8 @@ async def collect_truenas_network_diagnostics(
         "wan_tls_reachable": wan_tls_ok,
         "websocket_uri": websocket_uri,
         "verify_ssl": verify_ssl,
+        "diagnostic_contract": _DIAGNOSTIC_CONTRACT,
+        "transport_timeout_seconds": _DIAGNOSTIC_TIMEOUT_SEC,
         "stages": stages,
     }
 
