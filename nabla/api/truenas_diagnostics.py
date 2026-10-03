@@ -9,6 +9,9 @@ import time
 from typing import Any
 
 from nabla.api.truenas_diagnostic_enrichment import (
+    _haproxy_stage,
+    _public_path_comparison_stage,
+    _retag_wan_transport_stage,
     append_truenas_api_stages,
     append_truenas_http_stage,
 )
