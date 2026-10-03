@@ -283,4 +283,3 @@ def test_packaged_topology_snapshot_matches_current_consumer_contract() -> None:
     assert len(topology.nodes) >= 100
     assert len(topology.relations) >= 200
     assert any(node.id == "talos" for node in topology.nodes)
-
