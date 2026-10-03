@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import asyncio
 from enum import StrEnum
+import json
 import logging
+from pathlib import Path
 import time
 from typing import Literal
 
@@ -12,6 +14,7 @@ import httpx
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 HOMELAB_TOPOLOGY_URL = "https://raw.githubusercontent.com/AlbanAndrieu/nabla-compose/master/catalog/service-topology.json"
+HOMELAB_TOPOLOGY_SNAPSHOT_PATH = Path(__file__).with_name("data") / "service-topology.json"
 _CACHE_TTL_SEC = 300.0
 _FETCH_TIMEOUT_SEC = 4.0
 _log = logging.getLogger(__name__)
@@ -313,6 +316,21 @@ def public_topology_payload(topology: HomelabTopology) -> dict[str, object]:
     }
 
 
+def _load_packaged_topology() -> HomelabTopology:
+    """Load the packaged canonical topology snapshot for cold-start fallback."""
+    try:
+        payload = json.loads(HOMELAB_TOPOLOGY_SNAPSHOT_PATH.read_text(encoding="utf-8"))
+        topology = HomelabTopology.model_validate(payload)
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        _log.error(
+            "Packaged homelab topology load/validation failed (%s): %s",
+            HOMELAB_TOPOLOGY_SNAPSHOT_PATH,
+            exc,
+        )
+        return HomelabTopology()
+    return topology
+
+
 class _TopologyCache:
     """Last-known-good topology plus monotonic cache timestamp."""
 
@@ -348,7 +366,7 @@ async def _refresh_homelab_topology() -> HomelabTopology:
             exc,
         )
         async with _cache_lock:
-            return _topology_cache.topology or HomelabTopology()
+            return _topology_cache.topology or _load_packaged_topology()
 
     async with _cache_lock:
         _topology_cache.topology = topology
