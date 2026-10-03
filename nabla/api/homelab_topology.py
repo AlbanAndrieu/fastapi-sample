@@ -362,6 +362,11 @@ async def _refresh_homelab_topology() -> HomelabTopology:
     """Refresh the remote topology while retaining the last known good graph."""
     try:
         topology = await _fetch_homelab_topology_origin()
+        _log.info(
+            "Homelab topology origin validated nodes=%d relations=%d",
+            len(topology.nodes),
+            len(topology.relations),
+        )
     except Exception as exc:
         _log.warning(
             "Homelab topology fetch/validation failed (%s): %s",
@@ -369,7 +374,15 @@ async def _refresh_homelab_topology() -> HomelabTopology:
             exc,
         )
         async with _cache_lock:
-            return _topology_cache.topology or _load_packaged_topology()
+            if _topology_cache.topology is not None:
+                return _topology_cache.topology
+            packaged = _load_packaged_topology()
+            _log.warning(
+                "Homelab topology cold-start fallback selected nodes=%d relations=%d",
+                len(packaged.nodes),
+                len(packaged.relations),
+            )
+            return packaged
 
     async with _cache_lock:
         _topology_cache.topology = topology
