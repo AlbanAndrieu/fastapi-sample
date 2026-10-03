@@ -72,6 +72,69 @@ def test_missing_api_key_marks_auth_failed_and_api_blocked() -> None:
     }
 
 
+def test_api_call_failure_proves_websocket_was_established() -> None:
+    result = append_truenas_api_stages(
+        _network_ok(),
+        {
+            "reachable": False,
+            "authenticated": True,
+            "phase": "call",
+            "stage": "api_call_timeout",
+            "method": "app.query",
+            "elapsed_ms": 3000,
+            "error": "TimeoutError",
+        },
+    )
+
+    websocket = next(stage for stage in result["stages"] if stage["id"] == "websocket")
+    assert websocket["state"] == "ok"
+    assert websocket["confirmation"] == "established"
+    assert websocket.get("failure_stage") is None
+
+
+def test_api_timeout_before_auth_confirmation_marks_auth_unconfirmed() -> None:
+    result = append_truenas_api_stages(
+        _network_ok(),
+        {
+            "reachable": False,
+            "phase": "connect",
+            "stage": "timeout",
+            "elapsed_ms": 4000,
+            "error": "TimeoutError",
+        },
+    )
+
+    auth, api = result["stages"][-2:]
+    assert auth["id"] == "authentication"
+    assert auth["state"] == "warn"
+    assert auth["confirmation"] == "unconfirmed"
+    assert "not confirmed" in auth["detail"]
+    assert api["state"] == "fail"
+    assert api["failure_stage"] == "timeout"
+
+
+def test_api_failure_after_confirmed_auth_keeps_auth_green() -> None:
+    result = append_truenas_api_stages(
+        _network_ok(),
+        {
+            "reachable": False,
+            "authenticated": True,
+            "phase": "api",
+            "stage": "app_query",
+            "authentication_elapsed_ms": 120,
+            "elapsed_ms": 4000,
+            "error": "TimeoutError",
+        },
+    )
+
+    auth, api = result["stages"][-2:]
+    assert auth["state"] == "ok"
+    assert auth["confirmation"] == "accepted"
+    assert auth["elapsed_ms"] == 120
+    assert api["state"] == "fail"
+    assert api["failure_stage"] == "app_query"
+
+
 def test_api_failure_preserves_explicit_auxiliary_websocket_evidence() -> None:
     network = _network_ok()
     network["stages"][-1]["state"] = "fail"
