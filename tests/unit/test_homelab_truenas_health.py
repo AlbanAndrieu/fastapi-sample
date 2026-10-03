@@ -180,8 +180,8 @@ async def test_homelab_runtime_uses_lan_ip_for_raw_tls(monkeypatch) -> None:
         lambda: True,
     )
     monkeypatch.setattr(
-        homelab_truenas_probe,
-        "truenas_probe_health.truenas_internal_target",
+        homelab_truenas_probe.truenas_probe_health,
+        "truenas_internal_target",
         lambda: ("172.17.0.24", 7000),
     )
 
