@@ -69,13 +69,43 @@ def test_missing_api_key_marks_auth_failed_and_api_blocked() -> None:
     }
 
 
-def test_websocket_failure_blocks_authentication() -> None:
+def test_api_failure_preserves_explicit_auxiliary_websocket_evidence() -> None:
     network = _network_ok()
     network["stages"][-1]["state"] = "fail"
-    result = append_truenas_api_stages(network, {"reachable": False})
+    result = append_truenas_api_stages(
+        network,
+        {
+            "reachable": False,
+            "phase": "connect",
+            "stage": "connection_reset",
+            "error": "Connection reset by peer",
+        },
+    )
 
-    assert result["stages"][-2]["state"] == "blocked"
-    assert result["stages"][-1]["state"] == "blocked"
+    websocket = next(stage for stage in result["stages"] if stage["id"] == "websocket")
+    assert websocket["state"] == "fail"
+    assert result["stages"][-2]["state"] == "ok"
+    assert result["stages"][-1]["state"] == "fail"
+
+
+def test_authenticated_api_supplies_websocket_evidence_without_extra_probe() -> None:
+    network = _network_ok()
+    network["stages"] = [
+        stage for stage in network["stages"] if stage["id"] != "websocket"
+    ]
+
+    result = append_truenas_api_stages(
+        network,
+        {
+            "reachable": True,
+            "version": "TrueNAS-26.0.0",
+            "apps": [],
+        },
+    )
+
+    websocket = next(stage for stage in result["stages"] if stage["id"] == "websocket")
+    assert websocket["state"] == "ok"
+    assert websocket["evidence"] == "authenticated_api_probe"
 
 
 def test_authenticated_api_success_overrides_auxiliary_websocket_failure() -> None:
