@@ -5,6 +5,8 @@ from types import SimpleNamespace
 import pytest
 
 from nabla.api import runtime_environment as runtime_env
+from nabla.api.homelab_catalog import homelab_tunnel_url_to_probe_expectation
+from nabla.api.homelab_models import HomelabService
 from nabla.api import sickz_checks as sc
 from nabla.api import sickz_pfsense as sp
 from nabla.config_settings import _default_sickz_targets_value
@@ -187,9 +189,6 @@ async def test_paas_pfsense_group_uses_one_canonical_admin_probe(
 
 
 def test_catalog_reachability_intent_marks_truenas_as_positive_external_probe() -> None:
-    from nabla.api.homelab_catalog import homelab_tunnel_url_to_probe_expectation
-    from nabla.api.homelab_models import HomelabService
-
     service = HomelabService(
         name="TrueNAS",
         tunnel_url="https://truenas.albandrieu.com:7000",
