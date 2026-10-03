@@ -37,7 +37,6 @@ def test_opencode_maintainer_delegates_to_canonical_policy() -> None:
     assert len(agent.splitlines()) <= 35
 
 
-
 def test_global_agent_adapters_are_thin_and_delegate_to_agents_policy() -> None:
     adapters = (
         ROOT / "CLAUDE.md",
