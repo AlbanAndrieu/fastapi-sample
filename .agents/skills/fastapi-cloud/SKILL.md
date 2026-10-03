@@ -196,6 +196,18 @@ A public `live` response proves the current replica serves traffic. It does not 
 
 FastAPI Cloud also injects `FASTAPICLOUD_DEPLOYMENT_ID` automatically. Use it to correlate replicas and logs. This project additionally stamps the checked-out Git SHA as `BUILD_REVISION`; `/v2/version` exposes it as `build_revision` so production acceptance can prove the exact immutable revision rather than only the semantic release version.
 
+## Startup dependency diagnostics
+
+PostgreSQL is traffic-critical. A PostgreSQL startup failure must remain fatal, but logs must classify the failing stage without printing credentials:
+
+- `phase=dns stage=name_resolution`: resolver/provider problem before TCP;
+- `phase=connect stage=connection_refused|timeout`: transport path;
+- `phase=tls stage=tls_error`: encrypted connection negotiation;
+- `phase=authentication stage=credentials`: PostgreSQL authentication;
+- `stage=database_schema`: connection succeeded and schema/model initialization failed.
+
+Correlate these records with `FASTAPICLOUD_DEPLOYMENT_ID` and `BUILD_REVISION`. Do not treat optional Unleash/GitLab failures as part of this critical chain.
+
 ## Deployment workflow
 
 Production deploys are validated by `.github/workflows/deploy.yml` before the FastAPI Cloud deploy command runs. When production appears stale:
