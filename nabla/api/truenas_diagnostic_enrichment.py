@@ -139,6 +139,30 @@ def append_truenas_http_stage(
     return out
 
 
+def _failed_api_stage(
+    api_result: dict[str, Any],
+    *,
+    phase: str,
+    stage: str,
+    method: str,
+    error: str,
+) -> dict[str, Any]:
+    rpc_method = method if method and method not in {"connect", "auth.login_with_api_key"} else ""
+    api_label = f"TrueNAS API · {rpc_method}" if rpc_method else "TrueNAS API · system.version + app.query"
+    api_detail = error or "TrueNAS API call failed"
+    if rpc_method:
+        api_detail = f"{rpc_method}: {api_detail}"
+    return _stage(
+        "api",
+        api_label,
+        "fail",
+        elapsed_ms=api_result.get("elapsed_ms"),
+        detail=api_detail,
+        failure_stage=stage or phase or "api",
+        rpc_method=rpc_method or None,
+    )
+
+
 def append_truenas_api_stages(
     diagnostics: dict[str, Any],
     api_result: dict[str, Any] | None,
@@ -280,20 +304,13 @@ def append_truenas_api_stages(
                 confirmation="accepted" if auth_accepted else "unconfirmed",
             ),
         )
-        rpc_method = method if method and method not in {"connect", "auth.login_with_api_key"} else ""
-        api_label = f"TrueNAS API · {rpc_method}" if rpc_method else "TrueNAS API · system.version + app.query"
-        api_detail = error or "TrueNAS API call failed"
-        if rpc_method:
-            api_detail = f"{rpc_method}: {api_detail}"
         stages.append(
-            _stage(
-                "api",
-                api_label,
-                "fail",
-                elapsed_ms=api_result.get("elapsed_ms"),
-                detail=api_detail,
-                failure_stage=stage or phase or "api",
-                rpc_method=rpc_method or None,
+            _failed_api_stage(
+                api_result,
+                phase=phase,
+                stage=stage,
+                method=method,
+                error=error,
             ),
         )
 
