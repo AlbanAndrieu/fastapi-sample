@@ -7,12 +7,12 @@ import socket
 import time
 from typing import Any
 
+from nabla.api import truenas_diagnostic_enrichment as _diagnostic_enrichment
 from nabla.api.truenas_diagnostic_enrichment import (
     _haproxy_stage,
     _public_path_comparison_stage,
     _retag_wan_transport_stage,
 )
-from nabla.api import truenas_diagnostic_enrichment as _diagnostic_enrichment
 from nabla.api.truenas_transport_diagnostics import (
     collect_tcp_tls_stages,
     homelab_wan_metadata,
@@ -168,7 +168,9 @@ async def collect_truenas_network_diagnostics(
     """Measure the declared transport path without duplicating equivalent handshakes."""
     stages: list[dict[str, Any]] = []
     wan = None if path_mode == "direct_lan" else homelab_wan_metadata()
-    socket_target = connect_host or host
+    socket_target = connect_host or (
+        str(wan["ipv4"]) if wan is not None else host
+    )
 
     dns_task = asyncio.create_task(_dns_stage(host))
     hostname_transport_task = asyncio.create_task(

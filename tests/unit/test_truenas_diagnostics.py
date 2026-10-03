@@ -477,3 +477,52 @@ async def test_dns_and_hostname_transport_start_concurrently(monkeypatch) -> Non
     assert result["probe_reuse"]["dns_and_hostname_transport"] == (
         "started concurrently"
     )
+
+
+
+@pytest.mark.asyncio
+async def test_public_diagnostics_default_direct_target_is_configured_wan(
+    monkeypatch,
+) -> None:
+    calls = []
+
+    async def dns_mismatch(_host):
+        return (
+            {
+                "id": "dns",
+                "label": "DNS",
+                "state": "ok",
+                "resolved": ["104.16.1.1"],
+            },
+            True,
+        )
+
+    async def transport_ok(host, port, verify_ssl, **kwargs):
+        calls.append(kwargs.get("connect_host"))
+        return (
+            {"id": "socket", "label": "TCP connect", "state": "ok"},
+            {"id": "tls", "label": "TLS handshake", "state": "ok"},
+            True,
+        )
+
+    monkeypatch.setattr(truenas_diagnostics, "_dns_stage", dns_mismatch)
+    monkeypatch.setattr(
+        truenas_diagnostics,
+        "collect_tcp_tls_stages",
+        transport_ok,
+    )
+    monkeypatch.setattr(
+        truenas_diagnostics,
+        "homelab_wan_metadata",
+        lambda: {"ipv4": "82.66.4.247", "provider": "Free", "static": True},
+    )
+
+    result = await truenas_diagnostics.collect_truenas_network_diagnostics(
+        host="truenas.albandrieu.com",
+        port=7000,
+        websocket_uri="wss://truenas.albandrieu.com:7000/api/current",
+        verify_ssl=True,
+    )
+
+    assert calls == [None, "82.66.4.247"]
+    assert result["connect_target"] == "82.66.4.247:7000"
