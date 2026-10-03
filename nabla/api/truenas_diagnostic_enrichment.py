@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+
 def _stage(stage_id: str, label: str, state: str, *, elapsed_ms: int | None = None, detail: str | None = None, **extra: Any) -> dict[str, Any]:
     row: dict[str, Any] = {"id": stage_id, "label": label, "state": state}
     if elapsed_ms is not None:
@@ -12,6 +13,7 @@ def _stage(stage_id: str, label: str, state: str, *, elapsed_ms: int | None = No
         row["detail"] = detail
     row.update({key: value for key, value in extra.items() if value is not None})
     return row
+
 
 def _https_stage(
     public_result: dict[str, Any],
@@ -135,7 +137,6 @@ def append_truenas_http_stage(
     stages.insert(insert_at, https_stage)
     out["stages"] = stages
     return out
-
 
 
 def append_truenas_api_stages(
@@ -287,5 +288,3 @@ def append_truenas_api_stages(
 
     out["stages"] = stages
     return out
-
-

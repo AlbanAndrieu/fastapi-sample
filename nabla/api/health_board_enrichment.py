@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+
 def annotate_talos_vm_health(
     healthz: dict[str, Any],
     homelab: dict[str, Any],
@@ -61,5 +62,3 @@ def annotate_pfsense_ingress_policy(
         checks["pfsense"] = pfsense
         return {**healthz, "checks": checks}
     return healthz
-
-

@@ -7,6 +7,7 @@ import pytest
 
 from nabla.api import homelab_health, homelab_truenas_probe
 
+
 @pytest.mark.asyncio
 async def test_truenas_transport_diagnostics_timeout_keeps_api_health(monkeypatch) -> None:
     async def api_ok():

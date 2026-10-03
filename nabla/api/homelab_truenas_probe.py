@@ -19,12 +19,26 @@ from nabla.settings.homelab import TrueNASProviderSettings
 PROBE_TIMEOUT_SEC = 5.0
 DIAGNOSTICS_BUDGET_SEC = 3.0
 
-async def probe_truenas_public_https(semaphore: asyncio.Semaphore, *, configured_url: str, verify_ssl: bool, http_probe: Callable[..., Awaitable[dict[str, Any]]]) -> dict[str, Any]:
+
+async def probe_truenas_public_https(
+    semaphore: asyncio.Semaphore,
+    *,
+    configured_url: str,
+    verify_ssl: bool,
+    http_probe: Callable[..., Awaitable[dict[str, Any]]],
+) -> dict[str, Any]:
     timeout = httpx.Timeout(PROBE_TIMEOUT_SEC)
     async with httpx.AsyncClient(timeout=timeout, follow_redirects=False, verify=verify_ssl) as client:
         return await http_probe(client, semaphore, service_id="truenas", name="TrueNAS HTTPS", url=configured_url)
 
-async def probe_truenas(semaphore: asyncio.Semaphore, *, internal_enabled: bool, http_probe: Callable[..., Awaitable[dict[str, Any]]], internal_probe: Callable[..., Awaitable[dict[str, Any]]]) -> dict[str, Any]:
+
+async def probe_truenas(
+    semaphore: asyncio.Semaphore,
+    *,
+    internal_enabled: bool,
+    http_probe: Callable[..., Awaitable[dict[str, Any]]],
+    internal_probe: Callable[..., Awaitable[dict[str, Any]]],
+) -> dict[str, Any]:
     """Probe TrueNAS with its own TLS policy while overlapping independent stages."""
     configured_url = truenas_url().rstrip("/") + "/"
     host, port = truenas_host_port()
@@ -141,5 +155,3 @@ async def probe_truenas(semaphore: asyncio.Semaphore, *, internal_enabled: bool,
         "connect_host": connect_host,
         "connect_port": connect_port,
     }
-
-

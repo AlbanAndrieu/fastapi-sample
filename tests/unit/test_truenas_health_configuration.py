@@ -84,9 +84,8 @@ def test_canonical_api_key_accepts_truenas_26_raw_key_format(monkeypatch) -> Non
 def test_failure_kind_classifies_truenas_ui_allowlist_denial() -> None:
     phase, stage = truenas_health_observer._failure_kind(
         RuntimeError(
-            "WebSocket connection closed with code=1008, "
-            "reason='You are not allowed to access this resource'"
-        )
+            "WebSocket connection closed with code=1008, reason='You are not allowed to access this resource'",
+        ),
     )
 
     assert phase == "connect"
