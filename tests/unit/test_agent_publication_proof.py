@@ -18,7 +18,7 @@ def _run(
     *args: str,
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
+    return subprocess.run(  # noqa: S603
         list(args),
         cwd=cwd,
         env=env,
@@ -132,8 +132,8 @@ printf '1\\n' >> "${QUALITY_TEST_COUNTER}"
     assert build_counter.read_text(encoding="utf-8").splitlines() == ["1"]
 
     (tmp_path / "README.md").write_text("dirty\n", encoding="utf-8")
-    dirty = subprocess.run(
-        ["bash", str(SCRIPT)],
+    dirty = subprocess.run(  # noqa: S603
+        ["/usr/bin/env", "bash", str(SCRIPT)],  # noqa: S607
         cwd=tmp_path,
         env=env,
         check=False,
