@@ -50,7 +50,7 @@ from nabla.config_settings import (
     PYROSCOPE_ENDPOINT,
     get_settings,
 )
-from nabla.feature_flags import unleash_client as client, unleash_is_configured
+from nabla.feature_flags import unleash_is_configured
 from nabla.deepagents import workflow as ai_workflow
 from nabla.lifespan import lifespan as app_lifespan
 from nabla.middleware import logging_middleware, metrics_middleware
@@ -107,21 +107,12 @@ def _configure_unleash_middleware(app: FastAPI) -> None:
         logger.warning("UNLEASH_ENABLED is true but UNLEASH_INSTANCE_ID is missing; feature-flag middleware is disabled")
         return
 
-    if client.is_enabled("cors"):
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=CORS_ORIGINS,
-            allow_credentials=True,
-            allow_methods=["GET", "POST", "PUT"],
-            allow_headers=["*"],
-        )
-    else:
-        logger.warning("Feature flag: cors not enabled")
-
-    if client.is_enabled("logging_metrics"):
-        app.add_middleware(PrometheusMiddleware, app_name=APP_NAME)
-    else:
-        logger.warning("Feature flag: logging_metrics not enabled")
+    # Unleash is an optional remote control plane. Application construction must
+    # never wait for GitLab DNS/network availability. Keep the safe local defaults
+    # and let runtime feature-flag consumers observe Unleash independently.
+    logger.warning(
+        "UNLEASH configured as optional; startup skips remote feature-flag evaluation",
+    )
 
 
 def _configure_metrics(app: FastAPI) -> None:
@@ -231,8 +222,9 @@ def _configure_mcp(app: FastAPI) -> None:
 
 def _configure_admin_panel(app: FastAPI) -> None:
     """Configure SQLAdmin panel."""
-    if not UNLEASH_ENABLED or not unleash_is_configured() or client.is_enabled("admin_panel"):
-        Admin(app, engine, title="Example: SQLAlchemy").add_view(UserAdmin)
+    # The admin panel is part of the local application baseline. Unleash must not
+    # become a startup dependency merely to decide whether this view is registered.
+    Admin(app, engine, title="Example: SQLAlchemy").add_view(UserAdmin)
 
 
 def _configure_hot_reload(app: FastAPI, *, debug: bool) -> None:
