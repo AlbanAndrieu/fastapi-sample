@@ -25,6 +25,7 @@ async def test_fastapi_cloud_pfsense_read_timeout_is_unconfirmed_warning(monkeyp
     _configure_pfsense(monkeypatch)
     monkeypatch.setenv("FASTAPI_CLOUD_APP_ID", "app")
     monkeypatch.delenv("FASTAPI_RUNTIME_MODE", raising=False)
+    monkeypatch.delenv("FASTAPI_ENV", raising=False)
     monkeypatch.setattr(httpx, "AsyncClient", _ReadTimeoutClient)
 
     result = await platform_health.check_pfsense_api()
