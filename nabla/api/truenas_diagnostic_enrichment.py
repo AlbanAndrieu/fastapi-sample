@@ -5,7 +5,15 @@ from __future__ import annotations
 from typing import Any
 
 
-def _stage(stage_id: str, label: str, state: str, *, elapsed_ms: int | None = None, detail: str | None = None, **extra: Any) -> dict[str, Any]:
+def _stage(
+    stage_id: str,
+    label: str,
+    state: str,
+    *,
+    elapsed_ms: int | None = None,
+    detail: str | None = None,
+    **extra: Any,
+) -> dict[str, Any]:
     row: dict[str, Any] = {"id": stage_id, "label": label, "state": state}
     if elapsed_ms is not None:
         row["elapsed_ms"] = elapsed_ms
@@ -36,13 +44,18 @@ def _https_stage(
         detail = f"HTTP {public_result.get('http_status', '?')}"
     elif state == "warn":
         detail = str(
-            public_result.get("error") or "HTTPS probe inconclusive; endpoint availability was not disproved",
+            public_result.get("error")
+            or "HTTPS probe inconclusive; endpoint availability was not disproved",
         )[:240]
     else:
         detail = str(public_result.get("error") or "HTTPS request failed")[:240]
     return _stage(
         "https",
-        ("TrueNAS HTTPS listener" if path_mode == "direct_lan" else "HTTPS listener via HAProxy"),
+        (
+            "TrueNAS HTTPS listener"
+            if path_mode == "direct_lan"
+            else "HTTPS listener via HAProxy"
+        ),
         state,
         elapsed_ms=public_result.get("latency_ms"),
         detail=detail,
@@ -75,19 +88,36 @@ def _public_path_comparison_stage(
     dns_matches_wan = wan_ipv4 in resolved
     if hostname_tls_ok and wan_tls_ok and dns_matches_wan:
         state = "ok"
-        detail = f"Hostname and direct WAN+SNI TLS both succeed; DNS includes {wan_ipv4}."
+        detail = (
+            "Hostname and direct WAN+SNI TLS both succeed; "
+            f"DNS includes {wan_ipv4}."
+        )
     elif wan_tls_ok and not hostname_tls_ok:
         state = "warn"
-        detail = "Direct WAN+SNI TLS succeeds while the hostname TLS probe fails. Investigate DNS/proxy/edge routing before pfSense or TrueNAS."
+        detail = (
+            "Direct WAN+SNI TLS succeeds while the hostname TLS probe fails. "
+            "Investigate DNS/proxy/edge routing before pfSense or TrueNAS."
+        )
     elif hostname_tls_ok and not wan_tls_ok:
         state = "warn"
-        detail = "Hostname TLS succeeds while the configured WAN IP TLS probe fails. The hostname is reaching another path; direct pfSense/HAProxy ingress is not confirmed."
+        detail = (
+            "Hostname TLS succeeds while the configured WAN IP TLS probe fails. "
+            "The hostname is reaching another path; direct pfSense/HAProxy "
+            "ingress is not confirmed."
+        )
     elif not dns_matches_wan:
         state = "warn"
-        detail = f"DNS resolves to {', '.join(resolved) or 'no address'}, not configured WAN IPv4 {wan_ipv4}; the hostname path is not the declared direct pfSense/HAProxy route."
+        detail = (
+            f"DNS resolves to {', '.join(resolved) or 'no address'}, not "
+            f"configured WAN IPv4 {wan_ipv4}; the hostname path is not the "
+            "declared direct pfSense/HAProxy route."
+        )
     else:
         state = "fail"
-        detail = "Neither hostname TLS nor direct WAN+SNI TLS completed. Inspect pfSense WAN policy, Snort/pfBlockerNG and HAProxy :7000."
+        detail = (
+            "Neither hostname TLS nor direct WAN+SNI TLS completed. Inspect "
+            "pfSense WAN policy, Snort/pfBlockerNG and HAProxy :7000."
+        )
     return _stage(
         "wan_path_comparison",
         "Hostname ↔ WAN :7000",
@@ -113,7 +143,10 @@ def _haproxy_stage(tls_ok: bool) -> dict[str, Any]:
         "haproxy",
         "HAProxy :7000",
         "ok",
-        detail=("Public TLS termination · HTTP mode · native WebSocket upgrade forwarding · TLS re-encryption to TrueNAS 172.17.0.24:7000"),
+        detail=(
+            "Public TLS termination · HTTP mode · native WebSocket upgrade "
+            "forwarding · TLS re-encryption to TrueNAS 172.17.0.24:7000"
+        ),
         evidence="declared_topology",
         proxy_mode="http",
         websocket_upgrade="native",
@@ -129,9 +162,17 @@ def append_truenas_http_stage(
     out = dict(diagnostics)
     path_mode = str(out.get("path_mode") or "public_wan_haproxy")
     https_stage = _https_stage(public_result, path_mode=path_mode)
-    stages = [dict(stage) for stage in out.get("stages", []) if isinstance(stage, dict) and stage.get("id") != "https"]
+    stages = [
+        dict(stage)
+        for stage in out.get("stages", [])
+        if isinstance(stage, dict) and stage.get("id") != "https"
+    ]
     insert_at = next(
-        (index for index, stage in enumerate(stages) if stage.get("id") in {"websocket", "authentication", "api"}),
+        (
+            index
+            for index, stage in enumerate(stages)
+            if stage.get("id") in {"websocket", "authentication", "api"}
+        ),
         len(stages),
     )
     stages.insert(insert_at, https_stage)
@@ -147,8 +188,16 @@ def _failed_api_stage(
     method: str,
     error: str,
 ) -> dict[str, Any]:
-    rpc_method = method if method and method not in {"connect", "auth.login_with_api_key"} else ""
-    api_label = f"TrueNAS API · {rpc_method}" if rpc_method else "TrueNAS API · system.version + app.query"
+    rpc_method = (
+        method
+        if method and method not in {"connect", "auth.login_with_api_key"}
+        else ""
+    )
+    api_label = (
+        f"TrueNAS API · {rpc_method}"
+        if rpc_method
+        else "TrueNAS API · system.version + app.query"
+    )
     api_detail = error or "TrueNAS API call failed"
     if rpc_method:
         api_detail = f"{rpc_method}: {api_detail}"
@@ -170,7 +219,10 @@ def append_truenas_api_stages(
     """Append authentication and API stages without exposing credential material."""
     out = dict(diagnostics)
     stages = [dict(stage) for stage in diagnostics.get("stages", [])]
-    websocket = next((stage for stage in stages if stage.get("id") == "websocket"), None)
+    websocket = next(
+        (stage for stage in stages if stage.get("id") == "websocket"),
+        None,
+    )
     if not isinstance(api_result, dict):
         stages.append(
             _stage(
@@ -199,10 +251,15 @@ def append_truenas_api_stages(
 
     if websocket is None:
         authenticated = api_result.get("authenticated") is True
-        websocket_established = reachable or authenticated or phase in {"authentication", "call"}
+        websocket_established = (
+            reachable or authenticated or phase in {"authentication", "call"}
+        )
         websocket_state = "ok" if websocket_established else "fail"
         if websocket_established:
-            websocket_detail = "WebSocket /api/current established; probe advanced to authentication/RPC"
+            websocket_detail = (
+                "WebSocket /api/current established; "
+                "probe advanced to authentication/RPC"
+            )
         else:
             websocket_detail = error or "WebSocket /api/current connection failed"
         stages.append(
@@ -210,10 +267,18 @@ def append_truenas_api_stages(
                 "websocket",
                 "WebSocket /api/current",
                 websocket_state,
-                elapsed_ms=(api_result.get("websocket_elapsed_ms") if websocket_established else api_result.get("elapsed_ms")),
+                elapsed_ms=(
+                    api_result.get("websocket_elapsed_ms")
+                    if websocket_established
+                    else api_result.get("elapsed_ms")
+                ),
                 detail=websocket_detail,
                 evidence="authenticated_api_probe",
-                failure_stage=None if websocket_established else stage or phase or "websocket",
+                failure_stage=(
+                    None
+                    if websocket_established
+                    else stage or phase or "websocket"
+                ),
                 confirmation="established" if websocket_established else "failed",
             ),
         )
@@ -233,7 +298,10 @@ def append_truenas_api_stages(
                 auxiliary.get("detail") or "auxiliary transport probe failed",
             )
             auxiliary["state"] = "warn"
-            auxiliary["detail"] = f"{original} · authenticated TrueNAS API succeeded; raw-socket and application egress paths may differ"
+            auxiliary["detail"] = (
+                f"{original} · authenticated TrueNAS API succeeded; "
+                "raw-socket and application egress paths may differ"
+            )
             auxiliary["contradicted_by"] = "authenticated_api_success"
             auxiliary["superseded_by"] = "authenticated_api"
             auxiliary["evidence_conflict"] = True
@@ -258,7 +326,10 @@ def append_truenas_api_stages(
                 "TrueNAS API · system.version + app.query",
                 "ok",
                 elapsed_ms=api_result.get("api_elapsed_ms"),
-                detail=" · ".join(api_detail_parts) or "system.version and app.query succeeded",
+                detail=(
+                    " · ".join(api_detail_parts)
+                    or "system.version and app.query succeeded"
+                ),
             ),
         )
     elif phase == "authentication" or stage in {

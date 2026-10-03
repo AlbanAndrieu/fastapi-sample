@@ -164,23 +164,47 @@ async def collect_truenas_network_diagnostics(
     wan = None if path_mode == "direct_lan" else homelab_wan_metadata()
     socket_target = connect_host or host
 
-    dns, _dns_ok = await _dns_stage(host)
+    dns_task = asyncio.create_task(_dns_stage(host))
+    hostname_transport_task = asyncio.create_task(
+        collect_tcp_tls_stages(
+            host,
+            port,
+            verify_ssl,
+            connect_host=socket_target if path_mode == "direct_lan" else None,
+            server_name=host,
+        ),
+    )
+
+    dns, _dns_ok = await dns_task
     resolved = [str(value) for value in dns.get("resolved", []) if value]
     stages.append(dns)
 
-    socket_stage, tls_stage, tls_ok = await collect_tcp_tls_stages(
-        host,
-        port,
-        verify_ssl,
-        connect_host=socket_target if path_mode == "direct_lan" else None,
-        server_name=host,
+    wan_transport_task: asyncio.Task[
+        tuple[dict[str, Any], dict[str, Any], bool]
+    ] | None = None
+    wan_ipv4 = str(wan["ipv4"]) if wan is not None else ""
+    reuse_hostname_transport = (
+        wan is not None
+        and resolved == [wan_ipv4]
+        and socket_target == wan_ipv4
     )
+    if wan is not None and not reuse_hostname_transport:
+        wan_transport_task = asyncio.create_task(
+            collect_tcp_tls_stages(
+                host,
+                port,
+                verify_ssl,
+                connect_host=socket_target,
+                server_name=host,
+            ),
+        )
+
+    socket_stage, tls_stage, tls_ok = await hostname_transport_task
     stages.extend((socket_stage, tls_stage))
 
     wan_tls_ok: bool | None = None
     if wan is not None:
-        wan_ipv4 = str(wan["ipv4"])
-        if resolved == [wan_ipv4] and socket_target == wan_ipv4:
+        if reuse_hostname_transport:
             wan_tls_ok = tls_ok
             stages.extend(
                 (
@@ -199,13 +223,8 @@ async def collect_truenas_network_diagnostics(
                 ),
             )
         else:
-            wan_socket, wan_tls, wan_tls_ok = await collect_tcp_tls_stages(
-                host,
-                port,
-                verify_ssl,
-                connect_host=socket_target,
-                server_name=host,
-            )
+            assert wan_transport_task is not None
+            wan_socket, wan_tls, wan_tls_ok = await wan_transport_task
             stages.extend(
                 (
                     _retag_wan_transport_stage(
@@ -246,8 +265,13 @@ async def collect_truenas_network_diagnostics(
         "diagnostic_contract": _DIAGNOSTIC_CONTRACT,
         "transport_timeout_seconds": _DIAGNOSTIC_TIMEOUT_SEC,
         "probe_reuse": {
-            "anonymous_websocket": "omitted; authenticated API probe is authoritative",
-            "wan_transport": "reused hostname transport when DNS matches configured WAN",
+            "anonymous_websocket": (
+                "omitted; authenticated API probe is authoritative"
+            ),
+            "dns_and_hostname_transport": "started concurrently",
+            "wan_transport": (
+                "reused hostname transport when DNS matches configured WAN"
+            ),
         },
         "stages": stages,
     }

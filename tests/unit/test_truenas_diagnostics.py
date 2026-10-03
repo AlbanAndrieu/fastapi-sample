@@ -1,5 +1,7 @@
 """Tests for the ordered TrueNAS diagnostic pipeline."""
 
+import asyncio
+
 import pytest
 
 from nabla.api import truenas_diagnostics
@@ -405,3 +407,65 @@ async def test_public_diagnostics_reuse_hostname_tls_when_dns_matches_wan(
     assert wan_tls["state"] == "ok"
     assert wan_tls["evidence"] == "reused_hostname_transport"
     assert result["probe_reuse"]["anonymous_websocket"].startswith("omitted")
+
+
+
+@pytest.mark.asyncio
+async def test_dns_and_hostname_transport_start_concurrently(monkeypatch) -> None:
+    dns_started = asyncio.Event()
+    transport_started = asyncio.Event()
+    release = asyncio.Event()
+
+    async def dns_ok(_host):
+        dns_started.set()
+        await release.wait()
+        return (
+            {
+                "id": "dns",
+                "label": "DNS",
+                "state": "ok",
+                "resolved": ["82.66.4.247"],
+            },
+            True,
+        )
+
+    async def transport_ok(host, port, verify_ssl, **kwargs):
+        transport_started.set()
+        await release.wait()
+        return (
+            {"id": "socket", "label": "TCP connect", "state": "ok"},
+            {"id": "tls", "label": "TLS handshake", "state": "ok"},
+            True,
+        )
+
+    monkeypatch.setattr(truenas_diagnostics, "_dns_stage", dns_ok)
+    monkeypatch.setattr(
+        truenas_diagnostics,
+        "collect_tcp_tls_stages",
+        transport_ok,
+    )
+    monkeypatch.setattr(
+        truenas_diagnostics,
+        "homelab_wan_metadata",
+        lambda: {"ipv4": "82.66.4.247", "provider": "Free", "static": True},
+    )
+
+    task = asyncio.create_task(
+        truenas_diagnostics.collect_truenas_network_diagnostics(
+            host="truenas.albandrieu.com",
+            port=7000,
+            websocket_uri="wss://truenas.albandrieu.com:7000/api/current",
+            connect_host="82.66.4.247",
+            verify_ssl=True,
+        ),
+    )
+    await asyncio.wait_for(
+        asyncio.gather(dns_started.wait(), transport_started.wait()),
+        timeout=1.0,
+    )
+    release.set()
+    result = await task
+
+    assert result["probe_reuse"]["dns_and_hostname_transport"] == (
+        "started concurrently"
+    )

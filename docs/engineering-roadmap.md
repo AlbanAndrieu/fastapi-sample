@@ -70,9 +70,10 @@ Runbook:
   p95/p99 latency, timeouts and host saturation.
 - [ ] Attribute remaining cold-path cost in `/api/homelab/health`; keep provider
   budgets below the aggregate deadline rather than extending that deadline.
-  - [x] Run TrueNAS HTTP/API/LAN/transport evidence concurrently; keep the
-    transport diagnostic deadline at 3 s and preserve measured HTTP evidence
-    when auxiliary diagnostics time out.
+  - [x] Run TrueNAS HTTP/API/LAN/transport evidence concurrently; within the
+    transport probe, overlap DNS with hostname TCP/TLS and start direct WAN+SNI
+    fallback as soon as DNS proves a path mismatch. Keep the 3 s diagnostic
+    budget and preserve measured HTTP evidence when auxiliary diagnostics time out.
   - [x] Compare hostname TLS with direct WAN-IP+SNI on port 7000 so DNS/edge
     drift is distinguishable from pfSense/HAProxy failure.
 - [ ] Define a fixed-cardinality production p95 latency target.
