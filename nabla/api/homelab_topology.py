@@ -63,7 +63,7 @@ class HomelabTopologyRuntime(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True)
 
-    provider: Literal["truenas-app", "logical", "external", "host"]
+    provider: Literal["truenas-app", "truenas-vm", "logical", "external", "host"]
     app_id: str | None = Field(
         default=None,
         min_length=1,
@@ -77,12 +77,15 @@ class HomelabTopologyRuntime(BaseModel):
         serialization_alias="containerService",
     )
     networks: list[str] | None = Field(default=None, min_length=1)
+    instances: list[str] | None = Field(default=None, min_length=1)
 
     @model_validator(mode="after")
     def require_unique_networks(self) -> HomelabTopologyRuntime:
         """A runtime network is an identity set, not an ordered duplicate list."""
         if self.networks is not None and len(self.networks) != len(set(self.networks)):
             raise ValueError("runtime.networks must not contain duplicates")
+        if self.instances is not None and len(self.instances) != len(set(self.instances)):
+            raise ValueError("runtime.instances must not contain duplicates")
         return self
 
 
@@ -113,7 +116,7 @@ class HomelabTopologyMonitoring(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    type: Literal["http", "port"]
+    type: Literal["http", "port", "provider"]
     target: str | None = Field(default=None, min_length=1, max_length=2048)
     url: str | None = Field(default=None, min_length=1, max_length=2048)
     host: str | None = Field(default=None, min_length=1, max_length=512)
