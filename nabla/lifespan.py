@@ -121,6 +121,7 @@ async def _connect_critical_database() -> None:
     )
 
 
+@asynccontextmanager
 async def lifespan(app: FastAPI):
     """Acquire application resources safely and unwind partial startup failures."""
     async with AsyncExitStack() as resources:
