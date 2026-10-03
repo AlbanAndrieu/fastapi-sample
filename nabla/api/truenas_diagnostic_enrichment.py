@@ -173,17 +173,23 @@ def append_truenas_api_stages(
     error = str(api_result.get("error") or "").strip()
 
     if websocket is None:
-        websocket_state = "ok" if reachable else "fail"
-        websocket_detail = "Authenticated /api/current connection established" if reachable else error or "Authenticated /api/current connection failed"
+        authenticated = api_result.get("authenticated") is True
+        websocket_established = reachable or authenticated or phase in {"authentication", "call"}
+        websocket_state = "ok" if websocket_established else "fail"
+        if websocket_established:
+            websocket_detail = "WebSocket /api/current established; probe advanced to authentication/RPC"
+        else:
+            websocket_detail = error or "WebSocket /api/current connection failed"
         stages.append(
             _stage(
                 "websocket",
                 "WebSocket /api/current",
                 websocket_state,
-                elapsed_ms=api_result.get("elapsed_ms"),
+                elapsed_ms=(api_result.get("websocket_elapsed_ms") if websocket_established else api_result.get("elapsed_ms")),
                 detail=websocket_detail,
                 evidence="authenticated_api_probe",
-                failure_stage=None if reachable else stage or phase or "websocket",
+                failure_stage=None if websocket_established else stage or phase or "websocket",
+                confirmation="established" if websocket_established else "failed",
             ),
         )
 
