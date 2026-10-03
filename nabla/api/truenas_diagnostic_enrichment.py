@@ -147,32 +147,6 @@ def append_truenas_api_stages(
     out = dict(diagnostics)
     stages = [dict(stage) for stage in diagnostics.get("stages", [])]
     websocket = next((stage for stage in stages if stage.get("id") == "websocket"), None)
-    websocket_ok = websocket is not None and websocket.get("state") == "ok"
-    api_reachable = isinstance(api_result, dict) and api_result.get("reachable") is True
-
-    # The authenticated API probe itself proves WebSocket transport + authentication.
-    # Do not let the auxiliary credential-free WebSocket diagnostic override stronger
-    # evidence when its own bounded measurement failed or timed out.
-    if not websocket_ok and not api_reachable:
-        stages.append(
-            _stage(
-                "authentication",
-                "API authentication",
-                "blocked",
-                detail="Blocked by WebSocket failure",
-            ),
-        )
-        stages.append(
-            _stage(
-                "api",
-                "TrueNAS API · system.version + app.query",
-                "blocked",
-                detail="Blocked by authentication",
-            ),
-        )
-        out["stages"] = stages
-        return out
-
     if not isinstance(api_result, dict):
         stages.append(
             _stage(
@@ -197,6 +171,25 @@ def append_truenas_api_stages(
     phase = str(api_result.get("phase") or "")
     stage = str(api_result.get("stage") or "")
     error = str(api_result.get("error") or "").strip()
+
+    if websocket is None:
+        websocket_state = "ok" if reachable else "fail"
+        websocket_detail = (
+            "Authenticated /api/current connection established"
+            if reachable
+            else error or "Authenticated /api/current connection failed"
+        )
+        stages.append(
+            _stage(
+                "websocket",
+                "WebSocket /api/current",
+                websocket_state,
+                elapsed_ms=api_result.get("elapsed_ms"),
+                detail=websocket_detail,
+                evidence="authenticated_api_probe",
+                failure_stage=None if reachable else stage or phase or "websocket",
+            ),
+        )
 
     if reachable:
         for auxiliary in stages:

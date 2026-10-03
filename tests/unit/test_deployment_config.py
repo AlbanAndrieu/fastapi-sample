@@ -61,7 +61,9 @@ def test_production_validation_provides_required_auth_settings() -> None:
 def test_fastapi_cloud_deploy_uses_project_cli() -> None:
     deploy = (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8")
 
-    assert "run: uv run fastapi deploy" in deploy
+    assert "uv run fastapi deploy" in deploy
+    assert 'BUILD_REVISION="$(git rev-parse HEAD)"' in deploy
+    assert 'uv run fastapi cloud env set BUILD_REVISION "${BUILD_REVISION}" .' in deploy
     assert "uvx fastapi-cloud-cli" not in deploy
 
 
