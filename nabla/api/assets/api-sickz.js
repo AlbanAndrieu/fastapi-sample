@@ -161,6 +161,7 @@ function computeOverall(data) {
   const checks = data.checks || {};
   let anyPolicyFail = false;
   let anyPolicyWarn = false;
+  let anyExpectedIntentWithoutPolicy = false;
   let anyTcpPolicyViolation = false;
   let anyOpenReach2xx = false;
   let anyOpenReachNon2xx = false;
@@ -177,6 +178,17 @@ function computeOverall(data) {
       continue;
     }
     if (check.policy_status === "ok") continue;
+    if (typeof check.expected_reachable === "boolean") {
+      anyExpectedIntentWithoutPolicy = true;
+      if (
+        check.reachable == null ||
+        check.reachable !== check.expected_reachable ||
+        check.tls_trusted === false
+      ) {
+        anyPolicyWarn = true;
+      }
+      continue;
+    }
     if (tcpPolicyViolation(check)) anyTcpPolicyViolation = true;
     if (check.reachable === true) {
       if (isForbiddenOnlyReachable(check)) anyForbiddenOnly = true;
@@ -218,6 +230,12 @@ function computeOverall(data) {
     return {
       cls: "yellow",
       text: `From network ${network}, at least one target responded with HTTP 403 (Forbidden) only.`,
+    };
+  }
+  if (anyExpectedIntentWithoutPolicy) {
+    return {
+      cls: "yellow",
+      text: `From network ${network}, low-level reachability matches declared intent but full exposure policy enrichment is unavailable.`,
     };
   }
   return {
