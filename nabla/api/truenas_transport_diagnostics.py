@@ -98,13 +98,14 @@ def _tcp_tls_probe(
     verify_ssl: bool,
     *,
     connect_host: str | None = None,
+    server_name: str | None = None,
     server_hostname: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], bool]:
-    """Measure TCP/TLS while allowing a direct IP connect with hostname SNI."""
+    """Measure TCP/TLS while separating socket destination from TLS identity."""
     raw_socket: socket.socket | None = None
     tls_socket: ssl.SSLSocket | None = None
     connect_target = (connect_host or host).strip()
-    sni_hostname = (server_hostname or host).strip()
+    sni_hostname = (server_hostname or server_name or host).strip()
 
     tcp_started = time.perf_counter()
     try:
@@ -140,6 +141,8 @@ def _tcp_tls_probe(
         "elapsed_ms": _elapsed_ms(tcp_started),
         "detail": f"Connected to {connect_target}:{port}",
         "connect_host": connect_target,
+        "server_name": sni_hostname,
+        "server_hostname": sni_hostname,
     }
 
     context = ssl.create_default_context()
@@ -171,6 +174,7 @@ def _tcp_tls_probe(
             "tls_version": tls_socket.version(),
             "cipher": cipher_info[0] if cipher_info else None,
             "connect_host": connect_target,
+            "server_name": sni_hostname,
             "server_hostname": sni_hostname,
             **metadata,
         }
@@ -187,6 +191,7 @@ def _tcp_tls_probe(
                 "detail": error,
                 "verify_ssl": verify_ssl,
                 "connect_host": connect_target,
+                "server_name": sni_hostname,
                 "server_hostname": sni_hostname,
                 "failure_stage": "tls_handshake",
             },
@@ -205,6 +210,7 @@ async def collect_tcp_tls_stages(
     verify_ssl: bool,
     *,
     connect_host: str | None = None,
+    server_name: str | None = None,
     server_hostname: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], bool]:
     """Run the blocking socket/TLS probe away from the event loop."""
@@ -214,5 +220,6 @@ async def collect_tcp_tls_stages(
         port,
         verify_ssl,
         connect_host=connect_host,
+        server_name=server_name,
         server_hostname=server_hostname,
     )
