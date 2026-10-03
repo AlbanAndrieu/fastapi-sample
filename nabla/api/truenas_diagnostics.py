@@ -391,18 +391,28 @@ def append_truenas_api_stages(
     error = str(api_result.get("error") or "").strip()
 
     if reachable:
-        for transport_id in ("socket", "tls", "websocket"):
-            auxiliary = next(
-                (stage for stage in stages if stage.get("id") == transport_id),
-                None,
-            )
-            if auxiliary is None or auxiliary.get("state") != "fail":
+        for auxiliary in stages:
+            if (
+                auxiliary.get("id")
+                not in {
+                    "socket",
+                    "tls",
+                    "haproxy",
+                    "direct_lan",
+                    "https",
+                    "websocket",
+                }
+                or auxiliary.get("state") not in {"fail", "blocked"}
+            ):
                 continue
+            original = str(
+                auxiliary.get("detail")
+                or "auxiliary transport probe failed"
+            )
             auxiliary["state"] = "warn"
             auxiliary["detail"] = (
-                f"{auxiliary.get('detail', 'auxiliary transport probe failed')} · "
-                "authenticated TrueNAS API probe succeeded; this auxiliary failure "
-                "is contradicted by stronger end-to-end evidence."
+                f"{original} · authenticated TrueNAS API succeeded; "
+                "raw-socket and application egress paths may differ"
             )
             auxiliary["contradicted_by"] = "authenticated_api_success"
             auxiliary["superseded_by"] = "authenticated_api"
@@ -581,6 +591,8 @@ async def collect_truenas_network_diagnostics(
 
     return {
         "target": f"{host}:{port}",
+        "connect_target": f"{host}:{port}",
+        "server_name": host,
         "path_mode": path_mode,
         "wan": wan,
         "wan_tls_reachable": wan_tls_ok,
