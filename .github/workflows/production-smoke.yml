@@ -171,6 +171,17 @@ jobs:
                   (.checks.pfsense.attempts | type == "number" and . >= 1)
                 ) or
                 (
+                  .checks.pfsense.reachable == null and
+                  .checks.pfsense.state == "unknown" and
+                  .checks.pfsense.status_confirmed == false and
+                  .checks.pfsense.degraded == false and
+                  .checks.pfsense.vantage_point == "fastapi_cloud" and
+                  (.checks.pfsense.warning | type == "string" and startswith("⚠️")) and
+                  (.checks.pfsense.error_kind | type == "string" and length > 0) and
+                  (.checks.pfsense.failure_stage | type == "string" and length > 0) and
+                  (.checks.pfsense.attempts | type == "number" and . >= 1)
+                ) or
+                (
                   .checks.pfsense.reachable == false and
                   (.checks.pfsense.http_status >= 500 and .checks.pfsense.http_status < 600) and
                   (.checks.pfsense.error | type == "string" and length > 0) and
