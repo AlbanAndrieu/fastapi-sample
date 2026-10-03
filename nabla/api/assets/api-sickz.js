@@ -102,6 +102,16 @@ function rawDetailSickText(check) {
 
 function detailSickText(check) {
   const raw = rawDetailSickText(check);
+  if (isTrueNasExposureCheck(check) && check.tunnel_secure === false) {
+    const fallback =
+      typeof check.expected_reachable === "boolean"
+        ? check.expected_reachable
+          ? "Policy enrichment unavailable; endpoint is expected reachable from this external observer."
+          : "Policy enrichment unavailable; endpoint is expected blocked from this external observer."
+        : "Direct pfSense/HAProxy exposure policy is evaluated separately from TrueNAS appliance health.";
+    const policy = check.policy_detail || fallback;
+    return `Direct exposure policy only — ${policy} Probe evidence: ${raw}`;
+  }
   if (
     !check.policy_status &&
     typeof check.expected_reachable === "boolean"
