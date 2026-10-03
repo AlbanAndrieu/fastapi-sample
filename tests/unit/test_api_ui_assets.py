@@ -274,12 +274,12 @@ def test_sickz_surfaces_default_deny_and_catalog_icons() -> None:
 def test_health_ui_does_not_render_explicit_direct_failure_as_green() -> None:
     dependency = (_ASSET_DIR / "api-health-dependency.js").read_text(encoding="utf-8")
     groups = (_ASSET_DIR / "api-service-groups.js").read_text(encoding="utf-8")
-    sickz = (_ASSET_DIR / "api-sickz.js").read_text(encoding="utf-8")
+    sickz_row_state = (_ASSET_DIR / "api-sickz-row-state.js").read_text(encoding="utf-8")
 
     assert 'check.direct_state === "fail" && check.effective_state === "ok"' in dependency
     assert 'localState === "ok" && directState === "fail"' in groups
     assert 'return row.dataset.semanticStatus === "operational";' in groups
-    assert "Policy compliant private exposure" in sickz
+    assert "Policy compliant private exposure" in sickz_row_state
 
 
 def test_truenas_diagnostics_timeout_preserves_confirmed_https_liveness() -> None:
@@ -301,7 +301,7 @@ def test_truenas_ui_distinguishes_raw_tls_warning_from_api_health() -> None:
 
 
 def test_truenas_exposure_policy_is_labeled_separately_from_health() -> None:
-    script = (_ASSET_DIR / "api-sickz.js").read_text(encoding="utf-8")
+    script = (_ASSET_DIR / "api-sickz-row-state.js").read_text(encoding="utf-8")
 
     assert "Direct exposure policy only" in script
     assert "separately from TrueNAS appliance health" in script
