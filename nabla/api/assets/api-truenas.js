@@ -243,7 +243,10 @@ function apiFailureState(api) {
   if (api?.stage === "connection_reset") return `API connection reset${stale}`;
   if (api?.stage === "tls_handshake_timeout")
     return `TLS handshake timeout${stale}`;
-  if (api?.stage === "api_call_timeout") return `API call timeout${stale}`;
+  if (api?.stage === "api_call_timeout") {
+    const method = api?.method ? ` · ${api.method}` : "";
+    return `API call timeout${method}${stale}`;
+  }
   if (api?.stage === "connect_timeout") return `API connect timeout${stale}`;
   if (api?.stage === "tls_error") return `TLS error${stale}`;
   return null;
