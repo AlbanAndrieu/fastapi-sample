@@ -1,3 +1,10 @@
+## [1.20.17](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.16...1.20.17) (2026-10-03)
+
+
+### Bug Fixes
+
+* **health:** corriger la CI et diagnostiquer l’ingress TrueNAS :7000 ([#313](https://github.com/AlbanAndrieu/fastapi-sample/issues/313)) ([139a9bc](https://github.com/AlbanAndrieu/fastapi-sample/commit/139a9bcf2acc46b9aac06100a2e37f39eab6ab32))
+
 ## [1.20.16](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.15...1.20.16) (2026-10-03)
 
 
