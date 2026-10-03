@@ -1,3 +1,12 @@
+## [1.20.15](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.14...1.20.15) (2026-10-03)
+
+
+### Bug Fixes
+
+* **health:** fiabiliser TrueNAS WAN, TLS et les verdicts d’exposition ([#308](https://github.com/AlbanAndrieu/fastapi-sample/issues/308)) ([0d77f51](https://github.com/AlbanAndrieu/fastapi-sample/commit/0d77f51a0472518a2971c5d84f7da84c668e1bb9))
+* **truenas:** séparer appliance, WAN ingress, pfSense et Cloudflare ([#307](https://github.com/AlbanAndrieu/fastapi-sample/issues/307)) ([37f989a](https://github.com/AlbanAndrieu/fastapi-sample/commit/37f989ad55e92fafa522385bf72ae26ba629c5f4))
+* **ui:** align mobile navigation and TrueNAS catalog [skip ci] ([#306](https://github.com/AlbanAndrieu/fastapi-sample/issues/306)) ([3bc9428](https://github.com/AlbanAndrieu/fastapi-sample/commit/3bc942860074ad6d8218effb725ae0e8a0f75337))
+
 ## [1.20.14](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.13...1.20.14) (2026-10-01)
 
 
