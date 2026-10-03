@@ -195,6 +195,6 @@ async def test_database_dns_failure_remains_startup_fatal(monkeypatch) -> None:
 
     logger.error.assert_called_once()
     assert "phase=%s stage=%s" in logger.error.call_args.args[0]
-    assert logger.error.call_args.args[3:5] == ("dns", "name_resolution")
+    assert logger.error.call_args.args[1:3] == ("dns", "name_resolution")
     resources["database"].disconnect.assert_not_awaited()
     resources["db_pool"].close.assert_called_once()
