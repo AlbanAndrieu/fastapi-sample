@@ -328,7 +328,7 @@ def test_truenas_ui_explains_cloudflare_and_pfsense_path_independence() -> None:
 
 
 def test_sickz_fallback_does_not_infer_green_without_policy_enrichment() -> None:
-    script = (_ASSET_DIR / "api-sickz.js").read_text(encoding="utf-8")
+    script = (_ASSET_DIR / "api-sickz-row-state.js").read_text(encoding="utf-8")
 
     assert 'typeof check.expected_reachable === "boolean"' in script
     assert 'return check.expected_reachable ? "yellow" : "red";' in script
