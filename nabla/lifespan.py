@@ -62,7 +62,6 @@ def _start_background_task(
     tasks.append(task)
 
 
-@asynccontextmanager
 def _startup_database_failure(exc: BaseException) -> tuple[str, str]:
     """Classify critical PostgreSQL startup failures without leaking connection data."""
     chain: list[BaseException] = []
