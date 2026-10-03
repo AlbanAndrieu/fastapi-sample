@@ -123,6 +123,8 @@ async def probe_truenas(
                 task.cancel()
         await asyncio.gather(*managed_tasks, return_exceptions=True)
 
+    diagnostics["http_timeout_seconds"] = PROBE_TIMEOUT_SEC
+    diagnostics["api_probe_deadline_seconds"] = 8.0
     diagnostics = append_truenas_http_stage(diagnostics, public_result)
     public_ingress_state = truenas_probe_health.truenas_public_ingress_state(
         public_result,
