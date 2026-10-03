@@ -591,7 +591,7 @@ async def collect_truenas_network_diagnostics(
 
     return {
         "target": f"{host}:{port}",
-        "connect_target": f"{host}:{port}",
+        "connect_target": f"{socket_target}:{port}",
         "server_name": host,
         "path_mode": path_mode,
         "wan": wan,
