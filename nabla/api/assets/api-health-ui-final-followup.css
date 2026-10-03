@@ -210,9 +210,22 @@ main {
     display: none;
   }
 
-  #service-section-navigation {
+  #service-section-navigation.service-section-navigation {
+    display: flex;
+    flex-flow: row nowrap;
+    align-items: stretch;
     gap: 0.24rem;
+    width: 100%;
+    max-width: 100%;
     margin-bottom: 0.35rem;
+    padding-bottom: 0.15rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+    touch-action: pan-x;
+    -webkit-overflow-scrolling: touch;
   }
 
   #service-section-navigation .service-filter-health-chip {
