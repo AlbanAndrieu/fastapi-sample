@@ -330,7 +330,7 @@ def test_health_snapshot_preserves_method_and_authenticated_evidence() -> None:
         adapter.health_snapshot()
 
     assert exc_info.value.phase == "call"
-    assert exc_info.value.stage == "connect_timeout"
+    assert exc_info.value.stage == "api_call_timeout"
     assert exc_info.value.method == "app.query"
     assert exc_info.value.authenticated is True
 
