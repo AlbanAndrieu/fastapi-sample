@@ -209,6 +209,8 @@ def test_health_assets_stay_within_refactoring_thresholds() -> None:
     ui = (_ASSET_DIR / "api-health-ui.js").read_text(encoding="utf-8")
     sickz = (_ASSET_DIR / "api-sickz.js").read_text(encoding="utf-8")
     sickz_policy = (_ASSET_DIR / "api-sickz-policy.js").read_text(encoding="utf-8")
+    sickz_row_state = (_ASSET_DIR / "api-sickz-row-state.js").read_text(encoding="utf-8")
+    sickz_signature = (_ASSET_DIR / "api-sickz-signature.js").read_text(encoding="utf-8")
     sickz_ports = (_ASSET_DIR / "api-sickz-port-labels.js").read_text(encoding="utf-8")
 
     assert len(bootstrap.splitlines()) < 60
@@ -217,6 +219,8 @@ def test_health_assets_stay_within_refactoring_thresholds() -> None:
     assert len(ui.splitlines()) < 250
     assert len(sickz.splitlines()) < 400
     assert len(sickz_policy.splitlines()) < 100
+    assert len(sickz_row_state.splitlines()) < 150
+    assert len(sickz_signature.splitlines()) < 100
     assert len(sickz_ports.splitlines()) < 150
     assert "installHealthBoardController" in bootstrap
     assert "computeOverall" not in bootstrap
