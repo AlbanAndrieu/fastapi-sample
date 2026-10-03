@@ -227,7 +227,7 @@ async def _probe_http_port(
     try:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(timeout_s),
-            verify=False,
+            verify=False,  # nosec B501 -- reachability-only protocol probe; certificate trust is not the verdict here
             follow_redirects=False,
         ) as client:
             await client.get(
