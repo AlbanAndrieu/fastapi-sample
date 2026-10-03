@@ -27,6 +27,31 @@ def _timestamp() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
+def _readiness_failure_stage(check: dict[str, Any]) -> str | None:
+    """Classify sanitized readiness failures from existing check evidence."""
+    if check.get("reachable") is not False:
+        return None
+    message = str(check.get("error") or check.get("reason") or "").casefold()
+    if any(
+        marker in message
+        for marker in (
+            "temporary failure in name resolution",
+            "name or service not known",
+            "getaddrinfo",
+        )
+    ):
+        return "dns"
+    if "authentication" in message or "password" in message:
+        return "authentication"
+    if "connection refused" in message:
+        return "connection_refused"
+    if "timeout" in message or "budget exceeded" in message:
+        return "timeout"
+    if "ssl" in message or "certificate" in message:
+        return "tls"
+    return "dependency"
+
+
 def build_liveness_payload(*, version: str) -> dict[str, Any]:
     """Describe process liveness without performing network or database I/O."""
     return {
@@ -57,6 +82,10 @@ async def build_readiness_payload(
         }
 
     checks = {"postgres": postgres, "redis": redis}
+    for check in checks.values():
+        stage = _readiness_failure_stage(check)
+        if stage is not None:
+            check.setdefault("failure_stage", stage)
     ready = all(check.get("skipped") is True or check.get("reachable") is True for check in checks.values())
     return (
         {
