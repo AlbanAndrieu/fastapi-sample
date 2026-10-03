@@ -297,7 +297,7 @@ def test_truenas_ui_distinguishes_raw_tls_warning_from_api_health() -> None:
     assert "WAN pfSense/HAProxy" in script
     assert "direct LAN" in script
     assert "diagnostics?.connect_target" in script
-    assert "auxiliary raw TLS warning" in script
+    assert "raw TLS evidence conflict" in script
 
 
 def test_truenas_exposure_policy_is_labeled_separately_from_health() -> None:
