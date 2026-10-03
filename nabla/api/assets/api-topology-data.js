@@ -22,6 +22,7 @@ async function loadTopology() {
       relations: [],
       source: "public-topology-unavailable",
       error: error.message,
+      endpoint: "/api/public-topology",
     };
   }
 }
