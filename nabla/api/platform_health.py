@@ -27,6 +27,7 @@ from nabla.api.runtime_environment import fastapi_cloud_runtime_detected
 from nabla.settings.homelab import (
     PfSensePostureProviderSettings,
     pfsense_invalid_configuration_variables,
+    pfsense_posture_environment_variables,
 )
 
 _PFSENSE_LIVENESS_PATH = "/api/v2/system/version"
@@ -195,10 +196,14 @@ async def check_pfsense_api() -> dict[str, Any]:
         )
 
     healthy = 200 <= response.status_code < 400
+    auth_rejected = response.status_code in {401, 403}
+    url_var, key_var = pfsense_posture_environment_variables()
     result = {
         "reachable": healthy,
+        "transport_reachable": True,
+        "api_authenticated": True if healthy else False if auth_rejected else None,
         "status_confirmed": True,
-        "state": "ok" if healthy else "fail",
+        "state": "ok" if healthy else "warn" if auth_rejected else "fail",
         "http_status": response.status_code,
         "elapsed_ms": elapsed_ms,
         "probe": "pfsense_rest_api_v2",
@@ -206,6 +211,10 @@ async def check_pfsense_api() -> dict[str, Any]:
         "url": url,
         "verify_ssl": verify_ssl,
         "credential_mode": credential_mode,
+        "credential_selection": {
+            "url_variable": url_var,
+            "api_key_variable": key_var,
+        },
         "attempts": attempts,
         "tls_trusted": verify_ssl,
     }
@@ -216,9 +225,14 @@ async def check_pfsense_api() -> dict[str, Any]:
             {
                 "error": f"pfSense API returned HTTP {response.status_code}",
                 "error_kind": f"http_{response.status_code}",
-                "failure_stage": "http_response",
+                "failure_stage": "authentication" if auth_rejected else "http_response",
             },
         )
+        if auth_rejected:
+            result["warning"] = (
+                f"pfSense HTTPS/API endpoint is reachable, but {key_var} was rejected "
+                f"(HTTP {response.status_code})"
+            )
     logger.debug(
         "pfSense API liveness probe completed http_status=%s elapsed_ms=%s attempts=%s verify_ssl=%s",
         response.status_code,
