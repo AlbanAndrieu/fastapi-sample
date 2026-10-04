@@ -1,4 +1,9 @@
 const HOMELAB_EVIDENCE_FIELDS = [
+  "health_model",
+  "service_state",
+  "transport_state",
+  "authentication_state",
+  "application_state",
   "local_state",
   "dependency_state",
   "effective_state",
