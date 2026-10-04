@@ -160,11 +160,14 @@ def _failed_api_stage(
     api_detail = error or "TrueNAS API call failed"
     if rpc_method:
         api_detail = f"{rpc_method}: {api_detail}"
+    call_timeout = api_result.get("call_timeout_seconds")
+    if stage == "api_call_timeout" and call_timeout is not None:
+        api_detail = f"{api_detail} · per-call budget={call_timeout:g}s"
     return _stage(
         "api",
         api_label,
         "fail",
-        elapsed_ms=api_result.get("elapsed_ms"),
+        elapsed_ms=api_result.get("phase_elapsed_ms", api_result.get("elapsed_ms")),
         detail=api_detail,
         failure_stage=stage or phase or "api",
         rpc_method=rpc_method or None,
