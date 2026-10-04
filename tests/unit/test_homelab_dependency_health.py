@@ -207,6 +207,8 @@ def test_postgres_sql_success_prevents_false_sentry_dependency_block() -> None:
     assert postgres["component_probe_key"] == "postgres"
     assert postgres["component_probe_kind"] == "sql_query"
     assert postgres["component_reachable"] is True
+    assert postgres["application_state"] == "ok"
+    assert postgres["health_model"]["application_state"] == "ok"
     assert postgres["evidence_conflict"] is True
     assert sentry["dependency_state"] == "ok"
     assert sentry["blocked_by"] == []
@@ -222,6 +224,8 @@ def test_postgres_sql_failure_conflicting_with_runtime_is_warning() -> None:
     postgres = rows[0]
     assert postgres["state"] == "warn"
     assert postgres["component_reachable"] is False
+    assert postgres["application_state"] == "warn"
+    assert postgres["health_model"]["application_state"] == "warn"
     assert postgres["evidence_conflict"] is True
 
 
@@ -335,8 +339,12 @@ def test_runtime_topology_projection_resolves_sentry_redis_kafka_and_snuba() -> 
 
     assert by_id["redis"]["state"] == "ok"
     assert by_id["redis"]["topology_runtime_projection"] is True
+    assert by_id["redis"]["health_model"]["runtime_state"] == "ok"
+    assert by_id["redis"]["health_model"]["effective_state"] == "ok"
     assert by_id["kafka"]["state"] == "ok"
+    assert by_id["kafka"]["health_model"]["runtime_state"] == "ok"
     assert by_id["sentry-snuba-api"]["state"] == "ok"
+    assert by_id["sentry-snuba-api"]["health_model"]["runtime_state"] == "ok"
     assert by_id["sentry-snuba-api"]["presentation_role"] == "support"
     assert by_id["sentry"]["dependency_state"] == "ok"
     assert by_id["sentry"]["unconfirmed_dependencies"] == []
@@ -401,5 +409,6 @@ def test_stale_runtime_topology_projection_remains_unconfirmed() -> None:
 
     assert by_id["redis"]["state"] == "unknown"
     assert by_id["redis"]["runtime_stale"] is True
+    assert by_id["redis"]["health_model"]["runtime_state"] == "unknown"
     assert by_id["consumer"]["unconfirmed_dependencies"] == ["redis"]
     assert by_id["consumer"]["effective_state"] == "ok"
