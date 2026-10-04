@@ -24,6 +24,7 @@ def test_api_page_serves_external_assets() -> None:
     health = client.get("/api/assets/api-health-core.js")
     board = client.get("/api/assets/api-health-board.js")
     dependency = client.get("/api/assets/api-health-dependency.js")
+    model = client.get("/api/assets/api-health-model.js")
     ui = client.get("/api/assets/api-health-ui.js")
     sickz = client.get("/api/assets/api-sickz.js")
     sickz_policy = client.get("/api/assets/api-sickz-policy.js")
@@ -55,6 +56,7 @@ def test_api_page_serves_external_assets() -> None:
         board,
         health,
         dependency,
+        model,
         ui,
         sickz,
         sickz_policy,
@@ -71,6 +73,7 @@ def test_api_page_serves_external_assets() -> None:
     assert 'from "./api-health-board.js"' in controller.text
     assert 'from "./api-sickz.js"' in controller.text
     assert 'from "./api-health-dependency.js"' in health.text
+    assert 'from "./api-health-model.js"' in dependency.text
     assert 'from "./api-health-ui.js"' in health.text
     assert 'from "./api-health-ui.js"' in sickz.text
     assert 'from "./api-sickz-policy.js"' in sickz.text
@@ -185,7 +188,8 @@ def test_health_board_explains_dependency_propagation() -> None:
     assert "`stale evidence (${Math.round(age)}s old)`" in dependency
     assert 'parts.push(`dependency cycle: ${cycle.join(" ↔ ")}`)' in dependency
     assert '"local_state"' in dependency
-    assert '"effective_state"' in dependency
+    assert "mergeHealthModelEvidence(check, evidence)" in dependency
+    assert "healthModelDetailText(check)" in dependency
     assert "indexes.byHost.has(host)" in dependency
     assert "indexes.byName.has(name)" in dependency
 
@@ -359,3 +363,24 @@ def test_pfsense_auth_rejection_is_warning_not_outage() -> None:
     assert 'return "yellow";' in core
     assert "pfSense HTTPS/API endpoint reachable" in detail
     assert "selected credential:" in detail
+
+
+def test_health_model_merge_preserves_specialized_provider_axes() -> None:
+    model = (_ASSET_DIR / "api-health-model.js").read_text(encoding="utf-8")
+
+    assert '["authentication_state", "auth"]' in model
+    assert 'field !== "runtime_state"' in model
+    assert 'current !== "unknown" ? current : observed' in model
+    assert 'check.health_model = merged' in model
+    assert '"health: " +' in model
+    assert 'label + "=" + state' in model
+
+
+def test_health_model_asset_stays_small() -> None:
+    model = (_ASSET_DIR / "api-health-model.js").read_text(encoding="utf-8")
+    dependency = (_ASSET_DIR / "api-health-dependency.js").read_text(
+        encoding="utf-8",
+    )
+
+    assert len(model.splitlines()) < 120
+    assert len(dependency.splitlines()) < 250
