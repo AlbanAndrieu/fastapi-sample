@@ -546,10 +546,33 @@ function ensureDashboard() {
     try {
       await fetchHomelabProbeMatrix({ reason: "manual" });
     } catch (error) {
-      renderActivity(
-        `⚠ Refresh failed: ${String(error?.message || error)}`,
-        true,
-      );
+      if (error?.code === "diagnostics_auth_required") {
+        const diagnosticsKey = window.prompt(
+          "Diagnostics access key required for probe details:",
+        );
+        if (!diagnosticsKey) {
+          renderActivity(
+            "🔒 Probe matrix protected; aggregate health remains available.",
+          );
+        } else {
+          try {
+            await fetchHomelabProbeMatrix({
+              reason: "manual",
+              diagnosticsKey: diagnosticsKey.trim(),
+            });
+          } catch (retryError) {
+            renderActivity(
+              `⚠ Probe details unavailable: ${String(retryError?.message || retryError)}`,
+              true,
+            );
+          }
+        }
+      } else {
+        renderActivity(
+          `⚠ Refresh failed: ${String(error?.message || error)}`,
+          true,
+        );
+      }
     } finally {
       refreshInFlight = false;
       button.disabled = false;
@@ -702,6 +725,12 @@ export function installProbeFanoutDashboard() {
     );
   });
   window.addEventListener(ERROR_EVENT, (event) => {
+    if (event.detail?.code === "diagnostics_auth_required") {
+      renderActivity(
+        "🔒 Probe matrix protected; aggregate health remains available. Use Refresh details to authenticate.",
+      );
+      return;
+    }
     renderActivity(
       `⚠ Probe snapshot request failed: ${String(event.detail?.message || "unknown error")}`,
       true,

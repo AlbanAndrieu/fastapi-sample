@@ -63,8 +63,7 @@ async def test_unconfigured_observer_is_unknown(monkeypatch) -> None:
 @pytest.mark.asyncio
 async def test_pfsense_api_key_reference_is_rejected_without_echoing_value(monkeypatch) -> None:
     monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example.test")
-    monkeypatch.setenv("PFSENSE_API_KEY", "TRUENAS_API_KEY")
-    monkeypatch.delenv("PFSENSE_POSTURE_API_KEY", raising=False)
+    monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "TRUENAS_API_KEY")
     monkeypatch.setattr(
         pfsense_dns_observer,
         "observe_pfsense_ingress_block",
@@ -75,11 +74,11 @@ async def test_pfsense_api_key_reference_is_rejected_without_echoing_value(monke
 
     assert result["configured"] is False
     assert result["configuration_stage"] == "invalid_credential_reference"
-    assert result["invalid_reference_variables"] == ["PFSENSE_API_KEY"]
+    assert result["invalid_reference_variables"] == ["PFSENSE_POSTURE_API_KEY"]
     assert "TRUENAS_API_KEY" not in repr(result)
 
 
-def test_dedicated_posture_credentials_are_preferred(monkeypatch) -> None:
+def test_dedicated_posture_credentials_ignore_generic_key(monkeypatch) -> None:
     monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example.test")
     monkeypatch.setenv("PFSENSE_API_KEY", "narrow-security-key")
     monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "posture-read-key")

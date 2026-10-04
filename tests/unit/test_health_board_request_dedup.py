@@ -40,3 +40,12 @@ def test_truenas_uses_probe_matrix_as_fast_primary_render_path() -> None:
     assert truenas.index("probes = await fetchHomelabProbeMatrix()") < truenas.index(
         "const aggregate = await fetchHomelabHealth()",
     )
+
+
+def test_protected_probe_matrix_does_not_replace_public_aggregate_health() -> None:
+    shared = (_ASSET_DIR / "api-homelab-health.js").read_text(encoding="utf-8")
+    truenas = (_ASSET_DIR / "api-truenas.js").read_text(encoding="utf-8")
+
+    assert '"diagnostics_auth_required"' in shared
+    assert 'err?.code !== "diagnostics_auth_required"' in truenas
+    assert "const aggregate = await fetchHomelabHealth()" in truenas

@@ -11,7 +11,7 @@ from nabla.api.pfsense_dns_observer import (
 
 def test_invalid_api_url_is_not_configured(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PFSENSE_API_URL", "pfsense.example.test")
-    monkeypatch.setenv("PFSENSE_API_KEY", "pfsense-test-placeholder")
+    monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "pfsense-test-placeholder")
 
     status = pfsense_api_configuration_status()
 
@@ -24,7 +24,7 @@ def test_invalid_api_url_is_not_configured(monkeypatch: pytest.MonkeyPatch) -> N
 @pytest.mark.asyncio
 async def test_invalid_api_url_stays_explicit_in_observer(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PFSENSE_API_URL", "pfsense.example.test")
-    monkeypatch.setenv("PFSENSE_API_KEY", "pfsense-test-placeholder")
+    monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "pfsense-test-placeholder")
 
     result = await observe_pfsense_dns_posture()
 

@@ -72,16 +72,15 @@ def _pfsense_credential_status(
     *,
     url_var: str,
     key_var: str,
-    dedicated_key_var: str,
 ) -> dict[str, object]:
-    """Report one selected pfSense identity without exposing secret material."""
+    """Report one dedicated pfSense identity without exposing secret material."""
     status = inspect_environment_credentials(
         provider,
         url_var,
         key_var,
         secret_variables=frozenset({key_var}),
     ).as_dict()
-    status["credential_mode"] = "dedicated" if key_var == dedicated_key_var else "legacy_shared"
+    status["credential_mode"] = "dedicated"
     return status
 
 
@@ -117,13 +116,11 @@ def infrastructure_provider_credentials() -> dict[str, dict[str, object]]:
             "pfsense",
             url_var=posture_url_var,
             key_var=posture_key_var,
-            dedicated_key_var="PFSENSE_POSTURE_API_KEY",
         ),
         "pfsense_security": _pfsense_credential_status(
             "pfsense_security",
             url_var=security_url_var,
             key_var=security_key_var,
-            dedicated_key_var="PFSENSE_SECURITY_API_KEY",
         ),
         "cloudflare": inspect_environment_credentials(
             "cloudflare",

@@ -626,7 +626,7 @@ export async function loadTrueNas() {
       _probe_first: true,
     });
   } catch (err) {
-    probeError = err;
+    if (err?.code !== "diagnostics_auth_required") probeError = err;
   }
 
   try {

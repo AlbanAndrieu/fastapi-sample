@@ -7,9 +7,9 @@ from nabla.api import external_probe_cache, platform_health
 
 
 def _expire_current_value(key: str) -> None:
-    envelope, stored_at = external_probe_cache._l1[key]
+    envelope, _stored_at = external_probe_cache._l1[key]
     envelope["current"]["fetched_at"] = 0.0
-    external_probe_cache._l1[key] = (envelope, stored_at)
+    external_probe_cache._l1[key] = (envelope, 0.0)
 
 
 @pytest.mark.asyncio
@@ -147,7 +147,8 @@ async def test_pfsense_check_is_skipped_without_credentials(monkeypatch) -> None
 @pytest.mark.asyncio
 async def test_pfsense_check_rejects_plain_http_api_key_transport(monkeypatch) -> None:
     monkeypatch.setenv("PFSENSE_API_URL", "http://172.17.0.1")
-    monkeypatch.setenv("PFSENSE_API_KEY", "key")
+    monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "key")
+    monkeypatch.delenv("PFSENSE_POSTURE_API_URL", raising=False)
     monkeypatch.delenv("PFSENSE_POSTURE_API_KEY", raising=False)
 
     result = await platform_health.check_pfsense_api()
@@ -157,9 +158,10 @@ async def test_pfsense_check_rejects_plain_http_api_key_transport(monkeypatch) -
 
 
 @pytest.mark.asyncio
-async def test_pfsense_check_uses_api_key_and_lightweight_version_endpoint(monkeypatch) -> None:
+async def test_pfsense_check_uses_posture_key_and_lightweight_version_endpoint(monkeypatch) -> None:
     monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example")
-    monkeypatch.setenv("PFSENSE_API_KEY", "key")
+    monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "key")
+    monkeypatch.delenv("PFSENSE_POSTURE_API_URL", raising=False)
     monkeypatch.delenv("PFSENSE_POSTURE_API_KEY", raising=False)
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -180,12 +182,12 @@ async def test_pfsense_check_uses_api_key_and_lightweight_version_endpoint(monke
     assert result["http_status"] == 200
     assert result["probe"] == "pfsense_rest_api_v2"
     assert result["path"] == "/api/v2/system/version"
-    assert result["credential_mode"] == "legacy_shared"
+    assert result["credential_mode"] == "dedicated_posture"
     assert "/api/v2/status/system" not in result["url"]
 
 
 @pytest.mark.asyncio
-async def test_pfsense_check_prefers_dedicated_posture_key(monkeypatch) -> None:
+async def test_pfsense_check_ignores_generic_key_when_posture_key_is_present(monkeypatch) -> None:
     monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example")
     monkeypatch.setenv("PFSENSE_API_KEY", "narrow-snort-key")
     monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "posture-key")
@@ -241,7 +243,8 @@ async def test_pfsense_http_502_is_classified_as_http_response_failure(
 @pytest.mark.asyncio
 async def test_pfsense_read_timeout_reports_response_stage(monkeypatch) -> None:
     monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example")
-    monkeypatch.setenv("PFSENSE_API_KEY", "key")
+    monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "key")
+    monkeypatch.delenv("PFSENSE_POSTURE_API_URL", raising=False)
     monkeypatch.delenv("PFSENSE_POSTURE_API_KEY", raising=False)
 
     def handler(request: httpx.Request) -> httpx.Response:

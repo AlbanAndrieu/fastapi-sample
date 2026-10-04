@@ -333,7 +333,13 @@ FastAPI Sample production uses two dedicated identities over shared transport de
 - authentication header: `X-API-Key`;
 - JSON response header: `Accept: application/json`.
 
-The historical generic `PFSENSE_API_KEY` was removed from FastAPI Cloud on 2026-09-02 after both dedicated identities were validated. FastAPI Sample may temporarily retain code-level migration fallback, but do not recommend restoring the generic shared key or merging the two privilege sets.
+The historical generic `PFSENSE_API_KEY` was removed from FastAPI Cloud on 2026-09-02 and is no longer consumed by FastAPI Sample. Remove it from runtime secrets; never merge the posture and security privilege sets back into one identity.
+
+After a pfSense/REST API package upgrade, revalidate both dedicated keys before
+debugging transport. The 2026-10-04 homelab upgrade was followed by HTTP 401
+until the keys were recreated. Regenerate only the dedicated posture/security
+keys, preserve least privilege, reload the runtime secret store, then reset
+provider cache/circuit state.
 
 Never print, echo, commit or paste either dedicated API key into diagnostics.
 

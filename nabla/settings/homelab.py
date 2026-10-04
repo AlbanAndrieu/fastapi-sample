@@ -201,13 +201,7 @@ def pfsense_posture_environment_variables() -> tuple[str, str]:
         if os.getenv("PFSENSE_POSTURE_API_URL", "").strip()
         else "PFSENSE_API_URL"
     )
-    if os.getenv("PFSENSE_POSTURE_API_KEY", "").strip():
-        key_var = "PFSENSE_POSTURE_API_KEY"
-    elif os.getenv("PFSENSE_API_KEY", "").strip():
-        key_var = "PFSENSE_API_KEY"
-    else:
-        key_var = "PFSENSE_POSTURE_API_KEY"
-    return url_var, key_var
+    return url_var, "PFSENSE_POSTURE_API_KEY"
 
 
 def pfsense_security_environment_variables() -> tuple[str, str]:
@@ -217,20 +211,13 @@ def pfsense_security_environment_variables() -> tuple[str, str]:
         if os.getenv("PFSENSE_SECURITY_API_URL", "").strip()
         else "PFSENSE_API_URL"
     )
-    if os.getenv("PFSENSE_SECURITY_API_KEY", "").strip():
-        key_var = "PFSENSE_SECURITY_API_KEY"
-    elif os.getenv("PFSENSE_API_KEY", "").strip():
-        key_var = "PFSENSE_API_KEY"
-    else:
-        key_var = "PFSENSE_SECURITY_API_KEY"
-    return url_var, key_var
+    return url_var, "PFSENSE_SECURITY_API_KEY"
 
 
 class _PfSenseSharedProviderSettings(SettingsBase):
-    """Shared compatibility transport inherited by split pfSense identities."""
+    """Shared transport inherited by split pfSense identities."""
 
     pfsense_api_url: str | None = DEFAULT_PFSENSE_API_URL
-    pfsense_api_key: SecretStr | None = None
     pfsense_api_verify_ssl: bool = True
 
     @field_validator("pfsense_api_url", mode="before")
@@ -242,11 +229,6 @@ class _PfSenseSharedProviderSettings(SettingsBase):
     @classmethod
     def _validate_shared_url(cls, value: str | None) -> str | None:
         return _pfsense_url(value, variable="PFSENSE_API_URL")
-
-    @field_validator("pfsense_api_key", mode="before")
-    @classmethod
-    def _strip_shared_secret(cls, value: object) -> object:
-        return _pfsense_optional_secret(value)
 
     @field_validator("pfsense_api_verify_ssl", mode="before")
     @classmethod
@@ -287,9 +269,7 @@ class PfSensePostureProviderSettings(_PfSenseSharedProviderSettings):
 
     @property
     def api_key(self) -> str:
-        return _secret_value(self.pfsense_posture_api_key) or _secret_value(
-            self.pfsense_api_key,
-        )
+        return _secret_value(self.pfsense_posture_api_key)
 
     @property
     def verify_ssl(self) -> bool:
@@ -299,11 +279,7 @@ class PfSensePostureProviderSettings(_PfSenseSharedProviderSettings):
 
     @property
     def credential_mode(self) -> str:
-        return (
-            "dedicated_posture"
-            if _secret_value(self.pfsense_posture_api_key)
-            else "legacy_shared"
-        )
+        return "dedicated_posture"
 
 
 class PfSenseSecurityProviderSettings(_PfSenseSharedProviderSettings):
@@ -348,9 +324,7 @@ class PfSenseSecurityProviderSettings(_PfSenseSharedProviderSettings):
 
     @property
     def api_key(self) -> str:
-        return _secret_value(self.pfsense_security_api_key) or _secret_value(
-            self.pfsense_api_key,
-        )
+        return _secret_value(self.pfsense_security_api_key)
 
     @property
     def verify_ssl(self) -> bool:
@@ -360,11 +334,7 @@ class PfSenseSecurityProviderSettings(_PfSenseSharedProviderSettings):
 
     @property
     def credential_mode(self) -> str:
-        return (
-            "dedicated_security"
-            if _secret_value(self.pfsense_security_api_key)
-            else "legacy_shared"
-        )
+        return "dedicated_security"
 
     @property
     def control_path_mode(self) -> Literal["shared_wan", "out_of_band"]:
