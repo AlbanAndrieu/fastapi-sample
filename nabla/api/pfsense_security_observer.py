@@ -47,7 +47,7 @@ class PfSenseSecuritySettings:
 
     @classmethod
     def from_environment(cls) -> PfSenseSecuritySettings | None:
-        """Load validated security transport with an explicit legacy fallback."""
+        """Load validated security transport with the dedicated security identity."""
         status = security_configuration_status()
         if status["configured"] is not True:
             return None
@@ -83,7 +83,7 @@ def security_configuration_status() -> dict[str, object]:
     status["invalid_configuration_variables"] = invalid_variables
     status["required_privilege"] = "api-v2-diagnostics-table-get"
     status["write_privileges_required"] = False
-    status["credential_mode"] = "dedicated_security" if key_var == "PFSENSE_SECURITY_API_KEY" else "legacy_shared"
+    status["credential_mode"] = "dedicated_security"
     return status
 
 
