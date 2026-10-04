@@ -197,7 +197,7 @@ async def _probe_origin() -> dict[str, Any]:
             elapsed_ms=elapsed_ms,
         )
         _report_failure_to_sentry(exc, f"{phase}:{stage}:{exc.__class__.__name__}")
-        return {
+        value = {
             "reachable": False,
             "phase": phase,
             "stage": stage,
@@ -208,6 +208,10 @@ async def _probe_origin() -> dict[str, Any]:
             "username_configured": True,
             "api_key_configured": True,
         }
+        if isinstance(exc, TrueNASHealthProbeError):
+            value["method"] = exc.method
+            value["authenticated"] = exc.authenticated
+        return value
 
 
 def _apply_cache_evidence(
