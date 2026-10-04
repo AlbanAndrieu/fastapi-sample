@@ -11,7 +11,11 @@ from nabla.api import truenas_probe_health
 from nabla.api.homelab_models import HomelabService
 from nabla.api.runtime_environment import homelab_runtime_detected
 from nabla.api.truenas_diagnostics import append_truenas_api_stages, append_truenas_http_stage, collect_truenas_network_diagnostics, unmeasured_truenas_network_diagnostics
-from nabla.api.truenas_health_observer import observe_truenas_health_api, truenas_http_verify_ssl
+from nabla.api.truenas_health_observer import (
+    TRUENAS_PROBE_DEADLINE_SEC,
+    observe_truenas_health_api,
+    truenas_http_verify_ssl,
+)
 from nabla.api.truenas_transport_diagnostics import homelab_wan_metadata
 from nabla.integrations.truenas_client import TrueNASSettings, truenas_host_port, truenas_url
 from nabla.settings.homelab import TrueNASProviderSettings
@@ -123,6 +127,8 @@ async def probe_truenas(
                 task.cancel()
         await asyncio.gather(*managed_tasks, return_exceptions=True)
 
+    diagnostics["http_timeout_seconds"] = PROBE_TIMEOUT_SEC
+    diagnostics["api_probe_deadline_seconds"] = TRUENAS_PROBE_DEADLINE_SEC
     diagnostics = append_truenas_http_stage(diagnostics, public_result)
     public_ingress_state = truenas_probe_health.truenas_public_ingress_state(
         public_result,
