@@ -201,3 +201,24 @@ def test_unavailable_shared_wan_path_reports_blind_spot() -> None:
     assert result["attribution_available"] is False
     assert result["control_path"]["mode"] == "shared_wan"
     assert result["control_path"]["blind_spot"] is True
+
+
+
+@pytest.mark.asyncio
+async def test_authenticated_security_probe_can_be_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PFSENSE_AUTHENTICATED_PROBES_ENABLED", "false")
+    monkeypatch.setenv("PFSENSE_SECURITY_API_KEY", "must-not-be-used")
+
+    async def forbidden(*_args, **_kwargs):
+        raise AssertionError("snort2c KeyAuth probe must not run")
+
+    monkeypatch.setattr(observer, "_read_snort2c_cached", forbidden)
+    monkeypatch.setattr(observer, "observe_public_egress_ip", forbidden)
+
+    result = await observer.observe_pfsense_ingress_block()
+
+    assert result["state"] == "telemetry_disabled"
+    assert result["telemetry_available"] is False
+    assert result["control_path"]["mode"] == "disabled"
