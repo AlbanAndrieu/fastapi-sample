@@ -153,6 +153,11 @@ def test_mobile_filter_navigation_is_compact_and_truenas_flow_is_centered() -> N
     assert "flex-flow: row nowrap" in stylesheet
     assert "overflow-x: auto" in stylesheet
     assert "touch-action: pan-x" in stylesheet
+    assert ".service-filter--global" in stylesheet
+    assert "box-sizing: border-box" in stylesheet
+    assert "max-width: 100%" in stylesheet
+    assert "overflow-x: clip" in stylesheet
+    assert ".health-row" in stylesheet
     assert "#service-section-navigation .service-filter-health-chip" in stylesheet
     assert "min-height: 44px" in stylesheet
     assert ".truenas-pipeline" in stylesheet
