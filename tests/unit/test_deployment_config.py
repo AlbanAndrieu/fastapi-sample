@@ -213,3 +213,14 @@ def test_ci_uses_current_uv_tooling() -> None:
     assert 'version: "0.12.22"' in python_ci
     assert 'version: "0.12.1"' not in deploy
     assert 'version: "0.12.1"' not in python_ci
+
+
+
+def test_fastapi_cloud_cli_lock_is_current() -> None:
+    project = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    lock = (ROOT / "uv.lock").read_text(encoding="utf-8")
+
+    assert '"fastapi-cloud-cli>=0.26.0"' in project
+    assert 'name = "fastapi-cloud-cli"\nversion = "0.26.0"' in lock
+    assert 'name = "rich-toolkit"\nversion = "0.20.5"' in lock
+    assert 'name = "fastapi-cloud-cli"\nversion = "0.24.0"' not in lock
