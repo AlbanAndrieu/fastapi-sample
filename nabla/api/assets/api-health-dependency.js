@@ -66,6 +66,7 @@ function evidenceIndexes(rows) {
 
 function candidateServiceIds(key, check) {
   const ids = [check?.service_id, check?.id, key];
+  if (String(key) === "postgres") ids.push("postgresql");
   if (String(key).startsWith("albandrieu_"))
     ids.push(String(key).slice("albandrieu_".length));
   return ids.filter(Boolean).map((value) => String(value).replaceAll("_", "-"));
