@@ -1,4 +1,4 @@
-const IMPLEMENTATION_NOTE =
+const LEGACY_IMPLEMENTATION_NOTE =
   "TrueNAS flow rendered from bounded /api/homelab/probes first; aggregate health enriches the view when available.";
 const DRAWER_SETTLE_MS = 3000;
 const retainedDrawerSections = new Map();
@@ -213,7 +213,7 @@ function ensureTrueNasInfo() {
     .split(" · ")
     .map((part) => part.trim())
     .filter(Boolean);
-  const filtered = parts.filter((part) => part !== IMPLEMENTATION_NOTE);
+  const filtered = parts.filter((part) => part !== LEGACY_IMPLEMENTATION_NOTE);
   if (filtered.length !== parts.length) {
     error.textContent = filtered.join(" · ");
     if (filtered.length === 0) error.hidden = true;
@@ -227,7 +227,7 @@ function ensureTrueNasInfo() {
     target.insertAdjacentElement("afterend", info);
   }
   info.textContent =
-    "Probe-first rendering: bounded /api/homelab/probes paints the TrueNAS flow quickly; aggregate health only enriches it. This is an information/freshness note, not an error.";
+    "Probe fan-out is rendered from the shared public health snapshot. The protected raw /api/homelab/probes endpoint is operator-only and never blocks TrueNAS or probe visualization.";
 }
 
 function isWorkstationBrowser() {

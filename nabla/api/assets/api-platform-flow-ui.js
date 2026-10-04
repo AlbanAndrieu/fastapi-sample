@@ -263,14 +263,14 @@ function hideUnprovenIngressBanner(snapshot) {
 function removeImplementationNote() {
   const node = document.getElementById("truenas-platform-error");
   if (!node || node.hidden) return;
-  const implementationNote =
+  const legacyImplementationNote =
     "TrueNAS flow rendered from bounded /api/homelab/probes first; aggregate health enriches the view when available.";
   const text = String(node.textContent || "");
-  if (!text.includes(implementationNote)) return;
+  if (!text.includes(legacyImplementationNote)) return;
   const parts = text
     .split(" · ")
     .map((part) => part.trim())
-    .filter((part) => part && part !== implementationNote);
+    .filter((part) => part && part !== legacyImplementationNote);
   node.textContent = parts.join(" · ");
   if (parts.length === 0) node.hidden = true;
 }

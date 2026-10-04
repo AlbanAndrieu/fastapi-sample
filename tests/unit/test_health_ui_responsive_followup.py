@@ -57,7 +57,7 @@ def test_bounded_probe_tooltips_do_not_tell_enabled_lan_to_enable_itself() -> No
     assert "Runtime RUNNING and LAN/TCP reachability are independent signals" in javascript
 
 
-def test_truenas_probe_first_note_is_neutralized_and_details_are_aligned() -> None:
+def test_truenas_raw_probe_endpoint_is_documented_as_operator_only() -> None:
     javascript = (ASSETS / "api-health-ui-responsive-followup.js").read_text(
         encoding="utf-8",
     )
@@ -65,9 +65,11 @@ def test_truenas_probe_first_note_is_neutralized_and_details_are_aligned() -> No
         encoding="utf-8",
     )
 
-    assert "TrueNAS flow rendered from bounded /api/homelab/probes first" in javascript
+    assert "LEGACY_IMPLEMENTATION_NOTE" in javascript
     assert "truenas-platform-info" in javascript
-    assert "information/freshness note, not an error" in javascript
+    assert "shared public health snapshot" in javascript
+    assert "operator-only" in javascript
+    assert "never blocks TrueNAS or probe visualization" in javascript
     assert "#truenas-platform > .service-detail-trigger" in stylesheet
 
 

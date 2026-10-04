@@ -29,23 +29,28 @@ def test_health_board_reuses_one_aggregate_request_per_refresh() -> None:
     assert 'fetch("/api/homelab/health"' not in truenas
 
 
-def test_truenas_uses_probe_matrix_as_fast_primary_render_path() -> None:
+def test_truenas_uses_public_health_board_as_primary_render_path() -> None:
     shared = (ASSETS / "api-homelab-health.js").read_text(encoding="utf-8")
     truenas = (ASSETS / "api-truenas.js").read_text(encoding="utf-8")
 
     assert 'fetch("/api/homelab/probes"' in shared
-    assert "needsBoundedProbeFallback" in truenas
-    assert "fetchHomelabProbeMatrix" in truenas
+    assert "publishAggregateProbeSnapshot" in shared
+    assert 'probe_snapshot_source: "health-board"' in shared
+    assert "fetchHomelabProbeMatrix" not in truenas
+    assert "const aggregate = await fetchHomelabHealth()" in truenas
     assert 'cache: "no-store"' in shared
-    assert truenas.index("probes = await fetchHomelabProbeMatrix()") < truenas.index(
-        "const aggregate = await fetchHomelabHealth()",
-    )
 
 
-def test_protected_probe_matrix_does_not_replace_public_aggregate_health() -> None:
-    shared = (_ASSET_DIR / "api-homelab-health.js").read_text(encoding="utf-8")
-    truenas = (_ASSET_DIR / "api-truenas.js").read_text(encoding="utf-8")
+def test_protected_or_missing_raw_probe_matrix_does_not_replace_public_aggregate_health(
+) -> None:
+    shared = (ASSETS / "api-homelab-health.js").read_text(encoding="utf-8")
+    truenas = (ASSETS / "api-truenas.js").read_text(encoding="utf-8")
 
     assert '"diagnostics_auth_required"' in shared
-    assert 'err?.code !== "diagnostics_auth_required"' in truenas
-    assert "const aggregate = await fetchHomelabHealth()" in truenas
+    assert '"probe_matrix_unavailable"' in shared
+    assert "lastRenderedSnapshot" in truenas
+    assert "health snapshot unavailable" in truenas
+    assert (
+        "Raw probe authentication does not mark TrueNAS or the probe fan-out down."
+        in truenas
+    )

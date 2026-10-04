@@ -16,8 +16,24 @@ export function resetHomelabHealthRequest() {
   resetHealthBoardRequest();
 }
 
+function publishAggregateProbeSnapshot(snapshot) {
+  const homelab = snapshot?.homelab;
+  if (
+    homelab &&
+    (homelab.probe_summary ||
+      Array.isArray(homelab.internal_services) ||
+      Array.isArray(homelab.public_probe_results))
+  ) {
+    dispatchProbeEvent(PROBE_UPDATE_EVENT, {
+      ...homelab,
+      probe_snapshot_source: "health-board",
+    });
+  }
+  return homelab;
+}
+
 export function fetchHomelabHealth() {
-  return fetchHealthBoard().then((snapshot) => snapshot.homelab);
+  return fetchHealthBoard().then(publishAggregateProbeSnapshot);
 }
 
 export function fetchHomelabProbeMatrix({
@@ -33,14 +49,22 @@ export function fetchHomelabProbeMatrix({
   })
     .then(async (response) => {
       if (!response.ok) {
+        const protectedResponse =
+          response.status === 401 || response.status === 403;
+        const unavailableResponse = response.status === 404;
         const error = new Error(
-          response.status === 401
-            ? "Probe matrix is protected by DIAGNOSTICS_ACCESS_KEY"
-            : `homelab probe matrix request failed: HTTP ${response.status}`,
+          protectedResponse
+            ? "Raw probe matrix is protected by DIAGNOSTICS_ACCESS_KEY"
+            : unavailableResponse
+              ? "Raw probe matrix is unavailable on this deployment; aggregate probe health remains available"
+              : `homelab probe matrix request failed: HTTP ${response.status}`,
         );
-        if (response.status === 401) {
+        if (protectedResponse) {
           error.code = "diagnostics_auth_required";
-          error.httpStatus = 401;
+          error.httpStatus = response.status;
+        } else if (unavailableResponse) {
+          error.code = "probe_matrix_unavailable";
+          error.httpStatus = 404;
         }
         throw error;
       }
