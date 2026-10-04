@@ -169,7 +169,7 @@ async def test_homelab_snapshot_returns_degraded_timeout_payload(monkeypatch) ->
             "TrueNAS HTTPS listener",
             "WebSocket /api/current",
             "API authentication",
-            "TrueNAS API · system.version + app.query",
+            "TrueNAS API · system.ready + system.version + app.query",
         ],
     )
     assert [stage["label"] for stage in diagnostics["stages"]] == expected_labels
