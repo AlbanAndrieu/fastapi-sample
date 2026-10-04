@@ -314,7 +314,7 @@ def test_health_snapshot_keeps_rpc_liveness_when_app_inventory_is_denied() -> No
     assert snapshot["reachable"] is True
     assert snapshot["authenticated"] is True
     assert snapshot["version"] == "26.0.0-BETA.2"
-    assert snapshot["apps"] == []
+    assert "apps" not in snapshot
     assert snapshot["app_inventory"]["state"] == "warn"
     assert snapshot["app_inventory"]["available"] is False
     assert snapshot["app_inventory"]["failure_stage"] == "source_allowlist"
