@@ -63,6 +63,7 @@ async def test_truenas_transport_diagnostics_timeout_keeps_api_health(monkeypatc
     assert result["api"]["reachable"] is True
     assert result["diagnostics"]["timed_out"] is True
     assert result["diagnostics"]["error_kind"] == "deadline"
+    assert result["diagnostics"]["api_probe_deadline_seconds"] == homelab_truenas_probe.TRUENAS_PROBE_DEADLINE_SEC
     assert result["diagnostics"]["stages"][-2]["id"] == "authentication"
     assert result["diagnostics"]["stages"][-2]["state"] == "ok"
     assert result["diagnostics"]["stages"][-1]["id"] == "api"
