@@ -335,6 +335,38 @@ async def test_posture_401_preserves_transport_reachability(
         "observed": False,
         "error": "skipped_after_authentication_failure",
     }
+
+
+@pytest.mark.asyncio
+async def test_posture_401_keeps_firewall_path_warning(
+    monkeypatch,
+    settings,
+) -> None:
+    calls: list[str] = []
+
+    async def rejected(_client, path: str):
+        calls.append(path)
+        request = httpx.Request("GET", f"https://pfsense.example.test{path}")
+        response = httpx.Response(401, request=request)
+        raise httpx.HTTPStatusError(
+            "unauthorized",
+            request=request,
+            response=response,
+        )
+
+    monkeypatch.setattr(pfsense_dns_observer, "_get_data", rejected)
+    monkeypatch.setattr(
+        pfsense_dns_observer,
+        "observe_pfsense_ingress_block",
+        _security_unavailable,
+    )
+
+    result = await pfsense_dns_observer.observe_pfsense_dns_posture(
+        settings=settings,
+    )
+
+    assert calls == ["/api/v2/system/version"]
+    assert result["api_authenticated"] is False
     filters = {row["id"]: row for row in result["security_filters"]}
     assert filters["firewall"]["state"] == "warn"
     assert "authentication failed" in filters["firewall"]["detail"]
