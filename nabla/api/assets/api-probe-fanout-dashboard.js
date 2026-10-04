@@ -567,6 +567,10 @@ function ensureDashboard() {
             );
           }
         }
+      } else if (error?.code === "probe_matrix_unavailable") {
+        renderActivity(
+          "◌ Raw probe matrix is unavailable on this deployment; the aggregate probe snapshot remains visible.",
+        );
       } else {
         renderActivity(
           `⚠ Refresh failed: ${String(error?.message || error)}`,
@@ -727,7 +731,13 @@ export function installProbeFanoutDashboard() {
   window.addEventListener(ERROR_EVENT, (event) => {
     if (event.detail?.code === "diagnostics_auth_required") {
       renderActivity(
-        "🔒 Probe matrix protected; aggregate health remains available. Use Refresh details to authenticate.",
+        "🔒 Raw probe matrix protected; aggregate probe health remains visible. Use Refresh details only for operator-level raw evidence.",
+      );
+      return;
+    }
+    if (event.detail?.code === "probe_matrix_unavailable") {
+      renderActivity(
+        "◌ Raw probe matrix is not available on this deployment; aggregate probe health remains visible.",
       );
       return;
     }
