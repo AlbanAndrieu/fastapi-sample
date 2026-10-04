@@ -63,7 +63,7 @@ def test_missing_api_key_marks_auth_failed_and_api_blocked() -> None:
     assert auth["failure_stage"] == "missing_api_key"
     assert api == {
         "id": "api",
-        "label": "TrueNAS API · system.version + app.query",
+        "label": "TrueNAS API · system.ready + system.version + app.query",
         "state": "blocked",
         "detail": "Blocked by authentication",
     }
@@ -269,3 +269,73 @@ def test_rpc_timeout_uses_phase_latency_not_aggregate_latency() -> None:
     assert api["rpc_method"] == "system.version"
     assert api["failure_stage"] == "api_call_timeout"
     assert "per-call budget=2s" in api["detail"]
+
+
+def test_ready_api_keeps_version_timeout_as_warning() -> None:
+    result = append_truenas_api_stages(
+        _network_ok(),
+        {
+            "reachable": True,
+            "authenticated": True,
+            "system_ready": True,
+            "readiness": {
+                "state": "ok",
+                "ready": True,
+                "elapsed_ms": 12,
+            },
+            "system_version": {
+                "state": "warn",
+                "available": False,
+                "error_type": "TimeoutError",
+                "failure_stage": "api_call_timeout",
+                "elapsed_ms": 2001,
+            },
+            "app_inventory": {
+                "state": "warn",
+                "available": False,
+                "error_type": "DeferredAfterRpcTimeout",
+                "failure_stage": "deferred_after_timeout",
+            },
+        },
+    )
+
+    auth, api = result["stages"][-2:]
+    assert auth["state"] == "ok"
+    assert api["state"] == "warn"
+    assert api["readiness_state"] == "ok"
+    assert api["system_ready"] is True
+    assert api["version_state"] == "warn"
+    assert api["inventory_state"] == "warn"
+    assert api["elapsed_ms"] == 12
+    assert "system.ready=true" in api["detail"]
+    assert "system.version unavailable (TimeoutError)" in api["detail"]
+    assert "app.query unavailable (DeferredAfterRpcTimeout)" in api["detail"]
+
+
+def test_not_ready_api_reports_system_state_without_transport_failure() -> None:
+    result = append_truenas_api_stages(
+        _network_ok(),
+        {
+            "reachable": True,
+            "authenticated": True,
+            "system_ready": False,
+            "system_state": "BOOTING",
+            "readiness": {
+                "state": "warn",
+                "ready": False,
+                "system_state": "BOOTING",
+                "elapsed_ms": 8,
+            },
+            "system_version": {"state": "ok", "available": True},
+            "version": "TrueNAS-26.0.0",
+            "app_inventory": {"state": "ok", "available": True},
+            "apps": [],
+        },
+    )
+
+    auth, api = result["stages"][-2:]
+    assert auth["state"] == "ok"
+    assert api["state"] == "warn"
+    assert api["system_ready"] is False
+    assert api["system_state"] == "BOOTING"
+    assert "system.ready=false (BOOTING)" in api["detail"]
