@@ -360,9 +360,23 @@ class TrueNASReadOnlyAdapter:
         phase = "connect"
         method = "connect"
         authenticated = False
+        readiness_state = "unknown"
+        readiness_error_type: str | None = None
+        readiness_failure_stage: str | None = None
+        readiness_elapsed_ms: int | None = None
+        system_ready: bool | None = None
+        system_state: str | None = None
+        system_version_state = "ok"
+        system_version_error_type: str | None = None
+        system_version_failure_stage: str | None = None
+        version: str | None = None
         app_inventory_state = "ok"
         app_inventory_error_type: str | None = None
         app_inventory_failure_stage: str | None = None
+        apps: list[dict[str, Any]] = []
+        vms: list[dict[str, Any]] | None = None
+        vm_error_type: str | None = None
+        vm_skip_reason: str | None = None
         websocket_elapsed_ms: int | None = None
         authentication_elapsed_ms: int | None = None
         system_version_elapsed_ms: int | None = None
@@ -385,17 +399,82 @@ class TrueNASReadOnlyAdapter:
                 )
                 authenticated = True
 
-                # system.version is the lightweight authenticated liveness proof.
-                # Inventory RPCs are enrichment and must not invalidate proven API
-                # availability when they are slow or temporarily unavailable.
+                # system.ready is the canonical authenticated readiness proof.
+                # system.version and inventory RPCs are enrichment and must not
+                # invalidate proven API availability when they are slow.
                 phase = "call"
+                method = "system.ready"
+                ready_started = time.perf_counter()
+                phase_started = ready_started
+                try:
+                    ready_value = client.call(method)
+                    readiness_elapsed_ms = round(
+                        (time.perf_counter() - ready_started) * 1000,
+                    )
+                    if not isinstance(ready_value, bool):
+                        raise RuntimeError(
+                            "TrueNAS system.ready returned an unexpected payload",
+                        )
+                    system_ready = ready_value
+                    readiness_state = "ok" if ready_value else "warn"
+                except Exception as ready_exc:
+                    readiness_elapsed_ms = round(
+                        (time.perf_counter() - ready_started) * 1000,
+                    )
+                    readiness_state = "warn"
+                    readiness_error_type = ready_exc.__class__.__name__
+                    readiness_failure_stage = _rpc_failure_stage(ready_exc)
+                    logger.warning(
+                        "TrueNAS readiness RPC unavailable uri=%s stage=%s exception=%s",
+                        uri,
+                        readiness_failure_stage,
+                        readiness_error_type,
+                    )
+
+                if system_ready is False:
+                    method = "system.state"
+                    state_started = time.perf_counter()
+                    phase_started = state_started
+                    try:
+                        state_value = client.call(method)
+                        if isinstance(state_value, str):
+                            system_state = state_value
+                    except Exception as state_exc:
+                        logger.warning(
+                            "TrueNAS system state unavailable uri=%s stage=%s exception=%s",
+                            uri,
+                            _rpc_failure_stage(state_exc),
+                            state_exc.__class__.__name__,
+                        )
+
                 method = "system.version"
                 system_started = time.perf_counter()
                 phase_started = system_started
-                version = client.call(method)
-                system_version_elapsed_ms = round(
-                    (time.perf_counter() - system_started) * 1000,
-                )
+                try:
+                    version_value = client.call(method)
+                    system_version_elapsed_ms = round(
+                        (time.perf_counter() - system_started) * 1000,
+                    )
+                    if not isinstance(version_value, str):
+                        raise RuntimeError(
+                            "TrueNAS system.version returned an unexpected payload",
+                        )
+                    version = version_value
+                except Exception as version_exc:
+                    system_version_elapsed_ms = round(
+                        (time.perf_counter() - system_started) * 1000,
+                    )
+                    system_version_state = "warn"
+                    system_version_error_type = version_exc.__class__.__name__
+                    system_version_failure_stage = _rpc_failure_stage(version_exc)
+                    logger.warning(
+                        "TrueNAS version enrichment unavailable uri=%s stage=%s exception=%s",
+                        uri,
+                        system_version_failure_stage,
+                        system_version_error_type,
+                    )
+                    if system_ready is None:
+                        raise
 
                 method = "app.query"
                 app_started = time.perf_counter()
@@ -424,38 +503,48 @@ class TrueNASReadOnlyAdapter:
                         app_inventory_error_type,
                     )
 
-                vm_error_type: str | None = None
-                method = "vm.query"
-                vm_started = time.perf_counter()
-                phase_started = vm_started
-                try:
-                    vms = client.call(
-                        method,
-                        [],
-                        {
-                            "select": [
-                                "name",
-                                "status.state",
-                            ],
-                        },
+                prior_rpc_timeout = "api_call_timeout" in {
+                    readiness_failure_stage,
+                    system_version_failure_stage,
+                    app_inventory_failure_stage,
+                }
+                if prior_rpc_timeout:
+                    vm_skip_reason = (
+                        "TrueNAS vm.query deferred after an earlier RPC timeout "
+                        "to preserve the aggregate health-probe budget"
                     )
-                    vm_query_elapsed_ms = round(
-                        (time.perf_counter() - vm_started) * 1000,
-                    )
-                except Exception as vm_exc:
-                    vm_query_elapsed_ms = round(
-                        (time.perf_counter() - vm_started) * 1000,
-                    )
-                    # VM_READ is deliberately optional during the RBAC rollout.
-                    # A missing VM capability must not invalidate proven TrueNAS
-                    # liveness or the application inventory.
-                    vms = None
-                    vm_error_type = vm_exc.__class__.__name__
-                    logger.warning(
-                        "TrueNAS optional Talos VM observation unavailable uri=%s exception=%s",
-                        uri,
-                        vm_error_type,
-                    )
+                else:
+                    method = "vm.query"
+                    vm_started = time.perf_counter()
+                    phase_started = vm_started
+                    try:
+                        vms = client.call(
+                            method,
+                            [],
+                            {
+                                "select": [
+                                    "name",
+                                    "status.state",
+                                ],
+                            },
+                        )
+                        vm_query_elapsed_ms = round(
+                            (time.perf_counter() - vm_started) * 1000,
+                        )
+                    except Exception as vm_exc:
+                        vm_query_elapsed_ms = round(
+                            (time.perf_counter() - vm_started) * 1000,
+                        )
+                        # VM_READ is deliberately optional during the RBAC rollout.
+                        # A missing VM capability must not invalidate proven TrueNAS
+                        # liveness or the application inventory.
+                        vms = None
+                        vm_error_type = vm_exc.__class__.__name__
+                        logger.warning(
+                            "TrueNAS optional Talos VM observation unavailable uri=%s exception=%s",
+                            uri,
+                            vm_error_type,
+                        )
         except Exception as exc:
             failed_at = time.perf_counter()
             elapsed_ms = round((failed_at - started) * 1000)
@@ -493,8 +582,10 @@ class TrueNASReadOnlyAdapter:
             proxy_route,
             round((time.perf_counter() - started) * 1000),
         )
-        if not isinstance(version, str) or not isinstance(apps, list):
-            raise RuntimeError("TrueNAS API returned an unexpected health payload")
+        if version is not None and not isinstance(version, str):
+            raise RuntimeError("TrueNAS system.version returned an unexpected health payload")
+        if not isinstance(apps, list):
+            raise RuntimeError("TrueNAS app.query returned an unexpected health payload")
 
         app_rows: list[dict[str, Any]] = []
         for app in apps:
@@ -526,7 +617,10 @@ class TrueNASReadOnlyAdapter:
                 "reachable": None,
                 "state": "unknown",
                 "skipped": True,
-                "reason": "TrueNAS vm.query unavailable; VM_READ is required",
+                "reason": (
+                    vm_skip_reason
+                    or "TrueNAS vm.query unavailable; VM_READ is required"
+                ),
                 "probe": "truenas_vm_query",
                 "evidence": "vm_runtime",
                 "error_type": vm_error_type,
@@ -535,6 +629,23 @@ class TrueNASReadOnlyAdapter:
             "reachable": True,
             "authenticated": True,
             "version": version,
+            "system_ready": system_ready,
+            "system_state": system_state,
+            "readiness": {
+                "state": readiness_state,
+                "ready": system_ready,
+                "system_state": system_state,
+                "error_type": readiness_error_type,
+                "failure_stage": readiness_failure_stage,
+                "elapsed_ms": readiness_elapsed_ms,
+            },
+            "system_version": {
+                "state": system_version_state,
+                "available": version is not None,
+                "error_type": system_version_error_type,
+                "failure_stage": system_version_failure_stage,
+                "elapsed_ms": system_version_elapsed_ms,
+            },
             "websocket_elapsed_ms": websocket_elapsed_ms,
             "authentication_elapsed_ms": authentication_elapsed_ms,
             "api_elapsed_ms": system_version_elapsed_ms,
