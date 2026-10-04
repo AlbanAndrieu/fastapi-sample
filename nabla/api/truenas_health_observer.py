@@ -24,7 +24,7 @@ from nabla.settings.homelab import TrueNASProviderSettings
 from nabla.utils.logger import logger
 
 _CACHE_KEY = "truenas:api"
-_TRUENAS_PROBE_DEADLINE_SEC = 8.0
+TRUENAS_PROBE_DEADLINE_SEC = 8.0
 _SENTRY_FAILURE_COOLDOWN_SEC = 900.0
 
 
@@ -172,7 +172,7 @@ async def _probe_origin() -> dict[str, Any]:
     try:
         result = await asyncio.wait_for(
             asyncio.to_thread(observe_truenas_api),
-            timeout=_TRUENAS_PROBE_DEADLINE_SEC,
+            timeout=TRUENAS_PROBE_DEADLINE_SEC,
         )
         if not isinstance(result, dict):
             raise RuntimeError("TrueNAS API probe returned no health payload")
@@ -185,6 +185,30 @@ async def _probe_origin() -> dict[str, Any]:
         )
         if value.get("reachable") is True:
             value["last_success_at"] = _utc_now()
+        return value
+    except TimeoutError as exc:
+        elapsed_ms = max(0, round((time.perf_counter() - started) * 1000))
+        phase, stage = "deadline", "aggregate_deadline"
+        logger.debug(
+            "truenas_api_health_probe_deadline elapsed_ms=%s deadline_seconds=%s",
+            elapsed_ms,
+            TRUENAS_PROBE_DEADLINE_SEC,
+        )
+        value = {
+            "reachable": False,
+            "phase": phase,
+            "stage": stage,
+            "elapsed_ms": elapsed_ms,
+            "error": (
+                "TrueNAS authenticated API probe exceeded its aggregate "
+                f"{TRUENAS_PROBE_DEADLINE_SEC:.0f}s budget"
+            ),
+            "exception_type": exc.__class__.__name__,
+            "retry_after_seconds": int(_CACHE_POLICY.failure_ttl),
+            "username_configured": True,
+            "api_key_configured": True,
+            "deadline_seconds": TRUENAS_PROBE_DEADLINE_SEC,
+        }
         return value
     except Exception as exc:  # Adapter/network/auth errors are health data.
         elapsed_ms = max(0, round((time.perf_counter() - started) * 1000))
