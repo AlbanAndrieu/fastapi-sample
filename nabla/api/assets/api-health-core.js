@@ -100,6 +100,12 @@ function classify(key, check) {
     check?.ingress_policy?.state === "possible_ingress_policy_block"
   )
     return "yellow";
+  if (
+    key === "pfsense" &&
+    [401, 403].includes(Number(check?.http_status)) &&
+    check?.transport_reachable === true
+  )
+    return "yellow";
   if (isExpectedSentryDebugFailure(key, check)) return "green";
   const dependencyClass = dependencyHealthClass(check);
   if (dependencyClass) {
