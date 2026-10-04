@@ -90,21 +90,15 @@ def test_truenas_platform_distinguishes_listener_from_authenticated_api() -> Non
     assert "source IP blocked by TrueNAS allowlist" in javascript
 
 
-def test_truenas_platform_renders_bounded_probes_before_aggregate_enrichment() -> None:
+def test_truenas_platform_renders_probe_fanout_from_public_aggregate_snapshot() -> None:
     javascript = ASSET.read_text(encoding="utf-8")
-    flow = FLOW_ASSET.read_text(encoding="utf-8")
 
-    probe_fetch = javascript.index("probes = await fetchHomelabProbeMatrix()")
-    probe_render = javascript.index("_probe_first: true", probe_fetch)
-    aggregate_fetch = javascript.index("const aggregate = await fetchHomelabHealth()")
-
-    assert probe_fetch < probe_render < aggregate_fetch
-    assert "needsBoundedProbeFallback" in javascript
-    assert "_bounded_probe_fallback" in javascript
-    assert "_aggregate_enrichment_error" in javascript
-    assert "Aggregate homelab diagnostics exceeded their deadline" in javascript
-    assert "removeImplementationNote" in flow
-    assert "TrueNAS flow rendered from bounded /api/homelab/probes first" in flow
+    assert "fetchHomelabProbeMatrix" not in javascript
+    assert "const aggregate = await fetchHomelabHealth()" in javascript
+    assert "render(aggregate)" in javascript
+    assert "lastRenderedSnapshot" in javascript
+    assert "_stale_ui_snapshot" in javascript
+    assert "Last rendered TrueNAS/probe snapshot retained" in javascript
 
 
 def test_truenas_platform_displays_probe_fanout_matrix() -> None:
@@ -125,8 +119,10 @@ def test_truenas_platform_displays_probe_fanout_matrix() -> None:
     assert "fan-out budget" in javascript
 
 
-def test_truenas_aggregate_remains_available_when_probe_matrix_is_protected() -> None:
+def test_truenas_raw_probe_auth_is_not_a_render_dependency() -> None:
     javascript = ASSET.read_text(encoding="utf-8")
 
-    assert 'err?.code !== "diagnostics_auth_required"' in javascript
+    assert "fetchHomelabProbeMatrix" not in javascript
     assert "const aggregate = await fetchHomelabHealth()" in javascript
+    assert "truenas-platform-state--warn" in javascript
+    assert "health snapshot unavailable" in javascript
