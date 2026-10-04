@@ -214,6 +214,12 @@ def pfsense_security_environment_variables() -> tuple[str, str]:
     return url_var, "PFSENSE_SECURITY_API_KEY"
 
 
+class PfSenseProbePolicySettings(SettingsBase):
+    """Runtime policy for authenticated pfSense API probes."""
+
+    pfsense_authenticated_probes_enabled: bool = True
+
+
 class _PfSenseSharedProviderSettings(SettingsBase):
     """Shared transport inherited by split pfSense identities."""
 
