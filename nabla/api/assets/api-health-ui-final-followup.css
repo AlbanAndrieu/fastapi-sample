@@ -194,10 +194,46 @@ main {
 }
 
 @media (max-width: 720px) {
+  main,
+  .service-health-layout,
+  #health-board,
+  .health-board,
+  .health-section,
+  .service-groups,
+  #health-services-groups,
+  .service-filter--global,
+  .health-row {
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .service-health-layout,
+  #health-board,
+  .health-board,
+  .health-section,
+  .service-groups,
+  #health-services-groups {
+    width: 100%;
+  }
+
   .service-filter--global {
+    width: 100%;
     top: 0.3rem;
     margin-bottom: 0.65rem;
     padding: 0.55rem;
+    overflow-x: clip;
+  }
+
+  .health-row {
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  .health-row-primary,
+  .service-detail-evidence[data-probe-grid-ready="true"],
+  #service-section-navigation.service-section-navigation {
+    max-width: 100%;
   }
 
   .service-filter-global-heading {
