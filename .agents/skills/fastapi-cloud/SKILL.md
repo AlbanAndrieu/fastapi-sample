@@ -98,7 +98,7 @@ PFSENSE_SECURITY_API_KEY=<dedicated diagnostics-table GET-only key>
 PFSENSE_SECURITY_PATH_MODE=shared_wan
 ```
 
-`PFSENSE_POSTURE_API_URL`, `PFSENSE_POSTURE_API_VERIFY_SSL`, `PFSENSE_SECURITY_API_URL`, and `PFSENSE_SECURITY_API_VERIFY_SSL` are optional overrides when an identity uses a different transport. `PFSENSE_API_KEY` is a temporary application compatibility fallback only; it was removed from the production FastAPI Cloud environment on 2026-09-02 after both dedicated identities were validated. Do not recommend restoring or reusing the generic key.
+`PFSENSE_POSTURE_API_URL`, `PFSENSE_POSTURE_API_VERIFY_SSL`, `PFSENSE_SECURITY_API_URL`, and `PFSENSE_SECURITY_API_VERIFY_SSL` are optional overrides when an identity uses a different transport. The generic shared application key is retired. Do not restore it or merge the dedicated posture and security privilege sets.
 
 Provider health must validate that its canonical credential exists before attempting provider authentication. A missing credential is configuration health data, not a generic network failure. Never substitute one provider's key for another provider or recommend collapsing the dedicated pfSense identities back into one shared secret.
 
