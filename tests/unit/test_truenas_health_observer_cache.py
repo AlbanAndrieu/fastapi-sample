@@ -169,3 +169,29 @@ def test_call_timeout_class_name_is_classified_as_api_timeout() -> None:
 
     assert phase == "api"
     assert stage == "api_call_timeout"
+
+
+@pytest.mark.asyncio
+async def test_outer_probe_deadline_is_reported_as_aggregate_deadline(
+    monkeypatch,
+) -> None:
+    await observer.reset_truenas_health_cache()
+    _valid_configuration(monkeypatch)
+    monkeypatch.setattr(observer, "TRUENAS_PROBE_DEADLINE_SEC", 0.01)
+
+    def slow_probe():
+        import time
+
+        time.sleep(0.05)
+        return {"reachable": True, "version": "26.0.0", "apps": []}
+
+    monkeypatch.setattr(observer, "observe_truenas_api", slow_probe)
+
+    result = await observer.observe_truenas_health_api()
+
+    assert result["reachable"] is False
+    assert result["phase"] == "deadline"
+    assert result["stage"] == "aggregate_deadline"
+    assert result["deadline_seconds"] == 0.01
+    assert "aggregate" in result["error"]
+    await observer.reset_truenas_health_cache()
