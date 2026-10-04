@@ -17,6 +17,7 @@ from nabla.api.homelab_performance import (
     timed_homelab_phase,
 )
 from nabla.api.homelab_runtime import fetch_truenas_runtime, runtime_snapshot_from_health_api
+from nabla.api.homelab_runtime_models import ObservedApp, ObservedContainer, TrueNASRuntimeSnapshot
 from nabla.api.homelab_service_health import build_reconciled_service_health
 from nabla.api.homelab_topology import fetch_homelab_topology
 from nabla.api.pfsense_dns_observer import observe_pfsense_dns_posture
@@ -235,6 +236,117 @@ async def prepare_homelab_reconciliation_context(
     }
 
 
+_RUNTIME_OK_STATES = frozenset({"ACTIVE", "HEALTHY", "RUNNING", "STARTED", "UP"})
+_RUNTIME_FAIL_STATES = frozenset({"CRASHED", "DOWN", "ERROR", "FAILED", "STOPPED", "STOPPING"})
+
+
+def _runtime_health_state(value: str | None) -> str:
+    state = str(value or "").strip().upper()
+    if state in _RUNTIME_OK_STATES:
+        return "ok"
+    if state in _RUNTIME_FAIL_STATES:
+        return "fail"
+    return "warn" if state else "unknown"
+
+
+def _topology_runtime_match(
+    runtime: TrueNASRuntimeSnapshot,
+    *,
+    app_id: str | None,
+    container_service: str | None,
+) -> tuple[ObservedApp, ObservedContainer | None] | None:
+    matches: list[tuple[ObservedApp, ObservedContainer | None]] = []
+    for app in runtime.apps:
+        identity = {app.app_id.strip().casefold(), app.name.strip().casefold()}
+        if app_id and app_id.strip().casefold() not in identity:
+            continue
+        if container_service:
+            wanted = container_service.strip().casefold()
+            containers = [
+                container
+                for container in app.containers
+                if str(container.service_name or "").strip().casefold() == wanted
+            ]
+            if containers:
+                matches.append((app, containers[0]))
+                continue
+            if not app_id and wanted in identity:
+                matches.append((app, None))
+                continue
+            if app_id and not app.containers:
+                matches.append((app, None))
+                continue
+            continue
+        if app_id:
+            matches.append((app, None))
+    return matches[0] if len(matches) == 1 else None
+
+
+def _append_runtime_topology_component_evidence(
+    rows: list[dict[str, Any]],
+    *,
+    topology: Any,
+    runtime: TrueNASRuntimeSnapshot | None,
+) -> list[dict[str, Any]]:
+    """Project observed runtime-backed topology nodes missing from legacy v1 presentation."""
+    if runtime is None or not runtime.reachable:
+        return rows
+
+    result = [dict(row) for row in rows]
+    known_ids = {
+        str(row.get("id") or "")
+        for row in result
+        if isinstance(row, dict) and row.get("id")
+    }
+    for node in topology.nodes:
+        if node.id in known_ids or node.status in {"planned", "disabled"}:
+            continue
+        binding = node.runtime
+        if binding is None or binding.provider != "truenas-app":
+            continue
+        matched = _topology_runtime_match(
+            runtime,
+            app_id=binding.app_id,
+            container_service=binding.container_service,
+        )
+        if matched is None:
+            continue
+        app, container = matched
+        observed_state = container.state if container is not None else app.state
+        local_state = (
+            "unknown"
+            if runtime.stale
+            else _runtime_health_state(observed_state)
+        )
+        result.append(
+            {
+                "id": node.id,
+                "name": node.name,
+                "url": node.url or node.internal_url,
+                "reachable": local_state == "ok",
+                "http_status": 0,
+                "state": local_state,
+                "direct_state": None,
+                "internal_state": None,
+                "runtime_state": str(observed_state or app.state or "UNKNOWN"),
+                "runtime_app": app.app_id,
+                "runtime_reachable": runtime.reachable,
+                "runtime_stale": runtime.stale,
+                "observed_at": runtime.observed_at,
+                "observation_stale": runtime.stale,
+                "topology_runtime_projection": True,
+                "presentation_role": node.presentation_role or "support",
+                "runtime_container_service": (
+                    container.service_name
+                    if container is not None
+                    else binding.container_service
+                ),
+            },
+        )
+        known_ids.add(node.id)
+    return result
+
+
 def _reconcile_shared_component_evidence(
     rows: list[dict[str, Any]],
     shared_checks: dict[str, Any] | None,
@@ -344,6 +456,11 @@ async def reconcile_homelab_health_payload(
         cloudflare_status_confirmed=cloudflare_summary.get("status_confirmed"),
         cloudflare_warning=cloudflare_summary.get("warning"),
         checked_at=checked_at,
+    )
+    reconciled = _append_runtime_topology_component_evidence(
+        reconciled,
+        topology=topology,
+        runtime=runtime,
     )
     reconciled = _reconcile_shared_component_evidence(reconciled, shared_checks)
     dependency_aware = propagate_required_dependency_health(reconciled, topology)
