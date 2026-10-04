@@ -134,7 +134,6 @@ async def test_cloudflare_404_reports_account_scope_diagnostic(monkeypatch) -> N
 @pytest.mark.asyncio
 async def test_pfsense_check_is_skipped_without_credentials(monkeypatch) -> None:
     monkeypatch.delenv("PFSENSE_API_URL", raising=False)
-    monkeypatch.delenv("PFSENSE_API_KEY", raising=False)
     monkeypatch.delenv("PFSENSE_POSTURE_API_URL", raising=False)
     monkeypatch.delenv("PFSENSE_POSTURE_API_KEY", raising=False)
 
@@ -147,7 +146,7 @@ async def test_pfsense_check_is_skipped_without_credentials(monkeypatch) -> None
 @pytest.mark.asyncio
 async def test_pfsense_check_rejects_plain_http_api_key_transport(monkeypatch) -> None:
     monkeypatch.setenv("PFSENSE_API_URL", "http://172.17.0.1")
-    monkeypatch.setenv("PFSENSE_API_KEY", "key")
+    monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "key")
     monkeypatch.delenv("PFSENSE_POSTURE_API_KEY", raising=False)
 
     result = await platform_health.check_pfsense_api()
@@ -180,14 +179,13 @@ async def test_pfsense_check_uses_api_key_and_lightweight_version_endpoint(monke
     assert result["http_status"] == 200
     assert result["probe"] == "pfsense_rest_api_v2"
     assert result["path"] == "/api/v2/system/version"
-    assert result["credential_mode"] == "legacy_shared"
+    assert result["credential_mode"] == "dedicated_posture"
     assert "/api/v2/status/system" not in result["url"]
 
 
 @pytest.mark.asyncio
-async def test_pfsense_check_prefers_dedicated_posture_key(monkeypatch) -> None:
+async def test_pfsense_check_uses_dedicated_posture_key(monkeypatch) -> None:
     monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example")
-    monkeypatch.setenv("PFSENSE_API_KEY", "narrow-snort-key")
     monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "posture-key")
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -316,7 +314,6 @@ async def test_pfsense_401_reports_auth_rejection_without_claiming_appliance_dow
     monkeypatch,
 ) -> None:
     monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example")
-    monkeypatch.setenv("PFSENSE_API_KEY", "legacy-key")
     monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "stale-posture-key")
 
     def handler(request: httpx.Request) -> httpx.Response:
