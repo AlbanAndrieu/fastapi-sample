@@ -219,3 +219,28 @@ def test_unmeasured_diagnostics_use_declared_host_as_connect_target() -> None:
     assert result["connect_target"] == "truenas.albandrieu.com:7000"
     assert result["timed_out"] is True
     assert result["error_kind"] == "deadline"
+
+
+def test_authenticated_api_keeps_inventory_timeout_as_warning() -> None:
+    result = append_truenas_api_stages(
+        _network_ok(),
+        {
+            "reachable": True,
+            "authenticated": True,
+            "version": "TrueNAS-26.0.0",
+            "apps": [],
+            "app_inventory": {
+                "state": "warn",
+                "available": False,
+                "error_type": "TimeoutError",
+                "failure_stage": "connect_timeout",
+            },
+        },
+    )
+
+    auth, api = result["stages"][-2:]
+    assert auth["state"] == "ok"
+    assert api["state"] == "warn"
+    assert api["inventory_state"] == "warn"
+    assert api["inventory_failure_stage"] == "connect_timeout"
+    assert "app.query unavailable (TimeoutError)" in api["detail"]
