@@ -235,6 +235,7 @@ def test_health_snapshot_uses_system_version_and_app_query() -> None:
 
     assert snapshot == {
         "reachable": True,
+        "authenticated": True,
         "version": "26.0.0-BETA.2",
         "apps": [
             {
@@ -259,6 +260,12 @@ def test_health_snapshot_uses_system_version_and_app_query() -> None:
                 "upgrade_available": True,
             },
         ],
+        "app_inventory": {
+            "state": "ok",
+            "available": True,
+            "error_type": None,
+            "failure_stage": None,
+        },
         "talos": {
             "reachable": True,
             "state": "ok",
@@ -282,12 +289,14 @@ def test_health_snapshot_uses_system_version_and_app_query() -> None:
     assert "mounts" not in snapshot["apps"][0]["active_workloads"]["container_details"][0]
 
 
-def test_health_snapshot_preserves_call_phase_for_rbac_denial() -> None:
+def test_health_snapshot_keeps_rpc_liveness_when_app_inventory_is_denied() -> None:
     class RbacDeniedClient(FakeClient):
         def call(self, method: str, *params):
             if method == "system.version":
+                self.calls.append(method)
                 return "26.0.0-BETA.2"
             if method == "app.query":
+                self.calls.append(method)
                 raise RuntimeError("You are not allowed to access this resource")
             return super().call(method, *params)
 
@@ -300,12 +309,16 @@ def test_health_snapshot_preserves_call_phase_for_rbac_denial() -> None:
         client_factory=RbacDeniedClient,
     )
 
-    with pytest.raises(TrueNASHealthProbeError) as exc_info:
-        adapter.health_snapshot()
+    snapshot = adapter.health_snapshot()
 
-    assert exc_info.value.phase == "call"
-    assert exc_info.value.stage == "access_denied"
-    assert exc_info.value.exception_type == "RuntimeError"
+    assert snapshot["reachable"] is True
+    assert snapshot["authenticated"] is True
+    assert snapshot["version"] == "26.0.0-BETA.2"
+    assert snapshot["apps"] == []
+    assert snapshot["app_inventory"]["state"] == "warn"
+    assert snapshot["app_inventory"]["available"] is False
+    assert snapshot["app_inventory"]["failure_stage"] == "source_allowlist"
+    assert snapshot["app_inventory"]["error_type"] == "RuntimeError"
 
 
 def test_custom_call_timeout_is_forwarded_to_official_client() -> None:
@@ -360,3 +373,33 @@ def test_health_snapshot_keeps_truenas_reachable_when_vm_read_is_denied() -> Non
     assert snapshot["talos"]["state"] == "unknown"
     assert snapshot["talos"]["skipped"] is True
     assert snapshot["talos"]["probe"] == "truenas_vm_query"
+
+
+def test_health_snapshot_keeps_rpc_liveness_when_app_query_times_out() -> None:
+    class SlowAppClient(FakeClient):
+        def call(self, method: str, *params):
+            if method == "system.version":
+                self.calls.append(method)
+                return "26.0.0-BETA.2"
+            if method == "app.query":
+                self.calls.append(method)
+                raise TimeoutError("app.query timed out")
+            return super().call(method, *params)
+
+    adapter = TrueNASReadOnlyAdapter(
+        TrueNASSettings(
+            url="https://truenas.example",
+            username="fastapi_observer",
+            api_key="1-secret",
+        ),
+        client_factory=SlowAppClient,
+    )
+
+    snapshot = adapter.health_snapshot()
+
+    assert snapshot["reachable"] is True
+    assert snapshot["version"] == "26.0.0-BETA.2"
+    assert snapshot["apps"] == []
+    assert snapshot["app_inventory"]["state"] == "warn"
+    assert snapshot["app_inventory"]["failure_stage"] == "connect_timeout"
+    assert snapshot["app_inventory"]["error_type"] == "TimeoutError"
