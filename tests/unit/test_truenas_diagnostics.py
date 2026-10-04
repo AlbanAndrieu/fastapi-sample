@@ -244,3 +244,28 @@ def test_authenticated_api_keeps_inventory_timeout_as_warning() -> None:
     assert api["inventory_state"] == "warn"
     assert api["inventory_failure_stage"] == "connect_timeout"
     assert "app.query unavailable (TimeoutError)" in api["detail"]
+
+
+def test_rpc_timeout_uses_phase_latency_not_aggregate_latency() -> None:
+    result = append_truenas_api_stages(
+        _network_ok(),
+        {
+            "reachable": False,
+            "authenticated": True,
+            "phase": "call",
+            "stage": "api_call_timeout",
+            "method": "system.version",
+            "elapsed_ms": 4000,
+            "phase_elapsed_ms": 2001,
+            "call_timeout_seconds": 2.0,
+            "error": "TimeoutError",
+        },
+    )
+
+    auth, api = result["stages"][-2:]
+    assert auth["state"] == "ok"
+    assert api["label"] == "TrueNAS API · system.version"
+    assert api["elapsed_ms"] == 2001
+    assert api["rpc_method"] == "system.version"
+    assert api["failure_stage"] == "api_call_timeout"
+    assert "per-call budget=2s" in api["detail"]
