@@ -111,7 +111,7 @@ PFSENSE_SECURITY_PATH_MODE=shared_wan
 ```
 
 Dedicated URLs/TLS flags inherit the common values when omitted. The canonical
-deployment does not use the historical shared `PFSENSE_API_KEY`.
+deployment uses only the dedicated posture and security API identities.
 
 Least-privilege accounts:
 
