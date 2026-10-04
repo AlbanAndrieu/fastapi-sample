@@ -109,26 +109,22 @@ PFSENSE_POSTURE_API_VERIFY_SSL=true
 PFSENSE_SECURITY_API_KEY=<dedicated diagnostics-table GET-only key>
 PFSENSE_SECURITY_API_VERIFY_SSL=true
 PFSENSE_SECURITY_PATH_MODE=shared_wan
-PFSENSE_AUTHENTICATED_PROBES_ENABLED=false
+PFSENSE_AUTHENTICATED_PROBES_ENABLED=true
 ```
 
 `PFSENSE_POSTURE_API_URL`, `PFSENSE_POSTURE_API_VERIFY_SSL`, `PFSENSE_SECURITY_API_URL`, and `PFSENSE_SECURITY_API_VERIFY_SSL` are optional overrides when an identity uses a different transport. The production deploy workflow pins both per-identity TLS overrides to `true` so stale Cloud values cannot silently disable certificate verification. `PFSENSE_API_KEY` is obsolete and is no longer consumed by FastAPI Sample. It was removed from FastAPI Cloud on 2026-09-02; remove it from homelab runtime secrets as well.
 
-FastAPI Cloud must not perform authenticated pfSense API probes. Keep
-`PFSENSE_AUTHENTICATED_PROBES_ENABLED=false` there and use the Cloud runtime
-only for external WAN/HAProxy/TrueNAS transport evidence. The trusted TrueNAS
-runtime owns authenticated posture/Snort observation. This prevents an
-ephemeral Cloud egress from being enrolled into pfSense Login Protection /
-`sshguard`.
+FastAPI Cloud keeps authenticated pfSense posture and security probes enabled
+in steady state. The dedicated keys are least-privilege and the runtime posture
+observer stops after the first HTTP 401, so a credential regression cannot fan
+out several failed KeyAuth requests into Login Protection.
 
-After this policy is deployed and verified, remove
-`PFSENSE_POSTURE_API_KEY` and `PFSENSE_SECURITY_API_KEY` from FastAPI Cloud
-with:
-
-```bash
-mise exec -- uv run fastapi cloud env delete PFSENSE_POSTURE_API_KEY
-mise exec -- uv run fastapi cloud env delete PFSENSE_SECURITY_API_KEY
-```
+`PFSENSE_AUTHENTICATED_PROBES_ENABLED=false` remains an emergency kill-switch.
+Use it temporarily if Cloud begins receiving fresh HTTP 401 responses or a
+changing PaaS egress repeatedly enters `sshguard`; it disables authenticated
+posture/Snort reads without removing the credentials. Once the credential or
+network issue is corrected, restore it to `true`. Do not permanently
+whitelist an ephemeral FastAPI Cloud egress in pfSense Login Protection.
 
 Provider health must validate that its canonical credential exists before attempting provider authentication. A missing credential is configuration health data, not a generic network failure. Never substitute one provider's key for another provider or recommend collapsing the dedicated pfSense identities back into one shared secret.
 
