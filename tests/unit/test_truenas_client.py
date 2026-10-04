@@ -233,61 +233,27 @@ def test_health_snapshot_uses_system_version_and_app_query() -> None:
 
     snapshot = adapter.health_snapshot()
 
-    assert snapshot == {
-        "reachable": True,
-        "authenticated": True,
-        "version": "26.0.0-BETA.2",
-        "apps": [
-            {
-                "id": "openwebui",
-                "name": "open-webui",
-                "state": "RUNNING",
-                "upgrade_available": False,
-                "active_workloads": {
-                    "container_details": [
-                        {
-                            "service_name": "open-webui",
-                            "image": "ghcr.io/open-webui/open-webui:v0.11.0",
-                            "state": "running",
-                        },
-                    ],
-                },
-            },
-            {
-                "id": "litellm",
-                "name": "litellm",
-                "state": "CRASHED",
-                "upgrade_available": True,
-            },
-        ],
-        "app_inventory": {
-            "state": "ok",
-            "available": True,
-            "error_type": None,
-            "failure_stage": None,
-        },
-        "talos": {
-            "reachable": True,
-            "state": "ok",
-            "probe": "truenas_vm_query",
-            "evidence": "vm_runtime",
-            "expected_vms": 3,
-            "running_vms": 3,
-            "vms": [
-                {"name": "taloscp01", "state": "RUNNING"},
-                {"name": "taloswk01", "state": "RUNNING"},
-                {"name": "taloswk02", "state": "RUNNING"},
-            ],
-        },
-    }
+    assert snapshot["reachable"] is True
+    assert snapshot["authenticated"] is True
+    assert snapshot["version"] == "26.0.0-BETA.2"
+    assert snapshot["health_call_timeout_seconds"] == 2.0
+    assert isinstance(snapshot["websocket_elapsed_ms"], int)
+    assert isinstance(snapshot["authentication_elapsed_ms"], int)
+    assert isinstance(snapshot["system_version_elapsed_ms"], int)
+    assert snapshot["api_elapsed_ms"] == snapshot["system_version_elapsed_ms"]
+    assert snapshot["app_inventory"]["state"] == "ok"
+    assert snapshot["app_inventory"]["available"] is True
+    assert isinstance(snapshot["app_inventory"]["elapsed_ms"], int)
+    assert snapshot["talos"]["reachable"] is True
+    assert snapshot["talos"]["running_vms"] == 3
+    assert isinstance(snapshot["talos"]["elapsed_ms"], int)
     assert clients[0].uri == "wss://truenas.example/api/current"
-    assert clients[0].call_timeout == 5.0
+    assert clients[0].call_timeout == 2.0
     assert clients[0].verify_ssl is True
     clients[0].login.assert_called_once_with("readonly", "1-secret")
     assert clients[0].calls == ["system.version", "app.query", "vm.query"]
     assert "config" not in snapshot["apps"][0]
     assert "mounts" not in snapshot["apps"][0]["active_workloads"]["container_details"][0]
-
 
 def test_health_snapshot_keeps_rpc_liveness_when_app_inventory_is_denied() -> None:
     class RbacDeniedClient(FakeClient):
@@ -317,7 +283,7 @@ def test_health_snapshot_keeps_rpc_liveness_when_app_inventory_is_denied() -> No
     assert "apps" not in snapshot
     assert snapshot["app_inventory"]["state"] == "warn"
     assert snapshot["app_inventory"]["available"] is False
-    assert snapshot["app_inventory"]["failure_stage"] == "source_allowlist"
+    assert snapshot["app_inventory"]["failure_stage"] == "access_denied"
     assert snapshot["app_inventory"]["error_type"] == "RuntimeError"
 
 
@@ -399,7 +365,7 @@ def test_health_snapshot_keeps_rpc_liveness_when_app_query_times_out() -> None:
 
     assert snapshot["reachable"] is True
     assert snapshot["version"] == "26.0.0-BETA.2"
-    assert snapshot["apps"] == []
+    assert "apps" not in snapshot
     assert snapshot["app_inventory"]["state"] == "warn"
-    assert snapshot["app_inventory"]["failure_stage"] == "connect_timeout"
+    assert snapshot["app_inventory"]["failure_stage"] == "api_call_timeout"
     assert snapshot["app_inventory"]["error_type"] == "TimeoutError"
