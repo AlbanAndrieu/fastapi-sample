@@ -41,7 +41,7 @@ async def test_pfsense_read_timeout_is_classified_and_logged(monkeypatch, caplog
     captured: dict[str, object] = {}
 
     monkeypatch.setenv("PFSENSE_API_URL", "https://172.17.0.1:10443")
-    monkeypatch.setenv("PFSENSE_API_KEY", "test-key")
+    monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "test-key")
     monkeypatch.setenv("PFSENSE_API_VERIFY_SSL", "false")
     monkeypatch.setattr(
         platform_health.httpx,
@@ -75,7 +75,7 @@ async def test_pfsense_success_reports_timing_and_tls_policy(monkeypatch, caplog
     response = httpx.Response(200, json={"data": {"status": "ok"}})
 
     monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example")
-    monkeypatch.setenv("PFSENSE_API_KEY", "test-key")
+    monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "test-key")
     monkeypatch.setenv("PFSENSE_API_VERIFY_SSL", "true")
     monkeypatch.setattr(
         platform_health.httpx,

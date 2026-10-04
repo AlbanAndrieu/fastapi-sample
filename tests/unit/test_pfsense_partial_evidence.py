@@ -71,6 +71,7 @@ async def test_system_502_does_not_hide_service_or_unbound_evidence(
     assert result["endpoint_status"]["system"] == {
         "observed": False,
         "error": "HTTP 502",
+        "http_status": 502,
     }
     assert result["endpoint_status"]["services"] == {"observed": True}
     assert result["services_observed"] is True

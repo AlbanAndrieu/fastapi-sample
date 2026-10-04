@@ -52,7 +52,7 @@ def test_missing_security_key_reports_dedicated_variable(monkeypatch) -> None:
     assert settings is None
 
 
-def test_security_settings_prefer_dedicated_key_over_legacy(monkeypatch) -> None:
+def test_security_settings_ignore_generic_key_when_dedicated_is_present(monkeypatch) -> None:
     _clear_security_env(monkeypatch)
     monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example.test:10443")
     monkeypatch.setenv("PFSENSE_API_KEY", "legacy-key")
@@ -95,7 +95,21 @@ def test_security_settings_load_out_of_band_control_path(monkeypatch) -> None:
     assert settings.control_path_mode == "out_of_band"
 
 
-def test_security_settings_keep_legacy_fallback_when_explicitly_present(monkeypatch) -> None:
+def test_out_of_band_inherited_url_is_allowed_for_split_dns(monkeypatch) -> None:
+    _clear_security_env(monkeypatch)
+    monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example.test:10443")
+    monkeypatch.setenv("PFSENSE_SECURITY_API_KEY", "dedicated-key")
+    monkeypatch.setenv("PFSENSE_SECURITY_PATH_MODE", "out_of_band")
+
+    status = observer.security_configuration_status()
+
+    assert status["configured"] is True
+    assert status["control_path_mode"] == "out_of_band"
+    assert status["security_url_inherited"] is True
+    assert "control_path_warning" not in status
+
+
+def test_security_settings_ignore_generic_key_without_dedicated_secret(monkeypatch) -> None:
     _clear_security_env(monkeypatch)
     monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example.test:10443")
     monkeypatch.setenv("PFSENSE_API_KEY", "legacy-key")
@@ -103,10 +117,10 @@ def test_security_settings_keep_legacy_fallback_when_explicitly_present(monkeypa
     status = observer.security_configuration_status()
     settings = observer.PfSenseSecuritySettings.from_environment()
 
-    assert status["configured"] is True
-    assert status["credential_mode"] == "legacy_shared"
-    assert settings is not None
-    assert settings.api_key == "legacy-key"
+    assert status["configured"] is False
+    assert status["credential_mode"] == "dedicated_security"
+    assert status["missing_variables"] == ["PFSENSE_SECURITY_API_KEY"]
+    assert settings is None
 
 
 def test_snort_probe_is_fail_fast_and_uses_failure_backoff() -> None:

@@ -148,6 +148,37 @@ service recovery path fails.
 Detailed runbook:
 [pfSense webConfigurator 502 recovery](pfsense-webconfigurator-recovery.md).
 
+## 2026-10-04 — pfSense upgrade invalidated runtime API keys
+
+**Symptom**
+
+After the pfSense upgrade, the FastAPI observer still reached
+`https://home.albandrieu.com:10443/api/v2/system/version`, but the API returned
+HTTP 401. The configured posture key was present in the container environment,
+so the failure was authentication rather than DNS/TCP/TLS reachability.
+
+**Decisive evidence**
+
+- TLS and HTTP completed successfully against pfSense;
+- the API returned `401 Unauthorized`;
+- clearing the FastAPI probe cache/circuit did not change the response;
+- inspection of the pfSense REST API configuration showed that the runtime API
+  key needed to be recreated after the upgrade.
+
+**Resolution / prevention**
+
+- treat pfSense/REST API upgrades as an API-key revalidation checkpoint;
+- rotate the dedicated `PFSENSE_POSTURE_API_KEY` and
+  `PFSENSE_SECURITY_API_KEY` independently;
+- do not restore the historical shared `PFSENSE_API_KEY`;
+- preserve least privilege: posture gets only its four GET endpoints and
+  security gets only `api-v2-diagnostics-table-get`;
+- after secret rotation, redeploy the observer and purge provider
+  cache/circuit state before retesting.
+
+Detailed contract:
+[pfSense security observer](pfsense-security-observability.md#post-upgrade-api-key-recovery).
+
 ## 2026-09 — TrueNAS 26.0.0-BETA.3 exposed only CPU0
 
 **Symptom**

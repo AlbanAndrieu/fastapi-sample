@@ -30,7 +30,6 @@ def test_posture_transport_prefers_dedicated_identity_and_tls_override(
 ) -> None:
     _clear_pfsense_env(monkeypatch)
     monkeypatch.setenv("PFSENSE_API_URL", "https://shared.example.test")
-    monkeypatch.setenv("PFSENSE_API_KEY", "shared-test-key")
     monkeypatch.setenv("PFSENSE_API_VERIFY_SSL", "true")
     monkeypatch.setenv("PFSENSE_POSTURE_API_URL", "https://posture.example.test/")
     monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "posture-test-key")
@@ -56,7 +55,6 @@ def test_security_transport_prefers_dedicated_identity_and_tls_override(
 ) -> None:
     _clear_pfsense_env(monkeypatch)
     monkeypatch.setenv("PFSENSE_API_URL", "https://shared.example.test")
-    monkeypatch.setenv("PFSENSE_API_KEY", "shared-test-key")
     monkeypatch.setenv("PFSENSE_API_VERIFY_SSL", "true")
     monkeypatch.setenv("PFSENSE_SECURITY_API_URL", "https://security.example.test/")
     monkeypatch.setenv("PFSENSE_SECURITY_API_KEY", "security-test-key")
@@ -72,35 +70,27 @@ def test_security_transport_prefers_dedicated_identity_and_tls_override(
     assert settings.control_path_mode == "out_of_band"
 
 
-def test_shared_transport_is_preserved_as_explicit_compatibility_fallback(
+def test_generic_key_is_not_accepted_as_credential_fallback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _clear_pfsense_env(monkeypatch)
     monkeypatch.setenv("PFSENSE_API_URL", "https://shared.example.test/")
-    monkeypatch.setenv("PFSENSE_API_KEY", "shared-test-key")
+    monkeypatch.setenv("PFSENSE_API_KEY", "legacy-shared-key")
     monkeypatch.setenv("PFSENSE_API_VERIFY_SSL", "false")
 
     posture = PfSenseDNSSettings.from_environment()
     security = PfSenseSecuritySettings.from_environment()
     liveness = platform_health._pfsense_posture_transport()
 
-    assert posture is not None
-    assert posture.base_url == "https://shared.example.test"
-    assert posture.api_key == "shared-test-key"
-    assert posture.verify_ssl is False
-
-    assert security is not None
-    assert security.base_url == "https://shared.example.test"
-    assert security.api_key == "shared-test-key"
-    assert security.verify_ssl is False
-    assert security.control_path_mode == "shared_wan"
-
+    assert posture is None
+    assert security is None
     assert liveness == (
         "https://shared.example.test",
-        "shared-test-key",
+        "",
         False,
-        "legacy_shared",
+        "dedicated_posture",
     )
+
 
 
 
@@ -110,7 +100,8 @@ async def test_invalid_tls_values_fail_soft_across_pfsense_consumers(
 ) -> None:
     _clear_pfsense_env(monkeypatch)
     monkeypatch.setenv("PFSENSE_API_URL", "https://shared.example.test")
-    monkeypatch.setenv("PFSENSE_API_KEY", "shared-test-key")
+    monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "posture-test-key")
+    monkeypatch.setenv("PFSENSE_SECURITY_API_KEY", "security-test-key")
     monkeypatch.setenv("PFSENSE_API_VERIFY_SSL", "sometimes")
 
     assert PfSenseDNSSettings.from_environment() is None

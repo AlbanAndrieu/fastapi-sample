@@ -62,7 +62,7 @@ def pfsense_api_configuration_status() -> dict[str, object]:
         status["configured"] = False
         status["configuration_stage"] = "invalid_configuration"
     status["invalid_configuration_variables"] = invalid_variables
-    status["credential_mode"] = "dedicated_posture" if key_var == "PFSENSE_POSTURE_API_KEY" else "legacy_shared"
+    status["credential_mode"] = "dedicated_posture"
     return status
 
 

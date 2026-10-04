@@ -184,7 +184,6 @@ def test_pfsense_posture_defaults_to_home_api_endpoint(monkeypatch) -> None:
 def test_pfsense_posture_prefers_dedicated_transport_and_masks_secrets(monkeypatch) -> None:
     _clear_pfsense_env(monkeypatch)
     monkeypatch.setenv("PFSENSE_API_URL", "https://shared.example.test/")
-    monkeypatch.setenv("PFSENSE_API_KEY", "shared-secret")
     monkeypatch.setenv("PFSENSE_API_VERIFY_SSL", "true")
     monkeypatch.setenv("PFSENSE_POSTURE_API_URL", " https://posture.example.test/ ")
     monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "posture-secret")
@@ -198,6 +197,21 @@ def test_pfsense_posture_prefers_dedicated_transport_and_masks_secrets(monkeypat
     assert settings.credential_mode == "dedicated_posture"
     assert "posture-secret" not in repr(settings)
     assert "shared-secret" not in repr(settings)
+
+
+def test_generic_pfsense_key_is_ignored(monkeypatch) -> None:
+    _clear_pfsense_env(monkeypatch)
+    monkeypatch.setenv("PFSENSE_API_KEY", "legacy-secret")
+
+    posture = PfSensePostureProviderSettings()
+    security = PfSenseSecurityProviderSettings()
+
+    assert posture.api_key == ""
+    assert posture.credential_mode == "dedicated_posture"
+    assert security.api_key == ""
+    assert security.credential_mode == "dedicated_security"
+    assert "legacy-secret" not in repr(posture)
+    assert "legacy-secret" not in repr(security)
 
 
 def test_legacy_pfsense_api_hostname_normalizes_to_home(monkeypatch) -> None:
@@ -215,7 +229,6 @@ def test_legacy_pfsense_api_hostname_normalizes_to_home(monkeypatch) -> None:
 def test_pfsense_posture_blank_tls_override_falls_back_to_shared_policy(monkeypatch) -> None:
     _clear_pfsense_env(monkeypatch)
     monkeypatch.setenv("PFSENSE_API_URL", "https://shared.example.test")
-    monkeypatch.setenv("PFSENSE_API_KEY", "shared-secret")
     monkeypatch.setenv("PFSENSE_API_VERIFY_SSL", "false")
     monkeypatch.setenv("PFSENSE_POSTURE_API_VERIFY_SSL", "   ")
 
@@ -240,7 +253,6 @@ def test_invalid_pfsense_posture_transport_fails_fast(
 ) -> None:
     _clear_pfsense_env(monkeypatch)
     monkeypatch.setenv("PFSENSE_API_URL", "https://shared.example.test")
-    monkeypatch.setenv("PFSENSE_API_KEY", "shared-secret")
     monkeypatch.setenv(variable, value)
 
     with pytest.raises(ValidationError):

@@ -111,7 +111,14 @@ PFSENSE_SECURITY_PATH_MODE=shared_wan
 ```
 
 Dedicated URLs/TLS flags inherit the common values when omitted. The canonical
-deployment does not use the historical shared `PFSENSE_API_KEY`.
+deployment no longer consumes the historical shared `PFSENSE_API_KEY`.
+Remove it from runtime secrets; only the two dedicated keys are valid.
+
+After a pfSense/REST API package upgrade, explicitly revalidate the two dedicated
+keys. A missing/invalid key is expected to produce HTTP 401 while still proving
+that TCP/TLS/HTTP transport reached pfSense. Rotate only
+`PFSENSE_POSTURE_API_KEY` and `PFSENSE_SECURITY_API_KEY`, then purge cached
+provider/circuit state after the runtime has loaded the new secrets.
 
 Least-privilege accounts:
 
@@ -137,8 +144,11 @@ live platform data and belongs behind on-demand/separate caching.
 
 When security telemetry traverses the same WAN PF/Snort path it diagnoses, keep
 `PFSENSE_SECURITY_PATH_MODE=shared_wan`. Such failure is a diagnostic blind
-spot, not proof that the table is clear. Use `out_of_band` only after an
-independent LAN-side observer exists.
+spot, not proof that the table is clear. `out_of_band` is valid only when the
+security request from the TrueNAS-hosted observer reaches pfSense over an
+independent LAN path. Prefer an explicit `PFSENSE_SECURITY_API_URL` for that
+path and verify the observed peer; merely setting the mode flag does not create
+an independent transport.
 
 Reference:
 [pfSense security observer contract](pfsense-security-observability.md) and

@@ -47,7 +47,7 @@ class PfSenseSecuritySettings:
 
     @classmethod
     def from_environment(cls) -> PfSenseSecuritySettings | None:
-        """Load validated security transport with an explicit legacy fallback."""
+        """Load validated security transport with the dedicated security identity."""
         status = security_configuration_status()
         if status["configured"] is not True:
             return None
@@ -73,8 +73,9 @@ def security_configuration_status() -> dict[str, object]:
         secret_variables=frozenset({key_var}),
     ).as_dict()
     invalid_variables: list[str] = []
+    provider: PfSenseSecurityProviderSettings | None = None
     try:
-        PfSenseSecurityProviderSettings()
+        provider = PfSenseSecurityProviderSettings()
     except ValidationError as exc:
         invalid_variables = pfsense_invalid_configuration_variables(exc)
     if invalid_variables:
@@ -83,7 +84,10 @@ def security_configuration_status() -> dict[str, object]:
     status["invalid_configuration_variables"] = invalid_variables
     status["required_privilege"] = "api-v2-diagnostics-table-get"
     status["write_privileges_required"] = False
-    status["credential_mode"] = "dedicated_security" if key_var == "PFSENSE_SECURITY_API_KEY" else "legacy_shared"
+    status["credential_mode"] = "dedicated_security"
+    if provider is not None:
+        status["control_path_mode"] = provider.control_path_mode
+        status["security_url_inherited"] = url_var != "PFSENSE_SECURITY_API_URL"
     return status
 
 

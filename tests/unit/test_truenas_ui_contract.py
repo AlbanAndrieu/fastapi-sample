@@ -120,6 +120,13 @@ def test_truenas_platform_displays_probe_fanout_matrix() -> None:
     assert "TrueNAS API healthy" in javascript
     assert "declared service catalog" in javascript
     assert "TrueNAS app inventory" in javascript
-    assert "local/direct LAN" in javascript
-    assert "external/public WAN" in javascript
+    assert "direct LAN" in javascript
+    assert "WAN pfSense/HAProxy" in javascript
     assert "fan-out budget" in javascript
+
+
+def test_truenas_aggregate_remains_available_when_probe_matrix_is_protected() -> None:
+    javascript = ASSET.read_text(encoding="utf-8")
+
+    assert 'err?.code !== "diagnostics_auth_required"' in javascript
+    assert "const aggregate = await fetchHomelabHealth()" in javascript

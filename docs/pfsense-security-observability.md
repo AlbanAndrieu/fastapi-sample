@@ -48,6 +48,108 @@ TLS verification stays enabled. An explicit internal/self-signed endpoint may
 override verification independently for the security/posture client, but this
 must not affect `/sickz` transport-vs-TLS evidence semantics.
 
+### Post-upgrade API-key recovery
+
+A pfSense/REST API package upgrade can leave previously deployed runtime keys
+missing or invalid from the application's point of view. On 2026-10-04 the
+homelab upgrade was followed by HTTP 401 from
+`GET /api/v2/system/version` until the dedicated API keys were recreated.
+Treat this as a credential-rotation/revalidation event after upgrades; do not
+classify HTTP 401 as a network outage.
+
+The canonical runtime uses exactly two independently rotatable keys.
+
+Create two **local service users** in `System > User Manager`; do not reuse
+`admin`, a personal administrator, or the `admins` group:
+
+- `fastapi_posture`
+- `fastapi_security`
+
+pfSense requires a user to be saved before privileges can be assigned. Edit each
+saved user and add only the REST API privileges below. Optionally add
+`User - Config: Deny Config Write` as defense in depth. Do not grant
+`WebCfg - All pages`, shell/SSH, reboot or configuration-write privileges.
+
+pfREST API keys belong to the user that generates them. Generate each key while
+authenticated as the corresponding service user. For a CLI rotation, temporarily allow `api-v2-auth-key-post` on that user.
+`POST /api/v2/auth/key` forces BasicAuth independently of the global
+authentication-method list. If REST API read-only mode is enabled, temporarily
+disable it only for the key-creation window; if it is already disabled, no
+settings change is required. Remove `api-v2-auth-key-post` immediately after
+the key is captured. Keep the user enabled after
+key creation because authorization is evaluated against that user's current
+privileges.
+
+| Runtime variable | Purpose | Minimum GET privileges |
+| --- | --- | --- |
+| `PFSENSE_POSTURE_API_KEY` | liveness, services and DNS posture | `api-v2-system-version-get`, `api-v2-status-services-get`, `api-v2-services-dns-resolver-settings-get`, `api-v2-system-dns-get` |
+| `PFSENSE_SECURITY_API_KEY` | exact Snort/PF table attribution | `api-v2-diagnostics-table-get` |
+
+The historical `PFSENSE_API_KEY` is no longer consumed by FastAPI Sample.
+**Delete it from runtime secrets and do not recreate it.** Both dedicated clients
+inherit `PFSENSE_API_URL` and `PFSENSE_API_VERIFY_SSL` unless a dedicated
+URL/TLS override is explicitly required.
+
+After any pfSense or REST API package upgrade:
+
+1. verify API-key authentication is still enabled;
+2. verify both service users remain enabled and retain only their GET privileges;
+3. recreate/rotate the posture and security keys if they are absent or return
+   HTTP 401;
+4. verify the newly generated keys are actually present in
+   `System > REST API > Keys` under the expected owner usernames;
+5. update the runtime secret store without logging the key values;
+6. redeploy/restart the observer and purge the provider cache/circuit state;
+7. require HTTP 2xx from the posture endpoint and the diagnostics-table endpoint
+   before declaring credential recovery complete.
+
+### HTTP 401 after key rotation
+
+When **every endpoint returns 401 for a newly generated key**, authorization is
+not the problem yet. pfREST authenticates the raw `X-API-Key` value by hashing
+it and comparing it with the stored key hashes before endpoint privileges are
+checked. A privilege problem should therefore be diagnosed only after the key
+authenticates; a valid but under-privileged identity is expected to reach the
+authorization layer (typically HTTP 403).
+
+Inspect the API configuration from the pfSense shell or with an already valid
+administrator key. `auth_methods` must contain `KeyAuth` for normal
+`X-API-Key` authentication.
+
+A Basic-Auth request to an ordinary endpoint can still return HTTP 401 when
+global `auth_methods` contains only `KeyAuth`; this does not prove that the
+local user's password is wrong. The key-creation endpoint
+`POST /api/v2/auth/key` is special: pfREST explicitly forces `BasicAuth` for
+that endpoint even when BasicAuth is not globally enabled.
+
+Then inventory the stored API keys:
+
+```bash
+curl -sS -u admin \
+  -H 'Accept: application/json' \
+  https://home.albandrieu.com:10443/api/v2/auth/keys |
+jq '.data[] | {id, username, hash_algo, length_bytes, descr}'
+```
+
+The posture/security keys must appear with owners `fastapi_posture` and
+`fastapi_security`, respectively. The real key is representation-only and is
+not recoverable later; the API stores only its hash. A 24-byte generated key is
+48 hexadecimal characters.
+
+The key owner must also still exist and be enabled. pfREST first matches the
+submitted key hash, then rejects authentication if the owning user is disabled.
+From the pfSense shell, this checks the exact condition used by pfREST without
+printing secrets:
+
+```csh
+php -r 'require_once "RESTAPI/autoloader.inc"; foreach (["fastapi_posture","fastapi_security"] as $u) { printf("%s enabled=%s\n", $u, \RESTAPI\Core\Auth::is_user_enabled($u) ? "yes" : "no"); }'
+```
+
+If `KeyAuth` is enabled, both key records exist under enabled expected users,
+and the runtime still receives 401, revoke those two records and generate fresh
+keys, copying the `data.key` value returned at creation exactly once. Do not
+copy the stored hash, an ID, or a masked UI value.
+
 ## Shared-WAN blind spot
 
 When FastAPI Cloud queries the public pfSense `:10443` path through the same WAN
@@ -67,6 +169,15 @@ The durable target is a LAN-side observer that reads pfSense locally and
 publishes only sanitized evidence through an outbound authenticated path. Set
 `out_of_band` only after such an independent path actually exists. Never expose
 the raw administration API merely to remove the blind spot.
+
+For the TrueNAS-hosted observer, `out_of_band` is valid only when the security
+request reaches a LAN-side pfSense address independently from the WAN/Snort path
+being diagnosed. Verify the actual peer from the same runtime. If
+`home.albandrieu.com:10443` resolves/connects to the public WAN address, the
+mode remains `shared_wan`. A split-DNS/internal hostname resolving to the
+pfSense LAN address can support `out_of_band` while retaining TLS hostname
+verification. Prefer an explicit `PFSENSE_SECURITY_API_URL` for this path so
+the assumption is visible in configuration.
 
 ## Read-only endpoint map
 
