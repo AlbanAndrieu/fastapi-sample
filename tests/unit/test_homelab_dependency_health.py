@@ -1,6 +1,7 @@
 """Tests for dependency-aware homelab health propagation."""
 
 from nabla.api.homelab_dependency_health import propagate_required_dependency_health
+from nabla.api.homelab_health_evidence import _reconcile_shared_component_evidence
 from nabla.api.homelab_topology import HomelabTopology
 
 
@@ -181,3 +182,40 @@ def test_local_failure_remains_failure_when_dependency_is_healthy() -> None:
     )
     assert rows[0]["effective_state"] == "fail"
     assert rows[0]["dependency_state"] == "ok"
+
+
+def test_postgres_sql_success_prevents_false_sentry_dependency_block() -> None:
+    topology = _topology(_relation("sentry", "postgresql"))
+    rows = _reconcile_shared_component_evidence(
+        [
+            _row("sentry", "ok"),
+            _row("postgresql", "fail", runtime_state="RUNNING"),
+        ],
+        {"postgres": {"reachable": True}},
+    )
+
+    reconciled = propagate_required_dependency_health(rows, topology)
+    by_id = {str(row["id"]): row for row in reconciled}
+
+    postgres = by_id["postgresql"]
+    sentry = by_id["sentry"]
+    assert postgres["state"] == "ok"
+    assert postgres["component_probe_key"] == "postgres"
+    assert postgres["component_probe_kind"] == "sql_query"
+    assert postgres["component_reachable"] is True
+    assert postgres["evidence_conflict"] is True
+    assert sentry["dependency_state"] == "ok"
+    assert sentry["blocked_by"] == []
+    assert sentry["effective_state"] == "ok"
+
+
+def test_postgres_sql_failure_conflicting_with_runtime_is_warning() -> None:
+    rows = _reconcile_shared_component_evidence(
+        [_row("postgresql", "ok", runtime_state="RUNNING")],
+        {"postgres": {"reachable": False, "error": "SQL query failed"}},
+    )
+
+    postgres = rows[0]
+    assert postgres["state"] == "warn"
+    assert postgres["component_reachable"] is False
+    assert postgres["evidence_conflict"] is True
