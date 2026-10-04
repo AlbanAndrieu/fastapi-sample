@@ -199,9 +199,17 @@ async def check_pfsense_api() -> dict[str, Any]:
     auth_rejected = response.status_code in {401, 403}
     url_var, key_var = pfsense_posture_environment_variables()
     result = {
-        "reachable": healthy,
+        "reachable": True,
         "transport_reachable": True,
         "api_authenticated": True if healthy else False if auth_rejected else None,
+        "application_ok": healthy,
+        "application_result": (
+            "authenticated_api_response"
+            if healthy
+            else "authentication_rejected"
+            if auth_rejected
+            else "http_error"
+        ),
         "status_confirmed": True,
         "state": "ok" if healthy else "warn" if auth_rejected else "fail",
         "http_status": response.status_code,
