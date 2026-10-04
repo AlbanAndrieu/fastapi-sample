@@ -103,6 +103,9 @@ def test_probe_dashboard_treats_protected_matrix_as_auth_flow() -> None:
 
     assert '"X-Diagnostics-Key"' in shared
     assert '"diagnostics_auth_required"' in shared
-    assert "Probe matrix is protected by DIAGNOSTICS_ACCESS_KEY" in shared
+    assert "Raw probe matrix is protected by DIAGNOSTICS_ACCESS_KEY" in shared
+    assert '"probe_matrix_unavailable"' in shared
+    assert 'probe_snapshot_source: "health-board"' in shared
     assert "window.prompt" in dashboard
-    assert "Probe matrix protected; aggregate health remains available" in dashboard
+    assert "aggregate probe health remains visible" in dashboard
+    assert "Raw probe matrix is not available on this deployment" in dashboard
