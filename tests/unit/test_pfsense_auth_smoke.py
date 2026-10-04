@@ -31,7 +31,8 @@ def test_smoke_output_contract_is_redacted() -> None:
     assert "key_present=yes" in source
     assert "secrets_printed=no" in source
     assert "response.text" not in source
-    assert "response.json()" not in source
+    assert 'payload.get("response_id")' in source
+    assert 'payload.get("message")' not in source
     assert "settings.api_key}" not in source
 
 
