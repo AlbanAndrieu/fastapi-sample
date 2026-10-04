@@ -385,7 +385,60 @@ async def _observe_posture_origin_bounded(
         follow_redirects=False,
         verify=settings.verify_ssl,
     ) as client:
-        observations = await _bounded_observations(client, paths)
+        system_path = paths["system"]
+        try:
+            system_observation = await _get_data(client, system_path)
+        except BaseException as exc:
+            if _http_status_from_error(exc) == 401:
+                skipped = {
+                    name: {
+                        "observed": False,
+                        "error": "skipped_after_authentication_failure",
+                    }
+                    for name in paths
+                    if name != "system"
+                }
+                return {
+                    "reachable": False,
+                    "transport_reachable": True,
+                    "api_authenticated": False,
+                    "api_evidence_state": "authentication_failed",
+                    "successful_endpoint_count": 0,
+                    "endpoint_count": len(paths),
+                    "endpoint_status": {
+                        "system": {
+                            "observed": False,
+                            "error": "HTTP 401",
+                            "http_status": 401,
+                        },
+                        **skipped,
+                    },
+                    "services_observed": False,
+                    "services": [],
+                    "service_summary": {
+                        "running": 0,
+                        "stopped": 0,
+                        "unknown": 0,
+                        "total": 0,
+                    },
+                    "resolver": {},
+                    "upstreams": [],
+                    "error_stage": "system",
+                    "error": "HTTP 401",
+                    "auth_fail_fast": True,
+                }
+            observations = {"system": exc}
+        else:
+            observations = {"system": system_observation}
+
+        remaining_paths = {
+            name: path
+            for name, path in paths.items()
+            if name != "system"
+        }
+        observations.update(
+            await _bounded_observations(client, remaining_paths),
+        )
 
     endpoint_status = _endpoint_status(observations)
     failures = [(name, value) for name, value in observations.items() if isinstance(value, BaseException)]
