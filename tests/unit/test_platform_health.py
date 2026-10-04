@@ -158,8 +158,7 @@ async def test_pfsense_check_rejects_plain_http_api_key_transport(monkeypatch) -
 @pytest.mark.asyncio
 async def test_pfsense_check_uses_api_key_and_lightweight_version_endpoint(monkeypatch) -> None:
     monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example")
-    monkeypatch.setenv("PFSENSE_API_KEY", "key")
-    monkeypatch.delenv("PFSENSE_POSTURE_API_KEY", raising=False)
+    monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "key")
 
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/api/v2/system/version"
@@ -239,8 +238,7 @@ async def test_pfsense_http_502_is_classified_as_http_response_failure(
 @pytest.mark.asyncio
 async def test_pfsense_read_timeout_reports_response_stage(monkeypatch) -> None:
     monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example")
-    monkeypatch.setenv("PFSENSE_API_KEY", "key")
-    monkeypatch.delenv("PFSENSE_POSTURE_API_KEY", raising=False)
+    monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "key")
 
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ReadTimeout("slow pfSense response", request=request)
