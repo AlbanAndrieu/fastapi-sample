@@ -325,3 +325,6 @@ async def test_posture_401_preserves_transport_reachability(
     assert result["api_authenticated"] is False
     assert result["error"] == "HTTP 401"
     assert result["endpoint_status"]["system"]["http_status"] == 401
+    filters = {row["id"]: row for row in result["security_filters"]}
+    assert filters["firewall"]["state"] == "warn"
+    assert "authentication failed" in filters["firewall"]["detail"]
