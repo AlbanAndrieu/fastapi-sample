@@ -131,7 +131,8 @@ def test_connect_method_is_not_exposed_as_rpc_metadata() -> None:
     api = result["stages"][-1]
     assert api["label"] == "TrueNAS API · system.version + app.query"
     assert "rpc_method" not in api
-    assert api["detail"] == "TimeoutError"
+    assert api["state"] == "blocked"
+    assert "transport failed before TrueNAS authentication" in api["detail"]
 
 
 def test_api_timeout_before_auth_confirmation_marks_auth_unconfirmed() -> None:
@@ -150,8 +151,9 @@ def test_api_timeout_before_auth_confirmation_marks_auth_unconfirmed() -> None:
     assert auth["id"] == "authentication"
     assert auth["state"] == "warn"
     assert auth["confirmation"] == "unconfirmed"
-    assert "not confirmed" in auth["detail"]
-    assert api["state"] == "fail"
+    assert auth["label"] == "TrueNAS API authentication"
+    assert "before TrueNAS could evaluate authentication" in auth["detail"]
+    assert api["state"] == "blocked"
     assert api["failure_stage"] == "timeout"
 
 
