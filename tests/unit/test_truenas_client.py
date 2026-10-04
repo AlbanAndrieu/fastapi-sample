@@ -255,6 +255,7 @@ def test_health_snapshot_uses_system_version_and_app_query() -> None:
     assert "config" not in snapshot["apps"][0]
     assert "mounts" not in snapshot["apps"][0]["active_workloads"]["container_details"][0]
 
+
 def test_health_snapshot_keeps_rpc_liveness_when_app_inventory_is_denied() -> None:
     class RbacDeniedClient(FakeClient):
         def call(self, method: str, *params):
