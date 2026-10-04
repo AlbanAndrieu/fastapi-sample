@@ -48,7 +48,7 @@ async def test_infrastructure_pair_does_not_configure_fastapi_observer(monkeypat
 @pytest.mark.asyncio
 async def test_variable_name_in_api_key_is_rejected_without_echoing_value(monkeypatch) -> None:
     _set_username(monkeypatch)
-    monkeypatch.setenv("TRUENAS_API_KEY", "PFSENSE_API_KEY")
+    monkeypatch.setenv("TRUENAS_API_KEY", "PFSENSE_POSTURE_API_KEY")
 
     result = await truenas_health_observer.observe_truenas_health_api()
 
@@ -57,7 +57,7 @@ async def test_variable_name_in_api_key_is_rejected_without_echoing_value(monkey
     assert result["stage"] == "invalid_api_key_reference"
     assert result["api_key_configured"] is True
     assert "environment-variable name" in result["error"]
-    assert "PFSENSE_API_KEY" not in result["error"]
+    assert "PFSENSE_POSTURE_API_KEY" not in result["error"]
 
 
 @pytest.mark.asyncio
