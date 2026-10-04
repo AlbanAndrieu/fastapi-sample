@@ -40,7 +40,7 @@ async def probe_truenas(
     internal_probe: Callable[..., Awaitable[dict[str, Any]]],
 ) -> dict[str, Any]:
     """Probe TrueNAS with its own TLS policy while overlapping independent stages."""
-    configured_url = truenas_url().rstrip("/") + "/"
+    configured_url = truenas_url().rstrip("/") + "/ui/signin"
     host, port = truenas_host_port()
     verify_ssl = truenas_http_verify_ssl()
     path_mode = "direct_lan" if homelab_runtime_detected() else "public_wan_haproxy"
