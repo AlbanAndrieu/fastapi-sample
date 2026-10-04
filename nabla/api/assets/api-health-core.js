@@ -97,6 +97,12 @@ function classify(key, check) {
   if (check.skipped === true) return "yellow";
   if (
     key === "pfsense" &&
+    [401, 403].includes(Number(check?.http_status)) &&
+    check?.transport_reachable === true
+  )
+    return "yellow";
+  if (
+    key === "pfsense" &&
     check?.ingress_policy?.state === "possible_ingress_policy_block"
   )
     return "yellow";
