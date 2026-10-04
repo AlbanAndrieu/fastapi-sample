@@ -11,6 +11,7 @@ from nabla.api.cloudflare_tunnels import CloudflareTunnelObservation
 from nabla.api.homelab_declared import RuntimeBinding
 from nabla.api.homelab_models import HomelabService
 from nabla.api.homelab_runtime import ObservedApp, TrueNASRuntimeSnapshot, match_runtime_binding
+from nabla.api.service_health_model import build_health_model
 
 HealthState = str
 _RUNNING_APP_STATES = frozenset({"ACTIVE", "HEALTHY", "RUNNING", "STARTED", "UP"})
@@ -172,6 +173,39 @@ def reconcile_service_state(
     return "unknown"
 
 
+def _transport_health(
+    direct: HealthState | None,
+    internal: HealthState | None,
+) -> HealthState:
+    """Collapse direct/internal transport evidence without claiming application health."""
+    states = {state for state in (direct, internal) if state is not None}
+    if "ok" in states:
+        return "warn" if "fail" in states else "ok"
+    if "warn" in states:
+        return "warn"
+    if "fail" in states:
+        return "fail"
+    return "unknown"
+
+
+def _application_health(
+    direct_result: dict[str, Any] | None,
+) -> HealthState:
+    """Rate application evidence independently from basic transport reachability."""
+    if direct_result is None:
+        return "unknown"
+    if direct_result.get("application_error") is True:
+        return "fail"
+    if direct_result.get("reachable") is not True:
+        return "unknown"
+    status = int(direct_result.get("http_status") or 0)
+    if 200 <= status < 400:
+        return "ok"
+    if status in {401, 403}:
+        return "warn"
+    return "fail" if status >= 500 else "unknown"
+
+
 def _freshness(
     *,
     checked_at: str | None,
@@ -282,6 +316,19 @@ def build_reconciled_service_health(
             "runtime_app": app.app_id if app else None,
             "runtime_reachable": runtime.reachable if runtime else None,
             "runtime_missing": runtime_missing,
+            "service_state": state,
+            "transport_state": _transport_health(direct_health, internal_health),
+            "authentication_state": "unknown",
+            "application_state": _application_health(direct_result),
+            "health_model": build_health_model(
+                service_state=state,
+                transport_state=_transport_health(direct_health, internal_health),
+                authentication_state="unknown",
+                application_state=_application_health(direct_result),
+                runtime_state=runtime_health or "unknown",
+                dependency_state="unknown",
+                effective_state=state,
+            ),
             "observed_at": observed_at,
             "observation_age_seconds": age,
             "observation_stale": stale,
