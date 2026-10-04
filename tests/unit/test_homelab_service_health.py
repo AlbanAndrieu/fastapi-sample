@@ -203,3 +203,37 @@ def test_confirmed_down_tunnel_is_not_masked_by_http_403() -> None:
     )
     assert rows[0]["tunnel_status"] == "down"
     assert rows[0]["state"] == "fail"
+
+
+def test_reconciled_service_exposes_multidimensional_health_model() -> None:
+    service = HomelabService(name="Example", external=False)
+    rows = build_reconciled_service_health(
+        [service],
+        public_results=[],
+        internal_results=[
+            {
+                "id": service.service_id,
+                "reachable": True,
+                "state": "ok",
+            },
+        ],
+        runtime=_runtime(
+            ObservedApp(app_id=service.service_id, name="Example", state="RUNNING"),
+        ),
+        tunnels=[],
+    )
+
+    row = rows[0]
+    assert row["service_state"] == "ok"
+    assert row["transport_state"] == "ok"
+    assert row["authentication_state"] == "unknown"
+    assert row["application_state"] == "unknown"
+    assert row["health_model"] == {
+        "service_state": "ok",
+        "transport_state": "ok",
+        "authentication_state": "unknown",
+        "application_state": "unknown",
+        "runtime_state": "ok",
+        "dependency_state": "unknown",
+        "effective_state": "ok",
+    }
