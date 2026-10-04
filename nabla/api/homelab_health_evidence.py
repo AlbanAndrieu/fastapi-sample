@@ -101,16 +101,38 @@ def _pfsense_posture_stage(pfsense_dns: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _cloudflared_runtime_state(payload: dict[str, Any]) -> str | None:
+    truenas = payload.get("truenas") if isinstance(payload.get("truenas"), dict) else {}
+    api = truenas.get("api") if isinstance(truenas.get("api"), dict) else {}
+    apps = api.get("apps") if isinstance(api.get("apps"), list) else []
+    for app in apps:
+        if not isinstance(app, dict):
+            continue
+        identity = str(app.get("id") or app.get("name") or "").strip().casefold()
+        name = str(app.get("name") or "").strip().casefold()
+        if identity == "cloudflared" or name == "cloudflared":
+            return str(app.get("state") or "UNKNOWN").upper()
+    return None
+
+
 def _cloudflare_posture_stage(
     cloudflare: dict[str, Any],
     *,
     path_mode: str,
+    cloudflared_state: str | None,
 ) -> dict[str, Any]:
     confirmed = cloudflare.get("status_confirmed") is True
     configured = cloudflare.get("configured") is True
     tunnels = cloudflare.get("tunnels_observed")
-    if confirmed:
-        detail = f"Cloudflare inventory confirmed · {tunnels or 0} tunnel(s) observed"
+    if cloudflared_state != "RUNNING":
+        runtime = cloudflared_state or "UNKNOWN"
+        detail = (
+            f"cloudflared runtime={runtime}; tunnel qualification is blocked until "
+            "the TrueNAS cloudflared app is RUNNING"
+        )
+        state = "warn"
+    elif confirmed:
+        detail = f"cloudflared RUNNING · Cloudflare inventory confirmed · {tunnels or 0} tunnel(s) observed"
         state = "ok"
     elif not configured:
         detail = "Cloudflare observer not configured; tunnel state is unknown"
@@ -167,7 +189,13 @@ def _enrich_truenas_flow(
             0,
         )
         stages.insert(dns_index + 1, pfsense_stage)
-    stages.append(_cloudflare_posture_stage(cloudflare, path_mode=path_mode))
+    stages.append(
+        _cloudflare_posture_stage(
+            cloudflare,
+            path_mode=path_mode,
+            cloudflared_state=_cloudflared_runtime_state(payload),
+        ),
+    )
 
     enriched_diagnostics = {**diagnostics, "stages": stages}
     enriched_truenas = {**truenas, "diagnostics": enriched_diagnostics}
