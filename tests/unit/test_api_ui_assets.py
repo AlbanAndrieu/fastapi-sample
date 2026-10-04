@@ -344,7 +344,7 @@ def test_sickz_summary_cannot_be_green_when_policy_enrichment_is_missing() -> No
 
 
 def test_postgres_health_key_maps_to_canonical_postgresql_service() -> None:
-    source = (ASSETS / "api-health-dependency.js").read_text(encoding="utf-8")
+    source = (_ASSET_DIR / "api-health-dependency.js").read_text(encoding="utf-8")
 
     assert 'String(key) === "postgres"' in source
     assert 'ids.push("postgresql")' in source
