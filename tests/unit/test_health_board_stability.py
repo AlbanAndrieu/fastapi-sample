@@ -168,7 +168,7 @@ async def test_homelab_snapshot_returns_degraded_timeout_payload(monkeypatch) ->
             ("Direct LAN route" if diagnostics["path_mode"] == "direct_lan" else "HAProxy public route"),
             "TrueNAS HTTPS listener",
             "WebSocket /api/current",
-            "API authentication",
+            "TrueNAS API authentication",
             "TrueNAS API · system.version + app.query",
         ],
     )
