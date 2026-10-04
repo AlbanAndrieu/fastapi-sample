@@ -158,6 +158,15 @@ def test_mobile_filter_navigation_is_compact_and_truenas_flow_is_centered() -> N
     assert "max-width: 100%" in stylesheet
     assert "overflow-x: clip" in stylesheet
     assert ".health-row" in stylesheet
+    assert "padding-right: 0.55rem" in stylesheet
+    assert ".health-row-telemetry" in stylesheet
+    assert "width: auto" in stylesheet
+    assert ".health-row-primary" in stylesheet
+    assert ".service-filter-control" in stylesheet
+    assert ".service-filter-health-summary" in stylesheet
+    assert ".service-probe-table" in stylesheet
+    assert "width: max-content" in stylesheet
+    assert "min-width: 100%" in stylesheet
     assert "#service-section-navigation .service-filter-health-chip" in stylesheet
     assert "min-height: 44px" in stylesheet
     assert ".truenas-pipeline" in stylesheet
