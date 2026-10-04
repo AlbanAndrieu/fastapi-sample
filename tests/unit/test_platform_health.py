@@ -398,3 +398,36 @@ async def test_pfsense_cache_treats_auth_rejection_as_current_warning(
     assert result["reachable"] is True
     assert result["stale"] is False
     await platform_health.reset_pfsense_api_cache()
+
+
+@pytest.mark.asyncio
+async def test_pfsense_401_is_auth_failure_not_transport_outage(monkeypatch) -> None:
+    monkeypatch.setenv("PFSENSE_POSTURE_API_URL", "https://pfsense.example.test")
+    monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "posture-key")
+    monkeypatch.setenv("PFSENSE_POSTURE_API_VERIFY_SSL", "false")
+
+    class Response:
+        status_code = 401
+
+    class Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        async def get(self, *_args, **_kwargs):
+            return Response()
+
+    monkeypatch.setattr(platform_health.httpx, "AsyncClient", lambda **_kwargs: Client())
+
+    result = await platform_health.check_pfsense_api()
+
+    assert result["reachable"] is True
+    assert result["transport_reachable"] is True
+    assert result["api_authenticated"] is False
+    assert result["application_ok"] is False
+    assert result["state"] == "warn"
+    assert result["failure_stage"] == "authentication"
+    assert result["http_status"] == 401
+    assert "not a pfSense availability failure" in result["warning"]
