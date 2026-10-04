@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
+from nabla.api.service_health_model import build_health_model
 from nabla.api.homelab_topology import (
     HomelabRelationStrength,
     HomelabRelationType,
@@ -194,12 +195,27 @@ def propagate_required_dependency_health(
             service_id,
             _effective_state(local_state, dependency_state),
         )
+        current_model = row.get("health_model") if isinstance(row.get("health_model"), dict) else {}
+        normalized_dependency_state = dependency_state or "ok"
         row.update(
             {
                 "state": effective_state,
                 "local_state": local_state,
-                "dependency_state": dependency_state,
+                "service_state": local_state,
+                "dependency_state": normalized_dependency_state,
                 "effective_state": effective_state,
+                "health_model": build_health_model(
+                    service_state=local_state,
+                    transport_state=current_model.get("transport_state", row.get("transport_state")),
+                    authentication_state=current_model.get(
+                        "authentication_state",
+                        row.get("authentication_state"),
+                    ),
+                    application_state=current_model.get("application_state", row.get("application_state")),
+                    runtime_state=current_model.get("runtime_state", "unknown"),
+                    dependency_state=normalized_dependency_state,
+                    effective_state=effective_state,
+                ),
                 "required_dependencies": [relation.target for relation in relations],
                 "blocked_by": [relation.target for relation, state in zip(relations, target_states, strict=True) if state == "fail"],
                 "degraded_by": [relation.target for relation, state in zip(relations, target_states, strict=True) if state == "warn"],
