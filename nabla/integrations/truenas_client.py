@@ -229,6 +229,16 @@ def _truenas_failure_stage(exc: BaseException) -> str:
     return "api"
 
 
+def _rpc_failure_stage(exc: BaseException) -> str:
+    """Classify an error after WebSocket authentication has already succeeded."""
+    stage = _truenas_failure_stage(exc)
+    if stage == "source_allowlist":
+        return "access_denied"
+    if stage == "connect_timeout":
+        return "api_call_timeout"
+    return stage
+
+
 def _load_client_factory() -> Any:
     """Load the official client lazily, without adding startup work."""
     try:
@@ -398,7 +408,7 @@ class TrueNASReadOnlyAdapter:
                     apps = []
                     app_inventory_state = "warn"
                     app_inventory_error_type = app_exc.__class__.__name__
-                    app_inventory_failure_stage = _truenas_failure_stage(app_exc)
+                    app_inventory_failure_stage = _rpc_failure_stage(app_exc)
                     logger.warning(
                         "TrueNAS optional app inventory unavailable uri=%s stage=%s exception=%s",
                         uri,
