@@ -41,7 +41,8 @@ def test_truenas_uses_public_health_board_as_primary_render_path() -> None:
     assert 'cache: "no-store"' in shared
 
 
-def test_protected_or_missing_raw_probe_matrix_does_not_replace_public_aggregate_health() -> None:
+def test_protected_or_missing_raw_probe_matrix_does_not_replace_public_aggregate_health(
+) -> None:
     shared = (ASSETS / "api-homelab-health.js").read_text(encoding="utf-8")
     truenas = (ASSETS / "api-truenas.js").read_text(encoding="utf-8")
 
@@ -49,4 +50,7 @@ def test_protected_or_missing_raw_probe_matrix_does_not_replace_public_aggregate
     assert '"probe_matrix_unavailable"' in shared
     assert "lastRenderedSnapshot" in truenas
     assert "health snapshot unavailable" in truenas
-    assert "Raw probe authentication does not mark TrueNAS or the probe fan-out down." in truenas
+    assert (
+        "Raw probe authentication does not mark TrueNAS or the probe fan-out down."
+        in truenas
+    )
