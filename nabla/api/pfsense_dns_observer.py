@@ -17,6 +17,7 @@ from nabla.api.pfsense_security_observer import observe_pfsense_ingress_block
 from nabla.api.provider_credentials import inspect_environment_credentials
 from nabla.settings.homelab import (
     PfSensePostureProviderSettings,
+    PfSenseProbePolicySettings,
     pfsense_invalid_configuration_variables,
     pfsense_posture_environment_variables,
 )
@@ -549,6 +550,66 @@ async def observe_pfsense_dns_posture(
     settings: PfSenseDNSSettings | None = None,
 ) -> dict[str, Any]:
     """Return cached posture plus egress-specific Snort/PF evidence."""
+    if (
+        settings is None
+        and not PfSenseProbePolicySettings().pfsense_authenticated_probes_enabled
+    ):
+        configuration = pfsense_api_configuration_status()
+        return {
+            **configuration,
+            "authenticated_probes_enabled": False,
+            "observation_mode": "transport_only",
+            "reachable": None,
+            "transport_reachable": None,
+            "api_authenticated": None,
+            "api_evidence_state": "disabled",
+            "policy_state": "unknown",
+            "reason": (
+                "Authenticated pfSense API probes are disabled for this runtime; "
+                "WAN reachability is observed separately through the public "
+                "pfSense/HAProxy/TrueNAS path"
+            ),
+            "services_observed": False,
+            "services": [],
+            "service_summary": {
+                "running": 0,
+                "stopped": 0,
+                "unknown": 0,
+                "total": 0,
+            },
+            "security_filters": _security_filter_observations(
+                None,
+                ingress_block={
+                    "state": "telemetry_disabled",
+                    "telemetry_available": False,
+                    "attribution_available": False,
+                },
+                services_observed=False,
+                posture_authenticated=None,
+            ),
+            "ingress_block": {
+                "state": "telemetry_disabled",
+                "telemetry_available": False,
+                "attribution_available": False,
+                "engine": "snort",
+                "firewall": "pfSense/PF",
+                "mechanism": "snort2c",
+                "evidence": (
+                    "Authenticated pfSense security telemetry is disabled in "
+                    "this runtime to avoid Login Protection/sshguard coupling"
+                ),
+                "control_path": {
+                    "mode": "disabled",
+                    "independent_from_wan_filter": False,
+                    "blind_spot": False,
+                    "detail": (
+                        "FastAPI Cloud uses transport-only WAN observation; "
+                        "authenticated pfSense telemetry is owned by the trusted "
+                        "homelab runtime"
+                    ),
+                },
+            },
+        }
     configuration = pfsense_api_configuration_status() if settings is None else None
     configured = settings or PfSenseDNSSettings.from_environment()
     if configured is None:
