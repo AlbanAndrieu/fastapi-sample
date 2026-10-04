@@ -235,10 +235,62 @@ async def prepare_homelab_reconciliation_context(
     }
 
 
+def _reconcile_shared_component_evidence(
+    rows: list[dict[str, Any]],
+    shared_checks: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    """Fold stronger application-level component probes into homelab service state."""
+    if not isinstance(shared_checks, dict):
+        return rows
+
+    by_id = {
+        str(row.get("id")): row
+        for row in rows
+        if isinstance(row, dict) and row.get("id")
+    }
+    mappings = {
+        "postgres": ("postgresql", "sql_query"),
+    }
+    for check_key, (service_id, evidence_kind) in mappings.items():
+        check = shared_checks.get(check_key)
+        row = by_id.get(service_id)
+        if not isinstance(check, dict) or row is None or check.get("skipped") is True:
+            continue
+        reachable = check.get("reachable")
+        if not isinstance(reachable, bool):
+            continue
+
+        previous_state = str(row.get("state") or "unknown").lower()
+        row["component_probe_key"] = check_key
+        row["component_probe_kind"] = evidence_kind
+        row["component_reachable"] = reachable
+
+        if reachable:
+            row["state"] = "ok"
+            if previous_state != "ok":
+                row["evidence_conflict"] = True
+                row["reconciliation_note"] = (
+                    f"{check_key} application probe succeeded while homelab "
+                    f"evidence reported {previous_state}; application evidence wins"
+                )
+        elif previous_state == "ok":
+            row["state"] = "warn"
+            row["evidence_conflict"] = True
+            row["reconciliation_note"] = (
+                f"{check_key} application probe failed while alternate homelab "
+                "evidence reports operational"
+            )
+        elif previous_state == "unknown":
+            row["state"] = "warn"
+
+    return rows
+
+
 async def reconcile_homelab_health_payload(
     payload: dict[str, Any],
     *,
     context: dict[str, Any] | None = None,
+    shared_checks: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Reconcile probes without repeating TrueNAS/Cloudflare/pfSense reads."""
     reconciliation_started = time.perf_counter()
@@ -293,6 +345,7 @@ async def reconcile_homelab_health_payload(
         cloudflare_warning=cloudflare_summary.get("warning"),
         checked_at=checked_at,
     )
+    reconciled = _reconcile_shared_component_evidence(reconciled, shared_checks)
     dependency_aware = propagate_required_dependency_health(reconciled, topology)
     exposure_aware = enrich_service_exposure(
         dependency_aware,
