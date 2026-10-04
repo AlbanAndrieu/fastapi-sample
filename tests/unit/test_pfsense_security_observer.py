@@ -16,7 +16,6 @@ def _settings(mode="shared_wan") -> PfSenseSecuritySettings:
 def _clear_security_env(monkeypatch) -> None:
     for name in (
         "PFSENSE_API_URL",
-        "PFSENSE_API_KEY",
         "PFSENSE_API_VERIFY_SSL",
         "PFSENSE_SECURITY_API_URL",
         "PFSENSE_SECURITY_API_KEY",
@@ -52,10 +51,9 @@ def test_missing_security_key_reports_dedicated_variable(monkeypatch) -> None:
     assert settings is None
 
 
-def test_security_settings_prefer_dedicated_key_over_legacy(monkeypatch) -> None:
+def test_security_settings_use_dedicated_key(monkeypatch) -> None:
     _clear_security_env(monkeypatch)
     monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example.test:10443")
-    monkeypatch.setenv("PFSENSE_API_KEY", "legacy-key")
     monkeypatch.setenv("PFSENSE_SECURITY_API_KEY", "dedicated-key")
 
     settings = observer.PfSenseSecuritySettings.from_environment()
