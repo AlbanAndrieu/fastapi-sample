@@ -212,7 +212,6 @@ def test_legacy_pfsense_api_hostname_normalizes_to_home(monkeypatch) -> None:
 def test_pfsense_posture_blank_tls_override_falls_back_to_shared_policy(monkeypatch) -> None:
     _clear_pfsense_env(monkeypatch)
     monkeypatch.setenv("PFSENSE_API_URL", "https://shared.example.test")
-    monkeypatch.setenv("PFSENSE_API_KEY", "shared-secret")
     monkeypatch.setenv("PFSENSE_API_VERIFY_SSL", "false")
     monkeypatch.setenv("PFSENSE_POSTURE_API_VERIFY_SSL", "   ")
 
@@ -237,7 +236,6 @@ def test_invalid_pfsense_posture_transport_fails_fast(
 ) -> None:
     _clear_pfsense_env(monkeypatch)
     monkeypatch.setenv("PFSENSE_API_URL", "https://shared.example.test")
-    monkeypatch.setenv("PFSENSE_API_KEY", "shared-secret")
     monkeypatch.setenv(variable, value)
 
     with pytest.raises(ValidationError):
