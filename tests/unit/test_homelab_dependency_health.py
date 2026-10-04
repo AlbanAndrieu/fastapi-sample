@@ -1,7 +1,11 @@
 """Tests for dependency-aware homelab health propagation."""
 
 from nabla.api.homelab_dependency_health import propagate_required_dependency_health
-from nabla.api.homelab_health_evidence import _reconcile_shared_component_evidence
+from nabla.api.homelab_health_evidence import (
+    _append_runtime_topology_component_evidence,
+    _reconcile_shared_component_evidence,
+)
+from nabla.api.homelab_runtime import runtime_snapshot_from_health_api
 from nabla.api.homelab_topology import HomelabTopology
 
 
@@ -219,3 +223,183 @@ def test_postgres_sql_failure_conflicting_with_runtime_is_warning() -> None:
     assert postgres["state"] == "warn"
     assert postgres["component_reachable"] is False
     assert postgres["evidence_conflict"] is True
+
+
+def test_runtime_topology_projection_resolves_sentry_redis_kafka_and_snuba() -> None:
+    topology = HomelabTopology.model_validate(
+        {
+            "nodes": [
+                {
+                    "id": "sentry",
+                    "name": "Sentry",
+                    "kind": "service",
+                    "category": "observability",
+                },
+                {
+                    "id": "postgresql",
+                    "name": "PostgreSQL",
+                    "kind": "database",
+                    "category": "data",
+                },
+                {
+                    "id": "redis",
+                    "name": "Redis",
+                    "kind": "cache",
+                    "category": "data",
+                    "runtime": {
+                        "provider": "truenas-app",
+                        "containerService": "redis",
+                    },
+                },
+                {
+                    "id": "kafka",
+                    "name": "Apache Kafka",
+                    "kind": "message-broker",
+                    "category": "data",
+                    "runtime": {
+                        "provider": "truenas-app",
+                        "containerService": "kafka",
+                    },
+                },
+                {
+                    "id": "sentry-snuba-api",
+                    "name": "Sentry Snuba API",
+                    "kind": "analytics-api",
+                    "category": "observability",
+                    "presentationRole": "support",
+                    "runtime": {
+                        "provider": "truenas-app",
+                        "containerService": "snuba-api",
+                    },
+                },
+            ],
+            "relations": [
+                _relation("sentry", "postgresql"),
+                _relation("sentry", "redis"),
+                _relation("sentry", "kafka"),
+                _relation("sentry", "sentry-snuba-api"),
+            ],
+        },
+    )
+    runtime = runtime_snapshot_from_health_api(
+        {
+            "reachable": True,
+            "stale": False,
+            "last_success_at": "2026-10-04T10:22:49Z",
+            "apps": [
+                {
+                    "id": "redis",
+                    "name": "redis",
+                    "state": "RUNNING",
+                    "active_workloads": {
+                        "container_details": [
+                            {"service_name": "redis", "state": "running"},
+                        ],
+                    },
+                },
+                {
+                    "id": "kafka",
+                    "name": "kafka",
+                    "state": "RUNNING",
+                    "active_workloads": {
+                        "container_details": [
+                            {"service_name": "kafka", "state": "running"},
+                        ],
+                    },
+                },
+                {
+                    "id": "sentry",
+                    "name": "sentry",
+                    "state": "CRASHED",
+                    "active_workloads": {
+                        "container_details": [
+                            {"service_name": "snuba-api", "state": "running"},
+                        ],
+                    },
+                },
+            ],
+        },
+    )
+    assert runtime is not None
+
+    rows = _append_runtime_topology_component_evidence(
+        [
+            _row("sentry", "fail", runtime_state="CRASHED"),
+            _row("postgresql", "ok", runtime_state="RUNNING"),
+        ],
+        topology=topology,
+        runtime=runtime,
+    )
+    reconciled = propagate_required_dependency_health(rows, topology)
+    by_id = {str(row["id"]): row for row in reconciled}
+
+    assert by_id["redis"]["state"] == "ok"
+    assert by_id["redis"]["topology_runtime_projection"] is True
+    assert by_id["kafka"]["state"] == "ok"
+    assert by_id["sentry-snuba-api"]["state"] == "ok"
+    assert by_id["sentry-snuba-api"]["presentation_role"] == "support"
+    assert by_id["sentry"]["dependency_state"] == "ok"
+    assert by_id["sentry"]["unconfirmed_dependencies"] == []
+    assert by_id["sentry"]["effective_state"] == "fail"
+
+
+def test_stale_runtime_topology_projection_remains_unconfirmed() -> None:
+    topology = HomelabTopology.model_validate(
+        {
+            "nodes": [
+                {
+                    "id": "consumer",
+                    "name": "Consumer",
+                    "kind": "service",
+                    "category": "test",
+                },
+                {
+                    "id": "redis",
+                    "name": "Redis",
+                    "kind": "cache",
+                    "category": "data",
+                    "runtime": {
+                        "provider": "truenas-app",
+                        "containerService": "redis",
+                    },
+                },
+            ],
+            "relations": [_relation("consumer", "redis")],
+        },
+    )
+    runtime = runtime_snapshot_from_health_api(
+        {
+            "reachable": False,
+            "stale": True,
+            "error": "refresh failed",
+            "last_good": {
+                "last_success_at": "2026-10-04T10:00:00Z",
+                "apps": [
+                    {
+                        "id": "redis",
+                        "name": "redis",
+                        "state": "RUNNING",
+                        "active_workloads": {
+                            "container_details": [
+                                {"service_name": "redis", "state": "running"},
+                            ],
+                        },
+                    },
+                ],
+            },
+        },
+    )
+    assert runtime is not None
+
+    rows = _append_runtime_topology_component_evidence(
+        [_row("consumer", "ok")],
+        topology=topology,
+        runtime=runtime,
+    )
+    reconciled = propagate_required_dependency_health(rows, topology)
+    by_id = {str(row["id"]): row for row in reconciled}
+
+    assert by_id["redis"]["state"] == "unknown"
+    assert by_id["redis"]["runtime_stale"] is True
+    assert by_id["consumer"]["unconfirmed_dependencies"] == ["redis"]
+    assert by_id["consumer"]["effective_state"] == "ok"
