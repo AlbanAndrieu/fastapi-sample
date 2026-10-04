@@ -192,20 +192,35 @@ def _security_filter_observations(
     *,
     ingress_block: dict[str, Any] | None = None,
     services_observed: bool | None = None,
+    posture_authenticated: bool | None = None,
 ) -> list[dict[str, str]]:
     ingress_state = str((ingress_block or {}).get("state") or "unknown")
     snort_blocked = ingress_state == "blocked"
     inventory_observed = isinstance(services, list) if services_observed is None else services_observed
+    if snort_blocked:
+        firewall_state = "blocked"
+        firewall_detail = (
+            "PF is enforcing the snort2c block for the observed FastAPI egress"
+        )
+    elif posture_authenticated is False:
+        firewall_state = "warn"
+        firewall_detail = (
+            "pfSense/PF is on the declared path, but posture API authentication "
+            "failed; path presence is not promoted to healthy"
+        )
+    else:
+        firewall_state = "in_path"
+        firewall_detail = (
+            "pfSense/PF is on the declared path; this is path evidence, not a "
+            "health or authentication verdict"
+        )
+
     filters: list[dict[str, str]] = [
         {
             "id": "firewall",
             "label": "pfSense/PF firewall",
-            "state": "blocked" if snort_blocked else "in_path",
-            "detail": (
-                "PF is enforcing the snort2c block for the observed FastAPI egress"
-                if snort_blocked
-                else "PF policy is active; the exact matching rule is not attributed by this read-only observer"
-            ),
+            "state": firewall_state,
+            "detail": firewall_detail,
         },
     ]
     service_rows = [row for row in services if isinstance(row, dict)] if isinstance(services, list) else []
@@ -499,6 +514,7 @@ async def observe_pfsense_dns_posture(
                 None,
                 ingress_block=ingress,
                 services_observed=False,
+                posture_authenticated=None,
             ),
             "ingress_block": ingress,
         }
@@ -516,6 +532,7 @@ async def observe_pfsense_dns_posture(
         services,
         ingress_block=ingress,
         services_observed=services_observed,
+        posture_authenticated=posture.get("api_authenticated"),
     )
     common = {
         "configured": True,
