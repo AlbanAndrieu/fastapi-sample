@@ -1,8 +1,7 @@
 import { escapeText } from "./api-health-ui.js";
-import {
-  fetchHomelabHealth,
-  fetchHomelabProbeMatrix,
-} from "./api-homelab-health.js";
+import { fetchHomelabHealth } from "./api-homelab-health.js";
+
+let lastRenderedSnapshot = null;
 
 function stageClass(stage) {
   if (stage?.state === "ok") return "ok";
@@ -470,6 +469,7 @@ function render(data) {
   const error = document.getElementById("truenas-platform-error");
   if (!pipeline || !state || !target || !error) return;
 
+  lastRenderedSnapshot = data;
   renderProbeFanout(data);
   error.hidden = true;
   error.textContent = "";
@@ -534,18 +534,10 @@ function render(data) {
   }
 
   const notes = [];
-  if (data?._probe_first === true) {
+  if (data?._stale_ui_snapshot === true) {
     notes.push(
-      "TrueNAS flow rendered from bounded /api/homelab/probes first; aggregate health enriches the view when available.",
+      "Last rendered TrueNAS/probe snapshot retained while aggregate health refresh is unavailable.",
     );
-  }
-  if (data?._bounded_probe_fallback === true) {
-    notes.push(
-      "Aggregate homelab diagnostics exceeded their deadline; TrueNAS flow and probe fan-out were recovered from bounded /api/homelab/probes.",
-    );
-  }
-  if (data?._probe_fallback_error) {
-    notes.push(`Bounded probe fallback failed: ${data._probe_fallback_error}`);
   }
   if (data?._aggregate_enrichment_error) {
     notes.push(
@@ -569,89 +561,37 @@ function render(data) {
   }
 }
 
-function needsBoundedProbeFallback(data) {
-  const stages = data?.truenas?.diagnostics?.stages;
-  return (
-    data?.timed_out === true ||
-    !Array.isArray(stages) ||
-    stages.length === 0 ||
-    !data?.probe_summary
-  );
-}
-
-function mergeBoundedProbeFallback(aggregate, probes) {
-  return {
-    ...aggregate,
-    truenas: probes?.truenas || aggregate?.truenas,
-    checked_at: probes?.checked_at || aggregate?.checked_at,
-    refresh_elapsed_ms:
-      probes?.refresh_elapsed_ms ?? aggregate?.refresh_elapsed_ms,
-    probe_cache: probes?.probe_cache || aggregate?.probe_cache,
-    probe_summary: probes?.probe_summary || aggregate?.probe_summary,
-    internal_services:
-      probes?.internal_services || aggregate?.internal_services || [],
-    public_probe_results:
-      probes?.public_probe_results ||
-      probes?.services ||
-      aggregate?.public_probe_results ||
-      [],
-    _probe_first: true,
-    _bounded_probe_fallback: needsBoundedProbeFallback(aggregate),
-  };
-}
-
 function renderFetchFailure(errorValue) {
+  const message = String(errorValue?.message || errorValue);
+  if (lastRenderedSnapshot) {
+    render({
+      ...lastRenderedSnapshot,
+      _aggregate_enrichment_error: `Health snapshot refresh unavailable: ${message}`,
+      _stale_ui_snapshot: true,
+    });
+    return;
+  }
+
   const state = document.getElementById("truenas-platform-state");
   const error = document.getElementById("truenas-platform-error");
   const pipeline = document.getElementById("truenas-pipeline");
   if (state) {
-    state.className = "truenas-platform-state truenas-platform-state--fail";
-    state.textContent = "health fetch failed";
+    state.className = "truenas-platform-state truenas-platform-state--warn";
+    state.textContent = "health snapshot unavailable";
   }
-  if (pipeline) pipeline.innerHTML = "";
+  if (pipeline && !pipeline.children.length) pipeline.innerHTML = "";
   if (error) {
     error.hidden = false;
-    error.textContent = String(errorValue?.message || errorValue);
+    error.textContent =
+      `Aggregate health snapshot unavailable: ${message}. Raw probe authentication does not mark TrueNAS or the probe fan-out down.`;
   }
 }
 
 export async function loadTrueNas() {
-  let probes = null;
-  let probeError = null;
-
-  try {
-    probes = await fetchHomelabProbeMatrix();
-    render({
-      ...probes,
-      _probe_first: true,
-    });
-  } catch (err) {
-    if (err?.code !== "diagnostics_auth_required") probeError = err;
-  }
-
   try {
     const aggregate = await fetchHomelabHealth();
-    if (probes) {
-      render(mergeBoundedProbeFallback(aggregate, probes));
-      return;
-    }
-    render({
-      ...aggregate,
-      _probe_fallback_error: probeError
-        ? String(probeError?.message || probeError)
-        : null,
-    });
+    render(aggregate);
   } catch (aggregateError) {
-    if (probes) {
-      render({
-        ...probes,
-        _probe_first: true,
-        _aggregate_enrichment_error: String(
-          aggregateError?.message || aggregateError,
-        ),
-      });
-      return;
-    }
     renderFetchFailure(aggregateError);
   }
 }
