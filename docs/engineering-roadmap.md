@@ -86,8 +86,10 @@ Runbook:
   query VPN, logs and private inventory only for explicit operational needs.
 - [x] Preserve expected exposure reachability in low-level `/sickz` rows so
   policy-enrichment timeouts cannot turn a required positive probe green.
-- [ ] Improve TrueNAS WebSocket timeout attribution without leaking URI or
-  credential context.
+- [x] Attribute TrueNAS WebSocket/API timeouts to the failing phase/method and
+  per-call budget without leaking URI or credential context; use
+  `system.ready` as the authenticated readiness proof and keep version/app
+  inventory as degradable enrichment.
 
 Runbook:
 [external-probe-cache-operations.md](external-probe-cache-operations.md).
