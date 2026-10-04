@@ -261,6 +261,8 @@ class TrueNASHealthProbeError(RuntimeError):
         cause: BaseException,
         method: str,
         authenticated: bool,
+        phase_elapsed_ms: int | None = None,
+        call_timeout_seconds: float | None = None,
     ) -> None:
         super().__init__(str(cause).strip() or cause.__class__.__name__)
         self.phase = phase
@@ -268,6 +270,8 @@ class TrueNASHealthProbeError(RuntimeError):
         self.method = method
         self.authenticated = authenticated
         self.exception_type = cause.__class__.__name__
+        self.phase_elapsed_ms = phase_elapsed_ms
+        self.call_timeout_seconds = call_timeout_seconds
 
 
 class TrueNASReadOnlyAdapter:
@@ -365,6 +369,7 @@ class TrueNASReadOnlyAdapter:
         app_query_elapsed_ms: int | None = None
         vm_query_elapsed_ms: int | None = None
         connect_started = time.perf_counter()
+        phase_started = connect_started
         try:
             with self._connect(call_timeout=_HEALTH_CALL_TIMEOUT_SEC) as client:
                 websocket_elapsed_ms = round(
@@ -373,6 +378,7 @@ class TrueNASReadOnlyAdapter:
                 phase = "authentication"
                 method = "auth.login_with_api_key"
                 auth_started = time.perf_counter()
+                phase_started = auth_started
                 client.login_with_api_key(self.settings.username, self.settings.api_key)
                 authentication_elapsed_ms = round(
                     (time.perf_counter() - auth_started) * 1000,
@@ -385,6 +391,7 @@ class TrueNASReadOnlyAdapter:
                 phase = "call"
                 method = "system.version"
                 system_started = time.perf_counter()
+                phase_started = system_started
                 version = client.call(method)
                 system_version_elapsed_ms = round(
                     (time.perf_counter() - system_started) * 1000,
@@ -392,6 +399,7 @@ class TrueNASReadOnlyAdapter:
 
                 method = "app.query"
                 app_started = time.perf_counter()
+                phase_started = app_started
                 try:
                     apps = client.call(
                         method,
@@ -419,6 +427,7 @@ class TrueNASReadOnlyAdapter:
                 vm_error_type: str | None = None
                 method = "vm.query"
                 vm_started = time.perf_counter()
+                phase_started = vm_started
                 try:
                     vms = client.call(
                         method,
@@ -448,7 +457,9 @@ class TrueNASReadOnlyAdapter:
                         vm_error_type,
                     )
         except Exception as exc:
-            elapsed_ms = round((time.perf_counter() - started) * 1000)
+            failed_at = time.perf_counter()
+            elapsed_ms = round((failed_at - started) * 1000)
+            phase_elapsed_ms = round((failed_at - phase_started) * 1000)
             failure_stage = _truenas_failure_stage(exc)
             if phase == "call" and failure_stage == "source_allowlist":
                 failure_stage = "access_denied"
@@ -472,6 +483,8 @@ class TrueNASReadOnlyAdapter:
                 cause=exc,
                 method=method,
                 authenticated=authenticated,
+                phase_elapsed_ms=phase_elapsed_ms,
+                call_timeout_seconds=_HEALTH_CALL_TIMEOUT_SEC,
             ) from exc
         logger.info(
             "TrueNAS API health probe succeeded uri=%s verify_ssl=%s proxy_route=%s elapsed_ms=%s",
