@@ -207,3 +207,23 @@ def test_stale_unbound_failure_is_degraded_not_confirmed_unhealthy() -> None:
         "unbound": component,
     }
     assert component_health.component_status(components) == "degraded"
+
+
+def test_pfsense_http_failure_degrades_even_when_transport_is_reachable() -> None:
+    components = {
+        "postgres": {"reachable": True},
+        "redis": {"reachable": True},
+        "supabase": {"reachable": True},
+        "truenas": {"reachable": True, "state": "ok", "tls_trusted": True},
+        "cloudflare": {"reachable": True, "state": "ok", "status_confirmed": True},
+        "pfsense": {
+            "reachable": True,
+            "transport_reachable": True,
+            "application_ok": False,
+            "state": "fail",
+            "http_status": 502,
+            "status_confirmed": True,
+        },
+    }
+
+    assert component_health.component_status(components) == "degraded"
