@@ -86,7 +86,7 @@ def _probe_identity(
     *,
     override_url: str | None,
     insecure: bool,
-) -> tuple[int, int]:
+) -> tuple[int, int, bool]:
     expectations = [row for row in EXPECTATIONS if row.identity == identity]
     base_url = (override_url or settings.base_url).rstrip("/")
     verify_ssl = False if insecure else settings.verify_ssl
@@ -122,8 +122,14 @@ def _probe_identity(
                 f"expected={expectation.expected_status} actual={response.status_code} "
                 f"result={'ok' if ok else 'mismatch'}",
             )
+            if response.status_code == 401:
+                print(
+                    "authentication_rejected=yes action=stop "
+                    "reason=avoid_login_protection_lockout",
+                )
+                return passed, len(expectations), True
 
-    return passed, len(expectations)
+    return passed, len(expectations), False
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -146,7 +152,7 @@ def main(argv: list[str] | None = None) -> int:
             )
             continue
 
-        passed, expected = _probe_identity(
+        passed, expected, auth_rejected = _probe_identity(
             identity,
             settings,
             override_url=args.url,
@@ -154,6 +160,12 @@ def main(argv: list[str] | None = None) -> int:
         )
         totals[0] += passed
         totals[1] += expected
+        if auth_rejected:
+            print(
+                "matrix_aborted=yes reason=authentication_rejected "
+                "remaining_identities_skipped=yes",
+            )
+            break
 
     print(f"summary passed={totals[0]} total={totals[1]} secrets_printed=no")
     return 0 if totals[0] == totals[1] else 1
