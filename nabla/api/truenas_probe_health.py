@@ -37,6 +37,17 @@ def truenas_state(
     public_state = public_result.get("state")
     internal_state = internal_result.get("state") if internal_result else None
     api_reachable = api_result.get("reachable") if api_result else None
+    api_degraded = False
+    if isinstance(api_result, dict) and api_reachable is True:
+        readiness = api_result.get("readiness") if isinstance(api_result.get("readiness"), dict) else {}
+        version = api_result.get("system_version") if isinstance(api_result.get("system_version"), dict) else {}
+        inventory = api_result.get("app_inventory") if isinstance(api_result.get("app_inventory"), dict) else {}
+        api_degraded = (
+            api_result.get("system_ready") is False
+            or str(readiness.get("state") or "ok").lower() != "ok"
+            or str(version.get("state") or "ok").lower() != "ok"
+            or str(inventory.get("state") or "ok").lower() != "ok"
+        )
     # Host liveness and authenticated management capability are separate
     # signals. A failed API/WebSocket probe must not claim the appliance itself
     # is down while the HTTPS listener is still reachable.
@@ -45,6 +56,8 @@ def truenas_state(
     if public_state == "fail":
         return "fail"
     if api_reachable is False or internal_state == "fail":
+        return "warn"
+    if api_degraded:
         return "warn"
     if public_state == "warn":
         return "warn"
@@ -148,9 +161,20 @@ def truenas_health_model(
     else:
         authentication_state = "unknown"
 
+    readiness = api.get("readiness") if isinstance(api.get("readiness"), dict) else {}
+    version = api.get("system_version") if isinstance(api.get("system_version"), dict) else {}
     inventory = api.get("app_inventory") if isinstance(api.get("app_inventory"), dict) else {}
     if reachable:
-        application_state = "warn" if str(inventory.get("state") or "ok").lower() != "ok" else "ok"
+        application_state = (
+            "warn"
+            if (
+                api.get("system_ready") is False
+                or str(readiness.get("state") or "ok").lower() != "ok"
+                or str(version.get("state") or "ok").lower() != "ok"
+                or str(inventory.get("state") or "ok").lower() != "ok"
+            )
+            else "ok"
+        )
     elif authenticated or phase == "call":
         application_state = "warn"
     else:
