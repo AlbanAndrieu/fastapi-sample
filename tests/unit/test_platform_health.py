@@ -430,4 +430,13 @@ async def test_pfsense_401_is_auth_failure_not_transport_outage(monkeypatch) -> 
     assert result["state"] == "warn"
     assert result["failure_stage"] == "authentication"
     assert result["http_status"] == 401
+    assert result["health_model"] == {
+        "service_state": "ok",
+        "transport_state": "ok",
+        "authentication_state": "warn",
+        "application_state": "unknown",
+        "runtime_state": "unknown",
+        "dependency_state": "ok",
+        "effective_state": "warn",
+    }
     assert "not a pfSense availability failure" in result["warning"]
