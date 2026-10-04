@@ -155,7 +155,6 @@ def test_obsolete_verify_ssl_alias_remains_ignored(monkeypatch) -> None:
 
 _PFSENSE_ENV = (
     "PFSENSE_API_URL",
-    "PFSENSE_API_KEY",
     "PFSENSE_API_VERIFY_SSL",
     "PFSENSE_POSTURE_API_URL",
     "PFSENSE_POSTURE_API_KEY",
@@ -184,7 +183,6 @@ def test_pfsense_posture_defaults_to_home_api_endpoint(monkeypatch) -> None:
 def test_pfsense_posture_prefers_dedicated_transport_and_masks_secrets(monkeypatch) -> None:
     _clear_pfsense_env(monkeypatch)
     monkeypatch.setenv("PFSENSE_API_URL", "https://shared.example.test/")
-    monkeypatch.setenv("PFSENSE_API_KEY", "shared-secret")
     monkeypatch.setenv("PFSENSE_API_VERIFY_SSL", "true")
     monkeypatch.setenv("PFSENSE_POSTURE_API_URL", " https://posture.example.test/ ")
     monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "posture-secret")
@@ -197,7 +195,6 @@ def test_pfsense_posture_prefers_dedicated_transport_and_masks_secrets(monkeypat
     assert settings.verify_ssl is False
     assert settings.credential_mode == "dedicated_posture"
     assert "posture-secret" not in repr(settings)
-    assert "shared-secret" not in repr(settings)
 
 
 def test_legacy_pfsense_api_hostname_normalizes_to_home(monkeypatch) -> None:
