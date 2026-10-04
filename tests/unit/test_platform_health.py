@@ -227,7 +227,10 @@ async def test_pfsense_http_502_is_classified_as_http_response_failure(
 
     result = await platform_health.check_pfsense_api()
 
-    assert result["reachable"] is False
+    assert result["reachable"] is True
+    assert result["transport_reachable"] is True
+    assert result["application_ok"] is False
+    assert result["application_result"] == "http_error"
     assert result["http_status"] == 502
     assert result["error_kind"] == "http_502"
     assert result["failure_stage"] == "http_response"
@@ -328,3 +331,31 @@ async def test_pfsense_401_reports_auth_rejection_without_claiming_appliance_dow
     assert result["credential_mode"] == "dedicated_posture"
     assert result["credential_selection"]["api_key_variable"] == "PFSENSE_POSTURE_API_KEY"
     assert "was rejected" in result["warning"]
+
+
+@pytest.mark.asyncio
+async def test_pfsense_auth_rejection_preserves_transport_reachability(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example")
+    monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "rejected-posture-key")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(401, request=request, json={"code": 401})
+
+    class FakeAsyncClient(httpx.AsyncClient):
+        def __init__(self, *args, **kwargs) -> None:
+            kwargs["transport"] = httpx.MockTransport(handler)
+            super().__init__(*args, **kwargs)
+
+    monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
+
+    result = await platform_health.check_pfsense_api()
+
+    assert result["reachable"] is True
+    assert result["transport_reachable"] is True
+    assert result["api_authenticated"] is False
+    assert result["application_ok"] is False
+    assert result["application_result"] == "authentication_rejected"
+    assert result["state"] == "warn"
+    assert result["failure_stage"] == "authentication"
