@@ -68,6 +68,21 @@ function baseDetailText(key, check) {
   if (check.skipped)
     return check.reason || "Not configured (intentionally disabled).";
   if (key === "cloudflare") return cloudflareDetailText(check);
+  if (
+    key === "pfsense" &&
+    [401, 403].includes(Number(check?.http_status)) &&
+    check?.transport_reachable === true
+  ) {
+    const selected = check?.credential_selection?.api_key_variable;
+    return [
+      `HTTP ${check.http_status} · pfSense HTTPS/API endpoint reachable`,
+      "API authentication rejected",
+      selected ? `selected credential: ${selected}` : "",
+      check.credential_mode ? `mode: ${check.credential_mode}` : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }
   if (check.warning) return String(check.warning);
   if (isExpectedSentryDebugFailure(key, check)) {
     return "HTTP 500 · Expected: the test error was intentionally triggered and captured by Sentry.";
