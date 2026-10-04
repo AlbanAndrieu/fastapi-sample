@@ -370,3 +370,35 @@ async def test_posture_401_keeps_firewall_path_warning(
     filters = {row["id"]: row for row in result["security_filters"]}
     assert filters["firewall"]["state"] == "warn"
     assert "authentication failed" in filters["firewall"]["detail"]
+
+
+
+@pytest.mark.asyncio
+async def test_authenticated_pfsense_probes_can_be_disabled_for_cloud(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("PFSENSE_AUTHENTICATED_PROBES_ENABLED", "false")
+    monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "must-not-be-used")
+    monkeypatch.setenv("PFSENSE_SECURITY_API_KEY", "must-not-be-used")
+
+    async def forbidden(*_args, **_kwargs):
+        raise AssertionError("authenticated pfSense probe must not run")
+
+    monkeypatch.setattr(
+        pfsense_dns_observer,
+        "_cached_posture",
+        forbidden,
+    )
+    monkeypatch.setattr(
+        pfsense_dns_observer,
+        "observe_pfsense_ingress_block",
+        forbidden,
+    )
+
+    result = await pfsense_dns_observer.observe_pfsense_dns_posture()
+
+    assert result["authenticated_probes_enabled"] is False
+    assert result["observation_mode"] == "transport_only"
+    assert result["api_evidence_state"] == "disabled"
+    assert result["api_authenticated"] is None
+    assert result["ingress_block"]["state"] == "telemetry_disabled"
