@@ -20,6 +20,15 @@ from nabla.settings.homelab import (
 
 _DEFAULT_API_PATH = DEFAULT_TRUENAS_WS_PATH
 _DEFAULT_CALL_TIMEOUT_SEC = 5.0
+_APP_HEALTH_SELECT = [
+    "id",
+    "name",
+    "state",
+    "upgrade_available",
+    "active_workloads.container_details.service_name",
+    "active_workloads.container_details.image",
+    "active_workloads.container_details.state",
+]
 logger = logging.getLogger(__name__)
 _TALOS_VM_NAMES = ("taloscp01", "taloswk01", "taloswk02")
 
@@ -315,7 +324,7 @@ class TrueNASReadOnlyAdapter:
 
     def list_apps(self) -> list[dict[str, Any]]:
         """Return installed app inventory through the v26 ``app.query`` method."""
-        result = self._call("app.query")
+        result = self._call("app.query", [], {"select": _APP_HEALTH_SELECT})
         if not isinstance(result, list):
             raise RuntimeError("TrueNAS app.query returned an unexpected payload")
         return [item for item in result if isinstance(item, dict)]
@@ -350,17 +359,7 @@ class TrueNASReadOnlyAdapter:
                     apps = client.call(
                         method,
                         [],
-                        {
-                            "select": [
-                                "id",
-                                "name",
-                                "state",
-                                "upgrade_available",
-                                "active_workloads.container_details.service_name",
-                                "active_workloads.container_details.image",
-                                "active_workloads.container_details.state",
-                            ],
-                        },
+                        {"select": _APP_HEALTH_SELECT},
                     )
                 except Exception as app_exc:
                     apps = []
