@@ -370,3 +370,32 @@ def test_health_snapshot_keeps_rpc_liveness_when_app_query_times_out() -> None:
     assert snapshot["app_inventory"]["state"] == "warn"
     assert snapshot["app_inventory"]["failure_stage"] == "api_call_timeout"
     assert snapshot["app_inventory"]["error_type"] == "TimeoutError"
+
+
+def test_health_snapshot_attributes_system_version_timeout_to_rpc_phase() -> None:
+    class SlowSystemClient(FakeClient):
+        def call(self, method: str, *params):
+            if method == "system.version":
+                self.calls.append(method)
+                raise TimeoutError("system.version timed out")
+            return super().call(method, *params)
+
+    adapter = TrueNASReadOnlyAdapter(
+        TrueNASSettings(
+            url="https://truenas.example",
+            username="fastapi_observer",
+            api_key="1-secret",
+        ),
+        client_factory=SlowSystemClient,
+    )
+
+    with pytest.raises(TrueNASHealthProbeError) as exc_info:
+        adapter.health_snapshot()
+
+    error = exc_info.value
+    assert error.phase == "call"
+    assert error.stage == "api_call_timeout"
+    assert error.method == "system.version"
+    assert error.authenticated is True
+    assert isinstance(error.phase_elapsed_ms, int)
+    assert error.call_timeout_seconds == 2.0
