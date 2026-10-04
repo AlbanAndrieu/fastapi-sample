@@ -137,3 +137,36 @@ def test_wan_tls_keeps_overall_state_degraded_when_http_fails() -> None:
         )
         == "fail"
     )
+
+
+def test_truenas_health_model_keeps_websocket_and_rpc_failure_separate() -> None:
+    model = homelab_health.truenas_probe_health.truenas_health_model(
+        {"state": "ok"},
+        {"state": "ok"},
+        {
+            "reachable": False,
+            "authenticated": True,
+            "phase": "call",
+            "stage": "api_call_timeout",
+            "method": "system.version",
+        },
+        {
+            "stages": [
+                {"id": "websocket", "state": "ok"},
+                {"id": "authentication", "state": "ok"},
+                {"id": "api", "state": "fail"},
+            ],
+        },
+        appliance_state="ok",
+        effective_state="warn",
+    )
+
+    assert model == {
+        "service_state": "ok",
+        "transport_state": "ok",
+        "authentication_state": "ok",
+        "application_state": "warn",
+        "runtime_state": "ok",
+        "dependency_state": "ok",
+        "effective_state": "warn",
+    }
