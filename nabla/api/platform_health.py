@@ -24,6 +24,7 @@ from nabla.api.platform_health_diagnostics import (
 )
 from nabla.api.provider_probe_policies import PFSENSE_LIVENESS_CACHE_POLICY as _PFSENSE_CACHE_POLICY
 from nabla.api.runtime_environment import fastapi_cloud_runtime_detected
+from nabla.api.service_health_model import build_health_model
 from nabla.settings.homelab import (
     PfSensePostureProviderSettings,
     pfsense_invalid_configuration_variables,
@@ -47,6 +48,34 @@ _PFSENSE_TRANSIENT_ERROR_KINDS = frozenset(
     },
 )
 logger = logging.getLogger(__name__)
+
+
+def _pfsense_health_dimensions(
+    *,
+    service_state: str,
+    transport_state: str,
+    authentication_state: str,
+    application_state: str,
+    effective_state: str,
+) -> dict[str, Any]:
+    model = build_health_model(
+        service_state=service_state,
+        transport_state=transport_state,
+        authentication_state=authentication_state,
+        application_state=application_state,
+        runtime_state="unknown",
+        dependency_state="ok",
+        effective_state=effective_state,
+    )
+    return {
+        "service_state": model["service_state"],
+        "transport_state": model["transport_state"],
+        "authentication_state": model["authentication_state"],
+        "application_state": model["application_state"],
+        "dependency_state": model["dependency_state"],
+        "effective_state": model["effective_state"],
+        "health_model": model,
+    }
 
 
 def _pfsense_posture_transport() -> tuple[str, str, bool, str]:
@@ -90,6 +119,7 @@ def _pfsense_transport_failure_result(
         attempts,
         cloud_unconfirmed,
     )
+    effective_state = "unknown" if cloud_unconfirmed else "fail"
     result: dict[str, Any] = {
         "reachable": None if cloud_unconfirmed else False,
         "error": error,
@@ -104,6 +134,13 @@ def _pfsense_transport_failure_result(
         "verify_ssl": verify_ssl,
         "credential_mode": credential_mode,
         "tls_trusted": False if not verify_ssl else None,
+        **_pfsense_health_dimensions(
+            service_state=effective_state,
+            transport_state=effective_state,
+            authentication_state="unknown",
+            application_state="unknown",
+            effective_state=effective_state,
+        ),
     }
     if cloud_unconfirmed:
         result.update(
@@ -198,6 +235,7 @@ async def check_pfsense_api() -> dict[str, Any]:
     healthy = 200 <= response.status_code < 400
     auth_rejected = response.status_code in {401, 403}
     url_var, key_var = pfsense_posture_environment_variables()
+    effective_state = "ok" if healthy else "warn" if auth_rejected else "fail"
     result = {
         "reachable": True,
         "transport_reachable": True,
@@ -225,6 +263,13 @@ async def check_pfsense_api() -> dict[str, Any]:
         },
         "attempts": attempts,
         "tls_trusted": verify_ssl,
+        **_pfsense_health_dimensions(
+            service_state="ok",
+            transport_state="ok",
+            authentication_state="ok" if healthy else "warn" if auth_rejected else "unknown",
+            application_state="ok" if healthy else "unknown" if auth_rejected else "fail",
+            effective_state=effective_state,
+        ),
     }
     if healthy:
         result["last_success_at"] = _utc_now()
