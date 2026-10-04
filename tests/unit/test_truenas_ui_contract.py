@@ -23,8 +23,11 @@ def test_truenas_platform_puts_ingress_filters_in_traffic_pipeline() -> None:
     assert "security_filters" in javascript
     assert "ingressPolicyStage" in javascript
     assert 'id: "pfsense_wan_ingress"' in javascript
-    assert 'label: "pfSense WAN ingress"' in javascript
+    assert 'label: "WAN :7000 via pfSense/HAProxy"' in javascript
     assert "trafficStages" in javascript
+    assert 'block?.state === "clear"' in javascript
+    assert '"pfSense security posture unconfirmed"' in javascript
+    assert 'state = "warn"' in javascript
     assert 'stage?.id === "dns"' in javascript
     assert '"pfSense WAN ingress"' in flow
     assert '"pfSense DNS / Unbound"' in flow

@@ -195,10 +195,21 @@ async def check_pfsense_api() -> dict[str, Any]:
         )
 
     healthy = 200 <= response.status_code < 400
+    auth_rejected = response.status_code in {401, 403}
     result = {
-        "reachable": healthy,
+        "reachable": True,
+        "transport_reachable": True,
+        "api_authenticated": True if healthy else False if auth_rejected else None,
+        "application_ok": healthy,
+        "application_result": (
+            "authenticated_api_response"
+            if healthy
+            else "authentication_rejected"
+            if auth_rejected
+            else "http_error"
+        ),
         "status_confirmed": True,
-        "state": "ok" if healthy else "fail",
+        "state": "ok" if healthy else "warn" if auth_rejected else "fail",
         "http_status": response.status_code,
         "elapsed_ms": elapsed_ms,
         "probe": "pfsense_rest_api_v2",
@@ -216,9 +227,14 @@ async def check_pfsense_api() -> dict[str, Any]:
             {
                 "error": f"pfSense API returned HTTP {response.status_code}",
                 "error_kind": f"http_{response.status_code}",
-                "failure_stage": "http_response",
+                "failure_stage": "authentication" if auth_rejected else "http_response",
             },
         )
+        if auth_rejected:
+            result["warning"] = (
+                "pfSense HTTPS/API endpoint is reachable, but the selected "
+                f"posture API key was rejected (HTTP {response.status_code})"
+            )
     logger.debug(
         "pfSense API liveness probe completed http_status=%s elapsed_ms=%s attempts=%s verify_ssl=%s",
         response.status_code,
@@ -248,13 +264,19 @@ def _cache_with_stale_evidence(cached: ProbeCacheResult) -> dict[str, Any]:
     return value
 
 
+def _pfsense_cache_success(value: dict[str, Any]) -> bool:
+    """Keep confirmed authentication rejections as current warning evidence."""
+    return value.get("state") in {"ok", "warn"} and value.get("transport_reachable") is True
+
+
 async def get_pfsense_api_snapshot() -> dict[str, Any]:
     """Use L1/Redis L2 cache and stale-last-good for pfSense liveness."""
     cached = await get_or_refresh_probe(
         _PFSENSE_CACHE_KEY,
         check_pfsense_api,
-        is_success=lambda value: value.get("reachable") is True,
+        is_success=_pfsense_cache_success,
         policy=_PFSENSE_CACHE_POLICY,
+        is_provider_success=lambda value: value.get("transport_reachable") is True,
     )
     return _cache_with_stale_evidence(cached)
 

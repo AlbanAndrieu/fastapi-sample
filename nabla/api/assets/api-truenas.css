@@ -123,6 +123,7 @@
 }
 
 .truenas-stage--ok { border-color: rgba(0, 255, 136, 0.35); color: #7dffc4; }
+.truenas-stage--warn { border-color: rgba(255, 200, 50, 0.4); color: #ffd966; }
 .truenas-stage--fail { border-color: rgba(255, 80, 80, 0.55); color: #ff9999; }
 .truenas-stage--blocked { border-color: #3a3a3a; color: #777; }
 .truenas-stage-icon { font-size: 1rem; min-height: 1.25rem; }

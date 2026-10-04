@@ -165,7 +165,9 @@ def _pfsense(snapshot: dict[str, Any]) -> dict[str, Any]:
     check = _healthz_check(snapshot, "pfsense")
     row = _common(check)
     row["reachable"] = _transport_reachable(check)
-    row["authenticated"] = _bool_or_none(check.get("authenticated"))
+    row["authenticated"] = _bool_or_none(check.get("api_authenticated"))
+    if row["authenticated"] is None:
+        row["authenticated"] = _bool_or_none(check.get("authenticated"))
     if row["authenticated"] is None:
         row["authenticated"] = _auth_from_http(check)
     row["application_ok"] = _application_ok_from_http(check)
@@ -175,6 +177,7 @@ def _pfsense(snapshot: dict[str, Any]) -> dict[str, Any]:
         "http_status": check.get("http_status"),
         "credential_mode": check.get("credential_mode"),
         "application_ok": row["application_ok"],
+        "application_result": check.get("application_result"),
     }
     row["evidence_complete"] = bool(
         row["configured"] is True and row["reachable"] is True and row["authenticated"] is True and row["application_ok"] is True and not row["stale"],

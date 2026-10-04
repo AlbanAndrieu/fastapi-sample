@@ -24,7 +24,7 @@ from nabla.settings.homelab import TrueNASProviderSettings
 from nabla.utils.logger import logger
 
 _CACHE_KEY = "truenas:api"
-TRUENAS_PROBE_DEADLINE_SEC = 4.0
+TRUENAS_PROBE_DEADLINE_SEC = 8.0
 _SENTRY_FAILURE_COOLDOWN_SEC = 900.0
 
 

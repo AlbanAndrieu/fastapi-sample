@@ -6,12 +6,14 @@ import {
 
 function stageClass(stage) {
   if (stage?.state === "ok") return "ok";
+  if (stage?.state === "warn") return "warn";
   if (stage?.state === "fail") return "fail";
   return "blocked";
 }
 
 function stageIcon(stage) {
   if (stage?.state === "ok") return "●";
+  if (stage?.state === "warn") return "⚠";
   if (stage?.state === "fail") return "💀";
   return "⊘";
 }
@@ -78,16 +80,26 @@ function ingressPolicyStage(data, measuredStages) {
   });
 
   let state = "blocked";
-  if (block?.state === "blocked") state = "fail";
-  else if (tcp?.state === "ok") state = "ok";
+  const tcpOk = tcp?.state === "ok";
+  const tcpFailed = tcp?.state === "fail";
+  const postureConfirmed = block?.state === "clear";
+  if (block?.state === "blocked" || tcpFailed) state = "fail";
+  else if (tcpOk && postureConfirmed) state = "ok";
+  else if (tcpOk) state = "warn";
 
+  const pathEvidence = tcpOk
+    ? "WAN :7000 data path reached pfSense/HAProxy"
+    : tcpFailed
+      ? "WAN :7000 data path failed before TrueNAS"
+      : "WAN :7000 data path unconfirmed";
+  const postureEvidence = postureConfirmed
+    ? "pfSense security posture confirmed"
+    : "pfSense security posture unconfirmed";
   return {
     id: "pfsense_wan_ingress",
-    label: "pfSense WAN ingress",
+    label: "WAN :7000 via pfSense/HAProxy",
     state,
-    detail: details.length
-      ? details.join(" · ")
-      : "PF policy path · security-engine telemetry unavailable",
+    detail: [pathEvidence, postureEvidence, ...details].filter(Boolean).join(" · "),
   };
 }
 

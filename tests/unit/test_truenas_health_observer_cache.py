@@ -169,3 +169,7 @@ def test_call_timeout_class_name_is_classified_as_api_timeout() -> None:
 
     assert phase == "api"
     assert stage == "api_call_timeout"
+
+
+def test_health_probe_deadline_covers_bounded_optional_rpcs() -> None:
+    assert observer.TRUENAS_PROBE_DEADLINE_SEC == 8.0

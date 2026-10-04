@@ -33,6 +33,51 @@ function logRefreshClick() {
   });
 }
 
+async function postCacheReset(diagnosticsKey = "") {
+  const headers = {
+    Accept: "application/json",
+    "Cache-Control": "no-cache",
+  };
+  if (diagnosticsKey) headers["X-Diagnostics-Key"] = diagnosticsKey;
+  return fetch("/api/health-board/cache/reset", {
+    method: "POST",
+    cache: "no-store",
+    headers,
+  });
+}
+
+async function purgeHealthCaches(button) {
+  const original = button.textContent;
+  button.disabled = true;
+  button.textContent = "Purging…";
+  try {
+    let response = await postCacheReset();
+    if (response.status === 401) {
+      const diagnosticsKey = window.prompt(
+        "Diagnostics access key required for cache purge:",
+      );
+      if (!diagnosticsKey) {
+        button.textContent = original;
+        return;
+      }
+      response = await postCacheReset(diagnosticsKey.trim());
+    }
+    if (!response.ok) throw new Error(`cache reset HTTP ${response.status}`);
+    button.textContent = "✓ Cache purged";
+    await loadHealthBoards({
+      forceRefresh: true,
+      includeTechnical: technicalDetailsOpen(),
+    });
+  } catch {
+    button.textContent = "⚠ Purge failed";
+  } finally {
+    window.setTimeout(() => {
+      button.disabled = false;
+      button.textContent = original;
+    }, 1800);
+  }
+}
+
 function technicalDetailsOpen() {
   return (
     document.getElementById("runtime-topology")?.open === true ||
@@ -124,6 +169,15 @@ function installAutomaticRefresh() {
 }
 
 export function installHealthBoardController() {
+  document.querySelectorAll(".health-cache-reset").forEach((button) => {
+    button.textContent = "⌫ Purge probe cache";
+    button.setAttribute(
+      "aria-label",
+      "Purge provider health caches and circuit breakers",
+    );
+    button.addEventListener("click", () => purgeHealthCaches(button));
+  });
+
   document.querySelectorAll(".health-refresh").forEach((button) => {
     button.textContent = "↻ Refresh evidence";
     button.setAttribute("aria-label", "Refresh health and probe evidence");

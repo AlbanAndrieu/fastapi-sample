@@ -259,3 +259,30 @@ def test_diagnostic_script_does_not_probe_providers_directly() -> None:
     assert "172.17.0.24:4040" not in source
     assert "sentry_sdk" not in source
     assert "prometheus/api" not in source
+
+
+def test_pfsense_401_uses_explicit_auth_rejection() -> None:
+    module = load_module()
+    snapshot = sample_snapshot()
+    snapshot["healthz"]["checks"]["pfsense"] = {
+        "reachable": True,
+        "transport_reachable": True,
+        "api_authenticated": False,
+        "application_ok": False,
+        "application_result": "authentication_rejected",
+        "http_status": 401,
+        "path": "/api/v2/system/version",
+        "credential_mode": "dedicated_posture",
+        "state": "warn",
+        "failure_stage": "authentication",
+        "stale": False,
+    }
+
+    row = module.build_report(snapshot)["dependencies"]["pfsense"]
+
+    assert row["reachable"] is True
+    assert row["authenticated"] is False
+    assert row["application_ok"] is False
+    assert row["operational_state"] == "application_error"
+    assert row["evidence_complete"] is False
+    assert row["application_result"]["application_result"] == "authentication_rejected"

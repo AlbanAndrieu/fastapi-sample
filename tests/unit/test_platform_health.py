@@ -227,7 +227,10 @@ async def test_pfsense_http_502_is_classified_as_http_response_failure(
 
     result = await platform_health.check_pfsense_api()
 
-    assert result["reachable"] is False
+    assert result["reachable"] is True
+    assert result["transport_reachable"] is True
+    assert result["application_ok"] is False
+    assert result["application_result"] == "http_error"
     assert result["http_status"] == 502
     assert result["error_kind"] == "http_502"
     assert result["failure_stage"] == "http_response"
@@ -278,8 +281,18 @@ async def test_pfsense_cache_serves_last_good_result_after_transient_failure(
     await platform_health.reset_pfsense_api_cache()
     results = iter(
         [
-            {"reachable": True, "http_status": 200},
-            {"reachable": False, "error": "temporary timeout"},
+            {
+                "reachable": True,
+                "transport_reachable": True,
+                "state": "ok",
+                "http_status": 200,
+            },
+            {
+                "reachable": False,
+                "transport_reachable": False,
+                "state": "fail",
+                "error": "temporary timeout",
+            },
         ],
     )
 
@@ -295,4 +308,56 @@ async def test_pfsense_cache_serves_last_good_result_after_transient_failure(
     assert stale["reachable"] is True
     assert stale["stale"] is True
     assert stale["refresh_error"] == "temporary timeout"
+    await platform_health.reset_pfsense_api_cache()
+
+
+@pytest.mark.asyncio
+async def test_pfsense_auth_rejection_preserves_transport_reachability(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example")
+    monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "rejected-posture-key")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(401, request=request, json={"code": 401})
+
+    class FakeAsyncClient(httpx.AsyncClient):
+        def __init__(self, *args, **kwargs) -> None:
+            kwargs["transport"] = httpx.MockTransport(handler)
+            super().__init__(*args, **kwargs)
+
+    monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
+
+    result = await platform_health.check_pfsense_api()
+
+    assert result["reachable"] is True
+    assert result["transport_reachable"] is True
+    assert result["api_authenticated"] is False
+    assert result["application_ok"] is False
+    assert result["application_result"] == "authentication_rejected"
+    assert result["state"] == "warn"
+    assert result["failure_stage"] == "authentication"
+
+
+@pytest.mark.asyncio
+async def test_pfsense_cache_keeps_auth_rejection_current(monkeypatch) -> None:
+    await platform_health.reset_pfsense_api_cache()
+
+    async def check():
+        return {
+            "reachable": True,
+            "transport_reachable": True,
+            "api_authenticated": False,
+            "application_ok": False,
+            "application_result": "authentication_rejected",
+            "state": "warn",
+            "http_status": 401,
+        }
+
+    monkeypatch.setattr(platform_health, "check_pfsense_api", check)
+    result = await platform_health.get_pfsense_api_snapshot()
+
+    assert result["http_status"] == 401
+    assert result["state"] == "warn"
+    assert result["stale"] is False
     await platform_health.reset_pfsense_api_cache()

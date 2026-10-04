@@ -91,7 +91,8 @@
     overflow-wrap: anywhere;
   }
 
-  .health-refresh {
+  .health-refresh,
+  .health-cache-reset {
     min-height: 44px;
     margin: 0.5rem 0 0;
     padding: 0.45rem 0.7rem;

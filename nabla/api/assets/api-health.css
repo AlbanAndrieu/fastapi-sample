@@ -33,7 +33,8 @@
   color: #e8e8e8;
 }
 
-.health-refresh {
+.health-refresh,
+.health-cache-reset {
   margin-left: 0.75rem;
   padding: 0.25rem 0.65rem;
   font-size: 0.75rem;
@@ -44,7 +45,8 @@
   cursor: pointer;
 }
 
-.health-refresh:hover {
+.health-refresh:hover,
+.health-cache-reset:hover {
   border-color: #666666;
   color: #ffffff;
 }

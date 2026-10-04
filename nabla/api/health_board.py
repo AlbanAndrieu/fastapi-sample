@@ -115,6 +115,7 @@ async def _build_homelab_snapshot(
     payload = await reconcile_homelab_health_payload(
         homelab,
         context=reconciliation_context_value,
+        shared_checks=components,
     )
     components["unbound"] = pfsense_unbound_component(payload)
     payload["components_status"] = component_status(components)

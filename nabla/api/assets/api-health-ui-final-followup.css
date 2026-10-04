@@ -194,10 +194,73 @@ main {
 }
 
 @media (max-width: 720px) {
+  main,
+  .service-health-layout,
+  #health-board,
+  .health-board,
+  .health-section,
+  .service-groups,
+  #health-services-groups,
+  .service-filter--global,
+  .health-row {
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .service-health-layout,
+  #health-board,
+  .health-board,
+  .health-section,
+  .service-groups,
+  #health-services-groups {
+    width: 100%;
+  }
+
   .service-filter--global {
+    width: 100%;
     top: 0.3rem;
     margin-bottom: 0.65rem;
     padding: 0.55rem;
+    overflow-x: clip;
+  }
+
+  .health-row {
+    width: 100%;
+    padding-right: 0.55rem;
+    overflow-x: hidden;
+  }
+
+  .health-row-primary,
+  .health-row-detail,
+  .health-row-tags,
+  .health-row-telemetry,
+  .service-filter-global-heading,
+  .service-filter-heading-actions,
+  .service-filter-control,
+  .service-filter-health-summary,
+  .service-filter-legend-details,
+  .service-detail-evidence[data-probe-grid-ready="true"],
+  #service-section-navigation.service-section-navigation {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .health-row-telemetry {
+    width: auto;
+  }
+
+  .health-row-primary {
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .service-probe-table {
+    width: max-content;
+    min-width: 100%;
   }
 
   .service-filter-global-heading {
@@ -210,9 +273,22 @@ main {
     display: none;
   }
 
-  #service-section-navigation {
+  #service-section-navigation.service-section-navigation {
+    display: flex;
+    flex-flow: row nowrap;
+    align-items: stretch;
     gap: 0.24rem;
+    width: 100%;
+    max-width: 100%;
     margin-bottom: 0.35rem;
+    padding-bottom: 0.15rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+    touch-action: pan-x;
+    -webkit-overflow-scrolling: touch;
   }
 
   #service-section-navigation .service-filter-health-chip {

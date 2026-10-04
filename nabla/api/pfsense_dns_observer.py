@@ -110,6 +110,12 @@ def _response_data(payload: object) -> object:
     return payload
 
 
+def _http_status_from_error(exc: BaseException) -> int | None:
+    if isinstance(exc, httpx.HTTPStatusError):
+        return exc.response.status_code
+    return None
+
+
 def _safe_error(exc: BaseException) -> str:
     if isinstance(exc, httpx.HTTPStatusError):
         return f"HTTP {exc.response.status_code}"
@@ -328,7 +334,18 @@ def _resolver_payload(value: object) -> dict[str, Any]:
 def _endpoint_status(
     observations: dict[str, object | BaseException],
 ) -> dict[str, dict[str, object]]:
-    return {name: ({"observed": False, "error": _safe_error(value)} if isinstance(value, BaseException) else {"observed": True}) for name, value in observations.items()}
+    result: dict[str, dict[str, object]] = {}
+    for name, value in observations.items():
+        if isinstance(value, BaseException):
+            status = _http_status_from_error(value)
+            result[name] = {
+                "observed": False,
+                "error": _safe_error(value),
+                **({"http_status": status} if status is not None else {}),
+            }
+        else:
+            result[name] = {"observed": True}
+    return result
 
 
 async def _observe_posture_origin_bounded(
@@ -364,8 +381,23 @@ async def _observe_posture_origin_bounded(
         None if isinstance(services, BaseException) else services,
     )
     successful_reads = sum(1 for value in observations.values() if not isinstance(value, BaseException))
+    response_statuses = [
+        status
+        for value in observations.values()
+        if isinstance(value, BaseException)
+        and (status := _http_status_from_error(value)) is not None
+    ]
+    transport_reachable = successful_reads > 0 or bool(response_statuses)
+    if 401 in response_statuses:
+        api_authenticated: bool | None = False
+    elif successful_reads > 0 or 403 in response_statuses:
+        api_authenticated = True
+    else:
+        api_authenticated = None
     result: dict[str, Any] = {
         "reachable": successful_reads > 0,
+        "transport_reachable": transport_reachable,
+        "api_authenticated": api_authenticated,
         "api_evidence_state": "complete" if not failures else "partial",
         "successful_endpoint_count": successful_reads,
         "endpoint_count": len(paths),
@@ -396,6 +428,8 @@ async def _observe_posture_origin(settings: PfSenseDNSSettings) -> dict[str, Any
     except TimeoutError:
         return {
             "reachable": False,
+            "transport_reachable": False,
+            "api_authenticated": None,
             "api_evidence_state": "unavailable",
             "error_stage": "deadline",
             "error": "timeout",
@@ -418,9 +452,13 @@ async def _cached_posture(settings: PfSenseDNSSettings) -> dict[str, Any]:
         lambda: _observe_posture_origin(settings),
         is_success=_posture_success,
         policy=_PFSENSE_POSTURE_CACHE_POLICY,
+        is_provider_success=lambda value: value.get("transport_reachable") is True,
     )
     current = dict(cached.value)
-    current_failure = current.get("reachable") is False
+    current_failure = (
+        current.get("reachable") is False
+        and current.get("transport_reachable") is not True
+    )
     if current_failure and cached.last_good:
         result = dict(cached.last_good)
         result["stale"] = True
@@ -481,6 +519,8 @@ async def observe_pfsense_dns_posture(
     )
     common = {
         "configured": True,
+        "transport_reachable": posture.get("transport_reachable"),
+        "api_authenticated": posture.get("api_authenticated"),
         "api_evidence_state": posture.get("api_evidence_state", "unknown"),
         "endpoint_status": posture.get("endpoint_status", {}),
         "services_observed": services_observed,
@@ -490,11 +530,16 @@ async def observe_pfsense_dns_posture(
         "ingress_block": ingress,
     }
     if posture.get("reachable") is not True:
+        transport_reachable = posture.get("transport_reachable") is True
         return {
             **common,
             "reachable": False,
             "policy_state": "unknown",
-            "reason": "pfSense posture API is unreachable from this runtime",
+            "reason": (
+                "pfSense posture API authentication/authorization failed"
+                if transport_reachable
+                else "pfSense posture API is unreachable from this runtime"
+            ),
             "error_stage": posture.get("error_stage", "system"),
             "error": posture.get("error", "unknown"),
             **({"cache": posture["cache"]} if "cache" in posture else {}),
