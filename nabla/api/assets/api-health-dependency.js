@@ -1,12 +1,10 @@
+import {
+  healthModelDetailText,
+  mergeHealthModelEvidence,
+} from "./api-health-model.js";
+
 const HOMELAB_EVIDENCE_FIELDS = [
-  "health_model",
-  "service_state",
-  "transport_state",
-  "authentication_state",
-  "application_state",
   "local_state",
-  "dependency_state",
-  "effective_state",
   "required_dependencies",
   "blocked_by",
   "degraded_by",
@@ -103,6 +101,7 @@ export function mergeHomelabEvidence(data, homelab) {
   for (const [key, check] of Object.entries(data?.checks || {})) {
     const evidence = evidenceForCheck(key, check, indexes);
     if (!evidence) continue;
+    mergeHealthModelEvidence(check, evidence);
     for (const field of HOMELAB_EVIDENCE_FIELDS) {
       if (Object.hasOwn(evidence, field)) check[field] = evidence[field];
     }
@@ -199,6 +198,8 @@ export function dependencyDetailText(check) {
   if (!check?.effective_state && !check?.risk_state && !check?.exposure)
     return "";
   const parts = [];
+  const modelDetail = healthModelDetailText(check);
+  if (modelDetail) parts.push(modelDetail);
   const runtimeRunning =
     String(check.runtime_state || "").toUpperCase() === "RUNNING";
   if (runtimeRunning && check.effective_state !== "ok")
