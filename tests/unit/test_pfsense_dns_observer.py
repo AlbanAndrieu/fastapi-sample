@@ -307,7 +307,10 @@ async def test_posture_401_preserves_transport_reachability(
     monkeypatch,
     settings,
 ) -> None:
+    calls: list[str] = []
+
     async def rejected(_client, path: str):
+        calls.append(path)
         request = httpx.Request("GET", f"https://pfsense.example.test{path}")
         response = httpx.Response(401, request=request)
         raise httpx.HTTPStatusError(
@@ -320,11 +323,18 @@ async def test_posture_401_preserves_transport_reachability(
 
     result = await pfsense_dns_observer._observe_posture_origin(settings)
 
+    assert calls == ["/api/v2/system/version"]
     assert result["reachable"] is False
     assert result["transport_reachable"] is True
     assert result["api_authenticated"] is False
+    assert result["api_evidence_state"] == "authentication_failed"
+    assert result["auth_fail_fast"] is True
     assert result["error"] == "HTTP 401"
     assert result["endpoint_status"]["system"]["http_status"] == 401
+    assert result["endpoint_status"]["services"] == {
+        "observed": False,
+        "error": "skipped_after_authentication_failure",
+    }
     filters = {row["id"]: row for row in result["security_filters"]}
     assert filters["firewall"]["state"] == "warn"
     assert "authentication failed" in filters["firewall"]["detail"]
