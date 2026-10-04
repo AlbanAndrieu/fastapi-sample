@@ -21,6 +21,7 @@ from nabla.api.homelab_runtime_models import ObservedApp, ObservedContainer, Tru
 from nabla.api.homelab_service_health import build_reconciled_service_health
 from nabla.api.homelab_topology import fetch_homelab_topology
 from nabla.api.pfsense_dns_observer import observe_pfsense_dns_posture
+from nabla.api.service_health_model import build_health_model
 
 
 def _truenas_internal_hosts(services: Iterable[HomelabService]) -> frozenset[str]:
@@ -326,9 +327,22 @@ def _append_runtime_topology_component_evidence(
                 "reachable": local_state == "ok",
                 "http_status": 0,
                 "state": local_state,
+                "service_state": local_state,
+                "transport_state": "unknown",
+                "authentication_state": "unknown",
+                "application_state": "unknown",
                 "direct_state": None,
                 "internal_state": None,
                 "runtime_state": str(observed_state or app.state or "UNKNOWN"),
+                "health_model": build_health_model(
+                    service_state=local_state,
+                    transport_state="unknown",
+                    authentication_state="unknown",
+                    application_state="unknown",
+                    runtime_state=local_state,
+                    dependency_state="unknown",
+                    effective_state=local_state,
+                ),
                 "runtime_app": app.app_id,
                 "runtime_reachable": runtime.reachable,
                 "runtime_stale": runtime.stale,
@@ -376,6 +390,28 @@ def _reconcile_shared_component_evidence(
         row["component_probe_key"] = check_key
         row["component_probe_kind"] = evidence_kind
         row["component_reachable"] = reachable
+        row["application_state"] = "ok" if reachable else "warn"
+
+        current_model = (
+            row.get("health_model")
+            if isinstance(row.get("health_model"), dict)
+            else {}
+        )
+        row["health_model"] = build_health_model(
+            service_state=previous_state,
+            transport_state=current_model.get(
+                "transport_state",
+                row.get("transport_state"),
+            ),
+            authentication_state=current_model.get(
+                "authentication_state",
+                row.get("authentication_state"),
+            ),
+            application_state=row["application_state"],
+            runtime_state=current_model.get("runtime_state", "unknown"),
+            dependency_state=current_model.get("dependency_state", "unknown"),
+            effective_state=previous_state,
+        )
 
         if reachable:
             row["state"] = "ok"
