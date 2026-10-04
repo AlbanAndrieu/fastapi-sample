@@ -64,6 +64,8 @@ def test_local_flow_keeps_pfsense_as_dns_and_haproxy_dependency() -> None:
     assert "ensureLocalPfSenseFlowStage" in source
     assert 'pathMode !== "direct_lan"' in source
     assert '"pfSense LAN services"' in source
+    assert 'check?.transport_reachable === true' in source
+    assert 'return "warn"' in source
     assert "internal DNS/Unbound + HAProxy" in source
     assert "does not claim every direct-LAN packet traverses PF/WAN rules" in source
     assert "observeTrueNasPipeline()" in source
