@@ -467,11 +467,10 @@ class TrueNASReadOnlyAdapter:
                 "evidence": "vm_runtime",
                 "error_type": vm_error_type,
             }
-        return {
+        result: dict[str, Any] = {
             "reachable": True,
             "authenticated": True,
             "version": version,
-            "apps": app_rows,
             "app_inventory": {
                 "state": app_inventory_state,
                 "available": app_inventory_state == "ok",
@@ -480,6 +479,9 @@ class TrueNASReadOnlyAdapter:
             },
             "talos": talos,
         }
+        if app_inventory_state == "ok":
+            result["apps"] = app_rows
+        return result
 
 
 def build_truenas_adapter() -> TrueNASReadOnlyAdapter | None:
