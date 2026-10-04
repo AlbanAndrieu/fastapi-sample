@@ -333,7 +333,7 @@ FastAPI Sample production uses two dedicated identities over shared transport de
 - authentication header: `X-API-Key`;
 - JSON response header: `Accept: application/json`.
 
-The historical generic `PFSENSE_API_KEY` was removed from FastAPI Cloud on 2026-09-02 after both dedicated identities were validated. FastAPI Sample may temporarily retain code-level migration fallback, but do not recommend restoring the generic shared key or merging the two privilege sets.
+The historical generic shared API key is retired. FastAPI Sample requires dedicated posture and security identities; do not merge the two privilege sets.
 
 Never print, echo, commit or paste either dedicated API key into diagnostics.
 
@@ -615,7 +615,7 @@ On WAN `:7000`, Snort sees encrypted TLS records before HAProxy terminates TLS. 
 
 - Default to read-only API calls and inspection commands.
 - Never expose or log `PFSENSE_POSTURE_API_KEY` or `PFSENSE_SECURITY_API_KEY`.
-- Do not reintroduce the generic `PFSENSE_API_KEY` as production configuration.
+- Do not reintroduce a generic shared pfSense API credential as production configuration.
 - Never commit API keys, passwords, certificates/private keys or cookies.
 - Do not disable TLS verification as a permanent workaround.
 - Do not make `10443` generally public merely to simplify monitoring; it is a tracked `trusted_sources_only` exception and requires an independent negative Internet probe.
