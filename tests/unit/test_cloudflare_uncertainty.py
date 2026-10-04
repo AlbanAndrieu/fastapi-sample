@@ -258,7 +258,7 @@ async def test_legacy_healthz_homelab_rows_only_probe_primary_truenas(monkeypatc
     assert rows == [
         (
             "albandrieu_truenas",
-            "https://truenas.albandrieu.com:7000/",
+            "https://truenas.albandrieu.com:7000/ui/signin",
             "TrueNAS HTTPS",
             None,
         ),
@@ -269,8 +269,21 @@ def test_truenas_cloudflare_stage_is_explicitly_out_of_band_for_public_wan() -> 
     stage = _cloudflare_posture_stage(
         {"configured": True, "status_confirmed": True, "tunnels_observed": 1},
         path_mode="public_wan_haproxy",
+        cloudflared_state="RUNNING",
     )
 
     assert stage["state"] == "ok"
     assert "not :7000 datapath" in stage["label"]
     assert "cloudflared is not on" in stage["detail"]
+
+
+def test_cloudflare_tunnel_qualification_requires_cloudflared_running() -> None:
+    stage = _cloudflare_posture_stage(
+        {"configured": True, "status_confirmed": True, "tunnels_observed": 1},
+        path_mode="public_wan_haproxy",
+        cloudflared_state="STOPPED",
+    )
+
+    assert stage["state"] == "warn"
+    assert "cloudflared runtime=STOPPED" in stage["detail"]
+    assert "qualification is blocked" in stage["detail"]
