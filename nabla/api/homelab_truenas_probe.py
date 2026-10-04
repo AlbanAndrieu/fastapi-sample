@@ -146,6 +146,14 @@ async def probe_truenas(
         wan_tls_reachable=diagnostics.get("wan_tls_reachable"),
     )
     diagnostics = append_truenas_api_stages(diagnostics, api_result)
+    health_model = truenas_probe_health.truenas_health_model(
+        public_result,
+        internal_result,
+        api_result,
+        diagnostics,
+        appliance_state=appliance_state,
+        effective_state=state,
+    )
     return {
         "id": "truenas",
         "state": state,
@@ -160,4 +168,12 @@ async def probe_truenas(
         "path_mode": path_mode,
         "connect_host": connect_host,
         "connect_port": connect_port,
+        "service_state": health_model["service_state"],
+        "transport_state": health_model["transport_state"],
+        "authentication_state": health_model["authentication_state"],
+        "application_state": health_model["application_state"],
+        "runtime_state": health_model["runtime_state"],
+        "dependency_state": health_model["dependency_state"],
+        "effective_state": health_model["effective_state"],
+        "health_model": health_model,
     }
