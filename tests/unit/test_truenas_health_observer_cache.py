@@ -195,3 +195,35 @@ async def test_outer_probe_deadline_is_reported_as_aggregate_deadline(
     assert result["deadline_seconds"] == 0.01
     assert "aggregate" in result["error"]
     await observer.reset_truenas_health_cache()
+
+
+@pytest.mark.asyncio
+async def test_health_probe_preserves_rpc_phase_timing(monkeypatch) -> None:
+    await observer.reset_truenas_health_cache()
+    _valid_configuration(monkeypatch)
+
+    def probe():
+        from nabla.integrations.truenas_client import TrueNASHealthProbeError
+
+        raise TrueNASHealthProbeError(
+            phase="call",
+            stage="api_call_timeout",
+            cause=TimeoutError("system.version timed out"),
+            method="system.version",
+            authenticated=True,
+            phase_elapsed_ms=2001,
+            call_timeout_seconds=2.0,
+        )
+
+    monkeypatch.setattr(observer, "observe_truenas_api", probe)
+
+    result = await observer.observe_truenas_health_api()
+
+    assert result["reachable"] is False
+    assert result["phase"] == "call"
+    assert result["stage"] == "api_call_timeout"
+    assert result["method"] == "system.version"
+    assert result["authenticated"] is True
+    assert result["phase_elapsed_ms"] == 2001
+    assert result["call_timeout_seconds"] == 2.0
+    await observer.reset_truenas_health_cache()
