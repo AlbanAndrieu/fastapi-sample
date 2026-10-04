@@ -219,15 +219,23 @@ def append_truenas_api_stages(
     """Append authentication and API stages without exposing credential material."""
     out = dict(diagnostics)
     stages = [dict(stage) for stage in diagnostics.get("stages", [])]
+    path_mode = str(out.get("path_mode") or "public_wan_haproxy")
     websocket = next(
         (stage for stage in stages if stage.get("id") == "websocket"),
         None,
     )
+    websocket_label = (
+        "TrueNAS WebSocket /api/current · direct LAN"
+        if path_mode == "direct_lan"
+        else "TrueNAS WebSocket /api/current · WAN/HAProxy"
+    )
+    if websocket is not None:
+        websocket["label"] = websocket_label
     if not isinstance(api_result, dict):
         stages.append(
             _stage(
                 "authentication",
-                "API authentication",
+                "TrueNAS API authentication",
                 "fail",
                 detail="TrueNAS API credentials are not configured",
             ),
@@ -265,7 +273,7 @@ def append_truenas_api_stages(
         stages.append(
             _stage(
                 "websocket",
-                "WebSocket /api/current",
+                websocket_label,
                 websocket_state,
                 elapsed_ms=(
                     api_result.get("websocket_elapsed_ms")
@@ -308,7 +316,7 @@ def append_truenas_api_stages(
         stages.append(
             _stage(
                 "authentication",
-                "API authentication",
+                "TrueNAS API authentication",
                 "ok",
                 elapsed_ms=api_result.get("authentication_elapsed_ms"),
                 detail="API key accepted",
@@ -342,7 +350,7 @@ def append_truenas_api_stages(
         stages.append(
             _stage(
                 "authentication",
-                "API authentication",
+                "TrueNAS API authentication",
                 "fail",
                 elapsed_ms=api_result.get("elapsed_ms"),
                 detail=error or "TrueNAS authentication failed",
@@ -370,28 +378,43 @@ def append_truenas_api_stages(
         else:
             authentication_state = "warn"
             authentication_detail = (
-                "Credentials configured, but authentication was not confirmed "
-                "before the API probe failed"
+                "TrueNAS API credentials are configured, but the WebSocket/API "
+                "transport failed before TrueNAS could evaluate authentication"
             )
         stages.append(
             _stage(
                 "authentication",
-                "API authentication",
+                "TrueNAS API authentication",
                 authentication_state,
                 elapsed_ms=api_result.get("authentication_elapsed_ms"),
                 detail=authentication_detail,
                 confirmation="accepted" if auth_accepted else "unconfirmed",
             ),
         )
-        stages.append(
-            _failed_api_stage(
-                api_result,
-                phase=phase,
-                stage=stage,
-                method=method,
-                error=error,
-            ),
-        )
+        if auth_accepted:
+            stages.append(
+                _failed_api_stage(
+                    api_result,
+                    phase=phase,
+                    stage=stage,
+                    method=method,
+                    error=error,
+                ),
+            )
+        else:
+            stages.append(
+                _stage(
+                    "api",
+                    "TrueNAS API · system.version + app.query",
+                    "blocked",
+                    elapsed_ms=api_result.get("elapsed_ms"),
+                    detail=(
+                        "Not evaluated: WebSocket/API transport failed before "
+                        "TrueNAS authentication"
+                    ),
+                    failure_stage=stage or phase or "connect",
+                ),
+            )
 
     out["stages"] = stages
     return out
