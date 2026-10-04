@@ -270,6 +270,11 @@ def append_truenas_api_stages(
             )
         else:
             websocket_detail = error or "WebSocket /api/current connection failed"
+            if path_mode != "direct_lan":
+                websocket_detail = (
+                    f"{websocket_detail} · public WAN/HAProxy path; "
+                    "TrueNAS appliance liveness is evaluated separately"
+                )
         stages.append(
             _stage(
                 "websocket",
