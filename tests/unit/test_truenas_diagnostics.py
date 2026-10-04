@@ -194,8 +194,9 @@ def test_api_failure_preserves_explicit_auxiliary_websocket_evidence() -> None:
 
     websocket = next(stage for stage in result["stages"] if stage["id"] == "websocket")
     assert websocket["state"] == "fail"
-    assert result["stages"][-2]["state"] == "ok"
-    assert result["stages"][-1]["state"] == "fail"
+    assert websocket["label"] == "TrueNAS WebSocket /api/current · WAN/HAProxy"
+    assert result["stages"][-2]["state"] == "warn"
+    assert result["stages"][-1]["state"] == "blocked"
 
 
 def test_authenticated_api_supplies_websocket_evidence_without_extra_probe() -> None:
