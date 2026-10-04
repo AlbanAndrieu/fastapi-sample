@@ -117,10 +117,23 @@ def _probe_identity(
 
             ok = response.status_code == expectation.expected_status
             passed += int(ok)
+            response_id = ""
+            if not ok:
+                try:
+                    payload = response.json()
+                except ValueError:
+                    payload = {}
+                if isinstance(payload, dict):
+                    response_id = str(payload.get("response_id") or "").strip()
+            response_id_field = (
+                f" response_id={response_id}"
+                if response_id
+                else ""
+            )
             print(
                 f"identity={identity} endpoint={expectation.endpoint} "
                 f"expected={expectation.expected_status} actual={response.status_code} "
-                f"result={'ok' if ok else 'mismatch'}",
+                f"result={'ok' if ok else 'mismatch'}{response_id_field}",
             )
             if response.status_code == 401:
                 print(
