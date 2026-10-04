@@ -8,7 +8,6 @@ from nabla.api.pfsense_security_observer import PfSenseSecuritySettings
 
 _PFSENSE_ENV = (
     "PFSENSE_API_URL",
-    "PFSENSE_API_KEY",
     "PFSENSE_API_VERIFY_SSL",
     "PFSENSE_POSTURE_API_URL",
     "PFSENSE_POSTURE_API_KEY",
@@ -30,7 +29,6 @@ def test_posture_transport_prefers_dedicated_identity_and_tls_override(
 ) -> None:
     _clear_pfsense_env(monkeypatch)
     monkeypatch.setenv("PFSENSE_API_URL", "https://shared.example.test")
-    monkeypatch.setenv("PFSENSE_API_KEY", "shared-test-key")
     monkeypatch.setenv("PFSENSE_API_VERIFY_SSL", "true")
     monkeypatch.setenv("PFSENSE_POSTURE_API_URL", "https://posture.example.test/")
     monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "posture-test-key")
