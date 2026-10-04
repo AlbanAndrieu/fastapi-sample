@@ -1,5 +1,7 @@
 """Tests for least-privilege pfSense/Snort security telemetry."""
 
+import pytest
+
 from nabla.api import pfsense_security_observer as observer
 from nabla.api.pfsense_security_observer import PfSenseSecuritySettings
 
