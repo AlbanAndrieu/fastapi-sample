@@ -20,6 +20,7 @@ from nabla.settings.homelab import (
 
 _DEFAULT_API_PATH = DEFAULT_TRUENAS_WS_PATH
 _DEFAULT_CALL_TIMEOUT_SEC = 5.0
+_HEALTH_CALL_TIMEOUT_SEC = 2.0
 _APP_HEALTH_SELECT = [
     "id",
     "name",
@@ -271,10 +272,18 @@ class TrueNASReadOnlyAdapter:
         self.settings = settings
         self._client_factory = client_factory or _load_client_factory()
 
-    def _connect(self) -> TrueNASClientProtocol:
+    def _connect(
+        self,
+        *,
+        call_timeout: float | None = None,
+    ) -> TrueNASClientProtocol:
         return self._client_factory(
             uri=self.settings.websocket_uri,
-            call_timeout=self.settings.call_timeout,
+            call_timeout=(
+                self.settings.call_timeout
+                if call_timeout is None
+                else call_timeout
+            ),
             verify_ssl=self.settings.verify_ssl,
         )
 
@@ -340,11 +349,24 @@ class TrueNASReadOnlyAdapter:
         app_inventory_state = "ok"
         app_inventory_error_type: str | None = None
         app_inventory_failure_stage: str | None = None
+        websocket_elapsed_ms: int | None = None
+        authentication_elapsed_ms: int | None = None
+        system_version_elapsed_ms: int | None = None
+        app_query_elapsed_ms: int | None = None
+        vm_query_elapsed_ms: int | None = None
+        connect_started = time.perf_counter()
         try:
-            with self._connect() as client:
+            with self._connect(call_timeout=_HEALTH_CALL_TIMEOUT_SEC) as client:
+                websocket_elapsed_ms = round(
+                    (time.perf_counter() - connect_started) * 1000,
+                )
                 phase = "authentication"
                 method = "auth.login_with_api_key"
+                auth_started = time.perf_counter()
                 client.login_with_api_key(self.settings.username, self.settings.api_key)
+                authentication_elapsed_ms = round(
+                    (time.perf_counter() - auth_started) * 1000,
+                )
                 authenticated = True
 
                 # system.version is the lightweight authenticated liveness proof.
@@ -352,16 +374,27 @@ class TrueNASReadOnlyAdapter:
                 # availability when they are slow or temporarily unavailable.
                 phase = "call"
                 method = "system.version"
+                system_started = time.perf_counter()
                 version = client.call(method)
+                system_version_elapsed_ms = round(
+                    (time.perf_counter() - system_started) * 1000,
+                )
 
                 method = "app.query"
+                app_started = time.perf_counter()
                 try:
                     apps = client.call(
                         method,
                         [],
                         {"select": _APP_HEALTH_SELECT},
                     )
+                    app_query_elapsed_ms = round(
+                        (time.perf_counter() - app_started) * 1000,
+                    )
                 except Exception as app_exc:
+                    app_query_elapsed_ms = round(
+                        (time.perf_counter() - app_started) * 1000,
+                    )
                     apps = []
                     app_inventory_state = "warn"
                     app_inventory_error_type = app_exc.__class__.__name__
@@ -375,6 +408,7 @@ class TrueNASReadOnlyAdapter:
 
                 vm_error_type: str | None = None
                 method = "vm.query"
+                vm_started = time.perf_counter()
                 try:
                     vms = client.call(
                         method,
@@ -386,7 +420,13 @@ class TrueNASReadOnlyAdapter:
                             ],
                         },
                     )
+                    vm_query_elapsed_ms = round(
+                        (time.perf_counter() - vm_started) * 1000,
+                    )
                 except Exception as vm_exc:
+                    vm_query_elapsed_ms = round(
+                        (time.perf_counter() - vm_started) * 1000,
+                    )
                     # VM_READ is deliberately optional during the RBAC rollout.
                     # A missing VM capability must not invalidate proven TrueNAS
                     # liveness or the application inventory.
@@ -402,6 +442,8 @@ class TrueNASReadOnlyAdapter:
             failure_stage = _truenas_failure_stage(exc)
             if phase == "call" and failure_stage == "source_allowlist":
                 failure_stage = "access_denied"
+            elif phase == "call" and failure_stage == "connect_timeout":
+                failure_stage = "api_call_timeout"
             logger.warning(
                 "TrueNAS API health probe failed method=%s uri=%s verify_ssl=%s proxy_route=%s phase=%s stage=%s exception=%s elapsed_ms=%s error=%s",
                 method,
@@ -470,13 +512,22 @@ class TrueNASReadOnlyAdapter:
             "reachable": True,
             "authenticated": True,
             "version": version,
+            "websocket_elapsed_ms": websocket_elapsed_ms,
+            "authentication_elapsed_ms": authentication_elapsed_ms,
+            "api_elapsed_ms": system_version_elapsed_ms,
+            "system_version_elapsed_ms": system_version_elapsed_ms,
+            "health_call_timeout_seconds": _HEALTH_CALL_TIMEOUT_SEC,
             "app_inventory": {
                 "state": app_inventory_state,
                 "available": app_inventory_state == "ok",
                 "error_type": app_inventory_error_type,
                 "failure_stage": app_inventory_failure_stage,
+                "elapsed_ms": app_query_elapsed_ms,
             },
-            "talos": talos,
+            "talos": {
+                **talos,
+                "elapsed_ms": vm_query_elapsed_ms,
+            },
         }
         if app_inventory_state == "ok":
             result["apps"] = app_rows
