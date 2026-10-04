@@ -37,3 +37,11 @@ def test_smoke_output_contract_is_redacted() -> None:
 
 def test_smoke_rejects_plain_http_before_loading_credentials() -> None:
     assert pfsense_auth_smoke.main(["--url", "http://172.17.0.1:10443"]) == 2
+
+
+def test_smoke_is_fail_fast_on_authentication_rejection() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+
+    assert "avoid_login_protection_lockout" in source
+    assert "remaining_identities_skipped=yes" in source
+    assert "if response.status_code == 401:" in source
