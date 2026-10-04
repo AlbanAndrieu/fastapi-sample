@@ -10,6 +10,34 @@ Open implementation work belongs in
 [engineering-roadmap.md](engineering-roadmap.md); dated failures belong in
 [incidents.md](incidents.md).
 
+## Validate deployed keys from the TrueNAS runtime
+
+A workstation timeout before TCP/TLS does not validate or invalidate an API key.
+To test the exact keys injected into the TrueNAS-hosted `fastapi-sample`
+container while bypassing a broken public/hairpin path, run:
+
+```bash
+sudo docker exec fastapi-sample \
+  /code/.venv/bin/python -m nabla.api.pfsense_auth_smoke \
+  --url https://172.17.0.1:10443 \
+  --insecure
+```
+
+The command never prints either key or a response body. Acceptance is the
+least-privilege matrix:
+
+| identity | endpoint family | expected |
+| --- | --- | --- |
+| posture | version, services, DNS resolver, system DNS | HTTP 200 |
+| posture | `diagnostics/table?id=snort2c` | HTTP 403 |
+| security | `diagnostics/table?id=snort2c` | HTTP 200 |
+| security | `status/services` | HTTP 403 |
+
+`transport_error` means the request never reached an HTTP authorization
+decision and therefore says nothing about key validity. HTTP `401` proves the
+transport reached pfSense but the supplied runtime key was not accepted.
+
+
 ## Credential and transport split
 
 Keep the narrow block-attribution identity separate from broader posture reads:
