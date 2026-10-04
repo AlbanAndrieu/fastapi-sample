@@ -171,7 +171,7 @@ def _planned_truenas_timeout_stages(path_mode: str, error: str) -> list[dict[str
             },
             {
                 "id": "authentication",
-                "label": "API authentication",
+                "label": "TrueNAS API authentication",
                 "state": "blocked",
                 "detail": detail,
             },
