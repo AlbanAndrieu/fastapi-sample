@@ -35,6 +35,10 @@ class FakeClient:
 
     def call(self, method: str, *params):
         self.calls.append(method)
+        if method == "system.ready":
+            return True
+        if method == "system.state":
+            return "READY"
         if method == "system.version":
             return "26.0.0-BETA.2"
         if method == "app.query":
@@ -216,7 +220,7 @@ def test_websocket_uri_normalization(url: str, expected: str) -> None:
     assert settings.websocket_uri == expected
 
 
-def test_health_snapshot_uses_system_version_and_app_query() -> None:
+def test_health_snapshot_uses_readiness_version_and_app_query() -> None:
     clients: list[FakeClient] = []
 
     def factory(**kwargs):
@@ -236,6 +240,11 @@ def test_health_snapshot_uses_system_version_and_app_query() -> None:
     assert snapshot["reachable"] is True
     assert snapshot["authenticated"] is True
     assert snapshot["version"] == "26.0.0-BETA.2"
+    assert snapshot["system_ready"] is True
+    assert snapshot["readiness"]["state"] == "ok"
+    assert snapshot["readiness"]["ready"] is True
+    assert snapshot["system_version"]["state"] == "ok"
+    assert snapshot["system_version"]["available"] is True
     assert snapshot["health_call_timeout_seconds"] == 2.0
     assert isinstance(snapshot["websocket_elapsed_ms"], int)
     assert isinstance(snapshot["authentication_elapsed_ms"], int)
@@ -251,7 +260,12 @@ def test_health_snapshot_uses_system_version_and_app_query() -> None:
     assert clients[0].call_timeout == 2.0
     assert clients[0].verify_ssl is True
     clients[0].login.assert_called_once_with("readonly", "1-secret")
-    assert clients[0].calls == ["system.version", "app.query", "vm.query"]
+    assert clients[0].calls == [
+        "system.ready",
+        "system.version",
+        "app.query",
+        "vm.query",
+    ]
     assert "config" not in snapshot["apps"][0]
     assert "mounts" not in snapshot["apps"][0]["active_workloads"]["container_details"][0]
 
@@ -372,7 +386,7 @@ def test_health_snapshot_keeps_rpc_liveness_when_app_query_times_out() -> None:
     assert snapshot["app_inventory"]["error_type"] == "TimeoutError"
 
 
-def test_health_snapshot_attributes_system_version_timeout_to_rpc_phase() -> None:
+def test_health_snapshot_keeps_ready_api_up_when_version_times_out() -> None:
     class SlowSystemClient(FakeClient):
         def call(self, method: str, *params):
             if method == "system.version":
@@ -389,6 +403,39 @@ def test_health_snapshot_attributes_system_version_timeout_to_rpc_phase() -> Non
         client_factory=SlowSystemClient,
     )
 
+    snapshot = adapter.health_snapshot()
+
+    assert snapshot["reachable"] is True
+    assert snapshot["authenticated"] is True
+    assert snapshot["system_ready"] is True
+    assert snapshot["readiness"]["state"] == "ok"
+    assert snapshot["version"] is None
+    assert snapshot["system_version"]["state"] == "warn"
+    assert snapshot["system_version"]["available"] is False
+    assert snapshot["system_version"]["failure_stage"] == "api_call_timeout"
+    assert snapshot["app_inventory"]["state"] == "warn"
+    assert snapshot["app_inventory"]["failure_stage"] == "deferred_after_timeout"
+    assert snapshot["talos"]["skipped"] is True
+    assert "earlier RPC timeout" in snapshot["talos"]["reason"]
+
+
+def test_health_snapshot_attributes_timeout_when_readiness_and_version_are_unavailable() -> None:
+    class SlowCoreClient(FakeClient):
+        def call(self, method: str, *params):
+            if method in {"system.ready", "system.version"}:
+                self.calls.append(method)
+                raise TimeoutError(f"{method} timed out")
+            return super().call(method, *params)
+
+    adapter = TrueNASReadOnlyAdapter(
+        TrueNASSettings(
+            url="https://truenas.example",
+            username="fastapi_observer",
+            api_key="1-secret",
+        ),
+        client_factory=SlowCoreClient,
+    )
+
     with pytest.raises(TrueNASHealthProbeError) as exc_info:
         adapter.health_snapshot()
 
@@ -399,3 +446,33 @@ def test_health_snapshot_attributes_system_version_timeout_to_rpc_phase() -> Non
     assert error.authenticated is True
     assert isinstance(error.phase_elapsed_ms, int)
     assert error.call_timeout_seconds == 2.0
+
+
+def test_health_snapshot_reports_not_ready_state_without_claiming_transport_failure() -> None:
+    class BootingClient(FakeClient):
+        def call(self, method: str, *params):
+            if method == "system.ready":
+                self.calls.append(method)
+                return False
+            if method == "system.state":
+                self.calls.append(method)
+                return "BOOTING"
+            return super().call(method, *params)
+
+    adapter = TrueNASReadOnlyAdapter(
+        TrueNASSettings(
+            url="https://truenas.example",
+            username="fastapi_observer",
+            api_key="1-secret",
+        ),
+        client_factory=BootingClient,
+    )
+
+    snapshot = adapter.health_snapshot()
+
+    assert snapshot["reachable"] is True
+    assert snapshot["authenticated"] is True
+    assert snapshot["system_ready"] is False
+    assert snapshot["system_state"] == "BOOTING"
+    assert snapshot["readiness"]["state"] == "warn"
+    assert snapshot["readiness"]["system_state"] == "BOOTING"
