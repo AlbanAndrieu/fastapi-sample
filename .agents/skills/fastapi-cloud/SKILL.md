@@ -78,7 +78,7 @@ FASTAPI_CLOUD_APP_ID
 List application environment variables after authenticating/linking the project:
 
 ```bash
-mise exec -- uv run fastapi cloud env list .
+mise exec -- uv run fastapi cloud env list
 ```
 
 Do not copy secret values into issues, PRs, logs, or chat. When diagnosing configuration drift, compare variable **names and presence** whenever possible.
@@ -109,9 +109,26 @@ PFSENSE_POSTURE_API_VERIFY_SSL=true
 PFSENSE_SECURITY_API_KEY=<dedicated diagnostics-table GET-only key>
 PFSENSE_SECURITY_API_VERIFY_SSL=true
 PFSENSE_SECURITY_PATH_MODE=shared_wan
+PFSENSE_AUTHENTICATED_PROBES_ENABLED=false
 ```
 
 `PFSENSE_POSTURE_API_URL`, `PFSENSE_POSTURE_API_VERIFY_SSL`, `PFSENSE_SECURITY_API_URL`, and `PFSENSE_SECURITY_API_VERIFY_SSL` are optional overrides when an identity uses a different transport. The production deploy workflow pins both per-identity TLS overrides to `true` so stale Cloud values cannot silently disable certificate verification. `PFSENSE_API_KEY` is obsolete and is no longer consumed by FastAPI Sample. It was removed from FastAPI Cloud on 2026-09-02; remove it from homelab runtime secrets as well.
+
+FastAPI Cloud must not perform authenticated pfSense API probes. Keep
+`PFSENSE_AUTHENTICATED_PROBES_ENABLED=false` there and use the Cloud runtime
+only for external WAN/HAProxy/TrueNAS transport evidence. The trusted TrueNAS
+runtime owns authenticated posture/Snort observation. This prevents an
+ephemeral Cloud egress from being enrolled into pfSense Login Protection /
+`sshguard`.
+
+After this policy is deployed and verified, remove
+`PFSENSE_POSTURE_API_KEY` and `PFSENSE_SECURITY_API_KEY` from FastAPI Cloud
+with:
+
+```bash
+mise exec -- uv run fastapi cloud env delete PFSENSE_POSTURE_API_KEY
+mise exec -- uv run fastapi cloud env delete PFSENSE_SECURITY_API_KEY
+```
 
 Provider health must validate that its canonical credential exists before attempting provider authentication. A missing credential is configuration health data, not a generic network failure. Never substitute one provider's key for another provider or recommend collapsing the dedicated pfSense identities back into one shared secret.
 
