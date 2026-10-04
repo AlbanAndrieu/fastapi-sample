@@ -259,7 +259,7 @@ async def homelab_healthz_probe_rows() -> list[tuple[str, str, str, str | None]]
     here made those services compete with core dependencies for one 8-second
     aggregate budget and produced false ``deadline`` failures.
     """
-    configured_truenas_url = truenas_url().rstrip("/") + "/"
+    configured_truenas_url = truenas_url().rstrip("/") + "/ui/signin"
     return [
         ("albandrieu_truenas", configured_truenas_url, "TrueNAS HTTPS", None),
     ]
