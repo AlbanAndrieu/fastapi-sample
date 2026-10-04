@@ -170,3 +170,51 @@ def test_truenas_health_model_keeps_websocket_and_rpc_failure_separate() -> None
         "dependency_state": "ok",
         "effective_state": "warn",
     }
+
+
+def test_authenticated_ready_api_with_slow_enrichment_is_warning() -> None:
+    api = {
+        "reachable": True,
+        "authenticated": True,
+        "system_ready": True,
+        "readiness": {"state": "ok"},
+        "system_version": {"state": "warn"},
+        "app_inventory": {"state": "warn"},
+    }
+
+    assert homelab_health._truenas_state({"state": "ok"}, {"state": "ok"}, api) == "warn"
+    assert (
+        homelab_health.truenas_probe_health.truenas_appliance_state(
+            {"state": "ok"},
+            {"state": "ok"},
+            api,
+        )
+        == "ok"
+    )
+
+
+def test_truenas_health_model_marks_not_ready_api_as_application_warning() -> None:
+    api = {
+        "reachable": True,
+        "authenticated": True,
+        "system_ready": False,
+        "system_state": "BOOTING",
+        "readiness": {"state": "warn", "ready": False},
+        "system_version": {"state": "ok"},
+        "app_inventory": {"state": "ok"},
+    }
+    model = homelab_health.truenas_probe_health.truenas_health_model(
+        {"state": "ok"},
+        {"state": "ok"},
+        api,
+        {"stages": [{"id": "websocket", "state": "ok"}]},
+        appliance_state="ok",
+        effective_state="warn",
+    )
+
+    assert model["service_state"] == "ok"
+    assert model["transport_state"] == "ok"
+    assert model["authentication_state"] == "ok"
+    assert model["application_state"] == "warn"
+    assert model["runtime_state"] == "ok"
+    assert model["effective_state"] == "warn"
