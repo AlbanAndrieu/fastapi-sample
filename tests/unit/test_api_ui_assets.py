@@ -348,3 +348,14 @@ def test_postgres_health_key_maps_to_canonical_postgresql_service() -> None:
 
     assert 'String(key) === "postgres"' in source
     assert 'ids.push("postgresql")' in source
+
+
+def test_pfsense_auth_rejection_is_warning_not_outage() -> None:
+    core = (_ASSET_DIR / "api-health-core.js").read_text(encoding="utf-8")
+    detail = (_ASSET_DIR / "api-health-detail.js").read_text(encoding="utf-8")
+
+    assert '[401, 403].includes(Number(check?.http_status))' in core
+    assert 'check?.transport_reachable === true' in core
+    assert 'return "yellow";' in core
+    assert "pfSense HTTPS/API endpoint reachable" in detail
+    assert "selected credential:" in detail
