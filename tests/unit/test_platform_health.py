@@ -296,3 +296,35 @@ async def test_pfsense_cache_serves_last_good_result_after_transient_failure(
     assert stale["stale"] is True
     assert stale["refresh_error"] == "temporary timeout"
     await platform_health.reset_pfsense_api_cache()
+
+
+@pytest.mark.asyncio
+async def test_pfsense_401_reports_auth_rejection_without_claiming_appliance_down(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example")
+    monkeypatch.setenv("PFSENSE_API_KEY", "legacy-key")
+    monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "stale-posture-key")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.headers["X-API-Key"] == "stale-posture-key"
+        return httpx.Response(401, request=request, text="Unauthorized")
+
+    class FakeAsyncClient(httpx.AsyncClient):
+        def __init__(self, *args, **kwargs) -> None:
+            kwargs["transport"] = httpx.MockTransport(handler)
+            super().__init__(*args, **kwargs)
+
+    monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
+
+    result = await platform_health.check_pfsense_api()
+
+    assert result["reachable"] is False
+    assert result["transport_reachable"] is True
+    assert result["api_authenticated"] is False
+    assert result["state"] == "warn"
+    assert result["http_status"] == 401
+    assert result["failure_stage"] == "authentication"
+    assert result["credential_mode"] == "dedicated_posture"
+    assert result["credential_selection"]["api_key_variable"] == "PFSENSE_POSTURE_API_KEY"
+    assert "was rejected" in result["warning"]
