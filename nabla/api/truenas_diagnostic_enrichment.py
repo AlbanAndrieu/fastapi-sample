@@ -139,6 +139,38 @@ def append_truenas_http_stage(
     return out
 
 
+def _failed_api_stage(
+    api_result: dict[str, Any],
+    *,
+    phase: str,
+    stage: str,
+    method: str,
+    error: str,
+) -> dict[str, Any]:
+    rpc_method = (
+        method
+        if method and method not in {"connect", "auth.login_with_api_key"}
+        else ""
+    )
+    api_label = (
+        f"TrueNAS API · {rpc_method}"
+        if rpc_method
+        else "TrueNAS API · system.version + app.query"
+    )
+    api_detail = error or "TrueNAS API call failed"
+    if rpc_method:
+        api_detail = f"{rpc_method}: {api_detail}"
+    return _stage(
+        "api",
+        api_label,
+        "fail",
+        elapsed_ms=api_result.get("elapsed_ms"),
+        detail=api_detail,
+        failure_stage=stage or phase or "api",
+        rpc_method=rpc_method or None,
+    )
+
+
 def append_truenas_api_stages(
     diagnostics: dict[str, Any],
     api_result: dict[str, Any] | None,
@@ -146,33 +178,10 @@ def append_truenas_api_stages(
     """Append authentication and API stages without exposing credential material."""
     out = dict(diagnostics)
     stages = [dict(stage) for stage in diagnostics.get("stages", [])]
-    websocket = next((stage for stage in stages if stage.get("id") == "websocket"), None)
-    websocket_ok = websocket is not None and websocket.get("state") == "ok"
-    api_reachable = isinstance(api_result, dict) and api_result.get("reachable") is True
-
-    # The authenticated API probe itself proves WebSocket transport + authentication.
-    # Do not let the auxiliary credential-free WebSocket diagnostic override stronger
-    # evidence when its own bounded measurement failed or timed out.
-    if not websocket_ok and not api_reachable:
-        stages.append(
-            _stage(
-                "authentication",
-                "API authentication",
-                "blocked",
-                detail="Blocked by WebSocket failure",
-            ),
-        )
-        stages.append(
-            _stage(
-                "api",
-                "TrueNAS API · system.version + app.query",
-                "blocked",
-                detail="Blocked by authentication",
-            ),
-        )
-        out["stages"] = stages
-        return out
-
+    websocket = next(
+        (stage for stage in stages if stage.get("id") == "websocket"),
+        None,
+    )
     if not isinstance(api_result, dict):
         stages.append(
             _stage(
@@ -196,7 +205,42 @@ def append_truenas_api_stages(
     reachable = api_result.get("reachable") is True
     phase = str(api_result.get("phase") or "")
     stage = str(api_result.get("stage") or "")
+    method = str(api_result.get("method") or "").strip()
     error = str(api_result.get("error") or "").strip()
+
+    if websocket is None:
+        authenticated = api_result.get("authenticated") is True
+        websocket_established = (
+            reachable or authenticated or phase in {"authentication", "call"}
+        )
+        websocket_state = "ok" if websocket_established else "fail"
+        if websocket_established:
+            websocket_detail = (
+                "WebSocket /api/current established; "
+                "probe advanced to authentication/RPC"
+            )
+        else:
+            websocket_detail = error or "WebSocket /api/current connection failed"
+        stages.append(
+            _stage(
+                "websocket",
+                "WebSocket /api/current",
+                websocket_state,
+                elapsed_ms=(
+                    api_result.get("websocket_elapsed_ms")
+                    if websocket_established
+                    else api_result.get("elapsed_ms")
+                ),
+                detail=websocket_detail,
+                evidence="authenticated_api_probe",
+                failure_stage=(
+                    None
+                    if websocket_established
+                    else stage or phase or "websocket"
+                ),
+                confirmation="established" if websocket_established else "failed",
+            ),
+        )
 
     if reachable:
         for auxiliary in stages:
@@ -213,7 +257,10 @@ def append_truenas_api_stages(
                 auxiliary.get("detail") or "auxiliary transport probe failed",
             )
             auxiliary["state"] = "warn"
-            auxiliary["detail"] = f"{original} · authenticated TrueNAS API succeeded; raw-socket and application egress paths may differ"
+            auxiliary["detail"] = (
+                f"{original} · authenticated TrueNAS API succeeded; "
+                "raw-socket and application egress paths may differ"
+            )
             auxiliary["contradicted_by"] = "authenticated_api_success"
             auxiliary["superseded_by"] = "authenticated_api"
             auxiliary["evidence_conflict"] = True
@@ -230,15 +277,29 @@ def append_truenas_api_stages(
         if api_result.get("version"):
             api_detail_parts.append(str(api_result["version"]))
         apps = api_result.get("apps")
-        if isinstance(apps, list):
+        inventory = (
+            api_result.get("app_inventory")
+            if isinstance(api_result.get("app_inventory"), dict)
+            else {}
+        )
+        inventory_state = str(inventory.get("state") or "ok").lower()
+        if isinstance(apps, list) and inventory_state == "ok":
             api_detail_parts.append(f"{len(apps)} apps")
+        elif inventory_state != "ok":
+            error_type = str(inventory.get("error_type") or "unavailable")
+            api_detail_parts.append(f"app.query unavailable ({error_type})")
         stages.append(
             _stage(
                 "api",
                 "TrueNAS API · system.version + app.query",
-                "ok",
+                "warn" if inventory_state != "ok" else "ok",
                 elapsed_ms=api_result.get("api_elapsed_ms"),
-                detail=" · ".join(api_detail_parts) or "system.version and app.query succeeded",
+                detail=(
+                    " · ".join(api_detail_parts)
+                    or "system.version and app.query succeeded"
+                ),
+                inventory_state=inventory_state,
+                inventory_failure_stage=inventory.get("failure_stage"),
             ),
         )
     elif phase == "authentication" or stage in {
@@ -267,22 +328,38 @@ def append_truenas_api_stages(
             ),
         )
     else:
+        auth_accepted = (
+            api_result.get("authenticated") is True
+            or api_result.get("authentication_succeeded") is True
+        )
+        if auth_accepted:
+            authentication_state = "ok"
+            authentication_detail = (
+                "API key accepted; failure occurred after authentication"
+            )
+        else:
+            authentication_state = "warn"
+            authentication_detail = (
+                "Credentials configured, but authentication was not confirmed "
+                "before the API probe failed"
+            )
         stages.append(
             _stage(
                 "authentication",
                 "API authentication",
-                "ok",
-                detail="Credentials configured; failure occurred after authentication",
+                authentication_state,
+                elapsed_ms=api_result.get("authentication_elapsed_ms"),
+                detail=authentication_detail,
+                confirmation="accepted" if auth_accepted else "unconfirmed",
             ),
         )
         stages.append(
-            _stage(
-                "api",
-                "TrueNAS API · system.version + app.query",
-                "fail",
-                elapsed_ms=api_result.get("elapsed_ms"),
-                detail=error or "TrueNAS API call failed",
-                failure_stage=stage or phase or "api",
+            _failed_api_stage(
+                api_result,
+                phase=phase,
+                stage=stage,
+                method=method,
+                error=error,
             ),
         )
 
