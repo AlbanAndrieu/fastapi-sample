@@ -5,13 +5,13 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
-from nabla.api.service_health_model import build_health_model
 from nabla.api.homelab_topology import (
     HomelabRelationStrength,
     HomelabRelationType,
     HomelabTopology,
     HomelabTopologyRelation,
 )
+from nabla.api.service_health_model import build_health_model
 
 HealthState = str
 _HEALTH_STATES = frozenset({"ok", "warn", "fail", "unknown"})
