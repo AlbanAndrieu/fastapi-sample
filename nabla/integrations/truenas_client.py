@@ -233,10 +233,20 @@ def _load_client_factory() -> Any:
 class TrueNASHealthProbeError(RuntimeError):
     """Preserve the failing TrueNAS health phase without exposing credentials."""
 
-    def __init__(self, *, phase: str, stage: str, cause: BaseException) -> None:
+    def __init__(
+        self,
+        *,
+        phase: str,
+        stage: str,
+        cause: BaseException,
+        method: str,
+        authenticated: bool,
+    ) -> None:
         super().__init__(str(cause).strip() or cause.__class__.__name__)
         self.phase = phase
         self.stage = stage
+        self.method = method
+        self.authenticated = authenticated
         self.exception_type = cause.__class__.__name__
 
 
@@ -317,20 +327,66 @@ class TrueNASReadOnlyAdapter:
         proxy_route = _websocket_proxy_route(self.settings.hostname)
         phase = "connect"
         method = "connect"
+        authenticated = False
+        app_inventory_state = "ok"
+        app_inventory_error_type: str | None = None
+        app_inventory_failure_stage: str | None = None
         try:
             with self._connect() as client:
                 phase = "authentication"
                 method = "auth.login_with_api_key"
                 client.login_with_api_key(self.settings.username, self.settings.api_key)
+                authenticated = True
+
+                # system.version is the lightweight authenticated liveness proof.
+                # Inventory RPCs are enrichment and must not invalidate proven API
+                # availability when they are slow or temporarily unavailable.
                 phase = "call"
                 method = "system.version"
                 version = client.call(method)
+
                 method = "app.query"
-                apps = client.call(method)
+                try:
+                    apps = client.call(
+                        method,
+                        [],
+                        {
+                            "select": [
+                                "id",
+                                "name",
+                                "state",
+                                "upgrade_available",
+                                "active_workloads.container_details.service_name",
+                                "active_workloads.container_details.image",
+                                "active_workloads.container_details.state",
+                            ],
+                        },
+                    )
+                except Exception as app_exc:
+                    apps = []
+                    app_inventory_state = "warn"
+                    app_inventory_error_type = app_exc.__class__.__name__
+                    app_inventory_failure_stage = _truenas_failure_stage(app_exc)
+                    logger.warning(
+                        "TrueNAS optional app inventory unavailable uri=%s stage=%s exception=%s",
+                        uri,
+                        app_inventory_failure_stage,
+                        app_inventory_error_type,
+                    )
+
                 vm_error_type: str | None = None
                 method = "vm.query"
                 try:
-                    vms = client.call(method)
+                    vms = client.call(
+                        method,
+                        [],
+                        {
+                            "select": [
+                                "name",
+                                "status.state",
+                            ],
+                        },
+                    )
                 except Exception as vm_exc:
                     # VM_READ is deliberately optional during the RBAC rollout.
                     # A missing VM capability must not invalidate proven TrueNAS
@@ -363,6 +419,8 @@ class TrueNASReadOnlyAdapter:
                 phase=phase,
                 stage=failure_stage,
                 cause=exc,
+                method=method,
+                authenticated=authenticated,
             ) from exc
         logger.info(
             "TrueNAS API health probe succeeded uri=%s verify_ssl=%s proxy_route=%s elapsed_ms=%s",
@@ -411,8 +469,15 @@ class TrueNASReadOnlyAdapter:
             }
         return {
             "reachable": True,
+            "authenticated": True,
             "version": version,
             "apps": app_rows,
+            "app_inventory": {
+                "state": app_inventory_state,
+                "available": app_inventory_state == "ok",
+                "error_type": app_inventory_error_type,
+                "failure_stage": app_inventory_failure_stage,
+            },
             "talos": talos,
         }
 
