@@ -189,7 +189,7 @@ PFSENSE_POSTURE_API_KEY
 PFSENSE_SECURITY_API_KEY
 ```
 
-They share `PFSENSE_API_URL` / `PFSENSE_API_VERIFY_SSL` by default but intentionally have different pfSense privileges. The generic runtime `PFSENSE_API_KEY` was removed from FastAPI Cloud on 2026-09-02 and must not be confused with `PFSENSE_API_KEY_FILE`, restored as the normal application credential, or reused as `TRUENAS_API_KEY`.
+They share `PFSENSE_API_URL` / `PFSENSE_API_VERIFY_SSL` by default but intentionally have different pfSense privileges. The retired generic shared runtime key must not be confused with `PFSENSE_API_KEY_FILE`, restored as an application credential, or reused as `TRUENAS_API_KEY`.
 
 After configuration, set `pfsense-auditor.enabled` to `true` in a local OpenCode override, or run the server directly for testing:
 
