@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 from typing import Any, Literal
 
+from nabla.api.service_health_model import build_health_model
+
 HealthState = Literal["ok", "warn", "fail"]
 _DEFAULT_TRUENAS_LAN_HOST = "172.17.0.24"
 _DEFAULT_TRUENAS_LAN_PORT = 7000
@@ -91,3 +93,75 @@ def truenas_public_ingress_state(
     if tls_state in {"fail", "blocked"}:
         return "warn"
     return "warn"
+
+
+
+def truenas_health_model(
+    public_result: dict[str, Any],
+    internal_result: dict[str, Any] | None,
+    api_result: dict[str, Any] | None,
+    diagnostics: dict[str, Any] | None,
+    *,
+    appliance_state: HealthState,
+    effective_state: HealthState,
+) -> dict[str, str]:
+    """Describe TrueNAS transport/auth/RPC/runtime health as separate axes."""
+    stages = diagnostics.get("stages", []) if isinstance(diagnostics, dict) else []
+    websocket = next(
+        (stage for stage in stages if isinstance(stage, dict) and stage.get("id") == "websocket"),
+        {},
+    )
+    public_state = str(public_result.get("state") or "").strip().lower()
+    internal_state = (
+        str(internal_result.get("state") or "").strip().lower()
+        if isinstance(internal_result, dict)
+        else ""
+    )
+    websocket_state = str(websocket.get("state") or "").strip().lower()
+    transport_evidence = {state for state in (public_state, internal_state, websocket_state) if state}
+    if "ok" in transport_evidence:
+        transport_state = "warn" if "fail" in transport_evidence else "ok"
+    elif "warn" in transport_evidence:
+        transport_state = "warn"
+    elif "fail" in transport_evidence:
+        transport_state = "fail"
+    else:
+        transport_state = "unknown"
+
+    api = api_result if isinstance(api_result, dict) else {}
+    reachable = api.get("reachable") is True
+    authenticated = api.get("authenticated") is True
+    phase = str(api.get("phase") or "").strip().lower()
+    stage = str(api.get("stage") or "").strip().lower()
+    if reachable or authenticated:
+        authentication_state = "ok"
+    elif phase == "authentication" or stage in {
+        "authentication",
+        "missing_api_key",
+        "missing_username",
+        "invalid_api_key_reference",
+        "invalid_api_key_format",
+    }:
+        authentication_state = "fail"
+    elif api:
+        authentication_state = "unknown"
+    else:
+        authentication_state = "unknown"
+
+    inventory = api.get("app_inventory") if isinstance(api.get("app_inventory"), dict) else {}
+    if reachable:
+        application_state = "warn" if str(inventory.get("state") or "ok").lower() != "ok" else "ok"
+    elif authenticated or phase == "call":
+        application_state = "warn"
+    else:
+        application_state = "unknown"
+
+    return build_health_model(
+        service_state=appliance_state,
+        transport_state=transport_state,
+        authentication_state=authentication_state,
+        application_state=application_state,
+        runtime_state=appliance_state,
+        dependency_state="ok",
+        effective_state=effective_state,
+    )
