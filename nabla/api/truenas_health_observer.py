@@ -235,6 +235,10 @@ async def _probe_origin() -> dict[str, Any]:
         if isinstance(exc, TrueNASHealthProbeError):
             value["method"] = exc.method
             value["authenticated"] = exc.authenticated
+            if exc.phase_elapsed_ms is not None:
+                value["phase_elapsed_ms"] = exc.phase_elapsed_ms
+            if exc.call_timeout_seconds is not None:
+                value["call_timeout_seconds"] = exc.call_timeout_seconds
         return value
 
 
