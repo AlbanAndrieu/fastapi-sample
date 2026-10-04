@@ -238,8 +238,9 @@ async def check_pfsense_api() -> dict[str, Any]:
         )
         if auth_rejected:
             result["warning"] = (
-                f"pfSense HTTPS/API endpoint is reachable, but {key_var} was rejected "
-                f"(HTTP {response.status_code})"
+                f"pfSense HTTPS transport is reachable and the REST endpoint responded, "
+                f"but {key_var} was rejected (HTTP {response.status_code}); "
+                "this is an authentication failure, not a pfSense availability failure"
             )
     logger.debug(
         "pfSense API liveness probe completed http_status=%s elapsed_ms=%s attempts=%s verify_ssl=%s",
