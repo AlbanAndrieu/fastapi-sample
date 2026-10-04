@@ -227,13 +227,40 @@ main {
 
   .health-row {
     width: 100%;
+    padding-right: 0.55rem;
     overflow-x: hidden;
   }
 
   .health-row-primary,
+  .health-row-detail,
+  .health-row-tags,
+  .health-row-telemetry,
+  .service-filter-global-heading,
+  .service-filter-heading-actions,
+  .service-filter-control,
+  .service-filter-health-summary,
+  .service-filter-legend-details,
   .service-detail-evidence[data-probe-grid-ready="true"],
   #service-section-navigation.service-section-navigation {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
     max-width: 100%;
+  }
+
+  .health-row-telemetry {
+    width: auto;
+  }
+
+  .health-row-primary {
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .service-probe-table {
+    width: max-content;
+    min-width: 100%;
   }
 
   .service-filter-global-heading {
