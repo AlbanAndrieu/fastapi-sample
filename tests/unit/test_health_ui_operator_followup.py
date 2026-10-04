@@ -64,6 +64,8 @@ def test_local_flow_keeps_pfsense_as_dns_and_haproxy_dependency() -> None:
     assert "ensureLocalPfSenseFlowStage" in source
     assert 'pathMode !== "direct_lan"' in source
     assert '"pfSense LAN services"' in source
+    assert 'check?.transport_reachable === true' in source
+    assert 'return "warn"' in source
     assert "internal DNS/Unbound + HAProxy" in source
     assert "does not claim every direct-LAN packet traverses PF/WAN rules" in source
     assert "observeTrueNasPipeline()" in source
@@ -148,6 +150,22 @@ def test_mobile_filter_navigation_is_compact_and_truenas_flow_is_centered() -> N
     assert "grid-template-columns: repeat(4, minmax(0, 1fr));" in stylesheet
     assert "!important" not in stylesheet
     assert ".service-filter-global-heading p" in stylesheet
+    assert "#service-section-navigation.service-section-navigation" in stylesheet
+    assert "display: flex" in stylesheet
+    assert "flex-flow: row nowrap" in stylesheet
+    assert "overflow-x: auto" in stylesheet
+    assert "touch-action: pan-x" in stylesheet
+    assert ".service-filter--global" in stylesheet
+    assert "box-sizing: border-box" in stylesheet
+    assert "max-width: 100%" in stylesheet
+    assert "overflow-x: clip" in stylesheet
+    assert ".health-row" in stylesheet
+    assert "padding-right: 0.55rem" in stylesheet
+    assert ".health-row-telemetry" in stylesheet
+    assert "width: auto" in stylesheet
+    assert ".service-probe-table" in stylesheet
+    assert "width: max-content" in stylesheet
+    assert "min-width: 100%" in stylesheet
     assert "#service-section-navigation .service-filter-health-chip" in stylesheet
     assert "min-height: 44px" in stylesheet
     assert ".truenas-pipeline" in stylesheet

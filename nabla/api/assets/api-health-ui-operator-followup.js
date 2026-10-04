@@ -142,6 +142,13 @@ function decorateTrueNasApiStage() {
 
 function localPfSenseStageState() {
   const check = latestSnapshot?.healthz?.checks?.pfsense || {};
+  if (
+    [401, 403].includes(Number(check?.http_status)) &&
+    check?.transport_reachable === true
+  )
+    return "warn";
+  if (check?.state === "fail") return "fail";
+  if (check?.state === "warn") return "warn";
   if (check.reachable === false) return "fail";
   if (check.reachable === true) return "ok";
   return "blocked";
@@ -176,7 +183,8 @@ function ensureLocalPfSenseFlowStage() {
   const icon = document.createElement("span");
   icon.className = "truenas-stage-icon";
   icon.setAttribute("aria-hidden", "true");
-  icon.textContent = state === "ok" ? "●" : state === "fail" ? "💀" : "⊘";
+  icon.textContent =
+    state === "ok" ? "●" : state === "warn" ? "⚠" : state === "fail" ? "💀" : "⊘";
   const label = document.createElement("span");
   label.className = "truenas-stage-label";
   label.appendChild(

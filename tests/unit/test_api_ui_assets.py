@@ -162,6 +162,10 @@ def test_refresh_event_is_logged_and_health_responses_are_not_cached() -> None:
     assert 'fetch("/api/health-board/refresh-event"' in controller
     assert 'cache: "no-store"' in controller
     assert 'cache: "no-store"' in board
+    assert 'fetch("/api/health-board/cache/reset"' in controller
+    assert '"X-Diagnostics-Key"' in controller
+    assert "window.prompt" in controller
+    assert "health-cache-reset" in client.get("/api").text
 
 
 def test_health_board_explains_dependency_propagation() -> None:

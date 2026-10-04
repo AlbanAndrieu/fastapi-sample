@@ -32,6 +32,7 @@ def protected_app(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     @app.get("/api/homelab/status")
     @app.get("/api/homelab/health")
     @app.get("/api/homelab/probes")
+    @app.post("/api/health-board/cache/reset")
     def success() -> dict[str, bool]:
         return {"ok": True}
 
@@ -44,6 +45,7 @@ def test_operational_routes_remain_open_without_access_keys(
     assert protected_app.get("/admin").status_code == 200
     assert protected_app.get("/healthz").status_code == 200
     assert protected_app.get("/api/homelab-topology").status_code == 200
+    assert protected_app.post("/api/health-board/cache/reset").status_code == 503
 
 
 def test_operational_access_keys_are_declared_as_application_settings() -> None:
@@ -79,12 +81,20 @@ def test_diagnostics_key_accepts_bearer_and_keeps_liveness_public(
     assert protected_app.get("/api/homelab-topology").status_code == 401
     assert protected_app.get("/api/homelab/runtime").status_code == 401
     assert protected_app.get("/api/homelab/status").status_code == 401
+    assert protected_app.post("/api/health-board/cache/reset").status_code == 401
     assert protected_app.get("/api/public-topology").status_code == 200
     assert protected_app.get("/health").status_code == 200
     assert (
         protected_app.get(
             "/healthz",
             headers={"Authorization": "Bearer diagnostics-key"},
+        ).status_code
+        == 200
+    )
+    assert (
+        protected_app.post(
+            "/api/health-board/cache/reset",
+            headers={"X-Diagnostics-Key": "diagnostics-key"},
         ).status_code
         == 200
     )

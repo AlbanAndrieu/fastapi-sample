@@ -1,6 +1,11 @@
 """Tests for dependency-aware homelab health propagation."""
 
 from nabla.api.homelab_dependency_health import propagate_required_dependency_health
+from nabla.api.homelab_health_evidence import (
+    _append_runtime_topology_component_evidence,
+    _reconcile_shared_component_evidence,
+)
+from nabla.api.homelab_runtime import runtime_snapshot_from_health_api
 from nabla.api.homelab_topology import HomelabTopology
 
 
@@ -181,3 +186,106 @@ def test_local_failure_remains_failure_when_dependency_is_healthy() -> None:
     )
     assert rows[0]["effective_state"] == "fail"
     assert rows[0]["dependency_state"] == "ok"
+
+
+def test_runtime_topology_projection_resolves_redis_and_kafka() -> None:
+    topology = HomelabTopology.model_validate(
+        {
+            "nodes": [
+                {
+                    "id": "sentry",
+                    "name": "Sentry",
+                    "kind": "service",
+                    "category": "observability",
+                },
+                {
+                    "id": "redis",
+                    "name": "Redis",
+                    "kind": "cache",
+                    "category": "data",
+                    "runtime": {
+                        "provider": "truenas-app",
+                        "containerService": "redis",
+                    },
+                },
+                {
+                    "id": "kafka",
+                    "name": "Apache Kafka",
+                    "kind": "message-broker",
+                    "category": "data",
+                    "runtime": {
+                        "provider": "truenas-app",
+                        "containerService": "kafka",
+                    },
+                },
+            ],
+            "relations": [
+                _relation("sentry", "redis"),
+                _relation("sentry", "kafka"),
+            ],
+        },
+    )
+    runtime = runtime_snapshot_from_health_api(
+        {
+            "reachable": True,
+            "last_success_at": "2026-10-04T10:22:49Z",
+            "apps": [
+                {
+                    "id": "redis",
+                    "name": "redis",
+                    "state": "RUNNING",
+                    "active_workloads": {
+                        "container_details": [
+                            {"service_name": "redis", "state": "running"},
+                        ],
+                    },
+                },
+                {
+                    "id": "kafka",
+                    "name": "kafka",
+                    "state": "RUNNING",
+                    "active_workloads": {
+                        "container_details": [
+                            {"service_name": "kafka", "state": "running"},
+                        ],
+                    },
+                },
+            ],
+        },
+    )
+    assert runtime is not None
+
+    rows = _append_runtime_topology_component_evidence(
+        [_row("sentry", "fail", runtime_state="CRASHED")],
+        topology=topology,
+        runtime=runtime,
+    )
+    reconciled = propagate_required_dependency_health(rows, topology)
+    by_id = {str(row["id"]): row for row in reconciled}
+
+    assert by_id["redis"]["state"] == "ok"
+    assert by_id["redis"]["topology_runtime_projection"] is True
+    assert by_id["kafka"]["state"] == "ok"
+    assert by_id["sentry"]["dependency_state"] == "ok"
+    assert by_id["sentry"]["unconfirmed_dependencies"] == []
+    assert by_id["sentry"]["effective_state"] == "fail"
+
+
+def test_postgres_sql_success_prevents_false_sentry_dependency_block() -> None:
+    topology = _topology(_relation("sentry", "postgresql"))
+    rows = _reconcile_shared_component_evidence(
+        [
+            _row("sentry", "fail", runtime_state="CRASHED"),
+            _row("postgresql", "fail", runtime_state="RUNNING"),
+        ],
+        {"postgres": {"reachable": True}},
+    )
+
+    reconciled = propagate_required_dependency_health(rows, topology)
+    by_id = {str(row["id"]): row for row in reconciled}
+
+    assert by_id["postgresql"]["state"] == "ok"
+    assert by_id["postgresql"]["component_probe_kind"] == "sql_query"
+    assert by_id["sentry"]["dependency_state"] == "ok"
+    assert by_id["sentry"]["blocked_by"] == []
+    assert by_id["sentry"]["effective_state"] == "fail"

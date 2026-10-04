@@ -292,6 +292,36 @@ def register_health_routes(app: FastAPI) -> None:
         )
 
     @app.post(
+        "/api/health-board/cache/reset",
+        include_in_schema=False,
+    )
+    async def reset_health_probe_caches(response: Response) -> dict[str, Any]:
+        """Purge shared provider probe caches/circuits and the aggregate health board."""
+        from nabla.api.external_probe_cache import reset_probe_cache
+        from nabla.api.external_probe_cache_redis import resolve_redis_client
+        from nabla.api.health_board import reset_health_board_cache
+
+        probe_keys = (
+            "pfsense:liveness",
+            "pfsense:posture",
+            "pfsense:snort2c",
+            "truenas:api",
+            "cloudflare:tunnels",
+            "cloudflare:exposure",
+        )
+        redis_client = resolve_redis_client()
+        for key in probe_keys:
+            await reset_probe_cache(key, redis_client=redis_client)
+        await reset_health_board_cache()
+        response.headers.update(_NO_STORE_HEADERS)
+        logger.info("health_probe_cache_reset keys=%s", len(probe_keys))
+        return {
+            "reset": True,
+            "probe_keys": list(probe_keys),
+            "reset_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        }
+
+    @app.post(
         "/api/health-board/refresh-event",
         include_in_schema=False,
         status_code=204,

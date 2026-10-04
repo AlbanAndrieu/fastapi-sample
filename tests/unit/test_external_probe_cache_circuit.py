@@ -108,3 +108,44 @@ async def test_open_circuit_suppresses_origin_and_releases_cache_lock(monkeypatc
     assert third.metadata["circuit_breaker"]["origin_suppressed"] is True
     assert f"{cache._LOCK_PREFIX}{key}" not in redis.values
     await cache.reset_probe_cache(key, redis_client=redis)
+
+
+@pytest.mark.asyncio
+async def test_provider_success_can_differ_from_probe_success(monkeypatch) -> None:
+    redis = FakeRedis()
+    key = "pfsense:auth-rejected"
+    policy = ProbeCachePolicy(
+        success_ttl=30.0,
+        failure_ttl=1.0,
+        stale_ttl=120.0,
+        wait_timeout=0.01,
+        poll_interval=0.001,
+    )
+    breaker_policy = circuit.CircuitBreakerPolicy(
+        failure_threshold=1,
+        base_backoff=30.0,
+        max_backoff=30.0,
+        jitter_ratio=0.0,
+    )
+    monkeypatch.setitem(circuit._PROVIDER_POLICIES, "pfsense", breaker_policy)
+    await cache.reset_probe_cache(key, redis_client=redis)
+
+    async def loader():
+        return {
+            "reachable": False,
+            "transport_reachable": True,
+            "http_status": 401,
+        }
+
+    result = await cache.get_or_refresh_probe(
+        key,
+        loader,
+        is_success=lambda value: value["reachable"] is True,
+        is_provider_success=lambda value: value["transport_reachable"] is True,
+        policy=policy,
+        redis_client=redis,
+    )
+
+    assert result.value["http_status"] == 401
+    assert result.metadata["circuit_breaker"]["state"] == "closed"
+    await cache.reset_probe_cache(key, redis_client=redis)

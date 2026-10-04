@@ -18,6 +18,7 @@ def test_health_routes_keep_public_paths_once() -> None:
         "/api/homelab/health",
         "/api/homelab/probes",
         "/api/health-board",
+        "/api/health-board/cache/reset",
         "/livez",
         "/readyz",
         "/healthz",

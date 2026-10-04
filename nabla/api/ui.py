@@ -151,6 +151,7 @@ def render_api_root_page(
                 <p class="health-board-meta">Live view of <a href="/healthz">/healthz</a>.
                     <span id="health-board-freshness">Snapshot freshness unknown.</span>
                     <button type="button" class="health-refresh">Refresh</button>
+                    <button type="button" class="health-cache-reset">Purge cache</button>
                 </p>
                 <div class="health-summary health-summary--neutral" id="health-summary">
                     <span class="health-led health-led--gray" id="health-summary-led" aria-hidden="true"></span>

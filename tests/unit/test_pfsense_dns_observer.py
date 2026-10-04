@@ -301,3 +301,28 @@ def test_http_errors_are_redacted() -> None:
     error = httpx.HTTPStatusError("forbidden", request=request, response=response)
 
     assert pfsense_dns_observer._safe_error(error) == "HTTP 403"
+
+
+@pytest.mark.asyncio
+async def test_posture_401_preserves_transport_reachability(
+    monkeypatch,
+    settings,
+) -> None:
+    async def rejected(_client, path: str):
+        request = httpx.Request("GET", f"https://pfsense.example.test{path}")
+        response = httpx.Response(401, request=request)
+        raise httpx.HTTPStatusError(
+            "unauthorized",
+            request=request,
+            response=response,
+        )
+
+    monkeypatch.setattr(pfsense_dns_observer, "_get_data", rejected)
+
+    result = await pfsense_dns_observer._observe_posture_origin(settings)
+
+    assert result["reachable"] is False
+    assert result["transport_reachable"] is True
+    assert result["api_authenticated"] is False
+    assert result["error"] == "HTTP 401"
+    assert result["endpoint_status"]["system"]["http_status"] == 401

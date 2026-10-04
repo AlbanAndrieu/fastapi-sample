@@ -97,7 +97,9 @@ function classify(key, check) {
   if (check.skipped === true) return "yellow";
   if (
     key === "pfsense" &&
-    check?.ingress_policy?.state === "possible_ingress_policy_block"
+    (check?.state === "warn" ||
+      check?.api_authenticated === false ||
+      check?.ingress_policy?.state === "possible_ingress_policy_block")
   )
     return "yellow";
   if (isExpectedSentryDebugFailure(key, check)) return "green";

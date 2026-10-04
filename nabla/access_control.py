@@ -25,6 +25,7 @@ _DIAGNOSTIC_PATHS = frozenset(
         "/api/homelab/status",
         "/api/homelab/health",
         "/api/homelab/probes",
+        "/api/health-board/cache/reset",
         "/healthz",
         "/metrics",
         "/sentry-debug",
@@ -64,6 +65,13 @@ async def operations_access_middleware(
         return await call_next(request)
 
     if configured_key is None:
+        if path == "/api/health-board/cache/reset":
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "detail": "DIAGNOSTICS_ACCESS_KEY must be configured for cache reset",
+                },
+            )
         return await call_next(request)
 
     provided_key = _provided_access_key(request, header_name)
