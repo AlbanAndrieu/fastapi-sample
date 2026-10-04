@@ -108,6 +108,12 @@ function classify(key, check) {
     return "yellow";
   if (
     key === "pfsense" &&
+    check?.transport_reachable === true &&
+    check?.api_authenticated === false
+  )
+    return "yellow";
+  if (
+    key === "pfsense" &&
     [401, 403].includes(Number(check?.http_status)) &&
     check?.transport_reachable === true
   )
