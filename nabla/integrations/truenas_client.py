@@ -476,32 +476,38 @@ class TrueNASReadOnlyAdapter:
                     if system_ready is None:
                         raise
 
-                method = "app.query"
-                app_started = time.perf_counter()
-                phase_started = app_started
-                try:
-                    apps = client.call(
-                        method,
-                        [],
-                        {"select": _APP_HEALTH_SELECT},
-                    )
-                    app_query_elapsed_ms = round(
-                        (time.perf_counter() - app_started) * 1000,
-                    )
-                except Exception as app_exc:
-                    app_query_elapsed_ms = round(
-                        (time.perf_counter() - app_started) * 1000,
-                    )
-                    apps = []
+                version_timed_out = system_version_failure_stage == "api_call_timeout"
+                if version_timed_out:
                     app_inventory_state = "warn"
-                    app_inventory_error_type = app_exc.__class__.__name__
-                    app_inventory_failure_stage = _rpc_failure_stage(app_exc)
-                    logger.warning(
-                        "TrueNAS optional app inventory unavailable uri=%s stage=%s exception=%s",
-                        uri,
-                        app_inventory_failure_stage,
-                        app_inventory_error_type,
-                    )
+                    app_inventory_error_type = "DeferredAfterRpcTimeout"
+                    app_inventory_failure_stage = "deferred_after_timeout"
+                else:
+                    method = "app.query"
+                    app_started = time.perf_counter()
+                    phase_started = app_started
+                    try:
+                        apps = client.call(
+                            method,
+                            [],
+                            {"select": _APP_HEALTH_SELECT},
+                        )
+                        app_query_elapsed_ms = round(
+                            (time.perf_counter() - app_started) * 1000,
+                        )
+                    except Exception as app_exc:
+                        app_query_elapsed_ms = round(
+                            (time.perf_counter() - app_started) * 1000,
+                        )
+                        apps = []
+                        app_inventory_state = "warn"
+                        app_inventory_error_type = app_exc.__class__.__name__
+                        app_inventory_failure_stage = _rpc_failure_stage(app_exc)
+                        logger.warning(
+                            "TrueNAS optional app inventory unavailable uri=%s stage=%s exception=%s",
+                            uri,
+                            app_inventory_failure_stage,
+                            app_inventory_error_type,
+                        )
 
                 prior_rpc_timeout = "api_call_timeout" in {
                     readiness_failure_stage,
