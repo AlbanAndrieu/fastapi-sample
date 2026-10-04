@@ -1,4 +1,4 @@
-const LEGACY_LEGACY_IMPLEMENTATION_NOTE =
+const LEGACY_IMPLEMENTATION_NOTE =
   "TrueNAS flow rendered from bounded /api/homelab/probes first; aggregate health enriches the view when available.";
 const DRAWER_SETTLE_MS = 3000;
 const retainedDrawerSections = new Map();
