@@ -51,7 +51,7 @@ jobs:
         with:
           enable-cache: true
           python-version: ${{ env.PYTHON_VERSION }}
-          version: "0.12.1"
+          version: "0.12.22"
 
       - name: Install locked dependencies
         run: uv sync --frozen
@@ -93,7 +93,7 @@ jobs:
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          version: "0.12.1"
+          version: "0.12.22"
 
       - name: Verify FastAPI Cloud configuration
         env:
@@ -118,7 +118,7 @@ jobs:
           uv run fastapi cloud env set BUILD_REVISION "${BUILD_REVISION}" .
           uv run fastapi cloud env set PFSENSE_POSTURE_API_VERIFY_SSL true .
           uv run fastapi cloud env set PFSENSE_SECURITY_API_VERIFY_SSL true .
-          uv run fastapi cloud env set PFSENSE_AUTHENTICATED_PROBES_ENABLED false .
+          uv run fastapi cloud env set PFSENSE_AUTHENTICATED_PROBES_ENABLED true .
           uv run fastapi deploy
 
       - name: Verify production release and catalog
