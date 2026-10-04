@@ -155,6 +155,6 @@ def component_status(components: dict[str, dict[str, Any]]) -> str:
             continue
         if key in {"cloudflare", "pfsense"} and check.get("status_confirmed") is False:
             continue
-        if check.get("reachable") is False or check.get("state") == "warn" or check.get("stale") is True or check.get("tls_trusted") is False:
+        if check.get("reachable") is False or check.get("state") in {"warn", "fail"} or check.get("stale") is True or check.get("tls_trusted") is False:
             return "degraded"
     return critical_status or "healthy"
