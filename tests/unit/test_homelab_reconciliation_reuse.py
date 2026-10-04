@@ -119,3 +119,20 @@ def test_health_ui_exposes_snapshot_and_probe_freshness() -> None:
     assert "probes from memory cache" in truenas
     assert "sampled" in truenas
     assert "eligible" in truenas
+
+
+def test_runtime_snapshot_does_not_treat_unavailable_inventory_as_empty() -> None:
+    snapshot = runtime_snapshot_from_health_api(
+        {
+            "reachable": True,
+            "authenticated": True,
+            "version": "TrueNAS-26.0.0",
+            "app_inventory": {
+                "state": "warn",
+                "available": False,
+                "error_type": "TimeoutError",
+            },
+        },
+    )
+
+    assert snapshot is None
