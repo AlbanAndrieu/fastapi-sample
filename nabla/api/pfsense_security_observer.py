@@ -20,6 +20,7 @@ from nabla.api.provider_credentials import inspect_environment_credentials
 from nabla.api.public_egress_observer import observe_public_egress_ip
 from nabla.api.truenas_transport_diagnostics import homelab_wan_metadata
 from nabla.settings.homelab import (
+    PfSenseProbePolicySettings,
     PfSenseSecurityProviderSettings,
     pfsense_invalid_configuration_variables,
     pfsense_security_environment_variables,
@@ -443,6 +444,32 @@ async def observe_pfsense_ingress_block(
     settings: PfSenseSecuritySettings | None = None,
 ) -> dict[str, Any]:
     """Read snort2c and attribute only fresh evidence to the exact egress IP."""
+    if (
+        settings is None
+        and not PfSenseProbePolicySettings().pfsense_authenticated_probes_enabled
+    ):
+        return {
+            "state": "telemetry_disabled",
+            "telemetry_available": False,
+            "attribution_available": False,
+            "engine": "snort",
+            "firewall": "pfSense/PF",
+            "mechanism": "snort2c",
+            "evidence": (
+                "Authenticated pfSense security telemetry is disabled in this "
+                "runtime to avoid Login Protection/sshguard coupling"
+            ),
+            "control_path": {
+                "mode": "disabled",
+                "independent_from_wan_filter": False,
+                "blind_spot": False,
+                "detail": (
+                    "FastAPI Cloud uses transport-only WAN observation; "
+                    "authenticated pfSense telemetry is owned by the trusted "
+                    "homelab runtime"
+                ),
+            },
+        }
     configured = settings or PfSenseSecuritySettings.from_environment()
     if configured is None:
         return _unavailable(None, "Dedicated pfSense security telemetry is not configured")
