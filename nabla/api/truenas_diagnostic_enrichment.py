@@ -155,7 +155,7 @@ def _failed_api_stage(
     api_label = (
         f"TrueNAS API · {rpc_method}"
         if rpc_method
-        else "TrueNAS API · system.version + app.query"
+        else "TrueNAS API · system.ready + system.version + app.query"
     )
     api_detail = error or "TrueNAS API call failed"
     if rpc_method:
@@ -197,7 +197,7 @@ def append_truenas_api_stages(
         stages.append(
             _stage(
                 "api",
-                "TrueNAS API · system.version + app.query",
+                "TrueNAS API · system.ready + system.version + app.query",
                 "blocked",
                 detail="Blocked by authentication",
             ),
@@ -277,30 +277,67 @@ def append_truenas_api_stages(
             ),
         )
         api_detail_parts = []
-        if api_result.get("version"):
-            api_detail_parts.append(str(api_result["version"]))
-        apps = api_result.get("apps")
+        readiness = (
+            api_result.get("readiness")
+            if isinstance(api_result.get("readiness"), dict)
+            else {}
+        )
+        version = (
+            api_result.get("system_version")
+            if isinstance(api_result.get("system_version"), dict)
+            else {}
+        )
         inventory = (
             api_result.get("app_inventory")
             if isinstance(api_result.get("app_inventory"), dict)
             else {}
         )
+        readiness_state = str(readiness.get("state") or "ok").lower()
+        version_state = str(version.get("state") or "ok").lower()
         inventory_state = str(inventory.get("state") or "ok").lower()
+        if api_result.get("system_ready") is True:
+            api_detail_parts.append("system.ready=true")
+        elif api_result.get("system_ready") is False:
+            system_state = str(api_result.get("system_state") or "not ready")
+            api_detail_parts.append(f"system.ready=false ({system_state})")
+        elif readiness_state != "ok":
+            error_type = str(readiness.get("error_type") or "unavailable")
+            api_detail_parts.append(f"system.ready unavailable ({error_type})")
+        if api_result.get("version"):
+            api_detail_parts.append(str(api_result["version"]))
+        elif version_state != "ok":
+            error_type = str(version.get("error_type") or "unavailable")
+            api_detail_parts.append(f"system.version unavailable ({error_type})")
+        apps = api_result.get("apps")
         if isinstance(apps, list) and inventory_state == "ok":
             api_detail_parts.append(f"{len(apps)} apps")
         elif inventory_state != "ok":
             error_type = str(inventory.get("error_type") or "unavailable")
             api_detail_parts.append(f"app.query unavailable ({error_type})")
+        degraded = (
+            api_result.get("system_ready") is False
+            or readiness_state != "ok"
+            or version_state != "ok"
+            or inventory_state != "ok"
+        )
         stages.append(
             _stage(
                 "api",
-                "TrueNAS API · system.version + app.query",
-                "warn" if inventory_state != "ok" else "ok",
-                elapsed_ms=api_result.get("api_elapsed_ms"),
+                "TrueNAS API · system.ready + system.version + app.query",
+                "warn" if degraded else "ok",
+                elapsed_ms=(
+                    readiness.get("elapsed_ms")
+                    if readiness.get("elapsed_ms") is not None
+                    else api_result.get("api_elapsed_ms")
+                ),
                 detail=(
                     " · ".join(api_detail_parts)
-                    or "system.version and app.query succeeded"
+                    or "authenticated readiness and API enrichments succeeded"
                 ),
+                readiness_state=readiness_state,
+                system_ready=api_result.get("system_ready"),
+                system_state=api_result.get("system_state"),
+                version_state=version_state,
                 inventory_state=inventory_state,
                 inventory_failure_stage=inventory.get("failure_stage"),
             ),
@@ -325,7 +362,7 @@ def append_truenas_api_stages(
         stages.append(
             _stage(
                 "api",
-                "TrueNAS API · system.version + app.query",
+                "TrueNAS API · system.ready + system.version + app.query",
                 "blocked",
                 detail="Blocked by authentication",
             ),
