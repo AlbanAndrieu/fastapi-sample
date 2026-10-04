@@ -49,7 +49,8 @@ export function fetchHomelabProbeMatrix({
   })
     .then(async (response) => {
       if (!response.ok) {
-        const protectedResponse = response.status === 401 || response.status === 403;
+        const protectedResponse =
+          response.status === 401 || response.status === 403;
         const unavailableResponse = response.status === 404;
         const error = new Error(
           protectedResponse
