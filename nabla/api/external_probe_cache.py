@@ -270,6 +270,7 @@ async def get_or_refresh_probe(
     *,
     is_success: Callable[[dict[str, Any]], bool],
     policy: ProbeCachePolicy,
+    is_provider_success: Callable[[dict[str, Any]], bool] | None = None,
     redis_client: Redis | None = None,
 ) -> ProbeCacheResult:
     """Return a probe using caches, single-flight and provider circuit breakers."""
@@ -456,14 +457,19 @@ async def get_or_refresh_probe(
                     )
                     raise
                 success = bool(is_success(value))
+                provider_success = (
+                    bool(is_provider_success(value))
+                    if is_provider_success is not None
+                    else success
+                )
                 observe_provider_origin_duration(
                     rate_decision.provider,
-                    outcome="success" if success else "failure",
+                    outcome="success" if provider_success else "failure",
                     duration_seconds=time.monotonic() - origin_started,
                 )
                 circuit_metadata = await record_provider_probe_outcome(
                     circuit_decision,
-                    success=success,
+                    success=provider_success,
                 )
             finally:
                 provider_origin_finished(rate_decision.provider)
