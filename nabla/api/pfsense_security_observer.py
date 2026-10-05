@@ -18,6 +18,7 @@ from nabla.api.provider_probe_policies import (
 )
 from nabla.api.provider_credentials import inspect_environment_credentials
 from nabla.api.public_egress_observer import observe_public_egress_ip
+from nabla.api.probe_headers import probe_request_headers
 from nabla.api.truenas_transport_diagnostics import homelab_wan_metadata
 from nabla.settings.homelab import (
     PfSenseProbePolicySettings,
@@ -352,7 +353,7 @@ async def _fetch_snort2c(
     attempts = 0
     async with httpx.AsyncClient(
         base_url=settings.base_url,
-        headers={"X-API-Key": settings.api_key, "Accept": "application/json"},
+        headers={**probe_request_headers("pfsense-security"), "X-API-Key": settings.api_key},
         timeout=timeout,
         follow_redirects=False,
         verify=settings.verify_ssl,
