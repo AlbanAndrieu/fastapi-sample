@@ -135,6 +135,36 @@ FastCGI listen-queue evidence and kernel reclaim/OOM logs documented in
 `nabla-compose`. A high application p95 without appliance saturation does not
 by itself prove that the PHP-FPM pool is undersized.
 
+### Request correlation contract
+
+Each pfSense HTTP request creates fresh passive correlation metadata:
+
+```text
+Nabla-Probe-Origin
+Nabla-Probe-Name
+Nabla-Probe-Request-ID
+traceparent        # only when an active W3C trace context exists
+tracestate         # optional
+```
+
+`Nabla-Probe-Request-ID` is unique per HTTP request, including the three deep
+posture reads and each auth-smoke endpoint. `X-API-Key` remains a separate
+client credential and must never be copied into correlation metadata, logs,
+metrics, traces or public health output.
+
+For bounded server-side diagnosis, the desired pfSense/nginx/pfREST log record
+may capture only the request timestamp, HTTP method/path/status, elapsed time and
+the four correlation fields above. Do not log request headers wholesale.
+
+The pfSense nginx configuration is generated appliance configuration. Do not
+hand-edit it from FastAPI Sample. The corresponding log-format/configuration
+change belongs in `AlbanAndrieu/nabla-compose`, where post-upgrade
+reconciliation can preserve it safely.
+
+Request IDs and trace IDs are high-cardinality diagnostic values. Keep them in
+logs/traces only; never use them as Prometheus label values or authorization,
+allowlist, PF, Snort or WAF bypass signals.
+
 ## Validate deployed keys from the TrueNAS runtime
 
 A workstation timeout before TCP/TLS does not validate or invalidate an API key.
