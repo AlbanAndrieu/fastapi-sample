@@ -41,7 +41,12 @@ def test_pfsense_posture_renders_latest_and_keeps_bounded_open_history() -> None
     assert "details.open = historyOpen" in source
     assert "historyOpen = details.open" in source
     assert 'state === "in_path"' in source
+    assert 'state === "warn" || state === "in_path" || state === "observed"' in source
     assert "path evidence, not a block or failure" in source
+    assert "informational/warning rather than green health" in source
+    assert 'dns.control_plane_state === "slow"' in source
+    assert '"pfSense API"' in source
+    assert "deeper posture fan-out was skipped to protect the appliance" in source
 
 
 def test_flow_links_public_dns_cloudflare_and_truenas_api_diagnostics() -> None:

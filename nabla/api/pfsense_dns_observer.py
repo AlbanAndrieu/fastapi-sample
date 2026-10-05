@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -17,6 +18,7 @@ from nabla.api.pfsense_security_observer import observe_pfsense_ingress_block
 from nabla.api.provider_credentials import inspect_environment_credentials
 from nabla.settings.homelab import (
     PfSensePostureProviderSettings,
+    PfSenseProbePolicySettings,
     pfsense_invalid_configuration_variables,
     pfsense_posture_environment_variables,
 )
@@ -26,6 +28,7 @@ DNSPolicyState = Literal["ok", "warn", "fail", "unknown"]
 _PFSENSE_CONNECT_TIMEOUT_SEC = 2.0
 _PFSENSE_READ_TIMEOUT_SEC = 4.0
 _PFSENSE_POSTURE_DEADLINE_SEC = 8.0
+_PFSENSE_SLOW_PREFLIGHT_SEC = 2.5
 _PFSENSE_MAX_CONCURRENCY = 2
 _PFSENSE_POSTURE_CACHE_KEY = "pfsense:posture"
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
@@ -192,20 +195,35 @@ def _security_filter_observations(
     *,
     ingress_block: dict[str, Any] | None = None,
     services_observed: bool | None = None,
+    posture_authenticated: bool | None = None,
 ) -> list[dict[str, str]]:
     ingress_state = str((ingress_block or {}).get("state") or "unknown")
     snort_blocked = ingress_state == "blocked"
     inventory_observed = isinstance(services, list) if services_observed is None else services_observed
+    if snort_blocked:
+        firewall_state = "blocked"
+        firewall_detail = (
+            "PF is enforcing the snort2c block for the observed FastAPI egress"
+        )
+    elif posture_authenticated is False:
+        firewall_state = "warn"
+        firewall_detail = (
+            "pfSense/PF is on the declared path, but posture API authentication "
+            "failed; path presence is not promoted to healthy"
+        )
+    else:
+        firewall_state = "in_path"
+        firewall_detail = (
+            "pfSense/PF is on the declared path; this is path evidence, not a "
+            "health or authentication verdict"
+        )
+
     filters: list[dict[str, str]] = [
         {
             "id": "firewall",
             "label": "pfSense/PF firewall",
-            "state": "blocked" if snort_blocked else "in_path",
-            "detail": (
-                "PF is enforcing the snort2c block for the observed FastAPI egress"
-                if snort_blocked
-                else "PF policy is active; the exact matching rule is not attributed by this read-only observer"
-            ),
+            "state": firewall_state,
+            "detail": firewall_detail,
         },
     ]
     service_rows = [row for row in services if isinstance(row, dict)] if isinstance(services, list) else []
@@ -370,7 +388,106 @@ async def _observe_posture_origin_bounded(
         follow_redirects=False,
         verify=settings.verify_ssl,
     ) as client:
-        observations = await _bounded_observations(client, paths)
+        system_path = paths["system"]
+        system_started = time.perf_counter()
+        try:
+            system_observation = await _get_data(client, system_path)
+        except BaseException as exc:
+            if _http_status_from_error(exc) == 401:
+                skipped = {
+                    name: {
+                        "observed": False,
+                        "error": "skipped_after_authentication_failure",
+                    }
+                    for name in paths
+                    if name != "system"
+                }
+                return {
+                    "reachable": False,
+                    "transport_reachable": True,
+                    "api_authenticated": False,
+                    "api_evidence_state": "authentication_failed",
+                    "successful_endpoint_count": 0,
+                    "endpoint_count": len(paths),
+                    "endpoint_status": {
+                        "system": {
+                            "observed": False,
+                            "error": "HTTP 401",
+                            "http_status": 401,
+                        },
+                        **skipped,
+                    },
+                    "services_observed": False,
+                    "services": [],
+                    "service_summary": {
+                        "running": 0,
+                        "stopped": 0,
+                        "unknown": 0,
+                        "total": 0,
+                    },
+                    "resolver": {},
+                    "upstreams": [],
+                    "error_stage": "system",
+                    "error": "HTTP 401",
+                    "auth_fail_fast": True,
+                }
+            observations = {"system": exc}
+        else:
+            system_elapsed_ms = max(
+                0,
+                round((time.perf_counter() - system_started) * 1000),
+            )
+            if system_elapsed_ms >= round(_PFSENSE_SLOW_PREFLIGHT_SEC * 1000):
+                skipped = {
+                    name: {
+                        "observed": False,
+                        "error": "skipped_after_slow_preflight",
+                    }
+                    for name in paths
+                    if name != "system"
+                }
+                return {
+                    "reachable": True,
+                    "transport_reachable": True,
+                    "api_authenticated": True,
+                    "api_evidence_state": "partial",
+                    "successful_endpoint_count": 1,
+                    "endpoint_count": len(paths),
+                    "endpoint_status": {
+                        "system": {
+                            "observed": True,
+                            "elapsed_ms": system_elapsed_ms,
+                        },
+                        **skipped,
+                    },
+                    "services_observed": False,
+                    "services": [],
+                    "service_summary": {
+                        "running": 0,
+                        "stopped": 0,
+                        "unknown": 0,
+                        "total": 0,
+                    },
+                    "resolver": {},
+                    "upstreams": [],
+                    "control_plane_state": "slow",
+                    "control_plane_elapsed_ms": system_elapsed_ms,
+                    "deep_probe_skipped": True,
+                    "reason": (
+                        "pfSense API preflight is slow; deeper posture fan-out "
+                        "was skipped to protect the appliance"
+                    ),
+                }
+            observations = {"system": system_observation}
+
+        remaining_paths = {
+            name: path
+            for name, path in paths.items()
+            if name != "system"
+        }
+        observations.update(
+            await _bounded_observations(client, remaining_paths),
+        )
 
     endpoint_status = _endpoint_status(observations)
     failures = [(name, value) for name, value in observations.items() if isinstance(value, BaseException)]
@@ -481,6 +598,66 @@ async def observe_pfsense_dns_posture(
     settings: PfSenseDNSSettings | None = None,
 ) -> dict[str, Any]:
     """Return cached posture plus egress-specific Snort/PF evidence."""
+    if (
+        settings is None
+        and not PfSenseProbePolicySettings().pfsense_authenticated_probes_enabled
+    ):
+        configuration = pfsense_api_configuration_status()
+        return {
+            **configuration,
+            "authenticated_probes_enabled": False,
+            "observation_mode": "transport_only",
+            "reachable": None,
+            "transport_reachable": None,
+            "api_authenticated": None,
+            "api_evidence_state": "disabled",
+            "policy_state": "unknown",
+            "reason": (
+                "Authenticated pfSense API probes are disabled for this runtime; "
+                "WAN reachability is observed separately through the public "
+                "pfSense/HAProxy/TrueNAS path"
+            ),
+            "services_observed": False,
+            "services": [],
+            "service_summary": {
+                "running": 0,
+                "stopped": 0,
+                "unknown": 0,
+                "total": 0,
+            },
+            "security_filters": _security_filter_observations(
+                None,
+                ingress_block={
+                    "state": "telemetry_disabled",
+                    "telemetry_available": False,
+                    "attribution_available": False,
+                },
+                services_observed=False,
+                posture_authenticated=None,
+            ),
+            "ingress_block": {
+                "state": "telemetry_disabled",
+                "telemetry_available": False,
+                "attribution_available": False,
+                "engine": "snort",
+                "firewall": "pfSense/PF",
+                "mechanism": "snort2c",
+                "evidence": (
+                    "Authenticated pfSense security telemetry is disabled in "
+                    "this runtime to avoid Login Protection/sshguard coupling"
+                ),
+                "control_path": {
+                    "mode": "disabled",
+                    "independent_from_wan_filter": False,
+                    "blind_spot": False,
+                    "detail": (
+                        "FastAPI Cloud uses transport-only WAN observation; "
+                        "authenticated pfSense telemetry is owned by the trusted "
+                        "homelab runtime"
+                    ),
+                },
+            },
+        }
     configuration = pfsense_api_configuration_status() if settings is None else None
     configured = settings or PfSenseDNSSettings.from_environment()
     if configured is None:
@@ -499,6 +676,7 @@ async def observe_pfsense_dns_posture(
                 None,
                 ingress_block=ingress,
                 services_observed=False,
+                posture_authenticated=None,
             ),
             "ingress_block": ingress,
         }
@@ -516,6 +694,7 @@ async def observe_pfsense_dns_posture(
         services,
         ingress_block=ingress,
         services_observed=services_observed,
+        posture_authenticated=posture.get("api_authenticated"),
     )
     common = {
         "configured": True,

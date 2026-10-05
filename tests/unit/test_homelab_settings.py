@@ -7,6 +7,7 @@ from nabla.settings.homelab import (
     DEFAULT_PFSENSE_API_URL,
     DEFAULT_TRUENAS_URL,
     PfSensePostureProviderSettings,
+    PfSenseProbePolicySettings,
     PfSenseSecurityProviderSettings,
     TrueNASProviderSettings,
 )
@@ -164,6 +165,7 @@ _PFSENSE_ENV = (
     "PFSENSE_SECURITY_API_KEY",
     "PFSENSE_SECURITY_API_VERIFY_SSL",
     "PFSENSE_SECURITY_PATH_MODE",
+    "PFSENSE_AUTHENTICATED_PROBES_ENABLED",
 )
 
 
@@ -296,3 +298,25 @@ def test_invalid_pfsense_security_settings_are_rejected(
 
     with pytest.raises(ValidationError):
         PfSenseSecurityProviderSettings()
+
+
+
+def test_pfsense_authenticated_probe_policy_defaults_true(monkeypatch) -> None:
+    _clear_pfsense_env(monkeypatch)
+
+    assert (
+        PfSenseProbePolicySettings().pfsense_authenticated_probes_enabled
+        is True
+    )
+
+
+def test_pfsense_authenticated_probe_policy_can_disable_cloud_keyauth(
+    monkeypatch,
+) -> None:
+    _clear_pfsense_env(monkeypatch)
+    monkeypatch.setenv("PFSENSE_AUTHENTICATED_PROBES_ENABLED", "false")
+
+    assert (
+        PfSenseProbePolicySettings().pfsense_authenticated_probes_enabled
+        is False
+    )

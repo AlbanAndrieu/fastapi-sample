@@ -8,19 +8,14 @@ let historyOpen = false;
 const postureHistory = [];
 
 function stateClass(state) {
-  if (
-    state === "running" ||
-    state === "clear" ||
-    state === "ok" ||
-    state === "in_path" ||
-    state === "observed"
-  ) {
+  if (state === "running" || state === "clear" || state === "ok") {
     return "ok";
   }
   if (state === "blocked" || state === "stopped" || state === "fail") {
     return "fail";
   }
-  if (state === "warn") return "warn";
+  if (state === "warn" || state === "in_path" || state === "observed")
+    return "warn";
   return "unknown";
 }
 
@@ -40,10 +35,11 @@ function displayState(state) {
 
 function stateMeaning(filter, posture) {
   const state = filter.state;
+  if (filter.meaning) return filter.meaning;
   if (filter.id === "firewall" && state === "in_path") {
     return posture.pathMode === "direct_lan"
       ? "pfSense/PF is present on the read-only pfSense control path, while the current TrueNAS traffic probe uses direct LAN. This is path evidence, not a block or failure; direct-LAN traffic can bypass the WAN firewall path."
-      : "pfSense/PF is present on the observed ingress/security path. This is expected path evidence, not a block or degraded state.";
+      : "pfSense/PF is present on the observed ingress/security path. This is path evidence only, so it stays informational/warning rather than green health.";
   }
   if (state === "running") {
     return `${filter.label} is reported running by the read-only pfSense service-state observation.`;
@@ -84,8 +80,19 @@ function postureFromSnapshot(snapshot) {
         id: String(filter?.id || ""),
         label: String(filter?.label || filter?.id || "security filter"),
         state: String(filter?.state || "unknown"),
+        meaning: String(filter?.detail || ""),
       }))
     : [];
+  if (dns.control_plane_state === "slow") {
+    const elapsed = Number(dns.control_plane_elapsed_ms || 0);
+    filters.unshift({
+      id: "control_plane",
+      label: "pfSense API",
+      state: "warn",
+      meaning:
+        `pfSense API preflight took ${elapsed} ms; deeper posture fan-out was skipped to protect the appliance.`,
+    });
+  }
   return {
     observedAt:
       snapshot?.generated_at || homelab?.checked_at || new Date().toISOString(),

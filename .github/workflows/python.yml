@@ -79,7 +79,7 @@ jobs:
         with:
           enable-cache: false
           python-version: ${{ env.PYTHON_VERSION }}
-          version: "0.12.1"
+          version: "0.12.22"
 
       - name: Restore pre-commit environments
         id: precommit-cache
@@ -188,7 +188,7 @@ jobs:
         with:
           enable-cache: true
           python-version: ${{ env.PYTHON_VERSION }}
-          version: "0.12.1"
+          version: "0.12.22"
 
       - name: Validate minimal FastAPI Cloud runtime
         if: needs.preflight.outputs.build == 'true'
@@ -338,7 +338,7 @@ jobs:
         with:
           enable-cache: true
           python-version: ${{ env.PYTHON_VERSION }}
-          version: "0.12.1"
+          version: "0.12.22"
 
       - name: Install locked dependencies
         run: uv sync --frozen
