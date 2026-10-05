@@ -18,6 +18,7 @@ _PFSENSE_PREFLIGHT_OUTCOMES = frozenset({"success", "auth_rejected", "failure"})
 _PFSENSE_PROTECTIVE_SKIP_REASONS = frozenset(
     {"slow_preflight", "authentication_failure"},
 )
+_PFSENSE_REQUEST_PHASES = frozenset({"preflight", "deep"})
 
 PROVIDER_OUTCOMES = Counter(
     "nabla_external_provider_outcomes_total",
@@ -78,6 +79,16 @@ PFSENSE_PROTECTIVE_SKIPS = Counter(
     "nabla_pfsense_protective_skips_total",
     "pfSense posture fan-out skips triggered to protect the appliance.",
     ("reason",),
+)
+PFSENSE_API_REQUESTS = Counter(
+    "nabla_pfsense_api_requests_total",
+    "pfSense posture API requests actually started.",
+    ("phase",),
+)
+PFSENSE_API_REQUESTS_IN_FLIGHT = Gauge(
+    "nabla_pfsense_api_requests_in_flight",
+    "pfSense posture API requests currently executing.",
+    ("phase",),
 )
 
 
@@ -179,6 +190,19 @@ def record_pfsense_protective_skip(reason: str) -> None:
     """Count only the fixed protection reasons implemented by the observer."""
     if reason in _PFSENSE_PROTECTIVE_SKIP_REASONS:
         PFSENSE_PROTECTIVE_SKIPS.labels(reason=reason).inc()
+
+
+def pfsense_api_request_started(phase: str) -> None:
+    """Record one actually-started pfSense API request with bounded labels."""
+    if phase in _PFSENSE_REQUEST_PHASES:
+        PFSENSE_API_REQUESTS.labels(phase=phase).inc()
+        PFSENSE_API_REQUESTS_IN_FLIGHT.labels(phase=phase).inc()
+
+
+def pfsense_api_request_finished(phase: str) -> None:
+    """Balance the in-flight gauge for one bounded pfSense request phase."""
+    if phase in _PFSENSE_REQUEST_PHASES:
+        PFSENSE_API_REQUESTS_IN_FLIGHT.labels(phase=phase).dec()
 
 
 def probe_started() -> None:
