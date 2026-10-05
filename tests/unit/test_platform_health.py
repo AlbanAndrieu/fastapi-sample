@@ -145,6 +145,35 @@ async def test_pfsense_check_is_skipped_without_credentials(monkeypatch) -> None
 
 
 @pytest.mark.asyncio
+async def test_pfsense_authenticated_liveness_can_be_disabled(monkeypatch) -> None:
+    monkeypatch.setenv("PFSENSE_AUTHENTICATED_PROBES_ENABLED", "false")
+    monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "must-not-be-used")
+    monkeypatch.setenv("FASTAPI_CLOUD_APP_ID", "app")
+    monkeypatch.delenv("FASTAPI_RUNTIME_MODE", raising=False)
+    monkeypatch.delenv("FASTAPI_ENV", raising=False)
+
+    class ForbiddenAsyncClient:
+        def __init__(self, *_args, **_kwargs) -> None:
+            raise AssertionError("disabled pfSense liveness must not create an HTTP client")
+
+    monkeypatch.setattr(httpx, "AsyncClient", ForbiddenAsyncClient)
+
+    result = await platform_health.check_pfsense_api()
+
+    assert result["reachable"] is None
+    assert result["transport_reachable"] is None
+    assert result["api_authenticated"] is None
+    assert result["authenticated_probes_enabled"] is False
+    assert result["observation_mode"] == "transport_only"
+    assert result["skipped"] is True
+    assert result["status_confirmed"] is False
+    assert result["state"] == "unknown"
+    assert result["degraded"] is False
+    assert result["vantage_point"] == "fastapi_cloud"
+    assert result["credential_mode"] == "disabled"
+
+
+@pytest.mark.asyncio
 async def test_pfsense_check_rejects_plain_http_api_key_transport(monkeypatch) -> None:
     monkeypatch.setenv("PFSENSE_API_URL", "http://172.17.0.1")
     monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "key")
