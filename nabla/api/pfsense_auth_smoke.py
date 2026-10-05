@@ -100,17 +100,17 @@ def _probe_identity(
     timeout = httpx.Timeout(connect=3.0, read=6.0, write=3.0, pool=3.0)
     with httpx.Client(
         base_url=base_url,
-        headers={
-            **probe_request_headers(f"pfsense-auth-{identity}"),
-            "X-API-Key": settings.api_key,
-        },
+        headers={"X-API-Key": settings.api_key},
         timeout=timeout,
         follow_redirects=False,
         verify=verify_ssl,
     ) as client:
         for expectation in expectations:
             try:
-                response = client.get(expectation.endpoint)
+                response = client.get(
+                    expectation.endpoint,
+                    headers=probe_request_headers(f"pfsense-auth-{identity}"),
+                )
             except httpx.HTTPError as exc:
                 print(
                     f"identity={identity} endpoint={expectation.endpoint} "
