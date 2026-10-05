@@ -426,6 +426,8 @@ async def test_slow_preflight_skips_deep_posture_fanout(
     calls: list[str] = []
     metric_events: list[dict[str, object]] = []
     protective_skips: list[str] = []
+    request_starts: list[str] = []
+    request_finishes: list[str] = []
     perf_values = iter((100.0, 103.1))
 
     async def fake_get_data(_client, path: str):
@@ -448,10 +450,22 @@ async def test_slow_preflight_skips_deep_posture_fanout(
         "record_pfsense_protective_skip",
         protective_skips.append,
     )
+    monkeypatch.setattr(
+        pfsense_dns_observer,
+        "pfsense_api_request_started",
+        request_starts.append,
+    )
+    monkeypatch.setattr(
+        pfsense_dns_observer,
+        "pfsense_api_request_finished",
+        request_finishes.append,
+    )
 
     result = await pfsense_dns_observer._observe_posture_origin_bounded(settings)
 
     assert calls == ["/api/v2/system/version"]
+    assert request_starts == ["preflight"]
+    assert request_finishes == ["preflight"]
     assert metric_events[0]["outcome"] == "success"
     assert metric_events[0]["duration_seconds"] == pytest.approx(3.1)
     assert protective_skips == ["slow_preflight"]
@@ -478,6 +492,8 @@ async def test_fast_preflight_exposes_elapsed_without_skipping(
     settings,
 ) -> None:
     calls: list[str] = []
+    request_starts: list[str] = []
+    request_finishes: list[str] = []
     perf_values = iter((100.0, 100.8))
 
     async def fake_get_data(_client, path: str):
@@ -495,9 +511,23 @@ async def test_fast_preflight_exposes_elapsed_without_skipping(
         "perf_counter",
         lambda: next(perf_values),
     )
+    monkeypatch.setattr(
+        pfsense_dns_observer,
+        "pfsense_api_request_started",
+        request_starts.append,
+    )
+    monkeypatch.setattr(
+        pfsense_dns_observer,
+        "pfsense_api_request_finished",
+        request_finishes.append,
+    )
 
     result = await pfsense_dns_observer._observe_posture_origin_bounded(settings)
 
+    assert request_starts.count("preflight") == 1
+    assert request_starts.count("deep") == 3
+    assert request_finishes.count("preflight") == 1
+    assert request_finishes.count("deep") == 3
     assert set(calls) == {
         "/api/v2/system/version",
         "/api/v2/status/services",
