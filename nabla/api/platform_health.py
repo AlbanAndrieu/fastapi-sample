@@ -23,9 +23,11 @@ from nabla.api.platform_health_diagnostics import (
     utc_now as _utc_now,
 )
 from nabla.api.provider_probe_policies import PFSENSE_LIVENESS_CACHE_POLICY as _PFSENSE_CACHE_POLICY
+from nabla.api.probe_headers import probe_request_headers
 from nabla.api.runtime_environment import fastapi_cloud_runtime_detected
 from nabla.settings.homelab import (
     PfSensePostureProviderSettings,
+    PfSenseProbePolicySettings,
     pfsense_invalid_configuration_variables,
 )
 
@@ -119,6 +121,28 @@ def _pfsense_transport_failure_result(
 
 async def check_pfsense_api() -> dict[str, Any]:
     """Check pfSense REST API liveness with the posture read-only identity."""
+    if not PfSenseProbePolicySettings().pfsense_authenticated_probes_enabled:
+        cloud_vantage = fastapi_cloud_runtime_detected()
+        return {
+            "reachable": None,
+            "transport_reachable": None,
+            "api_authenticated": None,
+            "application_ok": None,
+            "authenticated_probes_enabled": False,
+            "observation_mode": "transport_only",
+            "skipped": True,
+            "status_confirmed": False,
+            "state": "unknown",
+            "degraded": False,
+            "vantage_point": "fastapi_cloud" if cloud_vantage else "current_runtime",
+            "warning": (
+                "⚠️ Authenticated pfSense API liveness is disabled in this runtime; "
+                "use independent transport/path evidence instead"
+            ),
+            "probe": "pfsense_rest_api_v2",
+            "path": _PFSENSE_LIVENESS_PATH,
+            "credential_mode": "disabled",
+        }
     try:
         base_url, api_key, verify_ssl, credential_mode = _pfsense_posture_transport()
     except ValidationError as exc:
@@ -172,7 +196,10 @@ async def check_pfsense_api() -> dict[str, Any]:
             try:
                 response = await client.get(
                     url,
-                    headers={"X-API-Key": api_key, "Accept": "application/json"},
+                    headers={
+                        **probe_request_headers("pfsense-liveness"),
+                        "X-API-Key": api_key,
+                    },
                 )
                 break
             except (httpx.HTTPError, OSError) as exc:
@@ -247,8 +274,11 @@ async def check_pfsense_api() -> dict[str, Any]:
 
 def _cache_with_stale_evidence(cached: ProbeCacheResult) -> dict[str, Any]:
     value = dict(cached.value)
+    policy_disabled = value.get("authenticated_probes_enabled") is False
     current_failure = value.get("reachable") is False
-    current_unconfirmed = value.get("status_confirmed") is False
+    current_unconfirmed = (
+        value.get("status_confirmed") is False and not policy_disabled
+    )
     stale_refresh = cached.metadata.get("stale") is True
     use_last_good = (current_failure or current_unconfirmed or stale_refresh) and cached.last_good is not None
     if use_last_good:
@@ -264,9 +294,26 @@ def _cache_with_stale_evidence(cached: ProbeCacheResult) -> dict[str, Any]:
     return value
 
 
+def _pfsense_probe_disabled(value: dict[str, Any]) -> bool:
+    """Return whether policy intentionally suppresses authenticated pfSense I/O."""
+    return (
+        value.get("authenticated_probes_enabled") is False
+        and value.get("observation_mode") == "transport_only"
+        and value.get("skipped") is True
+    )
+
+
 def _pfsense_cache_success(value: dict[str, Any]) -> bool:
-    """Keep confirmed authentication rejections as current warning evidence."""
-    return value.get("state") in {"ok", "warn"} and value.get("transport_reachable") is True
+    """Treat deliberate suppression and confirmed HTTP evidence as current."""
+    return _pfsense_probe_disabled(value) or (
+        value.get("state") in {"ok", "warn"}
+        and value.get("transport_reachable") is True
+    )
+
+
+def _pfsense_provider_success(value: dict[str, Any]) -> bool:
+    """Do not trip provider circuits when policy intentionally skips the origin."""
+    return _pfsense_probe_disabled(value) or value.get("transport_reachable") is True
 
 
 async def get_pfsense_api_snapshot() -> dict[str, Any]:
@@ -276,7 +323,7 @@ async def get_pfsense_api_snapshot() -> dict[str, Any]:
         check_pfsense_api,
         is_success=_pfsense_cache_success,
         policy=_PFSENSE_CACHE_POLICY,
-        is_provider_success=lambda value: value.get("transport_reachable") is True,
+        is_provider_success=_pfsense_provider_success,
     )
     return _cache_with_stale_evidence(cached)
 

@@ -11,6 +11,10 @@ def test_production_smoke_accepts_classified_transient_pfsense_failures() -> Non
     assert "Check production runtime topology" in smoke
     assert '"${PRODUCTION_API_URL}/runtime/topology"' in smoke
     assert ".platform_replica_count_available == false" in smoke
+    assert '.checks.pfsense.credential_mode == "disabled"' in smoke
+    assert ".checks.pfsense.authenticated_probes_enabled == false" in smoke
+    assert '.checks.pfsense.observation_mode == "transport_only"' in smoke
+    assert ".checks.pfsense.skipped == true" in smoke
     assert '.checks.pfsense.credential_mode == "dedicated_posture"' in smoke
     assert '.checks.pfsense.error_kind | type == "string"' in smoke
     assert '.checks.pfsense.failure_stage | type == "string"' in smoke

@@ -145,11 +145,40 @@ async def test_pfsense_check_is_skipped_without_credentials(monkeypatch) -> None
 
 
 @pytest.mark.asyncio
+async def test_pfsense_authenticated_liveness_can_be_disabled(monkeypatch) -> None:
+    monkeypatch.setenv("PFSENSE_AUTHENTICATED_PROBES_ENABLED", "false")
+    monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "must-not-be-used")
+    monkeypatch.setenv("FASTAPI_CLOUD_APP_ID", "app")
+    monkeypatch.delenv("FASTAPI_RUNTIME_MODE", raising=False)
+    monkeypatch.delenv("FASTAPI_ENV", raising=False)
+
+    class ForbiddenAsyncClient:
+        def __init__(self, *_args, **_kwargs) -> None:
+            raise AssertionError("disabled pfSense liveness must not create an HTTP client")
+
+    monkeypatch.setattr(httpx, "AsyncClient", ForbiddenAsyncClient)
+
+    result = await platform_health.check_pfsense_api()
+
+    assert result["reachable"] is None
+    assert result["transport_reachable"] is None
+    assert result["api_authenticated"] is None
+    assert result["authenticated_probes_enabled"] is False
+    assert result["observation_mode"] == "transport_only"
+    assert result["skipped"] is True
+    assert result["status_confirmed"] is False
+    assert result["state"] == "unknown"
+    assert result["degraded"] is False
+    assert result["vantage_point"] == "fastapi_cloud"
+    assert result["credential_mode"] == "disabled"
+
+
+@pytest.mark.asyncio
 async def test_pfsense_check_rejects_plain_http_api_key_transport(monkeypatch) -> None:
     monkeypatch.setenv("PFSENSE_API_URL", "http://172.17.0.1")
     monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "key")
     monkeypatch.delenv("PFSENSE_POSTURE_API_URL", raising=False)
-    monkeypatch.delenv("PFSENSE_POSTURE_API_KEY", raising=False)
+    monkeypatch.delenv("PFSENSE_API_KEY", raising=False)
 
     result = await platform_health.check_pfsense_api()
 
@@ -162,11 +191,14 @@ async def test_pfsense_check_uses_posture_key_and_lightweight_version_endpoint(m
     monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example")
     monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "key")
     monkeypatch.delenv("PFSENSE_POSTURE_API_URL", raising=False)
-    monkeypatch.delenv("PFSENSE_POSTURE_API_KEY", raising=False)
+    monkeypatch.delenv("PFSENSE_API_KEY", raising=False)
 
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/api/v2/system/version"
         assert request.headers["X-API-Key"] == "key"
+        assert request.headers["User-Agent"] == "fastapi-sample-health/1.0"
+        assert request.headers["Nabla-Probe-Name"] == "pfsense-liveness"
+        assert request.headers["Nabla-Probe-Request-ID"]
         return httpx.Response(200, request=request, json={"code": 200, "status": "ok"})
 
     class FakeAsyncClient(httpx.AsyncClient):
@@ -245,7 +277,7 @@ async def test_pfsense_read_timeout_reports_response_stage(monkeypatch) -> None:
     monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example")
     monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "key")
     monkeypatch.delenv("PFSENSE_POSTURE_API_URL", raising=False)
-    monkeypatch.delenv("PFSENSE_POSTURE_API_KEY", raising=False)
+    monkeypatch.delenv("PFSENSE_API_KEY", raising=False)
 
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ReadTimeout("slow pfSense response", request=request)
@@ -311,6 +343,51 @@ async def test_pfsense_cache_serves_last_good_result_after_transient_failure(
     assert stale["reachable"] is True
     assert stale["stale"] is True
     assert stale["refresh_error"] == "temporary timeout"
+    await platform_health.reset_pfsense_api_cache()
+
+
+@pytest.mark.asyncio
+async def test_pfsense_cache_keeps_disabled_policy_current_after_prior_success(
+    monkeypatch,
+) -> None:
+    await platform_health.reset_pfsense_api_cache()
+    results = iter(
+        [
+            {
+                "reachable": True,
+                "transport_reachable": True,
+                "state": "ok",
+                "status_confirmed": True,
+                "http_status": 200,
+            },
+            {
+                "reachable": None,
+                "transport_reachable": None,
+                "api_authenticated": None,
+                "authenticated_probes_enabled": False,
+                "observation_mode": "transport_only",
+                "skipped": True,
+                "status_confirmed": False,
+                "state": "unknown",
+                "degraded": False,
+                "credential_mode": "disabled",
+            },
+        ],
+    )
+
+    async def check():
+        return next(results)
+
+    monkeypatch.setattr(platform_health, "check_pfsense_api", check)
+    first = await platform_health.get_pfsense_api_snapshot()
+    _expire_current_value(platform_health._PFSENSE_CACHE_KEY)
+    disabled = await platform_health.get_pfsense_api_snapshot()
+
+    assert first["reachable"] is True
+    assert disabled["authenticated_probes_enabled"] is False
+    assert disabled["observation_mode"] == "transport_only"
+    assert disabled["credential_mode"] == "disabled"
+    assert disabled["stale"] is False
     await platform_health.reset_pfsense_api_cache()
 
 

@@ -6,9 +6,13 @@ ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github" / "workflows" / "production-smoke.yml"
 
 
-def test_postdeploy_smoke_accepts_only_explicit_cloud_transport_uncertainty() -> None:
+def test_postdeploy_smoke_requires_transport_only_pfsense_cloud_mode() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
 
+    assert '.checks.pfsense.credential_mode == "disabled"' in text
+    assert ".checks.pfsense.authenticated_probes_enabled == false" in text
+    assert '.checks.pfsense.observation_mode == "transport_only"' in text
+    assert ".checks.pfsense.skipped == true" in text
     assert ".checks.pfsense.reachable == null" in text
     assert '.checks.pfsense.state == "unknown"' in text
     assert ".checks.pfsense.status_confirmed == false" in text
