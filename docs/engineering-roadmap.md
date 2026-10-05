@@ -104,7 +104,10 @@ Runbook:
     `/api/v2/system/version`, with the lightweight TCP monitoring policy so a
     future catalog-consumer regeneration cannot reintroduce periodic pfREST
     load.
-- [ ] Remove the shared-WAN Snort attribution blind spot.
+- [x] Remove the shared-WAN Snort attribution blind spot from the authoritative
+  observer path: TrueNAS/homelab uses the LAN/split-DNS `out_of_band` control
+  path for pfSense API evidence, while FastAPI Cloud authenticated pfSense
+  probes remain disabled and WAN reachability is observed separately.
 - [ ] After an independent pfSense observer path is accepted, expand the
   sanitized posture with interfaces/gateways, firewall/NAT and DNS policy;
   query VPN, logs and private inventory only for explicit operational needs.
