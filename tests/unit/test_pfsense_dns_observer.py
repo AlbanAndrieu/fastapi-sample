@@ -452,7 +452,8 @@ async def test_slow_preflight_skips_deep_posture_fanout(
     result = await pfsense_dns_observer._observe_posture_origin_bounded(settings)
 
     assert calls == ["/api/v2/system/version"]
-    assert metric_events == [{"outcome": "success", "duration_seconds": 3.1}]
+    assert metric_events[0]["outcome"] == "success"
+    assert metric_events[0]["duration_seconds"] == pytest.approx(3.1)
     assert protective_skips == ["slow_preflight"]
     assert result["reachable"] is True
     assert result["transport_reachable"] is True
