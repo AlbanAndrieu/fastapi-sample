@@ -17,6 +17,8 @@ from nabla.api.provider_probe_policies import (
 from nabla.api.pfsense_security_observer import observe_pfsense_ingress_block
 from nabla.api.probe_metrics import (
     observe_pfsense_preflight_duration,
+    pfsense_api_request_finished,
+    pfsense_api_request_started,
     record_pfsense_protective_skip,
 )
 from nabla.api.provider_credentials import inspect_environment_credentials
@@ -326,6 +328,19 @@ async def _get_data(client: httpx.AsyncClient, path: str) -> object:
     return _response_data(response.json())
 
 
+async def _measured_get_data(
+    client: httpx.AsyncClient,
+    path: str,
+    *,
+    phase: str,
+) -> object:
+    pfsense_api_request_started(phase)
+    try:
+        return await _get_data(client, path)
+    finally:
+        pfsense_api_request_finished(phase)
+
+
 async def _bounded_observations(
     client: httpx.AsyncClient,
     paths: dict[str, str],
@@ -334,7 +349,7 @@ async def _bounded_observations(
 
     async def fetch(path: str) -> object:
         async with semaphore:
-            return await _get_data(client, path)
+            return await _measured_get_data(client, path, phase="deep")
 
     results = await asyncio.gather(
         *(fetch(path) for path in paths.values()),
@@ -397,7 +412,11 @@ async def _observe_posture_origin_bounded(
         system_elapsed_ms: int | None = None
         system_started = time.perf_counter()
         try:
-            system_observation = await _get_data(client, system_path)
+            system_observation = await _measured_get_data(
+                client,
+                system_path,
+                phase="preflight",
+            )
         except BaseException as exc:
             system_elapsed_seconds = max(
                 0.0,
