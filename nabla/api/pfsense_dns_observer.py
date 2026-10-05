@@ -317,7 +317,10 @@ def _policy_state(
 
 
 async def _get_data(client: httpx.AsyncClient, path: str) -> object:
-    response = await client.get(path)
+    response = await client.get(
+        path,
+        headers=probe_headers("pfsense-posture"),
+    )
     response.raise_for_status()
     return _response_data(response.json())
 
@@ -384,11 +387,7 @@ async def _observe_posture_origin_bounded(
     )
     async with httpx.AsyncClient(
         base_url=settings.base_url,
-        headers={
-            "X-API-Key": settings.api_key,
-            "Accept": "application/json",
-            **probe_headers("pfsense-posture"),
-        },
+        headers={"X-API-Key": settings.api_key, "Accept": "application/json"},
         timeout=timeout,
         follow_redirects=False,
         verify=settings.verify_ssl,
