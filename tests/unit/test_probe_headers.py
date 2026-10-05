@@ -19,6 +19,15 @@ _TRACEPARENT = re.compile(r"^00-[0-9a-f]{32}-[0-9a-f]{16}-00$")
 def test_probe_headers_use_bounded_custom_fields_and_w3c_traceparent(
     monkeypatch,
 ) -> None:
+    class NoContextPropagator:
+        def inject(self, carrier) -> None:
+            del carrier
+
+    monkeypatch.setattr(
+        probe_headers,
+        "TraceContextTextMapPropagator",
+        NoContextPropagator,
+    )
     monkeypatch.setenv("NABLA_PROBE_SOURCE", "fastapi-cloud")
 
     headers = probe_headers.probe_headers("pfsense-posture")
@@ -27,6 +36,7 @@ def test_probe_headers_use_bounded_custom_fields_and_w3c_traceparent(
     assert headers["Nabla-Probe-Source"] == "fastapi-cloud"
     assert _TRACEPARENT.fullmatch(headers["traceparent"])
     assert not any(name.lower().startswith("x-nabla") for name in headers)
+    assert "baggage" not in headers
 
     next_headers = probe_headers.probe_headers("pfsense-posture")
     assert next_headers["traceparent"] != headers["traceparent"]
