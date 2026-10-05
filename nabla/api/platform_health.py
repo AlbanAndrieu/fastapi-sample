@@ -274,8 +274,11 @@ async def check_pfsense_api() -> dict[str, Any]:
 
 def _cache_with_stale_evidence(cached: ProbeCacheResult) -> dict[str, Any]:
     value = dict(cached.value)
+    policy_disabled = value.get("authenticated_probes_enabled") is False
     current_failure = value.get("reachable") is False
-    current_unconfirmed = value.get("status_confirmed") is False
+    current_unconfirmed = (
+        value.get("status_confirmed") is False and not policy_disabled
+    )
     stale_refresh = cached.metadata.get("stale") is True
     use_last_good = (current_failure or current_unconfirmed or stale_refresh) and cached.last_good is not None
     if use_last_good:
@@ -291,9 +294,26 @@ def _cache_with_stale_evidence(cached: ProbeCacheResult) -> dict[str, Any]:
     return value
 
 
+def _pfsense_probe_disabled(value: dict[str, Any]) -> bool:
+    """Return whether policy intentionally suppresses authenticated pfSense I/O."""
+    return (
+        value.get("authenticated_probes_enabled") is False
+        and value.get("observation_mode") == "transport_only"
+        and value.get("skipped") is True
+    )
+
+
 def _pfsense_cache_success(value: dict[str, Any]) -> bool:
-    """Keep confirmed authentication rejections as current warning evidence."""
-    return value.get("state") in {"ok", "warn"} and value.get("transport_reachable") is True
+    """Treat deliberate suppression and confirmed HTTP evidence as current."""
+    return _pfsense_probe_disabled(value) or (
+        value.get("state") in {"ok", "warn"}
+        and value.get("transport_reachable") is True
+    )
+
+
+def _pfsense_provider_success(value: dict[str, Any]) -> bool:
+    """Do not trip provider circuits when policy intentionally skips the origin."""
+    return _pfsense_probe_disabled(value) or value.get("transport_reachable") is True
 
 
 async def get_pfsense_api_snapshot() -> dict[str, Any]:
@@ -303,7 +323,7 @@ async def get_pfsense_api_snapshot() -> dict[str, Any]:
         check_pfsense_api,
         is_success=_pfsense_cache_success,
         policy=_PFSENSE_CACHE_POLICY,
-        is_provider_success=lambda value: value.get("transport_reachable") is True,
+        is_provider_success=_pfsense_provider_success,
     )
     return _cache_with_stale_evidence(cached)
 
