@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 import secrets
 
+from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
+
 _ALLOWED_SOURCES = frozenset({"fastapi-cloud", "truenas", "workstation", "unknown"})
 
 
@@ -32,6 +34,19 @@ def new_traceparent() -> str:
     return f"00-{trace_id}-{parent_id}-00"
 
 
+def _trace_headers() -> dict[str, str]:
+    """Propagate active OTel trace context, with a standalone fallback."""
+    carrier: dict[str, str] = {}
+    TraceContextTextMapPropagator().inject(carrier)
+    if "traceparent" not in carrier:
+        carrier["traceparent"] = new_traceparent()
+    return {
+        key: value
+        for key, value in carrier.items()
+        if key in {"traceparent", "tracestate"}
+    }
+
+
 def probe_headers(
     probe: str,
     *,
@@ -41,5 +56,5 @@ def probe_headers(
     return {
         "Nabla-Probe": probe,
         "Nabla-Probe-Source": _probe_source(default=default_source),
-        "traceparent": new_traceparent(),
+        **_trace_headers(),
     }
