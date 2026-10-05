@@ -472,7 +472,6 @@ async def test_slow_preflight_skips_deep_posture_fanout(
     }
 
 
-
 @pytest.mark.asyncio
 async def test_fast_preflight_exposes_elapsed_without_skipping(
     monkeypatch,
