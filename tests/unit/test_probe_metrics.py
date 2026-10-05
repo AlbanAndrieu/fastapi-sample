@@ -105,6 +105,7 @@ def test_probe_in_flight_gauge_balances() -> None:
     probe_metrics.probe_finished()
     assert _gauge_value(probe_metrics.PROBES_IN_FLIGHT) == before
 
+
 def test_provider_capacity_metrics_use_bounded_labels() -> None:
     before_count = next(
         float(sample.value)
