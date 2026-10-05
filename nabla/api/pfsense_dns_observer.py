@@ -15,6 +15,10 @@ from nabla.api.provider_probe_policies import (
     PFSENSE_POSTURE_CACHE_POLICY as _PFSENSE_POSTURE_CACHE_POLICY,
 )
 from nabla.api.pfsense_security_observer import observe_pfsense_ingress_block
+from nabla.api.probe_metrics import (
+    observe_pfsense_preflight_duration,
+    record_pfsense_protective_skip,
+)
 from nabla.api.provider_credentials import inspect_environment_credentials
 from nabla.api.probe_headers import probe_request_headers
 from nabla.settings.homelab import (
@@ -394,7 +398,16 @@ async def _observe_posture_origin_bounded(
         try:
             system_observation = await _get_data(client, system_path)
         except BaseException as exc:
+            system_elapsed_seconds = max(
+                0.0,
+                time.perf_counter() - system_started,
+            )
             if _http_status_from_error(exc) == 401:
+                observe_pfsense_preflight_duration(
+                    outcome="auth_rejected",
+                    duration_seconds=system_elapsed_seconds,
+                )
+                record_pfsense_protective_skip("authentication_failure")
                 skipped = {
                     name: {
                         "observed": False,
@@ -432,13 +445,23 @@ async def _observe_posture_origin_bounded(
                     "error": "HTTP 401",
                     "auth_fail_fast": True,
                 }
+            observe_pfsense_preflight_duration(
+                outcome="failure",
+                duration_seconds=system_elapsed_seconds,
+            )
             observations = {"system": exc}
         else:
-            system_elapsed_ms = max(
-                0,
-                round((time.perf_counter() - system_started) * 1000),
+            system_elapsed_seconds = max(
+                0.0,
+                time.perf_counter() - system_started,
             )
+            observe_pfsense_preflight_duration(
+                outcome="success",
+                duration_seconds=system_elapsed_seconds,
+            )
+            system_elapsed_ms = round(system_elapsed_seconds * 1000)
             if system_elapsed_ms >= round(_PFSENSE_SLOW_PREFLIGHT_SEC * 1000):
+                record_pfsense_protective_skip("slow_preflight")
                 skipped = {
                     name: {
                         "observed": False,
