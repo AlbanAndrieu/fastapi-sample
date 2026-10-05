@@ -588,7 +588,6 @@ async def test_posture_http_requests_get_distinct_correlation_ids(
     assert "X-API-Key" not in caplog.text
 
 
-
 @pytest.mark.asyncio
 async def test_deep_posture_fanout_never_exceeds_configured_concurrency(
     monkeypatch,
