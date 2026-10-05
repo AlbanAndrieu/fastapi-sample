@@ -100,6 +100,8 @@ Runbook:
     - [x] Export fixed-cardinality pfREST request-rate and in-flight metrics for
       `preflight|deep`; slow/auth-rejected preflights emit no deep request and
       normal posture refreshes remain one preflight plus three bounded deep reads.
+    - [x] Exercise the deep-read semaphore with more candidate reads than the
+      production fan-out and prove observed concurrency never exceeds 2.
     - [ ] Collect a sustained TrueNAS-runtime baseline and correlate p95/p99,
       skip rate, provider in-flight work and pfSense CPU/RAM/PHP-FPM/FastCGI
       evidence before changing the 2.5 s threshold.
