@@ -36,6 +36,22 @@ same probes externally.
 Do not treat failure of one runtime as proof that another runtime is unhealthy.
 Record the runtime mode and observer scope actually tested.
 
+## pfSense host configuration source of authority
+
+FastAPI Sample owns the observer behavior, not the complete pfSense appliance
+configuration. For current Netgate 1100 sizing, PHP-FPM limits, memory incidents,
+Snort/pfBlockerNG/Unbound budgets and supported pfSense recovery procedures,
+consult `AlbanAndrieu/nabla-compose`, especially:
+
+- `docs/pfsense-php-fpm-hardening.md`;
+- `docs/pfsense-flow-observability-memory.md`;
+- `docs/pfsense-diagnose-recover.md`;
+- `.agents/skills/pfsense-api-debugging/SKILL.md`.
+
+Do not increase FastAPI probe rate, concurrency or endpoint depth based only on
+this repository. Revalidate the appliance constraints in `nabla-compose`
+first, particularly after pfSense upgrades.
+
 ## CLI execution contract
 
 Always execute the project-pinned FastAPI/FastAPI Cloud CLI through the repository toolchain:
