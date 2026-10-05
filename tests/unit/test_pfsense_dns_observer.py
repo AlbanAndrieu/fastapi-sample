@@ -373,7 +373,6 @@ async def test_posture_401_keeps_firewall_path_warning(
     assert "authentication failed" in filters["firewall"]["detail"]
 
 
-
 @pytest.mark.asyncio
 async def test_authenticated_pfsense_probes_can_be_disabled_for_cloud(
     monkeypatch,
