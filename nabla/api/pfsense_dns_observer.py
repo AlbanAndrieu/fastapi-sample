@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -27,6 +28,7 @@ DNSPolicyState = Literal["ok", "warn", "fail", "unknown"]
 _PFSENSE_CONNECT_TIMEOUT_SEC = 2.0
 _PFSENSE_READ_TIMEOUT_SEC = 4.0
 _PFSENSE_POSTURE_DEADLINE_SEC = 8.0
+_PFSENSE_SLOW_PREFLIGHT_SEC = 2.5
 _PFSENSE_MAX_CONCURRENCY = 2
 _PFSENSE_POSTURE_CACHE_KEY = "pfsense:posture"
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
@@ -387,6 +389,7 @@ async def _observe_posture_origin_bounded(
         verify=settings.verify_ssl,
     ) as client:
         system_path = paths["system"]
+        system_started = time.perf_counter()
         try:
             system_observation = await _get_data(client, system_path)
         except BaseException as exc:
@@ -430,6 +433,51 @@ async def _observe_posture_origin_bounded(
                 }
             observations = {"system": exc}
         else:
+            system_elapsed_ms = max(
+                0,
+                round((time.perf_counter() - system_started) * 1000),
+            )
+            if system_elapsed_ms >= round(_PFSENSE_SLOW_PREFLIGHT_SEC * 1000):
+                skipped = {
+                    name: {
+                        "observed": False,
+                        "error": "skipped_after_slow_preflight",
+                    }
+                    for name in paths
+                    if name != "system"
+                }
+                return {
+                    "reachable": True,
+                    "transport_reachable": True,
+                    "api_authenticated": True,
+                    "api_evidence_state": "partial",
+                    "successful_endpoint_count": 1,
+                    "endpoint_count": len(paths),
+                    "endpoint_status": {
+                        "system": {
+                            "observed": True,
+                            "elapsed_ms": system_elapsed_ms,
+                        },
+                        **skipped,
+                    },
+                    "services_observed": False,
+                    "services": [],
+                    "service_summary": {
+                        "running": 0,
+                        "stopped": 0,
+                        "unknown": 0,
+                        "total": 0,
+                    },
+                    "resolver": {},
+                    "upstreams": [],
+                    "control_plane_state": "slow",
+                    "control_plane_elapsed_ms": system_elapsed_ms,
+                    "deep_probe_skipped": True,
+                    "reason": (
+                        "pfSense API preflight is slow; deeper posture fan-out "
+                        "was skipped to protect the appliance"
+                    ),
+                }
             observations = {"system": system_observation}
 
         remaining_paths = {
