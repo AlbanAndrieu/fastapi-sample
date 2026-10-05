@@ -540,7 +540,6 @@ async def test_fast_preflight_exposes_elapsed_without_skipping(
     assert result["endpoint_status"]["system"]["elapsed_ms"] == 800
 
 
-
 @pytest.mark.asyncio
 async def test_posture_http_requests_get_distinct_correlation_ids() -> None:
     seen_headers: list[dict[str, str]] = []
