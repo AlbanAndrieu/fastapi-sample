@@ -586,3 +586,39 @@ async def test_posture_http_requests_get_distinct_correlation_ids(
     assert seen_headers[1]["Nabla-Probe-Request-ID"] in caplog.text
     assert "test-only-key" not in caplog.text
     assert "X-API-Key" not in caplog.text
+
+
+
+@pytest.mark.asyncio
+async def test_deep_posture_fanout_never_exceeds_configured_concurrency(
+    monkeypatch,
+) -> None:
+    active = 0
+    peak = 0
+
+    async def measured(_client, path: str, *, phase: str):
+        nonlocal active, peak
+        assert phase == "deep"
+        active += 1
+        peak = max(peak, active)
+        try:
+            await asyncio.sleep(0.01)
+            return {"path": path}
+        finally:
+            active -= 1
+
+    monkeypatch.setattr(
+        pfsense_dns_observer,
+        "_measured_get_data",
+        measured,
+    )
+    paths = {f"probe_{index}": f"/probe/{index}" for index in range(6)}
+
+    result = await pfsense_dns_observer._bounded_observations(
+        None,  # type: ignore[arg-type]
+        paths,
+    )
+
+    assert peak == pfsense_dns_observer._PFSENSE_MAX_CONCURRENCY == 2
+    assert set(result) == set(paths)
+    assert active == 0
