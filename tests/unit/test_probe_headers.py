@@ -2,6 +2,8 @@
 
 import re
 
+from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags, TraceState, use_span
+
 from nabla.api import probe_headers
 
 
@@ -42,3 +44,21 @@ def test_invalid_configured_source_fails_closed_to_default(monkeypatch) -> None:
     )
 
     assert headers["Nabla-Probe-Source"] == "workstation"
+
+
+def test_probe_headers_propagate_active_otel_context(monkeypatch) -> None:
+    monkeypatch.setenv("NABLA_PROBE_SOURCE", "truenas")
+    span_context = SpanContext(
+        trace_id=int("1234567890abcdef1234567890abcdef", 16),
+        span_id=int("1234567890abcdef", 16),
+        is_remote=False,
+        trace_flags=TraceFlags(TraceFlags.SAMPLED),
+        trace_state=TraceState(),
+    )
+
+    with use_span(NonRecordingSpan(span_context), end_on_exit=False):
+        headers = probe_headers.probe_headers("pfsense-posture")
+
+    assert headers["traceparent"] == (
+        "00-1234567890abcdef1234567890abcdef-1234567890abcdef-01"
+    )
