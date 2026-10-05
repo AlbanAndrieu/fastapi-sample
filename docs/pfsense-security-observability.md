@@ -62,6 +62,54 @@ FastAPI Sample protects the appliance instead of increasing probe pressure:
 - keep the 2.5 s threshold provisional until correlated p95/p99 and appliance
   saturation evidence is available.
 
+### Passive preflight latency evidence
+
+The observer records the request it already performs; metrics collection does
+not add a pfSense call.
+
+Relevant fixed-cardinality metrics:
+
+```text
+nabla_pfsense_preflight_duration_seconds
+nabla_pfsense_protective_skips_total
+nabla_external_provider_origins_in_flight{provider="pfsense"}
+nabla_external_provider_rate_budget_utilization_ratio{provider="pfsense"}
+```
+
+The preflight histogram has only the outcomes `success`, `auth_rejected`
+and `failure`. Explicit buckets around 2.0 s, 2.5 s and 3.0 s make the current
+protection boundary observable without introducing request IDs, addresses or
+trace IDs as metric labels.
+
+Example 30-minute p95:
+
+```promql
+histogram_quantile(
+  0.95,
+  sum by (le) (
+    rate(
+      nabla_pfsense_preflight_duration_seconds_bucket{
+        outcome="success"
+      }[30m]
+    )
+  )
+)
+```
+
+Use the same expression with `0.99` for p99. Protection frequency:
+
+```promql
+sum by (reason) (
+  rate(nabla_pfsense_protective_skips_total[30m])
+)
+```
+
+Do not tune `_PFSENSE_SLOW_PREFLIGHT_SEC` from latency metrics alone. Correlate
+the same time window with current pfSense PHP-FPM worker RSS/CPU, free memory,
+FastCGI listen-queue evidence and kernel reclaim/OOM logs documented in
+`nabla-compose`. A high application p95 without appliance saturation does not
+by itself prove that the PHP-FPM pool is undersized.
+
 ## Validate deployed keys from the TrueNAS runtime
 
 A workstation timeout before TCP/TLS does not validate or invalidate an API key.
