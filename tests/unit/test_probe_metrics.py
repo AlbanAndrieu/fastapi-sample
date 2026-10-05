@@ -255,3 +255,56 @@ def test_invalid_pfsense_metric_values_do_not_create_series() -> None:
 
     assert _series(probe_metrics.PFSENSE_PREFLIGHT_DURATION) == duration_series
     assert _series(probe_metrics.PFSENSE_PROTECTIVE_SKIPS) == skip_series
+
+
+
+def test_pfsense_request_metrics_are_bounded_and_balanced() -> None:
+    before_count = _counter_value(
+        probe_metrics.PFSENSE_API_REQUESTS,
+        phase="preflight",
+    )
+    before_in_flight = _gauge_value(
+        probe_metrics.PFSENSE_API_REQUESTS_IN_FLIGHT,
+        phase="preflight",
+    )
+    counter_series = _series(probe_metrics.PFSENSE_API_REQUESTS)
+    in_flight_series = _series(probe_metrics.PFSENSE_API_REQUESTS_IN_FLIGHT)
+
+    probe_metrics.pfsense_api_request_started("preflight")
+
+    assert (
+        _counter_value(
+            probe_metrics.PFSENSE_API_REQUESTS,
+            phase="preflight",
+        )
+        == before_count + 1
+    )
+    assert (
+        _gauge_value(
+            probe_metrics.PFSENSE_API_REQUESTS_IN_FLIGHT,
+            phase="preflight",
+        )
+        == before_in_flight + 1
+    )
+
+    probe_metrics.pfsense_api_request_finished("preflight")
+
+    assert (
+        _gauge_value(
+            probe_metrics.PFSENSE_API_REQUESTS_IN_FLIGHT,
+            phase="preflight",
+        )
+        == before_in_flight
+    )
+
+    probe_metrics.pfsense_api_request_started("dynamic-user-value")
+    probe_metrics.pfsense_api_request_finished("dynamic-user-value")
+
+    assert _series(probe_metrics.PFSENSE_API_REQUESTS) == (
+        counter_series
+        | {(("phase", "preflight"),)}
+    )
+    assert _series(probe_metrics.PFSENSE_API_REQUESTS_IN_FLIGHT) == (
+        in_flight_series
+        | {(("phase", "preflight"),)}
+    )
