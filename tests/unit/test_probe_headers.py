@@ -20,6 +20,9 @@ def test_probe_headers_use_bounded_custom_fields_and_w3c_traceparent(
     assert _TRACEPARENT.fullmatch(headers["traceparent"])
     assert not any(name.lower().startswith("x-nabla") for name in headers)
 
+    next_headers = probe_headers.probe_headers("pfsense-posture")
+    assert next_headers["traceparent"] != headers["traceparent"]
+
 
 def test_homelab_runtime_is_attributed_to_truenas(monkeypatch) -> None:
     monkeypatch.delenv("NABLA_PROBE_SOURCE", raising=False)
