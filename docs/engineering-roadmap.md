@@ -94,7 +94,19 @@ Runbook:
     metadata as an authorization signal.
 - [ ] Inventory Uptime Kuma/Gatus/AutoKuma so no monitor performs expensive
   pfSense deep-status requests.
-- [ ] Remove the shared-WAN Snort attribution blind spot.
+  - [x] Current `nabla-compose` generated Gatus and AutoKuma monitors use only
+    TCP `172.17.0.1:10443` for pfSense and TCP `:9945` for the pfSense
+    exporter; AutoKuma explicitly forbids exporter `/metrics` health checks
+    because they fan out into pfREST.
+  - [ ] Reconcile the latent `nabla-compose/apps/crowdsec/compose.yml`
+    `pfsense.monitoring` metadata, which still declares HTTP
+    `/api/v2/system/version`, with the lightweight TCP monitoring policy so a
+    future catalog-consumer regeneration cannot reintroduce periodic pfREST
+    load.
+- [x] Remove the shared-WAN Snort attribution blind spot from the authoritative
+  observer path: TrueNAS/homelab uses the LAN/split-DNS `out_of_band` control
+  path for pfSense API evidence, while FastAPI Cloud authenticated pfSense
+  probes remain disabled and WAN reachability is observed separately.
 - [ ] After an independent pfSense observer path is accepted, expand the
   sanitized posture with interfaces/gateways, firewall/NAT and DNS policy;
   query VPN, logs and private inventory only for explicit operational needs.
