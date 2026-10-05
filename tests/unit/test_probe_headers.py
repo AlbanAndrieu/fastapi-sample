@@ -1,0 +1,41 @@
+"""Contracts for outbound diagnostic probe provenance headers."""
+
+import re
+
+from nabla.api import probe_headers
+
+
+_TRACEPARENT = re.compile(r"^00-[0-9a-f]{32}-[0-9a-f]{16}-00$")
+
+
+def test_probe_headers_use_bounded_custom_fields_and_w3c_traceparent(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("NABLA_PROBE_SOURCE", "fastapi-cloud")
+
+    headers = probe_headers.probe_headers("pfsense-posture")
+
+    assert headers["Nabla-Probe"] == "pfsense-posture"
+    assert headers["Nabla-Probe-Source"] == "fastapi-cloud"
+    assert _TRACEPARENT.fullmatch(headers["traceparent"])
+    assert not any(name.lower().startswith("x-nabla") for name in headers)
+
+
+def test_homelab_runtime_is_attributed_to_truenas(monkeypatch) -> None:
+    monkeypatch.delenv("NABLA_PROBE_SOURCE", raising=False)
+    monkeypatch.setenv("FASTAPI_RUNTIME_MODE", "homelab")
+
+    headers = probe_headers.probe_headers("pfsense-security")
+
+    assert headers["Nabla-Probe-Source"] == "truenas"
+
+
+def test_invalid_configured_source_fails_closed_to_default(monkeypatch) -> None:
+    monkeypatch.setenv("NABLA_PROBE_SOURCE", "bad\r\ninjected: value")
+
+    headers = probe_headers.probe_headers(
+        "pfsense-auth-smoke",
+        default_source="workstation",
+    )
+
+    assert headers["Nabla-Probe-Source"] == "workstation"
