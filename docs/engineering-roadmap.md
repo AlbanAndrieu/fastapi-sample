@@ -107,6 +107,11 @@ Runbook:
     `Nabla-Probe-Origin`, `Nabla-Probe-Name`, `Nabla-Probe-Request-ID`
     and W3C trace context fields, without logging API keys or treating probe
     metadata as an authorization signal.
+    - [x] Generate correlation metadata per HTTP request rather than once per
+      shared client; keep `X-API-Key` separate from those headers.
+    - [ ] Implement the bounded generated-nginx/pfREST log capture in
+      `nabla-compose`, then prove one TrueNAS request ID across client/server
+      evidence without exposing secrets.
 - [x] Inventory Uptime Kuma/Gatus/AutoKuma: current generated monitors use only
   TCP `172.17.0.1:10443` for pfSense and TCP `:9945` for the pfSense
   exporter; AutoKuma explicitly forbids exporter `/metrics` health checks
