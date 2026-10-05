@@ -118,7 +118,7 @@ jobs:
           uv run fastapi cloud env set BUILD_REVISION "${BUILD_REVISION}" .
           uv run fastapi cloud env set PFSENSE_POSTURE_API_VERIFY_SSL true .
           uv run fastapi cloud env set PFSENSE_SECURITY_API_VERIFY_SSL true .
-          uv run fastapi cloud env set PFSENSE_AUTHENTICATED_PROBES_ENABLED true .
+          uv run fastapi cloud env set PFSENSE_AUTHENTICATED_PROBES_ENABLED false .
           uv run fastapi deploy
 
       - name: Verify production release and catalog
