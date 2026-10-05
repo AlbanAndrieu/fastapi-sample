@@ -41,6 +41,14 @@ def test_homelab_runtime_is_attributed_to_truenas(monkeypatch) -> None:
     assert headers["Nabla-Probe-Source"] == "truenas"
 
 
+def test_invalid_probe_identity_fails_closed(monkeypatch) -> None:
+    monkeypatch.setenv("NABLA_PROBE_SOURCE", "truenas")
+
+    headers = probe_headers.probe_headers("bad\r\ninjected: value")
+
+    assert headers["Nabla-Probe"] == "unknown"
+
+
 def test_invalid_configured_source_fails_closed_to_default(monkeypatch) -> None:
     monkeypatch.setenv("NABLA_PROBE_SOURCE", "bad\r\ninjected: value")
 
