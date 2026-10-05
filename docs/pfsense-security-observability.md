@@ -76,6 +76,45 @@ TLS verification stays enabled. An explicit internal/self-signed endpoint may
 override verification independently for the security/posture client, but this
 must not affect `/sickz` transport-vs-TLS evidence semantics.
 
+### Probe identification and distributed tracing
+
+pfSense HTTP probes carry passive request metadata for correlation only:
+
+```text
+User-Agent: fastapi-sample-health/1.0
+Nabla-Probe-Origin: fastapi-cloud | truenas | workstation | cloud-paas
+Nabla-Probe-Name: pfsense-posture | pfsense-security | pfsense-auth-<identity>
+Nabla-Probe-Request-ID: <random UUID>
+traceparent: <W3C Trace Context, only when an active span exists>
+tracestate: <optional W3C Trace Context>
+```
+
+These headers **must never** grant access, bypass Snort/PF, select a privileged
+code path or replace the dedicated `X-API-Key`. They are spoofable diagnostic
+labels. Authentication and authorization remain entirely independent.
+
+Do not create new `X-Nabla-*` fields: RFC 6648 deprecates the `X-`
+convention for newly defined protocol parameters. Do not synthesize Cloudflare
+fields such as `CF-Ray` or `CF-Connecting-IP`; those identify Cloudflare's
+edge/origin path and are meaningful only when supplied by Cloudflare.
+
+Trace propagation uses the W3C Trace Context fields directly. The probe helper
+does not inject W3C `baggage`: baggage is application-defined, propagates
+downstream and can cross trust boundaries, so it is unnecessary for appliance
+health metadata.
+
+References:
+
+- RFC 6648: <https://www.rfc-editor.org/rfc/rfc6648>
+- RFC 9110 User-Agent: <https://www.rfc-editor.org/rfc/rfc9110#name-user-agent>
+- W3C Trace Context: <https://www.w3.org/TR/trace-context/>
+- OpenTelemetry Python propagation:
+  <https://opentelemetry.io/docs/languages/python/propagation/>
+- W3C Baggage security/privacy:
+  <https://www.w3.org/TR/baggage/#security-considerations>
+- Cloudflare request headers:
+  <https://developers.cloudflare.com/fundamentals/reference/http-headers/>
+
 ### Post-upgrade API-key recovery
 
 A pfSense/REST API package upgrade can leave previously deployed runtime keys
@@ -177,6 +216,31 @@ If `KeyAuth` is enabled, both key records exist under enabled expected users,
 and the runtime still receives 401, revoke those two records and generate fresh
 keys, copying the `data.key` value returned at creation exactly once. Do not
 copy the stored hash, an ID, or a masked UI value.
+
+## FastAPI Cloud transport-only policy
+
+FastAPI Cloud must not use pfSense REST API credentials as a liveness vantage
+point. Production deployment therefore sets:
+
+```text
+PFSENSE_AUTHENTICATED_PROBES_ENABLED=false
+```
+
+When disabled, the direct pfSense entry in `/healthz` is intentionally
+`unknown`/unconfirmed with `observation_mode=transport_only` and
+`credential_mode=disabled`. The application must not instantiate the pfSense
+HTTP client, send `X-API-Key`, consume provider rate budget or trip the provider
+circuit breaker in this mode. A prior authenticated last-good value must not
+replace the disabled-policy result from L1/Redis cache.
+
+The trusted TrueNAS runtime remains the authoritative authenticated vantage
+point. FastAPI Cloud may still report independent WAN transport evidence, but a
+Cloud connect timeout is uncertainty rather than proof that pfSense is down.
+
+The dedicated posture/security secrets may remain temporarily present during
+migration, but the disabled policy must make them inert. After deployed
+acceptance confirms the transport-only contract, remove those secrets from the
+FastAPI Cloud runtime rather than relying on unused credentials indefinitely.
 
 ## Shared-WAN blind spot
 
