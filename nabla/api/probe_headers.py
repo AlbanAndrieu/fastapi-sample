@@ -5,9 +5,25 @@ from __future__ import annotations
 import os
 import secrets
 
-from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
+from opentelemetry.trace.propagation.tracecontext import (
+    TraceContextTextMapPropagator,
+)
 
+_ALLOWED_PROBES = frozenset(
+    {
+        "pfsense-posture",
+        "pfsense-security",
+        "pfsense-posture-auth-smoke",
+        "pfsense-security-auth-smoke",
+        "unknown",
+    },
+)
 _ALLOWED_SOURCES = frozenset({"fastapi-cloud", "truenas", "workstation", "unknown"})
+
+
+def _probe_name(value: str) -> str:
+    normalized = value.strip().lower()
+    return normalized if normalized in _ALLOWED_PROBES else "unknown"
 
 
 def _probe_source(*, default: str = "unknown") -> str:
@@ -54,7 +70,7 @@ def probe_headers(
 ) -> dict[str, str]:
     """Build non-authentication metadata for an outbound diagnostic request."""
     return {
-        "Nabla-Probe": probe,
+        "Nabla-Probe": _probe_name(probe),
         "Nabla-Probe-Source": _probe_source(default=default_source),
         **_trace_headers(),
     }
