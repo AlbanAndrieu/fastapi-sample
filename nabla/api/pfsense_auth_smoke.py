@@ -10,6 +10,7 @@ from typing import Literal
 import httpx
 from pydantic import ValidationError
 
+from nabla.api.probe_headers import probe_request_headers
 from nabla.settings.homelab import (
     PfSensePostureProviderSettings,
     PfSenseSecurityProviderSettings,
@@ -99,7 +100,10 @@ def _probe_identity(
     timeout = httpx.Timeout(connect=3.0, read=6.0, write=3.0, pool=3.0)
     with httpx.Client(
         base_url=base_url,
-        headers={"X-API-Key": settings.api_key, "Accept": "application/json"},
+        headers={
+            **probe_request_headers(f"pfsense-auth-{identity}"),
+            "X-API-Key": settings.api_key,
+        },
         timeout=timeout,
         follow_redirects=False,
         verify=verify_ssl,
