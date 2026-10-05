@@ -18,6 +18,7 @@ class _ReadTimeoutClient(httpx.AsyncClient):
 def _configure_pfsense(monkeypatch) -> None:
     monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example")
     monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "posture-key")
+    monkeypatch.setenv("PFSENSE_AUTHENTICATED_PROBES_ENABLED", "true")
 
 
 @pytest.mark.asyncio
