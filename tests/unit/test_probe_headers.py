@@ -80,7 +80,6 @@ def test_blank_probe_name_is_rejected() -> None:
         raise AssertionError("blank probe name must fail closed")
 
 
-
 def test_probe_request_id_is_unique_per_http_request(monkeypatch) -> None:
     _clear_runtime_markers(monkeypatch)
     monkeypatch.setenv("FASTAPI_RUNTIME_MODE", "homelab")
