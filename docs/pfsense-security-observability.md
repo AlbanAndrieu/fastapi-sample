@@ -15,7 +15,8 @@ Open implementation work belongs in
 This repository owns the **FastAPI observer contract**, not the complete pfSense
 host configuration. Before changing pfSense probe rate, concurrency, endpoint
 depth, timeout policy or interpreting a control-plane slowdown, consult the
-current pfSense documentation in `AlbanAndrieu/nabla-compose`.
+current pfSense documentation in
+[AlbanAndrieu/nabla-compose](https://github.com/AlbanAndrieu/nabla-compose).
 
 Canonical cross-repository references:
 
