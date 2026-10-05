@@ -541,8 +541,11 @@ async def test_fast_preflight_exposes_elapsed_without_skipping(
 
 
 @pytest.mark.asyncio
-async def test_posture_http_requests_get_distinct_correlation_ids() -> None:
+async def test_posture_http_requests_get_distinct_correlation_ids(
+    caplog,
+) -> None:
     seen_headers: list[dict[str, str]] = []
+    caplog.set_level("DEBUG", logger=pfsense_dns_observer.__name__)
 
     class FakeResponse:
         def raise_for_status(self) -> None:
@@ -579,3 +582,7 @@ async def test_posture_http_requests_get_distinct_correlation_ids() -> None:
         != seen_headers[1]["Nabla-Probe-Request-ID"]
     )
     assert all("X-API-Key" not in headers for headers in seen_headers)
+    assert seen_headers[0]["Nabla-Probe-Request-ID"] in caplog.text
+    assert seen_headers[1]["Nabla-Probe-Request-ID"] in caplog.text
+    assert "test-only-key" not in caplog.text
+    assert "X-API-Key" not in caplog.text
