@@ -78,7 +78,10 @@ Runbook:
     budget and preserve measured HTTP evidence when auxiliary diagnostics time out.
   - [x] Compare hostname TLS with direct WAN-IP+SNI on port 7000 so DNS/edge
     drift is distinguishable from pfSense/HAProxy failure.
-- [ ] Define a fixed-cardinality production p95 latency target.
+- [x] Define the provisional fixed-cardinality pfSense control-plane target:
+  successful `system.version` preflight p95 <2.0 s over 30 minutes; keep the
+  separate 2.5 s per-request protection threshold and do not claim the target is
+  met until a sustained TrueNAS baseline is collected.
 - [ ] Prove appliance degradation cannot exhaust FastAPI workers or create probe
   bursts.
   - [x] Fail fast on pfSense HTTP 401 so one rejected posture key does not fan
