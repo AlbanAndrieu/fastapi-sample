@@ -538,3 +538,45 @@ async def test_fast_preflight_exposes_elapsed_without_skipping(
     assert result["control_plane_elapsed_ms"] == 800
     assert result["deep_probe_skipped"] is False
     assert result["endpoint_status"]["system"]["elapsed_ms"] == 800
+
+
+
+@pytest.mark.asyncio
+async def test_posture_http_requests_get_distinct_correlation_ids() -> None:
+    seen_headers: list[dict[str, str]] = []
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, object]:
+            return {"data": {"version": "26.07"}}
+
+    class FakeClient:
+        async def get(
+            self,
+            _path: str,
+            *,
+            headers: dict[str, str],
+        ) -> FakeResponse:
+            seen_headers.append(headers)
+            return FakeResponse()
+
+    client = FakeClient()
+    first = await pfsense_dns_observer._get_data(
+        client,  # type: ignore[arg-type]
+        "/api/v2/system/version",
+    )
+    second = await pfsense_dns_observer._get_data(
+        client,  # type: ignore[arg-type]
+        "/api/v2/system/version",
+    )
+
+    assert first == {"version": "26.07"}
+    assert second == {"version": "26.07"}
+    assert len(seen_headers) == 2
+    assert (
+        seen_headers[0]["Nabla-Probe-Request-ID"]
+        != seen_headers[1]["Nabla-Probe-Request-ID"]
+    )
+    assert all("X-API-Key" not in headers for headers in seen_headers)
