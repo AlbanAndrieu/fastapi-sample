@@ -217,6 +217,31 @@ and the runtime still receives 401, revoke those two records and generate fresh
 keys, copying the `data.key` value returned at creation exactly once. Do not
 copy the stored hash, an ID, or a masked UI value.
 
+## FastAPI Cloud transport-only policy
+
+FastAPI Cloud must not use pfSense REST API credentials as a liveness vantage
+point. Production deployment therefore sets:
+
+```text
+PFSENSE_AUTHENTICATED_PROBES_ENABLED=false
+```
+
+When disabled, the direct pfSense entry in `/healthz` is intentionally
+`unknown`/unconfirmed with `observation_mode=transport_only` and
+`credential_mode=disabled`. The application must not instantiate the pfSense
+HTTP client, send `X-API-Key`, consume provider rate budget or trip the provider
+circuit breaker in this mode. A prior authenticated last-good value must not
+replace the disabled-policy result from L1/Redis cache.
+
+The trusted TrueNAS runtime remains the authoritative authenticated vantage
+point. FastAPI Cloud may still report independent WAN transport evidence, but a
+Cloud connect timeout is uncertainty rather than proof that pfSense is down.
+
+The dedicated posture/security secrets may remain temporarily present during
+migration, but the disabled policy must make them inert. After deployed
+acceptance confirms the transport-only contract, remove those secrets from the
+FastAPI Cloud runtime rather than relying on unused credentials indefinitely.
+
 ## Shared-WAN blind spot
 
 When FastAPI Cloud queries the public pfSense `:10443` path through the same WAN
