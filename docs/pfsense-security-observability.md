@@ -72,6 +72,8 @@ Relevant fixed-cardinality metrics:
 ```text
 nabla_pfsense_preflight_duration_seconds
 nabla_pfsense_protective_skips_total
+nabla_pfsense_api_requests_total
+nabla_pfsense_api_requests_in_flight
 nabla_external_provider_origins_in_flight{provider="pfsense"}
 nabla_external_provider_rate_budget_utilization_ratio{provider="pfsense"}
 ```
@@ -103,6 +105,29 @@ sum by (reason) (
   rate(nabla_pfsense_protective_skips_total[30m])
 )
 ```
+
+Actual pfREST request rate, separated into the fixed `preflight` and `deep`
+phases:
+
+```promql
+sum by (phase) (
+  rate(nabla_pfsense_api_requests_total[30m])
+)
+```
+
+Maximum observed in-flight pfREST work during the same window:
+
+```promql
+max by (phase) (
+  max_over_time(nabla_pfsense_api_requests_in_flight[30m])
+)
+```
+
+A protected slow or authentication-rejected refresh must show a preflight
+request without a corresponding deep-request burst. A normal complete posture
+refresh performs one preflight plus the three configured deep reads. The deep
+reads are additionally constrained by the in-process semaphore
+`_PFSENSE_MAX_CONCURRENCY=2`.
 
 Do not tune `_PFSENSE_SLOW_PREFLIGHT_SEC` from latency metrics alone. Correlate
 the same time window with current pfSense PHP-FPM worker RSS/CPU, free memory,
