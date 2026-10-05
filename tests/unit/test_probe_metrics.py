@@ -257,7 +257,6 @@ def test_invalid_pfsense_metric_values_do_not_create_series() -> None:
     assert _series(probe_metrics.PFSENSE_PROTECTIVE_SKIPS) == skip_series
 
 
-
 def test_pfsense_request_metrics_are_bounded_and_balanced() -> None:
     before_count = _counter_value(
         probe_metrics.PFSENSE_API_REQUESTS,
