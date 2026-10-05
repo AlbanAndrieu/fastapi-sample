@@ -10,6 +10,58 @@ Open implementation work belongs in
 [engineering-roadmap.md](engineering-roadmap.md); dated failures belong in
 [incidents.md](incidents.md).
 
+## pfSense source of authority and appliance limits
+
+This repository owns the **FastAPI observer contract**, not the complete pfSense
+host configuration. Before changing probe rate, concurrency, endpoint depth,
+timeouts or interpreting a control-plane slowdown, consult
+[AlbanAndrieu/nabla-compose](https://github.com/AlbanAndrieu/nabla-compose).
+
+Canonical cross-repository references:
+
+- `docs/pfsense-php-fpm-hardening.md` — PHP-FPM sizing, FastCGI backlog,
+  restart/recovery contract and post-upgrade reconciliation;
+- `docs/pfsense-flow-observability-memory.md` — Netgate 1100 memory budget,
+  Snort/pfBlockerNG/Unbound constraints and observability offload;
+- `docs/pfsense-diagnose-recover.md` — bounded diagnostic/recovery sequence;
+- `.agents/skills/pfsense-api-debugging/SKILL.md` — current portable pfSense
+  operational contract.
+
+The currently documented appliance is a Netgate 1100 with roughly 1 GiB RAM
+and no swap. Historical evidence includes PHP-FPM workers around 48–65 MiB RSS,
+FastCGI socket listen-queue overflow and kernel memory-reclaim/OOM events. The
+reviewed constrained PHP-FPM profile is `max_children=4`,
+`start_servers=1`, `max_spare_servers=2`, `process_idle_timeout=30` and
+`max_requests=500`.
+
+Those values are host/runtime facts and can change after a pfSense upgrade.
+`nabla-compose` is the source to revalidate them; FastAPI Sample must not
+silently override that host policy.
+
+### Current latency interpretation
+
+The 2026-10-04 LAN measurements showed sub-millisecond TCP establishment and
+roughly 17–27 ms TLS setup while pfREST time-to-first-byte varied from about
+0.86 s to 3.46 s. Packet capture showed normal bidirectional TCP/TLS exchange
+without observed kernel packet loss. Most measured delay therefore occurs after
+TLS, inside or behind the pfSense HTTP/pfREST control plane.
+
+Given the previously documented FastCGI backlog and memory pressure, the leading
+hypothesis is PHP-FPM/pfREST queueing or resource saturation, potentially
+amplified by repeated failed KeyAuth/Login Protection work. This is a capacity
+hypothesis, not a proven root cause. Confirm it with fresh post-reboot
+PHP-FPM-worker, `vmstat`, socket/listen-queue and timestamped log evidence
+before changing the Nabla PHP-FPM limits.
+
+FastAPI Sample protects the appliance instead of increasing probe pressure:
+
+- one authenticated `GET /api/v2/system/version` preflight;
+- fail fast on HTTP 401;
+- skip deep posture fan-out when that authenticated preflight takes at least
+  2.5 s;
+- keep the 2.5 s threshold provisional until correlated p95/p99 and appliance
+  saturation evidence is available.
+
 ## Validate deployed keys from the TrueNAS runtime
 
 A workstation timeout before TCP/TLS does not validate or invalidate an API key.
