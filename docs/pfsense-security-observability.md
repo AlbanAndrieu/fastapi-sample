@@ -76,6 +76,45 @@ TLS verification stays enabled. An explicit internal/self-signed endpoint may
 override verification independently for the security/posture client, but this
 must not affect `/sickz` transport-vs-TLS evidence semantics.
 
+### Probe identification and distributed tracing
+
+pfSense HTTP probes carry passive request metadata for correlation only:
+
+```text
+User-Agent: fastapi-sample-health/1.0
+Nabla-Probe-Origin: fastapi-cloud | truenas | workstation | cloud-paas
+Nabla-Probe-Name: pfsense-posture | pfsense-security | pfsense-auth-<identity>
+Nabla-Probe-Request-ID: <random UUID>
+traceparent: <W3C Trace Context, only when an active span exists>
+tracestate: <optional W3C Trace Context>
+```
+
+These headers **must never** grant access, bypass Snort/PF, select a privileged
+code path or replace the dedicated `X-API-Key`. They are spoofable diagnostic
+labels. Authentication and authorization remain entirely independent.
+
+Do not create new `X-Nabla-*` fields: RFC 6648 deprecates the `X-`
+convention for newly defined protocol parameters. Do not synthesize Cloudflare
+fields such as `CF-Ray` or `CF-Connecting-IP`; those identify Cloudflare's
+edge/origin path and are meaningful only when supplied by Cloudflare.
+
+Trace propagation uses the W3C Trace Context fields directly. The probe helper
+does not inject W3C `baggage`: baggage is application-defined, propagates
+downstream and can cross trust boundaries, so it is unnecessary for appliance
+health metadata.
+
+References:
+
+- RFC 6648: <https://www.rfc-editor.org/rfc/rfc6648>
+- RFC 9110 User-Agent: <https://www.rfc-editor.org/rfc/rfc9110#name-user-agent>
+- W3C Trace Context: <https://www.w3.org/TR/trace-context/>
+- OpenTelemetry Python propagation:
+  <https://opentelemetry.io/docs/languages/python/propagation/>
+- W3C Baggage security/privacy:
+  <https://www.w3.org/TR/baggage/#security-considerations>
+- Cloudflare request headers:
+  <https://developers.cloudflare.com/fundamentals/reference/http-headers/>
+
 ### Post-upgrade API-key recovery
 
 A pfSense/REST API package upgrade can leave previously deployed runtime keys
