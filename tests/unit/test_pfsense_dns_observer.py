@@ -470,3 +470,42 @@ async def test_slow_preflight_skips_deep_posture_fanout(
         "observed": False,
         "error": "skipped_after_slow_preflight",
     }
+
+
+
+@pytest.mark.asyncio
+async def test_fast_preflight_exposes_elapsed_without_skipping(
+    monkeypatch,
+    settings,
+) -> None:
+    calls: list[str] = []
+    perf_values = iter((100.0, 100.8))
+
+    async def fake_get_data(_client, path: str):
+        calls.append(path)
+        return {
+            "/api/v2/system/version": {"version": "26.07"},
+            "/api/v2/status/services": [],
+            "/api/v2/services/dns_resolver/settings": {},
+            "/api/v2/system/dns": {"dnsserver": []},
+        }[path]
+
+    monkeypatch.setattr(pfsense_dns_observer, "_get_data", fake_get_data)
+    monkeypatch.setattr(
+        pfsense_dns_observer.time,
+        "perf_counter",
+        lambda: next(perf_values),
+    )
+
+    result = await pfsense_dns_observer._observe_posture_origin_bounded(settings)
+
+    assert set(calls) == {
+        "/api/v2/system/version",
+        "/api/v2/status/services",
+        "/api/v2/services/dns_resolver/settings",
+        "/api/v2/system/dns",
+    }
+    assert result["control_plane_state"] == "ok"
+    assert result["control_plane_elapsed_ms"] == 800
+    assert result["deep_probe_skipped"] is False
+    assert result["endpoint_status"]["system"]["elapsed_ms"] == 800
