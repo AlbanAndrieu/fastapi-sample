@@ -207,7 +207,6 @@ def test_invalid_capacity_measurements_do_not_create_series() -> None:
     assert _series(probe_metrics.PROVIDER_ORIGIN_DURATION) == duration_series
 
 
-
 def test_pfsense_preflight_metrics_are_bounded() -> None:
     before_duration = _histogram_count(
         probe_metrics.PFSENSE_PREFLIGHT_DURATION,
