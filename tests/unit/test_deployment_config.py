@@ -66,7 +66,8 @@ def test_fastapi_cloud_deploy_uses_project_cli() -> None:
     assert 'uv run fastapi cloud env set BUILD_REVISION "${BUILD_REVISION}" .' in deploy
     assert "uv run fastapi cloud env set PFSENSE_POSTURE_API_VERIFY_SSL true ." in deploy
     assert "uv run fastapi cloud env set PFSENSE_SECURITY_API_VERIFY_SSL true ." in deploy
-    assert "uv run fastapi cloud env set PFSENSE_AUTHENTICATED_PROBES_ENABLED true ." in deploy
+    assert "uv run fastapi cloud env set PFSENSE_AUTHENTICATED_PROBES_ENABLED false ." in deploy
+    assert "uv run fastapi cloud env set NABLA_PROBE_SOURCE fastapi-cloud ." in deploy
     assert "uvx fastapi-cloud-cli" not in deploy
 
 
