@@ -394,6 +394,7 @@ async def _observe_posture_origin_bounded(
         verify=settings.verify_ssl,
     ) as client:
         system_path = paths["system"]
+        system_elapsed_ms: int | None = None
         system_started = time.perf_counter()
         try:
             system_observation = await _get_data(client, system_path)
@@ -514,6 +515,8 @@ async def _observe_posture_origin_bounded(
         )
 
     endpoint_status = _endpoint_status(observations)
+    if system_elapsed_ms is not None:
+        endpoint_status["system"]["elapsed_ms"] = system_elapsed_ms
     failures = [(name, value) for name, value in observations.items() if isinstance(value, BaseException)]
     services = observations.get("services")
     resolver = observations.get("resolver")
@@ -555,6 +558,10 @@ async def _observe_posture_origin_bounded(
             ),
         ),
     }
+    if system_elapsed_ms is not None:
+        result["control_plane_state"] = "ok"
+        result["control_plane_elapsed_ms"] = system_elapsed_ms
+        result["deep_probe_skipped"] = False
     if failures:
         stage, error = failures[0]
         result["error_stage"] = stage
