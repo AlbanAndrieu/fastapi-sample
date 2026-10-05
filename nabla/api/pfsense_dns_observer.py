@@ -16,6 +16,7 @@ from nabla.api.provider_probe_policies import (
 )
 from nabla.api.pfsense_security_observer import observe_pfsense_ingress_block
 from nabla.api.provider_credentials import inspect_environment_credentials
+from nabla.api.probe_headers import probe_request_headers
 from nabla.settings.homelab import (
     PfSensePostureProviderSettings,
     PfSenseProbePolicySettings,
@@ -383,7 +384,7 @@ async def _observe_posture_origin_bounded(
     )
     async with httpx.AsyncClient(
         base_url=settings.base_url,
-        headers={"X-API-Key": settings.api_key, "Accept": "application/json"},
+        headers={**probe_request_headers("pfsense-posture"), "X-API-Key": settings.api_key},
         timeout=timeout,
         follow_redirects=False,
         verify=settings.verify_ssl,
