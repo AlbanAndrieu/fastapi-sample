@@ -88,6 +88,11 @@ Runbook:
     skip deeper posture fan-out for that refresh.
   - [ ] Validate the 2.5 s protection threshold against measured p95/p99
     latency and appliance CPU/RAM/PHP-FPM saturation evidence.
+  - [x] Tag outbound pfSense probes with bounded `Nabla-Probe` /
+    `Nabla-Probe-Source` provenance and request-unique W3C `traceparent`.
+  - [ ] Capture those three fields in the appropriate pfSense/HAProxy/nginx
+    diagnostic logs without turning high-cardinality `traceparent` into a
+    metrics label.
 - [ ] Inventory Uptime Kuma/Gatus/AutoKuma so no monitor performs expensive
   pfSense deep-status requests.
 - [ ] Remove the shared-WAN Snort attribution blind spot.
