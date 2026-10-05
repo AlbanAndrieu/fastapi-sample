@@ -23,6 +23,7 @@ from nabla.api.platform_health_diagnostics import (
     utc_now as _utc_now,
 )
 from nabla.api.provider_probe_policies import PFSENSE_LIVENESS_CACHE_POLICY as _PFSENSE_CACHE_POLICY
+from nabla.api.probe_headers import probe_request_headers
 from nabla.api.runtime_environment import fastapi_cloud_runtime_detected
 from nabla.settings.homelab import (
     PfSensePostureProviderSettings,
@@ -172,7 +173,7 @@ async def check_pfsense_api() -> dict[str, Any]:
             try:
                 response = await client.get(
                     url,
-                    headers={"X-API-Key": api_key, "Accept": "application/json"},
+                    headers={**probe_request_headers("pfsense-liveness"), "X-API-Key": api_key},
                 )
                 break
             except (httpx.HTTPError, OSError) as exc:
