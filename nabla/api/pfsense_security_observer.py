@@ -16,6 +16,7 @@ from nabla.api.external_probe_cache import get_or_refresh_probe, reset_probe_cac
 from nabla.api.provider_probe_policies import (
     PFSENSE_SNORT2C_CACHE_POLICY as _SNORT2C_CACHE_POLICY,
 )
+from nabla.api.probe_headers import probe_headers
 from nabla.api.provider_credentials import inspect_environment_credentials
 from nabla.api.public_egress_observer import observe_public_egress_ip
 from nabla.api.truenas_transport_diagnostics import homelab_wan_metadata
@@ -352,7 +353,11 @@ async def _fetch_snort2c(
     attempts = 0
     async with httpx.AsyncClient(
         base_url=settings.base_url,
-        headers={"X-API-Key": settings.api_key, "Accept": "application/json"},
+        headers={
+            "X-API-Key": settings.api_key,
+            "Accept": "application/json",
+            **probe_headers("pfsense-security"),
+        },
         timeout=timeout,
         follow_redirects=False,
         verify=settings.verify_ssl,
