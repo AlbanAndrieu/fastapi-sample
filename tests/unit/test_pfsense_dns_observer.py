@@ -290,6 +290,7 @@ def test_posture_probe_budget_and_failure_backoff_are_bounded() -> None:
     assert pfsense_dns_observer._PFSENSE_CONNECT_TIMEOUT_SEC == 2.0
     assert pfsense_dns_observer._PFSENSE_READ_TIMEOUT_SEC == 4.0
     assert pfsense_dns_observer._PFSENSE_POSTURE_DEADLINE_SEC == 8.0
+    assert pfsense_dns_observer._PFSENSE_SLOW_PREFLIGHT_SEC == 2.5
     assert pfsense_dns_observer._PFSENSE_MAX_CONCURRENCY == 2
     assert pfsense_dns_observer._PFSENSE_POSTURE_CACHE_POLICY.failure_ttl == 120.0
 
@@ -402,3 +403,42 @@ async def test_authenticated_pfsense_probes_can_be_disabled_for_cloud(
     assert result["api_evidence_state"] == "disabled"
     assert result["api_authenticated"] is None
     assert result["ingress_block"]["state"] == "telemetry_disabled"
+
+
+@pytest.mark.asyncio
+async def test_slow_preflight_skips_deep_posture_fanout(
+    monkeypatch,
+    settings,
+) -> None:
+    calls: list[str] = []
+    perf_values = iter((100.0, 103.1))
+
+    async def fake_get_data(_client, path: str):
+        calls.append(path)
+        return {"version": "26.07"}
+
+    monkeypatch.setattr(pfsense_dns_observer, "_get_data", fake_get_data)
+    monkeypatch.setattr(
+        pfsense_dns_observer.time,
+        "perf_counter",
+        lambda: next(perf_values),
+    )
+
+    result = await pfsense_dns_observer._observe_posture_origin_bounded(settings)
+
+    assert calls == ["/api/v2/system/version"]
+    assert result["reachable"] is True
+    assert result["transport_reachable"] is True
+    assert result["api_authenticated"] is True
+    assert result["api_evidence_state"] == "partial"
+    assert result["control_plane_state"] == "slow"
+    assert result["control_plane_elapsed_ms"] == 3100
+    assert result["deep_probe_skipped"] is True
+    assert result["endpoint_status"]["system"] == {
+        "observed": True,
+        "elapsed_ms": 3100,
+    }
+    assert result["endpoint_status"]["services"] == {
+        "observed": False,
+        "error": "skipped_after_slow_preflight",
+    }
