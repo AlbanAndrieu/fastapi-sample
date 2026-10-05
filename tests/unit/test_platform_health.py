@@ -149,7 +149,7 @@ async def test_pfsense_check_rejects_plain_http_api_key_transport(monkeypatch) -
     monkeypatch.setenv("PFSENSE_API_URL", "http://172.17.0.1")
     monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "key")
     monkeypatch.delenv("PFSENSE_POSTURE_API_URL", raising=False)
-    monkeypatch.delenv("PFSENSE_POSTURE_API_KEY", raising=False)
+    monkeypatch.delenv("PFSENSE_API_KEY", raising=False)
 
     result = await platform_health.check_pfsense_api()
 
@@ -162,11 +162,14 @@ async def test_pfsense_check_uses_posture_key_and_lightweight_version_endpoint(m
     monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example")
     monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "key")
     monkeypatch.delenv("PFSENSE_POSTURE_API_URL", raising=False)
-    monkeypatch.delenv("PFSENSE_POSTURE_API_KEY", raising=False)
+    monkeypatch.delenv("PFSENSE_API_KEY", raising=False)
 
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/api/v2/system/version"
         assert request.headers["X-API-Key"] == "key"
+        assert request.headers["User-Agent"] == "fastapi-sample-health/1.0"
+        assert request.headers["Nabla-Probe-Name"] == "pfsense-liveness"
+        assert request.headers["Nabla-Probe-Request-ID"]
         return httpx.Response(200, request=request, json={"code": 200, "status": "ok"})
 
     class FakeAsyncClient(httpx.AsyncClient):
@@ -245,7 +248,7 @@ async def test_pfsense_read_timeout_reports_response_stage(monkeypatch) -> None:
     monkeypatch.setenv("PFSENSE_API_URL", "https://pfsense.example")
     monkeypatch.setenv("PFSENSE_POSTURE_API_KEY", "key")
     monkeypatch.delenv("PFSENSE_POSTURE_API_URL", raising=False)
-    monkeypatch.delenv("PFSENSE_POSTURE_API_KEY", raising=False)
+    monkeypatch.delenv("PFSENSE_API_KEY", raising=False)
 
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ReadTimeout("slow pfSense response", request=request)
