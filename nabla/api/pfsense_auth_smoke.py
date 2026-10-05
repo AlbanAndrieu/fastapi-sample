@@ -106,16 +106,18 @@ def _probe_identity(
         verify=verify_ssl,
     ) as client:
         for expectation in expectations:
+            request_headers = probe_request_headers(f"pfsense-auth-{identity}")
+            request_id = request_headers["Nabla-Probe-Request-ID"]
             try:
                 response = client.get(
                     expectation.endpoint,
-                    headers=probe_request_headers(f"pfsense-auth-{identity}"),
+                    headers=request_headers,
                 )
             except httpx.HTTPError as exc:
                 print(
                     f"identity={identity} endpoint={expectation.endpoint} "
                     f"expected={expectation.expected_status} result=transport_error "
-                    f"error={exc.__class__.__name__}",
+                    f"error={exc.__class__.__name__} request_id={request_id}",
                 )
                 continue
 
@@ -137,7 +139,8 @@ def _probe_identity(
             print(
                 f"identity={identity} endpoint={expectation.endpoint} "
                 f"expected={expectation.expected_status} actual={response.status_code} "
-                f"result={'ok' if ok else 'mismatch'}{response_id_field}",
+                f"result={'ok' if ok else 'mismatch'} request_id={request_id}"
+                f"{response_id_field}",
             )
             if response.status_code == 401:
                 print(
