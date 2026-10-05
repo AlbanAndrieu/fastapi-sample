@@ -88,21 +88,25 @@ Runbook:
     skip deeper posture fan-out for that refresh.
   - [ ] Validate the 2.5 s protection threshold against measured p95/p99
     latency and appliance CPU/RAM/PHP-FPM saturation evidence.
+    - [x] Export fixed-cardinality Prometheus histogram evidence for the
+      existing `system.version` preflight and counters for protective fan-out
+      skips; this adds no provider request.
+    - [ ] Collect a sustained TrueNAS-runtime baseline and correlate p95/p99,
+      skip rate, provider in-flight work and pfSense CPU/RAM/PHP-FPM/FastCGI
+      evidence before changing the 2.5 s threshold.
   - [ ] Correlate bounded pfSense nginx/pfREST evidence with the passive
     `Nabla-Probe-Origin`, `Nabla-Probe-Name`, `Nabla-Probe-Request-ID`
     and W3C trace context fields, without logging API keys or treating probe
     metadata as an authorization signal.
-- [ ] Inventory Uptime Kuma/Gatus/AutoKuma so no monitor performs expensive
-  pfSense deep-status requests.
-  - [x] Current `nabla-compose` generated Gatus and AutoKuma monitors use only
-    TCP `172.17.0.1:10443` for pfSense and TCP `:9945` for the pfSense
-    exporter; AutoKuma explicitly forbids exporter `/metrics` health checks
-    because they fan out into pfREST.
-  - [ ] Reconcile the latent `nabla-compose/apps/crowdsec/compose.yml`
-    `pfsense.monitoring` metadata, which still declares HTTP
-    `/api/v2/system/version`, with the lightweight TCP monitoring policy so a
-    future catalog-consumer regeneration cannot reintroduce periodic pfREST
-    load.
+- [x] Inventory Uptime Kuma/Gatus/AutoKuma: current generated monitors use only
+  TCP `172.17.0.1:10443` for pfSense and TCP `:9945` for the pfSense
+  exporter; AutoKuma explicitly forbids exporter `/metrics` health checks
+  because they fan out into pfREST.
+- [ ] Reconcile the latent `nabla-compose/apps/crowdsec/compose.yml`
+  `pfsense.monitoring` metadata, which still declares HTTP
+  `/api/v2/system/version`, with the lightweight TCP monitoring policy so a
+  future catalog-consumer regeneration cannot reintroduce periodic pfREST
+  load.
 - [x] Remove the shared-WAN Snort attribution blind spot from the authoritative
   observer path: TrueNAS/homelab uses the LAN/split-DNS `out_of_band` control
   path for pfSense API evidence, while FastAPI Cloud authenticated pfSense
