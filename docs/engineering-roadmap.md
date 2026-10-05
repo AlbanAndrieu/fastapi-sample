@@ -45,8 +45,10 @@ identity, and public diagnostics expose only intentionally published topology.
 The authoritative observer is the FastAPI runtime on TrueNAS. Workstation probes
 are independent A/B evidence only.
 
-- [ ] **Talos:** obtain `VM_READ`, show the expected 3/3 VMs running, then prove
-  cluster health with `talosctl health` and `kubectl get nodes`.
+- [x] **Talos / TrueNAS VM evidence:** `VM_READ` granted and expected 3/3
+  Talos VMs observed `RUNNING` through `vm.query`.
+- [ ] **Talos cluster health:** prove the guest cluster with `talosctl health`
+  and `kubectl get nodes`; TrueNAS VM state alone is insufficient.
 - [ ] **pfSense:** recover WebGUI/PHP-FPM and require authenticated
   `GET /api/v2/system/version` 2xx from the TrueNAS/LAN observer.
 - [ ] **Prometheus:** configure `HOMELAB_PROMETHEUS_URL` in the authoritative
@@ -79,6 +81,13 @@ Runbook:
 - [ ] Define a fixed-cardinality production p95 latency target.
 - [ ] Prove appliance degradation cannot exhaust FastAPI workers or create probe
   bursts.
+  - [x] Fail fast on pfSense HTTP 401 so one rejected posture key does not fan
+    out into multiple authentication failures.
+  - [x] When authenticated pfSense `system.version` preflight takes >=2.5 s,
+    preserve liveness/auth evidence, expose a slow-control-plane warning and
+    skip deeper posture fan-out for that refresh.
+  - [ ] Validate the 2.5 s protection threshold against measured p95/p99
+    latency and appliance CPU/RAM/PHP-FPM saturation evidence.
 - [ ] Inventory Uptime Kuma/Gatus/AutoKuma so no monitor performs expensive
   pfSense deep-status requests.
 - [ ] Remove the shared-WAN Snort attribution blind spot.
