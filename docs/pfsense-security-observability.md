@@ -63,6 +63,34 @@ pressure:
 - keep the 2.5 s threshold provisional until correlated p95/p99 and appliance
   saturation evidence is available.
 
+### Probe provenance and trace correlation
+
+Outbound pfSense requests add diagnostic metadata only; these headers never
+participate in KeyAuth, authorization or health-state decisions:
+
+```text
+Nabla-Probe: pfsense-posture | pfsense-security | pfsense-*-auth-smoke
+Nabla-Probe-Source: fastapi-cloud | truenas | workstation | unknown
+traceparent: W3C Trace Context
+tracestate: optional, only when inherited from an active OTel context
+```
+
+Do not use `X-Nabla-*`; application-specific fields use descriptive Nabla
+names. `Nabla-Probe-Source` is deliberately bounded and low-cardinality.
+When an active OpenTelemetry context exists, the W3C trace context is propagated;
+otherwise the observer creates a valid standalone unsampled `traceparent`.
+The implementation deliberately does **not** propagate OpenTelemetry baggage.
+
+Capture these fields only in bounded diagnostic logs where useful. Never use
+`traceparent` or a trace/span identifier as a Prometheus label, cache key,
+circuit-breaker key or health-card dimension.
+
+For the direct TrueNAS-to-pfSense control path on TCP 10443, nginx/pfREST on
+pfSense is the relevant receiving layer; HAProxy is not in that datapath. For
+the public TrueNAS TCP 7000 path, HAProxy can participate in correlation after
+TLS termination. Any persistent pfSense/nginx/HAProxy logging customization
+belongs in `nabla-compose` and must respect the Netgate 1100 resource budget.
+
 ### Cloud versus TrueNAS authenticated observation
 
 FastAPI Cloud is an external/WAN observer and must keep
