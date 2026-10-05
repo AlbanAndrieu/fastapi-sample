@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 import ipaddress
+import logging
 import ssl
 import time
 from typing import Any, Literal
@@ -26,6 +27,8 @@ from nabla.settings.homelab import (
     pfsense_invalid_configuration_variables,
     pfsense_security_environment_variables,
 )
+
+logger = logging.getLogger(__name__)
 
 ControlPathMode = Literal["shared_wan", "out_of_band"]
 _PFSENSE_CONNECT_TIMEOUT_SEC = 2.0
@@ -361,9 +364,19 @@ async def _fetch_snort2c(
         for attempt in range(1, _PFSENSE_MAX_ATTEMPTS + 1):
             attempts = attempt
             try:
+                headers = probe_request_headers("pfsense-security")
+                logger.debug(
+                    "pfSense security request origin=%s probe=%s request_id=%s "
+                    "traceparent=%s path=%s",
+                    headers.get("Nabla-Probe-Origin", "unknown"),
+                    headers.get("Nabla-Probe-Name", "unknown"),
+                    headers.get("Nabla-Probe-Request-ID", "unknown"),
+                    headers.get("traceparent", "none"),
+                    _SNORT2C_PATH,
+                )
                 response = await client.get(
                     _SNORT2C_PATH,
-                    headers=probe_request_headers("pfsense-security"),
+                    headers=headers,
                 )
                 response.raise_for_status()
                 return _sanitized_table(_response_data(response.json())), {
