@@ -353,11 +353,7 @@ async def _fetch_snort2c(
     attempts = 0
     async with httpx.AsyncClient(
         base_url=settings.base_url,
-        headers={
-            "X-API-Key": settings.api_key,
-            "Accept": "application/json",
-            **probe_headers("pfsense-security"),
-        },
+        headers={"X-API-Key": settings.api_key, "Accept": "application/json"},
         timeout=timeout,
         follow_redirects=False,
         verify=settings.verify_ssl,
@@ -365,7 +361,10 @@ async def _fetch_snort2c(
         for attempt in range(1, _PFSENSE_MAX_ATTEMPTS + 1):
             attempts = attempt
             try:
-                response = await client.get(_SNORT2C_PATH)
+                response = await client.get(
+                    _SNORT2C_PATH,
+                    headers=probe_headers("pfsense-security"),
+                )
                 response.raise_for_status()
                 return _sanitized_table(_response_data(response.json())), {
                     "path": _SNORT2C_PATH,
