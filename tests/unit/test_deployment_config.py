@@ -205,7 +205,6 @@ def test_dockerfile_hadolint_hardening_is_explicit() -> None:
     assert "CMD curl --fail" not in dockerfile
 
 
-
 def test_ci_uses_current_uv_tooling() -> None:
     deploy = (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8")
     python_ci = (ROOT / ".github/workflows/python.yml").read_text(encoding="utf-8")
@@ -214,7 +213,6 @@ def test_ci_uses_current_uv_tooling() -> None:
     assert 'version: "0.12.22"' in python_ci
     assert 'version: "0.12.1"' not in deploy
     assert 'version: "0.12.1"' not in python_ci
-
 
 
 def test_fastapi_cloud_cli_lock_is_current() -> None:
