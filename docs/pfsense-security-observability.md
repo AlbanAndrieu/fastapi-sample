@@ -152,6 +152,12 @@ posture reads and each auth-smoke endpoint. `X-API-Key` remains a separate
 client credential and must never be copied into correlation metadata, logs,
 metrics, traces or public health output.
 
+The runtime posture/security clients emit a DEBUG record containing only the
+probe origin, probe name, request ID, optional W3C `traceparent` and bounded
+path. The auth-smoke CLI includes `request_id=<uuid>` in both transport-error
+and HTTP result lines, so an operator can correlate one workstation/TrueNAS
+request with the future server-side log without printing the API key.
+
 For bounded server-side diagnosis, the desired pfSense/nginx/pfREST log record
 may capture only the request timestamp, HTTP method/path/status, elapsed time and
 the four correlation fields above. Do not log request headers wholesale.
