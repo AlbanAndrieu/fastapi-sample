@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -29,6 +30,8 @@ from nabla.settings.homelab import (
     pfsense_invalid_configuration_variables,
     pfsense_posture_environment_variables,
 )
+
+logger = logging.getLogger(__name__)
 
 DNSPolicyState = Literal["ok", "warn", "fail", "unknown"]
 
@@ -323,9 +326,19 @@ def _policy_state(
 
 
 async def _get_data(client: httpx.AsyncClient, path: str) -> object:
+    headers = probe_request_headers("pfsense-posture")
+    logger.debug(
+        "pfSense posture request origin=%s probe=%s request_id=%s "
+        "traceparent=%s path=%s",
+        headers.get("Nabla-Probe-Origin", "unknown"),
+        headers.get("Nabla-Probe-Name", "unknown"),
+        headers.get("Nabla-Probe-Request-ID", "unknown"),
+        headers.get("traceparent", "none"),
+        path,
+    )
     response = await client.get(
         path,
-        headers=probe_request_headers("pfsense-posture"),
+        headers=headers,
     )
     response.raise_for_status()
     return _response_data(response.json())
