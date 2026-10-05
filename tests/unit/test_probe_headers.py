@@ -12,6 +12,7 @@ def _clear_runtime_markers(monkeypatch) -> None:
     for name in (
         "FASTAPI_CLOUD",
         "FASTAPI_CLOUD_APP_ID",
+        "FASTAPI_ENV",
         "FASTAPI_RUNTIME_MODE",
         "SICKZ_NETWORK_LABEL",
     ):
