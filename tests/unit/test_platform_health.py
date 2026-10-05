@@ -347,6 +347,51 @@ async def test_pfsense_cache_serves_last_good_result_after_transient_failure(
 
 
 @pytest.mark.asyncio
+async def test_pfsense_cache_keeps_disabled_policy_current_after_prior_success(
+    monkeypatch,
+) -> None:
+    await platform_health.reset_pfsense_api_cache()
+    results = iter(
+        [
+            {
+                "reachable": True,
+                "transport_reachable": True,
+                "state": "ok",
+                "status_confirmed": True,
+                "http_status": 200,
+            },
+            {
+                "reachable": None,
+                "transport_reachable": None,
+                "api_authenticated": None,
+                "authenticated_probes_enabled": False,
+                "observation_mode": "transport_only",
+                "skipped": True,
+                "status_confirmed": False,
+                "state": "unknown",
+                "degraded": False,
+                "credential_mode": "disabled",
+            },
+        ],
+    )
+
+    async def check():
+        return next(results)
+
+    monkeypatch.setattr(platform_health, "check_pfsense_api", check)
+    first = await platform_health.get_pfsense_api_snapshot()
+    _expire_current_value(platform_health._PFSENSE_CACHE_KEY)
+    disabled = await platform_health.get_pfsense_api_snapshot()
+
+    assert first["reachable"] is True
+    assert disabled["authenticated_probes_enabled"] is False
+    assert disabled["observation_mode"] == "transport_only"
+    assert disabled["credential_mode"] == "disabled"
+    assert disabled["stale"] is False
+    await platform_health.reset_pfsense_api_cache()
+
+
+@pytest.mark.asyncio
 async def test_pfsense_auth_rejection_preserves_transport_reachability(
     monkeypatch,
 ) -> None:
