@@ -27,6 +27,7 @@ from nabla.api.probe_headers import probe_request_headers
 from nabla.api.runtime_environment import fastapi_cloud_runtime_detected
 from nabla.settings.homelab import (
     PfSensePostureProviderSettings,
+    PfSenseProbePolicySettings,
     pfsense_invalid_configuration_variables,
 )
 
@@ -120,6 +121,28 @@ def _pfsense_transport_failure_result(
 
 async def check_pfsense_api() -> dict[str, Any]:
     """Check pfSense REST API liveness with the posture read-only identity."""
+    if not PfSenseProbePolicySettings().pfsense_authenticated_probes_enabled:
+        cloud_vantage = fastapi_cloud_runtime_detected()
+        return {
+            "reachable": None,
+            "transport_reachable": None,
+            "api_authenticated": None,
+            "application_ok": None,
+            "authenticated_probes_enabled": False,
+            "observation_mode": "transport_only",
+            "skipped": True,
+            "status_confirmed": False,
+            "state": "unknown",
+            "degraded": False,
+            "vantage_point": "fastapi_cloud" if cloud_vantage else "current_runtime",
+            "warning": (
+                "⚠️ Authenticated pfSense API liveness is disabled in this runtime; "
+                "use independent transport/path evidence instead"
+            ),
+            "probe": "pfsense_rest_api_v2",
+            "path": _PFSENSE_LIVENESS_PATH,
+            "credential_mode": "disabled",
+        }
     try:
         base_url, api_key, verify_ssl, credential_mode = _pfsense_posture_transport()
     except ValidationError as exc:
@@ -173,7 +196,10 @@ async def check_pfsense_api() -> dict[str, Any]:
             try:
                 response = await client.get(
                     url,
-                    headers={**probe_request_headers("pfsense-liveness"), "X-API-Key": api_key},
+                    headers={
+                        **probe_request_headers("pfsense-liveness"),
+                        "X-API-Key": api_key,
+                    },
                 )
                 break
             except (httpx.HTTPError, OSError) as exc:
