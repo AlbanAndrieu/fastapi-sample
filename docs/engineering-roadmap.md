@@ -95,6 +95,15 @@ Runbook:
     metrics label.
 - [ ] Inventory Uptime Kuma/Gatus/AutoKuma so no monitor performs expensive
   pfSense deep-status requests.
+  - [x] Current `nabla-compose` generated Gatus and AutoKuma monitors use only
+    TCP `172.17.0.1:10443` for pfSense and TCP `:9945` for the pfSense
+    exporter; AutoKuma explicitly forbids exporter `/metrics` health checks
+    because they fan out into pfREST.
+  - [ ] Reconcile the latent `nabla-compose/apps/crowdsec/compose.yml`
+    `pfsense.monitoring` metadata, which still declares HTTP
+    `/api/v2/system/version`, with the lightweight TCP monitoring policy so a
+    future catalog-consumer regeneration cannot reintroduce periodic pfREST
+    load.
 - [ ] Remove the shared-WAN Snort attribution blind spot.
 - [ ] After an independent pfSense observer path is accepted, expand the
   sanitized posture with interfaces/gateways, firewall/NAT and DNS policy;
