@@ -91,6 +91,9 @@ Runbook:
     - [x] Export fixed-cardinality Prometheus histogram evidence for the
       existing `system.version` preflight and counters for protective fan-out
       skips; this adds no provider request.
+    - [x] Preserve the latest successful preflight latency in the sanitized
+      posture as `control_plane_elapsed_ms`, with
+      `control_plane_state=ok|slow` and explicit `deep_probe_skipped`.
     - [ ] Collect a sustained TrueNAS-runtime baseline and correlate p95/p99,
       skip rate, provider in-flight work and pfSense CPU/RAM/PHP-FPM/FastCGI
       evidence before changing the 2.5 s threshold.
