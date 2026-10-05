@@ -309,6 +309,8 @@ async def test_posture_401_preserves_transport_reachability(
     settings,
 ) -> None:
     calls: list[str] = []
+    metric_events: list[dict[str, object]] = []
+    protective_skips: list[str] = []
 
     async def rejected(_client, path: str):
         calls.append(path)
@@ -321,10 +323,22 @@ async def test_posture_401_preserves_transport_reachability(
         )
 
     monkeypatch.setattr(pfsense_dns_observer, "_get_data", rejected)
+    monkeypatch.setattr(
+        pfsense_dns_observer,
+        "observe_pfsense_preflight_duration",
+        lambda **event: metric_events.append(event),
+    )
+    monkeypatch.setattr(
+        pfsense_dns_observer,
+        "record_pfsense_protective_skip",
+        protective_skips.append,
+    )
 
     result = await pfsense_dns_observer._observe_posture_origin(settings)
 
     assert calls == ["/api/v2/system/version"]
+    assert metric_events[0]["outcome"] == "auth_rejected"
+    assert protective_skips == ["authentication_failure"]
     assert result["reachable"] is False
     assert result["transport_reachable"] is True
     assert result["api_authenticated"] is False
@@ -410,6 +424,8 @@ async def test_slow_preflight_skips_deep_posture_fanout(
     settings,
 ) -> None:
     calls: list[str] = []
+    metric_events: list[dict[str, object]] = []
+    protective_skips: list[str] = []
     perf_values = iter((100.0, 103.1))
 
     async def fake_get_data(_client, path: str):
@@ -422,10 +438,22 @@ async def test_slow_preflight_skips_deep_posture_fanout(
         "perf_counter",
         lambda: next(perf_values),
     )
+    monkeypatch.setattr(
+        pfsense_dns_observer,
+        "observe_pfsense_preflight_duration",
+        lambda **event: metric_events.append(event),
+    )
+    monkeypatch.setattr(
+        pfsense_dns_observer,
+        "record_pfsense_protective_skip",
+        protective_skips.append,
+    )
 
     result = await pfsense_dns_observer._observe_posture_origin_bounded(settings)
 
     assert calls == ["/api/v2/system/version"]
+    assert metric_events == [{"outcome": "success", "duration_seconds": 3.1}]
+    assert protective_skips == ["slow_preflight"]
     assert result["reachable"] is True
     assert result["transport_reachable"] is True
     assert result["api_authenticated"] is True
