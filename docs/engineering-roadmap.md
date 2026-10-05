@@ -109,6 +109,8 @@ Runbook:
     metadata as an authorization signal.
     - [x] Generate correlation metadata per HTTP request rather than once per
       shared client; keep `X-API-Key` separate from those headers.
+    - [x] Emit bounded client-side DEBUG correlation and expose the request ID
+      from the redacted auth-smoke CLI without logging credentials.
     - [ ] Implement the bounded generated-nginx/pfREST log capture in
       `nabla-compose`, then prove one TrueNAS request ID across client/server
       evidence without exposing secrets.
