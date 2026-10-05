@@ -14,6 +14,10 @@ _CACHE_OUTCOMES = frozenset(
     {"l1_hit", "redis_hit", "local_hit", "miss", "stale", "redis_degraded"}
 )
 _TIMEOUT_PHASES = frozenset({"deadline", "queue", "origin"})
+_PFSENSE_PREFLIGHT_OUTCOMES = frozenset({"success", "auth_rejected", "failure"})
+_PFSENSE_PROTECTIVE_SKIP_REASONS = frozenset(
+    {"slow_preflight", "authentication_failure"},
+)
 
 PROVIDER_OUTCOMES = Counter(
     "nabla_external_provider_outcomes_total",
@@ -63,6 +67,17 @@ PROBE_TIMEOUTS = Counter(
 PROBES_IN_FLIGHT = Gauge(
     "nabla_external_probes_in_flight",
     "Diagnostic probes currently executing under a request budget.",
+)
+PFSENSE_PREFLIGHT_DURATION = Histogram(
+    "nabla_pfsense_preflight_duration_seconds",
+    "Duration of the pfSense system.version preflight before deep posture fan-out.",
+    ("outcome",),
+    buckets=(0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0, 4.0, 6.0, 8.0),
+)
+PFSENSE_PROTECTIVE_SKIPS = Counter(
+    "nabla_pfsense_protective_skips_total",
+    "pfSense posture fan-out skips triggered to protect the appliance.",
+    ("reason",),
 )
 
 
@@ -145,6 +160,25 @@ def record_probe_timeout(phase: str) -> None:
     """Record one bounded timeout phase."""
     if phase in _TIMEOUT_PHASES:
         PROBE_TIMEOUTS.labels(phase=phase).inc()
+
+
+def observe_pfsense_preflight_duration(
+    *,
+    outcome: str,
+    duration_seconds: float,
+) -> None:
+    """Record bounded pfSense preflight latency without dynamic labels."""
+    if outcome not in _PFSENSE_PREFLIGHT_OUTCOMES:
+        return
+    if not math.isfinite(duration_seconds) or duration_seconds < 0:
+        return
+    PFSENSE_PREFLIGHT_DURATION.labels(outcome=outcome).observe(duration_seconds)
+
+
+def record_pfsense_protective_skip(reason: str) -> None:
+    """Count only the fixed protection reasons implemented by the observer."""
+    if reason in _PFSENSE_PROTECTIVE_SKIP_REASONS:
+        PFSENSE_PROTECTIVE_SKIPS.labels(reason=reason).inc()
 
 
 def probe_started() -> None:
