@@ -85,7 +85,8 @@ replacement for the canonical quality gate.
 Gitleaks in the pre-commit hooks. The `just secrets` recipe scans the local
 working tree, and `just secrets-staged` scans staged Git additions. Run
 `mise install betterleaks` (or `brew bundle` on a Homebrew environment) to
-install the CLI for direct or Just usage.
+install the CLI for direct or Just usage. `make just-secrets` delegates to
+`just secrets`; the historical Makefile remains available.
 
 MegaLinter already runs `REPOSITORY_BETTERLEAKS` with errors enabled.
 The legacy `.gitleaks.toml` and `.gitleaksignore` files are **intentionally

@@ -78,3 +78,10 @@ def test_brew_installs_betterleaks_instead_of_gitleaks() -> None:
 
     assert 'brew "betterleaks"' in packages
     assert 'brew "gitleaks"' not in packages
+
+
+def test_legacy_make_bridge_uses_betterleaks_just_recipe() -> None:
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+
+    assert "just-secrets: ## Scan local files" in makefile
+    assert "\tjust secrets" in makefile

@@ -56,9 +56,12 @@ help: ## Outputs this help screen
 	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
 ## —— Just local-first frontend 🧰 —————————————————————————————————————————————
-.PHONY: just-help just-fix just-quality just-publish-check
+.PHONY: just-help just-secrets just-fix just-quality just-publish-check
 just-help: ## List preferred local-first Just recipes
 	just --list
+
+just-secrets: ## Scan local files for hardcoded secrets with Betterleaks
+	just secrets
 
 just-fix: ## Run deterministic local fixes through Just
 	just fix
