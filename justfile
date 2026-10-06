@@ -34,13 +34,13 @@ format-check:
 format:
     uv run --no-sync ruff format .
 
-# Scan the current working tree using the existing reviewed exclusions.
+# Prefer Homebrew's versioned v1 binary; mise installs "betterleaks".
 secrets:
-    betterleaks dir . --config .gitleaks.toml --redact
+    @if command -v betterleaks-v1 >/dev/null 2>&1; then betterleaks-v1 dir . --config .gitleaks.toml --redact; else betterleaks dir . --config .gitleaks.toml --redact; fi
 
 # Scan only staged Git additions, matching the pre-commit hook.
 secrets-staged:
-    betterleaks git . --pre-commit --staged --config .gitleaks.toml --redact
+    @if command -v betterleaks-v1 >/dev/null 2>&1; then betterleaks-v1 git . --pre-commit --staged --config .gitleaks.toml --redact; else betterleaks git . --pre-commit --staged --config .gitleaks.toml --redact; fi
 
 # Apply deterministic fixes and run the canonical agent quality gate.
 fix:
