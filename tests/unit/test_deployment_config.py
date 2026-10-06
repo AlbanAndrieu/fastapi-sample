@@ -233,7 +233,9 @@ def test_fastapi_cloud_deployment_explicitly_disables_debug() -> None:
     )
     steps = workflow["jobs"]["deploy"]["steps"]
     deployment = next(
-        step for step in steps if step.get("name") == "Deploy and wait for FastAPI Cloud verification"
+        step
+        for step in steps
+        if step.get("name") == "Deploy and wait for FastAPI Cloud verification"
     )
 
     assert "uv run fastapi cloud env set DEBUG false ." in deployment["run"]

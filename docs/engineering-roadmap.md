@@ -23,8 +23,9 @@ detailed implementation record.
 - [ ] Set `DEBUG=false` in FastAPI Cloud and prove unexpected exceptions no
   longer expose tracebacks.
   - [x] Enforce `DEBUG=false` in the declarative Cloud deploy workflow and
-    suppress Starlette debug tracebacks on detected Cloud runtimes, even after
-    an environment-variable drift; cover both with offline regression tests.
+    suppress Starlette debug tracebacks when any Cloud marker or configured
+    `APP_DOMAIN` identifies FastAPI Cloud, even if `FASTAPI_ENV=development`
+    conflicts with that evidence; cover both with offline regression tests.
   - [ ] After the next authorized production deployment, verify the effective
     remote environment and a controlled non-sensitive HTTP 500 response;
     do not trigger an exception on the public endpoint solely for this check.

@@ -127,6 +127,24 @@ def test_application_debug_is_disabled_on_fastapi_cloud(monkeypatch) -> None:
     assert runtime_environment.application_debug_enabled(False) is False
 
 
+def test_application_debug_fails_closed_on_conflicting_cloud_markers(
+    monkeypatch,
+) -> None:
+    _clear_runtime_markers(monkeypatch)
+    monkeypatch.setenv("FASTAPI_CLOUD_APP_ID", "deployed-app")
+    monkeypatch.setenv("FASTAPI_ENV", "development")
+
+    assert runtime_environment.runtime_mode() == "local"
+    assert runtime_environment.application_debug_enabled(True) is False
+
+
+def test_application_debug_fails_closed_on_cloud_domain(monkeypatch) -> None:
+    _clear_runtime_markers(monkeypatch)
+    monkeypatch.setenv("APP_DOMAIN", "fastapi-sample.fastapicloud.dev")
+
+    assert runtime_environment.application_debug_enabled(True) is False
+
+
 def test_application_debug_remains_available_for_explicit_local_dev(
     monkeypatch,
 ) -> None:
