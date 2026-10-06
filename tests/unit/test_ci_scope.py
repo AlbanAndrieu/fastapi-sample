@@ -95,6 +95,7 @@ def test_dependency_and_disabled_vercel_config_use_quality_scope(
         "renovate.json",
         "vercel.json",
         ".vercelignore",
+        "justfile",
         "tests/unit/test_workflow_security.py",
     )
 
