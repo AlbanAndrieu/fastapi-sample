@@ -51,6 +51,7 @@ def test_agent_quality_gate_wraps_tests_and_canonical_gate() -> None:
     assert mode & stat.S_IXUSR
     assert "QG_BASE_STALE" in text
     assert "QG_LARGE_DELETION" in text
+    assert "Makefile | justfile" in text
     assert "diff-filter=D" in text
     assert "QG_EXEC_BIT" in text
     assert "QG_FIX_NO_PROGRESS" in text
