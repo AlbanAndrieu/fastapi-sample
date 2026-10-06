@@ -36,6 +36,22 @@ same probes externally.
 Do not treat failure of one runtime as proof that another runtime is unhealthy.
 Record the runtime mode and observer scope actually tested.
 
+## pfSense host configuration source of authority
+
+FastAPI Sample owns the observer behavior, not the complete pfSense appliance
+configuration. For current Netgate 1100 sizing, PHP-FPM limits, memory incidents,
+Snort/pfBlockerNG/Unbound budgets and supported recovery procedures, consult
+`AlbanAndrieu/nabla-compose`, especially:
+
+- `docs/pfsense-php-fpm-hardening.md`;
+- `docs/pfsense-flow-observability-memory.md`;
+- `docs/pfsense-diagnose-recover.md`;
+- `.agents/skills/pfsense-api-debugging/SKILL.md`.
+
+Do not increase FastAPI probe rate, concurrency or endpoint depth based only on
+this repository. Revalidate the appliance constraints in `nabla-compose`
+first, particularly after pfSense upgrades.
+
 ## CLI execution contract
 
 Always execute the project-pinned FastAPI/FastAPI Cloud CLI through the repository toolchain:
@@ -109,22 +125,22 @@ PFSENSE_POSTURE_API_VERIFY_SSL=true
 PFSENSE_SECURITY_API_KEY=<dedicated diagnostics-table GET-only key>
 PFSENSE_SECURITY_API_VERIFY_SSL=true
 PFSENSE_SECURITY_PATH_MODE=shared_wan
-PFSENSE_AUTHENTICATED_PROBES_ENABLED=true
+PFSENSE_AUTHENTICATED_PROBES_ENABLED=false
 ```
 
 `PFSENSE_POSTURE_API_URL`, `PFSENSE_POSTURE_API_VERIFY_SSL`, `PFSENSE_SECURITY_API_URL`, and `PFSENSE_SECURITY_API_VERIFY_SSL` are optional overrides when an identity uses a different transport. The production deploy workflow pins both per-identity TLS overrides to `true` so stale Cloud values cannot silently disable certificate verification. `PFSENSE_API_KEY` is obsolete and is no longer consumed by FastAPI Sample. It was removed from FastAPI Cloud on 2026-09-02; remove it from homelab runtime secrets as well.
 
-FastAPI Cloud keeps authenticated pfSense posture and security probes enabled
-in steady state. The dedicated keys are least-privilege and the runtime posture
-observer stops after the first HTTP 401, so a credential regression cannot fan
-out several failed KeyAuth requests into Login Protection.
+FastAPI Cloud keeps authenticated pfSense posture and security probes disabled
+in steady state. Cloud is not the authoritative LAN vantage for pfREST and must
+not create KeyAuth failures against Login Protection. The TrueNAS/homelab
+runtime remains the authoritative authenticated observer.
 
-`PFSENSE_AUTHENTICATED_PROBES_ENABLED=false` remains an emergency kill-switch.
-Use it temporarily if Cloud begins receiving fresh HTTP 401 responses or a
-changing PaaS egress repeatedly enters `sshguard`; it disables authenticated
-posture/Snort reads without removing the credentials. Once the credential or
-network issue is corrected, restore it to `true`. Do not permanently
-whitelist an ephemeral FastAPI Cloud egress in pfSense Login Protection.
+The production deploy workflow sets
+`PFSENSE_AUTHENTICATED_PROBES_ENABLED=false` declaratively. A manual remote
+value can therefore be overwritten by the next deployment; keep the checked-in
+deployment contract and the FastAPI Cloud environment aligned. Do not
+permanently whitelist an ephemeral FastAPI Cloud egress in pfSense Login
+Protection.
 
 Provider health must validate that its canonical credential exists before attempting provider authentication. A missing credential is configuration health data, not a generic network failure. Never substitute one provider's key for another provider or recommend collapsing the dedicated pfSense identities back into one shared secret.
 

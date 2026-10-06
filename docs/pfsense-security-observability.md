@@ -10,6 +10,167 @@ Open implementation work belongs in
 [engineering-roadmap.md](engineering-roadmap.md); dated failures belong in
 [incidents.md](incidents.md).
 
+## pfSense source of authority and appliance limits
+
+This repository owns the **FastAPI observer contract**, not the complete pfSense
+host configuration. Before changing probe rate, concurrency, endpoint depth,
+timeouts or interpreting a control-plane slowdown, consult
+[AlbanAndrieu/nabla-compose](https://github.com/AlbanAndrieu/nabla-compose).
+
+Canonical cross-repository references:
+
+- `docs/pfsense-php-fpm-hardening.md` — PHP-FPM sizing, FastCGI backlog,
+  restart/recovery contract and post-upgrade reconciliation;
+- `docs/pfsense-flow-observability-memory.md` — Netgate 1100 memory budget,
+  Snort/pfBlockerNG/Unbound constraints and observability offload;
+- `docs/pfsense-diagnose-recover.md` — bounded diagnostic/recovery sequence;
+- `.agents/skills/pfsense-api-debugging/SKILL.md` — current portable pfSense
+  operational contract.
+
+The currently documented appliance is a Netgate 1100 with roughly 1 GiB RAM
+and no swap. Historical evidence includes PHP-FPM workers around 48–65 MiB RSS,
+FastCGI socket listen-queue overflow and kernel memory-reclaim/OOM events. The
+reviewed constrained PHP-FPM profile is `max_children=4`,
+`start_servers=1`, `max_spare_servers=2`, `process_idle_timeout=30` and
+`max_requests=500`.
+
+Those values are host/runtime facts and can change after a pfSense upgrade.
+`nabla-compose` is the source to revalidate them; FastAPI Sample must not
+silently override that host policy.
+
+### Current latency interpretation
+
+The 2026-10-04 LAN measurements showed sub-millisecond TCP establishment and
+roughly 17–27 ms TLS setup while pfREST time-to-first-byte varied from about
+0.86 s to 3.46 s. Packet capture showed normal bidirectional TCP/TLS exchange
+without observed kernel packet loss. Most measured delay therefore occurs after
+TLS, inside or behind the pfSense HTTP/pfREST control plane.
+
+Given the previously documented FastCGI backlog and memory pressure, the leading
+hypothesis is PHP-FPM/pfREST queueing or resource saturation, potentially
+amplified by repeated failed KeyAuth/Login Protection work. This is a capacity
+hypothesis, not a proven root cause. Confirm it with fresh post-reboot
+PHP-FPM-worker, `vmstat`, socket/listen-queue and timestamped log evidence
+before changing the Nabla PHP-FPM limits.
+
+FastAPI Sample protects the appliance instead of increasing probe pressure:
+
+- one authenticated `GET /api/v2/system/version` preflight;
+- fail fast on HTTP 401;
+- skip deep posture fan-out when that authenticated preflight takes at least
+  2.5 s;
+- keep the 2.5 s threshold provisional until correlated p95/p99 and appliance
+  saturation evidence is available.
+
+### Passive preflight latency evidence
+
+The observer records the request it already performs; metrics collection does
+not add a pfSense call.
+
+Relevant fixed-cardinality metrics:
+
+```text
+nabla_pfsense_preflight_duration_seconds
+nabla_pfsense_protective_skips_total
+nabla_pfsense_api_requests_total
+nabla_pfsense_api_requests_in_flight
+nabla_external_provider_origins_in_flight{provider="pfsense"}
+nabla_external_provider_rate_budget_utilization_ratio{provider="pfsense"}
+```
+
+The preflight histogram has only the outcomes `success`, `auth_rejected`
+and `failure`. Explicit buckets around 2.0 s, 2.5 s and 3.0 s make the current
+protection boundary observable without introducing request IDs, addresses or
+trace IDs as metric labels.
+
+Example 30-minute p95:
+
+```promql
+histogram_quantile(
+  0.95,
+  sum by (le) (
+    rate(
+      nabla_pfsense_preflight_duration_seconds_bucket{
+        outcome="success"
+      }[30m]
+    )
+  )
+)
+```
+
+Use the same expression with `0.99` for p99. Protection frequency:
+
+```promql
+sum by (reason) (
+  rate(nabla_pfsense_protective_skips_total[30m])
+)
+```
+
+Actual pfREST request rate, separated into the fixed `preflight` and `deep`
+phases:
+
+```promql
+sum by (phase) (
+  rate(nabla_pfsense_api_requests_total[30m])
+)
+```
+
+Maximum observed in-flight pfREST work during the same window:
+
+```promql
+max by (phase) (
+  max_over_time(nabla_pfsense_api_requests_in_flight[30m])
+)
+```
+
+A protected slow or authentication-rejected refresh must show a preflight
+request without a corresponding deep-request burst. A normal complete posture
+refresh performs one preflight plus the three configured deep reads. The deep
+reads are additionally constrained by the in-process semaphore
+`_PFSENSE_MAX_CONCURRENCY=2`.
+
+Do not tune `_PFSENSE_SLOW_PREFLIGHT_SEC` from latency metrics alone. Correlate
+the same time window with current pfSense PHP-FPM worker RSS/CPU, free memory,
+FastCGI listen-queue evidence and kernel reclaim/OOM logs documented in
+`nabla-compose`. A high application p95 without appliance saturation does not
+by itself prove that the PHP-FPM pool is undersized.
+
+### Request correlation contract
+
+Each pfSense HTTP request creates fresh passive correlation metadata:
+
+```text
+Nabla-Probe-Origin
+Nabla-Probe-Name
+Nabla-Probe-Request-ID
+traceparent        # only when an active W3C trace context exists
+tracestate         # optional
+```
+
+`Nabla-Probe-Request-ID` is unique per HTTP request, including the three deep
+posture reads and each auth-smoke endpoint. `X-API-Key` remains a separate
+client credential and must never be copied into correlation metadata, logs,
+metrics, traces or public health output.
+
+The runtime posture/security clients emit a DEBUG record containing only the
+probe origin, probe name, request ID, optional W3C `traceparent` and bounded
+path. The auth-smoke CLI includes `request_id=<uuid>` in both transport-error
+and HTTP result lines, so an operator can correlate one workstation/TrueNAS
+request with the future server-side log without printing the API key.
+
+For bounded server-side diagnosis, the desired pfSense/nginx/pfREST log record
+may capture only the request timestamp, HTTP method/path/status, elapsed time and
+the four correlation fields above. Do not log request headers wholesale.
+
+The pfSense nginx configuration is generated appliance configuration. Do not
+hand-edit it from FastAPI Sample. The corresponding log-format/configuration
+change belongs in `AlbanAndrieu/nabla-compose`, where post-upgrade
+reconciliation can preserve it safely.
+
+Request IDs and trace IDs are high-cardinality diagnostic values. Keep them in
+logs/traces only; never use them as Prometheus label values or authorization,
+allowlist, PF, Snort or WAF bypass signals.
+
 ## Validate deployed keys from the TrueNAS runtime
 
 A workstation timeout before TCP/TLS does not validate or invalidate an API key.

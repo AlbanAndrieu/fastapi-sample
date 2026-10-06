@@ -15,6 +15,7 @@ deployments are disabled.
 
 - Python 3.13
 - [uv](https://docs.astral.sh/uv/)
+- [just](https://just.systems/) (available via `mise install just`)
 - Node.js 24 + npm 10 for repository tooling
 - Docker only for optional local infrastructure
 
@@ -49,6 +50,49 @@ Useful local endpoints:
 
 Current entry points and dashboards are documented in
 [docs/entrypoints-and-dashboards.md](docs/entrypoints-and-dashboards.md).
+
+## Local task runners
+
+`justfile` is the preferred local-first frontend for routine development and
+quality commands, while the existing `Makefile` continues to support legacy
+Docker/Sphinx and specialist targets. **Both are retained; removing the
+Makefile requires a separate migration decision.**
+
+```bash
+mise install just
+just --list
+just sync
+just dev
+just test-pfsense
+just secrets
+just secrets-staged
+just fix
+just quality
+just publish-check
+```
+
+`just publish-check` runs the local publication proof; it does **not** publish,
+push, deploy or trigger GitHub Actions. For legacy commands continue using
+`make <target>`, or use `just make-help`, `just docs`, `just docker-build`,
+`just docker-up`, or `just legacy <target>`; those recipes delegate to the
+existing `Makefile` rather than duplicating its implementation. `just lint`,
+`just format-check`, and `just format` are convenience commands, not a
+replacement for the canonical quality gate.
+
+## Secret detection
+
+[Betterleaks](https://github.com/betterleaks/betterleaks) v1.9.0 replaces
+Gitleaks in the pre-commit hooks. The `just secrets` recipe scans the local
+working tree, and `just secrets-staged` scans staged Git additions. Run
+`mise install betterleaks` (or `brew bundle` on a Homebrew environment) to
+install the CLI for direct or Just usage. `make just-secrets` delegates to
+`just secrets`; the historical Makefile remains available.
+
+MegaLinter already runs `REPOSITORY_BETTERLEAKS` with errors enabled.
+The legacy `.gitleaks.toml` and `.gitleaksignore` files are **intentionally
+retained**: Betterleaks v1 accepts their rules and existing finding
+exclusions. Do not discard or broadly regenerate these exceptions during the
+scanner migration. Credential validation/network requests remain off by default.
 
 ## Validation
 

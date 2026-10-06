@@ -28,6 +28,15 @@ def _gauge_value(metric, **labels) -> float:
     return float(samples[0].value)
 
 
+def _histogram_count(metric, **labels) -> float:
+    samples = metric.labels(**labels).collect()[0].samples
+    return next(
+        float(sample.value)
+        for sample in samples
+        if sample.name.endswith("_count")
+    )
+
+
 def test_unknown_labels_do_not_create_metric_series() -> None:
     provider_series = _series(probe_metrics.PROVIDER_OUTCOMES)
     budget_series = _series(probe_metrics.PROVIDER_BUDGET_REJECTIONS)
@@ -104,6 +113,7 @@ def test_probe_in_flight_gauge_balances() -> None:
     assert _gauge_value(probe_metrics.PROBES_IN_FLIGHT) == before + 1
     probe_metrics.probe_finished()
     assert _gauge_value(probe_metrics.PROBES_IN_FLIGHT) == before
+
 
 def test_provider_capacity_metrics_use_bounded_labels() -> None:
     before_count = next(
@@ -196,3 +206,104 @@ def test_invalid_capacity_measurements_do_not_create_series() -> None:
     assert _series(probe_metrics.PROVIDER_RATE_BUDGET_UTILIZATION) == utilization_series
     assert _series(probe_metrics.PROVIDER_ORIGIN_DURATION) == duration_series
 
+
+def test_pfsense_preflight_metrics_are_bounded() -> None:
+    before_duration = _histogram_count(
+        probe_metrics.PFSENSE_PREFLIGHT_DURATION,
+        outcome="success",
+    )
+    before_skip = _counter_value(
+        probe_metrics.PFSENSE_PROTECTIVE_SKIPS,
+        reason="slow_preflight",
+    )
+
+    probe_metrics.observe_pfsense_preflight_duration(
+        outcome="success",
+        duration_seconds=2.4,
+    )
+    probe_metrics.record_pfsense_protective_skip("slow_preflight")
+
+    assert (
+        _histogram_count(
+            probe_metrics.PFSENSE_PREFLIGHT_DURATION,
+            outcome="success",
+        )
+        == before_duration + 1
+    )
+    assert (
+        _counter_value(
+            probe_metrics.PFSENSE_PROTECTIVE_SKIPS,
+            reason="slow_preflight",
+        )
+        == before_skip + 1
+    )
+
+
+def test_invalid_pfsense_metric_values_do_not_create_series() -> None:
+    duration_series = _series(probe_metrics.PFSENSE_PREFLIGHT_DURATION)
+    skip_series = _series(probe_metrics.PFSENSE_PROTECTIVE_SKIPS)
+
+    probe_metrics.observe_pfsense_preflight_duration(
+        outcome="dynamic-user-value",
+        duration_seconds=1.0,
+    )
+    probe_metrics.observe_pfsense_preflight_duration(
+        outcome="success",
+        duration_seconds=float("nan"),
+    )
+    probe_metrics.record_pfsense_protective_skip("dynamic-user-value")
+
+    assert _series(probe_metrics.PFSENSE_PREFLIGHT_DURATION) == duration_series
+    assert _series(probe_metrics.PFSENSE_PROTECTIVE_SKIPS) == skip_series
+
+
+def test_pfsense_request_metrics_are_bounded_and_balanced() -> None:
+    before_count = _counter_value(
+        probe_metrics.PFSENSE_API_REQUESTS,
+        phase="preflight",
+    )
+    before_in_flight = _gauge_value(
+        probe_metrics.PFSENSE_API_REQUESTS_IN_FLIGHT,
+        phase="preflight",
+    )
+    counter_series = _series(probe_metrics.PFSENSE_API_REQUESTS)
+    in_flight_series = _series(probe_metrics.PFSENSE_API_REQUESTS_IN_FLIGHT)
+
+    probe_metrics.pfsense_api_request_started("preflight")
+
+    assert (
+        _counter_value(
+            probe_metrics.PFSENSE_API_REQUESTS,
+            phase="preflight",
+        )
+        == before_count + 1
+    )
+    assert (
+        _gauge_value(
+            probe_metrics.PFSENSE_API_REQUESTS_IN_FLIGHT,
+            phase="preflight",
+        )
+        == before_in_flight + 1
+    )
+
+    probe_metrics.pfsense_api_request_finished("preflight")
+
+    assert (
+        _gauge_value(
+            probe_metrics.PFSENSE_API_REQUESTS_IN_FLIGHT,
+            phase="preflight",
+        )
+        == before_in_flight
+    )
+
+    probe_metrics.pfsense_api_request_started("dynamic-user-value")
+    probe_metrics.pfsense_api_request_finished("dynamic-user-value")
+
+    assert _series(probe_metrics.PFSENSE_API_REQUESTS) == (
+        counter_series
+        | {(("phase", "preflight"),)}
+    )
+    assert _series(probe_metrics.PFSENSE_API_REQUESTS_IN_FLIGHT) == (
+        in_flight_series
+        | {(("phase", "preflight"),)}
+    )

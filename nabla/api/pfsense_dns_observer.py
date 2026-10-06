@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -15,6 +16,12 @@ from nabla.api.provider_probe_policies import (
     PFSENSE_POSTURE_CACHE_POLICY as _PFSENSE_POSTURE_CACHE_POLICY,
 )
 from nabla.api.pfsense_security_observer import observe_pfsense_ingress_block
+from nabla.api.probe_metrics import (
+    observe_pfsense_preflight_duration,
+    pfsense_api_request_finished,
+    pfsense_api_request_started,
+    record_pfsense_protective_skip,
+)
 from nabla.api.provider_credentials import inspect_environment_credentials
 from nabla.api.probe_headers import probe_request_headers
 from nabla.settings.homelab import (
@@ -23,6 +30,8 @@ from nabla.settings.homelab import (
     pfsense_invalid_configuration_variables,
     pfsense_posture_environment_variables,
 )
+
+logger = logging.getLogger(__name__)
 
 DNSPolicyState = Literal["ok", "warn", "fail", "unknown"]
 
@@ -317,9 +326,35 @@ def _policy_state(
 
 
 async def _get_data(client: httpx.AsyncClient, path: str) -> object:
-    response = await client.get(path)
+    headers = probe_request_headers("pfsense-posture")
+    logger.debug(
+        "pfSense posture request origin=%s probe=%s request_id=%s "
+        "traceparent=%s path=%s",
+        headers.get("Nabla-Probe-Origin", "unknown"),
+        headers.get("Nabla-Probe-Name", "unknown"),
+        headers.get("Nabla-Probe-Request-ID", "unknown"),
+        headers.get("traceparent", "none"),
+        path,
+    )
+    response = await client.get(
+        path,
+        headers=headers,
+    )
     response.raise_for_status()
     return _response_data(response.json())
+
+
+async def _measured_get_data(
+    client: httpx.AsyncClient,
+    path: str,
+    *,
+    phase: str,
+) -> object:
+    pfsense_api_request_started(phase)
+    try:
+        return await _get_data(client, path)
+    finally:
+        pfsense_api_request_finished(phase)
 
 
 async def _bounded_observations(
@@ -330,7 +365,7 @@ async def _bounded_observations(
 
     async def fetch(path: str) -> object:
         async with semaphore:
-            return await _get_data(client, path)
+            return await _measured_get_data(client, path, phase="deep")
 
     results = await asyncio.gather(
         *(fetch(path) for path in paths.values()),
@@ -384,17 +419,31 @@ async def _observe_posture_origin_bounded(
     )
     async with httpx.AsyncClient(
         base_url=settings.base_url,
-        headers={**probe_request_headers("pfsense-posture"), "X-API-Key": settings.api_key},
+        headers={"X-API-Key": settings.api_key},
         timeout=timeout,
         follow_redirects=False,
         verify=settings.verify_ssl,
     ) as client:
         system_path = paths["system"]
+        system_elapsed_ms: int | None = None
         system_started = time.perf_counter()
         try:
-            system_observation = await _get_data(client, system_path)
+            system_observation = await _measured_get_data(
+                client,
+                system_path,
+                phase="preflight",
+            )
         except BaseException as exc:
+            system_elapsed_seconds = max(
+                0.0,
+                time.perf_counter() - system_started,
+            )
             if _http_status_from_error(exc) == 401:
+                observe_pfsense_preflight_duration(
+                    outcome="auth_rejected",
+                    duration_seconds=system_elapsed_seconds,
+                )
+                record_pfsense_protective_skip("authentication_failure")
                 skipped = {
                     name: {
                         "observed": False,
@@ -432,13 +481,23 @@ async def _observe_posture_origin_bounded(
                     "error": "HTTP 401",
                     "auth_fail_fast": True,
                 }
+            observe_pfsense_preflight_duration(
+                outcome="failure",
+                duration_seconds=system_elapsed_seconds,
+            )
             observations = {"system": exc}
         else:
-            system_elapsed_ms = max(
-                0,
-                round((time.perf_counter() - system_started) * 1000),
+            system_elapsed_seconds = max(
+                0.0,
+                time.perf_counter() - system_started,
             )
+            observe_pfsense_preflight_duration(
+                outcome="success",
+                duration_seconds=system_elapsed_seconds,
+            )
+            system_elapsed_ms = round(system_elapsed_seconds * 1000)
             if system_elapsed_ms >= round(_PFSENSE_SLOW_PREFLIGHT_SEC * 1000):
+                record_pfsense_protective_skip("slow_preflight")
                 skipped = {
                     name: {
                         "observed": False,
@@ -491,6 +550,8 @@ async def _observe_posture_origin_bounded(
         )
 
     endpoint_status = _endpoint_status(observations)
+    if system_elapsed_ms is not None:
+        endpoint_status["system"]["elapsed_ms"] = system_elapsed_ms
     failures = [(name, value) for name, value in observations.items() if isinstance(value, BaseException)]
     services = observations.get("services")
     resolver = observations.get("resolver")
@@ -532,6 +593,10 @@ async def _observe_posture_origin_bounded(
             ),
         ),
     }
+    if system_elapsed_ms is not None:
+        result["control_plane_state"] = "ok"
+        result["control_plane_elapsed_ms"] = system_elapsed_ms
+        result["deep_probe_skipped"] = False
     if failures:
         stage, error = failures[0]
         result["error_stage"] = stage

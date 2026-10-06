@@ -78,7 +78,10 @@ Runbook:
     budget and preserve measured HTTP evidence when auxiliary diagnostics time out.
   - [x] Compare hostname TLS with direct WAN-IP+SNI on port 7000 so DNS/edge
     drift is distinguishable from pfSense/HAProxy failure.
-- [ ] Define a fixed-cardinality production p95 latency target.
+- [x] Define the provisional fixed-cardinality pfSense control-plane target:
+  successful `system.version` preflight p95 <2.0 s over 30 minutes; keep the
+  separate 2.5 s per-request protection threshold and do not claim the target is
+  met until a sustained TrueNAS baseline is collected.
 - [ ] Prove appliance degradation cannot exhaust FastAPI workers or create probe
   bursts.
   - [x] Fail fast on pfSense HTTP 401 so one rejected posture key does not fan
@@ -88,13 +91,44 @@ Runbook:
     skip deeper posture fan-out for that refresh.
   - [ ] Validate the 2.5 s protection threshold against measured p95/p99
     latency and appliance CPU/RAM/PHP-FPM saturation evidence.
+    - [x] Export fixed-cardinality Prometheus histogram evidence for the
+      existing `system.version` preflight and counters for protective fan-out
+      skips; this adds no provider request.
+    - [x] Preserve the latest successful preflight latency in the sanitized
+      posture as `control_plane_elapsed_ms`, with
+      `control_plane_state=ok|slow` and explicit `deep_probe_skipped`.
+    - [x] Export fixed-cardinality pfREST request-rate and in-flight metrics for
+      `preflight|deep`; slow/auth-rejected preflights emit no deep request and
+      normal posture refreshes remain one preflight plus three bounded deep reads.
+    - [x] Exercise the deep-read semaphore with more candidate reads than the
+      production fan-out and prove observed concurrency never exceeds 2.
+    - [ ] Collect a sustained TrueNAS-runtime baseline and correlate p95/p99,
+      skip rate, provider in-flight work and pfSense CPU/RAM/PHP-FPM/FastCGI
+      evidence before changing the 2.5 s threshold.
   - [ ] Correlate bounded pfSense nginx/pfREST evidence with the passive
     `Nabla-Probe-Origin`, `Nabla-Probe-Name`, `Nabla-Probe-Request-ID`
     and W3C trace context fields, without logging API keys or treating probe
     metadata as an authorization signal.
-- [ ] Inventory Uptime Kuma/Gatus/AutoKuma so no monitor performs expensive
-  pfSense deep-status requests.
-- [ ] Remove the shared-WAN Snort attribution blind spot.
+    - [x] Generate correlation metadata per HTTP request rather than once per
+      shared client; keep `X-API-Key` separate from those headers.
+    - [x] Emit bounded client-side DEBUG correlation and expose the request ID
+      from the redacted auth-smoke CLI without logging credentials.
+    - [ ] Implement the bounded generated-nginx/pfREST log capture in
+      `nabla-compose`, then prove one TrueNAS request ID across client/server
+      evidence without exposing secrets.
+- [x] Inventory Uptime Kuma/Gatus/AutoKuma: current generated monitors use only
+  TCP `172.17.0.1:10443` for pfSense and TCP `:9945` for the pfSense
+  exporter; AutoKuma explicitly forbids exporter `/metrics` health checks
+  because they fan out into pfREST.
+- [ ] Reconcile the latent `nabla-compose/apps/crowdsec/compose.yml`
+  `pfsense.monitoring` metadata, which still declares HTTP
+  `/api/v2/system/version`, with the lightweight TCP monitoring policy so a
+  future catalog-consumer regeneration cannot reintroduce periodic pfREST
+  load.
+- [x] Remove the shared-WAN Snort attribution blind spot from the authoritative
+  observer path: TrueNAS/homelab uses the LAN/split-DNS `out_of_band` control
+  path for pfSense API evidence, while FastAPI Cloud authenticated pfSense
+  probes remain disabled and WAN reachability is observed separately.
 - [ ] After an independent pfSense observer path is accepted, expand the
   sanitized posture with interfaces/gateways, firewall/NAT and DNS policy;
   query VPN, logs and private inventory only for explicit operational needs.

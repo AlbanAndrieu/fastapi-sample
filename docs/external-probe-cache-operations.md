@@ -134,7 +134,11 @@ signal:
 - `nabla_external_provider_origins_in_flight{provider}`;
 - `nabla_external_provider_circuit_state{provider,state}`;
 - `nabla_external_probe_timeouts_total{phase}`;
-- `nabla_external_probes_in_flight`.
+- `nabla_external_probes_in_flight`;
+- `nabla_pfsense_preflight_duration_seconds{outcome}`;
+- `nabla_pfsense_protective_skips_total{reason}`;
+- `nabla_pfsense_api_requests_total{phase}`;
+- `nabla_pfsense_api_requests_in_flight{phase}`.
 
 Provider labels are restricted to `truenas`, `pfsense` and `cloudflare`.
 Do not add URLs, hostnames, IP addresses, cache keys, exception messages or other
@@ -184,6 +188,33 @@ max_over_time(nabla_external_provider_origins_in_flight[15m])
 
 A latency increase that appears only when provider concurrency rises is a strong
 signal to reduce fan-out before considering a higher request-rate budget.
+
+### pfSense preflight latency target
+
+Use the successful lightweight `system.version` preflight as the primary
+control-plane latency SLI. The provisional production objective is:
+
+```text
+p95(successful pfSense preflight, 30m) < 2.0 s
+```
+
+This objective is intentionally below the 2.5 s per-request protection
+threshold. The ranges have different meanings:
+
+- below 2.0 s p95: target operating range;
+- 2.0–2.5 s p95: warning/capacity-investigation range;
+- any individual authenticated preflight >=2.5 s: skip the three deep posture
+  reads for that refresh;
+- p99 remains diagnostic evidence until a sustained TrueNAS baseline supports a
+  separate target.
+
+The 2026-10-04 short LAN sample had p95 around 3 s, so it does not prove this
+objective is met. Do not weaken the target or raise the protection threshold to
+make the metric green; correlate a sustained baseline with pfSense CPU, free
+memory, PHP-FPM RSS and FastCGI queue evidence first.
+
+The target is a scalar operating contract, not a Prometheus label. Keep all
+metric dimensions fixed and bounded.
 
 ```promql
 max_over_time(nabla_external_provider_rate_budget_utilization_ratio[15m])

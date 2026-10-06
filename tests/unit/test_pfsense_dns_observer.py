@@ -309,6 +309,8 @@ async def test_posture_401_preserves_transport_reachability(
     settings,
 ) -> None:
     calls: list[str] = []
+    metric_events: list[dict[str, object]] = []
+    protective_skips: list[str] = []
 
     async def rejected(_client, path: str):
         calls.append(path)
@@ -321,10 +323,22 @@ async def test_posture_401_preserves_transport_reachability(
         )
 
     monkeypatch.setattr(pfsense_dns_observer, "_get_data", rejected)
+    monkeypatch.setattr(
+        pfsense_dns_observer,
+        "observe_pfsense_preflight_duration",
+        lambda **event: metric_events.append(event),
+    )
+    monkeypatch.setattr(
+        pfsense_dns_observer,
+        "record_pfsense_protective_skip",
+        protective_skips.append,
+    )
 
     result = await pfsense_dns_observer._observe_posture_origin(settings)
 
     assert calls == ["/api/v2/system/version"]
+    assert metric_events[0]["outcome"] == "auth_rejected"
+    assert protective_skips == ["authentication_failure"]
     assert result["reachable"] is False
     assert result["transport_reachable"] is True
     assert result["api_authenticated"] is False
@@ -373,7 +387,6 @@ async def test_posture_401_keeps_firewall_path_warning(
     assert "authentication failed" in filters["firewall"]["detail"]
 
 
-
 @pytest.mark.asyncio
 async def test_authenticated_pfsense_probes_can_be_disabled_for_cloud(
     monkeypatch,
@@ -411,6 +424,10 @@ async def test_slow_preflight_skips_deep_posture_fanout(
     settings,
 ) -> None:
     calls: list[str] = []
+    metric_events: list[dict[str, object]] = []
+    protective_skips: list[str] = []
+    request_starts: list[str] = []
+    request_finishes: list[str] = []
     perf_values = iter((100.0, 103.1))
 
     async def fake_get_data(_client, path: str):
@@ -423,10 +440,35 @@ async def test_slow_preflight_skips_deep_posture_fanout(
         "perf_counter",
         lambda: next(perf_values),
     )
+    monkeypatch.setattr(
+        pfsense_dns_observer,
+        "observe_pfsense_preflight_duration",
+        lambda **event: metric_events.append(event),
+    )
+    monkeypatch.setattr(
+        pfsense_dns_observer,
+        "record_pfsense_protective_skip",
+        protective_skips.append,
+    )
+    monkeypatch.setattr(
+        pfsense_dns_observer,
+        "pfsense_api_request_started",
+        request_starts.append,
+    )
+    monkeypatch.setattr(
+        pfsense_dns_observer,
+        "pfsense_api_request_finished",
+        request_finishes.append,
+    )
 
     result = await pfsense_dns_observer._observe_posture_origin_bounded(settings)
 
     assert calls == ["/api/v2/system/version"]
+    assert request_starts == ["preflight"]
+    assert request_finishes == ["preflight"]
+    assert metric_events[0]["outcome"] == "success"
+    assert metric_events[0]["duration_seconds"] == pytest.approx(3.1)
+    assert protective_skips == ["slow_preflight"]
     assert result["reachable"] is True
     assert result["transport_reachable"] is True
     assert result["api_authenticated"] is True
@@ -442,3 +484,140 @@ async def test_slow_preflight_skips_deep_posture_fanout(
         "observed": False,
         "error": "skipped_after_slow_preflight",
     }
+
+
+@pytest.mark.asyncio
+async def test_fast_preflight_exposes_elapsed_without_skipping(
+    monkeypatch,
+    settings,
+) -> None:
+    calls: list[str] = []
+    request_starts: list[str] = []
+    request_finishes: list[str] = []
+    perf_values = iter((100.0, 100.8))
+
+    async def fake_get_data(_client, path: str):
+        calls.append(path)
+        return {
+            "/api/v2/system/version": {"version": "26.07"},
+            "/api/v2/status/services": [],
+            "/api/v2/services/dns_resolver/settings": {},
+            "/api/v2/system/dns": {"dnsserver": []},
+        }[path]
+
+    monkeypatch.setattr(pfsense_dns_observer, "_get_data", fake_get_data)
+    monkeypatch.setattr(
+        pfsense_dns_observer.time,
+        "perf_counter",
+        lambda: next(perf_values),
+    )
+    monkeypatch.setattr(
+        pfsense_dns_observer,
+        "pfsense_api_request_started",
+        request_starts.append,
+    )
+    monkeypatch.setattr(
+        pfsense_dns_observer,
+        "pfsense_api_request_finished",
+        request_finishes.append,
+    )
+
+    result = await pfsense_dns_observer._observe_posture_origin_bounded(settings)
+
+    assert request_starts.count("preflight") == 1
+    assert request_starts.count("deep") == 3
+    assert request_finishes.count("preflight") == 1
+    assert request_finishes.count("deep") == 3
+    assert set(calls) == {
+        "/api/v2/system/version",
+        "/api/v2/status/services",
+        "/api/v2/services/dns_resolver/settings",
+        "/api/v2/system/dns",
+    }
+    assert result["control_plane_state"] == "ok"
+    assert result["control_plane_elapsed_ms"] == 800
+    assert result["deep_probe_skipped"] is False
+    assert result["endpoint_status"]["system"]["elapsed_ms"] == 800
+
+
+@pytest.mark.asyncio
+async def test_posture_http_requests_get_distinct_correlation_ids(
+    caplog,
+) -> None:
+    seen_headers: list[dict[str, str]] = []
+    caplog.set_level("DEBUG", logger=pfsense_dns_observer.__name__)
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, object]:
+            return {"data": {"version": "26.07"}}
+
+    class FakeClient:
+        async def get(
+            self,
+            _path: str,
+            *,
+            headers: dict[str, str],
+        ) -> FakeResponse:
+            seen_headers.append(headers)
+            return FakeResponse()
+
+    client = FakeClient()
+    first = await pfsense_dns_observer._get_data(
+        client,  # type: ignore[arg-type]
+        "/api/v2/system/version",
+    )
+    second = await pfsense_dns_observer._get_data(
+        client,  # type: ignore[arg-type]
+        "/api/v2/system/version",
+    )
+
+    assert first == {"version": "26.07"}
+    assert second == {"version": "26.07"}
+    assert len(seen_headers) == 2
+    assert (
+        seen_headers[0]["Nabla-Probe-Request-ID"]
+        != seen_headers[1]["Nabla-Probe-Request-ID"]
+    )
+    assert all("X-API-Key" not in headers for headers in seen_headers)
+    assert seen_headers[0]["Nabla-Probe-Request-ID"] in caplog.text
+    assert seen_headers[1]["Nabla-Probe-Request-ID"] in caplog.text
+    assert "test-only-key" not in caplog.text
+    assert "X-API-Key" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_deep_posture_fanout_never_exceeds_configured_concurrency(
+    monkeypatch,
+) -> None:
+    active = 0
+    peak = 0
+
+    async def measured(_client, path: str, *, phase: str):
+        nonlocal active, peak
+        assert phase == "deep"
+        active += 1
+        peak = max(peak, active)
+        try:
+            await asyncio.sleep(0.01)
+            return {"path": path}
+        finally:
+            active -= 1
+
+    monkeypatch.setattr(
+        pfsense_dns_observer,
+        "_measured_get_data",
+        measured,
+    )
+    paths = {f"probe_{index}": f"/probe/{index}" for index in range(6)}
+
+    result = await pfsense_dns_observer._bounded_observations(
+        None,  # type: ignore[arg-type]
+        paths,
+    )
+
+    assert peak == pfsense_dns_observer._PFSENSE_MAX_CONCURRENCY == 2
+    assert set(result) == set(paths)
+    assert active == 0

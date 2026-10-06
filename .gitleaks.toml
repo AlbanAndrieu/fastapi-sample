@@ -1,6 +1,6 @@
-# This is the default gitleaks configuration file.
-# Rules and allowlists are defined within this file.
-title = "gitleaks config"
+# Betterleaks v1 compatibility configuration (legacy Gitleaks syntax).
+# Retain existing exclusions and .gitleaksignore fingerprints during migration.
+title = "Betterleaks compatibility config"
 minVersion = "v8.25.0"
 
 [extend]

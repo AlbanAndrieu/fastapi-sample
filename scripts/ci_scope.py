@@ -32,6 +32,7 @@ QUALITY_MAINTENANCE_PATHS = {
     "renovate.json",
     "vercel.json",
     "mise.toml",
+    "justfile",
     "scripts/agent-publish.sh",
     "scripts/agent-quality-gate.sh",
     "scripts/check_code_size.py",

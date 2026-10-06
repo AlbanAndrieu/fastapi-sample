@@ -27,8 +27,10 @@ def test_expected_least_privilege_matrix() -> None:
 def test_smoke_output_contract_is_redacted() -> None:
     source = SOURCE.read_text(encoding="utf-8")
 
-    assert '"X-API-Key": settings.api_key' in source
+    assert 'headers={"X-API-Key": settings.api_key}' in source
+    assert "headers=probe_request_headers" in source
     assert "key_present=yes" in source
+    assert "request_id=" in source
     assert "secrets_printed=no" in source
     assert "response.text" not in source
     assert 'payload.get("response_id")' in source

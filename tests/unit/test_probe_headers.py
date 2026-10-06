@@ -78,3 +78,15 @@ def test_blank_probe_name_is_rejected() -> None:
         assert str(exc) == "probe_name must not be blank"
     else:
         raise AssertionError("blank probe name must fail closed")
+
+
+def test_probe_request_id_is_unique_per_http_request(monkeypatch) -> None:
+    _clear_runtime_markers(monkeypatch)
+    monkeypatch.setenv("FASTAPI_RUNTIME_MODE", "homelab")
+
+    first = probe_request_headers("pfsense-posture")
+    second = probe_request_headers("pfsense-posture")
+
+    assert first["Nabla-Probe-Request-ID"] != second["Nabla-Probe-Request-ID"]
+    assert "X-API-Key" not in first
+    assert "X-API-Key" not in second

@@ -100,22 +100,24 @@ def _probe_identity(
     timeout = httpx.Timeout(connect=3.0, read=6.0, write=3.0, pool=3.0)
     with httpx.Client(
         base_url=base_url,
-        headers={
-            **probe_request_headers(f"pfsense-auth-{identity}"),
-            "X-API-Key": settings.api_key,
-        },
+        headers={"X-API-Key": settings.api_key},
         timeout=timeout,
         follow_redirects=False,
         verify=verify_ssl,
     ) as client:
         for expectation in expectations:
+            request_headers = probe_request_headers(f"pfsense-auth-{identity}")
+            request_id = request_headers["Nabla-Probe-Request-ID"]
             try:
-                response = client.get(expectation.endpoint)
+                response = client.get(
+                    expectation.endpoint,
+                    headers=request_headers,
+                )
             except httpx.HTTPError as exc:
                 print(
                     f"identity={identity} endpoint={expectation.endpoint} "
                     f"expected={expectation.expected_status} result=transport_error "
-                    f"error={exc.__class__.__name__}",
+                    f"error={exc.__class__.__name__} request_id={request_id}",
                 )
                 continue
 
@@ -137,7 +139,8 @@ def _probe_identity(
             print(
                 f"identity={identity} endpoint={expectation.endpoint} "
                 f"expected={expectation.expected_status} actual={response.status_code} "
-                f"result={'ok' if ok else 'mismatch'}{response_id_field}",
+                f"result={'ok' if ok else 'mismatch'} request_id={request_id}"
+                f"{response_id_field}",
             )
             if response.status_code == 401:
                 print(
