@@ -46,6 +46,14 @@ quality:
 publish-check:
     bash scripts/agent-publish.sh
 
+# Show the legacy Makefile help while migration remains additive.
+make-help:
+    make help
+
+# Delegate the legacy documentation build to the unchanged Makefile.
+docs:
+    make doc
+
 # Delegate the legacy Docker build to the unchanged Makefile.
 docker-build:
     make build-docker
@@ -53,3 +61,8 @@ docker-build:
 # Delegate the legacy container run target to the unchanged Makefile.
 docker-up:
     make up
+
+# Delegate any explicitly requested legacy target to Make.
+# Example: just legacy test-semgrep
+legacy target:
+    make "{{target}}"
