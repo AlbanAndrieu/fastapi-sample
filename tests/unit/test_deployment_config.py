@@ -227,7 +227,6 @@ def test_fastapi_cloud_cli_lock_is_current() -> None:
     assert 'name = "fastapi-cloud-cli"\nversion = "0.24.0"' not in lock
 
 
-
 def test_fastapi_cloud_deployment_explicitly_disables_debug() -> None:
     workflow = yaml.safe_load(
         (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8"),

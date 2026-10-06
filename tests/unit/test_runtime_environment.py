@@ -119,7 +119,6 @@ def test_fastapi_cloud_hostname_wins_over_homelab_marker(monkeypatch) -> None:
     )
 
 
-
 def test_application_debug_is_disabled_on_fastapi_cloud(monkeypatch) -> None:
     _clear_runtime_markers(monkeypatch)
     monkeypatch.setenv("FASTAPI_CLOUD_APP_ID", "example-app")
