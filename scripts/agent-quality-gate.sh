@@ -341,7 +341,7 @@ if [[ "${BASE_REF}" != "HEAD" ]]; then
             uv.lock | Pipfile.lock | package-lock.json | trivy-sbom.json)
                 continue
                 ;;
-            *.md | *.py | *.sh | *.js | *.mjs | *.css | *.yml | *.yaml | *.json | *.toml | Dockerfile* | Makefile)
+            *.md | *.py | *.sh | *.js | *.mjs | *.css | *.yml | *.yaml | *.json | *.toml | Dockerfile* | Makefile | justfile)
                 ;;
             *)
                 continue
@@ -372,7 +372,7 @@ if [[ "${BASE_REF}" != "HEAD" ]]; then
             uv.lock | Pipfile.lock | package-lock.json | trivy-sbom.json)
                 continue
                 ;;
-            *.md | *.py | *.sh | *.js | *.mjs | *.css | *.yml | *.yaml | *.json | *.toml | Dockerfile* | Makefile)
+            *.md | *.py | *.sh | *.js | *.mjs | *.css | *.yml | *.yaml | *.json | *.toml | Dockerfile* | Makefile | justfile)
                 ;;
             *)
                 continue
