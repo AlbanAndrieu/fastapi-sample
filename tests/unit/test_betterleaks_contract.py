@@ -41,7 +41,9 @@ def test_just_uses_betterleaks_with_existing_config() -> None:
 
 def test_mise_pins_stable_betterleaks_release() -> None:
     mise = tomllib.loads((ROOT / "mise.toml").read_text(encoding="utf-8"))
-    lock = tomllib.loads((ROOT / "mise.lock").read_text(encoding="utf-8"))
+    lock = tomllib.loads(
+        (ROOT / "mise.lock").read_text(encoding="utf-8"),
+    )
 
     assert mise["tools"]["betterleaks"] == "1.9.0"
     assert lock["tools"]["betterleaks"][0]["version"] == "1.9.0"
@@ -51,7 +53,9 @@ def test_mise_pins_stable_betterleaks_release() -> None:
 
 
 def test_megalinter_uses_betterleaks_with_errors_enabled() -> None:
-    config = yaml.safe_load((ROOT / ".mega-linter.yml").read_text(encoding="utf-8"))
+    config = yaml.safe_load(
+        (ROOT / ".mega-linter.yml").read_text(encoding="utf-8"),
+    )
 
     assert "REPOSITORY_BETTERLEAKS" in config["ENABLE_LINTERS"]
     assert "REPOSITORY_GITLEAKS" not in config["ENABLE_LINTERS"]
@@ -60,11 +64,14 @@ def test_megalinter_uses_betterleaks_with_errors_enabled() -> None:
 
 
 def test_previous_finding_exclusions_remain_available() -> None:
-    config = tomllib.loads((ROOT / ".gitleaks.toml").read_text(encoding="utf-8"))
+    config = tomllib.loads(
+        (ROOT / ".gitleaks.toml").read_text(encoding="utf-8"),
+    )
 
     assert config["extend"]["useDefault"] is True
     assert config["allowlist"]["regexes"]
     assert (ROOT / ".gitleaksignore").is_file()
+
 
 def test_brew_installs_betterleaks_instead_of_gitleaks() -> None:
     packages = (ROOT / "Brewfile").read_text(encoding="utf-8").splitlines()
