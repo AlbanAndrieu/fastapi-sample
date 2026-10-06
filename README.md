@@ -15,6 +15,7 @@ deployments are disabled.
 
 - Python 3.13
 - [uv](https://docs.astral.sh/uv/)
+- [just](https://just.systems/) (available via `mise install just`)
 - Node.js 24 + npm 10 for repository tooling
 - Docker only for optional local infrastructure
 
