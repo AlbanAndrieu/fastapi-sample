@@ -51,6 +51,29 @@ Useful local endpoints:
 Current entry points and dashboards are documented in
 [docs/entrypoints-and-dashboards.md](docs/entrypoints-and-dashboards.md).
 
+## Local task runners
+
+`justfile` provides short, local-first commands while the existing `Makefile`
+continues to support legacy Docker/Sphinx targets. **Both are retained.**
+
+```bash
+mise install just
+just --list
+just sync
+just dev
+just test-pfsense
+just fix
+just quality
+just publish-check
+```
+
+`just publish-check` runs the local publication proof; it does **not** publish,
+push, deploy or trigger GitHub Actions. For legacy commands continue using
+`make build` / `make up`, or use `just docker-build` / `just docker-up`,
+which delegate to the unchanged `Makefile`. `just lint`,
+`just format-check`, and `just format` are convenience commands, not a
+replacement for the canonical quality gate.
+
 ## Validation
 
 Run focused tests first, then converge the repository quality gate:
