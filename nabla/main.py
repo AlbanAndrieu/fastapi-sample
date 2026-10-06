@@ -31,6 +31,7 @@ from nabla.api import (
     v2,
 )
 from nabla.api.auth import keycloak as keycloak_auth
+from nabla.api.runtime_environment import application_debug_enabled
 from nabla.api.db.database import engine
 from nabla.api.notes import notes
 from nabla.api.users.models import UserAdmin, UserCreate, UserRead, UserUpdate
@@ -246,7 +247,7 @@ def _configure_hot_reload(app: FastAPI, *, debug: bool) -> None:
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
-    debug = env_bool("DEBUG")
+    debug = application_debug_enabled(env_bool("DEBUG"))
     app = FastAPI(
         lifespan=combined_lifespan,
         title=f"{APP_NAME} {APP_PREFIX_VERSION}",

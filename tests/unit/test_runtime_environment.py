@@ -1,5 +1,9 @@
 """Tests for cloud/PaaS runtime detection."""
 
+import httpx
+import pytest
+from fastapi import FastAPI
+
 from nabla.api import runtime_environment
 
 
@@ -113,3 +117,47 @@ def test_fastapi_cloud_hostname_wins_over_homelab_marker(monkeypatch) -> None:
         runtime_environment.runtime_mode("fastapi-sample.fastapicloud.dev")
         == "fastapi_cloud"
     )
+
+
+
+def test_application_debug_is_disabled_on_fastapi_cloud(monkeypatch) -> None:
+    _clear_runtime_markers(monkeypatch)
+    monkeypatch.setenv("FASTAPI_CLOUD_APP_ID", "example-app")
+
+    assert runtime_environment.application_debug_enabled(True) is False
+    assert runtime_environment.application_debug_enabled(False) is False
+
+
+def test_application_debug_remains_available_for_explicit_local_dev(
+    monkeypatch,
+) -> None:
+    _clear_runtime_markers(monkeypatch)
+    monkeypatch.setenv("FASTAPI_ENV", "development")
+
+    assert runtime_environment.application_debug_enabled(True) is True
+    assert runtime_environment.application_debug_enabled(False) is False
+
+
+@pytest.mark.asyncio
+async def test_fastapi_cloud_500_does_not_disclose_exception_details(
+    monkeypatch,
+) -> None:
+    _clear_runtime_markers(monkeypatch)
+    monkeypatch.setenv("FASTAPI_CLOUD_APP_ID", "example-app")
+
+    app = FastAPI(debug=runtime_environment.application_debug_enabled(True))
+
+    @app.get("/deliberate-exception")
+    async def deliberate_exception() -> None:
+        raise RuntimeError("private-diagnostic-marker")
+
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://test",
+    ) as client:
+        response = await client.get("/deliberate-exception")
+
+    assert response.status_code == 500
+    assert "private-diagnostic-marker" not in response.text
+    assert "Traceback" not in response.text

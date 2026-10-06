@@ -93,6 +93,11 @@ def known_paas_runtime_detected(hostname: str | None = None) -> bool:
     )
 
 
+def application_debug_enabled(configured_debug: bool) -> bool:
+    """Never serve Starlette debug tracebacks from a FastAPI Cloud runtime."""
+    return configured_debug and not fastapi_cloud_runtime_detected()
+
+
 def runtime_mode(hostname: str | None = None) -> str:
     """Return a stable scope for telemetry, UI and observer semantics."""
     host = (hostname or "").strip().casefold().rstrip(".")

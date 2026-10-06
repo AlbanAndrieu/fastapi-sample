@@ -3,6 +3,8 @@
 import json
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -223,3 +225,23 @@ def test_fastapi_cloud_cli_lock_is_current() -> None:
     assert 'name = "fastapi-cloud-cli"\nversion = "0.26.0"' in lock
     assert 'name = "rich-toolkit"\nversion = "0.20.5"' in lock
     assert 'name = "fastapi-cloud-cli"\nversion = "0.24.0"' not in lock
+
+
+
+def test_fastapi_cloud_deployment_explicitly_disables_debug() -> None:
+    workflow = yaml.safe_load(
+        (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8"),
+    )
+    steps = workflow["jobs"]["deploy"]["steps"]
+    deployment = next(
+        step for step in steps if step.get("name") == "Deploy and wait for FastAPI Cloud verification"
+    )
+
+    assert "uv run fastapi cloud env set DEBUG false ." in deployment["run"]
+    assert "uv run fastapi cloud env set DEBUG true ." not in deployment["run"]
+
+
+def test_app_factory_applies_cloud_debug_guard() -> None:
+    app_factory = (ROOT / "nabla/main.py").read_text(encoding="utf-8")
+
+    assert 'application_debug_enabled(env_bool("DEBUG"))' in app_factory
