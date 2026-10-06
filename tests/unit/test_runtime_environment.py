@@ -12,6 +12,7 @@ def _clear_runtime_markers(monkeypatch) -> None:
         "FASTAPI_CLOUD",
         "FASTAPI_CLOUD_APP_ID",
         "FASTAPI_ENV",
+        "APP_DOMAIN",
         "FASTAPI_RUNTIME_MODE",
         "SICKZ_NETWORK_LABEL",
         "VERCEL",
@@ -141,6 +142,16 @@ def test_application_debug_fails_closed_on_conflicting_cloud_markers(
 def test_application_debug_fails_closed_on_cloud_domain(monkeypatch) -> None:
     _clear_runtime_markers(monkeypatch)
     monkeypatch.setenv("APP_DOMAIN", "fastapi-sample.fastapicloud.dev")
+
+    assert runtime_environment.application_debug_enabled(True) is False
+
+
+def test_application_debug_fails_closed_on_cloud_network_label(
+    monkeypatch,
+) -> None:
+    _clear_runtime_markers(monkeypatch)
+    monkeypatch.setenv("FASTAPI_ENV", "development")
+    monkeypatch.setenv("SICKZ_NETWORK_LABEL", "fastapicloud")
 
     assert runtime_environment.application_debug_enabled(True) is False
 
