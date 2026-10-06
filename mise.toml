@@ -6,6 +6,7 @@ min_version = "2024.9.5"
 # system_tool_version compatibility path. uv remains the project package/runtime
 # manager and the repository currently targets Python 3.13.
 ruff = "latest"
+just = "latest"
 awscli = { version = "latest", symlink_bins = "true" }
 k9s = "latest"
 kubectl = "latest"
