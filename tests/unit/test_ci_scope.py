@@ -256,7 +256,6 @@ def test_classifier_writes_all_github_outputs(tmp_path: Path) -> None:
         assert expected in payload
 
 
-
 def test_justfile_coexists_with_makefile_and_reuses_canonical_gates() -> None:
     """The additive task runner must not fork or bypass the quality policy."""
     justfile = (ROOT / "justfile").read_text(encoding="utf-8")
