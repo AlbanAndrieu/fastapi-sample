@@ -52,8 +52,22 @@ _welcome: ## Print a Welcome screen
 
 .PHONY: help Makefile
 help: ## Outputs this help screen
-	@grep -E '(^[a-zA-Z0-9_-]+:.*?##.*$$)|(^##)' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}{printf "\033[32m%-30s\033[0m %s\n", $$1, $$2}' | sed -e 's/\[32m##/[33m/'
+	@grep -E '(^[a-zA-Z0-9_-]+:.*?##.*$)|(^##)' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}{printf "\033[32m%-30s\033[0m %s\n", $1, $2}' | sed -e 's/\[32m##/[33m/'
 	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+
+## —— Just local-first frontend 🧰 —————————————————————————————————————————————
+.PHONY: just-help just-fix just-quality just-publish-check
+just-help: ## List preferred local-first Just recipes
+	just --list
+
+just-fix: ## Run deterministic local fixes through Just
+	just fix
+
+just-quality: ## Run the canonical agent quality gate through Just
+	just quality
+
+just-publish-check: ## Validate the exact local publication proof through Just
+	just publish-check
 
 .PHONY: help Makefile
 # Catch-all target: route all unknown targets to Sphinx using the new
