@@ -53,8 +53,10 @@ Current entry points and dashboards are documented in
 
 ## Local task runners
 
-`justfile` provides short, local-first commands while the existing `Makefile`
-continues to support legacy Docker/Sphinx targets. **Both are retained.**
+`justfile` is the preferred local-first frontend for routine development and
+quality commands, while the existing `Makefile` continues to support legacy
+Docker/Sphinx and specialist targets. **Both are retained; removing the
+Makefile requires a separate migration decision.**
 
 ```bash
 mise install just
@@ -69,8 +71,9 @@ just publish-check
 
 `just publish-check` runs the local publication proof; it does **not** publish,
 push, deploy or trigger GitHub Actions. For legacy commands continue using
-`make build` / `make up`, or use `just docker-build` / `just docker-up`,
-which delegate to the unchanged `Makefile`. `just lint`,
+`make <target>`, or use `just make-help`, `just docs`, `just docker-build`,
+`just docker-up`, or `just legacy <target>`; those recipes delegate to the
+existing `Makefile` rather than duplicating its implementation. `just lint`,
 `just format-check`, and `just format` are convenience commands, not a
 replacement for the canonical quality gate.
 
