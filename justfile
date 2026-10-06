@@ -34,6 +34,14 @@ format-check:
 format:
     uv run --no-sync ruff format .
 
+# Scan the current working tree using the existing reviewed exclusions.
+secrets:
+    betterleaks dir . --config .gitleaks.toml --redact
+
+# Scan only staged Git additions, matching the pre-commit hook.
+secrets-staged:
+    betterleaks git . --pre-commit --staged --config .gitleaks.toml --redact
+
 # Apply deterministic fixes and run the canonical agent quality gate.
 fix:
     bash scripts/agent-quality-gate.sh --fix

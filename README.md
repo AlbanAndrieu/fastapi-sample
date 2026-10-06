@@ -64,6 +64,8 @@ just --list
 just sync
 just dev
 just test-pfsense
+just secrets
+just secrets-staged
 just fix
 just quality
 just publish-check
@@ -76,6 +78,19 @@ push, deploy or trigger GitHub Actions. For legacy commands continue using
 existing `Makefile` rather than duplicating its implementation. `just lint`,
 `just format-check`, and `just format` are convenience commands, not a
 replacement for the canonical quality gate.
+
+## Secret detection
+
+[Betterleaks](https://github.com/betterleaks/betterleaks) v1.9.0 replaces
+Gitleaks in the pre-commit hooks. The `just secrets` recipe scans the local
+working tree, and `just secrets-staged` scans staged Git additions. Run
+`mise install betterleaks` to install the pinned CLI for direct or Just usage.
+
+MegaLinter already runs `REPOSITORY_BETTERLEAKS` with errors enabled.
+The legacy `.gitleaks.toml` and `.gitleaksignore` files are **intentionally
+retained**: Betterleaks v1 accepts their rules and existing finding
+exclusions. Do not discard or broadly regenerate these exceptions during the
+scanner migration. Credential validation/network requests remain off by default.
 
 ## Validation
 
