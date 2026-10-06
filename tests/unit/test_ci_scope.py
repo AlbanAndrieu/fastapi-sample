@@ -273,15 +273,22 @@ def test_justfile_coexists_with_makefile_and_reuses_canonical_gates() -> None:
         "fix",
         "quality",
         "publish-check",
+        "make-help",
+        "docs",
         "docker-build",
         "docker-up",
+        "legacy target",
     ):
         assert f"\n{recipe}:\n" in "\n" + justfile
 
     assert "bash scripts/agent-quality-gate.sh --fix" in justfile
     assert "bash scripts/agent-quality-gate.sh\n" in justfile
     assert "bash scripts/agent-publish.sh" in justfile
+    assert "make help" in justfile
+    assert "make doc" in justfile
     assert "make build-docker" in justfile
     assert "make up" in justfile
+    assert 'make "{{target}}"' in justfile
+    assert (ROOT / "Makefile").read_text(encoding="utf-8").strip()
     assert "git push" not in justfile
     assert "gh workflow run" not in justfile
