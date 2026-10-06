@@ -173,20 +173,42 @@ For FastAPI Cloud, Vercel, Sentry and other operational platforms, prefer narrow
 
 Do not poll workflow, deployment, check, job or observability status in a tight loop. Read once, continue other useful work, and revalidate when the result can materially change the next action. A requested final CI/deployment verification is mandatory even when intermediate polling is avoided.
 
-## Package management
+## Package management and task runners
 
-Use `uv`.
+Use `uv` for Python dependency/runtime management.
 
-Do not introduce Poetry-based workflows unless the repository explicitly requires them.
+Use `justfile` as the preferred local-first task-runner frontend for routine
+development and quality commands. Keep the existing `Makefile` available for
+legacy Docker/Sphinx/specialist targets until a separate migration explicitly
+removes it.
+
+The repository scripts remain the canonical implementation of quality and
+publication policy; Just recipes delegate to them rather than reimplementing
+their logic.
 
 Prefer:
 
 ```bash
 uv sync
-uv run pytest
-uv run ruff check .
-uv run ruff format --check .
+just --list
+just test
+just fix
+just quality
+just publish-check
 ```
+
+Direct script equivalents remain supported for automation and diagnosis:
+
+```bash
+bash scripts/agent-quality-gate.sh --fix
+bash scripts/agent-quality-gate.sh
+bash scripts/agent-publish.sh
+```
+
+For retained legacy targets use `make <target>` or `just legacy <target>`.
+Do not delete the Makefile as part of unrelated cleanup.
+
+Do not introduce Poetry-based workflows unless the repository explicitly requires them.
 
 ## Development rules
 
