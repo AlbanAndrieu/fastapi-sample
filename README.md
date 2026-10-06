@@ -84,7 +84,8 @@ replacement for the canonical quality gate.
 [Betterleaks](https://github.com/betterleaks/betterleaks) v1.9.0 replaces
 Gitleaks in the pre-commit hooks. The `just secrets` recipe scans the local
 working tree, and `just secrets-staged` scans staged Git additions. Run
-`mise install betterleaks` to install the pinned CLI for direct or Just usage.
+`mise install betterleaks` (or `brew bundle` on a Homebrew environment) to
+install the CLI for direct or Just usage.
 
 MegaLinter already runs `REPOSITORY_BETTERLEAKS` with errors enabled.
 The legacy `.gitleaks.toml` and `.gitleaksignore` files are **intentionally

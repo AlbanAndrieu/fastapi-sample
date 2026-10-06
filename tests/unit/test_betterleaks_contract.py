@@ -65,3 +65,9 @@ def test_previous_finding_exclusions_remain_available() -> None:
     assert config["extend"]["useDefault"] is True
     assert config["allowlist"]["regexes"]
     assert (ROOT / ".gitleaksignore").is_file()
+
+def test_brew_installs_betterleaks_instead_of_gitleaks() -> None:
+    packages = (ROOT / "Brewfile").read_text(encoding="utf-8").splitlines()
+
+    assert 'brew "betterleaks"' in packages
+    assert 'brew "gitleaks"' not in packages
