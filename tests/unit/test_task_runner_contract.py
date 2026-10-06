@@ -39,3 +39,17 @@ def test_justfile_does_not_replace_makefile() -> None:
 
     assert "keep makefile" in source
     assert "legacy" in source
+
+
+
+def test_makefile_keeps_bridges_to_just() -> None:
+    source = MAKEFILE.read_text(encoding="utf-8")
+
+    assert "just-help:" in source
+    assert "just-fix:" in source
+    assert "just-quality:" in source
+    assert "just-publish-check:" in source
+    assert "\tjust --list" in source
+    assert "\tjust fix" in source
+    assert "\tjust quality" in source
+    assert "\tjust publish-check" in source
