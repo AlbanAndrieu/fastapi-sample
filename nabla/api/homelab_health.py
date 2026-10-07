@@ -52,22 +52,7 @@ def internal_probes_enabled() -> bool:
     return env_bool(_INTERNAL_PROBE_ENV)
 
 
-async def _probe_http_endpoint(
-    client: httpx.AsyncClient,
-    semaphore: asyncio.Semaphore,
-    *,
-    service_id: str,
-    name: str,
-    url: str,
-) -> dict[str, Any]:
-    """Compatibility facade for one bounded HTTP probe."""
-    return await homelab_probe_runner.probe_http_endpoint(
-        client,
-        semaphore,
-        service_id=service_id,
-        name=name,
-        url=url,
-    )
+_probe_http_endpoint = homelab_probe_runner.probe_http_endpoint
 
 
 async def _probe_public_service(
@@ -85,16 +70,10 @@ async def _probe_public_service(
     )
 
 
-async def _probe_internal_service(
-    semaphore: asyncio.Semaphore,
-    service: HomelabService,
-) -> dict[str, Any]:
-    """Compatibility facade for one bounded internal TCP probe."""
-    return await homelab_probe_runner.probe_internal_service(
-        semaphore,
-        service,
-        timeout_seconds=_INTERNAL_PROBE_TIMEOUT_SEC,
-    )
+_probe_internal_service = partial(
+    homelab_probe_runner.probe_internal_service,
+    timeout_seconds=_INTERNAL_PROBE_TIMEOUT_SEC,
+)
 
 
 async def _collect_bounded_probe_batch(
