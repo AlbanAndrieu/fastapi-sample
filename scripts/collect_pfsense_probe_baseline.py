@@ -12,6 +12,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
 import httpx
 
 _WINDOW_RE = re.compile(r"^[1-9]\d*[smhdwy]$")

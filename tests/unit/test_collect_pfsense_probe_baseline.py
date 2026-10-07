@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+
 import pytest
 
 SCRIPT_PATH = (
@@ -46,12 +47,10 @@ def test_build_queries_use_only_fixed_cardinality_metrics() -> None:
     assert "nabla_pfsense_api_requests_total" in rendered
 
 
-def test_query_prometheus_urlencodes_promql_and_requires_vector() -> None:
+def test_query_prometheus_normalizes_url_and_requires_vector() -> None:
     captured: dict[str, object] = {}
 
-    def fetch_json(
-        base_url: str, promql: str, timeout: float
-    ) -> dict[str, object]:
+    def fetch_json(base_url: str, promql: str, timeout: float) -> dict[str, object]:
         captured["base_url"] = base_url
         captured["promql"] = promql
         captured["timeout"] = timeout
@@ -67,7 +66,7 @@ def test_query_prometheus_urlencodes_promql_and_requires_vector() -> None:
         "http://prometheus.test/",
         'sum(rate(metric{label="value"}[30m]))',
         timeout=2.0,
-        fetch_json=fetch_json,
+        fetch_json=fetch_jsom,
     )
 
     assert result[0]["metric"] == {"phase": "preflight"}
@@ -134,6 +133,6 @@ def test_summarize_results_treats_nan_as_missing_evidence() -> None:
     assert report["metrics"]["preflight_p99_seconds"] is None
     assert report["assessment"]["p95_target_met"] is None
     assert report["warnings"] == [
-        "preflight_p95_seconds_unavaile",
-        "preflight_p99_seconds_unavaile",
+        "preflight_p95_seconds_unavailable",
+        "preflight_p99_seconds_unavailable",
     ]
