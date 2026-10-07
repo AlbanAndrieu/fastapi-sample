@@ -223,6 +223,12 @@ Reference:
   - [x] Read the existing `nabla:service:*` rules in the bounded Prometheus
     query and expose them as `synthetic_probes` shadow evidence; do not change
     service verdicts until the authoritative TrueNAS Prometheus path is proven.
+  - [ ] Reconcile probe coverage before cutover. Current snapshots show only
+    35/85 (41.2%) endpoint-capable services in the legacy packaged FastAPI
+    catalogue match a Gatus `nabla_service_id`, versus 44/52 (84.6%) monitored
+    entities in the canonical `nabla-compose` catalogue. Treat this as another
+    reason to finish the canonical-catalog cutover rather than copying legacy
+    monitors into FastAPI.
 - [ ] Keep direct application probes only where they prove a distinct contract
   that Gatus cannot safely represent, such as authenticated pfSense posture,
   TrueNAS control-plane/API evidence, Cloudflare Access policy and explicit

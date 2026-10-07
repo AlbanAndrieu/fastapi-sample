@@ -76,20 +76,25 @@ async def _query_fixed_metrics(
     return values, synthetic
 
 
-def _synthetic_summary(synthetic: dict[str, Any]) -> dict[str, Any]:
-    services = synthetic.get("services")
-    service_count = len(services) if isinstance(services, dict) else 0
-    gatus_up = synthetic.get("gatus_up")
+def _synthetic_summary(
+    synthetic: dict[str, Any] | None = None,
+    *,
+    state: str | None = None,
+) -> dict[str, Any]:
+    payload = synthetic or {}
+    services = payload.get("services")
+    gatus_up = payload.get("gatus_up")
     return {
         "source": "gatus_via_prometheus",
         "shadow_only": True,
-        "state": (
+        "state": state
+        or (
             "observed"
             if isinstance(gatus_up, float) and gatus_up >= 1.0
             else "telemetry_unavailable"
         ),
         "gatus_up": gatus_up,
-        "service_count": service_count,
+        "service_count": len(services) if isinstance(services, dict) else 0,
         "services": services if isinstance(services, dict) else {},
     }
 
@@ -134,14 +139,7 @@ async def fetch_platform_metrics(
             "configured": False,
             "source": "prometheus",
             "metrics": {},
-            "synthetic_probes": {
-                "source": "gatus_via_prometheus",
-                "shadow_only": True,
-                "state": "not_configured",
-                "gatus_up": None,
-                "service_count": 0,
-                "services": {},
-            },
+            "synthetic_probes": _synthetic_summary(state="not_configured"),
             "summary": {
                 "signals_available": 0,
                 "signals_total": len(_METRICS),
@@ -175,14 +173,7 @@ async def fetch_platform_metrics(
             "error_kind": "query_failed",
             "exception_type": type(exc).__name__,
             "metrics": {},
-            "synthetic_probes": {
-                "source": "gatus_via_prometheus",
-                "shadow_only": True,
-                "state": "telemetry_unavailable",
-                "gatus_up": None,
-                "service_count": 0,
-                "services": {},
-            },
+            "synthetic_probes": _synthetic_summary(state="telemetry_unavailable"),
             "summary": {
                 "signals_available": 0,
                 "signals_total": len(_METRICS),
