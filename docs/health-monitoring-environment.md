@@ -233,6 +233,33 @@ does not emit a synthetic telemetry event and never exposes the token.
 `LOGFIRE_ENABLE` remains a compatibility alias only. New deployments use
 `LOGFIRE_ENABLED`.
 
+## Generic service probe ownership
+
+Generic HTTP/TCP/DNS/TLS synthetic monitoring belongs to the observability
+plane, not to FastAPI request handling.
+
+`nabla-compose` is the authority for monitoring targets and already generates
+Gatus endpoints from service monitoring metadata. Gatus exports Prometheus
+metrics, and Prometheus records stable `nabla:service:*` synthetic signals.
+FastAPI Sample should consume those fixed recording rules and reconcile them
+with catalog/runtime evidence rather than permanently maintaining a second
+in-process generic probing engine.
+
+Keep evidence strength explicit:
+
+- TCP success proves transport reachability only;
+- HTTP/readiness conditions can prove application-level synthetic health;
+- Gatus or Prometheus loss is a telemetry blind spot, not proof that a service
+  is down;
+- authenticated pfSense/TrueNAS/Cloudflare control-plane checks remain direct
+  specialized diagnostics because they prove authorization or policy state,
+  not generic uptime.
+
+Uptime Kuma remains an operator/status-page consumer and should not become an
+application API dependency; its management API is not the canonical Nabla
+contract. Prometheus Blackbox Exporter is a valid future transport prober but is
+not required while the existing Gatus contract covers the needed protocols.
+
 ## Homelab latency telemetry
 
 `/api/homelab/health` publishes fixed-cardinality observations through:

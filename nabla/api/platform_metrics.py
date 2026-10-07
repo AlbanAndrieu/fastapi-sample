@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 import logging
-import math
 from typing import Any
 
 import httpx
 
+from nabla.api.prometheus_query import query_vector, sample_value
 from nabla.settings.observability import HomelabPrometheusSettings
 
 logger = logging.getLogger(__name__)
@@ -35,54 +35,17 @@ def _utc_now() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
-def _safe_float(value: object) -> float | None:
-    try:
-        number = float(value)
-    except (TypeError, ValueError):
-        return None
-    if not math.isfinite(number):
-        return None
-    return number
-
-
-def _vector_values(payload: dict[str, Any]) -> dict[str, float | None]:
+async def _query_fixed_metrics(client: httpx.AsyncClient) -> dict[str, float | None]:
     values = dict.fromkeys(_METRICS)
-    if payload.get("status") != "success":
-        return values
-    data = payload.get("data")
-    if not isinstance(data, dict) or data.get("resultType") != "vector":
-        return values
-    result = data.get("result")
-    if not isinstance(result, list):
-        return values
-
-    for sample in result:
-        if not isinstance(sample, dict):
-            continue
+    for sample in await query_vector(client, _FIXED_QUERY):
         metric_labels = sample.get("metric")
         if not isinstance(metric_labels, dict):
             continue
         key = _METRIC_TO_KEY.get(str(metric_labels.get("__name__", "")))
-        if key is None:
-            continue
-        raw_value = sample.get("value")
-        if not isinstance(raw_value, list) or len(raw_value) != 2:
-            continue
-        values[key] = _safe_float(raw_value[1])
+        value = sample_value(sample)
+        if key is not None and value is not None:
+            values[key] = value
     return values
-
-
-async def _query_fixed_metrics(client: httpx.AsyncClient) -> dict[str, float | None]:
-    response = await client.get(
-        "/api/v1/query",
-        params={"query": _FIXED_QUERY},
-        headers={"Accept": "application/json"},
-    )
-    response.raise_for_status()
-    payload = response.json()
-    if not isinstance(payload, dict):
-        return dict.fromkeys(_METRICS)
-    return _vector_values(payload)
 
 
 def _summary(values: dict[str, float | None]) -> dict[str, Any]:

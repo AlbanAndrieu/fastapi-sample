@@ -209,6 +209,31 @@ Reference:
   identity.
 - [ ] Prove a later PR push creates no Vercel deployment, status or comment.
 
+## P1 — probe-engine delegation and code reduction
+
+- [x] Select the existing **Gatus -> Prometheus recording-rule** path as the
+  preferred generic service-probe engine. `nabla-compose` already generates
+  Gatus endpoints from catalog monitoring metadata and exports stable
+  `nabla:service:*` recording rules; do not add a second generic prober to
+  FastAPI Sample merely to duplicate HTTP/TCP/DNS/TLS checks.
+- [ ] Make the health board consume fixed Gatus-derived Prometheus rules for
+  generic service reachability/latency while preserving the probe `type`
+  semantics: TCP proves transport only; HTTP/readiness may provide stronger
+  synthetic evidence.
+- [ ] Keep direct application probes only where they prove a distinct contract
+  that Gatus cannot safely represent, such as authenticated pfSense posture,
+  TrueNAS control-plane/API evidence, Cloudflare Access policy and explicit
+  operator diagnostics.
+- [ ] After the Gatus/Prometheus cutover is accepted on the TrueNAS observer,
+  delete the redundant in-process generic fan-out/cadence/evidence path
+  (`homelab_probe_runner.py`, `homelab_probe_policy.py`,
+  `homelab_probe_evidence.py`, and generic DNS probing where no longer used)
+  together with superseded tests.
+- [ ] Evaluate Prometheus Blackbox Exporter only for a missing transport feature;
+  do not deploy it while Gatus already satisfies the declared probe contract.
+- [x] Factor shared Prometheus vector parsing/query helpers so platform,
+  topology and diagnostic consumers do not maintain parallel HTTP API parsers.
+
 ## P1 — runtime architecture
 
 - [ ] Introduce an application factory so tests can create a minimal app without

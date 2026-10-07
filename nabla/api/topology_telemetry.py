@@ -10,12 +10,12 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from datetime import UTC, datetime
-import math
 import time
 from typing import Any
 
 import httpx
 
+from nabla.api.prometheus_query import query_vector, sample_value
 from nabla.settings.observability import HomelabPrometheusSettings
 
 _CACHE_TTL_SECONDS = 15.0
@@ -58,41 +58,6 @@ def _utc_now() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
-def _safe_float(value: object) -> float | None:
-    try:
-        number = float(value)
-    except (TypeError, ValueError):
-        return None
-    return number if math.isfinite(number) else None
-
-
-def _vector(payload: object) -> list[dict[str, Any]]:
-    if not isinstance(payload, dict) or payload.get("status") != "success":
-        return []
-    data = payload.get("data")
-    if not isinstance(data, dict) or data.get("resultType") != "vector":
-        return []
-    result = data.get("result")
-    return [item for item in result if isinstance(item, dict)] if isinstance(result, list) else []
-
-
-def _sample_value(sample: dict[str, Any]) -> float | None:
-    raw = sample.get("value")
-    if not isinstance(raw, list) or len(raw) != 2:
-        return None
-    return _safe_float(raw[1])
-
-
-async def _query(client: httpx.AsyncClient, expression: str) -> list[dict[str, Any]]:
-    response = await client.get(
-        "/api/v1/query",
-        params={"query": expression},
-        headers={"Accept": "application/json"},
-    )
-    response.raise_for_status()
-    return _vector(response.json())
-
-
 def _resource_values(
     query_results: dict[str, list[dict[str, Any]]],
 ) -> dict[str, dict[str, float]]:
@@ -103,7 +68,7 @@ def _resource_values(
             if not isinstance(labels, dict):
                 continue
             service = str(labels.get(_SERVICE_LABEL) or "").strip()
-            value = _sample_value(sample)
+            value = sample_value(sample)
             if not service or value is None:
                 continue
             resources.setdefault(service, {})[field] = round(max(0.0, value), 6)
@@ -133,7 +98,7 @@ def _flow_values(samples: list[dict[str, Any]]) -> dict[str, float | None]:
         if not isinstance(labels, dict):
             continue
         key = names.get(str(labels.get("__name__") or ""))
-        value = _sample_value(sample)
+        value = sample_value(sample)
         if key is not None and value is not None:
             out[key] = round(max(0.0, value), 6)
     return out
@@ -151,8 +116,8 @@ async def _fetch_origin(
         trust_env=False,
     )
     try:
-        tasks = {field: asyncio.create_task(_query(query_client, expression)) for field, expression in _RESOURCE_QUERIES.items()}
-        flow_task = asyncio.create_task(_query(query_client, _FLOW_QUERY))
+        tasks = {field: asyncio.create_task(query_vector(query_client, expression)) for field, expression in _RESOURCE_QUERIES.items()}
+        flow_task = asyncio.create_task(query_vector(query_client, _FLOW_QUERY))
         results: dict[str, list[dict[str, Any]]] = {}
         errors: dict[str, str] = {}
         for field, task in tasks.items():

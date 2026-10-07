@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import os
 import re
 import sys
@@ -14,6 +13,8 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+
+from nabla.api.prometheus_query import sample_value, vector_result
 
 _WINDOW_RE = re.compile(r"^[1-9]\d*[smhdwy]$")
 _DEFAULT_WINDOW = "30m"
@@ -114,25 +115,14 @@ def query_prometheus(
     data = payload.get("data")
     if not isinstance(data, dict) or data.get("resultType") != "vector":
         raise RuntimeError("Prometheus query did not return a vector")
-    result = data.get("result")
-    if not isinstance(result, list):
+    result = vector_result(payload)
+    if not isinstance(data.get("result"), list):
         raise RuntimeError("Prometheus vector result is malformed")
-    return [item for item in result if isinstance(item, dict)]
-
-
-def _sample_number(item: dict[str, Any]) -> float | None:
-    value = item.get("value")
-    if not isinstance(value, list) or len(value) != 2:
-        return None
-    try:
-        number = float(value[1])
-    except (TypeError, ValueError):
-        return None
-    return number if math.isfinite(number) else None
+    return result
 
 
 def _scalar(result: list[dict[str, Any]]) -> float | None:
-    values = [_sample_number(item) for item in result]
+    values = [sample_value(item) for item in result]
     finite = [value for value in values if value is not None]
     if len(finite) != 1:
         return None
@@ -149,7 +139,7 @@ def _vector_by_label(
         if not isinstance(metric, dict):
             continue
         label_value = metric.get(label)
-        number = _sample_number(item)
+        number = sample_value(item)
         if not isinstance(label_value, str) or number is None:
             continue
         values[label_value] = number
