@@ -66,7 +66,7 @@ def test_query_prometheus_normalizes_url_and_requires_vector() -> None:
         "http://prometheus.test/",
         'sum(rate(metric{label="value"}[30m]))',
         timeout=2.0,
-        fetch_json=fetch_jsom,
+        fetch_json=fetch_json,
     )
 
     assert result[0]["metric"] == {"phase": "preflight"}
