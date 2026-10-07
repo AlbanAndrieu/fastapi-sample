@@ -14,10 +14,7 @@ import httpx
 
 from nabla.api import homelab_probe_runner, truenas_probe_health
 from nabla.api.homelab_catalog import fetch_homelab_services
-from nabla.api.homelab_truenas_probe import (
-    probe_truenas,
-    probe_truenas_public_https,
-)
+from nabla.api.homelab_truenas_probe import probe_truenas
 from nabla.api.homelab_health_cache import copy_homelab_health_payload
 from nabla.api.homelab_models import HomelabService
 from nabla.api.homelab_probe_evidence import (
@@ -98,20 +95,6 @@ async def _collect_bounded_probe_batch(
 
 _truenas_internal_target = truenas_probe_health.truenas_internal_target
 _truenas_state = truenas_probe_health.truenas_state
-
-
-async def _probe_truenas_public_https(
-    semaphore: asyncio.Semaphore,
-    *,
-    configured_url: str,
-    verify_ssl: bool,
-) -> dict[str, Any]:
-    return await probe_truenas_public_https(
-        semaphore,
-        configured_url=configured_url,
-        verify_ssl=verify_ssl,
-        http_probe=_probe_http_endpoint,
-    )
 
 
 async def _probe_truenas(
