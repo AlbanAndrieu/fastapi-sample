@@ -128,3 +128,79 @@ def test_prometheus_settings_reject_path() -> None:
         HomelabPrometheusSettings(
             homelab_prometheus_url="http://prometheus.test/prometheus"
         )
+
+
+@pytest.mark.asyncio
+async def test_platform_metrics_exposes_gatus_service_signals_as_shadow_only() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        query = request.url.params.get("query", "")
+        assert "nabla:service:synthetic_probe_success" in query
+        result = [
+            {
+                "metric": {"__name__": "nabla:telemetry:gatus_up"},
+                "value": [1, "1"],
+            },
+            {
+                "metric": {
+                    "__name__": "nabla:service:synthetic_probe_success",
+                    "nabla_service_id": "fastapi-sample",
+                    "type": "HTTP",
+                },
+                "value": [1, "1"],
+            },
+            {
+                "metric": {
+                    "__name__": "nabla:service:synthetic_probe_duration_seconds",
+                    "nabla_service_id": "fastapi-sample",
+                    "type": "HTTP",
+                },
+                "value": [1, "0.125"],
+            },
+            {
+                "metric": {
+                    "__name__": "nabla:service:synthetic_availability_ratio_5m",
+                    "nabla_service_id": "fastapi-sample",
+                    "type": "HTTP",
+                },
+                "value": [1, "0.99"],
+            },
+            {
+                "metric": {
+                    "__name__": "nabla:service:synthetic_probe_success",
+                    "nabla_service_id": "vaultwarden",
+                    "type": "TCP",
+                },
+                "value": [1, "1"],
+            },
+        ]
+        return httpx.Response(
+            200,
+            request=request,
+            json={
+                "status": "success",
+                "data": {"resultType": "vector", "result": result},
+            },
+        )
+
+    settings = HomelabPrometheusSettings(
+        homelab_prometheus_url="http://prometheus.test",
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://prometheus.test",
+    ) as client:
+        payload = await fetch_platform_metrics(
+            settings=settings,
+            client=client,
+        )
+
+    synthetic = payload["synthetic_probes"]
+    assert synthetic["shadow_only"] is True
+    assert synthetic["state"] == "observed"
+    assert synthetic["service_count"] == 2
+    assert synthetic["services"]["fastapi-sample"]["HTTP"] == {
+        "success": 1.0,
+        "duration_seconds": 0.125,
+        "availability_ratio_5m": 0.99,
+    }
+    assert synthetic["services"]["vaultwarden"]["TCP"] == {"success": 1.0}

@@ -220,6 +220,9 @@ Reference:
   generic service reachability/latency while preserving the probe `type`
   semantics: TCP proves transport only; HTTP/readiness may provide stronger
   synthetic evidence.
+  - [x] Read the existing `nabla:service:*` rules in the bounded Prometheus
+    query and expose them as `synthetic_probes` shadow evidence; do not change
+    service verdicts until the authoritative TrueNAS Prometheus path is proven.
 - [ ] Keep direct application probes only where they prove a distinct contract
   that Gatus cannot safely represent, such as authenticated pfSense posture,
   TrueNAS control-plane/API evidence, Cloudflare Access policy and explicit

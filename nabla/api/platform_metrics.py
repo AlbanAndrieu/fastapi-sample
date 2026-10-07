@@ -22,7 +22,18 @@ _METRICS = {
     "prometheus_up": "nabla:observability:prometheus_up",
 }
 _METRIC_TO_KEY = {metric: key for key, metric in _METRICS.items()}
-_FIXED_QUERY = " or ".join(_METRICS.values())
+_SYNTHETIC_METRICS = {
+    "gatus_up": "nabla:telemetry:gatus_up",
+    "success": "nabla:service:synthetic_probe_success",
+    "duration_seconds": "nabla:service:synthetic_probe_duration_seconds",
+    "availability_ratio_5m": "nabla:service:synthetic_availability_ratio_5m",
+}
+_SYNTHETIC_METRIC_TO_FIELD = {
+    metric: field for field, metric in _SYNTHETIC_METRICS.items()
+}
+_FIXED_QUERY = " or ".join(
+    (*_METRICS.values(), *_SYNTHETIC_METRICS.values()),
+)
 _UP_SIGNALS = (
     "truenas_node_up",
     "truenas_cadvisor_up",
@@ -35,17 +46,52 @@ def _utc_now() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
-async def _query_fixed_metrics(client: httpx.AsyncClient) -> dict[str, float | None]:
+async def _query_fixed_metrics(
+    client: httpx.AsyncClient,
+) -> tuple[dict[str, float | None], dict[str, Any]]:
     values = dict.fromkeys(_METRICS)
+    synthetic: dict[str, Any] = {"gatus_up": None, "services": {}}
     for sample in await query_vector(client, _FIXED_QUERY):
-        metric_labels = sample.get("metric")
-        if not isinstance(metric_labels, dict):
+        labels = sample.get("metric")
+        if not isinstance(labels, dict):
             continue
-        key = _METRIC_TO_KEY.get(str(metric_labels.get("__name__", "")))
+        metric = str(labels.get("__name__", ""))
         value = sample_value(sample)
-        if key is not None and value is not None:
+        if value is None:
+            continue
+        key = _METRIC_TO_KEY.get(metric)
+        if key is not None:
             values[key] = value
-    return values
+            continue
+        field = _SYNTHETIC_METRIC_TO_FIELD.get(metric)
+        if field == "gatus_up":
+            synthetic["gatus_up"] = value
+            continue
+        service_id = str(labels.get("nabla_service_id") or "").strip()
+        probe_type = str(labels.get("type") or "").strip()
+        if field is None or not service_id or not probe_type:
+            continue
+        service = synthetic["services"].setdefault(service_id, {})
+        service.setdefault(probe_type, {})[field] = value
+    return values, synthetic
+
+
+def _synthetic_summary(synthetic: dict[str, Any]) -> dict[str, Any]:
+    services = synthetic.get("services")
+    service_count = len(services) if isinstance(services, dict) else 0
+    gatus_up = synthetic.get("gatus_up")
+    return {
+        "source": "gatus_via_prometheus",
+        "shadow_only": True,
+        "state": (
+            "observed"
+            if isinstance(gatus_up, float) and gatus_up >= 1.0
+            else "telemetry_unavailable"
+        ),
+        "gatus_up": gatus_up,
+        "service_count": service_count,
+        "services": services if isinstance(services, dict) else {},
+    }
 
 
 def _summary(values: dict[str, float | None]) -> dict[str, Any]:
@@ -88,6 +134,14 @@ async def fetch_platform_metrics(
             "configured": False,
             "source": "prometheus",
             "metrics": {},
+            "synthetic_probes": {
+                "source": "gatus_via_prometheus",
+                "shadow_only": True,
+                "state": "not_configured",
+                "gatus_up": None,
+                "service_count": 0,
+                "services": {},
+            },
             "summary": {
                 "signals_available": 0,
                 "signals_total": len(_METRICS),
@@ -106,7 +160,7 @@ async def fetch_platform_metrics(
     )
 
     try:
-        values = await _query_fixed_metrics(query_client)
+        values, synthetic = await _query_fixed_metrics(query_client)
     except (httpx.HTTPError, ValueError) as exc:
         logger.warning(
             "homelab prometheus query failed exception_type=%s",
@@ -121,6 +175,14 @@ async def fetch_platform_metrics(
             "error_kind": "query_failed",
             "exception_type": type(exc).__name__,
             "metrics": {},
+            "synthetic_probes": {
+                "source": "gatus_via_prometheus",
+                "shadow_only": True,
+                "state": "telemetry_unavailable",
+                "gatus_up": None,
+                "service_count": 0,
+                "services": {},
+            },
             "summary": {
                 "signals_available": 0,
                 "signals_total": len(_METRICS),
@@ -138,6 +200,7 @@ async def fetch_platform_metrics(
         "state": _state(values),
         "configured": True,
         "source": "prometheus",
+        "synthetic_probes": _synthetic_summary(synthetic),
         "metrics": {
             key: {
                 "metric": _METRICS[key],
