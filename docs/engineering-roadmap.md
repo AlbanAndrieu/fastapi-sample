@@ -109,6 +109,10 @@ Runbook:
       normal posture refreshes remain one preflight plus three bounded deep reads.
     - [x] Exercise the deep-read semaphore with more candidate reads than the
       production fan-out and prove observed concurrency never exceeds 2.
+    - [x] Add a Prometheus-only baseline collector for p95/p99, protective
+      skips, request counts and in-flight work; it performs zero direct pfREST
+      calls and keeps threshold changes blocked until appliance evidence is
+      correlated.
     - [ ] Collect a sustained TrueNAS-runtime baseline and correlate p95/p99,
       skip rate, provider in-flight work and pfSense CPU/RAM/PHP-FPM/FastCGI
       evidence before changing the 2.5 s threshold.

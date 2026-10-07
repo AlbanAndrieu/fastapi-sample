@@ -267,6 +267,7 @@ def test_justfile_coexists_with_makefile_and_reuses_canonical_gates() -> None:
         "dev",
         "test",
         "test-pfsense",
+        "pfsense-baseline",
         "lint",
         "format-check",
         "format",
@@ -281,6 +282,7 @@ def test_justfile_coexists_with_makefile_and_reuses_canonical_gates() -> None:
     ):
         assert f"\n{recipe}:\n" in "\n" + justfile
 
+    assert "collect_pfsense_probe_baseline.py" in justfile
     assert "bash scripts/agent-quality-gate.sh --fix" in justfile
     assert "bash scripts/agent-quality-gate.sh\n" in justfile
     assert "bash scripts/agent-publish.sh" in justfile

@@ -123,6 +123,28 @@ max by (phase) (
 )
 ```
 
+### Passive baseline collector
+
+Use the repository collector to turn the existing Prometheus series into one
+bounded JSON evidence record without issuing any new pfREST request:
+
+```bash
+just pfsense-baseline 30m
+
+# Equivalent explicit form; HOMELAB_PROMETHEUS_URL is used by default.
+uv run --no-sync python scripts/collect_pfsense_probe_baseline.py \
+  --window 30m \
+  --output /tmp/pfsense-probe-baseline.json
+```
+
+The report contains p95/p99, protective skip counts, `preflight|deep` request
+counts and maximum in-flight work. It records `direct_pfsense_requests=0` and
+keeps `threshold_change_allowed=false`: the 2.5 s protection threshold must not
+change until the same sustained window is correlated with pfSense CPU/RAM,
+PHP-FPM workers and FastCGI queue evidence from `nabla-compose`. Missing or
+`NaN` histogram evidence is emitted as `null` with a warning instead of being
+treated as a successful baseline.
+
 A protected slow or authentication-rejected refresh must show a preflight
 request without a corresponding deep-request burst. A normal complete posture
 refresh performs one preflight plus the three configured deep reads. The deep

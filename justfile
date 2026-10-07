@@ -22,6 +22,10 @@ test:
 test-pfsense:
     uv run --no-sync pytest -q --disable-warnings --maxfail=1 tests/unit/test_pfsense_auth_smoke.py tests/unit/test_pfsense_dns_observer.py tests/unit/test_pfsense_security_cache.py tests/unit/test_probe_headers.py tests/unit/test_probe_metrics.py
 
+# Collect passive pfSense latency/protection evidence from Prometheus only.
+pfsense-baseline window="30m":
+    uv run --no-sync python scripts/collect_pfsense_probe_baseline.py --window "{{window}}"
+
 # Check Python lint without modifying sources.
 lint:
     uv run --no-sync ruff check .
