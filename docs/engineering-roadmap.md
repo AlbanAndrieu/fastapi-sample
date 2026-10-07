@@ -233,9 +233,14 @@ Reference:
   - [x] Add a shadow-only direct-vs-Gatus comparison to the health-board
     snapshot. Cutover requires zero unexplained mismatches across a representative
     observation window; this comparison never changes service verdicts.
-  - [ ] Prove `HOMELAB_PROMETHEUS_URL` on the TrueNAS observer and collect the
-    shadow comparison over healthy and controlled-degradation windows before
-    selecting Gatus as the generic probe provider.
+  - [x] Expose a `generic_probe_cutover` diagnostic with explicit blockers
+    (`prometheus_not_configured`, `gatus_not_observed`, mismatches and missing
+    evidence). A clean snapshot is only a `candidate`; an observation window is
+    still required before changing providers.
+  - [ ] Prove `HOMELAB_PROMETHEUS_URL=http://172.17.0.24:9090` on the TrueNAS
+    observer and collect the shadow comparison over healthy and
+    controlled-degradation windows before selecting Gatus as the generic probe
+    provider.
 - [ ] Keep direct application probes only where they prove a distinct contract
   that Gatus cannot safely represent, such as authenticated pfSense posture,
   TrueNAS control-plane/API evidence, Cloudflare Access policy and explicit

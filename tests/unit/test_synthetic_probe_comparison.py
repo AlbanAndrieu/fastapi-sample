@@ -1,6 +1,9 @@
 """Tests for direct-vs-Gatus shadow probe reconciliation."""
 
-from nabla.api.synthetic_probe_comparison import compare_synthetic_probe_evidence
+from nabla.api.synthetic_probe_comparison import (
+    compare_synthetic_probe_evidence,
+    evaluate_generic_probe_cutover,
+)
 
 
 def _platform(services: dict) -> dict:
@@ -85,3 +88,77 @@ def test_shadow_comparison_is_unavailable_without_synthetic_services() -> None:
     assert result["state"] == "unavailable"
     assert result["comparable"] == 0
     assert result["mismatches"] == []
+
+
+def test_cutover_readiness_reports_configuration_and_shadow_blockers() -> None:
+    result = evaluate_generic_probe_cutover(
+        {
+            "configured": False,
+            "synthetic_probes": {
+                "state": "not_configured",
+                "gatus_up": None,
+            },
+        },
+        {
+            "comparable": 0,
+            "mismatched": 0,
+            "missing_gatus": 2,
+        },
+    )
+
+    assert result["candidate"] is False
+    assert result["state"] == "blocked"
+    assert result["blockers"] == [
+        "prometheus_not_configured",
+        "gatus_not_observed",
+        "no_comparable_probes",
+        "missing_gatus_evidence",
+    ]
+
+
+def test_cutover_readiness_is_candidate_only_when_shadow_is_clean() -> None:
+    result = evaluate_generic_probe_cutover(
+        {
+            "configured": True,
+            "synthetic_probes": {
+                "state": "observed",
+                "gatus_up": 1.0,
+            },
+        },
+        {
+            "comparable": 12,
+            "mismatched": 0,
+            "missing_gatus": 0,
+        },
+    )
+
+    assert result == {
+        "provider": "gatus_via_prometheus",
+        "state": "candidate",
+        "candidate": True,
+        "requires_observation_window": True,
+        "blockers": [],
+        "comparable": 12,
+        "mismatched": 0,
+        "missing_gatus": 0,
+    }
+
+
+def test_cutover_readiness_blocks_mismatch_even_when_gatus_is_up() -> None:
+    result = evaluate_generic_probe_cutover(
+        {
+            "configured": True,
+            "synthetic_probes": {
+                "state": "observed",
+                "gatus_up": 1.0,
+            },
+        },
+        {
+            "comparable": 4,
+            "mismatched": 1,
+            "missing_gatus": 0,
+        },
+    )
+
+    assert result["candidate"] is False
+    assert result["blockers"] == ["shadow_mismatches"]

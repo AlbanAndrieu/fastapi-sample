@@ -24,7 +24,10 @@ from nabla.api.health_board_enrichment import (
     annotate_talos_vm_health as _annotate_talos_vm_health,
     annotate_truenas_ingress_policy as _annotate_truenas_ingress_policy,
 )
-from nabla.api.synthetic_probe_comparison import compare_synthetic_probe_evidence
+from nabla.api.synthetic_probe_comparison import (
+    compare_synthetic_probe_evidence,
+    evaluate_generic_probe_cutover,
+)
 from nabla.settings.health_runtime import HealthRuntimeSettings
 
 _cloudflare_unconfirmed_check = cloudflare_unconfirmed_check
@@ -290,6 +293,10 @@ async def build_health_board_snapshot(request: Request) -> dict[str, Any]:
         homelab,
         platform_metrics,
     )
+    generic_probe_cutover = evaluate_generic_probe_cutover(
+        platform_metrics,
+        synthetic_probe_comparison,
+    )
     sickz = await build_sickz_snapshot(request)
     return {
         "schema_version": 1,
@@ -299,6 +306,7 @@ async def build_health_board_snapshot(request: Request) -> dict[str, Any]:
         "homelab": homelab,
         "platform_metrics": platform_metrics,
         "synthetic_probe_comparison": synthetic_probe_comparison,
+        "generic_probe_cutover": generic_probe_cutover,
         "sickz": sickz,
     }
 

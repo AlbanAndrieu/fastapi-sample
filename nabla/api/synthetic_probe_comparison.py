@@ -103,3 +103,42 @@ def compare_synthetic_probe_evidence(
         "missing_gatus": missing_gatus,
         "mismatches": mismatches,
     }
+
+
+def evaluate_generic_probe_cutover(
+    platform_metrics: dict[str, Any],
+    comparison: dict[str, Any],
+) -> dict[str, Any]:
+    """Return explicit blockers for replacing direct generic probes with Gatus."""
+
+    blockers: list[str] = []
+    synthetic = platform_metrics.get("synthetic_probes")
+    if platform_metrics.get("configured") is not True:
+        blockers.append("prometheus_not_configured")
+    if not isinstance(synthetic, dict) or synthetic.get("state") != "observed":
+        blockers.append("gatus_not_observed")
+    elif not isinstance(synthetic.get("gatus_up"), (int, float)) or float(
+        synthetic["gatus_up"]
+    ) < 1.0:
+        blockers.append("gatus_not_up")
+
+    comparable = int(comparison.get("comparable") or 0)
+    mismatched = int(comparison.get("mismatched") or 0)
+    missing_gatus = int(comparison.get("missing_gatus") or 0)
+    if comparable <= 0:
+        blockers.append("no_comparable_probes")
+    if mismatched > 0:
+        blockers.append("shadow_mismatches")
+    if missing_gatus > 0:
+        blockers.append("missing_gatus_evidence")
+
+    return {
+        "provider": "gatus_via_prometheus",
+        "state": "candidate" if not blockers else "blocked",
+        "candidate": not blockers,
+        "requires_observation_window": True,
+        "blockers": blockers,
+        "comparable": comparable,
+        "mismatched": mismatched,
+        "missing_gatus": missing_gatus,
+    }
