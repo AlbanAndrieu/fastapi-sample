@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import asyncio
+from functools import partial
 import time
 from datetime import datetime, timezone
 from typing import Any, Literal
@@ -116,13 +117,7 @@ async def _collect_bounded_probe_batch(
     )
 
 
-def _truenas_internal_target(
-    _services: list[HomelabService] | None = None,
-) -> tuple[str, int]:
-    del _services
-    return truenas_probe_health.truenas_internal_target()
-
-
+_truenas_internal_target = truenas_probe_health.truenas_internal_target
 _truenas_state = truenas_probe_health.truenas_state
 
 
@@ -153,19 +148,10 @@ async def _probe_truenas(
     )
 
 
-def _copy_payload(
-    payload: dict[str, Any],
-    *,
-    cache_source: Literal["origin", "memory"],
-    cache_age_seconds: float,
-) -> dict[str, Any]:
-    """Compatibility facade for detached cached payloads."""
-    return copy_homelab_health_payload(
-        payload,
-        cache_source=cache_source,
-        cache_age_seconds=cache_age_seconds,
-        cache_ttl_seconds=_HEALTH_CACHE_TTL_SEC,
-    )
+_copy_payload = partial(
+    copy_homelab_health_payload,
+    cache_ttl_seconds=_HEALTH_CACHE_TTL_SEC,
+)
 
 
 async def build_homelab_health_payload(
