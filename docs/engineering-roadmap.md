@@ -227,9 +227,15 @@ Reference:
     catalogue still has only 35/85 (41.2%) endpoint-capable services matching a
     Gatus `nabla_service_id`, confirming that it must not drive the cutover.
     The canonical `nabla-compose` catalogue now has **45/45 active monitored
-    services covered by Gatus (100%)**. Seven additional monitoring declarations
-    are intentionally excluded because their services are `planned` or
-    `disabled`; they are not runtime-health gaps.
+    services covered by Gatus (100%)** through nabla-compose PR #241. Seven
+    additional monitoring declarations are intentionally excluded because their
+    services are `planned` or `disabled`; they are not runtime-health gaps.
+  - [x] Add a shadow-only direct-vs-Gatus comparison to the health-board
+    snapshot. Cutover requires zero unexplained mismatches across a representative
+    observation window; this comparison never changes service verdicts.
+  - [ ] Prove `HOMELAB_PROMETHEUS_URL` on the TrueNAS observer and collect the
+    shadow comparison over healthy and controlled-degradation windows before
+    selecting Gatus as the generic probe provider.
 - [ ] Keep direct application probes only where they prove a distinct contract
   that Gatus cannot safely represent, such as authenticated pfSense posture,
   TrueNAS control-plane/API evidence, Cloudflare Access policy and explicit

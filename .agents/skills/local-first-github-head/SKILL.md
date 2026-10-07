@@ -68,6 +68,11 @@ When archive retrieval is unavailable:
   marker;
 - expand the snapshot if an import/test exposes another required file.
 
+For data-only contract tests, a reduced semantic projection of a large generated
+JSON/YAML artifact is acceptable only when it is derived from the same pinned SHA
+and preserves every field the test reads. Label this explicitly as a semantic
+projection; do not describe it as the full file snapshot.
+
 This fallback is a targeted validation snapshot, not proof that a full
 repository quality gate passed.
 
