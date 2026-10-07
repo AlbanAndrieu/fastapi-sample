@@ -25,8 +25,8 @@ from nabla.api.health_board_enrichment import (
     annotate_truenas_ingress_policy as _annotate_truenas_ingress_policy,
 )
 from nabla.api.synthetic_probe_comparison import (
-    compare_synthetic_probe_evidence,
-    evaluate_generic_probe_cutover,
+    compare_internal_probe_evidence,
+    evaluate_internal_probe_delegation,
 )
 from nabla.settings.health_runtime import HealthRuntimeSettings
 
@@ -289,13 +289,13 @@ async def build_health_board_snapshot(request: Request) -> dict[str, Any]:
     homelab = _annotate_truenas_ingress_policy(homelab, runtime)
     healthz = _annotate_talos_vm_health(healthz, homelab)
     platform_metrics = await fetch_platform_metrics()
-    synthetic_probe_comparison = compare_synthetic_probe_evidence(
+    internal_probe_comparison = compare_internal_probe_evidence(
         homelab,
         platform_metrics,
     )
-    generic_probe_cutover = evaluate_generic_probe_cutover(
+    internal_probe_delegation = evaluate_internal_probe_delegation(
         platform_metrics,
-        synthetic_probe_comparison,
+        internal_probe_comparison,
     )
     sickz = await build_sickz_snapshot(request)
     return {
@@ -305,8 +305,8 @@ async def build_health_board_snapshot(request: Request) -> dict[str, Any]:
         "healthz": healthz,
         "homelab": homelab,
         "platform_metrics": platform_metrics,
-        "synthetic_probe_comparison": synthetic_probe_comparison,
-        "generic_probe_cutover": generic_probe_cutover,
+        "internal_probe_comparison": internal_probe_comparison,
+        "internal_probe_delegation": internal_probe_delegation,
         "sickz": sickz,
     }
 
