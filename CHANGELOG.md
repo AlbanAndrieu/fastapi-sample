@@ -1,3 +1,23 @@
+# [1.21.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.18...1.21.0) (2026-10-08)
+
+
+### Bug Fixes
+
+* **deps:** bump the npm_and_yarn group across 1 directory with 6 updates ([#326](https://github.com/AlbanAndrieu/fastapi-sample/issues/326)) ([5248928](https://github.com/AlbanAndrieu/fastapi-sample/commit/524892819017de549113586d3d6830b1a4cbb1dc))
+* **deps:** bump the uv group across 1 directory with 5 updates ([#327](https://github.com/AlbanAndrieu/fastapi-sample/issues/327)) ([bcfc406](https://github.com/AlbanAndrieu/fastapi-sample/commit/bcfc40694c356bffb5925ee99013e63537860f70))
+* **health:** découpler les probes brutes de l’UI TrueNAS ([#320](https://github.com/AlbanAndrieu/fastapi-sample/issues/320)) ([abe0109](https://github.com/AlbanAndrieu/fastapi-sample/commit/abe0109793ae118a4e79b6f143f1810b75eb69f9))
+* **health:** désactiver KeyAuth pfSense cloud et tracer les sondes ([#322](https://github.com/AlbanAndrieu/fastapi-sample/issues/322)) ([e165d85](https://github.com/AlbanAndrieu/fastapi-sample/commit/e165d85da044a34cd88e5a7d62af57d0cb0ce68a))
+* **health:** reconcile TrueNAS, pfSense and mobile diagnostics [skip ci] ([#318](https://github.com/AlbanAndrieu/fastapi-sample/issues/318)) ([2d2aa10](https://github.com/AlbanAndrieu/fastapi-sample/commit/2d2aa1014f82959870b542a501ef8680c296bc2f))
+* **health:** séparer auth pfSense et transport TrueNAS ([#321](https://github.com/AlbanAndrieu/fastapi-sample/issues/321)) ([4a26928](https://github.com/AlbanAndrieu/fastapi-sample/commit/4a26928ad4fcf722936863109109491d2eb1a84b))
+* **pfsense:** enforce split identities and coherent probe auth [skip ci] ([#319](https://github.com/AlbanAndrieu/fastapi-sample/issues/319)) ([9f2044b](https://github.com/AlbanAndrieu/fastapi-sample/commit/9f2044ba546b275881bfaee4bfe6e82ed1a1e46c))
+* **security:** durcir DEBUG FastAPI Cloud et Betterleaks v1 ([#325](https://github.com/AlbanAndrieu/fastapi-sample/issues/325)) ([ba17987](https://github.com/AlbanAndrieu/fastapi-sample/commit/ba1798707232f7e1b866d15dfa2cdd96bea90fc8))
+* **truenas:** fiabiliser le drill-down RPC et le diagnostic WAN ([#317](https://github.com/AlbanAndrieu/fastapi-sample/issues/317)) ([bb547d2](https://github.com/AlbanAndrieu/fastapi-sample/commit/bb547d2762191d0c75255f638d7672ff8d07ee19))
+
+
+### Features
+
+* **health:** mesurer et tracer la charge pfSense ([#324](https://github.com/AlbanAndrieu/fastapi-sample/issues/324)) ([92c6ef8](https://github.com/AlbanAndrieu/fastapi-sample/commit/92c6ef8b48f1356c2183a88777cb852ea71e57a3))
+
 ## [1.20.18](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.17...1.20.18) (2026-10-03)
 
 
