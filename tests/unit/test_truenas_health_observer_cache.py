@@ -11,6 +11,12 @@ def _valid_configuration(monkeypatch) -> None:
     monkeypatch.setattr(observer, "_report_failure_to_sentry", lambda _exc, _signature: None)
 
 
+@pytest.fixture(autouse=True)
+def _disable_shared_redis(monkeypatch) -> None:
+    """Unit tests must not observe peer refresh locks from configured Redis."""
+    monkeypatch.setattr(external_probe_cache, "_redis_client", lambda: None)
+
+
 def _expire_current_value(key: str) -> None:
     envelope, stored_at = external_probe_cache._l1[key]
     envelope["current"]["fetched_at"] = 0.0

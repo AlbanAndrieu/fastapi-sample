@@ -403,18 +403,21 @@ copy the stored hash, an ID, or a masked UI value.
 ## FastAPI Cloud transport-only policy
 
 FastAPI Cloud must not use pfSense REST API credentials as a liveness vantage
-point. Production deployment therefore sets:
+point. With the dedicated posture/security keys validated, production deploys
+with authenticated probes enabled:
 
 ```text
-PFSENSE_AUTHENTICATED_PROBES_ENABLED=false
+PFSENSE_AUTHENTICATED_PROBES_ENABLED=true
 ```
 
+The posture liveness call is fail-fast on HTTP 401: deeper authenticated fan-out
+is skipped after the first rejected credential, limiting Login Protection /
+`sshguard` amplification. The value `false` remains an emergency kill-switch.
 When disabled, the direct pfSense entry in `/healthz` is intentionally
 `unknown`/unconfirmed with `observation_mode=transport_only` and
-`credential_mode=disabled`. The application must not instantiate the pfSense
-HTTP client, send `X-API-Key`, consume provider rate budget or trip the provider
-circuit breaker in this mode. A prior authenticated last-good value must not
-replace the disabled-policy result from L1/Redis cache.
+`credential_mode=disabled`; no pfSense HTTP client or `X-API-Key` request is
+created in that mode. A prior authenticated last-good value must not replace
+the disabled-policy result from L1/Redis cache.
 
 The trusted TrueNAS runtime remains the authoritative authenticated vantage
 point. FastAPI Cloud may still report independent WAN transport evidence, but a

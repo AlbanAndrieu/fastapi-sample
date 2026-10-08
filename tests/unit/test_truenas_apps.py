@@ -59,7 +59,7 @@ def test_get_truenas_apps_json_uses_shared_adapter() -> None:
     assert payload["services"][0]["name"] == "vaultwarden"
     assert payload["services"][0]["internalHost"] == "nas.test"
     assert clients[0].uri == "wss://nas.test:7000/api/current"
-    assert clients[0].call_timeout == 5.0
+    assert clients[0].call_timeout == settings.call_timeout == 3.0
     assert clients[0].verify_ssl is False
     clients[0].login.assert_called_once_with("dummy-user", "1-dummyapi1234567890")
     assert clients[0].calls == [("app.query", ())]

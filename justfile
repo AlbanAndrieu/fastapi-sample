@@ -16,11 +16,11 @@ dev:
 
 # Run repository tests without resolving dependencies.
 test:
-    uv run --no-sync pytest -q --disable-warnings --maxfail=1
+    bash scripts/run-pytest-compact.sh
 
 # Run only pfSense observation, probe and tracing contracts.
 test-pfsense:
-    uv run --no-sync pytest -q --disable-warnings --maxfail=1 tests/unit/test_pfsense_auth_smoke.py tests/unit/test_pfsense_dns_observer.py tests/unit/test_pfsense_security_cache.py tests/unit/test_probe_headers.py tests/unit/test_probe_metrics.py
+    bash scripts/run-pytest-compact.sh tests/unit/test_pfsense_auth_smoke.py tests/unit/test_pfsense_dns_observer.py tests/unit/test_pfsense_security_cache.py tests/unit/test_probe_headers.py tests/unit/test_probe_metrics.py
 
 # Collect passive pfSense latency/protection evidence from Prometheus only.
 pfsense-baseline window="30m":

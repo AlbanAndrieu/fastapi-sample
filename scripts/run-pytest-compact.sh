@@ -1,0 +1,35 @@
+set -euo pipefail
+
+LOG="${PYTEST_LOG_FILE:-${TMPDIR:-/tmp}/fastapi-sample-pytest-$(date +%Y%m%d-%H%M%S)-$.log}"
+FAILURE_LINES="${PYTEST_FAILURE_SUMMARY_LINES:-80}"
+
+mkdir -p "$(dirname "${LOG}")"
+
+set +e
+uv run --no-sync pytest \
+  -q \
+  -p no:sugar \
+  --disable-warnings \
+  --tb=short \
+  "$@" >"${LOG}" 2>&1
+rc=$?
+set -e
+
+if ((rc == 0)); then
+  summary="$(
+    grep -E '(^Results \(|[0-9]+ passed|[0-9]+ skipped)' "${LOG}" |
+      tail -n 1 || true
+  )"
+  [[ -n "${summary}" ]] || summary="$(tail -n 1 "${LOG}")"
+  printf '✅ pytest: %s\n' "${summary}"
+  rm -f "${LOG}"
+  exit 0
+fi
+
+printf '❌ pytest failed (exit=%d) · full log: %s\n' "${rc}" "${LOG}" >&2
+{
+  grep -E '^(FAILED|ERROR) |^Results \(|^[[:space:]]+[0-9]+ (passed|failed|skipped)|=+ short test summary|=+ .*failed' "${LOG}" ||
+    true
+} | tail -n "${FAILURE_LINES}" >&2
+
+exit "${rc}"

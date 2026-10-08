@@ -16,14 +16,17 @@ def _settings() -> PfSenseSecuritySettings:
     )
 
 
+@pytest.fixture(autouse=True)
+def _disable_shared_redis(monkeypatch) -> None:
+    """Keep cache unit tests process-local and deterministic."""
+    monkeypatch.setattr(external_probe_cache, "_redis_client", lambda: None)
+
+
 def _expire_current_value(key: str) -> None:
-    """Expire both freshness clocks so the next call exercises an origin refresh."""
-    envelope, _stored_at = external_probe_cache._l1[key]
+    """Expire origin freshness while retaining last-good L1 evidence."""
+    envelope, stored_at = external_probe_cache._l1[key]
     envelope["current"]["fetched_at"] = 0.0
-    external_probe_cache._l1[key] = (
-        envelope,
-        0.0,
-    )
+    external_probe_cache._l1[key] = (envelope, stored_at)
 
 
 @pytest.mark.asyncio

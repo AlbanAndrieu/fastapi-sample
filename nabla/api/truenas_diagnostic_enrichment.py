@@ -256,12 +256,26 @@ def append_truenas_api_stages(
     stage = str(api_result.get("stage") or "")
     method = str(api_result.get("method") or "").strip()
     error = str(api_result.get("error") or "").strip()
+    authenticated = api_result.get("authenticated") is True
+    websocket_established = (
+        reachable or authenticated or phase in {"authentication", "call"}
+    )
+
+    if websocket is not None and websocket_established:
+        websocket.update(
+            {
+                "state": "ok",
+                "detail": (
+                    "WebSocket /api/current established; "
+                    "probe advanced to authentication/RPC"
+                ),
+                "evidence": "authenticated_api_probe",
+                "confirmation": "established",
+            },
+        )
+        websocket.pop("failure_stage", None)
 
     if websocket is None:
-        authenticated = api_result.get("authenticated") is True
-        websocket_established = (
-            reachable or authenticated or phase in {"authentication", "call"}
-        )
         websocket_state = "ok" if websocket_established else "fail"
         if websocket_established:
             websocket_detail = (

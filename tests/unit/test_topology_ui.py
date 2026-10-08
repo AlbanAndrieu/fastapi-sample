@@ -116,16 +116,14 @@ def test_topology_client_reuses_declared_contract_and_classification() -> None:
     assert 'name: "cose"' in script
 
 
-def test_shared_topology_loader_keeps_existing_fallback_contract() -> None:
+def test_shared_topology_loader_uses_public_projection_only() -> None:
     script = (ASSETS / "api-topology-data.js").read_text(encoding="utf-8")
 
-    assert 'fetchJson("/api/homelab-topology")' in script
-    assert 'fetchJson("/api/homelab/declared-services")' in script
-    assert 'source: "declared-services-fallback"' in script
-    assert 'source: "classification-unavailable"' in script
-    assert "runtime: service?.runtime || null" in script
-    assert "lifecycle: service?.lifecycle || null" in script
-    assert "sourcePath: service?.sourcePath || service?.source_path || null" in script
+    assert 'fetchJson("/api/public-topology")' in script
+    assert "/api/homelab-topology" not in script
+    assert "/api/homelab/declared-services" not in script
+    assert 'source: "public-topology-unavailable"' in script
+    assert 'endpoint: "/api/public-topology"' in script
     assert 'cache: "no-store"' in script
 
 

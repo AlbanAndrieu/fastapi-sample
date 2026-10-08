@@ -6,10 +6,16 @@ import pytest
 from nabla.api import external_probe_cache, platform_health
 
 
+@pytest.fixture(autouse=True)
+def _disable_shared_redis(monkeypatch) -> None:
+    """Keep platform cache tests independent from configured Redis."""
+    monkeypatch.setattr(external_probe_cache, "_redis_client", lambda: None)
+
+
 def _expire_current_value(key: str) -> None:
-    envelope, _stored_at = external_probe_cache._l1[key]
+    envelope, stored_at = external_probe_cache._l1[key]
     envelope["current"]["fetched_at"] = 0.0
-    external_probe_cache._l1[key] = (envelope, 0.0)
+    external_probe_cache._l1[key] = (envelope, stored_at)
 
 
 @pytest.mark.asyncio

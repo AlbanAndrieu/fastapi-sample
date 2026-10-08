@@ -294,7 +294,8 @@ def test_agent_completion_policy_requires_roadmap_accounting() -> None:
     assert "docs/engineering-roadmap.md" in homelab_skill
 
     assert "## P0 — homelab dependency convergence" in roadmap
-    for integration in ("Talos", "pfSense", "Prometheus", "Sentry", "Pyroscope"):
+    assert "**Talos / TrueNAS VM evidence:**" in roadmap
+    for integration in ("pfSense", "Prometheus", "Sentry", "Pyroscope"):
         assert f"**{integration}:**" in roadmap
     assert "scripts/diagnose-local-runtime-dependencies.py" in roadmap
 

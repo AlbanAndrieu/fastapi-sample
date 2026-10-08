@@ -1,4 +1,6 @@
 import os
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 from starlette.testclient import TestClient
@@ -31,13 +33,29 @@ os.environ["SENTRY_LOCAL_DSN"] = ""
 os.environ["UNLEASH_INSTANCE_ID"] = ""
 os.environ["STATSIG_API_KEY"] = ""
 
+# Operational access keys are deployment secrets. A developer's configured
+# diagnostics/admin key must not turn ordinary unit-test requests into 401s.
+# Access-control behavior is covered explicitly in test_access_control.py.
+for key in (
+    "DIAGNOSTICS_ACCESS_KEY",
+    "ADMIN_ACCESS_KEY",
+):
+    os.environ.pop(key, None)
+
+from nabla import access_control  # noqa: E402
 from server_app import app  # noqa: E402
 
 
 @pytest.fixture(scope="module")
 def test_app():
-    client = TestClient(app)
-    yield client  # testing happens here
+    """Shared unit-test client with operational access protection disabled."""
+    settings = SimpleNamespace(
+        admin_access_key=None,
+        diagnostics_access_key=None,
+    )
+    with patch.object(access_control, "get_settings", return_value=settings):
+        with TestClient(app) as client:
+            yield client
 
 
 # Because some tests are only suitable for certain environments, like having access to keycloak for test_login.py

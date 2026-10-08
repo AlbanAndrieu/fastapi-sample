@@ -181,16 +181,21 @@ async def test_independent_security_evidence_survives_posture_failure(monkeypatc
 
 @pytest.mark.asyncio
 async def test_posture_deadline_returns_bounded_failure(monkeypatch, settings) -> None:
-    async def slow_get_data(_client, _path: str):
-        await asyncio.sleep(0.05)
-        return {}
+    async def never_completes(_settings):
+        await asyncio.Event().wait()
 
-    monkeypatch.setattr(pfsense_dns_observer, "_get_data", slow_get_data)
-    monkeypatch.setattr(pfsense_dns_observer, "_PFSENSE_POSTURE_DEADLINE_SEC", 0.001)
+    monkeypatch.setattr(
+        pfsense_dns_observer,
+        "_observe_posture_origin_bounded",
+        never_completes,
+    )
+    monkeypatch.setattr(pfsense_dns_observer, "_PFSENSE_POSTURE_DEADLINE_SEC", 0.01)
 
     result = await pfsense_dns_observer._observe_posture_origin(settings)
 
     assert result["reachable"] is False
+    assert result["transport_reachable"] is False
+    assert result["api_authenticated"] is None
     assert result["error_stage"] == "deadline"
     assert result["error"] == "timeout"
 
