@@ -17,6 +17,8 @@ def test_compact_runner_hides_progress_and_keeps_failure_log() -> None:
     assert "full log:" in source
     assert "grep -E" in source
     assert "pytest failed" in source
+    assert "date +%Y%m%d-%H%M%S" in source
+    assert "$" in source
 
 
 def test_local_recipes_use_compact_runner() -> None:
