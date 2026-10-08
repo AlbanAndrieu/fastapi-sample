@@ -8,6 +8,7 @@ import re
 import time
 from typing import Any, Literal
 
+import anyio
 import httpx
 
 from nabla.api.dns_probe import probe_dns_hostname
@@ -219,13 +220,11 @@ async def probe_internal_service(
         raise ValueError("service has no internal host/port target")
 
     started = time.perf_counter()
-    writer: asyncio.StreamWriter | None = None
     try:
         async with semaphore:
-            _, writer = await asyncio.wait_for(
-                asyncio.open_connection(host, port),
-                timeout=timeout_seconds,
-            )
+            with anyio.fail_after(timeout_seconds):
+                stream = await anyio.connect_tcp(host, port)
+                await stream.aclose()
         result: dict[str, Any] = {
             "id": service.service_id,
             "name": service.name,
@@ -244,10 +243,6 @@ async def probe_internal_service(
             "state": "fail",
             "error": _short_error(exc),
         }
-    finally:
-        if writer is not None:
-            writer.close()
-            await writer.wait_closed()
     result["latency_ms"] = max(
         0,
         round((time.perf_counter() - started) * 1000),

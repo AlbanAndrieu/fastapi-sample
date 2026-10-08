@@ -267,21 +267,32 @@ FastAPI Cloud (outside homelab)        TrueNAS (inside homelab)
 - [ ] Reduce the external Python probe implementation with mature libraries
   rather than replacing the external observer:
   - keep **HTTPX** for HTTP/HTTPS and explicit connect/read/write/pool timeouts;
-  - evaluate **dnspython asyncresolver** to replace threaded
-    `socket.getaddrinfo` plus custom `/etc/resolv.conf` parsing and to expose
-    real A/AAAA/DNS error semantics;
-  - evaluate **AnyIO** networking/structured concurrency for TCP/TLS connect,
-    cancellation and timeout scopes, replacing hand-written
-    `asyncio.open_connection`/`wait_for` and blocking TLS thread wrappers
-    where the diagnostics contract remains equivalent;
+  - [x] use **dnspython asyncresolver** for public A/AAAA evidence; remove
+    threaded `socket.getaddrinfo` and custom `/etc/resolv.conf` parsing while
+    preserving bounded resolver identity, latency and DNS failure evidence;
+  - [x] use **AnyIO** `connect_tcp` + cancel scopes for generic internal TCP
+    probes instead of `asyncio.open_connection` + `wait_for`;
+  - [ ] evaluate the same AnyIO transport primitives for the specialized
+    TrueNAS TCP/TLS diagnostic only after preserving its SNI, certificate,
+    cipher and hostname-verification evidence contract;
   - retain stdlib `ssl` for certificate/session facts; use `cryptography`
     only if richer X.509 parsing is actually required;
   - do **not** add generic automatic retries to health probes: retries distort
     latency and can amplify load on degraded pfSense/TrueNAS paths.
-- [ ] Evaluate higher-level Python synthetic runners only behind a contract test.
-  **Synthetic Open Schema Runner** is technically interesting (HTTP/TCP/DNS/TLS
-  and async execution) but is younger and less established than HTTPX,
-  dnspython and AnyIO; do not adopt it solely to reduce line count.
+- [ ] Evaluate **Synthetic Open Schema (SOS)** as a generated contract, not as a
+  new source of truth.
+  - [ ] Generate v1 HttpCheck/DnsCheck/TlsCheck/TcpCheck YAML from the canonical
+    Nabla catalogue/exposure model in `nabla-compose`; generated files must
+    carry service identity/provenance and must never contain credentials.
+  - [ ] Validate generated YAML with the official
+    `synthetic-open-schema-model` and execute a representative outside-in
+    subset with the official async Python runner.
+  - [ ] Measure how much generic DNS/TLS/HTTP/TCP execution and assertion code
+    can be deleted from FastAPI while keeping Cloudflare Access/service-token,
+    warning-state policy, WAN/SNI comparison and security attribution as thin
+    adapters.
+  - [ ] Adopt the runner only if the net production/test LOC and maintenance
+    burden decrease and result semantics remain at least as precise as today.
 - [ ] Do not adopt young all-in-one libraries such as PyUptimeKit/pyhealthcheck
   until maturity, async behavior, security maintenance and Python 3.13 support
   are proven; current bespoke semantics for Cloudflare Access and security
