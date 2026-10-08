@@ -19,8 +19,9 @@ def test_production_smoke_accepts_classified_transient_pfsense_failures() -> Non
     assert '.checks.pfsense.error_kind | type == "string"' in smoke
     assert '.checks.pfsense.failure_stage | type == "string"' in smoke
     assert 'if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then' in smoke
-    assert ".checks.pfsense.http_status >= 500" in smoke
-    assert '.checks.pfsense.error | type == "string"' in smoke
+    assert ".checks.pfsense.api_authenticated == true" in smoke
+    assert ".checks.pfsense.status_confirmed == true" in smoke
+    assert '.checks.pfsense.state == "ok"' in smoke
     assert ".checks.pfsense.reachable == null" in smoke
     assert '.checks.pfsense.state == "unknown"' in smoke
     assert ".checks.pfsense.status_confirmed == false" in smoke
