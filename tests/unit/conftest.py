@@ -31,6 +31,15 @@ os.environ["SENTRY_LOCAL_DSN"] = ""
 os.environ["UNLEASH_INSTANCE_ID"] = ""
 os.environ["STATSIG_API_KEY"] = ""
 
+# Operational access keys are deployment secrets. A developer's configured
+# diagnostics/admin key must not turn ordinary unit-test requests into 401s.
+# Access-control behavior is covered explicitly in test_access_control.py.
+for key in (
+    "DIAGNOSTICS_ACCESS_KEY",
+    "ADMIN_ACCESS_KEY",
+):
+    os.environ.pop(key, None)
+
 from server_app import app  # noqa: E402
 
 
