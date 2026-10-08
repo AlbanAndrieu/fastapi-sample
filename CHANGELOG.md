@@ -1,3 +1,11 @@
+## [1.21.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.21.0...1.21.1) (2026-10-08)
+
+
+### Bug Fixes
+
+* **deps-dev:** bump handlebars ([#331](https://github.com/AlbanAndrieu/fastapi-sample/issues/331)) ([1da0fdc](https://github.com/AlbanAndrieu/fastapi-sample/commit/1da0fdcb85cca100d5282db0057bf3745f6612cd))
+* **test:** stabiliser les contrats et compacter pytest ([#329](https://github.com/AlbanAndrieu/fastapi-sample/issues/329)) ([b173295](https://github.com/AlbanAndrieu/fastapi-sample/commit/b173295a348c1be9e4d45324c231481758263aff))
+
 # [1.21.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.20.18...1.21.0) (2026-10-08)
 
 
