@@ -1,6 +1,6 @@
 set -euo pipefail
 
-LOG="${PYTEST_LOG_FILE:-${TMPDIR:-/tmp}/fastapi-sample-pytest.log}"
+LOG="${PYTEST_LOG_FILE:-${TMPDIR:-/tmp}/fastapi-sample-pytest-$(date +%Y%m%d-%H%M%S)-$.log}"
 FAILURE_LINES="${PYTEST_FAILURE_SUMMARY_LINES:-80}"
 
 mkdir -p "$(dirname "${LOG}")"
