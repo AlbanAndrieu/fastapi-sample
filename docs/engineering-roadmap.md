@@ -141,8 +141,10 @@ Runbook:
   load.
 - [x] Remove the shared-WAN Snort attribution blind spot from the authoritative
   observer path: TrueNAS/homelab uses the LAN/split-DNS `out_of_band` control
-  path for pfSense API evidence, while FastAPI Cloud authenticated pfSense
-  probes remain disabled and WAN reachability is observed separately.
+  path for pfSense API evidence. FastAPI Cloud keeps the dedicated authenticated
+  posture/security probes enabled for outside-in evidence, with fail-fast on the
+  first HTTP 401 and `PFSENSE_AUTHENTICATED_PROBES_ENABLED=false` retained only
+  as an emergency kill-switch.
 - [ ] After an independent pfSense observer path is accepted, expand the
   sanitized posture with interfaces/gateways, firewall/NAT and DNS policy;
   query VPN, logs and private inventory only for explicit operational needs.
