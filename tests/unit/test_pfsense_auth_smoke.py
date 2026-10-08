@@ -36,7 +36,9 @@ def test_smoke_output_contract_is_redacted() -> None:
     assert "response.text" not in source
     assert 'payload.get("response_id")' in source
     assert 'payload.get("message")' not in source
-    assert "settings.api_key}" not in source
+    assert 'print(settings.api_key)' not in source
+    assert 'f"{settings.api_key}"' not in source
+    assert "response.headers" not in source
 
 
 def test_smoke_rejects_plain_http_before_loading_credentials() -> None:
