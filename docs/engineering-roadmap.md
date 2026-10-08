@@ -281,16 +281,26 @@ FastAPI Cloud (outside homelab)        TrueNAS (inside homelab)
     latency and can amplify load on degraded pfSense/TrueNAS paths.
 - [ ] Evaluate **Synthetic Open Schema (SOS)** as a generated contract, not as a
   new source of truth.
-  - [ ] Generate v1 HttpCheck/DnsCheck/TlsCheck/TcpCheck YAML from the canonical
-    Nabla catalogue/exposure model in `nabla-compose`; generated files must
-    carry service identity/provenance and must never contain credentials.
-  - [ ] Validate generated YAML with the official
+  - [x] POC in `nabla-compose`: generate one runner-compatible v1 YAML per
+    DnsCheck/TlsCheck/HttpCheck from the current public-exposure catalogue.
+    The current snapshot produces **78 resources for 26 public HTTPS services**
+    (26 DNS + 26 TLS + 26 HTTP); 25 protected HTTP checks reference only
+    `${CF_ACCESS_CLIENT_ID}` / `${CF_ACCESS_CLIENT_SECRET}` placeholders.
+    Generation/test commands are `just sos-generate` / `just sos-test`.
+  - [ ] Move the remaining public exposure intent from transitional
+    `catalog/homelab-services.json` into the canonical catalog-v2 authority;
+    then switch the SOS generator to that source before deleting the legacy file.
+  - [ ] Validate every generated resource with the official
     `synthetic-open-schema-model` and execute a representative outside-in
-    subset with the official async Python runner.
-  - [ ] Measure how much generic DNS/TLS/HTTP/TCP execution and assertion code
-    can be deleted from FastAPI while keeping Cloudflare Access/service-token,
-    warning-state policy, WAN/SNI comparison and security attribution as thin
-    adapters.
+    subset with the official async Python runner. These packages are not present
+    in the current offline cache, so structural/PyYAML validation is not enough
+    to close this gate.
+  - [ ] Measure deletion after a runner adapter POC. Current minimum candidate
+    surface is about **198 production lines** (96-line DNS module plus the
+    39-line generic HTTP error assertion and 63-line HTTP executor), before any
+    additional batch/orchestration deletion; matching tests should shrink too.
+    Cloudflare anonymous default-deny, service-token policy, warning-state
+    classification and WAN/SNI attribution remain explicit adapters.
   - [ ] Adopt the runner only if the net production/test LOC and maintenance
     burden decrease and result semantics remain at least as precise as today.
 - [ ] Do not adopt young all-in-one libraries such as PyUptimeKit/pyhealthcheck
