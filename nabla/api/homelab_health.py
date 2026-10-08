@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import asyncio
+from functools import partial
 import time
 from datetime import datetime, timezone
 from typing import Any, Literal
@@ -13,10 +14,7 @@ import httpx
 
 from nabla.api import homelab_probe_runner, truenas_probe_health
 from nabla.api.homelab_catalog import fetch_homelab_services
-from nabla.api.homelab_truenas_probe import (
-    probe_truenas,
-    probe_truenas_public_https,
-)
+from nabla.api.homelab_truenas_probe import probe_truenas
 from nabla.api.homelab_health_cache import copy_homelab_health_payload
 from nabla.api.homelab_models import HomelabService
 from nabla.api.homelab_probe_evidence import (
@@ -51,22 +49,7 @@ def internal_probes_enabled() -> bool:
     return env_bool(_INTERNAL_PROBE_ENV)
 
 
-async def _probe_http_endpoint(
-    client: httpx.AsyncClient,
-    semaphore: asyncio.Semaphore,
-    *,
-    service_id: str,
-    name: str,
-    url: str,
-) -> dict[str, Any]:
-    """Compatibility facade for one bounded HTTP probe."""
-    return await homelab_probe_runner.probe_http_endpoint(
-        client,
-        semaphore,
-        service_id=service_id,
-        name=name,
-        url=url,
-    )
+_probe_http_endpoint = homelab_probe_runner.probe_http_endpoint
 
 
 async def _probe_public_service(
@@ -84,16 +67,10 @@ async def _probe_public_service(
     )
 
 
-async def _probe_internal_service(
-    semaphore: asyncio.Semaphore,
-    service: HomelabService,
-) -> dict[str, Any]:
-    """Compatibility facade for one bounded internal TCP probe."""
-    return await homelab_probe_runner.probe_internal_service(
-        semaphore,
-        service,
-        timeout_seconds=_INTERNAL_PROBE_TIMEOUT_SEC,
-    )
+_probe_internal_service = partial(
+    homelab_probe_runner.probe_internal_service,
+    timeout_seconds=_INTERNAL_PROBE_TIMEOUT_SEC,
+)
 
 
 async def _collect_bounded_probe_batch(
@@ -116,28 +93,8 @@ async def _collect_bounded_probe_batch(
     )
 
 
-def _truenas_internal_target(
-    _services: list[HomelabService] | None = None,
-) -> tuple[str, int]:
-    del _services
-    return truenas_probe_health.truenas_internal_target()
-
-
+_truenas_internal_target = truenas_probe_health.truenas_internal_target
 _truenas_state = truenas_probe_health.truenas_state
-
-
-async def _probe_truenas_public_https(
-    semaphore: asyncio.Semaphore,
-    *,
-    configured_url: str,
-    verify_ssl: bool,
-) -> dict[str, Any]:
-    return await probe_truenas_public_https(
-        semaphore,
-        configured_url=configured_url,
-        verify_ssl=verify_ssl,
-        http_probe=_probe_http_endpoint,
-    )
 
 
 async def _probe_truenas(
@@ -153,19 +110,10 @@ async def _probe_truenas(
     )
 
 
-def _copy_payload(
-    payload: dict[str, Any],
-    *,
-    cache_source: Literal["origin", "memory"],
-    cache_age_seconds: float,
-) -> dict[str, Any]:
-    """Compatibility facade for detached cached payloads."""
-    return copy_homelab_health_payload(
-        payload,
-        cache_source=cache_source,
-        cache_age_seconds=cache_age_seconds,
-        cache_ttl_seconds=_HEALTH_CACHE_TTL_SEC,
-    )
+_copy_payload = partial(
+    copy_homelab_health_payload,
+    cache_ttl_seconds=_HEALTH_CACHE_TTL_SEC,
+)
 
 
 async def build_homelab_health_payload(

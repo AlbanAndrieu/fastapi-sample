@@ -93,6 +93,20 @@ def known_paas_runtime_detected(hostname: str | None = None) -> bool:
     )
 
 
+def application_debug_enabled(configured_debug: bool) -> bool:
+    """Never serve Starlette debug tracebacks on any FastAPI Cloud evidence.
+
+    Do not let a conflicting FASTAPI_ENV=development bypass Cloud markers.
+    """
+    cloud_domain = os.environ.get("APP_DOMAIN")
+    cloud_network = os.environ.get("SICKZ_NETWORK_LABEL", "").strip().casefold()
+    return configured_debug and not (
+        fastapi_cloud_runtime_detected(cloud_domain)
+        or any(_env_present(name) for name in _FASTAPI_CLOUD_ENV_MARKERS)
+        or cloud_network in _FASTAPI_CLOUD_NETWORK_LABELS
+    )
+
+
 def runtime_mode(hostname: str | None = None) -> str:
     """Return a stable scope for telemetry, UI and observer semantics."""
     host = (hostname or "").strip().casefold().rstrip(".")

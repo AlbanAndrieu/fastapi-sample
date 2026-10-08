@@ -14,6 +14,9 @@ detailed implementation record.
 - Vercel Git deployment is disabled and must not be a merge gate.
 - GitHub Actions capacity is constrained: prefer deterministic local validation.
 - Optional homelab integrations must not become application liveness dependencies.
+- Preserve observer independence: FastAPI Cloud is the outside-in observer for
+  public exposure/security, while Gatus/Prometheus on TrueNAS are inside-out
+  homelab observers and must not replace that external vantage point.
 - Never weaken TLS, authentication, timeouts, cache/circuit breakers or rate
   limits merely to make health status appear green.
 - Close a roadmap item only with an explicit acceptance proof.
@@ -22,6 +25,13 @@ detailed implementation record.
 
 - [ ] Set `DEBUG=false` in FastAPI Cloud and prove unexpected exceptions no
   longer expose tracebacks.
+  - [x] Enforce `DEBUG=false` in the declarative Cloud deploy workflow and
+    suppress Starlette debug tracebacks when any Cloud marker or configured
+    `APP_DOMAIN` identifies FastAPI Cloud, even if `FASTAPI_ENV=development`
+    conflicts with that evidence; cover both with offline regression tests.
+  - [ ] After the next authorized production deployment, verify the effective
+    remote environment and a controlled non-sensitive HTTP 500 response;
+    do not trigger an exception on the public endpoint solely for this check.
 - [ ] Audit retained FastAPI Cloud/Sentry/Logfire/centralized logs for credentials,
   reset/verification tokens and connection strings; rotate affected credentials
   if historical exposure is confirmed.
@@ -102,6 +112,10 @@ Runbook:
       normal posture refreshes remain one preflight plus three bounded deep reads.
     - [x] Exercise the deep-read semaphore with more candidate reads than the
       production fan-out and prove observed concurrency never exceeds 2.
+    - [x] Add a Prometheus-only baseline collector for p95/p99, protective
+      skips, request counts and in-flight work; it performs zero direct pfREST
+      calls and keeps threshold changes blocked until appliance evidence is
+      correlated.
     - [ ] Collect a sustained TrueNAS-runtime baseline and correlate p95/p99,
       skip rate, provider in-flight work and pfSense CPU/RAM/PHP-FPM/FastCGI
       evidence before changing the 2.5 s threshold.
@@ -167,6 +181,26 @@ Reference:
 
 ## P1 — dependency automation and CI governance
 
+- [ ] Introduce **Dagger CI** as the portable local-first execution layer, not as
+  a second CI authority.
+  - [ ] Pin the Dagger CLI/Engine and initialize a Python SDK module; the
+    official Dagger documentation is currently on the 1.0 beta line, so start
+    with a bounded pilot rather than rewriting every workflow at once.
+  - [ ] Model the deterministic local gates first: targeted/full pytest, Ruff
+    format/lint, py_compile/contract checks and repository generators. Keep
+    Betterleaks and other security scanners explicit and pinned; do not weaken a
+    scanner merely because it is harder to containerize.
+  - [ ] Make the existing exact-HEAD archive/snapshot materialization usable as
+    Dagger input so validation remains possible when `git clone` or DNS is
+    unavailable.
+  - [ ] Expose the same Dagger functions through `just` locally and a thin
+    GitHub Actions launcher remotely; pipeline logic must live in Dagger rather
+    than be duplicated in Actions YAML.
+  - [ ] Keep production credentials out of cacheable Dagger layers and pass
+    secrets only to the minimum functions that require them.
+  - [ ] Accept the pilot only when the same SHA produces equivalent local and CI
+    results and cached reruns reduce local feedback time without hiding stale
+    generated output.
 - [ ] Validate the hosted Mend Renovate GitHub App for this repository and
   `nabla-compose`.
 - [ ] After acceptance, remove the self-hosted Renovate workflow.
@@ -197,6 +231,66 @@ Reference:
 - [ ] Disconnect the Git provider from the Vercel project with an authorized
   identity.
 - [ ] Prove a later PR push creates no Vercel deployment, status or comment.
+
+## P1 — dual-vantage probes and code reduction
+
+The two observers answer different questions and must remain independent:
+
+```text
+FastAPI Cloud (outside homelab)        TrueNAS (inside homelab)
+        |                                      |
+ public DNS/TLS/HTTP/Access                 Gatus
+        |                                      |
+ Internet -> Cloudflare/pfSense             LAN/services
+        |                                      |
+ exposure + security evidence               internal health
+```
+
+- [x] Classify Gatus/Prometheus as an **internal TrueNAS observer**. Its 45/45
+  active-monitor coverage is useful for LAN/application health but cannot prove
+  that a service is reachable or correctly protected from the public Internet.
+- [x] Preserve the FastAPI Cloud probes as the canonical **outside-in** evidence
+  for public DNS, TLS, HTTP status, Cloudflare Access/service-token behavior,
+  HAProxy/WAN exposure and externally visible application failures.
+- [x] Restrict the Gatus shadow comparison/delegation diagnostic to generic
+  **internal** probes. Public FastAPI Cloud results are deliberately not compared
+  for equality with Gatus because a difference may be the signal being sought.
+  HTTP Gatus evidence is treated as stronger application evidence, not as a
+  TCP-transport mismatch.
+- [ ] Prove `HOMELAB_PROMETHEUS_URL=http://172.17.0.24:9090` on the TrueNAS
+  observer and collect internal comparison evidence before deciding whether any
+  in-process TrueNAS TCP fan-out can be delegated to Gatus.
+- [ ] Keep all outside-in public probes embedded in FastAPI Cloud unless another
+  probe engine is deployed in an **independent external failure domain**.
+  A second Gatus or Prometheus Blackbox Exporter instance outside the homelab
+  could qualify; the current TrueNAS instances do not.
+- [ ] Reduce the external Python probe implementation with mature libraries
+  rather than replacing the external observer:
+  - keep **HTTPX** for HTTP/HTTPS and explicit connect/read/write/pool timeouts;
+  - evaluate **dnspython asyncresolver** to replace threaded
+    `socket.getaddrinfo` plus custom `/etc/resolv.conf` parsing and to expose
+    real A/AAAA/DNS error semantics;
+  - evaluate **AnyIO** networking/structured concurrency for TCP/TLS connect,
+    cancellation and timeout scopes, replacing hand-written
+    `asyncio.open_connection`/`wait_for` and blocking TLS thread wrappers
+    where the diagnostics contract remains equivalent;
+  - retain stdlib `ssl` for certificate/session facts; use `cryptography`
+    only if richer X.509 parsing is actually required;
+  - do **not** add generic automatic retries to health probes: retries distort
+    latency and can amplify load on degraded pfSense/TrueNAS paths.
+- [ ] Evaluate higher-level Python synthetic runners only behind a contract test.
+  **Synthetic Open Schema Runner** is technically interesting (HTTP/TCP/DNS/TLS
+  and async execution) but is younger and less established than HTTPX,
+  dnspython and AnyIO; do not adopt it solely to reduce line count.
+- [ ] Do not adopt young all-in-one libraries such as PyUptimeKit/pyhealthcheck
+  until maturity, async behavior, security maintenance and Python 3.13 support
+  are proven; current bespoke semantics for Cloudflare Access and security
+  attribution would still need adapters.
+- [ ] After internal delegation is proven, delete only the TrueNAS/internal
+  generic fan-out code made redundant by Gatus. Do **not** delete the external
+  public probe path, DNS/TLS attribution or Cloudflare Access logic.
+- [x] Factor shared Prometheus vector parsing/query helpers so platform,
+  topology and diagnostic consumers do not maintain parallel HTTP API parsers.
 
 ## P1 — runtime architecture
 

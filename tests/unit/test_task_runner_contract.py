@@ -41,7 +41,6 @@ def test_justfile_does_not_replace_makefile() -> None:
     assert "legacy" in source
 
 
-
 def test_makefile_keeps_bridges_to_just() -> None:
     source = MAKEFILE.read_text(encoding="utf-8")
 

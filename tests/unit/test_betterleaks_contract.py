@@ -32,11 +32,17 @@ def test_betterleaks_is_the_only_precommit_secret_scanner() -> None:
 def test_just_uses_betterleaks_with_existing_config() -> None:
     source = (ROOT / "justfile").read_text(encoding="utf-8")
 
+    assert "betterleaks-v1 dir . --config .gitleaks.toml --redact" in source
     assert "betterleaks dir . --config .gitleaks.toml --redact" in source
+    assert (
+        "betterleaks-v1 git . --pre-commit --staged "
+        "--config .gitleaks.toml --redact"
+    ) in source
     assert (
         "betterleaks git . --pre-commit --staged "
         "--config .gitleaks.toml --redact"
     ) in source
+    assert "command -v betterleaks-v1" in source
 
 
 def test_mise_pins_stable_betterleaks_release() -> None:
@@ -73,10 +79,11 @@ def test_previous_finding_exclusions_remain_available() -> None:
     assert (ROOT / ".gitleaksignore").is_file()
 
 
-def test_brew_installs_betterleaks_instead_of_gitleaks() -> None:
+def test_brew_installs_reviewed_v1_cask_instead_of_gitleaks() -> None:
     packages = (ROOT / "Brewfile").read_text(encoding="utf-8").splitlines()
 
-    assert 'brew "betterleaks"' in packages
+    assert 'cask "betterleaks/tap/betterleaks@1"' in packages
+    assert 'brew "betterleaks"' not in packages
     assert 'brew "gitleaks"' not in packages
 
 
