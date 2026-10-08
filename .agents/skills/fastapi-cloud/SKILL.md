@@ -125,7 +125,7 @@ PFSENSE_POSTURE_API_VERIFY_SSL=true
 PFSENSE_SECURITY_API_KEY=<dedicated diagnostics-table GET-only key>
 PFSENSE_SECURITY_API_VERIFY_SSL=true
 PFSENSE_SECURITY_PATH_MODE=shared_wan
-PFSENSE_AUTHENTICATED_PROBES_ENABLED=false
+PFSENSE_AUTHENTICATED_PROBES_ENABLED=true
 ```
 
 `PFSENSE_POSTURE_API_URL`, `PFSENSE_POSTURE_API_VERIFY_SSL`, `PFSENSE_SECURITY_API_URL`, and `PFSENSE_SECURITY_API_VERIFY_SSL` are optional overrides when an identity uses a different transport. The production deploy workflow pins both per-identity TLS overrides to `true` so stale Cloud values cannot silently disable certificate verification. `PFSENSE_API_KEY` is obsolete and is no longer consumed by FastAPI Sample. It was removed from FastAPI Cloud on 2026-09-02; remove it from homelab runtime secrets as well.
