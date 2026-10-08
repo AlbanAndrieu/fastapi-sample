@@ -8,6 +8,7 @@ from typing import Any
 
 import dns.asyncresolver
 import dns.exception
+import dns.resolver
 
 _DNS_PROBE_TIMEOUT_SEC = 1.5
 _RESOLVER_LABELS = {

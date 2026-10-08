@@ -2202,12 +2202,14 @@ version = "1.20.18"
 source = { editable = "." }
 dependencies = [
     { name = "a2a-sdk" },
+    { name = "anyio" },
     { name = "asyncpg" },
     { name = "botocore" },
     { name = "cloudflare" },
     { name = "databases" },
     { name = "ddtrace" },
     { name = "deepagents" },
+    { name = "dnspython" },
     { name = "fastapi", extra = ["standard"] },
     { name = "fastapi-cache2", extra = ["redis"] },
     { name = "fastapi-cloud-cli" },
@@ -2637,12 +2639,14 @@ webui = [
 [package.metadata]
 requires-dist = [
     { name = "a2a-sdk", specifier = ">=1.0.0" },
+    { name = "anyio", specifier = ">=4.10,<5" },
     { name = "asyncpg", specifier = ">=0.27.0" },
     { name = "botocore", specifier = ">=1.43.0" },
     { name = "cloudflare", specifier = ">=5.6.0,<6" },
     { name = "databases", specifier = ">=0.5.3" },
     { name = "ddtrace", specifier = ">=3.12.2" },
     { name = "deepagents", specifier = ">=0.5.3" },
+    { name = "dnspython", specifier = ">=2.8,<3" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.128.0" },
     { name = "fastapi-cache2", extras = ["redis"], specifier = ">=0.0.1" },
     { name = "fastapi-cloud-cli", specifier = ">=0.26.0" },
