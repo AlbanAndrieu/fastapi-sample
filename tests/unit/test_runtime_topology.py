@@ -50,6 +50,8 @@ async def test_local_runtime_snapshot_is_explicitly_not_platform_replica_count(
 async def test_fastapi_cloud_runtime_snapshot_keeps_cloud_semantics(monkeypatch) -> None:
     monkeypatch.setenv("HOSTNAME", "container-cloud")
     monkeypatch.setenv("FASTAPI_CLOUD", "1")
+    monkeypatch.delenv("FASTAPI_ENV", raising=False)
+    monkeypatch.delenv("FASTAPI_RUNTIME_MODE", raising=False)
 
     async def egress():
         return {
