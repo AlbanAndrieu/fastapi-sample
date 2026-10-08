@@ -150,10 +150,10 @@ jobs:
           echo "::endgroup::"
 
           # Pull requests probe the already-deployed production revision, not
-          # the candidate head. Accept either the new transport-only contract or
-          # the legacy deployed authenticated probe while this PR is under review.
-          # Post-deploy smoke is strict: FastAPI Cloud must not call pfSense with
-          # an API key.
+          # the candidate head. During this cutover only, accept the legacy
+          # transport-only contract or the authenticated steady-state contract.
+          # Post-deploy smoke is stricter: KeyAuth is enabled and a confirmed
+          # authentication rejection must fail the deployment smoke.
           if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
             jq -e '
               (
@@ -171,13 +171,10 @@ jobs:
                 (
                   (
                     .checks.pfsense.reachable == true and
+                    .checks.pfsense.api_authenticated == true and
+                    .checks.pfsense.status_confirmed == true and
+                    .checks.pfsense.state == "ok" and
                     (.checks.pfsense.http_status >= 200 and .checks.pfsense.http_status < 300)
-                  ) or
-                  (
-                    .checks.pfsense.reachable == false and
-                    (.checks.pfsense.error_kind | type == "string" and length > 0) and
-                    (.checks.pfsense.failure_stage | type == "string" and length > 0) and
-                    (.checks.pfsense.attempts | type == "number" and . >= 1)
                   ) or
                   (
                     .checks.pfsense.reachable == null and
@@ -185,30 +182,35 @@ jobs:
                     .checks.pfsense.status_confirmed == false and
                     .checks.pfsense.degraded == false and
                     .checks.pfsense.vantage_point == "fastapi_cloud" and
+                    (.checks.pfsense.error_kind | type == "string" and length > 0) and
+                    (.checks.pfsense.failure_stage | type == "string" and length > 0) and
                     (.checks.pfsense.warning | type == "string" and startswith("⚠️"))
-                  ) or
-                  (
-                    .checks.pfsense.reachable == false and
-                    (.checks.pfsense.http_status >= 500 and .checks.pfsense.http_status < 600) and
-                    (.checks.pfsense.error | type == "string" and length > 0)
                   )
                 )
               )
             ' /tmp/healthz.json >/dev/null
           else
             jq -e '
-              .checks.pfsense.credential_mode == "disabled" and
-              .checks.pfsense.authenticated_probes_enabled == false and
-              .checks.pfsense.observation_mode == "transport_only" and
-              .checks.pfsense.skipped == true and
-              .checks.pfsense.reachable == null and
-              .checks.pfsense.transport_reachable == null and
-              .checks.pfsense.api_authenticated == null and
-              .checks.pfsense.status_confirmed == false and
-              .checks.pfsense.state == "unknown" and
-              .checks.pfsense.degraded == false and
-              .checks.pfsense.vantage_point == "fastapi_cloud" and
-              (.checks.pfsense.warning | type == "string" and startswith("⚠️"))
+              .checks.pfsense.credential_mode == "dedicated_posture" and
+              (
+                (
+                  .checks.pfsense.reachable == true and
+                  .checks.pfsense.api_authenticated == true and
+                  .checks.pfsense.status_confirmed == true and
+                  .checks.pfsense.state == "ok" and
+                  (.checks.pfsense.http_status >= 200 and .checks.pfsense.http_status < 300)
+                ) or
+                (
+                  .checks.pfsense.reachable == null and
+                  .checks.pfsense.state == "unknown" and
+                  .checks.pfsense.status_confirmed == false and
+                  .checks.pfsense.degraded == false and
+                  .checks.pfsense.vantage_point == "fastapi_cloud" and
+                  (.checks.pfsense.error_kind | type == "string" and length > 0) and
+                  (.checks.pfsense.failure_stage | type == "string" and length > 0) and
+                  (.checks.pfsense.warning | type == "string" and startswith("⚠️"))
+                )
+              )
             ' /tmp/healthz.json >/dev/null
           fi
 
