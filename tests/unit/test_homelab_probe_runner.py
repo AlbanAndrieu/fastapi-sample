@@ -44,10 +44,14 @@ def test_internal_probes_can_be_explicitly_enabled(monkeypatch, value: str) -> N
 
 @pytest.mark.asyncio
 async def test_internal_tcp_probe_reports_reachability(monkeypatch) -> None:
-    writer = Mock()
-    writer.wait_closed = AsyncMock()
-    open_connection = AsyncMock(return_value=(Mock(), writer))
-    monkeypatch.setattr(asyncio, "open_connection", open_connection)
+    stream = Mock()
+    stream.aclose = AsyncMock()
+    connect_tcp = AsyncMock(return_value=stream)
+    monkeypatch.setattr(
+        homelab_health.homelab_probe_runner.anyio,
+        "connect_tcp",
+        connect_tcp,
+    )
     service = HomelabService(
         name="Internal service",
         internalHost="192.168.1.30",
@@ -60,9 +64,8 @@ async def test_internal_tcp_probe_reports_reachability(monkeypatch) -> None:
         service,
     )
 
-    open_connection.assert_awaited_once_with("192.168.1.30", 8443)
-    writer.close.assert_called_once_with()
-    writer.wait_closed.assert_awaited_once_with()
+    connect_tcp.assert_awaited_once_with("192.168.1.30", 8443)
+    stream.aclose.assert_awaited_once_with()
     assert result["reachable"] is True
     assert result["state"] == "ok"
     assert result["host"] == "192.168.1.30"
