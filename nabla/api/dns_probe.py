@@ -1,16 +1,16 @@
-"""Bounded DNS preflight evidence for homelab service probes."""
+"""Bounded DNS preflight evidence for public service probes."""
 
 from __future__ import annotations
 
-import asyncio
 import socket
 import time
-from functools import lru_cache
-from pathlib import Path
 from typing import Any
 
+import dns.asyncresolver
+import dns.exception
+import dns.resolver
+
 _DNS_PROBE_TIMEOUT_SEC = 1.5
-_RESOLV_CONF = Path("/etc/resolv.conf")
 _RESOLVER_LABELS = {
     "127.0.0.11": "Docker embedded DNS",
     "1.1.1.1": "Cloudflare DNS",
@@ -30,35 +30,28 @@ def _short_error(exc: BaseException) -> str:
     return (str(exc).strip() or exc.__class__.__name__)[:240]
 
 
-def _parse_resolv_conf(text: str) -> tuple[str, ...]:
-    """Extract unique nameserver addresses from resolv.conf text."""
-    resolvers: list[str] = []
-    for line in text.splitlines():
-        value = line.split("#", 1)[0].strip()
-        if not value.startswith("nameserver "):
-            continue
-        parts = value.split()
-        if len(parts) < 2:
-            continue
-        address = parts[1].strip()
-        if address and address not in resolvers:
-            resolvers.append(address)
-    return tuple(resolvers[:4])
-
-
 def _resolver_display(address: str) -> str:
     label = _RESOLVER_LABELS.get(address)
     return f"{address} ({label})" if label else address
 
 
-@lru_cache(maxsize=1)
-def system_dns_resolvers() -> tuple[str, ...]:
-    """Return the runtime nameservers without exposing unrelated resolver config."""
-    try:
-        text = _RESOLV_CONF.read_text(encoding="utf-8")
-    except OSError:
-        return ()
-    return tuple(_resolver_display(address) for address in _parse_resolv_conf(text))
+def _resolver() -> dns.asyncresolver.Resolver:
+    """Create an async resolver from the runtime system resolver configuration."""
+    return dns.asyncresolver.Resolver(configure=True)
+
+
+def system_dns_resolvers(
+    resolver: dns.asyncresolver.Resolver | None = None,
+) -> tuple[str, ...]:
+    """Return bounded resolver identities without parsing resolv.conf ourselves."""
+    selected = resolver or _resolver()
+    addresses: list[str] = []
+    for nameserver in selected.nameservers:
+        address = getattr(nameserver, "address", nameserver)
+        value = str(address).strip()
+        if value and value not in addresses:
+            addresses.append(value)
+    return tuple(_resolver_display(address) for address in addresses[:4])
 
 
 async def probe_dns_hostname(
@@ -66,25 +59,26 @@ async def probe_dns_hostname(
     *,
     timeout_seconds: float = _DNS_PROBE_TIMEOUT_SEC,
 ) -> dict[str, Any]:
-    """Resolve one hostname through the runtime system resolver with a strict timeout."""
+    """Resolve public A/AAAA evidence asynchronously with dnspython."""
     started = time.perf_counter()
+    resolver = _resolver()
     base: dict[str, Any] = {
         "dns_hostname": hostname,
-        "dns_probe": "getaddrinfo",
-        "dns_resolver_source": "/etc/resolv.conf",
-        "dns_resolvers": list(system_dns_resolvers()),
+        "dns_probe": "dnspython.resolve_name",
+        "dns_resolver_source": "system",
+        "dns_resolvers": list(system_dns_resolvers(resolver)),
     }
     try:
-        results = await asyncio.wait_for(
-            asyncio.to_thread(
-                socket.getaddrinfo,
-                hostname,
-                None,
-                type=socket.SOCK_STREAM,
-            ),
-            timeout=timeout_seconds,
+        answers = await resolver.resolve_name(
+            hostname,
+            family=socket.AF_UNSPEC,
+            lifetime=timeout_seconds,
+            raise_on_no_answer=False,
         )
-    except (OSError, TimeoutError) as exc:
+        addresses = sorted(set(answers.addresses()))
+        if not addresses:
+            raise dns.resolver.NoAnswer
+    except (dns.exception.DNSException, OSError, TimeoutError) as exc:
         return {
             **base,
             "dns_state": "fail",
@@ -93,7 +87,6 @@ async def probe_dns_hostname(
             "dns_resolved": [],
         }
 
-    addresses = sorted({str(item[4][0]) for item in results if item and item[4]})
     return {
         **base,
         "dns_state": "ok",
