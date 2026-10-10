@@ -39,7 +39,8 @@ def test_snapshot_uses_committed_tree_not_dirty_worktree(tmp_path: Path) -> None
     )
     assert result.returncode == 0, result.stderr
     assert (destination / "value.txt").read_text(encoding="utf-8") == "committed\n"
-    assert (destination / ".source-commit-sha").read_text(encoding="utf-8").strip() == head
+    assert _git(destination, "rev-parse", "HEAD") == head
+    assert _git(destination, "status", "--porcelain") == ""
 
     repeated = subprocess.run(
         ["bash", str(SNAPSHOT), str(repo), head, str(destination)],
