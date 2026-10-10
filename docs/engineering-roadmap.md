@@ -188,6 +188,9 @@ Reference:
   `git clone`. Accept downloaded archives only when the transport is trusted,
   the commit identity is established independently, and repository content is
   compared against the intended SHA. An archive URL alone is not proof.
+  - [x] Add the offline cached-Git snapshot script and its acceptance tests;
+    documented in [local-first-source-snapshot.md](local-first-source-snapshot.md).
+    This is an available fallback, not proof of the current PR HEAD.
 - [ ] **Run gates against the same source tree:** execute `bash -n`, targeted
   pytest, Ruff, canonical pre-commit, BetterLeaks and the repository publication
   gate on that exact tree. Report each missing dependency or unavailable tool
