@@ -10,6 +10,8 @@ failures belong in [incidents.md](incidents.md). Completed implementation is
 represented here only as compact guardrails; tests and Git history remain the
 detailed implementation record.
 
+**P0 Cloudflare Access implementation note (2026-10-10):** Rejecting a service token is now a distinct diagnostic from origin failure; a 2xx/3xx authenticated response with no `origin_reached` evidence remains `warn`. Regression tests were added. Live TrueNAS/Cloudflare acceptance and exact-HEAD local quality gate remain outstanding.
+
 ## Consolidated execution plan — 2026-10-10
 
 This section is a **navigation and acceptance index**, not a second backlog.
