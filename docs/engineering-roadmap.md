@@ -181,6 +181,28 @@ programme.
 Reference:
 [business-impact-analysis.md](business-impact-analysis.md).
 
+## P0 — deterministic offline agent validation
+
+- [ ] **Exact-HEAD materialization:** acquire the approved commit SHA through a
+  verified GitHub connector or an existing local checkout/cache when DNS blocks
+  `git clone`. Accept downloaded archives only when the transport is trusted,
+  the commit identity is established independently, and repository content is
+  compared against the intended SHA. An archive URL alone is not proof.
+- [ ] **Run gates against the same source tree:** execute `bash -n`, targeted
+  pytest, Ruff, canonical pre-commit, BetterLeaks and the repository publication
+  gate on that exact tree. Report each missing dependency or unavailable tool
+  separately; never treat absent GitHub statuses as successful checks.
+- [ ] **Preserve security coverage:** keep SAST and BetterLeaks in the canonical
+  security gate, and retain Playwright and ZAP where their integration/E2E
+  execution environments are available. Do not silently disable or replace
+  these checks with static assertions about workflow files.
+- [ ] **Bound agent transcripts, not evidence:** display concise failing
+  summaries while retaining full logs as local artifacts. Reuse proven results
+  only when HEAD, comparison base, toolchain and relevant environment match.
+- [ ] **Publication acceptance:** attach a concise validation matrix to the PR
+  with exact HEAD and PASS/FAIL/NOT RUN states. Keep the PR Draft and do not
+  merge automatically until all required gates have actual evidence.
+
 ## P1 — dependency automation and CI governance
 
 - [ ] Introduce **Dagger CI** as the portable local-first execution layer, not as
