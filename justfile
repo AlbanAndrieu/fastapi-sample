@@ -35,6 +35,10 @@ test-local-first:
     bash -n scripts/agent-quality-gate.sh
     bash scripts/run-pytest-compact.sh tests/unit/test_agent_source_snapshot.py tests/unit/test_compact_pytest_runner.py tests/unit/test_quality_log_tail_contract.py
 
+# Post-reboot cached integration report (no direct provider fan-out).
+truenas-check:
+    python3 scripts/diagnose-local-runtime-dependencies.py --url http://172.17.0.24:8091
+
 # Run only pfSense observation, probe and tracing contracts.
 test-pfsense:
     bash scripts/run-pytest-compact.sh tests/unit/test_pfsense_auth_smoke.py tests/unit/test_pfsense_dns_observer.py tests/unit/test_pfsense_security_cache.py tests/unit/test_probe_headers.py tests/unit/test_probe_metrics.py
