@@ -1,6 +1,6 @@
 # Engineering and security roadmap
 
-- [ ] **P0 Cloudflare Access probe evidence** — exporter et tester `cloudflare_access_secondary_probe_eligible`, `cloudflare_access_secondary_probe_attempted` et `public_probe_verification` afin de différencier HTTP 403 anonyme protégé, service token refusé et origine réellement sondée. Vérifier les cas IT Tools et Karakeep contre réponses anonymes et résultats LAN, sans convertir un refus Access en application saine.
+- [ ] **P0 Cloudflare Access probe evidence** (partial: unconfirmed Access and missing authenticated HTTP status now remain warnings; focused regression tests added, execution pending) — exporter et tester `cloudflare_access_secondary_probe_eligible`, `cloudflare_access_secondary_probe_attempted` et `public_probe_verification` afin de différencier HTTP 403 anonyme protégé, service token refusé et origine réellement sondée. Vérifier les cas IT Tools et Karakeep contre réponses anonymes et résultats LAN, sans convertir un refus Access en application saine.
 
 
 This is the **single prioritized roadmap** for `fastapi-sample`.
