@@ -367,7 +367,7 @@ def _gatus(snapshot: dict[str, Any]) -> dict[str, Any]:
     row["evidence_complete"] = bool(
         row["configured"] is True and row["reachable"] is True
         and synthetic.get("state") == "observed"
-        and isinstance(synthetic.get("service_count"), int)
+        and type(synthetic.get("service_count")) is int
         and synthetic["service_count"] > 0
         and comparison.get("state") == "observed"
         and not row["stale"]
@@ -394,7 +394,7 @@ def build_report(snapshot: dict[str, Any]) -> dict[str, Any]:
         "gatus": _gatus(snapshot),
     }
     gaps = [name for name in _DEPENDENCY_ORDER if not dependencies[name]["evidence_complete"]]
-    snapshot_ready = snapshot.get("state") not in {"pending", "error"} and snapshot.get("refreshing") is not True
+    snapshot_ready = snapshot.get("state") == "fresh" and snapshot.get("refreshing") is not True
     snapshot_fresh = snapshot_ready and snapshot.get("stale") is not True
     return {
         "schema_version": 2,
