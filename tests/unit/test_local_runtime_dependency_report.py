@@ -348,3 +348,26 @@ def test_ready_snapshot_retains_dependency_specific_gaps() -> None:
     report = module.build_report(sample_snapshot())
     assert report["snapshot_fresh"] is True
     assert report["evidence_gaps"] == ["sentry", "pyroscope"]
+
+
+def test_boolean_gatus_service_count_is_not_valid_coverage() -> None:
+    module = load_module()
+    snapshot = sample_snapshot()
+    snapshot["platform_metrics"]["synthetic_probes"]["service_count"] = True
+    row = module.build_report(snapshot)["dependencies"]["gatus"]
+    assert row["reachable"] is True
+    assert row["evidence_complete"] is False
+    assert row["operational_state"] == "evidence_incomplete"
+
+
+def test_unknown_or_missing_snapshot_state_is_never_fresh() -> None:
+    module = load_module()
+    for state in ("unknown", "refreshing", None):
+        snapshot = sample_snapshot()
+        if state is None:
+            snapshot.pop("state")
+        else:
+            snapshot["state"] = state
+        report = module.build_report(snapshot)
+        assert report["snapshot_fresh"] is False
+        assert report["evidence_complete"] is False
