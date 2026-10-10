@@ -36,6 +36,8 @@ For each dependency preserve:
 - `error_stage` and `error_kind`;
 - `evidence_complete`.
 
+A post-reboot report must not declare overall evidence complete while the cached board is `pending`, `refreshing` or explicitly stale. Such a snapshot remains incomplete even if individual service rows look healthy. The JSON report exposes `snapshot_fresh` separately from `evidence_gaps` for operator triage.
+
 An HTTP 4xx/5xx proves that the HTTP peer responded; it is not a TCP failure.
 Likewise, socket reachability does not prove authentication or application
 acceptance.
