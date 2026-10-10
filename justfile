@@ -14,10 +14,10 @@ sync:
 offline-sync:
     UV_OFFLINE=true uv sync --frozen --offline
 
-# Run focused tests with existing dependencies without network resolution.
-# Example: just offline-test tests/unit/test_dns_probe.py
-offline-test *args:
-    UV_OFFLINE=true bash scripts/run-pytest-compact.sh {{args}}
+# Run the test suite using existing dependencies without network resolution.
+# For targeted tests: UV_OFFLINE=true bash scripts/run-pytest-compact.sh tests/unit/test_dns_probe.py
+offline-test:
+    UV_OFFLINE=true bash scripts/run-pytest-compact.sh
 
 # Run the local FastAPI development server.
 dev:
