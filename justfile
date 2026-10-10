@@ -18,6 +18,14 @@ dev:
 test:
     bash scripts/run-pytest-compact.sh
 
+# Exercise the offline agent/source/pytest contracts without GitHub Actions.
+# This is targeted L1 evidence; it does not replace quality/publish-check.
+test-local-first:
+    bash -n scripts/agent-source-snapshot.sh
+    bash -n scripts/run-pytest-compact.sh
+    bash -n scripts/agent-quality-gate.sh
+    bash scripts/run-pytest-compact.sh tests/unit/test_agent_source_snapshot.py tests/unit/test_compact_pytest_runner.py tests/unit/test_quality_log_tail_contract.py
+
 # Run only pfSense observation, probe and tracing contracts.
 test-pfsense:
     bash scripts/run-pytest-compact.sh tests/unit/test_pfsense_auth_smoke.py tests/unit/test_pfsense_dns_observer.py tests/unit/test_pfsense_security_cache.py tests/unit/test_probe_headers.py tests/unit/test_probe_metrics.py
