@@ -294,6 +294,11 @@ Reference:
   - [x] Add the offline cached-Git snapshot script and its acceptance tests;
     documented in [local-first-source-snapshot.md](local-first-source-snapshot.md).
     This is an available fallback, not proof of the current PR HEAD.
+  - [x] Allow an optional comparison base and fail closed when it is missing or
+    not an ancestor of the requested HEAD. Isolated L1 execution proves the
+    Bash syntax, positive ancestry path and negative non-ancestor path; the
+    complete exact-HEAD repository gate remains NOT RUN until a full checkout
+    of the current PR HEAD is available.
 - [ ] **Run gates against the same source tree:** execute `bash -n`, targeted
   pytest, Ruff, canonical pre-commit, BetterLeaks and the repository publication
   gate on that exact tree. Report each missing dependency or unavailable tool
