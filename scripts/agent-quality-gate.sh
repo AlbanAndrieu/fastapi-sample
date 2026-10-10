@@ -67,8 +67,20 @@ if [[ "${CI_PREFLIGHT}" == true && "${CI:-}" != "true" ]]; then
 fi
 
 LOG_TAIL="${QUALITY_LOG_TAIL:-20}"
-if ((LOG_TAIL > 80)); then
+if ! [[ "${LOG_TAIL}" =~ ^[0-9]+$ ]]; then
+    printf '❌ QUALITY_LOG_TAIL must be a non-negative integer\\n' >&2
+    exit 2
+fi
+# Strip leading zeroes before decimal arithmetic; bound arbitrarily long values.
+LOG_TAIL="${LOG_TAIL#"${LOG_TAIL%%[!0]*}"}"
+LOG_TAIL="${LOG_TAIL:-0}"
+if (("${#LOG_TAIL}" > 9)); then
     LOG_TAIL=80
+else
+    LOG_TAIL=$((10#LOG_TAIL))
+    if ((LOG_TAIL > 80)); then
+        LOG_TAIL=80
+    fi
 fi
 FIX_PASSES="${QUALITY_FIX_PASSES:-6}"
 if ! [[ "${FIX_PASSES}" =~ ^[1-9][0-9]*$ ]]; then
