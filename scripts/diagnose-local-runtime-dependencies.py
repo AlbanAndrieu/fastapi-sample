@@ -294,9 +294,10 @@ def _pyroscope(snapshot: dict[str, Any]) -> dict[str, Any]:
     check = _healthz_check(snapshot, "pyroscope")
     row = _common(check)
     status = check.get("http_status")
-    readiness_ok = isinstance(status, int) and 200 <= status < 300 and check.get("path") in {"/ready", "/health"}
+    readiness_path = check.get("path") in {"/ready", "/health"}
+    readiness_ok = type(status) is int and 200 <= status < 300 and readiness_path
     row["reachable"] = _transport_reachable(check)
-    row["application_ok"] = readiness_ok if isinstance(status, int) else None
+    row["application_ok"] = readiness_ok if readiness_path and type(status) is int else None
     row["application_result"] = {
         "kind": "readiness_only",
         "path": check.get("path"),
