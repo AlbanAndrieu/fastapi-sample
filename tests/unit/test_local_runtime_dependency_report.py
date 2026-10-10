@@ -24,6 +24,10 @@ def sample_snapshot() -> dict:
         "generated_at": "2026-09-10T18:00:00Z",
         "age_seconds": 1.0,
         "homelab": {
+            "components": {
+                "postgres": {"reachable": True, "application_ok": True},
+                "redis": {"reachable": True, "application_ok": True},
+            },
             "probe_cache": {"stale": False},
             "truenas": {
                 "state": "ok",
@@ -66,7 +70,15 @@ def sample_snapshot() -> dict:
                 },
             },
         },
+        "internal_probe_comparison": {
+            "state": "observed", "comparable": 2, "matched": 2,
+            "mismatched": 0, "missing_gatus": 0,
+        },
+        "internal_probe_delegation": {"candidate": True, "blockers": []},
         "platform_metrics": {
+            "synthetic_probes": {
+                "state": "observed", "gatus_up": 1.0, "service_count": 2,
+            },
             "configured": True,
             "state": "healthy",
             "summary": {
@@ -98,6 +110,9 @@ def test_report_reuses_existing_snapshot_and_exposes_depth_gaps() -> None:
     assert dependencies["pfsense"]["operational_state"] == "ok"
     assert dependencies["cloudflare"]["authenticated"] is True
     assert dependencies["prometheus"]["evidence_complete"] is True
+    assert dependencies["postgres"]["evidence_complete"] is True
+    assert dependencies["redis"]["evidence_complete"] is True
+    assert dependencies["gatus"]["evidence_complete"] is True
 
     assert dependencies["sentry"]["reachable"] is True
     assert dependencies["sentry"]["authenticated"] is None
@@ -286,3 +301,25 @@ def test_pfsense_401_uses_explicit_auth_rejection() -> None:
     assert row["operational_state"] == "application_error"
     assert row["evidence_complete"] is False
     assert row["application_result"]["application_result"] == "authentication_rejected"
+
+
+def test_gatus_missing_metrics_is_incomplete_not_internal_service_failure() -> None:
+    module = load_module()
+    snapshot = sample_snapshot()
+    snapshot["platform_metrics"]["synthetic_probes"] = {
+        "state": "telemetry_unavailable", "gatus_up": None, "service_count": 0,
+    }
+    row = module.build_report(snapshot)["dependencies"]["gatus"]
+    assert row["evidence_complete"] is False
+    assert row["application_ok"] is None
+    assert row["application_result"]["external_probes_preserved"] is True
+
+
+def test_postgres_redis_missing_cache_evidence_is_not_success() -> None:
+    module = load_module()
+    snapshot = sample_snapshot()
+    snapshot["homelab"]["components"] = {}
+    report = module.build_report(snapshot)
+    for name in ("postgres", "redis"):
+        assert report["dependencies"][name]["evidence_complete"] is False
+        assert report["dependencies"][name]["reachable"] is None
