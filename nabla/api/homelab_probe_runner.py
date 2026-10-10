@@ -179,9 +179,12 @@ async def probe_public_service(
     )
     initial_status = int(result.get("http_status") or 0)
     needs_edge_probe = service.effective_cloudflare_access_required and initial_status in _ACCESS_EDGE_HTTP_STATUSES
+    result["cloudflare_access_secondary_probe_eligible"] = needs_edge_probe
+    result["cloudflare_access_secondary_probe_attempted"] = False
     if not needs_edge_probe:
         return result
 
+    result["cloudflare_access_secondary_probe_attempted"] = True
     edge_evidence = await edge_probe(url)
     result.update(edge_evidence)
     result["anonymous_http_status"] = int(
@@ -194,6 +197,7 @@ async def probe_public_service(
             result["state"] = "warn"
             result["origin_reached"] = False
             result["public_probe_auth_mode"] = "cloudflare_access_blocked"
+            result["public_probe_verification"] = "access_protected_origin_unverified"
         return result
 
     authenticated_status = int(
@@ -204,6 +208,7 @@ async def probe_public_service(
     result["reachable"] = authenticated_status > 0
     result["origin_reached"] = edge_evidence.get("origin_reached") is True
     result["public_probe_auth_mode"] = "cloudflare_service_token"
+    result["public_probe_verification"] = "authenticated_origin_observed" if result["origin_reached"] else "authenticated_origin_unverified"
     return result
 
 
