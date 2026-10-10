@@ -36,9 +36,13 @@ comparer avec la métadonnée courante de la PR avant de lancer les gates.
 ## Valider, sans supprimer les contrôles
 
 ```bash
+# Contrats ciblés L1 (inclut Bash et trois modules pytest) :
+just test-local-first
+# Équivalent explicite si just n'est pas installé :
 bash -n scripts/agent-source-snapshot.sh
 bash -n scripts/run-pytest-compact.sh
-uv run --no-sync pytest -q tests/unit/test_agent_source_snapshot.py tests/unit/test_compact_pytest_runner.py
+bash -n scripts/agent-quality-gate.sh
+bash scripts/run-pytest-compact.sh tests/unit/test_agent_source_snapshot.py tests/unit/test_compact_pytest_runner.py tests/unit/test_quality_log_tail_contract.py
 bash scripts/agent-quality-gate.sh --fix
 bash scripts/agent-quality-gate.sh
 bash scripts/agent-publish.sh
