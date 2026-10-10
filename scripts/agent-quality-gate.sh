@@ -77,7 +77,7 @@ LOG_TAIL="${LOG_TAIL:-0}"
 if (("${#LOG_TAIL}" > 9)); then
     LOG_TAIL=80
 else
-    LOG_TAIL=$((10#LOG_TAIL))
+    LOG_TAIL=$((10#$LOG_TAIL))
     if ((LOG_TAIL > 80)); then
         LOG_TAIL=80
     fi
