@@ -42,6 +42,7 @@ Modes:
 Environment:
   QUALITY_BASE_REF                 override comparison base
   QUALITY_LOG_TAIL                 failure log lines to print (default: 20, capped at 80)
+  QUALITY_FAILURE_LOG_DIR          opt-in directory for full failed-command logs (sensitive)
   QUALITY_FIX_PASSES               maximum pre-commit convergence passes (default: 6, capped at 20)
   QUALITY_ALLOW_LARGE_DELETION=1   acknowledge all intentional large truncations/deletions
   QUALITY_LARGE_DELETION_ACK_FILE  base-scoped acknowledgement file (default: .quality-gate-large-deletions)
@@ -118,6 +119,28 @@ resolve_base_ref() {
 
 BASE_REF="$(resolve_base_ref)"
 
+retain_failure_log() {
+    local log="$1"
+    if [[ -z "${QUALITY_FAILURE_LOG_DIR:-}" ]]; then
+        rm -f -- "${log}"
+        return 0
+    fi
+    local destination
+    if ! install -d -m 700 -- "${QUALITY_FAILURE_LOG_DIR}"; then
+        printf '⚠️ unable to create quality failure log directory\n' >&2
+        rm -f -- "${log}"
+        return 0
+    fi
+    if destination="$(mktemp "${QUALITY_FAILURE_LOG_DIR}/quality-failure.XXXXXXXX.log")" &&
+        cp -- "${log}" "${destination}"; then
+        printf '   Full failure log: %s\n' "${destination}" >&2
+    else
+        printf '⚠️ unable to retain full quality failure log\n' >&2
+        [[ -z "${destination:-}" ]] || rm -f -- "${destination}"
+    fi
+    rm -f -- "${log}"
+}
+
 run_compact() {
     local label="$1"
     shift
@@ -133,7 +156,7 @@ run_compact() {
     fi
     printf '❌ %s\n' "${label}" >&2
     tail -n "${LOG_TAIL}" "${log}" >&2 || true
-    rm -f "${log}"
+    retain_failure_log "${log}"
     return "${rc}"
 }
 
@@ -153,7 +176,7 @@ run_compact_report() {
     fi
     printf '❌ %s\n' "${label}" >&2
     tail -n "${LOG_TAIL}" "${log}" >&2 || true
-    rm -f "${log}"
+    retain_failure_log "${log}"
     return "${rc}"
 }
 print_precommit_failure() {
