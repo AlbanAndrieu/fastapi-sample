@@ -1,8 +1,7 @@
 # Local runtime dependency diagnostic
 
 Use this runbook to validate the TrueNAS-hosted FastAPI observer before resuming
-Kubernetes CSI work. The six tracked integrations are TrueNAS, pfSense,
-Cloudflare, Prometheus, local Sentry and local Pyroscope.
+Kubernetes CSI work. The tracked integrations include TrueNAS, pfSense, Cloudflare, Prometheus,\nlocal Sentry, local Pyroscope, PostgreSQL, Redis and Gatus (via Prometheus).
 
 Historical observations and incidents are kept in
 [incidents.md](incidents.md), not here.
@@ -60,6 +59,33 @@ sends it as `X-Diagnostics-Key` and never prints it.
 
 The helper requests one refresh and waits only for the bounded SWR convergence;
 it does not bypass provider budgets.
+
+## Post-reboot acceptance
+
+Run from the TrueNAS host after the FastAPI container becomes reachable:
+
+```bash
+python3 scripts/diagnose-local-runtime-dependencies.py \
+  --url http://172.17.0.24:8091 --wait-seconds 50
+# Or, from a checked-out repository with Just:
+just truenas-check
+```
+
+Only Python standard library is needed for this diagnostic. It triggers one
+bounded cached health-board refresh, not direct provider fan-out. Export
+`DIAGNOSTICS_ACCESS_KEY` only if the endpoint requires it; never put secrets
+in CLI arguments or logs.
+
+Exit code 0 means all nine evidence contracts are complete; 1 means incomplete
+or failed evidence; 2 means the board cannot be fetched. The Sentry and Pyroscope
+contracts still require deeper evidence, so a report with those gaps does not
+necessarily imply that the runtime is unavailable.
+
+Post-reboot verify PostgreSQL and Redis cached component evidence; check Gatus
+availability, series coverage and internal mismatch counts via Prometheus.
+Gatus or Prometheus gaps are not grounds for marking public services DOWN.
+Use the read-only JSON output (`--json`) for machine inspection, and retain a
+dated report when investigating reboot recovery.
 
 ## A/B checks
 
