@@ -34,3 +34,53 @@ def test_preflight_is_non_mutating() -> None:
     assert "git fetch" not in script
     assert "dagger.lock" in script
     assert "git rev-parse HEAD" in script
+
+
+def test_preflight_requires_tracked_inputs(tmp_path: Path) -> None:
+    """A local generated lockfile must not masquerade as reviewed parity input."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    for name in ("uv", "just", "dagger", "docker"):
+        executable = fake_bin / name
+        executable.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        executable.chmod(0o755)
+    env = {
+        **os.environ,
+        "PATH": f"{fake_bin}{os.pathsep}{os.environ.get('PATH', '')}",
+    }
+    (repo / "dagger.json").write_text("{}\n", encoding="utf-8")
+    (repo / "dagger.lock").write_text("{}\n", encoding="utf-8")
+
+    def check() -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["bash", str(PREFLIGHT)],
+            cwd=repo,
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+    untracked = check()
+    assert untracked.returncode == 2
+    assert "must be tracked in Git" in untracked.stderr
+
+    subprocess.run(
+        ["git", "-C", str(repo), "add", "dagger.json", "dagger.lock"],
+        check=True,
+    )
+    subprocess.run(
+        [
+            "git", "-C", str(repo),
+            "-c", "user.name=Test",
+            "-c", "user.email=test@example.org",
+            "commit", "-qm", "fixture",
+        ],
+        check=True,
+    )
+    tracked = check()
+    assert tracked.returncode == 0, tracked.stderr
+    assert "READY FOR MANUAL PILOT" in tracked.stdout
