@@ -323,3 +323,28 @@ def test_postgres_redis_missing_cache_evidence_is_not_success() -> None:
     for name in ("postgres", "redis"):
         assert report["dependencies"][name]["evidence_complete"] is False
         assert report["dependencies"][name]["reachable"] is None
+
+
+def test_post_reboot_pending_snapshot_never_passes_global_acceptance() -> None:
+    module = load_module()
+    snapshot = sample_snapshot()
+    snapshot["state"] = "pending"
+    report = module.build_report(snapshot)
+    assert report["snapshot_fresh"] is False
+    assert report["evidence_complete"] is False
+
+
+def test_stale_snapshot_does_not_pass_even_when_dependencies_are_complete() -> None:
+    module = load_module()
+    snapshot = sample_snapshot()
+    snapshot["stale"] = True
+    report = module.build_report(snapshot)
+    assert report["snapshot_fresh"] is False
+    assert report["evidence_complete"] is False
+
+
+def test_ready_snapshot_retains_dependency_specific_gaps() -> None:
+    module = load_module()
+    report = module.build_report(sample_snapshot())
+    assert report["snapshot_fresh"] is True
+    assert report["evidence_gaps"] == ["sentry", "pyroscope"]
