@@ -95,3 +95,13 @@ def test_snapshot_historical_commit_with_spaces_and_symlink_guard(tmp_path: Path
     )
     assert rejected.returncode == 2
     assert "refusing to overwrite" in rejected.stderr
+
+
+def test_snapshot_prevents_destination_nesting_on_late_creation() -> None:
+    """The final move must refuse an occupied destination, not nest within it."""
+    script = SNAPSHOT.read_text(encoding="utf-8")
+    assert 'destination appeared during snapshot creation' in script
+    assert 'mv -T -- "$staging" "$destination"' in script
+    assert script.index('destination appeared during snapshot creation') < script.index(
+        'mv -T -- "$staging" "$destination"'
+    )
