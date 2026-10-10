@@ -33,6 +33,10 @@ p1-parity-native:
     just lint
     just format-check
 
+# P1 readiness is read-only and fails closed until Dagger is configured.
+p1-dagger-preflight:
+    bash scripts/dagger-pilot-preflight.sh
+
 # Run only pfSense observation, probe and tracing contracts.
 test-pfsense:
     bash scripts/run-pytest-compact.sh tests/unit/test_pfsense_auth_smoke.py tests/unit/test_pfsense_dns_observer.py tests/unit/test_pfsense_security_cache.py tests/unit/test_probe_headers.py tests/unit/test_probe_metrics.py
