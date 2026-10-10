@@ -130,3 +130,34 @@ def test_quality_gate_keeps_bounded_failure_diagnostics() -> None:
     assert "LOG_TAIL=80" in gate
     assert 'bash scripts/quality-gate.sh --publish' in gate
     assert 'bash scripts/quality-gate.sh' in gate
+
+
+def test_runner_forwards_pytest_arguments_unchanged(tmp_path: Path) -> None:
+    """The compact wrapper must not alter targeted pytest selection."""
+    uv = tmp_path / "uv"
+    uv.write_text(
+        '#!/bin/sh\nprintf "%s\\n" "$@" > "$FAKE_ARGS_LOG"\n'
+        'echo "1 passed in 0.01s"\n',
+        encoding="utf-8",
+    )
+    uv.chmod(0o755)
+    args_log = tmp_path / "args.log"
+    env = {
+        **os.environ,
+        "PATH": f"{tmp_path}{os.pathsep}{os.environ.get('PATH', '')}",
+        "FAKE_ARGS_LOG": str(args_log),
+        "PYTEST_LOG_FILE": str(tmp_path / "pytest.log"),
+    }
+    result = subprocess.run(
+        ["bash", str(RUNNER), "tests/unit/test_example.py", "-k", "test_specific"],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+    assert result.returncode == 0
+    assert args_log.read_text(encoding="utf-8").splitlines() == [
+        "run", "--no-sync", "pytest", "-q", "-p", "no:sugar",
+        "--disable-warnings", "--tb=short",
+        "tests/unit/test_example.py", "-k", "test_specific",
+    ]
