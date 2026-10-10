@@ -126,8 +126,22 @@ retain_failure_log() {
         return 0
     fi
     local destination
+    if [[ -L "${QUALITY_FAILURE_LOG_DIR}" ]]; then
+        printf '⚠️ quality failure log directory must not be a symlink\n' >&2
+        rm -f -- "${log}"
+        return 0
+    fi
     if ! install -d -m 700 -- "${QUALITY_FAILURE_LOG_DIR}"; then
         printf '⚠️ unable to create quality failure log directory\n' >&2
+        rm -f -- "${log}"
+        return 0
+    fi
+    # install -d does not reset permissions of an existing directory.
+    local permissions
+    permissions="$(stat -c %a -- "${QUALITY_FAILURE_LOG_DIR}" 2>/dev/null)" || permissions=""
+    if [[ -z "${permissions}" ]] ||
+        ((8#${permissions} & 8#077)); then
+        printf '⚠️ quality failure log directory must be private (mode 0700)\n' >&2
         rm -f -- "${log}"
         return 0
     fi
