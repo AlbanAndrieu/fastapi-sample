@@ -195,6 +195,10 @@ async def probe_public_service(
         access_signal = edge_evidence.get("cloudflare_access_signal") is True
         result["state"] = "warn"
         result["origin_reached"] = False
+        result["cloudflare_service_token_rejected"] = (
+            edge_evidence.get("cloudflare_service_auth_attempted") is True
+            and edge_evidence.get("cloudflare_service_token_http_status") in {401, 403}
+        )
         result["public_probe_auth_mode"] = (
             "cloudflare_access_blocked" if access_signal or default_deny
             else "cloudflare_access_unconfirmed"
@@ -213,6 +217,9 @@ async def probe_public_service(
         classify_public_http_status(authenticated_status)
         if authenticated_status > 0 else "warn"
     )
+    # A successful Access handshake alone is not proof of a healthy origin.
+    if authenticated_status >= 200 and authenticated_status < 400 and edge_evidence.get("origin_reached") is not True:
+        result["state"] = "warn"
     result["reachable"] = authenticated_status > 0
     result["origin_reached"] = edge_evidence.get("origin_reached") is True
     result["public_probe_auth_mode"] = "cloudflare_service_token"
