@@ -72,3 +72,33 @@ def test_compact_success_does_not_retain_log(tmp_path: Path) -> None:
     )
     assert result.returncode == 0
     assert not directory.exists()
+
+
+@pytest.mark.parametrize("unsafe", ["shared", "symlink"])
+def test_failure_logs_refuse_unsafe_directory(tmp_path: Path, unsafe: str) -> None:
+    """Do not persist potentially sensitive scanner logs to shared locations."""
+    source = GATE.read_text(encoding="utf-8")
+    functions = "retain_failure_log() {" + source.split(
+        "retain_failure_log() {", maxsplit=1
+    )[1].split("\nprint_precommit_failure() {", maxsplit=1)[0]
+    directory = tmp_path / "logs"
+    directory.mkdir(mode=0o700)
+    if unsafe == "shared":
+        directory.chmod(0o755)
+    else:
+        target = tmp_path / "real-logs"
+        directory.rmdir()
+        target.mkdir()
+        directory.symlink_to(target, target_is_directory=True)
+    env = {**os.environ, "QUALITY_FAILURE_LOG_DIR": str(directory)}
+    script = (
+        "set -euo pipefail\nLOG_TAIL=1\n"
+        + functions
+        + '\nrun_compact failure bash -c \'echo secret-sentinel; exit 17\'\n'
+    )
+    result = subprocess.run(
+        ["bash", "-c", script], env=env, capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 17
+    assert "must be" in result.stderr
+    assert not list(directory.glob("quality-failure.*.log"))
