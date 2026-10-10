@@ -218,6 +218,10 @@ Reference:
     dependency cache state and input files; record wall time, exit status,
     tool versions and missing checks. Reject a performance-only result
     without equivalent assertions and scanner coverage.
+  - [x] Add a fail-closed, read-only `just p1-dagger-preflight`
+    prerequisite checker (tool availability, module configuration and checked-in
+    lockfile) with offline regression tests. The probe is not a Dagger pipeline
+    and is not L3 evidence.
   - [ ] Pin the Dagger CLI/Engine and initialize a Python SDK module; the
     official Dagger documentation is currently on the 1.0 beta line, so start
     with a bounded pilot rather than rewriting every workflow at once.
