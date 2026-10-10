@@ -115,3 +115,12 @@ def test_numeric_limits_are_decimal_and_bounded(
         [line for line in result.stderr.splitlines() if line.startswith("FAILED ")]
     ) == expected_count
     assert (tmp_path / "full.log").exists()
+
+
+def test_quality_gate_keeps_bounded_failure_diagnostics() -> None:
+    """Reducing agent output must not disable the canonical security gate."""
+    gate = (ROOT / "scripts" / "agent-quality-gate.sh").read_text(encoding="utf-8")
+    assert 'LOG_TAIL="${QUALITY_LOG_TAIL:-20}"' in gate
+    assert "LOG_TAIL=80" in gate
+    assert 'bash scripts/quality-gate.sh --publish' in gate
+    assert 'bash scripts/quality-gate.sh' in gate
