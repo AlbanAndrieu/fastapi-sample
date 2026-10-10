@@ -68,7 +68,7 @@ fi
 
 LOG_TAIL="${QUALITY_LOG_TAIL:-20}"
 if ! [[ "${LOG_TAIL}" =~ ^[0-9]+$ ]]; then
-    printf '❌ QUALITY_LOG_TAIL must be a non-negative integer\\n' >&2
+    printf '❌ QUALITY_LOG_TAIL must be a non-negative integer\n' >&2
     exit 2
 fi
 # Strip leading zeroes before decimal arithmetic; bound arbitrarily long values.
