@@ -33,7 +33,7 @@ test-local-first:
     bash -n scripts/agent-source-snapshot.sh
     bash -n scripts/run-pytest-compact.sh
     bash -n scripts/agent-quality-gate.sh
-    bash scripts/run-pytest-compact.sh tests/unit/test_agent_source_snapshot.py tests/unit/test_compact_pytest_runner.py tests/unit/test_quality_log_tail_contract.py
+    bash scripts/run-pytest-compact.sh tests/unit/test_agent_source_snapshot.py tests/unit/test_compact_pytest_runner.py tests/unit/test_quality_log_tail_contract.py tests/unit/test_quality_failure_log_retention.py tests/unit/test_dagger_pilot_preflight.py
 
 # P1 Dagger pilot reference: native deterministic checks only, not a release gate.
 # Record this baseline before implementing a pinned Dagger module.
