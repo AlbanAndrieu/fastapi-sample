@@ -7,6 +7,60 @@ failures belong in [incidents.md](incidents.md). Completed implementation is
 represented here only as compact guardrails; tests and Git history remain the
 detailed implementation record.
 
+## Consolidated execution plan — 2026-10-10
+
+This section is a **navigation and acceptance index**, not a second backlog.
+Detailed requirements remain in the P0/P1/P2 sections below. Reassess the
+priority against new incidents before each PR; never mark an item completed on
+the strength of an earlier PR's CI result.
+
+| Order | Workstream | Next bounded deliverable | Acceptance evidence |
+| --- | --- | --- | --- |
+| P0 | Production security/privacy | Verify Cloud DEBUG and sanitized diagnostics after an authorized deployment | No public traceback or sensitive endpoint detail; no production fault injection |
+| P0 | pfSense/TrueNAS resilience | Correlate passive p95/p99 and appliance resource saturation before adjusting probe budgets | TrueNAS-origin evidence with bounded request rate, warnings and no extra fan-out |
+| P0 | Canonical catalog cutover | Confirm v2 schema/entity refs, provenance and rollback snapshot with nabla-compose | Validated revision parity and deterministic reconciliation; direct cutover, no compatibility layer |
+| P1 | Offline local-first & CI | Validate the exact GitHub HEAD against a trustworthy local snapshot without depending on live DNS/git clone | SHA provenance, offline tests, formatter/security checks and explicit missing-proof report |
+| P1 | Agent efficiency | Summarize failing checks by job/step, preserve complete logs locally, avoid repeated full-context reads | Bounded terminal output, evidence paths, no suppressed failure and no unnecessary Actions dispatch |
+| P1 | Portable CI | Pilot Dagger with the existing scripts as the initial source of truth | Same SHA and checks yield equivalent exit codes locally and in CI; version pinned |
+| P1 | Dual-vantage monitoring | Run SOS runner/model subset for public checks, compare with existing HTTPX/dnspython/AnyIO evidence | DNS/TLS/HTTP/Access semantics preserved and measured net LOC reduction |
+| P1 | Runtime architecture | Extract app factory and lifecycle-owned HTTPX/DB/Redis resources incrementally | Hermetic tests with no network/DB side effects at import |
+| P2 | Domain backlog | Tackle notes contract, VectorStore/RAG, SearXNG, MCP and container cleanup separately | Focused contracts, migrations or integration tests as appropriate |
+
+### Local-first DNS-failure policy
+
+1. Reuse a verified local checkout and existing `uv` cache first. Never assume
+   that an inaccessible hostname proves the repository, test or dependency is
+   broken. Do not patch `/etc/hosts`, disable TLS validation or use unverified
+   IP-address substitution to bypass DNS.
+2. When `git clone` cannot resolve GitHub, fetch an **exact immutable commit
+   archive** only through an already available authenticated/trusted download
+   channel. Record the commit SHA, source URL and archive digest; check archive
+   paths before extraction. A branch-named moving archive is insufficient.
+3. Run `uv sync --frozen --offline` only when the locked distributions are in
+   cache; otherwise report `BLOCKED_DEPENDENCIES`, do not replace/pin packages
+   speculatively. If dependencies already exist, prefer `uv run --no-sync`.
+4. Run focused tests, deterministic fix convergence, strict quality gate and
+   publication proof against the **same immutable HEAD**. Preserve stdout/stderr
+   in local logs; display only a concise failing-step summary and log path.
+5. Distinguish `PASS`, `FAIL` and `NOT_RUN/BLOCKED` for each check. In no-credit
+   mode use `[skip ci]`, keep the PR Draft, never rerun Actions and never claim
+   CI green when it did not execute.
+6. Implement the snapshot materializer as a narrow, separately tested utility
+   before integrating it with Just/Dagger. Its negative tests must reject path
+   traversal, symlink escapes, wrong SHA/provenance and incomplete archives.
+
+### Agent token budget policy
+
+- Read PR state and failing jobs once; expand to failing steps, then specific log
+  excerpts. Reuse SHA-bound evidence until HEAD changes.
+- Default pytest failure summary: 20 lines, maximum 40; complete failure log
+  remains on disk. Do not send full test suites, lockfiles or trace dumps into
+  the agent context unless needed to resolve the failure.
+- Keep `AGENTS.md` global and project skills task-scoped; no duplicated agent
+  policy in the roadmap, CI YAML or client adapters.
+- Quantify cost using output lines/tokens and wall time **before/after** on the
+  same failing fixture; reductions must not weaken checks or discard evidence.
+
 ## Operating constraints
 
 - Python 3.13 + `uv` are the supported Python/tooling baseline.
