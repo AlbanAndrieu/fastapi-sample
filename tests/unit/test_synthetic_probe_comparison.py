@@ -172,3 +172,28 @@ def test_internal_delegation_blocks_same_protocol_transport_mismatch() -> None:
 
     assert result["candidate"] is False
     assert result["blockers"] == ["internal_transport_mismatches"]
+
+
+def test_invalid_gatus_samples_are_not_treated_as_success() -> None:
+    """A NaN, infinity, or boolean must never make a service look healthy."""
+    for invalid in (float("nan"), float("inf"), -1.0, 2.0, True):
+        homelab = {"internal_services": [{"id": "nexus", "state": "ok"}]}
+        result = compare_internal_probe_evidence(
+            homelab,
+            _platform({"nexus": {"TCP": {"success": invalid}}}),
+        )
+        assert result["comparable"] == 0
+        assert result["missing_gatus"] == 1
+
+
+def test_invalid_gatus_up_blocks_delegation() -> None:
+    """Only a finite numeric proof may authorize internal delegation."""
+    for invalid in (float("nan"), float("inf"), True, None):
+        platform = _platform({})
+        platform["synthetic_probes"]["gatus_up"] = invalid
+        result = evaluate_internal_probe_delegation(
+            platform,
+            {"comparable": 1, "application_evidence": 0, "mismatched": 0, "missing_gatus": 0},
+        )
+        assert result["candidate"] is False
+        assert "gatus_not_up" in result["blockers"]
