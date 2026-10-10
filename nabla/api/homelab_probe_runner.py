@@ -193,18 +193,26 @@ async def probe_public_service(
     if edge_evidence.get("cloudflare_service_token_access_passed") is not True:
         default_deny = edge_evidence.get("cloudflare_default_deny") is True
         access_signal = edge_evidence.get("cloudflare_access_signal") is True
-        if access_signal or default_deny:
-            result["state"] = "warn"
-            result["origin_reached"] = False
-            result["public_probe_auth_mode"] = "cloudflare_access_blocked"
-            result["public_probe_verification"] = "access_protected_origin_unverified"
+        result["state"] = "warn"
+        result["origin_reached"] = False
+        result["public_probe_auth_mode"] = (
+            "cloudflare_access_blocked" if access_signal or default_deny
+            else "cloudflare_access_unconfirmed"
+        )
+        result["public_probe_verification"] = (
+            "access_protected_origin_unverified" if access_signal or default_deny
+            else "origin_unverified"
+        )
         return result
 
     authenticated_status = int(
         edge_evidence.get("authenticated_http_status") or edge_evidence.get("cloudflare_service_token_http_status") or 0,
     )
     result["http_status"] = authenticated_status
-    result["state"] = classify_public_http_status(authenticated_status)
+    result["state"] = (
+        classify_public_http_status(authenticated_status)
+        if authenticated_status > 0 else "warn"
+    )
     result["reachable"] = authenticated_status > 0
     result["origin_reached"] = edge_evidence.get("origin_reached") is True
     result["public_probe_auth_mode"] = "cloudflare_service_token"
