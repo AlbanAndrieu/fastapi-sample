@@ -1,7 +1,14 @@
 set -euo pipefail
 
 LOG="${PYTEST_LOG_FILE:-${TMPDIR:-/tmp}/fastapi-sample-pytest-$(date +%Y%m%d-%H%M%S)-$.log}"
-FAILURE_LINES="${PYTEST_FAILURE_SUMMARY_LINES:-80}"
+FAILURE_LINES="${PYTEST_FAILURE_SUMMARY_LINES:-20}"
+if ! [[ "${FAILURE_LINES}" =~ ^[0-9]+$ ]]; then
+  printf '❌ PYTEST_FAILURE_SUMMARY_LINES must be a non-negative integer\n' >&2
+  exit 2
+fi
+if ((FAILURE_LINES > 40)); then
+  FAILURE_LINES=40
+fi
 
 mkdir -p "$(dirname "${LOG}")"
 
