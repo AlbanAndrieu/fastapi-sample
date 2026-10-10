@@ -83,3 +83,35 @@ def test_runner_caps_failure_summary(tmp_path: Path) -> None:
     lines = [line for line in result.stderr.splitlines() if line.startswith("FAILED ")]
     assert len(lines) == 40
     assert log.exists()
+
+
+@pytest.mark.parametrize(
+    ("limit", "expected_count"),
+    [("0009", 9), ("0", 0), ("999999999999999999999999999", 40)],
+)
+def test_numeric_limits_are_decimal_and_bounded(
+    tmp_path: Path, limit: str, expected_count: int
+) -> None:
+    """Leading zeroes and huge limits must not break Bash arithmetic."""
+    uv = tmp_path / "uv"
+    uv.write_text(
+        '#!/bin/sh\ni=1\nwhile [ "$i" -le 100 ]; do\n'
+        '  echo "FAILED test_$i - fail"\n'
+        '  i=$((i + 1))\ndone\nexit 1\n',
+        encoding="utf-8",
+    )
+    uv.chmod(0o755)
+    env = {
+        **os.environ,
+        "PATH": f"{tmp_path}{os.pathsep}{os.environ.get('PATH', '')}",
+        "PYTEST_LOG_FILE": str(tmp_path / "full.log"),
+        "PYTEST_FAILURE_SUMMARY_LINES": limit,
+    }
+    result = subprocess.run(
+        ["bash", str(RUNNER)], capture_output=True, text=True, env=env, check=False
+    )
+    assert result.returncode == 1
+    assert len(
+        [line for line in result.stderr.splitlines() if line.startswith("FAILED ")]
+    ) == expected_count
+    assert (tmp_path / "full.log").exists()
