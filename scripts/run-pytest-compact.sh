@@ -6,8 +6,14 @@ if ! [[ "${FAILURE_LINES}" =~ ^[0-9]+$ ]]; then
   printf '❌ PYTEST_FAILURE_SUMMARY_LINES must be a non-negative integer\n' >&2
   exit 2
 fi
-if ((FAILURE_LINES > 40)); then
+# Parse as decimal (not octal), and cap oversized values before arithmetic.
+if ((${#FAILURE_LINES} > 9)); then
   FAILURE_LINES=40
+else
+  FAILURE_LINES=$((10#$FAILURE_LINES))
+  if ((FAILURE_LINES > 40)); then
+    FAILURE_LINES=40
+  fi
 fi
 
 mkdir -p "$(dirname "${LOG}")"
