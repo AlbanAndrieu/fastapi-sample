@@ -210,6 +210,14 @@ Reference:
 
 - [ ] Introduce **Dagger CI** as the portable local-first execution layer, not as
   a second CI authority.
+  - [x] Expose `just p1-parity-native` as the native Ruff + targeted
+    local-first contract baseline, without modifying CI or security hooks.
+    This is L1 targeted evidence only, not full publication acceptance;
+    capture exact SHA and timings when an appropriate local checkout exists.
+  - [ ] Benchmark native baseline and Dagger against the same SHA,
+    dependency cache state and input files; record wall time, exit status,
+    tool versions and missing checks. Reject a performance-only result
+    without equivalent assertions and scanner coverage.
   - [ ] Pin the Dagger CLI/Engine and initialize a Python SDK module; the
     official Dagger documentation is currently on the 1.0 beta line, so start
     with a bounded pilot rather than rewriting every workflow at once.
