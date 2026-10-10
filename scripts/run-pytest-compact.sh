@@ -36,7 +36,7 @@ fi
 printf '❌ pytest failed (exit=%d) · full log: %s\n' "${rc}" "${LOG}" >&2
 if ((FAILURE_LINES > 0)); then
   summary="$(
-    grep -E '^(FAILED|ERROR) |^Results \\(|^[[:space:]]+[0-9]+ (passed|failed|skipped)|=+ short test summary|=+ .*failed' "${LOG}" |
+    grep -E '^(FAILED|ERROR) |^Results \(|^[[:space:]]+[0-9]+ (passed|failed|skipped)|=+ short test summary|=+ .*failed' "${LOG}" |
       tail -n "${FAILURE_LINES}" || true
   )"
   if [[ -n "${summary}" ]]; then
