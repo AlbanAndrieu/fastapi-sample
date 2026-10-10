@@ -299,6 +299,7 @@ Reference:
     Bash syntax, positive ancestry path and negative non-ancestor path; the
     complete exact-HEAD repository gate remains NOT RUN until a full checkout
     of the current PR HEAD is available.
+- [x] Harden the post-reboot diagnostic against a boolean Gatus `service_count` and unknown/missing board state; regression tests added. Exact-HEAD pytest and runtime acceptance remain **NOT RUN**, not PASS.
 - [ ] **Run gates against the same source tree:** execute `bash -n`, targeted
   pytest, Ruff, canonical pre-commit, BetterLeaks and the repository publication
   gate on that exact tree. Report each missing dependency or unavailable tool
