@@ -1,11 +1,106 @@
 # Engineering and security roadmap
 
+- [ ] **P0 Cloudflare Access probe evidence** (partial: unconfirmed Access and missing authenticated HTTP status now remain warnings; focused regression tests added, execution pending) — exporter et tester `cloudflare_access_secondary_probe_eligible`, `cloudflare_access_secondary_probe_attempted` et `public_probe_verification` afin de différencier HTTP 403 anonyme protégé, service token refusé et origine réellement sondée. Vérifier les cas IT Tools et Karakeep contre réponses anonymes et résultats LAN, sans convertir un refus Access en application saine.
+
+
 This is the **single prioritized roadmap** for `fastapi-sample`.
 
 Operational evidence and recovery commands belong in focused runbooks. Dated
 failures belong in [incidents.md](incidents.md). Completed implementation is
 represented here only as compact guardrails; tests and Git history remain the
 detailed implementation record.
+
+**P0 Cloudflare Access implementation note (2026-10-10):** Rejecting a service token is now a distinct diagnostic from origin failure; a 2xx/3xx authenticated response with no `origin_reached` evidence remains `warn`. Regression tests were added. Live TrueNAS/Cloudflare acceptance and exact-HEAD local quality gate remain outstanding.
+
+## Consolidated execution plan — 2026-10-10
+
+This section is a **navigation and acceptance index**, not a second backlog.
+Detailed requirements remain in the P0/P1/P2 sections below. Reassess the
+priority against new incidents before each PR; never mark an item completed on
+the strength of an earlier PR's CI result.
+
+| Order | Workstream | Next bounded deliverable | Acceptance evidence |
+| --- | --- | --- | --- |
+| P0 | Production security/privacy | Verify Cloud DEBUG and sanitized diagnostics after an authorized deployment | No public traceback or sensitive endpoint detail; no production fault injection |
+| P0 | pfSense/TrueNAS resilience | Correlate passive p95/p99 and appliance resource saturation before adjusting probe budgets | TrueNAS-origin evidence with bounded request rate, warnings and no extra fan-out |
+| P0 | Canonical catalog cutover | Confirm v2 schema/entity refs, provenance and rollback snapshot with nabla-compose | Validated revision parity and deterministic reconciliation; direct cutover, no compatibility layer |
+| P1 | Offline local-first & CI | Validate the exact GitHub HEAD against a trustworthy local snapshot without depending on live DNS/git clone | SHA provenance, offline tests, formatter/security checks and explicit missing-proof report |
+| P1 | Agent efficiency | Summarize failing checks by job/step, preserve complete logs locally, avoid repeated full-context reads | Bounded terminal output, evidence paths, no suppressed failure and no unnecessary Actions dispatch |
+| P1 | Portable CI | Pilot Dagger with the existing scripts as the initial source of truth | Same SHA and checks yield equivalent exit codes locally and in CI; version pinned |
+| P1 | Dual-vantage monitoring | Run SOS runner/model subset for public checks, compare with existing HTTPX/dnspython/AnyIO evidence | DNS/TLS/HTTP/Access semantics preserved and measured net LOC reduction |
+| P1 | Runtime architecture | Extract app factory and lifecycle-owned HTTPX/DB/Redis resources incrementally | Hermetic tests with no network/DB side effects at import |
+| P2 | Domain backlog | Tackle notes contract, VectorStore/RAG, SearXNG, MCP and container cleanup separately | Focused contracts, migrations or integration tests as appropriate |
+
+### Local-first DNS-failure policy
+
+1. Reuse a verified local checkout and existing `uv` cache first. Never assume
+   that an inaccessible hostname proves the repository, test or dependency is
+   broken. Do not patch `/etc/hosts`, disable TLS validation or use unverified
+   IP-address substitution to bypass DNS.
+2. When `git clone` cannot resolve GitHub, fetch an **exact immutable commit
+   archive** only through an already available authenticated/trusted download
+   channel. Record the commit SHA, source URL and archive digest; check archive
+   paths before extraction. A branch-named moving archive is insufficient.
+3. Run `uv sync --frozen --offline` only when the locked distributions are in
+   cache; otherwise report `BLOCKED_DEPENDENCIES`, do not replace/pin packages
+   speculatively. If dependencies already exist, prefer `uv run --no-sync`.
+4. Run focused tests, deterministic fix convergence, strict quality gate and
+   publication proof against the **same immutable HEAD**. Preserve stdout/stderr
+   in local logs; display only a concise failing-step summary and log path.
+5. Distinguish `PASS`, `FAIL` and `NOT_RUN/BLOCKED` for each check. In no-credit
+   mode use `[skip ci]`, keep the PR Draft, never rerun Actions and never claim
+   CI green when it did not execute.
+6. Implement the snapshot materializer as a narrow, separately tested utility
+   before integrating it with Just/Dagger. Its negative tests must reject path
+   traversal, symlink escapes, wrong SHA/provenance and incomplete archives.
+
+### Agent token budget policy
+
+- Read PR state and failing jobs once; expand to failing steps, then specific log
+  excerpts. Reuse SHA-bound evidence until HEAD changes.
+- Default pytest failure summary: 20 lines, maximum 40; complete failure log
+  remains on disk. Do not send full test suites, lockfiles or trace dumps into
+  the agent context unless needed to resolve the failure.
+- Keep `AGENTS.md` global and project skills task-scoped; no duplicated agent
+  policy in the roadmap, CI YAML or client adapters.
+- Quantify cost using output lines/tokens and wall time **before/after** on the
+  same failing fixture; reductions must not weaken checks or discard evidence.
+
+## P0 integration checkpoint — Gatus / Prometheus / OpenRAG (2026-10-10)
+
+- [x] Inspect the existing internal Gatus-via-Prometheus implementation:
+  `nabla/api/platform_metrics.py` queries bounded recording rules;
+  `nabla/api/synthetic_probe_comparison.py` only compares matching internal
+  service IDs. HTTP application checks do not count as TCP transport mismatches.
+- [x] Harden the internal comparison/delegation contract against non-finite,
+  out-of-range and boolean success samples, with dedicated regression tests.
+- [ ] **Live acceptance BLOCKED (not PASS):** from this agent environment TCP
+  access to `172.17.0.24:8091` and `:9090` failed, and public FastAPI Cloud
+  hostname resolution failed. These observations do not establish whether the
+  corresponding services are healthy inside the homelab.
+- [ ] Prove from inside the **FastAPI TrueNAS container** that
+  `HOMELAB_PROMETHEUS_URL=http://172.17.0.24:9090` is configured, that
+  `/-/ready` and `/api/v1/query` respond, and that the recording rules
+  `nabla:telemetry:gatus_up`, `nabla:service:synthetic_probe_success`,
+  `nabla:service:synthetic_probe_duration_seconds`, and
+  `nabla:service:synthetic_availability_ratio_5m` contain fresh, correctly
+  labeled series. Missing rules are telemetry gaps, never service DOWN.
+- [ ] Run the existing cached `/api/health-board` and diagnostic comparison
+  against real internal service IDs. Record matched/mismatched/missing counts,
+  freshness and any stale cache. Preserve FastAPI Cloud public outside-in
+  evidence as an independent source; do not launch parallel provider fan-out.
+- [ ] Compare runtime identifiers with the authoritative `nabla-compose`
+  catalog. Never join services by display name or silently downgrade public
+  protection outcomes when Gatus is green.
+- [ ] Validate the focused synthetic comparison and platform-metrics tests,
+  then run local Ruff and quality gate on the **new HEAD**. No green CI claim
+  without that proof.
+- [ ] **OpenRAG decision:** inventory existing OpenRAG/Langflow/embedding
+  endpoints, durable storage, authentication and tenant boundaries before
+  implementing a separate persistent `VectorStore`. Prefer an OpenRAG
+  adapter behind an injected `VectorStore` protocol if it meets those
+  contracts; do not introduce a second mutable vector index by default.
+  Optional RAG outage must remain independent of core health.
 
 ## Operating constraints
 

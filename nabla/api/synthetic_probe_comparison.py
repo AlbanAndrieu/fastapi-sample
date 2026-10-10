@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 _INTERNAL_TRANSPORT_TYPES = ("TCP",)
@@ -17,8 +18,10 @@ def _matching_gatus_probe(
         if not isinstance(evidence, dict):
             continue
         value = evidence.get("success")
-        if isinstance(value, (int, float)):
-            return probe_type, float(value)
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            numeric = float(value)
+            if math.isfinite(numeric) and 0.0 <= numeric <= 1.0:
+                return probe_type, numeric
     return None
 
 
@@ -129,9 +132,12 @@ def evaluate_internal_probe_delegation(
         blockers.append("prometheus_not_configured")
     if not isinstance(synthetic, dict) or synthetic.get("state") != "observed":
         blockers.append("gatus_not_observed")
-    elif not isinstance(synthetic.get("gatus_up"), (int, float)) or float(
-        synthetic["gatus_up"]
-    ) < 1.0:
+    elif (
+        isinstance(synthetic.get("gatus_up"), bool)
+        or not isinstance(synthetic.get("gatus_up"), (int, float))
+        or not math.isfinite(float(synthetic["gatus_up"]))
+        or float(synthetic["gatus_up"]) < 1.0
+    ):
         blockers.append("gatus_not_up")
 
     comparable = int(comparison.get("comparable") or 0)

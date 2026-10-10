@@ -10,6 +10,15 @@ default:
 sync:
     uv sync --frozen
 
+# Install only distributions already available in the uv cache (no DNS/network).
+offline-sync:
+    UV_OFFLINE=true uv sync --frozen --offline
+
+# Run the test suite using existing dependencies without network resolution.
+# For targeted tests: UV_OFFLINE=true bash scripts/run-pytest-compact.sh tests/unit/test_dns_probe.py
+offline-test:
+    UV_OFFLINE=true bash scripts/run-pytest-compact.sh
+
 # Run the local FastAPI development server.
 dev:
     uv run fastapi dev --port 8080
@@ -25,6 +34,10 @@ test-local-first:
     bash -n scripts/run-pytest-compact.sh
     bash -n scripts/agent-quality-gate.sh
     bash scripts/run-pytest-compact.sh tests/unit/test_agent_source_snapshot.py tests/unit/test_compact_pytest_runner.py tests/unit/test_quality_log_tail_contract.py
+
+# Post-reboot cached integration report (no direct provider fan-out).
+truenas-check:
+    python3 scripts/diagnose-local-runtime-dependencies.py --url http://172.17.0.24:8091
 
 # Run only pfSense observation, probe and tracing contracts.
 test-pfsense:

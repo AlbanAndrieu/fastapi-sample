@@ -119,6 +119,7 @@ async def test_cloudflare_access_probe_uses_service_token_for_origin_health(
             "cloudflare_service_auth_attempted": True,
             "cloudflare_service_token_access_passed": True,
             "cloudflare_service_token_http_status": 200,
+            "origin_reached": True,
         },
     )
     monkeypatch.setattr(homelab_health, "_probe_http_edge_evidence", edge_probe)
@@ -309,3 +310,125 @@ async def test_probe_fanout_budget_returns_partial_results(monkeypatch) -> None:
     assert results[0]["state"] == "ok"
     assert results[1]["timed_out"] is True
     assert results[1]["error_kind"] == "deadline"
+
+
+@pytest.mark.asyncio
+async def test_protected_public_probe_without_edge_confirmation_remains_warning(
+    monkeypatch,
+) -> None:
+    """An anonymous HTTP 403 is not evidence that the application is healthy."""
+    edge_probe = AsyncMock(return_value={
+        "cloudflare_service_token_access_passed": False,
+        "cloudflare_default_deny": False,
+        "cloudflare_access_signal": False,
+    })
+    monkeypatch.setattr(homelab_health, "_probe_http_edge_evidence", edge_probe)
+    service = HomelabService(
+        id="garage-webui",
+        name="Garage",
+        tunnelUrl="https://garage.albandrieu.com",
+        tunnelSecure=True,
+        external=True,
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(403, request=request)
+        ),
+        follow_redirects=False,
+    ) as client:
+        result = await homelab_health._probe_public_service(
+            client, asyncio.Semaphore(1), service,
+        )
+
+    assert result["state"] == "warn"
+    assert result["public_probe_auth_mode"] == "cloudflare_access_unconfirmed"
+    assert result["public_probe_verification"] == "origin_unverified"
+    assert result["origin_reached"] is False
+
+
+@pytest.mark.asyncio
+async def test_missing_authenticated_http_status_does_not_claim_failure(
+    monkeypatch,
+) -> None:
+    edge_probe = AsyncMock(return_value={
+        "cloudflare_service_token_access_passed": True,
+        "origin_reached": False,
+    })
+    monkeypatch.setattr(homelab_health, "_probe_http_edge_evidence", edge_probe)
+    service = HomelabService(
+        id="garage-webui",
+        name="Garage",
+        tunnelUrl="https://garage.albandrieu.com",
+        tunnelSecure=True,
+        external=True,
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(403, request=request)
+        ),
+        follow_redirects=False,
+    ) as client:
+        result = await homelab_health._probe_public_service(
+            client, asyncio.Semaphore(1), service,
+        )
+
+    assert result["http_status"] == 0
+    assert result["state"] == "warn"
+    assert result["public_probe_verification"] == "authenticated_origin_unverified"
+
+
+@pytest.mark.asyncio
+async def test_access_success_without_origin_evidence_does_not_report_healthy(
+    monkeypatch,
+) -> None:
+    edge = AsyncMock(return_value={
+        "cloudflare_service_token_access_passed": True,
+        "authenticated_http_status": 200,
+        "origin_reached": False,
+    })
+    monkeypatch.setattr(homelab_health, "_probe_http_edge_evidence", edge)
+    service = HomelabService(
+        id="garage-webui", name="Garage",
+        tunnelUrl="https://garage.albandrieu.com",
+        tunnelSecure=True, external=True,
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(403, request=request)
+        ), follow_redirects=False,
+    ) as client:
+        result = await homelab_health._probe_public_service(
+            client, asyncio.Semaphore(1), service,
+        )
+    assert result["state"] == "warn"
+    assert result["origin_reached"] is False
+    assert result["public_probe_verification"] == "authenticated_origin_unverified"
+
+
+@pytest.mark.asyncio
+async def test_access_token_rejection_is_explicit_diagnostic_not_origin_down(
+    monkeypatch,
+) -> None:
+    edge = AsyncMock(return_value={
+        "cloudflare_default_deny": True,
+        "cloudflare_service_auth_attempted": True,
+        "cloudflare_service_token_access_passed": False,
+        "cloudflare_service_token_http_status": 403,
+    })
+    monkeypatch.setattr(homelab_health, "_probe_http_edge_evidence", edge)
+    service = HomelabService(
+        id="garage-webui", name="Garage",
+        tunnelUrl="https://garage.albandrieu.com",
+        tunnelSecure=True, external=True,
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(403, request=request)
+        ), follow_redirects=False,
+    ) as client:
+        result = await homelab_health._probe_public_service(
+            client, asyncio.Semaphore(1), service,
+        )
+    assert result["cloudflare_service_token_rejected"] is True
+    assert result["origin_reached"] is False
+    assert result["state"] == "warn"

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Normalize the cached FastAPI health-board into the six P0 runtime dependencies.
+"""Normalize the cached FastAPI health-board into the P0 runtime dependencies.
 
 This helper deliberately does not call TrueNAS, pfSense, Cloudflare, Prometheus,
 Sentry or Pyroscope directly. It requests the FastAPI health board and derives a
@@ -28,6 +28,9 @@ _DEPENDENCY_ORDER = (
     "prometheus",
     "sentry",
     "pyroscope",
+    "postgres",
+    "redis",
+    "gatus",
 )
 
 
@@ -311,6 +314,73 @@ def _pyroscope(snapshot: dict[str, Any]) -> dict[str, Any]:
     return row
 
 
+def _component(snapshot: dict[str, Any], name: str) -> dict[str, Any]:
+    """Read existing component evidence; never open an extra DB or Redis session."""
+    components = _mapping(_mapping(snapshot.get("homelab")).get("components"))
+    check = _mapping(components.get(name))
+    row = _common(check)
+    row["reachable"] = _transport_reachable(check)
+    row["application_ok"] = _bool_or_none(check.get("application_ok"))
+    if row["application_ok"] is None and row["reachable"] is True:
+        row["application_ok"] = True
+    row["application_result"] = {
+        "kind": "cached_component",
+        "state": check.get("state"),
+        "status": check.get("status"),
+    }
+    row["evidence_complete"] = bool(
+        check and row["configured"] is True and row["reachable"] is True
+        and row["application_ok"] is True and not row["stale"]
+    )
+    row["operational_state"] = _state(
+        configured=row["configured"],
+        reachable=row["reachable"],
+        application_ok=row["application_ok"],
+        complete=row["evidence_complete"],
+    )
+    return row
+
+
+def _gatus(snapshot: dict[str, Any]) -> dict[str, Any]:
+    """Gatus is diagnostic-only and cannot override public exposure evidence."""
+    metrics = _mapping(snapshot.get("platform_metrics"))
+    synthetic = _mapping(metrics.get("synthetic_probes"))
+    comparison = _mapping(snapshot.get("internal_probe_comparison"))
+    delegation = _mapping(snapshot.get("internal_probe_delegation"))
+    row = _common(synthetic)
+    row["configured"] = _bool_or_none(metrics.get("configured"))
+    value = synthetic.get("gatus_up")
+    row["reachable"] = value == 1.0 if type(value) in (int, float) else None
+    row["application_ok"] = row["reachable"]
+    row["application_result"] = {
+        "kind": "gatus_via_prometheus",
+        "scope": "truenas_internal_only",
+        "service_count": synthetic.get("service_count"),
+        "comparable": comparison.get("comparable"),
+        "matched": comparison.get("matched"),
+        "mismatched": comparison.get("mismatched"),
+        "missing_gatus": comparison.get("missing_gatus"),
+        "delegation_candidate": delegation.get("candidate"),
+        "delegation_blockers": delegation.get("blockers"),
+        "external_probes_preserved": True,
+    }
+    row["evidence_complete"] = bool(
+        row["configured"] is True and row["reachable"] is True
+        and synthetic.get("state") == "observed"
+        and isinstance(synthetic.get("service_count"), int)
+        and synthetic["service_count"] > 0
+        and comparison.get("state") == "observed"
+        and not row["stale"]
+    )
+    row["operational_state"] = _state(
+        configured=row["configured"],
+        reachable=row["reachable"],
+        application_ok=row["application_ok"],
+        complete=row["evidence_complete"],
+    )
+    return row
+
+
 def build_report(snapshot: dict[str, Any]) -> dict[str, Any]:
     dependencies = {
         "truenas": _truenas(snapshot),
@@ -319,15 +389,21 @@ def build_report(snapshot: dict[str, Any]) -> dict[str, Any]:
         "prometheus": _prometheus(snapshot),
         "sentry": _sentry(snapshot),
         "pyroscope": _pyroscope(snapshot),
+        "postgres": _component(snapshot, "postgres"),
+        "redis": _component(snapshot, "redis"),
+        "gatus": _gatus(snapshot),
     }
     gaps = [name for name in _DEPENDENCY_ORDER if not dependencies[name]["evidence_complete"]]
+    snapshot_ready = snapshot.get("state") not in {"pending", "error"} and snapshot.get("refreshing") is not True
+    snapshot_fresh = snapshot_ready and snapshot.get("stale") is not True
     return {
         "schema_version": 2,
         "snapshot_state": snapshot.get("state"),
         "snapshot_generated_at": snapshot.get("generated_at"),
         "snapshot_age_seconds": snapshot.get("age_seconds"),
         "dependencies": dependencies,
-        "evidence_complete": not gaps,
+        "evidence_complete": not gaps and snapshot_fresh,
+        "snapshot_fresh": snapshot_fresh,
         "evidence_gaps": gaps,
     }
 
@@ -399,7 +475,7 @@ def print_table(report: dict[str, Any]) -> None:
     if gaps:
         print("Evidence gaps: " + ", ".join(str(value) for value in gaps))
     else:
-        print("✅ all six dependency evidence contracts are complete")
+        print("✅ all dependency evidence contracts are complete")
 
 
 def parse_args() -> argparse.Namespace:
