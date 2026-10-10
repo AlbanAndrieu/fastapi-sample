@@ -34,9 +34,17 @@ if ((rc == 0)); then
 fi
 
 printf '❌ pytest failed (exit=%d) · full log: %s\n' "${rc}" "${LOG}" >&2
-{
-  grep -E '^(FAILED|ERROR) |^Results \(|^[[:space:]]+[0-9]+ (passed|failed|skipped)|=+ short test summary|=+ .*failed' "${LOG}" ||
-    true
-} | tail -n "${FAILURE_LINES}" >&2
+if ((FAILURE_LINES > 0)); then
+  summary="$(
+    grep -E '^(FAILED|ERROR) |^Results \\(|^[[:space:]]+[0-9]+ (passed|failed|skipped)|=+ short test summary|=+ .*failed' "${LOG}" |
+      tail -n "${FAILURE_LINES}" || true
+  )"
+  if [[ -n "${summary}" ]]; then
+    printf '%s\n' "${summary}" >&2
+  else
+    # Import and collection failures may not generate a pytest summary.
+    tail -n "${FAILURE_LINES}" "${LOG}" >&2
+  fi
+fi
 
 exit "${rc}"
