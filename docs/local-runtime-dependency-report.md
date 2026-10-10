@@ -1,7 +1,8 @@
 # Local runtime dependency diagnostic
 
 Use this runbook to validate the TrueNAS-hosted FastAPI observer before resuming
-Kubernetes CSI work. The tracked integrations include TrueNAS, pfSense, Cloudflare, Prometheus,\nlocal Sentry, local Pyroscope, PostgreSQL, Redis and Gatus (via Prometheus).
+Kubernetes CSI work. The tracked integrations include TrueNAS, pfSense, Cloudflare, Prometheus,
+local Sentry, local Pyroscope, PostgreSQL, Redis and Gatus (via Prometheus).
 
 Historical observations and incidents are kept in
 [incidents.md](incidents.md), not here.
