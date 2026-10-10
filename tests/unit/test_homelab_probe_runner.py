@@ -323,9 +323,10 @@ async def test_protected_public_probe_without_edge_confirmation_remains_warning(
     })
     monkeypatch.setattr(homelab_health, "_probe_http_edge_evidence", edge_probe)
     service = HomelabService(
-        id="unconfirmed-access",
-        name="Unconfirmed Access",
-        tunnelUrl="https://protected.example.com",
+        id="garage-webui",
+        name="Garage",
+        tunnelUrl="https://garage.albandrieu.com",
+        tunnelSecure=True,
         external=True,
     )
     async with httpx.AsyncClient(
@@ -354,9 +355,10 @@ async def test_missing_authenticated_http_status_does_not_claim_failure(
     })
     monkeypatch.setattr(homelab_health, "_probe_http_edge_evidence", edge_probe)
     service = HomelabService(
-        id="token-uncertain",
-        name="Token uncertain",
-        tunnelUrl="https://protected.example.com",
+        id="garage-webui",
+        name="Garage",
+        tunnelUrl="https://garage.albandrieu.com",
+        tunnelSecure=True,
         external=True,
     )
     async with httpx.AsyncClient(
