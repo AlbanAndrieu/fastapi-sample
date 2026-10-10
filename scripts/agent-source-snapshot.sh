@@ -34,9 +34,12 @@ fi
 mkdir -p "$(dirname "$destination")"
 staging="$(mktemp -d "$(dirname "$destination")/.source-snapshot.XXXXXXXX")"
 trap 'rm -rf -- "$staging"' EXIT
-# Read the verified local Git object database, never the dirty worktree.
-git -C "$source_dir" archive --format=tar "$actual" | tar -xf - -C "$staging"
-printf '%s\n' "$actual" > "$staging/.source-commit-sha"
+# Preserve Git metadata for comparison-base and exact-HEAD quality gates.
+# A no-hardlinks clone is independent of later writes to the local cache.
+rmdir -- "$staging"
+git clone --local --no-hardlinks --no-checkout --quiet -- "$source_dir" "$staging"
+git -C "$staging" checkout --detach --force --quiet "$actual"
+[[ "$(git -C "$staging" rev-parse HEAD)" == "$actual" ]]
 mv -- "$staging" "$destination"
 trap - EXIT
 printf '✅ offline snapshot from verified Git commit %s: %s\n' "$actual" "$destination"
