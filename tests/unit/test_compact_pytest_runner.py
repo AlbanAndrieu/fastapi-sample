@@ -53,3 +53,33 @@ def test_runner_rejects_non_numeric_limit_without_running_uv(tmp_path: Path) -> 
     )
     assert result.returncode == 2
     assert "non-negative integer" in result.stderr
+
+
+def test_runner_caps_failure_summary(tmp_path: Path) -> None:
+    """Keep at most 40 lines of failure detail even if 100 are requested."""
+    uv = tmp_path / "uv"
+    uv.write_text(
+        "#!/bin/sh\n"
+        "i=1\n"
+        "while [ \"$i\" -le 100 ]; do\n"
+        '  echo "FAILED tests/test_$i.py::case - assertion"\n'
+        "  i=$((i + 1))\n"
+        "done\n"
+        "exit 1\n",
+        encoding="utf-8",
+    )
+    uv.chmod(0o755)
+    log = tmp_path / "full.log"
+    env = {
+        **os.environ,
+        "PATH": f"{tmp_path}{os.pathsep}{os.environ.get('PATH', '')}",
+        "PYTEST_LOG_FILE": str(log),
+        "PYTEST_FAILURE_SUMMARY_LINES": "100",
+    }
+    result = subprocess.run(
+        ["bash", str(RUNNER)], capture_output=True, text=True, env=env, check=False
+    )
+    assert result.returncode == 1
+    lines = [line for line in result.stderr.splitlines() if line.startswith("FAILED ")]
+    assert len(lines) == 40
+    assert log.exists()
