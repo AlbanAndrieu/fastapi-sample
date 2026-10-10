@@ -40,6 +40,10 @@ rmdir -- "$staging"
 git clone --local --no-hardlinks --no-checkout --quiet -- "$source_dir" "$staging"
 git -C "$staging" checkout --detach --force --quiet "$actual"
 [[ "$(git -C "$staging" rev-parse HEAD)" == "$actual" ]]
-mv -- "$staging" "$destination"
+if [[ -e "$destination" || -L "$destination" ]]; then
+  echo '❌ destination appeared during snapshot creation; refusing to overwrite' >&2
+  exit 2
+fi
+mv -T -- "$staging" "$destination"
 trap - EXIT
 printf '✅ offline snapshot from verified Git commit %s: %s\n' "$actual" "$destination"
