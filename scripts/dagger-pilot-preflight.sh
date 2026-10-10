@@ -29,6 +29,18 @@ if [[ ! -f dagger.lock && ! -f .dagger/dagger.lock ]]; then
   exit 2
 fi
 
+# A generated or ignored lockfile is not a reviewed, reproducible input.
+module_file=dagger.json
+[[ -f "$module_file" ]] || module_file=.dagger/dagger.json
+lock_file=dagger.lock
+[[ -f "$lock_file" ]] || lock_file=.dagger/dagger.lock
+for file in "$module_file" "$lock_file"; do
+  if ! git ls-files --error-unmatch -- "$file" >/dev/null 2>&1; then
+    printf 'NOT READY: Dagger input must be tracked in Git: %s\n' "$file" >&2
+    exit 2
+  fi
+done
+
 printf 'READY FOR MANUAL PILOT: SHA=%s; module and lockfile present\n' \
   "$(git rev-parse HEAD)"
 printf 'This preflight does not prove native/Dagger parity, engine health or L3.\n'
