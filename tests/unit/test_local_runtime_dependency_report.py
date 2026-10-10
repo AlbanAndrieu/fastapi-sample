@@ -371,3 +371,18 @@ def test_unknown_or_missing_snapshot_state_is_never_fresh() -> None:
         report = module.build_report(snapshot)
         assert report["snapshot_fresh"] is False
         assert report["evidence_complete"] is False
+
+
+def test_health_board_timeout_has_clean_operator_error(monkeypatch) -> None:
+    module = load_module()
+
+    def timeout(*_args, **_kwargs):
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr(module, "urlopen", timeout)
+    try:
+        module._fetch_json("http://172.17.0.24:8091/api/health-board", None)
+    except RuntimeError as exc:
+        assert str(exc) == "health-board request timed out after 8 seconds"
+    else:
+        raise AssertionError("TimeoutError should be normalized as RuntimeError")
