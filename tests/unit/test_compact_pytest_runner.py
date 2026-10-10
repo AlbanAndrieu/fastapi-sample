@@ -87,7 +87,13 @@ def test_runner_caps_failure_summary(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize(
     ("limit", "expected_count"),
-    [("0009", 9), ("0", 0), ("999999999999999999999999999", 40)],
+    [
+        ("0009", 9),
+        ("0", 0),
+        ("0000000000000009", 9),
+        ("0000000000000000", 0),
+        ("999999999999999999999999999", 40),
+    ],
 )
 def test_numeric_limits_are_decimal_and_bounded(
     tmp_path: Path, limit: str, expected_count: int
