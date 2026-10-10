@@ -41,7 +41,7 @@ Modes:
 
 Environment:
   QUALITY_BASE_REF                 override comparison base
-  QUALITY_LOG_TAIL                 failure log lines to print (default: 50, capped at 80)
+  QUALITY_LOG_TAIL                 failure log lines to print (default: 20, capped at 80)
   QUALITY_FIX_PASSES               maximum pre-commit convergence passes (default: 6)
   QUALITY_ALLOW_LARGE_DELETION=1   acknowledge all intentional large truncations/deletions
   QUALITY_LARGE_DELETION_ACK_FILE  base-scoped acknowledgement file (default: .quality-gate-large-deletions)
@@ -66,7 +66,7 @@ if [[ "${CI_PREFLIGHT}" == true && "${CI:-}" != "true" ]]; then
     exit 2
 fi
 
-LOG_TAIL="${QUALITY_LOG_TAIL:-50}"
+LOG_TAIL="${QUALITY_LOG_TAIL:-20}"
 if ((LOG_TAIL > 80)); then
     LOG_TAIL=80
 fi
