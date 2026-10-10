@@ -12,6 +12,14 @@ detailed implementation record.
 
 **P0 Cloudflare Access implementation note (2026-10-10):** Rejecting a service token is now a distinct diagnostic from origin failure; a 2xx/3xx authenticated response with no `origin_reached` evidence remains `warn`. Regression tests were added. Live TrueNAS/Cloudflare acceptance and exact-HEAD local quality gate remain outstanding.
 
+### P0 — Audit de sécurité Cloudflare (à réaliser)
+
+- [ ] Examiner et valider la provenance, les permissions et les prérequis du dépôt officiel [cloudflare/security-audit-skill](https://github.com/cloudflare/security-audit-skill) avant installation (version/commit épinglé, principe du moindre privilège).
+- [ ] Installer le skill dans un environnement isolé et exécuter **un audit en lecture seule** des zones Cloudflare pertinentes pour fastapi-sample et les services publics du homelab : Cloudflare Access, politiques, Service Tokens, WAF, tunnels, DNS et risques de contournement d'authentification.
+- [ ] Enregistrer les résultats dans un rapport de sécurité **assaini** (sans jetons, identifiants sensibles ou secrets) ; distinguer constats vérifiés, points non accessibles et recommandations.
+- [ ] Réconcilier les observations avec les sondes outside-in de FastAPI Cloud et les diagnostics TrueNAS, sans assimiler un service accessible à un service sécurisé ; produire des actions correctives testables et priorisées.
+- [ ] N'appliquer **aucun changement de politique Cloudflare** automatiquement : revue et autorisation explicites avant toute modification ; valider ensuite l'absence de régression Access et le fonctionnement des Service Tokens.
+
 ## Consolidated execution plan — 2026-10-10
 
 This section is a **navigation and acceptance index**, not a second backlog.
