@@ -26,6 +26,17 @@ test-local-first:
     bash -n scripts/agent-quality-gate.sh
     bash scripts/run-pytest-compact.sh tests/unit/test_agent_source_snapshot.py tests/unit/test_compact_pytest_runner.py tests/unit/test_quality_log_tail_contract.py
 
+# P1 Dagger pilot reference: native deterministic checks only, not a release gate.
+# Record this baseline before implementing a pinned Dagger module.
+p1-parity-native:
+    just test-local-first
+    just lint
+    just format-check
+
+# P1 readiness is read-only and fails closed until Dagger is configured.
+p1-dagger-preflight:
+    bash scripts/dagger-pilot-preflight.sh
+
 # Run only pfSense observation, probe and tracing contracts.
 test-pfsense:
     bash scripts/run-pytest-compact.sh tests/unit/test_pfsense_auth_smoke.py tests/unit/test_pfsense_dns_observer.py tests/unit/test_pfsense_security_cache.py tests/unit/test_probe_headers.py tests/unit/test_probe_metrics.py
