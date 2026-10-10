@@ -14,7 +14,7 @@ if ! [[ "$commit" =~ ^[[:xdigit:]]{40}$ ]]; then
   echo '❌ expected a full 40-character commit SHA' >&2
   exit 2
 fi
-if [[ -e "$destination" ]]; then
+if [[ -e "$destination" || -L "$destination" ]]; then
   echo '❌ destination already exists; refusing to overwrite' >&2
   exit 2
 fi
