@@ -66,6 +66,7 @@ Load only the skills needed for the current task, but load the matching skill
 | FastAPI Cloud runtime/deployment | `fastapi-cloud` |
 | Homelab runtime status, migrations, live validation | `homelab-runtime-status` |
 | Catalog/topology/runtime reconciliation | `homelab-service-contract` |
+| CI failures, local-first gates, network/DNS outages, agent quality | `local-first-quality` |
 | Pytest or contract-test changes | `pytest-contract-testing` |
 | pfSense, PF, HAProxy, Snort, Unbound, Kea, pflow/IPFIX | `pfsense-api-debugging` |
 | Redis lifecycle/cache integration | `redis-async-lifecycle` |

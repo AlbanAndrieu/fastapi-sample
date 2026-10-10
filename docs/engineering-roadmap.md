@@ -181,6 +181,31 @@ programme.
 Reference:
 [business-impact-analysis.md](business-impact-analysis.md).
 
+## P0 — deterministic offline agent validation
+
+- [ ] **Exact-HEAD materialization:** acquire the approved commit SHA through a
+  verified GitHub connector or an existing local checkout/cache when DNS blocks
+  `git clone`. Accept downloaded archives only when the transport is trusted,
+  the commit identity is established independently, and repository content is
+  compared against the intended SHA. An archive URL alone is not proof.
+  - [x] Add the offline cached-Git snapshot script and its acceptance tests;
+    documented in [local-first-source-snapshot.md](local-first-source-snapshot.md).
+    This is an available fallback, not proof of the current PR HEAD.
+- [ ] **Run gates against the same source tree:** execute `bash -n`, targeted
+  pytest, Ruff, canonical pre-commit, BetterLeaks and the repository publication
+  gate on that exact tree. Report each missing dependency or unavailable tool
+  separately; never treat absent GitHub statuses as successful checks.
+- [ ] **Preserve security coverage:** keep SAST and BetterLeaks in the canonical
+  security gate, and retain Playwright and ZAP where their integration/E2E
+  execution environments are available. Do not silently disable or replace
+  these checks with static assertions about workflow files.
+- [ ] **Bound agent transcripts, not evidence:** display concise failing
+  summaries while retaining full logs as local artifacts. Reuse proven results
+  only when HEAD, comparison base, toolchain and relevant environment match.
+- [ ] **Publication acceptance:** attach a concise validation matrix to the PR
+  with exact HEAD and PASS/FAIL/NOT RUN states. Keep the PR Draft and do not
+  merge automatically until all required gates have actual evidence.
+
 ## P1 — dependency automation and CI governance
 
 - [ ] Introduce **Dagger CI** as the portable local-first execution layer, not as
@@ -332,18 +357,40 @@ FastAPI Cloud (outside homelab)        TrueNAS (inside homelab)
 
 ## P2 — application/domain backlog
 
-- [ ] Finish Notes normalization: boolean `completed`, timezone-aware timestamps,
-  read/delete response models and complete CRUD/integration coverage.
-- [ ] Replace mutable global RAG vector state with a concurrency-safe
-  `VectorStore` abstraction and persistent implementation.
-- [ ] Add SearXNG in `nabla-compose`, then evaluate a bounded optional adapter.
-- [ ] Continue MCP SDK review; keep any pfSense MCP service private and
-  least-privilege.
-- [ ] Consolidate duplicate Compose/Docker development paths: current repository
-  references show `Dockerfile-pipenv` and `Dockerfile-poetry` are orphaned, while
-  `docker-compose.yml` still backs legacy/dev PostgreSQL/Redis tooling. Prove the
-  canonical `Dockerfile` + `docker-compose.yaml` build/smoke locally, reconcile
-  remaining Makefile/mise/helm references, then remove only the unused paths.
+These items are not complete until their acceptance checks run against the
+actual repository HEAD. Do not treat this breakdown as implementation evidence.
+
+- [ ] **Notes contract normalization**: inventory current API models, database
+  columns, callers, migrations and authorization tests before changing storage.
+  - [ ] Make `completed` a real boolean across request/response, persistence and
+    serialization; retain backwards compatibility only when consumers require it.
+  - [ ] Use timezone-aware UTC timestamps and test input/output normalization.
+  - [ ] Define typed read/delete responses, explicit 404/403 behavior and
+    authorization-preserving CRUD tests.
+  - [ ] Verify database migration and roundtrip integration in an isolated DB;
+    do not rewrite production rows without reversible migration evidence.
+- [ ] **RAG concurrency and persistence**: replace global mutable vector state
+  with an injected `VectorStore` protocol; identify all readers and writers
+  before choosing a backend.
+  - [ ] Test concurrent indexing/search, lifecycle shutdown, persistence across
+    application restarts, and tenant/data isolation.
+  - [ ] Keep failures in the optional RAG backend out of core app liveness.
+- [ ] **SearXNG integration**: first establish the authoritative Compose service
+  and its health/access policy in `nabla-compose`; then add an opt-in adapter
+  with explicit timeout, SSRF protection, credential redaction and offline tests.
+- [ ] **MCP SDK and pfSense**: pin/review SDK API changes; retain private
+  transport, least-privilege identity, bounded tool fan-out, request auditing,
+  and deny-by-default authorization regression tests.
+- [ ] **Compose/Docker consolidation**: current references indicate
+  `Dockerfile-pipenv` and `Dockerfile-poetry` may be orphaned, whereas
+  `docker-compose.yml` retains legacy/dev PostgreSQL and Redis consumers.
+  - [ ] Audit references across Makefile, justfile, mise, Helm and workflows.
+  - [ ] Build/smoke canonical `Dockerfile` + `docker-compose.yaml` locally.
+  - [ ] Remove obsolete files only after reference and rollback checks pass.
+- [ ] **P2 merge evidence**: for every changed contract, record targeted test,
+  offline quality gate, SAST/BetterLeaks evidence and any Playwright/ZAP tests
+  appropriate to its exposed endpoints. Mark unavailable checks NOT RUN,
+  never PASS. No automatic merge.
 
 ## Implemented guardrails — compact baseline
 
