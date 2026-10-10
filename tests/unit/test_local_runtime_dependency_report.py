@@ -386,3 +386,20 @@ def test_health_board_timeout_has_clean_operator_error(monkeypatch) -> None:
         assert str(exc) == "health-board request timed out after 8 seconds"
     else:
         raise AssertionError("TimeoutError should be normalized as RuntimeError")
+
+
+def test_pyroscope_root_200_is_not_a_readiness_failure() -> None:
+    module = load_module()
+    snapshot = sample_snapshot()
+    snapshot["healthz"]["checks"]["pyroscope"] = {
+        "reachable": True,
+        "http_status": 200,
+        "path": "/",
+        "url": "http://172.17.0.24:4040/",
+    }
+    row = module.build_report(snapshot)["dependencies"]["pyroscope"]
+    assert row["reachable"] is True
+    assert row["application_ok"] is None
+    assert row["application_result"]["readiness_ok"] is None
+    assert row["operational_state"] == "evidence_incomplete"
+    assert row["evidence_complete"] is False
