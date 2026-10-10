@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -105,3 +107,46 @@ def test_snapshot_prevents_destination_nesting_on_late_creation() -> None:
     assert script.index('destination appeared during snapshot creation') < script.index(
         'mv -T -- "$staging" "$destination"'
     )
+
+
+def test_snapshot_rejects_destination_created_mid_checkout(tmp_path: Path) -> None:
+    """Inject late directory creation and verify no nested checkout is published."""
+    repo = tmp_path / "source"
+    repo.mkdir()
+    _git(repo, "init", "-q")
+    (repo / "file.txt").write_text("committed", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(
+        repo, "-c", "user.name=Test", "-c", "user.email=test@example.test",
+        "commit", "-qm", "fixture",
+    )
+    sha = _git(repo, "rev-parse", "HEAD")
+    destination = tmp_path / "late-destination"
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    git_path = shutil.which("git")
+    assert git_path is not None
+    wrapper = bin_dir / "git"
+    wrapper.write_text(
+        '#!/usr/bin/env bash\n'
+        'if [[ "$*" == *"rev-parse HEAD"* && '
+        '"$*" == *".source-snapshot."* ]]; then\n'
+        '  mkdir -p "$RACE_DEST"\n'
+        'fi\n'
+        f'exec "{git_path}" "$@"\n',
+        encoding="utf-8",
+    )
+    wrapper.chmod(0o755)
+    env = {
+        **os.environ,
+        "PATH": f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}",
+        "RACE_DEST": str(destination),
+    }
+    result = subprocess.run(
+        ["bash", str(SNAPSHOT), str(repo), sha, str(destination)],
+        capture_output=True, text=True, env=env, check=False,
+    )
+    assert result.returncode == 2
+    assert "destination appeared during snapshot creation" in result.stderr
+    assert destination.is_dir()
+    assert list(destination.iterdir()) == []
