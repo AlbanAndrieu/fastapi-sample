@@ -10,6 +10,15 @@ default:
 sync:
     uv sync --frozen
 
+# Install only distributions already available in the uv cache (no DNS/network).
+offline-sync:
+    UV_OFFLINE=true uv sync --frozen --offline
+
+# Run focused tests with existing dependencies without network resolution.
+# Example: just offline-test tests/unit/test_dns_probe.py
+offline-test *args:
+    UV_OFFLINE=true bash scripts/run-pytest-compact.sh {{args}}
+
 # Run the local FastAPI development server.
 dev:
     uv run fastapi dev --port 8080
