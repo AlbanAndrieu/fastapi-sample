@@ -354,18 +354,40 @@ FastAPI Cloud (outside homelab)        TrueNAS (inside homelab)
 
 ## P2 — application/domain backlog
 
-- [ ] Finish Notes normalization: boolean `completed`, timezone-aware timestamps,
-  read/delete response models and complete CRUD/integration coverage.
-- [ ] Replace mutable global RAG vector state with a concurrency-safe
-  `VectorStore` abstraction and persistent implementation.
-- [ ] Add SearXNG in `nabla-compose`, then evaluate a bounded optional adapter.
-- [ ] Continue MCP SDK review; keep any pfSense MCP service private and
-  least-privilege.
-- [ ] Consolidate duplicate Compose/Docker development paths: current repository
-  references show `Dockerfile-pipenv` and `Dockerfile-poetry` are orphaned, while
-  `docker-compose.yml` still backs legacy/dev PostgreSQL/Redis tooling. Prove the
-  canonical `Dockerfile` + `docker-compose.yaml` build/smoke locally, reconcile
-  remaining Makefile/mise/helm references, then remove only the unused paths.
+These items are not complete until their acceptance checks run against the
+actual repository HEAD. Do not treat this breakdown as implementation evidence.
+
+- [ ] **Notes contract normalization**: inventory current API models, database
+  columns, callers, migrations and authorization tests before changing storage.
+  - [ ] Make `completed` a real boolean across request/response, persistence and
+    serialization; retain backwards compatibility only when consumers require it.
+  - [ ] Use timezone-aware UTC timestamps and test input/output normalization.
+  - [ ] Define typed read/delete responses, explicit 404/403 behavior and
+    authorization-preserving CRUD tests.
+  - [ ] Verify database migration and roundtrip integration in an isolated DB;
+    do not rewrite production rows without reversible migration evidence.
+- [ ] **RAG concurrency and persistence**: replace global mutable vector state
+  with an injected `VectorStore` protocol; identify all readers and writers
+  before choosing a backend.
+  - [ ] Test concurrent indexing/search, lifecycle shutdown, persistence across
+    application restarts, and tenant/data isolation.
+  - [ ] Keep failures in the optional RAG backend out of core app liveness.
+- [ ] **SearXNG integration**: first establish the authoritative Compose service
+  and its health/access policy in `nabla-compose`; then add an opt-in adapter
+  with explicit timeout, SSRF protection, credential redaction and offline tests.
+- [ ] **MCP SDK and pfSense**: pin/review SDK API changes; retain private
+  transport, least-privilege identity, bounded tool fan-out, request auditing,
+  and deny-by-default authorization regression tests.
+- [ ] **Compose/Docker consolidation**: current references indicate
+  `Dockerfile-pipenv` and `Dockerfile-poetry` may be orphaned, whereas
+  `docker-compose.yml` retains legacy/dev PostgreSQL and Redis consumers.
+  - [ ] Audit references across Makefile, justfile, mise, Helm and workflows.
+  - [ ] Build/smoke canonical `Dockerfile` + `docker-compose.yaml` locally.
+  - [ ] Remove obsolete files only after reference and rollback checks pass.
+- [ ] **P2 merge evidence**: for every changed contract, record targeted test,
+  offline quality gate, SAST/BetterLeaks evidence and any Playwright/ZAP tests
+  appropriate to its exposed endpoints. Mark unavailable checks NOT RUN,
+  never PASS. No automatic merge.
 
 ## Implemented guardrails — compact baseline
 
