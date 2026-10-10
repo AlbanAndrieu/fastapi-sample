@@ -57,10 +57,18 @@ def test_compact_success_does_not_retain_log(tmp_path: Path) -> None:
     )[1].split("\nprint_precommit_failure() {", maxsplit=1)[0]
     directory = tmp_path / "quality logs"
     env = {**os.environ, "QUALITY_FAILURE_LOG_DIR": str(directory)}
+    script = (
+        "set -euo pipefail\n"
+        "LOG_TAIL=1\n"
+        + functions
+        + "\nrun_compact success bash -c 'echo ok'\n"
+    )
     result = subprocess.run(
-        ["bash", "-c", "set -euo pipefail\nLOG_TAIL=1\n" + functions
-         + '\nrun_compact success bash -c \'echo ok\'\n'],
-        env=env, capture_output=True, text=True, check=False,
+        ["bash", "-c", script],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert result.returncode == 0
     assert not directory.exists()
