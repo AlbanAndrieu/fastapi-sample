@@ -421,6 +421,8 @@ def _fetch_json(url: str, diagnostics_key: str | None) -> dict[str, Any]:
             payload = json.load(response)
     except HTTPError as exc:
         raise RuntimeError(f"health-board returned HTTP {exc.code}") from exc
+    except TimeoutError as exc:
+        raise RuntimeError("health-board request timed out after 8 seconds") from exc
     except URLError as exc:
         raise RuntimeError(f"health-board transport failed: {exc.reason}") from exc
     if not isinstance(payload, dict):
