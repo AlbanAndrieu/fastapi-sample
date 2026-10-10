@@ -61,6 +61,42 @@ the strength of an earlier PR's CI result.
 - Quantify cost using output lines/tokens and wall time **before/after** on the
   same failing fixture; reductions must not weaken checks or discard evidence.
 
+## P0 integration checkpoint — Gatus / Prometheus / OpenRAG (2026-10-10)
+
+- [x] Inspect the existing internal Gatus-via-Prometheus implementation:
+  `nabla/api/platform_metrics.py` queries bounded recording rules;
+  `nabla/api/synthetic_probe_comparison.py` only compares matching internal
+  service IDs. HTTP application checks do not count as TCP transport mismatches.
+- [x] Harden the internal comparison/delegation contract against non-finite,
+  out-of-range and boolean success samples, with dedicated regression tests.
+- [ ] **Live acceptance BLOCKED (not PASS):** from this agent environment TCP
+  access to `172.17.0.24:8091` and `:9090` failed, and public FastAPI Cloud
+  hostname resolution failed. These observations do not establish whether the
+  corresponding services are healthy inside the homelab.
+- [ ] Prove from inside the **FastAPI TrueNAS container** that
+  `HOMELAB_PROMETHEUS_URL=http://172.17.0.24:9090` is configured, that
+  `/-/ready` and `/api/v1/query` respond, and that the recording rules
+  `nabla:telemetry:gatus_up`, `nabla:service:synthetic_probe_success`,
+  `nabla:service:synthetic_probe_duration_seconds`, and
+  `nabla:service:synthetic_availability_ratio_5m` contain fresh, correctly
+  labeled series. Missing rules are telemetry gaps, never service DOWN.
+- [ ] Run the existing cached `/api/health-board` and diagnostic comparison
+  against real internal service IDs. Record matched/mismatched/missing counts,
+  freshness and any stale cache. Preserve FastAPI Cloud public outside-in
+  evidence as an independent source; do not launch parallel provider fan-out.
+- [ ] Compare runtime identifiers with the authoritative `nabla-compose`
+  catalog. Never join services by display name or silently downgrade public
+  protection outcomes when Gatus is green.
+- [ ] Validate the focused synthetic comparison and platform-metrics tests,
+  then run local Ruff and quality gate on the **new HEAD**. No green CI claim
+  without that proof.
+- [ ] **OpenRAG decision:** inventory existing OpenRAG/Langflow/embedding
+  endpoints, durable storage, authentication and tenant boundaries before
+  implementing a separate persistent `VectorStore`. Prefer an OpenRAG
+  adapter behind an injected `VectorStore` protocol if it meets those
+  contracts; do not introduce a second mutable vector index by default.
+  Optional RAG outage must remain independent of core health.
+
 ## Operating constraints
 
 - Python 3.13 + `uv` are the supported Python/tooling baseline.
