@@ -7,6 +7,8 @@ if ! [[ "${FAILURE_LINES}" =~ ^[0-9]+$ ]]; then
   exit 2
 fi
 # Parse as decimal (not octal), and cap oversized values before arithmetic.
+FAILURE_LINES="${FAILURE_LINES#"${FAILURE_LINES%%[!0]*}"}"
+FAILURE_LINES="${FAILURE_LINES:-0}"
 if ((${#FAILURE_LINES} > 9)); then
   FAILURE_LINES=40
 else
