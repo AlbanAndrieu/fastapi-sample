@@ -68,10 +68,11 @@ separate environment and must be labelled NOT RUN if unavailable.
 - Pin the PR HEAD from GitHub connector metadata; check existing workflows
   and statuses on **that SHA**, not on a previous commit.
 - Prefer a pre-existing local Git cache containing the target SHA and base:
-  `bash scripts/agent-source-snapshot.sh SOURCE_GIT_DIR HEAD_SHA DEST`.
-  The resulting local Git checkout retains metadata needed for the
-  canonical gate. Prove `git rev-parse HEAD` matches the expected SHA
-  and the comparison base exists.
+  `bash scripts/agent-source-snapshot.sh SOURCE_GIT_DIR HEAD_SHA DEST [BASE_REF]`.
+  Pass the comparison base when known so the materializer fails closed if it is
+  missing or not an ancestor of the requested HEAD. The resulting local Git
+  checkout retains metadata needed for the canonical gate. Prove
+  `git rev-parse HEAD` matches the expected SHA.
 - When no cached commit exists, inspect existing exact-SHA workflow
   artifacts (do **not** create a workflow merely for a snapshot). Source-only
   archives lack `.git`; they do not prove ancestry or L3.
