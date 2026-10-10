@@ -42,7 +42,7 @@ Modes:
 Environment:
   QUALITY_BASE_REF                 override comparison base
   QUALITY_LOG_TAIL                 failure log lines to print (default: 20, capped at 80)
-  QUALITY_FIX_PASSES               maximum pre-commit convergence passes (default: 6)
+  QUALITY_FIX_PASSES               maximum pre-commit convergence passes (default: 6, capped at 20)
   QUALITY_ALLOW_LARGE_DELETION=1   acknowledge all intentional large truncations/deletions
   QUALITY_LARGE_DELETION_ACK_FILE  base-scoped acknowledgement file (default: .quality-gate-large-deletions)
 EOF_HELP
@@ -83,9 +83,23 @@ else
     fi
 fi
 FIX_PASSES="${QUALITY_FIX_PASSES:-6}"
-if ! [[ "${FIX_PASSES}" =~ ^[1-9][0-9]*$ ]]; then
+if ! [[ "${FIX_PASSES}" =~ ^[0-9]+$ ]]; then
     printf '❌ QUALITY_FIX_PASSES must be a positive integer\n' >&2
     exit 2
+fi
+FIX_PASSES="${FIX_PASSES#"${FIX_PASSES%%[!0]*}"}"
+FIX_PASSES="${FIX_PASSES:-0}"
+if [[ "${FIX_PASSES}" == 0 ]]; then
+    printf '❌ QUALITY_FIX_PASSES must be a positive integer\n' >&2
+    exit 2
+fi
+if (("${#FIX_PASSES}" > 9)); then
+    FIX_PASSES=20
+else
+    FIX_PASSES=$((10#$FIX_PASSES))
+    if ((FIX_PASSES > 20)); then
+        FIX_PASSES=20
+    fi
 fi
 
 resolve_base_ref() {
