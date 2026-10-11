@@ -145,6 +145,15 @@ retain_failure_log() {
         rm -f -- "${log}"
         return 0
     fi
+    # A private mode alone is insufficient if another account owns the directory.
+    local owner current_uid
+    owner="$(stat -c %u -- "${QUALITY_FAILURE_LOG_DIR}" 2>/dev/null)" || owner=""
+    current_uid="$(id -u)"
+    if [[ -z "${owner}" || "${owner}" != "${current_uid}" ]]; then
+        printf '⚠️ quality failure log directory must be owned by the current user\n' >&2
+        rm -f -- "${log}"
+        return 0
+    fi
     if destination="$(mktemp "${QUALITY_FAILURE_LOG_DIR}/quality-failure.XXXXXXXX.log")" &&
         cp -- "${log}" "${destination}"; then
         printf '   Full failure log: %s\n' "${destination}" >&2
