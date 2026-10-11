@@ -513,3 +513,17 @@ Validation is included in
 A complete local quality gate was not run in the authoring environment because
 the GitHub host was unavailable via DNS; do not infer a passing gate from
 published commits.
+
+## Inconsistent duplicate evidence (PR #335)
+
+Duplicate rows carrying the same canonical ID and the same direct result
+are deduplicated. Rows with **contradictory** direct `ok` / `fail` results
+are now excluded from transport comparison, reported in
+`conflicting_direct_ids`, and block delegation with
+`conflicting_direct_observations`. They are not counted as Gatus missing
+or as failed services. The source observer must resolve these conflicting
+samples before a delegated probe can be accepted. Existing externally
+observed probes remain unaffected.
+
+The authoring container cannot resolve `github.com`; therefore no
+local pytest or full quality gate result is claimed on the new HEAD.
