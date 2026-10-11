@@ -45,6 +45,7 @@ def compare_internal_probe_evidence(
             "mismatched": 0,
             "application_evidence": 0,
             "missing_gatus": 0,
+            "missing_gatus_ids": [],
             "mismatches": [],
         }
 
@@ -53,6 +54,7 @@ def compare_internal_probe_evidence(
     mismatched = 0
     application_evidence = 0
     missing_gatus = 0
+    missing_gatus_ids: list[str] = []
     mismatches: list[dict[str, Any]] = []
 
     rows = homelab.get("internal_services")
@@ -70,6 +72,7 @@ def compare_internal_probe_evidence(
         synthetic_service = services.get(service_id)
         if not isinstance(synthetic_service, dict):
             missing_gatus += 1
+            missing_gatus_ids.append(service_id)
             continue
 
         transport = _matching_gatus_probe(
@@ -104,6 +107,7 @@ def compare_internal_probe_evidence(
             continue
 
         missing_gatus += 1
+        missing_gatus_ids.append(service_id)
 
     return {
         "source": "gatus_via_prometheus",
@@ -116,6 +120,7 @@ def compare_internal_probe_evidence(
         "mismatched": mismatched,
         "application_evidence": application_evidence,
         "missing_gatus": missing_gatus,
+        "missing_gatus_ids": missing_gatus_ids,
         "mismatches": mismatches,
     }
 
@@ -164,4 +169,5 @@ def evaluate_internal_probe_delegation(
         "application_evidence": application_evidence,
         "mismatched": mismatched,
         "missing_gatus": missing_gatus,
+        "missing_gatus_ids": comparison.get("missing_gatus_ids", []),
     }
