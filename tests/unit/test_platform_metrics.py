@@ -267,6 +267,9 @@ async def test_optional_exporters_are_visible_without_changing_required_gate() -
         "nabla:telemetry:fastapi_sample_up": "1",
         "nabla:telemetry:pyroscope_up": "0",
         "nabla:telemetry:alertmanager_up": "1",
+        "nabla:service:postgres_up": "1",
+        "nabla:service:redis_up": "0",
+        "nabla:core:pfsense_memory_available_ratio": "0.68",
     })
     settings = HomelabPrometheusSettings(homelab_prometheus_url="http://prometheus.test")
     async with _client(values) as client:
@@ -280,6 +283,9 @@ async def test_optional_exporters_are_visible_without_changing_required_gate() -
         "fastapi_sample_up": 1.0,
         "pyroscope_up": 0.0,
         "alertmanager_up": 1.0,
+        "postgres_up": 1.0,
+        "redis_up": 0.0,
+        "pfsense_memory_available_ratio": 0.68,
     }
 
 
