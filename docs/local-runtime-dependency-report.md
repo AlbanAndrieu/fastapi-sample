@@ -38,6 +38,11 @@ For each dependency preserve:
 
 A post-reboot report must not declare overall evidence complete while the cached board is `pending`, `refreshing` or explicitly stale. Such a snapshot remains incomplete even if individual service rows look healthy. The JSON report exposes `snapshot_fresh` separately from `evidence_gaps` for operator triage.
 
+A TrueNAS API response without an `apps` inventory is **incomplete**, not
+proof that the TrueNAS application itself failed. A present empty inventory
+remains an application-level failure; confirm the observer's APPS_READ permissions
+and runtime payload before changing TrueNAS settings.
+
 A PostgreSQL/Redis TCP connection only establishes transport. Cached component evidence without explicit `application_ok: true` remains incomplete: no database authentication, SQL query, Redis PING or application command success may be inferred from an open port.\n\nAn HTTP 4xx/5xx proves that the HTTP peer responded; it is not a TCP failure.
 Likewise, socket reachability does not prove authentication or application
 acceptance.
@@ -72,6 +77,8 @@ python3 scripts/diagnose-local-runtime-dependencies.py \
   --url http://172.17.0.24:8091 --wait-seconds 50
 # Or, from a checked-out repository with Just:
 just truenas-check
+# Complete post-reboot acceptance (strict exit status):
+just truenas-acceptance
 ```
 
 Only Python standard library is needed for this diagnostic. It triggers one
@@ -79,8 +86,13 @@ bounded cached health-board refresh, not direct provider fan-out. Export
 `DIAGNOSTICS_ACCESS_KEY` only if the endpoint requires it; never put secrets
 in CLI arguments or logs.
 
-Exit code 0 means all nine evidence contracts are complete; 1 means incomplete
-or failed evidence; 2 means the board cannot be fetched. The Sentry and Pyroscope
+In strict mode (default script invocation or `just truenas-acceptance`), exit
+code 0 means all nine evidence contracts are complete, 1 means incomplete or
+failed evidence, and 2 means the board cannot be fetched. `just truenas-check`
+uses `--report-only`: exit 0 means the report was obtained, **not** that all
+integrations are healthy. Missing evidence and real failures still appear in
+the matrix and are explained in the follow-up triage lines. A fetch failure
+continues to return exit 2. The Sentry and Pyroscope
 contracts still require deeper evidence, so a report with those gaps does not
 necessarily imply that the runtime is unavailable.
 
