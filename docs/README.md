@@ -18,11 +18,11 @@ canonical entry points.
 
 ## Runbooks
 
-- [pfSense WebGUI/API 502 recovery](pfsense-webconfigurator-recovery.md)
+- [pfSense 502 observer contract (platform recovery in nabla-compose)](pfsense-webconfigurator-recovery.md)
 - [pfSense security observability](pfsense-security-observability.md)
 - [External probe cache operations](external-probe-cache-operations.md)
 - [TrueNAS public ingress](truenas-public-ingress.md)
-- [Cloudflare/Sentry runtime diagnostics](cloudflare-sentry-runtime-diagnostics.md)
+- [Cloudflare/Sentry application observer and SDK contract](cloudflare-sentry-runtime-diagnostics.md)
 - [Cloudflare network contract](fastapi-sample-cloudflare-network-contract.md)
 - [Health monitoring environment](health-monitoring-environment.md)
 - [Kubernetes zero-trust hardening](kubernetes-zero-trust-hardening.md)
