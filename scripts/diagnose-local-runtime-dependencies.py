@@ -139,7 +139,7 @@ def _truenas(snapshot: dict[str, Any]) -> dict[str, Any]:
         row["authenticated"] = True
     elif row["error_stage"] == "authentication":
         row["authenticated"] = False
-    row["application_ok"] = bool(row["reachable"] is True and app_count is not None and app_count > 0)
+    row["application_ok"] = (app_count > 0) if row["reachable"] is True and app_count is not None else None
     row["application_result"] = {
         "kind": "truenas_app_inventory",
         "app_count": app_count,
@@ -477,6 +477,33 @@ def print_table(report: dict[str, Any]) -> None:
     print()
     if gaps:
         print("Evidence gaps: " + ", ".join(str(value) for value in gaps))
+        for name in gaps:
+            row = _mapping(dependencies.get(name))
+            state = row.get("operational_state")
+            stage = row.get("error_stage") or row.get("error_kind") or "no_application_proof"
+            detail = _mapping(row.get("application_result"))
+            if name == "truenas":
+                guidance = "Inspect API inventory and observer privileges (APPS_READ); do not infer application failure when apps evidence is absent."
+                extra = f" apps={detail.get('app_count')}"
+            elif name == "pfsense":
+                guidance = "Check authenticated /api/v2/system/version evidence from the TrueNAS observer; do not treat transport as authorization."
+                extra = ""
+            elif name == "pyroscope":
+                guidance = "Restore HTTP readiness, then verify recent profile ingestion; check runtime UID/dataset permissions before restart."
+                extra = ""
+            elif name == "sentry":
+                guidance = "DSN socket evidence is insufficient; verify a bounded event ID and downstream ingestion."
+                extra = ""
+            elif name in {"postgres", "redis"}:
+                guidance = "TCP is not application proof; inspect cached authenticated command health without extra probe fan-out."
+                extra = ""
+            elif name == "gatus":
+                guidance = "Check Gatus HTTP/history and Prometheus gatus_up metrics internally; never replace outside-in checks."
+                extra = ""
+            else:
+                guidance = "Inspect existing runtime evidence, not an additional provider probe."
+                extra = ""
+            print(f"  - {name}: {state}, stage={stage}{extra}; {guidance}")
     else:
         print("✅ all dependency evidence contracts are complete")
 
@@ -495,6 +522,10 @@ def parse_args() -> argparse.Namespace:
         help="maximum wait for one health-board refresh",
     )
     parser.add_argument("--json", action="store_true", help="print normalized JSON")
+    parser.add_argument(
+        "--report-only", action="store_true",
+        help="return 0 when the board is readable; still print all evidence gaps (no acceptance proof)",
+    )
     return parser.parse_args()
 
 
@@ -512,7 +543,7 @@ def main() -> int:
         print(json.dumps(report, indent=2, sort_keys=True))
     else:
         print_table(report)
-    return 0 if report["evidence_complete"] else 1
+    return 0 if args.report_only or report["evidence_complete"] else 1
 
 
 if __name__ == "__main__":
