@@ -48,7 +48,11 @@ p1-dagger-preflight:
 
 # Post-reboot cached integration report (no direct provider fan-out).
 truenas-check:
-    python3 scripts/diagnose-local-runtime-dependencies.py --url http://172.17.0.24:8091
+    python3 scripts/diagnose-local-runtime-dependencies.py --url http://172.17.0.24:8091 --report-only
+
+# Strict post-reboot acceptance: all evidence must be complete to return 0.
+truenas-acceptance:
+    python3 scripts/diagnose-local-runtime-dependencies.py --url http://172.17.0.24:8091 --wait-seconds 50
 
 # Run only pfSense observation, probe and tracing contracts.
 test-pfsense:
