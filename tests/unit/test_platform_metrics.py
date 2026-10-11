@@ -296,3 +296,44 @@ async def test_missing_optional_exporters_are_unknown_not_platform_outage() -> N
         payload = await fetch_platform_metrics(settings=settings, client=client)
     assert payload["state"] == "healthy"
     assert all(value is None for value in payload["summary"]["optional_exporters"].values())
+
+
+@pytest.mark.asyncio
+async def test_exporter_job_inventory_is_bounded_and_does_not_change_health() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        samples = [
+            {"metric": {"__name__": name}, "value": [1, value]}
+            for name, value in VALUES.items()
+        ]
+        for job, value in (
+            ("kafka_exporter", "1"),
+            ("opensearch", "0"),
+            ("cloudflare_exporter", "1"),
+            ("unexpected_job", "1"),
+        ):
+            samples.append({
+                "metric": {"__name__": "nabla:telemetry:service_exporter_up", "job": job},
+                "value": [1, value],
+            })
+        return httpx.Response(
+            200, request=request,
+            json={"status": "success", "data": {"resultType": "vector", "result": samples}},
+        )
+
+    settings = HomelabPrometheusSettings(
+        homelab_prometheus_url="http://prometheus.test",
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://prometheus.test",
+    ) as client:
+        payload = await fetch_platform_metrics(settings=settings, client=client)
+
+    assert payload["state"] == "healthy"
+    assert payload["exporter_jobs"] == {
+        "kafka_exporter": 1.0,
+        "opensearch": 0.0,
+        "cloudflare_exporter": 1.0,
+    }
+    assert "unexpected_job" not in payload["exporter_jobs"]
+    assert payload["summary"]["signals_total"] == 6
