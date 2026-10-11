@@ -57,6 +57,52 @@ SAST/BetterLeaks/Playwright/ZAP checks remain **before-merge** requirements,
 not the principal delivery workstream. Record unavailable checks as NOT RUN;
 no auto-merge and no automatic infrastructure restarts.
 
+## CURRENT FASTAPI-SAMPLE DELIVERY SLICE — six workstreams (2026-10-11)
+
+Only the following workstreams are in the immediate implementation scope.
+Keep `nabla-compose` authoritative for declared service identities and
+exposure, and retain FastAPI Cloud as an **independent public** observer.
+
+1. **Secure diagnostic retention:** opt-in logs may contain scanner output,
+   tokens or internal URLs. Require a non-symlink, private, current-user-owned
+   destination; keep original check exit codes. Do not retain successful logs.
+   - [x] Enforce directory owner as well as access-mode checks, with a
+     simulated foreign-owner regression test.
+   - [ ] Validate these checks with the complete local test module and
+     threat-model unsafe parent directories/races before enabling retention
+     on an operator workstation.
+2. **pfSense / TrueNAS / Cloudflare:** keep authenticated and unauthenticated
+   evidence distinct; 401/403 policy denials are not transport DOWN, while an
+   unexpected 2xx anonymous response is a security failure. Preserve the
+   bounded pfSense preflight and Cloudflare unknown/warning behavior. Complete
+   TrueNAS observer and public Cloudflare Access acceptance from both vantages
+   without reusing LAN results as Internet evidence.
+3. **Canonical catalog:** prepare consumers for a *direct, coordinated*
+   `nabla-compose` v2 cutover. Validate stable full entity refs, BIA
+   criticality, desired exposure, relations, revision/provenance and packaged
+   fallback before the cutover. Do not delete legacy catalogs or infer runtime
+   availability from declarative `active` fields. Do not create a second
+   source of truth in FastAPI.
+4. **Gatus / Prometheus:** compare only internal generic probes to TrueNAS
+   Gatus; public Cloudflare/DNS/TLS/WAN results remain in FastAPI Cloud.
+   Require Prometheus query evidence and actual Gatus HTTP/history recovery;
+   absent internal evidence should be a warning rather than an invented green.
+5. **Application factory / lifespan:** inventory import-time Postgres, Redis,
+   HTTPX and optional AI initialization, then introduce a minimal hermetic
+   factory and lifespan-owned shared clients incrementally. Prevent startup
+   failure of optional homelab integrations from taking down core liveness.
+6. **Synthetic Open Schema:** generate from the `nabla-compose` catalog,
+   validate schema and test an external DNS/TLS/HTTP sample with the official
+   runner. Retain explicit Cloudflare anonymous default-deny, service-token
+   authorization and WAN/SNI evidence; adopt only if net code and contract
+   complexity actually decrease.
+
+**Delivery order:** diagnostic security and evidence contracts → catalog
+consumer readiness → Gatus/Prometheus reconciliation → incremental lifecycle
+isolation → SOS runner acceptance. Perform targeted tests for each change;
+full SAST, BetterLeaks, Playwright, ZAP and publication proof remain required
+before merge. No automatic merge or live appliance mutation.
+
 ## P0 — production security and privacy
 
 - [ ] Set `DEBUG=false` in FastAPI Cloud and prove unexpected exceptions no
