@@ -374,6 +374,7 @@ def _gatus(snapshot: dict[str, Any]) -> dict[str, Any]:
     row["application_result"] = {
         "kind": "gatus_via_prometheus",
         "coverage_observed": coverage,
+        "gatus_source": synthetic.get("gatus_source"),
         "scope": "truenas_internal_only",
         "service_count": synthetic.get("service_count"),
         "comparable": comparison.get("comparable"),
