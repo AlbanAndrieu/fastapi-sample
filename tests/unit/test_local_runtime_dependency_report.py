@@ -518,3 +518,43 @@ def test_basic_availability_distinguishes_missing_from_unreachable() -> None:
     basic = module.basic_availability(module.build_report(snapshot))
     assert basic["postgres"] == "unknown"
     assert basic["pyroscope"] == "unreachable"
+
+
+def test_pfsense_denied_and_timeout_do_not_imply_network_down() -> None:
+    module = load_module()
+    snapshot = sample_snapshot()
+    check = snapshot["healthz"]["checks"]["pfsense"]
+    check.update({"http_status": 403, "api_authenticated": False, "application_ok": False})
+    denied = module.build_report(snapshot)["dependencies"]["pfsense"]
+    assert denied["reachable"] is True
+    assert denied["authenticated"] is False
+    assert denied["evidence_complete"] is False
+    check.clear()
+    check.update({"configured": True, "error_kind": "connect_timeout"})
+    timeout = module.build_report(snapshot)["dependencies"]["pfsense"]
+    assert timeout["authenticated"] is None
+    assert timeout["evidence_complete"] is False
+
+
+def test_recovered_pyroscope_readiness_remains_separate_from_profile_ingestion() -> None:
+    module = load_module()
+    snapshot = sample_snapshot()
+    check = snapshot["healthz"]["checks"]["pyroscope"]
+    check.update({"http_status": 200, "path": "/ready"})
+    ready = module.build_report(snapshot)["dependencies"]["pyroscope"]
+    assert ready["reachable"] is True
+    assert ready["application_ok"] is True
+    assert ready["evidence_complete"] is False
+
+
+def test_stale_component_and_real_command_failure_stay_distinct() -> None:
+    module = load_module()
+    snapshot = sample_snapshot()
+    postgres = snapshot["homelab"]["components"]["postgres"]
+    postgres["stale"] = True
+    assert module.build_report(snapshot)["dependencies"]["postgres"]["evidence_complete"] is False
+    postgres["stale"] = False
+    postgres["application_evidence"]["ok"] = False
+    failed = module.build_report(snapshot)["dependencies"]["postgres"]
+    assert failed["application_ok"] is False
+    assert failed["operational_state"] == "application_error"
