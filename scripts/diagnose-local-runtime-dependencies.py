@@ -428,6 +428,35 @@ def build_report(snapshot: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+
+def basic_availability(report: dict[str, Any]) -> dict[str, str]:
+    """Basic status uses cached reachability, never fabricated deep acceptance."""
+    rows = _mapping(report.get("dependencies"))
+    results: dict[str, str] = {}
+    for name in _DEPENDENCY_ORDER:
+        row = _mapping(rows.get(name))
+        if row.get("configured") is False:
+            status = "not_configured"
+        elif row.get("reachable") is True:
+            status = "reachable"
+        elif row.get("reachable") is False:
+            status = "unreachable"
+        else:
+            status = "unknown"
+        results[name] = status
+    return results
+
+
+def print_basic_availability(report: dict[str, Any], *, color: bool = False) -> None:
+    print("\n📡 Basic availability (transport only, NOT deep acceptance)")
+    for name, status in basic_availability(report).items():
+        label = {"reachable": "✅", "unreachable": "❌"}.get(status, "❔")
+        if color:
+            ansi = "\x1b[32m" if status == "reachable" else "\x1b[31m" if status == "unreachable" else "\x1b[33m"
+            label = f"{ansi}{label}\x1b[0m"
+        print(f"  {label} {name:<12} {status}")
+    print("ℹ️ Deep evidence and security authorization are separate; see nabla-compose scripts/truenas/.")
+
 def _fetch_json(url: str, diagnostics_key: str | None) -> dict[str, Any]:
     parsed = urlsplit(url)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
@@ -559,6 +588,7 @@ def parse_args() -> argparse.Namespace:
         help="maximum wait for one health-board refresh",
     )
     parser.add_argument("--json", action="store_true", help="print normalized JSON")
+    parser.add_argument("--basic", action="store_true", help="report cached basic reachability without requiring deep evidence")
     parser.add_argument("--color", choices=("auto", "always", "never"), default="auto", help="ANSI color for text output")
     parser.add_argument(
         "--report-only", action="store_true",
@@ -581,8 +611,11 @@ def main() -> int:
         print(json.dumps(report, indent=2, sort_keys=True))
     else:
         color = args.color == "always" or (args.color == "auto" and sys.stdout.isatty() and "NO_COLOR" not in os.environ)
-        print_table(report, color=color)
-    return 0 if args.report_only or report["evidence_complete"] else 1
+        if args.basic:
+            print_basic_availability(report, color=color)
+        else:
+            print_table(report, color=color)
+    return 0 if args.basic or args.report_only or report["evidence_complete"] else 1
 
 
 if __name__ == "__main__":
