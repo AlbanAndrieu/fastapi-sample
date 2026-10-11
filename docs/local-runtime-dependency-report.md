@@ -154,7 +154,7 @@ complete. Keep Gatus separate from public WAN/Cloudflare Access evidence.
 ## FastAPI outside-in and security diagnostics
 
 ```bash
-cd /mnt/cpool/compose/fastapi-sample
+cd /path/to/fastapi-sample  # replace with actual checkout path
 python3 scripts/diagnose-local-runtime-dependencies.py \
   --url http://172.17.0.24:8091 --wait-seconds 50 --report-only
 # Strict, expected to fail until actual end-to-end evidence exists:
