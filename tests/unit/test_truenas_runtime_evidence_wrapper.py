@@ -59,3 +59,18 @@ def test_invalid_vantage_returns_error(tmp_path: Path) -> None:
     )
     assert result.returncode == 2
     assert "Invalid vantage" in result.stderr
+
+
+def test_local_docker_lines_do_not_print_literal_backslash_n() -> None:
+    source = SCRIPT.read_text(encoding="utf-8")
+    for line in source.splitlines():
+        if "local %-10s" in line:
+            assert r"\\n" not in line
+            assert r"\n" in line
+
+
+def test_http_readiness_distinguishes_non_2xx_from_transport_failure() -> None:
+    source = SCRIPT.read_text(encoding="utf-8")
+    assert "HTTP responded; readiness not confirmed" in source
+    assert "result='unreachable'" in source
+    assert "Gatus HTTP 200 can coexist with cached unknown" in source
