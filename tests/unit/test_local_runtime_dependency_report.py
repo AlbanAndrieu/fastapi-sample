@@ -403,3 +403,19 @@ def test_pyroscope_root_200_is_not_a_readiness_failure() -> None:
     assert row["application_result"]["readiness_ok"] is None
     assert row["operational_state"] == "evidence_incomplete"
     assert row["evidence_complete"] is False
+
+
+def test_tcp_only_postgres_and_redis_do_not_pass_application_acceptance() -> None:
+    module = load_module()
+    snapshot = sample_snapshot()
+    snapshot["homelab"]["components"] = {
+        "postgres": {"reachable": True},
+        "redis": {"reachable": True},
+    }
+    report = module.build_report(snapshot)
+    for name in ("postgres", "redis"):
+        row = report["dependencies"][name]
+        assert row["reachable"] is True
+        assert row["application_ok"] is None
+        assert row["evidence_complete"] is False
+        assert row["operational_state"] == "evidence_incomplete"
