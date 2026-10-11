@@ -82,7 +82,9 @@ async def _query_fixed_metrics(
         if metric == _EXPORTER_RECORD:
             job = labels.get("job")
             if isinstance(job, str) and job in _EXPORTER_JOBS and value in (0.0, 1.0):
-                exporter_jobs[job] = value
+                # Fail closed on conflicting/duplicate series for the same job.
+                previous = exporter_jobs.get(job)
+                exporter_jobs[job] = value if previous is None else min(previous, value)
             continue
         key = _METRIC_TO_KEY.get(metric)
         if key is not None:
