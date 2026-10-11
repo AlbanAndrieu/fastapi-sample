@@ -477,3 +477,24 @@ bash scripts/run-pytest-compact.sh \
 `nabla-compose` PR #253 owns the generated Gatus configuration and
 Prometheus recording-rule provisioning; `fastapi-sample` PR #335 owns only
 bounded collection, classification and diagnostics.
+
+## Gatus gap classification — follow-up to PR #253
+
+The diagnostic now outputs `missing_gatus_reasons` alongside
+`missing_gatus_ids`. Each recorded internal service without a matching
+Prometheus metric is classified as:
+
+- `no_labeled_service_metrics`: no `nabla_service_id` series for the
+  direct service ID; check the canonical service ID, generated Gatus monitor,
+  applied Gatus config and Prometheus relabeling.
+- `no_valid_comparable_probe`: the ID is present, but no valid TCP, HTTP
+  or HTTPS success sample is available; check protocol/metric type, scrape
+  lag and rule calculation.
+
+These are **coverage diagnoses, not failure states**. The generator in
+`nabla-compose` creates `apps/gatus/config/config.yml` and populates
+`nabla_service_id` in endpoint labels. The FastAPI comparison must not
+confuse a missing label or unsupported PING-only monitor with a service
+outage. The actual list of 11 IDs is still contingent on a runtime snapshot
+populated with the newly exposed fields. Preserve the PR #253 generator
+as source of authority, and keep FastAPI's outside-in checks unchanged.
