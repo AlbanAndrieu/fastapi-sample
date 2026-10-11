@@ -527,3 +527,21 @@ observed probes remain unaffected.
 
 The authoring container cannot resolve `github.com`; therefore no
 local pytest or full quality gate result is claimed on the new HEAD.
+
+## Synthetic metrics unobserved versus genuine coverage gaps
+
+The comparator now refuses to claim missing Gatus monitors when
+`platform_metrics.synthetic_probes.state` is not `observed` or the
+service metric map is missing. It reports `state=unavailable` with
+`reason=synthetic_metrics_not_observed`, preserves external probes,
+and does **not** populate `missing_gatus_ids` by guessing. Delegation
+continues to block on `gatus_not_observed` and
+`no_internal_gatus_evidence`. Only an *observed* service-metric inventory
+may be compared to the canonical internal service list. The separate
+`up{job="gatus"}` fallback proves scrape reachability, not the
+existence of named service monitors.
+
+This prevents temporary missing recording-rule output or a Prometheus
+query failure from being misreported as 11 missing configured Gatus
+monitors. After observability recovers, compare the actual IDs with
+`nabla-compose` PR #253's generated Gatus config.
