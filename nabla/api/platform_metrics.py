@@ -27,6 +27,9 @@ _OPTIONAL_METRICS = {
     "fastapi_sample_up": "nabla:telemetry:fastapi_sample_up",
     "pyroscope_up": "nabla:telemetry:pyroscope_up",
     "alertmanager_up": "nabla:telemetry:alertmanager_up",
+    "postgres_up": "nabla:service:postgres_up",
+    "redis_up": "nabla:service:redis_up",
+    "pfsense_memory_available_ratio": "nabla:core:pfsense_memory_available_ratio",
 }
 _METRIC_TO_KEY = {metric: key for key, metric in {**_METRICS, **_OPTIONAL_METRICS}.items()}
 _SYNTHETIC_METRICS = {
