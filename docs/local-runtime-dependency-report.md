@@ -47,6 +47,45 @@ A PostgreSQL/Redis TCP connection only establishes transport. Cached component e
 Likewise, socket reachability does not prove authentication or application
 acceptance.
 
+## Operational division of responsibility
+
+`fastapi-sample` checks **basic service reachability**, not full
+administrative recovery of every TrueNAS app. The portable wrapper defaults
+to `--basic` evidence and reports source perspective; `--detail` prints the
+cached strict evidence gaps without failing, and `--strict` retains the
+full nine-dependency acceptance gate. Basic mode returning zero only means
+the board was read; individual unreachable/unknown rows remain visible.
+
+```bash
+# From existing fastapi-sample checkout on workstation; no TrueNAS checkout needed.
+bash scripts/truenas-runtime-evidence.sh --vantage workstation
+bash scripts/truenas-runtime-evidence.sh --vantage workstation --detail
+# Optional strict full acceptance (intentionally may exit 1):
+bash scripts/truenas-runtime-evidence.sh --vantage workstation --strict
+```
+
+The workstation's `postgres` and `redis` Docker containers are reported
+under a distinctly labeled **local** heading and must not become health
+evidence for TrueNAS. Pyroscope readiness and Gatus are checked against the
+TrueNAS IP. If Pyroscope recently recovered, HTTP 503 may represent a
+remaining readiness failure or timing drift; confirm with a new bounded check.
+
+For deeper diagnostics, run these **in the existing nabla-compose checkout on
+TrueNAS when warranted**, not from the fastapi-sample workstation script:
+
+```bash
+cd /mnt/cpool/compose/nabla-compose
+python3 scripts/truenas/diagnose-fastapi-integrations.py --help
+bash scripts/truenas/diagnose-sentry.sh --check
+bash scripts/truenas/diagnose-gatus.sh
+bash scripts/truenas/diagnose-pyroscope.sh
+```
+
+The `nabla-compose` scripts are the authoritative service-level recovery
+diagnostics. Do not infer authenticated SQL/Redis operations, Sentry event
+ingestion, Gatus monitoring history or Pyroscope profile ingestion from a
+simple HTTP 200/TCP response.
+
 ## Dual-vantage behavior (2026-10-11)
 
 `scripts/truenas-runtime-evidence.sh` is designed for both the workstation and
