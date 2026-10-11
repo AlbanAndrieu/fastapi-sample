@@ -311,3 +311,14 @@ def test_oversized_gatus_up_blocks_delegation_without_exception() -> None:
     delegation = evaluate_internal_probe_delegation(platform, comparison)
     assert delegation["state"] == "blocked"
     assert "gatus_not_up" in delegation["blockers"]
+
+
+def test_non_boolean_gatus_up_gauge_is_rejected_for_delegation() -> None:
+    platform = _platform({"nexus": {"TCP": {"success": 1.0}}})
+    platform["synthetic_probes"]["gatus_up"] = 2.0
+    result = evaluate_internal_probe_delegation(
+        platform,
+        {"comparable": 1, "application_evidence": 0, "mismatched": 0, "missing_gatus": 0},
+    )
+    assert result["candidate"] is False
+    assert "gatus_not_up" in result["blockers"]
