@@ -20,6 +20,11 @@ _METRICS = {
     "truenas_cadvisor_up": "nabla:telemetry:truenas_cadvisor_up",
     "pfsense_metrics_up": "nabla:telemetry:pfsense_metrics_up",
     "prometheus_up": "nabla:observability:prometheus_up",
+    "postgres_exporter_up": "nabla:telemetry:postgres_exporter_up",
+    "redis_exporter_up": "nabla:telemetry:redis_exporter_up",
+    "fastapi_sample_up": "nabla:telemetry:fastapi_sample_up",
+    "pyroscope_up": "nabla:telemetry:pyroscope_up",
+    "alertmanager_up": "nabla:telemetry:alertmanager_up",
 }
 _METRIC_TO_KEY = {metric: key for key, metric in _METRICS.items()}
 _SYNTHETIC_METRICS = {
