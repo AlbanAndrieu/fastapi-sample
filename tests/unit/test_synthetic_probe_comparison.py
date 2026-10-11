@@ -289,3 +289,25 @@ def test_unobserved_synthetic_metrics_do_not_invent_missing_gatus_monitors() -> 
     assert "gatus_not_observed" in delegated["blockers"]
     assert "no_internal_gatus_evidence" in delegated["blockers"]
     assert "missing_internal_gatus_evidence" not in delegated["blockers"]
+
+
+def test_oversized_gatus_sample_is_not_considered_valid_monitoring_evidence() -> None:
+    huge = 10**1000
+    comparison = compare_internal_probe_evidence(
+        {"internal_services": [{"id": "nexus", "state": "ok"}]},
+        _platform({"nexus": {"TCP": {"success": huge}}}),
+    )
+    assert comparison["comparable"] == 0
+    assert comparison["missing_gatus_ids"] == ["nexus"]
+
+
+def test_oversized_gatus_up_blocks_delegation_without_exception() -> None:
+    platform = _platform({"nexus": {"TCP": {"success": 1.0}}})
+    platform["synthetic_probes"]["gatus_up"] = 10**1000
+    comparison = compare_internal_probe_evidence(
+        {"internal_services": [{"id": "nexus", "state": "ok"}]},
+        platform,
+    )
+    delegation = evaluate_internal_probe_delegation(platform, comparison)
+    assert delegation["state"] == "blocked"
+    assert "gatus_not_up" in delegation["blockers"]
