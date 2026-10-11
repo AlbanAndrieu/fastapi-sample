@@ -491,3 +491,25 @@ def test_text_table_uses_icons_without_ansi_by_default(capsys) -> None:
     assert "✅ ok" in output
     assert "❔ evidence_incomplete" in output
     assert (chr(27) + "[") not in output
+
+
+def test_basic_availability_does_not_require_deep_acceptance() -> None:
+    module = load_module()
+    report = module.build_report(sample_snapshot())
+    basic = module.basic_availability(report)
+    assert basic["sentry"] == "reachable"
+    assert basic["pyroscope"] == "reachable"
+    assert basic["postgres"] == "reachable"
+    assert basic["redis"] == "reachable"
+    assert basic["gatus"] == "reachable"
+    assert report["evidence_complete"] is False
+
+
+def test_basic_availability_distinguishes_missing_from_unreachable() -> None:
+    module = load_module()
+    snapshot = sample_snapshot()
+    snapshot["homelab"]["components"].pop("postgres")
+    snapshot["healthz"]["checks"]["pyroscope"] = {"reachable": False}
+    basic = module.basic_availability(module.build_report(snapshot))
+    assert basic["postgres"] == "unknown"
+    assert basic["pyroscope"] == "unreachable"
