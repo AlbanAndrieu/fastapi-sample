@@ -33,13 +33,14 @@ def compare_internal_probe_evidence(
 
     synthetic = platform_metrics.get("synthetic_probes")
     services = synthetic.get("services") if isinstance(synthetic, dict) else None
-    if not isinstance(services, dict):
+    if not isinstance(services, dict) or synthetic.get("state") != "observed":
         return {
             "source": "gatus_via_prometheus",
             "scope": "truenas_internal_only",
             "external_probes_preserved": True,
             "shadow_only": True,
             "state": "unavailable",
+            "reason": "synthetic_metrics_not_observed",
             "comparable": 0,
             "matched": 0,
             "mismatched": 0,
@@ -131,6 +132,7 @@ def compare_internal_probe_evidence(
         "external_probes_preserved": True,
         "shadow_only": True,
         "state": "observed",
+        "reason": "compared_observed_metrics",
         "comparable": comparable,
         "matched": matched,
         "mismatched": mismatched,
