@@ -19,10 +19,24 @@ def _matching_gatus_probe(
             continue
         value = evidence.get("success")
         if isinstance(value, (int, float)) and not isinstance(value, bool):
-            numeric = float(value)
+            try:
+                numeric = float(value)
+            except OverflowError:
+                continue
             if math.isfinite(numeric) and 0.0 <= numeric <= 1.0:
                 return probe_type, numeric
     return None
+
+
+def _valid_gatus_up(value: object) -> bool:
+    """Fail closed on impossible or oversized telemetry samples."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    try:
+        numeric = float(value)
+    except OverflowError:
+        return False
+    return math.isfinite(numeric) and numeric >= 1.0
 
 
 def compare_internal_probe_evidence(
@@ -160,8 +174,7 @@ def evaluate_internal_probe_delegation(
     elif (
         isinstance(synthetic.get("gatus_up"), bool)
         or not isinstance(synthetic.get("gatus_up"), (int, float))
-        or not math.isfinite(float(synthetic["gatus_up"]))
-        or float(synthetic["gatus_up"]) < 1.0
+        or not _valid_gatus_up(synthetic["gatus_up"])
     ):
         blockers.append("gatus_not_up")
 
