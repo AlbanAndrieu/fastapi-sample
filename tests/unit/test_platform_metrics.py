@@ -256,3 +256,37 @@ async def test_gatus_recording_rule_takes_priority_over_raw_up() -> None:
         payload = await fetch_platform_metrics(settings=settings, client=client)
     assert payload["synthetic_probes"]["gatus_up"] == 0.0
     assert payload["synthetic_probes"]["gatus_source"] == "recording_rule"
+
+
+@pytest.mark.asyncio
+async def test_optional_exporters_are_visible_without_changing_required_gate() -> None:
+    values = dict(VALUES)
+    values.update({
+        "nabla:telemetry:postgres_exporter_up": "1",
+        "nabla:telemetry:redis_exporter_up": "0",
+        "nabla:telemetry:fastapi_sample_up": "1",
+        "nabla:telemetry:pyroscope_up": "0",
+        "nabla:telemetry:alertmanager_up": "1",
+    })
+    settings = HomelabPrometheusSettings(homelab_prometheus_url="http://prometheus.test")
+    async with _client(values) as client:
+        payload = await fetch_platform_metrics(settings=settings, client=client)
+
+    assert payload["state"] == "healthy"
+    assert payload["summary"]["signals_total"] == 6
+    assert payload["summary"]["optional_exporters"] == {
+        "postgres_exporter_up": 1.0,
+        "redis_exporter_up": 0.0,
+        "fastapi_sample_up": 1.0,
+        "pyroscope_up": 0.0,
+        "alertmanager_up": 1.0,
+    }
+
+
+@pytest.mark.asyncio
+async def test_missing_optional_exporters_are_unknown_not_platform_outage() -> None:
+    settings = HomelabPrometheusSettings(homelab_prometheus_url="http://prometheus.test")
+    async with _client(VALUES) as client:
+        payload = await fetch_platform_metrics(settings=settings, client=client)
+    assert payload["state"] == "healthy"
+    assert all(value is None for value in payload["summary"]["optional_exporters"].values())
