@@ -411,3 +411,34 @@ transport as profile evidence, or TrueNAS VM inventory as Kubernetes health.
 
 Open acceptance items are tracked only in
 [engineering-roadmap.md](engineering-roadmap.md).
+
+## Cross-repository acceptance matrix — PR #335 / nabla-compose PR #253
+
+This separates the observed service state from deep coverage/permissions.
+It is based on operator evidence dated 2026-10-11, **not** a fresh live audit.
+
+| Service | Observed state | Available evidence | Missing evidence / likely explanation | Owner / acceptance |
+| --- | --- | --- | --- | --- |
+| TrueNAS | functional | authenticated API inventory, apps visible | guest Kubernetes and reboot evidence are independent | FastAPI keeps cached read-only inventory; nabla-compose proves cluster/reboot |
+| pfSense | HTTP reachable, anonymous 401 | TCP/HTTPS + expected unauthorized API response | authenticated dedicated observer `system.version` 2xx not propagated, possible permissions/snapshot mismatch | FastAPI preserves auth=unknown; nabla-compose tests observer key/least privilege |
+| Sentry | core containers healthy | NGINX/web/consumers; DSN socket | a fresh persisted synthetic event cannot be inferred from TCP | FastAPI basic reachable; nabla-compose `diagnose-sentry.sh --check` + E2E event |
+| PostgreSQL | healthy | TrueNAS `pg_isready` accepting, :5432 reachable | authenticated SQL proof absent; exporter 9187 not running (separate monitoring coverage) | FastAPI basic reachable; nabla-compose adds approved SQL evidence/exporter only if needed |
+| Redis | healthy | TrueNAS container + TCP reachability | authenticated PING missing; workstation Redis is separate | FastAPI basic reachable; nabla-compose consumer-level check |
+| Gatus | HTTP 200, Prometheus up=1 previously | direct TrueNAS :8085, scrape up | cached synthetic series missing or stale; `gatus_not_observed` and 11 missing IDs indicate missing coverage, **not** downtime | FastAPI reports missing IDs from internal comparison; nabla-compose PR #253 reconciles catalog vs generated Gatus monitors/metric labels |
+| Pyroscope | readiness recovered | /, /metrics and /ready HTTP 200 on workstation; corrected persistent store | recent `service_name=fastapi-sample` ingestion unverified | FastAPI basic ready; nabla-compose `diagnose-pyroscope.sh` and profile proof |
+
+For Gatus, `missing_gatus_ids` is now included by
+`compare_internal_probe_evidence` and in the normalized FastAPI report **when
+the running backend actually exposes the new field**. Before deployment or
+without actual `internal_services` and Gatus metric labels, the exact 11 IDs
+cannot be safely reconstructed from the count. Inspect the JSON field and
+compare each ID against `nabla-compose/catalog/service-topology.json`, generated
+Gatus monitors and Prometheus label normalization. No missing ID is
+automatically classified `DOWN`.
+
+Distinguish: service business state, network reachability, auth privileges,
+observation freshness, source-of-evidence, generated monitor coverage and
+deep end-to-end acceptance. A missing exporter (PostgreSQL 9187), a missing
+Gatus series or a cached `evidence_incomplete` state does not downgrade a
+confirmed functioning service. Never grant TrueNAS administrator privileges
+to make a monitoring check green.
