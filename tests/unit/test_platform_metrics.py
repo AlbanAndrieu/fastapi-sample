@@ -337,3 +337,35 @@ async def test_exporter_job_inventory_is_bounded_and_does_not_change_health() ->
     }
     assert "unexpected_job" not in payload["exporter_jobs"]
     assert payload["summary"]["signals_total"] == 6
+
+
+@pytest.mark.asyncio
+async def test_conflicting_exporter_samples_fail_closed_independent_of_order() -> None:
+    for samples in (("1", "0"), ("0", "1")):
+        def handler(request: httpx.Request) -> httpx.Response:
+            result = [
+                {"metric": {"__name__": name}, "value": [1, value]}
+                for name, value in VALUES.items()
+            ]
+            result.extend({
+                "metric": {
+                    "__name__": "nabla:telemetry:service_exporter_up",
+                    "job": "redis_exporter",
+                },
+                "value": [1, value],
+            } for value in samples)
+            return httpx.Response(
+                200, request=request,
+                json={"status": "success", "data": {"resultType": "vector", "result": result}},
+            )
+
+        settings = HomelabPrometheusSettings(
+            homelab_prometheus_url="http://prometheus.test",
+        )
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler),
+            base_url="http://prometheus.test",
+        ) as client:
+            payload = await fetch_platform_metrics(settings=settings, client=client)
+        assert payload["exporter_jobs"]["redis_exporter"] == 0.0
+        assert payload["state"] == "healthy"
