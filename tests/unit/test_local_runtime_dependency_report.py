@@ -480,8 +480,8 @@ def test_status_icons_and_ansi_modes_are_explicit() -> None:
     assert module._status_label("ok", color=False) == "✅ ok"
     assert module._status_label("unreachable", color=False) == "❌ unreachable"
     assert module._status_label("evidence_incomplete", color=False) == "❔ evidence_incomplete"
-    assert "\\x1b[" in module._status_label("ok", color=True)
-    assert "\\x1b[" not in module._status_label("ok", color=False)
+    assert (chr(27) + "[") in module._status_label("ok", color=True)
+    assert (chr(27) + "[") not in module._status_label("ok", color=False)
 
 
 def test_text_table_uses_icons_without_ansi_by_default(capsys) -> None:
@@ -490,4 +490,4 @@ def test_text_table_uses_icons_without_ansi_by_default(capsys) -> None:
     output = capsys.readouterr().out
     assert "✅ ok" in output
     assert "❔ evidence_incomplete" in output
-    assert "\\x1b[" not in output
+    assert (chr(27) + "[") not in output
