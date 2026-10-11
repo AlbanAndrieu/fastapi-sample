@@ -47,6 +47,7 @@ def compare_internal_probe_evidence(
             "missing_gatus": 0,
             "missing_gatus_ids": [],
             "missing_gatus_reasons": {},
+            "conflicting_direct_ids": [],
             "mismatches": [],
         }
 
@@ -58,7 +59,8 @@ def compare_internal_probe_evidence(
     missing_gatus_ids: list[str] = []
     missing_gatus_reasons: dict[str, str] = {}
     mismatches: list[dict[str, Any]] = []
-    seen_ids: set[str] = set()
+    seen_states: dict[str, str] = {}
+    conflicting_direct_ids: set[str] = set()
 
     rows = homelab.get("internal_services")
     if not isinstance(rows, list):
@@ -71,11 +73,15 @@ def compare_internal_probe_evidence(
         direct_state = str(row.get("state") or "").strip().lower()
         if not service_id or direct_state not in {"ok", "fail"}:
             continue
-        # The runtime inventory may contain multiple rows for one canonical ID.
-        # Coverage counts are per service, not per row.
-        if service_id in seen_ids:
+        previous = seen_states.setdefault(service_id, direct_state)
+        if previous != direct_state:
+            conflicting_direct_ids.add(service_id)
+
+    # Duplicate observations are counted once. Contradictory direct states
+    # cannot be safely compared with a single Gatus observation.
+    for service_id, direct_state in seen_states.items():
+        if service_id in conflicting_direct_ids:
             continue
-        seen_ids.add(service_id)
 
         synthetic_service = services.get(service_id)
         if not isinstance(synthetic_service, dict):
@@ -132,6 +138,7 @@ def compare_internal_probe_evidence(
         "missing_gatus": missing_gatus,
         "missing_gatus_ids": missing_gatus_ids,
         "missing_gatus_reasons": missing_gatus_reasons,
+        "conflicting_direct_ids": sorted(conflicting_direct_ids),
         "mismatches": mismatches,
     }
 
@@ -166,6 +173,8 @@ def evaluate_internal_probe_delegation(
         blockers.append("internal_transport_mismatches")
     if missing_gatus > 0:
         blockers.append("missing_internal_gatus_evidence")
+    if comparison.get("conflicting_direct_ids"):
+        blockers.append("conflicting_direct_observations")
 
     return {
         "provider": "gatus_via_prometheus",
@@ -182,4 +191,5 @@ def evaluate_internal_probe_delegation(
         "missing_gatus": missing_gatus,
         "missing_gatus_ids": comparison.get("missing_gatus_ids", []),
         "missing_gatus_reasons": comparison.get("missing_gatus_reasons", {}),
+        "conflicting_direct_ids": comparison.get("conflicting_direct_ids", []),
     }
