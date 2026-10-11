@@ -45,7 +45,8 @@ control-plane is healthy.
 
 ## Recurrence and closure
 
-See the dated 2026-09 recurrence in [incidents.md](incidents.md). After the
+See the dated 2026-09 recurrence in [incidents.md](incidents.md) and the
+[canonical platform incident](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/incidents/2026-09-08-pfsense-webconfigurator-http-502.md). After the
 operator has completed the **nabla-compose** recovery procedure, accept
 FastAPI's observer only when the trusted LAN runtime returns authenticated
 2xx JSON for the lightweight REST endpoint. A separate pfSense runbook
