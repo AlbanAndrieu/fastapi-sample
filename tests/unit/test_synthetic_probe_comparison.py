@@ -270,3 +270,22 @@ def test_contradictory_duplicate_direct_states_are_not_turned_into_failures() ->
     delegation = evaluate_internal_probe_delegation(_platform({}), result)
     assert delegation["candidate"] is False
     assert "conflicting_direct_observations" in delegation["blockers"]
+
+
+def test_unobserved_synthetic_metrics_do_not_invent_missing_gatus_monitors() -> None:
+    homelab = {"internal_services": [
+        {"id": "nexus", "state": "ok"},
+        {"id": "redis", "state": "ok"},
+    ]}
+    platform = _platform({})
+    platform["synthetic_probes"]["state"] = "telemetry_unavailable"
+    result = compare_internal_probe_evidence(homelab, platform)
+    assert result["state"] == "unavailable"
+    assert result["reason"] == "synthetic_metrics_not_observed"
+    assert result["missing_gatus"] == 0
+    assert result["missing_gatus_ids"] == []
+    assert result["mismatched"] == 0
+    delegated = evaluate_internal_probe_delegation(platform, result)
+    assert "gatus_not_observed" in delegated["blockers"]
+    assert "no_internal_gatus_evidence" in delegated["blockers"]
+    assert "missing_internal_gatus_evidence" not in delegated["blockers"]
