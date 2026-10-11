@@ -35,9 +35,11 @@ def test_cloudflare_sentry_diagnostics_are_application_owned() -> None:
         encoding="utf-8",
     )
 
-    assert "nabla-compose/blob/master/docs/cloudflare-sentry-platform-diagnostics.md" in (
-        document
+    canonical_runbook = (
+        "nabla-compose/blob/master/docs/"
+        "cloudflare-sentry-platform-diagnostics.md"
     )
+    assert canonical_runbook in document
     assert "SENTRY_LOCAL_DSN" in document
     assert "status_confirmed" not in document
     assert "Connection timed out - goodbye" in document
@@ -53,6 +55,7 @@ def test_pfsense_recovery_points_to_platform_owner() -> None:
     assert "nabla-compose/blob/master/docs/pfsense-diagnose-recover.md" in document
     assert "HTTP 502" in document
     assert "PFSENSE_POSTURE_API_KEY" in document
+    assert "2026-09-08-pfsense-webconfigurator-http-502.md" in document
     assert "/etc/rc.php-fpm_restart" not in document
     assert "--unblock-sources" not in document
 
