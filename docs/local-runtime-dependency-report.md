@@ -103,6 +103,40 @@ Use the read-only JSON output (`--json`) for machine inspection, and retain a
 dated report when investigating reboot recovery.
 
 
+## Confirmed runtime evidence — 2026-10-11
+
+From the operator's TrueNAS observation:
+
+- **TrueNAS:** cached authenticated inventory is now `ok`.
+- **Gatus:** Docker container `gatus` is running, HTTP `:8085/` returned
+  **200**, and Prometheus `up{job="gatus"} == 1`. This establishes
+  reachability and scrape availability, **not** persisted history or that the
+  FastAPI cached Gatus comparison is populated. No reboot/redeploy is warranted
+  solely from the outdated Gatus row.
+- **PostgreSQL:** the actual main container is
+  `ix-postgres-postgres-1`, not `postgres`. Its Docker health is good;
+  `pg_isready` and authenticated `SELECT 1` are separate checks.
+- **Redis:** the standalone `redis` container is healthy; application
+  authenticated PING evidence is still missing from the FastAPI board.
+- **Sentry:** NGINX, web, consumers and Snuba are running and mostly healthy;
+  the recent-event persistence contract remains independent of container health.
+- **Pyroscope:** Prometheus reported `up{job="pyroscope"} = 0`, matching
+  missing readiness. Investigate it independently, with no unreviewed UID/ACL
+  changes.
+- **HTTP policy checks:** pfSense anonymous 401 and Cloudflare Access 302
+  are consistent with access being denied or redirected, not with a confirmed
+  authenticated API pass. TrueNAS `/api/current` returned 400 and the
+  production `/api` route returned 404; neither is by itself proof of a
+  backend outage. Use an endpoint with a documented successful response.
+- **Independent quality issue:** `nabla-compose` reported one failure in
+  `tests/test_gatus_diagnostic_contract.py::test_diagnostic_does_not_leak_raw_logs`
+  (220 passed); that is **not** the FastAPI runtime dependency script and
+  must be fixed in the owning repository.
+
+Use `--color auto|always|never` on the FastAPI diagnostic: auto emits ANSI
+only to a compatible terminal without `NO_COLOR`; JSON output is not
+colorized. The icons do **not** alter the strict acceptance exit code.
+
 ## Bounded evidence collection — operator commands (read-only by default)
 
 Run from the authorized TrueNAS shell, not FastAPI Cloud. Collect the board
@@ -129,7 +163,7 @@ arguments and do not commit credentials.
 
 ```bash
 # Inside the PostgreSQL container, only when its configured role/database is known:
-sudo docker exec postgres sh -c 'pg_isready -q' && echo POSTGRES_ACCEPTING
+sudo docker exec ix-postgres-postgres-1 pg_isready -q && echo POSTGRES_ACCEPTING
 # pg_isready is readiness only; execute SELECT 1 using an already configured,
 # least-privilege application role before publishing an application_ok proof.
 
