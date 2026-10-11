@@ -23,15 +23,10 @@ fi
 
 printf '\n🔎 FastAPI dependency evidence from %s\n' "$runtime_url"
 if [[ "$mode" == strict ]]; then
-  python3 "$script" --url "$runtime_url" --wait-seconds 50
+  python3 "$script" --url "$runtime_url" --wait-seconds 50 || exit $?
 else
-  python3 "$script" --url "$runtime_url" --wait-seconds 50 --report-only
+  python3 "$script" --url "$runtime_url" --wait-seconds 50 --report-only || exit $?
 fi
-report_rc=$?
-if [[ "$mode" == strict && "$report_rc" -ne 0 ]]; then
-  exit "$report_rc"
-fi
-
 if ! command -v docker >/dev/null 2>&1; then
   echo '⚠️ Docker CLI unavailable; container evidence not collected.'
   exit 0
