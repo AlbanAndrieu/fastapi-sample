@@ -153,6 +153,15 @@ the strength of an earlier PR's CI result.
 **Acceptance:** no public traceback/secret leakage, least-privilege operational
 identity, and public diagnostics expose only intentionally published topology.
 
+### P0 Prometheus telemetry reconciliation (2026-10-11)
+
+- [x] Cross-check Prometheus scrape jobs and recording-rule names with the fixed FastAPI query contract: Gatus synthetic samples are already read through `nabla:telemetry:gatus_up` and `nabla:service:synthetic_*` rules.
+- [x] Add optional, bounded recording rules for PostgreSQL/Redis exporter availability, `pg_up`/`redis_up`, FastAPI, Pyroscope, Alertmanager and the existing pfSense memory ratio (coordinated with nabla-compose #253).
+- [x] Expose those signals in the cached `platform_metrics.summary.optional_exporters` without adding a second Prometheus query or changing mandatory telemetry classification.
+- [ ] Validate recording-rule loading and actual samples from TrueNAS Prometheus; a declared scrape does **not** establish that an exporter is running or reachable. Keep missing optional series unknown, never DOWN.
+- [ ] Evaluate Cloudflare **control-plane API metrics** independently; there is currently no verified Cloudflare Prometheus exporter/scrape job. Do not synthesize `cloudflare_up` or conflate Cloudflare API data with Prometheus evidence.
+- [ ] Inventory other declared jobs (Kafka, ClickHouse, OpenSearch, Loki, Alloy, Tempo, Mimir, Keycloak, CrowdSec, DNS, HAProxy) and prioritize stable recording rules by operator value before extending the fixed contract.
+
 ## P0 — homelab dependency convergence
 
 The authoritative observer is the FastAPI runtime on TrueNAS. Workstation probes
