@@ -47,6 +47,34 @@ A PostgreSQL/Redis TCP connection only establishes transport. Cached component e
 Likewise, socket reachability does not prove authentication or application
 acceptance.
 
+## Dual-vantage behavior (2026-10-11)
+
+`scripts/truenas-runtime-evidence.sh` is designed for both the workstation and
+TrueNAS. Automatic host selection recognizes hostname `truenas`; otherwise it
+defaults conservatively to **workstation** and does **not** inspect local
+Docker containers as if they belonged to TrueNAS. Override explicitly if
+the TrueNAS hostname differs:
+
+```bash
+# Existing fastapi-sample checkout on workstation:
+bash scripts/truenas-runtime-evidence.sh --vantage workstation
+# Existing fastapi-sample checkout on TrueNAS:
+bash scripts/truenas-runtime-evidence.sh --vantage truenas
+# Strict evidence acceptance from either vantage:
+bash scripts/truenas-runtime-evidence.sh --vantage workstation --strict
+```
+
+The HTTP tests always target `172.17.0.24`; the FastAPI health-board itself
+is served by the TrueNAS observer. Workstation Docker and its independently
+running PostgreSQL/Redis are **not** TrueNAS application proof. On TrueNAS,
+Docker metadata is collected only when the Docker endpoint/context has not been
+overridden. Remote containers are not inspected via an implicit SSH tunnel.
+
+Observed from workstation: Gatus HTTP 200, Prometheus readiness 200, and
+Pyroscope readiness HTTP 503 (under repair); do not interpret this as the
+workstation's similarly named containers. TrueNAS PostgreSQL readiness was
+confirmed independently with `docker exec ix-postgres-postgres-1 pg_isready`.
+
 ## Locate the right checkout before running commands
 
 The `docs/local-first-roadmap-consolidation` branch, `just truenas-check`
