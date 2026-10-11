@@ -442,3 +442,38 @@ deep end-to-end acceptance. A missing exporter (PostgreSQL 9187), a missing
 Gatus series or a cached `evidence_incomplete` state does not downgrade a
 confirmed functioning service. Never grant TrueNAS administrator privileges
 to make a monitoring check green.
+
+## Gatus Prometheus fallback — 2026-10-11 (PR #335)
+
+FastAPI previously consumed only `nabla:telemetry:gatus_up`; a live
+`up{job="gatus"}=1` could coexist with `gatus_not_observed` when
+the recording rule was absent. The existing *bounded combined Prometheus
+query* now includes `up{job="gatus"}` as a fallback **only when the
+recording rule has no value**. The result includes `gatus_source`
+(`recording_rule`, `raw_prometheus_up`, or `unavailable`).
+Recording-rule evidence takes precedence if both exist.
+
+The fallback proves Prometheus can scrape Gatus; it **does not** fabricate
+`nabla_service_id` labels, service counts, probe history or missing monitor
+coverage. The comparison and delegation still block with zero observed
+internal service metrics. From the running observer after deployment, inspect
+`internal_probe_comparison.missing_gatus_ids` to identify the actual 11 missing
+services and compare them against the generated Gatus monitors in
+`nabla-compose`. Before deployment, exact IDs cannot be inferred from a
+count of 11. The external cloud observer stays independent from internal Gatus.
+
+Workstation validation, after pulling this PR branch into the workstation
+checkout:
+
+```bash
+just test-runtime-evidence
+# Equivalent:
+bash scripts/run-pytest-compact.sh \
+  tests/unit/test_local_runtime_dependency_report.py \
+  tests/unit/test_synthetic_probe_comparison.py \
+  tests/unit/test_platform_metrics.py
+```
+
+`nabla-compose` PR #253 owns the generated Gatus configuration and
+Prometheus recording-rule provisioning; `fastapi-sample` PR #335 owns only
+bounded collection, classification and diagnostics.
