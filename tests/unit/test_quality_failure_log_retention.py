@@ -102,3 +102,38 @@ def test_failure_logs_refuse_unsafe_directory(tmp_path: Path, unsafe: str) -> No
     assert result.returncode == 17
     assert "must be" in result.stderr
     assert not list(directory.glob("quality-failure.*.log"))
+
+
+def test_failure_log_owner_guard_is_enforced_without_masking_failure(
+    tmp_path: Path,
+) -> None:
+    """Simulate a foreign owner without changing host filesystem ownership."""
+    source = GATE.read_text(encoding="utf-8")
+    functions = "retain_failure_log() {" + source.split(
+        "retain_failure_log() {", maxsplit=1
+    )[1].split("\nprint_precommit_failure() {", maxsplit=1)[0]
+    directory = tmp_path / "private"
+    directory.mkdir(mode=0o700)
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    # Only the UID command is mocked; stat still checks the real directory.
+    fake_id = bin_dir / "id"
+    fake_id.write_text("#!/bin/sh\necho 999999999\n", encoding="utf-8")
+    fake_id.chmod(0o755)
+    env = {
+        **os.environ,
+        "PATH": f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}",
+        "QUALITY_FAILURE_LOG_DIR": str(directory),
+    }
+    script = (
+        "set -euo pipefail\nLOG_TAIL=1\n"
+        + functions
+        + "\nrun_compact failure bash -c 'echo secret-sentinel; exit 17'\n"
+    )
+    result = subprocess.run(
+        ["bash", "-c", script],
+        env=env, capture_output=True, text=True, check=False,
+    )
+    assert result.returncode == 17
+    assert "must be owned by the current user" in result.stderr
+    assert not list(directory.glob("quality-failure.*.log"))
