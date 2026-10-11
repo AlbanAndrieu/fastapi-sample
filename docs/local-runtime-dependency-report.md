@@ -47,6 +47,34 @@ A PostgreSQL/Redis TCP connection only establishes transport. Cached component e
 Likewise, socket reachability does not prove authentication or application
 acceptance.
 
+## Workstation feedback and local-first test execution — 2026-10-11
+
+Current workstation measurements: Gatus HTTP 200, Prometheus HTTP 200,
+Pyroscope **readiness HTTP 200** (recovered from earlier 503). A cached FastAPI
+row of `reachable` only proves transport; if Gatus remains `unknown` or
+Pyroscope remains `evidence_incomplete`, this is a difference in the
+**depth/source of evidence**, not necessarily a live outage. The wrapper
+now prints a dynamic, separately sourced readiness statement and does not
+repeat historical 503 warnings when the current response is 200.
+
+The local host Python selected by mise may have no pytest distribution. Use
+the repository's **uv-managed** test runner instead of `python3 -m pytest`:
+
+```bash
+# Workstation, from fastapi-sample:
+just test-runtime-evidence
+# Equivalent targeted runner:
+bash scripts/run-pytest-compact.sh \
+  tests/unit/test_truenas_runtime_evidence_wrapper.py \
+  tests/unit/test_local_runtime_dependency_report.py
+```
+
+The runner calls `uv run --no-sync pytest`. If the locked dependencies are
+not already installed, run `uv sync --frozen` from the checkout while
+dependency access is available, or `UV_OFFLINE=true uv sync --frozen --offline`
+with an already populated cache. Do not install pytest globally just to
+run repository tests.
+
 ## Operational division of responsibility
 
 `fastapi-sample` checks **basic service reachability**, not full
