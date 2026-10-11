@@ -156,6 +156,7 @@ def test_internal_delegation_candidate_preserves_external_probe_strategy() -> No
         "application_evidence": 7,
         "mismatched": 0,
         "missing_gatus": 0,
+        "missing_gatus_ids": [],
     }
 
 
@@ -197,3 +198,22 @@ def test_invalid_gatus_up_blocks_delegation() -> None:
         )
         assert result["candidate"] is False
         assert "gatus_not_up" in result["blockers"]
+
+
+def test_missing_gatus_ids_are_reported_without_marking_services_down() -> None:
+    homelab = {
+        "internal_services": [
+            {"id": "nexus", "state": "ok"},
+            {"id": "redis", "state": "ok"},
+            {"id": "gatus", "state": "ok"},
+        ],
+    }
+    result = compare_internal_probe_evidence(
+        homelab, _platform({"nexus": {"TCP": {"success": 1.0}}}),
+    )
+    assert result["missing_gatus"] == 2
+    assert result["missing_gatus_ids"] == ["redis", "gatus"]
+    assert result["mismatched"] == 0
+    delegated = evaluate_internal_probe_delegation(_platform({}), result)
+    assert delegated["missing_gatus_ids"] == ["redis", "gatus"]
+    assert delegated["candidate"] is False
