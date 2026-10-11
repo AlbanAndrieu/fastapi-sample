@@ -27,19 +27,49 @@ if [[ "$mode" == strict ]]; then
 else
   python3 "$script" --url "$runtime_url" --wait-seconds 50 --report-only || exit $?
 fi
+if [[ "$vantage" != "truenas" ]]; then
+  echo 'ℹ️ Workstation vantage: local Docker containers are NOT TrueNAS services; skipping Docker.'
+elif [[ "${DOCKER_HOST:-}" != "" ]] || [[ "${DOCKER_CONTEXT:-}" != "" ]]; then
+  echo '⚠️ Explicit Docker endpoint/context set; not inspecting it as TrueNAS without verification.'
+else
 if ! command -v docker >/dev/null 2>&1; then
   echo '⚠️ Docker CLI unavailable; container evidence not collected.'
-  exit 0
 fi
 
 printf '\n🐳 Container evidence (no secrets)\n'
 names="$(docker ps -a --format '{{.Names}}' 2>/dev/null)" || {
   echo '⚠️ Docker unavailable or permission denied; no container status proof.'
-  exit 0
 }
 for service in postgresql redis sentry gatus prometheus pyroscope; do
   case "$service" in
-    postgresql) pattern='^(ix-postgres-postgres-1|postgres)$' ;;
+    postgresql) pattern='^ix-postgres-postgres-1
+    redis) pattern='^redis
+    sentry) pattern='^ix-sentry-sentry-web-1
+    *) pattern="^$service$" ;;
+  esac
+  name="$(printf '%s\n' "$names" | grep -E "$pattern" | head -n 1 || true)"
+  if [[ -z "$name" ]]; then
+    printf '❔ %-12s container not found (not evidence of application DOWN)\n' "$service"
+    continue
+  fi
+  status="$(docker inspect --format '{{.State.Status}}' "$name" 2>/dev/null || true)"
+  health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}' "$name" 2>/dev/null || true)"
+  printf '🐳 %-12s %-37s state=%s health=%s\n' "$service" "$name" "${status:-unknown}" "${health:-unknown}"
+done
+
+fi # End TrueNAS-only Docker inventory
+
+if command -v curl >/dev/null 2>&1; then
+  printf '\n📡 Read-only HTTP readiness (bounded)\n'
+  for item in 'gatus|http://172.17.0.24:8085/' 'prometheus|http://172.17.0.24:9090/-/ready' 'pyroscope|http://172.17.0.24:4040/ready'; do
+    service="${item%%|*}"
+    url="${item#*|}"
+    status="$(curl -sS -o /dev/null --connect-timeout 2 --max-time 5 -w '%{http_code}' "$url" 2>/dev/null)" || status=000
+    printf '%s %-12s HTTP=%s\n' "$([[ "$status" =~ ^2 ]] && echo '✅' || echo '⚠️')" "$service" "$status"
+  done
+fi
+printf '\nℹ️ Container health, HTTP and pg_isready never prove SQL, Redis authentication, Sentry ingestion or Gatus history.\n'
+ ;;
     redis) pattern='^redis$' ;;
     sentry) pattern='^ix-sentry-sentry-web-1$' ;;
     *) pattern="^$service$" ;;
@@ -53,6 +83,166 @@ for service in postgresql redis sentry gatus prometheus pyroscope; do
   health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}' "$name" 2>/dev/null || true)"
   printf '🐳 %-12s %-37s state=%s health=%s\n' "$service" "$name" "${status:-unknown}" "${health:-unknown}"
 done
+
+fi # End TrueNAS-only Docker inventory
+
+if command -v curl >/dev/null 2>&1; then
+  printf '\n📡 Read-only HTTP readiness (bounded)\n'
+  for item in 'gatus|http://172.17.0.24:8085/' 'prometheus|http://172.17.0.24:9090/-/ready' 'pyroscope|http://172.17.0.24:4040/ready'; do
+    service="${item%%|*}"
+    url="${item#*|}"
+    status="$(curl -sS -o /dev/null --connect-timeout 2 --max-time 5 -w '%{http_code}' "$url" 2>/dev/null)" || status=000
+    printf '%s %-12s HTTP=%s\n' "$([[ "$status" =~ ^2 ]] && echo '✅' || echo '⚠️')" "$service" "$status"
+  done
+fi
+printf '\nℹ️ Container health, HTTP and pg_isready never prove SQL, Redis authentication, Sentry ingestion or Gatus history.\n'
+ ;;
+    sentry) pattern='^ix-sentry-sentry-web-1$' ;;
+    *) pattern="^$service$" ;;
+  esac
+  name="$(printf '%s\n' "$names" | grep -E "$pattern" | head -n 1 || true)"
+  if [[ -z "$name" ]]; then
+    printf '❔ %-12s container not found (not evidence of application DOWN)\n' "$service"
+    continue
+  fi
+  status="$(docker inspect --format '{{.State.Status}}' "$name" 2>/dev/null || true)"
+  health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}' "$name" 2>/dev/null || true)"
+  printf '🐳 %-12s %-37s state=%s health=%s\n' "$service" "$name" "${status:-unknown}" "${health:-unknown}"
+done
+
+fi # End TrueNAS-only Docker inventory
+
+if command -v curl >/dev/null 2>&1; then
+  printf '\n📡 Read-only HTTP readiness (bounded)\n'
+  for item in 'gatus|http://172.17.0.24:8085/' 'prometheus|http://172.17.0.24:9090/-/ready' 'pyroscope|http://172.17.0.24:4040/ready'; do
+    service="${item%%|*}"
+    url="${item#*|}"
+    status="$(curl -sS -o /dev/null --connect-timeout 2 --max-time 5 -w '%{http_code}' "$url" 2>/dev/null)" || status=000
+    printf '%s %-12s HTTP=%s\n' "$([[ "$status" =~ ^2 ]] && echo '✅' || echo '⚠️')" "$service" "$status"
+  done
+fi
+printf '\nℹ️ Container health, HTTP and pg_isready never prove SQL, Redis authentication, Sentry ingestion or Gatus history.\n'
+ ;;
+    redis) pattern='^redis$' ;;
+    sentry) pattern='^ix-sentry-sentry-web-1$' ;;
+    *) pattern="^$service$" ;;
+  esac
+  name="$(printf '%s\n' "$names" | grep -E "$pattern" | head -n 1 || true)"
+  if [[ -z "$name" ]]; then
+    printf '❔ %-12s container not found (not evidence of application DOWN)\n' "$service"
+    continue
+  fi
+  status="$(docker inspect --format '{{.State.Status}}' "$name" 2>/dev/null || true)"
+  health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}' "$name" 2>/dev/null || true)"
+  printf '🐳 %-12s %-37s state=%s health=%s\n' "$service" "$name" "${status:-unknown}" "${health:-unknown}"
+done
+
+fi # End TrueNAS-only Docker inventory
+
+if command -v curl >/dev/null 2>&1; then
+  printf '\n📡 Read-only HTTP readiness (bounded)\n'
+  for item in 'gatus|http://172.17.0.24:8085/' 'prometheus|http://172.17.0.24:9090/-/ready' 'pyroscope|http://172.17.0.24:4040/ready'; do
+    service="${item%%|*}"
+    url="${item#*|}"
+    status="$(curl -sS -o /dev/null --connect-timeout 2 --max-time 5 -w '%{http_code}' "$url" 2>/dev/null)" || status=000
+    printf '%s %-12s HTTP=%s\n' "$([[ "$status" =~ ^2 ]] && echo '✅' || echo '⚠️')" "$service" "$status"
+  done
+fi
+printf '\nℹ️ Container health, HTTP and pg_isready never prove SQL, Redis authentication, Sentry ingestion or Gatus history.\n'
+ ;;
+    *) pattern="^$service$" ;;
+  esac
+  name="$(printf '%s\n' "$names" | grep -E "$pattern" | head -n 1 || true)"
+  if [[ -z "$name" ]]; then
+    printf '❔ %-12s container not found (not evidence of application DOWN)\n' "$service"
+    continue
+  fi
+  status="$(docker inspect --format '{{.State.Status}}' "$name" 2>/dev/null || true)"
+  health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}' "$name" 2>/dev/null || true)"
+  printf '🐳 %-12s %-37s state=%s health=%s\n' "$service" "$name" "${status:-unknown}" "${health:-unknown}"
+done
+
+fi # End TrueNAS-only Docker inventory
+
+if command -v curl >/dev/null 2>&1; then
+  printf '\n📡 Read-only HTTP readiness (bounded)\n'
+  for item in 'gatus|http://172.17.0.24:8085/' 'prometheus|http://172.17.0.24:9090/-/ready' 'pyroscope|http://172.17.0.24:4040/ready'; do
+    service="${item%%|*}"
+    url="${item#*|}"
+    status="$(curl -sS -o /dev/null --connect-timeout 2 --max-time 5 -w '%{http_code}' "$url" 2>/dev/null)" || status=000
+    printf '%s %-12s HTTP=%s\n' "$([[ "$status" =~ ^2 ]] && echo '✅' || echo '⚠️')" "$service" "$status"
+  done
+fi
+printf '\nℹ️ Container health, HTTP and pg_isready never prove SQL, Redis authentication, Sentry ingestion or Gatus history.\n'
+ ;;
+    redis) pattern='^redis$' ;;
+    sentry) pattern='^ix-sentry-sentry-web-1$' ;;
+    *) pattern="^$service$" ;;
+  esac
+  name="$(printf '%s\n' "$names" | grep -E "$pattern" | head -n 1 || true)"
+  if [[ -z "$name" ]]; then
+    printf '❔ %-12s container not found (not evidence of application DOWN)\n' "$service"
+    continue
+  fi
+  status="$(docker inspect --format '{{.State.Status}}' "$name" 2>/dev/null || true)"
+  health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}' "$name" 2>/dev/null || true)"
+  printf '🐳 %-12s %-37s state=%s health=%s\n' "$service" "$name" "${status:-unknown}" "${health:-unknown}"
+done
+
+fi # End TrueNAS-only Docker inventory
+
+if command -v curl >/dev/null 2>&1; then
+  printf '\n📡 Read-only HTTP readiness (bounded)\n'
+  for item in 'gatus|http://172.17.0.24:8085/' 'prometheus|http://172.17.0.24:9090/-/ready' 'pyroscope|http://172.17.0.24:4040/ready'; do
+    service="${item%%|*}"
+    url="${item#*|}"
+    status="$(curl -sS -o /dev/null --connect-timeout 2 --max-time 5 -w '%{http_code}' "$url" 2>/dev/null)" || status=000
+    printf '%s %-12s HTTP=%s\n' "$([[ "$status" =~ ^2 ]] && echo '✅' || echo '⚠️')" "$service" "$status"
+  done
+fi
+printf '\nℹ️ Container health, HTTP and pg_isready never prove SQL, Redis authentication, Sentry ingestion or Gatus history.\n'
+ ;;
+    sentry) pattern='^ix-sentry-sentry-web-1$' ;;
+    *) pattern="^$service$" ;;
+  esac
+  name="$(printf '%s\n' "$names" | grep -E "$pattern" | head -n 1 || true)"
+  if [[ -z "$name" ]]; then
+    printf '❔ %-12s container not found (not evidence of application DOWN)\n' "$service"
+    continue
+  fi
+  status="$(docker inspect --format '{{.State.Status}}' "$name" 2>/dev/null || true)"
+  health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}' "$name" 2>/dev/null || true)"
+  printf '🐳 %-12s %-37s state=%s health=%s\n' "$service" "$name" "${status:-unknown}" "${health:-unknown}"
+done
+
+fi # End TrueNAS-only Docker inventory
+
+if command -v curl >/dev/null 2>&1; then
+  printf '\n📡 Read-only HTTP readiness (bounded)\n'
+  for item in 'gatus|http://172.17.0.24:8085/' 'prometheus|http://172.17.0.24:9090/-/ready' 'pyroscope|http://172.17.0.24:4040/ready'; do
+    service="${item%%|*}"
+    url="${item#*|}"
+    status="$(curl -sS -o /dev/null --connect-timeout 2 --max-time 5 -w '%{http_code}' "$url" 2>/dev/null)" || status=000
+    printf '%s %-12s HTTP=%s\n' "$([[ "$status" =~ ^2 ]] && echo '✅' || echo '⚠️')" "$service" "$status"
+  done
+fi
+printf '\nℹ️ Container health, HTTP and pg_isready never prove SQL, Redis authentication, Sentry ingestion or Gatus history.\n'
+ ;;
+    redis) pattern='^redis$' ;;
+    sentry) pattern='^ix-sentry-sentry-web-1$' ;;
+    *) pattern="^$service$" ;;
+  esac
+  name="$(printf '%s\n' "$names" | grep -E "$pattern" | head -n 1 || true)"
+  if [[ -z "$name" ]]; then
+    printf '❔ %-12s container not found (not evidence of application DOWN)\n' "$service"
+    continue
+  fi
+  status="$(docker inspect --format '{{.State.Status}}' "$name" 2>/dev/null || true)"
+  health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}' "$name" 2>/dev/null || true)"
+  printf '🐳 %-12s %-37s state=%s health=%s\n' "$service" "$name" "${status:-unknown}" "${health:-unknown}"
+done
+
+fi # End TrueNAS-only Docker inventory
 
 if command -v curl >/dev/null 2>&1; then
   printf '\n📡 Read-only HTTP readiness (bounded)\n'
