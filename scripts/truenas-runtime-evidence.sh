@@ -57,9 +57,9 @@ if [[ "$vantage" != truenas ]]; then
       if docker inspect "$name" >/dev/null 2>&1; then
         local_status="$(docker inspect --format '{{.State.Status}}' "$name" 2>/dev/null || true)"
         local_health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}' "$name" 2>/dev/null || true)"
-        printf '💻 local %-10s state=%s health=%s (not TrueNAS evidence)\\n' "$name" "$local_status" "$local_health"
+        printf '💻 local %-10s state=%s health=%s (not TrueNAS evidence)\n' "$name" "$local_status" "$local_health"
       else
-        printf '❔ local %-10s not found by exact name (not TrueNAS evidence)\\n' "$name"
+        printf '❔ local %-10s not found by exact name (not TrueNAS evidence)\n' "$name"
       fi
     done
   else
@@ -97,10 +97,21 @@ if command -v curl >/dev/null 2>&1; then
     service="${item%%|*}"
     url="${item#*|}"
     status="$(curl -sS -o /dev/null --connect-timeout 2 --max-time 5 -w '%{http_code}' "$url" 2>/dev/null)" || status=000
-    if [[ "$status" == 2* ]]; then symbol='✅'; else symbol='⚠️'; fi
-    printf '%s %-12s HTTP=%s\n' "$symbol" "$service" "$status"
+    if [[ "$status" == 2* ]]; then
+      symbol='✅'
+      result='available'
+    elif [[ "$status" == 000 ]]; then
+      symbol='❌'
+      result='unreachable'
+    else
+      symbol='⚠️'
+      result='HTTP responded; readiness not confirmed'
+    fi
+    printf '%s %-12s HTTP=%s (%s)\n' "$symbol" "$service" "$status" "$result"
   done
 fi
+echo 'ℹ️ Cached board = transport observations; HTTP readiness below is independent evidence.'
+echo 'ℹ️ Gatus HTTP 200 can coexist with cached unknown; Pyroscope 503 is not healthy readiness.'
 echo 'ℹ️ Basic reachability is not authenticated SQL/PING or Sentry/Gatus persistence.'
 echo '🔧 Deep diagnostics live in nabla-compose:'
 echo '   scripts/truenas/diagnose-fastapi-integrations.py'
