@@ -268,12 +268,17 @@ def test_pyroscope_404_proves_http_transport_but_not_readiness() -> None:
 def test_diagnostic_script_does_not_probe_providers_directly() -> None:
     source = SCRIPT.read_text(encoding="utf-8")
 
-    assert "/api/health-board" in source
-    assert "api.cloudflare.com" not in source
-    assert "/api/v2/system/version" not in source
-    assert "172.17.0.24:4040" not in source
-    assert "sentry_sdk" not in source
-    assert "prometheus/api" not in source
+    # Human-readable operator guidance may name provider endpoints.
+    # Assert that executable network code only calls the cached health-board.
+    network_code = source.split("def _fetch_json(", maxsplit=1)[1].split(
+        "def _fmt(", maxsplit=1
+    )[0]
+    assert "/api/health-board" in network_code
+    assert "api.cloudflare.com" not in network_code
+    assert "/api/v2/system/version" not in network_code
+    assert "172.17.0.24:4040" not in network_code
+    assert "sentry_sdk" not in network_code
+    assert "prometheus/api" not in network_code
 
 
 def test_pfsense_401_uses_explicit_auth_rejection() -> None:
