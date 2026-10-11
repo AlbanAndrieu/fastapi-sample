@@ -62,6 +62,10 @@ truenas-evidence:
 truenas-evidence-strict:
     bash scripts/truenas-runtime-evidence.sh --strict
 
+# Targeted runtime tests in the pinned uv environment (not the host Python).
+test-runtime-evidence:
+    bash scripts/run-pytest-compact.sh tests/unit/test_truenas_runtime_evidence_wrapper.py tests/unit/test_local_runtime_dependency_report.py
+
 # Run only pfSense observation, probe and tracing contracts.
 test-pfsense:
     bash scripts/run-pytest-compact.sh tests/unit/test_pfsense_auth_smoke.py tests/unit/test_pfsense_dns_observer.py tests/unit/test_pfsense_security_cache.py tests/unit/test_probe_headers.py tests/unit/test_probe_metrics.py
