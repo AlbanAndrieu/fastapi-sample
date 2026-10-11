@@ -473,3 +473,21 @@ def test_sentry_ingestion_proof_requires_fresh_persisted_event() -> None:
     assert row["evidence_complete"] is True
     snapshot["healthz"]["checks"]["sentry"]["ingestion_evidence"]["fresh"] = False
     assert module.build_report(snapshot)["dependencies"]["sentry"]["evidence_complete"] is False
+
+
+def test_status_icons_and_ansi_modes_are_explicit() -> None:
+    module = load_module()
+    assert module._status_label("ok", color=False) == "✅ ok"
+    assert module._status_label("unreachable", color=False) == "❌ unreachable"
+    assert module._status_label("evidence_incomplete", color=False) == "❔ evidence_incomplete"
+    assert "\\x1b[" in module._status_label("ok", color=True)
+    assert "\\x1b[" not in module._status_label("ok", color=False)
+
+
+def test_text_table_uses_icons_without_ansi_by_default(capsys) -> None:
+    module = load_module()
+    module.print_table(module.build_report(sample_snapshot()))
+    output = capsys.readouterr().out
+    assert "✅ ok" in output
+    assert "❔ evidence_incomplete" in output
+    assert "\\x1b[" not in output
