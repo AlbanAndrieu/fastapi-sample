@@ -32,7 +32,7 @@ _SYNTHETIC_METRIC_TO_FIELD = {
     metric: field for field, metric in _SYNTHETIC_METRICS.items()
 }
 _FIXED_QUERY = " or ".join(
-    (*_METRICS.values(), *_SYNTHETIC_METRICS.values()),
+    (*_METRICS.values(), *_SYNTHETIC_METRICS.values(), 'up{job="gatus"}'),
 )
 _UP_SIGNALS = (
     "truenas_node_up",
@@ -51,6 +51,7 @@ async def _query_fixed_metrics(
 ) -> tuple[dict[str, float | None], dict[str, Any]]:
     values = dict.fromkeys(_METRICS)
     synthetic: dict[str, Any] = {"gatus_up": None, "services": {}}
+    raw_gatus_up: float | None = None
     for sample in await query_vector(client, _FIXED_QUERY):
         labels = sample.get("metric")
         if not isinstance(labels, dict):
@@ -64,6 +65,9 @@ async def _query_fixed_metrics(
             values[key] = value
             continue
         field = _SYNTHETIC_METRIC_TO_FIELD.get(metric)
+        if metric == "up" and labels.get("job") == "gatus":
+            raw_gatus_up = value
+            continue
         if field == "gatus_up":
             synthetic["gatus_up"] = value
             continue
@@ -73,6 +77,9 @@ async def _query_fixed_metrics(
             continue
         service = synthetic["services"].setdefault(service_id, {})
         service.setdefault(probe_type, {})[field] = value
+    if synthetic["gatus_up"] is None and raw_gatus_up is not None:
+        synthetic["gatus_up"] = raw_gatus_up
+        synthetic["gatus_source"] = "raw_prometheus_up"
     return values, synthetic
 
 
@@ -94,6 +101,7 @@ def _synthetic_summary(
             else "telemetry_unavailable"
         ),
         "gatus_up": gatus_up,
+        "gatus_source": payload.get("gatus_source", "recording_rule" if gatus_up is not None else "unavailable"),
         "service_count": len(services) if isinstance(services, dict) else 0,
         "services": services if isinstance(services, dict) else {},
     }
