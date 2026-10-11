@@ -54,6 +54,14 @@ truenas-check:
 truenas-acceptance:
     python3 scripts/diagnose-local-runtime-dependencies.py --url http://172.17.0.24:8091 --wait-seconds 50
 
+# Read-only TrueNAS runtime triage; uses the script location, not current working directory.
+truenas-evidence:
+    bash scripts/truenas-runtime-evidence.sh
+
+# Strict evidence acceptance; reports missing proofs as a nonzero exit.
+truenas-evidence-strict:
+    bash scripts/truenas-runtime-evidence.sh --strict
+
 # Run only pfSense observation, probe and tracing contracts.
 test-pfsense:
     bash scripts/run-pytest-compact.sh tests/unit/test_pfsense_auth_smoke.py tests/unit/test_pfsense_dns_observer.py tests/unit/test_pfsense_security_cache.py tests/unit/test_probe_headers.py tests/unit/test_probe_metrics.py
