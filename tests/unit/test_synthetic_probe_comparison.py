@@ -158,6 +158,7 @@ def test_internal_delegation_candidate_preserves_external_probe_strategy() -> No
         "missing_gatus": 0,
         "missing_gatus_ids": [],
         "missing_gatus_reasons": {},
+        "conflicting_direct_ids": [],
     }
 
 
@@ -247,3 +248,25 @@ def test_duplicate_internal_ids_are_counted_once() -> None:
     assert result["matched"] == 1
     assert result["comparable"] == 1
     assert result["mismatched"] == 0
+
+
+def test_contradictory_duplicate_direct_states_are_not_turned_into_failures() -> None:
+    result = compare_internal_probe_evidence(
+        {"internal_services": [
+            {"id": "nexus", "state": "ok"},
+            {"id": "nexus", "state": "fail"},
+            {"id": "redis", "state": "ok"},
+        ]},
+        _platform({
+            "nexus": {"TCP": {"success": 1.0}},
+            "redis": {"TCP": {"success": 1.0}},
+        }),
+    )
+    assert result["conflicting_direct_ids"] == ["nexus"]
+    assert result["comparable"] == 1
+    assert result["matched"] == 1
+    assert result["mismatched"] == 0
+    assert result["missing_gatus"] == 0
+    delegation = evaluate_internal_probe_delegation(_platform({}), result)
+    assert delegation["candidate"] is False
+    assert "conflicting_direct_observations" in delegation["blockers"]
