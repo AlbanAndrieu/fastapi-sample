@@ -321,9 +321,9 @@ def _component(snapshot: dict[str, Any], name: str) -> dict[str, Any]:
     check = _mapping(components.get(name))
     row = _common(check)
     row["reachable"] = _transport_reachable(check)
+    # A reachable TCP socket is not proof that PostgreSQL/Redis accepted a
+    # command or authenticated a client. Keep missing application proof unknown.
     row["application_ok"] = _bool_or_none(check.get("application_ok"))
-    if row["application_ok"] is None and row["reachable"] is True:
-        row["application_ok"] = True
     row["application_result"] = {
         "kind": "cached_component",
         "state": check.get("state"),
