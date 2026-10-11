@@ -274,18 +274,25 @@ def _prometheus(snapshot: dict[str, Any]) -> dict[str, Any]:
 def _sentry(snapshot: dict[str, Any]) -> dict[str, Any]:
     check = _healthz_check(snapshot, "sentry")
     row = _common(check)
-    row["application_ok"] = None
+    # A DSN socket never proves event ingestion; accept only explicit cached E2E evidence.
+    ingestion = _mapping(check.get("ingestion_evidence"))
+    row["application_ok"] = _bool_or_none(ingestion.get("persisted"))
     row["application_result"] = {
-        "kind": "dsn_socket_only",
+        "kind": "sentry_ingestion" if ingestion else "dsn_socket_only",
+        "ingestion_confirmed": row["application_ok"],
         "probe": check.get("probe"),
         "target": check.get("target"),
     }
-    row["evidence_complete"] = False
+    row["evidence_complete"] = bool(
+        row["configured"] is True and row["reachable"] is True
+        and row["application_ok"] is True and ingestion.get("fresh") is True
+        and not row["stale"]
+    )
     row["operational_state"] = _state(
         configured=row["configured"],
         reachable=row["reachable"],
-        application_ok=None,
-        complete=False,
+        application_ok=row["application_ok"],
+        complete=row["evidence_complete"],
     )
     return row
 
@@ -323,9 +330,18 @@ def _component(snapshot: dict[str, Any], name: str) -> dict[str, Any]:
     row["reachable"] = _transport_reachable(check)
     # A reachable TCP socket is not proof that PostgreSQL/Redis accepted a
     # command or authenticated a client. Keep missing application proof unknown.
-    row["application_ok"] = _bool_or_none(check.get("application_ok"))
+    proof = _mapping(check.get("application_evidence"))
+    proof_kind = "sql_select_1" if name == "postgres" else "redis_ping"
+    evidence_valid = proof.get("kind") == proof_kind and proof.get("authenticated") is True
+    explicit_ok = _bool_or_none(check.get("application_ok"))
+    row["application_ok"] = (
+        explicit_ok if explicit_ok is False else
+        _bool_or_none(proof.get("ok")) if evidence_valid else None
+    )
     row["application_result"] = {
         "kind": "cached_component",
+        "proof_kind": proof.get("kind"),
+        "command_authenticated": proof.get("authenticated") if evidence_valid else None,
         "state": check.get("state"),
         "status": check.get("status"),
     }
@@ -352,9 +368,12 @@ def _gatus(snapshot: dict[str, Any]) -> dict[str, Any]:
     row["configured"] = _bool_or_none(metrics.get("configured"))
     value = synthetic.get("gatus_up")
     row["reachable"] = value == 1.0 if type(value) in (int, float) else None
-    row["application_ok"] = row["reachable"]
+    # Prometheus up confirms a scraped target, not Gatus endpoint history.
+    coverage = synthetic.get("state") == "observed" and comparison.get("state") == "observed"
+    row["application_ok"] = True if row["reachable"] is True and coverage else None
     row["application_result"] = {
         "kind": "gatus_via_prometheus",
+        "coverage_observed": coverage,
         "scope": "truenas_internal_only",
         "service_count": synthetic.get("service_count"),
         "comparable": comparison.get("comparable"),
