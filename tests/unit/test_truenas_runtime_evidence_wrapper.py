@@ -36,3 +36,26 @@ def test_wrapper_is_bounded_and_does_not_expose_secrets() -> None:
     assert ".Config.Env" not in source
     assert "docker restart" not in source
     assert "docker exec" not in source
+
+
+def test_vantage_selection_is_documented_and_prevents_local_docker_confusion() -> None:
+    source = SCRIPT.read_text(encoding="utf-8")
+    assert "--vantage" in source
+    assert "workstation" in source
+    assert 'if [[ "$vantage" != truenas ]]' in source
+    assert "DOCKER_HOST" in source
+    assert "DOCKER_CONTEXT" in source
+    assert "ix-postgres-postgres-1" in source
+    assert "ix-sentry-sentry-web-1" in source
+
+
+def test_invalid_vantage_returns_error(tmp_path: Path) -> None:
+    result = subprocess.run(
+        ["bash", str(SCRIPT), "--vantage", "invalid"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 2
+    assert "Invalid vantage" in result.stderr
