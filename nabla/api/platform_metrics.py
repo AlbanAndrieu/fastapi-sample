@@ -32,6 +32,14 @@ _OPTIONAL_METRICS = {
     "pfsense_memory_available_ratio": "nabla:core:pfsense_memory_available_ratio",
 }
 _METRIC_TO_KEY = {metric: key for key, metric in {**_METRICS, **_OPTIONAL_METRICS}.items()}
+_EXPORTER_JOBS = frozenset({
+    "gatus", "fastapi_sample", "postgres_exporter", "redis_exporter",
+    "pfsense_exporter", "crowdsec", "cloudflare_exporter", "truenas_node",
+    "kafka_exporter", "clickhouse", "opensearch", "opensearch-security",
+    "grafana", "alloy", "loki", "mimir", "tempo", "alertmanager",
+    "pyroscope", "keycloak", "pihole_exporter", "haproxy", "n8n", "docling",
+})
+_EXPORTER_RECORD = "nabla:telemetry:service_exporter_up"
 _SYNTHETIC_METRICS = {
     "gatus_up": "nabla:telemetry:gatus_up",
     "success": "nabla:service:synthetic_probe_success",
@@ -42,7 +50,7 @@ _SYNTHETIC_METRIC_TO_FIELD = {
     metric: field for field, metric in _SYNTHETIC_METRICS.items()
 }
 _FIXED_QUERY = " or ".join(
-    (*_METRICS.values(), *_OPTIONAL_METRICS.values(), *_SYNTHETIC_METRICS.values(), 'up{job="gatus"}'),
+    (*_METRICS.values(), *_OPTIONAL_METRICS.values(), _EXPORTER_RECORD, *_SYNTHETIC_METRICS.values(), 'up{job="gatus"}'),
 )
 _UP_SIGNALS = (
     "truenas_node_up",
@@ -62,6 +70,7 @@ async def _query_fixed_metrics(
     values = dict.fromkeys({**_METRICS, **_OPTIONAL_METRICS})
     synthetic: dict[str, Any] = {"gatus_up": None, "services": {}}
     raw_gatus_up: float | None = None
+    exporter_jobs: dict[str, float] = {}
     for sample in await query_vector(client, _FIXED_QUERY):
         labels = sample.get("metric")
         if not isinstance(labels, dict):
@@ -69,6 +78,11 @@ async def _query_fixed_metrics(
         metric = str(labels.get("__name__", ""))
         value = sample_value(sample)
         if value is None:
+            continue
+        if metric == _EXPORTER_RECORD:
+            job = labels.get("job")
+            if isinstance(job, str) and job in _EXPORTER_JOBS and value in (0.0, 1.0):
+                exporter_jobs[job] = value
             continue
         key = _METRIC_TO_KEY.get(metric)
         if key is not None:
@@ -90,6 +104,7 @@ async def _query_fixed_metrics(
     if synthetic["gatus_up"] is None and raw_gatus_up is not None:
         synthetic["gatus_up"] = raw_gatus_up
         synthetic["gatus_source"] = "raw_prometheus_up"
+    synthetic["exporter_jobs"] = exporter_jobs
     return values, synthetic
 
 
@@ -211,6 +226,7 @@ async def fetch_platform_metrics(
         "configured": True,
         "source": "prometheus",
         "synthetic_probes": _synthetic_summary(synthetic),
+        "exporter_jobs": synthetic.get("exporter_jobs", {}),
         "metrics": {
             key: {
                 "metric": _METRICS[key],
