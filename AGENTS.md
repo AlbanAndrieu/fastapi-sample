@@ -6,6 +6,18 @@ Maintain this Python/FastAPI application with minimal, testable changes.
 
 Prefer repository sources of truth over assumptions or duplicated documentation.
 
+## Documentation ownership across Nabla repositories
+
+`nabla-compose` is the single source of truth for pfSense/WebConfigurator
+appliance recovery, Cloudflare Tunnel/Access operational routing and
+self-hosted Sentry deployment/ingestion. `fastapi-sample` owns only its
+application observers, cache/fan-out, health semantics, Sentry SDK/DSN
+selection, logging and tests. Keep dated app incidents in `docs/incidents.md`.
+Do not duplicate appliance shell commands or infrastructure route snapshots in
+FastAPI docs; link to the `nabla-compose` runbooks. Retain existing application
+documentation paths as compatibility entries when splitting ownership.
+Do not move operational scripts back into this application repository.
+
 ## Mandatory execution protocol
 
 This section is deliberately explicit so smaller models such as the OpenCode
