@@ -20,13 +20,15 @@ _METRICS = {
     "truenas_cadvisor_up": "nabla:telemetry:truenas_cadvisor_up",
     "pfsense_metrics_up": "nabla:telemetry:pfsense_metrics_up",
     "prometheus_up": "nabla:observability:prometheus_up",
+}
+_OPTIONAL_METRICS = {
     "postgres_exporter_up": "nabla:telemetry:postgres_exporter_up",
     "redis_exporter_up": "nabla:telemetry:redis_exporter_up",
     "fastapi_sample_up": "nabla:telemetry:fastapi_sample_up",
     "pyroscope_up": "nabla:telemetry:pyroscope_up",
     "alertmanager_up": "nabla:telemetry:alertmanager_up",
 }
-_METRIC_TO_KEY = {metric: key for key, metric in _METRICS.items()}
+_METRIC_TO_KEY = {metric: key for key, metric in {**_METRICS, **_OPTIONAL_METRICS}.items()}
 _SYNTHETIC_METRICS = {
     "gatus_up": "nabla:telemetry:gatus_up",
     "success": "nabla:service:synthetic_probe_success",
@@ -37,7 +39,7 @@ _SYNTHETIC_METRIC_TO_FIELD = {
     metric: field for field, metric in _SYNTHETIC_METRICS.items()
 }
 _FIXED_QUERY = " or ".join(
-    (*_METRICS.values(), *_SYNTHETIC_METRICS.values(), 'up{job="gatus"}'),
+    (*_METRICS.values(), *_OPTIONAL_METRICS.values(), *_SYNTHETIC_METRICS.values(), 'up{job="gatus"}'),
 )
 _UP_SIGNALS = (
     "truenas_node_up",
@@ -54,7 +56,7 @@ def _utc_now() -> str:
 async def _query_fixed_metrics(
     client: httpx.AsyncClient,
 ) -> tuple[dict[str, float | None], dict[str, Any]]:
-    values = dict.fromkeys(_METRICS)
+    values = dict.fromkeys({**_METRICS, **_OPTIONAL_METRICS})
     synthetic: dict[str, Any] = {"gatus_up": None, "services": {}}
     raw_gatus_up: float | None = None
     for sample in await query_vector(client, _FIXED_QUERY):
@@ -125,6 +127,7 @@ def _summary(values: dict[str, float | None]) -> dict[str, Any]:
         ),
         "truenas_cpu_busy_ratio": values.get("truenas_cpu_busy_ratio"),
         "pfsense_metrics_up": values.get("pfsense_metrics_up"),
+        "optional_exporters": {name: values.get(name) for name in _OPTIONAL_METRICS},
     }
 
 
