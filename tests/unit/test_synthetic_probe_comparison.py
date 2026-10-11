@@ -230,3 +230,20 @@ def test_existing_gatus_service_without_supported_evidence_has_distinct_reason()
     assert result["missing_gatus_ids"] == ["nexus"]
     assert result["missing_gatus_reasons"] == {"nexus": "no_valid_comparable_probe"}
     assert result["mismatched"] == 0
+
+
+def test_duplicate_internal_ids_are_counted_once() -> None:
+    homelab = {"internal_services": [
+        {"id": "redis", "state": "ok"},
+        {"id": "redis", "state": "ok"},
+        {"id": "nexus", "state": "ok"},
+        {"id": "nexus", "state": "ok"},
+    ]}
+    result = compare_internal_probe_evidence(
+        homelab, _platform({"nexus": {"TCP": {"success": 1.0}}}),
+    )
+    assert result["missing_gatus"] == 1
+    assert result["missing_gatus_ids"] == ["redis"]
+    assert result["matched"] == 1
+    assert result["comparable"] == 1
+    assert result["mismatched"] == 0
