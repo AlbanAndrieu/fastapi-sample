@@ -157,6 +157,7 @@ def test_internal_delegation_candidate_preserves_external_probe_strategy() -> No
         "mismatched": 0,
         "missing_gatus": 0,
         "missing_gatus_ids": [],
+        "missing_gatus_reasons": {},
     }
 
 
@@ -213,7 +214,19 @@ def test_missing_gatus_ids_are_reported_without_marking_services_down() -> None:
     )
     assert result["missing_gatus"] == 2
     assert result["missing_gatus_ids"] == ["redis", "gatus"]
+    assert result["missing_gatus_reasons"] == {"redis": "no_labeled_service_metrics", "gatus": "no_labeled_service_metrics"}
     assert result["mismatched"] == 0
     delegated = evaluate_internal_probe_delegation(_platform({}), result)
     assert delegated["missing_gatus_ids"] == ["redis", "gatus"]
+    assert delegated["missing_gatus_reasons"] == result["missing_gatus_reasons"]
     assert delegated["candidate"] is False
+
+
+def test_existing_gatus_service_without_supported_evidence_has_distinct_reason() -> None:
+    result = compare_internal_probe_evidence(
+        {"internal_services": [{"id": "nexus", "state": "ok"}]},
+        _platform({"nexus": {"PING": {"success": 1.0}}}),
+    )
+    assert result["missing_gatus_ids"] == ["nexus"]
+    assert result["missing_gatus_reasons"] == {"nexus": "no_valid_comparable_probe"}
+    assert result["mismatched"] == 0
