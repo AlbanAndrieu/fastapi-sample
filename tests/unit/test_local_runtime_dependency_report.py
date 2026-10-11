@@ -25,8 +25,8 @@ def sample_snapshot() -> dict:
         "age_seconds": 1.0,
         "homelab": {
             "components": {
-                "postgres": {"reachable": True, "application_ok": True},
-                "redis": {"reachable": True, "application_ok": True},
+                "postgres": {"reachable": True, "application_ok": True, "application_evidence": {"kind": "sql_select_1", "authenticated": True, "ok": True}},
+                "redis": {"reachable": True, "application_ok": True, "application_evidence": {"kind": "redis_ping", "authenticated": True, "ok": True}},
             },
             "probe_cache": {"stale": False},
             "truenas": {
@@ -447,3 +447,29 @@ def test_report_only_preserves_gaps_but_strict_mode_fails(monkeypatch) -> None:
     assert report["evidence_gaps"] == ["sentry", "pyroscope"]
     monkeypatch.setattr(module.sys, "argv", ["diagnose-local-runtime-dependencies.py"])
     assert module.main() == 1
+
+
+def test_db_component_requires_authenticated_command_proof() -> None:
+    module = load_module()
+    snapshot = sample_snapshot()
+    for name in ("postgres", "redis"):
+        snapshot["homelab"]["components"][name].pop("application_evidence")
+    report = module.build_report(snapshot)
+    for name in ("postgres", "redis"):
+        row = report["dependencies"][name]
+        assert row["reachable"] is True
+        assert row["application_ok"] is None
+        assert row["evidence_complete"] is False
+
+
+def test_sentry_ingestion_proof_requires_fresh_persisted_event() -> None:
+    module = load_module()
+    snapshot = sample_snapshot()
+    snapshot["healthz"]["checks"]["sentry"]["ingestion_evidence"] = {
+        "persisted": True, "fresh": True,
+    }
+    row = module.build_report(snapshot)["dependencies"]["sentry"]
+    assert row["application_ok"] is True
+    assert row["evidence_complete"] is True
+    snapshot["healthz"]["checks"]["sentry"]["ingestion_evidence"]["fresh"] = False
+    assert module.build_report(snapshot)["dependencies"]["sentry"]["evidence_complete"] is False
