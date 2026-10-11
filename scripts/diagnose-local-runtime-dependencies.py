@@ -474,7 +474,24 @@ def _fmt(value: object) -> str:
     return str(value)
 
 
-def print_table(report: dict[str, Any]) -> None:
+_STATE_STYLE = {
+    "ok": ("✅", "\x1b[32m"),
+    "warning": ("⚠️", "\x1b[33m"),
+    "evidence_incomplete": ("❔", "\x1b[33m"),
+    "configuration_required": ("⚙️", "\x1b[33m"),
+    "unreachable": ("❌", "\x1b[31m"),
+    "application_error": ("❌", "\x1b[31m"),
+}
+
+
+def _status_label(state: object, *, color: bool) -> str:
+    value = str(state or "unknown")
+    icon, ansi = _STATE_STYLE.get(value, ("❔", "\x1b[33m"))
+    label = f"{icon} {value}"
+    return f"{ansi}{label}\x1b[0m" if color else label
+
+
+def print_table(report: dict[str, Any], *, color: bool = False) -> None:
     dependencies = _mapping(report.get("dependencies"))
     print("FastAPI local runtime dependency evidence")
     print(
@@ -486,16 +503,17 @@ def print_table(report: dict[str, Any]) -> None:
     )
     for name in _DEPENDENCY_ORDER:
         row = _mapping(dependencies.get(name))
+        decorated_state = _status_label(row.get("operational_state"), color=color)
         print(
             f"{name:<12} {_fmt(row.get('configured')):<10} "
             f"{_fmt(row.get('reachable')):<10} {_fmt(row.get('authenticated')):<6} "
             f"{_fmt(row.get('application_ok')):<6} {_fmt(row.get('stale')):<6} "
-            f"{_fmt(row.get('operational_state')):<22} {_fmt(row.get('error_stage'))}",
+            f"{decorated_state} {_fmt(row.get('error_stage'))}",
         )
     gaps = report.get("evidence_gaps") or []
     print()
     if gaps:
-        print("Evidence gaps: " + ", ".join(str(value) for value in gaps))
+        print("⚠️ Evidence gaps: " + ", ".join(str(value) for value in gaps))
         for name in gaps:
             row = _mapping(dependencies.get(name))
             state = row.get("operational_state")
@@ -522,7 +540,7 @@ def print_table(report: dict[str, Any]) -> None:
             else:
                 guidance = "Inspect existing runtime evidence, not an additional provider probe."
                 extra = ""
-            print(f"  - {name}: {state}, stage={stage}{extra}; {guidance}")
+            print(f"  {_status_label(state, color=color)} {name}: stage={stage}{extra}; {guidance}")
     else:
         print("✅ all dependency evidence contracts are complete")
 
@@ -541,6 +559,7 @@ def parse_args() -> argparse.Namespace:
         help="maximum wait for one health-board refresh",
     )
     parser.add_argument("--json", action="store_true", help="print normalized JSON")
+    parser.add_argument("--color", choices=("auto", "always", "never"), default="auto", help="ANSI color for text output")
     parser.add_argument(
         "--report-only", action="store_true",
         help="return 0 when the board is readable; still print all evidence gaps (no acceptance proof)",
@@ -561,7 +580,8 @@ def main() -> int:
     if args.json:
         print(json.dumps(report, indent=2, sort_keys=True))
     else:
-        print_table(report)
+        color = args.color == "always" or (args.color == "auto" and sys.stdout.isatty() and "NO_COLOR" not in os.environ)
+        print_table(report, color=color)
     return 0 if args.report_only or report["evidence_complete"] else 1
 
 
