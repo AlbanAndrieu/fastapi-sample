@@ -3,17 +3,18 @@
 set -euo pipefail
 
 runtime_url="${FASTAPI_RUNTIME_URL:-http://172.17.0.24:8091}"
-mode=report
+mode=basic
 vantage=auto
 while (($#)); do
   case "$1" in
     --strict) mode=strict ;;
+    --detail) mode=report ;;
     --vantage)
       [[ $# -ge 2 ]] || { echo '❌ --vantage requires a value' >&2; exit 2; }
       vantage="$2"
       shift ;;
     --help|-h)
-      printf 'Usage: %s [--strict] [--vantage auto|truenas|workstation]\n' "$0"
+      printf 'Usage: %s [--strict|--detail] [--vantage auto|truenas|workstation]\n' "$0"
       exit 0 ;;
     *) printf '❌ Unknown option: %s\n' "$1" >&2; exit 2 ;;
   esac
@@ -43,12 +44,27 @@ printf '📍 Observer=%s; target=TrueNAS (172.17.0.24)\n' "$vantage"
 printf '\n🔎 FastAPI cached dependency evidence\n'
 if [[ "$mode" == strict ]]; then
   python3 "$script" --url "$runtime_url" --wait-seconds 50 || exit $?
-else
+elif [[ "$mode" == report ]]; then
   python3 "$script" --url "$runtime_url" --wait-seconds 50 --report-only || exit $?
+else
+  python3 "$script" --url "$runtime_url" --wait-seconds 50 --basic || exit $?
 fi
 
 if [[ "$vantage" != truenas ]]; then
-  echo 'ℹ️ Workstation: Docker local is unrelated to TrueNAS; skipping container inspection.'
+  echo '💻 Workstation: local Docker inventory (separate from TrueNAS).'
+  if command -v docker >/dev/null 2>&1 && [[ -z "${DOCKER_HOST:-}${DOCKER_CONTEXT:-}" ]]; then
+    for name in postgres redis; do
+      if docker inspect "$name" >/dev/null 2>&1; then
+        local_status="$(docker inspect --format '{{.State.Status}}' "$name" 2>/dev/null || true)"
+        local_health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}' "$name" 2>/dev/null || true)"
+        printf '💻 local %-10s state=%s health=%s (not TrueNAS evidence)\\n' "$name" "$local_status" "$local_health"
+      else
+        printf '❔ local %-10s not found by exact name (not TrueNAS evidence)\\n' "$name"
+      fi
+    done
+  else
+    echo 'ℹ️ Docker CLI not available or remote context configured; skipping local inventory.'
+  fi
 elif [[ -n "${DOCKER_HOST:-}" || -n "${DOCKER_CONTEXT:-}" ]]; then
   echo '⚠️ Explicit Docker host/context set: skipping ambiguous inventory.'
 elif ! command -v docker >/dev/null 2>&1; then
@@ -85,4 +101,9 @@ if command -v curl >/dev/null 2>&1; then
     printf '%s %-12s HTTP=%s\n' "$symbol" "$service" "$status"
   done
 fi
-echo 'ℹ️ HTTP/container readiness cannot prove authenticated SQL/PING, Sentry ingestion, or Gatus history.'
+echo 'ℹ️ Basic reachability is not authenticated SQL/PING or Sentry/Gatus persistence.'
+echo '🔧 Deep diagnostics live in nabla-compose:'
+echo '   scripts/truenas/diagnose-fastapi-integrations.py'
+echo '   scripts/truenas/diagnose-sentry.sh --check'
+echo '   scripts/truenas/diagnose-gatus.sh'
+echo '   scripts/truenas/diagnose-pyroscope.sh'
