@@ -380,6 +380,7 @@ def _gatus(snapshot: dict[str, Any]) -> dict[str, Any]:
         "matched": comparison.get("matched"),
         "mismatched": comparison.get("mismatched"),
         "missing_gatus": comparison.get("missing_gatus"),
+        "missing_gatus_ids": comparison.get("missing_gatus_ids", []),
         "delegation_candidate": delegation.get("candidate"),
         "delegation_blockers": delegation.get("blockers"),
         "external_probes_preserved": True,
@@ -565,7 +566,8 @@ def print_table(report: dict[str, Any], *, color: bool = False) -> None:
                 extra = ""
             elif name == "gatus":
                 guidance = "Check Gatus HTTP/history and Prometheus gatus_up metrics internally; never replace outside-in checks."
-                extra = ""
+                ids = detail.get("missing_gatus_ids")
+                extra = f" missing_ids={ids}" if ids else ""
             else:
                 guidance = "Inspect existing runtime evidence, not an additional provider probe."
                 extra = ""
