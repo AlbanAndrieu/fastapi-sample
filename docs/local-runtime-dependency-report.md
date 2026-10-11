@@ -38,7 +38,7 @@ For each dependency preserve:
 
 A post-reboot report must not declare overall evidence complete while the cached board is `pending`, `refreshing` or explicitly stale. Such a snapshot remains incomplete even if individual service rows look healthy. The JSON report exposes `snapshot_fresh` separately from `evidence_gaps` for operator triage.
 
-An HTTP 4xx/5xx proves that the HTTP peer responded; it is not a TCP failure.
+A PostgreSQL/Redis TCP connection only establishes transport. Cached component evidence without explicit `application_ok: true` remains incomplete: no database authentication, SQL query, Redis PING or application command success may be inferred from an open port.\n\nAn HTTP 4xx/5xx proves that the HTTP peer responded; it is not a TCP failure.
 Likewise, socket reachability does not prove authentication or application
 acceptance.
 
