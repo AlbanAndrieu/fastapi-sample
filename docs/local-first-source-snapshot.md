@@ -21,7 +21,7 @@ Exemple avec un cache préexistant ; adapter les chemins et SHA :
 SOURCE="$HOME/src/fastapi-sample"
 HEAD_SHA="$(git -C "$SOURCE" rev-parse HEAD)"
 SNAPSHOT="$(mktemp -d)/checkout"
-bash scripts/agent-source-snapshot.sh "$SOURCE" "$HEAD_SHA" "$SNAPSHOT"
+bash scripts/agent-source-snapshot.sh "$SOURCE" "$HEAD_SHA" "$SNAPSHOT" origin/master
 cd "$SNAPSHOT"
 test "$(git rev-parse HEAD)" = "$HEAD_SHA"
 test -z "$(git status --porcelain)"
@@ -29,8 +29,7 @@ git cat-file -e "origin/master^{commit}"
 git merge-base --is-ancestor origin/master HEAD
 ```
 
-La copie provient des objets Git commités, pas du worktree source. Ne pas déclarer
-une validation du HEAD de PR si `HEAD_SHA` est simplement celui d'un cache obsolète :
+Le quatrième argument est optionnel. Lorsqu'il est fourni, le script résout la base\nlocalement et refuse le snapshot si cette base n'est pas un ancêtre du HEAD demandé.\nLa copie provient des objets Git commités, pas du worktree source. Ne pas déclarer\nune validation du HEAD de PR si `HEAD_SHA` est simplement celui d'un cache obsolète :
 comparer avec la métadonnée courante de la PR avant de lancer les gates.
 
 ## Valider, sans supprimer les contrôles

@@ -150,3 +150,57 @@ def test_snapshot_rejects_destination_created_mid_checkout(tmp_path: Path) -> No
     assert "destination appeared during snapshot creation" in result.stderr
     assert destination.is_dir()
     assert list(destination.iterdir()) == []
+
+
+def test_snapshot_verifies_optional_comparison_base(tmp_path: Path) -> None:
+    """A supplied base must resolve locally and be an ancestor of exact HEAD."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q")
+    _git(repo, "config", "user.name", "Test")
+    _git(repo, "config", "user.email", "test@example.test")
+    (repo / "value.txt").write_text("base\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-qm", "base")
+    base = _git(repo, "rev-parse", "HEAD")
+    (repo / "value.txt").write_text("head\n", encoding="utf-8")
+    _git(repo, "commit", "-qam", "head")
+    head = _git(repo, "rev-parse", "HEAD")
+
+    destination = tmp_path / "snapshot"
+    result = subprocess.run(
+        ["bash", str(SNAPSHOT), str(repo), head, str(destination), base],
+        capture_output=True, text=True, check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert f"with base {base}" in result.stdout
+    assert _git(destination, "merge-base", "--is-ancestor", base, "HEAD") == ""
+
+
+def test_snapshot_rejects_missing_or_non_ancestor_base(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q")
+    _git(repo, "config", "user.name", "Test")
+    _git(repo, "config", "user.email", "test@example.test")
+    (repo / "value.txt").write_text("first\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-qm", "first")
+    old_head = _git(repo, "rev-parse", "HEAD")
+    (repo / "value.txt").write_text("second\n", encoding="utf-8")
+    _git(repo, "commit", "-qam", "second")
+    newer_base = _git(repo, "rev-parse", "HEAD")
+
+    missing = subprocess.run(
+        ["bash", str(SNAPSHOT), str(repo), old_head, str(tmp_path / "missing"), "does-not-exist"],
+        capture_output=True, text=True, check=False,
+    )
+    assert missing.returncode == 1
+    assert "comparison base is not cached" in missing.stderr
+
+    non_ancestor = subprocess.run(
+        ["bash", str(SNAPSHOT), str(repo), old_head, str(tmp_path / "non-ancestor"), newer_base],
+        capture_output=True, text=True, check=False,
+    )
+    assert non_ancestor.returncode == 1
+    assert "not an ancestor" in non_ancestor.stderr

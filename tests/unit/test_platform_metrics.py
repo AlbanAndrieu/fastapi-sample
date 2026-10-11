@@ -204,3 +204,55 @@ async def test_platform_metrics_exposes_gatus_service_signals_as_shadow_only() -
         "availability_ratio_5m": 0.99,
     }
     assert synthetic["services"]["vaultwarden"]["TCP"] == {"success": 1.0}
+
+
+@pytest.mark.asyncio
+async def test_gatus_raw_up_is_bounded_fallback_without_faking_monitor_coverage() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        query = request.url.params.get("query", "")
+        assert 'up{job="gatus"}' in query
+        return httpx.Response(
+            200, request=request, json={
+                "status": "success",
+                "data": {"resultType": "vector", "result": [{
+                    "metric": {"__name__": "up", "job": "gatus"},
+                    "value": [1, "1"],
+                }]},
+            },
+        )
+
+    settings = HomelabPrometheusSettings(
+        homelab_prometheus_url="http://prometheus.test",
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://prometheus.test",
+    ) as client:
+        payload = await fetch_platform_metrics(settings=settings, client=client)
+    synthetic = payload["synthetic_probes"]
+    assert synthetic["gatus_up"] == 1.0
+    assert synthetic["gatus_source"] == "raw_prometheus_up"
+    assert synthetic["service_count"] == 0
+    assert synthetic["services"] == {}
+
+
+@pytest.mark.asyncio
+async def test_gatus_recording_rule_takes_priority_over_raw_up() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, request=request, json={
+            "status": "success",
+            "data": {"resultType": "vector", "result": [
+                {"metric": {"__name__": "up", "job": "gatus"}, "value": [1, "1"]},
+                {"metric": {"__name__": "nabla:telemetry:gatus_up"}, "value": [1, "0"]},
+            ]},
+        })
+    settings = HomelabPrometheusSettings(
+        homelab_prometheus_url="http://prometheus.test",
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://prometheus.test",
+    ) as client:
+        payload = await fetch_platform_metrics(settings=settings, client=client)
+    assert payload["synthetic_probes"]["gatus_up"] == 0.0
+    assert payload["synthetic_probes"]["gatus_source"] == "recording_rule"

@@ -145,8 +145,11 @@ Preserve process/socket, CPU/memory/OOM and bounded log evidence before
 restarting WebGUI/PHP-FPM. Avoid rebooting the firewall unless the supported
 service recovery path fails.
 
-Detailed runbook:
-[pfSense webConfigurator 502 recovery](pfsense-webconfigurator-recovery.md).
+Platform incident:
+[nabla-compose: 2026-09 pfSense WebConfigurator HTTP 502](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/incidents/2026-09-08-pfsense-webconfigurator-http-502.md).
+
+Application observer semantics (historical local path preserved):
+[FastAPI pfSense 502 observer contract](pfsense-webconfigurator-recovery.md).
 
 ## 2026-10-04 — pfSense upgrade invalidated runtime API keys
 

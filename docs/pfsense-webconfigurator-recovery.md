@@ -1,158 +1,57 @@
-# pfSense WebGUI/API 502 recovery
+# pfSense WebGUI/API 502 — FastAPI observer contract
 
-Use this runbook when pfSense nginx is reachable but WebGUI or the lightweight
-REST endpoint returns HTTP 502. The dated 2026-09 recurrences and their evidence
-are recorded in [incidents.md](incidents.md).
+This path is intentionally retained for historical links from
+[incidents.md](incidents.md) and the FastAPI health-board documentation.
+**Canonical pfSense appliance operations and recovery** are maintained in
+[nabla-compose: pfSense diagnosis/recovery](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/pfsense-diagnose-recover.md).
+Do not copy pfSense shell, SSH administration or mutation commands into this
+application repository.
 
-## Interpretation
+## What FastAPI should report
 
-A native nginx 502 means the network/HTTP listener responded but the
-webConfigurator/PHP backend failed. Authentication may not have been evaluated.
+When both WebGUI and `GET /api/v2/system/version` return a native nginx
+**HTTP 502**, TCP/TLS/HTTP transport has succeeded, but the
+webConfigurator/PHP-FPM control plane has not returned a valid application
+response. Authentication might never have been evaluated.
 
 ```text
-pfSense
-  network transport        reachable
-  API/WebGUI control plane application error (HTTP 502)
-  authentication           unknown until evaluated
-  Prometheus/exporter      independent evidence
+network transport       reachable
+pfSense UI/API           HTTP 502 (control-plane failure)
+API authentication      unknown; not proven invalid
+pfsense_exporter         independent telemetry
+Unbound                 independent resolver health
 ```
 
-Do not classify this as a TCP failure or invalid API key without separate proof.
+Do not turn a 502 into a TCP failure or invalid API-key verdict. Conversely,
+HTTP 200/30x for the WebGUI alone does not establish the authenticated REST
+control-plane is healthy.
 
-## Preferred helper
+## Application probe safety
 
-Read-only collection:
+- Use the lightweight `/api/v2/system/version` check with one bounded attempt
+  per failure window; do not retry a 5xx immediately.
+- Share/collapse concurrent checks (cache and single-flight); never run deep
+  appliance status collection synchronously from an application liveness path.
+- Keep the cloud/remote network timeout classification separate from
+  trusted homelab/LAN observation; preserve stale-last-good and
+  `status_confirmed=false` when provider evidence is unconfirmed.
+- Keep `pfsense_exporter`, Unbound, Gatus and Uptime Kuma evidence separate;
+  do not align all polling periods into a probe storm.
+- A rejected `PFSENSE_POSTURE_API_KEY` (401) is an authentication failure,
+  while an expected 403 from a least-privilege identity can be correct.
+  Stop repeated rejected-key attempts to avoid REST Login Protection risk.
+- Never expose API key values, session tokens, full PF tables or sensitive
+  crash reports in the FastAPI status response or Sentry telemetry.
 
-```bash
-scripts/pfsense/diagnose-recover.sh --check
-```
+## Recurrence and closure
 
-Reviewed recovery:
+See the dated 2026-09 recurrence in [incidents.md](incidents.md) and the
+[canonical platform incident](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/incidents/2026-09-08-pfsense-webconfigurator-http-502.md). After the
+operator has completed the **nabla-compose** recovery procedure, accept
+FastAPI's observer only when the trusted LAN runtime returns authenticated
+2xx JSON for the lightweight REST endpoint. A separate pfSense runbook
+acceptance checks WebGUI/PHP-FPM, Unbound, exporter, monitor cadence and
+bounded pre-restart process/socket/OOM evidence.
 
-```bash
-scripts/pfsense/diagnose-recover.sh --apply
-```
-
-The helper keeps `PFSENSE_POSTURE_API_KEY` on the workstation and captures a
-bounded report containing:
-
-- nginx/PHP-FPM/webConfigurator listeners, processes and logs;
-- filesystem, swap, RSS and OOM/reclaim evidence;
-- Unbound process/port/status and memory evidence;
-- Snort/pfBlockerNG processes and relevant PF tables;
-- exact block attribution for configured probe sources;
-- PF rules/states involving management port `10443`;
-- workstation WebUI and authenticated REST probes.
-
-Only when a supplied host IP is an **exact** runtime table entry may the operator
-opt into removal:
-
-```bash
-scripts/pfsense/diagnose-recover.sh --apply --unblock-sources
-```
-
-This deletes only exact supplied IP entries. It never flushes tables, removes
-CIDRs/aliases or edits persistent firewall/Snort/pfBlockerNG policy.
-
-Useful overrides:
-
-```bash
-scripts/pfsense/diagnose-recover.sh \
-  --target root@172.17.0.1 \
-  --probe-sources "172.17.0.24 172.17.0.57" \
-  --api-url https://home.albandrieu.com:10443
-```
-
-## Preserve evidence before recovery
-
-From pfSense shell:
-
-```sh
-date
-uptime
-sockstat | egrep 'nginx|php-fpm|unbound'
-pgrep -laf 'nginx|php-fpm|unbound'
-df -h
-df -i
-swapinfo -h
-
-tail -n 250 /var/log/system.log | \
-  egrep -i 'nginx|php|fpm|unbound|fatal|segfault|signal|killed|memory|out of memory|crash|error'
-
-find /var/log -maxdepth 2 -type f | \
-  egrep -i 'nginx|php|fpm|webgui|webconfig' | sort
-```
-
-Capture this before restarts so socket/process/OOM evidence is not lost.
-
-## Recover WebGUI/PHP-FPM without reboot
-
-Prefer pfSense console options **11) Restart GUI** and **16) Restart PHP-FPM**,
-or the supported shell helpers:
-
-```sh
-/etc/rc.php-fpm_restart
-/etc/rc.restart_webgui
-
-sockstat | grep nginx
-pgrep -laf 'nginx|php-fpm'
-```
-
-Validate from the workstation:
-
-```bash
-curl -ksS -o /dev/null \
-  -w 'ui http=%{http_code} peer=%{remote_ip} time=%{time_total}\n' \
-  https://home.albandrieu.com:10443/
-
-curl -sS -o /dev/null \
-  -w 'api http=%{http_code} peer=%{remote_ip} tls=%{ssl_verify_result} time=%{time_total}\n' \
-  -H "X-API-Key: ${PFSENSE_POSTURE_API_KEY}" \
-  -H 'Accept: application/json' \
-  https://home.albandrieu.com:10443/api/v2/system/version
-```
-
-Expected result: WebGUI 200/30x and authenticated version endpoint 2xx JSON.
-Review `/crash_reporter.php` for sensitive configuration before sharing it.
-
-## Treat Unbound separately
-
-A WebGUI/PHP-FPM 502 does not prove an Unbound failure.
-
-```sh
-pgrep -laf unbound
-sockstat | grep ':53'
-unbound-control -c /var/unbound/unbound.conf status
-```
-
-If only Unbound is unhealthy, recover the resolver separately; a lighter reload
-is:
-
-```sh
-unbound-control -c /var/unbound/unbound.conf reload
-```
-
-Do not reboot the firewall merely because one management/resolver service is
-unhealthy.
-
-## Probe safety
-
-- cache and single-flight FastAPI pfSense probes;
-- use one lightweight `/api/v2/system/version` attempt per failure window;
-- never use expensive deep status as synchronous liveness;
-- do not immediately retry 5xx responses;
-- use `pfsense_exporter` for periodic runtime telemetry;
-- keep Uptime Kuma/Gatus simple and low frequency;
-- avoid synchronized polling intervals across monitors;
-- during failure, prefer stale/unknown evidence over increased probe pressure.
-
-## Acceptance
-
-Close the pfSense runtime issue only when:
-
-1. WebGUI/PHP-FPM recover without firewall reboot;
-2. authenticated lightweight REST returns 2xx from the TrueNAS/LAN observer;
-3. Unbound state is independently known;
-4. exporter telemetry remains independent from REST control-plane evidence;
-5. monitor frequencies are inventoried and do not create synchronized pressure;
-6. recurrence capture preserves process/socket/log/OOM evidence before restart.
+Operational recovery, including `scripts/pfsense/diagnose-recover.sh --check`
+and explicitly approved `--apply`, belongs **only** in `nabla-compose`.

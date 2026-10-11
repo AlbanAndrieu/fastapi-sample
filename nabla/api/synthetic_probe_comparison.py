@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 _INTERNAL_TRANSPORT_TYPES = ("TCP",)
@@ -17,8 +18,10 @@ def _matching_gatus_probe(
         if not isinstance(evidence, dict):
             continue
         value = evidence.get("success")
-        if isinstance(value, (int, float)):
-            return probe_type, float(value)
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            numeric = float(value)
+            if math.isfinite(numeric) and 0.0 <= numeric <= 1.0:
+                return probe_type, numeric
     return None
 
 
@@ -42,6 +45,9 @@ def compare_internal_probe_evidence(
             "mismatched": 0,
             "application_evidence": 0,
             "missing_gatus": 0,
+            "missing_gatus_ids": [],
+            "missing_gatus_reasons": {},
+            "conflicting_direct_ids": [],
             "mismatches": [],
         }
 
@@ -50,7 +56,11 @@ def compare_internal_probe_evidence(
     mismatched = 0
     application_evidence = 0
     missing_gatus = 0
+    missing_gatus_ids: list[str] = []
+    missing_gatus_reasons: dict[str, str] = {}
     mismatches: list[dict[str, Any]] = []
+    seen_states: dict[str, str] = {}
+    conflicting_direct_ids: set[str] = set()
 
     rows = homelab.get("internal_services")
     if not isinstance(rows, list):
@@ -63,10 +73,21 @@ def compare_internal_probe_evidence(
         direct_state = str(row.get("state") or "").strip().lower()
         if not service_id or direct_state not in {"ok", "fail"}:
             continue
+        previous = seen_states.setdefault(service_id, direct_state)
+        if previous != direct_state:
+            conflicting_direct_ids.add(service_id)
+
+    # Duplicate observations are counted once. Contradictory direct states
+    # cannot be safely compared with a single Gatus observation.
+    for service_id, direct_state in seen_states.items():
+        if service_id in conflicting_direct_ids:
+            continue
 
         synthetic_service = services.get(service_id)
         if not isinstance(synthetic_service, dict):
             missing_gatus += 1
+            missing_gatus_ids.append(service_id)
+            missing_gatus_reasons[service_id] = "no_labeled_service_metrics"
             continue
 
         transport = _matching_gatus_probe(
@@ -101,6 +122,8 @@ def compare_internal_probe_evidence(
             continue
 
         missing_gatus += 1
+        missing_gatus_ids.append(service_id)
+        missing_gatus_reasons[service_id] = "no_valid_comparable_probe"
 
     return {
         "source": "gatus_via_prometheus",
@@ -113,6 +136,9 @@ def compare_internal_probe_evidence(
         "mismatched": mismatched,
         "application_evidence": application_evidence,
         "missing_gatus": missing_gatus,
+        "missing_gatus_ids": missing_gatus_ids,
+        "missing_gatus_reasons": missing_gatus_reasons,
+        "conflicting_direct_ids": sorted(conflicting_direct_ids),
         "mismatches": mismatches,
     }
 
@@ -129,9 +155,12 @@ def evaluate_internal_probe_delegation(
         blockers.append("prometheus_not_configured")
     if not isinstance(synthetic, dict) or synthetic.get("state") != "observed":
         blockers.append("gatus_not_observed")
-    elif not isinstance(synthetic.get("gatus_up"), (int, float)) or float(
-        synthetic["gatus_up"]
-    ) < 1.0:
+    elif (
+        isinstance(synthetic.get("gatus_up"), bool)
+        or not isinstance(synthetic.get("gatus_up"), (int, float))
+        or not math.isfinite(float(synthetic["gatus_up"]))
+        or float(synthetic["gatus_up"]) < 1.0
+    ):
         blockers.append("gatus_not_up")
 
     comparable = int(comparison.get("comparable") or 0)
@@ -144,6 +173,8 @@ def evaluate_internal_probe_delegation(
         blockers.append("internal_transport_mismatches")
     if missing_gatus > 0:
         blockers.append("missing_internal_gatus_evidence")
+    if comparison.get("conflicting_direct_ids"):
+        blockers.append("conflicting_direct_observations")
 
     return {
         "provider": "gatus_via_prometheus",
@@ -158,4 +189,7 @@ def evaluate_internal_probe_delegation(
         "application_evidence": application_evidence,
         "mismatched": mismatched,
         "missing_gatus": missing_gatus,
+        "missing_gatus_ids": comparison.get("missing_gatus_ids", []),
+        "missing_gatus_reasons": comparison.get("missing_gatus_reasons", {}),
+        "conflicting_direct_ids": comparison.get("conflicting_direct_ids", []),
     }

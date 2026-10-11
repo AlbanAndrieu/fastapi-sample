@@ -156,6 +156,9 @@ def test_internal_delegation_candidate_preserves_external_probe_strategy() -> No
         "application_evidence": 7,
         "mismatched": 0,
         "missing_gatus": 0,
+        "missing_gatus_ids": [],
+        "missing_gatus_reasons": {},
+        "conflicting_direct_ids": [],
     }
 
 
@@ -172,3 +175,98 @@ def test_internal_delegation_blocks_same_protocol_transport_mismatch() -> None:
 
     assert result["candidate"] is False
     assert result["blockers"] == ["internal_transport_mismatches"]
+
+
+def test_invalid_gatus_samples_are_not_treated_as_success() -> None:
+    """A NaN, infinity, or boolean must never make a service look healthy."""
+    for invalid in (float("nan"), float("inf"), -1.0, 2.0, True):
+        homelab = {"internal_services": [{"id": "nexus", "state": "ok"}]}
+        result = compare_internal_probe_evidence(
+            homelab,
+            _platform({"nexus": {"TCP": {"success": invalid}}}),
+        )
+        assert result["comparable"] == 0
+        assert result["missing_gatus"] == 1
+
+
+def test_invalid_gatus_up_blocks_delegation() -> None:
+    """Only a finite numeric proof may authorize internal delegation."""
+    for invalid in (float("nan"), float("inf"), True, None):
+        platform = _platform({})
+        platform["synthetic_probes"]["gatus_up"] = invalid
+        result = evaluate_internal_probe_delegation(
+            platform,
+            {"comparable": 1, "application_evidence": 0, "mismatched": 0, "missing_gatus": 0},
+        )
+        assert result["candidate"] is False
+        assert "gatus_not_up" in result["blockers"]
+
+
+def test_missing_gatus_ids_are_reported_without_marking_services_down() -> None:
+    homelab = {
+        "internal_services": [
+            {"id": "nexus", "state": "ok"},
+            {"id": "redis", "state": "ok"},
+            {"id": "gatus", "state": "ok"},
+        ],
+    }
+    result = compare_internal_probe_evidence(
+        homelab, _platform({"nexus": {"TCP": {"success": 1.0}}}),
+    )
+    assert result["missing_gatus"] == 2
+    assert result["missing_gatus_ids"] == ["redis", "gatus"]
+    assert result["missing_gatus_reasons"] == {"redis": "no_labeled_service_metrics", "gatus": "no_labeled_service_metrics"}
+    assert result["mismatched"] == 0
+    delegated = evaluate_internal_probe_delegation(_platform({}), result)
+    assert delegated["missing_gatus_ids"] == ["redis", "gatus"]
+    assert delegated["missing_gatus_reasons"] == result["missing_gatus_reasons"]
+    assert delegated["candidate"] is False
+
+
+def test_existing_gatus_service_without_supported_evidence_has_distinct_reason() -> None:
+    result = compare_internal_probe_evidence(
+        {"internal_services": [{"id": "nexus", "state": "ok"}]},
+        _platform({"nexus": {"PING": {"success": 1.0}}}),
+    )
+    assert result["missing_gatus_ids"] == ["nexus"]
+    assert result["missing_gatus_reasons"] == {"nexus": "no_valid_comparable_probe"}
+    assert result["mismatched"] == 0
+
+
+def test_duplicate_internal_ids_are_counted_once() -> None:
+    homelab = {"internal_services": [
+        {"id": "redis", "state": "ok"},
+        {"id": "redis", "state": "ok"},
+        {"id": "nexus", "state": "ok"},
+        {"id": "nexus", "state": "ok"},
+    ]}
+    result = compare_internal_probe_evidence(
+        homelab, _platform({"nexus": {"TCP": {"success": 1.0}}}),
+    )
+    assert result["missing_gatus"] == 1
+    assert result["missing_gatus_ids"] == ["redis"]
+    assert result["matched"] == 1
+    assert result["comparable"] == 1
+    assert result["mismatched"] == 0
+
+
+def test_contradictory_duplicate_direct_states_are_not_turned_into_failures() -> None:
+    result = compare_internal_probe_evidence(
+        {"internal_services": [
+            {"id": "nexus", "state": "ok"},
+            {"id": "nexus", "state": "fail"},
+            {"id": "redis", "state": "ok"},
+        ]},
+        _platform({
+            "nexus": {"TCP": {"success": 1.0}},
+            "redis": {"TCP": {"success": 1.0}},
+        }),
+    )
+    assert result["conflicting_direct_ids"] == ["nexus"]
+    assert result["comparable"] == 1
+    assert result["matched"] == 1
+    assert result["mismatched"] == 0
+    assert result["missing_gatus"] == 0
+    delegation = evaluate_internal_probe_delegation(_platform({}), result)
+    assert delegation["candidate"] is False
+    assert "conflicting_direct_observations" in delegation["blockers"]

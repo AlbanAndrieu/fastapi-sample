@@ -10,6 +10,15 @@ default:
 sync:
     uv sync --frozen
 
+# Install only distributions already available in the uv cache (no DNS/network).
+offline-sync:
+    UV_OFFLINE=true uv sync --frozen --offline
+
+# Run the test suite using existing dependencies without network resolution.
+# For targeted tests: UV_OFFLINE=true bash scripts/run-pytest-compact.sh tests/unit/test_dns_probe.py
+offline-test:
+    UV_OFFLINE=true bash scripts/run-pytest-compact.sh
+
 # Run the local FastAPI development server.
 dev:
     uv run fastapi dev --port 8080
@@ -24,7 +33,7 @@ test-local-first:
     bash -n scripts/agent-source-snapshot.sh
     bash -n scripts/run-pytest-compact.sh
     bash -n scripts/agent-quality-gate.sh
-    bash scripts/run-pytest-compact.sh tests/unit/test_agent_source_snapshot.py tests/unit/test_compact_pytest_runner.py tests/unit/test_quality_log_tail_contract.py
+    bash scripts/run-pytest-compact.sh tests/unit/test_agent_source_snapshot.py tests/unit/test_compact_pytest_runner.py tests/unit/test_quality_log_tail_contract.py tests/unit/test_quality_failure_log_retention.py tests/unit/test_dagger_pilot_preflight.py
 
 # P1 Dagger pilot reference: native deterministic checks only, not a release gate.
 # Record this baseline before implementing a pinned Dagger module.
@@ -36,6 +45,26 @@ p1-parity-native:
 # P1 readiness is read-only and fails closed until Dagger is configured.
 p1-dagger-preflight:
     bash scripts/dagger-pilot-preflight.sh
+
+# Post-reboot cached integration report (no direct provider fan-out).
+truenas-check:
+    python3 scripts/diagnose-local-runtime-dependencies.py --url http://172.17.0.24:8091 --report-only
+
+# Strict post-reboot acceptance: all evidence must be complete to return 0.
+truenas-acceptance:
+    python3 scripts/diagnose-local-runtime-dependencies.py --url http://172.17.0.24:8091 --wait-seconds 50
+
+# Read-only TrueNAS runtime triage; uses the script location, not current working directory.
+truenas-evidence:
+    bash scripts/truenas-runtime-evidence.sh
+
+# Strict evidence acceptance; reports missing proofs as a nonzero exit.
+truenas-evidence-strict:
+    bash scripts/truenas-runtime-evidence.sh --strict
+
+# Targeted runtime tests in the pinned uv environment (not the host Python).
+test-runtime-evidence:
+    bash scripts/run-pytest-compact.sh tests/unit/test_truenas_runtime_evidence_wrapper.py tests/unit/test_local_runtime_dependency_report.py tests/unit/test_synthetic_probe_comparison.py tests/unit/test_platform_metrics.py
 
 # Run only pfSense observation, probe and tracing contracts.
 test-pfsense:

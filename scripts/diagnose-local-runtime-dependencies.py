@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Normalize the cached FastAPI health-board into the six P0 runtime dependencies.
+"""Normalize the cached FastAPI health-board into the P0 runtime dependencies.
 
 This helper deliberately does not call TrueNAS, pfSense, Cloudflare, Prometheus,
 Sentry or Pyroscope directly. It requests the FastAPI health board and derives a
@@ -28,6 +28,9 @@ _DEPENDENCY_ORDER = (
     "prometheus",
     "sentry",
     "pyroscope",
+    "postgres",
+    "redis",
+    "gatus",
 )
 
 
@@ -136,7 +139,7 @@ def _truenas(snapshot: dict[str, Any]) -> dict[str, Any]:
         row["authenticated"] = True
     elif row["error_stage"] == "authentication":
         row["authenticated"] = False
-    row["application_ok"] = bool(row["reachable"] is True and app_count is not None and app_count > 0)
+    row["application_ok"] = (app_count > 0) if row["reachable"] is True and app_count is not None else None
     row["application_result"] = {
         "kind": "truenas_app_inventory",
         "app_count": app_count,
@@ -271,18 +274,25 @@ def _prometheus(snapshot: dict[str, Any]) -> dict[str, Any]:
 def _sentry(snapshot: dict[str, Any]) -> dict[str, Any]:
     check = _healthz_check(snapshot, "sentry")
     row = _common(check)
-    row["application_ok"] = None
+    # A DSN socket never proves event ingestion; accept only explicit cached E2E evidence.
+    ingestion = _mapping(check.get("ingestion_evidence"))
+    row["application_ok"] = _bool_or_none(ingestion.get("persisted"))
     row["application_result"] = {
-        "kind": "dsn_socket_only",
+        "kind": "sentry_ingestion" if ingestion else "dsn_socket_only",
+        "ingestion_confirmed": row["application_ok"],
         "probe": check.get("probe"),
         "target": check.get("target"),
     }
-    row["evidence_complete"] = False
+    row["evidence_complete"] = bool(
+        row["configured"] is True and row["reachable"] is True
+        and row["application_ok"] is True and ingestion.get("fresh") is True
+        and not row["stale"]
+    )
     row["operational_state"] = _state(
         configured=row["configured"],
         reachable=row["reachable"],
-        application_ok=None,
-        complete=False,
+        application_ok=row["application_ok"],
+        complete=row["evidence_complete"],
     )
     return row
 
@@ -291,9 +301,10 @@ def _pyroscope(snapshot: dict[str, Any]) -> dict[str, Any]:
     check = _healthz_check(snapshot, "pyroscope")
     row = _common(check)
     status = check.get("http_status")
-    readiness_ok = isinstance(status, int) and 200 <= status < 300 and check.get("path") in {"/ready", "/health"}
+    readiness_path = check.get("path") in {"/ready", "/health"}
+    readiness_ok = type(status) is int and 200 <= status < 300 and readiness_path
     row["reachable"] = _transport_reachable(check)
-    row["application_ok"] = readiness_ok if isinstance(status, int) else None
+    row["application_ok"] = readiness_ok if readiness_path and type(status) is int else None
     row["application_result"] = {
         "kind": "readiness_only",
         "path": check.get("path"),
@@ -311,6 +322,89 @@ def _pyroscope(snapshot: dict[str, Any]) -> dict[str, Any]:
     return row
 
 
+def _component(snapshot: dict[str, Any], name: str) -> dict[str, Any]:
+    """Read existing component evidence; never open an extra DB or Redis session."""
+    components = _mapping(_mapping(snapshot.get("homelab")).get("components"))
+    check = _mapping(components.get(name))
+    row = _common(check)
+    row["reachable"] = _transport_reachable(check)
+    # A reachable TCP socket is not proof that PostgreSQL/Redis accepted a
+    # command or authenticated a client. Keep missing application proof unknown.
+    proof = _mapping(check.get("application_evidence"))
+    proof_kind = "sql_select_1" if name == "postgres" else "redis_ping"
+    evidence_valid = proof.get("kind") == proof_kind and proof.get("authenticated") is True
+    explicit_ok = _bool_or_none(check.get("application_ok"))
+    row["application_ok"] = (
+        explicit_ok if explicit_ok is False else
+        _bool_or_none(proof.get("ok")) if evidence_valid else None
+    )
+    row["application_result"] = {
+        "kind": "cached_component",
+        "proof_kind": proof.get("kind"),
+        "command_authenticated": proof.get("authenticated") if evidence_valid else None,
+        "state": check.get("state"),
+        "status": check.get("status"),
+    }
+    row["evidence_complete"] = bool(
+        check and row["configured"] is True and row["reachable"] is True
+        and row["application_ok"] is True and not row["stale"]
+    )
+    row["operational_state"] = _state(
+        configured=row["configured"],
+        reachable=row["reachable"],
+        application_ok=row["application_ok"],
+        complete=row["evidence_complete"],
+    )
+    return row
+
+
+def _gatus(snapshot: dict[str, Any]) -> dict[str, Any]:
+    """Gatus is diagnostic-only and cannot override public exposure evidence."""
+    metrics = _mapping(snapshot.get("platform_metrics"))
+    synthetic = _mapping(metrics.get("synthetic_probes"))
+    comparison = _mapping(snapshot.get("internal_probe_comparison"))
+    delegation = _mapping(snapshot.get("internal_probe_delegation"))
+    row = _common(synthetic)
+    row["configured"] = _bool_or_none(metrics.get("configured"))
+    value = synthetic.get("gatus_up")
+    row["reachable"] = value == 1.0 if type(value) in (int, float) else None
+    # Prometheus up confirms a scraped target, not Gatus endpoint history.
+    coverage = synthetic.get("state") == "observed" and comparison.get("state") == "observed"
+    row["application_ok"] = True if row["reachable"] is True and coverage else None
+    row["application_result"] = {
+        "kind": "gatus_via_prometheus",
+        "coverage_observed": coverage,
+        "gatus_source": synthetic.get("gatus_source"),
+        "scope": "truenas_internal_only",
+        "service_count": synthetic.get("service_count"),
+        "comparable": comparison.get("comparable"),
+        "matched": comparison.get("matched"),
+        "mismatched": comparison.get("mismatched"),
+        "missing_gatus": comparison.get("missing_gatus"),
+        "missing_gatus_ids": comparison.get("missing_gatus_ids", []),
+        "missing_gatus_reasons": comparison.get("missing_gatus_reasons", {}),
+        "conflicting_direct_ids": comparison.get("conflicting_direct_ids", []),
+        "delegation_candidate": delegation.get("candidate"),
+        "delegation_blockers": delegation.get("blockers"),
+        "external_probes_preserved": True,
+    }
+    row["evidence_complete"] = bool(
+        row["configured"] is True and row["reachable"] is True
+        and synthetic.get("state") == "observed"
+        and type(synthetic.get("service_count")) is int
+        and synthetic["service_count"] > 0
+        and comparison.get("state") == "observed"
+        and not row["stale"]
+    )
+    row["operational_state"] = _state(
+        configured=row["configured"],
+        reachable=row["reachable"],
+        application_ok=row["application_ok"],
+        complete=row["evidence_complete"],
+    )
+    return row
+
+
 def build_report(snapshot: dict[str, Any]) -> dict[str, Any]:
     dependencies = {
         "truenas": _truenas(snapshot),
@@ -319,18 +413,53 @@ def build_report(snapshot: dict[str, Any]) -> dict[str, Any]:
         "prometheus": _prometheus(snapshot),
         "sentry": _sentry(snapshot),
         "pyroscope": _pyroscope(snapshot),
+        "postgres": _component(snapshot, "postgres"),
+        "redis": _component(snapshot, "redis"),
+        "gatus": _gatus(snapshot),
     }
     gaps = [name for name in _DEPENDENCY_ORDER if not dependencies[name]["evidence_complete"]]
+    snapshot_ready = snapshot.get("state") == "fresh" and snapshot.get("refreshing") is not True
+    snapshot_fresh = snapshot_ready and snapshot.get("stale") is not True
     return {
         "schema_version": 2,
         "snapshot_state": snapshot.get("state"),
         "snapshot_generated_at": snapshot.get("generated_at"),
         "snapshot_age_seconds": snapshot.get("age_seconds"),
         "dependencies": dependencies,
-        "evidence_complete": not gaps,
+        "evidence_complete": not gaps and snapshot_fresh,
+        "snapshot_fresh": snapshot_fresh,
         "evidence_gaps": gaps,
     }
 
+
+
+def basic_availability(report: dict[str, Any]) -> dict[str, str]:
+    """Basic status uses cached reachability, never fabricated deep acceptance."""
+    rows = _mapping(report.get("dependencies"))
+    results: dict[str, str] = {}
+    for name in _DEPENDENCY_ORDER:
+        row = _mapping(rows.get(name))
+        if row.get("configured") is False:
+            status = "not_configured"
+        elif row.get("reachable") is True:
+            status = "reachable"
+        elif row.get("reachable") is False:
+            status = "unreachable"
+        else:
+            status = "unknown"
+        results[name] = status
+    return results
+
+
+def print_basic_availability(report: dict[str, Any], *, color: bool = False) -> None:
+    print("\n📡 Basic availability (transport only, NOT deep acceptance)")
+    for name, status in basic_availability(report).items():
+        label = {"reachable": "✅", "unreachable": "❌"}.get(status, "❔")
+        if color:
+            ansi = "\x1b[32m" if status == "reachable" else "\x1b[31m" if status == "unreachable" else "\x1b[33m"
+            label = f"{ansi}{label}\x1b[0m"
+        print(f"  {label} {name:<12} {status}")
+    print("ℹ️ Deep evidence and security authorization are separate; see nabla-compose scripts/truenas/.")
 
 def _fetch_json(url: str, diagnostics_key: str | None) -> dict[str, Any]:
     parsed = urlsplit(url)
@@ -345,6 +474,8 @@ def _fetch_json(url: str, diagnostics_key: str | None) -> dict[str, Any]:
             payload = json.load(response)
     except HTTPError as exc:
         raise RuntimeError(f"health-board returned HTTP {exc.code}") from exc
+    except TimeoutError as exc:
+        raise RuntimeError("health-board request timed out after 8 seconds") from exc
     except URLError as exc:
         raise RuntimeError(f"health-board transport failed: {exc.reason}") from exc
     if not isinstance(payload, dict):
@@ -376,7 +507,24 @@ def _fmt(value: object) -> str:
     return str(value)
 
 
-def print_table(report: dict[str, Any]) -> None:
+_STATE_STYLE = {
+    "ok": ("✅", "\x1b[32m"),
+    "warning": ("⚠️", "\x1b[33m"),
+    "evidence_incomplete": ("❔", "\x1b[33m"),
+    "configuration_required": ("⚙️", "\x1b[33m"),
+    "unreachable": ("❌", "\x1b[31m"),
+    "application_error": ("❌", "\x1b[31m"),
+}
+
+
+def _status_label(state: object, *, color: bool) -> str:
+    value = str(state or "unknown")
+    icon, ansi = _STATE_STYLE.get(value, ("❔", "\x1b[33m"))
+    label = f"{icon} {value}"
+    return f"{ansi}{label}\x1b[0m" if color else label
+
+
+def print_table(report: dict[str, Any], *, color: bool = False) -> None:
     dependencies = _mapping(report.get("dependencies"))
     print("FastAPI local runtime dependency evidence")
     print(
@@ -388,18 +536,51 @@ def print_table(report: dict[str, Any]) -> None:
     )
     for name in _DEPENDENCY_ORDER:
         row = _mapping(dependencies.get(name))
+        decorated_state = _status_label(row.get("operational_state"), color=color)
         print(
             f"{name:<12} {_fmt(row.get('configured')):<10} "
             f"{_fmt(row.get('reachable')):<10} {_fmt(row.get('authenticated')):<6} "
             f"{_fmt(row.get('application_ok')):<6} {_fmt(row.get('stale')):<6} "
-            f"{_fmt(row.get('operational_state')):<22} {_fmt(row.get('error_stage'))}",
+            f"{decorated_state} {_fmt(row.get('error_stage'))}",
         )
     gaps = report.get("evidence_gaps") or []
     print()
     if gaps:
-        print("Evidence gaps: " + ", ".join(str(value) for value in gaps))
+        print("⚠️ Evidence gaps: " + ", ".join(str(value) for value in gaps))
+        for name in gaps:
+            row = _mapping(dependencies.get(name))
+            state = row.get("operational_state")
+            stage = row.get("error_stage") or row.get("error_kind") or "no_application_proof"
+            detail = _mapping(row.get("application_result"))
+            if name == "truenas":
+                guidance = "Inspect API inventory and observer privileges (APPS_READ); do not infer application failure when apps evidence is absent."
+                extra = f" apps={detail.get('app_count')}"
+            elif name == "pfsense":
+                guidance = "Check authenticated /api/v2/system/version evidence from the TrueNAS observer; do not treat transport as authorization."
+                extra = ""
+            elif name == "pyroscope":
+                guidance = "Restore HTTP readiness, then verify recent profile ingestion; check runtime UID/dataset permissions before restart."
+                extra = ""
+            elif name == "sentry":
+                guidance = "DSN socket evidence is insufficient; verify a bounded event ID and downstream ingestion."
+                extra = ""
+            elif name in {"postgres", "redis"}:
+                guidance = "TCP is not application proof; inspect cached authenticated command health without extra probe fan-out."
+                extra = ""
+            elif name == "gatus":
+                guidance = "Check Gatus HTTP/history and Prometheus gatus_up metrics internally; never replace outside-in checks."
+                ids = detail.get("missing_gatus_ids")
+                reasons = detail.get("missing_gatus_reasons")
+                conflicts = detail.get("conflicting_direct_ids")
+                extra = f" missing_ids={ids} reasons={reasons}" if ids else ""
+                if conflicts:
+                    extra += f" conflicting_direct_ids={conflicts}"
+            else:
+                guidance = "Inspect existing runtime evidence, not an additional provider probe."
+                extra = ""
+            print(f"  {_status_label(state, color=color)} {name}: stage={stage}{extra}; {guidance}")
     else:
-        print("✅ all six dependency evidence contracts are complete")
+        print("✅ all dependency evidence contracts are complete")
 
 
 def parse_args() -> argparse.Namespace:
@@ -416,6 +597,12 @@ def parse_args() -> argparse.Namespace:
         help="maximum wait for one health-board refresh",
     )
     parser.add_argument("--json", action="store_true", help="print normalized JSON")
+    parser.add_argument("--basic", action="store_true", help="report cached basic reachability without requiring deep evidence")
+    parser.add_argument("--color", choices=("auto", "always", "never"), default="auto", help="ANSI color for text output")
+    parser.add_argument(
+        "--report-only", action="store_true",
+        help="return 0 when the board is readable; still print all evidence gaps (no acceptance proof)",
+    )
     return parser.parse_args()
 
 
@@ -432,8 +619,12 @@ def main() -> int:
     if args.json:
         print(json.dumps(report, indent=2, sort_keys=True))
     else:
-        print_table(report)
-    return 0 if report["evidence_complete"] else 1
+        color = args.color == "always" or (args.color == "auto" and sys.stdout.isatty() and "NO_COLOR" not in os.environ)
+        if args.basic:
+            print_basic_availability(report, color=color)
+        else:
+            print_table(report, color=color)
+    return 0 if args.basic or args.report_only or report["evidence_complete"] else 1
 
 
 if __name__ == "__main__":
