@@ -47,6 +47,44 @@ A PostgreSQL/Redis TCP connection only establishes transport. Cached component e
 Likewise, socket reachability does not prove authentication or application
 acceptance.
 
+## Locate the right checkout before running commands
+
+The `docs/local-first-roadmap-consolidation` branch, `just truenas-check`
+and `scripts/diagnose-local-runtime-dependencies.py` belong to
+**AlbanAndrieu/fastapi-sample**, not `nabla-compose`. When the shell is in
+`/mnt/cpool/compose/nabla-compose`, `git pull`, `python3 scripts/...`
+and `just truenas-acceptance` will address the **wrong repository**.
+
+```bash
+pwd
+git remote -v
+# Search likely checkout locations without scanning ZFS datasets indiscriminately:
+find /mnt/cpool/compose /home/albandrieu -maxdepth 5 \
+  -path '*/scripts/diagnose-local-runtime-dependencies.py' -print 2>/dev/null
+# cd to the directory ABOVE scripts/ in the result; verify:
+git remote get-url origin
+git branch --show-current
+git fetch origin docs/local-first-roadmap-consolidation
+git switch docs/local-first-roadmap-consolidation
+git pull --ff-only origin docs/local-first-roadmap-consolidation
+
+# Run safely even if the shell later changes directory:
+bash ./scripts/truenas-runtime-evidence.sh
+just truenas-evidence
+just truenas-evidence-strict
+```
+
+If no existing checkout is found, clone `AlbanAndrieu/fastapi-sample` to
+an explicitly chosen workspace when network access permits; do not run
+FastAPI-specific commands from the `nabla-compose` tree.
+
+The portable wrapper checks the cached health-board, bounded Docker status
+and three HTTP endpoints. It is **not** a substitute for authenticated
+PostgreSQL `SELECT 1`, Redis `PING`, Sentry ingestion, or Gatus history
+persistence. Actual PostgreSQL container:
+`ix-postgres-postgres-1`; the observed `pg_isready` result on 2026-10-11
+was **accepting connections**, not authenticated SQL acceptance.
+
 ## Operator entrypoint
 
 ```bash
