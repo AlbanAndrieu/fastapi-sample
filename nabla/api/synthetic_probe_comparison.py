@@ -58,6 +58,7 @@ def compare_internal_probe_evidence(
     missing_gatus_ids: list[str] = []
     missing_gatus_reasons: dict[str, str] = {}
     mismatches: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
 
     rows = homelab.get("internal_services")
     if not isinstance(rows, list):
@@ -70,6 +71,11 @@ def compare_internal_probe_evidence(
         direct_state = str(row.get("state") or "").strip().lower()
         if not service_id or direct_state not in {"ok", "fail"}:
             continue
+        # The runtime inventory may contain multiple rows for one canonical ID.
+        # Coverage counts are per service, not per row.
+        if service_id in seen_ids:
+            continue
+        seen_ids.add(service_id)
 
         synthetic_service = services.get(service_id)
         if not isinstance(synthetic_service, dict):
