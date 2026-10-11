@@ -419,3 +419,31 @@ def test_tcp_only_postgres_and_redis_do_not_pass_application_acceptance() -> Non
         assert row["application_ok"] is None
         assert row["evidence_complete"] is False
         assert row["operational_state"] == "evidence_incomplete"
+
+
+def test_truenas_missing_app_inventory_is_unknown_not_application_failure() -> None:
+    module = load_module()
+    snapshot = sample_snapshot()
+    snapshot["homelab"]["truenas"]["api"].pop("apps")
+    row = module.build_report(snapshot)["dependencies"]["truenas"]
+    assert row["reachable"] is True
+    assert row["application_ok"] is None
+    assert row["operational_state"] == "evidence_incomplete"
+    assert row["evidence_complete"] is False
+
+
+def test_report_only_preserves_gaps_but_strict_mode_fails(monkeypatch) -> None:
+    module = load_module()
+    snapshot = sample_snapshot()
+    monkeypatch.setattr(
+        module, "fetch_converged_snapshot", lambda *_args: snapshot
+    )
+    monkeypatch.setattr(
+        module.sys, "argv", ["diagnose-local-runtime-dependencies.py", "--report-only"]
+    )
+    assert module.main() == 0
+    report = module.build_report(snapshot)
+    assert report["evidence_complete"] is False
+    assert report["evidence_gaps"] == ["sentry", "pyroscope"]
+    monkeypatch.setattr(module.sys, "argv", ["diagnose-local-runtime-dependencies.py"])
+    assert module.main() == 1
