@@ -169,6 +169,13 @@ identity, and public diagnostics expose only intentionally published topology.
 - [ ] On TrueNAS, prove Prometheus rule-load success, per-job coverage and fresh samples. Exporter scrape `up=0` denotes unavailable *telemetry*, not automatically a failed application.
 - [ ] Confirm whether a real Cloudflare exporter exists: the job label being configured in a rule is **not** evidence of a running exporter. Preserve the separate Cloudflare API observer and authenticated Access checks.
 
+### Duplicate exporter-series contract (2026-10-11)
+
+- [x] When the bounded Prometheus vector contains multiple `nabla:telemetry:service_exporter_up` samples for the same allowed job, aggregate conservatively using the minimum 0/1 value. An `up=0` observation cannot be concealed by result ordering.
+- [x] Add regression cases for both orders of conflicting samples; preserve separation between exporter telemetry health and application availability.
+- [ ] On TrueNAS, compare source labels / target duplication if this diagnostic actually occurs; do not silently rewrite scrape jobs or restart Prometheus.
+- [ ] Run focused tests and exact-HEAD local publication quality checks when a trustworthy checkout is available; no CI checks have been bypassed or declared green.
+
 ## P0 — homelab dependency convergence
 
 The authoritative observer is the FastAPI runtime on TrueNAS. Workstation probes
