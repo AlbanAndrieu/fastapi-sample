@@ -73,4 +73,5 @@ def test_http_readiness_distinguishes_non_2xx_from_transport_failure() -> None:
     source = SCRIPT.read_text(encoding="utf-8")
     assert "HTTP responded; readiness not confirmed" in source
     assert "result='unreachable'" in source
-    assert "Gatus HTTP 200 can coexist with cached unknown" in source
+    assert "missing cached metric is a reconciliation gap" in source
+    assert "Pyroscope readiness: recovered at this vantage" in source
