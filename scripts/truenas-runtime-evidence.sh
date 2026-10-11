@@ -93,6 +93,9 @@ fi
 
 if command -v curl >/dev/null 2>&1; then
   printf '\n📡 TrueNAS network endpoints (read-only; from %s)\n' "$vantage"
+  gatus_http=unknown
+  prometheus_http=unknown
+  pyroscope_http=unknown
   for item in 'gatus|http://172.17.0.24:8085/' 'prometheus|http://172.17.0.24:9090/-/ready' 'pyroscope|http://172.17.0.24:4040/ready'; do
     service="${item%%|*}"
     url="${item#*|}"
@@ -108,10 +111,22 @@ if command -v curl >/dev/null 2>&1; then
       result='HTTP responded; readiness not confirmed'
     fi
     printf '%s %-12s HTTP=%s (%s)\n' "$symbol" "$service" "$status" "$result"
+    case "$service" in
+      gatus) gatus_http="$status" ;;
+      prometheus) prometheus_http="$status" ;;
+      pyroscope) pyroscope_http="$status" ;;
+    esac
   done
 fi
 echo 'ℹ️ Cached board = transport observations; HTTP readiness below is independent evidence.'
-echo 'ℹ️ Gatus HTTP 200 can coexist with cached unknown; Pyroscope 503 is not healthy readiness.'
+if [[ "${gatus_http:-unknown}" == 200 ]]; then
+  echo '✅ Gatus HTTP: available from this vantage; missing cached metric is a reconciliation gap.'
+fi
+if [[ "${pyroscope_http:-unknown}" == 200 ]]; then
+  echo '✅ Pyroscope readiness: recovered at this vantage; profile ingestion remains unverified.'
+elif [[ "${pyroscope_http:-unknown}" == 503 ]]; then
+  echo '⚠️ Pyroscope readiness: HTTP 503 now; inspect with nabla-compose.'
+fi
 echo 'ℹ️ Basic reachability is not authenticated SQL/PING or Sentry/Gatus persistence.'
 echo '🔧 Deep diagnostics live in nabla-compose:'
 echo '   scripts/truenas/diagnose-fastapi-integrations.py'
