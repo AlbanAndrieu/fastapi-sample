@@ -162,6 +162,13 @@ identity, and public diagnostics expose only intentionally published topology.
 - [ ] Evaluate Cloudflare **control-plane API metrics** independently; there is currently no verified Cloudflare Prometheus exporter/scrape job. Do not synthesize `cloudflare_up` or conflate Cloudflare API data with Prometheus evidence.
 - [ ] Inventory other declared jobs (Kafka, ClickHouse, OpenSearch, Loki, Alloy, Tempo, Mimir, Keycloak, CrowdSec, DNS, HAProxy) and prioritize stable recording rules by operator value before extending the fixed contract.
 
+### Prometheus service telemetry follow-up (2026-10-11)
+
+- [x] Extend the existing **single fixed PromQL query** with `nabla:telemetry:service_exporter_up`, a job-labeled recording rule defined in `nabla-compose`; consume only an explicit allowlist, excluding arbitrary labels and cardinality expansion.
+- [x] Cover Kafka, ClickHouse, OpenSearch, observability stack, Keycloak, CrowdSec, Pi-hole, HAProxy, n8n and Docling as optional exporter/target scrape evidence.
+- [ ] On TrueNAS, prove Prometheus rule-load success, per-job coverage and fresh samples. Exporter scrape `up=0` denotes unavailable *telemetry*, not automatically a failed application.
+- [ ] Confirm whether a real Cloudflare exporter exists: the job label being configured in a rule is **not** evidence of a running exporter. Preserve the separate Cloudflare API observer and authenticated Access checks.
+
 ## P0 — homelab dependency convergence
 
 The authoritative observer is the FastAPI runtime on TrueNAS. Workstation probes
