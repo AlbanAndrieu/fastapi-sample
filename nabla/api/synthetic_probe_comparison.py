@@ -36,7 +36,7 @@ def _valid_gatus_up(value: object) -> bool:
         numeric = float(value)
     except OverflowError:
         return False
-    return math.isfinite(numeric) and numeric >= 1.0
+    return math.isfinite(numeric) and numeric == 1.0
 
 
 def compare_internal_probe_evidence(
