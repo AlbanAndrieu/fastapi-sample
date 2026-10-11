@@ -21,6 +21,42 @@ detailed implementation record.
   limits merely to make health status appear green.
 - Close a roadmap item only with an explicit acceptance proof.
 
+## CURRENT DELIVERY ORDER — finish service stabilization and migrations (2026-10-11)
+
+Operator priority supersedes the ordering of technical-debt sections below.
+The controlling source of homelab service state is
+`nabla-compose/docs/roadmap.md`; `fastapi-sample` owns outside-in
+health/security evidence and its consumer migration.
+
+1. **Resolve service regressions before feature work:** Gatus (internal),
+   pfSense/CrowdSec, then missing acceptance for Sentry, Scrutiny, DSOMM,
+   Pi-hole, Pyroscope and TrueNAS/Talos. Do not mark an external optional
+   integration DOWN merely because evidence is unavailable; retain explicit
+   warning/unknown state.
+2. **Finish active secrets migrations** in `nabla-compose` one service at a time,
+   with runtime identity, consumer, permissions, Vaultwarden recovery and
+   Backstage metadata. FastAPI Cloud does not require direct exposure to
+   TrueNAS private secrets.
+3. **Prepare then execute a direct catalog-v2 cutover:** reconcile topology,
+   entities, BIA criticality and exposure policies in `nabla-compose`,
+   then migrate `fastapi-sample` and `nabla-site-alban` consumers at a common
+   reviewed revision. Avoid a permanent v1/v2 compatibility shim; preserve a
+   tested rollback until runtime, outside-in security and reboot checks pass.
+4. **Validate observer separation:** FastAPI Cloud remains the independent
+   external DNS/TLS/HTTP/Cloudflare Access/WAN vantage; Gatus/Prometheus on
+   TrueNAS provide internal evidence. Never infer public reachability from
+   internal-only availability.
+5. **Finish P1 only where migration-blocking:** app lifecycle and HTTP resource
+   changes that fix proven service failures. Defer Dagger PoC, synthetic schema
+   experimentation, output optimization and optional RAG features until runtime
+   and cutover are accepted.
+
+**Quality-gate policy:** keep all safety checks intact and run targeted local
+tests on each change. The complete local publication gate and required
+SAST/BetterLeaks/Playwright/ZAP checks remain **before-merge** requirements,
+not the principal delivery workstream. Record unavailable checks as NOT RUN;
+no auto-merge and no automatic infrastructure restarts.
+
 ## P0 — production security and privacy
 
 - [ ] Set `DEBUG=false` in FastAPI Cloud and prove unexpected exceptions no
