@@ -498,3 +498,18 @@ confuse a missing label or unsupported PING-only monitor with a service
 outage. The actual list of 11 IDs is still contingent on a runtime snapshot
 populated with the newly exposed fields. Preserve the PR #253 generator
 as source of authority, and keep FastAPI's outside-in checks unchanged.
+
+## Canonical ID deduplication (PR #335 follow-up)
+
+The Gatus coverage comparator now counts each internal canonical service ID
+at most once, even if an observer inventory contains repeated rows. This
+prevents duplicate `missing_gatus` counts, misleading mismatch totals and
+duplicate identifiers. The first eligible `ok`/`fail` observation for a
+service ID is used; inconsistent duplicate observations require source data
+reconciliation rather than an inferred service failure.
+
+Validation is included in
+`tests/unit/test_synthetic_probe_comparison.py::test_duplicate_internal_ids_are_counted_once`.
+A complete local quality gate was not run in the authoring environment because
+the GitHub host was unavailable via DNS; do not infer a passing gate from
+published commits.
