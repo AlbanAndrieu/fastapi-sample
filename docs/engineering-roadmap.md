@@ -183,6 +183,13 @@ identity, and public diagnostics expose only intentionally published topology.
 - [x] Add a regression test covering contradictory metrics, invalid success/duration and unknown probe types.
 - [ ] Execute exact-HEAD tests and confirm that recording rules load and expected samples appear on TrueNAS. No runtime health claim is inferred from these code changes.
 
+### Gatus label and cardinality guardrails (2026-10-12)
+
+- [x] Validate service IDs before including them in cached Prometheus results; accept only bounded lowercase catalogue-style identifiers and recognized TCP/HTTP/HTTPS types.
+- [x] Cap the number of distinct service IDs at 256 and explicitly flag `synthetic_probes.truncated`; a truncated inventory is `telemetry_unavailable` and cannot authorize internal delegation.
+- [x] Add regression coverage for malformed labels, unexpected values and series cardinality.
+- [ ] Validate the real TrueNAS catalogue ID space and Prometheus samples, then adjust the contract through reviewed tests if an authorized service ID does not match. Complete exact-HEAD tests before merge.
+
 ## P0 — homelab dependency convergence
 
 The authoritative observer is the FastAPI runtime on TrueNAS. Workstation probes
