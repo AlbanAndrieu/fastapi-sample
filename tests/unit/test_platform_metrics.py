@@ -464,3 +464,33 @@ async def test_gatus_service_series_count_is_bounded() -> None:
     assert result["synthetic_probes"]["service_count"] == 256
     assert result["synthetic_probes"]["truncated"] is True
     assert result["synthetic_probes"]["state"] == "telemetry_unavailable"
+
+
+@pytest.mark.asyncio
+async def test_gatus_raw_up_conflicting_series_are_order_independent() -> None:
+    for pair in (("1", "0"), ("0", "1")):
+        def handler(request: httpx.Request) -> httpx.Response:
+            samples = [
+                {
+                    "metric": {"__name__": "up", "job": "gatus", "instance": str(index)},
+                    "value": [1, status],
+                }
+                for index, status in enumerate(pair)
+            ]
+            return httpx.Response(
+                200,
+                request=request,
+                json={"status": "success", "data": {"resultType": "vector", "result": samples}},
+            )
+
+        settings = HomelabPrometheusSettings(
+            homelab_prometheus_url="http://prometheus.test",
+        )
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler),
+            base_url="http://prometheus.test",
+        ) as client:
+            payload = await fetch_platform_metrics(settings=settings, client=client)
+        assert payload["synthetic_probes"]["gatus_up"] == 0.0
+        assert payload["synthetic_probes"]["gatus_source"] == "raw_prometheus_up"
+        assert payload["synthetic_probes"]["state"] == "telemetry_unavailable"
