@@ -96,7 +96,8 @@ async def _query_fixed_metrics(
             continue
         field = _SYNTHETIC_METRIC_TO_FIELD.get(metric)
         if metric == "up" and labels.get("job") == "gatus":
-            raw_gatus_up = value
+            if value in (0.0, 1.0):
+                raw_gatus_up = value if raw_gatus_up is None else min(raw_gatus_up, value)
             continue
         if field == "gatus_up":
             if value in (0.0, 1.0):
