@@ -462,3 +462,5 @@ async def test_gatus_service_series_count_is_bounded() -> None:
     ) as client:
         result = await fetch_platform_metrics(settings=settings, client=client)
     assert result["synthetic_probes"]["service_count"] == 256
+    assert result["synthetic_probes"]["truncated"] is True
+    assert result["synthetic_probes"]["state"] == "telemetry_unavailable"
