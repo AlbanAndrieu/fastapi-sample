@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 import logging
 import math
+import re
 from typing import Any
 
 import httpx
@@ -41,6 +42,8 @@ _EXPORTER_JOBS = frozenset({
     "pyroscope", "keycloak", "pihole_exporter", "haproxy", "n8n", "docling",
 })
 _EXPORTER_RECORD = "nabla:telemetry:service_exporter_up"
+_SERVICE_ID_PATTERN = re.compile(r"[a-z0-9][a-z0-9_-]{0,79}\\Z")
+_MAX_SYNTHETIC_SERVICES = 256
 _SYNTHETIC_METRICS = {
     "gatus_up": "nabla:telemetry:gatus_up",
     "success": "nabla:service:synthetic_probe_success",
@@ -100,15 +103,22 @@ async def _query_fixed_metrics(
                 previous = synthetic["gatus_up"]
                 synthetic["gatus_up"] = value if previous is None else min(previous, value)
             continue
-        service_id = str(labels.get("nabla_service_id") or "").strip()
-        probe_type = str(labels.get("type") or "").strip()
-        if field is None or not service_id or not probe_type:
+        service_id = labels.get("nabla_service_id")
+        probe_type = labels.get("type")
+        if (
+            field is None
+            or not isinstance(service_id, str)
+            or _SERVICE_ID_PATTERN.fullmatch(service_id) is None
+            or not isinstance(probe_type, str)
+        ):
             continue
         if probe_type not in {"TCP", "HTTP", "HTTPS"}:
             continue
         if field in {"success", "availability_ratio_5m"} and not 0.0 <= value <= 1.0:
             continue
         if field == "duration_seconds" and value < 0.0:
+            continue
+        if service_id not in synthetic["services"] and len(synthetic["services"]) >= _MAX_SYNTHETIC_SERVICES:
             continue
         service = synthetic["services"].setdefault(service_id, {})
         measurements = service.setdefault(probe_type, {})
