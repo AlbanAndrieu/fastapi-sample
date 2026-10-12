@@ -190,6 +190,12 @@ identity, and public diagnostics expose only intentionally published topology.
 - [x] Add regression coverage for malformed labels, unexpected values and series cardinality.
 - [ ] Validate the real TrueNAS catalogue ID space and Prometheus samples, then adjust the contract through reviewed tests if an authorized service ID does not match. Complete exact-HEAD tests before merge.
 
+### Gatus raw fallback conflict handling (2026-10-12)
+
+- [x] Resolve duplicate `up{job="gatus"}` samples with conservative 0/1 aggregation, regardless of result order; never let an available target conceal a failing sibling target.
+- [x] Add targeted regression tests for both sample orders and preserve recording-rule precedence.
+- [ ] Test real Prometheus scrape target multiplicity and fix duplicate targets at the authoritative `nabla-compose` source if discovered. Record actual series freshness and validation output in the grouped TrueNAS acceptance campaign.
+
 ## P0 — homelab dependency convergence
 
 The authoritative observer is the FastAPI runtime on TrueNAS. Workstation probes
