@@ -176,6 +176,13 @@ identity, and public diagnostics expose only intentionally published topology.
 - [ ] On TrueNAS, compare source labels / target duplication if this diagnostic actually occurs; do not silently rewrite scrape jobs or restart Prometheus.
 - [ ] Run focused tests and exact-HEAD local publication quality checks when a trustworthy checkout is available; no CI checks have been bypassed or declared green.
 
+### Gatus Prometheus defensive aggregation (2026-10-12)
+
+- [x] Reject unsupported synthetic probe types and out-of-domain values; only TCP/HTTP/HTTPS are used for internal comparison.
+- [x] Resolve conflicting Gatus up/success/availability samples conservatively (`min`) and duplicate durations using the worst observed time (`max`) without changing outside-in health.
+- [x] Add a regression test covering contradictory metrics, invalid success/duration and unknown probe types.
+- [ ] Execute exact-HEAD tests and confirm that recording rules load and expected samples appear on TrueNAS. No runtime health claim is inferred from these code changes.
+
 ## P0 — homelab dependency convergence
 
 The authoritative observer is the FastAPI runtime on TrueNAS. Workstation probes
