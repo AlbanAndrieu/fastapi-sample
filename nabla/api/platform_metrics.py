@@ -119,6 +119,7 @@ async def _query_fixed_metrics(
         if field == "duration_seconds" and value < 0.0:
             continue
         if service_id not in synthetic["services"] and len(synthetic["services"]) >= _MAX_SYNTHETIC_SERVICES:
+            synthetic["truncated"] = True
             continue
         service = synthetic["services"].setdefault(service_id, {})
         measurements = service.setdefault(probe_type, {})
@@ -147,12 +148,13 @@ def _synthetic_summary(
         "state": state
         or (
             "observed"
-            if isinstance(gatus_up, float) and math.isfinite(gatus_up) and gatus_up == 1.0
+            if isinstance(gatus_up, float) and math.isfinite(gatus_up) and gatus_up == 1.0 and payload.get("truncated") is not True
             else "telemetry_unavailable"
         ),
         "gatus_up": gatus_up,
         "gatus_source": payload.get("gatus_source", "recording_rule" if gatus_up is not None else "unavailable"),
         "service_count": len(services) if isinstance(services, dict) else 0,
+        "truncated": payload.get("truncated") is True,
         "services": services if isinstance(services, dict) else {},
     }
 
