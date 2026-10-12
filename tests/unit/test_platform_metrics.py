@@ -369,3 +369,40 @@ async def test_conflicting_exporter_samples_fail_closed_independent_of_order() -
             payload = await fetch_platform_metrics(settings=settings, client=client)
         assert payload["exporter_jobs"]["redis_exporter"] == 0.0
         assert payload["state"] == "healthy"
+
+
+@pytest.mark.asyncio
+async def test_gatus_samples_are_bounded_and_conflicts_fail_closed() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        samples = [
+            {"metric": {"__name__": name}, "value": [1, value]}
+            for name, value in VALUES.items()
+        ]
+        for metric, labels, value in (
+            ("nabla:telemetry:gatus_up", {}, "1"),
+            ("nabla:telemetry:gatus_up", {}, "0"),
+            ("nabla:service:synthetic_probe_success", {"nabla_service_id": "nexus", "type": "TCP"}, "1"),
+            ("nabla:service:synthetic_probe_success", {"nabla_service_id": "nexus", "type": "TCP"}, "0"),
+            ("nabla:service:synthetic_probe_success", {"nabla_service_id": "nexus", "type": "TCP"}, "2"),
+            ("nabla:service:synthetic_probe_duration_seconds", {"nabla_service_id": "nexus", "type": "TCP"}, "-1"),
+            ("nabla:service:synthetic_probe_duration_seconds", {"nabla_service_id": "nexus", "type": "TCP"}, "0.2"),
+            ("nabla:service:synthetic_probe_duration_seconds", {"nabla_service_id": "nexus", "type": "TCP"}, "0.3"),
+            ("nabla:service:synthetic_probe_success", {"nabla_service_id": "nexus", "type": "UNKNOWN"}, "1"),
+        ):
+            samples.append({"metric": {"__name__": metric, **labels}, "value": [1, value]})
+        return httpx.Response(200, request=request, json={
+            "status": "success", "data": {"resultType": "vector", "result": samples},
+        })
+
+    settings = HomelabPrometheusSettings(homelab_prometheus_url="http://prometheus.test")
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://prometheus.test",
+    ) as client:
+        payload = await fetch_platform_metrics(settings=settings, client=client)
+
+    assert payload["synthetic_probes"]["gatus_up"] == 0.0
+    assert payload["synthetic_probes"]["state"] == "telemetry_unavailable"
+    assert payload["synthetic_probes"]["services"]["nexus"] == {
+        "TCP": {"success": 0.0, "duration_seconds": 0.3},
+    }
