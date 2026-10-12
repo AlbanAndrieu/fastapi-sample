@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 import logging
+import math
 from typing import Any
 
 import httpx
@@ -95,16 +96,28 @@ async def _query_fixed_metrics(
             raw_gatus_up = value
             continue
         if field == "gatus_up":
-            synthetic["gatus_up"] = value
+            if value in (0.0, 1.0):
+                previous = synthetic["gatus_up"]
+                synthetic["gatus_up"] = value if previous is None else min(previous, value)
             continue
         service_id = str(labels.get("nabla_service_id") or "").strip()
         probe_type = str(labels.get("type") or "").strip()
         if field is None or not service_id or not probe_type:
             continue
+        if probe_type not in {"TCP", "HTTP", "HTTPS"}:
+            continue
+        if field in {"success", "availability_ratio_5m"} and not 0.0 <= value <= 1.0:
+            continue
+        if field == "duration_seconds" and value < 0.0:
+            continue
         service = synthetic["services"].setdefault(service_id, {})
-        service.setdefault(probe_type, {})[field] = value
+        measurements = service.setdefault(probe_type, {})
+        previous = measurements.get(field)
+        measurements[field] = value if previous is None else (
+            max(previous, value) if field == "duration_seconds" else min(previous, value)
+        )
     if synthetic["gatus_up"] is None and raw_gatus_up is not None:
-        synthetic["gatus_up"] = raw_gatus_up
+        synthetic["gatus_up"] = raw_gatus_up if raw_gatus_up in (0.0, 1.0) else None
         synthetic["gatus_source"] = "raw_prometheus_up"
     synthetic["exporter_jobs"] = exporter_jobs
     return values, synthetic
@@ -124,7 +137,7 @@ def _synthetic_summary(
         "state": state
         or (
             "observed"
-            if isinstance(gatus_up, float) and gatus_up >= 1.0
+            if isinstance(gatus_up, float) and math.isfinite(gatus_up) and gatus_up == 1.0
             else "telemetry_unavailable"
         ),
         "gatus_up": gatus_up,
