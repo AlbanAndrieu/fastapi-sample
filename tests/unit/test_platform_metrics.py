@@ -406,3 +406,59 @@ async def test_gatus_samples_are_bounded_and_conflicts_fail_closed() -> None:
     assert payload["synthetic_probes"]["services"]["nexus"] == {
         "TCP": {"success": 0.0, "duration_seconds": 0.3},
     }
+
+
+@pytest.mark.asyncio
+async def test_gatus_service_identifiers_reject_invalid_and_oversized_labels() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        rows = [
+            {
+                "metric": {
+                    "__name__": "nabla:service:synthetic_probe_success",
+                    "nabla_service_id": sid,
+                    "type": "HTTP",
+                },
+                "value": [1, "1"],
+            }
+            for sid in ("valid-service", "CAPITALIZED", "../secret", "a" * 81, " bad ", "")
+        ]
+        return httpx.Response(
+            200, request=request,
+            json={"status": "success", "data": {"resultType": "vector", "result": rows}},
+        )
+
+    settings = HomelabPrometheusSettings(homelab_prometheus_url="http://prometheus.test")
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://prometheus.test",
+    ) as client:
+        result = await fetch_platform_metrics(settings=settings, client=client)
+    assert set(result["synthetic_probes"]["services"]) == {"valid-service"}
+
+
+@pytest.mark.asyncio
+async def test_gatus_service_series_count_is_bounded() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        rows = [
+            {
+                "metric": {
+                    "__name__": "nabla:service:synthetic_probe_success",
+                    "nabla_service_id": f"service-{index}",
+                    "type": "TCP",
+                },
+                "value": [1, "1"],
+            }
+            for index in range(350)
+        ]
+        return httpx.Response(
+            200, request=request,
+            json={"status": "success", "data": {"resultType": "vector", "result": rows}},
+        )
+
+    settings = HomelabPrometheusSettings(homelab_prometheus_url="http://prometheus.test")
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://prometheus.test",
+    ) as client:
+        result = await fetch_platform_metrics(settings=settings, client=client)
+    assert result["synthetic_probes"]["service_count"] == 256
