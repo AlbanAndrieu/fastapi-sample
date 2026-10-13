@@ -1,0 +1,14 @@
+{
+  "enabledMcpjsonServers": [
+    "fastapi-sample",
+    "github",
+    "vercel",
+    "sentry"
+  ],
+  "permissions": {
+    "allow": [
+      "Bash(direnv allow *)",
+      "Bash(direnv exec *)"
+    ]
+  }
+}
