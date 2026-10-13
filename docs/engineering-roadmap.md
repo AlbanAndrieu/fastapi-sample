@@ -3,6 +3,7 @@
 ## P1 — Garage : couverture des sondes LAN et reconciliation DNS (2026-10-13)
 
 - [x] Conserver `garage` (S3 API :3900), `garage-admin` (Admin API :3903) et `garage-webui` (Web UI :3909) dans l'échantillonnage prioritaire des sondes internes, même lorsque le catalogue dépasse le budget de 12 cibles par cycle. Ne pas activer les sondes LAN sur la production cloud.
+- [x] Corriger la saturation des 12 places de priorité : réserver deux places à la rotation des services non prioritaires et aligner l'estimation de fréquence des sondes, y compris les cas de budget nul. Vérification par tests de non-famine ajoutés ; exécution locale en attente.
 - [x] Vérifier dans le catalogue source que les deux API sont `external=false`, avec WebUI `external=true` temporairement ; maintenir des noms explicites sans réutiliser l'identifiant technique de l'API pour l'UI.
 - [ ] Après déploiement, vérifier `/api/health-board` → `homelab.services` et `homelab.internal_services` depuis FastAPI sur TrueNAS et workstation. Le cloud observer ne peut pas prouver la santé LAN ; absence de sonde ≠ DOWN.
 - [ ] Auditer les origines actives Cloudflare Tunnel : `garage.albandrieu.com` a renvoyé du XML S3, `garage-admin.albandrieu.com` une UI selon observation utilisateur. Un HTTP 302 n'identifie pas le backend. Comparer les ports :3900/:3903/:3909, routes Access et contenu de réponse.
