@@ -1,3 +1,11 @@
+## [1.22.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.22.0...1.22.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* **deps:** bump axios ([#340](https://github.com/AlbanAndrieu/fastapi-sample/issues/340)) ([43bc1f3](https://github.com/AlbanAndrieu/fastapi-sample/commit/43bc1f30ea7a29278ef706160f4a733048115d50))
+* **gatus:** distinguer télémétrie absente et sondes manquantes ([#338](https://github.com/AlbanAndrieu/fastapi-sample/issues/338)) ([8c0cd68](https://github.com/AlbanAndrieu/fastapi-sample/commit/8c0cd6825da3762d6aaf62f91f90347176073feb))
+
 # [1.22.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.21.1...1.22.0) (2026-10-13)
 
 
