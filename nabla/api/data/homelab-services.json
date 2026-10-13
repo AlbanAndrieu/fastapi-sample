@@ -280,11 +280,11 @@
       "external": true
     },
     {
-      "name": "Garage",
+      "name": "Garage Web UI",
       "icons": [
         "fas fa-terminal"
       ],
-      "description": "Garage WebUI exposed through Cloudflare Tunnel directly to the LAN-bound :3909 origin without Traefik.",
+      "description": "Garage Web UI on :3909; temporarily public behind controlled access. Verify actual Cloudflare origin.",
       "internalHost": "172.17.0.24",
       "internalPort": 3909,
       "internalSecure": false,
@@ -296,33 +296,35 @@
     },
     {
       "id": "garage-admin",
-      "name": "Garage Admin",
+      "name": "Garage Admin API",
       "icons": [
         "fas fa-lock"
       ],
-      "description": "Garage Admin API exposed through Cloudflare Tunnel directly to the LAN-bound :3903 origin without Traefik.",
+      "description": "Private Garage Admin API :3903, distinct from the browser Web UI.",
       "internalHost": "172.17.0.24",
       "internalPort": 3903,
       "internalSecure": false,
       "tunnelUrl": "https://garage-admin.albandrieu.com",
-      "tunnelSecure": true,
+      "tunnelSecure": false,
       "iconSrc": "assets/selfh-icons/garage.png",
-      "external": true
+      "external": false,
+      "cloudflareAccessRequired": false
     },
     {
-      "name": "Garage S3",
+      "name": "Garage S3 API",
       "icons": [
         "fas fa-database"
       ],
-      "description": "Garage S3-compatible object-storage API exposed through the direct HAProxy/TLS re-encryption/Traefik path.",
+      "description": "Private Garage S3-compatible API :3900, intended only for LAN/VPN clients.",
       "internalHost": "172.17.0.24",
       "internalPort": 3900,
       "internalSecure": false,
       "tunnelUrl": "https://s3.int.albandrieu.com",
       "tunnelSecure": false,
       "iconSrc": "assets/selfh-icons/garage.png",
-      "external": true,
-      "id": "garage"
+      "external": false,
+      "id": "garage",
+      "cloudflareAccessRequired": false
     },
     {
       "name": "Gatus",

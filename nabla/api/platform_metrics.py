@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 import logging
+import math
+import re
 from typing import Any
 
 import httpx
@@ -21,7 +23,27 @@ _METRICS = {
     "pfsense_metrics_up": "nabla:telemetry:pfsense_metrics_up",
     "prometheus_up": "nabla:observability:prometheus_up",
 }
-_METRIC_TO_KEY = {metric: key for key, metric in _METRICS.items()}
+_OPTIONAL_METRICS = {
+    "postgres_exporter_up": "nabla:telemetry:postgres_exporter_up",
+    "redis_exporter_up": "nabla:telemetry:redis_exporter_up",
+    "fastapi_sample_up": "nabla:telemetry:fastapi_sample_up",
+    "pyroscope_up": "nabla:telemetry:pyroscope_up",
+    "alertmanager_up": "nabla:telemetry:alertmanager_up",
+    "postgres_up": "nabla:service:postgres_up",
+    "redis_up": "nabla:service:redis_up",
+    "pfsense_memory_available_ratio": "nabla:core:pfsense_memory_available_ratio",
+}
+_METRIC_TO_KEY = {metric: key for key, metric in {**_METRICS, **_OPTIONAL_METRICS}.items()}
+_EXPORTER_JOBS = frozenset({
+    "gatus", "fastapi_sample", "postgres_exporter", "redis_exporter",
+    "pfsense_exporter", "crowdsec", "cloudflare_exporter", "truenas_node",
+    "kafka_exporter", "clickhouse", "opensearch", "opensearch-security",
+    "grafana", "alloy", "loki", "mimir", "tempo", "alertmanager",
+    "pyroscope", "keycloak", "pihole_exporter", "haproxy", "n8n", "docling",
+})
+_EXPORTER_RECORD = "nabla:telemetry:service_exporter_up"
+_SERVICE_ID_PATTERN = re.compile(r"[a-z0-9][a-z0-9_-]{0,79}\\Z")
+_MAX_SYNTHETIC_SERVICES = 256
 _SYNTHETIC_METRICS = {
     "gatus_up": "nabla:telemetry:gatus_up",
     "success": "nabla:service:synthetic_probe_success",
@@ -32,7 +54,7 @@ _SYNTHETIC_METRIC_TO_FIELD = {
     metric: field for field, metric in _SYNTHETIC_METRICS.items()
 }
 _FIXED_QUERY = " or ".join(
-    (*_METRICS.values(), *_SYNTHETIC_METRICS.values(), 'up{job="gatus"}'),
+    (*_METRICS.values(), *_OPTIONAL_METRICS.values(), _EXPORTER_RECORD, *_SYNTHETIC_METRICS.values(), 'up{job="gatus"}'),
 )
 _UP_SIGNALS = (
     "truenas_node_up",
@@ -49,9 +71,10 @@ def _utc_now() -> str:
 async def _query_fixed_metrics(
     client: httpx.AsyncClient,
 ) -> tuple[dict[str, float | None], dict[str, Any]]:
-    values = dict.fromkeys(_METRICS)
+    values = dict.fromkeys({**_METRICS, **_OPTIONAL_METRICS})
     synthetic: dict[str, Any] = {"gatus_up": None, "services": {}}
     raw_gatus_up: float | None = None
+    exporter_jobs: dict[str, float] = {}
     for sample in await query_vector(client, _FIXED_QUERY):
         labels = sample.get("metric")
         if not isinstance(labels, dict):
@@ -60,26 +83,55 @@ async def _query_fixed_metrics(
         value = sample_value(sample)
         if value is None:
             continue
+        if metric == _EXPORTER_RECORD:
+            job = labels.get("job")
+            if isinstance(job, str) and job in _EXPORTER_JOBS and value in (0.0, 1.0):
+                # Fail closed on conflicting/duplicate series for the same job.
+                previous = exporter_jobs.get(job)
+                exporter_jobs[job] = value if previous is None else min(previous, value)
+            continue
         key = _METRIC_TO_KEY.get(metric)
         if key is not None:
             values[key] = value
             continue
         field = _SYNTHETIC_METRIC_TO_FIELD.get(metric)
         if metric == "up" and labels.get("job") == "gatus":
-            raw_gatus_up = value
+            if value in (0.0, 1.0):
+                raw_gatus_up = value if raw_gatus_up is None else min(raw_gatus_up, value)
             continue
         if field == "gatus_up":
-            synthetic["gatus_up"] = value
+            if value in (0.0, 1.0):
+                previous = synthetic["gatus_up"]
+                synthetic["gatus_up"] = value if previous is None else min(previous, value)
             continue
-        service_id = str(labels.get("nabla_service_id") or "").strip()
-        probe_type = str(labels.get("type") or "").strip()
-        if field is None or not service_id or not probe_type:
+        service_id = labels.get("nabla_service_id")
+        probe_type = labels.get("type")
+        if (
+            field is None
+            or not isinstance(service_id, str)
+            or _SERVICE_ID_PATTERN.fullmatch(service_id) is None
+            or not isinstance(probe_type, str)
+        ):
+            continue
+        if probe_type not in {"TCP", "HTTP", "HTTPS"}:
+            continue
+        if field in {"success", "availability_ratio_5m"} and not 0.0 <= value <= 1.0:
+            continue
+        if field == "duration_seconds" and value < 0.0:
+            continue
+        if service_id not in synthetic["services"] and len(synthetic["services"]) >= _MAX_SYNTHETIC_SERVICES:
+            synthetic["truncated"] = True
             continue
         service = synthetic["services"].setdefault(service_id, {})
-        service.setdefault(probe_type, {})[field] = value
+        measurements = service.setdefault(probe_type, {})
+        previous = measurements.get(field)
+        measurements[field] = value if previous is None else (
+            max(previous, value) if field == "duration_seconds" else min(previous, value)
+        )
     if synthetic["gatus_up"] is None and raw_gatus_up is not None:
-        synthetic["gatus_up"] = raw_gatus_up
+        synthetic["gatus_up"] = raw_gatus_up if raw_gatus_up in (0.0, 1.0) else None
         synthetic["gatus_source"] = "raw_prometheus_up"
+    synthetic["exporter_jobs"] = exporter_jobs
     return values, synthetic
 
 
@@ -97,12 +149,13 @@ def _synthetic_summary(
         "state": state
         or (
             "observed"
-            if isinstance(gatus_up, float) and gatus_up >= 1.0
+            if isinstance(gatus_up, float) and math.isfinite(gatus_up) and gatus_up == 1.0 and payload.get("truncated") is not True
             else "telemetry_unavailable"
         ),
         "gatus_up": gatus_up,
         "gatus_source": payload.get("gatus_source", "recording_rule" if gatus_up is not None else "unavailable"),
         "service_count": len(services) if isinstance(services, dict) else 0,
+        "truncated": payload.get("truncated") is True,
         "services": services if isinstance(services, dict) else {},
     }
 
@@ -120,6 +173,7 @@ def _summary(values: dict[str, float | None]) -> dict[str, Any]:
         ),
         "truenas_cpu_busy_ratio": values.get("truenas_cpu_busy_ratio"),
         "pfsense_metrics_up": values.get("pfsense_metrics_up"),
+        "optional_exporters": {name: values.get(name) for name in _OPTIONAL_METRICS},
     }
 
 
@@ -200,6 +254,7 @@ async def fetch_platform_metrics(
         "configured": True,
         "source": "prometheus",
         "synthetic_probes": _synthetic_summary(synthetic),
+        "exporter_jobs": synthetic.get("exporter_jobs", {}),
         "metrics": {
             key: {
                 "metric": _METRICS[key],

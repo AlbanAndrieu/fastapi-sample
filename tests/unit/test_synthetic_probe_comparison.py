@@ -270,3 +270,55 @@ def test_contradictory_duplicate_direct_states_are_not_turned_into_failures() ->
     delegation = evaluate_internal_probe_delegation(_platform({}), result)
     assert delegation["candidate"] is False
     assert "conflicting_direct_observations" in delegation["blockers"]
+
+
+def test_unobserved_synthetic_metrics_do_not_invent_missing_gatus_monitors() -> None:
+    homelab = {"internal_services": [
+        {"id": "nexus", "state": "ok"},
+        {"id": "redis", "state": "ok"},
+    ]}
+    platform = _platform({})
+    platform["synthetic_probes"]["state"] = "telemetry_unavailable"
+    result = compare_internal_probe_evidence(homelab, platform)
+    assert result["state"] == "unavailable"
+    assert result["reason"] == "synthetic_metrics_not_observed"
+    assert result["missing_gatus"] == 0
+    assert result["missing_gatus_ids"] == []
+    assert result["mismatched"] == 0
+    delegated = evaluate_internal_probe_delegation(platform, result)
+    assert "gatus_not_observed" in delegated["blockers"]
+    assert "no_internal_gatus_evidence" in delegated["blockers"]
+    assert "missing_internal_gatus_evidence" not in delegated["blockers"]
+
+
+def test_oversized_gatus_sample_is_not_considered_valid_monitoring_evidence() -> None:
+    huge = 10**1000
+    comparison = compare_internal_probe_evidence(
+        {"internal_services": [{"id": "nexus", "state": "ok"}]},
+        _platform({"nexus": {"TCP": {"success": huge}}}),
+    )
+    assert comparison["comparable"] == 0
+    assert comparison["missing_gatus_ids"] == ["nexus"]
+
+
+def test_oversized_gatus_up_blocks_delegation_without_exception() -> None:
+    platform = _platform({"nexus": {"TCP": {"success": 1.0}}})
+    platform["synthetic_probes"]["gatus_up"] = 10**1000
+    comparison = compare_internal_probe_evidence(
+        {"internal_services": [{"id": "nexus", "state": "ok"}]},
+        platform,
+    )
+    delegation = evaluate_internal_probe_delegation(platform, comparison)
+    assert delegation["state"] == "blocked"
+    assert "gatus_not_up" in delegation["blockers"]
+
+
+def test_non_boolean_gatus_up_gauge_is_rejected_for_delegation() -> None:
+    platform = _platform({"nexus": {"TCP": {"success": 1.0}}})
+    platform["synthetic_probes"]["gatus_up"] = 2.0
+    result = evaluate_internal_probe_delegation(
+        platform,
+        {"comparable": 1, "application_evidence": 0, "mismatched": 0, "missing_gatus": 0},
+    )
+    assert result["candidate"] is False
+    assert "gatus_not_up" in result["blockers"]
