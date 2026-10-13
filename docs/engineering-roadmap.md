@@ -1,5 +1,16 @@
 # Engineering and security roadmap
 
+## P1 — Garage : couverture des sondes LAN et reconciliation DNS (2026-10-13)
+
+- [x] Conserver `garage` (S3 API :3900), `garage-admin` (Admin API :3903) et `garage-webui` (Web UI :3909) dans l'échantillonnage prioritaire des sondes internes, même lorsque le catalogue dépasse le budget de 12 cibles par cycle. Ne pas activer les sondes LAN sur la production cloud.
+- [x] Vérifier dans le catalogue source que les deux API sont `external=false`, avec WebUI `external=true` temporairement ; maintenir des noms explicites sans réutiliser l'identifiant technique de l'API pour l'UI.
+- [ ] Après déploiement, vérifier `/api/health-board` → `homelab.services` et `homelab.internal_services` depuis FastAPI sur TrueNAS et workstation. Le cloud observer ne peut pas prouver la santé LAN ; absence de sonde ≠ DOWN.
+- [ ] Auditer les origines actives Cloudflare Tunnel : `garage.albandrieu.com` a renvoyé du XML S3, `garage-admin.albandrieu.com` une UI selon observation utilisateur. Un HTTP 302 n'identifie pas le backend. Comparer les ports :3900/:3903/:3909, routes Access et contenu de réponse.
+- [ ] Intégrer l'audit DNS public + HAProxy/NAT pfSense + Traefik + Cloudflare dans un rapport de drift `declared/observed/unknown`, avec preuves outside-in. La politique privée n'est pas une preuve d'inaccessibilité WAN.
+- [ ] Évaluer accès privé distant via Tailscale/WireGuard pour retirer à terme la WebUI de l'Internet public ; en attendant, conserver uniquement l'UI publiable derrière contrôle d'accès.
+- [ ] Exécuter localement les tests ciblés et la quality gate complète sur le checkout réel ; ne pas consommer GitHub Actions pour une validation non nécessaire et ne pas merger automatiquement.
+
+
 - [ ] **P0 Cloudflare Access probe evidence** (partial: unconfirmed Access and missing authenticated HTTP status now remain warnings; focused regression tests added, execution pending) — exporter et tester `cloudflare_access_secondary_probe_eligible`, `cloudflare_access_secondary_probe_attempted` et `public_probe_verification` afin de différencier HTTP 403 anonyme protégé, service token refusé et origine réellement sondée. Vérifier les cas IT Tools et Karakeep contre réponses anonymes et résultats LAN, sans convertir un refus Access en application saine.
 
 
