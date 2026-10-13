@@ -26,6 +26,8 @@ _PRIORITY_SERVICE_IDS = frozenset(
         "pyroscope",
         "cloudflared",
         "garage-admin",
+        "garage",
+        "garage-webui",
         "vaultwarden",
     },
 )
