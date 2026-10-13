@@ -126,3 +126,50 @@ def test_private_garage_is_not_eligible_for_public_probing() -> None:
     assert s3.external is False
     assert admin.public_https_probe_url is None
     assert s3.public_https_probe_url is None
+
+
+def test_full_priority_budget_never_starves_unrelated_services() -> None:
+    priority_ids = [
+        "postgresql", "redis", "n8n", "prometheus", "grafana", "sentry",
+        "pyroscope", "cloudflared", "garage-admin", "vaultwarden",
+        "garage", "garage-webui",
+    ]
+    services = [
+        *[_service(service_id, 23000 + i) for i, service_id in enumerate(priority_ids)],
+        *[_service(f"background-{i}", 24000 + i) for i in range(16)],
+    ]
+    selections = [
+        homelab_probe_policy.select_probe_subset(services, limit=12, now=30.0 * i)
+        for i in range(14)
+    ]
+    assert all(len(batch) == 12 for batch in selections)
+    assert all(
+        {"garage", "garage-admin", "garage-webui"}
+        <= {service.service_id for service in batch}
+        for batch in selections
+    )
+    assert any(
+        service.service_id.startswith("background-")
+        for batch in selections
+        for service in batch
+    )
+    assert {
+        service.service_id for batch in selections for service in batch
+    } == {service.service_id for service in services}
+    assert (
+        homelab_probe_policy.estimated_probe_interval_seconds(
+            services[-1], eligible_services=services, limit=12
+        )
+        is not None
+    )
+
+
+def test_empty_probe_budget_is_safe() -> None:
+    services = [_service("garage", 3900)]
+    assert homelab_probe_policy.select_probe_subset(services, limit=0) == []
+    assert (
+        homelab_probe_policy.estimated_probe_interval_seconds(
+            services[0], eligible_services=services, limit=0
+        )
+        is None
+    )
