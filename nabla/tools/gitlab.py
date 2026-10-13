@@ -30,7 +30,7 @@ email_addresses = [
 
 # List of GitLab repository URLs
 repo_urls = [
-    "jus-mundi-public/<example>",
+    "nabla-public/<example>",
 ]  # Replace with your repository URLs
 
 

@@ -72,7 +72,7 @@ alembic upgrade head         # Apply migrations
 alembic downgrade -1         # Rollback one migration
 
 # Connect to database
-psql -h pg-gra.service.gra.dev.consul -U postgres
+psql -h postgres.service.gra.dev.consul -U postgres
 ```
 
 ### Docker

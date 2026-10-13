@@ -8,6 +8,11 @@ backend = "aqua:argoproj/argo-cd"
 checksum = "sha256:0a66b7150608e3f8ae07c521d56c9f34244033cf88a83e0953f7337a3799035e"
 url = "https://github.com/argoproj/argo-cd/releases/download/v3.5.1/argocd-linux-amd64"
 
+[tools.argocd."platforms.macos-arm64"]
+checksum = "sha256:3607c5891028bf0c7505284afb54df350f0c67585f32d688ad03e3856ba58b1f"
+url = "https://github.com/argoproj/argo-cd/releases/download/v3.5.1/argocd-darwin-arm64"
+url_api = "https://api.github.com/repos/argoproj/argo-cd/releases/assets/511531399"
+
 [[tools.awscli]]
 version = "2.36.31"
 backend = "aqua:aws/aws-cli"
@@ -15,6 +20,10 @@ backend = "aqua:aws/aws-cli"
 [tools.awscli."platforms.linux-x64"]
 checksum = "blake3:2e9a06f513dabf8b64e46734c0327e4c2c4a4ba8bbc3f770d6fc28cca8d8b069"
 url = "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.36.31.zip"
+
+[tools.awscli."platforms.macos-arm64"]
+checksum = "blake3:54936dd9cf1da1a771a8bf5fba64829c7123f3d772eabeda53293d245170f8ea"
+url = "https://awscli.amazonaws.com/AWSCLIV2-2.36.31.pkg"
 
 [[tools.betterleaks]]
 version = "1.9.0"
@@ -24,6 +33,12 @@ backend = "aqua:betterleaks/betterleaks"
 checksum = "sha256:f8b185a39ffcece2a1ca82bf3a4e7435cd81963ffd16b7a9128daf75f35f6de7"
 url = "https://github.com/betterleaks/betterleaks/releases/download/v1.9.0/betterleaks_1.9.0_linux_x64.tar.gz"
 
+[tools.betterleaks."platforms.macos-arm64"]
+checksum = "sha256:83dd7eaab13d44a1e8e347a17064cdef153a1478db473276d41b38d55613d3f2"
+url = "https://github.com/betterleaks/betterleaks/releases/download/v1.9.0/betterleaks_1.9.0_darwin_arm64.tar.gz"
+url_api = "https://api.github.com/repos/betterleaks/betterleaks/releases/assets/599108927"
+provenance = "cosign"
+
 [[tools.docker-compose]]
 version = "5.5.0"
 backend = "aqua:docker/compose"
@@ -31,6 +46,12 @@ backend = "aqua:docker/compose"
 [tools.docker-compose."platforms.linux-x64"]
 checksum = "sha256:c57ab918abd5b05ca7e7d0f275875dd1330a695074f309dc9eab1b49efafcd4b"
 url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-x86_64"
+
+[tools.docker-compose."platforms.macos-arm64"]
+checksum = "sha256:6777710e5a5db5709e5f4b5985844e74b73cc1a6123e3a6690b6ababf2deaf51"
+url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-darwin-aarch64"
+url_api = "https://api.github.com/repos/docker/compose/releases/assets/517869368"
+provenance = "cosign"
 
 [[tools.helm]]
 version = "4.2.4"
@@ -40,6 +61,24 @@ backend = "aqua:helm/helm"
 checksum = "sha256:c306b46f719b0a4da32d0f78ee21bf90ce8d602f15b22ab753f0674d1670a7f3"
 url = "https://get.helm.sh/helm-v4.2.4-linux-amd64.tar.gz"
 
+[tools.helm."platforms.macos-arm64"]
+checksum = "sha256:d747eb4e28bd2727173d15b759fa0a17822291ec09db7ced3d55af290a3661a2"
+url = "https://get.helm.sh/helm-v4.2.4-darwin-arm64.tar.gz"
+
+[[tools.just]]
+version = "1.58.0"
+backend = "aqua:casey/just"
+
+[tools.just."platforms.linux-x64"]
+checksum = "sha256:4a5cc2f53e6f0f8c59092a6cc38291eb729d46a7dd95d3ae582008881b84931d"
+url = "https://github.com/casey/just/releases/download/1.58.0/just-1.58.0-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/casey/just/releases/assets/500509978"
+
+[tools.just."platforms.macos-arm64"]
+checksum = "sha256:50ae3e996c974a0bf32ea7d10f495070df33f1b43e0616b2769e3d4821ed8f48"
+url = "https://github.com/casey/just/releases/download/1.58.0/just-1.58.0-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/casey/just/releases/assets/500509965"
+
 [[tools.k9s]]
 version = "0.51.0"
 backend = "aqua:derailed/k9s"
@@ -48,6 +87,11 @@ backend = "aqua:derailed/k9s"
 checksum = "sha256:c3752ad51a5a4015a113819c4eeb6e55a4d0e4b8e652494797532f6fc8161dd7"
 url = "https://github.com/derailed/k9s/releases/download/v0.51.0/k9s_Linux_amd64.tar.gz"
 
+[tools.k9s."platforms.macos-arm64"]
+checksum = "sha256:9b8c0e8f461e5d33aeee43a67f5ef4aff646a008a786887b8266cbb153c610cc"
+url = "https://github.com/derailed/k9s/releases/download/v0.51.0/k9s_Darwin_arm64.tar.gz"
+url_api = "https://api.github.com/repos/derailed/k9s/releases/assets/440224326"
+
 [[tools.kubectl]]
 version = "1.36.4"
 backend = "aqua:kubernetes/kubernetes/kubectl"
@@ -55,6 +99,10 @@ backend = "aqua:kubernetes/kubernetes/kubectl"
 [tools.kubectl."platforms.linux-x64"]
 checksum = "sha256:8b8f088da2dab964f853b38464033b1be15ede2839eca751482357c45abdd05a"
 url = "https://dl.k8s.io/v1.36.4/bin/linux/amd64/kubectl"
+
+[tools.kubectl."platforms.macos-arm64"]
+checksum = "sha256:c9e4f713d6fee0043a3d835cca13077cda2bc0973840eb9779360df0b5bdfc69"
+url = "https://dl.k8s.io/v1.36.4/bin/darwin/arm64/kubectl"
 
 [[tools.poetry]]
 version = "2.4.1"
@@ -65,6 +113,11 @@ version = "4.6.2"
 backend = "aqua:pre-commit/pre-commit"
 
 [tools.pre-commit."platforms.linux-x64"]
+checksum = "sha256:43c09a73d82af8efff09900e60d76d67a2c3d990613c3c770b2b5c4418a16c4b"
+url = "https://github.com/pre-commit/pre-commit/releases/download/v4.6.2/pre-commit-4.6.2.pyz"
+url_api = "https://api.github.com/repos/pre-commit/pre-commit/releases/assets/509317714"
+
+[tools.pre-commit."platforms.macos-arm64"]
 checksum = "sha256:43c09a73d82af8efff09900e60d76d67a2c3d990613c3c770b2b5c4418a16c4b"
 url = "https://github.com/pre-commit/pre-commit/releases/download/v4.6.2/pre-commit-4.6.2.pyz"
 url_api = "https://api.github.com/repos/pre-commit/pre-commit/releases/assets/509317714"
@@ -81,6 +134,12 @@ backend = "aqua:astral-sh/ruff"
 checksum = "sha256:0c2a1616b0782dbf7ee04239576887c4c894277189e04ba94ff3160eba9c1863"
 url = "https://github.com/astral-sh/ruff/releases/download/0.16.4/ruff-x86_64-unknown-linux-musl.tar.gz"
 
+[tools.ruff."platforms.macos-arm64"]
+checksum = "sha256:b4ad832b7734592aa1c6710dbc15277ed9d3d54c8bd44bb25bb7b14ae9098b88"
+url = "https://github.com/astral-sh/ruff/releases/download/0.16.4/ruff-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/522579257"
+provenance = "github-attestations"
+
 [[tools.sops]]
 version = "3.13.3"
 backend = "aqua:getsops/sops"
@@ -88,6 +147,12 @@ backend = "aqua:getsops/sops"
 [tools.sops."platforms.linux-x64"]
 checksum = "sha256:e5bec3346a873ae91d871550f3e698c1aad962aff462a080e40f25fde17fef6b"
 url = "https://github.com/getsops/sops/releases/download/v3.13.3/sops-v3.13.3.linux.amd64"
+
+[tools.sops."platforms.macos-arm64"]
+checksum = "sha256:b97c0d434aab577dc40310e8d22ff9e45eef4c80638ab978daae9b4681c59286"
+url = "https://github.com/getsops/sops/releases/download/v3.13.3/sops-v3.13.3.darwin.arm64"
+url_api = "https://api.github.com/repos/getsops/sops/releases/assets/486808198"
+provenance = "cosign"
 
 [[tools.terraform]]
 version = "1.15.9"
@@ -97,6 +162,10 @@ backend = "aqua:hashicorp/terraform"
 checksum = "sha256:76edd0b22d2f27d3d2e097cd793209646f719cf60f02ff3af626b07361137da1"
 url = "https://releases.hashicorp.com/terraform/1.15.9/terraform_1.15.9_linux_amd64.zip"
 
+[tools.terraform."platforms.macos-arm64"]
+checksum = "sha256:05b27586a5d7d84105690ecccc7edbbf48bc3d6d577745cb61f163ba990adf4f"
+url = "https://releases.hashicorp.com/terraform/1.15.9/terraform_1.15.9_darwin_arm64.zip"
+
 [[tools.trivy]]
 version = "0.74.0"
 backend = "aqua:aquasecurity/trivy"
@@ -105,6 +174,12 @@ backend = "aqua:aquasecurity/trivy"
 checksum = "sha256:2ae6fe3ee734b7fdf11335663e18c75ea12dccc76062f09f164a3b0f8be4371a"
 url = "https://github.com/aquasecurity/trivy/releases/download/v0.74.0/trivy_0.74.0_Linux-64bit.tar.gz"
 
+[tools.trivy."platforms.macos-arm64"]
+checksum = "sha256:1caada5e0e2091909357c7525d3aa76f4b660b13821bc143b190c7483e31cc11"
+url = "https://github.com/aquasecurity/trivy/releases/download/v0.74.0/trivy_0.74.0_macOS-ARM64.tar.gz"
+url_api = "https://api.github.com/repos/aquasecurity/trivy/releases/assets/514339464"
+provenance = "cosign"
+
 [[tools.uv]]
 version = "0.12.6"
 backend = "aqua:astral-sh/uv"
@@ -112,3 +187,9 @@ backend = "aqua:astral-sh/uv"
 [tools.uv."platforms.linux-x64"]
 checksum = "sha256:14e4172aace66a475062cebec7ca04f497d5619e95325dfcc9e4447b9c516846"
 url = "https://github.com/astral-sh/uv/releases/download/0.12.6/uv-x86_64-unknown-linux-musl.tar.gz"
+
+[tools.uv."platforms.macos-arm64"]
+checksum = "sha256:14b459d51ea2e71eeba28c45a268c922bdf8607fc6455e3f40b4e082895d160d"
+url = "https://github.com/astral-sh/uv/releases/download/0.12.6/uv-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/uv/releases/assets/529690707"
+provenance = "github-attestations"
