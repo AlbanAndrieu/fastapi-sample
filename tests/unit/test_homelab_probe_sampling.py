@@ -97,3 +97,32 @@ def test_probe_limits_keep_one_refresh_bounded() -> None:
     assert homelab_probe_policy.INTERNAL_PROBE_TIMEOUT_SEC == 1.0
     assert homelab_probe_policy.PUBLIC_PROBE_TIMEOUT_SEC == 3.0
     assert homelab_probe_policy.SERVICE_FANOUT_BUDGET_SEC == 4.0
+
+
+def test_garage_private_apis_remain_in_internal_sampling_under_load() -> None:
+    services = [
+        _service("garage", 3900),
+        _service("garage-admin", 3903),
+        _service("garage-webui", 3909),
+        *[_service(f"background-{index}", 22000 + index) for index in range(80)],
+    ]
+
+    for now in (0.0, 31.0, 300.0):
+        selected = homelab_probe_policy.select_probe_subset(
+            services,
+            limit=homelab_probe_policy.MAX_INTERNAL_PROBES_PER_REFRESH,
+            now=now,
+        )
+        assert {"garage", "garage-admin", "garage-webui"} <= {
+            item.service_id for item in selected
+        }
+        assert len(selected) == homelab_probe_policy.MAX_INTERNAL_PROBES_PER_REFRESH
+
+
+def test_private_garage_is_not_eligible_for_public_probing() -> None:
+    admin = _service("garage-admin", 3903)
+    s3 = _service("garage", 3900)
+    assert admin.external is False
+    assert s3.external is False
+    assert admin.public_https_probe_url is None
+    assert s3.public_https_probe_url is None
