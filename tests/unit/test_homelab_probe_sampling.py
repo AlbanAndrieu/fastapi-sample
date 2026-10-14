@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from nabla.api import homelab_health
 from nabla.api import homelab_probe_policy
+from nabla.api import homelab_probe_evidence
 from nabla.api.homelab_models import HomelabService
 
 
@@ -173,3 +174,18 @@ def test_empty_probe_budget_is_safe() -> None:
         )
         is None
     )
+
+
+def test_evidence_coverage_excludes_stale_and_deadline_samples() -> None:
+    rows = [
+        {"id": "garage", "probe_source": "origin", "probe_stale": False},
+        {"id": "garage-admin", "probe_source": "memory", "probe_stale": False},
+        {"id": "garage-webui", "probe_source": "memory", "probe_stale": True},
+        {"id": "other", "probe_source": "deadline", "probe_stale": False},
+    ]
+    summary = homelab_probe_evidence.evidence_summary(rows, eligible_count=4)
+    assert summary["fresh"] == 1
+    assert summary["cached"] == 1
+    assert summary["stale"] == 1
+    assert summary["known"] == 2
+    assert summary["coverage_percent"] == 50.0
