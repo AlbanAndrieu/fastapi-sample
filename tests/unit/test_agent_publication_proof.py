@@ -19,7 +19,7 @@ def _run(
     *args: str,
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(  # noqa: S603
+    return subprocess.run(
         list(args),
         cwd=cwd,
         env=env,
@@ -135,7 +135,7 @@ printf '1\\n' >> "${QUALITY_TEST_COUNTER}"
     (tmp_path / "README.md").write_text("dirty\n", encoding="utf-8")
     bash = shutil.which("bash")
     assert bash is not None
-    dirty = subprocess.run(  # noqa: S603
+    dirty = subprocess.run(
         [bash, str(SCRIPT)],
         cwd=tmp_path,
         env=env,

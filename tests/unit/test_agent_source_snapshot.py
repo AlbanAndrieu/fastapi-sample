@@ -29,15 +29,23 @@ def test_snapshot_uses_committed_tree_not_dirty_worktree(tmp_path: Path) -> None
     file.write_text("committed\n", encoding="utf-8")
     _git(repo, "add", "value.txt")
     _git(
-        repo, "-c", "user.name=Test", "-c", "user.email=test@example.test",
-        "commit", "-qm", "fixture",
+        repo,
+        "-c",
+        "user.name=Test",
+        "-c",
+        "user.email=test@example.test",
+        "commit",
+        "-qm",
+        "fixture",
     )
     head = _git(repo, "rev-parse", "HEAD")
     file.write_text("uncommitted\n", encoding="utf-8")
     destination = tmp_path / "snapshot"
     result = subprocess.run(
         ["bash", str(SNAPSHOT), str(repo), head, str(destination)],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert result.returncode == 0, result.stderr
     assert (destination / "value.txt").read_text(encoding="utf-8") == "committed\n"
@@ -46,7 +54,9 @@ def test_snapshot_uses_committed_tree_not_dirty_worktree(tmp_path: Path) -> None
 
     repeated = subprocess.run(
         ["bash", str(SNAPSHOT), str(repo), head, str(destination)],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert repeated.returncode == 2
     assert "refusing to overwrite" in repeated.stderr
@@ -59,7 +69,9 @@ def test_snapshot_rejects_invalid_or_uncached_commit(tmp_path: Path) -> None:
     for value, expected in [("master", 2), ("a" * 40, 1)]:
         result = subprocess.run(
             ["bash", str(SNAPSHOT), str(repo), value, str(tmp_path / "output")],
-            capture_output=True, text=True, check=False,
+            capture_output=True,
+            text=True,
+            check=False,
         )
         assert result.returncode == expected
         assert not (tmp_path / "output").exists()
@@ -83,7 +95,9 @@ def test_snapshot_historical_commit_with_spaces_and_symlink_guard(tmp_path: Path
     destination = tmp_path / "snapshot with spaces"
     result = subprocess.run(
         ["bash", str(SNAPSHOT), str(repo), old_head, str(destination)],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert result.returncode == 0, result.stderr
     assert _git(destination, "rev-parse", "HEAD") == old_head
@@ -93,7 +107,9 @@ def test_snapshot_historical_commit_with_spaces_and_symlink_guard(tmp_path: Path
     symlink.symlink_to(destination, target_is_directory=True)
     rejected = subprocess.run(
         ["bash", str(SNAPSHOT), str(repo), old_head, str(symlink)],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert rejected.returncode == 2
     assert "refusing to overwrite" in rejected.stderr
@@ -102,10 +118,10 @@ def test_snapshot_historical_commit_with_spaces_and_symlink_guard(tmp_path: Path
 def test_snapshot_prevents_destination_nesting_on_late_creation() -> None:
     """The final move must refuse an occupied destination, not nest within it."""
     script = SNAPSHOT.read_text(encoding="utf-8")
-    assert 'destination appeared during snapshot creation' in script
-    assert 'mv -T -- "$staging" "$destination"' in script
-    assert script.index('destination appeared during snapshot creation') < script.index(
-        'mv -T -- "$staging" "$destination"'
+    assert "destination appeared during snapshot creation" in script
+    assert 'mv -T -- "${staging}" "${destination}"' in script
+    assert script.index("destination appeared during snapshot creation") < script.index(
+        'mv -T -- "${staging}" "${destination}"',
     )
 
 
@@ -117,8 +133,14 @@ def test_snapshot_rejects_destination_created_mid_checkout(tmp_path: Path) -> No
     (repo / "file.txt").write_text("committed", encoding="utf-8")
     _git(repo, "add", ".")
     _git(
-        repo, "-c", "user.name=Test", "-c", "user.email=test@example.test",
-        "commit", "-qm", "fixture",
+        repo,
+        "-c",
+        "user.name=Test",
+        "-c",
+        "user.email=test@example.test",
+        "commit",
+        "-qm",
+        "fixture",
     )
     sha = _git(repo, "rev-parse", "HEAD")
     destination = tmp_path / "late-destination"
@@ -128,12 +150,7 @@ def test_snapshot_rejects_destination_created_mid_checkout(tmp_path: Path) -> No
     assert git_path is not None
     wrapper = bin_dir / "git"
     wrapper.write_text(
-        '#!/usr/bin/env bash\n'
-        'if [[ "$*" == *"rev-parse HEAD"* && '
-        '"$*" == *".source-snapshot."* ]]; then\n'
-        '  mkdir -p "$RACE_DEST"\n'
-        'fi\n'
-        f'exec "{git_path}" "$@"\n',
+        f'#!/usr/bin/env bash\nif [[ "$*" == *"rev-parse HEAD"* && "$*" == *".source-snapshot."* ]]; then\n  mkdir -p "$RACE_DEST"\nfi\nexec "{git_path}" "$@"\n',
         encoding="utf-8",
     )
     wrapper.chmod(0o755)
@@ -144,7 +161,10 @@ def test_snapshot_rejects_destination_created_mid_checkout(tmp_path: Path) -> No
     }
     result = subprocess.run(
         ["bash", str(SNAPSHOT), str(repo), sha, str(destination)],
-        capture_output=True, text=True, env=env, check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
     )
     assert result.returncode == 2
     assert "destination appeared during snapshot creation" in result.stderr
@@ -170,7 +190,9 @@ def test_snapshot_verifies_optional_comparison_base(tmp_path: Path) -> None:
     destination = tmp_path / "snapshot"
     result = subprocess.run(
         ["bash", str(SNAPSHOT), str(repo), head, str(destination), base],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert result.returncode == 0, result.stderr
     assert f"with base {base}" in result.stdout
@@ -193,14 +215,18 @@ def test_snapshot_rejects_missing_or_non_ancestor_base(tmp_path: Path) -> None:
 
     missing = subprocess.run(
         ["bash", str(SNAPSHOT), str(repo), old_head, str(tmp_path / "missing"), "does-not-exist"],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert missing.returncode == 1
     assert "comparison base is not cached" in missing.stderr
 
     non_ancestor = subprocess.run(
         ["bash", str(SNAPSHOT), str(repo), old_head, str(tmp_path / "non-ancestor"), newer_base],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert non_ancestor.returncode == 1
     assert "not an ancestor" in non_ancestor.stderr

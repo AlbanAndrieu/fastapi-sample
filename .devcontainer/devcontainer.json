@@ -13,7 +13,7 @@
       // Use -bullseye variants on local on arm64/Apple Silicon.
       "VARIANT": "3.10-bullseye",
       // Options
-      "NODE_VERSION": "lts/*",
+      "NODE_VERSION": "26",
       "POETRY_VERSION": "2.2.1",
       "NOX_VERSION": "2022.1.7"
       // TODO Add esbonio>=0.11.0 (required for RST support in VSC)

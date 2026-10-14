@@ -5,6 +5,7 @@ from typing import Dict
 import pytest
 from fastapi.testclient import TestClient
 
+from nabla.api.demo.sensor import metrics
 from server_app import app
 
 # from unittest.mock import patch
@@ -124,7 +125,6 @@ def test_invalid(test_app) -> None:
 
 def test_health(test_app) -> None:
     """It runs and gives health status without depending on test order."""
-    from nabla.api.demo.sensor import metrics
 
     expected_status: int = 200
     requests_before = metrics.total_requests

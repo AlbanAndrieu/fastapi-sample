@@ -119,7 +119,7 @@ def _pfsense_transport_failure_result(
     return result
 
 
-async def check_pfsense_api() -> dict[str, Any]:
+async def check_pfsense_api() -> dict[str, Any]:  # noqa: C901 -- refactor tracked in docs/engineering-roadmap.md
     """Check pfSense REST API liveness with the posture read-only identity."""
     if not PfSenseProbePolicySettings().pfsense_authenticated_probes_enabled:
         cloud_vantage = fastapi_cloud_runtime_detected()
@@ -135,10 +135,7 @@ async def check_pfsense_api() -> dict[str, Any]:
             "state": "unknown",
             "degraded": False,
             "vantage_point": "fastapi_cloud" if cloud_vantage else "current_runtime",
-            "warning": (
-                "⚠️ Authenticated pfSense API liveness is disabled in this runtime; "
-                "use independent transport/path evidence instead"
-            ),
+            "warning": ("⚠️ Authenticated pfSense API liveness is disabled in this runtime; use independent transport/path evidence instead"),
             "probe": "pfsense_rest_api_v2",
             "path": _PFSENSE_LIVENESS_PATH,
             "credential_mode": "disabled",
@@ -228,13 +225,7 @@ async def check_pfsense_api() -> dict[str, Any]:
         "transport_reachable": True,
         "api_authenticated": True if healthy else False if auth_rejected else None,
         "application_ok": healthy,
-        "application_result": (
-            "authenticated_api_response"
-            if healthy
-            else "authentication_rejected"
-            if auth_rejected
-            else "http_error"
-        ),
+        "application_result": ("authenticated_api_response" if healthy else "authentication_rejected" if auth_rejected else "http_error"),
         "status_confirmed": True,
         "state": "ok" if healthy else "warn" if auth_rejected else "fail",
         "http_status": response.status_code,
@@ -258,10 +249,7 @@ async def check_pfsense_api() -> dict[str, Any]:
             },
         )
         if auth_rejected:
-            result["warning"] = (
-                "pfSense HTTPS/API endpoint is reachable, but the selected "
-                f"posture API key was rejected (HTTP {response.status_code})"
-            )
+            result["warning"] = f"pfSense HTTPS/API endpoint is reachable, but the selected posture API key was rejected (HTTP {response.status_code})"
     logger.debug(
         "pfSense API liveness probe completed http_status=%s elapsed_ms=%s attempts=%s verify_ssl=%s",
         response.status_code,
@@ -276,9 +264,7 @@ def _cache_with_stale_evidence(cached: ProbeCacheResult) -> dict[str, Any]:
     value = dict(cached.value)
     policy_disabled = value.get("authenticated_probes_enabled") is False
     current_failure = value.get("reachable") is False
-    current_unconfirmed = (
-        value.get("status_confirmed") is False and not policy_disabled
-    )
+    current_unconfirmed = value.get("status_confirmed") is False and not policy_disabled
     stale_refresh = cached.metadata.get("stale") is True
     use_last_good = (current_failure or current_unconfirmed or stale_refresh) and cached.last_good is not None
     if use_last_good:
@@ -296,19 +282,12 @@ def _cache_with_stale_evidence(cached: ProbeCacheResult) -> dict[str, Any]:
 
 def _pfsense_probe_disabled(value: dict[str, Any]) -> bool:
     """Return whether policy intentionally suppresses authenticated pfSense I/O."""
-    return (
-        value.get("authenticated_probes_enabled") is False
-        and value.get("observation_mode") == "transport_only"
-        and value.get("skipped") is True
-    )
+    return value.get("authenticated_probes_enabled") is False and value.get("observation_mode") == "transport_only" and value.get("skipped") is True
 
 
 def _pfsense_cache_success(value: dict[str, Any]) -> bool:
     """Treat deliberate suppression and confirmed HTTP evidence as current."""
-    return _pfsense_probe_disabled(value) or (
-        value.get("state") in {"ok", "warn"}
-        and value.get("transport_reachable") is True
-    )
+    return _pfsense_probe_disabled(value) or (value.get("state") in {"ok", "warn"} and value.get("transport_reachable") is True)
 
 
 def _pfsense_provider_success(value: dict[str, Any]) -> bool:

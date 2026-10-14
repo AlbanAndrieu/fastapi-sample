@@ -25,7 +25,7 @@ def _matching_gatus_probe(
     return None
 
 
-def compare_internal_probe_evidence(
+def compare_internal_probe_evidence(  # noqa: C901 -- refactor tracked in docs/engineering-roadmap.md
     homelab: dict[str, Any],
     platform_metrics: dict[str, Any],
 ) -> dict[str, Any]:
@@ -109,7 +109,7 @@ def compare_internal_probe_evidence(
                         "direct_state": direct_state,
                         "gatus_type": probe_type,
                         "gatus_success": success,
-                    }
+                    },
                 )
             continue
 
