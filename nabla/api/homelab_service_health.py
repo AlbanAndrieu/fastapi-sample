@@ -245,9 +245,11 @@ def build_reconciled_service_health(
         runtime_missing = _runtime_binding_missing(binding, runtime, app)
         tunnel_evidence = tunnels_by_host.get(_hostname(endpoint_url) or "")
         tunnel_status = str(tunnel_evidence.get("tunnel_status")) if tunnel_evidence and tunnel_evidence.get("tunnel_status") is not None else None
-        tunnel_health = None if cloudflare_stale or cloudflare_status_confirmed is False else _tunnel_state(tunnel_status)
-        direct_health = str(direct_result.get("state")) if direct_result else None
-        internal_health = str(internal_result.get("state")) if internal_result else None
+        tunnel_health = None if not service.external or cloudflare_stale or cloudflare_status_confirmed is False else _tunnel_state(tunnel_status)
+        direct_stale = bool(direct_result and direct_result.get("probe_stale") is True)
+        direct_health = str(direct_result.get("state")) if direct_result and not direct_stale else None
+        internal_stale = bool(internal_result and internal_result.get("probe_stale") is True)
+        internal_health = str(internal_result.get("state")) if internal_result and not internal_stale else None
         application_error = bool(direct_result and direct_result.get("application_error"))
         state = reconcile_service_state(
             direct=direct_health,
@@ -255,7 +257,7 @@ def build_reconciled_service_health(
             runtime=runtime_health,
             tunnel=tunnel_health,
             external=service.external,
-            direct_http_status=int(direct_result.get("http_status", 0)) if direct_result else 0,
+            direct_http_status=int(direct_result.get("http_status", 0)) if direct_result and not direct_stale else 0,
             application_error=application_error,
             runtime_missing=runtime_missing,
         )
@@ -278,6 +280,10 @@ def build_reconciled_service_health(
             "tls_trusted": direct_result.get("tls_trusted") if direct_result else None,
             "direct_state": direct_health,
             "internal_state": internal_health,
+            "internal_probe_stale": internal_stale,
+            "direct_probe_stale": direct_stale,
+            "exposure_intent": "public" if service.external else "internal",
+            "unexpected_tunnel_route": bool(not service.external and tunnel_evidence is not None),
             "runtime_state": app.state if app else None,
             "runtime_app": app.app_id if app else None,
             "runtime_reachable": runtime.reachable if runtime else None,
