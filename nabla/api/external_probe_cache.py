@@ -98,11 +98,7 @@ def _failed_with_last_good(
 ) -> bool:
     """Return whether current evidence failed while valid prior evidence remains."""
     current = envelope.get("current")
-    return (
-        isinstance(current, dict)
-        and current.get("success") is False
-        and _valid_last_good(envelope, time.time(), policy.stale_ttl) is not None
-    )
+    return isinstance(current, dict) and current.get("success") is False and _valid_last_good(envelope, time.time(), policy.stale_ttl) is not None
 
 
 def _metadata(
@@ -117,11 +113,7 @@ def _metadata(
     current = envelope.get("current")
     current = current if isinstance(current, dict) else {}
     fetched_at = current.get("fetched_at")
-    age = (
-        max(0.0, time.time() - float(fetched_at))
-        if isinstance(fetched_at, int | float)
-        else None
-    )
+    age = max(0.0, time.time() - float(fetched_at)) if isinstance(fetched_at, int | float) else None
     metadata: dict[str, Any] = {
         "cache_layer": layer,
         "cached": cached,
@@ -149,11 +141,7 @@ def _result_from_envelope(
 ) -> ProbeCacheResult | None:
     current = envelope.get("current")
     last_good_record = _valid_last_good(envelope, time.time(), policy.stale_ttl)
-    last_good = (
-        deepcopy(last_good_record["value"])
-        if last_good_record is not None
-        else None
-    )
+    last_good = deepcopy(last_good_record["value"]) if last_good_record is not None else None
     if serve_last_good and last_good is not None:
         value = deepcopy(last_good)
     elif isinstance(current, dict) and isinstance(current.get("value"), dict):
@@ -264,7 +252,7 @@ def _cached_result(
     )
 
 
-async def get_or_refresh_probe(
+async def get_or_refresh_probe(  # noqa: C901 -- refactor tracked in docs/engineering-roadmap.md
     key: str,
     loader: Callable[[], Awaitable[dict[str, Any]]],
     *,
@@ -396,7 +384,7 @@ async def get_or_refresh_probe(
             )
             if suppressed is not None:
                 suppressed.metadata["circuit_breaker"] = circuit_decision.metadata(
-                    origin_suppressed=True
+                    origin_suppressed=True,
                 )
                 if client is not None and lock_acquired:
                     await _release_lock(client, key, lock_token)
@@ -434,7 +422,7 @@ async def get_or_refresh_probe(
                 )
                 if suppressed is not None:
                     suppressed.metadata["provider_rate_budget"] = rate_decision.metadata(
-                        origin_suppressed=True
+                        origin_suppressed=True,
                     )
                     record_provider_budget_rejection(rate_decision.provider)
                     return _observe_cache_result(suppressed)
@@ -457,11 +445,7 @@ async def get_or_refresh_probe(
                     )
                     raise
                 success = bool(is_success(value))
-                provider_success = (
-                    bool(is_provider_success(value))
-                    if is_provider_success is not None
-                    else success
-                )
+                provider_success = bool(is_provider_success(value)) if is_provider_success is not None else success
                 observe_provider_origin_duration(
                     rate_decision.provider,
                     outcome="success" if provider_success else "failure",

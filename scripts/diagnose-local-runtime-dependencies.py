@@ -284,9 +284,7 @@ def _sentry(snapshot: dict[str, Any]) -> dict[str, Any]:
         "target": check.get("target"),
     }
     row["evidence_complete"] = bool(
-        row["configured"] is True and row["reachable"] is True
-        and row["application_ok"] is True and ingestion.get("fresh") is True
-        and not row["stale"]
+        row["configured"] is True and row["reachable"] is True and row["application_ok"] is True and ingestion.get("fresh") is True and not row["stale"],
     )
     row["operational_state"] = _state(
         configured=row["configured"],
@@ -334,10 +332,7 @@ def _component(snapshot: dict[str, Any], name: str) -> dict[str, Any]:
     proof_kind = "sql_select_1" if name == "postgres" else "redis_ping"
     evidence_valid = proof.get("kind") == proof_kind and proof.get("authenticated") is True
     explicit_ok = _bool_or_none(check.get("application_ok"))
-    row["application_ok"] = (
-        explicit_ok if explicit_ok is False else
-        _bool_or_none(proof.get("ok")) if evidence_valid else None
-    )
+    row["application_ok"] = explicit_ok if explicit_ok is False else _bool_or_none(proof.get("ok")) if evidence_valid else None
     row["application_result"] = {
         "kind": "cached_component",
         "proof_kind": proof.get("kind"),
@@ -346,8 +341,7 @@ def _component(snapshot: dict[str, Any], name: str) -> dict[str, Any]:
         "status": check.get("status"),
     }
     row["evidence_complete"] = bool(
-        check and row["configured"] is True and row["reachable"] is True
-        and row["application_ok"] is True and not row["stale"]
+        check and row["configured"] is True and row["reachable"] is True and row["application_ok"] is True and not row["stale"],
     )
     row["operational_state"] = _state(
         configured=row["configured"],
@@ -389,12 +383,13 @@ def _gatus(snapshot: dict[str, Any]) -> dict[str, Any]:
         "external_probes_preserved": True,
     }
     row["evidence_complete"] = bool(
-        row["configured"] is True and row["reachable"] is True
+        row["configured"] is True
+        and row["reachable"] is True
         and synthetic.get("state") == "observed"
         and type(synthetic.get("service_count")) is int
         and synthetic["service_count"] > 0
         and comparison.get("state") == "observed"
-        and not row["stale"]
+        and not row["stale"],
     )
     row["operational_state"] = _state(
         configured=row["configured"],
@@ -432,7 +427,6 @@ def build_report(snapshot: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-
 def basic_availability(report: dict[str, Any]) -> dict[str, str]:
     """Basic status uses cached reachability, never fabricated deep acceptance."""
     rows = _mapping(report.get("dependencies"))
@@ -459,7 +453,8 @@ def print_basic_availability(report: dict[str, Any], *, color: bool = False) -> 
             ansi = "\x1b[32m" if status == "reachable" else "\x1b[31m" if status == "unreachable" else "\x1b[33m"
             label = f"{ansi}{label}\x1b[0m"
         print(f"  {label} {name:<12} {status}")
-    print("ℹ️ Deep evidence and security authorization are separate; see nabla-compose scripts/truenas/.")
+    print("ℹ️ Deep evidence and security authorization are separate; see nabla-compose scripts/truenas/.")  # noqa: RUF001
+
 
 def _fetch_json(url: str, diagnostics_key: str | None) -> dict[str, Any]:
     parsed = urlsplit(url)
@@ -524,7 +519,7 @@ def _status_label(state: object, *, color: bool) -> str:
     return f"{ansi}{label}\x1b[0m" if color else label
 
 
-def print_table(report: dict[str, Any], *, color: bool = False) -> None:
+def print_table(report: dict[str, Any], *, color: bool = False) -> None:  # noqa: C901 -- refactor tracked in docs/engineering-roadmap.md
     dependencies = _mapping(report.get("dependencies"))
     print("FastAPI local runtime dependency evidence")
     print(
@@ -600,7 +595,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--basic", action="store_true", help="report cached basic reachability without requiring deep evidence")
     parser.add_argument("--color", choices=("auto", "always", "never"), default="auto", help="ANSI color for text output")
     parser.add_argument(
-        "--report-only", action="store_true",
+        "--report-only",
+        action="store_true",
         help="return 0 when the board is readable; still print all evidence gaps (no acceptance proof)",
     )
     return parser.parse_args()

@@ -43,7 +43,7 @@ def _baseline_line_count(path: Path, baseline_ref: str | None) -> int | None:
     if not baseline_ref:
         return None
 
-    result = subprocess.run(  # noqa: S603 -- fixed git executable and validated path input
+    result = subprocess.run(
         ["git", "show", f"{baseline_ref}:{path.as_posix()}"],
         check=False,
         capture_output=True,
@@ -131,19 +131,15 @@ def main() -> int:
                 continue
 
             failures += 1
-            baseline_detail = (
-                f" (baseline: {baseline_lines})" if baseline_lines is not None else ""
-            )
+            baseline_detail = f" (baseline: {baseline_lines})" if baseline_lines is not None else ""
             print(
-                f"ERROR {path}: {line_count} lines exceeds {args.fail}{baseline_detail}; "
-                "refactor before adding significant functionality.",
+                f"ERROR {path}: {line_count} lines exceeds {args.fail}{baseline_detail}; refactor before adding significant functionality.",
                 file=sys.stderr,
             )
         elif line_count > args.warn:
             warnings += 1
             print(
-                f"WARNING {path}: {line_count} lines exceeds {args.warn}; "
-                "consider extracting cohesive responsibilities.",
+                f"WARNING {path}: {line_count} lines exceeds {args.warn}; consider extracting cohesive responsibilities.",
                 file=sys.stderr,
             )
 

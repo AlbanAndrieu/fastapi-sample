@@ -108,7 +108,7 @@ def changed_files(base_ref: str, head_ref: str) -> tuple[str, ...]:
     if not _has_commit(head_ref):
         raise SystemExit(f"CI_SCOPE_HEAD_MISSING: {head_ref}")
 
-    paths = set(
+    paths = {
         line
         for line in _git(
             "diff",
@@ -118,7 +118,7 @@ def changed_files(base_ref: str, head_ref: str) -> tuple[str, ...]:
             head_ref,
         ).splitlines()
         if line
-    )
+    }
     if head_ref == "HEAD":
         for args in (
             ("diff", "--name-only", "--diff-filter=ACMRD"),
@@ -140,11 +140,7 @@ def _is_quality_maintenance_path(path: str) -> bool:
 
 
 def _is_security_non_deployable_path(path: str) -> bool:
-    return (
-        path in SECURITY_NON_DEPLOYABLE_PATHS
-        or path.startswith(".github/")
-        or path.startswith(".zap/")
-    )
+    return path in SECURITY_NON_DEPLOYABLE_PATHS or path.startswith(".github/") or path.startswith(".zap/")
 
 
 def _is_test_path(path: str) -> bool:
@@ -224,7 +220,7 @@ def render(scope: Scope) -> str:
             f"dependencies={_as_bool(scope.dependencies)}",
             f"dependency_mode={scope.dependency_mode}",
             f"changed_count={scope.changed_count}",
-        )
+        ),
     )
 
 

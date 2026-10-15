@@ -94,10 +94,7 @@ def _direct_lan_stage(tls_ok: bool, host: str, port: int) -> dict[str, Any]:
         "direct_lan",
         "Direct LAN route",
         "ok",
-        detail=(
-            f"Split DNS/direct LAN to {host}:{port} · "
-            "public pfSense WAN and HAProxy path bypassed"
-        ),
+        detail=(f"Split DNS/direct LAN to {host}:{port} · public pfSense WAN and HAProxy path bypassed"),
         evidence="runtime_route",
     )
 
@@ -112,10 +109,7 @@ def unmeasured_truenas_network_diagnostics(
     budget_seconds: float,
 ) -> dict[str, Any]:
     """Return the declared path when measurement exceeds its budget."""
-    detail = (
-        f"Not measured within {budget_seconds:g}s "
-        "TrueNAS transport diagnostics budget"
-    )
+    detail = f"Not measured within {budget_seconds:g}s TrueNAS transport diagnostics budget"
     route_id = "direct_lan" if path_mode == "direct_lan" else "haproxy"
     route_label = "Direct LAN route" if path_mode == "direct_lan" else "HAProxy :7000"
     return {
@@ -168,9 +162,7 @@ async def collect_truenas_network_diagnostics(
     """Measure the declared transport path without duplicating equivalent handshakes."""
     stages: list[dict[str, Any]] = []
     wan = None if path_mode == "direct_lan" else homelab_wan_metadata()
-    socket_target = connect_host or (
-        str(wan["ipv4"]) if wan is not None else host
-    )
+    socket_target = connect_host or (str(wan["ipv4"]) if wan is not None else host)
 
     dns_task = asyncio.create_task(_dns_stage(host))
     hostname_transport_task = asyncio.create_task(
@@ -187,15 +179,9 @@ async def collect_truenas_network_diagnostics(
     resolved = [str(value) for value in dns.get("resolved", []) if value]
     stages.append(dns)
 
-    wan_transport_task: asyncio.Task[
-        tuple[dict[str, Any], dict[str, Any], bool]
-    ] | None = None
+    wan_transport_task: asyncio.Task[tuple[dict[str, Any], dict[str, Any], bool]] | None = None
     wan_ipv4 = str(wan["ipv4"]) if wan is not None else ""
-    reuse_hostname_transport = (
-        wan is not None
-        and resolved == [wan_ipv4]
-        and socket_target == wan_ipv4
-    )
+    reuse_hostname_transport = wan is not None and resolved == [wan_ipv4] and socket_target == wan_ipv4
     if wan is not None and not reuse_hostname_transport:
         wan_transport_task = asyncio.create_task(
             collect_tcp_tls_stages(
@@ -231,7 +217,8 @@ async def collect_truenas_network_diagnostics(
                 ),
             )
         else:
-            assert wan_transport_task is not None
+            if wan_transport_task is None:
+                raise RuntimeError("WAN transport probe was not scheduled")
             wan_socket, wan_tls, wan_tls_ok = await wan_transport_task
             stages.extend(
                 (
@@ -273,13 +260,9 @@ async def collect_truenas_network_diagnostics(
         "diagnostic_contract": _DIAGNOSTIC_CONTRACT,
         "transport_timeout_seconds": _DIAGNOSTIC_TIMEOUT_SEC,
         "probe_reuse": {
-            "anonymous_websocket": (
-                "omitted; authenticated API probe is authoritative"
-            ),
+            "anonymous_websocket": ("omitted; authenticated API probe is authoritative"),
             "dns_and_hostname_transport": "started concurrently",
-            "wan_transport": (
-                "reused hostname transport when DNS matches configured WAN"
-            ),
+            "wan_transport": ("reused hostname transport when DNS matches configured WAN"),
         },
         "stages": stages,
     }

@@ -1,13 +1,18 @@
 min_version = "2024.9.5"
 
 [tools]
-# Python is intentionally supplied by the workstation/CI runtime.
-# Do not declare python="system": recent mise versions deprecate the
-# system_tool_version compatibility path. uv remains the project package/runtime
-# manager and the repository currently targets Python 3.13.
+# mise.toml is the single source of truth for toolchain versions (no
+# .tool-versions). CI reads `node` from here. uv remains the project
+# package/runtime manager and the repository targets Python 3.13.
+python = "3.13.15"
+node = "26"
+go = "1.25.5"
+ruby = "3.4.7"
+kube-score = "1.20.0"
 ruff = "latest"
 just = "latest"
 betterleaks = "1.9.0"
+shellcheck = "0.11.0"
 awscli = { version = "latest", symlink_bins = "true" }
 k9s = "latest"
 kubectl = "latest"
@@ -51,9 +56,13 @@ POSTGRES_DB = { required = "Set POSTGRES_DB" }
 AWS_REGION = { required = "Set to your AWS region (e.g. us-east-1, eu-west-1)" }
 AWS_PROFILE = "eks"
 
-[tasks]
-init = "bash ./scripts/run-install.sh"
-build = "npm run build"
+[tasks.init]
+description = "Install the locked environment and Git hooks"
+depends = ["install", "hooks"]
+
+[tasks.build]
+description = "Build the Python sdist/wheel (same as the deploy workflow)"
+run = "uv build"
 
 [tasks.hooks]
 description = "Install canonical pre-commit, commit-msg and pre-push Git hooks"
@@ -79,30 +88,27 @@ description = "Reuse or create the exact local publication proof for this HEAD/b
 run = "bash scripts/agent-publish.sh"
 
 [tasks.install]
-description = "Install dependencies with uv (pyproject.toml and uv.lock)"
+description = "Install the locked dependencies with uv (pyproject.toml and uv.lock)"
 alias = "i"
-run = "uv sync"
+run = "uv sync --frozen"
 
 [tasks.dev]
-description = "Run FastAPI dev server on port 8091"
-run = "uv run fastapi dev --port 8091"
+description = "Run the FastAPI development server on port 8080"
+run = "uv run fastapi dev --port 8080"
 
 [tasks.run]
-description = "Lunch app"
-run = "python app.py"
+description = "Run the complete ASGI app (lifespan, MCP, A2A) on port 8080"
+run = "uv run uvicorn server_all:app --host 127.0.0.1 --port 8080"
 
 [tasks.test]
-description = "Run tests"
-run = "pytest tests/"
+description = "Run the test suite with the compact pytest runner"
+run = "bash scripts/run-pytest-compact.sh"
 
 [tasks.lint]
-description = "Lint code"
-run = "ruff src/"
+description = "Check Python lint without modifying sources"
+run = "uv run --no-sync ruff check ."
 
-[tasks.deploy]
-description = "Deploy to Cloudflare Wrangler"
-alias = "d"
-run = "npx wrangler dev"
+# Production deploys to FastAPI Cloud through .github/workflows/deploy.yml.
 
 [tasks.info]
 description = "Project infos"

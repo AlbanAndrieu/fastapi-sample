@@ -36,7 +36,7 @@ from nabla.api.db.database import engine
 from nabla.api.notes import notes
 from nabla.api.users.models import UserAdmin, UserCreate, UserRead, UserUpdate
 from nabla.api.users.users import fastapi_users, jwt_backend
-from nabla.config import CORS_ORIGINS, MCP_ALLOWED_ROUTES, UNLEASH_ENABLED
+from nabla.config import MCP_ALLOWED_ROUTES, UNLEASH_ENABLED
 from nabla.config_settings import (
     APP_NAME,
     APP_PREFIX_VERSION,

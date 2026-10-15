@@ -13,10 +13,12 @@ deployments are disabled.
 
 ## Requirements
 
+- [mise](https://mise.jdx.dev/) — default toolchain manager: `mise install`
+  installs the runtimes and tools pinned in `mise.toml` (single source of truth)
 - Python 3.13
 - [uv](https://docs.astral.sh/uv/)
 - [just](https://just.systems/) (available via `mise install just`)
-- Node.js 24 + npm 10 for repository tooling
+- Node.js 26 for repository tooling (declared in `mise.toml`)
 - Docker only for optional local infrastructure
 
 Install repository hooks after cloning:

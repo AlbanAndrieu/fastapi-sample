@@ -257,9 +257,7 @@ class HomelabTopology(BaseModel):
         return self
 
 
-
-
-def public_topology_payload(topology: HomelabTopology) -> dict[str, object]:
+def public_topology_payload(topology: HomelabTopology) -> dict[str, object]:  # noqa: C901 -- refactor tracked in docs/engineering-roadmap.md
     """Return a browser-safe declared graph without privileged endpoint evidence."""
     nodes: list[dict[str, object]] = []
     for node in topology.nodes:
@@ -282,10 +280,7 @@ def public_topology_payload(topology: HomelabTopology) -> dict[str, object]:
         if node.icon is not None:
             item["icon"] = node.icon
         if node.environments is not None:
-            item["environments"] = [
-                {"name": environment.name}
-                for environment in node.environments
-            ]
+            item["environments"] = [{"name": environment.name} for environment in node.environments]
         if node.lifecycle is not None:
             item["lifecycle"] = node.lifecycle.model_dump(
                 mode="json",
@@ -302,11 +297,7 @@ def public_topology_payload(topology: HomelabTopology) -> dict[str, object]:
             "target": relation.target,
             "type": relation.type.value,
             "strength": relation.strength.value,
-            **(
-                {"description": relation.description}
-                if relation.description is not None
-                else {}
-            ),
+            **({"description": relation.description} if relation.description is not None else {}),
         }
         for relation in topology.relations
     ]

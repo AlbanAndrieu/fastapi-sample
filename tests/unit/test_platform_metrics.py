@@ -50,7 +50,7 @@ def _client(values: dict[str, str | None]) -> httpx.AsyncClient:
 @pytest.mark.asyncio
 async def test_platform_metrics_reads_only_fixed_recording_rules() -> None:
     settings = HomelabPrometheusSettings(
-        homelab_prometheus_url="http://prometheus.test"
+        homelab_prometheus_url="http://prometheus.test",
     )
     async with _client(VALUES) as client:
         payload = await fetch_platform_metrics(settings=settings, client=client)
@@ -77,7 +77,7 @@ async def test_platform_metrics_missing_signal_is_degraded_not_platform_down() -
     values = dict(VALUES)
     values["nabla:telemetry:truenas_cadvisor_up"] = None
     settings = HomelabPrometheusSettings(
-        homelab_prometheus_url="http://prometheus.test"
+        homelab_prometheus_url="http://prometheus.test",
     )
     async with _client(values) as client:
         payload = await fetch_platform_metrics(settings=settings, client=client)
@@ -102,7 +102,7 @@ async def test_platform_metrics_transport_failure_is_sanitized() -> None:
         raise httpx.ConnectError("secret internal route", request=request)
 
     settings = HomelabPrometheusSettings(
-        homelab_prometheus_url="http://prometheus.test"
+        homelab_prometheus_url="http://prometheus.test",
     )
     async with httpx.AsyncClient(
         transport=httpx.MockTransport(handler),
@@ -119,14 +119,14 @@ async def test_platform_metrics_transport_failure_is_sanitized() -> None:
 def test_prometheus_settings_reject_embedded_credentials() -> None:
     with pytest.raises(ValidationError):
         HomelabPrometheusSettings(
-            homelab_prometheus_url="http://user:password@prometheus.test"
+            homelab_prometheus_url="http://user:password@prometheus.test",
         )
 
 
 def test_prometheus_settings_reject_path() -> None:
     with pytest.raises(ValidationError):
         HomelabPrometheusSettings(
-            homelab_prometheus_url="http://prometheus.test/prometheus"
+            homelab_prometheus_url="http://prometheus.test/prometheus",
         )
 
 
@@ -212,12 +212,19 @@ async def test_gatus_raw_up_is_bounded_fallback_without_faking_monitor_coverage(
         query = request.url.params.get("query", "")
         assert 'up{job="gatus"}' in query
         return httpx.Response(
-            200, request=request, json={
+            200,
+            request=request,
+            json={
                 "status": "success",
-                "data": {"resultType": "vector", "result": [{
-                    "metric": {"__name__": "up", "job": "gatus"},
-                    "value": [1, "1"],
-                }]},
+                "data": {
+                    "resultType": "vector",
+                    "result": [
+                        {
+                            "metric": {"__name__": "up", "job": "gatus"},
+                            "value": [1, "1"],
+                        },
+                    ],
+                },
             },
         )
 
@@ -239,13 +246,21 @@ async def test_gatus_raw_up_is_bounded_fallback_without_faking_monitor_coverage(
 @pytest.mark.asyncio
 async def test_gatus_recording_rule_takes_priority_over_raw_up() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, request=request, json={
-            "status": "success",
-            "data": {"resultType": "vector", "result": [
-                {"metric": {"__name__": "up", "job": "gatus"}, "value": [1, "1"]},
-                {"metric": {"__name__": "nabla:telemetry:gatus_up"}, "value": [1, "0"]},
-            ]},
-        })
+        return httpx.Response(
+            200,
+            request=request,
+            json={
+                "status": "success",
+                "data": {
+                    "resultType": "vector",
+                    "result": [
+                        {"metric": {"__name__": "up", "job": "gatus"}, "value": [1, "1"]},
+                        {"metric": {"__name__": "nabla:telemetry:gatus_up"}, "value": [1, "0"]},
+                    ],
+                },
+            },
+        )
+
     settings = HomelabPrometheusSettings(
         homelab_prometheus_url="http://prometheus.test",
     )
@@ -261,16 +276,18 @@ async def test_gatus_recording_rule_takes_priority_over_raw_up() -> None:
 @pytest.mark.asyncio
 async def test_optional_exporters_are_visible_without_changing_required_gate() -> None:
     values = dict(VALUES)
-    values.update({
-        "nabla:telemetry:postgres_exporter_up": "1",
-        "nabla:telemetry:redis_exporter_up": "0",
-        "nabla:telemetry:fastapi_sample_up": "1",
-        "nabla:telemetry:pyroscope_up": "0",
-        "nabla:telemetry:alertmanager_up": "1",
-        "nabla:service:postgres_up": "1",
-        "nabla:service:redis_up": "0",
-        "nabla:core:pfsense_memory_available_ratio": "0.68",
-    })
+    values.update(
+        {
+            "nabla:telemetry:postgres_exporter_up": "1",
+            "nabla:telemetry:redis_exporter_up": "0",
+            "nabla:telemetry:fastapi_sample_up": "1",
+            "nabla:telemetry:pyroscope_up": "0",
+            "nabla:telemetry:alertmanager_up": "1",
+            "nabla:service:postgres_up": "1",
+            "nabla:service:redis_up": "0",
+            "nabla:core:pfsense_memory_available_ratio": "0.68",
+        },
+    )
     settings = HomelabPrometheusSettings(homelab_prometheus_url="http://prometheus.test")
     async with _client(values) as client:
         payload = await fetch_platform_metrics(settings=settings, client=client)
@@ -301,22 +318,22 @@ async def test_missing_optional_exporters_are_unknown_not_platform_outage() -> N
 @pytest.mark.asyncio
 async def test_exporter_job_inventory_is_bounded_and_does_not_change_health() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
-        samples = [
-            {"metric": {"__name__": name}, "value": [1, value]}
-            for name, value in VALUES.items()
-        ]
+        samples = [{"metric": {"__name__": name}, "value": [1, value]} for name, value in VALUES.items()]
         for job, value in (
             ("kafka_exporter", "1"),
             ("opensearch", "0"),
             ("cloudflare_exporter", "1"),
             ("unexpected_job", "1"),
         ):
-            samples.append({
-                "metric": {"__name__": "nabla:telemetry:service_exporter_up", "job": job},
-                "value": [1, value],
-            })
+            samples.append(
+                {
+                    "metric": {"__name__": "nabla:telemetry:service_exporter_up", "job": job},
+                    "value": [1, value],
+                },
+            )
         return httpx.Response(
-            200, request=request,
+            200,
+            request=request,
             json={"status": "success", "data": {"resultType": "vector", "result": samples}},
         )
 
@@ -342,20 +359,25 @@ async def test_exporter_job_inventory_is_bounded_and_does_not_change_health() ->
 @pytest.mark.asyncio
 async def test_conflicting_exporter_samples_fail_closed_independent_of_order() -> None:
     for samples in (("1", "0"), ("0", "1")):
-        def handler(request: httpx.Request) -> httpx.Response:
-            result = [
-                {"metric": {"__name__": name}, "value": [1, value]}
-                for name, value in VALUES.items()
-            ]
-            result.extend({
-                "metric": {
-                    "__name__": "nabla:telemetry:service_exporter_up",
-                    "job": "redis_exporter",
-                },
-                "value": [1, value],
-            } for value in samples)
+
+        def handler(
+            request: httpx.Request,
+            samples: tuple[str, str] = samples,
+        ) -> httpx.Response:
+            result = [{"metric": {"__name__": name}, "value": [1, value]} for name, value in VALUES.items()]
+            result.extend(
+                {
+                    "metric": {
+                        "__name__": "nabla:telemetry:service_exporter_up",
+                        "job": "redis_exporter",
+                    },
+                    "value": [1, value],
+                }
+                for value in samples
+            )
             return httpx.Response(
-                200, request=request,
+                200,
+                request=request,
                 json={"status": "success", "data": {"resultType": "vector", "result": result}},
             )
 
@@ -374,10 +396,7 @@ async def test_conflicting_exporter_samples_fail_closed_independent_of_order() -
 @pytest.mark.asyncio
 async def test_gatus_samples_are_bounded_and_conflicts_fail_closed() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
-        samples = [
-            {"metric": {"__name__": name}, "value": [1, value]}
-            for name, value in VALUES.items()
-        ]
+        samples = [{"metric": {"__name__": name}, "value": [1, value]} for name, value in VALUES.items()]
         for metric, labels, value in (
             ("nabla:telemetry:gatus_up", {}, "1"),
             ("nabla:telemetry:gatus_up", {}, "0"),
@@ -390,9 +409,14 @@ async def test_gatus_samples_are_bounded_and_conflicts_fail_closed() -> None:
             ("nabla:service:synthetic_probe_success", {"nabla_service_id": "nexus", "type": "UNKNOWN"}, "1"),
         ):
             samples.append({"metric": {"__name__": metric, **labels}, "value": [1, value]})
-        return httpx.Response(200, request=request, json={
-            "status": "success", "data": {"resultType": "vector", "result": samples},
-        })
+        return httpx.Response(
+            200,
+            request=request,
+            json={
+                "status": "success",
+                "data": {"resultType": "vector", "result": samples},
+            },
+        )
 
     settings = HomelabPrometheusSettings(homelab_prometheus_url="http://prometheus.test")
     async with httpx.AsyncClient(
@@ -423,7 +447,8 @@ async def test_gatus_service_identifiers_reject_invalid_and_oversized_labels() -
             for sid in ("valid-service", "CAPITALIZED", "../secret", "a" * 81, " bad ", "")
         ]
         return httpx.Response(
-            200, request=request,
+            200,
+            request=request,
             json={"status": "success", "data": {"resultType": "vector", "result": rows}},
         )
 
@@ -451,7 +476,8 @@ async def test_gatus_service_series_count_is_bounded() -> None:
             for index in range(350)
         ]
         return httpx.Response(
-            200, request=request,
+            200,
+            request=request,
             json={"status": "success", "data": {"resultType": "vector", "result": rows}},
         )
 
@@ -469,7 +495,11 @@ async def test_gatus_service_series_count_is_bounded() -> None:
 @pytest.mark.asyncio
 async def test_gatus_raw_up_conflicting_series_are_order_independent() -> None:
     for pair in (("1", "0"), ("0", "1")):
-        def handler(request: httpx.Request) -> httpx.Response:
+
+        def handler(
+            request: httpx.Request,
+            pair: tuple[str, str] = pair,
+        ) -> httpx.Response:
             samples = [
                 {
                     "metric": {"__name__": "up", "job": "gatus", "instance": str(index)},

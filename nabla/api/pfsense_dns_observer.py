@@ -200,7 +200,7 @@ def _service_summary(services: list[dict[str, str]]) -> dict[str, int]:
     return summary
 
 
-def _security_filter_observations(
+def _security_filter_observations(  # noqa: C901 -- refactor tracked in docs/engineering-roadmap.md
     services: object,
     *,
     ingress_block: dict[str, Any] | None = None,
@@ -212,21 +212,13 @@ def _security_filter_observations(
     inventory_observed = isinstance(services, list) if services_observed is None else services_observed
     if snort_blocked:
         firewall_state = "blocked"
-        firewall_detail = (
-            "PF is enforcing the snort2c block for the observed FastAPI egress"
-        )
+        firewall_detail = "PF is enforcing the snort2c block for the observed FastAPI egress"
     elif posture_authenticated is False:
         firewall_state = "warn"
-        firewall_detail = (
-            "pfSense/PF is on the declared path, but posture API authentication "
-            "failed; path presence is not promoted to healthy"
-        )
+        firewall_detail = "pfSense/PF is on the declared path, but posture API authentication failed; path presence is not promoted to healthy"
     else:
         firewall_state = "in_path"
-        firewall_detail = (
-            "pfSense/PF is on the declared path; this is path evidence, not a "
-            "health or authentication verdict"
-        )
+        firewall_detail = "pfSense/PF is on the declared path; this is path evidence, not a health or authentication verdict"
 
     filters: list[dict[str, str]] = [
         {
@@ -328,8 +320,7 @@ def _policy_state(
 async def _get_data(client: httpx.AsyncClient, path: str) -> object:
     headers = probe_request_headers("pfsense-posture")
     logger.debug(
-        "pfSense posture request origin=%s probe=%s request_id=%s "
-        "traceparent=%s path=%s",
+        "pfSense posture request origin=%s probe=%s request_id=%s traceparent=%s path=%s",
         headers.get("Nabla-Probe-Origin", "unknown"),
         headers.get("Nabla-Probe-Name", "unknown"),
         headers.get("Nabla-Probe-Request-ID", "unknown"),
@@ -533,18 +524,11 @@ async def _observe_posture_origin_bounded(
                     "control_plane_state": "slow",
                     "control_plane_elapsed_ms": system_elapsed_ms,
                     "deep_probe_skipped": True,
-                    "reason": (
-                        "pfSense API preflight is slow; deeper posture fan-out "
-                        "was skipped to protect the appliance"
-                    ),
+                    "reason": ("pfSense API preflight is slow; deeper posture fan-out was skipped to protect the appliance"),
                 }
             observations = {"system": system_observation}
 
-        remaining_paths = {
-            name: path
-            for name, path in paths.items()
-            if name != "system"
-        }
+        remaining_paths = {name: path for name, path in paths.items() if name != "system"}
         observations.update(
             await _bounded_observations(client, remaining_paths),
         )
@@ -560,12 +544,7 @@ async def _observe_posture_origin_bounded(
         None if isinstance(services, BaseException) else services,
     )
     successful_reads = sum(1 for value in observations.values() if not isinstance(value, BaseException))
-    response_statuses = [
-        status
-        for value in observations.values()
-        if isinstance(value, BaseException)
-        and (status := _http_status_from_error(value)) is not None
-    ]
+    response_statuses = [status for value in observations.values() if isinstance(value, BaseException) and (status := _http_status_from_error(value)) is not None]
     transport_reachable = successful_reads > 0 or bool(response_statuses)
     if 401 in response_statuses:
         api_authenticated: bool | None = False
@@ -638,10 +617,7 @@ async def _cached_posture(settings: PfSenseDNSSettings) -> dict[str, Any]:
         is_provider_success=lambda value: value.get("transport_reachable") is True,
     )
     current = dict(cached.value)
-    current_failure = (
-        current.get("reachable") is False
-        and current.get("transport_reachable") is not True
-    )
+    current_failure = current.get("reachable") is False and current.get("transport_reachable") is not True
     if current_failure and cached.last_good:
         result = dict(cached.last_good)
         result["stale"] = True
@@ -664,10 +640,7 @@ async def observe_pfsense_dns_posture(
     settings: PfSenseDNSSettings | None = None,
 ) -> dict[str, Any]:
     """Return cached posture plus egress-specific Snort/PF evidence."""
-    if (
-        settings is None
-        and not PfSenseProbePolicySettings().pfsense_authenticated_probes_enabled
-    ):
+    if settings is None and not PfSenseProbePolicySettings().pfsense_authenticated_probes_enabled:
         configuration = pfsense_api_configuration_status()
         return {
             **configuration,
@@ -678,11 +651,7 @@ async def observe_pfsense_dns_posture(
             "api_authenticated": None,
             "api_evidence_state": "disabled",
             "policy_state": "unknown",
-            "reason": (
-                "Authenticated pfSense API probes are disabled for this runtime; "
-                "WAN reachability is observed separately through the public "
-                "pfSense/HAProxy/TrueNAS path"
-            ),
+            "reason": ("Authenticated pfSense API probes are disabled for this runtime; WAN reachability is observed separately through the public pfSense/HAProxy/TrueNAS path"),
             "services_observed": False,
             "services": [],
             "service_summary": {
@@ -708,19 +677,12 @@ async def observe_pfsense_dns_posture(
                 "engine": "snort",
                 "firewall": "pfSense/PF",
                 "mechanism": "snort2c",
-                "evidence": (
-                    "Authenticated pfSense security telemetry is disabled in "
-                    "this runtime to avoid Login Protection/sshguard coupling"
-                ),
+                "evidence": ("Authenticated pfSense security telemetry is disabled in this runtime to avoid Login Protection/sshguard coupling"),
                 "control_path": {
                     "mode": "disabled",
                     "independent_from_wan_filter": False,
                     "blind_spot": False,
-                    "detail": (
-                        "FastAPI Cloud uses transport-only WAN observation; "
-                        "authenticated pfSense telemetry is owned by the trusted "
-                        "homelab runtime"
-                    ),
+                    "detail": ("FastAPI Cloud uses transport-only WAN observation; authenticated pfSense telemetry is owned by the trusted homelab runtime"),
                 },
             },
         }
@@ -780,11 +742,7 @@ async def observe_pfsense_dns_posture(
             **common,
             "reachable": False,
             "policy_state": "unknown",
-            "reason": (
-                "pfSense posture API authentication/authorization failed"
-                if transport_reachable
-                else "pfSense posture API is unreachable from this runtime"
-            ),
+            "reason": ("pfSense posture API authentication/authorization failed" if transport_reachable else "pfSense posture API is unreachable from this runtime"),
             "error_stage": posture.get("error_stage", "system"),
             "error": posture.get("error", "unknown"),
             **({"cache": posture["cache"]} if "cache" in posture else {}),

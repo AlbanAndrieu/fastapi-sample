@@ -34,15 +34,36 @@ _OPTIONAL_METRICS = {
     "pfsense_memory_available_ratio": "nabla:core:pfsense_memory_available_ratio",
 }
 _METRIC_TO_KEY = {metric: key for key, metric in {**_METRICS, **_OPTIONAL_METRICS}.items()}
-_EXPORTER_JOBS = frozenset({
-    "gatus", "fastapi_sample", "postgres_exporter", "redis_exporter",
-    "pfsense_exporter", "crowdsec", "cloudflare_exporter", "truenas_node",
-    "kafka_exporter", "clickhouse", "opensearch", "opensearch-security",
-    "grafana", "alloy", "loki", "mimir", "tempo", "alertmanager",
-    "pyroscope", "keycloak", "pihole_exporter", "haproxy", "n8n", "docling",
-})
+_EXPORTER_JOBS = frozenset(
+    {
+        "gatus",
+        "fastapi_sample",
+        "postgres_exporter",
+        "redis_exporter",
+        "pfsense_exporter",
+        "crowdsec",
+        "cloudflare_exporter",
+        "truenas_node",
+        "kafka_exporter",
+        "clickhouse",
+        "opensearch",
+        "opensearch-security",
+        "grafana",
+        "alloy",
+        "loki",
+        "mimir",
+        "tempo",
+        "alertmanager",
+        "pyroscope",
+        "keycloak",
+        "pihole_exporter",
+        "haproxy",
+        "n8n",
+        "docling",
+    },
+)
 _EXPORTER_RECORD = "nabla:telemetry:service_exporter_up"
-_SERVICE_ID_PATTERN = re.compile(r"[a-z0-9][a-z0-9_-]{0,79}\\Z")
+_SERVICE_ID_PATTERN = re.compile(r"[a-z0-9][a-z0-9_-]{0,79}")
 _MAX_SYNTHETIC_SERVICES = 256
 _SYNTHETIC_METRICS = {
     "gatus_up": "nabla:telemetry:gatus_up",
@@ -50,9 +71,7 @@ _SYNTHETIC_METRICS = {
     "duration_seconds": "nabla:service:synthetic_probe_duration_seconds",
     "availability_ratio_5m": "nabla:service:synthetic_availability_ratio_5m",
 }
-_SYNTHETIC_METRIC_TO_FIELD = {
-    metric: field for field, metric in _SYNTHETIC_METRICS.items()
-}
+_SYNTHETIC_METRIC_TO_FIELD = {metric: field for field, metric in _SYNTHETIC_METRICS.items()}
 _FIXED_QUERY = " or ".join(
     (*_METRICS.values(), *_OPTIONAL_METRICS.values(), _EXPORTER_RECORD, *_SYNTHETIC_METRICS.values(), 'up{job="gatus"}'),
 )
@@ -68,7 +87,7 @@ def _utc_now() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
-async def _query_fixed_metrics(
+async def _query_fixed_metrics(  # noqa: C901 -- refactor tracked in docs/engineering-roadmap.md
     client: httpx.AsyncClient,
 ) -> tuple[dict[str, float | None], dict[str, Any]]:
     values = dict.fromkeys({**_METRICS, **_OPTIONAL_METRICS})
@@ -106,12 +125,7 @@ async def _query_fixed_metrics(
             continue
         service_id = labels.get("nabla_service_id")
         probe_type = labels.get("type")
-        if (
-            field is None
-            or not isinstance(service_id, str)
-            or _SERVICE_ID_PATTERN.fullmatch(service_id) is None
-            or not isinstance(probe_type, str)
-        ):
+        if field is None or not isinstance(service_id, str) or _SERVICE_ID_PATTERN.fullmatch(service_id) is None or not isinstance(probe_type, str):
             continue
         if probe_type not in {"TCP", "HTTP", "HTTPS"}:
             continue
@@ -125,9 +139,7 @@ async def _query_fixed_metrics(
         service = synthetic["services"].setdefault(service_id, {})
         measurements = service.setdefault(probe_type, {})
         previous = measurements.get(field)
-        measurements[field] = value if previous is None else (
-            max(previous, value) if field == "duration_seconds" else min(previous, value)
-        )
+        measurements[field] = value if previous is None else (max(previous, value) if field == "duration_seconds" else min(previous, value))
     if synthetic["gatus_up"] is None and raw_gatus_up is not None:
         synthetic["gatus_up"] = raw_gatus_up if raw_gatus_up in (0.0, 1.0) else None
         synthetic["gatus_source"] = "raw_prometheus_up"
@@ -147,11 +159,7 @@ def _synthetic_summary(
         "source": "gatus_via_prometheus",
         "shadow_only": True,
         "state": state
-        or (
-            "observed"
-            if isinstance(gatus_up, float) and math.isfinite(gatus_up) and gatus_up == 1.0 and payload.get("truncated") is not True
-            else "telemetry_unavailable"
-        ),
+        or ("observed" if isinstance(gatus_up, float) and math.isfinite(gatus_up) and gatus_up == 1.0 and payload.get("truncated") is not True else "telemetry_unavailable"),
         "gatus_up": gatus_up,
         "gatus_source": payload.get("gatus_source", "recording_rule" if gatus_up is not None else "unavailable"),
         "service_count": len(services) if isinstance(services, dict) else 0,
@@ -257,10 +265,11 @@ async def fetch_platform_metrics(
         "exporter_jobs": synthetic.get("exporter_jobs", {}),
         "metrics": {
             key: {
-                "metric": _METRICS[key],
-                "value": round(value, 6) if value is not None else None,
+                "metric": metric,
+                "value": round(value, 6) if (value := values.get(key)) is not None else None,
             }
-            for key, value in values.items()
+            # Optional exporters are reported in summary.optional_exporters only.
+            for key, metric in _METRICS.items()
         },
         "summary": _summary(values),
     }

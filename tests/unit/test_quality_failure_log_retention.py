@@ -15,28 +15,33 @@ GATE = ROOT / "scripts" / "agent-quality-gate.sh"
 @pytest.mark.parametrize("report", [False, True])
 @pytest.mark.parametrize("retain", [False, True])
 def test_compact_failure_preserves_exit_and_opt_in_log(
-    tmp_path: Path, report: bool, retain: bool
+    tmp_path: Path,
+    report: bool,
+    retain: bool,
 ) -> None:
     """Execute the real function text, without invoking any scanner or CI."""
     source = GATE.read_text(encoding="utf-8")
     functions = source.split("retain_failure_log() {", maxsplit=1)[1]
-    functions = "retain_failure_log() {" + functions.split(
-        "\nprint_precommit_failure() {", maxsplit=1
-    )[0]
+    functions = (
+        "retain_failure_log() {"
+        + functions.split(
+            "\nprint_precommit_failure() {",
+            maxsplit=1,
+        )[0]
+    )
     selected = "run_compact_report" if report else "run_compact"
     env = os.environ.copy()
     env.pop("QUALITY_FAILURE_LOG_DIR", None)
     directory = tmp_path / "failure logs"
     if retain:
         env["QUALITY_FAILURE_LOG_DIR"] = str(directory)
-    script = (
-        "set -euo pipefail\n"
-        "LOG_TAIL=1\n"
-        + functions
-        + f'\n{selected} sample bash -c \'printf "first\\nsecond\\n"; exit 17\'\n'
-    )
+    script = "set -euo pipefail\nLOG_TAIL=1\n" + functions + f"\n{selected} sample bash -c 'printf \"first\\nsecond\\n\"; exit 17'\n"
     result = subprocess.run(
-        ["bash", "-c", script], env=env, capture_output=True, text=True, check=False
+        ["bash", "-c", script],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert result.returncode == 17
     assert "second" in result.stderr
@@ -52,17 +57,16 @@ def test_compact_failure_preserves_exit_and_opt_in_log(
 
 def test_compact_success_does_not_retain_log(tmp_path: Path) -> None:
     source = GATE.read_text(encoding="utf-8")
-    functions = "retain_failure_log() {" + source.split(
-        "retain_failure_log() {", maxsplit=1
-    )[1].split("\nprint_precommit_failure() {", maxsplit=1)[0]
+    functions = (
+        "retain_failure_log() {"
+        + source.split(
+            "retain_failure_log() {",
+            maxsplit=1,
+        )[1].split("\nprint_precommit_failure() {", maxsplit=1)[0]
+    )
     directory = tmp_path / "quality logs"
     env = {**os.environ, "QUALITY_FAILURE_LOG_DIR": str(directory)}
-    script = (
-        "set -euo pipefail\n"
-        "LOG_TAIL=1\n"
-        + functions
-        + "\nrun_compact success bash -c 'echo ok'\n"
-    )
+    script = "set -euo pipefail\nLOG_TAIL=1\n" + functions + "\nrun_compact success bash -c 'echo ok'\n"
     result = subprocess.run(
         ["bash", "-c", script],
         env=env,
@@ -78,9 +82,13 @@ def test_compact_success_does_not_retain_log(tmp_path: Path) -> None:
 def test_failure_logs_refuse_unsafe_directory(tmp_path: Path, unsafe: str) -> None:
     """Do not persist potentially sensitive scanner logs to shared locations."""
     source = GATE.read_text(encoding="utf-8")
-    functions = "retain_failure_log() {" + source.split(
-        "retain_failure_log() {", maxsplit=1
-    )[1].split("\nprint_precommit_failure() {", maxsplit=1)[0]
+    functions = (
+        "retain_failure_log() {"
+        + source.split(
+            "retain_failure_log() {",
+            maxsplit=1,
+        )[1].split("\nprint_precommit_failure() {", maxsplit=1)[0]
+    )
     directory = tmp_path / "logs"
     directory.mkdir(mode=0o700)
     if unsafe == "shared":
@@ -91,16 +99,20 @@ def test_failure_logs_refuse_unsafe_directory(tmp_path: Path, unsafe: str) -> No
         target.mkdir()
         directory.symlink_to(target, target_is_directory=True)
     env = {**os.environ, "QUALITY_FAILURE_LOG_DIR": str(directory)}
-    script = (
-        "set -euo pipefail\nLOG_TAIL=1\n"
-        + functions
-        + '\nrun_compact failure bash -c \'echo secret-sentinel; exit 17\'\n'
-    )
+    script = "set -euo pipefail\nLOG_TAIL=1\n" + functions + "\nrun_compact failure bash -c 'echo secret-sentinel; exit 17'\n"
     result = subprocess.run(
-        ["bash", "-c", script], env=env, capture_output=True, text=True, check=False
+        ["bash", "-c", script],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert result.returncode == 17
-    assert "must be" in result.stderr
+    expected = {
+        "shared": "must be private (mode 0700)",
+        "symlink": "must not be a symlink",
+    }[unsafe]
+    assert expected in result.stderr
     assert not list(directory.glob("quality-failure.*.log"))
 
 
@@ -109,9 +121,13 @@ def test_failure_log_owner_guard_is_enforced_without_masking_failure(
 ) -> None:
     """Simulate a foreign owner without changing host filesystem ownership."""
     source = GATE.read_text(encoding="utf-8")
-    functions = "retain_failure_log() {" + source.split(
-        "retain_failure_log() {", maxsplit=1
-    )[1].split("\nprint_precommit_failure() {", maxsplit=1)[0]
+    functions = (
+        "retain_failure_log() {"
+        + source.split(
+            "retain_failure_log() {",
+            maxsplit=1,
+        )[1].split("\nprint_precommit_failure() {", maxsplit=1)[0]
+    )
     directory = tmp_path / "private"
     directory.mkdir(mode=0o700)
     bin_dir = tmp_path / "bin"
@@ -125,14 +141,13 @@ def test_failure_log_owner_guard_is_enforced_without_masking_failure(
         "PATH": f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}",
         "QUALITY_FAILURE_LOG_DIR": str(directory),
     }
-    script = (
-        "set -euo pipefail\nLOG_TAIL=1\n"
-        + functions
-        + "\nrun_compact failure bash -c 'echo secret-sentinel; exit 17'\n"
-    )
+    script = "set -euo pipefail\nLOG_TAIL=1\n" + functions + "\nrun_compact failure bash -c 'echo secret-sentinel; exit 17'\n"
     result = subprocess.run(
         ["bash", "-c", script],
-        env=env, capture_output=True, text=True, check=False,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert result.returncode == 17
     assert "must be owned by the current user" in result.stderr

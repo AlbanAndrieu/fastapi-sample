@@ -35,9 +35,7 @@ def _install_pre_commit_stub(repo: Path, marker: Path) -> None:
     executable = repo / ".venv" / "bin" / "pre-commit"
     executable.parent.mkdir(parents=True)
     executable.write_text(
-        "#!/usr/bin/env bash\n"
-        "set -euo pipefail\n"
-        'printf "%s\\n" "$*" >> "${QUALITY_GATE_MARKER}"\n',
+        '#!/usr/bin/env bash\nset -euo pipefail\nprintf "%s\\n" "$*" >> "${QUALITY_GATE_MARKER}"\n',
         encoding="utf-8",
     )
     executable.chmod(0o755)
@@ -50,7 +48,8 @@ def _run_gate(
     marker: Path,
     extra_env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    env = os.environ.copy()
+    # Do not inherit the comparison base of an outer gate run (agent-publish.sh).
+    env = {key: value for key, value in os.environ.items() if key != "QUALITY_BASE_REF"}
     env["QUALITY_GATE_MARKER"] = str(marker)
     if extra_env:
         env.update(extra_env)
