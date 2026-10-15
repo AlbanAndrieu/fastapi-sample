@@ -57,7 +57,7 @@ def _probe_partitions(
     garage_ids = {"garage", "garage-admin", "garage-webui"}
     priority = [item for item in services if item.service_id in garage_ids]
     priority.extend(item for item in services if item.service_id in _PRIORITY_SERVICE_IDS and item.service_id not in garage_ids)
-    reserved = 2 if limit > 3 and len(services) > limit else 0
+    reserved = min(2, limit - 3) if limit > 3 and len(services) > limit else 0
     fixed = priority[: limit - reserved]
     fixed_ids = {item.service_id for item in fixed}
     rotating = [item for item in services if item.service_id not in fixed_ids]
@@ -102,5 +102,7 @@ def estimated_probe_interval_seconds(
     if service in fixed:
         return HEALTH_CACHE_TTL_SEC
     slots = limit - len(fixed)
+    if slots <= 0:
+        return None
     rounds = max(1, math.ceil(len(remainder) / slots))
     return HEALTH_CACHE_TTL_SEC * rounds

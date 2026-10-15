@@ -174,6 +174,38 @@ def test_empty_probe_budget_is_safe() -> None:
     )
 
 
+def test_small_probe_budgets_keep_rotation_math_safe() -> None:
+    services = [
+        _service("garage", 3900),
+        _service("garage-admin", 3903),
+        _service("garage-webui", 3909),
+        *[_service(f"background-{index}", 25000 + index) for index in range(4)],
+    ]
+
+    one_slot = homelab_probe_policy.select_probe_subset(services, limit=1, now=0.0)
+    assert len(one_slot) == 1
+    assert (
+        homelab_probe_policy.estimated_probe_interval_seconds(
+            services[-1],
+            eligible_services=services,
+            limit=1,
+        )
+        is None
+    )
+
+    four_slots = homelab_probe_policy.select_probe_subset(services, limit=4, now=0.0)
+    assert len(four_slots) == 4
+    assert {"garage", "garage-admin", "garage-webui"} <= {item.service_id for item in four_slots}
+    assert (
+        homelab_probe_policy.estimated_probe_interval_seconds(
+            services[-1],
+            eligible_services=services,
+            limit=4,
+        )
+        is not None
+    )
+
+
 def test_evidence_coverage_excludes_stale_and_deadline_samples() -> None:
     rows = [
         {"id": "garage", "probe_source": "origin", "probe_stale": False},

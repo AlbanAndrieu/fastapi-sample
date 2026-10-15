@@ -248,7 +248,50 @@ def test_private_garage_admin_uses_lan_health_without_tunnel_downgrade() -> None
     assert rows[0]["unexpected_tunnel_route"] is True
 
 
-def test_stale_internal_garage_evidence_is_not_current_health() -> None:
+def test_stale_direct_application_error_does_not_override_fresh_lan_health() -> None:
+    service = HomelabService(
+        id="garage-admin",
+        name="Garage Admin API",
+        internalHost="172.17.0.24",
+        internalPort=3903,
+        tunnelUrl="https://garage-admin.albandrieu.com",
+        external=False,
+    )
+    rows = build_reconciled_service_health(
+        [service],
+        public_results=[
+            {
+                "id": "garage-admin",
+                "url": "https://garage-admin.albandrieu.com/",
+                "reachable": True,
+                "http_status": 502,
+                "state": "fail",
+                "tls_trusted": True,
+                "application_error": True,
+                "probe_stale": True,
+            },
+        ],
+        internal_results=[
+            {
+                "id": "garage-admin",
+                "state": "ok",
+                "reachable": True,
+                "probe_stale": False,
+            },
+        ],
+        runtime=None,
+        tunnels=[],
+    )
+
+    assert rows[0]["state"] == "ok"
+    assert rows[0]["direct_state"] is None
+    assert rows[0]["reachable"] is False
+    assert rows[0]["http_status"] == 0
+    assert rows[0]["tls_trusted"] is None
+    assert "application_error" not in rows[0]
+
+
+def test_stale_internal_garage_evidence_is_not_current_health() -> None
     service = HomelabService(
         id="garage",
         name="Garage S3 API",

@@ -250,7 +250,7 @@ def build_reconciled_service_health(
         direct_health = str(direct_result.get("state")) if direct_result and not direct_stale else None
         internal_stale = bool(internal_result and internal_result.get("probe_stale") is True)
         internal_health = str(internal_result.get("state")) if internal_result and not internal_stale else None
-        application_error = bool(direct_result and direct_result.get("application_error"))
+        application_error = bool(direct_result and not direct_stale and direct_result.get("application_error"))
         state = reconcile_service_state(
             direct=direct_health,
             internal=internal_health,
@@ -263,8 +263,8 @@ def build_reconciled_service_health(
         )
         observed_at, age, stale = _freshness(
             checked_at=checked_at,
-            direct_result=direct_result,
-            internal_result=internal_result,
+            direct_result=direct_result if not direct_stale else None,
+            internal_result=internal_result if not internal_stale else None,
             runtime=runtime,
             app=app,
             tunnel_evidence=tunnel_evidence,
@@ -274,10 +274,10 @@ def build_reconciled_service_health(
             "name": service.name,
             "url": url or endpoint_url,
             "url_derived": service.tunnel_url is None,
-            "reachable": bool(direct_result and direct_result.get("reachable")),
-            "http_status": int(direct_result.get("http_status", 0)) if direct_result else 0,
+            "reachable": bool(direct_result and not direct_stale and direct_result.get("reachable")),
+            "http_status": int(direct_result.get("http_status", 0)) if direct_result and not direct_stale else 0,
             "state": state,
-            "tls_trusted": direct_result.get("tls_trusted") if direct_result else None,
+            "tls_trusted": direct_result.get("tls_trusted") if direct_result and not direct_stale else None,
             "direct_state": direct_health,
             "internal_state": internal_health,
             "internal_probe_stale": internal_stale,
@@ -308,7 +308,7 @@ def build_reconciled_service_health(
             cloudflare_status_confirmed=cloudflare_status_confirmed,
             cloudflare_warning=cloudflare_warning,
             tunnel_evidence=tunnel_evidence,
-            direct_result=direct_result,
+            direct_result=direct_result if not direct_stale else None,
         )
         rows.append(row)
     return rows
