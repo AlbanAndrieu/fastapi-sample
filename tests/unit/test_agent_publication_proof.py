@@ -19,7 +19,7 @@ def _run(
     *args: str,
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(  # noqa: S603
+    return subprocess.run(
         list(args),
         cwd=cwd,
         env=env,
@@ -36,6 +36,14 @@ def _git(cwd: Path, *args: str) -> str:
 def _write_executable(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
     path.chmod(path.stat().st_mode | stat.S_IXUSR)
+
+
+def _fixture_env(fake_bin: Path, **extra: str) -> dict[str, str]:
+    """Isolate fixtures from an outer gate run (e.g. agent-publish.sh itself)."""
+    env = {key: value for key, value in os.environ.items() if key != "QUALITY_BASE_REF"}
+    env["PATH"] = f"{fake_bin}:{os.environ.get('PATH', '')}"
+    env.update(extra)
+    return env
 
 
 def _fake_uv(version: str) -> str:
@@ -115,12 +123,11 @@ printf '1\\n' >> "${QUALITY_TEST_COUNTER}"
     fake_bin.mkdir()
     _write_executable(fake_bin / "uv", _fake_uv("0.12.1"))
 
-    env = {
-        **os.environ,
-        "PATH": f"{fake_bin}:{os.environ.get('PATH', '')}",
-        "QUALITY_TEST_COUNTER": str(counter),
-        "QUALITY_TEST_BUILD_COUNTER": str(build_counter),
-    }
+    env = _fixture_env(
+        fake_bin,
+        QUALITY_TEST_COUNTER=str(counter),
+        QUALITY_TEST_BUILD_COUNTER=str(build_counter),
+    )
 
     first = _run(tmp_path, "bash", str(SCRIPT), env=env)
     assert "QG_PUBLISH_PROOF_WRITTEN" in first.stdout
@@ -135,7 +142,7 @@ printf '1\\n' >> "${QUALITY_TEST_COUNTER}"
     (tmp_path / "README.md").write_text("dirty\n", encoding="utf-8")
     bash = shutil.which("bash")
     assert bash is not None
-    dirty = subprocess.run(  # noqa: S603
+    dirty = subprocess.run(
         [bash, str(SCRIPT)],
         cwd=tmp_path,
         env=env,
@@ -188,12 +195,11 @@ printf '1\\n' >> "${QUALITY_TEST_COUNTER}"
     fake_bin = tmp_path / ".git" / "fake-bin"
     fake_bin.mkdir()
     _write_executable(fake_bin / "uv", _fake_uv("0.12.1"))
-    env = {
-        **os.environ,
-        "PATH": f"{fake_bin}:{os.environ.get('PATH', '')}",
-        "QUALITY_TEST_COUNTER": str(counter),
-        "QUALITY_TEST_BUILD_COUNTER": str(build_counter),
-    }
+    env = _fixture_env(
+        fake_bin,
+        QUALITY_TEST_COUNTER=str(counter),
+        QUALITY_TEST_BUILD_COUNTER=str(build_counter),
+    )
 
     result = _run(tmp_path, "bash", str(SCRIPT), env=env)
 

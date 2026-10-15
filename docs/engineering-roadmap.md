@@ -56,25 +56,25 @@ the strength of an earlier PR's CI result.
 ### Local-first DNS-failure policy
 
 1. Reuse a verified local checkout and existing `uv` cache first. Never assume
-   that an inaccessible hostname proves the repository, test or dependency is
-   broken. Do not patch `/etc/hosts`, disable TLS validation or use unverified
-   IP-address substitution to bypass DNS.
+    that an inaccessible hostname proves the repository, test or dependency is
+    broken. Do not patch `/etc/hosts`, disable TLS validation or use unverified
+    IP-address substitution to bypass DNS.
 2. When `git clone` cannot resolve GitHub, fetch an **exact immutable commit
-   archive** only through an already available authenticated/trusted download
-   channel. Record the commit SHA, source URL and archive digest; check archive
-   paths before extraction. A branch-named moving archive is insufficient.
+    archive** only through an already available authenticated/trusted download
+    channel. Record the commit SHA, source URL and archive digest; check archive
+    paths before extraction. A branch-named moving archive is insufficient.
 3. Run `uv sync --frozen --offline` only when the locked distributions are in
-   cache; otherwise report `BLOCKED_DEPENDENCIES`, do not replace/pin packages
-   speculatively. If dependencies already exist, prefer `uv run --no-sync`.
+    cache; otherwise report `BLOCKED_DEPENDENCIES`, do not replace/pin packages
+    speculatively. If dependencies already exist, prefer `uv run --no-sync`.
 4. Run focused tests, deterministic fix convergence, strict quality gate and
-   publication proof against the **same immutable HEAD**. Preserve stdout/stderr
-   in local logs; display only a concise failing-step summary and log path.
+    publication proof against the **same immutable HEAD**. Preserve stdout/stderr
+    in local logs; display only a concise failing-step summary and log path.
 5. Distinguish `PASS`, `FAIL` and `NOT_RUN/BLOCKED` for each check. In no-credit
-   mode use `[skip ci]`, keep the PR Draft, never rerun Actions and never claim
-   CI green when it did not execute.
+    mode use `[skip ci]`, keep the PR Draft, never rerun Actions and never claim
+    CI green when it did not execute.
 6. Implement the snapshot materializer as a narrow, separately tested utility
-   before integrating it with Just/Dagger. Its negative tests must reject path
-   traversal, symlink escapes, wrong SHA/provenance and incomplete archives.
+    before integrating it with Just/Dagger. Its negative tests must reject path
+    traversal, symlink escapes, wrong SHA/provenance and incomplete archives.
 
 ### Agent token budget policy
 
@@ -146,27 +146,27 @@ The controlling source of homelab service state is
 health/security evidence and its consumer migration.
 
 1. **Resolve service regressions before feature work:** Gatus (internal),
-   pfSense/CrowdSec, then missing acceptance for Sentry, Scrutiny, DSOMM,
-   Pi-hole, Pyroscope and TrueNAS/Talos. Do not mark an external optional
-   integration DOWN merely because evidence is unavailable; retain explicit
-   warning/unknown state.
+    pfSense/CrowdSec, then missing acceptance for Sentry, Scrutiny, DSOMM,
+    Pi-hole, Pyroscope and TrueNAS/Talos. Do not mark an external optional
+    integration DOWN merely because evidence is unavailable; retain explicit
+    warning/unknown state.
 2. **Finish active secrets migrations** in `nabla-compose` one service at a time,
-   with runtime identity, consumer, permissions, Vaultwarden recovery and
-   Backstage metadata. FastAPI Cloud does not require direct exposure to
-   TrueNAS private secrets.
+    with runtime identity, consumer, permissions, Vaultwarden recovery and
+    Backstage metadata. FastAPI Cloud does not require direct exposure to
+    TrueNAS private secrets.
 3. **Prepare then execute a direct catalog-v2 cutover:** reconcile topology,
-   entities, BIA criticality and exposure policies in `nabla-compose`,
-   then migrate `fastapi-sample` and `nabla-site-alban` consumers at a common
-   reviewed revision. Avoid a permanent v1/v2 compatibility shim; preserve a
-   tested rollback until runtime, outside-in security and reboot checks pass.
+    entities, BIA criticality and exposure policies in `nabla-compose`,
+    then migrate `fastapi-sample` and `nabla-site-alban` consumers at a common
+    reviewed revision. Avoid a permanent v1/v2 compatibility shim; preserve a
+    tested rollback until runtime, outside-in security and reboot checks pass.
 4. **Validate observer separation:** FastAPI Cloud remains the independent
-   external DNS/TLS/HTTP/Cloudflare Access/WAN vantage; Gatus/Prometheus on
-   TrueNAS provide internal evidence. Never infer public reachability from
-   internal-only availability.
+    external DNS/TLS/HTTP/Cloudflare Access/WAN vantage; Gatus/Prometheus on
+    TrueNAS provide internal evidence. Never infer public reachability from
+    internal-only availability.
 5. **Finish P1 only where migration-blocking:** app lifecycle and HTTP resource
-   changes that fix proven service failures. Defer Dagger PoC, synthetic schema
-   experimentation, output optimization and optional RAG features until runtime
-   and cutover are accepted.
+    changes that fix proven service failures. Defer Dagger PoC, synthetic schema
+    experimentation, output optimization and optional RAG features until runtime
+    and cutover are accepted.
 
 **Quality-gate policy:** keep all safety checks intact and run targeted local
 tests on each change. The complete local publication gate and required
@@ -181,38 +181,38 @@ Keep `nabla-compose` authoritative for declared service identities and
 exposure, and retain FastAPI Cloud as an **independent public** observer.
 
 1. **Secure diagnostic retention:** opt-in logs may contain scanner output,
-   tokens or internal URLs. Require a non-symlink, private, current-user-owned
-   destination; keep original check exit codes. Do not retain successful logs.
-   - [x] Enforce directory owner as well as access-mode checks, with a
-     simulated foreign-owner regression test.
-   - [ ] Validate these checks with the complete local test module and
-     threat-model unsafe parent directories/races before enabling retention
-     on an operator workstation.
+    tokens or internal URLs. Require a non-symlink, private, current-user-owned
+    destination; keep original check exit codes. Do not retain successful logs.
+    - [x] Enforce directory owner as well as access-mode checks, with a
+      simulated foreign-owner regression test.
+    - [ ] Validate these checks with the complete local test module and
+      threat-model unsafe parent directories/races before enabling retention
+      on an operator workstation.
 2. **pfSense / TrueNAS / Cloudflare:** keep authenticated and unauthenticated
-   evidence distinct; 401/403 policy denials are not transport DOWN, while an
-   unexpected 2xx anonymous response is a security failure. Preserve the
-   bounded pfSense preflight and Cloudflare unknown/warning behavior. Complete
-   TrueNAS observer and public Cloudflare Access acceptance from both vantages
-   without reusing LAN results as Internet evidence.
+    evidence distinct; 401/403 policy denials are not transport DOWN, while an
+    unexpected 2xx anonymous response is a security failure. Preserve the
+    bounded pfSense preflight and Cloudflare unknown/warning behavior. Complete
+    TrueNAS observer and public Cloudflare Access acceptance from both vantages
+    without reusing LAN results as Internet evidence.
 3. **Canonical catalog:** prepare consumers for a *direct, coordinated*
-   `nabla-compose` v2 cutover. Validate stable full entity refs, BIA
-   criticality, desired exposure, relations, revision/provenance and packaged
-   fallback before the cutover. Do not delete legacy catalogs or infer runtime
-   availability from declarative `active` fields. Do not create a second
-   source of truth in FastAPI.
+    `nabla-compose` v2 cutover. Validate stable full entity refs, BIA
+    criticality, desired exposure, relations, revision/provenance and packaged
+    fallback before the cutover. Do not delete legacy catalogs or infer runtime
+    availability from declarative `active` fields. Do not create a second
+    source of truth in FastAPI.
 4. **Gatus / Prometheus:** compare only internal generic probes to TrueNAS
-   Gatus; public Cloudflare/DNS/TLS/WAN results remain in FastAPI Cloud.
-   Require Prometheus query evidence and actual Gatus HTTP/history recovery;
-   absent internal evidence should be a warning rather than an invented green.
+    Gatus; public Cloudflare/DNS/TLS/WAN results remain in FastAPI Cloud.
+    Require Prometheus query evidence and actual Gatus HTTP/history recovery;
+    absent internal evidence should be a warning rather than an invented green.
 5. **Application factory / lifespan:** inventory import-time Postgres, Redis,
-   HTTPX and optional AI initialization, then introduce a minimal hermetic
-   factory and lifespan-owned shared clients incrementally. Prevent startup
-   failure of optional homelab integrations from taking down core liveness.
+    HTTPX and optional AI initialization, then introduce a minimal hermetic
+    factory and lifespan-owned shared clients incrementally. Prevent startup
+    failure of optional homelab integrations from taking down core liveness.
 6. **Synthetic Open Schema:** generate from the `nabla-compose` catalog,
-   validate schema and test an external DNS/TLS/HTTP sample with the official
-   runner. Retain explicit Cloudflare anonymous default-deny, service-token
-   authorization and WAN/SNI evidence; adopt only if net code and contract
-   complexity actually decrease.
+    validate schema and test an external DNS/TLS/HTTP sample with the official
+    runner. Retain explicit Cloudflare anonymous default-deny, service-token
+    authorization and WAN/SNI evidence; adopt only if net code and contract
+    complexity actually decrease.
 
 **Delivery order:** diagnostic security and evidence contracts → catalog
 consumer readiness → Gatus/Prometheus reconciliation → incremental lifecycle
@@ -526,11 +526,11 @@ The two observers answer different questions and must remain independent:
 ```text
 FastAPI Cloud (outside homelab)        TrueNAS (inside homelab)
         |                                      |
- public DNS/TLS/HTTP/Access                 Gatus
+  public DNS/TLS/HTTP/Access                 Gatus
         |                                      |
- Internet -> Cloudflare/pfSense             LAN/services
+  Internet -> Cloudflare/pfSense             LAN/services
         |                                      |
- exposure + security evidence               internal health
+  exposure + security evidence               internal health
 ```
 
 - [x] Classify Gatus/Prometheus as an **internal TrueNAS observer**. Its 45/45
@@ -597,6 +597,23 @@ FastAPI Cloud (outside homelab)        TrueNAS (inside homelab)
   public probe path, DNS/TLS attribution or Cloudflare Access logic.
 - [x] Factor shared Prometheus vector parsing/query helpers so platform,
   topology and diagnostic consumers do not maintain parallel HTTP API parsers.
+- [ ] Remove the `# noqa: C901` exemptions added (2026-10-14) so repo-wide
+  `ruff check .` passes: split `get_or_refresh_probe` (complexity 28),
+  `append_truenas_api_stages` (15), `TrueNASClient.health_snapshot` (14),
+  `_query_fixed_metrics` (17, from #338), `compare_internal_probe_evidence` (13),
+  `_security_filter_observations` (12),
+  `public_topology_payload`, `check_pfsense_api` and the diagnose script
+  `print_table` (11) below the McCabe limit of 10.
+- [x] Make the agent shell tooling portable to macOS/BSD userland
+  (`mv -T`, `stat -c`, `install -d` chmod and suffixed `mktemp` fallbacks in
+  `agent-source-snapshot.sh` and the quality-failure log retention).
+- [ ] Prove the GNU branch of those shell fallbacks on the Linux CI runner:
+  acceptance is a green pytest job for the first PR carrying the change
+  (only validated locally on macOS so far).
+- [x] Reconcile `test_agent_quality_gate_wraps_tests_and_canonical_gate` with
+  the `QUALITY_FIX_PASSES` help text (`default: 6, capped at 20`).
+- [x] Make `mise.toml` the single toolchain version source: `.tool-versions`
+  and `.nvmrc` removed; CI reads `tools.node` from `mise.toml`.
 
 ## P1 — runtime architecture
 

@@ -39,7 +39,7 @@ def _valid_gatus_up(value: object) -> bool:
     return math.isfinite(numeric) and numeric == 1.0
 
 
-def compare_internal_probe_evidence(
+def compare_internal_probe_evidence(  # noqa: C901 -- refactor tracked in docs/engineering-roadmap.md
     homelab: dict[str, Any],
     platform_metrics: dict[str, Any],
 ) -> dict[str, Any]:
@@ -124,7 +124,7 @@ def compare_internal_probe_evidence(
                         "direct_state": direct_state,
                         "gatus_type": probe_type,
                         "gatus_success": success,
-                    }
+                    },
                 )
             continue
 
@@ -171,11 +171,7 @@ def evaluate_internal_probe_delegation(
         blockers.append("prometheus_not_configured")
     if not isinstance(synthetic, dict) or synthetic.get("state") != "observed":
         blockers.append("gatus_not_observed")
-    elif (
-        isinstance(synthetic.get("gatus_up"), bool)
-        or not isinstance(synthetic.get("gatus_up"), (int, float))
-        or not _valid_gatus_up(synthetic["gatus_up"])
-    ):
+    elif isinstance(synthetic.get("gatus_up"), bool) or not isinstance(synthetic.get("gatus_up"), (int, float)) or not _valid_gatus_up(synthetic["gatus_up"]):
         blockers.append("gatus_not_up")
 
     comparable = int(comparison.get("comparable") or 0)

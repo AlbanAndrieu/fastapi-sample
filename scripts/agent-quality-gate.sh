@@ -78,7 +78,7 @@ LOG_TAIL="${LOG_TAIL:-0}"
 if (("${#LOG_TAIL}" > 9)); then
     LOG_TAIL=80
 else
-    LOG_TAIL=$((10#$LOG_TAIL))
+    LOG_TAIL=$((10#${LOG_TAIL}))
     if ((LOG_TAIL > 80)); then
         LOG_TAIL=80
     fi
@@ -97,7 +97,7 @@ fi
 if (("${#FIX_PASSES}" > 9)); then
     FIX_PASSES=20
 else
-    FIX_PASSES=$((10#$FIX_PASSES))
+    FIX_PASSES=$((10#${FIX_PASSES}))
     if ((FIX_PASSES > 20)); then
         FIX_PASSES=20
     fi
@@ -131,35 +131,43 @@ retain_failure_log() {
         rm -f -- "${log}"
         return 0
     fi
-    if ! install -d -m 700 -- "${QUALITY_FAILURE_LOG_DIR}"; then
+    # Only create a missing directory: BSD install -d would silently chmod an
+    # existing shared directory instead of letting the guard below refuse it.
+    if [[ ! -d "${QUALITY_FAILURE_LOG_DIR}" ]] && ! install -d -m 700 -- "${QUALITY_FAILURE_LOG_DIR}"; then
         printf '⚠️ unable to create quality failure log directory\n' >&2
         rm -f -- "${log}"
         return 0
     fi
     # install -d does not reset permissions of an existing directory.
+    # stat -c is GNU coreutils; stat -f is the BSD/macOS equivalent.
     local permissions
-    permissions="$(stat -c %a -- "${QUALITY_FAILURE_LOG_DIR}" 2>/dev/null)" || permissions=""
-    if [[ -z "${permissions}" ]] ||
-        ((8#${permissions} & 8#077)); then
+    permissions="$(stat -c %a -- "${QUALITY_FAILURE_LOG_DIR}" 2>/dev/null ||
+        stat -f %Lp -- "${QUALITY_FAILURE_LOG_DIR}" 2>/dev/null)" || permissions=""
+    if [[ -z "${permissions}" || $((8#${permissions} & 8#077)) -ne 0 ]]; then
         printf '⚠️ quality failure log directory must be private (mode 0700)\n' >&2
         rm -f -- "${log}"
         return 0
     fi
     # A private mode alone is insufficient if another account owns the directory.
     local owner current_uid
-    owner="$(stat -c %u -- "${QUALITY_FAILURE_LOG_DIR}" 2>/dev/null)" || owner=""
+    owner="$(stat -c %u -- "${QUALITY_FAILURE_LOG_DIR}" 2>/dev/null ||
+        stat -f %u -- "${QUALITY_FAILURE_LOG_DIR}" 2>/dev/null)" || owner=""
     current_uid="$(id -u)"
     if [[ -z "${owner}" || "${owner}" != "${current_uid}" ]]; then
         printf '⚠️ quality failure log directory must be owned by the current user\n' >&2
         rm -f -- "${log}"
         return 0
     fi
-    if destination="$(mktemp "${QUALITY_FAILURE_LOG_DIR}/quality-failure.XXXXXXXX.log")" &&
+    # BSD mktemp only randomizes trailing Xs, so add the suffix after creation.
+    local base
+    if base="$(mktemp "${QUALITY_FAILURE_LOG_DIR}/quality-failure.XXXXXXXX")" &&
+        destination="${base}.log" &&
+        mv -- "${base}" "${destination}" &&
         cp -- "${log}" "${destination}"; then
         printf '   Full failure log: %s\n' "${destination}" >&2
     else
         printf '⚠️ unable to retain full quality failure log\n' >&2
-        [[ -z "${destination:-}" ]] || rm -f -- "${destination}"
+        rm -f -- "${base:-}" "${destination:-}"
     fi
     rm -f -- "${log}"
 }

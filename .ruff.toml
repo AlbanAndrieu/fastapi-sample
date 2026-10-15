@@ -43,7 +43,10 @@ select = [
 max-complexity = 10
 
 [lint.per-file-ignores]
-"tests/*" = ["S101"]
+# Tests and repository tooling run trusted local commands (git, bash, repo
+# scripts) with argument lists, never shell strings built from user input.
+"tests/*" = ["S101", "S104", "S603", "S607"]
+"scripts/*" = ["S603", "S607"]
 "nabla/tools/*" = ["S602", "S607"]
 
 [format]

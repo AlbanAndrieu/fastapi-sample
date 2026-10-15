@@ -281,11 +281,15 @@ jobs:
             ' /tmp/homelab-health.json >/dev/null
           fi
 
+      - name: Read Node.js version from mise.toml
+        id: mise_node
+        run: python3 -c 'import tomllib; print("version=" + tomllib.load(open("mise.toml", "rb"))["tools"]["node"])' >> "$GITHUB_OUTPUT"
+
       - name: Set up Node.js for deployed UI smoke
         if: github.event_name != 'pull_request'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: "24"
+          node-version: ${{ steps.mise_node.outputs.version }}
 
       - name: Install Playwright headless smoke runtime
         if: github.event_name != 'pull_request'

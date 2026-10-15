@@ -27,11 +27,7 @@ _TALOS_VM_NAMES = ("taloscp01", "taloswk01", "taloswk02")
 
 def _talos_vm_snapshot(vms: list[dict[str, Any]]) -> dict[str, Any]:
     """Summarize only the expected Talos VM runtime without exposing VM config."""
-    by_name = {
-        str(vm.get("name") or ""): vm
-        for vm in vms
-        if isinstance(vm, dict) and str(vm.get("name") or "") in _TALOS_VM_NAMES
-    }
+    by_name = {str(vm.get("name") or ""): vm for vm in vms if isinstance(vm, dict) and str(vm.get("name") or "") in _TALOS_VM_NAMES}
     rows: list[dict[str, str]] = []
     running = 0
     for name in _TALOS_VM_NAMES:
@@ -335,7 +331,7 @@ class TrueNASReadOnlyAdapter:
             raise RuntimeError("TrueNAS app.query returned an unexpected payload")
         return [item for item in result if isinstance(item, dict)]
 
-    def health_snapshot(self) -> dict[str, Any]:
+    def health_snapshot(self) -> dict[str, Any]:  # noqa: C901 -- refactor tracked in docs/engineering-roadmap.md
         """Return a compact non-secret version/app view suitable for health APIs."""
         started = time.perf_counter()
         uri = self.settings.websocket_uri

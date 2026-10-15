@@ -21,7 +21,7 @@ def resolve_redis_client() -> Redis | None:
     if not os.getenv("REDIS_URL", "").strip():
         return None
     try:
-        from nabla.api.demo.socket.redis import redis as client
+        from nabla.api.demo.socket.redis import redis as client  # noqa: PLC0415 -- only when REDIS_URL is set
     except (ImportError, RuntimeError):  # pragma: no cover - startup fallback.
         return None
     return client
@@ -64,16 +64,13 @@ async def acquire_lock(client: Redis, key: str, token: str, ttl: int) -> bool:
             token,
             nx=True,
             ex=max(1, ttl),
-        )
+        ),
     )
 
 
 async def release_lock(client: Redis, key: str, token: str) -> None:
     """Release a lock only when its ownership token still matches."""
-    script = (
-        "if redis.call('get', KEYS[1]) == ARGV[1] then "
-        "return redis.call('del', KEYS[1]) else return 0 end"
-    )
+    script = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end"
     try:
         await client.eval(script, 1, f"{LOCK_PREFIX}{key}", token)
     except Exception as exc:  # pragma: no cover - lock expiry is the safety net.

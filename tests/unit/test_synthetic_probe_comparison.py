@@ -34,7 +34,7 @@ def test_public_outside_in_probes_are_not_compared_to_internal_gatus() -> None:
             "garage": {"HTTP": {"success": 1.0}},
             "vaultwarden": {"HTTP": {"success": 1.0}},
             "nexus": {"TCP": {"success": 1.0}},
-        }
+        },
     )
 
     result = compare_internal_probe_evidence(homelab, platform)
@@ -57,7 +57,7 @@ def test_internal_http_gatus_is_stronger_evidence_not_transport_mismatch() -> No
         {
             "fastapi-sample": {"HTTP": {"success": 1.0}},
             "prometheus": {"HTTP": {"success": 0.0}},
-        }
+        },
     )
 
     result = compare_internal_probe_evidence(homelab, platform)
@@ -78,7 +78,7 @@ def test_internal_tcp_mismatch_is_reported() -> None:
     platform = _platform(
         {
             "nexus": {"TCP": {"success": 0.0}},
-        }
+        },
     )
 
     result = compare_internal_probe_evidence(homelab, platform)
@@ -93,7 +93,7 @@ def test_internal_tcp_mismatch_is_reported() -> None:
             "direct_state": "ok",
             "gatus_type": "TCP",
             "gatus_success": 0.0,
-        }
+        },
     ]
 
 
@@ -211,7 +211,8 @@ def test_missing_gatus_ids_are_reported_without_marking_services_down() -> None:
         ],
     }
     result = compare_internal_probe_evidence(
-        homelab, _platform({"nexus": {"TCP": {"success": 1.0}}}),
+        homelab,
+        _platform({"nexus": {"TCP": {"success": 1.0}}}),
     )
     assert result["missing_gatus"] == 2
     assert result["missing_gatus_ids"] == ["redis", "gatus"]
@@ -234,14 +235,17 @@ def test_existing_gatus_service_without_supported_evidence_has_distinct_reason()
 
 
 def test_duplicate_internal_ids_are_counted_once() -> None:
-    homelab = {"internal_services": [
-        {"id": "redis", "state": "ok"},
-        {"id": "redis", "state": "ok"},
-        {"id": "nexus", "state": "ok"},
-        {"id": "nexus", "state": "ok"},
-    ]}
+    homelab = {
+        "internal_services": [
+            {"id": "redis", "state": "ok"},
+            {"id": "redis", "state": "ok"},
+            {"id": "nexus", "state": "ok"},
+            {"id": "nexus", "state": "ok"},
+        ],
+    }
     result = compare_internal_probe_evidence(
-        homelab, _platform({"nexus": {"TCP": {"success": 1.0}}}),
+        homelab,
+        _platform({"nexus": {"TCP": {"success": 1.0}}}),
     )
     assert result["missing_gatus"] == 1
     assert result["missing_gatus_ids"] == ["redis"]
@@ -252,15 +256,19 @@ def test_duplicate_internal_ids_are_counted_once() -> None:
 
 def test_contradictory_duplicate_direct_states_are_not_turned_into_failures() -> None:
     result = compare_internal_probe_evidence(
-        {"internal_services": [
-            {"id": "nexus", "state": "ok"},
-            {"id": "nexus", "state": "fail"},
-            {"id": "redis", "state": "ok"},
-        ]},
-        _platform({
-            "nexus": {"TCP": {"success": 1.0}},
-            "redis": {"TCP": {"success": 1.0}},
-        }),
+        {
+            "internal_services": [
+                {"id": "nexus", "state": "ok"},
+                {"id": "nexus", "state": "fail"},
+                {"id": "redis", "state": "ok"},
+            ],
+        },
+        _platform(
+            {
+                "nexus": {"TCP": {"success": 1.0}},
+                "redis": {"TCP": {"success": 1.0}},
+            },
+        ),
     )
     assert result["conflicting_direct_ids"] == ["nexus"]
     assert result["comparable"] == 1
@@ -273,10 +281,12 @@ def test_contradictory_duplicate_direct_states_are_not_turned_into_failures() ->
 
 
 def test_unobserved_synthetic_metrics_do_not_invent_missing_gatus_monitors() -> None:
-    homelab = {"internal_services": [
-        {"id": "nexus", "state": "ok"},
-        {"id": "redis", "state": "ok"},
-    ]}
+    homelab = {
+        "internal_services": [
+            {"id": "nexus", "state": "ok"},
+            {"id": "redis", "state": "ok"},
+        ],
+    }
     platform = _platform({})
     platform["synthetic_probes"]["state"] = "telemetry_unavailable"
     result = compare_internal_probe_evidence(homelab, platform)

@@ -1,3 +1,4 @@
+# ruff: noqa: PLC0415 -- ddtrace is optional and must only be imported when enabled.
 """Optional Datadog instrumentation helpers.
 
 The application must remain bootable when ``ddtrace`` is not installed.

@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 set -euo pipefail
 
 usage() {
@@ -5,25 +6,25 @@ usage() {
   exit 2
 }
 
-(( $# == 3 || $# == 4 )) || usage
+[[ $# -eq 3 || $# -eq 4 ]] || usage
 source_dir="$1"
 commit="$2"
 destination="$3"
 base_ref="${4:-}"
 
-if ! [[ "$commit" =~ ^[[:xdigit:]]{40}$ ]]; then
+if ! [[ "${commit}" =~ ^[[:xdigit:]]{40}$ ]]; then
   echo '❌ expected a full 40-character commit SHA' >&2
   exit 2
 fi
-if [[ -e "$destination" || -L "$destination" ]]; then
+if [[ -e "${destination}" || -L "${destination}" ]]; then
   echo '❌ destination already exists; refusing to overwrite' >&2
   exit 2
 fi
-if ! git -C "$source_dir" rev-parse --git-dir >/dev/null 2>&1; then
+if ! git -C "${source_dir}" rev-parse --git-dir >/dev/null 2>&1; then
   echo '❌ source is not a readable local Git repository' >&2
   exit 1
 fi
-actual="$(git -C "$source_dir" rev-parse --verify "${commit}^{commit}" 2>/dev/null)" || {
+actual="$(git -C "${source_dir}" rev-parse --verify "${commit}^{commit}" 2>/dev/null)" || {
   echo '❌ requested commit is not cached locally' >&2
   exit 1
 }
@@ -33,45 +34,50 @@ if [[ "${actual,,}" != "${commit,,}" ]]; then
 fi
 
 base_actual=""
-if [[ -n "$base_ref" ]]; then
-  base_actual="$(git -C "$source_dir" rev-parse --verify "${base_ref}^{commit}" 2>/dev/null)" || {
+if [[ -n "${base_ref}" ]]; then
+  base_actual="$(git -C "${source_dir}" rev-parse --verify "${base_ref}^{commit}" 2>/dev/null)" || {
     echo '❌ requested comparison base is not cached locally' >&2
     exit 1
   }
-  if ! git -C "$source_dir" merge-base --is-ancestor "$base_actual" "$actual"; then
+  if ! git -C "${source_dir}" merge-base --is-ancestor "${base_actual}" "${actual}"; then
     echo '❌ requested comparison base is not an ancestor of requested HEAD' >&2
     exit 1
   fi
 fi
 
-mkdir -p "$(dirname "$destination")"
-staging="$(mktemp -d "$(dirname "$destination")/.source-snapshot.XXXXXXXX")"
+mkdir -p "$(dirname "${destination}")"
+staging="$(mktemp -d "$(dirname "${destination}")/.source-snapshot.XXXXXXXX")"
 trap 'rm -rf -- "$staging"' EXIT
 # Preserve Git metadata for comparison-base and exact-HEAD quality gates.
 # A no-hardlinks clone is independent of later writes to the local cache.
-rmdir -- "$staging"
-git clone --local --no-hardlinks --no-checkout --quiet -- "$source_dir" "$staging"
-git -C "$staging" checkout --detach --force --quiet "$actual"
-[[ "$(git -C "$staging" rev-parse HEAD)" == "$actual" ]]
-if [[ -n "$base_actual" ]]; then
-  git -C "$staging" cat-file -e "${base_actual}^{commit}" || {
+rmdir -- "${staging}"
+git clone --local --no-hardlinks --no-checkout --quiet -- "${source_dir}" "${staging}"
+git -C "${staging}" checkout --detach --force --quiet "${actual}"
+[[ "$(git -C "${staging}" rev-parse HEAD)" == "${actual}" ]]
+if [[ -n "${base_actual}" ]]; then
+  git -C "${staging}" cat-file -e "${base_actual}^{commit}" || {
     echo '❌ comparison base object missing from materialized snapshot' >&2
     exit 1
   }
-  git -C "$staging" merge-base --is-ancestor "$base_actual" HEAD || {
+  git -C "${staging}" merge-base --is-ancestor "${base_actual}" HEAD || {
     echo '❌ comparison base ancestry changed during snapshot creation' >&2
     exit 1
   }
 fi
-if [[ -e "$destination" || -L "$destination" ]]; then
+if [[ -e "${destination}" || -L "${destination}" ]]; then
   echo '❌ destination appeared during snapshot creation; refusing to overwrite' >&2
   exit 2
 fi
-mv -T -- "$staging" "$destination"
-trap - EXIT
-if [[ -n "$base_actual" ]]; then
-  printf '✅ offline snapshot from verified Git commit %s with base %s: %s\n' \
-    "$actual" "$base_actual" "$destination"
+if mv --version >/dev/null 2>&1; then
+  mv -T -- "${staging}" "${destination}"
 else
-  printf '✅ offline snapshot from verified Git commit %s: %s\n' "$actual" "$destination"
+  # BSD/macOS mv has no -T; rename(2) has the same no-nesting semantics.
+  python3 -c 'import os, sys; os.rename(sys.argv[1], sys.argv[2])' "${staging}" "${destination}"
+fi
+trap - EXIT
+if [[ -n "${base_actual}" ]]; then
+  printf '✅ offline snapshot from verified Git commit %s with base %s: %s\n' \
+    "${actual}" "${base_actual}" "${destination}"
+else
+  printf '✅ offline snapshot from verified Git commit %s: %s\n' "${actual}" "${destination}"
 fi
