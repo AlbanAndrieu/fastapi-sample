@@ -47,7 +47,8 @@ def _unique_services(services: list[HomelabService]) -> list[HomelabService]:
 
 
 def _probe_partitions(
-    services: list[HomelabService], limit: int
+    services: list[HomelabService],
+    limit: int,
 ) -> tuple[list[HomelabService], list[HomelabService]]:
     """Reserve rotating slots even when priority count reaches the probe budget."""
     if limit <= 0:
@@ -55,10 +56,7 @@ def _probe_partitions(
     # Put Garage first so its three distinct internal targets remain observable.
     garage_ids = {"garage", "garage-admin", "garage-webui"}
     priority = [item for item in services if item.service_id in garage_ids]
-    priority.extend(
-        item for item in services
-        if item.service_id in _PRIORITY_SERVICE_IDS and item.service_id not in garage_ids
-    )
+    priority.extend(item for item in services if item.service_id in _PRIORITY_SERVICE_IDS and item.service_id not in garage_ids)
     reserved = 2 if limit > 3 and len(services) > limit else 0
     fixed = priority[: limit - reserved]
     fixed_ids = {item.service_id for item in fixed}
@@ -84,10 +82,7 @@ def select_probe_subset(
     clock = time.monotonic() if now is None else now
     bucket = int(clock // HEALTH_CACHE_TTL_SEC)
     start = (bucket * slots) % len(remainder)
-    rotating = [
-        remainder[(start + offset) % len(remainder)]
-        for offset in range(min(slots, len(remainder)))
-    ]
+    rotating = [remainder[(start + offset) % len(remainder)] for offset in range(min(slots, len(remainder)))]
     return [*fixed, *rotating]
 
 
