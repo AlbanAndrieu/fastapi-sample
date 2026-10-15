@@ -1,3 +1,26 @@
+## [1.22.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.22.0...1.22.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* **deps:** bump axios ([#340](https://github.com/AlbanAndrieu/fastapi-sample/issues/340)) ([43bc1f3](https://github.com/AlbanAndrieu/fastapi-sample/commit/43bc1f30ea7a29278ef706160f4a733048115d50))
+* **gatus:** distinguer télémétrie absente et sondes manquantes ([#338](https://github.com/AlbanAndrieu/fastapi-sample/issues/338)) ([8c0cd68](https://github.com/AlbanAndrieu/fastapi-sample/commit/8c0cd6825da3762d6aaf62f91f90347176073feb))
+
+# [1.22.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.21.1...1.22.0) (2026-10-13)
+
+
+### Bug Fixes
+
+* **local-first:** limiter la sortie des échecs pytest pour les agents ([#333](https://github.com/AlbanAndrieu/fastapi-sample/issues/333)) ([83f2440](https://github.com/AlbanAndrieu/fastapi-sample/commit/83f2440a116479e99eee815ef4e41931370eaf80))
+* **quality:** conserver les diagnostics complets hors sortie agent ([#334](https://github.com/AlbanAndrieu/fastapi-sample/issues/334)) ([f8ecc77](https://github.com/AlbanAndrieu/fastapi-sample/commit/f8ecc776ddb6f301604f4c4bdfd6e2857104b3d3))
+
+
+### Features
+
+* **home:** add .claude/settings.local.json ([8e42696](https://github.com/AlbanAndrieu/fastapi-sample/commit/8e42696916cc3677946911919ad78c01a08fdffa))
+* **home:** mac env load on mac ([223a2fd](https://github.com/AlbanAndrieu/fastapi-sample/commit/223a2fdf9563efbbc95bdef71c7439ea2aaa4782))
+* **local-first:** durcir diagnostics TrueNAS et validation exact-HEAD ([#335](https://github.com/AlbanAndrieu/fastapi-sample/issues/335)) ([44fc8bb](https://github.com/AlbanAndrieu/fastapi-sample/commit/44fc8bb3e86ab6d4034b43298903fd041d99980f))
+
 ## [1.21.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.21.0...1.21.1) (2026-10-08)
 
 

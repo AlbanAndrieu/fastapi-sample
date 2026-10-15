@@ -385,3 +385,41 @@ def test_health_path_and_hostname_validation_fail_closed() -> None:
             tunnel_url="https://prometheus - albandrieu.albandrieu.com",
             external=False,
         )
+
+
+def test_private_s3_keeps_internal_probe_target_without_public_probe() -> None:
+    service = HomelabService.model_validate(
+        {
+            "id": "garage",
+            "name": "Garage S3",
+            "internalHost": "172.17.0.24",
+            "internalPort": 3900,
+            "internalSecure": False,
+            "tunnelUrl": "https://s3.int.albandrieu.com",
+            "external": False,
+            "cloudflareAccessRequired": False,
+        },
+    )
+    assert service.internal_host == "172.17.0.24"
+    assert service.internal_port == 3900
+    assert service.public_https_probe_url is None
+    assert service.effective_cloudflare_access_required is False
+
+
+def test_public_hello_canary_requires_no_cloudflare_access() -> None:
+    service = HomelabService.model_validate(
+        {
+            "id": "hello",
+            "name": "Hello",
+            "internalHost": "172.17.0.24",
+            "internalPort": 8099,
+            "internalSecure": False,
+            "tunnelUrl": "https://hello.int.albandrieu.com",
+            "external": True,
+            "tunnelSecure": False,
+            "cloudflareAccessRequired": False,
+            "securityException": "Direct public HAProxy/Traefik lab canary",
+        },
+    )
+    assert service.public_https_probe_url == "https://hello.int.albandrieu.com/"
+    assert service.effective_cloudflare_access_required is False

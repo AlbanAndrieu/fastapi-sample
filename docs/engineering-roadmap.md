@@ -235,6 +235,49 @@ before merge. No automatic merge or live appliance mutation.
 **Acceptance:** no public traceback/secret leakage, least-privilege operational
 identity, and public diagnostics expose only intentionally published topology.
 
+### P0 Prometheus telemetry reconciliation (2026-10-11)
+
+- [x] Cross-check Prometheus scrape jobs and recording-rule names with the fixed FastAPI query contract: Gatus synthetic samples are already read through `nabla:telemetry:gatus_up` and `nabla:service:synthetic_*` rules.
+- [x] Add optional, bounded recording rules for PostgreSQL/Redis exporter availability, `pg_up`/`redis_up`, FastAPI, Pyroscope, Alertmanager and the existing pfSense memory ratio (coordinated with nabla-compose #253).
+- [x] Expose those signals in the cached `platform_metrics.summary.optional_exporters` without adding a second Prometheus query or changing mandatory telemetry classification.
+- [ ] Validate recording-rule loading and actual samples from TrueNAS Prometheus; a declared scrape does **not** establish that an exporter is running or reachable. Keep missing optional series unknown, never DOWN.
+- [ ] Evaluate Cloudflare **control-plane API metrics** independently; there is currently no verified Cloudflare Prometheus exporter/scrape job. Do not synthesize `cloudflare_up` or conflate Cloudflare API data with Prometheus evidence.
+- [ ] Inventory other declared jobs (Kafka, ClickHouse, OpenSearch, Loki, Alloy, Tempo, Mimir, Keycloak, CrowdSec, DNS, HAProxy) and prioritize stable recording rules by operator value before extending the fixed contract.
+
+### Prometheus service telemetry follow-up (2026-10-11)
+
+- [x] Extend the existing **single fixed PromQL query** with `nabla:telemetry:service_exporter_up`, a job-labeled recording rule defined in `nabla-compose`; consume only an explicit allowlist, excluding arbitrary labels and cardinality expansion.
+- [x] Cover Kafka, ClickHouse, OpenSearch, observability stack, Keycloak, CrowdSec, Pi-hole, HAProxy, n8n and Docling as optional exporter/target scrape evidence.
+- [ ] On TrueNAS, prove Prometheus rule-load success, per-job coverage and fresh samples. Exporter scrape `up=0` denotes unavailable *telemetry*, not automatically a failed application.
+- [ ] Confirm whether a real Cloudflare exporter exists: the job label being configured in a rule is **not** evidence of a running exporter. Preserve the separate Cloudflare API observer and authenticated Access checks.
+
+### Duplicate exporter-series contract (2026-10-11)
+
+- [x] When the bounded Prometheus vector contains multiple `nabla:telemetry:service_exporter_up` samples for the same allowed job, aggregate conservatively using the minimum 0/1 value. An `up=0` observation cannot be concealed by result ordering.
+- [x] Add regression cases for both orders of conflicting samples; preserve separation between exporter telemetry health and application availability.
+- [ ] On TrueNAS, compare source labels / target duplication if this diagnostic actually occurs; do not silently rewrite scrape jobs or restart Prometheus.
+- [ ] Run focused tests and exact-HEAD local publication quality checks when a trustworthy checkout is available; no CI checks have been bypassed or declared green.
+
+### Gatus Prometheus defensive aggregation (2026-10-12)
+
+- [x] Reject unsupported synthetic probe types and out-of-domain values; only TCP/HTTP/HTTPS are used for internal comparison.
+- [x] Resolve conflicting Gatus up/success/availability samples conservatively (`min`) and duplicate durations using the worst observed time (`max`) without changing outside-in health.
+- [x] Add a regression test covering contradictory metrics, invalid success/duration and unknown probe types.
+- [ ] Execute exact-HEAD tests and confirm that recording rules load and expected samples appear on TrueNAS. No runtime health claim is inferred from these code changes.
+
+### Gatus label and cardinality guardrails (2026-10-12)
+
+- [x] Validate service IDs before including them in cached Prometheus results; accept only bounded lowercase catalogue-style identifiers and recognized TCP/HTTP/HTTPS types.
+- [x] Cap the number of distinct service IDs at 256 and explicitly flag `synthetic_probes.truncated`; a truncated inventory is `telemetry_unavailable` and cannot authorize internal delegation.
+- [x] Add regression coverage for malformed labels, unexpected values and series cardinality.
+- [ ] Validate the real TrueNAS catalogue ID space and Prometheus samples, then adjust the contract through reviewed tests if an authorized service ID does not match. Complete exact-HEAD tests before merge.
+
+### Gatus raw fallback conflict handling (2026-10-12)
+
+- [x] Resolve duplicate `up{job="gatus"}` samples with conservative 0/1 aggregation, regardless of result order; never let an available target conceal a failing sibling target.
+- [x] Add targeted regression tests for both sample orders and preserve recording-rule precedence.
+- [ ] Test real Prometheus scrape target multiplicity and fix duplicate targets at the authoritative `nabla-compose` source if discovered. Record actual series freshness and validation output in the grouped TrueNAS acceptance campaign.
+
 ## P0 — homelab dependency convergence
 
 The authoritative observer is the FastAPI runtime on TrueNAS. Workstation probes
@@ -543,7 +586,8 @@ FastAPI Cloud (outside homelab)        TrueNAS (inside homelab)
 - [ ] Remove the `# noqa: C901` exemptions added (2026-10-14) so repo-wide
   `ruff check .` passes: split `get_or_refresh_probe` (complexity 28),
   `append_truenas_api_stages` (15), `TrueNASClient.health_snapshot` (14),
-  `compare_internal_probe_evidence` (13), `_security_filter_observations` (12),
+  `_query_fixed_metrics` (17, from #338), `compare_internal_probe_evidence` (13),
+  `_security_filter_observations` (12),
   `public_topology_payload`, `check_pfsense_api` and the diagnose script
   `print_table` (11) below the McCabe limit of 10.
 - [x] Make the agent shell tooling portable to macOS/BSD userland
