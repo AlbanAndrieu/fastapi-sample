@@ -195,7 +195,9 @@ def test_small_probe_budgets_keep_rotation_math_safe() -> None:
 
     four_slots = homelab_probe_policy.select_probe_subset(services, limit=4, now=0.0)
     assert len(four_slots) == 4
-    assert {"garage", "garage-admin", "garage-webui"} <= {item.service_id for item in four_slots}
+    assert {"garage", "garage-admin", "garage-webui"} <= {
+        item.service_id for item in four_slots
+    }
     assert (
         homelab_probe_policy.estimated_probe_interval_seconds(
             services[-1],
