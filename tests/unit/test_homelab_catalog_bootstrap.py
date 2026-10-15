@@ -14,18 +14,18 @@ def test_bootstrap_catalog_preserves_litellm_and_garage_exposure_policy() -> Non
     assert by_name["Home"].tunnel_url == "https://home.albandrieu.com:10443"
     assert by_name["Home"].external is False
 
-    s3 = by_name["Garage S3"]
+    s3 = by_name["Garage S3 API"]
     assert s3.service_id == "garage"
     assert s3.internal_host == "172.17.0.24"
     assert s3.internal_port == 3900
     assert s3.tunnel_url == "https://s3.int.albandrieu.com"
 
-    webui = by_name["Garage"]
+    webui = by_name["Garage Web UI"]
     assert webui.service_id == "garage-webui"
     assert webui.internal_port == 3909
     assert webui.tunnel_url == "https://garage.albandrieu.com"
 
-    admin = by_name["Garage Admin"]
+    admin = by_name["Garage Admin API"]
     assert admin.service_id == "garage-admin"
     assert admin.internal_port == 3903
     assert admin.tunnel_url == "https://garage-admin.albandrieu.com"
@@ -89,24 +89,25 @@ def test_bootstrap_catalog_applies_reviewed_exposure_overrides() -> None:
     assert truenas.external is True
     assert truenas.tunnel_secure is False
 
-    s3 = by_name["Garage S3"]
+    s3 = by_name["Garage S3 API"]
     assert s3.tunnel_url == "https://s3.int.albandrieu.com"
-    assert s3.external is True
+    # Garage S3 and Admin APIs are LAN/VPN only since the nabla-compose sync (#338).
+    assert s3.external is False
     assert s3.tunnel_secure is False
     assert s3.effective_cloudflare_access_required is False
     assert s3.security_exception is not None
 
-    webui = by_name["Garage"]
+    webui = by_name["Garage Web UI"]
     assert webui.tunnel_url == "https://garage.albandrieu.com"
     assert webui.external is True
     assert webui.tunnel_secure is True
     assert webui.effective_cloudflare_access_required is True
 
-    admin = by_name["Garage Admin"]
+    admin = by_name["Garage Admin API"]
     assert admin.tunnel_url == "https://garage-admin.albandrieu.com"
-    assert admin.external is True
-    assert admin.tunnel_secure is True
-    assert admin.effective_cloudflare_access_required is True
+    assert admin.external is False
+    assert admin.tunnel_secure is False
+    assert admin.effective_cloudflare_access_required is False
 
     bichon = by_name["Bichon"]
     assert bichon.external is False
