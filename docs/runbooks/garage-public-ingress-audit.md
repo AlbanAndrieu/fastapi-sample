@@ -156,11 +156,13 @@ independently verified layer. The utility deliberately does **not** discover
 Cloudflare configurations or infer endpoint reachability. Collect those
 observations separately with approved read-only credentials.
 
-**Validation status (2026-10-16):** source and focused tests committed to
-PR #342; the remote runner could not resolve `raw.githubusercontent.com`
-to fetch the immutable HEAD archive. Neither pytest nor the full quality
-gate has therefore been verified against the commit containing this tool.
-Do not mark this acceptance complete without a successful exact-SHA run.
+**Validation status (2026-10-17):** 15 offline drift tests and 14
+deployment-unit planner tests passed in an isolated Python 3.13 environment.
+The published Git blob SHAs matched the files used for those tests. The full
+repository checkout, locked dependency set, Ruff/Black and complete local
+quality gate remain **NOT_RUN/BLOCKED** because GitHub DNS is unavailable in
+the isolated runner. No CI green claim or live exposure validation is made.
+Do not mark the release acceptance complete without an exact-HEAD run.
 
 
 ### Evidence integrity (strict offline contract)
