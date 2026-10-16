@@ -1,5 +1,18 @@
 # Engineering and security roadmap
 
+## P1 — Catalogue de criticité et sondes par unité de déploiement (2026-10-17)
+
+Reference: [nabla-compose PR #257](https://github.com/AlbanAndrieu/nabla-compose/pull/257), `docs/watchtower-service-units.md`. **Roadmap only**; do not imply the current probe runtime has already changed.
+
+- [ ] Reconcile canonical `x-nabla` and its catalog-v2 revision with FastAPI package fallback, origin and live TrueNAS apps. Preserve the existing direct v2 cutover plan (no permanent v1/v2 shim).
+- [ ] Distinguish `operationalCriticality` from BIA-derived `businessCriticality`; do not infer business criticality from display role or use a missing value as Low. Reuse catalog unit-level `stateful`, `upgradePolicy` and dependency metadata for *display/observation*, not an administrative Docker control plane.
+- [ ] Add normalized `deploymentUnitId`, logical endpoint/member relations, `probePolicy` and ordered dependencies in the canonical catalog. The keys `garage` (S3 :3900), `garage-admin` (Admin :3903) and `garage-webui` (UI :3909) remain distinct but share `truenas:garage` for scheduling, caching and upgrade-policy grouping.
+- [ ] Replace three parallel Garage fan-outs with a bounded, serialized, cache-aware **per-unit** probe sequence: primary read-only S3 probe, conditional Admin probe and WebUI probe, with shared cooldown, singleflight, capped concurrency and per-endpoint evidence/staleness. Use the dependency DAG for ordering; separate internal and outside-in observers. Never repeatedly hammer Admin API or Cloudflare Access.
+- [ ] Preserve #342's **12-target sampling budget with 10 prioritized + 2 rotating slots**, rotating across units and independently tracking component coverage; prevent starvation even if selected units have multiple endpoints. A group counts as one scheduling selection, **not** a promise of unlimited probes.
+- [ ] Preserve independent health vs exposure intent: `external=false` requires LAN validation and outside-in exposure audit; Cloudflare 302/403 does not prove origin health or exposure; stale/missing LAN evidence must not turn DOWN or GREEN without proof. Timeouts become warning/unknown, not speculative runtime DOWN.
+- [ ] Add regression tests for Garage unit deduplication, priority order, no-starvation rotation, 1–3 target budgets, TTL and stale evidence, access-protected probes, and conservative degradation. Measure probes/minute, concurrency, latency and TrueNAS/pfSense CPU before/after. Avoid changing the production cloud's no-LAN-probe posture.
+- [ ] Publish unit-level summary + per-component evidence and provenance on health-board only after local-first quality gate, synchronized catalog revisions and accepted rollback plan.
+
 ## P1 — Garage : couverture des sondes LAN et reconciliation DNS (2026-10-13)
 
 - [x] Conserver `garage` (S3 API :3900), `garage-admin` (Admin API :3903) et `garage-webui` (Web UI :3909) dans l'échantillonnage prioritaire des sondes internes, même lorsque le catalogue dépasse le budget de 12 cibles par cycle. Ne pas activer les sondes LAN sur la production cloud.
