@@ -1,7 +1,7 @@
 """Pure, offline deployment-unit planning for a future catalog-v2 probe runtime.
 
-This module never performs I/O or starts probes. Missing unit metadata leaves
-endpoints independent; do not infer operational grouping from similar names.
+Planning functions never perform I/O or start probes; the CLI reads local JSON
+and writes a preview to stdout only. Missing metadata leaves units independent.
 """
 
 from __future__ import annotations
