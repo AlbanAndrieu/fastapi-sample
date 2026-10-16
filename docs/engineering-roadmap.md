@@ -17,6 +17,7 @@ Reference: [nabla-compose PR #257](https://github.com/AlbanAndrieu/nabla-compose
 
 ## P1 — Garage : couverture des sondes LAN et reconciliation DNS (2026-10-13)
 
+- [x] **Contrat d'audit offline renforcé** — preuves sourcées par couche et horodatées, expiration à 24 h par défaut, indéterminé pour un edge Cloudflare protégé, aucune conclusion d'accès anonyme à l'origine. 15 tests de réconciliation + 14 tests de planification d'unité réussis dans un environnement Python isolé ; validation complète du dépôt et des dépendances verrouillées encore en attente.
 - [x] Conserver `garage` (S3 API :3900), `garage-admin` (Admin API :3903) et `garage-webui` (Web UI :3909) dans l'échantillonnage prioritaire des sondes internes, même lorsque le catalogue dépasse le budget de 12 cibles par cycle. Ne pas activer les sondes LAN sur la production cloud.
 - [x] Corriger la saturation des 12 places de priorité : réserver deux places à la rotation des services non prioritaires et aligner l'estimation de fréquence des sondes, y compris les cas de budget nul. Vérification par tests de non-famine ajoutés ; exécution locale en attente.
 - [x] Vérifier dans le catalogue source que les deux API sont `external=false`, avec WebUI `external=true` temporairement ; maintenir des noms explicites sans réutiliser l'identifiant technique de l'API pour l'UI.

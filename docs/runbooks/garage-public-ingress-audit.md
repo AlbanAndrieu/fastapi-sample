@@ -72,7 +72,7 @@ Suggested record:
   "layers": {
     "public_dns": {"status": "unknown", "evidence": null},
     "cloudflare_tunnel": {"status": "unknown", "evidence": null},
-    "cloudflare_access": {"status": "observed", "http_status": 302},
+    "cloudflare_access": {"status": "observed", "source": "outside_in", "observed_at": "2026-10-17T11:00:00Z", "http_status": 302},
     "pfsense_nat_haproxy": {"status": "unknown", "evidence": null},
     "traefik": {"status": "unknown", "evidence": null},
     "outside_in_origin": {"status": "unknown", "evidence": null}
@@ -133,7 +133,7 @@ Save independently verified observations in `observed.json`:
     {
       "service_id": "garage-admin",
       "layers": {
-        "cloudflare_access": {"status": "observed", "http_status": 302}
+        "cloudflare_access": {"status": "observed", "source": "outside_in", "observed_at": "2026-10-17T11:00:00Z", "http_status": 302}
       }
     }
   ]
@@ -145,7 +145,8 @@ Then run from the repository root (no network or secrets required):
 ```bash
 python scripts/audit/garage_exposure_drift.py \
   --declared declared.json --observed observed.json \
-  --output garage-exposure-report.json
+  --output garage-exposure-report.json \
+  --as-of 2026-10-17T12:00:00Z --max-age-hours 24
 python -m pytest -q tests/unit/test_garage_exposure_drift.py
 ```
 
@@ -160,6 +161,36 @@ PR #342; the remote runner could not resolve `raw.githubusercontent.com`
 to fetch the immutable HEAD archive. Neither pytest nor the full quality
 gate has therefore been verified against the commit containing this tool.
 Do not mark this acceptance complete without a successful exact-SHA run.
+
+
+### Evidence integrity (strict offline contract)
+
+All `matched`, `observed` and `drift` records must carry an
+`observed_at` ISO-8601 timestamp with timezone and an enumerated `source`:
+
+| Layer | Accepted source |
+| --- | --- |
+| `public_dns` | `dns_lookup` |
+| `cloudflare_tunnel` | `cloudflare_api` |
+| `cloudflare_access` | `cloudflare_api` or `outside_in` |
+| `pfsense_nat_haproxy` | `pfsense_config` |
+| `traefik` | `traefik_config` |
+| `outside_in_origin` | `outside_in` |
+
+The examples above are **synthetic test fixtures**, not evidence that the
+October 15 redirect is still live. The default evidence window is 24 hours;
+older observations and timestamps more than five minutes into the future
+become `unknown`. Missing source or timezone raises an error rather than
+fabricating a confirmed finding. Use `--as-of` for reproducible offline
+replay only, not to conceal stale observations in current reports.
+
+This is a **source classification, not cryptographic attestation**. The
+operator must independently validate each input against read-only
+Cloudflare API configuration, pfSense/Traefik state or trusted outside-in
+measurements. The script cannot verify authenticity of hand-written JSON.
+A `confirmed_drift` means confirmed *against the provided sourced metadata*,
+not that anonymous origin access is established. Never interpret
+`no_confirmed_drift` as proof of safety.
 
 ## 8. Prepare unit-aware probes without network access
 
