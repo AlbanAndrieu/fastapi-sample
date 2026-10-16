@@ -15,22 +15,26 @@ SERVICE_FANOUT_BUDGET_SEC = 4.0
 MAX_INTERNAL_PROBES_PER_REFRESH = 12
 MAX_PUBLIC_PROBES_PER_REFRESH = 12
 
-_PRIORITY_SERVICE_IDS = frozenset(
-    {
-        "postgresql",
-        "redis",
-        "n8n",
-        "prometheus",
-        "grafana",
-        "sentry",
-        "pyroscope",
-        "cloudflared",
-        "garage-admin",
-        "garage",
-        "garage-webui",
-        "vaultwarden",
-    },
+# Ranked, not merely flagged: when priorities exceed the fixed budget, the
+# lowest-ranked ones move to rotation deterministically, independent of catalog
+# order. Garage stays first so its three distinct internal targets are observed.
+# TODO(roadmap): replace with a catalog ``probePriority`` owned by nabla-compose.
+_PRIORITY_SERVICE_ORDER: tuple[str, ...] = (
+    "garage",
+    "garage-admin",
+    "garage-webui",
+    "postgresql",
+    "redis",
+    "cloudflared",
+    "vaultwarden",
+    "sentry",
+    "prometheus",
+    "grafana",
+    "n8n",
+    "pyroscope",
 )
+_PRIORITY_SERVICE_IDS = frozenset(_PRIORITY_SERVICE_ORDER)
+_PRIORITY_RANK = {service_id: rank for rank, service_id in enumerate(_PRIORITY_SERVICE_ORDER)}
 
 
 def _unique_services(services: list[HomelabService]) -> list[HomelabService]:
@@ -53,15 +57,29 @@ def _probe_partitions(
     """Reserve rotating slots even when priority count reaches the probe budget."""
     if limit <= 0:
         return [], []
-    # Put Garage first so its three distinct internal targets remain observable.
-    garage_ids = {"garage", "garage-admin", "garage-webui"}
-    priority = [item for item in services if item.service_id in garage_ids]
-    priority.extend(item for item in services if item.service_id in _PRIORITY_SERVICE_IDS and item.service_id not in garage_ids)
+    priority = sorted(
+        (item for item in services if item.service_id in _PRIORITY_SERVICE_IDS),
+        key=lambda item: _PRIORITY_RANK[item.service_id],
+    )
     reserved = min(2, limit - 3) if limit > 3 and len(services) > limit else 0
     fixed = priority[: limit - reserved]
     fixed_ids = {item.service_id for item in fixed}
     rotating = [item for item in services if item.service_id not in fixed_ids]
     return fixed, rotating
+
+
+def rotated_priority_ids(
+    services: list[HomelabService],
+    *,
+    limit: int,
+) -> list[str]:
+    """List priority services that the fixed budget moved to rotation, by rank."""
+    services = _unique_services(services)
+    if limit <= 0 or len(services) <= limit:
+        return []
+    fixed, _ = _probe_partitions(services, limit)
+    fixed_ids = {item.service_id for item in fixed}
+    return [service_id for service_id in _PRIORITY_SERVICE_ORDER if service_id not in fixed_ids and any(item.service_id == service_id for item in services)]
 
 
 def select_probe_subset(

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from nabla.api import homelab_health
 from nabla.api import homelab_probe_policy
 from nabla.api import homelab_probe_evidence
@@ -195,9 +197,7 @@ def test_small_probe_budgets_keep_rotation_math_safe() -> None:
 
     four_slots = homelab_probe_policy.select_probe_subset(services, limit=4, now=0.0)
     assert len(four_slots) == 4
-    assert {"garage", "garage-admin", "garage-webui"} <= {
-        item.service_id for item in four_slots
-    }
+    assert {"garage", "garage-admin", "garage-webui"} <= {item.service_id for item in four_slots}
     assert (
         homelab_probe_policy.estimated_probe_interval_seconds(
             services[-1],
@@ -206,6 +206,60 @@ def test_small_probe_budgets_keep_rotation_math_safe() -> None:
         )
         is not None
     )
+
+
+@pytest.mark.parametrize("limit", [1, 2, 3])
+def test_saturated_tiny_budgets_report_no_rotation_interval(limit: int) -> None:
+    services = [
+        _service("garage", 3900),
+        _service("postgresql", 5432),
+        _service("redis", 6379),
+        _service("background-0", 26000),
+    ]
+
+    selected = homelab_probe_policy.select_probe_subset(services, limit=limit, now=0.0)
+
+    assert [item.service_id for item in selected] == ["garage", "postgresql", "redis"][:limit]
+    assert (
+        homelab_probe_policy.estimated_probe_interval_seconds(
+            services[-1],
+            eligible_services=services,
+            limit=limit,
+        )
+        is None
+    )
+
+
+def test_priority_overflow_is_ranked_and_independent_of_catalog_order() -> None:
+    ranked = list(homelab_probe_policy._PRIORITY_SERVICE_ORDER)
+    background = [_service(f"background-{i}", 27000 + i) for i in range(16)]
+    catalog_orders = [ranked, list(reversed(ranked)), sorted(ranked)]
+
+    for order in catalog_orders:
+        services = [*[_service(service_id, 28000 + i) for i, service_id in enumerate(order)], *background]
+
+        selected = homelab_probe_policy.select_probe_subset(services, limit=12, now=0.0)
+        rotated = homelab_probe_policy.rotated_priority_ids(services, limit=12)
+
+        assert [item.service_id for item in selected[:10]] == ranked[:10]
+        assert rotated == ["n8n", "pyroscope"]
+        for service_id in rotated:
+            demoted = next(item for item in services if item.service_id == service_id)
+            assert (
+                homelab_probe_policy.estimated_probe_interval_seconds(
+                    demoted,
+                    eligible_services=services,
+                    limit=12,
+                )
+                == homelab_probe_policy.HEALTH_CACHE_TTL_SEC * 9
+            )
+
+
+def test_rotated_priority_ids_empty_when_budget_fits() -> None:
+    services = [_service("garage", 3900), _service("n8n", 5678)]
+
+    assert homelab_probe_policy.rotated_priority_ids(services, limit=12) == []
+    assert homelab_probe_policy.rotated_priority_ids(services, limit=0) == []
 
 
 def test_evidence_coverage_excludes_stale_and_deadline_samples() -> None:
