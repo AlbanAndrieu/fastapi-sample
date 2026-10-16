@@ -251,7 +251,7 @@ def build_reconciled_service_health(
         internal_stale = bool(internal_result and internal_result.get("probe_stale") is True)
         internal_health = str(internal_result.get("state")) if internal_result and not internal_stale else None
         application_error = bool(
-            direct_result and not direct_stale and direct_result.get("application_error")
+            direct_result and not direct_stale and direct_result.get("application_error"),
         )
         state = reconcile_service_state(
             direct=direct_health,
@@ -277,19 +277,11 @@ def build_reconciled_service_health(
             "url": url or endpoint_url,
             "url_derived": service.tunnel_url is None,
             "reachable": bool(
-                direct_result and not direct_stale and direct_result.get("reachable")
+                direct_result and not direct_stale and direct_result.get("reachable"),
             ),
-            "http_status": (
-                int(direct_result.get("http_status", 0))
-                if direct_result and not direct_stale
-                else 0
-            ),
+            "http_status": (int(direct_result.get("http_status", 0)) if direct_result and not direct_stale else 0),
             "state": state,
-            "tls_trusted": (
-                direct_result.get("tls_trusted")
-                if direct_result and not direct_stale
-                else None
-            ),
+            "tls_trusted": (direct_result.get("tls_trusted") if direct_result and not direct_stale else None),
             "direct_state": direct_health,
             "internal_state": internal_health,
             "internal_probe_stale": internal_stale,

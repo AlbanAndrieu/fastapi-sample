@@ -291,7 +291,7 @@ def test_stale_direct_application_error_does_not_override_fresh_lan_health() -> 
     assert "application_error" not in rows[0]
 
 
-def test_stale_internal_garage_evidence_is_not_current_health() -> None
+def test_stale_internal_garage_evidence_is_not_current_health() -> None:
     service = HomelabService(
         id="garage",
         name="Garage S3 API",
