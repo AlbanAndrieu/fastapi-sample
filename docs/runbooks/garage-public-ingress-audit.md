@@ -120,3 +120,43 @@ Acceptance sequence:
 
 No live Cloudflare, TrueNAS, pfSense, or Traefik changes are authorized by
 this preparation. Keep the PR open and do not merge automatically.
+
+## 7. Run the offline reconciliation
+
+Save a sanitized declared catalog in `declared.json` as
+`{"catalog_revision":"<full-sha>","services":[{"id":"garage-admin","external":false}]}`.
+Save independently verified observations in `observed.json`:
+
+```json
+{
+  "observations": [
+    {
+      "service_id": "garage-admin",
+      "layers": {
+        "cloudflare_access": {"status": "observed", "http_status": 302}
+      }
+    }
+  ]
+}
+```
+
+Then run from the repository root (no network or secrets required):
+
+```bash
+python scripts/audit/garage_exposure_drift.py \
+  --declared declared.json --observed observed.json \
+  --output garage-exposure-report.json
+python -m pytest -q tests/unit/test_garage_exposure_drift.py
+```
+
+A `requires_review` finding does not prove anonymous origin access. A
+`confirmed_drift` finding requires an explicit `drift` status from an
+independently verified layer. The utility deliberately does **not** discover
+Cloudflare configurations or infer endpoint reachability. Collect those
+observations separately with approved read-only credentials.
+
+**Validation status (2026-10-16):** source and focused tests committed to
+PR #342; the remote runner could not resolve `raw.githubusercontent.com`
+to fetch the immutable HEAD archive. Neither pytest nor the full quality
+gate has therefore been verified against the commit containing this tool.
+Do not mark this acceptance complete without a successful exact-SHA run.
