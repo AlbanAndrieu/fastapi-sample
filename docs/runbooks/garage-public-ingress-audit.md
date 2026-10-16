@@ -160,3 +160,44 @@ PR #342; the remote runner could not resolve `raw.githubusercontent.com`
 to fetch the immutable HEAD archive. Neither pytest nor the full quality
 gate has therefore been verified against the commit containing this tool.
 Do not mark this acceptance complete without a successful exact-SHA run.
+
+## 8. Prepare unit-aware probes without network access
+
+The normalized unit metadata proposed in
+[nabla-compose PR #257](https://github.com/AlbanAndrieu/nabla-compose/pull/257)
+is **not yet exported by its canonical catalog generator**. The FastAPI preview
+therefore does not mutate the existing production sampler.
+
+From the repository checkout, preview candidate internal and public units:
+
+```bash
+python nabla/api/homelab_probe_units.py \
+  --catalog nabla/api/data/homelab-services.json \
+  --observer internal --limit 12 --cycle 0
+
+python nabla/api/homelab_probe_units.py \
+  --catalog nabla/api/data/homelab-services.json \
+  --observer public --limit 12 --cycle 0
+
+python -m pytest -q tests/unit/test_homelab_probe_units.py
+```
+
+The preview is intentionally **dry-run only** (`execution_performed=false`).
+Without `deploymentUnitId` metadata, services are separate units. With an
+explicit Garage `deploymentUnitId=truenas:garage`, they share one scheduling
+selection while retaining three endpoint identities. A unit is not an
+unbounded request budget: primary probing, conditional secondaries, TTL,
+cooldown, authentication prerequisites and per-unit singleflight still need
+runtime implementation and a separately capped HTTP request budget.
+
+The public observer filters out `external=false` components even inside a
+mixed unit. If its declared primary endpoint is private, the dry-run leaves
+that primary unavailable rather than silently probing it. Secondary entries
+are **descriptions of future conditional checks**, never automatically
+executed by the preview. Publish canonical `probePolicy` and acceptance tests
+in `nabla-compose` before connecting this planner to the health board.
+
+Validation note: targeted tests passed in an isolated Python environment for
+the exact file blob SHA values committed in #342; full application tests,
+Black/Ruff and local production-fidelity quality gate remain unverified until
+an immutable repository checkout with locked dependencies is available.

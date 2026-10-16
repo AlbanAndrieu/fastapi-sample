@@ -2,6 +2,8 @@
 
 ## P1 — Catalogue de criticité et sondes par unité de déploiement (2026-10-17)
 
+- [x] **Préparation hors ligne (sans activation runtime)** — `nabla/api/homelab_probe_units.py` lit des composants explicites `deploymentUnitId`, `probePriority`, `probePolicy`, expose un aperçu JSON sans appels réseau et conserve l'isolation des observateurs. 14 tests locaux de contrat réussis sur les fichiers au SHA publié ; aucune migration de l'échantillonnage existant ni preuve de quality gate complète.
+- [ ] **Acceptation avant raccordement runtime** — publier réellement le schéma canonique dans `nabla-compose` (PR #257 actuellement metadata staging), inclure la révision du catalogue et un modèle typé, puis comparer l'aperçu avec les consommateurs existants. Le budget de 12 reste en *unités sélectionnées* ; déterminer séparément le budget HTTP réel par composant, les conditions de sondage Admin et le verrou singleflight avant tout déploiement.
 Reference: [nabla-compose PR #257](https://github.com/AlbanAndrieu/nabla-compose/pull/257), `docs/watchtower-service-units.md`. **Roadmap only**; do not imply the current probe runtime has already changed.
 
 - [ ] Reconcile canonical `x-nabla` and its catalog-v2 revision with FastAPI package fallback, origin and live TrueNAS apps. Preserve the existing direct v2 cutover plan (no permanent v1/v2 shim).
