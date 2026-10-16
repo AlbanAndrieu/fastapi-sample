@@ -56,3 +56,67 @@ Expected service ports on TrueNAS:
 ## 4. Record evidence precisely
 
 Report each layer as `matched`, `drift`, or `unknown`. A missing credential/API response is `unknown`, not proof that no route exists. Never put Access `Location` query strings, API keys, or service tokens in logs or reports.
+
+## 5. Offline preparation: machine-readable drift evidence
+
+Generate a sanitized JSON report without requiring TrueNAS access. Each service
+must keep *intent*, *observation* and *inference* separate.
+
+Suggested record:
+
+```json
+{
+  "service_id": "garage-admin",
+  "expected_external": false,
+  "origin_port": 3903,
+  "layers": {
+    "public_dns": {"status": "unknown", "evidence": null},
+    "cloudflare_tunnel": {"status": "unknown", "evidence": null},
+    "cloudflare_access": {"status": "observed", "http_status": 302},
+    "pfsense_nat_haproxy": {"status": "unknown", "evidence": null},
+    "traefik": {"status": "unknown", "evidence": null},
+    "outside_in_origin": {"status": "unknown", "evidence": null}
+  },
+  "exposure_assessment": "requires_review",
+  "origin_anonymously_accessible": null
+}
+```
+
+**Rules for automation:**
+- `unknown` is never converted into `matched` or `drift`.
+- A public Access redirect on a private-intent hostname is an **edge route
+  review finding**, not proof of an origin bypass.
+- Report a confirmed policy drift only when an authoritative active route or
+  outside-in observation demonstrates unwanted exposure; retain the evidence
+  source, timestamp, and freshness.
+- For a private API, even an authenticated public route should be flagged
+  for removal review; authentication does not change `external=false`.
+- Do not follow redirects to login endpoints or store signed `Location` query
+  parameters, cookies, bearer tokens or Cloudflare service-token values.
+- Make every probe bounded (timeout, concurrency and retries), passive by
+  default, and avoid destructive or authenticated mutations.
+- Reconcile against the `nabla-compose` catalog revision and record that
+  revision explicitly; if unavailable, report `catalog_revision=unknown`.
+
+## 6. Cross-repository probe priority migration contract
+
+The source of authority is `nabla-compose/catalog/homelab-exposure-overrides.json`.
+An optional integer `probePriority` expresses ascending priority; absence
+means ordinary rotating eligibility. The three Garage entries should receive
+ranks 0, 1 and 2. Do not infer priority from `criticality`, and do not enable
+public probing for `external=false` services.
+
+Acceptance sequence:
+1. Publish the schema and catalog field in `nabla-compose`, with validation
+   for integer types, uniqueness where required, and non-negative values.
+2. Extend `HomelabService` with alias `probePriority` and propagate it from
+   exposure overrides in `fastapi-sample`.
+3. Use catalog priority in the sampler, keeping the current bootstrap ordering
+   only when no published priority is present.
+4. Assert Garage inclusion, fair rotation of unrelated services, stable
+   `rotated_priority_ids`, and unchanged public/internal probe eligibility.
+5. Run focused unit/contract tests and the full offline quality gate at the
+   exact commit SHA before considering the PR ready.
+
+No live Cloudflare, TrueNAS, pfSense, or Traefik changes are authorized by
+this preparation. Keep the PR open and do not merge automatically.
