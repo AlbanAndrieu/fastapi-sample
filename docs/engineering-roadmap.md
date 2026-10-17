@@ -484,9 +484,47 @@ Reference:
 - [ ] Validate master-red remediation with one controlled non-production drill.
 - [ ] Review the first successful post-deployment ZAP artifacts and suppress only
   documented false positives.
-- [ ] Upgrade transitive `smol-toml` to a version fixing CVE-2026-34027 through
-  the pinned Node/npm toolchain.
-- [ ] Reduce the Trivy baseline and make relevant triaged findings blocking.
+- [x] Upgrade transitive `smol-toml` to a version fixing CVE-2026-34027 through
+  the pinned Node/npm toolchain. Done 2026-10-17: the bounded `overrides` entry
+  moved from `^1.6.1` to `^1.9.0` (lock resolves `1.9.1`) with mise Node 26 /
+  npm 12. The `1.6.1` lock carried the `>=1.7.1` advisory that Trivy reports as
+  `CVE-2026-85730` (GitHub `GHSA-7w5x-hrqm-74c2`; the earlier roadmap ID did
+  not match any smol-toml advisory) and Dependabot alert #399
+  (`GHSA-r4xh-jqrq-34v2`, fixed `1.9.0`). Both disappear from
+  `trivy fs --include-dev-deps` and `npm audit --package-lock-only`.
+  - [ ] Residual: `vercel@64.5.0` (latest) still pins `smol-toml` `1.5.2`
+    exactly, so the override cannot be dropped by bumping the parent. Remove
+    the override once `vercel` (and `@vercel/*`) depend on `>=1.9.0`;
+    acceptance: `npm ls smol-toml --package-lock-only` resolves `>=1.9.0`
+    without the override.
+- [x] Reduce the Trivy baseline and make relevant triaged findings blocking.
+  Done 2026-10-17: removed the four unmatched vulnerability suppressions
+  (transformers `CVE-2023-6730`/`CVE-2023-7018`/`CVE-2024-3568`, Go
+  `CVE-2024-24790`; `trivy fs --show-suppressed` matched none); every
+  remaining misconfiguration/license entry still matches a finding. MegaLinter
+  `REPOSITORY_TRIVY` is now blocking (`REPOSITORY_TRIVY_DISABLE_ERRORS: false`)
+  on its triaged scope (production npm deps, fixed findings, vuln/misconfig/
+  secret/license), which is clean with mise-locked Trivy `0.74.0`;
+  `bash scripts/run-trivy.sh` reproduces it locally with `--exit-code 1` and
+  `tests/unit/test_trivy_baseline_contract.py` keeps both argument lists equal.
+  - [ ] Residual: the blocking scope still skips `uv.lock`/`Pipfile.lock` and
+    npm dev dependencies. A full local scan (`--include-dev-deps`, no lockfile
+    skips) shows 31 npm dev findings (`ip-address`, `undici`, `brace-expansion`,
+    `toml`, `mysql2`, `tar`, ...), 12 `uv.lock` findings (10 fixable:
+    `starlette` up to HIGH, `gradio`, `jupyter-server`, `mcp`, `aiosmtplib`)
+    and the stale
+    `Pipfile.lock` backlog (`gitpython`, `pyjwt`, `cryptography`, `anyio`).
+    Acceptance: upgrade or document each, retire or regenerate `Pipfile.lock`,
+    then extend `scripts/run-trivy.sh` and `.mega-linter.yml` to `uv.lock`
+    with a clean local run before making it blocking.
+  - [ ] Residual: the image scan in `docker-build.yml` (Trivy action `v0.71.2`,
+    no ignorefile, no `exit-code`) stays report-only and differs from the
+    mise-locked `0.74.0`. Acceptance: align the version, triage the first image
+    SARIF, then add `exit-code: 1` on fixed CRITICAL/HIGH findings.
+  - [ ] Residual: MegaLinter `v10.0.0` bundles its own Trivy and downloads the
+    DB at run time; prove the first blocking MegaLinter run on this scope is
+    green (or reproduce any failure with `bash scripts/run-trivy.sh`), and
+    treat DB-download/rate-limit errors as infrastructure, not findings.
 - [ ] Protect `master` with reviewed PRs and final required checks once normal CI
   capacity is restored.
 - [ ] Decide whether merge-candidate `[skip ci]` must then be prohibited.
