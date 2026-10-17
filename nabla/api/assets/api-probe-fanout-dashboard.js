@@ -3,6 +3,7 @@ import { fetchHomelabProbeMatrix } from "./api-homelab-health.js";
 import {
   phaseDetailText,
   phaseSummaryText,
+  sanitizedPhaseTiming,
 } from "./api-probe-phase-timing.js";
 
 const UPDATE_EVENT = "homelab-probes:update";
@@ -66,7 +67,7 @@ function scopeMetrics(summary, enabled = true) {
     cached,
     coverage: eligible > 0 ? clampPercent((known / eligible) * 100) : 100,
     timedOut: enabled ? finiteNumber(summary?.timed_out) : 0,
-    phaseTiming: enabled ? summary?.timing || null : null,
+    phaseTiming: enabled ? sanitizedPhaseTiming(summary?.timing) : null,
     cacheTtl: finiteNumber(summary?.evidence?.evidence_ttl_seconds),
   };
 }

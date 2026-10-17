@@ -5,7 +5,24 @@ import { readFileSync } from "node:fs";
 const script = readFileSync(process.argv[2], "utf8");
 const url =
   "data:text/javascript;base64," + Buffer.from(script).toString("base64");
-const { phaseSummaryText, phaseDetailText } = await import(url);
+const { phaseSummaryText, phaseDetailText, sanitizedPhaseTiming } = await import(url);
+
+const copied = sanitizedPhaseTiming({
+  completed_samples: 1,
+  max_queue_wait_ms: 17,
+  max_dns_probe_ms: null,
+  authorization: "Bearer NEVER_LEAK",
+  url: "https://PRIVATE.example.invalid",
+});
+assert.deepEqual(copied, {
+  completed_samples: 1,
+  max_queue_wait_ms: 17,
+  max_dns_probe_ms: null,
+  max_http_request_ms: null,
+  max_access_secondary_ms: null,
+});
+assert.doesNotMatch(JSON.stringify(copied), /NEVER_LEAK|PRIVATE/);
+assert.equal(sanitizedPhaseTiming(null), null);
 
 assert.equal(phaseSummaryText(null, 12, 11), "");
 assert.equal(phaseDetailText(null), "");

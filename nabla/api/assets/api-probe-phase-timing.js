@@ -29,6 +29,20 @@ function measuredPhases(timing, prefixes) {
   });
 }
 
+/** Copy-safe timing fields only: never propagate arbitrary backend metadata. */
+export function sanitizedPhaseTiming(timing) {
+  if (!timing || typeof timing !== "object") return null;
+  return {
+    completed_samples: nonnegativeCount(timing.completed_samples),
+    ...Object.fromEntries(
+      PHASES.map(([key]) => [
+        `max_${key}`,
+        milliseconds(timing[`max_${key}`]),
+      ]),
+    ),
+  };
+}
+
 /** Cycle summary: maxima only across observed, completed probes. */
 export function phaseSummaryText(timing, scheduled, timedOut) {
   const measured = nonnegativeCount(timing?.completed_samples);
