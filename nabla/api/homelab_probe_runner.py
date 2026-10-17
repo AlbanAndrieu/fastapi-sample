@@ -103,27 +103,47 @@ async def probe_http_endpoint(
     name: str,
     url: str,
 ) -> dict[str, Any]:
-    """Probe one HTTP endpoint and preserve DNS, TLS and application outcome."""
+    """Probe HTTP and measure scheduling separately from DNS and HTTP I/O."""
     started = time.perf_counter()
     dns_evidence: dict[str, Any] = {}
+    queue_wait_ms: int | None = None
+    dns_probe_ms: int | None = None
+    http_request_ms: int | None = None
+    request_count = 0
     try:
         async with semaphore:
+            queue_wait_ms = max(0, round((time.perf_counter() - started) * 1000))
             hostname = httpx.URL(url).host
-            if hostname:
-                dns_evidence = await probe_dns_hostname(hostname)
-            response = await client.head(
-                url,
-                headers={"User-Agent": "nabla-homelab-health/1.0"},
-            )
-            should_get = response.status_code in {405, 501} or (200 <= response.status_code <= 299 and is_textual_response(response))
-            if should_get:
-                response = await client.get(
+            dns_started = time.perf_counter()
+            try:
+                if hostname:
+                    dns_evidence = await probe_dns_hostname(hostname)
+            finally:
+                dns_probe_ms = max(0, round((time.perf_counter() - dns_started) * 1000))
+            http_started = time.perf_counter()
+            try:
+                request_count += 1
+                response = await client.head(
                     url,
-                    headers={
-                        "User-Agent": "nabla-homelab-health/1.0",
-                        "Range": f"bytes=0-{_MAX_APPLICATION_BODY_BYTES - 1}",
-                        "Accept": ("text/html,text/plain,application/json,*/*;q=0.1"),
-                    },
+                    headers={"User-Agent": "nabla-homelab-health/1.0"},
+                )
+                should_get = response.status_code in {405, 501} or (
+                    200 <= response.status_code <= 299 and is_textual_response(response)
+                )
+                if should_get:
+                    request_count += 1
+                    response = await client.get(
+                        url,
+                        headers={
+                            "User-Agent": "nabla-homelab-health/1.0",
+                            "Range": f"bytes=0-{_MAX_APPLICATION_BODY_BYTES - 1}",
+                            "Accept": "text/html,text/plain,application/json,*/*;q=0.1",
+                        },
+                    )
+            finally:
+                http_request_ms = max(
+                    0,
+                    round((time.perf_counter() - http_started) * 1000),
                 )
         status = response.status_code
         application_error = _application_error_from_response(response)
@@ -151,12 +171,19 @@ async def probe_http_endpoint(
             "error": error,
         }
     result.update(dns_evidence)
+    # Missing phase timing means the phase did not finish (or never started),
+    # not zero latency. Never expose DNS answers, headers or body in timings.
+    result["probe_timing"] = {
+        "queue_wait_ms": queue_wait_ms,
+        "dns_probe_ms": dns_probe_ms,
+        "http_request_ms": http_request_ms,
+        "http_request_count": request_count,
+    }
     result["latency_ms"] = max(
         0,
         round((time.perf_counter() - started) * 1000),
     )
     return result
-
 
 async def probe_public_service(
     client: httpx.AsyncClient,
@@ -185,7 +212,16 @@ async def probe_public_service(
         return result
 
     result["cloudflare_access_secondary_probe_attempted"] = True
+    edge_started = time.perf_counter()
     edge_evidence = await edge_probe(url)
+    # This call is deliberately outside the HTTP semaphore. Account for that
+    # extra latency independently rather than assuming TCP/DNS is slow.
+    timing = result.get("probe_timing")
+    if isinstance(timing, dict):
+        timing["access_secondary_ms"] = max(
+            0,
+            round((time.perf_counter() - edge_started) * 1000),
+        )
     result.update(edge_evidence)
     result["anonymous_http_status"] = int(
         edge_evidence.get("anonymous_initial_http_status") or initial_status,
@@ -368,6 +404,20 @@ async def collect_bounded_probe_batch(
         await asyncio.gather(*pending, return_exceptions=True)
 
     states = {state: sum(result.get("state") == state for result in results) for state in ("ok", "warn", "fail")}
+    observed_timing = [
+        result["probe_timing"]
+        for result in results
+        if isinstance(result.get("probe_timing"), dict)
+    ]
+
+    def worst_ms(phase: str) -> int | None:
+        values = [
+            timing[phase]
+            for timing in observed_timing
+            if isinstance(timing.get(phase), int)
+        ]
+        return max(values, default=None)
+
     return results, {
         "scope": scope,
         "enabled": enabled,
@@ -384,5 +434,12 @@ async def collect_bounded_probe_batch(
             0,
             round((time.perf_counter() - started) * 1000),
         ),
+        "timing": {
+            "completed_samples": len(observed_timing),
+            "max_queue_wait_ms": worst_ms("queue_wait_ms"),
+            "max_dns_probe_ms": worst_ms("dns_probe_ms"),
+            "max_http_request_ms": worst_ms("http_request_ms"),
+            "max_access_secondary_ms": worst_ms("access_secondary_ms"),
+        },
         "states": states,
     }
