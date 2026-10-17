@@ -1,9 +1,9 @@
 import { fetchHealthBoard } from "./api-health-board.js";
-import { includeObservedGarageChecks } from "./api-health-garage.js";
 import {
   dependencyHealthClass,
   mergeHomelabEvidence,
 } from "./api-health-dependency.js";
+import { includeObservedGarageChecks } from "./api-health-garage.js";
 import {
   detailText,
   isExpectedSentryDebugFailure,

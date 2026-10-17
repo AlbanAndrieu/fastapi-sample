@@ -520,9 +520,10 @@ function garageExposureForFilter(snapshot, row, observedExposure) {
     ...(observedExposure || {}),
     external: intent === "public",
     // Declared privacy never certifies compliant outside-in routing.
-    policy_status: declared.unexpected_tunnel_route === true
-      ? "warn"
-      : observedExposure?.policy_status || "unknown",
+    policy_status:
+      declared.unexpected_tunnel_route === true
+        ? "warn"
+        : observedExposure?.policy_status || "unknown",
   };
 }
 
@@ -537,7 +538,10 @@ function decorateRow(row, snapshot) {
   const primary = row.querySelector(".health-row-primary");
   if (!primary) return;
 
-  setExposureMetadata(row, garageExposureForFilter(snapshot, row, exposure));
+  setExposureMetadata(
+    row,
+    garageExposureForFilter(snapshot, row, exposure),
+  );
   const kinds = new Set();
   const strip = document.createElement("div");
   strip.className = "service-probe-strip";

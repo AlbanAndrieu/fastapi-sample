@@ -7,7 +7,9 @@ const GARAGE_LABELS = new Map([
 const HEALTH_STATES = new Set(["ok", "warn", "fail"]);
 
 function rows(value) {
-  return Array.isArray(value) ? value.filter((item) => item && typeof item === "object") : [];
+  return Array.isArray(value)
+    ? value.filter((item) => item && typeof item === "object")
+    : [];
 }
 
 function observedState(value) {
@@ -100,7 +102,11 @@ function garageCheck(id, publicRow, internalRow, freshSnapshot) {
   return check;
 }
 
-export function includeObservedGarageChecks(data, homelab, snapshotState = "unknown") {
+export function includeObservedGarageChecks(
+  data,
+  homelab,
+  snapshotState = "unknown",
+) {
   const checks = data?.checks;
   if (!checks || typeof checks !== "object" || Array.isArray(checks)) return data;
   const services = new Map(
@@ -115,7 +121,8 @@ export function includeObservedGarageChecks(data, homelab, snapshotState = "unkn
   );
   const present = existingIds(checks);
   const projected = { ...checks };
-  const fresh = snapshotState === "fresh" && homelab?.probe_cache?.stale !== true;
+  const fresh =
+    snapshotState === "fresh" && homelab?.probe_cache?.stale !== true;
   for (const id of GARAGE_LABELS.keys()) {
     if (present.has(id) || (!services.has(id) && !internal.has(id))) continue;
     projected[id] = garageCheck(id, services.get(id), internal.get(id), fresh);
