@@ -66,7 +66,9 @@ REPOSITORY_TRIVY_ARGUMENTS: >-
   --skip-dirs vue-client/node_modules --skip-dirs open-webui --skip-files pip.conf
   --skip-files Pipfile --skip-files Pipfile.lock --skip-files uv.lock
   --skip-files trivy-sbom.json --skip-files "*.tgz"
-REPOSITORY_TRIVY_DISABLE_ERRORS: true
+# Blocking: the triaged scope above has no open finding. Reproduce locally with
+# `bash scripts/run-trivy.sh` (same arguments, Trivy pinned by mise.lock).
+REPOSITORY_TRIVY_DISABLE_ERRORS: false
 REPOSITORY_BETTERLEAKS_CONFIG_FILE: .gitleaks.toml
 REPOSITORY_BETTERLEAKS_ARGUMENTS: --redact
 REPOSITORY_BETTERLEAKS_PR_COMMITS_SCAN: false

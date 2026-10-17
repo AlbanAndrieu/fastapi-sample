@@ -1,15 +1,10 @@
 ---
-vulnerabilities:
-  # - id: CVE-2022-40897
-  #   paths:
-  #     - "usr/local/lib/python3.9/site-packages/setuptools-58.1.0.dist-info/METADATA"
-  #   statement: Accept the risk
-  - id: CVE-2023-6730
-    statement: Testing ignoring CVE in Pipeline
-  # Below for transformers
-  - id: CVE-2023-7018
-  - id: CVE-2024-3568
-  - id: CVE-2024-24790 # TODO remove me
+# Vulnerability suppressions are intentionally empty: fix dependencies instead.
+# The former transformers (CVE-2023-6730, CVE-2023-7018, CVE-2024-3568) and Go
+# stdlib (CVE-2024-24790) entries matched nothing in 2026-10 local Trivy scans
+# (`trivy fs --show-suppressed`); add an entry only with a documented,
+# path-scoped statement and a roadmap residual.
+vulnerabilities: []
 
 misconfigurations:
   # This project publishes its own image to GitLab Container Registry. Trivy's
