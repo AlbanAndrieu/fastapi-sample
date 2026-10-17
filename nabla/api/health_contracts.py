@@ -10,6 +10,7 @@ from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.engine import Engine
 
 from nabla.api.health_checks import check_postgres_sql, check_redis_ping
+from nabla.app_features import AppFeatures, disabled_subsystem_check
 
 _READINESS_TIMEOUT_SECONDS = 3.0
 _REQUIRED_DIAGNOSTIC_CHECKS = frozenset({"postgres", "redis", "supabase"})
@@ -62,24 +63,35 @@ def build_liveness_payload(*, version: str) -> dict[str, Any]:
     }
 
 
+async def _disabled_check(subsystem: str) -> dict[str, Any]:
+    return disabled_subsystem_check(subsystem)
+
+
 async def build_readiness_payload(
     *,
     redis_client: Any,
-    engine: Engine,
+    engine: Engine | None,
     version: str,
+    features: AppFeatures | None = None,
 ) -> tuple[dict[str, Any], bool]:
-    """Check only dependencies required to serve normal application traffic."""
+    """Check only dependencies required to serve normal application traffic.
+
+    Subsystems disabled in ``features`` are reported as ``disabled`` without any
+    connection attempt and never fail readiness; enabled ones are probed as before.
+    """
+    selected = features or AppFeatures()
+    postgres_probe = run_in_threadpool(check_postgres_sql, engine) if selected.database else _disabled_check("database")
+    redis_probe = check_redis_ping(redis_client) if selected.redis else _disabled_check("redis")
     try:
         async with asyncio.timeout(_READINESS_TIMEOUT_SECONDS):
-            postgres, redis = await asyncio.gather(
-                run_in_threadpool(check_postgres_sql, engine),
-                check_redis_ping(redis_client),
-            )
+            postgres, redis = await asyncio.gather(postgres_probe, redis_probe)
     except TimeoutError:
-        postgres = redis = {
+        budget_exceeded = {
             "reachable": False,
             "error": f"readiness budget exceeded ({_READINESS_TIMEOUT_SECONDS:.0f}s)",
         }
+        postgres = budget_exceeded if selected.database else disabled_subsystem_check("database")
+        redis = budget_exceeded if selected.redis else disabled_subsystem_check("redis")
 
     checks = {"postgres": postgres, "redis": redis}
     for check in checks.values():
@@ -94,6 +106,7 @@ async def build_readiness_payload(
             "version": version,
             "checked_at": _timestamp(),
             "checks": checks,
+            "subsystems": selected.subsystem_states(),
         },
         ready,
     )

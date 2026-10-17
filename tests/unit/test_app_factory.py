@@ -1,5 +1,6 @@
 """Application factory contracts: minimal app isolation and default app parity."""
 
+import importlib
 import socket
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
@@ -8,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 from starlette.routing import Mount
 
+from nabla.api import health_contracts, runtime_topology
 import nabla.lifespan as lifecycle
 from nabla.app_factory import create_app, create_minimal_app
 from nabla.app_features import AppFeatures
@@ -116,3 +118,138 @@ def test_default_factory_matches_exported_production_app() -> None:
     assert mcp_app is production_app.state.mcp_app
     assert mcp is not None
     assert any(isinstance(route, Mount) and route.app is mcp_app for route in production_app.routes)
+
+
+SUBSYSTEMS = ("database", "redis", "observability", "mcp", "rag")
+LEGACY_READINESS_KEYS = {"contract", "status", "version", "checked_at", "checks"}
+LEGACY_REDIS_TOPOLOGY_KEYS = {
+    "backend",
+    "provider_attribution",
+    "telemetry_scope",
+    "key_count_scope",
+    "configured",
+    "available",
+    "telemetry_available",
+    "reason",
+}
+NO_EGRESS = {"ip": None, "observed": False, "cached": False, "source": "external_echo"}
+redis_module = importlib.import_module("nabla.api.demo.socket.redis")
+
+
+def _disabled_check(subsystem: str) -> dict[str, object]:
+    return {
+        "reachable": None,
+        "skipped": True,
+        "state": "disabled",
+        "reason": f"{subsystem} subsystem disabled by application features",
+    }
+
+
+@pytest.fixture
+def dependency_probes(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
+    """Replace readiness probes; tests opt in to a result, otherwise any call fails."""
+    probes = SimpleNamespace(
+        postgres=Mock(side_effect=AssertionError("PostgreSQL readiness probe")),
+        redis=AsyncMock(side_effect=AssertionError("Redis readiness probe")),
+    )
+    monkeypatch.setattr(health_contracts, "check_postgres_sql", probes.postgres)
+    monkeypatch.setattr(health_contracts, "check_redis_ping", probes.redis)
+    # The public egress observer is not a feature-gated subsystem; keep it offline.
+    monkeypatch.setattr(runtime_topology, "observe_public_egress_ip", AsyncMock(return_value=dict(NO_EGRESS)))
+    return probes
+
+
+def _probes_return(probes: SimpleNamespace, *, postgres: dict[str, object], redis: dict[str, object]) -> None:
+    probes.postgres.side_effect = None
+    probes.postgres.return_value = dict(postgres)
+    probes.redis.side_effect = None
+    probes.redis.return_value = dict(redis)
+
+
+def test_minimal_app_readiness_reports_every_subsystem_disabled(isolated_lifecycle, dependency_probes) -> None:
+    app = create_minimal_app()
+
+    with TestClient(app) as client:
+        response = client.get("/readyz")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "ready"
+    assert payload["subsystems"] == dict.fromkeys(SUBSYSTEMS, "disabled")
+    assert payload["checks"] == {"postgres": _disabled_check("database"), "redis": _disabled_check("redis")}
+    dependency_probes.postgres.assert_not_called()
+    dependency_probes.redis.assert_not_awaited()
+    isolated_lifecycle.database.connect.assert_not_awaited()
+
+
+def test_minimal_app_runtime_topology_reports_redis_disabled(isolated_lifecycle, dependency_probes) -> None:
+    app = create_minimal_app()
+
+    with TestClient(app) as client:
+        response = client.get("/api/runtime/topology")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["subsystems"] == dict.fromkeys(SUBSYSTEMS, "disabled")
+    assert payload["redis"]["state"] == "disabled"
+    assert payload["redis"]["configured"] is False
+    assert payload["redis"]["available"] is False
+    assert payload["aggregation"] == "local_only"
+    assert payload["degraded"] is False
+    isolated_lifecycle.redis.aclose.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    ("disabled", "check_name", "other_name"),
+    [("database", "postgres", "redis"), ("redis", "redis", "postgres")],
+)
+def test_single_disabled_subsystem_is_the_only_disabled_one(dependency_probes, disabled: str, check_name: str, other_name: str) -> None:
+    _probes_return(dependency_probes, postgres={"reachable": True}, redis={"reachable": True})
+
+    response = TestClient(create_app(AppFeatures(**{disabled: False}))).get("/readyz")
+
+    assert response.status_code == 200
+    payload = response.json()
+    expected = dict.fromkeys(SUBSYSTEMS, "enabled") | {disabled: "disabled"}
+    assert payload["subsystems"] == expected
+    assert payload["checks"][check_name] == _disabled_check(disabled)
+    assert payload["checks"][other_name] == {"reachable": True}
+    probe = getattr(dependency_probes, check_name)
+    assert probe.call_count == 0
+
+
+@pytest.mark.parametrize("failing", ["postgres", "redis"])
+def test_default_app_enabled_dependency_failure_still_fails_readiness(dependency_probes, failing: str) -> None:
+    failed = {"reachable": False, "error": "connection refused"}
+    healthy = {"reachable": True}
+    _probes_return(
+        dependency_probes,
+        postgres=failed if failing == "postgres" else healthy,
+        redis=failed if failing == "redis" else healthy,
+    )
+
+    response = TestClient(create_app()).get("/readyz")
+
+    assert response.status_code == 503
+    payload = response.json()
+    assert payload["status"] == "not_ready"
+    assert payload["subsystems"] == dict.fromkeys(SUBSYSTEMS, "enabled")
+    assert payload["checks"][failing] == {**failed, "failure_stage": "connection_refused"}
+
+
+def test_default_app_readiness_and_topology_schema_only_gain_subsystems(dependency_probes, monkeypatch: pytest.MonkeyPatch) -> None:
+    _probes_return(dependency_probes, postgres={"reachable": True}, redis={"reachable": True})
+    monkeypatch.setattr(redis_module, "redis", None)
+    client = TestClient(create_app())
+
+    readiness = client.get("/readyz").json()
+    topology = client.get("/api/runtime/topology").json()
+
+    assert set(readiness) == LEGACY_READINESS_KEYS | {"subsystems"}
+    assert readiness["checks"] == {"postgres": {"reachable": True}, "redis": {"reachable": True}}
+    assert readiness["subsystems"] == dict.fromkeys(SUBSYSTEMS, "enabled")
+    assert set(topology["redis"]) == LEGACY_REDIS_TOPOLOGY_KEYS
+    assert topology["redis"]["reason"] == "redis client not configured"
+    assert topology["subsystems"] == dict.fromkeys(SUBSYSTEMS, "enabled")
+    dependency_probes.postgres.assert_called_once()
+    dependency_probes.redis.assert_awaited_once()
