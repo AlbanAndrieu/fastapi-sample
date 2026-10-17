@@ -17,7 +17,8 @@ def _git(repo: Path, *args: str) -> None:
 def _make_repo(repo: Path) -> None:
     (repo / "scripts").mkdir(parents=True)
     (repo / "scripts" / "quality-gate.sh").write_text(
-        GATE.read_text(encoding="utf-8"), encoding="utf-8"
+        GATE.read_text(encoding="utf-8"),
+        encoding="utf-8",
     )
     (repo / ".editorconfig").write_text("root = true\n", encoding="utf-8")
     (repo / ".editorconfig-checker.json").write_text("{}\n", encoding="utf-8")
@@ -33,7 +34,10 @@ def _make_repo(repo: Path) -> None:
 
 
 def _run(
-    repo: Path, tmp_path: Path, *, uv_available: bool = True
+    repo: Path,
+    tmp_path: Path,
+    *,
+    uv_available: bool = True,
 ) -> tuple[subprocess.CompletedProcess[str], str]:
     env_file = tmp_path / "bash_env.sh"
     log_file = tmp_path / "commands.log"
@@ -55,19 +59,20 @@ pre-commit() {
 uv() {
     printf 'uv %s\\n' "$*" >> "$QG_MOCK_LOG"
     [[ "$1" == tool && "$2" == run && "$3" == --from &&
-       "$4" == editorconfig-checker==3.11.1 && "$5" == ec &&
-       "$6" == -config ]]
+        "$4" == editorconfig-checker==3.11.1 && "$5" == ec &&
+        "$6" == -config ]]
 }
         """,
         encoding="utf-8",
     )
-    env = os.environ.copy()
+    # A parent gate (agent-publish.sh) exports its own base; the fixture repo has no such commit.
+    env = {key: value for key, value in os.environ.items() if key != "QUALITY_BASE_REF"}
     env.update(
         {
             "BASH_ENV": str(env_file),
             "QG_MOCK_LOG": str(log_file),
             "QG_NO_UV": "0" if uv_available else "1",
-        }
+        },
     )
     completed = subprocess.run(
         ["bash", "scripts/quality-gate.sh"],

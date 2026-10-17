@@ -11,18 +11,19 @@ config = context.config
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
-if config.config_file_name is not None:
+# Skipped when the caller provides its own connection (tests) so the
+# embedding process keeps its logging configuration.
+if config.config_file_name is not None and "connection" not in config.attributes:
     fileConfig(config.config_file_name)
 
 # URL from POSTGRES_* / POSTGRES_MIGRATION_* (same as sync SQLAlchemy engine).
 config.set_main_option("sqlalchemy.url", get_settings().build_migration_connection_string())
 
-from nabla.api.users.models import Base  # noqa: E402 — after config so URL is set first
+from nabla.api.db.metadata import application_metadata  # noqa: E402 — after config so URL is set first
 
-# add your model's MetaData object here
-# for 'autogenerate' support
-
-target_metadata = Base.metadata
+# Every application table (user, note, sensor_reading) for autogenerate and
+# schema comparison; the users metadata alone hid ``note`` from Alembic.
+target_metadata = application_metadata()
 
 
 def run_migrations_offline() -> None:
@@ -55,7 +56,17 @@ def run_migrations_online() -> None:
     In this scenario we need to create an Engine
     and associate a connection with the context.
 
+    A caller may pass an open connection through
+    ``config.attributes["connection"]`` (Alembic cookbook pattern); the
+    PostgreSQL integration tests use it to target a disposable database.
     """
+    provided = config.attributes.get("connection")
+    if provided is not None:
+        context.configure(connection=provided, target_metadata=target_metadata)
+        with context.begin_transaction():
+            context.run_migrations()
+        return
+
     connectable = create_engine(
         get_settings().build_migration_connection_string(),
         poolclass=pool.NullPool,

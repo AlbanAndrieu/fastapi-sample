@@ -12,7 +12,7 @@ from typing import Any, Literal
 
 import httpx
 
-from nabla.api import homelab_probe_runner, truenas_probe_health
+from nabla.api import homelab_probe_batch, homelab_probe_runner, truenas_probe_health
 from nabla.api.homelab_catalog import fetch_homelab_services
 from nabla.api.homelab_truenas_probe import probe_truenas
 from nabla.api.homelab_health_cache import copy_homelab_health_payload
@@ -84,7 +84,7 @@ async def _collect_bounded_probe_batch(
     per_probe_timeout_seconds: float = _PROBE_TIMEOUT_SEC,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Compatibility facade preserving the module-level budget test seam."""
-    return await homelab_probe_runner.collect_bounded_probe_batch(
+    return await homelab_probe_batch.collect_bounded_probe_batch(
         probes,
         scope=scope,
         enabled=enabled,

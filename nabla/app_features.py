@@ -6,7 +6,11 @@ tests can share the same feature contract without importing heavy integrations.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
+from typing import Any
+
+SUBSYSTEM_ENABLED = "enabled"
+SUBSYSTEM_DISABLED = "disabled"
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,3 +43,23 @@ class AppFeatures:
             mcp=False,
             rag=False,
         )
+
+    def subsystem_states(self) -> dict[str, str]:
+        """Return the explicit ``enabled``/``disabled`` state of every subsystem."""
+        return {field.name: SUBSYSTEM_ENABLED if getattr(self, field.name) else SUBSYSTEM_DISABLED for field in fields(self)}
+
+
+def features_from_state(state: Any) -> AppFeatures:
+    """Return the features attached by the factory, or the production defaults."""
+    features = getattr(state, "features", None)
+    return features if isinstance(features, AppFeatures) else AppFeatures()
+
+
+def disabled_subsystem_check(subsystem: str) -> dict[str, Any]:
+    """Describe a dependency check intentionally not performed for a disabled subsystem."""
+    return {
+        "reachable": None,
+        "skipped": True,
+        "state": SUBSYSTEM_DISABLED,
+        "reason": f"{subsystem} subsystem disabled by application features",
+    }
