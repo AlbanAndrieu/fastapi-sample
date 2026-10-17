@@ -140,6 +140,25 @@ Save independently verified observations in `observed.json`:
 }
 ```
 
+The `public_dns`, `cloudflare_access` and `outside_in_origin` layers can be
+collected read-only (one DNS resolution and one anonymous GET per hostname,
+no redirect following, no credentials, `Location` never stored):
+
+```bash
+python scripts/audit/collect_outside_in_evidence.py \
+  --catalog nabla/api/data/homelab-services.json \
+  --ids garage,garage-admin,garage-webui \
+  --declared-output declared.json --observed-output observed.json \
+  --hairpin-address <own-wan-ip>
+```
+
+From inside the LAN, a hostname resolving to the homelab's own WAN address is
+reached through pfSense NAT reflection: pass that address with
+`--hairpin-address` so the request is **not** recorded as outside-in evidence.
+LAN-only resolutions are `unknown`. True WAN reachability of such a hostname
+needs a vantage outside the LAN. Cloudflare Tunnel, pfSense and Traefik layers
+are never inferred by the collector.
+
 Then run from the repository root (no network or secrets required):
 
 ```bash

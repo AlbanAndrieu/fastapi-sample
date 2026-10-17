@@ -137,8 +137,9 @@ def _assessment(external: bool, layers: dict[str, dict[str, Any]]) -> str:
             "outside_in_origin",
         )
     )
-    # An outside-in Access response is edge evidence, not origin verification.
-    edge_visible = any(layers[name]["status"] in {"observed", "drift"} for name in ("cloudflare_access", "cloudflare_tunnel", "outside_in_origin"))
+    # An outside-in Access response is edge evidence, not origin verification;
+    # a public DNS record for a private service is visibility, not reachability.
+    edge_visible = any(layers[name]["status"] in {"observed", "drift"} for name in ("public_dns", "cloudflare_access", "cloudflare_tunnel", "outside_in_origin"))
     if route_drift:
         return "confirmed_drift"
     if private and edge_visible:

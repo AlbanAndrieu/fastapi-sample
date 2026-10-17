@@ -101,6 +101,13 @@ def test_future_evidence_is_not_current() -> None:
     assert row["exposure_assessment"] == "unknown"
 
 
+def test_public_dns_record_for_private_service_requires_review() -> None:
+    row = _report("public_dns", _record("observed", source="dns_lookup"), service="garage")["services"][0]
+
+    assert row["exposure_assessment"] == "requires_review"
+    assert row["origin_anonymously_accessible"] is None
+
+
 def test_no_confirmed_drift_does_not_mean_secure() -> None:
     payload = module.reconcile(
         [{"id": "garage-webui", "external": True}],
