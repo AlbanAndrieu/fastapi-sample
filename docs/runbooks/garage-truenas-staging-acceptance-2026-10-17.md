@@ -245,6 +245,21 @@ propre processus, avec `uv sync --frozen --python`. Il n'écrit ni dans
 Utiliser `--offline` si les distributions sont déjà en cache, et
 `--no-sync` uniquement si `.venv` du worktree est complet.
 
+**Contrainte TrueNAS `noexec` :** sur le SHA `e0304404`, 25/28 tests
+ciblés ont réussi avec Python 3.13.5. Les trois échecs restants du
+`test_agent_publication_proof.py` ont été causés par l'impossibilité
+d'exécuter le faux binaire `uv` créé sous
+`/tmp/pytest-of-albandrieu/.../fake-bin/` (`Permission denied`,
+code retour 126). Le montage `noexec` de `/tmp` est **suspecté**
+et peut être confirmé par `findmnt -T /tmp -no TARGET,OPTIONS`.
+Le wrapper place désormais `TMPDIR` dans le cache utilisateur
+`$HOME/.cache/nabla/fastapi-sample-pr350/tmp` (mode privé) et teste
+l'exécution effective d'un script sur ce chemin. Si ce dataset est aussi
+`noexec`, choisir un autre chemin utilisateur exécutable via
+`PR350_TEST_TMPDIR=/chemin/prive/exec`, sans remonter `/tmp` en
+`exec` ni modifier les tests de simulation. `TMPDIR` est hérité
+par les sous-processus du quality gate et ses appels Pytest.
+
 ```bash
 cd /mnt/cpool/compose/fastapi-sample-pr350-verify
 git fetch origin fix/editorconfig-test-formatting-after-pr342-20261017

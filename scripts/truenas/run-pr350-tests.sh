@@ -41,6 +41,30 @@ fi
 # The project's requires-python is ==3.13.*; use the installed 3.13.5.
 export UV_PYTHON="/usr/bin/python3.13"
 export UV_PYTHON_DOWNLOADS=never
+
+# TrueNAS may mount /tmp with noexec. Pytest's tmp_path fixtures execute
+# mocked tools (uv) as real programs; tmp_path MUST support execution.
+# Keep test scratch separate from TrueNAS's deployed source and Docker data.
+# The override is useful if the user's home/cache dataset is also noexec.
+TEST_TMPDIR="${PR350_TEST_TMPDIR:-${HOME:?HOME must be set}/.cache/nabla/fastapi-sample-pr350/tmp}"
+install -d -m 700 -- "$TEST_TMPDIR"
+export TMPDIR="$TEST_TMPDIR"
+
+# Fail before expensive tests rather than reporting misleading Pylint/build
+# failures from publication-proof fixtures. Execute the file directly:
+# invoking 'sh file' would bypass a noexec mount and invalidate this check.
+exec_probe_dir="$(mktemp -d "$TMPDIR/pr350-exec.XXXXXX")"
+printf '%s\n' '#!/bin/sh' 'exit 0' >"$exec_probe_dir/probe"
+chmod 700 "$exec_probe_dir/probe"
+if ! "$exec_probe_dir/probe" >/dev/null 2>&1; then
+    rm -f -- "$exec_probe_dir/probe"
+    rmdir -- "$exec_probe_dir"
+    printf '%s\n' "ERROR: $TMPDIR cannot execute test fixtures; set PR350_TEST_TMPDIR to an exec-enabled user directory." >&2
+    exit 2
+fi
+rm -f -- "$exec_probe_dir/probe"
+rmdir -- "$exec_probe_dir"
+printf '%s\n' "Executable pytest temporary storage: $TMPDIR"
 printf 'Checkout: %s\nCommit: %s\n' "$ROOT" "$(git rev-parse HEAD)"
 printf 'Interpreter: %s (%s)\n' "$UV_PYTHON" "$("$UV_PYTHON" --version)"
 printf 'uv: %s\n' "$(uv --version)"
@@ -59,7 +83,8 @@ uv run --frozen --no-sync --python "$UV_PYTHON" pytest -q \
     tests/unit/test_homelab_probe_deadline_phases.py \
     tests/unit/test_homelab_probe_timing.py \
     tests/unit/test_homelab_cycle_summary.py \
-    tests/unit/test_agent_publication_proof.py
+    tests/unit/test_agent_publication_proof.py \
+    tests/unit/test_truenas_pr350_wrapper.py
 
 if [[ "$RUN_QUALITY" == true ]]; then
     # Only after targeted tests pass. The gate may modify files in --fix mode.
