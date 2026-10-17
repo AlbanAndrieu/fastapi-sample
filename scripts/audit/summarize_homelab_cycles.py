@@ -45,12 +45,11 @@ def _summary(scope: dict[str, Any]) -> dict[str, Any]:
         "completed": _bounded_number(scope.get("completed")),
         "timed_out": _bounded_number(scope.get("timed_out")),
         "priority_source": _allowed_text(
-            scope.get("priority_source"), {"bootstrap", "catalog"}
+            scope.get("priority_source"),
+            {"bootstrap", "catalog"},
         ),
         "coverage_percent": _bounded_number(evidence.get("coverage_percent")),
-        "timing": {
-            key: _bounded_number(timing.get(key)) for key in _TIMING_FIELDS
-        },
+        "timing": {key: _bounded_number(timing.get(key)) for key in _TIMING_FIELDS},
     }
 
 
@@ -61,36 +60,22 @@ def summarize(snapshot: dict[str, Any]) -> dict[str, Any]:
     summary = _object(homelab.get("probe_summary"))
     cache = _object(homelab.get("probe_cache"))
     state = _allowed_text(board.get("state"), {"fresh", "stale", "pending"})
-    internal_ids = {
-        row["id"]
-        for row in homelab.get("internal_services", [])
-        if isinstance(row, dict)
-        and isinstance(row.get("id"), str)
-        and row["id"] in _GARAGE_IDS
-    }
-    garage_rows = {
-        row["id"]: row
-        for row in homelab.get("services", [])
-        if isinstance(row, dict)
-        and isinstance(row.get("id"), str)
-        and row["id"] in _GARAGE_IDS
-    }
+    internal_ids = {row["id"] for row in homelab.get("internal_services", []) if isinstance(row, dict) and isinstance(row.get("id"), str) and row["id"] in _GARAGE_IDS}
+    garage_rows = {row["id"]: row for row in homelab.get("services", []) if isinstance(row, dict) and isinstance(row.get("id"), str) and row["id"] in _GARAGE_IDS}
     garage: dict[str, dict[str, Any]] = {}
     for service_id in sorted(_GARAGE_IDS):
         row = garage_rows.get(service_id, {})
         garage[service_id] = {
             "lan_observed": service_id in internal_ids,
             "internal_state": _allowed_text(
-                row.get("internal_state"), {"ok", "warn", "fail"}
+                row.get("internal_state"),
+                {"ok", "warn", "fail"},
             ),
             "exposure_intent": _allowed_text(
-                row.get("exposure_intent"), {"internal", "public"}
+                row.get("exposure_intent"),
+                {"internal", "public"},
             ),
-            "unexpected_tunnel_route": (
-                row.get("unexpected_tunnel_route")
-                if type(row.get("unexpected_tunnel_route")) is bool
-                else None
-            ),
+            "unexpected_tunnel_route": (row.get("unexpected_tunnel_route") if type(row.get("unexpected_tunnel_route")) is bool else None),
         }
     public = _summary(_object(summary.get("public")))
     internal = _summary(_object(summary.get("internal")))
@@ -105,7 +90,8 @@ def summarize(snapshot: dict[str, Any]) -> dict[str, Any]:
         "board_state": state,
         "board_age_seconds": _bounded_number(board.get("age_seconds")),
         "probe_cache_source": _allowed_text(
-            cache.get("source"), {"origin", "memory"}
+            cache.get("source"),
+            {"origin", "memory"},
         ),
         "probe_cache_age_seconds": _bounded_number(cache.get("age_seconds")),
         "public": public,

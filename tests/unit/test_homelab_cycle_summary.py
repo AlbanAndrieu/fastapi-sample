@@ -96,7 +96,7 @@ def test_summary_handles_missing_or_untrusted_fields_conservatively() -> None:
                     "timed_out": 0,
                     "priority_source": ["catalog"],
                     "timing": {"max_queue_wait_ms": "unknown"},
-                }
+                },
             },
         },
     }

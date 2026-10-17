@@ -127,9 +127,7 @@ async def probe_http_endpoint(
                     url,
                     headers={"User-Agent": "nabla-homelab-health/1.0"},
                 )
-                should_get = response.status_code in {405, 501} or (
-                    200 <= response.status_code <= 299 and is_textual_response(response)
-                )
+                should_get = response.status_code in {405, 501} or (200 <= response.status_code <= 299 and is_textual_response(response))
                 if should_get:
                     request_count += 1
                     response = await client.get(
@@ -185,6 +183,7 @@ async def probe_http_endpoint(
     )
     return result
 
+
 async def probe_public_service(
     client: httpx.AsyncClient,
     semaphore: asyncio.Semaphore,
@@ -231,28 +230,18 @@ async def probe_public_service(
         access_signal = edge_evidence.get("cloudflare_access_signal") is True
         result["state"] = "warn"
         result["origin_reached"] = False
-        result["cloudflare_service_token_rejected"] = (
-            edge_evidence.get("cloudflare_service_auth_attempted") is True
-            and edge_evidence.get("cloudflare_service_token_http_status") in {401, 403}
-        )
-        result["public_probe_auth_mode"] = (
-            "cloudflare_access_blocked" if access_signal or default_deny
-            else "cloudflare_access_unconfirmed"
-        )
-        result["public_probe_verification"] = (
-            "access_protected_origin_unverified" if access_signal or default_deny
-            else "origin_unverified"
-        )
+        result["cloudflare_service_token_rejected"] = edge_evidence.get("cloudflare_service_auth_attempted") is True and edge_evidence.get(
+            "cloudflare_service_token_http_status",
+        ) in {401, 403}
+        result["public_probe_auth_mode"] = "cloudflare_access_blocked" if access_signal or default_deny else "cloudflare_access_unconfirmed"
+        result["public_probe_verification"] = "access_protected_origin_unverified" if access_signal or default_deny else "origin_unverified"
         return result
 
     authenticated_status = int(
         edge_evidence.get("authenticated_http_status") or edge_evidence.get("cloudflare_service_token_http_status") or 0,
     )
     result["http_status"] = authenticated_status
-    result["state"] = (
-        classify_public_http_status(authenticated_status)
-        if authenticated_status > 0 else "warn"
-    )
+    result["state"] = classify_public_http_status(authenticated_status) if authenticated_status > 0 else "warn"
     # A successful Access handshake alone is not proof of a healthy origin.
     if authenticated_status >= 200 and authenticated_status < 400 and edge_evidence.get("origin_reached") is not True:
         result["state"] = "warn"
@@ -404,18 +393,10 @@ async def collect_bounded_probe_batch(
         await asyncio.gather(*pending, return_exceptions=True)
 
     states = {state: sum(result.get("state") == state for result in results) for state in ("ok", "warn", "fail")}
-    observed_timing = [
-        result["probe_timing"]
-        for result in results
-        if isinstance(result.get("probe_timing"), dict)
-    ]
+    observed_timing = [result["probe_timing"] for result in results if isinstance(result.get("probe_timing"), dict)]
 
     def worst_ms(phase: str) -> int | None:
-        values = [
-            timing[phase]
-            for timing in observed_timing
-            if isinstance(timing.get(phase), int)
-        ]
+        values = [timing[phase] for timing in observed_timing if isinstance(timing.get(phase), int)]
         return max(values, default=None)
 
     return results, {

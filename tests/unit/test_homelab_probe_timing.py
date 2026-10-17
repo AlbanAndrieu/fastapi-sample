@@ -46,7 +46,7 @@ async def test_public_probe_separates_queue_dns_and_http(monkeypatch) -> None:
                 service_id="garage-webui",
                 name="Garage Web UI",
                 url="https://garage.albandrieu.com",
-            )
+            ),
         )
         await asyncio.sleep(0.025)
         semaphore.release()
