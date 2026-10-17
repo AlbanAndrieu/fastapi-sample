@@ -574,6 +574,22 @@ Reference:
     Acceptance: upgrade or document each, retire or regenerate `Pipfile.lock`,
     then extend `scripts/run-trivy.sh` and `.mega-linter.yml` to `uv.lock`
     with a clean local run before making it blocking.
+    - [x] 2026-10-17 (PR #350): `jupyter-server` 2.20.0 → 2.21.0
+      (GHSA-c3mw-737p-c7g2, HIGH); `uv.lock` with dev deps 11 → 10 findings.
+    - [ ] `starlette` ≥ 1.3.1 (runtime, 5 advisories incl. 2 HIGH), `gradio`
+      ≥ 6.16.0 and `aiosmtplib` ≥ 5.1.2 (via `fastapi-mail` ≥ 1.6.3) are all
+      blocked by `arel` 0.4.0 (`starlette==0.*`, debug hot-reload in
+      `nabla/app_factory.py`); a dry run without `arel` resolves starlette
+      1.8.0. Acceptance: remove/replace `arel`, migrate `add_event_handler` to
+      lifespan (removed in Starlette 1.0), `uv lock` resolves the fixed
+      versions and Trivy no longer reports these 8 findings.
+    - [ ] `diskcache` (GHSA-w8v5-vhqr-4h9v) and `git-url-parse`
+      (GHSA-4xqq-73wg-5mjp) have no upstream fix: drop `dvc-s3`/`git-url-parse`
+      from the `extra` group or document risk acceptance.
+    - [ ] `Pipfile.lock` (62 findings, 5 CRITICAL) is still consumed by
+      `make prepare-pipenv`/`setup-jupyter-local*`, `Dockerfile-pipenv` and the
+      `.envrc` pipenv bootstrap: retire them together with a uv alternative for
+      `setup-jupyter-local`, or regenerate with pipenv.
   - [ ] Residual: the image scan in `docker-build.yml` (Trivy action `v0.71.2`,
     no ignorefile, no `exit-code`) stays report-only and differs from the
     mise-locked `0.74.0`. Acceptance: align the version, triage the first image
@@ -725,10 +741,21 @@ FastAPI Cloud (outside homelab)        TrueNAS (inside homelab)
     next item; acceptance proof: importing `nabla.app_factory` and building the
     minimal app leaves `nabla.api.db.database` and
     `nabla.api.demo.socket.redis` absent from `sys.modules`.
-  - [ ] Residual: `/readyz` and `/api/runtime/topology` in the minimal app still
-    read the module-level engine/Redis client at request time and will report
-    the disabled dependencies as unavailable; acceptance proof: readiness
-    reports disabled subsystems as `disabled`, not failed, from `app.state`.
+  - [x] `/readyz` and `/api/runtime/topology` read `app.state.features`
+    (2026-10-17, PR #350): disabled subsystems are reported `disabled`/
+    `skipped` without probing and do not fail readiness; enabled ones fail as
+    before. The default app only gains an additive `subsystems` field (OK→200,
+    PostgreSQL down→503 unchanged). Live proof:
+    `uv run uvicorn --factory nabla.app_factory:create_minimal_app` with an
+    invalid `POSTGRES_HOST`/`REDIS_URL` → `/readyz` HTTP 200 `ready`, all five
+    subsystems `disabled`.
+  - [ ] Residual: the minimal app's `/api/runtime/topology` still calls
+    `observe_public_egress_ip()` (outbound HTTP); gate it on a feature and test
+    with sockets forbidden and no mock.
+  - [ ] Residual: `/healthz` and the health-board
+    (`nabla/api/health_board_diagnostics.py`) still ignore features; acceptance
+    proof: both report PostgreSQL/Redis `disabled` without I/O in the minimal
+    app.
   - [ ] Residual: no environment switch selects features for `nabla.main:app`
     or FastAPI Cloud; acceptance proof: a documented, tested
     environment-to-`AppFeatures` mapping if operators need it.
@@ -781,17 +808,40 @@ actual repository HEAD. Do not treat this breakdown as implementation evidence.
     Owner confirmation (2026-10-17): the `note` table is currently empty, so no
     existing row is converted and the value/clock pre-checks have no data to
     validate; the post-migration acceptance proof above still applies.
-  - [ ] Residual — Alembic baseline: `992855f73a8d` alters `note` without
-    creating it (the table comes from `create_all`), so `alembic upgrade head`
-    fails on an empty database and `alembic/env.py` targets only the users
-    metadata. Acceptance proof: `alembic upgrade head` succeeds on an empty
-    disposable PostgreSQL.
+  - [x] Alembic baseline (2026-10-17, PR #350): `992855f73a8d` is now a
+    tolerant baseline (creates `user` with the fastapi-users UUID shape,
+    legacy `note` and `sensor_reading` only when absent; revision ids
+    unchanged) and `alembic/env.py` targets `application_metadata()`
+    (`nabla/api/db/metadata.py`). On a disposable PostgreSQL 17: empty DB →
+    `upgrade head` → `downgrade base` → `upgrade head`; `create_all` + row +
+    stamp `4b7c2d9e1a6f` keeps the row; `create_all` + stamp `992855f73a8d`
+    and unstamped `create_all` both upgrade cleanly; `compare_metadata` is empty
+    at each step. Opt-in `tests/integration/test_alembic_postgres.py` (5 cases).
+  - [ ] Residual — real databases: on each deployment check
+    `SELECT version_num FROM alembic_version` is `992855f73a8d` or
+    `4b7c2d9e1a6f` and `user.id` is `uuid`, then `alembic upgrade head`.
+  - [ ] Residual — offline `alembic upgrade head --sql` is unsupported (both
+    revisions inspect the live schema); document or add offline branches.
+  - [ ] Residual — run `-m integration` (Alembic + Notes) in CI with a
+    disposable PostgreSQL service once CI capacity returns.
   - [ ] Residual — note ownership: add an owner column and 403 semantics only
     if notes become per-user data (product decision), with cross-user tests.
-  - [ ] Residual — HTMX form routes (`POST /notes/{id}`, `_note_item*.html`)
-    mutate an immutable record and reference absent `content`/`done` fields
-    and missing toggle/delete routes. Acceptance proof: route tests for the
-    edit/toggle/delete fragments.
+  - [x] HTMX form routes (2026-10-17, PR #350): templates now target the real
+    unprefixed routes (`/notes/`, `/notes/add`, `/notes/{id}`,
+    `/notes/{id}/edit|toggle|delete`); `POST /notes/add` reads the form field,
+    edit merges into `NoteData` through `crud.put` (no record mutation,
+    `created_date` kept), toggle/delete routes added because the templates call
+    them, fields renamed to `completed`/`description`, explicit 404.
+    `tests/unit/test_notes_htmx.py` (15 hermetic cases) also asserts every
+    `hx-*` call maps to a declared route.
+  - [ ] Residual — browser + PostgreSQL acceptance of list/add/edit/toggle/
+    delete from `/` on a disposable DB at `4b7c2d9e1a6f` (or extend
+    `tests/integration/test_notes_postgres.py` to these routes).
+  - [ ] Residual — a stored row violating `NoteResponse` constraints makes
+    toggle/update fail with a 500 validation error; return 422/409 explicitly.
+  - [ ] Residual — `POST /notes/add` hard-codes `description`/`type`/`prompt`
+    and form routes do not enqueue Redis work unlike `PUT /notes/{id}/`
+    (product decisions); fragments still start with `<!doctype html>`.
 - [ ] **RAG concurrency and persistence**: replace global mutable vector state
   with an injected `VectorStore` protocol; identify all readers and writers
   before choosing a backend.
