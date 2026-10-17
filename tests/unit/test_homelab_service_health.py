@@ -203,3 +203,177 @@ def test_confirmed_down_tunnel_is_not_masked_by_http_403() -> None:
     )
     assert rows[0]["tunnel_status"] == "down"
     assert rows[0]["state"] == "fail"
+
+
+def test_private_garage_admin_uses_lan_health_without_tunnel_downgrade() -> None:
+    service = HomelabService(
+        id="garage-admin",
+        name="Garage Admin API",
+        internalHost="172.17.0.24",
+        internalPort=3903,
+        tunnelUrl="https://garage-admin.albandrieu.com",
+        external=False,
+    )
+    tunnel = CloudflareTunnelObservation(
+        tunnel_id="old-route",
+        name="legacy",
+        status="down",
+        ingress=[
+            CloudflareTunnelIngress(
+                tunnel_id="old-route",
+                tunnel_name="legacy",
+                hostname="garage-admin.albandrieu.com",
+                service="http://garage:3903",
+            ),
+        ],
+    )
+    rows = build_reconciled_service_health(
+        [service],
+        public_results=[],
+        internal_results=[
+            {
+                "id": "garage-admin",
+                "state": "ok",
+                "reachable": True,
+                "probe_source": "origin",
+                "probe_stale": False,
+            },
+        ],
+        runtime=None,
+        tunnels=[tunnel],
+    )
+    assert rows[0]["state"] == "ok"
+    assert rows[0]["internal_state"] == "ok"
+    assert rows[0]["exposure_intent"] == "internal"
+    assert rows[0]["unexpected_tunnel_route"] is True
+
+
+def test_stale_direct_application_error_does_not_override_fresh_lan_health() -> None:
+    service = HomelabService(
+        id="garage-admin",
+        name="Garage Admin API",
+        internalHost="172.17.0.24",
+        internalPort=3903,
+        tunnelUrl="https://garage-admin.albandrieu.com",
+        external=False,
+    )
+    rows = build_reconciled_service_health(
+        [service],
+        public_results=[
+            {
+                "id": "garage-admin",
+                "url": "https://garage-admin.albandrieu.com/",
+                "reachable": True,
+                "http_status": 502,
+                "state": "fail",
+                "tls_trusted": True,
+                "application_error": True,
+                "probe_stale": True,
+            },
+        ],
+        internal_results=[
+            {
+                "id": "garage-admin",
+                "state": "ok",
+                "reachable": True,
+                "probe_stale": False,
+            },
+        ],
+        runtime=None,
+        tunnels=[],
+    )
+
+    assert rows[0]["state"] == "ok"
+    assert rows[0]["direct_state"] is None
+    assert rows[0]["reachable"] is False
+    assert rows[0]["http_status"] == 0
+    assert rows[0]["tls_trusted"] is None
+    assert "application_error" not in rows[0]
+
+
+def test_stale_internal_garage_evidence_is_not_current_health() -> None:
+    service = HomelabService(
+        id="garage",
+        name="Garage S3 API",
+        internalHost="172.17.0.24",
+        internalPort=3900,
+        external=False,
+    )
+    rows = build_reconciled_service_health(
+        [service],
+        public_results=[],
+        internal_results=[
+            {
+                "id": "garage",
+                "state": "ok",
+                "reachable": None,
+                "probe_source": "memory",
+                "probe_stale": True,
+            },
+        ],
+        runtime=None,
+        tunnels=[],
+    )
+    assert rows[0]["state"] == "unknown"
+    assert rows[0]["internal_state"] is None
+    assert rows[0]["internal_probe_stale"] is True
+
+
+def _access_blocked_public_row(service_id: str, url: str) -> dict:
+    return {
+        "id": service_id,
+        "url": url,
+        "reachable": True,
+        "http_status": 302,
+        "state": "warn",
+        "tls_trusted": True,
+        "cloudflare_access_secondary_probe_eligible": True,
+        "cloudflare_access_secondary_probe_attempted": True,
+        "public_probe_verification": "access_protected_origin_unverified",
+        "public_probe_auth_mode": "cloudflare_access_blocked",
+        "anonymous_http_status": 302,
+        "origin_reached": False,
+        "cloudflare_service_token_rejected": False,
+    }
+
+
+@pytest.mark.parametrize(
+    ("service_id", "url", "port", "lan_state"),
+    [
+        ("ittools", "https://ittools.albandrieu.com", 30063, "ok"),
+        ("karakeep", "https://karakeep.albandrieu.com", 30147, "fail"),
+    ],
+)
+def test_access_evidence_is_exported_and_never_proves_origin_health(
+    service_id: str,
+    url: str,
+    port: int,
+    lan_state: str,
+) -> None:
+    service = HomelabService(
+        id=service_id,
+        name=service_id,
+        internalHost="172.17.0.24",
+        internalPort=port,
+        tunnelUrl=url,
+        tunnelSecure=True,
+        external=True,
+    )
+    rows = build_reconciled_service_health(
+        [service],
+        public_results=[_access_blocked_public_row(service_id, f"{url}/")],
+        internal_results=[{"id": service_id, "state": lan_state, "reachable": lan_state == "ok"}],
+        runtime=None,
+        tunnels=[],
+    )
+
+    row = rows[0]
+    assert row["public_probe_verification"] == "access_protected_origin_unverified"
+    assert row["public_probe_auth_mode"] == "cloudflare_access_blocked"
+    assert row["cloudflare_access_secondary_probe_eligible"] is True
+    assert row["cloudflare_access_secondary_probe_attempted"] is True
+    assert row["anonymous_http_status"] == 302
+    assert row["origin_reached"] is False
+    assert row["internal_state"] == lan_state
+    # An Access redirect is edge evidence only: never "ok", even with a healthy LAN origin.
+    assert row["state"] == "warn"

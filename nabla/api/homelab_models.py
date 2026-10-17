@@ -138,6 +138,15 @@ class HomelabService(BaseModel):
         ),
         serialization_alias="cloudflareAccessRequired",
     )
+    # Ascending probe rank owned by nabla-compose; absent means ordinary rotation.
+    probe_priority: int | None = Field(
+        default=None,
+        ge=0,
+        le=1000,
+        strict=True,
+        validation_alias=AliasChoices("probePriority", "probe_priority"),
+        serialization_alias="probePriority",
+    )
     security_exception: str | None = Field(
         default=None,
         validation_alias=AliasChoices("securityException", "security_exception"),
@@ -221,12 +230,7 @@ class HomelabService(BaseModel):
                 raise ValueError("tunnelUrl hostname must not contain whitespace")
         if self.health_path:
             parsed = urlsplit(self.health_path)
-            if (
-                not self.health_path.startswith("/")
-                or self.health_path.startswith("//")
-                or parsed.scheme
-                or parsed.netloc
-            ):
+            if not self.health_path.startswith("/") or self.health_path.startswith("//") or parsed.scheme or parsed.netloc:
                 raise ValueError("healthPath must be a repository-relative URL path")
         return self
 

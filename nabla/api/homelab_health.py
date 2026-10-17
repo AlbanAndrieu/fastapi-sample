@@ -29,6 +29,8 @@ from nabla.api.homelab_probe_policy import (
     MAX_PUBLIC_PROBES_PER_REFRESH as _MAX_PUBLIC_PROBES_PER_REFRESH,
     PUBLIC_PROBE_TIMEOUT_SEC as _PUBLIC_PROBE_TIMEOUT_SEC,
     SERVICE_FANOUT_BUDGET_SEC as _SERVICE_FANOUT_BUDGET_SEC,
+    priority_source as _priority_source,
+    rotated_priority_ids as _rotated_priority_ids,
     select_probe_subset as _select_probe_subset,
 )
 from nabla.api.sickz_cloudflare_edge import _probe_http_edge_evidence
@@ -236,6 +238,20 @@ async def build_homelab_health_payload(
         internal_summary["evidence"] = evidence_summary(
             internal_results,
             eligible_count=len(internal_candidates),
+        )
+        public_summary["priority_source"] = _priority_source(public_candidates)
+        internal_summary["priority_source"] = _priority_source(internal_candidates)
+        public_summary["rotated_priority_ids"] = _rotated_priority_ids(
+            public_candidates,
+            limit=_MAX_PUBLIC_PROBES_PER_REFRESH,
+        )
+        internal_summary["rotated_priority_ids"] = (
+            _rotated_priority_ids(
+                internal_candidates,
+                limit=_MAX_INTERNAL_PROBES_PER_REFRESH,
+            )
+            if internal_enabled
+            else []
         )
 
         payload: dict[str, Any] = {
