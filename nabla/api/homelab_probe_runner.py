@@ -12,11 +12,11 @@ import anyio
 import httpx
 
 from nabla.api.dns_probe import probe_dns_hostname
-from nabla.api.health_probe_utils import is_textual_response, looks_like_tls_error
+from nabla.api.health_probe_utils import elapsed_ms, is_textual_response, looks_like_tls_error
 from nabla.api.homelab_models import HomelabService
+from nabla.api.platform_health_diagnostics import short_error
 
 HealthState = Literal["ok", "warn", "fail"]
-ProbeScope = Literal["public", "internal"]
 HttpProbe = Callable[..., Awaitable[dict[str, Any]]]
 EdgeProbe = Callable[[str], Awaitable[dict[str, Any]]]
 
@@ -49,11 +49,6 @@ def classify_public_http_status(status: int) -> HealthState:
     if status in _WARNING_HTTP_STATUSES:
         return "warn"
     return "fail"
-
-
-def _short_error(exc: BaseException) -> str:
-    message = str(exc).strip() or exc.__class__.__name__
-    return message[:240]
 
 
 def _application_error_from_response(response: httpx.Response) -> str | None:
@@ -112,14 +107,14 @@ async def probe_http_endpoint(
     request_count = 0
     try:
         async with semaphore:
-            queue_wait_ms = max(0, round((time.perf_counter() - started) * 1000))
+            queue_wait_ms = elapsed_ms(started)
             hostname = httpx.URL(url).host
             dns_started = time.perf_counter()
             try:
                 if hostname:
                     dns_evidence = await probe_dns_hostname(hostname)
             finally:
-                dns_probe_ms = max(0, round((time.perf_counter() - dns_started) * 1000))
+                dns_probe_ms = elapsed_ms(dns_started)
             http_started = time.perf_counter()
             try:
                 request_count += 1
@@ -139,10 +134,7 @@ async def probe_http_endpoint(
                         },
                     )
             finally:
-                http_request_ms = max(
-                    0,
-                    round((time.perf_counter() - http_started) * 1000),
-                )
+                http_request_ms = elapsed_ms(http_started)
         status = response.status_code
         application_error = _application_error_from_response(response)
         result: dict[str, Any] = {
@@ -157,7 +149,7 @@ async def probe_http_endpoint(
         if application_error:
             result["application_error"] = application_error
     except (httpx.HTTPError, OSError) as exc:
-        error = _short_error(exc)
+        error = short_error(exc)
         result = {
             "id": service_id,
             "name": name,
@@ -177,10 +169,7 @@ async def probe_http_endpoint(
         "http_request_ms": http_request_ms,
         "http_request_count": request_count,
     }
-    result["latency_ms"] = max(
-        0,
-        round((time.perf_counter() - started) * 1000),
-    )
+    result["latency_ms"] = elapsed_ms(started)
     return result
 
 
@@ -217,10 +206,7 @@ async def probe_public_service(
     # extra latency independently rather than assuming TCP/DNS is slow.
     timing = result.get("probe_timing")
     if isinstance(timing, dict):
-        timing["access_secondary_ms"] = max(
-            0,
-            round((time.perf_counter() - edge_started) * 1000),
-        )
+        timing["access_secondary_ms"] = elapsed_ms(edge_started)
     result.update(edge_evidence)
     result["anonymous_http_status"] = int(
         edge_evidence.get("anonymous_initial_http_status") or initial_status,
@@ -286,141 +272,7 @@ async def probe_internal_service(
             "port": port,
             "reachable": False,
             "state": "fail",
-            "error": _short_error(exc),
+            "error": short_error(exc),
         }
-    result["latency_ms"] = max(
-        0,
-        round((time.perf_counter() - started) * 1000),
-    )
+    result["latency_ms"] = elapsed_ms(started)
     return result
-
-
-def _probe_deadline_result(
-    service: HomelabService,
-    *,
-    scope: ProbeScope,
-) -> dict[str, Any]:
-    """Represent unfinished fan-out without claiming the service is down."""
-    result: dict[str, Any] = {
-        "id": service.service_id,
-        "name": service.name,
-        "reachable": False,
-        "state": "warn",
-        "timed_out": True,
-        "error_kind": "deadline",
-        "error": "service probe fan-out budget exceeded",
-    }
-    if scope == "internal":
-        result["host"] = service.internal_host
-        result["port"] = service.internal_port
-    else:
-        result["url"] = service.public_https_probe_url
-        result["http_status"] = 0
-        result["tls_trusted"] = None
-    return result
-
-
-def _probe_exception_result(
-    service: HomelabService,
-    exc: BaseException,
-    *,
-    scope: ProbeScope,
-) -> dict[str, Any]:
-    """Convert an unexpected probe task failure into diagnostic data."""
-    result = _probe_deadline_result(service, scope=scope)
-    result.update(
-        {
-            "timed_out": False,
-            "error_kind": "probe_error",
-            "error": _short_error(exc),
-            "exception_type": type(exc).__name__,
-        },
-    )
-    return result
-
-
-async def collect_bounded_probe_batch(
-    probes: list[tuple[HomelabService, asyncio.Task[dict[str, Any]]]],
-    *,
-    scope: ProbeScope,
-    enabled: bool = True,
-    eligible_count: int | None = None,
-    per_probe_timeout_seconds: float,
-    fanout_budget_seconds: float,
-    max_concurrency: int,
-) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Collect sampled fan-out without allowing it to consume core health."""
-    started = time.perf_counter()
-    eligible = len(probes) if eligible_count is None else eligible_count
-    if not probes:
-        return [], {
-            "scope": scope,
-            "enabled": enabled,
-            "eligible": eligible,
-            "sampled": 0,
-            "scheduled": 0,
-            "completed": 0,
-            "timed_out": 0,
-            "rotating_sample": eligible > 0,
-            "budget_seconds": fanout_budget_seconds,
-            "per_probe_timeout_seconds": per_probe_timeout_seconds,
-            "max_concurrency": max_concurrency,
-            "elapsed_ms": 0,
-            "states": {"ok": 0, "warn": 0, "fail": 0},
-        }
-
-    tasks = [task for _, task in probes]
-    done, pending = await asyncio.wait(
-        tasks,
-        timeout=fanout_budget_seconds,
-    )
-
-    results: list[dict[str, Any]] = []
-    for service, task in probes:
-        if task in done:
-            try:
-                results.append(task.result())
-            except Exception as exc:
-                results.append(
-                    _probe_exception_result(service, exc, scope=scope),
-                )
-        else:
-            results.append(_probe_deadline_result(service, scope=scope))
-
-    for task in pending:
-        task.cancel()
-    if pending:
-        await asyncio.gather(*pending, return_exceptions=True)
-
-    states = {state: sum(result.get("state") == state for result in results) for state in ("ok", "warn", "fail")}
-    observed_timing = [result["probe_timing"] for result in results if isinstance(result.get("probe_timing"), dict)]
-
-    def worst_ms(phase: str) -> int | None:
-        values = [timing[phase] for timing in observed_timing if isinstance(timing.get(phase), int)]
-        return max(values, default=None)
-
-    return results, {
-        "scope": scope,
-        "enabled": enabled,
-        "eligible": eligible,
-        "sampled": len(probes),
-        "scheduled": len(probes),
-        "completed": len(done),
-        "timed_out": len(pending),
-        "rotating_sample": eligible > len(probes),
-        "budget_seconds": fanout_budget_seconds,
-        "per_probe_timeout_seconds": per_probe_timeout_seconds,
-        "max_concurrency": max_concurrency,
-        "elapsed_ms": max(
-            0,
-            round((time.perf_counter() - started) * 1000),
-        ),
-        "timing": {
-            "completed_samples": len(observed_timing),
-            "max_queue_wait_ms": worst_ms("queue_wait_ms"),
-            "max_dns_probe_ms": worst_ms("dns_probe_ms"),
-            "max_http_request_ms": worst_ms("http_request_ms"),
-            "max_access_secondary_ms": worst_ms("access_secondary_ms"),
-        },
-        "states": states,
-    }

@@ -7,7 +7,7 @@ import asyncio
 import httpx
 import pytest
 
-from nabla.api import homelab_probe_runner
+from nabla.api import homelab_probe_batch, homelab_probe_runner
 from nabla.api.homelab_models import HomelabService
 
 
@@ -106,7 +106,7 @@ async def test_batch_timing_counts_only_observed_completed_results() -> None:
         await asyncio.Event().wait()
         return {"id": blocked.service_id, "state": "ok"}
 
-    results, summary = await homelab_probe_runner.collect_bounded_probe_batch(
+    results, summary = await homelab_probe_batch.collect_bounded_probe_batch(
         [
             (observed, asyncio.create_task(good())),
             (blocked, asyncio.create_task(pending())),
