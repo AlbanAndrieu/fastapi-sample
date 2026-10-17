@@ -5,8 +5,8 @@
 import asyncio
 import socket
 import time
-from collections.abc import Coroutine
-from contextlib import AsyncExitStack, asynccontextmanager
+from collections.abc import AsyncIterator, Callable, Coroutine
+from contextlib import AbstractAsyncContextManager, AsyncExitStack, asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI
@@ -20,6 +20,7 @@ from nabla.api.demo.models import recent_readings
 from nabla.api.demo.sensor import initialize_sensor_demo, metrics
 from nabla.api.demo.socket.redis import redis, start_event_listener
 from nabla.api.runtime_topology import runtime_topology_heartbeat
+from nabla.app_features import AppFeatures
 from nabla.config_settings import get_settings
 from nabla.mcp.client import close_mcp_clients, initialize_mcp_clients
 from nabla.utils.logger import logger
@@ -121,72 +122,106 @@ async def _connect_critical_database() -> None:
     )
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Acquire application resources safely and unwind partial startup failures."""
-    async with AsyncExitStack() as resources:
-        resources.callback(db_pool.close)
-        FastAPICache.init(InMemoryBackend())
-        app.state.redis = redis
-        if redis is not None:
-            resources.push_async_callback(redis.aclose)
+async def _start_critical_database(resources: AsyncExitStack) -> None:
+    """Connect PostgreSQL, register its release and initialize the schema."""
+    await _connect_critical_database()
+    resources.push_async_callback(database.disconnect)
 
-        await _connect_critical_database()
-        resources.push_async_callback(database.disconnect)
-
-        logger.info("startup_stage_begin stage=database_schema critical=true")
-        schema_started = time.perf_counter()
-        try:
-            await init_db()
-        except Exception as exc:
-            logger.error(
-                "startup_stage_failed stage=database_schema critical=true exception=%s elapsed_ms=%s",
-                exc.__class__.__name__,
-                round((time.perf_counter() - schema_started) * 1000),
-            )
-            raise
-        logger.info(
-            "startup_stage_ready stage=database_schema critical=true elapsed_ms=%s",
+    logger.info("startup_stage_begin stage=database_schema critical=true")
+    schema_started = time.perf_counter()
+    try:
+        await init_db()
+    except Exception as exc:
+        logger.error(
+            "startup_stage_failed stage=database_schema critical=true exception=%s elapsed_ms=%s",
+            exc.__class__.__name__,
             round((time.perf_counter() - schema_started) * 1000),
         )
-        from nabla.api.notes.models import init_db as init_db_note
-        from nabla.api.users.models import init_db as init_db_user
+        raise
+    logger.info(
+        "startup_stage_ready stage=database_schema critical=true elapsed_ms=%s",
+        round((time.perf_counter() - schema_started) * 1000),
+    )
+    from nabla.api.notes.models import init_db as init_db_note
+    from nabla.api.users.models import init_db as init_db_user
 
-        await init_db_note()
-        await init_db_user()
-        await init_db_sensor_reading()
-        initialize_demo_feature_flags()
-        initialize_sensor_demo()
-        resources.push_async_callback(close_mcp_clients)
-        await initialize_mcp_clients()
+    await init_db_note()
+    await init_db_user()
+    await init_db_sensor_reading()
 
-        background_tasks: list[asyncio.Task[None]] = []
-        resources.push_async_callback(_cancel_background_tasks, background_tasks)
-        if get_settings().metrics_enabled:
-            _start_background_task(
-                update_system_metrics(),
-                name="system-metrics",
-                tasks=background_tasks,
+
+def build_lifespan(features: AppFeatures | None = None) -> Callable[[FastAPI], AbstractAsyncContextManager[None]]:
+    """Build the application lifespan for an explicit set of subsystems.
+
+    The default features keep the production contract: PostgreSQL is a
+    critical startup dependency and Redis/MCP/metrics workers are started.
+    """
+    selected = features or AppFeatures()
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        """Acquire application resources safely and unwind partial startup failures."""
+        async with AsyncExitStack() as resources:
+            if selected.database:
+                resources.callback(db_pool.close)
+            FastAPICache.init(InMemoryBackend())
+            redis_client = redis if selected.redis else None
+            app.state.redis = redis_client
+            if redis_client is not None:
+                resources.push_async_callback(redis_client.aclose)
+
+            if selected.database:
+                await _start_critical_database(resources)
+            else:
+                logger.warning("startup_dependency_skipped dependency=postgres critical=false reason=feature_disabled")
+            initialize_demo_feature_flags()
+            initialize_sensor_demo()
+            if selected.mcp:
+                resources.push_async_callback(close_mcp_clients)
+                await initialize_mcp_clients()
+
+            background_tasks: list[asyncio.Task[None]] = []
+            resources.push_async_callback(_cancel_background_tasks, background_tasks)
+            _start_background_workers(selected, redis_client, background_tasks)
+
+            logger.info("🚀 Sensor Dashboard started")
+            logger.info(f"Initial sensor readings: {len(recent_readings)}")
+            logger.info("Debug mode: %s", getattr(app, "debug", False))
+
+            yield
+
+            logger.info("📊 Sensor Dashboard shutting down")
+            logger.info(
+                f"Final metrics - Connections: {metrics.connection_count}, Requests: {metrics.total_requests}",
             )
-        if redis is not None:
-            _start_background_task(
-                start_event_listener(),
-                name="redis-event-listener",
-                tasks=background_tasks,
-            )
-            _start_background_task(
-                runtime_topology_heartbeat(redis),
-                name="runtime-topology-heartbeat",
-                tasks=background_tasks,
-            )
 
-        logger.info("🚀 Sensor Dashboard started")
-        logger.info(f"Initial sensor readings: {len(recent_readings)}")
-        logger.info("Debug mode: %s", getattr(app, "debug", False))
+    return lifespan
 
-        yield
 
-        logger.info("📊 Sensor Dashboard shutting down")
-        logger.info(
-            f"Final metrics - Connections: {metrics.connection_count}, Requests: {metrics.total_requests}",
+def _start_background_workers(
+    features: AppFeatures,
+    redis_client: Any,
+    tasks: list[asyncio.Task[None]],
+) -> None:
+    """Start the best-effort workers owned by the enabled subsystems."""
+    if features.observability and get_settings().metrics_enabled:
+        _start_background_task(
+            update_system_metrics(),
+            name="system-metrics",
+            tasks=tasks,
         )
+    if redis_client is not None:
+        _start_background_task(
+            start_event_listener(),
+            name="redis-event-listener",
+            tasks=tasks,
+        )
+        _start_background_task(
+            runtime_topology_heartbeat(redis_client),
+            name="runtime-topology-heartbeat",
+            tasks=tasks,
+        )
+
+
+# Production lifespan (all subsystems enabled), kept for existing callers.
+lifespan = build_lifespan()

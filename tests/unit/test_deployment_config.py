@@ -232,17 +232,13 @@ def test_fastapi_cloud_deployment_explicitly_disables_debug() -> None:
         (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8"),
     )
     steps = workflow["jobs"]["deploy"]["steps"]
-    deployment = next(
-        step
-        for step in steps
-        if step.get("name") == "Deploy and wait for FastAPI Cloud verification"
-    )
+    deployment = next(step for step in steps if step.get("name") == "Deploy and wait for FastAPI Cloud verification")
 
     assert "uv run fastapi cloud env set DEBUG false ." in deployment["run"]
     assert "uv run fastapi cloud env set DEBUG true ." not in deployment["run"]
 
 
 def test_app_factory_applies_cloud_debug_guard() -> None:
-    app_factory = (ROOT / "nabla/main.py").read_text(encoding="utf-8")
+    app_factory = (ROOT / "nabla/app_factory.py").read_text(encoding="utf-8")
 
     assert 'application_debug_enabled(env_bool("DEBUG"))' in app_factory
