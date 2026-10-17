@@ -1,14 +1,12 @@
 import json
+from collections.abc import Mapping
+from datetime import datetime, timezone
+from typing import Annotated, Any, Dict
 
-# from datetime import datetime as dt
-from datetime import datetime
-from typing import Any, Dict
-
-from pydantic import BaseModel, Field
-from pytz import timezone as tz
+from pydantic import AfterValidator, BaseModel, Field
 
 # With PostgreSQL
-from sqlalchemy import Column, DateTime, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, false
 from sqlalchemy.orm import declarative_base
 
 from nabla.api.db.database import SessionLocal, engine
@@ -54,8 +52,10 @@ class Note(Base):
     description = Column(String(50), nullable=False)
     type = Column(String(10), default="note", nullable=False)
     prompt = Column(String(100), nullable=False)
-    completed = Column(String(8), default="False", nullable=False)
-    created_date = Column(DateTime, nullable=False)
+    # Boolean/timestamptz since migration 4b7c2d9e1a6f (legacy: VARCHAR(8)
+    # "True"/"False" and naive TIMESTAMP).
+    completed = Column(Boolean, default=False, server_default=false(), nullable=False)
+    created_date = Column(DateTime(timezone=True), nullable=False)
 
     def __str__(self):
         return f"Note ID : {self.id}\tTitle : {self.title}\tDescription : {self.description}\tType : {self.type}\tPrompt : {self.prompt}\tCompleted : {self.completed}\tCreated Date : {self.created_date}"
@@ -76,37 +76,61 @@ class Note(Base):
 #     created_date: str = datetime.now(tz("Europe/Paris")).strftime("%Y-%m-%d %H:%M")
 
 
-# Response note model with pydantic validation
+def utc_now() -> datetime:
+    """Return the current instant as a timezone-aware UTC datetime."""
+    return datetime.now(timezone.utc)
+
+
+def ensure_utc(value: datetime) -> datetime:
+    """Normalize a datetime to aware UTC.
+
+    Naive values are legacy rows/payloads written before the timestamptz
+    migration; they are interpreted as UTC, matching the migration's
+    ``AT TIME ZONE 'UTC'`` conversion.
+    """
+    if value.tzinfo is None or value.utcoffset() is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+UtcDatetime = Annotated[datetime, AfterValidator(ensure_utc)]
+
+
+# Request payload for note create/update. The historic name is kept because
+# routes, tests and the MCP/OpenAPI schema reference it. ``completed`` accepts
+# legacy string spellings ("True"/"False"/"true"/"1"...) through Pydantic's
+# lax boolean parsing; it is always serialized as a JSON boolean.
 class NoteResponse(BaseModel):
     title: str = Field(
-        ...,
         min_length=3,
         max_length=50,
     )  # additional validation for the inputs
-    description: str = Field(..., min_length=3, max_length=50)
+    description: str = Field(min_length=3, max_length=50)
     # type: str = Field(default="note", min_length=3, max_length=10)
     type: str
-    prompt: str = Field(..., min_length=3, max_length=100)
+    prompt: str = Field(min_length=3, max_length=100)
     completed: bool = False
-    created_date: str = Field(
-        default_factory=lambda: datetime.now(tz("Europe/Paris")).strftime(
-            "%Y-%m-%d %H:%M"
-        )
-    )
+    # Client-provided values are accepted for compatibility but the server
+    # owns the persisted creation timestamp.
+    created_date: UtcDatetime = Field(default_factory=utc_now)
 
 
 class NoteData(NoteResponse):
+    """Typed note representation returned by read/create/update/delete."""
+
     id: int
+
+    @classmethod
+    def from_record(cls, record: Any) -> "NoteData":
+        """Build a response from a ``databases`` Record or a plain mapping."""
+        mapping: Mapping[str, Any] = getattr(record, "_mapping", record)
+        return cls.model_validate(dict(mapping))
 
     def save_reading(self, data: Dict[str, Any]) -> None:
         """Save notes to PostgreSQL database"""
         session = SessionLocal()
         try:
-            # Convert ISO string back to datetime object
-            # timestamp = datetime.fromisoformat(data["timestamp"])
-            created_date: str = datetime.now(tz("Europe/Paris")).strftime(
-                "%Y-%m-%d %H:%M",
-            )
+            created_date = utc_now()
 
             db_reading = Note(
                 title=data["title"],

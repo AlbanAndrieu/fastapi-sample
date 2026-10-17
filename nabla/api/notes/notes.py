@@ -1,6 +1,5 @@
 import typing
-from datetime import datetime as dt
-from typing import List
+from typing import Annotated, List
 
 from databases.interfaces import Record
 from fastapi import APIRouter, Form, HTTPException, Path, Request
@@ -11,7 +10,7 @@ from redis.exceptions import RedisError
 
 # from fastapi_cache.decorator import cache
 from nabla.api.notes import crud
-from nabla.api.notes.models import NoteData, NoteResponse, enqueue_note
+from nabla.api.notes.models import NoteData, NoteResponse, enqueue_note, utc_now
 from nabla.utils.logger import logger
 from nabla.utils.prometheus import API_REQUEST_COUNTER, API_REQUEST_SUMMARY
 
@@ -32,7 +31,15 @@ def summarize_request(text: str) -> str:
     return f"Please summarize the following text:\n\n{text}"
 
 
-@router.get("/notes/", response_model=List[NoteData])
+NOTE_NOT_FOUND = "Note not found"
+NOT_FOUND_RESPONSE: dict[int | str, dict[str, typing.Any]] = {
+    404: {"description": NOTE_NOT_FOUND},
+}
+
+
+# The list endpoint renders an HTMX fragment; it never returned JSON, so it is
+# documented as HTML instead of advertising a NoteData list it does not emit.
+@router.get("/notes/", response_class=HTMLResponse)
 async def get_notes(request: Request):
     API_REQUEST_COUNTER.labels(method="GET", endpoint="/notes", http_status=200).inc()
     API_REQUEST_SUMMARY.labels(method="GET", endpoint="/notes").observe(0.1)
@@ -45,8 +52,9 @@ async def get_notes(request: Request):
     )
 
 
-async def read_all_notes():
-    return await crud.get_all()
+async def read_all_notes() -> List[NoteData]:
+    """Return normalized notes (boolean ``completed``, aware UTC timestamps)."""
+    return [NoteData.from_record(record) for record in await crud.get_all()]
 
 
 @router.post("/notes/add", response_class=HTMLResponse)
@@ -68,40 +76,34 @@ async def add_note(request: Request, title: str):
 
 
 # @mcp.resource("notes://create")
-@router.post("/notes/", status_code=201, response_model=NoteData)
-async def create_note(payload: NoteResponse):
+@router.post("/notes/", status_code=201)
+async def create_note(payload: NoteResponse) -> NoteData:
     API_REQUEST_COUNTER.labels(method="POST", endpoint="/notes", http_status=200).inc()
     API_REQUEST_SUMMARY.labels(method="POST", endpoint="/notes").observe(0.1)
 
-    note_id = await crud.post(payload)
-    created_date = dt.now().strftime("%Y-%m-%d %H:%M")
-
-    response_object = {
-        "id": note_id,
-        "title": payload.title,
-        "type": payload.type,
-        "prompt": payload.prompt,
-        "description": payload.description,
-        "completed": payload.completed,
-        "created_date": created_date,
-    }
-    return response_object
+    created_date = utc_now()
+    note_id = await crud.post(payload, created_date=created_date)
+    return NoteData(
+        **payload.model_dump(exclude={"created_date"}),
+        id=note_id,
+        created_date=created_date,
+    )
 
 
-async def get_note_or_404(note_id: int) -> typing.Optional[Record]:
+async def get_note_or_404(note_id: int) -> Record:
     note: typing.Optional[Record] = await crud.get(note_id)
     if not note:
-        raise HTTPException(status_code=404, detail="Note not found")
+        raise HTTPException(status_code=404, detail=NOTE_NOT_FOUND)
     return note
 
 
 # @mcp.resource("notes://{note_id}/update")
-@router.put("/notes/{note_id}/", response_model=NoteData)
+@router.put("/notes/{note_id}/", responses=NOT_FOUND_RESPONSE)
 async def update_note(
     payload: NoteResponse,
-    note_id: int = Path(..., gt=0),
-):  # Ensures the input is greater than 0
-    existing_note = await get_note_or_404(note_id)
+    note_id: Annotated[int, Path(gt=0)],
+) -> NoteData:
+    existing_note = NoteData.from_record(await get_note_or_404(note_id))
     updated_note_id = await crud.put(note_id, payload)
     try:
         await enqueue_note(updated_note_id, payload.type, payload.prompt)
@@ -115,19 +117,11 @@ async def update_note(
             status_code=503,
             detail="Note saved but background processing is unavailable",
         ) from exc
-    created_date = existing_note["created_date"]
-    if isinstance(created_date, dt):
-        created_date = created_date.strftime("%Y-%m-%d %H:%M")
-    response_object = {
-        "id": updated_note_id,
-        "title": payload.title,
-        "type": payload.type,
-        "prompt": payload.prompt,
-        "description": payload.description,
-        "completed": payload.completed,
-        "created_date": created_date,
-    }
-    return response_object
+    return NoteData(
+        **payload.model_dump(exclude={"created_date"}),
+        id=updated_note_id,
+        created_date=existing_note.created_date,
+    )
 
 
 @router.post("/notes/{note_id}", response_class=HTMLResponse)
@@ -145,9 +139,8 @@ async def update_note_form(
 
 # @cache(expire=300)  # Cache for 5 minutes to avoid repeated execution of complex SQL
 # @mcp.resource("notes://{note_id}/read")
-# TODO  response_model=NoteData
-@router.get("/notes/{note_id}/")
-async def get_note_by_id(note_id: int):
+@router.get("/notes/{note_id}/", responses=NOT_FOUND_RESPONSE)
+async def get_note_by_id(note_id: int) -> NoteData:
     API_REQUEST_COUNTER.labels(
         method="GET",
         endpoint="/notes/{note_id}",
@@ -157,23 +150,17 @@ async def get_note_by_id(note_id: int):
     return await read_note(note_id)
 
 
-async def read_note(
-    note_id: int = Path(..., gt=0),
-):
-    note = await crud.get(note_id)
-    if not note:
-        raise HTTPException(status_code=404, detail="Note not found")
-    return note
+async def read_note(note_id: int) -> NoteData:
+    return NoteData.from_record(await get_note_or_404(note_id))
 
 
-# TODO  response_model=NoteData
-@router.delete("/notes/{note_id}/")
-async def delete_note(note_id: int = Path(..., gt=0)):
-    note = await crud.get(note_id)
-    if not note:
-        raise HTTPException(status_code=404, detail="Note not found")
+# Notes have no owner column and the router has no authentication dependency,
+# so there is no per-user authorization decision (no 403) to make here.
+@router.delete("/notes/{note_id}/", responses=NOT_FOUND_RESPONSE)
+async def delete_note(note_id: Annotated[int, Path(gt=0)]) -> NoteData:
+    """Delete a note and return the deleted representation (backward compatible)."""
+    note = await read_note(note_id)
     await crud.delete(note_id)
-
     return note
 
 

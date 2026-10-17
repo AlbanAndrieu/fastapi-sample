@@ -1,14 +1,22 @@
 import typing
-from datetime import datetime as dt
+from datetime import datetime
 
 from databases.interfaces import Record
 
 from nabla.api.db.database import database
-from nabla.api.notes.models import NoteResponse, notes
+from nabla.api.notes.models import NoteResponse, ensure_utc, notes, utc_now
 
 
-async def post(payload: NoteResponse) -> int:
-    """Insert a note asynchronously and return its persisted identifier."""
+async def post(
+    payload: NoteResponse,
+    *,
+    created_date: typing.Optional[datetime] = None,
+) -> int:
+    """Insert a note asynchronously and return its persisted identifier.
+
+    The server owns the creation timestamp: ``created_date`` defaults to the
+    current aware UTC instant and is never taken from the client payload.
+    """
     query = (
         notes.insert()
         .values(
@@ -16,8 +24,8 @@ async def post(payload: NoteResponse) -> int:
             description=payload.description,
             type=payload.type,
             prompt=payload.prompt,
-            completed=payload.completed,
-            created_date=dt.now(),
+            completed=bool(payload.completed),
+            created_date=ensure_utc(created_date) if created_date else utc_now(),
         )
         .returning(notes.c.id)
     )
@@ -44,7 +52,7 @@ async def put(note_id: int, payload: NoteResponse) -> typing.Any:
             description=payload.description,
             type=payload.type,
             prompt=payload.prompt,
-            completed=payload.completed,
+            completed=bool(payload.completed),
         )
         .returning(notes.c.id)
     )
