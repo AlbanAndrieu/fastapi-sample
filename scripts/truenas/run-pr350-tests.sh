@@ -8,14 +8,16 @@ ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
 cd "$ROOT"
 
 RUN_QUALITY=false
+RUN_PUBLISH=false
 OFFLINE=false
 SKIP_SYNC=false
 usage() {
-    echo 'Usage: bash scripts/truenas/run-pr350-tests.sh [--quality] [--offline] [--no-sync]'
+    echo 'Usage: bash scripts/truenas/run-pr350-tests.sh [--quality|--publish] [--offline] [--no-sync]'
 }
 for arg in "$@"; do
     case "$arg" in
         --quality) RUN_QUALITY=true ;;
+        --publish) RUN_QUALITY=true; RUN_PUBLISH=true ;;
         --offline) OFFLINE=true ;;
         --no-sync) SKIP_SYNC=true ;;
         -h | --help) usage; exit 0 ;;
@@ -41,6 +43,10 @@ fi
 # The project's requires-python is ==3.13.*; use the installed 3.13.5.
 export UV_PYTHON="/usr/bin/python3.13"
 export UV_PYTHON_DOWNLOADS=never
+if [[ "$OFFLINE" == true ]]; then
+    # Applies to nested uv/pre-commit/build commands as well as uv sync.
+    export UV_OFFLINE=1
+fi
 
 # TrueNAS may mount /tmp with noexec. Pytest's tmp_path fixtures execute
 # mocked tools (uv) as real programs; tmp_path MUST support execution.
@@ -90,5 +96,17 @@ if [[ "$RUN_QUALITY" == true ]]; then
     # Only after targeted tests pass. The gate may modify files in --fix mode.
     bash scripts/agent-quality-gate.sh --fix
 fi
+
+if [[ "$RUN_PUBLISH" == true ]]; then
+    # Publication proof is local-only; never push or merge from this wrapper.
+    # Preserve formatter results for inspection instead of silently discarding them.
+    if [[ -n "$(git status --short)" ]]; then
+        echo 'ERROR: publication proof requires a clean tree; review and commit quality fixes first.' >&2
+        git status --short >&2
+        exit 3
+    fi
+    bash scripts/agent-publish.sh
+fi
+
 printf '\nFinal worktree changes:\n'
 git status --short

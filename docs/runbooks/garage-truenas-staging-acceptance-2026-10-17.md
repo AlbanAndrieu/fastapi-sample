@@ -347,6 +347,22 @@ bash scripts/truenas/run-pr350-tests.sh
 bash scripts/truenas/run-pr350-tests.sh --no-sync --quality
 ```
 
+Pour la **preuve de publication strictement locale** (après convergence de
+la quality gate), utiliser :
+
+```bash
+# Ne pas rebaser/changer le HEAD si le worktree comporte des modifications.
+git status --short
+bash scripts/truenas/run-pr350-tests.sh --no-sync --publish
+```
+
+`--publish` relance les tests et la quality gate, refuse les changements
+générés mais non commités (exit 3), puis lance `agent-publish.sh` **sur
+un arbre propre**. Il ne déclenche pas `git push`, GitHub Actions,
+un merge ou un déploiement. `--offline` exporte aussi
+`UV_OFFLINE=1` aux outils invoqués en sous-processus : si une dépendance
+de validation manque au cache, le contrôle échoue explicitement.
+
 Le shell interactif SSH ne doit **pas** sourcer ce script (il contient
 `set -euo pipefail`). Le checkout de staging reste au SHA déployé tant
 qu'une nouvelle acceptation n'est pas demandée. Une exécution sur Python

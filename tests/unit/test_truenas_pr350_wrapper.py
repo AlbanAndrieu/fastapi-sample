@@ -25,3 +25,17 @@ def test_truenas_runner_protects_exec_required_pytest_fixtures() -> None:
     assert "pytest -q" in script
     assert "tests/unit/test_agent_publication_proof.py" in script
     assert "bash scripts/agent-quality-gate.sh --fix" in script
+
+
+def test_truenas_runner_never_publishes_dirty_tree_or_pushes() -> None:
+    script = WRAPPER.read_text(encoding="utf-8")
+    assert "--publish) RUN_QUALITY=true; RUN_PUBLISH=true" in script
+    assert 'if [[ "$RUN_PUBLISH" == true ]]; then' in script
+    assert 'if [[ -n "$(git status --short)" ]]; then' in script
+    assert "ERROR: publication proof requires a clean tree" in script
+    assert script.index("bash scripts/agent-quality-gate.sh --fix") < script.index(
+        "bash scripts/agent-publish.sh",
+    )
+    assert "git push" not in script
+    assert "git merge" not in script
+    assert "export UV_OFFLINE=1" in script
