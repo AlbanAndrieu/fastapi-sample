@@ -80,6 +80,7 @@ _OVERRIDE_FIELDS = (
     "cloudflareAccessRequired",
     "securityException",
     "healthNote",
+    "probePriority",
 )
 
 

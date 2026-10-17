@@ -158,13 +158,15 @@ def evidence_summary(
     eligible_count: int,
 ) -> dict[str, Any]:
     """Describe rolling evidence coverage independently from this cycle's sample."""
-    fresh = sum(row.get("probe_source") == "origin" for row in results)
-    cached = sum(row.get("probe_source") == "memory" for row in results)
+    fresh = sum(row.get("probe_source") == "origin" and row.get("probe_stale") is not True for row in results)
+    cached = sum(row.get("probe_source") == "memory" and row.get("probe_stale") is not True for row in results)
+    stale = sum(row.get("probe_stale") is True for row in results)
     known = fresh + cached
     return {
         "known": known,
         "fresh": fresh,
         "cached": cached,
+        "stale": stale,
         "coverage_percent": (round((known / eligible_count) * 100, 1) if eligible_count > 0 else 100.0),
         "evidence_ttl_seconds": PROBE_EVIDENCE_TTL_SEC,
         "evidence_max_retention_seconds": MAX_PROBE_EVIDENCE_RETENTION_SEC,
