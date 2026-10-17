@@ -7,16 +7,18 @@ import pytest
 from nabla.api import homelab_health
 from nabla.api import homelab_probe_policy
 from nabla.api import homelab_probe_evidence
+from nabla.api.homelab_catalog import _apply_exposure_overrides
 from nabla.api.homelab_models import HomelabService
 
 
-def _service(service_id: str, port: int) -> HomelabService:
+def _service(service_id: str, port: int, *, priority: int | None = None) -> HomelabService:
     return HomelabService(
         id=service_id,
         name=service_id,
         internalHost="172.17.0.24",
         internalPort=port,
         external=False,
+        probePriority=priority,
     )
 
 
@@ -275,3 +277,59 @@ def test_evidence_coverage_excludes_stale_and_deadline_samples() -> None:
     assert summary["stale"] == 1
     assert summary["known"] == 2
     assert summary["coverage_percent"] == 50.0
+
+
+def test_catalog_probe_priority_replaces_bootstrap_order() -> None:
+    services = [
+        _service("garage", 3900),
+        _service("garage-admin", 3903),
+        *[_service(f"background-{i}", 29000 + i, priority=20 - i) for i in range(3)],
+        *[_service(f"filler-{i}", 29100 + i) for i in range(20)],
+    ]
+
+    selected = homelab_probe_policy.select_probe_subset(services, limit=12, now=0.0)
+
+    assert homelab_probe_policy.priority_source(services) == "catalog"
+    assert [item.service_id for item in selected[:3]] == ["background-2", "background-1", "background-0"]
+    assert homelab_probe_policy.rotated_priority_ids(services, limit=12) == []
+    assert (
+        homelab_probe_policy.estimated_probe_interval_seconds(
+            services[0],
+            eligible_services=services,
+            limit=12,
+        )
+        != homelab_probe_policy.HEALTH_CACHE_TTL_SEC
+    )
+
+
+def test_catalog_priority_overflow_rotates_highest_ranks_last() -> None:
+    services = [_service(f"ranked-{i}", 29200 + i, priority=i) for i in range(12)]
+    services += [_service(f"filler-{i}", 29300 + i) for i in range(4)]
+
+    selected = homelab_probe_policy.select_probe_subset(services, limit=12, now=0.0)
+
+    assert [item.service_id for item in selected[:10]] == [f"ranked-{i}" for i in range(10)]
+    assert homelab_probe_policy.rotated_priority_ids(services, limit=12) == ["ranked-10", "ranked-11"]
+
+
+def test_bootstrap_order_applies_without_catalog_priority() -> None:
+    services = [_service("n8n", 5678), _service("garage", 3900)]
+
+    assert homelab_probe_policy.priority_source(services) == "bootstrap"
+    assert [item.service_id for item in homelab_probe_policy._ranked_priorities(services)] == ["garage", "n8n"]
+
+
+@pytest.mark.parametrize("invalid", [True, -1, 1001, "1"])
+def test_probe_priority_rejects_non_integer_ranks(invalid: object) -> None:
+    with pytest.raises(ValueError):
+        HomelabService(id="garage", name="garage", probePriority=invalid)
+
+
+def test_exposure_override_propagates_probe_priority() -> None:
+    merged = _apply_exposure_overrides(
+        {"services": [{"id": "garage", "name": "Garage S3 API"}]},
+        {"services": [{"name": "Garage S3 API", "probePriority": 0}]},
+    )
+
+    assert merged["services"][0]["probePriority"] == 0
+    assert HomelabService.model_validate(merged["services"][0]).probe_priority == 0

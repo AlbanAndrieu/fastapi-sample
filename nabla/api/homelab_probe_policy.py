@@ -15,10 +15,11 @@ SERVICE_FANOUT_BUDGET_SEC = 4.0
 MAX_INTERNAL_PROBES_PER_REFRESH = 12
 MAX_PUBLIC_PROBES_PER_REFRESH = 12
 
-# Ranked, not merely flagged: when priorities exceed the fixed budget, the
-# lowest-ranked ones move to rotation deterministically, independent of catalog
-# order. Garage stays first so its three distinct internal targets are observed.
-# TODO(roadmap): replace with a catalog ``probePriority`` owned by nabla-compose.
+# Bootstrap fallback, used only while no catalog service declares
+# ``probePriority`` (owned by nabla-compose). Ranked, not merely flagged: when
+# priorities exceed the fixed budget, the lowest-ranked ones move to rotation
+# deterministically, independent of catalog order. Garage stays first so its
+# three distinct internal targets are observed.
 _PRIORITY_SERVICE_ORDER: tuple[str, ...] = (
     "garage",
     "garage-admin",
@@ -35,6 +36,20 @@ _PRIORITY_SERVICE_ORDER: tuple[str, ...] = (
 )
 _PRIORITY_SERVICE_IDS = frozenset(_PRIORITY_SERVICE_ORDER)
 _PRIORITY_RANK = {service_id: rank for rank, service_id in enumerate(_PRIORITY_SERVICE_ORDER)}
+
+
+def priority_source(services: list[HomelabService]) -> str:
+    """Report whether ranks come from the catalog or the bootstrap fallback."""
+    return "catalog" if any(item.probe_priority is not None for item in services) else "bootstrap"
+
+
+def _ranked_priorities(services: list[HomelabService]) -> list[HomelabService]:
+    """Order priority services by catalog rank, never mixing the two rank spaces."""
+    if priority_source(services) == "catalog":
+        ranked = [item for item in services if item.probe_priority is not None]
+        return sorted(ranked, key=lambda item: (item.probe_priority, item.service_id))
+    ranked = [item for item in services if item.service_id in _PRIORITY_SERVICE_IDS]
+    return sorted(ranked, key=lambda item: _PRIORITY_RANK[item.service_id])
 
 
 def _unique_services(services: list[HomelabService]) -> list[HomelabService]:
@@ -57,10 +72,7 @@ def _probe_partitions(
     """Reserve rotating slots even when priority count reaches the probe budget."""
     if limit <= 0:
         return [], []
-    priority = sorted(
-        (item for item in services if item.service_id in _PRIORITY_SERVICE_IDS),
-        key=lambda item: _PRIORITY_RANK[item.service_id],
-    )
+    priority = _ranked_priorities(services)
     reserved = min(2, limit - 3) if limit > 3 and len(services) > limit else 0
     fixed = priority[: limit - reserved]
     fixed_ids = {item.service_id for item in fixed}
@@ -79,7 +91,7 @@ def rotated_priority_ids(
         return []
     fixed, _ = _probe_partitions(services, limit)
     fixed_ids = {item.service_id for item in fixed}
-    return [service_id for service_id in _PRIORITY_SERVICE_ORDER if service_id not in fixed_ids and any(item.service_id == service_id for item in services)]
+    return [item.service_id for item in _ranked_priorities(services) if item.service_id not in fixed_ids]
 
 
 def select_probe_subset(
