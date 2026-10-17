@@ -583,13 +583,25 @@ FastAPI Cloud (outside homelab)        TrueNAS (inside homelab)
   public probe path, DNS/TLS attribution or Cloudflare Access logic.
 - [x] Factor shared Prometheus vector parsing/query helpers so platform,
   topology and diagnostic consumers do not maintain parallel HTTP API parsers.
-- [ ] Remove the `# noqa: C901` exemptions added (2026-10-14) so repo-wide
+- [x] Remove the `# noqa: C901` exemptions added (2026-10-14) so repo-wide
   `ruff check .` passes: split `get_or_refresh_probe` (complexity 28),
   `append_truenas_api_stages` (15), `TrueNASClient.health_snapshot` (14),
   `_query_fixed_metrics` (17, from #338), `compare_internal_probe_evidence` (13),
   `_security_filter_observations` (12),
   `public_topology_payload`, `check_pfsense_api` and the diagnose script
-  `print_table` (11) below the McCabe limit of 10.
+  `print_table` (11) below the McCabe limit of 10. Done 2026-10-17 without
+  behavior change (helpers kept in the same modules so test monkeypatch targets
+  stay valid; pfSense service-inventory classifiers moved to
+  `nabla/api/pfsense_service_inventory.py` to keep `pfsense_dns_observer.py`
+  under the 700-line limit). The older file-level `C901` exemption of
+  `nabla/api/health_routes.py` (`register_health_routes`, 20) was also removed
+  by splitting route registration into ordered groups (route list and OpenAPI
+  schema verified identical to `master`); only `PLC0415` remains there.
+- [ ] Residual: vendored cookiecutter hooks `ccds/hook_utils/configure_gh.py`
+  (`configure_github_repo`, 18) and `ccds/monkey_patch.py`
+  (`prompt_for_config`, 12) still exceed C901 behind blanket `# ruff: noqa`
+  directives. Acceptance: remove the blanket directives and
+  `ruff check --select C901 --ignore-noqa .` reports no finding.
 - [x] Make the agent shell tooling portable to macOS/BSD userland
   (`mv -T`, `stat -c`, `install -d` chmod and suffixed `mktemp` fallbacks in
   `agent-source-snapshot.sh` and the quality-failure log retention).

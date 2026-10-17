@@ -257,39 +257,47 @@ class HomelabTopology(BaseModel):
         return self
 
 
-def public_topology_payload(topology: HomelabTopology) -> dict[str, object]:  # noqa: C901 -- refactor tracked in docs/engineering-roadmap.md
+def _add_public_node_descriptors(item: dict[str, object], node: HomelabTopologyNode) -> None:
+    """Copy optional presentation descriptors in their stable public order."""
+    if node.presentation_role is not None:
+        item["presentationRole"] = node.presentation_role
+    if node.criticality is not None:
+        item["criticality"] = node.criticality
+    if node.status is not None:
+        item["status"] = node.status
+    if node.security_functions is not None:
+        item["securityFunctions"] = list(node.security_functions)
+    if node.description is not None:
+        item["description"] = node.description
+    if node.icon is not None:
+        item["icon"] = node.icon
+
+
+def _public_topology_node(node: HomelabTopologyNode) -> dict[str, object]:
+    """Return one browser-safe node without privileged endpoint evidence."""
+    item: dict[str, object] = {
+        "id": node.id,
+        "name": node.name,
+        "kind": node.kind,
+        "category": node.category,
+    }
+    _add_public_node_descriptors(item, node)
+    if node.environments is not None:
+        item["environments"] = [{"name": environment.name} for environment in node.environments]
+    if node.lifecycle is not None:
+        item["lifecycle"] = node.lifecycle.model_dump(
+            mode="json",
+            by_alias=True,
+            exclude_none=True,
+        )
+    if node.runtime is not None:
+        item["runtime"] = {"provider": node.runtime.provider}
+    return item
+
+
+def public_topology_payload(topology: HomelabTopology) -> dict[str, object]:
     """Return a browser-safe declared graph without privileged endpoint evidence."""
-    nodes: list[dict[str, object]] = []
-    for node in topology.nodes:
-        item: dict[str, object] = {
-            "id": node.id,
-            "name": node.name,
-            "kind": node.kind,
-            "category": node.category,
-        }
-        if node.presentation_role is not None:
-            item["presentationRole"] = node.presentation_role
-        if node.criticality is not None:
-            item["criticality"] = node.criticality
-        if node.status is not None:
-            item["status"] = node.status
-        if node.security_functions is not None:
-            item["securityFunctions"] = list(node.security_functions)
-        if node.description is not None:
-            item["description"] = node.description
-        if node.icon is not None:
-            item["icon"] = node.icon
-        if node.environments is not None:
-            item["environments"] = [{"name": environment.name} for environment in node.environments]
-        if node.lifecycle is not None:
-            item["lifecycle"] = node.lifecycle.model_dump(
-                mode="json",
-                by_alias=True,
-                exclude_none=True,
-            )
-        if node.runtime is not None:
-            item["runtime"] = {"provider": node.runtime.provider}
-        nodes.append(item)
+    nodes = [_public_topology_node(node) for node in topology.nodes]
 
     relations = [
         {

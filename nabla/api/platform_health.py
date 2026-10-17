@@ -119,7 +119,44 @@ def _pfsense_transport_failure_result(
     return result
 
 
-async def check_pfsense_api() -> dict[str, Any]:  # noqa: C901 -- refactor tracked in docs/engineering-roadmap.md
+async def _get_pfsense_liveness(
+    url: str,
+    *,
+    api_key: str,
+    verify_ssl: bool,
+    timeout: httpx.Timeout,
+) -> tuple[httpx.Response | None, BaseException | None, int]:
+    """Return ``(response, last_error, attempts)`` with bounded transient retries."""
+    response: httpx.Response | None = None
+    last_error: BaseException | None = None
+    attempts = 0
+    async with httpx.AsyncClient(
+        timeout=timeout,
+        verify=verify_ssl,
+        follow_redirects=False,
+    ) as client:
+        for attempt in range(1, _PFSENSE_MAX_ATTEMPTS + 1):
+            attempts = attempt
+            try:
+                response = await client.get(
+                    url,
+                    headers={
+                        **probe_request_headers("pfsense-liveness"),
+                        "X-API-Key": api_key,
+                    },
+                )
+                break
+            except (httpx.HTTPError, OSError) as exc:
+                last_error = exc
+                retryable = _http_error_kind(exc) in _PFSENSE_TRANSIENT_ERROR_KINDS
+                if attempt < _PFSENSE_MAX_ATTEMPTS and retryable:
+                    await asyncio.sleep(_PFSENSE_RETRY_DELAY_SEC)
+                    continue
+                break
+    return response, last_error, attempts
+
+
+async def check_pfsense_api() -> dict[str, Any]:
     """Check pfSense REST API liveness with the posture read-only identity."""
     if not PfSenseProbePolicySettings().pfsense_authenticated_probes_enabled:
         cloud_vantage = fastapi_cloud_runtime_detected()
@@ -180,32 +217,12 @@ async def check_pfsense_api() -> dict[str, Any]:  # noqa: C901 -- refactor track
         credential_mode,
     )
     started = time.monotonic()
-    response: httpx.Response | None = None
-    last_error: BaseException | None = None
-    attempts = 0
-    async with httpx.AsyncClient(
+    response, last_error, attempts = await _get_pfsense_liveness(
+        url,
+        api_key=api_key,
+        verify_ssl=verify_ssl,
         timeout=timeout,
-        verify=verify_ssl,
-        follow_redirects=False,
-    ) as client:
-        for attempt in range(1, _PFSENSE_MAX_ATTEMPTS + 1):
-            attempts = attempt
-            try:
-                response = await client.get(
-                    url,
-                    headers={
-                        **probe_request_headers("pfsense-liveness"),
-                        "X-API-Key": api_key,
-                    },
-                )
-                break
-            except (httpx.HTTPError, OSError) as exc:
-                last_error = exc
-                retryable = _http_error_kind(exc) in _PFSENSE_TRANSIENT_ERROR_KINDS
-                if attempt < _PFSENSE_MAX_ATTEMPTS and retryable:
-                    await asyncio.sleep(_PFSENSE_RETRY_DELAY_SEC)
-                    continue
-                break
+    )
 
     elapsed_ms = round((time.monotonic() - started) * 1000)
     if response is None:
