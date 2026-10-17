@@ -625,13 +625,40 @@ actual repository HEAD. Do not treat this breakdown as implementation evidence.
 
 - [ ] **Notes contract normalization**: inventory current API models, database
   columns, callers, migrations and authorization tests before changing storage.
-  - [ ] Make `completed` a real boolean across request/response, persistence and
+  Inventory done in `fix/notes-contract-20261017` (PR description); the item
+  stays open until the residuals below are closed.
+  - [x] Make `completed` a real boolean across request/response, persistence and
     serialization; retain backwards compatibility only when consumers require it.
-  - [ ] Use timezone-aware UTC timestamps and test input/output normalization.
-  - [ ] Define typed read/delete responses, explicit 404/403 behavior and
-    authorization-preserving CRUD tests.
-  - [ ] Verify database migration and roundtrip integration in an isolated DB;
+    Legacy string spellings (`"True"`/`"False"`) remain accepted on input and
+    when reading not-yet-migrated rows.
+  - [x] Use timezone-aware UTC timestamps and test input/output normalization.
+    `created_date` is ISO 8601 UTC (`...Z`); naive legacy values are read as UTC.
+  - [x] Define typed read/delete responses, explicit 404/403 behavior and
+    authorization-preserving CRUD tests. Notes have no owner column and no
+    auth dependency, so no 403 path exists; tests pin that notes CRUD stays
+    out of `MCP_ALLOWED_ROUTES`.
+  - [x] Verify database migration and roundtrip integration in an isolated DB;
     do not rewrite production rows without reversible migration evidence.
+    Alembic `4b7c2d9e1a6f` upgrade/downgrade/re-upgrade and the CRUD roundtrip
+    (`tests/integration/test_notes_postgres.py`) passed on a disposable local
+    PostgreSQL 17 container.
+  - [ ] Residual — production/staging rollout: before `alembic upgrade head`,
+    take a backup and run `SELECT DISTINCT completed FROM note` (any value
+    outside true/false spellings aborts the migration) and confirm the server
+    clock that wrote naive `created_date` values was UTC. Acceptance proof:
+    `alembic current` = `4b7c2d9e1a6f` and `GET /notes/{id}/` returns a boolean
+    `completed` and a `Z` timestamp on the target environment.
+  - [ ] Residual — Alembic baseline: `992855f73a8d` alters `note` without
+    creating it (the table comes from `create_all`), so `alembic upgrade head`
+    fails on an empty database and `alembic/env.py` targets only the users
+    metadata. Acceptance proof: `alembic upgrade head` succeeds on an empty
+    disposable PostgreSQL.
+  - [ ] Residual — note ownership: add an owner column and 403 semantics only
+    if notes become per-user data (product decision), with cross-user tests.
+  - [ ] Residual — HTMX form routes (`POST /notes/{id}`, `_note_item*.html`)
+    mutate an immutable record and reference absent `content`/`done` fields
+    and missing toggle/delete routes. Acceptance proof: route tests for the
+    edit/toggle/delete fragments.
 - [ ] **RAG concurrency and persistence**: replace global mutable vector state
   with an injected `VectorStore` protocol; identify all readers and writers
   before choosing a backend.
