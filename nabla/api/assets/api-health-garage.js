@@ -108,7 +108,8 @@ export function includeObservedGarageChecks(
   snapshotState = "unknown",
 ) {
   const checks = data?.checks;
-  if (!checks || typeof checks !== "object" || Array.isArray(checks)) return data;
+  if (!checks || typeof checks !== "object" || Array.isArray(checks))
+    return data;
   const services = new Map(
     rows(homelab?.services)
       .filter((row) => GARAGE_LABELS.has(row.id))

@@ -31,9 +31,12 @@ const homelab = {
       url: "https://garage.albandrieu.com/path?secret=NEVER_LEAK",
     },
   ],
-  internal_services: ["garage", "garage-admin", "garage-webui"].map(
-    (id) => ({ id, state: "ok", probe_source: "origin", probe_stale: false }),
-  ),
+  internal_services: ["garage", "garage-admin", "garage-webui"].map((id) => ({
+    id,
+    state: "ok",
+    probe_source: "origin",
+    probe_stale: false,
+  })),
 };
 const base = { checks };
 const projected = includeObservedGarageChecks(base, homelab, "fresh");
@@ -46,7 +49,10 @@ assert.equal(projected.checks["garage-admin"].local_state, "ok");
 assert.equal(projected.checks["garage-admin"].risk_state, "at_risk");
 assert.equal(projected.checks["garage-admin"].url, undefined);
 assert.equal(projected.checks.garage.url, undefined);
-assert.equal(projected.checks["garage-webui"].url, "https://garage.albandrieu.com");
+assert.equal(
+  projected.checks["garage-webui"].url,
+  "https://garage.albandrieu.com",
+);
 assert.equal(projected.checks["garage-webui"].risk_state, "at_risk");
 assert.equal(base.checks.garage, undefined);
 

@@ -538,10 +538,7 @@ function decorateRow(row, snapshot) {
   const primary = row.querySelector(".health-row-primary");
   if (!primary) return;
 
-  setExposureMetadata(
-    row,
-    garageExposureForFilter(snapshot, row, exposure),
-  );
+  setExposureMetadata(row, garageExposureForFilter(snapshot, row, exposure));
   const kinds = new Set();
   const strip = document.createElement("div");
   strip.className = "service-probe-strip";

@@ -50,11 +50,7 @@ def _fixture_env(fake_bin: Path, **extra: str) -> dict[str, str]:
         "PYTHONHOME",
         "UV_PROJECT_ENVIRONMENT",
     }
-    env = {
-        key: value
-        for key, value in os.environ.items()
-        if key not in excluded and not key.startswith("BASH_FUNC_")
-    }
+    env = {key: value for key, value in os.environ.items() if key not in excluded and not key.startswith("BASH_FUNC_")}
     # Inherit neither a project venv/bin/uv nor a shell initialization
     # hook which can replace the mock with real uv. Keep Python and git
     # explicitly available so the isolated ci_scope fixture still runs.

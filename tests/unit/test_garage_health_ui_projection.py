@@ -29,7 +29,7 @@ def test_exposure_filter_uses_declared_intent_without_certifying_ingress() -> No
     assert "garageExposureForFilter(snapshot, row, exposure)" in source
     assert 'if (intent !== "internal" && intent !== "public")' in source
     assert 'external: intent === "public"' in source
-    assert 'declared.unexpected_tunnel_route === true' in source
+    assert "declared.unexpected_tunnel_route === true" in source
     assert re.search(
         r"setExposureMetadata\(\s*row,\s*garageExposureForFilter\(",
         source,

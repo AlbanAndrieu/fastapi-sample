@@ -3,11 +3,11 @@ import {
   dependencyHealthClass,
   mergeHomelabEvidence,
 } from "./api-health-dependency.js";
-import { includeObservedGarageChecks } from "./api-health-garage.js";
 import {
   detailText,
   isExpectedSentryDebugFailure,
 } from "./api-health-detail.js";
+import { includeObservedGarageChecks } from "./api-health-garage.js";
 import {
   escapeText,
   httpStatusIsSuccess2xx,
