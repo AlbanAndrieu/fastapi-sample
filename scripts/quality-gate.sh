@@ -41,6 +41,9 @@ if [[ -f "${ROOT}/.editorconfig" ]]; then
         EDITORCONFIG_CMD=(editorconfig-checker)
     elif command -v uvx >/dev/null 2>&1; then
         EDITORCONFIG_CMD=(uvx --from editorconfig-checker==3.11.1 ec)
+    elif command -v uv >/dev/null 2>&1; then
+        # uvx is an alias for `uv tool run`, but uv-only installs lack uvx.
+        EDITORCONFIG_CMD=(uv tool run --from editorconfig-checker==3.11.1 ec)
     else
         echo "❌ editorconfig-checker is required when .editorconfig is present."
         echo "   Install editorconfig-checker or uv, then rerun scripts/quality-gate.sh."
