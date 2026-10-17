@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 from fastapi.testclient import TestClient
-from starlette.routing import Mount
+from starlette.routing import Mount, Route
 
 from nabla.api import health_contracts, runtime_topology
 import nabla.lifespan as lifecycle
@@ -117,7 +117,8 @@ def test_default_factory_matches_exported_production_app() -> None:
     assert mcp is production_app.state.mcp
     assert mcp_app is production_app.state.mcp_app
     assert mcp is not None
-    assert any(isinstance(route, Mount) and route.app is mcp_app for route in production_app.routes)
+    assert any(isinstance(route, Route) and route.path == "/mcp" and route.app is mcp_app for route in production_app.routes)
+    assert not any(isinstance(route, Mount) and route.path == "" for route in production_app.routes)
 
 
 SUBSYSTEMS = ("database", "redis", "observability", "mcp", "rag")
@@ -134,6 +135,18 @@ LEGACY_REDIS_TOPOLOGY_KEYS = {
 }
 NO_EGRESS = {"ip": None, "observed": False, "cached": False, "source": "external_echo"}
 redis_module = importlib.import_module("nabla.api.demo.socket.redis")
+
+
+@pytest.fixture(autouse=True)
+def _workstation_dependency_policy(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pin the dependency policy: workstation runtime, no explicit *_REQUIRED."""
+    monkeypatch.setattr(health_contracts, "runtime_mode", lambda: "local")
+    for variable in ("POSTGRES_REQUIRED", "REDIS_REQUIRED", "SUPABASE_REQUIRED"):
+        monkeypatch.delenv(variable, raising=False)
+
+
+def _optional(check: dict[str, object]) -> dict[str, object]:
+    return {**check, "required": False}
 
 
 def _disabled_check(subsystem: str) -> dict[str, object]:
@@ -176,7 +189,7 @@ def test_minimal_app_readiness_reports_every_subsystem_disabled(isolated_lifecyc
     payload = response.json()
     assert payload["status"] == "ready"
     assert payload["subsystems"] == dict.fromkeys(SUBSYSTEMS, "disabled")
-    assert payload["checks"] == {"postgres": _disabled_check("database"), "redis": _disabled_check("redis")}
+    assert payload["checks"] == {"postgres": _optional(_disabled_check("database")), "redis": _optional(_disabled_check("redis"))}
     dependency_probes.postgres.assert_not_called()
     dependency_probes.redis.assert_not_awaited()
     isolated_lifecycle.database.connect.assert_not_awaited()
@@ -212,14 +225,15 @@ def test_single_disabled_subsystem_is_the_only_disabled_one(dependency_probes, d
     payload = response.json()
     expected = dict.fromkeys(SUBSYSTEMS, "enabled") | {disabled: "disabled"}
     assert payload["subsystems"] == expected
-    assert payload["checks"][check_name] == _disabled_check(disabled)
-    assert payload["checks"][other_name] == {"reachable": True}
+    assert payload["checks"][check_name] == _optional(_disabled_check(disabled))
+    assert payload["checks"][other_name] == _optional({"reachable": True})
     probe = getattr(dependency_probes, check_name)
     assert probe.call_count == 0
 
 
 @pytest.mark.parametrize("failing", ["postgres", "redis"])
-def test_default_app_enabled_dependency_failure_still_fails_readiness(dependency_probes, failing: str) -> None:
+def test_default_app_enabled_dependency_failure_still_fails_readiness(dependency_probes, failing: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(f"{failing.upper()}_REQUIRED", "true")
     failed = {"reachable": False, "error": "connection refused"}
     healthy = {"reachable": True}
     _probes_return(
@@ -234,7 +248,7 @@ def test_default_app_enabled_dependency_failure_still_fails_readiness(dependency
     payload = response.json()
     assert payload["status"] == "not_ready"
     assert payload["subsystems"] == dict.fromkeys(SUBSYSTEMS, "enabled")
-    assert payload["checks"][failing] == {**failed, "failure_stage": "connection_refused"}
+    assert payload["checks"][failing] == {**failed, "failure_stage": "connection_refused", "required": True}
 
 
 def test_default_app_readiness_and_topology_schema_only_gain_subsystems(dependency_probes, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -246,10 +260,24 @@ def test_default_app_readiness_and_topology_schema_only_gain_subsystems(dependen
     topology = client.get("/api/runtime/topology").json()
 
     assert set(readiness) == LEGACY_READINESS_KEYS | {"subsystems"}
-    assert readiness["checks"] == {"postgres": {"reachable": True}, "redis": {"reachable": True}}
+    assert readiness["checks"] == {"postgres": _optional({"reachable": True}), "redis": _optional({"reachable": True})}
     assert readiness["subsystems"] == dict.fromkeys(SUBSYSTEMS, "enabled")
     assert set(topology["redis"]) == LEGACY_REDIS_TOPOLOGY_KEYS
     assert topology["redis"]["reason"] == "redis client not configured"
     assert topology["subsystems"] == dict.fromkeys(SUBSYSTEMS, "enabled")
     dependency_probes.postgres.assert_called_once()
     dependency_probes.redis.assert_awaited_once()
+
+
+def test_mcp_route_does_not_shadow_frontend_assets() -> None:
+    app = create_app(AppFeatures(database=False, observability=False, rag=False))
+    client = TestClient(app)
+
+    asset = client.get("/api/assets/api-runtime.js")
+    missing = client.get("/api/assets/missing.js", headers={"Accept": "text/html"})
+
+    assert asset.status_code == 200
+    assert asset.headers["cache-control"] == "no-store, max-age=0"
+    assert asset.headers["pragma"] == "no-cache"
+    assert missing.status_code == 404
+    assert client.get("/unknown-path").json() == {"detail": "Not Found"}

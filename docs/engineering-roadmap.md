@@ -592,7 +592,11 @@ Reference:
     with a clean local run before making it blocking.
     - [x] 2026-10-17 (PR #350): `jupyter-server` 2.20.0 → 2.21.0
       (GHSA-c3mw-737p-c7g2, HIGH); `uv.lock` with dev deps 11 → 10 findings.
-    - [ ] `starlette` ≥ 1.3.1 (runtime, 5 advisories incl. 2 HIGH), `gradio`
+      Superseded: Jupyter (`notebook`/`nbdev` group, `jupyterlab`, `notebooks/`,
+      the compose `datascience-notebook` service, nbQA and `JUPYTER_JUPYFMT`)
+      was removed on `chore/uv-only-fastapi-frontend-20261017`; `uv.lock` no
+      longer contains `jupyter-server` (61 packages dropped).
+    - [x] `starlette` ≥ 1.3.1 (runtime, 5 advisories incl. 2 HIGH), `gradio`
       ≥ 6.16.0 and `aiosmtplib` ≥ 5.1.2 (via `fastapi-mail` ≥ 1.6.3) are all
       blocked by `arel` 0.4.0 (`starlette==0.*`, debug hot-reload in
       `nabla/app_factory.py`); a dry run without `arel` resolves starlette
@@ -602,10 +606,30 @@ Reference:
     - [ ] `diskcache` (GHSA-w8v5-vhqr-4h9v) and `git-url-parse`
       (GHSA-4xqq-73wg-5mjp) have no upstream fix: drop `dvc-s3`/`git-url-parse`
       from the `extra` group or document risk acceptance.
-    - [ ] `Pipfile.lock` (62 findings, 5 CRITICAL) is still consumed by
+    - [x] `Pipfile.lock` (62 findings, 5 CRITICAL) is still consumed by
       `make prepare-pipenv`/`setup-jupyter-local*`, `Dockerfile-pipenv` and the
       `.envrc` pipenv bootstrap: retire them together with a uv alternative for
       `setup-jupyter-local`, or regenerate with pipenv.
+    - [x] 2026-10-17 (branch `chore/uv-only-fastapi-frontend-20261017`):
+      `arel` removed (the debug reload is now a FastAPI SSE stream,
+      `nabla/dev_reload.py`), FastAPI `0.143.3`, Starlette `1.8.0`
+      (`fastapi-mail` 1.6.8, `gradio` 6.30.0,
+      `prometheus-fastapi-instrumentator` 8.1.0, `sqladmin` 0.32.0,
+      `aiosmtplib` 5.1.3). `Pipfile`, `Pipfile.lock`, `Dockerfile-pipenv` and
+      the pipenv bootstraps (`.envrc`, `make prepare-pipenv`,
+      `scripts/run-install.sh`) are retired; the packages the scripts still
+      import live in the opt-in `scripts` group. Local
+      `trivy fs --scanners vuln` on `uv.lock`: master 5 (Starlette) → 0.
+      Pipfile dev-only tools not migrated: ansible-builder/navigator/
+      playbook-grapher/runner, molecule, jira, jupyterlab extensions, poetry,
+      autopep8/pep8/pep8-naming, cz-conventional-gitmoji (install with
+      `uvx`/mise when needed).
+    - [ ] Residual: `uv.lock` remains in `--skip-files` of
+      `scripts/run-trivy.sh` and `.mega-linter.yml`. Acceptance: once this branch
+      (rebased on PR #350) is merged, drop the skip and get a clean `bash scripts/run-trivy.sh`.
+    - [ ] Residual: Starlette 1.8 warns that `starlette.testclient` with
+      `httpx` is deprecated (`httpx2`). Acceptance: migrate the test client
+      dependency once `httpx2` is supported by FastAPI's `TestClient`.
   - [ ] Residual: the image scan in `docker-build.yml` (Trivy action `v0.71.2`,
     no ignorefile, no `exit-code`) stays report-only and differs from the
     mise-locked `0.74.0`. Acceptance: align the version, triage the first image
@@ -741,6 +765,47 @@ FastAPI Cloud (outside homelab)        TrueNAS (inside homelab)
   and `.nvmrc` removed; CI reads `tools.node` from `mise.toml`.
 
 ## P1 — runtime architecture
+
+- [x] 2026-10-17 (branch `chore/uv-only-fastapi-frontend-20261017`): the
+  default app starts without PostgreSQL, Redis or Keycloak. PostgreSQL failure
+  logs `startup_dependency_degraded … critical=false`; DB-backed routers
+  (`/auth/*`, `/users/*`, `/notes/*`) answer 503 through
+  `nabla.api.db.availability.require_database`; `/readyz` answers 200
+  `degraded` with `required: false` per check; `/healthz` no longer treats
+  PostgreSQL/Redis as required. `POSTGRES_REQUIRED=true` / `REDIS_REQUIRED=true`
+  restore fail-fast startup and readiness. Keycloak settings are optional, the
+  client is built lazily (`get_keycloak_openid`), the `/healthz` probe is
+  `skipped` and the Keycloak auth routes answer 503 when unset. Live proof on
+  a workstation without Postgres/Redis/Keycloak: `make up` → `/livez`,
+  `/readyz`, `/` 200, `/notes/` and `/users/me` 503, no traceback.
+  - [x] Required dependencies follow `runtime_mode()`: FastAPI Cloud →
+    Redis + Supabase; TrueNAS (`FASTAPI_RUNTIME_MODE=homelab`) → Redis +
+    PostgreSQL, with fail-fast PostgreSQL startup; workstation (`local`) →
+    none. `POSTGRES_REQUIRED`/`REDIS_REQUIRED`/`SUPABASE_REQUIRED`
+    (`true|false`) override the default. `runtime_topology_heartbeat_failed`
+    warns once per Redis outage (then debug, `…_recovered` on return).
+  - [ ] Residual: deployed acceptance proof. Acceptance: after deployment,
+    `/readyz` returns 503 on FastAPI Cloud when Redis or Supabase is stopped and
+    on TrueNAS when Redis or PostgreSQL is stopped, and the contract is
+    documented in the nabla-compose runbook (owner: `nabla-compose`).
+  - [x] Workstation log hygiene: `make up` runs `ddtrace-run` only with
+    `DATADOG_ENABLED=true`; Supabase is required on FastAPI Cloud and
+    PostgreSQL on TrueNAS (never both); without Unleash every flag is off
+    instead of raising (the `/stream` SSE no longer fails); local 503s,
+    missing TrueNAS credentials and optional PostgreSQL/Redis outages log at
+    most one warning. Live proof: `make up` on the workstation →
+    `/v1/runtime/errors` empty, no traceback.
+  - [ ] Residual: Sentry initialises `target=cloud` on the workstation, so dev
+    errors reach the cloud Sentry project. Acceptance: a workstation profile
+    (no DSN or a dev DSN in `.env.local`) confirmed by
+    `/v1/runtime/metadata`/startup logs.
+  - [ ] Residual: gunicorn `--reload` (`make up`) logs `Worker reloading`
+    but the UvicornWorker never restarts, so code changes need a manual
+    restart. Acceptance: reproduce, fix (e.g. `fastapi dev`/uvicorn reload for
+    local dev) and show a reload picking up an edit.
+  - [ ] Residual: on this workstation `/healthz` took ~8 s without
+    dependencies. Acceptance: attribute the slow checks from `probe_budget`
+    and keep the deep diagnostic under its budget.
 
 - [x] Introduce an application factory so tests can create a minimal app without
   PostgreSQL, Redis, observability, MCP or RAG side effects:

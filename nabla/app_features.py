@@ -18,7 +18,8 @@ class AppFeatures:
     """Subsystems wired into one application instance.
 
     The defaults describe the production application: every subsystem is
-    enabled and PostgreSQL remains a critical startup dependency.
+    enabled. Enabled PostgreSQL/Redis are still optional at runtime unless
+    ``POSTGRES_REQUIRED``/``REDIS_REQUIRED`` are set (see ``nabla.lifespan``).
 
     - ``database``: PostgreSQL startup, schema init and DB-backed routes.
     - ``redis``: Redis client lifecycle, event listener and topology heartbeat.

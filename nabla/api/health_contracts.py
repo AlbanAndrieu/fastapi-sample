@@ -10,10 +10,32 @@ from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.engine import Engine
 
 from nabla.api.health_checks import check_postgres_sql, check_redis_ping
+from nabla.api.runtime_environment import runtime_mode
 from nabla.app_features import AppFeatures, disabled_subsystem_check
+from nabla.utils.environment import env_bool
 
 _READINESS_TIMEOUT_SECONDS = 3.0
-_REQUIRED_DIAGNOSTIC_CHECKS = frozenset({"postgres", "redis", "supabase"})
+# Each deployed runtime uses exactly one database backend (never both):
+# FastAPI Cloud runs on Supabase, the TrueNAS homelab on PostgreSQL. Both need
+# Redis. A developer workstation (runtime mode "local") requires nothing.
+_REQUIRED_CHECKS_BY_RUNTIME_MODE = {
+    "fastapi_cloud": frozenset({"redis", "supabase"}),
+    "homelab": frozenset({"redis", "postgres"}),
+}
+# An explicit `<NAME>_REQUIRED=true|false` always wins over the runtime default.
+_REQUIRED_OVERRIDES = {
+    "postgres": "POSTGRES_REQUIRED",
+    "redis": "REDIS_REQUIRED",
+    "supabase": "SUPABASE_REQUIRED",
+}
+
+
+def required_dependencies() -> frozenset[str]:
+    """Return the dependency checks whose failure makes the service not ready/unhealthy."""
+    defaults = _REQUIRED_CHECKS_BY_RUNTIME_MODE.get(runtime_mode(), frozenset())
+    return frozenset(name for name, variable in _REQUIRED_OVERRIDES.items() if env_bool(variable, name in defaults))
+
+
 _CLOUDFLARE_INVENTORY_FIELDS = frozenset(
     {
         "tunnel_count",
@@ -94,15 +116,22 @@ async def build_readiness_payload(
         redis = budget_exceeded if selected.redis else disabled_subsystem_check("redis")
 
     checks = {"postgres": postgres, "redis": redis}
-    for check in checks.values():
+    required = required_dependencies()
+    for name, check in checks.items():
+        check["required"] = name in required
         stage = _readiness_failure_stage(check)
         if stage is not None:
             check.setdefault("failure_stage", stage)
-    ready = all(check.get("skipped") is True or check.get("reachable") is True for check in checks.values())
+
+    def usable(check: dict[str, Any]) -> bool:
+        return check.get("skipped") is True or check.get("reachable") is True
+
+    ready = all(usable(check) for name, check in checks.items() if name in required)
+    degraded = ready and not all(usable(check) for check in checks.values())
     return (
         {
             "contract": "readiness",
-            "status": "ready" if ready else "not_ready",
+            "status": "degraded" if degraded else "ready" if ready else "not_ready",
             "version": version,
             "checked_at": _timestamp(),
             "checks": checks,
@@ -156,11 +185,10 @@ def _normalize_optional_uncertainty(
 def apply_diagnostic_status(payload: dict[str, Any]) -> dict[str, Any]:
     """Make deep-diagnostic state explicit without changing its HTTP contract."""
     raw_checks = payload.get("checks") if isinstance(payload.get("checks"), dict) else {}
-    checks = {
-        key: (value if key in _REQUIRED_DIAGNOSTIC_CHECKS or not isinstance(value, dict) else _normalize_optional_uncertainty(key, value)) for key, value in raw_checks.items()
-    }
-    required_failed = any(isinstance(checks.get(key), dict) and checks[key].get("reachable") is False for key in _REQUIRED_DIAGNOSTIC_CHECKS)
-    optional_failed = any(check.get("reachable") is False for key, check in checks.items() if key not in _REQUIRED_DIAGNOSTIC_CHECKS and isinstance(check, dict))
+    required = required_dependencies()
+    checks = {key: (value if key in required or not isinstance(value, dict) else _normalize_optional_uncertainty(key, value)) for key, value in raw_checks.items()}
+    required_failed = any(isinstance(checks.get(key), dict) and checks[key].get("reachable") is False for key in required)
+    optional_failed = any(check.get("reachable") is False for key, check in checks.items() if key not in required and isinstance(check, dict))
     status = "unhealthy" if required_failed else "degraded" if optional_failed else "healthy"
     return {
         **payload,

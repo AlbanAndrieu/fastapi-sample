@@ -95,6 +95,12 @@ class LazyUnleashClient:
     def __getattr__(self, name: str) -> Any:
         return getattr(get_unleash_client(), name)
 
+    def is_enabled(self, feature_name: str, *args: Any, **kwargs: Any) -> bool:
+        """Treat every flag as off while Unleash is not configured (local dev)."""
+        if not unleash_is_configured():
+            return False
+        return get_unleash_client().is_enabled(feature_name, *args, **kwargs)
+
 
 unleash_client = LazyUnleashClient()
 

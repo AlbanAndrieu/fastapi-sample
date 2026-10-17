@@ -15,7 +15,7 @@ FastAPI-based sample application with real-time sensor monitoring, authenticatio
 direnv allow
 pyenv install 3.12.3
 pyenv local 3.12.3
-python -m pipenv install --dev --ignore-pipfile
+uv sync
 pre-commit install
 
 # Alternative: Poetry installation
@@ -117,9 +117,9 @@ make sast-docker             # Security scan with Trivy
 
 **Core:**
 
-- FastAPI 0.115.3+ with async/await
+- FastAPI 0.143.3+ (Starlette 1.x) with async/await
 - Python 3.12+
-- Poetry & Pipenv for dependencies
+- uv (`pyproject.toml` + `uv.lock`) for dependencies
 - Pydantic for validation and settings
 
 **Database:**
@@ -308,4 +308,4 @@ From `.cursor/rules/001_project-description.mdc`:
 - **JWT expiration**: Tokens expire and need refresh. Implement token refresh logic in clients.
 - **Circuit breakers**: External service calls fail open after 2 consecutive errors for 10 seconds.
 - **Pre-commit hooks**: Can be slow. Use `SKIP=hook_name git commit` to bypass specific hooks during development (not recommended for final commits).
-- **Poetry vs Pipenv**: Both are supported. Poetry is preferred for new installations. See `pyproject.toml` for Poetry groups.
+- **Dependencies**: uv is the only supported Python dependency manager (Pipfile/pipenv retired). See the `[dependency-groups]` in `pyproject.toml`.

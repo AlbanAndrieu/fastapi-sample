@@ -6,6 +6,7 @@ from fastapi import Request
 from starlette.routing import Match, Mount
 
 from nabla.config import NOISY_SUCCESS_PATHS, NOISY_SUCCESS_PREFIXES
+from nabla.api.runtime_environment import runtime_mode
 from nabla.config_settings import APP_NAME, get_settings
 from nabla.utils.logger import logger
 from nabla.utils.prometheus import (
@@ -88,7 +89,10 @@ async def logging_middleware(request: Request, call_next):
     }
     is_noisy = response.status_code < 400 and (request.url.path in NOISY_SUCCESS_PATHS or request.url.path.startswith(NOISY_SUCCESS_PREFIXES))
 
-    if response.status_code >= 500:
+    # On a workstation, 503 means an optional dependency (PostgreSQL, Redis) is
+    # absent; it stays an error on deployed runtimes.
+    local_unavailable = response.status_code == 503 and runtime_mode() == "local"
+    if response.status_code >= 500 and not local_unavailable:
         logger.error("request_completed", **log_fields)
     elif response.status_code >= 400 or duration >= (15.0 if is_noisy else 2.0):
         logger.warning("request_completed", **log_fields)

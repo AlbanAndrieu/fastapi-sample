@@ -102,7 +102,6 @@ def summarize(snapshot: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-
 _MAX_AGGREGATE_SNAPSHOTS = 64
 
 
@@ -117,59 +116,28 @@ def aggregate_cycles(cycles: list[dict[str, Any]]) -> dict[str, Any]:
     """Compare bounded observed waves without counting cached snapshots as fresh."""
     # A fresh health-board envelope may still contain a retained homelab wave.
     # Only origin-sourced cycles can attribute current scheduler results.
-    origin = [
-        cycle
-        for cycle in cycles
-        if cycle["board_state"] == "fresh"
-        and cycle["probe_cache_source"] == "origin"
-    ]
-    public_completed = [
-        value
-        for cycle in origin
-        if isinstance(value := cycle["public"]["completed"], (int, float))
-    ]
-    public_deadlines = [
-        value
-        for cycle in origin
-        if isinstance(value := cycle["public"]["timed_out"], (int, float))
-    ]
+    origin = [cycle for cycle in cycles if cycle["board_state"] == "fresh" and cycle["probe_cache_source"] == "origin"]
+    public_completed = [value for cycle in origin if isinstance(value := cycle["public"]["completed"], (int, float))]
+    public_deadlines = [value for cycle in origin if isinstance(value := cycle["public"]["timed_out"], (int, float))]
     phase_maxima = {
         field: max(
-            [
-                value
-                for cycle in origin
-                if isinstance(value := cycle["public"]["timing"].get(field), (int, float))
-            ],
+            [value for cycle in origin if isinstance(value := cycle["public"]["timing"].get(field), (int, float))],
             default=None,
         )
         for field in _TIMING_FIELDS[1:]
     }
-    garage_lan = [
-        all(
-            cycle["garage"][key]["lan_observed"]
-            and cycle["garage"][key]["internal_state"] == "ok"
-            for key in _GARAGE_IDS
-        )
-        for cycle in origin
-    ]
+    garage_lan = [all(cycle["garage"][key]["lan_observed"] and cycle["garage"][key]["internal_state"] == "ok" for key in _GARAGE_IDS) for cycle in origin]
     return {
         "total_snapshots": len(cycles),
         "fresh_envelopes": sum(cycle["board_state"] == "fresh" for cycle in cycles),
-        "stale_or_pending_envelopes": sum(
-            cycle["board_state"] in {"stale", "pending"} for cycle in cycles
-        ),
+        "stale_or_pending_envelopes": sum(cycle["board_state"] in {"stale", "pending"} for cycle in cycles),
         "origin_cycles": len(origin),
         "public_completed_range": _aggregate_range(public_completed),
         "public_deadline_range": _aggregate_range(public_deadlines),
-        "origin_cycles_with_public_deadlines": sum(
-            value > 0 for value in public_deadlines
-        ),
+        "origin_cycles_with_public_deadlines": sum(value > 0 for value in public_deadlines),
         "observed_phase_maxima_ms": phase_maxima,
         "all_three_garage_lan_ok_origin_cycles": sum(garage_lan),
-        "garage_admin_unexpected_route_seen": any(
-            cycle["garage"]["garage-admin"]["unexpected_tunnel_route"] is True
-            for cycle in origin
-        ),
+        "garage_admin_unexpected_route_seen": any(cycle["garage"]["garage-admin"]["unexpected_tunnel_route"] is True for cycle in origin),
         "interpretation": (
             "insufficient_current_origin_evidence"
             if not origin

@@ -133,6 +133,7 @@ def test_summary_fails_closed_on_malformed_json_without_echoing_input() -> None:
 
 def test_aggregate_excludes_stale_and_retained_windows() -> None:
     """Counts fresh origin cycles, not a repeated cached health envelope."""
+
     def board(state: str, source: str, completed: int, timeout: int) -> dict:
         return {
             "state": state,
@@ -150,10 +151,7 @@ def test_aggregate_excludes_stale_and_retained_windows() -> None:
                     },
                     "internal": {"completed": 12, "timed_out": 0},
                 },
-                "internal_services": [
-                    {"id": key}
-                    for key in ("garage", "garage-admin", "garage-webui")
-                ],
+                "internal_services": [{"id": key} for key in ("garage", "garage-admin", "garage-webui")],
                 "services": [
                     {
                         "id": key,

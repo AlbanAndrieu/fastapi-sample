@@ -32,6 +32,8 @@ def test_just_legacy_recipes_delegate_to_make() -> None:
     assert "make doc" in source
     assert "make build-docker" in source
     assert 'make "{{target}}"' in source
+    # `just up` is the replacement for `make up` (start the service).
+    assert "\nup *args:\n    make up {{ args }}\n" in source
 
 
 def test_justfile_does_not_replace_makefile() -> None:

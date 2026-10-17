@@ -5,7 +5,8 @@ import { readFileSync } from "node:fs";
 const script = readFileSync(process.argv[2], "utf8");
 const url =
   "data:text/javascript;base64," + Buffer.from(script).toString("base64");
-const { phaseSummaryText, phaseDetailText, sanitizedPhaseTiming } = await import(url);
+const { phaseSummaryText, phaseDetailText, sanitizedPhaseTiming } =
+  await import(url);
 
 const copied = sanitizedPhaseTiming({
   completed_samples: 1,
@@ -60,10 +61,7 @@ assert.match(result, /Access 8ms/);
 assert.match(result, /2 HTTP requests/);
 
 assert.equal(phaseDetailText({ dns_probe_ms: null }), "");
-assert.equal(
-  phaseDetailText({ http_request_ms: "0", queue_wait_ms: -1 }),
-  "",
-);
+assert.equal(phaseDetailText({ http_request_ms: "0", queue_wait_ms: -1 }), "");
 assert.equal(
   phaseSummaryText(
     { completed_samples: true, max_dns_probe_ms: Infinity },
@@ -73,10 +71,6 @@ assert.equal(
   "",
 );
 assert.equal(
-  phaseSummaryText(
-    { completed_samples: 0, max_queue_wait_ms: null },
-    12,
-    12,
-  ),
+  phaseSummaryText({ completed_samples: 0, max_queue_wait_ms: null }, 12, 12),
   "Phase measurements 0/12 completed probes · 12 deadline (phase unknown)",
 );

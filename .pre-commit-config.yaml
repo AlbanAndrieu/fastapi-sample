@@ -326,24 +326,6 @@ repos:
       - id: sqlfluff-lint
         name: "📊 SQL · Lint SQL code files"
 
-    ### Notebooks ###
-  - repo: https://github.com/nbQA-dev/nbQA
-    rev: 1.9.1
-    hooks:
-      - id: nbqa
-        entry: nbqa mdformat
-        name: "📓 notebook · Format markdown cells"
-        args: ["--nbqa-md"]
-        types: [jupyter]
-        additional_dependencies:
-          - mdformat
-            # - mdformat-gfm
-          - mdformat-ruff
-          - mdformat-frontmatter
-          - ruff
-        # - id: nbqa-mypy
-        #   name: "📓 notebook · Type-check cells"
-
     ### Markdown ###
     # mdformat --check README.md CHANGELOG.md
     # - repo: https://github.com/hukkin/mdformat

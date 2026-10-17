@@ -139,9 +139,11 @@ async def post_sensor_event(event: SensorEvent, request: Request):
 @router.get("/stream")
 @router.get("/stream/{interval}")
 # @limiter.limit("100/second")
-async def stream_sensor_data(interval: int = SSE_STREAM_INTERVAL_SECONDS):
+async def stream_sensor_data(request: Request, interval: int = SSE_STREAM_INTERVAL_SECONDS):
     """Stream live sensor data via SSE"""
     sensor = _sensor_source()
+    # PostgreSQL is optional: without it, readings stay in memory for the charts.
+    persist_to_database = getattr(request.app.state, "database_available", True) is not False
     metrics.track_connection()
     logger.info("Starting SSE stream for sensor data")
 
@@ -164,8 +166,11 @@ async def stream_sensor_data(interval: int = SSE_STREAM_INTERVAL_SECONDS):
                     f"Generated sensor reading: temp={data['temperature']}°C, status={data['status']}",
                 )
 
-                # Save to PostgreSQL and Redis
-                await sensor.save_reading(data)
+                # Save to PostgreSQL (when available) and Redis
+                if persist_to_database:
+                    await sensor.save_reading(data)
+                else:
+                    await sensor.save_reading_to_redis(data)
 
                 # Send to all connected browsers
                 yield {

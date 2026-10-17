@@ -16,9 +16,7 @@ function milliseconds(value) {
 }
 
 function nonnegativeCount(value) {
-  return Number.isInteger(value) && value >= 0 && value <= 10000
-    ? value
-    : null;
+  return Number.isInteger(value) && value >= 0 && value <= 10000 ? value : null;
 }
 
 function measuredPhases(timing, prefixes) {
@@ -35,10 +33,7 @@ export function sanitizedPhaseTiming(timing) {
   return {
     completed_samples: nonnegativeCount(timing.completed_samples),
     ...Object.fromEntries(
-      PHASES.map(([key]) => [
-        `max_${key}`,
-        milliseconds(timing[`max_${key}`]),
-      ]),
+      PHASES.map(([key]) => [`max_${key}`, milliseconds(timing[`max_${key}`])]),
     ),
   };
 }
@@ -64,6 +59,7 @@ export function phaseDetailText(timing) {
   const phases = measuredPhases(timing, "");
   if (phases.length === 0) return "";
   const count = nonnegativeCount(timing?.http_request_count);
-  if (count !== null) phases.push(`${count} HTTP request${count === 1 ? "" : "s"}`);
+  if (count !== null)
+    phases.push(`${count} HTTP request${count === 1 ? "" : "s"}`);
   return `phases: ${phases.join(" · ")}`;
 }

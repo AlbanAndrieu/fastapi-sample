@@ -184,6 +184,9 @@ async def redis_usage_snapshot(redis_client: Redis | None) -> dict[str, Any]:
     }
 
 
+_heartbeat_outage = {"active": False}
+
+
 async def record_runtime_heartbeat(
     redis_client: Redis | None,
     *,
@@ -222,10 +225,17 @@ async def record_runtime_heartbeat(
         pipeline.expire(egress_zset, _EGRESS_REGISTRY_TTL_SEC)
         await pipeline.execute()
     except Exception as exc:  # Redis telemetry must never affect application health.
-        logger.warning(
+        # Warn once per outage; an optional Redis must not flood logs every 30 s.
+        log = logger.debug if _heartbeat_outage["active"] else logger.warning
+        _heartbeat_outage["active"] = True
+        log(
             "runtime_topology_heartbeat_failed",
             exception_type=type(exc).__name__,
         )
+    else:
+        if _heartbeat_outage["active"]:
+            _heartbeat_outage["active"] = False
+            logger.info("runtime_topology_heartbeat_recovered")
     return details
 
 
@@ -305,7 +315,9 @@ async def build_runtime_topology_snapshot(
         try:
             shared = await _shared_runtime_snapshot(redis_client, current, mode=mode)
         except Exception as exc:  # Best-effort diagnostic only.
-            logger.warning(
+            # Already reported once by the heartbeat while Redis is down.
+            log = logger.debug if _heartbeat_outage["active"] else logger.warning
+            log(
                 "runtime_topology_snapshot_failed",
                 exception_type=type(exc).__name__,
             )

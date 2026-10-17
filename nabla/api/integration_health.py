@@ -18,6 +18,7 @@ from nabla.config_settings import (
     PYROSCOPE_ENABLED,
     PYROSCOPE_ENDPOINT,
     get_openid_config,
+    keycloak_configured,
     get_settings,
 )
 from nabla.feature_flags import (
@@ -130,6 +131,12 @@ def probe_appwrite_health() -> dict[str, Any]:
 
 
 def probe_keycloak_well_known() -> dict[str, Any]:
+    if not keycloak_configured():
+        return {
+            "reachable": None,
+            "skipped": True,
+            "reason": "KEYCLOAK_SERVER_URL is not configured",
+        }
     try:
         config = get_openid_config()
     except Exception as exc:
