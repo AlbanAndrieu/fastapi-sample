@@ -230,6 +230,83 @@ de 4 secondes a été atteint**. Comparer plusieurs vagues avant toute
 optimisation. Les limites de concurrence 4, de sélection 12 par scope et
 les conditions de sécurité/Access restent inchangées.
 
+### Déduplication des campagnes publiques avant acceptation du prochain staging
+
+Un `state=fresh` dans `/api/health-board` prouve uniquement que
+**l'enveloppe HTTP de cache** est récente. Le champ
+`homelab.probe_cache.source=origin` peut lui aussi être retenu pendant
+plusieurs lectures d'un même snapshot. Le marqueur qui identifie la
+**campagne homelab effective** est `homelab.checked_at`, émis au terme
+du fan-out ; `generated_at` du health-board peut changer sans qu'une
+nouvelle campagne ait eu lieu.
+
+L'agrégateur hors réseau `scripts/audit/summarize_homelab_cycles.py`
+déduplique les observations `fresh/origin` sur cet identifiant UTC.
+Il ignore les candidats sans identifiant validé et expose
+`origin_candidate_envelopes`, `duplicate_origin_envelopes`,
+`unattributed_origin_envelopes` et `origin_cycles` (campagnes
+**distinctes**). `--require-three-origin-cycles` exige au moins trois
+campagnes distinctes : succès 0 ou résultat insuffisant 3, avec rapport
+JSON sans secrets dans les deux cas. Il ne démontre jamais une
+observation outside-in indépendante depuis FastAPI Cloud.
+
+**Après validation locale et déploiement explicite du nouveau SHA seulement**,
+cette collecte assainie depuis TrueNAS échantillonne au plus cinq
+lectures, espacées de 45 secondes. Le GET du health-board est en lecture
+seule côté appelant, mais peut **déclencher son rafraîchissement normal**
+lorsque le cache est périmé ; les budgets existants de 4 secondes,
+concurrence 4 et 12 sondes sélectionnées restent inchangés.
+
+```bash
+cd /mnt/cpool/compose/fastapi-sample-pr350-verify
+(
+  set -euo pipefail
+  API="http://127.0.0.1:8091"
+  for i in 1 2 3 4 5; do
+    curl -fsS --max-time 15 "$API/api/health-board" |
+      jq -c '
+        .homelab as $h |
+        {
+          state: .state,
+          homelab: {
+            checked_at: $h.checked_at,
+            probe_cache: {source: $h.probe_cache.source},
+            probe_summary: {
+              public: {
+                completed: $h.probe_summary.public.completed,
+                timed_out: $h.probe_summary.public.timed_out,
+                timing: $h.probe_summary.public.timing,
+                deadline_phase_counts: $h.probe_summary.public.deadline_phase_counts
+              },
+              internal: {
+                completed: $h.probe_summary.internal.completed,
+                timed_out: $h.probe_summary.internal.timed_out
+              }
+            },
+            internal_services: [
+              $h.internal_services[]? |
+              select(.id == "garage" or .id == "garage-admin" or .id == "garage-webui") |
+              {id}
+            ],
+            services: [
+              $h.services[]? |
+              select(.id == "garage" or .id == "garage-admin" or .id == "garage-webui") |
+              {id,internal_state,exposure_intent,unexpected_tunnel_route}
+            ]
+          }
+        }'
+    [ "$i" -eq 5 ] || sleep 45
+  done
+) | /usr/bin/python3.13 scripts/audit/summarize_homelab_cycles.py \
+  --aggregate --require-three-origin-cycles
+```
+
+Cette commande ne transmet aucun token, header d'authentification, URL
+de service ni réponse brute au rapport. Un résultat avec
+`origin_cycles < 3` est **INCONCLUSIVE**, pas un échec réseau.
+En présence de campagnes expirées, analyser les
+`deadline_phase_totals` avant toute optimisation DNS/sémaphore.
+
 ### Validation locale sur TrueNAS (Python système 3.13)
 
 Le worktree dédié `/mnt/cpool/compose/fastapi-sample-pr350-verify` permet
@@ -250,8 +327,9 @@ ciblés ont réussi avec Python 3.13.5. Les trois échecs restants du
 `test_agent_publication_proof.py` ont été causés par l'impossibilité
 d'exécuter le faux binaire `uv` créé sous
 `/tmp/pytest-of-albandrieu/.../fake-bin/` (`Permission denied`,
-code retour 126). Le montage `noexec` de `/tmp` est **suspecté**
-et peut être confirmé par `findmnt -T /tmp -no TARGET,OPTIONS`.
+code retour 126). Le montage `noexec` de `/tmp` a depuis été **confirmé** par
+`findmnt -T /tmp -no TARGET,OPTIONS` : `rw,nosuid,nodev,noexec,inode64`.
+La reprise sur `aa2491b5` a réussi **30/30 tests ciblés**.
 Le wrapper place désormais `TMPDIR` dans le cache utilisateur
 `$HOME/.cache/nabla/fastapi-sample-pr350/tmp` (mode privé) et teste
 l'exécution effective d'un script sur ce chemin. Si ce dataset est aussi

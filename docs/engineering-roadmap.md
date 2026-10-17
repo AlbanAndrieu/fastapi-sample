@@ -1,5 +1,12 @@
 # Engineering and security roadmap
 
+## P1 — Campagnes distinctes et diagnostics local-first (PR #350, 2026-10-18)
+
+- [x] **Éliminer les relectures du cache dans la comparaison** — `scripts/audit/summarize_homelab_cycles.py --aggregate` déduplique les observations `fresh/origin` par `homelab.checked_at`, et exclut les enveloppes dépourvues d'un identifiant temporel ISO UTC strictement validé. `health-board.generated_at` ne constitue **pas** une preuve d'une nouvelle campagne réseau. Compteurs de répétitions et de preuves manquantes, tests de non-régression et conservation du filtrage des secrets.
+- [x] **Contrat d'acceptation hors réseau** — option `--require-three-origin-cycles` pour exiger trois campagnes distinctes (exit 3 sinon), tout en fournissant une synthèse JSON assainie. Aucun appel HTTP/DNS depuis l'agrégateur, aucun changement des budgets de sondage.
+- [ ] **Validation locale du dernier HEAD** — les 30 tests ciblés étaient verts sur TrueNAS à `aa2491b5`; Ruff C420 a été corrigé dans `e887499d`, mais la gate et les nouveaux tests de déduplication devront être exécutés sur le commit courant avec `UV_PYTHON=/usr/bin/python3.13` et `TMPDIR` exécutable. Ne pas transférer la preuve de tests d'un ancien SHA.
+- [ ] **Acceptation runtime ultérieure** — seulement après validation locale et déploiement volontaire du SHA immuable, réunir au moins trois identifiants `homelab.checked_at` distincts via le script de synthèse et comparer `deadline_phase_counts` aux expirations. Aucun merge ni déploiement automatisés.
+
 ## P1 — Sondes Garage : preuve de phases et comparaison des cycles (PR #350)
 
 - [x] **Présentation sans nouvelles requêtes** — exposer dans le panneau « Homelab probe fan-out » les phases déjà mesurées `queue_wait_ms`, `dns_probe_ms`, `http_request_ms`, `access_secondary_ms`, avec nombre de probes effectivement instrumentées et maximum par phase ; afficher `deadline (phase unknown)` quand l'échéance globale empêche la mesure, et ne jamais convertir `null` en 0 ms. Le budget 4 s, la concurrence 4 et l'échantillonnage 12 restent inchangés.

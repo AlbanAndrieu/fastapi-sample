@@ -8,7 +8,9 @@ Output: one whitelisted, credential-free diagnostic object per line.
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
 import json
+import re
 import sys
 from typing import Any
 
@@ -43,6 +45,22 @@ def _bounded_number(value: Any) -> int | float | None:
     if type(value) not in (int, float):
         return None
     if not 0 <= value <= 1_000_000:
+        return None
+    return value
+
+
+def _safe_probe_wave_checked_at(value: Any) -> str | None:
+    """Only a validated homelab probe timestamp can identify a distinct wave."""
+    if not isinstance(value, str) or len(value) > 32:
+        return None
+    if re.fullmatch(
+        r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,6})?Z",
+        value,
+    ) is None:
+        return None
+    try:
+        datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
         return None
     return value
 
@@ -100,6 +118,7 @@ def summarize(snapshot: dict[str, Any]) -> dict[str, Any]:
     return {
         "board_state": state,
         "board_age_seconds": _bounded_number(board.get("age_seconds")),
+        "probe_wave_checked_at": _safe_probe_wave_checked_at(homelab.get("checked_at")),
         "probe_cache_source": _allowed_text(
             cache.get("source"),
             {"origin", "memory"},
@@ -124,9 +143,28 @@ def _aggregate_range(values: list[int | float]) -> dict[str, int | float | None]
 
 def aggregate_cycles(cycles: list[dict[str, Any]]) -> dict[str, Any]:
     """Compare bounded observed waves without counting cached snapshots as fresh."""
-    # A fresh health-board envelope may still contain a retained homelab wave.
-    # Only origin-sourced cycles can attribute current scheduler results.
-    origin = [cycle for cycle in cycles if cycle["board_state"] == "fresh" and cycle["probe_cache_source"] == "origin"]
+    # Even a fresh/origin envelope can repeat the very same cached homelab
+    # wave. Only the actual homelab checked_at is suitable as a wave identity:
+    # the health-board generated_at may advance without new probes.
+    candidates = [
+        cycle
+        for cycle in cycles
+        if cycle["board_state"] == "fresh"
+        and cycle["probe_cache_source"] == "origin"
+    ]
+    origin: list[dict[str, Any]] = []
+    seen_waves: set[str] = set()
+    duplicate_origin_envelopes = 0
+    unattributed_origin_envelopes = 0
+    for cycle in candidates:
+        wave_id = cycle.get("probe_wave_checked_at")
+        if not isinstance(wave_id, str):
+            unattributed_origin_envelopes += 1
+        elif wave_id in seen_waves:
+            duplicate_origin_envelopes += 1
+        else:
+            seen_waves.add(wave_id)
+            origin.append(cycle)
     public_completed = [value for cycle in origin if isinstance(value := cycle["public"]["completed"], (int, float))]
     public_deadlines = [value for cycle in origin if isinstance(value := cycle["public"]["timed_out"], (int, float))]
     phase_maxima = {
@@ -146,6 +184,10 @@ def aggregate_cycles(cycles: list[dict[str, Any]]) -> dict[str, Any]:
         "fresh_envelopes": sum(cycle["board_state"] == "fresh" for cycle in cycles),
         "stale_or_pending_envelopes": sum(cycle["board_state"] in {"stale", "pending"} for cycle in cycles),
         "origin_cycles": len(origin),
+        "origin_candidate_envelopes": len(candidates),
+        "duplicate_origin_envelopes": duplicate_origin_envelopes,
+        "unattributed_origin_envelopes": unattributed_origin_envelopes,
+        "three_distinct_origin_cycles_observed": len(origin) >= 3,
         "public_completed_range": _aggregate_range(public_completed),
         "public_deadline_range": _aggregate_range(public_deadlines),
         "origin_cycles_with_public_deadlines": sum(value > 0 for value in public_deadlines),
@@ -154,13 +196,23 @@ def aggregate_cycles(cycles: list[dict[str, Any]]) -> dict[str, Any]:
         "all_three_garage_lan_ok_origin_cycles": sum(garage_lan),
         "garage_admin_unexpected_route_seen": any(cycle["garage"]["garage-admin"]["unexpected_tunnel_route"] is True for cycle in origin),
         "interpretation": (
-            "insufficient_current_origin_evidence"
+            "missing_probe_wave_identity"
+            if not origin and unattributed_origin_envelopes
+            else "insufficient_current_origin_evidence"
             if not origin
             else "variable_public_completion"
             if len(public_completed) >= 2 and min(public_completed) != max(public_completed)
+            else "insufficient_distinct_origin_cycles"
+            if len(origin) < 3
             else "current_origin_samples_not_independent_outside_in_proof"
         ),
-        "limits": "Completed-probe maxima exclude cancelled tasks; deadline phases are last observed checkpoints, not completed operations. Origin cycles are not independent WAN tests.",
+        "limits": (
+            "Fresh/origin envelopes are deduplicated by homelab.checked_at; "
+            "those without a validated identity are excluded. Completed-probe "
+            "maxima exclude cancelled tasks; deadline phases are checkpoints, "
+            "not completed operations. Distinct homelab waves do not prove "
+            "independent WAN tests."
+        ),
     }
 
 
@@ -171,7 +223,14 @@ def main() -> int:
         action="store_true",
         help="summarize up to 64 existing snapshots as one redacted comparison",
     )
+    parser.add_argument(
+        "--require-three-origin-cycles",
+        action="store_true",
+        help="return 3 unless three distinct, identified homelab probe waves exist",
+    )
     args = parser.parse_args()
+    if args.require_three_origin_cycles and not args.aggregate:
+        parser.error("--require-three-origin-cycles requires --aggregate")
     collected: list[dict[str, Any]] = []
     for line_number, line in enumerate(sys.stdin, start=1):
         if not line.strip():
@@ -196,7 +255,10 @@ def main() -> int:
         else:
             print(json.dumps(summary, separators=(",", ":"), sort_keys=True))
     if args.aggregate:
-        print(json.dumps(aggregate_cycles(collected), separators=(",", ":"), sort_keys=True))
+        report = aggregate_cycles(collected)
+        print(json.dumps(report, separators=(",", ":"), sort_keys=True))
+        if args.require_three_origin_cycles and not report["three_distinct_origin_cycles_observed"]:
+            return 3
     return 0
 
 

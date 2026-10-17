@@ -139,6 +139,7 @@ def test_aggregate_excludes_stale_and_retained_windows() -> None:
             "state": state,
             "secret": "NEVER_LEAK",
             "homelab": {
+                "checked_at": f"2026-10-18T00:00:{completed:02d}Z",
                 "probe_cache": {"source": source},
                 "probe_summary": {
                     "public": {
@@ -228,6 +229,7 @@ def test_aggregate_whitelists_deadline_phase_totals_without_exposing_targets() -
         {
             "state": "fresh",
             "homelab": {
+                "checked_at": "2026-10-18T00:00:01Z",
                 "probe_cache": {"source": "origin"},
                 "probe_summary": {
                     "public": {
@@ -282,3 +284,138 @@ def test_aggregate_whitelists_deadline_phase_totals_without_exposing_targets() -
         "access_secondary_in_progress": 1,
         "tcp_in_progress": 0,
     }
+
+
+def test_aggregate_deduplicates_repeated_fresh_origin_health_boards() -> None:
+    """Re-reading one cached board must not invent independent probe waves."""
+    first = {
+        "state": "fresh",
+        "generated_at": "2026-10-18T00:00:02Z",
+        "homelab": {
+            "checked_at": "2026-10-18T00:00:01.123456Z",
+            "probe_cache": {"source": "origin"},
+            "probe_summary": {
+                "public": {
+                    "completed": 2,
+                    "timed_out": 10,
+                    "deadline_phase_counts": {"dns_in_progress": 7},
+                },
+            },
+        },
+    }
+    repeated = json.loads(json.dumps(first))
+    # The envelope can be newer without refreshing homelab probes.
+    repeated["generated_at"] = "2026-10-18T00:00:40Z"
+    repeated["homelab"]["probe_summary"]["public"]["completed"] = 12
+    distinct = json.loads(json.dumps(first))
+    distinct["homelab"]["checked_at"] = "2026-10-18T00:01:01Z"
+    distinct["homelab"]["probe_summary"]["public"]["completed"] = 12
+    distinct["homelab"]["probe_summary"]["public"]["timed_out"] = 0
+    distinct["homelab"]["probe_summary"]["public"]["deadline_phase_counts"] = {}
+    missing_identity = json.loads(json.dumps(first))
+    del missing_identity["homelab"]["checked_at"]
+    missing_identity["secret"] = "NEVER_LEAK"
+    untrusted_identity = json.loads(json.dumps(first))
+    untrusted_identity["homelab"]["checked_at"] = "https://NEVER_LEAK.example.invalid"
+
+    snapshots = [first, repeated, distinct, missing_identity, untrusted_identity]
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), "--aggregate"],
+        input="\n".join(json.dumps(item) for item in snapshots) + "\n",
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "NEVER_LEAK" not in result.stdout + result.stderr
+    output = json.loads(result.stdout)
+    assert output["origin_candidate_envelopes"] == 5
+    assert output["origin_cycles"] == 2
+    assert output["duplicate_origin_envelopes"] == 1
+    assert output["unattributed_origin_envelopes"] == 2
+    assert output["three_distinct_origin_cycles_observed"] is False
+    assert output["public_completed_range"] == {"min": 2, "max": 12}
+    assert output["public_deadline_range"] == {"min": 0, "max": 10}
+    assert output["deadline_phase_totals"]["dns_in_progress"] == 7
+
+
+def test_aggregate_requires_valid_wave_identity_even_for_fresh_origin() -> None:
+    bad = {
+        "state": "fresh",
+        "homelab": {
+            "checked_at": "2026-99-88T99:99:99Z",
+            "probe_cache": {"source": "origin"},
+            "probe_summary": {"public": {"completed": 12, "timed_out": 0}},
+        },
+    }
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), "--aggregate"],
+        input=json.dumps(bad) + "\n",
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    assert result.returncode == 0, result.stderr
+    report = json.loads(result.stdout)
+    assert report["origin_cycles"] == 0
+    assert report["unattributed_origin_envelopes"] == 1
+    assert report["interpretation"] == "missing_probe_wave_identity"
+
+
+def test_aggregate_three_distinct_origin_waves_passes_sample_count() -> None:
+    snapshots = [
+        {
+            "state": "fresh",
+            "homelab": {
+                "checked_at": f"2026-10-18T00:0{minute}:01Z",
+                "probe_cache": {"source": "origin"},
+                "probe_summary": {
+                    "public": {"completed": 12 - minute, "timed_out": minute},
+                },
+            },
+        }
+        for minute in range(3)
+    ]
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), "--aggregate", "--require-three-origin-cycles"],
+        input="\n".join(json.dumps(item) for item in snapshots) + "\n",
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    assert result.returncode == 0, result.stderr
+    report = json.loads(result.stdout)
+    assert report["origin_cycles"] == 3
+    assert report["duplicate_origin_envelopes"] == 0
+    assert report["three_distinct_origin_cycles_observed"] is True
+    assert report["interpretation"] == "variable_public_completion"
+
+
+def test_aggregate_insufficient_unique_waves_exits_three_with_safe_report() -> None:
+    snapshot = {
+        "state": "fresh",
+        "homelab": {
+            "checked_at": "2026-10-18T00:00:01Z",
+            "probe_cache": {"source": "origin"},
+            "probe_summary": {"public": {"completed": 12, "timed_out": 0}},
+        },
+        "url": "https://NEVER_LEAK.example.invalid",
+    }
+    # A repeated healthy-looking board is not three distinct measurements.
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), "--aggregate", "--require-three-origin-cycles"],
+        input="\n".join(json.dumps(snapshot) for _ in range(3)) + "\n",
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    assert result.returncode == 3
+    assert "NEVER_LEAK" not in result.stdout + result.stderr
+    report = json.loads(result.stdout)
+    assert report["origin_cycles"] == 1
+    assert report["duplicate_origin_envelopes"] == 2
+    assert report["three_distinct_origin_cycles_observed"] is False
