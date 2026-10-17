@@ -230,6 +230,35 @@ de 4 secondes a été atteint**. Comparer plusieurs vagues avant toute
 optimisation. Les limites de concurrence 4, de sélection 12 par scope et
 les conditions de sécurité/Access restent inchangées.
 
+### Validation locale sur TrueNAS (Python système 3.13)
+
+Le worktree dédié `/mnt/cpool/compose/fastapi-sample-pr350-verify` permet
+de tester la PR sans modifier le sous-module staging
+`/mnt/cpool/compose/nabla-compose/fastapi-sample`. Le dépôt exige la
+toolchain 3.13.15, mais TrueNAS fournit actuellement
+`/usr/bin/python3.13` (3.13.5) ; le helper
+`scripts/truenas/run-pr350-tests.sh` force
+`UV_PYTHON=/usr/bin/python3.13` et `UV_PYTHON_DOWNLOADS=never` dans son
+propre processus, avec `uv sync --frozen --python`. Il n'écrit ni dans
+`.python-version`, ni dans `mise.toml`, ni dans `uv.lock`. Il utilise
+`uv run --no-sync` pour les tests et n'exécute la gate qu'avec `--quality`.
+Utiliser `--offline` si les distributions sont déjà en cache, et
+`--no-sync` uniquement si `.venv` du worktree est complet.
+
+```bash
+cd /mnt/cpool/compose/fastapi-sample-pr350-verify
+git fetch origin fix/editorconfig-test-formatting-after-pr342-20261017
+git switch --detach origin/fix/editorconfig-test-formatting-after-pr342-20261017
+bash scripts/truenas/run-pr350-tests.sh
+# Après succès des tests, pour la gate locale :
+bash scripts/truenas/run-pr350-tests.sh --no-sync --quality
+```
+
+Le shell interactif SSH ne doit **pas** sourcer ce script (il contient
+`set -euo pipefail`). Le checkout de staging reste au SHA déployé tant
+qu'une nouvelle acceptation n'est pas demandée. Une exécution sur Python
+3.13.5 ne remplace pas la validation finale sur la version épinglée 3.13.15.
+
 ## Critères de sortie et ownership
 
 - [x] PR #342 merged / runtime Garage LAN 3/3 confirmé.
