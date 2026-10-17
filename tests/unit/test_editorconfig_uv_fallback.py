@@ -59,8 +59,8 @@ pre-commit() {
 uv() {
     printf 'uv %s\\n' "$*" >> "$QG_MOCK_LOG"
     [[ "$1" == tool && "$2" == run && "$3" == --from &&
-       "$4" == editorconfig-checker==3.11.1 && "$5" == ec &&
-       "$6" == -config ]]
+        "$4" == editorconfig-checker==3.11.1 && "$5" == ec &&
+        "$6" == -config ]]
 }
         """,
         encoding="utf-8",
