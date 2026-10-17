@@ -34,17 +34,11 @@ def _optional_rank(value: Any, field: str) -> int | None:
     return value
 
 
-def build_probe_units(
-    records: Sequence[Mapping[str, Any]], *, observer: Observer
-) -> list[ProbeUnit]:
-    """Build explicit units, retaining component IDs and strict exposure intent.
-
-    The public observer cannot probe a private component. A partially public
-    deployment unit retains only its eligible endpoints for that observer.
-    """
-    if observer not in ("internal", "public"):
-        raise ValueError("observer must be 'internal' or 'public'")
-
+def _group_components(
+    records: Sequence[Mapping[str, Any]],
+    observer: Observer,
+) -> dict[str, list[Mapping[str, Any]]]:
+    """Validate components and group observer-eligible ones by declared unit."""
     grouped: dict[str, list[Mapping[str, Any]]] = {}
     seen: set[str] = set()
     for record in records:
@@ -58,9 +52,7 @@ def build_probe_units(
         if type(external) is not bool:
             raise ValueError(f"external must be boolean for {component_id}")
         unit_id = record.get("deploymentUnitId")
-        if unit_id is not None and (
-            not isinstance(unit_id, str) or not unit_id.strip()
-        ):
+        if unit_id is not None and (not isinstance(unit_id, str) or not unit_id.strip()):
             raise ValueError(f"Invalid deploymentUnitId for {component_id}")
         _optional_rank(record.get("probePriority"), "probePriority")
         if observer == "public" and not external:
@@ -68,53 +60,59 @@ def build_probe_units(
         # Never group undeclared units by hostname or ID prefix.
         key = unit_id or f"service:{component_id}"
         grouped.setdefault(key, []).append(record)
+    return grouped
+
+
+def _unit_endpoints(
+    unit_id: str,
+    members: Sequence[Mapping[str, Any]],
+    ids: tuple[str, ...],
+    observer: Observer,
+) -> tuple[str | None, tuple[str, ...]]:
+    """Resolve the unit's single shared probePolicy into observer-eligible endpoints."""
+    policies = [member["probePolicy"] for member in members if member.get("probePolicy") is not None]
+    if not policies:
+        # Safe bootstrap: a single endpoint, no implicit admin fan-out.
+        return ids[0], ()
+    if any(policy != policies[0] for policy in policies[1:]):
+        raise ValueError(f"Conflicting probePolicy in unit {unit_id}")
+    policy = policies[0]
+    if not isinstance(policy, dict):
+        raise ValueError(f"probePolicy must be an object in {unit_id}")
+    primary = policy.get("primaryEndpoint")
+    secondaries = policy.get("secondaryEndpoints", [])
+    if not isinstance(primary, str) or not primary:
+        raise ValueError(f"primaryEndpoint is required in {unit_id}")
+    if not isinstance(secondaries, list) or any(not isinstance(item, str) or not item for item in secondaries):
+        raise ValueError(f"secondaryEndpoints must be string IDs in {unit_id}")
+    if len({primary, *secondaries}) != len(secondaries) + 1:
+        raise ValueError(f"Duplicate endpoint in probePolicy for {unit_id}")
+    # In a split public/private unit, retain only eligible endpoints.
+    if observer == "internal" and (primary not in ids or any(name not in ids for name in secondaries)):
+        endpoint = "primaryEndpoint" if primary not in ids else "secondaryEndpoint"
+        raise ValueError(f"Unknown {endpoint} in unit {unit_id}")
+    return (primary if primary in ids else None), tuple(name for name in secondaries if name in ids)
+
+
+def build_probe_units(
+    records: Sequence[Mapping[str, Any]],
+    *,
+    observer: Observer,
+) -> list[ProbeUnit]:
+    """Build explicit units, retaining component IDs and strict exposure intent.
+
+    The public observer cannot probe a private component. A partially public
+    deployment unit retains only its eligible endpoints for that observer.
+    """
+    if observer not in ("internal", "public"):
+        raise ValueError("observer must be 'internal' or 'public'")
 
     units = []
-    for unit_id, members in grouped.items():
-        ids = tuple(
-            str(member.get("id", member.get("serviceId"))) for member in members
-        )
-        ranks = [
-            _optional_rank(member.get("probePriority"), "probePriority")
-            for member in members
-        ]
-        assigned = [rank for rank in ranks if rank is not None]
+    for unit_id, members in _group_components(records, observer).items():
+        ids = tuple(str(member.get("id", member.get("serviceId"))) for member in members)
+        assigned = [rank for member in members if (rank := _optional_rank(member.get("probePriority"), "probePriority")) is not None]
         rank = min(assigned) if assigned else None
-        policies = [
-            member["probePolicy"]
-            for member in members
-            if member.get("probePolicy") is not None
-        ]
-        if policies and any(policy != policies[0] for policy in policies[1:]):
-            raise ValueError(f"Conflicting probePolicy in unit {unit_id}")
-        primary: str | None = None
-        secondary: tuple[str, ...] = ()
-        if policies:
-            policy = policies[0]
-            if not isinstance(policy, dict):
-                raise ValueError(f"probePolicy must be an object in {unit_id}")
-            primary = policy.get("primaryEndpoint")
-            secondaries = policy.get("secondaryEndpoints", [])
-            if not isinstance(primary, str) or not primary:
-                raise ValueError(f"primaryEndpoint is required in {unit_id}")
-            if not isinstance(secondaries, list) or any(
-                not isinstance(item, str) or not item for item in secondaries
-            ):
-                raise ValueError(f"secondaryEndpoints must be string IDs in {unit_id}")
-            if len(set([primary, *secondaries])) != len(secondaries) + 1:
-                raise ValueError(f"Duplicate endpoint in probePolicy for {unit_id}")
-            # In a split public/private unit, retain only eligible endpoints.
-            if primary not in ids:
-                if observer == "internal":
-                    raise ValueError(f"Unknown primaryEndpoint in unit {unit_id}")
-                primary = None
-            unknown = [name for name in secondaries if name not in ids]
-            if observer == "internal" and unknown:
-                raise ValueError(f"Unknown secondaryEndpoint in unit {unit_id}")
-            secondary = tuple(name for name in secondaries if name in ids)
-        else:
-            # Safe bootstrap: a single endpoint, no implicit admin fan-out.
-            primary = ids[0]
+        primary, secondary = _unit_endpoints(unit_id, members, ids, observer)
         units.append(
             ProbeUnit(
                 unit_id=unit_id,
@@ -122,13 +120,16 @@ def build_probe_units(
                 priority=rank,
                 primary_endpoint=primary,
                 secondary_endpoints=secondary,
-            )
+            ),
         )
     return sorted(units, key=lambda item: item.unit_id)
 
 
 def select_probe_units(
-    units: Sequence[ProbeUnit], *, limit: int, cycle: int
+    units: Sequence[ProbeUnit],
+    *,
+    limit: int,
+    cycle: int,
 ) -> list[ProbeUnit]:
     """Select a bounded mix of ranked units and fair rotating units.
 
@@ -179,9 +180,7 @@ def main() -> int:
     args = parser.parse_args()
     payload = json.loads(args.catalog.read_text(encoding="utf-8"))
     records = payload.get("services") if isinstance(payload, dict) else payload
-    if not isinstance(records, list) or any(
-        not isinstance(item, dict) for item in records
-    ):
+    if not isinstance(records, list) or any(not isinstance(item, dict) for item in records):
         parser.error("catalog must contain a services array")
     units = build_probe_units(records, observer=args.observer)
     selected = select_probe_units(units, limit=args.limit, cycle=args.cycle)

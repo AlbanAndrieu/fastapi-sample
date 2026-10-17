@@ -96,19 +96,22 @@ def test_small_budgets_never_starve_other_units(limit: int) -> None:
     assert {u.unit_id for batch in batches for u in batch} == {u.unit_id for u in units}
 
 
-@pytest.mark.parametrize("invalid", [
-    [_component("garage", priority=True)],
-    [_component("garage", priority=-1)],
-    [_component("garage", unit="")],
-    [_component("garage"), _component("garage")],
-    [_component("garage", policy={"primaryEndpoint": "not-garage"})],
+@pytest.mark.parametrize(
+    "invalid",
     [
-        _component(
-            "garage",
-            policy={"primaryEndpoint": "garage", "secondaryEndpoints": ["garage"]},
-        )
+        [_component("garage", priority=True)],
+        [_component("garage", priority=-1)],
+        [_component("garage", unit="")],
+        [_component("garage"), _component("garage")],
+        [_component("garage", policy={"primaryEndpoint": "not-garage"})],
+        [
+            _component(
+                "garage",
+                policy={"primaryEndpoint": "garage", "secondaryEndpoints": ["garage"]},
+            ),
+        ],
     ],
-])
+)
 def test_invalid_unit_metadata_fails_closed(invalid: list[dict]) -> None:
     with pytest.raises(ValueError):
         build_probe_units(invalid, observer="internal")
@@ -120,27 +123,30 @@ def test_public_observer_cannot_select_private_garage_admin() -> None:
         _component("garage-admin", unit="truenas:garage"),
         _component("garage-webui", unit="truenas:garage", external=True),
     ]
-    ids = [
-        name
-        for unit in build_probe_units(entries, observer="public")
-        for name in unit.component_ids
-    ]
+    ids = [name for unit in build_probe_units(entries, observer="public") for name in unit.component_ids]
     assert ids == ["garage-webui"]
 
 
 def test_offline_preview_does_not_attempt_network(
-    tmp_path, monkeypatch, capsys
+    tmp_path,
+    monkeypatch,
+    capsys,
 ) -> None:
     catalog = tmp_path / "catalog.json"
     catalog.write_text(
-        json.dumps({"services": [
-            _component("garage", unit="truenas:garage"),
-            _component("garage-admin", unit="truenas:garage"),
-        ]}),
+        json.dumps(
+            {
+                "services": [
+                    _component("garage", unit="truenas:garage"),
+                    _component("garage-admin", unit="truenas:garage"),
+                ],
+            },
+        ),
         encoding="utf-8",
     )
     monkeypatch.setattr(
-        sys, "argv",
+        sys,
+        "argv",
         ["probe-plan", "--catalog", str(catalog), "--observer", "internal"],
     )
     assert main() == 0
@@ -148,5 +154,6 @@ def test_offline_preview_does_not_attempt_network(
     assert payload["execution_performed"] is False
     assert len(payload["selected_units"]) == 1
     assert payload["selected_units"][0]["component_ids"] == [
-        "garage", "garage-admin"
+        "garage",
+        "garage-admin",
     ]

@@ -8,12 +8,7 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT = (
-    Path(__file__).resolve().parents[2]
-    / "scripts"
-    / "audit"
-    / "garage_exposure_drift.py"
-)
+SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "audit" / "garage_exposure_drift.py"
 spec = importlib.util.spec_from_file_location("garage_exposure_drift", SCRIPT)
 assert spec is not None and spec.loader is not None
 module = importlib.util.module_from_spec(spec)
@@ -63,9 +58,7 @@ def test_access_edge_is_review_not_anonymous_origin_proof(http_status: int) -> N
 
 
 def test_confirmed_drift_requires_fresh_authoritative_source() -> None:
-    row = _report("cloudflare_tunnel", _record("drift", source="cloudflare_api"))[
-        "services"
-    ][0]
+    row = _report("cloudflare_tunnel", _record("drift", source="cloudflare_api"))["services"][0]
     assert row["exposure_assessment"] == "confirmed_drift"
     assert row["layers"]["cloudflare_tunnel"]["source"] == "cloudflare_api"
 
@@ -75,7 +68,8 @@ def test_stale_drift_is_unknown_not_confirmed() -> None:
     row = _report("pfsense_nat_haproxy", old)["services"][0]
     assert row["exposure_assessment"] == "unknown"
     assert row["layers"]["pfsense_nat_haproxy"] == {
-        "status": "unknown", "reason": "stale_or_future_evidence"
+        "status": "unknown",
+        "reason": "stale_or_future_evidence",
     }
 
 
@@ -101,7 +95,8 @@ def test_unknown_does_not_require_source() -> None:
 
 def test_future_evidence_is_not_current() -> None:
     row = _report(
-        "cloudflare_access", _record("observed", when="2026-10-19T11:00:00Z")
+        "cloudflare_access",
+        _record("observed", when="2026-10-19T11:00:00Z"),
     )["services"][0]
     assert row["exposure_assessment"] == "unknown"
 

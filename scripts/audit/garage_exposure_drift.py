@@ -92,6 +92,62 @@ def _clean_evidence(
     return clean
 
 
+def _index_observations(evidence: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    by_id: dict[str, dict[str, Any]] = {}
+    for row in evidence:
+        service_id = row.get("service_id")
+        if not isinstance(service_id, str) or not service_id or service_id in by_id:
+            raise ValueError("Observation IDs must be unique, nonempty strings")
+        by_id[service_id] = row
+    return by_id
+
+
+def _service_layers(
+    service_id: str,
+    observation: dict[str, Any],
+    *,
+    now: datetime,
+    max_age: timedelta,
+) -> dict[str, dict[str, Any]]:
+    evidence_layers = observation.get("layers", {})
+    if not isinstance(evidence_layers, dict):
+        raise ValueError(f"layers must be an object for {service_id}")
+    if set(evidence_layers) - set(LAYERS):
+        raise ValueError(f"Unknown evidence layer for {service_id}")
+    return {
+        name: _clean_evidence(
+            evidence_layers.get(name, {}),
+            layer=name,
+            now=now,
+            max_age=max_age,
+        )
+        for name in LAYERS
+    }
+
+
+def _assessment(external: bool, layers: dict[str, dict[str, Any]]) -> str:
+    private = not external
+    route_drift = private and any(
+        layers[name]["status"] == "drift"
+        for name in (
+            "public_dns",
+            "cloudflare_tunnel",
+            "pfsense_nat_haproxy",
+            "traefik",
+            "outside_in_origin",
+        )
+    )
+    # An outside-in Access response is edge evidence, not origin verification.
+    edge_visible = any(layers[name]["status"] in {"observed", "drift"} for name in ("cloudflare_access", "cloudflare_tunnel", "outside_in_origin"))
+    if route_drift:
+        return "confirmed_drift"
+    if private and edge_visible:
+        return "requires_review"
+    if all(layer["status"] == "unknown" for layer in layers.values()):
+        return "unknown"
+    return "no_confirmed_drift"
+
+
 def reconcile(
     declared: Any,
     observed: Any,
@@ -107,13 +163,7 @@ def reconcile(
         raise ValueError("max_age must be between 0 and 7 days")
     clock = clock.astimezone(timezone.utc)
     services = _items(declared, "services")
-    evidence = _items(observed, "observations")
-    by_id: dict[str, dict[str, Any]] = {}
-    for row in evidence:
-        service_id = row.get("service_id")
-        if not isinstance(service_id, str) or not service_id or service_id in by_id:
-            raise ValueError("Observation IDs must be unique, nonempty strings")
-        by_id[service_id] = row
+    by_id = _index_observations(_items(observed, "observations"))
 
     output = []
     seen: set[str] = set()
@@ -125,42 +175,8 @@ def reconcile(
         external = service.get("external")
         if type(external) is not bool:
             raise ValueError(f"external must be boolean for {service_id}")
-        evidence_layers = by_id.get(service_id, {}).get("layers", {})
-        if not isinstance(evidence_layers, dict):
-            raise ValueError(f"layers must be an object for {service_id}")
-        unexpected = set(evidence_layers) - set(LAYERS)
-        if unexpected:
-            raise ValueError(f"Unknown evidence layer for {service_id}")
-        layers = {
-            name: _clean_evidence(
-                evidence_layers.get(name, {}), layer=name, now=clock, max_age=max_age
-            )
-            for name in LAYERS
-        }
-        private = not external
-        route_drift = private and any(
-            layers[name]["status"] == "drift"
-            for name in (
-                "public_dns",
-                "cloudflare_tunnel",
-                "pfsense_nat_haproxy",
-                "traefik",
-                "outside_in_origin",
-            )
-        )
-        # An outside-in Access response is edge evidence, not origin verification.
-        edge_visible = any(
-            layers[name]["status"] in {"observed", "drift"}
-            for name in ("cloudflare_access", "cloudflare_tunnel", "outside_in_origin")
-        )
-        if route_drift:
-            assessment = "confirmed_drift"
-        elif private and edge_visible:
-            assessment = "requires_review"
-        elif all(layer["status"] == "unknown" for layer in layers.values()):
-            assessment = "unknown"
-        else:
-            assessment = "no_confirmed_drift"
+        layers = _service_layers(service_id, by_id.get(service_id, {}), now=clock, max_age=max_age)
+        assessment = _assessment(external, layers)
         output.append(
             {
                 "service_id": service_id,
@@ -168,7 +184,7 @@ def reconcile(
                 "layers": layers,
                 "exposure_assessment": assessment,
                 "origin_anonymously_accessible": None,
-            }
+            },
         )
 
     unexpected_ids = sorted(set(by_id) - seen)
@@ -176,9 +192,7 @@ def reconcile(
         raise ValueError("Observation references unknown service IDs")
     revision = declared.get("catalog_revision") if isinstance(declared, dict) else None
     return {
-        "catalog_revision": (
-            revision if isinstance(revision, str) and revision else "unknown"
-        ),
+        "catalog_revision": (revision if isinstance(revision, str) and revision else "unknown"),
         "services": sorted(output, key=lambda item: item["service_id"]),
     }
 
@@ -202,7 +216,8 @@ def main() -> int:
         max_age=timedelta(hours=args.max_age_hours),
     )
     args.output.write_text(
-        json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        json.dumps(report, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
     )
     return 0
 

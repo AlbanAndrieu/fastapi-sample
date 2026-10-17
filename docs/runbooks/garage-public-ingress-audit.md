@@ -108,15 +108,15 @@ public probing for `external=false` services.
 
 Acceptance sequence:
 1. Publish the schema and catalog field in `nabla-compose`, with validation
-   for integer types, uniqueness where required, and non-negative values.
+    for integer types, uniqueness where required, and non-negative values.
 2. Extend `HomelabService` with alias `probePriority` and propagate it from
-   exposure overrides in `fastapi-sample`.
+    exposure overrides in `fastapi-sample`.
 3. Use catalog priority in the sampler, keeping the current bootstrap ordering
-   only when no published priority is present.
+    only when no published priority is present.
 4. Assert Garage inclusion, fair rotation of unrelated services, stable
-   `rotated_priority_ids`, and unchanged public/internal probe eligibility.
+    `rotated_priority_ids`, and unchanged public/internal probe eligibility.
 5. Run focused unit/contract tests and the full offline quality gate at the
-   exact commit SHA before considering the PR ready.
+    exact commit SHA before considering the PR ready.
 
 No live Cloudflare, TrueNAS, pfSense, or Traefik changes are authorized by
 this preparation. Keep the PR open and do not merge automatically.
@@ -157,12 +157,12 @@ Cloudflare configurations or infer endpoint reachability. Collect those
 observations separately with approved read-only credentials.
 
 **Validation status (2026-10-17):** 15 offline drift tests and 14
-deployment-unit planner tests passed in an isolated Python 3.13 environment.
-The published Git blob SHAs matched the files used for those tests. The full
-repository checkout, locked dependency set, Ruff/Black and complete local
-quality gate remain **NOT_RUN/BLOCKED** because GitHub DNS is unavailable in
-the isolated runner. No CI green claim or live exposure validation is made.
-Do not mark the release acceptance complete without an exact-HEAD run.
+deployment-unit planner tests first passed in an isolated Python 3.13
+environment. The complete local quality gate (`agent-quality-gate.sh --fix`,
+full pytest suite) and `agent-publish.sh` then passed on the real #342
+checkout with locked dependencies, after restoring the script's executable bit
+and splitting `reconcile`/`build_probe_units` below Ruff C901. No CI green
+claim or live exposure validation is made.
 
 
 ### Evidence integrity (strict offline contract)
@@ -230,7 +230,6 @@ are **descriptions of future conditional checks**, never automatically
 executed by the preview. Publish canonical `probePolicy` and acceptance tests
 in `nabla-compose` before connecting this planner to the health board.
 
-Validation note: targeted tests passed in an isolated Python environment for
-the exact file blob SHA values committed in #342; full application tests,
-Black/Ruff and local production-fidelity quality gate remain unverified until
-an immutable repository checkout with locked dependencies is available.
+Validation note: targeted tests passed in an isolated Python environment, then
+the full application tests, Ruff and the complete local quality gate passed on
+the real #342 checkout with locked dependencies (2026-10-17).
