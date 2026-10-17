@@ -221,3 +221,64 @@ def test_aggregate_limits_input_and_does_not_echo_sensitive_payload() -> None:
     assert output.returncode == 2
     assert "too many input snapshots" in output.stderr
     assert "NEVER_LEAK" not in output.stdout + output.stderr
+
+
+def test_aggregate_whitelists_deadline_phase_totals_without_exposing_targets() -> None:
+    snapshots = [
+        {
+            "state": "fresh",
+            "homelab": {
+                "probe_cache": {"source": "origin"},
+                "probe_summary": {
+                    "public": {
+                        "completed": 2,
+                        "timed_out": 10,
+                        "deadline_phase_counts": {
+                            "not_started": 0,
+                            "waiting_on_semaphore": 3,
+                            "dns_in_progress": 5,
+                            "head_get_in_progress": 1,
+                            "access_secondary_in_progress": 1,
+                            "tcp_in_progress": 0,
+                            "Authorization": "Bearer NEVER_LEAK",
+                            "url": "https://PRIVATE.example.invalid",
+                        },
+                    }
+                },
+            },
+        },
+        {
+            "state": "stale",
+            "homelab": {
+                "probe_cache": {"source": "memory"},
+                "probe_summary": {
+                    "public": {
+                        "completed": 0,
+                        "timed_out": 12,
+                        "deadline_phase_counts": {"dns_in_progress": 12},
+                    }
+                },
+            },
+        },
+    ]
+    output = subprocess.run(
+        [sys.executable, str(SCRIPT), "--aggregate"],
+        input="\n".join(json.dumps(row) for row in snapshots) + "\n",
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    assert output.returncode == 0, output.stderr
+    assert "NEVER_LEAK" not in output.stdout + output.stderr
+    assert "PRIVATE" not in output.stdout + output.stderr
+    evidence = json.loads(output.stdout)
+    assert evidence["origin_cycles"] == 1
+    assert evidence["deadline_phase_totals"] == {
+        "not_started": 0,
+        "waiting_on_semaphore": 3,
+        "dns_in_progress": 5,
+        "head_get_in_progress": 1,
+        "access_secondary_in_progress": 1,
+        "tcp_in_progress": 0,
+    }

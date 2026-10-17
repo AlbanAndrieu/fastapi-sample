@@ -168,6 +168,68 @@ navigateur authentifié. Validation de rendu, filtres et navigation dans
 l'environnement TrueNAS à faire après le prochain déploiement explicite ;
 le runtime `5fe39a33` ne contient pas cette correction de l'UI.
 
+## Déploiement PR #350 et diagnostic de phases incomplètes
+
+Après la fusion #342, un déploiement **staging volontaire de la PR #350** a
+construit le SHA `0902a9a08fed614b5e7112ce3cbcc2867c3ca501` en local
+sur TrueNAS. La version de runtime est `1.22.2`, image
+`sha256:9f43ba4924b13072f49b43230a7019e1a30c3d90f3eb08d7431f1fce6645107c`,
+et l'image rollback antérieure
+`sha256:cef90cebc67f4411f09726b0d03c770548d6911e3ab36099ed3d7f7d559a37e8`
+reste taguée `fastapi-sample:rollback-before-pr350`. Deux nouveaux assets
+JavaScript répondent HTTP 200, la WebUI montre Garage après filtrage, pfSense
+RBAC valide 7/7 et Gatus/Prometheus fournit 78 séries success, 78 duration,
+55 availability. `build_revision=null` : cette association de SHA résulte
+du journal de build, **pas d'une attestation de l'image par l'API**.
+
+L'initialisation du health-board s'est stabilisée : `pending` au premier
+rafraîchissement sans cache, puis `fresh` et `stale` pendant les cycles
+suivants ; log `snapshot refreshed duration_seconds=6.673`.
+
+Les relevés de performance publics ont été **variables** :
+
+| Vague observée | Terminées | Expirées | Attente max | DNS max | HTTP max | Access max |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| A | 2/12 | 10/12 | 27 ms | 1 600 ms | 1 937 ms | 1 499 ms |
+| B | 1/12 | 11/12 | 31 ms | 1 102 ms | 785 ms | non observé |
+| C | 12/12 | 0/12 | 1 779 ms | 599 ms | 635 ms | 1 000 ms |
+
+La vague C a pris `3 073 ms`, et le résultat a été consulté dans une
+enveloppe `stale` âgée de `140,517 s`. Cela ne signifie **pas** que les
+sondes sont restées actives pendant ces 140 secondes. Tous ces maxima
+concernent les probes **terminées** et peuvent correspondre à des services
+différents. Les 12/12 sont des **terminaisons techniques** : LanguageTool
+renvoie HTTP 400 et `state=fail`, Keycloak/Garage WebUI des avertissements
+HTTP 403, sans invalider le décompte `completed=12`.
+
+### Capture de la phase au moment de la deadline — prochain SHA de PR
+
+Le nouveau code de PR, **non inclus dans le staging `0902a9a0`**, prend un
+instantané en mémoire de la phase courante **avant** l'annulation des tâches :
+`not_started`, `waiting_on_semaphore`, `dns_in_progress`,
+`head_get_in_progress`, `access_secondary_in_progress`,
+`tcp_in_progress`. L'identification de chaque tentative est ensuite
+rejetée du registre faible ; seules l'étiquette de phase et une durée
+partielle bornée (ms) peuvent être rendues.
+
+- `probe_summary.public.deadline_phase_counts` donne les effectifs par
+  phase à la deadline. La somme doit coïncider avec `timed_out`.
+- `public_probe_results[]` possède `deadline_phase` et
+  `deadline_phase_elapsed_ms` pour les probes en `probe_source=deadline`.
+- Si une preuve précédente est réutilisée, `probe_source=memory` conserve
+  sa santé déjà attestée et expose séparément
+  `last_probe_attempt_deadline_phase` et
+  `last_probe_attempt_deadline_phase_elapsed_ms`, sans changer son statut
+  en DOWN ou en nouveau GREEN.
+- La commande de synthèse hors réseau `--aggregate` produit désormais
+  `deadline_phase_totals` sur **les vagues origin uniquement**.
+
+Ces mesures de phase à l'annulation ne prouvent pas que la phase a échoué :
+elles indiquent uniquement **où se trouvait la tâche quand le budget global
+de 4 secondes a été atteint**. Comparer plusieurs vagues avant toute
+optimisation. Les limites de concurrence 4, de sélection 12 par scope et
+les conditions de sécurité/Access restent inchangées.
+
 ## Critères de sortie et ownership
 
 - [x] PR #342 merged / runtime Garage LAN 3/3 confirmé.

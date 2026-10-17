@@ -1,8 +1,10 @@
 import { escapeText } from "./api-health-ui.js";
 import { fetchHomelabProbeMatrix } from "./api-homelab-health.js";
 import {
+  deadlineDetailText,
   phaseDetailText,
   phaseSummaryText,
+  sanitizedDeadlinePhaseCounts,
   sanitizedPhaseTiming,
 } from "./api-probe-phase-timing.js";
 
@@ -68,6 +70,7 @@ function scopeMetrics(summary, enabled = true) {
     coverage: eligible > 0 ? clampPercent((known / eligible) * 100) : 100,
     timedOut: enabled ? finiteNumber(summary?.timed_out) : 0,
     phaseTiming: enabled ? sanitizedPhaseTiming(summary?.timing) : null,
+    deadlinePhases: enabled ? sanitizedDeadlinePhaseCounts(summary?.deadline_phase_counts) : null,
     cacheTtl: finiteNumber(summary?.evidence?.evidence_ttl_seconds),
   };
 }
@@ -171,6 +174,7 @@ function scopeCard(label, icon, scope) {
     scope.phaseTiming,
     scope.sampled,
     scope.timedOut,
+    scope.deadlinePhases,
   );
   return (
     '<div class="probe-scope-card">' +
@@ -411,6 +415,8 @@ function rowDetail(row) {
   }
   const phases = phaseDetailText(row?.probe_timing);
   if (phases) parts.push(phases);
+  const deadline = deadlineDetailText(row);
+  if (deadline) parts.push(deadline);
   return parts.join(" · ") || "no error detail";
 }
 

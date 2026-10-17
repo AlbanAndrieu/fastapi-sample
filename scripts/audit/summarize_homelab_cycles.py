@@ -21,6 +21,14 @@ _TIMING_FIELDS = (
     "max_http_request_ms",
     "max_access_secondary_ms",
 )
+_DEADLINE_PHASES = (
+    "not_started",
+    "waiting_on_semaphore",
+    "dns_in_progress",
+    "head_get_in_progress",
+    "access_secondary_in_progress",
+    "tcp_in_progress",
+)
 
 
 def _object(value: Any) -> dict[str, Any]:
@@ -41,6 +49,7 @@ def _bounded_number(value: Any) -> int | float | None:
 
 def _summary(scope: dict[str, Any]) -> dict[str, Any]:
     timing = _object(scope.get("timing"))
+    phases = _object(scope.get("deadline_phase_counts"))
     evidence = _object(scope.get("evidence"))
     return {
         "completed": _bounded_number(scope.get("completed")),
@@ -51,6 +60,7 @@ def _summary(scope: dict[str, Any]) -> dict[str, Any]:
         ),
         "coverage_percent": _bounded_number(evidence.get("coverage_percent")),
         "timing": {key: _bounded_number(timing.get(key)) for key in _TIMING_FIELDS},
+        "deadline_phase_counts": {key: _bounded_number(phases.get(key)) for key in _DEADLINE_PHASES},
     }
 
 
@@ -127,6 +137,10 @@ def aggregate_cycles(cycles: list[dict[str, Any]]) -> dict[str, Any]:
         for field in _TIMING_FIELDS[1:]
     }
     garage_lan = [all(cycle["garage"][key]["lan_observed"] and cycle["garage"][key]["internal_state"] == "ok" for key in _GARAGE_IDS) for cycle in origin]
+    pending_phase_totals = {
+        phase: sum(cycle["public"]["deadline_phase_counts"].get(phase) or 0 for cycle in origin)
+        for phase in _DEADLINE_PHASES
+    }
     return {
         "total_snapshots": len(cycles),
         "fresh_envelopes": sum(cycle["board_state"] == "fresh" for cycle in cycles),
@@ -136,6 +150,7 @@ def aggregate_cycles(cycles: list[dict[str, Any]]) -> dict[str, Any]:
         "public_deadline_range": _aggregate_range(public_deadlines),
         "origin_cycles_with_public_deadlines": sum(value > 0 for value in public_deadlines),
         "observed_phase_maxima_ms": phase_maxima,
+        "deadline_phase_totals": pending_phase_totals,
         "all_three_garage_lan_ok_origin_cycles": sum(garage_lan),
         "garage_admin_unexpected_route_seen": any(cycle["garage"]["garage-admin"]["unexpected_tunnel_route"] is True for cycle in origin),
         "interpretation": (
@@ -145,7 +160,7 @@ def aggregate_cycles(cycles: list[dict[str, Any]]) -> dict[str, Any]:
             if len(public_completed) >= 2 and min(public_completed) != max(public_completed)
             else "current_origin_samples_not_independent_outside_in_proof"
         ),
-        "limits": "Observed maxima exclude deadline-cancelled tasks; origin cycles are not independent WAN tests.",
+        "limits": "Completed-probe maxima exclude cancelled tasks; deadline phases are last observed checkpoints, not completed operations. Origin cycles are not independent WAN tests.",
     }
 
 

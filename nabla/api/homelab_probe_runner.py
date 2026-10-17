@@ -14,6 +14,7 @@ import httpx
 from nabla.api.dns_probe import probe_dns_hostname
 from nabla.api.health_probe_utils import elapsed_ms, is_textual_response, looks_like_tls_error
 from nabla.api.homelab_models import HomelabService
+from nabla.api.homelab_probe_phase_tracker import mark_probe_phase
 from nabla.api.platform_health_diagnostics import short_error
 
 HealthState = Literal["ok", "warn", "fail"]
@@ -105,16 +106,19 @@ async def probe_http_endpoint(
     dns_probe_ms: int | None = None
     http_request_ms: int | None = None
     request_count = 0
+    mark_probe_phase("waiting_on_semaphore")
     try:
         async with semaphore:
             queue_wait_ms = elapsed_ms(started)
             hostname = httpx.URL(url).host
+            mark_probe_phase("dns_in_progress")
             dns_started = time.perf_counter()
             try:
                 if hostname:
                     dns_evidence = await probe_dns_hostname(hostname)
             finally:
                 dns_probe_ms = elapsed_ms(dns_started)
+            mark_probe_phase("head_get_in_progress")
             http_started = time.perf_counter()
             try:
                 request_count += 1
@@ -200,6 +204,7 @@ async def probe_public_service(
         return result
 
     result["cloudflare_access_secondary_probe_attempted"] = True
+    mark_probe_phase("access_secondary_in_progress")
     edge_started = time.perf_counter()
     edge_evidence = await edge_probe(url)
     # This call is deliberately outside the HTTP semaphore. Account for that
@@ -251,8 +256,10 @@ async def probe_internal_service(
         raise ValueError("service has no internal host/port target")
 
     started = time.perf_counter()
+    mark_probe_phase("waiting_on_semaphore")
     try:
         async with semaphore:
+            mark_probe_phase("tcp_in_progress")
             with anyio.fail_after(timeout_seconds):
                 stream = await anyio.connect_tcp(host, port)
                 await stream.aclose()

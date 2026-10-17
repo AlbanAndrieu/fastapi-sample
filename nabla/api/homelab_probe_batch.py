@@ -8,6 +8,11 @@ from typing import Any, Literal
 
 from nabla.api.health_probe_utils import elapsed_ms
 from nabla.api.homelab_models import HomelabService
+from nabla.api.homelab_probe_phase_tracker import (
+    DEADLINE_PHASES,
+    clear_probe_phase,
+    snapshot_probe_phase,
+)
 from nabla.api.platform_health_diagnostics import short_error
 
 ProbeScope = Literal["public", "internal"]
@@ -101,6 +106,7 @@ async def collect_bounded_probe_batch(
             "per_probe_timeout_seconds": per_probe_timeout_seconds,
             "max_concurrency": max_concurrency,
             "elapsed_ms": 0,
+            "deadline_phase_counts": {phase: 0 for phase in DEADLINE_PHASES},
             "states": {"ok": 0, "warn": 0, "fail": 0},
         }
 
@@ -120,14 +126,26 @@ async def collect_bounded_probe_batch(
                     _probe_exception_result(service, exc, scope=scope),
                 )
         else:
-            results.append(_probe_deadline_result(service, scope=scope))
+            deadline = _probe_deadline_result(service, scope=scope)
+            deadline.update(snapshot_probe_phase(task))
+            results.append(deadline)
 
     for task in pending:
         task.cancel()
     if pending:
         await asyncio.gather(*pending, return_exceptions=True)
 
+    for task in tasks:
+        clear_probe_phase(task)
+
     states = {state: sum(result.get("state") == state for result in results) for state in ("ok", "warn", "fail")}
+    deadline_phase_counts = {
+        phase: sum(
+            row.get("timed_out") is True and row.get("deadline_phase") == phase
+            for row in results
+        )
+        for phase in DEADLINE_PHASES
+    }
     return results, {
         "scope": scope,
         "enabled": enabled,
@@ -142,5 +160,6 @@ async def collect_bounded_probe_batch(
         "max_concurrency": max_concurrency,
         "elapsed_ms": elapsed_ms(started),
         "timing": _timing_summary(results),
+        "deadline_phase_counts": deadline_phase_counts,
         "states": states,
     }

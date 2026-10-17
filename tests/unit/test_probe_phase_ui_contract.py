@@ -24,6 +24,10 @@ def test_probe_dashboard_shows_completed_phase_samples_without_extra_fetches() -
     assert "scope.phaseTiming" in dashboard
     assert "completed_samples" in helper
     assert "deadline (phase unknown)" in helper
+    assert "deadlinePhaseSummaryText" in helper
+    assert "deadlineDetailText(row)" in dashboard
+    assert "scope.deadlinePhases" in dashboard
+    assert "sanitizedDeadlinePhaseCounts" in dashboard
     assert "fetch(" not in helper
 
 

@@ -5,8 +5,14 @@ import { readFileSync } from "node:fs";
 const script = readFileSync(process.argv[2], "utf8");
 const url =
   "data:text/javascript;base64," + Buffer.from(script).toString("base64");
-const { phaseSummaryText, phaseDetailText, sanitizedPhaseTiming } =
-  await import(url);
+const {
+  deadlineDetailText,
+  deadlinePhaseSummaryText,
+  phaseSummaryText,
+  phaseDetailText,
+  sanitizedDeadlinePhaseCounts,
+  sanitizedPhaseTiming,
+} = await import(url);
 
 const copied = sanitizedPhaseTiming({
   completed_samples: 1,
@@ -73,4 +79,59 @@ assert.equal(
 assert.equal(
   phaseSummaryText({ completed_samples: 0, max_queue_wait_ms: null }, 12, 12),
   "Phase measurements 0/12 completed probes · 12 deadline (phase unknown)",
+);
+
+const phaseCounts = {
+  not_started: 1,
+  waiting_on_semaphore: 3,
+  dns_in_progress: 4,
+  head_get_in_progress: 2,
+  access_secondary_in_progress: 1,
+  tcp_in_progress: 0,
+  authorization: "Bearer NEVER_LEAK",
+  target: "https://PRIVATE.example.invalid",
+};
+const sanitizedCounts = sanitizedDeadlinePhaseCounts(phaseCounts);
+assert.deepEqual(sanitizedCounts, {
+  not_started: 1,
+  waiting_on_semaphore: 3,
+  dns_in_progress: 4,
+  head_get_in_progress: 2,
+  access_secondary_in_progress: 1,
+  tcp_in_progress: 0,
+});
+assert.doesNotMatch(JSON.stringify(sanitizedCounts), /NEVER_LEAK|PRIVATE/);
+assert.equal(sanitizedDeadlinePhaseCounts(null), null);
+assert.equal(sanitizedDeadlinePhaseCounts([]), null);
+assert.match(deadlinePhaseSummaryText(phaseCounts), /DNS 4/);
+assert.match(deadlinePhaseSummaryText(phaseCounts), /queue 3/);
+assert.match(
+  phaseSummaryText({ completed_samples: 1 }, 12, 11, phaseCounts),
+  /unfinished at deadline: /,
+);
+assert.equal(
+  deadlineDetailText({
+    timed_out: true,
+    probe_source: "deadline",
+    deadline_phase: "dns_in_progress",
+    deadline_phase_elapsed_ms: 1120,
+  }),
+  "deadline during DNS (at least 1120ms in phase)",
+);
+assert.equal(
+  deadlineDetailText({
+    probe_source: "memory",
+    state: "ok",
+    last_probe_attempt_deadline_phase: "waiting_on_semaphore",
+    last_probe_attempt_deadline_phase_elapsed_ms: 830,
+  }),
+  "last probe attempt timed out during queue (at least 830ms in phase)",
+);
+assert.equal(
+  deadlineDetailText({
+    timed_out: true,
+    deadline_phase: "https://PRIVATE.example.invalid",
+    deadline_phase_elapsed_ms: "Bearer NEVER_LEAK",
+  }),
+  "",
 );
