@@ -648,6 +648,9 @@ actual repository HEAD. Do not treat this breakdown as implementation evidence.
     clock that wrote naive `created_date` values was UTC. Acceptance proof:
     `alembic current` = `4b7c2d9e1a6f` and `GET /notes/{id}/` returns a boolean
     `completed` and a `Z` timestamp on the target environment.
+    Owner confirmation (2026-10-17): the `note` table is currently empty, so no
+    existing row is converted and the value/clock pre-checks have no data to
+    validate; the post-migration acceptance proof above still applies.
   - [ ] Residual — Alembic baseline: `992855f73a8d` alters `note` without
     creating it (the table comes from `create_all`), so `alembic upgrade head`
     fails on an empty database and `alembic/env.py` targets only the users
