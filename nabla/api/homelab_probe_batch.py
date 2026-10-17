@@ -106,7 +106,7 @@ async def collect_bounded_probe_batch(
             "per_probe_timeout_seconds": per_probe_timeout_seconds,
             "max_concurrency": max_concurrency,
             "elapsed_ms": 0,
-            "deadline_phase_counts": {phase: 0 for phase in DEADLINE_PHASES},
+            "deadline_phase_counts": dict.fromkeys(DEADLINE_PHASES, 0),
             "states": {"ok": 0, "warn": 0, "fail": 0},
         }
 
