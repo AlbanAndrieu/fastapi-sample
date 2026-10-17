@@ -17,7 +17,8 @@ def _git(repo: Path, *args: str) -> None:
 def _make_repo(repo: Path) -> None:
     (repo / "scripts").mkdir(parents=True)
     (repo / "scripts" / "quality-gate.sh").write_text(
-        GATE.read_text(encoding="utf-8"), encoding="utf-8"
+        GATE.read_text(encoding="utf-8"),
+        encoding="utf-8",
     )
     (repo / ".editorconfig").write_text("root = true\n", encoding="utf-8")
     (repo / ".editorconfig-checker.json").write_text("{}\n", encoding="utf-8")
@@ -33,7 +34,10 @@ def _make_repo(repo: Path) -> None:
 
 
 def _run(
-    repo: Path, tmp_path: Path, *, uv_available: bool = True
+    repo: Path,
+    tmp_path: Path,
+    *,
+    uv_available: bool = True,
 ) -> tuple[subprocess.CompletedProcess[str], str]:
     env_file = tmp_path / "bash_env.sh"
     log_file = tmp_path / "commands.log"
@@ -67,7 +71,7 @@ uv() {
             "BASH_ENV": str(env_file),
             "QG_MOCK_LOG": str(log_file),
             "QG_NO_UV": "0" if uv_available else "1",
-        }
+        },
     )
     completed = subprocess.run(
         ["bash", "scripts/quality-gate.sh"],
