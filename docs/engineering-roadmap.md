@@ -1,5 +1,12 @@
 # Engineering and security roadmap
 
+## P1 — Sondes Garage : preuve de phases et comparaison des cycles (PR #350)
+
+- [x] **Présentation sans nouvelles requêtes** — exposer dans le panneau « Homelab probe fan-out » les phases déjà mesurées `queue_wait_ms`, `dns_probe_ms`, `http_request_ms`, `access_secondary_ms`, avec nombre de probes effectivement instrumentées et maximum par phase ; afficher `deadline (phase unknown)` quand l'échéance globale empêche la mesure, et ne jamais convertir `null` en 0 ms. Le budget 4 s, la concurrence 4 et l'échantillonnage 12 restent inchangés.
+- [x] **Triangulation de plusieurs cycles sans réseau** — `scripts/audit/summarize_homelab_cycles.py --aggregate` accepte au plus 64 instantanés JSONL préexistants et émet une synthèse assainie : intervalles de probes publiques terminées/expirées, nombre de réponses stale, maxima des phases **terminées**, Garage LAN 3/3 et dérive Cloudflare Admin. Seuls les cycles de board `fresh` avec `probe_cache.source=origin` sont comptés pour la performance ; aucune réponse stale/cached n'est promue en nouvelle mesure.
+- [ ] **Acceptation staging différée** — après déploiement explicite du SHA validé : comparer 3 cycles bornés au dashboard avec le même budget 4 s ; ne pas confondre expiration du fan-out et état DOWN des services. Aucune opération sur TrueNAS, pfSense ou Cloudflare dans ce lot.
+- [ ] **Contrôles finaux différés sur demande opérateur** — conserver les hooks EditorConfig, SAST/DAST et la gate de publication inchangés ; les exécuter avant fusion, pas pendant cette itération de développement.
+
 ## P1 — Catalogue de criticité et sondes par unité de déploiement (2026-10-17)
 
 - [x] **Préparation hors ligne (sans activation runtime)** — `nabla/api/homelab_probe_units.py` lit des composants explicites `deploymentUnitId`, `probePriority`, `probePolicy`, expose un aperçu JSON sans appels réseau et conserve l'isolation des observateurs. 14 tests locaux de contrat réussis ; quality gate complète et `agent-publish.sh` verts le 2026-10-17 sur le checkout réel de #342 (après découpage de `build_probe_units` sous le seuil Ruff C901). Aucune migration de l'échantillonnage existant.

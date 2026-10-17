@@ -129,3 +129,97 @@ def test_summary_fails_closed_on_malformed_json_without_echoing_input() -> None:
     assert result.returncode == 2
     assert "invalid JSON" in result.stderr
     assert "NEVER_LEAK" not in result.stderr
+
+
+def test_aggregate_excludes_stale_and_retained_windows() -> None:
+    """Counts fresh origin cycles, not a repeated cached health envelope."""
+    def board(state: str, source: str, completed: int, timeout: int) -> dict:
+        return {
+            "state": state,
+            "secret": "NEVER_LEAK",
+            "homelab": {
+                "probe_cache": {"source": source},
+                "probe_summary": {
+                    "public": {
+                        "completed": completed,
+                        "timed_out": timeout,
+                        "timing": {
+                            "completed_samples": completed,
+                            "max_queue_wait_ms": 180 if completed == 1 else 24,
+                        },
+                    },
+                    "internal": {"completed": 12, "timed_out": 0},
+                },
+                "internal_services": [
+                    {"id": key}
+                    for key in ("garage", "garage-admin", "garage-webui")
+                ],
+                "services": [
+                    {
+                        "id": key,
+                        "internal_state": "ok",
+                        "unexpected_tunnel_route": key == "garage-admin",
+                    }
+                    for key in ("garage", "garage-admin", "garage-webui")
+                ],
+            },
+        }
+
+    snapshots = (
+        board("fresh", "origin", 1, 11),
+        board("stale", "memory", 12, 0),
+        board("fresh", "memory", 12, 0),
+        board("fresh", "origin", 11, 1),
+    )
+    output = subprocess.run(
+        [sys.executable, str(SCRIPT), "--aggregate"],
+        input="\n".join(json.dumps(item) for item in snapshots) + "\n",
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    assert output.returncode == 0, output.stderr
+    assert "NEVER_LEAK" not in output.stdout + output.stderr
+    evidence = json.loads(output.stdout)
+    assert evidence["total_snapshots"] == 4
+    assert evidence["fresh_envelopes"] == 3
+    assert evidence["stale_or_pending_envelopes"] == 1
+    assert evidence["origin_cycles"] == 2
+    assert evidence["public_completed_range"] == {"min": 1, "max": 11}
+    assert evidence["public_deadline_range"] == {"min": 1, "max": 11}
+    assert evidence["origin_cycles_with_public_deadlines"] == 2
+    assert evidence["all_three_garage_lan_ok_origin_cycles"] == 2
+    assert evidence["garage_admin_unexpected_route_seen"] is True
+    assert evidence["observed_phase_maxima_ms"]["max_queue_wait_ms"] == 180
+    assert evidence["interpretation"] == "variable_public_completion"
+
+
+def test_aggregate_without_origin_is_inconclusive() -> None:
+    output = subprocess.run(
+        [sys.executable, str(SCRIPT), "--aggregate"],
+        input=json.dumps({"state": "stale", "homelab": {"probe_cache": {"source": "memory"}}}) + "\n",
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    assert output.returncode == 0, output.stderr
+    evidence = json.loads(output.stdout)
+    assert evidence["origin_cycles"] == 0
+    assert evidence["public_completed_range"] == {"min": None, "max": None}
+    assert evidence["interpretation"] == "insufficient_current_origin_evidence"
+
+
+def test_aggregate_limits_input_and_does_not_echo_sensitive_payload() -> None:
+    output = subprocess.run(
+        [sys.executable, str(SCRIPT), "--aggregate"],
+        input=(json.dumps({"state": "fresh", "secret": "NEVER_LEAK"}) + "\n") * 65,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    assert output.returncode == 2
+    assert "too many input snapshots" in output.stderr
+    assert "NEVER_LEAK" not in output.stdout + output.stderr

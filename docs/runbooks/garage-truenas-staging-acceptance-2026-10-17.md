@@ -101,6 +101,28 @@ cookies, secrets, résultats bruts). Les données source restent à
 protéger. Pour de nouveaux relevés, limiter à trois échantillons
 espacés d'environ 31 secondes ; ne pas lancer de polling agressif.
 
+### Corréler les cycles existants (PR #350, aucun nouveau probe)
+
+```bash
+python scripts/audit/summarize_homelab_cycles.py --aggregate \
+  < /chemin/vers/health-board-cycles.jsonl
+```
+
+Cette commande limite l'entrée à **64 instantanés** et produit uniquement des
+compteurs et des maxima assainis. Les comparaisons `public_completed_range`,
+`public_deadline_range` et `observed_phase_maxima_ms` excluent les réponses
+`stale` et les vagues homelab `probe_cache.source=memory`, même si
+l'enveloppe HTTP se dit `fresh`. S'il n'existe aucune vague `origin`
+exploitable, `interpretation=insufficient_current_origin_evidence`.
+
+Sur le futur runtime #350, le panneau « Homelab probe fan-out » montrera les
+durées d'attente de sémaphore, DNS, HTTP et vérification secondaire Access
+**déjà collectées** : les maxima ne concernent que les sondes terminées.
+Les probes annulées par la deadline 4 s restent « phase unknown » ; un champ
+manquant ne signifie jamais une phase instantanée. Aucune nouvelle requête
+externe ou interne n'est introduite et ces informations **ne sont pas encore
+présentes sur le staging au commit `5fe39a33`**.
+
 ## Prometheus / Gatus
 
 Prometheus `/-/ready` répond et la requête instantanée retournait

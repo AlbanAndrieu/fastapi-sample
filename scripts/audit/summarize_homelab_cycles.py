@@ -7,6 +7,7 @@ Output: one whitelisted, credential-free diagnostic object per line.
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from typing import Any
@@ -101,7 +102,94 @@ def summarize(snapshot: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+
+_MAX_AGGREGATE_SNAPSHOTS = 64
+
+
+def _aggregate_range(values: list[int | float]) -> dict[str, int | float | None]:
+    return {
+        "min": min(values) if values else None,
+        "max": max(values) if values else None,
+    }
+
+
+def aggregate_cycles(cycles: list[dict[str, Any]]) -> dict[str, Any]:
+    """Compare bounded observed waves without counting cached snapshots as fresh."""
+    # A fresh health-board envelope may still contain a retained homelab wave.
+    # Only origin-sourced cycles can attribute current scheduler results.
+    origin = [
+        cycle
+        for cycle in cycles
+        if cycle["board_state"] == "fresh"
+        and cycle["probe_cache_source"] == "origin"
+    ]
+    public_completed = [
+        value
+        for cycle in origin
+        if isinstance(value := cycle["public"]["completed"], (int, float))
+    ]
+    public_deadlines = [
+        value
+        for cycle in origin
+        if isinstance(value := cycle["public"]["timed_out"], (int, float))
+    ]
+    phase_maxima = {
+        field: max(
+            [
+                value
+                for cycle in origin
+                if isinstance(value := cycle["public"]["timing"].get(field), (int, float))
+            ],
+            default=None,
+        )
+        for field in _TIMING_FIELDS[1:]
+    }
+    garage_lan = [
+        all(
+            cycle["garage"][key]["lan_observed"]
+            and cycle["garage"][key]["internal_state"] == "ok"
+            for key in _GARAGE_IDS
+        )
+        for cycle in origin
+    ]
+    return {
+        "total_snapshots": len(cycles),
+        "fresh_envelopes": sum(cycle["board_state"] == "fresh" for cycle in cycles),
+        "stale_or_pending_envelopes": sum(
+            cycle["board_state"] in {"stale", "pending"} for cycle in cycles
+        ),
+        "origin_cycles": len(origin),
+        "public_completed_range": _aggregate_range(public_completed),
+        "public_deadline_range": _aggregate_range(public_deadlines),
+        "origin_cycles_with_public_deadlines": sum(
+            value > 0 for value in public_deadlines
+        ),
+        "observed_phase_maxima_ms": phase_maxima,
+        "all_three_garage_lan_ok_origin_cycles": sum(garage_lan),
+        "garage_admin_unexpected_route_seen": any(
+            cycle["garage"]["garage-admin"]["unexpected_tunnel_route"] is True
+            for cycle in origin
+        ),
+        "interpretation": (
+            "insufficient_current_origin_evidence"
+            if not origin
+            else "variable_public_completion"
+            if len(public_completed) >= 2 and min(public_completed) != max(public_completed)
+            else "current_origin_samples_not_independent_outside_in_proof"
+        ),
+        "limits": "Observed maxima exclude deadline-cancelled tasks; origin cycles are not independent WAN tests.",
+    }
+
+
 def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--aggregate",
+        action="store_true",
+        help="summarize up to 64 existing snapshots as one redacted comparison",
+    )
+    args = parser.parse_args()
+    collected: list[dict[str, Any]] = []
     for line_number, line in enumerate(sys.stdin, start=1):
         if not line.strip():
             continue
@@ -116,7 +204,16 @@ def main() -> int:
         if not isinstance(snapshot, dict):
             print(f"line {line_number}: expected JSON object", file=sys.stderr)
             return 2
-        print(json.dumps(summarize(snapshot), separators=(",", ":"), sort_keys=True))
+        summary = summarize(snapshot)
+        if args.aggregate:
+            if len(collected) >= _MAX_AGGREGATE_SNAPSHOTS:
+                print("too many input snapshots for aggregate mode", file=sys.stderr)
+                return 2
+            collected.append(summary)
+        else:
+            print(json.dumps(summary, separators=(",", ":"), sort_keys=True))
+    if args.aggregate:
+        print(json.dumps(aggregate_cycles(collected), separators=(",", ":"), sort_keys=True))
     return 0
 
 
