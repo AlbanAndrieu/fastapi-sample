@@ -1,4 +1,5 @@
 import { fetchHealthBoard } from "./api-health-board.js";
+import { includeObservedGarageChecks } from "./api-health-garage.js";
 import {
   dependencyHealthClass,
   mergeHomelabEvidence,
@@ -357,7 +358,10 @@ export function loadHealth() {
       if (!data) throw new Error("health snapshot is missing /healthz data");
       const homelab = snapshot.homelab;
       const merged = homelab ? mergeHomelabEvidence(data, homelab) : data;
-      render(merged, snapshot.platform_metrics);
+      const visible = homelab
+        ? includeObservedGarageChecks(merged, homelab, snapshot.state)
+        : merged;
+      render(visible, snapshot.platform_metrics);
     })
     .catch((error) => {
       showFetchError(String(error.message || error));

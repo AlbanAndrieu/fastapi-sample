@@ -124,6 +124,28 @@ outside-in depuis FastAPI Cloud ou un réseau mobile indépendant,
 puis auditer HAProxy/NAT/Traefik/DNS. Un `403` n'est pas une preuve
 suffisante de protection ni de non-exposition.
 
+## Affichage de Garage dans `/api` : régression de projection
+
+Après le déploiement de `master` `5fe39a33`, les trois identités
+apparaissent dans `/api/health-board.homelab`, mais l'utilisateur ne les voit
+pas parmi les cartes de `https://sample.albandrieu.com/api`.
+La page produit initialement ses cartes depuis `healthz.checks`; le raccord
+`mergeHomelabEvidence` enrichit uniquement les entrées déjà présentes.
+Les preuves Garage ne sont donc pas nécessairement visibles.
+
+La PR #350 introduit `api-health-garage.js` pour créer **seulement** les
+trois contrôles Garage manquants, sans doublons de `healthz` : `garage`
+(S3), `garage-admin` (Admin) et `garage-webui` (Web). Le statut LAN d'un
+snapshot récent est visible, mais la route Admin inattendue conserve le
+badge *At risk*. Le WebUI est le seul membre pouvant obtenir un lien externe
+depuis sa déclaration ; jamais l'Admin ni le S3. Une donnée de probe périmée
+reste inconnue.
+
+Le site est protégé par Cloudflare Access : l'agent n'a pas pu observer le
+navigateur authentifié. Validation de rendu, filtres et navigation dans
+l'environnement TrueNAS à faire après le prochain déploiement explicite ;
+le runtime `5fe39a33` ne contient pas cette correction de l'UI.
+
 ## Critères de sortie et ownership
 
 - [x] PR #342 merged / runtime Garage LAN 3/3 confirmé.
