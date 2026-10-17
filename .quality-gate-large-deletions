@@ -2,3 +2,4 @@
 # Format: <exact-comparison-base-commit-sha> <repository-relative-path>
 # Remove consumed entries after the acknowledged branch is merged.
 37f989ad55e92fafa522385bf72ae26ba629c5f4 tests/unit/test_homelab_health.py
+8c4492d131c3ec6e0c0e4cdc18f261c0b9af40d4 nabla/main.py

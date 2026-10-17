@@ -603,8 +603,31 @@ FastAPI Cloud (outside homelab)        TrueNAS (inside homelab)
 
 ## P1 — runtime architecture
 
-- [ ] Introduce an application factory so tests can create a minimal app without
-  PostgreSQL, Redis, observability, MCP or RAG side effects.
+- [x] Introduce an application factory so tests can create a minimal app without
+  PostgreSQL, Redis, observability, MCP or RAG side effects:
+  `nabla.app_factory.create_app(AppFeatures(...))` with
+  `nabla.app_features.AppFeatures` switches and
+  `nabla.lifespan.build_lifespan(features)`; `nabla.main:app` keeps the
+  all-enabled production contract (PostgreSQL stays critical) and its OpenAPI
+  path set is unchanged. Local diagnostics without PostgreSQL:
+  `uv run uvicorn --factory nabla.app_factory:create_minimal_app`. Hermetic
+  proof: `tests/unit/test_app_factory.py` (socket/DB/Redis/MCP I/O forbidden).
+  - [ ] Residual: importing the factory still imports `nabla.api`, which builds
+    the module-level SQLAlchemy engine/psycopg pool/`databases` handle and the
+    unconnected Redis client (no I/O). Removing those globals belongs to the
+    next item; acceptance proof: importing `nabla.app_factory` and building the
+    minimal app leaves `nabla.api.db.database` and
+    `nabla.api.demo.socket.redis` absent from `sys.modules`.
+  - [ ] Residual: `/readyz` and `/api/runtime/topology` in the minimal app still
+    read the module-level engine/Redis client at request time and will report
+    the disabled dependencies as unavailable; acceptance proof: readiness
+    reports disabled subsystems as `disabled`, not failed, from `app.state`.
+  - [ ] Residual: no environment switch selects features for `nabla.main:app`
+    or FastAPI Cloud; acceptance proof: a documented, tested
+    environment-to-`AppFeatures` mapping if operators need it.
+  - [ ] Residual: live LAN acceptance of the minimal app against homelab
+    diagnostics (`/api/homelab/status`, `/api/homelab/health`) on the operator
+    workstation has not been recorded.
 - [ ] Move remaining global DB/Redis resources behind lifecycle/state or injected
   dependencies.
 - [ ] Consolidate SQLAlchemy/`databases`/psycopg lifecycle and move schema

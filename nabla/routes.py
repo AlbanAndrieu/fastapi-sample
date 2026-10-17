@@ -77,13 +77,8 @@ def _register_topology_dashboard(app: FastAPI) -> None:
         )
 
 
-def register_routes(app: FastAPI) -> None:
-    """Register all application routes."""
-    app.mount(
-        "/api/assets",
-        NoStoreStaticFiles(directory=_API_ASSETS_DIR),
-        name="api-assets",
-    )
+def _register_notes_dashboard(app: FastAPI) -> None:
+    """Register the PostgreSQL-backed notes dashboard at the site root."""
 
     @app.get("/", response_class=HTMLResponse, operation_id="root_dashboard")
     @limiter.limit("100/second")
@@ -91,6 +86,18 @@ def register_routes(app: FastAPI) -> None:
         session = SessionLocal()
         notes = session.exec(select(Note)).all()
         return templates.TemplateResponse("index.html", {"request": request, "notes": notes})
+
+
+def register_routes(app: FastAPI, *, database: bool = True) -> None:
+    """Register all application routes; DB-backed pages require ``database``."""
+    app.mount(
+        "/api/assets",
+        NoStoreStaticFiles(directory=_API_ASSETS_DIR),
+        name="api-assets",
+    )
+
+    if database:
+        _register_notes_dashboard(app)
 
     @app.get("/favicon.ico", include_in_schema=False)
     async def favicon():
