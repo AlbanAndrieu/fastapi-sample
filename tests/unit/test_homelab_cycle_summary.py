@@ -60,7 +60,7 @@ def test_summary_never_reprints_raw_service_urls_headers_or_secrets() -> None:
                     "internal_state": "ok",
                     "exposure_intent": "internal",
                     "unexpected_tunnel_route": True,
-                    "url": "https://PRIVATE:NEVER_LEAK@example.invalid",
+                    "url": "https://example.invalid/private/NEVER_LEAK",
                     "authorization": "NEVER_LEAK",
                 },
             ],
@@ -418,4 +418,61 @@ def test_aggregate_insufficient_unique_waves_exits_three_with_safe_report() -> N
     report = json.loads(result.stdout)
     assert report["origin_cycles"] == 1
     assert report["duplicate_origin_envelopes"] == 2
+    assert report["three_distinct_origin_cycles_observed"] is False
+
+
+def test_summary_handles_null_or_non_array_service_collections() -> None:
+    """Untrusted JSON shapes must not crash the offline diagnostic tool."""
+    snapshots = [
+        {"state": "fresh", "homelab": {"services": None, "internal_services": None}},
+        {
+            "state": "fresh",
+            "homelab": {
+                "services": {"garage-admin": {"internal_state": "ok"}},
+                "internal_services": "garage",
+                "secret": "NEVER_LEAK",
+            },
+        },
+    ]
+    result = _run(*snapshots)
+    assert result.returncode == 0, result.stderr
+    assert "NEVER_LEAK" not in result.stdout + result.stderr
+    for line in result.stdout.splitlines():
+        report = json.loads(line)
+        assert report["garage"]["garage"]["lan_observed"] is False
+        assert report["garage"]["garage-admin"]["internal_state"] is None
+
+
+def test_aggregate_deduplicates_equivalent_utc_timestamp_spellings() -> None:
+    """A single instant must not satisfy the three-origin-cycle gate."""
+    stamps = [
+        "2026-10-18T00:00:01Z",
+        "2026-10-18T00:00:01.0Z",
+        "2026-10-18T00:00:01.000000Z",
+        "2026-10-18T00:00:02Z",
+    ]
+    snapshots = [
+        {
+            "state": "fresh",
+            "homelab": {
+                "checked_at": stamp,
+                "probe_cache": {"source": "origin"},
+                "probe_summary": {"public": {"completed": index + 1}},
+            },
+        }
+        for index, stamp in enumerate(stamps)
+    ]
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), "--aggregate", "--require-three-origin-cycles"],
+        input="\n".join(json.dumps(item) for item in snapshots) + "\n",
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    assert result.returncode == 3, result.stderr
+    report = json.loads(result.stdout)
+    assert report["origin_cycles"] == 2
+    assert report["duplicate_origin_envelopes"] == 2
+    assert report["public_completed_range"] == {"min": 1, "max": 4}
     assert report["three_distinct_origin_cycles_observed"] is False

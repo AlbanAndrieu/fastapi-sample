@@ -37,6 +37,13 @@ def _object(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
+def _rows(value: Any) -> list[dict[str, Any]]:
+    """Reject non-array service collections without leaking raw input."""
+    if not isinstance(value, list):
+        return []
+    return [row for row in value if isinstance(row, dict)]
+
+
 def _allowed_text(value: Any, allowed: set[str]) -> str | None:
     return value if isinstance(value, str) and value in allowed else None
 
@@ -89,8 +96,16 @@ def summarize(snapshot: dict[str, Any]) -> dict[str, Any]:
     summary = _object(homelab.get("probe_summary"))
     cache = _object(homelab.get("probe_cache"))
     state = _allowed_text(board.get("state"), {"fresh", "stale", "pending"})
-    internal_ids = {row["id"] for row in homelab.get("internal_services", []) if isinstance(row, dict) and isinstance(row.get("id"), str) and row["id"] in _GARAGE_IDS}
-    garage_rows = {row["id"]: row for row in homelab.get("services", []) if isinstance(row, dict) and isinstance(row.get("id"), str) and row["id"] in _GARAGE_IDS}
+    internal_ids = {
+        row["id"]
+        for row in _rows(homelab.get("internal_services"))
+        if isinstance(row.get("id"), str) and row["id"] in _GARAGE_IDS
+    }
+    garage_rows = {
+        row["id"]: row
+        for row in _rows(homelab.get("services"))
+        if isinstance(row.get("id"), str) and row["id"] in _GARAGE_IDS
+    }
     garage: dict[str, dict[str, Any]] = {}
     for service_id in sorted(_GARAGE_IDS):
         row = garage_rows.get(service_id, {})
@@ -153,17 +168,20 @@ def aggregate_cycles(cycles: list[dict[str, Any]]) -> dict[str, Any]:
         and cycle["probe_cache_source"] == "origin"
     ]
     origin: list[dict[str, Any]] = []
-    seen_waves: set[str] = set()
+    seen_waves: set[datetime] = set()
     duplicate_origin_envelopes = 0
     unattributed_origin_envelopes = 0
     for cycle in candidates:
         wave_id = cycle.get("probe_wave_checked_at")
         if not isinstance(wave_id, str):
             unattributed_origin_envelopes += 1
-        elif wave_id in seen_waves:
-            duplicate_origin_envelopes += 1
         else:
-            seen_waves.add(wave_id)
+            # UTC spellings with .0 or .000000 denote the same probe wave.
+            wave_instant = datetime.fromisoformat(wave_id.replace("Z", "+00:00"))
+            if wave_instant in seen_waves:
+                duplicate_origin_envelopes += 1
+                continue
+            seen_waves.add(wave_instant)
             origin.append(cycle)
     public_completed = [value for cycle in origin if isinstance(value := cycle["public"]["completed"], (int, float))]
     public_deadlines = [value for cycle in origin if isinstance(value := cycle["public"]["timed_out"], (int, float))]
@@ -207,7 +225,7 @@ def aggregate_cycles(cycles: list[dict[str, Any]]) -> dict[str, Any]:
             else "current_origin_samples_not_independent_outside_in_proof"
         ),
         "limits": (
-            "Fresh/origin envelopes are deduplicated by homelab.checked_at; "
+            "Fresh/origin envelopes are deduplicated by normalized UTC homelab.checked_at; "
             "those without a validated identity are excluded. Completed-probe "
             "maxima exclude cancelled tasks; deadline phases are checkpoints, "
             "not completed operations. Distinct homelab waves do not prove "
