@@ -519,7 +519,44 @@ def _status_label(state: object, *, color: bool) -> str:
     return f"{ansi}{label}\x1b[0m" if color else label
 
 
-def print_table(report: dict[str, Any], *, color: bool = False) -> None:  # noqa: C901 -- refactor tracked in docs/engineering-roadmap.md
+_GAP_GUIDANCE = {
+    "truenas": "Inspect API inventory and observer privileges (APPS_READ); do not infer application failure when apps evidence is absent.",
+    "pfsense": "Check authenticated /api/v2/system/version evidence from the TrueNAS observer; do not treat transport as authorization.",
+    "pyroscope": "Restore HTTP readiness, then verify recent profile ingestion; check runtime UID/dataset permissions before restart.",
+    "sentry": "DSN socket evidence is insufficient; verify a bounded event ID and downstream ingestion.",
+    "postgres": "TCP is not application proof; inspect cached authenticated command health without extra probe fan-out.",
+    "redis": "TCP is not application proof; inspect cached authenticated command health without extra probe fan-out.",
+    "gatus": "Check Gatus HTTP/history and Prometheus gatus_up metrics internally; never replace outside-in checks.",
+}
+_DEFAULT_GAP_GUIDANCE = "Inspect existing runtime evidence, not an additional provider probe."
+
+
+def _gap_extra(name: object, detail: dict[str, Any]) -> str:
+    """Return bounded dependency-specific evidence appended to a gap line."""
+    if name == "truenas":
+        return f" apps={detail.get('app_count')}"
+    if name != "gatus":
+        return ""
+    ids = detail.get("missing_gatus_ids")
+    reasons = detail.get("missing_gatus_reasons")
+    conflicts = detail.get("conflicting_direct_ids")
+    extra = f" missing_ids={ids} reasons={reasons}" if ids else ""
+    if conflicts:
+        extra += f" conflicting_direct_ids={conflicts}"
+    return extra
+
+
+def _print_evidence_gap(name: object, dependencies: dict[str, Any], *, color: bool) -> None:
+    row = _mapping(dependencies.get(name))
+    state = row.get("operational_state")
+    stage = row.get("error_stage") or row.get("error_kind") or "no_application_proof"
+    detail = _mapping(row.get("application_result"))
+    guidance = _GAP_GUIDANCE.get(name, _DEFAULT_GAP_GUIDANCE)
+    extra = _gap_extra(name, detail)
+    print(f"  {_status_label(state, color=color)} {name}: stage={stage}{extra}; {guidance}")
+
+
+def print_table(report: dict[str, Any], *, color: bool = False) -> None:
     dependencies = _mapping(report.get("dependencies"))
     print("FastAPI local runtime dependency evidence")
     print(
@@ -543,37 +580,7 @@ def print_table(report: dict[str, Any], *, color: bool = False) -> None:  # noqa
     if gaps:
         print("⚠️ Evidence gaps: " + ", ".join(str(value) for value in gaps))
         for name in gaps:
-            row = _mapping(dependencies.get(name))
-            state = row.get("operational_state")
-            stage = row.get("error_stage") or row.get("error_kind") or "no_application_proof"
-            detail = _mapping(row.get("application_result"))
-            if name == "truenas":
-                guidance = "Inspect API inventory and observer privileges (APPS_READ); do not infer application failure when apps evidence is absent."
-                extra = f" apps={detail.get('app_count')}"
-            elif name == "pfsense":
-                guidance = "Check authenticated /api/v2/system/version evidence from the TrueNAS observer; do not treat transport as authorization."
-                extra = ""
-            elif name == "pyroscope":
-                guidance = "Restore HTTP readiness, then verify recent profile ingestion; check runtime UID/dataset permissions before restart."
-                extra = ""
-            elif name == "sentry":
-                guidance = "DSN socket evidence is insufficient; verify a bounded event ID and downstream ingestion."
-                extra = ""
-            elif name in {"postgres", "redis"}:
-                guidance = "TCP is not application proof; inspect cached authenticated command health without extra probe fan-out."
-                extra = ""
-            elif name == "gatus":
-                guidance = "Check Gatus HTTP/history and Prometheus gatus_up metrics internally; never replace outside-in checks."
-                ids = detail.get("missing_gatus_ids")
-                reasons = detail.get("missing_gatus_reasons")
-                conflicts = detail.get("conflicting_direct_ids")
-                extra = f" missing_ids={ids} reasons={reasons}" if ids else ""
-                if conflicts:
-                    extra += f" conflicting_direct_ids={conflicts}"
-            else:
-                guidance = "Inspect existing runtime evidence, not an additional provider probe."
-                extra = ""
-            print(f"  {_status_label(state, color=color)} {name}: stage={stage}{extra}; {guidance}")
+            _print_evidence_gap(name, dependencies, color=color)
     else:
         print("✅ all dependency evidence contracts are complete")
 

@@ -331,7 +331,7 @@ class TrueNASReadOnlyAdapter:
             raise RuntimeError("TrueNAS app.query returned an unexpected payload")
         return [item for item in result if isinstance(item, dict)]
 
-    def health_snapshot(self) -> dict[str, Any]:  # noqa: C901 -- refactor tracked in docs/engineering-roadmap.md
+    def health_snapshot(self) -> dict[str, Any]:
         """Return a compact non-secret version/app view suitable for health APIs."""
         started = time.perf_counter()
         uri = self.settings.websocket_uri
@@ -339,27 +339,16 @@ class TrueNASReadOnlyAdapter:
         phase = "connect"
         method = "connect"
         authenticated = False
-        app_inventory_state = "ok"
-        app_inventory_error_type: str | None = None
-        app_inventory_failure_stage: str | None = None
-        websocket_elapsed_ms: int | None = None
-        authentication_elapsed_ms: int | None = None
-        system_version_elapsed_ms: int | None = None
-        app_query_elapsed_ms: int | None = None
-        vm_query_elapsed_ms: int | None = None
+        timings: dict[str, int | None] = {}
         connect_started = time.perf_counter()
         try:
             with self._connect(call_timeout=_HEALTH_CALL_TIMEOUT_SEC) as client:
-                websocket_elapsed_ms = round(
-                    (time.perf_counter() - connect_started) * 1000,
-                )
+                timings["websocket"] = _elapsed_ms(connect_started)
                 phase = "authentication"
                 method = "auth.login_with_api_key"
                 auth_started = time.perf_counter()
                 client.login_with_api_key(self.settings.username, self.settings.api_key)
-                authentication_elapsed_ms = round(
-                    (time.perf_counter() - auth_started) * 1000,
-                )
+                timings["authentication"] = _elapsed_ms(auth_started)
                 authenticated = True
 
                 # system.version is the lightweight authenticated liveness proof.
@@ -369,70 +358,16 @@ class TrueNASReadOnlyAdapter:
                 method = "system.version"
                 system_started = time.perf_counter()
                 version = client.call(method)
-                system_version_elapsed_ms = round(
-                    (time.perf_counter() - system_started) * 1000,
-                )
+                timings["system_version"] = _elapsed_ms(system_started)
 
                 method = "app.query"
-                app_started = time.perf_counter()
-                try:
-                    apps = client.call(method)
-                    app_query_elapsed_ms = round(
-                        (time.perf_counter() - app_started) * 1000,
-                    )
-                except Exception as app_exc:
-                    app_query_elapsed_ms = round(
-                        (time.perf_counter() - app_started) * 1000,
-                    )
-                    apps = []
-                    app_inventory_state = "warn"
-                    app_inventory_error_type = app_exc.__class__.__name__
-                    app_inventory_failure_stage = _rpc_failure_stage(app_exc)
-                    logger.warning(
-                        "TrueNAS optional app inventory unavailable uri=%s stage=%s exception=%s",
-                        uri,
-                        app_inventory_failure_stage,
-                        app_inventory_error_type,
-                    )
+                apps, app_inventory = _query_optional_apps(client, uri)
 
-                vm_error_type: str | None = None
                 method = "vm.query"
-                vm_started = time.perf_counter()
-                try:
-                    vms = client.call(
-                        method,
-                        [],
-                        {
-                            "select": [
-                                "name",
-                                "status.state",
-                            ],
-                        },
-                    )
-                    vm_query_elapsed_ms = round(
-                        (time.perf_counter() - vm_started) * 1000,
-                    )
-                except Exception as vm_exc:
-                    vm_query_elapsed_ms = round(
-                        (time.perf_counter() - vm_started) * 1000,
-                    )
-                    # VM_READ is deliberately optional during the RBAC rollout.
-                    # A missing VM capability must not invalidate proven TrueNAS
-                    # liveness or the application inventory.
-                    vms = None
-                    vm_error_type = vm_exc.__class__.__name__
-                    logger.warning(
-                        "TrueNAS optional Talos VM observation unavailable uri=%s exception=%s",
-                        uri,
-                        vm_error_type,
-                    )
+                vms, vm_error_type, timings["vm_query"] = _query_optional_vms(client, uri)
         except Exception as exc:
             elapsed_ms = round((time.perf_counter() - started) * 1000)
-            failure_stage = _truenas_failure_stage(exc)
-            if phase == "call" and failure_stage == "source_allowlist":
-                failure_stage = "access_denied"
-            elif phase == "call" and failure_stage == "connect_timeout":
-                failure_stage = "api_call_timeout"
+            failure_stage = _health_failure_stage(phase, exc)
             logger.warning(
                 "TrueNAS API health probe failed method=%s uri=%s verify_ssl=%s proxy_route=%s phase=%s stage=%s exception=%s elapsed_ms=%s error=%s",
                 method,
@@ -462,65 +397,129 @@ class TrueNASReadOnlyAdapter:
         if not isinstance(version, str) or not isinstance(apps, list):
             raise RuntimeError("TrueNAS API returned an unexpected health payload")
 
-        app_rows: list[dict[str, Any]] = []
-        for app in apps:
-            if not isinstance(app, dict):
-                continue
-            app_id = str(app.get("id") or app.get("name") or "unknown")
-            row: dict[str, Any] = {
-                "id": app_id,
-                "name": str(app.get("name") or app_id),
-                "state": str(app.get("state") or "UNKNOWN"),
-                "upgrade_available": bool(app.get("upgrade_available", False)),
-            }
-            workloads = app.get("active_workloads")
-            if isinstance(workloads, dict):
-                containers = workloads.get("container_details")
-                if isinstance(containers, list):
-                    sanitized = [
-                        {key: str(container[key]) for key in ("service_name", "image", "state") if container.get(key) is not None}
-                        for container in containers
-                        if isinstance(container, dict)
-                    ]
-                    if sanitized:
-                        row["active_workloads"] = {"container_details": sanitized}
-            app_rows.append(row)
-        if isinstance(vms, list):
-            talos = _talos_vm_snapshot([item for item in vms if isinstance(item, dict)])
-        else:
-            talos = {
-                "reachable": None,
-                "state": "unknown",
-                "skipped": True,
-                "reason": "TrueNAS vm.query unavailable; VM_READ is required",
-                "probe": "truenas_vm_query",
-                "evidence": "vm_runtime",
-                "error_type": vm_error_type,
-            }
         result: dict[str, Any] = {
             "reachable": True,
             "authenticated": True,
             "version": version,
-            "websocket_elapsed_ms": websocket_elapsed_ms,
-            "authentication_elapsed_ms": authentication_elapsed_ms,
-            "api_elapsed_ms": system_version_elapsed_ms,
-            "system_version_elapsed_ms": system_version_elapsed_ms,
+            "websocket_elapsed_ms": timings.get("websocket"),
+            "authentication_elapsed_ms": timings.get("authentication"),
+            "api_elapsed_ms": timings.get("system_version"),
+            "system_version_elapsed_ms": timings.get("system_version"),
             "health_call_timeout_seconds": _HEALTH_CALL_TIMEOUT_SEC,
-            "app_inventory": {
-                "state": app_inventory_state,
-                "available": app_inventory_state == "ok",
-                "error_type": app_inventory_error_type,
-                "failure_stage": app_inventory_failure_stage,
-                "elapsed_ms": app_query_elapsed_ms,
-            },
+            "app_inventory": app_inventory,
             "talos": {
-                **talos,
-                "elapsed_ms": vm_query_elapsed_ms,
+                **_talos_snapshot_or_unknown(vms, vm_error_type),
+                "elapsed_ms": timings.get("vm_query"),
             },
         }
-        if app_inventory_state == "ok":
-            result["apps"] = app_rows
+        if app_inventory["state"] == "ok":
+            result["apps"] = _sanitized_app_rows(apps)
         return result
+
+
+def _elapsed_ms(started: float) -> int:
+    return round((time.perf_counter() - started) * 1000)
+
+
+def _health_failure_stage(phase: str, exc: BaseException) -> str:
+    """Refine transport failure stages once the probe reached the RPC phase."""
+    failure_stage = _truenas_failure_stage(exc)
+    if phase == "call" and failure_stage == "source_allowlist":
+        return "access_denied"
+    if phase == "call" and failure_stage == "connect_timeout":
+        return "api_call_timeout"
+    return failure_stage
+
+
+def _query_optional_apps(client: Any, uri: str) -> tuple[Any, dict[str, Any]]:
+    """Return ``app.query`` rows and inventory metadata; failures only warn."""
+    app_inventory: dict[str, Any] = {
+        "state": "ok",
+        "available": True,
+        "error_type": None,
+        "failure_stage": None,
+        "elapsed_ms": None,
+    }
+    app_started = time.perf_counter()
+    try:
+        apps = client.call("app.query")
+        app_inventory["elapsed_ms"] = _elapsed_ms(app_started)
+    except Exception as app_exc:
+        app_inventory["elapsed_ms"] = _elapsed_ms(app_started)
+        apps = []
+        app_inventory["state"] = "warn"
+        app_inventory["available"] = False
+        app_inventory["error_type"] = app_exc.__class__.__name__
+        app_inventory["failure_stage"] = _rpc_failure_stage(app_exc)
+        logger.warning(
+            "TrueNAS optional app inventory unavailable uri=%s stage=%s exception=%s",
+            uri,
+            app_inventory["failure_stage"],
+            app_inventory["error_type"],
+        )
+    return apps, app_inventory
+
+
+def _query_optional_vms(client: Any, uri: str) -> tuple[Any, str | None, int]:
+    """Return ``vm.query`` rows, an optional error type and elapsed time."""
+    vm_started = time.perf_counter()
+    try:
+        vms = client.call("vm.query", [], {"select": ["name", "status.state"]})
+    except Exception as vm_exc:
+        elapsed_ms = _elapsed_ms(vm_started)
+        # VM_READ is deliberately optional during the RBAC rollout.
+        # A missing VM capability must not invalidate proven TrueNAS
+        # liveness or the application inventory.
+        vm_error_type = vm_exc.__class__.__name__
+        logger.warning(
+            "TrueNAS optional Talos VM observation unavailable uri=%s exception=%s",
+            uri,
+            vm_error_type,
+        )
+        return None, vm_error_type, elapsed_ms
+    return vms, None, _elapsed_ms(vm_started)
+
+
+def _talos_snapshot_or_unknown(vms: Any, vm_error_type: str | None) -> dict[str, Any]:
+    if isinstance(vms, list):
+        return _talos_vm_snapshot([item for item in vms if isinstance(item, dict)])
+    return {
+        "reachable": None,
+        "state": "unknown",
+        "skipped": True,
+        "reason": "TrueNAS vm.query unavailable; VM_READ is required",
+        "probe": "truenas_vm_query",
+        "evidence": "vm_runtime",
+        "error_type": vm_error_type,
+    }
+
+
+def _sanitized_container_details(app: dict[str, Any]) -> list[dict[str, str]]:
+    workloads = app.get("active_workloads")
+    containers = workloads.get("container_details") if isinstance(workloads, dict) else None
+    if not isinstance(containers, list):
+        return []
+    return [{key: str(container[key]) for key in ("service_name", "image", "state") if container.get(key) is not None} for container in containers if isinstance(container, dict)]
+
+
+def _sanitized_app_rows(apps: list[Any]) -> list[dict[str, Any]]:
+    """Return non-secret app inventory rows from raw ``app.query`` payloads."""
+    app_rows: list[dict[str, Any]] = []
+    for app in apps:
+        if not isinstance(app, dict):
+            continue
+        app_id = str(app.get("id") or app.get("name") or "unknown")
+        row: dict[str, Any] = {
+            "id": app_id,
+            "name": str(app.get("name") or app_id),
+            "state": str(app.get("state") or "UNKNOWN"),
+            "upgrade_available": bool(app.get("upgrade_available", False)),
+        }
+        sanitized = _sanitized_container_details(app)
+        if sanitized:
+            row["active_workloads"] = {"container_details": sanitized}
+        app_rows.append(row)
+    return app_rows
 
 
 def build_truenas_adapter() -> TrueNASReadOnlyAdapter | None:

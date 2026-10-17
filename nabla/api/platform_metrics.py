@@ -87,7 +87,64 @@ def _utc_now() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
-async def _query_fixed_metrics(  # noqa: C901 -- refactor tracked in docs/engineering-roadmap.md
+def _merge_binary(previous: float | None, value: float) -> float | None:
+    """Fail closed on duplicate binary series; ignore non-binary samples."""
+    if value not in (0.0, 1.0):
+        return previous
+    return value if previous is None else min(previous, value)
+
+
+def _record_exporter_job(
+    exporter_jobs: dict[str, float],
+    labels: dict[str, Any],
+    value: float,
+) -> None:
+    job = labels.get("job")
+    if isinstance(job, str) and job in _EXPORTER_JOBS and value in (0.0, 1.0):
+        # Fail closed on conflicting/duplicate series for the same job.
+        previous = exporter_jobs.get(job)
+        exporter_jobs[job] = value if previous is None else min(previous, value)
+
+
+def _valid_synthetic_measurement(
+    field: str | None,
+    service_id: Any,
+    probe_type: Any,
+    value: float,
+) -> bool:
+    if field is None or not isinstance(service_id, str) or _SERVICE_ID_PATTERN.fullmatch(service_id) is None or not isinstance(probe_type, str):
+        return False
+    if probe_type not in {"TCP", "HTTP", "HTTPS"}:
+        return False
+    if field in {"success", "availability_ratio_5m"} and not 0.0 <= value <= 1.0:
+        return False
+    return not (field == "duration_seconds" and value < 0.0)
+
+
+def _record_synthetic_sample(
+    synthetic: dict[str, Any],
+    labels: dict[str, Any],
+    metric: str,
+    value: float,
+) -> None:
+    field = _SYNTHETIC_METRIC_TO_FIELD.get(metric)
+    if field == "gatus_up":
+        synthetic["gatus_up"] = _merge_binary(synthetic["gatus_up"], value)
+        return
+    service_id = labels.get("nabla_service_id")
+    probe_type = labels.get("type")
+    if not _valid_synthetic_measurement(field, service_id, probe_type, value):
+        return
+    if service_id not in synthetic["services"] and len(synthetic["services"]) >= _MAX_SYNTHETIC_SERVICES:
+        synthetic["truncated"] = True
+        return
+    service = synthetic["services"].setdefault(service_id, {})
+    measurements = service.setdefault(probe_type, {})
+    previous = measurements.get(field)
+    measurements[field] = value if previous is None else (max(previous, value) if field == "duration_seconds" else min(previous, value))
+
+
+async def _query_fixed_metrics(
     client: httpx.AsyncClient,
 ) -> tuple[dict[str, float | None], dict[str, Any]]:
     values = dict.fromkeys({**_METRICS, **_OPTIONAL_METRICS})
@@ -102,44 +159,15 @@ async def _query_fixed_metrics(  # noqa: C901 -- refactor tracked in docs/engine
         value = sample_value(sample)
         if value is None:
             continue
-        if metric == _EXPORTER_RECORD:
-            job = labels.get("job")
-            if isinstance(job, str) and job in _EXPORTER_JOBS and value in (0.0, 1.0):
-                # Fail closed on conflicting/duplicate series for the same job.
-                previous = exporter_jobs.get(job)
-                exporter_jobs[job] = value if previous is None else min(previous, value)
-            continue
         key = _METRIC_TO_KEY.get(metric)
-        if key is not None:
+        if metric == _EXPORTER_RECORD:
+            _record_exporter_job(exporter_jobs, labels, value)
+        elif key is not None:
             values[key] = value
-            continue
-        field = _SYNTHETIC_METRIC_TO_FIELD.get(metric)
-        if metric == "up" and labels.get("job") == "gatus":
-            if value in (0.0, 1.0):
-                raw_gatus_up = value if raw_gatus_up is None else min(raw_gatus_up, value)
-            continue
-        if field == "gatus_up":
-            if value in (0.0, 1.0):
-                previous = synthetic["gatus_up"]
-                synthetic["gatus_up"] = value if previous is None else min(previous, value)
-            continue
-        service_id = labels.get("nabla_service_id")
-        probe_type = labels.get("type")
-        if field is None or not isinstance(service_id, str) or _SERVICE_ID_PATTERN.fullmatch(service_id) is None or not isinstance(probe_type, str):
-            continue
-        if probe_type not in {"TCP", "HTTP", "HTTPS"}:
-            continue
-        if field in {"success", "availability_ratio_5m"} and not 0.0 <= value <= 1.0:
-            continue
-        if field == "duration_seconds" and value < 0.0:
-            continue
-        if service_id not in synthetic["services"] and len(synthetic["services"]) >= _MAX_SYNTHETIC_SERVICES:
-            synthetic["truncated"] = True
-            continue
-        service = synthetic["services"].setdefault(service_id, {})
-        measurements = service.setdefault(probe_type, {})
-        previous = measurements.get(field)
-        measurements[field] = value if previous is None else (max(previous, value) if field == "duration_seconds" else min(previous, value))
+        elif metric == "up" and labels.get("job") == "gatus":
+            raw_gatus_up = _merge_binary(raw_gatus_up, value)
+        else:
+            _record_synthetic_sample(synthetic, labels, metric, value)
     if synthetic["gatus_up"] is None and raw_gatus_up is not None:
         synthetic["gatus_up"] = raw_gatus_up if raw_gatus_up in (0.0, 1.0) else None
         synthetic["gatus_source"] = "raw_prometheus_up"

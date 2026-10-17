@@ -1,4 +1,4 @@
-# ruff: noqa: C901, PLC0415 -- route-local imports keep optional probes lazy.
+# ruff: noqa: PLC0415 -- route-local imports keep optional probes lazy.
 
 """Health and homelab route registration.
 
@@ -86,8 +86,8 @@ def _probe_runtime_metadata(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def register_health_routes(app: FastAPI) -> None:
-    """Register health, homelab and observability diagnostic routes."""
+def _register_homelab_catalog_routes(app: FastAPI) -> None:
+    """Register declared catalog, topology and runtime inventory routes."""
 
     @app.get(
         "/api/homelab-services",
@@ -157,6 +157,10 @@ def register_health_routes(app: FastAPI) -> None:
 
         return await fetch_truenas_runtime()
 
+
+def _register_homelab_health_routes(app: FastAPI) -> None:
+    """Register homelab status, health, probe and runtime-topology routes."""
+
     @app.get(
         "/api/homelab/status",
         tags=["Homelab", "TrueNAS"],
@@ -211,6 +215,10 @@ def register_health_routes(app: FastAPI) -> None:
             redis,
             hostname=request.url.hostname,
         )
+
+
+def _register_probe_routes(app: FastAPI) -> None:
+    """Register liveness, readiness and deep health probe routes."""
 
     @app.get(
         "/livez",
@@ -271,6 +279,10 @@ def register_health_routes(app: FastAPI) -> None:
         response.headers.update(_NO_STORE_HEADERS)
         with pyroscope.tag_wrapper({"function": "fast"}):
             return await build_sickz_snapshot(request)
+
+
+def _register_health_board_routes(app: FastAPI) -> None:
+    """Register health-board cache, refresh-event and Sentry debug routes."""
 
     @app.get(
         "/api/health-board",
@@ -353,3 +365,11 @@ def register_health_routes(app: FastAPI) -> None:
                 "event_id": str(event_id) if event_id else None,
             },
         )
+
+
+def register_health_routes(app: FastAPI) -> None:
+    """Register health, homelab and observability diagnostic routes."""
+    _register_homelab_catalog_routes(app)
+    _register_homelab_health_routes(app)
+    _register_probe_routes(app)
+    _register_health_board_routes(app)

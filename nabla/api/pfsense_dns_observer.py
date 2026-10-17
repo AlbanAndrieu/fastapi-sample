@@ -16,6 +16,13 @@ from nabla.api.provider_probe_policies import (
     PFSENSE_POSTURE_CACHE_POLICY as _PFSENSE_POSTURE_CACHE_POLICY,
 )
 from nabla.api.pfsense_security_observer import observe_pfsense_ingress_block
+from nabla.api.pfsense_service_inventory import (
+    _optional_bool,
+    _sanitize_services,
+    _security_filter_observations,
+    _service_running,
+    _service_summary,
+)
 from nabla.api.probe_metrics import (
     observe_pfsense_preflight_duration,
     pfsense_api_request_finished,
@@ -41,20 +48,6 @@ _PFSENSE_POSTURE_DEADLINE_SEC = 8.0
 _PFSENSE_SLOW_PREFLIGHT_SEC = 2.5
 _PFSENSE_MAX_CONCURRENCY = 2
 _PFSENSE_POSTURE_CACHE_KEY = "pfsense:posture"
-_TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
-_FALSE_VALUES = frozenset({"0", "false", "no", "off"})
-_RUNNING_STATES = frozenset({"active", "healthy", "running", "started", "up"})
-_STOPPED_STATES = frozenset({"crashed", "down", "error", "failed", "stopped"})
-_SECURITY_SERVICE_MATCHERS = {
-    "snort": ("snort",),
-    "pfblockerng": ("pfblocker", "pfb_filter", "pfb_dnsbl"),
-    "crowdsec": ("crowdsec",),
-}
-_SECURITY_SERVICE_LABELS = {
-    "snort": "Snort",
-    "pfblockerng": "pfBlockerNG",
-    "crowdsec": "CrowdSec",
-}
 
 
 def pfsense_api_configuration_status() -> dict[str, object]:
@@ -103,20 +96,6 @@ class PfSenseDNSSettings:
         )
 
 
-def _optional_bool(value: object) -> bool | None:
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, int) and value in {0, 1}:
-        return bool(value)
-    if isinstance(value, str):
-        normalized = value.strip().lower()
-        if normalized in _TRUE_VALUES:
-            return True
-        if normalized in _FALSE_VALUES:
-            return False
-    return None
-
-
 def _response_data(payload: object) -> object:
     if isinstance(payload, dict) and "data" in payload:
         return payload.get("data")
@@ -135,141 +114,6 @@ def _safe_error(exc: BaseException) -> str:
     if isinstance(exc, httpx.TimeoutException | TimeoutError):
         return "timeout"
     return exc.__class__.__name__
-
-
-def _service_identity(row: dict[str, Any]) -> str:
-    normalized = str(row.get("identity") or "").strip().casefold()
-    if normalized:
-        return normalized
-    return " ".join(str(row.get(key) or "") for key in ("name", "service", "description", "title")).casefold()
-
-
-def _service_runtime_state(row: dict[str, Any]) -> str:
-    normalized = str(row.get("runtime_state") or "").strip().casefold()
-    if normalized in {"running", "stopped", "unknown"}:
-        return normalized
-    for key in ("running", "active", "enabled"):
-        parsed = _optional_bool(row.get(key))
-        if parsed is not None:
-            return "running" if parsed else "stopped"
-    status = str(row.get("status") or row.get("state") or "").strip().casefold()
-    if status in _RUNNING_STATES:
-        return "running"
-    if status in _STOPPED_STATES:
-        return "stopped"
-    return "unknown"
-
-
-def _sanitize_services(services: object) -> list[dict[str, str]]:
-    if not isinstance(services, list):
-        return []
-    return [
-        {
-            "identity": _service_identity(row),
-            "runtime_state": _service_runtime_state(row),
-        }
-        for row in services
-        if isinstance(row, dict)
-    ]
-
-
-def _service_running(services: object) -> bool | None:
-    if not isinstance(services, list):
-        return None
-    for row in services:
-        if not isinstance(row, dict):
-            continue
-        identity = _service_identity(row)
-        if "unbound" not in identity and "dns resolver" not in identity:
-            continue
-        state = _service_runtime_state(row)
-        if state == "running":
-            return True
-        if state == "stopped":
-            return False
-        return None
-    return None
-
-
-def _service_summary(services: list[dict[str, str]]) -> dict[str, int]:
-    summary = {"running": 0, "stopped": 0, "unknown": 0}
-    for service in services:
-        state = service.get("runtime_state", "unknown")
-        summary[state if state in summary else "unknown"] += 1
-    summary["total"] = len(services)
-    return summary
-
-
-def _security_filter_observations(  # noqa: C901 -- refactor tracked in docs/engineering-roadmap.md
-    services: object,
-    *,
-    ingress_block: dict[str, Any] | None = None,
-    services_observed: bool | None = None,
-    posture_authenticated: bool | None = None,
-) -> list[dict[str, str]]:
-    ingress_state = str((ingress_block or {}).get("state") or "unknown")
-    snort_blocked = ingress_state == "blocked"
-    inventory_observed = isinstance(services, list) if services_observed is None else services_observed
-    if snort_blocked:
-        firewall_state = "blocked"
-        firewall_detail = "PF is enforcing the snort2c block for the observed FastAPI egress"
-    elif posture_authenticated is False:
-        firewall_state = "warn"
-        firewall_detail = "pfSense/PF is on the declared path, but posture API authentication failed; path presence is not promoted to healthy"
-    else:
-        firewall_state = "in_path"
-        firewall_detail = "pfSense/PF is on the declared path; this is path evidence, not a health or authentication verdict"
-
-    filters: list[dict[str, str]] = [
-        {
-            "id": "firewall",
-            "label": "pfSense/PF firewall",
-            "state": firewall_state,
-            "detail": firewall_detail,
-        },
-    ]
-    service_rows = [row for row in services if isinstance(row, dict)] if isinstance(services, list) else []
-    for filter_id, matchers in _SECURITY_SERVICE_MATCHERS.items():
-        matches = [row for row in service_rows if any(matcher in _service_identity(row) for matcher in matchers)]
-        if filter_id == "snort" and snort_blocked:
-            state = "blocked"
-            detail = "Observed FastAPI egress is present in the Snort snort2c PF table"
-        elif matches:
-            states = {_service_runtime_state(row) for row in matches}
-            if "running" in states:
-                state = "running"
-            elif states == {"stopped"}:
-                state = "stopped"
-            else:
-                state = "unknown"
-            detail = f"{len(matches)} service entr{'y' if len(matches) == 1 else 'ies'} observed"
-        elif filter_id == "snort" and ingress_state == "clear":
-            state = "clear"
-            detail = "snort2c telemetry is reachable and the observed FastAPI egress is not blocked"
-        elif filter_id == "snort" and ingress_state in {
-            "attribution_unavailable",
-            "telemetry_stale",
-        }:
-            state = "observed"
-            detail = "snort2c telemetry exists but current egress attribution is not authoritative"
-        elif filter_id == "snort" and ingress_state == "telemetry_unavailable":
-            state = "unknown"
-            detail = "snort2c telemetry is unavailable"
-        elif not inventory_observed:
-            state = "unknown"
-            detail = "Service inventory was not observed because /api/v2/status/services did not succeed"
-        else:
-            state = "not_observed"
-            detail = "Not present in the successful /api/v2/status/services inventory"
-        filters.append(
-            {
-                "id": filter_id,
-                "label": _SECURITY_SERVICE_LABELS[filter_id],
-                "state": state,
-                "detail": detail,
-            },
-        )
-    return filters
 
 
 def _dns_upstreams(system_dns: object) -> tuple[str, ...]:
