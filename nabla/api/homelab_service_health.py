@@ -18,6 +18,17 @@ _DOWN_APP_STATES = frozenset({"CRASHED", "DEPLOYING", "DOWN", "ERROR", "FAILED",
 _HEALTHY_TUNNEL_STATES = frozenset({"ACTIVE", "HEALTHY", "OK", "UP"})
 _DOWN_TUNNEL_STATES = frozenset({"DOWN", "FAILED", "INACTIVE"})
 _KEY_RE = re.compile(r"[^a-z0-9]+")
+# Cloudflare Access probe evidence: distinguishes a protected anonymous 403/302,
+# a rejected service token and a really observed origin. Never secrets or URLs.
+_ACCESS_EVIDENCE_KEYS = (
+    "cloudflare_access_secondary_probe_eligible",
+    "cloudflare_access_secondary_probe_attempted",
+    "public_probe_verification",
+    "public_probe_auth_mode",
+    "anonymous_http_status",
+    "origin_reached",
+    "cloudflare_service_token_rejected",
+)
 
 
 def _key(value: str | None) -> str:
@@ -211,7 +222,7 @@ def _enrich_service_row(
         row["tunnel_stale"] = cloudflare_stale
         row.update(tunnel_evidence)
     if direct_result is not None:
-        for key in ("latency_ms", "error", "application_error"):
+        for key in ("latency_ms", "error", "application_error", *_ACCESS_EVIDENCE_KEYS):
             if key in direct_result:
                 row[key] = direct_result[key]
 

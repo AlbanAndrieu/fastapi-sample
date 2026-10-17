@@ -317,3 +317,63 @@ def test_stale_internal_garage_evidence_is_not_current_health() -> None:
     assert rows[0]["state"] == "unknown"
     assert rows[0]["internal_state"] is None
     assert rows[0]["internal_probe_stale"] is True
+
+
+def _access_blocked_public_row(service_id: str, url: str) -> dict:
+    return {
+        "id": service_id,
+        "url": url,
+        "reachable": True,
+        "http_status": 302,
+        "state": "warn",
+        "tls_trusted": True,
+        "cloudflare_access_secondary_probe_eligible": True,
+        "cloudflare_access_secondary_probe_attempted": True,
+        "public_probe_verification": "access_protected_origin_unverified",
+        "public_probe_auth_mode": "cloudflare_access_blocked",
+        "anonymous_http_status": 302,
+        "origin_reached": False,
+        "cloudflare_service_token_rejected": False,
+    }
+
+
+@pytest.mark.parametrize(
+    ("service_id", "url", "port", "lan_state"),
+    [
+        ("ittools", "https://ittools.albandrieu.com", 30063, "ok"),
+        ("karakeep", "https://karakeep.albandrieu.com", 30147, "fail"),
+    ],
+)
+def test_access_evidence_is_exported_and_never_proves_origin_health(
+    service_id: str,
+    url: str,
+    port: int,
+    lan_state: str,
+) -> None:
+    service = HomelabService(
+        id=service_id,
+        name=service_id,
+        internalHost="172.17.0.24",
+        internalPort=port,
+        tunnelUrl=url,
+        tunnelSecure=True,
+        external=True,
+    )
+    rows = build_reconciled_service_health(
+        [service],
+        public_results=[_access_blocked_public_row(service_id, f"{url}/")],
+        internal_results=[{"id": service_id, "state": lan_state, "reachable": lan_state == "ok"}],
+        runtime=None,
+        tunnels=[],
+    )
+
+    row = rows[0]
+    assert row["public_probe_verification"] == "access_protected_origin_unverified"
+    assert row["public_probe_auth_mode"] == "cloudflare_access_blocked"
+    assert row["cloudflare_access_secondary_probe_eligible"] is True
+    assert row["cloudflare_access_secondary_probe_attempted"] is True
+    assert row["anonymous_http_status"] == 302
+    assert row["origin_reached"] is False
+    assert row["internal_state"] == lan_state
+    # An Access redirect is edge evidence only: never "ok", even with a healthy LAN origin.
+    assert row["state"] == "warn"
