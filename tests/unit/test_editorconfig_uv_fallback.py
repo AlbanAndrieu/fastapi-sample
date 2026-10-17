@@ -65,7 +65,8 @@ uv() {
         """,
         encoding="utf-8",
     )
-    env = os.environ.copy()
+    # A parent gate (agent-publish.sh) exports its own base; the fixture repo has no such commit.
+    env = {key: value for key, value in os.environ.items() if key != "QUALITY_BASE_REF"}
     env.update(
         {
             "BASH_ENV": str(env_file),
