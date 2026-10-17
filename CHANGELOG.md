@@ -1,3 +1,13 @@
+## [1.22.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.22.1...1.22.2) (2026-10-17)
+
+
+### Bug Fixes
+
+* **deps-dev:** bump mcp ([#349](https://github.com/AlbanAndrieu/fastapi-sample/issues/349)) ([940943b](https://github.com/AlbanAndrieu/fastapi-sample/commit/940943bb74fed2f6754f8e888503529bab002c78))
+* **deps:** smol-toml 1.9.1 et baseline Trivy bloquante sur le périmètre trié ([#346](https://github.com/AlbanAndrieu/fastapi-sample/issues/346)) ([6c8e818](https://github.com/AlbanAndrieu/fastapi-sample/commit/6c8e818036363a15bd732aab93a86f36bea5be67)), closes [#399](https://github.com/AlbanAndrieu/fastapi-sample/issues/399)
+* **notes:** contrat Notes — completed booléen, horodatage UTC et réponses typées ([#347](https://github.com/AlbanAndrieu/fastapi-sample/issues/347)) ([e8be743](https://github.com/AlbanAndrieu/fastapi-sample/commit/e8be7435c2e5f87ffc35ed03c82cd2a92b0964e7))
+* **observability:** garantir les sondes LAN des trois composants Garage ([#342](https://github.com/AlbanAndrieu/fastapi-sample/issues/342)) ([5fe39a3](https://github.com/AlbanAndrieu/fastapi-sample/commit/5fe39a33c3b8c6bf86c3ab1b17384259e09e7af7))
+
 ## [1.22.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.22.0...1.22.1) (2026-10-13)
 
 
