@@ -57,8 +57,25 @@ async def read_all_notes() -> List[NoteData]:
     return [NoteData.from_record(record) for record in await crud.get_all()]
 
 
+# HTMX form fields mirror the ``NoteResponse`` constraints so invalid input is
+# rejected with 422 before reaching the CRUD layer.
+NoteTitleForm = Annotated[str, Form(min_length=3, max_length=50)]
+NoteDescriptionForm = Annotated[str, Form(min_length=3, max_length=50)]
+NoteId = Annotated[int, Path(gt=0)]
+
+
+def render_notes_list(request: Request, notes: List[NoteData]) -> HTMLResponse:
+    """Render the ``#notes-list`` HTMX fragment."""
+    return templates.TemplateResponse(request, "_notes_list.html", {"notes": notes})
+
+
+def render_note_item(request: Request, note: NoteData) -> HTMLResponse:
+    """Render one ``#note-{id}`` HTMX fragment."""
+    return templates.TemplateResponse(request, "_note_item.html", {"note": note})
+
+
 @router.post("/notes/add", response_class=HTMLResponse)
-async def add_note(request: Request, title: str):
+async def add_note(request: Request, title: NoteTitleForm):
     note = NoteResponse(
         title=title,
         description="test description",
@@ -67,12 +84,7 @@ async def add_note(request: Request, title: str):
         completed=False,
     )
     await crud.post(note)
-    notes = await crud.get_all()
-    return templates.TemplateResponse(
-        request,
-        "_notes_list.html",
-        {"notes": notes},
-    )
+    return render_notes_list(request, await read_all_notes())
 
 
 # @mcp.resource("notes://create")
@@ -124,17 +136,47 @@ async def update_note(
     )
 
 
-@router.post("/notes/{note_id}", response_class=HTMLResponse)
+async def save_note_changes(existing_note: NoteData, **changes: typing.Any) -> NoteData:
+    """Apply field changes through the typed CRUD, keeping ``created_date``.
+
+    Database records are immutable; the normalized ``NoteData`` is merged with
+    ``changes``, validated as ``NoteResponse`` and persisted with ``crud.put``.
+    """
+    payload = NoteResponse(
+        **(existing_note.model_dump(exclude={"id", "created_date"}) | changes),
+    )
+    await crud.put(existing_note.id, payload)
+    return NoteData(
+        **payload.model_dump(exclude={"created_date"}),
+        id=existing_note.id,
+        created_date=existing_note.created_date,
+    )
+
+
+@router.post("/notes/{note_id}", response_class=HTMLResponse, responses=NOT_FOUND_RESPONSE)
 async def update_note_form(
     request: Request,
-    note_id: int,
-    title: str = Form(...),
-    content: str = Form(...),
+    note_id: NoteId,
+    title: NoteTitleForm,
+    description: NoteDescriptionForm,
 ):
-    note = await get_note_or_404(note_id)
-    note.title = title
-    note.content = content
-    return templates.TemplateResponse(request, "_note_item.html", {"note": note})
+    existing_note = await read_note(note_id)
+    note = await save_note_changes(existing_note, title=title, description=description)
+    return render_note_item(request, note)
+
+
+@router.post("/notes/{note_id}/toggle", response_class=HTMLResponse, responses=NOT_FOUND_RESPONSE)
+async def toggle_note_form(request: Request, note_id: NoteId):
+    existing_note = await read_note(note_id)
+    note = await save_note_changes(existing_note, completed=not existing_note.completed)
+    return render_note_item(request, note)
+
+
+@router.post("/notes/{note_id}/delete", response_class=HTMLResponse, responses=NOT_FOUND_RESPONSE)
+async def delete_note_form(request: Request, note_id: NoteId):
+    await read_note(note_id)
+    await crud.delete(note_id)
+    return render_notes_list(request, await read_all_notes())
 
 
 # @cache(expire=300)  # Cache for 5 minutes to avoid repeated execution of complex SQL
@@ -164,9 +206,9 @@ async def delete_note(note_id: Annotated[int, Path(gt=0)]) -> NoteData:
     return note
 
 
-@router.get("/notes/{note_id}/edit", response_class=HTMLResponse)
-async def edit_note_form(request: Request, note_id: int):
-    note = await get_note_or_404(note_id)
+@router.get("/notes/{note_id}/edit", response_class=HTMLResponse, responses=NOT_FOUND_RESPONSE)
+async def edit_note_form(request: Request, note_id: NoteId):
+    note = await read_note(note_id)
     return templates.TemplateResponse(request, "_note_item_edit.html", {"note": note})
 
 
