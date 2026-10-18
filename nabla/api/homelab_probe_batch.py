@@ -100,6 +100,7 @@ async def collect_bounded_probe_batch(
             "sampled": 0,
             "scheduled": 0,
             "completed": 0,
+            "cancelled": 0,
             "timed_out": 0,
             "rotating_sample": eligible > 0,
             "budget_seconds": fanout_budget_seconds,
@@ -121,6 +122,16 @@ async def collect_bounded_probe_batch(
         if task in done:
             try:
                 results.append(task.result())
+            except asyncio.CancelledError:
+                # A child may be cancelled independently before the budget
+                # expires. Treat this as unknown, not as a DOWN origin.
+                cancelled = _probe_deadline_result(service, scope=scope)
+                cancelled.update({
+                    "timed_out": False,
+                    "error_kind": "probe_cancelled",
+                    "error": "probe task cancelled before batch deadline",
+                })
+                results.append(cancelled)
             except Exception as exc:
                 results.append(
                     _probe_exception_result(service, exc, scope=scope),
@@ -138,6 +149,9 @@ async def collect_bounded_probe_batch(
     for task in tasks:
         clear_probe_phase(task)
 
+    # asyncio.wait() places cancelled tasks in done, but a cancelled probe
+    # did not complete a network observation.
+    cancelled_count = sum(task.cancelled() for task in done)
     states = {state: sum(result.get("state") == state for result in results) for state in ("ok", "warn", "fail")}
     deadline_phase_counts = {
         phase: sum(
@@ -152,7 +166,8 @@ async def collect_bounded_probe_batch(
         "eligible": eligible,
         "sampled": len(probes),
         "scheduled": len(probes),
-        "completed": len(done),
+        "completed": len(done) - cancelled_count,
+        "cancelled": cancelled_count,
         "timed_out": len(pending),
         "rotating_sample": eligible > len(probes),
         "budget_seconds": fanout_budget_seconds,

@@ -2,6 +2,10 @@
 
 ## P1 — Campagnes distinctes et diagnostics local-first (PR #350, 2026-10-18)
 
+- [x] **GitGuardian PR #350** — historique actif consolidé et occurrence historique de Basic Auth factice écartée des commits de la PR ; contrôle GitGuardian **SUCCESS** sur le commit consolidé, 1 commit analysé et aucun secret détecté. Branche antérieure conservée pour restauration, sans désactiver le scanner. Les autres contrôles GitHub Actions restent non exécutés sur les commits `[skip ci]` : aucune affirmation de CI globalement verte.
+- [x] **Tâche de sonde annulée avant échéance** — intercepter explicitement `asyncio.CancelledError` d'un enfant déjà terminé, état `warn` / `probe_cancelled`, compteur `cancelled` séparé des observations `completed` et des expirations `timed_out`. Test asynchrone de non-régression ajouté ; exécution de la suite complète toujours en attente.
+
+
 - [x] **Historique de la PR consolidé pour GitGuardian** — correctif de la fixture de test déjà appliqué ; conservation du contenu de la PR en un commit de synthèse bâti directement sur `master`, afin que l'ancienne occurrence synthétique Basic Auth ne fasse plus partie des commits analysés dans la PR. Sauvegarde de l'ancienne branche : `backup/pr350-before-gitguardian-squash-20261018`. Aucun désarmement de GitGuardian ; son résultat sur le nouveau commit reste à contrôler. Le SHA du commit historique problématique n'est pas reproduit dans cette roadmap.
 
 

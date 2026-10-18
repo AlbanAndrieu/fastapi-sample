@@ -220,3 +220,34 @@ async def test_tracker_rejects_arbitrary_phase_labels() -> None:
     with pytest.raises(ValueError, match="unrecognized probe phase"):
         mark_probe_phase("Bearer NEVER_LEAK")  # type: ignore[arg-type]
     assert all("NEVER_LEAK" not in phase for phase in DEADLINE_PHASES)
+
+
+@pytest.mark.asyncio
+async def test_pre_cancelled_child_is_warning_not_batch_failure() -> None:
+    """Child cancellation must not propagate through the health collector."""
+
+    async def pending() -> dict:
+        await asyncio.Event().wait()
+        return {"state": "ok"}
+
+    task = asyncio.create_task(pending())
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
+
+    rows, summary = await homelab_probe_batch.collect_bounded_probe_batch(
+        [(_service("cancelled"), task)],
+        scope="public",
+        per_probe_timeout_seconds=1.0,
+        fanout_budget_seconds=0.02,
+        max_concurrency=1,
+    )
+    assert summary["scheduled"] == 1
+    assert summary["completed"] == 0
+    assert summary["cancelled"] == 1
+    assert summary["timed_out"] == 0
+    assert summary["states"]["warn"] == 1
+    assert summary["deadline_phase_counts"] == dict.fromkeys(DEADLINE_PHASES, 0)
+    assert rows[0]["state"] == "warn"
+    assert rows[0]["error_kind"] == "probe_cancelled"
+    assert rows[0]["timed_out"] is False
+    assert rows[0]["reachable"] is False
