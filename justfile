@@ -23,6 +23,10 @@ offline-test:
 dev:
     uv run fastapi dev --port 8080
 
+# Start the service like `make up` (gunicorn); e.g. `just up PORT=8091 DATADOG_ENABLED=true`.
+up *args:
+    make up {{ args }}
+
 # Run repository tests without resolving dependencies.
 test:
     bash scripts/run-pytest-compact.sh

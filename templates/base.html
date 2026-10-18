@@ -150,7 +150,7 @@
         )
           return void console.warn(
             "[Obs.js] Skipping: must be an inline, classic <script> in <head>.",
-            e ? (e.src ? "src=" + e.src : "type=" + e.type) : "type=module",
+            e ? (e.src ? "src=" + e.src : "type=" + e.type) : "type=module"
           );
         const t = document.documentElement,
           { connection: i } = navigator;
@@ -275,7 +275,15 @@
     {% if DEBUG %}
     <!-- Hot reload for development -->
     <script>
-      new EventSource("/hot-reload").onmessage = () => location.reload();
+      (() => {
+        const source = new EventSource("/hot-reload");
+        let bootId = null;
+        source.addEventListener("boot", (event) => {
+          if (bootId !== null && bootId !== event.data) location.reload();
+          bootId = event.data;
+        });
+        source.addEventListener("reload", () => location.reload());
+      })();
     </script>
     {% endif %}
   </head>

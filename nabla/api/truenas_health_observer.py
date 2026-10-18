@@ -18,6 +18,7 @@ from nabla.api.provider_probe_policies import (
     TRUENAS_API_CACHE_POLICY as _CACHE_POLICY,
 )
 from nabla.api.provider_credentials import inspect_environment_credentials
+from nabla.api.runtime_environment import runtime_mode
 from nabla.api.truenas_client import observe_truenas_api
 from nabla.integrations.truenas_client import TrueNASHealthProbeError
 from nabla.settings.homelab import TrueNASProviderSettings
@@ -252,7 +253,9 @@ async def observe_truenas_health_api() -> dict[str, Any]:
     settings = TrueNASProviderSettings()
     configuration_failure = truenas_api_configuration_failure()
     if configuration_failure is not None:
-        logger.error(
+        # Missing TrueNAS credentials are expected on a developer workstation.
+        log = logger.warning if runtime_mode() == "local" else logger.error
+        log(
             "TrueNAS API authentication unavailable stage=%s error=%s",
             configuration_failure["stage"],
             configuration_failure["error"],

@@ -207,13 +207,20 @@ def _register_homelab_health_routes(app: FastAPI) -> None:
     )
     async def get_runtime_topology(request: Request, response: Response) -> dict[str, Any]:
         """Expose sanitized cross-replica heartbeat and egress evidence."""
-        from nabla.api.demo.socket.redis import redis
         from nabla.api.runtime_topology import build_runtime_topology_snapshot
+        from nabla.app_features import features_from_state
+
+        features = features_from_state(request.app.state)
+        if features.redis:
+            from nabla.api.demo.socket.redis import redis
+        else:
+            redis = None
 
         response.headers.update(_NO_STORE_HEADERS)
         return await build_runtime_topology_snapshot(
             redis,
             hostname=request.url.hostname,
+            features=features,
         )
 
 
@@ -238,15 +245,22 @@ def _register_probe_routes(app: FastAPI) -> None:
         summary="Readiness of traffic-critical dependencies",
         operation_id="get_readiness",
     )
-    async def get_readiness() -> JSONResponse:
-        from nabla.api.db.database import engine
-        from nabla.api.demo.socket.redis import redis
+    async def get_readiness(request: Request) -> JSONResponse:
         from nabla.api.health_contracts import build_readiness_payload
+        from nabla.app_features import features_from_state
+
+        features = features_from_state(request.app.state)
+        engine = redis = None
+        if features.database:
+            from nabla.api.db.database import engine
+        if features.redis:
+            from nabla.api.demo.socket.redis import redis
 
         payload, ready = await build_readiness_payload(
             redis_client=redis,
             engine=engine,
             version=app.version,
+            features=features,
         )
         return JSONResponse(
             payload,

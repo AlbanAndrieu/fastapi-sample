@@ -7,6 +7,7 @@ import {
   detailText,
   isExpectedSentryDebugFailure,
 } from "./api-health-detail.js";
+import { includeObservedGarageChecks } from "./api-health-garage.js";
 import {
   escapeText,
   httpStatusIsSuccess2xx,
@@ -357,7 +358,10 @@ export function loadHealth() {
       if (!data) throw new Error("health snapshot is missing /healthz data");
       const homelab = snapshot.homelab;
       const merged = homelab ? mergeHomelabEvidence(data, homelab) : data;
-      render(merged, snapshot.platform_metrics);
+      const visible = homelab
+        ? includeObservedGarageChecks(merged, homelab, snapshot.state)
+        : merged;
+      render(visible, snapshot.platform_metrics);
     })
     .catch((error) => {
       showFetchError(String(error.message || error));

@@ -6,6 +6,7 @@ import os
 import shutil
 import stat
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -39,9 +40,29 @@ def _write_executable(path: Path, content: str) -> None:
 
 
 def _fixture_env(fake_bin: Path, **extra: str) -> dict[str, str]:
-    """Isolate fixtures from an outer gate run (e.g. agent-publish.sh itself)."""
-    env = {key: value for key, value in os.environ.items() if key != "QUALITY_BASE_REF"}
-    env["PATH"] = f"{fake_bin}:{os.environ.get('PATH', '')}"
+    """Use the mocked toolchain, never the invoking `uv run pytest` environment."""
+    excluded = {
+        "QUALITY_BASE_REF",
+        "BASH_ENV",
+        "ENV",
+        "VIRTUAL_ENV",
+        "PYTHONPATH",
+        "PYTHONHOME",
+        "UV_PROJECT_ENVIRONMENT",
+    }
+    env = {key: value for key, value in os.environ.items() if key not in excluded and not key.startswith("BASH_FUNC_")}
+    # Inherit neither a project venv/bin/uv nor a shell initialization
+    # hook which can replace the mock with real uv. Keep Python and git
+    # explicitly available so the isolated ci_scope fixture still runs.
+    executable_dirs = (
+        fake_bin,
+        Path(sys.executable).parent,
+        Path(shutil.which("git") or "/usr/bin/git").parent,
+        Path(shutil.which("bash") or "/usr/bin/bash").parent,
+        Path("/usr/bin"),
+        Path("/bin"),
+    )
+    env["PATH"] = os.pathsep.join(dict.fromkeys(map(str, executable_dirs)))
     env.update(extra)
     return env
 
@@ -76,6 +97,35 @@ if [[ "${{1:-}}" == "run" && "${{2:-}}" == "--no-sync" ]]; then
 fi
 exit 2
 """
+
+
+def test_publication_fixture_uses_only_its_mocked_uv(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Prevent accidental real Pylint/build invocations from a nested gate."""
+    fake_bin = tmp_path / "fake-bin"
+    fake_bin.mkdir()
+    _write_executable(fake_bin / "uv", _fake_uv("0.12.1"))
+    # A parent shell's inherited startup hook must never supersede the mock.
+    bash_env = tmp_path / "inherited-bash-env"
+    bash_env.write_text("uv() { return 30; }\n", encoding="utf-8")
+    monkeypatch.setenv("BASH_ENV", str(bash_env))
+    monkeypatch.setenv("VIRTUAL_ENV", "/unexpected/outer/.venv")
+    monkeypatch.setenv("PATH", "/unexpected/outer/.venv/bin:" + os.environ["PATH"])
+
+    env = _fixture_env(fake_bin)
+    completed = subprocess.run(
+        ["bash", "-c", "command -v uv; uv --version"],
+        cwd=tmp_path,
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.stdout.splitlines() == [str(fake_bin / "uv"), "uv 0.12.1"]
+    assert "BASH_ENV" not in env
+    assert "VIRTUAL_ENV" not in env
 
 
 def test_publication_proof_reuses_exact_head_base_and_toolchain(tmp_path: Path) -> None:

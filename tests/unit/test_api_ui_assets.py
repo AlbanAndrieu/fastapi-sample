@@ -176,8 +176,9 @@ def test_health_board_explains_dependency_propagation() -> None:
     assert 'from "./api-health-board.js"' in health
     assert enrichment in health
     assert 'fetchJson("/api/homelab/health"' not in health
-    merged_render = "render(merged, snapshot.platform_metrics);"
+    merged_render = "render(visible, snapshot.platform_metrics);"
     assert "const merged = homelab ? mergeHomelabEvidence(data, homelab) : data;" in health
+    assert "includeObservedGarageChecks(merged, homelab, snapshot.state)" in health
     assert merged_render in health
     assert "render(data, snapshot.platform_metrics);" not in health
     assert health.index(enrichment) < health.index(merged_render)

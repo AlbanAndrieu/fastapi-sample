@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 import nabla.lifespan as lifecycle
+from nabla.api import health_contracts
 
 pytestmark = pytest.mark.asyncio
 
@@ -155,7 +156,7 @@ async def test_failed_background_task_is_reported_and_does_not_break_cleanup(
     logger.error.side_effect = lambda *args, **kwargs: reported.set()
 
     async def fail() -> None:
-        raise ConnectionError("listener unavailable")
+        raise RuntimeError("listener bug")
 
     lifecycle._start_background_task(
         fail(),
@@ -167,6 +168,30 @@ async def test_failed_background_task_is_reported_and_does_not_break_cleanup(
 
     logger.error.assert_called_once_with(
         "background_task_failed",
+        task_name="redis-event-listener",
+        exception_type="RuntimeError",
+    )
+
+
+async def test_unreachable_optional_redis_degrades_worker_with_warning(
+    monkeypatch,
+) -> None:
+    logger = Mock()
+    monkeypatch.setattr(lifecycle, "logger", logger)
+    tasks: list[asyncio.Task[None]] = []
+    reported = asyncio.Event()
+    logger.warning.side_effect = lambda *args, **kwargs: reported.set()
+
+    async def fail() -> None:
+        raise lifecycle.RedisConnectionError("Error 61 connecting to 127.0.0.1:6379")
+
+    lifecycle._start_background_task(fail(), name="redis-event-listener", tasks=tasks)
+    await asyncio.wait_for(reported.wait(), timeout=1)
+    await lifecycle._cancel_background_tasks(tasks)
+
+    logger.error.assert_not_called()
+    logger.warning.assert_called_once_with(
+        "background_task_degraded",
         task_name="redis-event-listener",
         exception_type="ConnectionError",
     )
@@ -185,7 +210,8 @@ def test_startup_database_failure_classification(error, expected) -> None:
     assert lifecycle._startup_database_failure(error) == expected
 
 
-async def test_database_dns_failure_remains_startup_fatal(monkeypatch) -> None:
+async def test_database_dns_failure_remains_startup_fatal_when_required(monkeypatch) -> None:
+    monkeypatch.setenv("POSTGRES_REQUIRED", "true")
     app, resources = _configure_lifecycle(monkeypatch)
     resources["database"].connect.side_effect = socket.gaierror(
         -3,
@@ -200,6 +226,53 @@ async def test_database_dns_failure_remains_startup_fatal(monkeypatch) -> None:
 
     logger.error.assert_called_once()
     assert "phase=%s stage=%s" in logger.error.call_args.args[0]
-    assert logger.error.call_args.args[1:3] == ("dns", "name_resolution")
+    assert logger.error.call_args.args[1:4] == ("true", "dns", "name_resolution")
     resources["database"].disconnect.assert_not_awaited()
     resources["db_pool"].close.assert_called_once()
+
+
+async def test_optional_database_failure_degrades_without_aborting_startup(monkeypatch) -> None:
+    monkeypatch.delenv("POSTGRES_REQUIRED", raising=False)
+    app, resources = _configure_lifecycle(monkeypatch)
+    resources["database"].connect.side_effect = ConnectionRefusedError("connection refused")
+    logger = Mock()
+    monkeypatch.setattr(lifecycle, "logger", logger)
+
+    async with lifecycle.lifespan(app):
+        assert app.state.database_available is False
+
+    degraded = [call for call in logger.warning.call_args_list if "startup_dependency_degraded" in call.args[0]]
+    assert len(degraded) == 1
+    assert degraded[0].args[1] == "ConnectionRefusedError"
+    resources["database"].disconnect.assert_not_awaited()
+    resources["db_pool"].close.assert_called_once()
+
+
+async def test_optional_database_success_keeps_disconnect_on_shutdown(monkeypatch) -> None:
+    monkeypatch.delenv("POSTGRES_REQUIRED", raising=False)
+    app, resources = _configure_lifecycle(monkeypatch)
+
+    async with lifecycle.lifespan(app):
+        assert app.state.database_available is True
+        resources["database"].disconnect.assert_not_awaited()
+
+    resources["database"].disconnect.assert_awaited_once()
+
+
+async def test_homelab_runtime_keeps_postgres_startup_fatal(monkeypatch) -> None:
+    monkeypatch.delenv("POSTGRES_REQUIRED", raising=False)
+    monkeypatch.setattr(health_contracts, "runtime_mode", lambda: "homelab")
+    app, resources = _configure_lifecycle(monkeypatch)
+    resources["database"].connect.side_effect = ConnectionRefusedError("connection refused")
+    monkeypatch.setattr(lifecycle, "logger", Mock())
+
+    with pytest.raises(ConnectionRefusedError):
+        async with lifecycle.lifespan(app):
+            pytest.fail("TrueNAS requires PostgreSQL at startup")
+
+
+async def test_fastapi_cloud_runtime_does_not_require_postgres(monkeypatch) -> None:
+    monkeypatch.delenv("POSTGRES_REQUIRED", raising=False)
+    monkeypatch.setattr(health_contracts, "runtime_mode", lambda: "fastapi_cloud")
+
+    assert lifecycle.postgres_required() is False

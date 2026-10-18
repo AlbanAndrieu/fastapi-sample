@@ -1,5 +1,12 @@
 import { escapeText } from "./api-health-ui.js";
 import { fetchHomelabProbeMatrix } from "./api-homelab-health.js";
+import {
+  deadlineDetailText,
+  phaseDetailText,
+  phaseSummaryText,
+  sanitizedDeadlinePhaseCounts,
+  sanitizedPhaseTiming,
+} from "./api-probe-phase-timing.js";
 
 const UPDATE_EVENT = "homelab-probes:update";
 const LOADING_EVENT = "homelab-probes:loading";
@@ -62,6 +69,8 @@ function scopeMetrics(summary, enabled = true) {
     cached,
     coverage: eligible > 0 ? clampPercent((known / eligible) * 100) : 100,
     timedOut: enabled ? finiteNumber(summary?.timed_out) : 0,
+    phaseTiming: enabled ? sanitizedPhaseTiming(summary?.timing) : null,
+    deadlinePhases: enabled ? sanitizedDeadlinePhaseCounts(summary?.deadline_phase_counts) : null,
     cacheTtl: finiteNumber(summary?.evidence?.evidence_ttl_seconds),
   };
 }
@@ -161,11 +170,18 @@ function scopeCard(label, icon, scope) {
   if (!scope.enabled) {
     return `<div class="probe-scope-card"><span>${icon} ${escapeText(label)}</span><strong>disabled</strong><small>Excluded from coverage denominator</small></div>`;
   }
+  const phaseText = phaseSummaryText(
+    scope.phaseTiming,
+    scope.sampled,
+    scope.timedOut,
+    scope.deadlinePhases,
+  );
   return (
     '<div class="probe-scope-card">' +
     `<span>${icon} ${escapeText(label)}</span>` +
     `<strong>${scope.coverage.toFixed(1)}%</strong>` +
     `<small>${scope.known}/${scope.eligible} observed · ${scope.fresh} latest · ${scope.cached} retained</small>` +
+    (phaseText ? `<small>${escapeText(phaseText)}</small>` : "") +
     "</div>"
   );
 }
@@ -397,6 +413,10 @@ function rowDetail(row) {
   } else if (row?.error) {
     parts.push(row.error);
   }
+  const phases = phaseDetailText(row?.probe_timing);
+  if (phases) parts.push(phases);
+  const deadline = deadlineDetailText(row);
+  if (deadline) parts.push(deadline);
   return parts.join(" · ") || "no error detail";
 }
 

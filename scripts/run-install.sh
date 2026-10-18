@@ -14,9 +14,6 @@ WORKING_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 # source /opt/ansible/env38/bin/activate
 
-echo -e "${magenta} python -m pipenv install --dev --site-packages --ignore-pipfile ${NC}"
-python -m pipenv install --dev --site-packages --ignore-pipfile 2>/dev/null
-
 echo -e "${magenta} pip install --upgrade pip ${NC}"
 
 #pip install setup-py-upgrade

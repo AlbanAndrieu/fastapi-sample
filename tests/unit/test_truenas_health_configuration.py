@@ -1,5 +1,7 @@
 """TrueNAS health configuration must fail closed without leaking secret values."""
 
+from unittest.mock import Mock
+
 import pytest
 
 from nabla.api import truenas_health_observer
@@ -90,3 +92,18 @@ def test_failure_kind_classifies_truenas_ui_allowlist_denial() -> None:
 
     assert phase == "connect"
     assert stage == "source_allowlist"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("mode", "level"), [("local", "warning"), ("homelab", "error")])
+async def test_missing_configuration_log_level_follows_runtime(monkeypatch, mode, level) -> None:
+    logger = Mock()
+    monkeypatch.setattr(truenas_health_observer, "logger", logger)
+    monkeypatch.setattr(truenas_health_observer, "runtime_mode", lambda: mode)
+    _set_username(monkeypatch)
+    monkeypatch.delenv("TRUENAS_API_KEY", raising=False)
+
+    await truenas_health_observer.observe_truenas_health_api()
+
+    getattr(logger, level).assert_called_once()
+    getattr(logger, "error" if level == "warning" else "warning").assert_not_called()

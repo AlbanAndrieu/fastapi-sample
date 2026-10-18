@@ -7,6 +7,7 @@ import time
 from typing import Any, Literal
 
 from nabla.api.homelab_models import HomelabService
+from nabla.api.homelab_probe_phase_tracker import DEADLINE_PHASES
 from nabla.api.homelab_probe_policy import (
     HEALTH_CACHE_TTL_SEC,
     MAX_INTERNAL_PROBES_PER_REFRESH,
@@ -120,12 +121,23 @@ def merge_probe_evidence(
         previous = store.get(service_id)
         if row.get("timed_out") is True:
             if previous is not None:
-                merged[service_id] = _annotated(
+                retained = _annotated(
                     previous,
                     source="memory",
                     now=clock,
                     refresh_error=str(row.get("error") or "service probe fan-out budget exceeded"),
                 )
+                # Keep last-known health distinct from the most recent failed
+                # attempt. Only publish fixed phase vocabulary and elapsed time.
+                if row.get("deadline_phase") in DEADLINE_PHASES:
+                    retained["last_probe_attempt_deadline_phase"] = row["deadline_phase"]
+                    elapsed = row.get("deadline_phase_elapsed_ms")
+                    retained["last_probe_attempt_deadline_phase_elapsed_ms"] = (
+                        elapsed
+                        if type(elapsed) is int and 0 <= elapsed <= 60_000
+                        else None
+                    )
+                merged[service_id] = retained
             else:
                 transient = _ProbeEvidence(
                     row=dict(row),

@@ -209,7 +209,8 @@ def test_health_board_renders_merged_homelab_evidence_once() -> None:
     health = (ASSETS / "api-health-core.js").read_text(encoding="utf-8")
 
     assert "const merged = homelab ? mergeHomelabEvidence(data, homelab) : data;" in health
-    assert "render(merged, snapshot.platform_metrics);" in health
+    assert "includeObservedGarageChecks(merged, homelab, snapshot.state)" in health
+    assert "render(visible, snapshot.platform_metrics);" in health
     assert "render(data, snapshot.platform_metrics);" not in health
     assert health.count("mergeHomelabEvidence(data, homelab)") == 1
 

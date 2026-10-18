@@ -506,6 +506,27 @@ function setExposureMetadata(row, exposure) {
   }
 }
 
+function garageExposureForFilter(snapshot, row, observedExposure) {
+  const id = String(row.dataset.serviceKey || "");
+  if (!["garage", "garage-admin", "garage-webui"].includes(id)) {
+    return observedExposure;
+  }
+  const entries = snapshot?.homelab?.services;
+  if (!Array.isArray(entries)) return observedExposure;
+  const declared = entries.find((entry) => entry?.id === id);
+  const intent = declared?.exposure_intent;
+  if (intent !== "internal" && intent !== "public") return observedExposure;
+  return {
+    ...(observedExposure || {}),
+    external: intent === "public",
+    // Declared privacy never certifies compliant outside-in routing.
+    policy_status:
+      declared.unexpected_tunnel_route === true
+        ? "warn"
+        : observedExposure?.policy_status || "unknown",
+  };
+}
+
 function decorateRow(row, snapshot) {
   const healthChecks = snapshot?.healthz?.checks || {};
   const homelabChecks = snapshot?.homelab?.checks || {};
@@ -517,7 +538,7 @@ function decorateRow(row, snapshot) {
   const primary = row.querySelector(".health-row-primary");
   if (!primary) return;
 
-  setExposureMetadata(row, exposure);
+  setExposureMetadata(row, garageExposureForFilter(snapshot, row, exposure));
   const kinds = new Set();
   const strip = document.createElement("div");
   strip.className = "service-probe-strip";
