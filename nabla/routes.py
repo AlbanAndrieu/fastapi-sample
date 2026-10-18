@@ -5,9 +5,8 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
-from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from prometheus_client import REGISTRY
 from prometheus_client.openmetrics.exposition import (
@@ -32,14 +31,17 @@ templates = Jinja2Templates(directory="templates")
 _API_ASSETS_DIR = Path(__file__).resolve().parent / "api" / "assets"
 
 
-class NoStoreStaticFiles(StaticFiles):
-    """Static assets that must reflect the currently deployed application release."""
+def _no_store(response: Response) -> None:
+    """Assets must reflect the currently deployed application release."""
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    response.headers["Pragma"] = "no-cache"
 
-    async def get_response(self, path: str, scope: dict) -> Response:
-        response = await super().get_response(path, scope)
-        response.headers["Cache-Control"] = "no-store, max-age=0"
-        response.headers["Pragma"] = "no-cache"
-        return response
+
+def _register_api_assets(app: FastAPI) -> None:
+    """Serve UI assets as a FastAPI frontend: routes win, no SPA fallback."""
+    assets = APIRouter(dependencies=[Depends(_no_store)])
+    assets.frontend("/api/assets", directory=_API_ASSETS_DIR, fallback=None)
+    app.include_router(assets)
 
 
 def _move_root_mounts_last(app: FastAPI) -> None:
@@ -85,16 +87,12 @@ def _register_notes_dashboard(app: FastAPI) -> None:
     def dashboard(request: Request):
         session = SessionLocal()
         notes = session.exec(select(Note)).all()
-        return templates.TemplateResponse("index.html", {"request": request, "notes": notes})
+        return templates.TemplateResponse(request, "index.html", {"notes": notes})
 
 
 def register_routes(app: FastAPI, *, database: bool = True) -> None:
     """Register all application routes; DB-backed pages require ``database``."""
-    app.mount(
-        "/api/assets",
-        NoStoreStaticFiles(directory=_API_ASSETS_DIR),
-        name="api-assets",
-    )
+    _register_api_assets(app)
 
     if database:
         _register_notes_dashboard(app)

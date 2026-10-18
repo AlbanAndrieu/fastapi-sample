@@ -1,5 +1,32 @@
 # Engineering and security roadmap
 
+## P1 — Campagnes distinctes et diagnostics local-first (PR #350, 2026-10-18)
+
+- [x] **GitGuardian PR #350** — détection historique liée à une chaîne Basic Auth synthétique écartée de la branche active par consolidation contrôlée de la PR ; nouveau check GitGuardian **SUCCESS / No secrets detected** (contrôlé après consolidation et après correction des sondes). Le scanner reste actif ; les autres workflows GitHub Actions ne sont pas exécutés sur les commits `[skip ci]`, la CI complète n'est donc pas validée.
+- [x] **Tâche de sonde annulée avant échéance** — intercepter explicitement `asyncio.CancelledError` d'un enfant déjà terminé, état `warn` / `probe_cancelled`, compteur `cancelled` séparé des observations `completed` et des expirations `timed_out`. Test asynchrone de non-régression ajouté ; exécution de la suite complète toujours en attente.
+
+
+- [x] **Consolidation réversible de la branche** — conservation intégrale de l'arbre de travail et des 80 chemins modifiés par rapport à `master` ; commit initial reconstruit depuis `master` et sauvegarde dans `backup/pr350-before-gitguardian-squash-20261018`. Aucun SHA de la détection historique n'est conservé dans cette roadmap. Ne pas confondre le succès GitGuardian avec les tests Python / JS non exécutés.
+
+
+- [x] **Éliminer les relectures du cache dans la comparaison** — `scripts/audit/summarize_homelab_cycles.py --aggregate` déduplique les observations `fresh/origin` par `homelab.checked_at`, et exclut les enveloppes dépourvues d'un identifiant temporel ISO UTC strictement validé. `health-board.generated_at` ne constitue **pas** une preuve d'une nouvelle campagne réseau. Compteurs de répétitions et de preuves manquantes, tests de non-régression et conservation du filtrage des secrets.
+- [x] **Contrat d'acceptation hors réseau** — option `--require-three-origin-cycles` pour exiger trois campagnes distinctes (exit 3 sinon), tout en fournissant une synthèse JSON assainie. Aucun appel HTTP/DNS depuis l'agrégateur, aucun changement des budgets de sondage.
+- [x] **Durcissement du comparateur de cycles (PR #350)** — rejeter les collections de services non-listes sans planter et dédupliquer les variantes UTC équivalentes (secondes fractionnaires) : trois lectures du même instant ne peuvent pas valider le seuil de trois campagnes. Fixture d'URL expurgée de toute syntaxe Basic Auth factice ; le nouveau contrôle GitGuardian a confirmé l'absence de secret détecté sur la branche active. Tests de contrat ajoutés, exécution du HEAD exact restant nécessaire.
+- [ ] **Validation locale du dernier HEAD** — les 30 tests ciblés étaient verts sur TrueNAS à `aa2491b5`; Ruff C420 a été corrigé dans `e887499d`, mais la gate et les nouveaux tests de déduplication devront être exécutés sur le commit courant avec `UV_PYTHON=/usr/bin/python3.13` et `TMPDIR` exécutable. Ne pas transférer la preuve de tests d'un ancien SHA.
+- [x] **Preuve de publication locale explicite** — le wrapper TrueNAS accepte désormais `--publish` (tests ciblés → gate `--fix` → contrôle d'arbre propre → `agent-publish.sh`), conserve `UV_PYTHON=/usr/bin/python3.13`, `TMPDIR` exécutable et `UV_OFFLINE=1` sur demande. Aucun `push`, merge ou bypass de validation ; une correction formatter non commitée bloque la preuve avec code 3.
+- [ ] **Acceptation runtime ultérieure** — seulement après validation locale et déploiement volontaire du SHA immuable, réunir au moins trois identifiants `homelab.checked_at` distincts via le script de synthèse et comparer `deadline_phase_counts` aux expirations. Aucun merge ni déploiement automatisés.
+
+## P1 — Sondes Garage : preuve de phases et comparaison des cycles (PR #350)
+
+- [x] **Présentation sans nouvelles requêtes** — exposer dans le panneau « Homelab probe fan-out » les phases déjà mesurées `queue_wait_ms`, `dns_probe_ms`, `http_request_ms`, `access_secondary_ms`, avec nombre de probes effectivement instrumentées et maximum par phase ; afficher `deadline (phase unknown)` quand l'échéance globale empêche la mesure, et ne jamais convertir `null` en 0 ms. Le budget 4 s, la concurrence 4 et l'échantillonnage 12 restent inchangés.
+- [x] **Triangulation de plusieurs cycles sans réseau** — `scripts/audit/summarize_homelab_cycles.py --aggregate` accepte au plus 64 instantanés JSONL préexistants et émet une synthèse assainie : intervalles de probes publiques terminées/expirées, nombre de réponses stale, maxima des phases **terminées**, Garage LAN 3/3 et dérive Cloudflare Admin. Seuls les cycles de board `fresh` avec `probe_cache.source=origin` sont comptés pour la performance ; aucune réponse stale/cached n'est promue en nouvelle mesure.
+- [x] **Acceptation partielle staging 1.22.2 sur SHA `0902a9a0`** — image reconstruite distincte du rollback, deux assets HTTP 200, les trois Garage visibles dans l'UI `/api?q=garage`, `/health=healthy`, Gatus/Prometheus présent et pfSense RBAC 7/7. Le health-board passe de `pending` à `fresh`, puis `stale` lors du prochain recalcul ; le log montre une construction de 6,673 s. La dérive Cloudflare Admin reste à prouver indépendamment.
+- [x] **Observation explicite du fan-out variable** — deux vagues avec 2/12 puis 1/12 probes publiques achevées (maxima DNS 1 600 puis 1 102 ms) ; une vague distincte 12/12 en 3 073 ms (attente sémaphore max 1 779 ms, DNS 599 ms, HTTP 635 ms, Access 1 000 ms). Les maxima **ne proviennent pas nécessairement de la même probe** et les mesures d'une enveloppe `stale` ne sont pas des résultats à l'instant de lecture.
+- [x] **Attribution à l'annulation** — enregistrement en mémoire des phases `waiting_on_semaphore`, `dns_in_progress`, `head_get_in_progress`, `access_secondary_in_progress` et `tcp_in_progress` (plus `not_started`) via un registre à clés de tâches faibles ; `deadline_phase_counts` et phase/temps partiel exposés sans URL ni identifiant. Capture **avant** `task.cancel()`, mémoire nettoyée après `asyncio.gather()` et preuves `memory` séparées du dernier essai expiré. Tests réseau simulé et contrat d'affichage ajoutés ; gate complète différée.
+- [ ] **Acceptation du prochain SHA de PR** — après déploiement volontaire d'une version validée, comparer au moins trois vagues `probe_cache.source=origin` avec `deadline_phase_counts`, les phases des entrées `deadline` et les dernières tentatives sur preuves `memory`. Ne pas confondre cache, succès réseau et deadline. Ne pas augmenter budget 4 s, concurrence 4 ni échantillonnage 12.
+- [ ] **Optimisation conditionnée aux mesures** — si l'attente sémaphore domine, examiner la contention commune LAN/public et la durée de retenue ; si le DNS domine, examiner la résolution explicite A/AAAA et HTTPX. N'éliminer ou paralléliser aucune sonde ni phase de sécurité avant acceptation de la nouvelle attribution.
+- [ ] **Contrôles finaux différés sur demande opérateur** — conserver les hooks EditorConfig, SAST/DAST et la gate de publication inchangés ; les exécuter avant fusion, pas pendant cette itération de développement.
+
 ## P1 — Catalogue de criticité et sondes par unité de déploiement (2026-10-17)
 
 - [x] **Préparation hors ligne (sans activation runtime)** — `nabla/api/homelab_probe_units.py` lit des composants explicites `deploymentUnitId`, `probePriority`, `probePolicy`, expose un aperçu JSON sans appels réseau et conserve l'isolation des observateurs. 14 tests locaux de contrat réussis ; quality gate complète et `agent-publish.sh` verts le 2026-10-17 sur le checkout réel de #342 (après découpage de `build_probe_units` sous le seuil Ruff C901). Aucune migration de l'échantillonnage existant.
@@ -15,6 +42,15 @@ Reference: [nabla-compose PR #257](https://github.com/AlbanAndrieu/nabla-compose
 - [ ] Add regression tests for Garage unit deduplication, priority order, no-starvation rotation, 1–3 target budgets, TTL and stale evidence, access-protected probes, and conservative degradation. Measure probes/minute, concurrency, latency and TrueNAS/pfSense CPU before/after. Avoid changing the production cloud's no-LAN-probe posture.
 - [ ] Publish unit-level summary + per-component evidence and provenance on health-board only after local-first quality gate, synchronized catalog revisions and accepted rollback plan.
 
+### P0 — Garage absent des cartes de `/api` (2026-10-17)
+
+- [x] **Défaut de raccordement identifié** — les trois composants Garage apparaissent dans `/api/health-board.homelab.services` et `internal_services` après #342 ; pourtant `api-health-core.js` ne crée des cartes que pour `healthz.checks` et `mergeHomelabEvidence` enrichit uniquement ces contrôles existants. L'agent ne peut pas ouvrir la session Cloudflare Access de l'opérateur ; la disparition visible est son observation, la cause dans le code est vérifiée.
+- [x] **Correctif UI protégé** — ajouter les trois Garage manquants sans doublons, garder `garage` (S3), `garage-admin` (API Admin), `garage-webui` (WebUI) distincts. Une preuve interne récente est distincte du contrôle d'exposition : Admin `internal` avec `unexpected_tunnel_route=true` demeure *At risk*. Seule la WebUI dispose d'un lien externe autorisé. Les résultats `stale`, sans LAN ou en deadline restent **UNKNOWN** et ne deviennent jamais verts.
+- [x] **Filtres fondés sur le contrat** — déclarations `exposure_intent=internal/public` projetées vers le filtre d'exposition en complément des observations `sickz`, sans inférer `policy compliant` depuis `internal_state=ok`. Tests Node isolés et assertions de raccordement.
+- [ ] **Publication locale** — exécuter les tests ciblés JS/Python, le formatage/EditorConfig et `agent-publish.sh` sur le nouveau HEAD propre ; pas de coût GitHub Actions induit par un `[skip ci]`.
+- [ ] **Acceptation staging/navigateur** — seulement après un déploiement du nouveau SHA avec rollback : vérifier trois cartes, la recherche « garage », le filtre « At risk » pour Admin, « Internal-only » pour les API, et l'absence de lien public sur l'Admin et le S3. Le staging actuel `5fe39a33` n'embarque pas ce correctif.
+- [ ] **Ancienne erreur quality gate dans worktree détaché** — le premier `uv run --no-sync pytest` a créé une `.venv` vide (`starlette` absent). La passe `--fix` a ensuite laissé quatre fichiers modifiés et `agent-publish.sh` les a refusés (comportement attendu). Une fixture imbriquée `test_agent_publication_proof` a aussi retourné exit 30 dans ce contexte ; conserver sa sortie complète pour attribuer ce cas si un HEAD propre le reproduit, sans neutraliser ce test. Le HEAD concurrent `2902b13b` dispose déjà d'une preuve workstation de quality gate verte, non transférable au futur commit UI.
+
 ## P1 — Garage : couverture des sondes LAN et reconciliation DNS (2026-10-13)
 
 - [x] **Contrat d'audit offline renforcé** — preuves sourcées par couche et horodatées, expiration à 24 h par défaut, indéterminé pour un edge Cloudflare protégé, aucune conclusion d'accès anonyme à l'origine. 15 tests de réconciliation + 14 tests de planification d'unité réussis dans un environnement Python isolé, puis validation complète du dépôt avec dépendances verrouillées le 2026-10-17 (bit exécutable de `scripts/audit/garage_exposure_drift.py` restauré, `reconcile` découpé sous le seuil Ruff C901). Récidive : une écriture de fichier par API (e65aaddf) avait remis le mode à 100644 — préférer le checkout local.
@@ -23,11 +59,11 @@ Reference: [nabla-compose PR #257](https://github.com/AlbanAndrieu/nabla-compose
 - [x] Vérifier dans le catalogue source que les deux API sont `external=false`, avec WebUI `external=true` temporairement ; maintenir des noms explicites sans réutiliser l'identifiant technique de l'API pour l'UI.
 - [x] La couverture des preuves de sondes exclut maintenant les lignes `probe_stale=true` et les échéances sans observation : elles restent consultables mais ne sont plus comptées comme des preuves valides. Test de non-régression ajouté ; exécution locale encore requise.
 - [x] Séparer la politique `internal` de l'état fonctionnel : une sonde LAN valide peut confirmer la santé d'une API privée, un ancien tunnel Cloudflare ne dégrade pas directement sa santé mais génère `unexpected_tunnel_route=true` (à auditer), et une preuve LAN périmée ne compte plus comme santé actuelle. Tests ajoutés, exécution encore requise.
-- [ ] Après déploiement, vérifier `/api/health-board` → `homelab.services` et `homelab.internal_services` depuis FastAPI sur TrueNAS et workstation. Le cloud observer ne peut pas prouver la santé LAN ; absence de sonde ≠ DOWN.
+- [x] **Acceptation Garage LAN TrueNAS + workstation (2026-10-17)** — les trois identités S3/Admin/WebUI sont visibles dans `homelab.internal_services` sur chacun des trois cycles du runtime TrueNAS `master` `5fe39a33`, avec `internal_state=ok`. Le cloud observer ne peut toujours pas prouver la santé LAN ; absence de sonde ≠ DOWN. Détails et preuves dans [l'acceptation staging](runbooks/garage-truenas-staging-acceptance-2026-10-17.md).
   - [x] **Workstation (2026-10-17, HEAD `484415aa`, LAN, `HOMELAB_INTERNAL_PROBES_ENABLED=true`)** — bloc `homelab` construit hors lifespan (PostgreSQL local absent), 3 cycles à 31 s : `garage`, `garage-admin`, `garage-webui` sondés en interne **à chaque cycle**, tous `internal_state=ok`, `probe_stale=false` ; rotation effective (couverture 14,0 → 17,4 → 20,9 %, aucune preuve périmée) ; `exposure_intent` = `internal` pour les deux API et `public` pour la WebUI ; `rotated_priority_ids=[]` (9 priorités seulement présentes dans le catalogue bootstrap). Limites : sans identifiants TrueNAS ni Cloudflare sur la workstation, `runtime_state` est nul et `unexpected_tunnel_route` ne peut pas être prouvé (0 tunnel observé).
-  - [ ] **TrueNAS staging (`http://172.17.0.24:8091`)** — le 2026-10-17 l'instance tourne en `v0+1.21.1`, **sans** le code de #342 : seul `garage-admin` est dans `internal_services`, `garage` et `garage-webui` n'ont pas d'`internal_state`, pas de champ `exposure_intent`. Preuve d'acceptation : après redéploiement de l'image #342 sur `apps/sample`, relire `/api/health-board` sur 3 cycles et constater les trois Garage dans `internal_services` à chaque cycle, `exposure_intent` présent et, avec les identifiants Cloudflare de TrueNAS, `unexpected_tunnel_route=true` pour `garage-admin` tant que sa route tunnel existe.
-- [ ] **Sondes publiques depuis TrueNAS staging** — le 2026-10-17, 12/12 sondes publiques n'aboutissent pas depuis le conteneur TrueNAS (`completed=0`, `timed_out=12`), alors que la workstation sur le même LAN en termine 9 à 12. Diagnostic en lecture seule : `error_kind=deadline` (« service probe fan-out budget exceeded ») — le budget global de 4 s expire avant toute réponse, ce n'est pas un refus réseau. Pas de hairpin : le DNS LAN résout `*.albandrieu.com` vers l'edge Cloudflare (188.114.96/97.x) comme le DNS public. Toute la sortie TrueNAS est lente (lecture Cloudflare 4 050 ms, posture pfSense 6 061 ms) ; hypothèse restante : résolveur DNS du réseau Docker TrueNAS ou chemin d'egress du conteneur (côté `nabla-compose`/pfSense). Sur la workstation, une sonde via l'edge prend 1,5–2,4 s : 12 sondes à concurrence 4 frôlent déjà le budget (dépassé au cycle 2) — ne pas relever le budget pour masquer l'egress. Par ailleurs `cloudflare_configured=true` mais `cloudflare_tunnels_observed=0`. Preuve d'acceptation : depuis le conteneur `fastapi-sample`, mesurer `curl -w '%{time_namelookup} %{time_connect} %{time_total}'` vers un nom public, corriger la phase lente, puis `probe_summary.public.completed > 0` ; tunnels observés > 0 ou erreur Cloudflare explicite.
-- [ ] **Cross-repo `nabla-compose` — catalogue distant rejeté** — `catalog/homelab-services.json` (master) contient deux entrées LanguageTool : « Language Tool » sans `id` (dérivé en `languagetool`, `tunnelUrl` public) et `languagetool` (`external=false`). `HomelabCatalog` refuse l'identifiant dupliqué, donc **tous les consommateurs** (FastAPI Cloud, TrueNAS, workstation) retombent sur le catalogue bootstrap embarqué et ignorent les mises à jour d'exposition. Preuve d'acceptation : une seule entrée `languagetool` avec son exposition réelle, un test de contrat d'unicité des identifiants côté `nabla-compose`, et plus de message « Authoritative homelab catalog unavailable » au démarrage.
+  - [x] **TrueNAS staging (2026-10-17)** — `FASTAPI_SAMPLE_DEPLOY_MODE=build FASTAPI_SAMPLE_REF=master` a construit le HEAD mergé `5fe39a33c3b8c6bf86c3ab1b17384259e09e7af7`. App `RUNNING`, `/health=healthy`, pfSense RBAC 7/7, `garage`, `garage-admin` et `garage-webui` présents **3/3 cycles** avec `internal_state=ok`. `garage-admin` conserve `exposure_intent=internal` et `unexpected_tunnel_route=true` (dette P0 d'exposition indépendante de la santé LAN). `/v2/version.build_revision=null` ne prouve pas encore le SHA de l'image.
+- [ ] **P0/P1 — Identifier l'origine des expirations publiques variables** — après déploiement #342 : `completed/timed_out=1/11,1/11,11/1` puis `11/1,1/11,12/0` avec le **même budget 4 s**, sans défaillance LAN Garage. Résolution DNS/TCP/TLS Python directe depuis le conteneur vers `garage.albandrieu.com` : **47/4/13 ms**, IP edge `188.114.97.2`. HTTP curl hôte/conteneur ~0,1–0,6 s ; les temps curl DNS/connect/TLS sont cumulatifs et ne prouvent pas une panne egress. Prioriser contention du sémaphore partagé interne/public, volume de requêtes HEAD/GET, éventuelles sondes secondaires Access hors sémaphore et cache/stale ; analyser les nouveaux `probe_summary.public.timing` et `public_probe_results[].probe_timing` en comparant `completed_samples` avec `timed_out`, sans relever le budget ni solliciter pfSense.
+- [ ] **Cross-repo catalogue source et priorité** — les diagnostics TrueNAS 2026-10-17 constatent **une seule entrée LanguageTool locale** : l'ancien doublon ne doit plus être déclaré comme un incident actuel sans preuve sur le catalogue distant. Trois entrées Garage ont `probePriority=null`, `deploymentUnitId=null` et `priority_source=bootstrap`. Publier les métadonnées dans le catalogue autoritaire `nabla-compose` avec tests d'unicité/provenance puis confirmer `priority_source=catalog` ; aucune migration du fan-out vers les unités n'est activée dans cette PR.
 - [x] Documenter le runbook `docs/runbooks/garage-public-ingress-audit.md`, y compris les commandes pour comparer catalogue, DNS public, Cloudflare Tunnel, HAProxy/NAT, Traefik et réponses outside-in sans divulguer les paramètres signés de Cloudflare Access.
 - [ ] Auditer les origines actives Cloudflare Tunnel : `garage.albandrieu.com` a renvoyé du XML S3 ; le 2026-10-15, `garage-admin.albandrieu.com` renvoie `HTTP/2 302` vers le login Cloudflare Access. Cela confirme une route publique à l'edge, mais ne prouve pas l'accès anonyme à l'origine ni son port. Comparer les ports :3900/:3903/:3909, routes Access et contenu de réponse ; retirer l'ingress public Admin API après confirmation de sa source de configuration.
   - [x] **Relevé outside-in du 2026-10-17 (workstation LAN, `collect_outside_in_evidence.py`)** — `garage-admin.albandrieu.com` → edge Cloudflare (188.114.96/97.x), `HTTP 302` vers le login Access : route publique toujours active pour une API `external=false` ⇒ `requires_review`. `garage.albandrieu.com` (WebUI, `external=true`) → edge Cloudflare, `302` Access : cohérent ⇒ `no_confirmed_drift` (le XML S3 du 2026-10-15 n'est plus observé à l'edge). `s3.int.albandrieu.com` (S3 API, `external=false`) a un enregistrement **DNS public** vers l'IP WAN du homelab `82.66.4.247` (`_DEFAULT_HOMELAB_WAN_IPV4` ; la topologie déclare le frontend HAProxy public `fWeb_HTTPS` lié à cette IP sur :443), et Garage y répond `403 AccessDenied` « does not support anonymous access » ⇒ `requires_review`. Depuis le LAN cette requête passe par la NAT reflection pfSense : **ce n'est pas une preuve d'accessibilité WAN**.
@@ -68,12 +104,14 @@ detailed implementation record.
 
 ## P0 — Acceptation terrain FastAPI / Garage (2026-10-17)
 
-- [x] Collecte sans privilèges supplémentaires des trois cycles du diagnostic TrueNAS sur `master` `8c4492d1` (non représentatif du HEAD de #342). Catalogue local : `languagetool` = 1 ; Garage `probePriority` / `deploymentUnitId` absents. Aucun changement d'exposition autorisé.
-- [ ] Les sondes publiques ont terminé **4/12, 1/12, 1/12** avec 8, 11 et 11 expirations sur trois cycles. Les sondes individuelles vers l'edge Cloudflare prennent 0,28–0,63 s depuis le conteneur ; rechercher le délai partagé (ordonnancement, cold cache, semaphore, saturation des 4 s), ne pas en déduire une panne DNS, ne pas relever le délai sans mesure.
-- [ ] Garage LAN : `garage-admin` et `garage-webui` présents 3/3 cycles, mais `garage` n'est présent que sporadiquement (2/3 composants détectés sur chaque cycle dans le relevé le plus récent). Valider **après installation explicite du HEAD de #342** la présence et fraîcheur de chaque preuve, pas seulement `completed=12`.
-- [ ] Prometheus `/-/ready` disponible et `nabla:telemetry:gatus_up=1` ; les trois autres familles synthétiques absentes de la requête instantanée demandent inspection des recording rules et du scrape, sans marquer les services DOWN.
-- [ ] `/v2/version.build_revision=null` ne prouve pas la provenance du binaire ; épingler et exposer une attestation de build immuable à terme. Conserver l'observateur externe FastAPI Cloud distinct de Gatus TrueNAS.
-- [ ] Après rebase sur les commits #345–#348 : exécuter tests ciblés, tests `test_app_factory.py`, quality gate local-first complète et acceptation staging ; ne pas prétendre à une CI verte ni merger automatiquement.
+- [x] **PR #342 fusionnée et acceptation staging** — checkout FastAPI `5fe39a33` ; trois sondes LAN Garage présentes, toutes `internal_state=ok`, sur deux campagnes de trois cycles ; pas de preuve de panne d'origine. La couverture des observations monte de 14 à 24,4 % sans changer le nombre de sondes par cycle.
+- [x] **Qualité réseau ponctuelle** — `docker exec -i` (Python) : DNS 47 ms, TCP 4 ms, TLS 13 ms vers l'edge Garage `188.114.97.2`. HTTP via curl ~0,1–0,6 s. Ces mesures écartent seulement un blocage permanent du chemin **testé** ; elles ne prouvent pas que les douze sondes parallèles et les contrôles Access respectent les 4 s.
+- [x] **Instrumenter sans relancer ni augmenter le trafic** — temps de file (`queue_wait_ms`), DNS (`dns_probe_ms`), HEAD/GET (`http_request_ms`), sondage Access secondaire (`access_secondary_ms`), couverture des mesures via `probe_summary.public.timing`. Les sondes annulées restent sans timing (unknown), jamais 0 ms fictives. Acceptance du code sur staging **à venir** pour la PR #350.
+- [ ] **P0 sécurité** — `garage-admin` est sain en LAN, mais `exposure_intent=internal` et `unexpected_tunnel_route=true` ; auditer la route Cloudflare puis la retirer après preuve/rollback, sans confondre 302 Access et atteinte de l'origine.
+- [ ] **P0 sécurité** — depuis le LAN, `s3.int.albandrieu.com` retourne HTTP 403 via `82.66.4.247` : la NAT reflection reste une explication plausible. Exiger un test réellement *hors LAN* avant de conclure à l'exposition WAN ou modifier HAProxy/pfSense.
+- [ ] **P1 qualité d'observation** — des cycles `state=stale` peuvent coexister avec d'anciennes observations Garage `ok` ; afficher l'âge/cache et distinguer source de cache et nouvelle preuve. Les séries Prometheus `nabla:service:synthetic_*` restent absentes alors que `nabla:telemetry:gatus_up=1` et `/-/ready` répond : telemetry UNKNOWN, pas service DOWN.
+- [ ] **P1 attestation runtime cross-repo** — `build_revision=null` malgré build local réussi : `nabla-compose` doit transmettre le SHA contrôlé et ajouter une attestation OCI au digest de l'image, avec preuve de correspondance à l'API. Le Gitlink parent encore épinglé sur `8c4492d1` n'est **pas** une preuve de la version déployée ; ne pas mettre à jour le sous-module automatiquement.
+- [ ] **P1 pré-publication PR #350** — refaire les tests ciblés et la quality gate local-first sur le **nouveau HEAD**, puis vérifier EditorConfig/SAST/tests/security sans GitHub Actions coûteuses. Ne pas merger automatiquement.
 
 ## Consolidated execution plan — 2026-10-10
 
@@ -572,6 +610,46 @@ Reference:
     Acceptance: upgrade or document each, retire or regenerate `Pipfile.lock`,
     then extend `scripts/run-trivy.sh` and `.mega-linter.yml` to `uv.lock`
     with a clean local run before making it blocking.
+    - [x] 2026-10-17 (PR #350): `jupyter-server` 2.20.0 → 2.21.0
+      (GHSA-c3mw-737p-c7g2, HIGH); `uv.lock` with dev deps 11 → 10 findings.
+      Superseded: Jupyter (`notebook`/`nbdev` group, `jupyterlab`, `notebooks/`,
+      the compose `datascience-notebook` service, nbQA and `JUPYTER_JUPYFMT`)
+      was removed on `chore/uv-only-fastapi-frontend-20261017`; `uv.lock` no
+      longer contains `jupyter-server` (61 packages dropped).
+    - [x] `starlette` ≥ 1.3.1 (runtime, 5 advisories incl. 2 HIGH), `gradio`
+      ≥ 6.16.0 and `aiosmtplib` ≥ 5.1.2 (via `fastapi-mail` ≥ 1.6.3) are all
+      blocked by `arel` 0.4.0 (`starlette==0.*`, debug hot-reload in
+      `nabla/app_factory.py`); a dry run without `arel` resolves starlette
+      1.8.0. Acceptance: remove/replace `arel`, migrate `add_event_handler` to
+      lifespan (removed in Starlette 1.0), `uv lock` resolves the fixed
+      versions and Trivy no longer reports these 8 findings.
+    - [ ] `diskcache` (GHSA-w8v5-vhqr-4h9v) and `git-url-parse`
+      (GHSA-4xqq-73wg-5mjp) have no upstream fix: drop `dvc-s3`/`git-url-parse`
+      from the `extra` group or document risk acceptance.
+    - [x] `Pipfile.lock` (62 findings, 5 CRITICAL) is still consumed by
+      `make prepare-pipenv`/`setup-jupyter-local*`, `Dockerfile-pipenv` and the
+      `.envrc` pipenv bootstrap: retire them together with a uv alternative for
+      `setup-jupyter-local`, or regenerate with pipenv.
+    - [x] 2026-10-17 (branch `chore/uv-only-fastapi-frontend-20261017`):
+      `arel` removed (the debug reload is now a FastAPI SSE stream,
+      `nabla/dev_reload.py`), FastAPI `0.143.3`, Starlette `1.8.0`
+      (`fastapi-mail` 1.6.8, `gradio` 6.30.0,
+      `prometheus-fastapi-instrumentator` 8.1.0, `sqladmin` 0.32.0,
+      `aiosmtplib` 5.1.3). `Pipfile`, `Pipfile.lock`, `Dockerfile-pipenv` and
+      the pipenv bootstraps (`.envrc`, `make prepare-pipenv`,
+      `scripts/run-install.sh`) are retired; the packages the scripts still
+      import live in the opt-in `scripts` group. Local
+      `trivy fs --scanners vuln` on `uv.lock`: master 5 (Starlette) → 0.
+      Pipfile dev-only tools not migrated: ansible-builder/navigator/
+      playbook-grapher/runner, molecule, jira, jupyterlab extensions, poetry,
+      autopep8/pep8/pep8-naming, cz-conventional-gitmoji (install with
+      `uvx`/mise when needed).
+    - [ ] Residual: `uv.lock` remains in `--skip-files` of
+      `scripts/run-trivy.sh` and `.mega-linter.yml`. Acceptance: once this branch
+      (rebased on PR #350) is merged, drop the skip and get a clean `bash scripts/run-trivy.sh`.
+    - [ ] Residual: Starlette 1.8 warns that `starlette.testclient` with
+      `httpx` is deprecated (`httpx2`). Acceptance: migrate the test client
+      dependency once `httpx2` is supported by FastAPI's `TestClient`.
   - [ ] Residual: the image scan in `docker-build.yml` (Trivy action `v0.71.2`,
     no ignorefile, no `exit-code`) stays report-only and differs from the
     mise-locked `0.74.0`. Acceptance: align the version, triage the first image
@@ -708,6 +786,47 @@ FastAPI Cloud (outside homelab)        TrueNAS (inside homelab)
 
 ## P1 — runtime architecture
 
+- [x] 2026-10-17 (branch `chore/uv-only-fastapi-frontend-20261017`): the
+  default app starts without PostgreSQL, Redis or Keycloak. PostgreSQL failure
+  logs `startup_dependency_degraded … critical=false`; DB-backed routers
+  (`/auth/*`, `/users/*`, `/notes/*`) answer 503 through
+  `nabla.api.db.availability.require_database`; `/readyz` answers 200
+  `degraded` with `required: false` per check; `/healthz` no longer treats
+  PostgreSQL/Redis as required. `POSTGRES_REQUIRED=true` / `REDIS_REQUIRED=true`
+  restore fail-fast startup and readiness. Keycloak settings are optional, the
+  client is built lazily (`get_keycloak_openid`), the `/healthz` probe is
+  `skipped` and the Keycloak auth routes answer 503 when unset. Live proof on
+  a workstation without Postgres/Redis/Keycloak: `make up` → `/livez`,
+  `/readyz`, `/` 200, `/notes/` and `/users/me` 503, no traceback.
+  - [x] Required dependencies follow `runtime_mode()`: FastAPI Cloud →
+    Redis + Supabase; TrueNAS (`FASTAPI_RUNTIME_MODE=homelab`) → Redis +
+    PostgreSQL, with fail-fast PostgreSQL startup; workstation (`local`) →
+    none. `POSTGRES_REQUIRED`/`REDIS_REQUIRED`/`SUPABASE_REQUIRED`
+    (`true|false`) override the default. `runtime_topology_heartbeat_failed`
+    warns once per Redis outage (then debug, `…_recovered` on return).
+  - [ ] Residual: deployed acceptance proof. Acceptance: after deployment,
+    `/readyz` returns 503 on FastAPI Cloud when Redis or Supabase is stopped and
+    on TrueNAS when Redis or PostgreSQL is stopped, and the contract is
+    documented in the nabla-compose runbook (owner: `nabla-compose`).
+  - [x] Workstation log hygiene: `make up` runs `ddtrace-run` only with
+    `DATADOG_ENABLED=true`; Supabase is required on FastAPI Cloud and
+    PostgreSQL on TrueNAS (never both); without Unleash every flag is off
+    instead of raising (the `/stream` SSE no longer fails); local 503s,
+    missing TrueNAS credentials and optional PostgreSQL/Redis outages log at
+    most one warning. Live proof: `make up` on the workstation →
+    `/v1/runtime/errors` empty, no traceback.
+  - [ ] Residual: Sentry initialises `target=cloud` on the workstation, so dev
+    errors reach the cloud Sentry project. Acceptance: a workstation profile
+    (no DSN or a dev DSN in `.env.local`) confirmed by
+    `/v1/runtime/metadata`/startup logs.
+  - [ ] Residual: gunicorn `--reload` (`make up`) logs `Worker reloading`
+    but the UvicornWorker never restarts, so code changes need a manual
+    restart. Acceptance: reproduce, fix (e.g. `fastapi dev`/uvicorn reload for
+    local dev) and show a reload picking up an edit.
+  - [ ] Residual: on this workstation `/healthz` took ~8 s without
+    dependencies. Acceptance: attribute the slow checks from `probe_budget`
+    and keep the deep diagnostic under its budget.
+
 - [x] Introduce an application factory so tests can create a minimal app without
   PostgreSQL, Redis, observability, MCP or RAG side effects:
   `nabla.app_factory.create_app(AppFeatures(...))` with
@@ -723,10 +842,21 @@ FastAPI Cloud (outside homelab)        TrueNAS (inside homelab)
     next item; acceptance proof: importing `nabla.app_factory` and building the
     minimal app leaves `nabla.api.db.database` and
     `nabla.api.demo.socket.redis` absent from `sys.modules`.
-  - [ ] Residual: `/readyz` and `/api/runtime/topology` in the minimal app still
-    read the module-level engine/Redis client at request time and will report
-    the disabled dependencies as unavailable; acceptance proof: readiness
-    reports disabled subsystems as `disabled`, not failed, from `app.state`.
+  - [x] `/readyz` and `/api/runtime/topology` read `app.state.features`
+    (2026-10-17, PR #350): disabled subsystems are reported `disabled`/
+    `skipped` without probing and do not fail readiness; enabled ones fail as
+    before. The default app only gains an additive `subsystems` field (OK→200,
+    PostgreSQL down→503 unchanged). Live proof:
+    `uv run uvicorn --factory nabla.app_factory:create_minimal_app` with an
+    invalid `POSTGRES_HOST`/`REDIS_URL` → `/readyz` HTTP 200 `ready`, all five
+    subsystems `disabled`.
+  - [ ] Residual: the minimal app's `/api/runtime/topology` still calls
+    `observe_public_egress_ip()` (outbound HTTP); gate it on a feature and test
+    with sockets forbidden and no mock.
+  - [ ] Residual: `/healthz` and the health-board
+    (`nabla/api/health_board_diagnostics.py`) still ignore features; acceptance
+    proof: both report PostgreSQL/Redis `disabled` without I/O in the minimal
+    app.
   - [ ] Residual: no environment switch selects features for `nabla.main:app`
     or FastAPI Cloud; acceptance proof: a documented, tested
     environment-to-`AppFeatures` mapping if operators need it.
@@ -779,17 +909,40 @@ actual repository HEAD. Do not treat this breakdown as implementation evidence.
     Owner confirmation (2026-10-17): the `note` table is currently empty, so no
     existing row is converted and the value/clock pre-checks have no data to
     validate; the post-migration acceptance proof above still applies.
-  - [ ] Residual — Alembic baseline: `992855f73a8d` alters `note` without
-    creating it (the table comes from `create_all`), so `alembic upgrade head`
-    fails on an empty database and `alembic/env.py` targets only the users
-    metadata. Acceptance proof: `alembic upgrade head` succeeds on an empty
-    disposable PostgreSQL.
+  - [x] Alembic baseline (2026-10-17, PR #350): `992855f73a8d` is now a
+    tolerant baseline (creates `user` with the fastapi-users UUID shape,
+    legacy `note` and `sensor_reading` only when absent; revision ids
+    unchanged) and `alembic/env.py` targets `application_metadata()`
+    (`nabla/api/db/metadata.py`). On a disposable PostgreSQL 17: empty DB →
+    `upgrade head` → `downgrade base` → `upgrade head`; `create_all` + row +
+    stamp `4b7c2d9e1a6f` keeps the row; `create_all` + stamp `992855f73a8d`
+    and unstamped `create_all` both upgrade cleanly; `compare_metadata` is empty
+    at each step. Opt-in `tests/integration/test_alembic_postgres.py` (5 cases).
+  - [ ] Residual — real databases: on each deployment check
+    `SELECT version_num FROM alembic_version` is `992855f73a8d` or
+    `4b7c2d9e1a6f` and `user.id` is `uuid`, then `alembic upgrade head`.
+  - [ ] Residual — offline `alembic upgrade head --sql` is unsupported (both
+    revisions inspect the live schema); document or add offline branches.
+  - [ ] Residual — run `-m integration` (Alembic + Notes) in CI with a
+    disposable PostgreSQL service once CI capacity returns.
   - [ ] Residual — note ownership: add an owner column and 403 semantics only
     if notes become per-user data (product decision), with cross-user tests.
-  - [ ] Residual — HTMX form routes (`POST /notes/{id}`, `_note_item*.html`)
-    mutate an immutable record and reference absent `content`/`done` fields
-    and missing toggle/delete routes. Acceptance proof: route tests for the
-    edit/toggle/delete fragments.
+  - [x] HTMX form routes (2026-10-17, PR #350): templates now target the real
+    unprefixed routes (`/notes/`, `/notes/add`, `/notes/{id}`,
+    `/notes/{id}/edit|toggle|delete`); `POST /notes/add` reads the form field,
+    edit merges into `NoteData` through `crud.put` (no record mutation,
+    `created_date` kept), toggle/delete routes added because the templates call
+    them, fields renamed to `completed`/`description`, explicit 404.
+    `tests/unit/test_notes_htmx.py` (15 hermetic cases) also asserts every
+    `hx-*` call maps to a declared route.
+  - [ ] Residual — browser + PostgreSQL acceptance of list/add/edit/toggle/
+    delete from `/` on a disposable DB at `4b7c2d9e1a6f` (or extend
+    `tests/integration/test_notes_postgres.py` to these routes).
+  - [ ] Residual — a stored row violating `NoteResponse` constraints makes
+    toggle/update fail with a 500 validation error; return 422/409 explicitly.
+  - [ ] Residual — `POST /notes/add` hard-codes `description`/`type`/`prompt`
+    and form routes do not enqueue Redis work unlike `PUT /notes/{id}/`
+    (product decisions); fragments still start with `<!doctype html>`.
 - [ ] **RAG concurrency and persistence**: replace global mutable vector state
   with an injected `VectorStore` protocol; identify all readers and writers
   before choosing a backend.

@@ -13,12 +13,14 @@ from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.openapi.utils import get_openapi
+from starlette.routing import Route
 
 from nabla.access_control import operations_access_middleware
 from nabla.api import demo, info, integration, keycloak, v1, v2
 from nabla.api import appwrite_route, brave_route, google_search_route, ping, tavily_route
+from nabla.api.db.availability import require_database
 from nabla.api.runtime_environment import application_debug_enabled
 from nabla.app_features import AppFeatures
 from nabla.config import UNLEASH_ENABLED
@@ -122,16 +124,20 @@ def _configure_metrics(app: FastAPI) -> None:
         logger.warning("OpenTelemetry enabled without OTLP_GRPC_ENDPOINT")
 
 
+# PostgreSQL is optional at startup: DB-backed routers answer 503 when it is down.
+_DATABASE_REQUIRED = [Depends(require_database)]
+
+
 def _register_auth_routers(app: FastAPI) -> None:
     """Register the fastapi-users routers backed by PostgreSQL."""
     from nabla.api.users.models import UserCreate, UserRead, UserUpdate
     from nabla.api.users.users import fastapi_users, jwt_backend
 
-    app.include_router(fastapi_users.get_auth_router(jwt_backend), prefix="/auth/jwt", tags=["auth"])
-    app.include_router(fastapi_users.get_register_router(UserRead, UserCreate), prefix="/auth", tags=["auth"])
-    app.include_router(fastapi_users.get_reset_password_router(), prefix="/auth", tags=["auth"])
-    app.include_router(fastapi_users.get_verify_router(UserRead), prefix="/auth", tags=["auth"])
-    app.include_router(fastapi_users.get_users_router(UserRead, UserUpdate), prefix="/users", tags=["auth"])
+    app.include_router(fastapi_users.get_auth_router(jwt_backend), prefix="/auth/jwt", tags=["auth"], dependencies=_DATABASE_REQUIRED)
+    app.include_router(fastapi_users.get_register_router(UserRead, UserCreate), prefix="/auth", tags=["auth"], dependencies=_DATABASE_REQUIRED)
+    app.include_router(fastapi_users.get_reset_password_router(), prefix="/auth", tags=["auth"], dependencies=_DATABASE_REQUIRED)
+    app.include_router(fastapi_users.get_verify_router(UserRead), prefix="/auth", tags=["auth"], dependencies=_DATABASE_REQUIRED)
+    app.include_router(fastapi_users.get_users_router(UserRead, UserUpdate), prefix="/users", tags=["auth"], dependencies=_DATABASE_REQUIRED)
 
 
 def _register_routers(app: FastAPI, *, debug: bool, features: AppFeatures) -> None:
@@ -150,7 +156,7 @@ def _register_routers(app: FastAPI, *, debug: bool, features: AppFeatures) -> No
     if features.database:
         from nabla.api.notes import notes
 
-        app.include_router(notes.router, tags=["notes"])
+        app.include_router(notes.router, tags=["notes"], dependencies=_DATABASE_REQUIRED)
     app.include_router(info.router, tags=["test"])
     if features.rag:
         from nabla.deepagents import workflow as ai_workflow
@@ -164,7 +170,8 @@ def _register_routers(app: FastAPI, *, debug: bool, features: AppFeatures) -> No
     if features.database:
         from nabla.api import sensor, users
 
-        app.include_router(users.router, tags=["users"])
+        app.include_router(users.router, tags=["users"], dependencies=_DATABASE_REQUIRED)
+        # The sensor dashboard (also served at "/") runs from in-memory readings.
         app.include_router(sensor.router, tags=["sensor"])
     _register_optional_routers(app, debug=debug)
 
@@ -207,8 +214,10 @@ def _configure_mcp(app: FastAPI) -> None:
     # FastMCP owns the complete `/mcp` transport path. Mounting an app whose
     # internal path is `/` below `/mcp` makes clients/proxies depend on slash
     # redirects. Open WebUI expects a canonical Streamable HTTP endpoint.
+    # An exact route (not a root mount) keeps `/mcp` unchanged without
+    # swallowing unknown paths or the low-priority `/api/assets` frontend.
     mcp_app = mcp.http_app(path="/mcp")
-    app.mount("/", mcp_app)
+    app.router.routes.append(Route("/mcp", mcp_app))
     app.state.mcp = mcp
     app.state.mcp_app = mcp_app
     logger.info("MCP Streamable HTTP exposed at /mcp")
@@ -238,19 +247,10 @@ def _configure_admin_panel(app: FastAPI) -> None:
 def _configure_hot_reload(app: FastAPI, *, debug: bool) -> None:
     """Configure hot reload for development mode."""
     if debug:
-        import arel
+        from nabla.dev_reload import router as dev_reload_router
 
-        async def reload_data():
-            print("Reloading server data...")
-
-        hot_reload = arel.HotReload(
-            paths=[arel.Path("./nabla/data", on_reload=[reload_data]), arel.Path("./nabla/static"), arel.Path("./templates")],
-        )
-        app.add_websocket_route("/hot-reload", route=hot_reload)
-        app.add_event_handler("startup", hot_reload.startup)
-        app.add_event_handler("shutdown", hot_reload.shutdown)
+        app.include_router(dev_reload_router)
         templates.env.globals["DEBUG"] = True
-        templates.env.globals["hot_reload"] = hot_reload
 
 
 def _install_custom_openapi(app: FastAPI) -> None:

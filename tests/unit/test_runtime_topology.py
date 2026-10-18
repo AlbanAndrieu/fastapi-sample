@@ -1,6 +1,7 @@
 """Tests for sanitized application runtime/egress topology evidence."""
 
-from unittest.mock import AsyncMock
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -226,7 +227,38 @@ def test_runtime_registry_keys_isolate_local_cloud_and_homelab_heartbeats() -> N
     assert all(":local:" in key for key in local)
     assert all(":fastapi_cloud:" in key for key in cloud)
     assert all(":homelab:" in key for key in homelab)
-    assert all(
-        not key.endswith(":runtime:instances:last-seen")
-        for key in (*local, *cloud, *homelab)
+    assert all(not key.endswith(":runtime:instances:last-seen") for key in (*local, *cloud, *homelab))
+
+
+@pytest.mark.asyncio
+async def test_heartbeat_failure_warns_once_per_outage(monkeypatch) -> None:
+    logger = SimpleNamespace(warning=Mock(), debug=Mock(), info=Mock())
+    monkeypatch.setattr(runtime_topology, "logger", logger)
+    monkeypatch.setattr(runtime_topology, "_heartbeat_outage", {"active": False})
+
+    async def egress():
+        return {"ip": None, "observed": False, "cached": False, "source": "disabled"}
+
+    monkeypatch.setattr(runtime_topology, "observe_public_egress_ip", egress)
+    down = SimpleNamespace(zrangebyscore=AsyncMock(side_effect=ConnectionError("refused")))
+
+    await runtime_topology.record_runtime_heartbeat(down)
+    await runtime_topology.record_runtime_heartbeat(down)
+
+    logger.warning.assert_called_once_with("runtime_topology_heartbeat_failed", exception_type="ConnectionError")
+    logger.debug.assert_called_once_with("runtime_topology_heartbeat_failed", exception_type="ConnectionError")
+
+    pipeline = SimpleNamespace(
+        zadd=Mock(),
+        hset=Mock(),
+        zrem=Mock(),
+        hdel=Mock(),
+        zremrangebyscore=Mock(),
+        expire=Mock(),
+        execute=AsyncMock(),
     )
+    up = SimpleNamespace(zrangebyscore=AsyncMock(return_value=[]), pipeline=Mock(return_value=pipeline))
+
+    await runtime_topology.record_runtime_heartbeat(up)
+
+    logger.info.assert_called_once_with("runtime_topology_heartbeat_recovered")

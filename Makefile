@@ -9,6 +9,8 @@ ME            = $(shell whoami)
 
 PORT         ?= 8080
 NPROC        ?= 1
+# Wrap gunicorn with ddtrace-run only when Datadog is enabled (no agent on a dev workstation).
+DDTRACE_RUN  := $(if $(filter true 1 yes,$(DATADOG_ENABLED)),.venv/bin/ddtrace-run,)
 
 # Image
 APP_NAME     = fastapi-sample
@@ -43,7 +45,7 @@ DOCKER_RUN = "export GIT_BRANCH=$(GIT_BRANCH) && docker-compose run"
 # Misc
 .DEFAULT_GOAL = build
 .PHONY       =  # Not needed here, but you can put your all your targets to be sure
-	            # there is no name conflict between your files and your targets.
+	# there is no name conflict between your files and your targets.
 
 ## —— 🐝 The Strangebuzz Docker Makefile 🐝 ———————————————————————————————————
 
@@ -78,36 +80,8 @@ just-publish-check: ## Validate the exact local publication proof through Just
 %: Makefile
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
-# jupyter: Spins up a jupyter instance hosted at http://127.0.0.1:8888/
-jupyter:
-	@"$(DOCKER_COMPOSE_DOWN)"
-	@"$(DOCKER_COMPOSE_UP)"
-
-prepare-pipenv:
-	@echo "Setting up pipenv and installing packages"
-	@which pipenv || python3 -m pip install pipenv
-	@python -m pipenv install --dev --site-packages
-
-setup-jupyter-local: prepare-pipenv
-	@echo "Setting up local Jupyter"
-#	@curl -L -O "https://github.com/conda-forge/miniforge/releases/download/4.12.0-2/Miniforge3-Linux-x86_64"
-#	@bash Miniforge3-Linux-x86_64 -u -b -f
-#	@rm Miniforge3-Linux-x86_64
-#	@pipenv --python=${HOME}/mambaforge/bin/python install
-	@curl -L -O "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh"
-	@chmod +x Miniconda3-latest-Linux-x86_64.sh
-	@bash Miniconda3-latest-Linux-x86_64.sh -u -b -f
-	@rm Miniconda3-latest-Linux-x86_64.sh
-	@pipenv --python=${HOME}/miniconda3/bin/python install
-	@echo "Data Science environment successfully created"
-
-jupyter-local:
-	@echo "Running local Jupyter"
-	@pipenv run jupyter-lab
-
-setup-jupyter-local-no-mamba: prepare-pipenv
-	@echo "Setting up local Jupyter without mamba"
-	@pipenv install
+# Pipfile/pipenv and Jupyter were retired: uv (pyproject.toml + uv.lock) is the
+# only Python dependency source.
 
 ## —— All 🎵 ———————————————————————————————————————————————————————————————
 .PHONY: all
@@ -181,8 +155,8 @@ up-uvicorn:
 	.venv/bin/uvicorn server_app:app --reload --workers $(NPROC) --host 0.0.0.0 --port $(PORT) \
 	--loop uvloop --http httptools \
 	--timeout-keep-alive 5 \
-  --limit-concurrency 1000 \
-  --backlog 2048
+	--limit-concurrency 1000 \
+	--backlog 2048
 
 #--loop uvloop and --http httptools cut per-request overhead.
 #--workers 2*CPU+1 gives you true parallelism despite the GIL.
@@ -194,12 +168,15 @@ up-uvicorn:
 up-gunicorn:
 	@echo "up gunicorn http://0.0.0.0:$(PORT)/v1/ping"
 	# @echo ".venv/bin/ddtrace-run .venv/bin/gunicorn server_all:app --reload --name fastapi-sample --workers 1 -k uvicorn_worker.UvicornWorker --bind 0.0.0.0:$(PORT) --logger-class=nabla.utils.log_config.JMGunicornLogger --log-level info --access-logfile - --statsd-host localhost:8125"
-	.venv/bin/ddtrace-run .venv/bin/gunicorn server_all:app --reload --name fastapi-sample -k uvicorn_worker.UvicornWorker \
+	# macOS aborts forked workers (objc_initializeAfterForkError / SIGABRT) when
+	# the master initialised Objective-C/Swift classes; ignored on Linux.
+	OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES \
+	$(DDTRACE_RUN) .venv/bin/gunicorn server_all:app --reload --name fastapi-sample -k uvicorn_worker.UvicornWorker \
 	--workers $(NPROC) \
 	--max-requests 5000 --max-requests-jitter 500 \
-    --graceful-timeout 30 --timeout 60 --keep-alive 5 \
-    --threads 1 --worker-connections 1000 \
-	  --bind 0.0.0.0:$(PORT) --log-level info --access-logfile -
+	--graceful-timeout 30 --timeout 60 --keep-alive 5 \
+	--threads 1 --worker-connections 1000 \
+	--bind 0.0.0.0:$(PORT) --log-level info --access-logfile -
 
 ## —— Up ✅ —————————————————————————————————————————————————————————————————
 .PHONY: up
@@ -247,11 +224,11 @@ test-dive: ## Run Dive image tests
 	@echo "=> Testing Dive image..."
 	@echo "CI=true dive --ci --highestUserWastedPercent 0.1 --lowestEfficiency 0.9 --json docker-dive-stats.json $(IMAGE) 1>docker-dive.log 2>docker-dive-error.log"
 	CI=true docker run --rm -it \
-      -v /var/run/docker.sock:/var/run/docker.sock \
-      -v "$(pwd)":"$(pwd)" \
-      -w "$(pwd)" \
-      -v "$(pwd)/.dive.yaml":"$(pwd)/.dive.yaml" \
-      wagoodman/dive:latest --ci --json docker-dive-stats.json $(IMAGE)
+	-v /var/run/docker.sock:/var/run/docker.sock \
+	-v "$(pwd)":"$(pwd)" \
+	-w "$(pwd)" \
+	-v "$(pwd)/.dive.yaml":"$(pwd)/.dive.yaml" \
+	wagoodman/dive:latest --ci --json docker-dive-stats.json $(IMAGE)
 
 ## —— Tests Dive CI 🧪🐳🚨 —————————————————————————————————————————————————————————————————
 .PHONY: test-dive-ci
@@ -265,12 +242,12 @@ test-codeclimate:
 	@echo "=> Testing Codeclimate image..."
 	@echo "codeclimate analyze"
 	docker run \
-  --interactive --tty --rm \
-  --env CODECLIMATE_CODE="$PWD" \
-  --volume "$PWD":/code \
-  --volume /var/run/docker.sock:/var/run/docker.sock \
-  --volume /tmp/cc:/tmp/cc \
-  codeclimate/codeclimate analyze
+	--interactive --tty --rm \
+	--env CODECLIMATE_CODE="$PWD" \
+	--volume "$PWD":/code \
+	--volume /var/run/docker.sock:/var/run/docker.sock \
+	--volume /tmp/cc:/tmp/cc \
+	codeclimate/codeclimate analyze
 
 ## —— Tests Semgrep 🧪👽 —————————————————————————————————————————————————————————————————
 .PHONY: test-semgrep

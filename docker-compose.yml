@@ -84,21 +84,6 @@ services:
     volumes:
       - grafana_data:/var/lib/grafana
 
-  datascience-notebook:
-    image: registry.gitlab.com/gitlab-data/data-image/analyst-image:v0.0.19
-    volumes:
-      - type: bind
-        source: ./
-        target: /files
-      - type: bind
-        source: ${HOME}/.dbt
-        target: /usr/local/snowflake_profile/
-    ports:
-      - "8888:8888"
-    environment:
-      - JUPYTER_ENABLE_LAB=1
-    command: start-notebook.sh --NotebookApp.notebook_dir=/files
-
 volumes:
   prometheus_data:
     driver: local

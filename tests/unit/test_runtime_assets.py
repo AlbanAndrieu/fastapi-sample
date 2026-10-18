@@ -26,6 +26,6 @@ def test_runtime_topology_route_is_registered() -> None:
     app = FastAPI(version="test-version")
     register_routes(app)
 
-    paths = {route.path for route in app.routes}
+    paths = {getattr(route, "path", None) for route in app.routes}
 
     assert "/api/runtime/topology" in paths

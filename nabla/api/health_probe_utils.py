@@ -3,9 +3,15 @@
 from __future__ import annotations
 
 import ssl
+import time
 from typing import Any
 
 import httpx
+
+
+def elapsed_ms(started: float) -> int:
+    """Return non-negative whole milliseconds since a ``perf_counter`` mark."""
+    return max(0, round((time.perf_counter() - started) * 1000))
 
 
 def normalize_probe_error(message: str) -> str:
@@ -42,10 +48,7 @@ def looks_like_tls_error(message: str) -> bool:
 def is_textual_response(response: httpx.Response) -> bool:
     """Return whether a bounded response body is safe/useful for application checks."""
     content_type = response.headers.get("content-type", "").lower()
-    return content_type.startswith("text/") or any(
-        marker in content_type
-        for marker in ("application/json", "application/problem+json", "application/xml")
-    )
+    return content_type.startswith("text/") or any(marker in content_type for marker in ("application/json", "application/problem+json", "application/xml"))
 
 
 async def probe_https_tls_trusted(url: str) -> bool | None:

@@ -22,6 +22,7 @@ from redis.asyncio import Redis
 
 from nabla.api.public_egress_observer import observe_public_egress_ip
 from nabla.api.runtime_environment import runtime_mode
+from nabla.app_features import SUBSYSTEM_DISABLED, AppFeatures
 from nabla.utils.logger import logger
 
 _RUNTIME_KEY_PREFIX = "fastapi-sample:runtime"
@@ -128,11 +129,7 @@ async def redis_usage_snapshot(redis_client: Redis | None) -> dict[str, Any]:
             "configured": True,
             "available": stage == "info",
             "telemetry_available": False,
-            "reason": (
-                "redis telemetry deadline exceeded"
-                if stage == "info"
-                else "redis ping deadline exceeded"
-            ),
+            "reason": ("redis telemetry deadline exceeded" if stage == "info" else "redis ping deadline exceeded"),
             "error_kind": "deadline",
             "failure_stage": stage,
         }
@@ -142,11 +139,7 @@ async def redis_usage_snapshot(redis_client: Redis | None) -> dict[str, Any]:
             "configured": True,
             "available": stage == "info",
             "telemetry_available": False,
-            "reason": (
-                "redis INFO telemetry unavailable"
-                if stage == "info"
-                else "redis ping unavailable"
-            ),
+            "reason": ("redis INFO telemetry unavailable" if stage == "info" else "redis ping unavailable"),
             "failure_stage": stage,
             "exception_type": type(exc).__name__,
         }
@@ -191,6 +184,9 @@ async def redis_usage_snapshot(redis_client: Redis | None) -> dict[str, Any]:
     }
 
 
+_heartbeat_outage = {"active": False}
+
+
 async def record_runtime_heartbeat(
     redis_client: Redis | None,
     *,
@@ -229,10 +225,17 @@ async def record_runtime_heartbeat(
         pipeline.expire(egress_zset, _EGRESS_REGISTRY_TTL_SEC)
         await pipeline.execute()
     except Exception as exc:  # Redis telemetry must never affect application health.
-        logger.warning(
+        # Warn once per outage; an optional Redis must not flood logs every 30 s.
+        log = logger.debug if _heartbeat_outage["active"] else logger.warning
+        _heartbeat_outage["active"] = True
+        log(
             "runtime_topology_heartbeat_failed",
             exception_type=type(exc).__name__,
         )
+    else:
+        if _heartbeat_outage["active"]:
+            _heartbeat_outage["active"] = False
+            logger.info("runtime_topology_heartbeat_recovered")
     return details
 
 
@@ -252,11 +255,7 @@ async def _shared_runtime_snapshot(
         instances.append(current)
 
     active_egress = sorted(
-        {
-            str(item["egress_ip"])
-            for item in instances
-            if isinstance(item.get("egress_ip"), str) and item.get("egress_ip")
-        }
+        {str(item["egress_ip"]) for item in instances if isinstance(item.get("egress_ip"), str) and item.get("egress_ip")},
     )
     recent_egress = await redis_client.zrangebyscore(
         egress_zset,
@@ -273,15 +272,35 @@ async def _shared_runtime_snapshot(
     }
 
 
+def _disabled_redis_usage() -> dict[str, Any]:
+    """Describe Redis telemetry intentionally skipped because the subsystem is disabled."""
+    return {
+        **_redis_identity(),
+        "configured": False,
+        "available": False,
+        "telemetry_available": False,
+        "state": SUBSYSTEM_DISABLED,
+        "reason": "redis subsystem disabled by application features",
+    }
+
+
 async def build_runtime_topology_snapshot(
     redis_client: Redis | None,
     *,
     hostname: str | None = None,
+    features: AppFeatures | None = None,
 ) -> dict[str, Any]:
-    """Return active runtime/egress evidence with explicit count semantics."""
+    """Return active runtime/egress evidence with explicit count semantics.
+
+    When ``features`` disables Redis, the shared registry is never contacted and
+    the ``redis`` block reports ``state: disabled`` instead of an outage.
+    """
+    selected = features or AppFeatures()
     mode = runtime_mode(hostname)
+    if not selected.redis:
+        redis_client = None
     current = await record_runtime_heartbeat(redis_client, mode=mode)
-    redis_usage = await redis_usage_snapshot(redis_client)
+    redis_usage = await redis_usage_snapshot(redis_client) if selected.redis else _disabled_redis_usage()
     shared: dict[str, Any]
     if redis_client is None:
         shared = {
@@ -290,13 +309,15 @@ async def build_runtime_topology_snapshot(
             "active_egress_ips": [current["egress_ip"]] if current.get("egress_ip") else [],
             "recent_egress_ips": [current["egress_ip"]] if current.get("egress_ip") else [],
             "aggregation": "local_only",
-            "degraded": mode in {"fastapi_cloud", "cloud_paas", "homelab"},
+            "degraded": selected.redis and mode in {"fastapi_cloud", "cloud_paas", "homelab"},
         }
     else:
         try:
             shared = await _shared_runtime_snapshot(redis_client, current, mode=mode)
         except Exception as exc:  # Best-effort diagnostic only.
-            logger.warning(
+            # Already reported once by the heartbeat while Redis is down.
+            log = logger.debug if _heartbeat_outage["active"] else logger.warning
+            log(
                 "runtime_topology_snapshot_failed",
                 exception_type=type(exc).__name__,
             )
@@ -332,19 +353,15 @@ async def build_runtime_topology_snapshot(
         "platform_replica_count": None,
         "platform_replica_count_available": False,
         "count_semantics": (
-            "Observed active application runtimes from shared heartbeats; "
-            "this is not the FastAPI Cloud control-plane replica count."
+            "Observed active application runtimes from shared heartbeats; this is not the FastAPI Cloud control-plane replica count."
             if is_fastapi_cloud
             else (
-                "Observed application runtimes for the TrueNAS homelab production "
-                "observer; trusted-LAN access is scoped separately from cloud runtimes."
+                "Observed application runtimes for the TrueNAS homelab production observer; trusted-LAN access is scoped separately from cloud runtimes."
                 if mode == "homelab"
                 else (
-                    "Observed application runtimes for a cloud/PaaS environment; "
-                    "this is application heartbeat evidence, not provider control-plane capacity."
+                    "Observed application runtimes for a cloud/PaaS environment; this is application heartbeat evidence, not provider control-plane capacity."
                     if mode == "cloud_paas"
-                    else "Observed application runtimes for the local workstation; "
-                    "shared Redis heartbeats may include sibling local processes."
+                    else "Observed application runtimes for the local workstation; shared Redis heartbeats may include sibling local processes."
                 )
             )
         ),
@@ -352,6 +369,7 @@ async def build_runtime_topology_snapshot(
         "active_window_seconds": int(_ACTIVE_WINDOW_SEC),
         "recent_egress_window_seconds": int(_RECENT_EGRESS_WINDOW_SEC),
         "redis": redis_usage,
+        "subsystems": selected.subsystem_states(),
         **shared,
     }
 

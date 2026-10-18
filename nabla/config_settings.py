@@ -273,10 +273,12 @@ class _Settings(DatabaseSettings):
         return value
 
     oauth_token_secret: Annotated[SecretStr, Field(min_length=8)]
-    keycloak_server_url: Annotated[str, Field(min_length=1)]
-    keycloak_realm: Annotated[str, Field(min_length=1)]
-    keycloak_client_id: Annotated[str, Field(min_length=1)]
-    keycloak_client_secret: Annotated[SecretStr, Field(min_length=8)]
+    # Keycloak is optional: without all four values, the auth routes answer 503
+    # and /healthz reports the probe as skipped.
+    keycloak_server_url: Annotated[Optional[str], Field(min_length=1)] = None
+    keycloak_realm: Annotated[Optional[str], Field(min_length=1)] = None
+    keycloak_client_id: Annotated[Optional[str], Field(min_length=1)] = None
+    keycloak_client_secret: Annotated[Optional[SecretStr], Field(min_length=8)] = None
 
     metrics_enabled: bool = True
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
@@ -299,14 +301,33 @@ def get_settings() -> APIDeploymentSettings:
     return APIDeploymentSettings()  # pyright: ignore
 
 
-keycloak_openid = KeycloakOpenID(
-    server_url=get_settings().keycloak_server_url,
-    realm_name=get_settings().keycloak_realm,
-    client_id=get_settings().keycloak_client_id,
-    client_secret_key=get_settings().keycloak_client_secret.get_secret_value(),
-)
+def keycloak_configured() -> bool:
+    """Return whether every Keycloak setting needed by the OpenID client is set."""
+    settings = get_settings()
+    return all(
+        (
+            settings.keycloak_server_url,
+            settings.keycloak_realm,
+            settings.keycloak_client_id,
+            settings.keycloak_client_secret,
+        ),
+    )
+
+
+@lru_cache()
+def get_keycloak_openid() -> KeycloakOpenID:
+    """Build the Keycloak OpenID client lazily; raise when Keycloak is not configured."""
+    if not keycloak_configured():
+        raise RuntimeError("Keycloak is not configured (KEYCLOAK_SERVER_URL/REALM/CLIENT_ID/CLIENT_SECRET)")
+    settings = get_settings()
+    return KeycloakOpenID(
+        server_url=settings.keycloak_server_url,
+        realm_name=settings.keycloak_realm,
+        client_id=settings.keycloak_client_id,
+        client_secret_key=settings.keycloak_client_secret.get_secret_value(),
+    )
 
 
 def get_openid_config():
     """Fetch Keycloak OpenID discovery configuration on explicit request."""
-    return keycloak_openid.well_known()
+    return get_keycloak_openid().well_known()

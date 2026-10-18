@@ -1,7 +1,19 @@
 from fastapi import HTTPException, status
 from keycloak.exceptions import KeycloakAuthenticationError
-from nabla.config_settings import keycloak_openid
+from keycloak import KeycloakOpenID
+
+from nabla.config_settings import get_keycloak_openid, keycloak_configured
 from nabla.auth.models import UserInfo
+
+
+def _keycloak() -> KeycloakOpenID:
+    """Return the Keycloak client, or answer 503 when Keycloak is not configured."""
+    if not keycloak_configured():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Keycloak authentication is not configured",
+        )
+    return get_keycloak_openid()
 
 
 class AuthService:
@@ -11,7 +23,7 @@ class AuthService:
         Authenticate the user using Keycloak and return an access token.
         """
         try:
-            token = keycloak_openid.token(username, password)
+            token = _keycloak().token(username, password)
             return token["access_token"]
         except KeycloakAuthenticationError:
             raise HTTPException(  # noqa: B904
@@ -25,7 +37,7 @@ class AuthService:
         Verify the given token and return user information.
         """
         try:
-            user_info = keycloak_openid.userinfo(token)
+            user_info = _keycloak().userinfo(token)
             print(user_info)
             if not user_info:
                 raise HTTPException(

@@ -121,3 +121,17 @@ def test_statsig_settings_from_mapping_are_hermetic() -> None:
     assert settings.configured is False
     assert settings.api_key == ""
     assert settings.statsig_environment == "development"
+
+
+def test_unconfigured_unleash_proxy_reports_flags_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    constructor = Mock()
+    monkeypatch.setenv("UNLEASH_INSTANCE_ID", "XXX")
+    monkeypatch.setattr(feature_flags, "UnleashClient", constructor)
+    feature_flags.get_unleash_client.cache_clear()
+
+    assert feature_flags.unleash_client.is_enabled("sensor_reading_redis_cache") is False
+
+    constructor.assert_not_called()
+    feature_flags.get_unleash_client.cache_clear()

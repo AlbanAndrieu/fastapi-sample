@@ -18,6 +18,7 @@ def test_liveness_never_depends_on_external_services() -> None:
 
 @pytest.mark.asyncio
 async def test_readiness_reports_required_dependency_failure(monkeypatch) -> None:
+    monkeypatch.setenv("REDIS_REQUIRED", "true")
     monkeypatch.setattr(
         health_contracts,
         "check_postgres_sql",
@@ -38,6 +39,47 @@ async def test_readiness_reports_required_dependency_failure(monkeypatch) -> Non
     assert ready is False
     assert payload["contract"] == "readiness"
     assert payload["status"] == "not_ready"
+
+
+@pytest.mark.asyncio
+async def test_readiness_degrades_when_optional_dependencies_are_down(monkeypatch) -> None:
+    monkeypatch.delenv("POSTGRES_REQUIRED", raising=False)
+    monkeypatch.delenv("REDIS_REQUIRED", raising=False)
+    monkeypatch.setattr(health_contracts, "runtime_mode", lambda: "local")
+    monkeypatch.setattr(
+        health_contracts,
+        "check_postgres_sql",
+        Mock(return_value={"reachable": False, "error": "connection refused"}),
+    )
+
+    async def redis_failure(_client):
+        return {"reachable": False, "error": "Connection refused."}
+
+    monkeypatch.setattr(health_contracts, "check_redis_ping", redis_failure)
+
+    payload, ready = await health_contracts.build_readiness_payload(
+        redis_client=Mock(),
+        engine=Mock(),
+        version="test",
+    )
+
+    assert ready is True
+    assert payload["status"] == "degraded"
+    assert payload["checks"]["postgres"]["required"] is False
+    assert payload["checks"]["redis"]["required"] is False
+    assert payload["checks"]["redis"]["failure_stage"] == "connection_refused"
+
+
+def test_optional_postgres_and_redis_do_not_make_diagnostics_unhealthy(monkeypatch) -> None:
+    monkeypatch.delenv("POSTGRES_REQUIRED", raising=False)
+    monkeypatch.delenv("REDIS_REQUIRED", raising=False)
+    monkeypatch.setattr(health_contracts, "runtime_mode", lambda: "local")
+
+    payload = health_contracts.apply_diagnostic_status(
+        {"checks": {"postgres": {"reachable": False}, "redis": {"reachable": False}, "supabase": {"reachable": True}}},
+    )
+
+    assert payload["status"] == "degraded"
 
 
 def test_deep_diagnostic_distinguishes_optional_degradation() -> None:
@@ -193,6 +235,7 @@ def test_confirmed_unhealthy_cloudflare_inventory_still_degrades() -> None:
 
 @pytest.mark.asyncio
 async def test_readiness_classifies_postgres_dns_failure(monkeypatch) -> None:
+    monkeypatch.setenv("POSTGRES_REQUIRED", "true")
     monkeypatch.setattr(
         health_contracts,
         "check_postgres_sql",
@@ -217,3 +260,53 @@ async def test_readiness_classifies_postgres_dns_failure(monkeypatch) -> None:
 
     assert ready is False
     assert payload["checks"]["postgres"]["failure_stage"] == "dns"
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected"),
+    [
+        ("local", frozenset()),
+        ("fastapi_cloud", frozenset({"redis", "supabase"})),
+        ("homelab", frozenset({"redis", "postgres"})),
+        ("cloud_paas", frozenset()),
+    ],
+)
+def test_required_dependencies_follow_runtime_mode(monkeypatch, mode, expected) -> None:
+    for variable in ("POSTGRES_REQUIRED", "REDIS_REQUIRED", "SUPABASE_REQUIRED"):
+        monkeypatch.delenv(variable, raising=False)
+    monkeypatch.setattr(health_contracts, "runtime_mode", lambda: mode)
+
+    assert health_contracts.required_dependencies() == expected
+
+
+def test_explicit_required_flags_override_runtime_defaults(monkeypatch) -> None:
+    monkeypatch.setattr(health_contracts, "runtime_mode", lambda: "homelab")
+    monkeypatch.setenv("REDIS_REQUIRED", "false")
+    monkeypatch.delenv("POSTGRES_REQUIRED", raising=False)
+    monkeypatch.setenv("SUPABASE_REQUIRED", "true")
+
+    assert health_contracts.required_dependencies() == frozenset({"postgres", "supabase"})
+
+    monkeypatch.setattr(health_contracts, "runtime_mode", lambda: "local")
+    monkeypatch.setenv("POSTGRES_REQUIRED", "true")
+    monkeypatch.delenv("SUPABASE_REQUIRED", raising=False)
+
+    assert health_contracts.required_dependencies() == frozenset({"postgres"})
+
+
+@pytest.mark.asyncio
+async def test_deployed_runtime_is_not_ready_without_redis(monkeypatch) -> None:
+    monkeypatch.delenv("REDIS_REQUIRED", raising=False)
+    monkeypatch.setattr(health_contracts, "runtime_mode", lambda: "fastapi_cloud")
+    monkeypatch.setattr(health_contracts, "check_postgres_sql", Mock(return_value={"reachable": True}))
+
+    async def redis_failure(_client):
+        return {"reachable": False, "error": "Connection refused."}
+
+    monkeypatch.setattr(health_contracts, "check_redis_ping", redis_failure)
+
+    payload, ready = await health_contracts.build_readiness_payload(redis_client=Mock(), engine=Mock(), version="test")
+
+    assert ready is False
+    assert payload["status"] == "not_ready"
+    assert payload["checks"]["redis"]["required"] is True
