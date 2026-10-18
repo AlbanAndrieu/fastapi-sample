@@ -1,3 +1,11 @@
+## [1.22.3](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.22.2...1.22.3) (2026-10-18)
+
+
+### Bug Fixes
+
+* **deps:** bump mysql2 ([#354](https://github.com/AlbanAndrieu/fastapi-sample/issues/354)) ([29bc1f6](https://github.com/AlbanAndrieu/fastapi-sample/commit/29bc1f6ba80038ff7d2d208f3005811babff2a92))
+* **ui:** Garage visible dans /api, timings et diagnostics local-first ([#350](https://github.com/AlbanAndrieu/fastapi-sample/issues/350)) ([be0987c](https://github.com/AlbanAndrieu/fastapi-sample/commit/be0987c6c2b63758eed29fc99a5acf8b0e67b897))
+
 ## [1.22.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.22.1...1.22.2) (2026-10-17)
 
 
