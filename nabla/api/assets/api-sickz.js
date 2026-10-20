@@ -272,9 +272,15 @@ function showFetchError(message) {
     wrapPf.innerHTML = "";
   }
   document.getElementById("sickz-checks").innerHTML = "";
-  summaryEl.className = "health-summary health-summary--red";
-  summaryLed.className = "health-led health-led--red";
-  summaryText.textContent = "Could not load /sickz.";
+  const restricted = message.includes("Owner diagnostics require sign-in") ||
+    message.includes("Owner diagnostics session unavailable");
+  summaryEl.className = restricted
+    ? "health-summary health-summary--neutral"
+    : "health-summary health-summary--red";
+  summaryLed.className = restricted ? "health-led health-led--gray" : "health-led health-led--red";
+  summaryText.textContent = restricted
+    ? "Exposure diagnostics restricted — unlock owner access."
+    : "Could not load /sickz.";
   errEl.hidden = false;
   errEl.textContent = message;
 }

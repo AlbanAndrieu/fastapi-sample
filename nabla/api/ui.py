@@ -153,6 +153,17 @@ def render_api_root_page(
                     <button type="button" class="health-refresh">Refresh</button>
                     <button type="button" class="health-cache-reset">Purge cache</button>
                 </p>
+                <div class="health-board-meta" id="owner-session-panel" role="group" aria-label="Owner diagnostics access">
+                    <span id="owner-session-state" role="status">Checking owner access…</span>
+                    <button type="button" id="owner-session-login">Unlock diagnostics</button>
+                    <button type="button" id="owner-session-logout" hidden>Lock diagnostics</button>
+                    <form id="owner-session-form" hidden autocomplete="off">
+                        <label for="owner-session-key">Diagnostics access key (not stored)</label>
+                        <input id="owner-session-key" type="password" autocomplete="off" spellcheck="false">
+                        <button type="submit">Unlock for 20 minutes</button>
+                        <button type="button" id="owner-session-cancel">Cancel</button>
+                    </form>
+                </div>
                 <div class="health-summary health-summary--neutral" id="health-summary">
                     <span class="health-led health-led--gray" id="health-summary-led" aria-hidden="true"></span>
                     <span id="health-summary-text">Loading health checks…</span>

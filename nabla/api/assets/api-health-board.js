@@ -1,3 +1,5 @@
+import { ownerSessionAvailable, resetOwnerSessionStatus } from "./api-owner-session.js";
+
 let healthBoardRequest = null;
 let forceNextRefresh = false;
 
@@ -6,6 +8,11 @@ function delay(milliseconds) {
 }
 
 async function fetchUntilReady(attemptsRemaining = 30) {
+  if (!(await ownerSessionAvailable())) {
+    const error = new Error("Owner diagnostics require sign-in.");
+    error.code = "owner_session_required";
+    throw error;
+  }
   const force = forceNextRefresh;
   forceNextRefresh = false;
   const response = await fetch(
@@ -15,7 +22,13 @@ async function fetchUntilReady(attemptsRemaining = 30) {
       headers: { Accept: "application/json", "Cache-Control": "no-cache" },
     },
   );
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  if (response.status === 401 || response.status === 403) {
+    resetOwnerSessionStatus();
+    const error = new Error("Owner diagnostics session unavailable.");
+    error.code = "owner_session_required";
+    throw error;
+  }
+  if (!response.ok) throw new Error("HTTP " + response.status);
   const snapshot = await response.json();
   if (snapshot.state !== "pending") return snapshot;
   if (attemptsRemaining <= 0)
@@ -30,6 +43,11 @@ export function resetHealthBoardRequest({ forceRefresh = false } = {}) {
 }
 
 export function fetchHealthBoard() {
-  if (!healthBoardRequest) healthBoardRequest = fetchUntilReady();
+  if (!healthBoardRequest) {
+    healthBoardRequest = fetchUntilReady().catch((error) => {
+      healthBoardRequest = null;
+      throw error;
+    });
+  }
   return healthBoardRequest;
 }
