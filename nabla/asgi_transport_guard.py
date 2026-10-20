@@ -36,11 +36,7 @@ class OpsASGITransportGuard:
         kind = scope.get("type")
         path = scope.get("path", "")
         if kind == "http" and self.root_app is not None:
-            mounts = (
-                route
-                for route in self.root_app.router.routes
-                if isinstance(route, Mount) and within(path, route.path)
-            )
+            mounts = (route for route in self.root_app.router.routes if isinstance(route, Mount) and within(path, route.path))
             if any(mounts):
                 policy = route_policy_for(path, kind="http")
                 if policy.credential is not Credential.ACCESS_JWT:
