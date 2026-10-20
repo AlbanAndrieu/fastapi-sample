@@ -111,17 +111,24 @@ def test_owner_http_ignores_machine_header(identity):
     assert client.get(endpoint, headers={"X-Diagnostics-Key": "machine-only-value"}).status_code == 401
     assert client.get(endpoint, headers={"Cf-Access-Jwt-Assertion": signed()}).status_code == 200
     denied = TestClient(app, client=("203.0.113.25", 53000))
-    assert denied.get(
-        endpoint,
-        headers={
-            "Cf-Access-Jwt-Assertion": signed(),
-            "CF-Connecting-IP": "82.66.4.247",
-        },
-    ).status_code == 403
+    assert (
+        denied.get(
+            endpoint,
+            headers={
+                "Cf-Access-Jwt-Assertion": signed(),
+                "CF-Connecting-IP": "82.66.4.247",
+            },
+        ).status_code
+        == 403
+    )
     _settings.homelab_trusted_cidrs = ""
-    assert client.get(
-        endpoint, headers={"Cf-Access-Jwt-Assertion": signed()},
-    ).status_code == 403
+    assert (
+        client.get(
+            endpoint,
+            headers={"Cf-Access-Jwt-Assertion": signed()},
+        ).status_code
+        == 403
+    )
 
 
 def test_websockets_require_signed_owner(identity):
@@ -203,13 +210,16 @@ def test_asgi_mounts_are_explicitly_owner_protected_even_before_strict(identity)
     assert client.get("/a2a/", headers={"X-Diagnostics-Key": "machine-only-value"}).status_code == 401
     assert client.get("/a2a/", headers={"Cf-Access-Jwt-Assertion": signed()}).status_code == 200
     denied = TestClient(app, client=("203.0.113.25", 53000))
-    assert denied.get(
-        "/a2a/",
-        headers={
-            "Cf-Access-Jwt-Assertion": signed(),
-            "CF-Connecting-IP": "82.66.4.247",
-        },
-    ).status_code == 403
+    assert (
+        denied.get(
+            "/a2a/",
+            headers={
+                "Cf-Access-Jwt-Assertion": signed(),
+                "CF-Connecting-IP": "82.66.4.247",
+            },
+        ).status_code
+        == 403
+    )
 
 
 @pytest.mark.asyncio

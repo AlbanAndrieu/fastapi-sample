@@ -37,8 +37,7 @@ class OpsASGITransportGuard:
         path = scope.get("path", "")
         if kind == "http" and self.root_app is not None:
             mounts = (
-                route
-                for route in self.root_app.router.routes
+                route for route in self.root_app.router.routes
                 if isinstance(route, Mount) and within(path, route.path)
             )
             if any(mounts):

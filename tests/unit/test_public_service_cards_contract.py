@@ -29,9 +29,5 @@ def test_gatus_catalog_and_private_garage_boundary() -> None:
     assert len(gatus) == 1
     assert gatus[0]["name"] == "Gatus"
     assert gatus[0]["external"] is True
-    private = {
-        row["id"]
-        for row in services
-        if row.get("id") in {"garage", "garage-admin"}
-    }
+    private = {row["id"] for row in services if row.get("id") in {"garage", "garage-admin"}}
     assert private == {"garage", "garage-admin"}

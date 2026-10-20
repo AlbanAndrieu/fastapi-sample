@@ -149,26 +149,40 @@ def test_legacy_credentials_not_accepted_for_owner_jwt_route(
 
 
 
-def test_owner_diagnostics_require_key_and_trusted_network(
+def test_owner_cidr_requires_diagnostics_key_and_allowed_client(
     protected_app: TestClient,
 ) -> None:
     settings = protected_app.app.state.access_settings
     settings.homelab_trusted_cidrs = "82.66.4.247/32"
     settings.diagnostics_access_key = SecretStr("diagnostics-key")
-    endpoint = "/api/homelab/health"
-    assert protected_app.get(endpoint).status_code == 401
+    # TestClient's 'testclient' peer is intentionally not the home IP.
     assert protected_app.get(
-        endpoint, headers={"X-Diagnostics-Key": "diagnostics-key"},
+        "/api/homelab/health",
+        headers={"X-Diagnostics-Key": "diagnostics-key"},
     ).status_code == 403
     assert protected_app.get(
-        endpoint,
+        "/api/homelab/health",
+        headers={"X-Diagnostics-Key": "wrong"},
+    ).status_code == 401
+    assert protected_app.get("/health").status_code == 200
+    # A forged XFF / CF-Connecting-IP header must not bypass the allowlist.
+    assert protected_app.get(
+        "/api/homelab/health",
         headers={
             "X-Diagnostics-Key": "diagnostics-key",
             "X-Forwarded-For": "82.66.4.247",
             "CF-Connecting-IP": "82.66.4.247",
         },
     ).status_code == 403
+
+
+def test_cidr_disabled_does_not_break_existing_diagnostics_key(
+    protected_app: TestClient,
+) -> None:
+    settings = protected_app.app.state.access_settings
     settings.homelab_trusted_cidrs = ""
+    settings.diagnostics_access_key = SecretStr("diagnostics-key")
     assert protected_app.get(
-        endpoint, headers={"X-Diagnostics-Key": "diagnostics-key"},
+        "/api/homelab/health",
+        headers={"X-Diagnostics-Key": "diagnostics-key"},
     ).status_code == 200

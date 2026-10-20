@@ -256,17 +256,25 @@ async def build_homelab_health_payload(
 
         # Catalogue coverage and rotating probe-slot coverage are distinct.
         # Count unique services only; one may contribute public and LAN slots.
-        monitored_ids = {service.service_id for service in (*public_candidates, *internal_candidates)}
+        monitored_ids = {
+            service.service_id for service in (*public_candidates, *internal_candidates)
+        }
         catalog_ids = {service.service_id for service in services}
         catalog_unconfigured = len(catalog_ids - monitored_ids)
 
-        # Curated public discovery names: no private endpoint or probe evidence.
-        # Inventory does not attest that either service is available.
-        public_labels = {"gatus": "Gatus", "garage-webui": "Garage Web UI"}
+        # Only two explicitly reviewed public-facing *names* are stable
+        # search/card candidates; never project internal endpoints or metrics.
+        # This is inventory, not evidence that the service is UP.
         public_cards = [
-            {"id": service.service_id, "name": public_labels[service.service_id]}
+            {"id": service.service_id, "name": display_name}
             for service in services
-            if service.service_id in public_labels and service.external is True
+            for display_name in (
+                {
+                    "gatus": "Gatus",
+                    "garage-webui": "Garage Web UI",
+                }.get(service.service_id),
+            )
+            if display_name is not None and service.external is True
         ]
 
         payload: dict[str, Any] = {
@@ -288,10 +296,15 @@ async def build_homelab_health_payload(
                 "catalog_service_count": len(services),
                 "catalog_observable_service_count": len(catalog_ids & monitored_ids),
                 "catalog_unconfigured_service_count": catalog_unconfigured,
-                "internal_disabled_eligible_slots": (len(internal_candidates) if not internal_enabled else 0),
+                "internal_disabled_eligible_slots": (
+                    len(internal_candidates) if not internal_enabled else 0
+                ),
                 "unsampled_current_window": {
                     "public": max(0, len(public_candidates) - len(public_services)),
-                    "internal": (max(0, len(internal_candidates) - len(internal_services)) if internal_enabled else 0),
+                    "internal": (
+                        max(0, len(internal_candidates) - len(internal_services))
+                        if internal_enabled else 0
+                    ),
                 },
                 "sampling": {
                     "strategy": "priority-plus-rotating-window",
