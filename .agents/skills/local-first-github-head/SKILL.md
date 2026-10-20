@@ -9,7 +9,6 @@ description: >-
 license: Apache-2.0
 role: developer
 ---
-
 # Local-first validation from an exact GitHub HEAD
 
 ## Goal
