@@ -12,8 +12,8 @@ import json
 import logging
 import os
 import re
-from secrets import compare_digest
 import time
+from secrets import compare_digest
 from typing import Any, Literal
 from urllib.parse import urlsplit
 

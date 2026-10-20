@@ -59,7 +59,12 @@ def raw_fixture() -> dict:
         },
     ]
     digest = hashlib.sha256(
-        json.dumps(sorted(entities, key=lambda e: e["entityRef"]), sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+        json.dumps(
+            sorted(entities, key=lambda e: e["entityRef"]),
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        ).encode("utf-8")
     ).hexdigest()
     return {"schemaVersion": 2, "model": "backstage", "catalogRevision": "sha256:" + digest, "entities": entities}
 
@@ -95,7 +100,12 @@ def test_revision_and_edges_fail_closed() -> None:
     raw = raw_fixture()
     raw["entities"][2]["spec"]["dependsOn"] = ["resource:default/unknown"]
     raw["catalogRevision"] = "sha256:" + hashlib.sha256(
-        json.dumps(sorted(raw["entities"], key=lambda e: e["entityRef"]), sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+        json.dumps(
+            sorted(raw["entities"], key=lambda e: e["entityRef"]),
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        ).encode("utf-8")
     ).hexdigest()
     with pytest.raises(ValueError, match="unresolved"):
         v2.project_site_catalog_v2(raw)
@@ -106,14 +116,23 @@ def test_no_v1_translation_or_extra_wire_fields() -> None:
         v2.project_site_catalog_v2({"version": 1, "services": [{"id": "api", "name": "API"}]})
     with pytest.raises(ValidationError):
         v2.SiteArchitectureCatalogV2.model_validate(
-            {"schemaVersion": 2, "model": "backstage", "catalogRevision": "sha256:" + "a" * 64, "entities": [], "services": []}
+            {
+                "schemaVersion": 2,
+                "model": "backstage",
+                "catalogRevision": "sha256:" + "a" * 64,
+                "entities": [],
+                "services": [],
+            }
         )
 
 
 def test_source_url_is_pinned_to_nabla_compose_https() -> None:
     assert v2._validated_source_url(v2._SOURCE_URL) == v2._SOURCE_URL
-    for unsafe in ("http://127.0.0.1/a", "https://evil.invalid/entities.json",
-                   "https://raw.githubusercontent.com/AlbanAndrieu/nabla-compose/master/catalog/generated/entities.json?bad=1"):
+    for unsafe in (
+        "http://127.0.0.1/a",
+        "https://evil.invalid/entities.json",
+        "https://raw.githubusercontent.com/AlbanAndrieu/nabla-compose/master/catalog/generated/entities.json?bad=1",
+    ):
         with pytest.raises(ValueError):
             v2._validated_source_url(unsafe)
 

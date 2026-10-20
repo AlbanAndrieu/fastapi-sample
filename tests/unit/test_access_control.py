@@ -210,5 +210,6 @@ def test_site_catalog_service_key_never_weakens_owner_cidr(protected_app: TestCl
     assert response.status_code == 401
     assert response.headers["cache-control"] == "private, no-store"
     assert protected_app.get("/api/site/catalog/v2", headers={"X-Diagnostics-Key": "wrong"}).status_code == 401
-    assert protected_app.get("/api/site/catalog/v2", headers={"X-Diagnostics-Key": "diagnostics-key"}).status_code == 200
-    assert protected_app.get("/api/homelab-services", headers={"X-Diagnostics-Key": "diagnostics-key"}).status_code == 403
+    valid_headers = {"X-Diagnostics-Key": "diagnostics-key"}
+    assert protected_app.get("/api/site/catalog/v2", headers=valid_headers).status_code == 200
+    assert protected_app.get("/api/homelab-services", headers=valid_headers).status_code == 403
