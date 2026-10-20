@@ -1,3 +1,10 @@
+# [1.23.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.22.3...1.23.0) (2026-10-20)
+
+
+### Features
+
+* **security:** frontière d'observabilité privée, actionlint et zizmor en pre-commit/CI ([#356](https://github.com/AlbanAndrieu/fastapi-sample/issues/356)) ([e88da95](https://github.com/AlbanAndrieu/fastapi-sample/commit/e88da952060e4f02a1b15ae8579125e92187f108)), closes [#353](https://github.com/AlbanAndrieu/fastapi-sample/issues/353) [#355](https://github.com/AlbanAndrieu/fastapi-sample/issues/355) [wakam/Wakam#4131](https://github.com/wakam/Wakam/issues/4131) [#353](https://github.com/AlbanAndrieu/fastapi-sample/issues/353)
+
 ## [1.22.3](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.22.2...1.22.3) (2026-10-18)
 
 
