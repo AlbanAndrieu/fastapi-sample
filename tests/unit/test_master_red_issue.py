@@ -262,6 +262,21 @@ class MasterRedTrackerTests(unittest.TestCase):
         self.assertEqual(fake.comments[0]["body"], original)
         self.assertEqual(fake.issue["state"], "open")
 
+    def test_pre_enrollment_human_comment_disables_bot_ownership(self):
+        fake = FakeGitHub()
+        fake.comments.append({
+            "id": 77,
+            "body": "Operator investigation predates enrollment",
+            "user": {"login": "AlbanAndrieu"},
+            "created_at": "2026-10-19T20:00:00Z",
+        })
+        with patch.object(tracker, "github", side_effect=fake):
+            self.assertIn("MANUAL_OVERRIDE", tracker.reconcile(100, SHA, RED))
+        self.assertEqual(len(fake.comments), 1)
+        self.assertFalse(any(
+            method in ("POST", "PATCH") for method, _, _ in fake.actions
+        ))
+
     def test_manually_touched_issue_is_never_closed_by_the_bot(self):
         fake = FakeGitHub(
             events=[

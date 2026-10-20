@@ -6,14 +6,12 @@ For long-tail unchecked tasks use the [on-demand backlog](engineering-backlog.md
 it is **not** an automatically approved roadmap. Historical implementation
 notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blob/594d51d64efdd5274d2ba42a9cb09551b6d57d46/docs/engineering-roadmap.md).
 
-## P0 — CI: incident unique et maîtrise des mutations (#355)
+## P0 — CI : tracker unique `master-red` (#355)
 
-- **PASS (audit GitHub, 20/10/2026)** : 32 issues historiques `[master-red:<SHA>]` déjà closes comme doublons ; les URL/diagnostics restent consultables dans leurs propres tickets. Aucune suppression physique, aucun ticket créé.
-- **PASS (code en PR #353)** : le workflow proposé supprime création d'issues par SHA, branches correctives et PR de remédiation vide. Un seul commentaire d'état `github-actions[bot]` est réutilisé dans #355 ; ni titre, ni description, ni labels ne sont réécrits.
-- **PASS (audit de propriété)** : #355 a été renommée manuellement à deux reprises le 19/10/2026 ; ses données manuelles sont préservées. L'inscription initiale est bloquée si `updated_at` a changé depuis la dernière inspection ; empreinte d'état, journal d'événements et commentaire contrôlé détectent les modifications ultérieures.
-- **INCOMPLETE (validation)** : exécuter les tests hors réseau `tests/unit/test_master_red_issue.py` et les contrats YAML au HEAD de la PR ; puis la quality gate locale stricte. Aucune CI verte ne peut être déclarée sans exécution.
-- **NOT_RUN (runtime master)** : vérifier deux exécutions consécutives *du workflow Master red remediation*, sur `master` courant, avec toutes gates requises réussies. Un échec, une annulation ou un run manquant remet le compteur à zéro. Le premier run ne clôture pas #355. En présence de retouche manuelle ultérieure, l'automatisation s'abstient et ne rouvre jamais. **Règle propriétaire (20/10/2026)** : une issue touchée manuellement (titre, corps, labels, état, commentaire humain), y compris avant l'inscription, n'est **jamais close** par le bot. #355 ayant été renommée manuellement, sa fermeture reste une décision humaine.
-- **INCOMPLETE (causes racines)** : Python/packages, Production Smoke, CodeQL/ZAP selon surface modifiée ; conserver uniquement dernier SHA, lien run et état des gates dans le **commentaire d'état contrôlé**, jamais dans la description manuelle de #355. Ne pas assimiler un ZAP `skipped` à un scan réussi.
+- **Implémenté, à valider** : un seul commentaire d'état du bot dans #355, sans nouvelle issue par SHA, sans PR brouillon vide, sans modification du titre, du corps ni des labels ; conservation des preuves des 32 anciens doublons dans GitHub. Script canonique : `scripts/ci/master_red_issue.py`.
+- **Protection humaine** : une modification manuelle du titre, du corps, des labels, de l'état **ou un commentaire humain avant/après inscription** interdit toute mutation automatique future. #355 a été renommée manuellement : elle ne doit jamais être clôturée/réouverte par le bot, même après deux succès. Seule une issue sans intervention humaine peut bénéficier de la clôture après deux numéros de runs `master` consécutifs tous verts.
+- [ ] Exécuter `python3 -m unittest tests.unit.test_master_red_issue -v` sur le HEAD exact et la gate locale ; aucune preuve de réussite CI globale à inférer.
+- [ ] Après déploiement sur `master`, constater deux runs complets consécutifs (CodeQL/ZAP `skipped` acceptables **uniquement** si non requis par la classification), et vérifier les causes racines Python/Smoke. Ne pas provoquer d'échec artificiel.
 
 ## P0 — public/private observability boundary (PR #353 / issue #352)
 - [ ] Audit every live HTTP/ASGI WebSocket mount, docs/OpenAPI, MCP, admin,

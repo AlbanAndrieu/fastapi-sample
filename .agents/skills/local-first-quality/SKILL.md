@@ -40,8 +40,9 @@ remote runtime or DAST = **NOT_RUN**.
 `scripts/ci/master_red_issue.py` update only the bot-owned status comment
 in [#355](https://github.com/AlbanAndrieu/fastapi-sample/issues/355).
 Do **not** create issues/PRs per SHA, or mutate title/body/labels.
-Before first enrollment, compare the reviewed `updated_at`; afterwards
-verify fingerprint, manual events and status-comment integrity.
+Before first enrollment, compare the reviewed `updated_at`, historical
+manual issue events **and human comments**; afterwards verify fingerprint,
+manual events and status-comment integrity.
 Close only after two consecutive green master-red workflow numbers;
 human edits prohibit auto-reopen. Test with
 `python3 -m unittest tests.unit.test_master_red_issue -v`.

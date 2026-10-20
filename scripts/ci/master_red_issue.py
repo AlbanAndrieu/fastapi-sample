@@ -350,6 +350,13 @@ def reconcile(
     human = manually_modified(events, tracker.get("created_at") if old else None)
     if old is None:
         override = _enrollment_override(issue, events)
+        # Human comments are decisions too, including those predating the
+        # first enrollment. A bot must not adopt a manually discussed issue.
+        if not override and any(
+            (comment.get("user") or {}).get("login") != "github-actions[bot]"
+            for comment in comments
+        ):
+            override = "MANUAL_OVERRIDE: pre-existing human comments; no mutation"
     else:
         override = _tracked_override(old, tracker, comments, fingerprint, human, run_id, run_number)
     if override:
