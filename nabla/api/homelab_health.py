@@ -183,6 +183,8 @@ async def build_homelab_health_payload(
         async with httpx.AsyncClient(
             timeout=timeout,
             follow_redirects=False,
+            # Observations must originate from this runtime, never an ambient proxy.
+            trust_env=False,
         ) as client:
             public_probe_tasks = [
                 (

@@ -271,3 +271,33 @@ def test_cors_origins_include_public_site_and_fastapi_cloud() -> None:
     assert "https://www.albanandrieu.com" in CORS_ORIGINS
     assert "https://fastapi-sample.fastapicloud.dev" in CORS_ORIGINS
     assert all(not origin.endswith("/") for origin in CORS_ORIGINS)
+
+
+
+@pytest.mark.asyncio
+async def test_public_probes_do_not_inherit_ambient_http_proxy(monkeypatch) -> None:
+    """Outside-in probes must retain the actual cloud runtime vantage point."""
+    real_client = homelab_health.httpx.AsyncClient
+    client_options: list[dict] = []
+
+    def capture_client(**kwargs):
+        client_options.append(kwargs)
+        return real_client(**kwargs)
+
+    monkeypatch.setenv("HTTPS_PROXY", "http://untrusted-proxy.invalid:8080")
+    monkeypatch.delenv("HOMELAB_INTERNAL_PROBES_ENABLED", raising=False)
+    monkeypatch.setattr(homelab_health.httpx, "AsyncClient", capture_client)
+    monkeypatch.setattr(homelab_health, "fetch_homelab_services", AsyncMock(return_value=[]))
+    monkeypatch.setattr(
+        homelab_health,
+        "_probe_truenas",
+        AsyncMock(return_value={"state": "unknown", "public": None, "internal": None}),
+    )
+    monkeypatch.setattr(homelab_health, "_cached_payload", None)
+    monkeypatch.setattr(homelab_health, "_cached_at", 0.0)
+
+    await homelab_health.build_homelab_health_payload()
+    assert any(
+        options.get("trust_env") is False and options.get("follow_redirects") is False
+        for options in client_options
+    )

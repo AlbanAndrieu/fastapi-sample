@@ -31,6 +31,63 @@ Sources vérifiables : [Gatus go.mod](https://github.com/TwiN/gatus/blob/master/
 
 **Pourquoi ne pas migrer tout de suite vers une alternative FastAPI ?** Tech Sentinel reproduit plusieurs fonctions de Gatus mais ajoute TimescaleDB, Redis, workers et un front ; il faut examiner les tests, l'activité de maintenance, l'authentification, le modèle RBAC, la gestion des migrations et les correctifs de sécurité avant un POC isolé. Watchpost partage `httpx`/`anyio` avec notre code et apporte APScheduler, mais son README prévoit encore persistance et authentification. API Status Monitor est un exemple pédagogique avec statut en mémoire. La convergence la moins coûteuse reste donc d'exploiter nos bibliothèques Python existantes, **sans recopier le scheduler ou l'UI de Gatus**.
 
+
+## Audit approfondi des dépendances Python et du code source
+
+### Ce qui est directement réutilisable
+
+| Mécanisme étudié | Projet amont | Constat dans le code | Convergence proposée |
+| --- | --- | --- | --- |
+| Répartition des sondes avec quota | Tech Sentinel `probe-worker/worker/main.py` | Redis Streams (`XREADGROUP`, `XACK`), sémaphore `asyncio` ; `_reschedule_job` est lancé par `create_task` puis dort en mémoire | Notre fan-out borné et notre cache monotone existent déjà. Garder la concurrence limitée ; étudier un scheduler durable seulement si on ajoute du polling persistant |
+| HTTP, TCP et ping | Tech Sentinel `worker/probes/*` | `httpx.AsyncClient` par sonde, `follow_redirects=True`; `asyncio.open_connection` pour TCP ; subprocess `ping` | Réutiliser `httpx`, `anyio.connect_tcp` et `dnspython` actuels ; conserver `follow_redirects=False` pour empêcher la redirection d'un contrôle WAN vers un hôte tiers / privé |
+| Alerte de transition UP/DOWN | Watchpost `app/monitor.py` | Détection des changements d'état et notification asynchrone, historiques en mémoire | Intéressant pour un éventuel moteur d'incidents, mais ajouter seuils/flap damping, reprise et idempotence avant alerte ; ne pas confondre statut HTTP 403 Access et origine indisponible |
+| Scheduler | Watchpost `app/main.py` | `AsyncIOScheduler` démarré au lifespan, pas de coordination multi-réplicas apparente | **Ne pas ajouter APScheduler** à FastAPI Cloud en production multi-workers : polling en double / écarts lors d'un redéploiement. Garder cache et cadence déterministe existants |
+| Observation par lots | API Status Monitor `app/monitor.py` | `asyncio.gather` sur tous les endpoints, `follow_redirects=True`, nouveaux `httpx.AsyncClient` par endpoint | Ne pas reprendre tel quel : risque de rafale réseau, absence de contrôle de provenance et de persistance. Notre budget 12 slots/30s + sémaphore 4 est plus sûr |
+| Surveillance de jobs | Healthchecks `hc` et `requirements.txt` | Django, `cronsim` pour expressions cron, `psycopg` pour stockage, `pycurl` | `cronsim` est le seul candidat intéressant si validation de retards cron nécessaire ; ne pas installer la stack Django complète |
+| Contrats modèles / auth | Tech Sentinel `control-plane` | `pydantic-settings`, `asyncpg`, `redis`, `python-jose`, `passlib` | Déjà `asyncpg`, `redis`, Pydantic/Settings et authentification dans le repo ; ne pas importer `python-jose` ni `passlib` sans justification et audit sécurité |
+
+**Dépendances candidates** : `cronsim` = seulement pour les tâches cron/heartbeat ; `APScheduler` = non retenu tant que le scheduler central de Gatus est présent ; `asyncpg` et `redis` = déjà installés ; `httpx`, `anyio`, `dnspython`, `tenacity`, `prometheus-client` = déjà installés, privilégier une adaptation typée et testée plutôt qu'une nouvelle dépendance. **Aucun ajout au lockfile demandé.**
+
+**Anti-patterns observés** : `follow_redirects=True` dans les exemples amont peut masquer une redirection vers une origine différente ; une boucle `asyncio.gather` sans limite peut générer une rafale ; les tâches de réplanification créées en mémoire par `asyncio.create_task` dans Tech Sentinel ne sont pas une garantie de persistance après crash ; les schedulers par processus requièrent un leader/lease en multi-workers. Ces limites sont des constats de code, pas une évaluation globale de qualité des mainteneurs.
+
+## Audit télémétrie déclaré vs observé — frontière réseau
+
+**Topologie vérifiée statiquement dans [nabla-compose](https://github.com/AlbanAndrieu/nabla-compose)** : `apps/gatus/compose.yml` utilise Gatus `v5.36.0`, écoute dans le conteneur sur `:8080` et publie `:8085` sur TrueNAS ; `apps/gatus/config/config.yml` indique `metrics: true` et stockage SQLite. `apps/prometheus/prometheus.yml` déclare le job `gatus` et un scrape de 30 s vers `172.17.0.24:8085/metrics`. `apps/prometheus/rules/nabla-service.rules.yml` déclare :
+
+- `nabla:telemetry:gatus_up` = état du **scrape**, pas des services ;
+- `nabla:service:synthetic_probe_success` = jauge `gatus_results_endpoint_success` labellisée (`nabla_service_id`, `type`) ;
+- `nabla:service:synthetic_probe_duration_seconds` = durée ;
+- `nabla:service:synthetic_availability_ratio_5m` = ratio calculé sur compteurs `gatus_results_total`.
+
+**Point critique à corriger dans nabla-compose** : la règle `synthetic_probe_success` utilise `max by (...)`, ce qui peut **masquer un échec** si deux moniteurs partagent `nabla_service_id` et `type` et qu'un seul réussit. Évaluer `min by (...)` avec un test multi-moniteurs, ou mieux une identité de moniteur stable, avant de déléguer. Modifier la règle dans son dépôt propriétaire (pas dans `fastapi-sample`). Le label existe déclarativement pour PostgreSQL, pfSense, TrueNAS ; le déploiement effectif est **non prouvé**.
+
+**Observation extérieure tentée** : depuis l'outil HTTP externe, `https://gatus.albandrieu.com/`, `https://prometheus.albandrieu.com/` et `https://sample.albandrieu.com/api` ont retourné **403**. Cela prouve seulement que ces URLs n'ont pas livré leurs données anonymement depuis cet observateur. Cela **ne prouve pas** la santé de Gatus, une règle de firewall particulière, l'absence de bypass direct IP:port ou le succès de Cloudflare Access. `https://fastapi-sample.fastapicloud.dev/api?q=Gatus` n'était pas accessible via l'outil ; aucun état runtime ne peut en être inféré. Aucun accès aux IP RFC1918 ou secret, aucune requête prometheus privée depuis Internet.
+
+### Recette read-only à exécuter sur TrueNAS (et non dans FastAPI Cloud)
+
+```bash
+cd /mnt/cpool/compose/nabla-compose
+python3 scripts/prometheus/audit-telemetry-coverage.py \\
+  --prometheus-url http://127.0.0.1:9090
+python3 scripts/truenas/reconcile-gatus-catalog.py \\
+  --output /tmp/gatus-catalog-declared.json
+# Lire uniquement les agrégats redigés par ces scripts ; ne pas committer les sorties.
+```
+
+Examiner ensuite (depuis le LAN uniquement) `up{job="gatus"}`, `gatus_results_total{job="gatus"}`, la présence des quatre règles et le nombre d'IDs canoniques observés, le statut/récence des samples, les conflits de métriques doublonnées et les services absents. Comparer l'exporter PostgreSQL `up` à `pg_up`. Les échecs de scrape doivent apparaître comme `unobserved/unknown` et non `service DOWN`. Les scripts existants de `nabla-compose` constituent la première preuve, pas des valeurs inventées.
+
+### Contrat prioritaire : vantage FastAPI Cloud **depuis Internet**
+
+`fastapi-sample.fastapicloud.dev` est extérieur au LAN et doit rester une sonde indépendante des métriques Gatus internes. Les sources d'autorité sont 1) le catalogue d'exposition déclaré, 2) Cloudflare Tunnel/Access et 3) le comportement **réel** DNS/TLS/HTTP depuis la sortie réseau du service cloud. Le LAN fournit seulement du contexte secondaire. À respecter :
+
+1. **DNS public** A/AAAA + IP observées, CNAME/proxy Cloudflare vs IP homelab, cohérence avec l'inventaire d'exposition ; ne jamais exposer en API publique la topologie interne ou des tokens. `dnspython` sert déjà à ce préflight.
+2. **Ports** : vérifier les seuls ports/IP explicitement autorisés du périmètre WAN déclaré (par exemple l'accès pfSense/TrueNAS prévu), en TCP et TLS dans un budget strict, avec critères de refus si redirection, DNS changé ou IP non autorisée. Pas de scan de plage/IP arbitraire ni de découverte LAN depuis le cloud ; le **403 Cloudflare** est une preuve de bordure HTTP, non de fermeture du port origine.
+3. **Sécurité** : certificat et SNI, expiration, en-têtes de sécurité, Cloudflare Access (JWT machine/humain séparés), origin bypass, NAT/reflection, services indûment exposés. Une erreur CORS ne remplace pas un contrôle d'accès. Le cas échéant, différencier CONNECT/TLS/HTTP, et `FAIL`, `WARN`, `UNKNOWN` selon la phase.
+4. **Provenance** : aucune variable proxy `HTTPS_PROXY/ALL_PROXY` ne doit faire prendre une observation depuis le proxy comme une mesure de la sortie FastAPI Cloud. D'où `trust_env=False` ajouté aux sondes HTTPS publiques et à l'echo IP (sous réserve du fonctionnement effectif des sorties cloud ; échec = preuve indisponible).
+5. **Isolation** : `HOMELAB_PROMETHEUS_URL` ne doit pas être renseigné sur le déploiement cloud tant qu'aucun transport privé authentifié et justifié n'est approuvé. Ne jamais exposer Prometheus, Gatus `/metrics` ou une API interne pour améliorer la couverture des badges.
+
+La priorité d'acceptation est **WAN outside-in > preuve Access/origine > métriques Gatus shadow-only**, avec deux perspectives séparées. Toute intégration future ajoute `observed_at`, `vantage_point`, `probe_protocol`, `target_identity`, `evidence_state`, `freshness` avant une décision de sécurité ; un scrape `up=1` n'est jamais une attestation de non-exposition.
+
 ## Gatus : contrat technique utile, limites et sécurité
 
 Gatus expose les résultats d'endpoint via `/api/v1/endpoints/statuses` et, **uniquement si `metrics: true`**, les métriques Prometheus via `/metrics`. Son code `metrics/metrics.go` définit notamment la jauge de succès par endpoint et les compteurs de résultats. Requérir une observation récente avec labels déterministes (`group`, `name`, `type`, plus identifiant de service validé). `up == 1` pour le scrape ne prouve **pas** le succès de chaque sonde ; un résultat ancien ne prouve rien sur l'état actuel.

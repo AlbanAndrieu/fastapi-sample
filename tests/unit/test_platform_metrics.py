@@ -7,7 +7,18 @@ import pytest
 from pydantic import ValidationError
 
 from nabla.api.platform_metrics import fetch_platform_metrics
+from nabla.api.prometheus_query import safe_float, sample_value
 from nabla.settings.observability import HomelabPrometheusSettings
+
+
+def test_prometheus_numeric_samples_ignore_oversized_or_invalid_values() -> None:
+    """Untrusted Prometheus payloads cannot crash the aggregation on huge ints."""
+    huge = 10**1000
+    assert safe_float(huge) is None
+    assert sample_value({"value": [1, huge]}) is None
+    assert safe_float(float("nan")) is None
+    assert sample_value({"value": [1, "NaN"]}) is None
+    assert safe_float("1.0") == 1.0
 
 
 VALUES = {
