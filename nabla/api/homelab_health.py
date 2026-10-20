@@ -260,6 +260,15 @@ async def build_homelab_health_payload(
         catalog_ids = {service.service_id for service in services}
         catalog_unconfigured = len(catalog_ids - monitored_ids)
 
+        # Curated public discovery names: no private endpoint or probe evidence.
+        # Inventory does not attest that either service is available.
+        public_labels = {"gatus": "Gatus", "garage-webui": "Garage Web UI"}
+        public_cards = [
+            {"id": service.service_id, "name": public_labels[service.service_id]}
+            for service in services
+            if service.service_id in public_labels and service.external is True
+        ]
+
         payload: dict[str, Any] = {
             "schema_version": 3,
             "checked_at": checked_at,
@@ -270,6 +279,7 @@ async def build_homelab_health_payload(
             "truenas": truenas,
             "services": public_results,
             "public_probe_results": public_results,
+            "public_card_candidates": public_cards,
             "internal_probes_enabled": internal_enabled,
             "internal_services": internal_results,
             "probe_summary": {

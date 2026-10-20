@@ -89,24 +89,3 @@ Be precise:
 
 Always report the SHA, commands/tests executed, pass/fail counts and any scope
 limitations.
-
-## Proven pattern in fastapi-sample
-
-For the Prometheus/Gatus/pfSense observability refactor, the connector-snapshot
-fallback materialized the exact PR HEAD and executed:
-
-```bash
-PYTHONPATH=. pytest -q \
-  tests/unit/test_platform_metrics.py \
-  tests/unit/test_topology_telemetry.py \
-  tests/unit/test_collect_pfsense_probe_baseline.py
-```
-
-Result on SHA `8564353f91b2fcaca3b5577b88dcfdeaf0e7903e`:
-
-```text
-16 passed
-```
-
-This validates the fallback itself and makes it the standard local-first escape
-hatch when direct GitHub DNS/egress is unavailable.

@@ -20,6 +20,7 @@ from nabla.cloudflare_ops_access import (
     verify_owner_token,
 )
 from nabla.config_settings import get_settings
+from nabla.homelab_trusted_ip import allowed_owner_source
 from nabla.route_policy import Credential, Visibility, route_policy_for
 
 if TYPE_CHECKING:
@@ -80,6 +81,12 @@ async def operations_access_middleware(
                 content={"detail": "Missing or invalid owner identity"},
                 headers={**_DENY_HEADERS, "WWW-Authenticate": "Bearer"},
             )
+        if not allowed_owner_source(request.scope, settings):
+            return JSONResponse(
+                status_code=403,
+                content={"detail": "Owner network not authorized"},
+                headers=_DENY_HEADERS,
+            )
         request.state.ops_owner_sub = subject
         return await call_next(request)
 
@@ -103,5 +110,17 @@ async def operations_access_middleware(
             status_code=401,
             content={"detail": "Missing or invalid operational access key"},
             headers={**_DENY_HEADERS, "WWW-Authenticate": "Bearer"},
+        )
+    # An IP allowlist supplements, but never replaces, the diagnostics key.
+    if (
+        policy.credential is Credential.DIAGNOSTICS_KEY
+        and policy.visibility is Visibility.OWNER
+        and getattr(settings, "homelab_trusted_cidrs", "").strip()
+        and not allowed_owner_source(request.scope, settings)
+    ):
+        return JSONResponse(
+            status_code=403,
+            content={"detail": "Owner network not authorized"},
+            headers=_DENY_HEADERS,
         )
     return await call_next(request)

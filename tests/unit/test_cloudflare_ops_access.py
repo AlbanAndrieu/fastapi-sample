@@ -13,7 +13,7 @@ import pytest
 from starlette.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from nabla import access_control, cloudflare_ops_access as owner
+from nabla import access_control, asgi_transport_guard, cloudflare_ops_access as owner
 from nabla.asgi_transport_guard import OpsASGITransportGuard
 
 ISSUER = "https://fixture.cloudflareaccess.com"
@@ -37,10 +37,12 @@ def identity(monkeypatch):
         ops_access_aud=AUDIENCE,
         ops_access_owner_subjects=SUBJECT,
         ops_route_policy_strict=False,
+        homelab_trusted_cidrs="82.66.4.247/32",
         diagnostics_access_key=SecretStr("machine-only-value"),
     )
     monkeypatch.setattr(owner, "get_settings", lambda: settings)
     monkeypatch.setattr(access_control, "get_settings", lambda: settings)
+    monkeypatch.setattr(asgi_transport_guard, "get_settings", lambda: settings)
 
     def signed(**overrides):
         now = int(time.time())
@@ -103,11 +105,23 @@ def test_owner_http_ignores_machine_header(identity):
     def summary():
         return {"ok": True}
 
-    client = TestClient(app)
+    client = TestClient(app, client=("82.66.4.247", 53000))
     endpoint = "/private/ops/api/v1/summary"
     assert client.get(endpoint).status_code == 401
     assert client.get(endpoint, headers={"X-Diagnostics-Key": "machine-only-value"}).status_code == 401
     assert client.get(endpoint, headers={"Cf-Access-Jwt-Assertion": signed()}).status_code == 200
+    denied = TestClient(app, client=("203.0.113.25", 53000))
+    assert denied.get(
+        endpoint,
+        headers={
+            "Cf-Access-Jwt-Assertion": signed(),
+            "CF-Connecting-IP": "82.66.4.247",
+        },
+    ).status_code == 403
+    _settings.homelab_trusted_cidrs = ""
+    assert client.get(
+        endpoint, headers={"Cf-Access-Jwt-Assertion": signed()}
+    ).status_code == 403
 
 
 def test_websockets_require_signed_owner(identity):
@@ -121,7 +135,7 @@ def test_websockets_require_signed_owner(identity):
         await ws.send_text("connected")
         await ws.close()
 
-    client = TestClient(app)
+    client = TestClient(app, client=("82.66.4.247", 53000))
     with pytest.raises(WebSocketDisconnect):
         with client.websocket_connect("/ws/sensor"):
             pass
@@ -130,6 +144,16 @@ def test_websockets_require_signed_owner(identity):
             pass
     with client.websocket_connect("/ws/sensor", headers={"Cf-Access-Jwt-Assertion": signed()}) as websocket:
         assert websocket.receive_text() == "connected"
+    denied = TestClient(app, client=("203.0.113.25", 53000))
+    with pytest.raises(WebSocketDisconnect):
+        with denied.websocket_connect(
+            "/ws/sensor",
+            headers={
+                "Cf-Access-Jwt-Assertion": signed(),
+                "X-Forwarded-For": "82.66.4.247",
+            },
+        ):
+            pass
     with pytest.raises(WebSocketDisconnect):
         with client.websocket_connect("/unknown-websocket", headers={"Cf-Access-Jwt-Assertion": signed()}):
             pass
@@ -171,13 +195,21 @@ def test_asgi_mounts_are_explicitly_owner_protected_even_before_strict(identity)
 
     app.mount("/a2a", private)
     app.mount("/unreviewed-asgi", unknown)
-    client = TestClient(app)
+    client = TestClient(app, client=("82.66.4.247", 53000))
 
     assert client.get("/unreviewed-asgi/").status_code == 403
     assert client.get("/unreviewed-asgi/", headers={"Cf-Access-Jwt-Assertion": signed()}).status_code == 403
     assert client.get("/a2a/").status_code == 401
     assert client.get("/a2a/", headers={"X-Diagnostics-Key": "machine-only-value"}).status_code == 401
     assert client.get("/a2a/", headers={"Cf-Access-Jwt-Assertion": signed()}).status_code == 200
+    denied = TestClient(app, client=("203.0.113.25", 53000))
+    assert denied.get(
+        "/a2a/",
+        headers={
+            "Cf-Access-Jwt-Assertion": signed(),
+            "CF-Connecting-IP": "82.66.4.247",
+        },
+    ).status_code == 403
 
 
 @pytest.mark.asyncio

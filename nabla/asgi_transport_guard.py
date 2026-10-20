@@ -15,6 +15,8 @@ from nabla.cloudflare_ops_access import (
     assertion_from_headers,
     verify_owner_token,
 )
+from nabla.config_settings import get_settings
+from nabla.homelab_trusted_ip import allowed_owner_source
 from nabla.route_policy import Credential, route_policy_for, within
 
 
@@ -34,7 +36,11 @@ class OpsASGITransportGuard:
         kind = scope.get("type")
         path = scope.get("path", "")
         if kind == "http" and self.root_app is not None:
-            mounts = (route for route in self.root_app.router.routes if isinstance(route, Mount) and within(path, route.path))
+            mounts = (
+                route
+                for route in self.root_app.router.routes
+                if isinstance(route, Mount) and within(path, route.path)
+            )
             if any(mounts):
                 policy = route_policy_for(path, kind="http")
                 if policy.credential is not Credential.ACCESS_JWT:
@@ -57,6 +63,14 @@ class OpsASGITransportGuard:
                     )
                     await response(scope, receive, send)
                     return
+                if not allowed_owner_source(scope, get_settings()):
+                    response = JSONResponse(
+                        {"detail": "Owner network not authorized"},
+                        status_code=403,
+                        headers={"Cache-Control": "private, no-store"},
+                    )
+                    await response(scope, receive, send)
+                    return
                 scope.setdefault("state", {})["ops_owner_sub"] = subject
         elif kind == "websocket":
             policy = route_policy_for(path, kind="websocket")
@@ -68,6 +82,9 @@ class OpsASGITransportGuard:
                     assertion_from_headers(Headers(scope=scope)),
                 )
             except (OwnerConfigError, OwnerKeysUnavailable, OwnerUnauthorized):
+                await send({"type": "websocket.close", "code": 4403})
+                return
+            if not allowed_owner_source(scope, get_settings()):
                 await send({"type": "websocket.close", "code": 4403})
                 return
             scope.setdefault("state", {})["ops_owner_sub"] = subject

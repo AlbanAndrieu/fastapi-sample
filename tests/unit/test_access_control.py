@@ -19,6 +19,8 @@ def protected_app(monkeypatch: pytest.MonkeyPatch) -> TestClient:
         diagnostics_access_key=None,
         mcp_ops_key=None,
         ops_route_policy_strict=False,
+        homelab_trusted_cidrs="",
+        homelab_trusted_proxy_cidrs="",
     )
     monkeypatch.setattr(access_control, "get_settings", lambda: settings)
 
@@ -144,3 +146,29 @@ def test_legacy_credentials_not_accepted_for_owner_jwt_route(
         headers={"X-Diagnostics-Key": "diagnostics-key"},
     )
     assert response.status_code == 503
+
+
+
+def test_owner_diagnostics_require_key_and_trusted_network(
+    protected_app: TestClient,
+) -> None:
+    settings = protected_app.app.state.access_settings
+    settings.homelab_trusted_cidrs = "82.66.4.247/32"
+    settings.diagnostics_access_key = SecretStr("diagnostics-key")
+    endpoint = "/api/homelab/health"
+    assert protected_app.get(endpoint).status_code == 401
+    assert protected_app.get(
+        endpoint, headers={"X-Diagnostics-Key": "diagnostics-key"}
+    ).status_code == 403
+    assert protected_app.get(
+        endpoint,
+        headers={
+            "X-Diagnostics-Key": "diagnostics-key",
+            "X-Forwarded-For": "82.66.4.247",
+            "CF-Connecting-IP": "82.66.4.247",
+        },
+    ).status_code == 403
+    settings.homelab_trusted_cidrs = ""
+    assert protected_app.get(
+        endpoint, headers={"X-Diagnostics-Key": "diagnostics-key"}
+    ).status_code == 200
