@@ -49,7 +49,7 @@ def _sensitive_headers(raw: object) -> dict[str, str] | None:
 
 
 def _source_from_headers(
-    addresses: dict[str, str], peer: IPAddress, settings: Any
+    addresses: dict[str, str], peer: IPAddress, settings: Any,
 ) -> IPAddress | None:
     """Honor a single overwritten XFF only from a configured proxy peer."""
     if addresses.get("forwarded") or addresses.get("x-real-ip"):
