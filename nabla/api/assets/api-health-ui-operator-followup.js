@@ -496,7 +496,6 @@ function apply() {
   reconcileCloudflareDrawer();
   reconcileLocalPfSense();
   ensureRuntimeNotices();
-  void replaceLegacyExposureLabels();
 }
 
 function schedule() {
