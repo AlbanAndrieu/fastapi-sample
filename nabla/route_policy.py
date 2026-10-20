@@ -33,6 +33,7 @@ class RoutePolicy:
 PUBLIC = RoutePolicy(Visibility.PUBLIC_CANDIDATE)
 REVIEW = RoutePolicy(Visibility.REVIEW)
 DIAGNOSTIC = RoutePolicy(Visibility.OWNER, Credential.DIAGNOSTICS_KEY)
+SITE_CATALOG = RoutePolicy(Visibility.SERVICE, Credential.DIAGNOSTICS_KEY)
 OWNER = RoutePolicy(Visibility.OWNER, Credential.ACCESS_JWT)
 ADMIN = RoutePolicy(Visibility.INTERNAL, Credential.ADMIN_KEY)
 INTERNAL = RoutePolicy(Visibility.INTERNAL, Credential.DIAGNOSTICS_KEY)
@@ -67,6 +68,8 @@ def route_policy_for(path: str, *, method: str = "GET", kind: str = "http") -> R
         return WEBSOCKET if within(path, "/ws") else REVIEW
     if kind != "http":
         return REVIEW
+    if path == "/api/site/catalog/v1" and method.upper() in {"GET", "HEAD"}:
+        return SITE_CATALOG
     if within(path, "/private/ops") or within(path, "/a2a"):
         return OWNER
     if within(path, "/admin"):

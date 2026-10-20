@@ -47,6 +47,7 @@ class _CatalogCacheState:
     catalog: HomelabCatalog | None = None
     expires_at: float = 0.0
     source: str = "none"
+    last_verified_at: float = 0.0
 
     def fresh_catalog(self, now: float) -> HomelabCatalog | None:
         """Return the cached catalog only while its monotonic TTL is valid."""
@@ -59,12 +60,15 @@ class _CatalogCacheState:
         self.catalog = catalog
         self.expires_at = expires_at
         self.source = source
+        if source == "nabla-compose":
+            self.last_verified_at = time.monotonic()
 
     def reset(self) -> None:
         """Reset the runtime cache to its cold-start state."""
         self.catalog = None
         self.expires_at = 0.0
         self.source = "none"
+        self.last_verified_at = 0.0
 
 
 _catalog_cache_state = _CatalogCacheState()
@@ -234,6 +238,41 @@ async def fetch_homelab_catalog() -> HomelabCatalog:
             source="nabla-compose",
         )
         return remote_catalog
+
+
+
+
+class AuthoritativeCatalogUnavailable(RuntimeError):
+    """The site consumer must not receive packaged or stale catalog fallback."""
+
+
+async def fetch_authoritative_homelab_catalog() -> HomelabCatalog:
+    """Require recently verified nabla-compose catalog; never bootstrap/LKG."""
+    now = time.monotonic()
+    state = _catalog_cache_state
+    if (
+        state.catalog is not None
+        and state.source == "nabla-compose"
+        and state.last_verified_at > 0
+        and now - state.last_verified_at < _REMOTE_CACHE_TTL_SECONDS
+    ):
+        return state.catalog
+    async with _catalog_refresh_lock:
+        now = time.monotonic()
+        if (
+            state.catalog is not None
+            and state.source == "nabla-compose"
+            and state.last_verified_at > 0
+            and now - state.last_verified_at < _REMOTE_CACHE_TTL_SECONDS
+        ):
+            return state.catalog
+        try:
+            catalog = await _fetch_remote_catalog()
+        except (httpx.HTTPError, json.JSONDecodeError, ValidationError, TypeError, ValueError) as exc:
+            _log.warning("Authoritative site catalog unavailable exception_type=%s", type(exc).__name__)
+            raise AuthoritativeCatalogUnavailable("Authoritative site catalog unavailable") from None
+        state.store(catalog, expires_at=now + _REMOTE_CACHE_TTL_SECONDS, source="nabla-compose")
+        return catalog
 
 
 async def fetch_homelab_services() -> list[HomelabService]:
