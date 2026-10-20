@@ -47,9 +47,9 @@ def _provided_access_key(request: Request, header_name: str) -> str:
     return value.strip() if scheme.lower() == "bearer" else ""
 
 
-
 async def _authorize_owner(
-    request: Request, settings: APIDeploymentSettings,
+    request: Request,
+    settings: APIDeploymentSettings,
 ) -> Response | None:
     """Require a verified human JWT AND an approved network source."""
     try:
