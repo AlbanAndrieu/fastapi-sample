@@ -32,9 +32,9 @@ _CACHE_TTL_SECONDS = 300.0
 _REF_RE = re.compile(r"^(?:api|component|domain|group|resource|system):[a-z0-9-]+/[a-z0-9]+(?:-[a-z0-9]+)*$")
 _NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 _TAG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
-_SOURCE_PATH_RE = re.compile(r"^(?:apps/[a-z0-9_-]+|catalog)/catalog-info\\.yaml$")
+_SOURCE_PATH_RE = re.compile(r"^(?:apps/[a-z0-9_-]+|catalog)/catalog-info\.yaml$")
 _REVISION_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
-_UNSAFE_LABEL_RE = re.compile(r"https?://|(?:\\d{1,3}\\.){3}\\d{1,3}|\\.int\\.|[:/\\\\@]", re.I)
+_UNSAFE_LABEL_RE = re.compile(r"https?://|(?:\d{1,3}\.){3}\d{1,3}|\.int\.|[:/\\@]", re.I)
 _KINDS = frozenset(("API", "Component", "Domain", "Group", "Resource", "System"))
 _CRITICALITY_LABELS = (
     "albandrieu.com/operational-criticality",
@@ -101,7 +101,10 @@ def _validated_source_url(url: str) -> str:
     ):
         raise ValueError("v2 catalog source must be the approved Nabla GitHub artifact")
     ref = parsed.path[len(prefix) : -len(suffix)]
-    if not ref or any(part in ("", ".", "..") or not re.fullmatch(r"[A-Za-z0-9_.-]+", part) for part in ref.split("/")):
+    if not ref or any(
+        part in ("", ".", "..") or not re.fullmatch(r"[A-Za-z0-9_.-]+", part)
+        for part in ref.split("/")
+    ):
         raise ValueError("v2 catalog revision must be a valid Git ref")
     return url
 
@@ -129,7 +132,11 @@ def project_site_catalog_v2(raw: object) -> SiteArchitectureCatalogV2:
     if not isinstance(raw, dict) or raw.get("schemaVersion") != 2 or raw.get("model") != "backstage":
         raise ValueError("unsupported Backstage catalog schema")
     values = raw.get("entities")
-    if not isinstance(values, list) or not 0 < len(values) <= 2000 or not all(isinstance(v, dict) for v in values):
+    if (
+        not isinstance(values, list)
+        or not 0 < len(values) <= 2000
+        or not all(isinstance(v, dict) for v in values)
+    ):
         raise ValueError("invalid Backstage entities")
     revision = raw.get("catalogRevision")
     if not isinstance(revision, str) or not _REVISION_RE.fullmatch(revision):
@@ -141,7 +148,9 @@ def project_site_catalog_v2(raw: object) -> SiteArchitectureCatalogV2:
     if not compare_digest(revision, "sha256:" + digest):
         raise ValueError("Backstage source revision mismatch")
     refs = {entity.get("entityRef") for entity in values}
-    if len(refs) != len(values) or not all(isinstance(ref, str) and _REF_RE.fullmatch(ref) for ref in refs):
+    if len(refs) != len(values) or not all(
+        isinstance(ref, str) and _REF_RE.fullmatch(ref) for ref in refs
+    ):
         raise ValueError("ambiguous Backstage entity refs")
 
     output: list[SiteV2Entity] = []
