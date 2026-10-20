@@ -155,7 +155,8 @@ export function includeObservedGarageChecks(
       local_state: "unknown",
       effective_state: "unknown",
       risk_state: "unknown",
-      warning: "Declared public-facing service; no current independent probe evidence. Not confirmed DOWN.",
+      warning:
+        "Declared public-facing service; no current independent probe evidence. Not confirmed DOWN.",
     };
   }
   return { ...data, checks: projected };
