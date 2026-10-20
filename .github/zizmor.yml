@@ -1,0 +1,9 @@
+# zizmor configuration, shared by the pre-commit hook, the CI preflight and
+# MegaLinter (ACTION_ZIZMOR). Every disabled audit or ignore needs a reason.
+rules:
+  # The production smoke installs a version-pinned Playwright shell with
+  # `--ignore-scripts` and no lockfile on purpose (runtime-only, not a
+  # project dependency).
+  adhoc-packages:
+    ignore:
+      - master-smoke.yml

@@ -189,8 +189,7 @@ controls:
 
     # Required component groups (DNF format)
     # Specify component paths without version (e.g., "group/project/component-name")
-    requiredGroups:
-      []
+    requiredGroups: []
       # Example configuration:
       # - ["components/secret-detection/secret-detection", "components/sast/sast"]
       # - ["your-org/full-security-pipeline"]
@@ -214,8 +213,7 @@ controls:
 
     # Required template groups (DNF format)
     # Specify template paths (e.g., "templates/go/go" or your org's template paths)
-    requiredGroups:
-      []
+    requiredGroups: []
       # Example configuration:
       # - ["templates/go/go", "templates/trivy/trivy", "templates/iso27001/iso27001"]
       # - ["templates/full-go-pipeline"]

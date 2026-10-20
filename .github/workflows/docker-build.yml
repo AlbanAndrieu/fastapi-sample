@@ -15,6 +15,7 @@ on:
         required: false
   schedule:
     - cron: "0 6 * * 3"
+  workflow_dispatch:
 
 env:
   IMAGE_NAME: fastapi-sample
@@ -106,11 +107,30 @@ jobs:
         with:
           version: v0.71.2
           image-ref: ${{ steps.meta.outputs.ghcr_tag }}
-          format: sarif
-          output: trivy-results.sarif
+          format: json
+          output: trivy-results.json
           ignore-unfixed: true
           vuln-type: os,library
           severity: CRITICAL,HIGH
+
+      - name: Convert same Trivy scan to SARIF (no second scan)
+        if: always() && hashFiles('trivy-results.json') != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          trivy convert --format sarif --output trivy-results.sarif trivy-results.json
+
+      # Reuse the existing weekly/manual Docker CI scan. Native vulnerability
+      # JSON goes to one private collector source; never publish secret/DAST
+      # evidence, and do not start extra scheduled CI.
+      - name: Publish native Trivy report for LAN collector
+        if: ${{ github.ref == 'refs/heads/master' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && hashFiles('trivy-results.json') != '' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: defectdojo-fastapi-trivy-${{ github.sha }}
+          path: trivy-results.json
+          retention-days: 3
+          if-no-files-found: error
 
       - name: Upload Trivy scan results
         if: always() && hashFiles('trivy-results.sarif') != ''

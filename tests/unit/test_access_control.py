@@ -14,7 +14,12 @@ from nabla.config_settings import APIDeploymentSettings
 @pytest.fixture
 def protected_app(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     """Expose representative operational routes with configurable fake settings."""
-    settings = SimpleNamespace(admin_access_key=None, diagnostics_access_key=None)
+    settings = SimpleNamespace(
+        admin_access_key=None,
+        diagnostics_access_key=None,
+        mcp_ops_key=None,
+        ops_route_policy_strict=False,
+    )
     monkeypatch.setattr(access_control, "get_settings", lambda: settings)
 
     app = FastAPI()
@@ -30,6 +35,7 @@ def protected_app(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     @app.get("/api/homelab-topology")
     @app.get("/api/homelab/runtime")
     @app.get("/api/homelab/status")
+    @app.get("/api/runtime/topology")
     @app.get("/api/homelab/health")
     @app.get("/api/homelab/probes")
     @app.post("/api/health-board/cache/reset")
@@ -39,12 +45,13 @@ def protected_app(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     return TestClient(app)
 
 
-def test_operational_routes_remain_open_without_access_keys(
+def test_operational_routes_fail_closed_without_access_keys(
     protected_app: TestClient,
 ) -> None:
-    assert protected_app.get("/admin").status_code == 200
-    assert protected_app.get("/healthz").status_code == 200
-    assert protected_app.get("/api/homelab-topology").status_code == 200
+    assert protected_app.get("/admin").status_code == 503
+    assert protected_app.get("/healthz").status_code == 503
+    assert protected_app.get("/api/homelab-topology").status_code == 503
+    assert protected_app.get("/api/runtime/topology").status_code == 503
     assert protected_app.post("/api/health-board/cache/reset").status_code == 503
 
 
@@ -59,7 +66,7 @@ def test_admin_key_only_protects_administration(
     protected_app.app.state.access_settings.admin_access_key = SecretStr("admin-key")
 
     assert protected_app.get("/admin/users/list").status_code == 401
-    assert protected_app.get("/healthz").status_code == 200
+    assert protected_app.get("/healthz").status_code == 503
     assert (
         protected_app.get(
             "/admin/users/list",
@@ -80,9 +87,10 @@ def test_diagnostics_key_accepts_bearer_and_keeps_liveness_public(
     assert protected_app.get("/api/homelab/declared-services").status_code == 401
     assert protected_app.get("/api/homelab-topology").status_code == 401
     assert protected_app.get("/api/homelab/runtime").status_code == 401
+    assert protected_app.get("/api/runtime/topology").status_code == 401
     assert protected_app.get("/api/homelab/status").status_code == 401
     assert protected_app.post("/api/health-board/cache/reset").status_code == 401
-    assert protected_app.get("/api/public-topology").status_code == 200
+    assert protected_app.get("/api/public-topology").status_code == 401
     assert protected_app.get("/health").status_code == 200
     assert (
         protected_app.get(
@@ -98,3 +106,41 @@ def test_diagnostics_key_accepts_bearer_and_keeps_liveness_public(
         ).status_code
         == 200
     )
+
+
+def test_known_sensitive_routes_fail_without_any_key(protected_app: TestClient) -> None:
+    for path in (
+        "/api/homelab-services",
+        "/api/health-board",
+        "/api/health-board/refresh-event",
+        "/api/public-topology",
+        "/metrics",
+        "/mcp",
+        "/private/ops/api/v1/services",
+    ):
+        response = protected_app.get(path)
+        assert response.status_code == 503, path
+        assert response.headers["cache-control"] == "private, no-store"
+    assert protected_app.get("/health").status_code == 200
+
+
+def test_strict_mode_denies_unclassified_routes(protected_app: TestClient) -> None:
+    settings = protected_app.app.state.access_settings
+    assert protected_app.get("/docs").status_code == 200
+    settings.ops_route_policy_strict = True
+    assert protected_app.get("/docs").status_code == 403
+    assert protected_app.get("/api/unknown").status_code == 403
+    assert protected_app.get("/health").status_code == 200
+    assert protected_app.get("/api/public-topology").status_code == 503
+
+
+def test_legacy_credentials_not_accepted_for_owner_jwt_route(
+    protected_app: TestClient,
+) -> None:
+    settings = protected_app.app.state.access_settings
+    settings.diagnostics_access_key = SecretStr("diagnostics-key")
+    response = protected_app.get(
+        "/private/ops/api/v1/services",
+        headers={"X-Diagnostics-Key": "diagnostics-key"},
+    )
+    assert response.status_code == 503

@@ -170,6 +170,6 @@ jobs:
   production-smoke:
     name: Verify deployed production externally
     needs: deploy
-    uses: ./.github/workflows/production-smoke.yml
+    uses: $/.github/workflows/master-smoke.yml
     permissions:
       contents: read

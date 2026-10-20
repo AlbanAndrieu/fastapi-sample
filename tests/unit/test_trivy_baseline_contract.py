@@ -39,6 +39,10 @@ def test_local_trivy_script_reproduces_megalinter_scope() -> None:
 
     assert _script_trivy_args() == megalinter_args
     assert "--ignorefile" in megalinter_args
+    assert "--skip-files" in megalinter_args
+    assert "uv.lock" not in megalinter_args
+    assert "package-lock.json" not in megalinter_args
+    assert "--ignore-unfixed" not in megalinter_args
     assert "--exit-code 1" in source
     assert "exit 0" not in source
 

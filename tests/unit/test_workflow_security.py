@@ -4,6 +4,8 @@ import json
 import re
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ROOT / ".github" / "workflows"
 CODEQL_ACTION_SHA = "cdf488f595d80d6e07e03d4674febd5ab45fa938"
@@ -11,10 +13,7 @@ IMMUTABLE_SHA_RE = re.compile(r"[0-9a-f]{40}")
 
 
 def _workflow_texts() -> list[tuple[Path, str]]:
-    return [
-        (path, path.read_text(encoding="utf-8"))
-        for path in sorted(WORKFLOWS.glob("*.yml"))
-    ]
+    return [(path, path.read_text(encoding="utf-8")) for path in sorted(WORKFLOWS.glob("*.yml"))]
 
 
 def test_codeql_python_uses_consistent_v4_no_build_mode() -> None:
@@ -28,12 +27,7 @@ def test_codeql_python_uses_consistent_v4_no_build_mode() -> None:
 
 
 def test_all_codeql_actions_use_the_same_v4_release() -> None:
-    codeql_lines = [
-        line.strip()
-        for _, text in _workflow_texts()
-        for line in text.splitlines()
-        if "uses: github/codeql-action/" in line
-    ]
+    codeql_lines = [line.strip() for _, text in _workflow_texts() for line in text.splitlines() if "uses: github/codeql-action/" in line]
 
     assert codeql_lines
     for line in codeql_lines:
@@ -50,7 +44,7 @@ def test_external_workflow_actions_are_pinned_to_immutable_shas() -> None:
                 continue
             target = stripped.removeprefix("uses:").split("#", maxsplit=1)[0].strip()
             target = target.strip("'\"")
-            if target.startswith("./"):
+            if target.startswith(("./", "$/")):  # local or self-repository
                 continue
             _, separator, ref = target.rpartition("@")
             if not separator or IMMUTABLE_SHA_RE.fullmatch(ref) is None:
@@ -62,10 +56,12 @@ def test_external_workflow_actions_are_pinned_to_immutable_shas() -> None:
 def test_renovate_app_token_is_least_privilege_and_checkout_is_hardened() -> None:
     workflow = (WORKFLOWS / "renovate.yml").read_text(encoding="utf-8")
     token_step = workflow.split("- name: Create GitHub App token", maxsplit=1)[1].split(
-        "- name: Checkout", maxsplit=1
+        "- name: Checkout",
+        maxsplit=1,
     )[0]
     checkout = workflow.split("- name: Checkout", maxsplit=1)[1].split(
-        "- name: Self-hosted Renovate", maxsplit=1
+        "- name: Self-hosted Renovate",
+        maxsplit=1,
     )[0]
 
     expected_permissions = {
@@ -107,33 +103,22 @@ def test_dependency_version_updates_are_renovate_only_and_grouped() -> None:
     assert "pre-commit" not in renovate
     assert ":combinePatchMinorReleases" in renovate["extends"]
     assert ":enablePreCommit" in renovate["extends"]
-    assert not any(
-        preset.startswith(":enableVulnerabilityAlerts")
-        for preset in renovate["extends"]
-    )
+    assert not any(preset.startswith(":enableVulnerabilityAlerts") for preset in renovate["extends"])
 
     rules = renovate["packageRules"]
     assert not any(rule.get("automerge") is True for rule in rules)
 
-    dev_rule = next(
-        rule for rule in rules if rule.get("groupName") == "npm devDependencies"
-    )
+    dev_rule = next(rule for rule in rules if rule.get("groupName") == "npm devDependencies")
     assert dev_rule["matchDepTypes"] == ["devDependencies"]
     assert dev_rule["matchUpdateTypes"] == ["minor", "patch"]
     assert dev_rule["schedule"] == ["* 0-8 1-7 * 1"]
     assert dev_rule["minimumReleaseAge"] == "7 days"
 
-    automation_rule = next(
-        rule for rule in rules if rule.get("groupName") == "automation toolchain"
-    )
+    automation_rule = next(rule for rule in rules if rule.get("groupName") == "automation toolchain")
     assert automation_rule["matchManagers"] == ["github-actions", "pre-commit"]
     assert automation_rule["schedule"] == ["* 0-8 1-7 * 1"]
 
-    major_rule = next(
-        rule
-        for rule in rules
-        if rule.get("description") == "Require dashboard approval for major updates"
-    )
+    major_rule = next(rule for rule in rules if rule.get("description") == "Require dashboard approval for major updates")
     assert major_rule["matchUpdateTypes"] == ["major", "replacement"]
     assert major_rule["dependencyDashboardApproval"] is True
 
@@ -141,3 +126,26 @@ def test_dependency_version_updates_are_renovate_only_and_grouped() -> None:
     assert lock_maintenance["enabled"] is True
     assert lock_maintenance["automerge"] is False
     assert lock_maintenance["schedule"] == ["* 0-8 1-7 * 1"]
+
+
+def test_actionlint_and_zizmor_run_in_pre_commit_and_ci_preflight() -> None:
+    config = yaml.safe_load((ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8"))
+    hooks = {hook["id"]: repo["repo"] for repo in config["repos"] for hook in repo.get("hooks", [])}
+    assert hooks["actionlint"] == "https://github.com/rhysd/actionlint"
+    assert hooks["zizmor"] == "https://github.com/zizmorcore/zizmor-pre-commit"
+
+    workflow = yaml.safe_load((WORKFLOWS / "python.yml").read_text(encoding="utf-8"))
+    runs = [step.get("run", "") for step in workflow["jobs"]["preflight"]["steps"]]
+    assert any(".venv/bin/pre-commit run actionlint --all-files" in run for run in runs)
+    assert any(".venv/bin/pre-commit run zizmor --all-files" in run for run in runs)
+
+    zizmor = yaml.safe_load((ROOT / ".github" / "zizmor.yml").read_text(encoding="utf-8"))
+    assert "self-repository" not in zizmor["rules"]
+
+
+def test_local_reusable_workflows_use_self_repository_syntax() -> None:
+    for path, text in _workflow_texts():
+        assert "uses: ./" not in text, path.name
+    actionlint = yaml.safe_load((ROOT / ".github" / "actionlint.yaml").read_text(encoding="utf-8"))
+    ignores = actionlint["paths"][".github/workflows/**/*.{yml,yaml}"]["ignore"]
+    assert any(pattern.startswith('reusable workflow call "\\$/') for pattern in ignores)

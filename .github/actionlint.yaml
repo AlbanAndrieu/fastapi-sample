@@ -1,0 +1,8 @@
+paths:
+  # GitHub's self-repository syntax ($/<path>: the action or reusable workflow
+  # at the workflow's own commit) is newer than actionlint 1.7.12. Remove once
+  # actionlint supports it.
+  .github/workflows/**/*.{yml,yaml}:
+    ignore:
+      - 'specifying action "\$/[^"]+" in invalid format because ref is missing'
+      - 'reusable workflow call "\$/[^"]+" at "uses" is not following the format'

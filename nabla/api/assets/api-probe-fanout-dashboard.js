@@ -70,7 +70,9 @@ function scopeMetrics(summary, enabled = true) {
     coverage: eligible > 0 ? clampPercent((known / eligible) * 100) : 100,
     timedOut: enabled ? finiteNumber(summary?.timed_out) : 0,
     phaseTiming: enabled ? sanitizedPhaseTiming(summary?.timing) : null,
-    deadlinePhases: enabled ? sanitizedDeadlinePhaseCounts(summary?.deadline_phase_counts) : null,
+    deadlinePhases: enabled
+      ? sanitizedDeadlinePhaseCounts(summary?.deadline_phase_counts)
+      : null,
     cacheTtl: finiteNumber(summary?.evidence?.evidence_ttl_seconds),
   };
 }
@@ -107,6 +109,22 @@ function progressModel(data) {
   const internalScope = scopeMetrics(summary.internal || {}, internalEnabled);
   const rows = probeRows(data);
   const counts = classifyKnownRows(rows);
+  const catalogCount = finiteNumber(summary?.catalog_service_count);
+  const catalogObservable = finiteNumber(
+    summary?.catalog_observable_service_count,
+  );
+  const catalogUnconfigured = finiteNumber(
+    summary?.catalog_unconfigured_service_count,
+  );
+  const disabledLanSlots = finiteNumber(
+    summary?.internal_disabled_eligible_slots,
+  );
+  const unsampledPublic = finiteNumber(
+    summary?.unsampled_current_window?.public,
+  );
+  const unsampledInternal = finiteNumber(
+    summary?.unsampled_current_window?.internal,
+  );
   const eligible = publicScope.eligible + internalScope.eligible;
   const known = publicScope.known + internalScope.known;
   const unknown = Math.max(0, eligible - known);
@@ -125,6 +143,12 @@ function progressModel(data) {
     coverage,
     healthy,
     healthyCoverage,
+    catalogCount,
+    catalogObservable,
+    catalogUnconfigured,
+    disabledLanSlots,
+    unsampledPublic,
+    unsampledInternal,
   };
 }
 
@@ -538,6 +562,7 @@ function ensureDashboard() {
       <div class="probe-dashboard-progress-copy">
         <strong id="probe-dashboard-coverage">0% evidence coverage</strong>
         <span id="probe-dashboard-health">0% healthy coverage</span>
+        <span id="probe-dashboard-catalog">Catalogue coverage is not yet available</span>
       </div>
       <div id="probe-dashboard-progress-bar"></div>
       <p id="probe-dashboard-warmup">Probe evidence has not loaded yet.</p>
@@ -663,7 +688,7 @@ function renderDashboard(data) {
   if (data !== lastPayload) captureStateChanges(model.rows);
   lastPayload = data;
   renderActivity(
-    `${model.coverage.toFixed(1)}% evidence · ${model.healthyCoverage.toFixed(1)}% healthy · ${model.counts.fail} failed · ${model.counts.warn} warning`,
+    `${model.coverage.toFixed(1)}% rolling probe evidence · ${model.catalogObservable}/${model.catalogCount} catalog services with targets · ${model.catalogUnconfigured} unconfigured · ${model.unsampledPublic + model.unsampledInternal} slots rotating · ${model.counts.fail} failed · ${model.counts.warn} warning`,
   );
   if (!root.open) {
     clarifyRuntimeTimeout(data);
@@ -671,6 +696,7 @@ function renderDashboard(data) {
   }
   const coverage = document.getElementById("probe-dashboard-coverage");
   const health = document.getElementById("probe-dashboard-health");
+  const catalog = document.getElementById("probe-dashboard-catalog");
   const bar = document.getElementById("probe-dashboard-progress-bar");
   const warmup = document.getElementById("probe-dashboard-warmup");
   const scopes = document.getElementById("probe-dashboard-scopes");
@@ -690,6 +716,10 @@ function renderDashboard(data) {
 
   coverage.textContent = `${model.coverage.toFixed(1)}% evidence coverage · ${model.known}/${model.eligible} eligible probe slots`;
   health.textContent = `${model.healthyCoverage.toFixed(1)}% healthy coverage · ${model.healthy} healthy · ${model.counts.warn} warning · ${model.counts.fail} failed · ${model.counts.stale} stale · ${model.counts.deadline} latest deadlines`;
+  if (catalog) {
+    const unobserved = Math.max(0, model.eligible - model.known);
+    catalog.textContent = `Catalogue ${model.catalogObservable}/${model.catalogCount} with configured public/LAN targets · ${model.catalogUnconfigured} without a target · ${model.unsampledPublic + model.unsampledInternal} eligible slots outside the current rotating wave · ${unobserved} slots without fresh/retained evidence · ${model.disabledLanSlots} LAN slots disabled`;
+  }
   bar.innerHTML = progressBar(model);
   warmup.textContent = warmupText(data, model);
   scopes.innerHTML =

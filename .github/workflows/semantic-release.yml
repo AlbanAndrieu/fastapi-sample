@@ -105,9 +105,11 @@ jobs:
 
           publish_outputs() {
             local release_tag="$1"
-            echo "published=true" >> "${GITHUB_OUTPUT}"
-            echo "tag=${release_tag}" >> "${GITHUB_OUTPUT}"
-            echo "version=${release_tag#v}" >> "${GITHUB_OUTPUT}"
+            {
+              echo "published=true"
+              echo "tag=${release_tag}"
+              echo "version=${release_tag#v}"
+            } >> "${GITHUB_OUTPUT}"
           }
 
           assert_remote_tag_absent() {

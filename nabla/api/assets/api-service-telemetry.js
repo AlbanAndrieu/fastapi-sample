@@ -1,0 +1,140 @@
+// Read the ONE fixed Prometheus snapshot already present on /api/health-board.
+// Never issue one Prometheus or Gatus request per service card.
+const EXPORTERS = Object.freeze({
+  pfsense: "pfsense_exporter",
+  postgres: "postgres_exporter",
+  postgresql: "postgres_exporter",
+  redis: "redis_exporter",
+  truenas: "truenas_node",
+  "fastapi-sample": "fastapi_sample",
+  pyroscope: "pyroscope",
+  grafana: "grafana",
+  prometheus: "prometheus",
+  gatus: "gatus",
+});
+
+const ID_ALIASES = Object.freeze({ postgres: "postgresql" });
+
+function observedBinary(value) {
+  return typeof value === "number" && (value === 0 || value === 1);
+}
+
+function signal(label, value, source, detail) {
+  const known = observedBinary(value);
+  return {
+    label,
+    tone: !known ? "unknown" : value === 1 ? "ok" : "fail",
+    status: !known ? "unknown" : value === 1 ? "up" : "down",
+    detail: `${source}: ${known ? (value === 1 ? "observed UP" : "observed DOWN") : "not observed"}${detail ? " · " + detail : ""}`,
+  };
+}
+
+function serviceId(row) {
+  const key = String(row?.dataset?.serviceKey || "").toLowerCase();
+  return ID_ALIASES[key] || key;
+}
+
+export function serviceTelemetry(snapshot, row) {
+  const metrics = snapshot?.platform_metrics;
+  const id = serviceId(row);
+  const sourceState = metrics?.state || "unavailable";
+  const promValue = metrics?.metrics?.prometheus_up?.value;
+  const prom = signal(
+    "Prometheus",
+    promValue,
+    "Prometheus recording rule",
+    sourceState,
+  );
+  const synthetic = metrics?.synthetic_probes;
+  const monitored =
+    synthetic?.state === "observed" && synthetic?.gatus_up === 1;
+  const observation = monitored ? synthetic?.services?.[id] : null;
+  const types = ["HTTPS", "HTTP", "TCP"];
+  const probes = types
+    .filter((kind) => observedBinary(observation?.[kind]?.success))
+    .map((kind) => ({
+      type: kind,
+      success: observation[kind].success,
+      availability: observation[kind].availability_ratio_5m,
+    }));
+  const gatus = {
+    label: "Gatus",
+    tone:
+      !monitored || probes.length === 0
+        ? "unknown"
+        : probes.every((p) => p.success === 1)
+          ? "ok"
+          : "fail",
+    status: !monitored
+      ? "unavailable"
+      : probes.length === 0
+        ? "no_metric"
+        : probes.every((p) => p.success === 1)
+          ? "up"
+          : "down",
+    detail: !monitored
+      ? "Gatus via Prometheus unavailable or scrape unverified; no direct Gatus request"
+      : probes.length === 0
+        ? `Gatus UP but no labeled per-service metrics for ${id}; inspect nabla_service_id and recording rules`
+        : `Gatus via Prometheus: ${probes.map((p) => `${p.type}=${p.success === 1 ? "up" : "down"}${typeof p.availability === "number" ? ` (5m ${(p.availability * 100).toFixed(0)}%)` : ""}`).join(", ")}`,
+  };
+  const job = EXPORTERS[id];
+  let exporter = null;
+  if (job) {
+    const observed =
+      job === "prometheus" ? promValue : metrics?.exporter_jobs?.[job];
+    exporter = signal(
+      "Exporter",
+      observed,
+      `Prometheus scrape job=${job}`,
+      "scrape status only; does not establish application readiness",
+    );
+  }
+  const functional =
+    id === "postgresql"
+      ? signal(
+          "PostgreSQL",
+          metrics?.summary?.optional_exporters?.postgres_up,
+          "pg_up",
+          "database connection, distinct from scrape up",
+        )
+      : id === "redis"
+        ? signal(
+            "Redis",
+            metrics?.summary?.optional_exporters?.redis_up,
+            "redis_up",
+            "database connection, distinct from scrape up",
+          )
+        : null;
+  const ram =
+    metrics?.summary?.optional_exporters?.pfsense_memory_available_ratio;
+  const resource =
+    id === "pfsense"
+      ? {
+          label: "pfSense RAM",
+          tone: "neutral",
+          status:
+            typeof ram === "number" &&
+            Number.isFinite(ram) &&
+            ram >= 0 &&
+            ram <= 1
+              ? "observed"
+              : "unknown",
+          detail:
+            typeof ram === "number" &&
+            Number.isFinite(ram) &&
+            ram >= 0 &&
+            ram <= 1
+              ? `pfSense memory available: ${(ram * 100).toFixed(1)}% via Prometheus; not a reachability check`
+              : "pfSense memory metric not observed; exporter UP alone does not prove resource health",
+        }
+      : null;
+  return {
+    prometheus: prom,
+    gatus,
+    exporter,
+    functional,
+    resource,
+    serviceId: id,
+  };
+}

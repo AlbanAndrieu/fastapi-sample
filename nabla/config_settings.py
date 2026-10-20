@@ -167,6 +167,22 @@ class _Settings(DatabaseSettings):
             validation_alias=AliasChoices("DIAGNOSTICS_ACCESS_KEY"),
         ),
     ]
+    ops_route_policy_strict: Annotated[
+        bool,
+        Field(default=False, validation_alias=AliasChoices("OPS_ROUTE_POLICY_STRICT")),
+    ]
+    ops_access_issuer: Annotated[
+        Optional[str],
+        Field(default=None, validation_alias=AliasChoices("OPS_ACCESS_ISSUER")),
+    ]
+    ops_access_aud: Annotated[
+        Optional[str],
+        Field(default=None, validation_alias=AliasChoices("OPS_ACCESS_AUD")),
+    ]
+    ops_access_owner_subjects: Annotated[
+        Optional[str],
+        Field(default=None, validation_alias=AliasChoices("OPS_ACCESS_OWNER_SUBJECTS")),
+    ]
 
     appwrite_endpoint: Annotated[
         Optional[str],

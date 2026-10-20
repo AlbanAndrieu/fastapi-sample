@@ -108,6 +108,16 @@ jobs:
           bash scripts/agent-quality-gate.sh --ci-preflight
           printf 'seconds=%d\n' "$((SECONDS - started))" >> "${GITHUB_OUTPUT}"
 
+      - name: Lint and audit every GitHub workflow (actionlint, zizmor)
+        env:
+          # zizmor online audits (archived-uses, known-vulnerable-actions).
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          .venv/bin/pre-commit run actionlint --all-files --show-diff-on-failure
+          .venv/bin/pre-commit run zizmor --all-files --show-diff-on-failure
+
       - name: Run isolated quality-contract tests
         if: steps.ci_scope.outputs.dependency_mode == 'quality'
         shell: bash
@@ -226,6 +236,7 @@ jobs:
           fi
           summary="$(tail -n 1 pytest.log)"
           printf '%s\n' "${summary}"
+          # shellcheck disable=SC2016 # literal Markdown backticks, no expansion intended
           printf '### pytest\n`%s`\n' "${summary}" >>"${GITHUB_STEP_SUMMARY}"
 
       - name: Upload test results to Trunk.io
@@ -376,7 +387,7 @@ jobs:
       contents: read
       packages: write
       security-events: write
-    uses: ./.github/workflows/docker-build.yml
+    uses: $/.github/workflows/docker-build.yml
     secrets:
       DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
@@ -389,4 +400,4 @@ jobs:
     permissions:
       contents: read
       security-events: write
-    uses: ./.github/workflows/mega-linter.yml
+    uses: $/.github/workflows/mega-linter.yml
