@@ -273,7 +273,6 @@ def test_cors_origins_include_public_site_and_fastapi_cloud() -> None:
     assert all(not origin.endswith("/") for origin in CORS_ORIGINS)
 
 
-
 @pytest.mark.asyncio
 async def test_public_probes_do_not_inherit_ambient_http_proxy(monkeypatch) -> None:
     """Outside-in probes must retain the actual cloud runtime vantage point."""
@@ -297,7 +296,4 @@ async def test_public_probes_do_not_inherit_ambient_http_proxy(monkeypatch) -> N
     monkeypatch.setattr(homelab_health, "_cached_at", 0.0)
 
     await homelab_health.build_homelab_health_payload()
-    assert any(
-        options.get("trust_env") is False and options.get("follow_redirects") is False
-        for options in client_options
-    )
+    assert any(options.get("trust_env") is False and options.get("follow_redirects") is False for options in client_options)

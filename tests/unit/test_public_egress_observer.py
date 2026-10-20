@@ -55,7 +55,6 @@ async def test_observer_soft_fails_when_echo_is_unavailable(monkeypatch) -> None
     }
 
 
-
 @pytest.mark.asyncio
 async def test_egress_ip_echo_ignores_ambient_proxy(monkeypatch) -> None:
     """The echo service must see the cloud runtime rather than a proxy egress."""
