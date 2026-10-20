@@ -27,6 +27,7 @@ _DENY_HEADERS = {
     "X-Robots-Tag": "noindex, nofollow",
 }
 _TOKEN_NONCE = re.compile(r"^[0-9a-f]{32}$")
+_TOKEN_SIGNATURE = re.compile(r"^[0-9a-f]{64}$")
 
 
 def _secret(settings: object) -> str | None:
@@ -55,7 +56,11 @@ def owner_cookie_valid(token: str | None, settings: object, *, now: int | None =
     if not secret:
         return False
     parts = token.split(".")
-    if len(parts) != 4 or not _TOKEN_NONCE.fullmatch(parts[2]):
+    if (
+        len(parts) != 4
+        or not _TOKEN_NONCE.fullmatch(parts[2])
+        or not _TOKEN_SIGNATURE.fullmatch(parts[3])
+    ):
         return False
     try:
         issued, expiry = int(parts[0]), int(parts[1])
