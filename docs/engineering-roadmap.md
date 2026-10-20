@@ -13,6 +13,16 @@ notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blo
 - [ ] Exécuter `python3 -m unittest tests.unit.test_master_red_issue -v` sur le HEAD exact et la gate locale ; aucune preuve de réussite CI globale à inférer.
 - [ ] Après déploiement sur `master`, constater deux runs complets consécutifs (CodeQL/ZAP `skipped` acceptables **uniquement** si non requis par la classification), et vérifier les causes racines Python/Smoke. Ne pas provoquer d'échec artificiel.
 
+## P0 — FastAPI Cloud owner UI and catalogue migration (PR #358)
+
+- [x] Keep OWNER diagnostics under DIAGNOSTICS_ACCESS_KEY plus HOMELAB_TRUSTED_CIDRS. Provide a 20-minute signed HttpOnly/Secure/SameSite=Strict owner-browser session; no credentials in persistent browser storage.
+- [x] Remove the UI's raw v1 catalog HTTP request; the operational cards derive their state from the owner-only health board instead. On unauthorized access show the session unlock panel, never a fabricated probe failure.
+- [x] Fix the deployment smoke contract: require unauthenticated catalog denial, not an unauthenticated private catalog dump.
+- [x] Allow retirement of legacy /api/homelab-services and /api/public-homelab/v1 with HOMELAB_V1_HTTP_ENABLED=false; HTTP handlers return 410, never affect internal probes.
+- [ ] Rollout: first migrate nabla-site-alban to Backstage v2, then set HOMELAB_V1_HTTP_ENABLED=false for FastAPI Cloud. The private /api/homelab-services OWNER route must remain protected even during the transition.
+- [ ] Migrate remaining FastAPI *internal* legacy catalog/desired exposure inputs to Backstage v2 + authoritative topology before removing v1 JSON files. The flag changes only HTTP access, not background data sources.
+- [ ] Validate trusted proxy peer addresses before setting HOMELAB_TRUSTED_PROXY_CIDRS. End-to-end HTTPS browser login, cookie expiry, owner CIDR, health boards, probe fan-out and full quality gate must be verified before deployment.
+
 ## P0 — public/private observability boundary (PR #353 / issue #352)
 - [x] Site catalog service contract migrated directly to canonical Backstage v2: authenticated `GET /api/site/catalog/v2`, schemaVersion/model/catalogRevision/entities and dependency refs, strict field allowlist and 5-minute fresh-source TTL. No v1 site route, bootstrap or LKG. The source artifact is `nabla-compose/catalog/generated/entities.json` (pending PR #265 merge to master). See [consumer handoff](site-architecture-catalog-handoff.md).
 - [ ] `nabla-site-alban`: consume the existing `parseHomelabCatalogV2()` / `catalogV2ServiceViews()` from the new `/api/site/catalog/v2`, remove v1/fallback, enforce Vercel server-only secret, source revision, private-owner gate and EN/FR Architecture. Coordinate with `nabla-compose` PR #265 and its generated v2 artifact; while unmerged, strict 503 (no v1 fallback). Frontend, Vercel and full local gate NOT_RUN.

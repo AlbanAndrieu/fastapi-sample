@@ -47,3 +47,7 @@ Le fournisseur est `https://raw.githubusercontent.com/AlbanAndrieu/nabla-compose
 4. Vérifier EN/FR Architecture, les relations canoniques, le `catalogRevision` unique entre consommateurs, l'absence de fuite dans les bundles ou headers publics et l'indépendance des contrôles WAN FastAPI Cloud. Keycloak pourra ensuite remplacer la clé statique avec une identité machine OIDC distincte de l'identité humaine.
 
 **Validation réelle : NON EFFECTUÉE** pour les configurations Vercel, Preview, déploiement production, Gatus/Prometheus ou sécurité des ports WAN. PR fastapi-sample conservée en Draft, sans fusion automatique.
+
+## Retrait v1 après migration du site
+
+Le toggle `HOMELAB_V1_HTTP_ENABLED=false` désactive les deux anciennes routes HTTP `/api/homelab-services` (OWNER) et `/api/public-homelab/v1` (`410` après authentification éventuelle) sans arrêter `health-board` et les sondes qui utilisent encore des données historiques en interne. Ne pas positionner ce flag à `false` avant que `nabla-site-alban` utilise effectivement `/api/site/catalog/v2` et ait supprimé son fallback local. La suppression définitive des fichiers historiques requiert une migration séparée des lecteurs internes et de la politique d'exposition : les métadonnées Backstage ne contiennent pas toute la configuration des sondes ni les intentions WAN.
