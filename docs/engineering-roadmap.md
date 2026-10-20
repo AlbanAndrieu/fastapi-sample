@@ -51,6 +51,9 @@ notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blo
 
 - [ ] Convergence Gatus : vérifier depuis TrueNAS les séries réelles du job `gatus` et les règles Prometheus. Le `max by` actuel de `synthetic_probe_success` (propriétaire : `nabla-compose`) peut masquer un moniteur en échec si plusieurs ciblent le même service/protocole ; revoir avant toute délégation. Préserver en priorité les sondes WAN depuis FastAPI Cloud (DNS public/IP/ports déclarés, TLS, origine/Cloudflare Access), sans exporter les métriques privées. Audit approfondi et matrice de dépendances : [Gatus / Python](gatus-python-monitoring-convergence.md).
 
+- [x] Guard outside-in HTTP against declared public names resolving to non-global A/AAAA addresses; no HTTP attempt and explicit unknown/warn, rather than performing a LAN request from cloud.
+- [ ] Add peer-IP/DNS pinning to eliminate DNS rebind TOCTOU without compromising TLS SNI/Host, plus declared public TCP/port checks only after reviewing the approved targets; prove via tests without performing arbitrary scans.
+
 ## P1 — health, topology and runtime acceptance
 - [ ] After an approved deployment, compare Garage external/internal probe
   phases over three cycles, unexpected admin Tunnel exposure and WAN NAT

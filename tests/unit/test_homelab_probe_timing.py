@@ -63,6 +63,34 @@ async def test_public_probe_separates_queue_dns_and_http(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
+async def test_outside_in_probe_blocks_non_global_dns_without_http(monkeypatch) -> None:
+    attempted: list[str] = []
+
+    async def private_dns(_hostname: str) -> dict[str, object]:
+        return {"dns_state": "ok", "dns_resolved": ["172.17.0.24"]}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        attempted.append(request.url.host or "")
+        return httpx.Response(200, request=request)
+
+    monkeypatch.setattr(homelab_probe_runner, "probe_dns_hostname", private_dns)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        result = await homelab_probe_runner.probe_http_endpoint(
+            client,
+            asyncio.Semaphore(1),
+            service_id="no-lan-target",
+            name="Blocked private DNS",
+            url="https://example.com",
+        )
+    assert attempted == []
+    assert result["state"] == "warn"
+    assert result["reachable"] is None
+    assert result["probe_blocked"] is True
+    assert result["error_kind"] == "non_global_dns_answer"
+    assert result["probe_timing"]["http_request_count"] == 0
+
+
+@pytest.mark.asyncio
 async def test_failed_request_preserves_phase_evidence(monkeypatch) -> None:
     async def fake_dns(_host: str) -> dict[str, object]:
         return {}
