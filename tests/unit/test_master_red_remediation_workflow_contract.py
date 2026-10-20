@@ -15,10 +15,10 @@ def test_post_merge_gate_covers_quality_runtime_and_security_surfaces() -> None:
 
     assert "branches: [master]" in workflow
     assert "workflow_dispatch:" in workflow
-    assert "uses: $/.github/workflows/python.yml" in workflow
-    assert "uses: $/.github/workflows/master-smoke.yml" in workflow
-    assert "uses: $/.github/workflows/codeql.yml" in workflow
-    assert "uses: $/.github/workflows/security-zap.yml" in workflow
+    assert "uses: ./.github/workflows/python.yml" in workflow
+    assert "uses: ./.github/workflows/master-smoke.yml" in workflow
+    assert "uses: ./.github/workflows/codeql.yml" in workflow
+    assert "uses: ./.github/workflows/security-zap.yml" in workflow
     assert "run_codeql" in workflow
     assert "run_zap" in workflow
     assert "git diff --name-only" in workflow
