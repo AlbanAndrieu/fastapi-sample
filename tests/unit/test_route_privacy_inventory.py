@@ -27,6 +27,7 @@ def test_sensitive_routes_are_not_public_by_default() -> None:
     app.add_api_route("/api/public-topology", _empty, methods=["GET"])
     app.add_api_route("/api/public-homelab/v1", _empty, methods=["GET"])
     app.add_api_route("/api/site/catalog/v2", _empty, methods=["GET"])
+    app.add_api_route("/api/ui/session", _empty, methods=["GET"])
     app.add_api_route("/api/unknown", _empty, methods=["POST"])
     routes = {row["path"]: row for row in inventory.inventory_routes(app.routes)}
     assert routes["/api/homelab/health"]["intended_policy"] == "OWNER"
@@ -35,6 +36,7 @@ def test_sensitive_routes_are_not_public_by_default() -> None:
     assert routes["/api/public-topology"]["intended_policy"] == "OWNER"
     assert routes["/api/public-homelab/v1"]["intended_policy"] == "PUBLIC_CANDIDATE"
     assert routes["/api/site/catalog/v2"]["intended_policy"] == "SERVICE"
+    assert routes["/api/ui/session"]["intended_policy"] == "PUBLIC_CANDIDATE"
     assert routes["/api/unknown"]["intended_policy"] == "REVIEW"
     assert inventory.audit_summary(list(routes.values()))["review_required"] == 1
 
@@ -48,6 +50,7 @@ def test_prefix_boundaries_and_non_get_public_candidates() -> None:
     assert inventory.intended_policy("/api/homelabish", ["GET"], "http") == "REVIEW"
     assert inventory.intended_policy("/api/public-homelab/v1", ["POST"], "http") == "REVIEW"
     assert inventory.intended_policy("/api/site/catalog/v2", ["POST"], "http") == "REVIEW"
+    assert inventory.intended_policy("/api/ui/session", ["POST"], "http") == "PUBLIC_CANDIDATE"
     assert inventory.intended_policy("/api/site/catalog/v2-extra", ["GET"], "http") == "REVIEW"
     assert inventory.intended_policy("/health", ["DELETE"], "http") == "REVIEW"
     assert inventory.intended_policy("/health", [], "http") == "REVIEW"

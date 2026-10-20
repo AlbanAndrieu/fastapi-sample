@@ -35,6 +35,7 @@ def protected_app(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     @app.get("/api/public-topology")
     @app.get("/api/homelab/declared-services")
     @app.get("/api/site/catalog/v2")
+    @app.get("/api/ui/session")
     @app.get("/api/homelab-topology")
     @app.get("/api/homelab/runtime")
     @app.get("/api/homelab/status")
