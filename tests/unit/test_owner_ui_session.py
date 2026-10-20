@@ -73,6 +73,7 @@ def test_cookie_signature_expiry_tamper_and_key_rotation() -> None:
     assert owner_cookie_valid(token, settings, now=1001)
     assert not owner_cookie_valid(token, settings, now=1000 + SESSION_SECONDS)
     assert not owner_cookie_valid(token + "0", settings, now=1001)
+    assert not owner_cookie_valid(token[:-1] + "☠", settings, now=1001)
     assert not owner_cookie_valid("x" * 400, settings)
     settings.diagnostics_access_key = SecretStr("new-rotated-secret")
     assert not owner_cookie_valid(token, settings, now=1001)
