@@ -120,7 +120,7 @@ def test_owner_http_ignores_machine_header(identity):
     ).status_code == 403
     _settings.homelab_trusted_cidrs = ""
     assert client.get(
-        endpoint, headers={"Cf-Access-Jwt-Assertion": signed()}
+        endpoint, headers={"Cf-Access-Jwt-Assertion": signed()},
     ).status_code == 403
 
 

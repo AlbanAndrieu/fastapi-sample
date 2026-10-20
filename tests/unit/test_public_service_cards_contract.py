@@ -21,8 +21,8 @@ def test_gatus_and_garage_webui_have_explicit_discovery_labels() -> None:
 def test_gatus_catalog_and_private_garage_boundary() -> None:
     catalog = json.loads(
         (ROOT / "nabla/api/data/homelab-services.json").read_text(
-            encoding="utf-8"
-        )
+            encoding="utf-8",
+        ),
     )
     services = catalog["services"]
     gatus = [row for row in services if row.get("id") == "gatus"]

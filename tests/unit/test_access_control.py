@@ -158,7 +158,7 @@ def test_owner_diagnostics_require_key_and_trusted_network(
     endpoint = "/api/homelab/health"
     assert protected_app.get(endpoint).status_code == 401
     assert protected_app.get(
-        endpoint, headers={"X-Diagnostics-Key": "diagnostics-key"}
+        endpoint, headers={"X-Diagnostics-Key": "diagnostics-key"},
     ).status_code == 403
     assert protected_app.get(
         endpoint,
@@ -170,5 +170,5 @@ def test_owner_diagnostics_require_key_and_trusted_network(
     ).status_code == 403
     settings.homelab_trusted_cidrs = ""
     assert protected_app.get(
-        endpoint, headers={"X-Diagnostics-Key": "diagnostics-key"}
+        endpoint, headers={"X-Diagnostics-Key": "diagnostics-key"},
     ).status_code == 200
