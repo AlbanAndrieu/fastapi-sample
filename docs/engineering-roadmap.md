@@ -14,8 +14,8 @@ notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blo
 - [ ] Après déploiement sur `master`, constater deux runs complets consécutifs (CodeQL/ZAP `skipped` acceptables **uniquement** si non requis par la classification), et vérifier les causes racines Python/Smoke. Ne pas provoquer d'échec artificiel.
 
 ## P0 — public/private observability boundary (PR #353 / issue #352)
-- [x] Site server-to-server catalog: strict source-only `GET /api/site/catalog/v1` with `X-Diagnostics-Key`, only `id/name` allowlist fields and 5-minute verified-source TTL. Owner raw catalog retains CIDR; no packaged/LKG fallback on the new route. See [consumer handoff](site-architecture-catalog-handoff.md).
-- [ ] `nabla-site-alban`: migrate the Vercel server-only fetch to this endpoint, remove local fallback and navigation overrides from its response, validate absent/invalid secrets, private-owner gate and EN/FR Architecture deployment. Never send `DIAGNOSTICS_ACCESS_KEY` to browser code. This frontend change and Vercel secret deployment are NOT_RUN here.
+- [x] Site catalog service contract migrated directly to canonical Backstage v2: authenticated `GET /api/site/catalog/v2`, schemaVersion/model/catalogRevision/entities and dependency refs, strict field allowlist and 5-minute fresh-source TTL. No v1 site route, bootstrap or LKG. The source artifact is `nabla-compose/catalog/generated/entities.json` (pending PR #265 merge to master). See [consumer handoff](site-architecture-catalog-handoff.md).
+- [ ] `nabla-site-alban`: consume the existing `parseHomelabCatalogV2()` / `catalogV2ServiceViews()` from the new `/api/site/catalog/v2`, remove v1/fallback, enforce Vercel server-only secret, source revision, private-owner gate and EN/FR Architecture. Coordinate with `nabla-compose` PR #265 and its generated v2 artifact; while unmerged, strict 503 (no v1 fallback). Frontend, Vercel and full local gate NOT_RUN.
 - [ ] Audit every live HTTP/ASGI WebSocket mount, docs/OpenAPI, MCP, admin,
   health and HTML route on the exact deployed FastAPI SHA. Validate access
   policy classification, missing credentials and negative bypass tests.

@@ -34,7 +34,7 @@ def protected_app(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     @app.get("/healthz")
     @app.get("/api/public-topology")
     @app.get("/api/homelab/declared-services")
-    @app.get("/api/site/catalog/v1")
+    @app.get("/api/site/catalog/v2")
     @app.get("/api/homelab-topology")
     @app.get("/api/homelab/runtime")
     @app.get("/api/homelab/status")
@@ -204,11 +204,11 @@ def test_site_catalog_service_key_never_weakens_owner_cidr(protected_app: TestCl
     """Vercel may request a non-sensitive view, never the owner inventory."""
     settings = protected_app.app.state.access_settings
     settings.homelab_trusted_cidrs = "82.66.4.247/32"
-    assert protected_app.get("/api/site/catalog/v1").status_code == 503
+    assert protected_app.get("/api/site/catalog/v2").status_code == 503
     settings.diagnostics_access_key = SecretStr("diagnostics-key")
-    response = protected_app.get("/api/site/catalog/v1")
+    response = protected_app.get("/api/site/catalog/v2")
     assert response.status_code == 401
     assert response.headers["cache-control"] == "private, no-store"
-    assert protected_app.get("/api/site/catalog/v1", headers={"X-Diagnostics-Key": "wrong"}).status_code == 401
-    assert protected_app.get("/api/site/catalog/v1", headers={"X-Diagnostics-Key": "diagnostics-key"}).status_code == 200
+    assert protected_app.get("/api/site/catalog/v2", headers={"X-Diagnostics-Key": "wrong"}).status_code == 401
+    assert protected_app.get("/api/site/catalog/v2", headers={"X-Diagnostics-Key": "diagnostics-key"}).status_code == 200
     assert protected_app.get("/api/homelab-services", headers={"X-Diagnostics-Key": "diagnostics-key"}).status_code == 403

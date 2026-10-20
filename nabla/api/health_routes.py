@@ -21,7 +21,7 @@ from nabla.api.homelab_models import HomelabCatalog
 from nabla.api.homelab_runtime import TrueNASRuntimeSnapshot
 from nabla.api.homelab_topology import HomelabTopology
 from nabla.api.public_homelab_dto import PublicHomelabV1, load_public_homelab_v1
-from nabla.api.site_architecture_catalog import SiteArchitectureCatalogV1, site_architecture_catalog
+from nabla.api.site_architecture_catalog import SiteArchitectureCatalogV2, SiteCatalogV2Unavailable, fetch_site_catalog_v2
 from nabla.utils.logger import logger
 
 
@@ -108,29 +108,25 @@ def _register_homelab_catalog_routes(app: FastAPI) -> None:
         return load_public_homelab_v1()
 
     @app.get(
-        "/api/site/catalog/v1",
-        response_model=SiteArchitectureCatalogV1,
+        "/api/site/catalog/v2",
+        response_model=SiteArchitectureCatalogV2,
+        response_model_exclude_none=True,
         tags=["Homelab"],
         summary="Authenticated sanitized site architecture catalog",
         include_in_schema=False,
     )
-    async def get_site_architecture_catalog(response: Response) -> SiteArchitectureCatalogV1:
-        """Dedicated machine-key view: server-side site consumption only."""
-        from nabla.api.homelab_catalog import (
-            AuthoritativeCatalogUnavailable,
-            fetch_authoritative_homelab_catalog,
-        )
+    async def get_site_architecture_catalog(response: Response) -> SiteArchitectureCatalogV2:
+        """Only the current verified Backstage v2 source, safely projected."""
 
         response.headers.update({**_NO_STORE_HEADERS, "X-Robots-Tag": "noindex, nofollow"})
         try:
-            catalog = await fetch_authoritative_homelab_catalog()
-        except AuthoritativeCatalogUnavailable:
+            return await fetch_site_catalog_v2()
+        except SiteCatalogV2Unavailable:
             raise HTTPException(
                 status_code=503,
                 detail="Authoritative catalog unavailable",
                 headers={**_NO_STORE_HEADERS, "X-Robots-Tag": "noindex, nofollow"},
             ) from None
-        return site_architecture_catalog(catalog)
 
     @app.get(
         "/api/homelab-services",

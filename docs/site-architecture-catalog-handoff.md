@@ -1,31 +1,49 @@
-# Architecture catalogue — FastAPI ↔ Site Alban (avant Keycloak)
+# Contrat direct Backstage v2 — FastAPI ↔ Site Alban (pré-Keycloak)
 
-Date : 2026-10-20. PR FastAPI #358, endpoint explicitement dédié à un consommateur machine. Ce document est le contrat de reprise pour le projet `AlbanAndrieu/nabla-site-alban`.
+Date : 2026-10-20. PR fastapi-sample #358 ; alignement sur **nabla-compose PR #265** et sur le parseur `nabla-site-alban/lib/homelabCatalogV2.ts` existant. **Aucun endpoint ou lecteur transitoire `/api/site/catalog/v1`**.
 
-## Contrat serveur-à-serveur
+## Contrat unique
 
 ```http
-GET /api/site/catalog/v1 HTTP/1.1
+GET /api/site/catalog/v2 HTTP/1.1
 Host: fastapi-sample.fastapicloud.dev
 Accept: application/json
 X-Diagnostics-Key: <secret serveur uniquement>
 ```
 
-Réponse admise : `{"version":1,"services":[{"id":"garage-admin","name":"Garage Admin"}]}`. Il s'agit **uniquement** d'identités de présentation. Aucun champ `internalHost`, `internalPort`, `tunnelUrl`, `external`, `cloudflareAccessRequired`, log, sonde ou métrique n'est sérialisable dans ce DTO strict. Le schéma refuse noms contenant IP/URL/port ou attributs supplémentaires ; la source reste `nabla-compose`. Le catalogue complet de l'opérateur reste `/api/homelab-services` et demeure soumis à l'IP autorisée `HOMELAB_TRUSTED_CIDRS` **en plus** de l'authentification.
+La réponse suit exactement la forme canonique Backstage v2 :
 
-La clé `DIAGNOSTICS_ACCESS_KEY` est exigée sur ce chemin SERVICE (503 si non configurée, 401 si absente/invalide). Elle ne suffit pas à contourner le CIDR sur les routes propriétaire. Ne jamais utiliser de clés dans le client React, les URLs, les variables `NEXT_PUBLIC_*`, logs, cookies JS ou en-têtes renvoyés au navigateur. Secret dans Vaultwarden et configuration Vercel côté serveur seulement. À terme remplacer par une identité machine dédiée (Cloudflare Service Auth puis OIDC/Keycloak si accepté).
+```json
+{
+  "schemaVersion": 2,
+  "model": "backstage",
+  "catalogRevision": "sha256:<64 chiffres hexadécimaux>",
+  "entities": [
+    {
+      "apiVersion": "backstage.io/v1alpha1",
+      "kind": "Component",
+      "entityRef": "component:default/api",
+      "sourcePath": "apps/api/catalog-info.yaml",
+      "metadata": {"name": "api", "title": "API"},
+      "spec": {"type": "service", "dependsOn": ["resource:default/postgres"]}
+    }
+  ]
+}
+```
 
-L'API n'utilise **pas** de fallback local sur ce chemin : uniquement une réponse autoritaire validée récemment (cache d'au plus 300 s depuis le dernier succès), sinon 503 neutre. Le fallback historique des routes internes de diagnostic n'est pas propagé au consommateur site. Entêtes `Cache-Control: no-store, max-age=0`, `Pragma: no-cache` et `X-Robots-Tag: noindex, nofollow`.
+L'exemple n'est qu'une forme : les relations référencées doivent réellement exister dans le graphe. `catalogRevision` est le **hash de la source canonique complète**, calculé/contrôlé depuis les entités Backstage originelles de `nabla-compose`, **pas** le hash de la projection filtrée vers le site. Préserver `entityRef` et les relations Backstage ; ne pas revenir aux IDs ou `services[]` v1.
 
-## À appliquer dans nabla-site-alban
+Le DTO serveur exclut explicitement les annotations, les descriptions privées, les URLs, IP, ports, preuves et secrets. Il conserve uniquement les identités, types, provenance portable Git, tags, deux labels de criticité, et les relations vers des références canoniques existantes. Les métadonnées **opérateur complètes** restent sur les routes OWNER avec vérification du CIDR.
 
-1. Dans `lib/homelabServices.ts` remplacer le GET actuel `/api/homelab-services` par le chemin SERVICE ci-dessus, avec `process.env.DIAGNOSTICS_ACCESS_KEY`, `cache: "no-store"`, `redirect: "error"`, timeout borné et réponse strictement validée. Ne pas envoyer la clé depuis React ni dans une URL.
-2. Retirer `LOCAL_FALLBACK`, `getStaticHomelabServicesCatalog`, le bloc `catch` renvoyant le JSON local et l'enrichissement de présentation local pouvant injecter des URL ou ports d'administration. Aucun succès synthétique en cas d'échec. Supprimer toute projection statique sensible dans `public/` sans relâcher les protections sur `/api/homelab-*`.
-3. Conserver le garde CIDR/identité côté route Next `/api/homelab-services` propriétaire. Un appel Vercel sort avec une IP différente de celle du domicile : **ne pas** élargir `HOMELAB_TRUSTED_CIDRS` à Vercel pour contourner la politique. Les données enrichies d'architecture et les preuves privées restent sur un espace propriétaire, prévu sur `ops.albandrieu.com`. La vitrine publique peut afficher le DTO assaini ou un état « indisponible ».
-4. Ajouter des tests sur l'absence de secret (503), mauvais secret (401), refus du catalogue riche depuis Vercel malgré une clé valide (403), réponse vide/invalide ou timeout (503 sans fallback), zéro champ sensible dans les réponses/HTML/JS Next publics, vérification EN/FR et preview externe. Un 403 Cloudflare et un scrape Gatus `up=1` ne prouvent pas la fermeture des ports origine.
+## Source d'autorité et disponibilité
 
-## Recette à effectuer après déploiement
+Le fournisseur est `https://raw.githubusercontent.com/AlbanAndrieu/nabla-compose/master/catalog/generated/entities.json`, fichier généré en PR Compose #265 (en attente sur `master`). `HOMELAB_CATALOG_V2_URL` peut pointer **temporairement** vers la branche de PR #265 pour une recette contrôlée, mais le schéma, le domaine, le dépôt et le chemin restent fixés ; les redirections HTTP et proxys ambiants sont refusés. Une fois #265 fusionnée, utiliser `master`. Aucun recours à `homelab-services.json`, `public/homelab-services.json` ou à une conversion v1 → v2. Cache uniquement des succès v2 vérifiés, max 300 s ; erreur upstream, source 404, schéma/empreinte/relations incohérents → HTTP 503 `no-store`. La disponibilité technique tant que #265 n'est pas fusionnée est donc volontairement **non assurée**.
 
-Vérifier les refus anonymes, la lecture serveur authentifiée, la validité du certificat HTTPS et de la provenance, la cohérence du catalogue vivant avec `nabla-compose`, et les deux perspectives d'accès (depuis le domicile puis hors domicile). Les mesures Prometheus/Gatus restent LAN-only et ne sont jamais publiées pour alimenter le site. Aucun état déployé, aucune série live ni configuration Vercel n'ont été vérifiés dans cette PR : **NOT_RUN**.
+## Adaptation nécessaire du site
 
-**Périmètre de ce commit : uniquement fastapi-sample.** Le dépôt du site, ses secrets, la CI complète et les modifications futures Keycloak nécessitent leurs propres validations.
+1. Le serveur Next.js uniquement appelle `/api/site/catalog/v2` avec `process.env.DIAGNOSTICS_ACCESS_KEY` comme header `X-Diagnostics-Key`, `cache: "no-store"`, `redirect: "error"` et un timeout borné. Réutiliser **`parseHomelabCatalogV2` et `catalogV2ServiceViews`** déjà implémentés, sans nouveau parseur.
+2. Retirer les chargements v1/fallback locaux dans `lib/homelabServices.ts`, et toute projection de fichiers statiques contenant IP internes/URL/ports. En cas de 401/403/404/503 ou réponse v2 invalide, afficher un état indisponible sans republier l'ancien catalogue.
+3. Vercel reçoit une requête propriétaire **depuis l'IP du navigateur domicile** et effectue ensuite une sortie réseau depuis **une autre IP**, non à ajouter à `HOMELAB_TRUSTED_CIDRS`. Le nouvel endpoint est classé SERVICE, avec clé obligatoire, sans accès au catalogue brut. Aucun jeton dans React, `NEXT_PUBLIC_*`, HTML, URL, cache public ni logs. Le CIDR + identité propriétaire restent indispensables pour les routes diagnostics.
+4. Vérifier EN/FR Architecture, les relations canoniques, le `catalogRevision` unique entre consommateurs, l'absence de fuite dans les bundles ou headers publics et l'indépendance des contrôles WAN FastAPI Cloud. Keycloak pourra ensuite remplacer la clé statique avec une identité machine OIDC distincte de l'identité humaine.
+
+**Validation réelle : NON EFFECTUÉE** pour les configurations Vercel, Preview, déploiement production, Gatus/Prometheus ou sécurité des ports WAN. PR fastapi-sample conservée en Draft, sans fusion automatique.

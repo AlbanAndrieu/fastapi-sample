@@ -1,79 +1,147 @@
-"""The site catalogue never leaks owner fields or uses a stale fallback."""
+"""Backend v2 Backstage contract and source-only no-fallback regression tests."""
 
 from __future__ import annotations
 
-import time
+import hashlib
+import json
 from unittest.mock import AsyncMock
 
 import httpx
 import pytest
 from pydantic import ValidationError
 
-from nabla.api import homelab_catalog
-from nabla.api.homelab_models import HomelabCatalog
-from nabla.api.site_architecture_catalog import SiteArchitectureCatalogV1, site_architecture_catalog
+from nabla.api import site_architecture_catalog as v2
 
 
-OWNER_CATALOG = HomelabCatalog.model_validate(
-    {
-        "version": 2,
-        "services": [
-            {
-                "id": "garage-admin",
-                "name": "Garage Admin",
-                "internalHost": "172.17.0.24",
-                "internalPort": 3903,
-                "tunnelUrl": "https://garage-admin.albandrieu.com",
-                "external": False,
-                "cloudflareAccessRequired": True,
-                "healthNote": "sensitive private telemetry",
+def raw_fixture() -> dict:
+    entities = [
+        {
+            "apiVersion": "backstage.io/v1alpha1",
+            "kind": "Resource",
+            "entityRef": "resource:default/database",
+            "sourcePath": "apps/database/catalog-info.yaml",
+            "metadata": {
+                "name": "database",
+                "title": "Database",
+                "annotations": {"internalHost": "172.17.0.24", "secret": "NEVER_EXPOSE"},
+                "labels": {"albandrieu.com/business-criticality": "high", "token": "NEVER_EXPOSE"},
+                "tags": ["data", "nist-protect"],
+                "description": "Private internal path 172.17.0.24:5432",
             },
-        ],
-    },
-)
+            "spec": {"type": "database", "owner": "group:default/nabla-platform"},
+        },
+        {
+            "apiVersion": "backstage.io/v1alpha1",
+            "kind": "Group",
+            "entityRef": "group:default/nabla-platform",
+            "sourcePath": "catalog/catalog-info.yaml",
+            "metadata": {"name": "nabla-platform"},
+            "spec": {"type": "team"},
+        },
+        {
+            "apiVersion": "backstage.io/v1alpha1",
+            "kind": "Component",
+            "entityRef": "component:default/api",
+            "sourcePath": "apps/api/catalog-info.yaml",
+            "metadata": {
+                "name": "api",
+                "title": "API",
+                "tags": ["security", "nist-detect"],
+                "labels": {"albandrieu.com/operational-criticality": "high"},
+            },
+            "spec": {
+                "type": "service",
+                "lifecycle": "production",
+                "dependsOn": ["resource:default/database"],
+                "owner": "group:default/nabla-platform",
+                "originUrl": "http://172.17.0.24:8091",
+            },
+        },
+    ]
+    digest = hashlib.sha256(
+        json.dumps(sorted(entities, key=lambda e: e["entityRef"]), sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
+    return {"schemaVersion": 2, "model": "backstage", "catalogRevision": "sha256:" + digest, "entities": entities}
 
 
-def test_site_catalog_is_a_strict_allowlist() -> None:
-    result = site_architecture_catalog(OWNER_CATALOG).model_dump(mode="json")
-    assert result == {"version": 1, "services": [{"id": "garage-admin", "name": "Garage Admin"}]}
+def test_projection_keeps_v2_identity_revision_and_relations_without_private_fields() -> None:
+    payload = raw_fixture()
+    model = v2.project_site_catalog_v2(payload)
+    wire = model.model_dump(mode="json", exclude_none=True)
+    assert wire["schemaVersion"] == 2
+    assert wire["model"] == "backstage"
+    assert wire["catalogRevision"] == payload["catalogRevision"]
+    assert len(wire["entities"]) == 3
+    api = next(e for e in wire["entities"] if e["entityRef"] == "component:default/api")
+    assert api["spec"]["dependsOn"] == ["resource:default/database"]
+    assert api["spec"]["owner"] == "group:default/nabla-platform"
+    assert api["kind"] == "Component"
+    assert api["sourcePath"] == "apps/api/catalog-info.yaml"
+    assert api["metadata"]["labels"] == {"albandrieu.com/operational-criticality": "high"}
+    assert api["metadata"]["tags"] == ["security", "nist-detect"]
+    serialized = json.dumps(wire)
+    for forbidden in ("172.17.0.24", "NEVER_EXPOSE", "originUrl", "internalHost", "5432"):
+        assert forbidden not in serialized
+    assert "services" not in wire
+    assert "version" not in wire
+
+
+def test_revision_and_edges_fail_closed() -> None:
+    raw = raw_fixture()
+    raw["catalogRevision"] = "sha256:" + "0" * 64
+    with pytest.raises(ValueError, match="revision mismatch"):
+        v2.project_site_catalog_v2(raw)
+
+    raw = raw_fixture()
+    raw["entities"][2]["spec"]["dependsOn"] = ["resource:default/unknown"]
+    raw["catalogRevision"] = "sha256:" + hashlib.sha256(
+        json.dumps(sorted(raw["entities"], key=lambda e: e["entityRef"]), sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
+    with pytest.raises(ValueError, match="unresolved"):
+        v2.project_site_catalog_v2(raw)
+
+
+def test_no_v1_translation_or_extra_wire_fields() -> None:
+    with pytest.raises(ValueError, match="unsupported"):
+        v2.project_site_catalog_v2({"version": 1, "services": [{"id": "api", "name": "API"}]})
     with pytest.raises(ValidationError):
-        SiteArchitectureCatalogV1.model_validate(
-            {"version": 1, "services": [{"id": "garage-admin", "name": "Garage Admin", "internalHost": "172.17.0.24"}]},
+        v2.SiteArchitectureCatalogV2.model_validate(
+            {"schemaVersion": 2, "model": "backstage", "catalogRevision": "sha256:" + "a" * 64, "entities": [], "services": []}
         )
-    with pytest.raises(ValidationError):
-        site_architecture_catalog(HomelabCatalog())
-    with pytest.raises(ValidationError):
-        SiteArchitectureCatalogV1.model_validate(
-            {"version": 1, "services": [{"id": "private", "name": "172.17.0.24:8091"}]},
-        )
+
+
+def test_source_url_is_pinned_to_nabla_compose_https() -> None:
+    assert v2._validated_source_url(v2._SOURCE_URL) == v2._SOURCE_URL
+    for unsafe in ("http://127.0.0.1/a", "https://evil.invalid/entities.json",
+                   "https://raw.githubusercontent.com/AlbanAndrieu/nabla-compose/master/catalog/generated/entities.json?bad=1"):
+        with pytest.raises(ValueError):
+            v2._validated_source_url(unsafe)
 
 
 @pytest.mark.asyncio
-async def test_site_catalog_fails_without_authoritative_data(monkeypatch) -> None:
-    homelab_catalog.clear_homelab_catalog_cache()
-    homelab_catalog._catalog_cache_state.store(
-        OWNER_CATALOG, expires_at=time.monotonic() + 60, source="packaged-bootstrap",
-    )
-    failing = AsyncMock(side_effect=httpx.ConnectError("remote unavailable"))
-    monkeypatch.setattr(homelab_catalog, "_fetch_remote_catalog", failing)
-    with pytest.raises(homelab_catalog.AuthoritativeCatalogUnavailable):
-        await homelab_catalog.fetch_authoritative_homelab_catalog()
-    assert failing.await_count == 1
-    homelab_catalog.clear_homelab_catalog_cache()
-
-
-@pytest.mark.asyncio
-async def test_site_catalog_accepts_recent_authoritative_cache_only(monkeypatch) -> None:
-    homelab_catalog.clear_homelab_catalog_cache()
-    fetch = AsyncMock(return_value=OWNER_CATALOG)
-    monkeypatch.setattr(homelab_catalog, "_fetch_remote_catalog", fetch)
-    first = await homelab_catalog.fetch_authoritative_homelab_catalog()
-    second = await homelab_catalog.fetch_authoritative_homelab_catalog()
-    assert first is second
+async def test_no_packaged_or_expired_cache_fallback(monkeypatch) -> None:
+    v2.reset_site_catalog_v2_cache()
+    fetch = AsyncMock(side_effect=httpx.ConnectError("offline"))
+    monkeypatch.setattr(v2, "_download_site_catalog_v2", fetch)
+    with pytest.raises(v2.SiteCatalogV2Unavailable):
+        await v2.fetch_site_catalog_v2()
     assert fetch.await_count == 1
-    homelab_catalog._catalog_cache_state.last_verified_at -= 301
-    fetch.side_effect = httpx.TimeoutException("unavailable")
-    with pytest.raises(homelab_catalog.AuthoritativeCatalogUnavailable):
-        await homelab_catalog.fetch_authoritative_homelab_catalog()
+    v2.reset_site_catalog_v2_cache()
+
+
+@pytest.mark.asyncio
+async def test_verified_v2_cache_expires_and_then_fails(monkeypatch) -> None:
+    v2.reset_site_catalog_v2_cache()
+    expected = v2.project_site_catalog_v2(raw_fixture())
+    fetch = AsyncMock(return_value=expected)
+    monkeypatch.setattr(v2, "_download_site_catalog_v2", fetch)
+    assert await v2.fetch_site_catalog_v2() is expected
+    assert await v2.fetch_site_catalog_v2() is expected
+    assert fetch.await_count == 1
+    assert v2._cache is not None
+    v2._cache = (0.0, expected)
+    fetch.side_effect = httpx.ConnectError("offline")
+    with pytest.raises(v2.SiteCatalogV2Unavailable):
+        await v2.fetch_site_catalog_v2()
     assert fetch.await_count == 2
-    homelab_catalog.clear_homelab_catalog_cache()
+    v2.reset_site_catalog_v2_cache()
