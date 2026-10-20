@@ -23,7 +23,7 @@ def test_external_github_actions_are_pinned_to_commit_sha() -> None:
         text = workflow_path.read_text(encoding="utf-8")
         for match in action_ref.finditer(text):
             action = match.group(1)
-            if action.startswith("./"):
+            if action.startswith(("./", "$/")):  # local or self-repository
                 continue
             external_action_count += 1
             assert "@" in action, f"{workflow_path}: unversioned action {action}"
@@ -208,7 +208,7 @@ def test_python_ci_quality_contract_list_matches_agent_gate() -> None:
 
 
 def test_production_smoke_does_not_run_on_every_pr_synchronize() -> None:
-    workflow = (ROOT / ".github/workflows/production-smoke.yml").read_text(
+    workflow = (ROOT / ".github/workflows/master-smoke.yml").read_text(
         encoding="utf-8",
     )
 
@@ -271,25 +271,29 @@ def test_release_publishes_immutable_ghcr_image() -> None:
 
 def test_agent_completion_policy_requires_roadmap_accounting() -> None:
     guide = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
-    roadmap = (ROOT / "docs" / "engineering-roadmap.md").read_text(encoding="utf-8")
-    fastapi_cloud_skill = (ROOT / ".agents" / "skills" / "fastapi-cloud" / "SKILL.md").read_text(encoding="utf-8")
-    homelab_skill = next((ROOT / ".agents" / "skills" / "homelab-runtime-status").glob("SKILL.md*")).read_text(encoding="utf-8")
-
+    roadmap = (ROOT / "docs/engineering-roadmap.md").read_text(encoding="utf-8")
+    backlog = (ROOT / "docs/engineering-backlog.md").read_text(encoding="utf-8")
+    incidents = (ROOT / "docs/incidents.md").read_text(encoding="utf-8")
+    fastapi_cloud_skill = (ROOT / ".agents/skills/fastapi-cloud/SKILL.md").read_text(
+        encoding="utf-8",
+    )
+    homelab_skill = (ROOT / ".agents/skills/homelab-runtime-status/SKILL.md").read_text(
+        encoding="utf-8",
+    )
     assert "must not declare work complete" in guide.lower()
-    assert "docs/engineering-roadmap.md" in guide
     assert "known residual" in guide.lower()
     assert "next acceptance proof" in guide.lower()
-
-    assert "completion gate" in fastapi_cloud_skill.lower()
-    assert "docs/engineering-roadmap.md" in fastapi_cloud_skill
-    assert "completion gate" in homelab_skill.lower()
-    assert "docs/engineering-roadmap.md" in homelab_skill
-
-    assert "## P0 — homelab dependency convergence" in roadmap
-    assert "**Talos / TrueNAS VM evidence:**" in roadmap
-    for integration in ("pfSense", "Prometheus", "Sentry", "Pyroscope"):
-        assert f"**{integration}:**" in roadmap
-    assert "scripts/diagnose-local-runtime-dependencies.py" in roadmap
+    assert "docs/engineering-roadmap.md" in guide
+    for skill in (fastapi_cloud_skill, homelab_skill):
+        assert "completion gate" in skill.lower()
+        assert "docs/engineering-roadmap.md" in skill
+    assert "## P0 — CI: incident unique et maîtrise des mutations (#355)" in roadmap
+    assert "## P0 — public/private observability boundary" in roadmap
+    assert "## P1 — health, topology and runtime acceptance" in roadmap
+    assert "engineering-backlog.md" in roadmap
+    assert "## P0 — homelab dependency convergence" in backlog
+    assert "scripts/diagnose-local-runtime-dependencies.py" in backlog
+    assert "## 2026-09" in incidents  # forensic evidence retained outside roadmap
 
 
 def test_zap_runs_only_post_merge_or_manually_against_production_surfaces() -> None:
@@ -320,30 +324,40 @@ def test_zap_runs_only_post_merge_or_manually_against_production_surfaces() -> N
 
 
 def test_master_red_remediation_is_post_merge_and_deduplicated() -> None:
-    workflow = (ROOT / ".github" / "workflows" / "master-red-remediation.yml").read_text(
+    workflow = (ROOT / ".github/workflows/master-red-remediation.yml").read_text(
         encoding="utf-8",
     )
-
+    tracker = (ROOT / "scripts/ci/master_red_issue.py").read_text(encoding="utf-8")
     assert "name: Master red remediation" in workflow
     assert "branches: [master]" in workflow
     assert "workflow_dispatch:" in workflow
-    assert "uses: ./.github/workflows/python.yml" in workflow
-    assert "uses: ./.github/workflows/production-smoke.yml" in workflow
-    assert "uses: ./.github/workflows/codeql.yml" in workflow
-    assert "uses: ./.github/workflows/security-zap.yml" in workflow
-    assert "needs: [classify, production-smoke]" in workflow
-    assert "needs.production-smoke.result == 'success'" in workflow
-    assert "secrets: inherit" not in workflow
-    assert "needs: [classify, python, production-smoke, codeql, zap]" in workflow
-    assert "needs.python.result != 'success'" in workflow
-    assert "needs.production-smoke.result != 'success'" in workflow
-    assert "MASTER_REMEDIATION_TOKEN" in workflow
-    assert "issues: write" in workflow
-    assert "pull-requests: write" in workflow
-    assert "contents: write" in workflow
-    assert "[master-red:${short_sha}]" in workflow
-    assert "remediation/master-red-${short_sha}" in workflow
-    assert "docs/remediation/master-red-${short_sha}.md" in workflow
-    assert "Do not merge this PR while it only contains this evidence file" in workflow
-    assert "docs/engineering-roadmap.md" in workflow
-    assert "Keep red master visible until remediation" in workflow
+    for required in (
+        "uses: $/.github/workflows/python.yml",
+        "uses: $/.github/workflows/master-smoke.yml",
+        "uses: $/.github/workflows/codeql.yml",
+        "uses: $/.github/workflows/security-zap.yml",
+        "needs: [classify, production-smoke]",
+        "needs.production-smoke.result == 'success'",
+        "needs: [classify, python, production-smoke, codeql, zap]",
+        "issues: write",
+        "GH_TOKEN: ${{ github.token }}",
+        "scripts/ci/master_red_issue.py --apply",
+        "Keep red master visible until remediation",
+    ):
+        assert required in workflow
+    for forbidden in (
+        "gh issue create",
+        "gh pr create",
+        "MASTER_REMEDIATION_TOKEN",
+        "pull-requests: write",
+        "contents: write",
+        "remediation/master-red-",
+    ):
+        assert forbidden not in workflow
+    assert "ISSUE = 355" in tracker
+    assert "green_streak" in tracker
+    assert 'run_number == old["run_number"] + 1' in tracker
+    assert "MANUAL_OVERRIDE" in tracker
+    assert "issue_fingerprint" in tracker
+    assert "manually_modified" in tracker
+    assert "closed" in tracker and "reopened" in tracker

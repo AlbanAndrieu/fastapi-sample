@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from nabla.api import homelab_health
@@ -333,3 +335,12 @@ def test_exposure_override_propagates_probe_priority() -> None:
 
     assert merged["services"][0]["probePriority"] == 0
     assert HomelabService.model_validate(merged["services"][0]).probe_priority == 0
+
+
+def test_catalog_coverage_is_distinct_from_rotating_probe_slots():
+    source = (Path(__file__).resolve().parents[2] / "nabla/api/homelab_health.py").read_text()
+    assert '"catalog_observable_service_count"' in source
+    assert '"catalog_unconfigured_service_count"' in source
+    assert '"internal_disabled_eligible_slots"' in source
+    assert '"unsampled_current_window"' in source
+    assert "catalog_ids - monitored_ids" in source

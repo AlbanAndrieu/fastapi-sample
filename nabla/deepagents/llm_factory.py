@@ -35,6 +35,14 @@ def _azure_chat_model_name(instance: AzureOpenAiInstance) -> str:
     return raw or get_settings().default_chat_model
 
 
+def _litellm_key(settings: Any) -> str:
+    """Do not silently fall back to another provider or an empty proxy key."""
+    key = settings.litellm_api_key.get_secret_value().strip()
+    if not key:
+        raise RuntimeError("LITELLM_API_KEY required when LITELLM_URL is configured")
+    return key
+
+
 def resolve_openai_api_key_and_model(
     *,
     model_name: str | None = None,
@@ -49,7 +57,7 @@ def resolve_openai_api_key_and_model(
     litellm_url = (settings.litellm_url or "").strip()
     resolved = model_name or settings.default_chat_model
     if litellm_url:
-        return settings.litellm_api_key.get_secret_value(), resolved
+        return _litellm_key(settings), resolved
     if settings.azure_openai_instance:
         instance: AzureOpenAiInstance = next(iter(settings.azure_openai_instance.values()))
         return instance.api_key, _azure_chat_model_name(instance)
@@ -67,7 +75,7 @@ def build_chat_llm(*, model_name: str | None = None) -> BaseChatModel:
         return _ChatOpenAI(
             model=resolved_model,
             openai_api_base=litellm_openai_api_base(litellm_url),
-            openai_api_key=settings.litellm_api_key.get_secret_value(),
+            openai_api_key=_litellm_key(settings),
         )
 
     if settings.azure_openai_instance:

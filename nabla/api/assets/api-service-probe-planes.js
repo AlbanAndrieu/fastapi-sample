@@ -1,4 +1,5 @@
 import { fetchHealthBoard } from "./api-health-board.js";
+import { serviceTelemetry } from "./api-service-telemetry.js";
 
 const ROW_SELECTOR = ".health-row[data-service-filter-target]";
 const CLOUDFLARE_DASHBOARD = "https://one.dash.cloudflare.com/";
@@ -350,7 +351,7 @@ function ensureLanStrip(primary) {
   return strip;
 }
 
-function decorateLan(primary, check, exposure) {
+function decorateLan(primary, check, exposure, snapshot, row) {
   const strip = ensureLanStrip(primary);
   const endpoint = internalEndpoint(check, exposure);
   ensurePlaneLabel(primary, strip, "lan", "LAN", endpoint.href, endpoint.label);
@@ -368,6 +369,24 @@ function decorateLan(primary, check, exposure) {
     : `LAN probe not sampled yet: ${endpoint.label}. Enable HOMELAB_INTERNAL_PROBES_ENABLED=true on trusted homelab/local runtimes to collect this evidence.`;
   tcp.title = detail;
   tcp.setAttribute("aria-label", detail);
+  decorateTelemetry(strip, snapshot, row);
+}
+
+function decorateTelemetry(strip, snapshot, row) {
+  const evidence = serviceTelemetry(snapshot, row);
+  for (const [kind, icon, entry] of [
+    ["prometheus", "📈", evidence.prometheus],
+    ["gatus", "🩺", evidence.gatus],
+    ["exporter", "📊", evidence.exporter],
+    ["functional", "🗄️", evidence.functional],
+    ["resource", "🧠", evidence.resource],
+  ]) {
+    if (!entry) continue;
+    const badge = ensureProbe(strip, kind, icon, entry.label);
+    toneClass(badge, entry.tone);
+    badge.title = entry.detail;
+    badge.setAttribute("aria-label", entry.detail);
+  }
 }
 
 function cleanLegacyText(row, exposure) {
@@ -426,7 +445,7 @@ function decorateRow(row, snapshot) {
       url,
       "Externally published endpoint",
     );
-    decorateLan(primary, internalCheck, exposure);
+    decorateLan(primary, internalCheck, exposure, snapshot, row);
   } else {
     primary
       .querySelector(":scope > .service-probe-plane-label--public")

@@ -109,3 +109,31 @@ def test_resolve_openai_api_key_and_model_direct_openai(monkeypatch: pytest.Monk
     key, model = lf.resolve_openai_api_key_and_model(model_name="gpt-4o-mini")
     assert key == "sk-env"
     assert model == "gpt-4o-mini"
+
+
+def test_dedicated_fastapi_qwen_uses_truenas_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = SimpleNamespace(
+        litellm_url="http://172.17.0.24:4000",
+        litellm_api_key=SecretStr("sk-test-dedicated"),
+        azure_openai_instance={},
+        default_chat_model="fastapi-qwen",
+    )
+    monkeypatch.setattr(lf, "get_settings", lambda: fake)
+    llm = lf.build_chat_llm()
+    assert llm.model_name == "fastapi-qwen"
+    assert llm.openai_api_base == "http://172.17.0.24:4000/v1"
+    assert llm.openai_api_key.get_secret_value() == "sk-test-dedicated"
+
+
+def test_litellm_configured_without_key_fails_closed(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = SimpleNamespace(
+        litellm_url="http://172.17.0.24:4000",
+        litellm_api_key=SecretStr(""),
+        azure_openai_instance={},
+        default_chat_model="fastapi-qwen",
+    )
+    monkeypatch.setattr(lf, "get_settings", lambda: fake)
+    with pytest.raises(RuntimeError, match="LITELLM_API_KEY required"):
+        lf.build_chat_llm()
+    with pytest.raises(RuntimeError, match="LITELLM_API_KEY required"):
+        lf.resolve_openai_api_key_and_model()

@@ -84,19 +84,19 @@ def test_fastapi_cloud_deploy_job_sets_up_python() -> None:
 
 def test_release_dispatch_deploys_immutable_tag_then_runs_smoke() -> None:
     deploy = (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8")
-    smoke = (ROOT / ".github/workflows/production-smoke.yml").read_text(encoding="utf-8")
+    smoke = (ROOT / ".github/workflows/master-smoke.yml").read_text(encoding="utf-8")
 
     assert "types: [semantic-release-published]" in deploy
     assert "branches: [master]" not in deploy
     assert deploy.count("ref: ${{ github.event.client_payload.tag || github.sha }}") == 2
-    assert "uses: ./.github/workflows/production-smoke.yml" in deploy
+    assert "uses: $/.github/workflows/master-smoke.yml" in deploy
     assert "workflow_call:" in smoke
     assert "workflow_run:" not in smoke
     assert "GITHUB_ENV" not in smoke
 
 
 def test_production_smoke_bounds_browser_cost_without_losing_post_deploy_ui_check() -> None:
-    smoke = (ROOT / ".github/workflows/production-smoke.yml").read_text(encoding="utf-8")
+    smoke = (ROOT / ".github/workflows/master-smoke.yml").read_text(encoding="utf-8")
 
     assert "pull_request:" in smoke
     assert "workflow_dispatch:" in smoke

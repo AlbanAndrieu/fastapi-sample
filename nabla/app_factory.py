@@ -18,6 +18,7 @@ from fastapi.openapi.utils import get_openapi
 from starlette.routing import Route
 
 from nabla.access_control import operations_access_middleware
+from nabla.asgi_transport_guard import OpsASGITransportGuard
 from nabla.api import demo, info, integration, keycloak, v1, v2
 from nabla.api import appwrite_route, brave_route, google_search_route, ping, tavily_route
 from nabla.api.db.availability import require_database
@@ -313,6 +314,8 @@ def create_app(features: AppFeatures | None = None) -> FastAPI:
     app.middleware("http")(logging_middleware)
     app.middleware("http")(metrics_middleware)
     app.middleware("http")(operations_access_middleware)
+    # HTTP-only middleware cannot authenticate a WebSocket handshake.
+    app.add_middleware(OpsASGITransportGuard, root_app=app)
     configure_rate_limiting(app)
     _configure_unleash_middleware(app)
     if selected.observability:

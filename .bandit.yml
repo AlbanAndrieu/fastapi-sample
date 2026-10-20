@@ -10,7 +10,7 @@ exclude_dirs:
     ".tox",
     ".venv",
     ".direnv",
-    "megalinter-reports",
+    "megalinter-reports"
   ]
 
 skips: ["B101", "B404", "B607", "B603", "B113"]

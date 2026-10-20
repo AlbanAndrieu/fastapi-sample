@@ -1,7 +1,9 @@
 """Application factory contracts: minimal app isolation and default app parity."""
 
+import functools
 import importlib
 import socket
+import sys
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
@@ -170,6 +172,16 @@ def dependency_probes(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     # The public egress observer is not a feature-gated subsystem; keep it offline.
     monkeypatch.setattr(runtime_topology, "observe_public_egress_ip", AsyncMock(return_value=dict(NO_EGRESS)))
     return probes
+
+
+@pytest.fixture(autouse=True)
+def _authenticated_clients(unit_ops_access: dict[str, str], monkeypatch: pytest.MonkeyPatch) -> None:
+    """/readyz and /api/runtime/topology are private diagnostics routes."""
+    monkeypatch.setattr(
+        sys.modules[__name__],
+        "TestClient",
+        functools.partial(TestClient, headers=unit_ops_access),
+    )
 
 
 def _probes_return(probes: SimpleNamespace, *, postgres: dict[str, object], redis: dict[str, object]) -> None:

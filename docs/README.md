@@ -6,9 +6,12 @@ canonical entry points.
 
 ## Canonical documents
 
+LiteLLM staging provisioning and the two-proxy Qwen chain are owned by
+[nabla-compose](https://github.com/AlbanAndrieu/nabla-compose/blob/docs/private-homelab-observability-boundary-20261018/docs/runbooks/fastapi-sample-litellm.md). FastAPI owns client wiring and tests only.
+
 | Need | Document |
 | --- | --- |
-| What remains to do? | [Engineering roadmap](engineering-roadmap.md) |
+| What remains to do? | [Engineering roadmap](engineering-roadmap.md) |\n| Which historical unchecked tasks need re-triage? | [On-demand backlog](engineering-backlog.md) |
 | Has this happened before? | [Incident register](incidents.md) |
 | How is health evidence interpreted? | [Platform diagnostics model](platform-service-diagnostics-model.md) |
 | How do I validate local runtime dependencies? | [Local runtime diagnostic](local-runtime-dependency-report.md) |
@@ -42,13 +45,13 @@ roadmaps.
 
 1. **One roadmap:** `engineering-roadmap.md`.
 2. **One incident register:** dated symptom/cause/recognition evidence goes in
-   `incidents.md`.
+    `incidents.md`.
 3. **Runbooks are timeless:** keep commands, safety constraints and acceptance
-   criteria; remove dated status snapshots once captured in the incident register.
+    criteria; remove dated status snapshots once captured in the incident register.
 4. **Completed work is compacted:** keep only durable guardrails/capabilities in
-   the roadmap; tests and Git history hold implementation detail.
+    the roadmap; tests and Git history hold implementation detail.
 5. **No duplicated truth:** link to the canonical document rather than copying a
-   state matrix or command sequence.
+    state matrix or command sequence.
 6. **Diagnostic essentials are never removed:** observer vantage point, first
-   failing layer, decisive command/probe, expected result, recovery safety and
-   acceptance criteria must remain recoverable.
+    failing layer, decisive command/probe, expected result, recovery safety and
+    acceptance criteria must remain recoverable.

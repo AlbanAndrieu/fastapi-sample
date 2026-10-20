@@ -17,11 +17,11 @@ REPO_ROOT="$(cd -- "${WORKING_DIR}/.." && pwd)"
 source "${WORKING_DIR}/step-0-color.sh"
 
 TRIVY_ARGS=(
-  --scanners "vuln,misconfig,secret,license" --vuln-type "os,library" --ignore-unfixed
+  --scanners "vuln,misconfig,secret,license" --vuln-type "os,library"
   --ignorefile .trivyignore.yaml --skip-dirs .direnv --skip-dirs .venv
   --skip-dirs code/.venv --skip-dirs megalinter-reports --skip-dirs node_modules
   --skip-dirs vue-client/node_modules --skip-dirs open-webui --skip-files pip.conf
-  --skip-files Pipfile --skip-files Pipfile.lock --skip-files uv.lock
+  --skip-files Pipfile --skip-files Pipfile.lock
   --skip-files trivy-sbom.json --skip-files "*.tgz"
 )
 

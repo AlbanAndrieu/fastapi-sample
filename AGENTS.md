@@ -1,5 +1,45 @@
 # fastapi-sample — Agent Guide
 
+## Fast investigation protocol (load only when relevant)
+
+Before a tool-heavy task, resolve the PR's immutable HEAD and check changed
+paths once. Read the **relevant section only** of
+`docs/engineering-roadmap.md` and one matching on-demand skill; never preload
+the complete roadmap, every skill, all CI logs or broad repo trees by default.
+Batch independent GitHub **reads**, then make one logical commit via
+an expected-SHA update. If concurrent commits invalidate the lease, inspect
+the *new diff*, not the entire repository. Never repeatedly poll check-runs.
+
+API-only/no-checkout work: test the smallest exact-SHA snapshot when feasible,
+declare missing full-gate proof explicitly, and retain `[skip ci]` when user
+requests local-first to conserve CI credits. No security gates may be waived.
+
+Issue hygiene: use the single manual-safe tracker #355 via
+`scripts/ci/master_red_issue.py`; never create an issue or draft PR per run.
+See the focused skill for exact SHA and two-green acceptance checks.
+
+Documentation lifecycle: current roadmap = pending priorities and acceptance;
+`docs/incidents.md` + runbooks = unique diagnostic history; finished changes
+belong in code/tests/Git history. Prefer updating one canonical document and
+removing obsolete duplicates rather than adding another narration.
+
+
+## Master-red issue automation and bounded diagnosis
+
+- Workflow owner: `.github/workflows/master-red-remediation.yml`.
+  Treat [#355](https://github.com/AlbanAndrieu/fastapi-sample/issues/355)
+  as the **only** current master-red issue; legacy SHA issues are preserved as
+  superseded historical evidence, not evidence of fixes.
+- The issue title, body and labels are human-curated. The bot may update
+  **one** integrity-checked status comment, and close after two distinct,
+  consecutive green master runs with no intervening manual drift.
+  Never create per-SHA issues/draft PRs, and never close or reopen an issue
+  a human has touched (even before enrollment): closing it stays a human call.
+- CI: retrieve the failed job/step once at the exact SHA; prefer targeted
+  offline tests over repeated remote reads or pipeline reruns.
+- Never reduce scan coverage, leak detection, or branch/security controls
+  to save tokens; distinguish actual local L1-L3 evidence from remote CI.
+
 ## Mission
 
 Maintain this Python/FastAPI application with minimal, testable changes.
@@ -124,67 +164,27 @@ Do not duplicate information from these files into code or agent instructions.
 
 ## Tool and context efficiency
 
-`AGENTS.md` is the repository-wide source of truth for agent policy. Keep `CLAUDE.md` and `.github/copilot-instructions.md` as thin adapters to this file. Treat `.github/instructions/` and `.agents/skills/` as task-specific, on-demand guidance; do not preload every instruction or skill.
+Load only the relevant skill and roadmap heading for each task; never preload
+the entire backlog, all skills, complete logs, large generated artifacts, or
+connector tool schemas. Keep all first-class tools available on demand.
 
-Optimize the amount of context needed to obtain reliable evidence, not the agent's capabilities. Context efficiency must never be used to skip a necessary tool, test, security check, diagnostic, artifact, or deployment validation.
-
-### Tool classes for this repository
-
-**First-class — use without functional restriction when the task needs them, but do not preload their full schemas or output:**
-
-- local repository tooling: `git`, `rg`, `git status`, `git diff`, `git ls-files`, `uv`, `mise`, and repository scripts;
-- GitHub repository/PR/Actions/code-security tooling, including the Python CI, pytest, Ruff, Pylint, Bandit, MegaLinter, CodeQL, Docker and Trivy gates;
-- the local `fastapi-sample` MCP/runtime diagnostics when the application is running;
-- FastAPI Cloud deployment, environment inventory, runtime logs and production validation;
-- Sentry issue/error/trace diagnostics when investigating production or observability behavior.
-
-**On-demand — keep available, but discover/load only for a relevant task:**
-
-- direct TrueNAS and pfSense MCPs; prefer the application's read-only homelab/runtime abstraction first unless appliance-level evidence is required; whenever a task touches pfSense/Netgate, PF, HAProxy, Snort, pfBlockerNG, Unbound, Kea or pflow/IPFIX, first read `.agents/skills/pfsense-api-debugging/SKILL.md` and do not depend on prior-chat context;
-- Prometheus and Grafana direct tooling;
-- Supabase, Langfuse, Redis and other integration-specific skills/tools;
-- GitLab tooling for the retained legacy Pages/mirror pipeline;
-- FastAPI/MCP, Kubernetes, AWS/EKS, Terraform and other domain instruction files when the current files or task actually require them.
-
-**Out-of-scope by default:**
-
-- AWS/EKS and Terraform operations for ordinary FastAPI application work; the current repository has no active EKS/Terraform implementation;
-- Vercel deployment operations while Git deployment remains intentionally disabled; use Vercel only for explicit teardown/status work tied to the remaining roadmap item;
-- any global connector, plugin, MCP or skill not referenced by the current task or by an active repository integration.
-
-Do not uninstall, disconnect, or remove a globally available integration merely to save context. An installed integration that is not discovered or invoked costs less project context while remaining available for other repositories and future tasks.
-
-### Targeted discovery and reuse
-
-- For MCPs/connectors, discover only the few functions required for the current operation instead of loading the connector's complete schema. Reuse already discovered functions during the same task.
-- Reuse previously fetched files, response resources, run/job identifiers, diffs and API results when they are still current; do not repeat an equivalent call without a reason.
-- Prefer specialized operations such as PR metadata, changed filenames, a single file patch, workflow jobs or job steps over broad repository/REST responses.
-- Fetch the smallest useful file fragment, diff, log range or result set first. Expand progressively only when the targeted evidence is insufficient.
-- Do not avoid a first-class tool because its response may be large. Narrow the request first; if complete evidence is required, retrieve it.
-
-### Repository context
-
-Start investigation with the smallest local views that can answer the question: `git status --short`, `git diff --stat`, `git diff`, `rg`, `git ls-files`, then explicitly relevant files or line ranges. Avoid recursive repository reads, giant PR diffs, generated artifacts, lockfiles and large documents unless the task actually requires their complete contents.
-
-When an API can return a changed-file list and per-file patches, prefer that progression over fetching an entire large PR patch. When a large file must be replaced through an API, fetching its complete current body is required by the file-replacement safety rule below.
-
-### CI, deployment and observability evidence
-
-Inspect failures progressively:
-
-1. workflow/check status;
-2. failed job;
-3. failed step;
-4. targeted job/step logs;
-5. complete logs, artifacts, reports, traces, screenshots or videos only when the narrower evidence does not explain the failure or the richer artifact is itself the relevant evidence.
-
-Prefer the compact local agent-gate output over remote CI logs. When CI still fails, fetch the failing workflow, then the failing job/step, then only the relevant log tail; expand to complete logs or artifacts only when that evidence is insufficient.
-
-For Playwright, Cypress or other E2E failures, preserve existing coverage. Fetch reports, traces, screenshots and videos when they materially help; for difficult failures, use the complete artifact rather than guessing.
-
-For FastAPI Cloud, Vercel, Sentry and other operational platforms, prefer narrow status fields and bounded/relevant logs before full deployment/event payloads. This is a response-size policy, not permission to weaken runtime diagnosis.
-
-Do not poll workflow, deployment, check, job or observability status in a tight loop. Read once, continue other useful work, and revalidate when the result can materially change the next action. A requested final CI/deployment verification is mandatory even when intermediate polling is avoided.
+1. Resolve the PR HEAD once; inspect `git status`, changed paths and
+    the nearest source/tests, not the entire repository.
+2. Batch independent **read-only** GitHub calls. Prioritize failing job
+    and step logs before expanding full CI traces and artifacts.
+3. Use one bounded logical patch/commit with optimistic expected-SHA
+    update; reconcile changed files on concurrent edits instead of
+    repeatedly retrying or polling the branch.
+4. Validate exact SHA locally (`uv`, `just`, repository gate) where
+    possible; otherwise run focused snapshot checks and state limitations
+    explicitly. `[skip ci]` preserves credits, **not** security acceptance.
+5. Preserve incident forensic evidence in `docs/incidents.md` and
+    infrastructure ownership in `nabla-compose`; completed checklists
+    belong in tests/code/Git history, pending long-tail work in
+    `docs/engineering-backlog.md`.
+6. Bot-generated GitHub issues must not overwrite human title, body,
+    labels or state edits. An issue closes only on two consecutive
+    successful master-red runs and never once a human touched it.
 
 ## Package management and task runners
 

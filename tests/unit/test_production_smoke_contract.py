@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_production_smoke_accepts_classified_transient_pfsense_failures() -> None:
-    smoke = (ROOT / ".github/workflows/production-smoke.yml").read_text(encoding="utf-8")
+    smoke = (ROOT / ".github/workflows/master-smoke.yml").read_text(encoding="utf-8")
 
     assert "Check production runtime topology" in smoke
     assert '"${PRODUCTION_API_URL}/runtime/topology"' in smoke

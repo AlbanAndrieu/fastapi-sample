@@ -20,6 +20,7 @@ from nabla.api.homelab_declared import DeclaredServiceCatalog
 from nabla.api.homelab_models import HomelabCatalog
 from nabla.api.homelab_runtime import TrueNASRuntimeSnapshot
 from nabla.api.homelab_topology import HomelabTopology
+from nabla.api.public_homelab_dto import PublicHomelabV1, load_public_homelab_v1
 from nabla.utils.logger import logger
 
 
@@ -88,6 +89,22 @@ def _probe_runtime_metadata(payload: dict[str, Any]) -> dict[str, Any]:
 
 def _register_homelab_catalog_routes(app: FastAPI) -> None:
     """Register declared catalog, topology and runtime inventory routes."""
+
+    @app.get(
+        "/api/public-homelab/v1",
+        response_model=PublicHomelabV1,
+        tags=["Homelab"],
+        summary="Explicitly allowlisted public service labels",
+    )
+    async def get_public_homelab_v1(response: Response) -> PublicHomelabV1:
+        """Return only curated labels; never fetch or serialize runtime data."""
+        response.headers.update(
+            {
+                "Cache-Control": "public, max-age=60",
+                "X-Robots-Tag": "noindex, nofollow",
+            },
+        )
+        return load_public_homelab_v1()
 
     @app.get(
         "/api/homelab-services",

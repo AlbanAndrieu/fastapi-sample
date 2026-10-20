@@ -1,4 +1,5 @@
 import { fetchHealthBoard } from "./api-health-board.js";
+import { serviceTelemetry } from "./api-service-telemetry.js";
 
 const ROW_SELECTOR = ".health-row[data-service-filter-target]";
 const TICK_MS = 1000;
@@ -354,13 +355,44 @@ function renderTrueNasDiagnostics(section, snapshot) {
   const wan = diagnostics?.wan?.ipv4;
   const values = [
     ["🧭", "Path mode", diagnostics.path_mode || check.path_mode],
-    ["🔌", "Connect target", diagnostics.connect_target || (check.connect_host && check.connect_port ? `${check.connect_host}:${check.connect_port}` : null)],
+    [
+      "🔌",
+      "Connect target",
+      diagnostics.connect_target ||
+        (check.connect_host && check.connect_port
+          ? `${check.connect_host}:${check.connect_port}`
+          : null),
+    ],
     ["🔐", "TLS SNI / server name", diagnostics.server_name],
     ["🧾", "Diagnostic contract", diagnostics.diagnostic_contract],
-    ["⏱️", "Raw TCP/TLS timeout", diagnostics.transport_timeout_seconds != null ? `${diagnostics.transport_timeout_seconds} s` : null],
-    ["⏱️", "Diagnostics budget", diagnostics.diagnostics_budget_seconds != null ? `${diagnostics.diagnostics_budget_seconds} s` : "3 s"],
-    ["🌐", "HTTP timeout", diagnostics.http_timeout_seconds != null ? `${diagnostics.http_timeout_seconds} s` : null],
-    ["⚙️", "API observer deadline", diagnostics.api_probe_deadline_seconds != null ? `${diagnostics.api_probe_deadline_seconds} s` : null],
+    [
+      "⏱️",
+      "Raw TCP/TLS timeout",
+      diagnostics.transport_timeout_seconds != null
+        ? `${diagnostics.transport_timeout_seconds} s`
+        : null,
+    ],
+    [
+      "⏱️",
+      "Diagnostics budget",
+      diagnostics.diagnostics_budget_seconds != null
+        ? `${diagnostics.diagnostics_budget_seconds} s`
+        : "3 s",
+    ],
+    [
+      "🌐",
+      "HTTP timeout",
+      diagnostics.http_timeout_seconds != null
+        ? `${diagnostics.http_timeout_seconds} s`
+        : null,
+    ],
+    [
+      "⚙️",
+      "API observer deadline",
+      diagnostics.api_probe_deadline_seconds != null
+        ? `${diagnostics.api_probe_deadline_seconds} s`
+        : null,
+    ],
     ["🌍", "Configured WAN IPv4", wan],
     ["↔️", "WebSocket endpoint", diagnostics.websocket_uri],
   ];
@@ -377,13 +409,19 @@ function renderTrueNasDiagnostics(section, snapshot) {
     api.exception_type ? `exception=${api.exception_type}` : null,
     api.elapsed_ms != null ? `${api.elapsed_ms} ms` : null,
     api.error,
-  ].filter(Boolean).join(" · ");
+  ]
+    .filter(Boolean)
+    .join(" · ");
   providerItem(
     apiGroup,
     api.reachable === true ? "🟢" : api.reachable === false ? "⚠️" : "◌",
     "Authenticated API",
     apiDetail || "No authenticated API evidence",
-    api.reachable === true ? "ok" : api.reachable === false ? "warn" : "neutral",
+    api.reachable === true
+      ? "ok"
+      : api.reachable === false
+        ? "warn"
+        : "neutral",
   );
 }
 
@@ -634,16 +672,40 @@ function renderPfSenseDiagnostics(section, snapshot) {
   }
 }
 
+function renderTelemetryDiagnostics(section, snapshot, row) {
+  const evidence = serviceTelemetry(snapshot, row);
+  const group = providerGroup(section, "Prometheus / Gatus / exporters");
+  for (const [icon, entry] of [
+    ["📈", evidence.prometheus],
+    ["🩺", evidence.gatus],
+    ["📊", evidence.exporter],
+    ["🗄️", evidence.functional],
+    ["🧠", evidence.resource],
+  ]) {
+    if (!entry) continue;
+    providerItem(
+      group,
+      entry.tone === "ok" ? "🟢" : entry.tone === "fail" ? "🔴" : icon,
+      entry.label,
+      entry.detail,
+      entry.tone === "unknown" ? "neutral" : entry.tone,
+    );
+  }
+}
+
 function renderProviderDiagnostics(snapshot, row, body) {
   body.querySelector("[data-provider-diagnostics-section]")?.remove();
   const key = String(row.dataset.serviceKey || "");
-  if (!["cloudflare", "pfsense", "truenas"].includes(key)) return;
+  const recognized = ["cloudflare", "pfsense", "truenas"].includes(key);
+  // Generic service cards also show synthetic/exporter evidence.
+  // This reads only the one existing health-board snapshot.
 
   const section = document.createElement("section");
   section.dataset.providerDiagnosticsSection = "true";
   const heading = document.createElement("h3");
-  heading.textContent =
-    key === "cloudflare"
+  heading.textContent = !recognized
+    ? "Service telemetry"
+    : key === "cloudflare"
       ? "Cloudflare diagnostics"
       : key === "truenas"
         ? "TrueNAS transport diagnostics"
@@ -651,7 +713,8 @@ function renderProviderDiagnostics(snapshot, row, body) {
   section.appendChild(heading);
   if (key === "cloudflare") renderCloudflareDiagnostics(section, snapshot);
   else if (key === "truenas") renderTrueNasDiagnostics(section, snapshot);
-  else renderPfSenseDiagnostics(section, snapshot);
+  else if (key === "pfsense") renderPfSenseDiagnostics(section, snapshot);
+  renderTelemetryDiagnostics(section, snapshot, row);
   body.appendChild(section);
 }
 

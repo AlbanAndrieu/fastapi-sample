@@ -59,11 +59,11 @@ DOCKERFILE_HADOLINT_ARGUMENTS: >-
 DOCKERFILE_HADOLINT_DISABLE_ERRORS: false
 DOCKERFILE_HADOLINT_DISABLE_ERRORS_IF_LESS_THAN: 2
 REPOSITORY_TRIVY_ARGUMENTS: >-
-  --scanners vuln,misconfig,secret,license --vuln-type os,library --ignore-unfixed
+  --scanners vuln,misconfig,secret,license --vuln-type os,library
   --ignorefile .trivyignore.yaml --skip-dirs .direnv --skip-dirs .venv
   --skip-dirs code/.venv --skip-dirs megalinter-reports --skip-dirs node_modules
   --skip-dirs vue-client/node_modules --skip-dirs open-webui --skip-files pip.conf
-  --skip-files Pipfile --skip-files Pipfile.lock --skip-files uv.lock
+  --skip-files Pipfile --skip-files Pipfile.lock
   --skip-files trivy-sbom.json --skip-files "*.tgz"
 # Blocking: the triaged scope above has no open finding. Reproduce locally with
 # `bash scripts/run-trivy.sh` (same arguments, Trivy pinned by mise.lock).

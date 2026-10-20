@@ -3,7 +3,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-WORKFLOW = ROOT / ".github" / "workflows" / "production-smoke.yml"
+WORKFLOW = ROOT / ".github" / "workflows" / "master-smoke.yml"
 
 
 def test_pr_smoke_accepts_legacy_transport_only_during_cutover() -> None:

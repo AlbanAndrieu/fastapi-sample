@@ -254,6 +254,12 @@ async def build_homelab_health_payload(
             else []
         )
 
+        # Catalogue coverage and rotating probe-slot coverage are distinct.
+        # Count unique services only; one may contribute public and LAN slots.
+        monitored_ids = {service.service_id for service in (*public_candidates, *internal_candidates)}
+        catalog_ids = {service.service_id for service in services}
+        catalog_unconfigured = len(catalog_ids - monitored_ids)
+
         payload: dict[str, Any] = {
             "schema_version": 3,
             "checked_at": checked_at,
@@ -270,6 +276,13 @@ async def build_homelab_health_payload(
                 "public": public_summary,
                 "internal": internal_summary,
                 "catalog_service_count": len(services),
+                "catalog_observable_service_count": len(catalog_ids & monitored_ids),
+                "catalog_unconfigured_service_count": catalog_unconfigured,
+                "internal_disabled_eligible_slots": (len(internal_candidates) if not internal_enabled else 0),
+                "unsampled_current_window": {
+                    "public": max(0, len(public_candidates) - len(public_services)),
+                    "internal": (max(0, len(internal_candidates) - len(internal_services)) if internal_enabled else 0),
+                },
                 "sampling": {
                     "strategy": "priority-plus-rotating-window",
                     "cache_ttl_seconds": _HEALTH_CACHE_TTL_SEC,
