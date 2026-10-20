@@ -1,3 +1,10 @@
+## [1.23.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.23.0...1.23.1) (2026-10-20)
+
+
+### Bug Fixes
+
+* **deps:** bump the npm_and_yarn group across 1 directory with 2 updates ([#357](https://github.com/AlbanAndrieu/fastapi-sample/issues/357)) ([8fb5c7f](https://github.com/AlbanAndrieu/fastapi-sample/commit/8fb5c7f06f9dbd2d905166cf0aac9604b7928a5c))
+
 # [1.23.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.22.3...1.23.0) (2026-10-20)
 
 
