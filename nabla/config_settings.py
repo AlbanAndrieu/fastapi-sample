@@ -23,6 +23,7 @@ from nabla.feature_flags import (  # noqa: F401 -- compatibility facade exports
     unleash_requests_kwargs as _unleash_requests_kwargs,
     unleash_timeout_seconds,
 )
+from nabla.homelab_trusted_ip import parse_cidrs
 from nabla.settings.base import unset_empty_env as _unset_empty_env
 from nabla.settings.database import DatabaseSettings
 from nabla.settings.models import AzureOpenAiInstance, DEFAULT_CHAT_MODEL, McpServerConfig
@@ -171,6 +172,30 @@ class _Settings(DatabaseSettings):
         bool,
         Field(default=False, validation_alias=AliasChoices("OPS_ROUTE_POLICY_STRICT")),
     ]
+    homelab_trusted_proxy_cidrs: Annotated[
+        str,
+        Field(default="", validation_alias=AliasChoices("HOMELAB_TRUSTED_PROXY_CIDRS")),
+    ]
+
+    @field_validator("homelab_trusted_proxy_cidrs")
+    @classmethod
+    def _validate_homelab_proxy_cidrs(cls, value: str) -> str:
+        if value.strip():
+            parse_cidrs(value)
+        return value.strip()
+
+    homelab_trusted_cidrs: Annotated[
+        str,
+        Field(default="", validation_alias=AliasChoices("HOMELAB_TRUSTED_CIDRS")),
+    ]
+
+    @field_validator("homelab_trusted_cidrs")
+    @classmethod
+    def _validate_homelab_trusted_cidrs(cls, value: str) -> str:
+        if value.strip():
+            parse_cidrs(value)
+        return value.strip()
+
     ops_access_issuer: Annotated[
         Optional[str],
         Field(default=None, validation_alias=AliasChoices("OPS_ACCESS_ISSUER")),

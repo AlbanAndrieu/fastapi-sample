@@ -5,6 +5,10 @@ const GARAGE_LABELS = new Map([
   ["garage-webui", "Garage Web UI"],
 ]);
 const HEALTH_STATES = new Set(["ok", "warn", "fail"]);
+const PUBLIC_DISCOVERY_LABELS = new Map([
+  ["gatus", "Gatus"],
+  ["garage-webui", "Garage Web UI"],
+]);
 
 function rows(value) {
   return Array.isArray(value)
@@ -127,6 +131,33 @@ export function includeObservedGarageChecks(
   for (const id of GARAGE_LABELS.keys()) {
     if (present.has(id) || (!services.has(id) && !internal.has(id))) continue;
     projected[id] = garageCheck(id, services.get(id), internal.get(id), fresh);
+  }
+  // The bounded 12-per-wave scheduler cannot be a service-discovery engine.
+  // A curated public label may be visible even when no probe was sampled.
+  // Do not synthesize successful health, URLs, or LAN infrastructure details.
+  const candidates = rows(homelab?.public_card_candidates);
+  for (const candidate of candidates) {
+    const id = candidate.id;
+    if (
+      !PUBLIC_DISCOVERY_LABELS.has(id) ||
+      candidate.name !== PUBLIC_DISCOVERY_LABELS.get(id) ||
+      present.has(id) ||
+      Object.hasOwn(projected, id)
+    ) {
+      continue;
+    }
+    projected[id] = {
+      id,
+      service_id: id,
+      name: PUBLIC_DISCOVERY_LABELS.get(id),
+      reachable: null,
+      state: "unknown",
+      local_state: "unknown",
+      effective_state: "unknown",
+      risk_state: "unknown",
+      warning:
+        "Declared public-facing service; no current independent probe evidence. Not confirmed DOWN.",
+    };
   }
   return { ...data, checks: projected };
 }

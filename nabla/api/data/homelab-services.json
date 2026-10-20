@@ -288,7 +288,8 @@
       "tunnelUrl": "https://gatus.albandrieu.com",
       "tunnelSecure": true,
       "iconSrc": "assets/selfh-icons/gatus.png",
-      "external": true
+      "external": true,
+      "id": "gatus"
     },
     {
       "name": "Grafana",

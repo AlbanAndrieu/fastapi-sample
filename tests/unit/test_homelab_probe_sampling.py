@@ -344,3 +344,12 @@ def test_catalog_coverage_is_distinct_from_rotating_probe_slots():
     assert '"internal_disabled_eligible_slots"' in source
     assert '"unsampled_current_window"' in source
     assert "catalog_ids - monitored_ids" in source
+
+
+def test_curated_public_cards_exclude_private_garage_apis() -> None:
+    path = Path(__file__).resolve().parents[2] / "nabla/api/homelab_health.py"
+    source = path.read_text(encoding="utf-8")
+    assert '"public_card_candidates": public_cards' in source
+    assert '"gatus": "Gatus"' in source
+    assert '"garage-webui": "Garage Web UI"' in source
+    assert '"garage-admin": "Garage Admin API"' not in source
