@@ -194,6 +194,9 @@ def evaluate_internal_probe_delegation(
     missing_gatus = int(comparison.get("missing_gatus") or 0)
     if comparable + application_evidence <= 0:
         blockers.append("no_internal_gatus_evidence")
+    elif comparable == 0:
+        # An HTTP application result cannot prove equivalence with a TCP probe.
+        blockers.append("no_comparable_transport_evidence")
     if mismatched > 0:
         blockers.append("internal_transport_mismatches")
     if missing_gatus > 0:

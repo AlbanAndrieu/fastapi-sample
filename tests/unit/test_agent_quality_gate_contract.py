@@ -287,7 +287,10 @@ def test_agent_completion_policy_requires_roadmap_accounting() -> None:
     for skill in (fastapi_cloud_skill, homelab_skill):
         assert "completion gate" in skill.lower()
         assert "docs/engineering-roadmap.md" in skill
-    assert "## P0 — CI: incident unique et maîtrise des mutations (#355)" in roadmap
+    # Check enduring semantics, not a heading changed during roadmap consolidation.
+    assert "master-red" in roadmap
+    assert "scripts/ci/master_red_issue.py" in roadmap
+    assert "deux runs complets consécutifs" in roadmap
     assert "## P0 — public/private observability boundary" in roadmap
     assert "## P1 — health, topology and runtime acceptance" in roadmap
     assert "engineering-backlog.md" in roadmap

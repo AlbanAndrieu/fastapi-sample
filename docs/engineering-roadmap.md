@@ -49,6 +49,8 @@ notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blo
 - [ ] Deploy the corresponding `nabla-compose` Gatus labels for pfSense/PostgreSQL/TrueNAS and deduplicated Prometheus recording rules. Verify with `scripts/truenas/diagnose-prometheus-targets.sh` and `scripts/prometheus/audit-telemetry-coverage.py`; confirm exact service ID recording series and both exporter job states. Repository declarations are not runtime evidence.
 - [ ] Validate service-card presentation behind Cloudflare Access after staging deploy and measure 3+ full rotating windows; retain external probes for outside-in context. A catalog with >12 eligible slots per scope cannot reach 100% on a single 30-second refresh.
 
+- [ ] Convergence Gatus : valider uniquement les preuves de transport comparables `TCP` (un résultat HTTP seul ne suffit pas), vérifier l'état du scrape, l'identifiant canonique du service, les métriques et la fenêtre d'observation. Ne jamais substituer les sondes externes. Audit amont et matrice de dépendances : [Gatus / Python](gatus-python-monitoring-convergence.md).
+
 ## P1 — health, topology and runtime acceptance
 - [ ] After an approved deployment, compare Garage external/internal probe
   phases over three cycles, unexpected admin Tunnel exposure and WAN NAT
