@@ -24,18 +24,18 @@ to a moving branch name after the HEAD has been resolved.
 1. Resolve the PR/branch HEAD SHA through GitHub and record it.
 2. Read the check-runs/statuses for that SHA before making another change.
 3. Materialize that exact SHA locally:
-   - preferred: download the public GitHub source archive for the SHA through
-     the available download channel and extract it into a fresh directory;
-   - fallback when the container cannot resolve/reach GitHub: use the GitHub
-     connector to read the exact tree/files needed by the targeted test scope
-     and materialize those files into a fresh container directory.
+    - preferred: download the public GitHub source archive for the SHA through
+      the available download channel and extract it into a fresh directory;
+    - fallback when the container cannot resolve/reach GitHub: use the GitHub
+      connector to read the exact tree/files needed by the targeted test scope
+      and materialize those files into a fresh container directory.
 4. Verify the materialized files come from the recorded SHA. Never mix files
-   fetched from a branch after the SHA was resolved.
+    fetched from a branch after the SHA was resolved.
 5. Run the narrowest meaningful tests first, then expand toward the repository
-   quality gate as local tooling/dependencies permit.
+    quality gate as local tooling/dependencies permit.
 6. If a formatter or deterministic fixer modifies files, apply only that
-   deterministic patch, publish with `[skip ci]` when CI credits must be
-   preserved, resolve the new SHA, and repeat the loop.
+    deterministic patch, publish with `[skip ci]` when CI credits must be
+    preserved, resolve the new SHA, and repeat the loop.
 7. Before the next roadmap improvement, re-read the checks for the current HEAD.
 
 ## Archive-first materialization
