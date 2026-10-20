@@ -42,6 +42,10 @@ def test_site_catalog_is_a_strict_allowlist() -> None:
         )
     with pytest.raises(ValidationError):
         site_architecture_catalog(HomelabCatalog())
+    with pytest.raises(ValidationError):
+        SiteArchitectureCatalogV1.model_validate(
+            {"version": 1, "services": [{"id": "private", "name": "172.17.0.24:8091"}]},
+        )
 
 
 @pytest.mark.asyncio

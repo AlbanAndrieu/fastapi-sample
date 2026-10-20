@@ -14,6 +14,8 @@ notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blo
 - [ ] Après déploiement sur `master`, constater deux runs complets consécutifs (CodeQL/ZAP `skipped` acceptables **uniquement** si non requis par la classification), et vérifier les causes racines Python/Smoke. Ne pas provoquer d'échec artificiel.
 
 ## P0 — public/private observability boundary (PR #353 / issue #352)
+- [x] Site server-to-server catalog: strict source-only `GET /api/site/catalog/v1` with `X-Diagnostics-Key`, only `id/name` allowlist fields and 5-minute verified-source TTL. Owner raw catalog retains CIDR; no packaged/LKG fallback on the new route. See [consumer handoff](site-architecture-catalog-handoff.md).
+- [ ] `nabla-site-alban`: migrate the Vercel server-only fetch to this endpoint, remove local fallback and navigation overrides from its response, validate absent/invalid secrets, private-owner gate and EN/FR Architecture deployment. Never send `DIAGNOSTICS_ACCESS_KEY` to browser code. This frontend change and Vercel secret deployment are NOT_RUN here.
 - [ ] Audit every live HTTP/ASGI WebSocket mount, docs/OpenAPI, MCP, admin,
   health and HTML route on the exact deployed FastAPI SHA. Validate access
   policy classification, missing credentials and negative bypass tests.

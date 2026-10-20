@@ -34,6 +34,9 @@ Sources vérifiables : [Gatus go.mod](https://github.com/TwiN/gatus/blob/master/
 
 ## Audit approfondi des dépendances Python et du code source
 
+See [the Site Alban pre-Keycloak API handoff](site-architecture-catalog-handoff.md). The site must consume a filtered service-only DTO, not the rich CIDR-protected catalog, and must not serve its local fallback on upstream failures.
+
+
 ### Ce qui est directement réutilisable
 
 | Mécanisme étudié | Projet amont | Constat dans le code | Convergence proposée |
