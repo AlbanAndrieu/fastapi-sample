@@ -347,8 +347,6 @@ def test_catalog_coverage_is_distinct_from_rotating_probe_slots():
 
 
 def test_curated_public_cards_exclude_private_garage_apis() -> None:
-    from pathlib import Path
-
     path = Path(__file__).resolve().parents[2] / "nabla/api/homelab_health.py"
     source = path.read_text(encoding="utf-8")
     assert '"public_card_candidates": public_cards' in source

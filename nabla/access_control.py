@@ -19,7 +19,7 @@ from nabla.cloudflare_ops_access import (
     assertion_from_headers,
     verify_owner_token,
 )
-from nabla.config_settings import get_settings
+from nabla.config_settings import APIDeploymentSettings, get_settings
 from nabla.homelab_trusted_ip import allowed_owner_source
 from nabla.route_policy import Credential, Visibility, route_policy_for
 
@@ -47,6 +47,35 @@ def _provided_access_key(request: Request, header_name: str) -> str:
     return value.strip() if scheme.lower() == "bearer" else ""
 
 
+
+async def _authorize_owner(
+    request: Request, settings: APIDeploymentSettings
+) -> Response | None:
+    """Require a verified human JWT AND an approved network source."""
+    try:
+        subject = await verify_owner_token(assertion_from_headers(request.headers))
+    except (OwnerConfigError, OwnerKeysUnavailable):
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "Owner identity provider unavailable"},
+            headers=_DENY_HEADERS,
+        )
+    except OwnerUnauthorized:
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "Missing or invalid owner identity"},
+            headers={**_DENY_HEADERS, "WWW-Authenticate": "Bearer"},
+        )
+    if not allowed_owner_source(request.scope, settings):
+        return JSONResponse(
+            status_code=403,
+            content={"detail": "Owner network not authorized"},
+            headers=_DENY_HEADERS,
+        )
+    request.state.ops_owner_sub = subject
+    return None
+
+
 async def operations_access_middleware(
     request: Request,
     call_next: Callable[[Request], Awaitable[Response]],
@@ -67,27 +96,9 @@ async def operations_access_middleware(
         return await call_next(request)
 
     if policy.credential is Credential.ACCESS_JWT:
-        try:
-            subject = await verify_owner_token(assertion_from_headers(request.headers))
-        except (OwnerConfigError, OwnerKeysUnavailable):
-            return JSONResponse(
-                status_code=503,
-                content={"detail": "Owner identity provider unavailable"},
-                headers=_DENY_HEADERS,
-            )
-        except OwnerUnauthorized:
-            return JSONResponse(
-                status_code=401,
-                content={"detail": "Missing or invalid owner identity"},
-                headers={**_DENY_HEADERS, "WWW-Authenticate": "Bearer"},
-            )
-        if not allowed_owner_source(request.scope, settings):
-            return JSONResponse(
-                status_code=403,
-                content={"detail": "Owner network not authorized"},
-                headers=_DENY_HEADERS,
-            )
-        request.state.ops_owner_sub = subject
+        denied = await _authorize_owner(request, settings)
+        if denied is not None:
+            return denied
         return await call_next(request)
 
     key_fields = {
