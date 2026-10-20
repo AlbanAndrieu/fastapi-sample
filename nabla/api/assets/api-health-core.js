@@ -343,6 +343,12 @@ function showFetchError(message) {
   document.getElementById("health-checks").innerHTML = "";
   const groupedEl = document.getElementById("health-services-groups");
   if (groupedEl) groupedEl.innerHTML = "";
+  const overview = document.getElementById("service-health-overview");
+  if (overview && message.includes("Owner diagnostics")) {
+    for (const card of overview.querySelectorAll(".service-overview-card strong")) {
+      card.textContent = "Restricted";
+    }
+  }
   const restricted = message.includes("Owner diagnostics require sign-in") ||
     message.includes("Owner diagnostics session unavailable");
   summaryEl.className = restricted

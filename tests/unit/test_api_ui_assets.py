@@ -163,8 +163,11 @@ def test_refresh_event_is_logged_and_health_responses_are_not_cached() -> None:
     assert 'cache: "no-store"' in controller
     assert 'cache: "no-store"' in board
     assert 'fetch("/api/health-board/cache/reset"' in controller
-    assert '"X-Diagnostics-Key"' in controller
-    assert "window.prompt" in controller
+    assert '"X-Diagnostics-Key"' not in controller
+    assert "window.prompt" not in controller
+    assert 'fetch("/api/ui/session"' in (_ASSET_DIR / "api-owner-session.js").read_text(
+        encoding="utf-8",
+    )
     assert "health-cache-reset" in client.get("/api").text
 
 
