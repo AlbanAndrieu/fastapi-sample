@@ -262,19 +262,13 @@ async def build_homelab_health_payload(
         catalog_ids = {service.service_id for service in services}
         catalog_unconfigured = len(catalog_ids - monitored_ids)
 
-        # Only two explicitly reviewed public-facing *names* are stable
-        # search/card candidates; never project internal endpoints or metrics.
-        # This is inventory, not evidence that the service is UP.
+        # Curated public discovery names: no private endpoint or probe evidence.
+        # Inventory does not attest that either service is available.
+        public_labels = {"gatus": "Gatus", "garage-webui": "Garage Web UI"}
         public_cards = [
-            {"id": service.service_id, "name": display_name}
+            {"id": service.service_id, "name": public_labels[service.service_id]}
             for service in services
-            for display_name in (
-                {
-                    "gatus": "Gatus",
-                    "garage-webui": "Garage Web UI",
-                }.get(service.service_id),
-            )
-            if display_name is not None and service.external is True
+            if service.service_id in public_labels and service.external is True
         ]
 
         payload: dict[str, Any] = {
@@ -303,7 +297,8 @@ async def build_homelab_health_payload(
                     "public": max(0, len(public_candidates) - len(public_services)),
                     "internal": (
                         max(0, len(internal_candidates) - len(internal_services))
-                        if internal_enabled else 0
+                        if internal_enabled
+                        else 0
                     ),
                 },
                 "sampling": {
