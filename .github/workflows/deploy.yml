@@ -130,12 +130,15 @@ jobs:
             --retry-all-errors \
             --output /tmp/fastapi-health.json \
             https://fastapi-sample.fastapicloud.dev/health
-          curl --fail --show-error --silent \
-            --retry 10 \
-            --retry-delay 10 \
-            --retry-all-errors \
-            --output /tmp/homelab-services.json \
-            https://fastapi-sample.fastapicloud.dev/api/homelab-services
+          # Never fetch OWNER-only /api/homelab-services anonymously.
+          # Check that the owner boundary rejects access with no credentials.
+          CATALOG_CODE="$(curl --silent --show-error --output /dev/null \
+            --write-out '%{http_code}' \
+            https://fastapi-sample.fastapicloud.dev/api/homelab-services)"
+          if [ "$CATALOG_CODE" != "401" ] && [ "$CATALOG_CODE" != "503" ]; then
+            echo "Expected protected catalog denial (401/503), got $CATALOG_CODE" >&2
+            exit 1
+          fi
           curl --fail --show-error --silent \
             --retry 10 \
             --retry-delay 10 \
@@ -162,9 +165,8 @@ jobs:
                   f"deployed build revision {actual_revision!r} != {expected_revision!r}"
               )
 
-          catalog = json.loads(Path("/tmp/homelab-services.json").read_text())
-          if not catalog.get("services"):
-              raise SystemExit("deployed homelab catalog is empty")
+          # /api/homelab-services is intentionally private; never publish
+          # or require an unauthenticated full-inventory response in CI.
           PY
 
   production-smoke:

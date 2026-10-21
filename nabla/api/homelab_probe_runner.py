@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 from collections.abc import Awaitable, Callable
 import re
 import time
@@ -91,6 +92,22 @@ def _application_error_from_response(response: httpx.Response) -> str | None:
     return None
 
 
+def _unsafe_public_dns_answers(evidence: dict[str, Any]) -> bool:
+    """Reject non-global DNS answers before issuing a public HTTP request."""
+    if evidence.get("dns_state") != "ok":
+        return False
+    addresses = evidence.get("dns_resolved")
+    if not isinstance(addresses, list) or not addresses:
+        return True
+    for address in addresses:
+        try:
+            if not isinstance(address, str) or not ipaddress.ip_address(address).is_global:
+                return True
+        except ValueError:
+            return True
+    return False
+
+
 async def probe_http_endpoint(
     client: httpx.AsyncClient,
     semaphore: asyncio.Semaphore,
@@ -118,6 +135,28 @@ async def probe_http_endpoint(
                     dns_evidence = await probe_dns_hostname(hostname)
             finally:
                 dns_probe_ms = elapsed_ms(dns_started)
+            if _unsafe_public_dns_answers(dns_evidence):
+                # Never issue HTTP to a hostname resolving to LAN/non-global IPs.
+                return {
+                    "id": service_id,
+                    "name": name,
+                    "url": url,
+                    "reachable": None,
+                    "http_status": 0,
+                    "state": "warn",
+                    "tls_trusted": None,
+                    "probe_blocked": True,
+                    "error_kind": "non_global_dns_answer",
+                    "warning": "Public probe blocked by DNS address policy",
+                    **dns_evidence,
+                    "probe_timing": {
+                        "queue_wait_ms": queue_wait_ms,
+                        "dns_probe_ms": dns_probe_ms,
+                        "http_request_ms": None,
+                        "http_request_count": 0,
+                    },
+                    "latency_ms": elapsed_ms(started),
+                }
             mark_probe_phase("head_get_in_progress")
             http_started = time.perf_counter()
             try:

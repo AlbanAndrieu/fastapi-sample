@@ -76,15 +76,14 @@ def test_local_flow_keeps_pfsense_as_dns_and_haproxy_dependency() -> None:
     assert "observeTrueNasPipeline()" in source
 
 
-def test_legacy_sickz_label_uses_authoritative_catalog_description() -> None:
+def test_legacy_catalog_is_not_fetched_from_public_dashboard() -> None:
     source = (ASSETS / "api-health-ui-operator-followup.js").read_text(
         encoding="utf-8",
     )
 
-    assert 'fetch("/api/homelab-services"' in source
-    assert "service?.description" in source
-    assert 'includes("Legacy inverse-reachability target")' in source
-    assert "tags.textContent = description" in source
+    assert 'fetch("/api/homelab-services"' not in source
+    assert "replaceLegacyExposureLabels" not in source
+    assert "loadCatalog()" not in source
 
 
 def test_cloudflare_inventory_failure_is_not_rendered_as_zero_inventory() -> None:

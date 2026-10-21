@@ -10,6 +10,7 @@ import {
   resetHealthBoardRequest,
 } from "./api-health-board.js";
 import { loadHealth } from "./api-health-core.js";
+import { ownerSessionAvailable } from "./api-owner-session.js";
 import { decorateHttpProbeStatuses } from "./api-http-probe-status.js";
 import { decorateProbeTelemetry } from "./api-probe-live.js";
 import { loadRuntimeTopology } from "./api-runtime.js";
@@ -22,7 +23,8 @@ const HEALTH_BOARD_REFRESHING_POLL_MS = 2000;
 let automaticRefreshInFlight = false;
 let automaticRefreshTimer = null;
 
-function logRefreshClick() {
+async function logRefreshClick() {
+  if (!(await ownerSessionAvailable())) return;
   fetch("/api/health-board/refresh-event", {
     method: "POST",
     cache: "no-store",
@@ -33,16 +35,11 @@ function logRefreshClick() {
   });
 }
 
-async function postCacheReset(diagnosticsKey = "") {
-  const headers = {
-    Accept: "application/json",
-    "Cache-Control": "no-cache",
-  };
-  if (diagnosticsKey) headers["X-Diagnostics-Key"] = diagnosticsKey;
+async function postCacheReset() {
   return fetch("/api/health-board/cache/reset", {
     method: "POST",
     cache: "no-store",
-    headers,
+    headers: { Accept: "application/json", "Cache-Control": "no-cache" },
   });
 }
 
@@ -51,18 +48,12 @@ async function purgeHealthCaches(button) {
   button.disabled = true;
   button.textContent = "Purging…";
   try {
-    let response = await postCacheReset();
-    if (response.status === 401) {
-      const diagnosticsKey = window.prompt(
-        "Diagnostics access key required for cache purge:",
-      );
-      if (!diagnosticsKey) {
-        button.textContent = original;
-        return;
-      }
-      response = await postCacheReset(diagnosticsKey.trim());
+    if (!(await ownerSessionAvailable())) {
+      button.textContent = "🔒 Unlock owner diagnostics first";
+      return;
     }
-    if (!response.ok) throw new Error(`cache reset HTTP ${response.status}`);
+    const response = await postCacheReset();
+    if (!response.ok) throw new Error("Cache reset HTTP " + response.status);
     button.textContent = "✓ Cache purged";
     await loadHealthBoards({
       forceRefresh: true,

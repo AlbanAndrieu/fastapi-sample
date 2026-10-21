@@ -1,4 +1,5 @@
 import { installGlobalServiceFilter } from "./api-global-service-filter.js";
+import { installOwnerSessionControls } from "./api-owner-session.js";
 import { installHealthBoardController } from "./api-health-controller.js";
 import { installHealthOperatorUx } from "./api-health-operator-ux.js";
 import { installHealthUiConsistencyFollowup } from "./api-health-ui-consistency-followup.js";
@@ -35,6 +36,7 @@ installProbeFanoutDashboard();
 startProbeAgeTicker();
 installHttpProbeStatuses();
 installHealthBoardController();
+installOwnerSessionControls(() => window.location.reload());
 installServiceOperatorDiagnostics();
 installServiceProbeDetails();
 installServiceProbeHelp();

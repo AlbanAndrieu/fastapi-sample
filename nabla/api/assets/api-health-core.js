@@ -343,9 +343,21 @@ function showFetchError(message) {
   document.getElementById("health-checks").innerHTML = "";
   const groupedEl = document.getElementById("health-services-groups");
   if (groupedEl) groupedEl.innerHTML = "";
-  summaryEl.className = "health-summary health-summary--red";
-  summaryLed.className = "health-led health-led--red";
-  summaryText.textContent = "Could not load /healthz.";
+  const overview = document.getElementById("service-health-overview");
+  if (overview && message.includes("Owner diagnostics")) {
+    for (const card of overview.querySelectorAll(".service-overview-card strong")) {
+      card.textContent = "Restricted";
+    }
+  }
+  const restricted = message.includes("Owner diagnostics require sign-in") ||
+    message.includes("Owner diagnostics session unavailable");
+  summaryEl.className = restricted
+    ? "health-summary health-summary--neutral"
+    : "health-summary health-summary--red";
+  summaryLed.className = restricted ? "health-led health-led--gray" : "health-led health-led--red";
+  summaryText.textContent = restricted
+    ? "Diagnostics restricted — unlock owner access to see services and probes."
+    : "Could not load /healthz.";
   errEl.hidden = false;
   errEl.textContent = message;
 }

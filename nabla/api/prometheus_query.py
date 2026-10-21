@@ -12,7 +12,7 @@ def safe_float(value: object) -> float | None:
     """Return a finite float or None for malformed/non-finite Prometheus values."""
     try:
         number = float(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return None
     return number if math.isfinite(number) else None
 

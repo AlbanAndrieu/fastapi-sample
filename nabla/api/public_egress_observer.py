@@ -28,6 +28,8 @@ async def _fetch_public_egress_ip() -> str | None:
     async with httpx.AsyncClient(
         timeout=timeout,
         follow_redirects=False,
+        # Proxy egress would report the proxy IP, not the FastAPI Cloud observer.
+        trust_env=False,
         headers={"Accept": "text/plain"},
     ) as client:
         response = await client.get(_ECHO_URL)

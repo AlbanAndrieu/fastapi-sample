@@ -9,11 +9,12 @@ route module. The public paths and response contracts intentionally remain uncha
 from __future__ import annotations
 
 from datetime import UTC, datetime
+import os
 import time
 from typing import Annotated, Any
 
 import pyroscope
-from fastapi import FastAPI, Query, Request, Response, status
+from fastapi import FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.responses import JSONResponse
 
 from nabla.api.homelab_declared import DeclaredServiceCatalog
@@ -21,10 +22,20 @@ from nabla.api.homelab_models import HomelabCatalog
 from nabla.api.homelab_runtime import TrueNASRuntimeSnapshot
 from nabla.api.homelab_topology import HomelabTopology
 from nabla.api.public_homelab_dto import PublicHomelabV1, load_public_homelab_v1
+from nabla.api.site_architecture_catalog import (
+    SiteArchitectureCatalogV2,
+    SiteCatalogV2Unavailable,
+    fetch_site_catalog_v2,
+)
 from nabla.utils.logger import logger
 
 
 _NO_STORE_HEADERS = {"Cache-Control": "no-store, max-age=0", "Pragma": "no-cache"}
+
+
+def _legacy_homelab_http_enabled() -> bool:
+    """Migration switch: only HTTP v1 serialization, never internal probes."""
+    return os.getenv("HOMELAB_V1_HTTP_ENABLED", "true").strip().lower() == "true"
 _PROBE_RUNTIME_STARTED_AT = datetime.now(UTC).isoformat().replace("+00:00", "Z")
 _PROBE_RUNTIME_STARTED_MONOTONIC = time.monotonic()
 
@@ -98,6 +109,8 @@ def _register_homelab_catalog_routes(app: FastAPI) -> None:
     )
     async def get_public_homelab_v1(response: Response) -> PublicHomelabV1:
         """Return only curated labels; never fetch or serialize runtime data."""
+        if not _legacy_homelab_http_enabled():
+            raise HTTPException(status_code=410, detail="Legacy public catalog retired")
         response.headers.update(
             {
                 "Cache-Control": "public, max-age=60",
@@ -107,6 +120,27 @@ def _register_homelab_catalog_routes(app: FastAPI) -> None:
         return load_public_homelab_v1()
 
     @app.get(
+        "/api/site/catalog/v2",
+        response_model=SiteArchitectureCatalogV2,
+        response_model_exclude_none=True,
+        tags=["Homelab"],
+        summary="Authenticated sanitized site architecture catalog",
+        include_in_schema=False,
+    )
+    async def get_site_architecture_catalog(response: Response) -> SiteArchitectureCatalogV2:
+        """Only the current verified Backstage v2 source, safely projected."""
+
+        response.headers.update({**_NO_STORE_HEADERS, "X-Robots-Tag": "noindex, nofollow"})
+        try:
+            return await fetch_site_catalog_v2()
+        except SiteCatalogV2Unavailable:
+            raise HTTPException(
+                status_code=503,
+                detail="Authoritative catalog unavailable",
+                headers={**_NO_STORE_HEADERS, "X-Robots-Tag": "noindex, nofollow"},
+            ) from None
+
+    @app.get(
         "/api/homelab-services",
         response_model=HomelabCatalog,
         response_model_exclude_none=True,
@@ -114,7 +148,9 @@ def _register_homelab_catalog_routes(app: FastAPI) -> None:
         summary="FastAPI-owned homelab exposure catalog",
     )
     async def get_homelab_services():
-        """Expose the FastAPI-owned presentation and exposure policy catalog."""
+        """Compatibility read only: v2 consumers must use /api/site/catalog/v2."""
+        if not _legacy_homelab_http_enabled():
+            raise HTTPException(status_code=410, detail="Legacy catalog retired")
         from nabla.api.homelab_catalog import fetch_homelab_catalog
 
         return await fetch_homelab_catalog()

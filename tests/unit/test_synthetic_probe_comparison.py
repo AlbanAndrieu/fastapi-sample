@@ -132,6 +132,22 @@ def test_internal_delegation_reports_configuration_and_coverage_blockers() -> No
     ]
 
 
+def test_http_only_gatus_does_not_authorize_generic_transport_delegation() -> None:
+    """Application-level evidence cannot replace a comparable TCP observation."""
+    platform = _platform({"nexus": {"HTTP": {"success": 1.0}}})
+    comparison = compare_internal_probe_evidence(
+        {"internal_services": [{"id": "nexus", "state": "ok"}]},
+        platform,
+    )
+
+    assert comparison["comparable"] == 0
+    assert comparison["application_evidence"] == 1
+    decision = evaluate_internal_probe_delegation(platform, comparison)
+    assert decision["state"] == "blocked"
+    assert decision["blockers"] == ["no_comparable_transport_evidence"]
+    assert decision["external_probes_preserved"] is True
+
+
 def test_internal_delegation_candidate_preserves_external_probe_strategy() -> None:
     result = evaluate_internal_probe_delegation(
         _platform({}),

@@ -340,57 +340,6 @@ function annotateProbeTelemetry() {
   }
 }
 
-async function loadCatalog() {
-  if (catalogPromise) return catalogPromise;
-  catalogPromise = fetch("/api/homelab-services", {
-    headers: { Accept: "application/json" },
-  })
-    .then((response) => (response.ok ? response.json() : null))
-    .catch(() => null);
-  return catalogPromise;
-}
-
-function catalogServices(payload) {
-  if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload?.services)) return payload.services;
-  return [];
-}
-
-async function replaceLegacyExposureLabels() {
-  const services = catalogServices(await loadCatalog());
-  if (services.length === 0) return;
-  const byIdentity = new Map();
-  for (const service of services) {
-    const description = String(service?.description || "").trim();
-    if (!description) continue;
-    for (const value of [
-      service?.id,
-      service?.name,
-      service?.tunnelUrl,
-      service?.url,
-    ]) {
-      const key = identity(value);
-      if (key) byIdentity.set(key, description);
-    }
-  }
-  for (const row of document.querySelectorAll("#sickz-checks .health-row")) {
-    const tags = row.querySelector(".health-row-tags");
-    if (!tags?.textContent?.includes("Legacy inverse-reachability target")) {
-      continue;
-    }
-    const candidates = [
-      row.dataset.serviceKey,
-      row.dataset.serviceName,
-      row.dataset.serviceUrl,
-      row.querySelector(".sickz-target-link")?.href,
-    ];
-    const description = candidates
-      .map((value) => byIdentity.get(identity(value)))
-      .find(Boolean);
-    if (description) tags.textContent = description;
-  }
-}
-
 function familyMessage(family, successText, permission) {
   if (!family) return "inventory not confirmed";
   if (family.success === false || family.state === "error") {
@@ -547,7 +496,6 @@ function apply() {
   reconcileCloudflareDrawer();
   reconcileLocalPfSense();
   ensureRuntimeNotices();
-  void replaceLegacyExposureLabels();
 }
 
 function schedule() {

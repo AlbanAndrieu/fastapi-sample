@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 from fastapi.responses import JSONResponse
 
+from nabla.api.owner_ui_session import owner_cookie_write_allowed, owner_ui_authenticated
 from nabla.cloudflare_ops_access import (
     OwnerConfigError,
     OwnerKeysUnavailable,
@@ -114,6 +115,24 @@ async def operations_access_middleware(
             content={"detail": "Operational access unavailable"},
             headers=_DENY_HEADERS,
         )
+
+    # Short-lived owner-browser cookie is scoped to diagnostics routes ONLY.
+    # Every cookie-authenticated read still requires the trusted source CIDR.
+    if (
+        policy.visibility is Visibility.OWNER
+        and policy.credential is Credential.DIAGNOSTICS_KEY
+        and owner_ui_authenticated(request, settings)
+    ):
+        if (
+            request.method.upper() not in {"GET", "HEAD", "OPTIONS"}
+            and not owner_cookie_write_allowed(request)
+        ):
+            return JSONResponse(
+                status_code=403,
+                content={"detail": "Same-origin mutation required"},
+                headers=_DENY_HEADERS,
+            )
+        return await call_next(request)
 
     value = _provided_access_key(request, header)
     if not value or not compare_digest(value, configured.get_secret_value()):

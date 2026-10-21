@@ -18,6 +18,7 @@ from starlette.routing import Mount
 
 from nabla.api.db.database import SessionLocal
 from nabla.api.health_routes import register_health_routes
+from nabla.api.owner_ui_session import register_owner_ui_session_routes
 from nabla.api.notes.models import Note
 from nabla.api.runtime_environment import runtime_mode
 from nabla.api.topology_telemetry import fetch_topology_telemetry
@@ -156,6 +157,7 @@ def register_routes(app: FastAPI, *, database: bool = True) -> None:
         )
 
     register_health_routes(app)
+    register_owner_ui_session_routes(app)
 
     @app.exception_handler(Exception)
     def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:

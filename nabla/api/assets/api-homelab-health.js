@@ -1,3 +1,4 @@
+import { ownerSessionAvailable } from "./api-owner-session.js";
 import {
   fetchHealthBoard,
   resetHealthBoardRequest,
@@ -43,10 +44,18 @@ export function fetchHomelabProbeMatrix({
   dispatchProbeEvent(PROBE_LOADING_EVENT, { reason });
   const headers = { Accept: "application/json", "Cache-Control": "no-cache" };
   if (diagnosticsKey) headers["X-Diagnostics-Key"] = diagnosticsKey;
-  return fetch("/api/homelab/probes", {
-    cache: "no-store",
-    headers,
-  })
+  return ownerSessionAvailable()
+    .then((authorized) => {
+      if (!authorized) {
+        const error = new Error("Owner diagnostics require sign-in.");
+        error.code = "diagnostics_auth_required";
+        throw error;
+      }
+      return fetch("/api/homelab/probes", {
+        cache: "no-store",
+        headers,
+      });
+    })
     .then(async (response) => {
       if (!response.ok) {
         const protectedResponse =

@@ -163,8 +163,11 @@ def test_refresh_event_is_logged_and_health_responses_are_not_cached() -> None:
     assert 'cache: "no-store"' in controller
     assert 'cache: "no-store"' in board
     assert 'fetch("/api/health-board/cache/reset"' in controller
-    assert '"X-Diagnostics-Key"' in controller
-    assert "window.prompt" in controller
+    assert '"X-Diagnostics-Key"' not in controller
+    assert "window.prompt" not in controller
+    assert 'fetch("/api/ui/session"' in (_ASSET_DIR / "api-owner-session.js").read_text(
+        encoding="utf-8",
+    )
     assert "health-cache-reset" in client.get("/api").text
 
 
@@ -346,3 +349,20 @@ def test_sickz_summary_cannot_be_green_when_policy_enrichment_is_missing() -> No
 
     assert "anyExpectedIntentWithoutPolicy" in script
     assert "full exposure policy enrichment is unavailable" in script
+
+
+def test_owner_ui_session_assets_and_locked_dashboard_state() -> None:
+    page = (_ASSET_DIR.parent / "ui.py").read_text(encoding="utf-8")
+    owner_asset = (_ASSET_DIR / "api-owner-session.js").read_text(encoding="utf-8")
+    board = (_ASSET_DIR / "api-health-board.js").read_text(encoding="utf-8")
+    core = (_ASSET_DIR / "api-health-core.js").read_text(encoding="utf-8")
+    assert 'id="owner-session-login"' in page
+    assert 'id="owner-session-key" type="password"' in page
+    assert "ownerSessionAvailable()" in owner_asset
+    assert "localStorage" not in owner_asset
+    assert "sessionStorage" not in owner_asset
+    assert 'fetch("/api/homelab-services"' not in (
+        _ASSET_DIR / "api-health-ui-operator-followup.js"
+    ).read_text(encoding="utf-8")
+    assert "Owner diagnostics require sign-in." in board
+    assert "Diagnostics restricted" in core
