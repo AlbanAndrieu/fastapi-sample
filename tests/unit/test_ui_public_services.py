@@ -3,6 +3,8 @@
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
+import pytest
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -138,9 +140,8 @@ async def _broken_health_board(_request):
     raise RuntimeError("Private upstream unavailable at 172.17.0.24:9999")
 
 
-def test_directory_survives_failed_diagnostics_with_unknown(monkeypatch):
-    import pytest
-
+@pytest.mark.asyncio
+async def test_directory_survives_failed_diagnostics_with_unknown(monkeypatch):
     from nabla.api import ui_public_services
 
     monkeypatch.setattr(
@@ -153,10 +154,7 @@ def test_directory_survives_failed_diagnostics_with_unknown(monkeypatch):
         _broken_health_board,
     )
 
-    async def run():
-        return await ui_public_services.get_public_ui_services(None)
-
-    result = __import__("asyncio").run(run())
+    result = await ui_public_services.get_public_ui_services(None)
     assert result.boardState == "pending"
     assert all(row.state == "unknown" for row in result.services)
     assert "172.17.0.24" not in str(result.model_dump())
