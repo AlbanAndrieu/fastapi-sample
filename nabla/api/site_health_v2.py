@@ -42,7 +42,7 @@ def _verified_state(row: object) -> State:
 
 
 def project_site_health_v2(
-    catalog: SiteArchitectureCatalogV2, board: object
+    catalog: SiteArchitectureCatalogV2, board: object,
 ) -> SiteHealthV2:
     """Ambiguous, stale or absent observations yield UNKNOWN, never FAIL."""
     if not isinstance(board, dict):

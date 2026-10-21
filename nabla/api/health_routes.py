@@ -148,9 +148,7 @@ def _register_homelab_catalog_routes(app: FastAPI) -> None:
         tags=["Homelab"],
         include_in_schema=False,
     )
-    async def get_site_health_v2(
-        request: Request, response: Response
-    ) -> SiteHealthV2:
+    async def get_site_health_v2(request: Request, response: Response) -> SiteHealthV2:
         response.headers.update({**_NO_STORE_HEADERS, "X-Robots-Tag": "noindex, nofollow"})
         try:
             return await fetch_site_health_v2(request)
