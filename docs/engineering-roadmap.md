@@ -151,3 +151,9 @@ attaquant externe utilise l'endpoint comme oracle de vérification de clés.
 4. Déployer et tester depuis IPv4/IPv6, réseau tiers, en-tête forgé, et cookie
    expiré. Réponse `403` sans données opérationnelles en cas de provenance
    invérifiable. Les sondes cloud restent indépendantes de cette session.
+
+## P0 — FastAPI Cloud owner access blocked (2026-10-21)
+- [x] Diagnose failed production deploy jobs 39634265656 / 39562478704; the original 403 UI predates GitHub master and may indicate an older cloud runtime.
+- [x] Restore deterministic tests for draft CI scope, monotonic stale caches, INTERNAL metrics authentication and v2 catalog route mocking; clarify the 403 browser message without exposing secrets or changing the CIDR policy.
+- [ ] Validate the Python quality gate on exact PR HEAD and merge only after approval; deploy and verify the production runtime SHA.
+- [ ] Diagnose FastAPI Cloud ingress peer and proven header rewriting privately before configuring HOMELAB_TRUSTED_PROXY_CIDRS. Test 200 home, 403 outside, 401 wrong key, and 403 spoof attempts.

@@ -38,8 +38,9 @@ async def test_declared_catalog_serves_stale_while_single_refresh_runs(
         await release.wait()
         return fresh
 
+    # Force expiry independently of CI runner uptime (monotonic clock).
     monkeypatch.setattr(homelab_declared._cache, "catalog", stale)
-    monkeypatch.setattr(homelab_declared._cache, "at", 0.0)
+    monkeypatch.setattr(homelab_declared._cache, "at", -1_000_000.0)
     monkeypatch.setattr(homelab_declared._cache, "refresh_task", None)
     monkeypatch.setattr(
         homelab_declared,
@@ -80,8 +81,9 @@ async def test_topology_serves_stale_while_single_refresh_runs(monkeypatch) -> N
         await release.wait()
         return fresh
 
+    # Force expiry independently of CI runner uptime (monotonic clock).
     monkeypatch.setattr(homelab_topology._topology_cache, "topology", stale)
-    monkeypatch.setattr(homelab_topology._topology_cache, "cached_at", 0.0)
+    monkeypatch.setattr(homelab_topology._topology_cache, "cached_at", -1_000_000.0)
     monkeypatch.setattr(homelab_topology._topology_cache, "refresh_task", None)
     monkeypatch.setattr(
         homelab_topology,

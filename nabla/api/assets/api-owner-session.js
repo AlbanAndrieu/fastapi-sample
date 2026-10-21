@@ -75,10 +75,16 @@ export function installOwnerSessionControls(onAuthenticated) {
         ) {
           throw new Error("Browser same-origin verification failed (HTTP 403).");
         }
+        if (response.status === 403 && reason === "source_unverified") {
+          throw new Error(
+            "Home IP could not be verified by FastAPI Cloud (HTTP 403). " +
+            "Check the trusted source and proxy settings; your key was not checked."
+          );
+        }
         if (response.status === 403) {
           throw new Error(
-            "Home network source is not verified by FastAPI Cloud (HTTP 403). " +
-            "Check the trusted CIDRs and reverse-proxy configuration."
+            "Owner access denied (HTTP 403). Check the response code " +
+            "in Network; your diagnostics key may not have been checked."
           );
         }
         throw new Error("Diagnostics login unavailable (HTTP " + response.status + ").");
