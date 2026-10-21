@@ -37,6 +37,7 @@ export async function installPublicServiceOverview() {
   panel.hidden = false;
   let rows = [];
   let expanded = false;
+  let pendingRetries = 0;
 
   function render() {
     const query = (filter?.value || "").trim().toLowerCase();
@@ -79,6 +80,7 @@ export async function installPublicServiceOverview() {
       const payload = await response.json();
       if (!validOverview(payload)) throw new Error("Invalid service directory response");
       rows = payload.services;
+      summary.dataset.serviceCount = String(rows.length);
       const counts = { ok: 0, warn: 0, fail: 0, unknown: 0 };
       for (const row of rows) counts[row.state] += 1;
       summary.textContent =
@@ -88,8 +90,17 @@ export async function installPublicServiceOverview() {
         (payload.boardState !== "fresh" ? " · observations pending or stale" : "") +
         " · raw probes locked";
       render();
+      // A cold cloud cache may be pending for the first 40-second refresh.
+      // Keep probes server-owned: at most five UI polls, then manual refresh.
+      if (payload.boardState !== "fresh" && pendingRetries < 5) {
+        pendingRetries += 1;
+        window.setTimeout(() => {
+          if (!document.hidden && !panel.hidden) void load();
+        }, 9000);
+      }
     } catch {
       rows = [];
+      delete summary.dataset.serviceCount;
       list.replaceChildren();
       expand.hidden = true;
       summary.textContent = "Service directory temporarily unavailable. Owner diagnostics remain locked.";

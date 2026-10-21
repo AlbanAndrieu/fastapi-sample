@@ -382,3 +382,7 @@ def test_limited_service_overview_asset_is_public_only_and_distinct() -> None:
     assert "innerHTML" not in script
     assert "X-Diagnostics-Key" not in script
     assert "localStorage" not in script
+    assert "pendingRetries < 5" in script
+    assert "See service directory" in (
+        _ASSET_DIR / "api-health-core.js"
+    ).read_text(encoding="utf-8")
