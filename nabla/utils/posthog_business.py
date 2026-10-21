@@ -24,7 +24,7 @@ _ALLOWED_APPS = frozenset({"nabla-site-alban", "nabla-site-bababou", "fastapi-sa
 
 def _validate(event: str, properties: Mapping[str, object]) -> dict[str, str | int] | None:
     allowed = _ALLOWED.get(event)
-    if allowed is None or not set(properties).issubset(allowed):
+    if allowed is None or not isinstance(properties, Mapping) or not set(properties).issubset(allowed):
         return None
     safe: dict[str, str | int] = {}
     for key, value in properties.items():
