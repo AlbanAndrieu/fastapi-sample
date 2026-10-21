@@ -22,12 +22,12 @@ from nabla.api.homelab_models import HomelabCatalog
 from nabla.api.homelab_runtime import TrueNASRuntimeSnapshot
 from nabla.api.homelab_topology import HomelabTopology
 from nabla.api.public_homelab_dto import PublicHomelabV1, load_public_homelab_v1
-from nabla.api.site_health_v2 import SiteHealthV2, fetch_site_health_v2
 from nabla.api.site_architecture_catalog import (
     SiteArchitectureCatalogV2,
     SiteCatalogV2Unavailable,
     fetch_site_catalog_v2,
 )
+from nabla.api.site_health_v2 import SiteHealthV2, fetch_site_health_v2
 from nabla.utils.logger import logger
 
 
