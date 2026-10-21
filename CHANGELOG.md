@@ -1,3 +1,10 @@
+# [1.24.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.23.2...1.24.0) (2026-10-21)
+
+
+### Features
+
+* **site:** projection sécurisée des statuts Backstage v2 ([#360](https://github.com/AlbanAndrieu/fastapi-sample/issues/360)) ([14586dc](https://github.com/AlbanAndrieu/fastapi-sample/commit/14586dc05a15755a0bf88ff44ff81a1cf7cea9ea))
+
 ## [1.23.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.23.1...1.23.2) (2026-10-21)
 
 
