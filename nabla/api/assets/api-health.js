@@ -1,5 +1,6 @@
 import { installGlobalServiceFilter } from "./api-global-service-filter.js";
 import { installOwnerSessionControls } from "./api-owner-session.js";
+import { installPublicServiceOverview } from "./api-public-services.js";
 import { installHealthBoardController } from "./api-health-controller.js";
 import { installHealthOperatorUx } from "./api-health-operator-ux.js";
 import { installHealthUiConsistencyFollowup } from "./api-health-ui-consistency-followup.js";
@@ -37,6 +38,7 @@ startProbeAgeTicker();
 installHttpProbeStatuses();
 installHealthBoardController();
 installOwnerSessionControls(() => window.location.reload());
+void installPublicServiceOverview();
 installServiceOperatorDiagnostics();
 installServiceProbeDetails();
 installServiceProbeHelp();

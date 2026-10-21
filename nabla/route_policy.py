@@ -40,7 +40,7 @@ INTERNAL = RoutePolicy(Visibility.INTERNAL, Credential.DIAGNOSTICS_KEY)
 MCP = RoutePolicy(Visibility.INTERNAL, Credential.MCP_KEY)
 WEBSOCKET = RoutePolicy(Visibility.INTERNAL, Credential.ACCESS_JWT)
 
-_PUBLIC = frozenset({"/health", "/livez", "/api/public-homelab/v1"})
+_PUBLIC = frozenset({"/health", "/livez", "/api/public-homelab/v1", "/api/ui/services"})
 _DIAGNOSTIC_EXACT = frozenset(
     {
         "/api/homelab-services",
