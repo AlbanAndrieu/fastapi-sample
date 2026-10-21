@@ -22,6 +22,7 @@ from nabla.api.homelab_models import HomelabCatalog
 from nabla.api.homelab_runtime import TrueNASRuntimeSnapshot
 from nabla.api.homelab_topology import HomelabTopology
 from nabla.api.public_homelab_dto import PublicHomelabV1, load_public_homelab_v1
+from nabla.api.site_health_v2 import SiteHealthV2, fetch_site_health_v2
 from nabla.api.site_architecture_catalog import (
     SiteArchitectureCatalogV2,
     SiteCatalogV2Unavailable,
@@ -138,6 +139,26 @@ def _register_homelab_catalog_routes(app: FastAPI) -> None:
                 status_code=503,
                 detail="Authoritative catalog unavailable",
                 headers={**_NO_STORE_HEADERS, "X-Robots-Tag": "noindex, nofollow"},
+            ) from None
+
+    @app.get(
+        "/api/site/health/v2",
+        response_model=SiteHealthV2,
+        summary="Machine-authenticated minimal v2 service states",
+        tags=["Homelab"],
+        include_in_schema=False,
+    )
+    async def get_site_health_v2(
+        request: Request, response: Response
+    ) -> SiteHealthV2:
+        response.headers.update({**_NO_STORE_HEADERS, "X-Robots-Tag": "noindex, nofollow"})
+        try:
+            return await fetch_site_health_v2(request)
+        except SiteCatalogV2Unavailable:
+            raise HTTPException(
+                status_code=503,
+                detail="Authoritative Backstage v2 unavailable",
+                headers=_NO_STORE_HEADERS,
             ) from None
 
     @app.get(
