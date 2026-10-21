@@ -4,6 +4,7 @@ This is intentionally separate from OWNER and SERVICE diagnostic endpoints.
 Only reviewed Backstage labels and four-valued summarized health are projected.
 No URLs, IPs, ports, dependencies, security posture or probe evidence escape.
 """
+
 from __future__ import annotations
 
 import os

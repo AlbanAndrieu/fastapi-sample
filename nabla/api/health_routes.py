@@ -172,9 +172,7 @@ def _register_homelab_catalog_routes(app: FastAPI) -> None:
         tags=["Homelab"],
         include_in_schema=False,
     )
-    async def get_public_service_overview(
-        request: Request, response: Response
-    ) -> PublicUiServices:
+    async def get_public_service_overview(request: Request, response: Response) -> PublicUiServices:
         """Temporary minimal UI feed. Raw diagnostics stay owner-only."""
         if not public_ui_services_enabled():
             raise HTTPException(status_code=404, detail="Not found")
