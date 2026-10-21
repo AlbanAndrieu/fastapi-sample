@@ -79,7 +79,11 @@ export async function installPublicServiceOverview() {
       if (!response.ok) throw new Error("Unavailable (HTTP " + response.status + ")");
       const payload = await response.json();
       if (!validOverview(payload)) throw new Error("Invalid service directory response");
-      rows = payload.services;
+      // Never label expired probe observations as healthy or failing.
+      rows = payload.services.map((service) => ({
+        ...service,
+        state: payload.boardState === "fresh" ? service.state : "unknown",
+      }));
       summary.dataset.serviceCount = String(rows.length);
       const counts = { ok: 0, warn: 0, fail: 0, unknown: 0 };
       for (const row of rows) counts[row.state] += 1;
@@ -99,11 +103,19 @@ export async function installPublicServiceOverview() {
         }, 9000);
       }
     } catch {
-      rows = [];
-      delete summary.dataset.serviceCount;
-      list.replaceChildren();
-      expand.hidden = true;
-      summary.textContent = "Service directory temporarily unavailable. Owner diagnostics remain locked.";
+      // Keep a previously loaded roster in memory when refresh fails, but
+      // revoke every stale health assertion until new evidence is verified.
+      if (rows.length > 0) {
+        rows = rows.map((service) => ({ ...service, state: "unknown" }));
+        summary.textContent = rows.length +
+          " services listed · observations unavailable, all statuses UNKNOWN";
+        render();
+      } else {
+        delete summary.dataset.serviceCount;
+        list.replaceChildren();
+        expand.hidden = true;
+        summary.textContent = "Service directory temporarily unavailable. Owner diagnostics remain locked.";
+      }
     } finally {
       loading = false;
       refresh.disabled = false;

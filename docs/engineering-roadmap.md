@@ -163,3 +163,5 @@ attaquant externe utilise l'endpoint comme oracle de vérification de clés.
 - [x] Opt-out: HOMELAB_UI_PUBLIC_SERVICES_ENABLED=false returns 404 and hides the temporary feed, default true until owner admission is repaired and verified. This intentionally makes a minimal inventory PUBLIC while enabled; retire immediately after the real owner session is restored.
 - [ ] Validate live service states/coverage (entityRef mapping still incomplete), Swagger/OpenAPI inventory exposure, click-through filters, mobile view and security negative tests. No public raw IPs, internal URLs, ports, credentials, probe evidence or dependency graph.
 - [ ] Before merge: test exact SHA locally and ensure Deploy to FastAPI Cloud passes (existing production deployment workflow is blocked by tests). Do not infer live deployment from merged PR.
+
+- [x] Frontend safety net: on stale/pending status DTO or failed refresh, reset all observed statuses to UNKNOWN while preserving a previously loaded service roster in volatile memory (no localStorage). Offline DOM smoke confirms 42 labels survive a 503, never retaining stale OK.

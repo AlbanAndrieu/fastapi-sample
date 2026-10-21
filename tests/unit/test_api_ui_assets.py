@@ -386,3 +386,11 @@ def test_limited_service_overview_asset_is_public_only_and_distinct() -> None:
     assert "See service directory" in (
         _ASSET_DIR / "api-health-core.js"
     ).read_text(encoding="utf-8")
+
+
+def test_limited_service_overview_never_claims_stale_health() -> None:
+    script = (_ASSET_DIR / "api-public-services.js").read_text(encoding="utf-8")
+    assert 'payload.boardState === "fresh" ? service.state : "unknown"' in script
+    assert 'rows.map((service) => ({ ...service, state: "unknown" }))' in script
+    assert "all statuses UNKNOWN" in script
+    assert "localStorage" not in script
