@@ -62,6 +62,7 @@ def _login(client: TestClient):
         "/api/ui/session",
         headers={
             "Origin": "https://fastapi-sample.fastapicloud.dev",
+            "Sec-Fetch-Site": "same-origin",
             "X-Diagnostics-Key": "unit-only-secret-do-not-share",
         },
     )
@@ -97,31 +98,52 @@ def test_authorized_browser_session_can_read_health_but_not_other_scopes(monkeyp
     assert client.post("/api/health-board/cache/reset").status_code == 403
     assert client.post(
         "/api/health-board/cache/reset",
-        headers={"Origin": "https://fastapi-sample.fastapicloud.dev"},
+        headers={
+            "Origin": "https://fastapi-sample.fastapicloud.dev",
+            "Sec-Fetch-Site": "same-origin",
+        },
     ).status_code == 200
     assert client.post(
         "/api/ui/session/logout",
-        headers={"Origin": "https://fastapi-sample.fastapicloud.dev"},
+        headers={
+            "Origin": "https://fastapi-sample.fastapicloud.dev",
+            "Sec-Fetch-Site": "same-origin",
+        },
     ).status_code == 200
     assert client.get("/api/health-board").status_code == 401
 
 
 def test_cidr_and_origin_mandatory_even_with_correct_key(monkeypatch) -> None:
     remote = _client(monkeypatch, "203.0.113.42")
-    assert _login(remote).status_code == 403
+    denial = _login(remote)
+    assert denial.status_code == 403
+    assert denial.json() == {
+        "detail": "Owner network not authorized",
+        "code": "source_unverified",
+    }
+    assert "82.66.4.247" not in denial.text
     assert remote.get("/api/health-board").status_code == 401
     local = _client(monkeypatch, "82.66.4.247")
-    assert local.post("/api/ui/session", headers={
-        "X-Diagnostics-Key": "unit-only-secret-do-not-share",
-    }).status_code == 403
-    assert local.post("/api/ui/session", headers={
-        "Origin": "https://evil.example",
-        "X-Diagnostics-Key": "unit-only-secret-do-not-share",
-    }).status_code == 403
-    assert local.post("/api/ui/session", headers={
-        "Origin": "https://fastapi-sample.fastapicloud.dev",
-        "X-Diagnostics-Key": "wrong",
-    }).status_code == 401
+    bad_origin = local.post(
+        "/api/ui/session", headers={
+            "X-Diagnostics-Key": "unit-only-secret-do-not-share",
+        },
+    )
+    assert bad_origin.status_code == 403
+    assert bad_origin.json()["code"] == "origin_unverified"
+    assert local.post(
+        "/api/ui/session", headers={
+            "Origin": "https://evil.example",
+            "X-Diagnostics-Key": "unit-only-secret-do-not-share",
+        },
+    ).status_code == 403
+    assert local.post(
+        "/api/ui/session", headers={
+            "Origin": "https://fastapi-sample.fastapicloud.dev",
+            "Sec-Fetch-Site": "same-origin",
+            "X-Diagnostics-Key": "wrong",
+        },
+    ).status_code == 401
     assert local.get(
         "/api/health-board",
         headers={"X-Forwarded-For": "82.66.4.247"},
@@ -137,3 +159,27 @@ def test_v1_http_retirement_flag_never_modifies_internal_probes(monkeypatch) -> 
     assert not _legacy_homelab_http_enabled()
     monkeypatch.setenv("HOMELAB_V1_HTTP_ENABLED", "unexpected")
     assert not _legacy_homelab_http_enabled()
+
+
+
+def test_operator_unconfigured_is_503_and_never_discloses_config(monkeypatch) -> None:
+    settings = _settings()
+    settings.diagnostics_access_key = None
+    monkeypatch.setattr(access_control, "get_settings", lambda: settings)
+    monkeypatch.setattr(owner_ui_session, "get_settings", lambda: settings)
+
+    app = FastAPI()
+    app.middleware("http")(access_control.operations_access_middleware)
+    register_owner_ui_session_routes(app)
+    client = TestClient(
+        app,
+        base_url="https://fastapi-sample.fastapicloud.dev",
+        client=("82.66.4.247", 48399),
+    )
+    response = _login(client)
+    assert response.status_code == 503
+    assert response.json() == {
+        "detail": "Operator authentication not configured",
+        "code": "unconfigured",
+    }
+    assert response.headers["cache-control"] == "private, no-store, max-age=0"

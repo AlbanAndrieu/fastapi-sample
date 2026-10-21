@@ -27,6 +27,7 @@ from nabla.api.site_architecture_catalog import (
     SiteCatalogV2Unavailable,
     fetch_site_catalog_v2,
 )
+from nabla.api.site_health_v2 import SiteHealthV2, fetch_site_health_v2
 from nabla.utils.logger import logger
 
 
@@ -36,6 +37,8 @@ _NO_STORE_HEADERS = {"Cache-Control": "no-store, max-age=0", "Pragma": "no-cache
 def _legacy_homelab_http_enabled() -> bool:
     """Migration switch: only HTTP v1 serialization, never internal probes."""
     return os.getenv("HOMELAB_V1_HTTP_ENABLED", "true").strip().lower() == "true"
+
+
 _PROBE_RUNTIME_STARTED_AT = datetime.now(UTC).isoformat().replace("+00:00", "Z")
 _PROBE_RUNTIME_STARTED_MONOTONIC = time.monotonic()
 
@@ -138,6 +141,24 @@ def _register_homelab_catalog_routes(app: FastAPI) -> None:
                 status_code=503,
                 detail="Authoritative catalog unavailable",
                 headers={**_NO_STORE_HEADERS, "X-Robots-Tag": "noindex, nofollow"},
+            ) from None
+
+    @app.get(
+        "/api/site/health/v2",
+        response_model=SiteHealthV2,
+        summary="Machine-authenticated minimal v2 service states",
+        tags=["Homelab"],
+        include_in_schema=False,
+    )
+    async def get_site_health_v2(request: Request, response: Response) -> SiteHealthV2:
+        response.headers.update({**_NO_STORE_HEADERS, "X-Robots-Tag": "noindex, nofollow"})
+        try:
+            return await fetch_site_health_v2(request)
+        except SiteCatalogV2Unavailable:
+            raise HTTPException(
+                status_code=503,
+                detail="Authoritative Backstage v2 unavailable",
+                headers=_NO_STORE_HEADERS,
             ) from None
 
     @app.get(

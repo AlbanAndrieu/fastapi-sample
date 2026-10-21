@@ -60,7 +60,29 @@ export function installOwnerSessionControls(onAuthenticated) {
         cache: "no-store",
         headers: { "X-Diagnostics-Key": key, Accept: "application/json" },
       });
-      if (!response.ok) throw new Error("Access denied (HTTP " + response.status + ")");
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        const reason = payload?.code;
+        if (response.status === 401) {
+          throw new Error("Incorrect diagnostics key (HTTP 401).");
+        }
+        if (response.status === 503 || reason === "unconfigured") {
+          throw new Error("Owner access is not configured on FastAPI Cloud (HTTP 503).");
+        }
+        if (
+          reason === "origin_unverified" ||
+          payload?.detail === "Same-origin request required"
+        ) {
+          throw new Error("Browser same-origin verification failed (HTTP 403).");
+        }
+        if (response.status === 403) {
+          throw new Error(
+            "Home network source is not verified by FastAPI Cloud (HTTP 403). " +
+            "Check the trusted CIDRs and reverse-proxy configuration."
+          );
+        }
+        throw new Error("Diagnostics login unavailable (HTTP " + response.status + ").");
+      }
       resetOwnerSessionStatus();
       update(true);
       onAuthenticated();

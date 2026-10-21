@@ -118,3 +118,36 @@ notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blo
   source of truth for validation/evidence policy.
 - No merge/deployment without instruction; status = PASS/FAIL/NOT_RUN
   linked to the exact commit and tested environment.
+
+## Incident 2026-10-21 — Owner UI refusée en 403 depuis le domicile
+
+L'IP IPv4 domestique confirmée par l'utilisateur est `82.66.4.247`. Une sortie
+`curl -4` ne prouve pas que le navigateur utilise IPv4 (IPv6 peut être
+préférée), ni que FastAPI Cloud voit cette IP derrière son ingress/proxy.
+
+La connexion sur `POST /api/ui/session` distingue désormais dans sa réponse
+**sans adresse source ni secret** :
+- `503 code=unconfigured` : la variable `DIAGNOSTICS_ACCESS_KEY` manque au runtime.
+- `403 code=origin_unverified` : l'origine HTTPS/Host/Sec-Fetch-Site ne concordent pas.
+- `403 code=source_unverified` : le serveur ne peut pas vérifier une IP
+  cliente appartenant à `HOMELAB_TRUSTED_CIDRS`.
+- `401` : une clé incorrecte, **seulement** si l'origine et le réseau sont autorisés.
+
+Préserver l'ordre origin → réseau → comparaison du secret : il empêche qu'un
+attaquant externe utilise l'endpoint comme oracle de vérification de clés.
+Éviter d'enregistrer/afficher les valeurs de headers ou la clé.
+
+**Actions runtime non réalisées** :
+1. Inspecter via `mise exec -- uv run fastapi cloud env list` la **présence**
+   de `DIAGNOSTICS_ACCESS_KEY`, `HOMELAB_TRUSTED_CIDRS` et
+   `HOMELAB_TRUSTED_PROXY_CIDRS`, sans afficher de secrets.
+2. Vérifier l'origine de la requête, l'IP de peer ASGI et la provenance
+   réellement vérifiée de `X-Forwarded-For` **dans les logs privés**, sans
+   diffuser les valeurs. Une chaîne multi-proxy peut être légitime, mais il
+   faut prouver les pairs de confiance avant d'élargir son interprétation.
+3. N'approuver dans `HOMELAB_TRUSTED_PROXY_CIDRS` que les adresses de
+   proxy ingress contrôlées et vérifiées ; jamais `0.0.0.0/0`, `::/0`,
+   l'ensemble des IP cloud, ni une variable `FORWARDED_ALLOW_IPS=*`.
+4. Déployer et tester depuis IPv4/IPv6, réseau tiers, en-tête forgé, et cookie
+   expiré. Réponse `403` sans données opérationnelles en cas de provenance
+   invérifiable. Les sondes cloud restent indépendantes de cette session.
