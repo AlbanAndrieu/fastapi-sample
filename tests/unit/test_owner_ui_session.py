@@ -117,19 +117,25 @@ def test_cidr_and_origin_mandatory_even_with_correct_key(monkeypatch) -> None:
     assert "82.66.4.247" not in denial.text
     assert remote.get("/api/health-board").status_code == 401
     local = _client(monkeypatch, "82.66.4.247")
-    bad_origin = local.post("/api/ui/session", headers={
-        "X-Diagnostics-Key": "unit-only-secret-do-not-share",
-    })
+    bad_origin = local.post(
+        "/api/ui/session", headers={
+            "X-Diagnostics-Key": "unit-only-secret-do-not-share",
+        },
+    )
     assert bad_origin.status_code == 403
     assert bad_origin.json()["code"] == "origin_unverified"
-    assert local.post("/api/ui/session", headers={
-        "Origin": "https://evil.example",
-        "X-Diagnostics-Key": "unit-only-secret-do-not-share",
-    }).status_code == 403
-    assert local.post("/api/ui/session", headers={
-        "Origin": "https://fastapi-sample.fastapicloud.dev",
-        "X-Diagnostics-Key": "wrong",
-    }).status_code == 401
+    assert local.post(
+        "/api/ui/session", headers={
+            "Origin": "https://evil.example",
+            "X-Diagnostics-Key": "unit-only-secret-do-not-share",
+        },
+    ).status_code == 403
+    assert local.post(
+        "/api/ui/session", headers={
+            "Origin": "https://fastapi-sample.fastapicloud.dev",
+            "X-Diagnostics-Key": "wrong",
+        },
+    ).status_code == 401
     assert local.get(
         "/api/health-board",
         headers={"X-Forwarded-For": "82.66.4.247"},

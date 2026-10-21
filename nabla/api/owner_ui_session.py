@@ -74,7 +74,7 @@ def owner_cookie_valid(token: str | None, settings: object, *, now: int | None =
 
 def owner_ui_authenticated(request: Request, settings: object) -> bool:
     return allowed_owner_source(request.scope, settings) and owner_cookie_valid(
-        request.cookies.get(COOKIE_NAME), settings
+        request.cookies.get(COOKIE_NAME), settings,
     )
 
 
@@ -136,7 +136,7 @@ def register_owner_ui_session_routes(app: FastAPI) -> None:
         supplied = request.headers.get("X-Diagnostics-Key", "")
         if not supplied or not hmac.compare_digest(supplied, secret):
             return JSONResponse(
-                {"detail": "Unauthorized"}, status_code=401, headers=_DENY_HEADERS
+                {"detail": "Unauthorized"}, status_code=401, headers=_DENY_HEADERS,
             )
         response = JSONResponse({"authenticated": True}, headers=_DENY_HEADERS)
         response.set_cookie(
@@ -154,10 +154,10 @@ def register_owner_ui_session_routes(app: FastAPI) -> None:
     async def session_logout(request: Request) -> JSONResponse:
         if not owner_cookie_write_allowed(request):
             return JSONResponse(
-                {"detail": "Same-origin request required"}, status_code=403, headers=_DENY_HEADERS
+                {"detail": "Same-origin request required"}, status_code=403, headers=_DENY_HEADERS,
             )
         response = JSONResponse({"authenticated": False}, headers=_DENY_HEADERS)
         response.delete_cookie(
-            COOKIE_NAME, secure=True, httponly=True, samesite="strict", path="/"
+            COOKIE_NAME, secure=True, httponly=True, samesite="strict", path="/",
         )
         return response
