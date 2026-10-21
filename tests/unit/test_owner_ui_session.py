@@ -62,6 +62,7 @@ def _login(client: TestClient):
         "/api/ui/session",
         headers={
             "Origin": "https://fastapi-sample.fastapicloud.dev",
+            "Sec-Fetch-Site": "same-origin",
             "X-Diagnostics-Key": "unit-only-secret-do-not-share",
         },
     )
@@ -97,11 +98,17 @@ def test_authorized_browser_session_can_read_health_but_not_other_scopes(monkeyp
     assert client.post("/api/health-board/cache/reset").status_code == 403
     assert client.post(
         "/api/health-board/cache/reset",
-        headers={"Origin": "https://fastapi-sample.fastapicloud.dev"},
+        headers={
+            "Origin": "https://fastapi-sample.fastapicloud.dev",
+            "Sec-Fetch-Site": "same-origin",
+        },
     ).status_code == 200
     assert client.post(
         "/api/ui/session/logout",
-        headers={"Origin": "https://fastapi-sample.fastapicloud.dev"},
+        headers={
+            "Origin": "https://fastapi-sample.fastapicloud.dev",
+            "Sec-Fetch-Site": "same-origin",
+        },
     ).status_code == 200
     assert client.get("/api/health-board").status_code == 401
 
@@ -133,6 +140,7 @@ def test_cidr_and_origin_mandatory_even_with_correct_key(monkeypatch) -> None:
     assert local.post(
         "/api/ui/session", headers={
             "Origin": "https://fastapi-sample.fastapicloud.dev",
+            "Sec-Fetch-Site": "same-origin",
             "X-Diagnostics-Key": "wrong",
         },
     ).status_code == 401
