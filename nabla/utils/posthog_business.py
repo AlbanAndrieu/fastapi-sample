@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from collections.abc import Mapping
 from urllib.request import Request, urlopen
 
@@ -31,7 +32,7 @@ def _validate(event: str, properties: Mapping[str, object]) -> dict[str, str | i
             if type(value) is not int or value not in {401, 403, 404, 429, 500, 502, 503, 504}:
                 return None
             safe[key] = value
-        elif not isinstance(value, str) or len(value) > 64:
+        elif not isinstance(value, str) or not re.fullmatch(r"[a-zA-Z0-9_.-]{1,64}", value):
             return None
         elif key == "app" and value not in _ALLOWED_APPS:
             return None
