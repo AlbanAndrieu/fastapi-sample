@@ -1,3 +1,11 @@
+## [1.23.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.23.1...1.23.2) (2026-10-21)
+
+
+### Bug Fixes
+
+* **deps:** bump certifi ([#359](https://github.com/AlbanAndrieu/fastapi-sample/issues/359)) ([a3671ff](https://github.com/AlbanAndrieu/fastapi-sample/commit/a3671ffebef6ed57ce0d318169967ff5a8352227))
+* **ui/security:** diagnostics owner, catalogue Backstage v2, migration v1 et sondes WAN ([#358](https://github.com/AlbanAndrieu/fastapi-sample/issues/358)) ([ecb7fba](https://github.com/AlbanAndrieu/fastapi-sample/commit/ecb7fba49a100a77afdb47aefb5676076a985275))
+
 ## [1.23.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.23.0...1.23.1) (2026-10-20)
 
 
