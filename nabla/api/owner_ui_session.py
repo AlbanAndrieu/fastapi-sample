@@ -112,13 +112,26 @@ def register_owner_ui_session_routes(app: FastAPI) -> None:
     async def session_login(request: Request) -> JSONResponse:
         settings = get_settings()
         secret = _secret(settings)
-        if not secret or not allowed_owner_source(request.scope, settings):
+        if not secret:
             return JSONResponse(
-                {"detail": "Owner access unavailable"}, status_code=403, headers=_DENY_HEADERS
+                {"detail": "Operator authentication not configured", "code": "unconfigured"},
+                status_code=503,
+                headers=_DENY_HEADERS,
             )
         if not owner_cookie_write_allowed(request):
             return JSONResponse(
-                {"detail": "Same-origin request required"}, status_code=403, headers=_DENY_HEADERS
+                {"detail": "Same-origin request required", "code": "origin_unverified"},
+                status_code=403,
+                headers=_DENY_HEADERS,
+            )
+        if not allowed_owner_source(request.scope, settings):
+            # Never disclose source addresses, proxy hops or CIDR values.
+            # Verify the trusted source BEFORE evaluating any submitted key
+            # to keep the login oracle unavailable to untrusted networks.
+            return JSONResponse(
+                {"detail": "Owner network not authorized", "code": "source_unverified"},
+                status_code=403,
+                headers=_DENY_HEADERS,
             )
         supplied = request.headers.get("X-Diagnostics-Key", "")
         if not supplied or not hmac.compare_digest(supplied, secret):
