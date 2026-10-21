@@ -37,6 +37,8 @@ _NO_STORE_HEADERS = {"Cache-Control": "no-store, max-age=0", "Pragma": "no-cache
 def _legacy_homelab_http_enabled() -> bool:
     """Migration switch: only HTTP v1 serialization, never internal probes."""
     return os.getenv("HOMELAB_V1_HTTP_ENABLED", "true").strip().lower() == "true"
+
+
 _PROBE_RUNTIME_STARTED_AT = datetime.now(UTC).isoformat().replace("+00:00", "Z")
 _PROBE_RUNTIME_STARTED_MONOTONIC = time.monotonic()
 
