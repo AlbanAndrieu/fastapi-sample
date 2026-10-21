@@ -1,4 +1,5 @@
 """Only SERVICE-allowlisted Backstage v2 health states; never expose raw probes."""
+
 from __future__ import annotations
 
 import re
@@ -42,7 +43,8 @@ def _verified_state(row: object) -> State:
 
 
 def project_site_health_v2(
-    catalog: SiteArchitectureCatalogV2, board: object,
+    catalog: SiteArchitectureCatalogV2,
+    board: object,
 ) -> SiteHealthV2:
     """Ambiguous, stale or absent observations yield UNKNOWN, never FAIL."""
     if not isinstance(board, dict):
@@ -67,11 +69,7 @@ def project_site_health_v2(
     entries = [
         SiteHealthServiceV2(
             entityRef=entity.entityRef,
-            state=(
-                _verified_state(by_id.get(entity.metadata.name))
-                if board_state == "fresh" and entity.metadata.name not in duplicates
-                else "unknown"
-            ),
+            state=(_verified_state(by_id.get(entity.metadata.name)) if board_state == "fresh" and entity.metadata.name not in duplicates else "unknown"),
         )
         for entity in catalog.entities
         if entity.kind in ("Component", "Resource", "API")

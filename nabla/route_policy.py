@@ -68,10 +68,7 @@ def route_policy_for(path: str, *, method: str = "GET", kind: str = "http") -> R
         return WEBSOCKET if within(path, "/ws") else REVIEW
     if kind != "http":
         return REVIEW
-    if (
-        (path == "/api/ui/session" and method.upper() in {"GET", "HEAD", "POST"})
-        or (path == "/api/ui/session/logout" and method.upper() == "POST")
-    ):
+    if (path == "/api/ui/session" and method.upper() in {"GET", "HEAD", "POST"}) or (path == "/api/ui/session/logout" and method.upper() == "POST"):
         return PUBLIC
     if path in {"/api/site/catalog/v2", "/api/site/health/v2"} and method.upper() in {"GET", "HEAD"}:
         return SITE_CATALOG

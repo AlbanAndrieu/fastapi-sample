@@ -1,4 +1,5 @@
 """Contract and privacy tests for the SITE health v2 service."""
+
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -104,12 +105,10 @@ def test_only_machine_key_can_fetch_site_health(monkeypatch):
     health_routes._register_homelab_catalog_routes(app)
     client = TestClient(app)
     assert client.get("/api/site/health/v2").status_code == 401
-    assert (
-        client.get("/api/site/health/v2", headers={"X-Diagnostics-Key": "bad"}).status_code
-        == 401
-    )
+    assert client.get("/api/site/health/v2", headers={"X-Diagnostics-Key": "bad"}).status_code == 401
     response = client.get(
-        "/api/site/health/v2", headers={"X-Diagnostics-Key": "site-machine-key"},
+        "/api/site/health/v2",
+        headers={"X-Diagnostics-Key": "site-machine-key"},
     )
     assert response.status_code == 200
     assert response.json()["boardState"] == "pending"
