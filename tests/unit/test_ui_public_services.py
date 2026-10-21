@@ -132,3 +132,31 @@ def test_anonymous_public_overview_never_opens_raw_diagnostics(monkeypatch):
     monkeypatch.setenv("HOMELAB_UI_PUBLIC_SERVICES_ENABLED", "false")
     assert client.get("/api/ui/services").status_code == 404
     assert client.get("/api/health-board").status_code != 200
+
+
+async def _broken_health_board(_request):
+    raise RuntimeError("Private upstream unavailable at 172.17.0.24:9999")
+
+
+def test_directory_survives_failed_diagnostics_with_unknown(monkeypatch):
+    import pytest
+
+    from nabla.api import ui_public_services
+
+    monkeypatch.setattr(
+        ui_public_services,
+        "fetch_site_catalog_v2",
+        AsyncMock(return_value=_catalog()),
+    )
+    monkeypatch.setattr(
+        "nabla.api.health_board.get_health_board_snapshot",
+        _broken_health_board,
+    )
+
+    async def run():
+        return await ui_public_services.get_public_ui_services(None)
+
+    result = __import__("asyncio").run(run())
+    assert result.boardState == "pending"
+    assert all(row.state == "unknown" for row in result.services)
+    assert "172.17.0.24" not in str(result.model_dump())
