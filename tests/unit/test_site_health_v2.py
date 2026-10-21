@@ -109,7 +109,7 @@ def test_only_machine_key_can_fetch_site_health(monkeypatch):
         == 401
     )
     response = client.get(
-        "/api/site/health/v2", headers={"X-Diagnostics-Key": "site-machine-key"}
+        "/api/site/health/v2", headers={"X-Diagnostics-Key": "site-machine-key"},
     )
     assert response.status_code == 200
     assert response.json()["boardState"] == "pending"
