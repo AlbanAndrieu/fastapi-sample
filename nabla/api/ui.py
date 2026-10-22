@@ -179,8 +179,8 @@ def render_api_root_page(
                 <section id="public-services-panel" class="public-services-panel" aria-labelledby="public-services-title" hidden>
                     <div class="public-services-heading">
                         <div>
-                            <h3 id="public-services-title">Service directory · limited view</h3>
-                            <p class="health-board-meta">Temporary display of service names and summary states only. Detailed probes remain restricted.</p>
+                            <h3 id="public-services-title">Service directory · public service status</h3>
+                            <p class="health-board-meta">Service names and verified aggregate states are available without login, including when outside the home network. Detailed probes require authentication.</p>
                         </div>
                         <button type="button" id="public-services-refresh">Refresh statuses</button>
                     </div>
