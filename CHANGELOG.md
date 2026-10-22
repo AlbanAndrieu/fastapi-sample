@@ -1,3 +1,10 @@
+## [1.24.3](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.24.2...1.24.3) (2026-10-22)
+
+
+### Bug Fixes
+
+* **deploy:** authentification FastAPI Cloud par Deploy Token sans env set ([#363](https://github.com/AlbanAndrieu/fastapi-sample/issues/363)) ([6b95a81](https://github.com/AlbanAndrieu/fastapi-sample/commit/6b95a813d44154e88135c8b7d4370b2a01f6734f))
+
 ## [1.24.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.24.1...1.24.2) (2026-10-22)
 
 
