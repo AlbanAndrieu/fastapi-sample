@@ -1,3 +1,15 @@
+## [1.24.2](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.24.1...1.24.2) (2026-10-22)
+
+
+### Bug Fixes
+
+* **deps:** bump the uv group across 1 directory with 2 updates ([#362](https://github.com/AlbanAndrieu/fastapi-sample/issues/362)) ([e59e65f](https://github.com/AlbanAndrieu/fastapi-sample/commit/e59e65f6e49c470ca573a093ae77d443a8ff311b))
+
+
+### Performance Improvements
+
+* **health:** overlap /healthz TLS enrichments and pay down C901 debt ([#364](https://github.com/AlbanAndrieu/fastapi-sample/issues/364)) ([cd79916](https://github.com/AlbanAndrieu/fastapi-sample/commit/cd79916f592f99568cb1f52664d9fff140377778))
+
 ## [1.24.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.24.0...1.24.1) (2026-10-22)
 
 
