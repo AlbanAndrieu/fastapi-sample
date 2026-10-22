@@ -42,4 +42,11 @@ RELEASE_VERSION = resolve_release_version()
 BUILD_REVISION = resolve_build_revision()
 RUNTIME_VERSION = f"{API_VERSION}+{RELEASE_VERSION}"
 
-__all__ = ("API_VERSION", "BUILD_REVISION", "RELEASE_VERSION", "RUNTIME_VERSION", "resolve_release_version", "resolve_build_revision")
+__all__ = (
+    "API_VERSION",
+    "BUILD_REVISION",
+    "RELEASE_VERSION",
+    "RUNTIME_VERSION",
+    "resolve_release_version",
+    "resolve_build_revision",
+)

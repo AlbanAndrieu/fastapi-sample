@@ -230,7 +230,9 @@ def test_fastapi_cloud_deployment_explicitly_disables_debug() -> None:
         (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8"),
     )
     steps = workflow["jobs"]["deploy"]["steps"]
-    deployment = next(step for step in steps if step.get("name") == "Deploy and wait for FastAPI Cloud verification")
+    deployment = next(
+        step for step in steps if step.get("name") == "Deploy and wait for FastAPI Cloud verification"
+    )
 
     assert "uv run fastapi cloud env set " not in deployment["run"]
     assert "uv run fastapi deploy" in deployment["run"]
@@ -254,3 +256,10 @@ def test_deploy_token_is_never_used_for_cloud_account_env_operations() -> None:
     assert "FASTAPI_CLOUD_TOKEN" in deploy["env"]
     assert "FASTAPI_CLOUD_APP_ID" in deploy["env"]
     assert "FASTAPI_CLOUD_TOKEN" not in stamp.get("env", {})
+
+
+def test_deployment_revision_artifact_is_included_in_source_bundle() -> None:
+    ignored = (ROOT / ".fastapicloudignore").read_text(encoding="utf-8")
+    assert "_deployment_revision.py" not in ignored
+    assert (ROOT / "nabla/_deployment_revision.py").is_file()
+    assert (ROOT / "scripts/stamp_fastapi_deploy_revision.py").is_file()

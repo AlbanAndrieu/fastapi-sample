@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import re
+from pathlib import Path
 
 _TARGET = Path(__file__).resolve().parents[1] / "nabla" / "_deployment_revision.py"
 _SHA = re.compile(r"[0-9a-f]{40}")
