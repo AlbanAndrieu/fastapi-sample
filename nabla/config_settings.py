@@ -172,6 +172,12 @@ class _Settings(DatabaseSettings):
         bool,
         Field(default=False, validation_alias=AliasChoices("OPS_ROUTE_POLICY_STRICT")),
     ]
+    # Temporary remote OWNER sessions: keep strong key/JWT authentication but
+    # suspend the home-IP condition. Restore default false after MFA cutover.
+    homelab_owner_remote_access_enabled: Annotated[
+        bool,
+        Field(default=True, validation_alias=AliasChoices("HOMELAB_OWNER_REMOTE_ACCESS_ENABLED")),
+    ]
     homelab_trusted_proxy_cidrs: Annotated[
         str,
         Field(default="", validation_alias=AliasChoices("HOMELAB_TRUSTED_PROXY_CIDRS")),
