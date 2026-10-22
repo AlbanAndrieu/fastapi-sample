@@ -130,3 +130,24 @@ docker-up:
 # Example: just legacy test-semgrep
 legacy target:
     make "{{target}}"
+
+# Bababou parity: dependency-free syntax + draft-runner policy. Zero hosted minutes.
+offline-l1:
+    bash scripts/agent-offline-check.sh
+
+# Explicit targeted P0 gate; requires dependencies already installed, never syncs.
+p0:
+    bash scripts/agent-offline-check.sh
+    UV_OFFLINE=true bash scripts/run-pytest-compact.sh tests/unit/test_draft_workflow_budget_contract.py tests/unit/test_talos_manifest_contract.py
+
+# Mandatory full workflow audit through the existing pinned pre-commit hooks.
+workflow-audit:
+    uv run --no-sync pre-commit run actionlint --all-files
+    uv run --no-sync pre-commit run zizmor --all-files
+
+# Offline Kubernetes rendering (no deploy, push, or GitHub CI).
+k8s-render:
+    kubectl kustomize deploy/talos
+
+k8s-contracts:
+    UV_OFFLINE=true bash scripts/run-pytest-compact.sh tests/unit/test_talos_manifest_contract.py
