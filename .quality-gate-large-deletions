@@ -10,3 +10,7 @@
 04b7504bf4281bf9b4ca2abdfe30926fc86fdcdc docs/engineering-roadmap.md
 # Reviewed rename requested by the owner: production-smoke.yml -> master-smoke.yml (content preserved).
 04b7504bf4281bf9b4ca2abdfe30926fc86fdcdc .github/workflows/production-smoke.yml
+# Approved by the owner: remove redundant GitHub Actions FastAPI Cloud deploy.
+0448c563cfddfd8f927ed423531c28ea2366cadd .github/workflows/deploy.yml
+# Approved by owner: remove duplicate manual Super-Linter workflow.
+0448c563cfddfd8f927ed423531c28ea2366cadd .github/workflows/linter.yml

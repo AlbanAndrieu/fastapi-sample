@@ -91,3 +91,14 @@ def allowed_owner_source(scope: dict[str, Any], settings: Any) -> bool:
         return source is not None and any(source in net for net in parse_cidrs(raw))
     except (TypeError, ValueError):
         return False
+
+
+def owner_source_permitted(scope: dict[str, Any], settings: Any) -> bool:
+    """Temporary remote OWNER gate: disable CIDR factor, never identity/key auth.
+
+    Use this consistently for HTTP, signed browser sessions and ASGI transports.
+    Restore the original CIDR factor with HOMELAB_OWNER_REMOTE_ACCESS_ENABLED=false.
+    """
+    if getattr(settings, "homelab_owner_remote_access_enabled", False) is True:
+        return True
+    return allowed_owner_source(scope, settings)

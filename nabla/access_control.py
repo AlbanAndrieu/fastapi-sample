@@ -21,7 +21,7 @@ from nabla.cloudflare_ops_access import (
     verify_owner_token,
 )
 from nabla.config_settings import APIDeploymentSettings, get_settings
-from nabla.homelab_trusted_ip import allowed_owner_source
+from nabla.homelab_trusted_ip import owner_source_permitted
 from nabla.route_policy import Credential, Visibility, route_policy_for
 
 if TYPE_CHECKING:
@@ -67,7 +67,7 @@ async def _authorize_owner(
             content={"detail": "Missing or invalid owner identity"},
             headers={**_DENY_HEADERS, "WWW-Authenticate": "Bearer"},
         )
-    if not allowed_owner_source(request.scope, settings):
+    if not owner_source_permitted(request.scope, settings):
         return JSONResponse(
             status_code=403,
             content={"detail": "Owner network not authorized"},
@@ -146,7 +146,7 @@ async def operations_access_middleware(
         policy.credential is Credential.DIAGNOSTICS_KEY
         and policy.visibility is Visibility.OWNER
         and getattr(settings, "homelab_trusted_cidrs", "").strip()
-        and not allowed_owner_source(request.scope, settings)
+        and not owner_source_permitted(request.scope, settings)
     ):
         return JSONResponse(
             status_code=403,

@@ -3,8 +3,6 @@
 import json
 from pathlib import Path
 
-import yaml
-
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -44,10 +42,9 @@ def test_production_branch_and_release_branch_are_master() -> None:
     assert "\n  - main\n" not in release
 
 
-def test_production_validation_provides_required_auth_settings() -> None:
-    deploy = (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8")
+def test_python_ci_provides_required_auth_settings() -> None:
+    """CI retains its tests, but no longer deploys the application."""
     python_ci = (ROOT / ".github/workflows/python.yml").read_text(encoding="utf-8")
-
     required_test_settings = (
         "KEYCLOAK_CLIENT_ID: test",
         "KEYCLOAK_CLIENT_SECRET: test-secret",
@@ -55,42 +52,41 @@ def test_production_validation_provides_required_auth_settings() -> None:
         "KEYCLOAK_SERVER_URL: http://localhost:8080",
         "OAUTH_TOKEN_SECRET: mocked-oauth-token-secret",
     )
-    for setting in required_test_settings:
-        assert setting in deploy
-        assert setting in python_ci
+    assert all(setting in python_ci for setting in required_test_settings)
 
 
-def test_fastapi_cloud_deploy_uses_project_cli() -> None:
-    deploy = (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8")
-
-    assert "uv run fastapi deploy" in deploy
-    assert 'scripts/stamp_fastapi_deploy_revision.py "$(git rev-parse HEAD)"' in deploy
-    assert "python -m py_compile nabla/_deployment_revision.py" in deploy
-    assert "uv run fastapi cloud env set " not in deploy
-    assert "FASTAPI_CLOUD_TOKEN: ${{ secrets.FASTAPI_CLOUD_TOKEN }}" in deploy
-    assert "uvx fastapi-cloud-cli" not in deploy
-
-
-def test_fastapi_cloud_deploy_job_sets_up_python() -> None:
-    deploy = (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8")
-    deploy_job = deploy.split("\n  deploy:\n", maxsplit=1)[1]
-
-    assert 'PYTHON_VERSION: "3.13"' in deploy_job
-    assert "- name: Set up Python" in deploy_job
-    assert "python-version: ${{ env.PYTHON_VERSION }}" in deploy_job
+def test_github_workflows_never_deploy_or_mutate_fastapi_cloud() -> None:
+    """FastAPI Cloud deploys independently of GitHub Actions."""
+    workflows = ROOT / ".github" / "workflows"
+    assert not (workflows / "deploy.yml").exists()
+    assert not (workflows / "linter.yml").exists()  # redundant Super-Linter retired
+    for path in workflows.glob("*.yml"):
+        workflow = path.read_text(encoding="utf-8")
+        assert "uv run fastapi deploy" not in workflow, path.name
+        assert "fastapi cloud env set" not in workflow, path.name
+        assert "FASTAPI_CLOUD_TOKEN" not in workflow, path.name
+        assert "FASTAPI_CLOUD_APP_ID" not in workflow, path.name
 
 
-def test_release_dispatch_deploys_immutable_tag_then_runs_smoke() -> None:
-    deploy = (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8")
+def test_production_smoke_is_independent_of_deployment() -> None:
     smoke = (ROOT / ".github/workflows/master-smoke.yml").read_text(encoding="utf-8")
-
-    assert "types: [semantic-release-published]" in deploy
-    assert "branches: [master]" not in deploy
-    assert deploy.count("ref: ${{ github.event.client_payload.tag || github.sha }}") == 2
-    assert "uses: $/.github/workflows/master-smoke.yml" in deploy
+    assert "workflow_dispatch:" in smoke
     assert "workflow_call:" in smoke
     assert "workflow_run:" not in smoke
-    assert "GITHUB_ENV" not in smoke
+
+
+def test_release_dispatch_is_only_for_package_publication() -> None:
+    """Keep the package release event; never wire it to a Cloud deployment."""
+    semantic = (ROOT / ".github/workflows/semantic-release.yml").read_text(
+        encoding="utf-8",
+    )
+    publishing = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+    assert "semantic-release-published" in semantic
+    assert "semantic-release-published" in publishing
+    assert "Trigger package publishing" in semantic
+    assert "production deployment" not in semantic
+    assert not (ROOT / ".github/workflows/deploy.yml").exists()
+    assert "repository_dispatch:" in publishing
 
 
 def test_production_smoke_bounds_browser_cost_without_losing_post_deploy_ui_check() -> None:
@@ -206,12 +202,8 @@ def test_dockerfile_hadolint_hardening_is_explicit() -> None:
 
 
 def test_ci_uses_current_uv_tooling() -> None:
-    deploy = (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8")
     python_ci = (ROOT / ".github/workflows/python.yml").read_text(encoding="utf-8")
-
-    assert 'version: "0.12.22"' in deploy
     assert 'version: "0.12.22"' in python_ci
-    assert 'version: "0.12.1"' not in deploy
     assert 'version: "0.12.1"' not in python_ci
 
 
@@ -225,17 +217,10 @@ def test_fastapi_cloud_cli_lock_is_current() -> None:
     assert 'name = "fastapi-cloud-cli"\nversion = "0.24.0"' not in lock
 
 
-def test_fastapi_cloud_deployment_explicitly_disables_debug() -> None:
-    workflow = yaml.safe_load(
-        (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8"),
-    )
-    steps = workflow["jobs"]["deploy"]["steps"]
-    deployment = next(
-        step for step in steps if step.get("name") == "Deploy and wait for FastAPI Cloud verification"
-    )
-
-    assert "uv run fastapi cloud env set " not in deployment["run"]
-    assert "uv run fastapi deploy" in deployment["run"]
+def test_cloud_debug_is_guarded_by_application_not_deploy_workflow() -> None:
+    app_factory = (ROOT / "nabla/app_factory.py").read_text(encoding="utf-8")
+    assert 'application_debug_enabled(env_bool("DEBUG"))' in app_factory
+    assert not (ROOT / ".github/workflows/deploy.yml").exists()
 
 
 def test_app_factory_applies_cloud_debug_guard() -> None:
@@ -244,18 +229,11 @@ def test_app_factory_applies_cloud_debug_guard() -> None:
     assert 'application_debug_enabled(env_bool("DEBUG"))' in app_factory
 
 
-def test_deploy_token_is_never_used_for_cloud_account_env_operations() -> None:
-    workflow = yaml.safe_load((ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8"))
-    steps = workflow["jobs"]["deploy"]["steps"]
-    stamp = next(s for s in steps if s.get("name") == "Stamp immutable source revision")
-    deploy = next(s for s in steps if s.get("name") == "Deploy and wait for FastAPI Cloud verification")
-    assert steps.index(stamp) < steps.index(deploy)
-    assert "fastapi cloud env set" not in stamp["run"]
-    assert "fastapi cloud env set" not in deploy["run"]
-    assert "uv run fastapi deploy" in deploy["run"]
-    assert "FASTAPI_CLOUD_TOKEN" in deploy["env"]
-    assert "FASTAPI_CLOUD_APP_ID" in deploy["env"]
-    assert "FASTAPI_CLOUD_TOKEN" not in stamp.get("env", {})
+def test_deploy_token_not_required_for_github_release_or_smoke() -> None:
+    for path in ("semantic-release.yml", "release.yml", "master-smoke.yml"):
+        workflow = (ROOT / ".github/workflows" / path).read_text(encoding="utf-8")
+        assert "FASTAPI_CLOUD_TOKEN" not in workflow
+        assert "fastapi deploy" not in workflow
 
 
 def test_deployment_revision_artifact_is_included_in_source_bundle() -> None:

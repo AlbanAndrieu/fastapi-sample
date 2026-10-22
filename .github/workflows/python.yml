@@ -364,7 +364,7 @@ jobs:
   sonarcloud:
     name: Scan with SonarCloud
     needs: build
-    if: ${{ github.actor != 'dependabot[bot]' && needs.build.outputs.application_build_required == 'true' }}
+    if: ${{ (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && github.actor != 'dependabot[bot]' && needs.build.outputs.application_build_required == 'true' }}
     runs-on: ubuntu-latest
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -383,7 +383,7 @@ jobs:
   docker:
     name: Docker CI
     needs: build
-    if: ${{ needs.build.outputs.application_build_required == 'true' }}
+    if: ${{ (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && needs.build.outputs.application_build_required == 'true' }}
     permissions:
       contents: read
       packages: write
@@ -397,7 +397,7 @@ jobs:
   mega-linter:
     name: MegaLinter
     needs: build
-    if: ${{ github.actor != 'dependabot[bot]' && needs.build.outputs.application_build_required == 'true' }}
+    if: ${{ (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && github.actor != 'dependabot[bot]' && needs.build.outputs.application_build_required == 'true' }}
     permissions:
       contents: read
       security-events: write

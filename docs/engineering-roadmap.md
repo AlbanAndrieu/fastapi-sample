@@ -6,6 +6,22 @@ For long-tail unchecked tasks use the [on-demand backlog](engineering-backlog.md
 it is **not** an automatically approved roadmap. Historical implementation
 notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blob/594d51d64efdd5274d2ba42a9cb09551b6d57d46/docs/engineering-roadmap.md).
 
+## P0 — Bababou local-first parity and Talos staging (PR #365, 2026-10-22)
+
+- [x] Remove both obsolete GitHub workflows `deploy.yml` (FastAPI Cloud deploys independently) and manual Super-Linter `linter.yml`; preserve Python, CodeQL, security scans, MegaLinter, artifact and package release gates. Remove stale MegaLinter exclusion.
+- [x] Port the **concepts**, not the Node/npm implementation, of Bababou #238: `just offline-l1` validates changed Python AST, Shell and strict JSON without dependency resolution; `just p0` adds targeted Python contracts using already-installed dependencies; `just workflow-audit` continues to use pinned actionlint/zizmor.
+- [x] All three pull-request workflows enforce explicit job-level draft guards and `ready_for_review`; `scripts/ci/check_draft_workflows.py` and its negative tests fail closed on an unguarded runnable job. This saves runner minutes in Draft without suppressing future required security checks.
+- [x] Provide opt-in, non-public Talos/Kubernetes staging manifests, Kustomize, in-cluster readiness probes, resources, NetworkPolicy, required out-of-band Secret and regression contracts in `deploy/talos/`. Unverified image digest blocks accidental deployment.
+- [ ] Execute `just offline-l1`, `just p0`, `just workflow-audit`, `just quality` and `just publish-check` against a **complete local checkout of exact HEAD**; if GitHub DNS or toolchain remains unavailable, status is NOT_RUN, never PASS.
+- [ ] On actual Talos, validate secret provisioning, approved image digest and CNI/Traefik allowlist, plus owner-CIDR provenance and signed identity before opening any private Ingress. Preserve cloud outside-in probing; no production cutover without separate approval.
+
+## P0 — Temporary OWNER access from outside home network (2026-10-22)
+
+- [x] Temporary opt-out of the **source-CIDR requirement only**: `HOMELAB_OWNER_REMOTE_ACCESS_ENABLED=true` (temporary default) permits a remote browser to unlock diagnostics using `DIAGNOSTICS_ACCESS_KEY` and a 20-minute signed HttpOnly cookie. Signed Cloudflare owner JWT remains mandatory where used. No anonymous access to raw diagnostics, probes, metrics, admin, MCP or write operations is allowed.
+- [x] Keep origin/CSRF checks and the existing site API SERVICE machine key. No credential in URL, HTML, localStorage, Git or browser requests to the site. Document clearly that a source IP is no longer a required factor **while this switch is true**.
+- [ ] **Restore OWNER defense-in-depth**: set `HOMELAB_OWNER_REMOTE_ACCESS_ENABLED=false` after a verified remote Cloudflare Access MFA/operator session or VPN/identity-aware proxy is available; verify 401 without key, 403 outside trusted CIDR, read/write separation, 20-minute expiry and same-origin restrictions. Target: next secure remote-access cutover, do not leave this permanently enabled.
+- [ ] End-to-end check on the actually deployed revision (external/mobile vs home): signed login, FastAPI board data, /api/service overview, site Backstage v2 catalogue, private APIs still denied. Tests and production deployment on this PR remain **NOT_RUN**.
+
 ## P0 — CI : tracker unique `master-red` (#355)
 
 - **Implémenté, à valider** : un seul commentaire d'état du bot dans #355, sans nouvelle issue par SHA, sans PR brouillon vide, sans modification du titre, du corps ni des labels ; conservation des preuves des 32 anciens doublons dans GitHub. Script canonique : `scripts/ci/master_red_issue.py`.
@@ -108,10 +124,9 @@ notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blo
     (syntaxe récente) et de la nouvelle étape CI (local-first).
   - `mirrors-prettier` remplacé par `rbubley/mirrors-prettier` v3.9.10 ;
     reformatage cosmétique accepté, `secrets-enc.yaml` (SOPS) exclu.
-- [ ] **Renommage** `production-smoke.yml` → `master-smoke.yml` (id de job
-  `production-smoke` et `name: Production Smoke` conservés pour ne casser
-  ni `needs` ni les noms de checks). Preuve : règles de protection de
-  branche vérifiées, puis un appel vert `deploy.yml` → `master-smoke.yml`.
+- [x] `master-smoke.yml` conserve les contrôles en lecture seule et l'entrée
+  manuelle/réutilisable ; son ancien déclenchement par `deploy.yml` est retiré
+  car FastAPI Cloud déploie indépendamment.
 - [ ] **Tests #353 corrigés** (23 échecs hérités) : client de test
   authentifié par clés factices (routes privées fail-closed), tests
   DefectDojo alignés sur l'API `private_file`/`validate_format`, contrats
@@ -171,7 +186,7 @@ attaquant externe utilise l'endpoint comme oracle de vérification de clés.
 - [x] Operator-approved temporary service directory in /api while the Cloud owner CIDR/proxy is broken: GET /api/ui/services returns **only** validated Backstage v2 labels, kind, and enum health states (OK/WARN/FAIL/UNKNOWN), never raw diagnostics or service endpoints. Existing OWNER diagnostics remain protected.
 - [x] Opt-out: HOMELAB_UI_PUBLIC_SERVICES_ENABLED=false returns 404 and hides the temporary feed, default true until owner admission is repaired and verified. This intentionally makes a minimal inventory PUBLIC while enabled; retire immediately after the real owner session is restored.
 - [ ] Validate live service states/coverage (entityRef mapping still incomplete), Swagger/OpenAPI inventory exposure, click-through filters, mobile view and security negative tests. No public raw IPs, internal URLs, ports, credentials, probe evidence or dependency graph.
-- [ ] Before merge: test exact SHA locally and ensure Deploy to FastAPI Cloud passes (existing production deployment workflow is blocked by tests). Do not infer live deployment from merged PR.
+- [x] Le workflow GitHub de déploiement redondant est retiré ; FastAPI Cloud déploie indépendamment. Ne jamais déduire un runtime actif d'une release GitHub.
 
 - [x] Frontend safety net: on stale/pending status DTO or failed refresh, reset all observed statuses to UNKNOWN while preserving a previously loaded service roster in volatile memory (no localStorage). Offline DOM smoke confirms 42 labels survive a 503, never retaining stale OK.
 
@@ -180,4 +195,11 @@ attaquant externe utilise l'endpoint comme oracle de vérification de clés.
 - [x] Separate trusted-operator environment management from deploy-only automation, remove five in-pipeline `cloud env set` mutations. Stamp Git SHA into an uploaded tracked module; `/v2/version.build_revision` still attests the exact checkout.
 - [ ] Before deployment, verify cloud variables `DEBUG=false`, posture/security TLS verify=true and authenticated pfSense probes=true from a trusted operator; no automatic change is implied by the deploy-token job.
 - [ ] Validate full local quality gate; merge/deploy only on approval; verify exact deployed revision and the temporary `/api/ui/services` feed.
-- [ ] Evaluate FastAPI Cloud native GitHub integration as a future zero-GitHub-Actions deploy path, avoiding duplicate deployments.
+- [x] FastAPI Cloud gère déjà le déploiement direct ; aucune pipeline GitHub de déploiement n'est nécessaire.
+
+## P0 — Suppression de la pipeline redondante (2026-10-22)
+
+- [x] Retirer `.github/workflows/deploy.yml` et tous ses jobs de validation, déploiement CLI et smoke couplé : aucun `fastapi deploy` ni `fastapi cloud env set` ne doit exister dans `.github/workflows`.
+- [x] Garder l'événement `semantic-release-published` exclusivement pour `release.yml` (packages, pas déploiement application). `master-smoke.yml` reste autonome et manuel/réutilisable ; ne pas déclencher de vérification distante payante.
+- [x] Remplacer les tests couplés à `deploy.yml` par des tests de propriété négatifs (non-déploiement, absence de token Cloud dans les workflows GitHub, déclencheur package préservé).
+- [ ] Valider tous les tests pertinents sur un checkout complet avant fusion. Aucun déploiement automatique et aucune CI GitHub ne doivent être sollicités pour cette PR. L'état de production FastAPI Cloud doit être vérifié séparément en lecture seule.

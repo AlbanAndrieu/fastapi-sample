@@ -1,7 +1,7 @@
 """Short-lived HttpOnly authentication for the FastAPI owner diagnostics UI.
 
 Never store DIAGNOSTICS_ACCESS_KEY in a cookie, page or localStorage.
-Owner CIDR is mandatory on every read, even after a session is issued.
+Owner CIDR is enforced unless the explicitly temporary remote-access switch is enabled.
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from fastapi.responses import JSONResponse
 from pydantic import SecretStr
 
 from nabla.config_settings import get_settings
-from nabla.homelab_trusted_ip import allowed_owner_source
+from nabla.homelab_trusted_ip import owner_source_permitted
 
 COOKIE_NAME = "__Host-nabla-ops"
 SESSION_SECONDS = 1200
@@ -73,7 +73,7 @@ def owner_cookie_valid(token: str | None, settings: object, *, now: int | None =
 
 
 def owner_ui_authenticated(request: Request, settings: object) -> bool:
-    return allowed_owner_source(request.scope, settings) and owner_cookie_valid(
+    return owner_source_permitted(request.scope, settings) and owner_cookie_valid(
         request.cookies.get(COOKIE_NAME), settings,
     )
 
@@ -124,7 +124,7 @@ def register_owner_ui_session_routes(app: FastAPI) -> None:
                 status_code=403,
                 headers=_DENY_HEADERS,
             )
-        if not allowed_owner_source(request.scope, settings):
+        if not owner_source_permitted(request.scope, settings):
             # Never disclose source addresses, proxy hops or CIDR values.
             # Verify the trusted source BEFORE evaluating any submitted key
             # to keep the login oracle unavailable to untrusted networks.

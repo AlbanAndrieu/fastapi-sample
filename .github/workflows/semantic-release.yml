@@ -220,7 +220,7 @@ jobs:
         if: steps.semantic_release.outputs.published == 'true'
         run: python scripts/check_versions.py
 
-      - name: Trigger package publishing and production deployment
+      - name: Trigger package publishing
         if: steps.semantic_release.outputs.published == 'true'
         env:
           GH_TOKEN: ${{ steps.release_app_token.outputs.token || secrets.GITHUB_TOKEN }}

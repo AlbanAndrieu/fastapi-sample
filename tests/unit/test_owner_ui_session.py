@@ -28,6 +28,7 @@ def _settings():
         ops_route_policy_strict=True,
         homelab_trusted_cidrs="82.66.4.247/32",
         homelab_trusted_proxy_cidrs="",
+        homelab_owner_remote_access_enabled=False,
     )
 
 
@@ -169,6 +170,47 @@ def test_cidr_and_origin_mandatory_even_with_correct_key(monkeypatch) -> None:
         == 401
     )
 
+
+
+def test_temporary_remote_owner_session_still_requires_valid_key(monkeypatch) -> None:
+    remote = _client(monkeypatch, "203.0.113.42")
+    remote.app.state if False else None
+    # Reuse the exact settings object supplied to middleware and session routes.
+    settings = _settings()
+    settings.homelab_owner_remote_access_enabled = True
+    monkeypatch.setattr(access_control, "get_settings", lambda: settings)
+    monkeypatch.setattr(owner_ui_session, "get_settings", lambda: settings)
+
+    assert remote.get("/api/health-board").status_code == 401
+    assert remote.get("/metrics").status_code == 401
+    assert remote.get("/api/site/catalog/v2").status_code == 401
+    assert remote.post(
+        "/api/ui/session",
+        headers={
+            "Origin": "https://fastapi-sample.fastapicloud.dev",
+            "Sec-Fetch-Site": "same-origin",
+            "X-Diagnostics-Key": "wrong",
+        },
+    ).status_code == 401
+    login = _login(remote)
+    assert login.status_code == 200
+    assert remote.get("/api/ui/session").json() == {"authenticated": True}
+    assert remote.get("/api/health-board").status_code == 200
+    assert remote.post("/api/health-board/cache/reset").status_code == 403
+    assert remote.get("/metrics").status_code == 401
+
+
+def test_remote_owner_switch_restores_home_cidr_gate(monkeypatch) -> None:
+    remote = _client(monkeypatch, "203.0.113.42")
+    settings = _settings()
+    settings.homelab_owner_remote_access_enabled = False
+    monkeypatch.setattr(access_control, "get_settings", lambda: settings)
+    monkeypatch.setattr(owner_ui_session, "get_settings", lambda: settings)
+    assert _login(remote).status_code == 403
+    assert remote.get(
+        "/api/health-board",
+        headers={"X-Diagnostics-Key": "unit-only-secret-do-not-share"},
+    ).status_code == 403
 
 def test_v1_http_retirement_flag_never_modifies_internal_probes(monkeypatch) -> None:
     monkeypatch.delenv("HOMELAB_V1_HTTP_ENABLED", raising=False)
