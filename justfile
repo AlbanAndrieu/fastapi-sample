@@ -37,6 +37,7 @@ test-local-first:
     bash -n scripts/agent-source-snapshot.sh
     bash -n scripts/run-pytest-compact.sh
     bash -n scripts/agent-quality-gate.sh
+    bash -n scripts/agent-offline-check.sh
     bash scripts/run-pytest-compact.sh tests/unit/test_agent_source_snapshot.py tests/unit/test_compact_pytest_runner.py tests/unit/test_quality_log_tail_contract.py tests/unit/test_quality_failure_log_retention.py tests/unit/test_dagger_pilot_preflight.py
 
 # P1 Dagger pilot reference: native deterministic checks only, not a release gate.
@@ -138,7 +139,7 @@ offline-l1:
 # Explicit targeted P0 gate; requires dependencies already installed, never syncs.
 p0:
     bash scripts/agent-offline-check.sh
-    UV_OFFLINE=true bash scripts/run-pytest-compact.sh tests/unit/test_draft_workflow_budget_contract.py tests/unit/test_talos_manifest_contract.py
+    UV_OFFLINE=true bash scripts/run-pytest-compact.sh tests/unit/test_agent_offline_l1.py tests/unit/test_draft_workflow_budget_contract.py tests/unit/test_talos_manifest_contract.py
 
 # Mandatory full workflow audit through the existing pinned pre-commit hooks.
 workflow-audit:
