@@ -6,6 +6,15 @@ For long-tail unchecked tasks use the [on-demand backlog](engineering-backlog.md
 it is **not** an automatically approved roadmap. Historical implementation
 notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blob/594d51d64efdd5274d2ba42a9cb09551b6d57d46/docs/engineering-roadmap.md).
 
+## P0 — Talos/TrueNAS staging deployment (2026-10-22)
+
+- [x] Add internal-only, opt-in Kubernetes Namespace/ConfigMap/Deployment/Service/NetworkPolicy, health probes, non-root security context, resource caps, and offline manifest contracts in `deploy/talos/`.
+- [ ] Validate manifest tests, YAML and dry-run locally on the exact branch HEAD. All remain **NOT_RUN** until actually executed; no paid GitHub CI.
+- [ ] Build/scan/publish a trusted immutable image digest, provision secrets outside Git, verify Talos CNI ingress enforcement, DNS and source/proxy provenance; authorize only the private Traefik route.
+- [ ] Prove pod readiness, denied unauthorized access, Gatus/Prometheus service evidence, and rollback. Do not alter FastAPI Cloud production or existing Docker staging without approval.
+- [ ] Continue the 403 owner diagnostics compatibility investigation and the private/public DTO migration before enforcing `OPS_ROUTE_POLICY_STRICT`; then validate Garage/Gatus catalog IDs and telemetry.
+- [x] Remove redundant manual Super-Linter workflow; retain Ruff/pre-commit/actionlint/zizmor, CodeQL and existing mandatory security gates.
+
 ## P0 — CI : tracker unique `master-red` (#355)
 
 - **Implémenté, à valider** : un seul commentaire d'état du bot dans #355, sans nouvelle issue par SHA, sans PR brouillon vide, sans modification du titre, du corps ni des labels ; conservation des preuves des 32 anciens doublons dans GitHub. Script canonique : `scripts/ci/master_red_issue.py`.
