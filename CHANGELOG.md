@@ -1,3 +1,10 @@
+## [1.24.1](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.24.0...1.24.1) (2026-10-22)
+
+
+### Bug Fixes
+
+* **ci/owner:** restaurer le déploiement Cloud et diagnostiquer les 403 domestiques ([#361](https://github.com/AlbanAndrieu/fastapi-sample/issues/361)) ([024210d](https://github.com/AlbanAndrieu/fastapi-sample/commit/024210d15ec396fd69b9583fac4863bbbe359e9c))
+
 # [1.24.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.23.2...1.24.0) (2026-10-21)
 
 
