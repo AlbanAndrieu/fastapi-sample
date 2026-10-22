@@ -109,17 +109,18 @@ jobs:
             exit 1
           }
 
+      # A Deploy Token is not an interactive environment-management session.
+      - name: Stamp immutable source revision
+        run: |
+          python scripts/stamp_fastapi_deploy_revision.py "$(git rev-parse HEAD)"
+          python -m py_compile nabla/_deployment_revision.py
+
       - name: Deploy and wait for FastAPI Cloud verification
         env:
           FASTAPI_CLOUD_APP_ID: ${{ secrets.FASTAPI_CLOUD_APP_ID }}
           FASTAPI_CLOUD_TOKEN: ${{ secrets.FASTAPI_CLOUD_TOKEN }}
         run: |
-          BUILD_REVISION="$(git rev-parse HEAD)"
-          uv run fastapi cloud env set BUILD_REVISION "${BUILD_REVISION}" .
-          uv run fastapi cloud env set DEBUG false .
-          uv run fastapi cloud env set PFSENSE_POSTURE_API_VERIFY_SSL true .
-          uv run fastapi cloud env set PFSENSE_SECURITY_API_VERIFY_SSL true .
-          uv run fastapi cloud env set PFSENSE_AUTHENTICATED_PROBES_ENABLED true .
+          # Steady-state env is managed separately by a trusted operator.
           uv run fastapi deploy
 
       - name: Verify production release and catalog

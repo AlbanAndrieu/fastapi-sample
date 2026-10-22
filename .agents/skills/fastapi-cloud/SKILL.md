@@ -135,8 +135,21 @@ in steady state now that both dedicated least-privilege keys are valid. The
 posture observer fails fast on the first HTTP 401, so one rejected key cannot
 fan out across deeper pfREST reads and amplify Login Protection / `sshguard`.
 
-The production deploy workflow sets
-`PFSENSE_AUTHENTICATED_PROBES_ENABLED=true` declaratively. Use `false` only
+The FastAPI Cloud deploy workflow intentionally **does not** call
+`fastapi cloud env set` using the deployment token. As proven by Actions run
+39819073386, `env set` requires an authenticated user session and fails
+`No credentials found` even if `FASTAPI_CLOUD_TOKEN` is set.
+Configure steady-state `DEBUG=false`,
+`PFSENSE_POSTURE_API_VERIFY_SSL=true`,
+`PFSENSE_SECURITY_API_VERIFY_SSL=true`, and
+`PFSENSE_AUTHENTICATED_PROBES_ENABLED=true` independently in the
+FastAPI Cloud dashboard or a trusted operator session. Confirm the
+runtime values before accepting the deployment.
+
+The deployment checkout is stamped with the immutable Git SHA using
+`scripts/stamp_fastapi_deploy_revision.py`, so the deployment-only
+`fastapi deploy` token can still provide `/v2/version.build_revision`.
+ Use `false` only
 as an emergency kill-switch during credential rotation or a fresh Login
 Protection incident, then restore `true` after the key/path issue is corrected.
 Keep the checked-in deployment contract and FastAPI Cloud environment aligned;
@@ -225,7 +238,7 @@ mise exec -- uv run fastapi cloud logs . \\
 
 A public `live` response proves the current replica serves traffic. It does not retroactively turn the original deployment verification into success.
 
-FastAPI Cloud also injects `FASTAPICLOUD_DEPLOYMENT_ID` automatically. Use it to correlate replicas and logs. This project additionally stamps the checked-out Git SHA as `BUILD_REVISION`; `/v2/version` exposes it as `build_revision` so production acceptance can prove the exact immutable revision rather than only the semantic release version.
+FastAPI Cloud also injects `FASTAPICLOUD_DEPLOYMENT_ID` automatically. Use it to correlate replicas and logs. This project additionally stamps the checked-out Git SHA into the uploaded source module; `/v2/version` exposes it as `build_revision` so production acceptance can prove the exact immutable revision rather than only the semantic release version.
 
 ## Startup dependency diagnostics
 

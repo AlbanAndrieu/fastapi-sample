@@ -165,3 +165,10 @@ attaquant externe utilise l'endpoint comme oracle de vérification de clés.
 - [ ] Before merge: test exact SHA locally and ensure Deploy to FastAPI Cloud passes (existing production deployment workflow is blocked by tests). Do not infer live deployment from merged PR.
 
 - [x] Frontend safety net: on stale/pending status DTO or failed refresh, reset all observed statuses to UNKNOWN while preserving a previously loaded service roster in volatile memory (no localStorage). Offline DOM smoke confirms 42 labels survive a 503, never retaining stale OK.
+
+## P0 — FastAPI Cloud deployment token-only CLI (2026-10-22)
+- [x] Evidence: Actions 39819073386 validation PASS but deploy fails with `No credentials found` on the first `fastapi cloud env set`, before `fastapi deploy`. Token and app ID were non-empty.
+- [x] Separate trusted-operator environment management from deploy-only automation, remove five in-pipeline `cloud env set` mutations. Stamp Git SHA into an uploaded tracked module; `/v2/version.build_revision` still attests the exact checkout.
+- [ ] Before deployment, verify cloud variables `DEBUG=false`, posture/security TLS verify=true and authenticated pfSense probes=true from a trusted operator; no automatic change is implied by the deploy-token job.
+- [ ] Validate full local quality gate; merge/deploy only on approval; verify exact deployed revision and the temporary `/api/ui/services` feed.
+- [ ] Evaluate FastAPI Cloud native GitHub integration as a future zero-GitHub-Actions deploy path, avoiding duplicate deployments.
