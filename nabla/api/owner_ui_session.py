@@ -1,7 +1,7 @@
 """Short-lived HttpOnly authentication for the FastAPI owner diagnostics UI.
 
 Never store DIAGNOSTICS_ACCESS_KEY in a cookie, page or localStorage.
-Owner CIDR is mandatory on every read, even after a session is issued.
+Owner CIDR is enforced unless the explicitly temporary remote-access switch is enabled.
 """
 from __future__ import annotations
 
@@ -73,7 +73,10 @@ def owner_cookie_valid(token: str | None, settings: object, *, now: int | None =
 
 
 def owner_ui_authenticated(request: Request, settings: object) -> bool:
-    return allowed_owner_source(request.scope, settings) and owner_cookie_valid(
+    return (
+        getattr(settings, "homelab_owner_remote_access_enabled", False)
+        or allowed_owner_source(request.scope, settings)
+    ) and owner_cookie_valid(
         request.cookies.get(COOKIE_NAME), settings,
     )
 
@@ -124,7 +127,10 @@ def register_owner_ui_session_routes(app: FastAPI) -> None:
                 status_code=403,
                 headers=_DENY_HEADERS,
             )
-        if not allowed_owner_source(request.scope, settings):
+        if not (
+            getattr(settings, "homelab_owner_remote_access_enabled", False)
+            or allowed_owner_source(request.scope, settings)
+        ):
             # Never disclose source addresses, proxy hops or CIDR values.
             # Verify the trusted source BEFORE evaluating any submitted key
             # to keep the login oracle unavailable to untrusted networks.
