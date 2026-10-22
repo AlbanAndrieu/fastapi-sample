@@ -240,3 +240,17 @@ def test_app_factory_applies_cloud_debug_guard() -> None:
     app_factory = (ROOT / "nabla/app_factory.py").read_text(encoding="utf-8")
 
     assert 'application_debug_enabled(env_bool("DEBUG"))' in app_factory
+
+
+def test_deploy_token_is_never_used_for_cloud_account_env_operations() -> None:
+    workflow = yaml.safe_load((ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8"))
+    steps = workflow["jobs"]["deploy"]["steps"]
+    stamp = next(s for s in steps if s.get("name") == "Stamp immutable source revision")
+    deploy = next(s for s in steps if s.get("name") == "Deploy and wait for FastAPI Cloud verification")
+    assert steps.index(stamp) < steps.index(deploy)
+    assert "fastapi cloud env set" not in stamp["run"]
+    assert "fastapi cloud env set" not in deploy["run"]
+    assert "uv run fastapi deploy" in deploy["run"]
+    assert "FASTAPI_CLOUD_TOKEN" in deploy["env"]
+    assert "FASTAPI_CLOUD_APP_ID" in deploy["env"]
+    assert "FASTAPI_CLOUD_TOKEN" not in stamp.get("env", {})

@@ -32,9 +32,14 @@ def resolve_release_version() -> str:
     return installed or generated_release_version
 
 
+def resolve_build_revision() -> str:
+    """Prefer the shipped source SHA over a possibly stale Cloud env variable."""
+    return DEPLOYED_BUILD_SHA or os.getenv("BUILD_REVISION", os.getenv("GIT_SHA", "")).strip()
+
+
 API_VERSION = os.getenv("API_VERSION", os.getenv("APP_PREFIX_VERSION", "v0"))
 RELEASE_VERSION = resolve_release_version()
-BUILD_REVISION = DEPLOYED_BUILD_SHA or os.getenv("BUILD_REVISION", os.getenv("GIT_SHA", "")).strip()
+BUILD_REVISION = resolve_build_revision()
 RUNTIME_VERSION = f"{API_VERSION}+{RELEASE_VERSION}"
 
-__all__ = ("API_VERSION", "BUILD_REVISION", "RELEASE_VERSION", "RUNTIME_VERSION", "resolve_release_version")
+__all__ = ("API_VERSION", "BUILD_REVISION", "RELEASE_VERSION", "RUNTIME_VERSION", "resolve_release_version", "resolve_build_revision")

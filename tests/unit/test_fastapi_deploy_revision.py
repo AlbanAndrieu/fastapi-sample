@@ -45,3 +45,16 @@ def test_unstamped_source_checkout_claims_no_deployed_sha() -> None:
     from nabla._deployment_revision import DEPLOYED_BUILD_SHA
 
     assert DEPLOYED_BUILD_SHA == ""
+
+
+def test_source_revision_takes_priority_over_stale_cloud_environment(monkeypatch) -> None:
+    from nabla import version
+
+    monkeypatch.setenv("BUILD_REVISION", "b" * 40)
+    monkeypatch.setattr(version, "DEPLOYED_BUILD_SHA", "a" * 40)
+    assert version.resolve_build_revision() == "a" * 40
+    monkeypatch.setattr(version, "DEPLOYED_BUILD_SHA", "")
+    assert version.resolve_build_revision() == "b" * 40
+    monkeypatch.delenv("BUILD_REVISION")
+    monkeypatch.setenv("GIT_SHA", "c" * 40)
+    assert version.resolve_build_revision() == "c" * 40
