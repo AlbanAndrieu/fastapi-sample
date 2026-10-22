@@ -32,7 +32,7 @@ from the TrueNAS Docker staging at `172.17.0.24:8091`.
 ## Validation (only after runtime approval)
 
 - Offline: `python -m pytest -q tests/unit/test_talos_manifest_contract.py`;
-  `kubectl apply --dry-run=client -f deploy/talos/fastapi-sample.yaml`
+  `kubectl kustomize deploy/talos (or just k8s-render), then kubectl apply --dry-run=client -k deploy/talos`
   (substitute the image digest first).
 - Policy: test ingress denied from an unrelated namespace and permitted from
   the approved private Traefik workload after adding an explicit exception.
