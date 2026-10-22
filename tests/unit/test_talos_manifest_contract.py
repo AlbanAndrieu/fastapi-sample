@@ -55,3 +55,11 @@ def test_talos_configuration_does_not_ship_secrets() -> None:
     ]
     assert pod_env[1]["secretRef"]["name"] == "fastapi-sample-runtime-secrets"
     assert pod_env[1]["secretRef"].get("optional") is not True
+
+
+def test_talos_kustomization_contains_only_private_resources() -> None:
+    kustomize = MANIFEST.parent / "kustomization.yaml"
+    config = yaml.safe_load(kustomize.read_text(encoding="utf-8"))
+    assert config["kind"] == "Kustomization"
+    assert config["resources"] == ["fastapi-sample.yaml"]
+    assert not (MANIFEST.parent / "ingress.yaml").exists()
