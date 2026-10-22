@@ -32,7 +32,7 @@ export function installOwnerSessionControls(onAuthenticated) {
 
   function update(authenticated) {
     state.textContent = authenticated
-      ? "Owner diagnostics unlocked (network-restricted, 20 minute session)."
+      ? "Owner diagnostics unlocked (authenticated, 20 minute session)."
       : "Owner diagnostics are locked. Public liveness remains available.";
     login.hidden = authenticated;
     logout.hidden = !authenticated;
