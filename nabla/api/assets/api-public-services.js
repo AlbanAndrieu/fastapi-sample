@@ -6,21 +6,24 @@ const STATES = new Set(["ok", "warn", "fail", "unknown"]);
 const KINDS = new Set(["API", "Component", "Resource"]);
 
 function validOverview(value) {
-  return value &&
+  return (
+    value &&
     value.schemaVersion === 2 &&
     value.model === "public-service-overview" &&
     /^sha256:[a-f0-9]{64}$/.test(value.catalogRevision || "") &&
     ["fresh", "stale", "pending"].includes(value.boardState) &&
     Array.isArray(value.services) &&
     value.services.length <= 2000 &&
-    value.services.every((service) =>
-      service &&
-      typeof service.name === "string" &&
-      service.name.length > 0 &&
-      service.name.length <= 128 &&
-      KINDS.has(service.kind) &&
-      STATES.has(service.state)
-    );
+    value.services.every(
+      (service) =>
+        service &&
+        typeof service.name === "string" &&
+        service.name.length > 0 &&
+        service.name.length <= 128 &&
+        KINDS.has(service.kind) &&
+        STATES.has(service.state),
+    )
+  );
 }
 
 export async function installPublicServiceOverview() {
@@ -42,9 +45,14 @@ export async function installPublicServiceOverview() {
   function render() {
     const query = (filter?.value || "").trim().toLowerCase();
     const matching = rows.filter((entry) =>
-      (entry.name + " " + entry.kind + " " + entry.state).toLowerCase().includes(query)
+      (entry.name + " " + entry.kind + " " + entry.state)
+        .toLowerCase()
+        .includes(query),
     );
-    const visible = matching.slice(0, expanded ? matching.length : PREVIEW_LIMIT);
+    const visible = matching.slice(
+      0,
+      expanded ? matching.length : PREVIEW_LIMIT,
+    );
     const fragment = document.createDocumentFragment();
     for (const service of visible) {
       const item = document.createElement("li");
@@ -52,17 +60,21 @@ export async function installPublicServiceOverview() {
       const label = document.createElement("span");
       label.textContent = service.name;
       const state = document.createElement("strong");
-      state.className = "public-service-state public-service-state--" + service.state;
+      state.className =
+        "public-service-state public-service-state--" + service.state;
       state.textContent = service.state.toUpperCase();
-      state.title = service.state === "unknown"
-        ? "No confirmed fresh observation"
-        : "Summarized service observation (not a full health audit)";
+      state.title =
+        service.state === "unknown"
+          ? "No confirmed fresh observation"
+          : "Summarized service observation (not a full health audit)";
       item.append(label, state);
       fragment.appendChild(item);
     }
     list.replaceChildren(fragment);
     expand.hidden = matching.length <= PREVIEW_LIMIT;
-    expand.textContent = expanded ? "Show fewer" : "Show all " + matching.length + " services";
+    expand.textContent = expanded
+      ? "Show fewer"
+      : "Show all " + matching.length + " services";
   }
 
   let loading = false;
@@ -76,9 +88,11 @@ export async function installPublicServiceOverview() {
         cache: "no-store",
         headers: { Accept: "application/json" },
       });
-      if (!response.ok) throw new Error("Unavailable (HTTP " + response.status + ")");
+      if (!response.ok)
+        throw new Error("Unavailable (HTTP " + response.status + ")");
       const payload = await response.json();
-      if (!validOverview(payload)) throw new Error("Invalid service directory response");
+      if (!validOverview(payload))
+        throw new Error("Invalid service directory response");
       // Never label expired probe observations as healthy or failing.
       rows = payload.services.map((service) => ({
         ...service,
@@ -88,10 +102,19 @@ export async function installPublicServiceOverview() {
       const counts = { ok: 0, warn: 0, fail: 0, unknown: 0 };
       for (const row of rows) counts[row.state] += 1;
       summary.textContent =
-        rows.length + " services · " + counts.ok + " OK · " +
-        counts.warn + " WARN · " + counts.fail + " FAIL · " +
-        counts.unknown + " UNKNOWN" +
-        (payload.boardState !== "fresh" ? " · observations pending or stale" : "") +
+        rows.length +
+        " services · " +
+        counts.ok +
+        " OK · " +
+        counts.warn +
+        " WARN · " +
+        counts.fail +
+        " FAIL · " +
+        counts.unknown +
+        " UNKNOWN" +
+        (payload.boardState !== "fresh"
+          ? " · observations pending or stale"
+          : "") +
         " · raw probes locked";
       render();
       // A cold cloud cache may be pending for the first 40-second refresh.
@@ -107,14 +130,16 @@ export async function installPublicServiceOverview() {
       // revoke every stale health assertion until new evidence is verified.
       if (rows.length > 0) {
         rows = rows.map((service) => ({ ...service, state: "unknown" }));
-        summary.textContent = rows.length +
+        summary.textContent =
+          rows.length +
           " services listed · observations unavailable, all statuses UNKNOWN";
         render();
       } else {
         delete summary.dataset.serviceCount;
         list.replaceChildren();
         expand.hidden = true;
-        summary.textContent = "Service directory temporarily unavailable. Owner diagnostics remain locked.";
+        summary.textContent =
+          "Service directory temporarily unavailable. Owner diagnostics remain locked.";
       }
     } finally {
       loading = false;
@@ -123,9 +148,11 @@ export async function installPublicServiceOverview() {
   }
 
   filter?.addEventListener("input", render);
-  document.getElementById("service-filter-clear")?.addEventListener("click", () => {
-    window.setTimeout(render, 0);
-  });
+  document
+    .getElementById("service-filter-clear")
+    ?.addEventListener("click", () => {
+      window.setTimeout(render, 0);
+    });
   expand.addEventListener("click", () => {
     expanded = !expanded;
     render();

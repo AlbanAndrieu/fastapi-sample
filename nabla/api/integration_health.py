@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import socket
 from typing import Any
 
@@ -334,8 +335,8 @@ def probe_pyroscope_server() -> dict[str, Any]:
 
 async def enrich_integration_metadata(checks: dict[str, Any]) -> None:
     """Attach display URLs and trusted-TLS metadata to integration results."""
-    await _enrich_litellm(checks)
-    await _enrich_pyroscope(checks)
+    # Each enricher owns a distinct key, so TLS probes can overlap safely.
+    await asyncio.gather(_enrich_litellm(checks), _enrich_pyroscope(checks))
 
 
 async def _enrich_litellm(checks: dict[str, Any]) -> None:

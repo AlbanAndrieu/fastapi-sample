@@ -106,8 +106,8 @@ def _probe_runtime_metadata(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _register_homelab_catalog_routes(app: FastAPI) -> None:
-    """Register declared catalog, topology and runtime inventory routes."""
+def _register_site_projection_routes(app: FastAPI) -> None:
+    """Register curated public labels and sanitized site/UI v2 projections."""
 
     @app.get(
         "/api/public-homelab/v1",
@@ -185,6 +185,11 @@ def _register_homelab_catalog_routes(app: FastAPI) -> None:
                 detail="Service overview temporarily unavailable",
                 headers=_NO_STORE_HEADERS,
             ) from None
+
+
+def _register_homelab_catalog_routes(app: FastAPI) -> None:
+    """Register declared catalog, topology and runtime inventory routes."""
+    _register_site_projection_routes(app)
 
     @app.get(
         "/api/homelab-services",

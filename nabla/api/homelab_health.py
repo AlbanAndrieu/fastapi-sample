@@ -117,6 +117,126 @@ _copy_payload = partial(
     cache_ttl_seconds=_HEALTH_CACHE_TTL_SEC,
 )
 
+_BatchResult = tuple[list[dict[str, Any]], dict[str, Any]]
+
+
+async def _run_refresh_probes(
+    public_services: list[HomelabService],
+    internal_services: list[HomelabService],
+    *,
+    public_eligible_count: int,
+    internal_eligible_count: int,
+    internal_enabled: bool,
+) -> tuple[_BatchResult, dict[str, Any], _BatchResult]:
+    """Run public, TrueNAS and internal probes concurrently under shared bounds."""
+    service_semaphore = asyncio.Semaphore(_MAX_PROBE_CONCURRENCY)
+    truenas_semaphore = asyncio.Semaphore(2)
+    truenas_task = asyncio.create_task(
+        _probe_truenas(
+            truenas_semaphore,
+            internal_enabled=internal_enabled,
+        ),
+    )
+    internal_probe_tasks = [
+        (
+            service,
+            asyncio.create_task(
+                _probe_internal_service(service_semaphore, service),
+            ),
+        )
+        for service in internal_services
+    ]
+    internal_results_task = asyncio.create_task(
+        _collect_bounded_probe_batch(
+            internal_probe_tasks,
+            scope="internal",
+            enabled=internal_enabled,
+            eligible_count=internal_eligible_count,
+            per_probe_timeout_seconds=_INTERNAL_PROBE_TIMEOUT_SEC,
+        ),
+    )
+
+    timeout = httpx.Timeout(_PUBLIC_PROBE_TIMEOUT_SEC)
+    async with httpx.AsyncClient(
+        timeout=timeout,
+        follow_redirects=False,
+        # Observations must originate from this runtime, never an ambient proxy.
+        trust_env=False,
+    ) as client:
+        public_probe_tasks = [
+            (
+                service,
+                asyncio.create_task(
+                    _probe_public_service(client, service_semaphore, service),
+                ),
+            )
+            for service in public_services
+        ]
+        public_results_task = asyncio.create_task(
+            _collect_bounded_probe_batch(
+                public_probe_tasks,
+                scope="public",
+                eligible_count=public_eligible_count,
+                per_probe_timeout_seconds=_PUBLIC_PROBE_TIMEOUT_SEC,
+            ),
+        )
+        public_batch, truenas, internal_batch = await asyncio.gather(
+            public_results_task,
+            truenas_task,
+            internal_results_task,
+        )
+    return public_batch, truenas, internal_batch
+
+
+def _finalize_scope(
+    scope: Literal["public", "internal"],
+    results: list[dict[str, Any]],
+    summary: dict[str, Any],
+    *,
+    candidates: list[HomelabService],
+    limit: int,
+    enabled: bool,
+    checked_at: str,
+) -> list[dict[str, Any]]:
+    """Merge retained evidence and attach sampling metadata to one probe scope."""
+    merged = (
+        merge_probe_evidence(
+            scope,
+            current_results=results,
+            eligible_services=candidates,
+            checked_at=checked_at,
+        )
+        if enabled
+        else []
+    )
+    summary["evidence"] = evidence_summary(merged, eligible_count=len(candidates))
+    summary["priority_source"] = _priority_source(candidates)
+    summary["rotated_priority_ids"] = _rotated_priority_ids(candidates, limit=limit) if enabled else []
+    return merged
+
+
+def _catalog_coverage(
+    services: list[HomelabService],
+    public_candidates: list[HomelabService],
+    internal_candidates: list[HomelabService],
+) -> dict[str, int]:
+    """Return catalogue coverage, distinct from rotating probe-slot coverage."""
+    # Count unique services only; one may contribute public and LAN slots.
+    monitored_ids = {service.service_id for service in (*public_candidates, *internal_candidates)}
+    catalog_ids = {service.service_id for service in services}
+    return {
+        "catalog_service_count": len(services),
+        "catalog_observable_service_count": len(catalog_ids & monitored_ids),
+        "catalog_unconfigured_service_count": len(catalog_ids - monitored_ids),
+    }
+
+
+def _public_card_candidates(services: list[HomelabService]) -> list[dict[str, str]]:
+    """Return curated public discovery names without private endpoint or probe evidence."""
+    # Inventory does not attest that either service is available.
+    public_labels = {"gatus": "Gatus", "garage-webui": "Garage Web UI"}
+    return [{"id": service.service_id, "name": public_labels[service.service_id]} for service in services if service.service_id in public_labels and service.external is True]
+
 
 async def build_homelab_health_payload(
     *,
@@ -152,122 +272,38 @@ async def build_homelab_health_payload(
             else []
         )
 
-        service_semaphore = asyncio.Semaphore(_MAX_PROBE_CONCURRENCY)
-        truenas_semaphore = asyncio.Semaphore(2)
-        truenas_task = asyncio.create_task(
-            _probe_truenas(
-                truenas_semaphore,
-                internal_enabled=internal_enabled,
-            ),
+        (
+            (public_results, public_summary),
+            truenas,
+            (internal_results, internal_summary),
+        ) = await _run_refresh_probes(
+            public_services,
+            internal_services,
+            public_eligible_count=len(public_candidates),
+            internal_eligible_count=len(internal_candidates),
+            internal_enabled=internal_enabled,
         )
-        internal_probe_tasks = [
-            (
-                service,
-                asyncio.create_task(
-                    _probe_internal_service(service_semaphore, service),
-                ),
-            )
-            for service in internal_services
-        ]
-        internal_results_task = asyncio.create_task(
-            _collect_bounded_probe_batch(
-                internal_probe_tasks,
-                scope="internal",
-                enabled=internal_enabled,
-                eligible_count=len(internal_candidates),
-                per_probe_timeout_seconds=_INTERNAL_PROBE_TIMEOUT_SEC,
-            ),
-        )
-
-        timeout = httpx.Timeout(_PUBLIC_PROBE_TIMEOUT_SEC)
-        async with httpx.AsyncClient(
-            timeout=timeout,
-            follow_redirects=False,
-            # Observations must originate from this runtime, never an ambient proxy.
-            trust_env=False,
-        ) as client:
-            public_probe_tasks = [
-                (
-                    service,
-                    asyncio.create_task(
-                        _probe_public_service(client, service_semaphore, service),
-                    ),
-                )
-                for service in public_services
-            ]
-            public_results_task = asyncio.create_task(
-                _collect_bounded_probe_batch(
-                    public_probe_tasks,
-                    scope="public",
-                    eligible_count=len(public_candidates),
-                    per_probe_timeout_seconds=_PUBLIC_PROBE_TIMEOUT_SEC,
-                ),
-            )
-            (
-                (public_results, public_summary),
-                truenas,
-                (
-                    internal_results,
-                    internal_summary,
-                ),
-            ) = await asyncio.gather(
-                public_results_task,
-                truenas_task,
-                internal_results_task,
-            )
 
         checked_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-        public_results = merge_probe_evidence(
+        public_results = _finalize_scope(
             "public",
-            current_results=public_results,
-            eligible_services=public_candidates,
+            public_results,
+            public_summary,
+            candidates=public_candidates,
+            limit=_MAX_PUBLIC_PROBES_PER_REFRESH,
+            enabled=True,
             checked_at=checked_at,
         )
-        internal_results = (
-            merge_probe_evidence(
-                "internal",
-                current_results=internal_results,
-                eligible_services=internal_candidates,
-                checked_at=checked_at,
-            )
-            if internal_enabled
-            else []
-        )
-        public_summary["evidence"] = evidence_summary(
-            public_results,
-            eligible_count=len(public_candidates),
-        )
-        internal_summary["evidence"] = evidence_summary(
+        internal_results = _finalize_scope(
+            "internal",
             internal_results,
-            eligible_count=len(internal_candidates),
+            internal_summary,
+            candidates=internal_candidates,
+            limit=_MAX_INTERNAL_PROBES_PER_REFRESH,
+            enabled=internal_enabled,
+            checked_at=checked_at,
         )
-        public_summary["priority_source"] = _priority_source(public_candidates)
-        internal_summary["priority_source"] = _priority_source(internal_candidates)
-        public_summary["rotated_priority_ids"] = _rotated_priority_ids(
-            public_candidates,
-            limit=_MAX_PUBLIC_PROBES_PER_REFRESH,
-        )
-        internal_summary["rotated_priority_ids"] = (
-            _rotated_priority_ids(
-                internal_candidates,
-                limit=_MAX_INTERNAL_PROBES_PER_REFRESH,
-            )
-            if internal_enabled
-            else []
-        )
-
-        # Catalogue coverage and rotating probe-slot coverage are distinct.
-        # Count unique services only; one may contribute public and LAN slots.
-        monitored_ids = {service.service_id for service in (*public_candidates, *internal_candidates)}
-        catalog_ids = {service.service_id for service in services}
-        catalog_unconfigured = len(catalog_ids - monitored_ids)
-
-        # Curated public discovery names: no private endpoint or probe evidence.
-        # Inventory does not attest that either service is available.
-        public_labels = {"gatus": "Gatus", "garage-webui": "Garage Web UI"}
-        public_cards = [
-            {"id": service.service_id, "name": public_labels[service.service_id]} for service in services if service.service_id in public_labels and service.external is True
-        ]
+        public_cards = _public_card_candidates(services)
 
         payload: dict[str, Any] = {
             "schema_version": 3,
@@ -285,9 +321,7 @@ async def build_homelab_health_payload(
             "probe_summary": {
                 "public": public_summary,
                 "internal": internal_summary,
-                "catalog_service_count": len(services),
-                "catalog_observable_service_count": len(catalog_ids & monitored_ids),
-                "catalog_unconfigured_service_count": catalog_unconfigured,
+                **_catalog_coverage(services, public_candidates, internal_candidates),
                 "internal_disabled_eligible_slots": (len(internal_candidates) if not internal_enabled else 0),
                 "unsampled_current_window": {
                     "public": max(0, len(public_candidates) - len(public_services)),

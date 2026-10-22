@@ -153,7 +153,8 @@
   border-bottom-color: rgba(255, 68, 68, 0.35);
 }
 
-.service-group[data-service-group="security-controls"] > .service-group-heading {
+.service-group[data-service-group="security-controls"]
+  > .service-group-heading {
   border-bottom-color: rgba(255, 204, 51, 0.3);
 }
 
