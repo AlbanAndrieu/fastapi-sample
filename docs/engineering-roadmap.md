@@ -15,6 +15,13 @@ notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blo
 - [ ] Execute `just offline-l1`, `just p0`, `just workflow-audit`, `just quality` and `just publish-check` against a **complete local checkout of exact HEAD**; if GitHub DNS or toolchain remains unavailable, status is NOT_RUN, never PASS.
 - [ ] On actual Talos, validate secret provisioning, approved image digest and CNI/Traefik allowlist, plus owner-CIDR provenance and signed identity before opening any private Ingress. Preserve cloud outside-in probing; no production cutover without separate approval.
 
+## P0 — Temporary OWNER access from outside home network (2026-10-22)
+
+- [x] Temporary opt-out of the **source-CIDR requirement only**: `HOMELAB_OWNER_REMOTE_ACCESS_ENABLED=true` (temporary default) permits a remote browser to unlock diagnostics using `DIAGNOSTICS_ACCESS_KEY` and a 20-minute signed HttpOnly cookie. Signed Cloudflare owner JWT remains mandatory where used. No anonymous access to raw diagnostics, probes, metrics, admin, MCP or write operations is allowed.
+- [x] Keep origin/CSRF checks and the existing site API SERVICE machine key. No credential in URL, HTML, localStorage, Git or browser requests to the site. Document clearly that a source IP is no longer a required factor **while this switch is true**.
+- [ ] **Restore OWNER defense-in-depth**: set `HOMELAB_OWNER_REMOTE_ACCESS_ENABLED=false` after a verified remote Cloudflare Access MFA/operator session or VPN/identity-aware proxy is available; verify 401 without key, 403 outside trusted CIDR, read/write separation, 20-minute expiry and same-origin restrictions. Target: next secure remote-access cutover, do not leave this permanently enabled.
+- [ ] End-to-end check on the actually deployed revision (external/mobile vs home): signed login, FastAPI board data, /api/service overview, site Backstage v2 catalogue, private APIs still denied. Tests and production deployment on this PR remain **NOT_RUN**.
+
 ## P0 — CI : tracker unique `master-red` (#355)
 
 - **Implémenté, à valider** : un seul commentaire d'état du bot dans #355, sans nouvelle issue par SHA, sans PR brouillon vide, sans modification du titre, du corps ni des labels ; conservation des preuves des 32 anciens doublons dans GitHub. Script canonique : `scripts/ci/master_red_issue.py`.
