@@ -6,6 +6,15 @@ For long-tail unchecked tasks use the [on-demand backlog](engineering-backlog.md
 it is **not** an automatically approved roadmap. Historical implementation
 notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blob/594d51d64efdd5274d2ba42a9cb09551b6d57d46/docs/engineering-roadmap.md).
 
+## P0 — Bababou local-first parity and Talos staging (PR #365, 2026-10-22)
+
+- [x] Remove both obsolete GitHub workflows `deploy.yml` (FastAPI Cloud deploys independently) and manual Super-Linter `linter.yml`; preserve Python, CodeQL, security scans, MegaLinter, artifact and package release gates. Remove stale MegaLinter exclusion.
+- [x] Port the **concepts**, not the Node/npm implementation, of Bababou #238: `just offline-l1` validates changed Python AST, Shell and strict JSON without dependency resolution; `just p0` adds targeted Python contracts using already-installed dependencies; `just workflow-audit` continues to use pinned actionlint/zizmor.
+- [x] All three pull-request workflows enforce explicit job-level draft guards and `ready_for_review`; `scripts/ci/check_draft_workflows.py` and its negative tests fail closed on an unguarded runnable job. This saves runner minutes in Draft without suppressing future required security checks.
+- [x] Provide opt-in, non-public Talos/Kubernetes staging manifests, Kustomize, in-cluster readiness probes, resources, NetworkPolicy, required out-of-band Secret and regression contracts in `deploy/talos/`. Unverified image digest blocks accidental deployment.
+- [ ] Execute `just offline-l1`, `just p0`, `just workflow-audit`, `just quality` and `just publish-check` against a **complete local checkout of exact HEAD**; if GitHub DNS or toolchain remains unavailable, status is NOT_RUN, never PASS.
+- [ ] On actual Talos, validate secret provisioning, approved image digest and CNI/Trafik allowlist, plus owner-CIDR provenance and signed identity before opening any private Ingress. Preserve cloud outside-in probing; no production cutover without separate approval.
+
 ## P0 — CI : tracker unique `master-red` (#355)
 
 - **Implémenté, à valider** : un seul commentaire d'état du bot dans #355, sans nouvelle issue par SHA, sans PR brouillon vide, sans modification du titre, du corps ni des labels ; conservation des preuves des 32 anciens doublons dans GitHub. Script canonique : `scripts/ci/master_red_issue.py`.
