@@ -42,6 +42,47 @@ export async function installPublicServiceOverview() {
   let expanded = false;
   let pendingRetries = 0;
 
+  function renderPublicSummary(counts, total) {
+    // Five cards are shared with OWNER health; anonymous visitors must see
+    // verifiable v2 aggregate counts instead of "Owner only" placeholders.
+    const overview = document.getElementById("service-health-overview");
+    if (!overview) return;
+    const cards = overview.querySelectorAll(".service-overview-card");
+    if (cards.length !== 5) return;
+    const values =
+      counts === null
+        ? ["Unavailable", "—", "—", "—", "—"]
+        : [
+            total + " listed",
+            String(counts.ok),
+            String(counts.warn),
+            String(counts.fail),
+            String(counts.unknown),
+          ];
+    const labels = [
+      "Services",
+      "Healthy",
+      "Degraded",
+      "Failed",
+      "Unconfirmed",
+    ];
+    const descriptions = [
+      "Public catalog entries",
+      "Verified summary state",
+      "Verified summary state",
+      "Verified summary state",
+      "Unknown or stale evidence",
+    ];
+    cards.forEach((card, index) => {
+      const heading = card.querySelector("span");
+      const value = card.querySelector("strong");
+      const detail = card.querySelector("small");
+      if (heading) heading.textContent = labels[index];
+      if (value) value.textContent = values[index];
+      if (detail) detail.textContent = descriptions[index];
+    });
+  }
+
   function render() {
     const query = (filter?.value || "").trim().toLowerCase();
     const matching = rows.filter((entry) =>
@@ -101,6 +142,7 @@ export async function installPublicServiceOverview() {
       summary.dataset.serviceCount = String(rows.length);
       const counts = { ok: 0, warn: 0, fail: 0, unknown: 0 };
       for (const row of rows) counts[row.state] += 1;
+      renderPublicSummary(counts, rows.length);
       summary.textContent =
         rows.length +
         " services · " +
@@ -133,8 +175,13 @@ export async function installPublicServiceOverview() {
         summary.textContent =
           rows.length +
           " services listed · observations unavailable, all statuses UNKNOWN";
+        renderPublicSummary(
+          { ok: 0, warn: 0, fail: 0, unknown: rows.length },
+          rows.length,
+        );
         render();
       } else {
+        renderPublicSummary(null, 0);
         delete summary.dataset.serviceCount;
         list.replaceChildren();
         expand.hidden = true;
