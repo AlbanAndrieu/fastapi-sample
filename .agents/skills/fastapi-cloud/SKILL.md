@@ -9,7 +9,13 @@ description: >-
 
 Use this skill for FastAPI Cloud runtime and deployment operations. It complements the `fastapi` coding skill; it is not a replacement for FastAPI framework guidance.
 
-**Agent authorization boundary:** agents must not run `fastapi deploy`, `fastapi cloud env set`, modify production resources, or invoke GitHub deployment workflows. Deployment is owned directly by FastAPI Cloud. Examples below that change credentials or trigger a redeployment are operator-only historical reference and require separate explicit permission; ordinary tasks are limited to source edits, local quality checks and read-only inspection.
+**Agent authorization boundary:** agents must not run `fastapi deploy`,
+`fastapi cloud env set`, modify production resources, or invoke GitHub
+deployment workflows. Deployment is owned directly by FastAPI Cloud.
+Examples below that change credentials or trigger a redeployment are
+operator-only historical reference and require separate explicit permission;
+ordinary agent tasks are limited to source edits, local quality checks and
+read-only inspection.
 
 ## Runtime priority
 
@@ -183,7 +189,9 @@ Set or replace a secret interactively without putting its value on the command l
 mise exec -- uv run fastapi cloud env set --secret TRUENAS_API_KEY
 ```
 
-For an **authorized operator only**, the historical manual CLI command below shows how to deploy after changing an application variable. An agent must never execute this command or use it as a local test:
+For an **authorized operator only**, the historical manual CLI command
+below shows how to deploy after changing an application variable.
+An agent must never execute this command or use it as a local test:
 
 ```bash
 mise exec -- uv run fastapi deploy
