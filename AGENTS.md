@@ -3,7 +3,7 @@
 ## GitHub Actions credit-saving PR lifecycle
 
 - Agents should create and retain pull requests as **Draft** while iterating, and run the targeted local `just`/quality-gate checks before requesting review.
-- Do **not** put `[skip ci]`, `[ci skip]`, or `skip-checks: true` in commits: these can leave required checks pending, and can suppress the authoritative review gate.
+- In ordinary reviewed PRs, do **not** use `[skip ci]`, `[ci skip]`, or `skip-checks: true`: these can leave required checks pending. **Exception:** when the owner explicitly requests zero-credit/local-first work, keep the PR Draft and use `[skip ci]` only for agent commits; mark hosted gates NOT_RUN and never merge before the required review gates are restored.
 - `ready_for_review` must start the required CI; subsequent non-draft pushes run it again. Do not weaken SAST, SCA, DAST, secret scanning, or required branch protection to save minutes.
 - Never mark a PR Ready automatically merely to burn credits. Only do so after explicit user direction or the repository's documented publication gate, and never merge without authorization.
 - Keep generated PDFs (when uploaded) for at most **1 day**. Prefer no uploads on successful routine PR jobs and short-lived failure diagnostics.
@@ -94,7 +94,11 @@ For every non-trivial repository task:
 6. **Make one logical batch.** Prefer the smallest safe change. Preserve existing
     contracts unless the task explicitly requests a breaking change.
 7. **Run focused validation first.** Execute the closest tests or static checks
-    for the changed behavior before the repository-wide gate.
+    for the changed behavior before the repository-wide gate. If the checkout
+    exists but dependencies or network are unavailable, run `just offline-l1`
+    (Python AST, JSON, Shell and Draft-runner policy) as **L1-only** evidence;
+    use `just p0` when pinned dependencies are already installed. Neither is
+    equivalent to `just quality`, `just workflow-audit`, or publish-check.
 8. **Converge the deterministic local gate.** Run
     `bash scripts/agent-quality-gate.sh --fix`. Fix root causes; never weaken,
     skip, or disable a formatter, lint, test, security, workflow, or size rule just
