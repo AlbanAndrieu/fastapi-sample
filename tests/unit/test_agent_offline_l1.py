@@ -28,7 +28,7 @@ def _fixture(repo: Path) -> None:
         encoding="utf-8",
     )
     (repo / "valid.json").write_text('{"ok": true}\n', encoding="utf-8")
-    _git(repo, "init", "-q")
+    _git(repo, "init", "-q", "-b", "offline-l1")
     _git(repo, "config", "user.email", "offline-tests@example.invalid")
     _git(repo, "config", "user.name", "Offline Test")
     _git(repo, "add", ".")
