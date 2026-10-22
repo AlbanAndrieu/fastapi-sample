@@ -22,6 +22,16 @@ notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blo
 - [ ] **Restore OWNER defense-in-depth**: set `HOMELAB_OWNER_REMOTE_ACCESS_ENABLED=false` after a verified remote Cloudflare Access MFA/operator session or VPN/identity-aware proxy is available; verify 401 without key, 403 outside trusted CIDR, read/write separation, 20-minute expiry and same-origin restrictions. Target: next secure remote-access cutover, do not leave this permanently enabled.
 - [ ] End-to-end check on the actually deployed revision (external/mobile vs home): signed login, FastAPI board data, /api/service overview, site Backstage v2 catalogue, private APIs still denied. Tests and production deployment on this PR remain **NOT_RUN**.
 
+## P0 — UI FastAPI Cloud accessible hors domicile (23 octobre 2026)
+
+- [x] Retirer les placeholders `Owner only` des cinq cartes de synthèse de `/api` pour les visiteurs non authentifiés. Utiliser exclusivement `GET /api/ui/services` (projection Backstage v2 explicitement publique : noms validés, catégorie et état `ok/warn/fail/unknown`) pour afficher le répertoire complet et cinq compteurs cohérents.
+- [x] Les absences de snapshot, les erreurs de catalogue et les réponses périmées n'affirment jamais qu'un service est sain : compteur `UNKNOWN` ou `Unavailable`. Aucun champ d'adresse privée, URL interne, port, clé, diagnostic brut ni topologie n'est repris de `/healthz` ou `/sickz` dans le flux public.
+- [x] Ne plus traiter l'absence normale de session OWNER comme une panne de la page : préciser que seul le détail des sondes et le contrôle opérateur requièrent une authentification.
+- [ ] Vérifier le *déploiement FastAPI Cloud direct* et `/v2/version` contre le HEAD : les commits dans GitHub ne garantissent pas la mise à jour de `fastapi-sample.fastapicloud.dev`. Ne pas déclencher de job GitHub Actions ni de `fastapi deploy` depuis l'agent.
+- [ ] Depuis un client mobile en 4G/5G et depuis le Wi-Fi domicile : `/api/ui/services` HTTP 200 avec liste ; `/api` affiche la même liste et les compteurs ; aucun `Owner only` dans les résumés ; états périmés `UNKNOWN`. Vérifier séparément session OWNER 401 sans clé, clé invalide 401, clé valide 200, origine invalide 403.
+- [ ] Après une solution distante authentifiée MFA/VPN validée : remettre `HOMELAB_OWNER_REMOTE_ACCESS_ENABLED=false`, et désactiver le répertoire public avec `HOMELAB_UI_PUBLIC_SERVICES_ENABLED=false` **seulement si** un remplaçant externe authentifié garantit la disponibilité attendue. Réévaluer la divulgation volontaire des libellés de services.
+- [ ] Contrôles locaux sur un checkout complet exact HEAD : `just offline-l1`, `just p0`, `just quality` et tests navigateur ; sans accès au clone, statut **NOT_RUN** plutôt que PASS.
+
 ## P0 — CI : tracker unique `master-red` (#355)
 
 - **Implémenté, à valider** : un seul commentaire d'état du bot dans #355, sans nouvelle issue par SHA, sans PR brouillon vide, sans modification du titre, du corps ni des labels ; conservation des preuves des 32 anciens doublons dans GitHub. Script canonique : `scripts/ci/master_red_issue.py`.
