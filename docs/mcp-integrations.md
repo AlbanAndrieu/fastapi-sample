@@ -225,7 +225,7 @@ fastapi login
 fastapi cloud whoami
 ```
 
-CI/deploy authentication uses a separate deploy token:
+Legacy CLI automation can use a separate deploy token (no GitHub deployment workflow is configured):
 
 ```bash
 fastapi cloud setup-ci --secrets-only

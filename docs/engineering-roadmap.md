@@ -108,10 +108,9 @@ notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blo
     (syntaxe récente) et de la nouvelle étape CI (local-first).
   - `mirrors-prettier` remplacé par `rbubley/mirrors-prettier` v3.9.10 ;
     reformatage cosmétique accepté, `secrets-enc.yaml` (SOPS) exclu.
-- [ ] **Renommage** `production-smoke.yml` → `master-smoke.yml` (id de job
-  `production-smoke` et `name: Production Smoke` conservés pour ne casser
-  ni `needs` ni les noms de checks). Preuve : règles de protection de
-  branche vérifiées, puis un appel vert `deploy.yml` → `master-smoke.yml`.
+- [x] `master-smoke.yml` conserve les contrôles en lecture seule et l'entrée
+  manuelle/réutilisable ; son ancien déclenchement par `deploy.yml` est retiré
+  car FastAPI Cloud déploie indépendamment.
 - [ ] **Tests #353 corrigés** (23 échecs hérités) : client de test
   authentifié par clés factices (routes privées fail-closed), tests
   DefectDojo alignés sur l'API `private_file`/`validate_format`, contrats
@@ -171,7 +170,7 @@ attaquant externe utilise l'endpoint comme oracle de vérification de clés.
 - [x] Operator-approved temporary service directory in /api while the Cloud owner CIDR/proxy is broken: GET /api/ui/services returns **only** validated Backstage v2 labels, kind, and enum health states (OK/WARN/FAIL/UNKNOWN), never raw diagnostics or service endpoints. Existing OWNER diagnostics remain protected.
 - [x] Opt-out: HOMELAB_UI_PUBLIC_SERVICES_ENABLED=false returns 404 and hides the temporary feed, default true until owner admission is repaired and verified. This intentionally makes a minimal inventory PUBLIC while enabled; retire immediately after the real owner session is restored.
 - [ ] Validate live service states/coverage (entityRef mapping still incomplete), Swagger/OpenAPI inventory exposure, click-through filters, mobile view and security negative tests. No public raw IPs, internal URLs, ports, credentials, probe evidence or dependency graph.
-- [ ] Before merge: test exact SHA locally and ensure Deploy to FastAPI Cloud passes (existing production deployment workflow is blocked by tests). Do not infer live deployment from merged PR.
+- [x] Le workflow GitHub de déploiement redondant est retiré ; FastAPI Cloud déploie indépendamment. Ne jamais déduire un runtime actif d'une release GitHub.
 
 - [x] Frontend safety net: on stale/pending status DTO or failed refresh, reset all observed statuses to UNKNOWN while preserving a previously loaded service roster in volatile memory (no localStorage). Offline DOM smoke confirms 42 labels survive a 503, never retaining stale OK.
 
@@ -180,4 +179,11 @@ attaquant externe utilise l'endpoint comme oracle de vérification de clés.
 - [x] Separate trusted-operator environment management from deploy-only automation, remove five in-pipeline `cloud env set` mutations. Stamp Git SHA into an uploaded tracked module; `/v2/version.build_revision` still attests the exact checkout.
 - [ ] Before deployment, verify cloud variables `DEBUG=false`, posture/security TLS verify=true and authenticated pfSense probes=true from a trusted operator; no automatic change is implied by the deploy-token job.
 - [ ] Validate full local quality gate; merge/deploy only on approval; verify exact deployed revision and the temporary `/api/ui/services` feed.
-- [ ] Evaluate FastAPI Cloud native GitHub integration as a future zero-GitHub-Actions deploy path, avoiding duplicate deployments.
+- [x] FastAPI Cloud gère déjà le déploiement direct ; aucune pipeline GitHub de déploiement n'est nécessaire.
+
+## P0 — Suppression de la pipeline redondante (2026-10-22)
+
+- [x] Retirer `.github/workflows/deploy.yml` et tous ses jobs de validation, déploiement CLI et smoke couplé : aucun `fastapi deploy` ni `fastapi cloud env set` ne doit exister dans `.github/workflows`.
+- [x] Garder l'événement `semantic-release-published` exclusivement pour `release.yml` (packages, pas déploiement application). `master-smoke.yml` reste autonome et manuel/réutilisable ; ne pas déclencher de vérification distante payante.
+- [x] Remplacer les tests couplés à `deploy.yml` par des tests de propriété négatifs (non-déploiement, absence de token Cloud dans les workflows GitHub, déclencheur package préservé).
+- [ ] Valider tous les tests pertinents sur un checkout complet avant fusion. Aucun déploiement automatique et aucune CI GitHub ne doivent être sollicités pour cette PR. L'état de production FastAPI Cloud doit être vérifié séparément en lecture seule.

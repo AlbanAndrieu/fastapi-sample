@@ -61,7 +61,7 @@ description = "Install the locked environment and Git hooks"
 depends = ["install", "hooks"]
 
 [tasks.build]
-description = "Build the Python sdist/wheel (same as the deploy workflow)"
+description = "Build the Python sdist/wheel locally (no deployment)"
 run = "uv build"
 
 [tasks.hooks]
@@ -108,7 +108,7 @@ run = "bash scripts/run-pytest-compact.sh"
 description = "Check Python lint without modifying sources"
 run = "uv run --no-sync ruff check ."
 
-# Production deploys to FastAPI Cloud through .github/workflows/deploy.yml.
+# FastAPI Cloud deploys independently; GitHub Actions must not deploy this app.
 
 [tasks.info]
 description = "Project infos"

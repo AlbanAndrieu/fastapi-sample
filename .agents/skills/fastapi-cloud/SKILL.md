@@ -128,27 +128,31 @@ PFSENSE_SECURITY_PATH_MODE=shared_wan
 PFSENSE_AUTHENTICATED_PROBES_ENABLED=true
 ```
 
-`PFSENSE_POSTURE_API_URL`, `PFSENSE_POSTURE_API_VERIFY_SSL`, `PFSENSE_SECURITY_API_URL`, and `PFSENSE_SECURITY_API_VERIFY_SSL` are optional overrides when an identity uses a different transport. The production deploy workflow pins both per-identity TLS overrides to `true` so stale Cloud values cannot silently disable certificate verification. `PFSENSE_API_KEY` is obsolete and is no longer consumed by FastAPI Sample. It was removed from FastAPI Cloud on 2026-09-02; remove it from homelab runtime secrets as well.
+`PFSENSE_POSTURE_API_URL`, `PFSENSE_POSTURE_API_VERIFY_SSL`, `PFSENSE_SECURITY_API_URL`, and `PFSENSE_SECURITY_API_VERIFY_SSL` are optional overrides when an identity uses a different transport. The FastAPI Cloud application environment must be checked by an authorized operator; GitHub Actions no longer pins or mutates these values. `PFSENSE_API_KEY` is obsolete and is no longer consumed by FastAPI Sample. It was removed from FastAPI Cloud on 2026-09-02; remove it from homelab runtime secrets as well.
 
 FastAPI Cloud keeps authenticated pfSense posture and security probes enabled
 in steady state now that both dedicated least-privilege keys are valid. The
 posture observer fails fast on the first HTTP 401, so one rejected key cannot
 fan out across deeper pfREST reads and amplify Login Protection / `sshguard`.
 
-The FastAPI Cloud deploy workflow intentionally **does not** call
-`fastapi cloud env set` using the deployment token. As proven by Actions run
-39819073386, `env set` requires an authenticated user session and fails
-`No credentials found` even if `FASTAPI_CLOUD_TOKEN` is set.
+FastAPI Cloud's deployment lifecycle is owned directly by the FastAPI Cloud
+platform. This repository does **not** run `fastapi deploy` or
+`fastapi cloud env set` in GitHub Actions. Previous run 39819073386
+failed with `No credentials found` when CLI authentication was unavailable;
+the redundant workflow was removed to avoid duplicate deployments and credits.
+
 Configure steady-state `DEBUG=false`,
 `PFSENSE_POSTURE_API_VERIFY_SSL=true`,
 `PFSENSE_SECURITY_API_VERIFY_SSL=true`, and
-`PFSENSE_AUTHENTICATED_PROBES_ENABLED=true` independently in the
-FastAPI Cloud dashboard or a trusted operator session. Confirm the
-runtime values before accepting the deployment.
+`PFSENSE_AUTHENTICATED_PROBES_ENABLED=true` in the authorized FastAPI Cloud
+control plane. GitHub release tags and the package publishing event are
+**not** application deployment triggers. The read-only `master-smoke.yml`
+remains available for explicit diagnostic use, not automatic deployment.
 
-The deployment checkout is stamped with the immutable Git SHA using
-`scripts/stamp_fastapi_deploy_revision.py`, so the deployment-only
-`fastapi deploy` token can still provide `/v2/version.build_revision`.
+A Git SHA supplied by a local operator to
+`scripts/stamp_fastapi_deploy_revision.py` can be reported as
+`/v2/version.build_revision` only after runtime verification. A matching
+GitHub release number alone does not prove the running deployment SHA.
  Use `false` only
 as an emergency kill-switch during credential rotation or a fresh Login
 Protection incident, then restore `true` after the key/path issue is corrected.
@@ -252,14 +256,15 @@ PostgreSQL is traffic-critical. A PostgreSQL startup failure must remain fatal, 
 
 Correlate these records with `FASTAPICLOUD_DEPLOYMENT_ID` and `BUILD_REVISION`. Do not treat optional Unleash/GitLab failures as part of this critical chain.
 
-## Deployment workflow
+## Deployment ownership
 
-Production deploys are validated by `.github/workflows/deploy.yml` before the FastAPI Cloud deploy command runs. When production appears stale:
-
-1. Check the current `master` commit.
-2. Check the `Deploy to FastAPI Cloud` GitHub Actions workflow for that commit.
-3. Distinguish validation failure from FastAPI Cloud deployment failure.
-4. Only inspect FastAPI Cloud runtime logs after confirming the expected commit actually deployed.
+The FastAPI Cloud platform independently owns production deployments;
+GitHub Actions is **not** authorized to publish or mutate the runtime.
+Agents may use only local source validation and read-only post-deployment
+checks unless explicitly authorized for a separate operation.
+Do not interpret release/publish workflows as proof of deployment.
+To investigate stale production, compare the runtime `/v2/version`,
+platform deployment metadata and read-only logs with `master`.
 
 A successful public HTTP `/api` response does not prove WebSocket JSON-RPC health. Use `/api/homelab/health`, `/api/homelab/runtime`, and runtime logs for TrueNAS.
 
