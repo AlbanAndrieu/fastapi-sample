@@ -59,6 +59,7 @@ def test_github_workflows_never_deploy_or_mutate_fastapi_cloud() -> None:
     """FastAPI Cloud deploys independently of GitHub Actions."""
     workflows = ROOT / ".github" / "workflows"
     assert not (workflows / "deploy.yml").exists()
+    assert not (workflows / "linter.yml").exists()  # redundant Super-Linter retired
     for path in workflows.glob("*.yml"):
         workflow = path.read_text(encoding="utf-8")
         assert "uv run fastapi deploy" not in workflow, path.name
