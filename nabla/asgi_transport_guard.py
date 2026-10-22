@@ -59,7 +59,8 @@ class OpsASGITransportGuard:
                     )
                     await response(scope, receive, send)
                     return
-                if not allowed_owner_source(scope, get_settings()):
+                settings = get_settings()
+                if not (getattr(settings, "homelab_owner_remote_access_enabled", False) or allowed_owner_source(scope, settings)):
                     response = JSONResponse(
                         {"detail": "Owner network not authorized"},
                         status_code=403,
@@ -80,7 +81,8 @@ class OpsASGITransportGuard:
             except (OwnerConfigError, OwnerKeysUnavailable, OwnerUnauthorized):
                 await send({"type": "websocket.close", "code": 4403})
                 return
-            if not allowed_owner_source(scope, get_settings()):
+            settings = get_settings()
+            if not (getattr(settings, "homelab_owner_remote_access_enabled", False) or allowed_owner_source(scope, settings)):
                 await send({"type": "websocket.close", "code": 4403})
                 return
             scope.setdefault("state", {})["ops_owner_sub"] = subject
