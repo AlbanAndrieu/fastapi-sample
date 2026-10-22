@@ -54,6 +54,7 @@ def test_python_ci_provides_required_auth_settings() -> None:
     )
     assert all(setting in python_ci for setting in required_test_settings)
 
+
 def test_github_workflows_never_deploy_or_mutate_fastapi_cloud() -> None:
     """FastAPI Cloud deploys independently of GitHub Actions."""
     workflows = ROOT / ".github" / "workflows"
@@ -65,11 +66,13 @@ def test_github_workflows_never_deploy_or_mutate_fastapi_cloud() -> None:
         assert "FASTAPI_CLOUD_TOKEN" not in workflow, path.name
         assert "FASTAPI_CLOUD_APP_ID" not in workflow, path.name
 
+
 def test_production_smoke_is_independent_of_deployment() -> None:
     smoke = (ROOT / ".github/workflows/master-smoke.yml").read_text(encoding="utf-8")
     assert "workflow_dispatch:" in smoke
     assert "workflow_call:" in smoke
     assert "workflow_run:" not in smoke
+
 
 def test_release_dispatch_is_only_for_package_publication() -> None:
     """Keep the package release event; never wire it to a Cloud deployment."""
@@ -83,6 +86,7 @@ def test_release_dispatch_is_only_for_package_publication() -> None:
     assert "production deployment" not in semantic
     assert not (ROOT / ".github/workflows/deploy.yml").exists()
     assert "repository_dispatch:" in publishing
+
 
 def test_production_smoke_bounds_browser_cost_without_losing_post_deploy_ui_check() -> None:
     smoke = (ROOT / ".github/workflows/master-smoke.yml").read_text(encoding="utf-8")
@@ -201,6 +205,7 @@ def test_ci_uses_current_uv_tooling() -> None:
     assert 'version: "0.12.22"' in python_ci
     assert 'version: "0.12.1"' not in python_ci
 
+
 def test_fastapi_cloud_cli_lock_is_current() -> None:
     project = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     lock = (ROOT / "uv.lock").read_text(encoding="utf-8")
@@ -216,6 +221,7 @@ def test_cloud_debug_is_guarded_by_application_not_deploy_workflow() -> None:
     assert 'application_debug_enabled(env_bool("DEBUG"))' in app_factory
     assert not (ROOT / ".github/workflows/deploy.yml").exists()
 
+
 def test_app_factory_applies_cloud_debug_guard() -> None:
     app_factory = (ROOT / "nabla/app_factory.py").read_text(encoding="utf-8")
 
@@ -227,6 +233,7 @@ def test_deploy_token_not_required_for_github_release_or_smoke() -> None:
         workflow = (ROOT / ".github/workflows" / path).read_text(encoding="utf-8")
         assert "FASTAPI_CLOUD_TOKEN" not in workflow
         assert "fastapi deploy" not in workflow
+
 
 def test_deployment_revision_artifact_is_included_in_source_bundle() -> None:
     ignored = (ROOT / ".fastapicloudignore").read_text(encoding="utf-8")
