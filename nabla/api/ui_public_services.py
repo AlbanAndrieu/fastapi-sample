@@ -13,6 +13,7 @@ from typing import Literal
 from fastapi import Request
 from pydantic import BaseModel, ConfigDict, Field
 
+from nabla.api import health_board
 from nabla.api.site_architecture_catalog import (
     SiteArchitectureCatalogV2,
     fetch_site_catalog_v2,
@@ -70,11 +71,9 @@ def project_public_ui_services(
 
 async def get_public_ui_services(request: Request) -> PublicUiServices:
     """Read shared bounded server cache; no browser auth, no raw probe output."""
-    from nabla.api.health_board import get_health_board_snapshot
-
     catalog = await fetch_site_catalog_v2()
     try:
-        board = await get_health_board_snapshot(request)
+        board = await health_board.get_health_board_snapshot(request)
     except Exception:
         # The service directory should survive failures in optional diagnostic
         # collectors. No fresh evidence means UNKNOWN, never fabricated OK/FAIL.

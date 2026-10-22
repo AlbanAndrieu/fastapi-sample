@@ -32,7 +32,8 @@ def test_v2_site_reader_requires_key_and_preserves_owner_cidr(monkeypatch) -> No
         spec={"type": "service"},
     )
     catalog = v2.SiteArchitectureCatalogV2(
-        catalogRevision="sha256:" + "a" * 64, entities=[entity],
+        catalogRevision="sha256:" + "a" * 64,
+        entities=[entity],
     )
     source = AsyncMock(return_value=catalog)
     # The route module imports the function directly: mock its lookup site.

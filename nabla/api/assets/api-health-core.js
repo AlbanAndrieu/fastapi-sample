@@ -345,20 +345,29 @@ function showFetchError(message) {
   if (groupedEl) groupedEl.innerHTML = "";
   const overview = document.getElementById("service-health-overview");
   if (overview && message.includes("Owner diagnostics")) {
-    const total = document.getElementById("public-services-summary")?.dataset.serviceCount;
-    overview.querySelectorAll(".service-overview-card strong").forEach((card, index) => {
-      // Only the limited directory count is public; do not invent detailed metrics.
-      card.textContent = index === 0
-        ? (total ? total + " listed" : "See service directory ↓")
-        : "Owner only";
-    });
+    const total = document.getElementById("public-services-summary")?.dataset
+      .serviceCount;
+    overview
+      .querySelectorAll(".service-overview-card strong")
+      .forEach((card, index) => {
+        // Only the limited directory count is public; do not invent detailed metrics.
+        card.textContent =
+          index === 0
+            ? total
+              ? total + " listed"
+              : "See service directory ↓"
+            : "Owner only";
+      });
   }
-  const restricted = message.includes("Owner diagnostics require sign-in") ||
+  const restricted =
+    message.includes("Owner diagnostics require sign-in") ||
     message.includes("Owner diagnostics session unavailable");
   summaryEl.className = restricted
     ? "health-summary health-summary--neutral"
     : "health-summary health-summary--red";
-  summaryLed.className = restricted ? "health-led health-led--gray" : "health-led health-led--red";
+  summaryLed.className = restricted
+    ? "health-led health-led--gray"
+    : "health-led health-led--red";
   summaryText.textContent = restricted
     ? "Diagnostics restricted — unlock owner access to see services and probes."
     : "Could not load /healthz.";

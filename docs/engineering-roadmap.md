@@ -72,6 +72,15 @@ notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blo
   reflection. Separate `unknown` from an actually failed health check.
 - [ ] Reconcile canonical `nabla-compose` topology IDs and Gatus telemetry
   from TrueNAS/Talos/Kubernetes/Prometheus; preserve cloud outside-in probes.
+- [ ] `/healthz` : les enrichissements TLS LiteLLM/Pyroscope sont désormais
+  concurrents (pire cas ≈ 5 s au lieu de ≈ 10 s) ; `build_homelab_health_payload`
+  est découpé en helpers sans changement de contrat. Preuve restante : mesurer
+  `refresh_elapsed_ms` et la latence `/healthz` avant/après sur un runtime
+  déployé. Candidats suivants (> 100 lignes) : `pfsense_dns_observer`
+  (`_observe_posture_origin_bounded`), `homelab_truenas_probe.probe_truenas`,
+  `sickz_checks.build_sickz_payload`. Dette C901 soldée sur `route_policy_for`
+  (équivalence vérifiée sur 3 136 cas chemin/méthode/type),
+  `_register_homelab_catalog_routes` et le validateur PostHog `_validate`.
 - [ ] Verify changed runtime health and security posture with LAN evidence.
   Retain incident-specific symptoms, commands and recurrence criteria in
   [incidents.md](incidents.md) or the appropriate infrastructure runbook.
@@ -139,18 +148,18 @@ attaquant externe utilise l'endpoint comme oracle de vérification de clés.
 
 **Actions runtime non réalisées** :
 1. Inspecter via `mise exec -- uv run fastapi cloud env list` la **présence**
-   de `DIAGNOSTICS_ACCESS_KEY`, `HOMELAB_TRUSTED_CIDRS` et
-   `HOMELAB_TRUSTED_PROXY_CIDRS`, sans afficher de secrets.
+  de `DIAGNOSTICS_ACCESS_KEY`, `HOMELAB_TRUSTED_CIDRS` et
+  `HOMELAB_TRUSTED_PROXY_CIDRS`, sans afficher de secrets.
 2. Vérifier l'origine de la requête, l'IP de peer ASGI et la provenance
-   réellement vérifiée de `X-Forwarded-For` **dans les logs privés**, sans
-   diffuser les valeurs. Une chaîne multi-proxy peut être légitime, mais il
-   faut prouver les pairs de confiance avant d'élargir son interprétation.
+  réellement vérifiée de `X-Forwarded-For` **dans les logs privés**, sans
+  diffuser les valeurs. Une chaîne multi-proxy peut être légitime, mais il
+  faut prouver les pairs de confiance avant d'élargir son interprétation.
 3. N'approuver dans `HOMELAB_TRUSTED_PROXY_CIDRS` que les adresses de
-   proxy ingress contrôlées et vérifiées ; jamais `0.0.0.0/0`, `::/0`,
-   l'ensemble des IP cloud, ni une variable `FORWARDED_ALLOW_IPS=*`.
+  proxy ingress contrôlées et vérifiées ; jamais `0.0.0.0/0`, `::/0`,
+  l'ensemble des IP cloud, ni une variable `FORWARDED_ALLOW_IPS=*`.
 4. Déployer et tester depuis IPv4/IPv6, réseau tiers, en-tête forgé, et cookie
-   expiré. Réponse `403` sans données opérationnelles en cas de provenance
-   invérifiable. Les sondes cloud restent indépendantes de cette session.
+  expiré. Réponse `403` sans données opérationnelles en cas de provenance
+  invérifiable. Les sondes cloud restent indépendantes de cette session.
 
 ## P0 — FastAPI Cloud owner access blocked (2026-10-21)
 - [x] Diagnose failed production deploy jobs 39634265656 / 39562478704; the original 403 UI predates GitHub master and may indicate an older cloud runtime.

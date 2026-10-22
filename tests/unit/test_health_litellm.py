@@ -1,5 +1,6 @@
 """Tests for LiteLLM entry in /healthz checks."""
 
+import asyncio
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -37,3 +38,36 @@ def test_probe_litellm_public_proxy_success_on_liveliness(monkeypatch: pytest.Mo
     assert out["path"] == "/health/liveliness"
     assert "health/liveliness" in out["url"]
     mock_client.get.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_enrich_integration_metadata_overlaps_tls_probes(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = SimpleNamespace(litellm_healthz_url="https://litellm.example.test")
+    monkeypatch.setattr(ih, "get_settings", lambda: fake)
+    started: list[str] = []
+    both_started = asyncio.Event()
+
+    async def fake_tls(url: str) -> bool:
+        started.append(url)
+        if len(started) == 2:
+            both_started.set()
+        # A sequential implementation would never start the second probe.
+        await asyncio.wait_for(both_started.wait(), timeout=1.0)
+        return True
+
+    monkeypatch.setattr(ih, "probe_https_tls_trusted", fake_tls)
+    checks = {
+        "litellm": {"reachable": True, "url": "https://litellm.example.test/health/liveliness"},
+        "pyroscope": {"reachable": True, "url": "https://pyroscope.example.test"},
+    }
+
+    await ih.enrich_integration_metadata(checks)
+
+    assert sorted(started) == [
+        "https://litellm.example.test/health/liveliness",
+        "https://pyroscope.example.test",
+    ]
+    assert checks["litellm"]["tls_trusted"] is True
+    assert checks["litellm"]["display_label"] == "LiteLLM"
+    assert checks["pyroscope"]["tls_trusted"] is True
+    assert checks["pyroscope"]["href"] == "https://pyroscope.example.test"

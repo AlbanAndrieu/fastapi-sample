@@ -60,28 +60,37 @@ def within(path: str, prefix: str) -> bool:
     return path == prefix or path.startswith(prefix + "/")
 
 
+_READ_METHODS = frozenset({"GET", "HEAD"})
+# Evaluated in order; the first matching segment prefix wins.
+_PREFIX_POLICIES: tuple[tuple[str, RoutePolicy], ...] = (
+    ("/private/ops", OWNER),
+    ("/a2a", OWNER),
+    ("/admin", ADMIN),
+    ("/mcp", MCP),
+    ("/metrics", INTERNAL),
+)
+
+
+def _http_route_policy(path: str, method: str) -> RoutePolicy:
+    if (path == "/api/ui/session" and method in {"GET", "HEAD", "POST"}) or (path == "/api/ui/session/logout" and method == "POST"):
+        return PUBLIC
+    if path in {"/api/site/catalog/v2", "/api/site/health/v2"} and method in _READ_METHODS:
+        return SITE_CATALOG
+    for prefix, policy in _PREFIX_POLICIES:
+        if within(path, prefix):
+            return policy
+    if path in _DIAGNOSTIC_EXACT or within(path, "/api/homelab") or within(path, "/api/health-board"):
+        return DIAGNOSTIC
+    if method in _READ_METHODS and path in _PUBLIC:
+        return PUBLIC
+    return REVIEW
+
+
 def route_policy_for(path: str, *, method: str = "GET", kind: str = "http") -> RoutePolicy:
     """Unknown routes require REVIEW, never implicit public approval."""
-    if kind == "opaque_mount":
-        return REVIEW
     if kind == "websocket":
         return WEBSOCKET if within(path, "/ws") else REVIEW
     if kind != "http":
+        # Includes opaque mounts: their inner routes cannot be inventoried.
         return REVIEW
-    if (path == "/api/ui/session" and method.upper() in {"GET", "HEAD", "POST"}) or (path == "/api/ui/session/logout" and method.upper() == "POST"):
-        return PUBLIC
-    if path in {"/api/site/catalog/v2", "/api/site/health/v2"} and method.upper() in {"GET", "HEAD"}:
-        return SITE_CATALOG
-    if within(path, "/private/ops") or within(path, "/a2a"):
-        return OWNER
-    if within(path, "/admin"):
-        return ADMIN
-    if within(path, "/mcp"):
-        return MCP
-    if within(path, "/metrics"):
-        return INTERNAL
-    if path in _DIAGNOSTIC_EXACT or within(path, "/api/homelab") or within(path, "/api/health-board"):
-        return DIAGNOSTIC
-    if method.upper() in {"GET", "HEAD"} and path in _PUBLIC:
-        return PUBLIC
-    return REVIEW
+    return _http_route_policy(path, method.upper())

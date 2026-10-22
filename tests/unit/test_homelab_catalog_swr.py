@@ -108,6 +108,7 @@ async def test_topology_serves_stale_while_single_refresh_runs(monkeypatch) -> N
     assert await asyncio.wait_for(task, timeout=5.0) is fresh
     assert await homelab_topology.fetch_homelab_topology() is fresh
 
+
 @pytest.mark.asyncio
 async def test_topology_uses_packaged_snapshot_on_cold_start_failure(monkeypatch) -> None:
     packaged = HomelabTopology(

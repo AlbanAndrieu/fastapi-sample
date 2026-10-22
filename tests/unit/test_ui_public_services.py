@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from nabla import access_control
-from nabla.api import health_routes
+from nabla.api import health_routes, ui_public_services
 from nabla.api.site_architecture_catalog import (
     SiteArchitectureCatalogV2,
     SiteV2Entity,
@@ -71,10 +71,7 @@ def test_public_overview_strictly_excludes_probe_and_network_fields():
         "boardState",
         "services",
     }
-    assert not any(
-        sensitive in str(payload)
-        for sensitive in ("172.17.0.24", "private.invalid", "8443", "NEVER-ECHO", "entityRef")
-    )
+    assert not any(sensitive in str(payload) for sensitive in ("172.17.0.24", "private.invalid", "8443", "NEVER-ECHO", "entityRef"))
 
 
 def test_unverified_states_stay_unknown():
@@ -142,8 +139,6 @@ async def _broken_health_board(_request):
 
 @pytest.mark.asyncio
 async def test_directory_survives_failed_diagnostics_with_unknown(monkeypatch):
-    from nabla.api import ui_public_services
-
     monkeypatch.setattr(
         ui_public_services,
         "fetch_site_catalog_v2",

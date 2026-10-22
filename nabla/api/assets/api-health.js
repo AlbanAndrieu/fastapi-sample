@@ -1,6 +1,4 @@
 import { installGlobalServiceFilter } from "./api-global-service-filter.js";
-import { installOwnerSessionControls } from "./api-owner-session.js";
-import { installPublicServiceOverview } from "./api-public-services.js";
 import { installHealthBoardController } from "./api-health-controller.js";
 import { installHealthOperatorUx } from "./api-health-operator-ux.js";
 import { installHealthUiConsistencyFollowup } from "./api-health-ui-consistency-followup.js";
@@ -11,11 +9,13 @@ import { installHealthUiProbeExplanations } from "./api-health-ui-probe-explanat
 import { installHealthUiProbeGrid } from "./api-health-ui-probe-grid.js";
 import { installHealthUiResponsiveFollowup } from "./api-health-ui-responsive-followup.js";
 import { installHttpProbeStatuses } from "./api-http-probe-status.js";
+import { installOwnerSessionControls } from "./api-owner-session.js";
 import { installPfsenseSecurityPosture } from "./api-pfsense-security-posture.js";
 import { installPlatformFlowUi } from "./api-platform-flow-ui.js";
 import { installPlatformLegend } from "./api-platform-legend.js";
 import { installProbeFanoutDashboard } from "./api-probe-fanout-dashboard.js";
 import { startProbeAgeTicker } from "./api-probe-live.js";
+import { installPublicServiceOverview } from "./api-public-services.js";
 import { installServiceDependencyPriority } from "./api-service-dependency-priority.js";
 import { installServiceDetailDrawer } from "./api-service-detail-drawer.js";
 import { installServiceDiagnostics } from "./api-service-diagnostics.js";
