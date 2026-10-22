@@ -67,7 +67,7 @@ async def _authorize_owner(
             content={"detail": "Missing or invalid owner identity"},
             headers={**_DENY_HEADERS, "WWW-Authenticate": "Bearer"},
         )
-    if not allowed_owner_source(request.scope, settings):
+    if not (getattr(settings, "homelab_owner_remote_access_enabled", False) or allowed_owner_source(request.scope, settings)):
         return JSONResponse(
             status_code=403,
             content={"detail": "Owner network not authorized"},
@@ -145,6 +145,7 @@ async def operations_access_middleware(
     if (
         policy.credential is Credential.DIAGNOSTICS_KEY
         and policy.visibility is Visibility.OWNER
+        and not getattr(settings, "homelab_owner_remote_access_enabled", False)
         and getattr(settings, "homelab_trusted_cidrs", "").strip()
         and not allowed_owner_source(request.scope, settings)
     ):
