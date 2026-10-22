@@ -176,6 +176,19 @@ def render_api_root_page(
                     <div class="service-overview-card service-overview-card--neutral"><span>Observability</span><strong>Loading…</strong><small>Telemetry coverage</small></div>
                 </div>
 
+                <section id="public-services-panel" class="public-services-panel" aria-labelledby="public-services-title" hidden>
+                    <div class="public-services-heading">
+                        <div>
+                            <h3 id="public-services-title">Service directory · limited view</h3>
+                            <p class="health-board-meta">Temporary display of service names and summary states only. Detailed probes remain restricted.</p>
+                        </div>
+                        <button type="button" id="public-services-refresh">Refresh statuses</button>
+                    </div>
+                    <p id="public-services-summary" class="health-board-meta" role="status">Loading service directory…</p>
+                    <ul id="public-services-list" class="public-services-list" aria-label="Services and verified states"></ul>
+                    <button type="button" id="public-services-show-all" hidden>Show all services</button>
+                </section>
+
                 <ul class="health-checks" id="health-checks"></ul>
                 <p class="health-error" id="health-fetch-error" hidden></p>
                 <div class="service-groups" id="health-services-groups" aria-live="polite"></div>

@@ -151,3 +151,17 @@ attaquant externe utilise l'endpoint comme oracle de vérification de clés.
 4. Déployer et tester depuis IPv4/IPv6, réseau tiers, en-tête forgé, et cookie
    expiré. Réponse `403` sans données opérationnelles en cas de provenance
    invérifiable. Les sondes cloud restent indépendantes de cette session.
+
+## P0 — FastAPI Cloud owner access blocked (2026-10-21)
+- [x] Diagnose failed production deploy jobs 39634265656 / 39562478704; the original 403 UI predates GitHub master and may indicate an older cloud runtime.
+- [x] Restore deterministic tests for draft CI scope, monotonic stale caches, INTERNAL metrics authentication and v2 catalog route mocking; clarify the 403 browser message without exposing secrets or changing the CIDR policy.
+- [ ] Validate the Python quality gate on exact PR HEAD and merge only after approval; deploy and verify the production runtime SHA.
+- [ ] Diagnose FastAPI Cloud ingress peer and proven header rewriting privately before configuring HOMELAB_TRUSTED_PROXY_CIDRS. Test 200 home, 403 outside, 401 wrong key, and 403 spoof attempts.
+
+## P0 — Temporary minimal public service display on /api (2026-10-21)
+- [x] Operator-approved temporary service directory in /api while the Cloud owner CIDR/proxy is broken: GET /api/ui/services returns **only** validated Backstage v2 labels, kind, and enum health states (OK/WARN/FAIL/UNKNOWN), never raw diagnostics or service endpoints. Existing OWNER diagnostics remain protected.
+- [x] Opt-out: HOMELAB_UI_PUBLIC_SERVICES_ENABLED=false returns 404 and hides the temporary feed, default true until owner admission is repaired and verified. This intentionally makes a minimal inventory PUBLIC while enabled; retire immediately after the real owner session is restored.
+- [ ] Validate live service states/coverage (entityRef mapping still incomplete), Swagger/OpenAPI inventory exposure, click-through filters, mobile view and security negative tests. No public raw IPs, internal URLs, ports, credentials, probe evidence or dependency graph.
+- [ ] Before merge: test exact SHA locally and ensure Deploy to FastAPI Cloud passes (existing production deployment workflow is blocked by tests). Do not infer live deployment from merged PR.
+
+- [x] Frontend safety net: on stale/pending status DTO or failed refresh, reset all observed statuses to UNKNOWN while preserving a previously loaded service roster in volatile memory (no localStorage). Offline DOM smoke confirms 42 labels survive a 503, never retaining stale OK.

@@ -35,7 +35,8 @@ def test_v2_site_reader_requires_key_and_preserves_owner_cidr(monkeypatch) -> No
         catalogRevision="sha256:" + "a" * 64, entities=[entity],
     )
     source = AsyncMock(return_value=catalog)
-    monkeypatch.setattr(v2, "fetch_site_catalog_v2", source)
+    # The route module imports the function directly: mock its lookup site.
+    monkeypatch.setattr("nabla.api.health_routes.fetch_site_catalog_v2", source)
     app = FastAPI()
     app.middleware("http")(access_control.operations_access_middleware)
     register_health_routes(app)

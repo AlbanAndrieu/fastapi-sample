@@ -28,6 +28,11 @@ from nabla.api.site_architecture_catalog import (
     fetch_site_catalog_v2,
 )
 from nabla.api.site_health_v2 import SiteHealthV2, fetch_site_health_v2
+from nabla.api.ui_public_services import (
+    PublicUiServices,
+    get_public_ui_services,
+    public_ui_services_enabled,
+)
 from nabla.utils.logger import logger
 
 
@@ -158,6 +163,26 @@ def _register_homelab_catalog_routes(app: FastAPI) -> None:
             raise HTTPException(
                 status_code=503,
                 detail="Authoritative Backstage v2 unavailable",
+                headers=_NO_STORE_HEADERS,
+            ) from None
+
+    @app.get(
+        "/api/ui/services",
+        response_model=PublicUiServices,
+        tags=["Homelab"],
+        include_in_schema=False,
+    )
+    async def get_public_service_overview(request: Request, response: Response) -> PublicUiServices:
+        """Temporary minimal UI feed. Raw diagnostics stay owner-only."""
+        if not public_ui_services_enabled():
+            raise HTTPException(status_code=404, detail="Not found")
+        response.headers.update({**_NO_STORE_HEADERS, "X-Robots-Tag": "noindex, nofollow"})
+        try:
+            return await get_public_ui_services(request)
+        except SiteCatalogV2Unavailable:
+            raise HTTPException(
+                status_code=503,
+                detail="Service overview temporarily unavailable",
                 headers=_NO_STORE_HEADERS,
             ) from None
 

@@ -366,3 +366,31 @@ def test_owner_ui_session_assets_and_locked_dashboard_state() -> None:
     ).read_text(encoding="utf-8")
     assert "Owner diagnostics require sign-in." in board
     assert "Diagnostics restricted" in core
+
+
+def test_limited_service_overview_asset_is_public_only_and_distinct() -> None:
+    page = (_ASSET_DIR.parent / "ui.py").read_text(encoding="utf-8")
+    bootstrap = (_ASSET_DIR / "api-health.js").read_text(encoding="utf-8")
+    script = (_ASSET_DIR / "api-public-services.js").read_text(encoding="utf-8")
+    assert 'id="public-services-panel"' in page
+    assert 'id="public-services-list"' in page
+    assert 'from "./api-public-services.js"' in bootstrap
+    assert 'fetch("/api/ui/services"' in script
+    assert 'ownerSessionAvailable()' in script
+    assert "textContent = service.name" in script
+    assert "document.createTextNode" not in script
+    assert "innerHTML" not in script
+    assert "X-Diagnostics-Key" not in script
+    assert "localStorage" not in script
+    assert "pendingRetries < 5" in script
+    assert "See service directory" in (
+        _ASSET_DIR / "api-health-core.js"
+    ).read_text(encoding="utf-8")
+
+
+def test_limited_service_overview_never_claims_stale_health() -> None:
+    script = (_ASSET_DIR / "api-public-services.js").read_text(encoding="utf-8")
+    assert 'payload.boardState === "fresh" ? service.state : "unknown"' in script
+    assert 'rows.map((service) => ({ ...service, state: "unknown" }))' in script
+    assert "all statuses UNKNOWN" in script
+    assert "localStorage" not in script

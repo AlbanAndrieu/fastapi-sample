@@ -93,7 +93,8 @@ def test_authorized_browser_session_can_read_health_but_not_other_scopes(monkeyp
     assert "samesite=strict" in cookie.lower()
     assert client.get("/api/ui/session").json() == {"authenticated": True}
     assert client.get("/api/health-board").json()["secret_metric"] == "readable-to-owner-only"
-    assert client.get("/metrics").status_code == 503
+    # This INTERNAL route has a configured key but rejects an owner cookie.
+    assert client.get("/metrics").status_code == 401
     assert client.get("/api/site/catalog/v2").status_code == 401
     assert client.post("/api/health-board/cache/reset").status_code == 403
     assert client.post(
