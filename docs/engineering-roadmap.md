@@ -13,7 +13,7 @@ notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blo
 - [x] All three pull-request workflows enforce explicit job-level draft guards and `ready_for_review`; `scripts/ci/check_draft_workflows.py` and its negative tests fail closed on an unguarded runnable job. This saves runner minutes in Draft without suppressing future required security checks.
 - [x] Provide opt-in, non-public Talos/Kubernetes staging manifests, Kustomize, in-cluster readiness probes, resources, NetworkPolicy, required out-of-band Secret and regression contracts in `deploy/talos/`. Unverified image digest blocks accidental deployment.
 - [ ] Execute `just offline-l1`, `just p0`, `just workflow-audit`, `just quality` and `just publish-check` against a **complete local checkout of exact HEAD**; if GitHub DNS or toolchain remains unavailable, status is NOT_RUN, never PASS.
-- [ ] On actual Talos, validate secret provisioning, approved image digest and CNI/Trafik allowlist, plus owner-CIDR provenance and signed identity before opening any private Ingress. Preserve cloud outside-in probing; no production cutover without separate approval.
+- [ ] On actual Talos, validate secret provisioning, approved image digest and CNI/Traefik allowlist, plus owner-CIDR provenance and signed identity before opening any private Ingress. Preserve cloud outside-in probing; no production cutover without separate approval.
 
 ## P0 — CI : tracker unique `master-red` (#355)
 
