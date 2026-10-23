@@ -32,6 +32,14 @@ notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blo
 - [ ] Après une solution distante authentifiée MFA/VPN validée : remettre `HOMELAB_OWNER_REMOTE_ACCESS_ENABLED=false`, et désactiver le répertoire public avec `HOMELAB_UI_PUBLIC_SERVICES_ENABLED=false` **seulement si** un remplaçant externe authentifié garantit la disponibilité attendue. Réévaluer la divulgation volontaire des libellés de services.
 - [ ] Contrôles locaux sur un checkout complet exact HEAD : `just offline-l1`, `just p0`, `just quality` et tests navigateur ; sans accès au clone, statut **NOT_RUN** plutôt que PASS.
 
+## P0 — Toolchains supportés et LTS (23 octobre 2026)
+
+- [x] Fixer **Node.js 24.22.1 LTS** (21 octobre 2026, correctifs de sécurité) dans `mise.toml` et le fallback `.envrc`. Les workflows lisent Node depuis mise : ne pas dupliquer de numéros de version.
+- [x] Appliquer **Python 3.13.17** sur les outils développeur, dans le cadre du `uv.lock` existant (`requires-python = "==3.13.*"`). Python ne propose pas de branche officiellement appelée LTS ; 3.13 reste maintenue pour la sécurité jusqu'en octobre 2029. L'image `python:3.13-slim-trixie` prend les correctifs de la série lors des reconstructions.
+- [ ] Régénérer et vérifier `mise.lock` sur une machine connectée via `mise lock` : les blocs Python/Node contenant des checksums **d'anciennes versions** ont été supprimés intentionnellement, jamais transposés à de nouvelles archives. Exécuter `mise install` puis comparer `.python-version`, Node, npm et uv ; aucun déploiement tant que ce verrou n'est pas rétabli.
+- [ ] Qualification de **Python 3.14.9** (maintenu jusqu'en 2030) : régénérer intégralement le verrou `uv.lock` via `uv lock`, auditer les wheels Linux amd64, `pyroscope-io`, `pysqlite3`, `truenas-api-client`, FastAPI/ASGI et tous les groupes `uv`; exécuter tests, image Docker et acceptation Talos avant d'assouplir `requires-python ==3.13.*`. Ne jamais modifier manuellement `uv.lock` ni publier une image 3.14 sans résolution valide.
+- [ ] Gates locales de l'exact HEAD : `just offline-l1`, `just p0`, `just workflow-audit`, `just quality`, tests Docker. Aucun GitHub Actions payant ni déploiement déclenché par l'agent.
+  
 ## P0 — CI : tracker unique `master-red` (#355)
 
 - **Implémenté, à valider** : un seul commentaire d'état du bot dans #355, sans nouvelle issue par SHA, sans PR brouillon vide, sans modification du titre, du corps ni des labels ; conservation des preuves des 32 anciens doublons dans GitHub. Script canonique : `scripts/ci/master_red_issue.py`.
