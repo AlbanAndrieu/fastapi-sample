@@ -119,11 +119,14 @@ notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blo
   concurrents (pire cas ≈ 5 s au lieu de ≈ 10 s) ; `build_homelab_health_payload`
   est découpé en helpers sans changement de contrat. Preuve restante : mesurer
   `refresh_elapsed_ms` et la latence `/healthz` avant/après sur un runtime
-  déployé. Candidats suivants (> 100 lignes) : `pfsense_dns_observer`
-  (`_observe_posture_origin_bounded`), `homelab_truenas_probe.probe_truenas`.
-  Dette C901 soldée sur `route_policy_for` (équivalence vérifiée sur 3 136 cas
+  déployé. Dette soldée : `route_policy_for` (équivalence vérifiée sur 3 136 cas
   chemin/méthode/type), `_register_homelab_catalog_routes`, le validateur
-  PostHog `_validate` et `build_sickz_payload` (114 → 69 lignes).
+  PostHog `_validate`, `build_sickz_payload` (114 → 69 lignes), `probe_truenas`
+  (126 → 46) et `_observe_posture_origin_bounded` (188 → 73 ; payloads de repli
+  dans `pfsense_posture_skips.py`, JSON identique vérifié sur 401, preflight
+  lent et nominal). Candidats suivants (> 100 lignes) : `render_api_root_page`,
+  `render_topology_page` (HTML déclaratif), `observe_pfsense_dns_posture`,
+  `check_pfsense_api`, `collect_truenas_network_diagnostics`.
 - [ ] Contextes SSL partagés (`verified_ssl_context`/`unverified_ssl_context`) :
   chaque `httpx.AsyncClient(verify=True)` rechargeait le bundle CA (≈ 8 ms de
   CPU bloquant l'event loop, mesuré localement, contre 0,06 ms partagé) par

@@ -15,6 +15,7 @@ from nabla.api.external_probe_cache import get_or_refresh_probe
 from nabla.api.provider_probe_policies import (
     PFSENSE_POSTURE_CACHE_POLICY as _PFSENSE_POSTURE_CACHE_POLICY,
 )
+from nabla.api.pfsense_posture_skips import auth_rejected_posture, slow_preflight_posture
 from nabla.api.pfsense_security_observer import observe_pfsense_ingress_block
 from nabla.api.pfsense_service_inventory import (
     _optional_bool,
@@ -279,43 +280,7 @@ async def _observe_posture_origin_bounded(
                     duration_seconds=system_elapsed_seconds,
                 )
                 record_pfsense_protective_skip("authentication_failure")
-                skipped = {
-                    name: {
-                        "observed": False,
-                        "error": "skipped_after_authentication_failure",
-                    }
-                    for name in paths
-                    if name != "system"
-                }
-                return {
-                    "reachable": False,
-                    "transport_reachable": True,
-                    "api_authenticated": False,
-                    "api_evidence_state": "authentication_failed",
-                    "successful_endpoint_count": 0,
-                    "endpoint_count": len(paths),
-                    "endpoint_status": {
-                        "system": {
-                            "observed": False,
-                            "error": "HTTP 401",
-                            "http_status": 401,
-                        },
-                        **skipped,
-                    },
-                    "services_observed": False,
-                    "services": [],
-                    "service_summary": {
-                        "running": 0,
-                        "stopped": 0,
-                        "unknown": 0,
-                        "total": 0,
-                    },
-                    "resolver": {},
-                    "upstreams": [],
-                    "error_stage": "system",
-                    "error": "HTTP 401",
-                    "auth_fail_fast": True,
-                }
+                return auth_rejected_posture(list(paths))
             observe_pfsense_preflight_duration(
                 outcome="failure",
                 duration_seconds=system_elapsed_seconds,
@@ -333,43 +298,7 @@ async def _observe_posture_origin_bounded(
             system_elapsed_ms = round(system_elapsed_seconds * 1000)
             if system_elapsed_ms >= round(_PFSENSE_SLOW_PREFLIGHT_SEC * 1000):
                 record_pfsense_protective_skip("slow_preflight")
-                skipped = {
-                    name: {
-                        "observed": False,
-                        "error": "skipped_after_slow_preflight",
-                    }
-                    for name in paths
-                    if name != "system"
-                }
-                return {
-                    "reachable": True,
-                    "transport_reachable": True,
-                    "api_authenticated": True,
-                    "api_evidence_state": "partial",
-                    "successful_endpoint_count": 1,
-                    "endpoint_count": len(paths),
-                    "endpoint_status": {
-                        "system": {
-                            "observed": True,
-                            "elapsed_ms": system_elapsed_ms,
-                        },
-                        **skipped,
-                    },
-                    "services_observed": False,
-                    "services": [],
-                    "service_summary": {
-                        "running": 0,
-                        "stopped": 0,
-                        "unknown": 0,
-                        "total": 0,
-                    },
-                    "resolver": {},
-                    "upstreams": [],
-                    "control_plane_state": "slow",
-                    "control_plane_elapsed_ms": system_elapsed_ms,
-                    "deep_probe_skipped": True,
-                    "reason": ("pfSense API preflight is slow; deeper posture fan-out was skipped to protect the appliance"),
-                }
+                return slow_preflight_posture(list(paths), system_elapsed_ms)
             observations = {"system": system_observation}
 
         remaining_paths = {name: path for name, path in paths.items() if name != "system"}
@@ -377,6 +306,20 @@ async def _observe_posture_origin_bounded(
             await _bounded_observations(client, remaining_paths),
         )
 
+    return _posture_result(
+        observations,
+        endpoint_count=len(paths),
+        system_elapsed_ms=system_elapsed_ms,
+    )
+
+
+def _posture_result(
+    observations: dict[str, Any],
+    *,
+    endpoint_count: int,
+    system_elapsed_ms: int | None,
+) -> dict[str, Any]:
+    """Summarize per-endpoint observations without echoing raw upstream errors."""
     endpoint_status = _endpoint_status(observations)
     if system_elapsed_ms is not None:
         endpoint_status["system"]["elapsed_ms"] = system_elapsed_ms
@@ -402,7 +345,7 @@ async def _observe_posture_origin_bounded(
         "api_authenticated": api_authenticated,
         "api_evidence_state": "complete" if not failures else "partial",
         "successful_endpoint_count": successful_reads,
-        "endpoint_count": len(paths),
+        "endpoint_count": endpoint_count,
         "endpoint_status": endpoint_status,
         "services_observed": endpoint_status["services"]["observed"] is True,
         "services": sanitized_services,
