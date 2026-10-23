@@ -18,4 +18,8 @@
 @import url("./api-health-ui-final-followup.css");
 
 /* Anonymous landing never exposes the operator sign-in form by accident. */
-#owner-session-panel[hidden] { display: none !important; }
+#owner-session-panel[hidden],
+#health-board-private-meta[hidden],
+#owner-readonly-detail[hidden],
+#truenas-platform[hidden],
+#runtime-topology[hidden] { display: none !important; }
