@@ -375,7 +375,7 @@ def test_limited_service_overview_asset_is_public_only_and_distinct() -> None:
     assert 'id="public-services-list"' in page
     assert 'from "./api-public-services.js"' in bootstrap
     assert 'fetch("/api/ui/services"' in script
-    assert "ownerSessionAvailable()" in script
+    assert "ownerSessionAvailable()" in bootstrap
     assert "textContent = service.name" in script
     assert "document.createTextNode" not in script
     assert "innerHTML" not in script
@@ -390,7 +390,7 @@ def test_limited_service_overview_asset_is_public_only_and_distinct() -> None:
     assert 'cards.length !== 5' in script
     assert 'value.textContent = values[index]' in script
     assert "renderPublicSummary(null, 0)" in script
-    assert 'if (await ownerSessionAvailable()) return;' in script
+    assert 'if (ownerAuthenticated) return;' in script
 
 
 def test_limited_service_overview_never_claims_stale_health() -> None:
