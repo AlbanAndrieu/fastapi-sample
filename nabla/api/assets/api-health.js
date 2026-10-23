@@ -42,8 +42,6 @@ async function bootstrapHealthUi() {
   }
 
   installGlobalServiceFilter();
-  installHealthUiPolish();
-  installRuntimeVersionDriftWarning();
 
   if (!authenticated) {
     const heading = document.getElementById("health-summary-text");
@@ -56,6 +54,8 @@ async function bootstrapHealthUi() {
     return;
   }
 
+  installHealthUiPolish();
+  installRuntimeVersionDriftWarning();
   installPfsensePortLabels();
   installServiceDiagnostics();
   installPlatformLegend();
