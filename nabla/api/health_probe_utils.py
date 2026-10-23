@@ -4,9 +4,26 @@ from __future__ import annotations
 
 import ssl
 import time
+from functools import cache
 from typing import Any
 
 import httpx
+
+
+@cache
+def verified_ssl_context() -> ssl.SSLContext:
+    """Build httpx's default trust context once per process.
+
+    Loading the CA bundle per ``AsyncClient`` costs ~8 ms of synchronous CPU,
+    which blocks the event loop once per probed target during fan-out.
+    """
+    return httpx.create_ssl_context()
+
+
+@cache
+def unverified_ssl_context() -> ssl.SSLContext:
+    """Shared context for reachability-only probes that must ignore CA trust."""
+    return httpx.create_ssl_context(verify=False)
 
 
 def elapsed_ms(started: float) -> int:
@@ -59,7 +76,7 @@ async def probe_https_tls_trusted(url: str) -> bool | None:
     try:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(5.0),
-            verify=True,
+            verify=verified_ssl_context(),
             follow_redirects=True,
         ) as client:
             await client.get(target, headers={"User-Agent": "nabla-tls-verify/1.0"})

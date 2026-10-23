@@ -150,6 +150,29 @@ def unmeasured_truenas_network_diagnostics(
     }
 
 
+_TransportStages = tuple[dict[str, Any], dict[str, Any], bool]
+
+
+async def _wan_transport_stages(
+    hostname_transport: _TransportStages,
+    wan_transport_task: asyncio.Task[_TransportStages] | None,
+) -> tuple[list[dict[str, Any]], bool]:
+    """Return WAN socket/TLS stages, reusing hostname evidence when no task was scheduled."""
+    if wan_transport_task is None:
+        # DNS already resolves to the configured WAN address: same handshake.
+        socket_stage, tls_stage, tls_ok = hostname_transport
+        reused = {"evidence": "reused_hostname_transport"}
+        return [
+            _retag_wan_transport_stage(dict(socket_stage), stage_id="wan_socket", label="WAN TCP :7000") | reused,
+            _retag_wan_transport_stage(dict(tls_stage), stage_id="wan_tls", label="WAN TLS + SNI") | reused,
+        ], tls_ok
+    wan_socket, wan_tls, wan_tls_ok = await wan_transport_task
+    return [
+        _retag_wan_transport_stage(wan_socket, stage_id="wan_socket", label="WAN TCP :7000"),
+        _retag_wan_transport_stage(wan_tls, stage_id="wan_tls", label="WAN TLS + SNI"),
+    ], wan_tls_ok
+
+
 async def collect_truenas_network_diagnostics(
     *,
     host: str,
@@ -198,42 +221,11 @@ async def collect_truenas_network_diagnostics(
 
     wan_tls_ok: bool | None = None
     if wan is not None:
-        if reuse_hostname_transport:
-            wan_tls_ok = tls_ok
-            stages.extend(
-                (
-                    _retag_wan_transport_stage(
-                        dict(socket_stage),
-                        stage_id="wan_socket",
-                        label="WAN TCP :7000",
-                    )
-                    | {"evidence": "reused_hostname_transport"},
-                    _retag_wan_transport_stage(
-                        dict(tls_stage),
-                        stage_id="wan_tls",
-                        label="WAN TLS + SNI",
-                    )
-                    | {"evidence": "reused_hostname_transport"},
-                ),
-            )
-        else:
-            if wan_transport_task is None:
-                raise RuntimeError("WAN transport probe was not scheduled")
-            wan_socket, wan_tls, wan_tls_ok = await wan_transport_task
-            stages.extend(
-                (
-                    _retag_wan_transport_stage(
-                        wan_socket,
-                        stage_id="wan_socket",
-                        label="WAN TCP :7000",
-                    ),
-                    _retag_wan_transport_stage(
-                        wan_tls,
-                        stage_id="wan_tls",
-                        label="WAN TLS + SNI",
-                    ),
-                ),
-            )
+        wan_stages, wan_tls_ok = await _wan_transport_stages(
+            (socket_stage, tls_stage, tls_ok),
+            wan_transport_task,
+        )
+        stages.extend(wan_stages)
         stages.append(
             _public_path_comparison_stage(
                 resolved=resolved,

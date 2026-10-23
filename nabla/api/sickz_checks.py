@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
+from typing import Any, NamedTuple
 
 import httpx
 import urllib3
@@ -14,6 +14,7 @@ from nabla.api.health_probe_utils import (
     normalize_probe_error,
     normalize_probe_result_errors,
     probe_https_tls_trusted,
+    unverified_ssl_context,
 )
 from nabla.api.homelab_catalog import homelab_sickz_catalog_for_sickz
 from nabla.api.probe_budget import ProbeBudget
@@ -133,7 +134,8 @@ async def _probe_url(url: str) -> dict[str, Any]:
     try:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(5.0),
-            verify=False,  # noqa: S501  # nosec B501
+            # Reachability only: CA trust is reported separately by probe_https_tls_trusted.
+            verify=unverified_ssl_context(),
             follow_redirects=True,
         ) as client:
             response = await client.get(
@@ -260,6 +262,46 @@ def _deadline_group_result(
     }
 
 
+class _RowMaps(NamedTuple):
+    """Catalogue-derived UI metadata keyed by tunnel URL (absent outside catalog mode)."""
+
+    icon_by_tunnel: dict[str, str] | None = None
+    name_by_tunnel: dict[str, str] | None = None
+    policy_by_tunnel: dict[str, dict[str, Any]] | None = None
+
+
+async def _load_homelab_catalog(
+    settings: APIDeploymentSettings,
+    budget: ProbeBudget,
+) -> tuple[list[list[str]], _RowMaps, bool]:
+    """Return catalogue groups, row metadata and whether the catalogue timed out."""
+    if not _targets_equal_default_catalog_mode(settings.sickz_targets):
+        return [], _RowMaps(), False
+    catalog = await budget.run(
+        homelab_sickz_catalog_for_sickz,
+        timeout_value=lambda: None,
+    )
+    if catalog is None:
+        return [], _RowMaps(), True
+    groups, icon_by_tunnel, name_by_tunnel, policy_by_tunnel = catalog
+    return groups, _RowMaps(icon_by_tunnel, name_by_tunnel, policy_by_tunnel), False
+
+
+def _internal_skip_checks(groups: list[list[str]], row_maps: _RowMaps) -> dict[str, Any]:
+    """Describe every group as deliberately unprobed from the home LAN."""
+    return {
+        " | ".join(group): {
+            "skipped": True,
+            "aliases_probed": list(group),
+            "reason": "Not probed (LAN / internal network skip).",
+            "tls_trusted": None,
+            **row_ui_metadata(group, *row_maps),
+            **pfsense_tcp_skip_payload(group),
+        }
+        for group in groups
+    }
+
+
 async def build_sickz_payload(request: Request) -> dict[str, Any]:
     """Build inverse-reachability results for exposure-policy validation."""
     settings = get_settings()
@@ -269,25 +311,7 @@ async def build_sickz_payload(request: Request) -> dict[str, Any]:
         deadline_seconds=_SICKZ_PROBE_DEADLINE_SEC,
         max_concurrency=_SICKZ_MAX_CONCURRENCY,
     )
-    homelab_icon_by_tunnel: dict[str, str] | None = None
-    homelab_name_by_tunnel: dict[str, str] | None = None
-    homelab_policy_by_tunnel: dict[str, dict[str, Any]] | None = None
-    homelab_groups: list[list[str]] = []
-    catalog_timed_out = False
-    if _targets_equal_default_catalog_mode(settings.sickz_targets):
-        catalog = await budget.run(
-            homelab_sickz_catalog_for_sickz,
-            timeout_value=lambda: None,
-        )
-        if catalog is None:
-            catalog_timed_out = True
-        else:
-            (
-                homelab_groups,
-                homelab_icon_by_tunnel,
-                homelab_name_by_tunnel,
-                homelab_policy_by_tunnel,
-            ) = catalog
+    homelab_groups, row_maps, catalog_timed_out = await _load_homelab_catalog(settings, budget)
 
     if known_paas_runtime_detected() and (settings.sickz_internal_network or _implicit_internal_network(settings)):
         _log.debug(
@@ -299,25 +323,8 @@ async def build_sickz_payload(request: Request) -> dict[str, Any]:
         default_targets=_default_sickz_targets_value(),
     )
     if _internal_network_effective(settings):
-        group_keys = [" | ".join(group) for group in groups]
-        checks = {
-            key: {
-                "skipped": True,
-                "aliases_probed": list(group),
-                "reason": "Not probed (LAN / internal network skip).",
-                "tls_trusted": None,
-                **row_ui_metadata(
-                    group,
-                    homelab_icon_by_tunnel,
-                    homelab_name_by_tunnel,
-                    homelab_policy_by_tunnel,
-                ),
-                **pfsense_tcp_skip_payload(group),
-            }
-            for key, group in zip(group_keys, groups, strict=True)
-        }
         return {
-            "checks": checks,
+            "checks": _internal_skip_checks(groups, row_maps),
             "version": request.app.version,
             "status": "skipped_internal_network",
             "network_label": network_label,
@@ -340,18 +347,8 @@ async def build_sickz_payload(request: Request) -> dict[str, Any]:
     group_results = await asyncio.gather(
         *(
             budget.run(
-                lambda group=group: _probe_alias_group(
-                    group,
-                    homelab_icon_by_tunnel,
-                    homelab_name_by_tunnel,
-                    homelab_policy_by_tunnel,
-                ),
-                timeout_value=lambda group=group: _deadline_group_result(
-                    group,
-                    homelab_icon_by_tunnel,
-                    homelab_name_by_tunnel,
-                    homelab_policy_by_tunnel,
-                ),
+                lambda group=group: _probe_alias_group(group, *row_maps),
+                timeout_value=lambda group=group: _deadline_group_result(group, *row_maps),
             )
             for group in groups
         ),

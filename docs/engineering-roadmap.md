@@ -58,7 +58,10 @@ notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blo
 
 - [x] Fixer **Node.js 24.22.1 LTS** (21 octobre 2026, correctifs de sécurité) dans `mise.toml` et le fallback `.envrc`. Les workflows lisent Node depuis mise : ne pas dupliquer de numéros de version.
 - [x] Appliquer **Python 3.13.17** sur les outils développeur, dans le cadre du `uv.lock` existant (`requires-python = "==3.13.*"`). Python ne propose pas de branche officiellement appelée LTS ; 3.13 reste maintenue pour la sécurité jusqu'en octobre 2029. L'image `python:3.13-slim-trixie` prend les correctifs de la série lors des reconstructions.
-- [ ] Régénérer et vérifier `mise.lock` sur une machine connectée via `mise lock` : les blocs Python/Node contenant des checksums **d'anciennes versions** ont été supprimés intentionnellement, jamais transposés à de nouvelles archives. Exécuter `mise install` puis comparer `.python-version`, Node, npm et uv ; aucun déploiement tant que ce verrou n'est pas rétabli.
+- [x] Régénérer et vérifier `mise.lock` sur une machine connectée (23 octobre 2026) : `mise lock`/`mise install` ont produit les entrées Node 24.22.1, Python 3.13.17 et uv ; les 6 checksums linux-x64/macos-arm64 sont **identiques** aux sommes officielles publiées (`nodejs.org/dist/v24.22.1/SHASUMS256.txt`, `SHA256SUMS` de la release python-build-standalone `20261021`, `.sha256` des assets uv 0.12.22). `.python-version` 3.13.17, Node v24.22.1, npm 12.2.0, uv 0.12.22 concordent.
+- [x] uv figé à **0.12.22** dans `mise.toml` (même version que `setup-uv` de `python.yml`, au lieu de `latest` verrouillé en 0.12.6) : le backend pypi de mise (ex. `azure-cli` déclaré globalement) exige uv ≥ 0.12.10 et échouait dans ce dépôt. L'archive linux-x64 d'uv passe de musl à gnu (images Debian slim, mise non utilisé dans Docker/CI).
+- [x] `engines.node` `>=26` (vestige de #343, quand `mise.toml` épinglait Node 26) aligné sur `>=24.22.1` dans `package.json` et `package-lock.json` ; `npm ci --dry-run` sous Node 24.22.1 : 0 `EBADENGINE`. `release.yml` passe d'uv `0.12.1` à `0.12.22` ; `test_uv_version_matches_across_mise_and_workflows` impose désormais la même version d'uv dans `mise.toml`, `python.yml` et `release.yml`.
+- [ ] **NOT_RUN** : prochain run réel de `release.yml` (déclenché par une release) avec uv 0.12.22.
 - [ ] Qualification de **Python 3.14.9** (maintenu jusqu'en 2030) : régénérer intégralement le verrou `uv.lock` via `uv lock`, auditer les wheels Linux amd64, `pyroscope-io`, `pysqlite3`, `truenas-api-client`, FastAPI/ASGI et tous les groupes `uv`; exécuter tests, image Docker et acceptation Talos avant d'assouplir `requires-python ==3.13.*`. Ne jamais modifier manuellement `uv.lock` ni publier une image 3.14 sans résolution valide.
 - [ ] Gates locales de l'exact HEAD : `just offline-l1`, `just p0`, `just workflow-audit`, `just quality`, tests Docker. Aucun GitHub Actions payant ni déploiement déclenché par l'agent.
 
@@ -132,11 +135,30 @@ notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blo
   concurrents (pire cas ≈ 5 s au lieu de ≈ 10 s) ; `build_homelab_health_payload`
   est découpé en helpers sans changement de contrat. Preuve restante : mesurer
   `refresh_elapsed_ms` et la latence `/healthz` avant/après sur un runtime
-  déployé. Candidats suivants (> 100 lignes) : `pfsense_dns_observer`
-  (`_observe_posture_origin_bounded`), `homelab_truenas_probe.probe_truenas`,
-  `sickz_checks.build_sickz_payload`. Dette C901 soldée sur `route_policy_for`
-  (équivalence vérifiée sur 3 136 cas chemin/méthode/type),
-  `_register_homelab_catalog_routes` et le validateur PostHog `_validate`.
+  déployé. Dette soldée : `route_policy_for` (équivalence vérifiée sur 3 136 cas
+  chemin/méthode/type), `_register_homelab_catalog_routes`, le validateur
+  PostHog `_validate`, `build_sickz_payload` (114 → 69 lignes), `probe_truenas`
+  (126 → 46) et `_observe_posture_origin_bounded` (188 → 73 ; payloads de repli
+  dans `pfsense_posture_skips.py`, JSON identique vérifié sur 401, preflight
+  lent et nominal), `observe_pfsense_dns_posture` (155 → 56 ; 6 chemins),
+  `check_pfsense_api` (119 → 66 ; 10 chemins) et
+  `collect_truenas_network_diagnostics` (116 → 85 ; 4 chemins WAN), chaque
+  fois JSON identique (clés + ordre) à l'implémentation précédente. Reste
+  > 100 lignes : `render_api_root_page`, `render_topology_page` (HTML
+  déclaratif, à externaliser en gabarit seulement si une évolution l'exige).
+  Taille de fichiers : `sickz_policy.py` 655 → 416 (évaluation Cloudflare
+  Tunnel/Access déplacée telle quelle dans `sickz_cloudflare_policy.py`, AST
+  identique vérifié). Restent > 500 lignes : `external_probe_cache.py` (597),
+  `pfsense_dns_observer.py` (547), `truenas_client.py` (536),
+  `pfsense_security_observer.py` (535) — découper par responsabilité au
+  prochain changement fonctionnel qui les touche.
+- [ ] Contextes SSL partagés (`verified_ssl_context`/`unverified_ssl_context`) :
+  chaque `httpx.AsyncClient(verify=True)` rechargeait le bundle CA (≈ 8 ms de
+  CPU bloquant l'event loop, mesuré localement, contre 0,06 ms partagé) par
+  cible sondée dans `/healthz`, `/sickz` et la sonde edge Cloudflare. Preuve
+  restante : latence p95 `/sickz` et `/healthz` avant/après sur runtime déployé.
+  Autres clients encore créés par requête (un seul par appel, gain marginal) :
+  `platform_health`, `pfsense_*_observer`, `homelab_truenas_probe`.
 - [ ] Verify changed runtime health and security posture with LAN evidence.
   Retain incident-specific symptoms, commands and recurrence criteria in
   [incidents.md](incidents.md) or the appropriate infrastructure runbook.

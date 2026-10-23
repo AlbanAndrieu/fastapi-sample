@@ -10,6 +10,7 @@ from urllib.parse import urlsplit
 
 import httpx
 
+from nabla.api.health_probe_utils import verified_ssl_context
 from nabla.api.provider_credentials import cloudflare_access_service_token_credentials
 
 _MAX_EDGE_BODY_CHARS = 32_768
@@ -135,6 +136,7 @@ async def _probe_http_edge_evidence(
     try:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(5.0),
+            verify=verified_ssl_context(),
             follow_redirects=False,
             transport=transport,
         ) as client:

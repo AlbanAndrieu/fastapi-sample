@@ -15,6 +15,13 @@ from nabla.api.external_probe_cache import get_or_refresh_probe
 from nabla.api.provider_probe_policies import (
     PFSENSE_POSTURE_CACHE_POLICY as _PFSENSE_POSTURE_CACHE_POLICY,
 )
+from nabla.api.pfsense_posture_skips import (
+    TELEMETRY_DISABLED_INGRESS,
+    auth_rejected_posture,
+    slow_preflight_posture,
+    transport_only_posture,
+    unconfigured_posture,
+)
 from nabla.api.pfsense_security_observer import observe_pfsense_ingress_block
 from nabla.api.pfsense_service_inventory import (
     _optional_bool,
@@ -279,43 +286,7 @@ async def _observe_posture_origin_bounded(
                     duration_seconds=system_elapsed_seconds,
                 )
                 record_pfsense_protective_skip("authentication_failure")
-                skipped = {
-                    name: {
-                        "observed": False,
-                        "error": "skipped_after_authentication_failure",
-                    }
-                    for name in paths
-                    if name != "system"
-                }
-                return {
-                    "reachable": False,
-                    "transport_reachable": True,
-                    "api_authenticated": False,
-                    "api_evidence_state": "authentication_failed",
-                    "successful_endpoint_count": 0,
-                    "endpoint_count": len(paths),
-                    "endpoint_status": {
-                        "system": {
-                            "observed": False,
-                            "error": "HTTP 401",
-                            "http_status": 401,
-                        },
-                        **skipped,
-                    },
-                    "services_observed": False,
-                    "services": [],
-                    "service_summary": {
-                        "running": 0,
-                        "stopped": 0,
-                        "unknown": 0,
-                        "total": 0,
-                    },
-                    "resolver": {},
-                    "upstreams": [],
-                    "error_stage": "system",
-                    "error": "HTTP 401",
-                    "auth_fail_fast": True,
-                }
+                return auth_rejected_posture(list(paths))
             observe_pfsense_preflight_duration(
                 outcome="failure",
                 duration_seconds=system_elapsed_seconds,
@@ -333,43 +304,7 @@ async def _observe_posture_origin_bounded(
             system_elapsed_ms = round(system_elapsed_seconds * 1000)
             if system_elapsed_ms >= round(_PFSENSE_SLOW_PREFLIGHT_SEC * 1000):
                 record_pfsense_protective_skip("slow_preflight")
-                skipped = {
-                    name: {
-                        "observed": False,
-                        "error": "skipped_after_slow_preflight",
-                    }
-                    for name in paths
-                    if name != "system"
-                }
-                return {
-                    "reachable": True,
-                    "transport_reachable": True,
-                    "api_authenticated": True,
-                    "api_evidence_state": "partial",
-                    "successful_endpoint_count": 1,
-                    "endpoint_count": len(paths),
-                    "endpoint_status": {
-                        "system": {
-                            "observed": True,
-                            "elapsed_ms": system_elapsed_ms,
-                        },
-                        **skipped,
-                    },
-                    "services_observed": False,
-                    "services": [],
-                    "service_summary": {
-                        "running": 0,
-                        "stopped": 0,
-                        "unknown": 0,
-                        "total": 0,
-                    },
-                    "resolver": {},
-                    "upstreams": [],
-                    "control_plane_state": "slow",
-                    "control_plane_elapsed_ms": system_elapsed_ms,
-                    "deep_probe_skipped": True,
-                    "reason": ("pfSense API preflight is slow; deeper posture fan-out was skipped to protect the appliance"),
-                }
+                return slow_preflight_posture(list(paths), system_elapsed_ms)
             observations = {"system": system_observation}
 
         remaining_paths = {name: path for name, path in paths.items() if name != "system"}
@@ -377,6 +312,20 @@ async def _observe_posture_origin_bounded(
             await _bounded_observations(client, remaining_paths),
         )
 
+    return _posture_result(
+        observations,
+        endpoint_count=len(paths),
+        system_elapsed_ms=system_elapsed_ms,
+    )
+
+
+def _posture_result(
+    observations: dict[str, Any],
+    *,
+    endpoint_count: int,
+    system_elapsed_ms: int | None,
+) -> dict[str, Any]:
+    """Summarize per-endpoint observations without echoing raw upstream errors."""
     endpoint_status = _endpoint_status(observations)
     if system_elapsed_ms is not None:
         endpoint_status["system"]["elapsed_ms"] = system_elapsed_ms
@@ -402,7 +351,7 @@ async def _observe_posture_origin_bounded(
         "api_authenticated": api_authenticated,
         "api_evidence_state": "complete" if not failures else "partial",
         "successful_endpoint_count": successful_reads,
-        "endpoint_count": len(paths),
+        "endpoint_count": endpoint_count,
         "endpoint_status": endpoint_status,
         "services_observed": endpoint_status["services"]["observed"] is True,
         "services": sanitized_services,
@@ -485,73 +434,15 @@ async def observe_pfsense_dns_posture(
 ) -> dict[str, Any]:
     """Return cached posture plus egress-specific Snort/PF evidence."""
     if settings is None and not PfSenseProbePolicySettings().pfsense_authenticated_probes_enabled:
-        configuration = pfsense_api_configuration_status()
-        return {
-            **configuration,
-            "authenticated_probes_enabled": False,
-            "observation_mode": "transport_only",
-            "reachable": None,
-            "transport_reachable": None,
-            "api_authenticated": None,
-            "api_evidence_state": "disabled",
-            "policy_state": "unknown",
-            "reason": ("Authenticated pfSense API probes are disabled for this runtime; WAN reachability is observed separately through the public pfSense/HAProxy/TrueNAS path"),
-            "services_observed": False,
-            "services": [],
-            "service_summary": {
-                "running": 0,
-                "stopped": 0,
-                "unknown": 0,
-                "total": 0,
-            },
-            "security_filters": _security_filter_observations(
-                None,
-                ingress_block={
-                    "state": "telemetry_disabled",
-                    "telemetry_available": False,
-                    "attribution_available": False,
-                },
-                services_observed=False,
-                posture_authenticated=None,
-            ),
-            "ingress_block": {
-                "state": "telemetry_disabled",
-                "telemetry_available": False,
-                "attribution_available": False,
-                "engine": "snort",
-                "firewall": "pfSense/PF",
-                "mechanism": "snort2c",
-                "evidence": ("Authenticated pfSense security telemetry is disabled in this runtime to avoid Login Protection/sshguard coupling"),
-                "control_path": {
-                    "mode": "disabled",
-                    "independent_from_wan_filter": False,
-                    "blind_spot": False,
-                    "detail": ("FastAPI Cloud uses transport-only WAN observation; authenticated pfSense telemetry is owned by the trusted homelab runtime"),
-                },
-            },
-        }
+        return transport_only_posture(
+            pfsense_api_configuration_status(),
+            _unauthenticated_filters(dict(TELEMETRY_DISABLED_INGRESS)),
+        )
     configuration = pfsense_api_configuration_status() if settings is None else None
     configured = settings or PfSenseDNSSettings.from_environment()
     if configured is None:
         ingress = await observe_pfsense_ingress_block()
-        return {
-            **(configuration or {}),
-            "configured": False,
-            "reachable": None,
-            "api_evidence_state": "unavailable",
-            "policy_state": "unknown",
-            "reason": "pfSense posture observation is not configured",
-            "services_observed": False,
-            "services": [],
-            "service_summary": {"running": 0, "stopped": 0, "unknown": 0, "total": 0},
-            "security_filters": _security_filter_observations(
-                None,
-                ingress_block=ingress,
-                services_observed=False,
-                posture_authenticated=None,
-            ),
-            "ingress_block": ingress,
-        }
+        return unconfigured_posture(configuration, ingress, _unauthenticated_filters(ingress))
 
     if settings is not None:
         posture_task = asyncio.create_task(_observe_posture_origin(configured))
@@ -591,7 +482,28 @@ async def observe_pfsense_dns_posture(
             "error": posture.get("error", "unknown"),
             **({"cache": posture["cache"]} if "cache" in posture else {}),
         }
+    return _reachable_posture(posture, common, truenas_hosts=truenas_hosts)
 
+
+def _unauthenticated_filters(ingress: dict[str, Any]) -> dict[str, Any]:
+    """Security-filter evidence when no authenticated posture read happened."""
+    return _security_filter_observations(
+        None,
+        ingress_block=ingress,
+        services_observed=False,
+        posture_authenticated=None,
+    )
+
+
+def _reachable_posture(
+    posture: dict[str, Any],
+    common: dict[str, Any],
+    *,
+    truenas_hosts: frozenset[str],
+) -> dict[str, Any]:
+    """Derive the resolver policy verdict from a reachable posture observation."""
+    services = common["services"]
+    services_observed = common["services_observed"]
     resolver = posture.get("resolver") if isinstance(posture.get("resolver"), dict) else {}
     forwarding = _optional_bool(resolver.get("forwarding"))
     upstreams = tuple(str(value) for value in posture.get("upstreams", []))

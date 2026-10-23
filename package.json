@@ -17,7 +17,7 @@
     "registry": "https://gitlab.com/api/v4/projects/60435718/packages/npm/"
   },
   "engines": {
-    "node": ">=26",
+    "node": ">=24.22.1",
     "npm": ">=10.8.2",
     "node-gyp": ">=3.0.3"
   },
