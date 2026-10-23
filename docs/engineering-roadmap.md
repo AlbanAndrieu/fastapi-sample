@@ -130,6 +130,12 @@ notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blo
   fois JSON identique (clés + ordre) à l'implémentation précédente. Reste
   > 100 lignes : `render_api_root_page`, `render_topology_page` (HTML
   déclaratif, à externaliser en gabarit seulement si une évolution l'exige).
+  Taille de fichiers : `sickz_policy.py` 655 → 416 (évaluation Cloudflare
+  Tunnel/Access déplacée telle quelle dans `sickz_cloudflare_policy.py`, AST
+  identique vérifié). Restent > 500 lignes : `external_probe_cache.py` (597),
+  `pfsense_dns_observer.py` (547), `truenas_client.py` (536),
+  `pfsense_security_observer.py` (535) — découper par responsabilité au
+  prochain changement fonctionnel qui les touche.
 - [ ] Contextes SSL partagés (`verified_ssl_context`/`unverified_ssl_context`) :
   chaque `httpx.AsyncClient(verify=True)` rechargeait le bundle CA (≈ 8 ms de
   CPU bloquant l'event loop, mesuré localement, contre 0,06 ms partagé) par

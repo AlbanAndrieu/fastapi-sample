@@ -9,7 +9,7 @@ from nabla.api.cloudflare_tunnels import (
 )
 from nabla.api.homelab_exposure import CloudflareExposureSnapshot, enrich_service_exposure
 from nabla.api.homelab_models import HomelabService
-from nabla.api.sickz_policy import _service_auth_access_result
+from nabla.api.sickz_cloudflare_policy import service_auth_access_result as _service_auth_access_result
 
 
 def _tunnel(hostname: str) -> CloudflareTunnelObservation:
