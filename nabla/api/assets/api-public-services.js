@@ -40,6 +40,7 @@ export async function installPublicServiceOverview({ ownerAuthenticated = false 
   let rows = [];
   let expanded = false;
   let pendingRetries = 0;
+  let catalogSource = "backstage-v2";
 
   function renderPublicSummary(counts, total) {
     // Five cards are shared with OWNER health; anonymous visitors must see
@@ -66,7 +67,9 @@ export async function installPublicServiceOverview({ ownerAuthenticated = false 
       "Unconfirmed",
     ];
     const descriptions = [
-      "Public catalog entries",
+      catalogSource === "bootstrap-snapshot"
+        ? "Last-known local inventory (not live)"
+        : "Backstage v2 catalog entries",
       "Verified summary state",
       "Verified summary state",
       "Verified summary state",
@@ -139,12 +142,13 @@ export async function installPublicServiceOverview({ ownerAuthenticated = false 
         state: payload.boardState === "fresh" ? service.state : "unknown",
       }));
       summary.dataset.serviceCount = String(rows.length);
-      summary.dataset.catalogSource = payload.catalogSource || "backstage-v2";
+      catalogSource = payload.catalogSource || "backstage-v2";
+      summary.dataset.catalogSource = catalogSource;
       const counts = { ok: 0, warn: 0, fail: 0, unknown: 0 };
       for (const row of rows) counts[row.state] += 1;
       renderPublicSummary(counts, rows.length);
       summary.textContent =
-        (payload.catalogSource === "bootstrap-snapshot"
+        (catalogSource === "bootstrap-snapshot"
           ? "Last-known service inventory (Backstage unavailable) · "
           : "") +
         rows.length +
