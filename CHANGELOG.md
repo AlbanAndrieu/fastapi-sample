@@ -1,3 +1,10 @@
+## [1.24.5](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.24.4...1.24.5) (2026-10-23)
+
+
+### Bug Fixes
+
+* **deps:** bump astro ([#369](https://github.com/AlbanAndrieu/fastapi-sample/issues/369)) ([8dc9b6d](https://github.com/AlbanAndrieu/fastapi-sample/commit/8dc9b6d0d69e2343450b0679d12c2787e1dacf70))
+
 ## [1.24.4](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.24.3...1.24.4) (2026-10-23)
 
 
