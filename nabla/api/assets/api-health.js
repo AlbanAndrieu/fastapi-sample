@@ -9,7 +9,7 @@ import { installHealthUiProbeExplanations } from "./api-health-ui-probe-explanat
 import { installHealthUiProbeGrid } from "./api-health-ui-probe-grid.js";
 import { installHealthUiResponsiveFollowup } from "./api-health-ui-responsive-followup.js";
 import { installHttpProbeStatuses } from "./api-http-probe-status.js";
-import { installOwnerSessionControls } from "./api-owner-session.js";
+import { installOwnerSessionControls, ownerSessionAvailable } from "./api-owner-session.js";
 import { installPfsenseSecurityPosture } from "./api-pfsense-security-posture.js";
 import { installPlatformFlowUi } from "./api-platform-flow-ui.js";
 import { installPlatformLegend } from "./api-platform-legend.js";
@@ -27,12 +27,11 @@ import { installPfsensePortLabels } from "./api-sickz-port-labels.js";
 import { installRuntimeVersionDriftWarning } from "./api-version-drift.js";
 
 // Temporary public read-only mode is the default operator-approved landing.
- // Never probe OWNER endpoints or show a Sign in dialog for an anonymous reader.
- // Full diagnostics remain available only when a valid session already exists
- // (or when the operator explicitly visits /api?operator=1 to unlock).
+// Never probe OWNER endpoints or show a Sign in dialog for an anonymous reader.
+// Full diagnostics remain available only when a valid session already exists
+// (or when the operator explicitly visits /api?operator=1 to unlock).
 async function bootstrapHealthUi() {
   const operatorMode = new URLSearchParams(window.location.search).get("operator") === "1";
-  const { ownerSessionAvailable } = await import("./api-owner-session.js");
   const authenticated = await ownerSessionAvailable();
   const panel = document.getElementById("owner-session-panel");
   if (panel) panel.hidden = !operatorMode;
@@ -62,7 +61,6 @@ async function bootstrapHealthUi() {
   installHttpProbeStatuses();
   installHealthBoardController();
   if (operatorMode) installOwnerSessionControls(() => window.location.reload());
-  
   installServiceOperatorDiagnostics();
   installServiceProbeDetails();
   installServiceProbeHelp();
