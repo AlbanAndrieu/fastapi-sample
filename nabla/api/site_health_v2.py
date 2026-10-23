@@ -8,6 +8,7 @@ from typing import Any, Literal
 from fastapi import Request
 from pydantic import BaseModel, ConfigDict, Field
 
+from nabla.api import health_board
 from nabla.api.site_architecture_catalog import (
     SiteArchitectureCatalogV2,
     fetch_site_catalog_v2,
@@ -42,11 +43,12 @@ def _verified_state(row: object) -> State:
     return state if state in ("ok", "warn", "fail") else "unknown"
 
 
-def project_site_health_v2(
-    catalog: SiteArchitectureCatalogV2,
-    board: object,
-) -> SiteHealthV2:
-    """Ambiguous, stale or absent observations yield UNKNOWN, never FAIL."""
+def verified_health_by_service_id(board: object) -> tuple[BoardState, dict[str, State]]:
+    """Share the same freshness/ambiguity contract across v2 and public UI.
+
+    Only the exact service ID and four-state result survive. URLs, network
+    probes, credentials and security posture never enter this projection.
+    """
     if not isinstance(board, dict):
         board = {}
     value = board.get("state")
@@ -54,6 +56,9 @@ def project_site_health_v2(
     homelab = board.get("homelab")
     rows = homelab.get("services") if isinstance(homelab, dict) else None
     rows = rows if isinstance(rows, list) else []
+    if board_state != "fresh":
+        return board_state, {}
+
     by_id: dict[str, dict[str, Any]] = {}
     duplicates: set[str] = set()
     for row in rows:
@@ -66,10 +71,19 @@ def project_site_health_v2(
             duplicates.add(key)
         else:
             by_id[key] = row
+    return board_state, {key: _verified_state(row) for key, row in by_id.items() if key not in duplicates}
+
+
+def project_site_health_v2(
+    catalog: SiteArchitectureCatalogV2,
+    board: object,
+) -> SiteHealthV2:
+    """Ambiguous, stale or absent observations yield UNKNOWN, never FAIL."""
+    board_state, states = verified_health_by_service_id(board)
     entries = [
         SiteHealthServiceV2(
             entityRef=entity.entityRef,
-            state=(_verified_state(by_id.get(entity.metadata.name)) if board_state == "fresh" and entity.metadata.name not in duplicates else "unknown"),
+            state=states.get(entity.metadata.name, "unknown"),
         )
         for entity in catalog.entities
         if entity.kind in ("Component", "Resource", "API")
@@ -82,9 +96,7 @@ def project_site_health_v2(
 
 
 async def fetch_site_health_v2(request: Request) -> SiteHealthV2:
-    """Keep provider/probe imports lazy until the authenticated request arrives."""
-    from nabla.api.health_board import get_health_board_snapshot
-
+    """Project the shared board snapshot; health_board keeps its provider imports lazy."""
     catalog = await fetch_site_catalog_v2()
-    board = await get_health_board_snapshot(request)
+    board = await health_board.get_health_board_snapshot(request)
     return project_site_health_v2(catalog, board)

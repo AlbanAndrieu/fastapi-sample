@@ -176,6 +176,11 @@ async def _fetch_remote_catalog() -> HomelabCatalog:
     return catalog
 
 
+def packaged_homelab_catalog() -> HomelabCatalog:
+    """Last-known-good file only: never a claim about current runtime state."""
+    return _load_bootstrap_catalog()
+
+
 def clear_homelab_catalog_cache() -> None:
     """Clear runtime and bootstrap caches; intended for tests and explicit refreshes."""
     _catalog_cache_state.reset()

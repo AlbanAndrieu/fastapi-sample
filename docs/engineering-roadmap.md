@@ -6,6 +6,19 @@ For long-tail unchecked tasks use the [on-demand backlog](engineering-backlog.md
 it is **not** an automatically approved roadmap. Historical implementation
 notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blob/594d51d64efdd5274d2ba42a9cb09551b6d57d46/docs/engineering-roadmap.md).
 
+## P0 — Incident FastAPI Cloud : UI vide et faux besoin de connexion OWNER (2026-10-23)
+
+- [x] Diagnostiquer les deux causes indépendantes : le bootstrap du navigateur bloquait le health board sur `ownerSessionAvailable()`, et `/api/ui/services` échouait sans repli lorsque `catalog/generated/entities.json` (Backstage v2) était indisponible.
+- [x] En accès anonyme, afficher **uniquement** le répertoire de services et les états vérifiés : aucune requête navigateur à `/api/health-board`, `/healthz`, `/sickz`, `/api/homelab/probes`, aux contrôles runtime/administrateur ou au cache reset. Les panneaux OWNER restent cachés par défaut, même en cas de conflit CSS ; l'authentification opérateur est uniquement sur `/api?operator=1`.
+- [x] En absence du catalogue Backstage, réutiliser le **snapshot déjà empaqueté et validé** du homelab (pas un nouveau catalogue concurrent). Publier seulement les libellés sûrs et, lorsque le cache partagé est réellement `fresh` et la correspondance ID non ambiguë, les états `ok/warn/fail`. Sinon `unknown` ; provenance explicite `catalogSource=bootstrap-snapshot` et `boardState`. Pas d'adresse IP, de port, de secret ou d'URL interne. Limiter les tentatives Backstage après échec à une par 60 secondes.
+- [x] Ignorer l'ancienne variable `HOMELAB_UI_PUBLIC_SERVICES_ENABLED` potentiellement restée `false` sur FastAPI Cloud : une seule bascule de retour arrière `HOMELAB_UI_PUBLIC_READONLY_ENABLED` (vaut `true` par défaut pendant l'incident), désactivable par `false` après revue. Ne pas ouvrir les API OWNER/SERVICE/ADMIN/MCP.
+- [ ] **P0 de validation production** : FastAPI Cloud se déploie directement hors GitHub Actions. Identifier la révision réellement déployée et promouvoir la correction par la procédure de déploiement **explicitement approuvée**. Le merge GitHub seul ne prouve pas que `https://fastapi-sample.fastapicloud.dev/api` est actualisé.
+- [ ] Contrôler depuis le réseau mobile externe et Wi-Fi maison : `GET /api/ui/services` 200, noms présents même si Backstage indisponible, 5 compteurs alignés, aucune fenêtre `Sign in` ou carte `Owner only` sur `/api`. Contrôler `/api?operator=1` (clé incorrecte 401, clé valide/cookie 20 min, origine invalide 403), mutations toujours protégées.
+- [ ] **Rétablir OWNER** une fois l'accès distant MFA/VPN validé : désactiver `HOMELAB_UI_PUBLIC_READONLY_ENABLED` et adapter la page pour réserver le catalogue public au flux authentifié, sans perdre le diagnostic depuis l'extérieur. Test de rollback et audit d'exposition obligatoires.
+- [ ] Exécuter gates locales exact HEAD : pytest ciblé, `just offline-l1`, `just p0`, `just quality`, tests navigateur et contrat anti-divulgation ; CI GitHub interdite pendant la pénurie de crédits. Toute gate non exécutée reste **NOT_RUN**.
+- [x] Gate locale au HEAD `09507f63` : repli Backstage cassé (`_bootstrap_public_service_directory()` appelé sans `request` ⇒ `TypeError`/500 à la première panne) corrigé ; contrats `python.yml` (6 gardes Draft depuis #365) et ordre `installHealthUiFinalFollowup` réalignés ; C901/PLC0415/PLW0603 soldés.
+- [ ] **NOT_RUN** : `just offline-l1`, `just p0`, tests navigateur (node@24.22.1 absent localement ; `mise.lock` non rafraîchi volontairement, à faire via `mise lock` depuis une source de confiance). Les 23 commits portent `[skip ci]`, désormais interdit par AGENTS.md : vérifier que les checks requis démarrent au passage Ready.
+
 ## P0 — Bababou local-first parity and Talos staging (PR #365, 2026-10-22)
 
 - [x] Remove both obsolete GitHub workflows `deploy.yml` (FastAPI Cloud deploys independently) and manual Super-Linter `linter.yml`; preserve Python, CodeQL, security scans, MegaLinter, artifact and package release gates. Remove stale MegaLinter exclusion.
@@ -48,7 +61,7 @@ notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blo
 - [ ] Régénérer et vérifier `mise.lock` sur une machine connectée via `mise lock` : les blocs Python/Node contenant des checksums **d'anciennes versions** ont été supprimés intentionnellement, jamais transposés à de nouvelles archives. Exécuter `mise install` puis comparer `.python-version`, Node, npm et uv ; aucun déploiement tant que ce verrou n'est pas rétabli.
 - [ ] Qualification de **Python 3.14.9** (maintenu jusqu'en 2030) : régénérer intégralement le verrou `uv.lock` via `uv lock`, auditer les wheels Linux amd64, `pyroscope-io`, `pysqlite3`, `truenas-api-client`, FastAPI/ASGI et tous les groupes `uv`; exécuter tests, image Docker et acceptation Talos avant d'assouplir `requires-python ==3.13.*`. Ne jamais modifier manuellement `uv.lock` ni publier une image 3.14 sans résolution valide.
 - [ ] Gates locales de l'exact HEAD : `just offline-l1`, `just p0`, `just workflow-audit`, `just quality`, tests Docker. Aucun GitHub Actions payant ni déploiement déclenché par l'agent.
-  
+
 ## P0 — CI : tracker unique `master-red` (#355)
 
 - **Implémenté, à valider** : un seul commentaire d'état du bot dans #355, sans nouvelle issue par SHA, sans PR brouillon vide, sans modification du titre, du corps ni des labels ; conservation des preuves des 32 anciens doublons dans GitHub. Script canonique : `scripts/ci/master_red_issue.py`.

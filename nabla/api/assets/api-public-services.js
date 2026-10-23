@@ -1,5 +1,3 @@
-import { ownerSessionAvailable } from "./api-owner-session.js";
-
 // Minimal public projection ONLY; no private probe URLs or credentials.
 const PREVIEW_LIMIT = 36;
 const STATES = new Set(["ok", "warn", "fail", "unknown"]);
@@ -12,6 +10,9 @@ function validOverview(value) {
     value.model === "public-service-overview" &&
     /^sha256:[a-f0-9]{64}$/.test(value.catalogRevision || "") &&
     ["fresh", "stale", "pending"].includes(value.boardState) &&
+    ["backstage-v2", "bootstrap-snapshot"].includes(
+      value.catalogSource || "backstage-v2",
+    ) &&
     Array.isArray(value.services) &&
     value.services.length <= 2000 &&
     value.services.every(
@@ -26,7 +27,9 @@ function validOverview(value) {
   );
 }
 
-export async function installPublicServiceOverview() {
+export async function installPublicServiceOverview({
+  ownerAuthenticated = false,
+} = {}) {
   const panel = document.getElementById("public-services-panel");
   const list = document.getElementById("public-services-list");
   const summary = document.getElementById("public-services-summary");
@@ -36,11 +39,12 @@ export async function installPublicServiceOverview() {
   if (!panel || !list || !summary || !refresh || !expand) return;
 
   // When the full owner dashboard works, do not duplicate its service cards.
-  if (await ownerSessionAvailable()) return;
+  if (ownerAuthenticated) return;
   panel.hidden = false;
   let rows = [];
   let expanded = false;
   let pendingRetries = 0;
+  let catalogSource = "backstage-v2";
 
   function renderPublicSummary(counts, total) {
     // Five cards are shared with OWNER health; anonymous visitors must see
@@ -59,15 +63,11 @@ export async function installPublicServiceOverview() {
             String(counts.fail),
             String(counts.unknown),
           ];
-    const labels = [
-      "Services",
-      "Healthy",
-      "Degraded",
-      "Failed",
-      "Unconfirmed",
-    ];
+    const labels = ["Services", "Healthy", "Degraded", "Failed", "Unconfirmed"];
     const descriptions = [
-      "Public catalog entries",
+      catalogSource === "bootstrap-snapshot"
+        ? "Last-known local inventory (not live)"
+        : "Backstage v2 catalog entries",
       "Verified summary state",
       "Verified summary state",
       "Verified summary state",
@@ -140,10 +140,15 @@ export async function installPublicServiceOverview() {
         state: payload.boardState === "fresh" ? service.state : "unknown",
       }));
       summary.dataset.serviceCount = String(rows.length);
+      catalogSource = payload.catalogSource || "backstage-v2";
+      summary.dataset.catalogSource = catalogSource;
       const counts = { ok: 0, warn: 0, fail: 0, unknown: 0 };
       for (const row of rows) counts[row.state] += 1;
       renderPublicSummary(counts, rows.length);
       summary.textContent =
+        (catalogSource === "bootstrap-snapshot"
+          ? "Last-known service inventory (Backstage unavailable) · "
+          : "") +
         rows.length +
         " services · " +
         counts.ok +
@@ -157,7 +162,7 @@ export async function installPublicServiceOverview() {
         (payload.boardState !== "fresh"
           ? " · observations pending or stale"
           : "") +
-        " · raw probes locked";
+        " · details available in operator mode";
       render();
       // A cold cloud cache may be pending for the first 40-second refresh.
       // Keep probes server-owned: at most five UI polls, then manual refresh.
@@ -186,7 +191,7 @@ export async function installPublicServiceOverview() {
         list.replaceChildren();
         expand.hidden = true;
         summary.textContent =
-          "Service directory temporarily unavailable. Owner diagnostics remain locked.";
+          "Service inventory unavailable; no verified names or statuses to display.";
       }
     } finally {
       loading = false;

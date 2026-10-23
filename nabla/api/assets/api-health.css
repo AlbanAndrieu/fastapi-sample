@@ -319,3 +319,12 @@
   font-size: 0.75rem;
   margin-top: 0.35rem;
 }
+
+/* Anonymous landing never exposes the operator sign-in form by accident. */
+#owner-session-panel[hidden],
+#health-board-private-meta[hidden],
+#owner-readonly-detail[hidden],
+#truenas-platform[hidden],
+#runtime-topology[hidden] {
+  display: none !important;
+}

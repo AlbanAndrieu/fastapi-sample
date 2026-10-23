@@ -12,6 +12,7 @@ from nabla import access_control
 from nabla.api import health_routes, ui_public_services
 from nabla.api.site_architecture_catalog import (
     SiteArchitectureCatalogV2,
+    SiteCatalogV2Unavailable,
     SiteV2Entity,
     SiteV2Metadata,
 )
@@ -64,7 +65,9 @@ def test_public_overview_strictly_excludes_probe_and_network_fields():
         {"name": "Garage", "kind": "Component", "state": "warn"},
         {"name": "postgres", "kind": "Resource", "state": "unknown"},
     ]
+    assert payload["catalogSource"] == "backstage-v2"
     assert set(payload) == {
+        "catalogSource",
         "schemaVersion",
         "model",
         "catalogRevision",
@@ -85,14 +88,16 @@ def test_unverified_states_stay_unknown():
 
 
 def test_temporary_switch_disables_only_public_projection(monkeypatch):
-    monkeypatch.delenv("HOMELAB_UI_PUBLIC_SERVICES_ENABLED", raising=False)
-    assert public_ui_services_enabled()
+    monkeypatch.delenv("HOMELAB_UI_PUBLIC_READONLY_ENABLED", raising=False)
     monkeypatch.setenv("HOMELAB_UI_PUBLIC_SERVICES_ENABLED", "false")
+    # Old environment config must not silently suppress the temporary fix.
+    assert public_ui_services_enabled()
+    monkeypatch.setenv("HOMELAB_UI_PUBLIC_READONLY_ENABLED", "false")
     assert not public_ui_services_enabled()
 
 
 def test_anonymous_public_overview_never_opens_raw_diagnostics(monkeypatch):
-    monkeypatch.setenv("HOMELAB_UI_PUBLIC_SERVICES_ENABLED", "true")
+    monkeypatch.setenv("HOMELAB_UI_PUBLIC_READONLY_ENABLED", "true")
 
     async def fake_overview(_request):
         return project_public_ui_services(_catalog(), {"state": "pending"})
@@ -128,7 +133,7 @@ def test_anonymous_public_overview_never_opens_raw_diagnostics(monkeypatch):
     assert "internalHost" not in response.text
     assert client.get("/api/health-board").status_code != 200
 
-    monkeypatch.setenv("HOMELAB_UI_PUBLIC_SERVICES_ENABLED", "false")
+    monkeypatch.setenv("HOMELAB_UI_PUBLIC_READONLY_ENABLED", "false")
     assert client.get("/api/ui/services").status_code == 404
     assert client.get("/api/health-board").status_code != 200
 
@@ -153,3 +158,93 @@ async def test_directory_survives_failed_diagnostics_with_unknown(monkeypatch):
     assert result.boardState == "pending"
     assert all(row.state == "unknown" for row in result.services)
     assert "172.17.0.24" not in str(result.model_dump())
+
+
+@pytest.mark.asyncio
+async def test_public_directory_survives_backstage_outage_with_real_snapshot_states(monkeypatch):
+    services = [
+        SimpleNamespace(name="Garage", service_id="garage"),
+        SimpleNamespace(name="Gatus", service_id="gatus"),
+        SimpleNamespace(name="Vaultwarden", service_id="vaultwarden"),
+        SimpleNamespace(name="172.17.0.24:1234", service_id="internal-ip"),
+        SimpleNamespace(name="172.17.0.24", service_id="internal-ip-only"),
+        SimpleNamespace(name="Lab 10.10.10.10 gateway", service_id="ip-embedded"),
+        SimpleNamespace(name="Secret https://private.example/", service_id="secret"),
+    ]
+    remote = AsyncMock(side_effect=SiteCatalogV2Unavailable("Backstage offline"))
+    monkeypatch.setattr(ui_public_services, "fetch_site_catalog_v2", remote)
+    monkeypatch.setattr(
+        ui_public_services,
+        "packaged_homelab_catalog",
+        lambda: SimpleNamespace(services=services),
+    )
+    monkeypatch.setitem(ui_public_services._backstage_backoff, "retry_after", 0.0)
+    monkeypatch.setattr(
+        "nabla.api.health_board.get_health_board_snapshot",
+        AsyncMock(
+            return_value={
+                "state": "fresh",
+                "homelab": {
+                    "services": [
+                        {"id": "garage", "effective_state": "warn", "secret": "NEVER-ECHO"},
+                        {"id": "gatus", "effective_state": "ok", "internalHost": "172.17.0.24"},
+                        {"id": "vaultwarden", "effective_state": "fail", "probe_stale": True},
+                    ],
+                },
+            },
+        ),
+    )
+    result = await ui_public_services.get_public_ui_services(None)
+    assert result.catalogSource == "bootstrap-snapshot"
+    assert result.boardState == "fresh"
+    assert {item.name: item.state for item in result.services} == {
+        "Garage": "warn",
+        "Gatus": "ok",
+        "Vaultwarden": "unknown",
+    }
+    assert not any(v in result.model_dump_json() for v in ("172.17.0.24", "private.example", "NEVER-ECHO"))
+    assert result.catalogRevision.startswith("sha256:")
+    assert "Lab 10.10.10.10" not in result.model_dump_json()
+
+    # No repeated failing Backstage fetch on the anonymous refresh loop.
+    again = await ui_public_services.get_public_ui_services(None)
+    assert again.model_dump() == result.model_dump()
+    assert remote.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_never_fabricates_state_from_stale_or_ambiguous_evidence(monkeypatch):
+    monkeypatch.setattr(
+        ui_public_services,
+        "fetch_site_catalog_v2",
+        AsyncMock(side_effect=SiteCatalogV2Unavailable("offline")),
+    )
+    monkeypatch.setattr(
+        ui_public_services,
+        "packaged_homelab_catalog",
+        lambda: SimpleNamespace(
+            services=[
+                SimpleNamespace(name="Garage", service_id="garage"),
+                SimpleNamespace(name="Garage", service_id="garage-other"),
+            ],
+        ),
+    )
+    monkeypatch.setitem(ui_public_services._backstage_backoff, "retry_after", 0.0)
+    monkeypatch.setattr(
+        "nabla.api.health_board.get_health_board_snapshot",
+        AsyncMock(
+            return_value={
+                "state": "fresh",
+                "homelab": {
+                    "services": [
+                        {"id": "garage", "state": "ok"},
+                        {"id": "garage", "state": "fail"},
+                    ],
+                },
+            },
+        ),
+    )
+    ambiguous = await ui_public_services.get_public_ui_services(None)
+    assert len(ambiguous.services) == 1
+    assert ambiguous.services[0].state == "unknown"
+    assert ambiguous.catalogSource == "bootstrap-snapshot"

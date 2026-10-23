@@ -9,7 +9,10 @@ import { installHealthUiProbeExplanations } from "./api-health-ui-probe-explanat
 import { installHealthUiProbeGrid } from "./api-health-ui-probe-grid.js";
 import { installHealthUiResponsiveFollowup } from "./api-health-ui-responsive-followup.js";
 import { installHttpProbeStatuses } from "./api-http-probe-status.js";
-import { installOwnerSessionControls } from "./api-owner-session.js";
+import {
+  installOwnerSessionControls,
+  ownerSessionAvailable,
+} from "./api-owner-session.js";
 import { installPfsenseSecurityPosture } from "./api-pfsense-security-posture.js";
 import { installPlatformFlowUi } from "./api-platform-flow-ui.js";
 import { installPlatformLegend } from "./api-platform-legend.js";
@@ -26,30 +29,70 @@ import { installServiceProbePlanes } from "./api-service-probe-planes.js";
 import { installPfsensePortLabels } from "./api-sickz-port-labels.js";
 import { installRuntimeVersionDriftWarning } from "./api-version-drift.js";
 
-installPfsensePortLabels();
-installServiceDiagnostics();
-installGlobalServiceFilter();
-installHealthUiPolish();
-installPlatformLegend();
-installHealthOperatorUx();
-installServiceDetailDrawer();
-installProbeFanoutDashboard();
-startProbeAgeTicker();
-installHttpProbeStatuses();
-installHealthBoardController();
-installOwnerSessionControls(() => window.location.reload());
-void installPublicServiceOverview();
-installServiceOperatorDiagnostics();
-installServiceProbeDetails();
-installServiceProbeHelp();
-installServiceProbePlanes();
-installPfsenseSecurityPosture();
-installPlatformFlowUi();
-void installServiceDependencyPriority();
-installRuntimeVersionDriftWarning();
-installHealthUiResponsiveFollowup();
-installHealthUiProbeExplanations();
-installHealthUiOperatorFollowup();
-installHealthUiConsistencyFollowup();
-installHealthUiProbeGrid();
-installHealthUiFinalFollowup();
+// Temporary public read-only mode is the default operator-approved landing.
+// Never probe OWNER endpoints or show a Sign in dialog for an anonymous reader.
+// Full diagnostics remain available only when a valid session already exists
+// (or when the operator explicitly visits /api?operator=1 to unlock).
+async function bootstrapHealthUi() {
+  const operatorMode =
+    new URLSearchParams(window.location.search).get("operator") === "1";
+  const authenticated = await ownerSessionAvailable();
+  const panel = document.getElementById("owner-session-panel");
+  if (panel) panel.hidden = !operatorMode;
+  for (const id of [
+    "health-board-private-meta",
+    "owner-readonly-detail",
+    "truenas-platform",
+    "runtime-topology",
+  ]) {
+    const element = document.getElementById(id);
+    if (element) element.hidden = !authenticated;
+  }
+
+  installGlobalServiceFilter();
+
+  if (!authenticated) {
+    const heading = document.getElementById("health-summary-text");
+    if (heading)
+      heading.textContent =
+        "Public read-only service inventory · no owner sign-in required.";
+    document
+      .querySelectorAll(".health-cache-reset, .health-refresh")
+      .forEach((button) => {
+        button.hidden = true;
+      });
+    if (operatorMode)
+      installOwnerSessionControls(() => window.location.reload());
+    await installPublicServiceOverview();
+    return;
+  }
+
+  installHealthUiPolish();
+  installRuntimeVersionDriftWarning();
+  installPfsensePortLabels();
+  installServiceDiagnostics();
+  installPlatformLegend();
+  installHealthOperatorUx();
+  installServiceDetailDrawer();
+  installProbeFanoutDashboard();
+  startProbeAgeTicker();
+  installHttpProbeStatuses();
+  installHealthBoardController();
+  if (operatorMode) installOwnerSessionControls(() => window.location.reload());
+  installServiceOperatorDiagnostics();
+  installServiceProbeDetails();
+  installServiceProbeHelp();
+  installServiceProbePlanes();
+  installPfsenseSecurityPosture();
+  installPlatformFlowUi();
+  void installServiceDependencyPriority();
+  installHealthUiResponsiveFollowup();
+  installHealthUiProbeExplanations();
+  installHealthUiOperatorFollowup();
+  installHealthUiConsistencyFollowup();
+  installHealthUiProbeGrid();
+  installHealthUiFinalFollowup();
+  await installPublicServiceOverview({ ownerAuthenticated: true });
+}
+
+void bootstrapHealthUi();

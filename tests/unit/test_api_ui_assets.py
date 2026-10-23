@@ -221,7 +221,7 @@ def test_health_assets_stay_within_refactoring_thresholds() -> None:
     sickz_signature = (_ASSET_DIR / "api-sickz-signature.js").read_text(encoding="utf-8")
     sickz_ports = (_ASSET_DIR / "api-sickz-port-labels.js").read_text(encoding="utf-8")
 
-    assert len(bootstrap.splitlines()) < 60
+    assert len(bootstrap.splitlines()) < 100  # explicit anonymous/OWNER separation
     assert len(health.splitlines()) < 400
     assert len(dependency.splitlines()) < 250
     assert len(ui.splitlines()) < 250
@@ -375,7 +375,7 @@ def test_limited_service_overview_asset_is_public_only_and_distinct() -> None:
     assert 'id="public-services-list"' in page
     assert 'from "./api-public-services.js"' in bootstrap
     assert 'fetch("/api/ui/services"' in script
-    assert "ownerSessionAvailable()" in script
+    assert "ownerSessionAvailable()" in bootstrap
     assert "textContent = service.name" in script
     assert "document.createTextNode" not in script
     assert "innerHTML" not in script
@@ -387,10 +387,10 @@ def test_limited_service_overview_asset_is_public_only_and_distinct() -> None:
     assert 'document.getElementById("service-health-overview")' in script
     assert '"Healthy"' in script and '"Degraded"' in script
     assert '"Failed"' in script and '"Unconfirmed"' in script
-    assert 'cards.length !== 5' in script
-    assert 'value.textContent = values[index]' in script
+    assert "cards.length !== 5" in script
+    assert "value.textContent = values[index]" in script
     assert "renderPublicSummary(null, 0)" in script
-    assert 'if (await ownerSessionAvailable()) return;' in script
+    assert "if (ownerAuthenticated) return;" in script
 
 
 def test_limited_service_overview_never_claims_stale_health() -> None:
@@ -399,3 +399,32 @@ def test_limited_service_overview_never_claims_stale_health() -> None:
     assert 'rows.map((service) => ({ ...service, state: "unknown" }))' in script
     assert "all statuses UNKNOWN" in script
     assert "localStorage" not in script
+
+
+def test_public_landing_never_prompts_anonymous_visitors_for_owner_signin() -> None:
+    """Default page must show the service directory, not a login or denied board."""
+    bootstrap = (_ASSET_DIR / "api-health.js").read_text(encoding="utf-8")
+    catalog = (_ASSET_DIR / "api-public-services.js").read_text(encoding="utf-8")
+    html = TestClient(_create_test_api_app()).get("/api").text
+
+    assert 'id="owner-session-panel" hidden' in html
+    assert 'id="owner-readonly-detail" hidden' in html
+    assert 'id="truenas-platform" hidden' in html
+    assert 'id="runtime-topology"' in html
+    assert "#owner-session-panel[hidden]" in (_ASSET_DIR / "api-health.css").read_text(encoding="utf-8")
+    assert 'new URLSearchParams(window.location.search).get("operator") === "1"' in bootstrap
+    assert "if (panel) panel.hidden = !operatorMode;" in bootstrap
+    assert "element.hidden = !authenticated;" in bootstrap
+    assert "if (!authenticated) {" in bootstrap
+    assert bootstrap.index("await installPublicServiceOverview();") < bootstrap.index("installHealthBoardController();")
+    assert "Public read-only service inventory" in bootstrap
+    assert 'fetch("/api/ui/services"' in catalog
+    assert "if (ownerAuthenticated) return;" in catalog
+    assert "Last-known service inventory" in catalog
+    assert "operatorMode" in bootstrap
+
+
+def _create_test_api_app() -> FastAPI:
+    app = FastAPI(version="test")
+    register_routes(app)
+    return app
