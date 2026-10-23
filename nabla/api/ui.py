@@ -153,8 +153,8 @@ def render_api_root_page(
                     <button type="button" class="health-refresh">Refresh</button>
                     <button type="button" class="health-cache-reset">Purge cache</button>
                 </p>
-                <div class="health-board-meta" id="owner-session-panel" role="group" aria-label="Owner diagnostics access">
-                    <span id="owner-session-state" role="status">Checking owner access…</span>
+                <div class="health-board-meta" id="owner-session-panel" hidden role="group" aria-label="Owner diagnostics access">
+                    <span id="owner-session-state" role="status">Operator mode requires authentication.</span>
                     <button type="button" id="owner-session-login">Unlock diagnostics</button>
                     <button type="button" id="owner-session-logout" hidden>Lock diagnostics</button>
                     <form id="owner-session-form" hidden autocomplete="off">
@@ -166,7 +166,7 @@ def render_api_root_page(
                 </div>
                 <div class="health-summary health-summary--neutral" id="health-summary">
                     <span class="health-led health-led--gray" id="health-summary-led" aria-hidden="true"></span>
-                    <span id="health-summary-text">Loading health checks…</span>
+                    <span id="health-summary-text">Loading read-only service directory…</span>
                 </div>
                 <div class="service-health-overview" id="service-health-overview" aria-live="polite">
                     <div class="service-overview-card service-overview-card--neutral"><span>Services</span><strong>Loading…</strong><small>User / experiment outcomes</small></div>
@@ -180,7 +180,7 @@ def render_api_root_page(
                     <div class="public-services-heading">
                         <div>
                             <h3 id="public-services-title">Service directory · public service status</h3>
-                            <p class="health-board-meta">Service names and verified aggregate states are available without login, including when outside the home network. Detailed probes require authentication.</p>
+                            <p class="health-board-meta">Temporary public read-only service directory, available from home or mobile without sign-in. When the authoritative catalog is unavailable, last-known names are shown with UNKNOWN status. Operator controls remain protected.</p>
                         </div>
                         <button type="button" id="public-services-refresh">Refresh statuses</button>
                     </div>
