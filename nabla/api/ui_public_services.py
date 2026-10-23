@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import time
 import re
 from typing import Literal
 
@@ -17,7 +18,7 @@ from fastapi import Request
 from pydantic import BaseModel, ConfigDict, Field
 
 from nabla.api import health_board
-from nabla.api.homelab_catalog import fetch_homelab_catalog
+from nabla.api.homelab_catalog import packaged_homelab_catalog
 from nabla.api.site_architecture_catalog import (
     SiteArchitectureCatalogV2,
     SiteCatalogV2Unavailable,
@@ -52,7 +53,9 @@ class PublicUiServices(BaseModel):
 
 def public_ui_services_enabled() -> bool:
     """Temporary operator-approved disclosure; switch off without code changes."""
-    return os.getenv("HOMELAB_UI_PUBLIC_SERVICES_ENABLED", "true").strip().lower() == "true"
+    # Old HOMELAB_UI_PUBLIC_SERVICES_ENABLED is deliberately superseded:
+    # a stale Cloud setting must not accidentally hide the read-only view.
+    return os.getenv("HOMELAB_UI_PUBLIC_READONLY_ENABLED", "true").strip().lower() == "true"
 
 
 def project_public_ui_services(
@@ -84,7 +87,7 @@ async def _bootstrap_public_service_directory() -> PublicUiServices:
     These are *labels only*, explicitly identified as a stale bootstrap snapshot.
     No internal URI, IP, port, runtime detail, or unverified state is serialized.
     """
-    catalog = await fetch_homelab_catalog()
+    catalog = packaged_homelab_catalog()
     labels: set[str] = set()
     for service in catalog.services:
         label = service.name.strip()
@@ -109,12 +112,21 @@ async def _bootstrap_public_service_directory() -> PublicUiServices:
     )
 
 
+_backstage_retry_after: float = 0.0
+
+
 async def get_public_ui_services(request: Request) -> PublicUiServices:
     """Read shared bounded server cache; no browser auth, no raw probe output."""
+    global _backstage_retry_after
+    if time.monotonic() < _backstage_retry_after:
+        return await _bootstrap_public_service_directory()
     try:
         catalog = await fetch_site_catalog_v2()
     except SiteCatalogV2Unavailable:
+        # Bound repeated failed GitHub attempts across anonymous UI refreshes.
+        _backstage_retry_after = time.monotonic() + 60.0
         return await _bootstrap_public_service_directory()
+    _backstage_retry_after = 0.0
     try:
         board = await health_board.get_health_board_snapshot(request)
     except Exception:
