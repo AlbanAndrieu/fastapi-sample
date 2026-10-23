@@ -130,7 +130,10 @@ url = "https://dl.k8s.io/v1.36.4/bin/linux/amd64/kubectl"
 checksum = "sha256:c9e4f713d6fee0043a3d835cca13077cda2bc0973840eb9779360df0b5bdfc69"
 url = "https://dl.k8s.io/v1.36.4/bin/darwin/arm64/kubectl"
 
-# node is pinned in mise.toml; refresh signed platform checksums with\n# mise lock from trusted sources, never reuse the previous release hashes.\n\n[[tools.poetry]]
+# node is pinned in mise.toml; refresh signed platform checksums with
+# mise lock from trusted sources, never reuse the previous release hashes.
+
+[[tools.poetry]]
 version = "2.4.1"
 backend = "asdf:poetry"
 
@@ -148,7 +151,10 @@ checksum = "sha256:43c09a73d82af8efff09900e60d76d67a2c3d990613c3c770b2b5c4418a16
 url = "https://github.com/pre-commit/pre-commit/releases/download/v4.6.2/pre-commit-4.6.2.pyz"
 url_api = "https://api.github.com/repos/pre-commit/pre-commit/releases/assets/509317714"
 
-# python is pinned in mise.toml; refresh signed platform checksums with\n# mise lock from trusted sources, never reuse the previous release hashes.\n\n[[tools.ruby]]
+# python is pinned in mise.toml; refresh signed platform checksums with
+# mise lock from trusted sources, never reuse the previous release hashes.
+
+[[tools.ruby]]
 version = "3.4.7"
 backend = "core:ruby"
 
