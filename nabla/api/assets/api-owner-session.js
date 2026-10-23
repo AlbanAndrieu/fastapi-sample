@@ -12,10 +12,13 @@ export async function ownerSessionAvailable() {
       cache: "no-store",
       headers: { Accept: "application/json" },
     })
-      .then(
-        async (response) =>
-          response.ok && (await response.json()).authenticated === true,
-      )
+      .then(async (response) => {
+        if (!response.ok) return false;
+        const status = await response.json();
+        // In temporary rollback mode, all GET diagnostics are read-only public.
+        // No login cookie is issued, and mutations remain protected.
+        return status.authenticated === true || status.readOnlyDiagnostics === true;
+      })
       .catch(() => false);
   }
   return statusPromise;
