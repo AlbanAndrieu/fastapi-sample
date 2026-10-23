@@ -28,12 +28,12 @@ docker-compose = "latest"
 
 [settings]
 lockfile = true
-# Do not fail every mise command when secrets-enc.yaml cannot be decrypted
+# Do not fail every mise command when .env.secrets.yaml cannot be decrypted
 # (no age key / AWS KMS access on this workstation); secrets are just skipped.
 sops.strict = false
 
 [env]
-_.file = [".env.secrets", "secrets-enc.yaml", ".env.local"]
+_.file = [".env.secrets", ".env.secrets.yaml", ".env.local"]
 
 ENV = "dev"
 
