@@ -408,9 +408,13 @@ def test_public_landing_never_prompts_anonymous_visitors_for_owner_signin() -> N
     html = TestClient(_create_test_api_app()).get("/api").text
 
     assert 'id="owner-session-panel" hidden' in html
-    assert '#owner-session-panel[hidden]' in (_ASSET_DIR / "api.css").read_text(encoding="utf-8")
+    assert 'id="owner-readonly-detail" hidden' in html
+    assert 'id="truenas-platform" hidden' in html
+    assert 'id="runtime-topology"' in html
+    assert '#owner-session-panel[hidden]' in (_ASSET_DIR / "api-health.css").read_text(encoding="utf-8")
     assert 'new URLSearchParams(window.location.search).get("operator") === "1"' in bootstrap
     assert "if (panel) panel.hidden = !operatorMode;" in bootstrap
+    assert "element.hidden = !authenticated;" in bootstrap
     assert "if (!authenticated) {" in bootstrap
     assert bootstrap.index("await installPublicServiceOverview();") < bootstrap.index("installHealthBoardController();")
     assert "Public read-only service inventory" in bootstrap
