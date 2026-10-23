@@ -363,7 +363,8 @@ def test_owner_ui_session_assets_and_locked_dashboard_state() -> None:
     assert "sessionStorage" not in owner_asset
     assert 'fetch("/api/homelab-services"' not in (_ASSET_DIR / "api-health-ui-operator-followup.js").read_text(encoding="utf-8")
     assert "Owner diagnostics require sign-in." in board
-    assert "Diagnostics restricted" in core
+    assert "Public service directory available below" in core
+    assert "Owner only" not in core
 
 
 def test_limited_service_overview_asset_is_public_only_and_distinct() -> None:
@@ -381,7 +382,15 @@ def test_limited_service_overview_asset_is_public_only_and_distinct() -> None:
     assert "X-Diagnostics-Key" not in script
     assert "localStorage" not in script
     assert "pendingRetries < 5" in script
-    assert "See service directory" in (_ASSET_DIR / "api-health-core.js").read_text(encoding="utf-8")
+    assert "Owner only" not in (_ASSET_DIR / "api-health-core.js").read_text(encoding="utf-8")
+    assert "renderPublicSummary(counts, rows.length)" in script
+    assert 'document.getElementById("service-health-overview")' in script
+    assert '"Healthy"' in script and '"Degraded"' in script
+    assert '"Failed"' in script and '"Unconfirmed"' in script
+    assert 'cards.length !== 5' in script
+    assert 'value.textContent = values[index]' in script
+    assert "renderPublicSummary(null, 0)" in script
+    assert 'if (await ownerSessionAvailable()) return;' in script
 
 
 def test_limited_service_overview_never_claims_stale_health() -> None:

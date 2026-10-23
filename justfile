@@ -152,3 +152,16 @@ k8s-render:
 
 k8s-contracts:
     UV_OFFLINE=true bash scripts/run-pytest-compact.sh tests/unit/test_talos_manifest_contract.py
+
+# No-install Cloud Python compatibility inventory; never modifies pyproject/uv.lock.
+python-cloud-audit:
+    python3 scripts/ci/check_fastapi_cloud_python_upgrade.py --candidate 3.14.9
+
+# Explicit opt-in canary: uses a disposable directory and uv --dry-run.
+# Offline by default; resolution may fail when Python 3.14/wheels are not cached.
+python-cloud-probe:
+    python3 scripts/ci/check_fastapi_cloud_python_upgrade.py --candidate 3.14.9 --probe
+
+python-cloud-contracts:
+    UV_OFFLINE=true bash scripts/run-pytest-compact.sh tests/unit/test_fastapi_cloud_python_upgrade.py
+

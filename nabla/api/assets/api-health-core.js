@@ -343,22 +343,6 @@ function showFetchError(message) {
   document.getElementById("health-checks").innerHTML = "";
   const groupedEl = document.getElementById("health-services-groups");
   if (groupedEl) groupedEl.innerHTML = "";
-  const overview = document.getElementById("service-health-overview");
-  if (overview && message.includes("Owner diagnostics")) {
-    const total = document.getElementById("public-services-summary")?.dataset
-      .serviceCount;
-    overview
-      .querySelectorAll(".service-overview-card strong")
-      .forEach((card, index) => {
-        // Only the limited directory count is public; do not invent detailed metrics.
-        card.textContent =
-          index === 0
-            ? total
-              ? total + " listed"
-              : "See service directory ↓"
-            : "Owner only";
-      });
-  }
   const restricted =
     message.includes("Owner diagnostics require sign-in") ||
     message.includes("Owner diagnostics session unavailable");
@@ -369,10 +353,12 @@ function showFetchError(message) {
     ? "health-led health-led--gray"
     : "health-led health-led--red";
   summaryText.textContent = restricted
-    ? "Diagnostics restricted — unlock owner access to see services and probes."
+    ? "Public service directory available below. Sign in only for detailed probes and operator diagnostics."
     : "Could not load /healthz.";
-  errEl.hidden = false;
-  errEl.textContent = message;
+  // A normal anonymous visitor is not an application failure. The separate
+  // public v2 directory owns the five overview cards until owner sign-in.
+  errEl.hidden = restricted;
+  errEl.textContent = restricted ? "" : message;
 }
 
 export function loadHealth() {
