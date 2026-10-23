@@ -7,6 +7,7 @@ mounts; those transports need independent gates before exposing ops.
 
 from __future__ import annotations
 
+import os
 from secrets import compare_digest
 from typing import TYPE_CHECKING
 
@@ -84,6 +85,30 @@ async def operations_access_middleware(
     """Protect recognized private paths even if their key is not configured."""
     policy = route_policy_for(request.url.path, method=request.method)
     settings = get_settings()
+
+    # Temporary rollback of the owner-only *read* gate. No mutation, admin,
+    # MCP, metrics or private transport may use this escape hatch.
+    # Explicitly disable with HOMELAB_PUBLIC_DIAGNOSTICS_READONLY=false.
+    if (
+        request.method.upper() in {"GET", "HEAD"}
+        and os.getenv("HOMELAB_PUBLIC_DIAGNOSTICS_READONLY", "true").lower()
+        in {"1", "true", "yes", "on"}
+        and (
+            request.url.path in {
+                "/healthz", "/sickz", "/readyz", "/api/topology",
+                "/api/homelab-services", "/api/homelab-topology",
+                "/api/public-topology", "/api/runtime/topology",
+                "/api/site/catalog/v2", "/api/site/health/v2",
+            }
+            or request.url.path == "/api/health-board"
+            or request.url.path.startswith("/api/health-board/")
+            or request.url.path.startswith("/api/homelab/")
+        )
+    ):
+        response = await call_next(request)
+        response.headers["Cache-Control"] = "private, no-store"
+        response.headers["X-Robots-Tag"] = "noindex, nofollow"
+        return response
 
     if policy.visibility is Visibility.PUBLIC_CANDIDATE:
         return await call_next(request)
