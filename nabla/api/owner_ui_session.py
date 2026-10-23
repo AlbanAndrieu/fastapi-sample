@@ -6,6 +6,7 @@ Owner CIDR is enforced unless the explicitly temporary remote-access switch is e
 from __future__ import annotations
 
 import hmac
+import os
 import re
 import secrets
 import time
@@ -104,7 +105,12 @@ def register_owner_ui_session_routes(app: FastAPI) -> None:
     @app.get("/api/ui/session", include_in_schema=False)
     async def session_status(request: Request) -> JSONResponse:
         return JSONResponse(
-            {"authenticated": owner_ui_authenticated(request, get_settings())},
+            {
+                "authenticated": owner_ui_authenticated(request, get_settings()),
+                "readOnlyDiagnostics": os.getenv(
+                    "HOMELAB_PUBLIC_DIAGNOSTICS_READONLY", "true"
+                ).lower() in {"1", "true", "yes", "on"},
+            },
             headers=_DENY_HEADERS,
         )
 
