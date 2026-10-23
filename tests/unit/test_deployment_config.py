@@ -1,6 +1,7 @@
 """Deployment configuration regression tests."""
 
 import json
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -205,6 +206,18 @@ def test_ci_uses_current_uv_tooling() -> None:
     python_ci = (ROOT / ".github/workflows/python.yml").read_text(encoding="utf-8")
     assert 'version: "0.12.22"' in python_ci
     assert 'version: "0.12.1"' not in python_ci
+
+
+def test_uv_version_matches_across_mise_and_workflows() -> None:
+    mise_uv = re.search(r'^uv = "([^"]+)"$', (ROOT / "mise.toml").read_text(encoding="utf-8"), re.MULTILINE)
+    assert mise_uv is not None
+    setup_uv_version = re.compile(r"uses: astral-sh/setup-uv@[^\n]*\n(?:[ \t]+[^\n]*\n)*?[ \t]+version: \"([^\"]+)\"")
+    for workflow in ("python.yml", "release.yml"):
+        text = (ROOT / ".github/workflows" / workflow).read_text(encoding="utf-8")
+        versions = setup_uv_version.findall(text)
+        assert versions, f"{workflow} has no pinned setup-uv version"
+        # Local mise, CI and release must resolve/lock dependencies with one uv.
+        assert set(versions) == {mise_uv.group(1)}, workflow
 
 
 def test_fastapi_cloud_cli_lock_is_current() -> None:
