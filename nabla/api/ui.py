@@ -148,7 +148,7 @@ def render_api_root_page(
                         </div>
                     </div>
                 </div>
-                <p class="health-board-meta">Live view of <a href="/healthz">/healthz</a>.
+                <p class="health-board-meta" id="health-board-private-meta" hidden>Live view of <a href="/healthz">/healthz</a>.
                     <span id="health-board-freshness">Snapshot freshness unknown.</span>
                     <button type="button" class="health-refresh">Refresh</button>
                     <button type="button" class="health-cache-reset">Purge cache</button>
@@ -189,6 +189,7 @@ def render_api_root_page(
                     <button type="button" id="public-services-show-all" hidden>Show all services</button>
                 </section>
 
+                <div id="owner-readonly-detail" hidden>
                 <ul class="health-checks" id="health-checks"></ul>
                 <p class="health-error" id="health-fetch-error" hidden></p>
                 <div class="service-groups" id="health-services-groups" aria-live="polite"></div>
@@ -213,10 +214,11 @@ def render_api_root_page(
                 <div id="sickz-pfsense-wrap" class="sickz-pfsense-wrap" hidden></div>
                 <ul class="health-checks" id="sickz-checks"></ul>
                 <p class="health-error" id="sickz-fetch-error" hidden></p>
+                </div>
             </section>
 
 
-            <section class="truenas-platform" id="truenas-platform" data-service-filter-target data-search-text="truenas core critical storage platform infrastructure https websocket api" aria-labelledby="truenas-platform-title">
+            <section class="truenas-platform" id="truenas-platform" hidden data-service-filter-target data-search-text="truenas core critical storage platform infrastructure https websocket api" aria-labelledby="truenas-platform-title">
                 <div class="truenas-platform-heading">
                     <div>
                         <h3 class="health-subboard-title truenas-platform-title" id="truenas-platform-title">Core drill-down · TrueNAS platform + API</h3>
@@ -235,7 +237,7 @@ def render_api_root_page(
             </section>
 
 
-            <details class="runtime-topology" id="runtime-topology" data-runtime-mode="{mode}" aria-labelledby="runtime-topology-title">
+            <details class="runtime-topology" id="runtime-topology" hidden data-runtime-mode="{mode}" aria-labelledby="runtime-topology-title">
                 <summary class="runtime-topology-heading">
                     <div>
                         <h3 id="runtime-topology-title">{runtime_title}</h3>
