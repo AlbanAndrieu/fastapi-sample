@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import json
 import logging
+import ssl
 from pathlib import Path
 
 import httpx
 import pytest
 
-from nabla.api import platform_health, sickz_checks
+from nabla.api import health_probe_utils, platform_health, sickz_checks
 from nabla.utils import log_config
 
 
@@ -117,7 +118,23 @@ async def test_sickz_reachability_ignores_ca_trust(monkeypatch) -> None:
     result = await sickz_checks._probe_url("https://self-signed.example")
 
     assert result == {"reachable": True, "http_status": 200}
-    assert captured["verify"] is False
+    context = captured["verify"]
+    assert isinstance(context, ssl.SSLContext)
+    assert context.verify_mode == ssl.CERT_NONE
+    assert context.check_hostname is False
+
+
+def test_probe_ssl_contexts_are_built_once_and_keep_trust_semantics() -> None:
+    verified = health_probe_utils.verified_ssl_context()
+    unverified = health_probe_utils.unverified_ssl_context()
+
+    # Cached: no CA bundle reload on the event loop per probed target.
+    assert health_probe_utils.verified_ssl_context() is verified
+    assert health_probe_utils.unverified_ssl_context() is unverified
+    assert verified.verify_mode == ssl.CERT_REQUIRED
+    assert verified.check_hostname is True
+    assert unverified.verify_mode == ssl.CERT_NONE
+    assert verified is not unverified
 
 
 def test_gunicorn_error_formatter_preserves_message() -> None:

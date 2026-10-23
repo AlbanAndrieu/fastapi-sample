@@ -170,8 +170,9 @@ def test_python_ci_runs_fast_gate_before_heavy_dependency_sync() -> None:
     assert "\n    needs: preflight\n" in workflow
     assert "\n    needs: build\n" in workflow
     reusable_condition = "github.event_name != 'pull_request' || github.event.pull_request.draft == false"
-    # Preflight, build and delegated lint honor the same draft/ready gate.
-    assert workflow.count(reusable_condition) == 3
+    # Preflight, build, redis-integration, sonarcloud, docker and mega-linter
+    # all honor the same draft/ready gate (explicit Draft guards since #365).
+    assert workflow.count(reusable_condition) == 6
     assert workflow.count("Upload test results to Trunk.io") == 1
     assert "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" in workflow
     assert "actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" in workflow

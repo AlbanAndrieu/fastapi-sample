@@ -48,7 +48,7 @@ notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blo
 - [ ] Régénérer et vérifier `mise.lock` sur une machine connectée via `mise lock` : les blocs Python/Node contenant des checksums **d'anciennes versions** ont été supprimés intentionnellement, jamais transposés à de nouvelles archives. Exécuter `mise install` puis comparer `.python-version`, Node, npm et uv ; aucun déploiement tant que ce verrou n'est pas rétabli.
 - [ ] Qualification de **Python 3.14.9** (maintenu jusqu'en 2030) : régénérer intégralement le verrou `uv.lock` via `uv lock`, auditer les wheels Linux amd64, `pyroscope-io`, `pysqlite3`, `truenas-api-client`, FastAPI/ASGI et tous les groupes `uv`; exécuter tests, image Docker et acceptation Talos avant d'assouplir `requires-python ==3.13.*`. Ne jamais modifier manuellement `uv.lock` ni publier une image 3.14 sans résolution valide.
 - [ ] Gates locales de l'exact HEAD : `just offline-l1`, `just p0`, `just workflow-audit`, `just quality`, tests Docker. Aucun GitHub Actions payant ni déploiement déclenché par l'agent.
-  
+
 ## P0 — CI : tracker unique `master-red` (#355)
 
 - **Implémenté, à valider** : un seul commentaire d'état du bot dans #355, sans nouvelle issue par SHA, sans PR brouillon vide, sans modification du titre, du corps ni des labels ; conservation des preuves des 32 anciens doublons dans GitHub. Script canonique : `scripts/ci/master_red_issue.py`.
@@ -120,10 +120,17 @@ notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blo
   est découpé en helpers sans changement de contrat. Preuve restante : mesurer
   `refresh_elapsed_ms` et la latence `/healthz` avant/après sur un runtime
   déployé. Candidats suivants (> 100 lignes) : `pfsense_dns_observer`
-  (`_observe_posture_origin_bounded`), `homelab_truenas_probe.probe_truenas`,
-  `sickz_checks.build_sickz_payload`. Dette C901 soldée sur `route_policy_for`
-  (équivalence vérifiée sur 3 136 cas chemin/méthode/type),
-  `_register_homelab_catalog_routes` et le validateur PostHog `_validate`.
+  (`_observe_posture_origin_bounded`), `homelab_truenas_probe.probe_truenas`.
+  Dette C901 soldée sur `route_policy_for` (équivalence vérifiée sur 3 136 cas
+  chemin/méthode/type), `_register_homelab_catalog_routes`, le validateur
+  PostHog `_validate` et `build_sickz_payload` (114 → 69 lignes).
+- [ ] Contextes SSL partagés (`verified_ssl_context`/`unverified_ssl_context`) :
+  chaque `httpx.AsyncClient(verify=True)` rechargeait le bundle CA (≈ 8 ms de
+  CPU bloquant l'event loop, mesuré localement, contre 0,06 ms partagé) par
+  cible sondée dans `/healthz`, `/sickz` et la sonde edge Cloudflare. Preuve
+  restante : latence p95 `/sickz` et `/healthz` avant/après sur runtime déployé.
+  Autres clients encore créés par requête (un seul par appel, gain marginal) :
+  `platform_health`, `pfsense_*_observer`, `homelab_truenas_probe`.
 - [ ] Verify changed runtime health and security posture with LAN evidence.
   Retain incident-specific symptoms, commands and recurrence criteria in
   [incidents.md](incidents.md) or the appropriate infrastructure runbook.

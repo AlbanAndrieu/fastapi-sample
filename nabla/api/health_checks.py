@@ -24,6 +24,7 @@ from nabla.api.health_probe_cadence import (
 from nabla.api.health_probe_utils import (
     normalize_probe_error as _normalize_probe_error,
     normalize_probe_result_errors as _normalize_probe_result_errors,
+    verified_ssl_context,
 )
 from nabla.api.homelab_catalog import homelab_healthz_probe_rows
 from nabla.api.integration_health import (
@@ -78,6 +79,7 @@ async def probe_https_get_reachable(
     try:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(5.0),
+            verify=verified_ssl_context(),
             follow_redirects=True,
         ) as client:
             response = await client.get(
