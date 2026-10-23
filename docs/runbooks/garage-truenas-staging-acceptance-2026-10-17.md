@@ -307,73 +307,55 @@ de service ni réponse brute au rapport. Un résultat avec
 En présence de campagnes expirées, analyser les
 `deadline_phase_totals` avant toute optimisation DNS/sémaphore.
 
-### Validation locale sur TrueNAS (Python système 3.13)
+### Historique de validation TrueNAS et contrainte `noexec` (PR #350 fusionnée)
 
-Le worktree dédié `/mnt/cpool/compose/fastapi-sample-pr350-verify` permet
-de tester la PR sans modifier le sous-module staging
-`/mnt/cpool/compose/nabla-compose/fastapi-sample`. Le dépôt exige la
-toolchain 3.13.15, mais TrueNAS fournit actuellement
-`/usr/bin/python3.13` (3.13.5) ; le helper
-`scripts/truenas/run-pr350-tests.sh` force
-`UV_PYTHON=/usr/bin/python3.13` et `UV_PYTHON_DOWNLOADS=never` dans son
-propre processus, avec `uv sync --frozen --python`. Il n'écrit ni dans
-`.python-version`, ni dans `mise.toml`, ni dans `uv.lock`. Il utilise
-`uv run --no-sync` pour les tests et n'exécute la gate qu'avec `--quality`.
-Utiliser `--offline` si les distributions sont déjà en cache, et
-`--no-sync` uniquement si `.venv` du worktree est complet.
+La PR #350 a été fusionnée ; son wrapper temporaire
+`scripts/truenas/run-pr350-tests.sh` et le test associé ont été retirés.
+Ne pas reconstituer ce worktree ni exécuter les commandes de son ancienne
+branche. Les actions suivantes restent **génériques** pour un checkout
+isolé de la branche active, jamais sur le sous-module de staging déployé.
 
-**Contrainte TrueNAS `noexec` :** sur le SHA `e0304404`, 25/28 tests
-ciblés ont réussi avec Python 3.13.5. Les trois échecs restants du
-`test_agent_publication_proof.py` ont été causés par l'impossibilité
-d'exécuter le faux binaire `uv` créé sous
-`/tmp/pytest-of-albandrieu/.../fake-bin/` (`Permission denied`,
-code retour 126). Le montage `noexec` de `/tmp` a depuis été **confirmé** par
-`findmnt -T /tmp -no TARGET,OPTIONS` : `rw,nosuid,nodev,noexec,inode64`.
-La reprise sur `aa2491b5` a réussi **30/30 tests ciblés**.
-Le wrapper place désormais `TMPDIR` dans le cache utilisateur
-`$HOME/.cache/nabla/fastapi-sample-pr350/tmp` (mode privé) et teste
-l'exécution effective d'un script sur ce chemin. Si ce dataset est aussi
-`noexec`, choisir un autre chemin utilisateur exécutable via
-`PR350_TEST_TMPDIR=/chemin/prive/exec`, sans remonter `/tmp` en
-`exec` ni modifier les tests de simulation. `TMPDIR` est hérité
-par les sous-processus du quality gate et ses appels Pytest.
+**Incident diagnostique à conserver :** TrueNAS disposait alors de
+`/usr/bin/python3.13` (3.13.5) ; le dépôt exigeait Python 3.13.15
+(maintenant 3.13.17). La PR #350 a d'abord réussi 25/28 tests : trois
+fixtures du test `test_agent_publication_proof.py` échouaient avec
+`Permission denied` (exit 126) en exécutant un faux binaire `uv` dans
+`/tmp/pytest-of-albandrieu`. Le `/tmp` TrueNAS était monté
+`rw,nosuid,nodev,noexec,inode64`. Après sélection d'un `TMPDIR`
+exécutable et privé, **30/30** tests ciblés sont passés sur `aa2491b5`.
+Ce résultat historique ne valide pas le HEAD actuel.
+
+Pour la prochaine validation, utiliser exclusivement un *worktree de test*
+et les scripts canoniques présents dans le dépôt :
 
 ```bash
-cd /mnt/cpool/compose/fastapi-sample-pr350-verify
-git fetch origin fix/editorconfig-test-formatting-after-pr342-20261017
-git switch --detach origin/fix/editorconfig-test-formatting-after-pr342-20261017
-bash scripts/truenas/run-pr350-tests.sh
-# Après succès des tests, pour la gate locale :
-bash scripts/truenas/run-pr350-tests.sh --no-sync --quality
+# Sur un checkout non déployé, avec le Python compatible fourni par l'opérateur :
+findmnt -T /tmp -no TARGET,OPTIONS
+export UV_PYTHON_DOWNLOADS=never
+# Optionnel si /tmp est noexec : choisir un dataset privé exécutable
+# export TMPDIR="$HOME/.cache/nabla/fastapi-sample-tests/tmp"
+just offline-l1
+just p0
+just quality
+# Après formatage, tests et commit de tous les changements :
+just publish-check
 ```
 
-Pour la **preuve de publication strictement locale** (après convergence de
-la quality gate), utiliser :
-
-```bash
-# Ne pas rebaser/changer le HEAD si le worktree comporte des modifications.
-git status --short
-bash scripts/truenas/run-pr350-tests.sh --no-sync --publish
-```
-
-`--publish` relance les tests et la quality gate, refuse les changements
-générés mais non commités (exit 3), puis lance `agent-publish.sh` **sur
-un arbre propre**. Il ne déclenche pas `git push`, GitHub Actions,
-un merge ou un déploiement. `--offline` exporte aussi
-`UV_OFFLINE=1` aux outils invoqués en sous-processus : si une dépendance
-de validation manque au cache, le contrôle échoue explicitement.
-
-Le shell interactif SSH ne doit **pas** sourcer ce script (il contient
-`set -euo pipefail`). Le checkout de staging reste au SHA déployé tant
-qu'une nouvelle acceptation n'est pas demandée. Une exécution sur Python
-3.13.5 ne remplace pas la validation finale sur la version épinglée 3.13.15.
+Vérifier que `TMPDIR` est réellement exécutable avant les tests qui
+créent des binaires. Ne jamais remonter globalement `/tmp` en `exec`
+pour contourner le problème. Un Python TrueNAS 3.13.5 peut aider au
+diagnostic, mais ne remplace pas la validation sur la version du projet
+actuellement épinglée. Toutes les commandes ci-dessus s'exécutent
+localement et ne déploient ni ne fusionnent.
 
 ## Critères de sortie et ownership
 
 - [x] PR #342 merged / runtime Garage LAN 3/3 confirmé.
 - [x] Mesure DNS/TCP/TLS directe et séries de cycles fournies.
-- [ ] PR #350 : tests ciblés, formatage, quality gate complète au HEAD
-      puis déploiement **explicite** si instrumentation acceptée.
+- [x] PR #350 fusionnée ; son wrapper de validation et son contrat dédiés
+      ont été retirés. Conserver l'incident `noexec` ci-dessus.
+- [ ] Valider toute nouvelle instrumentation sur la branche active via les
+      gates canoniques, puis déployer **uniquement** sur accord explicite.
 - [ ] Diagnostiquer les délais par phases au même instant que le budget
       4 s et le cache, sans conclure à une panne DNS globale.
 - [ ] Sécuriser la route Admin et vérifier S3 réellement hors LAN
