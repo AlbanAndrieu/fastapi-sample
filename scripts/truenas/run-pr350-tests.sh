@@ -39,7 +39,7 @@ if ! command -v uv >/dev/null 2>&1; then
     exit 2
 fi
 
-# .python-version pins 3.13.15, which this TrueNAS does not have.
+# .python-version pins 3.13.17, which this TrueNAS does not have.
 # The project's requires-python is ==3.13.*; use the installed 3.13.5.
 export UV_PYTHON="/usr/bin/python3.13"
 export UV_PYTHON_DOWNLOADS=never
