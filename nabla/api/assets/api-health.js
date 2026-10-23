@@ -35,6 +35,11 @@ async function bootstrapHealthUi() {
   const authenticated = await ownerSessionAvailable();
   const panel = document.getElementById("owner-session-panel");
   if (panel) panel.hidden = !operatorMode;
+  for (const id of ["health-board-private-meta", "owner-readonly-detail",
+    "truenas-platform", "runtime-topology"]) {
+    const element = document.getElementById(id);
+    if (element) element.hidden = !authenticated;
+  }
 
   installGlobalServiceFilter();
   installHealthUiPolish();
