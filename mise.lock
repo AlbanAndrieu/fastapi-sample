@@ -130,19 +130,7 @@ url = "https://dl.k8s.io/v1.36.4/bin/linux/amd64/kubectl"
 checksum = "sha256:c9e4f713d6fee0043a3d835cca13077cda2bc0973840eb9779360df0b5bdfc69"
 url = "https://dl.k8s.io/v1.36.4/bin/darwin/arm64/kubectl"
 
-[[tools.node]]
-version = "26.10.0"
-backend = "core:node"
-
-[tools.node."platforms.linux-x64"]
-checksum = "sha256:cb5c9ce9c80d7b8821e3a258543c71b939138cf17c74d5cc44bbe85d6dbc5ad8"
-url = "https://nodejs.org/dist/v26.10.0/node-v26.10.0-linux-x64.tar.gz"
-
-[tools.node."platforms.macos-arm64"]
-checksum = "sha256:751fdf7439f115d87ee2a8f3f18c065b6151852068e3e666ac60ac2996f75ac9"
-url = "https://nodejs.org/dist/v26.10.0/node-v26.10.0-darwin-arm64.tar.gz"
-
-[[tools.poetry]]
+# node is pinned in mise.toml; refresh signed platform checksums with\n# mise lock from trusted sources, never reuse the previous release hashes.\n\n[[tools.poetry]]
 version = "2.4.1"
 backend = "asdf:poetry"
 
@@ -160,21 +148,7 @@ checksum = "sha256:43c09a73d82af8efff09900e60d76d67a2c3d990613c3c770b2b5c4418a16
 url = "https://github.com/pre-commit/pre-commit/releases/download/v4.6.2/pre-commit-4.6.2.pyz"
 url_api = "https://api.github.com/repos/pre-commit/pre-commit/releases/assets/509317714"
 
-[[tools.python]]
-version = "3.13.15"
-backend = "core:python"
-
-[tools.python."platforms.linux-x64"]
-checksum = "sha256:c552deaf9ed0e678dee4ccc760d6dcd7cab33f1bd43e8037123b4a4db8508e14"
-url = "https://github.com/astral-sh/python-build-standalone/releases/download/20260929/cpython-3.13.15+20260929-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"
-provenance = "github-attestations"
-
-[tools.python."platforms.macos-arm64"]
-checksum = "sha256:d66c67f16148c7454b1509c32747175f7669c8b8e105b97b92a0000d66af6e6e"
-url = "https://github.com/astral-sh/python-build-standalone/releases/download/20260929/cpython-3.13.15+20260929-aarch64-apple-darwin-install_only_stripped.tar.gz"
-provenance = "github-attestations"
-
-[[tools.ruby]]
+# python is pinned in mise.toml; refresh signed platform checksums with\n# mise lock from trusted sources, never reuse the previous release hashes.\n\n[[tools.ruby]]
 version = "3.4.7"
 backend = "core:ruby"
 
