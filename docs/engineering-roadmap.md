@@ -1,6 +1,6 @@
 # Engineering roadmap — active, acceptance-driven
 
-**Version : 2026-10-20.** Keep only unresolved deliverables and validation
+**Version : 2026-10-23.** Keep only unresolved deliverables and validation
 conditions here. Do not append completed PR narratives.
 For long-tail unchecked tasks use the [on-demand backlog](engineering-backlog.md);
 it is **not** an automatically approved roadmap. Historical implementation
@@ -31,6 +31,15 @@ notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blo
 - [ ] Depuis un client mobile en 4G/5G et depuis le Wi-Fi domicile : `/api/ui/services` HTTP 200 avec liste ; `/api` affiche la même liste et les compteurs ; aucun `Owner only` dans les résumés ; états périmés `UNKNOWN`. Vérifier séparément session OWNER 401 sans clé, clé invalide 401, clé valide 200, origine invalide 403.
 - [ ] Après une solution distante authentifiée MFA/VPN validée : remettre `HOMELAB_OWNER_REMOTE_ACCESS_ENABLED=false`, et désactiver le répertoire public avec `HOMELAB_UI_PUBLIC_SERVICES_ENABLED=false` **seulement si** un remplaçant externe authentifié garantit la disponibilité attendue. Réévaluer la divulgation volontaire des libellés de services.
 - [ ] Contrôles locaux sur un checkout complet exact HEAD : `just offline-l1`, `just p0`, `just quality` et tests navigateur ; sans accès au clone, statut **NOT_RUN** plutôt que PASS.
+
+## P0 — FastAPI Cloud Python : dernière version disponible et compatibilité (23 octobre 2026)
+
+- [x] Vérification des **documents officiels FastAPI Cloud** : toutes les branches Python actuellement prises en charge (3.10+) sont annoncées, la dernière stable disponible étant **3.15.1** au 21 octobre 2026. La disponibilité exacte de cette révision dans le builder Cloud et le runtime actuel de l'application déployée n'ont **pas pu être vérifiés** par l'agent.
+- [x] Remplacer le helper historique `scripts/truenas/run-pr350-tests.sh` (PR #350 déjà fusionnée) et son test unitaire spécifique par `just offline-l1`, `just p0`, `just quality` et `just publish-check`. Conserver uniquement l'incident exploitable de `/tmp noexec` dans le runbook TrueNAS.
+- [x] Ajouter `just python-cloud-audit` : lecture sans réseau de `pyproject.toml` et `uv.lock`, état `BLOCKED_PENDING_RESOLUTION` pour 3.14.9 ou 3.15.1, nombre de distributions natives dépendantes de l'ABI 3.13. `just python-cloud-probe` lance un `uv lock --dry-run` **hors du dépôt** et **hors réseau par défaut**, avec Python candidat déjà présent ; jamais de changement de verrou produit ni de déploiement.
+- [ ] Tester la **cible de migration 3.14.9** : `python scripts/ci/check_fastapi_cloud_python_upgrade.py --candidate 3.14.9 --probe --allow-network` sur une machine isolée/connectée avec un uv et un Python 3.14.9 de confiance, résoudre proprement tout le graphe et obtenir une révision `uv.lock` complète. Vérifier le nombre de wheels Linux x86_64, les dépendances `pyroscope-io`, `pysqlite3`, `ddtrace`, `truenas-api-client`, ainsi que tous les groupes activés.
+- [ ] Exécuter les tests ciblés, l'ensemble des quality gates locales, les tests Docker et les smoke tests FastAPI Cloud/TrueNAS sur la révision exacte, sans déclencher GitHub Actions. Seulement après succès, aligner **ensemble** `requires-python`, `uv.lock`, `.python-version`, `mise.toml`, Docker et version de build Cloud. Ne pas publier Python 3.15.1 sans refaire cette procédure.
+- [ ] Lorsque la production sera accessible, établir de façon sûre sa version Python (preuve côté serveur, sans révéler de secrets dans la UI) et comparer à la cible ; la documentation du fournisseur ne constitue pas une preuve de déploiement.
 
 ## P0 — Toolchains supportés et LTS (23 octobre 2026)
 
