@@ -12,8 +12,8 @@ from nabla import access_control
 from nabla.api import health_routes, ui_public_services
 from nabla.api.site_architecture_catalog import (
     SiteArchitectureCatalogV2,
-    SiteV2Entity,
     SiteCatalogV2Unavailable,
+    SiteV2Entity,
     SiteV2Metadata,
 )
 from nabla.api.ui_public_services import (
