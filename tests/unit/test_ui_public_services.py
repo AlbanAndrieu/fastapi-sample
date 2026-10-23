@@ -167,6 +167,8 @@ async def test_public_directory_survives_backstage_outage_with_real_snapshot_sta
         SimpleNamespace(name="Gatus", service_id="gatus"),
         SimpleNamespace(name="Vaultwarden", service_id="vaultwarden"),
         SimpleNamespace(name="172.17.0.24:1234", service_id="internal-ip"),
+        SimpleNamespace(name="172.17.0.24", service_id="internal-ip-only"),
+        SimpleNamespace(name="Lab 10.10.10.10 gateway", service_id="ip-embedded"),
         SimpleNamespace(name="Secret https://private.example/", service_id="secret"),
     ]
     remote = AsyncMock(side_effect=SiteCatalogV2Unavailable("Backstage offline"))
@@ -202,6 +204,7 @@ async def test_public_directory_survives_backstage_outage_with_real_snapshot_sta
     }
     assert not any(v in result.model_dump_json() for v in ("172.17.0.24", "private.example", "NEVER-ECHO"))
     assert result.catalogRevision.startswith("sha256:")
+    assert "Lab 10.10.10.10" not in result.model_dump_json()
 
     # No repeated failing Backstage fetch on the anonymous refresh loop.
     again = await ui_public_services.get_public_ui_services(None)
