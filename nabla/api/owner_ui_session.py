@@ -107,9 +107,13 @@ def register_owner_ui_session_routes(app: FastAPI) -> None:
         return JSONResponse(
             {
                 "authenticated": owner_ui_authenticated(request, get_settings()),
-                "readOnlyDiagnostics": os.getenv(
-                    "HOMELAB_PUBLIC_DIAGNOSTICS_READONLY", "true"
-                ).lower() in {"1", "true", "yes", "on"},
+                **(
+                    {"readOnlyDiagnostics": True}
+                    if os.getenv(
+                        "HOMELAB_PUBLIC_DIAGNOSTICS_READONLY", "true"
+                    ).lower() in {"1", "true", "yes", "on"}
+                    else {}
+                ),
             },
             headers=_DENY_HEADERS,
         )
