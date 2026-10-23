@@ -13,6 +13,7 @@ from nabla.api import health_routes, ui_public_services
 from nabla.api.site_architecture_catalog import (
     SiteArchitectureCatalogV2,
     SiteV2Entity,
+    SiteCatalogV2Unavailable,
     SiteV2Metadata,
 )
 from nabla.api.ui_public_services import (
@@ -161,8 +162,6 @@ async def test_directory_survives_failed_diagnostics_with_unknown(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_public_directory_survives_backstage_outage_with_real_snapshot_states(monkeypatch):
-    from nabla.api.site_architecture_catalog import SiteCatalogV2Unavailable
-
     services = [
         SimpleNamespace(name="Garage", service_id="garage"),
         SimpleNamespace(name="Gatus", service_id="gatus"),
@@ -173,26 +172,33 @@ async def test_public_directory_survives_backstage_outage_with_real_snapshot_sta
     remote = AsyncMock(side_effect=SiteCatalogV2Unavailable("Backstage offline"))
     monkeypatch.setattr(ui_public_services, "fetch_site_catalog_v2", remote)
     monkeypatch.setattr(
-        ui_public_services, "packaged_homelab_catalog",
+        ui_public_services,
+        "packaged_homelab_catalog",
         lambda: SimpleNamespace(services=services),
     )
-    monkeypatch.setattr(ui_public_services, "_backstage_retry_after", 0.0)
+    monkeypatch.setitem(ui_public_services._backstage_backoff, "retry_after", 0.0)
     monkeypatch.setattr(
         "nabla.api.health_board.get_health_board_snapshot",
-        AsyncMock(return_value={
-            "state": "fresh",
-            "homelab": {"services": [
-                {"id": "garage", "effective_state": "warn", "secret": "NEVER-ECHO"},
-                {"id": "gatus", "effective_state": "ok", "internalHost": "172.17.0.24"},
-                {"id": "vaultwarden", "effective_state": "fail", "probe_stale": True},
-            ]},
-        }),
+        AsyncMock(
+            return_value={
+                "state": "fresh",
+                "homelab": {
+                    "services": [
+                        {"id": "garage", "effective_state": "warn", "secret": "NEVER-ECHO"},
+                        {"id": "gatus", "effective_state": "ok", "internalHost": "172.17.0.24"},
+                        {"id": "vaultwarden", "effective_state": "fail", "probe_stale": True},
+                    ],
+                },
+            },
+        ),
     )
     result = await ui_public_services.get_public_ui_services(None)
     assert result.catalogSource == "bootstrap-snapshot"
     assert result.boardState == "fresh"
     assert {item.name: item.state for item in result.services} == {
-        "Garage": "warn", "Gatus": "ok", "Vaultwarden": "unknown",
+        "Garage": "warn",
+        "Gatus": "ok",
+        "Vaultwarden": "unknown",
     }
     assert not any(v in result.model_dump_json() for v in ("172.17.0.24", "private.example", "NEVER-ECHO"))
     assert result.catalogRevision.startswith("sha256:")
@@ -205,28 +211,35 @@ async def test_public_directory_survives_backstage_outage_with_real_snapshot_sta
 
 @pytest.mark.asyncio
 async def test_bootstrap_never_fabricates_state_from_stale_or_ambiguous_evidence(monkeypatch):
-    from nabla.api.site_architecture_catalog import SiteCatalogV2Unavailable
-
     monkeypatch.setattr(
-        ui_public_services, "fetch_site_catalog_v2",
+        ui_public_services,
+        "fetch_site_catalog_v2",
         AsyncMock(side_effect=SiteCatalogV2Unavailable("offline")),
     )
     monkeypatch.setattr(
-        ui_public_services, "packaged_homelab_catalog",
-        lambda: SimpleNamespace(services=[
-            SimpleNamespace(name="Garage", service_id="garage"),
-            SimpleNamespace(name="Garage", service_id="garage-other"),
-        ]),
+        ui_public_services,
+        "packaged_homelab_catalog",
+        lambda: SimpleNamespace(
+            services=[
+                SimpleNamespace(name="Garage", service_id="garage"),
+                SimpleNamespace(name="Garage", service_id="garage-other"),
+            ],
+        ),
     )
-    monkeypatch.setattr(ui_public_services, "_backstage_retry_after", 0.0)
+    monkeypatch.setitem(ui_public_services._backstage_backoff, "retry_after", 0.0)
     monkeypatch.setattr(
         "nabla.api.health_board.get_health_board_snapshot",
-        AsyncMock(return_value={
-            "state": "fresh", "homelab": {"services": [
-                {"id": "garage", "state": "ok"},
-                {"id": "garage", "state": "fail"},
-            ]},
-        }),
+        AsyncMock(
+            return_value={
+                "state": "fresh",
+                "homelab": {
+                    "services": [
+                        {"id": "garage", "state": "ok"},
+                        {"id": "garage", "state": "fail"},
+                    ],
+                },
+            },
+        ),
     )
     ambiguous = await ui_public_services.get_public_ui_services(None)
     assert len(ambiguous.services) == 1

@@ -325,4 +325,6 @@
 #health-board-private-meta[hidden],
 #owner-readonly-detail[hidden],
 #truenas-platform[hidden],
-#runtime-topology[hidden] { display: none !important; }
+#runtime-topology[hidden] {
+  display: none !important;
+}

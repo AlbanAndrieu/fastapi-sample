@@ -387,10 +387,10 @@ def test_limited_service_overview_asset_is_public_only_and_distinct() -> None:
     assert 'document.getElementById("service-health-overview")' in script
     assert '"Healthy"' in script and '"Degraded"' in script
     assert '"Failed"' in script and '"Unconfirmed"' in script
-    assert 'cards.length !== 5' in script
-    assert 'value.textContent = values[index]' in script
+    assert "cards.length !== 5" in script
+    assert "value.textContent = values[index]" in script
     assert "renderPublicSummary(null, 0)" in script
-    assert 'if (ownerAuthenticated) return;' in script
+    assert "if (ownerAuthenticated) return;" in script
 
 
 def test_limited_service_overview_never_claims_stale_health() -> None:
@@ -411,7 +411,7 @@ def test_public_landing_never_prompts_anonymous_visitors_for_owner_signin() -> N
     assert 'id="owner-readonly-detail" hidden' in html
     assert 'id="truenas-platform" hidden' in html
     assert 'id="runtime-topology"' in html
-    assert '#owner-session-panel[hidden]' in (_ASSET_DIR / "api-health.css").read_text(encoding="utf-8")
+    assert "#owner-session-panel[hidden]" in (_ASSET_DIR / "api-health.css").read_text(encoding="utf-8")
     assert 'new URLSearchParams(window.location.search).get("operator") === "1"' in bootstrap
     assert "if (panel) panel.hidden = !operatorMode;" in bootstrap
     assert "element.hidden = !authenticated;" in bootstrap
@@ -419,7 +419,7 @@ def test_public_landing_never_prompts_anonymous_visitors_for_owner_signin() -> N
     assert bootstrap.index("await installPublicServiceOverview();") < bootstrap.index("installHealthBoardController();")
     assert "Public read-only service inventory" in bootstrap
     assert 'fetch("/api/ui/services"' in catalog
-    assert 'if (ownerAuthenticated) return;' in catalog
+    assert "if (ownerAuthenticated) return;" in catalog
     assert "Last-known service inventory" in catalog
     assert "operatorMode" in bootstrap
 

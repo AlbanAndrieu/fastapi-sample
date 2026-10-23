@@ -16,6 +16,8 @@ notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blo
 - [ ] Contrôler depuis le réseau mobile externe et Wi-Fi maison : `GET /api/ui/services` 200, noms présents même si Backstage indisponible, 5 compteurs alignés, aucune fenêtre `Sign in` ou carte `Owner only` sur `/api`. Contrôler `/api?operator=1` (clé incorrecte 401, clé valide/cookie 20 min, origine invalide 403), mutations toujours protégées.
 - [ ] **Rétablir OWNER** une fois l'accès distant MFA/VPN validé : désactiver `HOMELAB_UI_PUBLIC_READONLY_ENABLED` et adapter la page pour réserver le catalogue public au flux authentifié, sans perdre le diagnostic depuis l'extérieur. Test de rollback et audit d'exposition obligatoires.
 - [ ] Exécuter gates locales exact HEAD : pytest ciblé, `just offline-l1`, `just p0`, `just quality`, tests navigateur et contrat anti-divulgation ; CI GitHub interdite pendant la pénurie de crédits. Toute gate non exécutée reste **NOT_RUN**.
+- [x] Gate locale au HEAD `09507f63` : repli Backstage cassé (`_bootstrap_public_service_directory()` appelé sans `request` ⇒ `TypeError`/500 à la première panne) corrigé ; contrats `python.yml` (6 gardes Draft depuis #365) et ordre `installHealthUiFinalFollowup` réalignés ; C901/PLC0415/PLW0603 soldés.
+- [ ] **NOT_RUN** : `just offline-l1`, `just p0`, tests navigateur (node@24.22.1 absent localement ; `mise.lock` non rafraîchi volontairement, à faire via `mise lock` depuis une source de confiance). Les 23 commits portent `[skip ci]`, désormais interdit par AGENTS.md : vérifier que les checks requis démarrent au passage Ready.
 
 ## P0 — Bababou local-first parity and Talos staging (PR #365, 2026-10-22)
 
@@ -59,7 +61,7 @@ notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blo
 - [ ] Régénérer et vérifier `mise.lock` sur une machine connectée via `mise lock` : les blocs Python/Node contenant des checksums **d'anciennes versions** ont été supprimés intentionnellement, jamais transposés à de nouvelles archives. Exécuter `mise install` puis comparer `.python-version`, Node, npm et uv ; aucun déploiement tant que ce verrou n'est pas rétabli.
 - [ ] Qualification de **Python 3.14.9** (maintenu jusqu'en 2030) : régénérer intégralement le verrou `uv.lock` via `uv lock`, auditer les wheels Linux amd64, `pyroscope-io`, `pysqlite3`, `truenas-api-client`, FastAPI/ASGI et tous les groupes `uv`; exécuter tests, image Docker et acceptation Talos avant d'assouplir `requires-python ==3.13.*`. Ne jamais modifier manuellement `uv.lock` ni publier une image 3.14 sans résolution valide.
 - [ ] Gates locales de l'exact HEAD : `just offline-l1`, `just p0`, `just workflow-audit`, `just quality`, tests Docker. Aucun GitHub Actions payant ni déploiement déclenché par l'agent.
-  
+
 ## P0 — CI : tracker unique `master-red` (#355)
 
 - **Implémenté, à valider** : un seul commentaire d'état du bot dans #355, sans nouvelle issue par SHA, sans PR brouillon vide, sans modification du titre, du corps ni des labels ; conservation des preuves des 32 anciens doublons dans GitHub. Script canonique : `scripts/ci/master_red_issue.py`.

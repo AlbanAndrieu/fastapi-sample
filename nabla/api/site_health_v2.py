@@ -8,6 +8,7 @@ from typing import Any, Literal
 from fastapi import Request
 from pydantic import BaseModel, ConfigDict, Field
 
+from nabla.api import health_board
 from nabla.api.site_architecture_catalog import (
     SiteArchitectureCatalogV2,
     fetch_site_catalog_v2,
@@ -70,11 +71,7 @@ def verified_health_by_service_id(board: object) -> tuple[BoardState, dict[str, 
             duplicates.add(key)
         else:
             by_id[key] = row
-    return board_state, {
-        key: _verified_state(row)
-        for key, row in by_id.items()
-        if key not in duplicates
-    }
+    return board_state, {key: _verified_state(row) for key, row in by_id.items() if key not in duplicates}
 
 
 def project_site_health_v2(
@@ -97,10 +94,9 @@ def project_site_health_v2(
         services=entries,
     )
 
-async def fetch_site_health_v2(request: Request) -> SiteHealthV2:
-    """Keep provider/probe imports lazy until the authenticated request arrives."""
-    from nabla.api.health_board import get_health_board_snapshot
 
+async def fetch_site_health_v2(request: Request) -> SiteHealthV2:
+    """Project the shared board snapshot; health_board keeps its provider imports lazy."""
     catalog = await fetch_site_catalog_v2()
-    board = await get_health_board_snapshot(request)
+    board = await health_board.get_health_board_snapshot(request)
     return project_site_health_v2(catalog, board)

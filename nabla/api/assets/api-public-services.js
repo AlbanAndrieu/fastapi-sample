@@ -10,7 +10,9 @@ function validOverview(value) {
     value.model === "public-service-overview" &&
     /^sha256:[a-f0-9]{64}$/.test(value.catalogRevision || "") &&
     ["fresh", "stale", "pending"].includes(value.boardState) &&
-    ["backstage-v2", "bootstrap-snapshot"].includes(value.catalogSource || "backstage-v2") &&
+    ["backstage-v2", "bootstrap-snapshot"].includes(
+      value.catalogSource || "backstage-v2",
+    ) &&
     Array.isArray(value.services) &&
     value.services.length <= 2000 &&
     value.services.every(
@@ -25,7 +27,9 @@ function validOverview(value) {
   );
 }
 
-export async function installPublicServiceOverview({ ownerAuthenticated = false } = {}) {
+export async function installPublicServiceOverview({
+  ownerAuthenticated = false,
+} = {}) {
   const panel = document.getElementById("public-services-panel");
   const list = document.getElementById("public-services-list");
   const summary = document.getElementById("public-services-summary");
@@ -59,13 +63,7 @@ export async function installPublicServiceOverview({ ownerAuthenticated = false 
             String(counts.fail),
             String(counts.unknown),
           ];
-    const labels = [
-      "Services",
-      "Healthy",
-      "Degraded",
-      "Failed",
-      "Unconfirmed",
-    ];
+    const labels = ["Services", "Healthy", "Degraded", "Failed", "Unconfirmed"];
     const descriptions = [
       catalogSource === "bootstrap-snapshot"
         ? "Last-known local inventory (not live)"

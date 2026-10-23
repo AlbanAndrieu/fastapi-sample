@@ -111,7 +111,8 @@ async def _bootstrap_public_service_directory(request: Request) -> PublicUiServi
         raise SiteCatalogV2Unavailable("No verified public labels are available")
     serialized = json.dumps(
         [(service.name, service.kind) for service in services],
-        ensure_ascii=False, separators=(",", ":"),
+        ensure_ascii=False,
+        separators=(",", ":"),
     ).encode("utf-8")
     return PublicUiServices(
         catalogRevision="sha256:" + hashlib.sha256(serialized).hexdigest(),
@@ -121,21 +122,22 @@ async def _bootstrap_public_service_directory(request: Request) -> PublicUiServi
     )
 
 
-_backstage_retry_after: float = 0.0
+_BACKSTAGE_RETRY_SECONDS = 60.0
+# Monotonic deadline before the next Backstage attempt; shared by all requests.
+_backstage_backoff: dict[str, float] = {"retry_after": 0.0}
 
 
 async def get_public_ui_services(request: Request) -> PublicUiServices:
     """Read shared bounded server cache; no browser auth, no raw probe output."""
-    global _backstage_retry_after
-    if time.monotonic() < _backstage_retry_after:
+    if time.monotonic() < _backstage_backoff["retry_after"]:
         return await _bootstrap_public_service_directory(request)
     try:
         catalog = await fetch_site_catalog_v2()
     except SiteCatalogV2Unavailable:
         # Bound repeated failed GitHub attempts across anonymous UI refreshes.
-        _backstage_retry_after = time.monotonic() + 60.0
-        return await _bootstrap_public_service_directory()
-    _backstage_retry_after = 0.0
+        _backstage_backoff["retry_after"] = time.monotonic() + _BACKSTAGE_RETRY_SECONDS
+        return await _bootstrap_public_service_directory(request)
+    _backstage_backoff["retry_after"] = 0.0
     try:
         board = await health_board.get_health_board_snapshot(request)
     except Exception:
