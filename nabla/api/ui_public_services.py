@@ -24,7 +24,7 @@ from nabla.api.site_architecture_catalog import (
     SiteCatalogV2Unavailable,
     fetch_site_catalog_v2,
 )
-from nabla.api.site_health_v2 import project_site_health_v2
+from nabla.api.site_health_v2 import project_site_health_v2, verified_health_by_service_id
 
 State = Literal["ok", "warn", "fail", "unknown"]
 Kind = Literal["API", "Component", "Resource"]
@@ -81,21 +81,30 @@ def project_public_ui_services(
     )
 
 
-async def _bootstrap_public_service_directory() -> PublicUiServices:
+async def _bootstrap_public_service_directory(request: Request) -> PublicUiServices:
     """Fail-safe packaged inventory when the canonical v2 source is unreachable.
 
     These are *labels only*, explicitly identified as a stale bootstrap snapshot.
     No internal URI, IP, port, runtime detail, or unverified state is serialized.
     """
     catalog = packaged_homelab_catalog()
-    labels: set[str] = set()
+    try:
+        board = await health_board.get_health_board_snapshot(request)
+    except Exception:
+        board = {"state": "pending"}
+    board_state, states = verified_health_by_service_id(board)
+    by_label: dict[str, list[str]] = {}
     for service in catalog.services:
         label = service.name.strip()
         if _SAFE_LABEL.fullmatch(label) and not _IP_LABEL.search(label):
-            labels.add(label)
+            by_label.setdefault(label, []).append(service.service_id)
     services = [
-        PublicUiService(name=name, kind="Component", state="unknown")
-        for name in sorted(labels, key=str.casefold)[:2000]
+        PublicUiService(
+            name=name,
+            kind="Component",
+            state=states.get(identifiers[0], "unknown") if len(identifiers) == 1 else "unknown",
+        )
+        for name, identifiers in sorted(by_label.items(), key=lambda entry: entry[0].casefold())[:2000]
     ]
     if not services:
         # Do not fabricate service names when neither source is available.
@@ -106,7 +115,7 @@ async def _bootstrap_public_service_directory() -> PublicUiServices:
     ).encode("utf-8")
     return PublicUiServices(
         catalogRevision="sha256:" + hashlib.sha256(serialized).hexdigest(),
-        boardState="pending",
+        boardState=board_state,
         catalogSource="bootstrap-snapshot",
         services=services,
     )
@@ -119,7 +128,7 @@ async def get_public_ui_services(request: Request) -> PublicUiServices:
     """Read shared bounded server cache; no browser auth, no raw probe output."""
     global _backstage_retry_after
     if time.monotonic() < _backstage_retry_after:
-        return await _bootstrap_public_service_directory()
+        return await _bootstrap_public_service_directory(request)
     try:
         catalog = await fetch_site_catalog_v2()
     except SiteCatalogV2Unavailable:
