@@ -30,7 +30,7 @@ State = Literal["ok", "warn", "fail", "unknown"]
 Kind = Literal["API", "Component", "Resource"]
 BoardState = Literal["fresh", "stale", "pending"]
 CatalogSource = Literal["backstage-v2", "bootstrap-snapshot"]
-_SAFE_LABEL = re.compile(r"^[A-Za-z][A-Za-z0-9 ._()+&-]{0,127}$")
+_SAFE_LABEL = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._()+&-]{0,127}$")
 _IP_LABEL = re.compile(r"\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b")
 
 
