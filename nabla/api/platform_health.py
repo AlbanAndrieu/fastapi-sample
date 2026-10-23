@@ -156,37 +156,33 @@ async def _get_pfsense_liveness(
     return response, last_error, attempts
 
 
-async def check_pfsense_api() -> dict[str, Any]:
-    """Check pfSense REST API liveness with the posture read-only identity."""
-    if not PfSenseProbePolicySettings().pfsense_authenticated_probes_enabled:
-        cloud_vantage = fastapi_cloud_runtime_detected()
-        return {
-            "reachable": None,
-            "transport_reachable": None,
-            "api_authenticated": None,
-            "application_ok": None,
-            "authenticated_probes_enabled": False,
-            "observation_mode": "transport_only",
-            "skipped": True,
-            "status_confirmed": False,
-            "state": "unknown",
-            "degraded": False,
-            "vantage_point": "fastapi_cloud" if cloud_vantage else "current_runtime",
-            "warning": ("⚠️ Authenticated pfSense API liveness is disabled in this runtime; use independent transport/path evidence instead"),
-            "probe": "pfsense_rest_api_v2",
-            "path": _PFSENSE_LIVENESS_PATH,
-            "credential_mode": "disabled",
-        }
-    try:
-        base_url, api_key, verify_ssl, credential_mode = _pfsense_posture_transport()
-    except ValidationError as exc:
-        return {
-            "reachable": False,
-            "configuration_stage": "invalid_configuration",
-            "invalid_configuration_variables": pfsense_invalid_configuration_variables(exc),
-            "error": "pfSense posture transport configuration is invalid",
-            "probe": "pfsense_rest_api_v2",
-        }
+def _pfsense_probes_disabled_result() -> dict[str, Any]:
+    cloud_vantage = fastapi_cloud_runtime_detected()
+    return {
+        "reachable": None,
+        "transport_reachable": None,
+        "api_authenticated": None,
+        "application_ok": None,
+        "authenticated_probes_enabled": False,
+        "observation_mode": "transport_only",
+        "skipped": True,
+        "status_confirmed": False,
+        "state": "unknown",
+        "degraded": False,
+        "vantage_point": "fastapi_cloud" if cloud_vantage else "current_runtime",
+        "warning": ("⚠️ Authenticated pfSense API liveness is disabled in this runtime; use independent transport/path evidence instead"),
+        "probe": "pfsense_rest_api_v2",
+        "path": _PFSENSE_LIVENESS_PATH,
+        "credential_mode": "disabled",
+    }
+
+
+def _pfsense_configuration_rejection(
+    base_url: str | None,
+    api_key: str | None,
+    credential_mode: str,
+) -> dict[str, Any] | None:
+    """Return why the configured transport must not be probed, else None."""
     if not base_url or not api_key:
         return {
             "reachable": None,
@@ -202,6 +198,71 @@ async def check_pfsense_api() -> dict[str, Any]:
             "probe": "pfsense_rest_api_v2",
             "credential_mode": credential_mode,
         }
+    return None
+
+
+def _pfsense_http_result(
+    response: httpx.Response,
+    *,
+    elapsed_ms: int,
+    attempts: int,
+    url: str,
+    verify_ssl: bool,
+    credential_mode: str,
+) -> dict[str, Any]:
+    """Classify a completed pfSense API response as ok, auth-rejected or failing."""
+    healthy = 200 <= response.status_code < 400
+    auth_rejected = response.status_code in {401, 403}
+    result = {
+        "reachable": True,
+        "transport_reachable": True,
+        "api_authenticated": True if healthy else False if auth_rejected else None,
+        "application_ok": healthy,
+        "application_result": ("authenticated_api_response" if healthy else "authentication_rejected" if auth_rejected else "http_error"),
+        "status_confirmed": True,
+        "state": "ok" if healthy else "warn" if auth_rejected else "fail",
+        "http_status": response.status_code,
+        "elapsed_ms": elapsed_ms,
+        "probe": "pfsense_rest_api_v2",
+        "path": _PFSENSE_LIVENESS_PATH,
+        "url": url,
+        "verify_ssl": verify_ssl,
+        "credential_mode": credential_mode,
+        "attempts": attempts,
+        "tls_trusted": verify_ssl,
+    }
+    if healthy:
+        result["last_success_at"] = _utc_now()
+        return result
+    result.update(
+        {
+            "error": f"pfSense API returned HTTP {response.status_code}",
+            "error_kind": f"http_{response.status_code}",
+            "failure_stage": "authentication" if auth_rejected else "http_response",
+        },
+    )
+    if auth_rejected:
+        result["warning"] = f"pfSense HTTPS/API endpoint is reachable, but the selected posture API key was rejected (HTTP {response.status_code})"
+    return result
+
+
+async def check_pfsense_api() -> dict[str, Any]:
+    """Check pfSense REST API liveness with the posture read-only identity."""
+    if not PfSenseProbePolicySettings().pfsense_authenticated_probes_enabled:
+        return _pfsense_probes_disabled_result()
+    try:
+        base_url, api_key, verify_ssl, credential_mode = _pfsense_posture_transport()
+    except ValidationError as exc:
+        return {
+            "reachable": False,
+            "configuration_stage": "invalid_configuration",
+            "invalid_configuration_variables": pfsense_invalid_configuration_variables(exc),
+            "error": "pfSense posture transport configuration is invalid",
+            "probe": "pfsense_rest_api_v2",
+        }
+    rejection = _pfsense_configuration_rejection(base_url, api_key, credential_mode)
+    if rejection is not None:
+        return rejection
 
     url = f"{base_url}{_PFSENSE_LIVENESS_PATH}"
     timeout = httpx.Timeout(
@@ -235,38 +296,14 @@ async def check_pfsense_api() -> dict[str, Any]:
             credential_mode=credential_mode,
         )
 
-    healthy = 200 <= response.status_code < 400
-    auth_rejected = response.status_code in {401, 403}
-    result = {
-        "reachable": True,
-        "transport_reachable": True,
-        "api_authenticated": True if healthy else False if auth_rejected else None,
-        "application_ok": healthy,
-        "application_result": ("authenticated_api_response" if healthy else "authentication_rejected" if auth_rejected else "http_error"),
-        "status_confirmed": True,
-        "state": "ok" if healthy else "warn" if auth_rejected else "fail",
-        "http_status": response.status_code,
-        "elapsed_ms": elapsed_ms,
-        "probe": "pfsense_rest_api_v2",
-        "path": _PFSENSE_LIVENESS_PATH,
-        "url": url,
-        "verify_ssl": verify_ssl,
-        "credential_mode": credential_mode,
-        "attempts": attempts,
-        "tls_trusted": verify_ssl,
-    }
-    if healthy:
-        result["last_success_at"] = _utc_now()
-    else:
-        result.update(
-            {
-                "error": f"pfSense API returned HTTP {response.status_code}",
-                "error_kind": f"http_{response.status_code}",
-                "failure_stage": "authentication" if auth_rejected else "http_response",
-            },
-        )
-        if auth_rejected:
-            result["warning"] = f"pfSense HTTPS/API endpoint is reachable, but the selected posture API key was rejected (HTTP {response.status_code})"
+    result = _pfsense_http_result(
+        response,
+        elapsed_ms=elapsed_ms,
+        attempts=attempts,
+        url=url,
+        verify_ssl=verify_ssl,
+        credential_mode=credential_mode,
+    )
     logger.debug(
         "pfSense API liveness probe completed http_status=%s elapsed_ms=%s attempts=%s verify_ssl=%s",
         response.status_code,

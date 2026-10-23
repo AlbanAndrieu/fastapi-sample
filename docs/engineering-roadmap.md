@@ -124,9 +124,12 @@ notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blo
   PostHog `_validate`, `build_sickz_payload` (114 → 69 lignes), `probe_truenas`
   (126 → 46) et `_observe_posture_origin_bounded` (188 → 73 ; payloads de repli
   dans `pfsense_posture_skips.py`, JSON identique vérifié sur 401, preflight
-  lent et nominal). Candidats suivants (> 100 lignes) : `render_api_root_page`,
-  `render_topology_page` (HTML déclaratif), `observe_pfsense_dns_posture`,
-  `check_pfsense_api`, `collect_truenas_network_diagnostics`.
+  lent et nominal), `observe_pfsense_dns_posture` (155 → 56 ; 6 chemins),
+  `check_pfsense_api` (119 → 66 ; 10 chemins) et
+  `collect_truenas_network_diagnostics` (116 → 85 ; 4 chemins WAN), chaque
+  fois JSON identique (clés + ordre) à l'implémentation précédente. Reste
+  > 100 lignes : `render_api_root_page`, `render_topology_page` (HTML
+  déclaratif, à externaliser en gabarit seulement si une évolution l'exige).
 - [ ] Contextes SSL partagés (`verified_ssl_context`/`unverified_ssl_context`) :
   chaque `httpx.AsyncClient(verify=True)` rechargeait le bundle CA (≈ 8 ms de
   CPU bloquant l'event loop, mesuré localement, contre 0,06 ms partagé) par
