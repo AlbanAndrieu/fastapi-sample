@@ -1,3 +1,16 @@
+## [1.24.4](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.24.3...1.24.4) (2026-10-23)
+
+
+### Bug Fixes
+
+* **ui:** accès public aux services sans sign-in OWNER et fallback Backstage ([#367](https://github.com/AlbanAndrieu/fastapi-sample/issues/367)) ([61c804e](https://github.com/AlbanAndrieu/fastapi-sample/commit/61c804e3b247353b61674bd2f4417323ca93b060)), closes [#365](https://github.com/AlbanAndrieu/fastapi-sample/issues/365)
+* **ui:** afficher les services publics hors domicile sans Owner only ([#366](https://github.com/AlbanAndrieu/fastapi-sample/issues/366)) ([94dd983](https://github.com/AlbanAndrieu/fastapi-sample/commit/94dd98341497e868ebd0863d58888f2e09c014ad))
+
+
+### Performance Improvements
+
+* **probes:** contextes SSL partagés, découpage sickz/TrueNAS/pfSense et parité uv/Node ([#368](https://github.com/AlbanAndrieu/fastapi-sample/issues/368)) ([7267b51](https://github.com/AlbanAndrieu/fastapi-sample/commit/7267b5153ec887006bb2784665dd9335bd79bd35)), closes [#365](https://github.com/AlbanAndrieu/fastapi-sample/issues/365) [#367](https://github.com/AlbanAndrieu/fastapi-sample/issues/367) [#343](https://github.com/AlbanAndrieu/fastapi-sample/issues/343)
+
 ## [1.24.3](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.24.2...1.24.3) (2026-10-22)
 
 
