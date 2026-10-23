@@ -16,3 +16,6 @@
 @import url("./api-platform-diagnostics.css");
 @import url("./api-health-ui-responsive-followup.css");
 @import url("./api-health-ui-final-followup.css");
+
+/* Anonymous landing never exposes the operator sign-in form by accident. */
+#owner-session-panel[hidden] { display: none !important; }
