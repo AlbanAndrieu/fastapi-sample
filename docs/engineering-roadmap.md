@@ -6,6 +6,17 @@ For long-tail unchecked tasks use the [on-demand backlog](engineering-backlog.md
 it is **not** an automatically approved roadmap. Historical implementation
 notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blob/594d51d64efdd5274d2ba42a9cb09551b6d57d46/docs/engineering-roadmap.md).
 
+## P0 — Incident FastAPI Cloud : UI vide et faux besoin de connexion OWNER (2026-10-23)
+
+- [x] Diagnostiquer les deux causes indépendantes : le bootstrap du navigateur bloquait le health board sur `ownerSessionAvailable()`, et `/api/ui/services` échouait sans repli lorsque `catalog/generated/entities.json` (Backstage v2) était indisponible.
+- [x] En accès anonyme, afficher **uniquement** le répertoire de services et les états vérifiés : aucune requête navigateur à `/api/health-board`, `/healthz`, `/sickz`, `/api/homelab/probes`, aux contrôles runtime/administrateur ou au cache reset. Les panneaux OWNER restent cachés par défaut, même en cas de conflit CSS ; l'authentification opérateur est uniquement sur `/api?operator=1`.
+- [x] En absence du catalogue Backstage, réutiliser le **snapshot déjà empaqueté et validé** du homelab (pas un nouveau catalogue concurrent). Publier seulement les libellés sûrs et, lorsque le cache partagé est réellement `fresh` et la correspondance ID non ambiguë, les états `ok/warn/fail`. Sinon `unknown` ; provenance explicite `catalogSource=bootstrap-snapshot` et `boardState`. Pas d'adresse IP, de port, de secret ou d'URL interne. Limiter les tentatives Backstage après échec à une par 60 secondes.
+- [x] Ignorer l'ancienne variable `HOMELAB_UI_PUBLIC_SERVICES_ENABLED` potentiellement restée `false` sur FastAPI Cloud : une seule bascule de retour arrière `HOMELAB_UI_PUBLIC_READONLY_ENABLED` (vaut `true` par défaut pendant l'incident), désactivable par `false` après revue. Ne pas ouvrir les API OWNER/SERVICE/ADMIN/MCP.
+- [ ] **P0 de validation production** : FastAPI Cloud se déploie directement hors GitHub Actions. Identifier la révision réellement déployée et promouvoir la correction par la procédure de déploiement **explicitement approuvée**. Le merge GitHub seul ne prouve pas que `https://fastapi-sample.fastapicloud.dev/api` est actualisé.
+- [ ] Contrôler depuis le réseau mobile externe et Wi-Fi maison : `GET /api/ui/services` 200, noms présents même si Backstage indisponible, 5 compteurs alignés, aucune fenêtre `Sign in` ou carte `Owner only` sur `/api`. Contrôler `/api?operator=1` (clé incorrecte 401, clé valide/cookie 20 min, origine invalide 403), mutations toujours protégées.
+- [ ] **Rétablir OWNER** une fois l'accès distant MFA/VPN validé : désactiver `HOMELAB_UI_PUBLIC_READONLY_ENABLED` et adapter la page pour réserver le catalogue public au flux authentifié, sans perdre le diagnostic depuis l'extérieur. Test de rollback et audit d'exposition obligatoires.
+- [ ] Exécuter gates locales exact HEAD : pytest ciblé, `just offline-l1`, `just p0`, `just quality`, tests navigateur et contrat anti-divulgation ; CI GitHub interdite pendant la pénurie de crédits. Toute gate non exécutée reste **NOT_RUN**.
+
 ## P0 — Bababou local-first parity and Talos staging (PR #365, 2026-10-22)
 
 - [x] Remove both obsolete GitHub workflows `deploy.yml` (FastAPI Cloud deploys independently) and manual Super-Linter `linter.yml`; preserve Python, CodeQL, security scans, MegaLinter, artifact and package release gates. Remove stale MegaLinter exclusion.
