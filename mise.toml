@@ -22,7 +22,9 @@ argocd = "latest"
 trivy = "latest"
 poetry = "latest"
 sops = "latest"
-uv = "latest"
+# Same uv as CI (setup-uv in python.yml); mise's pypi backend (e.g. a global
+# azure-cli) also runs this uv and requires >= 0.12.10.
+uv = "0.12.22"
 pre-commit = "latest"
 docker-compose = "latest"
 
