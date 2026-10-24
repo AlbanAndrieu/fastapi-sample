@@ -4,6 +4,21 @@
 
 **Statut :** [PR #373](https://github.com/AlbanAndrieu/fastapi-sample/pull/373) fusionnée le 24/10 à 16:28 UTC ; ce merge ne prouve pas la révision déployée sur FastAPI Cloud/TrueNAS. Conserver `NOT_RUN` quand aucune sortie de test n'existe.
 
+## P0 — Comparaison DNS workstation/TrueNAS (24 octobre 2026)
+
+**Observation de la workstation fournie le 24/10 à 19:34 CEST, non extrapolable à TrueNAS :**
+- PfSense/Unbound `172.17.0.1` renvoie `sample.int.albandrieu.com A 172.17.0.24` en **25 ms** (TTL 0).
+- Le même résolveur renvoie des adresses IPv4 **publiques Cloudflare** pour `sample.albandrieu.com` en **20 ms** ; leur valeur n'est pas un invariant.
+- Après `nmcli`, `eno1` utilise `172.17.0.1`, et `getent ahostsv4 sample.int.albandrieu.com` renvoie `172.17.0.24`. Première requête `resolvectl` interne : **6,0703 s**, contre **53,9 ms** pour le nom public ; cette durée ne permet pas d'attribuer la cause à Unbound ou DNS-over-TLS.
+- **TrueNAS : NOT_RUN** depuis cet environnement. Le DNS d'un hôte ne prouve pas le DNS de ses conteneurs Docker.
+
+- [x] Ajouter `scripts/diagnose-homelab-dns.py` (bibliothèque standard, read-only) : comparer les réponses directes pfSense `dig` aux réponses système `getent` pour les deux noms, avec timeout et statut explicite `matched/unverified/*_mismatch`.
+- [x] Ajouter `--dns-only --vantage workstation|truenas` à `scripts/truenas-runtime-evidence.sh` ; recettes `just dns-evidence-workstation` et `just dns-evidence-truenas`. Le mode strict refuse les preuves absentes ; aucun accès API, Docker ou Cloudflare n'est implicite.
+- [ ] Exécuter sur la workstation, puis sur TrueNAS, les deux recettes depuis le checkout FastAPI ; archiver uniquement date, observateur, latences et résultats expurgés. Contrôler ensuite séparément `just truenas-evidence` et les sondes HTTP/TCP/TLS/API, sans considérer une simple réponse DNS comme un succès applicatif.
+- [ ] Exécuter sur le HEAD complet les tests `tests/unit/test_diagnose_homelab_dns.py`, `test_truenas_runtime_evidence_wrapper.py`, Ruff et `just quality` ; les tests du helper ont passé **5/5 en copie locale isolée**, pas encore la suite sur checkout complet.
+
+**Done :** workstation et TrueNAS observées indépendamment ; le cache DNS, le trafic IPv6 et les accès Cloudflare ne sont pas confondus avec la santé de l'origine FastAPI.
+
 ## P0 — Contrat de sondes HTTP/TCP/TLS et fraîcheur par service
 
 - [ ] Valider localement l'implémentation `internal_probe_execution` (schéma OWNER v6) : `disabled`, `not-configured`, `not-executed`, `stale`, `failed`, `observed`. La valeur `RUNNING` de Docker n'est pas un succès TCP.
