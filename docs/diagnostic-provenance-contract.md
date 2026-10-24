@@ -89,3 +89,24 @@ TrueNAS depuis FastAPI Cloud. Pas de bypass sur hostname ni de trust d'un
 
 **Ne pas activer** `OPS_ROUTE_POLICY_STRICT` en production avant que le
 manifeste des routes et les tests de refus aient validé le cutover.
+
+## Architecture Decision / dispatch
+
+Le modèle de gouvernance est [défini dans Compose](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/architecture-governance.md).
+La décision [ADR-0001 APISIX](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/adr/0001-apisix-api-gateway-poc.md)
+est **proposée**, non acceptée et non déployée. FastAPI conserve l'autorité
+sur sa **politique d'accès**, ses DTO, ses erreurs RFC 9457 et ses sondes.
+Compose possède routage, DNS, TLS, Image APISIX, secrets de gateway et rollback ;
+Site Alban possède rendu, `localStorage`, accessibilité et tests navigateur.
+
+**Contrat inter-dépôts versionné, phase 1 :**
+`/api/site/catalog/v2` conserve HTTP 503 et
+`X-Nabla-Diagnostic-Stage` de la liste fermée. Les erreurs du catalogue
+ne sont pas des verdicts TrueNAS. `X-Nabla-Request-ID` côté Site est une
+référence locale et non une trace distribuée ; n'y injecter aucune IP,
+JWT ni chaîne arbitraire venue d'une requête externe.
+
+**Handoff à chaque PR :** décision/ADR, producteur, consommateurs, classe
+PUBLIC/SERVICE/OWNER/INTERNAL, changements rétrocompatibles, tests négatifs,
+SHA exact et preuves locales, dépendances, `NOT_RUN` et rollback.
+

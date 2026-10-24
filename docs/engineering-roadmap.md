@@ -32,6 +32,42 @@ possède Next.js/Vercel, icônes et cache du navigateur.
 - [ ] Prévoir OIDC Keycloak / APISIX sans dépendre de leur disponibilité
   pour le contrôle applicatif immédiat.
 
+### Dispatch d'architecture : livrables FastAPI de l'ADR-0001
+
+**Propriétaire du contrat producteur :** `fastapi-sample`.
+**Décision transverse :** [Compose ADR-0001 (proposed)](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/adr/0001-apisix-api-gateway-poc.md).
+**Runbook :** [diagnostic de provenance](diagnostic-provenance-contract.md).
+APISIX est un POC **Compose**, pas une dépendance FastAPI en production.
+
+- [ ] **P0 Inventaire fail-closed** : comparer `server_all:app.routes`
+  (HTTP, méthodes, mounts, WebSocket, MCP, docs, metrics) à `route_policy_for`.
+  Produire la liste des routes `REVIEW` et décisions explicites par méthode.
+  Ne pas activer `OPS_ROUTE_POLICY_STRICT` tant que ces refus n'ont pas été testés.
+- [ ] **P0 Matrice d'autorisation** : tester `PUBLIC`, `SERVICE`,
+  `OWNER`, `INTERNAL` sous accès LAN autorisé, IP non fiable, Access JWT valide,
+  expiré/mauvaise audience et origine Cloudflare inaccessible. Chaque cas doit
+  fournir statut et absence de données sensibles ; 302 d'edge n'est pas une santé API.
+- [ ] **P0 Contrat erreurs v2** : conserver les codes fermés
+  `catalog_validation`, `upstream_auth`, `upstream_http`,
+  `upstream_timeout`, `upstream_network` ; tester le 503 de l'origine et
+  les clés absentes. Aucun contenu d'exception brut ou URL interne.
+- [ ] **P1 Trace distribuée** : définir source de `traceparent` fiable,
+  propagation vers le site Vercel et les collecteurs, IDs de requête, limites
+  de cardinalité/logging, scrubbing Sentry/OTel et politique de rétention.
+  Tests croisés requis avec [Site #256](https://github.com/AlbanAndrieu/nabla-site-alban/pull/256).
+- [ ] **P1 Contract testing gateway** : en staging seulement, préparer les
+  réponses 200, 401, 403, 429, 502, timeout et `no-store` sous APISIX
+  éventuel ; préserver les mêmes refus en accès direct FastAPI.
+  Déploiement/APISIX/YAML/TLS/DNS/rollback restent **Compose #278**.
+- [ ] **P1 Qualité** : lancer localement pytest/Ruff/quality sur HEAD exact,
+  enregistrer `PASS` ou `NOT_RUN` par commande et ne pas confondre
+  merge, déploiement Cloud et disponibilité de TrueNAS.
+
+**Done FastAPI :** contrat versionné, routes inconnues explicitement
+interdites selon politique approuvée, traçabilité vérifiée, aucun élargissement
+involontaire des permissions, preuve négative et rollback du plan de migration.
+
+
 ## P0 — Authentification et collecte des métriques
 
 - [x] Prometheus Inlet/Outlet Akvorado, Gatus et autres exporters
