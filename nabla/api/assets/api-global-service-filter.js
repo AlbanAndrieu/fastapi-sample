@@ -124,7 +124,14 @@ function mapTrueNasStatus() {
   panel.dataset.presentationGroup = "core-critical";
   panel.dataset.environments = "production";
   panel.dataset.environmentSource = "runtime";
-  panel.dataset.probeKinds = "http tls api websocket";
+  // Filter by visible measured protocol stages, not the declared capabilities.
+  const allowed = new Set(["dns", "tcp", "tls", "http", "api", "websocket"]);
+  const protocols = new Set(
+    [...panel.querySelectorAll(".truenas-stage:not(.truenas-stage--blocked) .truenas-stage-protocol")]
+      .map((node) => String(node.textContent || "").trim().toLowerCase())
+      .filter((name) => allowed.has(name)),
+  );
+  panel.dataset.probeKinds = [...protocols].join(" ");
   const className = state.className;
   if (className.includes("--ok")) panel.dataset.semanticStatus = "operational";
   else if (className.includes("--warn"))
