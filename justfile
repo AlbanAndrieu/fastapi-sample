@@ -63,13 +63,21 @@ truenas-acceptance:
 truenas-evidence:
     bash scripts/truenas-runtime-evidence.sh
 
+# Compare split DNS on the selected host. No probes or mutations.
+# Run the workstation recipe on the workstation and the TrueNAS recipe on TrueNAS.
+dns-evidence-workstation:
+    bash scripts/truenas-runtime-evidence.sh --vantage workstation --dns-only
+
+dns-evidence-truenas:
+    bash scripts/truenas-runtime-evidence.sh --vantage truenas --dns-only
+
 # Strict evidence acceptance; reports missing proofs as a nonzero exit.
 truenas-evidence-strict:
     bash scripts/truenas-runtime-evidence.sh --strict
 
 # Targeted runtime tests in the pinned uv environment (not the host Python).
 test-runtime-evidence:
-    bash scripts/run-pytest-compact.sh tests/unit/test_truenas_runtime_evidence_wrapper.py tests/unit/test_local_runtime_dependency_report.py tests/unit/test_synthetic_probe_comparison.py tests/unit/test_platform_metrics.py
+    bash scripts/run-pytest-compact.sh tests/unit/test_truenas_runtime_evidence_wrapper.py tests/unit/test_diagnose_homelab_dns.py tests/unit/test_local_runtime_dependency_report.py tests/unit/test_synthetic_probe_comparison.py tests/unit/test_platform_metrics.py
 
 # Run only pfSense observation, probe and tracing contracts.
 test-pfsense:

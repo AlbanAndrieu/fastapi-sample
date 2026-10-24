@@ -5,16 +5,18 @@ set -euo pipefail
 runtime_url="${FASTAPI_RUNTIME_URL:-http://172.17.0.24:8091}"
 mode=basic
 vantage=auto
+dns_only=0
 while (($#)); do
   case "$1" in
     --strict) mode=strict ;;
     --detail) mode=report ;;
+    --dns-only) dns_only=1 ;;
     --vantage)
       [[ $# -ge 2 ]] || { echo '❌ --vantage requires a value' >&2; exit 2; }
       vantage="$2"
       shift ;;
     --help|-h)
-      printf 'Usage: %s [--strict|--detail] [--vantage auto|truenas|workstation]\n' "$0"
+      printf 'Usage: %s [--strict|--detail|--dns-only] [--vantage auto|truenas|workstation]\n' "$0"
       exit 0 ;;
     *) printf '❌ Unknown option: %s\n' "$1" >&2; exit 2 ;;
   esac
@@ -38,6 +40,11 @@ script="$root/scripts/diagnose-local-runtime-dependencies.py"
 if [[ ! -f "$script" ]]; then
   echo '❌ FastAPI diagnostic script not found in this checkout.' >&2
   exit 2
+fi
+
+# DNS-only is bounded and read-only; it does not call a FastAPI API or Docker.
+if ((dns_only)); then
+  exec python3 "$root/scripts/diagnose-homelab-dns.py" --vantage "$vantage" --strict
 fi
 
 printf '📍 Observer=%s; target=TrueNAS (172.17.0.24)\n' "$vantage"
@@ -99,13 +106,20 @@ if command -v curl >/dev/null 2>&1; then
   for item in 'gatus|http://172.17.0.24:8085/' 'prometheus|http://172.17.0.24:9090/-/ready' 'pyroscope|http://172.17.0.24:4040/ready'; do
     service="${item%%|*}"
     url="${item#*|}"
-    status="$(curl -sS -o /dev/null --connect-timeout 2 --max-time 5 -w '%{http_code}' "$url" 2>/dev/null)" || status=000
+    curl_exit=0
+    status="$(curl -sS -o /dev/null --connect-timeout 2 --max-time 5 -w '%{http_code}' "$url" 2>/dev/null)" || curl_exit=$?
     if [[ "$status" == 2* ]]; then
       symbol='✅'
       result='available'
     elif [[ "$status" == 000 ]]; then
       symbol='❌'
       result='unreachable'
+      case "$curl_exit" in
+        7) result='connection failed (curl 7; listener or route)' ;;
+        28) result='timeout (curl 28; origin did not respond)' ;;
+        6) result='DNS lookup failed (curl 6)' ;;
+        *) result="transport error (curl $curl_exit)" ;;
+      esac
     else
       symbol='⚠️'
       result='HTTP responded; readiness not confirmed'

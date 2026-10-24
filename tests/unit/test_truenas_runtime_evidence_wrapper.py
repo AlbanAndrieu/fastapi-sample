@@ -73,5 +73,20 @@ def test_http_readiness_distinguishes_non_2xx_from_transport_failure() -> None:
     source = SCRIPT.read_text(encoding="utf-8")
     assert "HTTP responded; readiness not confirmed" in source
     assert "result='unreachable'" in source
+    assert "curl_exit=0" in source
+    assert "connection failed (curl 7; listener or route)" in source
+    assert "timeout (curl 28; origin did not respond)" in source
     assert "missing cached metric is a reconciliation gap" in source
     assert "Pyroscope readiness: recovered at this vantage" in source
+
+
+
+def test_dns_only_uses_host_vantage_without_runtime_or_docker() -> None:
+    source = SCRIPT.read_text(encoding="utf-8")
+    assert "--dns-only" in source
+    assert 'dns_only=1' in source
+    assert 'diagnose-homelab-dns.py' in source
+    assert '--vantage "$vantage" --strict' in source
+    assert source.index('if ((dns_only)); then') < source.index(
+        'python3 "$script" --url "$runtime_url"'
+    )
