@@ -356,7 +356,11 @@ def build_reconciled_service_health(
             "tls_trusted": (direct_result.get("tls_trusted") if direct_result and not direct_stale else None),
             "direct_state": direct_health,
             "internal_state": internal_health,
-            "internal_probe_execution": _lan_probe_execution(service, internal_result, enabled=internal_probes_enabled),
+            "internal_probe_execution": _lan_probe_execution(
+                service,
+                internal_result,
+                enabled=internal_probes_enabled,
+            ),
             "internal_probe_stale": internal_stale,
             "direct_probe_stale": direct_stale,
             "exposure_intent": "public" if service.external else "internal",
