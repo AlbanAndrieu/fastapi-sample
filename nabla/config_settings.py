@@ -168,6 +168,11 @@ class _Settings(DatabaseSettings):
             validation_alias=AliasChoices("DIAGNOSTICS_ACCESS_KEY"),
         ),
     ]
+    metrics_scrape_key: Annotated[
+        Optional[SecretStr],
+        BeforeValidator(_unset_empty_env),
+        Field(default=None, validation_alias=AliasChoices("METRICS_SCRAPE_KEY")),
+    ]
     ops_route_policy_strict: Annotated[
         bool,
         Field(default=False, validation_alias=AliasChoices("OPS_ROUTE_POLICY_STRICT")),
