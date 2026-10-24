@@ -34,8 +34,8 @@ test("Gatus monitor failure is not confused with Gatus scrape up", () => {
   assert.deepEqual(report.failures, [
     { id: "fastapi-sample", type: "HTTP", status: "down" },
   ]);
-  assert.equal(gatusServiceEvidence(s, "fastapi-sample").status, "down");
-  assert.equal(gatusServiceEvidence(s, "missing").status, "not_observed");
+  assert.equal(gatusServiceEvidence(s, "fastapi-sample", now).status, "down");
+  assert.equal(gatusServiceEvidence(s, "missing", now).status, "not_observed");
 });
 
 test("Gatus missing, truncated or stale snapshot cannot be marked green", () => {
@@ -46,7 +46,7 @@ test("Gatus missing, truncated or stale snapshot cannot be marked green", () => 
   const truncated = snapshot({ gatus: { TCP: { success: 1 } } });
   truncated.platform_metrics.synthetic_probes.truncated = true;
   assert.equal(gatusCoverage(truncated, now).state, "unverified");
-  assert.equal(gatusServiceEvidence(truncated, "gatus").status, "unverified");
+  assert.equal(gatusServiceEvidence(truncated, "gatus", now).status, "unverified");
 });
 
 test("Gatus invalid labels and non-binary observations do not fabricate UP", () => {
