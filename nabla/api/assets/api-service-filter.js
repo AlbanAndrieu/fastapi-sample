@@ -475,7 +475,9 @@ function installFilterEvents() {
 
   clear?.addEventListener("click", () => {
     clearFilters();
-    input?.focus();
+    // The header Reset action also triggers this handler. Do not focus an
+    // input inside a closed disclosure: it is hidden from the tab order.
+    if (input && !input.closest("[hidden]")) input.focus();
   });
   issues?.addEventListener("click", () => {
     filters.status = filters.status === "issues" ? "all" : "issues";
