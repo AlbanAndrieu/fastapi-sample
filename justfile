@@ -195,3 +195,8 @@ prometheus-projection-contracts:
 # Pure JS contracts: no browser, Cloud access, or CI needed.
 service-catalog-ux-contracts:
     node --test tests/js/service-catalog-ux.mjs
+
+# Standalone offline exposure semantics; preserve the full quality gate unchanged.
+service-exposure-policy-contracts:
+    node --test tests/js/service-exposure-policy.mjs
+
