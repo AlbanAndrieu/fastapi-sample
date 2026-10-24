@@ -67,9 +67,9 @@ export function gatusCoverage(snapshot, now = Date.now()) {
   return summary;
 }
 
-export function gatusServiceEvidence(snapshot, id) {
+export function gatusServiceEvidence(snapshot, id, now = Date.now()) {
   const synthetic = snapshot?.platform_metrics?.synthetic_probes;
-  const coverage = gatusCoverage(snapshot);
+  const coverage = gatusCoverage(snapshot, now);
   if (coverage.state !== "observed") return { status: "unverified", probes: [] };
   const service =
     typeof id === "string" && ID_PATTERN.test(id)
