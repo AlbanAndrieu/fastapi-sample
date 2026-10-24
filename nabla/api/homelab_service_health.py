@@ -257,6 +257,24 @@ def _enrich_service_row(
                 row[key] = direct_result[key]
 
 
+def _lan_probe_execution(
+    service: HomelabService,
+    result: dict[str, Any] | None,
+    *,
+    enabled: bool | None,
+) -> str:
+    """Record whether an actual LAN probe ran, separately from app health."""
+    if not service.internal_host or service.internal_port is None:
+        return "not-configured"
+    if enabled is False:
+        return "disabled"
+    if not result or not result.get("probe_observed_at"):
+        return "not-executed"
+    if result.get("probe_stale") is True:
+        return "stale"
+    return "failed" if result.get("state") == "fail" else "observed"
+
+
 def build_reconciled_service_health(
     services: list[HomelabService],
     *,
@@ -269,6 +287,7 @@ def build_reconciled_service_health(
     cloudflare_status_confirmed: bool | None = True,
     cloudflare_warning: str | None = None,
     checked_at: str | None = None,
+    internal_probes_enabled: bool | None = None,
 ) -> list[dict[str, Any]]:
     """Reconcile runtime, direct/LAN and edge evidence for each declared service."""
     direct_by_url = {normalized: result for result in public_results if (normalized := _normalized_url(str(result.get("url") or ""))) is not None}
@@ -337,6 +356,7 @@ def build_reconciled_service_health(
             "tls_trusted": (direct_result.get("tls_trusted") if direct_result and not direct_stale else None),
             "direct_state": direct_health,
             "internal_state": internal_health,
+            "internal_probe_execution": _lan_probe_execution(service, internal_result, enabled=internal_probes_enabled),
             "internal_probe_stale": internal_stale,
             "direct_probe_stale": direct_stale,
             "exposure_intent": "public" if service.external else "internal",
