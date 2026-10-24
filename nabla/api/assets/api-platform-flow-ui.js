@@ -289,7 +289,30 @@ function removeImplementationNote() {
   if (parts.length === 0) node.hidden = true;
 }
 
+function ensureProtocolGuide() {
+  const pipeline = document.getElementById("truenas-pipeline");
+  if (!pipeline) return;
+  let guide = document.getElementById("truenas-protocol-guide");
+  if (!guide) {
+    guide = document.createElement("div");
+    guide.id = "truenas-protocol-guide";
+    guide.className = "truenas-protocol-guide";
+    guide.setAttribute("role", "note");
+    const title = document.createElement("strong");
+    title.textContent = "How the diagnostic flow works";
+    const steps = document.createElement("span");
+    steps.textContent =
+      "DNS resolves the name → TCP connects to the port → TLS verifies HTTPS → HTTP/API checks the response → metrics add context.";
+    const note = document.createElement("small");
+    note.textContent =
+      "Stages show independent evidence. A missing check is unconfirmed, not healthy. WebSocket and Cloudflare checks apply only where configured.";
+    guide.append(title, steps, note);
+    pipeline.insertAdjacentElement("beforebegin", guide);
+  }
+}
+
 function decorateFlow(snapshot) {
+  ensureProtocolGuide();
   decoratePublicDnsStage();
   decoratePfSenseStage(snapshot);
   insertPfSenseDnsStage(snapshot);
