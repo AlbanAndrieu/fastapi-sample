@@ -54,6 +54,19 @@ test("Cloudflare routing is not verified security without control-plane proof", 
   );
 });
 
+test("runtime failure does not override an independently compliant exposure policy", () => {
+  const result = exposurePolicyPresentation({
+    external: false, reachable: false,
+    policy_status: "fail", // Existing /sickz workload-health overlay.
+    security_policy_status: "ok", // Dedicated outside-in ingress verdict.
+    runtime_state: "CRASHED",
+    failure_detail: "The workload is down",
+  });
+  assert.equal(result.state, "ok");
+  assert.equal(result.label, "Private OK");
+  assert.doesNotMatch(result.detail, /CRASHED/);
+});
+
 test("explicit policy failures outrank security declarations", () => {
   const result = exposurePolicyPresentation({
     external: true, tunnel_secure: true, policy_status: "fail",
