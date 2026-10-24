@@ -296,3 +296,34 @@
   color: #9ca3af;
   overflow-wrap: anywhere;
 }
+
+.service-detail-probe-state {
+  margin-left: auto;
+  font-size: 0.65rem;
+  letter-spacing: 0.02em;
+  color: #bfcbd8;
+  font-weight: 750;
+}
+
+.service-detail-probe--fail .service-detail-probe-state {
+  color: #ff9393;
+}
+
+.service-detail-probe--warn .service-detail-probe-state {
+  color: #ffda7d;
+}
+
+.service-detail-probe--ok .service-detail-probe-state {
+  color: #7fe0ae;
+}
+
+.service-detail-relation-link {
+  min-height: 24px;
+  line-height: 1.4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .service-detail-drawer, .service-detail-relation-link {
+    transition: none;
+  }
+}
