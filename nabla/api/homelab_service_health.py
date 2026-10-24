@@ -95,6 +95,36 @@ def _runtime_state(app: ObservedApp | None) -> HealthState | None:
     return "warn"
 
 
+def _primary_container_state(
+    app: ObservedApp | None,
+    service: HomelabService,
+    binding: RuntimeBinding | None,
+) -> str | None:
+    """Match a primary workload by explicit binding or exact application identity.
+
+    Ignore init/migration sidecars that can exit normally. Do not infer a
+    healthy container from the application-level TrueNAS RUNNING state.
+    """
+    if app is None:
+        return None
+    candidates = {
+        _key(value)
+        for value in (
+            binding.container_service if binding else None,
+            service.service_id,
+            app.app_id,
+        )
+        if value
+    }
+    matches = [
+        container for container in app.containers
+        if _key(container.service_name) in candidates
+    ]
+    if len(matches) != 1 or not matches[0].state:
+        return None
+    return matches[0].state.strip().upper() or None
+
+
 def _runtime_binding_missing(
     binding: RuntimeBinding | None,
     runtime: TrueNASRuntimeSnapshot | None,
@@ -253,6 +283,14 @@ def build_reconciled_service_health(
         binding = (runtime_bindings or {}).get(service.service_id)
         app = _runtime_app_for_service(service, runtime, binding)
         runtime_health = None if runtime is not None and runtime.stale else _runtime_state(app)
+        primary_container_state = _primary_container_state(app, service, binding)
+        primary_container_issue = (
+            runtime is not None
+            and runtime.reachable
+            and not runtime.stale
+            and primary_container_state is not None
+            and primary_container_state not in _RUNNING_APP_STATES
+        )
         runtime_missing = _runtime_binding_missing(binding, runtime, app)
         tunnel_evidence = tunnels_by_host.get(_hostname(endpoint_url) or "")
         tunnel_status = str(tunnel_evidence.get("tunnel_status")) if tunnel_evidence and tunnel_evidence.get("tunnel_status") is not None else None
@@ -274,6 +312,10 @@ def build_reconciled_service_health(
             application_error=application_error,
             runtime_missing=runtime_missing,
         )
+        # A TrueNAS app may be RUNNING while its actual main container exited.
+        # Do not mark it OK without fresh evidence of a running primary workload.
+        if primary_container_issue and state == "ok":
+            state = "warn"
         observed_at, age, stale = _freshness(
             checked_at=checked_at,
             direct_result=direct_result if not direct_stale else None,
@@ -301,6 +343,8 @@ def build_reconciled_service_health(
             "unexpected_tunnel_route": bool(not service.external and tunnel_evidence is not None),
             "runtime_state": app.state if app else None,
             "runtime_app": app.app_id if app else None,
+            "runtime_primary_container_state": primary_container_state,
+            "runtime_primary_container_issue": bool(primary_container_issue),
             "runtime_reachable": runtime.reachable if runtime else None,
             "runtime_missing": runtime_missing,
             "observed_at": observed_at,
