@@ -227,7 +227,8 @@ def render_api_root_page(
                     <span class="truenas-platform-state truenas-platform-state--neutral" id="truenas-platform-state">Loading…</span>
                 </div>
                 <div class="truenas-platform-target" id="truenas-platform-target">Private target · unlock owner diagnostics</div>
-                <div class="truenas-pipeline" id="truenas-pipeline" aria-live="polite"></div>
+                <p class="truenas-flow-explanation">Diagnostic path, from the observer to TrueNAS. Each card shows the protocol, result and elapsed time. A dashed arrow means that a step is unconfirmed. No result is inferred from another step.</p>
+                <div class="truenas-pipeline" id="truenas-pipeline" role="group" aria-label="TrueNAS diagnostic protocol path" aria-live="polite"></div>
                 <div class="truenas-probe-summary" id="truenas-probe-summary">Loading homelab probe fan-out…</div>
                 <details class="truenas-probe-details" id="truenas-probe-details">
                     <summary id="truenas-probe-details-summary">Homelab probe fan-out</summary>
