@@ -229,6 +229,14 @@ function decorateRuntime(row, snapshot, evidence, node) {
       `TrueNAS application runtime state: ${runtimeState}. Runtime state is independent from HTTP, TLS, Cloudflare and dependency health.`,
     );
   }
+  if (evidence.homelab?.runtime_container_identity_drift === true) {
+    addRuntimeBadge(
+      tags,
+      "⚠️ Container name migration",
+      "warn",
+      "TrueNAS Open WebUI app is present but its container still uses legacy open-webui. Running is not proof of endpoint health.",
+    );
+  }
   if (!app) return;
 
   const containers = containerRows(app);
