@@ -181,3 +181,13 @@ python-cloud-probe:
 python-cloud-contracts:
     UV_OFFLINE=true bash scripts/run-pytest-compact.sh tests/unit/test_fastapi_cloud_python_upgrade.py
 
+# No browser access or cloud credentials are required for the LAN-only test.
+prometheus-lan-evidence:
+    python3 scripts/verify-prometheus-cloud-projection.py --check --scope lan
+
+# Comparison requires explicit access to the FastAPI Cloud snapshot.
+prometheus-cloud-evidence:
+    python3 scripts/verify-prometheus-cloud-projection.py --check --scope both
+
+prometheus-projection-contracts:
+    bash scripts/run-pytest-compact.sh tests/unit/test_verify_prometheus_cloud_projection.py
