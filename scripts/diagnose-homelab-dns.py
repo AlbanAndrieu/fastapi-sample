@@ -59,6 +59,64 @@ def classify_internal(
     return "matched"
 
 
+
+def link_ipv4_servers(output: str) -> list[str]:
+    """Extract DNS server addresses from resolvectl's link output."""
+    addresses: set[str] = set()
+    for token in output.replace(":", " ").split():
+        try:
+            address = ipaddress.ip_address(token)
+        except ValueError:
+            continue
+        if isinstance(address, ipaddress.IPv4Address):
+            addresses.add(str(address))
+    return sorted(addresses)
+
+
+def resolver_context(vantage: str, interface: str, resolver: str) -> str:
+    """Bounded, read-only summary of per-link DNS; never print settings or secrets."""
+    if not shutil.which("resolvectl"):
+        return "RESOLVER_CONTEXT: resolvectl unavailable"
+
+    def run(*args: str) -> str | None:
+        try:
+            result = subprocess.run(
+                ["resolvectl", *args],
+                capture_output=True,
+                text=True,
+                timeout=2,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+        return result.stdout if result.returncode == 0 else None
+
+    dns_output = run("dns", interface)
+    domain_output = run("domain", interface)
+    status_output = run("status", interface)
+    if dns_output is None:
+        return f"RESOLVER_CONTEXT: interface={interface} DNS evidence unavailable"
+
+    servers = link_ipv4_servers(dns_output)
+    private_domain = "int.albandrieu.com" in (domain_output or "")
+    tls = "unknown"
+    for mode in ("yes", "opportunistic", "no"):
+        if f"DNSOverTLS={mode}" in (status_output or ""):
+            tls = mode
+            break
+    warning = ""
+    if resolver not in servers:
+        warning = " WARNING: pfSense not a DNS server on this link"
+    elif not private_domain:
+        warning = " WARNING: private domain routing not confirmed"
+    return (
+        f"RESOLVER_CONTEXT: observer={vantage} interface={interface} "
+        f"link_dns={','.join(servers) or 'none'} "
+        f"private_domain_route={'yes' if private_domain else 'no'} "
+        f"link_dot={tls}{warning}"
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--vantage", choices=("workstation", "truenas"), required=True)
@@ -70,6 +128,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--system-timeout", type=float, default=10.0)
     parser.add_argument("--slow-system-ms", type=float, default=2000.0)
     parser.add_argument("--strict", action="store_true")
+    parser.add_argument("--resolver-context", action="store_true")
+    parser.add_argument("--interface", default=None)
     args = parser.parse_args(argv)
     try:
         ipaddress.IPv4Address(args.resolver)
@@ -113,22 +173,37 @@ def main(argv: list[str] | None = None) -> int:
             f"({system_reason}, {system_elapsed})"
         )
     direct_internal, system_internal = results["internal"]
-    outcome = classify_internal(direct_internal, system_internal, args.expected_internal_ip)
+    outcome = classify_internal(
+        direct_internal, system_internal, args.expected_internal_ip
+    )
     if outcome == "matched" and system_elapsed_ms["internal"] > args.slow_system_ms:
         outcome = "matched_slow"
     print(f"Internal DNS comparison={outcome}")
     if system_internal is None:
-        print(
-            "DIAGNOSIS: direct pfSense DNS works, but host NSS/getent could not "
-            "resolve the internal name within the system timeout. "
-            "Check /etc/nsswitch.conf hosts, /etc/resolv.conf, "
-            "resolvectl status (if available), and resolver routing on THIS host."
-        )
+        if direct_internal is not None and args.expected_internal_ip in direct_internal:
+            print(
+                "DIAGNOSIS: direct pfSense DNS works, but host NSS/getent "
+                "could not resolve the internal name. "
+                "Check /etc/nsswitch.conf hosts, /etc/resolv.conf, "
+                "and per-link resolver routing on THIS host."
+            )
+        else:
+            print("DIAGNOSIS: direct pfSense or system DNS evidence is missing.")
     elif outcome == "matched_slow":
         print(
             "WARNING: host resolver returned the expected internal IP, "
             "but NSS lookup was slow; inspect resolver routing and retries."
         )
+    if args.resolver_context and outcome != "matched":
+        interface = args.interface or (
+            "eno1" if args.vantage == "workstation" else "br0"
+        )
+        if (
+            not all(c.isalnum() or c in "_.:-" for c in interface)
+            or len(interface) > 32
+        ):
+            parser.error("Invalid interface")
+        print(resolver_context(args.vantage, interface, args.resolver))
     print(
         "Public DNS A values can change behind Cloudflare; "
         "no fixed public IP is required."

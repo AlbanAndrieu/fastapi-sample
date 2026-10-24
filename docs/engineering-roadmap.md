@@ -19,6 +19,21 @@
 
 **Done :** workstation et TrueNAS observées indépendamment ; le cache DNS, le trafic IPv6 et les accès Cloudflare ne sont pas confondus avec la santé de l'origine FastAPI.
 
+### Relevé de convergence — 24 octobre, 21:41 CEST (poste et TrueNAS)
+
+**Preuves apportées par l'opérateur :**
+- Workstation : `resolvectl status` indique `eno1` avec `9.9.9.9` et `149.112.112.112`, domaine `int.albandrieu.com`, `DNSOverTLS=opportunistic`. `getent` pour le nom interne retourne le **code 2** en 44,5 ms ; `dig @172.17.0.1` réussit en 63,3 ms. Le routage privé via Quad9 est incohérent avec la zone Unbound.
+- TrueNAS : `getent` interne répond `172.17.0.24` après **5 052,8 ms**, contre **35,9 ms** via `dig` direct. Distinguer latence NSS et disponibilité de l'enregistrement A ; mesurer les répétitions avant toute modification DNS.
+- TrueNAS (observation opérateur) : `ss` montre une écoute sur `172.17.0.24:4040` mais **aucune** sur `:9090`. `docker ps` a échoué faute de permission au socket ; ce n'est pas une preuve d'absence des conteneurs.
+- Les appels HTTP observés donnent `curl 7` pour Prometheus `:9090` et `curl 28` pour Pyroscope `:4040/ready`. Aucun redémarrage ni changement de firewall n'est autorisé par cette observation.
+- Gate FastAPI sur l'ancien checkout : `just test-runtime-evidence` **81 tests PASS**, `just offline-l1` **PASS**, `just p0` **12 tests PASS**, `just quality` bloqué par `QG_BASE_STALE`. Le contrat ShellCheck/Dagger `nabla-compose` appartient à la gate de **Compose**, pas à FastAPI.
+
+**Améliorations FastAPI :** le diagnostic `--dns-only` capture désormais sur anomalie le DNS du lien, le suffixe privé et le mode DoT avec `resolvectl` et timeout borné ; les tests couvrent `eno1` avec Quad9 et `br0` avec pfSense. Aucun changement DNS automatique.
+
+- [ ] Répéter les mesures sur le nouveau HEAD de la PR après actualisation du checkout ; valider le routage de `int.albandrieu.com` vers pfSense et documenter le retour à une latence stable.
+- [ ] Exécuter `just test-runtime-evidence`, `just offline-l1`, `just p0`, `just quality` sur le HEAD rebasé. La validation complète n'est pas inférée des tests de l'ancien HEAD.
+- [ ] Pour les conteneurs TrueNAS, faire l'inventaire en **lecture seule** avec un opérateur Docker autorisé. Ne pas ajouter l'utilisateur au groupe Docker uniquement pour lire les statuts.
+
 ### Relevé après activation du diagnostic — 20:31 CEST (2 hôtes)
 
 **Relevés utilisateur, sans exécution par l'agent sur les hôtes :**

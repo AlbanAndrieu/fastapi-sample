@@ -86,7 +86,47 @@ def test_dns_only_uses_host_vantage_without_runtime_or_docker() -> None:
     assert "--dns-only" in source
     assert 'dns_only=1' in source
     assert 'diagnose-homelab-dns.py' in source
-    assert '--vantage "$vantage" --strict' in source
+    assert '--vantage "$vantage" --resolver-context --strict' in source
     assert source.index('if ((dns_only)); then') < source.index(
-        'python3 "$script" --url "$runtime_url"'
+        'if [[ ! -f "$script" ]]',
     )
+    assert source.index('if ((dns_only)); then') < source.index(
+        'python3 "$script" --url "$runtime_url"',
+    )
+
+
+def test_dns_only_executes_without_api_helper(tmp_path: Path) -> None:
+    """DNS check remains usable if the health-board helper is unavailable."""
+    repo = tmp_path / "isolated-repo"
+    scripts = repo / "scripts"
+    scripts.mkdir(parents=True)
+    wrapper = scripts / "truenas-runtime-evidence.sh"
+    wrapper.write_text(SCRIPT.read_text(encoding="utf-8"), encoding="utf-8")
+    dns_script = scripts / "diagnose-homelab-dns.py"
+    dns_script.write_text(
+        "import sys\nprint('DNS_ONLY_STUB', *sys.argv[1:])\n",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        ["bash", str(wrapper), "--vantage", "workstation", "--dns-only"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=5,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "DNS_ONLY_STUB --vantage workstation --resolver-context --strict" in result.stdout
+
+    # Normal mode must still fail closed when its API helper is missing.
+    normal = subprocess.run(
+        ["bash", str(wrapper), "--vantage", "workstation", "--detail"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=5,
+    )
+    assert normal.returncode == 2
+    assert "FastAPI diagnostic script not found" in normal.stderr

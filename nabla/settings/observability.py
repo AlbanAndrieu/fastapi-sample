@@ -35,6 +35,17 @@ class HomelabPrometheusSettings(SettingsBase):
 
     homelab_prometheus_url: str | None = None
     homelab_prometheus_timeout_seconds: float = Field(default=1.5, ge=0.2, le=5.0)
+    homelab_prometheus_cf_access_client_id: SecretStr | None = None
+    homelab_prometheus_cf_access_client_secret: SecretStr | None = None
+
+    @field_validator(
+        "homelab_prometheus_cf_access_client_id",
+        "homelab_prometheus_cf_access_client_secret",
+        mode="before",
+    )
+    @classmethod
+    def _strip_access_secret(cls, value: object) -> object:
+        return _optional_secret(value)
 
     @field_validator("homelab_prometheus_url", mode="before")
     @classmethod
@@ -69,6 +80,25 @@ class HomelabPrometheusSettings(SettingsBase):
     @property
     def base_url(self) -> str:
         return self.homelab_prometheus_url or ""
+
+    @property
+    def access_headers(self) -> dict[str, str]:
+        """Send scoped Access credentials only to the pinned HTTPS hostname."""
+        parsed = urlsplit(self.base_url)
+        if (
+            parsed.scheme != "https"
+            or parsed.hostname != "prometheus.albandrieu.com"
+            or parsed.port not in (None, 443)
+        ):
+            return {}
+        client_id = self.homelab_prometheus_cf_access_client_id
+        secret = self.homelab_prometheus_cf_access_client_secret
+        if not client_id or not secret:
+            return {}
+        return {
+            "CF-Access-Client-Id": client_id.get_secret_value(),
+            "CF-Access-Client-Secret": secret.get_secret_value(),
+        }
 
 
 class LogfireSettings(SettingsBase):

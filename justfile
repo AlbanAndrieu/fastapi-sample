@@ -6,6 +6,14 @@ set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
 default:
     @just --list
 
+# Read-only Python 3.13 worktree environment check.
+worktree-python-check:
+    bash scripts/agent-worktree-python.sh --check
+
+# Explicit locked installation, never in system Python or other worktrees.
+worktree-python-sync:
+    bash scripts/agent-worktree-python.sh --sync
+
 # Install exactly the locked Python development environment.
 sync:
     uv sync --frozen

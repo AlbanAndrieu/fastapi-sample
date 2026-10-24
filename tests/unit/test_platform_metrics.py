@@ -535,3 +535,140 @@ async def test_gatus_raw_up_conflicting_series_are_order_independent() -> None:
         assert payload["synthetic_probes"]["gatus_up"] == 0.0
         assert payload["synthetic_probes"]["gatus_source"] == "raw_prometheus_up"
         assert payload["synthetic_probes"]["state"] == "telemetry_unavailable"
+
+
+@pytest.mark.asyncio
+async def test_akvorado_scrape_jobs_use_fixed_bounded_raw_fallback() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        query = request.url.params["query"]
+        assert 'up{job=~"akvorado_inlet|akvorado_outlet"}' in query
+        rows = [
+            {
+                "metric": {"__name__": "up", "job": job},
+                "value": [1, value],
+            }
+            for job, value in (
+                ("akvorado_inlet", "1"),
+                ("akvorado_outlet", "0"),
+                ("not_approved", "1"),
+            )
+        ]
+        return httpx.Response(
+            200,
+            request=request,
+            json={
+                "status": "success",
+                "data": {"resultType": "vector", "result": rows},
+            },
+        )
+
+    settings = HomelabPrometheusSettings(
+        homelab_prometheus_url="http://prometheus.test"
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://prometheus.test",
+    ) as client:
+        result = await fetch_platform_metrics(settings=settings, client=client)
+
+    assert result["exporter_jobs"] == {
+        "akvorado_inlet": 1.0,
+        "akvorado_outlet": 0.0,
+    }
+    assert result["state"] == "degraded"
+
+
+@pytest.mark.asyncio
+async def test_akvorado_recorded_and_raw_conflicts_fail_closed() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        rows = [
+            {
+                "metric": {"__name__": "nabla:telemetry:service_exporter_up",
+                           "job": "akvorado_inlet"},
+                "value": [1, "1"],
+            },
+            {
+                "metric": {"__name__": "up", "job": "akvorado_inlet"},
+                "value": [1, "0"],
+            },
+        ]
+        return httpx.Response(
+            200,
+            request=request,
+            json={"status": "success", "data": {
+                "resultType": "vector", "result": rows,
+            }},
+        )
+
+    settings = HomelabPrometheusSettings(
+        homelab_prometheus_url="http://prometheus.test"
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://prometheus.test",
+    ) as client:
+        result = await fetch_platform_metrics(settings=settings, client=client)
+    assert result["exporter_jobs"]["akvorado_inlet"] == 0.0
+    assert "akvorado_outlet" not in result["exporter_jobs"]
+
+
+def test_prometheus_access_headers_are_pinned_and_require_both_secrets() -> None:
+    both = {
+        "homelab_prometheus_cf_access_client_id": "id-private",
+        "homelab_prometheus_cf_access_client_secret": "secret-private",
+    }
+    for origin in (
+        "http://172.17.0.24:9090",
+        "https://untrusted.example",
+        "http://prometheus.albandrieu.com",
+        "https://prometheus.albandrieu.com:444",
+    ):
+        settings = HomelabPrometheusSettings(
+            homelab_prometheus_url=origin, **both
+        )
+        assert settings.access_headers == {}
+    one = HomelabPrometheusSettings(
+        homelab_prometheus_url="https://prometheus.albandrieu.com",
+        homelab_prometheus_cf_access_client_id="id-private",
+    )
+    assert one.access_headers == {}
+    trusted = HomelabPrometheusSettings(
+        homelab_prometheus_url="https://prometheus.albandrieu.com",
+        **both,
+    )
+    assert trusted.access_headers == {
+        "CF-Access-Client-Id": "id-private",
+        "CF-Access-Client-Secret": "secret-private",
+    }
+    assert "secret-private" not in str(trusted)
+
+
+@pytest.mark.asyncio
+async def test_prometheus_http_client_never_follows_access_redirect(monkeypatch) -> None:
+    # A redirect from the protected origin must not receive the Access token.
+    saved = []
+    original = httpx.AsyncClient
+
+    def tracked_client(**kwargs):
+        saved.append(kwargs)
+        return original(
+            transport=httpx.MockTransport(
+                lambda request: httpx.Response(
+                    302,
+                    headers={"location": "https://untrusted.example/collect"},
+                )
+            ),
+            **kwargs,
+        )
+
+    monkeypatch.setattr("nabla.api.platform_metrics.httpx.AsyncClient", tracked_client)
+    settings = HomelabPrometheusSettings(
+        homelab_prometheus_url="https://prometheus.albandrieu.com",
+        homelab_prometheus_cf_access_client_id="id-private",
+        homelab_prometheus_cf_access_client_secret="secret-private",
+    )
+    response = await fetch_platform_metrics(settings=settings)
+    assert response["state"] == "telemetry_unavailable"
+    assert saved[0]["follow_redirects"] is False
+    assert saved[0]["trust_env"] is False
+    assert saved[0]["headers"]["CF-Access-Client-Secret"] == "secret-private"

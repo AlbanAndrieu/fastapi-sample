@@ -11,6 +11,8 @@ const EXPORTERS = Object.freeze({
   grafana: "grafana",
   prometheus: "prometheus",
   gatus: "gatus",
+  "akvorado-inlet": "akvorado_inlet",
+  "akvorado-outlet": "akvorado_outlet",
 });
 
 const ID_ALIASES = Object.freeze({ postgres: "postgresql" });
@@ -90,6 +92,37 @@ export function serviceTelemetry(snapshot, row) {
       "scrape status only; does not establish application readiness",
     );
   }
+  const inlet = metrics?.exporter_jobs?.akvorado_inlet;
+  const outlet = metrics?.exporter_jobs?.akvorado_outlet;
+  const flowServices = new Set([
+    "prometheus",
+    "akvorado-console",
+    "akvorado-inlet",
+    "akvorado-outlet",
+  ]);
+  const flow =
+    flowServices.has(id)
+      ? {
+          label: "Akvorado",
+          tone:
+            !observedBinary(inlet) || !observedBinary(outlet)
+              ? "unknown"
+              : inlet === 1 && outlet === 1
+                ? "ok"
+                : "fail",
+          status:
+            !observedBinary(inlet) || !observedBinary(outlet)
+              ? "unknown"
+              : inlet === 1 && outlet === 1
+                ? "scrapes_up"
+                : "scrape_down",
+          detail:
+            "Prometheus targets · " +
+            `inlet=${observedBinary(inlet) ? (inlet === 1 ? "UP" : "DOWN") : "not observed"} · ` +
+            `outlet=${observedBinary(outlet) ? (outlet === 1 ? "UP" : "DOWN") : "not observed"}` +
+            " · Scrape UP is not proof of NetFlow received, Kafka delivery or ClickHouse writes.",
+        }
+      : null;
   const functional =
     id === "postgresql"
       ? signal(
@@ -133,6 +166,7 @@ export function serviceTelemetry(snapshot, row) {
     prometheus: prom,
     gatus,
     exporter,
+    flow,
     functional,
     resource,
     serviceId: id,
