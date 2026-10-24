@@ -43,6 +43,9 @@ def test_filter_shortcuts_use_existing_select_and_url_state() -> None:
     assert 'control.dispatchEvent(new Event("change"' in script
     assert '"aria-pressed"' in script
     assert 'probe.dataset.probePlaceholder !== "true"' in script
+    global_filter = asset("api-global-service-filter.js")
+    assert 'panel.dataset.probeKinds = [...protocols].join(" ")' in global_filter
+    assert 'panel.dataset.probeKinds = "http tls api websocket"' not in global_filter
 
 
 def test_flow_distinguishes_failure_from_unconfirmed_evidence() -> None:
