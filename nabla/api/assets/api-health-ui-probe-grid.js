@@ -27,6 +27,18 @@ function probeTone(probe) {
     : "unknown";
 }
 
+function probeStateLabel(probe) {
+  if (!probe || probe.dataset.probePlaceholder === "true") return "Not sampled";
+  if (probe.dataset.probeDisabled === "true") return "Disabled";
+  return {
+    ok: "Pass",
+    warn: "Warning",
+    fail: "Failed",
+    unknown: "Unknown",
+    neutral: "Unconfirmed",
+  }[probeTone(probe)];
+}
+
 function sourceProbes(row) {
   const byKind = new Map();
   for (const probe of row.querySelectorAll(
@@ -111,11 +123,7 @@ function makeCardCell(kind, icon, label, source, columnIndex) {
 
   const state = document.createElement("span");
   state.className = "service-probe-table-state";
-  state.textContent = !source || source.dataset.probePlaceholder === "true"
-    ? "Not sampled"
-    : source.dataset.probeDisabled === "true"
-      ? "Disabled"
-      : ({ ok: "Pass", warn: "Warn", fail: "Fail", unknown: "Unknown", neutral: "Unconfirmed" })[tone];
+  state.textContent = probeStateLabel(source);
   cell.append(iconNode, labelNode, state);
   return cell;
 }
@@ -167,8 +175,8 @@ function renderProbePath(primary, sources, signature) {
       const chip = document.createElement("span");
       const tone = probeTone(probe);
       chip.className = "service-probe-path-step service-probe-path-step--" + tone;
-      chip.textContent = column?.[2] || kind;
-      chip.title = probeDetail(probe, chip.textContent);
+      chip.textContent = `${column?.[2] || kind} · ${probeStateLabel(probe)}`;
+      chip.title = probeDetail(probe, column?.[2] || kind);
       chip.setAttribute("aria-label", chip.textContent + ": " + chip.title);
       section.appendChild(chip);
       count += 1;
