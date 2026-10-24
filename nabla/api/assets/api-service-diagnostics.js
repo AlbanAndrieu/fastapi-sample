@@ -555,7 +555,12 @@ function decorateRow(row, snapshot) {
 
   const effectiveExposure = garageExposureForFilter(snapshot, row, exposure);
   const control = cloudflareControlPlane(snapshot);
-  const verdict = exposurePolicyPresentation(effectiveExposure, {
+  // Never certify private ingress from a stale board snapshot.
+  const policyEvidence =
+    snapshot?.state === "stale" && effectiveExposure
+      ? { ...effectiveExposure, stale: true }
+      : effectiveExposure;
+  const verdict = exposurePolicyPresentation(policyEvidence, {
     cloudflareConfirmed: control.confirmed,
   });
   setExposureMetadata(row, effectiveExposure, verdict);
