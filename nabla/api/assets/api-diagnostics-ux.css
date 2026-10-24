@@ -1,0 +1,91 @@
+/* Compact, accessible diagnostics cards and protocol flow. */
+#health-checks .health-row,
+#health-services-groups .health-row {
+  border: 1px solid rgba(148, 163, 184, .25);
+  border-radius: 14px;
+  padding: .85rem 1rem;
+  margin-block: .45rem;
+  min-width: 0;
+}
+#health-checks .health-row:focus-within,
+#health-services-groups .health-row:focus-within {
+  outline: 2px solid #78baff;
+  outline-offset: 2px;
+}
+.service-probe-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .4rem;
+  padding-top: .65rem;
+  border-top: 1px solid rgba(148,163,184,.18);
+  margin-top: .7rem;
+}
+.service-probe-heading {
+  flex: 0 0 100%;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .5rem;
+  font-size: .78rem;
+  color: #b7c5d9;
+}
+.service-probe-heading strong { color: #f1f5f9; font-weight: 650; }
+.service-probe {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  min-height: 1.85rem;
+  padding: .26rem .55rem;
+  border-radius: 999px;
+  white-space: normal;
+  line-height: 1.2;
+}
+.service-probe:focus-visible,
+.service-filter-health-chip:focus-visible {
+  outline: 2px solid #78baff;
+  outline-offset: 3px;
+}
+.service-filter-health-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .4rem;
+}
+.service-filter-health-chip {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+  white-space: nowrap;
+  min-height: 2.5rem;
+}
+.service-filter-health-chip[aria-pressed="true"] {
+  outline: 2px solid #78baff;
+  outline-offset: 1px;
+}
+.truenas-protocol-guide {
+  display: grid;
+  gap: .35rem;
+  margin: .75rem 0;
+  border: 1px solid rgba(125,174,224,.35);
+  background: rgba(70,112,158,.1);
+  border-radius: 12px;
+  padding: .85rem 1rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.truenas-protocol-guide strong { color: #eaf2ff; }
+.truenas-protocol-guide small { color: #b7c5d9; }
+@media (max-width: 640px) {
+  #health-checks .health-row,
+  #health-services-groups .health-row { padding: .7rem; }
+  .service-filter-health-summary { flex-wrap: nowrap; overflow-x: auto; padding-block: .35rem; scrollbar-width: thin; }
+  .service-filter-health-chip { flex: 0 0 auto; }
+  .service-probe { font-size: .76rem; }
+  .service-probe-heading { flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .service-probe, .service-filter-health-chip { transition: none; }
+}
