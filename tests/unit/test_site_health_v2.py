@@ -113,3 +113,36 @@ def test_only_machine_key_can_fetch_site_health(monkeypatch):
     assert response.status_code == 200
     assert response.json()["boardState"] == "pending"
     assert response.headers["cache-control"] == "no-store, max-age=0"
+
+
+def test_duplicate_backstage_names_do_not_share_a_single_health_observation():
+    """One board ID cannot prove health for two different entity references."""
+    base = _catalog()
+    ambiguous = SiteArchitectureCatalogV2(
+        catalogRevision=base.catalogRevision,
+        entities=[
+            *base.entities,
+            SiteV2Entity(
+                kind="Resource",
+                entityRef="resource:default/garage",
+                sourcePath="apps/garage/catalog-info.yaml",
+                metadata=SiteV2Metadata(name="garage"),
+                spec={},
+            ),
+        ],
+    )
+    board = {
+        "state": "fresh",
+        "homelab": {
+            "services": [
+                {"id": "garage", "state": "ok", "url": "http://172.17.0.24:9090"},
+                {"id": "postgres", "state": "warn"},
+            ],
+        },
+    }
+    projected = project_site_health_v2(ambiguous, board)
+    states = {item.entityRef: item.state for item in projected.services}
+    assert states["component:default/garage"] == "unknown"
+    assert states["resource:default/garage"] == "unknown"
+    assert states["resource:default/postgres"] == "warn"
+    assert "172.17.0.24" not in projected.model_dump_json()
