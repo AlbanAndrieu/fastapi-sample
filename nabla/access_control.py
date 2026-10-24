@@ -41,24 +41,24 @@ _DENY_HEADERS = {
 
 # Explicit temporary read allowlist; unknown and future operational routes stay gated.
 _TEMPORARY_READ_ROUTES = frozenset({
-        "/healthz",
-        "/sickz",
-        "/readyz",
-        "/api/topology",
-        "/api/topology-telemetry",
-        "/api/health-board",
-        "/api/homelab-services",
-        "/api/homelab-topology",
-        "/api/public-topology",
-        "/api/runtime/topology",
-        "/api/site/catalog/v2",
-        "/api/site/health/v2",
-        "/api/homelab/declared-services",
-        "/api/homelab/runtime",
-        "/api/homelab/status",
-        "/api/homelab/health",
-        "/api/homelab/probes",
-    })
+    "/healthz",
+    "/sickz",
+    "/readyz",
+    "/api/topology",
+    "/api/topology-telemetry",
+    "/api/health-board",
+    "/api/homelab-services",
+    "/api/homelab-topology",
+    "/api/public-topology",
+    "/api/runtime/topology",
+    "/api/site/catalog/v2",
+    "/api/site/health/v2",
+    "/api/homelab/declared-services",
+    "/api/homelab/runtime",
+    "/api/homelab/status",
+    "/api/homelab/health",
+    "/api/homelab/probes",
+})
 
 
 def _provided_access_key(request: Request, header_name: str) -> str:
