@@ -416,7 +416,11 @@ async def reconcile_homelab_health_payload(
         cloudflare_status_confirmed=cloudflare_summary.get("status_confirmed"),
         cloudflare_warning=cloudflare_summary.get("warning"),
         checked_at=checked_at,
-        internal_probes_enabled=(payload.get("internal_probes_enabled") if isinstance(payload.get("internal_probes_enabled"), bool) else None),
+        internal_probes_enabled=(
+            payload.get("internal_probes_enabled")
+            if isinstance(payload.get("internal_probes_enabled"), bool)
+            else None
+        ),
     )
     reconciled = _append_runtime_topology_component_evidence(
         reconciled,
