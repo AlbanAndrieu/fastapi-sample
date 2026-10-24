@@ -51,6 +51,7 @@ const PROBE_OPTIONS = [
   ["cloudflare", "Cloudflare Tunnel"],
   ["access", "Cloudflare Access"],
   ["service-token", "Service Token"],
+  ["policy", "Exposure security policy"],
   ["metrics", "Prometheus / metrics"],
 ];
 
@@ -74,6 +75,7 @@ const LEGEND_ITEMS = [
   ["☁️", "Cloudflare Tunnel"],
   ["🛡️", "Access / policy"],
   ["🔑", "Service Token"],
+  ["🛡️", "Exposure / ingress policy"],
   ["📈", "Prometheus / metrics"],
 ];
 
