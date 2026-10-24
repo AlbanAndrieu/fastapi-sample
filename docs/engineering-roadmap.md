@@ -37,7 +37,7 @@ possède Next.js/Vercel, icônes et cache du navigateur.
 **Propriétaire du contrat producteur :** `fastapi-sample`.
 **Décision transverse :** [Compose ADR-0001 (proposed)](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/adr/0001-apisix-api-gateway-poc.md).
 **Runbook :** [diagnostic de provenance](diagnostic-provenance-contract.md).
-APISIX est un POC **Compose**, pas une dépendance FastAPI en production.
+ADR-0001 est **accepted pour un POC APISIX staging** dans Compose #278 ; APISIX n'est ni déployé ni requis par FastAPI en production. L'agent peut avancer sans comité d'approbation pour les changements réversibles.
 
 - [ ] **P0 Inventaire fail-closed** : comparer `server_all:app.routes`
   (HTTP, méthodes, mounts, WebSocket, MCP, docs, metrics) à `route_policy_for`.

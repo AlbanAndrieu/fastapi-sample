@@ -94,7 +94,7 @@ manifeste des routes et les tests de refus aient validé le cutover.
 
 Le modèle de gouvernance est [défini dans Compose](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/architecture-governance.md).
 La décision [ADR-0001 APISIX](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/adr/0001-apisix-api-gateway-poc.md)
-est **proposée**, non acceptée et non déployée. FastAPI conserve l'autorité
+est **acceptée pour un POC staging**, non déployée. Les agents peuvent agir directement sur des changements réversibles ; la protection des routes FastAPI reste une gate de tests. FastAPI conserve l'autorité
 sur sa **politique d'accès**, ses DTO, ses erreurs RFC 9457 et ses sondes.
 Compose possède routage, DNS, TLS, Image APISIX, secrets de gateway et rollback ;
 Site Alban possède rendu, `localStorage`, accessibilité et tests navigateur.
