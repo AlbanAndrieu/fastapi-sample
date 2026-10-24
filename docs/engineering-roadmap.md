@@ -12,7 +12,7 @@ notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blo
 
 - [ ] Tester localement le champ OWNER `services[].internal_probe_execution` : `disabled`, `not-configured`, `not-executed`, `stale`, `failed` et `observed`. Le calcul n'utilise jamais `Docker RUNNING` comme preuve TCP.
 - [ ] Distinguer les dates `runtime_observed_at`, `direct_probe_observed_at`, `internal_probe_observed_at` et `tunnel_observed_at` dans le DTO OWNER versionné ; ne pas en fabriquer lorsque le collecteur ne les fournit pas.
-- [ ] Valider l'instance TrueNAS **sans mutation**. Le script `nabla-compose/scripts/truenas/verify-fastapi-lan-probes.sh` n'est pas sur `master` car ajouté après la fusion de Compose #272. Son intégration revue précède toute invocation comme procédure officielle.
+- [ ] Valider l'instance TrueNAS **sans mutation**. Le script `nabla-compose/scripts/truenas/verify-fastapi-lan-probes.sh` n'est pas encore sur `master` : il a été réintégré et renforcé dans la [PR Compose #273](https://github.com/AlbanAndrieu/nabla-compose/pull/273), toujours Draft. La procédure `--check` ne prouve la collecte que si `eligible>0`, `sampled>0` et `completed>0`. Attendre fusion et synchronisation TrueNAS avant de l'utiliser comme preuve ; aucune activation automatique de sondes.
 - [ ] Exposer les mesures LAN au Site #254 seulement derrière un relais OWNER authentifié et audité. Aucun accès direct de Vercel ou de FastAPI Cloud à `172.17.0.0/24`.
 - [ ] Exécuter pytest, Ruff, quality gate locale et trois relevés runtime distincts ; marquer `NOT_RUN` tout contrôle sans sortie effective.
 
