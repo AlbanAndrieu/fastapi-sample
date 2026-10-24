@@ -98,7 +98,7 @@ function pinColumn(cell, columnIndex) {
   const column = columnIndex + 1;
   cell.dataset.probeColumn = String(column);
   cell.style.gridColumn = String(column);
-  cell.setAttribute("role", "cell");
+  cell.setAttribute("role", "listitem");
 }
 
 function makeCardCell(kind, icon, label, source, columnIndex) {
@@ -108,8 +108,13 @@ function makeCardCell(kind, icon, label, source, columnIndex) {
   cell.dataset.probeKind = kind;
   cell.dataset.probeGridCopy = "true";
   cell.title = probeDetail(source, label);
-  cell.dataset.probeAvailable = String(Boolean(source && source.dataset.probePlaceholder !== "true"));
-  cell.setAttribute("aria-label", cell.title);
+  cell.dataset.probeAvailable = String(
+    Boolean(source && source.dataset.probePlaceholder !== "true"),
+  );
+  cell.setAttribute(
+    "aria-label",
+    `${label}: ${probeStateLabel(source)}. ${cell.title}`,
+  );
   pinColumn(cell, columnIndex);
 
   const iconNode = document.createElement("span");
@@ -203,9 +208,8 @@ function renderCardGrid(row) {
     grid = document.createElement("div");
     grid.className = "service-probe-table";
     grid.dataset.probeGrid = "card";
-    grid.setAttribute("role", "table");
-    grid.setAttribute("aria-label", "Stable probe evidence");
-    grid.setAttribute("aria-colcount", String(PROBE_COLUMNS.length));
+    grid.setAttribute("role", "list");
+    grid.setAttribute("aria-label", "Diagnostics by protocol and evidence state");
     primary.appendChild(grid);
   }
   renderProbePath(primary, sources, signature);
@@ -290,9 +294,8 @@ function renderDrawerGrid() {
   host.replaceChildren(fragment);
   host.dataset.probeGridReady = "true";
   host.dataset.signature = signature;
-  host.setAttribute("role", "table");
-  host.setAttribute("aria-label", "Stable probe evidence details");
-  host.setAttribute("aria-colcount", String(PROBE_COLUMNS.length));
+  host.setAttribute("role", "list");
+  host.setAttribute("aria-label", "Detailed diagnostic checks by protocol");
 }
 
 function render() {
