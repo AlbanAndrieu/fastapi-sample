@@ -16,8 +16,10 @@ export function exposurePolicyPresentation(exposure, { cloudflareConfirmed = fal
 
   const external = exposure.external;
   const mode = exposure.tunnel_secure;
-  const policy = STATES.has(exposure.policy_status)
-    ? exposure.policy_status : "unknown";
+  // Backward-compatible field: old /sickz policy_status also includes
+  // TrueNAS workload failure. Prefer the dedicated ingress-policy verdict.
+  const policySource = exposure.security_policy_status ?? exposure.policy_status;
+  const policy = STATES.has(policySource) ? policySource : "unknown";
   const publicHttpObserved = exposure.reachable === true;
   const unexpectedTunnel = external === false &&
     exposure.cloudflare_tunnel_observed === true;

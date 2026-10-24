@@ -578,7 +578,8 @@ function decorateRow(row, snapshot) {
   const policyDetail = [
     verdict.summary,
     verdict.detail,
-    observedExposure?.policy_detail || "",
+    observedExposure?.security_policy_detail ||
+      observedExposure?.policy_detail || "",
   ].filter(Boolean).join(" · ");
   strip.appendChild(
     probeBadge(
