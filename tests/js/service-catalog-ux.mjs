@@ -6,6 +6,7 @@ import {
   gatusServiceEvidence,
 } from "../../nabla/api/assets/api-service-gatus-coverage.js";
 import { serviceRelations } from "../../nabla/api/assets/api-service-relations.js";
+import { serviceTelemetry } from "../../nabla/api/assets/api-service-telemetry.js";
 
 const now = Date.parse("2026-10-25T01:00:00Z");
 function snapshot(services, overrides = {}) {
@@ -94,4 +95,45 @@ test("only canonical published relations become navigable", () => {
   assert.deepEqual(serviceRelations(topology, "missing"), {
     dependencies: [], dependents: [],
   });
+});
+
+test("legacy healthz row identity joins Gatus without confusing scraper status", () => {
+  const snapshot = {
+    platform_metrics: {
+      generated_at: new Date().toISOString(),
+      state: "healthy",
+      metrics: { prometheus_up: { value: 1 } },
+      synthetic_probes: {
+        state: "observed",
+        gatus_up: 1,
+        truncated: false,
+        services: {
+          "fastapi-sample": { HTTP: { success: 0 } },
+          postgres: { TCP: { success: 1 } },
+          gatus: { HTTP: { success: 1 } },
+        },
+      },
+      exporter_jobs: { postgres_exporter: 1 },
+      summary: { optional_exporters: { postgres_up: 1 } },
+    },
+  };
+  const api = serviceTelemetry(snapshot, {
+    dataset: { serviceKey: "albandrieu_fastapi_sample",
+               topologyId: "fastapi-sample" },
+  });
+  assert.equal(api.serviceId, "fastapi-sample");
+  assert.equal(api.gatus.status, "down");
+
+  const postgres = serviceTelemetry(snapshot, {
+    dataset: { serviceKey: "postgres", topologyId: "postgres" },
+  });
+  assert.equal(postgres.serviceId, "postgresql");
+  assert.equal(postgres.gatus.status, "up");
+  assert.equal(postgres.functional.status, "up");
+
+  const monitor = serviceTelemetry(snapshot, {
+    dataset: { serviceKey: "albandrieu_gatus", topologyId: "gatus" },
+  });
+  assert.equal(monitor.gatusFleet.tone, "fail");
+  assert.equal(monitor.gatusFleet.status, "probes_down");
 });
