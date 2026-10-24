@@ -4,7 +4,8 @@ const TYPES = new Set([
   "dependsOn", "consumesApi", "routesTo", "storesIn",
   "authenticatesVia", "partOf", "exposedBy", "hostedBy",
 ]);
-const ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/;
+// Backstage entityRefs may contain "component:default/service".
+const ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:/-]{0,127}$/;
 const MAX_RELATIONS = 24;
 
 export function serviceRelations(topology, serviceId) {
