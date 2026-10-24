@@ -273,13 +273,15 @@ function showFetchError(message) {
   }
   document.getElementById("sickz-checks").innerHTML = "";
   const restricted = message.includes("Owner diagnostics require sign-in") ||
-    message.includes("Owner diagnostics session unavailable");
+    message.includes("Owner diagnostics session unavailable") ||
+    message.includes("Detailed diagnostics access unavailable") ||
+    message.includes("Detailed diagnostics are unavailable");
   summaryEl.className = restricted
     ? "health-summary health-summary--neutral"
     : "health-summary health-summary--red";
   summaryLed.className = restricted ? "health-led health-led--gray" : "health-led health-led--red";
   summaryText.textContent = restricted
-    ? "Exposure diagnostics restricted — unlock owner access."
+    ? "Exposure evidence is currently unavailable; access or backend configuration may have changed."
     : "Could not load /sickz.";
   errEl.hidden = false;
   errEl.textContent = message;
