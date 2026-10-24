@@ -144,11 +144,15 @@ def _register_site_projection_routes(app: FastAPI) -> None:
         response.headers.update({**_NO_STORE_HEADERS, "X-Robots-Tag": "noindex, nofollow"})
         try:
             return await fetch_site_catalog_v2()
-        except SiteCatalogV2Unavailable:
+        except SiteCatalogV2Unavailable as exc:
             raise HTTPException(
                 status_code=503,
                 detail="Authoritative catalog unavailable",
-                headers={**_NO_STORE_HEADERS, "X-Robots-Tag": "noindex, nofollow"},
+                headers={
+                    **_NO_STORE_HEADERS,
+                    "X-Robots-Tag": "noindex, nofollow",
+                    "X-Nabla-Diagnostic-Stage": exc.stage,
+                },
             ) from None
 
     @app.get(

@@ -14,6 +14,24 @@ possède pfSense/Unbound, TrueNAS, exporter, secrets et déploiements.
 [Site Alban](https://github.com/AlbanAndrieu/nabla-site-alban)
 possède Next.js/Vercel, icônes et cache du navigateur.
 
+## P0 — Provenance des erreurs et accès par route
+
+[Contrat de diagnostic canonique](diagnostic-provenance-contract.md).
+- [x] Classifier les échecs Backstage v2 sans exception ni secret dans la réponse
+  (`upstream_timeout`, `upstream_network`, `upstream_http`,
+  `upstream_auth`, `catalog_validation`).
+- [x] Ajouter le code de phase `X-Nabla-Diagnostic-Stage` aux 503 du
+  catalogue machine et tester les classes de panne.
+- [ ] Contrôler sur la branche complète pytest/Ruff et les refus
+  SERVICE/OWNER avec un JWT expiré, une source IP non autorisée et des
+  en-têtes IP falsifiés.
+- [ ] Propager un identifiant de trace unique depuis l'observateur jusqu'au
+  Site ; ne pas confondre les IDs indépendants générés par Next.js.
+- [ ] Inventorier toutes les routes HTTP/MCP/WebSocket/métriques et retirer
+  progressivement la dérogation de lecture temporaire avec recette négative.
+- [ ] Prévoir OIDC Keycloak / APISIX sans dépendre de leur disponibilité
+  pour le contrôle applicatif immédiat.
+
 ## P0 — Authentification et collecte des métriques
 
 - [x] Prometheus Inlet/Outlet Akvorado, Gatus et autres exporters

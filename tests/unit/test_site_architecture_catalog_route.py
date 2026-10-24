@@ -62,3 +62,34 @@ def test_v2_site_reader_requires_key_and_preserves_owner_cidr(monkeypatch) -> No
     assert failing.status_code == 503
     assert "no-store" in failing.headers["cache-control"]
     assert "site-diagnostics-key" not in failing.text
+    assert failing.headers["x-nabla-diagnostic-stage"] == "unknown"
+
+
+
+def test_catalog_failure_classification_preserves_phase_without_private_details() -> None:
+    import httpx
+
+    request = httpx.Request("GET", "https://example.test/catalog")
+    cases = [
+        (httpx.ConnectTimeout("slow", request=request), "upstream_timeout"),
+        (httpx.ConnectError("refused", request=request), "upstream_network"),
+        (ValueError("bad catalog revision"), "catalog_validation"),
+        (
+            httpx.HTTPStatusError(
+                "denied",
+                request=request,
+                response=httpx.Response(403, request=request),
+            ),
+            "upstream_auth",
+        ),
+        (
+            httpx.HTTPStatusError(
+                "not found",
+                request=request,
+                response=httpx.Response(502, request=request),
+            ),
+            "upstream_http",
+        ),
+    ]
+    for failure, expected in cases:
+        assert v2.site_catalog_failure_stage(failure) == expected
