@@ -7,7 +7,7 @@ canonical entry points.
 ## Canonical documents
 
 LiteLLM staging provisioning and the two-proxy Qwen chain are owned by
-[nabla-compose](https://github.com/AlbanAndrieu/nabla-compose/blob/docs/private-homelab-observability-boundary-20261018/docs/runbooks/fastapi-sample-litellm.md). FastAPI owns client wiring and tests only.
+[nabla-compose](https://github.com/AlbanAndrieu/nabla-compose/blob/master/docs/runbooks/fastapi-sample-litellm.md). FastAPI owns client wiring and tests only.
 
 | Need | Document |
 | --- | --- |
@@ -20,6 +20,10 @@ LiteLLM staging provisioning and the two-proxy Qwen chain are owned by
 | Where are APIs/dashboards? | [Entry points and dashboards](entrypoints-and-dashboards.md) |
 
 ## Runbooks
+
+- [Acceptation Prometheus/Akvorado, métriques staging et accès Cloud 401/403](runbooks/fastapi-observability-acceptance.md)
+- [Historique du roadmap et des procédures précédentes](archive/2026-10-24/engineering-roadmap.md)
+
 
 - [pfSense 502 observer contract (platform recovery in nabla-compose)](pfsense-webconfigurator-recovery.md)
 - [pfSense security observability](pfsense-security-observability.md)
