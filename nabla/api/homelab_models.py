@@ -22,6 +22,18 @@ _CANONICAL_APP_ID_ALIASES = {
     "open-webui": "openwebui",
 }
 
+# Temporary presentation fix for explicit, verified endpoint roles.
+# Keep canonical identifiers independent from user-facing labels.
+_ROLE_DISPLAY_NAMES = {
+    "gatus": "Gatus UI",
+    "bichon": "Bichon UI",
+    "homeassistant": "Home Assistant UI",
+    "openwebui": "Open WebUI",
+    "garage-webui": "Garage Web UI",
+    "garage-admin": "Garage Admin API",
+    "garage": "Garage S3 API",
+}
+
 
 def _slugify_service_id(value: str) -> str:
     """Return a stable lowercase service identifier suitable for JSON keys."""
@@ -200,14 +212,16 @@ class HomelabService(BaseModel):
         if explicit_id:
             # Explicit historical service IDs are aliases, not new entities.
             canonical = _CANONICAL_APP_ID_ALIASES.get(explicit_id, explicit_id)
-            if canonical == explicit_id:
-                return data
             payload["id"] = canonical
+            if canonical in _ROLE_DISPLAY_NAMES:
+                payload["name"] = _ROLE_DISPLAY_NAMES[canonical]
             return payload
         name = str(data.get("name") or "service")
         tunnel_url = data.get("tunnelUrl") or data.get("tunnel_url")
         derived = _derive_service_id(name, str(tunnel_url) if tunnel_url else None)
         payload["id"] = _CANONICAL_APP_ID_ALIASES.get(derived, derived)
+        if payload["id"] in _ROLE_DISPLAY_NAMES:
+            payload["name"] = _ROLE_DISPLAY_NAMES[payload["id"]]
         return payload
 
     @model_validator(mode="before")
