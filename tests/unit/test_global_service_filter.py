@@ -158,3 +158,11 @@ def test_mobile_status_filters_are_compact_accessible_toggles() -> None:
     assert 'service-filter-health-chip:active::after' in css
     assert 'service-filter--compact #service-protocol-shortcuts' in css
     assert 'api-diagnostics-ux.css' in entry
+
+
+def test_accessible_disclosure_contract() -> None:
+    script = (ASSETS / "api-global-service-filter.js").read_text(encoding="utf-8")
+    assert 'aria-controls="service-filter-advanced"' in script
+    assert 'button.setAttribute("aria-label", label);' in script
+    assert 'button.setAttribute("aria-describedby"' in script
+    assert "advanced.hidden = compact;" in script
