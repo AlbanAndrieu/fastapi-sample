@@ -39,6 +39,28 @@ _DENY_HEADERS = {
 }
 
 
+# Explicit temporary read allowlist; unknown and future operational routes stay gated.
+_TEMPORARY_READ_ROUTES = frozenset({
+        "/healthz",
+        "/sickz",
+        "/readyz",
+        "/api/topology",
+        "/api/topology-telemetry",
+        "/api/health-board",
+        "/api/homelab-services",
+        "/api/homelab-topology",
+        "/api/public-topology",
+        "/api/runtime/topology",
+        "/api/site/catalog/v2",
+        "/api/site/health/v2",
+        "/api/homelab/declared-services",
+        "/api/homelab/runtime",
+        "/api/homelab/status",
+        "/api/homelab/health",
+        "/api/homelab/probes",
+    })
+
+
 def _provided_access_key(request: Request, header_name: str) -> str:
     """Accept an endpoint-specific header or a legacy bearer token."""
     header_value = request.headers.get(header_name, "").strip()
@@ -89,30 +111,9 @@ async def operations_access_middleware(
     # Temporary rollback of the owner-only *read* gate. No mutation, admin,
     # MCP, metrics or private transport may use this escape hatch.
     # Explicitly disable with HOMELAB_PUBLIC_DIAGNOSTICS_READONLY=false.
-    # Explicit route enumeration: future diagnostics remain protected until
-    # deliberately reviewed. Never bypass the key for a whole API prefix.
-    temporary_read_routes = frozenset({
-        "/healthz",
-        "/sickz",
-        "/readyz",
-        "/api/topology",
-        "/api/topology-telemetry",
-        "/api/health-board",
-        "/api/homelab-services",
-        "/api/homelab-topology",
-        "/api/public-topology",
-        "/api/runtime/topology",
-        "/api/site/catalog/v2",
-        "/api/site/health/v2",
-        "/api/homelab/declared-services",
-        "/api/homelab/runtime",
-        "/api/homelab/status",
-        "/api/homelab/health",
-        "/api/homelab/probes",
-    })
     if (
         request.method.upper() in {"GET", "HEAD"}
-        and request.url.path in temporary_read_routes
+        and request.url.path in _TEMPORARY_READ_ROUTES
         and os.getenv("HOMELAB_PUBLIC_DIAGNOSTICS_READONLY", "true").lower()
         in {"1", "true", "yes", "on"}
     ):
