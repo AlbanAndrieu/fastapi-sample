@@ -1,3 +1,5 @@
+import { gatusCoverage, gatusServiceEvidence } from "./api-service-gatus-coverage.js";
+
 // Read the ONE fixed Prometheus snapshot already present on /api/health-board.
 // Never issue one Prometheus or Gatus request per service card.
 const EXPORTERS = Object.freeze({
@@ -49,16 +51,11 @@ export function serviceTelemetry(snapshot, row) {
   );
   const synthetic = metrics?.synthetic_probes;
   const monitored =
-    synthetic?.state === "observed" && synthetic?.gatus_up === 1;
-  const observation = monitored ? synthetic?.services?.[id] : null;
-  const types = ["HTTPS", "HTTP", "TCP"];
-  const probes = types
-    .filter((kind) => observedBinary(observation?.[kind]?.success))
-    .map((kind) => ({
-      type: kind,
-      success: observation[kind].success,
-      availability: observation[kind].availability_ratio_5m,
-    }));
+    synthetic?.state === "observed" &&
+    synthetic?.gatus_up === 1 &&
+    synthetic?.truncated !== true;
+  const perService = gatusServiceEvidence(snapshot, id);
+  const probes = perService.probes;
   const gatus = {
     label: "Gatus",
     tone:
@@ -80,6 +77,23 @@ export function serviceTelemetry(snapshot, row) {
         ? `Gatus UP but no labeled per-service metrics for ${id}; inspect nabla_service_id and recording rules`
         : `Gatus via Prometheus: ${probes.map((p) => `${p.type}=${p.success === 1 ? "up" : "down"}${typeof p.availability === "number" ? ` (5m ${(p.availability * 100).toFixed(0)}%)` : ""}`).join(", ")}`,
   };
+  // Gatus itself is the scheduler, not the proof that every monitored
+  // endpoint is green. Present observed failures and unknown coverage.
+  const fleet = id === "gatus" ? gatusCoverage(snapshot) : null;
+  const gatusFleet = fleet
+    ? {
+        label: "Monitors",
+        tone: fleet.state !== "observed"
+          ? "unknown"
+          : fleet.down > 0 ? "fail" : "ok",
+        status: fleet.state !== "observed"
+          ? "unverified"
+          : fleet.down > 0 ? "probes_down" : "observed_up",
+        detail: fleet.state !== "observed"
+          ? `Gatus monitor evidence unverified: ${fleet.reason}`
+          : `Gatus monitors: ${fleet.up} UP · ${fleet.down} DOWN across ${fleet.observedServices} observed services. Catalogue-wide coverage and freshness not proven.`,
+      }
+    : null;
   const job = EXPORTERS[id];
   let exporter = null;
   if (job) {
@@ -165,6 +179,7 @@ export function serviceTelemetry(snapshot, row) {
   return {
     prometheus: prom,
     gatus,
+    gatusFleet,
     exporter,
     flow,
     functional,
