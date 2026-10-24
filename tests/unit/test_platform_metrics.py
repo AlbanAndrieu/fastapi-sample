@@ -535,3 +535,78 @@ async def test_gatus_raw_up_conflicting_series_are_order_independent() -> None:
         assert payload["synthetic_probes"]["gatus_up"] == 0.0
         assert payload["synthetic_probes"]["gatus_source"] == "raw_prometheus_up"
         assert payload["synthetic_probes"]["state"] == "telemetry_unavailable"
+
+
+@pytest.mark.asyncio
+async def test_akvorado_scrape_jobs_use_fixed_bounded_raw_fallback() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        query = request.url.params["query"]
+        assert 'up{job=~"akvorado_inlet|akvorado_outlet"}' in query
+        rows = [
+            {
+                "metric": {"__name__": "up", "job": job},
+                "value": [1, value],
+            }
+            for job, value in (
+                ("akvorado_inlet", "1"),
+                ("akvorado_outlet", "0"),
+                ("not_approved", "1"),
+            )
+        ]
+        return httpx.Response(
+            200,
+            request=request,
+            json={
+                "status": "success",
+                "data": {"resultType": "vector", "result": rows},
+            },
+        )
+
+    settings = HomelabPrometheusSettings(
+        homelab_prometheus_url="http://prometheus.test"
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://prometheus.test",
+    ) as client:
+        result = await fetch_platform_metrics(settings=settings, client=client)
+
+    assert result["exporter_jobs"] == {
+        "akvorado_inlet": 1.0,
+        "akvorado_outlet": 0.0,
+    }
+    assert result["state"] == "degraded"
+
+
+@pytest.mark.asyncio
+async def test_akvorado_recorded_and_raw_conflicts_fail_closed() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        rows = [
+            {
+                "metric": {"__name__": "nabla:telemetry:service_exporter_up",
+                           "job": "akvorado_inlet"},
+                "value": [1, "1"],
+            },
+            {
+                "metric": {"__name__": "up", "job": "akvorado_inlet"},
+                "value": [1, "0"],
+            },
+        ]
+        return httpx.Response(
+            200,
+            request=request,
+            json={"status": "success", "data": {
+                "resultType": "vector", "result": rows,
+            }},
+        )
+
+    settings = HomelabPrometheusSettings(
+        homelab_prometheus_url="http://prometheus.test"
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://prometheus.test",
+    ) as client:
+        result = await fetch_platform_metrics(settings=settings, client=client)
+    assert result["exporter_jobs"]["akvorado_inlet"] == 0.0
+    assert "akvorado_outlet" not in result["exporter_jobs"]

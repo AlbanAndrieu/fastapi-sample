@@ -75,3 +75,36 @@ def test_pfsense_security_posture_distinguishes_path_from_observation() -> None:
     assert "pfSense WAN ingress security posture" in source
     assert "security_filters" in source
     assert "read-only pfSense control path" in source
+
+
+def test_akvorado_targets_are_visible_without_claiming_flow_delivery() -> None:
+    telemetry = (ASSETS / "api-service-telemetry.js").read_text(
+        encoding="utf-8",
+    )
+    planes = (ASSETS / "api-service-probe-planes.js").read_text(
+        encoding="utf-8",
+    )
+    assert '"akvorado-inlet": "akvorado_inlet"' in telemetry
+    assert '"akvorado-outlet": "akvorado_outlet"' in telemetry
+    assert '"akvorado-console"' in telemetry
+    assert "Scrape UP is not proof of NetFlow" in telemetry
+    assert '["flow", "🌊", evidence.flow]' in planes
+
+
+def test_akvorado_services_are_internal_only_catalog_entries() -> None:
+    import json
+
+    catalog = json.loads(
+        (Path("nabla/api/data/homelab-services.json")).read_text(
+            encoding="utf-8"
+        )
+    )
+    services = {s.get("id"): s for s in catalog["services"]}
+    for name, port in (
+        ("akvorado-console", 31056),
+        ("akvorado-inlet", 31057),
+        ("akvorado-outlet", 31058),
+    ):
+        assert services[name]["external"] is False
+        assert services[name]["internalHost"] == "172.17.0.24"
+        assert services[name]["internalPort"] == port

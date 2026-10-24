@@ -60,6 +60,8 @@ _EXPORTER_JOBS = frozenset(
         "haproxy",
         "n8n",
         "docling",
+        "akvorado_inlet",
+        "akvorado_outlet",
     },
 )
 _EXPORTER_RECORD = "nabla:telemetry:service_exporter_up"
@@ -73,7 +75,14 @@ _SYNTHETIC_METRICS = {
 }
 _SYNTHETIC_METRIC_TO_FIELD = {metric: field for field, metric in _SYNTHETIC_METRICS.items()}
 _FIXED_QUERY = " or ".join(
-    (*_METRICS.values(), *_OPTIONAL_METRICS.values(), _EXPORTER_RECORD, *_SYNTHETIC_METRICS.values(), 'up{job="gatus"}'),
+    (
+        *_METRICS.values(),
+        *_OPTIONAL_METRICS.values(),
+        _EXPORTER_RECORD,
+        *_SYNTHETIC_METRICS.values(),
+        'up{job="gatus"}',
+        'up{job=~"akvorado_inlet|akvorado_outlet"}',
+    ),
 )
 _UP_SIGNALS = (
     "truenas_node_up",
@@ -166,6 +175,13 @@ async def _query_fixed_metrics(
             values[key] = value
         elif metric == "up" and labels.get("job") == "gatus":
             raw_gatus_up = _merge_binary(raw_gatus_up, value)
+        elif metric == "up" and labels.get("job") in {
+            "akvorado_inlet",
+            "akvorado_outlet",
+        }:
+            # Fixed-name raw fallback while the Compose recording rule rolls out.
+            # A DOWN target must override a conflicting recorded UP sample.
+            _record_exporter_job(exporter_jobs, labels, value)
         else:
             _record_synthetic_sample(synthetic, labels, metric, value)
     if synthetic["gatus_up"] is None and raw_gatus_up is not None:

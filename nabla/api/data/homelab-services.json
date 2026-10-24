@@ -16,6 +16,45 @@
       "external": true
     },
     {
+      "id": "akvorado-console",
+      "name": "Akvorado",
+      "description": "Internal Akvorado flow console; targets and metrics do not prove ingestion.",
+      "icons": [
+        "fas fa-network-wired"
+      ],
+      "internalHost": "172.17.0.24",
+      "internalPort": 31056,
+      "internalSecure": false,
+      "external": false,
+      "healthPath": "/"
+    },
+    {
+      "id": "akvorado-inlet",
+      "name": "Akvorado Inlet",
+      "description": "NetFlow intake and Prometheus scrape endpoint (not an internet service).",
+      "icons": [
+        "fas fa-network-wired"
+      ],
+      "internalHost": "172.17.0.24",
+      "internalPort": 31057,
+      "internalSecure": false,
+      "external": false,
+      "healthPath": "/api/v0/healthcheck"
+    },
+    {
+      "id": "akvorado-outlet",
+      "name": "Akvorado Outlet",
+      "description": "Kafka consumer and ClickHouse flow writer; scrape does not prove writes.",
+      "icons": [
+        "fas fa-network-wired"
+      ],
+      "internalHost": "172.17.0.24",
+      "internalPort": 31058,
+      "internalSecure": false,
+      "external": false,
+      "healthPath": "/api/v0/healthcheck"
+    },
+    {
       "name": "AdGuard Home",
       "icons": [
         "fas fa-shield-virus"

@@ -378,6 +378,7 @@ function decorateTelemetry(strip, snapshot, row) {
     ["prometheus", "📈", evidence.prometheus],
     ["gatus", "🩺", evidence.gatus],
     ["exporter", "📊", evidence.exporter],
+    ["flow", "🌊", evidence.flow],
     ["functional", "🗄️", evidence.functional],
     ["resource", "🧠", evidence.resource],
   ]) {
