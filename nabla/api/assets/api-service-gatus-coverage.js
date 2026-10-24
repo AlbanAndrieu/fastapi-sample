@@ -8,9 +8,14 @@ function binary(value) {
   return typeof value === "number" && (value === 0 || value === 1);
 }
 
-export function gatusCoverage(snapshot) {
+export function gatusCoverage(snapshot, now = Date.now()) {
   const synthetic = snapshot?.platform_metrics?.synthetic_probes;
+  const timestamp = Date.parse(String(snapshot?.platform_metrics?.generated_at || ""));
+  const snapshotAge = Number.isFinite(timestamp) ? (now - timestamp) / 1000 : NaN;
+  const fresh = Number.isFinite(snapshotAge) &&
+    snapshotAge >= -60 && snapshotAge <= 180;
   const ready =
+    fresh &&
     synthetic?.state === "observed" &&
     synthetic?.gatus_up === 1 &&
     synthetic?.truncated !== true;
@@ -23,8 +28,10 @@ export function gatusCoverage(snapshot) {
     state: ready ? "observed" : "unverified",
     reason: !synthetic
       ? "metrics_snapshot_missing"
-      : synthetic?.truncated === true
-        ? "truncated"
+      : !fresh
+        ? "snapshot_stale_or_missing_timestamp"
+        : synthetic?.truncated === true
+          ? "truncated"
         : synthetic?.gatus_up !== 1
           ? "gatus_scrape_unverified"
           : synthetic?.state !== "observed"
