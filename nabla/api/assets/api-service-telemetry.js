@@ -48,9 +48,9 @@ function serviceIds(row) {
 
 function serviceId(row) {
   const ids = serviceIds(row);
-  return ids.find((id) => Object.hasOwn(EXPORTERS, id)) ||
-    ids.find((id) => ID_ALIASES[id]) ||
+  const matched = ids.find((id) => Object.hasOwn(EXPORTERS, id)) ||
     ids[0] || "";
+  return ID_ALIASES[matched] || matched;
 }
 
 export function serviceTelemetry(snapshot, row) {
