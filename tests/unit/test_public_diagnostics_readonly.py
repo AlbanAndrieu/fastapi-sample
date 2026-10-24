@@ -31,6 +31,11 @@ def test_temporary_readonly_switch(monkeypatch: pytest.MonkeyPatch, value: str, 
     assert public_diagnostics_readonly_enabled() is enabled
 
 
+def test_temporary_readonly_default_is_explicit(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("HOMELAB_PUBLIC_DIAGNOSTICS_READONLY", raising=False)
+    assert public_diagnostics_readonly_enabled() is True
+
+
 @pytest.mark.parametrize(
     ("readonly", "authenticated", "expected_force"),
     [
