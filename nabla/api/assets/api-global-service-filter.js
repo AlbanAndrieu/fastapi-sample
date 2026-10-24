@@ -73,6 +73,8 @@ function renderStatusChips(host) {
       host.appendChild(button);
     }
     button.setAttribute("aria-pressed", String(selected === status));
+    button.setAttribute("aria-label", `${label}: ${counts[status]} services`);
+    button.title = `Show ${label.toLowerCase()} services`;
     button.innerHTML = `<strong>${counts[status]}</strong><span>${label}</span>`;
   }
 }
@@ -83,7 +85,7 @@ function ensureHeader(host) {
   header.className = "service-filter-global-heading";
   header.innerHTML =
     '<div><h2 id="service-filter-global-heading">Service health and filters</h2>' +
-    "<p>Cards are the canonical operational view; critical core, security, exposure and support evidence share one operator filter.</p></div>" +
+    "<p>Choose a status, then refine the services. Select a service to view its probes.</p></div>" +
     '<div class="service-filter-heading-actions"><span class="service-filter-scope">Global view</span>' +
     '<button type="button" class="service-filter-density-toggle" id="service-filter-density-toggle" aria-expanded="true">Collapse</button></div>';
   host.prepend(header);
@@ -124,7 +126,18 @@ function mapTrueNasStatus() {
   panel.dataset.presentationGroup = "core-critical";
   panel.dataset.environments = "production";
   panel.dataset.environmentSource = "runtime";
-  panel.dataset.probeKinds = "http tls api websocket";
+  // Filter by visible measured protocol stages, not the declared capabilities.
+  const allowed = new Set(["dns", "tcp", "tls", "http", "api", "websocket"]);
+  const protocols = new Set(
+    [
+      ...panel.querySelectorAll(
+        ".truenas-stage:not(.truenas-stage--blocked) .truenas-stage-protocol",
+      ),
+    ]
+      .map((node) => String(node.textContent || "").trim().toLowerCase())
+      .filter((name) => allowed.has(name)),
+  );
+  panel.dataset.probeKinds = [...protocols].join(" ");
   const className = state.className;
   if (className.includes("--ok")) panel.dataset.semanticStatus = "operational";
   else if (className.includes("--warn"))

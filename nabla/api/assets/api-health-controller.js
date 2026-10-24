@@ -18,8 +18,9 @@ import { installSecurityControlIcons } from "./api-security-control-icons.js";
 import { loadSickz } from "./api-sickz.js";
 import { loadTrueNas } from "./api-truenas.js";
 
-const HEALTH_BOARD_IDLE_POLL_MS = 10000;
-const HEALTH_BOARD_REFRESHING_POLL_MS = 2000;
+// Public readonly mode can be visited anonymously: bound frontend polling cost.
+const HEALTH_BOARD_IDLE_POLL_MS = 30000;
+const HEALTH_BOARD_REFRESHING_POLL_MS = 5000;
 let automaticRefreshInFlight = false;
 let automaticRefreshTimer = null;
 

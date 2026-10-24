@@ -5,20 +5,35 @@ export function resetOwnerSessionStatus() {
   statusPromise = null;
 }
 
-export async function ownerSessionAvailable() {
+async function sessionCapabilities() {
   if (!statusPromise) {
     statusPromise = fetch("/api/ui/session", {
       credentials: "same-origin",
       cache: "no-store",
       headers: { Accept: "application/json" },
     })
-      .then(
-        async (response) =>
-          response.ok && (await response.json()).authenticated === true,
-      )
-      .catch(() => false);
+      .then(async (response) => {
+        if (!response.ok) return { authenticated: false, readOnly: false };
+        const status = await response.json();
+        return {
+          authenticated: status.authenticated === true,
+          readOnly: status.readOnlyDiagnostics === true,
+        };
+      })
+      .catch(() => ({ authenticated: false, readOnly: false }));
   }
   return statusPromise;
+}
+
+// Authentication and the temporary public read capability are distinct.
+// Mutation controls MUST depend on ownerSessionAvailable alone.
+export async function ownerSessionAvailable() {
+  return (await sessionCapabilities()).authenticated;
+}
+
+export async function diagnosticsReadAvailable() {
+  const status = await sessionCapabilities();
+  return status.authenticated || status.readOnly;
 }
 
 export function installOwnerSessionControls(onAuthenticated) {

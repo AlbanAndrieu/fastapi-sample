@@ -32,6 +32,9 @@ def protected_app(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     @app.get("/admin/users/list")
     @app.get("/health")
     @app.get("/healthz")
+    @app.get("/api/topology")
+    @app.get("/api/topology-telemetry")
+    @app.get("/api/homelab/future-secret")
     @app.get("/api/public-topology")
     @app.get("/api/homelab/declared-services")
     @app.get("/api/site/catalog/v2")
@@ -214,3 +217,33 @@ def test_site_catalog_service_key_never_weakens_owner_cidr(protected_app: TestCl
     valid_headers = {"X-Diagnostics-Key": "diagnostics-key"}
     assert protected_app.get("/api/site/catalog/v2", headers=valid_headers).status_code == 200
     assert protected_app.get("/api/homelab-services", headers=valid_headers).status_code == 403
+
+
+def test_temporary_readonly_diagnostics_restores_probes_without_write_access(
+    protected_app: TestClient, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Temporary public GET mode cannot unlock state changes or admin routes."""
+    monkeypatch.setenv("HOMELAB_PUBLIC_DIAGNOSTICS_READONLY", "true")
+    for path in (
+        "/healthz", "/api/topology", "/api/topology-telemetry",
+        "/api/homelab-topology", "/api/runtime/topology",
+        "/api/homelab/health", "/api/homelab/probes",
+        "/api/site/catalog/v2",
+    ):
+        response = protected_app.get(path)
+        assert response.status_code == 200, (path, response.text)
+        assert response.headers["cache-control"] == "private, no-store"
+    assert protected_app.post("/api/health-board/cache/reset").status_code == 503
+    assert protected_app.get("/admin").status_code == 503
+    assert protected_app.get("/metrics").status_code == 503
+    # The temporary list must not expose future routes or mutation paths.
+    for path in (
+        "/api/homelab/future-secret",
+        "/api/health-board/cache/reset",
+        "/api/health-board/refresh-event",
+        "/api/topology-telemetry/private",
+    ):
+        assert protected_app.get(path).status_code == 503, path
+
+    monkeypatch.setenv("HOMELAB_PUBLIC_DIAGNOSTICS_READONLY", "false")
+    assert protected_app.get("/api/homelab/probes").status_code == 503

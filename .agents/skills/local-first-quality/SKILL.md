@@ -56,6 +56,19 @@ human edits prohibit auto-reopen. Test with
 - Preserve actual results: `PASS` / `FAIL` / `NOT_RUN` / `INCOMPLETE`.
   Tool/network access and CI outcomes must never be inferred as successes.
 
+## User-facing communication (ASD-STE100-inspired)
+- Write in the user's language. Apply the principles of ASD-STE100 (Simplified
+  Technical English) to clarity and consistency; do not claim formal compliance.
+- Use short, simple, direct sentences. Prefer the active voice.
+- Give **one action per numbered procedure step**. Put its expected result in
+  a separate sentence. Do not combine commands or actions in one step.
+- Use **one consistent term for each concept**. Avoid unnecessary synonyms,
+  vague pronouns, jargon and decorative wording.
+- Name the exact file, command, endpoint, environment variable or PR when
+  relevant. Separate facts, actions, results and remaining limitations.
+- Report what was actually tested. Use `PASS`, `FAIL`, `NOT_RUN` or
+  `INCOMPLETE` without changing their meanings.
+
 ## Documentation
 Read the current `docs/engineering-roadmap.md` topic only. Long-tail
 unchecked work in `docs/engineering-backlog.md` needs re-triage;

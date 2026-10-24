@@ -29,3 +29,6 @@ os.environ["SENTRY_DSN"] = ""
 os.environ["SENTRY_LOCAL_DSN"] = ""
 os.environ["UNLEASH_INSTANCE_ID"] = ""
 os.environ["STATSIG_API_KEY"] = ""
+
+# Security tests retain the fail-closed baseline unless a test opts in.
+os.environ["HOMELAB_PUBLIC_DIAGNOSTICS_READONLY"] = "false"

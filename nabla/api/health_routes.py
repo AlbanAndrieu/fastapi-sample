@@ -21,6 +21,7 @@ from nabla.api.homelab_declared import DeclaredServiceCatalog
 from nabla.api.homelab_models import HomelabCatalog
 from nabla.api.homelab_runtime import TrueNASRuntimeSnapshot
 from nabla.api.homelab_topology import HomelabTopology
+from nabla.api.owner_ui_session import owner_ui_authenticated
 from nabla.api.public_homelab_dto import PublicHomelabV1, load_public_homelab_v1
 from nabla.api.site_architecture_catalog import (
     SiteArchitectureCatalogV2,
@@ -33,6 +34,8 @@ from nabla.api.ui_public_services import (
     get_public_ui_services,
     public_ui_services_enabled,
 )
+from nabla.config_settings import get_settings
+from nabla.diagnostics_readonly_mode import public_diagnostics_readonly_enabled
 from nabla.utils.logger import logger
 
 
@@ -416,6 +419,10 @@ def _register_health_board_routes(app: FastAPI) -> None:
         from nabla.api.health_board import get_health_board_snapshot
 
         response.headers.update(_NO_STORE_HEADERS)
+        # Anonymous readers can observe the cache, but must not force expensive
+        # outbound probes on every request. Normal stale refresh still runs.
+        if force_refresh and public_diagnostics_readonly_enabled():
+            force_refresh = owner_ui_authenticated(request, get_settings())
         return await get_health_board_snapshot(
             request,
             force_refresh=force_refresh,

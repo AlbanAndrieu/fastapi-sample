@@ -12,6 +12,7 @@ import { installHttpProbeStatuses } from "./api-http-probe-status.js";
 import {
   installOwnerSessionControls,
   ownerSessionAvailable,
+  diagnosticsReadAvailable,
 } from "./api-owner-session.js";
 import { installPfsenseSecurityPosture } from "./api-pfsense-security-posture.js";
 import { installPlatformFlowUi } from "./api-platform-flow-ui.js";
@@ -29,14 +30,15 @@ import { installServiceProbePlanes } from "./api-service-probe-planes.js";
 import { installPfsensePortLabels } from "./api-sickz-port-labels.js";
 import { installRuntimeVersionDriftWarning } from "./api-version-drift.js";
 
-// Temporary public read-only mode is the default operator-approved landing.
-// Never probe OWNER endpoints or show a Sign in dialog for an anonymous reader.
-// Full diagnostics remain available only when a valid session already exists
-// (or when the operator explicitly visits /api?operator=1 to unlock).
+// Temporary read-only diagnostics restore the detailed probe dashboard without
+// granting the browser an owner identity or access to mutation endpoints.
 async function bootstrapHealthUi() {
   const operatorMode =
     new URLSearchParams(window.location.search).get("operator") === "1";
-  const authenticated = await ownerSessionAvailable();
+  const [authenticated, readable] = await Promise.all([
+    ownerSessionAvailable(),
+    diagnosticsReadAvailable(),
+  ]);
   const panel = document.getElementById("owner-session-panel");
   if (panel) panel.hidden = !operatorMode;
   for (const id of [
@@ -46,12 +48,19 @@ async function bootstrapHealthUi() {
     "runtime-topology",
   ]) {
     const element = document.getElementById(id);
-    if (element) element.hidden = !authenticated;
+    if (element) element.hidden = !readable;
   }
 
   installGlobalServiceFilter();
-
+  // An anonymous read-only session may refresh GET probes, never purge caches.
   if (!authenticated) {
+    document.querySelectorAll(".health-cache-reset").forEach((button) => {
+      button.hidden = true;
+      button.disabled = true;
+    });
+  }
+
+  if (!readable) {
     const heading = document.getElementById("health-summary-text");
     if (heading)
       heading.textContent =
@@ -92,7 +101,7 @@ async function bootstrapHealthUi() {
   installHealthUiConsistencyFollowup();
   installHealthUiProbeGrid();
   installHealthUiFinalFollowup();
-  await installPublicServiceOverview({ ownerAuthenticated: true });
+  await installPublicServiceOverview({ ownerAuthenticated: readable });
 }
 
 void bootstrapHealthUi();

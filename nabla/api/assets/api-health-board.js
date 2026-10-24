@@ -1,4 +1,8 @@
-import { ownerSessionAvailable, resetOwnerSessionStatus } from "./api-owner-session.js";
+import {
+  diagnosticsReadAvailable,
+  ownerSessionAvailable,
+  resetOwnerSessionStatus,
+} from "./api-owner-session.js";
 
 let healthBoardRequest = null;
 let forceNextRefresh = false;
@@ -8,12 +12,13 @@ function delay(milliseconds) {
 }
 
 async function fetchUntilReady(attemptsRemaining = 30) {
-  if (!(await ownerSessionAvailable())) {
-    const error = new Error("Owner diagnostics require sign-in.");
+  if (!(await diagnosticsReadAvailable())) {
+    const error = new Error("Detailed diagnostics are unavailable.");
     error.code = "owner_session_required";
     throw error;
   }
-  const force = forceNextRefresh;
+  // A read-only page may reload an existing snapshot, not force probes.
+  const force = forceNextRefresh && (await ownerSessionAvailable());
   forceNextRefresh = false;
   const response = await fetch(
     `/api/health-board${force ? "?refresh=true" : ""}`,
@@ -24,7 +29,7 @@ async function fetchUntilReady(attemptsRemaining = 30) {
   );
   if (response.status === 401 || response.status === 403) {
     resetOwnerSessionStatus();
-    const error = new Error("Owner diagnostics session unavailable.");
+    const error = new Error("Detailed diagnostics access unavailable.");
     error.code = "owner_session_required";
     throw error;
   }

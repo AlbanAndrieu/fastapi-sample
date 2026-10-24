@@ -21,6 +21,7 @@ from nabla.cloudflare_ops_access import (
     verify_owner_token,
 )
 from nabla.config_settings import APIDeploymentSettings, get_settings
+from nabla.diagnostics_readonly_mode import public_diagnostics_readonly_enabled
 from nabla.homelab_trusted_ip import owner_source_permitted
 from nabla.route_policy import Credential, Visibility, route_policy_for
 
@@ -36,6 +37,28 @@ _DENY_HEADERS = {
     "Pragma": "no-cache",
     "X-Robots-Tag": "noindex, nofollow",
 }
+
+
+# Explicit temporary read allowlist; unknown and future operational routes stay gated.
+_TEMPORARY_READ_ROUTES = frozenset({
+    "/healthz",
+    "/sickz",
+    "/readyz",
+    "/api/topology",
+    "/api/topology-telemetry",
+    "/api/health-board",
+    "/api/homelab-services",
+    "/api/homelab-topology",
+    "/api/public-topology",
+    "/api/runtime/topology",
+    "/api/site/catalog/v2",
+    "/api/site/health/v2",
+    "/api/homelab/declared-services",
+    "/api/homelab/runtime",
+    "/api/homelab/status",
+    "/api/homelab/health",
+    "/api/homelab/probes",
+})
 
 
 def _provided_access_key(request: Request, header_name: str) -> str:
@@ -84,6 +107,19 @@ async def operations_access_middleware(
     """Protect recognized private paths even if their key is not configured."""
     policy = route_policy_for(request.url.path, method=request.method)
     settings = get_settings()
+
+    # Temporary rollback of the owner-only *read* gate. No mutation, admin,
+    # MCP, metrics or private transport may use this escape hatch.
+    # Explicitly disable with HOMELAB_PUBLIC_DIAGNOSTICS_READONLY=false.
+    if (
+        request.method.upper() in {"GET", "HEAD"}
+        and request.url.path in _TEMPORARY_READ_ROUTES
+        and public_diagnostics_readonly_enabled()
+    ):
+        response = await call_next(request)
+        response.headers["Cache-Control"] = "private, no-store"
+        response.headers["X-Robots-Tag"] = "noindex, nofollow"
+        return response
 
     if policy.visibility is Visibility.PUBLIC_CANDIDATE:
         return await call_next(request)

@@ -21,6 +21,25 @@ function stageTime(stage) {
   return stage?.elapsed_ms != null ? `${stage.elapsed_ms} ms` : "—";
 }
 
+const STAGE_PROTOCOLS = {
+  dns: "DNS",
+  socket: "TCP",
+  tcp: "TCP",
+  tls: "TLS",
+  http: "HTTP",
+  https: "HTTPS",
+  api: "API",
+  websocket: "WebSocket",
+  pfsense_wan_ingress: "WAN route",
+};
+
+function stageStateLabel(stage) {
+  return (
+    { ok: "Pass", warn: "Warning", fail: "Failed" }[stage?.state] ||
+    "Unconfirmed"
+  );
+}
+
 function renderStage(stage) {
   const cls = stageClass(stage);
   const detail =
@@ -29,10 +48,13 @@ function renderStage(stage) {
     /timed out/i.test(String(stage?.detail || ""))
       ? `${stage.detail} · TCP connected, but no TLS ServerHello completed within the bounded timeout; investigate pfSense/HAProxy/Snort or client-path differences, not appliance liveness alone.`
       : stage?.detail || "";
+  const protocol = STAGE_PROTOCOLS[stage?.id] || "Check";
   return (
     `<div class="truenas-stage truenas-stage--${cls}" title="${escapeText(detail)}">` +
+    `<span class="truenas-stage-protocol">${escapeText(protocol)}</span>` +
     `<span class="truenas-stage-icon" aria-hidden="true">${stageIcon(stage)}</span>` +
     `<span class="truenas-stage-label">${escapeText(stage?.label || stage?.id || "stage")}</span>` +
+    `<span class="truenas-stage-outcome">${stageStateLabel(stage)}</span>` +
     `<span class="truenas-stage-time">${escapeText(stageTime(stage))}</span>` +
     `<span class="truenas-stage-detail">${escapeText(detail)}</span>` +
     `</div>`
@@ -40,8 +62,10 @@ function renderStage(stage) {
 }
 
 function renderConnector(left, right) {
-  const broken = left?.state !== "ok" || right?.state !== "ok";
-  return `<div class="truenas-connector${broken ? " truenas-connector--broken" : ""}" aria-hidden="true"></div>`;
+  const failed = left?.state === "fail" || right?.state === "fail";
+  const uncertain = !failed && (left?.state !== "ok" || right?.state !== "ok");
+  const tone = failed ? "broken" : uncertain ? "unknown" : "ok";
+  return `<div class="truenas-connector truenas-connector--${tone}" aria-hidden="true"></div>`;
 }
 
 function targetText(truenas) {

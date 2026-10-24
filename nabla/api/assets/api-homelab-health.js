@@ -1,4 +1,4 @@
-import { ownerSessionAvailable } from "./api-owner-session.js";
+import { diagnosticsReadAvailable } from "./api-owner-session.js";
 import {
   fetchHealthBoard,
   resetHealthBoardRequest,
@@ -44,10 +44,10 @@ export function fetchHomelabProbeMatrix({
   dispatchProbeEvent(PROBE_LOADING_EVENT, { reason });
   const headers = { Accept: "application/json", "Cache-Control": "no-cache" };
   if (diagnosticsKey) headers["X-Diagnostics-Key"] = diagnosticsKey;
-  return ownerSessionAvailable()
+  return diagnosticsReadAvailable()
     .then((authorized) => {
       if (!authorized) {
-        const error = new Error("Owner diagnostics require sign-in.");
+        const error = new Error("Detailed diagnostics are unavailable.");
         error.code = "diagnostics_auth_required";
         throw error;
       }
@@ -63,7 +63,7 @@ export function fetchHomelabProbeMatrix({
         const unavailableResponse = response.status === 404;
         const error = new Error(
           protectedResponse
-            ? "Raw probe matrix is protected by DIAGNOSTICS_ACCESS_KEY"
+            ? "Raw probe matrix access denied by the server"
             : unavailableResponse
               ? "Raw probe matrix is unavailable on this deployment; aggregate probe health remains available"
               : `homelab probe matrix request failed: HTTP ${response.status}`,

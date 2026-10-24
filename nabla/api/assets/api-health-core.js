@@ -345,7 +345,9 @@ function showFetchError(message) {
   if (groupedEl) groupedEl.innerHTML = "";
   const restricted =
     message.includes("Owner diagnostics require sign-in") ||
-    message.includes("Owner diagnostics session unavailable");
+    message.includes("Owner diagnostics session unavailable") ||
+    message.includes("Detailed diagnostics access unavailable") ||
+    message.includes("Detailed diagnostics are unavailable");
   summaryEl.className = restricted
     ? "health-summary health-summary--neutral"
     : "health-summary health-summary--red";
@@ -353,7 +355,7 @@ function showFetchError(message) {
     ? "health-led health-led--gray"
     : "health-led health-led--red";
   summaryText.textContent = restricted
-    ? "Public service directory available below. Sign in only for detailed probes and operator diagnostics."
+    ? "Detailed probes are unavailable; limited public inventory may still be accessible."
     : "Could not load /healthz.";
   // A normal anonymous visitor is not an application failure. The separate
   // public v2 directory owns the five overview cards until owner sign-in.
