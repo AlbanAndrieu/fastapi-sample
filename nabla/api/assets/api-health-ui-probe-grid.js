@@ -28,7 +28,9 @@ function probeTone(probe) {
 }
 
 function probeStateLabel(probe) {
-  if (!probe || probe.dataset.probePlaceholder === "true") return "Not sampled";
+  if (!probe || probe.dataset.probePlaceholder === "true") {
+    return "Not sampled";
+  }
   if (probe.dataset.probeDisabled === "true") return "Disabled";
   return {
     ok: "Pass",
@@ -144,7 +146,9 @@ function observedProbes(byKind) {
     name,
     kinds
       .map((kind) => [kind, byKind.get(kind)])
-      .filter(([, probe]) => probe && probe.dataset.probePlaceholder !== "true"),
+      .filter(
+        ([, probe]) => probe && probe.dataset.probePlaceholder !== "true",
+      ),
   ]);
 }
 
