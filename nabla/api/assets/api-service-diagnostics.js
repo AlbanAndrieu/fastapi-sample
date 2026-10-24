@@ -1,4 +1,5 @@
 import { fetchHealthBoard } from "./api-health-board.js";
+import { exposurePolicyPresentation } from "./api-service-exposure-policy.js";
 import {
   installServiceFilter,
   refreshServiceFilter,
@@ -484,15 +485,19 @@ function addMetricEvidence(target, check, kinds) {
   kinds.add("metrics");
 }
 
-function setExposureMetadata(row, exposure) {
+function setExposureMetadata(row, exposure, verdict = null) {
   if (!exposure) {
     row.dataset.exposurePolicy = "unobserved";
     row.dataset.exposureScope = "unobserved";
     row.dataset.exposureMode = "unobserved";
+    row.dataset.exposureVerdict = "unknown";
+    row.dataset.exposureSummary = "Exposure policy not verified";
     return;
   }
 
-  row.dataset.exposurePolicy = normalizedPolicy(exposure);
+  row.dataset.exposurePolicy = verdict?.state || normalizedPolicy(exposure);
+  row.dataset.exposureVerdict = verdict?.state || "unknown";
+  row.dataset.exposureSummary = verdict?.summary || "Exposure policy not verified";
   if (exposure.external === true) row.dataset.exposureScope = "external";
   else if (exposure.external === false) row.dataset.exposureScope = "internal";
   else row.dataset.exposureScope = "unknown";
@@ -534,11 +539,27 @@ function decorateRow(row, snapshot) {
   const key = row.dataset.serviceKey || "";
   const health =
     findCheck(healthChecks, row) || findCheck(homelabChecks, row) || null;
-  const exposure = findCheck(sickzChecks, row);
+  const observedExposure = findCheck(sickzChecks, row);
+  const declared = findCheck(snapshot?.homelab?.services, row);
+  // A catalog declaration may explain intent but never certify security.
+  const exposure = observedExposure || (
+    typeof declared?.external === "boolean"
+      ? {
+          external: declared.external,
+          tunnel_secure: declared.tunnel_secure,
+          policy_status: "unknown",
+        }
+      : null
+  );
   const primary = row.querySelector(".health-row-primary");
   if (!primary) return;
 
-  setExposureMetadata(row, garageExposureForFilter(snapshot, row, exposure));
+  const effectiveExposure = garageExposureForFilter(snapshot, row, exposure);
+  const control = cloudflareControlPlane(snapshot);
+  const verdict = exposurePolicyPresentation(effectiveExposure, {
+    cloudflareConfirmed: control.confirmed,
+  });
+  setExposureMetadata(row, effectiveExposure, verdict);
   const kinds = new Set();
   const strip = document.createElement("div");
   strip.className = "service-probe-strip";
@@ -552,26 +573,24 @@ function decorateRow(row, snapshot) {
   addCloudflareEvidence(strip, exposure, kinds, snapshot);
   addMetricEvidence(strip, health, kinds);
 
-  if (exposure?.policy_status) {
-    const policy = normalizedPolicy(exposure);
-    const control = cloudflareControlPlane(snapshot);
-    const cloudflareDependent = exposure.tunnel_secure === true;
-    const disabled = cloudflareDependent && !control.confirmed;
-    const detail = disabled
-      ? `Disabled: exposure-policy verification depends on Cloudflare API inventory that is currently unavailable or unconfirmed. ${control.check?.error || control.check?.warning || ""}`.trim()
-      : exposure.policy_detail || `Exposure security policy: ${policy}`;
-    strip.appendChild(
-      probeBadge(
-        "policy",
-        disabled ? "neutral" : policyTone(policy),
-        "Policy",
-        detail,
-        disabled ? control.check : exposure,
-        { disabled },
-      ),
-    );
-    kinds.add("policy");
-  }
+  // Exposure is a security policy verdict from /sickz, not a
+  // duplicate service-availability check or an invented LAN probe.
+  // Keep the existing policy probe kind for saved filters and contracts.
+  const policyDetail = [
+    verdict.summary,
+    verdict.detail,
+    observedExposure?.policy_detail || "",
+  ].filter(Boolean).join(" · ");
+  strip.appendChild(
+    probeBadge(
+      "policy",
+      verdict.tone,
+      verdict.label,
+      policyDetail,
+      observedExposure,
+    ),
+  );
+  kinds.add("policy");
 
   row.dataset.probeKinds = [...kinds].join(" ");
   if (strip.children.length) {
