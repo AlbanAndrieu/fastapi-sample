@@ -42,6 +42,7 @@ const EXPOSURE_OPTIONS = [
 
 const PROBE_OPTIONS = [
   ["all", "All probe types"],
+  ["dns", "DNS"],
   ["http", "HTTP"],
   ["tls", "HTTPS / TLS"],
   ["tcp", "TCP"],
@@ -53,7 +54,18 @@ const PROBE_OPTIONS = [
   ["metrics", "Prometheus / metrics"],
 ];
 
+const PROTOCOL_SHORTCUTS = [
+  ["all", "All"],
+  ["dns", "DNS"],
+  ["tcp", "TCP"],
+  ["tls", "TLS"],
+  ["http", "HTTP"],
+  ["api", "API"],
+  ["websocket", "WebSocket"],
+];
+
 const LEGEND_ITEMS = [
+  ["🧭", "DNS"],
   ["🌐", "HTTP"],
   ["🔒", "TLS certificate"],
   ["🔌", "TCP"],
@@ -158,6 +170,43 @@ function appendLegend(host) {
   host.appendChild(legend);
 }
 
+function createProtocolShortcuts() {
+  const host = document.createElement("div");
+  host.id = "service-protocol-shortcuts";
+  host.className = "service-protocol-shortcuts";
+  host.setAttribute("role", "group");
+  host.setAttribute("aria-label", "Filter by observed diagnostic protocol");
+  const title = document.createElement("strong");
+  title.textContent = "Protocol";
+  host.appendChild(title);
+  for (const [value, label] of PROTOCOL_SHORTCUTS) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "service-protocol-shortcut";
+    button.dataset.protocolShortcut = value;
+    button.textContent = label;
+    button.addEventListener("click", () => {
+      const control = document.getElementById("service-probe-filter");
+      if (!control) return;
+      control.value = value;
+      control.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    host.appendChild(button);
+  }
+  return host;
+}
+
+function syncProtocolShortcuts() {
+  const host = document.getElementById("service-protocol-shortcuts");
+  if (!host) return;
+  for (const button of host.querySelectorAll("[data-protocol-shortcut]")) {
+    button.setAttribute(
+      "aria-pressed",
+      String(button.dataset.protocolShortcut === filters.probe),
+    );
+  }
+}
+
 function ensureFilterControls() {
   const host = document.querySelector(".service-filter");
   if (!host || document.getElementById("service-filter-facets")) return;
@@ -180,6 +229,7 @@ function ensureFilterControls() {
     ),
     selectControl("service-probe-filter", "Probe", PROBE_OPTIONS),
   );
+  host.appendChild(createProtocolShortcuts());
   host.appendChild(facets);
 
   const result = document.createElement("div");
@@ -267,9 +317,15 @@ function exposureMatches(row) {
 
 function probeMatches(row) {
   if (filters.probe === "all") return true;
-  return String(row.dataset.probeKinds || "")
+  const declared = String(row.dataset.probeKinds || "")
     .split(/\s+/)
     .includes(filters.probe);
+  if (declared) return true;
+  return [...row.querySelectorAll(".service-probe[data-probe-kind]")].some(
+    (probe) =>
+      probe.dataset.probeKind === filters.probe &&
+      probe.dataset.probePlaceholder !== "true",
+  );
 }
 
 function queryMatches(row) {
@@ -373,6 +429,7 @@ export function refreshServiceFilter() {
   updateFilterResult(rows);
   updateCollapseButton();
   syncIssuesButton();
+  syncProtocolShortcuts();
   notifyFilterChanged();
 }
 
