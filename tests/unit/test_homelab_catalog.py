@@ -465,3 +465,4 @@ def test_bootstrap_snapshot_matches_observed_gatus_and_bichon_ports() -> None:
     assert by_id["garage-webui"].internal_port == 3909
     assert by_id["homeassistant"].service_id == "homeassistant"
     assert by_id["openwebui"].service_id == "openwebui"
+    assert by_id["openwebui"].tunnel_url == "https://openwebui.albandrieu.com"
