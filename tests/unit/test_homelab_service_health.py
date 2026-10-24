@@ -485,3 +485,60 @@ def test_lan_probe_execution_is_not_docker_app_health(
     assert row["runtime_state"] == "RUNNING"
     assert row["internal_probe_execution"] == expected
     assert row["internal_state"] is None or expected in {"observed", "failed", "stale"}
+
+
+
+def test_openwebui_legacy_container_is_runtime_identity_drift_not_missing_app() -> None:
+    service = HomelabService(
+        id="openwebui", name="Open WebUI",
+        internalHost="172.17.0.24", internalPort=31028,
+        external=False,
+    )
+    old = ObservedApp(
+        app_id="openwebui", name="Open WebUI", state="RUNNING",
+        containers=[ObservedContainer(service_name="open-webui", state="running")],
+    )
+    binding = RuntimeBinding(
+        provider="truenas-app", appId="openwebui", containerService="openwebui",
+    )
+    row = build_reconciled_service_health(
+        [service], public_results=[], internal_results=[],
+        runtime=_runtime(old), tunnels=[], runtime_bindings={"openwebui": binding},
+    )[0]
+    assert row["runtime_missing"] is False
+    assert row["runtime_state"] == "RUNNING"
+    assert row["runtime_primary_container_state"] is None
+    assert row["runtime_container_identity_drift"] is True
+    assert row["state"] == "warn"
+
+    new = ObservedApp(
+        app_id="openwebui", name="Open WebUI", state="RUNNING",
+        containers=[ObservedContainer(service_name="openwebui", state="running")],
+    )
+    migrated = build_reconciled_service_health(
+        [service], public_results=[], internal_results=[],
+        runtime=_runtime(new), tunnels=[], runtime_bindings={"openwebui": binding},
+    )[0]
+    assert migrated["runtime_missing"] is False
+    assert migrated["runtime_container_identity_drift"] is False
+    assert migrated["runtime_primary_container_state"] == "RUNNING"
+    assert migrated["state"] == "ok"
+
+
+def test_openwebui_ambiguous_appid_never_becomes_healthy() -> None:
+    service = HomelabService(id="openwebui", name="Open WebUI", external=False)
+    binding = RuntimeBinding(
+        provider="truenas-app", appId="openwebui", containerService="openwebui",
+    )
+    ambiguous = ObservedApp(
+        app_id="openwebui", name="Open WebUI", state="RUNNING",
+        containers=[ObservedContainer(service_name="open-webui", state="running")],
+    )
+    row = build_reconciled_service_health(
+        [service], public_results=[], internal_results=[],
+        runtime=_runtime(ambiguous, ambiguous), tunnels=[],
+        runtime_bindings={"openwebui": binding},
+    )[0]
+    assert row["runtime_missing"] is True
+    assert row["runtime_container_identity_drift"] is False
+    assert row["state"] != "ok"
