@@ -51,7 +51,6 @@ async function bootstrapHealthUi() {
     if (element) element.hidden = !readable;
   }
 
-  installGlobalServiceFilter();
   // An anonymous read-only session may refresh GET probes, never purge caches.
   if (!authenticated) {
     document.querySelectorAll(".health-cache-reset").forEach((button) => {
@@ -61,6 +60,7 @@ async function bootstrapHealthUi() {
   }
 
   if (!readable) {
+    installGlobalServiceFilter();
     const heading = document.getElementById("health-summary-text");
     if (heading)
       heading.textContent =
@@ -80,6 +80,8 @@ async function bootstrapHealthUi() {
   installRuntimeVersionDriftWarning();
   installPfsensePortLabels();
   installServiceDiagnostics();
+  // The advanced controls must exist before the global disclosure wraps them.
+  installGlobalServiceFilter();
   installPlatformLegend();
   installHealthOperatorUx();
   installServiceDetailDrawer();
