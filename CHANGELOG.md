@@ -1,3 +1,11 @@
+## [1.24.7](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.24.6...1.24.7) (2026-10-24)
+
+
+### Bug Fixes
+
+* **deps:** bump the npm_and_yarn group across 1 directory with 3 updates ([#372](https://github.com/AlbanAndrieu/fastapi-sample/issues/372)) ([26a0e52](https://github.com/AlbanAndrieu/fastapi-sample/commit/26a0e5250e2e3e09032bd0f10edf0de8acf3bee9))
+* **diagnostics:** rétablir temporairement les sondes et les cartes détaillées en lecture seule ([#370](https://github.com/AlbanAndrieu/fastapi-sample/issues/370)) ([31df4c7](https://github.com/AlbanAndrieu/fastapi-sample/commit/31df4c7a02e1c5f68dc6ee9a0fd623540acd637f))
+
 ## [1.24.6](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.24.5...1.24.6) (2026-10-24)
 
 
