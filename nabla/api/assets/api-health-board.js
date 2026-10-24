@@ -1,4 +1,8 @@
-import { diagnosticsReadAvailable, resetOwnerSessionStatus } from "./api-owner-session.js";
+import {
+  diagnosticsReadAvailable,
+  ownerSessionAvailable,
+  resetOwnerSessionStatus,
+} from "./api-owner-session.js";
 
 let healthBoardRequest = null;
 let forceNextRefresh = false;
@@ -13,7 +17,8 @@ async function fetchUntilReady(attemptsRemaining = 30) {
     error.code = "owner_session_required";
     throw error;
   }
-  const force = forceNextRefresh;
+  // A read-only page may reload an existing snapshot, not force probes.
+  const force = forceNextRefresh && (await ownerSessionAvailable());
   forceNextRefresh = false;
   const response = await fetch(
     `/api/health-board${force ? "?refresh=true" : ""}`,
