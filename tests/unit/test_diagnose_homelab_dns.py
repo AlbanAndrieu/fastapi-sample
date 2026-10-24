@@ -97,3 +97,51 @@ def test_timeout_is_bounded(monkeypatch):
 
     monkeypatch.setattr(mod.subprocess, "run", slow)
     assert mod.main(["--vantage", "workstation", "--strict"]) == 1
+
+
+def test_nss_has_independent_longer_bounded_timeout(monkeypatch):
+    monkeypatch.setattr(mod.shutil, "which", lambda _binary: "/usr/bin/mock")
+    calls = []
+
+    def fake_run(command, **kwargs):
+        calls.append((command[0], kwargs["timeout"]))
+        ip = "172.17.0.24" if "sample.int.albandrieu.com" in command else "188.114.96.2"
+        return SimpleNamespace(returncode=0, stdout=f"{ip}\n")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    assert mod.main(["--vantage", "workstation", "--strict"]) == 0
+    assert calls == [("dig", 3), ("getent", 10), ("dig", 3), ("getent", 10)]
+
+
+def test_slow_but_correct_system_answer_is_not_reported_fast(monkeypatch, capsys):
+    monkeypatch.setattr(mod.shutil, "which", lambda _binary: "/usr/bin/mock")
+    ticks = iter((0, 0.04, 0.04, 6.04, 6.04, 6.05, 6.05, 6.06))
+    monkeypatch.setattr(mod, "time", SimpleNamespace(perf_counter=lambda: next(ticks)))
+
+    def fake_run(command, **_kwargs):
+        ip = "172.17.0.24" if "sample.int.albandrieu.com" in command else "188.114.96.2"
+        return SimpleNamespace(returncode=0, stdout=f"{ip}\n")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    assert mod.main(["--vantage", "truenas", "--strict"]) == 1
+    output = capsys.readouterr().out
+    assert "Internal DNS comparison=matched_slow" in output
+    assert "6000.0ms" in output
+    assert "WARNING: host resolver returned" in output
+
+
+def test_system_timeout_preserves_unverified_and_recommends_host_checks(monkeypatch, capsys):
+    monkeypatch.setattr(mod.shutil, "which", lambda _binary: "/usr/bin/mock")
+
+    def fake_run(command, **_kwargs):
+        if command[0] == "getent" and "sample.int.albandrieu.com" in command:
+            raise subprocess.TimeoutExpired(command, 10)
+        ip = "172.17.0.24" if "sample.int.albandrieu.com" in command else "188.114.96.2"
+        return SimpleNamespace(returncode=0, stdout=f"{ip}\n")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    assert mod.main(["--vantage", "truenas", "--strict"]) == 1
+    output = capsys.readouterr().out
+    assert "Internal DNS comparison=unverified" in output
+    assert "DIAGNOSIS: direct pfSense DNS works" in output
+    assert "/etc/nsswitch.conf" in output

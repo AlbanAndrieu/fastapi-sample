@@ -67,6 +67,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--public-name", default="sample.albandrieu.com")
     parser.add_argument("--expected-internal-ip", default="172.17.0.24")
     parser.add_argument("--timeout", type=float, default=3.0)
+    parser.add_argument("--system-timeout", type=float, default=10.0)
+    parser.add_argument("--slow-system-ms", type=float, default=2000.0)
     parser.add_argument("--strict", action="store_true")
     args = parser.parse_args(argv)
     try:
@@ -76,11 +78,16 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("resolver and expected internal IP must be IPv4")
     if not 0 < args.timeout <= 10:
         parser.error("timeout must be in (0, 10] seconds")
+    if not 0 < args.system_timeout <= 20:
+        parser.error("system-timeout must be in (0, 20] seconds")
+    if args.slow_system_ms <= 0:
+        parser.error("slow-system-ms must be positive")
     print(
         f"Observer={args.vantage}; DNS server={args.resolver}; "
         f"expected internal A={args.expected_internal_ip} (declared)"
     )
     results: dict[str, tuple[list[str] | None, list[str] | None]] = {}
+    system_elapsed_ms: dict[str, float] = {}
     for label, host in (("internal", args.internal_name), ("public", args.public_name)):
         # `+short` prints A answers only; an empty result is not proof of a
         # specific DNS failure mode (NXDOMAIN/SERVFAIL require a separate dig).
@@ -91,11 +98,14 @@ def main(argv: list[str] | None = None) -> int:
         )
         direct_ms = (time.perf_counter() - direct_start) * 1000
         system_start = time.perf_counter()
-        system, system_reason = lookup(["getent", "ahostsv4", host], args.timeout)
+        system, system_reason = lookup(
+            ["getent", "ahostsv4", host], args.system_timeout
+        )
         system_ms = (time.perf_counter() - system_start) * 1000
+        system_elapsed_ms[label] = system_ms
         results[label] = direct, system
         direct_elapsed = f"{direct_ms:.1f}ms" if direct is not None else "unavailable"
-        system_elapsed = f"{system_ms:.1f}ms" if system is not None else "unavailable"
+        system_elapsed = f"{system_ms:.1f}ms"
         print(
             f"{label}: pfSense={direct if direct is not None else 'NOT_RUN'} "
             f"({direct_reason}, {direct_elapsed}); "
@@ -104,7 +114,21 @@ def main(argv: list[str] | None = None) -> int:
         )
     direct_internal, system_internal = results["internal"]
     outcome = classify_internal(direct_internal, system_internal, args.expected_internal_ip)
+    if outcome == "matched" and system_elapsed_ms["internal"] > args.slow_system_ms:
+        outcome = "matched_slow"
     print(f"Internal DNS comparison={outcome}")
+    if system_internal is None:
+        print(
+            "DIAGNOSIS: direct pfSense DNS works, but host NSS/getent could not "
+            "resolve the internal name within the system timeout. "
+            "Check /etc/nsswitch.conf hosts, /etc/resolv.conf, "
+            "resolvectl status (if available), and resolver routing on THIS host."
+        )
+    elif outcome == "matched_slow":
+        print(
+            "WARNING: host resolver returned the expected internal IP, "
+            "but NSS lookup was slow; inspect resolver routing and retries."
+        )
     print(
         "Public DNS A values can change behind Cloudflare; "
         "no fixed public IP is required."
