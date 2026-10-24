@@ -72,11 +72,11 @@
       "external": false
     },
     {
-      "name": "Bichon",
+      "name": "Bichon UI",
       "icons": ["fas fa-paw"],
-      "description": "Custom application",
+      "description": "Bichon browser UI on the observed LAN listener :15630.",
       "internalHost": "172.17.0.24",
-      "internalPort": 30313,
+      "internalPort": 15630,
       "internalSecure": false,
       "tunnelUrl": "https://bichon.albandrieu.com",
       "tunnelSecure": true,
@@ -279,11 +279,11 @@
       "cloudflareAccessRequired": false
     },
     {
-      "name": "Gatus",
+      "name": "Gatus UI",
       "icons": ["fas fa-signal"],
-      "description": "Health dashboard",
+      "description": "Gatus status dashboard on the observed LAN listener :8085.",
       "internalHost": "172.17.0.24",
-      "internalPort": 30287,
+      "internalPort": 8085,
       "internalSecure": false,
       "tunnelUrl": "https://gatus.albandrieu.com",
       "tunnelSecure": true,
@@ -365,7 +365,7 @@
     },
     {
       "id": "homeassistant",
-      "name": "Home Assistant",
+      "name": "Home Assistant UI",
       "description": "Home automation control plane exposed through the dedicated IoT network.",
       "external": false,
       "endpointEnabled": false,
@@ -625,6 +625,7 @@
       "external": false
     },
     {
+      "id": "openwebui",
       "name": "Open WebUI",
       "icons": ["fas fa-window-maximize"],
       "description": "Web interface for chat models",
