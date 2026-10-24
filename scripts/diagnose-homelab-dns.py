@@ -9,7 +9,6 @@ from __future__ import annotations
 import argparse
 import ipaddress
 import shutil
-import socket
 import subprocess
 import sys
 
