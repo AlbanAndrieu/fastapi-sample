@@ -83,12 +83,14 @@ export function serviceTelemetry(snapshot, row) {
   const gatusFleet = fleet
     ? {
         label: "Monitors",
-        tone: fleet.state !== "observed"
+        // A subset of labelled probes UP never means all catalogue
+        // monitors are UP. Warn until declared-to-observed parity is proven.
+        tone: fleet.state !== "observed" || fleet.observedProbes === 0
           ? "unknown"
-          : fleet.down > 0 ? "fail" : "ok",
-        status: fleet.state !== "observed"
+          : fleet.down > 0 ? "fail" : "warn",
+        status: fleet.state !== "observed" || fleet.observedProbes === 0
           ? "unverified"
-          : fleet.down > 0 ? "probes_down" : "observed_up",
+          : fleet.down > 0 ? "probes_down" : "partial_coverage",
         detail: fleet.state !== "observed"
           ? `Gatus monitor evidence unverified: ${fleet.reason}`
           : `Gatus monitors: ${fleet.up} UP · ${fleet.down} DOWN across ${fleet.observedServices} observed services. Catalogue-wide coverage and freshness not proven.`,
