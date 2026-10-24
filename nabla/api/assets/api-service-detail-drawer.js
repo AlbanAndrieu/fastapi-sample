@@ -349,8 +349,9 @@ function renderProbeSummary(drawer, row) {
   const unknown = probes.filter((probe) =>
     !["ok", "fail", "warn"].includes(probe.tone)
   ).length;
+  const disabled = probeEntries(row).filter((probe) => probe.disabled).length;
   host.textContent = probes.length
-    ? `Probe evidence · ${failed} failing · ${warnings} warning · ${unknown} unverified · ${probes.length} observed badges`
+    ? `Diagnostics · ${failed} failed · ${warnings} warning · ${unknown} unknown · ${disabled} not run · ${probes.length} reported signals. Select a signal below for its source and reason.`
     : "No direct probe evidence; this is not proof of service health.";
   host.dataset.tone = failed > 0 ? "fail" : warnings > 0 ? "warn" : "unknown";
 }
@@ -373,24 +374,44 @@ function renderGatusFleet(drawer, row) {
     : `${fleet.up} UP · ${fleet.down} DOWN · ${fleet.observedServices} labelled services · ${fleet.observedProbes} protocol probes. This is not full catalogue coverage.`;
   host.appendChild(totals);
   if (fleet.state !== "observed") return;
-  if (fleet.failures.length === 0) {
-    const note = document.createElement("p");
-    note.className = "service-detail-empty";
-    note.textContent = "No failed labelled probes observed in this snapshot. Missing or stale checks remain unverified.";
-    host.appendChild(note);
+  // The catalogue can contain services with no Gatus monitor. Never show
+  // those as green, nor treat a healthy Gatus scheduler as healthy targets.
+  const views = [
+    ["Failing checks", fleet.failures, "observed DOWN"],
+    ["Checks without usable samples", fleet.missing, "NOT OBSERVED"],
+    ["Successful checks", fleet.successes, "observed UP"],
+  ];
+  for (const [title, entries, status] of views) {
+    const heading = document.createElement("strong");
+    heading.className = "service-detail-relation-group";
+    heading.textContent = `${title} (${entries.length})`;
+    host.appendChild(heading);
+    if (entries.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "service-detail-empty";
+      empty.textContent = "None in this bounded snapshot.";
+      host.appendChild(empty);
+      continue;
+    }
+    entries.slice(0, 25).forEach((entry) => {
+      host.appendChild(linkedCatalogueItem(
+        { id: entry.id, name: entry.id },
+        { type: entry.type, status },
+      ));
+    });
+    if (entries.length > 25) {
+      const more = document.createElement("p");
+      more.className = "service-detail-empty";
+      more.textContent = `${entries.length - 25} more; open the private Gatus console.`;
+      host.appendChild(more);
+    }
   }
-  fleet.failures.slice(0, 20).forEach((failure) => {
-    host.appendChild(linkedCatalogueItem(
-      { id: failure.id, name: failure.id },
-      { type: failure.type, status: "observed DOWN" },
-    ));
-  });
-  if (fleet.failures.length > 20) {
-    const more = document.createElement("p");
-    more.className = "service-detail-empty";
-    more.textContent = `${fleet.failures.length - 20} more failed probes; see the private Gatus console.`;
-    host.appendChild(more);
-  }
+  const caveat = document.createElement("p");
+  caveat.className = "service-detail-empty";
+  caveat.textContent =
+    "Unlisted catalogue services have unknown Gatus coverage. " +
+    "A successful Gatus scrape proves only that its metrics endpoint responds.";
+  host.appendChild(caveat);
 }
 
 function renderDrawer(row, { force = false } = {}) {

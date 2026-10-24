@@ -43,6 +43,8 @@ export function gatusCoverage(snapshot, now = Date.now()) {
     down: 0,
     unobserved: 0,
     failures: [],
+    successes: [],
+    missing: [],
   };
   // Do not describe stored samples as live when the telemetry is unavailable.
   if (!ready) return summary;
@@ -60,9 +62,13 @@ export function gatusCoverage(snapshot, now = Date.now()) {
         summary.failures.push({ id, type, status: "down" });
       } else {
         summary.up += 1;
+        summary.successes.push({ id, type, status: "up" });
       }
     }
-    if (!hasEvidence) summary.unobserved += 1;
+    if (!hasEvidence) {
+      summary.unobserved += 1;
+      summary.missing.push({ id, type: "none", status: "not_observed" });
+    }
   }
   return summary;
 }
