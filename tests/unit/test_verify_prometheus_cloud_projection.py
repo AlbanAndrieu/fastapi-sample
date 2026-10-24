@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import sys
 from pathlib import Path
 
 SOURCE = Path(__file__).resolve().parents[2] / "scripts/verify-prometheus-cloud-projection.py"
@@ -73,3 +74,51 @@ def test_cloud_access_denial_message_is_actionable_without_secret() -> None:
     assert "Do not bypass access controls." in source
     assert '("configured" if key else "not_provided")' in source
     assert "print(key)" not in source
+
+
+def test_lan_scope_does_not_fetch_the_protected_cloud(monkeypatch, capsys) -> None:
+    observed = []
+
+    def local_only(url: str, *, key: str = "") -> dict:
+        observed.append(url)
+        assert url.startswith(mod.LAN_ORIGIN + "/")
+        assert key == ""
+        return {
+            "status": "success",
+            "data": {
+                "resultType": "vector",
+                "result": [
+                    {"metric": {"job": job}, "value": [1, "1"]}
+                    for job in mod.JOBS
+                ],
+            },
+        }
+
+    monkeypatch.setattr(mod, "fetch_json", local_only)
+    monkeypatch.setattr(
+        sys, "argv", ["verify-prometheus-cloud-projection.py",
+                       "--check", "--scope", "lan"]
+    )
+    assert mod.main() == 0
+    output = capsys.readouterr().out
+    assert "cloud_projection=NOT_CHECKED" in output
+    assert "PASS: LAN scrapes only; Cloud NOT_CHECKED" in output
+    assert len(observed) == 1
+
+
+def test_lan_only_missing_job_is_not_a_success(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        mod, "fetch_json", lambda url, key="": {
+            "status": "success",
+            "data": {
+                "resultType": "vector",
+                "result": [{"metric": {"job": "akvorado_inlet"},
+                            "value": [1, "1"]}],
+            },
+        }
+    )
+    monkeypatch.setattr(
+        sys, "argv", ["verify", "--check", "--scope", "lan"]
+    )
+    assert mod.main() == 1
+    assert "akvorado_outlet: not_observed" in capsys.readouterr().out

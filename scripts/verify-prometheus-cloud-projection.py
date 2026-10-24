@@ -98,14 +98,20 @@ def compare(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true")
+    parser.add_argument(
+        "--scope", choices=("lan", "both"), default="both",
+        help="lan checks Prometheus without requesting the protected Cloud snapshot",
+    )
     args = parser.parse_args()
     if not args.check:
         parser.error("--check required; this script never changes runtime")
     query = urlencode({"query": QUERY})
-    urls = (
-        (f"{LAN_ORIGIN}/api/v1/query?{query}", ""),
-        (f"{CLOUD_ORIGIN}/api/health-board", os.getenv("DIAGNOSTICS_ACCESS_KEY", "")),
-    )
+    urls = [(f"{LAN_ORIGIN}/api/v1/query?{query}", "")]
+    if args.scope == "both":
+        urls.append(
+            (f"{CLOUD_ORIGIN}/api/health-board",
+             os.getenv("DIAGNOSTICS_ACCESS_KEY", ""))
+        )
     results: list[dict[str, Any]] = []
     for index, (url, key) in enumerate(urls):
         try:
@@ -125,6 +131,23 @@ def main() -> int:
                     ("configured" if key else "not_provided")
                 )
             return 1
+    if args.scope == "lan":
+        scrapes = observed_up(results[0])
+        complete = True
+        print("mode=LAN_ONLY cloud_projection=NOT_CHECKED")
+        for job in JOBS:
+            up = scrapes.get(job)
+            status = (
+                "scrape_up" if up == 1.0 else
+                "scrape_down" if up == 0.0 else "not_observed"
+            )
+            print(f"{job}: {status}")
+            complete = complete and status == "scrape_up"
+        print(
+            "PASS: LAN scrapes only; Cloud NOT_CHECKED" if complete
+            else "INCOMPLETE: LAN targets; Cloud NOT_CHECKED"
+        )
+        return 0 if complete else 1
     board = results[1]
     metrics = board.get("platform_metrics")
     configured = metrics.get("configured") if isinstance(metrics, dict) else None
