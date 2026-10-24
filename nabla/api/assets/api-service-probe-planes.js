@@ -377,6 +377,7 @@ function decorateTelemetry(strip, snapshot, row) {
   for (const [kind, icon, entry] of [
     ["prometheus", "📈", evidence.prometheus],
     ["gatus", "🩺", evidence.gatus],
+    ["gatus-fleet", "🧪", evidence.gatusFleet],
     ["exporter", "📊", evidence.exporter],
     ["flow", "🌊", evidence.flow],
     ["functional", "🗄️", evidence.functional],
