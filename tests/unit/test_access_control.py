@@ -32,6 +32,9 @@ def protected_app(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     @app.get("/admin/users/list")
     @app.get("/health")
     @app.get("/healthz")
+    @app.get("/api/topology")
+    @app.get("/api/topology-telemetry")
+    @app.get("/api/homelab/future-secret")
     @app.get("/api/public-topology")
     @app.get("/api/homelab/declared-services")
     @app.get("/api/site/catalog/v2")
@@ -222,7 +225,8 @@ def test_temporary_readonly_diagnostics_restores_probes_without_write_access(
     """Temporary public GET mode cannot unlock state changes or admin routes."""
     monkeypatch.setenv("HOMELAB_PUBLIC_DIAGNOSTICS_READONLY", "true")
     for path in (
-        "/healthz", "/api/homelab-topology", "/api/runtime/topology",
+        "/healthz", "/api/topology", "/api/topology-telemetry",
+        "/api/homelab-topology", "/api/runtime/topology",
         "/api/homelab/health", "/api/homelab/probes",
         "/api/site/catalog/v2",
     ):
@@ -232,6 +236,8 @@ def test_temporary_readonly_diagnostics_restores_probes_without_write_access(
     assert protected_app.post("/api/health-board/cache/reset").status_code == 503
     assert protected_app.get("/admin").status_code == 503
     assert protected_app.get("/metrics").status_code == 503
+    # A future addition under /api/homelab must not be public by accident.
+    assert protected_app.get("/api/homelab/future-secret").status_code == 404
 
     monkeypatch.setenv("HOMELAB_PUBLIC_DIAGNOSTICS_READONLY", "false")
     assert protected_app.get("/api/homelab/probes").status_code == 503
