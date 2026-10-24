@@ -64,3 +64,12 @@ def test_verifier_uses_fixed_urls_no_redirects_and_never_prints_secret() -> None
     assert "MAX_RESPONSE = 4 * 1024 * 1024" in source
     assert "DIAGNOSTICS_ACCESS_KEY" in source
     assert "print(key)" not in source
+
+
+def test_cloud_access_denial_message_is_actionable_without_secret() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+    assert "authorization_denied; Akvorado projection=unverified" in source
+    assert "Review diagnostics key, trusted CIDRs, Cloudflare Access" in source
+    assert "Do not bypass access controls." in source
+    assert '("configured" if key else "not_provided")' in source
+    assert "print(key)" not in source

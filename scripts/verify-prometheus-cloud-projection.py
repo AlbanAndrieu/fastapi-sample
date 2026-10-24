@@ -114,6 +114,16 @@ def main() -> int:
             kind = "LAN" if index == 0 else "CLOUD"
             status = exc.code if isinstance(exc, HTTPError) else "unavailable"
             print(f"{kind}: read failed; HTTP={status} exception={type(exc).__name__}")
+            if kind == "CLOUD" and status in (401, 403):
+                print(
+                    "CLOUD: authorization_denied; Akvorado projection=unverified. "
+                    "Review diagnostics key, trusted CIDRs, Cloudflare Access "
+                    "and public-read policy. Do not bypass access controls."
+                )
+                print(
+                    "CLOUD: diagnostics_key=" +
+                    ("configured" if key else "not_provided")
+                )
             return 1
     board = results[1]
     metrics = board.get("platform_metrics")
