@@ -6,6 +6,17 @@ For long-tail unchecked tasks use the [on-demand backlog](engineering-backlog.md
 it is **not** an automatically approved roadmap. Historical implementation
 notes remain in [Git history](https://github.com/AlbanAndrieu/fastapi-sample/blob/594d51d64efdd5274d2ba42a9cb09551b6d57d46/docs/engineering-roadmap.md).
 
+## P0 — Contrat de convergence Compose / FastAPI / Site (24 octobre 2026)
+
+- [x] Indexer l'[analyse commune du site](https://github.com/AlbanAndrieu/nabla-site-alban/blob/feat/catalog-icon-source-convergence-20261024/docs/homelab-catalog-convergence-2026-10-24.md) dans la PR #373 ; ne pas recopier les 151 identités Backstage, les 176 noms de fichiers d'icônes ou les relations dans le backend.
+- [x] La projection SERVICE ne contient que `entityRef`, état expurgé et `catalogRevision` corrélé ; toute identité ambiguë ou observation absente reste `unknown`. Les données d'exploitation appartiennent aux DTO OWNER et aux collecteurs FastAPI.
+- [ ] Définir un DTO OWNER versionné **par preuve et `entityRef`** avec la source, la fraîcheur, `observed_at`, le résultat, la latence si mesurée et une raison bornée : runtime principal TrueNAS/Docker, DNS, TCP, TLS, HTTP/API, Cloudflare, Gatus, Prometheus et exporters. Ne pas publier ce DTO via SERVICE ou le cache navigateur.
+- [ ] Vérifier depuis un collecteur LAN autorisé les 85 adresses LAN déclarées et la couverture actuelle `internal_probes_enabled=false` (0/86 sondées), sans activer des sondes LAN depuis le cloud ni confondre déclaration et observation.
+- [ ] Réconcilier les ports déclarés et observés pour Gatus, Bichon, Garage Web UI et Garage Admin avec Compose/TrueNAS avant toute modification d'URL exposée ; distinguer 302 Access de la santé de l'origine. Consolider 11 dérives Cloudflare et 12 origines protégées non vérifiées, selon leur identité canonique.
+- [ ] Mesurer la couverture 16/28 WAN (rotation 12/cycle), la fraîcheur des preuves et le cas `prometheus` application RUNNING / conteneur principal exited sur trois nouveaux relevés ; ne pas transformer un historique en statut courant.
+- [ ] Prouver la parité sur le même `catalogRevision` avec la PR site #254, puis exécuter les tests, `just p0`, `just quality` en local et contrôler le backend réellement déployé. Aucune CI payante ni déploiement implicite.
+
+
 ## P0 — Réconcilier les états TrueNAS/Docker et la couverture réelle (24 octobre 2026)
 
 - [x] Diagnostic documenté depuis l'observation OWNER du 24 octobre : 95 applications (81 RUNNING, 13 STOPPED, 1 DEPLOYING), 88 services, 0 résultat `internal_services` lorsque `internal_probes_enabled=false`. Les champs `exposure.declared.internal_host/internal_port` restent disponibles pour 85 services, sans être des résultats de sonde.
