@@ -237,7 +237,8 @@ def test_temporary_readonly_diagnostics_restores_probes_without_write_access(
     assert protected_app.get("/admin").status_code == 503
     assert protected_app.get("/metrics").status_code == 503
     # A future addition under /api/homelab must not be public by accident.
-    assert protected_app.get("/api/homelab/future-secret").status_code == 404
+    protected_app.app.state.access_settings.ops_route_policy_strict = True
+    assert protected_app.get("/api/homelab/future-secret").status_code == 403
 
     monkeypatch.setenv("HOMELAB_PUBLIC_DIAGNOSTICS_READONLY", "false")
     assert protected_app.get("/api/homelab/probes").status_code == 503
