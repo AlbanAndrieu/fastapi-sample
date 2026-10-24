@@ -448,6 +448,9 @@ function decorateRow(row, snapshot) {
     );
     decorateLan(primary, internalCheck, exposure, snapshot, row);
   } else {
+    // Cloud has no LAN vantage. Reuse the single bounded Prometheus snapshot
+    // in the public strip so metrics remain visible without a fake LAN probe.
+    decorateTelemetry(publicStrip, snapshot, row);
     primary
       .querySelector(":scope > .service-probe-plane-label--public")
       ?.remove();

@@ -108,3 +108,13 @@ def test_akvorado_services_are_internal_only_catalog_entries() -> None:
         assert services[name]["external"] is False
         assert services[name]["internalHost"] == "172.17.0.24"
         assert services[name]["internalPort"] == port
+
+
+def test_cloud_cards_display_prometheus_without_fabricating_lan_evidence() -> None:
+    source = (ASSETS / "api-service-probe-planes.js").read_text(
+        encoding="utf-8",
+    )
+    assert "decorateTelemetry(publicStrip, snapshot, row);" in source
+    assert "if (localPlanesEnabled(snapshot))" in source
+    assert "decorateLan(primary, internalCheck, exposure, snapshot, row);" in source
+    assert "Cloud has no LAN vantage" in source
