@@ -461,6 +461,7 @@ def test_bootstrap_snapshot_matches_observed_gatus_and_bichon_ports() -> None:
     assert by_id["bichon"].internal_port == 15630
     assert by_id["garage"].internal_port == 3900
     assert by_id["garage-admin"].internal_port == 3903
+    assert by_id["garage-admin"].health_path == "/health"
     assert by_id["garage-webui"].internal_port == 3909
     assert by_id["homeassistant"].service_id == "homeassistant"
     assert by_id["openwebui"].service_id == "openwebui"
