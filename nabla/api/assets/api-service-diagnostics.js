@@ -574,6 +574,19 @@ function decorateRow(row, snapshot) {
   }
 
   row.dataset.probeKinds = [...kinds].join(" ");
+  if (strip.children.length) {
+    const heading = document.createElement("div");
+    heading.className = "service-probe-heading";
+    const name = document.createElement("strong");
+    name.textContent = "Diagnostic path";
+    const count = document.createElement("span");
+    const observed = [...strip.children].filter(
+      (badge) => badge.dataset.probeDisabled !== "true",
+    ).length;
+    count.textContent = `${observed} observed / ${strip.children.length} checks`;
+    heading.append(name, count);
+    strip.prepend(heading);
+  }
   const signature = strip.textContent + strip.innerHTML;
   const existing = primary.querySelector(":scope > .service-probe-strip");
   if (existing?.dataset.signature === signature) return;
