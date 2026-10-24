@@ -68,6 +68,28 @@ interdites selon politique approuvée, traçabilité vérifiée, aucun élargiss
 involontaire des permissions, preuve négative et rollback du plan de migration.
 
 
+## P0 — Conformité d'exposition outside-in sur les cartes
+
+- [x] Afficher **Exposure** sur la carte principale sans déplacer ni
+  supprimer `/sickz`. Un seul badge `policy` distingue disponibilité
+  du service et conformité d'exposition.
+- [x] Afficher `Private OK`, `Exposure !`, `Protected`,
+  `Direct · Risk` ou `Exposure ?` avec provenance et fail-closed
+  sur les observations absentes, sautées ou périmées.
+- [x] Ajouter le filtre Exposure security policy et son explication dans
+  le drawer avec lien vers les preuves `/sickz`.
+- [x] Vérifier les ID canoniques du catalogue pour éviter les
+  confusions entre services hébergés sur le même TrueNAS.
+- [ ] Valider le rendu des badges dans la production au SHA réellement
+  déployé avec un compte autorisé, en particulier la visibilité de la
+  section `/sickz` et le rendu mobile.
+- [ ] Comparer les violations indiquées par FastAPI avec le catalogue
+  déclaratif Compose et les ingress/NAT réels sans élargir le périmètre
+  des sondes externes.
+
+**Contrat détaillé :**
+[modèle de diagnostic et Exposure](platform-service-diagnostics-model.md).
+
 ## P0 — UX des cartes et couverture Gatus (25 octobre 2026)
 
 - [x] Réutiliser le panneau `Details` déjà installé sur les cartes
