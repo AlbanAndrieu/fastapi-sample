@@ -11,6 +11,7 @@ import ipaddress
 import shutil
 import subprocess
 import sys
+import time
 
 
 def ipv4_answers(text: str) -> list[str]:
@@ -83,16 +84,23 @@ def main(argv: list[str] | None = None) -> int:
     for label, host in (("internal", args.internal_name), ("public", args.public_name)):
         # `+short` prints A answers only; an empty result is not proof of a
         # specific DNS failure mode (NXDOMAIN/SERVFAIL require a separate dig).
+        direct_start = time.perf_counter()
         direct, direct_reason = lookup(
             ["dig", f"@{args.resolver}", host, "A", "+short", "+tries=1", "+time=2"],
             args.timeout,
         )
+        direct_ms = (time.perf_counter() - direct_start) * 1000
+        system_start = time.perf_counter()
         system, system_reason = lookup(["getent", "ahostsv4", host], args.timeout)
+        system_ms = (time.perf_counter() - system_start) * 1000
         results[label] = direct, system
+        direct_elapsed = f"{direct_ms:.1f}ms" if direct is not None else "unavailable"
+        system_elapsed = f"{system_ms:.1f}ms" if system is not None else "unavailable"
         print(
             f"{label}: pfSense={direct if direct is not None else 'NOT_RUN'} "
-            f"({direct_reason}); system={system if system is not None else 'NOT_RUN'} "
-            f"({system_reason})"
+            f"({direct_reason}, {direct_elapsed}); "
+            f"system={system if system is not None else 'NOT_RUN'} "
+            f"({system_reason}, {system_elapsed})"
         )
     direct_internal, system_internal = results["internal"]
     outcome = classify_internal(direct_internal, system_internal, args.expected_internal_ip)
