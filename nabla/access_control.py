@@ -89,21 +89,32 @@ async def operations_access_middleware(
     # Temporary rollback of the owner-only *read* gate. No mutation, admin,
     # MCP, metrics or private transport may use this escape hatch.
     # Explicitly disable with HOMELAB_PUBLIC_DIAGNOSTICS_READONLY=false.
+    # Explicit route enumeration: future diagnostics remain protected until
+    # deliberately reviewed. Never bypass the key for a whole API prefix.
+    temporary_read_routes = frozenset({
+        "/healthz",
+        "/sickz",
+        "/readyz",
+        "/api/topology",
+        "/api/topology-telemetry",
+        "/api/health-board",
+        "/api/homelab-services",
+        "/api/homelab-topology",
+        "/api/public-topology",
+        "/api/runtime/topology",
+        "/api/site/catalog/v2",
+        "/api/site/health/v2",
+        "/api/homelab/declared-services",
+        "/api/homelab/runtime",
+        "/api/homelab/status",
+        "/api/homelab/health",
+        "/api/homelab/probes",
+    })
     if (
         request.method.upper() in {"GET", "HEAD"}
+        and request.url.path in temporary_read_routes
         and os.getenv("HOMELAB_PUBLIC_DIAGNOSTICS_READONLY", "true").lower()
         in {"1", "true", "yes", "on"}
-        and (
-            request.url.path in {
-                "/healthz", "/sickz", "/readyz", "/api/topology",
-                "/api/homelab-services", "/api/homelab-topology",
-                "/api/public-topology", "/api/runtime/topology",
-                "/api/site/catalog/v2", "/api/site/health/v2",
-            }
-            or request.url.path == "/api/health-board"
-            or request.url.path.startswith("/api/health-board/")
-            or request.url.path.startswith("/api/homelab/")
-        )
     ):
         response = await call_next(request)
         response.headers["Cache-Control"] = "private, no-store"
