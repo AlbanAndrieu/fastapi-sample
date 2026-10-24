@@ -34,7 +34,10 @@ const STAGE_PROTOCOLS = {
 };
 
 function stageStateLabel(stage) {
-  return { ok: "Pass", warn: "Warning", fail: "Failed" }[stage?.state] || "Unconfirmed";
+  return (
+    { ok: "Pass", warn: "Warning", fail: "Failed" }[stage?.state] ||
+    "Unconfirmed"
+  );
 }
 
 function renderStage(stage) {
