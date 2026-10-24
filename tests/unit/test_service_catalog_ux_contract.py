@@ -70,3 +70,15 @@ def test_no_per_card_gatus_or_prometheus_network_calls() -> None:
     assert "/api/v1/endpoints/statuses" not in drawer
     assert "eval(" not in drawer
     assert "innerHTML = " not in relations
+
+
+def test_card_issue_summary_does_not_double_count_or_create_network_calls() -> None:
+    cards = read("api-service-probe-planes.js")
+    drawer = read("api-service-detail-drawer.js")
+    assert "decorateIssueSummary(row, publicStrip);" in cards
+    assert 'ensureProbe(strip, "issues", "⚠️", label)' in cards
+    assert "failures.length" in cards
+    assert "warnings.length" in cards
+    assert 'probe.dataset.probeKind !== "issues"' in drawer
+    assert "HTTP, DNS, TLS, Token and metrics evidence" in cards
+    assert "this is not an overall service-down verdict" in cards
