@@ -1,3 +1,15 @@
+# [1.25.0](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.24.7...1.25.0) (2026-10-24)
+
+
+### Bug Fixes
+
+* **claude:** claude is not working with node 25 ou 26 ([353f402](https://github.com/AlbanAndrieu/fastapi-sample/commit/353f4023a4281dc979df51173e5f863221117eda))
+
+
+### Features
+
+* **ui:** clarifier le flux des sondes et améliorer la présentation mobile ([#373](https://github.com/AlbanAndrieu/fastapi-sample/issues/373)) ([50741f4](https://github.com/AlbanAndrieu/fastapi-sample/commit/50741f4e6c67fd7619b4d4af1fb85f741e93de92)), closes [#273](https://github.com/AlbanAndrieu/fastapi-sample/issues/273)
+
 ## [1.24.7](https://github.com/AlbanAndrieu/fastapi-sample/compare/1.24.6...1.24.7) (2026-10-24)
 
 
