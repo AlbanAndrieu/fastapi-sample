@@ -358,7 +358,8 @@ function renderGatusFleet(drawer, row) {
   if (!host || !section) return;
   host.replaceChildren();
   const isGatus = row.dataset.serviceKey === "gatus" ||
-    row.dataset.topologyId === "gatus";
+    row.dataset.topologyId === "gatus" ||
+    row.dataset.serviceKey === "albandrieu_gatus";
   section.hidden = !isGatus;
   if (!isGatus) return;
   const fleet = gatusCoverage(latestSnapshot);
