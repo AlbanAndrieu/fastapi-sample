@@ -173,7 +173,9 @@ def main(argv: list[str] | None = None) -> int:
             f"({system_reason}, {system_elapsed})"
         )
     direct_internal, system_internal = results["internal"]
-    outcome = classify_internal(direct_internal, system_internal, args.expected_internal_ip)
+    outcome = classify_internal(
+        direct_internal, system_internal, args.expected_internal_ip
+    )
     if outcome == "matched" and system_elapsed_ms["internal"] > args.slow_system_ms:
         outcome = "matched_slow"
     print(f"Internal DNS comparison={outcome}")
@@ -195,7 +197,10 @@ def main(argv: list[str] | None = None) -> int:
         interface = args.interface or (
             "eno1" if args.vantage == "workstation" else "br0"
         )
-        if not all(c.isalnum() or c in "_.:-" for c in interface) or len(interface) > 32:
+        if (
+            not all(c.isalnum() or c in "_.:-" for c in interface)
+            or len(interface) > 32
+        ):
             parser.error("Invalid interface")
         print(resolver_context(args.vantage, interface, args.resolver))
     print(
