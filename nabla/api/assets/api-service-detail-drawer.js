@@ -83,7 +83,8 @@ function metadataEntries(row) {
     ["Environment", row.dataset.environments],
     ["Exposure", row.dataset.exposureScope],
     ["Ingress", row.dataset.exposureMode],
-    ["Policy", row.dataset.exposurePolicy],
+    ["Exposure policy", row.dataset.exposurePolicy],
+    ["Security posture", row.dataset.exposureSummary],
     ["Local health", row.dataset.localState],
     ["Dependency health", row.dataset.dependencyState],
     ["Risk", row.dataset.riskState],
@@ -149,6 +150,10 @@ function ensureDrawer() {
       <div id="service-detail-meta" class="service-detail-meta"></div>
       <div id="service-detail-link" class="service-detail-link"></div>
       <div id="service-detail-summary" class="service-detail-summary" aria-live="polite"></div>
+      <section aria-labelledby="service-detail-exposure-title">
+        <h3 id="service-detail-exposure-title">Exposure security policy</h3>
+        <div id="service-detail-exposure" class="service-detail-exposure"></div>
+      </section>
       <section aria-labelledby="service-detail-relations-title">
         <h3 id="service-detail-relations-title">Related catalogue services</h3>
         <div id="service-detail-relations" class="service-detail-relations"></div>
@@ -200,6 +205,29 @@ function renderLink(drawer, row) {
   link.rel = "noopener noreferrer";
   link.textContent = "Open service ↗";
   host.appendChild(link);
+}
+
+function renderExposurePolicy(drawer, row) {
+  const host = drawer.querySelector("#service-detail-exposure");
+  host?.replaceChildren();
+  if (!host) return;
+  const verdict = String(row.dataset.exposureVerdict || "unknown");
+  const summary = String(row.dataset.exposureSummary || "Exposure policy not verified");
+  host.dataset.exposureVerdict = verdict;
+  const status = document.createElement("strong");
+  status.className = "service-detail-exposure-verdict";
+  status.textContent = summary;
+  const description = document.createElement("p");
+  description.textContent =
+    "Security posture is independent of application uptime. " +
+    "An internal-only service must not expose a public HTTP entry point, " +
+    "even when it returns HTTP 401 or 403. Cloudflare Tunnel is routing; " +
+    "Access is the authorization layer.";
+  const sickzLink = document.createElement("a");
+  sickzLink.href = "#sickz-checks";
+  sickzLink.textContent = "Review /sickz outside-in evidence";
+  sickzLink.addEventListener("click", () => closeDrawer({ restoreFocus: false }));
+  host.append(status, description, sickzLink);
 }
 
 function renderEvidence(drawer, row) {
@@ -423,6 +451,8 @@ function renderDrawer(row, { force = false } = {}) {
     topologySource: latestTopology?.source,
     topologyNodes: latestTopology?.nodes?.length,
     telemetryCheckedAt: latestSnapshot?.platform_metrics?.generated_at,
+    exposure: row.dataset.exposureSummary,
+    exposureVerdict: row.dataset.exposureVerdict,
   });
   const serviceKey = String(
     row.dataset.serviceKey || row.dataset.serviceName || "",
@@ -438,6 +468,7 @@ function renderDrawer(row, { force = false } = {}) {
   if (title) title.textContent = displayName(row);
   renderMetadata(drawer, row);
   renderLink(drawer, row);
+  renderExposurePolicy(drawer, row);
   renderEvidence(drawer, row);
   renderProbeSummary(drawer, row);
   renderRelations(drawer, row);
