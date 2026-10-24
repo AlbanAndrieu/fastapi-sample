@@ -39,7 +39,8 @@ root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 # DNS-only is independent from the cached FastAPI health-board helper.
 # Keep it usable when that helper or the API runtime is unavailable.
 if ((dns_only)); then
-  exec python3 "$root/scripts/diagnose-homelab-dns.py" --vantage "$vantage" --resolver-context --strict
+  exec python3 "$root/scripts/diagnose-homelab-dns.py" \
+    --vantage "$vantage" --resolver-context --strict
 fi
 
 script="$root/scripts/diagnose-local-runtime-dependencies.py"
