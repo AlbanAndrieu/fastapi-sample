@@ -184,3 +184,21 @@ def test_mobile_disclosure_respects_touch_and_keyboard() -> None:
     assert entry.index("installServiceDiagnostics();") < entry.rindex(
         "installGlobalServiceFilter();"
     )
+
+
+def test_web_design_guidelines_search_and_disclosure() -> None:
+    """Search is named; mobile disclosure keeps focus and touch support."""
+    ui = (ROOT / "nabla" / "api" / "ui.py").read_text(encoding="utf-8")
+    css = (ASSETS / "api-diagnostics-ux.css").read_text(encoding="utf-8")
+    shell = (ASSETS / "api-global-service-filter.js").read_text(encoding="utf-8")
+    engine = (ASSETS / "api-service-filter.js").read_text(encoding="utf-8")
+
+    assert 'id="service-filter" name="service-filter"' in ui
+    assert 'enterkeyhint="search"' in ui
+    assert "touch-action: manipulation;" in css
+    assert "safe-area-inset-left" in css
+    assert "text-wrap: balance;" in css
+    assert 'button.setAttribute("aria-label",' in shell
+    assert 'host.dataset.mobileExpanded = "true";' in shell
+    assert "const compact = mobile" in shell
+    assert 'input.closest("[hidden]")' in engine
