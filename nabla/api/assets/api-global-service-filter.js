@@ -96,13 +96,16 @@ function renderStatusChips(host) {
     }
     const enabled = selected === status;
     button.setAttribute("aria-pressed", String(enabled));
-    button.setAttribute("aria-label", `${label}: ${counts[status]} services`);
-    button.dataset.tooltip = `${label} · ${enabled ? "On" : "Off"}`;
+    // Accessible toggle names do not change when selected.
+    button.setAttribute("aria-label", label);
+    button.setAttribute("aria-describedby", `service-filter-count-${status}`);
+    button.dataset.tooltip = label;
     button.removeAttribute("title");
     button.innerHTML =
       `<span class="service-filter-health-icon">${statusIcon(status)}</span>` +
-      `<strong class="service-filter-health-count">${counts[status]}</strong>` +
-      `<span class="service-filter-health-name">${label}</span>`;
+      `<strong class="service-filter-health-count" aria-hidden="true">${counts[status]}</strong>` +
+      `<span class="service-filter-health-name" aria-hidden="true">${label}</span>` +
+      `<span id="service-filter-count-${status}" class="service-filter-visually-hidden">${counts[status]} services</span>`;
   }
 }
 
@@ -114,7 +117,8 @@ function ensureHeader(host) {
     '<div><h2 id="service-filter-global-heading">Service health and filters</h2>' +
     "<p>Choose a status, then refine the services. Select a service to view its probes.</p></div>" +
     '<div class="service-filter-heading-actions"><span class="service-filter-scope">Global view</span>' +
-    '<button type="button" class="service-filter-density-toggle" id="service-filter-density-toggle" aria-expanded="true">Collapse</button></div>';
+    '<button type="button" id="service-filter-reset-all" class="service-filter-reset-all" aria-label="Reset all active filters" hidden>Reset</button>' +
+    '<button type="button" class="service-filter-density-toggle" id="service-filter-density-toggle" aria-expanded="true" aria-controls="service-filter-advanced">Collapse</button></div>';
   host.prepend(header);
 }
 
@@ -144,6 +148,26 @@ function compactProbeLegend(host) {
   summary.textContent = "Legend / how to read";
   details.append(summary, legend);
   host.appendChild(details);
+}
+
+function ensureAdvancedFilters(host) {
+  if (document.getElementById("service-filter-advanced")) return;
+  const advanced = document.createElement("div");
+  advanced.id = "service-filter-advanced";
+  advanced.className = "service-filter-advanced";
+  for (const selector of [
+    'label[for="service-filter"]',
+    ".service-filter-control",
+    "#service-protocol-shortcuts",
+    "#service-filter-facets",
+    ".service-filter-legend-details",
+  ]) {
+    const control = host.querySelector(selector);
+    if (control) advanced.appendChild(control);
+  }
+  const result = document.getElementById("service-filter-result");
+  if (result) host.insertBefore(advanced, result);
+  else host.appendChild(advanced);
 }
 
 function mapTrueNasStatus() {
@@ -302,6 +326,8 @@ function syncCompactState(host) {
     userCompact || mobileCompact || (stuck && !stuckExpanded);
   host.classList.toggle("service-filter--compact", compact);
   host.dataset.expanded = String(!compact);
+  const advanced = document.getElementById("service-filter-advanced");
+  if (advanced) advanced.hidden = compact;
   const button = document.getElementById("service-filter-density-toggle");
   if (button) {
     const state = currentFilterState();
@@ -318,6 +344,8 @@ function syncCompactState(host) {
     if (activeCount) button.textContent += ` (${activeCount})`;
     button.setAttribute("aria-expanded", String(!compact));
   }
+  const resetAll = document.getElementById("service-filter-reset-all");
+  if (resetAll) resetAll.hidden = activeCount === 0;
 }
 
 function refreshStickyState(host, sentinel) {
@@ -402,6 +430,11 @@ export function installGlobalServiceFilter() {
   ensureStatusSummary(host);
   ensureActiveFilters(host);
   compactProbeLegend(host);
+  ensureAdvancedFilters(host);
+  document.getElementById("service-filter-reset-all")?.addEventListener(
+    "click",
+    () => document.getElementById("service-filter-clear")?.click(),
+  );
   installCompactStickyMode(host);
 
   document.addEventListener("service-filter-changed", (event) => {
