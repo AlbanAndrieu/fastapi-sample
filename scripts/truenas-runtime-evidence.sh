@@ -36,15 +36,16 @@ case "$vantage" in
 esac
 
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+# DNS-only is independent from the cached FastAPI health-board helper.
+# Keep it usable when that helper or the API runtime is unavailable.
+if ((dns_only)); then
+  exec python3 "$root/scripts/diagnose-homelab-dns.py" --vantage "$vantage" --resolver-context --strict
+fi
+
 script="$root/scripts/diagnose-local-runtime-dependencies.py"
 if [[ ! -f "$script" ]]; then
   echo '❌ FastAPI diagnostic script not found in this checkout.' >&2
   exit 2
-fi
-
-# DNS-only is bounded and read-only; it does not call a FastAPI API or Docker.
-if ((dns_only)); then
-  exec python3 "$root/scripts/diagnose-homelab-dns.py" --vantage "$vantage" --strict
 fi
 
 printf '📍 Observer=%s; target=TrueNAS (172.17.0.24)\n' "$vantage"

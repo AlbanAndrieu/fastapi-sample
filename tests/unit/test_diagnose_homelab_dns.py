@@ -145,3 +145,48 @@ def test_system_timeout_preserves_unverified_and_recommends_host_checks(monkeypa
     assert "Internal DNS comparison=unverified" in output
     assert "DIAGNOSIS: direct pfSense DNS works" in output
     assert "/etc/nsswitch.conf" in output
+
+
+def test_link_dns_parsing_rejects_non_ip_metadata():
+    assert mod.link_ipv4_servers(
+        "Link 2 (eno1): 9.9.9.9 149.112.112.112 invalid"
+    ) == ["149.112.112.112", "9.9.9.9"]
+
+
+def test_resolver_context_explains_quad9_split_dns(monkeypatch):
+    monkeypatch.setattr(mod.shutil, "which", lambda name: "/usr/bin/mock")
+
+    def fake_run(command, **kwargs):
+        assert kwargs["timeout"] == 2
+        replies = {
+            "dns": "Link 2 (eno1): 9.9.9.9 149.112.112.112",
+            "domain": "Link 2 (eno1): int.albandrieu.com",
+            "status": "Link 2 (eno1) DNSOverTLS=opportunistic",
+        }
+        return SimpleNamespace(returncode=0, stdout=replies[command[1]])
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    context = mod.resolver_context("workstation", "eno1", "172.17.0.1")
+    assert "pfSense not a DNS server on this link" in context
+    assert "link_dot=opportunistic" in context
+    assert "link_dns=149.112.112.112,9.9.9.9" in context
+    assert "private_domain_route=yes" in context
+
+
+def test_resolver_context_good_truenas_and_absent_command(monkeypatch):
+    monkeypatch.setattr(mod.shutil, "which", lambda name: "/usr/bin/mock")
+
+    def fake_run(command, **_kwargs):
+        replies = {
+            "dns": "Link 2 (br0): 172.17.0.1",
+            "domain": "Link 2 (br0): ~int.albandrieu.com",
+            "status": "Link 2 (br0) DNSOverTLS=no",
+        }
+        return SimpleNamespace(returncode=0, stdout=replies[command[1]])
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    context = mod.resolver_context("truenas", "br0", "172.17.0.1")
+    assert "private_domain_route=yes" in context
+    assert "pfSense not a DNS" not in context
+    monkeypatch.setattr(mod.shutil, "which", lambda name: None)
+    assert "unavailable" in mod.resolver_context("truenas", "br0", "172.17.0.1")
