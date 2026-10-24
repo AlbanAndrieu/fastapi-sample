@@ -89,6 +89,7 @@ function probeSignature(byKind) {
       return [
         kind,
         probeTone(probe),
+        probeStateLabel(probe),
         probeDetail(probe, label),
         probeHref(probe),
       ];
