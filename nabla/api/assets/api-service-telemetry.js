@@ -49,12 +49,8 @@ export function serviceTelemetry(snapshot, row) {
     "Prometheus recording rule",
     sourceState,
   );
-  const synthetic = metrics?.synthetic_probes;
-  const monitored =
-    synthetic?.state === "observed" &&
-    synthetic?.gatus_up === 1 &&
-    synthetic?.truncated !== true;
   const perService = gatusServiceEvidence(snapshot, id);
+  const monitored = perService.status !== "unverified";
   const probes = perService.probes;
   const gatus = {
     label: "Gatus",
@@ -72,7 +68,7 @@ export function serviceTelemetry(snapshot, row) {
           ? "up"
           : "down",
     detail: !monitored
-      ? "Gatus via Prometheus unavailable or scrape unverified; no direct Gatus request"
+      ? "Gatus via Prometheus unavailable, truncated or stale; no direct Gatus request"
       : probes.length === 0
         ? `Gatus UP but no labeled per-service metrics for ${id}; inspect nabla_service_id and recording rules`
         : `Gatus via Prometheus: ${probes.map((p) => `${p.type}=${p.success === 1 ? "up" : "down"}${typeof p.availability === "number" ? ` (5m ${(p.availability * 100).toFixed(0)}%)` : ""}`).join(", ")}`,
@@ -82,7 +78,9 @@ export function serviceTelemetry(snapshot, row) {
   const fleet = id === "gatus" ? gatusCoverage(snapshot) : null;
   const gatusFleet = fleet
     ? {
-        label: "Monitors",
+        label: fleet.down > 0 ? `Monitors ${fleet.down} ↓` :
+          fleet.state !== "observed" || fleet.observedProbes === 0
+            ? "Monitors ?" : `Monitors ${fleet.up} observed`,
         // A subset of labelled probes UP never means all catalogue
         // monitors are UP. Warn until declared-to-observed parity is proven.
         tone: fleet.state !== "observed" || fleet.observedProbes === 0
